@@ -73,6 +73,9 @@ namespace SlopWorld
         public override void Draw(Rect body)
         {
             var band = Band(body);
+            // Other views own wheel input outside Settings or already consumed.
+            if (SmoothScroll.WheelOnly && (Event.current.type == EventType.Used ||
+                !band.Contains(Event.current.mousePosition))) return;
 
             GUI.BeginGroup(band);
             Drawing = true;

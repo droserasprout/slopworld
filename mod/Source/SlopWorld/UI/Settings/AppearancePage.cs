@@ -244,28 +244,34 @@ namespace SlopWorld
 
         }
 
+        List<FloatMenuOption> _fontOptions;
+
         void DrawFont(Listing_Standard l)
         {
             UiLayout.SectionHeading(l, "Font");
-            var fontOptions = new List<FloatMenuOption>
+            // OS catalogs are stable for the page lifetime; group their faces once.
+            if (_fontOptions == null)
             {
-                new FloatMenuOption("Automatic", () =>
+                _fontOptions = new List<FloatMenuOption>
                 {
-                    S.uiFontName = "";
+                    new FloatMenuOption("Automatic", () =>
+                    {
+                        S.uiFontName = "";
+                        UiFont.Apply();
+                        S.MarkDirty();
+                        _contentRevision++;
+                    }),
+                };
+                _fontOptions.AddRange(UiLayout.GroupedFontOptions(UiFont.All, name =>
+                {
+                    S.uiFontName = name;
                     UiFont.Apply();
                     S.MarkDirty();
                     _contentRevision++;
-                }),
-            };
-            fontOptions.AddRange(UiLayout.GroupedFontOptions(UiFont.All, name =>
-            {
-                S.uiFontName = name;
-                UiFont.Apply();
-                S.MarkDirty();
-                _contentRevision++;
-            }));
+                }));
+            }
             UiControls.Select(l, "Font", S.uiFontName.NullOrEmpty() ? "Automatic" : S.uiFontName,
-                fontOptions, out _);
+                _fontOptions, out _);
 
             int size = Mathf.RoundToInt(UiControls.Slider(l, "Size", S.uiFontSize, 0, 24,
                 S.uiFontSize > 0 ? $"{S.uiFontSize}pt" : "auto"));

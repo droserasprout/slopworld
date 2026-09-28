@@ -45,6 +45,16 @@ promoting the fullscreen host. `FloatMenuOption.Disabled` is inferred from a nul
 so a submenu opener needs an action even if its work happens elsewhere.
 Menus that replace their option list after an asynchronous catalog update must close the
 old submenu and reset its row indices through `UiMenu.ReplaceOptions`.
+`MenuRowGeometry` owns retained offsets for hit testing, keyboard reveal, and visible rows.
+Option count, row height, or explicit replacement invalidates measurement; wheel passes
+reuse the scroll extent. Menu width measurement stops at its cap. Font pages retain catalogs
+for their lifetime. Settings measures category geometry once per frame and skips unrelated
+wheel input and category drawing on wheel passes.
+
+`WheelEventQueue` compacts compatible runs at the root GUI boundary while Settings or menus
+are open, including Layout passes. Scan once per frame to avoid quadratic work on mixed
+backlogs. Preserve pointer/modifier/display boundaries, direction reversals, and other event
+order. `SmoothScroll` uses logical deltas during compaction frames.
 
 The top bar has both map and terminal draw paths, but only one may handle input. It can lie
 outside the active window: use its own rectangles rather than window-relative hover helpers.

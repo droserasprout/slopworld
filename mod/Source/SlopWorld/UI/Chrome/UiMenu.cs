@@ -30,6 +30,9 @@ namespace SlopWorld
 
         readonly List<FloatMenuOption> _options;
         readonly SmoothScroll _scroll = new SmoothScroll();
+        readonly MenuRowGeometry _rows = new MenuRowGeometry();
+        int _measuredCount = -1;
+        float _measuredRowHeight;
 
         // Where to put it, for a menu that does not belong at the mouse. One opened from a button
         // the keyboard reached, or one that reopens itself a tick at a time and would otherwise
@@ -120,6 +123,7 @@ namespace SlopWorld
             CloseChild();
             _options.Clear();
             _options.AddRange(options);
+            _measuredCount = -1;
             _hot = _selected = -1;
             _keyboardSelection = false;
         }
@@ -160,7 +164,10 @@ namespace SlopWorld
                 if (labels != null)
                 {
                     foreach (var label in labels)
+                    {
                         widest = Mathf.Max(widest, UiTheme.Wide(label));
+                        if (widest + PadX * 2f >= MaxW) break;
+                    }
                 }
                 return Mathf.Clamp(widest + PadX * 2f, MinW, MaxW);
             }
@@ -169,14 +176,17 @@ namespace SlopWorld
         static float Height(FloatMenuOption option) =>
             option is SeparatorOption ? SeparatorH : RowH;
 
+        void MeasureRows()
+        {
+            if (_measuredCount == _options.Count && _measuredRowHeight == RowH) return;
+            _rows.Build(_options.Count, i => Height(_options[i]));
+            _measuredCount = _options.Count;
+            _measuredRowHeight = RowH;
+        }
+
         float ContentH
         {
-            get
-            {
-                float h = PadY * 2f;
-                foreach (var option in _options) h += Height(option);
-                return h;
-            }
+            get { MeasureRows(); return _rows.Height + PadY * 2f; }
         }
 
         float WidestLabel()
@@ -190,6 +200,7 @@ namespace SlopWorld
                     if (o is SeparatorOption) continue;
                     w = Mathf.Max(w, UiTheme.Wide(o.Label) + o.extraPartWidth +
                         (o is UiSubmenu ? ArrowW + UiTheme.GapXS : 0f));
+                    if (w + PadX * 2f >= MaxW) break;
                 }
                 return w;
             }
@@ -262,6 +273,11 @@ namespace SlopWorld
 
         void DrawContents(Rect rect)
         {
+            var inner = new Rect(rect.x, rect.y + PadY, rect.width, rect.height - PadY * 2f);
+            // Wheel passes reuse measured bounds and skip row controls and labels.
+            if (_measuredCount == _options.Count && _measuredRowHeight == RowH &&
+                _scroll.HandleWheel(inner)) return;
+
             // A submenu can be populated by an asynchronous host query after it opens. Its
             // list is shared with the caller, so measure it again and let the child follow its
             // parent row when the application entries arrive.
@@ -288,7 +304,6 @@ namespace SlopWorld
 
             Slab.Box(rect, UiTheme.PopoverBg, UiTheme.Edge);
 
-            var inner = new Rect(rect.x, rect.y + PadY, rect.width, rect.height - PadY * 2f);
             bool scrolls = ContentH > rect.height;
             var view = new Rect(0f, 0f, inner.width - (scrolls ? UiTheme.ScrollbarW : 0f),
                 ContentH - PadY * 2f);
@@ -305,12 +320,11 @@ namespace SlopWorld
                 // Stop after the selected row.
                 // The selection closes this menu and can open another menu.
                 // Continuing could let a second option process the same click.
-                float y = 0f;
-                for (int i = 0; i < _options.Count; i++)
+                _rows.Visible(_scroll.Position.y, inner.height, out int first, out int end);
+                for (int i = first; i < end; i++)
                 {
-                    float h = Height(_options[i]);
-                    if (Row(new Rect(0f, y, view.width, h), _options[i], i, hot == i)) break;
-                    y += h;
+                    if (Row(new Rect(0f, _rows.Top(i), view.width, _rows.RowHeight(i)),
+                        _options[i], i, hot == i)) break;
                 }
             }
 
@@ -324,15 +338,7 @@ namespace SlopWorld
             float y = Event.current.mousePosition.y - viewport.y + _scroll.Position.y;
             if (y < 0f) return -1;
 
-            float top = 0f;
-            for (int i = 0; i < _options.Count; i++)
-            {
-                float h = Height(_options[i]);
-                if (y < top + h) return i;
-                top += h;
-            }
-
-            return -1;
+            return _rows.At(y);
         }
 
         void Pointer(int hot)
@@ -372,9 +378,7 @@ namespace SlopWorld
         // same y because menus have no vertical inset. Only this menu knows the scroll offset.
         float RowTop(int i)
         {
-            float y = windowRect.y - _scroll.Position.y;
-            for (int j = 0; j < i; j++) y += Height(_options[j]);
-            return y;
+            return windowRect.y - _scroll.Position.y + _rows.Top(i);
         }
 
         void Follow(float anchor)

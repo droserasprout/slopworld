@@ -58,14 +58,32 @@ namespace SlopWorld
         static int _railControl;
         static float _railGrab;
 
-        // Derive the original row index from r.y, then calculate the compact row rectangle.
+        static readonly List<float> RailTops = new List<float>();
+        static int _railFrame = -1;
+        static float _railHeight;
+
+        // Layout may repeat per input packet. Measure the rail once per frame.
+        static void MeasureRail()
+        {
+            if (_railFrame == Time.frameCount) return;
+            _railFrame = Time.frameCount;
+            RailTops.Clear();
+            float y = VanillaInset;
+            var categories = DefDatabase<OptionCategoryDef>.AllDefsListForReading;
+            for (int i = 0; i < categories.Count; i++)
+            {
+                if (categories[i].isDev) continue;
+                RailTops.Add(y);
+                y += TabOf(categories[i])?.Parent != null ? NestedPitch : Pitch;
+            }
+            _railHeight = y + UiTheme.GapS;
+        }
+
         static Rect Slot(Rect r, Tab tab)
         {
-            int i = Mathf.Max(0, Mathf.RoundToInt((r.y - VanillaInset) / VanillaPitch));
-            float y = VanillaInset;
-            for (int n = 0; n < i; n++)
-                y += TabAtIndex(n)?.Parent != null ? NestedPitch : Pitch;
-
+            MeasureRail();
+            int i = Index(r);
+            float y = i < RailTops.Count ? RailTops[i] : _railHeight - UiTheme.GapS;
             float h = tab != null && tab.Parent != null ? NestedRowH : RowH;
             return new Rect(r.x, y, r.width, h);
         }
@@ -75,25 +93,8 @@ namespace SlopWorld
 
         static float RailContentHeight()
         {
-            float height = VanillaInset;
-            var categories = DefDatabase<OptionCategoryDef>.AllDefsListForReading;
-            for (int i = 0; i < categories.Count; i++)
-                if (!categories[i].isDev)
-                    height += TabOf(categories[i])?.Parent != null ? NestedPitch : Pitch;
-            return height + UiTheme.GapS;
-        }
-
-        static Tab TabAtIndex(int index)
-        {
-            if (index < 0) return null;
-            int visible = 0;
-            var categories = DefDatabase<OptionCategoryDef>.AllDefsListForReading;
-            for (int i = 0; i < categories.Count; i++)
-            {
-                if (categories[i].isDev) continue;
-                if (visible++ == index) return TabOf(categories[i]);
-            }
-            return null;
+            MeasureRail();
+            return _railHeight;
         }
 
         static float UpdateRailScroll(Rect viewport, float contentHeight)
@@ -177,6 +178,14 @@ namespace SlopWorld
         {
             static bool Prefix(Dialog_Options __instance, Rect r, OptionCategoryDef optionCategory)
             {
+                // Only the first row handles rail scrolling. Skip category drawing
+                // for wheel packets, including those already claimed by another view.
+                if (SmoothScroll.WheelOnly)
+                {
+                    if (OptionsView.Drawing && Index(r) == 0)
+                        UpdateRailScroll(OptionsView.RailViewport, RailContentHeight());
+                    return false;
+                }
                 var tab = TabOf(optionCategory);
                 int index = Index(r);
                 var row = Slot(r, tab);

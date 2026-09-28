@@ -41,6 +41,8 @@
       <Private>true</Private>
     </Reference>
     <Compile Include="../Source/SlopWorld/UI/Chrome/ScrollWheelRouter.cs" Link="Source/ScrollWheelRouter.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/MenuRowGeometry.cs" Link="Source/MenuRowGeometry.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/WheelEventQueue.cs" Link="Source/WheelEventQueue.cs" />
     <!-- Use the shipped parser and deterministic text metrics. -->
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Styles.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.Styles.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Layout.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.Layout.cs" />
