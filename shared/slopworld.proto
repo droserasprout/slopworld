@@ -123,22 +123,6 @@ message SessionView {
   string label = 2;
   string project = 3;
   string dir = 4;
-  string command = 5;
-  string command_preset = 6;
-  optional string cmd = 7;
-  repeated string sandbox = 8;
-  bool persistent_tmp = 9;
-  string agent = 11;
-  string network = 16;
-  DnsConfig dns = 17;
-  Limits limits = 18;
-  repeated Mount mounts = 19;
-  bool autostart = 20;
-  bool auto_resume = 21;
-  bool worker = 22;
-  string parent = 23;
-  string task_id = 24;
-  bool durable = 25;
   bool ephemeral = 26;
   bool host = 27;
   string worktree = 35;
@@ -147,6 +131,31 @@ message SessionView {
   reserved 10, 12 to 15, 28 to 34, 38 to 42;
   SessionReaderView reader = 43;
   SessionRuntimeView runtime = 44;
+  reserved 5 to 9, 11, 16 to 25;
+  SessionLaunchView launch = 45;
+  SessionWorkerView worker = 46;
+}
+
+message SessionLaunchView {
+  string command = 1;
+  string command_preset = 2;
+  optional string cmd = 3;
+  repeated string sandbox = 4;
+  bool persistent_tmp = 5;
+  string agent = 6;
+  string network = 7;
+  DnsConfig dns = 8;
+  Limits limits = 9;
+  repeated Mount mounts = 10;
+  bool autostart = 11;
+  bool auto_resume = 12;
+}
+
+message SessionWorkerView {
+  bool enabled = 1;
+  string parent = 2;
+  string task_id = 3;
+  bool durable = 4;
 }
 
 message SessionReaderView {
@@ -427,12 +436,18 @@ message RunReq {
   optional string like = 14;
   optional string worktree = 15;
   optional string intent = 16;
-  optional string reader_path = 17;
-  optional string reader_key = 18;
-  optional string reader_scope = 19;
-  optional uint32 reader_line = 20;
-  bool reader_pinned = 21;
+  reserved 17 to 21;
+  RunReaderReq reader = 22;
 }
+
+message RunReaderReq {
+  optional string path = 1;
+  optional string key = 2;
+  optional string scope = 3;
+  optional uint32 line = 4;
+  bool pinned = 5;
+}
+
 
 message ReaderPinnedReq { bool pinned = 1; }
 

@@ -167,7 +167,7 @@ impl Manager {
                         auto_resume: l.cfg.auto_resume && !l.cfg.worker,
                     },
                     worker: SessionWorkerView {
-                        worker: l.cfg.worker,
+                        enabled: l.cfg.worker,
                         parent: l.cfg.parent.clone(),
                         task_id: l.cfg.task_id.clone(),
                         durable: l.cfg.worker && !l.ephemeral,

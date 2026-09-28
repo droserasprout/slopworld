@@ -124,3 +124,31 @@ crate::wire_client_msg_deserialize!(ClientMsg, {
     Breadcrumb => BreadcrumbReq,
     Audio => AudioReq [strip_tag],
 });
+
+#[test]
+fn run_reader_metadata_projects_from_nested_wire_fields() {
+    let wire = crate::shared::wire::RunReq {
+        path: Some("/command/path".into()),
+        reader: Some(crate::shared::wire::RunReaderReq {
+            path: Some("/source/file".into()),
+            key: Some("key".into()),
+            scope: Some("scope".into()),
+            line: Some(17),
+            pinned: true,
+        }),
+        ..Default::default()
+    };
+    let request: RunReq = crate::api::protobuf::domain(wire).unwrap();
+    assert_eq!(request.path, "/command/path");
+    assert_eq!(request.reader.path, "/source/file");
+    assert_eq!(request.reader.key, "key");
+    assert_eq!(request.reader.scope, "scope");
+    assert_eq!(request.reader.line, 17);
+    assert!(request.reader.pinned);
+
+    let request: RunReq =
+        crate::api::protobuf::domain(crate::shared::wire::RunReq::default()).unwrap();
+    assert!(request.reader.path.is_empty());
+    assert_eq!(request.reader.line, 0);
+    assert!(!request.reader.pinned);
+}

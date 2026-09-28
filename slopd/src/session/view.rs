@@ -1,4 +1,4 @@
-//! Client snapshots. Reader and runtime snapshots are nested; launch and worker fields remain flat.
+//! Client snapshots. Reader, runtime, launch, and worker snapshots are nested.
 
 use super::State;
 use crate::config::{DnsConfig, Limits, Mount, NetworkMode};
@@ -34,10 +34,8 @@ pub struct SessionView {
     pub intent: String,
     pub project: String,
     pub dir: String,
-    // Launch policy and task ownership; preserve the flat wire contract.
-    #[serde(flatten)]
+    // Launch policy and task ownership.
     pub launch: SessionLaunchView,
-    #[serde(flatten)]
     pub worker: SessionWorkerView,
     // No editable config entry; host tabs are identified separately by `host`.
     pub ephemeral: bool,
@@ -106,7 +104,7 @@ pub struct SessionLaunchView {
 #[derive(Debug, Clone, Serialize)]
 pub struct SessionWorkerView {
     /// Task-owned child; clients must not infer this from names or presets.
-    pub worker: bool,
+    pub enabled: bool,
     pub parent: String,
     pub task_id: String,
     /// Configured worker retained after exit; derived from live session persistence.

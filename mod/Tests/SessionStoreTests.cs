@@ -8,7 +8,7 @@ namespace SlopWorld.Tests
     {
         static Wire.SessionsReply Sessions(string name) =>
             new Wire.SessionsReply { Sessions = { new Wire.SessionView {
-                Name = name, Reader = new Wire.SessionReaderView(), Runtime = new Wire.SessionRuntimeView()
+                Name = name, Launch = new Wire.SessionLaunchView(), Worker = new Wire.SessionWorkerView(), Reader = new Wire.SessionReaderView(), Runtime = new Wire.SessionRuntimeView()
             } } };
 
         public static void RefreshRejectsSupersededSnapshots()
@@ -62,7 +62,8 @@ namespace SlopWorld.Tests
                 Assert.That(store.Get(name), Is.Not.Null, "session exists before opening its terminal");
                 started = name;
             }, shell: false, text: "prompt", host: true, temp: true,
-                path: "/work", hold: true, like: "seed", agentTemplate: "template");
+                path: "/work", hold: true, like: "seed", agentTemplate: "template",
+                readerPath: "/source/file", readerKey: "key", readerScope: "scope", readerLine: 17, readerPinned: true);
             var request = DaemonClient.Requests.Single();
             Assert.That(request.Method, Is.EqualTo("POST"));
             Assert.That(request.Path, Is.EqualTo(WireProtocol.Routes.Run));
@@ -76,6 +77,11 @@ namespace SlopWorld.Tests
             Assert.That(body.Host && body.Temp && body.Hold, Is.True);
             Assert.That(body.Like, Is.EqualTo("seed"));
             Assert.That(body.AgentTemplate, Is.EqualTo("template"));
+            Assert.That(body.Reader.Path, Is.EqualTo("/source/file"));
+            Assert.That(body.Reader.Key, Is.EqualTo("key"));
+            Assert.That(body.Reader.Scope, Is.EqualTo("scope"));
+            Assert.That(body.Reader.Line, Is.EqualTo(17));
+            Assert.That(body.Reader.Pinned, Is.True);
             request.Ok(JVal.Parse("{\"session\":\"created\"}"));
             Assert.That(started, Is.Null);
             Assert.That(DaemonClient.Requests[1].Method, Is.EqualTo("GET"));

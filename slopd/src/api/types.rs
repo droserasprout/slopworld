@@ -140,15 +140,7 @@ pub(crate) struct RunReq {
     #[serde(default)]
     pub(crate) intent: String,
     #[serde(default)]
-    pub(crate) reader_path: String,
-    #[serde(default)]
-    pub(crate) reader_key: String,
-    #[serde(default)]
-    pub(crate) reader_scope: String,
-    #[serde(default)]
-    pub(crate) reader_line: u32,
-    #[serde(default)]
-    pub(crate) reader_pinned: bool,
+    pub(crate) reader: RunReaderReq,
     #[serde(default)]
     pub(crate) temp: bool,
     /// Distinct loading-screen tips supplied by the game for `{{ random_tip }}`.
@@ -164,6 +156,17 @@ pub(crate) struct RunReq {
     /// from this session. The selected project supplies mounts.
     #[serde(default)]
     pub(crate) like: String,
+}
+
+/// Optional source metadata for a terminal reader.
+#[derive(Default, Deserialize)]
+#[serde(default)]
+pub(crate) struct RunReaderReq {
+    pub(crate) path: String,
+    pub(crate) key: String,
+    pub(crate) scope: String,
+    pub(crate) line: u32,
+    pub(crate) pinned: bool,
 }
 
 #[derive(Deserialize)]
