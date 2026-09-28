@@ -155,7 +155,8 @@ namespace SlopWorld
                     }
 
                     style.normal.textColor = run.Fg;
-                    TerminalPanel.DrawRun(run.Text, x, y, cw, ch, style, run.Columns);
+                    TerminalPanel.DrawRun(run.Text, x, y, cw, ch, style, run.Columns,
+                                          run.IsCluster);
                     if (run.Url != null)
                     {
                         var underline = run.Fg;

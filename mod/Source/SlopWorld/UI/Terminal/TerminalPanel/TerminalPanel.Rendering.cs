@@ -258,22 +258,26 @@ namespace SlopWorld
         // column. Claude Code's prompt chevron is in no mono face here, and drawn inline it
         // took no width and slid the whole input line a cell left.
         internal static void DrawRun(string text, float x, float y, float cw, float ch,
-                                     GUIStyle style, int columns)
+                                     GUIStyle style, int columns, bool cluster = false)
         {
             // This runs for every painted terminal run. Keep the unflagged path free of
             // profiling calls, even when their sink would discard the measurement.
             if (!PerfTrace.Enabled)
             {
-                var plainLayout = InlineTextLayout.Cells(text, columns, cw,
-                    TextSpriteCatalog.Shared, TerminalFont.FitsCell);
+                var plainLayout = cluster
+                    ? InlineTextLayout.CellCluster(text, columns, cw, TextSpriteCatalog.Shared)
+                    : InlineTextLayout.Cells(text, columns, cw,
+                        TextSpriteCatalog.Shared, TerminalFont.FitsCell);
                 SharedTextRenderer.DrawTerminalRun(plainLayout,
                     new Rect(x, y, plainLayout.Width + cw, ch), ch, style, overhang: cw);
                 return;
             }
 
             long layoutStarted = PerfTrace.Start();
-            var layout = InlineTextLayout.Cells(text, columns, cw, TextSpriteCatalog.Shared,
-                                               TerminalFont.FitsCell);
+            var layout = cluster
+                ? InlineTextLayout.CellCluster(text, columns, cw, TextSpriteCatalog.Shared)
+                : InlineTextLayout.Cells(text, columns, cw, TextSpriteCatalog.Shared,
+                    TerminalFont.FitsCell);
             PerfTrace.End("terminal-text-layout", layoutStarted, 1);
             long drawStarted = PerfTrace.Start();
             SharedTextRenderer.DrawTerminalRun(layout, new Rect(x, y, layout.Width + cw, ch),
@@ -330,7 +334,7 @@ namespace SlopWorld
             if (glyph.Length == 0 || glyph == " ") return;
             var style = TerminalFont.Style;
             style.normal.textColor = TerminalTheme.Current.CursorText;
-            DrawRun(glyph, x, y, cw, ch, style, end - first);
+            DrawRun(glyph, x, y, cw, ch, style, end - first, cluster: true);
         }
 
 

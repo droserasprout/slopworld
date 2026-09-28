@@ -7,7 +7,7 @@ use super::*;
 use std::sync::atomic::AtomicBool;
 use tokio::time::Instant;
 
-use crate::emu::parse_output;
+use crate::tmux::control::parse_output;
 use anyhow::anyhow;
 
 // Limit watched terminal redraws to roughly one per display frame.

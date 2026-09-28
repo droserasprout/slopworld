@@ -105,11 +105,11 @@ namespace SlopWorld
 
             screen.BaseRuns = baseRows;
             screen.BaseRunsRev = themeRev;
-            bool hasAutoLinks = screen.LinksKnown ? screen.HasLinks : Sgr.MayContainLink(lines);
+            bool hasAutoLinks = screen.LinksKnown ? screen.HasLinks : TerminalAutolinks.MayContainLink(lines);
             var local = !hasAutoLinks ? null : incrementalLinks ?
-                Sgr.AutoLinkSpansIncremental(baseRows, cols, ref _linkChars,
+                TerminalAutolinks.AutoLinkSpansIncremental(baseRows, cols, ref _linkChars,
                     screen.AutoLinks, dirtyLinks) :
-                Sgr.AutoLinkSpans(baseRows, cols, ref _linkChars);
+                TerminalAutolinks.AutoLinkSpans(baseRows, cols, ref _linkChars);
             bool reuseRuns = screen.Runs != null && screen.Runs.Length == lines.Length &&
                 screen.RunsRev == themeRev;
             // Without guessed links the base rows are already the final immutable result.
@@ -126,7 +126,7 @@ namespace SlopWorld
                     parsed = (List<SgrRun>[])parsed.Clone();
                     sharedRuns = false;
                 }
-                parsed[i] = Sgr.Decorate(baseRows[i], local?[i]);
+                parsed[i] = TerminalAutolinks.Decorate(baseRows[i], local?[i]);
             }
             screen.Runs = parsed;
             screen.AutoLinks = local;

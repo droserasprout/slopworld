@@ -2,28 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
-using UrlSpan = SlopWorld.UrlScan.Span;
 
 namespace SlopWorld
 {
-    public struct SgrRun
-    {
-        public string Text;
-        // Absolute start column, advanced by scalars and the daemon's CHA markers.
-        public int Col;
-        // Every scalar occupies one cell except the final glyph, whose extra cell
-        // is explicitly closed by the daemon's CHA marker. Never merge past that glyph.
-        public int CellWidth;
-        public int Columns => CellWidth > 0 ? CellWidth : TerminalColumns.ScalarCount(Text);
-        public Color Fg;
-        public Color Bg;
-        public bool HasBg;
-        public bool Bold;
-        // The whole link this run is part of, whether the app said so (OSC 8) or the
-        // text simply reads as a URL. Null for ordinary text.
-        public string Url;
-    }
-
     // The daemon's emulator already did the hard part. Therefore, we only ever see SGR color
     // escapes, CHA column markers and the OSC 8 links it passes on.
     public static class Sgr
@@ -57,7 +38,7 @@ namespace SlopWorld
         public static List<SgrRun> ParseLine(string line)
         {
             var runs = ParseLineCore(line);
-            Autolink(runs);
+            TerminalAutolinks.Autolink(runs);
             return runs;
         }
 
@@ -73,151 +54,8 @@ namespace SlopWorld
             for (int i = 0; i < lines.Length; i++)
                 parsed[i] = ParseLineCore(lines[i]);
 
-            if (MayContainLink(lines)) Autolink(parsed, cols);
+            if (TerminalAutolinks.MayContainLink(lines)) TerminalAutolinks.Autolink(parsed, cols);
             return parsed;
-        }
-
-        // Return screen-wide autolink spans split into the row/column space used by runs. The
-        // base rows are never changed, so callers can reuse them in retained snapshots.
-        internal static List<UrlSpan>[] AutoLinkSpans(List<SgrRun>[] rows, int cols, ref char[] scratch)
-        {
-            if (rows == null || rows.Length == 0) return null;
-
-            int width = cols;
-            if (width <= 0)
-                foreach (var row in rows) width = Mathf.Max(width, RowWidth(row));
-            if (width <= 0) return null;
-
-            if (scratch == null || scratch.Length < rows.Length * width)
-                scratch = new char[rows.Length * width];
-            var chars = scratch;
-            for (int row = 0; row < rows.Length; row++)
-                TerminalColumns.WriteScanLine(rows[row], chars, row * width, width);
-
-            var local = new List<UrlSpan>[rows.Length];
-            ScanLinkRange(chars, width, 0, rows.Length, local);
-            return HasSpans(local) ? local : null;
-        }
-
-        // A received frame can edit one row while retaining every other parsed row. Rebuild
-        // only the group joined to that edit by a full-width row boundary. Old spans also join
-        // rows, so a deleted boundary cannot leave half of a former link in a snapshot.
-        internal static List<UrlSpan>[] AutoLinkSpansIncremental(List<SgrRun>[] rows, int cols,
-            ref char[] scratch, List<UrlSpan>[] previous, bool[] dirty)
-        {
-            if (previous == null || previous.Length != rows.Length || cols <= 0)
-                return AutoLinkSpans(rows, cols, ref scratch);
-            if (scratch == null || scratch.Length < rows.Length * cols)
-                scratch = new char[rows.Length * cols];
-
-            var local = (List<UrlSpan>[])previous.Clone();
-            for (int row = 0; row < rows.Length;)
-            {
-                if (!dirty[row]) { row++; continue; }
-                int first = row, last = row;
-                while (first > 0 && Joined(rows, scratch, cols, previous, first - 1)) first--;
-                while (last + 1 < rows.Length && Joined(rows, scratch, cols, previous, last)) last++;
-                for (int i = first; i <= last; i++) local[i] = null;
-                for (int i = first; i <= last; i++)
-                    TerminalColumns.WriteScanLine(rows[i], scratch, i * cols, cols);
-                ScanLinkRange(scratch, cols, first, last + 1, local);
-                row = last + 1;
-            }
-            return HasSpans(local) ? local : null;
-        }
-
-        static bool Joined(List<SgrRun>[] rows, char[] chars, int width,
-            List<UrlSpan>[] previous, int row)
-        {
-            TerminalColumns.WriteScanLine(rows[row], chars, row * width, width);
-            TerminalColumns.WriteScanLine(rows[row + 1], chars, (row + 1) * width, width);
-            if (chars[(row + 1) * width - 1] != ' ' && chars[(row + 1) * width] != ' ')
-                return true;
-            var left = previous[row];
-            var right = previous[row + 1];
-            if (left == null || right == null) return false;
-            foreach (var a in left)
-                if (a.End == width)
-                    foreach (var b in right)
-                        if (b.Start == 0 && b.Url == a.Url) return true;
-            return false;
-        }
-
-        static bool HasSpans(List<UrlSpan>[] rows)
-        {
-            foreach (var spans in rows) if (spans != null && spans.Count > 0) return true;
-            return false;
-        }
-
-        static void ScanLinkRange(char[] chars, int width, int firstRow, int endRow,
-            List<UrlSpan>[] local)
-        {
-            var global = UrlScan.FindUrls(new string(chars, firstRow * width,
-                (endRow - firstRow) * width));
-            if (global == null) return;
-            foreach (var span in global)
-            {
-                int first = firstRow + span.Start / width;
-                int last = firstRow + (span.End - 1) / width;
-                for (int row = first; row <= last && row < endRow; row++)
-                {
-                    int start = row == first ? span.Start % width : 0;
-                    int end = row == last ? (span.End - 1) % width + 1 : width;
-                    if (local[row] == null) local[row] = new List<UrlSpan>();
-                    local[row].Add(new UrlSpan(start, end, span.Url));
-                }
-            }
-        }
-
-        // Apply only guessed links. Explicit OSC 8 runs remain authoritative in Split.
-        internal static List<SgrRun> Decorate(List<SgrRun> baseRuns, List<UrlSpan> spans)
-        {
-            if (baseRuns == null || spans == null || spans.Count == 0) return baseRuns;
-            return SplitCopy(baseRuns, spans);
-        }
-
-        // Avoid the rows-by-columns URL grid for ordinary output. OSC 8 still takes the parser path
-        // above and already carries link metadata. In contrast, Visible URLs necessarily contain
-        // this delimiter even when it is split across SGR runs or physical rows.
-        internal static bool MayContainLink(string[] lines)
-        {
-            // Ordinary output needs no escape-aware scan. IndexOf can reject whole spans
-            // cheaply. Any raw colon still takes the conservative path below.
-            bool colon = false;
-            foreach (string line in lines)
-                if (line != null && line.IndexOf(':') >= 0) { colon = true; break; }
-            if (!colon) return false;
-
-            int matched = 0;
-            const string needle = "://";
-            foreach (string line in lines)
-            {
-                if (line == null) continue;
-                for (int i = 0; i < line.Length; i++)
-                {
-                    char c = line[i];
-                    if (c == '\x1b')
-                    {
-                        // Escape payloads cannot contribute visible URL characters.
-                        if (i + 1 < line.Length && line[i + 1] == '[')
-                        {
-                            i += 2;
-                            while (i < line.Length && !(line[i] >= '@' && line[i] <= '~')) i++;
-                        }
-                        else if (i + 1 < line.Length && line[i + 1] == ']')
-                        {
-                            i += 2;
-                            while (i < line.Length && line[i] != '\x07' &&
-                                   !(line[i] == '\x1b' && i + 1 < line.Length && line[i + 1] == '\\')) i++;
-                            if (i < line.Length && line[i] == '\x1b') i++;
-                        }
-                        continue;
-                    }
-                    matched = c == needle[matched] ? matched + 1 : c == needle[0] ? 1 : 0;
-                    if (matched == needle.Length) return true;
-                }
-            }
-            return false;
         }
 
         static List<SgrRun> ParseLineCore(string line)
@@ -235,6 +73,7 @@ namespace SlopWorld
             int penCol = 0;
             // Column the run currently in `sb` began at.
             int runStart = 0;
+            bool printableAsciiOnly = true;
 
             while (i < line.Length)
             {
@@ -259,12 +98,45 @@ namespace SlopWorld
                             var last = runs[runs.Count - 1];
                             if (last.Col + last.Columns == penCol)
                             {
-                                last.CellWidth = last.Columns + 1;
-                                runs[runs.Count - 1] = last;
+                                int count = TerminalColumns.ScalarCount(last.Text);
+                                if (count > 1 && !last.IsCluster)
+                                {
+                                    int tailAt = TerminalColumns.TextOffset(last.Text, count - 1);
+                                    var tail = last;
+                                    tail.Text = last.Text.Substring(tailAt);
+                                    tail.Col = penCol - 1;
+                                    tail.CellWidth = 2;
+                                    last.Text = last.Text.Substring(0, tailAt);
+                                    last.CellWidth = count - 1;
+                                    runs[runs.Count - 1] = last;
+                                    runs.Add(tail);
+                                }
+                                else
+                                {
+                                    last.CellWidth = last.Columns + 1;
+                                    runs[runs.Count - 1] = last;
+                                }
                             }
                         }
                         penCol = next;
                         runStart = penCol;
+                    }
+                    else if (j < line.Length && line[j] == 'z' &&
+                             TryReadCluster(line, i + 2, j, out string cluster,
+                                            out int width, out int nextOffset))
+                    {
+                        Flush(runs, sb, attr, runStart, url);
+                        sb.Append(cluster);
+                        printableAsciiOnly = false;
+                        Flush(runs, sb, attr, penCol, url, false);
+                        var last = runs[runs.Count - 1];
+                        last.CellWidth = width;
+                        last.IsCluster = true;
+                        runs[runs.Count - 1] = last;
+                        penCol += width;
+                        runStart = penCol;
+                        i = nextOffset;
+                        continue;
                     }
                     i = j + 1;
                     continue;
@@ -286,6 +158,7 @@ namespace SlopWorld
                 }
 
                 if (sb.Length == 0) runStart = penCol;
+                if (line[i] < ' ' || line[i] > '~') printableAsciiOnly = false;
                 int units = TerminalColumns.ScalarUnits(line, i);
                 sb.Append(line, i, units);
                 penCol++;
@@ -293,10 +166,43 @@ namespace SlopWorld
             }
 
             Flush(runs, sb, attr, runStart, url);
+            // Keycaps require non-ASCII components; plain rows cannot form them.
+            if (!printableAsciiOnly || TextSpriteCatalog.Shared.HasPrintableAsciiOnlyKey)
+                TerminalSpriteSequences.Join(runs, TextSpriteCatalog.Shared);
             return runs;
         }
 
-        static void Flush(List<SgrRun> runs, StringBuilder sb, Attr a, int col, string url)
+        // Decode the private cell marker atomically: malformed or incomplete
+        // payloads leave the caller's text and pen position untouched.
+        static bool TryReadCluster(string line, int start, int end, out string text,
+                                   out int width, out int nextOffset)
+        {
+            text = null;
+            width = 0;
+            nextOffset = end + 1;
+            int separator = line.IndexOf(';', start, end - start);
+            if (separator <= start ||
+                !int.TryParse(line.Substring(start, separator - start), out int scalars) ||
+                !int.TryParse(line.Substring(separator + 1, end - separator - 1), out int columns) ||
+                // Combining marks have no fixed count limit. Each scalar needs
+                // at least one remaining UTF-16 unit; parsing checks completeness.
+                scalars < 1 || scalars > line.Length - end - 1 || columns < 1 || columns > 32)
+                return false;
+
+            int at = end + 1;
+            for (int n = 0; n < scalars; n++)
+            {
+                if (at >= line.Length || line[at] == '\x1b') return false;
+                at += TerminalColumns.ScalarUnits(line, at);
+            }
+            text = line.Substring(end + 1, at - end - 1);
+            width = columns;
+            nextOffset = at;
+            return true;
+        }
+
+        static void Flush(List<SgrRun> runs, StringBuilder sb, Attr a, int col, string url,
+                          bool merge = true)
         {
             if (sb.Length == 0) return;
 
@@ -324,10 +230,10 @@ namespace SlopWorld
             // drawn colors, not the codes behind them, and never across a column jump. A CHA is the
             // one thing that says the pen moved.
             int last = runs.Count - 1;
-            if (last >= 0)
+            if (merge && last >= 0)
             {
                 var prev = runs[last];
-                if (prev.Col + prev.Columns == col &&
+                if (!prev.IsCluster && prev.Col + prev.Columns == col &&
                     prev.Columns == TerminalColumns.ScalarCount(prev.Text) &&
                     prev.Fg == fg && prev.HasBg == hasBg && (!hasBg || prev.Bg == bg) &&
                     prev.Url == url)
@@ -457,88 +363,5 @@ namespace SlopWorld
 
         static float Level(int c) => c == 0 ? 0f : (55 + c * 40) / 255f;
 
-        // ------------------------------------------------------------------ links
-
-        // Scan characters rather than SGR runs, because a plain URL may cross colors. The
-        // screen-wide overload also joins only physical row edges. A blank tail still breaks.
-        static void Autolink(List<SgrRun> runs)
-        {
-            if (runs.Count == 0) return;
-
-            var chars = new char[RowWidth(runs)];
-            TerminalColumns.WriteScanLine(runs, chars, 0, chars.Length);
-            var spans = UrlScan.FindUrls(new string(chars));
-            if (spans != null) Split(runs, spans);
-        }
-
-        static void Autolink(List<SgrRun>[] rows, int cols)
-        {
-            char[] chars = null;
-            var local = AutoLinkSpans(rows, cols, ref chars);
-            if (local == null) return;
-            for (int row = 0; row < rows.Length; row++)
-                if (local[row] != null) Split(rows[row], local[row]);
-        }
-
-        static int RowWidth(List<SgrRun> row)
-        {
-            int width = 0;
-            foreach (var run in row) width = Mathf.Max(width, run.Col + run.Columns);
-            return width;
-        }
-
-        // Runs are cut where the spans cross them. Therefore, a link that starts mid-word or ends
-        // mid-color keeps every one of the colors it was drawn in. A run the app already linked is
-        // left alone: what it says beats what the text looks like.
-        static void Split(List<SgrRun> runs, List<UrlSpan> spans)
-        {
-            var cut = SplitCopy(runs, spans);
-            runs.Clear();
-            runs.AddRange(cut);
-        }
-
-        static List<SgrRun> SplitCopy(List<SgrRun> runs, List<UrlSpan> spans)
-        {
-            var cut = new List<SgrRun>(runs.Count + spans.Count * 2);
-            foreach (var r in runs)
-            {
-                int start = r.Col, end = r.Col + r.Columns;
-                if (r.Url != null || end <= start) { cut.Add(r); continue; }
-
-                int at = start;
-                foreach (var span in spans)
-                {
-                    if (span.End <= at || span.Start >= end) continue;
-                    int a = Mathf.Max(span.Start, at);
-                    int b = Mathf.Min(span.End, end);
-                    // A guessed link cannot split the final glyph from its continuation.
-                    if (r.Columns > TerminalColumns.ScalarCount(r.Text))
-                    {
-                        if (a == end - 1) a--;
-                        if (b == end - 1) b++;
-                        a = Mathf.Max(a, at);
-                    }
-                    if (a > at) cut.Add(Slice(r, at, a, null));
-                    cut.Add(Slice(r, a, b, span.Url));
-                    at = b;
-                }
-                if (at < end) cut.Add(Slice(r, at, end, null));
-            }
-
-            return cut;
-        }
-
-        static SgrRun Slice(SgrRun r, int from, int to, string url) => new SgrRun
-        {
-            Text = r.Text.Substring(TerminalColumns.TextOffset(r.Text, from - r.Col),
-                TerminalColumns.TextOffset(r.Text, to - r.Col) - TerminalColumns.TextOffset(r.Text, from - r.Col)),
-            CellWidth = to - from,
-            Col = from,
-            Fg = r.Fg,
-            Bg = r.Bg,
-            HasBg = r.HasBg,
-            Bold = r.Bold,
-            Url = url,
-        };
     }
 }

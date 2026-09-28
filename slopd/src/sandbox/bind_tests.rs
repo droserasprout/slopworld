@@ -579,6 +579,10 @@ fn the_environment_is_declared() {
     assert_eq!(a[term - 1], "--setenv");
     assert_eq!(a[term + 1], PANE_TERM);
 
+    let less = at(&a, "LESSUTFCHARDEF");
+    assert_eq!(a[less - 1], "--setenv");
+    assert_eq!(a[less + 1], crate::sandbox::pane_less_utfchardef());
+
     assert!(a.contains(&"PATH".to_string()));
 }
 

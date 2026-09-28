@@ -84,12 +84,14 @@ namespace SlopWorld.Tests
         {
             AssertEx.Equal("less -N", PagerCommands.FilePager("less", true), "file numbers on");
             AssertEx.Equal("less -N -+N", PagerCommands.FilePager("less -N", false), "file numbers override custom flag");
-            AssertEx.Equal("bat --paging=always --style=numbers --decorations=always", PagerCommands.FilePager("bat --paging=always", true), "bat file numbers on");
-            AssertEx.Equal("bat --style=numbers --style=plain --decorations=never -- {file}",
+            AssertEx.Equal("bat --paging=always --style=numbers --decorations=always --pager 'less -RS'", PagerCommands.FilePager("bat --paging=always", true), "bat file numbers on");
+            AssertEx.Equal("bat --style=numbers --style=plain --decorations=never --pager 'less -RS' -- {file}",
                 PagerCommands.FilePager("bat --style=numbers -- {file}", false), "bat numbers off before file argument");
             string pipe = PagerCommands.PipePager("bat --paging=always --style=numbers");
-            AssertEx.True(pipe.EndsWith("--style=plain --decorations=never --color=never --language=txt --strip-ansi=never"),
+            AssertEx.True(pipe.EndsWith("--style=plain --decorations=never --color=never --language=txt --strip-ansi=never --pager 'less -RS'"),
                 "bat passes through delta output without another gutter or highlighting pass");
+            AssertEx.False(PagerCommands.FilePager("bat --pager 'less -R'", true).Contains("less -RS"),
+                "explicit bat pager remains selected");
             string first = PagerCommands.DiffCommand("git diff HEAD", "bat --paging=always", true);
             string second = PagerCommands.DiffCommand(first, "bat --paging=always", false);
             AssertEx.True(second.Contains("git -c delta.line-numbers=false diff HEAD"), "delta source numbers disabled");
@@ -99,12 +101,12 @@ namespace SlopWorld.Tests
 
         static void DiffPager()
         {
-            AssertEx.Equal("less -+N --", PagerCommands.PipePager("less -- {file}"),
+            AssertEx.Equal("less -+N -S --", PagerCommands.PipePager("less -- {file}"),
                 "pipe options precede trailing option terminator");
-            AssertEx.Equal("bat --style=plain --decorations=never --color=never --language=txt --strip-ansi=never --",
+            AssertEx.Equal("bat --style=plain --decorations=never --color=never --language=txt --strip-ansi=never --pager 'less -RS' --",
                 PagerCommands.PipePager("bat -- {file}"), "bat pipe options precede terminator");
             string first = PagerCommands.DiffCommand("git diff -- 'file name'", "less --prompt=it's");
-            AssertEx.Equal("env DELTA_PAGER='less -N -+N' git -c delta.line-numbers=true diff -- 'file name'",
+            AssertEx.Equal("env DELTA_PAGER='less -N -+N -S' git -c delta.line-numbers=true diff -- 'file name'",
                 PagerCommands.DiffCommand(first, "less -N"), "replace quoted pager without touching git arguments");
             string twice = PagerCommands.DiffCommand(PagerCommands.DiffCommand("git diff", "less"), "more");
             AssertEx.Equal("env DELTA_PAGER='more' git -c delta.line-numbers=true diff", twice, "only one override remains");
@@ -165,13 +167,13 @@ namespace SlopWorld.Tests
 
         static void BuildsPagerAndEditor()
         {
-            AssertEx.Equal("env LESS=-Rc less -- '/f'", PagerCommands.PagerCommand("less", "", "/f"),
+            AssertEx.Equal("env LESS=-RSc less -- '/f'", PagerCommands.PagerCommand("less", "", "/f"),
                            "pager paints from the top and retains the alternate screen");
-            AssertEx.Equal("LESSOPEN='|highlight %s' LESS=-Rc", PagerCommands.LessEnv("highlight"),
+            AssertEx.Equal("LESSOPEN='|highlight %s' LESS=-RSc", PagerCommands.LessEnv("highlight"),
                            "a highlighter without %s gets one appended");
-            AssertEx.Equal("less -+N", PagerCommands.PipePager("less {file}"),
+            AssertEx.Equal("less -+N -S", PagerCommands.PipePager("less {file}"),
                            "the pipe pager strips file/line placeholders");
-            AssertEx.Equal("less -+N", PagerCommands.PipePager(""), "an empty pager falls back to less");
+            AssertEx.Equal("less -+N -S", PagerCommands.PipePager(""), "an empty pager falls back to less");
 
             AssertEx.Equal("micro -clipboard terminal -- '/f'", PagerCommands.EditorCommand("micro", "/f"),
                            "micro uses OSC 52 for the sidebar host clipboard");

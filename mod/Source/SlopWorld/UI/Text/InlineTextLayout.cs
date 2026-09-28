@@ -110,10 +110,11 @@ namespace SlopWorld
                                       TextSpriteCatalog catalog, Func<char, bool> fitsCell)
         {
             text = text ?? "";
-            // Full terminal paints revisit many ordinary rows. Keep them as one font
-            // span without allocating tokens or probing the sprite trie per character.
+            // Full terminal paints revisit many ordinary rows. A printable ASCII
+            // row cannot contain a keycap's combining mark. Keep it as one font
+            // span without allocating tokens or probing the sprite trie.
             if (text.Length > 0 && columns == text.Length &&
-                !catalog.HasPrintableAsciiPrefix)
+                !catalog.HasPrintableAsciiOnlyKey)
             {
                 int i = 0;
                 while (i < text.Length && text[i] >= ' ' && text[i] <= '~' &&
@@ -147,6 +148,18 @@ namespace SlopWorld
                 spans.Add(new Span(text.Substring(plainStart), -1, plainCol * cellWidth,
                     (col - plainCol) * cellWidth));
             return new InlineTextLayout(spans, columns * cellWidth);
+        }
+
+        // The daemon can supply several Unicode scalars for one terminal cell.
+        // Its width is authoritative even when no sprite covers the complete text.
+        public static InlineTextLayout CellCluster(string text, int columns, float cellWidth,
+                                                   TextSpriteCatalog catalog)
+        {
+            text = text ?? "";
+            int sprite = catalog.Match(text, 0, out int length, out int slot) &&
+                         length == text.Length ? slot : -1;
+            float width = columns * cellWidth;
+            return new InlineTextLayout(new[] { new Span(text, sprite, 0f, width) }, width);
         }
     }
 }

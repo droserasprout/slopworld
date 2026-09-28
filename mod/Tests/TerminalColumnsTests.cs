@@ -94,7 +94,8 @@ namespace SlopWorld.Tests
         static void LinkGeometry()
         {
             var runs = Sgr.ParseLine("\U0001d400https://example.com 好\x1b[24G");
-            AssertEx.Equal(3, runs[runs.Count - 1].Columns, "link slicing retains space and final wide glyph");
+            AssertEx.Equal(2, runs[runs.Count - 1].Columns, "wide glyph keeps both columns");
+            AssertEx.Equal(" ", runs[runs.Count - 2].Text, "space before wide glyph stays separate");
             AssertEx.Equal(1, runs[1].Col, "autolink starts after one scalar");
             AssertEx.Equal("https://example.com", runs[1].Url, "autolink survives supplementary prefix");
             var linked = Sgr.ParseLine("\x1b]8;;https://example.com\x1b\\好\x1b[3G\x1b]8;;\x1b\\");

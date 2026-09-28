@@ -73,9 +73,11 @@ namespace SlopWorld
         {
             string h = (highlighter ?? "").Trim();
             // Paint from the top instead of scrolling a short first screen into place.
-            if (h.Length == 0) return "LESS=-Rc";
+            // less and tmux can disagree about widths inside joined emoji. Avoid
+            // wrapping a long line at different cells in the two terminal grids.
+            if (h.Length == 0) return "LESS=-RSc";
             if (!h.Contains("%s")) h += " %s";
-            return "LESSOPEN=" + Quote("|" + h) + " LESS=-Rc";
+            return "LESSOPEN=" + Quote("|" + h) + " LESS=-RSc";
         }
 
         // Git feeds its diff to the pager on stdin, so it needs the configured command
@@ -86,8 +88,8 @@ namespace SlopWorld
             switch (Path.GetFileName(Executable(command, "less")))
             {
                 case "bat":
-                    return Options(command, "--style=plain --decorations=never --color=never --language=txt --strip-ansi=never");
-                case "less": return Options(command, "-+N");
+                    return BatOptions(command, "--style=plain --decorations=never --color=never --language=txt --strip-ansi=never");
+                case "less": return Options(command, "-+N -S");
                 default: return command;
             }
         }
@@ -98,7 +100,7 @@ namespace SlopWorld
             string command = App(pager, "less");
             switch (Path.GetFileName(Executable(command, "less")))
             {
-                case "bat": return Options(command, lineNumbers ? "--style=numbers --decorations=always" : "--style=plain --decorations=never");
+                case "bat": return BatOptions(command, lineNumbers ? "--style=numbers --decorations=always" : "--style=plain --decorations=never");
                 case "less": return Options(command, lineNumbers ? "-N" : "-+N");
                 default: return command;
             }
@@ -110,6 +112,16 @@ namespace SlopWorld
             if (at < 0 && command.EndsWith(" --", StringComparison.Ordinal)) at = command.Length - 3;
             if (at < 0) at = command.IndexOf(" {file}", StringComparison.Ordinal);
             return at < 0 ? command + " " + options : command.Insert(at, " " + options);
+        }
+
+        static string BatOptions(string command, string options)
+        {
+            command = Options(command, options);
+            // bat launches its own less and replaces LESS, so the file reader's
+            // environment alone cannot prevent a long emoji line from wrapping.
+            if (!Regex.IsMatch(command, @"(?:^|\s)--pager(?:=|\s)"))
+                command = Options(command, "--pager " + Quote("less -RS"));
+            return command;
         }
 
         static readonly Regex DeltaPagerPrefix = new Regex(@"^env DELTA_PAGER='(?:[^']|'\\'')*' ");

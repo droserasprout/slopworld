@@ -68,6 +68,9 @@ namespace SlopWorld.Tests
             AssertEx.Equal("\U00020000", layout.Spans[0].Text, "unknown glyph stays a whole scalar");
             AssertEx.Equal(-1, layout.Spans[0].Sprite, "unknown glyph uses normal font fallback");
             AssertEx.Equal(14f, layout.Spans[0].Width, "daemon width survives fallback");
+            var combining = InlineTextLayout.CellCluster("e\u0301", 1, 7f, Catalog);
+            AssertEx.Equal("e\u0301", combining.Spans[0].Text, "unknown cluster stays one font span");
+            AssertEx.Equal(7f, combining.Spans[0].Width, "unknown cluster keeps daemon width");
         }
 
         public static void PlainAsciiFastPathPreservesColumnsAndCatalogMatches()
@@ -78,6 +81,12 @@ namespace SlopWorld.Tests
             AssertEx.Equal(21f, plain.Width, "plain ASCII uses its cell width");
             AssertEx.Equal(21f, plain.Spans[0].Width, "plain span covers the text cells");
             AssertEx.Equal("abc", plain.Spans[0].Text, "plain text remains one span");
+            var keycapPrefixes = InlineTextLayout.Cells("123#", 4, 7f,
+                TextSpriteCatalog.Shared, c => true);
+            AssertEx.Equal(1, keycapPrefixes.Spans.Length,
+                "ASCII keycap prefixes keep the plain-row shortcut");
+            AssertEx.Equal(-1, keycapPrefixes.Spans[0].Sprite,
+                "ASCII digits alone are ordinary terminal text");
 
             var widened = InlineTextLayout.Cells("abc", 5, 7f, Catalog, c => true);
             AssertEx.Equal(35f, widened.Width, "daemon columns remain authoritative");

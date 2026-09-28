@@ -1,6 +1,8 @@
 # Terminal rendering
 
-`TerminalRunCache` owns cached ANSI rows and link decoration.
+`TerminalRunCache` owns cached ANSI rows and coordinates link decoration.
+`Sgr` decodes styled rows into the shared `SgrRun` model. `TerminalAutolinks` owns
+screen-wide link spans and run decoration; `UrlScan` recognizes URL text.
 The panel owns rendered text.
 Cursor/selection overlays
 must not force text repaint. Row damage describes one received revision: if painting skipped
@@ -30,18 +32,38 @@ content revision happen to be unchanged.
 
 The daemon owns cell geometry. Its CHA markers close wide glyphs even at the trimmed row
 end.
+ANSI decoding establishes text and geometry. `TerminalSpriteSequences` then joins
+compatible runs against an explicit sprite catalog without changing their occupied columns.
 Parsed runs retain that occupied width. They must not merge past a wide glyph. Never
 reconstruct widths from Unicode ranges or font metrics. Selection and copy share glyph
 boundaries.
 The cache keeps complete scalar strings separate from continuation cells.
+Parsed emoji clusters must stay separate from adjacent text even when their scalar count
+happens to equal their occupied cell count; the renderer looks up the whole run as one atlas key.
 
 `UI/Text/InlineTextLayout` positions both font spans and catalog sprites.
 Its printable ASCII shortcut applies only when the sprite catalog has no key
-starting with a printable ASCII character and the daemon's column count equals
+made entirely of printable ASCII and the daemon's column count equals
 the text length; font-fit exceptions still use the general layout path.
 `SharedTextRenderer` controls their clipped drawing for terminal runs and UI labels. Terminal layout consumes daemon
 columns, while UI layout measures plain spans and reserves a line-height box for sprites.
 The generated catalog matches text keys, including baked sequences, without width tables.
+The atlas generator takes standalone characters from the Noto Color Emoji font charset and
+sequence candidates from pinned Unicode emoji data. It keeps sequences that Noto shapes as
+one glyph. The daemon preserves zero-width cell components on the wire; the client joins
+adjacent cells only when their complete text matches a baked key. Daemon columns still own
+the width. Rebuild the atlas and generated keys together.
+The private tmux server sets skin tone modifiers to zero width with `codepoint-widths`, so
+newer handshake sequences occupy two columns like other emoji. Modifiers also stay zero-width
+after ordinary text or spaces; unattached modifiers at the left margin are discarded.
+The daemon mirror attaches
+modifiers and joined emoji to their first cell, and widens that cell when a variation selector,
+keycap mark, or flag pair makes tmux advance two columns. The joined part can be a symbol such
+as an arrow, so the mirror identifies a joined emoji from its first cell.
+`less` normally deletes emoji modifiers, joiners and selectors before output. New host and
+sandbox panes default `LESSUTFCHARDEF` to keep these as composing characters; a custom
+daemon environment value or sandbox preset can override it. Existing panes retain their
+launch environment until restarted.
 Catalog glyphs never reach Unity's font loader.
 Missing artwork occupies the same measured box with a replacement character. Unknown supplementary text reaches font fallback as complete
 scalars. Build details belong in [tools](build-tools.md).

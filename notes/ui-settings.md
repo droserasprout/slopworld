@@ -25,6 +25,10 @@ Custom wrappers keep their configured styling. Diff syntax coloring remains owne
 which receives the configured pager through `DELTA_PAGER`. The profile-local Line numbers
 checkbox controls less/bat file numbering and delta's source-line numbers. The outer diff pager
 suppresses output-line numbering; bat also preserves delta's styling without adding decorations.
+Generated less and bat pager commands use less's chop-long-lines mode. Some emoji clusters have
+different widths in less and tmux, so wrapping a long source line can corrupt the pager screen;
+horizontal scrolling keeps each source line on one terminal row. An explicit bat `--pager`
+remains the user's choice.
 
 Daemon pages keep separate drafts for each page and endpoint. Save sends only changed fields.
 The mod acknowledges the submitted snapshot and preserves edits made during the request.

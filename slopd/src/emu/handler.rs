@@ -1,10 +1,13 @@
 //! Preserve tmux erase semantics while forwarding the remaining VT operations.
 
 use super::{RenderCache, SideSink};
+use alacritty_terminal::index::Column;
 use alacritty_terminal::index::Line;
+use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::Term;
 use alacritty_terminal::vte::ansi::cursor_icon::CursorIcon;
 use alacritty_terminal::vte::ansi::*;
+use unicode_width::UnicodeWidthStr;
 
 pub(super) struct Mirror<'a> {
     pub term: &'a mut Term<SideSink>,
@@ -45,7 +48,9 @@ impl Handler for Mirror<'_> {
 
     fn input(&mut self, c: char) {
         *self.history_dirty = true;
-        self.term.input(c);
+        if !self.try_input_cluster_component(c) {
+            self.term.input(c);
+        }
     }
     fn linefeed(&mut self) {
         *self.history_dirty = true;
@@ -149,4 +154,98 @@ impl Handler for Mirror<'_> {
         report_modify_other_keys();
         set_scp(path: ScpCharPath, mode: ScpUpdateMode);
     }
+}
+
+impl Mirror<'_> {
+    // Consume tmux cluster components; ordinary characters use Term::input.
+    fn try_input_cluster_component(&mut self, c: char) -> bool {
+        // ASCII cannot extend any of the tmux emoji clusters handled below.
+        if c.is_ascii() {
+            return false;
+        }
+        // Match the private tmux server's codepoint-widths override even outside
+        // emoji sequences. At the left margin tmux discards an unattached modifier.
+        if ('\u{1f3fb}'..='\u{1f3ff}').contains(&c) {
+            if let Some(column) = previous_base_column(self.term) {
+                let line = self.term.grid().cursor.point.line;
+                self.term.grid_mut()[line][column].push_zerowidth(c);
+                self.cache.invalidate();
+            }
+            return true;
+        }
+        // Alacritty measures each scalar separately. tmux instead keeps emoji
+        // sequences in one cell and sometimes widens that cell when a selector,
+        // keycap mark, or second regional indicator arrives.
+        if let Some(column) = previous_base_column(self.term) {
+            let line = self.term.grid().cursor.point.line;
+            let cell = &self.term.grid()[line][column];
+            let marks = cell.zerowidth().unwrap_or_default();
+            let follows_joiner = marks.last() == Some(&'\u{200d}');
+            let regional_pair = (0x1f1e6..=0x1f1ff).contains(&(cell.c as u32))
+                && (0x1f1e6..=0x1f1ff).contains(&(c as u32))
+                && marks.is_empty();
+            let width_mark = matches!(c, '\u{fe0f}' | '\u{20e3}');
+            if (follows_joiner || regional_pair || width_mark) && cell.c != ' ' {
+                let mut candidate = String::from(cell.c);
+                candidate.extend(marks);
+                candidate.push(c);
+                let wide = cell.flags.contains(Flags::WIDE_CHAR);
+                let width = UnicodeWidthStr::width(candidate.as_str());
+                // The joined part may be an arrow or gender symbol. The first
+                // cell's emoji base identifies the sequence, including prefixes
+                // that need a later VS16 before they measure two columns.
+                let emoji_base = matches!(cell.c as u32, 0x2000..=0x27ff | 0x1f000..=0x1ffff);
+                let emoji_part = matches!(c as u32,
+                    0x2194 | 0x2195 | 0x2b1b | 0x2600..=0x27ff | 0x1f000..=0x1ffff);
+                let joined_emoji = follows_joiner && emoji_base && emoji_part;
+                if joined_emoji || (regional_pair && width == 2) {
+                    self.term.grid_mut()[line][column].push_zerowidth(c);
+                    if width == 2 && !wide {
+                        promote_to_wide(self.term, line, column);
+                    }
+                    self.cache.invalidate();
+                    return true;
+                }
+                if width_mark && width == 2 && !wide {
+                    self.term.input(c);
+                    promote_to_wide(self.term, line, column);
+                    self.cache.invalidate();
+                    return true;
+                }
+            }
+        }
+        false
+    }
+}
+
+fn previous_base_column(term: &Term<SideSink>) -> Option<Column> {
+    let cursor = &term.grid().cursor;
+    let line = cursor.point.line;
+    let mut column = cursor.point.column;
+    if !cursor.input_needs_wrap {
+        column.0 = column.0.checked_sub(1)?;
+    }
+    if term.grid()[line][column]
+        .flags
+        .contains(Flags::WIDE_CHAR_SPACER)
+    {
+        column.0 = column.0.checked_sub(1)?;
+    }
+    Some(column)
+}
+
+/// Turn a just-written narrow cell into a wide one when tmux's grapheme width
+/// increases. The cursor is still immediately after its base cell.
+fn promote_to_wide(term: &mut Term<SideSink>, line: Line, column: Column) {
+    let cursor = &term.grid().cursor;
+    if cursor.input_needs_wrap || cursor.point.line != line || cursor.point.column.0 != column.0 + 1
+    {
+        return;
+    }
+    let spacer = cursor.point.column;
+    term.input(' ');
+    term.grid_mut()[line][column].flags.insert(Flags::WIDE_CHAR);
+    term.grid_mut()[line][spacer]
+        .flags
+        .insert(Flags::WIDE_CHAR_SPACER);
 }

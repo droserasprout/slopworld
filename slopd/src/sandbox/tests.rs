@@ -20,6 +20,7 @@ fn a_host_errand_is_not_sandboxed() {
     assert_eq!(a[0], "env");
     assert!(!a.iter().any(|x| x == "bwrap" || x == "--clearenv"));
     assert!(a.contains(&format!("TERM={PANE_TERM}")));
+    assert!(a.contains(&format!("LESSUTFCHARDEF={}", pane_less_utfchardef())));
     assert!(a.contains(&"SLOPWORLD_PROJECT=p".to_string()));
     // The selected shell command is last in the argument list.
     let want = shell_split(&host_command(&cfg, &s, host_shell().as_deref()));

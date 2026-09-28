@@ -25,6 +25,7 @@ test-text-sprites: ## Check text sprite metadata and loading-tip ASCII coverage
 
 test-bench-report: ## Test benchmark reporting
 	@$(PYTHON) tools/test_bench_report.py
+	@$(PYTHON) -m unittest discover -s bench/terminal-input -p 'test_*.py'
 
 test-pager:       ## Test pager geometry with isolated tmux and less (no game)
 	@$(PYTHON) tools/test_pager_geometry.py

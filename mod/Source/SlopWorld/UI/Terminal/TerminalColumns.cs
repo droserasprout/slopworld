@@ -6,7 +6,8 @@ using System.Runtime.CompilerServices;
 namespace SlopWorld
 {
     // Geometry comes from daemon CHA markers, not font metrics or Unicode width tables.
-    // Runs end at a wide glyph. Only their final scalar can reserve additional cells.
+    // Plain runs end at a wide glyph. Cluster runs keep all their scalars in one
+    // display unit and use the daemon's explicit occupied width.
     public static class TerminalColumns
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -43,6 +44,13 @@ namespace SlopWorld
                 {
                     if (run.Text == null) continue;
                     int col = run.Col;
+                    if (run.IsCluster)
+                    {
+                        if (col >= 0 && col < width) cells[col] = run.Text;
+                        for (int end = col + run.Columns; ++col < end;)
+                            if (col >= 0 && col < width) cells[col] = null;
+                        continue;
+                    }
                     for (int i = 0; i < run.Text.Length;)
                     {
                         int units = ScalarUnits(run.Text, i);
@@ -66,6 +74,13 @@ namespace SlopWorld
             {
                 if (run.Text == null) continue;
                 int col = run.Col;
+                if (run.IsCluster)
+                {
+                    if (col >= 0 && col < width) buffer[offset + col] = '\ufffd';
+                    for (int end = col + run.Columns; ++col < end && col < width;)
+                        if (col >= 0) buffer[offset + col] = ' ';
+                    continue;
+                }
                 for (int i = 0; i < run.Text.Length && col < width;)
                 {
                     char ch = run.Text[i++];

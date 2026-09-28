@@ -31,6 +31,10 @@ the [mod client](mod-client.md).
 
 Terminal row strings carry SGR/OSC styling and CHA column markers. Each emitted scalar
 advances the client's pen by one cell.
+A cell with zero-width components uses private `CSI <scalar-count>;<cell-width> z`
+before its complete text. Scalar counts are bounded by the remaining row payload, not a
+fixed cluster length: combining marks can exceed 32 scalars. The client treats that text as one cell. Adjacent cells
+that form a baked emoji sequence may be joined for drawing without changing copy text.
 A CHA immediately after a wide glyph supplies its occupied end, including at the trimmed row tail. The emulator's spacer cells own this geometry.
 
 Live screens may coalesce.
