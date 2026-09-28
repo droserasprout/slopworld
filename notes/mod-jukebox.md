@@ -28,7 +28,9 @@ Decoder/source generations guard late playback and metadata. A stale title is st
 state even if the corresponding audio was discarded. [Likes and recognition](mod-jukebox-library.md)
 cover the other side of that identity boundary.
 
-The ncspot proof of concept is coordinated by `manager/ncspot.rs`: it owns a host
+`manager/music.rs` owns source selection, recovery and the transition gate for both
+HTTP and WebSocket commands. Transport handlers authorize and delegate; they do not
+sequence player shutdown or hold playback locks. Its private `music/ncspot.rs` owns a host
 errand terminal, a private IPC runtime directory and bounded status reads. The tmux
 `@slopworld_ncspot` marker identifies the player across redeployment.
 Names and adopted host commands do not. Startup restores the player after session adoption, preserving its
@@ -37,9 +39,13 @@ last applied volume without sending volume commands. If no applied-volume marker
 Relative volume commands need an extra one-percent step to reach zero/full scale because
 ncspot truncates each percentage step to an integer. The mod launches through WebSocket
 audio selection and opens the terminal named in the audio reply.
-The stop command at shutdown uses the same ordered connection. Source transitions share a daemon mutex with the explicit HTTP
-launch API.
+The stop command at shutdown uses the same ordered connection. The ncspot operation
+guard serializes polling, volume persistence and terminal replacement because the IPC
+socket is reused. It is separate from the source transition gate; polling never takes
+that gate. No shared live-session lock spans IPC.
 Stop the managed terminal before OST/radio launch.
-Muting currently also stops it. `Radio` keeps Spotify selection separate from the
+Muting currently also stops it. `Radio.Spotify.cs` owns capability fallback and terminal
+opening, including rejection of late replies after a source change or shutdown.
+`Radio` keeps Spotify selection separate from the
 null-station OST case and ignores mismatched source metadata during transitions.
 See the [tour](../docs/src/tour/fun.md#spotify-proof-of-concept) for setup and limits.

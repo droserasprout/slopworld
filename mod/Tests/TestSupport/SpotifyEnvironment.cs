@@ -4,13 +4,12 @@ namespace SlopWorld
 {
     public static partial class Radio
     {
-        static bool _quit, _openingSpotify, _spotify, _muted, _blamed;
+        static bool _quit, _muted, _blamed;
         static object _station;
         static int _selectionRevision;
         static void Read() { }
         static void Save() { }
         static void Push() { _selectionRevision++; _openingSpotify = false; }
-        static bool SpotifyAvailable => true;
         internal static void ResetSpotifyTest()
         {
             _quit = _openingSpotify = _spotify = _muted = _blamed = false;

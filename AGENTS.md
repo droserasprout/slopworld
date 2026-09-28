@@ -30,7 +30,7 @@ It does not describe current behavior.
 
 ## Rust code guidelines
 
-Follow the patterns in the reviewed Rust files listed in `BIG_REVIEW.md`:
+Follow the patterns in the reviewed Rust files listed in `priv/BIG_REVIEW.md`:
 
 - Give each module one clear responsibility. Start with a short `//!` ownership summary;
   name neighboring owners where the boundary matters. Keep coordination separate from

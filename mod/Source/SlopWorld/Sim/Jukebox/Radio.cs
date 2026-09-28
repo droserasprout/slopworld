@@ -27,17 +27,9 @@ namespace SlopWorld
 
         // A null station selects the OST unless Spotify is selected.
         static Station _station;
-        static bool _spotify;
-        static bool _openingSpotify;
         static int _selectionRevision;
-        public static bool Spotify => _spotify;
         public const string OstSourceId = "ost";
-        public const string SpotifySourceId = "spotify";
 
-        // Keep Spotify available until the daemon reports its capabilities.
-        public static bool SpotifyAvailable => SessionHub.Instance == null
-            || !SessionHub.Instance.Capabilities.Known
-            || SessionHub.Instance.Capabilities.Ncspot;
         static bool _muted;
         static bool _stopOnExit;
 
@@ -183,20 +175,6 @@ namespace SlopWorld
                 if (id.Length > 0 && !result.Contains(id)) result.Add(id);
             }
             return result;
-        }
-
-        // Apply the daemon capability snapshot.
-        // Replace a saved Spotify selection with OST if the daemon does not support ncspot.
-        public static void CapabilitiesChanged()
-        {
-            if (_quit) return;
-            Read();
-            if (SpotifyAvailable || !_spotify) return;
-            _spotify = false;
-            _station = null;
-            _muted = false;
-            Save();
-            Push();
         }
 
         // Return the current track label, or null if playback is muted or unavailable.

@@ -100,9 +100,7 @@ impl Manager {
             tracing::error!("could not prune stale persisted grants: {error:#}");
         }
 
-        if let Ok(root) = super::ncspot::runtime() {
-            m.recover_ncspot(&root).await;
-        }
+        m.recover_music().await;
 
         m
     }

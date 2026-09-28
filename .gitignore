@@ -27,4 +27,5 @@ mod/Dependencies/obj/
 /bench/terminal-input/runs/
 /bench/results/
 
-BIG_REVIEW.md
+# Separate local developer repository.
+/priv/

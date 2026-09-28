@@ -27,12 +27,10 @@ pub(crate) async fn ncspot(
     State(m): State<Mgr>,
     super::super::protobuf::Proto(q): super::super::protobuf::Proto<wire::RedrawReq>,
 ) -> ApiResult<wire::SessionResult> {
-    let _transition = m.music.transition.lock().await;
     let session = m
-        .open_ncspot(
+        .open_spotify(
             q.cols.map(|n| n.clamp(1, u16::MAX as u32) as u16),
             q.rows.map(|n| n.clamp(1, u16::MAX as u32) as u16),
-            None,
         )
         .await
         .map_err(|e| super::super::err(axum::http::StatusCode::BAD_REQUEST, e))?;

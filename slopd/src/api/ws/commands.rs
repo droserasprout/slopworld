@@ -3,10 +3,9 @@
 
 use crate::grant::{Cap, Level};
 use crate::session::{Event, EventMessage};
-use anyhow::bail;
 
 use super::super::types::{
-    AudioReq, AudioSelection, BreadcrumbReq, ClientMsg, KeysReq, MouseReq, PasteReq, ResizeReq,
+    AudioReq, BreadcrumbReq, ClientMsg, KeysReq, MouseReq, PasteReq, ResizeReq,
 };
 use super::super::Mgr;
 use super::{send, WsSubs, WsTx};
@@ -168,73 +167,5 @@ pub(super) async fn handle_audio(
     if !cap.may_create() {
         return None;
     }
-    let spotify = req
-        .selection
-        .as_ref()
-        .and_then(Option::as_ref)
-        .is_some_and(|s| s.ncspot);
-    let _transition = m.music.transition.lock().await;
-    let result = match req.selection {
-        Some(Some(selection)) if selection.ncspot => {
-            if selection.station.is_some() || selection.stream.is_some() || selection.file.is_some()
-            {
-                Err(anyhow::anyhow!(
-                    "Select ncspot or another audio source, not both."
-                ))
-            } else {
-                m.open_ncspot(None, None, Some(req.volume))
-                    .await
-                    .map(|_| ())
-            }
-        }
-        Some(selection) => match m.stop_ncspot().await {
-            Err(e) => Err(e),
-            Ok(()) => match selection {
-                Some(s) => match resolve_audio_source(s) {
-                    Ok(source) => {
-                        m.music.audio.play(&source, req.volume);
-                        Ok(())
-                    }
-                    Err(e) => Err(e),
-                },
-                None => {
-                    m.music.audio.stop();
-                    Ok(())
-                }
-            },
-        },
-        None => m.music_volume(req.volume).await,
-    };
-    if let Err(e) = result {
-        let error = format!("{e:#}");
-        m.music.audio.reject(error.clone());
-        if spotify {
-            return Some(crate::audio::AudioState {
-                source: Some("ncspot".into()),
-                error: Some(error),
-                ..Default::default()
-            });
-        }
-    }
-    // Reply even when the player was already open and its broadcast state did not change.
-    // Launch and shutdown now use one ordered socket. No late HTTP launch can undo a stop.
-    if spotify {
-        Some(m.music_state().await)
-    } else {
-        None
-    }
-}
-
-pub(super) fn resolve_audio_source(selection: AudioSelection) -> anyhow::Result<String> {
-    anyhow::ensure!(
-        !selection.ncspot,
-        "The daemon does not decode audio from ncspot."
-    );
-    match (selection.station, selection.stream, selection.file) {
-        (Some(station), Some(stream), None) => crate::jukebox::catalog()
-            .resolve(&station, &stream)
-            .map_err(|e| anyhow::anyhow!("jukebox selection rejected: {e:#}")),
-        (None, None, Some(file)) => Ok(file),
-        _ => bail!("Select a station and stream, or select a file."),
-    }
+    m.select_music(req).await
 }

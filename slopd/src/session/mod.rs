@@ -25,7 +25,9 @@ mod view;
 
 mod manager;
 mod prompt;
-pub(crate) use manager::WorktreeRequest;
+#[cfg(test)]
+pub(crate) use manager::AudioSelection;
+pub(crate) use manager::{AudioReq, WorktreeRequest};
 
 #[cfg(test)]
 pub(crate) use agent_templates::validate_definition as validate_template_definition;

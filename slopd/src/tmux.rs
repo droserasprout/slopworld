@@ -472,37 +472,12 @@ impl Tmux {
         None
     }
 
-    pub(crate) async fn mark_ncspot(&self, name: &str) -> Result<()> {
-        self.run(&["set-option", "-t", name, "@slopworld_ncspot", "1"])
-            .await?;
+    pub(crate) async fn set_option(&self, name: &str, option: &str, value: &str) -> Result<()> {
+        self.run(&["set-option", "-t", name, option, value]).await?;
         Ok(())
     }
 
-    pub(crate) async fn is_ncspot(&self, name: &str) -> bool {
-        self.option(name, "@slopworld_ncspot").await.as_deref() == Some("1")
-    }
-
-    pub(crate) async fn ncspot_volume(&self, name: &str) -> Option<f32> {
-        self.option(name, "@slopworld_ncspot_volume")
-            .await?
-            .parse::<f32>()
-            .ok()
-            .filter(|volume| (0.0..=1.0).contains(volume))
-    }
-
-    pub(crate) async fn set_ncspot_volume(&self, name: &str, volume: f32) -> Result<()> {
-        self.run(&[
-            "set-option",
-            "-t",
-            name,
-            "@slopworld_ncspot_volume",
-            &volume.to_string(),
-        ])
-        .await?;
-        Ok(())
-    }
-
-    async fn option(&self, name: &str, option: &str) -> Option<String> {
+    pub(crate) async fn option(&self, name: &str, option: &str) -> Option<String> {
         self.run(&["show-options", "-qv", "-t", name, option])
             .await
             .ok()

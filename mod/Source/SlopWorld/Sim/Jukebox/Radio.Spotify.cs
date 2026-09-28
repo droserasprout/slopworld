@@ -2,6 +2,32 @@ namespace SlopWorld
 {
     public static partial class Radio
     {
+        // Spotify selection, capability fallback and terminal opening live here.
+        // Radio owns source transitions, persistence and the ordered audio connection.
+        static bool _spotify;
+        static bool _openingSpotify;
+        public static bool Spotify => _spotify;
+        public const string SpotifySourceId = "spotify";
+
+        // Keep Spotify available until the daemon reports its capabilities.
+        public static bool SpotifyAvailable => SessionHub.Instance == null
+            || !SessionHub.Instance.Capabilities.Known
+            || SessionHub.Instance.Capabilities.Ncspot;
+
+        // Apply the daemon capability snapshot.
+        // Replace a saved Spotify selection with OST if the daemon does not support ncspot.
+        public static void CapabilitiesChanged()
+        {
+            if (_quit) return;
+            Read();
+            if (SpotifyAvailable || !_spotify) return;
+            _spotify = false;
+            _station = null;
+            _muted = false;
+            Save();
+            Push();
+        }
+
         public static void OpenSpotify()
         {
             if (_quit || _openingSpotify) return;

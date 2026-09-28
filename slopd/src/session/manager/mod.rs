@@ -14,7 +14,6 @@ mod library;
 mod lifecycle;
 mod maintenance;
 mod music;
-pub(crate) mod ncspot;
 mod session_state;
 mod sessions;
 mod signals;
@@ -30,7 +29,10 @@ pub(crate) use agent_templates::TemplateStore;
 pub(crate) use caps::Authorization;
 use capture::CachedScroll;
 pub(crate) use config::ConfigState;
-pub(crate) use music::MusicState;
+pub(crate) use music::AudioReq;
+#[cfg(test)]
+pub(crate) use music::AudioSelection;
+use music::MusicState;
 pub(crate) use sessions::HostMetadataPoll;
 pub(crate) use signals::Signals;
 pub use signals::WatchGuard;
@@ -70,7 +72,7 @@ pub struct Manager {
     // Supporting services.
     pub(crate) tasks: TaskStore,
     pub(super) worktrees: WorktreeState,
-    pub(crate) music: MusicState,
+    music: MusicState,
 
     // Operation locks spanning multiple owners.
     // Shared for ordinary requests, exclusive for session identity and lifecycle changes.

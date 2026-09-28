@@ -1,13 +1,13 @@
 //! Native Linux proof of concept. ncspot owns Spotify credentials and playback.
 //! SlopWorld owns one host terminal and a private IPC runtime directory.
 //! It does not control other players owned by the user.
-use super::super::*;
+use crate::session::*;
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
 #[derive(Default)]
-pub(crate) struct Player {
+pub(super) struct Player {
     session: Option<String>,
     socket: Option<PathBuf>,
     volume: f32,
@@ -72,7 +72,7 @@ impl Manager {
         None
     }
 
-    pub(crate) async fn open_ncspot(
+    pub(super) async fn open_ncspot(
         self: &Arc<Self>,
         cols: Option<u16>,
         rows: Option<u16>,
@@ -148,7 +148,7 @@ impl Manager {
         Ok(session)
     }
 
-    pub(crate) async fn stop_ncspot(self: &Arc<Self>) -> Result<()> {
+    pub(super) async fn stop_ncspot(self: &Arc<Self>) -> Result<()> {
         let mut player = self.music.ncspot.lock().await;
         if player.session.is_none() {
             player.session = self.adopted_ncspot().await;
@@ -161,52 +161,74 @@ impl Manager {
         *player = Player::default();
         Ok(())
     }
+}
 
-    pub(crate) async fn music_volume(&self, volume: f32) -> Result<()> {
-        let mut player = self.music.ncspot.lock().await;
-        if player.session.is_some() {
-            player.volume = volume.clamp(0.0, 1.0);
-        } else {
-            self.music.audio.set_volume(volume);
+impl Player {
+    pub(super) fn set_volume(&mut self, volume: f32) -> bool {
+        if self.session.is_none() {
+            return false;
         }
-        Ok(())
+        self.volume = volume.clamp(0.0, 1.0);
+        true
     }
 
-    pub(crate) async fn music_state(&self) -> crate::audio::AudioState {
-        let mut player = self.music.ncspot.lock().await;
-        let Some(name) = player.session.as_ref() else {
-            return self.music.audio.state();
-        };
+    pub(super) async fn state(&mut self, manager: &Manager) -> Option<crate::audio::AudioState> {
+        let name = self.session.as_ref()?;
         let mut state = crate::audio::AudioState {
             source: Some("ncspot".into()),
             session: Some(name.clone()),
-            volume: player.volume,
+            volume: self.volume,
             ..Default::default()
         };
-        if !self.tmux.is_ncspot(name).await {
+        if !manager.tmux.is_ncspot(name).await {
             state.error = Some("ncspot exited. Open Spotify again to restart it.".into());
-            return state;
+            return Some(state);
         }
-        let Some(socket) = player.socket.as_ref() else {
-            return state;
+        let Some(socket) = self.socket.as_ref() else {
+            return Some(state);
         };
-        let volume = (player.applied_volume != Some(player.volume)).then_some(player.volume);
+        let volume = (self.applied_volume != Some(self.volume)).then_some(self.volume);
         match snapshot(socket, volume).await {
             Ok((playing, title)) => {
                 state.playing = playing;
                 state.title = title;
                 if volume.is_some() {
-                    if let Err(e) = self.tmux.set_ncspot_volume(name, player.volume).await {
+                    if let Err(e) = manager.tmux.set_ncspot_volume(name, self.volume).await {
                         tracing::warn!("could not remember ncspot volume: {e:#}");
                     }
                 }
-                player.applied_volume = Some(player.volume);
+                self.applied_volume = Some(self.volume);
             }
             // ncspot authenticates before creating its socket.
             // Keep the terminal usable during login. A missing socket does not indicate playback failure.
             Err(e) => tracing::debug!("ncspot IPC not ready: {e:#}"),
         }
-        state
+        Some(state)
+    }
+}
+
+impl crate::tmux::Tmux {
+    async fn mark_ncspot(&self, name: &str) -> Result<()> {
+        self.set_option(name, "@slopworld_ncspot", "1").await?;
+        Ok(())
+    }
+
+    async fn is_ncspot(&self, name: &str) -> bool {
+        self.option(name, "@slopworld_ncspot").await.as_deref() == Some("1")
+    }
+
+    async fn ncspot_volume(&self, name: &str) -> Option<f32> {
+        self.option(name, "@slopworld_ncspot_volume")
+            .await?
+            .parse::<f32>()
+            .ok()
+            .filter(|volume| (0.0..=1.0).contains(volume))
+    }
+
+    async fn set_ncspot_volume(&self, name: &str, volume: f32) -> Result<()> {
+        self.set_option(name, "@slopworld_ncspot_volume", &volume.to_string())
+            .await?;
+        Ok(())
     }
 }
 
