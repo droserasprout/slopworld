@@ -5,6 +5,32 @@ use super::*;
 use crate::clock::unix_ms;
 use crate::session::manager::session_state::TAIL_LINES;
 
+// Effects leave the live lock before any event publication or persistence.
+#[derive(Default)]
+struct FrameEffects {
+    screen: Option<ScreenView>,
+    activity: Option<(State, u64)>,
+    announce: bool,
+}
+
+enum FrameCommit {
+    Superseded,
+    Reclassify,
+    Applied(FrameEffects),
+}
+
+impl FrameDelta {
+    fn needs_commit(&self, previous: &FrameSnapshot) -> bool {
+        let cache_current = previous.rule_cache.as_ref().is_some_and(|cache| {
+            cache.revision == self.rules_revision
+                && cache.text.as_ref() == self.plain.as_ref()
+                && cache.matched == self.matched
+        });
+        // A cache refresh matters even when the screen and state are unchanged.
+        self.screen_changed || self.next_state != previous.state || self.bell || !cache_current
+    }
+}
+
 impl Manager {
     pub async fn screen(&self, name: &str) -> Option<ScreenView> {
         self.live.read().await.get(name)?.screen.clone()
@@ -25,6 +51,7 @@ impl Manager {
         let _perf = crate::perf::timer("frame");
         let started = crate::perf::enabled().then(std::time::Instant::now);
         let captured_at = crate::latency::enabled().then(crate::latency::now);
+        // Release the emulator lock before classification or publication can await.
         let frame = match emu.lock() {
             Ok(mut e) => e.render(),
             Err(_) => return,
@@ -41,8 +68,7 @@ impl Manager {
         }
     }
 
-    /// Derive all consequences of a frame before taking the write lock. This keeps frame
-    /// comparison and classification separate from live-state mutation and its side effects.
+    /// Compare and classify outside the live write lock; commit rechecks the snapshot.
     async fn frame_delta(&self, previous: &FrameSnapshot, frame: &Frame) -> FrameDelta {
         let content_hash = frame.content_hash;
         let meta = FrameMeta {
@@ -56,9 +82,7 @@ impl Manager {
         let content_changed = previous.initial || content_hash != previous.content_hash;
         let cursor_changed = !previous.initial && (frame.cx, frame.cy) != previous.cursor;
         let metadata_changed = !previous.initial && meta != previous.meta;
-        // Cursor position, shape, and blinking describe presentation rather than pane activity.
-        // Terminal applications can update these while otherwise idle.
-        // Counting those changes as activity would reset the idle clock without changes to terminal content.
+        // Cursor-only changes redraw the pane without resetting its activity clock.
         let activity_changed = previous.initial
             || frame.activity_hash != previous.activity_hash
             || meta.app_mouse != previous.meta.app_mouse
@@ -66,8 +90,6 @@ impl Manager {
             || meta.alt_screen != previous.meta.alt_screen
             || meta.title != previous.meta.title;
         let screen_changed = content_changed || cursor_changed || metadata_changed;
-        // Classify frames even if only the cursor, mode, or title changed.
-        // Reuse the previous normalized text because the visible text is unchanged.
         crate::perf::count(
             if content_changed {
                 "frame-content-changed"
@@ -76,6 +98,7 @@ impl Manager {
             },
             1,
         );
+        // Reuse normalized text for presentation-only changes, but still classify it.
         let plain = if content_changed {
             Arc::new(strip_sgr_tail(&frame.lines, TAIL_LINES))
         } else {
@@ -93,6 +116,7 @@ impl Manager {
                 previous.rule_cache.as_ref(),
             )
             .await;
+        // On adoption, keep the restored state unless a terminal rule matches.
         let next_state = if previous.initial {
             classification
                 .matched
@@ -126,125 +150,105 @@ impl Manager {
 
     async fn apply_frame_timed(&self, name: &str, frame: Frame, captured_at: Option<u64>) {
         loop {
-            let previous = {
-                let live = self.live.read().await;
-                let rules_revision = self
-                    .rules
-                    .revision
-                    .load(std::sync::atomic::Ordering::Acquire);
-                live.get(name)
-                    .map(|live| FrameSnapshot::from_live(live, rules_revision))
+            let Some(previous) = self.frame_snapshot(name).await else {
+                return;
             };
-
-            let Some(previous) = previous else { return };
             let delta = self.frame_delta(&previous, &frame).await;
-            let cache_current = previous.rule_cache.as_ref().is_some_and(|cache| {
-                cache.revision == delta.rules_revision
-                    && cache.text.as_ref() == delta.plain.as_ref()
-                    && cache.matched == delta.matched
-            });
-            if !delta.screen_changed
-                && delta.next_state == previous.state
-                && !delta.bell
-                && cache_current
-            {
+            if !delta.needs_commit(&previous) {
                 return;
             }
 
-            let mut dirty_list = false;
-            let mut activity = None;
-            let mut screen = None;
+            match self
+                .commit_frame(name, &previous, &frame, delta, captured_at)
+                .await
             {
-                let mut live = self.live.write().await;
-                let Some(l) = live.get_mut(name) else { return };
-                // Classification waits for the rules lock. The frame or process can change during that wait.
-                // Do not overwrite a newer frame or process with an old capture.
-                // State and rule changes require new classification.
-                // Preserve terminal output if the run and frame sequence still match.
-                if l.run_id != previous.run_id || l.seq != previous.seq {
+                FrameCommit::Superseded => return,
+                // Keep these terminal bytes; only their classification became stale.
+                FrameCommit::Reclassify => continue,
+                FrameCommit::Applied(effects) => {
+                    self.publish_frame_effects(name, effects).await;
                     return;
                 }
-                if l.state != previous.state {
-                    continue;
-                }
-                if self
-                    .rules
-                    .revision
-                    .load(std::sync::atomic::Ordering::Acquire)
-                    != delta.rules_revision
-                    || delta.rules_revision != previous.rules_revision
-                {
-                    continue;
-                }
+            }
+        }
+    }
 
-                if delta.screen_changed {
-                    l.hash = delta.content_hash;
-                    l.activity_hash = delta.activity_hash;
-                    l.seq += 1;
-                    if delta.activity_changed && !previous.initial {
-                        l.last_change = unix_ms();
-                    } else if previous.initial {
-                        // The first capture shows existing content. Preserve the cached state age.
-                        // Start a new activity timeout for working classification because a restart leaves no previous frame for comparison.
-                        l.last_change = if delta.next_state == State::Idle {
-                            0
-                        } else {
-                            unix_ms()
-                        };
-                    }
-                    let mut view = ScreenView::from_frame(
-                        FrameViewArgs {
-                            name,
-                            seq: l.seq,
-                            cols: previous.cols,
-                            rows: previous.rows,
-                            off: 0,
-                            history: frame.history,
-                            request_id: 0,
-                        },
-                        frame.clone(),
-                    );
-                    if let Some(at) = captured_at {
-                        view.input_timings = l.input.traces.capture(l.run_id, l.seq, at);
-                    }
-                    l.screen = Some(view.clone());
-                    screen = Some(view);
-                }
+    async fn frame_snapshot(&self, name: &str) -> Option<FrameSnapshot> {
+        let live = self.live.read().await;
+        let rules_revision = self
+            .rules
+            .revision
+            .load(std::sync::atomic::Ordering::Acquire);
+        live.get(name)
+            .map(|live| FrameSnapshot::from_live(live, rules_revision))
+    }
 
-                l.rule_cache = Some(RuleCache {
-                    revision: delta.rules_revision,
-                    text: delta.plain.clone(),
-                    matched: delta.matched,
-                });
-                if l.set_state(delta.next_state) {
-                    dirty_list = true;
-                    if !l.ephemeral {
-                        activity = Some((delta.next_state, l.state_since));
-                    }
-                }
-                if delta.title_moved {
-                    dirty_list = true;
-                }
-                if delta.bell && !l.bell {
-                    l.bell = true;
-                    dirty_list = true;
-                }
-                l.plain = delta.plain.clone();
-            }
+    /// Validate and mutate under one live lock, leaving all external effects to the caller.
+    async fn commit_frame(
+        &self,
+        name: &str,
+        previous: &FrameSnapshot,
+        frame: &Frame,
+        delta: FrameDelta,
+        captured_at: Option<u64>,
+    ) -> FrameCommit {
+        let mut live = self.live.write().await;
+        let Some(l) = live.get_mut(name) else {
+            return FrameCommit::Superseded;
+        };
+        // A newer run or frame makes this capture obsolete.
+        if l.run_id != previous.run_id || l.seq != previous.seq {
+            return FrameCommit::Superseded;
+        }
+        // State decay or a rule reload invalidates classification, not terminal output.
+        if l.state != previous.state
+            || self
+                .rules
+                .revision
+                .load(std::sync::atomic::Ordering::Acquire)
+                != delta.rules_revision
+            || delta.rules_revision != previous.rules_revision
+        {
+            return FrameCommit::Reclassify;
+        }
 
-            if let Some(screen) = screen {
-                crate::perf::count("frame-screen-events", 1);
-                self.emit(Event::Screen { screen });
+        let mut effects = FrameEffects::default();
+        if delta.screen_changed {
+            effects.screen = Some(commit_screen(l, name, previous, frame, &delta, captured_at));
+        }
+        l.rule_cache = Some(RuleCache {
+            revision: delta.rules_revision,
+            text: delta.plain.clone(),
+            matched: delta.matched,
+        });
+        if l.set_state(delta.next_state) {
+            effects.announce = true;
+            // Temporary sessions have no durable activity record.
+            if !l.ephemeral {
+                effects.activity = Some((delta.next_state, l.state_since));
             }
-            // Publish the frame before waiting for tmux's activity metadata round trip.
-            // The disk fallback uses its own ordered writer and never waits here for I/O.
-            if let Some((state, state_since)) = activity {
-                self.persist_activity(name, state, state_since).await;
-            }
-            if dirty_list {
-                self.announce_sessions().await;
-            }
-            return;
+        }
+        // Titles and newly latched bells must also reach inactive tabs.
+        effects.announce |= delta.title_moved;
+        if delta.bell && !l.bell {
+            l.bell = true;
+            effects.announce = true;
+        }
+        l.plain = delta.plain;
+        FrameCommit::Applied(effects)
+    }
+
+    async fn publish_frame_effects(&self, name: &str, effects: FrameEffects) {
+        if let Some(screen) = effects.screen {
+            crate::perf::count("frame-screen-events", 1);
+            self.emit(Event::Screen { screen });
+        }
+        // Publish the screen before awaiting tmux; disk fallback writes are queued.
+        if let Some((state, state_since)) = effects.activity {
+            self.persist_activity(name, state, state_since).await;
+        }
+        if effects.announce {
+            self.announce_sessions().await;
         }
     }
 
@@ -256,6 +260,7 @@ impl Manager {
     async fn mark_down_inner(self: &Arc<Self>, name: &str, reader_token: &Arc<()>) {
         let plan = {
             let mut live = self.live.write().await;
+            // The token prevents an old reader from detaching its replacement.
             self.detach_live_locked(
                 &mut live,
                 name,
@@ -268,4 +273,46 @@ impl Manager {
             self.execute_cleanup(plan).await;
         }
     }
+}
+
+/// Update presentation and activity clocks while the caller holds the live write lock.
+fn commit_screen(
+    live: &mut Live,
+    name: &str,
+    previous: &FrameSnapshot,
+    frame: &Frame,
+    delta: &FrameDelta,
+    captured_at: Option<u64>,
+) -> ScreenView {
+    live.hash = delta.content_hash;
+    live.activity_hash = delta.activity_hash;
+    live.seq += 1;
+    if delta.activity_changed && !previous.initial {
+        live.last_change = unix_ms();
+    } else if previous.initial {
+        // Start a fresh activity timeout without changing the restored state_since.
+        live.last_change = if delta.next_state == State::Idle {
+            0
+        } else {
+            unix_ms()
+        };
+    }
+    let mut view = ScreenView::from_frame(
+        FrameViewArgs {
+            name,
+            seq: live.seq,
+            cols: previous.cols,
+            rows: previous.rows,
+            off: 0,
+            history: frame.history,
+            request_id: 0,
+        },
+        frame.clone(),
+    );
+    if let Some(at) = captured_at {
+        // Associate input latency with the committed run and frame sequence.
+        view.input_timings = live.input.traces.capture(live.run_id, live.seq, at);
+    }
+    live.screen = Some(view.clone());
+    view
 }
