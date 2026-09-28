@@ -259,3 +259,82 @@ fn project_file_actions_expand_and_quote_the_absolute_path() {
     )
     .is_err());
 }
+
+async fn delivery_fixture() -> (
+    std::sync::Arc<Manager>,
+    tokio::sync::mpsc::UnboundedReceiver<Input>,
+) {
+    use crate::session::{Live, TitleCapture};
+    let manager = crate::session::test_manager(Config::default());
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let mut live = Live::new(
+        SessionCfg {
+            name: "worker".into(),
+            ..Default::default()
+        },
+        TitleCapture::default(),
+    );
+    live.ephemeral = true;
+    live.input.sender = Some(tx);
+    manager.live.write().await.insert("worker".into(), live);
+    let mut emu = crate::emu::SessionEmu::new(80, 24);
+    emu.feed(b"ready> ");
+    manager.apply_frame("worker", emu.render()).await;
+    (manager, rx)
+}
+
+async fn assert_prompt_submission(
+    rx: &mut tokio::sync::mpsc::UnboundedReceiver<Input>,
+    expected: &str,
+) {
+    let paste = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(paste, Input::Paste { bytes } if bytes == expected.as_bytes()));
+    let delay = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(delay, Input::Gap(duration) if duration == super::DELIVERY_ENTER_GAP));
+    let enter = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(enter, Input::Keys { keys, literal: false } if keys == ["Enter"]));
+    assert!(rx.try_recv().is_err(), "delivery must submit exactly once");
+}
+
+#[tokio::test]
+async fn worker_bootstrap_is_pasted_intact_then_submitted_once() {
+    let (manager, mut rx) = delivery_fixture().await;
+    let prompt = "Read the task and accept it.\nPreserve λ and literal {{ placeholders }}.";
+    manager.deliver("worker", prompt).await;
+    assert_prompt_submission(&mut rx, prompt).await;
+}
+
+#[tokio::test]
+async fn errand_renders_tips_before_paste_and_submission() {
+    let (manager, mut rx) = delivery_fixture().await;
+    manager.queue_errand_delivery(
+        "worker",
+        &LibraryItemCfg {
+            text: "{{ random_tip }}\n{{ random_tip }}".into(),
+            ..Default::default()
+        },
+        &crate::session::RunWhere {
+            random_tips: vec!["First context".into(), "Second context".into()],
+            ..Default::default()
+        },
+    );
+    assert_prompt_submission(&mut rx, "First context\nSecond context").await;
+}
+
+#[tokio::test]
+async fn stopped_or_missing_session_receives_no_prompt_or_enter() {
+    let (manager, mut rx) = delivery_fixture().await;
+    manager.live.write().await.get_mut("worker").unwrap().state = crate::session::State::Down;
+    manager.deliver("worker", "do not submit").await;
+    manager.deliver("missing", "do not submit").await;
+    assert!(rx.try_recv().is_err());
+}

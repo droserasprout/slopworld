@@ -170,9 +170,6 @@ struct LiveCapture {
 struct LiveInput {
     sender: Option<mpsc::UnboundedSender<Input>>,
     traces: crate::latency::Pending,
-    // Insert immediately before the first Enter after process startup.
-    breadcrumbs: Vec<u8>,
-    breadcrumbs_pending: bool,
     // Keep user keystrokes behind the pending startup auto-resume sequence.
     auto_resume_pending: bool,
 }

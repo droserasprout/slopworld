@@ -20,16 +20,14 @@ namespace SlopWorld
             if (_subs.Add(newName)) Sub(newName);
         }
         public void Resubscribe() { foreach (var name in _subs.ToList()) Sub(name); }
-        public void SendKeys(string name, IEnumerable<string> keys, bool literal) => SendKeys(name, keys, literal, null);
-        public void SendKeys(string name, IEnumerable<string> keys, bool literal, List<string> randomTips) =>
+        public void SendKeys(string name, IEnumerable<string> keys, bool literal) =>
             _send(new Wire.ClientMessage
             {
                 Keys = new Wire.KeysReq
                 {
                     Name = name,
                     Keys = { keys },
-                    Literal = literal,
-                    RandomTips = { randomTips ?? Enumerable.Empty<string>() }
+                    Literal = literal
                 }
             });
         public void RequestScroll(string name, int off, ulong requestId) =>

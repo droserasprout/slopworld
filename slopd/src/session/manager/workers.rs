@@ -150,7 +150,7 @@ impl Manager {
         let manager = self.clone();
         let name = session.name.clone();
         let bootstrap = cfg.daemon.instructions.worker_prompt.clone();
-        tokio::spawn(async move { manager.deliver(&name, &bootstrap, Vec::new()).await });
+        tokio::spawn(async move { manager.deliver(&name, &bootstrap).await });
         Ok(WorkerSpawn {
             task,
             session: session.name,

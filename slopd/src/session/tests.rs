@@ -429,6 +429,4 @@ fn new_live_starts_as_a_boot_placeholder() {
     assert!(live.capture.emu.is_none());
     assert!(live.capture.reader.is_none());
     assert!(live.input.sender.is_none());
-    assert!(live.input.breadcrumbs.is_empty());
-    assert!(!live.input.breadcrumbs_pending);
 }

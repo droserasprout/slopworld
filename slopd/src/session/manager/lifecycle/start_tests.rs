@@ -247,7 +247,6 @@ async fn host_start_rejects_duplicate_without_replacing_the_running_pane() {
     let mut row = Live::new(cfg.sessions[0].clone(), TitleCapture::default());
     row.host = true;
     row.run_id = 7;
-    row.input.breadcrumbs_pending = true;
     manager.live.write().await.insert("agent".into(), row);
     manager.cfg.write().await.sessions[0].cmd = Some("/bin/sleep 60".into());
 
@@ -259,7 +258,6 @@ async fn host_start_rejects_duplicate_without_replacing_the_running_pane() {
             assert!(row.run_id > 7);
             assert!(row.capture.reader.is_some());
             assert!(!row.input.auto_resume_pending);
-            assert!(!row.input.breadcrumbs_pending);
             row.run_id
         };
         let error = manager.start("agent").await.unwrap_err();

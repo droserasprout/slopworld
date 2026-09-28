@@ -48,81 +48,17 @@ async fn paste_queues_after_reader_attachment_before_first_frame() {
 }
 
 #[tokio::test]
-async fn enter_injects_breadcrumbs_once_between_preceding_keys_and_submission() {
+async fn ordinary_enter_and_literal_keys_pass_through_without_injected_input() {
     let (manager, mut rx) = queued_manager().await;
-    {
-        let mut live = manager.live.write().await;
-        let live = live.get_mut("target").unwrap();
-        live.input.breadcrumbs = b"remember {{ random_tip }}".to_vec();
-        live.input.breadcrumbs_pending = true;
-    }
-    manager
-        .send_keys(
-            "target",
-            vec!["Left".into(), "Enter".into(), "Right".into()],
-            false,
-            vec!["the tests".into()],
-        )
-        .await;
-    assert!(
-        matches!(rx.try_recv().unwrap(), Input::Keys { keys, literal: false } if keys == ["Left"])
-    );
-    assert!(
-        matches!(rx.try_recv().unwrap(), Input::Paste { bytes } if bytes == b"remember the tests")
-    );
-    assert!(matches!(rx.try_recv().unwrap(), Input::Gap(delay) if delay == ENTER_GAP));
-    assert!(
-        matches!(rx.try_recv().unwrap(), Input::Keys { keys, literal: false } if keys == ["Enter", "Right"])
-    );
-    assert!(rx.try_recv().is_err());
-    manager
-        .send_keys("target", vec!["Enter".into()], false, vec![])
-        .await;
-    assert!(matches!(rx.try_recv().unwrap(), Input::Keys { keys, .. } if keys == ["Enter"]));
-    assert!(rx.try_recv().is_err());
-    assert!(
-        !manager.live.read().await["target"]
-            .input
-            .breadcrumbs_pending
-    );
-}
-
-#[tokio::test]
-async fn literal_enter_and_other_keys_leave_breadcrumbs_pending() {
-    let (manager, mut rx) = queued_manager().await;
-    manager
-        .live
-        .write()
-        .await
-        .get_mut("target")
-        .unwrap()
-        .input
-        .breadcrumbs_pending = true;
-    for (key, literal) in [("Enter", true), ("Left", false)] {
-        manager
-            .send_keys("target", vec![key.into()], literal, vec![])
-            .await;
+    for literal in [false, true] {
+        let keys = vec!["Left".into(), "Enter".into(), "Right".into()];
+        manager.send_keys("target", keys.clone(), literal).await;
         assert!(
-            matches!(rx.try_recv().unwrap(), Input::Keys { keys, literal: actual } if keys == [key] && actual == literal)
+            matches!(rx.try_recv().unwrap(), Input::Keys { keys: actual, literal: mode }
+            if actual == keys && mode == literal)
         );
-        assert!(
-            manager.live.read().await["target"]
-                .input
-                .breadcrumbs_pending
-        );
+        assert!(rx.try_recv().is_err());
     }
-    // An empty pending breadcrumb is consumed without adding a paste or a delay.
-    manager
-        .send_keys("target", vec!["Enter".into()], false, vec![])
-        .await;
-    assert!(matches!(rx.try_recv().unwrap(), Input::Keys { .. }));
-    assert!(rx.try_recv().is_err());
-    assert!(
-        !manager.live.read().await["target"]
-            .input
-            .breadcrumbs_pending
-    );
-    assert!(manager.consume_breadcrumbs("missing", &[]).await.is_none());
 }
 
 #[tokio::test]

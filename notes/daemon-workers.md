@@ -22,6 +22,8 @@ Durable workers persist by default and remain available for inspection. One-shot
 normally disappear on exit. Existing tmux metadata can still permit adoption after redeployment.
 
 Removing a parent does not remove its children. Orphaned children become top-level rows.
-Every new worker receives the initial worker prompt.
+Every new worker receives the initial worker prompt through explicit paste-and-submit delivery.
+Prompt construction belongs to the caller; delivery waits for readiness, pastes the completed
+text, then queues a delay and Enter. It does not consume hidden pending breadcrumbs.
 
 Task completion and worker removal never commit or remove [project worktrees](daemon-worktrees.md).

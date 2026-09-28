@@ -61,9 +61,6 @@ impl Manager {
             live.entry(s.name.clone())
                 .and_modify(|l| {
                     l.cfg = s.clone();
-                    // Breadcrumb discovery belongs to the next process start.
-                    l.input.breadcrumbs_pending = false;
-                    l.input.breadcrumbs.clear();
                 })
                 .or_insert(Live::new(s.clone(), title));
         }
