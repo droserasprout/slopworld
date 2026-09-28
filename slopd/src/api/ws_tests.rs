@@ -655,15 +655,16 @@ async fn scroll_replies_keep_request_order_and_skip_missing_or_cancelled_capture
     });
     let cancelled = tokio::spawn(std::future::pending::<Option<ScreenView>>());
     cancelled.abort();
-    let mut pending = VecDeque::from([
+    let mut scrolls = ScrollReplies::new();
+    scrolls.pending = VecDeque::from([
         first,
         tokio::spawn(async { None }),
         cancelled,
         tokio::spawn(async { Some(screen("a", 2)) }),
     ]);
     release.send(()).unwrap();
-    assert!(flush_scrolls(&socket.tx, &Cap::Root, &mut pending).await);
-    assert!(pending.is_empty());
+    assert!(scrolls.flush(&socket.tx, &Cap::Root).await);
+    assert!(!scrolls.has_pending());
     for expected in [1, 2] {
         assert!(matches!(receive(&mut socket.client).await, P::Screen(s) if s.seq == expected));
     }
@@ -674,8 +675,26 @@ async fn scroll_replies_keep_request_order_and_skip_missing_or_cancelled_capture
     grant
         .revoked
         .store(true, std::sync::atomic::Ordering::Release);
-    pending.push_back(tokio::spawn(async { Some(screen("a", 3)) }));
-    assert!(!flush_scrolls(&socket.tx, &cap, &mut pending).await);
+    scrolls
+        .pending
+        .push_back(tokio::spawn(async { Some(screen("a", 3)) }));
+    assert!(!scrolls.flush(&socket.tx, &cap).await);
+}
+
+#[tokio::test]
+async fn dropping_scroll_replies_cancels_pending_captures() {
+    let mut scrolls = ScrollReplies::new();
+    let task = tokio::spawn(std::future::pending::<Option<ScreenView>>());
+    let handle = task.abort_handle();
+    scrolls.pending.push_back(task);
+    drop(scrolls);
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while !handle.is_finished() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
 }
 
 #[tokio::test]
