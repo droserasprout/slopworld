@@ -128,12 +128,7 @@ message SessionView {
   optional string cmd = 7;
   repeated string sandbox = 8;
   bool persistent_tmp = 9;
-  bool auto_resume_pending = 10;
   string agent = 11;
-  string state = 12;
-  bool alive = 13;
-  uint32 cols = 14;
-  uint32 rows = 15;
   string network = 16;
   DnsConfig dns = 17;
   Limits limits = 18;
@@ -146,21 +141,35 @@ message SessionView {
   bool durable = 25;
   bool ephemeral = 26;
   bool host = 27;
-  bool process_running = 28;
-  uint64 last_change = 29;
-  uint64 state_since = 30;
-  string title = 31;
-  bool bell = 32;
-  uint64 run_id = 33;
-  uint64 seq = 34;
   string worktree = 35;
   string worktree_name = 36;
   string intent = 37;
-  string reader_path = 38;
-  string reader_key = 39;
-  string reader_scope = 40;
-  bool reader_pinned = 41;
-  uint32 reader_line = 42;
+  reserved 10, 12 to 15, 28 to 34, 38 to 42;
+  SessionReaderView reader = 43;
+  SessionRuntimeView runtime = 44;
+}
+
+message SessionReaderView {
+  string path = 1;
+  string key = 2;
+  string scope = 3;
+  bool pinned = 4;
+  uint32 line = 5;
+}
+
+message SessionRuntimeView {
+  bool auto_resume_pending = 1;
+  string state = 2;
+  bool alive = 3;
+  uint32 cols = 4;
+  uint32 rows = 5;
+  bool process_running = 6;
+  uint64 last_change = 7;
+  uint64 state_since = 8;
+  string title = 9;
+  bool bell = 10;
+  uint64 run_id = 11;
+  uint64 seq = 12;
 }
 
 // Diagnostic timestamps use the daemon monotonic clock, never the client clock.

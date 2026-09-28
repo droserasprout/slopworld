@@ -27,7 +27,7 @@ namespace SlopWorld.Tests
             public void SendBinary(byte[] payload) => Sent.Add(Wire.ClientMessage.Parser.ParseFrom(payload));
             public void Dispose() { Disposals++; Connected = false; Incoming.Close(); }
             public void Enqueue(ulong id) => Incoming.Enqueue(new Wire.Event {
-                Sessions = new Wire.SessionsReply { Sessions = { new Wire.SessionView { Seq = id } } }
+                Sessions = new Wire.SessionsReply { Sessions = { new Wire.SessionView { Runtime = new Wire.SessionRuntimeView { Seq = id } } } }
             }.ToByteArray());
         }
 
@@ -189,7 +189,7 @@ namespace SlopWorld.Tests
             var delivered = new List<ulong>();
             env.Hub.OnMessage = ev =>
             {
-                ulong id = ev.Sessions.Sessions[0].Seq;
+                ulong id = ev.Sessions.Sessions[0].Runtime.Seq;
                 delivered.Add(id);
                 if (id == 1) throw new InvalidOperationException("consumer failed");
             };
@@ -214,7 +214,7 @@ namespace SlopWorld.Tests
             var delivered = new List<ulong>();
             env.Hub.OnMessage = ev =>
             {
-                ulong id = ev.Sessions.Sessions[0].Seq;
+                ulong id = ev.Sessions.Sessions[0].Runtime.Seq;
                 delivered.Add(id);
                 if (id == 1)
                 {

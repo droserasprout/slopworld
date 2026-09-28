@@ -11,7 +11,7 @@ namespace SlopWorld.Tests
         {
             var reply = new Wire.SessionsReply();
             foreach (var (name, alive) in sessions)
-                reply.Sessions.Add(new Wire.SessionView { Name = name, Alive = alive });
+                reply.Sessions.Add(new Wire.SessionView { Name = name, Reader = new Wire.SessionReaderView(), Runtime = new Wire.SessionRuntimeView { Alive = alive } });
             return reply;
         }
 

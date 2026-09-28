@@ -479,11 +479,11 @@ async fn views_keep_host_paths_and_sort_by_session_name() {
         ["agent", "z-shell"]
     );
     assert_eq!(views[0].label, "Agent label");
-    assert_eq!(views[0].state, State::Working);
-    assert_eq!(views[0].seq, 4);
+    assert_eq!(views[0].runtime.state, State::Working);
+    assert_eq!(views[0].runtime.seq, 4);
     assert_eq!(views[1].dir, "/tmp/host-cwd");
     assert!(views[1].host && views[1].ephemeral);
-    assert!(views[1].process_running);
+    assert!(views[1].runtime.process_running);
 }
 
 #[test]

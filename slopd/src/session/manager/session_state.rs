@@ -133,11 +133,13 @@ impl Manager {
                     name: l.cfg.name.clone(),
                     label: l.cfg.label.clone().unwrap_or_default(),
                     intent: l.cfg.intent.clone(),
-                    reader_path: l.cfg.reader_path.clone(),
-                    reader_key: l.cfg.reader_key.clone(),
-                    reader_scope: l.cfg.reader_scope.clone(),
-                    reader_pinned: l.cfg.reader_pinned,
-                    reader_line: l.cfg.reader_line,
+                    reader: SessionReaderView {
+                        path: l.cfg.reader_path.clone(),
+                        key: l.cfg.reader_key.clone(),
+                        scope: l.cfg.reader_scope.clone(),
+                        pinned: l.cfg.reader_pinned,
+                        line: l.cfg.reader_line,
+                    },
                     project: display_project,
                     dir: if l.host && !l.host_path.trim().is_empty() {
                         l.host_path.clone()
@@ -170,27 +172,29 @@ impl Manager {
                         task_id: l.cfg.task_id.clone(),
                         durable: l.cfg.worker && !l.ephemeral,
                     },
-                    auto_resume_pending: l.input.auto_resume_pending,
-                    state: l.state,
-                    alive: l.state != State::Down,
-                    cols: l.cols,
-                    rows: l.rows,
                     ephemeral: l.ephemeral,
                     host: l.host,
-                    process_running: l.process_running,
-                    last_change: l.last_change,
-                    state_since: l.state_since,
-                    title: l
-                        .cfg
-                        .label
-                        .clone()
-                        .filter(|label| !label.trim().is_empty())
-                        .or_else(|| l.title.override_title.clone())
-                        .or_else(|| l.screen.as_ref().map(|s| s.title.clone()))
-                        .unwrap_or_default(),
-                    bell: l.bell,
-                    run_id: l.run_id,
-                    seq: l.seq,
+                    runtime: SessionRuntimeView {
+                        auto_resume_pending: l.input.auto_resume_pending,
+                        state: l.state,
+                        alive: l.state != State::Down,
+                        cols: l.cols,
+                        rows: l.rows,
+                        process_running: l.process_running,
+                        last_change: l.last_change,
+                        state_since: l.state_since,
+                        title: l
+                            .cfg
+                            .label
+                            .clone()
+                            .filter(|label| !label.trim().is_empty())
+                            .or_else(|| l.title.override_title.clone())
+                            .or_else(|| l.screen.as_ref().map(|s| s.title.clone()))
+                            .unwrap_or_default(),
+                        bell: l.bell,
+                        run_id: l.run_id,
+                        seq: l.seq,
+                    },
                 }
             })
             .collect();
