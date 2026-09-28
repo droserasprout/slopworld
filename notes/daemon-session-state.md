@@ -83,6 +83,10 @@ Subscription changes remain pending while readers wait for rendering.
 Watched output uses the last draw as its 16 ms rate limit. Output after an idle
 period can capture immediately; output arriving within that interval waits only
 until the next allowed draw. Unwatched output retains the 200 ms render limit.
+After a viewport clear, watched readers allow a short quiet interval for replacement
+rows before capture, capped for continuous output. Pager horizontal redraws can span
+several tmux output records; publishing between the clear and those rows flashes a
+partial screen. Subscription and clipboard wakes preserve that interval.
 Daemon maintenance uses independent monotonic deadlines for configuration, presets, jukebox, host metadata, and idle classification.
 
 Tmux answers terminal queries.

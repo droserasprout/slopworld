@@ -17,7 +17,7 @@ enum TitleCaptureAction {
 }
 
 enum ControlLine {
-    Output,
+    Output { redraw_clear: bool },
     Exit,
     Ignore,
 }

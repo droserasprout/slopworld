@@ -12,6 +12,10 @@ use anyhow::anyhow;
 
 // Limit watched terminal redraws to roughly one per display frame.
 const FAST_TICK: Duration = Duration::from_millis(16);
+// less redraws a horizontally shifted page in several tmux output records. Give
+// the replacement rows a short quiet interval, but keep continuous output bounded.
+const REDRAW_QUIET: Duration = Duration::from_millis(3);
+const REDRAW_LIMIT: Duration = Duration::from_millis(32);
 // Capture unwatched panes less often while still tracking activity.
 const SLOW_TICK: Duration = Duration::from_millis(200);
 
@@ -22,6 +26,7 @@ struct DrawSchedule {
     dirty: bool,
     last_drawn: Option<Instant>,
     deadline: Option<Instant>,
+    redraw_started: Option<Instant>,
 }
 
 // A watched clean pane may need clipboard delivery without a redraw.
@@ -33,7 +38,7 @@ enum TickAction {
 }
 
 impl DrawSchedule {
-    fn output(&mut self, now: Instant, watched: bool) {
+    fn output(&mut self, now: Instant, watched: bool, redraw_clear: bool) {
         self.dirty = true;
         let deadline = if watched {
             self.last_drawn
@@ -48,13 +53,28 @@ impl DrawSchedule {
             self.deadline
                 .map_or(deadline, |pending| pending.min(deadline)),
         );
+        if watched {
+            if redraw_clear && self.redraw_started.is_none() {
+                self.redraw_started = Some(now);
+            }
+            if let Some(started) = self.redraw_started {
+                let settled = (now + REDRAW_QUIET).min(started + REDRAW_LIMIT);
+                self.deadline = self.deadline.map(|pending| pending.max(settled));
+            }
+        }
     }
 
     fn wake(&mut self, now: Instant, watched: bool) {
         if watched {
-            self.deadline = Some(now);
+            // A subscription or clipboard wake must not expose a pager's clear
+            // before its replacement rows have reached the mirror.
+            self.deadline = Some(if self.dirty && self.redraw_started.is_some() {
+                self.deadline.map_or(now, |pending| pending.max(now))
+            } else {
+                now
+            });
         } else if self.dirty {
-            self.output(now, false);
+            self.output(now, false, false);
         }
     }
 
@@ -74,6 +94,7 @@ impl DrawSchedule {
             self.dirty = false;
             self.last_drawn = Some(now);
             self.deadline = None;
+            self.redraw_started = None;
             TickAction::Render { clipboard: watched }
         } else {
             self.deadline = self.last_drawn.map(|last| last + SLOW_TICK);
@@ -152,8 +173,13 @@ fn handle_control_line(emu: &Mutex<SessionEmu>, line: &[u8]) -> ControlLine {
     if let Some(bytes) = parse_output(line) {
         if let Ok(mut e) = emu.lock() {
             e.feed(&bytes);
+            return ControlLine::Output {
+                redraw_clear: e.take_redraw_clear(),
+            };
         }
-        ControlLine::Output
+        ControlLine::Output {
+            redraw_clear: false,
+        }
     } else if line.starts_with(b"%exit") {
         ControlLine::Exit
     } else {
@@ -169,7 +195,9 @@ fn process_control_line(
     watched: bool,
 ) -> bool {
     match handle_control_line(emu, line) {
-        ControlLine::Output => schedule.output(Instant::now(), watched),
+        ControlLine::Output { redraw_clear } => {
+            schedule.output(Instant::now(), watched, redraw_clear)
+        }
         ControlLine::Exit => return false,
         ControlLine::Ignore => {}
     }

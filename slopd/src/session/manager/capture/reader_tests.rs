@@ -18,10 +18,12 @@ async fn due_output_reaches_the_screen_for_watched_and_unwatched_panes() {
         let mut schedule = DrawSchedule::default();
         assert!(matches!(
             handle_control_line(&emu, b"%output %1 hello"),
-            ControlLine::Output
+            ControlLine::Output {
+                redraw_clear: false
+            }
         ));
         let now = Instant::now();
-        schedule.output(now, watched);
+        schedule.output(now, watched, false);
         let action = schedule.fire(now + FAST_TICK, watched);
         assert_eq!(action, TickAction::Render { clipboard: watched });
         manager
@@ -56,7 +58,7 @@ async fn subscription_during_render_leaves_a_clean_tick_pending_for_each_reader(
     let mut other_reader = manager.signals.watchers_changed.subscribe();
     let mut schedule = DrawSchedule::default();
     let now = Instant::now();
-    schedule.output(now, false);
+    schedule.output(now, false, false);
     let action = schedule.fire(now + FAST_TICK, false);
     assert_eq!(action, TickAction::Render { clipboard: false });
     let clipboard = ClipboardPump::default();
@@ -99,19 +101,70 @@ fn continuous_output_does_not_postpone_the_first_draw() {
     for watched in [false, true] {
         let now = Instant::now();
         let mut schedule = DrawSchedule::default();
-        schedule.output(now, watched);
+        schedule.output(now, watched, false);
         for millis in 1..32 {
-            schedule.output(now + Duration::from_millis(millis), watched);
+            schedule.output(now + Duration::from_millis(millis), watched, false);
             assert_eq!(schedule.deadline(), Some(now + FAST_TICK));
         }
     }
 }
 
 #[test]
+fn pager_clear_waits_for_replacement_rows_without_stalling_a_stream() {
+    let now = Instant::now();
+    let mut schedule = DrawSchedule::default();
+    schedule.output(now, true, false);
+    assert_eq!(
+        schedule.fire(now + FAST_TICK, true),
+        TickAction::Render { clipboard: true }
+    );
+
+    let clear = now + Duration::from_millis(100);
+    schedule.output(clear, true, true);
+    assert_eq!(schedule.deadline(), Some(clear + REDRAW_QUIET));
+    schedule.wake(clear + Duration::from_millis(1), true);
+    assert_eq!(schedule.deadline(), Some(clear + REDRAW_QUIET));
+    let next = clear + Duration::from_millis(1);
+    schedule.output(next, true, false);
+    assert_eq!(schedule.deadline(), Some(next + REDRAW_QUIET));
+
+    for millis in 2..32 {
+        schedule.output(clear + Duration::from_millis(millis), true, false);
+    }
+    assert_eq!(schedule.deadline(), Some(clear + REDRAW_LIMIT));
+    assert_eq!(
+        schedule.fire(clear + REDRAW_LIMIT, true),
+        TickAction::Render { clipboard: true }
+    );
+    assert_eq!(schedule.deadline(), None);
+}
+
+#[test]
+fn control_reader_recognizes_a_pager_clear_split_across_output_records() {
+    let emu = Mutex::new(SessionEmu::new(80, 24));
+    assert!(matches!(
+        handle_control_line(&emu, b"%output %1 \\033[H\\033["),
+        ControlLine::Output {
+            redraw_clear: false
+        }
+    ));
+    assert!(matches!(
+        handle_control_line(&emu, b"%output %1 Jfirst row"),
+        ControlLine::Output { redraw_clear: true }
+    ));
+    assert!(matches!(
+        handle_control_line(&emu, b"%output %1 second row"),
+        ControlLine::Output {
+            redraw_clear: false
+        }
+    ));
+}
+
+#[test]
 fn watched_output_uses_the_existing_draw_beat() {
     let now = Instant::now();
     let mut schedule = DrawSchedule::default();
-    schedule.output(now, true);
+    schedule.output(now, true, false);
     assert_eq!(schedule.deadline(), Some(now + FAST_TICK));
     assert_eq!(
         schedule.fire(now + FAST_TICK, true),
@@ -120,7 +173,7 @@ fn watched_output_uses_the_existing_draw_beat() {
 
     // Output arriving near the next beat should not start a fresh 16 ms wait.
     let nearly_due = now + FAST_TICK + Duration::from_millis(14);
-    schedule.output(nearly_due, true);
+    schedule.output(nearly_due, true, false);
     assert_eq!(schedule.deadline(), Some(now + FAST_TICK * 2));
     assert_eq!(
         schedule.fire(now + FAST_TICK * 2, true),
@@ -129,7 +182,7 @@ fn watched_output_uses_the_existing_draw_beat() {
 
     // A quiet pane is ready for an immediate capture without a recurring timer.
     let after_idle = now + Duration::from_millis(100);
-    schedule.output(after_idle, true);
+    schedule.output(after_idle, true, false);
     assert_eq!(schedule.deadline(), Some(after_idle));
     assert_eq!(
         schedule.fire(after_idle, true),
@@ -144,7 +197,7 @@ fn clean_reader_has_no_recurring_deadline() {
     let mut schedule = DrawSchedule::default();
     assert_eq!(schedule.deadline(), None);
 
-    schedule.output(now, false);
+    schedule.output(now, false, false);
     assert_eq!(schedule.deadline(), Some(now + FAST_TICK));
     assert_eq!(
         schedule.fire(now + FAST_TICK, false),
@@ -157,14 +210,14 @@ fn clean_reader_has_no_recurring_deadline() {
 fn unwatched_output_keeps_the_render_limit_without_polling_clean_panes() {
     let now = Instant::now();
     let mut schedule = DrawSchedule::default();
-    schedule.output(now, false);
+    schedule.output(now, false, false);
     assert_eq!(
         schedule.fire(now + FAST_TICK, false),
         TickAction::Render { clipboard: false }
     );
 
     let next = now + Duration::from_millis(20);
-    schedule.output(next, false);
+    schedule.output(next, false, false);
     assert_eq!(schedule.deadline(), Some(now + FAST_TICK + SLOW_TICK));
     assert_eq!(
         schedule.fire(now + Duration::from_millis(100), false),
@@ -185,7 +238,7 @@ fn a_new_subscription_wakes_dirty_or_pending_work() {
     schedule.wake(now, true);
     assert_eq!(schedule.fire(now, true), TickAction::ClipboardOnly);
 
-    schedule.output(now, false);
+    schedule.output(now, false, false);
     schedule.wake(now + Duration::from_millis(1), true);
     assert_eq!(schedule.deadline(), Some(now + Duration::from_millis(1)));
     assert_eq!(
@@ -198,7 +251,7 @@ fn a_new_subscription_wakes_dirty_or_pending_work() {
 fn rendering_consumes_output_but_clipboard_wakes_do_not_advance_draw_time() {
     let now = Instant::now();
     let mut schedule = DrawSchedule::default();
-    schedule.output(now, true);
+    schedule.output(now, true, false);
     assert_eq!(
         schedule.fire(now + FAST_TICK, true),
         TickAction::Render { clipboard: true }
