@@ -16,11 +16,87 @@ use crate::session::{AuthChange, Event, EventMessage, ScreenView, WatchGuard};
 
 use super::types::{
     AudioReq, AudioSelection, BreadcrumbReq, ClientMsg, KeysReq, MouseReq, PasteReq, ResizeReq,
+    ScrollReq,
 };
 use super::{err, presented_token, Mgr};
 
 type WsTx = Arc<Mutex<futures::stream::SplitSink<WebSocket, Message>>>;
 type WsSubs = Arc<Mutex<HashMap<String, WatchGuard>>>;
+
+/// Owns bounded scroll captures and their ordered replies for one connection.
+struct ScrollReplies {
+    slots: Arc<Semaphore>,
+    pending: VecDeque<JoinHandle<Option<ScreenView>>>,
+}
+
+impl ScrollReplies {
+    fn new() -> Self {
+        Self {
+            slots: Arc::new(Semaphore::new(4)),
+            pending: VecDeque::new(),
+        }
+    }
+
+    fn enqueue(&mut self, req: ScrollReq, m: &Mgr, cap: &Cap) {
+        let Ok(permit) = self.slots.clone().try_acquire_owned() else {
+            return;
+        };
+        let manager = m.clone();
+        let cap = cap.clone();
+        self.pending.push_back(tokio::spawn(async move {
+            let _permit = permit;
+            manager
+                .session_read_operation(async {
+                    if !manager.cap_ok(&cap, &req.name, Level::Ro).await {
+                        return None;
+                    }
+                    manager
+                        .scroll_capture(&req.name, req.off, req.request_id)
+                        .await
+                })
+                .await
+        }));
+    }
+
+    fn has_pending(&self) -> bool {
+        !self.pending.is_empty()
+    }
+
+    async fn send_next(&mut self, tx: &WsTx, cap: &Cap) -> bool {
+        let Some(task) = self.pending.front_mut() else {
+            return true;
+        };
+        let result = task.await;
+        self.pending.pop_front();
+        match result {
+            Ok(Some(screen)) => send(tx, cap, &EventMessage::new(Event::Screen { screen }))
+                .await
+                .is_ok(),
+            Ok(None) => true,
+            Err(error) => {
+                tracing::debug!("scroll task ended: {error}");
+                true
+            }
+        }
+    }
+
+    async fn flush(&mut self, tx: &WsTx, cap: &Cap) -> bool {
+        while self.has_pending() {
+            if !self.send_next(tx, cap).await {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+impl Drop for ScrollReplies {
+    fn drop(&mut self) {
+        for task in &self.pending {
+            task.abort();
+        }
+    }
+}
 
 pub(super) async fn ws_upgrade(
     State(m): State<Mgr>,
@@ -115,8 +191,7 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
     // Scrollback snapshots can take time for large panes.
     // Limit concurrent captures without blocking receipt of keys, resize commands, or later wheel requests.
     // Return results in request order.
-    let scroll_slots = Arc::new(Semaphore::new(4));
-    let mut pending_scrolls: VecDeque<JoinHandle<Option<ScreenView>>> = VecDeque::new();
+    let mut scrolls = ScrollReplies::new();
 
     loop {
         tokio::select! {
@@ -124,21 +199,8 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
             invalidated = auth_invalidated(&mut auth_changes, &cap) => {
                 if invalidated { break; }
             }
-            result = async {
-                match pending_scrolls.front_mut() {
-                    Some(task) => Some(task.await),
-                    None => std::future::pending().await,
-                }
-            } => {
-                let Some(result) = result else { unreachable!() };
-                pending_scrolls.pop_front();
-                match result {
-                    Ok(Some(screen)) => {
-                        if send(&tx, &cap, &EventMessage::new(Event::Screen { screen })).await.is_err() { break; }
-                    }
-                    Ok(None) => {}
-                    Err(error) => tracing::debug!("scroll task ended: {error}"),
-                }
+            sent = scrolls.send_next(&tx, &cap), if scrolls.has_pending() => {
+                if !sent { break; }
             }
             msg = rx.next() => {
                 let Some(Ok(msg)) = msg else { break };
@@ -149,33 +211,17 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
                 };
 
                 if let ClientMsg::Scroll(req) = cm {
-                    let permit = match scroll_slots.clone().try_acquire_owned() {
-                        Ok(permit) => permit,
-                        Err(_) => continue,
-                    };
-                    let manager = m.clone();
-                    let cap = cap.clone();
-                    pending_scrolls.push_back(tokio::spawn(async move {
-                        let _permit = permit;
-                        manager.session_read_operation(async {
-                            if !manager.cap_ok(&cap, &req.name, Level::Ro).await { return None; }
-                            manager.scroll_capture(&req.name, req.off, req.request_id).await
-                        }).await
-                    }));
+                    scrolls.enqueue(req, &m, &cap);
                     continue;
                 }
 
                 // `Sub` can answer immediately with a screen. Drain older scroll responses first
                 // so direct responses retain the same order as the incoming commands.
                 if matches!(&cm, ClientMsg::Sub { .. })
-                    && !flush_scrolls(&tx, &cap, &mut pending_scrolls).await { break; }
+                    && !scrolls.flush(&tx, &cap).await { break; }
                 if !handle_client_msg(cm, &m, &cap, &tx, &subs).await { break; }
             }
         }
-    }
-
-    for pending in pending_scrolls {
-        pending.abort();
     }
 
     // Clear subscriptions immediately because the frame task also owns this Arc.
@@ -601,28 +647,6 @@ async fn send(tx: &WsTx, cap: &Cap, ev: &EventMessage) -> Result<(), axum::Error
         );
     }
     result
-}
-
-async fn flush_scrolls(
-    tx: &WsTx,
-    cap: &Cap,
-    pending: &mut VecDeque<JoinHandle<Option<ScreenView>>>,
-) -> bool {
-    while let Some(task) = pending.pop_front() {
-        match task.await {
-            Ok(Some(screen)) => {
-                if send(tx, cap, &EventMessage::new(Event::Screen { screen }))
-                    .await
-                    .is_err()
-                {
-                    return false;
-                }
-            }
-            Ok(None) => {}
-            Err(error) => tracing::debug!("scroll task ended: {error}"),
-        }
-    }
-    true
 }
 
 #[cfg(test)]
