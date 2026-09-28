@@ -42,6 +42,9 @@ A CHA immediately after a wide glyph supplies its occupied end, including at the
 
 Live screens may coalesce.
 History, request replies, and control events preserve ordering.
+`api/ws.rs` owns connection lifetime and subscriptions; `api/ws/commands.rs` dispatches
+authorized commands, and `api/ws/outbound.rs` owns scoped snapshots, frame coalescing,
+and serialized writes. Snapshot and frame delivery stop on send failure.
 The WebSocket connection's `ScrollReplies` owns the bounded scroll captures, sends their replies in request order, and cancels pending captures on disconnect.
 The per-client screen pump uses an 8 ms coalescing interval; capture has a
 separate 16 ms rate limit.
