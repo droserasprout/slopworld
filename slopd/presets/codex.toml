@@ -22,5 +22,6 @@ env = [
 name = "codex"
 kind = "agent"
 description = "OpenAI Codex CLI"
-cmd = "codex --yolo -c tui.fullscreen_transcript=false"
+# SlopWorld owns the session lifecycle; explicitly keep Codex in embedded mode.
+cmd = "codex --no-daemon --yolo -c tui.fullscreen_transcript=false"
 sandbox = ["codex"]
