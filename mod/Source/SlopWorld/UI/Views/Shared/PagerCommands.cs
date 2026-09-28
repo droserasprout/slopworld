@@ -6,6 +6,7 @@ namespace SlopWorld
 {
     public static class PagerCommands
     {
+        const string LessScrollOptions = "--shift=1 --wheel-lines=1";
         public static string RelativeFilePath(string root, string path)
         {
             if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(path)) return path;
@@ -88,8 +89,8 @@ namespace SlopWorld
             switch (Path.GetFileName(Executable(command, "less")))
             {
                 case "bat":
-                    return BatOptions(command, "--style=plain --decorations=never --color=never --language=txt --strip-ansi=never");
-                case "less": return Options(command, "-+N -S");
+                    return BatOptions(command, "--style=plain --decorations=never --color=never --language=txt --strip-ansi=never --wrap=never");
+                case "less": return Options(command, "-+N -S " + LessScrollOptions);
                 default: return command;
             }
         }
@@ -100,8 +101,8 @@ namespace SlopWorld
             string command = App(pager, "less");
             switch (Path.GetFileName(Executable(command, "less")))
             {
-                case "bat": return BatOptions(command, lineNumbers ? "--style=numbers --decorations=always" : "--style=plain --decorations=never");
-                case "less": return Options(command, lineNumbers ? "-N" : "-+N");
+                case "bat": return BatOptions(command, (lineNumbers ? "--style=numbers --decorations=always" : "--style=plain --decorations=never") + " --wrap=never");
+                case "less": return Options(command, (lineNumbers ? "-N" : "-+N") + " " + LessScrollOptions);
                 default: return command;
             }
         }
@@ -117,24 +118,33 @@ namespace SlopWorld
         static string BatOptions(string command, string options)
         {
             command = Options(command, options);
-            // bat launches its own less and replaces LESS, so the file reader's
-            // environment alone cannot prevent a long emoji line from wrapping.
+            // bat can wrap before it starts less. Disable both wrap stages, since
+            // less and tmux can disagree about the width of joined emoji.
             if (!Regex.IsMatch(command, @"(?:^|\s)--pager(?:=|\s)"))
-                command = Options(command, "--pager " + Quote("less -RS"));
+                command = Options(command, "--pager " + Quote("less -RS " + LessScrollOptions));
             return command;
         }
 
-        static readonly Regex DeltaPagerPrefix = new Regex(@"^env DELTA_PAGER='(?:[^']|'\\'')*' ");
+        static readonly Regex DeltaPagerPrefix = new Regex(@"^env (?:BAT_THEME='(?:[^']|'\\'')*' )?DELTA_PAGER='(?:[^']|'\\'')*' ");
         static readonly Regex DeltaNumbersPrefix = new Regex(@"^git -c delta\.line-numbers=(?:true|false) ");
+        static readonly Regex DeltaBatStylePrefix = new Regex(@"^git -c delta\.minus-style='syntax auto' ");
 
         // Replace our launch overrides when recovering or restarting a diff session.
-        public static string DiffCommand(string command, string pager, bool lineNumbers = true)
+        // A non-null batTheme means bat is the selected highlighter; an empty value
+        // keeps bat's and delta's respective command defaults.
+        public static string DiffCommand(string command, string pager, bool lineNumbers = true, string batTheme = null)
         {
             string git = DeltaPagerPrefix.Replace(command ?? "", "", 1);
             git = DeltaNumbersPrefix.Replace(git, "git ", 1);
+            git = DeltaBatStylePrefix.Replace(git, "git ", 1);
             if (git.StartsWith("git ", StringComparison.Ordinal))
+            {
+                if (batTheme != null)
+                    git = "git -c delta.minus-style=" + Quote("syntax auto") + git.Substring(3);
                 git = "git -c delta.line-numbers=" + (lineNumbers ? "true" : "false") + git.Substring(3);
-            return "env DELTA_PAGER=" + Quote(PipePager(pager)) + " " + git;
+            }
+            string theme = string.IsNullOrEmpty(batTheme) ? "" : "BAT_THEME=" + Quote(batTheme) + " ";
+            return "env " + theme + "DELTA_PAGER=" + Quote(PipePager(pager)) + " " + git;
         }
 
         public static bool IsPagerCommand(string pager, string command)

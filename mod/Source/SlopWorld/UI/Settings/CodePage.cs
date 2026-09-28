@@ -169,9 +169,7 @@ namespace SlopWorld
                     .Select(t => new FloatMenuOption(t, () => SelectTheme(t))));
                 string theme = Appearance.Theme(_engine);
                 UiControls.Select(l, "Theme (" + (_engine == "pygments" ? "Pygments" : _engine) + ")", theme.Length == 0 ? "Use command default" : theme, choices, out _);
-                if (UiLayout.Button(l, "Reset theme")) SelectTheme("");
             }
-            if (UiLayout.Button(l, "Refresh themes and preview")) Reload();
             l.Gap(UiTheme.GapM);
             UiLayout.SectionHeading(l, _previewLoading ? "Preview · Loading…" : "Preview");
             if (_previewError != null) UiLayout.Note(l, _previewError);
@@ -230,7 +228,6 @@ namespace SlopWorld
         static List<CommandChoice> PagerCommands() => new List<CommandChoice>
         {
             new CommandChoice("less", "less"),
-            new CommandChoice("more", "more"),
             new CommandChoice("bat", "bat --paging=always"),
         };
 

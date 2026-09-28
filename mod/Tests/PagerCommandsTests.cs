@@ -82,13 +82,13 @@ namespace SlopWorld.Tests
 
         static void LineNumbers()
         {
-            AssertEx.Equal("less -N", PagerCommands.FilePager("less", true), "file numbers on");
-            AssertEx.Equal("less -N -+N", PagerCommands.FilePager("less -N", false), "file numbers override custom flag");
-            AssertEx.Equal("bat --paging=always --style=numbers --decorations=always --pager 'less -RS'", PagerCommands.FilePager("bat --paging=always", true), "bat file numbers on");
-            AssertEx.Equal("bat --style=numbers --style=plain --decorations=never --pager 'less -RS' -- {file}",
+            AssertEx.Equal("less -N --shift=1 --wheel-lines=1", PagerCommands.FilePager("less", true), "file numbers on");
+            AssertEx.Equal("less -N -+N --shift=1 --wheel-lines=1", PagerCommands.FilePager("less -N", false), "file numbers override custom flag");
+            AssertEx.Equal("bat --paging=always --style=numbers --decorations=always --wrap=never --pager 'less -RS --shift=1 --wheel-lines=1'", PagerCommands.FilePager("bat --paging=always", true), "bat file numbers on");
+            AssertEx.Equal("bat --style=numbers --style=plain --decorations=never --wrap=never --pager 'less -RS --shift=1 --wheel-lines=1' -- {file}",
                 PagerCommands.FilePager("bat --style=numbers -- {file}", false), "bat numbers off before file argument");
             string pipe = PagerCommands.PipePager("bat --paging=always --style=numbers");
-            AssertEx.True(pipe.EndsWith("--style=plain --decorations=never --color=never --language=txt --strip-ansi=never --pager 'less -RS'"),
+            AssertEx.True(pipe.EndsWith("--style=plain --decorations=never --color=never --language=txt --strip-ansi=never --wrap=never --pager 'less -RS --shift=1 --wheel-lines=1'"),
                 "bat passes through delta output without another gutter or highlighting pass");
             AssertEx.False(PagerCommands.FilePager("bat --pager 'less -R'", true).Contains("less -RS"),
                 "explicit bat pager remains selected");
@@ -101,15 +101,29 @@ namespace SlopWorld.Tests
 
         static void DiffPager()
         {
-            AssertEx.Equal("less -+N -S --", PagerCommands.PipePager("less -- {file}"),
+            AssertEx.Equal("less -+N -S --shift=1 --wheel-lines=1 --", PagerCommands.PipePager("less -- {file}"),
                 "pipe options precede trailing option terminator");
-            AssertEx.Equal("bat --style=plain --decorations=never --color=never --language=txt --strip-ansi=never --pager 'less -RS' --",
+            AssertEx.Equal("bat --style=plain --decorations=never --color=never --language=txt --strip-ansi=never --wrap=never --pager 'less -RS --shift=1 --wheel-lines=1' --",
                 PagerCommands.PipePager("bat -- {file}"), "bat pipe options precede terminator");
             string first = PagerCommands.DiffCommand("git diff -- 'file name'", "less --prompt=it's");
-            AssertEx.Equal("env DELTA_PAGER='less -N -+N -S' git -c delta.line-numbers=true diff -- 'file name'",
+            AssertEx.Equal("env DELTA_PAGER='less -N -+N -S --shift=1 --wheel-lines=1' git -c delta.line-numbers=true diff -- 'file name'",
                 PagerCommands.DiffCommand(first, "less -N"), "replace quoted pager without touching git arguments");
             string twice = PagerCommands.DiffCommand(PagerCommands.DiffCommand("git diff", "less"), "more");
             AssertEx.Equal("env DELTA_PAGER='more' git -c delta.line-numbers=true diff", twice, "only one override remains");
+            string themed = PagerCommands.DiffCommand("git diff HEAD", "less", true, "Monokai Extended");
+            AssertEx.True(themed.StartsWith("env BAT_THEME='Monokai Extended' DELTA_PAGER=", StringComparison.Ordinal),
+                "bat theme reaches delta");
+            AssertEx.True(themed.Contains("git -c delta.line-numbers=true -c delta.minus-style='syntax auto' diff HEAD"),
+                "removed lines retain syntax colors");
+            AssertEx.Equal(themed, PagerCommands.DiffCommand(themed, "less", true, "Monokai Extended"),
+                "restarting a themed diff does not stack overrides");
+            string unthemed = PagerCommands.DiffCommand(themed, "less");
+            AssertEx.False(unthemed.Contains("BAT_THEME="), "switching highlighter removes the bat theme");
+            AssertEx.False(unthemed.Contains("delta.minus-style="), "switching highlighter restores delta styling");
+            string defaultTheme = PagerCommands.DiffCommand("git diff", "less", true, "");
+            AssertEx.False(defaultTheme.Contains("BAT_THEME="), "command default does not pin a theme");
+            AssertEx.True(defaultTheme.Contains("delta.minus-style='syntax auto'"),
+                "bat's command default still colors removed lines");
         }
 
         static void CodeThemes()
@@ -171,9 +185,9 @@ namespace SlopWorld.Tests
                            "pager paints from the top and retains the alternate screen");
             AssertEx.Equal("LESSOPEN='|highlight %s' LESS=-RSc", PagerCommands.LessEnv("highlight"),
                            "a highlighter without %s gets one appended");
-            AssertEx.Equal("less -+N -S", PagerCommands.PipePager("less {file}"),
+            AssertEx.Equal("less -+N -S --shift=1 --wheel-lines=1", PagerCommands.PipePager("less {file}"),
                            "the pipe pager strips file/line placeholders");
-            AssertEx.Equal("less -+N -S", PagerCommands.PipePager(""), "an empty pager falls back to less");
+            AssertEx.Equal("less -+N -S --shift=1 --wheel-lines=1", PagerCommands.PipePager(""), "an empty pager falls back to less");
 
             AssertEx.Equal("micro -clipboard terminal -- '/f'", PagerCommands.EditorCommand("micro", "/f"),
                            "micro uses OSC 52 for the sidebar host clipboard");
