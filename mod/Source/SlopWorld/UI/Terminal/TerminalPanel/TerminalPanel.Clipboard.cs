@@ -116,17 +116,12 @@ namespace SlopWorld
             TerminalWindow.OpenOverPane(new UiMenu(options));
         }
 
-        // Resolve only on activation, never during terminal repaint or hover. Copy remains
-        // available without a project, including paths outside the project's file tree.
+        // Resolve only on activation, never during terminal repaint or hover.
         internal void OpenPathMenu(string path, int line)
         {
             var info = SessionHub.Instance.Get(_state.Name);
             string project = info?.Project;
-            if (string.IsNullOrEmpty(project))
-            {
-                ShowPathMenu(null, path, null, line);
-                return;
-            }
+            if (string.IsNullOrEmpty(project)) return;
             var owner = SessionHub.Instance.Project(project);
             if (owner != null)
             {
@@ -134,17 +129,12 @@ namespace SlopWorld
                 project = BrowseScope.Identity(BrowseScope.ProjectIdOf(owner), string.IsNullOrEmpty(info.Worktree) ? "main" : info.Worktree);
             }
             SessionHub.Instance.SessionStore.CurrentPath(_state.Name, cwd =>
-                LoadPathMenu(project, path, FilesView.ResolveProjectPath(project, path, cwd), line),
-                error => ShowPathMenu(null, path, null, line));
+                LoadPathMenu(project, FilesView.ResolveProjectPath(project, path, cwd), line));
         }
 
-        void LoadPathMenu(string project, string path, string absolute, int line)
+        void LoadPathMenu(string project, string absolute, int line)
         {
-            if (absolute == null)
-            {
-                ShowPathMenu(project, path, null, line);
-                return;
-            }
+            if (absolute == null) return;
 
             // Ask the daemon host, not the game machine. Include hidden and ignored entries:
             // terminal links must not depend on the sidebar's current listing filters.
@@ -154,30 +144,41 @@ namespace SlopWorld
             string name = Leaf(absolute);
             DaemonClient.Get<Wire.BrowseResult>(WireProtocol.Routes.Browse +
                 "?files=1&hidden=1&gitignore=0&path=" + System.Uri.EscapeDataString(parent),
-                listing => ShowPathMenu(project, path, absolute, line,
-                    listing.Dirs.Contains(name), listing.Files.Contains(name)),
-                error => ShowPathMenu(project, path, absolute, line));
+                listing =>
+                {
+                    bool directory = listing.Dirs.Contains(name);
+                    bool file = listing.Files.Contains(name);
+                    if (!directory && !file && !listing.Truncated)
+                    {
+                        string candidate = PathScan.BeforeProseDash(name);
+                        if (candidate != null)
+                        {
+                            directory = listing.Dirs.Contains(candidate);
+                            file = listing.Files.Contains(candidate);
+                            if (directory || file)
+                                absolute = parent.TrimEnd('/') + "/" + candidate;
+                        }
+                    }
+                    if (directory || file)
+                        ShowPathMenu(project, absolute, line, file);
+                });
         }
 
-        void ShowPathMenu(string project, string path, string absolute, int line,
-            bool isDirectory = false, bool isFile = false)
+        void ShowPathMenu(string project, string absolute, int line, bool isFile)
         {
             var options = new List<FloatMenuOption>();
-            if (absolute != null && (isDirectory || isFile))
+            string name = Leaf(absolute);
+            options.Add(new FloatMenuOption("Focus", () => FilesView.FocusPath(project, absolute)));
+            if (isFile && FilesView.IsText(name))
             {
-                string name = Leaf(absolute);
-                options.Add(new FloatMenuOption("Focus", () => FilesView.FocusPath(project, absolute)));
-                if (isFile && FilesView.IsText(name))
-                {
-                    options.Add(new FloatMenuOption("View", () =>
-                        FilesView.ViewFile(project, absolute, "view-" + name, line)));
-                    options.Add(new FloatMenuOption("Edit", () =>
-                        FilesView.EditFile(project, absolute, "edit-" + name, line)));
-                }
-                FilesView.AddOpenIn(options, absolute, project);
-                FilesView.AddFileActions(options, project, absolute, name);
+                options.Add(new FloatMenuOption("View", () =>
+                    FilesView.ViewFile(project, absolute, "view-" + name, line)));
+                options.Add(new FloatMenuOption("Edit", () =>
+                    FilesView.EditFile(project, absolute, "edit-" + name, line)));
             }
-            options.Add(new FloatMenuOption("Copy path", () => CopyText(absolute ?? path)));
+            FilesView.AddOpenIn(options, absolute, project);
+            FilesView.AddFileActions(options, project, absolute, name);
+            options.Add(new FloatMenuOption("Copy path", () => CopyText(absolute)));
             TerminalWindow.OpenOverPane(new UiMenu(options));
         }
 

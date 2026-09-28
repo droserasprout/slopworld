@@ -10,6 +10,7 @@ namespace SlopWorld.Tests
             yield return ("finds project-relative paths", FindsPaths);
             yield return ("finds absolute paths", FindsAbsolute);
             yield return ("trims source locations and wrappers", TrimsLocations);
+            yield return ("offers a confirmed filename before prose dashes", ProseDashCandidate);
             yield return ("finds root files in prose", FindsRootFiles);
             yield return ("resolves paths from the terminal cwd", ResolvesPaths);
             yield return ("rejects ambiguous text and URLs", RejectsNonPaths);
@@ -44,6 +45,18 @@ namespace SlopWorld.Tests
                 "compiler line and column suffixes are removed");
             AssertEx.Equal("./README", PathScan.At("`./README`,", 4),
                 "quotes and punctuation are removed");
+        }
+
+        static void ProseDashCandidate()
+        {
+            AssertEx.Equal("mod.rs", PathScan.BeforeProseDash("mod.rs—the"),
+                "an em dash after an extension offers the filename");
+            AssertEx.Equal("README.md", PathScan.BeforeProseDash("README.md–next"),
+                "an en dash after an extension offers the filename");
+            AssertEx.Equal<string>(null, PathScan.BeforeProseDash("my—file.rs"),
+                "a dash inside the stem remains part of the filename");
+            AssertEx.Equal<string>(null, PathScan.BeforeProseDash("my.rs-extra—next"),
+                "a dashed extension is not shortened");
         }
 
         static void FindsRootFiles()

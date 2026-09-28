@@ -76,12 +76,14 @@ reused storage. Sparse edits scan only rows joined to the edit by full-width tex
 Do not create selection/copy cell strings on this frequently used path.
 
 File-link activation is deliberately lazy: recognize on Ctrl+left-click, then open a dedicated file menu.
-Resolve paths against the terminal working directory.
+Resolve paths against the terminal working directory. If tmux cannot inspect a
+sandboxed pane's current directory, the daemon uses its launch directory.
 View and Edit preserve diagnostic line numbers.
 A daemon browse of the parent confirms the target type before offering file operations.
+If a full name is absent, an em or en dash after an extension may end prose; use
+the shorter name only when that same complete browse confirms it exists.
 Directories omit View/Edit. Text files use the Files text policy. The “Choose an application”
-submenu and File actions reuse the Files menus. Missing or unconfirmed targets offer only Copy path.
+submenu and File actions reuse the Files menus. Missing or unconfirmed targets open no menu.
 Right-click keeps pane actions separate.
-Copy path remains available outside a project.
 Only paths inside the session project support reveal actions.
 Hover and repaint must not start filesystem work. URL and file-link behavior share terminal input ownership, not sidebar selection state.

@@ -100,6 +100,28 @@ namespace SlopWorld
             return dot >= 0 && dot + 1 < path.Length;
         }
 
+        // A dash immediately after an extension may introduce prose ("file.rs—the next").
+        // The caller must first check the complete name, then confirm this candidate exists.
+        internal static string BeforeProseDash(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            for (int i = 0; i < name.Length; i++)
+            {
+                if (name[i] != '—' && name[i] != '–') continue;
+                int dot = name.LastIndexOf('.', i);
+                if (dot <= 0 || dot == i - 1) continue;
+                bool extension = true;
+                for (int j = dot + 1; j < i; j++)
+                    if (!IsExtensionCharacter(name[j])) { extension = false; break; }
+                if (extension) return name.Substring(0, i);
+            }
+            return null;
+        }
+
+        static bool IsExtensionCharacter(char c) =>
+            (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9');
+
         static int Number(string text, int start, int end)
         {
             int value = 0;
