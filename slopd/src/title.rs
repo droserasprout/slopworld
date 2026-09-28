@@ -1,11 +1,8 @@
-//! Small, optional OpenRouter request used to name agent work.
+//! Shared summary resolution and OpenRouter transport.
+//! Session eligibility belongs to session::title; persistence belongs to cache.
 
 use anyhow::{bail, Context, Result};
-use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use std::time::Duration;
 
 const URL: &str = "https://openrouter.ai/api/v1/chat/completions";
@@ -14,251 +11,65 @@ const MAX_PROMPT_CHARS: usize = 2000;
 const MAX_TITLE_CHARS: usize = 60;
 const REQUEST_ATTEMPTS: usize = 2;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(8);
-const CACHE_VERSION: u32 = 1;
-const MAX_CACHE_ENTRIES: usize = 1024;
+mod cache;
+pub use cache::{cache_path, SummaryCache};
 
-#[derive(Debug, Deserialize, Serialize)]
-struct CacheFile {
-    version: u32,
-    entries: Vec<CacheEntry>,
-    #[serde(default)]
-    latest: Vec<LatestEntry>,
+#[derive(Clone)]
+pub(crate) struct SummaryInput {
+    pub prompt: String,
+    pub summary_prompt: String,
+    pub key_file: String,
+    pub model: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct CacheEntry {
-    key: String,
-    title: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct LatestEntry {
-    session: String,
-    title: String,
-}
-
-/// Store cached summaries under the XDG cache root. The daemon can recreate this runtime data.
-pub fn cache_path(_config: &Path) -> PathBuf {
-    crate::paths::cache_root().join("prompt-summaries.toml")
-}
-
-/// A small cache for successful prompt summaries. Cache failures do not prevent operation.
-/// Store a stable digest as the key instead of the prompt text.
-/// Reuse cached titles after daemon and game restarts.
-pub struct SummaryCache {
-    path: PathBuf,
-    state: Mutex<CacheState>,
-}
-
-struct CacheState {
-    entries: Vec<CacheEntry>,
-    latest: Vec<LatestEntry>,
+pub(crate) struct Summary {
+    pub text: String,
+    pub cache_hit: bool,
 }
 
 impl SummaryCache {
-    pub fn load(path: PathBuf) -> Self {
-        let (entries, latest) = match fs::read_to_string(&path) {
-            Ok(text) => match toml::from_str::<CacheFile>(&text) {
-                Ok(file) if file.version == CACHE_VERSION => {
-                    (trim_entries(file.entries), trim_latest(file.latest))
-                }
-                Ok(file) => {
-                    tracing::warn!(
-                        path = %path.display(),
-                        version = file.version,
-                        "ignoring unsupported prompt-summary cache"
-                    );
-                    (Vec::new(), Vec::new())
-                }
-                Err(error) => {
-                    tracing::warn!(
-                        path = %path.display(),
-                        %error,
-                        "ignoring invalid prompt-summary cache"
-                    );
-                    (Vec::new(), Vec::new())
-                }
-            },
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => (Vec::new(), Vec::new()),
-            Err(error) => {
-                tracing::warn!(
-                    path = %path.display(),
-                    %error,
-                    "ignoring unreadable prompt-summary cache"
-                );
-                (Vec::new(), Vec::new())
-            }
-        };
-        Self {
-            path,
-            state: Mutex::new(CacheState { entries, latest }),
+    /// Resolve without publishing: each caller must validate its own delayed result first.
+    pub(crate) async fn resolve(&self, input: &SummaryInput) -> Result<Summary> {
+        if let Some(text) = self.get(&input.prompt, &input.summary_prompt, &input.model) {
+            return Ok(Summary {
+                text,
+                cache_hit: true,
+            });
+        }
+        let text = summarize_async(
+            &input.prompt,
+            &input.summary_prompt,
+            &input.key_file,
+            &input.model,
+            "summary worker",
+        )
+        .await?;
+        Ok(Summary {
+            text,
+            cache_hit: false,
+        })
+    }
+
+    /// Commit a validated summary; task summaries never create a session recovery entry.
+    pub(crate) fn store(&self, input: &SummaryInput, summary: &Summary, session: Option<&str>) {
+        match (session, summary.cache_hit) {
+            (Some(name), true) => self.remember(name, &summary.text),
+            (Some(name), false) => self.insert(
+                name,
+                &input.prompt,
+                &input.summary_prompt,
+                &input.model,
+                &summary.text,
+            ),
+            (None, false) => self.insert_cached(
+                &input.prompt,
+                &input.summary_prompt,
+                &input.model,
+                &summary.text,
+            ),
+            (None, true) => {}
         }
     }
-
-    pub fn latest(&self, session: &str) -> Option<String> {
-        self.state
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .latest
-            .iter()
-            .find(|entry| entry.session == session)
-            .map(|entry| entry.title.clone())
-    }
-
-    pub fn get(&self, prompt: &str, summary_prompt: &str, model: &str) -> Option<String> {
-        let key = cache_key(prompt, summary_prompt, model);
-        let mut state = self
-            .state
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let at = state.entries.iter().position(|entry| entry.key == key)?;
-        let entry = state.entries.remove(at);
-        let title = entry.title.clone();
-        state.entries.push(entry);
-        Some(title)
-    }
-
-    pub fn insert(
-        &self,
-        session: &str,
-        prompt: &str,
-        summary_prompt: &str,
-        model: &str,
-        title: &str,
-    ) -> Result<()> {
-        let key = cache_key(prompt, summary_prompt, model);
-        let mut state = self
-            .state
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        insert_entry(&mut state.entries, key, title);
-        set_latest(&mut state.latest, session, title);
-        save_cache(&self.path, &state)
-    }
-
-    /// Store a summary for a persistent task.
-    /// Use the shared prompt, instruction, and model cache without adding a session-title `latest` entry.
-    pub fn insert_cached(
-        &self,
-        prompt: &str,
-        summary_prompt: &str,
-        model: &str,
-        title: &str,
-    ) -> Result<()> {
-        let key = cache_key(prompt, summary_prompt, model);
-        let mut state = self
-            .state
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        insert_entry(&mut state.entries, key, title);
-        save_cache(&self.path, &state)
-    }
-
-    pub fn remember(&self, session: &str, title: &str) -> Result<()> {
-        let mut state = self
-            .state
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        set_latest(&mut state.latest, session, title);
-        save_cache(&self.path, &state)
-    }
-
-    pub fn clear_latest(&self, session: &str) -> Result<()> {
-        let mut state = self
-            .state
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let before = state.latest.len();
-        state.latest.retain(|entry| entry.session != session);
-        if state.latest.len() == before {
-            return Ok(());
-        }
-        save_cache(&self.path, &state)
-    }
-}
-
-fn insert_entry(entries: &mut Vec<CacheEntry>, key: String, title: &str) {
-    if let Some(at) = entries.iter().position(|entry| entry.key == key) {
-        entries.remove(at);
-    }
-    entries.push(CacheEntry {
-        key,
-        title: title.to_string(),
-    });
-    if entries.len() > MAX_CACHE_ENTRIES {
-        entries.remove(0);
-    }
-}
-
-fn trim_entries(entries: Vec<CacheEntry>) -> Vec<CacheEntry> {
-    entries
-        .into_iter()
-        .filter(|entry| !entry.key.is_empty() && !entry.title.trim().is_empty())
-        .rev()
-        .take(MAX_CACHE_ENTRIES)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect()
-}
-
-fn trim_latest(entries: Vec<LatestEntry>) -> Vec<LatestEntry> {
-    let mut latest: Vec<LatestEntry> = Vec::new();
-    for entry in entries
-        .into_iter()
-        .filter(|entry| !entry.session.is_empty() && !entry.title.trim().is_empty())
-    {
-        if let Some(at) = latest.iter().position(|old| old.session == entry.session) {
-            latest.remove(at);
-        }
-        latest.push(entry);
-    }
-    if latest.len() > MAX_CACHE_ENTRIES {
-        latest.drain(..latest.len() - MAX_CACHE_ENTRIES);
-    }
-    latest
-}
-
-fn set_latest(latest: &mut Vec<LatestEntry>, session: &str, title: &str) {
-    latest.retain(|entry| entry.session != session);
-    latest.push(LatestEntry {
-        session: session.to_string(),
-        title: title.to_string(),
-    });
-    if latest.len() > MAX_CACHE_ENTRIES {
-        latest.remove(0);
-    }
-}
-
-fn save_cache(path: &Path, state: &CacheState) -> Result<()> {
-    let file = CacheFile {
-        version: CACHE_VERSION,
-        entries: state.entries.to_vec(),
-        latest: state.latest.to_vec(),
-    };
-    crate::paths::write_private_toml(path, &toml::to_string_pretty(&file)?)
-}
-
-fn cache_key(prompt: &str, summary_prompt: &str, model: &str) -> String {
-    let prompt: String = prompt.chars().take(MAX_PROMPT_CHARS).collect();
-    let mut input = Vec::with_capacity(model.len() + summary_prompt.len() + prompt.len() + 32);
-    input.extend_from_slice(b"slopworld-prompt-summary\0");
-    input.extend_from_slice(model.as_bytes());
-    input.push(0);
-    input.extend_from_slice(summary_prompt.as_bytes());
-    input.push(0);
-    input.extend_from_slice(prompt.as_bytes());
-    format!(
-        "v{CACHE_VERSION}-{:016x}{:016x}",
-        fnv(&input, 0xcbf29ce484222325),
-        fnv(&input, 0x84222325cbf29ce4)
-    )
-}
-
-fn fnv(bytes: &[u8], seed: u64) -> u64 {
-    bytes.iter().fold(seed, |hash, byte| {
-        (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3)
-    })
 }
 
 fn endpoint() -> String {

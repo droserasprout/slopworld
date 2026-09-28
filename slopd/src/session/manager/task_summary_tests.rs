@@ -20,14 +20,12 @@ fn fixture() -> (Arc<Manager>, crate::tasks::Task) {
 
 async fn cache(m: &Manager, task: &crate::tasks::Task) {
     let cfg = m.config().await;
-    m.title_cache
-        .insert_cached(
-            &task.body,
-            &cfg.daemon.summary_prompt,
-            &cfg.daemon.title_model,
-            "Review tasks",
-        )
-        .unwrap();
+    m.title_cache.insert_cached(
+        &task.body,
+        &cfg.daemon.summary_prompt,
+        &cfg.daemon.title_model,
+        "Review tasks",
+    );
 }
 
 #[tokio::test]

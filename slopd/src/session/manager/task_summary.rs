@@ -20,30 +20,15 @@ impl Manager {
             return;
         }
 
-        let model = cfg.daemon.title_model.clone();
-        let summary_prompt = cfg.daemon.summary_prompt.clone();
-        let (result, cache_hit) =
-            if let Some(summary) = self.title_cache.get(&task.body, &summary_prompt, &model) {
-                (Ok(summary), true)
-            } else {
-                let result = crate::title::summarize_async(
-                    &task.body,
-                    &summary_prompt,
-                    &cfg.daemon.openrouter_key_file,
-                    &model,
-                    "task summary worker",
-                )
-                .await;
-                (result, false)
-            };
-
-        let Ok(summary) = result else {
-            tracing::debug!(
-                target: "slopd::task_summaries",
-                task = %task.id,
-                outcome = "request_failed",
-                "task summary request failed"
-            );
+        let input = crate::title::SummaryInput {
+            prompt: task.body.clone(),
+            model: cfg.daemon.title_model.clone(),
+            summary_prompt: cfg.daemon.summary_prompt.clone(),
+            key_file: cfg.daemon.openrouter_key_file.clone(),
+        };
+        let Ok(summary) = self.title_cache.resolve(&input).await else {
+            tracing::debug!(target: "slopd::task_summaries", task = %task.id,
+                outcome = "request_failed", "task summary request failed");
             return;
         };
 
@@ -52,22 +37,9 @@ impl Manager {
             return;
         }
 
-        if !cache_hit {
-            if let Err(error) =
-                self.title_cache
-                    .insert_cached(&task.body, &summary_prompt, &model, &summary)
-            {
-                tracing::warn!(
-                    target: "slopd::task_summaries",
-                    task = %task.id,
-                    error = %error,
-                    outcome = "cache_write_failed",
-                    "could not persist task summary cache"
-                );
-            }
-        }
+        self.title_cache.store(&input, &summary, None);
 
-        match self.tasks.set_task_summary(&task.id, summary) {
+        match self.tasks.set_task_summary(&task.id, summary.text) {
             Ok(Some(_)) => tracing::debug!(
                 target: "slopd::task_summaries",
                 task = %task.id,

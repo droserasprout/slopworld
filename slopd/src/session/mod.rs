@@ -44,10 +44,7 @@ pub use view::{
 use input::{merge_input, Input};
 use prompt::{render_prompt, render_prompt_with, PromptVars};
 pub use text::strip_sgr;
-use title::{
-    begin_title_request, is_dialog_answer, prompt_is_long_enough, title_settings, Composer,
-    Submission, TitleCapture, TitleRequest,
-};
+use title::{TitleAction, TitleCapture, TitleRequest, TitleSettings};
 use validation::{
     absolute_path, check_belongs, check_name, check_project, free_name, free_project_name,
     json_to_toml, merge_toml, normalize_action_command, project_action_path, settle, slug,
@@ -56,8 +53,6 @@ pub(crate) use validation::{check_library_item, hold_action_command, validate_co
 
 #[cfg(test)]
 use input::INPUT_BATCH;
-#[cfg(test)]
-use title::{title_agent, TitleAgent};
 #[cfg(test)]
 use validation::normalize_path;
 

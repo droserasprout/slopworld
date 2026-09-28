@@ -520,12 +520,7 @@ impl Manager {
                 bail!("no such session: {name}");
             };
             live.cfg.label = saved;
-            live.title.generation = live.title.generation.wrapping_add(1);
-            live.title.pending = false;
-            if host {
-                live.title.composer = Composer::ready();
-                live.title.override_title = None;
-            }
+            live.title.label_changed(host);
         }
         self.persist_reader_metadata(name).await?;
         self.announce_sessions().await;
@@ -577,7 +572,7 @@ impl Manager {
 
     pub(super) async fn readopt(self: &Arc<Self>, old: &str, new: &str) {
         // The control reader attaches by tmux name. A rename requires a new capture and emulator.
-        let (running, title, reader) = {
+        let (running, reader) = {
             let mut live = self.live.write().await;
             let mut l = match live.remove(old) {
                 Some(l) => l,
@@ -590,10 +585,11 @@ impl Manager {
             l.input.sender = None;
             let running = l.capture.emu.take().is_some();
             l.capture.reader_token = None;
-            let title = l.title.override_title.clone();
+            l.title.label_changed(false);
+            self.title_cache.rename_latest(old, new, l.title.title());
             l.cfg.name = new.to_string();
             live.insert(new.to_string(), l);
-            (running, title, reader)
+            (running, reader)
         };
         finish_reader(reader);
         // The cache is keyed by name. The frames under the old one describe a pane that is about to
@@ -608,10 +604,6 @@ impl Manager {
                 %error,
                 "could not rename session activity cache"
             );
-        }
-        self.clear_latest_title(old);
-        if let Some(t) = title {
-            let _ = self.title_cache.remember(new, &t);
         }
         if running {
             match self.spawn_reader(new).await {

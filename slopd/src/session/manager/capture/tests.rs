@@ -196,32 +196,6 @@ async fn current_reader_exit_resets_durable_process_state_once() {
     assert!(manager.live.read().await.contains_key("agent"));
 }
 
-#[test]
-fn title_submission_reports_uncertain_editing_without_a_submission() {
-    let mut composer = Composer::ready();
-    let keys = vec!["Up".to_string()];
-    let (submission, uncertain) = build_title_submission(&mut composer, &keys, false);
-    assert!(submission.is_none());
-    assert!(uncertain);
-}
-
-#[test]
-fn title_submission_uses_all_literal_chunks_before_enter() {
-    let mut composer = Composer::ready();
-    let chunks = vec!["fix ".to_string(), "the parser".to_string()];
-    assert!(build_title_submission(&mut composer, &chunks, true)
-        .0
-        .is_none());
-
-    let enter = vec!["Enter".to_string()];
-    let (submission, uncertain) = build_title_submission(&mut composer, &enter, false);
-    let Some(Submission::Prompt(prompt)) = submission else {
-        panic!("expected submitted prompt")
-    };
-    assert_eq!(prompt, "fix the parser");
-    assert!(!uncertain);
-}
-
 #[tokio::test]
 async fn applying_a_frame_updates_state_screen_and_bell_events() {
     let manager = crate::session::test_manager(Config::default());

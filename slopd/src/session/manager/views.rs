@@ -82,7 +82,7 @@ impl Manager {
                             .label
                             .clone()
                             .filter(|label| !label.trim().is_empty())
-                            .or_else(|| l.title.override_title.clone())
+                            .or_else(|| l.title.title().map(str::to_owned))
                             .or_else(|| l.screen.as_ref().map(|s| s.title.clone()))
                             .unwrap_or_default(),
                         bell: l.bell,

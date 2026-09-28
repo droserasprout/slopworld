@@ -1,27 +1,169 @@
-//! Title capture and prompt composition.
+//! Own prompt composition, title policy, and per-session title transitions.
+//! The capture manager coordinates requests; crate::title owns provider access and caching.
 
 use super::*;
+use crate::title::SummaryInput;
 
+#[derive(Default)]
 pub(super) struct TitleCapture {
-    pub(super) composer: Composer,
-    pub(super) conversation: u64,
-    pub(super) generation: u64,
-    pub(super) pending: bool,
-    // Once mode counts the first request even if it fails.
-    // This prevents a temporary OpenRouter failure from causing repeated billable requests for later prompts.
-    pub(super) once_requested: bool,
-    pub(super) override_title: Option<String>,
+    composer: Composer,
+    // Identity belongs to this exact request, including across replacement sessions.
+    pending: Option<Arc<()>>,
+    // Once mode consumes an attempt even on failure to prevent repeated billable requests.
+    once_requested: bool,
+    override_title: Option<String>,
+}
+
+pub(super) struct TitleSettings {
+    policy: TitlePolicy,
+    minimum: usize,
+    model: String,
+    key_file: String,
+    summary_prompt: String,
+}
+
+impl TitleSettings {
+    pub(super) fn for_session(cfg: &Config, session: &SessionCfg, host: bool) -> Option<Self> {
+        // Shell input and fixed-label sessions never enter the summarizer.
+        if host
+            || session
+                .label
+                .as_deref()
+                .is_some_and(|label| !label.trim().is_empty())
+        {
+            return None;
+        }
+        let policy = match title_agent(cfg, session)? {
+            TitleAgent::Codex => cfg.daemon.agent_titles,
+            TitleAgent::Pi => cfg.daemon.pi_titles,
+        };
+        (policy != TitlePolicy::Never).then(|| Self {
+            policy,
+            minimum: cfg.daemon.title_min_chars,
+            model: cfg.daemon.title_model.clone(),
+            key_file: cfg.daemon.openrouter_key_file.clone(),
+            summary_prompt: cfg.daemon.summary_prompt.clone(),
+        })
+    }
+
+    pub(super) fn allows(&self, prompt: &str) -> bool {
+        !is_dialog_answer(prompt) && prompt_is_long_enough(prompt, self.minimum)
+    }
+}
+
+pub(super) enum TitleAction {
+    Boundary,
+    Request(TitleRequest),
+}
+
+pub(crate) struct TitleRequest {
+    token: Arc<()>,
+    pub(super) input: SummaryInput,
+}
+
+impl TitleCapture {
+    pub(super) fn restored(title: Option<String>) -> Self {
+        Self {
+            once_requested: title.is_some(),
+            override_title: title,
+            ..Self::default()
+        }
+    }
+
+    pub(super) fn title(&self) -> Option<&str> {
+        self.override_title.as_deref()
+    }
+
+    pub(super) fn reset(&mut self) {
+        *self = Self::default();
+    }
+
+    pub(super) fn label_changed(&mut self, host: bool) {
+        self.pending = None;
+        if host {
+            self.composer = Composer::ready();
+            self.override_title = None;
+        }
+    }
+
+    pub(super) fn disable(&mut self) -> bool {
+        let changed = self.pending.is_some() || self.override_title.is_some();
+        self.pending = None;
+        self.composer = Composer::ready();
+        self.override_title = None;
+        changed
+    }
+
+    pub(super) fn accepts(&self, request: &TitleRequest) -> bool {
+        self.pending
+            .as_ref()
+            .is_some_and(|token| Arc::ptr_eq(token, &request.token))
+    }
+
+    /// A stale completion must not clear the next request or replace its title.
+    pub(super) fn finish(&mut self, request: &TitleRequest, title: Option<String>) -> bool {
+        if !self.accepts(request) {
+            return false;
+        }
+        self.pending = None;
+        if let Some(title) = title {
+            self.override_title = Some(title);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub(super) fn paste(&mut self, text: &str) {
+        self.composer.literal(text);
+    }
+
+    pub(super) fn capture_keys(
+        &mut self,
+        settings: &TitleSettings,
+        keys: &[String],
+        literal: bool,
+    ) -> Option<TitleAction> {
+        let (submission, _) = build_title_submission(&mut self.composer, keys, literal);
+        match submission? {
+            Submission::New(title) => {
+                self.reset();
+                self.override_title = title;
+                Some(TitleAction::Boundary)
+            }
+            Submission::Prompt(prompt) => {
+                if !settings.allows(&prompt)
+                    || (settings.policy == TitlePolicy::Once && self.once_requested)
+                {
+                    return None;
+                }
+                if settings.policy == TitlePolicy::Once {
+                    self.once_requested = true;
+                }
+                let token = Arc::new(());
+                self.pending = Some(token.clone());
+                Some(TitleAction::Request(TitleRequest {
+                    token,
+                    input: SummaryInput {
+                        prompt,
+                        summary_prompt: settings.summary_prompt.clone(),
+                        key_file: settings.key_file.clone(),
+                        model: settings.model.clone(),
+                    },
+                }))
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
-pub(super) enum TitleAgent {
+enum TitleAgent {
     Codex,
     Pi,
 }
 
-/// The preset name is the usual case, but sessions may supply an explicit command line.
-/// Those should retain the same title behavior as their corresponding preset.
-pub(super) fn title_agent(cfg: &Config, session: &SessionCfg) -> Option<TitleAgent> {
+// Explicit commands retain the same title behavior as their corresponding presets.
+fn title_agent(cfg: &Config, session: &SessionCfg) -> Option<TitleAgent> {
     let command = cfg.command_name(session);
     let executable = if command.is_empty() {
         crate::sandbox::shell_split(&cfg.command_of(session))
@@ -37,90 +179,48 @@ pub(super) fn title_agent(cfg: &Config, session: &SessionCfg) -> Option<TitleAge
     }
 }
 
-pub(super) fn title_settings(
-    cfg: &Config,
-    session: &SessionCfg,
-    host: bool,
-) -> Option<(TitlePolicy, String)> {
-    // Host terminal names come from their native OSC title or an explicit fixed label. They
-    // never send shell commands to the title service.
-    if host {
-        return None;
-    }
-
-    if session
-        .label
-        .as_deref()
-        .is_some_and(|label| !label.trim().is_empty())
-    {
-        return None;
-    }
-
-    let agent = title_agent(cfg, session)?;
-    Some(match agent {
-        TitleAgent::Codex => (cfg.daemon.agent_titles, cfg.daemon.title_model.clone()),
-        TitleAgent::Pi => (cfg.daemon.pi_titles, cfg.daemon.title_model.clone()),
-    })
-}
-
-impl Default for TitleCapture {
-    fn default() -> Self {
-        Self {
-            composer: Composer::ready(),
-            conversation: 0,
-            generation: 0,
-            pending: false,
-            once_requested: false,
-            override_title: None,
-        }
-    }
-}
-
-impl TitleCapture {
-    pub(super) fn once_available(&self) -> bool {
-        !self.once_requested
-    }
-
-    pub(super) fn consume_once(&mut self) {
-        self.once_requested = true;
-    }
-}
-
-#[derive(Default)]
-pub(super) struct Composer {
+struct Composer {
     text: Vec<char>,
     cursor: usize,
-    pub(super) certain: bool,
+    certain: bool,
 }
 
-pub(super) enum Submission {
+enum Submission {
     Prompt(String),
     New(Option<String>),
 }
 
-// Waiting screens usually accept a one-word approval or selection. Do not send these answers to OpenRouter.
-// The last captured frame can still show a waiting state while the agent accepts prompt input.
-// Keep actual prompts in that case.
-pub(super) fn is_dialog_answer(prompt: &str) -> bool {
+// Approval answers never name work, regardless of terminal activity state.
+fn is_dialog_answer(prompt: &str) -> bool {
     matches!(
         prompt.trim().to_ascii_lowercase().as_str(),
         "y" | "yes" | "n" | "no" | "1" | "2" | "a" | "b" | "ok" | "okay" | "cancel"
     )
 }
 
-pub(super) fn prompt_is_long_enough(prompt: &str, minimum: usize) -> bool {
+fn prompt_is_long_enough(prompt: &str, minimum: usize) -> bool {
     prompt.chars().count() >= minimum
 }
 
+impl Default for Composer {
+    fn default() -> Self {
+        Self {
+            text: Vec::new(),
+            cursor: 0,
+            certain: true,
+        }
+    }
+}
+
 impl Composer {
-    pub(super) fn ready() -> Self {
+    fn ready() -> Self {
         Self {
             certain: true,
             ..Self::default()
         }
     }
 
-    pub(super) fn literal(&mut self, text: &str) {
+    fn literal(&mut self, text: &str) {
         // The mod encodes Shift+Enter with the kitty keyboard protocol.
         // Codex inserts a newline. Remove the escape bytes to keep the mirrored prompt consistent.
         if text == "\x1b[13;2u" {
@@ -134,11 +234,7 @@ impl Composer {
         }
     }
 
-    pub(super) fn paste(&mut self, text: &str) {
-        self.literal(text);
-    }
-
-    pub(super) fn key(&mut self, key: &str) -> Option<Submission> {
+    fn key(&mut self, key: &str) -> Option<Submission> {
         match key {
             "Enter" => return self.submit(),
             // Codex's line editor accepts these readline-style aliases as well as the named
@@ -253,30 +349,26 @@ impl Composer {
     }
 }
 
-pub(crate) struct TitleRequest {
-    pub(super) prompt: String,
-    pub(super) conversation: u64,
-    pub(super) generation: u64,
-    pub(super) key_file: String,
-    pub(super) model: String,
-    pub(super) summary_prompt: String,
+fn build_title_submission(
+    composer: &mut Composer,
+    keys: &[String],
+    literal: bool,
+) -> (Option<Submission>, bool) {
+    let mut submission = None;
+    if literal {
+        for key in keys {
+            composer.literal(key);
+        }
+    } else {
+        for key in keys {
+            if let Some(next) = composer.key(key) {
+                submission = Some(next);
+            }
+        }
+    }
+    (submission, !composer.certain)
 }
 
-pub(super) fn begin_title_request(
-    live: &mut Live,
-    prompt: String,
-    key_file: String,
-    model: String,
-    summary_prompt: String,
-) -> TitleRequest {
-    live.title.generation = live.title.generation.wrapping_add(1);
-    live.title.pending = true;
-    TitleRequest {
-        prompt,
-        conversation: live.title.conversation,
-        generation: live.title.generation,
-        key_file,
-        model,
-        summary_prompt,
-    }
-}
+#[cfg(test)]
+#[path = "title_tests.rs"]
+mod tests;
