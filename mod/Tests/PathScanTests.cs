@@ -45,6 +45,11 @@ namespace SlopWorld.Tests
                 "compiler line and column suffixes are removed");
             AssertEx.Equal("./README", PathScan.At("`./README`,", 4),
                 "quotes and punctuation are removed");
+            int line;
+            AssertEx.Equal("slopd/src/session/view.rs",
+                PathScan.At("Done in slopd/src/session/view.rs:28: SessionView now", 16, out line),
+                "a colon after the source line is punctuation");
+            AssertEx.Equal(28, line, "the source line before the punctuation is retained");
         }
 
         static void ProseDashCandidate()
