@@ -24,7 +24,6 @@ pub(crate) fn run() -> Result<()> {
 
     benchmark_render_cases();
     benchmark_history_padding();
-    benchmark_ansi_strip();
     benchmark_content_hash();
     benchmark_websocket_serialization();
     storage::run()?;
@@ -128,28 +127,6 @@ where
         prepare(&mut emu, sample);
         action(&mut emu).content_hash as usize
     });
-}
-
-fn benchmark_ansi_strip() {
-    let lines = (0..ROWS)
-        .map(|row| format!("\x1b[38;5;{}mrow {row:02} prompt\x1b[0m", row % 16))
-        .collect::<Vec<_>>();
-    measure("ansi-strip tail", |_| {
-        crate::session::strip_sgr_tail(&lines, 12).len()
-    });
-    for (name, text) in [
-        ("plain", "build output with no terminal escapes ".repeat(4)),
-        (
-            "styled",
-            "\x1b[32mbuild output with terminal escapes\x1b[0m ".repeat(4),
-        ),
-        ("unicode", "\x1b[32m❯ compiling 日本語 🦀\x1b[0m ".repeat(4)),
-    ] {
-        let lines = vec![text; ROWS as usize];
-        measure(&format!("ansi-strip tail {name}"), |_| {
-            crate::session::strip_sgr_tail(black_box(&lines), 12).len()
-        });
-    }
 }
 
 fn benchmark_content_hash() {

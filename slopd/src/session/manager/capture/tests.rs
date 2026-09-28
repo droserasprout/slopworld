@@ -401,10 +401,6 @@ async fn faint_prompt_particles_do_not_keep_a_quiet_session_working() {
     );
     live.ephemeral = true;
     manager.live.write().await.insert("agent".into(), live);
-    *manager.rules.compiled.write().await = vec![(
-        State::Working,
-        regex::Regex::new("esc to interrupt").unwrap(),
-    )];
     let mut emu = SessionEmu::new(80, 24);
     // Captured prompt animation: background RGB 30, moving single-dot Braille
     // foreground RGB 13..28. Include a stale working match above the prompt.
@@ -524,15 +520,16 @@ async fn capture_does_not_commit_after_run_replacement() {
             TitleCapture::default(),
         ),
     );
-    let rules = manager.rules.compiled.write().await;
-    let task = tokio::spawn({
-        let manager = manager.clone();
-        async move { manager.apply_frame("agent", test_frame("old", 1)).await }
-    });
-    tokio::task::yield_now().await;
+    let frame = test_frame("old", 1);
+    let previous = manager.frame_snapshot("agent").await.unwrap();
+    let delta = manager.frame_delta(&previous, &frame);
     manager.live.write().await.get_mut("agent").unwrap().run_id += 1;
-    drop(rules);
-    task.await.unwrap();
+    assert!(matches!(
+        manager
+            .commit_frame("agent", &previous, &frame, delta, None)
+            .await,
+        frame::FrameCommit::Superseded
+    ));
 
     let live = manager.live.read().await;
     assert_eq!(live["agent"].seq, 0);
@@ -554,15 +551,16 @@ async fn capture_does_not_revive_a_stopped_session() {
     );
     manager.apply_frame("agent", test_frame("old", 1)).await;
 
-    let rules = manager.rules.compiled.write().await;
-    let task = tokio::spawn({
-        let manager = manager.clone();
-        async move { manager.apply_frame("agent", test_frame("stale", 2)).await }
-    });
-    tokio::task::yield_now().await;
+    let frame = test_frame("stale", 2);
+    let previous = manager.frame_snapshot("agent").await.unwrap();
+    let delta = manager.frame_delta(&previous, &frame);
     reset_process_state(manager.live.write().await.get_mut("agent").unwrap());
-    drop(rules);
-    task.await.unwrap();
+    assert!(matches!(
+        manager
+            .commit_frame("agent", &previous, &frame, delta, None)
+            .await,
+        frame::FrameCommit::Superseded
+    ));
 
     let live = manager.live.read().await;
     assert_eq!(live["agent"].state, State::Down);
@@ -585,9 +583,9 @@ async fn capture_retries_after_competing_idle_decay() {
     manager.apply_frame("agent", test_frame("old", 1)).await;
     let mut events = manager.events.subscribe();
 
-    let rules = manager.rules.compiled.write().await;
-    let mut capture = Box::pin(manager.apply_frame("agent", test_frame("new", 2)));
-    assert!(futures::poll!(capture.as_mut()).is_pending());
+    let frame = test_frame("new", 2);
+    let previous = manager.frame_snapshot("agent").await.unwrap();
+    let delta = manager.frame_delta(&previous, &frame);
     manager
         .live
         .write()
@@ -595,112 +593,48 @@ async fn capture_retries_after_competing_idle_decay() {
         .get_mut("agent")
         .unwrap()
         .set_state(State::Idle);
-    drop(rules);
-    capture.await;
+    assert!(matches!(
+        manager
+            .commit_frame("agent", &previous, &frame, delta, None)
+            .await,
+        frame::FrameCommit::Reclassify
+    ));
+    manager.apply_frame("agent", frame).await;
 
     let live = manager.live.read().await;
     assert_eq!(live["agent"].state, State::Working);
     assert_eq!(live["agent"].seq, 2);
-    assert_eq!(live["agent"].plain.as_ref(), "new");
+    assert_eq!(
+        live["agent"].screen.as_ref().unwrap().lines[0].as_ref(),
+        "new"
+    );
     assert!(
         matches!(events.try_recv(), Ok(event) if matches!(event.event(), Event::Screen { .. }))
     );
 }
 
 #[tokio::test]
-async fn rule_cache_is_reused_by_text_and_invalidated_by_revision() {
+async fn prompt_wording_does_not_override_activity() {
     let manager = crate::session::test_manager(Config::default());
-    manager.live.write().await.insert(
-        "agent".into(),
-        Live::new(
-            SessionCfg {
-                name: "agent".into(),
-                ..Default::default()
-            },
-            TitleCapture::default(),
-        ),
+    let mut live = Live::new(
+        SessionCfg {
+            name: "agent".into(),
+            ..Default::default()
+        },
+        TitleCapture::default(),
     );
-    *manager.rules.compiled.write().await =
-        vec![(State::Waiting, regex::Regex::new("same").unwrap())];
-    manager.apply_frame("agent", test_frame("same", 1)).await;
-    {
-        let live = manager.live.read().await;
-        assert_eq!(live["agent"].rule_cache.as_ref().unwrap().revision, 0);
-        assert_eq!(
-            live["agent"].rule_cache.as_ref().unwrap().matched,
-            Some(State::Waiting)
-        );
-    }
-
-    *manager.rules.compiled.write().await =
-        vec![(State::Working, regex::Regex::new("same").unwrap())];
+    live.ephemeral = true;
+    manager.live.write().await.insert("agent".into(), live);
+    let frame = test_frame("Do you want to continue? ❯ 1. Yes (esc to interrupt)", 1);
+    manager.apply_frame("agent", frame.clone()).await;
+    assert_eq!(manager.live.read().await["agent"].state, State::Working);
     manager
-        .rules
-        .revision
-        .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
-    manager.apply_frame("agent", test_frame("same", 1)).await;
-
-    let live = manager.live.read().await;
-    assert_eq!(live["agent"].state, State::Working);
-    assert_eq!(live["agent"].rule_cache.as_ref().unwrap().revision, 1);
-    assert_eq!(
-        live["agent"].rule_cache.as_ref().unwrap().matched,
-        Some(State::Working)
-    );
-}
-
-#[tokio::test]
-async fn capture_retries_when_rules_reload_wins_before_commit() {
-    let manager = crate::session::test_manager(Config::default());
-    manager.live.write().await.insert(
-        "agent".into(),
-        Live::new(
-            SessionCfg {
-                name: "agent".into(),
-                ..Default::default()
-            },
-            TitleCapture::default(),
-        ),
-    );
-    *manager.rules.compiled.write().await =
-        vec![(State::Waiting, regex::Regex::new("same").unwrap())];
-
-    // Keep the snapshot's locks occupied while the frame finishes its old classification.
-    // The reload then wins the commit boundary deterministically.
-    let old_rules = manager.rules.compiled.read().await;
-    let live_read = manager.live.read().await;
-    let task = tokio::spawn({
-        let manager = manager.clone();
-        async move { manager.apply_frame("agent", test_frame("same", 1)).await }
-    });
-    for _ in 0..3 {
-        tokio::task::yield_now().await;
-    }
-
-    let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
-    let reload = tokio::spawn({
-        let manager = manager.clone();
-        async move {
-            let mut rules = manager.rules.compiled.write().await;
-            *rules = vec![(State::Working, regex::Regex::new("same").unwrap())];
-            manager
-                .rules
-                .revision
-                .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
-            let _ = ready_tx.send(());
-        }
-    });
-    drop(old_rules);
-    ready_rx.await.unwrap();
-    drop(live_read);
-    reload.await.unwrap();
-    task.await.unwrap();
-
-    let live = manager.live.read().await;
-    assert_eq!(live["agent"].state, State::Working);
-    assert_eq!(live["agent"].rule_cache.as_ref().unwrap().revision, 1);
-    assert_eq!(
-        live["agent"].rule_cache.as_ref().unwrap().matched,
-        Some(State::Working)
-    );
+        .live
+        .write()
+        .await
+        .get_mut("agent")
+        .unwrap()
+        .last_change = 0;
+    manager.apply_frame("agent", frame).await;
+    assert_eq!(manager.live.read().await["agent"].state, State::Idle);
 }

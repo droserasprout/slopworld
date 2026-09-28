@@ -1,6 +1,5 @@
 use super::super::lifecycle::start::prepare_project_dir;
 use super::*;
-use crate::clock::unix_ms;
 
 async fn rename_fixture(running: bool) -> (Arc<Manager>, std::path::PathBuf, String) {
     let root = std::env::temp_dir().join(format!(
@@ -60,13 +59,11 @@ async fn assert_rename_input(manager: &Arc<Manager>, name: &str, marker: &str) {
         .await;
     tokio::time::timeout(Duration::from_secs(5), async {
         loop {
-            if manager
-                .live
-                .read()
-                .await
-                .get(name)
-                .is_some_and(|live| live.plain.contains(marker))
-            {
+            if manager.live.read().await.get(name).is_some_and(|live| {
+                live.screen
+                    .as_ref()
+                    .is_some_and(|screen| screen.lines.iter().any(|line| line.contains(marker)))
+            }) {
                 break;
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -344,62 +341,8 @@ async fn session_and_project_targets_resolve_from_config_temp_and_host_state() {
 }
 
 #[tokio::test]
-async fn state_classification_prefers_rules_then_activity_age() {
-    let manager = crate::session::test_manager(Config::default());
-    *manager.rules.compiled.write().await = vec![(
-        State::Waiting,
-        regex::Regex::new("choose an option").unwrap(),
-    )];
-    assert_eq!(
-        manager.classify(false, 0, "choose an option").await,
-        State::Waiting
-    );
-
-    manager.rules.compiled.write().await.clear();
-    assert_eq!(
-        manager.classify(true, u64::MAX, "changed").await,
-        State::Working
-    );
-    assert_eq!(manager.classify(false, 0, "stale").await, State::Idle);
-    assert_eq!(
-        manager.classify_initial(State::Idle, "unchanged").await,
-        State::Idle
-    );
-    assert_eq!(
-        manager.classify_initial(State::Down, "first frame").await,
-        State::Working
-    );
-}
-
-#[tokio::test]
-async fn stale_working_rule_matches_decay_to_idle() {
-    let manager = crate::session::test_manager(Config::default());
-    *manager.rules.compiled.write().await = vec![(
-        State::Working,
-        regex::Regex::new("esc to interrupt").unwrap(),
-    )];
-
-    assert_eq!(
-        manager
-            .classify(false, 0, "* Thinking... (esc to interrupt)")
-            .await,
-        State::Idle
-    );
-    assert_eq!(
-        manager
-            .classify(false, unix_ms(), "* Thinking... (esc to interrupt)")
-            .await,
-        State::Working
-    );
-}
-
-#[tokio::test]
 async fn retick_moves_a_quiet_working_session_to_idle() {
     let manager = crate::session::test_manager(Config::default());
-    *manager.rules.compiled.write().await = vec![(
-        State::Working,
-        regex::Regex::new("esc to interrupt").unwrap(),
-    )];
     let mut live = Live::new(
         SessionCfg {
             name: "agent".into(),
@@ -430,7 +373,6 @@ async fn retick_moves_a_quiet_working_session_to_idle() {
         request_id: 0,
         lines: Vec::new(),
     });
-    live.plain = Arc::new("* Thinking... (esc to interrupt)".into());
     manager.live.write().await.insert("agent".into(), live);
 
     manager.retick().await;

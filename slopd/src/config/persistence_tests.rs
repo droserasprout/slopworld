@@ -356,3 +356,18 @@ state_id = "11111111-1111-4111-8111-111111111111"
         .contains("future_project"));
     tokio::fs::remove_dir_all(root).await.unwrap();
 }
+
+#[test]
+fn legacy_state_rules_are_ignored_and_not_exposed_in_modeled_config() {
+    let cfg = Config::parse(
+        r#"
+[[state_rule]]
+state = "waiting"
+pattern = '['
+"#,
+    )
+    .expect("obsolete rules must not prevent startup");
+    let value = serde_json::to_value(&cfg).unwrap();
+    assert!(value.get("state_rule").is_none());
+    assert!(!toml::to_string(&cfg).unwrap().contains("state_rule"));
+}

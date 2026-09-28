@@ -31,7 +31,6 @@ pub(crate) use caps::Authorization;
 use capture::CachedScroll;
 pub(crate) use config::ConfigState;
 pub(crate) use music::MusicState;
-pub(crate) use session_state::ActivityRules;
 pub(crate) use sessions::HostMetadataPoll;
 pub(crate) use signals::Signals;
 pub use signals::WatchGuard;
@@ -58,7 +57,6 @@ pub struct Manager {
     // Includes stopped sessions as well as attached processes.
     pub(super) live: RwLock<HashMap<String, Live>>,
     pub(super) temp: RwLock<HashMap<String, ProjectCfg>>,
-    pub(super) rules: ActivityRules,
     pub(super) host_metadata: HostMetadataPoll,
     pub(super) scroll_cache: Mutex<HashMap<String, CachedScroll>>,
     pub(super) activity_cache: crate::activity::ActivityCache,

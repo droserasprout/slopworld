@@ -1,7 +1,6 @@
 # Session state and terminal capture
 
-`session/manager/session_state.rs` owns rule compilation, matching, classification, and activity persistence.
-`ActivityRules` keeps compiled rules with their cache revision, retaining separate synchronization.
+`session/manager/session_state.rs` owns activity classification, idle decay, and activity persistence.
 `session_state.rs` also owns the classification deadline shared by retick selection and maintenance scheduling.
 `views.rs` owns client session projection and snapshot publication.
 `maintenance.rs` schedules polls and state refreshes; `signals.rs` tracks subscriptions and usage.
@@ -33,13 +32,11 @@ A persistence failure restores the old tmux name.
 If rollback also fails, the error and log report both failures and the observed tmux names.
 Configuration and live state retain the old name and require manual recovery.
 
-Rules search the nonblank terminal tail from bottom to top.
-The lowest matching line determines the result. Configuration order resolves matches on the same line.
-Waiting/Idle matches are authoritative.
-Working matches still expire without activity because agent TUIs can leave old interrupt indicators visible indefinitely.
+Classification uses meaningful terminal activity and a ten-second idle timeout.
+Terminal wording does not determine state; legacy `state_rule` configuration is ignored.
+Waiting remains in the wire/recovery enum for compatibility, but capture no longer infers it.
+Recovered Waiting rows fall back to activity classification.
 
-A live row caches the match for its stripped text and rules revision.
-The activity-age decision is separate.
 Activity uses a different content hash from rendering.
 Faint single-dot Braille particles in near-background gray count as background spaces for activity only.
 Codex's prompt animation uses these particles.
@@ -48,12 +45,12 @@ Real text, other Braille, and visible style changes remain activity.
 Mode and title changes also update `last_change`.
 Changes only to cursor position, shape, or blink do not update it.
 `state_since` is separate. It changes only on transitions through `Live::set_state`.
-Retick discards classifications if the run, frame sequence, state, or rules revision changed while it waited for the rules lock.
+Retick discards classifications if the run, frame sequence, or state changed before commit.
 Old snapshots must not mark newer frames as classified.
 
 Capture compares and classifies outside the live write lock, validates and commits under that
 lock, then publishes events and persists activity after releasing it.
-Capture retries classification when only state or rules change. It preserves pending terminal output.
+Capture retries classification when only state changes. It preserves pending terminal output.
 It discards captures that a newer run or frame replaces.
 Stop and reset advance the run identity so an old reader cannot restore a down row.
 

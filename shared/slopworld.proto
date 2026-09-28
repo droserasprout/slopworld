@@ -113,11 +113,6 @@ message LibraryItem {
   optional bool builtin = 10;
 }
 
-message StateRule {
-  string state = 1;
-  string pattern = 2;
-}
-
 message SessionView {
   string name = 1;
   string label = 2;
@@ -746,7 +741,8 @@ message Config {
   repeated Project project = 4;
   repeated SessionConfig session = 5;
   repeated HostTerminalCfg host_terminal = 6;
-  repeated StateRule state_rule = 7;
+  reserved 7;
+  reserved "state_rule";
 }
 
 message ConfigMetadata {

@@ -77,7 +77,7 @@ impl Config {
 
     pub async fn load(path: &Path) -> Result<Self> {
         if !tokio::fs::try_exists(path).await? {
-            let cfg = Config::seed();
+            let cfg = Config::default();
             cfg.save(path).await?;
             return Ok(cfg);
         }
@@ -164,22 +164,6 @@ impl Config {
             c.daemon.token = TOKEN_REDACTED.to_string();
         }
         c
-    }
-
-    fn seed() -> Self {
-        Self {
-            state_rules: vec![
-                StateRule {
-                    state: "waiting".into(),
-                    pattern: r"(?i)(do you want|❯\s*1\.|yes, and don't ask again|press enter to continue)".into(),
-                },
-                StateRule {
-                    state: "working".into(),
-                    pattern: r"(?i)(esc to interrupt|to interrupt\))".into(),
-                },
-            ],
-            ..Default::default()
-        }
     }
 }
 

@@ -9,7 +9,6 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
-use regex::Regex;
 use serde::Deserialize;
 use serde_json::Value;
 use tokio::sync::{broadcast, mpsc, RwLock};
@@ -45,7 +44,6 @@ pub use view::{
 use input::{merge_input, Input};
 use prompt::{render_prompt, render_prompt_with, PromptVars};
 pub use text::strip_sgr;
-pub(crate) use text::strip_sgr_tail;
 use title::{
     begin_title_request, is_dialog_answer, prompt_is_long_enough, title_settings, Composer,
     Submission, TitleCapture, TitleRequest,
@@ -155,9 +153,6 @@ struct Live {
     // Terminal snapshot.
     cols: u16,
     rows: u16,
-    plain: Arc<String>,
-    // Cache regex results by visible text and rules revision; idle decay is separate.
-    rule_cache: Option<RuleCache>,
     screen: Option<ScreenView>,
     capture: LiveCapture,
     input: LiveInput,
@@ -187,19 +182,6 @@ struct LiveInput {
     auto_resume_pending: bool,
 }
 
-#[derive(Clone)]
-struct RuleCache {
-    revision: u64,
-    text: Arc<String>,
-    matched: Option<State>,
-}
-
-struct Classification {
-    state: State,
-    rules_revision: u64,
-    matched: Option<State>,
-}
-
 impl Live {
     /// A configured session before any process or terminal reader is attached.
     fn new(cfg: SessionCfg, title: TitleCapture) -> Self {
@@ -216,12 +198,10 @@ impl Live {
             hash: 0,
             activity_hash: 0,
             last_change: 0,
-            rule_cache: None,
             state_since: 0,
             bell: false,
             cols: Live::BOOT_COLS,
             rows: Live::BOOT_ROWS,
-            plain: Arc::new(String::new()),
             screen: None,
             capture: LiveCapture::default(),
             input: LiveInput::default(),
