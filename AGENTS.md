@@ -28,6 +28,25 @@ It does not describe current behavior.
 | Agent access and collaboration | [Sandbox](notes/sandbox-isolation.md), [tasks](notes/agent-tasks.md), [workers](notes/daemon-workers.md) |
 | Build and runtime operations | [Build](notes/build-commands.md), [paths](notes/ops-paths.md), [diagnostics](notes/ops-diagnostics.md), [sidecar status](notes/ops-macos-compatibility-status.md) |
 
+## Rust code guidelines
+
+Follow the patterns in the reviewed Rust files listed in `BIG_REVIEW.md`:
+
+- Give each module one clear responsibility. Start with a short `//!` ownership summary;
+  name neighboring owners where the boundary matters. Keep coordination separate from
+  policy, persistence, transport, and client views.
+- Group state by responsibility and lifetime, as `LiveInput` and `LiveCapture` do.
+  Use concrete structs and enums for plans, outcomes, and resource handoffs; keep visibility narrow.
+- Make orchestration read as named stages: prepare, validate, commit, publish, clean up.
+  Extract helpers around meaningful decisions or ownership boundaries.
+- Make lock scope and asynchronous ownership explicit. Carry owned plans out of state locks
+  before I/O; recheck run or reader identity before applying delayed work. Keep required
+  operation guards through commit or rollback, and handle partial failure and cancellation.
+- Keep comments beside the code they explain. Describe contracts, ordering, lifetimes, and
+  non-obvious reasons; use short section comments to orient readers in longer flows.
+- Keep tests beside their owner in separate test modules. Name the behavior being protected;
+  cover failure, recovery, stale work, and repeated cleanup. Control race ordering explicitly.
+
 ## Delegation
 
 Delegate only when the user clearly implies that they want you to delegate.

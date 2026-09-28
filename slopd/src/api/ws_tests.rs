@@ -1,10 +1,14 @@
+use super::commands::{handle_audio, resolve_audio_source};
+use super::outbound::scope_event;
 use super::*;
+use crate::api::types::{AudioReq, AudioSelection};
 use crate::grant::Grant;
 use crate::session::{
     ScreenView, SessionLaunchView, SessionReaderView, SessionRuntimeView, SessionView,
     SessionWorkerView, State,
 };
 use std::collections::HashSet;
+use std::time::Duration;
 
 #[tokio::test]
 async fn rejected_spotify_selection_replies_without_waiting_for_a_state_change() {
@@ -755,4 +759,40 @@ async fn latency_stamp_is_per_send_without_mutating_shared_frame() {
         panic!("screen")
     };
     assert_eq!(screen.input_timings[0].send_us, 0);
+}
+
+#[tokio::test]
+async fn frame_pump_stops_when_authority_is_revoked_while_waiting_to_send() {
+    let socket = socket_pair().await;
+    let cap = scoped(&["a"], Level::Ro);
+    let (events, rx) = broadcast::channel(2);
+    // Hold the writer until the pump has accepted the event, then revoke authority.
+    let writer = socket.tx.lock().await;
+    let pump = spawn_frame_pump(rx, socket.tx.clone(), WsSubs::default(), cap.clone());
+    let event = message(Event::Sessions {
+        sessions: vec![view("a")],
+    });
+    let accepted = Arc::downgrade(&event);
+    assert!(events.send(event).is_ok());
+    tokio::time::timeout(Duration::from_secs(2), async {
+        // Scoping replaces a session event; its original payload is dropped before send.
+        while accepted.upgrade().is_some() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let Cap::Scoped(grant) = &cap else {
+        unreachable!()
+    };
+    grant
+        .revoked
+        .store(true, std::sync::atomic::Ordering::Release);
+    drop(writer);
+    tokio::time::timeout(Duration::from_secs(2), pump)
+        .await
+        .unwrap()
+        .unwrap();
+    // Keep the broadcaster alive: termination must come from failed delivery.
+    assert_eq!(events.receiver_count(), 0);
 }
