@@ -47,6 +47,8 @@ Changes only to cursor position, shape, or blink do not update it.
 Retick discards classifications if the run, frame sequence, state, or rules revision changed while it waited for the rules lock.
 Old snapshots must not mark newer frames as classified.
 
+Capture compares and classifies outside the live write lock, validates and commits under that
+lock, then publishes events and persists activity after releasing it.
 Capture retries classification when only state or rules change. It preserves pending terminal output.
 It discards captures that a newer run or frame replaces.
 Stop and reset advance the run identity so an old reader cannot restore a down row.

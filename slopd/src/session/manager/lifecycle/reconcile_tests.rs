@@ -39,16 +39,18 @@ async fn cancelling_batch_cleanup_aborts_all_removed_readers() {
 
 #[tokio::test]
 async fn host_catalog_refresh_preserves_existing_non_host_identity() {
-    let mut cfg = Config::default();
-    cfg.host_terminals = ["shell", "worker"]
-        .into_iter()
-        .map(|name| crate::config::HostTerminalCfg {
-            name: name.into(),
-            label: Some("saved label".into()),
-            path: "/tmp".into(),
-            ..Default::default()
-        })
-        .collect();
+    let mut cfg = Config {
+        host_terminals: ["shell", "worker"]
+            .into_iter()
+            .map(|name| crate::config::HostTerminalCfg {
+                name: name.into(),
+                label: Some("saved label".into()),
+                path: "/tmp".into(),
+                ..Default::default()
+            })
+            .collect(),
+        ..Default::default()
+    };
     let manager = crate::session::test_manager(cfg.clone());
     let worker = Live::new(
         SessionCfg {
