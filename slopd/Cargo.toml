@@ -16,7 +16,6 @@ httpdate = "1"
 landlock = "0.4.7"
 nix = { version = "0.28", features = ["fs", "hostname", "term", "user"] }
 rand = "0.8"
-regex = "1"
 # symphonia-vorbis is the codec and symphonia-ogg the container it always comes in.
 # Without the second, the OST is a file no demuxer claims and the probe reads to EOF.
 rodio = { version = "0.22", default-features = false, features = ["playback", "symphonia-mp3", "symphonia-ogg", "symphonia-vorbis"] }

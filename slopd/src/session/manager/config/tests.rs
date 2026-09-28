@@ -1,5 +1,5 @@
 use super::*;
-use crate::config::{HostTerminalCfg, StateRule};
+use crate::config::HostTerminalCfg;
 use crate::session::test_manager;
 use std::time::{Duration, UNIX_EPOCH};
 
@@ -28,17 +28,12 @@ async fn persisted_root_token_changes_invalidate_existing_auth() {
 fn candidate_preparation_restores_a_redacted_root_token() {
     let mut old = Config::default();
     old.daemon.token = "real-root-token".into();
-    old.state_rules.push(StateRule {
-        state: "idle".into(),
-        pattern: "idle".into(),
-    });
     let mut candidate = old.clone();
     candidate.daemon.token = crate::config::TOKEN_REDACTED.into();
 
     let change = prepare_candidate(&old, candidate).expect("valid candidate");
 
     assert_eq!(change.new.daemon.token, old.daemon.token);
-    assert!(!change.rules.is_empty());
 }
 
 #[tokio::test]

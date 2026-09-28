@@ -3,17 +3,17 @@
 use super::super::lifecycle::stop::DetachCause;
 use super::*;
 use crate::clock::unix_ms;
-use crate::session::manager::session_state::TAIL_LINES;
+use crate::session::manager::session_state::classify_activity;
 
 // Effects leave the live lock before any event publication or persistence.
 #[derive(Default)]
-struct FrameEffects {
+pub(super) struct FrameEffects {
     screen: Option<ScreenView>,
     activity: Option<(State, u64)>,
     announce: bool,
 }
 
-enum FrameCommit {
+pub(super) enum FrameCommit {
     Superseded,
     Reclassify,
     Applied(FrameEffects),
@@ -21,13 +21,7 @@ enum FrameCommit {
 
 impl FrameDelta {
     fn needs_commit(&self, previous: &FrameSnapshot) -> bool {
-        let cache_current = previous.rule_cache.as_ref().is_some_and(|cache| {
-            cache.revision == self.rules_revision
-                && cache.text.as_ref() == self.plain.as_ref()
-                && cache.matched == self.matched
-        });
-        // A cache refresh matters even when the screen and state are unchanged.
-        self.screen_changed || self.next_state != previous.state || self.bell || !cache_current
+        self.screen_changed || self.next_state != previous.state || self.bell
     }
 }
 
@@ -69,7 +63,7 @@ impl Manager {
     }
 
     /// Compare and classify outside the live write lock; commit rechecks the snapshot.
-    async fn frame_delta(&self, previous: &FrameSnapshot, frame: &Frame) -> FrameDelta {
+    pub(super) fn frame_delta(&self, previous: &FrameSnapshot, frame: &Frame) -> FrameDelta {
         let content_hash = frame.content_hash;
         let meta = FrameMeta {
             cursor_shape: frame.cursor_shape,
@@ -98,46 +92,23 @@ impl Manager {
             },
             1,
         );
-        // Reuse normalized text for presentation-only changes, but still classify it.
-        let plain = if content_changed {
-            Arc::new(strip_sgr_tail(&frame.lines, TAIL_LINES))
-        } else {
-            previous.plain.clone()
-        };
-        let classification = self
-            .classify_with_cache(
-                if previous.initial {
-                    false
-                } else {
-                    activity_changed
-                },
-                previous.last_change,
-                &plain,
-                previous.rule_cache.as_ref(),
-            )
-            .await;
-        // On adoption, keep the restored state unless a terminal rule matches.
+        // Preserve adopted state on the first frame; subsequent activity uses the clock.
         let next_state = if previous.initial {
-            classification
-                .matched
-                .unwrap_or(if previous.state != State::Down {
-                    previous.state
-                } else {
-                    State::Working
-                })
+            if previous.state == State::Down {
+                State::Working
+            } else {
+                previous.state
+            }
         } else {
-            classification.state
+            classify_activity(activity_changed, previous.last_change, unix_ms())
         };
 
         FrameDelta {
             content_hash,
             activity_hash: frame.activity_hash,
-            plain,
             activity_changed,
             screen_changed,
             next_state,
-            rules_revision: classification.rules_revision,
-            matched: classification.matched,
             title_moved: meta.title != previous.meta.title,
             bell: frame.bell,
         }
@@ -153,7 +124,7 @@ impl Manager {
             let Some(previous) = self.frame_snapshot(name).await else {
                 return;
             };
-            let delta = self.frame_delta(&previous, &frame).await;
+            let delta = self.frame_delta(&previous, &frame);
             if !delta.needs_commit(&previous) {
                 return;
             }
@@ -173,18 +144,16 @@ impl Manager {
         }
     }
 
-    async fn frame_snapshot(&self, name: &str) -> Option<FrameSnapshot> {
-        let live = self.live.read().await;
-        let rules_revision = self
-            .rules
-            .revision
-            .load(std::sync::atomic::Ordering::Acquire);
-        live.get(name)
-            .map(|live| FrameSnapshot::from_live(live, rules_revision))
+    pub(super) async fn frame_snapshot(&self, name: &str) -> Option<FrameSnapshot> {
+        self.live
+            .read()
+            .await
+            .get(name)
+            .map(FrameSnapshot::from_live)
     }
 
     /// Validate and mutate under one live lock, leaving all external effects to the caller.
-    async fn commit_frame(
+    pub(super) async fn commit_frame(
         &self,
         name: &str,
         previous: &FrameSnapshot,
@@ -200,15 +169,8 @@ impl Manager {
         if l.run_id != previous.run_id || l.seq != previous.seq {
             return FrameCommit::Superseded;
         }
-        // State decay or a rule reload invalidates classification, not terminal output.
-        if l.state != previous.state
-            || self
-                .rules
-                .revision
-                .load(std::sync::atomic::Ordering::Acquire)
-                != delta.rules_revision
-            || delta.rules_revision != previous.rules_revision
-        {
+        // State decay invalidates classification, not terminal output.
+        if l.state != previous.state {
             return FrameCommit::Reclassify;
         }
 
@@ -216,11 +178,6 @@ impl Manager {
         if delta.screen_changed {
             effects.screen = Some(commit_screen(l, name, previous, frame, &delta, captured_at));
         }
-        l.rule_cache = Some(RuleCache {
-            revision: delta.rules_revision,
-            text: delta.plain.clone(),
-            matched: delta.matched,
-        });
         if l.set_state(delta.next_state) {
             effects.announce = true;
             // Temporary sessions have no durable activity record.
@@ -234,7 +191,6 @@ impl Manager {
             l.bell = true;
             effects.announce = true;
         }
-        l.plain = delta.plain;
         FrameCommit::Applied(effects)
     }
 

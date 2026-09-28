@@ -29,8 +29,6 @@ pub struct Config {
         skip_serializing_if = "Vec::is_empty"
     )]
     pub host_terminals: Vec<HostTerminalCfg>,
-    #[serde(default, rename = "state_rule")]
-    pub state_rules: Vec<StateRule>,
 }
 
 /// A project owns the paths it exposes to its agents. It includes the primary directory implicitly.
@@ -201,11 +199,4 @@ impl Default for SessionCfg {
             worker_token: None,
         }
     }
-}
-
-/// Ordered: first match wins. Shipped defaults target Claude Code's TUI.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StateRule {
-    pub state: String,
-    pub pattern: String,
 }

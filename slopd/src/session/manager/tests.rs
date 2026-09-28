@@ -23,7 +23,6 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
         templates: TemplateStore::new(AgentTemplateStore::default()),
         live: RwLock::new(HashMap::new()),
         temp: RwLock::new(HashMap::new()),
-        rules: ActivityRules::new(Vec::new()),
         config_state: super::ConfigState::new(None, None, None, None),
         host_metadata: HostMetadataPoll::default(),
         signals: super::Signals::new(),

@@ -31,7 +31,13 @@ async fn due_output_reaches_the_screen_for_watched_and_unwatched_panes() {
             .await;
 
         assert!(manager.screen("agent").await.is_some());
-        assert!(manager.live.read().await["agent"].plain.contains("hello"));
+        assert!(manager
+            .screen("agent")
+            .await
+            .unwrap()
+            .lines
+            .iter()
+            .any(|line| line.contains("hello")));
         assert!(
             matches!(events.try_recv(), Ok(event) if matches!(event.event(), Event::Screen { .. }))
         );
@@ -63,12 +69,12 @@ async fn subscription_during_render_leaves_a_clean_tick_pending_for_each_reader(
     assert_eq!(action, TickAction::Render { clipboard: false });
     let clipboard = ClipboardPump::default();
 
-    let rules = manager.rules.compiled.write().await;
+    let live_lock = manager.live.write().await;
     let mut tick = Box::pin(manager.handle_control_tick("agent", &emu, action, &clipboard));
     assert!(futures::poll!(tick.as_mut()).is_pending());
     // No receiver is waiting on changed() while frame publication is suspended.
     let watch = manager.watching("agent");
-    drop(rules);
+    drop(live_lock);
     tick.await;
     assert!(!schedule.dirty);
     assert_eq!(schedule.deadline(), None);

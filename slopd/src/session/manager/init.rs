@@ -1,10 +1,8 @@
 //! Manager construction and startup recovery.
 
 use super::super::*;
-use super::session_state::compile_rules;
 use super::{
-    ActivityRules, Authorization, ConfigState, HostMetadataPoll, MusicState, Signals,
-    TemplateStore, WorktreeState,
+    Authorization, ConfigState, HostMetadataPoll, MusicState, Signals, TemplateStore, WorktreeState,
 };
 use crate::paths::disk_mtime;
 
@@ -40,7 +38,6 @@ impl Manager {
             tmux: Tmux::new(crate::tmux::tmux_socket()),
             cfg_path,
             endpoint_path: crate::endpoint::path(),
-            rules: ActivityRules::new(compile_rules(&cfg)),
             live: RwLock::new(HashMap::new()),
             temp: RwLock::new(HashMap::new()),
             cfg: RwLock::new(cfg),

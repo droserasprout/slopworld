@@ -35,13 +35,10 @@ struct FrameMeta {
 struct FrameSnapshot {
     content_hash: u64,
     activity_hash: u64,
-    plain: Arc<String>,
     state: State,
     last_change: u64,
     run_id: u64,
     seq: u64,
-    rules_revision: u64,
-    rule_cache: Option<RuleCache>,
     cursor: (u16, u16),
     meta: FrameMeta,
     cols: u16,
@@ -50,7 +47,7 @@ struct FrameSnapshot {
 }
 
 impl FrameSnapshot {
-    fn from_live(l: &Live, rules_revision: u64) -> Self {
+    fn from_live(l: &Live) -> Self {
         let (cursor, meta) = l
             .screen
             .as_ref()
@@ -72,14 +69,10 @@ impl FrameSnapshot {
         Self {
             content_hash: l.hash,
             activity_hash: l.activity_hash,
-            // Strings are immutable. Share the previous value without copying its contents for each frame.
-            plain: l.plain.clone(),
             state: l.state,
             last_change: l.last_change,
             run_id: l.run_id,
             seq: l.seq,
-            rules_revision,
-            rule_cache: l.rule_cache.clone(),
             cursor,
             meta,
             cols: l.cols,
@@ -92,12 +85,9 @@ impl FrameSnapshot {
 struct FrameDelta {
     content_hash: u64,
     activity_hash: u64,
-    plain: Arc<String>,
     activity_changed: bool,
     screen_changed: bool,
     next_state: State,
-    rules_revision: u64,
-    matched: Option<State>,
     title_moved: bool,
     bell: bool,
 }

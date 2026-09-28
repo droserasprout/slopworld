@@ -27,16 +27,18 @@ An unset resource limit means no limit.
 
 ## State
 
-Each agent is in one of four states:
+The daemon reports terminal activity:
 
 - **Down** — not running.
-- **Working** — the terminal pane changed recently.
-- **Waiting** — a state rule matched the bottom of the screen (e.g. a prompt).
-- **Idle** — the screen has not changed for a while and no rule matched.
+- **Working** — meaningful terminal activity occurred within the last ten seconds.
+- **Idle** — no meaningful terminal activity for ten seconds.
 
-The daemon checks the last few non-blank terminal lines from bottom to top.
-The lowest matching line determines the state.
-Text outside the view cannot keep an agent in `Waiting` after it sends new output.
+Prompt wording does not determine state. Cursor-only changes and faint prompt
+particles do not keep an agent Working. An agent can still be computing while
+its terminal is quiet.
+
+**Waiting** can appear briefly when restoring an older session, then falls back
+to activity classification. The daemon no longer detects it from approval prompts.
 
 Two clocks track state independently.
 The pane's last-change time determines when a pane without changes becomes idle.

@@ -66,7 +66,6 @@ impl Manager {
             now,
         ));
 
-        let rules_revision = self.rules.revision.load(Ordering::Acquire);
         let live = self.live.read().await;
         if live.values().any(|l| l.host && l.state != State::Down) {
             deadline = deadline.min(next_periodic_deadline(
@@ -76,7 +75,7 @@ impl Manager {
             ));
         }
         for l in live.values() {
-            if let Some(classification) = classification_deadline(l, rules_revision) {
+            if let Some(classification) = classification_deadline(l) {
                 deadline = deadline.min(classification);
             }
         }

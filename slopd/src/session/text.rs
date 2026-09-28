@@ -7,42 +7,6 @@ pub fn strip_sgr(s: &str) -> String {
     out
 }
 
-/// Strip SGR and terminal control sequences from already separated screen rows.
-///
-/// Preserve row boundaries to avoid allocating a temporary string for the joined screen.
-/// The output equals `strip_sgr(&lines.join("\n"))`.
-pub(crate) fn strip_sgr_lines<S: AsRef<str>>(lines: &[S]) -> String {
-    let capacity = lines
-        .iter()
-        .fold(lines.len().saturating_sub(1), |size, line| {
-            size.saturating_add(line.as_ref().len())
-        });
-    let mut out = String::with_capacity(capacity);
-    let bytes = lines.iter().enumerate().flat_map(|(index, line)| {
-        line.as_ref()
-            .as_bytes()
-            .iter()
-            .copied()
-            .chain((index + 1 < lines.len()).then_some(b'\n'))
-    });
-    strip_sgr_into(&mut out, bytes);
-    out
-}
-
-/// Remove control sequences only from the final rows used for state classification.
-/// Exclude trailing blank rows. Keep blank rows within the selected tail because they count toward the classification limit.
-pub(crate) fn strip_sgr_tail<S: AsRef<str>>(lines: &[S], tail_lines: usize) -> String {
-    let _perf = crate::perf::timer("ansi-strip");
-    let Some(last) = lines.iter().rposition(|line| {
-        let plain = strip_sgr(line.as_ref());
-        !plain.trim().is_empty()
-    }) else {
-        return String::new();
-    };
-    let start = last.saturating_sub(tail_lines.saturating_sub(1));
-    strip_sgr_lines(&lines[start..=last])
-}
-
 fn strip_sgr_into<I>(out: &mut String, mut bytes: I)
 where
     I: Iterator<Item = u8>,

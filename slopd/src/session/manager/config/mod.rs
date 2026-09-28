@@ -7,7 +7,6 @@ mod state;
 pub(crate) use state::ConfigState;
 
 use super::super::*;
-use super::session_state::compile_rules;
 use crate::paths::disk_mtime;
 use cache::reconcile_cache_links;
 
@@ -17,10 +16,9 @@ enum ConfigRefresh {
     DiskReload,
 }
 
-/// Validated candidate and its compiled activity rules.
+/// Validated candidate and authentication changes.
 struct ConfigChange {
     new: Config,
-    rules: Vec<(State, Regex)>,
     root_token_changed: bool,
 }
 
@@ -289,12 +287,6 @@ impl Manager {
             }
         }
 
-        let mut rules = self.rules.compiled.write().await;
-        *rules = change.rules;
-        self.rules
-            .revision
-            .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
-        drop(rules);
         *self.cfg.write().await = change.new;
         if change.root_token_changed {
             self.invalidate_auth(crate::session::AuthChange::RootTokenChanged);
@@ -334,10 +326,8 @@ fn prepare_candidate(old: &Config, mut new: Config) -> Result<ConfigChange> {
     }
     let root_token_changed = old.daemon.token != new.daemon.token;
     validate_config(&new)?;
-    let rules = compile_rules(&new);
     Ok(ConfigChange {
         new,
-        rules,
         root_token_changed,
     })
 }
