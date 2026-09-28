@@ -15,6 +15,8 @@ namespace SlopWorld
 
             var live = SessionHub.Instance.Screen(_panel.SessionName);
             bool editor = IsEditorSession();
+            var session = SessionHub.Instance.Get(_panel.SessionName);
+            bool reader = session != null && (session.Intent == "view" || session.Intent == "diff");
 
             // Keep wheel input in history while the user reads old output.
             // Do not send it to the live app.
@@ -29,7 +31,7 @@ namespace SlopWorld
             if (live != null && live.AppMouse)
             {
                 if (e.delta.y == 0f) return;
-                int step = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(e.delta.y)), 1, 5);
+                int step = reader ? 1 : Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(e.delta.y)), 1, 5);
                 _panel.ClearSelection();
                 var cell = _panel.CellAt(body, e.mousePosition);
                 string act = e.delta.y < 0f ? "wheelup" : "wheeldown";
@@ -46,7 +48,7 @@ namespace SlopWorld
                 // Use the dominant axis to ignore slight touchpad drift. Pagers receive normal arrow keys.
                 bool horizontal = Mathf.Abs(e.delta.x) > Mathf.Abs(e.delta.y);
                 float delta = horizontal ? e.delta.x : e.delta.y;
-                int step = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(delta)), 1, 5);
+                int step = reader ? 1 : Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(delta)), 1, 5);
                 string key = horizontal ? (delta < 0f ? "Left" : "Right")
                     : (delta < 0f ? "Up" : "Down");
                 _panel.ClearSelection();

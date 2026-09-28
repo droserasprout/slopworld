@@ -116,10 +116,25 @@ namespace SlopWorld
         public static string FileCommand(string value, string fallback, string file, int line = 0) =>
             PagerCommands.FileCommand(value, fallback, file, line);
 
-        public static string PagerCommand(string file, int line = 0) =>
-            PagerCommands.PagerCommand(
-                PagerCommands.FilePager(SessionHub.Instance.Config.Pager, ModEntry.Instance.settings.codeLineNumbers), CodeHighlight.Command(
-                    SessionHub.Instance.Config.Highlighter, ModEntry.Instance.settings), file, line);
+        public static string PagerCommand(string file, int line = 0)
+        {
+            var settings = ModEntry.Instance.settings;
+            string highlighter = SessionHub.Instance.Config.Highlighter;
+            string pager = PagerCommands.FilePager(SessionHub.Instance.Config.Pager, settings.codeLineNumbers);
+            // Bat reads files itself, so the LESSOPEN highlighter does not style a bat pager.
+            if (CodeHighlight.Engine(highlighter) == "bat")
+                pager = CodeHighlight.Command(pager, settings);
+            return PagerCommands.PagerCommand(pager, CodeHighlight.Command(highlighter, settings), file, line);
+        }
+
+        static string DiffCommand(string command)
+        {
+            var settings = ModEntry.Instance.settings;
+            string batTheme = CodeHighlight.Engine(SessionHub.Instance.Config.Highlighter) == "bat"
+                ? CodeHighlight.Theme(settings, "bat") : null;
+            return PagerCommands.DiffCommand(command, SessionHub.Instance.Config.Pager,
+                settings.codeLineNumbers, batTheme);
+        }
 
         public static string EditorCommand(string file, int line = 0) =>
             PagerCommands.EditorCommand(SessionHub.Instance.Config.Editor, file, line);
@@ -246,7 +261,7 @@ namespace SlopWorld
             _readerLine = line;
             _readerIntent = intent;
             _readerCommand = command;
-            if (intent == "diff") command = PagerCommands.DiffCommand(command, SessionHub.Instance.Config.Pager, ModEntry.Instance.settings.codeLineNumbers);
+            if (intent == "diff") command = DiffCommand(command);
 
             SessionHub.Instance.SessionStore.Run(project, command, label,
                 session =>
@@ -319,7 +334,7 @@ namespace SlopWorld
         {
             if (_session != expectedSession || _operation != expectedOperation || !CanRestartForAppearance) return;
             string command = _readerIntent == "diff"
-                ? PagerCommands.DiffCommand(_readerCommand, SessionHub.Instance.Config.Pager, ModEntry.Instance.settings.codeLineNumbers)
+                ? DiffCommand(_readerCommand)
                 : PagerCommand(_filePath, _readerLine);
             int operation = ++_operation;
             string oldSession = _session;

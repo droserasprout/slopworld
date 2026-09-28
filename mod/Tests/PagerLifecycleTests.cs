@@ -80,6 +80,7 @@ namespace SlopWorld.Tests
             yield return ("reader settings restart ignores stale confirmation", AppearanceStale);
             yield return ("failed reader settings restart keeps old process", AppearanceFailure);
             yield return ("restored diff restart uses current pager", AppearanceDiff);
+            yield return ("bat file pager uses the selected bat highlighter theme", BatFileTheme);
             yield return ("changed file refresh keeps its pinned tab and active pane", RefreshActive);
             yield return ("background refresh does not steal terminal focus", RefreshBackground);
             yield return ("failed refresh retains the reader and retries", RefreshFailure);
@@ -152,19 +153,45 @@ namespace SlopWorld.Tests
 
         static void AppearanceDiff()
         {
-            SessionHub.Instance = new SessionHub();
-            var info = new SessionInfo { Name = "diff", Alive = true, Intent = "diff",
-                ReaderScope = "p", ReaderKey = "diff:file", ReaderPinned = true,
-                Cmd = PagerCommands.DiffCommand("git diff HEAD", "less") };
-            SessionHub.Instance.Sessions[info.Name] = info;
-            var pager = new Pager();
-            pager.AttachRestored(info);
-            SessionHub.Instance.Config.Pager = "less -N";
-            pager.RestartForAppearance(pager.Session, pager.Operation);
-            AssertEx.Equal("env DELTA_PAGER='less -N -+N -S' git -c delta.line-numbers=true diff HEAD",
-                SessionHub.Instance.SessionStore.Command, "recovered diff replaces old pager override");
-            SessionHub.Instance.SessionStore.Complete("new-diff");
-            AssertEx.True(pager.Locked, "restored diff pin retained");
+            string oldTheme = ModEntry.Instance.settings.codeBatTheme;
+            ModEntry.Instance.settings.codeBatTheme = "Monokai Extended";
+            try
+            {
+                SessionHub.Instance = new SessionHub();
+                var info = new SessionInfo { Name = "diff", Alive = true, Intent = "diff",
+                    ReaderScope = "p", ReaderKey = "diff:file", ReaderPinned = true,
+                    Cmd = PagerCommands.DiffCommand("git diff HEAD", "less") };
+                SessionHub.Instance.Sessions[info.Name] = info;
+                var pager = new Pager();
+                pager.AttachRestored(info);
+                SessionHub.Instance.Config.Pager = "less -N";
+                SessionHub.Instance.Config.Highlighter = "bat --color=always --style=plain --paging=never";
+                pager.RestartForAppearance(pager.Session, pager.Operation);
+                AssertEx.Equal("env BAT_THEME='Monokai Extended' DELTA_PAGER='less -N -+N -S --shift=1 --wheel-lines=1' git -c delta.line-numbers=true -c delta.minus-style='syntax auto' diff HEAD",
+                    SessionHub.Instance.SessionStore.Command, "recovered diff uses the selected bat theme");
+                SessionHub.Instance.SessionStore.Complete("new-diff");
+                AssertEx.True(pager.Locked, "restored diff pin retained");
+            }
+            finally { ModEntry.Instance.settings.codeBatTheme = oldTheme; }
+        }
+
+        static void BatFileTheme()
+        {
+            string oldTheme = ModEntry.Instance.settings.codeBatTheme;
+            ModEntry.Instance.settings.codeBatTheme = "ansi";
+            try
+            {
+                SessionHub.Instance = new SessionHub();
+                SessionHub.Instance.Config.Pager = "bat --paging=always";
+                SessionHub.Instance.Config.Highlighter = "bat --color=always --style=plain --paging=never";
+                string command = Pager.PagerCommand("/sample.rs");
+                AssertEx.True(command.Contains("bat --paging=always --style=numbers --decorations=always --wrap=never --pager 'less -RS --shift=1 --wheel-lines=1' --theme='ansi' -- '/sample.rs'"),
+                    "file pager gets the selected bat theme before its file argument");
+                SessionHub.Instance.Config.Highlighter = "highlight --out-format=xterm256";
+                AssertEx.False(Pager.PagerCommand("/sample.rs").Contains("--theme='ansi'"),
+                    "other highlighters do not apply an old bat theme to files");
+            }
+            finally { ModEntry.Instance.settings.codeBatTheme = oldTheme; }
         }
 
         static Pager WatchedFile()
