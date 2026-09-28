@@ -70,6 +70,8 @@ namespace SlopWorld
 
         public bool Owns(string project, string key) =>
             (_opening || Alive) && _openProject == project && _key == key;
+        public bool OwnsSource(string project, string path) =>
+            _sourceCommand != null && Owns(project, path);
         public bool Pending(string project, string key) =>
             _opening && _openProject == project && _key == key;
 

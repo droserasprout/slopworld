@@ -19,7 +19,7 @@ parent empty-directory check does not account for gitignored entries.
 Clipped rows must never receive clicks outside their pane.
 
 A viewer has one replaceable preview and independently pinned readers. Reopening the same
-path reuses its reader, including while hidden.
+path, including a line-targeted open, reuses its reader even while hidden.
 Concurrent opens share a pending request.
 Tab changes preserve readers. Explicit dismissal and validated file removal may close a
 pinned reader. Ordinary focus changes must not close one. While Files or Git is visible, serialized
