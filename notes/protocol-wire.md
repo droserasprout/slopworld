@@ -14,9 +14,10 @@ Check those events before adding frontend query paths. HTTP query routes also se
 an in-repo caller is not evidence that a route is dead.
 
 Rust cold handlers adapt existing Serde domain projections to generated messages in memory.
-Session reader and runtime groups are nested messages. Launch and worker fields remain flat.
+Session reader, runtime, launch, and worker groups are nested messages.
 Reader metadata uses short field names within its group. Both peers must use this schema;
-there is no fallback for the former flat reader/runtime fields.
+there is no fallback for the former flat session fields. `RunReq.reader` likewise nests source metadata with short
+field names; omission supplies empty reader metadata.
 Unknown fields cause conversion to fail instead of silently disappearing. Screen events convert
 directly and cache encoded bytes for fanout. Persisted TOML and external-provider JSON are
 separate formats. C# uses generated messages throughout the client, with no custom JSON parser.

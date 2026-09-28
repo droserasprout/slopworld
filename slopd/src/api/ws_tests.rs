@@ -86,7 +86,7 @@ fn view(name: &str) -> SessionView {
             auto_resume: false,
         },
         worker: SessionWorkerView {
-            worker: false,
+            enabled: false,
             parent: String::new(),
             task_id: String::new(),
             durable: false,
@@ -122,7 +122,7 @@ fn session_groups_match_wire_schema() {
     session.launch.autostart = true;
     session.launch.auto_resume = true;
     session.worker = SessionWorkerView {
-        worker: true,
+        enabled: true,
         parent: "parent".into(),
         task_id: "task-7".into(),
         durable: true,
@@ -168,7 +168,7 @@ fn session_groups_match_wire_schema() {
         "seq": 19,
     });
     let json = serde_json::to_value(&session).unwrap();
-    assert!(json.get("launch").is_none());
+    assert!(json.get("command").is_none());
 
     for (field, value) in expected.as_object().unwrap() {
         let actual = if let Some(field) = field.strip_prefix("reader_") {
@@ -179,11 +179,11 @@ fn session_groups_match_wire_schema() {
         assert_eq!(actual, value, "JSON field {field}");
         assert!(json.get(field).is_none(), "unexpected flat field {field}");
     }
-    assert_eq!(json["worker"], true);
-    assert_eq!(json["command"], "custom");
-    assert_eq!(json["parent"], "parent");
-    assert_eq!(json["task_id"], "task-7");
-    assert_eq!(json["durable"], true);
+    assert_eq!(json["worker"]["enabled"], true);
+    assert_eq!(json["launch"]["command"], "custom");
+    assert_eq!(json["worker"]["parent"], "parent");
+    assert_eq!(json["worker"]["task_id"], "task-7");
+    assert_eq!(json["worker"]["durable"], true);
 
     let event = Event::Sessions {
         sessions: vec![session],
@@ -194,15 +194,17 @@ fn session_groups_match_wire_schema() {
         panic!("expected sessions payload");
     };
     let wire = &reply.sessions[0];
-    assert_eq!(wire.command, "custom");
-    assert_eq!(wire.command_preset, "shell");
-    assert_eq!(wire.cmd.as_deref(), Some("echo hello"));
-    assert_eq!(wire.agent, "sh");
-    assert_eq!(wire.sandbox, ["git"]);
-    assert!(wire.persistent_tmp && wire.autostart && wire.auto_resume);
-    assert!(wire.worker && wire.durable);
-    assert_eq!(wire.parent, "parent");
-    assert_eq!(wire.task_id, "task-7");
+    let launch = wire.launch.as_ref().unwrap();
+    let worker = wire.worker.as_ref().unwrap();
+    assert_eq!(launch.command, "custom");
+    assert_eq!(launch.command_preset, "shell");
+    assert_eq!(launch.cmd.as_deref(), Some("echo hello"));
+    assert_eq!(launch.agent, "sh");
+    assert_eq!(launch.sandbox, ["git"]);
+    assert!(launch.persistent_tmp && launch.autostart && launch.auto_resume);
+    assert!(worker.enabled && worker.durable);
+    assert_eq!(worker.parent, "parent");
+    assert_eq!(worker.task_id, "task-7");
     let wire_json = serde_json::to_value(wire).unwrap();
     for (field, value) in expected.as_object().unwrap() {
         let actual = if let Some(field) = field.strip_prefix("reader_") {

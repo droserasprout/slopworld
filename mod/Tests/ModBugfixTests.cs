@@ -339,7 +339,7 @@ namespace SlopWorld.Tests
         static JVal Snapshot(string name = null) =>
             JVal.Parse("{\"sessions\":[" +
                        (name == null ? "" : "{\"name\":\"" + name +
-                        "\",\"reader\":{},\"runtime\":{\"alive\":true,\"state\":\"working\"}}") + "]}");
+                        "\",\"launch\":{},\"worker\":{},\"reader\":{},\"runtime\":{\"alive\":true,\"state\":\"working\"}}") + "]}");
 
     }
 }

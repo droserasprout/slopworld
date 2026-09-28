@@ -126,7 +126,7 @@ pub(crate) async fn run(
             "Unknown terminal intent.",
         ));
     }
-    if matches!(q.intent.as_str(), "view" | "edit" | "search") && q.reader_path.is_empty() {
+    if matches!(q.intent.as_str(), "view" | "edit" | "search") && q.reader.path.is_empty() {
         return Err(err(
             axum::http::StatusCode::BAD_REQUEST,
             "A file reader needs a path.",
@@ -189,11 +189,11 @@ pub(crate) async fn run(
     let want = RunWhere {
         worktree: q.worktree,
         intent: q.intent,
-        reader_path: q.reader_path,
-        reader_key: q.reader_key,
-        reader_scope: q.reader_scope,
-        reader_line: q.reader_line,
-        reader_pinned: q.reader_pinned,
+        reader_path: q.reader.path,
+        reader_key: q.reader.key,
+        reader_scope: q.reader.scope,
+        reader_line: q.reader.line,
+        reader_pinned: q.reader.pinned,
         cols: q.cols,
         rows: q.rows,
         project: None,

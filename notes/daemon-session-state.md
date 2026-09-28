@@ -13,7 +13,7 @@ Manager authorization lives in `caps.rs`: `Authorization` groups grants and cred
 Run identity stays on `Live`. Teardown resets individual fields and handles reader disposition separately.
 
 `SessionView` groups reader metadata, launch settings, worker ownership, and runtime status.
-Reader and runtime groups serialize as nested messages; launch and worker fields remain flat.
+All four groups serialize as nested messages. Worker membership is `worker.enabled`.
 
 Session operation wrappers acquire the boundary and delegate to `_inner` helpers.
 `detach_live_locked` instead requires the caller to pass the locked live-session map.
