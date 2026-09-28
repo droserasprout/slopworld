@@ -585,12 +585,11 @@ async fn remembered_host_edits_preserve_labels_and_reject_agent_collisions() {
 async fn manual_labels_count_unicode_characters_clear_and_invalidate_pending_titles() {
     let manager = metadata_fixture().await;
     for name in ["agent", "shell"] {
-        let generation = {
+        let request = {
             let mut live = manager.live.write().await;
             let row = live.get_mut(name).unwrap();
-            row.title.pending = true;
-            row.title.override_title = Some("old automatic title".into());
-            row.title.generation
+            row.title = TitleCapture::restored(Some("old automatic title".into()));
+            pending_title(&mut row.title)
         };
         let label = "界".repeat(MAX_MANUAL_LABEL_CHARS);
         manager
@@ -600,10 +599,9 @@ async fn manual_labels_count_unicode_characters_clear_and_invalidate_pending_tit
         {
             let live = manager.live.read().await;
             assert_eq!(live[name].cfg.label.as_deref(), Some(label.as_str()));
-            assert_eq!(live[name].title.generation, generation.wrapping_add(1));
-            assert!(!live[name].title.pending);
+            assert!(!live[name].title.accepts(&request));
             if name == "shell" {
-                assert!(live[name].title.override_title.is_none());
+                assert!(live[name].title.title().is_none());
             }
         }
         assert!(manager
@@ -661,7 +659,7 @@ async fn ephemeral_labels_stay_runtime_only() {
 async fn failed_label_persistence_keeps_live_and_config_labels_unchanged() {
     let manager = metadata_fixture().await;
     manager.set_label("agent", "Original".into()).await.unwrap();
-    let generation = manager.live.read().await["agent"].title.generation;
+    let request = pending_title(&mut manager.live.write().await.get_mut("agent").unwrap().title);
     std::fs::remove_file(&manager.cfg_path).unwrap();
     std::fs::create_dir(&manager.cfg_path).unwrap();
     assert!(manager.set_label("agent", "Unsaved".into()).await.is_err());
@@ -669,10 +667,7 @@ async fn failed_label_persistence_keeps_live_and_config_labels_unchanged() {
         manager.live.read().await["agent"].cfg.label.as_deref(),
         Some("Original")
     );
-    assert_eq!(
-        manager.live.read().await["agent"].title.generation,
-        generation
-    );
+    assert!(manager.live.read().await["agent"].title.accepts(&request));
     assert_eq!(
         manager
             .config()
@@ -772,4 +767,22 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
         "remember me"
     );
     cleanup_rename_fixture(&manager, root, &socket, &["old"]).await;
+}
+
+fn pending_title(title: &mut TitleCapture) -> TitleRequest {
+    let mut cfg = Config::default();
+    cfg.daemon.agent_titles = TitlePolicy::Always;
+    cfg.daemon.title_min_chars = 0;
+    let session = SessionCfg {
+        command: "codex".into(),
+        ..Default::default()
+    };
+    let settings = TitleSettings::for_session(&cfg, &session, false).unwrap();
+    title.paste("Describe the current work");
+    let Some(TitleAction::Request(request)) =
+        title.capture_keys(&settings, &["Enter".into()], false)
+    else {
+        panic!("expected request")
+    };
+    request
 }

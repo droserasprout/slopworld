@@ -5,9 +5,8 @@ use std::sync::Arc;
 use super::{
     check_library_item, check_name, check_project, free_name, free_project_name,
     hold_action_command, json_to_toml, merge_input, merge_toml, normalize_action_command,
-    normalize_path, project_action_path, prompt_is_long_enough, settle, slug, strip_sgr,
-    title_agent, title_settings, Composer, Input, Live, LiveCapture, LiveInput, State, Submission,
-    TitleAgent, TitleCapture, INPUT_BATCH,
+    normalize_path, project_action_path, settle, slug, strip_sgr, Input, Live, LiveCapture,
+    LiveInput, State, TitleCapture, INPUT_BATCH,
 };
 use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg};
 
@@ -27,121 +26,6 @@ fn file_action_paths_normalize_the_absolute_placeholder() {
             "du -sh '/tmp/repo/file name'; exec \"${SHELL:-bash}\""
         ]
     );
-}
-
-#[test]
-fn codex_composer_recovers_the_submitted_prompt() {
-    let mut c = Composer::ready();
-    c.literal("fix teh parser");
-    for _ in 0..8 {
-        c.key("Left");
-    }
-    c.key("BSpace");
-    c.literal("he");
-    c.key("DC");
-    let Some(Submission::Prompt(prompt)) = c.key("Enter") else {
-        panic!("expected a prompt")
-    };
-    assert_eq!(prompt, "fix the parser");
-}
-
-#[test]
-fn codex_composer_rearms_new_and_skips_uncertain_input() {
-    let mut c = Composer::ready();
-    c.literal("/new parser work");
-    let Some(Submission::New(name)) = c.key("Enter") else {
-        panic!("expected a boundary")
-    };
-    assert_eq!(name.as_deref(), Some("parser work"));
-
-    c.literal("history entry");
-    c.key("Up");
-    assert!(c.key("Enter").is_none());
-    c.literal("fresh prompt");
-    assert!(matches!(c.key("Enter"), Some(Submission::Prompt(_))));
-}
-
-#[test]
-fn codex_composer_handles_common_controls_and_resynchronizes() {
-    let mut c = Composer::ready();
-    c.literal("fix parser");
-    c.key("Home");
-    c.key("C-f");
-    c.key("C-d");
-    c.literal("i");
-    let Some(Submission::Prompt(prompt)) = c.key("C-j") else {
-        panic!("expected Ctrl-J to submit")
-    };
-    assert_eq!(prompt, "fix parser");
-
-    c.literal("stale input");
-    c.key("Escape");
-    c.literal("replacement");
-    assert!(c.key("Enter").is_none());
-    c.literal("fresh prompt");
-    assert!(matches!(c.key("Enter"), Some(Submission::Prompt(_))));
-}
-
-#[test]
-fn waiting_dialog_answers_are_not_prompt_titles() {
-    assert!(super::is_dialog_answer(" yes "));
-    assert!(super::is_dialog_answer("1"));
-    assert!(!super::is_dialog_answer("fix the parser"));
-}
-
-#[test]
-fn prompt_minimum_counts_unicode_characters() {
-    assert!(prompt_is_long_enough("commit", 0));
-    assert!(prompt_is_long_enough("12345678901234567890", 20));
-    assert!(prompt_is_long_enough("áéíóú", 5));
-    assert!(!prompt_is_long_enough("commit", 20));
-}
-
-#[test]
-fn title_agents_cover_presets_and_explicit_commands() {
-    let mut cfg = Config::default();
-    cfg.daemon.title_model = "shared-title".into();
-
-    let codex = SessionCfg {
-        cmd: Some("codex --yolo".into()),
-        ..Default::default()
-    };
-    assert!(matches!(title_agent(&cfg, &codex), Some(TitleAgent::Codex)));
-
-    let pi = SessionCfg {
-        cmd: Some("pi --model test".into()),
-        ..Default::default()
-    };
-    assert!(matches!(title_agent(&cfg, &pi), Some(TitleAgent::Pi)));
-    assert_eq!(title_settings(&cfg, &pi, false).unwrap().1, "shared-title");
-
-    let labeled = SessionCfg {
-        label: Some("keep this name".into()),
-        cmd: Some("pi --model test".into()),
-        ..Default::default()
-    };
-    assert!(title_settings(&cfg, &labeled, false).is_none());
-
-    let host = SessionCfg {
-        cmd: Some("bash".into()),
-        ..Default::default()
-    };
-    assert!(title_settings(&cfg, &host, true).is_none());
-
-    let other = SessionCfg {
-        cmd: Some("opencode".into()),
-        ..Default::default()
-    };
-    assert!(title_agent(&cfg, &other).is_none());
-}
-
-#[test]
-fn once_title_is_consumed_before_the_worker_finishes() {
-    let mut capture = TitleCapture::default();
-    assert!(capture.once_available());
-    capture.consume_once();
-    assert!(!capture.once_available());
-    assert!(capture.override_title.is_none());
 }
 
 #[test]

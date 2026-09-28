@@ -11,11 +11,6 @@ const CONTROL_ATTACH_TIMEOUT: Duration = Duration::from_secs(5);
 const CONTROL_QUEUE_CHUNK_BYTES: usize = 16 * 1024;
 const CONTROL_QUEUE_CHUNKS: usize = 256;
 
-enum TitleCaptureAction {
-    New(Option<String>),
-    Request(TitleRequest),
-}
-
 enum ControlLine {
     Output { redraw_clear: bool },
     Exit,
@@ -99,106 +94,6 @@ mod reader;
 mod scroll;
 pub(super) use scroll::CachedScroll;
 mod title;
-
-fn title_capture_action(
-    live: &mut Live,
-    name: &str,
-    cfg: &Config,
-    policy: TitlePolicy,
-    model: String,
-    keys: &[String],
-    literal: bool,
-) -> Option<TitleCaptureAction> {
-    let (submission, uncertain) = build_title_submission(&mut live.title.composer, keys, literal);
-    match submission {
-        Some(Submission::New(native)) => {
-            live.title.conversation = live.title.conversation.wrapping_add(1);
-            live.title.generation = live.title.generation.wrapping_add(1);
-            live.title.pending = false;
-            live.title.once_requested = false;
-            live.title.override_title = native.clone();
-            Some(TitleCaptureAction::New(native))
-        }
-        Some(Submission::Prompt(prompt))
-            if live.state == State::Waiting && is_dialog_answer(&prompt) =>
-        {
-            tracing::debug!(
-                target: "slopd::titles",
-                session = %name,
-                outcome = "skipped_dialog_answer",
-                "skipping dialog answer as session title prompt"
-            );
-            None
-        }
-        Some(Submission::Prompt(prompt))
-            if !prompt_is_long_enough(&prompt, cfg.daemon.title_min_chars) =>
-        {
-            tracing::debug!(
-                target: "slopd::titles",
-                session = %name,
-                prompt_chars = prompt.chars().count(),
-                minimum_chars = cfg.daemon.title_min_chars,
-                outcome = "skipped_short_prompt",
-                "skipping short session title prompt"
-            );
-            None
-        }
-        Some(Submission::Prompt(prompt)) => match policy {
-            TitlePolicy::Never => None,
-            TitlePolicy::Once if !live.title.once_available() => {
-                tracing::debug!(
-                    target: "slopd::titles",
-                    session = %name,
-                    outcome = "skipped_already_named",
-                    "session already attempted its once-mode title"
-                );
-                None
-            }
-            TitlePolicy::Once | TitlePolicy::Always => {
-                if policy == TitlePolicy::Once {
-                    live.title.consume_once();
-                }
-                Some(TitleCaptureAction::Request(begin_title_request(
-                    live,
-                    prompt,
-                    cfg.daemon.openrouter_key_file.clone(),
-                    model,
-                    cfg.daemon.summary_prompt.clone(),
-                )))
-            }
-        },
-        None if uncertain => {
-            tracing::debug!(
-                target: "slopd::titles",
-                session = %name,
-                outcome = "skipped_uncertain_input",
-                "skipping session title after unsupported editing input"
-            );
-            None
-        }
-        None => None,
-    }
-}
-
-fn build_title_submission(
-    composer: &mut Composer,
-    keys: &[String],
-    literal: bool,
-) -> (Option<Submission>, bool) {
-    let mut submission = None;
-    if literal {
-        for key in keys {
-            composer.literal(key);
-        }
-    } else {
-        for key in keys {
-            if let Some(s) = composer.key(key) {
-                submission = Some(s);
-            }
-        }
-    }
-    (submission, !composer.certain)
-}
 
 struct ControlLineReceiver {
     rx: mpsc::Receiver<Vec<u8>>,

@@ -93,7 +93,7 @@ pub(crate) fn reset_process_state(live: &mut Live) {
     live.bell = false;
     live.screen = None;
     live.capture.emu = None;
-    live.title = TitleCapture::default();
+    live.title.reset();
     live.capture.reader_token = None;
     live.input.sender = None;
 }
@@ -206,15 +206,7 @@ impl Manager {
     }
 
     pub(in crate::session::manager) fn clear_latest_title(&self, name: &str) {
-        if let Err(error) = self.title_cache.clear_latest(name) {
-            tracing::warn!(
-                target: "slopd::titles",
-                session = %name,
-                error = %error,
-                outcome = "cache_write_failed",
-                "could not clear session title"
-            );
-        }
+        self.title_cache.clear_latest(name);
     }
 }
 

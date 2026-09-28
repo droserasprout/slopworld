@@ -57,9 +57,7 @@ impl Manager {
     pub(in crate::session::manager) async fn upsert_sessions(&self, cfg: &Config) {
         let mut live = self.live.write().await;
         for s in &cfg.sessions {
-            let mut title = TitleCapture::default();
-            title.override_title = self.title_cache.latest(&s.name);
-            title.once_requested = title.override_title.is_some();
+            let title = TitleCapture::restored(self.title_cache.latest(&s.name));
             live.entry(s.name.clone())
                 .and_modify(|l| {
                     l.cfg = s.clone();

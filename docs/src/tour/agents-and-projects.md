@@ -68,3 +68,7 @@ The daemon can use an OpenRouter model to summarize an agent's prompt. Agent tit
 are `never`, `once` (first prompt only), or `always` (follows the current task). Host terminal
 titles come from the terminal application unless you set a fixed label. The daemon's agent
 title override is separate from the terminal's OSC title.
+
+Approval answers such as `yes`, `1`, and `cancel` never become generated titles, even
+when the minimum prompt length is zero. A failed `once` attempt is not retried for
+later prompts; `/new` starts a fresh attempt budget.

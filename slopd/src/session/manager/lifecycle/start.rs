@@ -266,7 +266,7 @@ impl Manager {
         let (title_was_cleared, run_id, replaced_reader) = {
             let mut live = self.live.write().await;
             if let Some(live) = live.get_mut(name) {
-                let had_title = live.title.override_title.is_some();
+                let had_title = live.title.title().is_some();
                 let replaced_reader = take_reader_for_abort(live);
                 reset_process_state(live);
                 live.last_change = 0;
