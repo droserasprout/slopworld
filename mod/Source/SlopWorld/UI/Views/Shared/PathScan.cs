@@ -92,7 +92,7 @@ namespace SlopWorld
         static bool IsWrapper(char c) => c == '(' || c == '[' || c == '{' || c == '\'';
 
         static bool IsTail(char c) => c == ')' || c == ']' || c == '}' || c == '\'' ||
-            c == ',' || c == ';' || c == '!' || c == '?' || c == '.';
+            c == ',' || c == ';' || c == ':' || c == '!' || c == '?' || c == '.';
 
         static bool LooksLikeRootFile(string path)
         {
