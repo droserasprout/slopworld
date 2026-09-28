@@ -152,6 +152,7 @@ pub struct SessionEmu {
     side: Arc<Mutex<Side>>,
     render_cache: RenderCache,
     history_extent_cache: Option<u32>,
+    redraw_clear: bool,
 }
 
 const TMUX_TITLE_MAX: usize = 512;
@@ -181,6 +182,7 @@ impl SessionEmu {
             side,
             render_cache: RenderCache::new(),
             history_extent_cache: None,
+            redraw_clear: false,
         }
     }
 
@@ -248,6 +250,12 @@ impl SessionEmu {
         self.feed_plain(&plain);
     }
 
+    /// A pager can clear the viewport before tmux has delivered its replacement rows.
+    /// The reader uses this hint to avoid publishing that intermediate screen.
+    pub fn take_redraw_clear(&mut self) -> bool {
+        std::mem::take(&mut self.redraw_clear)
+    }
+
     fn feed_plain(&mut self, bytes: &[u8]) {
         if !bytes.is_empty() {
             let mut history_dirty = false;
@@ -256,6 +264,7 @@ impl SessionEmu {
                     term: &mut self.term,
                     cache: &mut self.render_cache,
                     history_dirty: &mut history_dirty,
+                    redraw_clear: &mut self.redraw_clear,
                 },
                 bytes,
             );

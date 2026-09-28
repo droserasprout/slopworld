@@ -13,6 +13,7 @@ pub(super) struct Mirror<'a> {
     pub term: &'a mut Term<SideSink>,
     pub cache: &'a mut RenderCache,
     pub history_dirty: &'a mut bool,
+    pub redraw_clear: &'a mut bool,
 }
 
 macro_rules! forward {
@@ -26,6 +27,15 @@ macro_rules! forward {
 impl Handler for Mirror<'_> {
     fn clear_screen(&mut self, mode: ClearMode) {
         *self.history_dirty = true;
+        // less homes the cursor and uses ED 0 before redrawing horizontally scrolled
+        // content. tmux may split the replacement into several %output records.
+        if matches!(mode, ClearMode::All)
+            || (matches!(mode, ClearMode::Below)
+                && self.term.grid().cursor.point.line == Line(0)
+                && self.term.grid().cursor.point.column == Column(0))
+        {
+            *self.redraw_clear = true;
+        }
         match mode {
             // Alacritty preserves the erased viewport in scrollback. tmux erases it
             // in place. Preserving it here creates history on every TUI startup/redraw.
