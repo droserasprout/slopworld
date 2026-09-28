@@ -666,3 +666,49 @@ async fn store_reads_only_worktree_catalog_and_fields() {
     assert!(root.join("workspaces.toml").exists());
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[tokio::test]
+async fn relocation_rollback_restores_checkout_registration_and_catalog() {
+    let root = repo();
+    let source = root.join("source");
+    std::fs::create_dir(&source).unwrap();
+    allocate(&root, &source, "source", "HEAD").await.unwrap();
+    let original = Worktree {
+        id: "tree".into(),
+        name: "source".into(),
+        path: source.to_string_lossy().into_owned(),
+        repository: root.join(".git").to_string_lossy().into_owned(),
+        phase: "ready".into(),
+        managed: true,
+        ..Default::default()
+    };
+    let config = root.join("config.toml");
+    let mut store = Store::default();
+    store.worktrees.push(original.clone());
+    store.save(&config).await.unwrap();
+    let destination = root.join("destination");
+    let mut moved = original.clone();
+    moved.name = "destination".into();
+    moved.path = destination.to_string_lossy().into_owned();
+    let mut relocation = relocation::Relocations::new(store, vec![(0, moved.clone())]);
+    relocation.execute(&config).await.unwrap();
+    assert_eq!(
+        Store::load(&config).await.unwrap().worktrees[0].path,
+        moved.path
+    );
+    relocation.rollback(&config).await.unwrap();
+    assert!(!destination.exists());
+    assert_eq!(
+        Store::load(&config).await.unwrap().worktrees[0].path,
+        original.path
+    );
+    assert_eq!(
+        git(&source, &["rev-parse", "--show-toplevel"])
+            .await
+            .unwrap(),
+        original.path
+    );
+    // Repeated cleanup remains safe after all moves have been restored.
+    relocation.rollback(&config).await.unwrap();
+    std::fs::remove_dir_all(root).unwrap();
+}

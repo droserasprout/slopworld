@@ -3,6 +3,7 @@ use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+pub(crate) mod relocation;
 mod write_guard;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

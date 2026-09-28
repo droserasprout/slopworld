@@ -99,12 +99,18 @@ impl Manager {
             );
         }
 
-        let task = self.tasks.create_worker(
-            caller.clone(),
-            session.name.clone(),
+        let task = self.tasks.create_owned(
+            self.task_participant(&caller).await?,
+            crate::tasks::Participant {
+                name: session.name.clone(),
+                identity: session.state_id.clone(),
+            },
             body,
-            caller,
-            durable,
+            Some(crate::tasks::WorkerTask {
+                session: session.name.clone(),
+                parent: caller,
+                durable,
+            }),
         )?;
         self.spawn_task_summary_request(task.clone());
         session.task_id = task.id.clone();
@@ -147,10 +153,8 @@ impl Manager {
         }
 
         self.announce_sessions().await;
-        let manager = self.clone();
-        let name = session.name.clone();
-        let bootstrap = cfg.daemon.instructions.worker_prompt.clone();
-        tokio::spawn(async move { manager.deliver(&name, &bootstrap).await });
+        self.queue_delivery(&session.name, cfg.daemon.instructions.worker_prompt.clone())
+            .await;
         Ok(WorkerSpawn {
             task,
             session: session.name,

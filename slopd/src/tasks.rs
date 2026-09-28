@@ -1,3 +1,5 @@
+//! Durable task records and commit boundaries. Session names are labels; participant IDs own authority.
+
 use crate::clock::unix_ms;
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -40,11 +42,22 @@ impl Status {
     }
 }
 
+/// Resolved by the manager while the session boundary holds identity stable.
+pub(crate) struct Participant {
+    pub(crate) name: String,
+    pub(crate) identity: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
     pub id: String,
     pub from: String,
     pub to: String,
+    /// Absent in legacy records. Never infer authority from a reused display name.
+    #[serde(default)]
+    pub(crate) from_id: String,
+    #[serde(default)]
+    pub(crate) to_id: String,
     pub body: String,
     pub status: Status,
     pub note: Option<String>,
@@ -60,6 +73,21 @@ pub struct Task {
     /// The daemon gives the worker this task ID at startup.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub worker: Option<WorkerTask>,
+}
+
+impl Task {
+    fn visible_to(&self, identity: &str) -> bool {
+        Self::owns(&self.from_id, &self.from, identity) || self.recipient_is(identity)
+    }
+
+    fn recipient_is(&self, identity: &str) -> bool {
+        Self::owns(&self.to_id, &self.to, identity)
+    }
+
+    fn owns(recorded: &str, name: &str, identity: &str) -> bool {
+        (!recorded.is_empty() && recorded == identity)
+            || (recorded.is_empty() && name == HOST && identity == HOST)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -204,10 +232,23 @@ impl Tasks {
         Ok(tasks)
     }
 
+    #[cfg(test)]
     pub fn create(&mut self, from: String, to: String, body: String) -> Result<Task> {
-        self.create_inner(from, to, body, None)
+        self.create_owned(
+            Participant {
+                identity: from.clone(),
+                name: from,
+            },
+            Participant {
+                identity: to.clone(),
+                name: to,
+            },
+            body,
+            None,
+        )
     }
 
+    #[cfg(test)]
     pub fn create_worker(
         &mut self,
         from: String,
@@ -221,13 +262,24 @@ impl Tasks {
             parent,
             durable,
         });
-        self.create_inner(from, to, body, worker)
+        self.create_owned(
+            Participant {
+                identity: from.clone(),
+                name: from,
+            },
+            Participant {
+                identity: to.clone(),
+                name: to,
+            },
+            body,
+            worker,
+        )
     }
 
-    fn create_inner(
+    pub(crate) fn create_owned(
         &mut self,
-        from: String,
-        to: String,
+        from: Participant,
+        to: Participant,
         body: String,
         worker: Option<WorkerTask>,
     ) -> Result<Task> {
@@ -238,8 +290,10 @@ impl Tasks {
         self.sequence += 1;
         let task = Task {
             id: format!("{now:013x}-{:04x}", self.sequence),
-            from,
-            to,
+            from: from.name,
+            to: to.name,
+            from_id: from.identity,
+            to_id: to.identity,
             body,
             status: Status::Queued,
             note: None,
@@ -264,14 +318,15 @@ impl Tasks {
     /// Do not overwrite a worker's explicit `finish` or `fail` result.
     /// Keep a failed task after one-shot cleanup so it remains available after a daemon restart.
     pub fn fail_worker(&mut self, id: &str, note: String) -> Result<Option<Task>> {
-        let Some(task) = self
+        let Some(index) = self
             .file
             .tasks
-            .iter_mut()
-            .find(|task| task.id == id && task.worker.is_some())
+            .iter()
+            .position(|task| task.id == id && task.worker.is_some())
         else {
             return Ok(None);
         };
+        let mut task = self.file.tasks[index].clone();
         if task.status.is_terminal() {
             return Ok(Some(task.clone()));
         }
@@ -279,7 +334,7 @@ impl Tasks {
         task.note = Some(note);
         task.updated_ms = unix_ms();
         let result = task.clone();
-        self.append_update(&result)?;
+        self.commit_update(index, task)?;
         Ok(Some(result))
     }
 
@@ -287,7 +342,7 @@ impl Tasks {
         self.file
             .tasks
             .iter()
-            .filter(|t| t.from == who || t.to == who)
+            .filter(|t| t.visible_to(who))
             .cloned()
             .collect()
     }
@@ -300,7 +355,7 @@ impl Tasks {
         self.file
             .tasks
             .iter()
-            .find(|t| t.id == id && (t.from == who || t.to == who))
+            .find(|t| t.id == id && (t.visible_to(who)))
             .cloned()
     }
 
@@ -311,13 +366,14 @@ impl Tasks {
         status: Status,
         note: Option<String>,
     ) -> Result<Task> {
-        let task = self
+        let index = self
             .file
             .tasks
-            .iter_mut()
-            .find(|t| t.id == id)
+            .iter()
+            .position(|t| t.id == id)
             .with_context(|| format!("Task {id} does not exist."))?;
-        if task.to != who {
+        let mut task = self.file.tasks[index].clone();
+        if !task.recipient_is(who) {
             bail!("Only the recipient can update this task.");
         }
         if task.status == Status::Canceled {
@@ -327,21 +383,22 @@ impl Tasks {
         task.note = note;
         task.updated_ms = unix_ms();
         let result = task.clone();
-        self.append_update(&result)?;
+        self.commit_update(index, task)?;
         Ok(result)
     }
 
     pub fn set_summary(&mut self, id: &str, summary: String) -> Result<Option<Task>> {
-        let Some(task) = self.file.tasks.iter_mut().find(|task| task.id == id) else {
+        let Some(index) = self.file.tasks.iter().position(|task| task.id == id) else {
             return Ok(None);
         };
+        let mut task = self.file.tasks[index].clone();
         let summary = summary.trim().to_string();
         if summary.is_empty() {
             return Ok(Some(task.clone()));
         }
         task.summary = Some(summary);
         let result = task.clone();
-        self.append_update(&result)?;
+        self.commit_update(index, task)?;
         Ok(Some(result))
     }
 
@@ -365,7 +422,7 @@ impl Tasks {
                 .iter()
                 .find(|t| t.id == *id)
                 .with_context(|| format!("Task {id} does not exist."))?;
-            if !force && task.to != who {
+            if !force && !task.recipient_is(who) {
                 bail!("Only the recipient can cancel task {id}.");
             }
             if !matches!(task.status, Status::Queued | Status::Accepted) {
@@ -375,14 +432,15 @@ impl Tasks {
 
         let now = unix_ms();
         let mut canceled = Vec::new();
-        for task in &mut self.file.tasks {
+        let mut candidate = self.file.tasks.clone();
+        for task in &mut candidate {
             if wanted.contains(&task.id) {
                 task.status = Status::Canceled;
                 task.updated_ms = now;
                 canceled.push(task.clone());
             }
         }
-        self.save()?;
+        self.save_tasks(candidate)?;
         Ok(canceled)
     }
 
@@ -394,13 +452,14 @@ impl Tasks {
             .file
             .tasks
             .iter()
-            .position(|t| t.id == id && (force || t.from == who || t.to == who))
+            .position(|t| t.id == id && (force || t.visible_to(who)))
             .with_context(|| format!("Task {id} does not exist."))?;
         if !force && !self.file.tasks[at].status.is_terminal() {
             bail!("Task {id} is unfinished. Finish, fail, or cancel it before you remove it.");
         }
-        let task = self.file.tasks.remove(at);
-        self.save()?;
+        let mut candidate = self.file.tasks.clone();
+        let task = candidate.remove(at);
+        self.save_tasks(candidate)?;
         Ok(task)
     }
 
@@ -422,7 +481,7 @@ impl Tasks {
                 .file
                 .tasks
                 .iter()
-                .find(|t| t.id == *id && (force || t.from == who || t.to == who))
+                .find(|t| t.id == *id && (force || t.visible_to(who)))
                 .with_context(|| format!("Task {id} does not exist."))?;
             if !force && !task.status.is_terminal() {
                 bail!("Task {id} is unfinished. Finish, fail, or cancel it before you remove it.");
@@ -430,10 +489,16 @@ impl Tasks {
         }
 
         let before = self.file.tasks.len();
-        self.file.tasks.retain(|task| !wanted.contains(&task.id));
-        let removed = before - self.file.tasks.len();
+        let candidate: Vec<_> = self
+            .file
+            .tasks
+            .iter()
+            .filter(|task| !wanted.contains(&task.id))
+            .cloned()
+            .collect();
+        let removed = before - candidate.len();
         if removed > 0 {
-            self.save()?;
+            self.save_tasks(candidate)?;
         }
         Ok(removed)
     }
@@ -443,14 +508,27 @@ impl Tasks {
     /// This keeps the store and inbox from growing indefinitely.
     pub fn prune(&mut self, who: &str, all: bool) -> Result<usize> {
         let before = self.file.tasks.len();
-        self.file
+        let candidate: Vec<_> = self
+            .file
             .tasks
-            .retain(|t| !(t.status.is_terminal() && (all || t.from == who || t.to == who)));
-        let removed = before - self.file.tasks.len();
+            .iter()
+            .filter(|t| !(t.status.is_terminal() && (all || t.visible_to(who))))
+            .cloned()
+            .collect();
+        let removed = before - candidate.len();
         if removed > 0 {
-            self.save()?;
+            self.save_tasks(candidate)?;
         }
         Ok(removed)
+    }
+
+    fn commit_update(&mut self, index: usize, candidate: Task) -> Result<()> {
+        let previous = std::mem::replace(&mut self.file.tasks[index], candidate.clone());
+        if let Err(error) = self.append_update(&candidate) {
+            self.file.tasks[index] = previous;
+            return Err(error);
+        }
+        Ok(())
     }
 
     fn append_update(&mut self, task: &Task) -> Result<()> {
@@ -502,14 +580,19 @@ impl Tasks {
     }
 
     fn save(&mut self) -> Result<()> {
-        let previous = self.file.generation;
-        self.file.generation = previous.wrapping_add(1);
-        let result = toml::to_string_pretty(&self.file)
-            .map_err(Into::into)
-            .and_then(|text| crate::paths::write_private_toml(&self.path, &text));
-        if result.is_err() {
-            self.file.generation = previous;
-        } else if let Err(error) = fs::remove_file(&self.journal) {
+        self.save_tasks(self.file.tasks.clone())
+    }
+
+    /// Atomic replacement is the snapshot commit point. Failed writes leave memory unchanged.
+    fn save_tasks(&mut self, tasks: Vec<Task>) -> Result<()> {
+        let candidate = File {
+            generation: self.file.generation.wrapping_add(1),
+            tasks,
+        };
+        let text = toml::to_string_pretty(&candidate)?;
+        crate::paths::write_private_toml(&self.path, &text)?;
+        self.file = candidate;
+        if let Err(error) = fs::remove_file(&self.journal) {
             if error.kind() != std::io::ErrorKind::NotFound {
                 tracing::warn!(
                     "could not clear task journal {}: {error}",
@@ -517,7 +600,7 @@ impl Tasks {
                 );
             }
         }
-        result
+        Ok(())
     }
 }
 

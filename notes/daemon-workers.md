@@ -27,3 +27,7 @@ Prompt construction belongs to the caller; delivery waits for readiness, pastes 
 text, then queues a delay and Enter. It does not consume hidden pending breadcrumbs.
 
 Task completion and worker removal never commit or remove [project worktrees](daemon-worktrees.md).
+
+Delayed prompt delivery and auto-resume capture both the private session identity and
+process run before spawning. Readiness and input admission recheck both under the
+session boundary, so a restarted or replacement session cannot receive stale input.

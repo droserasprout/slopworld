@@ -33,3 +33,9 @@ Worker creation returns both task and session identity. Scoped callers must use 
 template. Root callers can use any catalog template. See
 [daemon-workers](daemon-workers.md) for bootstrap, sidebar metadata, and exit/retry
 policy, and [agent-task-discovery](agent-task-discovery.md) for task discovery and its notification limits.
+
+Task participants persist stable session state IDs separately from display names.
+Renames retain mailbox authority; replacing a session with the same name does not.
+Legacy records without IDs remain visible through root's global listing; only their
+reserved host participant retains authority. Failed persistence leaves the in-memory
+record unchanged so callers can retry.

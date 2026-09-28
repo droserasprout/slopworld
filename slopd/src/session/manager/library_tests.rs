@@ -3,6 +3,7 @@ use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, Session
 use crate::session::Input;
 use std::os::unix::process::ExitStatusExt;
 use std::process::ExitStatus;
+use std::time::Duration;
 
 /// Construct a normal Unix exit status with the supplied exit code in the high byte.
 /// Keep the low byte zero to indicate no termination signal.
@@ -309,24 +310,28 @@ async fn assert_prompt_submission(
 async fn worker_bootstrap_is_pasted_intact_then_submitted_once() {
     let (manager, mut rx) = delivery_fixture().await;
     let prompt = "Read the task and accept it.\nPreserve λ and literal {{ placeholders }}.";
-    manager.deliver("worker", prompt).await;
+    manager
+        .deliver(&manager.delivery_target("worker").await.unwrap(), prompt)
+        .await;
     assert_prompt_submission(&mut rx, prompt).await;
 }
 
 #[tokio::test]
 async fn errand_renders_tips_before_paste_and_submission() {
     let (manager, mut rx) = delivery_fixture().await;
-    manager.queue_errand_delivery(
-        "worker",
-        &LibraryItemCfg {
-            text: "{{ random_tip }}\n{{ random_tip }}".into(),
-            ..Default::default()
-        },
-        &crate::session::RunWhere {
-            random_tips: vec!["First context".into(), "Second context".into()],
-            ..Default::default()
-        },
-    );
+    manager
+        .queue_errand_delivery(
+            "worker",
+            &LibraryItemCfg {
+                text: "{{ random_tip }}\n{{ random_tip }}".into(),
+                ..Default::default()
+            },
+            &crate::session::RunWhere {
+                random_tips: vec!["First context".into(), "Second context".into()],
+                ..Default::default()
+            },
+        )
+        .await;
     assert_prompt_submission(&mut rx, "First context\nSecond context").await;
 }
 
@@ -334,7 +339,106 @@ async fn errand_renders_tips_before_paste_and_submission() {
 async fn stopped_or_missing_session_receives_no_prompt_or_enter() {
     let (manager, mut rx) = delivery_fixture().await;
     manager.live.write().await.get_mut("worker").unwrap().state = crate::session::State::Down;
-    manager.deliver("worker", "do not submit").await;
-    manager.deliver("missing", "do not submit").await;
+    manager
+        .deliver(
+            &manager.delivery_target("worker").await.unwrap(),
+            "do not submit",
+        )
+        .await;
+    manager
+        .queue_delivery("missing", "do not submit".into())
+        .await;
     assert!(rx.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn delayed_prompts_reject_restart_and_replacement_during_readiness() {
+    for replace_identity in [false, true] {
+        let (manager, mut rx) = delivery_fixture().await;
+        let target = manager.delivery_target("worker").await.unwrap();
+        let mut delivery = Box::pin(manager.deliver(&target, "stale"));
+        assert!(futures::poll!(delivery.as_mut()).is_pending());
+        {
+            let mut live = manager.live.write().await;
+            let current = live.get_mut("worker").unwrap();
+            if replace_identity {
+                current.cfg.state_id = uuid::Uuid::new_v4().to_string();
+            } else {
+                current.run_id += 1;
+            }
+        }
+        tokio::time::timeout(Duration::from_secs(2), delivery)
+            .await
+            .unwrap();
+        assert!(rx.try_recv().is_err());
+    }
+}
+
+#[tokio::test]
+async fn prompt_and_auto_resume_recheck_ownership_after_waiting_for_admission() {
+    for prompt in [Some("stale"), None] {
+        let (manager, mut rx) = delivery_fixture().await;
+        let target = manager.delivery_target("worker").await.unwrap();
+        let guard = manager.session_boundary.write().await;
+        let mut admission = Box::pin(manager.admit_delivery(&target, prompt));
+        assert!(futures::poll!(admission.as_mut()).is_pending());
+        {
+            let mut live = manager.live.write().await;
+            let current = live.get_mut("worker").unwrap();
+            current.run_id += 1;
+            current.input.auto_resume_pending = true;
+        }
+        drop(guard);
+        admission.await;
+        manager.finish_auto_resume(&target).await;
+        assert!(rx.try_recv().is_err());
+        assert!(
+            manager.live.read().await["worker"]
+                .input
+                .auto_resume_pending
+        );
+    }
+}
+
+#[tokio::test]
+async fn canceled_project_update_retains_boundary_until_commit() {
+    let project = ProjectCfg {
+        name: "original".into(),
+        dir: "/tmp/slopworld-project-cancellation".into(),
+        ..Default::default()
+    };
+    let manager = crate::session::test_manager(Config {
+        projects: vec![project.clone()],
+        ..Default::default()
+    });
+    let reached = std::sync::Arc::new(tokio::sync::Notify::new());
+    let release = std::sync::Arc::new(tokio::sync::Notify::new());
+    *manager.worktrees.relocation_pause.lock().unwrap() = Some((reached.clone(), release.clone()));
+    let owner = manager.clone();
+    let request = tokio::spawn(async move {
+        owner
+            .update_project(
+                "original",
+                ProjectCfg {
+                    name: "renamed".into(),
+                    ..project
+                },
+            )
+            .await
+    });
+    tokio::time::timeout(Duration::from_secs(5), reached.notified())
+        .await
+        .unwrap();
+    request.abort();
+    assert!(request.await.unwrap_err().is_cancelled());
+    assert!(manager.session_boundary.try_write().is_err());
+    release.notify_one();
+    tokio::time::timeout(
+        Duration::from_secs(5),
+        manager.session_operation(async {
+            assert!(manager.config().await.project("renamed").is_some());
+        }),
+    )
+    .await
+    .unwrap();
 }

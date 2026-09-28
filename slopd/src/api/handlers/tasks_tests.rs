@@ -74,7 +74,7 @@ fn task_identity_rejects_missing_headers_and_host_impersonation() {
 
 #[tokio::test]
 async fn mailbox_visibility_and_global_operations_respect_principal() {
-    let m = crate::session::test_manager(crate::config::Config::default());
+    let m = mailbox_manager();
     let visible = m
         .tasks
         .create_task("alice".into(), "bob".into(), "visible".into())
@@ -151,7 +151,7 @@ async fn mailbox_visibility_and_global_operations_respect_principal() {
 
 #[tokio::test]
 async fn recipient_updates_and_removal_preserve_task_lifecycle() {
-    let m = crate::session::test_manager(crate::config::Config::default());
+    let m = mailbox_manager();
     let task = m
         .tasks
         .create_task("alice".into(), "bob".into(), "work".into())
@@ -213,7 +213,7 @@ async fn recipient_updates_and_removal_preserve_task_lifecycle() {
 
 #[tokio::test]
 async fn bulk_cancel_remove_and_prune_enforce_scope() {
-    let m = crate::session::test_manager(crate::config::Config::default());
+    let m = mailbox_manager();
     let a = m
         .tasks
         .create_task("alice".into(), "bob".into(), "first".into())
@@ -299,7 +299,7 @@ async fn bulk_cancel_remove_and_prune_enforce_scope() {
 }
 #[tokio::test]
 async fn unknown_task_endpoints_fail_before_persistence() {
-    let m = crate::session::test_manager(crate::config::Config::default());
+    let m = mailbox_manager();
     for (from, to) in [("missing", "host"), ("host", "missing")] {
         let result = create_task(
             State(m.clone()),
@@ -316,4 +316,18 @@ async fn unknown_task_endpoints_fail_before_persistence() {
         assert!(error.error.contains("Session missing does not exist."));
         assert!(m.tasks.all_tasks().is_empty());
     }
+}
+
+fn mailbox_manager() -> Mgr {
+    crate::session::test_manager(crate::config::Config {
+        sessions: ["alice", "bob", "carol", "dave"]
+            .into_iter()
+            .map(|name| crate::config::SessionCfg {
+                name: name.into(),
+                state_id: name.into(),
+                ..Default::default()
+            })
+            .collect(),
+        ..Default::default()
+    })
 }

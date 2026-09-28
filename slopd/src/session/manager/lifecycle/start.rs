@@ -255,7 +255,7 @@ impl Manager {
             return Err(error.context(format!("starting session {name} command")));
         }
         if auto_resume_pending {
-            self.queue_auto_resume(name, run_id);
+            self.queue_auto_resume(name, run_id).await;
         }
         Ok(())
     }

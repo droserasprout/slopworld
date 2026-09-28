@@ -177,7 +177,7 @@ impl Manager {
         Ok(())
     }
 
-    pub(super) async fn ensure_paste_ready(&self, name: &str) -> Result<()> {
+    pub(in crate::session::manager) async fn ensure_paste_ready(&self, name: &str) -> Result<()> {
         // The caller holds the session boundary; admission needs no tmux process.
         if !self
             .live

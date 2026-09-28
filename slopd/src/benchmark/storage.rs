@@ -47,6 +47,8 @@ fn benchmark_tasks(scratch: &Scratch) -> Result<()> {
         let fixture = Fixture {
             tasks: (0..count)
                 .map(|index| Task {
+                    from_id: crate::tasks::HOST.into(),
+                    to_id: if index % 10 == 0 { "worker" } else { "other" }.into(),
                     id: format!("bench-{index:x}"),
                     from: crate::tasks::HOST.into(),
                     to: if index % 10 == 0 { "worker" } else { "other" }.into(),
@@ -83,7 +85,18 @@ fn benchmark_tasks(scratch: &Scratch) -> Result<()> {
             },
             |tasks| {
                 tasks
-                    .create("host".into(), "worker".into(), "x".repeat(1024))
+                    .create_owned(
+                        crate::tasks::Participant {
+                            name: "host".into(),
+                            identity: "host".into(),
+                        },
+                        crate::tasks::Participant {
+                            name: "worker".into(),
+                            identity: "worker".into(),
+                        },
+                        "x".repeat(1024),
+                        None,
+                    )
                     .unwrap();
             },
         );
