@@ -1,5 +1,6 @@
 //! Session manager state and focused implementation modules.
 //! Start at init.rs for construction, boundary.rs for concurrency, and lifecycle/start.rs for launch.
+//! session_state.rs owns classification; views.rs projects live state for clients.
 
 mod agent_templates;
 mod boundary;
@@ -19,6 +20,7 @@ mod sessions;
 mod signals;
 mod task_summary;
 mod tasks;
+mod views;
 mod workers;
 mod worktrees;
 pub(crate) use worktrees::WorktreeRequest;
