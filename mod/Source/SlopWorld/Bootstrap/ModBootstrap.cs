@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using HarmonyLib;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -79,5 +80,22 @@ namespace SlopWorld
         }
 
         static void Finalizer(long __state) => PerfTrace.End("root-update", __state, 1);
+    }
+
+    // Keep touchpad storms from making the options UI process thousands of full GUI events.
+    [HarmonyPatch(typeof(Root), "OnGUI")]
+    public static class Patch_Root_WheelQueue
+    {
+        static void Prefix()
+        {
+            var current = Event.current;
+            if (current == null) return;
+            var stack = Find.WindowStack;
+            if (stack == null || (TerminalWindow.ShowingAs<OptionsView>() == null &&
+                stack.WindowOfType<Dialog_Options>() == null &&
+                stack.WindowOfType<UiMenu>() == null))
+                return;
+            WheelEventQueue.Compact(current);
+        }
     }
 }

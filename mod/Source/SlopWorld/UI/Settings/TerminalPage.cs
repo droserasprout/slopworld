@@ -87,21 +87,27 @@ namespace SlopWorld
             }
         }
 
+        List<FloatMenuOption> _fontOptions;
+
         void DrawFont(Listing_Standard l, ModSettings s)
         {
-            var fontOptions = new List<FloatMenuOption>
+            // OS catalogs are stable for the page lifetime; group their faces once.
+            if (_fontOptions == null)
             {
-                new FloatMenuOption("Automatic", () =>
+                _fontOptions = new List<FloatMenuOption>
                 {
-                    if (UiControls.SetSetting(s, ref s.fontName, "")) TerminalFont.Invalidate();
-                }),
-            };
-            fontOptions.AddRange(UiLayout.GroupedFontOptions(TerminalFont.Mono, name =>
-            {
-                if (UiControls.SetSetting(s, ref s.fontName, name)) TerminalFont.Invalidate();
-            }));
+                    new FloatMenuOption("Automatic", () =>
+                    {
+                        if (UiControls.SetSetting(s, ref s.fontName, "")) TerminalFont.Invalidate();
+                    }),
+                };
+                _fontOptions.AddRange(UiLayout.GroupedFontOptions(TerminalFont.Mono, name =>
+                {
+                    if (UiControls.SetSetting(s, ref s.fontName, name)) TerminalFont.Invalidate();
+                }));
+            }
             UiControls.Select(l, "Font", s.fontName.NullOrEmpty() ? "Automatic" : s.fontName,
-                fontOptions, out _);
+                _fontOptions, out _);
 
             if (UiControls.SliderSetting(l, "Font size", s, ref s.fontSize, 8, 28))
                 TerminalFont.Invalidate();

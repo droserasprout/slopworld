@@ -168,9 +168,8 @@ namespace SlopWorld
         {
             if (!IsSelectable(_selected)) return;
 
-            float top = 0f;
-            for (int i = 0; i < _selected; i++) top += Height(_options[i]);
-            _scroll.Reveal(top, Height(_options[_selected]),
+            MeasureRows();
+            _scroll.Reveal(_rows.Top(_selected), _rows.RowHeight(_selected),
                 Mathf.Max(1f, windowRect.height - PadY * 2f));
         }
 

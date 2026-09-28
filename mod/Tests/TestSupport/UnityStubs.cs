@@ -56,12 +56,48 @@ namespace UnityEngine
         public Vector2(float x, float y) { this.x = x; this.y = y; }
         public float sqrMagnitude => x * x + y * y;
         public static Vector2 operator -(Vector2 a, Vector2 b) => new Vector2(a.x - b.x, a.y - b.y);
+        public static Vector2 operator +(Vector2 a, Vector2 b) => new Vector2(a.x + b.x, a.y + b.y);
     }
+
+    public enum EventType { ScrollWheel, KeyDown, MouseDown, Layout }
+    [System.Flags]
+    public enum EventModifiers { None = 0, Shift = 1 }
 
     public class Event
     {
         public int button, clickCount;
         public Vector2 mousePosition;
+        public Vector2 delta;
+        public EventType type;
+        public EventModifiers modifiers;
+        public int displayIndex;
+        static readonly System.Collections.Generic.Queue<Event> Events =
+            new System.Collections.Generic.Queue<Event>();
+
+        public Event() { }
+        public Event(Event e) { CopyFrom(e); }
+        public void CopyFrom(Event e)
+        {
+            button = e.button;
+            clickCount = e.clickCount;
+            mousePosition = e.mousePosition;
+            delta = e.delta;
+            type = e.type;
+            modifiers = e.modifiers;
+            displayIndex = e.displayIndex;
+        }
+        public static int GetEventCount() => Events.Count;
+        public static int PopCalls;
+        public static bool PopEvent(Event e)
+        {
+            PopCalls++;
+            if (Events.Count == 0) return false;
+            e.CopyFrom(Events.Dequeue());
+            return true;
+        }
+        static void QueueEvent(Event e) => Events.Enqueue(new Event(e));
+        public static void EnqueueTestEvent(Event e) => QueueEvent(e);
+        public static void ClearEvents() { Events.Clear(); PopCalls = 0; }
     }
 
     public struct Vector2Int

@@ -327,7 +327,9 @@ namespace SlopWorld
                 else
                 {
                     X11ScrollInput.DiscardPendingMovement();
-                    var raw = Input.mouseScrollDelta;
+                    // Raw frame input cannot represent a merged queue delta.
+                    var raw = WheelEventQueue.UsesLogicalDelta(e)
+                        ? e.delta : Input.mouseScrollDelta;
                     _claimAmount = new Vector2(PrecisionDelta(e.delta.x, raw.x),
                         PrecisionDelta(e.delta.y, raw.y)) * Speed;
                 }
