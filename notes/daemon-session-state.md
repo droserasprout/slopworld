@@ -2,6 +2,8 @@
 
 `session/manager/session_state.rs` owns rule compilation, matching, classification, and activity persistence.
 `ActivityRules` keeps compiled rules with their cache revision, retaining separate synchronization.
+`session_state.rs` also owns the classification deadline shared by retick selection and maintenance scheduling.
+`views.rs` owns client session projection and snapshot publication.
 `maintenance.rs` schedules polls and state refreshes; `signals.rs` tracks subscriptions and usage.
 `capture/input.rs` owns ordered input delivery, paste admission, sizing, and repaint requests.
 `capture/breadcrumbs.rs` owns pending context consumption and library breadcrumb rendering;

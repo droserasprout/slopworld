@@ -1,4 +1,5 @@
-//! Session views, activity classification and persistence, and the retick loop.
+//! Match terminal activity, schedule reclassification, and commit retick transitions.
+//! Session projection and publication live in views.rs; polling deadlines live in maintenance.rs.
 
 use super::super::*;
 use crate::clock::unix_ms;
@@ -8,7 +9,9 @@ pub(super) const IDLE_MS: u64 = 10_000;
 // Refresh host cwd/process metadata independently of frame classification.
 pub(super) const HOST_METADATA_POLL_MS: u64 = 2_000;
 
-/// Compiled activity rules and the revision used to invalidate classification caches.
+/// Compiled activity rules and their cache revision.
+/// Writers update both under `compiled`; the atomic revision also lets live-state checks
+/// detect rule changes without acquiring the rules lock.
 pub(crate) struct ActivityRules {
     pub(super) compiled: RwLock<Vec<(State, Regex)>>,
     pub(super) revision: AtomicU64,
@@ -30,21 +33,17 @@ fn match_rules(rules: &[(State, Regex)], text: &str) -> Option<State> {
     // Use the lowest matching line. Configuration order resolves ties on that line.
     // Skip only trailing blank rows when locating the screen's end.
     // Each blank row within the tail counts toward TAIL_LINES.
-    let mut lines = text.lines().rev();
-    let mut line = lines.find(|line| !line.trim().is_empty())?;
-    for index in 0..TAIL_LINES {
+    for line in text
+        .lines()
+        .rev()
+        .skip_while(|line| line.trim().is_empty())
+        .take(TAIL_LINES)
+    {
         for (state, re) in rules {
             if re.is_match(line) {
                 return Some(*state);
             }
         }
-        if index + 1 == TAIL_LINES {
-            break;
-        }
-        let Some(next) = lines.next() else {
-            break;
-        };
-        line = next;
     }
     None
 }
@@ -73,6 +72,28 @@ pub(super) fn compile_rules(cfg: &Config) -> Vec<(State, Regex)> {
         .collect()
 }
 
+/// Next classification deadline in epoch milliseconds: zero means reclassify immediately.
+/// `None` means the current session needs no classification until its inputs change.
+/// Maintenance wake scheduling and retick selection share this cache and decay policy.
+pub(super) fn classification_deadline(live: &Live, rules_revision: u64) -> Option<u64> {
+    if live.state == State::Down || live.screen.is_none() {
+        return None;
+    }
+    let cache_current = live.rule_cache.as_ref().is_some_and(|cache| {
+        cache.revision == rules_revision && cache.text.as_ref() == live.plain.as_ref()
+    });
+    if live.seq != live.retick_seq || !cache_current {
+        return Some(0);
+    }
+    let can_decay = matches!(live.state, State::Working | State::Waiting)
+        && !live
+            .rule_cache
+            .as_ref()
+            .is_some_and(|cache| matches!(cache.matched, Some(State::Waiting | State::Idle)));
+    can_decay.then(|| live.last_change.saturating_add(IDLE_MS))
+}
+
+/// Classification inputs and the identity checks required before committing their result.
 struct RetickSnapshot {
     name: String,
     run_id: u64,
@@ -84,23 +105,23 @@ struct RetickSnapshot {
     rule_cache: Option<RuleCache>,
 }
 
-fn classify_match(matched: Option<State>, changed: bool, last_change: u64) -> State {
+/// Apply decay at `now` (epoch milliseconds); `changed` means meaningful terminal activity.
+fn classify_match(matched: Option<State>, changed: bool, last_change: u64, now: u64) -> State {
     if let Some(state) = matched {
         match state {
-            // A prompt remains a prompt until the agent changes it or the user answers it.
-            // An explicit idle rule is likewise authoritative.
+            // Waiting and idle matches remain authoritative while the matching text remains.
             State::Waiting | State::Idle => return state,
             // Some agent interfaces retain a working status line after output stops.
             // Apply the fallback classifier's activity timeout to these matches.
             // Otherwise, the agent could remain in Working state indefinitely.
-            State::Working if !changed && unix_ms().saturating_sub(last_change) >= IDLE_MS => {
+            State::Working if !changed && now.saturating_sub(last_change) >= IDLE_MS => {
                 return State::Idle;
             }
             State::Working => return State::Working,
             State::Down => {}
         }
     }
-    if changed || unix_ms().saturating_sub(last_change) < IDLE_MS {
+    if changed || now.saturating_sub(last_change) < IDLE_MS {
         State::Working
     } else {
         State::Idle
@@ -108,106 +129,6 @@ fn classify_match(matched: Option<State>, changed: bool, last_change: u64) -> St
 }
 
 impl Manager {
-    pub async fn views(&self) -> Vec<SessionView> {
-        let cfg = self.config().await;
-        let worktrees = self.worktree_view_index().await;
-        let live = self.live.read().await;
-        let temp = self.temp.read().await;
-        let mut out: Vec<SessionView> = live
-            .values()
-            .map(|l| {
-                let p = cfg.project_of(&l.cfg).or_else(|| temp.get(&l.cfg.project));
-                // An unassigned host shell uses a temporary project to hold its working directory.
-                // Exclude that project from sidebar grouping so the shell stays with the top host-terminal rows.
-                let display_project = if l.host && temp.contains_key(&l.cfg.project) {
-                    String::new()
-                } else {
-                    l.cfg.project.clone()
-                };
-                SessionView {
-                    worktree: l.cfg.worktree.clone(),
-                    worktree_name: worktrees
-                        .get(&l.cfg.worktree)
-                        .map(|w| w.name.clone())
-                        .unwrap_or_default(),
-                    name: l.cfg.name.clone(),
-                    label: l.cfg.label.clone().unwrap_or_default(),
-                    intent: l.cfg.intent.clone(),
-                    reader: SessionReaderView {
-                        path: l.cfg.reader_path.clone(),
-                        key: l.cfg.reader_key.clone(),
-                        scope: l.cfg.reader_scope.clone(),
-                        pinned: l.cfg.reader_pinned,
-                        line: l.cfg.reader_line,
-                    },
-                    project: display_project,
-                    dir: if l.host && !l.host_path.trim().is_empty() {
-                        l.host_path.clone()
-                    } else {
-                        worktrees
-                            .get(&l.cfg.worktree)
-                            .filter(|w| p.is_some_and(|p| !p.id.is_empty() && w.project_id == p.id))
-                            .map(|w| w.path.clone())
-                            .unwrap_or_else(|| p.map(|p| p.dir.clone()).unwrap_or_default())
-                    },
-                    launch: SessionLaunchView {
-                        command: l.cfg.command.clone(),
-                        command_preset: cfg.command_name(&l.cfg),
-                        cmd: l.cfg.cmd.clone(),
-                        sandbox: l.cfg.sandbox.clone(),
-                        persistent_tmp: l.cfg.persistent_tmp,
-                        agent: cfg.command_of(&l.cfg),
-                        network: p.map(|p| cfg.network_of(&l.cfg, p)).unwrap_or_default(),
-                        dns: p.map(|p| cfg.dns_of(&l.cfg, p)).unwrap_or_default(),
-                        limits: p.map(|p| cfg.limits_of(&l.cfg, p)).unwrap_or(l.cfg.limits),
-                        mounts: p.map(|p| p.mounts.clone()).unwrap_or_default(),
-                        // A worker's lifecycle is task-owned even if an older config file still
-                        // carries the parent's flags. Report the effective policy, not stale data.
-                        autostart: l.cfg.autostart && !l.cfg.worker,
-                        auto_resume: l.cfg.auto_resume && !l.cfg.worker,
-                    },
-                    worker: SessionWorkerView {
-                        enabled: l.cfg.worker,
-                        parent: l.cfg.parent.clone(),
-                        task_id: l.cfg.task_id.clone(),
-                        durable: l.cfg.worker && !l.ephemeral,
-                    },
-                    ephemeral: l.ephemeral,
-                    host: l.host,
-                    runtime: SessionRuntimeView {
-                        auto_resume_pending: l.input.auto_resume_pending,
-                        state: l.state,
-                        alive: l.state != State::Down,
-                        cols: l.cols,
-                        rows: l.rows,
-                        process_running: l.process_running,
-                        last_change: l.last_change,
-                        state_since: l.state_since,
-                        title: l
-                            .cfg
-                            .label
-                            .clone()
-                            .filter(|label| !label.trim().is_empty())
-                            .or_else(|| l.title.override_title.clone())
-                            .or_else(|| l.screen.as_ref().map(|s| s.title.clone()))
-                            .unwrap_or_default(),
-                        bell: l.bell,
-                        run_id: l.run_id,
-                        seq: l.seq,
-                    },
-                }
-            })
-            .collect();
-        out.sort_by(|a, b| a.name.cmp(&b.name));
-        out
-    }
-
-    pub(super) async fn announce_sessions(&self) {
-        self.emit(Event::Sessions {
-            sessions: self.views().await,
-        });
-    }
-
     pub(super) async fn classify_with_cache(
         &self,
         changed: bool,
@@ -215,9 +136,8 @@ impl Manager {
         text: &str,
         cache: Option<&RuleCache>,
     ) -> Classification {
-        // Hold the rules read lock even for cache hits to keep the revision and cached result consistent.
-        // Reuse cached results for unchanged text to avoid regex processing.
-        // Configuration publication replaces both values together under the write lock.
+        // Even cache hits take the rules lock: publication updates rules and revision together.
+        // Cache only the text match; activity decay must be evaluated on every call.
         let rules = self.rules.compiled.read().await;
         let current_revision = self
             .rules
@@ -228,7 +148,7 @@ impl Manager {
             .map(|cache| cache.matched)
             .unwrap_or_else(|| match_rules(&rules, text));
         Classification {
-            state: classify_match(matched, changed, last_change),
+            state: classify_match(matched, changed, last_change, unix_ms()),
             rules_revision: current_revision,
             matched,
         }
@@ -253,6 +173,68 @@ impl Manager {
             })
     }
 
+    /// Copy due inputs under the live lock, then release it before awaiting classification.
+    async fn retick_snapshots(&self, now: u64) -> Vec<RetickSnapshot> {
+        let live = self.live.read().await;
+        let rules_revision = self.rules.revision.load(Ordering::Acquire);
+        live.iter()
+            .filter_map(|(n, l)| {
+                if !classification_deadline(l, rules_revision).is_some_and(|due| due <= now) {
+                    return None;
+                }
+                Some(RetickSnapshot {
+                    name: n.clone(),
+                    run_id: l.run_id,
+                    seq: l.seq,
+                    state: l.state,
+                    rules_revision,
+                    last_change: l.last_change,
+                    plain: l.plain.clone(),
+                    rule_cache: l.rule_cache.clone(),
+                })
+            })
+            .collect()
+    }
+
+    /// Return whether the session list changed and any activity record to persist.
+    /// The live lock is released before the caller performs persistence or publication.
+    async fn commit_retick(
+        &self,
+        previous: &RetickSnapshot,
+        classification: Classification,
+    ) -> (bool, Option<(State, u64)>) {
+        let mut live = self.live.write().await;
+        if let Some(l) = live.get_mut(&previous.name) {
+            // Output, lifecycle changes, or rule publication may supersede the snapshot
+            // while classification or this write lock is awaited. Reject the entire
+            // result, including cache and retick_seq updates, when its inputs are stale.
+            if l.run_id != previous.run_id
+                || l.seq != previous.seq
+                || l.state != previous.state
+                || self
+                    .rules
+                    .revision
+                    .load(std::sync::atomic::Ordering::Acquire)
+                    != previous.rules_revision
+                || classification.rules_revision != previous.rules_revision
+            {
+                return (false, None);
+            }
+            l.rule_cache = Some(RuleCache {
+                revision: classification.rules_revision,
+                text: previous.plain.clone(),
+                matched: classification.matched,
+            });
+            l.retick_seq = previous.seq;
+            if l.set_state(classification.state) {
+                let activity = (!l.ephemeral).then_some((l.state, l.state_since));
+                return (true, activity);
+            }
+        }
+        (false, None)
+    }
+
+    /// Poll external state, classify due snapshots, then persist and announce committed changes.
     pub async fn retick(self: &Arc<Self>) {
         let _perf = crate::perf::timer("retick");
         let started = crate::perf::enabled().then(std::time::Instant::now);
@@ -278,38 +260,7 @@ impl Manager {
             self.start_host_metadata_poll().await;
         }
 
-        // Classification awaits the rules lock, so snapshot before releasing the live lock.
-        let snapshot: Vec<RetickSnapshot> = {
-            let live = self.live.read().await;
-            let rules_revision = self.rules.revision.load(Ordering::Acquire);
-            live.iter()
-                .filter(|(_, l)| l.state != State::Down)
-                .filter_map(|(n, l)| {
-                    let _ = l.screen.as_ref()?;
-                    let cache_current = l.rule_cache.as_ref().is_some_and(|cache| {
-                        cache.revision == rules_revision && cache.text.as_ref() == l.plain.as_ref()
-                    });
-                    let decay_due = matches!(l.state, State::Working | State::Waiting)
-                        && !l.rule_cache.as_ref().is_some_and(|cache| {
-                            matches!(cache.matched, Some(State::Waiting | State::Idle))
-                        })
-                        && now >= l.last_change.saturating_add(IDLE_MS);
-                    if l.seq == l.retick_seq && cache_current && !decay_due {
-                        return None;
-                    }
-                    Some(RetickSnapshot {
-                        name: n.clone(),
-                        run_id: l.run_id,
-                        seq: l.seq,
-                        state: l.state,
-                        rules_revision,
-                        last_change: l.last_change,
-                        plain: l.plain.clone(),
-                        rule_cache: l.rule_cache.clone(),
-                    })
-                })
-                .collect()
-        };
+        let snapshot = self.retick_snapshots(now).await;
 
         let classified = snapshot.len();
         let mut dirty_list = false;
@@ -322,37 +273,8 @@ impl Manager {
                     previous.rule_cache.as_ref(),
                 )
                 .await;
-            let mut activity = None;
-            let mut live = self.live.write().await;
-            if let Some(l) = live.get_mut(&previous.name) {
-                // Output, stop/start, or another classification can supersede this snapshot
-                // while the rules lock is awaited. Never mark newer frames as classified.
-                if l.run_id != previous.run_id
-                    || l.seq != previous.seq
-                    || l.state != previous.state
-                    || self
-                        .rules
-                        .revision
-                        .load(std::sync::atomic::Ordering::Acquire)
-                        != previous.rules_revision
-                    || classification.rules_revision != previous.rules_revision
-                {
-                    continue;
-                }
-                l.rule_cache = Some(RuleCache {
-                    revision: classification.rules_revision,
-                    text: previous.plain.clone(),
-                    matched: classification.matched,
-                });
-                l.retick_seq = previous.seq;
-                if l.set_state(classification.state) {
-                    dirty_list = true;
-                    if !l.ephemeral {
-                        activity = Some((l.state, l.state_since));
-                    }
-                }
-            }
-            drop(live);
+            let (changed, activity) = self.commit_retick(&previous, classification).await;
+            dirty_list |= changed;
             if let Some((state, state_since)) = activity {
                 self.persist_activity(&previous.name, state, state_since)
                     .await;
@@ -379,7 +301,8 @@ impl Manager {
 }
 
 impl Manager {
-    // Activity persistence in the daemon cache and tmux.
+    // Update the disk fallback cache and tmux metadata independently so one failure
+    // does not prevent the other recovery source from being updated.
 
     pub(super) async fn clear_activity(&self, name: &str) {
         if let Err(error) = self.activity_cache.clear(name) {

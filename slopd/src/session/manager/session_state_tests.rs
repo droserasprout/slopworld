@@ -1,6 +1,7 @@
 use super::*;
 use crate::clock::unix_ms;
 
+// Seed a captured, overdue session without activity persistence or unrelated polling.
 async fn quiet_session() -> (Arc<Manager>, crate::emu::SessionEmu) {
     let manager = crate::session::test_manager(Config::default());
     let mut live = Live::new(
@@ -49,7 +50,7 @@ async fn retick_does_not_overwrite_fresh_terminal_activity() {
     assert!(futures::poll!(tick.as_mut()).is_pending());
     drop(rules);
 
-    // The tick has captured the old idle deadline. Commit real output before resuming it.
+    // Retick holds the old frame snapshot. Commit new output before its classification resumes.
     emu.feed(b"\r\nnew output");
     manager.apply_frame("agent", emu.render()).await;
     tick.await;
@@ -202,4 +203,69 @@ fn blank_rows_inside_the_tail_count_toward_its_limit() {
 #[test]
 fn an_all_blank_screen_has_no_rule_match() {
     assert_eq!(match_rules(&seeded_rules(), "\n\n\n"), None);
+}
+
+#[test]
+fn classification_decay_has_an_exact_deadline() {
+    let last_change = 100;
+    let deadline = last_change + IDLE_MS;
+    for matched in [None, Some(State::Working)] {
+        assert_eq!(
+            classify_match(matched, false, last_change, deadline - 1),
+            State::Working
+        );
+        assert_eq!(
+            classify_match(matched, false, last_change, deadline),
+            State::Idle
+        );
+        assert_eq!(
+            classify_match(matched, true, last_change, deadline),
+            State::Working
+        );
+        assert_eq!(
+            classify_match(matched, false, last_change, 0),
+            State::Working
+        );
+    }
+    for state in [State::Waiting, State::Idle] {
+        assert_eq!(
+            classify_match(Some(state), false, last_change, deadline),
+            state
+        );
+        assert_eq!(
+            classify_match(Some(state), true, last_change, deadline),
+            state
+        );
+    }
+}
+
+#[tokio::test]
+async fn classification_deadlines_cover_decay_invalidation_and_inactive_sessions() {
+    let (manager, _) = quiet_session().await;
+    manager.retick().await;
+    let mut sessions = manager.live.write().await;
+    let live = sessions.get_mut("agent").unwrap();
+    let revision = manager.rules.revision.load(Ordering::Acquire);
+    assert_eq!(classification_deadline(live, revision), None);
+
+    live.set_state(State::Working);
+    live.last_change = 100;
+    assert_eq!(classification_deadline(live, revision), Some(100 + IDLE_MS));
+    for state in [State::Waiting, State::Idle] {
+        live.rule_cache.as_mut().unwrap().matched = Some(state);
+        assert_eq!(classification_deadline(live, revision), None);
+    }
+    assert_eq!(classification_deadline(live, revision + 1), Some(0));
+    live.seq += 1;
+    assert_eq!(classification_deadline(live, revision), Some(0));
+    live.retick_seq = live.seq;
+    live.plain = Arc::new("different text".into());
+    assert_eq!(classification_deadline(live, revision), Some(0));
+    live.rule_cache = None;
+    assert_eq!(classification_deadline(live, revision), Some(0));
+    live.set_state(State::Down);
+    assert_eq!(classification_deadline(live, revision), None);
+    live.set_state(State::Working);
+    live.screen = None;
+    assert_eq!(classification_deadline(live, revision), None);
 }

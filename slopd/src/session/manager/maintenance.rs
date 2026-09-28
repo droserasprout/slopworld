@@ -1,7 +1,8 @@
-//! Poll configuration catalogs and schedule session maintenance.
+//! Poll configuration catalogs and choose the next maintenance wake.
+//! Activity deadline policy belongs to session_state.rs and is shared with retick selection.
 
 use super::super::*;
-use super::session_state::{HOST_METADATA_POLL_MS, IDLE_MS};
+use super::session_state::{classification_deadline, HOST_METADATA_POLL_MS};
 use crate::clock::unix_ms;
 
 // Check external configuration edits on the maintenance clock.
@@ -10,8 +11,6 @@ const CFG_CHECK_MS: u64 = 2_000;
 const PRESETS_CHECK_MS: u64 = 2_000;
 // Check station catalog edits without restarting playback.
 const JUKEBOX_CHECK_MS: u64 = 2_000;
-
-// Maintenance clock helpers.
 
 /// Claim one polling interval, even when maintenance callers overlap.
 fn claim_due(clock: &std::sync::atomic::AtomicU64, now: u64, period: u64) -> bool {
@@ -24,7 +23,7 @@ fn claim_due(clock: &std::sync::atomic::AtomicU64, now: u64, period: u64) -> boo
         .is_ok()
 }
 
-/// Return an epoch deadline, or zero when already due.
+/// Return an epoch-millisecond deadline, or zero when the polling interval has elapsed.
 fn next_periodic_deadline(last: u64, period: u64, now: u64) -> u64 {
     if now.saturating_sub(last) >= period {
         0
@@ -76,23 +75,9 @@ impl Manager {
                 now,
             ));
         }
-        for l in live.values().filter(|l| l.state != State::Down) {
-            if l.screen.is_none() {
-                continue;
-            }
-            let cache_current = l.rule_cache.as_ref().is_some_and(|cache| {
-                cache.revision == rules_revision && cache.text.as_ref() == l.plain.as_ref()
-            });
-            if l.seq != l.retick_seq || !cache_current {
-                deadline = 0;
-                break;
-            }
-            if matches!(l.state, State::Working | State::Waiting)
-                && !l.rule_cache.as_ref().is_some_and(|cache| {
-                    matches!(cache.matched, Some(State::Waiting | State::Idle))
-                })
-            {
-                deadline = deadline.min(l.last_change.saturating_add(IDLE_MS));
+        for l in live.values() {
+            if let Some(classification) = classification_deadline(l, rules_revision) {
+                deadline = deadline.min(classification);
             }
         }
         Duration::from_millis(deadline.saturating_sub(now))
