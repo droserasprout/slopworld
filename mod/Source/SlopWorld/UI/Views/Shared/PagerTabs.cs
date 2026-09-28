@@ -226,6 +226,12 @@ namespace SlopWorld
     // routed header. Files and Git share a collection. Search retains its own readers.
     sealed class PagerTabs : PreviewTabs<Pager>
     {
+        public bool ReuseFile(string project, string path)
+        {
+            var pager = Find(tab => tab != null && tab.OwnsSource(project, path));
+            return pager != null && (pager.Pending(project, path) || pager.Reopen());
+        }
+
         public void AttachRestored(SessionInfo info)
         {
             RetireDead();

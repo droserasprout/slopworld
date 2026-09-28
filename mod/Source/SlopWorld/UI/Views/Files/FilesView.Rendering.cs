@@ -427,6 +427,7 @@ namespace SlopWorld
             if (line > 0)
             {
                 ReleaseMarkdownPreview();
+                if (Viewers.ReuseFile(project, path)) return;
                 Viewers.ForPreview().ViewFileAt(project, path, line, label);
                 return;
             }
@@ -438,7 +439,7 @@ namespace SlopWorld
                 return;
             }
             ReleaseMarkdownPreview();
-            if (Viewers.Reopen(project, path)) return;
+            if (Viewers.ReuseFile(project, path)) return;
             Viewers.ForPreview().ViewFile(project, path, label);
         }
 
@@ -494,7 +495,7 @@ namespace SlopWorld
             GitView.CancelPendingDiff();
             Tree.SelectKey(ContentTreeView.SelectionKey(project, SidebarScopes.Relative(project, path)));
             if (!string.IsNullOrEmpty(project)) AgentSidebar.RememberFile(project, path);
-            if (Viewers.Reopen(project, path)) return;
+            if (Viewers.ReuseFile(project, path)) return;
             Viewers.ForPreview().ViewFile(project, path, ReaderLabel(project, label));
         }
 

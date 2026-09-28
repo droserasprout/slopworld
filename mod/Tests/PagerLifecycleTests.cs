@@ -86,6 +86,7 @@ namespace SlopWorld.Tests
             yield return ("stale refresh completion cannot replace a newer preview", RefreshSuperseded);
             yield return ("diffs and editor commands do not auto refresh", RefreshExclusions);
             yield return ("file-at-line previews refresh with the same command", RefreshAtLine);
+            yield return ("line-targeted source opens reuse pending and pinned readers", ReuseFileAtLine);
             yield return ("fresh diff replaces a pinned reader without duplicating it", FreshDiff);
             yield return ("deleted readers close pinned and pending sessions", DeletedReaders);
             yield return ("late file metadata cannot close a replacement reader", LateMetadata);
@@ -292,6 +293,23 @@ namespace SlopWorld.Tests
             new ReaderProbe(pager).Apply(true, "second");
             AssertEx.Equal(2, store.Starts, "line-targeted file refreshes");
             AssertEx.Equal(command, store.Command, "original line and command retained");
+        }
+
+        static void ReuseFileAtLine()
+        {
+            SessionHub.Instance = new SessionHub();
+            var tabs = new PagerTabs();
+            var store = SessionHub.Instance.SessionStore;
+            tabs.ForPreview().ViewFileAt("p", "/file", 42, "file");
+            AssertEx.True(tabs.ReuseFile("p", "/file"), "pending source is already owned");
+            AssertEx.Equal(1, store.Starts, "pending source does not start twice");
+            store.Complete("file");
+            tabs.Lock("file");
+            tabs.ForPreview().ViewFile("p", "/other", "other");
+            store.Complete("other");
+            AssertEx.True(tabs.ReuseFile("p", "/file"), "pinned source reopens by path");
+            AssertEx.Equal("file", TerminalWindow.Current, "existing line-targeted reader receives focus");
+            AssertEx.Equal(2, store.Starts, "reopening does not create a duplicate reader");
         }
 
         static void Start(Pager pager, bool file, string key)
