@@ -12,6 +12,9 @@ use std::time::SystemTime;
 pub(crate) struct WorktreeState {
     pub(super) mutation: tokio::sync::Mutex<()>,
     views: tokio::sync::Mutex<WorktreeViewCache>,
+    #[cfg(test)]
+    pub(super) relocation_pause:
+        std::sync::Mutex<Option<(Arc<tokio::sync::Notify>, Arc<tokio::sync::Notify>)>>,
 }
 
 type FileStamp = (SystemTime, u64, u64, u64);
@@ -62,63 +65,67 @@ impl Manager {
     ) -> Result<Worktree> {
         crate::config::project_name_component(&name).context("invalid worktree name")?;
         let manager = self.clone();
-        manager
-            .session_operation(async {
-                let _lock = manager.worktrees.mutation.lock().await;
-                let cfg = manager.config().await;
-                let p = cfg
-                    .project(&project)
-                    .ok_or_else(|| anyhow!("no project {project}"))?;
-                let mut store = Store::load(&manager.cfg_path).await?;
-                let index = store
-                    .worktrees
-                    .iter()
-                    .position(|w| w.id == id && w.project_id == p.id)
-                    .ok_or_else(|| anyhow!("no worktree {id}"))?;
-                let old = store.worktrees[index].clone();
-                if !old.managed || old.phase != "ready" {
-                    bail!("only ready managed worktrees can be renamed");
-                }
-                let users = manager.worktree_attachments(&old).await;
-                if !users.is_empty() {
-                    bail!(
-                        "Worktree remains attached to {}. Remove or move these sessions first.",
-                        users.join(", ")
-                    );
-                }
-                let old_path = Path::new(&old.path);
-                if old_path.file_name().and_then(|s| s.to_str()) != Some(&old.name) {
-                    bail!("worktree path does not match its recorded name");
-                }
-                let project_dir = old_path.parent().context("worktree root")?.to_path_buf();
-                tokio::fs::create_dir_all(&project_dir).await?;
-                if tokio::fs::symlink_metadata(&project_dir)
-                    .await?
-                    .file_type()
-                    .is_symlink()
-                {
-                    bail!("worktree project directory cannot be a symlink");
-                }
-                let destination = project_dir.canonicalize()?.join(&name);
-                if let Some(why) = crate::sandbox::refused(&destination.to_string_lossy()) {
-                    bail!("worktree reaches {why}");
-                }
-                if Path::new(&old.path) != destination {
-                    crate::worktrees::relocate_tree(&old, &destination).await?;
-                }
-                let mut updated = old.clone();
-                updated.name = name;
-                updated.path = destination.to_string_lossy().into_owned();
-                store.worktrees[index] = updated.clone();
-                if let Err(error) = store.save(&manager.cfg_path).await {
-                    if old.path != updated.path {
-                        crate::worktrees::relocate_tree(&updated, Path::new(&old.path)).await?;
+        tokio::spawn(async move {
+            manager
+                .session_operation(async {
+                    let _lock = manager.worktrees.mutation.lock().await;
+                    let cfg = manager.config().await;
+                    let p = cfg
+                        .project(&project)
+                        .ok_or_else(|| anyhow!("no project {project}"))?;
+                    let store = Store::load(&manager.cfg_path).await?;
+                    let index = store
+                        .worktrees
+                        .iter()
+                        .position(|w| w.id == id && w.project_id == p.id)
+                        .ok_or_else(|| anyhow!("no worktree {id}"))?;
+                    let old = store.worktrees[index].clone();
+                    if !old.managed || old.phase != "ready" {
+                        bail!("only ready managed worktrees can be renamed");
                     }
-                    return Err(error);
-                }
-                Ok(updated)
-            })
-            .await
+                    let users = manager.worktree_attachments(&old).await;
+                    if !users.is_empty() {
+                        bail!(
+                            "Worktree remains attached to {}. Remove or move these sessions first.",
+                            users.join(", ")
+                        );
+                    }
+                    let old_path = Path::new(&old.path);
+                    if old_path.file_name().and_then(|s| s.to_str()) != Some(&old.name) {
+                        bail!("worktree path does not match its recorded name");
+                    }
+                    let project_dir = old_path.parent().context("worktree root")?.to_path_buf();
+                    tokio::fs::create_dir_all(&project_dir).await?;
+                    if tokio::fs::symlink_metadata(&project_dir)
+                        .await?
+                        .file_type()
+                        .is_symlink()
+                    {
+                        bail!("worktree project directory cannot be a symlink");
+                    }
+                    let destination = project_dir.canonicalize()?.join(&name);
+                    if let Some(why) = crate::sandbox::refused(&destination.to_string_lossy()) {
+                        bail!("worktree reaches {why}");
+                    }
+                    let mut updated = old.clone();
+                    updated.name = name;
+                    updated.path = destination.to_string_lossy().into_owned();
+                    if old.path != updated.path {
+                        if tokio::fs::symlink_metadata(&destination).await.is_ok() {
+                            bail!("destination {} already exists", destination.display());
+                        }
+                        let mut relocations = crate::worktrees::relocation::Relocations::new(
+                            store,
+                            vec![(index, updated.clone())],
+                        );
+                        relocations.execute(&manager.cfg_path).await?;
+                    }
+                    Ok(updated)
+                })
+                .await
+        })
+        .await
+        .map_err(|error| anyhow!("worktree rename task failed: {error}"))?
     }
     /// Reload the index when the catalog is replaced or edited externally.
     pub(super) async fn worktree_view_index(&self) -> Arc<HashMap<String, Worktree>> {
@@ -433,7 +440,9 @@ impl Manager {
             if w.phase == "allocating" {
                 w.error = "Allocation was interrupted. Inspect the worktree before you remove or reuse it.".into();
             }
-            if !path.is_dir() {
+            if w.phase == "relocating" {
+                // The persisted error includes both source and destination; preserve it.
+            } else if !path.is_dir() {
                 w.phase = "error".into();
                 w.error =
                     "The checkout directory is missing. Retry manual removal to reconcile its record."
@@ -630,6 +639,7 @@ impl Manager {
             let i = store.worktrees.iter().position(|w| w.id == id && w.project_id == p.id && !p.id.is_empty())
                 .ok_or_else(|| anyhow!("no removable worktree {id}"))?;
             let w = store.worktrees[i].clone();
+            if w.phase == "relocating" { bail!("Repair the interrupted relocation before removing this worktree: {}", w.error); }
             let users = manager.worktree_attachments(&w).await;
             if !users.is_empty() { bail!("Worktree remains attached to {}. Remove or move these sessions first.", users.join(", ")); }
             store.worktrees[i].phase = "removing".into(); store.save(&manager.cfg_path).await?;

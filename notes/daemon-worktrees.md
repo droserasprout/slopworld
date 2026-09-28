@@ -73,3 +73,9 @@ Unchanged views do not parse the catalog again.
 
 `WorktreeState` in `session/manager/worktrees.rs` groups the mutation gate and cached disk records.
 The locks remain separate so reading cached views does not acquire the mutation gate.
+
+`worktrees/relocation.rs` owns batch move intent and rollback. Before moving files it
+persists a `relocating` record with both paths. Interrupted relocation requires manual
+Git and catalog repair before attachment or removal. Rename operations retain their
+session and catalog guards in a detached owner through commit or rollback, even when
+the requesting client disconnects.

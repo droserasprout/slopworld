@@ -297,3 +297,180 @@ fn first_creation_creates_missing_store_directory() {
     );
     fs::remove_dir_all(dir).unwrap();
 }
+
+fn isolated_store() -> (PathBuf, Tasks) {
+    let directory =
+        std::env::temp_dir().join(format!("slopd-task-commit-{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&directory).unwrap();
+    let tasks = Tasks::load(&directory.join("config.toml")).unwrap();
+    (directory, tasks)
+}
+
+#[test]
+fn task_authority_survives_rename_but_not_name_reuse() {
+    let (dir, mut tasks) = isolated_store();
+    let participant = |name: &str, identity: &str| Participant {
+        name: name.into(),
+        identity: identity.into(),
+    };
+    let task = tasks
+        .create_owned(
+            participant("parent", "parent-id"),
+            participant("worker", "first-id"),
+            "private".into(),
+            None,
+        )
+        .unwrap();
+    assert_eq!(tasks.visible("first-id").len(), 1);
+    // A new worker may have the same label but receives a new state identity.
+    let next = tasks
+        .create_owned(
+            participant("parent", "parent-id"),
+            participant("worker", "second-id"),
+            "next".into(),
+            None,
+        )
+        .unwrap();
+    assert_eq!(tasks.visible("second-id")[0].id, next.id);
+    assert!(tasks.get("second-id", &task.id).is_none());
+    assert!(tasks
+        .update("second-id", &task.id, Status::Done, None)
+        .is_err());
+    assert!(tasks
+        .cancel_many("second-id", std::slice::from_ref(&task.id), false)
+        .is_err());
+    tasks
+        .update("first-id", &task.id, Status::Done, None)
+        .unwrap();
+    assert!(tasks.remove("second-id", &task.id, false).is_err());
+    assert!(tasks
+        .remove_many("second-id", std::slice::from_ref(&task.id), false)
+        .is_err());
+    assert_eq!(tasks.prune("second-id", false).unwrap(), 0);
+    // Renaming changes only the label resolved by the manager; the authority is unchanged.
+    let renamed = participant("renamed", "first-id");
+    assert_eq!(
+        tasks.get(&renamed.identity, &task.id).unwrap().body,
+        "private"
+    );
+    let mut reloaded = Tasks::load(&dir.join("config.toml")).unwrap();
+    assert_eq!(
+        reloaded
+            .remove(&renamed.identity, &task.id, false)
+            .unwrap()
+            .id,
+        task.id
+    );
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn legacy_records_never_bind_to_current_names() {
+    let (dir, mut tasks) = isolated_store();
+    let task = tasks
+        .create("host".into(), "worker".into(), "legacy".into())
+        .unwrap();
+    tasks.file.tasks[0].from_id.clear();
+    tasks.file.tasks[0].to_id.clear();
+    tasks.save().unwrap();
+    let tasks = Tasks::load(&dir.join("config.toml")).unwrap();
+    assert!(tasks.get("worker", &task.id).is_none());
+    assert!(tasks.get("new-worker-id", &task.id).is_none());
+    assert!(tasks.get(HOST, &task.id).is_some());
+    assert_eq!(tasks.all().len(), 1);
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn failed_journal_updates_preserve_memory_and_can_be_retried() {
+    let (dir, mut tasks) = isolated_store();
+    let task = tasks
+        .create_worker(
+            "host".into(),
+            "worker".into(),
+            "work".into(),
+            "host".into(),
+            false,
+        )
+        .unwrap();
+    // Move the journal aside and put a directory in its place to fail append deterministically.
+    fs::rename(&tasks.journal, dir.join("saved-journal")).unwrap();
+    fs::create_dir(&tasks.journal).unwrap();
+    assert!(tasks
+        .update("worker", &task.id, Status::Done, Some("lost".into()))
+        .is_err());
+    assert!(tasks.set_summary(&task.id, "lost summary".into()).is_err());
+    assert!(tasks.fail_worker(&task.id, "lost failure".into()).is_err());
+    let current = tasks.get("worker", &task.id).unwrap();
+    assert_eq!(current.status, Status::Queued);
+    assert_eq!(current.note, None);
+    assert_eq!(current.summary, None);
+    fs::remove_dir(&tasks.journal).unwrap();
+    fs::rename(dir.join("saved-journal"), &tasks.journal).unwrap();
+    assert_eq!(
+        Tasks::load(&dir.join("config.toml"))
+            .unwrap()
+            .get("worker", &task.id)
+            .unwrap()
+            .status,
+        Status::Queued
+    );
+    tasks
+        .fail_worker(&task.id, "persisted failure".into())
+        .unwrap();
+    assert_eq!(
+        Tasks::load(&dir.join("config.toml"))
+            .unwrap()
+            .get("worker", &task.id)
+            .unwrap()
+            .status,
+        Status::Failed
+    );
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn failed_snapshots_preserve_memory_and_allow_cancel_remove_and_prune_retries() {
+    let (dir, mut tasks) = isolated_store();
+    let task = tasks
+        .create("host".into(), "worker".into(), "work".into())
+        .unwrap();
+    let obstruction = tasks.path.with_extension("toml.tmp");
+    fs::create_dir(&obstruction).unwrap();
+    assert!(tasks
+        .cancel_many("worker", std::slice::from_ref(&task.id), false)
+        .is_err());
+    assert_eq!(
+        tasks.get("worker", &task.id).unwrap().status,
+        Status::Queued
+    );
+    fs::remove_dir(&obstruction).unwrap();
+    tasks
+        .cancel_many("worker", std::slice::from_ref(&task.id), false)
+        .unwrap();
+    fs::create_dir(&obstruction).unwrap();
+    assert!(tasks.remove("worker", &task.id, false).is_err());
+    assert!(tasks
+        .remove_many("worker", std::slice::from_ref(&task.id), false)
+        .is_err());
+    assert!(tasks.prune("worker", false).is_err());
+    assert_eq!(
+        tasks.get("worker", &task.id).unwrap().status,
+        Status::Canceled
+    );
+    assert_eq!(
+        Tasks::load(&dir.join("config.toml"))
+            .unwrap()
+            .get("worker", &task.id)
+            .unwrap()
+            .status,
+        Status::Canceled
+    );
+    fs::remove_dir(&obstruction).unwrap();
+    assert_eq!(tasks.prune("worker", false).unwrap(), 1);
+    assert!(Tasks::load(&dir.join("config.toml"))
+        .unwrap()
+        .all()
+        .is_empty());
+    fs::remove_dir_all(dir).unwrap();
+}

@@ -1,17 +1,56 @@
 //! HTTP handlers for task mailboxes and worker creation.
-use crate::api::protobuf::{domain, reply, Proto};
+use crate::api::protobuf::{domain, ApiError, Proto};
 use crate::shared::wire;
 
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::Extension;
-use serde_json::json;
 
 use crate::grant::{Cap, Level};
 use crate::shared::protocol::SESSION_HEADER;
 
 use super::super::types::*;
 use super::{err, guard, ApiResult, Mgr};
+
+/// Persistence identities stay private; the wire contract exposes participant labels.
+fn task_view(task: crate::tasks::Task) -> wire::Task {
+    use crate::shared::protocol::enums::task_status;
+    use crate::tasks::Status;
+
+    wire::Task {
+        id: task.id,
+        from: task.from,
+        to: task.to,
+        body: task.body,
+        status: match task.status {
+            Status::Queued => task_status::QUEUED,
+            Status::Accepted => task_status::ACCEPTED,
+            Status::Working => task_status::WORKING,
+            Status::Done => task_status::DONE,
+            Status::Failed => task_status::FAILED,
+            Status::Canceled => task_status::CANCELED,
+        }
+        .into(),
+        note: task.note,
+        summary: task.summary,
+        created_ms: task.created_ms,
+        updated_ms: task.updated_ms,
+        worker: task.worker.map(|worker| wire::WorkerTask {
+            session: worker.session,
+            parent: worker.parent,
+            durable: worker.durable,
+        }),
+    }
+}
+
+/// The request must hold the session boundary through identity resolution and store access.
+async fn task_identity(m: &Mgr, cap: &Cap, headers: &HeaderMap) -> Result<String, ApiError> {
+    let name = task_principal(cap, headers)?;
+    m.task_participant(&name)
+        .await
+        .map(|participant| participant.identity)
+        .map_err(|error| err(StatusCode::BAD_REQUEST, error))
+}
 
 pub(crate) fn task_principal(
     cap: &Cap,
@@ -76,12 +115,22 @@ pub(crate) async fn create_task(
     if q.to != crate::tasks::HOST {
         guard(&m, &cap, &q.to, Level::Ro).await?;
     }
+    let from = m
+        .task_participant(&from)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    let to = m
+        .task_participant(&q.to)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let task = m
         .tasks
-        .create_task(from, q.to, q.body)
+        .create_owned(from, to, q.body, None)
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     m.spawn_task_summary_request(task.clone());
-    reply(json!({ "task": task }))
+    Ok(Proto(wire::TaskResult {
+        task: Some(task_view(task)),
+    }))
 }
 
 /// Create the task and child session as one operation.
@@ -184,14 +233,14 @@ pub(crate) async fn spawn_worker(
         )
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    reply(json!({
-        "task": worker.task,
-        "worker": {
-            "name": worker.session.clone(),
-            "session": worker.session,
-            "parent": from,
-            "durable": q.durable,
-        }
+    Ok(Proto(wire::WorkerResult {
+        task: Some(task_view(worker.task)),
+        worker: Some(wire::WorkerIdentity {
+            name: worker.session.clone(),
+            session: worker.session,
+            parent: from,
+            durable: q.durable,
+        }),
     }))
 }
 
@@ -201,7 +250,7 @@ pub(crate) async fn list_tasks(
     headers: HeaderMap,
     Query(q): Query<ListTasksQuery>,
 ) -> ApiResult<wire::TasksReply> {
-    let who = task_principal(&cap, &headers)?;
+    let who = task_identity(&m, &cap, &headers).await?;
     if q.all && !cap.may_create() {
         return Err(err(
             StatusCode::FORBIDDEN,
@@ -213,7 +262,9 @@ pub(crate) async fn list_tasks(
     } else {
         m.tasks.tasks_for(&who)
     };
-    reply(json!({ "tasks": tasks }))
+    Ok(Proto(wire::TasksReply {
+        tasks: tasks.into_iter().map(task_view).collect(),
+    }))
 }
 
 pub(crate) async fn one_task(
@@ -222,16 +273,20 @@ pub(crate) async fn one_task(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> ApiResult<wire::TaskResult> {
-    let who = task_principal(&cap, &headers)?;
+    let who = task_identity(&m, &cap, &headers).await?;
     m.tasks
         .task_for(&who, &id)
-        .map(|task| reply(json!({ "task": task })))
+        .map(|task| {
+            Proto(wire::TaskResult {
+                task: Some(task_view(task)),
+            })
+        })
         .ok_or_else(|| {
             err(
                 StatusCode::NOT_FOUND,
                 format!("Task {id} was not found or is not available to this caller."),
             )
-        })?
+        })
 }
 
 pub(crate) async fn update_task(
@@ -242,12 +297,14 @@ pub(crate) async fn update_task(
     Proto(q): Proto<wire::UpdateTaskReq>,
 ) -> ApiResult<wire::TaskResult> {
     let q: UpdateTaskReq = domain(q)?;
-    let who = task_principal(&cap, &headers)?;
+    let who = task_identity(&m, &cap, &headers).await?;
     let task = m
         .tasks
         .update_task(&who, &id, q.status, q.note)
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    reply(json!({ "task": task }))
+    Ok(Proto(wire::TaskResult {
+        task: Some(task_view(task)),
+    }))
 }
 
 pub(crate) async fn prune_tasks(
@@ -256,7 +313,7 @@ pub(crate) async fn prune_tasks(
     headers: HeaderMap,
     Query(q): Query<PruneTasksQuery>,
 ) -> ApiResult<wire::Removed> {
-    let who = task_principal(&cap, &headers)?;
+    let who = task_identity(&m, &cap, &headers).await?;
     if q.all && !cap.may_create() {
         return Err(err(
             StatusCode::FORBIDDEN,
@@ -267,7 +324,9 @@ pub(crate) async fn prune_tasks(
         .tasks
         .prune_tasks(&who, q.all)
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    reply(json!({ "removed": removed }))
+    Ok(Proto(wire::Removed {
+        removed: removed as u64,
+    }))
 }
 
 pub(crate) async fn cancel_tasks(
@@ -277,12 +336,14 @@ pub(crate) async fn cancel_tasks(
     Proto(q): Proto<wire::RemoveTasksReq>,
 ) -> ApiResult<wire::TasksReply> {
     let q: RemoveTasksReq = domain(q)?;
-    let who = task_principal(&cap, &headers)?;
+    let who = task_identity(&m, &cap, &headers).await?;
     let tasks = m
         .tasks
         .cancel_tasks(&who, &q.ids, cap.may_create())
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    reply(json!({ "tasks": tasks }))
+    Ok(Proto(wire::TasksReply {
+        tasks: tasks.into_iter().map(task_view).collect(),
+    }))
 }
 
 pub(crate) async fn remove_task(
@@ -291,12 +352,14 @@ pub(crate) async fn remove_task(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> ApiResult<wire::TaskResult> {
-    let who = task_principal(&cap, &headers)?;
+    let who = task_identity(&m, &cap, &headers).await?;
     let task = m
         .tasks
         .remove_task(&who, &id, cap.may_create())
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    reply(json!({ "task": task }))
+    Ok(Proto(wire::TaskResult {
+        task: Some(task_view(task)),
+    }))
 }
 
 pub(crate) async fn remove_tasks(
@@ -306,12 +369,14 @@ pub(crate) async fn remove_tasks(
     Proto(q): Proto<wire::RemoveTasksReq>,
 ) -> ApiResult<wire::Removed> {
     let q: RemoveTasksReq = domain(q)?;
-    let who = task_principal(&cap, &headers)?;
+    let who = task_identity(&m, &cap, &headers).await?;
     let removed = m
         .tasks
         .remove_tasks(&who, &q.ids, cap.may_create())
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    reply(json!({ "removed": removed }))
+    Ok(Proto(wire::Removed {
+        removed: removed as u64,
+    }))
 }
 
 #[cfg(test)]

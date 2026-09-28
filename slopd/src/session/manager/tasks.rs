@@ -1,7 +1,7 @@
 //! Durable task storage owned by the session manager.
 
 use super::super::*;
-use crate::tasks::{Status, Task};
+use crate::tasks::{Participant, Status, Task, WorkerTask};
 
 /// Keep synchronous task-file access here with its mutex and store.
 /// The configuration manager and other callers use this owner's typed operations.
@@ -12,10 +12,12 @@ impl TaskStore {
         Self(std::sync::Mutex::new(tasks))
     }
 
+    #[cfg(test)]
     pub(crate) fn create_task(&self, from: String, to: String, body: String) -> Result<Task> {
         self.0.lock().unwrap().create(from, to, body)
     }
 
+    #[cfg(test)]
     pub(crate) fn create_worker(
         &self,
         from: String,
@@ -28,6 +30,16 @@ impl TaskStore {
             .lock()
             .unwrap()
             .create_worker(from, to, body, parent, durable)
+    }
+
+    pub(crate) fn create_owned(
+        &self,
+        from: Participant,
+        to: Participant,
+        body: String,
+        worker: Option<WorkerTask>,
+    ) -> Result<Task> {
+        self.0.lock().unwrap().create_owned(from, to, body, worker)
     }
 
     pub(crate) fn tasks_for(&self, who: &str) -> Vec<Task> {
@@ -78,6 +90,27 @@ impl TaskStore {
 }
 
 impl Manager {
+    /// Call under the session boundary, after transport authorization.
+    pub(crate) async fn task_participant(&self, name: &str) -> Result<Participant> {
+        let identity = if name == crate::tasks::HOST {
+            crate::tasks::HOST.to_string()
+        } else {
+            let session = self
+                .session_cfg(name)
+                .await
+                .context("task session no longer exists")?;
+            anyhow::ensure!(
+                !session.state_id.is_empty(),
+                "task session has no stable identity"
+            );
+            session.state_id
+        };
+        Ok(Participant {
+            name: name.to_string(),
+            identity,
+        })
+    }
+
     pub(crate) fn fail_worker_task(&self, task_id: &str, note: impl Into<String>) {
         if task_id.trim().is_empty() {
             return;

@@ -27,6 +27,20 @@ pub(super) fn routed_action_label(name: &str) -> Option<String> {
         .then(|| name.to_string())
 }
 
+/// An owned destination for delayed input. Names alone can identify a replacement run.
+#[derive(Clone)]
+pub(super) struct DeliveryTarget {
+    name: String,
+    identity: String,
+    run_id: u64,
+}
+
+impl DeliveryTarget {
+    fn matches(&self, live: &Live) -> bool {
+        live.cfg.state_id == self.identity && live.run_id == self.run_id
+    }
+}
+
 impl Manager {
     pub async fn projects(&self) -> Vec<ProjectView> {
         self.cfg
@@ -64,13 +78,23 @@ impl Manager {
     }
 
     pub async fn update_project(self: &Arc<Self>, name: &str, mut p: ProjectCfg) -> Result<()> {
-        self.reload_if_changed().await;
         settle(&mut p);
-        self.session_operation(self.update_project_inner(name, p))
-            .await?;
-        self.announce_projects().await;
-        self.announce_sessions().await;
-        Ok(())
+        let manager = self.clone();
+        let name = name.to_string();
+        // The detached owner retains the boundary and rollback plan after caller cancellation.
+        tokio::spawn(async move {
+            manager
+                .session_operation(async {
+                    manager.reload_if_changed().await;
+                    manager.update_project_inner(&name, p).await?;
+                    manager.announce_projects().await;
+                    manager.announce_sessions().await;
+                    Ok::<_, anyhow::Error>(())
+                })
+                .await
+        })
+        .await
+        .map_err(|error| anyhow!("project update task failed: {error}"))?
     }
 
     async fn update_project_inner(&self, name: &str, mut p: ProjectCfg) -> Result<()> {
@@ -87,9 +111,8 @@ impl Manager {
         p.id = old_project.id.clone();
         check_project(&p)?;
         check_project_mounts(&self.config().await, &p)?;
-        let mut store = crate::worktrees::Store::load(&self.cfg_path).await?;
-        let original = store.clone();
-        let mut moves: Vec<(usize, String)> = Vec::new();
+        let store = crate::worktrees::Store::load(&self.cfg_path).await?;
+        let mut planned = Vec::new();
         if p.name != name {
             crate::config::project_name_component(&p.name)?;
             if self.config().await.project(&p.name).is_some() {
@@ -97,7 +120,6 @@ impl Manager {
             }
             let local_root = PathBuf::from(expand(&old_project.dir)).join(".worktrees");
             let local_root = local_root.canonicalize().unwrap_or(local_root);
-            let mut planned = Vec::new();
             for (i, w) in store
                 .worktrees
                 .iter()
@@ -145,30 +167,19 @@ impl Manager {
                 if std::fs::symlink_metadata(&dest).is_ok() {
                     bail!("destination {} already exists", dest.display());
                 }
-                planned.push((i, dest));
+                let mut destination = w.clone();
+                destination.path = dest.to_string_lossy().into_owned();
+                planned.push((i, destination));
             }
-            for (i, dest) in planned {
-                let w = store.worktrees[i].clone();
-                if let Err(error) = crate::worktrees::relocate_tree(&w, &dest).await {
-                    for (j, source) in moves.iter().rev() {
-                        crate::worktrees::relocate_tree(&store.worktrees[*j], Path::new(source))
-                            .await
-                            .context("restoring a worktree after project rename failed")?;
-                    }
-                    return Err(error);
-                }
-                moves.push((i, w.path));
-                store.worktrees[i].path = dest.to_string_lossy().into_owned();
-            }
-            if !moves.is_empty() {
-                if let Err(error) = store.save(&self.cfg_path).await {
-                    for (i, source) in moves.iter().rev() {
-                        crate::worktrees::relocate_tree(&store.worktrees[*i], Path::new(source))
-                            .await
-                            .context("restoring a worktree after catalog save failed")?;
-                    }
-                    return Err(error);
-                }
+        }
+        let mut relocations = crate::worktrees::relocation::Relocations::new(store, planned);
+        relocations.execute(&self.cfg_path).await?;
+        #[cfg(test)]
+        {
+            let pause = self.worktrees.relocation_pause.lock().unwrap().take();
+            if let Some((reached, release)) = pause {
+                reached.notify_one();
+                release.notified().await;
             }
         }
         let result = self
@@ -201,17 +212,12 @@ impl Manager {
             })
             .await;
         if let Err(error) = result {
-            for (i, source) in moves.iter().rev() {
-                crate::worktrees::relocate_tree(&store.worktrees[*i], Path::new(source)).await?;
-            }
-            if !moves.is_empty() {
-                original.save(&self.cfg_path).await?;
-            }
-            return Err(error);
-        }
-        for (_, source) in moves {
-            let path = Path::new(&source);
-            let _ = std::fs::remove_dir(path.parent().unwrap());
+            return match relocations.rollback(&self.cfg_path).await {
+                Ok(()) => Err(error),
+                Err(rollback) => Err(anyhow!(
+                    "{error:#}; restoring project worktrees also failed: {rollback:#}"
+                )),
+            };
         }
         Ok(())
     }
@@ -494,7 +500,7 @@ impl Manager {
         Ok(())
     }
 
-    fn queue_errand_delivery(
+    async fn queue_errand_delivery(
         self: &Arc<Self>,
         session: &str,
         sc: &LibraryItemCfg,
@@ -504,12 +510,22 @@ impl Manager {
         if text.trim().is_empty() {
             return;
         }
-        let m = self.clone();
-        let target = session.to_string();
-        tokio::spawn(async move { m.deliver(&target, &text).await });
+        self.queue_delivery(session, text).await;
     }
 
     pub async fn run_errand(
+        self: &Arc<Self>,
+        sc: LibraryItemCfg,
+        want: RunWhere,
+        host: bool,
+        persistent_host: bool,
+        like: &str,
+    ) -> Result<String> {
+        self.session_operation(self.run_errand_inner(sc, want, host, persistent_host, like))
+            .await
+    }
+
+    async fn run_errand_inner(
         self: &Arc<Self>,
         sc: LibraryItemCfg,
         want: RunWhere,
@@ -534,81 +550,104 @@ impl Manager {
         }
 
         self.announce_sessions().await;
-        self.queue_errand_delivery(&session, &sc, &want);
+        self.queue_errand_delivery(&session, &sc, &want).await;
 
         Ok(session)
     }
 
-    /// Submit an already composed worker or errand prompt after terminal readiness.
-    pub(super) async fn deliver(self: &Arc<Self>, name: &str, text: &str) {
-        match self.wait_ready(name).await {
-            Ready::Gone => {
-                tracing::warn!(
-                    "The daemon could not send library text because session {name} is gone."
-                );
-                return;
-            }
+    /// Capture the destination before spawning, while the caller owns the session boundary.
+    pub(super) async fn delivery_target(&self, name: &str) -> Option<DeliveryTarget> {
+        self.live.read().await.get(name).map(|live| DeliveryTarget {
+            name: name.to_string(),
+            identity: live.cfg.state_id.clone(),
+            run_id: live.run_id,
+        })
+    }
+
+    pub(super) async fn queue_delivery(self: &Arc<Self>, name: &str, text: String) {
+        if let Some(target) = self.delivery_target(name).await {
+            let manager = self.clone();
+            tokio::spawn(async move { manager.deliver(&target, &text).await });
+        }
+    }
+
+    /// Submit an already composed worker or errand prompt to its original process run.
+    async fn deliver(self: &Arc<Self>, target: &DeliveryTarget, text: &str) {
+        match self.wait_ready_for(target).await {
+            Ready::Gone => return,
             Ready::Timeout => tracing::warn!(
-                "{name} did not become idle within {} ms. Sending its library item text anyway.",
+                "{} did not become idle within {} ms. Sending its library item text anyway.",
+                target.name,
                 READY_TIMEOUT.as_millis()
             ),
             Ready::Settled => {}
         }
+        self.admit_delivery(target, Some(text)).await;
+    }
 
-        if let Err(e) = self.paste(name, text).await {
-            tracing::error!("sending library item text to {name}: {e:#}");
-            return;
-        }
-        // Explicit delivery owns submission; ordinary key input never injects context.
-        let enter = vec!["Enter".into()];
-        self.capture_title_keys(name, &enter, false).await;
-        self.queue_input(name, Input::Gap(DELIVERY_ENTER_GAP)).await;
-        self.queue_input(
-            name,
-            Input::Keys {
-                keys: enter,
-                literal: false,
-            },
-        )
+    /// Recheck and admit the whole sequence under one boundary. The queue consumer
+    /// keeps this run's identity through delays; no stale producer can target a new queue.
+    async fn admit_delivery(self: &Arc<Self>, target: &DeliveryTarget, prompt: Option<&str>) {
+        self.session_read_operation(async {
+            if !self
+                .live
+                .read()
+                .await
+                .get(&target.name)
+                .is_some_and(|live| target.matches(live))
+                || self.ensure_paste_ready(&target.name).await.is_err()
+            {
+                return;
+            }
+            if let Some(text) = prompt {
+                if self.paste(&target.name, text).await.is_err() {
+                    return;
+                }
+                let enter = vec!["Enter".into()];
+                self.capture_title_keys(&target.name, &enter, false).await;
+                self.queue_input(&target.name, Input::Gap(DELIVERY_ENTER_GAP))
+                    .await;
+                self.queue_input(
+                    &target.name,
+                    Input::Keys {
+                        keys: enter,
+                        literal: false,
+                    },
+                )
+                .await;
+            } else {
+                // Auto-resume is startup control, excluded from title capture.
+                for input in auto_resume_inputs() {
+                    self.queue_input(&target.name, input).await;
+                }
+            }
+        })
         .await;
     }
 
-    pub(super) fn queue_auto_resume(self: &Arc<Self>, name: &str, run_id: u64) {
-        let manager = self.clone();
-        let name = name.to_string();
-        tokio::spawn(async move { manager.auto_resume(&name, run_id).await });
+    pub(super) async fn queue_auto_resume(self: &Arc<Self>, name: &str, run_id: u64) {
+        if let Some(target) = self
+            .delivery_target(name)
+            .await
+            .filter(|target| target.run_id == run_id)
+        {
+            let manager = self.clone();
+            tokio::spawn(async move { manager.auto_resume(&target).await });
+        }
     }
 
-    async fn auto_resume(self: &Arc<Self>, name: &str, run_id: u64) {
-        match self.wait_ready_for(name, Some(run_id)).await {
-            Ready::Gone => {
-                self.finish_auto_resume(name, run_id).await;
-                return;
-            }
-            Ready::Timeout => {
-                tracing::warn!(
-                    "{name} did not become idle within {} ms. Skipping auto-resume.",
-                    READY_TIMEOUT.as_millis()
-                );
-                self.finish_auto_resume(name, run_id).await;
-                return;
-            }
-            Ready::Settled => {}
+    async fn auto_resume(self: &Arc<Self>, target: &DeliveryTarget) {
+        if matches!(self.wait_ready_for(target).await, Ready::Settled) {
+            self.admit_delivery(target, None).await;
         }
-
-        // This input controls startup. It does not contain the agent's first prompt.
-        // Exclude it from title capture.
-        for input in auto_resume_inputs() {
-            self.queue_input(name, input).await;
-        }
-        self.finish_auto_resume(name, run_id).await;
+        self.finish_auto_resume(target).await;
     }
 
-    async fn finish_auto_resume(&self, name: &str, run_id: u64) {
+    async fn finish_auto_resume(&self, target: &DeliveryTarget) {
         let changed = {
             let mut live = self.live.write().await;
-            match live.get_mut(name) {
-                Some(l) if l.run_id == run_id && l.input.auto_resume_pending => {
+            match live.get_mut(&target.name) {
+                Some(l) if target.matches(l) && l.input.auto_resume_pending => {
                     l.input.auto_resume_pending = false;
                     true
                 }
@@ -620,11 +659,7 @@ impl Manager {
         }
     }
 
-    pub(super) async fn wait_ready(&self, name: &str) -> Ready {
-        self.wait_ready_for(name, None).await
-    }
-
-    async fn wait_ready_for(&self, name: &str, run_id: Option<u64>) -> Ready {
+    async fn wait_ready_for(&self, target: &DeliveryTarget) -> Ready {
         let started = unix_ms();
         let mut last_seq = u64::MAX;
         let mut still_since = 0u64;
@@ -632,19 +667,19 @@ impl Manager {
         loop {
             let snap = {
                 let live = self.live.read().await;
-                live.get(name).map(|l| {
+                live.get(&target.name).map(|l| {
                     let printed = l
                         .screen
                         .as_ref()
                         .map(|s| s.lines.iter().any(|x| !strip_sgr(x).trim().is_empty()))
                         .unwrap_or(false);
-                    (l.seq, printed, l.state, l.run_id)
+                    (l.seq, printed, l.state, target.matches(l))
                 })
             };
-            let Some((seq, printed, state, current_run_id)) = snap else {
+            let Some((seq, printed, state, same_run)) = snap else {
                 return Ready::Gone;
             };
-            if state == State::Down || run_id.is_some_and(|expected| expected != current_run_id) {
+            if state == State::Down || !same_run {
                 return Ready::Gone;
             }
 
