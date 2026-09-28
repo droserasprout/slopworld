@@ -13,54 +13,48 @@ impl Manager {
     }
 
     pub(crate) async fn queue_input(self: &Arc<Self>, name: &str, item: Input) {
-        // One consumer preserves ordering across keys, mouse reports, and paste.
-        let mut spawn_rx = None;
-        let trace = if crate::latency::enabled() {
-            crate::latency::CURRENT
-                .try_with(Clone::clone)
-                .ok()
-                .flatten()
-        } else {
-            None
-        };
-        let mut item = Some(if let Some(trace) = &trace {
-            if matches!(item, Input::Gap(_)) {
-                item
-            } else {
+        let trace = current_input_trace();
+        // Gaps delay delivery but are not themselves terminal input.
+        let item = match &trace {
+            Some(trace) if !matches!(item, Input::Gap(_)) => {
                 Input::Traced(Box::new(item), vec![trace.clone()])
             }
-        } else {
-            item
-        });
-        {
+            _ => item,
+        };
+        let (spawn_rx, unsent) = {
             let mut live = self.live.write().await;
             if let Some(l) = live.get_mut(name) {
                 if let Some(trace) = trace {
                     l.input.traces.add(l.run_id, trace);
                 }
-                if l.input.sender.as_ref().is_some_and(|tx| tx.is_closed()) {
-                    l.input.sender = None;
-                }
-                if l.input.sender.is_none() {
+                // Install and enqueue under one lock so producers share one consumer.
+                let spawn_rx = if l.input.sender.as_ref().is_none_or(|tx| tx.is_closed()) {
                     let (tx, rx) = mpsc::unbounded_channel();
                     l.input.sender = Some(tx);
-                    spawn_rx = Some((rx, l.cfg.state_id.clone(), l.run_id));
-                }
-                if let Some(tx) = l.input.sender.as_ref() {
-                    if let Some(i) = item.take() {
-                        if let Err(e) = tx.send(i) {
-                            item = Some(e.0);
-                        }
-                    }
-                }
+                    Some((rx, l.cfg.state_id.clone(), l.run_id))
+                } else {
+                    None
+                };
+                let unsent = l
+                    .input
+                    .sender
+                    .as_ref()
+                    .expect("input sender installed under the live lock")
+                    .send(item)
+                    .err()
+                    .map(|e| e.0);
+                (spawn_rx, unsent)
+            } else {
+                (None, Some(item))
             }
-        }
+        };
         if let Some((rx, identity, run_id)) = spawn_rx {
             let manager = Arc::downgrade(self);
             let name = name.to_string();
             tokio::spawn(async move { Self::run_input(manager, name, identity, run_id, rx).await });
         }
-        if let Some(item) = item {
+        // Preserve direct dispatch for untracked panes or a closed consumer.
+        if let Some(item) = unsent {
             Self::send_input(&self.tmux, name, item).await;
         }
     }
@@ -77,9 +71,11 @@ impl Manager {
             while let Ok(next) = rx.try_recv() {
                 batch.push(next);
             }
+            // Merge only what is already queued; never wait to fill a batch.
             let batch = merge_input(batch);
             for item in batch {
                 if let Input::Gap(delay) = item {
+                    // Pauses preserve queue order without holding the session boundary.
                     tokio::time::sleep(delay).await;
                     continue;
                 }
@@ -87,24 +83,36 @@ impl Manager {
                     return;
                 };
                 let sent = manager
-                    .session_read_operation(async {
-                        // Queued input belongs to the session and process that accepted it.
-                        if !manager.live.read().await.get(&name).is_some_and(|live| {
-                            live.cfg.state_id == identity
-                                && live.run_id == run_id
-                                && live.input.sender.is_some()
-                        }) {
-                            return false;
-                        }
-                        Self::send_input(&manager.tmux, &name, item).await;
-                        true
-                    })
+                    .dispatch_queued_input(&name, &identity, run_id, item)
                     .await;
                 if !sent {
                     return;
                 }
             }
         }
+    }
+
+    /// Recheck ownership and send while lifecycle changes are excluded.
+    async fn dispatch_queued_input(
+        &self,
+        name: &str,
+        identity: &str,
+        run_id: u64,
+        item: Input,
+    ) -> bool {
+        self.session_read_operation(async {
+            // A stopped or replaced run must not receive its predecessor's queued input.
+            if !self.live.read().await.get(name).is_some_and(|live| {
+                live.cfg.state_id == identity
+                    && live.run_id == run_id
+                    && live.input.sender.is_some()
+            }) {
+                return false;
+            }
+            Self::send_input(&self.tmux, name, item).await;
+            true
+        })
+        .await
     }
 
     pub(crate) async fn send_input(tmux: &Tmux, name: &str, item: Input) {
@@ -147,46 +155,54 @@ impl Manager {
         random_tips: Vec<String>,
     ) {
         self.capture_title_keys(name, &keys, literal).await;
-        let inject: Option<(Vec<u8>, usize)> = if !literal {
-            if let Some(pos) = keys.iter().position(|k| k == "Enter") {
-                self.consume_breadcrumbs(name, &random_tips)
-                    .await
-                    .map(|text| (text, pos))
-            } else {
-                None
-            }
-        } else {
+        let enter = if literal {
             None
+        } else {
+            keys.iter().position(|key| key == "Enter")
         };
-        if let Some((text, pos)) = inject {
-            if !text.is_empty() {
-                if pos > 0 {
-                    self.queue_input(
-                        name,
-                        Input::Keys {
-                            keys: keys[..pos].to_vec(),
-                            literal,
-                        },
-                    )
-                    .await;
-                }
-                self.queue_paste(name, text).await;
-                self.queue_input(name, Input::Gap(ENTER_GAP)).await;
-                if pos < keys.len() {
-                    self.queue_input(
-                        name,
-                        Input::Keys {
-                            keys: keys[pos..].to_vec(),
-                            literal,
-                        },
-                    )
-                    .await;
-                }
+        if let Some(pos) = enter {
+            if let Some(text) = self
+                .consume_breadcrumbs(name, &random_tips)
+                .await
+                .filter(|text| !text.is_empty())
+            {
+                self.queue_submission(name, &keys, pos, text).await;
                 self.announce_sessions().await;
                 return;
             }
         }
         self.queue_input(name, Input::Keys { keys, literal }).await;
+    }
+
+    /// Insert pending context just before the first nonliteral Enter.
+    async fn queue_submission(
+        self: &Arc<Self>,
+        name: &str,
+        keys: &[String],
+        enter: usize,
+        text: Vec<u8>,
+    ) {
+        if enter > 0 {
+            self.queue_input(
+                name,
+                Input::Keys {
+                    keys: keys[..enter].to_vec(),
+                    literal: false,
+                },
+            )
+            .await;
+        }
+        self.queue_paste(name, text).await;
+        // Let the application process the paste before submitting the prompt.
+        self.queue_input(name, Input::Gap(ENTER_GAP)).await;
+        self.queue_input(
+            name,
+            Input::Keys {
+                keys: keys[enter..].to_vec(),
+                literal: false,
+            },
+        )
+        .await;
     }
 
     pub async fn send_mouse(self: &Arc<Self>, name: &str, ev: MouseInput, count: u8) {
@@ -208,9 +224,15 @@ impl Manager {
 
     pub async fn paste(self: &Arc<Self>, name: &str, text: &str) -> Result<()> {
         let _perf = crate::perf::timer("input-paste-admission");
-        // The live row is updated by start/stop and reader teardown under the session
-        // boundary held by the socket handler. Listing every tmux session for each paste
-        // adds a separate process to the input path.
+        self.ensure_paste_ready(name).await?;
+
+        self.capture_title_paste(name, text).await;
+        self.queue_paste(name, text.as_bytes().to_vec()).await;
+        Ok(())
+    }
+
+    pub(super) async fn ensure_paste_ready(&self, name: &str) -> Result<()> {
+        // The caller holds the session boundary; admission needs no tmux process.
         if !self
             .live
             .read()
@@ -220,9 +242,6 @@ impl Manager {
         {
             bail!("session {name} is not running");
         }
-
-        self.capture_title_paste(name, text).await;
-        self.queue_paste(name, text.as_bytes().to_vec()).await;
         Ok(())
     }
 
@@ -230,77 +249,10 @@ impl Manager {
         self.queue_input(name, Input::Paste { bytes }).await;
     }
 
-    pub(crate) async fn consume_breadcrumbs(
-        &self,
-        name: &str,
-        random_tips: &[String],
-    ) -> Option<Vec<u8>> {
-        let mut live = self.live.write().await;
-        let session = live.get_mut(name)?;
-        if !session.input.breadcrumbs_pending {
-            return None;
-        }
-
-        session.input.breadcrumbs_pending = false;
-        let text = String::from_utf8_lossy(&session.input.breadcrumbs);
-        Some(render_prompt(&text, random_tips).into_bytes())
-    }
-
-    /// Render a breadcrumb and paste it into this agent without submitting.
-    pub async fn paste_breadcrumb(
-        self: &Arc<Self>,
-        name: &str,
-        breadcrumb: &str,
-        random_tips: Vec<String>,
-    ) -> Result<()> {
-        let cfg = self.config().await;
-        let s = self
-            .session_cfg(name)
-            .await
-            .ok_or_else(|| anyhow!("no such session: {name}"))?;
-        let p = self
-            .project_for(&cfg, &s)
-            .await
-            .ok_or_else(|| anyhow!("session {name} has no configured project"))?;
-        let b = cfg
-            .library_item(breadcrumb)
-            .filter(|b| b.kind == LibraryItemKind::Breadcrumb)
-            .ok_or_else(|| anyhow!("no such breadcrumb: {breadcrumb}"))?;
-        let command = cfg.command_of(&s);
-        let directory = expand(&p.dir);
-        let vars = PromptVars {
-            agent: &s.name,
-            project: &p.name,
-            directory: &directory,
-            command: &command,
-        };
-        let text = render_prompt_with(&b.text, &random_tips, Some(&vars));
-        drop(cfg);
-        if !self
-            .live
-            .read()
-            .await
-            .get(name)
-            .is_some_and(Self::paste_ready)
-        {
-            bail!("session {name} is not running");
-        }
-        self.queue_paste(name, text.into_bytes()).await;
-        Ok(())
-    }
-
     pub async fn resize(&self, name: &str, cols: u16, rows: u16) -> Result<()> {
-        // Shared session requests may resize concurrently. Keep each tmux acceptance and
-        // published dimension pair in request order.
+        // Serialize tmux acceptance with dimension publication across shared requests.
         let _resize = self.resize_mutation.lock().await;
-        let cols = cols.clamp(
-            crate::shared::protocol::TERMINAL_MIN_COLS,
-            crate::shared::protocol::TERMINAL_MAX_COLS,
-        );
-        let rows = rows.clamp(
-            crate::shared::protocol::TERMINAL_MIN_ROWS,
-            crate::shared::protocol::TERMINAL_MAX_ROWS,
-        );
+        let (cols, rows) = clamp_terminal_size(cols, rows);
         {
             let live = self.live.read().await;
             let l = live
@@ -310,8 +262,7 @@ impl Manager {
                 return Ok(());
             }
         }
-        // Publish the requested dimensions only after tmux accepts them.
-        // Otherwise, a temporary tmux failure can make a later retry incorrectly appear complete.
+        // A rejected resize must leave the old dimensions so the request can be retried.
         if self.tmux.exists(name).await {
             self.tmux.resize(name, cols, rows).await?;
         }
@@ -338,54 +289,43 @@ impl Manager {
 mod boundary_tests;
 
 impl Manager {
-    // Terminal repaint helpers.
-
     /// Repaint all live panes asynchronously after a sidebar layout change.
     pub fn request_redraw(self: &Arc<Self>, shape: Option<(u16, u16)>) {
-        let shape = shape.map(|(cols, rows)| {
-            (
-                cols.clamp(
-                    crate::shared::protocol::TERMINAL_MIN_COLS,
-                    crate::shared::protocol::TERMINAL_MAX_COLS,
-                ),
-                rows.clamp(
-                    crate::shared::protocol::TERMINAL_MIN_ROWS,
-                    crate::shared::protocol::TERMINAL_MAX_ROWS,
-                ),
-            )
-        });
-        let m = self.clone();
-        tokio::spawn(async move {
-            // Queue redraws so the final sidebar shape survives an earlier nudge.
-            let Ok(permit) = m.signals.redraw_nudge.clone().acquire_owned().await else {
-                return;
-            };
-            let _permit = permit;
-            let names = {
-                let live = m.live.read().await;
-                live.iter()
-                    .filter(|(_, l)| l.capture.emu.is_some() || l.state != State::Down)
-                    .map(|(name, _)| name.clone())
-                    .collect::<Vec<_>>()
-            };
-            let jobs = names.into_iter().map(|name| {
-                let m = m.clone();
-                async move {
-                    if let Some((cols, rows)) = shape {
-                        if let Err(e) = m.resize(&name, cols, rows).await {
-                            tracing::debug!("redraw resize {name}: {e:#}");
-                            return;
-                        }
+        let shape = shape.map(|(cols, rows)| clamp_terminal_size(cols, rows));
+        let manager = self.clone();
+        tokio::spawn(async move { manager.redraw_panes(shape).await });
+    }
+
+    async fn redraw_panes(self: &Arc<Self>, shape: Option<(u16, u16)>) {
+        // Queue redraws so the final sidebar shape survives an earlier nudge.
+        let Ok(permit) = self.signals.redraw_nudge.clone().acquire_owned().await else {
+            return;
+        };
+        let _permit = permit;
+        let names = {
+            let live = self.live.read().await;
+            live.iter()
+                .filter(|(_, l)| l.capture.emu.is_some() || l.state != State::Down)
+                .map(|(name, _)| name.clone())
+                .collect::<Vec<_>>()
+        };
+        let jobs = names.into_iter().map(|name| {
+            let m = self.clone();
+            async move {
+                if let Some((cols, rows)) = shape {
+                    if let Err(e) = m.resize(&name, cols, rows).await {
+                        tracing::debug!("redraw resize {name}: {e:#}");
+                        return;
                     }
-                    m.nudge_redraw(&name).await;
                 }
-            });
-            futures::future::join_all(jobs).await;
+                m.nudge_redraw(&name).await;
+            }
         });
+        futures::future::join_all(jobs).await;
     }
 
     pub(in crate::session::manager) async fn nudge_redraw(self: &Arc<Self>, name: &str) {
-        // A capture cannot restore terminal modes. SIGWINCH makes terminal applications set them again.
+        // A brief size change triggers SIGWINCH so the application restores terminal modes.
         let Some((cols, rows)) = self.size_of(name).await else {
             return;
         };
@@ -397,6 +337,7 @@ impl Manager {
             return;
         }
         tokio::time::sleep(Duration::from_millis(60)).await;
+        // Restore the latest size; a real resize may have arrived during the nudge.
         let Some((cols, rows)) = self.size_of(name).await else {
             return;
         };
@@ -408,4 +349,26 @@ impl Manager {
     pub(in crate::session::manager) async fn size_of(&self, name: &str) -> Option<(u16, u16)> {
         self.live.read().await.get(name).map(|l| (l.cols, l.rows))
     }
+}
+
+fn current_input_trace() -> Option<Arc<crate::latency::InputTrace>> {
+    if crate::latency::enabled() {
+        crate::latency::CURRENT
+            .try_with(Clone::clone)
+            .ok()
+            .flatten()
+    } else {
+        None
+    }
+}
+
+// Direct resizing and layout-driven redraws use the same wire limits.
+fn clamp_terminal_size(cols: u16, rows: u16) -> (u16, u16) {
+    use crate::shared::protocol::{
+        TERMINAL_MAX_COLS, TERMINAL_MAX_ROWS, TERMINAL_MIN_COLS, TERMINAL_MIN_ROWS,
+    };
+    (
+        cols.clamp(TERMINAL_MIN_COLS, TERMINAL_MAX_COLS),
+        rows.clamp(TERMINAL_MIN_ROWS, TERMINAL_MAX_ROWS),
+    )
 }

@@ -102,6 +102,7 @@ struct FrameDelta {
     bell: bool,
 }
 
+mod breadcrumbs;
 mod frame;
 mod input;
 mod reader;
