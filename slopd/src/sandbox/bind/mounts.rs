@@ -4,7 +4,8 @@ use std::path::Path;
 
 use crate::config::{DnsConfig, Limits, MountMode, NetworkMode};
 use crate::sandbox::{
-    persistent_tmp_path, private_resolver_path, ResolvedMount, PANE_TERM, PRIVATE_RESOLVER,
+    pane_less_utfchardef, persistent_tmp_path, private_resolver_path, ResolvedMount, PANE_TERM,
+    PRIVATE_RESOLVER,
 };
 
 use super::policy::{
@@ -165,10 +166,11 @@ pub(super) fn push_env(a: &mut Vec<String>, args: EnvArgs<'_>) {
     // Set terminal values explicitly because slopd does not inherit them from a terminal.
     push_args(a, &["--setenv", "TERM", PANE_TERM]);
     push_args(a, &["--setenv", "COLORTERM", "truecolor"]);
+    push_args(a, &["--setenv", "LESSUTFCHARDEF", &pane_less_utfchardef()]);
 
     // Keep the standard host variables needed by existing configurations after --clearenv.
     // Agents need PATH to find executables.
-    let mut passed: Vec<String> = Vec::new();
+    let mut passed: Vec<String> = vec!["LESSUTFCHARDEF".into()];
     for (k, v) in std::env::vars() {
         if BASE_ENV.contains(&k.as_str()) || k.starts_with("LC_") {
             push_args(a, &["--setenv", k.as_str(), v.as_str()]);

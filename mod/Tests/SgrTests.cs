@@ -27,10 +27,11 @@ namespace SlopWorld.Tests
             yield return ("faint dims foreground toward background", FaintDims);
             yield return ("reverse swaps foreground and background", ReverseSwaps);
             yield return ("supplementary glyph remains one run", SupplementaryGlyph);
+            yield return ("emoji sequences keep daemon cells and copy text", EmojiSequences);
+            yield return ("long combining clusters keep cell geometry", LongCombiningClusters);
+            yield return ("incomplete clusters preserve payload geometry", IncompleteClusters);
             yield return ("clears individual attributes", ClearsIndividualAttributes);
             yield return ("handles bright backgrounds and grey colors", BrightBackgroundAndGreyColors);
-            yield return ("autolinks across colors and rows", AutolinksAcrossColorsAndRows);
-            yield return ("preserves explicit hyperlink metadata", PreservesExplicitHyperlink);
         }
 
         static Color DefaultFg => TerminalTheme.Current.Fg;
@@ -204,6 +205,85 @@ namespace SlopWorld.Tests
             AssertEx.Equal(2, runs[1].Col, "tail starts after the wide emoji");
         }
 
+        static void EmojiSequences()
+        {
+            var pager = Sgr.ParseLine("\x1b[0m# \x1b[2;2z👋🏻\x1b[5G E1.0 waving hand");
+            AssertEx.True(pager.Exists(r => r.Text == "👋🏻" && r.IsCluster && r.Columns == 2),
+                "pager skin tone remains one sprite cluster");
+            AssertEx.True(pager.Exists(r => r.Text == " E1.0 waving hand" && !r.IsCluster),
+                "pager description remains ordinary text");
+            var heart = Sgr.ParseLine("\x1b[0m# \x1b[4;2z❤️‍🔥\x1b[5G E13.1 heart on fire");
+            AssertEx.True(heart.Exists(r => r.Text == "❤️‍🔥" && r.IsCluster && r.Columns == 2),
+                "pager joined heart remains one sprite cluster");
+            var redHeart = Sgr.ParseLine("\x1b[0m# \x1b[2;2z❤️\x1b[5G E0.6 red heart");
+            AssertEx.True(redHeart.Exists(r => r.Text == "❤️" && r.IsCluster && r.Columns == 2),
+                "two-scalar red heart remains separate from pager description");
+            var pagerHeart = Sgr.ParseLine("\x1b[0m# \x1b[3;1z❤️‍🔥\x1b[6G E13.1 heart on fire");
+            AssertEx.True(pagerHeart.Exists(r => r.Text == "❤️‍🔥" && r.IsCluster),
+                "joined heart stays separate from pager description");
+            var cases = new[]
+            {
+                (Wire: "\x1b[0m\x1b[2;2z👩‍\x1b[3G💻\x1b[5Gx", Key: "👩‍💻", Width: 4),
+                (Wire: "\x1b[0m👍\x1b[3G🏽\x1b[5Gx", Key: "👍🏽", Width: 4),
+                (Wire: "\x1b[0m🇺\x1b[3G🇾\x1b[5Gx", Key: "🇺🇾", Width: 4),
+                (Wire: "\x1b[0m\x1b[3;1z1️⃣x", Key: "1️⃣", Width: 1),
+                (Wire: "\x1b[0m👩\x1b[3G\x1b[2;2z🏽‍\x1b[5G💻\x1b[7Gx",
+                    Key: "👩🏽‍💻", Width: 6),
+                (Wire: "\x1b[0m\x1b[3;2z🏳️‍\x1b[3G🌈\x1b[5Gx",
+                    Key: "🏳️‍🌈", Width: 4),
+                (Wire: "\x1b[0m\x1b[7;2z🏴\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007Fx",
+                    Key: "🏴\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007F", Width: 2),
+            };
+            foreach (var sample in cases)
+            {
+                var runs = Sgr.ParseLine(sample.Wire);
+                AssertEx.Equal(sample.Key, runs[0].Text, "complete sequence reaches renderer");
+                AssertEx.Equal(sample.Width, runs[0].Columns, "daemon width survives sequence");
+                AssertEx.True(runs[0].IsCluster, "sequence is one display cluster");
+                AssertEx.Equal(sample.Key + "x", TerminalColumns.Slice(TerminalColumns.Cells(runs),
+                    0, sample.Width), "copy keeps sequence once");
+                AssertEx.True(TextSpriteCatalog.Shared.Match(sample.Key, 0, out int length, out _)
+                    && length == sample.Key.Length, "sequence has Noto artwork");
+                var layout = InlineTextLayout.Cells(runs[0].Text, runs[0].Columns, 7f,
+                    TextSpriteCatalog.Shared, _ => true);
+                AssertEx.True(layout.Spans[0].Sprite >= 0, "sequence selects atlas sprite");
+                AssertEx.Equal(sample.Width * 7f, layout.Spans[0].Width, "sprite uses daemon cells");
+            }
+            var combining = Sgr.ParseLine("\x1b[0m\x1b[2;1zéx");
+            AssertEx.Equal("é", combining[0].Text, "non-emoji combining text is preserved");
+            AssertEx.Equal("éx", TerminalColumns.Slice(TerminalColumns.Cells(combining), 0, 1),
+                "non-emoji combining text copies as one cell");
+        }
+
+        static void LongCombiningClusters()
+        {
+            foreach (int marks in new[] { 32, 128 })
+            {
+                string cluster = "e" + new string('\u0301', marks);
+                var runs = Sgr.ParseLine("\x1b[0m\x1b[" + (marks + 1) + ";1z" + cluster + "x");
+                AssertEx.Equal(2, runs.Count, "cluster stays separate from following text");
+                AssertEx.True(runs[0].IsCluster, "long cluster is recognized");
+                AssertEx.Equal(1, runs[0].Columns, "combining marks do not advance the pen");
+                AssertEx.Equal(1, runs[1].Col, "following text starts in the next cell");
+                AssertEx.Equal(cluster + "x", TerminalColumns.Slice(TerminalColumns.Cells(runs),
+                    0, 1), "copy preserves every combining mark");
+            }
+            var truncated = Sgr.ParseLine("\x1b[2147483647;1zex");
+            AssertEx.Equal("ex", truncated[0].Text, "impossible count leaves payload as text");
+        }
+
+        static void IncompleteClusters()
+        {
+            foreach (string wire in new[] { "\x1b[3;1z😀x", "\x1b[3;1ze\x1b[0mx" })
+            {
+                var runs = Sgr.ParseLine(wire);
+                AssertEx.True(!runs[0].IsCluster, "incomplete payload is not consumed as a cluster");
+                AssertEx.Equal(2, runs[runs.Count - 1].Col + runs[runs.Count - 1].Columns,
+                    "fallback preserves ordinary scalar geometry");
+            }
+        }
+
+
         static void ClearsIndividualAttributes()
         {
             var runs = Sgr.ParseLine(
@@ -239,60 +319,6 @@ namespace SlopWorld.Tests
                            "negative xterm index clamps");
         }
 
-        static void AutolinksAcrossColorsAndRows()
-        {
-            AssertEx.False(Sgr.MayContainLink(new[] { "plain output", "with ANSI \x1b[31mred" }),
-                           "plain screens bypass URL-grid construction");
-            AssertEx.True(Sgr.MayContainLink(new[] { "https:", "//example.com" }),
-                          "candidate scan carries across physical rows");
-            var colored = Sgr.ParseLine(
-                "\x1b[31mhttps://example\x1b[32m.com");
-            AssertEx.Equal(2, colored.Count, "URL keeps the two source colors");
-            AssertEx.Equal("https://example.com", colored[0].Url, "first URL fragment");
-            AssertEx.Equal("https://example.com", colored[1].Url, "second URL fragment");
-            AssertEx.Equal(TerminalTheme.Current.Ansi[1], colored[0].Fg,
-                           "first URL color");
-            AssertEx.Equal(TerminalTheme.Current.Ansi[2], colored[1].Fg,
-                           "second URL color");
 
-            var rows = Sgr.ParseLines(new[] { "https://example.", "com" }, 16);
-            AssertEx.Equal(1, rows[0].Count, "first row stays one link run");
-            AssertEx.Equal(1, rows[1].Count, "second row stays one link run");
-            AssertEx.Equal("https://example.com", rows[0][0].Url,
-                           "cross-row link URL");
-            AssertEx.Equal("com", rows[1][0].Text, "cross-row link text");
-            AssertEx.Equal("https://example.com", rows[1][0].Url,
-                           "cross-row link metadata");
-
-            AssertEx.Equal(0, Sgr.ParseLines(Array.Empty<string>(), 80).Length,
-                           "empty screen has no rows");
-            AssertEx.Equal(1, Sgr.ParseLines(new[] { "plain" }, 0)[0].Count,
-                           "zero width falls back to row width");
-
-            var cache = new TerminalRunCache();
-            var first = cache.Parse(new[] { "plain", "\x1b[31mred", "界" }, 16, 1, 1,
-                                    out int hits, out int misses);
-            AssertEx.Equal(0, hits, "new rows miss the parsed-row cache");
-            AssertEx.Equal(3, misses, "every new row is parsed");
-            var second = cache.Parse(new[] { "\x1b[31mred", "界" }, 16, 1, 1,
-                                     out hits, out misses);
-            AssertEx.Equal(2, hits, "ANSI and wide rows are reused at a new anchor");
-            AssertEx.True(object.ReferenceEquals(first[1], second[0]), "cached runs are shared");
-            cache.Parse(new[] { "plain" }, 16, 2, 1, out hits, out misses);
-            AssertEx.Equal(1, misses, "theme changes reparse cached rows");
-            cache.Parse(new[] { "plain" }, 16, 2, 2, out hits, out misses);
-            AssertEx.Equal(1, misses, "font changes reparse cached rows");
-        }
-
-        static void PreservesExplicitHyperlink()
-        {
-            var runs = Sgr.ParseLine(
-                "\x1b]8;;https://named.example\x07https://text.example\x1b]8;;\x07");
-
-            AssertEx.Equal(1, runs.Count, "explicit hyperlink is not split by autolinking");
-            AssertEx.Equal("https://text.example", runs[0].Text, "explicit link text");
-            AssertEx.Equal("https://named.example", runs[0].Url,
-                           "explicit hyperlink wins over text detection");
-        }
     }
 }

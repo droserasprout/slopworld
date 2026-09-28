@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::config::{Config, ProjectCfg, SessionCfg};
 
-use super::PANE_TERM;
+use super::{pane_less_utfchardef, PANE_TERM};
 
 /// Build the unsandboxed Terminal (host) command. Inherit the slopd environment.
 /// Use the same tmux working directory as sandboxed sessions.
@@ -12,6 +12,7 @@ pub fn host_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
         "env".into(),
         format!("TERM={PANE_TERM}"),
         "COLORTERM=truecolor".into(),
+        format!("LESSUTFCHARDEF={}", pane_less_utfchardef()),
         format!("SLOPWORLD_SESSION={}", s.name),
         format!("SLOPWORLD_PROJECT={}", p.name),
     ];

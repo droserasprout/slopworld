@@ -1,3 +1,5 @@
+pub(crate) mod control;
+
 use std::collections::HashMap;
 use std::process::Stdio;
 use std::sync::OnceLock;
@@ -35,6 +37,10 @@ const WORKER_TASK: &str = "@slopworld_worker_task";
 const WORKER_DURABLE: &str = "@slopworld_worker_durable";
 const WORKER_STATE: &str = "@slopworld_worker_state";
 const READER_METADATA: &str = "@slopworld_reader";
+// tmux otherwise counts newer emoji modifiers as separate wide characters (for example
+// 🤝🏻 occupies four cells and 🫱🏻‍🫲🏼 six). Its emoji grapheme handling collapses the
+// complete sequence to two cells when modifiers have zero width.
+const EMOJI_MODIFIER_WIDTHS: &str = "U+1F3FB-U+1F3FF=0";
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ReaderMetadata {
@@ -163,6 +169,7 @@ impl Tmux {
     /// If systemd is unavailable, start the server directly.
     pub async fn ensure_server(&self) {
         if self.server_running().await {
+            self.configure_emoji_widths().await;
             return;
         }
 
@@ -218,6 +225,21 @@ impl Tmux {
         self.run(&["set-option", "-g", "history-limit", &limit])
             .await
             .ok();
+        self.configure_emoji_widths().await;
+    }
+
+    async fn configure_emoji_widths(&self) {
+        if let Err(error) = self
+            .run(&[
+                "set-option",
+                "-s",
+                "codepoint-widths[0]",
+                EMOJI_MODIFIER_WIDTHS,
+            ])
+            .await
+        {
+            tracing::warn!("cannot set tmux emoji modifier widths: {error:#}");
+        }
     }
 
     pub async fn spawn(

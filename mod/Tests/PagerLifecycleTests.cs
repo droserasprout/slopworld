@@ -160,7 +160,7 @@ namespace SlopWorld.Tests
             pager.AttachRestored(info);
             SessionHub.Instance.Config.Pager = "less -N";
             pager.RestartForAppearance(pager.Session, pager.Operation);
-            AssertEx.Equal("env DELTA_PAGER='less -N -+N' git -c delta.line-numbers=true diff HEAD",
+            AssertEx.Equal("env DELTA_PAGER='less -N -+N -S' git -c delta.line-numbers=true diff HEAD",
                 SessionHub.Instance.SessionStore.Command, "recovered diff replaces old pager override");
             SessionHub.Instance.SessionStore.Complete("new-diff");
             AssertEx.True(pager.Locked, "restored diff pin retained");

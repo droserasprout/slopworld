@@ -130,6 +130,9 @@
     <Compile Include="../Source/SlopWorld/UI/Terminal/UrlScan.cs" Link="Source/UI/Terminal/UrlScan.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/PathScan.cs" Link="Source/UI/Views/Shared/PathScan.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Sgr.cs" Link="Source/UI/Terminal/Sgr.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/SgrRun.cs" Link="Source/UI/Terminal/SgrRun.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalAutolinks.cs" Link="Source/UI/Terminal/TerminalAutolinks.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalSpriteSequences.cs" Link="Source/UI/Terminal/TerminalSpriteSequences.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalColumns.cs" Link="Source/UI/Terminal/TerminalColumns.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalHistory.cs" Link="Source/UI/Terminal/TerminalHistory.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalRunCache.cs" Link="Source/UI/Terminal/TerminalRunCache.cs" />

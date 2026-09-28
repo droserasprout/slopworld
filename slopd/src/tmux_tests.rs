@@ -4,6 +4,61 @@ use super::{
 };
 
 #[tokio::test]
+async fn emoji_modifier_widths_match_two_cell_sequences() {
+    let socket = format!("slop-emoji-width-{}", uuid::Uuid::new_v4());
+    struct Cleanup(String);
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            let _ = std::process::Command::new("tmux")
+                .args(["-L", &self.0, "kill-server"])
+                .output();
+        }
+    }
+    let _cleanup = Cleanup(socket.clone());
+    let tmux = super::Tmux::new(&socket);
+    tmux.run(&["new-session", "-d", "-s", "bootstrap", "sleep", "60"])
+        .await
+        .unwrap();
+    tmux.ensure_server().await;
+    assert_eq!(
+        tmux.run(&["show-options", "-s", "-v", "codepoint-widths[0]"])
+            .await
+            .unwrap()
+            .trim(),
+        super::EMOJI_MODIFIER_WIDTHS
+    );
+    tmux.run(&[
+        "new-session",
+        "-d",
+        "-s",
+        "handshake",
+        "-x",
+        "80",
+        "-y",
+        "12",
+        "bash",
+        "-c",
+        "printf '🫱🏻‍🫲🏼'; read -r unused",
+    ])
+    .await
+    .unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let cursor = tmux
+                .run(&["display-message", "-p", "-t", "handshake:", "#{cursor_x}"])
+                .await
+                .unwrap();
+            if cursor.trim() == "2" {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("tmux did not place the complete handshake in two cells");
+}
+
+#[tokio::test]
 async fn reader_identity_survives_a_new_daemon_tmux_handle() {
     let socket = format!("slop-reader-{}", uuid::Uuid::new_v4());
     struct Cleanup(String);

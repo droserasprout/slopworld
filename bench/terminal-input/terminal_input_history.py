@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 def history_limit():
-    source = Path(__file__).resolve().parents[2] / 'slopd/src/config/model.rs'
+    source = Path(__file__).resolve().parents[2] / 'slopd/src/tmux.rs'
     match = re.search(r'SCROLLBACK_LINES:\s*u32\s*=\s*([\d_]+)', source.read_text())
     if not match:
         raise RuntimeError('Cannot determine the daemon scrollback limit')

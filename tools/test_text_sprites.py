@@ -14,6 +14,14 @@ class TextSpriteMetadataTests(unittest.TestCase):
         literals = re.findall(r'"((?:\\U[0-9A-F]{8})+)"', source)
         keys = [literal.encode("ascii").decode("unicode_escape") for literal in literals]
         self.assertTrue(keys)
+        self.assertIn("✨", keys)
+        self.assertIn("🍰", keys)
+        self.assertIn("👩‍💻", keys)
+        self.assertIn("👍🏽", keys)
+        self.assertIn("🇺🇾", keys)
+        self.assertIn("1️⃣", keys)
+        self.assertNotIn("#", keys)
+        self.assertNotIn("\u200d", keys)
         self.assertEqual(len(keys), len(set(keys)))
         rows = int(re.search(r"AtlasRows = (\d+)", source).group(1))
         self.assertLessEqual(len(keys), rows * emoji_atlas.COLUMNS)
@@ -28,6 +36,12 @@ class TextSpriteMetadataTests(unittest.TestCase):
             emoji_atlas.write_data(str(output), ["👩‍💻", "❤️", "😀"], 1)
             source = output.read_text(encoding="utf-8")
             self.assertIn(r'"\U0001F469\U0000200D\U0001F4BB", "\U00002764\U0000FE0F", "\U0001F600"', source)
+
+    def test_pinned_unicode_data_has_sequence_qualifications(self):
+        keys = set(emoji_atlas.unicode_sequences(emoji_atlas.DEFAULT_SEQUENCES))
+        self.assertIn("👩‍💻", keys)
+        self.assertIn("🏳️‍🌈", keys)
+        self.assertIn("1️⃣", keys)
 
     def test_loading_tips_use_ascii_glyphs(self):
         path = (pathlib.Path(__file__).parent.parent /

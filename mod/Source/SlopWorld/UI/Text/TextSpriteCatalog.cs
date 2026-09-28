@@ -14,9 +14,10 @@ namespace SlopWorld
         }
 
         readonly Node _root = new Node();
-        // The terminal's common printable-ASCII rows can skip trie lookups when no
-        // catalog key can begin with one of those characters.
-        internal readonly bool HasPrintableAsciiPrefix;
+        // A printable-ASCII-only row can skip sprite lookups unless a complete
+        // catalog key is itself printable ASCII. Keycaps start with ASCII but need
+        // a non-ASCII combining mark, so they do not disable this shortcut.
+        internal readonly bool HasPrintableAsciiOnlyKey;
         public static readonly TextSpriteCatalog Shared = new TextSpriteCatalog(TextSpriteData.Keys);
 
         public TextSpriteCatalog(IEnumerable<string> keys)
@@ -25,7 +26,10 @@ namespace SlopWorld
             foreach (string key in keys)
             {
                 if (string.IsNullOrEmpty(key)) throw new ArgumentException("Empty sprite key");
-                if (key[0] >= ' ' && key[0] <= '~') HasPrintableAsciiPrefix = true;
+                bool asciiOnly = true;
+                foreach (char c in key)
+                    if (c < ' ' || c > '~') { asciiOnly = false; break; }
+                if (asciiOnly) HasPrintableAsciiOnlyKey = true;
                 var node = _root;
                 foreach (char c in key)
                 {
@@ -59,6 +63,15 @@ namespace SlopWorld
             for (int i = 0; i < text.Length; i++)
                 if (Match(text, i, out _, out _)) return true;
             return false;
+        }
+
+        // Used only when adjacent daemon cells may form a baked emoji sequence.
+        public bool HasLongerKey(string prefix)
+        {
+            var node = _root;
+            foreach (char c in prefix)
+                if (!node.Next.TryGetValue(c, out node)) return false;
+            return node.Next.Count > 0;
         }
     }
 }

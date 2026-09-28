@@ -3,7 +3,7 @@
 
 Unity's legacy IMGUI font path cannot draw Noto Color Emoji's CBDT/CBLC glyphs.
 One Pango-rendered atlas supplies artwork without runtime emoji fonts. Generated
-text keys map individual glyphs or explicitly supplied sequences to sprite slots.
+text keys map font characters and Unicode emoji sequences to sprite slots.
 """
 
 import argparse
@@ -16,10 +16,12 @@ ROOT = os.path.dirname(HERE)
 EMOJI_TOOL = os.path.join(HERE, "emoji.py")
 DEFAULT_TEXTURE = os.path.join(ROOT, "mod", "Textures", "SlopWorld", "TerminalEmoji.png")
 DEFAULT_DATA = os.path.join(ROOT, "mod", "Source", "SlopWorld", "UI", "Text", "TextSpriteData.cs")
+# Pinned from https://www.unicode.org/Public/17.0.0/emoji/emoji-test.txt.
+DEFAULT_SEQUENCES = os.path.join(ROOT, "assets", "unicode", "emoji-test.txt")
 
 SIZE = 32
 PROBE = 256
-COLUMNS = 32
+COLUMNS = 64
 BREATHE = 1.08
 
 
@@ -41,7 +43,34 @@ def font_codepoints():
         first = int(bounds[0], 16)
         last = int(bounds[-1], 16)
         result.extend(range(first, last + 1))
-    return sorted(set(cp for cp in result if 0x10000 <= cp <= 0x10FFFF))
+    # Noto's charset also lists ASCII keycap components and two format marks.
+    # Those are parts of sequences, not standalone artwork. Keep every other
+    # covered character, including BMP emoji such as U+2728 SPARKLES.
+    components = {0x200D, 0x20E3}
+    return sorted(set(cp for cp in result if cp > 0x7F and cp not in components))
+
+
+def unicode_sequences(path):
+    """Use the pinned Unicode emoji-test data to find keyboard/display sequences."""
+    with open(path, encoding="utf-8") as stream:
+        for line in stream:
+            left, separator, right = line.partition(";")
+            if not separator or "#" not in right:
+                continue
+            status = right.split("#", 1)[0].strip()
+            if status not in {"fully-qualified", "minimally-qualified", "unqualified"}:
+                continue
+            parts = left.split()
+            if len(parts) > 1:
+                yield "".join(chr(int(part, 16)) for part in parts)
+
+
+def sequence_is_supported(layout, key):
+    """A Noto ligature must shape to one glyph; fallback/component runs are not artwork."""
+    layout.set_text(key, -1)
+    runs = [run for line in layout.get_lines() for run in line.runs]
+    return (len(runs) == 1 and len(runs[0].glyphs.glyphs) == 1 and
+            runs[0].item.analysis.font.describe().get_family() == "Noto Color Emoji")
 
 
 def bake_one(rendered):
@@ -102,6 +131,12 @@ def main():
 
     emoji_tool = load_emoji_tool()
     keys = [chr(cp) for cp in font_codepoints()]
+    cairo, Pango, PangoCairo = emoji_tool._cairo()
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, PROBE, PROBE)
+    layout = PangoCairo.create_layout(cairo.Context(surface))
+    layout.set_font_description(Pango.FontDescription.from_string(f"Noto Color Emoji {PROBE // 2}"))
+    keys.extend(key for key in unicode_sequences(DEFAULT_SEQUENCES)
+                if sequence_is_supported(layout, key))
     if args.sequences:
         with open(args.sequences, encoding="utf-8") as stream:
             keys.extend(line.rstrip("\r\n") for line in stream if line.strip())

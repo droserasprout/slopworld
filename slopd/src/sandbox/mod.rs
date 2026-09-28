@@ -35,7 +35,14 @@ pub(crate) use state::{
 };
 
 const PANE_TERM: &str = "tmux-256color";
+// less deletes emoji components by default. Keep them in pane output so the
+// terminal can match complete Noto sprite keys. Definitions must stay sorted.
+const PANE_LESS_UTFCHARDEF: &str = "200D:c,20E3:c,FE00-FE0F:c,1F3FB-1F3FF:c,1F9B0-1F9B3:c,E0030-E0039:c,E0061-E007A:c,E007F:c,E0100-E01EF:c";
 const PRIVATE_RESOLVER: &str = "192.0.2.1";
+
+fn pane_less_utfchardef() -> String {
+    std::env::var("LESSUTFCHARDEF").unwrap_or_else(|_| PANE_LESS_UTFCHARDEF.into())
+}
 
 pub(crate) struct ResolvedMount {
     pub host_dir: String,

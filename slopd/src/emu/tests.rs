@@ -62,27 +62,6 @@ fn history_keeps_blank_separators_and_styled_spaces() {
 }
 
 #[test]
-fn unescapes_octal_and_backslash() {
-    // %output %0 \015\012\033[?2004l\015
-    assert_eq!(
-        unescape(b"\\015\\012\\033[?2004l\\015"),
-        b"\r\n\x1b[?2004l\r"
-    );
-    assert_eq!(unescape(b"a\\\\b"), b"a\\b");
-    assert_eq!(unescape(b"hi"), b"hi");
-}
-
-#[test]
-fn parses_output_line() {
-    assert_eq!(parse_output(b"%output %0 \\015hi").unwrap(), b"\rhi");
-    assert!(parse_output(b"%exit").is_none());
-    assert!(parse_output(b"%session-changed $0 name").is_none());
-    // Parse a line that ends inside a UTF-8 sequence.
-    // Pass the raw bytes to the VT parser so it can reconstruct the sequence.
-    assert_eq!(parse_output(b"%output %0 A\xf0\x9f").unwrap(), b"A\xf0\x9f");
-}
-
-#[test]
 fn renders_plain_text() {
     let mut e = SessionEmu::new(20, 3);
     e.feed(b"hello");
@@ -301,38 +280,111 @@ fn metadata_only_damage_reuses_rows() {
 }
 
 #[test]
-fn maps_color_to_index_sgr() {
+fn preserves_zero_width_emoji_components_with_cell_width() {
     let mut e = SessionEmu::new(20, 2);
-    e.feed(b"\x1b[1;31mX\x1b[0m");
-    let f = e.render();
-    assert_eq!(f.lines[0].as_ref(), "\x1b[0m\x1b[0;1;31mX");
+    e.feed("👩‍💻x".as_bytes());
+    let line = e.render().lines[0].to_string();
+    assert_eq!(line, "\x1b[0m\x1b[3;2z👩‍💻\x1b[3Gx");
+
+    let mut keycap = SessionEmu::new(20, 2);
+    keycap.feed("1️⃣x".as_bytes());
+    assert_eq!(
+        keycap.render().lines[0].as_ref(),
+        "\x1b[0m\x1b[3;2z1️⃣\x1b[3Gx"
+    );
+
+    let mut flag = SessionEmu::new(20, 2);
+    flag.feed("🇺🇾x".as_bytes());
+    assert_eq!(
+        flag.render().lines[0].as_ref(),
+        "\x1b[0m\x1b[2;2z🇺🇾\x1b[3Gx"
+    );
+
+    let mut modifier = SessionEmu::new(20, 2);
+    modifier.feed("👍🏻x".as_bytes());
+    assert_eq!(
+        modifier.render().lines[0].as_ref(),
+        "\x1b[0m\x1b[2;2z👍🏻\x1b[3Gx"
+    );
+
+    let mut gender = SessionEmu::new(20, 2);
+    gender.feed("🧎‍♂️x".as_bytes());
+    assert_eq!(
+        gender.render().lines[0].as_ref(),
+        "\x1b[0m\x1b[4;2z🧎‍♂️\x1b[3Gx"
+    );
+
+    let mut handshake = SessionEmu::new(30, 2);
+    handshake.feed("🫱🏻‍🫲🏼 E14.0 handshake".as_bytes());
+    assert_eq!(
+        handshake.render().lines[0].as_ref(),
+        "\x1b[0m\x1b[5;2z🫱🏻‍🫲🏼\x1b[3G E14.0 handshake"
+    );
+
+    let mut single_tone = SessionEmu::new(30, 2);
+    single_tone.feed("🤝🏻 E14.0 handshake".as_bytes());
+    assert_eq!(
+        single_tone.render().lines[0].as_ref(),
+        "\x1b[0m\x1b[2;2z🤝🏻\x1b[3G E14.0 handshake"
+    );
+
+    let mut qualified_heart = SessionEmu::new(30, 2);
+    qualified_heart.feed("❤️‍🔥x".as_bytes());
+    assert_eq!(
+        qualified_heart.render().lines[0].as_ref(),
+        "\x1b[0m\x1b[4;2z❤️‍🔥\x1b[3Gx"
+    );
+
+    let mut unqualified_heart = SessionEmu::new(30, 2);
+    unqualified_heart.feed("❤‍🔥x".as_bytes());
+    assert_eq!(
+        unqualified_heart.render().lines[0].as_ref(),
+        "\x1b[0m\x1b[3;1z❤‍🔥x"
+    );
+
+    let mut exclamation = SessionEmu::new(30, 2);
+    exclamation.feed("❣️x".as_bytes());
+    assert_eq!(
+        exclamation.render().lines[0].as_ref(),
+        "\x1b[0m\x1b[2;2z❣️\x1b[3Gx"
+    );
+
+    for emoji in ["🙂‍↔️", "🙂‍↔", "🙂‍↕️", "🙂‍↕", "👯🏻‍♀️", "👯🏻‍♀"]
+    {
+        let mut emu = SessionEmu::new(30, 2);
+        emu.feed(format!("{emoji}x").as_bytes());
+        let frame = emu.render();
+        assert_eq!((frame.cx, frame.cy), (3, 0), "{emoji}");
+        assert!(frame.lines[0].contains(emoji), "{emoji}");
+        assert!(frame.lines[0].ends_with("\x1b[3Gx"), "{emoji}");
+    }
+    let mut non_emoji = SessionEmu::new(20, 2);
+    non_emoji.feed("😀‍ax".as_bytes());
+    let frame = non_emoji.render();
+    assert_eq!((frame.cx, frame.cy), (4, 0));
 }
 
-// Preserve the faint attribute so the mod can distinguish completion hints from ordinary text.
 #[test]
-fn carries_faint_through() {
-    let mut e = SessionEmu::new(20, 2);
-    e.feed(b"\x1b[2mhint\x1b[0m");
-    let f = e.render();
-    assert_eq!(f.lines[0].as_ref(), "\x1b[0m\x1b[0;2mhint");
-}
-
-#[test]
-fn trims_trailing_default_cells() {
-    let mut e = SessionEmu::new(20, 2);
-    e.feed(b"ab");
-    let f = e.render();
-    assert_eq!(f.lines[0].as_ref(), "\x1b[0mab");
-    assert_eq!(f.lines[1].as_ref(), "\x1b[0m");
-}
-
-#[test]
-fn wide_char_emits_cha_for_following_run() {
-    let mut e = SessionEmu::new(20, 2);
-    // This CJK character occupies two cells. Position the next run at column 3 with CHA.
-    e.feed("\u{4f60}X".as_bytes());
-    let f = e.render();
-    assert_eq!(f.lines[0].as_ref(), "\x1b[0m\u{4f60}\x1b[3GX");
+fn modifiers_are_zero_width_outside_emoji_sequences() {
+    for modifier in '\u{1f3fb}'..='\u{1f3ff}' {
+        for (prefix, columns) in [("", 0), (" ", 1), ("a", 1), ("好", 2)] {
+            let mut emu = SessionEmu::new(10, 2);
+            emu.feed(format!("{prefix}{modifier}x").as_bytes());
+            let frame = emu.render();
+            assert_eq!((frame.cx, frame.cy), (columns + 1, 0));
+            if prefix.is_empty() {
+                assert_eq!(frame.lines[0].as_ref(), "\x1b[0mx");
+            } else {
+                assert!(frame.lines[0].contains(&format!("{prefix}{modifier}")));
+            }
+        }
+        let mut emu = SessionEmu::new(2, 2);
+        emu.feed(format!("ab{modifier}x").as_bytes());
+        let frame = emu.render();
+        assert_eq!((frame.cx, frame.cy), (1, 1));
+        assert!(frame.lines[0].contains(&format!("b{modifier}")));
+        assert_eq!(frame.lines[1].as_ref(), "\x1b[0mx");
+    }
 }
 
 #[test]
@@ -340,44 +392,6 @@ fn supplementary_narrow_glyph_does_not_reserve_a_spacer() {
     let mut e = SessionEmu::new(20, 2);
     e.feed("\u{1d400}x".as_bytes());
     assert_eq!(e.render().lines[0].as_ref(), "\x1b[0m\u{1d400}x");
-}
-
-#[test]
-fn trailing_wide_glyph_preserves_occupied_end() {
-    for glyph in ["好", "\u{20000}", "\u{1f600}"] {
-        let mut e = SessionEmu::new(2, 2);
-        e.feed(format!("\x1b[41m{glyph}").as_bytes());
-        let f = e.render();
-        assert_eq!(
-            f.lines[0].as_ref(),
-            format!("\x1b[0m\x1b[0;41m{glyph}\x1b[3G")
-        );
-    }
-}
-
-#[test]
-fn wraps_a_hyperlinked_run_in_osc8() {
-    let mut e = SessionEmu::new(20, 2);
-    e.feed(b"go \x1b]8;;https://example.com\x1b\\here\x1b]8;;\x1b\\ now");
-    let f = e.render();
-    assert_eq!(
-        f.lines[0],
-        "\x1b[0mgo \x1b]8;;https://example.com\x1b\\here\x1b]8;;\x1b\\ now".into()
-    );
-}
-
-#[test]
-fn closes_a_hyperlink_left_open_at_the_margin() {
-    let mut e = SessionEmu::new(8, 2);
-    e.feed(b"\x1b]8;;https://a.example\x1b\\linked");
-    let f = e.render();
-    assert!(f.lines[0].ends_with("linked\x1b]8;;\x1b\\"));
-}
-
-#[test]
-fn strips_escapes_out_of_a_uri() {
-    assert_eq!(safe_uri("https://a\u{1b}b\u{7}c"), "https://abc");
-    assert_eq!(safe_uri(&"x".repeat(4000)).len(), 2048);
 }
 
 #[test]

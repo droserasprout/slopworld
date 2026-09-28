@@ -16,11 +16,14 @@ from unittest.mock import patch, Mock
 from test_terminal_input_bench import bench, Clock
 from test_latency_summary import record
 from terminal_input_backend import TEXT, key_events
-from terminal_input_history import fill_history, command
+from terminal_input_history import fill_history, command, history_limit
 from terminal_input_metrics import measurement_status
 
 
 class SuiteTests(unittest.TestCase):
+    def test_history_limit_reads_daemon_owner(self):
+        self.assertEqual(history_limit(), 10_000)
+
     def test_generator_outputs_exact_finite_printable_lines(self):
         with tempfile.TemporaryDirectory() as directory:
             status = Path(directory) / 'done.json'
