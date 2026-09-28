@@ -403,10 +403,6 @@ pub(crate) struct KeysReq {
     pub(crate) keys: Vec<String>,
     #[serde(default)]
     pub(crate) literal: bool,
-    /// Distinct loading-screen tips supplied by the game for `{{ random_tip }}`.
-    /// Each occurrence consumes one tip, so five occurrences receive five different tips.
-    #[serde(default)]
-    pub(crate) random_tips: Vec<String>,
 }
 
 #[derive(Deserialize)]

@@ -506,8 +506,7 @@ impl Manager {
         }
         let m = self.clone();
         let target = session.to_string();
-        let tips = want.random_tips.clone();
-        tokio::spawn(async move { m.deliver(&target, &text, tips).await });
+        tokio::spawn(async move { m.deliver(&target, &text).await });
     }
 
     pub async fn run_errand(
@@ -540,12 +539,8 @@ impl Manager {
         Ok(session)
     }
 
-    pub(super) async fn deliver(
-        self: &Arc<Self>,
-        name: &str,
-        text: &str,
-        random_tips: Vec<String>,
-    ) {
+    /// Submit an already composed worker or errand prompt after terminal readiness.
+    pub(super) async fn deliver(self: &Arc<Self>, name: &str, text: &str) {
         match self.wait_ready(name).await {
             Ready::Gone => {
                 tracing::warn!(
@@ -564,15 +559,7 @@ impl Manager {
             tracing::error!("sending library item text to {name}: {e:#}");
             return;
         }
-        // Delivery controls the complete startup prompt sequence.
-        // Do not send its Enter through send_keys because that hook could insert generated instructions into the wrong position.
-        if let Some(breadcrumbs) = self.consume_breadcrumbs(name, &random_tips).await {
-            if !breadcrumbs.is_empty() {
-                self.queue_paste(name, breadcrumbs).await;
-                self.queue_input(name, Input::Gap(DELIVERY_ENTER_GAP)).await;
-            }
-            self.announce_sessions().await;
-        }
+        // Explicit delivery owns submission; ordinary key input never injects context.
         let enter = vec!["Enter".into()];
         self.capture_title_keys(name, &enter, false).await;
         self.queue_input(name, Input::Gap(DELIVERY_ENTER_GAP)).await;
@@ -610,8 +597,7 @@ impl Manager {
         }
 
         // This input controls startup. It does not contain the agent's first prompt.
-        // Exclude it from title capture and the breadcrumb Enter hook.
-        // Keep breadcrumbs pending for the user's prompt.
+        // Exclude it from title capture.
         for input in auto_resume_inputs() {
             self.queue_input(name, input).await;
         }

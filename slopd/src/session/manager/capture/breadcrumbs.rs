@@ -1,27 +1,10 @@
-//! Pending context consumption and library breadcrumb rendering.
+//! Render explicitly selected library breadcrumbs for paste without submission.
 //! Terminal admission and delivery remain in input.rs.
 
 use super::*;
 use anyhow::anyhow;
 
 impl Manager {
-    pub(crate) async fn consume_breadcrumbs(
-        &self,
-        name: &str,
-        random_tips: &[String],
-    ) -> Option<Vec<u8>> {
-        let mut live = self.live.write().await;
-        let session = live.get_mut(name)?;
-        if !session.input.breadcrumbs_pending {
-            return None;
-        }
-
-        // Consume once, even when rendering produces an empty prompt.
-        session.input.breadcrumbs_pending = false;
-        let text = String::from_utf8_lossy(&session.input.breadcrumbs);
-        Some(render_prompt(&text, random_tips).into_bytes())
-    }
-
     /// Render a breadcrumb and paste it into this agent without submitting.
     pub async fn paste_breadcrumb(
         self: &Arc<Self>,

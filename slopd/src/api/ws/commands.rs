@@ -109,8 +109,7 @@ async fn handle_keys(req: KeysReq, m: &Mgr, cap: &Cap) {
     if !m.cap_ok(cap, &req.name, Level::Rw).await {
         return;
     }
-    m.send_keys(&req.name, req.keys, req.literal, req.random_tips)
-        .await;
+    m.send_keys(&req.name, req.keys, req.literal).await;
 }
 
 async fn handle_resize(req: ResizeReq, m: &Mgr, cap: &Cap) {

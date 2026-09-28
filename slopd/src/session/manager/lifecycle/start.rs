@@ -254,7 +254,6 @@ impl Manager {
             }
             return Err(error.context(format!("starting session {name} command")));
         }
-        self.clear_startup_breadcrumbs(name).await;
         if auto_resume_pending {
             self.queue_auto_resume(name, run_id);
         }
@@ -306,15 +305,6 @@ impl Manager {
             if let Err(error) = crate::sandbox::remove_ephemeral_state(&session) {
                 tracing::warn!("removing temporary private state for {name}: {error:#}");
             }
-        }
-    }
-
-    /// Discard queued startup context once the command is running.
-    async fn clear_startup_breadcrumbs(&self, name: &str) {
-        let mut live = self.live.write().await;
-        if let Some(live) = live.get_mut(name) {
-            live.input.breadcrumbs.clear();
-            live.input.breadcrumbs_pending = false;
         }
     }
 }

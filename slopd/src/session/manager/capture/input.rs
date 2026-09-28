@@ -2,7 +2,6 @@
 
 use super::*;
 use crate::emu::MouseInput;
-use crate::session::input::ENTER_GAP;
 use anyhow::anyhow;
 
 impl Manager {
@@ -147,62 +146,9 @@ impl Manager {
         }
     }
 
-    pub async fn send_keys(
-        self: &Arc<Self>,
-        name: &str,
-        keys: Vec<String>,
-        literal: bool,
-        random_tips: Vec<String>,
-    ) {
+    pub async fn send_keys(self: &Arc<Self>, name: &str, keys: Vec<String>, literal: bool) {
         self.capture_title_keys(name, &keys, literal).await;
-        let enter = if literal {
-            None
-        } else {
-            keys.iter().position(|key| key == "Enter")
-        };
-        if let Some(pos) = enter {
-            if let Some(text) = self
-                .consume_breadcrumbs(name, &random_tips)
-                .await
-                .filter(|text| !text.is_empty())
-            {
-                self.queue_submission(name, &keys, pos, text).await;
-                self.announce_sessions().await;
-                return;
-            }
-        }
         self.queue_input(name, Input::Keys { keys, literal }).await;
-    }
-
-    /// Insert pending context just before the first nonliteral Enter.
-    async fn queue_submission(
-        self: &Arc<Self>,
-        name: &str,
-        keys: &[String],
-        enter: usize,
-        text: Vec<u8>,
-    ) {
-        if enter > 0 {
-            self.queue_input(
-                name,
-                Input::Keys {
-                    keys: keys[..enter].to_vec(),
-                    literal: false,
-                },
-            )
-            .await;
-        }
-        self.queue_paste(name, text).await;
-        // Let the application process the paste before submitting the prompt.
-        self.queue_input(name, Input::Gap(ENTER_GAP)).await;
-        self.queue_input(
-            name,
-            Input::Keys {
-                keys: keys[enter..].to_vec(),
-                literal: false,
-            },
-        )
-        .await;
     }
 
     pub async fn send_mouse(self: &Arc<Self>, name: &str, ev: MouseInput, count: u8) {

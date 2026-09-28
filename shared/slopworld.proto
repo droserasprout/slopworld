@@ -544,7 +544,8 @@ message KeysReq {
   optional string name = 1;
   repeated string keys = 2;
   optional bool literal = 3;
-  repeated string random_tips = 4;
+  reserved 4;
+  reserved "random_tips";
   optional string trace_id = 5;
 }
 
