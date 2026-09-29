@@ -2,51 +2,70 @@ use super::*;
 
 #[test]
 fn builtins_parse_and_name_themselves() {
-    let mut t = Table::default();
+    let table = load_builtin_table();
+    assert_standard_commands(&table);
+    assert_new_sandbox_presets(&table);
+    assert_debug_preset(&table);
+    assert_builtin_cache_presets(&table);
+    assert_shell_userdata_presets(&table);
+}
+
+fn load_builtin_table() -> Table {
+    let mut table = Table::default();
     for (name, text) in BUILTIN {
-        let f: PresetFile = toml::from_str(text)
-            .unwrap_or_else(|e| panic!("builtin preset {name} does not parse: {e}"));
-        for p in &f.sandbox {
+        let file: PresetFile = toml::from_str(text)
+            .unwrap_or_else(|error| panic!("builtin preset {name} does not parse: {error}"));
+        for preset in &file.sandbox {
             assert_eq!(
-                &p.name, name,
+                &preset.name, name,
                 "{name}.toml names a sandbox preset {:?}",
-                p.name
+                preset.name
             );
         }
-        for c in &f.command {
-            assert_eq!(&c.name, name, "{name}.toml names a command {:?}", c.name);
-            assert!(!c.cmd.is_empty(), "{name} has no command");
+        for command in &file.command {
+            assert_eq!(
+                &command.name, name,
+                "{name}.toml names a command {:?}",
+                command.name
+            );
+            assert!(!command.cmd.is_empty(), "{name} has no command");
         }
-        t.merge(f);
+        table.merge(file);
     }
+    table
+}
 
-    // The command presets used by built-in library, including the shells.
+fn assert_standard_commands(table: &Table) {
     for name in [
         "claude", "opencode", "pi", "bash", "zsh", "fish", "nu", "pwsh", "sh",
     ] {
-        assert!(t.command(name).is_some(), "no {name} command preset");
+        assert!(table.command(name).is_some(), "no {name} command preset");
     }
     assert!(
-        t.command("shell").is_none(),
+        table.command("shell").is_none(),
         "old shell command preset remains"
     );
-    assert_eq!(t.command("claude").unwrap().sandbox, vec!["claude"]);
-    assert_eq!(t.command("codex").unwrap().sandbox, vec!["codex"]);
+    assert_eq!(table.command("claude").unwrap().sandbox, vec!["claude"]);
+    assert_eq!(table.command("codex").unwrap().sandbox, vec!["codex"]);
     for name in ["claude", "codex", "opencode", "pi"] {
-        assert_eq!(t.command(name).unwrap().kind, CommandKind::Agent);
+        assert_eq!(table.command(name).unwrap().kind, CommandKind::Agent);
     }
     for name in ["bash", "zsh", "fish", "nu", "pwsh", "sh"] {
-        assert_eq!(t.command(name).unwrap().kind, CommandKind::Shell);
+        assert_eq!(table.command(name).unwrap().kind, CommandKind::Shell);
     }
     // Desktop access is opt-in for clipboard image paste.
-    assert!(t.sandbox("codex").unwrap().requires.is_empty());
+    assert!(table.sandbox("codex").unwrap().requires.is_empty());
     assert_eq!(
-        t.sandbox("systemd").unwrap().setenv["SYSTEMCTL_FORCE_BUS"],
+        table.sandbox("systemd").unwrap().setenv["SYSTEMCTL_FORCE_BUS"],
         "1"
     );
-    assert_eq!(t.sandbox("gpu").unwrap().dev, vec!["/dev/dri", "/dev/kfd"]);
+    assert_eq!(
+        table.sandbox("gpu").unwrap().dev,
+        vec!["/dev/dri", "/dev/kfd"]
+    );
+}
 
-    // The new presets parse and name themselves correctly.
+fn assert_new_sandbox_presets(table: &Table) {
     for name in [
         "go",
         "gh",
@@ -58,34 +77,32 @@ fn builtins_parse_and_name_themselves() {
         "ios-debug",
         "slopworld-debug",
     ] {
-        let p = t
+        let preset = table
             .sandbox(name)
             .unwrap_or_else(|| panic!("no {name} sandbox preset"));
-        assert!(!p.description.is_empty(), "{name} has no description");
+        assert!(!preset.description.is_empty(), "{name} has no description");
     }
     assert_eq!(
-        t.sandbox("android-debug").unwrap().requires,
+        table.sandbox("android-debug").unwrap().requires,
         vec!["android-dev", "gpu", "x11", "wayland"]
     );
-    assert_eq!(t.sandbox("ios-debug").unwrap().requires, vec!["ios-dev"]);
-    assert!(t
-        .sandbox("android-debug")
-        .unwrap()
-        .dev
-        .iter()
-        .any(|path| path == "/dev/bus/usb"));
-    assert!(t
-        .sandbox("ios-debug")
-        .unwrap()
-        .dev
-        .iter()
-        .any(|path| path == "/dev/bus/usb"));
-    assert!(!t.sandbox("android-debug").unwrap().escapes.is_empty());
-    assert!(!t.sandbox("ios-debug").unwrap().escapes.is_empty());
-    assert!(t.sandbox("slopworld-debug").unwrap().tmux);
-    assert!(t.sandbox("slopworld-debug").unwrap().daemon_config);
     assert_eq!(
-        t.sandbox("slopworld-debug").unwrap().requires,
+        table.sandbox("ios-debug").unwrap().requires,
+        vec!["ios-dev"]
+    );
+    for name in ["android-debug", "ios-debug"] {
+        let preset = table.sandbox(name).unwrap();
+        assert!(preset.dev.iter().any(|path| path == "/dev/bus/usb"));
+        assert!(!preset.escapes.is_empty());
+    }
+}
+
+fn assert_debug_preset(table: &Table) {
+    let debug = table.sandbox("slopworld-debug").unwrap();
+    assert!(debug.tmux);
+    assert!(debug.daemon_config);
+    assert_eq!(
+        debug.requires,
         vec![
             "ccache",
             "docker",
@@ -98,11 +115,7 @@ fn builtins_parse_and_name_themselves() {
             "x11",
         ]
     );
-    assert_eq!(
-        t.sandbox("slopworld-debug").unwrap().setenv["RUST_BACKTRACE"],
-        "1"
-    );
-    let debug = t.sandbox("slopworld-debug").unwrap();
+    assert_eq!(debug.setenv["RUST_BACKTRACE"], "1");
     for path in [
         "$SLOPWORLD_GAME",
         "~/GOG Games/RimWorld/game",
@@ -134,17 +147,20 @@ fn builtins_parse_and_name_themselves() {
         .chain(&debug.rw)
         .chain(&debug.dev)
         .any(|path| path == "/proc"));
+}
+
+fn assert_builtin_cache_presets(table: &Table) {
     assert_eq!(
-        t.sandbox("global").unwrap().ro,
+        table.sandbox("global").unwrap().ro,
         vec!["/usr", "/etc", "/opt", "~/.local/bin"]
     );
-    assert!(t.sandbox("global").unwrap().rw.is_empty());
+    assert!(table.sandbox("global").unwrap().rw.is_empty());
     assert_eq!(
-        t.sandbox("go-cache").unwrap().rw,
+        table.sandbox("go-cache").unwrap().rw,
         vec!["~/go/pkg/mod", "~/.cache/go-build"]
     );
     assert_eq!(
-        t.sandbox("rust-cache").unwrap().rw,
+        table.sandbox("rust-cache").unwrap().rw,
         vec![
             "~/.cargo/registry",
             "~/.cargo/git",
@@ -152,7 +168,7 @@ fn builtins_parse_and_name_themselves() {
             "~/.rustup/update-hashes"
         ]
     );
-    assert_eq!(t.sandbox("kube").unwrap().ro, vec!["~/.kube"]);
+    assert_eq!(table.sandbox("kube").unwrap().ro, vec!["~/.kube"]);
     for (cache, tool) in [
         ("rust-cache", "rust"),
         ("node-cache", "node"),
@@ -161,18 +177,19 @@ fn builtins_parse_and_name_themselves() {
         ("nuget-cache", "dotnet"),
         ("ruby-cache", "ruby"),
     ] {
-        assert_eq!(t.sandbox(cache).unwrap().requires, vec![tool]);
+        assert_eq!(table.sandbox(cache).unwrap().requires, vec![tool]);
     }
+}
 
-    // The shell command selects only the executable.
-    // Users enable host dotfiles and history separately through the matching sandbox preset.
+fn assert_shell_userdata_presets(table: &Table) {
+    // Shell commands select only the executable; matching presets opt in to host dotfiles.
     for name in ["bash", "zsh", "fish", "nu", "pwsh"] {
         assert!(
-            t.command(name).unwrap().sandbox.is_empty(),
+            table.command(name).unwrap().sandbox.is_empty(),
             "{name} command unexpectedly shares userdata by default"
         );
         let userdata = format!("{name}-userdata");
-        let preset = t
+        let preset = table
             .sandbox(&userdata)
             .unwrap_or_else(|| panic!("no {userdata} sandbox preset"));
         assert!(!preset.ro.is_empty(), "{userdata} has no config paths");

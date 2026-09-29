@@ -167,7 +167,7 @@ pub(super) async fn gitignored_entries_are_classified_before_optional_filtering(
     touch(&dir, "visible.txt");
     std::fs::write(dir.join(".gitignore"), "ignored.log\nignored-dir\n").unwrap();
     let status = std::process::Command::new("git")
-        .current_dir(&dir)
+        .current_dir(&*dir)
         .args(["init", "-q"])
         .status()
         .unwrap();
@@ -196,7 +196,7 @@ pub(super) async fn large_gitignore_classification_does_not_deadlock() {
     }
     std::fs::write(dir.join(".gitignore"), "ignored-*\n").unwrap();
     let status = std::process::Command::new("git")
-        .current_dir(&dir)
+        .current_dir(&*dir)
         .args(["init", "-q"])
         .status()
         .unwrap();
@@ -229,7 +229,7 @@ pub(super) async fn gitignore_no_match_keeps_the_listing() {
     touch(&dir, "visible.txt");
     std::fs::write(dir.join(".gitignore"), "ignored.log\n").unwrap();
     let status = std::process::Command::new("git")
-        .current_dir(&dir)
+        .current_dir(&*dir)
         .args(["init", "-q"])
         .status()
         .unwrap();

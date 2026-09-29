@@ -63,9 +63,14 @@ async fn restricted_worktree_creation() {
     std::fs::remove_dir_all(root).unwrap();
 }
 
-#[tokio::test]
-async fn lifecycle_is_independent_and_removal_preserves_branches() {
-    use crate::config::{Config, ProjectCfg, SessionCfg};
+struct LifecycleFixture {
+    root: PathBuf,
+    manager: std::sync::Arc<crate::session::Manager>,
+    worktree: Worktree,
+}
+
+async fn lifecycle_fixture() -> LifecycleFixture {
+    use crate::config::{Config, ProjectCfg};
     use crate::session::{test_manager, WorktreeRequest};
     let root = repo();
     let mut cfg = Config::default();
@@ -80,7 +85,7 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
     });
     let manager = test_manager(cfg);
     std::fs::write(root.join("file"), "caller dirty\n").unwrap();
-    let w = manager
+    let worktree = manager
         .create_worktree(WorktreeRequest {
             project: "repo".into(),
             name: "parallel".into(),
@@ -88,40 +93,44 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
         })
         .await
         .unwrap();
-    assert_eq!(Path::new(&w.path).file_name().unwrap(), "parallel");
+    assert_eq!(Path::new(&worktree.path).file_name().unwrap(), "parallel");
     assert_eq!(
-        Path::new(&w.path).parent().unwrap().file_name().unwrap(),
+        Path::new(&worktree.path)
+            .parent()
+            .unwrap()
+            .file_name()
+            .unwrap(),
         "repo"
     );
     assert!(manager
-        .rename_worktree("repo".into(), w.id.clone(), "../escape".into())
+        .rename_worktree("repo".into(), worktree.id.clone(), "../escape".into())
         .await
         .is_err());
-    let occupied = Path::new(&w.path).parent().unwrap().join("occupied");
+    let occupied = Path::new(&worktree.path).parent().unwrap().join("occupied");
     std::fs::create_dir(&occupied).unwrap();
     assert!(manager
-        .rename_worktree("repo".into(), w.id.clone(), "occupied".into())
+        .rename_worktree("repo".into(), worktree.id.clone(), "occupied".into())
         .await
         .is_err());
-    assert!(Path::new(&w.path).exists());
-    let renamed = manager
-        .rename_worktree("repo".into(), w.id.clone(), "feature name".into())
+    assert!(Path::new(&worktree.path).exists());
+    let old_path = worktree.path.clone();
+    let worktree = manager
+        .rename_worktree("repo".into(), worktree.id.clone(), "feature name".into())
         .await
         .unwrap();
     assert_eq!(
-        Path::new(&renamed.path).file_name().unwrap(),
+        Path::new(&worktree.path).file_name().unwrap(),
         "feature name"
     );
-    assert!(!Path::new(&w.path).exists());
+    assert!(!Path::new(&old_path).exists());
     assert_eq!(
-        git(Path::new(&renamed.path), &["rev-parse", "--show-toplevel"])
+        git(Path::new(&worktree.path), &["rev-parse", "--show-toplevel"])
             .await
             .unwrap(),
-        renamed.path
+        worktree.path
     );
-    let w = renamed;
     assert_eq!(
-        std::fs::read_to_string(Path::new(&w.path).join("file")).unwrap(),
+        std::fs::read_to_string(Path::new(&worktree.path).join("file")).unwrap(),
         "base\n"
     );
     assert_eq!(
@@ -131,6 +140,22 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
     assert!(manager.tasks.all_tasks().is_empty());
     assert!(manager.config().await.sessions.is_empty());
     assert!(manager.remove_project("repo").await.is_err());
+    LifecycleFixture {
+        root,
+        manager,
+        worktree,
+    }
+}
+
+#[tokio::test]
+async fn lifecycle_is_independent_and_removal_preserves_branches() {
+    use crate::config::SessionCfg;
+    let LifecycleFixture {
+        root,
+        manager,
+        worktree: w,
+    } = lifecycle_fixture().await;
+
     // Stopped sessions also count as attachments. Removing either attachment preserves the checkout.
     for name in ["one", "two"] {
         manager
@@ -162,6 +187,7 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
     assert!(Path::new(&w.path).exists());
     manager.remove("two").await.unwrap();
     assert!(Path::new(&w.path).exists());
+
     // Failed removal neither commits nor destroys files. Retry uses the actual current branch.
     std::fs::write(Path::new(&w.path).join("untracked"), "keep me").unwrap();
     assert!(manager
@@ -281,7 +307,7 @@ async fn ignored_data_detached_head_and_crash_records_are_preserved() {
 #[tokio::test]
 async fn managed_worktree_branches_match_names_and_validate_before_allocation() {
     use crate::config::{Config, ProjectCfg};
-    use crate::session::{test_manager, WorktreeRequest};
+    use crate::session::test_manager;
     let root = repo();
     let manager = test_manager(Config {
         projects: vec![ProjectCfg {
@@ -291,7 +317,27 @@ async fn managed_worktree_branches_match_names_and_validate_before_allocation() 
         }],
         ..Default::default()
     });
+    assert_rejected_managed_worktree_names(&manager, &root).await;
+    let (named, generated) = create_managed_worktrees(&manager, &root).await;
+    let renamed = rename_project_worktree(&manager, &root, &named).await;
 
+    if !mismatched_proc_namespace() {
+        manager
+            .remove_worktree("renamed".into(), renamed.id.clone())
+            .await
+            .unwrap();
+        assert!(!Path::new(&renamed.path).exists());
+        assert!(root.join("file").exists());
+        assert!(Path::new(&generated.path).join("file").exists());
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+async fn assert_rejected_managed_worktree_names(
+    manager: &std::sync::Arc<crate::session::Manager>,
+    root: &Path,
+) {
+    use crate::session::WorktreeRequest;
     for name in ["invalid name", "bad..name", "HEAD", "-option", "@{-1}"] {
         let invalid = manager
             .create_worktree(WorktreeRequest {
@@ -307,7 +353,7 @@ async fn managed_worktree_branches_match_names_and_validate_before_allocation() 
 
     assert!(std::process::Command::new("git")
         .arg("-C")
-        .arg(&root)
+        .arg(root)
         .args(["branch", "already-exists"])
         .status()
         .unwrap()
@@ -327,7 +373,13 @@ async fn managed_worktree_branches_match_names_and_validate_before_allocation() 
         .unwrap()
         .worktrees
         .is_empty());
+}
 
+async fn create_managed_worktrees(
+    manager: &std::sync::Arc<crate::session::Manager>,
+    root: &Path,
+) -> (Worktree, Worktree) {
+    use crate::session::WorktreeRequest;
     let named = manager
         .create_worktree(WorktreeRequest {
             project: "repo".into(),
@@ -369,8 +421,14 @@ async fn managed_worktree_branches_match_names_and_validate_before_allocation() 
         .unwrap(),
         generated.name
     );
+    (named, generated)
+}
 
-    // A display-name change must not relocate project-local checkouts.
+async fn rename_project_worktree(
+    manager: &std::sync::Arc<crate::session::Manager>,
+    root: &Path,
+    named: &Worktree,
+) -> Worktree {
     let mut project = manager.config().await.projects[0].clone();
     project.name = "renamed".into();
     manager.update_project("repo", project).await.unwrap();
@@ -381,7 +439,7 @@ async fn managed_worktree_branches_match_names_and_validate_before_allocation() 
         named.path
     );
     let renamed = manager
-        .rename_worktree("renamed".into(), named.id, "new-name".into())
+        .rename_worktree("renamed".into(), named.id.clone(), "new-name".into())
         .await
         .unwrap();
     assert_eq!(Path::new(&renamed.path), root.join(".worktrees/new-name"));
@@ -395,17 +453,7 @@ async fn managed_worktree_branches_match_names_and_validate_before_allocation() 
         .unwrap(),
         "feature-branch"
     );
-    if !mismatched_proc_namespace() {
-        manager
-            .remove_worktree("renamed".into(), renamed.id)
-            .await
-            .unwrap();
-        assert!(!Path::new(&renamed.path).exists());
-        assert!(root.join("file").exists());
-        assert!(Path::new(&generated.path).join("file").exists());
-    }
-
-    std::fs::remove_dir_all(root).unwrap();
+    renamed
 }
 
 // The development agent can run in a PID namespace with the host /proc mounted over it.

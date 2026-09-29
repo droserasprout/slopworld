@@ -29,6 +29,12 @@ out = [
     'use super::wire;',
     'use prost::Message;',
     'use serde_json::Value;',
+    'fn encode_wire<T>(value: Value) -> anyhow::Result<Vec<u8>>',
+    'where',
+    '    T: serde::de::DeserializeOwned + Message,',
+    '{',
+    '    Ok(serde_json::from_value::<T>(value)?.encode_to_vec())',
+    '}',
     'pub(crate) const CONTENT_TYPE: &str = "application/x-protobuf";',
     'fn matches(pattern: &str, path: &str) -> bool {',
     "    let path = path.split('?').next().unwrap_or(path);",
@@ -80,10 +86,13 @@ def emit_dispatch(name, kind_index, kind_name, kinds, input_type, output_type, e
     out.append(f'    match route.{kind_index} {{')
     for kind in kinds:
         if encode:
-            expression = f'serde_json::from_value::<wire::{kind}>(value)?.encode_to_vec()'
+            expression = f'encode_wire::<wire::{kind}>(value)'
         else:
             expression = f'serde_json::to_value(wire::{kind}::decode(value)?)?'
-        out.append(f'        {kind_name}Kind::{kind} => Ok({expression}),')
+        if encode:
+            out.append(f'        {kind_name}Kind::{kind} => {expression},')
+        else:
+            out.append(f'        {kind_name}Kind::{kind} => Ok({expression}),')
     out.extend(['    }', '}'])
 
 

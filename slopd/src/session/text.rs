@@ -15,20 +15,8 @@ where
         if byte == 0x1b {
             if let Some(next) = bytes.next() {
                 match next {
-                    b'[' => {
-                        for next in bytes.by_ref() {
-                            if (0x40..=0x7e).contains(&next) {
-                                break;
-                            }
-                        }
-                    }
-                    b']' => {
-                        for next in bytes.by_ref() {
-                            if next == 0x07 || next == 0x1b {
-                                break;
-                            }
-                        }
-                    }
+                    b'[' => skip_until(&mut bytes, |next| (0x40..=0x7e).contains(&next)),
+                    b']' => skip_until(&mut bytes, |next| next == 0x07 || next == 0x1b),
                     _ => {}
                 }
                 continue;
@@ -54,6 +42,17 @@ where
             if let Ok(ch) = std::str::from_utf8(&ch[..ch_bytes]) {
                 out.push_str(ch);
             }
+        }
+    }
+}
+
+fn skip_until<I>(bytes: &mut I, mut stop: impl FnMut(u8) -> bool)
+where
+    I: Iterator<Item = u8>,
+{
+    for byte in bytes {
+        if stop(byte) {
+            break;
         }
     }
 }

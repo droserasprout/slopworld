@@ -322,11 +322,21 @@ async fn repository_helpers_cannot_execute_git_config_during_status_or_counts() 
         uuid::Uuid::new_v4()
     ));
     let marker = dir.with_extension("marker");
-    tokio::fs::create_dir_all(&dir).await.unwrap();
+    seed_repository_with_git_helpers(&dir, &marker).await;
+    assert_configured_repository_status(&dir, &marker).await;
 
+    let unborn = dir.join("unborn");
+    let unborn_marker = unborn.with_extension("marker");
+    seed_unborn_repository_with_git_helper(&unborn, &unborn_marker).await;
+    assert_unborn_repository_status(&unborn, &unborn_marker).await;
+    tokio::fs::remove_dir_all(&dir).await.unwrap();
+}
+
+async fn seed_repository_with_git_helpers(dir: &Path, marker: &Path) {
+    tokio::fs::create_dir_all(dir).await.unwrap();
     let init = Command::new("git")
         .args(["init", "-q"])
-        .current_dir(&dir)
+        .current_dir(dir)
         .status()
         .await
         .unwrap();
@@ -337,7 +347,7 @@ async fn repository_helpers_cannot_execute_git_config_during_status_or_counts() 
     ] {
         let configured = Command::new("git")
             .args(["config", key, value])
-            .current_dir(&dir)
+            .current_dir(dir)
             .status()
             .await
             .unwrap();
@@ -351,14 +361,14 @@ async fn repository_helpers_cannot_execute_git_config_during_status_or_counts() 
         .unwrap();
     let add = Command::new("git")
         .args(["add", "."])
-        .current_dir(&dir)
+        .current_dir(dir)
         .status()
         .await
         .unwrap();
     assert!(add.success());
     let commit = Command::new("git")
         .args(["-c", "commit.gpgsign=false", "commit", "-qm", "initial"])
-        .current_dir(&dir)
+        .current_dir(dir)
         .status()
         .await
         .unwrap();
@@ -374,7 +384,7 @@ async fn repository_helpers_cannot_execute_git_config_during_status_or_counts() 
     ] {
         let configured = Command::new("git")
             .args(["config", key, &value])
-            .current_dir(&dir)
+            .current_dir(dir)
             .status()
             .await
             .unwrap();
@@ -388,14 +398,16 @@ async fn repository_helpers_cannot_execute_git_config_during_status_or_counts() 
         .unwrap();
     let add = Command::new("git")
         .args(["-c", "core.fsmonitor=false", "add", "staged.txt"])
-        .current_dir(&dir)
+        .current_dir(dir)
         .status()
         .await
         .unwrap();
     assert!(add.success());
-    let _ = tokio::fs::remove_file(&marker).await;
+    let _ = tokio::fs::remove_file(marker).await;
+}
 
-    let answer = status(&dir).await.unwrap().unwrap();
+async fn assert_configured_repository_status(dir: &Path, marker: &Path) {
+    let answer = status(dir).await.unwrap().unwrap();
     assert_eq!(answer.added, 2);
     assert_eq!(answer.deleted, 0);
     assert!(answer
@@ -410,52 +422,52 @@ async fn repository_helpers_cannot_execute_git_config_during_status_or_counts() 
         !marker.exists(),
         "repository Git helpers executed a marker command"
     );
+}
 
-    let unborn = dir.join("unborn");
-    tokio::fs::create_dir_all(&unborn).await.unwrap();
+async fn seed_unborn_repository_with_git_helper(dir: &Path, marker: &Path) {
+    tokio::fs::create_dir_all(dir).await.unwrap();
     let init = Command::new("git")
         .args(["init", "-q"])
-        .current_dir(&unborn)
+        .current_dir(dir)
         .status()
         .await
         .unwrap();
     assert!(init.success());
-    let unborn_marker = unborn.with_extension("marker");
     let configured = Command::new("git")
         .args([
             "config",
             "core.fsmonitor",
-            &format!("touch {}", unborn_marker.display()),
+            &format!("touch {}", marker.display()),
         ])
-        .current_dir(&unborn)
+        .current_dir(dir)
         .status()
         .await
         .unwrap();
     assert!(configured.success());
-    tokio::fs::write(unborn.join("staged.txt"), "staged\n")
+    tokio::fs::write(dir.join("staged.txt"), "staged\n")
         .await
         .unwrap();
-    tokio::fs::write(unborn.join("untracked.txt"), "untracked\n")
+    tokio::fs::write(dir.join("untracked.txt"), "untracked\n")
         .await
         .unwrap();
     let add = Command::new("git")
         .args(["-c", "core.fsmonitor=false", "add", "staged.txt"])
-        .current_dir(&unborn)
+        .current_dir(dir)
         .status()
         .await
         .unwrap();
     assert!(add.success());
-    let _ = tokio::fs::remove_file(&unborn_marker).await;
+    let _ = tokio::fs::remove_file(marker).await;
+}
 
-    let unborn_answer = status(&unborn).await.unwrap().unwrap();
-    assert_eq!(unborn_answer.added, 2);
-    assert_eq!(unborn_answer.deleted, 0);
+async fn assert_unborn_repository_status(dir: &Path, marker: &Path) {
+    let answer = status(dir).await.unwrap().unwrap();
+    assert_eq!(answer.added, 2);
+    assert_eq!(answer.deleted, 0);
     assert!(
-        !unborn_marker.exists(),
+        !marker.exists(),
         "unborn Git inspection executed a marker command"
     );
-
-    tokio::fs::remove_dir_all(&dir).await.unwrap();
 }
 
 #[tokio::test]

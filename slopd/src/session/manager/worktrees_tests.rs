@@ -79,7 +79,7 @@ async fn explicit_action_scope_checks_registration_readiness_and_checkout_path()
         }],
         ..Default::default()
     });
-    let mut store = Store {
+    let store = Store {
         worktrees: vec![Worktree {
             id: "one".into(),
             project_id: "p-id".into(),
@@ -92,17 +92,29 @@ async fn explicit_action_scope_checks_registration_readiness_and_checkout_path()
     };
     store.save(&manager.cfg_path).await.unwrap();
     let file = tree.join("file").to_string_lossy().into_owned();
+    assert_action_scope_rules(&manager, &root, &main, &tree, &file, store).await;
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+async fn assert_action_scope_rules(
+    manager: &std::sync::Arc<crate::session::Manager>,
+    root: &Path,
+    main: &Path,
+    tree: &Path,
+    file: &str,
+    mut store: Store,
+) {
     let cfg = manager
-        .config_for_action_scope("p", "one", &file)
+        .config_for_action_scope("p", "one", file)
         .await
         .unwrap();
     assert_eq!(Path::new(&cfg.projects[0].dir), tree);
     assert!(manager
-        .file_action_command("p", "one", &file, "cat {{ absolute_path }}", true)
+        .file_action_command("p", "one", file, "cat {{ absolute_path }}", true)
         .await
         .is_ok());
     assert!(manager
-        .file_action_command("p", "main", &file, "pwd", true)
+        .file_action_command("p", "main", file, "pwd", true)
         .await
         .is_err());
     assert!(manager
@@ -116,18 +128,19 @@ async fn explicit_action_scope_checks_registration_readiness_and_checkout_path()
         .await
         .is_err());
     assert!(manager
-        .file_action_command("p", "unregistered", &file, "pwd", true)
+        .file_action_command("p", "unregistered", file, "pwd", true)
         .await
         .is_err());
     assert!(manager
-        .file_action_command("wrong-project", "one", &file, "pwd", true)
+        .file_action_command("wrong-project", "one", file, "pwd", true)
         .await
         .is_err());
     let output = manager
-        .file_action("p", "one", &file, "pwd", false)
+        .file_action("p", "one", file, "pwd", false)
         .await
         .unwrap();
     assert_eq!(Path::new(output.trim()), tree);
+
     let outside = root.join("outside");
     std::fs::create_dir(&outside).unwrap();
     std::os::unix::fs::symlink(&outside, tree.join("escape")).unwrap();
@@ -144,15 +157,14 @@ async fn explicit_action_scope_checks_registration_readiness_and_checkout_path()
     store.worktrees[0].phase = "removing".into();
     store.save(&manager.cfg_path).await.unwrap();
     assert!(manager
-        .file_action_command("p", "one", &file, "pwd", true)
+        .file_action_command("p", "one", file, "pwd", true)
         .await
         .is_err());
     store.worktrees[0].phase = "ready".into();
     store.save(&manager.cfg_path).await.unwrap();
-    std::fs::remove_dir_all(&tree).unwrap();
+    std::fs::remove_dir_all(tree).unwrap();
     assert!(manager
-        .file_action_command("p", "one", &file, "pwd", true)
+        .file_action_command("p", "one", file, "pwd", true)
         .await
         .is_err());
-    std::fs::remove_dir_all(root).unwrap();
 }

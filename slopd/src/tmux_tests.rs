@@ -184,20 +184,7 @@ for index, mode in enumerate((b'\x1b[?2004h', b'\x1b[?2004l')):
     .unwrap();
     let payload = "hello λ 🦀\nsecond line\r\n".repeat(4096).into_bytes();
     for (index, enabled) in [true, false].into_iter().enumerate() {
-        tokio::time::timeout(Duration::from_secs(5), async {
-            loop {
-                let title = tmux
-                    .run(&["display-message", "-p", "-t", "paste:.0", "#{pane_title}"])
-                    .await
-                    .unwrap();
-                if title.trim() == format!("paste-ready-{index}") {
-                    break;
-                }
-                tokio::time::sleep(Duration::from_millis(10)).await;
-            }
-        })
-        .await
-        .expect("receiver did not change paste mode");
+        wait_for_pane_title(&tmux, &format!("paste-ready-{index}")).await;
         tmux.paste_bytes("paste", &payload).await.unwrap();
         let result = fixture.dir.join(index.to_string());
         tokio::time::timeout(Duration::from_secs(5), async {
@@ -219,6 +206,23 @@ for index, mode in enumerate((b'\x1b[?2004h', b'\x1b[?2004l')):
         );
         std::fs::write(fixture.dir.join(format!("ack{index}")), b"").unwrap();
     }
+}
+
+async fn wait_for_pane_title(tmux: &super::Tmux, expected: &str) {
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let title = tmux
+                .run(&["display-message", "-p", "-t", "paste:.0", "#{pane_title}"])
+                .await
+                .unwrap();
+            if title.trim() == expected {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("receiver did not change paste mode");
 }
 
 #[test]

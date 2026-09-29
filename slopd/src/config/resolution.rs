@@ -157,9 +157,27 @@ impl Config {
         recipe: bool,
     ) -> anyhow::Result<Value> {
         let mut fields = Vec::new();
-        let mut field = |label: &str, values: Vec<String>| {
-            fields.push(json!({"label": label, "values": values}))
-        };
+        self.append_basic_preview_fields(s, p, recipe, &mut fields);
+        let table = s.preset_table();
+        let effective = crate::sandbox::presets_for(self, s, p, &table)?;
+        self.append_sandbox_contribution_field(s, p, &table, &mut fields);
+        Self::append_startup_and_mount_fields(s, p, &mut fields);
+        Self::append_preset_detail_fields(&effective, &mut fields);
+        Ok(json!({
+            "title": if recipe { "Template recipe" } else { "Effective settings for next start" },
+            "subtitle": if recipe { "Portable agent settings. The destination project applies project mounts.".to_string() } else { format!("Project: {} — {}", p.name, p.dir) },
+            "notes": ["This is saved or draft configuration. It does not describe a running process. The daemon checks mount existence and protected paths at launch."],
+            "fields": fields
+        }))
+    }
+
+    fn append_basic_preview_fields(
+        &self,
+        s: &SessionCfg,
+        p: &ProjectCfg,
+        recipe: bool,
+        fields: &mut Vec<Value>,
+    ) {
         let command = self.command_of(s);
         let command = if command.is_empty() {
             "Unavailable command preset. Choose an installed command.".into()
@@ -175,7 +193,8 @@ impl Config {
         } else {
             "daemon default"
         };
-        field(
+        Self::preview_field(
+            fields,
             "Command",
             vec![if recipe && s.command.is_empty() && s.cmd.is_none() {
                 "Use destination daemon's default command".into()
@@ -184,7 +203,8 @@ impl Config {
             }],
         );
         let network = self.network_of(s, p);
-        field(
+        Self::preview_field(
+            fields,
             "Network",
             vec![format!(
                 "{} — agent setting",
@@ -200,7 +220,7 @@ impl Config {
                 .collect::<Vec<_>>()
                 .join(", "),
         };
-        field("DNS", vec![format!("{dns_label} — agent setting")]);
+        Self::preview_field(fields, "DNS", vec![format!("{dns_label} — agent setting")]);
         let limits = self.limits_of(s, p);
         let mut caps = Vec::new();
         for (label, effective) in [
@@ -216,9 +236,16 @@ impl Config {
                     .unwrap_or("no configured cap".into())
             ));
         }
-        field("Resource limits", caps);
-        let table = s.preset_table();
-        let effective = crate::sandbox::presets_for(self, s, p, &table)?;
+        Self::preview_field(fields, "Resource limits", caps);
+    }
+
+    fn append_sandbox_contribution_field(
+        &self,
+        s: &SessionCfg,
+        p: &ProjectCfg,
+        table: &crate::presets::Table,
+        fields: &mut Vec<Value>,
+    ) {
         let command_presets = s
             .command_snapshot
             .as_ref()
@@ -251,8 +278,12 @@ impl Config {
             };
             selections.push(format!("{name} — {} — {definition}", owners.join(" + ")));
         }
-        field("Sandbox contributions", selections);
-        field(
+        Self::preview_field(fields, "Sandbox contributions", selections);
+    }
+
+    fn append_startup_and_mount_fields(s: &SessionCfg, p: &ProjectCfg, fields: &mut Vec<Value>) {
+        Self::preview_field(
+            fields,
             "Startup and session behavior",
             vec![
                 format!("Start with daemon: {}", s.autostart),
@@ -261,7 +292,8 @@ impl Config {
                 "Library breadcrumbs are inserted manually from the terminal context menu".into(),
             ],
         );
-        field(
+        Self::preview_field(
+            fields,
             "Project mounts (next start)",
             if p.mounts.is_empty() {
                 vec!["none".into()]
@@ -283,6 +315,12 @@ impl Config {
                     .collect()
             },
         );
+    }
+
+    fn append_preset_detail_fields(
+        effective: &[&crate::presets::SandboxPreset],
+        fields: &mut Vec<Value>,
+    ) {
         for (label, pick) in [
             (
                 "Requested read-only binds",
@@ -313,32 +351,31 @@ impl Config {
             ),
         ] {
             let mut values = Vec::new();
-            for preset in &effective {
+            for preset in effective {
                 for value in pick(preset) {
                     if !values.contains(value) {
                         values.push(value.clone());
                     }
                 }
             }
-            field(label, values);
+            Self::preview_field(fields, label, values);
         }
         let mut environment = std::collections::BTreeMap::new();
-        for preset in &effective {
+        for preset in effective {
             environment.extend(preset.setenv.clone());
         }
-        field(
+        Self::preview_field(
+            fields,
             "Set environment (final)",
             environment
                 .into_iter()
                 .map(|(key, value)| format!("{key}={value}"))
                 .collect(),
         );
-        Ok(
-            json!({"title": if recipe { "Template recipe" } else { "Effective settings for next start" },
-            "subtitle": if recipe { "Portable agent settings. The destination project applies project mounts.".to_string() } else { format!("Project: {} — {}", p.name, p.dir) },
-            "notes": ["This is saved or draft configuration. It does not describe a running process. The daemon checks mount existence and protected paths at launch."],
-            "fields": fields}),
-        )
+    }
+
+    fn preview_field(fields: &mut Vec<Value>, label: &str, values: Vec<String>) {
+        fields.push(json!({"label": label, "values": values}));
     }
 }
 

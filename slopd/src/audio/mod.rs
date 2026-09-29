@@ -2,7 +2,7 @@
 //! FMOD lacks TLS and AAC support and requires Content-Length, which Icecast omits.
 //! A feeder decodes URLs and files into a ring buffer suitable for audio callbacks.
 
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -385,13 +385,24 @@ static GENERATION: AtomicU64 = AtomicU64::new(0);
 struct PendingOpen {
     source: String,
     generation: u64,
-    cancel: Arc<std::sync::atomic::AtomicBool>,
+    cancel: Arc<AtomicBool>,
 }
 
 enum PlayDisposition {
     AlreadyPending,
     AlreadyPlaying,
     Open,
+}
+
+struct AudioWorker {
+    state: Arc<Mutex<AudioState>>,
+    control: Arc<Control>,
+    tx: Sender<WorkerMsg>,
+    factory: Arc<dyn OutputFactory>,
+    output: Option<Box<dyn AudioOutput>>,
+    pending: Option<PendingOpen>,
+    active_cancel: Option<Arc<AtomicBool>>,
+    active_generation: Option<u64>,
 }
 
 fn run(
@@ -401,208 +412,252 @@ fn run(
     tx: Sender<WorkerMsg>,
     factory: Arc<dyn OutputFactory>,
 ) {
-    let mut output: Option<Box<dyn AudioOutput>> = None;
-    let mut pending: Option<PendingOpen> = None;
-    let mut active_cancel: Option<Arc<std::sync::atomic::AtomicBool>> = None;
-    let mut active_generation = None;
+    let mut worker = AudioWorker {
+        state,
+        control,
+        tx,
+        factory,
+        output: None,
+        pending: None,
+        active_cancel: None,
+        active_generation: None,
+    };
 
     while let Ok(message) = rx.recv() {
+        if !worker.handle(message) {
+            break;
+        }
+    }
+}
+
+impl AudioWorker {
+    fn handle(&mut self, message: WorkerMsg) -> bool {
         match message {
             WorkerMsg::Shutdown => {
-                control.stop();
+                self.shutdown();
+                false
+            }
+            WorkerMsg::Command(Cmd::Play { source, generation }) => {
+                self.play(source, generation);
+                true
+            }
+            WorkerMsg::Command(Cmd::Volume(volume)) => {
+                self.set_volume(volume);
+                true
+            }
+            WorkerMsg::Command(Cmd::Stop { generation }) => {
+                self.stop(generation);
+                true
+            }
+            WorkerMsg::Opened {
+                source,
+                generation,
+                result,
+                output,
+            } => {
+                self.opened(source, generation, result, output);
+                true
+            }
+        }
+    }
+
+    fn shutdown(&mut self) {
+        self.control.stop();
+        if let Some(waiting) = self.pending.take() {
+            waiting.cancel.store(true, Ordering::Release);
+        }
+        if let Some(cancel) = self.active_cancel.take() {
+            cancel.store(true, Ordering::Release);
+        }
+        let mut current = self.state.lock().unwrap_or_else(|p| p.into_inner());
+        current.playing = false;
+        current.source = None;
+        current.title = None;
+    }
+
+    fn play(&mut self, source: String, generation: u64) {
+        let title = station::TitleSink::pending_for(
+            Some(self.state.clone()),
+            generation,
+            self.control.clone(),
+        );
+        let cancel = title.cancelled.clone();
+        let needs_output = self.output.is_none();
+        let volume = self.control.volume();
+        let pending = &mut self.pending;
+        let active_cancel = &mut self.active_cancel;
+        let active_generation = self.active_generation;
+        let disposition = self.control.publish_current(
+            &self.state,
+            generation,
+            SourceRequirement::Exact(&source),
+            |request, current| {
+                if pending.as_ref().is_some_and(|waiting| {
+                    waiting.generation == generation && waiting.source == source
+                }) {
+                    return PlayDisposition::AlreadyPending;
+                }
+
+                // Published state may still describe a ring retired by queued stop/play.
+                if active_generation == Some(generation)
+                    && current.playing
+                    && current.source.as_deref() == Some(source.as_str())
+                {
+                    current.volume = volume;
+                    return PlayDisposition::AlreadyPlaying;
+                }
+
+                if let Some(waiting) = pending.take() {
+                    waiting.cancel.store(true, Ordering::Release);
+                }
+                if let Some(old_cancel) = active_cancel.take() {
+                    old_cancel.store(true, Ordering::Release);
+                }
+                current.playing = false;
+                current.source = None;
+                current.title = None;
+                current.error = None;
+                request.cancel = Some(cancel.clone());
+                *pending = Some(PendingOpen {
+                    source: source.clone(),
+                    generation,
+                    cancel: cancel.clone(),
+                });
+                PlayDisposition::Open
+            },
+        );
+        match disposition {
+            None | Some(PlayDisposition::AlreadyPending) => {}
+            Some(PlayDisposition::AlreadyPlaying) => {
+                if let Some(output) = self.output.as_ref() {
+                    output.set_volume(volume);
+                }
+            }
+            Some(PlayDisposition::Open) => spawn_open(
+                source,
+                generation,
+                title,
+                needs_output,
+                self.factory.clone(),
+                self.tx.clone(),
+            ),
+        }
+    }
+
+    fn set_volume(&self, volume: f32) {
+        if let Some(output) = self.output.as_ref() {
+            output.set_volume(volume);
+        }
+        self.state.lock().unwrap_or_else(|p| p.into_inner()).volume = volume;
+    }
+
+    fn stop(&mut self, generation: u64) {
+        let pending = &mut self.pending;
+        let active_cancel = &mut self.active_cancel;
+        self.control.publish_current(
+            &self.state,
+            generation,
+            SourceRequirement::None,
+            |_, current| {
                 if let Some(waiting) = pending.take() {
                     waiting.cancel.store(true, Ordering::Release);
                 }
                 if let Some(cancel) = active_cancel.take() {
                     cancel.store(true, Ordering::Release);
                 }
-                let mut current = state.lock().unwrap_or_else(|p| p.into_inner());
                 current.playing = false;
                 current.source = None;
                 current.title = None;
-                break;
-            }
-            WorkerMsg::Command(Cmd::Play { source, generation }) => {
-                let title = station::TitleSink::pending_for(
-                    Some(state.clone()),
+            },
+        );
+    }
+
+    fn opened(
+        &mut self,
+        source: String,
+        generation: u64,
+        result: anyhow::Result<playback::OpenedSource>,
+        opened_output: Option<Box<dyn AudioOutput>>,
+    ) {
+        let matches = self
+            .pending
+            .as_ref()
+            .is_some_and(|waiting| waiting.generation == generation && waiting.source == source);
+        if !matches {
+            drop(result);
+            drop(opened_output);
+            return;
+        }
+        self.pending = None;
+
+        if !self.control.is_current(&source, generation) {
+            drop(result);
+            drop(opened_output);
+            return;
+        }
+
+        if let Some(opened_output) = opened_output {
+            self.output = Some(opened_output);
+        }
+        let opened = match result {
+            Ok(opened) => opened,
+            Err(error) => {
+                fail_current(
+                    &self.state,
+                    &self.control,
+                    &source,
                     generation,
-                    control.clone(),
+                    format!("{source}: {error:#}"),
                 );
-                let cancel = title.cancelled.clone();
-                let needs_output = output.is_none();
-                let volume = control.volume();
-                let disposition = control.publish_current(
-                    &state,
+                return;
+            }
+        };
+        let Some(output) = self.output.as_ref() else {
+            fail_current(
+                &self.state,
+                &self.control,
+                &source,
+                generation,
+                "audio output unavailable".to_string(),
+            );
+            return;
+        };
+        match playback::commit(opened, output.as_ref(), self.control.volume()) {
+            Ok(Some(committed)) => {
+                let cancel = committed.title.cancelled.clone();
+                let volume = self.control.volume();
+                let published = self.control.publish_current(
+                    &self.state,
                     generation,
                     SourceRequirement::Exact(&source),
                     |request, current| {
-                        if pending.as_ref().is_some_and(|waiting| {
-                            waiting.generation == generation && waiting.source == source
-                        }) {
-                            return PlayDisposition::AlreadyPending;
-                        }
-
-                        // Published state may still describe a ring retired by queued stop/play.
-                        if active_generation == Some(generation)
-                            && current.playing
-                            && current.source.as_deref() == Some(source.as_str())
-                        {
-                            current.volume = volume;
-                            return PlayDisposition::AlreadyPlaying;
-                        }
-
-                        if let Some(waiting) = pending.take() {
-                            waiting.cancel.store(true, Ordering::Release);
-                        }
-                        if let Some(old_cancel) = active_cancel.take() {
-                            old_cancel.store(true, Ordering::Release);
-                        }
-                        current.playing = false;
-                        current.source = None;
-                        current.title = None;
-                        current.error = None;
                         request.cancel = Some(cancel.clone());
-                        pending = Some(PendingOpen {
-                            source: source.clone(),
-                            generation,
-                            cancel: cancel.clone(),
-                        });
-                        PlayDisposition::Open
+                        current.playing = true;
+                        current.source = Some(source.clone());
+                        current.volume = volume;
+                        current.error = None;
                     },
                 );
-                match disposition {
-                    None | Some(PlayDisposition::AlreadyPending) => continue,
-                    Some(PlayDisposition::AlreadyPlaying) => {
-                        if let Some(output) = output.as_ref() {
-                            output.set_volume(volume);
-                        }
-                    }
-                    Some(PlayDisposition::Open) => spawn_open(
-                        source,
-                        generation,
-                        title,
-                        needs_output,
-                        factory.clone(),
-                        tx.clone(),
-                    ),
+                if published.is_none() {
+                    committed.title.cancel();
+                    return;
                 }
-            }
-
-            WorkerMsg::Command(Cmd::Volume(volume)) => {
-                if let Some(output) = output.as_ref() {
-                    output.set_volume(volume);
+                committed.title.commit();
+                if let Some(title) = committed.initial_title {
+                    committed.title.set(Some(title));
                 }
-                state.lock().unwrap_or_else(|p| p.into_inner()).volume = volume;
+                self.active_generation = Some(generation);
+                self.active_cancel = Some(committed.title.cancelled.clone());
+                tracing::info!("audio: playing {}", source);
             }
-
-            WorkerMsg::Command(Cmd::Stop { generation }) => {
-                if control
-                    .publish_current(&state, generation, SourceRequirement::None, |_, current| {
-                        if let Some(waiting) = pending.take() {
-                            waiting.cancel.store(true, Ordering::Release);
-                        }
-                        if let Some(cancel) = active_cancel.take() {
-                            cancel.store(true, Ordering::Release);
-                        }
-                        current.playing = false;
-                        current.source = None;
-                        current.title = None;
-                    })
-                    .is_none()
-                {
-                    continue;
-                }
-            }
-
-            WorkerMsg::Opened {
-                source,
+            Ok(None) => {}
+            Err(error) => fail_current(
+                &self.state,
+                &self.control,
+                &source,
                 generation,
-                result,
-                output: opened_output,
-            } => {
-                let matches = pending
-                    .as_ref()
-                    .map(|waiting| waiting.generation == generation && waiting.source == source)
-                    .unwrap_or(false);
-                if !matches {
-                    drop(result);
-                    drop(opened_output);
-                    continue;
-                }
-                pending = None;
-
-                if !control.is_current(&source, generation) {
-                    drop(result);
-                    drop(opened_output);
-                    continue;
-                }
-
-                if let Some(opened_output) = opened_output {
-                    output = Some(opened_output);
-                }
-                let opened = match result {
-                    Ok(opened) => opened,
-                    Err(error) => {
-                        fail_current(
-                            &state,
-                            &control,
-                            &source,
-                            generation,
-                            format!("{source}: {error:#}"),
-                        );
-                        continue;
-                    }
-                };
-                let Some(output) = output.as_ref() else {
-                    fail_current(
-                        &state,
-                        &control,
-                        &source,
-                        generation,
-                        "audio output unavailable".to_string(),
-                    );
-                    continue;
-                };
-                match playback::commit(opened, output.as_ref(), control.volume()) {
-                    Ok(Some(committed)) => {
-                        let cancel = committed.title.cancelled.clone();
-                        let volume = control.volume();
-                        let published = control.publish_current(
-                            &state,
-                            generation,
-                            SourceRequirement::Exact(&source),
-                            |request, current| {
-                                request.cancel = Some(cancel.clone());
-                                current.playing = true;
-                                current.source = Some(source.clone());
-                                current.volume = volume;
-                                current.error = None;
-                            },
-                        );
-                        if published.is_none() {
-                            committed.title.cancel();
-                            continue;
-                        }
-                        committed.title.commit();
-                        if let Some(title) = committed.initial_title {
-                            committed.title.set(Some(title));
-                        }
-                        active_generation = Some(generation);
-                        active_cancel = Some(committed.title.cancelled.clone());
-                        tracing::info!("audio: playing {}", source);
-                    }
-                    Ok(None) => {}
-                    Err(error) => {
-                        fail_current(
-                            &state,
-                            &control,
-                            &source,
-                            generation,
-                            format!("{source}: {error:#}"),
-                        );
-                    }
-                }
-            }
+                format!("{source}: {error:#}"),
+            ),
         }
     }
 }

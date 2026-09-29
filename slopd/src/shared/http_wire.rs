@@ -3,6 +3,12 @@
 use super::wire;
 use prost::Message;
 use serde_json::Value;
+fn encode_wire<T>(value: Value) -> anyhow::Result<Vec<u8>>
+where
+    T: serde::de::DeserializeOwned + Message,
+{
+    Ok(serde_json::from_value::<T>(value)?.encode_to_vec())
+}
 pub(crate) const CONTENT_TYPE: &str = "application/x-protobuf";
 fn matches(pattern: &str, path: &str) -> bool {
     let path = path.split('?').next().unwrap_or(path);
@@ -272,81 +278,35 @@ fn route(method: &str, path: &str) -> anyhow::Result<&'static Route> {
 pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::Result<Vec<u8>> {
     let route = route(method, path)?;
     match route.1 {
-        RequestKind::AgentTemplate => {
-            Ok(serde_json::from_value::<wire::AgentTemplate>(value)?.encode_to_vec())
-        }
-        RequestKind::ClipReq => Ok(serde_json::from_value::<wire::ClipReq>(value)?.encode_to_vec()),
-        RequestKind::ConfigPatch => {
-            Ok(serde_json::from_value::<wire::ConfigPatch>(value)?.encode_to_vec())
-        }
-        RequestKind::CopyPresetReq => {
-            Ok(serde_json::from_value::<wire::CopyPresetReq>(value)?.encode_to_vec())
-        }
-        RequestKind::CreateAgentTemplateReq => {
-            Ok(serde_json::from_value::<wire::CreateAgentTemplateReq>(value)?.encode_to_vec())
-        }
-        RequestKind::CreateTaskReq => {
-            Ok(serde_json::from_value::<wire::CreateTaskReq>(value)?.encode_to_vec())
-        }
-        RequestKind::CreateWorktreeReq => {
-            Ok(serde_json::from_value::<wire::CreateWorktreeReq>(value)?.encode_to_vec())
-        }
-        RequestKind::Empty => Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec()),
-        RequestKind::FileActionReq => {
-            Ok(serde_json::from_value::<wire::FileActionReq>(value)?.encode_to_vec())
-        }
-        RequestKind::FileReq => Ok(serde_json::from_value::<wire::FileReq>(value)?.encode_to_vec()),
-        RequestKind::GrantReq => {
-            Ok(serde_json::from_value::<wire::GrantReq>(value)?.encode_to_vec())
-        }
-        RequestKind::HighlightReq => {
-            Ok(serde_json::from_value::<wire::HighlightReq>(value)?.encode_to_vec())
-        }
-        RequestKind::LabelReq => {
-            Ok(serde_json::from_value::<wire::LabelReq>(value)?.encode_to_vec())
-        }
-        RequestKind::LibraryItem => {
-            Ok(serde_json::from_value::<wire::LibraryItem>(value)?.encode_to_vec())
-        }
-        RequestKind::PresetRequest => {
-            Ok(serde_json::from_value::<wire::PresetRequest>(value)?.encode_to_vec())
-        }
-        RequestKind::Project => Ok(serde_json::from_value::<wire::Project>(value)?.encode_to_vec()),
-        RequestKind::ProjectPreviewReq => {
-            Ok(serde_json::from_value::<wire::ProjectPreviewReq>(value)?.encode_to_vec())
-        }
-        RequestKind::ReaderPinnedReq => {
-            Ok(serde_json::from_value::<wire::ReaderPinnedReq>(value)?.encode_to_vec())
-        }
-        RequestKind::RedrawReq => {
-            Ok(serde_json::from_value::<wire::RedrawReq>(value)?.encode_to_vec())
-        }
-        RequestKind::RemoveTasksReq => {
-            Ok(serde_json::from_value::<wire::RemoveTasksReq>(value)?.encode_to_vec())
-        }
-        RequestKind::ReplaceConfigRequest => {
-            Ok(serde_json::from_value::<wire::ReplaceConfigRequest>(value)?.encode_to_vec())
-        }
-        RequestKind::RunReq => Ok(serde_json::from_value::<wire::RunReq>(value)?.encode_to_vec()),
-        RequestKind::RunWhere => {
-            Ok(serde_json::from_value::<wire::RunWhere>(value)?.encode_to_vec())
-        }
-        RequestKind::SaveTemplateRequest => {
-            Ok(serde_json::from_value::<wire::SaveTemplateRequest>(value)?.encode_to_vec())
-        }
-        RequestKind::SessionConfig => {
-            Ok(serde_json::from_value::<wire::SessionConfig>(value)?.encode_to_vec())
-        }
-        RequestKind::SettingsPreviewRequest => {
-            Ok(serde_json::from_value::<wire::SettingsPreviewRequest>(value)?.encode_to_vec())
-        }
-        RequestKind::SpawnWorkerReq => {
-            Ok(serde_json::from_value::<wire::SpawnWorkerReq>(value)?.encode_to_vec())
-        }
-        RequestKind::Station => Ok(serde_json::from_value::<wire::Station>(value)?.encode_to_vec()),
-        RequestKind::UpdateTaskReq => {
-            Ok(serde_json::from_value::<wire::UpdateTaskReq>(value)?.encode_to_vec())
-        }
+        RequestKind::AgentTemplate => encode_wire::<wire::AgentTemplate>(value),
+        RequestKind::ClipReq => encode_wire::<wire::ClipReq>(value),
+        RequestKind::ConfigPatch => encode_wire::<wire::ConfigPatch>(value),
+        RequestKind::CopyPresetReq => encode_wire::<wire::CopyPresetReq>(value),
+        RequestKind::CreateAgentTemplateReq => encode_wire::<wire::CreateAgentTemplateReq>(value),
+        RequestKind::CreateTaskReq => encode_wire::<wire::CreateTaskReq>(value),
+        RequestKind::CreateWorktreeReq => encode_wire::<wire::CreateWorktreeReq>(value),
+        RequestKind::Empty => encode_wire::<wire::Empty>(value),
+        RequestKind::FileActionReq => encode_wire::<wire::FileActionReq>(value),
+        RequestKind::FileReq => encode_wire::<wire::FileReq>(value),
+        RequestKind::GrantReq => encode_wire::<wire::GrantReq>(value),
+        RequestKind::HighlightReq => encode_wire::<wire::HighlightReq>(value),
+        RequestKind::LabelReq => encode_wire::<wire::LabelReq>(value),
+        RequestKind::LibraryItem => encode_wire::<wire::LibraryItem>(value),
+        RequestKind::PresetRequest => encode_wire::<wire::PresetRequest>(value),
+        RequestKind::Project => encode_wire::<wire::Project>(value),
+        RequestKind::ProjectPreviewReq => encode_wire::<wire::ProjectPreviewReq>(value),
+        RequestKind::ReaderPinnedReq => encode_wire::<wire::ReaderPinnedReq>(value),
+        RequestKind::RedrawReq => encode_wire::<wire::RedrawReq>(value),
+        RequestKind::RemoveTasksReq => encode_wire::<wire::RemoveTasksReq>(value),
+        RequestKind::ReplaceConfigRequest => encode_wire::<wire::ReplaceConfigRequest>(value),
+        RequestKind::RunReq => encode_wire::<wire::RunReq>(value),
+        RequestKind::RunWhere => encode_wire::<wire::RunWhere>(value),
+        RequestKind::SaveTemplateRequest => encode_wire::<wire::SaveTemplateRequest>(value),
+        RequestKind::SessionConfig => encode_wire::<wire::SessionConfig>(value),
+        RequestKind::SettingsPreviewRequest => encode_wire::<wire::SettingsPreviewRequest>(value),
+        RequestKind::SpawnWorkerReq => encode_wire::<wire::SpawnWorkerReq>(value),
+        RequestKind::Station => encode_wire::<wire::Station>(value),
+        RequestKind::UpdateTaskReq => encode_wire::<wire::UpdateTaskReq>(value),
     }
 }
 pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow::Result<Value> {
@@ -491,121 +451,45 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
 pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow::Result<Vec<u8>> {
     let route = route(method, path)?;
     match route.2 {
-        ResponseKind::Ack => Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec()),
-        ResponseKind::AppsReply => {
-            Ok(serde_json::from_value::<wire::AppsReply>(value)?.encode_to_vec())
-        }
-        ResponseKind::AudioState => {
-            Ok(serde_json::from_value::<wire::AudioState>(value)?.encode_to_vec())
-        }
-        ResponseKind::BrowseResult => {
-            Ok(serde_json::from_value::<wire::BrowseResult>(value)?.encode_to_vec())
-        }
-        ResponseKind::Capabilities => {
-            Ok(serde_json::from_value::<wire::Capabilities>(value)?.encode_to_vec())
-        }
-        ResponseKind::ConfigResult => {
-            Ok(serde_json::from_value::<wire::ConfigResult>(value)?.encode_to_vec())
-        }
-        ResponseKind::FileStatResult => {
-            Ok(serde_json::from_value::<wire::FileStatResult>(value)?.encode_to_vec())
-        }
-        ResponseKind::GitResult => {
-            Ok(serde_json::from_value::<wire::GitResult>(value)?.encode_to_vec())
-        }
-        ResponseKind::GrantResult => {
-            Ok(serde_json::from_value::<wire::GrantResult>(value)?.encode_to_vec())
-        }
-        ResponseKind::GrantsReply => {
-            Ok(serde_json::from_value::<wire::GrantsReply>(value)?.encode_to_vec())
-        }
-        ResponseKind::Health => Ok(serde_json::from_value::<wire::Health>(value)?.encode_to_vec()),
-        ResponseKind::HighlightThemes => {
-            Ok(serde_json::from_value::<wire::HighlightThemes>(value)?.encode_to_vec())
-        }
-        ResponseKind::ImageResult => {
-            Ok(serde_json::from_value::<wire::ImageResult>(value)?.encode_to_vec())
-        }
-        ResponseKind::JukeboxCatalog => {
-            Ok(serde_json::from_value::<wire::JukeboxCatalog>(value)?.encode_to_vec())
-        }
-        ResponseKind::LibraryReply => {
-            Ok(serde_json::from_value::<wire::LibraryReply>(value)?.encode_to_vec())
-        }
-        ResponseKind::OutputResult => {
-            Ok(serde_json::from_value::<wire::OutputResult>(value)?.encode_to_vec())
-        }
-        ResponseKind::PathResult => {
-            Ok(serde_json::from_value::<wire::PathResult>(value)?.encode_to_vec())
-        }
-        ResponseKind::PresetsReply => {
-            Ok(serde_json::from_value::<wire::PresetsReply>(value)?.encode_to_vec())
-        }
-        ResponseKind::Project => {
-            Ok(serde_json::from_value::<wire::Project>(value)?.encode_to_vec())
-        }
-        ResponseKind::ProjectPreviewResult => {
-            Ok(serde_json::from_value::<wire::ProjectPreviewResult>(value)?.encode_to_vec())
-        }
-        ResponseKind::ProjectsReply => {
-            Ok(serde_json::from_value::<wire::ProjectsReply>(value)?.encode_to_vec())
-        }
-        ResponseKind::Removed => {
-            Ok(serde_json::from_value::<wire::Removed>(value)?.encode_to_vec())
-        }
-        ResponseKind::SandboxReport => {
-            Ok(serde_json::from_value::<wire::SandboxReport>(value)?.encode_to_vec())
-        }
-        ResponseKind::SearchResult => {
-            Ok(serde_json::from_value::<wire::SearchResult>(value)?.encode_to_vec())
-        }
-        ResponseKind::SessionResult => {
-            Ok(serde_json::from_value::<wire::SessionResult>(value)?.encode_to_vec())
-        }
-        ResponseKind::SessionView => {
-            Ok(serde_json::from_value::<wire::SessionView>(value)?.encode_to_vec())
-        }
-        ResponseKind::SessionsReply => {
-            Ok(serde_json::from_value::<wire::SessionsReply>(value)?.encode_to_vec())
-        }
-        ResponseKind::SettingsPreview => {
-            Ok(serde_json::from_value::<wire::SettingsPreview>(value)?.encode_to_vec())
-        }
-        ResponseKind::StoredStates => {
-            Ok(serde_json::from_value::<wire::StoredStates>(value)?.encode_to_vec())
-        }
-        ResponseKind::TaskResult => {
-            Ok(serde_json::from_value::<wire::TaskResult>(value)?.encode_to_vec())
-        }
-        ResponseKind::TasksReply => {
-            Ok(serde_json::from_value::<wire::TasksReply>(value)?.encode_to_vec())
-        }
-        ResponseKind::TemplateResult => {
-            Ok(serde_json::from_value::<wire::TemplateResult>(value)?.encode_to_vec())
-        }
-        ResponseKind::TemplatesReply => {
-            Ok(serde_json::from_value::<wire::TemplatesReply>(value)?.encode_to_vec())
-        }
-        ResponseKind::TextResult => {
-            Ok(serde_json::from_value::<wire::TextResult>(value)?.encode_to_vec())
-        }
-        ResponseKind::UsageSnapshot => {
-            Ok(serde_json::from_value::<wire::UsageSnapshot>(value)?.encode_to_vec())
-        }
-        ResponseKind::WhereIsReply => {
-            Ok(serde_json::from_value::<wire::WhereIsReply>(value)?.encode_to_vec())
-        }
-        ResponseKind::WorkerResult => {
-            Ok(serde_json::from_value::<wire::WorkerResult>(value)?.encode_to_vec())
-        }
-        ResponseKind::Worktree => {
-            Ok(serde_json::from_value::<wire::Worktree>(value)?.encode_to_vec())
-        }
-        ResponseKind::WorktreeBase => {
-            Ok(serde_json::from_value::<wire::WorktreeBase>(value)?.encode_to_vec())
-        }
-        ResponseKind::WorktreesReply => {
-            Ok(serde_json::from_value::<wire::WorktreesReply>(value)?.encode_to_vec())
-        }
+        ResponseKind::Ack => encode_wire::<wire::Ack>(value),
+        ResponseKind::AppsReply => encode_wire::<wire::AppsReply>(value),
+        ResponseKind::AudioState => encode_wire::<wire::AudioState>(value),
+        ResponseKind::BrowseResult => encode_wire::<wire::BrowseResult>(value),
+        ResponseKind::Capabilities => encode_wire::<wire::Capabilities>(value),
+        ResponseKind::ConfigResult => encode_wire::<wire::ConfigResult>(value),
+        ResponseKind::FileStatResult => encode_wire::<wire::FileStatResult>(value),
+        ResponseKind::GitResult => encode_wire::<wire::GitResult>(value),
+        ResponseKind::GrantResult => encode_wire::<wire::GrantResult>(value),
+        ResponseKind::GrantsReply => encode_wire::<wire::GrantsReply>(value),
+        ResponseKind::Health => encode_wire::<wire::Health>(value),
+        ResponseKind::HighlightThemes => encode_wire::<wire::HighlightThemes>(value),
+        ResponseKind::ImageResult => encode_wire::<wire::ImageResult>(value),
+        ResponseKind::JukeboxCatalog => encode_wire::<wire::JukeboxCatalog>(value),
+        ResponseKind::LibraryReply => encode_wire::<wire::LibraryReply>(value),
+        ResponseKind::OutputResult => encode_wire::<wire::OutputResult>(value),
+        ResponseKind::PathResult => encode_wire::<wire::PathResult>(value),
+        ResponseKind::PresetsReply => encode_wire::<wire::PresetsReply>(value),
+        ResponseKind::Project => encode_wire::<wire::Project>(value),
+        ResponseKind::ProjectPreviewResult => encode_wire::<wire::ProjectPreviewResult>(value),
+        ResponseKind::ProjectsReply => encode_wire::<wire::ProjectsReply>(value),
+        ResponseKind::Removed => encode_wire::<wire::Removed>(value),
+        ResponseKind::SandboxReport => encode_wire::<wire::SandboxReport>(value),
+        ResponseKind::SearchResult => encode_wire::<wire::SearchResult>(value),
+        ResponseKind::SessionResult => encode_wire::<wire::SessionResult>(value),
+        ResponseKind::SessionView => encode_wire::<wire::SessionView>(value),
+        ResponseKind::SessionsReply => encode_wire::<wire::SessionsReply>(value),
+        ResponseKind::SettingsPreview => encode_wire::<wire::SettingsPreview>(value),
+        ResponseKind::StoredStates => encode_wire::<wire::StoredStates>(value),
+        ResponseKind::TaskResult => encode_wire::<wire::TaskResult>(value),
+        ResponseKind::TasksReply => encode_wire::<wire::TasksReply>(value),
+        ResponseKind::TemplateResult => encode_wire::<wire::TemplateResult>(value),
+        ResponseKind::TemplatesReply => encode_wire::<wire::TemplatesReply>(value),
+        ResponseKind::TextResult => encode_wire::<wire::TextResult>(value),
+        ResponseKind::UsageSnapshot => encode_wire::<wire::UsageSnapshot>(value),
+        ResponseKind::WhereIsReply => encode_wire::<wire::WhereIsReply>(value),
+        ResponseKind::WorkerResult => encode_wire::<wire::WorkerResult>(value),
+        ResponseKind::Worktree => encode_wire::<wire::Worktree>(value),
+        ResponseKind::WorktreeBase => encode_wire::<wire::WorktreeBase>(value),
+        ResponseKind::WorktreesReply => encode_wire::<wire::WorktreesReply>(value),
     }
 }

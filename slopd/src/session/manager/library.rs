@@ -111,6 +111,68 @@ impl Manager {
         p.id = old_project.id.clone();
         check_project(&p)?;
         check_project_mounts(&self.config().await, &p)?;
+        let (store, planned) = self
+            .plan_project_worktree_relocations(name, &old_project, &p)
+            .await?;
+        let mut relocations = crate::worktrees::relocation::Relocations::new(store, planned);
+        relocations.execute(&self.cfg_path).await?;
+        #[cfg(test)]
+        {
+            let pause = self.worktrees.relocation_pause.lock().unwrap().take();
+            if let Some((reached, release)) = pause {
+                reached.notify_one();
+                release.notified().await;
+            }
+        }
+        let result = self
+            .update_cfg_if_changed_inner(|cfg| {
+                let idx = cfg
+                    .projects
+                    .iter()
+                    .position(|x| x.name == name)
+                    .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
+                if cfg.projects[idx].temp != p.temp {
+                    bail!("The daemon cannot change project temporary mode after creation.");
+                }
+                p.id = cfg.projects[idx].id.clone();
+                if p.id.is_empty() {
+                    p.id = uuid::Uuid::new_v4().to_string();
+                }
+                check_project(&p)?;
+                check_project_mounts(cfg, &p)?;
+                if p.name != name && cfg.project(&p.name).is_some() {
+                    bail!("project {} already exists", p.name);
+                }
+                let renamed = p.name.clone();
+                cfg.projects[idx] = p;
+                if renamed != name {
+                    for s in cfg.sessions.iter_mut().filter(|s| s.project == name) {
+                        s.project = renamed.clone();
+                    }
+                }
+                Ok(((), true))
+            })
+            .await;
+        if let Err(error) = result {
+            return match relocations.rollback(&self.cfg_path).await {
+                Ok(()) => Err(error),
+                Err(rollback) => Err(anyhow!(
+                    "{error:#}; restoring project worktrees also failed: {rollback:#}"
+                )),
+            };
+        }
+        Ok(())
+    }
+
+    async fn plan_project_worktree_relocations(
+        &self,
+        name: &str,
+        old_project: &ProjectCfg,
+        p: &ProjectCfg,
+    ) -> Result<(
+        crate::worktrees::Store,
+        Vec<(usize, crate::worktrees::Worktree)>,
+    )> {
         let store = crate::worktrees::Store::load(&self.cfg_path).await?;
         let mut planned = Vec::new();
         if p.name != name {
@@ -172,54 +234,7 @@ impl Manager {
                 planned.push((i, destination));
             }
         }
-        let mut relocations = crate::worktrees::relocation::Relocations::new(store, planned);
-        relocations.execute(&self.cfg_path).await?;
-        #[cfg(test)]
-        {
-            let pause = self.worktrees.relocation_pause.lock().unwrap().take();
-            if let Some((reached, release)) = pause {
-                reached.notify_one();
-                release.notified().await;
-            }
-        }
-        let result = self
-            .update_cfg_if_changed_inner(|cfg| {
-                let idx = cfg
-                    .projects
-                    .iter()
-                    .position(|x| x.name == name)
-                    .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
-                if cfg.projects[idx].temp != p.temp {
-                    bail!("The daemon cannot change project temporary mode after creation.");
-                }
-                p.id = cfg.projects[idx].id.clone();
-                if p.id.is_empty() {
-                    p.id = uuid::Uuid::new_v4().to_string();
-                }
-                check_project(&p)?;
-                check_project_mounts(cfg, &p)?;
-                if p.name != name && cfg.project(&p.name).is_some() {
-                    bail!("project {} already exists", p.name);
-                }
-                let renamed = p.name.clone();
-                cfg.projects[idx] = p;
-                if renamed != name {
-                    for s in cfg.sessions.iter_mut().filter(|s| s.project == name) {
-                        s.project = renamed.clone();
-                    }
-                }
-                Ok(((), true))
-            })
-            .await;
-        if let Err(error) = result {
-            return match relocations.rollback(&self.cfg_path).await {
-                Ok(()) => Err(error),
-                Err(rollback) => Err(anyhow!(
-                    "{error:#}; restoring project worktrees also failed: {rollback:#}"
-                )),
-            };
-        }
-        Ok(())
+        Ok((store, planned))
     }
 
     pub async fn remove_project(self: &Arc<Self>, name: &str) -> Result<()> {

@@ -22,6 +22,40 @@ struct ErrandSourceSettings {
     limits: crate::config::Limits,
 }
 
+struct ErrandLiveRequest<'a> {
+    cfg: &'a Config,
+    item: &'a LibraryItemCfg,
+    location: &'a RunWhere,
+    name: &'a str,
+    host: bool,
+    persistent_host: bool,
+}
+
+fn capture_errand_source_settings(
+    cfg: &Config,
+    preparation: &mut ErrandSessionPreparation,
+) -> Result<()> {
+    let Some(source) = &preparation.source else {
+        return Ok(());
+    };
+    let project = cfg
+        .project(&source.project)
+        .context("source agent project is unavailable")?;
+    let table = source.preset_table();
+    preparation.source_settings = Some(ErrandSourceSettings {
+        sandbox: cfg.sandbox_of(source, project),
+        sandbox_snapshots: crate::sandbox::presets_for(cfg, source, project, &table)?
+            .into_iter()
+            .cloned()
+            .collect(),
+        persistent_tmp: source.persistent_tmp,
+        network: source.network,
+        dns: source.dns.clone(),
+        limits: source.limits,
+    });
+    Ok(())
+}
+
 impl Manager {
     /// Reserve an errand's live row before startup.
     /// Manage name allocation, temporary project creation, host-tab storage, and optional copying of agent settings here.
@@ -58,25 +92,9 @@ impl Manager {
         let mut preparation = self
             .prepare_errand_session(cfg, sc, want, host, like)
             .await?;
-        let name = if persistent_host {
-            let live = self.live.read().await;
-            free_name(
-                &live,
-                cfg,
-                &crate::sandbox::host_session_name(&preparation.project_name),
-            )
-        } else if !want.intent.is_empty() {
-            let live = self.live.read().await;
-            free_name(
-                &live,
-                cfg,
-                &format!("tab-{}", uuid::Uuid::new_v4().simple()),
-            )
-        } else {
-            let live = self.live.read().await;
-            free_name(&live, cfg, &slug(&sc.name))
-        };
-        check_name(&name)?;
+        let name = self
+            .errand_session_name(cfg, sc, want, persistent_host, &preparation)
+            .await?;
 
         {
             let live = self.live.read().await;
@@ -98,33 +116,9 @@ impl Manager {
             }
         }
 
-        // A source agent is copied only after identity conflicts have been handled, but before
-        // persistence or temporary-project creation can change live state.
-        if let Some(source) = &preparation.source {
-            let project = cfg
-                .project(&source.project)
-                .context("source agent project is unavailable")?;
-            let table = source.preset_table();
-            preparation.source_settings = Some(ErrandSourceSettings {
-                sandbox: cfg.sandbox_of(source, project),
-                sandbox_snapshots: crate::sandbox::presets_for(cfg, source, project, &table)?
-                    .into_iter()
-                    .cloned()
-                    .collect(),
-                persistent_tmp: source.persistent_tmp,
-                network: source.network,
-                dns: source.dns.clone(),
-                limits: source.limits,
-            });
-        }
-
+        capture_errand_source_settings(cfg, &mut preparation)?;
         if persistent_host {
-            let path = preparation
-                .worktree_path
-                .as_ref()
-                .map(|project| crate::config::expand(&project.dir))
-                .ok_or_else(|| anyhow!("Project {:?} does not exist.", preparation.project_name))?;
-            self.remember_host_terminal(&name, &preparation.project_name, &path)
+            self.remember_errand_host_terminal(&name, &preparation)
                 .await?;
         }
 
@@ -135,10 +129,66 @@ impl Manager {
             }
             bail!("session {name} already exists");
         }
+        let state = self
+            .build_errand_live(
+                ErrandLiveRequest {
+                    cfg,
+                    item: sc,
+                    location: want,
+                    name: &name,
+                    host,
+                    persistent_host,
+                },
+                preparation,
+            )
+            .await;
+        live.insert(name.clone(), state);
+        Ok(name)
+    }
 
+    async fn errand_session_name(
+        &self,
+        cfg: &Config,
+        sc: &LibraryItemCfg,
+        want: &RunWhere,
+        persistent_host: bool,
+        preparation: &ErrandSessionPreparation,
+    ) -> Result<String> {
+        let live = self.live.read().await;
+        let preferred = if persistent_host {
+            crate::sandbox::host_session_name(&preparation.project_name)
+        } else if !want.intent.is_empty() {
+            format!("tab-{}", uuid::Uuid::new_v4().simple())
+        } else {
+            slug(&sc.name)
+        };
+        let name = free_name(&live, cfg, &preferred);
+        check_name(&name)?;
+        Ok(name)
+    }
+
+    async fn remember_errand_host_terminal(
+        &self,
+        name: &str,
+        preparation: &ErrandSessionPreparation,
+    ) -> Result<()> {
+        let path = preparation
+            .worktree_path
+            .as_ref()
+            .map(|project| crate::config::expand(&project.dir))
+            .ok_or_else(|| anyhow!("Project {:?} does not exist.", preparation.project_name))?;
+        self.remember_host_terminal(name, &preparation.project_name, &path)
+            .await
+    }
+
+    async fn build_errand_live(
+        &self,
+        request: ErrandLiveRequest<'_>,
+        mut preparation: ErrandSessionPreparation,
+    ) -> Live {
         let project = if preparation.fresh {
             let mut temp = self.temp.write().await;
-            let project_name = free_project_name(cfg, &temp, &name);
+            let project_name = free_project_name(request.cfg, &temp, request.name);
             temp.insert(
                 project_name.clone(),
                 ProjectCfg {
@@ -154,19 +204,23 @@ impl Manager {
             preparation.project_name.clone()
         };
 
-        let mut base = cfg.session_for(sc, name.clone(), project.clone());
+        let mut base =
+            request
+                .cfg
+                .session_for(request.item, request.name.to_owned(), project.clone());
         base.worktree = preparation.selected_worktree.clone();
         let mut session = if let Some(template) = preparation.template.take() {
-            let mut session = template.instantiate(name.clone(), project);
+            let mut session = template.instantiate(request.name.to_owned(), project);
             // A shell errand or explicit command keeps its own executable while retaining the
             // template's sandbox additions, snapshots, network/DNS and limits.
-            if sc.kind == LibraryItemKind::Shell
-                || sc
+            if request.item.kind == LibraryItemKind::Shell
+                || request
+                    .item
                     .command
                     .as_deref()
                     .is_some_and(|cmd| !cmd.trim().is_empty())
             {
-                session.sandbox = cfg.sandbox_of(&session, &ProjectCfg::default());
+                session.sandbox = request.cfg.sandbox_of(&session, &ProjectCfg::default());
                 session.command = base.command;
                 session.cmd = base.cmd;
                 session.command_snapshot = None;
@@ -180,21 +234,21 @@ impl Manager {
         // Session name normalization replaces a file extension's dot with a dash for tmux.
         // Preserve the original tab label in temporary session metadata.
         // The client can then display the exact filename supplied by Files.
-        session.label = super::library::routed_action_label(&sc.name);
-        if !want.intent.is_empty() {
+        session.label = super::library::routed_action_label(&request.item.name);
+        if !request.location.intent.is_empty() {
             // The action is explicit metadata. Keep the display label human-readable.
             let display = ["view-", "search-", "link-", "edit-", "diff-"]
                 .iter()
-                .find_map(|prefix| sc.name.strip_prefix(prefix))
-                .unwrap_or(&sc.name);
+                .find_map(|prefix| request.item.name.strip_prefix(prefix))
+                .unwrap_or(&request.item.name);
             session.label = Some(display.to_string());
             session.reader_label = display.to_string();
-            session.intent = want.intent.clone();
-            session.reader_path = want.reader_path.clone();
-            session.reader_key = want.reader_key.clone();
-            session.reader_scope = want.reader_scope.clone();
-            session.reader_pinned = want.reader_pinned;
-            session.reader_line = want.reader_line;
+            session.intent = request.location.intent.clone();
+            session.reader_path = request.location.reader_path.clone();
+            session.reader_key = request.location.reader_key.clone();
+            session.reader_scope = request.location.reader_scope.clone();
+            session.reader_pinned = request.location.reader_pinned;
+            session.reader_line = request.location.reader_line;
         }
         if let Some(source) = preparation.source_settings {
             session.sandbox = source.sandbox;
@@ -207,7 +261,7 @@ impl Manager {
         let mut state = Live::new(session, TitleCapture::default());
         // less can retain blank leading rows when SIGWINCH arrives during LESSOPEN.
         // Create the PTY and emulator at the viewer's size before starting the command.
-        if let (Some(cols), Some(rows)) = (want.cols, want.rows) {
+        if let (Some(cols), Some(rows)) = (request.location.cols, request.location.rows) {
             state.cols = cols.clamp(
                 crate::shared::protocol::TERMINAL_MIN_COLS,
                 crate::shared::protocol::TERMINAL_MAX_COLS,
@@ -219,17 +273,16 @@ impl Manager {
         }
         state.cfg.worktree = preparation.selected_worktree;
         state.ephemeral = true;
-        state.host = host;
-        state.persistent_host = persistent_host;
-        if persistent_host {
+        state.host = request.host;
+        state.persistent_host = request.persistent_host;
+        if request.persistent_host {
             state.host_path = preparation
                 .worktree_path
                 .as_ref()
                 .map(|project| crate::config::expand(&project.dir))
                 .unwrap_or_default();
         }
-        live.insert(name.clone(), state);
-        Ok(name)
+        state
     }
 
     async fn prepare_errand_session(
