@@ -41,3 +41,7 @@ On GNOME with `DISPLAY`, daemon clipboard operations use `xclip`/`xsel` through
 XWayland's clipboard bridge. They must not fall back to `wl-clipboard`: its
 focus-acquiring helper surface can interrupt paste input. Missing X11 tools are
 reported as a dependency error. Other desktops retain the Wayland-first order.
+All tool attempts share one three-second deadline, leaving time for the mod's
+five-second HTTP request timeout.
+Text reads request a text clipboard format and decode UTF-8; they do not infer
+image formats from byte prefixes.
