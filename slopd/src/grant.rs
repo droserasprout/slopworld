@@ -249,7 +249,7 @@ impl Grants {
         session_state_ids: BTreeMap<String, String>,
     ) -> Result<String> {
         let token = loop {
-            let token = gen_token();
+            let token = gen_token()?;
             if !self.by_token.contains_key(&token) {
                 break token;
             }
@@ -391,26 +391,19 @@ fn valid_token(token: &str) -> bool {
 
 /// Generate a hexadecimal token from 128 bits of `/dev/urandom` data.
 /// A grant token is a bearer secret, like a session key.
-/// If `/dev/urandom` is unavailable, use time and a counter to distinguish tokens within this daemon process.
-fn gen_token() -> String {
-    use std::io::Read;
+/// Failure to read secure entropy must fail grant creation, not mint a guessable secret.
+fn gen_token() -> Result<String> {
+    let mut file = std::fs::File::open("/dev/urandom")
+        .context("opening secure randomness for scoped grant")?;
+    gen_token_from(&mut file)
+}
+
+fn gen_token_from(mut source: impl std::io::Read) -> Result<String> {
     let mut buf = [0u8; 16];
-    if std::fs::File::open("/dev/urandom")
-        .and_then(|mut f| f.read_exact(&mut buf))
-        .is_err()
-    {
-        // Use time and a counter to distinguish tokens when `/dev/urandom` is unavailable.
-        use std::sync::atomic::{AtomicU64, Ordering};
-        static BUMP: AtomicU64 = AtomicU64::new(0);
-        let n = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos() as u64)
-            .unwrap_or(0)
-            ^ BUMP.fetch_add(0x9E37_79B9_7F4A_7C15, Ordering::Relaxed);
-        buf[..8].copy_from_slice(&n.to_le_bytes());
-        buf[8..].copy_from_slice(&n.rotate_left(32).to_le_bytes());
-    }
-    buf.iter().map(|b| format!("{b:02x}")).collect()
+    source
+        .read_exact(&mut buf)
+        .context("reading secure randomness for scoped grant")?;
+    Ok(buf.iter().map(|b| format!("{b:02x}")).collect())
 }
 
 #[cfg(test)]

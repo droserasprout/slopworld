@@ -151,6 +151,34 @@ async fn invalid_library_saves_leave_existing_catalog_files_untouched() {
 }
 
 #[tokio::test]
+async fn missing_main_config_keeps_existing_library_catalog() {
+    let fixture = LibraryFixture::new();
+    fixture
+        .write(
+            "prompts/keep.toml",
+            "name = 'keep'\nlink = 'project'\ntext = 'saved'",
+        )
+        .await;
+    let path = fixture.0.join("config.toml");
+    let loaded = Config::load(&path).await.unwrap();
+    assert_eq!(loaded.library.len(), 1);
+    assert_eq!(loaded.library[0].text, "saved");
+    assert!(fixture.0.join("prompts/keep.toml").exists());
+}
+
+#[tokio::test]
+async fn malformed_existing_config_is_never_replaced_by_typed_save() {
+    let fixture = LibraryFixture::new();
+    let path = fixture.0.join("config.toml");
+    fixture.write("config.toml", "[daemon\nrecover me").await;
+    assert!(Config::default().save(&path).await.is_err());
+    assert_eq!(
+        tokio::fs::read_to_string(&path).await.unwrap(),
+        "[daemon\nrecover me"
+    );
+}
+
+#[tokio::test]
 async fn library_save_moves_kinds_and_removes_stale_toml_only() {
     let fixture = LibraryFixture::new();
     fixture

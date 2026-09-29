@@ -78,3 +78,35 @@ async fn host_catalog_refresh_preserves_existing_non_host_identity() {
     assert!(!worker.host && !worker.persistent_host);
     assert_eq!(worker.cfg.label.as_deref(), Some("worker label"));
 }
+
+#[tokio::test]
+async fn configured_agent_never_inherits_a_former_host_row() {
+    let session = SessionCfg {
+        name: "shell".into(),
+        state_id: uuid::Uuid::new_v4().to_string(),
+        ..Default::default()
+    };
+    let cfg = Config {
+        sessions: vec![session.clone()],
+        ..Default::default()
+    };
+    let manager = crate::session::test_manager(cfg.clone());
+    let mut host = Live::new(
+        SessionCfg {
+            name: "shell".into(),
+            ..Default::default()
+        },
+        TitleCapture::default(),
+    );
+    host.host = true;
+    host.ephemeral = true;
+    manager.live.write().await.insert("shell".into(), host);
+    {
+        let live = manager.live.read().await;
+        assert!(!keep_live_session(&cfg, "shell", &live["shell"]));
+    }
+    manager.upsert_sessions(&cfg).await;
+    let live = manager.live.read().await;
+    assert!(live["shell"].host);
+    assert_ne!(live["shell"].cfg.state_id, session.state_id);
+}

@@ -87,6 +87,22 @@ fn atomic_replacement_cleans_a_temporary_file_when_install_fails() {
     std::fs::remove_dir_all(root).unwrap();
 }
 
+#[test]
+fn atomic_replacement_preserves_a_preexisting_temporary_file() {
+    let root = std::env::temp_dir().join(format!("slopworld-temp-owner-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&root).unwrap();
+    let target = root.join("target.toml");
+    let temp = target.with_extension("toml.tmp");
+    std::fs::write(&temp, "someone else's data").unwrap();
+    write_atomic(&target, "secret", Some(0o600)).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&temp).unwrap(),
+        "someone else's data"
+    );
+    assert_eq!(std::fs::read_to_string(&target).unwrap(), "secret");
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 #[tokio::test]
 async fn async_atomic_replacement_keeps_private_store_permissions() {
     let root = std::env::temp_dir().join(format!(
@@ -107,5 +123,35 @@ async fn async_atomic_replacement_keeps_private_store_permissions() {
             0o600
         );
     }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn asynchronous_write_reports_background_write_failure() {
+    let mut file = tokio::fs::OpenOptions::new()
+        .write(true)
+        .open("/dev/full")
+        .await
+        .unwrap();
+    assert!(write_and_finish(&mut file, b"must not be published")
+        .await
+        .is_err());
+}
+
+#[tokio::test]
+async fn async_replacement_ignores_leftovers_and_publishes_complete_contents() {
+    let root = std::env::temp_dir().join(format!("slopworld-leftovers-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&root).unwrap();
+    let target = root.join("config.toml");
+    let leftover = temp_path(&target);
+    std::fs::write(&leftover, "interrupted save").unwrap();
+    let text = "complete contents".repeat(200_000);
+    write_atomic_async(&target, &text, None).await.unwrap();
+    assert_eq!(std::fs::read_to_string(&target).unwrap(), text);
+    assert_eq!(
+        std::fs::read_to_string(&leftover).unwrap(),
+        "interrupted save"
+    );
     std::fs::remove_dir_all(root).unwrap();
 }

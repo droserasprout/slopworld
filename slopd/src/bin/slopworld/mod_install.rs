@@ -139,32 +139,94 @@ fn install(source: &Path, mods: &Path) -> Result<String, String> {
         }
     }
 
-    let staging = mods.join(format!(".{MOD_NAME}.tmp-{}", std::process::id()));
-    remove_existing(&staging)?;
-    fs::create_dir(&staging).map_err(|e| format!("creating {}: {e}", staging.display()))?;
+    // Never remove a preexisting temporary path: it may contain the source or
+    // another installer's work. Reserve a fresh sibling before copying.
+    let (staging, backup) = reserve_install_paths(source, mods)?;
 
     if let Err(error) = copy_mod(source, &staging) {
         let _ = fs::remove_dir_all(&staging);
         return Err(error);
     }
 
-    remove_existing(&destination)?;
-    if let Err(error) = fs::rename(&staging, &destination) {
-        let _ = fs::remove_dir_all(&staging);
-        return Err(format!("installing {}: {error}", destination.display()));
-    }
-
+    commit_install(&staging, &destination, &backup)?;
     Ok(format!("installed to {}\n", destination.display()))
 }
 
+fn commit_install(staging: &Path, destination: &Path, backup: &Path) -> Result<(), String> {
+    let had_destination = match fs::symlink_metadata(destination) {
+        Ok(_) => true,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => false,
+        Err(error) => {
+            let _ = fs::remove_dir_all(staging);
+            return Err(format!("checking {}: {error}", destination.display()));
+        }
+    };
+    if had_destination {
+        match fs::symlink_metadata(backup) {
+            Ok(_) => {
+                let _ = fs::remove_dir_all(staging);
+                return Err(format!("backup path already exists: {}", backup.display()));
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => {
+                let _ = fs::remove_dir_all(staging);
+                return Err(format!("checking {}: {error}", backup.display()));
+            }
+        }
+        if let Err(error) = fs::rename(destination, backup) {
+            let _ = fs::remove_dir_all(staging);
+            return Err(format!("backing up {}: {error}", destination.display()));
+        }
+    }
+    if let Err(error) = fs::rename(staging, destination) {
+        let _ = fs::remove_dir_all(staging);
+        if had_destination {
+            if let Err(rollback) = fs::rename(backup, destination) {
+                return Err(format!("installing {}: {error}; old installation remains at {} because rollback failed: {rollback}", destination.display(), backup.display()));
+            }
+        }
+        return Err(format!("installing {}: {error}", destination.display()));
+    }
+    if had_destination {
+        remove_existing(backup)?;
+    }
+
+    Ok(())
+}
+
 fn ensure_non_overlapping(source: &Path, destination: &Path) -> Result<(), String> {
-    if destination == source || destination.starts_with(source) {
+    if destination == source || destination.starts_with(source) || source.starts_with(destination) {
         return Err(format!(
-            "refusing to install inside the mod source: {}",
+            "refusing overlapping mod source and destination: {} and {}",
+            source.display(),
             destination.display()
         ));
     }
     Ok(())
+}
+
+fn reserve_install_paths(source: &Path, mods: &Path) -> Result<(PathBuf, PathBuf), String> {
+    for attempt in 0..1000 {
+        let suffix = format!("{}-{attempt}", std::process::id());
+        let staging = mods.join(format!(".{MOD_NAME}.tmp-{suffix}"));
+        let backup = mods.join(format!(".{MOD_NAME}.old-{suffix}"));
+        if ensure_non_overlapping(source, &staging).is_err()
+            || ensure_non_overlapping(source, &backup).is_err()
+        {
+            continue;
+        }
+        match fs::symlink_metadata(&backup) {
+            Ok(_) => continue,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(format!("checking {}: {error}", backup.display())),
+        }
+        match fs::create_dir(&staging) {
+            Ok(()) => return Ok((staging, backup)),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(format!("creating {}: {error}", staging.display())),
+        }
+    }
+    Err("could not reserve a safe staging directory".into())
 }
 
 fn remove_existing(path: &Path) -> Result<(), String> {

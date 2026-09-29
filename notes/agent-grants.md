@@ -4,6 +4,7 @@ A scoped grant lets one caller watch or control selected non-host sessions witho
 exposing host sessions. Grants are bearer tokens.
 The daemon creates them for root-authorized requests or when it starts a worker.
 It saves them in the private `grants.toml` store.
+Minting fails if secure random bytes cannot be read; it never issues a predictable fallback token.
 See [wire-protocol](protocol-wire.md) and [agent-tasks](agent-tasks.md).
 
 ## Permissions

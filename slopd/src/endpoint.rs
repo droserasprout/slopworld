@@ -59,21 +59,9 @@ async fn write_endpoint(path: &Path, endpoint: &Endpoint) -> Result<()> {
     }
 
     let text = toml::to_string_pretty(endpoint)?;
-    let tmp = path.with_extension("toml.tmp");
-    tokio::fs::write(&tmp, text)
+    crate::paths::write_atomic_async(path, &text, Some(0o600))
         .await
-        .with_context(|| format!("writing {}", tmp.display()))?;
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        tokio::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600)).await?;
-    }
-
-    tokio::fs::rename(&tmp, path)
-        .await
-        .with_context(|| format!("installing endpoint descriptor {}", path.display()))?;
-    Ok(())
+        .with_context(|| format!("installing endpoint descriptor {}", path.display()))
 }
 
 pub(crate) fn url_for(bind: &str) -> String {

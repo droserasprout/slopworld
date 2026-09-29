@@ -23,6 +23,10 @@ Session operation wrappers acquire the boundary and delegate to `_inner` helpers
 `detach_live_locked` instead requires the caller to pass the locked live-session map.
 
 Session edits check a complete candidate configuration before renaming tmux.
+Reconciliation retires a former host or different durable identity before installing a
+configured agent under the same name. If the old pane cannot be killed, the incompatible
+live row is not reclassified as that agent. Startup independently rejects retained host
+or mismatched durable identities for configured agents, even after the old pane exits.
 The session boundary and configuration persistence gate protect the operation from preparation through commit.
 Session identity and grant changes take the exclusive boundary. Terminal input, task routes,
 and direct worktree creation hold the shared boundary, so checkout and task persistence do not stop

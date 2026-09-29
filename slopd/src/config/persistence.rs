@@ -14,31 +14,24 @@ pub const TOKEN_REDACTED: &str = "<redacted>";
 
 /// Redact a nonempty `[daemon] token` in configuration text. Preserve comments and blank lines.
 /// `Manager::replace_config` restores the real value when a client writes the sentinel.
-pub fn redact_token_text(text: &str) -> String {
-    let mut out = String::with_capacity(text.len() + TOKEN_REDACTED.len());
-    let mut in_daemon = false;
-    for line in text.lines() {
-        let t = line.trim_start();
-        if t.starts_with('[') {
-            // A different table, such as `[daemon.x]`, ends the daemon section.
-            in_daemon = t.starts_with("[daemon]");
+pub fn redact_token_text(text: &str) -> Result<String> {
+    let mut document: toml_edit::DocumentMut =
+        text.parse().context("parsing config for token redaction")?;
+    if let Some(token) = document
+        .get_mut("daemon")
+        .and_then(|daemon| daemon.get_mut("token"))
+    {
+        let value = token
+            .as_value()
+            .context("[daemon] token must be a string")?;
+        let secret = value.as_str().context("[daemon] token must be a string")?;
+        if !secret.is_empty() {
+            let decor = value.decor().clone();
+            *token = toml_edit::value(TOKEN_REDACTED);
+            *token.as_value_mut().unwrap().decor_mut() = decor;
         }
-        let redacted = in_daemon
-            .then(|| {
-                t.strip_prefix("token")
-                    .and_then(|r| r.trim_start().strip_prefix('='))
-            })
-            .flatten()
-            .map(str::trim)
-            .filter(|v| !v.is_empty() && *v != "\"\"")
-            .map(|_| {
-                let indent = &line[..line.len() - t.len()];
-                format!("{indent}token = \"{TOKEN_REDACTED}\"")
-            });
-        out.push_str(redacted.as_deref().unwrap_or(line));
-        out.push('\n');
     }
-    out
+    Ok(document.to_string())
 }
 
 impl Config {
@@ -77,7 +70,10 @@ impl Config {
 
     pub async fn load(path: &Path) -> Result<Self> {
         if !tokio::fs::try_exists(path).await? {
-            let cfg = Config::default();
+            let cfg = Config {
+                library: load_library(&Self::library_dirs_for(path)).await?,
+                ..Default::default()
+            };
             cfg.save(path).await?;
             return Ok(cfg);
         }
@@ -131,16 +127,18 @@ impl Config {
         super::validation::validate_loaded(self)?;
         let mut document = toml::Value::try_from(self)?;
         if tokio::fs::try_exists(path).await? {
-            if let Ok(text) = tokio::fs::read_to_string(path).await {
-                if let Ok(previous) = toml::from_str::<toml::Value>(&text) {
-                    reject_removed_worktree_fields(&previous)?;
-                    let previous_config: Self = previous.clone().try_into().context(
-                        "reading modeled fields before preserving unknown configuration",
-                    )?;
-                    let previous_modeled = toml::Value::try_from(previous_config)?;
-                    preserve_unknown_fields(&mut document, &previous, Some(&previous_modeled));
-                }
-            }
+            let text = tokio::fs::read_to_string(path)
+                .await
+                .with_context(|| format!("reading existing configuration {}", path.display()))?;
+            let previous: toml::Value = toml::from_str(&text)
+                .with_context(|| format!("parsing existing configuration {}", path.display()))?;
+            reject_removed_worktree_fields(&previous)?;
+            let previous_config: Self = previous
+                .clone()
+                .try_into()
+                .context("reading modeled fields before preserving unknown configuration")?;
+            let previous_modeled = toml::Value::try_from(previous_config)?;
+            preserve_unknown_fields(&mut document, &previous, Some(&previous_modeled));
         }
         if let Some(table) = document.as_table_mut() {
             // Library entries have a separate catalog.
@@ -266,6 +264,17 @@ async fn save_library(
         })
         .collect::<Result<_>>()?;
 
+    // Write all replacements before retiring old names. A failed replacement must
+    // leave the old catalog available for the next load.
+    for item in library {
+        let path = dirs
+            .iter()
+            .find(|(kind, _)| *kind == item.kind)
+            .map(|(_, dir)| dir.join(format!("{}.toml", item.name)))
+            .ok_or_else(|| anyhow::anyhow!("unknown library item kind {:?}", item.kind))?;
+        let text = toml::to_string_pretty(item)?;
+        crate::paths::write_atomic_async(&path, &text, Some(0o600)).await?;
+    }
     for (_, dir) in dirs {
         tokio::fs::create_dir_all(dir).await?;
         let mut entries = tokio::fs::read_dir(dir).await?;
@@ -279,16 +288,6 @@ async fn save_library(
                 tokio::fs::remove_file(&path).await?;
             }
         }
-    }
-
-    for item in library {
-        let path = dirs
-            .iter()
-            .find(|(kind, _)| *kind == item.kind)
-            .map(|(_, dir)| dir.join(format!("{}.toml", item.name)))
-            .ok_or_else(|| anyhow::anyhow!("unknown library item kind {:?}", item.kind))?;
-        let text = toml::to_string_pretty(item)?;
-        crate::paths::write_atomic_async(&path, &text, Some(0o600)).await?;
     }
     Ok(())
 }

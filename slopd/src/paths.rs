@@ -36,9 +36,8 @@ pub fn temp_slug(name: &str) -> String {
 }
 
 fn temp_path(path: &Path) -> PathBuf {
-    // Keep the established sidecar name. Tests use it to cause deterministic installation failures.
-    // Each store already owns the lock that protects its writes.
-    path.with_extension("toml.tmp")
+    // Exclusive creation owns this unique sibling; leftovers cannot block a retry.
+    path.with_file_name(format!(".slopworld-{}.tmp", uuid::Uuid::new_v4()))
 }
 
 fn cleanup_temp(path: &Path) {
@@ -63,16 +62,33 @@ fn set_private_mode(_path: &Path, _mode: Option<u32>) -> Result<()> {
 /// The caller chooses whether the destination has a private mode.
 /// Ordinary catalogs pass `None` and retain their umask policy.
 pub fn write_atomic(path: &Path, text: &str, mode: Option<u32>) -> Result<()> {
+    use std::io::Write;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
+    #[cfg(test)]
+    check_write_fault(path)?;
     let tmp = temp_path(path);
+    let mut created = false;
     let result = (|| {
-        std::fs::write(&tmp, text).with_context(|| format!("writing {}", tmp.display()))?;
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        if let Some(mode) = mode {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(mode);
+        }
+        let mut file = options
+            .open(&tmp)
+            .with_context(|| format!("creating {}", tmp.display()))?;
+        created = true;
+        file.write_all(text.as_bytes())
+            .with_context(|| format!("writing {}", tmp.display()))?;
         set_private_mode(&tmp, mode)?;
+        drop(file);
         std::fs::rename(&tmp, path).with_context(|| format!("installing {}", path.display()))
     })();
-    if result.is_err() {
+    if result.is_err() && created {
         cleanup_temp(&tmp);
     }
     result
@@ -85,9 +101,23 @@ pub async fn write_atomic_async(path: &Path, text: &str, mode: Option<u32>) -> R
     if let Some(parent) = path.parent() {
         tokio::fs::create_dir_all(parent).await?;
     }
+    #[cfg(test)]
+    check_write_fault(path)?;
     let tmp = temp_path(path);
+    let mut created = false;
     let result = async {
-        tokio::fs::write(&tmp, text)
+        let mut options = tokio::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        if let Some(mode) = mode {
+            options.mode(mode);
+        }
+        let mut file = options
+            .open(&tmp)
+            .await
+            .with_context(|| format!("creating {}", tmp.display()))?;
+        created = true;
+        write_and_finish(&mut file, text.as_bytes())
             .await
             .with_context(|| format!("writing {}", tmp.display()))?;
         #[cfg(unix)]
@@ -95,12 +125,13 @@ pub async fn write_atomic_async(path: &Path, text: &str, mode: Option<u32>) -> R
             use std::os::unix::fs::PermissionsExt;
             tokio::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(mode)).await?;
         }
+        drop(file);
         tokio::fs::rename(&tmp, path)
             .await
             .with_context(|| format!("installing {}", path.display()))
     }
     .await;
-    if result.is_err() {
+    if result.is_err() && created {
         let _ = tokio::fs::remove_file(&tmp).await;
     }
     result
@@ -155,3 +186,41 @@ pub fn write_private_toml(path: &Path, text: &str) -> Result<()> {
 #[cfg(test)]
 #[path = "paths_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+static WRITE_FAULTS: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
+
+/// Scoped, path-specific failure at the persistence boundary, independent of temp naming.
+#[cfg(test)]
+pub(crate) struct WriteFault(PathBuf);
+
+#[cfg(test)]
+pub(crate) fn fail_writes(path: &Path) -> WriteFault {
+    WRITE_FAULTS.lock().unwrap().push(path.to_owned());
+    WriteFault(path.to_owned())
+}
+
+#[cfg(test)]
+impl Drop for WriteFault {
+    fn drop(&mut self) {
+        WRITE_FAULTS.lock().unwrap().retain(|path| path != &self.0);
+    }
+}
+
+#[cfg(test)]
+fn check_write_fault(path: &Path) -> Result<()> {
+    anyhow::ensure!(
+        !WRITE_FAULTS.lock().unwrap().contains(&path.to_owned()),
+        "injected persistence failure"
+    );
+    Ok(())
+}
+
+// Tokio writes can finish in the background. Observe completion and errors before
+// publication; flushing here is not a power-loss durability barrier.
+async fn write_and_finish(file: &mut tokio::fs::File, bytes: &[u8]) -> Result<()> {
+    use tokio::io::AsyncWriteExt;
+    file.write_all(bytes).await?;
+    file.flush().await?;
+    Ok(())
+}

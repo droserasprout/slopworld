@@ -185,6 +185,13 @@ async fn mutations_reject_empty_and_relative_paths() {
     }
 }
 
+#[test]
+fn mutation_paths_reject_root_equivalent_parent_components() {
+    for path in ["/tmp/..", "/tmp/../tmp/file", "/tmp/./file"] {
+        assert!(super::file_path(path).is_err(), "accepted {path}");
+    }
+}
+
 #[tokio::test]
 async fn create_rejects_missing_or_file_parents_and_unsupported_kinds() {
     let fixture = Fixture::new();

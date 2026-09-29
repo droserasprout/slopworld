@@ -430,13 +430,32 @@ fn failed_journal_updates_preserve_memory_and_can_be_retried() {
 }
 
 #[test]
+fn unreadable_journal_never_admits_new_writes() {
+    let (dir, mut tasks) = isolated_store();
+    let created = tasks
+        .create("host".into(), "worker".into(), "first".into())
+        .unwrap();
+    // read_to_string fails for invalid UTF-8. A later append must not be
+    // acknowledged because replay would stop before that new record.
+    use std::io::Write;
+    std::fs::OpenOptions::new()
+        .append(true)
+        .open(&tasks.journal)
+        .unwrap()
+        .write_all(&[0xff])
+        .unwrap();
+    assert!(Tasks::load(&dir.join("config.toml")).is_err());
+    assert_eq!(tasks.get("worker", &created.id).unwrap().body, "first");
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn failed_snapshots_preserve_memory_and_allow_cancel_remove_and_prune_retries() {
     let (dir, mut tasks) = isolated_store();
     let task = tasks
         .create("host".into(), "worker".into(), "work".into())
         .unwrap();
-    let obstruction = tasks.path.with_extension("toml.tmp");
-    fs::create_dir(&obstruction).unwrap();
+    let fault = crate::paths::fail_writes(&tasks.path);
     assert!(tasks
         .cancel_many("worker", std::slice::from_ref(&task.id), false)
         .is_err());
@@ -444,11 +463,11 @@ fn failed_snapshots_preserve_memory_and_allow_cancel_remove_and_prune_retries() 
         tasks.get("worker", &task.id).unwrap().status,
         Status::Queued
     );
-    fs::remove_dir(&obstruction).unwrap();
+    drop(fault);
     tasks
         .cancel_many("worker", std::slice::from_ref(&task.id), false)
         .unwrap();
-    fs::create_dir(&obstruction).unwrap();
+    let fault = crate::paths::fail_writes(&tasks.path);
     assert!(tasks.remove("worker", &task.id, false).is_err());
     assert!(tasks
         .remove_many("worker", std::slice::from_ref(&task.id), false)
@@ -466,11 +485,39 @@ fn failed_snapshots_preserve_memory_and_allow_cancel_remove_and_prune_retries() 
             .status,
         Status::Canceled
     );
-    fs::remove_dir(&obstruction).unwrap();
+    drop(fault);
     assert_eq!(tasks.prune("worker", false).unwrap(), 1);
     assert!(Tasks::load(&dir.join("config.toml"))
         .unwrap()
         .all()
         .is_empty());
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn snapshot_keeps_poisoning_until_journal_cleanup_succeeds() {
+    let (dir, mut tasks) = isolated_store();
+    tasks
+        .create("host".into(), "worker".into(), "saved".into())
+        .unwrap();
+    fs::remove_file(&tasks.journal).unwrap();
+    // A directory forces remove_file to fail even when tests run as root.
+    fs::create_dir(&tasks.journal).unwrap();
+    tasks.journal_poisoned = true;
+    tasks.save().unwrap();
+    assert!(tasks.journal_poisoned);
+    fs::remove_dir(&tasks.journal).unwrap();
+    fs::write(&tasks.journal, b"broken tail").unwrap();
+    assert!(tasks
+        .create("host".into(), "worker".into(), "blocked".into())
+        .is_err());
+    assert_eq!(fs::read(&tasks.journal).unwrap(), b"broken tail");
+    tasks.save().unwrap();
+    assert!(!tasks.journal_poisoned);
+    tasks
+        .create("host".into(), "worker".into(), "after repair".into())
+        .unwrap();
+    let restored = Tasks::load(&dir.join("config.toml")).unwrap();
+    assert_eq!(restored.all().len(), 2);
     fs::remove_dir_all(dir).unwrap();
 }

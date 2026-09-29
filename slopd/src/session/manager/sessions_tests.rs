@@ -212,7 +212,7 @@ async fn persistence_failure_restores_tmux_or_reports_failed_rollback() {
     for rollback_fails in [false, true] {
         let (manager, root, socket) = rename_fixture(true).await;
         let persisted = std::fs::read(&manager.cfg_path).unwrap();
-        std::fs::create_dir_all(manager.cfg_path.with_extension("toml.tmp")).unwrap();
+        let _fault = crate::paths::fail_writes(&manager.cfg_path);
         if rollback_fails {
             manager.tmux.fail_rename_call_for_test(2);
         }
@@ -249,7 +249,7 @@ async fn persistence_failure_restores_tmux_or_reports_failed_rollback() {
 #[tokio::test]
 async fn abandoning_update_cannot_skip_commit_or_rollback() {
     let (manager, root, socket) = rename_fixture(true).await;
-    std::fs::create_dir_all(manager.cfg_path.with_extension("toml.tmp")).unwrap();
+    let _fault = crate::paths::fail_writes(&manager.cfg_path);
     let (renamed, release) = manager.tmux.pause_after_rename_for_test();
     let update = tokio::spawn({
         let manager = manager.clone();
@@ -691,8 +691,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
     std::fs::create_dir_all(&private).unwrap();
     std::fs::write(private.join("memory"), "remember me").unwrap();
     let saved = std::fs::read(&manager.cfg_path).unwrap();
-    let blocker = manager.cfg_path.with_extension("toml.tmp");
-    std::fs::create_dir_all(&blocker).unwrap();
+    let fault = crate::paths::fail_writes(&manager.cfg_path);
     assert!(manager.remove("old").await.is_err());
     assert_eq!(std::fs::read(&manager.cfg_path).unwrap(), saved);
     assert_eq!(
@@ -707,7 +706,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
         .unwrap()
         .iter()
         .any(|s| s.kind == "trash"));
-    std::fs::remove_dir_all(&blocker).unwrap();
+    drop(fault);
 
     manager.remove("old").await.unwrap();
     assert!(!private.exists());
@@ -716,7 +715,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
     let entries = manager.stored_states().await.unwrap();
     let archived = entries.iter().find(|s| s.kind == "trash").unwrap();
     assert_eq!(archived.session.as_deref(), Some("old"));
-    std::fs::create_dir_all(&blocker).unwrap();
+    let fault = crate::paths::fail_writes(&manager.cfg_path);
     assert!(manager.restore_stored_state(&archived.key).await.is_err());
     assert!(!private.exists());
     assert!(manager.config().await.session("old").is_none());
@@ -724,7 +723,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
         std::fs::read_to_string(std::path::Path::new(&archived.path).join("memory")).unwrap(),
         "remember me"
     );
-    std::fs::remove_dir_all(&blocker).unwrap();
+    drop(fault);
     assert_eq!(
         manager.restore_stored_state(&archived.key).await.unwrap(),
         "old"
