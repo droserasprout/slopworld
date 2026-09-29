@@ -11,13 +11,14 @@ use rand::seq::SliceRandom;
 use rodio::{ChannelCount, SampleRate, Source};
 use ureq::unversioned::transport::Connector;
 
-use super::{AudioState, CONNECT, GENERATION, OPEN, STREAM_IDLE};
+use super::{AudioState, Control, SourceRequirement, CONNECT, GENERATION, OPEN, STREAM_IDLE};
 
 /// Receive delayed station metadata. The generation prevents old metadata from changing a replacement station's title.
 /// `None` omits titles for files and tests.
 #[derive(Clone)]
 pub(crate) struct TitleSink {
     pub(crate) state: Option<Arc<Mutex<AudioState>>>,
+    pub(super) control: Option<Arc<Control>>,
     pub(crate) generation: u64,
     /// Opening and decoder probing happen before the worker commits a source. Metadata seen
     /// during that phase belongs to a candidate, not to the audible selection yet.
@@ -38,6 +39,7 @@ impl TitleSink {
     pub(crate) fn new(state: Option<Arc<Mutex<AudioState>>>, generation: u64) -> Self {
         Self {
             state,
+            control: None,
             generation,
             committed: Arc::new(AtomicBool::new(true)),
             cancelled: Arc::new(AtomicBool::new(false)),
@@ -46,9 +48,27 @@ impl TitleSink {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn pending(state: Option<Arc<Mutex<AudioState>>>, generation: u64) -> Self {
         Self {
             state,
+            control: None,
+            generation,
+            committed: Arc::new(AtomicBool::new(false)),
+            cancelled: Arc::new(AtomicBool::new(false)),
+            opening_deadline: Arc::new(AtomicU64::new(0)),
+            pending_title: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    pub(super) fn pending_for(
+        state: Option<Arc<Mutex<AudioState>>>,
+        generation: u64,
+        control: Arc<Control>,
+    ) -> Self {
+        Self {
+            state,
+            control: Some(control),
             generation,
             committed: Arc::new(AtomicBool::new(false)),
             cancelled: Arc::new(AtomicBool::new(false)),
@@ -58,36 +78,59 @@ impl TitleSink {
     }
 
     pub(crate) fn set(&self, title: Option<String>) {
-        if self.cancelled.load(Ordering::Acquire)
-            || self.generation != GENERATION.load(Ordering::SeqCst)
-        {
+        if self.cancelled.load(Ordering::Acquire) {
             return;
         }
+        let mut pending = self.pending_title.lock().unwrap_or_else(|p| p.into_inner());
         if !self.committed.load(Ordering::Acquire) {
-            *self.pending_title.lock().unwrap_or_else(|p| p.into_inner()) = Some(title);
+            *pending = Some(title);
+            return;
+        }
+        self.publish_title(title);
+    }
+
+    fn publish_title(&self, title: Option<String>) {
+        if self.cancelled.load(Ordering::Acquire) {
             return;
         }
         let state = match self.state.as_ref() {
             Some(s) => s,
             None => return,
         };
-        let mut s = state.lock().unwrap_or_else(|p| p.into_inner());
-        if s.title == title {
-            return;
+        let label = title.as_deref().unwrap_or("-").to_string();
+        let changed = if let Some(control) = self.control.as_ref() {
+            control
+                .publish_current(state, self.generation, SourceRequirement::Active, |_, s| {
+                    if s.title == title {
+                        false
+                    } else {
+                        s.title = title;
+                        true
+                    }
+                })
+                .unwrap_or(false)
+        } else if self.generation == GENERATION.load(Ordering::SeqCst) {
+            let mut s = state.lock().unwrap_or_else(|p| p.into_inner());
+            if s.title == title {
+                false
+            } else {
+                s.title = title;
+                true
+            }
+        } else {
+            false
+        };
+        if changed {
+            tracing::info!("audio: now playing {label}");
         }
-        tracing::info!("audio: now playing {}", title.as_deref().unwrap_or("-"));
-        s.title = title;
     }
 
     pub(crate) fn commit(&self) {
+        let mut pending = self.pending_title.lock().unwrap_or_else(|p| p.into_inner());
         self.committed.store(true, Ordering::Release);
-        let pending = self
-            .pending_title
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
-            .take();
+        let pending = pending.take();
         if let Some(title) = pending {
-            self.set(title);
+            self.publish_title(title);
         }
     }
 
