@@ -1,0 +1,3 @@
+# Catch long functions and deeply nested blocks as actionable refactoring targets.
+excessive-nesting-threshold = 6
+too-many-lines-threshold = 100

@@ -11,6 +11,11 @@ Language test targets run only their own suite.
 Make owns target dependencies and exports settings from `make/config.mk` to the
 maintenance scripts in `tools/`. Keep multi-step shell logic there.
 
+`lint-daemon` treats default Rust and Clippy warnings as errors and explicitly enables
+Clippy's `too_many_lines` and `excessive_nesting` lints. `slopd/clippy.toml` sets
+limits of 100 lines and six nesting levels. Keep lint selection in `make/quality.mk`
+and its thresholds in the daemon config.
+
 The shared C# formatter covers mod production and test sources plus C# benchmark
 sources under `bench/`.
 `make ci` runs this check without the game. The formatter excludes generated client bindings and build output.
