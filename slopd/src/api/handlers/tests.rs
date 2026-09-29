@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    ops::Deref,
+    path::{Path, PathBuf},
+};
 
 use super::super::types::SearchReq;
 use super::{
@@ -8,14 +11,40 @@ use super::{
 use crate::presets::PresetSource;
 use axum::http::StatusCode;
 
-/// Somewhere of our own under the machine's temp dir, cleared on the way in so a run
-/// that died before its cleanup does not poison the next one. No dev-dependency for
-/// this: one directory of empty files is not worth a crate.
-pub(super) fn fixture(tag: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("slopd-browse-{tag}"));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+/// A private, uniquely named fixture directory that removes itself after the test.
+pub(super) struct Fixture(PathBuf);
+
+impl Deref for Fixture {
+    type Target = Path;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Drop for Fixture {
+    fn drop(&mut self) {
+        match std::fs::remove_dir_all(&self.0) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) if std::thread::panicking() => {
+                eprintln!(
+                    "could not remove browse fixture {}: {error}",
+                    self.0.display()
+                );
+            }
+            Err(error) => panic!(
+                "could not remove browse fixture {}: {error}",
+                self.0.display()
+            ),
+        }
+    }
+}
+
+pub(super) fn fixture(tag: &str) -> Fixture {
+    let dir = std::env::temp_dir().join(format!("slopd-browse-{tag}-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(&dir).unwrap();
+    Fixture(dir)
 }
 
 pub(super) fn touch(dir: &Path, name: &str) {
@@ -46,8 +75,6 @@ pub(super) async fn files_are_opt_in() {
     assert_eq!(full.dirs, ["empty", "src"]);
     assert_eq!(full.empty_dirs, ["empty"]);
     assert_eq!(full.files, ["Cargo.toml", "README.md"]);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[tokio::test]
@@ -61,8 +88,6 @@ pub(super) async fn preview_reads_utf8_and_rejects_oversized_files() {
     std::fs::write(&large, vec![b'x'; READ_LIMIT as usize + 1]).unwrap();
     let error = read_preview(&large).await.unwrap_err().to_string();
     assert!(error.contains("preview limit"));
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -111,8 +136,6 @@ pub(super) async fn image_reads_bytes_and_rejects_oversized_files() {
     std::fs::write(&large, vec![0u8; IMAGE_LIMIT as usize + 1]).unwrap();
     let error = read_image_bytes(&large).await.unwrap_err().to_string();
     assert!(error.contains("image") && error.contains("limit"));
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 /// Both lists, and a dot directory is as hidden as a dot file.
@@ -133,8 +156,6 @@ pub(super) async fn dotfiles_are_hidden_until_they_are_asked_for() {
     assert_eq!(all.dirs, [".git", "src"]);
     assert_eq!(all.empty_dirs, [".git", "src"]);
     assert_eq!(all.files, [".gitignore", "main.rs"]);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[tokio::test]
@@ -165,8 +186,6 @@ pub(super) async fn gitignored_entries_are_classified_before_optional_filtering(
     assert_eq!(hidden.gitignored_files, ["ignored.log"]);
     assert!(!hidden.dirs.contains(&"ignored-dir".to_owned()));
     assert!(!hidden.files.contains(&"ignored.log".to_owned()));
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[tokio::test]
@@ -202,8 +221,6 @@ pub(super) async fn large_gitignore_classification_does_not_deadlock() {
     .unwrap();
     assert!(hidden.files.is_empty());
     assert_eq!(hidden.gitignored_files.len(), 500);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[tokio::test]
@@ -222,8 +239,6 @@ pub(super) async fn gitignore_no_match_keeps_the_listing() {
     filter_gitignored(&dir, &mut listing, true).await;
     assert_eq!(listing.files, ["visible.txt"]);
     assert!(listing.gitignored_files.is_empty());
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 /// `DirEntry::file_type` does not follow a symlink. Therefore, without the stat behind it a linked
@@ -243,8 +258,6 @@ pub(super) async fn a_symlinked_directory_is_a_directory() {
     assert_eq!(out.dirs, ["real", "to-dir"]);
     assert_eq!(out.empty_dirs, ["real", "to-dir"]);
     assert_eq!(out.files, ["file.txt", "to-file"]);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 /// Report when the read limit truncates a directory.
@@ -263,8 +276,6 @@ pub(super) async fn a_long_directory_is_cut_short_and_says_so() {
     let whole = list_dir(&dir, true, false, 500).await.unwrap();
     assert_eq!(whole.files.len(), 20);
     assert!(!whole.truncated);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[tokio::test]
@@ -286,9 +297,6 @@ pub(super) async fn exactly_the_limit_is_not_truncated() {
     let exact_dirs = list_dir(&dirs, false, false, 5).await.unwrap();
     assert_eq!(exact_dirs.dirs.len(), 5);
     assert!(!exact_dirs.truncated);
-
-    let _ = std::fs::remove_dir_all(&dir);
-    let _ = std::fs::remove_dir_all(&dirs);
 }
 
 #[test]

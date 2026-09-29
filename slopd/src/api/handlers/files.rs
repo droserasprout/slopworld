@@ -7,8 +7,11 @@ use axum::extract::{Query, State};
 use axum::http::StatusCode;
 
 use serde_json::{json, Value};
-use std::{path::Path, time::Duration};
-use tokio::io::AsyncReadExt;
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
+use tokio::io::{AsyncBufRead, AsyncReadExt};
 use tokio::process::Command;
 
 use super::super::types::*;
@@ -254,26 +257,55 @@ pub(crate) async fn browse(
     }))
 }
 
+#[derive(Clone, Copy)]
+struct ReaderStamp {
+    device: u64,
+    inode: u64,
+    length: u64,
+    mtime: i64,
+    mtime_nsec: i64,
+    ctime: i64,
+    ctime_nsec: i64,
+}
+
+impl ReaderStamp {
+    fn from_metadata(metadata: &std::fs::Metadata) -> Self {
+        use std::os::unix::fs::MetadataExt;
+        Self {
+            device: metadata.dev(),
+            inode: metadata.ino(),
+            length: metadata.len(),
+            mtime: metadata.mtime(),
+            mtime_nsec: metadata.mtime_nsec(),
+            ctime: metadata.ctime(),
+            ctime_nsec: metadata.ctime_nsec(),
+        }
+    }
+
+    fn encode(self) -> String {
+        format!(
+            "{}:{}:{}:{}:{}:{}:{}",
+            self.device,
+            self.inode,
+            self.length,
+            self.mtime,
+            self.mtime_nsec,
+            self.ctime,
+            self.ctime_nsec
+        )
+    }
+}
+
 // Do not infer file deletion from filtered or truncated directory listings.
 // Close a reader only when its path is missing or is not a file.
 // Retry after permission and I/O errors.
 async fn reader_stat(path: &Path) -> std::io::Result<wire::FileStatResult> {
     match tokio::fs::metadata(path).await {
         Ok(metadata) => {
-            use std::os::unix::fs::MetadataExt;
             let is_file = metadata.is_file();
             // Include inode and change time to catch atomic saves and same-size rewrites.
             let stamp = if is_file {
-                format!(
-                    "{}:{}:{}:{}:{}:{}:{}",
-                    metadata.dev(),
-                    metadata.ino(),
-                    metadata.len(),
-                    metadata.mtime(),
-                    metadata.mtime_nsec(),
-                    metadata.ctime(),
-                    metadata.ctime_nsec()
-                )
+                ReaderStamp::from_metadata(&metadata).encode()
             } else {
                 String::new()
             };
@@ -329,6 +361,15 @@ pub(crate) async fn read_file(
 pub(crate) const HIGHLIGHT_LIMIT: usize = READ_LIMIT as usize * 4;
 pub(crate) const HIGHLIGHT_TIMEOUT: Duration = Duration::from_secs(3);
 
+/// Own the temporary input even when the request future is cancelled during a write or process run.
+struct HighlightTempFile(PathBuf);
+
+impl Drop for HighlightTempFile {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
 pub(crate) async fn highlight(
     State(m): State<Mgr>,
     Proto(q): Proto<wire::HighlightReq>,
@@ -369,10 +410,11 @@ async fn highlight_text(command: &str, language: &str, text: &str) -> anyhow::Re
         &extension
     };
     let path = dir.join(format!("{}.{}", uuid::Uuid::new_v4(), extension));
-    tokio::fs::write(&path, text).await?;
+    let cleanup = HighlightTempFile(path);
+    tokio::fs::write(&cleanup.0, text).await?;
 
-    let result = run_highlighter(command, &path).await;
-    let _ = tokio::fs::remove_file(&path).await;
+    let result = run_highlighter(command, &cleanup.0).await;
+    drop(cleanup);
     result
 }
 
@@ -639,6 +681,8 @@ pub(crate) async fn remove_file(Proto(q): Proto<wire::FileReq>) -> ApiResult<wir
 }
 
 pub(crate) const SEARCH_LIMIT: usize = 200;
+/// Bound memory used for one ripgrep JSON event, including escaped match text.
+pub(crate) const SEARCH_RECORD_LIMIT: usize = 64 * 1024;
 // `rg --max-columns` limits text output, but JSON matches contain complete lines.
 // Generated or minified files can produce sidebar rows with tens of thousands of characters.
 // Limit preview length. Center the preview near the first match when space permits.
@@ -709,16 +753,58 @@ pub(crate) fn build_rg_command(path: &std::path::Path, q: &SearchReq) -> tokio::
     cmd
 }
 
+enum SearchRecord {
+    Line(Vec<u8>),
+    TooLarge,
+}
+
+/// Read one newline-delimited record without retaining more than `limit` bytes.
+/// An oversized record is left unread so the caller can stop its child immediately.
+async fn read_search_record<R: AsyncBufRead + Unpin>(
+    reader: &mut R,
+    limit: usize,
+) -> std::io::Result<Option<SearchRecord>> {
+    use tokio::io::AsyncBufReadExt;
+
+    let mut record = Vec::with_capacity(limit.min(4096));
+    loop {
+        let available = reader.fill_buf().await?;
+        if available.is_empty() {
+            return Ok(if record.is_empty() {
+                None
+            } else {
+                Some(SearchRecord::Line(record))
+            });
+        }
+
+        let newline = available.iter().position(|byte| *byte == b'\n');
+        let count = newline.map_or(available.len(), |index| index + 1);
+        if record.len().saturating_add(count) > limit {
+            return Ok(Some(SearchRecord::TooLarge));
+        }
+        record.extend_from_slice(&available[..count]);
+        reader.consume(count);
+        if newline.is_some() {
+            return Ok(Some(SearchRecord::Line(record)));
+        }
+    }
+}
+
+async fn stop_search_child(child: &mut tokio::process::Child) {
+    let _ = child.kill().await;
+    let _ = child.wait().await;
+}
+
 /// Search one project without sending patterns or paths through a shell.
 /// `rg --json` distinguishes filenames from matching text.
-/// Read one line at a time to stop the process when the response reaches the UI limit.
+/// Bound each record while reading and stop at the UI or record limit.
 /// This bounds the memory needed for repository search results.
 pub(crate) async fn search(
     State(_m): State<Mgr>,
     Query(q): Query<SearchReq>,
 ) -> ApiResult<wire::SearchResult> {
     let _perf = crate::perf::timer("http-search");
-    use tokio::io::{AsyncBufReadExt, BufReader};
+    use tokio::io::BufReader;
 
     if q.path.is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "A path is required."));
@@ -736,22 +822,38 @@ pub(crate) async fn search(
             format!("The daemon could not start ripgrep: {e}"),
         )
     })?;
-    let stdout = child.stdout.take().ok_or_else(|| {
-        err(
+    let Some(stdout) = child.stdout.take() else {
+        stop_search_child(&mut child).await;
+        return Err(err(
             StatusCode::INTERNAL_SERVER_ERROR,
             "The daemon could not read ripgrep output.",
-        )
-    })?;
-    let mut lines = BufReader::new(stdout).lines();
+        ));
+    };
+    let mut reader = BufReader::new(stdout);
     let mut matches = Vec::new();
     let mut truncated = false;
 
-    while let Some(line) = lines
-        .next_line()
-        .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?
-    {
-        let Ok(v) = serde_json::from_str::<Value>(&line) else {
+    loop {
+        let record = match read_search_record(&mut reader, SEARCH_RECORD_LIMIT).await {
+            Ok(record) => record,
+            Err(error) => {
+                stop_search_child(&mut child).await;
+                return Err(err(StatusCode::BAD_REQUEST, error));
+            }
+        };
+        let Some(record) = record else {
+            break;
+        };
+        let record = match record {
+            SearchRecord::Line(record) => record,
+            SearchRecord::TooLarge => {
+                // Return the useful prefix and report that the unprocessed search is incomplete.
+                truncated = true;
+                stop_search_child(&mut child).await;
+                break;
+            }
+        };
+        let Ok(v) = serde_json::from_slice::<Value>(&record) else {
             continue;
         };
         if v["type"] != "match" {
@@ -759,7 +861,7 @@ pub(crate) async fn search(
         }
         if matches.len() >= limit {
             truncated = true;
-            let _ = child.kill().await;
+            stop_search_child(&mut child).await;
             break;
         }
 
