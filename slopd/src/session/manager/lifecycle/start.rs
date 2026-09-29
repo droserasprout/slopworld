@@ -75,7 +75,14 @@ impl Manager {
         }
         // Reuse terminal dimensions and a valid remembered host directory.
         let (cols, rows, host, host_path) = match self.live.read().await.get(name) {
-            Some(live) => (live.cols, live.rows, live.host, live.host_path.clone()),
+            Some(live) => {
+                if cfg.session(name).is_some()
+                    && (live.host || live.cfg.state_id != session.state_id)
+                {
+                    bail!("Session {name} has an incompatible live identity; reconcile it before starting.");
+                }
+                (live.cols, live.rows, live.host, live.host_path.clone())
+            }
             None => (Live::BOOT_COLS, Live::BOOT_ROWS, false, String::new()),
         };
         let dir = if host && !host_path.trim().is_empty() {

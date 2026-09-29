@@ -162,7 +162,7 @@ token = \"s3cr3t\"
 name = \"x\"
 token = \"not-a-daemon-token\"
 ";
-    let out = redact_token_text(text);
+    let out = redact_token_text(text).unwrap();
     assert!(out.contains(&format!("token = \"{TOKEN_REDACTED}\"")));
     assert!(!out.contains("s3cr3t"));
     assert!(out.contains("# keep me"));
@@ -171,7 +171,28 @@ token = \"not-a-daemon-token\"
 
     // Preserve an empty token instead of inserting the redaction sentinel.
     let empty = "[daemon]\ntoken = \"\"\n";
-    assert_eq!(redact_token_text(empty), empty);
+    assert_eq!(redact_token_text(empty).unwrap(), empty);
+}
+
+#[test]
+fn redacting_quoted_and_multiline_tokens_preserves_parseable_text() {
+    for text in [
+        "[daemon]\n\"token\" = 'secret' # keep\n",
+        "[daemon]\ntoken = \"\"\"first\nsecond\"\"\"\n",
+        "daemon = { token = 'secret', bind = '127.0.0.1:7717' }\n",
+    ] {
+        let redacted = redact_token_text(text).unwrap();
+        assert!(
+            !redacted.contains("secret")
+                && !redacted.contains("first")
+                && !redacted.contains("second")
+        );
+        let value: toml::Value = toml::from_str(&redacted).unwrap();
+        assert_eq!(value["daemon"]["token"].as_str(), Some(TOKEN_REDACTED));
+        if text.contains("# keep") {
+            assert!(redacted.contains("# keep"));
+        }
+    }
 }
 
 /// Preserve the client's redaction sentinel during parsing.

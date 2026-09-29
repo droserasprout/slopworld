@@ -88,5 +88,30 @@ fn installation_cannot_target_the_source_tree() {
     let source = fs::canonicalize(source).unwrap();
     let destination = fs::canonicalize(destination).unwrap();
     assert!(ensure_non_overlapping(&source, &destination).is_err());
+    let nested_source = destination.join("source");
+    fs::create_dir_all(&nested_source).unwrap();
+    fs::write(nested_source.join("marker"), "keep").unwrap();
+    assert!(install(&nested_source, &source.join("Mods")).is_err());
+    assert_eq!(
+        fs::read_to_string(nested_source.join("marker")).unwrap(),
+        "keep"
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn failed_final_install_restores_the_previous_mod() {
+    let root = scratch("rollback");
+    let destination = root.join(MOD_NAME);
+    fs::create_dir(&destination).unwrap();
+    fs::write(destination.join("marker"), "old").unwrap();
+    let backup = root.join(".backup");
+    let missing_staging = root.join(".missing-staging");
+    assert!(super::commit_install(&missing_staging, &destination, &backup).is_err());
+    assert_eq!(
+        fs::read_to_string(destination.join("marker")).unwrap(),
+        "old"
+    );
+    assert!(!backup.exists());
     fs::remove_dir_all(root).unwrap();
 }

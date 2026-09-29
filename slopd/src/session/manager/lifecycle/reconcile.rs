@@ -28,14 +28,33 @@ impl ConfigReconciler {
 impl Manager {
     /// Detach removed configured rows, preserving temporary sessions and saved host tabs.
     pub(in crate::session::manager) async fn prune_removed(self: &Arc<Self>, cfg: &Config) {
+        let names: Vec<String> = {
+            let live = self.live.read().await;
+            live.iter()
+                .filter(|(name, row)| !keep_live_session(cfg, name, row))
+                .map(|(name, _)| name.clone())
+                .collect()
+        };
+        let mut ready = Vec::new();
+        for name in names {
+            // Replacing a host or a different durable agent identity requires the
+            // old process to end before a new agent can be planned or adopted.
+            let incompatible = {
+                let live = self.live.read().await;
+                live.get(&name)
+                    .is_some_and(|row| identity_conflict(cfg, &name, row))
+            };
+            if incompatible && self.tmux.exists(&name).await {
+                if let Err(error) = self.tmux.kill(&name).await {
+                    tracing::error!("cannot retire incompatible session {name}: {error:#}");
+                    continue;
+                }
+            }
+            ready.push(name);
+        }
         let mut plans = {
             let mut live = self.live.write().await;
-            let names: Vec<String> = live
-                .iter()
-                .filter(|(name, l)| !keep_live_session(cfg, name, l))
-                .map(|(name, _)| name.clone())
-                .collect();
-            names
+            ready
                 .iter()
                 .filter_map(|name| {
                     tracing::info!("agent {name} is gone from the config, ending its reader");
@@ -58,11 +77,15 @@ impl Manager {
         let mut live = self.live.write().await;
         for s in &cfg.sessions {
             let title = TitleCapture::restored(self.title_cache.latest(&s.name));
-            live.entry(s.name.clone())
-                .and_modify(|l| {
-                    l.cfg = s.clone();
-                })
-                .or_insert(Live::new(s.clone(), title));
+            if let Some(row) = live.get_mut(&s.name) {
+                if identity_conflict(cfg, &s.name, row) {
+                    tracing::error!("cannot reuse incompatible live identity for {}", s.name);
+                    continue;
+                }
+                row.cfg = s.clone();
+            } else {
+                live.insert(s.name.clone(), Live::new(s.clone(), title));
+            }
         }
     }
 
@@ -146,7 +169,7 @@ impl Manager {
 /// Configured agents and temporary rows survive; saved host tabs must remain in the catalog.
 fn keep_live_session(cfg: &Config, name: &str, live: &Live) -> bool {
     if cfg.session(name).is_some() {
-        return true;
+        return !identity_conflict(cfg, name, live);
     }
     if !live.ephemeral {
         return false;
@@ -155,6 +178,11 @@ fn keep_live_session(cfg: &Config, name: &str, live: &Live) -> bool {
         return true;
     }
     live.host && cfg.host_terminals.iter().any(|tab| tab.name == name)
+}
+
+fn identity_conflict(cfg: &Config, name: &str, live: &Live) -> bool {
+    cfg.session(name)
+        .is_some_and(|session| live.host || live.cfg.state_id != session.state_id)
 }
 
 #[cfg(test)]

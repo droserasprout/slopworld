@@ -139,6 +139,7 @@ async fn host_preparation_prefers_remembered_directory_and_falls_back_if_removed
         .to_string_lossy()
         .into_owned();
     let remembered = live.host_path.clone();
+    manager.cfg.write().await.sessions.clear();
     manager.live.write().await.insert("agent".into(), live);
     let plan = manager.prepare_start("agent").await.unwrap();
     assert!(plan.host);
@@ -247,8 +248,9 @@ async fn host_start_rejects_duplicate_without_replacing_the_running_pane() {
     let mut row = Live::new(cfg.sessions[0].clone(), TitleCapture::default());
     row.host = true;
     row.run_id = 7;
+    row.cfg.cmd = Some("/bin/sleep 60".into());
     manager.live.write().await.insert("agent".into(), row);
-    manager.cfg.write().await.sessions[0].cmd = Some("/bin/sleep 60".into());
+    manager.cfg.write().await.sessions.clear();
 
     let result: Result<()> = async {
         manager.start("agent").await?;
@@ -308,4 +310,24 @@ async fn failed_worker_start_removes_owned_state_and_revokes_credentials() {
     // Cleanup can repeat after a partially completed failure path.
     manager.cleanup_failed_start("agent", true).await;
     std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+}
+
+#[tokio::test]
+async fn start_rejects_retained_incompatible_identities_before_launch() {
+    for host in [true, false] {
+        let manager = manager_for_start();
+        let cfg = manager.config().await;
+        let mut live = Live::new(cfg.sessions[0].clone(), TitleCapture::default());
+        live.host = host;
+        if !host {
+            live.cfg.state_id = uuid::Uuid::new_v4().to_string();
+        }
+        manager.live.write().await.insert("agent".into(), live);
+        let error = manager.prepare_start("agent").await.err().unwrap();
+        assert!(
+            error.to_string().contains("incompatible live identity"),
+            "{error:#}"
+        );
+        assert!(!manager.tmux.exists("agent").await);
+    }
 }

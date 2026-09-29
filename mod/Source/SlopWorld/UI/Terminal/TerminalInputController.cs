@@ -396,8 +396,7 @@ namespace SlopWorld
 
             _panel.JumpToLive();
             _panel.Flush();
-            SessionHub.Instance.Terminal.SendKeys(_panel.SessionName, new[] { key }, false,
-                null);
+            SessionHub.Instance.Terminal.SendKeys(_panel.SessionName, new[] { key }, false);
             e.Use();
             return true;
         }

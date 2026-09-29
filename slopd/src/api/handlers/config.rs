@@ -20,11 +20,13 @@ pub(crate) async fn get_config(State(m): State<Mgr>) -> ApiResult<wire::ConfigRe
     // Writing the sentinel preserves the token. Authentication still protects this endpoint.
     // Redaction prevents the raw editor and other configuration readers from displaying the secret.
     let cfg = m.config().await;
+    let redacted_text = crate::config::redact_token_text(&text)
+        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
     let factory = crate::config::Config::default();
     let caps = crate::runtime::capabilities();
     reply(json!({
         "path": m.cfg_path,
-        "text": crate::config::redact_token_text(&text),
+        "text": redacted_text,
         "values": cfg.redacted(),
         "metadata": {
             // Factory defaults are deliberately a response-only read model. They are not

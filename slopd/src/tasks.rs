@@ -134,6 +134,7 @@ pub struct Tasks {
     journal: PathBuf,
     file: File,
     sequence: u64,
+    journal_poisoned: bool,
 }
 
 impl Tasks {
@@ -163,7 +164,15 @@ impl Tasks {
         // An incomplete final line can follow an interrupted write. A new snapshot
         // changes generation before journal cleanup, so old updates cannot resurrect
         // removed tasks after a crash between those two operations.
-        if let Ok(text) = fs::read_to_string(&journal) {
+        let journal_text = match fs::read_to_string(&journal) {
+            Ok(text) => Some(text),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) => {
+                return Err(error)
+                    .with_context(|| format!("reading task journal {}", journal.display()))
+            }
+        };
+        if let Some(text) = journal_text {
             let mut valid_len = 0usize;
             for line in text.split_inclusive('\n') {
                 if !line.ends_with('\n') {
@@ -204,16 +213,11 @@ impl Tasks {
                 }
             }
             if valid_len < text.len() {
-                if let Err(error) = fs::OpenOptions::new()
+                fs::OpenOptions::new()
                     .write(true)
                     .open(&journal)
                     .and_then(|file| file.set_len(valid_len as u64))
-                {
-                    tracing::warn!(
-                        "could not truncate task journal {}: {error}",
-                        journal.display()
-                    );
-                }
+                    .with_context(|| format!("repairing task journal {}", journal.display()))?;
             }
         }
         let sequence = file
@@ -228,6 +232,7 @@ impl Tasks {
             journal,
             file,
             sequence,
+            journal_poisoned: false,
         };
         Ok(tasks)
     }
@@ -546,6 +551,9 @@ impl Tasks {
     }
 
     fn append_entry(&mut self, entry: JournalEntry) -> Result<()> {
+        if self.journal_poisoned {
+            bail!("task journal needs repair before further appends");
+        }
         let mut line = serde_json::to_vec(&entry)?;
         line.push(b'\n');
         let open = || {
@@ -566,7 +574,11 @@ impl Tasks {
         };
         let before = file.metadata()?.len();
         if let Err(error) = file.write_all(&line) {
-            let _ = file.set_len(before);
+            if let Err(rollback) = file.set_len(before) {
+                self.journal_poisoned = true;
+                return Err(error)
+                    .context(format!("task journal rollback also failed: {rollback}"));
+            }
             return Err(error.into());
         }
         if before + line.len() as u64 >= MAX_JOURNAL_BYTES {
@@ -592,8 +604,14 @@ impl Tasks {
         let text = toml::to_string_pretty(&candidate)?;
         crate::paths::write_private_toml(&self.path, &text)?;
         self.file = candidate;
-        if let Err(error) = fs::remove_file(&self.journal) {
-            if error.kind() != std::io::ErrorKind::NotFound {
+        match fs::remove_file(&self.journal) {
+            Ok(()) => self.journal_poisoned = false,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                self.journal_poisoned = false;
+            }
+            Err(error) => {
+                // A committed snapshot does not repair a damaged journal suffix.
+                // Preserve poisoning until cleanup succeeds; snapshot commits remain valid.
                 tracing::warn!(
                     "could not clear task journal {}: {error}",
                     self.journal.display()

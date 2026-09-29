@@ -508,6 +508,15 @@ pub(crate) fn file_path(path: &str) -> anyhow::Result<std::path::PathBuf> {
     if !path.is_absolute() {
         bail!("Use an absolute path.");
     }
+    use std::os::unix::ffi::OsStrExt;
+    if path
+        .as_os_str()
+        .as_bytes()
+        .split(|byte| *byte == b'/')
+        .any(|part| part == b"." || part == b"..")
+    {
+        bail!("Use a path without . or .. components.");
+    }
     Ok(path)
 }
 
@@ -590,10 +599,17 @@ pub(crate) async fn rename_file(Proto(q): Proto<wire::FileReq>) -> ApiResult<wir
             format!("A path already exists: {}.", target.display()),
         ));
     }
-    tokio::fs::rename(&source, &target)
-        .await
-        .with_context(|| format!("The daemon could not rename {}.", source.display()))
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    // The earlier existence check is only for a friendly message. The kernel
+    // must enforce no replacement at commit time because another writer can race it.
+    nix::fcntl::renameat2(
+        None,
+        &source,
+        None,
+        &target,
+        nix::fcntl::RenameFlags::RENAME_NOREPLACE,
+    )
+    .with_context(|| format!("The daemon could not rename {}.", source.display()))
+    .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     reply(json!({ "ok": true }))
 }
 

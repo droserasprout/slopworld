@@ -47,6 +47,8 @@ assembly's build mode from its path.
 `mod`, `test-mod`, and `lint-mod` depend on it.
 
 Mod installation stages and replaces only its destination through the Rust installer.
+The installer rejects either source/destination ancestry overlap and keeps an owned backup
+until the staged replacement commits; a failed commit restores the previous installation.
 Adding a shipped top-level directory requires updating
 `slopd/src/bin/slopworld/mod_install.rs`, not only build output.
 

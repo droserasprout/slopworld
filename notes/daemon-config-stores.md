@@ -70,13 +70,22 @@ boundary rather than session broadcasts.
 
 Config and template loads read the current schema without rewriting files. API writes validate
 current request fields.
+When the main config is missing, load existing library files before creating its default.
+Typed saves reject unreadable or malformed existing config instead of replacing it.
+Library replacement writes new entries before removing retired files.
 User-level catalog definitions remain editable through their owning API.
 
 Configuration and personal-template stores use `paths::write_atomic_async` for owner-only
 `0600` replacement without blocking Tokio workers. Preset catalog writes use the synchronous
 `paths::write_atomic` helper and retain their existing umask-controlled permissions.
+Both writers exclusively create unique sibling files; private writes set `0600` before
+content is written. Async writes flush before rename to catch background write errors.
+Interrupted saves may leave siblings, but leftovers neither block retries nor get overwritten.
 Preset HTTP mutations run that synchronous work on a blocking executor. Both helpers remove their
 temporary file on write, permission, or rename failure.
+Endpoint descriptors use the same private atomic writer, so token bytes never appear in a
+temporary file with default permissions. Raw editor text is parsed before token redaction;
+invalid TOML produces an error rather than exposing unredacted text.
 
 Preset responses intentionally keep an explicit `source` projection. The current response shape
 is a public contract, so automatically flattening future serialized fields would broaden it
