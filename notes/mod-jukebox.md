@@ -24,9 +24,12 @@ during probing is published only after the output commits. Transport cancellatio
 a terminal I/O error.
 `Interrupted` tells readers to retry, which makes retired feeders loop.
 
-Decoder/source generations guard late playback and metadata. A stale title is still stale
-state even if the corresponding audio was discarded. [Likes and recognition](mod-jukebox-library.md)
-cover the other side of that identity boundary.
+The audio worker receives an explicit shutdown when the final public handle drops; opener
+completion senders do not extend the player lifetime. State and title publication holds the
+request identity boundary through mutation, while opening and output commit stay outside it.
+Opener thread creation failures return through the same identity-checked worker path as open
+failures. A stale title is still stale state even if the corresponding audio was discarded.
+[Likes and recognition](mod-jukebox-library.md) cover the other side of that identity boundary.
 
 `manager/music.rs` owns source selection, recovery and the transition gate for both
 HTTP and WebSocket commands. Transport handlers authorize and delegate; they do not
