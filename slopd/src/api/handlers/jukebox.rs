@@ -52,7 +52,7 @@ pub(crate) async fn delete_jukebox_preset(
     let deleted = tokio::task::spawn_blocking(move || crate::jukebox::delete_user(&id))
         .await
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?;
-    deleted.map_err(|error| err(StatusCode::NOT_FOUND, error))?;
+    deleted.map_err(jukebox_error)?;
     m.reload_jukebox_if_changed().await;
     reply(json!({ "ok": true }))
 }
@@ -70,7 +70,7 @@ async fn save(m: Mgr, body: wire::Station, original_id: Option<String>) -> ApiRe
     tokio::task::spawn_blocking(move || crate::jukebox::save_user(station))
         .await
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?
-        .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
+        .map_err(jukebox_error)?;
     m.reload_jukebox_if_changed().await;
     reply(json!({ "ok": true }))
 }
@@ -98,6 +98,15 @@ fn station_from_wire(
             .collect(),
     };
     Ok(station)
+}
+
+fn jukebox_error(error: crate::jukebox::JukeboxError) -> super::super::protobuf::ApiError {
+    let status = match &error {
+        crate::jukebox::JukeboxError::Missing(_) => StatusCode::NOT_FOUND,
+        crate::jukebox::JukeboxError::Invalid(_) => StatusCode::BAD_REQUEST,
+        crate::jukebox::JukeboxError::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
+    };
+    err(status, error)
 }
 
 #[cfg(test)]

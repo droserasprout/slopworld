@@ -5,6 +5,7 @@
 presets. Source visibility is a mod preference.
 The daemon owns preset contents and stream URLs. Settings edits presets through root-only daemon routes rather than reading `~/.config`
 from the game process. See the book for catalog configuration.
+The preset editor reports missing stations as 404, invalid definitions as 400, and storage failures as 500.
 
 The mod shows Spotify only while the native daemon reports an executable `ncspot`.
 Otherwise, it disables Spotify in Audio settings and omits it from the jukebox menu. A saved Spotify selection falls back
