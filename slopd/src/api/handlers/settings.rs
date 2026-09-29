@@ -84,7 +84,13 @@ pub(crate) async fn settings_preview(
     let mut result = cfg
         .settings_preview(&session, &project, req.recipe)
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    result["definitions"] = definitions;
+    let Some(fields) = result.as_object_mut() else {
+        return Err(err(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Settings preview did not produce an object.",
+        ));
+    };
+    fields.insert("definitions".into(), definitions);
     reply(result)
 }
 

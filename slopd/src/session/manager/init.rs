@@ -8,7 +8,7 @@ use crate::paths::disk_mtime;
 
 impl Manager {
     /// Load stores, recover worktrees, and reconcile configured sessions.
-    pub async fn new(cfg: Config, cfg_path: PathBuf) -> Arc<Self> {
+    pub async fn new(cfg: Config, cfg_path: PathBuf) -> Result<Arc<Self>> {
         let (events, _) = broadcast::channel(256);
 
         // Catalog stamps seed the maintenance reload checks.
@@ -20,14 +20,14 @@ impl Manager {
 
         // Load persisted stores before constructing shared state.
         let grants = crate::grant::Grants::load(&cfg_path)
-            .unwrap_or_else(|error| panic!("grant store for {}: {error:#}", cfg_path.display()));
+            .with_context(|| format!("loading grant store for {}", cfg_path.display()))?;
         let tasks = crate::tasks::Tasks::load(&cfg_path)
-            .unwrap_or_else(|e| panic!("task store {}: {e:#}", cfg_path.display()));
+            .with_context(|| format!("loading task store for {}", cfg_path.display()))?;
         let title_cache = crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path));
         let template_path = crate::session::AgentTemplateStore::path_for(&cfg_path);
         let templates = crate::session::AgentTemplateStore::load(&template_path)
             .await
-            .unwrap_or_else(|e| panic!("agent template store {}: {e:#}", template_path.display()));
+            .with_context(|| format!("loading agent template store {}", template_path.display()))?;
         let activity_cache =
             crate::activity::ActivityCache::load(crate::activity::cache_path(&cfg_path));
 
@@ -102,7 +102,7 @@ impl Manager {
 
         m.recover_music().await;
 
-        m
+        Ok(m)
     }
 }
 

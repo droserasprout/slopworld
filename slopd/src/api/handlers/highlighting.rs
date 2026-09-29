@@ -45,7 +45,7 @@ pub(super) fn themed_command(command: &str, requested_engine: &str, theme: &str)
         "highlight" => format!("--style={theme}"),
         "pygments" => format!("style={theme}"),
         "bat" => format!("--theme={theme}"),
-        _ => unreachable!(),
+        _ => bail!("The highlighter changed. Reload its appearance settings."),
     };
     let at = argv
         .iter()
@@ -84,9 +84,20 @@ pub(crate) async fn highlight_themes(
         "highlight" => &["--list-scripts=themes"],
         "pygments" => &["-L", "styles", "--json"],
         "bat" => &["--list-themes", "--color=never"],
-        _ => unreachable!(),
+        _ => {
+            return Err(err(
+                StatusCode::BAD_REQUEST,
+                "Unsupported syntax highlighter.",
+            ))
+        }
     };
-    let mut command = vec![argv[0].clone()];
+    let Some(program) = argv.first() else {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "The highlighter command is empty.",
+        ));
+    };
+    let mut command = vec![program.clone()];
     command.extend(args.iter().map(|s| (*s).to_owned()));
     let output = super::files::run_highlighter_argv(&command)
         .await
@@ -99,8 +110,9 @@ fn parse_themes(kind: &str, output: &str) -> Result<Vec<String>> {
     let mut themes: Vec<String> = match kind {
         "pygments" => {
             let value: serde_json::Value = serde_json::from_str(output)?;
-            value["styles"]
-                .as_object()
+            value
+                .get("styles")
+                .and_then(serde_json::Value::as_object)
                 .ok_or_else(|| anyhow::anyhow!("Invalid Pygments theme catalog."))?
                 .keys()
                 .cloned()
