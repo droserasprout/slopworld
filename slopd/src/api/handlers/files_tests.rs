@@ -145,18 +145,33 @@ async fn invalid_names_cannot_create_or_move_entries() {
     let fixture = Fixture::new();
     let source = fixture.0.join("source");
     std::fs::write(&source, "unchanged").unwrap();
-    for name in [
-        "",
-        " \t ",
-        ".",
-        "..",
-        "../escape",
-        "child/file",
-        "child\\file",
-        "bad\0name",
+    for (name, validation) in [
+        ("", "Enter a name other than . or .."),
+        (" \t ", "Enter a name other than . or .."),
+        (".", "Enter a name other than . or .."),
+        ("..", "Enter a name other than . or .."),
+        (
+            "../escape",
+            "Enter one file or folder name without path separators or null characters.",
+        ),
+        (
+            "child/file",
+            "Enter one file or folder name without path separators or null characters.",
+        ),
+        (
+            "child\\file",
+            "Enter one file or folder name without path separators or null characters.",
+        ),
+        (
+            "bad\0name",
+            "Enter one file or folder name without path separators or null characters.",
+        ),
     ] {
-        rejected(create_file(request(&fixture.0, name, "file")).await, "name");
-        rejected(rename_file(request(&source, name, "")).await, "name");
+        rejected(
+            create_file(request(&fixture.0, name, "file")).await,
+            validation,
+        );
+        rejected(rename_file(request(&source, name, "")).await, validation);
         assert_eq!(std::fs::read(&source).unwrap(), b"unchanged");
         assert_eq!(std::fs::read_dir(&fixture.0).unwrap().count(), 1);
     }
