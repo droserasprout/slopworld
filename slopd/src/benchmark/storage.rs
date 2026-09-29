@@ -2,7 +2,7 @@
 //! tmux server, or user configuration is opened. Filesystem timings include atomic replacement
 //! on the temporary filesystem, not fsync or a cold-disk guarantee.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use serde::Serialize;
@@ -10,6 +10,16 @@ use serde::Serialize;
 use super::measure;
 use crate::session::State;
 use crate::tasks::{Status, Task, Tasks};
+
+#[derive(Serialize)]
+struct TaskFixture {
+    tasks: Vec<Task>,
+}
+
+#[derive(Serialize)]
+struct TaskFixtureRef<'a> {
+    tasks: &'a [Task],
+}
 
 struct Scratch(PathBuf);
 
@@ -32,114 +42,114 @@ pub(super) fn run() -> Result<()> {
 }
 
 fn benchmark_tasks(scratch: &Scratch) -> Result<()> {
-    #[derive(Serialize)]
-    struct Fixture {
-        tasks: Vec<Task>,
-    }
-
-    #[derive(Serialize)]
-    struct FixtureRef<'a> {
-        tasks: &'a [Task],
-    }
     let config = scratch.0.join("config.toml");
     for count in [10, 100, 1_000] {
-        // Seed in one write, outside measurement, so setup is not itself quadratic.
-        let fixture = Fixture {
-            tasks: (0..count)
-                .map(|index| Task {
-                    from_id: crate::tasks::HOST.into(),
-                    to_id: if index % 10 == 0 { "worker" } else { "other" }.into(),
-                    id: format!("bench-{index:x}"),
-                    from: crate::tasks::HOST.into(),
-                    to: if index % 10 == 0 { "worker" } else { "other" }.into(),
-                    body: "x".repeat(1_024),
-                    status: Status::Working,
-                    note: None,
-                    summary: None,
-                    created_ms: 1,
-                    updated_ms: 1,
-                    worker: None,
-                })
-                .collect(),
-        };
-        std::fs::write(
-            config.with_file_name("tasks.toml"),
-            toml::to_string_pretty(&fixture)?,
-        )?;
-        let _ = std::fs::remove_file(config.with_file_name("tasks.journal"));
-        let snapshot = std::fs::read(config.with_file_name("tasks.toml"))?;
-        let mut tasks = Tasks::load(&config)?;
-        assert_eq!(tasks.all().len(), count);
-        measure(&format!("task list clone {count} records"), |_| {
-            std::hint::black_box(tasks.all()).len()
-        });
-        measure(&format!("task visible 10 percent {count} records"), |_| {
-            std::hint::black_box(tasks.visible("worker")).len()
-        });
-        measure_prepared(
-            &format!("task create journal {count} records"),
-            || {
-                std::fs::write(config.with_file_name("tasks.toml"), &snapshot).unwrap();
-                let _ = std::fs::remove_file(config.with_file_name("tasks.journal"));
-                Tasks::load(&config).unwrap()
-            },
-            |tasks| {
-                tasks
-                    .create_owned(
-                        crate::tasks::Participant {
-                            name: "host".into(),
-                            identity: "host".into(),
-                        },
-                        crate::tasks::Participant {
-                            name: "worker".into(),
-                            identity: "worker".into(),
-                        },
-                        "x".repeat(1024),
-                        None,
-                    )
-                    .unwrap();
-            },
-        );
-        measure_prepared(
-            &format!("task create snapshot reference {count} records"),
-            || fixture.tasks.clone(),
-            |tasks| {
-                let mut task = tasks[0].clone();
-                task.id = "new-task".into();
-                tasks.push(task);
-                crate::paths::write_private_toml(
-                    &config.with_file_name("reference.toml"),
-                    &toml::to_string_pretty(&FixtureRef { tasks }).unwrap(),
-                )
-                .unwrap();
-            },
-        );
-        // Restore the fixture after the independent creation probes.
-        std::fs::write(config.with_file_name("tasks.toml"), &snapshot)?;
-        let _ = std::fs::remove_file(config.with_file_name("tasks.journal"));
-        measure(&format!("task update+save {count} records"), |sample| {
-            // Update the first record: history serialization dominates without a long lookup.
-            tasks
-                .update(
-                    "worker",
-                    "bench-0",
-                    Status::Working,
-                    Some(format!("progress {sample}")),
-                )
-                .expect("benchmark task update")
-                .body
-                .len()
-        });
+        benchmark_task_size(&config, count)?;
     }
-    let initial = Tasks::load(&config)?;
+    benchmark_task_restart(&config)
+}
+
+fn benchmark_task_size(config: &Path, count: usize) -> Result<()> {
+    // Seed in one write, outside measurement, so setup is not itself quadratic.
+    let fixture = TaskFixture {
+        tasks: (0..count)
+            .map(|index| Task {
+                from_id: crate::tasks::HOST.into(),
+                to_id: if index % 10 == 0 { "worker" } else { "other" }.into(),
+                id: format!("bench-{index:x}"),
+                from: crate::tasks::HOST.into(),
+                to: if index % 10 == 0 { "worker" } else { "other" }.into(),
+                body: "x".repeat(1_024),
+                status: Status::Working,
+                note: None,
+                summary: None,
+                created_ms: 1,
+                updated_ms: 1,
+                worker: None,
+            })
+            .collect(),
+    };
     std::fs::write(
         config.with_file_name("tasks.toml"),
-        toml::to_string(&Fixture {
+        toml::to_string_pretty(&fixture)?,
+    )?;
+    let _ = std::fs::remove_file(config.with_file_name("tasks.journal"));
+    let snapshot = std::fs::read(config.with_file_name("tasks.toml"))?;
+    let mut tasks = Tasks::load(config)?;
+    assert_eq!(tasks.all().len(), count);
+    measure(&format!("task list clone {count} records"), |_| {
+        std::hint::black_box(tasks.all()).len()
+    });
+    measure(&format!("task visible 10 percent {count} records"), |_| {
+        std::hint::black_box(tasks.visible("worker")).len()
+    });
+    measure_prepared(
+        &format!("task create journal {count} records"),
+        || {
+            std::fs::write(config.with_file_name("tasks.toml"), &snapshot).unwrap();
+            let _ = std::fs::remove_file(config.with_file_name("tasks.journal"));
+            Tasks::load(config).unwrap()
+        },
+        |tasks| {
+            tasks
+                .create_owned(
+                    crate::tasks::Participant {
+                        name: "host".into(),
+                        identity: "host".into(),
+                    },
+                    crate::tasks::Participant {
+                        name: "worker".into(),
+                        identity: "worker".into(),
+                    },
+                    "x".repeat(1024),
+                    None,
+                )
+                .unwrap();
+        },
+    );
+    measure_prepared(
+        &format!("task create snapshot reference {count} records"),
+        || fixture.tasks.clone(),
+        |tasks| {
+            let mut task = tasks[0].clone();
+            task.id = "new-task".into();
+            tasks.push(task);
+            crate::paths::write_private_toml(
+                &config.with_file_name("reference.toml"),
+                &toml::to_string_pretty(&TaskFixtureRef { tasks }).unwrap(),
+            )
+            .unwrap();
+        },
+    );
+    // Restore the fixture after the independent creation probes.
+    std::fs::write(config.with_file_name("tasks.toml"), &snapshot)?;
+    let _ = std::fs::remove_file(config.with_file_name("tasks.journal"));
+    measure(&format!("task update+save {count} records"), |sample| {
+        // Update the first record: history serialization dominates without a long lookup.
+        tasks
+            .update(
+                "worker",
+                "bench-0",
+                Status::Working,
+                Some(format!("progress {sample}")),
+            )
+            .expect("benchmark task update")
+            .body
+            .len()
+    });
+    Ok(())
+}
+
+fn benchmark_task_restart(config: &Path) -> Result<()> {
+    let initial = Tasks::load(config)?;
+    std::fs::write(
+        config.with_file_name("tasks.toml"),
+        toml::to_string(&TaskFixture {
             tasks: initial.all(),
         })?,
     )?;
     let _ = std::fs::remove_file(config.with_file_name("tasks.journal"));
-    let mut tasks = Tasks::load(&config)?;
+    let mut tasks = Tasks::load(config)?;
     for sample in 0..10_000 {
         tasks.update(
             "worker",
@@ -149,7 +159,7 @@ fn benchmark_tasks(scratch: &Scratch) -> Result<()> {
         )?;
     }
     measure("task restart bounded 10000 updates", |_| {
-        Tasks::load(&config).unwrap().all().len()
+        Tasks::load(config).unwrap().all().len()
     });
     Ok(())
 }

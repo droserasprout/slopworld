@@ -498,8 +498,6 @@ impl SessionEmu {
             TermDamage::Partial(bounds) => Damage::Partial(bounds.collect()),
         };
         let rows = self.rows as usize;
-        let mut serialized_rows = 0u64;
-        let mut cells_inspected = 0u64;
         let (offset, display_offset, mode, cursor, alt_screen) = {
             let content = self.term.renderable_content();
             let display_offset = content.display_offset;
@@ -517,56 +515,14 @@ impl SessionEmu {
             || self.render_cache.alt_screen != Some(alt_screen)
             || display_offset != 0;
 
-        if full {
+        let (serialized_rows, cells_inspected) = if full {
             crate::perf::count("frame-full-renders", 1);
-            serialized_rows += self.rebuild_render_cache(display_offset, alt_screen);
+            (self.rebuild_render_cache(display_offset, alt_screen), 0)
         } else if let Damage::Partial(bounds) = damage {
-            crate::perf::count("frame-partial-renders", 1);
-            let cols = self.cols as usize;
-            let mut changed = vec![false; rows];
-            for bound in bounds {
-                let Some(row) = bound.line.checked_sub(display_offset) else {
-                    self.render_cache.invalidate();
-                    break;
-                };
-                if row >= rows || bound.left >= cols || bound.right >= cols {
-                    self.render_cache.invalidate();
-                    break;
-                }
-                // A write over one half of a wide character updates the other half too,
-                // while terminal damage may report only the cell under the cursor. Inspect
-                // both neighbors so the cached leading glyph and spacer cannot diverge from
-                // the terminal grid.
-                let left = bound.left.saturating_sub(1);
-                let right = bound.right.saturating_add(1).min(cols - 1);
-                for col in left..=right {
-                    cells_inspected += 1;
-                    let point = Point::new(Line(row as i32 - display_offset as i32), Column(col));
-                    let current = slot_from_cell(&self.term.grid()[point]);
-                    if self.render_cache.cells[row][col] != current {
-                        self.render_cache.cells[row][col] = current;
-                        changed[row] = true;
-                    }
-                }
-            }
-            if !self.render_cache.valid {
-                crate::perf::count("frame-full-renders", 1);
-                serialized_rows += self.rebuild_render_cache(display_offset, alt_screen);
-            } else {
-                for (row, changed) in changed.into_iter().enumerate() {
-                    if changed {
-                        let line: Arc<str> =
-                            Arc::from(serialize_row(&self.render_cache.cells[row]));
-                        serialized_rows += 1;
-                        self.render_cache.row_hashes[row] = hash_row(&line);
-                        self.render_cache.activity_row_hashes[row] =
-                            activity_row_hash(&self.render_cache.cells[row]);
-                        self.render_cache.lines[row] = line;
-                    }
-                }
-                self.render_cache.content_hash = hash_rows(&self.render_cache.row_hashes);
-            }
-        }
+            self.update_partial_render_cache(bounds, display_offset, alt_screen)
+        } else {
+            (0, 0)
+        };
         if serialized_rows > 0 {
             crate::perf::count("frame-rows-serialized", serialized_rows);
         }
@@ -608,6 +564,62 @@ impl SessionEmu {
             title: self.title(),
             bell: false,
         }
+    }
+
+    fn update_partial_render_cache(
+        &mut self,
+        bounds: Vec<LineDamageBounds>,
+        display_offset: usize,
+        alt_screen: bool,
+    ) -> (u64, u64) {
+        crate::perf::count("frame-partial-renders", 1);
+        let rows = self.rows as usize;
+        let cols = self.cols as usize;
+        let mut serialized_rows = 0u64;
+        let mut cells_inspected = 0u64;
+        let mut changed = vec![false; rows];
+        for bound in bounds {
+            let Some(row) = bound.line.checked_sub(display_offset) else {
+                self.render_cache.invalidate();
+                break;
+            };
+            if row >= rows || bound.left >= cols || bound.right >= cols {
+                self.render_cache.invalidate();
+                break;
+            }
+            // A write over one half of a wide character updates the other half too,
+            // while terminal damage may report only the cell under the cursor. Inspect
+            // both neighbors so the cached leading glyph and spacer cannot diverge from
+            // the terminal grid.
+            let left = bound.left.saturating_sub(1);
+            let right = bound.right.saturating_add(1).min(cols - 1);
+            for col in left..=right {
+                cells_inspected += 1;
+                let point = Point::new(Line(row as i32 - display_offset as i32), Column(col));
+                let current = slot_from_cell(&self.term.grid()[point]);
+                if self.render_cache.cells[row][col] != current {
+                    self.render_cache.cells[row][col] = current;
+                    changed[row] = true;
+                }
+            }
+        }
+        if !self.render_cache.valid {
+            crate::perf::count("frame-full-renders", 1);
+            serialized_rows += self.rebuild_render_cache(display_offset, alt_screen);
+        } else {
+            for (row, changed) in changed.into_iter().enumerate() {
+                if changed {
+                    let line: Arc<str> = Arc::from(serialize_row(&self.render_cache.cells[row]));
+                    serialized_rows += 1;
+                    self.render_cache.row_hashes[row] = hash_row(&line);
+                    self.render_cache.activity_row_hashes[row] =
+                        activity_row_hash(&self.render_cache.cells[row]);
+                    self.render_cache.lines[row] = line;
+                }
+            }
+            self.render_cache.content_hash = hash_rows(&self.render_cache.row_hashes);
+        }
+        (serialized_rows, cells_inspected)
     }
 
     fn rebuild_render_cache(&mut self, display_offset: usize, alt_screen: bool) -> u64 {

@@ -46,6 +46,61 @@ async fn get(app: &axum::Router, path: &str, token: Option<&str>) -> StatusCode 
     app.clone().oneshot(request).await.unwrap().status()
 }
 
+fn event_has_target(event: wire::Event) -> bool {
+    event.payload.is_some_and(|payload| match payload {
+        wire::event::Payload::Sessions(sessions) => sessions
+            .sessions
+            .iter()
+            .any(|session| session.name == "target"),
+        wire::event::Payload::Screen(screen) => screen.name == "target",
+        _ => false,
+    })
+}
+
+fn message_has_target(message: &tokio_tungstenite::tungstenite::Message) -> bool {
+    let tokio_tungstenite::tungstenite::Message::Binary(bytes) = message else {
+        return false;
+    };
+    event_has_target(wire::Event::decode(bytes.as_slice()).unwrap())
+}
+
+async fn await_socket_close<S, E>(socket: &mut S)
+where
+    S: futures::Stream<Item = Result<tokio_tungstenite::tungstenite::Message, E>> + Unpin,
+{
+    while let Some(Ok(message)) = socket.next().await {
+        if matches!(&message, tokio_tungstenite::tungstenite::Message::Close(_)) {
+            break;
+        }
+        assert!(
+            !message_has_target(&message),
+            "socket received a replacement session"
+        );
+    }
+}
+
+async fn add_unrelated_sessions(manager: &Arc<Manager>) -> crate::config::Config {
+    let mut cfg = manager.config().await;
+    cfg.sessions
+        .extend(["other", "other-owner"].map(|name| SessionCfg {
+            name: name.into(),
+            ..Default::default()
+        }));
+    cfg.projects.push(crate::config::ProjectCfg {
+        name: "repo".into(),
+        dir: "/tmp".into(),
+        ..Default::default()
+    });
+    for session in &mut cfg.sessions {
+        session.project = "repo".into();
+    }
+    manager
+        .replace_config(&toml::to_string(&cfg).unwrap())
+        .await
+        .unwrap();
+    cfg
+}
+
 #[tokio::test]
 async fn stalled_scoped_uploads_allow_revocation_and_recheck_authority_on_completion() {
     for level in [Level::Ro, Level::Rw] {
@@ -349,24 +404,7 @@ async fn disappearing_identities_close_sockets_and_do_not_follow_reused_names() 
         for subject in ["target", "grantor"] {
             for rename in [false, true] {
                 let manager = manager();
-                let mut cfg = manager.config().await;
-                cfg.sessions
-                    .extend(["other", "other-owner"].map(|name| SessionCfg {
-                        name: name.into(),
-                        ..Default::default()
-                    }));
-                cfg.projects.push(crate::config::ProjectCfg {
-                    name: "repo".into(),
-                    dir: "/tmp".into(),
-                    ..Default::default()
-                });
-                for session in &mut cfg.sessions {
-                    session.project = "repo".into();
-                }
-                manager
-                    .replace_config(&toml::to_string(&cfg).unwrap())
-                    .await
-                    .unwrap();
+                let mut cfg = add_unrelated_sessions(&manager).await;
                 let token = manager
                     .mint_grant(
                         "grantor".into(),
@@ -398,9 +436,7 @@ async fn disappearing_identities_close_sockets_and_do_not_follow_reused_names() 
                 );
                 let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
                 let initial = socket.next().await.unwrap().unwrap();
-                assert!(
-                    matches!(initial, tokio_tungstenite::tungstenite::Message::Binary(text) if wire::Event::decode(text.as_slice()).unwrap().payload.is_some_and(|p| match p { wire::event::Payload::Sessions(s) => s.sessions.iter().any(|s| s.name == "target"), wire::event::Payload::Screen(s) => s.name == "target", _ => false }))
-                );
+                assert!(message_has_target(&initial));
                 socket
                     .send(tokio_tungstenite::tungstenite::Message::Binary(
                         wire::ClientMessage {
@@ -439,30 +475,10 @@ async fn disappearing_identities_close_sockets_and_do_not_follow_reused_names() 
                     .replace_config(&toml::to_string(&cfg).unwrap())
                     .await
                     .unwrap();
-                tokio::time::timeout(std::time::Duration::from_secs(2), async {
-                    loop {
-                        match socket.next().await {
-                            None
-                            | Some(Err(_))
-                            | Some(Ok(tokio_tungstenite::tungstenite::Message::Close(_))) => break,
-                            Some(Ok(tokio_tungstenite::tungstenite::Message::Binary(text))) => {
-                                assert!(
-                                    !wire::Event::decode(text.as_slice())
-                                        .unwrap()
-                                        .payload
-                                        .is_some_and(|p| match p {
-                                            wire::event::Payload::Sessions(s) =>
-                                                s.sessions.iter().any(|s| s.name == "target"),
-                                            wire::event::Payload::Screen(s) => s.name == "target",
-                                            _ => false,
-                                        }),
-                                    "socket received a replacement session"
-                                );
-                            }
-                            _ => {}
-                        }
-                    }
-                })
+                tokio::time::timeout(
+                    std::time::Duration::from_secs(2),
+                    await_socket_close(&mut socket),
+                )
                 .await
                 .expect("invalidated socket stayed connected");
                 assert_eq!(

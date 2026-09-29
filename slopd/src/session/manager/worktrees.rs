@@ -56,6 +56,14 @@ pub(crate) struct WorktreeView {
     pub attachments: Vec<String>,
 }
 
+struct PreparedWorktree {
+    root: PathBuf,
+    project: ProjectCfg,
+    branch: String,
+    base: String,
+    worktree: Worktree,
+}
+
 impl Manager {
     pub(crate) async fn rename_worktree(
         self: &Arc<Self>,
@@ -477,152 +485,140 @@ impl Manager {
         manager
             .session_read_operation(async {
                 let _lock = manager.worktrees.mutation.lock().await;
-                let p = manager
-                    .update_cfg_if_changed_inner(|cfg| {
-                        let p = cfg
-                            .projects
-                            .iter_mut()
-                            .find(|p| p.name == q.project)
-                            .ok_or_else(|| anyhow!("no project {}", q.project))?;
-                        if p.id.is_empty() {
-                            p.id = uuid::Uuid::new_v4().to_string();
-                        }
-                        uuid::Uuid::parse_str(&p.id).context("invalid project identity")?;
-                        Ok((p.clone(), true))
-                    })
-                    .await?;
-                let root = PathBuf::from(expand(&p.dir)).canonicalize()?;
-                let repository = git(
-                    &root,
-                    &["rev-parse", "--path-format=absolute", "--git-common-dir"],
-                )
-                .await?;
-                let id = uuid::Uuid::new_v4().to_string();
-                let name = if q.name.is_empty() {
-                    id[..8].to_string()
-                } else {
-                    q.name.clone()
-                };
-                crate::config::project_name_component(&name).context("invalid worktree name")?;
-                let managed = q.path.is_empty();
-                if managed {
-                    crate::worktrees::validate_new_branch(&root, &name).await?;
-                }
-                let branch = name.clone();
-                let base = git(
-                    &root,
-                    &[
-                        "rev-parse",
-                        "--verify",
-                        "--end-of-options",
-                        &format!(
-                            "{}^{{commit}}",
-                            if q.base.is_empty() { "HEAD" } else { &q.base }
-                        ),
-                    ],
-                )
-                .await?;
-                let path = if managed {
-                    let parent = crate::worktrees::project_root(&p);
-                    if !parent.is_absolute() {
-                        bail!("worktree root must be absolute");
-                    }
-                    parent.join(&name)
-                } else {
-                    PathBuf::from(expand(&q.path)).canonicalize()?
-                };
-                if let Some(why) = crate::sandbox::refused(&path.to_string_lossy()) {
-                    bail!("worktree reaches {why}");
-                }
-                if !managed {
-                    let common = git(
-                        &path,
-                        &["rev-parse", "--path-format=absolute", "--git-common-dir"],
-                    )
-                    .await?;
-                    if Path::new(&common).canonicalize()?
-                        != Path::new(&repository).canonicalize()?
-                    {
-                        bail!("external worktree belongs to another repository");
-                    }
-                    let top = git(&path, &["rev-parse", "--show-toplevel"]).await?;
-                    if Path::new(&top).canonicalize()? != path {
-                        bail!("worktree path must be the checkout root");
-                    }
-                    if path == root {
-                        bail!("original checkout is already registered as main");
-                    }
-                }
-                let path = if managed {
-                    let project_dir = path.parent().context("worktree project directory")?;
-                    tokio::fs::create_dir_all(project_dir).await?;
-                    if tokio::fs::symlink_metadata(project_dir)
-                        .await?
-                        .file_type()
-                        .is_symlink()
-                    {
-                        bail!("worktree project directory cannot be a symlink");
-                    }
-                    let project_dir = project_dir.canonicalize()?;
-                    let path = project_dir.join(&name);
-                    if let Some(why) = crate::sandbox::refused(&path.to_string_lossy()) {
-                        bail!("worktree reaches {why}");
-                    }
-                    if path.exists() {
-                        bail!("worktree path {} already exists", path.display());
-                    }
-                    tokio::fs::create_dir(&path).await?;
-                    path
-                } else {
-                    path
-                };
-                let mut store = Store::load(&manager.cfg_path).await?;
-                if store.worktrees.iter().any(|w| Path::new(&w.path) == path) {
-                    bail!("checkout already registered");
-                }
-                let mut w = Worktree {
-                    id,
-                    project_id: p.id.clone(),
-                    name,
-                    path: path.to_string_lossy().into_owned(),
-                    repository,
-                    managed,
-                    initial_branch: if managed {
-                        branch.clone()
-                    } else {
-                        String::new()
-                    },
-                    base: base.clone(),
-                    phase: "allocating".into(),
-                    error: String::new(),
-                };
-                store.worktrees.push(w.clone());
-                store.save(&manager.cfg_path).await?;
-                let result = if managed {
-                    async {
-                        crate::worktrees::allocate(&root, &path, &branch, &base).await?;
-                        Ok::<_, anyhow::Error>(())
-                    }
-                    .await
-                } else {
-                    Ok(())
-                };
-                let result = result.and_then(|()| crate::sandbox::cache::reconcile(&p, &path));
-                w.phase = if result.is_ok() { "ready" } else { "error" }.into();
-                w.error = result.err().map(|e| format!("{e:#}")).unwrap_or_default();
-                *store.worktrees.last_mut().unwrap() = w.clone();
-                store.save(&manager.cfg_path).await?;
-                manager.announce_projects().await;
-                if !w.error.is_empty() {
-                    bail!(
-                        "worktree {} retained after allocation failure: {}",
-                        w.id,
-                        w.error
-                    );
-                }
-                Ok(w)
+                let prepared = manager.prepare_worktree(&q).await?;
+                manager.finish_worktree_creation(prepared).await
             })
             .await
+    }
+
+    async fn prepare_worktree(&self, q: &WorktreeRequest) -> Result<PreparedWorktree> {
+        let project = self
+            .update_cfg_if_changed_inner(|cfg| {
+                let project = cfg
+                    .projects
+                    .iter_mut()
+                    .find(|project| project.name == q.project)
+                    .ok_or_else(|| anyhow!("no project {}", q.project))?;
+                if project.id.is_empty() {
+                    project.id = uuid::Uuid::new_v4().to_string();
+                }
+                uuid::Uuid::parse_str(&project.id).context("invalid project identity")?;
+                Ok((project.clone(), true))
+            })
+            .await?;
+        let root = PathBuf::from(expand(&project.dir)).canonicalize()?;
+        let repository = git(
+            &root,
+            &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+        )
+        .await?;
+        let id = uuid::Uuid::new_v4().to_string();
+        let name = if q.name.is_empty() {
+            id[..8].to_string()
+        } else {
+            q.name.clone()
+        };
+        crate::config::project_name_component(&name).context("invalid worktree name")?;
+        let managed = q.path.is_empty();
+        if managed {
+            crate::worktrees::validate_new_branch(&root, &name).await?;
+        }
+        let branch = name.clone();
+        let base = git(
+            &root,
+            &[
+                "rev-parse",
+                "--verify",
+                "--end-of-options",
+                &format!(
+                    "{}^{{commit}}",
+                    if q.base.is_empty() { "HEAD" } else { &q.base }
+                ),
+            ],
+        )
+        .await?;
+        let requested_path = if managed {
+            let parent = crate::worktrees::project_root(&project);
+            if !parent.is_absolute() {
+                bail!("worktree root must be absolute");
+            }
+            parent.join(&name)
+        } else {
+            PathBuf::from(expand(&q.path)).canonicalize()?
+        };
+        if let Some(why) = crate::sandbox::refused(&requested_path.to_string_lossy()) {
+            bail!("worktree reaches {why}");
+        }
+        if !managed {
+            validate_external_worktree(&root, &repository, &requested_path).await?;
+        }
+        let path = if managed {
+            create_managed_worktree_path(requested_path, &name).await?
+        } else {
+            requested_path
+        };
+        Ok(PreparedWorktree {
+            root,
+            project: project.clone(),
+            branch: branch.clone(),
+            base: base.clone(),
+            worktree: Worktree {
+                id,
+                project_id: project.id,
+                name,
+                path: path.to_string_lossy().into_owned(),
+                repository,
+                managed,
+                initial_branch: if managed { branch } else { String::new() },
+                base,
+                phase: "allocating".into(),
+                error: String::new(),
+            },
+        })
+    }
+
+    async fn finish_worktree_creation(&self, prepared: PreparedWorktree) -> Result<Worktree> {
+        let PreparedWorktree {
+            root,
+            project,
+            branch,
+            base,
+            mut worktree,
+        } = prepared;
+        let path = Path::new(&worktree.path);
+        let mut store = Store::load(&self.cfg_path).await?;
+        if store
+            .worktrees
+            .iter()
+            .any(|registered| Path::new(&registered.path) == path)
+        {
+            bail!("checkout already registered");
+        }
+        store.worktrees.push(worktree.clone());
+        store.save(&self.cfg_path).await?;
+
+        let result = if worktree.managed {
+            crate::worktrees::allocate(&root, path, &branch, &base).await
+        } else {
+            Ok(())
+        }
+        .and_then(|()| crate::sandbox::cache::reconcile(&project, path));
+        worktree.phase = if result.is_ok() { "ready" } else { "error" }.into();
+        worktree.error = result
+            .err()
+            .map(|error| format!("{error:#}"))
+            .unwrap_or_default();
+        *store.worktrees.last_mut().unwrap() = worktree.clone();
+        store.save(&self.cfg_path).await?;
+        self.announce_projects().await;
+        if !worktree.error.is_empty() {
+            bail!(
+                "worktree {} retained after allocation failure: {}",
+                worktree.id,
+                worktree.error
+            );
+        }
+        Ok(worktree)
     }
 
     pub(crate) async fn remove_worktree(
@@ -653,11 +649,10 @@ impl Manager {
                     let links = crate::sandbox::cache::remove_links(p, path)?;
                     let removal = async {
                     let status = git(path, &["status", "--porcelain=v1", "--untracked-files=all", "--ignored", "--ignore-submodules=none"]).await?;
-                    if !status.is_empty() { bail!("The worktree has tracked changes, untracked files, or ignored files. Resolve them before removal."); }
+                    anyhow::ensure!(status.is_empty(), "The worktree has tracked changes, untracked files, or ignored files. Resolve them before removal.");
                     let head = git(path, &["rev-parse", "--verify", "HEAD"]).await?;
-                    if git(path, &["for-each-ref", "--format=%(refname)", &format!("--contains={head}"), "refs/heads/"]).await?.is_empty() {
-                        bail!("HEAD has no retained local branch. Create one before you remove the worktree.");
-                    }
+                    let retained_branches = git(path, &["for-each-ref", "--format=%(refname)", &format!("--contains={head}"), "refs/heads/"]).await?;
+                    anyhow::ensure!(!retained_branches.is_empty(), "HEAD has no retained local branch. Create one before you remove the worktree.");
                     crate::worktrees::remove_tree(&w).await?;
                     Ok::<_, anyhow::Error>(())
                     }.await;
@@ -681,6 +676,49 @@ impl Manager {
             }
         }).await
     }
+}
+
+async fn validate_external_worktree(root: &Path, repository: &str, path: &Path) -> Result<()> {
+    let common = git(
+        path,
+        &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    )
+    .await?;
+    if Path::new(&common).canonicalize()? != Path::new(repository).canonicalize()? {
+        bail!("external worktree belongs to another repository");
+    }
+    let top = git(path, &["rev-parse", "--show-toplevel"]).await?;
+    if Path::new(&top).canonicalize()? != path {
+        bail!("worktree path must be the checkout root");
+    }
+    if path == root {
+        bail!("original checkout is already registered as main");
+    }
+    Ok(())
+}
+
+async fn create_managed_worktree_path(requested_path: PathBuf, name: &str) -> Result<PathBuf> {
+    let project_dir = requested_path
+        .parent()
+        .context("worktree project directory")?;
+    tokio::fs::create_dir_all(project_dir).await?;
+    if tokio::fs::symlink_metadata(project_dir)
+        .await?
+        .file_type()
+        .is_symlink()
+    {
+        bail!("worktree project directory cannot be a symlink");
+    }
+    let project_dir = project_dir.canonicalize()?;
+    let path = project_dir.join(name);
+    if let Some(why) = crate::sandbox::refused(&path.to_string_lossy()) {
+        bail!("worktree reaches {why}");
+    }
+    if path.exists() {
+        bail!("worktree path {} already exists", path.display());
+    }
+    tokio::fs::create_dir(&path).await?;
+    Ok(path)
 }
 
 #[cfg(test)]

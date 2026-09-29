@@ -66,13 +66,36 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
     let home = dirs::home_dir()
         .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_else(|| "/root".into());
+    let mounts = resolve_mounts(cfg, p, &dir, &presets)?;
+
+    bind::assemble_plan(bind::BuildArgs {
+        cfg,
+        s,
+        p,
+        network,
+        dns: &dns,
+        agent_shell: &agent_shell,
+        agent_argv,
+        table: &table,
+        presets: &presets,
+        home: &home,
+        mounts: &mounts,
+    })
+}
+
+fn resolve_mounts(
+    cfg: &Config,
+    p: &ProjectCfg,
+    dir: &str,
+    presets: &[&SandboxPreset],
+) -> Result<Vec<ResolvedMount>> {
     // Private overlays protect a containing project at its original path.
     // An alias or a project inside private state could expose the original files at another path.
     for private in presets.iter().flat_map(|preset| &preset.private) {
         let private = expand(private);
         if !private.is_empty()
-            && paths::overlaps(&dir, &private)
-            && !Path::new(&private).starts_with(Path::new(&dir))
+            && paths::overlaps(dir, &private)
+            && !Path::new(&private).starts_with(Path::new(dir))
         {
             bail!(
                 "project {} primary source {} exposes private preset state {}",
@@ -83,10 +106,10 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
         }
     }
     let mut mounts = vec![ResolvedMount {
-        host_dir: dir.clone(),
+        host_dir: dir.to_owned(),
         // Preserve the configured project path inside the sandbox.
         // Tools can use this exact path for trust decisions, cache keys, and diagnostics.
-        guest_dir: dir.clone(),
+        guest_dir: dir.to_owned(),
         mode: MountMode::Rw,
     }];
     for metadata in crate::worktrees::metadata_paths(Path::new(&dir))? {
@@ -113,7 +136,7 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
                 .find(|original| original.name == p.name)
                 .unwrap_or(p);
             let source = cache::validate(owner, m)?;
-            if paths::overlaps(&source.to_string_lossy(), &dir) {
+            if paths::overlaps(&source.to_string_lossy(), dir) {
                 bail!("cache source must be outside the selected worktree");
             }
             source.to_string_lossy().into_owned()
@@ -170,19 +193,7 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
         }
     }
 
-    bind::assemble_plan(bind::BuildArgs {
-        cfg,
-        s,
-        p,
-        network,
-        dns: &dns,
-        agent_shell: &agent_shell,
-        agent_argv,
-        table: &table,
-        presets: &presets,
-        home: &home,
-        mounts: &mounts,
-    })
+    Ok(mounts)
 }
 
 /// Resolve the configured agent shell to an absolute executable path for agent CLIs.

@@ -14,8 +14,15 @@ use super::ws::ws_upgrade;
 use super::{err, Mgr};
 
 pub(crate) fn router(m: Mgr) -> Router {
+    scoped_routes(m.clone())
+        .merge(shared_routes(m.clone()))
+        .merge(root_routes())
+        .with_state(m)
+}
+
+fn scoped_routes(m: Mgr) -> Router<Mgr> {
     // Scoped routes revalidate credentials and hold the session boundary through each request.
-    let scoped = Router::new()
+    Router::new()
         .route(routes::SESSIONS, get(list).post(create))
         .route(routes::SESSION, get(one).delete(destroy))
         .route(routes::SESSION_CWD, get(cwd))
@@ -29,11 +36,13 @@ pub(crate) fn router(m: Mgr) -> Router {
         .route(routes::SPAWNABLE_TEMPLATES, get(list_spawnable_templates))
         .route(routes::WORKERS, post(spawn_worker))
         .route(crate::shared::protocol::WS_PATH, get(ws_upgrade))
-        .layer(middleware::from_fn_with_state(m.clone(), scoped_request));
+        .layer(middleware::from_fn_with_state(m, scoped_request))
+}
 
+fn shared_routes(m: Mgr) -> Router<Mgr> {
     // These handlers keep session identity fixed but do not mutate it. Sharing the guard
     // allows terminal input while Git checkout or task persistence is in progress.
-    let shared = Router::new()
+    Router::new()
         .route(routes::HEALTH, get(health))
         .route(
             routes::TASKS,
@@ -47,10 +56,12 @@ pub(crate) fn router(m: Mgr) -> Router {
         )
         .route(routes::WORKTREE_PREVIEW, post(preview_worktree))
         .route(routes::WORKTREES, get(list_worktrees).post(create_worktree))
-        .layer(middleware::from_fn_with_state(m.clone(), shared_request));
+        .layer(middleware::from_fn_with_state(m, shared_request))
+}
 
+fn root_routes() -> Router<Mgr> {
     // Host controls and configuration default to root-only access.
-    let root = Router::new()
+    Router::new()
         .route(
             routes::WORKTREE,
             delete(remove_worktree).put(rename_worktree),
@@ -123,9 +134,7 @@ pub(crate) fn router(m: Mgr) -> Router {
         )
         .route(routes::SEARCH, get(search))
         .route(routes::GIT, get(git_status))
-        .layer(middleware::from_fn(require_root));
-
-    scoped.merge(shared).merge(root).with_state(m)
+        .layer(middleware::from_fn(require_root))
 }
 
 async fn scoped_request(State(m): State<Mgr>, req: Request, next: Next) -> Response {
