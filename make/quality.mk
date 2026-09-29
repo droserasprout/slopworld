@@ -25,7 +25,10 @@ check-format-csharp: ## Check formatting across C# production, tests and benchma
 
 lint-daemon: api-contract ## Check Rust formatting and Clippy
 	@cd slopd && $(CARGO) fmt --check
-	@cd slopd && $(CARGO) clippy --all-targets -- -D warnings
+	@cd slopd && $(CARGO) clippy --all-targets -- \
+		-D warnings \
+		-W clippy::too_many_lines \
+		-W clippy::excessive_nesting
 
 lint-mod: override BUILD := release
 lint-mod: override MOD_WARNINGS_AS_ERRORS := true
