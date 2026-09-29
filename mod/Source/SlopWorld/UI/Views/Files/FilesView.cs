@@ -69,12 +69,12 @@ namespace SlopWorld
             public int BrowseInFlight;
         }
 
-        // Native Markdown rendering state backs the shared reader collection.
+        // Native content readers share the same preview/pinned lifetime as pagers.
         sealed class FilesViewerController
         {
-            public readonly PreviewTabs<MarkdownTab> MarkdownTabs =
-                new PreviewTabs<MarkdownTab>(() => new MarkdownTab());
-            public int MarkdownHeader;
+            public readonly PreviewTabs<NativeTab> NativeTabs =
+                new PreviewTabs<NativeTab>(() => new NativeTab());
+            public int NativeHeader;
         }
 
         sealed class TreeSource : ContentTreeSource, IContentTreeLoader,
@@ -213,14 +213,14 @@ namespace SlopWorld
         // routed header. The tree owns selection. Each pager owns its ephemeral session.
         static PagerTabs Viewers => FileReaders.Tabs;
 
-        // Markdown is a native content view rather than a daemon session. It adapts its
+        // Native content has no daemon session. This tab adapts its
         // identity and focus operations to the same preview/pinned lifecycle as Pager.
-        sealed class MarkdownTab : IPreviewTab
+        sealed class NativeTab : IPreviewTab
         {
-            MarkdownPreview _view;
+            ContentView _view;
             string _header;
-            public string OriginLabel, OriginProject;
-            public MarkdownPreview View
+            public string OriginLabel, OriginProject, Project, Path;
+            public ContentView View
             {
                 get => _view;
                 set { _view = value; RoutedSessionRows.Invalidate(); }
@@ -233,16 +233,16 @@ namespace SlopWorld
             public bool Locked { get; private set; }
 
             public string Session => Header;
-            public string FilePath => View?.Path;
+            public string FilePath => Alive ? Path : null;
             public bool Alive => View != null;
 
             public bool Matches(string project, string key) => Alive &&
-                View.Project == (project ?? "") && View.Path == key;
+                Project == (project ?? "") && Path == key;
 
             public bool Reopen()
             {
                 if (!Alive) return false;
-                ShowMarkdown(this);
+                TerminalWindow.OpenContent(View);
                 return true;
             }
 
@@ -267,6 +267,7 @@ namespace SlopWorld
                     Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
                 View = null;
                 Header = null;
+                Path = null;
                 Locked = false;
             }
 
@@ -280,6 +281,7 @@ namespace SlopWorld
                 bool showing = Showing(this);
                 View = null;
                 Header = null;
+                Path = null;
                 Locked = false;
                 if (showing)
                     Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
@@ -291,7 +293,7 @@ namespace SlopWorld
                 return new SessionInfo
                 {
                     Name = Header,
-                    Project = SidebarScopes.Project(View.Project)?.Name ?? OriginProject,
+                    Project = SidebarScopes.Project(Project)?.Name ?? OriginProject,
                     Label = OriginLabel,
                     Ephemeral = true,
                     Alive = true,
@@ -299,7 +301,7 @@ namespace SlopWorld
             }
         }
 
-        static PreviewTabs<MarkdownTab> MarkdownViewers => Viewer.MarkdownTabs;
+        static PreviewTabs<NativeTab> NativeViewers => Viewer.NativeTabs;
 
         // Extensions `less` would rather not be handed. The viewer is for reading, and an image or
         // a zip in a text pager is a listing nobody asked for. Everything else is text enough to
@@ -330,6 +332,14 @@ namespace SlopWorld
             if (dot < 0) return false;
             string ext = name.Substring(dot).ToLowerInvariant();
             return ext == ".md" || ext == ".markdown" || ext == ".mdx";
+        }
+
+        public static bool IsImage(string name)
+        {
+            int dot = (name ?? "").LastIndexOf('.');
+            if (dot < 0) return false;
+            string ext = name.Substring(dot).ToLowerInvariant();
+            return ext == ".png" || ext == ".jpg" || ext == ".jpeg";
         }
 
         const float AutoRefreshSeconds = 2f;
