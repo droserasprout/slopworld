@@ -22,7 +22,7 @@ fn main() {
         let reencoded = event.encode_to_vec();
         std::fs::write(format!("{dir}/{name}.rust.pb"), &reencoded).unwrap();
         assert_eq!(wire::Event::decode(reencoded.as_slice()).unwrap(), event);
-        measure(name, "protobuf-encode", binary.len(), || { black_box(event.encode_to_vec()); });
+        measure(name, "protobuf-encode", reencoded.len(), || { black_box(event.encode_to_vec()); });
         measure(name, "protobuf-decode", binary.len(), || { black_box(wire::Event::decode(binary.as_slice()).unwrap()); });
     }
 }
