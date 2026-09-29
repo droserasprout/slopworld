@@ -94,10 +94,13 @@ async fn paste_process_returns_stdout_verbatim() {
 }
 
 #[test]
-fn image_clipboard_bytes_are_not_text() {
+fn clipboard_text_prefixes_are_not_treated_as_image_formats() {
     assert_eq!(text_output(b"GIF89a\x01\x00\x01\x00"), "");
     assert_eq!(text_output(b"\x89PNG\r\n\x1a\n"), "");
-    assert_eq!(text_output(b"RIFFxxxxWEBP"), "");
+    assert_eq!(text_output(b"GIF87a notes"), "GIF87a notes");
+    assert_eq!(text_output(b"GIF89a notes"), "GIF89a notes");
+    assert_eq!(text_output(b"BM notes"), "BM notes");
+    assert_eq!(text_output(b"RIFFxxxxWEBP"), "RIFFxxxxWEBP");
     assert_eq!(text_output(b"plain clipboard text"), "plain clipboard text");
 }
 

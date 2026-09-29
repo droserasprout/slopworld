@@ -9,8 +9,8 @@ use anyhow::{bail, Result};
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
-/// Finish before the mod's five-second HTTP timeout, even if the compositor or X server is unresponsive.
-const TIMEOUT: Duration = Duration::from_secs(3);
+/// Bound the complete fallback chain before the mod's five-second HTTP timeout.
+const FALLBACK_BUDGET: Duration = Duration::from_secs(3);
 
 struct Tool {
     copy: &'static [&'static str],
@@ -126,6 +126,7 @@ pub async fn read_primary_text() -> Result<String> {
 /// Send `text` to the tool's stdin for a copy. Use `None` for a paste.
 async fn run(text: Option<&str>, pick: fn(&Tool) -> &'static [&'static str]) -> Result<String> {
     let mut last: Option<anyhow::Error> = None;
+    let deadline = tokio::time::Instant::now() + FALLBACK_BUDGET;
     let xwayland = xwayland_clipboard(
         &std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default(),
         &std::env::var("DISPLAY").unwrap_or_default(),
@@ -133,8 +134,11 @@ async fn run(text: Option<&str>, pick: fn(&Tool) -> &'static [&'static str]) -> 
     // Never fall back to the focus-stealing Wayland helper on this path.
     for &index in tool_order(xwayland) {
         let argv = pick(&TOOLS[index]);
-        match tokio::time::timeout(TIMEOUT, one(argv, text)).await {
-            Err(_) => last = Some(anyhow::anyhow!("{} timed out", argv[0])),
+        match tokio::time::timeout_at(deadline, one(argv, text)).await {
+            Err(_) => {
+                last = Some(anyhow::anyhow!("{} timed out", argv[0]));
+                break;
+            }
             Ok(Ok(out)) => return Ok(out),
             Ok(Err(e)) => {
                 if !missing(&e) {
@@ -199,29 +203,17 @@ async fn paste(argv: &[&str]) -> Result<String> {
             String::from_utf8_lossy(&out.stderr).trim()
         );
     }
-    // Clipboard selections can contain binary data, such as GIF images.
-    // Do not replace invalid UTF-8 bytes with text characters.
-    // The caller can send the returned string directly to a shell or terminal application in a JSON paste event.
-    // This text endpoint accepts UTF-8 and excludes other data.
+    // Text-only tool arguments request a text clipboard format. The general path can return
+    // arbitrary data, so reject NUL and invalid UTF-8 at this String/JSON boundary. Do not
+    // infer clipboard formats from byte prefixes: ordinary text can start with image signatures.
     Ok(text_output(&out.stdout))
 }
 
 fn text_output(bytes: &[u8]) -> String {
-    if looks_like_image(bytes) || bytes.contains(&0) {
+    if bytes.contains(&0) {
         return String::new();
     }
     String::from_utf8(bytes.to_vec()).unwrap_or_default()
-}
-
-fn looks_like_image(bytes: &[u8]) -> bool {
-    bytes.starts_with(b"GIF87a")
-        || bytes.starts_with(b"GIF89a")
-        || bytes.starts_with(b"\x89PNG\r\n\x1a\n")
-        || bytes.starts_with(&[0xff, 0xd8, 0xff])
-        || bytes.starts_with(b"BM")
-        || (bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP"))
-        || bytes.starts_with(b"II\x2a\x00")
-        || bytes.starts_with(b"MM\x00\x2a")
 }
 
 #[cfg(test)]
