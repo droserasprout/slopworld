@@ -2,11 +2,32 @@
 //! Read and reload TOML definitions. Send only station, stream, and display metadata to the mod.
 
 use std::collections::HashSet;
+use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::{OnceLock, RwLock};
 
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
+
+/// Expected request failures and filesystem failures from editing user stations.
+/// The API maps missing, invalid, and storage errors to 404, 400, and 500.
+#[derive(Debug)]
+pub(crate) enum JukeboxError {
+    Missing(String),
+    Invalid(String),
+    Storage(anyhow::Error),
+}
+
+impl fmt::Display for JukeboxError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Missing(message) | Self::Invalid(message) => f.write_str(message),
+            Self::Storage(error) => write!(f, "{error:#}"),
+        }
+    }
+}
+
+impl std::error::Error for JukeboxError {}
 
 /// Station display metadata, independent of playback details.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -161,20 +182,24 @@ impl Catalog {
 
 /// Save one user station definition. The audio protocol uses the stable station ID.
 /// Users can edit the display name without renaming the file.
-pub fn save_user(station: Station) -> Result<()> {
+pub fn save_user(station: Station) -> std::result::Result<(), JukeboxError> {
     save_user_in(&Catalog::dir(), station)
 }
 
-fn save_user_in(dir: &Path, station: Station) -> Result<()> {
-    let station = normalize(station, None)?;
-    valid_id(&station.id)?;
+fn save_user_in(dir: &Path, station: Station) -> std::result::Result<(), JukeboxError> {
+    let station =
+        normalize(station, None).map_err(|error| JukeboxError::Invalid(error.to_string()))?;
+    valid_id(&station.id).map_err(|error| JukeboxError::Invalid(error.to_string()))?;
 
-    let path = match find_user_file(dir, &station.id)? {
+    let path = match find_user_file(dir, &station.id).map_err(JukeboxError::Storage)? {
         Some(path) => path,
         None => {
             let path = dir.join(format!("{}.toml", station.id));
             if path.exists() {
-                bail!("a jukebox definition already exists at {}", path.display());
+                return Err(JukeboxError::Invalid(format!(
+                    "a jukebox definition already exists at {}",
+                    path.display()
+                )));
             }
             path
         }
@@ -193,18 +218,22 @@ fn save_user_in(dir: &Path, station: Station) -> Result<()> {
             })
             .collect(),
     };
-    let text = toml::to_string_pretty(&file)?;
-    crate::paths::write_atomic(&path, &text, None)
+    let text =
+        toml::to_string_pretty(&file).map_err(|error| JukeboxError::Storage(error.into()))?;
+    crate::paths::write_atomic(&path, &text, None).map_err(JukeboxError::Storage)
 }
 
-pub fn delete_user(id: &str) -> Result<()> {
+pub fn delete_user(id: &str) -> std::result::Result<(), JukeboxError> {
     delete_user_in(&Catalog::dir(), id)
 }
 
-fn delete_user_in(dir: &Path, id: &str) -> Result<()> {
-    let path =
-        find_user_file(dir, id)?.with_context(|| format!("unknown jukebox preset {id:?}"))?;
-    std::fs::remove_file(&path).with_context(|| format!("removing {}", path.display()))
+fn delete_user_in(dir: &Path, id: &str) -> std::result::Result<(), JukeboxError> {
+    let path = find_user_file(dir, id)
+        .map_err(JukeboxError::Storage)?
+        .ok_or_else(|| JukeboxError::Missing(format!("unknown jukebox preset {id:?}")))?;
+    std::fs::remove_file(&path)
+        .with_context(|| format!("removing {}", path.display()))
+        .map_err(JukeboxError::Storage)
 }
 
 fn find_user_file(dir: &Path, id: &str) -> Result<Option<PathBuf>> {

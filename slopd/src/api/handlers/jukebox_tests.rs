@@ -112,11 +112,42 @@ async fn preset_routes_persist_reload_validate_and_protect_stream_urls() {
             .stations,
         vec![station.clone()]
     );
+    let saved_user_catalog = bytes.clone();
+    let saved = std::fs::read(root.join("jukebox/radio.toml")).unwrap();
+    for level in [Level::Ro, Level::Rw] {
+        let scoped = crate::api::router(manager.clone()).layer(Extension(Cap::Scoped(Grant {
+            grantor: "agent".into(),
+            sessions: ["agent".into()].into(),
+            level,
+            revoked: Default::default(),
+        })));
+        for method in ["PUT", "DELETE"] {
+            let (status, bytes) = request(&scoped, method, path, Some(&station)).await;
+            assert_eq!(status, StatusCode::FORBIDDEN);
+            assert!(!wire::Error::decode(bytes.as_slice())
+                .unwrap()
+                .error
+                .is_empty());
+        }
+    }
+    assert_eq!(
+        std::fs::read(root.join("jukebox/radio.toml")).unwrap(),
+        saved
+    );
+    let (_, bytes) = request(&app, "GET", routes::JUKEBOX_PRESETS, None).await;
+    assert_eq!(bytes, saved_user_catalog);
+    assert_eq!(
+        crate::jukebox::catalog().resolve("radio", "main").unwrap(),
+        "https://example.org/stream"
+    );
+    assert!(matches!(
+        events.try_recv(),
+        Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+    ));
     let (_, bytes) = request(&app, "GET", routes::JUKEBOX, None).await;
     let public = wire::JukeboxCatalog::decode(bytes.as_slice()).unwrap();
     assert_eq!(public.stations[0].streams[0].url, "");
 
-    let saved = std::fs::read(root.join("jukebox/radio.toml")).unwrap();
     for invalid in [
         wire::Station {
             id: "renamed".into(),
@@ -141,8 +172,28 @@ async fn preset_routes_persist_reload_validate_and_protect_stream_urls() {
             std::fs::read(root.join("jukebox/radio.toml")).unwrap(),
             saved
         );
-        assert!(events.try_recv().is_err());
+        assert!(matches!(
+            events.try_recv(),
+            Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+        ));
     }
+    {
+        let _fault = crate::paths::fail_writes(&root.join("jukebox/radio.toml"));
+        let (status, bytes) = request(&app, "PUT", path, Some(&station)).await;
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert!(!wire::Error::decode(bytes.as_slice())
+            .unwrap()
+            .error
+            .is_empty());
+    }
+    assert_eq!(
+        std::fs::read(root.join("jukebox/radio.toml")).unwrap(),
+        saved
+    );
+    assert!(matches!(
+        events.try_recv(),
+        Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+    ));
     station.metadata = None; // Omitted metadata uses the domain's display-name default.
     station.streams[0].url = "https://example.org/updated-stream".into();
     assert_eq!(
@@ -173,5 +224,20 @@ async fn preset_routes_persist_reload_validate_and_protect_stream_urls() {
         .unwrap()
         .error
         .contains("unknown jukebox preset"));
+    let blocked_dir = root.join("not-a-directory");
+    std::fs::write(&blocked_dir, "not a directory").unwrap();
+    std::env::set_var("SLOPD_JUKEBOX", &blocked_dir);
+    let (status, bytes) = request(&app, "POST", routes::JUKEBOX_PRESETS, Some(&station)).await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert!(!wire::Error::decode(bytes.as_slice())
+        .unwrap()
+        .error
+        .is_empty());
+    let (status, bytes) = request(&app, "DELETE", path, None).await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert!(!wire::Error::decode(bytes.as_slice())
+        .unwrap()
+        .error
+        .is_empty());
     std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
 }
