@@ -67,9 +67,11 @@ pub(crate) fn config_patch(patch: wire::ConfigPatch) -> Result<serde_json::Value
             .split('.')
             .map(|p| p.replace("~1", ".").replace("~0", "~"))
             .collect();
+        let root = parts.first().map(String::as_str);
+        let first_key = parts.get(1).map(String::as_str);
         if parts.len() < 2
-            || !matches!(parts[0].as_str(), "daemon" | "defaults" | "commands")
-            || (parts[0] == "daemon" && matches!(parts[1].as_str(), "bind" | "token"))
+            || !matches!(root, Some("daemon" | "defaults" | "commands"))
+            || (root == Some("daemon") && matches!(first_key, Some("bind" | "token")))
         {
             return Err(super::err(
                 StatusCode::BAD_REQUEST,
@@ -91,8 +93,14 @@ pub(crate) fn config_patch(patch: wire::ConfigPatch) -> Result<serde_json::Value
                 "Choose a config path that identifies one value.",
             ));
         }
+        let Some((leaf, parents)) = parts.split_last() else {
+            return Err(super::err(
+                StatusCode::BAD_REQUEST,
+                "This config path is not valid for editing.",
+            ));
+        };
         let mut target = &mut result;
-        for part in &parts[..parts.len() - 1] {
+        for part in parents {
             target = target
                 .as_object_mut()
                 .ok_or_else(|| {
@@ -104,7 +112,7 @@ pub(crate) fn config_patch(patch: wire::ConfigPatch) -> Result<serde_json::Value
         target
             .as_object_mut()
             .ok_or_else(|| super::err(StatusCode::BAD_REQUEST, "Config paths must not overlap."))?
-            .insert(parts.last().unwrap().clone(), source.clone());
+            .insert(leaf.clone(), source.clone());
     }
     Ok(result)
 }

@@ -441,7 +441,9 @@ impl Iterator for Ring {
                 Err(TryRecvError::Disconnected) => return None,
             }
         }
-        let sample = self.held[self.at];
+        let Some(sample) = self.held.get(self.at).copied() else {
+            return Some(0.0);
+        };
         self.at += 1;
         Some(sample)
     }

@@ -49,7 +49,7 @@ async fn initialization_reconciles_sessions_before_pruning_persisted_credentials
     drop(seed);
     cfg.sessions[1].state_id = uuid::Uuid::new_v4().to_string();
 
-    let manager = Manager::new(cfg.clone(), path.clone()).await;
+    let manager = Manager::new(cfg.clone(), path.clone()).await.unwrap();
 
     let live = manager.live.read().await;
     assert_eq!(live.len(), 2);

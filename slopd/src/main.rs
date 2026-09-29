@@ -87,7 +87,7 @@ async fn main() -> Result<()> {
         .map(|project| std::path::PathBuf::from(crate::config::expand(&project.dir)))
         .collect();
     let bind = cfg.daemon.bind.clone();
-    let m = Manager::new(cfg, cfg_path).await;
+    let m = Manager::new(cfg, cfg_path).await?;
 
     // Warm Git caches before publishing the endpoint so initial status reads are incremental.
     git::warm_projects(git_dirs).await;

@@ -13,6 +13,9 @@ Manager authorization lives in `caps.rs`: `Authorization` groups grants and cred
 `HostMetadataPoll` in `sessions.rs` groups the poll timestamp and outstanding tmux job.
 `capture/reader.rs` and `capture/frame.rs` connect tmux output to the emulator and session events.
 
+`manager/init.rs` loads persisted grants, tasks, and templates before returning a manager.
+Load failures propagate to `main` before listeners and background services start.
+
 `LiveInput` groups queued input and startup sequencing; `LiveCapture` groups the emulator and reader ownership.
 Run identity stays on `Live`. Teardown resets individual fields and handles reader disposition separately.
 

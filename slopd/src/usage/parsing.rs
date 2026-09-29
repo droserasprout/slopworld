@@ -192,7 +192,8 @@ fn spend(v: &Value) -> Option<Window> {
     // `spend.percent` is the same number rounded, and stands in if the budget stops
     // reporting one.
     let pct = percent(e).or_else(|| {
-        v["spend"]["percent"]
+        v.get("spend")?
+            .get("percent")?
             .as_f64()
             .map(|p| p.clamp(0.0, 100.0) as f32)
     })?;
@@ -287,10 +288,14 @@ fn resets_in(w: &Value) -> Option<u64> {
 /// rather than assumed zero.
 fn epoch_from_rfc3339(s: &str) -> Option<u64> {
     let b = s.as_bytes();
-    if b.len() < 19 || b[4] != b'-' || b[7] != b'-' || b[10] != b'T' {
+    if b.len() < 19
+        || b.get(4) != Some(&b'-')
+        || b.get(7) != Some(&b'-')
+        || b.get(10) != Some(&b'T')
+    {
         return None;
     }
-    let n = |a: usize, z: usize| s[a..z].parse::<i64>().ok();
+    let n = |a: usize, z: usize| ascii_number(b, a, z);
     let (y, mo, d) = (n(0, 4)?, n(5, 7)?, n(8, 10)?);
     let (h, mi, sec) = (n(11, 13)?, n(14, 16)?, n(17, 19)?);
     if !(1..=12).contains(&mo)
@@ -315,6 +320,19 @@ fn epoch_from_rfc3339(s: &str) -> Option<u64> {
     u64::try_from(days * 86_400 + h * 3_600 + mi * 60 + sec - offset_secs(s)?).ok()
 }
 
+fn ascii_number(bytes: &[u8], start: usize, end: usize) -> Option<i64> {
+    let digits = bytes.get(start..end)?;
+    if digits.is_empty() {
+        return None;
+    }
+    digits.iter().try_fold(0_i64, |value, digit| {
+        if !digit.is_ascii_digit() {
+            return None;
+        }
+        value.checked_mul(10)?.checked_add(i64::from(digit - b'0'))
+    })
+}
+
 fn days_in_month(year: i64, month: i64) -> i64 {
     match month {
         2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
@@ -327,24 +345,35 @@ fn days_in_month(year: i64, month: i64) -> i64 {
 /// Return zero for `Z` or an absent time zone.
 /// Return None for an invalid zone to reject the timestamp instead of using an incorrect reset hour.
 fn offset_secs(s: &str) -> Option<i64> {
-    // Skip the date-time, and any fractional seconds after it.
-    let zone = s[19..].trim_start_matches(|c: char| c == '.' || c.is_ascii_digit());
+    let bytes = s.as_bytes();
+    let mut start = 19;
+    if bytes.get(start) == Some(&b'.') {
+        start += 1;
+        let fraction_start = start;
+        while bytes.get(start).is_some_and(u8::is_ascii_digit) {
+            start += 1;
+        }
+        if start == fraction_start {
+            return None;
+        }
+    }
 
-    if zone.is_empty() || zone == "Z" || zone == "z" {
+    let zone = bytes.get(start..)?;
+    if zone.is_empty() || zone == b"Z" || zone == b"z" {
         return Some(0);
     }
 
-    let sign = match zone.as_bytes()[0] {
+    let sign = match zone.first()? {
         b'+' => 1,
         b'-' => -1,
         _ => return None,
     };
-    let rest = &zone[1..];
-    if rest.len() != 5 || rest.as_bytes()[2] != b':' {
+    let rest = zone.get(1..)?;
+    if rest.len() != 5 || rest.get(2) != Some(&b':') {
         return None;
     }
-    let h = rest[0..2].parse::<i64>().ok()?;
-    let m = rest[3..5].parse::<i64>().ok()?;
+    let h = ascii_number(rest, 0, 2)?;
+    let m = ascii_number(rest, 3, 5)?;
     if h > 23 || m > 59 {
         return None;
     }

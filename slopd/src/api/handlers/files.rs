@@ -448,8 +448,11 @@ async fn run_highlighter(command: &str, path: &std::path::Path) -> anyhow::Resul
 }
 
 pub(super) async fn run_highlighter_argv(argv: &[String]) -> anyhow::Result<String> {
-    let mut process = Command::new(&argv[0]);
-    process.args(&argv[1..]);
+    let Some((program, args)) = argv.split_first() else {
+        bail!("The syntax highlighter command is empty.");
+    };
+    let mut process = Command::new(program);
+    process.args(args);
     let output = crate::process::run_bounded(
         &mut process,
         HIGHLIGHT_TIMEOUT,
@@ -710,7 +713,9 @@ pub(crate) fn search_preview(text: &str, column: usize) -> String {
     if begin > 0 {
         out.push('…');
     }
-    out.push_str(&text[begin..end]);
+    if let Some(preview) = text.get(begin..end) {
+        out.push_str(preview);
+    }
     if end < text.len() {
         out.push('…');
     }
@@ -782,7 +787,13 @@ async fn read_search_record<R: AsyncBufRead + Unpin>(
         if record.len().saturating_add(count) > limit {
             return Ok(Some(SearchRecord::TooLarge));
         }
-        record.extend_from_slice(&available[..count]);
+        let Some(chunk) = available.get(..count) else {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "ripgrep output length exceeded the available bytes",
+            ));
+        };
+        record.extend_from_slice(chunk);
         reader.consume(count);
         if newline.is_some() {
             return Ok(Some(SearchRecord::Line(record)));
@@ -793,6 +804,36 @@ async fn read_search_record<R: AsyncBufRead + Unpin>(
 async fn stop_search_child(child: &mut tokio::process::Child) {
     let _ = child.kill().await;
     let _ = child.wait().await;
+}
+
+fn search_match(record: &Value) -> Value {
+    let data = record.get("data");
+    let path = data
+        .and_then(|data| data.get("path"))
+        .and_then(|path| path.get("text"))
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim_start_matches("./");
+    let text = data
+        .and_then(|data| data.get("lines"))
+        .and_then(|lines| lines.get("text"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let column = data
+        .and_then(|data| data.get("submatches"))
+        .and_then(Value::as_array)
+        .and_then(|submatches| submatches.first())
+        .and_then(|submatch| submatch.get("start"))
+        .and_then(Value::as_u64)
+        .and_then(|column| usize::try_from(column).ok())
+        .unwrap_or(0)
+        .saturating_add(1);
+    json!({
+        "path": path,
+        "line": data.and_then(|data| data.get("line_number")).and_then(Value::as_u64).unwrap_or(0),
+        "column": column,
+        "text": search_preview(text, column),
+    })
 }
 
 /// Search one project without sending patterns or paths through a shell.
@@ -856,7 +897,7 @@ pub(crate) async fn search(
         let Ok(v) = serde_json::from_slice::<Value>(&record) else {
             continue;
         };
-        if v["type"] != "match" {
+        if v.get("type").and_then(Value::as_str) != Some("match") {
             continue;
         }
         if matches.len() >= limit {
@@ -865,19 +906,7 @@ pub(crate) async fn search(
             break;
         }
 
-        let data = &v["data"];
-        let path = data["path"]["text"]
-            .as_str()
-            .unwrap_or("")
-            .trim_start_matches("./");
-        let text = data["lines"]["text"].as_str().unwrap_or("");
-        let column = data["submatches"][0]["start"].as_u64().unwrap_or(0) as usize + 1;
-        matches.push(json!({
-            "path": path,
-            "line": data["line_number"].as_u64().unwrap_or(0),
-            "column": column,
-            "text": search_preview(text, column),
-        }));
+        matches.push(search_match(&v));
     }
 
     if !truncated {
