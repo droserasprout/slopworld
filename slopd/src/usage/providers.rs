@@ -1,14 +1,12 @@
-//! Provider credentials, HTTP requests, rate-limit handling, and shared Anthropic cache.
+//! Provider credentials and HTTP requests. anthropic_cache owns shared request coordination.
 
 use crate::clock::unix_ms;
-use std::fs::{File, OpenOptions};
-use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant, SystemTime};
+use std::path::PathBuf;
+use std::time::{Duration, SystemTime};
 
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::{Poller, Snapshot};
+use super::Snapshot;
 
 #[cfg(test)]
 #[path = "providers_tests.rs"]
@@ -21,10 +19,8 @@ const ANTHROPIC_USER_AGENT: &str = concat!("claude-code/", env!("SLOPWORLD_VERSI
 const KEY_ENV: &str = "OPENROUTER_API_KEY";
 const OAUTH_BETA: &str = "oauth-2025-04-20";
 const TIMEOUT: Duration = Duration::from_secs(20);
-const USAGE_CACHE_TTL: Duration = Duration::from_secs(300);
-const USAGE_CACHE_VERSION: u32 = 1;
 
-fn usage_url() -> String {
+pub(super) fn usage_url() -> String {
     std::env::var("SLOPD_USAGE_URL").unwrap_or_else(|_| USAGE_URL.to_string())
 }
 
@@ -64,9 +60,14 @@ pub(super) enum ProviderCredentials {
 /// It can instead truncate and rewrite the host inode, which temporarily leaves invalid JSON.
 /// Return I/O errors immediately.
 pub(super) fn read_creds(path: &PathBuf) -> anyhow::Result<Creds> {
+    read_creds_with_retry(path, || std::thread::sleep(Duration::from_millis(50)))
+}
+
+/// Keep retry ordering observable without relying on writer timing in tests.
+fn read_creds_with_retry(path: &PathBuf, before_retry: impl FnOnce()) -> anyhow::Result<Creds> {
     match read_creds_once(path) {
         Err(e) if e.downcast_ref::<serde_json::Error>().is_some() => {
-            std::thread::sleep(std::time::Duration::from_millis(50));
+            before_retry();
             read_creds_once(path)
         }
         other => other,
@@ -130,106 +131,6 @@ pub(super) fn read_anthropic(d: &crate::config::Daemon) -> anyhow::Result<Provid
     read_creds(&path).map(ProviderCredentials::Anthropic)
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-struct AnthropicUsageCache {
-    version: u32,
-    fetched_ms: u64,
-    body: Value,
-    /// Set only after a 429, so another daemon can observe the same upstream backoff.
-    #[serde(default)]
-    retry_until_ms: Option<u64>,
-}
-
-/// Cache and lock files live under XDG's cache root. The credential path and endpoint are part of
-/// the name so two configured accounts or a test proxy cannot reuse one another's answer.
-fn anthropic_cache_paths(credentials: &Path) -> (PathBuf, PathBuf) {
-    let mut hash = 0xcbf29ce484222325u64;
-    for byte in credentials
-        .to_string_lossy()
-        .bytes()
-        .chain([0u8])
-        .chain(usage_url().bytes())
-    {
-        hash = (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3);
-    }
-
-    let base = crate::paths::cache_root().join(format!(".anthropic-usage-{hash:016x}"));
-    (base.with_extension("json"), base.with_extension("lock"))
-}
-
-pub(super) fn fresh_anthropic_cache(path: &Path) -> Option<Value> {
-    let text = std::fs::read_to_string(path).ok()?;
-    let cache = serde_json::from_str::<AnthropicUsageCache>(&text).ok()?;
-    if cache.version != USAGE_CACHE_VERSION {
-        return None;
-    }
-    if cache.body.is_null() {
-        return None;
-    }
-    let age = unix_ms().checked_sub(cache.fetched_ms)?;
-    (age < USAGE_CACHE_TTL.as_millis() as u64).then_some(cache.body)
-}
-
-pub(super) fn cached_anthropic_retry(path: &Path) -> Option<u64> {
-    let text = std::fs::read_to_string(path).ok()?;
-    let cache = serde_json::from_str::<AnthropicUsageCache>(&text).ok()?;
-    let remaining_ms = cache.retry_until_ms?.checked_sub(unix_ms())?;
-    (remaining_ms > 0).then(|| remaining_ms.saturating_add(999) / 1000)
-}
-
-/// Wait for the advisory lock while another daemon reads the cache or requests usage data.
-/// Waiting up to the HTTP timeout avoids an additional request for the same account.
-pub(super) fn lock_anthropic_cache(path: &Path) -> Option<nix::fcntl::Flock<File>> {
-    let file = OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .read(true)
-        .write(true)
-        .open(path)
-        .ok()?;
-
-    nix::fcntl::Flock::lock(file, nix::fcntl::FlockArg::LockExclusive).ok()
-}
-
-pub(super) fn save_anthropic_cache(path: &Path, body: &Value, retry_until_ms: Option<u64>) {
-    let Some(parent) = path.parent() else { return };
-    if std::fs::create_dir_all(parent).is_err() {
-        return;
-    }
-
-    let tmp = path.with_extension("json.tmp");
-    let cache = AnthropicUsageCache {
-        version: USAGE_CACHE_VERSION,
-        fetched_ms: unix_ms(),
-        body: body.clone(),
-        retry_until_ms,
-    };
-    let Ok(text) = serde_json::to_string(&cache) else {
-        return;
-    };
-    if std::fs::write(&tmp, text).is_err() {
-        return;
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        drop(std::fs::set_permissions(
-            &tmp,
-            std::fs::Permissions::from_mode(0o600),
-        ));
-    }
-    drop(std::fs::rename(tmp, path));
-}
-
-pub(super) fn save_anthropic_rate_limit(path: &Path, delay: u64) {
-    let delay = delay.max(RATE_LIMIT_FLOOR);
-    save_anthropic_cache(
-        path,
-        &Value::Null,
-        Some(unix_ms().saturating_add(delay.saturating_mul(1_000))),
-    );
-}
-
 pub(super) fn read_openrouter(d: &crate::config::Daemon) -> anyhow::Result<ProviderCredentials> {
     read_key(&d.openrouter_key_file).map(ProviderCredentials::OpenRouter)
 }
@@ -265,7 +166,7 @@ pub(super) struct PollErr {
 }
 
 impl PollErr {
-    fn new(msg: impl std::fmt::Display) -> Self {
+    pub(super) fn new(msg: impl std::fmt::Display) -> Self {
         PollErr {
             msg: msg.to_string(),
             retry_after: None,
@@ -287,8 +188,6 @@ pub(super) struct ProviderResponse {
 pub(super) type ReadProvider = fn(&crate::config::Daemon) -> anyhow::Result<ProviderCredentials>;
 pub(super) type FetchProvider = fn(ProviderCredentials) -> Result<ProviderResponse, PollErr>;
 pub(super) type ParseProvider = fn(ProviderResponse) -> Snapshot;
-pub(super) type PrepareProvider =
-    fn(&crate::config::Daemon, &mut Poller, &mut Option<SystemTime>, Instant);
 
 /// What a 429 with no `Retry-After` is treated as asking for. A rate limit retried
 /// a minute later is usually just another rate limit.
@@ -434,57 +333,7 @@ pub(super) fn fetch_anthropic(creds: ProviderCredentials) -> Result<ProviderResp
     let ProviderCredentials::Anthropic(creds) = creds else {
         return Err(PollErr::new("internal Anthropic credential mismatch"));
     };
-    let plan = creds.plan.clone();
-    let (cache_path, lock_path) = anthropic_cache_paths(&creds.path);
-
-    if let Some(delay) = cached_anthropic_retry(&cache_path) {
-        return Err(PollErr {
-            msg: "Anthropic usage polling is in shared rate-limit backoff".into(),
-            retry_after: Some(delay),
-        });
-    }
-    if let Some(body) = fresh_anthropic_cache(&cache_path) {
-        return Ok(ProviderResponse {
-            body,
-            plan: Some(plan),
-        });
-    }
-
-    let lock = lock_anthropic_cache(&lock_path);
-    if lock.is_some() {
-        // A second daemon may have filled the cache while this one waited for the lock.
-        if let Some(delay) = cached_anthropic_retry(&cache_path) {
-            return Err(PollErr {
-                msg: "Anthropic usage polling is in shared rate-limit backoff".into(),
-                retry_after: Some(delay),
-            });
-        }
-        if let Some(body) = fresh_anthropic_cache(&cache_path) {
-            return Ok(ProviderResponse {
-                body,
-                plan: Some(plan),
-            });
-        }
-    }
-
-    let body = match fetch(&creds) {
-        Ok(body) => body,
-        Err(error) => {
-            if let Some(delay) = error.retry_after {
-                if lock.is_some() {
-                    save_anthropic_rate_limit(&cache_path, delay);
-                }
-            }
-            return Err(error);
-        }
-    };
-    if lock.is_some() {
-        save_anthropic_cache(&cache_path, &body, None);
-    }
-    Ok(ProviderResponse {
-        body,
-        plan: Some(plan),
-    })
+    super::anthropic_cache::fetch(&creds)
 }
 
 pub(super) fn fetch_openrouter(creds: ProviderCredentials) -> Result<ProviderResponse, PollErr> {

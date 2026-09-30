@@ -10,14 +10,21 @@ use serde::Serialize;
 
 use crate::session::Manager;
 
+mod anthropic_cache;
 mod parsing;
 mod providers;
+mod rows;
+
+pub use rows::catalog;
+use rows::{item_enabled, provider_enabled, resolve_rows, resolved_catalog, source_for_key};
+#[cfg(test)]
+mod test_http;
 #[cfg(test)]
 use parsing::{parse, parse_credits, parse_openai};
 use parsing::{parse_anthropic, parse_openai_response, parse_openrouter};
 use providers::{
     fetch_anthropic, fetch_openai_provider, fetch_openrouter, read_anthropic, read_openai,
-    read_openrouter, FetchProvider, ParseProvider, PrepareProvider, ReadProvider, RATE_LIMIT_FLOOR,
+    read_openrouter, FetchProvider, ParseProvider, ReadProvider, RATE_LIMIT_FLOOR,
 };
 
 pub const CLAUDE_SESSION: &str = "claude_session";
@@ -26,12 +33,6 @@ pub const CLAUDE_SPEND: &str = "claude_spend";
 pub const OPENAI_SESSION: &str = "openai_session";
 pub const OPENAI_WEEK: &str = "openai_week";
 pub const OPENROUTER_BALANCE: &str = "openrouter_balance";
-
-#[cfg(test)]
-use providers::{
-    cached_anthropic_retry, expiry_error, fresh_anthropic_cache, parse_retry_after, read_creds,
-    save_anthropic_cache, save_anthropic_rate_limit,
-};
 
 /// Include units in the protocol so clients can distinguish percentages from monetary amounts without interpreting keys.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -75,64 +76,6 @@ pub struct CatalogEntry {
     pub unit: Unit,
     pub rank: i32,
     pub default_poll: bool,
-}
-
-pub fn catalog() -> Vec<CatalogEntry> {
-    [
-        (
-            CLAUDE_SESSION,
-            "Claude session",
-            "anthropic",
-            Unit::Pct,
-            0,
-            true,
-        ),
-        (
-            CLAUDE_WEEK,
-            "Claude weekly",
-            "anthropic",
-            Unit::Pct,
-            1,
-            true,
-        ),
-        (
-            OPENAI_SESSION,
-            "OpenAI session",
-            "openai",
-            Unit::Pct,
-            2,
-            true,
-        ),
-        (OPENAI_WEEK, "OpenAI weekly", "openai", Unit::Pct, 3, true),
-        (
-            OPENROUTER_BALANCE,
-            "OpenRouter balance",
-            "openrouter",
-            Unit::Usd,
-            4,
-            false,
-        ),
-        (
-            CLAUDE_SPEND,
-            "Claude balance",
-            "anthropic",
-            Unit::Pct,
-            5,
-            true,
-        ),
-    ]
-    .into_iter()
-    .map(
-        |(key, label, provider, unit, rank, default_poll)| CatalogEntry {
-            key: key.into(),
-            label: label.into(),
-            provider: provider.into(),
-            unit,
-            rank,
-            default_poll,
-        },
-    )
-    .collect()
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -249,6 +192,8 @@ struct Poller {
     /// The next polling time for this source.
     /// Poll immediately at startup and when the user enables the source again.
     due: Instant,
+    /// Last effective cadence, independent of the failure retry deadline.
+    interval: Option<u64>,
     /// Provider responses contain several windows, so each returned window keeps its own
     /// schedule even though the request itself is shared.
     item_due: HashMap<String, Instant>,
@@ -261,6 +206,7 @@ impl Poller {
             snap: Snapshot::default(),
             fails: 0,
             due: Instant::now(),
+            interval: None,
             item_due: HashMap::new(),
         }
     }
@@ -270,6 +216,7 @@ impl Poller {
     fn clear(&mut self) -> bool {
         self.fails = 0;
         self.due = Instant::now();
+        self.interval = None;
         self.item_due.clear();
         if self.snap == Snapshot::default() {
             return false;
@@ -333,76 +280,10 @@ impl Poller {
 
 struct Provider<'a> {
     source: &'static str,
-    enabled: fn(&crate::config::Daemon) -> bool,
     poller: &'a mut Poller,
     read: ReadProvider,
     fetch: FetchProvider,
     parse: ParseProvider,
-    /// Most providers need no work between laps. Anthropic alone watches its credential mtime.
-    prepare: Option<PrepareProvider>,
-}
-
-fn anthropic_enabled(d: &crate::config::Daemon) -> bool {
-    provider_enabled(d, "anthropic")
-}
-
-fn openrouter_enabled(d: &crate::config::Daemon) -> bool {
-    provider_enabled(d, "openrouter")
-}
-
-fn openai_enabled(d: &crate::config::Daemon) -> bool {
-    provider_enabled(d, "openai")
-}
-
-fn source_for_key(key: &str) -> Option<&'static str> {
-    if key.starts_with("claude_") {
-        Some("anthropic")
-    } else if key.starts_with("openrouter_") {
-        Some("openrouter")
-    } else if key.starts_with("openai_") {
-        Some("openai")
-    } else {
-        None
-    }
-}
-
-fn default_source_enabled(source: &str) -> bool {
-    matches!(source, "anthropic" | "openai")
-}
-
-fn catalog_entry(key: &str) -> Option<CatalogEntry> {
-    catalog().into_iter().find(|entry| entry.key == key)
-}
-
-fn default_poll(key: &str, source: &str) -> bool {
-    catalog_entry(key)
-        .map(|entry| entry.default_poll)
-        .unwrap_or_else(|| default_source_enabled(source))
-}
-
-fn item_enabled(d: &crate::config::Daemon, source: &str, key: &str) -> bool {
-    if source_for_key(key) != Some(source) {
-        return false;
-    }
-    d.usage_items
-        .get(key)
-        .map(|item| item.poll)
-        .unwrap_or_else(|| default_poll(key, source))
-}
-
-/// Once a table exists for a provider, turning every row off also turns the provider off. This
-/// avoids keeping credentials and network polling alive for a table that visibly has no rows.
-fn provider_enabled(d: &crate::config::Daemon, source: &str) -> bool {
-    let rows: Vec<_> = d
-        .usage_items
-        .iter()
-        .filter(|(key, _)| source_for_key(key) == Some(source))
-        .collect();
-    if rows.is_empty() {
-        default_source_enabled(source)
-    } else {
-        rows.iter().any(|(_, item)| item.poll)
-    }
 }
 
 fn minimum_poll_secs(source: &str) -> u64 {
@@ -427,91 +308,27 @@ fn item_interval(d: &crate::config::Daemon, source: &str, key: &str) -> u64 {
 /// After a provider responds, exclude absent rows when selecting the shortest interval.
 /// For example, an optional Claude model window can be null.
 fn provider_interval(d: &crate::config::Daemon, source: &str, poller: &Poller) -> u64 {
-    let has_answer = poller.snap.fetched_ms > 0;
-    d.usage_items
+    let entries = resolved_catalog(&poller.snap.windows);
+    entries
         .iter()
-        .filter(|(key, item)| {
-            source_for_key(key) == Some(source)
-                && item.poll
-                && (!has_answer || poller.snap.windows.iter().any(|w| w.key == **key))
+        .filter(|entry| {
+            entry.provider == source
+                && item_enabled(d, source, &entry.key)
+                && (poller.snap.fetched_ms == 0
+                    || poller.snap.windows.iter().any(|w| w.key == entry.key))
         })
-        .map(|(key, _)| item_interval(d, source, key))
+        .map(|entry| item_interval(d, source, &entry.key))
+        // Configured dynamic rows may not have been discovered yet.
+        .chain(
+            d.usage_items
+                .iter()
+                .filter(|(key, item)| {
+                    source_for_key(key) == Some(source) && item.poll && poller.snap.fetched_ms == 0
+                })
+                .map(|(key, _)| item_interval(d, source, key)),
+        )
         .min()
         .unwrap_or(d.usage_poll_secs.max(minimum_poll_secs(source)))
-}
-
-fn resolved_catalog(windows: &[Window]) -> Vec<CatalogEntry> {
-    let mut entries = catalog();
-    for window in windows {
-        if entries.iter().any(|entry| entry.key == window.key) {
-            continue;
-        }
-        let provider = source_for_key(&window.key).unwrap_or("unknown");
-        let rank = entries.iter().map(|entry| entry.rank).max().unwrap_or(0) + 1;
-        entries.push(CatalogEntry {
-            key: window.key.clone(),
-            label: window.label.clone(),
-            provider: provider.into(),
-            unit: window.unit,
-            rank,
-            default_poll: true,
-        });
-    }
-    entries.sort_by_key(|entry| entry.rank);
-    entries
-}
-
-fn resolve_rows(snapshot: &Snapshot, d: &crate::config::Daemon) -> Vec<UsageRow> {
-    let mut rows = Vec::new();
-    for entry in &snapshot.catalog {
-        // A partial usage table disables the provider as a whole. Do not leave the other
-        // catalog entries looking pollable when their implicit defaults outlive that switch.
-        let poll = provider_enabled(d, &entry.provider)
-            && d.usage_items
-                .get(&entry.key)
-                .map(|item| item.poll)
-                .unwrap_or(entry.default_poll);
-        let window = snapshot
-            .windows
-            .iter()
-            .find(|window| window.key == entry.key)
-            .cloned();
-        // A successful provider response is also an applicability answer: if it returned one
-        // of its windows, an omitted catalog entry is not a pending value. In particular, the
-        // OpenAI free plan reports its weekly window in `primary_window` and does not have a
-        // session window. Keep placeholders only while that provider has supplied no usable
-        // windows at all (usually because its first poll failed).
-        if window.is_none()
-            && snapshot
-                .windows
-                .iter()
-                .any(|window| source_for_key(&window.key) == Some(entry.provider.as_str()))
-        {
-            continue;
-        }
-        let stale = snapshot
-            .failed_sources
-            .iter()
-            .any(|source| source == &entry.provider);
-        rows.push(UsageRow {
-            key: entry.key.clone(),
-            label: window
-                .as_ref()
-                .map(|window| window.label.clone())
-                .unwrap_or_else(|| entry.label.clone()),
-            provider: entry.provider.clone(),
-            unit: window
-                .as_ref()
-                .map(|window| window.unit)
-                .unwrap_or(entry.unit),
-            rank: entry.rank,
-            poll,
-            stale,
-            window,
-        });
-    }
-    rows.sort_by_key(|row| row.rank);
-    rows
 }
 
 fn filter_snapshot(
@@ -580,7 +397,7 @@ fn preserve_parse_failure(previous: &Snapshot, parsed: Snapshot) -> Snapshot {
 
 /// Watch the credential file to detect host login renewal before a retry delay ends.
 /// An expired token can cause a delay of up to half an hour.
-/// This optional hook supports Claude's shared credential file. Other credential sources do not use this renewal mechanism.
+/// Claude's shared credential file is the only source watched for renewal.
 fn watch_anthropic_stamp(
     d: &crate::config::Daemon,
     poller: &mut Poller,
@@ -618,14 +435,9 @@ fn settle_join(
 
 /// Poll one provider and update its state. The descriptor supplies provider-specific functions.
 /// Keep scheduling, retry delays, and snapshot preservation here.
-async fn poll_one(
-    provider: &mut Provider<'_>,
-    d: &crate::config::Daemon,
-    now: Instant,
-    base: u64,
-) -> bool {
+async fn poll_one(provider: &mut Provider<'_>, d: &crate::config::Daemon, now: Instant, base: u64) {
     if provider.poller.due > now {
-        return false;
+        return;
     }
 
     let prev = provider.poller.snap.clone();
@@ -650,7 +462,6 @@ async fn poll_one(
 
     let next = filter_snapshot(provider.poller, next, d, provider.source, now);
     provider.poller.settle(next, asked, base);
-    true
 }
 
 /// Combine provider snapshots into one resource list for the mod.
@@ -722,63 +533,54 @@ impl UsagePollers {
         }
     }
 
-    async fn poll_once(&mut self, m: &Arc<Manager>) -> Duration {
-        let cfg = m.config().await;
-        let d = &cfg.daemon;
-        let now = Instant::now();
-        let mut moved = false;
+    /// Adapter construction is separate from polling policy and publication.
+    fn providers(&mut self) -> [Provider<'_>; 3] {
         let UsagePollers {
-            anth,
-            cred,
-            openai,
-            creds_stamp,
+            anth, cred, openai, ..
         } = self;
 
-        let mut providers = [
+        [
             Provider {
                 source: "anthropic",
-                enabled: anthropic_enabled,
                 poller: anth,
                 read: read_anthropic,
                 fetch: fetch_anthropic,
                 parse: parse_anthropic,
-                prepare: Some(watch_anthropic_stamp),
             },
             Provider {
                 source: "openrouter",
-                enabled: openrouter_enabled,
                 poller: cred,
                 read: read_openrouter,
                 fetch: fetch_openrouter,
                 parse: parse_openrouter,
-                prepare: None,
             },
             Provider {
                 source: "openai",
-                enabled: openai_enabled,
                 poller: openai,
                 read: read_openai,
                 fetch: fetch_openai_provider,
                 parse: parse_openai_response,
-                prepare: None,
             },
-        ];
+        ]
+    }
+
+    async fn poll_once(&mut self, m: &Arc<Manager>) -> Duration {
+        let cfg = m.config().await;
+        let d = &cfg.daemon;
+        let now = Instant::now();
+        watch_anthropic_stamp(d, &mut self.anth, &mut self.creds_stamp, now);
+        let mut providers = self.providers();
 
         for provider in &mut providers {
-            if let Some(prepare) = provider.prepare {
-                prepare(d, provider.poller, creds_stamp, now);
-            }
-
-            if !(provider.enabled)(d) {
+            if !provider_enabled(d, provider.source) {
                 // Clear disabled rows, but keep the loop active.
                 // The user can enable the source again without a restart.
-                moved |= provider.poller.clear();
+                provider.poller.clear();
                 continue;
             }
 
             // A row toggle should disappear from the wire immediately, even when this
             // provider is between network polls. Its next enabled poll will repopulate it.
-            let before = provider.poller.snap.windows.len();
             provider
                 .poller
                 .item_due
@@ -788,43 +590,43 @@ impl UsagePollers {
                 .snap
                 .windows
                 .retain(|window| item_enabled(d, provider.source, &window.key));
-            moved |= before != provider.poller.snap.windows.len();
 
             let interval = provider_interval(d, provider.source, provider.poller);
-            // A newly shortened interval should take effect on the next loop rather than
-            // waiting out the old, longer due time. Increasing it naturally takes effect
-            // after the next poll.
-            if provider.poller.due > now + Duration::from_secs(interval) {
+            // Configuration may shorten a successful poll's cadence, but must never
+            // erase exponential or upstream failure backoff.
+            if provider.poller.fails == 0
+                && provider
+                    .poller
+                    .interval
+                    .is_some_and(|previous| interval < previous)
+            {
                 provider.poller.due = now;
             }
-
-            moved |= poll_one(provider, d, now, interval).await;
+            provider.poller.interval = Some(interval);
+            poll_one(provider, d, now, interval).await;
         }
 
-        // Send one combined event only when data changes. `set_usage` broadcasts to all clients.
-        if moved {
-            let mut out = merge(
-                providers
-                    .iter()
-                    .map(|provider| (provider.source, &provider.poller.snap)),
-                d,
-            );
-            // Add enabled sources here because merge handles snapshots without configuration flags.
-            // Include each enabled provider even if it has never supplied a snapshot.
-            out.sources.extend(
-                providers
-                    .iter()
-                    .filter(|provider| (provider.enabled)(d))
-                    .map(|provider| provider.source.into()),
-            );
-            out.catalog = resolved_catalog(&out.windows);
-            out.rows = resolve_rows(&out, d);
-            m.set_usage(out).await;
-        }
+        // Resolve every lap: config toggles also affect placeholders with no retained windows.
+        // Manager suppresses broadcasts when the effective readout has not changed.
+        let mut out = merge(
+            providers
+                .iter()
+                .map(|provider| (provider.source, &provider.poller.snap)),
+            d,
+        );
+        out.sources.extend(
+            providers
+                .iter()
+                .filter(|provider| provider_enabled(d, provider.source))
+                .map(|provider| provider.source.into()),
+        );
+        out.catalog = resolved_catalog(&out.windows);
+        out.rows = resolve_rows(&out, d);
+        m.set_usage(out).await;
 
         let due = providers
             .iter()
-            .filter(|provider| (provider.enabled)(d))
+            .filter(|provider| provider_enabled(d, provider.source))
             .map(|provider| provider.poller.due)
             .min();
 

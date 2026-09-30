@@ -85,10 +85,11 @@ fn spend_off_is_not_spend_zero() {
     )
     .unwrap();
 
-    assert!(parse(&v, String::new())
-        .windows
-        .iter()
-        .all(|w| w.key != "claude_spend"));
+    let parsed = parse(&v, String::new());
+    assert!(parsed.ok);
+    assert_eq!(parsed.windows.len(), 1);
+    assert_eq!(parsed.windows[0].key, CLAUDE_SESSION);
+    assert!(parsed.windows.iter().all(|w| w.key != CLAUDE_SPEND));
 }
 
 /// Treat body utilization values as percentages regardless of magnitude.
@@ -173,6 +174,19 @@ fn rfc3339_handles_fractions_and_offsets() {
 #[test]
 fn rfc3339_rejects_out_of_range_fields_and_trailing_zone_text() {
     for bad in [
+        "2026-07-26T00x00:00Z",
+        "2026-07-26T00:00x00Z",
+        "2026-07-26T00:00:00..1Z",
+        "2026-07-26T00:00:00.Z",
+        "2026-07-26T00:00:00+0+:00",
+        "2026-07-26T00:00:00+00:-1",
+        "202é-07-26T00:00:00Z",
+        "2026-é7-26T00:00:00Z",
+        "2026-07-é6T00:00:00Z",
+        "2026-07-26Té0:00:00Z",
+        "2026-07-26T00:é0:00Z",
+        "2026-07-26T00:00:é0Z",
+        "2026-07-26T00:00:00+é0:00",
         "2026-13-01T00:00:00Z",
         "2026-02-29T00:00:00Z",
         "2024-02-30T00:00:00Z",
@@ -272,4 +286,16 @@ fn unknown_openai_payload_is_not_an_empty_usage_window() {
     let s = parse_openai(&serde_json::json!({"rate_limit": {}}));
     assert!(!s.ok);
     assert!(s.windows.is_empty());
+}
+
+#[test]
+fn weekly_windows_require_exact_key_or_nonempty_model_suffix() {
+    for key in ["seven_dayx", "seven_days", "seven_day-ops", "seven_day_"] {
+        assert!(family(key).is_none(), "accepted {key}");
+    }
+    assert_eq!(family("seven_day").unwrap().0, CLAUDE_WEEK);
+    assert_eq!(
+        family("seven_day_new_model").unwrap().0,
+        "claude_week_new_model"
+    );
 }

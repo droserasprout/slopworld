@@ -1,6 +1,4 @@
 use super::*;
-use crate::clock::unix_ms;
-use std::time::UNIX_EPOCH;
 
 const REAL: &str = r#"{
         "five_hour": {"utilization": 52.0, "resets_at": "2100-07-26T09:59:59.621619+00:00",
@@ -14,32 +12,6 @@ const REAL: &str = r#"{
         "spend": {"percent": 21, "severity": "normal"},
         "member_dashboard_available": false
     }"#;
-
-#[test]
-fn usage_sources_use_rows_without_provider_switches() {
-    let mut daemon = crate::config::Daemon::default();
-    assert!(provider_enabled(&daemon, "anthropic"));
-    assert!(!provider_enabled(&daemon, "openrouter"));
-    assert!(provider_enabled(&daemon, "openai"));
-
-    daemon.usage_items.insert(
-        OPENROUTER_BALANCE.into(),
-        crate::config::UsageItem {
-            poll: true,
-            interval_secs: None,
-        },
-    );
-    daemon.usage_items.insert(
-        CLAUDE_SESSION.into(),
-        crate::config::UsageItem {
-            poll: false,
-            interval_secs: None,
-        },
-    );
-    assert!(provider_enabled(&daemon, "openrouter"));
-    assert!(!provider_enabled(&daemon, "anthropic"));
-    assert!(!item_enabled(&daemon, "anthropic", "claude_session"));
-}
 
 #[test]
 fn absent_anthropic_rows_do_not_set_the_provider_interval() {
@@ -78,99 +50,6 @@ fn absent_anthropic_rows_do_not_set_the_provider_interval() {
 }
 
 #[test]
-fn anthropic_cache_shares_successes_and_rate_limit_backoff() {
-    let path = std::env::temp_dir().join(format!(
-        "slopd-anthropic-cache-{}-{}.json",
-        std::process::id(),
-        unix_ms()
-    ));
-    let body = serde_json::json!({"five_hour": {"utilization": 12}});
-
-    save_anthropic_cache(&path, &body, None);
-    assert_eq!(fresh_anthropic_cache(&path), Some(body));
-
-    save_anthropic_rate_limit(&path, RATE_LIMIT_FLOOR);
-    assert!(fresh_anthropic_cache(&path).is_none());
-    assert!(cached_anthropic_retry(&path).is_some_and(|seconds| seconds > 0));
-
-    std::fs::remove_file(path).unwrap();
-}
-
-/// Credential writes can truncate the existing file when a sandbox bind mount prevents atomic replacement.
-/// A concurrent read can then encounter incomplete JSON.
-/// Retry a parse failure once to avoid reporting a temporary write as a credential error.
-#[test]
-fn a_half_written_credentials_file_is_read_again_rather_than_failed() {
-    let path = std::env::temp_dir().join(format!("slopd-torn-{}.json", std::process::id()));
-    let whole = r#"{"claudeAiOauth":{"accessToken":"t","subscriptionType":"max"}}"#;
-
-    // Simulate an empty file after O_TRUNC and before the writer supplies new contents.
-    std::fs::write(&path, "").unwrap();
-    let writer = {
-        let path = path.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(10));
-            std::fs::write(&path, whole).unwrap();
-        })
-    };
-    let got = read_creds(&path);
-    writer.join().unwrap();
-    assert_eq!(
-        got.unwrap().token,
-        "t",
-        "the retry did not pick up the write"
-    );
-
-    // Report a parse error if the retry also reads invalid JSON.
-    std::fs::write(&path, "half a {").unwrap();
-    assert!(read_creds(&path).is_err());
-
-    // Report a missing file as an I/O error without a retry.
-    std::fs::remove_file(&path).unwrap();
-    assert!(read_creds(&path).is_err());
-}
-
-/// Compare expiry timestamps in milliseconds since the Unix epoch.
-/// Use realistic timestamp values to expose incorrect unit conversions.
-#[test]
-fn expiry_reads_milliseconds() {
-    // Issued 15:10 UTC-3, eight hours to run.
-    let exp = 1_786_327_807_534;
-    let refresh = 1_788_638_739_534;
-
-    assert!(expiry_error(Some(exp), Some(refresh), exp - 1).is_none());
-    assert!(expiry_error(Some(exp), Some(refresh), exp + 1).is_some());
-
-    // Incorrect conversion of either timestamp changes the expiry result.
-    // These comparisons show why callers must supply consistent units.
-    assert!(expiry_error(Some(exp), Some(refresh), exp / 1000).is_none());
-    assert!(expiry_error(Some(exp * 1000), Some(refresh), exp + 10_800_000).is_none());
-}
-
-/// Do not request `claude auth` when the host can renew the access token.
-#[test]
-fn a_renewable_token_is_not_a_logged_out_host() {
-    let now = 1_786_327_807_534;
-    let stale = now - 1;
-    let live_refresh = now + 30 * 86_400_000;
-
-    let renew = expiry_error(Some(stale), Some(live_refresh), now).unwrap();
-    assert!(renew.contains("needs renewal"));
-    assert!(!renew.contains("claude auth"));
-
-    let relogin = expiry_error(Some(stale), Some(stale), now).unwrap();
-    assert!(relogin.contains("claude auth"));
-
-    // An absent refresh expiry does not prove that the refresh token has expired.
-    assert!(!expiry_error(Some(stale), None, now)
-        .unwrap()
-        .contains("claude auth"));
-
-    // An absent access-token expiry does not prove that the access token has expired.
-    assert!(expiry_error(None, Some(stale), now).is_none());
-}
-
-#[test]
 fn backoff_doubles_and_caps() {
     assert_eq!(backoff(60, 1, None), 60);
     assert_eq!(backoff(60, 2, None), 120);
@@ -187,27 +66,6 @@ fn retry_after_beats_the_guess() {
     assert_eq!(backoff(60, 1, Some(30)), RATE_LIMIT_FLOOR);
     assert_eq!(backoff(60, 1, Some(0)), RATE_LIMIT_FLOOR);
     assert_eq!(backoff(60, 9, Some(7200)), 7200);
-}
-
-#[test]
-fn retry_after_parses_seconds_and_http_dates() {
-    let now = UNIX_EPOCH + Duration::from_secs(1_000_000);
-
-    assert_eq!(parse_retry_after(" 42 ", now), Some(42));
-    assert_eq!(parse_retry_after("0", now), Some(0));
-    assert_eq!(
-        parse_retry_after(
-            &httpdate::fmt_http_date(now + Duration::from_secs(123)),
-            now
-        ),
-        Some(123)
-    );
-    assert_eq!(
-        parse_retry_after(&httpdate::fmt_http_date(now - Duration::from_secs(1)), now),
-        Some(0)
-    );
-    assert_eq!(parse_retry_after("not a retry delay", now), None);
-    assert_eq!(parse_retry_after("999999", now), Some(6 * 3600));
 }
 
 /// Merge resource windows from three providers into one list for the mod.
@@ -294,47 +152,6 @@ fn valid_openai_response_omits_non_applicable_session_row() {
         .iter()
         .any(|row| row.key == OPENAI_WEEK && row.window.is_some()));
     assert!(!merged.rows.iter().any(|row| row.key == OPENAI_SESSION));
-}
-
-#[test]
-fn resolved_rows_keep_disabled_and_missing_states_explicit() {
-    let mut daemon = crate::config::Daemon::default();
-    daemon.usage_items.insert(
-        CLAUDE_SESSION.into(),
-        crate::config::UsageItem {
-            poll: false,
-            interval_secs: None,
-        },
-    );
-
-    let rows = resolve_rows(&Snapshot::default(), &daemon);
-    let session = rows.iter().find(|row| row.key == CLAUDE_SESSION).unwrap();
-    let balance = rows
-        .iter()
-        .find(|row| row.key == OPENROUTER_BALANCE)
-        .unwrap();
-    assert!(!session.poll);
-    assert!(session.window.is_none());
-    assert!(!balance.poll);
-    assert!(balance.window.is_none());
-}
-
-#[test]
-fn a_partial_provider_table_disables_implicit_rows() {
-    let mut daemon = crate::config::Daemon::default();
-    daemon.usage_items.insert(
-        CLAUDE_SESSION.into(),
-        crate::config::UsageItem {
-            poll: false,
-            interval_secs: None,
-        },
-    );
-
-    let rows = resolve_rows(&Snapshot::default(), &daemon);
-    for key in [CLAUDE_SESSION, CLAUDE_WEEK, CLAUDE_SPEND] {
-        let row = rows.iter().find(|row| row.key == key).unwrap();
-        assert!(!row.poll, "disabled provider leaves no pollable {key} row");
-    }
 }
 
 /// A change to `sources` must trigger an update even when usage values stay the same.
@@ -561,4 +378,115 @@ fn shorter_intervals_refresh_immediately_and_disabled_rows_clear_schedules() {
     let disabled = filter_snapshot(&mut poller, session_snapshot(99), &daemon, "anthropic", now);
     assert!(disabled.windows.is_empty());
     assert!(poller.item_due.is_empty());
+}
+
+#[test]
+fn implicit_enabled_windows_participate_in_provider_cadence() {
+    let mut daemon = crate::config::Daemon {
+        usage_poll_secs: 300,
+        ..Default::default()
+    };
+    daemon.usage_items.insert(
+        CLAUDE_SESSION.into(),
+        crate::config::UsageItem {
+            poll: true,
+            interval_secs: Some(900),
+        },
+    );
+    let mut poller = Poller::new("Anthropic");
+    assert_eq!(provider_interval(&daemon, "anthropic", &poller), 300);
+    poller.snap = parse(
+        &serde_json::json!({"five_hour":{"utilization":10},"seven_day":{"utilization":20}}),
+        "max".into(),
+    );
+    assert_eq!(provider_interval(&daemon, "anthropic", &poller), 300);
+    daemon.usage_items.insert(
+        CLAUDE_WEEK.into(),
+        crate::config::UsageItem {
+            poll: false,
+            interval_secs: None,
+        },
+    );
+    assert_eq!(provider_interval(&daemon, "anthropic", &poller), 900);
+}
+
+#[tokio::test]
+async fn polling_laps_preserve_failure_deadlines_and_publish_placeholder_toggles() {
+    let mut config = crate::config::Config::default();
+    config.daemon.usage_items.insert(
+        OPENAI_SESSION.into(),
+        crate::config::UsageItem {
+            poll: false,
+            interval_secs: None,
+        },
+    );
+    for key in [CLAUDE_SESSION, CLAUDE_WEEK] {
+        config.daemon.usage_items.insert(
+            key.into(),
+            crate::config::UsageItem {
+                poll: true,
+                interval_secs: Some(600),
+            },
+        );
+    }
+    // Keep the normal cadence above the Anthropic floor even with implicit rows.
+    config.daemon.usage_poll_secs = 600;
+    let mut pollers = UsagePollers::new();
+    pollers.anth.interval = Some(600);
+    pollers.anth.settle(
+        Snapshot::failed(&Snapshot::default(), "offline"),
+        Some(900),
+        600,
+    );
+    let due = pollers.anth.due;
+    let first = crate::session::test_manager(config.clone());
+    pollers.poll_once(&first).await;
+    assert_eq!(pollers.anth.due, due);
+    assert_eq!(pollers.anth.fails, 1);
+    assert!(
+        first
+            .usage()
+            .await
+            .rows
+            .iter()
+            .find(|row| row.key == CLAUDE_SESSION)
+            .unwrap()
+            .poll
+    );
+
+    // Toggle an empty row while another row keeps the provider enabled, and shorten
+    // configuration cadence during backoff. Neither change requires an outbound poll.
+    config
+        .daemon
+        .usage_items
+        .get_mut(CLAUDE_SESSION)
+        .unwrap()
+        .poll = false;
+    config
+        .daemon
+        .usage_items
+        .get_mut(CLAUDE_WEEK)
+        .unwrap()
+        .interval_secs = Some(300);
+    let changed = crate::session::test_manager(config);
+    pollers.poll_once(&changed).await;
+    assert_eq!(pollers.anth.due, due);
+    assert_eq!(pollers.anth.fails, 1);
+    let published = changed.usage().await;
+    let session = published
+        .rows
+        .iter()
+        .find(|row| row.key == CLAUDE_SESSION)
+        .unwrap();
+    assert!(!session.poll);
+    assert!(session.window.is_none());
+    assert!(session.stale);
+    assert!(
+        published
+            .rows
+            .iter()
+            .find(|row| row.key == CLAUDE_WEEK)
+            .unwrap()
+            .poll
+    );
 }

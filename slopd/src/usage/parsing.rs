@@ -234,16 +234,16 @@ fn family(name: &str) -> Option<(String, String)> {
         return Some((CLAUDE_SESSION.into(), "session".into()));
     }
 
-    let rest = name.strip_prefix("seven_day")?;
-    match rest.strip_prefix('_') {
-        // Plain seven_day: the weekly limit itself.
-        None => Some((CLAUDE_WEEK.into(), "week".into())),
-        // seven_day_opus, seven_day_sonnet, and whatever comes next.
-        Some(model) => Some((
-            format!("claude_week_{model}"),
-            format!("week ({})", model.replace('_', " ")),
-        )),
+    if name == "seven_day" {
+        return Some((CLAUDE_WEEK.into(), "week".into()));
     }
+    let model = name
+        .strip_prefix("seven_day_")
+        .filter(|model| !model.is_empty())?;
+    Some((
+        format!("claude_week_{model}"),
+        format!("week ({})", model.replace('_', " ")),
+    ))
 }
 
 /// Read a percentage: 52.0 means 52%. Response headers use fractions instead.
@@ -292,6 +292,8 @@ fn epoch_from_rfc3339(s: &str) -> Option<u64> {
         || b.get(4) != Some(&b'-')
         || b.get(7) != Some(&b'-')
         || b.get(10) != Some(&b'T')
+        || b.get(13) != Some(&b':')
+        || b.get(16) != Some(&b':')
     {
         return None;
     }
