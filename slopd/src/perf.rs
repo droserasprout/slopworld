@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
+// Percentiles describe the first bounded samples; counts cover the entire window.
 const MAX_SAMPLES: usize = 512;
 const REPORT_INTERVAL: Duration = Duration::from_secs(1);
 
@@ -83,15 +84,16 @@ pub(crate) fn report() -> Option<String> {
         return None;
     }
 
-    let mut metrics = METRICS
-        .get_or_init(|| Mutex::new(HashMap::new()))
-        .lock()
-        .expect("performance metrics lock poisoned");
-    if metrics.is_empty() {
-        return None;
-    }
-
-    let metrics = std::mem::take(&mut *metrics);
+    let metrics = {
+        let mut metrics = METRICS
+            .get_or_init(|| Mutex::new(HashMap::new()))
+            .lock()
+            .expect("performance metrics lock poisoned");
+        if metrics.is_empty() {
+            return None;
+        }
+        std::mem::take(&mut *metrics)
+    };
     let mut names = metrics.keys().copied().collect::<Vec<_>>();
     names.sort_unstable();
     let mut line = String::from("perf");
@@ -106,6 +108,8 @@ pub(crate) fn report() -> Option<String> {
         line.push_str(" work=");
         line.push_str(&metric_counts.work.to_string());
         if !metric.is_empty() {
+            line.push_str(" first_samples=");
+            line.push_str(&metric.len().to_string());
             line.push_str(" p50_us=");
             line.push_str(&percentile(&metric, 50).to_string());
             line.push_str(" p95_us=");

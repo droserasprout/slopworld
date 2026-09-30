@@ -189,11 +189,12 @@ pub fn save_user(station: Station) -> std::result::Result<(), JukeboxError> {
 fn save_user_in(dir: &Path, station: Station) -> std::result::Result<(), JukeboxError> {
     let station =
         normalize(station, None).map_err(|error| JukeboxError::Invalid(error.to_string()))?;
-    valid_id(&station.id).map_err(|error| JukeboxError::Invalid(error.to_string()))?;
 
     let path = match find_user_file(dir, &station.id).map_err(JukeboxError::Storage)? {
         Some(path) => path,
         None => {
+            // Legacy IDs remain editable at their existing path; new IDs must be safe filenames.
+            valid_id(&station.id).map_err(|error| JukeboxError::Invalid(error.to_string()))?;
             let path = dir.join(format!("{}.toml", station.id));
             if path.exists() {
                 return Err(JukeboxError::Invalid(format!(
@@ -228,25 +229,36 @@ pub fn delete_user(id: &str) -> std::result::Result<(), JukeboxError> {
 }
 
 fn delete_user_in(dir: &Path, id: &str) -> std::result::Result<(), JukeboxError> {
-    let path = find_user_file(dir, id)
-        .map_err(JukeboxError::Storage)?
-        .ok_or_else(|| JukeboxError::Missing(format!("unknown jukebox preset {id:?}")))?;
-    std::fs::remove_file(&path)
-        .with_context(|| format!("removing {}", path.display()))
-        .map_err(JukeboxError::Storage)
+    let paths = find_user_files(dir, id).map_err(JukeboxError::Storage)?;
+    if paths.is_empty() {
+        return Err(JukeboxError::Missing(format!(
+            "unknown jukebox preset {id:?}"
+        )));
+    }
+    // Remove shadowed definitions first, leaving the visible one until the final removal.
+    for path in paths {
+        std::fs::remove_file(&path)
+            .with_context(|| format!("removing {}", path.display()))
+            .map_err(JukeboxError::Storage)?;
+    }
+    Ok(())
 }
 
 fn find_user_file(dir: &Path, id: &str) -> Result<Option<PathBuf>> {
+    Ok(find_user_files(dir, id)?.pop())
+}
+
+fn find_user_files(dir: &Path, id: &str) -> Result<Vec<PathBuf>> {
     let entries = match std::fs::read_dir(dir) {
         Ok(entries) => entries,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(error) => return Err(error).with_context(|| format!("reading {}", dir.display())),
     };
     let mut paths = entries
         .map(|entry| entry.map(|entry| entry.path()))
         .collect::<std::io::Result<Vec<_>>>()?;
     paths.sort();
-    let mut found = None;
+    let mut found = Vec::new();
     for path in paths {
         if !path
             .extension()
@@ -260,7 +272,7 @@ fn find_user_file(dir: &Path, id: &str) -> Result<Option<PathBuf>> {
             Err(_) => continue,
         };
         if station.id == id {
-            found = Some(path);
+            found.push(path);
         }
     }
     Ok(found)

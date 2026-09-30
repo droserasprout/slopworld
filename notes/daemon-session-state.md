@@ -74,8 +74,9 @@ not agent configuration. Native Markdown previews have no tmux session.
 Explicit stop/start must clear that history.
 Persisted activity remains epoch milliseconds. `ActivityCache` applies mutations immediately
 in memory and uses one background writer for ordered, coalesced snapshots. Rename and clear
-share that order. Drop drains the writer. Abrupt termination can lose the latest pending fallback
-snapshot, while tmux metadata remains the primary recovery source. Capture publishes screens
+share that order. Only successful writes advance durability; a flush retries an already
+failed snapshot once. Drop drains pending work and retries an idle failed snapshot once.
+Abrupt termination can lose the latest pending fallback snapshot, while tmux metadata remains the primary recovery source. Capture publishes screens
 before awaiting the tmux activity write. `flush` is a blocking durability barrier for tests/shutdown,
 never for a Tokio worker.
 An adopted Working row uses the adoption sample as its runtime decay clock until its first frame.
@@ -106,6 +107,10 @@ Preserve real and styled history but exclude untouched leading padding.
 The emulator caches the hidden padding extent across cursor-only updates. Operations that can
 scroll, reset, switch screens, or resize invalidate it before the next render.
 Scroll snapshots must not consume bells.
+
+`tmux/server.rs` owns server startup and readiness, including the inline fallback.
+An empty server remains alive through pane creation. Startup errors stop session creation.
+A required host-marker failure rolls back only the newly created tmux session ID.
 
 New sessions use this sequence:
 

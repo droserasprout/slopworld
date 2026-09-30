@@ -179,7 +179,8 @@ fn request_once(
         .map_err(|e| AttemptError::Retry(anyhow::anyhow!(e)))?;
     let status = res.status().as_u16();
     if !(200..300).contains(&status) {
-        let error = anyhow::anyhow!("OpenRouter title endpoint returned {status}");
+        let detail = provider_error(res.body_mut(), key);
+        let error = anyhow::anyhow!("OpenRouter title endpoint returned {status}{detail}");
         return if status == 408 || status == 425 || status == 429 || status >= 500 {
             Err(AttemptError::Retry(error))
         } else {
@@ -197,6 +198,32 @@ fn request_once(
     clean(&raw).ok_or_else(|| {
         AttemptError::Permanent(anyhow::anyhow!("OpenRouter returned an empty title"))
     })
+}
+
+// Read only a bounded JSON error message; never include arbitrary bodies or request data.
+fn provider_error(body: &mut ureq::Body, key: &str) -> String {
+    use std::io::Read;
+    let mut bytes = Vec::new();
+    if body.as_reader().take(8192).read_to_end(&mut bytes).is_err() {
+        return String::new();
+    }
+    let Ok(value) = serde_json::from_slice::<Value>(&bytes) else {
+        return String::new();
+    };
+    let Some(message) = value.pointer("/error/message").and_then(Value::as_str) else {
+        return String::new();
+    };
+    let message = message.replace(key, "[redacted]");
+    let detail: String = message
+        .chars()
+        .filter(|c| !c.is_control())
+        .take(512)
+        .collect();
+    if detail.trim().is_empty() {
+        String::new()
+    } else {
+        format!(": {detail}")
+    }
 }
 
 fn message_content(body: &Value) -> Option<String> {
@@ -219,10 +246,9 @@ fn message_content(body: &Value) -> Option<String> {
 }
 
 fn clean(raw: &str) -> Option<String> {
-    let trimmed = raw
-        .trim()
-        .trim_matches(|c| matches!(c, '"' | '\'' | '“' | '”'));
-    let trimmed = trimmed.trim_end_matches(['.', '!', '?']);
+    let trimmed = raw.trim().trim_matches(|c: char| {
+        c.is_whitespace() || matches!(c, '"' | '\'' | '“' | '”' | '.' | '!' | '?')
+    });
     let title: String = trimmed.chars().take(MAX_TITLE_CHARS).collect();
     let title = title.trim();
     (!title.is_empty()).then(|| title.to_string())

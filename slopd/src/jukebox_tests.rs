@@ -133,6 +133,10 @@ url = "http://127.0.0.1:9/fixture"
     .unwrap();
     let catalog = Catalog::load_from(&dir);
 
+    assert_eq!(catalog.stations.len(), 1);
+    assert_eq!(catalog.stations[0].id, "fixture");
+    assert_eq!(catalog.stations[0].streams.len(), 1);
+    assert_eq!(catalog.stations[0].streams[0].key, "fixture96");
     let json: serde_json::Value = serde_json::to_value(&catalog).unwrap();
     for station in json["stations"].as_array().unwrap() {
         let streams = station["streams"].as_array().unwrap();
@@ -214,4 +218,22 @@ fn temp_dir(label: &str) -> PathBuf {
     ));
     std::fs::create_dir_all(&dir).unwrap();
     dir
+}
+
+#[test]
+fn legacy_ids_remain_editable_and_deletion_removes_shadowed_definitions() {
+    let dir = temp_dir("legacy");
+    let text = "[[stream]]\nrate = 96\nurl = 'https://example.org/radio'\n";
+    std::fs::write(dir.join("Legacy Radio.toml"), text).unwrap();
+    let mut station = Catalog::load_from(&dir).stations.remove(0);
+    assert_eq!(station.id, "Legacy Radio");
+    station.metadata.name = "Edited".into();
+    save_user_in(&dir, station).unwrap();
+    let saved = std::fs::read_to_string(dir.join("Legacy Radio.toml")).unwrap();
+    std::fs::write(dir.join("z-shadow.toml"), saved).unwrap();
+    assert_eq!(Catalog::load_from(&dir).stations.len(), 1);
+    delete_user_in(&dir, "Legacy Radio").unwrap();
+    assert!(Catalog::load_from(&dir).stations.is_empty());
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
+    std::fs::remove_dir_all(dir).unwrap();
 }

@@ -234,7 +234,9 @@ fn the_agents_keep_their_state_and_the_ways_out_are_marked() {
         // A shared path outside these directories would provide unrestricted writable access to its host source.
         for s in &p.shared {
             assert!(
-                p.private.iter().any(|priv_| s.starts_with(priv_.as_str())),
+                p.private
+                    .iter()
+                    .any(|priv_| Path::new(s).starts_with(Path::new(priv_))),
                 "{name} shares {s}, which is under nothing it keeps private"
             );
         }
@@ -425,7 +427,7 @@ fn copying_checks_user_and_target_conflicts_before_lookup() {
     };
     let users = Table {
         sandbox: vec![SandboxPreset {
-            name: "builtin".into(),
+            name: "missing".into(),
             ..Default::default()
         }],
         commands: Vec::new(),
@@ -433,7 +435,7 @@ fn copying_checks_user_and_target_conflicts_before_lookup() {
 
     let error = copy_definition(
         PresetKind::SandboxPresets,
-        "builtin",
+        "missing",
         "copy",
         &builtins,
         &users,
@@ -446,7 +448,7 @@ fn copying_checks_user_and_target_conflicts_before_lookup() {
 
     let error = copy_definition(
         PresetKind::SandboxPresets,
-        "builtin",
+        "missing",
         "occupied",
         &builtins,
         &Table::default(),
@@ -547,6 +549,9 @@ fn user_files_override_by_name() {
     t.merge(
         toml::from_str(
             r#"
+                [[sandbox]]
+                name = "claude"
+                rw = ["~/overridden"]
                 [[command]]
                 name = "claude"
                 kind = "agent"
@@ -565,6 +570,7 @@ fn user_files_override_by_name() {
     assert_eq!(t.command("claude").unwrap().cmd, "claude --model opus");
     assert_eq!(t.command("codex").unwrap().cmd, "codex --yolo");
     assert_eq!(t.sandbox.len(), 1);
+    assert_eq!(t.sandbox("claude").unwrap().rw, vec!["~/overridden"]);
 }
 
 #[test]

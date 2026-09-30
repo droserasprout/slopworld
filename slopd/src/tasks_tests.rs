@@ -68,6 +68,15 @@ fn visibility_updates_and_persistence() {
         .unwrap();
     assert!(s.visible("eve").is_empty());
     s.update("alice", &t.id, Status::Done, None).unwrap_err();
+    assert_eq!(s.get("alice", &t.id).unwrap().status, Status::Queued);
+    assert_eq!(
+        Tasks::load(&dir.join("config.toml"))
+            .unwrap()
+            .get("alice", &t.id)
+            .unwrap()
+            .status,
+        Status::Queued
+    );
     s.update("bob", &t.id, Status::Done, Some("ok".into()))
         .unwrap();
     assert_eq!(
@@ -466,6 +475,14 @@ fn failed_snapshots_preserve_memory_and_allow_cancel_remove_and_prune_retries() 
         .unwrap_err();
     assert_eq!(
         tasks.get("worker", &task.id).unwrap().status,
+        Status::Queued
+    );
+    assert_eq!(
+        Tasks::load(&dir.join("config.toml"))
+            .unwrap()
+            .get("worker", &task.id)
+            .unwrap()
+            .status,
         Status::Queued
     );
     drop(fault);

@@ -38,10 +38,26 @@ async fn descriptor_writes_and_token_updates_preserve_the_bound_url() {
     };
     write_endpoint(&path, &endpoint).await.unwrap();
 
+    let initial: Endpoint = toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(initial.url, endpoint.url);
+    assert_eq!(initial.token, endpoint.token);
+
     update_token(&path, "new").await.unwrap();
 
     let written: Endpoint = toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
     assert_eq!(written.url, endpoint.url);
     assert_eq!(written.token, "new");
     std::fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn debug_redacts_credentials() {
+    let endpoint = Endpoint {
+        url: "http://localhost:7717".into(),
+        token: "secret-token".into(),
+    };
+    let debug = format!("{endpoint:?}");
+    assert!(debug.contains(&endpoint.url));
+    assert!(debug.contains("[redacted]"));
+    assert!(!debug.contains(&endpoint.token));
 }

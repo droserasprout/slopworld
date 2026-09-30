@@ -23,8 +23,8 @@ coverage scope.
 | `session/manager/init.rs`, `maintenance.rs` | Startup recovery and maintenance scheduling. Configuration transactions stay in `manager/config/mod.rs`; `lifecycle/reconcile.rs` applies them to live sessions. |
 | `clock.rs`, `paths.rs` | Unix-millisecond timestamps, filesystem metadata, and atomic file writes. Latency measurements use their own monotonic clock in `latency.rs`. |
 | `process.rs` | Shared bounded child capture, timeout, kill, and reap mechanics. |
-| `emu/`, `tmux.rs`, `tmux/` | Terminal mirror and tmux transport. `emu/serialize.rs` owns cell-to-row encoding; `tmux/control.rs` decodes control-mode output before bytes enter the mirror. |
-| `sandbox/`, `presets.rs` | Sandbox construction and preset resolution. |
+| `emu/`, `tmux.rs`, `tmux/` | Terminal mirror and tmux transport. `tmux/server.rs` owns server startup and readiness; `emu/serialize.rs` owns cell-to-row encoding; `tmux/control.rs` decodes control-mode output before bytes enter the mirror. |
+| `sandbox/`, `presets.rs`, `presets/edit.rs` | Sandbox construction, preset snapshots, and serialized catalog mutations. |
 | `config/` | Configuration model, persistence, validation, ownership and resolution. |
 | `git/` | Git inspection and restricted command execution. |
 | `worktrees/` | Independent worktree records and bounded Git operations. See [worktree ownership](daemon-worktrees.md). |

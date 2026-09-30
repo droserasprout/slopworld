@@ -78,8 +78,12 @@ fn host_paste_tools_request_text_only() {
 #[tokio::test]
 async fn copy_process_receives_the_complete_text_on_stdin() {
     one(
-        &["sh", "-c", "test \"$(cat)\" = clipboard-text"],
-        Some("clipboard-text"),
+        &[
+            "sh",
+            "-c",
+            "test \"$(cat; printf sentinel)\" = \"$(printf 'clipboard-text\\nsentinel')\"",
+        ],
+        Some("clipboard-text\n"),
     )
     .await
     .unwrap();
@@ -106,7 +110,7 @@ fn clipboard_text_prefixes_are_not_treated_as_image_formats() {
 
 #[tokio::test]
 async fn paste_process_does_not_lossily_decode_binary_output() {
-    let output = paste(&["sh", "-c", "printf 'GIF89a\\000'"]).await.unwrap();
+    let output = paste(&["sh", "-c", "printf 'text\\377'"]).await.unwrap();
     assert!(output.is_empty());
 }
 

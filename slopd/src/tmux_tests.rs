@@ -21,7 +21,7 @@ async fn emoji_modifier_widths_match_two_cell_sequences() {
     tmux.run(&["new-session", "-d", "-s", "bootstrap", "sleep", "60"])
         .await
         .unwrap();
-    tmux.ensure_server().await;
+    tmux.ensure_server().await.unwrap();
     assert_eq!(
         tmux.run(&["show-options", "-s", "-v", "codepoint-widths[0]"])
             .await
@@ -108,10 +108,28 @@ async fn reader_identity_survives_a_new_daemon_tmux_handle() {
     assert_eq!(restored.intent, value.intent);
     assert_eq!(restored.label, value.label);
     assert_eq!(restored.original_label, value.original_label);
+    assert_eq!(restored.project, value.project);
+    assert_eq!(restored.worktree, value.worktree);
+    assert_eq!(restored.key, value.key);
     assert_eq!(restored.scope, value.scope);
     assert_eq!(restored.path, value.path);
     assert!(restored.pinned);
     assert_eq!(restored.line, 12);
+}
+
+struct PasteFixture {
+    socket: String,
+    dir: std::path::PathBuf,
+}
+impl Drop for PasteFixture {
+    fn drop(&mut self) {
+        drop(
+            std::process::Command::new("tmux")
+                .args(["-L", &self.socket, "kill-server"])
+                .output(),
+        );
+        drop(std::fs::remove_dir_all(&self.dir));
+    }
 }
 
 // Exercise the real transport against an isolated server, without starting the game.
@@ -119,21 +137,6 @@ async fn reader_identity_survives_a_new_daemon_tmux_handle() {
 async fn paste_follows_the_current_application_mode() {
     use super::Tmux;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
-    struct Fixture {
-        socket: String,
-        dir: std::path::PathBuf,
-    }
-    impl Drop for Fixture {
-        fn drop(&mut self) {
-            drop(
-                std::process::Command::new("tmux")
-                    .args(["-L", &self.socket, "kill-server"])
-                    .output(),
-            );
-            drop(std::fs::remove_dir_all(&self.dir));
-        }
-    }
 
     let id = format!(
         "slop-paste-{}-{}",
@@ -143,11 +146,17 @@ async fn paste_follows_the_current_application_mode() {
             .unwrap()
             .as_nanos()
     );
-    let fixture = Fixture {
+    let fixture = PasteFixture {
         dir: std::env::temp_dir().join(&id),
         socket: id,
     };
     std::fs::create_dir(&fixture.dir).unwrap();
+    let payload = "hello λ 🦀\nsecond line\r\n".repeat(4096).into_bytes();
+    std::fs::write(
+        fixture.dir.join("payload-length"),
+        payload.len().to_string(),
+    )
+    .unwrap();
     let script = fixture.dir.join("receiver.py");
     // Enable and disable the mode in the same pane, as applications do on startup and exit.
     // A title marker after each mode sequence confirms tmux processed it (including on 3.4).
@@ -162,11 +171,17 @@ for index, mode in enumerate((b'\x1b[?2004h', b'\x1b[?2004l')):
     ready = f"paste-ready-{index}".encode()
     os.write(1, mode + b"\x1b]2;" + ready + b"\x07")
     data = bytearray()
-    while True:
-        if select.select([0], [], [], 0.2)[0]:
-            data.extend(os.read(0, 65536))
-        elif data:
-            break
+    expected = int((root / "payload-length").read_text()) + (12 if index == 0 else 0)
+    deadline = time.monotonic() + 5
+    while len(data) < expected:
+        assert time.monotonic() < deadline, "incomplete paste"
+        if select.select([0], [], [], 0.1)[0]:
+            chunk = os.read(0, 65536)
+            assert chunk, "unexpected EOF"
+            data.extend(chunk)
+    assert len(data) == expected, "extra paste bytes"
+    if select.select([0], [], [], 0.2)[0]:
+        assert not os.read(0, 65536), "extra paste bytes"
     pending = root / "pending"
     pending.write_bytes(data)
     pending.rename(root / str(index))
@@ -188,7 +203,6 @@ for index, mode in enumerate((b'\x1b[?2004h', b'\x1b[?2004l')):
     ])
     .await
     .unwrap();
-    let payload = "hello λ 🦀\nsecond line\r\n".repeat(4096).into_bytes();
     for (index, enabled) in [true, false].into_iter().enumerate() {
         wait_for_pane_title(&tmux, &format!("paste-ready-{index}")).await;
         tmux.paste_bytes("paste", &payload).await.unwrap();

@@ -46,12 +46,28 @@ struct Pending {
     entries: Vec<CacheEntry>,
     revision: u64,
     persisted: u64,
+    requested: u64,
+    attempted: u64,
     stopping: bool,
     error: Option<String>,
 }
 
+impl Pending {
+    fn changed(&mut self) {
+        self.revision += 1;
+        self.requested += 1;
+    }
+}
+
 impl ActivityCache {
     pub fn load(path: PathBuf) -> Self {
+        Self::load_with_writer(path, save_cache)
+    }
+
+    fn load_with_writer(
+        path: PathBuf,
+        save: impl Fn(&Path, &[CacheEntry]) -> Result<()> + Send + 'static,
+    ) -> Self {
         let entries = match fs::read_to_string(&path) {
             Ok(text) => match toml::from_str::<CacheFile>(&text) {
                 Ok(file) if file.version == CACHE_VERSION => trim_entries(file.entries),
@@ -90,39 +106,15 @@ impl ActivityCache {
                 entries,
                 revision: 0,
                 persisted: 0,
+                requested: 0,
+                attempted: 0,
                 stopping: false,
                 error: None,
             }),
             Condvar::new(),
         ));
         let pending = shared.clone();
-        // One writer serializes snapshots. Mutations update bounded memory and notify it.
-        // Revisions that arrive during a write coalesce into the next latest-state snapshot.
-        let writer = std::thread::spawn(move || {
-            let (mutex, wake) = &*pending;
-            loop {
-                let mut state = mutex.lock().unwrap_or_else(|e| e.into_inner());
-                while state.revision == state.persisted && !state.stopping {
-                    state = wake.wait(state).unwrap_or_else(|e| e.into_inner());
-                }
-                if state.revision == state.persisted && state.stopping {
-                    break;
-                }
-                let revision = state.revision;
-                let entries = state.entries.clone();
-                drop(state);
-                let error = save_cache(&path, &entries)
-                    .err()
-                    .map(|error| error.to_string());
-                if let Some(error) = &error {
-                    tracing::warn!(target: "slopd::activity", %error, "could not persist activity cache");
-                }
-                let mut state = mutex.lock().unwrap_or_else(|e| e.into_inner());
-                state.persisted = revision;
-                state.error = error;
-                wake.notify_all();
-            }
-        });
+        let writer = std::thread::spawn(move || write_pending(pending, path, save));
         Self {
             shared,
             writer: Some(writer),
@@ -164,7 +156,7 @@ impl ActivityCache {
             });
             trim_entries_in_place(entries);
         }
-        pending.revision += 1;
+        pending.changed();
         self.shared.1.notify_all();
         Ok(())
     }
@@ -177,7 +169,7 @@ impl ActivityCache {
         if entries.len() == before {
             return Ok(());
         }
-        pending.revision += 1;
+        pending.changed();
         self.shared.1.notify_all();
         Ok(())
     }
@@ -201,7 +193,7 @@ impl ActivityCache {
         } else {
             return Ok(());
         }
-        pending.revision += 1;
+        pending.changed();
         self.shared.1.notify_all();
         Ok(())
     }
@@ -212,10 +204,17 @@ impl ActivityCache {
         let (mutex, wake) = &*self.shared;
         let mut state = mutex.lock().unwrap_or_else(|e| e.into_inner());
         let revision = state.revision;
-        while state.persisted < revision {
+        // A flush retries an already failed snapshot once, without a background retry loop.
+        if state.persisted < revision && state.attempted == state.requested {
+            state.requested += 1;
+            wake.notify_all();
+        }
+        let request = state.requested;
+        while state.persisted < revision && state.attempted < request {
             state = wake.wait(state).unwrap_or_else(|e| e.into_inner());
         }
-        if let Some(error) = &state.error {
+        if state.persisted < revision {
+            let error = state.error.as_deref().unwrap_or("activity write failed");
             anyhow::bail!("{error}");
         }
         Ok(())
@@ -227,11 +226,48 @@ impl Drop for ActivityCache {
         {
             let mut state = self.shared.0.lock().unwrap_or_else(|e| e.into_inner());
             state.stopping = true;
+            if state.persisted < state.revision && state.attempted == state.requested {
+                state.requested += 1;
+            }
             self.shared.1.notify_all();
         }
         if let Some(writer) = self.writer.take() {
             drop(writer.join());
         }
+    }
+}
+
+// Snapshot ownership leaves the lock before disk I/O. Completion tracks attempts separately
+// from durability, so a later failed write cannot invalidate an earlier successful flush.
+fn write_pending(
+    pending: Arc<(Mutex<Pending>, Condvar)>,
+    path: PathBuf,
+    save: impl Fn(&Path, &[CacheEntry]) -> Result<()>,
+) {
+    let (mutex, wake) = &*pending;
+    loop {
+        let mut state = mutex.lock().unwrap_or_else(|e| e.into_inner());
+        while state.requested == state.attempted && !state.stopping {
+            state = wake.wait(state).unwrap_or_else(|e| e.into_inner());
+        }
+        if state.requested == state.attempted && state.stopping {
+            break;
+        }
+        let revision = state.revision;
+        let request = state.requested;
+        let entries = state.entries.clone();
+        drop(state);
+        let error = save(&path, &entries).err().map(|error| error.to_string());
+        if let Some(error) = &error {
+            tracing::warn!(target: "slopd::activity", %error, "could not persist activity cache");
+        }
+        let mut state = mutex.lock().unwrap_or_else(|e| e.into_inner());
+        state.attempted = request;
+        if error.is_none() {
+            state.persisted = revision;
+        }
+        state.error = error;
+        wake.notify_all();
     }
 }
 

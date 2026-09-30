@@ -19,13 +19,25 @@ pub(crate) fn isolated() -> Option<PathBuf> {
         .env("NO_PROXY", "*")
         .env("no_proxy", "*")
         .output();
-    std::fs::remove_dir_all(&root).unwrap();
-    let output = output.expect("start isolated test");
+    let cleanup = std::fs::remove_dir_all(&root);
+    let cleanup_failure = cleanup
+        .as_ref()
+        .err()
+        .map(|error| {
+            format!(
+                "\nisolated test cleanup failed for {}: {error}",
+                root.display()
+            )
+        })
+        .unwrap_or_default();
+    let output =
+        output.unwrap_or_else(|error| panic!("start isolated test: {error}{cleanup_failure}"));
     assert!(
         output.status.success(),
-        "isolated test failed:\n{}\n{}",
+        "isolated test failed:\n{}\n{}{cleanup_failure}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    cleanup.expect("clean isolated test directory");
     None
 }

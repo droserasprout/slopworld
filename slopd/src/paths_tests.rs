@@ -111,6 +111,8 @@ async fn async_atomic_replacement_keeps_private_store_permissions() {
         uuid::Uuid::new_v4()
     ));
     let path = root.join("nested/config.toml");
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(&path, "old contents").unwrap();
     write_atomic_async(&path, "secret = true\n", Some(0o600))
         .await
         .unwrap();
