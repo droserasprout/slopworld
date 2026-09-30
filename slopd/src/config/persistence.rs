@@ -1,7 +1,7 @@
 //! Config file loading, serialization, and redacted persistence.
 
-use std::collections::HashSet;
-use std::path::{Component, Path, PathBuf};
+use super::catalog::{load_library, prepare_library};
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use anyhow::{bail, Context, Result};
@@ -41,8 +41,17 @@ impl Config {
         crate::paths::config_root().join("config.toml")
     }
 
+    /// Private undo journal, containing the previous configuration token.
+    /// Sandbox path guards protect it alongside the main configuration.
+    pub(crate) fn recovery_path_for(path: &Path) -> PathBuf {
+        super::transaction::journal_path(path)
+    }
+
     pub fn library_dirs_for(config_path: &Path) -> Vec<(LibraryItemKind, PathBuf)> {
-        let root = config_path.parent().unwrap_or_else(|| Path::new("."));
+        let root = config_path
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
         [
             LibraryItemKind::Prompt,
             LibraryItemKind::Breadcrumb,
@@ -71,6 +80,7 @@ impl Config {
     }
 
     pub async fn load(path: &Path) -> Result<Self> {
+        super::transaction::recover(path).await?;
         if !tokio::fs::try_exists(path).await? {
             let cfg = Config {
                 library: load_library(&Self::library_dirs_for(path)).await?,
@@ -127,6 +137,9 @@ impl Config {
 
     pub async fn save(&self, path: &Path) -> Result<()> {
         super::validation::validate_loaded(self)?;
+        let dirs = Self::library_dirs_for(path);
+        let catalog = prepare_library(&dirs, &self.library)?;
+        super::transaction::recover(path).await?;
         let mut document = toml::Value::try_from(self)?;
         if tokio::fs::try_exists(path).await? {
             let text = tokio::fs::read_to_string(path)
@@ -147,11 +160,12 @@ impl Config {
             // Do not serialize the in-memory catalog into the main configuration document.
             table.remove("library");
         }
-        Self::save_text(path, &toml::to_string_pretty(&document)?).await?;
-        save_library(&Self::library_dirs_for(path), &self.library).await
+        let text = toml::to_string_pretty(&document)?;
+        super::transaction::save(path, &dirs, catalog, Some(text)).await
     }
 
     pub async fn save_text(path: &Path, text: &str) -> Result<()> {
+        super::transaction::recover(path).await?;
         crate::paths::write_atomic_async(path, text, Some(0o600)).await
     }
 
@@ -165,133 +179,6 @@ impl Config {
         }
         c
     }
-}
-
-fn validate_library_name(name: &str) -> Result<()> {
-    if name.trim().is_empty() || name == "." || name == ".." {
-        bail!("library item name must be a file name");
-    }
-    if name.bytes().any(|b| b == b'/' || b == b'\\' || b == 0)
-        || name.chars().any(|c| c.is_control())
-    {
-        bail!("library item name must be one safe file name");
-    }
-    match (
-        Path::new(name).components().next(),
-        Path::new(name).components().nth(1),
-    ) {
-        (Some(Component::Normal(_)), None) => Ok(()),
-        _ => bail!("library item name must be one safe file name"),
-    }
-}
-
-async fn load_library(dirs: &[(LibraryItemKind, PathBuf)]) -> Result<Vec<LibraryItemCfg>> {
-    let mut paths = Vec::new();
-    for (kind, dir) in dirs {
-        let mut entries = match tokio::fs::read_dir(dir).await {
-            Ok(entries) => entries,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
-            Err(error) => return Err(error).with_context(|| format!("reading {}", dir.display())),
-        };
-        while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-            if path
-                .extension()
-                .is_some_and(|extension| extension == "toml")
-            {
-                paths.push((*kind, path));
-            }
-        }
-    }
-    paths.sort_by(|(_, a), (_, b)| a.cmp(b));
-
-    let mut names = HashSet::new();
-    let mut library = Vec::with_capacity(paths.len());
-    for (kind, path) in paths {
-        let text = tokio::fs::read_to_string(&path)
-            .await
-            .with_context(|| format!("reading library item {}", path.display()))?;
-        let mut item: LibraryItemCfg = toml::from_str(&text)
-            .with_context(|| format!("parsing library item {}", path.display()))?;
-        item.builtin = false;
-        if item.kind != kind {
-            bail!(
-                "library item file {} has kind {:?}, but belongs in {:?}",
-                path.display(),
-                item.kind,
-                kind.config_dir()
-            );
-        }
-        validate_library_name(&item.name)
-            .with_context(|| format!("library item in {}", path.display()))?;
-        let expected = path
-            .file_stem()
-            .and_then(|stem| stem.to_str())
-            .unwrap_or_default();
-        if expected != item.name {
-            bail!(
-                "library item file {} names {:?}, expected {:?}",
-                path.display(),
-                item.name,
-                expected
-            );
-        }
-        if !names.insert(item.name.clone()) {
-            bail!("Declare library item {:?} only once.", item.name);
-        }
-        library.push(item);
-    }
-    Ok(library)
-}
-
-async fn save_library(
-    dirs: &[(LibraryItemKind, PathBuf)],
-    library: &[LibraryItemCfg],
-) -> Result<()> {
-    let mut names = HashSet::new();
-    for item in library {
-        validate_library_name(&item.name)?;
-        if !names.insert(item.name.clone()) {
-            bail!("Declare library item {:?} only once.", item.name);
-        }
-    }
-
-    let expected_paths: HashSet<PathBuf> = library
-        .iter()
-        .map(|item| {
-            dirs.iter()
-                .find(|(kind, _)| *kind == item.kind)
-                .map(|(_, dir)| dir.join(format!("{}.toml", item.name)))
-                .ok_or_else(|| anyhow::anyhow!("unknown library item kind {:?}", item.kind))
-        })
-        .collect::<Result<_>>()?;
-
-    // Write all replacements before retiring old names. A failed replacement must
-    // leave the old catalog available for the next load.
-    for item in library {
-        let path = dirs
-            .iter()
-            .find(|(kind, _)| *kind == item.kind)
-            .map(|(_, dir)| dir.join(format!("{}.toml", item.name)))
-            .ok_or_else(|| anyhow::anyhow!("unknown library item kind {:?}", item.kind))?;
-        let text = toml::to_string_pretty(item)?;
-        crate::paths::write_atomic_async(&path, &text, Some(0o600)).await?;
-    }
-    for (_, dir) in dirs {
-        tokio::fs::create_dir_all(dir).await?;
-        let mut entries = tokio::fs::read_dir(dir).await?;
-        while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-            if path
-                .extension()
-                .is_some_and(|extension| extension == "toml")
-                && !expected_paths.contains(&path)
-            {
-                tokio::fs::remove_file(&path).await?;
-            }
-        }
-    }
-    Ok(())
 }
 
 // Reject retired names before unknown-field preservation can retain them as extensions.

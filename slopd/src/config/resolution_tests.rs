@@ -57,12 +57,21 @@ fn snapshot_selection_handles_cycles_shared_dependencies_and_missing_definitions
         sandbox_snapshots: vec![
             SandboxPreset {
                 name: "a".into(),
-                requires: vec!["b".into(), "missing".into()],
+                requires: vec!["b".into(), "missing".into(), "shared".into()],
                 ..Default::default()
             },
             SandboxPreset {
                 name: "b".into(),
                 requires: vec!["a".into()],
+                ..Default::default()
+            },
+            SandboxPreset {
+                name: "other".into(),
+                requires: vec!["shared".into()],
+                ..Default::default()
+            },
+            SandboxPreset {
+                name: "shared".into(),
                 ..Default::default()
             },
             SandboxPreset {
@@ -73,7 +82,7 @@ fn snapshot_selection_handles_cycles_shared_dependencies_and_missing_definitions
         ..Default::default()
     };
     let mut edit = SessionCfg {
-        sandbox: vec!["a".into(), "b".into(), "missing".into()],
+        sandbox: vec!["a".into(), "other".into()],
         ..Default::default()
     };
     edit.preserve_selected_snapshots(&source);
@@ -82,9 +91,9 @@ fn snapshot_selection_handles_cycles_shared_dependencies_and_missing_definitions
             .iter()
             .map(|p| p.name.as_str())
             .collect::<Vec<_>>(),
-        ["a", "b"]
+        ["a", "b", "other", "shared"]
     );
-    assert_eq!(edit.sandbox, ["a", "b", "missing"]);
+    assert_eq!(edit.sandbox, ["a", "other"]);
     edit.sandbox.clear();
     edit.preserve_selected_snapshots(&source);
     assert!(edit.sandbox_snapshots.is_empty());
@@ -180,4 +189,34 @@ fn editing_and_preview_keep_command_wiring_and_transitive_snapshots() {
     edit.preserve_selected_snapshots(&source);
     assert!(edit.command_snapshot.is_none());
     assert!(edit.sandbox_snapshots.is_empty());
+}
+
+#[test]
+fn command_preview_uses_normalized_execution_precedence() {
+    let cfg = Config::default();
+    let project = ProjectCfg::default();
+    let mut session = SessionCfg {
+        command: "  ".into(),
+        cmd: Some("  ".into()),
+        ..Default::default()
+    };
+    let preview = |s: &SessionCfg, recipe| {
+        cfg.settings_preview(s, &project, recipe).unwrap()["fields"][0].to_string()
+    };
+    assert!(preview(&session, false).contains("daemon default"));
+    assert!(preview(&session, true).contains("Use destination daemon"));
+    session.command_snapshot = Some(CommandPreset {
+        name: "captured".into(),
+        cmd: "captured-line".into(),
+        ..Default::default()
+    });
+    assert_eq!(cfg.command_of(&session), "captured-line");
+    assert!(preview(&session, true).contains("captured-line — captured command"));
+    session.cmd = Some("  explicit-line  ".into());
+    assert_eq!(cfg.command_of(&session), "explicit-line");
+    assert!(preview(&session, true).contains("explicit-line — agent command line"));
+    session.cmd = None;
+    session.command_snapshot = None;
+    session.command = " bash ".into();
+    assert!(preview(&session, true).contains("selected command preset"));
 }

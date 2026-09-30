@@ -1,4 +1,13 @@
 use super::*;
+use crate::config::catalog::{load_library, prepare_library, validate_library_name};
+
+async fn save_library(
+    dirs: &[(LibraryItemKind, PathBuf)],
+    library: &[LibraryItemCfg],
+) -> Result<()> {
+    let path = dirs[0].1.parent().unwrap().join("config.toml");
+    crate::config::transaction::save(&path, dirs, prepare_library(dirs, library)?, None).await
+}
 
 const FIRST_ID: &str = "11111111-1111-4111-8111-111111111111";
 
@@ -146,6 +155,7 @@ async fn invalid_library_saves_leave_existing_catalog_files_untouched() {
             original
         );
         assert!(!fixture.0.join("prompts/duplicate.toml").exists());
+        assert!(!fixture.0.join("breadcrumbs/duplicate.toml").exists());
         assert!(!fixture.0.join("escape.toml").exists());
     }
 }
@@ -319,15 +329,14 @@ async fn library_items_round_trip_as_one_file_each() {
     assert!(root.join("shell_scripts/run tests.toml").is_file());
     assert!(root.join("breadcrumbs/tips.toml").is_file());
     assert!(root.join("file_actions/show size.toml").is_file());
-    assert_eq!(
-        Config::load(&path)
-            .await
-            .unwrap()
-            .library_item("review diff")
-            .unwrap()
-            .text,
-        "review it"
-    );
+    let loaded = Config::load(&path).await.unwrap();
+    assert_eq!(loaded.library.len(), cfg.library.len());
+    for expected in &cfg.library {
+        let actual = loaded.library_item(&expected.name).unwrap();
+        assert_eq!(actual.kind, expected.kind);
+        assert_eq!(actual.text, expected.text);
+        assert_eq!(actual.command, expected.command);
+    }
     tokio::fs::remove_dir_all(root).await.unwrap();
 }
 
@@ -362,6 +371,7 @@ state_id = "11111111-1111-4111-8111-111111111111"
         .unwrap_err()
         .to_string()
         .contains("project.workspace_root was removed"));
+    assert_eq!(tokio::fs::read_to_string(&path).await.unwrap(), text);
     let text = text.replace(
         "workspace_root = \"/tmp/trees\"",
         "worktree_root = \"/tmp/trees\"",

@@ -24,6 +24,10 @@ fn dns_defaults_to_resolved_and_round_trips_on_the_agent() {
             "#,
     )
     .expect("DNS config should parse");
+    let default_text = toml::to_string_pretty(&cfg).unwrap();
+    let default_text = default_text.split("[session.dns]").next().unwrap();
+    let default_cfg = Config::parse(default_text).unwrap();
+    assert_eq!(default_cfg.sessions[0].dns, DnsConfig::Resolved);
     let project = cfg.project("repo").unwrap();
     let session = cfg.session("agent").unwrap();
     assert_eq!(cfg.dns_of(session, project), session.dns);
@@ -717,5 +721,57 @@ fn config_rejects_removed_usage_switches() {
     for key in ["usage", "openrouter", "openai"] {
         let text = format!("[daemon]\nbind = \"127.0.0.1:7717\"\n{key} = true\n");
         assert!(Config::parse(&text).is_err(), "removed {key} should fail");
+    }
+}
+
+#[test]
+fn diagnostic_formatting_redacts_credentials_without_changing_serialization() {
+    let mut cfg = Config::default();
+    cfg.daemon.token = "root-secret".into();
+    cfg.sessions.push(SessionCfg {
+        worker_token: Some("worker-secret".into()),
+        ..Default::default()
+    });
+    for text in [
+        format!("{cfg:?}"),
+        format!("{cfg:#?}"),
+        format!("{:?}", cfg.daemon),
+        format!("{:?}", cfg.sessions[0]),
+    ] {
+        assert!(!text.contains("root-secret") && !text.contains("worker-secret"));
+        assert!(text.contains(TOKEN_REDACTED));
+    }
+    assert_eq!(cfg.clone().daemon.token, "root-secret");
+    let serialized = toml::to_string(&cfg).unwrap();
+    assert!(serialized.contains("root-secret"));
+    assert!(!serialized.contains("worker-secret"));
+}
+
+#[test]
+fn safety_policy_ingestion_rejects_unknown_and_contradictory_fields() {
+    for text in [
+        "mode = 'resolved'\nservers = ['10.0.0.53']",
+        "mode = 'resolved'\nserver = []",
+        "mode = 'servers'",
+    ] {
+        assert!(toml::from_str::<DnsConfig>(text).is_err(), "{text}");
+    }
+    assert_eq!(
+        serde_json::from_value::<DnsConfig>(serde_json::json!({"mode":"resolved", "servers":[]}))
+            .unwrap(),
+        DnsConfig::Resolved
+    );
+    toml::from_str::<Limits>("memroy_mb = 512").unwrap_err();
+    serde_json::from_value::<Limits>(serde_json::json!({"memroy_mb":512})).unwrap_err();
+    serde_json::from_value::<DnsConfig>(
+        serde_json::json!({"mode":"resolved", "servers":["10.0.0.53"]}),
+    )
+    .unwrap_err();
+}
+
+#[test]
+fn in_memory_state_ids_reject_control_characters() {
+    for id in ["a\0b", "a\nb", "a\u{7f}b"] {
+        super::state_id_component(id).unwrap_err();
     }
 }
