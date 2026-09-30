@@ -209,8 +209,8 @@ namespace SlopWorld
             return Tail(right, row.y, Mark(node.Status), MarkColor(node.Status));
         }
 
-        // Every changed file offers Diff. Existing files additionally offer Edit and text files
-        // offer View.
+        // Every changed file offers Diff. Existing files additionally offer Edit; text and
+        // supported image files offer View.
         static RowAct Acts(Node node)
         {
             if (node.IsDir) return RowAct.None;
@@ -219,7 +219,7 @@ namespace SlopWorld
             if (!Present(node.Status)) return acts;
 
             acts |= RowAct.Edit;
-            if (FilesView.IsText(node.Name)) acts |= RowAct.View;
+            if (FilesView.IsText(node.Name) || FilesView.IsImage(node.Name)) acts |= RowAct.View;
             return acts;
         }
 

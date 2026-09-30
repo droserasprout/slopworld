@@ -2,7 +2,7 @@
 
 `FilesStore` owns roots, browse requests and refresh. `FileReaders` owns the pager collection
 shared with Git.
-`FilesViewerController` controls native Markdown lifetimes.
+`FilesViewerController` controls native Markdown and JPG/PNG reader lifetimes.
 `ContentTreeController` owns semantic selection/folds. Static `FilesView` methods are entry
 points, not another state owner. All filesystem reads use daemon APIs. Viewers, editors and file actions run on the daemon
 host without private agent state. The selected registered worktree validates action paths and supplies
@@ -43,7 +43,10 @@ padding in less. Preserve alternate-screen behavior for wheel routing.
 Keep short files open.
 `make test-pager` validates this without the game.
 
-Markdown uses [native rendering](mod-markdown.md). The file icon tool bakes icons from the
+Markdown uses [native rendering](mod-markdown.md). JPG/PNG files use a native content
+reader backed by the daemon's bounded image route. Native readers share one replaceable
+preview and independently pinned headers; opening one releases the pager preview.
+The file icon tool bakes icons from the
 vendored Material Icon Theme.
 Filename matches take precedence over the longest extension match. Update the manifest and C# lookup together.
 Action icons use the separate [shared bake](mod-icons.md).
