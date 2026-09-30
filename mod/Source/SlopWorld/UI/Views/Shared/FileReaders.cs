@@ -4,7 +4,7 @@ namespace SlopWorld
     // Git supplies diff commands. Editors are independent sessions, never preview slots.
     static class FileReaders
     {
-        public static readonly PagerTabs Tabs = new PagerTabs(FilesView.ReleaseMarkdownPreview);
+        public static readonly PagerTabs Tabs = new PagerTabs(FilesView.ReleaseNativePreview);
         static long _restoredVersion = -1;
 
         public static void Restore()

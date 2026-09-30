@@ -200,7 +200,7 @@ namespace SlopWorld
         void OpenLocalLink(string path)
         {
             string name = System.IO.Path.GetFileName(path);
-            if (!FilesView.IsText(name))
+            if (!FilesView.IsText(name) && !FilesView.IsImage(name))
             {
                 UiLayout.Fail("binary local links are not previewable");
                 return;

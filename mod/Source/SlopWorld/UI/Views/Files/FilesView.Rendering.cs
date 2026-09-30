@@ -29,17 +29,17 @@ namespace SlopWorld
             GitView.CancelPendingDiff();
             Tree.Select(node);
             // Marked, and nobody showing it: whatever was in the pane is not about this row.
-            if (!IsText(node.Name))
+            if (!IsText(node.Name) && !IsImage(node.Name))
             {
                 Viewers.ReleasePreview();
-                ReleaseMarkdownPreview();
+                ReleaseNativePreview();
                 return;
             }
-            if (IsMarkdown(node.Name))
+            if (IsMarkdown(node.Name) || IsImage(node.Name))
             {
-                if (ReopenMarkdown(node.Project, node.Path)) return;
+                if (NativeViewers.Reopen(node.Project, node.Path)) return;
                 Viewers.ReleasePreview();
-                OpenMarkdown(node.Project, node.Path, node.Name);
+                OpenNative(node.Project, node.Path, node.Name);
                 return;
             }
             if (!Viewers.Reopen(node.Project, node.Path)) View(node);
@@ -95,13 +95,14 @@ namespace SlopWorld
                 FilesView.AddFileActions(opts, node.Project, node.Path, node.Name,
                     FilesView.Relative(node));
 
-                if (!node.IsDir && FilesView.IsText(node.Name))
+                if (!node.IsDir && (FilesView.IsText(node.Name) || FilesView.IsImage(node.Name)))
                 {
                     opts.Add(new FloatMenuOption("View", () => FilesView.View(node)));
                     if (FilesView.IsMarkdown(node.Name))
                         opts.Add(new FloatMenuOption("View in pager", () => FilesView.ViewSource(node)));
-                    opts.Add(new FloatMenuOption("Edit", () => FilesView.EditFile(node.Project, node.Path,
-                        "edit-" + node.Name)));
+                    if (FilesView.IsText(node.Name))
+                        opts.Add(new FloatMenuOption("Edit", () => FilesView.EditFile(node.Project, node.Path,
+                            "edit-" + node.Name)));
                 }
 
                 if (!FilesView.IsRoot(node))
@@ -398,13 +399,13 @@ namespace SlopWorld
         }
 
         // ------------------------------------------------------------------ viewer
-        // Markdown files use the native reader. Other text files use the pager. The explicit
+        // Markdown and JPG/PNG files use native readers. Other text files use the pager. The explicit
         // source action below keeps raw Markdown available without changing the default preview.
         static void View(Node node) => ViewFile(node.Project, node.Path, "view-" + node.Name);
 
         static void ViewSource(Node node)
         {
-            ReleaseMarkdownPreview();
+            ReleaseNativePreview();
             ViewSourceFile(node.Project, node.Path, "view-" + node.Name);
         }
 
@@ -426,19 +427,20 @@ namespace SlopWorld
             }
             if (line > 0)
             {
-                ReleaseMarkdownPreview();
+                ReleaseNativePreview();
                 if (Viewers.ReuseFile(project, path)) return;
                 Viewers.ForPreview().ViewFileAt(project, path, line, label);
                 return;
             }
-            if (IsMarkdown(System.IO.Path.GetFileName(path)))
+            string name = System.IO.Path.GetFileName(path);
+            if (IsMarkdown(name) || IsImage(name))
             {
-                if (ReopenMarkdown(project, path)) return;
+                if (NativeViewers.Reopen(project, path)) return;
                 Viewers.ReleasePreview();
-                OpenMarkdown(project, path, System.IO.Path.GetFileName(path));
+                OpenNative(project, path, name);
                 return;
             }
-            ReleaseMarkdownPreview();
+            ReleaseNativePreview();
             if (Viewers.ReuseFile(project, path)) return;
             Viewers.ForPreview().ViewFile(project, path, label);
         }
@@ -449,45 +451,39 @@ namespace SlopWorld
             return origin == null ? label : label + " [" + origin.Project + " / " + origin.Label + "]";
         }
 
-        static bool Showing(MarkdownTab tab) => tab != null &&
-            ReferenceEquals(TerminalWindow.ShowingAs<MarkdownPreview>(), tab.View);
+        static bool Showing(NativeTab tab) => tab != null &&
+            ReferenceEquals(TerminalWindow.Showing, tab.View);
 
-        static void OpenMarkdown(string project, string path, string name)
+        static void OpenNative(string project, string path, string name)
         {
-            var tab = MarkdownViewers.ForPreview();
+            var tab = NativeViewers.ForPreview();
             tab.OriginLabel = ReaderLabel(project, "view-" + name);
             tab.OriginProject = SidebarScopes.ProjectName(project);
-            tab.View = new MarkdownPreview(project, path, name);
-            tab.Header = "view-markdown-" + (++Viewer.MarkdownHeader);
-            ShowMarkdown(tab);
-        }
-
-        static void ShowMarkdown(MarkdownTab tab)
-        {
+            tab.Project = project ?? "";
+            tab.Path = path;
+            tab.View = IsImage(name)
+                ? (ContentView)new ImagePreview(path, name)
+                : new MarkdownPreview(project, path, name);
+            tab.Header = "view-native-" + (++Viewer.NativeHeader);
             TerminalWindow.OpenContent(tab.View);
         }
 
-        static bool ReopenMarkdown(string project, string path)
-        {
-            return MarkdownViewers.Reopen(project, path);
-        }
-
-        // The native Markdown preview has no daemon session to appear in the routed list.
+        // Native previews have no daemon session to appear in the routed list.
         // Therefore, give it the same lightweight header identity as a pager tab.
         public static void AddRoutedPreviews(List<SessionInfo> result)
         {
-            foreach (var tab in MarkdownViewers.All)
+            foreach (var tab in NativeViewers.All)
                 if (AgentSidebar.Passes(tab.HeaderInfo().Project)) result.Add(tab.HeaderInfo());
         }
 
         public static bool OpenViewerHeader(string session)
         {
-            return MarkdownViewers.ReopenSession(session);
+            return NativeViewers.ReopenSession(session);
         }
 
         public static bool IsNativeViewerHeader(string session)
         {
-            return MarkdownViewers.ContainsSession(session);
+            return NativeViewers.ContainsSession(session);
         }
 
         static void ViewSourceFile(string project, string path, string label)
@@ -536,7 +532,7 @@ namespace SlopWorld
             var readers = new Queue<IPreviewTab>();
             foreach (var tab in Viewers.All)
                 if (!string.IsNullOrEmpty(tab.FilePath)) readers.Enqueue(tab);
-            foreach (var tab in MarkdownViewers.All) readers.Enqueue(tab);
+            foreach (var tab in NativeViewers.All) readers.Enqueue(tab);
             _checkingReaders = true;
             CheckNextReader(readers);
         }
@@ -560,7 +556,7 @@ namespace SlopWorld
                 (tab.FilePath != null && tab.FilePath.StartsWith(path.TrimEnd('/') + "/",
                     System.StringComparison.Ordinal));
             Viewers.Invalidate(tab => removed(tab));
-            MarkdownViewers.Invalidate(tab => removed(tab));
+            NativeViewers.Invalidate(tab => removed(tab));
         }
 
         public static void ReleaseViewer()
@@ -568,42 +564,42 @@ namespace SlopWorld
             GitView.CancelPendingDiff();
             ClearSelection();
             Viewers.ReleasePreview();
-            ReleaseMarkdownPreview();
+            ReleaseNativePreview();
         }
 
         static void ReleaseViewerForTree()
         {
             Viewers.ReleasePreview();
-            ReleaseMarkdownPreview();
+            ReleaseNativePreview();
         }
 
-        internal static void ReleaseMarkdownPreview()
+        internal static void ReleaseNativePreview()
         {
-            MarkdownViewers.ReleasePreview();
+            NativeViewers.ReleasePreview();
         }
 
         public static bool IsViewerSession(string session)
         {
             if (Viewers.IsSession(session)) return true;
-            return MarkdownViewers.IsSession(session);
+            return NativeViewers.IsSession(session);
         }
 
         public static bool IsViewerLocked(string session)
         {
             if (Viewers.IsLocked(session)) return true;
-            return MarkdownViewers.IsLocked(session);
+            return NativeViewers.IsLocked(session);
         }
 
         public static bool LockViewer(string session)
         {
             if (Viewers.Lock(session)) return true;
-            return MarkdownViewers.Lock(session);
+            return NativeViewers.Lock(session);
         }
 
         public static bool LockViewerFile(string project, string path)
         {
             if (Viewers.LockPreview(project, path)) return true;
-            return MarkdownViewers.LockPreview(project, path);
+            return NativeViewers.LockPreview(project, path);
         }
 
         public static void CloseViewerIf(string session) => Viewers.CloseIf(session);
@@ -612,7 +608,7 @@ namespace SlopWorld
         {
             GitView.CancelPendingDiff();
             if (Viewers.CloseTab(session)) return true;
-            if (MarkdownViewers.CloseTab(session)) return true;
+            if (NativeViewers.CloseTab(session)) return true;
 
             // PagerTabs is UI-lifetime state. A game restart leaves the daemon's ephemeral
             // pager/editor session alive but loses that owner. Therefore, close the restored routed

@@ -2,6 +2,7 @@
 
 `UI/MarkdownPreview/` separates parsing, resources, layout, drawing and selection.
 Files and inline Settings previews share the renderer.
+Local JPG/PNG links open the Files native image reader.
 Inline text skips daemon file reads.
 The supplied Markdig version avoids extra runtime dependencies under RimWorld Mono.
 
