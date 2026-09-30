@@ -35,6 +35,10 @@ Its HEAD must belong to a retained local branch.
 Removal unregisters an external checkout without deleting its files.
 You cannot remove `main`.
 The daemon does not force deletion or commit automatically.
+When a worker request allocates a new worktree, the request owns it until startup succeeds.
+Failed or canceled startup attempts remove unattached new worktrees through the normal
+protected removal path. A failed durable session or a checkout that fails removal checks
+stays registered for inspection; existing worktrees are never rolled back.
 
 Interrupted operations remain visible.
 Recovery recognizes completed allocation but never restarts workers or deletes files automatically.

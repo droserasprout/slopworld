@@ -46,6 +46,8 @@ History, request replies, and control events preserve ordering.
 authorized commands, and `api/ws/outbound.rs` owns scoped snapshots, frame coalescing,
 and serialized writes. Snapshot and frame delivery stop on send failure.
 The WebSocket connection's `ScrollReplies` owns the bounded scroll captures, sends their replies in request order, and cancels pending captures on disconnect.
+Its four slots cover captures and completed replies until delivery. Overload closes the socket;
+a `Sub` waits behind older scroll replies while auth changes and close frames remain selectable.
 The per-client screen pump uses an 8 ms coalescing interval; capture has a
 separate 16 ms rate limit.
 History extent and echoed request identity are necessary to translate delayed snapshots.

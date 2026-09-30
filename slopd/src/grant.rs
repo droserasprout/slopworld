@@ -13,6 +13,15 @@ use std::sync::{
     Arc,
 };
 
+#[derive(Debug)]
+pub(crate) struct GrantPersistence;
+
+impl std::fmt::Display for GrantPersistence {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("persisting scoped grant")
+    }
+}
+
 /// The operations a grant permits on its specified sessions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -249,7 +258,7 @@ impl Grants {
         session_state_ids: BTreeMap<String, String>,
     ) -> Result<String> {
         let token = loop {
-            let token = gen_token()?;
+            let token = gen_token().context(GrantPersistence)?;
             if !self.by_token.contains_key(&token) {
                 break token;
             }
@@ -264,7 +273,7 @@ impl Grants {
         );
         if let Err(error) = self.persist() {
             self.by_token.remove(&token);
-            return Err(error).context("persisting scoped grant");
+            return Err(error).context(GrantPersistence);
         }
         Ok(token)
     }

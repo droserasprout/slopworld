@@ -6,6 +6,22 @@ fn proto<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> Proto<T> {
 }
 
 #[tokio::test]
+async fn template_write_failure_is_a_server_error_without_publishing_a_draft() {
+    let m = crate::session::test_manager(Config::default());
+    let path = crate::session::AgentTemplateStore::path_for(&m.cfg_path);
+    std::fs::write(&path, "blocking file").unwrap();
+    let result = save_template(
+        State(m.clone()),
+        Extension(Cap::Root),
+        proto(json!({"name":"reviewer","defaults":{}})),
+    )
+    .await;
+    assert_eq!(result.unwrap_err().0, StatusCode::INTERNAL_SERVER_ERROR);
+    assert!(m.agent_templates().await.is_empty());
+    std::fs::remove_file(path).unwrap();
+}
+
+#[tokio::test]
 async fn template_crud_rejects_stale_versions_and_preserves_winner() {
     let m = crate::session::test_manager(Config::default());
     let draft = json!({"name":"reviewer", "description":"original", "defaults":{}});
@@ -166,6 +182,19 @@ async fn duplicate_is_independent_and_missing_sources_are_rejected() {
     assert_eq!(duplicate.name, "copy");
     assert_eq!(duplicate.description, "copied");
     assert_eq!(m.agent_templates().await.len(), 2);
+    destroy_template(
+        State(m.clone()),
+        Extension(Cap::Root),
+        Path("copy".into()),
+        Query(TemplateVersionQuery {
+            version: Some(duplicate.version),
+        }),
+    )
+    .await
+    .unwrap();
+    let templates = m.agent_templates().await;
+    assert_eq!(templates.len(), 1);
+    assert_eq!(templates[0].name, "original");
     assert_eq!(
         save_template(
             State(m.clone()),

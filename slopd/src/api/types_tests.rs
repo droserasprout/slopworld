@@ -149,6 +149,8 @@ fn run_reader_metadata_projects_from_nested_wire_fields() {
     let request: RunReq =
         crate::api::protobuf::domain(crate::shared::wire::RunReq::default()).unwrap();
     assert!(request.reader.path.is_empty());
+    assert!(request.reader.key.is_empty());
+    assert!(request.reader.scope.is_empty());
     assert_eq!(request.reader.line, 0);
     assert!(!request.reader.pinned);
 }

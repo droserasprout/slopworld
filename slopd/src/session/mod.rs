@@ -27,6 +27,7 @@ mod manager;
 mod prompt;
 #[cfg(test)]
 pub(crate) use manager::AudioSelection;
+pub(crate) use manager::TemplatePersistence;
 pub(crate) use manager::{AudioReq, WorktreeRequest};
 
 #[cfg(test)]

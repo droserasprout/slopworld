@@ -58,65 +58,6 @@ pub(crate) fn domain<T: DeserializeOwned>(value: impl Serialize) -> Result<T, Ap
         .map_err(|e| super::err(StatusCode::BAD_REQUEST, e))
 }
 
-pub(crate) fn config_patch(patch: wire::ConfigPatch) -> Result<serde_json::Value, ApiError> {
-    let values = serde_json::to_value(patch.values.unwrap_or_default())
-        .map_err(|e| super::err(StatusCode::BAD_REQUEST, e))?;
-    let mut result = serde_json::json!({});
-    for path in patch.paths {
-        let parts: Vec<_> = path
-            .split('.')
-            .map(|p| p.replace("~1", ".").replace("~0", "~"))
-            .collect();
-        let root = parts.first().map(String::as_str);
-        let first_key = parts.get(1).map(String::as_str);
-        if parts.len() < 2
-            || !matches!(root, Some("daemon" | "defaults" | "commands"))
-            || (root == Some("daemon") && matches!(first_key, Some("bind" | "token")))
-        {
-            return Err(super::err(
-                StatusCode::BAD_REQUEST,
-                "This config path is not valid for editing.",
-            ));
-        }
-        let mut source = &values;
-        for part in &parts {
-            source = source.get(part).ok_or_else(|| {
-                super::err(
-                    StatusCode::BAD_REQUEST,
-                    format!("unknown config path: {path}"),
-                )
-            })?;
-        }
-        if source.is_object() {
-            return Err(super::err(
-                StatusCode::BAD_REQUEST,
-                "Choose a config path that identifies one value.",
-            ));
-        }
-        let Some((leaf, parents)) = parts.split_last() else {
-            return Err(super::err(
-                StatusCode::BAD_REQUEST,
-                "This config path is not valid for editing.",
-            ));
-        };
-        let mut target = &mut result;
-        for part in parents {
-            target = target
-                .as_object_mut()
-                .ok_or_else(|| {
-                    super::err(StatusCode::BAD_REQUEST, "Config paths must not overlap.")
-                })?
-                .entry(part.clone())
-                .or_insert_with(|| serde_json::json!({}));
-        }
-        target
-            .as_object_mut()
-            .ok_or_else(|| super::err(StatusCode::BAD_REQUEST, "Config paths must not overlap."))?
-            .insert(leaf.clone(), source.clone());
-    }
-    Ok(result)
-}
-
 /// Extractor and router rejections use the same error envelope as handler failures.
 pub(crate) async fn normalize_errors(req: Request, next: axum::middleware::Next) -> Response {
     let response = next.run(req).await;
@@ -128,7 +69,8 @@ pub(crate) async fn normalize_errors(req: Request, next: axum::middleware::Next)
             .and_then(|v| v.to_str().ok())
             != Some(CONTENT_TYPE)
     {
-        let bytes = axum::body::to_bytes(response.into_body(), 64 * 1024)
+        let (mut parts, body) = response.into_parts();
+        let bytes = axum::body::to_bytes(body, 64 * 1024)
             .await
             .unwrap_or_default();
         let message = if bytes.is_empty() {
@@ -136,7 +78,15 @@ pub(crate) async fn normalize_errors(req: Request, next: axum::middleware::Next)
         } else {
             String::from_utf8_lossy(&bytes).into_owned()
         };
-        return super::err(status, message).into_response();
+        let normalized = super::err(status, message).into_response();
+        parts.headers.remove(header::CONTENT_TYPE);
+        parts.headers.remove(header::CONTENT_LENGTH);
+        parts.headers.remove(header::TRANSFER_ENCODING);
+        parts.headers.remove(header::CONTENT_ENCODING);
+        parts.headers.remove(header::CONTENT_RANGE);
+        parts.headers.remove(header::ETAG);
+        parts.headers.extend(normalized.headers().clone());
+        return Response::from_parts(parts, normalized.into_body());
     }
     response
 }

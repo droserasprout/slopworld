@@ -24,17 +24,13 @@ async fn session_actions_require_write_access_and_keep_response_shapes() {
                     grantor: "caller".into(), sessions: [name.clone()].into(), level: Level::Rw, revoked: Default::default(),
                 })] {
                     let response = $action(State(manager.clone()), Extension(cap), Path(name.clone())).await;
-                    match response {
-                        Ok(Proto(body)) => {
-                            let body = serde_json::to_value(body).unwrap();
-                            assert_eq!($status, StatusCode::OK);
-                            assert_eq!(body, json!({ "ok": true }));
-                        }
-                        Err((status, Proto(body))) => {
-                            let body = serde_json::to_value(body).unwrap();
-                            assert_eq!(status, $status);
-                            assert!(body["error"].as_str().unwrap().contains(&name));
-                        }
+                    if $status == StatusCode::OK {
+                        let Proto(body) = response.expect("stop returns an acknowledgment");
+                        assert_eq!(serde_json::to_value(body).unwrap(), json!({ "ok": true }));
+                    } else {
+                        let (status, Proto(body)) = response.expect_err("missing session returns an error");
+                        assert_eq!(status, $status);
+                        assert!(body.error.contains(&name));
                     }
                 }
             };
@@ -43,6 +39,31 @@ async fn session_actions_require_write_access_and_keep_response_shapes() {
     check!(stop, StatusCode::OK);
     check!(restart, StatusCode::BAD_REQUEST);
     check!(reset_state, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn configured_session_stop_obeys_read_and_write_grants() {
+    let manager = crate::session::test_manager(Config {
+        sessions: vec![crate::config::SessionCfg {
+            name: "agent".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    for level in [Level::Ro, Level::Rw] {
+        let cap = Cap::Scoped(Grant {
+            grantor: "caller".into(),
+            sessions: ["agent".into()].into(),
+            level,
+            revoked: Default::default(),
+        });
+        let result = stop(State(manager.clone()), Extension(cap), Path("agent".into())).await;
+        if level == Level::Ro {
+            assert_eq!(result.unwrap_err().0, StatusCode::FORBIDDEN);
+        } else {
+            assert!(result.unwrap().0.ok);
+        }
+    }
 }
 
 #[tokio::test]

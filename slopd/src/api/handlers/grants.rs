@@ -32,7 +32,14 @@ pub(crate) async fn mint_grant(
     let token = m
         .mint_grant(q.grantor, q.sessions, level)
         .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+        .map_err(|e| {
+            let status = if e.downcast_ref::<crate::grant::GrantPersistence>().is_some() {
+                StatusCode::INTERNAL_SERVER_ERROR
+            } else {
+                StatusCode::BAD_REQUEST
+            };
+            err(status, e)
+        })?;
     reply(json!({ "ok": true, "token": token }))
 }
 
@@ -51,4 +58,54 @@ pub(crate) async fn revoke_grants(
         .await
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?;
     reply(json!({ "ok": true }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{Config, SessionCfg};
+
+    #[tokio::test]
+    async fn mint_distinguishes_invalid_scope_from_failed_persistence() {
+        let manager = crate::session::test_manager(Config {
+            sessions: vec![
+                SessionCfg {
+                    name: "grantor".into(),
+                    ..Default::default()
+                },
+                SessionCfg {
+                    name: "target".into(),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        });
+        let request = |target: &str| {
+            Proto(
+                serde_json::from_value(json!({
+                    "grantor": "grantor", "sessions": [target], "level": "ro"
+                }))
+                .unwrap(),
+            )
+        };
+        assert_eq!(
+            mint_grant(State(manager.clone()), request("missing"))
+                .await
+                .unwrap_err()
+                .0,
+            StatusCode::BAD_REQUEST
+        );
+        manager.use_persisted_grants_for_test().await;
+        let path = manager.cfg_path.with_file_name("grants.toml");
+        std::fs::create_dir(&path).unwrap();
+        assert_eq!(
+            mint_grant(State(manager.clone()), request("target"))
+                .await
+                .unwrap_err()
+                .0,
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+        assert_eq!(manager.grant_count().await, 0);
+        std::fs::remove_dir(path).unwrap();
+    }
 }

@@ -2,39 +2,49 @@ use super::*;
 
 #[test]
 fn themes_are_request_local_and_preserve_command_arguments() {
-    for (command, kind, theme, option) in [
+    for (command, kind, theme, expected) in [
         (
             "highlight --out-format=xterm256 %s",
             "highlight",
             "base16/monokai",
-            "--style=base16/monokai",
+            vec![
+                "highlight",
+                "--out-format=xterm256",
+                "--style=base16/monokai",
+                "%s",
+            ],
         ),
         (
             "pygmentize -f terminal256 -O style=monokai",
             "pygments",
             "friendly",
-            "style=friendly",
+            vec![
+                "pygmentize",
+                "-f",
+                "terminal256",
+                "-O",
+                "style=monokai",
+                "-P",
+                "style=friendly",
+            ],
         ),
         (
             "'/opt/my tools/bat' --color=always -- %s",
             "bat",
             "Monokai Extended",
-            "--theme=Monokai Extended",
+            vec![
+                "/opt/my tools/bat",
+                "--color=always",
+                "--theme=Monokai Extended",
+                "--",
+                "%s",
+            ],
         ),
     ] {
         assert_eq!(themed_command(command, kind, "").unwrap(), command);
         let themed = themed_command(command, kind, theme).unwrap();
         let argv = crate::sandbox::shell_split(&themed);
-        assert!(argv.iter().any(|s| s == option));
-        let before = crate::sandbox::shell_split(command);
-        assert_eq!(argv[0], before[0]);
-        let position = argv.iter().position(|s| s == option).unwrap();
-        if let Some(file) = argv.iter().position(|s| s == "%s") {
-            assert!(position < file);
-        }
-        if let Some(end) = argv.iter().position(|s| s == "--") {
-            assert!(position < end);
-        }
+        assert_eq!(argv, expected);
     }
     themed_command("bat", "highlight", "monokai").unwrap_err();
     themed_command("wrapper bat", "bat", "monokai").unwrap_err();
@@ -124,11 +134,13 @@ async fn draft_highlighter_catalog_and_preview_leave_defaults_unchanged() {
     .unwrap();
     assert_eq!(catalog.engine, "bat");
     assert_eq!(catalog.themes, ["DraftTheme"]);
+    assert_eq!(manager.config().await.commands.highlighter, original);
     let request = serde_json::from_value(json!({"text":"sample", "language":"rs", "engine":"bat", "theme":"DraftTheme", "command":command})).unwrap();
     let Proto(preview) = super::super::files::highlight(State(manager.clone()), Proto(request))
         .await
         .unwrap();
     assert!(preview.text.contains("--theme=DraftTheme"));
+    assert_eq!(manager.config().await.commands.highlighter, original);
     let Proto(off) = highlight_themes(
         State(manager.clone()),
         Query(HighlightThemesQuery {
@@ -139,6 +151,7 @@ async fn draft_highlighter_catalog_and_preview_leave_defaults_unchanged() {
     .unwrap();
     assert!(off.engine.is_empty());
     assert!(off.themes.is_empty());
+    assert_eq!(manager.config().await.commands.highlighter, original);
     let request = serde_json::from_value(json!({"text":"sample", "command":""})).unwrap();
     super::super::files::highlight(State(manager.clone()), Proto(request))
         .await

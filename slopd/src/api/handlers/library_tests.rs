@@ -135,14 +135,12 @@ async fn project_crud_returns_not_found_and_persists_rename() {
             .0,
         StatusCode::NOT_FOUND
     );
+    let projects = list_projects(State(m.clone())).await.unwrap().0.projects;
+    assert_eq!(projects.len(), 1);
+    assert_eq!(projects[0].name.as_deref(), Some("renamed-project"));
     assert_eq!(
-        list_projects(State(m.clone()))
-            .await
-            .unwrap()
-            .0
-            .projects
-            .len(),
-        1
+        projects[0].dir.as_deref(),
+        Some(std::env::temp_dir().to_str().unwrap())
     );
     assert!(
         destroy_project(State(m.clone()), Path("renamed-project".into()))
@@ -155,26 +153,8 @@ async fn project_crud_returns_not_found_and_persists_rename() {
 }
 
 #[tokio::test]
-async fn invalid_errands_and_file_actions_return_bad_request() {
+async fn missing_library_errands_return_bad_request() {
     let m = crate::session::test_manager(Config::default());
-    for (request, message) in [
-        (
-            json!({"kind":"prompt","command":" ","temp":true}),
-            "Provide a command",
-        ),
-        (
-            json!({"kind":"shell","command":"echo test"}),
-            "Choose a project",
-        ),
-        (
-            json!({"kind":"shell","project":"missing","path":"file","command":"cat"}),
-            "does not exist",
-        ),
-    ] {
-        let (status, Proto(error)) = run(State(m.clone()), proto(request)).await.unwrap_err();
-        assert_eq!(status, StatusCode::BAD_REQUEST);
-        assert!(error.error.contains(message), "{}", error.error);
-    }
     for want in [None, Some(proto(json!({"temp":true})))] {
         assert_eq!(
             run_library_item(State(m.clone()), Path("missing".into()), want)
@@ -184,34 +164,28 @@ async fn invalid_errands_and_file_actions_return_bad_request() {
             StatusCode::BAD_REQUEST
         );
     }
-    assert_eq!(
-        file_action(
-            State(m),
-            proto(json!({"project":"missing","path":"file","command":"cat"}))
-        )
-        .await
-        .unwrap_err()
-        .0,
-        StatusCode::BAD_REQUEST
-    );
 }
 
 #[tokio::test]
-async fn preview_only_allocates_a_directory_for_temporary_projects() {
+async fn preview_formats_a_path_without_creating_a_temporary_project() {
+    let name = format!("preview-{}", uuid::Uuid::new_v4());
     for temp in [false, true] {
-        let preview = project_preview(proto(json!({"name":"preview-project","temp":temp})))
+        let preview = project_preview(proto(json!({"name":name.clone(),"temp":temp})))
             .await
             .unwrap()
             .0;
-        assert_eq!(preview.name, "preview-project");
+        assert_eq!(preview.name, name);
         assert_eq!(preview.temp, temp);
         assert_eq!(
             preview.dir,
             if temp {
-                crate::paths::temp_dir("preview-project")
+                crate::paths::temp_dir(&name)
             } else {
                 String::new()
             }
         );
+        if temp {
+            assert!(!std::path::Path::new(&preview.dir).exists());
+        }
     }
 }

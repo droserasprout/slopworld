@@ -1,4 +1,5 @@
 use super::*;
+use crate::api::handlers::config_patch;
 use axum::{body::Body, Extension};
 use serde_json::json;
 use tower::ServiceExt;
@@ -19,17 +20,19 @@ async fn shared_health_and_task_routes_continue_during_worktree_guard() {
         _ = started_wait => {},
     }
     for path in ["/api/health", "/api/tasks"] {
-        let response = app
-            .clone()
-            .oneshot(
+        let response = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            app.clone().oneshot(
                 Request::builder()
                     .uri(path)
                     .header(crate::shared::protocol::SESSION_HEADER, "host")
                     .body(Body::empty())
                     .unwrap(),
-            )
-            .await
-            .unwrap();
+            ),
+        )
+        .await
+        .expect("route stalled behind the worktree guard")
+        .unwrap();
         assert_eq!(response.status(), StatusCode::OK, "{path}");
     }
     release.send(()).unwrap();
@@ -176,15 +179,18 @@ fn patches_are_explicit_and_preserve_false_zero_empty_and_escaped_map_keys() {
         patch,
         json!({"daemon":{"usage_items":{"a.b~c":{"poll":false,"interval_secs":0}},"worker_templates":[]}})
     );
-    for path in [
-        "daemon.token",
-        "daemon.bind",
-        "daemon.typo",
-        "daemon.usage_items",
-        "session",
-        "daemon",
+    for (path, expected) in [
+        ("daemon.token", "This config path is not valid for editing."),
+        ("daemon.bind", "This config path is not valid for editing."),
+        ("daemon.typo", "unknown config path: daemon.typo"),
+        (
+            "daemon.usage_items",
+            "Choose a config path that identifies one value.",
+        ),
+        ("session", "This config path is not valid for editing."),
+        ("daemon", "This config path is not valid for editing."),
     ] {
-        config_patch(wire::ConfigPatch {
+        let (_, Proto(error)) = config_patch(wire::ConfigPatch {
             values: Some(wire::EditableConfig {
                 daemon: Some(wire::Daemon::default()),
                 ..Default::default()
@@ -192,5 +198,34 @@ fn patches_are_explicit_and_preserve_false_zero_empty_and_escaped_map_keys() {
             paths: vec![path.into()],
         })
         .unwrap_err();
+        assert_eq!(error.error, expected, "{path}");
     }
+}
+
+#[tokio::test]
+async fn normalized_errors_keep_response_metadata() {
+    use axum::{routing::get, Router};
+    let app = Router::new()
+        .route(
+            "/bad",
+            get(|| async {
+                (
+                    StatusCode::BAD_REQUEST,
+                    [("x-error-source", "fixture")],
+                    "bad body",
+                )
+            }),
+        )
+        .layer(axum::middleware::from_fn(normalize_errors));
+    let response = app
+        .oneshot(Request::builder().uri("/bad").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response.headers()["x-error-source"], "fixture");
+    assert_eq!(response.headers()[header::CONTENT_TYPE], CONTENT_TYPE);
+    let body = axum::body::to_bytes(response.into_body(), 1024)
+        .await
+        .unwrap();
+    assert_eq!(wire::Error::decode(body).unwrap().error, "bad body");
 }

@@ -21,6 +21,11 @@ impl Authorization {
 }
 
 impl Manager {
+    #[cfg(test)]
+    pub(crate) async fn use_persisted_grants_for_test(&self) {
+        *self.auth.grants.write().await = crate::grant::Grants::load(&self.cfg_path).unwrap();
+    }
+
     pub(crate) fn auth_generation(&self) -> u64 {
         self.auth.generation.load(Ordering::Acquire)
     }

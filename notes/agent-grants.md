@@ -39,6 +39,8 @@ each send.
 `POST /api/grants` is root-only and accepts a grantor, session list, and level. It returns
 the bearer token once. `GET /api/grants` returns the active count, and
 `DELETE /api/grants/:grantor` revokes grants for a grantor.
+Failed persistence rolls back the new credential and returns a server error; invalid scopes
+remain request errors.
 
 Workers receive a new scoped credential through `SLOPD_URL` and `SLOPD_TOKEN` at startup.
 See [daemon-workers](daemon-workers.md). For manually created grants, callers arrange delivery
