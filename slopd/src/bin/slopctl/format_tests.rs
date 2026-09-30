@@ -34,8 +34,8 @@ fn human_and_json_output_preserve_task_and_status_details() {
         let stdout = String::from_utf8(output.stdout).unwrap();
         assert!(stdout.contains(concat!(
                 "BEGIN OUTPUT\n",
-                "t1  alice -> bob  [pending]  0s ago, moved 0s ago\n",
-                "  do work\n  progress\n  worker child under alice (durable)\n",
+                "t1  alice -> bob  [pending]  2d ago, moved 1h ago\n",
+                "  do work\n  next line\n  \n  progress\n  more\n  worker child under alice (durable)\n",
                 "?  ? -> ?  [?]  0s ago\n  \n  worker ? under ? (one-shot)\n",
                 "?  ? -> ?  [?]  0s ago\n  \nworker   named\n",
                 "?  ? -> ?  [?]  0s ago\n  \nworker   fallback\n",
@@ -52,12 +52,16 @@ fn human_and_json_output_preserve_task_and_status_details() {
         return;
     }
     // Future timestamps clamp to zero, keeping output deterministic without a clock mock.
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
     let task = json!({"created_ms": u64::MAX});
     println!("BEGIN OUTPUT");
     emit(
         &json!({"tasks": [
-            {"id":"t1", "from":"alice", "to":"bob", "status":"pending", "body":"do work",
-             "created_ms": u64::MAX - 1, "updated_ms":u64::MAX, "note":"progress",
+            {"id":"t1", "from":"alice", "to":"bob", "status":"pending", "body":"do work\nnext line\n",
+             "created_ms": now - 2 * 86_400_000, "updated_ms":now - 3_600_000, "note":"progress\nmore",
              "worker":{"session":"child", "parent":"alice", "durable":true}},
             {"created_ms":u64::MAX, "worker":{}}
         ]}),

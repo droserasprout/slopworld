@@ -1,5 +1,6 @@
 use super::super::format::emit;
 use super::super::http::{request, Endpoint};
+use super::common::{option_value, value_option};
 use super::task::print_wait_hint;
 use super::Command;
 use crate::shared::protocol::routes;
@@ -14,6 +15,7 @@ By default, the daemon keeps worker sessions after they exit.
 Use --one-shot to remove a session on exit.
 The worktree stays until you remove it.
 Use --worktree-name to name a new worktree.
+Use --option=VALUE for dash-leading option values.
 Options end before TASK. Put -- before task text that starts with an option, such as --durable.
 
 The project and template are required. The old parent/clone syntax is unsupported.
@@ -63,42 +65,24 @@ fn parse_spawn(args: &[String], options_at: usize) -> Result<Command, String> {
         let Some(option) = args.get(i) else {
             break;
         };
-        match option.as_str() {
-            "--" => {
+        let (flag, inline) = value_option(option);
+        match flag {
+            "--" if inline.is_none() => {
                 i += 1;
                 break;
             }
-            "--durable" => durable = true,
-            "--one-shot" => durable = false,
-            "--new-worktree" => worktree.new_worktree = true,
-            "--worktree" | "--base" | "--worktree-name" => {
-                let flag = option.clone();
-                i += 1;
-                let value = args
-                    .get(i)
-                    .ok_or_else(|| format!("{flag} needs a value"))?
-                    .clone();
-                match flag.as_str() {
+            "--durable" if inline.is_none() => durable = true,
+            "--one-shot" if inline.is_none() => durable = false,
+            "--new-worktree" if inline.is_none() => worktree.new_worktree = true,
+            "--worktree" | "--base" | "--worktree-name" | "--project" | "--template" => {
+                let value = option_value(args, &mut i, flag, inline)?;
+                match flag {
                     "--worktree" => worktree.worktree = value,
                     "--base" => worktree.base = value,
-                    _ => worktree.worktree_name = value,
+                    "--worktree-name" => worktree.worktree_name = value,
+                    "--project" => project = Some(value),
+                    _ => template = Some(value),
                 }
-            }
-            "--project" => {
-                i += 1;
-                project = Some(
-                    args.get(i)
-                        .ok_or_else(|| format!("spawn --project needs a value\n\n{SPAWN_USAGE}"))?
-                        .clone(),
-                );
-            }
-            "--template" => {
-                i += 1;
-                template = Some(
-                    args.get(i)
-                        .ok_or_else(|| format!("spawn --template needs a value\n\n{SPAWN_USAGE}"))?
-                        .clone(),
-                );
             }
             // The first argument that is not an option starts the task body.
             // Treat all subsequent arguments as task text, including words that resemble flags.

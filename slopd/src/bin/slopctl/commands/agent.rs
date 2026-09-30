@@ -1,8 +1,8 @@
 use super::super::format::print_json;
 use super::super::http::request;
 use super::super::http::Endpoint;
-use super::common::arg;
 use super::common::encode_component;
+use super::common::{arg, option_value, value_option};
 use super::Command;
 use crate::shared::protocol::routes;
 use serde_json::json;
@@ -17,6 +17,7 @@ pub(crate) const AGENT_CREATE_USAGE: &str = "usage:
 
 Create an agent from a daemon catalog template. The daemon does not start the
 agent unless you use --start. The daemon returns the new identity.
+Use --option=VALUE for option values beginning with a dash.
 ";
 pub(super) fn parse_agent_command(args: &[String]) -> Result<Command, String> {
     if matches!(
@@ -47,28 +48,11 @@ pub(super) fn parse_agent_command(args: &[String]) -> Result<Command, String> {
         let Some(option) = args.get(i) else {
             break;
         };
-        match option.as_str() {
-            "--project" => {
-                i += 1;
-                project = Some(
-                    args.get(i)
-                        .ok_or_else(|| {
-                            format!("agent create --project needs a value\n\n{AGENT_CREATE_USAGE}")
-                        })?
-                        .clone(),
-                );
-            }
-            "--template" => {
-                i += 1;
-                template = Some(
-                    args.get(i)
-                        .ok_or_else(|| {
-                            format!("agent create --template needs a value\n\n{AGENT_CREATE_USAGE}")
-                        })?
-                        .clone(),
-                );
-            }
-            "--start" => start = true,
+        let (flag, inline) = value_option(option);
+        match flag {
+            "--project" => project = Some(option_value(args, &mut i, flag, inline)?),
+            "--template" => template = Some(option_value(args, &mut i, flag, inline)?),
+            "--start" if inline.is_none() => start = true,
             flag => {
                 return Err(format!(
                     "unknown agent create option: {flag}\n\n{AGENT_CREATE_USAGE}"

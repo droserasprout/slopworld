@@ -12,82 +12,17 @@ use crate::logs::{
     clean_log_line, expand_home, parse_logs_args, source_command, write_log_line, LogSelection,
     LogSource, LogsOptions, DEFAULT_LOG_LINES, LOGS_USAGE,
 };
-use crate::shared::{http_wire, wire};
-use prost::Message;
 use serde_json::{json, Value};
-use std::io::{BufRead, BufReader, Read, Write};
-use std::net::TcpListener;
 use std::path::PathBuf;
-use std::thread;
 use std::time::Duration;
 
 fn words(text: &str) -> Vec<String> {
     text.split_whitespace().map(str::to_string).collect()
 }
 
-fn serve(status: &str, body: &str) -> (Endpoint, thread::JoinHandle<String>) {
-    let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
-    let address = listener.local_addr().unwrap();
-    let status = status.to_string();
-    let body = body.to_string();
-    let server = thread::spawn(move || {
-        let (mut socket, _) = listener.accept().unwrap();
-        let mut reader = BufReader::new(socket.try_clone().unwrap());
-        let mut request = String::new();
-        let mut content_length = 0;
-        loop {
-            let mut line = String::new();
-            reader.read_line(&mut line).unwrap();
-            if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                content_length = value.trim().parse().unwrap();
-            }
-            request.push_str(&line);
-            if line == "\r\n" {
-                break;
-            }
-        }
-        let mut request_body = vec![0; content_length];
-        reader.read_exact(&mut request_body).unwrap();
-        let parts: Vec<_> = request.lines().next().unwrap().split_whitespace().collect();
-        let method = parts[0].to_owned();
-        let path = parts[1].to_owned();
-        if !request_body.is_empty() {
-            assert!(request
-                .to_ascii_lowercase()
-                .contains("content-type: application/x-protobuf"));
-            let value = http_wire::decode_request(&method, &path, &request_body).unwrap();
-            request.push_str(&value.to_string());
-        }
-        let encoded = match serde_json::from_str::<Value>(&body) {
-            Ok(value) if status.starts_with("200") => {
-                http_wire::encode_response(&method, &path, value).unwrap()
-            }
-            Ok(value) => wire::Error {
-                error: value["error"].as_str().unwrap().into(),
-            }
-            .encode_to_vec(),
-            Err(_) if !status.starts_with("200") => wire::Error {
-                error: if body.is_empty() {
-                    format!("refused: {status}")
-                } else {
-                    format!("{status}: {body}")
-                },
-            }
-            .encode_to_vec(),
-            Err(_) => vec![0x80],
-        };
-        write!(socket, "HTTP/1.1 {status}\r\nContent-Type: application/x-protobuf\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", encoded.len()).unwrap();
-        socket.write_all(&encoded).unwrap();
-        request
-    });
-    (
-        Endpoint {
-            url: format!("http://{address}"),
-            token: "secret".into(),
-        },
-        server,
-    )
-}
+#[path = "http_fixture.rs"]
+mod http_fixture;
+use http_fixture::{serve, serve_raw};
 
 #[test]
 fn command_parser_builds_delegation_and_update_commands() {
@@ -461,7 +396,7 @@ fn spawn_posts_template_and_task_body_to_worker_endpoint() {
         },
     )
     .unwrap();
-    let request = server.join().unwrap();
+    let request = server.join().unwrap().unwrap();
     assert!(request.starts_with("POST /api/workers HTTP/1.1\r\n"));
     let body = request.split("\r\n\r\n").nth(1).unwrap();
     let body: Value = serde_json::from_str(body).unwrap();
@@ -484,7 +419,7 @@ fn agent_create_posts_template_project_and_start_to_catalog_endpoint() {
         true,
     )
     .unwrap();
-    let request = server.join().unwrap();
+    let request = server.join().unwrap().unwrap();
     assert!(request.starts_with("POST /api/templates/team-review/create HTTP/1.1\r\n"));
     let body = request.split("\r\n\r\n").nth(1).unwrap();
     let body: Value = serde_json::from_str(body).unwrap();
@@ -633,7 +568,7 @@ fn wait_returns_an_already_completed_task() {
     let task = wait_for_task(&endpoint, "caller", "task-7", Duration::ZERO).unwrap();
     assert_eq!(task["task"]["id"], "task-7");
     assert_eq!(task["task"]["status"], "done");
-    let request = server.join().unwrap();
+    let request = server.join().unwrap().unwrap();
     assert!(request.starts_with("GET /api/tasks/task-7 HTTP/1.1\r\n"));
 }
 
@@ -733,7 +668,7 @@ fn request_sends_headers_and_supports_each_used_method() {
         } else {
             assert_eq!(value["ok"], true);
         }
-        let received = server.join().unwrap();
+        let received = server.join().unwrap().unwrap();
         assert!(received.starts_with(&format!("{method} {path} HTTP/1.1\r\n")));
         let lower = received.to_ascii_lowercase();
         assert!(lower.contains("x-slop-token: secret\r\n"));
@@ -763,18 +698,18 @@ fn request_sends_headers_and_supports_each_used_method() {
 }
 
 #[test]
-fn request_preserves_structured_and_plain_refusal_details() {
+fn request_preserves_protobuf_refusal_details() {
     let (endpoint, server) = serve("400 Bad Request", r#"{"error":"bad task"}"#);
     assert_eq!(
         request(&endpoint, "caller", "GET", "/api/health", None).unwrap_err(),
         "bad task"
     );
-    server.join().unwrap();
+    server.join().unwrap().unwrap();
 
     let (endpoint, server) = serve("401 Unauthorized", "");
     let error = request(&endpoint, "caller", "GET", "/api/health", None).unwrap_err();
     assert!(error.contains("refused: 401"), "{error}");
-    server.join().unwrap();
+    server.join().unwrap().unwrap();
 
     let (endpoint, server) = serve("502 Bad Gateway", "upstream broke");
     let error = request(&endpoint, "caller", "GET", "/api/health", None).unwrap_err();
@@ -782,12 +717,12 @@ fn request_preserves_structured_and_plain_refusal_details() {
         error.contains("502") && error.contains("upstream broke"),
         "{error}"
     );
-    server.join().unwrap();
+    server.join().unwrap().unwrap();
 
     let (endpoint, server) = serve("200 OK", "not json");
     let error = request(&endpoint, "caller", "GET", "/api/health", None).unwrap_err();
     assert!(error.contains("response 200"), "{error}");
-    server.join().unwrap();
+    server.join().unwrap().unwrap();
 }
 
 #[test]
@@ -805,7 +740,7 @@ fn lifecycle_commands_send_the_intended_status_and_note() {
             note: note.map(str::to_owned),
         }
         .run(&endpoint, "agent", true);
-        let request = server.join().unwrap();
+        let request = server.join().unwrap().unwrap();
         result.unwrap();
         assert!(request.starts_with("POST /api/tasks/t1 HTTP/1.1\r\n"));
         let body: Value = serde_json::from_str(request.split_once("\r\n\r\n").unwrap().1).unwrap();
@@ -845,7 +780,7 @@ fn task_dispatch_uses_read_delete_and_prune_routes() {
     ] {
         let (endpoint, server) = serve("200 OK", response);
         let result = command.run(&endpoint, "agent", true);
-        let request = server.join().unwrap();
+        let request = server.join().unwrap().unwrap();
         result.unwrap();
         assert!(
             request.starts_with(&format!("{route} HTTP/1.1\r\n")),
@@ -872,7 +807,7 @@ fn template_lookup_respects_caller_scope_and_encodes_project() {
                 Command::Templates { project }
             };
             let result = command.run(&endpoint, caller, true);
-            let request = server.join().unwrap();
+            let request = server.join().unwrap().unwrap();
             result.unwrap();
             assert!(
                 request.starts_with(&format!(
@@ -888,7 +823,7 @@ fn template_lookup_respects_caller_scope_and_encodes_project() {
         project: None,
     }
     .run(&endpoint, "agent", true);
-    server.join().unwrap();
+    server.join().unwrap().unwrap();
     assert_eq!(result, Err("no accessible agent template: missing".into()));
 }
 
@@ -900,7 +835,7 @@ fn command_dispatch_propagates_daemon_rejection() {
         body: "do work".into(),
     }
     .run(&endpoint, "agent", true);
-    let request = server.join().unwrap();
+    let request = server.join().unwrap().unwrap();
     assert!(result.unwrap_err().contains("outside grant"));
     let body: Value = serde_json::from_str(request.split_once("\r\n\r\n").unwrap().1).unwrap();
     assert_eq!(body["to"], "other");
@@ -984,7 +919,7 @@ fn agent_creation_encodes_template_path_and_preserves_body_fields() {
         "team/café?x#y",
         false,
     );
-    let request = server.join().unwrap();
+    let request = server.join().unwrap().unwrap();
     result.unwrap();
     assert!(request.starts_with("POST /api/templates/team%2Fcaf%C3%A9%3Fx%23y/create HTTP/1.1\r\n"));
     let body: Value = serde_json::from_str(request.split_once("\r\n\r\n").unwrap().1).unwrap();
@@ -1029,4 +964,156 @@ fn worktree_options_preserve_selection_and_reject_ambiguous_requests() {
             path: String::new()
         })
     );
+}
+
+#[test]
+fn request_rejects_a_literal_plain_http_refusal() {
+    let (endpoint, server) = serve_raw("502 Bad Gateway", "text/plain", b"upstream broke");
+    let error = request(&endpoint, "caller", "GET", "/api/health", None).unwrap_err();
+    assert!(
+        error.contains("502") && error.contains("expected Protobuf"),
+        "{error}"
+    );
+    server.join().unwrap().unwrap();
+}
+
+#[test]
+fn worktree_rename_dispatches_put_with_encoded_identity_and_body() {
+    let (endpoint, server) = serve("200 OK", r#"{"id":"tree","name":"renamed"}"#);
+    let command = parse_command_with_task_id(
+        &words("worktree rename tree/one --project=my/repo --name=renamed"),
+        None,
+    )
+    .unwrap();
+    let result = command.run(&endpoint, "host", true);
+    let received = server.join().unwrap().unwrap();
+    result.unwrap();
+    assert!(received.starts_with("PUT /api/worktrees/tree%2Fone?project=my%2Frepo HTTP/1.1\r\n"));
+    let body: Value = serde_json::from_str(received.split_once("\r\n\r\n").unwrap().1).unwrap();
+    assert_eq!(body["name"], "renamed");
+}
+
+#[test]
+fn sandbox_inspection_encodes_the_session_as_one_segment() {
+    let (endpoint, server) = serve("200 OK", r#"{"session":"agent","host":true}"#);
+    let result = Command::SandboxInspect {
+        name: "a/b?c#d%".into(),
+    }
+    .run(&endpoint, "host", true);
+    let received = server.join().unwrap().unwrap();
+    result.unwrap();
+    assert!(received.starts_with("GET /api/sessions/a%2Fb%3Fc%23d%25/sandbox HTTP/1.1\r\n"));
+}
+
+#[test]
+fn construction_options_reject_flags_as_values_and_accept_inline_dash_values() {
+    for flag in ["--project", "--template"] {
+        for next in ["--project", "--template", "--start", "--"] {
+            parse_command_with_task_id(&words(&format!("agent create n {flag} {next}")), None)
+                .unwrap_err();
+        }
+    }
+    for flag in [
+        "--project",
+        "--template",
+        "--worktree",
+        "--base",
+        "--worktree-name",
+    ] {
+        for next in ["--one-shot", "--new-worktree", "--base", "--"] {
+            parse_command_with_task_id(
+                &words(&format!(
+                    "worker spawn --project p --template t --new-worktree {flag} {next} task"
+                )),
+                None,
+            )
+            .unwrap_err();
+        }
+    }
+    for action in ["list", "create", "rename id", "remove id"] {
+        parse_command_with_task_id(&words(&format!("worktree {action}")), None).unwrap_err();
+        parse_command_with_task_id(
+            &words(&format!("worktree {action} --project --name n")),
+            None,
+        )
+        .unwrap_err();
+    }
+    parse_command_with_task_id(&words("worktree rename id --project p"), None).unwrap_err();
+    assert_eq!(
+        parse_command_with_task_id(
+            &words("agent create n --project=--start --template=-t"),
+            None
+        ),
+        Ok(Command::AgentCreate {
+            name: "n".into(),
+            project: "--start".into(),
+            template: "-t".into(),
+            start: false
+        })
+    );
+    let command = parse_command_with_task_id(&words("worker spawn --project=-p --template=-t --new-worktree --base=-- --worktree-name=-n -- --one-shot task"), None).unwrap();
+    match command {
+        Command::Spawn {
+            project,
+            template,
+            body,
+            worktree,
+            ..
+        } => {
+            assert_eq!(project, "-p");
+            assert_eq!(template, "-t");
+            assert_eq!(worktree.base, "--");
+            assert_eq!(worktree.worktree_name, "-n");
+            assert_eq!(body, "--one-shot task");
+        }
+        other => panic!("unexpected {other:?}"),
+    }
+    parse_command_with_task_id(
+        &words("worktree create --project=-p --name=-n --base=-b --path=-d"),
+        None,
+    )
+    .unwrap();
+}
+
+#[test]
+fn injected_task_updates_preserve_notes_and_allow_explicit_targeting() {
+    for (verb, action) in [
+        ("accept", UpdateAction::Accept),
+        ("progress", UpdateAction::Progress),
+        ("finish", UpdateAction::Finish),
+        ("fail", UpdateAction::Fail),
+    ] {
+        for (tail, id, note) in [
+            ("", "injected", None),
+            ("Reviewing", "injected", Some("Reviewing")),
+            ("Reviewing the code", "injected", Some("Reviewing the code")),
+            (
+                "--id other Reviewing the code",
+                "other",
+                Some("Reviewing the code"),
+            ),
+            ("--id=other", "other", None),
+            ("-- --help", "injected", Some("--help")),
+        ] {
+            // Build the action each time because it is an owned command value.
+            let parsed = parse_command_with_task_id(
+                &words(&format!("task {verb} {tail}")),
+                Some("injected"),
+            )
+            .unwrap();
+            match parsed {
+                Command::Update {
+                    action: actual,
+                    id: actual_id,
+                    note: actual_note,
+                } => {
+                    assert_eq!(actual, action);
+                    assert_eq!(actual_id, id);
+                    assert_eq!(actual_note.as_deref(), note);
+                }
+                other => panic!("unexpected {other:?}"),
+            }
+        }
+    }
+    parse_command_with_task_id(&words("task progress --id"), Some("injected")).unwrap_err();
 }

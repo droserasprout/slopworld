@@ -47,28 +47,35 @@ pub(crate) fn request(
     // Read the response body before handling an error status.
     // The body explains why the daemon rejected the request. The HTTP status alone cannot supply this detail.
     let mut res = match (method, body) {
-        ("GET", None) => ureq::get(&url)
-            .config()
-            .http_status_as_error(false)
-            .build()
-            .header(TOKEN_HEADER, &endpoint.token)
-            .header(SESSION_HEADER, session)
-            .call(),
-        ("DELETE", None) => ureq::delete(&url)
-            .config()
-            .http_status_as_error(false)
-            .build()
-            .header(TOKEN_HEADER, &endpoint.token)
-            .header(SESSION_HEADER, session)
-            .call(),
-        ("POST", Some(value)) => ureq::post(&url)
-            .config()
-            .http_status_as_error(false)
-            .build()
-            .header(TOKEN_HEADER, &endpoint.token)
-            .header(SESSION_HEADER, session)
-            .header("content-type", http_wire::CONTENT_TYPE)
-            .send(http_wire::encode_request(method, path, value).map_err(|e| e.to_string())?),
+        ("GET" | "DELETE", None) => {
+            let request = if method == "GET" {
+                ureq::get(&url)
+            } else {
+                ureq::delete(&url)
+            };
+            request
+                .config()
+                .http_status_as_error(false)
+                .build()
+                .header(TOKEN_HEADER, &endpoint.token)
+                .header(SESSION_HEADER, session)
+                .call()
+        }
+        ("POST" | "PUT", Some(value)) => {
+            let request = if method == "POST" {
+                ureq::post(&url)
+            } else {
+                ureq::put(&url)
+            };
+            request
+                .config()
+                .http_status_as_error(false)
+                .build()
+                .header(TOKEN_HEADER, &endpoint.token)
+                .header(SESSION_HEADER, session)
+                .header("content-type", http_wire::CONTENT_TYPE)
+                .send(http_wire::encode_request(method, path, value).map_err(|e| e.to_string())?)
+        }
         _ => return Err(format!("unsupported request: {method}")),
     }
     .map_err(|e| format!("request: {e}"))?;

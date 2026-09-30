@@ -1,11 +1,11 @@
 use super::super::format::print_json;
 use super::super::http::{request, Endpoint};
-use super::common::encode_component;
+use super::common::{encode_component, option_value, value_option};
 use super::Command;
 use crate::shared::protocol::routes;
 use serde_json::{json, Value};
 
-pub(crate) const WORKTREE_USAGE: &str = "usage:\n  slopctl worktree list --project PROJECT\n  slopctl worktree create --project PROJECT [--name NAME] [--base REV] [--path EXISTING_CHECKOUT]\n  slopctl worktree rename ID --project PROJECT --name NAME\n  slopctl worktree remove ID --project PROJECT\n\nYou need the root token to rename or remove a worktree.\nThe daemon unregisters external checkouts and keeps their files.\n";
+pub(crate) const WORKTREE_USAGE: &str = "usage:\n  slopctl worktree list --project PROJECT\n  slopctl worktree create --project PROJECT [--name NAME] [--base REV] [--path EXISTING_CHECKOUT]\n  slopctl worktree rename ID --project PROJECT --name NAME\n  slopctl worktree remove ID --project PROJECT\n\nYou need the root token to rename or remove a worktree.\nThe daemon unregisters external checkouts and keeps their files.\nUse --option=VALUE for option values beginning with a dash.\n";
 pub(super) fn parse_worktree(args: &[String]) -> Result<Command, String> {
     let action = args.get(1).ok_or(WORKTREE_USAGE)?.clone();
     if !["list", "create", "remove", "rename"].contains(&action.as_str()) {
@@ -18,21 +18,32 @@ pub(super) fn parse_worktree(args: &[String]) -> Result<Command, String> {
     let mut id = String::new();
     let mut i = 2;
     if action == "remove" || action == "rename" {
-        id = args.get(i).ok_or(WORKTREE_USAGE)?.clone();
+        id = args
+            .get(i)
+            .filter(|id| !id.starts_with('-') && !id.is_empty())
+            .ok_or(WORKTREE_USAGE)?
+            .clone();
         i += 1;
     }
     while i < args.len() {
-        let flag = args.get(i).ok_or(WORKTREE_USAGE)?;
-        i += 1;
-        let value = args.get(i).ok_or(WORKTREE_USAGE)?.clone();
-        i += 1;
-        match flag.as_str() {
-            "--project" => project = value,
-            "--name" if action == "create" || action == "rename" => name = value,
-            "--base" if action == "create" => base = value,
-            "--path" if action == "create" => path = value,
-            _ => return Err(WORKTREE_USAGE.into()),
+        let (flag, inline) = value_option(args.get(i).ok_or(WORKTREE_USAGE)?);
+        let allowed = flag == "--project"
+            || (flag == "--name" && matches!(action.as_str(), "create" | "rename"))
+            || (matches!(flag, "--base" | "--path") && action == "create");
+        if !allowed {
+            return Err(WORKTREE_USAGE.into());
         }
+        let value = option_value(args, &mut i, flag, inline)?;
+        i += 1;
+        match flag {
+            "--project" => project = value,
+            "--name" => name = value,
+            "--base" => base = value,
+            _ => path = value,
+        }
+    }
+    if project.is_empty() || (action == "rename" && name.is_empty()) {
+        return Err(WORKTREE_USAGE.into());
     }
     Ok(Command::Worktree {
         action,
