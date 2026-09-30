@@ -50,6 +50,7 @@ pub(super) fn parse_session(value: Value) -> Result<crate::config::SessionCfg, A
             "project",
             "command",
             "cmd",
+            "args",
             "command_snapshot",
             "sandbox",
             "sandbox_snapshots",

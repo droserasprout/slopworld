@@ -64,9 +64,12 @@ pub(crate) struct AgentTemplateDefaults {
     /// Complete command preset definition, if the source used a preset.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) command: Option<CommandPreset>,
-    /// Raw command override, only when the source did not use a command preset.
+    /// Raw command override, retaining any selected preset configuration.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) cmd: Option<String>,
+    /// Extra shell-quoted arguments copied into agents and workers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) args: Option<String>,
     /// Effective sandbox preset names, with their immutable definitions below.
     #[serde(default)]
     pub(crate) sandbox: Vec<String>,
@@ -330,6 +333,7 @@ impl AgentTemplate {
             defaults: AgentTemplateDefaults {
                 command,
                 cmd: source.cmd.clone(),
+                args: source.args.clone(),
                 sandbox,
                 sandbox_presets,
                 persistent_tmp: Some(source.persistent_tmp),
@@ -356,6 +360,7 @@ impl AgentTemplate {
                 .map(|command| command.name.clone())
                 .unwrap_or_default(),
             cmd: defaults.cmd.clone(),
+            args: defaults.args.clone(),
             command_snapshot: defaults.command.clone(),
             sandbox: defaults.sandbox.clone(),
             sandbox_snapshots: defaults.sandbox_presets.clone(),
@@ -377,6 +382,7 @@ impl AgentTemplate {
 
         session.command = overrides.command.clone();
         session.cmd = overrides.cmd.clone();
+        session.args = overrides.args.clone();
         session.sandbox = overrides.sandbox.clone();
         session.persistent_tmp = overrides.persistent_tmp;
         session.worktree = overrides.worktree.clone();

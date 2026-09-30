@@ -18,6 +18,7 @@ namespace SlopWorld
             (s, j) => s.Command = j.Launch.Command,
             (s, j) => s.CommandPreset = j.Launch.CommandPreset,
             (s, j) => s.Cmd = !j.Launch.HasCmd ? "" : j.Launch.Cmd,
+            (s, j) => s.Args = !j.Launch.HasArgs ? "" : j.Launch.Args,
             (s, j) => s.Sandbox = j.Launch.Sandbox.ToList(),
             (s, j) => s.PersistentTmp = j.Launch.PersistentTmp,
             (s, j) => s.Agent = j.Launch.Agent,

@@ -47,8 +47,10 @@ source for managed project storage.
 Other sources remain literal host paths.
 The project shortcut copies paths once. It does not rebuild a running sandbox.
 
-Agents own command, sandbox additions, network, DNS, resource limits, and startup/private-state
+Agents own command and optional `args`, sandbox additions, network, DNS, resource limits, and startup/private-state
 behavior. Network defaults to `private`. DNS `resolved` follows the resolver seen by the daemon.
+`config/resolution.rs` appends nonblank `args` to the resolved command, including a `cmd` override.
+An unavailable command stays unavailable even when arguments are supplied.
 An unset limit means no limit. DNS and resource-limit tables reject unknown keys;
 resolved DNS rejects nonempty server lists (the wire format includes empty lists).
 Unknown fields elsewhere retain the configuration preservation contract.

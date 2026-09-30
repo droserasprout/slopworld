@@ -29,6 +29,7 @@ namespace SlopWorld.Tests
                     ""command"":{ ""name"":""agent"", ""cmd"":""captured"", ""sandbox"":[""dependency""] },
                     ""sandbox"":[],
                     ""sandbox_presets"":[{""name"":""dependency"", ""description"":""captured sandbox""}],
+                    ""args"":""--extra"",
                     ""limits"":{ ""memory_mb"":512 }
                 }
             }")));
@@ -39,9 +40,14 @@ namespace SlopWorld.Tests
             {
                 var form = new SessionInfo();
                 template.ApplyTo(form);
+                AssertEx.Equal("--extra", template.Copy().Args, "arguments survive draft copy");
+                AssertEx.Equal("--extra", form.Args, "template arguments initialize form");
                 form.Limits = new SessionLimits();
                 var saved = JVal.Parse(template.ToJson(form))["defaults"];
                 AssertEx.Equal("captured", saved["command"]["cmd"].AsString(), "description edit retains command snapshot");
+                AssertEx.Equal("--extra", saved["args"].AsString(), "arguments retained on save");
+                form.Args = "";
+                AssertEx.True(!template.ToWire(form).Defaults.HasArgs, "arguments can be cleared");
                 AssertEx.True(saved["limits"]["memory_mb"].IsNull, "cleared cap stays cleared");
                 AssertEx.Equal("dependency", saved["sandbox"][0].AsString(), "command dependency selected");
                 AssertEx.Equal("dependency", saved["sandbox_presets"][0]["name"].AsString(), "command dependencies retained");

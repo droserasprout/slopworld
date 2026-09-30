@@ -94,6 +94,9 @@ pub struct SessionCfg {
     /// An explicit command line that overrides the preset command.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cmd: Option<String>,
+    /// Extra shell-quoted arguments appended to the resolved command line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub args: Option<String>,
     /// Captured from the template at creation; preserved during ordinary edits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) command_snapshot: Option<CommandPreset>,
@@ -184,6 +187,7 @@ impl Default for SessionCfg {
             project: String::new(),
             command: String::new(),
             cmd: None,
+            args: None,
             command_snapshot: None,
             sandbox: Vec::new(),
             sandbox_snapshots: Vec::new(),
@@ -218,6 +222,7 @@ impl std::fmt::Debug for SessionCfg {
             .field("project", &self.project)
             .field("command", &self.command)
             .field("cmd", &self.cmd)
+            .field("args", &self.args)
             .field("command_snapshot", &self.command_snapshot)
             .field("sandbox", &self.sandbox)
             .field("sandbox_snapshots", &self.sandbox_snapshots)

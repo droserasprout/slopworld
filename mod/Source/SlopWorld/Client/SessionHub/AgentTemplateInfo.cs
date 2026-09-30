@@ -17,6 +17,7 @@ namespace SlopWorld
         public string Description = "";
         public string Command = "";
         public string Cmd = "";
+        public string Args = "";
         public List<string> Sandbox = new List<string>();
         public bool PersistentTmp;
         public NetworkMode Network = NetworkMode.Private;
@@ -48,6 +49,7 @@ namespace SlopWorld
                 Description = j.Description,
                 Command = d.Command?.Name ?? "",
                 Cmd = d.Cmd,
+                Args = d.Args,
                 Sandbox = d.Sandbox.ToList(),
                 PersistentTmp = d.PersistentTmp,
                 Network = NetworkModeText.Parse(d.Network),
@@ -73,6 +75,7 @@ namespace SlopWorld
             Description = Description,
             Command = Command,
             Cmd = Cmd,
+            Args = Args,
             Sandbox = new List<string>(Sandbox),
             PersistentTmp = PersistentTmp,
             Network = Network,
@@ -103,6 +106,8 @@ namespace SlopWorld
                     : (SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == form.Command)?.ToWire() ?? throw new InvalidOperationException("Unknown command: " + form.Command));
             d.ClearCmd();
             if (!string.IsNullOrWhiteSpace(form.Cmd)) d.Cmd = form.Cmd;
+            d.ClearArgs();
+            if (!string.IsNullOrWhiteSpace(form.Args)) d.Args = form.Args;
             d.Sandbox.Clear(); d.SandboxPresets.Clear();
             var pending = new Queue<string>(form.Sandbox.Concat(d.Command == null ? Enumerable.Empty<string>() : d.Command.Sandbox));
             var names = new HashSet<string>();
@@ -139,6 +144,7 @@ namespace SlopWorld
             s.Command = Command ?? "";
             s.CommandPreset = Command ?? "";
             s.Cmd = Cmd ?? "";
+            s.Args = Args ?? "";
             s.Sandbox = new List<string>(Sandbox);
             s.PersistentTmp = PersistentTmp;
             s.Network = Network;

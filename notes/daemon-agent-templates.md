@@ -13,7 +13,7 @@ not reuse conflict tokens. These are stale-write guards, not revision history or
 instantiated agents.
 
 `session/agent_templates/mod.rs` defines templates with optional settings that agents copy once.
-Optional scalar choices copy into agent settings.
+Optional scalar choices copy into agent settings, including extra command arguments (`args`).
 Omitted fields use these defaults:
 
 - Network and DNS use the documented agent defaults.
