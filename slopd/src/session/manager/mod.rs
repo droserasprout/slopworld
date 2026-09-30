@@ -25,6 +25,7 @@ mod worktrees;
 pub(crate) use worktrees::WorktreeRequest;
 pub(crate) use worktrees::WorktreeState;
 
+pub(crate) use agent_templates::TemplatePersistence;
 pub(crate) use agent_templates::TemplateStore;
 pub(crate) use caps::Authorization;
 use capture::CachedScroll;

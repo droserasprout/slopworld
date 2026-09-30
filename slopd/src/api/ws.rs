@@ -16,7 +16,7 @@ use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use futures::StreamExt;
-use tokio::sync::{broadcast, Mutex, Semaphore};
+use tokio::sync::{broadcast, Mutex, OwnedSemaphorePermit, Semaphore};
 use tokio::task::JoinHandle;
 
 use crate::session::{AuthChange, Event, EventMessage, ScreenView, WatchGuard};
@@ -30,7 +30,14 @@ type WsSubs = Arc<Mutex<HashMap<String, WatchGuard>>>;
 /// Owns bounded scroll captures and their ordered replies for one connection.
 struct ScrollReplies {
     slots: Arc<Semaphore>,
-    pending: VecDeque<JoinHandle<Option<ScreenView>>>,
+    pending: VecDeque<PendingScroll>,
+}
+
+struct PendingScroll {
+    capture: JoinHandle<Option<ScreenView>>,
+    ready: Option<Arc<EventMessage>>,
+    // A completed capture still owns its slot until its reply is sent or skipped.
+    _permit: OwnedSemaphorePermit,
 }
 
 impl ScrollReplies {
@@ -41,14 +48,13 @@ impl ScrollReplies {
         }
     }
 
-    fn enqueue(&mut self, req: ScrollReq, m: &Mgr, cap: &Cap) {
+    fn enqueue(&mut self, req: ScrollReq, m: &Mgr, cap: &Cap) -> bool {
         let Ok(permit) = self.slots.clone().try_acquire_owned() else {
-            return;
+            return false;
         };
         let manager = m.clone();
         let cap = cap.clone();
-        self.pending.push_back(tokio::spawn(async move {
-            let _permit = permit;
+        let capture = tokio::spawn(async move {
             manager
                 .session_read_operation(async {
                     if !manager.cap_ok(&cap, &req.name, Level::Ro).await {
@@ -59,7 +65,13 @@ impl ScrollReplies {
                         .await
                 })
                 .await
-        }));
+        });
+        self.pending.push_back(PendingScroll {
+            capture,
+            ready: None,
+            _permit: permit,
+        });
+        true
     }
 
     fn has_pending(&self) -> bool {
@@ -67,37 +79,38 @@ impl ScrollReplies {
     }
 
     async fn send_next(&mut self, tx: &WsTx, cap: &Cap) -> bool {
-        let Some(task) = self.pending.front_mut() else {
+        let Some(pending) = self.pending.front_mut() else {
             return true;
         };
-        let result = task.await;
+        if pending.ready.is_none() {
+            match (&mut pending.capture).await {
+                Ok(Some(screen)) => {
+                    pending.ready = Some(EventMessage::new(Event::Screen { screen }))
+                }
+                Ok(None) => {
+                    self.pending.pop_front();
+                    return true;
+                }
+                Err(error) => {
+                    tracing::debug!("scroll task ended: {error}");
+                    self.pending.pop_front();
+                    return true;
+                }
+            }
+        }
+        let event = pending.ready.as_ref().expect("capture returned a screen");
+        if send(tx, cap, event).await.is_err() {
+            return false;
+        }
         self.pending.pop_front();
-        match result {
-            Ok(Some(screen)) => send(tx, cap, &EventMessage::new(Event::Screen { screen }))
-                .await
-                .is_ok(),
-            Ok(None) => true,
-            Err(error) => {
-                tracing::debug!("scroll task ended: {error}");
-                true
-            }
-        }
-    }
-
-    async fn flush(&mut self, tx: &WsTx, cap: &Cap) -> bool {
-        while self.has_pending() {
-            if !self.send_next(tx, cap).await {
-                return false;
-            }
-        }
         true
     }
 }
 
 impl Drop for ScrollReplies {
     fn drop(&mut self) {
-        for task in &self.pending {
-            task.abort();
+        for pending in &self.pending {
+            pending.capture.abort();
         }
     }
 }
@@ -163,8 +176,22 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
     let pump = spawn_frame_pump(events, tx.clone(), subs.clone(), cap.clone());
     // Capture scrollback concurrently with command intake, but reply in request order.
     let mut scrolls = ScrollReplies::new();
+    let mut deferred = VecDeque::new();
 
     loop {
+        if !scrolls.has_pending() {
+            if let Some(cm) = deferred.pop_front() {
+                if let ClientMsg::Scroll(req) = cm {
+                    if !scrolls.enqueue(req, &m, &cap) {
+                        tracing::debug!("closing WebSocket after scroll queue overload");
+                        break;
+                    }
+                } else if !Box::pin(handle_client_msg(cm, &m, &cap, &tx, &subs)).await {
+                    break;
+                }
+                continue;
+            }
+        }
         tokio::select! {
             biased;
             invalidated = auth_invalidated(&mut auth_changes, &cap) => {
@@ -175,21 +202,33 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
             }
             msg = rx.next() => {
                 let Some(Ok(msg)) = msg else { break };
+                if matches!(msg, Message::Close(_)) { break; }
                 let Message::Binary(bytes) = msg else { continue };
                 let Ok(cm) = super::client_message::decode(&bytes) else {
                     tracing::debug!("invalid Protobuf command");
                     continue;
                 };
 
-                if let ClientMsg::Scroll(req) = cm {
-                    scrolls.enqueue(req, &m, &cap);
+                if !deferred.is_empty() {
+                    if deferred.len() >= 16 {
+                        tracing::debug!("closing WebSocket after deferred command overload");
+                        break;
+                    }
+                    deferred.push_back(cm);
                     continue;
                 }
-
-                // `Sub` can answer immediately with a screen. Drain older scroll responses first
-                // so direct responses retain the same order as the incoming commands.
-                if matches!(&cm, ClientMsg::Sub { .. })
-                    && !scrolls.flush(&tx, &cap).await { break; }
+                if let ClientMsg::Scroll(req) = cm {
+                    // Overload closes the connection; no request disappears without a reply.
+                    if !scrolls.enqueue(req, &m, &cap) {
+                        tracing::debug!("closing WebSocket after scroll queue overload");
+                        break;
+                    }
+                    continue;
+                }
+                if matches!(&cm, ClientMsg::Sub { .. }) && scrolls.has_pending() {
+                    deferred.push_back(cm);
+                    continue;
+                }
                 if !Box::pin(handle_client_msg(cm, &m, &cap, &tx, &subs)).await { break; }
             }
         }

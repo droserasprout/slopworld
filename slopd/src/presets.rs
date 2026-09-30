@@ -535,12 +535,14 @@ fn remove_user(kind: PresetKind, name: &str) -> anyhow::Result<()> {
 pub enum PresetError {
     Missing(String),
     Invalid(String),
+    Storage(anyhow::Error),
 }
 
 impl fmt::Display for PresetError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Missing(message) | Self::Invalid(message) => f.write_str(message),
+            Self::Storage(error) => write!(f, "{error:#}"),
         }
     }
 }
@@ -585,11 +587,17 @@ pub fn copy_builtin(kind: PresetKind, old_name: &str, target: &str) -> Result<()
     let builtins = Table::builtins();
     let users = Table::users();
     let definition = copy_definition(kind, old_name, target, &builtins, &users)?;
-    save_definition(definition).map_err(|error| PresetError::Invalid(error.to_string()))
+    valid_name(target).map_err(|error| PresetError::Invalid(error.to_string()))?;
+    save_definition(definition).map_err(PresetError::Storage)
 }
 
 /// Validate an API replacement against the table containing that replacement, then persist it.
-pub fn validate_and_save(definition: PresetDefinition) -> anyhow::Result<()> {
+pub fn validate_and_save(definition: PresetDefinition) -> Result<(), PresetError> {
+    let name = match &definition {
+        PresetDefinition::Sandbox(preset) => &preset.name,
+        PresetDefinition::Command(preset) => &preset.name,
+    };
+    valid_name(name).map_err(|error| PresetError::Invalid(error.to_string()))?;
     match &definition {
         PresetDefinition::Sandbox(preset) => {
             let current = table();
@@ -598,21 +606,24 @@ pub fn validate_and_save(definition: PresetDefinition) -> anyhow::Result<()> {
                 .sandbox
                 .retain(|existing| existing.name != preset.name);
             candidate.sandbox.push((**preset).clone());
-            crate::sandbox::validate_preset(preset, &candidate)?;
+            crate::sandbox::validate_preset(preset, &candidate)
+                .map_err(|error| PresetError::Invalid(error.to_string()))?;
         }
         PresetDefinition::Command(preset) => {
             if preset.cmd.trim().is_empty() {
-                anyhow::bail!("command line is empty");
+                return Err(PresetError::Invalid("command line is empty".into()));
             }
             let table = table();
             for dependency in &preset.sandbox {
                 crate::sandbox::validate_preset_name(dependency, &table).map_err(|error| {
-                    anyhow::anyhow!("invalid sandbox dependency {dependency:?}: {error}")
+                    PresetError::Invalid(format!(
+                        "invalid sandbox dependency {dependency:?}: {error}"
+                    ))
                 })?;
             }
         }
     }
-    save_definition(definition)
+    save_definition(definition).map_err(PresetError::Storage)
 }
 
 fn check_delete(
@@ -654,7 +665,7 @@ pub fn delete_user(kind: PresetKind, name: &str) -> Result<(), PresetError> {
     let builtins = Table::builtins();
     let users = Table::users();
     check_delete(kind, name, &builtins, &users)?;
-    remove_user(kind, name).map_err(|error| PresetError::Invalid(error.to_string()))
+    remove_user(kind, name).map_err(PresetError::Storage)
 }
 
 static TABLE: OnceLock<RwLock<Arc<Table>>> = OnceLock::new();

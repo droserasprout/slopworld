@@ -1,4 +1,49 @@
 use super::*;
+
+#[tokio::test]
+async fn cancelled_worker_request_cleans_up_its_unattached_new_worktree() {
+    let project_id = uuid::Uuid::new_v4().to_string();
+    let manager = crate::session::test_manager(crate::config::Config {
+        projects: vec![crate::config::ProjectCfg {
+            id: project_id.clone(),
+            name: "repo".into(),
+            dir: std::env::temp_dir().to_string_lossy().into_owned(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    crate::worktrees::Store {
+        worktrees: vec![crate::worktrees::Worktree {
+            id: "new-tree".into(),
+            project_id,
+            phase: "ready".into(),
+            ..Default::default()
+        }],
+    }
+    .save(&manager.cfg_path)
+    .await
+    .unwrap();
+    drop(NewWorktree {
+        manager: manager.clone(),
+        project: "repo".into(),
+        id: Some("new-tree".into()),
+    });
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            if crate::worktrees::Store::load(&manager.cfg_path)
+                .await
+                .unwrap()
+                .worktrees
+                .is_empty()
+            {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("canceled request left an unattached worktree registered");
+}
 use axum::http::HeaderValue;
 
 #[test]
@@ -199,6 +244,18 @@ async fn recipient_updates_and_removal_preserve_task_lifecycle() {
     let updated = reply.task.unwrap();
     assert_eq!(updated.status, "done");
     assert_eq!(updated.note.as_deref(), Some("verified"));
+    assert_eq!(
+        remove_task(
+            State(m.clone()),
+            Extension(scoped("carol")),
+            HeaderMap::new(),
+            Path(task.id.clone()),
+        )
+        .await
+        .unwrap_err()
+        .0,
+        StatusCode::BAD_REQUEST
+    );
     let Proto(reply) = remove_task(
         State(m.clone()),
         Extension(scoped("alice")),
@@ -267,6 +324,18 @@ async fn bulk_cancel_remove_and_prune_enforce_scope() {
         StatusCode::BAD_REQUEST
     );
     assert_eq!(m.tasks.all_tasks().len(), 2);
+    assert_eq!(
+        remove_tasks(
+            State(m.clone()),
+            Extension(scoped("alice")),
+            HeaderMap::new(),
+            ids(),
+        )
+        .await
+        .unwrap_err()
+        .0,
+        StatusCode::BAD_REQUEST
+    );
     let Proto(reply) = prune_tasks(
         State(m.clone()),
         Extension(scoped("bob")),

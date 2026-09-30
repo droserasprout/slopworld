@@ -6,6 +6,15 @@ use anyhow::{bail, Result};
 
 use super::super::*;
 
+#[derive(Debug)]
+pub(crate) struct TemplatePersistence;
+
+impl std::fmt::Display for TemplatePersistence {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("saving agent templates")
+    }
+}
+
 /// Personal catalog and its transaction gate; readers can continue while a draft saves.
 pub(crate) struct TemplateStore {
     pub(super) store: RwLock<AgentTemplateStore>,
@@ -168,9 +177,11 @@ impl Manager {
         let _mutation = self.templates.mutation.lock().await;
         let mut store = self.templates.store.read().await.clone();
         let result = mutation(&mut store)?;
+        store.validate()?;
         store
             .save(&AgentTemplateStore::path_for(&self.cfg_path))
-            .await?;
+            .await
+            .map_err(|error| error.context(TemplatePersistence))?;
         *self.templates.store.write().await = store;
         Ok(result)
     }

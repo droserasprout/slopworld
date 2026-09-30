@@ -10,8 +10,11 @@ use super::{err, ApiResult, Mgr};
 mod settings;
 pub(crate) use settings::*;
 
+mod actions;
 mod clipboard;
 mod config;
+#[cfg(test)]
+pub(crate) use config::config_patch;
 mod files;
 mod grants;
 mod highlighting;
@@ -23,6 +26,7 @@ mod system;
 mod tasks;
 mod templates;
 
+pub(crate) use actions::*;
 pub(crate) use clipboard::*;
 pub(crate) use config::*;
 pub(crate) use files::*;
@@ -78,8 +82,6 @@ pub(super) fn guard_root(cap: &Cap) -> Result<(), crate::api::protobuf::ApiError
     }
 }
 
-/// Text for the raw editor, parsed for the settings GUI, so a mod can offer either
-/// without parsing TOML.
 #[cfg(test)]
 mod tests;
 

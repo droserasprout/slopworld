@@ -19,6 +19,12 @@ fn template_error(error: anyhow::Error) -> crate::api::protobuf::ApiError {
         Some(crate::session::AgentTemplateError::Missing(_)) => StatusCode::NOT_FOUND,
         Some(crate::session::AgentTemplateError::Conflict { .. }) => StatusCode::CONFLICT,
         Some(crate::session::AgentTemplateError::Exists(_)) => StatusCode::CONFLICT,
+        None if error
+            .downcast_ref::<crate::session::TemplatePersistence>()
+            .is_some() =>
+        {
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
         None => StatusCode::BAD_REQUEST,
     };
     err(status, error)

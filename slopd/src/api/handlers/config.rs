@@ -1,5 +1,5 @@
 //! Configuration HTTP boundaries.
-use crate::api::protobuf::{domain, reply, Proto};
+use crate::api::protobuf::{domain, reply, ApiError, Proto};
 use crate::shared::wire;
 
 use axum::extract::State;
@@ -60,8 +60,58 @@ pub(crate) async fn put_config_patch(
     State(m): State<Mgr>,
     Proto(req): Proto<wire::ConfigPatch>,
 ) -> ApiResult<wire::Ack> {
-    ok_json(
-        m.patch_config(super::super::protobuf::config_patch(req)?)
-            .await,
-    )
+    ok_json(m.patch_config(config_patch(req)?).await)
+}
+
+/// Assemble only selected editable leaves. Decode escaped map keys before looking up source values.
+pub(crate) fn config_patch(patch: wire::ConfigPatch) -> Result<serde_json::Value, ApiError> {
+    let values = serde_json::to_value(patch.values.unwrap_or_default())
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    let mut result = serde_json::json!({});
+    for path in patch.paths {
+        let parts: Vec<_> = path
+            .split('.')
+            .map(|p| p.replace("~1", ".").replace("~0", "~"))
+            .collect();
+        let root = parts.first().map(String::as_str);
+        let first_key = parts.get(1).map(String::as_str);
+        if parts.len() < 2
+            || !matches!(root, Some("daemon" | "defaults" | "commands"))
+            || (root == Some("daemon") && matches!(first_key, Some("bind" | "token")))
+        {
+            return Err(err(
+                StatusCode::BAD_REQUEST,
+                "This config path is not valid for editing.",
+            ));
+        }
+        let mut source = &values;
+        for part in &parts {
+            source = source.get(part).ok_or_else(|| {
+                err(
+                    StatusCode::BAD_REQUEST,
+                    format!("unknown config path: {path}"),
+                )
+            })?;
+        }
+        if source.is_object() {
+            return Err(err(
+                StatusCode::BAD_REQUEST,
+                "Choose a config path that identifies one value.",
+            ));
+        }
+        let (leaf, parents) = parts.split_last().expect("validated path length");
+        let mut target = &mut result;
+        for part in parents {
+            target = target
+                .as_object_mut()
+                .ok_or_else(|| err(StatusCode::BAD_REQUEST, "Config paths must not overlap."))?
+                .entry(part.clone())
+                .or_insert_with(|| serde_json::json!({}));
+        }
+        target
+            .as_object_mut()
+            .ok_or_else(|| err(StatusCode::BAD_REQUEST, "Config paths must not overlap."))?
+            .insert(leaf.clone(), source.clone());
+    }
+    Ok(result)
 }

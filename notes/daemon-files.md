@@ -14,7 +14,7 @@ coverage scope.
 | --- | --- |
 | `main.rs` | Startup, retick loop, token middleware. |
 | `shared/` | Generated protocol, defaults and usage bindings, plus serialization helpers. |
-| `api/` | Routing, HTTP/Protobuf boundaries, and WebSocket transport. HTTP operations live in `api/handlers/`. See [file mutation boundary](daemon-file-mutations.md). |
+| `api/` | Routing, HTTP/Protobuf boundaries, and WebSocket transport. `handlers/actions.rs` owns explicit launches and file actions; `handlers/config.rs` owns config patch policy. See [file mutation boundary](daemon-file-mutations.md). |
 | `session/` | Session types, agent-template definitions, input, validation, wire views. `events.rs` owns published events and their shared encoding cache; `protobuf.rs` owns wire conversion. |
 | `session/manager/` | `Manager` and its guards, configuration synchronization, session lifecycle, capture, task-store ownership, workers. |
 | `session/manager/lifecycle/` | Start, stop, adoption, and reconciliation of configured sessions. |

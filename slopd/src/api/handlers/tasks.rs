@@ -12,6 +12,41 @@ use crate::shared::protocol::SESSION_HEADER;
 use super::super::types::*;
 use super::{err, guard, ApiResult, Mgr};
 
+/// A newly allocated checkout belongs to the request until worker startup commits it.
+/// On cancellation, a detached cleanup task removes it unless a failed durable session
+/// still references it. Existing checkouts never enter this guard.
+struct NewWorktree {
+    manager: Mgr,
+    project: String,
+    id: Option<String>,
+}
+
+impl NewWorktree {
+    async fn rollback(&mut self) {
+        let Some(id) = self.id.take() else { return };
+        if let Err(error) = self.manager.remove_worktree(self.project.clone(), id).await {
+            tracing::warn!("new worker worktree retained after failed startup: {error:#}");
+        }
+    }
+
+    fn keep(&mut self) {
+        self.id = None;
+    }
+}
+
+impl Drop for NewWorktree {
+    fn drop(&mut self) {
+        let Some(id) = self.id.take() else { return };
+        let manager = self.manager.clone();
+        let project = self.project.clone();
+        tokio::spawn(async move {
+            if let Err(error) = manager.remove_worktree(project, id).await {
+                tracing::warn!("new worker worktree retained after cancellation: {error:#}");
+            }
+        });
+    }
+}
+
 /// Persistence identities stay private; the wire contract exposes participant labels.
 fn task_view(task: crate::tasks::Task) -> wire::Task {
     use crate::shared::protocol::enums::task_status;
@@ -180,6 +215,48 @@ pub(crate) async fn spawn_worker(
             "Worker task text cannot be empty.",
         ));
     }
+    let (worktree, mut owned_worktree) = worker_worktree(&m, &from, &project, &q).await?;
+    let worker = m
+        .spawn_worker_worktree(
+            from.clone(),
+            project,
+            q.template,
+            q.body,
+            q.durable,
+            worktree,
+        )
+        .await;
+    let worker = match worker {
+        Ok(worker) => worker,
+        Err(error) => {
+            if let Some(owned) = &mut owned_worktree {
+                owned.rollback().await;
+            }
+            return Err(err(StatusCode::BAD_REQUEST, error));
+        }
+    };
+    if let Some(owned) = &mut owned_worktree {
+        owned.keep();
+    }
+    Ok(Proto(wire::WorkerResult {
+        task: Some(task_view(worker.task)),
+        worker: Some(wire::WorkerIdentity {
+            name: worker.session.clone(),
+            session: worker.session,
+            parent: from,
+            durable: q.durable,
+        }),
+    }))
+}
+
+/// Validate a requested checkout before allocation, then hand its rollback owner to startup.
+async fn worker_worktree(
+    m: &Mgr,
+    from: &str,
+    project: &str,
+    q: &SpawnWorkerReq,
+) -> Result<(String, Option<NewWorktree>), ApiError> {
+    let mut owned_worktree = None;
     let worktree = if q.new_worktree {
         if !q.worktree.is_empty() {
             return Err(err(
@@ -188,13 +265,13 @@ pub(crate) async fn spawn_worker(
             ));
         }
         let template = m
-            .spawnable_worker_template(&from, &project, &q.template)
+            .spawnable_worker_template(from, project, &q.template)
             .await
             .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
         let cfg = m.config().await;
-        let candidate = template.instantiate("worktree-validation".into(), project.clone());
+        let candidate = template.instantiate("worktree-validation".into(), project.to_string());
         let owner = cfg
-            .project(&project)
+            .project(project)
             .ok_or_else(|| err(StatusCode::BAD_REQUEST, "The project no longer exists."))?;
         if cfg.network_of(&candidate, owner) == crate::config::NetworkMode::None
             || cfg.command_of(&candidate).trim().is_empty()
@@ -207,41 +284,28 @@ pub(crate) async fn spawn_worker(
         crate::runtime::validate_limits(&candidate.limits)
             .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
         let base = m
-            .worktree_base(&from, &project, &q.base)
+            .worktree_base(from, project, &q.base)
             .await
             .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-        Box::pin(m.create_worktree(crate::session::WorktreeRequest {
-            project: project.clone(),
-            name: q.worktree_name,
+        let created = Box::pin(m.create_worktree(crate::session::WorktreeRequest {
+            project: project.to_string(),
+            name: q.worktree_name.clone(),
             base,
             path: String::new(),
         }))
         .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?
-        .id
-    } else {
-        q.worktree
-    };
-    let worker = m
-        .spawn_worker_worktree(
-            from.clone(),
-            project,
-            q.template,
-            q.body,
-            q.durable,
-            worktree,
-        )
-        .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Proto(wire::WorkerResult {
-        task: Some(task_view(worker.task)),
-        worker: Some(wire::WorkerIdentity {
-            name: worker.session.clone(),
-            session: worker.session,
-            parent: from,
-            durable: q.durable,
-        }),
-    }))
+        let id = created.id;
+        owned_worktree = Some(NewWorktree {
+            manager: std::sync::Arc::clone(m),
+            project: project.to_string(),
+            id: Some(id.clone()),
+        });
+        id
+    } else {
+        q.worktree.clone()
+    };
+    Ok((worktree, owned_worktree))
 }
 
 pub(crate) async fn list_tasks(

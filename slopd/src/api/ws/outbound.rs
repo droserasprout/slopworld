@@ -66,28 +66,39 @@ pub(super) async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool
             return false;
         }
     }
-    for ev in [
-        EventMessage::new(Event::Usage {
-            usage: m.usage().await,
-        }),
-        EventMessage::new(Event::Projects {
-            projects: m.projects().await,
-        }),
-        EventMessage::new(Event::Library {
-            library: m.library().await,
-        }),
-        EventMessage::new(Event::Audio {
-            audio: m.music_state().await,
-        }),
-        EventMessage::new(Event::Jukebox {
-            jukebox: crate::jukebox::catalog(),
-        }),
-    ] {
-        if let Some(ev) = scope_event(cap, ev) {
-            if send(tx, cap, &ev).await.is_err() {
-                return false;
-            }
-        }
+    if !cap.may_create() {
+        return true;
+    }
+    // Query each root-only source only after the preceding send succeeds.
+    let ev = EventMessage::new(Event::Usage {
+        usage: m.usage().await,
+    });
+    if send(tx, cap, &ev).await.is_err() {
+        return false;
+    }
+    let ev = EventMessage::new(Event::Projects {
+        projects: m.projects().await,
+    });
+    if send(tx, cap, &ev).await.is_err() {
+        return false;
+    }
+    let ev = EventMessage::new(Event::Library {
+        library: m.library().await,
+    });
+    if send(tx, cap, &ev).await.is_err() {
+        return false;
+    }
+    let ev = EventMessage::new(Event::Audio {
+        audio: m.music_state().await,
+    });
+    if send(tx, cap, &ev).await.is_err() {
+        return false;
+    }
+    let ev = EventMessage::new(Event::Jukebox {
+        jukebox: crate::jukebox::catalog(),
+    });
+    if send(tx, cap, &ev).await.is_err() {
+        return false;
     }
     true
 }

@@ -16,7 +16,7 @@ async fn preview_uses_saved_snapshots_and_unsaved_overrides_without_persisting()
         ..Default::default()
     };
     let cfg = crate::config::Config {
-        sessions: vec![original],
+        sessions: vec![original.clone()],
         projects: vec![ProjectCfg {
             name: "repo".into(),
             ..Default::default()
@@ -32,16 +32,18 @@ async fn preview_uses_saved_snapshots_and_unsaved_overrides_without_persisting()
         .unwrap();
     let result = serde_json::to_value(result).unwrap();
     assert!(result.to_string().contains("original-command"));
-    assert!(result.to_string().contains("2048"));
-    assert!(result.to_string().contains("agent setting"));
+    assert_eq!(preview_values(&result, "Network"), ["none — agent setting"]);
+    assert!(
+        preview_values(&result, "Resource limits").contains(&"Memory (MiB): 2048 — agent setting")
+    );
     assert_eq!(
         result["definitions"]["defaults"]["command"]["cmd"],
         "original-command"
     );
-    assert_eq!(
-        manager.config().await.session("agent").unwrap().network,
-        NetworkMode::Private
-    );
+    let saved = manager.config().await.session("agent").unwrap().clone();
+    assert_eq!(saved.network, NetworkMode::Private);
+    assert_eq!(saved.network, original.network);
+    assert_eq!(saved.limits, original.limits);
 }
 
 #[tokio::test]
@@ -55,7 +57,24 @@ async fn recipe_preview_uses_explicit_agent_defaults() {
         .await
         .unwrap();
     let result = serde_json::to_value(result).unwrap();
-    assert!(result.to_string().contains("agent setting"));
+    assert_eq!(
+        preview_values(&result, "Network"),
+        ["private — agent setting"]
+    );
     assert!(manager.config().await.sessions.is_empty());
     assert!(manager.agent_templates().await.is_empty());
+}
+
+fn preview_values<'a>(result: &'a serde_json::Value, label: &str) -> Vec<&'a str> {
+    result["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|field| field["label"] == label)
+        .unwrap()["values"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|value| value.as_str().unwrap())
+        .collect()
 }

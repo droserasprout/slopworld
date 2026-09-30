@@ -98,14 +98,7 @@ pub(crate) async fn copy_preset(
         tokio::task::spawn_blocking(move || crate::presets::copy_builtin(kind, &old_name, &name))
             .await
             .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?;
-    copied.map_err(|error| {
-        let status = if matches!(&error, crate::presets::PresetError::Missing(_)) {
-            StatusCode::NOT_FOUND
-        } else {
-            StatusCode::BAD_REQUEST
-        };
-        err(status, error)
-    })?;
+    copied.map_err(preset_error)?;
     m.reload_presets_if_changed().await;
     reply(json!({ "ok": true }))
 }
@@ -142,7 +135,7 @@ pub(crate) async fn update_preset(
     tokio::task::spawn_blocking(move || crate::presets::validate_and_save(definition))
         .await
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?
-        .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
+        .map_err(preset_error)?;
     m.reload_presets_if_changed().await;
     reply(json!({ "ok": true }))
 }
@@ -155,14 +148,56 @@ pub(crate) async fn delete_preset(
     let deleted = tokio::task::spawn_blocking(move || crate::presets::delete_user(kind, &name))
         .await
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?;
-    deleted.map_err(|error| {
-        let status = if matches!(&error, crate::presets::PresetError::Missing(_)) {
-            StatusCode::NOT_FOUND
-        } else {
-            StatusCode::BAD_REQUEST
-        };
-        err(status, error)
-    })?;
+    deleted.map_err(preset_error)?;
     m.reload_presets_if_changed().await;
     reply(json!({ "ok": true }))
+}
+
+fn preset_error(error: crate::presets::PresetError) -> crate::api::protobuf::ApiError {
+    let status = match &error {
+        crate::presets::PresetError::Missing(_) => StatusCode::NOT_FOUND,
+        crate::presets::PresetError::Invalid(_) => StatusCode::BAD_REQUEST,
+        crate::presets::PresetError::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
+    };
+    err(status, error)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn update_distinguishes_validation_from_storage_failure() {
+        let Some(root) = crate::test_support::isolated() else {
+            return;
+        };
+        let blocked = root.join("blocked-presets");
+        std::fs::write(&blocked, "not a directory").unwrap();
+        std::env::set_var("SLOPD_PRESETS", &blocked);
+        let manager = crate::session::test_manager(crate::config::Config::default());
+        let request = |command: &str| {
+            Proto(wire::PresetRequest {
+                definition: Some(wire::preset_request::Definition::Command(
+                    wire::CommandPreset {
+                        name: Some("example".into()),
+                        kind: Some("agent".into()),
+                        cmd: Some(command.into()),
+                        ..Default::default()
+                    },
+                )),
+            })
+        };
+        let path = || Path(("app_presets".into(), "example".into()));
+        assert_eq!(
+            update_preset(State(manager.clone()), path(), request(" "))
+                .await
+                .unwrap_err()
+                .0,
+            StatusCode::BAD_REQUEST
+        );
+        let (status, Proto(error)) = update_preset(State(manager), path(), request("echo ok"))
+            .await
+            .unwrap_err();
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR, "{}", error.error);
+    }
 }
