@@ -371,7 +371,7 @@ fn pasta_prefix_args(dns: &DnsConfig, bind: &str) -> Vec<String> {
     out.push(daemon_port);
     for server in crate::sandbox::dns_servers(dns) {
         out.push("--dns-host".into());
-        out.push(server.to_string());
+        out.push(server.clone());
     }
     out.push("--".into());
     out

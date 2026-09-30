@@ -470,7 +470,7 @@ impl InboxFilter {
                 "--received" => f.received = true,
                 "--status" => {
                     let s = rest.next().ok_or("--status needs a value")?;
-                    f.status = Some(s.to_string());
+                    f.status = Some(s.clone());
                 }
                 flag => return Err(format!("unknown flag: {flag}\n\n{USAGE}")),
             }

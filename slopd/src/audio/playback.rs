@@ -138,6 +138,10 @@ pub(crate) struct CommittedSource {
 
 /// Opens the source and probes its decoder away from the command worker. The title sink remains
 /// pending until `commit` has appended the corresponding ring.
+#[expect(
+    clippy::expect_used,
+    reason = "Playlist::from_dir rejects empty directories before the first track is selected"
+)]
 pub(crate) fn open(source: &str, title: TitleSink) -> Result<OpenedSource> {
     let mut playlist = if Path::new(source).is_dir() {
         Some(Playlist::from_dir(Path::new(source))?)
@@ -279,6 +283,10 @@ struct FeedArgs {
 /// Decode audio into the ring buffer until the source ends.
 /// Repeat files, advance through randomized directory playlists, and reconnect interrupted stations.
 /// Retry until a new run replaces this run or the ring consumer closes.
+#[expect(
+    clippy::expect_used,
+    reason = "the playlist branch is entered only when a playlist is present"
+)]
 fn feed(args: FeedArgs) {
     let FeedArgs {
         first,

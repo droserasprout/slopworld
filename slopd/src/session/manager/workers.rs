@@ -220,7 +220,7 @@ impl Manager {
         {
             bail!("caller {caller} may spawn workers only in project {caller_project}");
         }
-        Ok(project.to_string())
+        Ok(project.clone())
     }
 
     pub(crate) async fn worker_template_names(&self) -> std::collections::BTreeSet<String> {

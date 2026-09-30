@@ -92,7 +92,7 @@ impl Manager {
                 target: "slopd::perf",
                 lane = "frame",
                 session = name,
-                elapsed_us = started.elapsed().as_micros() as u64,
+                elapsed_us = crate::clock::duration_us(started.elapsed()),
                 "render and apply frame"
             );
         }

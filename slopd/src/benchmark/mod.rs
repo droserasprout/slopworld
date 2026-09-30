@@ -1,5 +1,10 @@
 //! Deterministic, game-free daemon performance benchmark.
 
+#![expect(
+    clippy::expect_used,
+    reason = "benchmark fixtures and samples must be valid; failed setup must abort the measurement"
+)]
+
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
@@ -98,7 +103,10 @@ fn benchmark_history_padding() {
         if blank {
             assert_eq!(frame.history, 0);
         } else {
-            assert_eq!(frame.history, count as u32);
+            assert_eq!(
+                frame.history,
+                u32::try_from(count).expect("history fixture count fits u32")
+            );
         }
         benchmark_render(
             &format!(
@@ -125,8 +133,17 @@ where
 {
     measure(name, |sample| {
         prepare(&mut emu, sample);
-        action(&mut emu).content_hash as usize
+        benchmark_checksum(action(&mut emu).content_hash)
     });
+}
+
+// Retain low bits on narrower hosts; this value only prevents benchmark work being optimized out.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "benchmark checksums are opaque black_box inputs, not counts or wire values"
+)]
+fn benchmark_checksum(hash: u64) -> usize {
+    hash as usize
 }
 
 fn benchmark_content_hash() {
@@ -135,7 +152,7 @@ fn benchmark_content_hash() {
 }
 
 fn benchmark_content_hash_rows(frame: &Frame) -> usize {
-    hash_content(&frame.lines) as usize
+    benchmark_checksum(hash_content(&frame.lines))
 }
 
 fn benchmark_websocket_serialization() {
@@ -206,7 +223,10 @@ where
             black_box(action(operation));
             operation += 1;
         }
-        timings.push(started.elapsed().as_secs_f64() * 1e6 / batch as f64);
+        timings.push(
+            started.elapsed().as_secs_f64() * 1e6
+                / f64::from(u32::try_from(batch).expect("benchmark batch is bounded by MAX_BATCH")),
+        );
     }
     timings.sort_by(f64::total_cmp);
     println!(

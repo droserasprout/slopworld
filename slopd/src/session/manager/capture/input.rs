@@ -34,6 +34,10 @@ impl Manager {
                 } else {
                     None
                 };
+                #[expect(
+                    clippy::expect_used,
+                    reason = "the sender is installed and consumed under the same live-state write lock"
+                )]
                 let unsent = l
                     .input
                     .sender

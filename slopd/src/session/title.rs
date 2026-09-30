@@ -249,27 +249,23 @@ impl Composer {
 
     fn key(&mut self, key: &str) -> Option<Submission> {
         match key {
-            "Enter" => return self.submit(),
             // Codex's line editor accepts these readline-style aliases as well as the named
             // cursor keys emitted by the terminal window.
-            "C-j" | "C-m" => return self.submit(),
+            "Enter" | "C-j" | "C-m" => return self.submit(),
             "BSpace" | "C-h" => {
                 if self.cursor > 0 {
                     self.cursor -= 1;
                     self.text.remove(self.cursor);
                 }
             }
-            "DC" => self.delete_at_cursor(),
             "Left" | "C-b" => self.cursor = self.cursor.saturating_sub(1),
             "Right" | "C-f" => self.cursor = (self.cursor + 1).min(self.text.len()),
             // Ctrl-D on an empty prompt can close the editor rather than edit text.
             "C-d" if self.text.is_empty() => self.invalidate(),
-            "C-d" => self.delete_at_cursor(),
-            "C-Left" | "M-Left" => self.word_left(),
-            "C-Right" | "M-Right" => self.word_right(),
+            "DC" | "C-d" => self.delete_at_cursor(),
+            "C-Left" | "M-Left" | "M-b" => self.word_left(),
+            "C-Right" | "M-Right" | "M-f" => self.word_right(),
             "C-DC" | "M-DC" => self.delete_word_right(),
-            "M-b" => self.word_left(),
-            "M-f" => self.word_right(),
             "Home" | "C-a" => self.cursor = 0,
             "End" | "C-e" => self.cursor = self.text.len(),
             "C-u" => {

@@ -6,9 +6,8 @@ fn launcher_lock_rejects_a_second_owner_and_reopens_after_drop() {
     let p = scratch("lock").join("launcher.lock");
     let first = InstanceLock::acquire(&p).expect("first launcher owns the lock");
     let second = InstanceLock::acquire(&p);
-    let err = match second {
-        Ok(_) => panic!("second launcher must be rejected"),
-        Err(e) => e,
+    let Err(err) = second else {
+        panic!("second launcher must be rejected");
     };
     assert!(err.contains("another SlopWorld session"));
 

@@ -423,7 +423,7 @@ impl Manager {
                     }
                     None => break,
                 },
-                _ = async {
+                () = async {
                     match schedule.deadline() {
                         Some(deadline) => tokio::time::sleep_until(deadline).await,
                         None => futures::future::pending().await,
@@ -437,7 +437,7 @@ impl Manager {
                 _ = watchers_changed.changed() => {
                     schedule.wake(Instant::now(), self.watched(name));
                 },
-                _ = clipboard.wake.notified() => {
+                () = clipboard.wake.notified() => {
                     schedule.wake(Instant::now(), self.watched(name));
                 }
             }

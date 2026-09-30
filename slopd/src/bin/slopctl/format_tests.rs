@@ -52,10 +52,13 @@ fn human_and_json_output_preserve_task_and_status_details() {
         return;
     }
     // Future timestamps clamp to zero, keeping output deterministic without a clock mock.
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as u64;
+    let now = u64::try_from(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis(),
+    )
+    .unwrap_or(u64::MAX);
     let task = json!({"created_ms": u64::MAX});
     println!("BEGIN OUTPUT");
     emit(

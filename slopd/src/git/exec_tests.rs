@@ -45,7 +45,7 @@ fn restriction_blocks_processes_but_allows_threads() {
     }
     if result > 0 {
         // SAFETY: `result` is the child PID returned by clone above.
-        unsafe { libc::waitpid(result as i32, std::ptr::null_mut(), 0) };
+        unsafe { libc::waitpid(i32::try_from(result).unwrap(), std::ptr::null_mut(), 0) };
         panic!("process clone unexpectedly allowed");
     }
     assert_eq!(

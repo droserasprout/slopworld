@@ -74,7 +74,6 @@ where
 
 fn utf8_len(first: u8) -> usize {
     match first {
-        0x00..=0x7f => 1,
         0xc0..=0xdf => 2,
         0xe0..=0xef => 3,
         0xf0..=0xf7 => 4,

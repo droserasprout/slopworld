@@ -82,9 +82,8 @@ impl TitleSink {
         if self.cancelled.load(Ordering::Acquire) {
             return;
         }
-        let state = match self.state.as_ref() {
-            Some(s) => s,
-            None => return,
+        let Some(state) = self.state.as_ref() else {
+            return;
         };
         let label = title.as_deref().unwrap_or("-").to_string();
         let changed = if let Some(control) = self.control.as_ref() {
@@ -128,7 +127,7 @@ impl TitleSink {
     }
 
     pub(crate) fn begin_opening(&self) {
-        let deadline = monotonic_millis().saturating_add(OPEN.as_millis() as u64);
+        let deadline = monotonic_millis().saturating_add(crate::clock::duration_ms(OPEN));
         self.opening_deadline.store(deadline, Ordering::Release);
     }
 

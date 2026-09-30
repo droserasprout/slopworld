@@ -198,7 +198,7 @@ async fn pump_frames(
                 Err(broadcast::error::RecvError::Lagged(_)) => continue,
                 Err(broadcast::error::RecvError::Closed) => return Ok(()),
             },
-            _ = pending.ready() => pending.flush(tx, cap).await?,
+            () = pending.ready() => pending.flush(tx, cap).await?,
         }
     }
 }
@@ -238,7 +238,7 @@ pub(super) async fn send(tx: &WsTx, cap: &Cap, ev: &EventMessage) -> Result<(), 
         tracing::debug!(
             target: "slopd::perf",
             lane = "websocket-send",
-            elapsed_us = started.elapsed().as_micros() as u64,
+            elapsed_us = crate::clock::duration_us(started.elapsed()),
             "websocket event sent"
         );
     }

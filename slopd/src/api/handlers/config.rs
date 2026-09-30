@@ -99,6 +99,10 @@ pub(crate) fn config_patch(patch: wire::ConfigPatch) -> Result<serde_json::Value
                 "Choose a config path that identifies one value.",
             ));
         }
+        #[expect(
+            clippy::expect_used,
+            reason = "the path length was validated before splitting its final component"
+        )]
         let (leaf, parents) = parts.split_last().expect("validated path length");
         let mut target = &mut result;
         for part in parents {

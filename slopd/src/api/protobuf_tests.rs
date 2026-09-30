@@ -16,7 +16,7 @@ async fn shared_health_and_task_routes_continue_during_worktree_guard() {
     });
     tokio::pin!(checkout);
     tokio::select! {
-        _ = checkout.as_mut() => panic!("checkout guard ended early"),
+        () = checkout.as_mut() => panic!("checkout guard ended early"),
         _ = started_wait => {},
     }
     for path in ["/api/health", "/api/tasks"] {

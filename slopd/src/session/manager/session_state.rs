@@ -156,7 +156,7 @@ impl Manager {
             tracing::debug!(
                 target: "slopd::perf",
                 lane = "retick",
-                elapsed_us = started.elapsed().as_micros() as u64,
+                elapsed_us = crate::clock::duration_us(started.elapsed()),
                 classified,
                 host_poll = host_poll_due,
                 "daemon retick"

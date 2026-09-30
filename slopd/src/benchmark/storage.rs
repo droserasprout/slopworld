@@ -1,6 +1,10 @@
 //! Storage scaling probes. Fixtures and writes stay in a disposable directory. No daemon,
 //! tmux server, or user configuration is opened. Filesystem timings include atomic replacement
 //! on the temporary filesystem, not fsync or a cold-disk guarantee.
+#![expect(
+    clippy::expect_used,
+    reason = "benchmark fixture validation aborts measurements on unexpected storage or serialization failure"
+)]
 
 use std::path::{Path, PathBuf};
 

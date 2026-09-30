@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn relative_commands_reach_volume_endpoints_from_any_start() {
     for initial in [0, 35, 32768, u16::MAX] {
-        for target in [0.0, 0.42, 1.0] {
+        for (target, percent) in [(0.0, 0u16), (0.42, 42), (1.0, 100)] {
             let mut actual = initial;
             for line in volume_commands(target).lines() {
                 let (command, amount) = line.split_once(' ').unwrap();
@@ -19,9 +19,7 @@ fn relative_commands_reach_volume_endpoints_from_any_start() {
             let expected = if target.to_bits() == 1.0_f32.to_bits() {
                 u16::MAX
             } else {
-                (u16::MAX / 100)
-                    * u16::try_from(((target * 100.0).round() as i32).clamp(0, 100))
-                        .unwrap_or_default()
+                (u16::MAX / 100) * percent
             };
             assert_eq!(actual, expected, "initial={initial}, target={target}");
         }

@@ -14,6 +14,10 @@ pub(super) fn restrict(command: &mut Command) {
     target_os = "linux",
     any(target_arch = "x86_64", target_arch = "aarch64")
 ))]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Linux BPF opcodes, syscall numbers and this fixed filter length fit their ABI fields on the supported architectures"
+)]
 fn install() -> std::io::Result<()> {
     use nix::libc;
 

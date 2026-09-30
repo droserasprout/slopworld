@@ -12,7 +12,7 @@ async fn shared_worktree_guard_allows_input_but_blocks_identity_changes() {
     });
     tokio::pin!(worktree);
     tokio::select! {
-        _ = worktree.as_mut() => panic!("worktree guard finished before release"),
+        () = worktree.as_mut() => panic!("worktree guard finished before release"),
         _ = started_wait => {},
     }
 
@@ -57,7 +57,7 @@ async fn shared_request_keeps_scoped_capability_valid_until_it_finishes() {
     });
     tokio::pin!(request);
     tokio::select! {
-        _ = request.as_mut() => panic!("shared request ended early"),
+        () = request.as_mut() => panic!("shared request ended early"),
         _ = started_wait => {},
     }
     let replace = manager.replace_config(&text);
@@ -108,7 +108,7 @@ async fn replacement_waits_for_authorized_use_and_then_rejects_the_old_capabilit
         });
         tokio::pin!(request);
         tokio::select! {
-            _ = request.as_mut() => panic!("request finished before release"),
+            () = request.as_mut() => panic!("request finished before release"),
             _ = check_done => {},
         }
         let replace = manager.replace_config(&text);

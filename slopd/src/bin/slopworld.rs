@@ -93,12 +93,9 @@ fn run() -> Result<ExitCode, String> {
         println!("{}", env!("SLOPWORLD_VERSION"));
         return Ok(ExitCode::SUCCESS);
     }
-    let args = match parse(&args)? {
-        Some(a) => a,
-        None => {
-            print!("{USAGE}");
-            return Ok(ExitCode::SUCCESS);
-        }
+    let Some(args) = parse(&args)? else {
+        print!("{USAGE}");
+        return Ok(ExitCode::SUCCESS);
     };
 
     run_launcher(args)

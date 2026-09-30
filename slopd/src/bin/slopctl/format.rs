@@ -93,10 +93,13 @@ pub(crate) fn print_status(v: &Value) {
 /// Format the elapsed time since a timestamp for the inbox.
 /// Use the largest whole unit available: days, hours, minutes, or seconds.
 pub(crate) fn age(ms: u64) -> String {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64;
+    let now = u64::try_from(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis(),
+    )
+    .unwrap_or(u64::MAX);
     age_at(ms, now)
 }
 

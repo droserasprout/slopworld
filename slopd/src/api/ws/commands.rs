@@ -39,13 +39,12 @@ pub(super) async fn handle_client_msg(
     let operation = async {
         match cm {
             ClientMsg::Redraw { cols, rows } => handle_redraw(m, cap, cols.zip(rows)),
-            ClientMsg::Sub { .. } => {}
             ClientMsg::Unsub { name } => handle_unsub(name, subs).await,
             ClientMsg::Keys(req) => handle_keys(req, m, cap).await,
             ClientMsg::Resize(req) => handle_resize(req, m, cap).await,
             // Scroll requests are intercepted by ws_run so capture work can run in its bounded
             // lane without stopping command intake.
-            ClientMsg::Scroll(_) => {}
+            ClientMsg::Sub { .. } | ClientMsg::Scroll(_) => {}
             ClientMsg::Mouse(req) => handle_mouse(req, m, cap).await,
             ClientMsg::Paste(req) => handle_paste(req, m, cap).await,
             ClientMsg::Breadcrumb(req) => handle_breadcrumb(req, m, cap).await,

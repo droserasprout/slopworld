@@ -62,7 +62,7 @@ impl AnthropicUsageCache {
             return None;
         }
         let age = unix_ms().checked_sub(self.fetched_ms)?;
-        (age < USAGE_CACHE_TTL.as_millis() as u64).then_some(self.body)
+        (age < crate::clock::duration_ms(USAGE_CACHE_TTL)).then_some(self.body)
     }
 
     fn retry_delay(&self) -> Option<u64> {

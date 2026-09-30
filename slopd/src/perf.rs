@@ -58,6 +58,10 @@ fn observe_duration(name: &'static str, duration: Duration, work: u64, backlog: 
     record(name, Some(duration), work, backlog);
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "poisoned metrics indicate a prior panic while mutating shared observations"
+)]
 fn record(name: &'static str, duration: Option<Duration>, work: u64, backlog: u64) {
     let mut metrics = METRICS
         .get_or_init(|| Mutex::new(HashMap::new()))
@@ -70,15 +74,17 @@ fn record(name: &'static str, duration: Option<Duration>, work: u64, backlog: u6
     if let Some(duration) = duration
         && metric.samples_us.len() < MAX_SAMPLES
     {
-        metric
-            .samples_us
-            .push(duration.as_micros().min(u64::MAX as u128) as u64);
+        metric.samples_us.push(crate::clock::duration_us(duration));
     }
 }
 
 /// Return and clear the current metrics as one log-ready line. This is also used by the
 /// benchmark binary so its explicit measurements can show the counters collected by the same
 /// code paths as the daemon.
+#[expect(
+    clippy::expect_used,
+    reason = "poisoned metrics indicate a prior panic while mutating shared observations"
+)]
 pub(crate) fn report() -> Option<String> {
     if !enabled() {
         return None;
@@ -129,6 +135,10 @@ fn percentile(samples: &[u64], percentile: usize) -> u64 {
     samples.get(index).copied().unwrap_or_default()
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "a poisoned report clock indicates a prior panic in the reporting critical section"
+)]
 pub(crate) fn maybe_report() {
     if !enabled() {
         return;

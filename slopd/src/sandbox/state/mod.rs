@@ -123,9 +123,8 @@ fn remove_stored_path(path: &Path) -> Result<()> {
 /// Keep the trash directory for subsequent resets.
 pub(crate) fn empty_trash() -> Result<usize> {
     let root = trash_root();
-    let entries = match trash_entries()? {
-        Some(entries) => entries,
-        None => return Ok(0),
+    let Some(entries) = trash_entries()? else {
+        return Ok(0);
     };
     let mut removed = 0;
     for entry in entries {
@@ -277,9 +276,8 @@ pub(crate) fn remove_ephemeral_state(s: &SessionCfg) -> Result<()> {
 pub(crate) fn purge_trash() -> Result<usize> {
     const RETAIN: std::time::Duration = std::time::Duration::from_secs(14 * 24 * 60 * 60);
     let root = trash_root();
-    let entries = match trash_entries()? {
-        Some(entries) => entries,
-        None => return Ok(0),
+    let Some(entries) = trash_entries()? else {
+        return Ok(0);
     };
     let now = std::time::SystemTime::now();
     let mut purged = 0;

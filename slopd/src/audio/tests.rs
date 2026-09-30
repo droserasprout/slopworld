@@ -107,7 +107,10 @@ fn a_station_of_any_shape_plays_at_its_own_speed() {
         const FLOOR: Sample = 0.2;
         let mut ramp = Vec::with_capacity(N * channels as usize);
         for frame in 0..N {
-            let at = FLOOR + (1.0 - FLOOR) * (frame as Sample / N as Sample);
+            let at = FLOOR
+                + (1.0 - FLOOR)
+                    * (Sample::from(u16::try_from(frame).unwrap())
+                        / Sample::from(u16::try_from(N).unwrap()));
             ramp.extend(std::iter::repeat_n(at, channels as usize));
         }
         tx.send(ramp).unwrap();
@@ -128,7 +131,8 @@ fn a_station_of_any_shape_plays_at_its_own_speed() {
 
         // Half the station's frames, resampled to the mixer's 44100, two samples each.
         let want = N / 2 * 44100 / rate as usize * 2;
-        let ratio = want as f64 / half as f64;
+        let ratio =
+            f64::from(u32::try_from(want).unwrap()) / f64::from(u32::try_from(half).unwrap());
 
         // Double speed uses half the expected samples. Quadruple speed uses a quarter of them.
         assert!(

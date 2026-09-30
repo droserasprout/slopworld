@@ -133,7 +133,6 @@ impl EventListener for SideSink {
     fn send_event(&self, event: Event) {
         let Ok(mut s) = self.side.lock() else { return };
         match event {
-            Event::PtyWrite(_) => {}
             Event::ClipboardStore(ClipboardType::Clipboard, text) => s.clip = Some(text),
             Event::Title(t) => s.title = Some(t),
             Event::ResetTitle => s.title = None,
@@ -325,12 +324,14 @@ impl SessionEmu {
         let blank = Cell::default();
         let mut extent = self.history_lines();
         while extent > 0
-            && (0..self.cols as usize)
-                .all(|col| self.term.grid()[Line(-(extent as i32))][Column(col)] == blank)
+            && (0..self.cols as usize).all(|col| {
+                self.term.grid()[Line(-(i32::try_from(extent).unwrap_or(i32::MAX)))][Column(col)]
+                    == blank
+            })
         {
             extent -= 1;
         }
-        let extent = extent.min(u32::MAX as usize) as u32;
+        let extent = u32::try_from(extent).unwrap_or(u32::MAX);
         self.history_extent_cache = Some(extent);
         extent
     }
@@ -356,8 +357,10 @@ impl SessionEmu {
         if history_before == 0
             && history_after > 0
             && (1..=history_after).all(|row| {
-                (0..cols as usize)
-                    .all(|col| self.term.grid()[Line(-(row as i32))][Column(col)] == blank)
+                (0..cols as usize).all(|col| {
+                    self.term.grid()[Line(-(i32::try_from(row).unwrap_or(i32::MAX)))][Column(col)]
+                        == blank
+                })
             })
         {
             self.term.grid_mut().clear_history();
@@ -428,10 +431,10 @@ impl SessionEmu {
         // The protocol offset is u32, but the alacritty grid uses signed offsets.
         // Limit the offset to i32::MAX lines before conversion.
         let history = self.history_extent();
-        let off = off.min(history).min(i32::MAX as u32) as i32;
-        let cur = self.term.grid().display_offset() as i32;
+        let off = i32::try_from(off.min(history)).unwrap_or(i32::MAX);
+        let cur = i32::try_from(self.term.grid().display_offset()).unwrap_or(i32::MAX);
         self.term.scroll_display(Scroll::Delta(off - cur));
-        let achieved = self.term.grid().display_offset() as u32;
+        let achieved = u32::try_from(self.term.grid().display_offset()).unwrap_or(u32::MAX);
         let grid = self.capture_visible_grid();
         let title = self.title();
         self.term.scroll_display(Scroll::Bottom);
@@ -470,7 +473,7 @@ impl SessionEmu {
         let cols = self.cols as usize;
         let rows = self.rows as usize;
         let content = self.term.renderable_content();
-        let offset = content.display_offset as i32;
+        let offset = i32::try_from(content.display_offset).unwrap_or(i32::MAX);
 
         let mut grid: Vec<Vec<Slot>> = (0..rows)
             .map(|_| (0..cols).map(|_| Slot::Blank).collect())
@@ -505,7 +508,7 @@ impl SessionEmu {
         let (offset, display_offset, mode, cursor, alt_screen) = {
             let content = self.term.renderable_content();
             let display_offset = content.display_offset;
-            let offset = display_offset as i32;
+            let offset = i32::try_from(display_offset).unwrap_or(i32::MAX);
             let mode = content.mode;
             let cursor = content.cursor;
             let alt_screen = mode.contains(TermMode::ALT_SCREEN);
@@ -545,7 +548,7 @@ impl SessionEmu {
             (0u16, self.rows)
         } else {
             (
-                cursor.point.column.0 as u16,
+                u16::try_from(cursor.point.column.0).unwrap_or(self.cols),
                 u16::try_from(crow).unwrap_or_default(),
             )
         };
@@ -602,7 +605,13 @@ impl SessionEmu {
             let right = bound.right.saturating_add(1).min(cols - 1);
             for col in left..=right {
                 cells_inspected += 1;
-                let point = Point::new(Line(row as i32 - display_offset as i32), Column(col));
+                let point = Point::new(
+                    Line(
+                        i32::try_from(row).unwrap_or(i32::MAX)
+                            - i32::try_from(display_offset).unwrap_or(i32::MAX),
+                    ),
+                    Column(col),
+                );
                 let current = slot_from_cell(&self.term.grid()[point]);
                 let Some(cached_row) = self.render_cache.cells.get_mut(row) else {
                     self.render_cache.invalidate();

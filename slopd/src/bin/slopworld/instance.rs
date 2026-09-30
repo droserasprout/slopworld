@@ -50,7 +50,7 @@ impl InstanceLock {
         };
 
         file.set_len(0)
-            .and_then(|_| file.seek(SeekFrom::Start(0)))
+            .and_then(|()| file.seek(SeekFrom::Start(0)))
             .and_then(|_| writeln!(file, "{}", std::process::id()))
             .map_err(|e| format!("writing SlopWorld launcher lock {}: {e}", path.display()))?;
 

@@ -17,8 +17,10 @@ use super::{ApiResult, Mgr, err};
 fn template_error(error: anyhow::Error) -> crate::api::protobuf::ApiError {
     let status = match error.downcast_ref::<crate::session::AgentTemplateError>() {
         Some(crate::session::AgentTemplateError::Missing(_)) => StatusCode::NOT_FOUND,
-        Some(crate::session::AgentTemplateError::Conflict { .. }) => StatusCode::CONFLICT,
-        Some(crate::session::AgentTemplateError::Exists(_)) => StatusCode::CONFLICT,
+        Some(
+            crate::session::AgentTemplateError::Conflict { .. }
+            | crate::session::AgentTemplateError::Exists(_),
+        ) => StatusCode::CONFLICT,
         None if error
             .downcast_ref::<crate::session::TemplatePersistence>()
             .is_some() =>

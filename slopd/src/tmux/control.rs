@@ -29,10 +29,12 @@ fn unescape(b: &[u8]) -> Vec<u8> {
                 .and_then(|start| start.checked_add(3).and_then(|end| b.get(start..end)))
                 && digits.iter().all(u8::is_ascii_digit)
             {
-                let value = digits.iter().fold(0u32, |value, digit| {
-                    value * 8 + u32::from(digit.saturating_sub(b'0'))
+                let value = digits.iter().fold(0u8, |value, digit| {
+                    value
+                        .wrapping_mul(8)
+                        .wrapping_add(digit.saturating_sub(b'0'))
                 });
-                out.push(value as u8);
+                out.push(value);
                 i += 4;
                 continue;
             }

@@ -57,6 +57,10 @@ impl Manager {
     /// Transfer a prepared operation and its exclusive guard to an owned task.
     /// Nested callers share the guard, so cancellation cannot release identity
     /// protection before resource commit or cleanup finishes.
+    #[expect(
+        clippy::expect_used,
+        reason = "propagate a panic from the owned operation rather than treating a partial transaction as successful"
+    )]
     pub(super) async fn owned_session_operation<F>(self: &Arc<Self>, operation: F) -> F::Output
     where
         F: Future + Send + 'static,

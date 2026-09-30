@@ -44,13 +44,10 @@ fn spawn_command(
     let mut child = command
         .spawn()
         .map_err(|e| format!("starting {} logs: {e}", source.name()))?;
-    let stdout = match child.stdout.take() {
-        Some(stdout) => stdout,
-        None => {
-            drop(child.kill());
-            drop(child.wait());
-            return Err(format!("{} logs produced no output pipe", source.name()));
-        }
+    let Some(stdout) = child.stdout.take() else {
+        drop(child.kill());
+        drop(child.wait());
+        return Err(format!("{} logs produced no output pipe", source.name()));
     };
     let child = Arc::new(Mutex::new(child));
     let worker_child = Arc::clone(&child);

@@ -98,6 +98,10 @@ impl ScrollReplies {
                 }
             }
         }
+        #[expect(
+            clippy::expect_used,
+            reason = "capture success installs the ready event; all other outcomes return before publication"
+        )]
         let event = pending.ready.as_ref().expect("capture returned a screen");
         if send(tx, cap, event).await.is_err() {
             return false;
@@ -123,15 +127,12 @@ pub(super) async fn ws_upgrade(
     // Credentials arrive only during upgrade. Reject changes during resolution,
     // then carry the capability and generation into the connection lifetime.
     let generation_before = m.auth_generation();
-    let cap = match m.resolve_cap(presented_token(&headers).as_deref()).await {
-        Some(c) => c,
-        None => {
-            return err(
-                StatusCode::UNAUTHORIZED,
-                "The authentication token is missing or invalid.",
-            )
-            .into_response();
-        }
+    let Some(cap) = m.resolve_cap(presented_token(&headers).as_deref()).await else {
+        return err(
+            StatusCode::UNAUTHORIZED,
+            "The authentication token is missing or invalid.",
+        )
+        .into_response();
     };
     let generation = m.auth_generation();
     if generation != generation_before {

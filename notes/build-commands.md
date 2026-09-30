@@ -22,10 +22,13 @@ builds recognize absolute fixture socket paths; production keeps named sockets.
 Make owns target dependencies and exports settings from `make/config.mk` to the
 maintenance scripts in `tools/`. Keep multi-step shell logic there.
 
-`lint-daemon` treats default Rust and Clippy warnings as errors and explicitly enables
-Clippy's `too_many_lines` and `excessive_nesting` lints. `slopd/clippy.toml` sets
-limits of 100 lines and six nesting levels. Keep lint selection in `make/quality.mk`
-and its thresholds in the daemon config.
+`lint-daemon` treats Rust and Clippy warnings as errors across all daemon targets.
+`slopd/Cargo.toml` owns lint selection so editor and Make checks agree;
+`slopd/clippy.toml` owns thresholds (100 function lines and six nesting levels)
+and test exemptions. Unsafe operations require explicit blocks. Numeric casts and
+production `expect()` calls require checked conversions or narrow, justified
+expectations for established invariants. Tests may unwrap, index and panic, but
+must not retain `dbg!` calls.
 
 The shared C# formatter covers mod production and test sources plus C# benchmark
 sources under `bench/`.

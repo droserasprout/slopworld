@@ -267,9 +267,8 @@ fn find_user_files(dir: &Path, id: &str) -> Result<Vec<PathBuf>> {
             continue;
         }
         let text = std::fs::read_to_string(&path)?;
-        let station = match parse(&text, &path) {
-            Ok(station) => station,
-            Err(_) => continue,
+        let Ok(station) = parse(&text, &path) else {
+            continue;
         };
         if station.id == id {
             found.push(path);
