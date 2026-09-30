@@ -1,7 +1,9 @@
 # Usage polling
 
-Start in `usage/` for provider adapters and `usage/mod.rs` for scheduling/aggregation. Provider
-response fixtures and config definitions own field names, units and defaults.
+Start in `usage/`: `mod.rs` owns scheduling/aggregation, `rows.rs` owns the catalog and
+row policy, `providers.rs` owns credentials/HTTP, and `anthropic_cache.rs` owns shared
+Anthropic request coordination. Response fixtures and config definitions own field names,
+units and defaults.
 
 Each provider has independent failure/backoff state. Failed polls retain the provider's last successful values.
 Disabling the provider clears its rows. An enabled source with no data still needs a placeholder,
@@ -11,7 +13,9 @@ out of the saved override table. Once a provider returns a valid partial table, 
 The daemon excludes them from resolved rows.
 It retains placeholders only while that provider supplies no usable window.
 One provider request may supply multiple windows.
-Poll at the fastest enabled interval within the provider-wide cache and rate limits. Missing optional windows must not bypass it.
+Poll at the fastest effective enabled interval, including implicit catalog rows, within the
+provider-wide cache and rate limits. Missing optional windows must not bypass it. Cadence
+changes do not erase failure backoff. Resolve row toggles between polls, including placeholders.
 
 Anthropic's rotating credential is a shared bind. Atomic rename over the mount fails.
 An in-place writer can briefly expose partial JSON.
@@ -20,8 +24,13 @@ The host and sandbox share Codex's `~/.codex/auth.json` bind mount. Do not copy 
 lineage into each sandbox. Credential changes reset backoff. An expired access token alone is not
 proof of logout.
 
-The Anthropic cache and lock prevent restart/duplicate-process request bursts. Never store
-credentials in that cache. A zero `Retry-After` must not defeat the minimum 429 backoff.
+The Anthropic cache and lock prevent restart/duplicate-process request bursts. Cache identity
+includes the credential path, endpoint, and an access-token SHA-256 digest; token rotation
+conservatively partitions cached data and backoff without storing tokens. Lock acquisition
+creates the cache parent and waits at most one second. Contention defers the request; other
+filesystem failures permit an uncached request. Hold the guard through the post-lock cache
+check and save. Both cached data and retry state require the current format version.
+A zero `Retry-After` must not defeat the minimum 429 backoff.
 
 The Codex usage endpoint is undocumented.
 Do not invent figures for unknown payloads.

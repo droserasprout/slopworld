@@ -1833,6 +1833,7 @@ dependencies = [
  "prost",
  "prost-build",
  "rand",
+ "ring",
  "rodio",
  "serde",
  "serde_json",
