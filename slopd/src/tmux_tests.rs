@@ -372,6 +372,23 @@ async fn host_metadata_batch_matches_target_panes_across_windows() {
     .await
     .unwrap();
 
+    // Creating a pane acknowledges the fork, not the child's exec. Comparing
+    // snapshots before all children exec can observe "tmux" and then "sleep".
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let commands = tmux
+                .run(&["list-panes", "-a", "-F", "#{pane_current_command}"])
+                .await
+                .unwrap();
+            if commands.lines().count() == 4 && commands.lines().all(|name| name == "sleep") {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("metadata fixture processes did not finish starting");
+
     for window in ["first:0", "first:1"] {
         tmux.run(&["select-window", "-t", window]).await.unwrap();
         let rows = tmux.current_host_metadata_all().await.unwrap();
