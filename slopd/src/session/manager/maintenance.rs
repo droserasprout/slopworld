@@ -2,7 +2,7 @@
 //! Activity deadline policy belongs to session_state.rs and is shared with retick selection.
 
 use super::super::*;
-use super::session_state::{classification_deadline, HOST_METADATA_POLL_MS};
+use super::session_state::{HOST_METADATA_POLL_MS, classification_deadline};
 use crate::clock::unix_ms;
 
 // Check external configuration edits on the maintenance clock.

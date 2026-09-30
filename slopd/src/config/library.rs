@@ -1,6 +1,6 @@
 //! Library entries, supplied content, and catalog lookups.
 
-use super::{is_false, Config, SessionCfg};
+use super::{Config, SessionCfg, is_false};
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 

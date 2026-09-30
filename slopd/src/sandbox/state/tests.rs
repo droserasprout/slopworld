@@ -72,10 +72,12 @@ fn restore_deleted_agent_retains_archived_identity_and_rejects_fresh_state() {
     let trash = trash_state(&s, "delete").unwrap().unwrap();
     seed(&s);
     fs::write(live.join("home/memory"), "new state").unwrap();
-    assert!(restore_stored_state(key(&trash), &[])
-        .unwrap_err()
-        .to_string()
-        .contains("fresh state"));
+    assert!(
+        restore_stored_state(key(&trash), &[])
+            .unwrap_err()
+            .to_string()
+            .contains("fresh state")
+    );
     assert_eq!(fs::read(live.join("home/memory")).unwrap(), b"new state");
     assert_eq!(fs::read(trash.join("home/memory")).unwrap(), b"remember me");
     remove_ephemeral_state(&s).unwrap();
@@ -89,10 +91,12 @@ fn restore_rejects_missing_corrupt_and_unsafe_metadata_without_moving_data() {
     let Some(_) = crate::test_support::isolated() else {
         return;
     };
-    assert!(restore_stored_state("missing", &[])
-        .unwrap_err()
-        .to_string()
-        .contains("no such"));
+    assert!(
+        restore_stored_state("missing", &[])
+            .unwrap_err()
+            .to_string()
+            .contains("no such")
+    );
     let trash = trash_root().join("broken");
     fs::create_dir_all(&trash).unwrap();
     fs::write(trash.join("payload"), "keep").unwrap();
@@ -103,10 +107,12 @@ fn restore_rejects_missing_corrupt_and_unsafe_metadata_without_moving_data() {
         let mut s = session("broken");
         s.state_id = identity.into();
         fs::write(trash.join(TRASH_SESSION), toml::to_string(&s).unwrap()).unwrap();
-        assert!(restore_stored_state("broken", &[])
-            .unwrap_err()
-            .to_string()
-            .contains("invalid private-state identity"));
+        assert!(
+            restore_stored_state("broken", &[])
+                .unwrap_err()
+                .to_string()
+                .contains("invalid private-state identity")
+        );
         assert_eq!(fs::read(trash.join("payload")).unwrap(), b"keep");
     }
 }
@@ -179,10 +185,12 @@ fn deletion_rejects_owned_state_and_traversal_and_removes_only_requested_orphans
     let owned = session("owned");
     let live = seed(&owned);
     let sessions = [owned.clone()];
-    assert!(delete_stored_state("orphan", &owned.state_id, &sessions)
-        .unwrap_err()
-        .to_string()
-        .contains("still owned"));
+    assert!(
+        delete_stored_state("orphan", &owned.state_id, &sessions)
+            .unwrap_err()
+            .to_string()
+            .contains("still owned")
+    );
     for kind in ["active", "unknown", ""] {
         assert!(delete_stored_state(kind, &owned.state_id, &sessions).is_err());
     }

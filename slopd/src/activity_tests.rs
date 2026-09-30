@@ -1,4 +1,4 @@
-use super::{cache_path, trim_entries, ActivityCache, CacheEntry, MAX_CACHE_ENTRIES};
+use super::{ActivityCache, CacheEntry, MAX_CACHE_ENTRIES, cache_path, trim_entries};
 use crate::session::State;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -179,9 +179,11 @@ fn drop_waits_for_pending_write() {
         drop(cache);
         done_tx.send(()).unwrap();
     });
-    assert!(done_rx
-        .recv_timeout(std::time::Duration::from_millis(50))
-        .is_err());
+    assert!(
+        done_rx
+            .recv_timeout(std::time::Duration::from_millis(50))
+            .is_err()
+    );
     gate.wait();
     done_rx
         .recv_timeout(std::time::Duration::from_secs(5))

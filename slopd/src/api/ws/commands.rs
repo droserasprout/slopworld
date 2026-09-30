@@ -4,11 +4,11 @@
 use crate::grant::{Cap, Level};
 use crate::session::{Event, EventMessage};
 
+use super::super::Mgr;
 use super::super::types::{
     AudioReq, BreadcrumbReq, ClientMsg, KeysReq, MouseReq, PasteReq, ResizeReq,
 };
-use super::super::Mgr;
-use super::{send, WsSubs, WsTx};
+use super::{WsSubs, WsTx, send};
 
 /// Handle one client message. Ignore unauthorized messages without a response.
 /// A failed direct response indicates a closed socket and tells the caller to stop reading.

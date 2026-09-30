@@ -1,17 +1,17 @@
 //! Playback output, feeder pacing, and the callback-safe sample ring.
 
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::mpsc::{sync_channel, SyncSender};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::mpsc::{SyncSender, sync_channel};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use rodio::cpal::traits::{DeviceTrait, HostTrait};
-use rodio::{cpal, Sample, Source};
+use rodio::{Sample, Source, cpal};
 
-use super::ring::{enqueue_chunk, FinishedOnDrop, Ring, RING};
+use super::ring::{FinishedOnDrop, RING, Ring, enqueue_chunk};
 use super::station::{
-    local_title, next_playlist_source, open_file, open_source, AudioFormat, Playlist, TitleSink,
+    AudioFormat, Playlist, TitleSink, local_title, next_playlist_source, open_file, open_source,
 };
 use super::{GENERATION, REOPEN_PAUSE};
 

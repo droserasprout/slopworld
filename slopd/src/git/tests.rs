@@ -212,10 +212,12 @@ async fn an_untracked_directory_reports_its_files() {
     let paths = status_with_counts(&dir, false).await.unwrap().unwrap();
     assert_eq!(paths.changes.len(), 4);
     assert!(!paths.counts_complete);
-    assert!(paths
-        .changes
-        .iter()
-        .all(|c| c.added.is_none() && c.deleted.is_none()));
+    assert!(
+        paths
+            .changes
+            .iter()
+            .all(|c| c.added.is_none() && c.deleted.is_none())
+    );
 
     let answer = status(&dir).await.unwrap().unwrap();
     assert!(answer.counts_complete);
@@ -350,14 +352,18 @@ async fn an_untracked_nested_repository_stays_a_boundary_row() {
         .unwrap();
 
     let answer = status(&dir).await.unwrap().unwrap();
-    assert!(answer
-        .changes
-        .iter()
-        .any(|change| change.path == "outer/nested/"));
-    assert!(!answer
-        .changes
-        .iter()
-        .any(|change| change.path == "outer/nested/inside.txt"));
+    assert!(
+        answer
+            .changes
+            .iter()
+            .any(|change| change.path == "outer/nested/")
+    );
+    assert!(
+        !answer
+            .changes
+            .iter()
+            .any(|change| change.path == "outer/nested/inside.txt")
+    );
 
     tokio::fs::remove_dir_all(&dir).await.unwrap();
 }
@@ -458,14 +464,18 @@ async fn assert_configured_repository_status(dir: &Path, marker: &Path) {
     let answer = status(dir).await.unwrap().unwrap();
     assert_eq!(answer.added, 2);
     assert_eq!(answer.deleted, 0);
-    assert!(answer
-        .changes
-        .iter()
-        .any(|change| change.path == "tracked.txt" && change.status == " M"));
-    assert!(answer
-        .changes
-        .iter()
-        .any(|change| change.path == "staged.txt" && change.status == "A "));
+    assert!(
+        answer
+            .changes
+            .iter()
+            .any(|change| change.path == "tracked.txt" && change.status == " M")
+    );
+    assert!(
+        answer
+            .changes
+            .iter()
+            .any(|change| change.path == "staged.txt" && change.status == "A ")
+    );
     assert!(
         !marker.exists(),
         "repository Git helpers executed a marker command"

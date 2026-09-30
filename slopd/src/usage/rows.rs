@@ -2,8 +2,8 @@
 //! Provider polling applies this policy; provider adapters supply normalized windows.
 
 use super::{
-    CatalogEntry, Snapshot, Unit, UsageRow, Window, CLAUDE_SESSION, CLAUDE_SPEND, CLAUDE_WEEK,
-    OPENAI_SESSION, OPENAI_WEEK, OPENROUTER_BALANCE,
+    CLAUDE_SESSION, CLAUDE_SPEND, CLAUDE_WEEK, CatalogEntry, OPENAI_SESSION, OPENAI_WEEK,
+    OPENROUTER_BALANCE, Snapshot, Unit, UsageRow, Window,
 };
 
 pub fn catalog() -> Vec<CatalogEntry> {

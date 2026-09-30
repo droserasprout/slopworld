@@ -4,7 +4,7 @@ use super::catalog::{load_library, prepare_library};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 
 use super::*;
 

@@ -184,10 +184,12 @@ fn commit_install(staging: &Path, destination: &Path, backup: &Path) -> Result<(
     }
     if let Err(error) = fs::rename(staging, destination) {
         drop(fs::remove_dir_all(staging));
-        if had_destination {
-            if let Err(rollback) = fs::rename(backup, destination) {
-                return Err(format!("installing {}: {error}; old installation remains at {} because rollback failed: {rollback}", destination.display(), backup.display()));
-            }
+        if had_destination && let Err(rollback) = fs::rename(backup, destination) {
+            return Err(format!(
+                "installing {}: {error}; old installation remains at {} because rollback failed: {rollback}",
+                destination.display(),
+                backup.display()
+            ));
         }
         return Err(format!("installing {}: {error}", destination.display()));
     }

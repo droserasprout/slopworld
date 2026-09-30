@@ -343,13 +343,13 @@ impl Manager {
             .create_errand_session(&cfg, &sc, &want, host, persistent_host, like)
             .await?;
 
-        if !self.tmux.exists(&session).await {
-            if let Err(e) = self.start(&session).await {
-                if !persistent_host {
-                    self.forget(&session).await;
-                }
-                return Err(e);
+        if !self.tmux.exists(&session).await
+            && let Err(e) = self.start(&session).await
+        {
+            if !persistent_host {
+                self.forget(&session).await;
             }
+            return Err(e);
         }
 
         self.announce_sessions().await;

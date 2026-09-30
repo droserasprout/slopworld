@@ -1,13 +1,13 @@
-use crate::api::protobuf::{domain, reply, Proto};
+use crate::api::protobuf::{Proto, domain, reply};
 use crate::shared::wire;
+use axum::Extension;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::Extension;
 use serde_json::json;
 
 use crate::grant::{Cap, Level};
 
-use super::{err, ApiResult, Mgr};
+use super::{ApiResult, Mgr, err};
 
 pub(crate) async fn health(State(_m): State<Mgr>) -> ApiResult<wire::Health> {
     reply(json!({

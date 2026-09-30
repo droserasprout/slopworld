@@ -1,9 +1,9 @@
 use super::super::format::print_json;
-use super::super::http::request;
 use super::super::http::Endpoint;
+use super::super::http::request;
+use super::Command;
 use super::common::encode_component;
 use super::common::{arg, option_value, value_option};
-use super::Command;
 use crate::shared::protocol::routes;
 use serde_json::json;
 
@@ -56,7 +56,7 @@ pub(super) fn parse_agent_command(args: &[String]) -> Result<Command, String> {
             flag => {
                 return Err(format!(
                     "unknown agent create option: {flag}\n\n{AGENT_CREATE_USAGE}"
-                ))
+                ));
             }
         }
         i += 1;

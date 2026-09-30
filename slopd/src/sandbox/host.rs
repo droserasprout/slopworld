@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::config::{Config, ProjectCfg, SessionCfg};
 
-use super::{pane_less_utfchardef, PANE_TERM};
+use super::{PANE_TERM, pane_less_utfchardef};
 
 /// Build the unsandboxed Terminal (host) command. Inherit the slopd environment.
 /// Use the same tmux working directory as sandboxed sessions.
@@ -89,11 +89,7 @@ pub fn host_session_name(project: &str) -> String {
         }
     }
     let out = out.trim_matches('-').to_string();
-    if out.is_empty() {
-        "shell".into()
-    } else {
-        out
-    }
+    if out.is_empty() { "shell".into() } else { out }
 }
 
 pub(super) fn session_name_for(project: &str, shell: Option<&str>) -> String {

@@ -106,12 +106,14 @@ async fn stopped_session_resize_clamps_dimensions_and_updates_the_mirror() {
         .unwrap()
         .capture
         .emu = Some(emu.clone());
-    assert!(manager
-        .resize("missing", 80, 24)
-        .await
-        .unwrap_err()
-        .to_string()
-        .contains("no such session"));
+    assert!(
+        manager
+            .resize("missing", 80, 24)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("no such session")
+    );
     for (cols, rows, expected) in [
         (0, 0, (TERMINAL_MIN_COLS, TERMINAL_MIN_ROWS)),
         (u16::MAX, u16::MAX, (TERMINAL_MAX_COLS, TERMINAL_MAX_ROWS)),
@@ -124,12 +126,14 @@ async fn stopped_session_resize_clamps_dimensions_and_updates_the_mirror() {
         assert_eq!(frame.lines.len(), usize::from(expected.1));
     }
     manager.resize("target", 80, 24).await.unwrap();
-    assert!(manager
-        .paste("target", "text")
-        .await
-        .unwrap_err()
-        .to_string()
-        .contains("not running"));
+    assert!(
+        manager
+            .paste("target", "text")
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("not running")
+    );
 }
 
 #[tokio::test]
@@ -242,7 +246,10 @@ async fn benchmark_mixed_input_dispatch() {
                 _ => panic!("diagnostic only creates bytes and keys"),
             }
         }
-        println!("input dispatch {label}: events=600 commands={commands} elapsed_ms={:.3} events_per_second={:.1}",
-            start.elapsed().as_secs_f64() * 1000.0, 600.0 / start.elapsed().as_secs_f64());
+        println!(
+            "input dispatch {label}: events=600 commands={commands} elapsed_ms={:.3} events_per_second={:.1}",
+            start.elapsed().as_secs_f64() * 1000.0,
+            600.0 / start.elapsed().as_secs_f64()
+        );
     }
 }

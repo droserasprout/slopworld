@@ -11,16 +11,17 @@ fn root_uses_the_supplied_base_or_the_current_directory() {
 
 #[test]
 fn dir_uses_its_environment_override() {
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
     let variable = format!("SLOPD_PATH_TEST_{}", std::process::id());
     let override_path = std::env::temp_dir().join("slopd-path-override");
-    std::env::set_var(&variable, &override_path);
+    crate::test_support::set_env(&variable, &override_path);
 
     assert_eq!(
         dir(&variable, Some(PathBuf::from("/ignored")), "sessions"),
         override_path
     );
-
-    std::env::remove_var(variable);
 }
 
 #[test]
@@ -136,9 +137,11 @@ async fn asynchronous_write_reports_background_write_failure() {
         .open("/dev/full")
         .await
         .unwrap();
-    assert!(write_and_finish(&mut file, b"must not be published")
-        .await
-        .is_err());
+    assert!(
+        write_and_finish(&mut file, b"must not be published")
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]

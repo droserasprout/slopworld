@@ -127,9 +127,11 @@ async fn missing_clone_source_does_not_reserve_a_temporary_errand() {
         .create_errand_session(&cfg, &item, &RunWhere::default(), false, false, "gone")
         .await
         .unwrap_err();
-    assert!(error
-        .to_string()
-        .contains("no such session to clone sandbox from: gone"));
+    assert!(
+        error
+            .to_string()
+            .contains("no such session to clone sandbox from: gone")
+    );
     assert!(manager.live.read().await.is_empty());
     assert!(manager.temp.read().await.is_empty());
     assert!(manager.config().await.host_terminals.is_empty());
@@ -157,9 +159,11 @@ async fn host_with_clone_source_fails_before_persistence_or_allocation() {
         .create_errand_session(&cfg, &item, &RunWhere::default(), true, true, "source")
         .await
         .unwrap_err();
-    assert!(error
-        .to_string()
-        .contains("choose host execution or agent settings"));
+    assert!(
+        error
+            .to_string()
+            .contains("choose host execution or agent settings")
+    );
     assert!(manager.live.read().await.is_empty());
     assert!(manager.temp.read().await.is_empty());
     assert!(manager.config().await.host_terminals.is_empty());
@@ -345,9 +349,11 @@ async fn fresh_errands_do_not_inherit_the_source_worktree() {
         .unwrap();
     let live = manager.live.read().await;
     assert!(live[&name].cfg.worktree.is_empty());
-    assert!(manager
-        .temp
-        .read()
-        .await
-        .contains_key(&live[&name].cfg.project));
+    assert!(
+        manager
+            .temp
+            .read()
+            .await
+            .contains_key(&live[&name].cfg.project)
+    );
 }

@@ -9,7 +9,7 @@ use std::process::{Command, ExitCode};
 
 #[path = "slopworld/instance.rs"]
 mod instance;
-use instance::{game_process_running, launcher_lock_path, InstanceLock};
+use instance::{InstanceLock, game_process_running, launcher_lock_path};
 
 #[path = "slopworld/mod_install.rs"]
 mod mod_install;
@@ -253,7 +253,7 @@ fn parse(args: &[String]) -> Result<Option<Args>, String> {
             _ if a.starts_with("--") => {
                 return Err(format!(
                     "unknown option {a} (a game argument that looks like one goes after --)"
-                ))
+                ));
             }
             _ => out.rest.push(a.clone()),
         }

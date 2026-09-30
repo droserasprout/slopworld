@@ -49,10 +49,12 @@ async fn rejected_spotify_selection_replies_without_waiting_for_a_state_change()
         .await
         .unwrap();
         assert_eq!(reply.source.as_deref(), Some("ncspot"));
-        assert!(reply
-            .error
-            .unwrap()
-            .contains("Select ncspot or another audio source, not both."));
+        assert!(
+            reply
+                .error
+                .unwrap()
+                .contains("Select ncspot or another audio source, not both.")
+        );
         assert!(reply.session.is_none());
     }
 }

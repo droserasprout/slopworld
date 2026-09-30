@@ -5,10 +5,10 @@ use std::{
     path::{Component, Path},
 };
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use uuid::Uuid;
 
-use super::{mount_target, Config, ProjectCfg};
+use super::{Config, ProjectCfg, mount_target};
 
 /// Limit project names to one normal path component.
 /// This prevents configuration edits from creating ambiguous project identities or paths that traverse directories.

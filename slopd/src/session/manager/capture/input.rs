@@ -137,7 +137,7 @@ impl Manager {
                     item = *inner;
                 }
                 Input::Keys { keys, literal } => {
-                    break ("keys", tmux.send_keys(name, &keys, literal).await)
+                    break ("keys", tmux.send_keys(name, &keys, literal).await);
                 }
                 Input::Bytes(b) => break ("bytes", tmux.send_bytes(name, &b).await),
                 Input::Paste { bytes } => break ("paste", tmux.paste_bytes(name, &bytes).await),
@@ -234,10 +234,10 @@ impl Manager {
             l.rows = rows;
             l.capture.emu.clone()
         };
-        if let Some(emu) = emu {
-            if let Ok(mut e) = emu.lock() {
-                e.resize(cols, rows);
-            }
+        if let Some(emu) = emu
+            && let Ok(mut e) = emu.lock()
+        {
+            e.resize(cols, rows);
         }
         Ok(())
     }
@@ -271,11 +271,11 @@ impl Manager {
         let jobs = names.into_iter().map(|name| {
             let m = self.clone();
             async move {
-                if let Some((cols, rows)) = shape {
-                    if let Err(e) = m.resize(&name, cols, rows).await {
-                        tracing::debug!("redraw resize {name}: {e:#}");
-                        return;
-                    }
+                if let Some((cols, rows)) = shape
+                    && let Err(e) = m.resize(&name, cols, rows).await
+                {
+                    tracing::debug!("redraw resize {name}: {e:#}");
+                    return;
                 }
                 m.nudge_redraw(&name).await;
             }

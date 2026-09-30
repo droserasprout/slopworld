@@ -1,6 +1,6 @@
 use super::*;
 use crate::api::handlers::config_patch;
-use axum::{body::Body, Extension};
+use axum::{Extension, body::Body};
 use serde_json::json;
 use tower::ServiceExt;
 
@@ -204,7 +204,7 @@ fn patches_are_explicit_and_preserve_false_zero_empty_and_escaped_map_keys() {
 
 #[tokio::test]
 async fn normalized_errors_keep_response_metadata() {
-    use axum::{routing::get, Router};
+    use axum::{Router, routing::get};
     let app = Router::new()
         .route(
             "/bad",

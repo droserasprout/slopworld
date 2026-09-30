@@ -1,7 +1,7 @@
 use crate::shared::{http_wire, wire};
 use prost::Message;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::io::Read;
 use std::path::PathBuf;
 
@@ -157,17 +157,23 @@ pub(crate) fn status_value(endpoint: &Endpoint, session: &str) -> Value {
             };
             out.insert(
                 "waiting".to_string(),
-                json!(tasks
-                    .iter()
-                    .filter(|t| t.get("to").and_then(Value::as_str) == Some(session) && open(t))
-                    .count()),
+                json!(
+                    tasks
+                        .iter()
+                        .filter(|t| t.get("to").and_then(Value::as_str) == Some(session) && open(t))
+                        .count()
+                ),
             );
             out.insert(
                 "sent".to_string(),
-                json!(tasks
-                    .iter()
-                    .filter(|t| t.get("from").and_then(Value::as_str) == Some(session) && open(t))
-                    .count()),
+                json!(
+                    tasks
+                        .iter()
+                        .filter(
+                            |t| t.get("from").and_then(Value::as_str) == Some(session) && open(t)
+                        )
+                        .count()
+                ),
             );
         }
         Err(e) => {

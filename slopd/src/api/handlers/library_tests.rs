@@ -57,10 +57,12 @@ async fn library_crud_preserves_content_and_rejects_invalid_updates() {
         .ok
     );
     let listed = list_library(State(m.clone())).await.unwrap().0;
-    assert!(!listed
-        .library
-        .iter()
-        .any(|item| item.name.as_deref() == Some("test-note")));
+    assert!(
+        !listed
+            .library
+            .iter()
+            .any(|item| item.name.as_deref() == Some("test-note"))
+    );
     assert_eq!(
         listed
             .library

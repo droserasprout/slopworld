@@ -7,7 +7,7 @@ use std::io::Write;
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use serde::{Deserialize, Serialize};
 
 /// The user at the keyboard, never a session.
@@ -169,7 +169,7 @@ impl Tasks {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
             Err(error) => {
                 return Err(error)
-                    .with_context(|| format!("reading task journal {}", journal.display()))
+                    .with_context(|| format!("reading task journal {}", journal.display()));
             }
         };
         if let Some(text) = journal_text {
@@ -196,20 +196,20 @@ impl Tasks {
                 if entry.generation != file.generation {
                     continue;
                 }
-                if let Some(task) = entry.create {
-                    if !positions.contains_key(&task.id) {
-                        positions.insert(task.id.clone(), file.tasks.len());
-                        file.tasks.push(task);
-                    }
+                if let Some(task) = entry.create
+                    && !positions.contains_key(&task.id)
+                {
+                    positions.insert(task.id.clone(), file.tasks.len());
+                    file.tasks.push(task);
                 }
-                if let Some(update) = entry.update {
-                    if !apply_journal_update(&mut file.tasks, &positions, update) {
-                        tracing::warn!(
-                            "stopping at task journal entry with invalid task position in {}",
-                            journal.display()
-                        );
-                        break;
-                    }
+                if let Some(update) = entry.update
+                    && !apply_journal_update(&mut file.tasks, &positions, update)
+                {
+                    tracing::warn!(
+                        "stopping at task journal entry with invalid task position in {}",
+                        journal.display()
+                    );
+                    break;
                 }
             }
             if valid_len < text.len() {

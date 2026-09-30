@@ -67,12 +67,12 @@ fn record(name: &'static str, duration: Option<Duration>, work: u64, backlog: u6
     metric.calls += 1;
     metric.work += work;
     metric.peak_backlog = metric.peak_backlog.max(backlog);
-    if let Some(duration) = duration {
-        if metric.samples_us.len() < MAX_SAMPLES {
-            metric
-                .samples_us
-                .push(duration.as_micros().min(u64::MAX as u128) as u64);
-        }
+    if let Some(duration) = duration
+        && metric.samples_us.len() < MAX_SAMPLES
+    {
+        metric
+            .samples_us
+            .push(duration.as_micros().min(u64::MAX as u128) as u64);
     }
 }
 

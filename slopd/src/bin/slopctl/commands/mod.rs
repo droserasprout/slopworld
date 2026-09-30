@@ -7,25 +7,25 @@ mod worker;
 mod worktree;
 
 use super::http::Endpoint;
-use super::logs::{run_logs, LOGS_USAGE};
+use super::logs::{LOGS_USAGE, run_logs};
 
 pub(crate) use task::{InboxFilter, UpdateAction};
 pub(crate) use worker::{SpawnArgs, WorktreeChoice};
 
 #[cfg(test)]
-pub(crate) use agent::{run_agent_create, AGENT_CREATE_USAGE, AGENT_USAGE};
+pub(crate) use agent::{AGENT_CREATE_USAGE, AGENT_USAGE, run_agent_create};
 #[cfg(test)]
 pub(crate) use diagnostics::{
-    peer_names, PEERS_USAGE, SANDBOX_INSPECT_USAGE, SANDBOX_USAGE, STATUS_USAGE,
+    PEERS_USAGE, SANDBOX_INSPECT_USAGE, SANDBOX_USAGE, STATUS_USAGE, peer_names,
 };
 #[cfg(test)]
 pub(crate) use task::{
-    task_is_terminal, wait_for_task, TASK_LIST_USAGE, TASK_SHOW_USAGE, TASK_USAGE,
+    TASK_LIST_USAGE, TASK_SHOW_USAGE, TASK_USAGE, task_is_terminal, wait_for_task,
 };
 #[cfg(test)]
-pub(crate) use templates::{TEMPLATES_USAGE, TEMPLATE_SHOW_USAGE, TEMPLATE_USAGE};
+pub(crate) use templates::{TEMPLATE_SHOW_USAGE, TEMPLATE_USAGE, TEMPLATES_USAGE};
 #[cfg(test)]
-pub(crate) use worker::{run_spawn, SPAWN_USAGE, WORKER_USAGE};
+pub(crate) use worker::{SPAWN_USAGE, WORKER_USAGE, run_spawn};
 
 pub(crate) const USAGE: &str = "slopctl - delegate work and inspect SlopWorld diagnostics
 
@@ -171,10 +171,10 @@ pub(crate) fn parse_command_with_task_id(
         .map(String::as_str)
         .ok_or_else(|| format!("missing command\n\n{USAGE}"))?;
     let rest = args.get(1..).unwrap_or_default();
-    if has_help(rest) {
-        if let Some(usage) = command_help(command) {
-            return Ok(Command::Help { usage });
-        }
+    if has_help(rest)
+        && let Some(usage) = command_help(command)
+    {
+        return Ok(Command::Help { usage });
     }
     match command {
         "logs" => Ok(Command::Logs {

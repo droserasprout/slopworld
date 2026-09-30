@@ -64,9 +64,11 @@ fn environment_and_sensitive_command_values_are_redacted_structurally() {
     assert_eq!(view.command[2], REDACTED);
     assert_eq!(view.command[3], UNKNOWN_ARG);
     assert_eq!(view.command[4], UNKNOWN_ARG);
-    assert!(!serde_json::to_string(&view)
-        .unwrap()
-        .contains("worker-secret"));
+    assert!(
+        !serde_json::to_string(&view)
+            .unwrap()
+            .contains("worker-secret")
+    );
 }
 
 #[test]
@@ -253,7 +255,9 @@ fn modified_saved_plan_cannot_reintroduce_unknown_credentials() {
     assert_eq!(safe.session, "configured");
     assert_eq!(safe.limits[1], scope);
     assert_eq!(safe.command, [UNKNOWN_ARG, "--help"]);
-    assert!(!serde_json::to_string(&safe)
-        .unwrap()
-        .contains("unknown-secret"));
+    assert!(
+        !serde_json::to_string(&safe)
+            .unwrap()
+            .contains("unknown-secret")
+    );
 }

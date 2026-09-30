@@ -43,24 +43,32 @@ async fn explicit_breadcrumb_renders_context_and_tips_without_submitting() {
 #[tokio::test]
 async fn invalid_or_stopped_breadcrumb_target_queues_nothing() {
     let (manager, mut rx) = fixture().await;
-    assert!(manager
-        .paste_breadcrumb("missing", "context", vec![])
-        .await
-        .is_err());
-    assert!(manager
-        .paste_breadcrumb("agent", "missing", vec![])
-        .await
-        .is_err());
+    assert!(
+        manager
+            .paste_breadcrumb("missing", "context", vec![])
+            .await
+            .is_err()
+    );
+    assert!(
+        manager
+            .paste_breadcrumb("agent", "missing", vec![])
+            .await
+            .is_err()
+    );
     manager.cfg.write().await.library[0].kind = LibraryItemKind::Prompt;
-    assert!(manager
-        .paste_breadcrumb("agent", "context", vec![])
-        .await
-        .is_err());
+    assert!(
+        manager
+            .paste_breadcrumb("agent", "context", vec![])
+            .await
+            .is_err()
+    );
     manager.cfg.write().await.library[0].kind = LibraryItemKind::Breadcrumb;
     manager.live.write().await.get_mut("agent").unwrap().state = State::Down;
-    assert!(manager
-        .paste_breadcrumb("agent", "context", vec![])
-        .await
-        .is_err());
+    assert!(
+        manager
+            .paste_breadcrumb("agent", "context", vec![])
+            .await
+            .is_err()
+    );
     assert!(rx.try_recv().is_err());
 }

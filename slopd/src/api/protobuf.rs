@@ -4,11 +4,11 @@ use axum::{
     async_trait,
     body::Bytes,
     extract::{FromRequest, Request},
-    http::{header, StatusCode},
+    http::{StatusCode, header},
     response::{IntoResponse, Response},
 };
 use prost::Message;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 pub(crate) const CONTENT_TYPE: &str = "application/x-protobuf";
 #[derive(Debug)]

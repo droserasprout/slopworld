@@ -34,12 +34,16 @@ fn spend_is_money_and_not_a_rate_limit() {
     let s = parse(&serde_json::from_str(REAL).unwrap(), String::new());
 
     let rates = s.windows.iter().filter(|w| w.key != "claude_spend");
-    assert!(rates
-        .clone()
-        .all(|w| w.unit == Unit::Pct && w.amount.is_none()));
-    assert!(rates
-        .map(|w| w.pct.to_bits())
-        .all(|p| p != 20.93_f32.to_bits() && p != 21.0_f32.to_bits()));
+    assert!(
+        rates
+            .clone()
+            .all(|w| w.unit == Unit::Pct && w.amount.is_none())
+    );
+    assert!(
+        rates
+            .map(|w| w.pct.to_bits())
+            .all(|p| p != 20.93_f32.to_bits() && p != 21.0_f32.to_bits())
+    );
 
     let m = s.windows.last().unwrap();
     assert_eq!(m.key, "claude_spend");
@@ -71,9 +75,11 @@ fn the_unit_is_on_the_wire() {
 
     assert!(json.contains(r#""unit":"usd""#), "{json}");
     assert!(json.contains(r#""amount":20.93"#), "{json}");
-    assert!(serde_json::to_string(&s.windows[0])
-        .unwrap()
-        .contains(r#""unit":"pct""#));
+    assert!(
+        serde_json::to_string(&s.windows[0])
+            .unwrap()
+            .contains(r#""unit":"pct""#)
+    );
 }
 
 /// Omit the spending row when extra usage is disabled.

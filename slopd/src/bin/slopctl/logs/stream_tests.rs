@@ -36,10 +36,12 @@ fn a_live_child_with_closed_stdout_remains_cancelable_while_reaping() {
     kill_receiver
         .recv_timeout(Duration::from_secs(2))
         .expect("cancellation must not wait for child exit");
-    assert!(receiver
-        .recv_timeout(Duration::from_secs(2))
-        .unwrap()
-        .is_err());
+    assert!(
+        receiver
+            .recv_timeout(Duration::from_secs(2))
+            .unwrap()
+            .is_err()
+    );
     killer.join().unwrap();
     worker.join().unwrap();
     assert!(child.lock().unwrap().try_wait().unwrap().is_some());

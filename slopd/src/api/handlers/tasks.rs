@@ -1,16 +1,16 @@
 //! HTTP handlers for task mailboxes and worker creation.
-use crate::api::protobuf::{domain, ApiError, Proto};
+use crate::api::protobuf::{ApiError, Proto, domain};
 use crate::shared::wire;
 
+use axum::Extension;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::Extension;
 
 use crate::grant::{Cap, Level};
 use crate::shared::protocol::SESSION_HEADER;
 
 use super::super::types::*;
-use super::{err, guard, ApiResult, Mgr};
+use super::{ApiResult, Mgr, err, guard};
 
 /// A newly allocated checkout belongs to the request until worker startup commits it.
 /// On cancellation, a detached cleanup task removes it unless a failed durable session

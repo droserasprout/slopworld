@@ -17,11 +17,13 @@ fn openai_credentials_require_access_token_and_accept_optional_account() {
         json!({"tokens":{"access_token":123}}),
     ] {
         std::fs::write(&path, value.to_string()).unwrap();
-        assert!(read_openai_creds(&path)
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("no ChatGPT access token"));
+        assert!(
+            read_openai_creds(&path)
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("no ChatGPT access token")
+        );
     }
     std::fs::write(&path, "not json").unwrap();
     assert!(read_openai_creds(&path).is_err());
@@ -44,18 +46,20 @@ fn openrouter_keys_are_trimmed_reread_and_file_selection_overrides_environment()
         return;
     };
     read_key("").unwrap_err();
-    std::env::set_var(KEY_ENV, " \n ");
+    crate::test_support::set_env(KEY_ENV, " \n ");
     read_key("").unwrap_err();
-    std::env::set_var(KEY_ENV, " env-token \n");
+    crate::test_support::set_env(KEY_ENV, " env-token \n");
     assert_eq!(read_key(" \t ").unwrap(), "env-token");
     let path = root.join("key");
     let name = path.to_str().unwrap();
     read_key(name).unwrap_err();
     std::fs::write(&path, "  ").unwrap();
-    assert!(read_key(name)
-        .unwrap_err()
-        .to_string()
-        .contains("holds no key"));
+    assert!(
+        read_key(name)
+            .unwrap_err()
+            .to_string()
+            .contains("holds no key")
+    );
     for token in ["first", "rotated"] {
         std::fs::write(&path, format!(" {token}\n")).unwrap();
         assert_eq!(read_key(name).unwrap(), token);
@@ -105,7 +109,7 @@ fn provider_requests_send_expected_headers_and_decode_json() {
     };
     let body = json!({"test": [1, 2, 3]});
     let (url, handle) = server(200, "", &body.to_string());
-    std::env::set_var("SLOPD_USAGE_URL", url);
+    crate::test_support::set_env("SLOPD_USAGE_URL", url);
     assert_eq!(
         fetch(&credentials(&root.join("creds"))).unwrap_or_else(|e| panic!("{e}")),
         body
@@ -130,7 +134,7 @@ fn provider_requests_send_expected_headers_and_decode_json() {
     );
 
     let (url, handle) = server(200, "", &body.to_string());
-    std::env::set_var("SLOPD_CREDITS_URL", url);
+    crate::test_support::set_env("SLOPD_CREDITS_URL", url);
     let response = fetch_openrouter(ProviderCredentials::OpenRouter("router-token".into()))
         .unwrap_or_else(|e| panic!("{e}"));
     assert_eq!(response.body, body);
@@ -144,7 +148,7 @@ fn provider_requests_send_expected_headers_and_decode_json() {
 
     for account in [None, Some("account-123".to_string())] {
         let (url, handle) = server(200, "", &body.to_string());
-        std::env::set_var("SLOPD_OPENAI_USAGE_URL", url);
+        crate::test_support::set_env("SLOPD_OPENAI_USAGE_URL", url);
         let creds = OpenAiCreds {
             token: "openai-token".into(),
             account_id: account.clone(),
@@ -181,15 +185,15 @@ fn provider_http_errors_preserve_rate_limits_and_do_not_expose_credentials() {
             let (url, handle) = server(status, headers, "secret upstream error body");
             let result = match provider {
                 "anthropic" => {
-                    std::env::set_var("SLOPD_USAGE_URL", url);
+                    crate::test_support::set_env("SLOPD_USAGE_URL", url);
                     fetch(&credentials(&root.join("creds")))
                 }
                 "openrouter" => {
-                    std::env::set_var("SLOPD_CREDITS_URL", url);
+                    crate::test_support::set_env("SLOPD_CREDITS_URL", url);
                     fetch_credits("router-token")
                 }
                 _ => {
-                    std::env::set_var("SLOPD_OPENAI_USAGE_URL", url);
+                    crate::test_support::set_env("SLOPD_OPENAI_USAGE_URL", url);
                     fetch_openai(&OpenAiCreds {
                         token: "openai-token".into(),
                         account_id: None,
@@ -221,15 +225,15 @@ fn successful_http_status_with_invalid_json_is_a_non_rate_limit_error() {
         let (url, handle) = server(200, "", "not json");
         let result = match provider {
             "anthropic" => {
-                std::env::set_var("SLOPD_USAGE_URL", url);
+                crate::test_support::set_env("SLOPD_USAGE_URL", url);
                 fetch(&credentials(&root.join("creds")))
             }
             "openrouter" => {
-                std::env::set_var("SLOPD_CREDITS_URL", url);
+                crate::test_support::set_env("SLOPD_CREDITS_URL", url);
                 fetch_credits("router-token")
             }
             _ => {
-                std::env::set_var("SLOPD_OPENAI_USAGE_URL", url);
+                crate::test_support::set_env("SLOPD_OPENAI_USAGE_URL", url);
                 fetch_openai(&OpenAiCreds {
                     token: "openai-token".into(),
                     account_id: None,
@@ -254,7 +258,7 @@ fn mismatched_credentials_are_rejected_before_any_network_request() {
         "SLOPD_CREDITS_URL",
         "SLOPD_OPENAI_USAGE_URL",
     ] {
-        std::env::set_var(variable, &url);
+        crate::test_support::set_env(variable, &url);
     }
     for fetcher in [fetch_anthropic as FetchProvider, fetch_openai_provider] {
         let error = fetcher(ProviderCredentials::OpenRouter("test".into()))
@@ -346,9 +350,11 @@ fn a_renewable_token_is_not_a_logged_out_host() {
     assert!(relogin.contains("claude auth"));
 
     // An absent refresh expiry does not prove that the refresh token has expired.
-    assert!(!expiry_error(Some(stale), None, now)
-        .unwrap()
-        .contains("claude auth"));
+    assert!(
+        !expiry_error(Some(stale), None, now)
+            .unwrap()
+            .contains("claude auth")
+    );
 
     // An absent access-token expiry does not prove that the access token has expired.
     assert!(expiry_error(None, Some(stale), now).is_none());

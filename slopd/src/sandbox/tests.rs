@@ -96,9 +96,11 @@ fn a_private_path_is_per_session_and_keeps_its_shape() {
         private_path("one", "/etc/x").unwrap(),
         private_path("two", "/etc/x").unwrap()
     );
-    assert!(private_path("one", "/etc/x")
-        .unwrap()
-        .starts_with(state_root().join("one")));
+    assert!(
+        private_path("one", "/etc/x")
+            .unwrap()
+            .starts_with(state_root().join("one"))
+    );
 
     // Use the path relative to home for sources under home.
     // For other sources, preserve the path from the filesystem root.

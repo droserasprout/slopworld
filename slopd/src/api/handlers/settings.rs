@@ -1,13 +1,13 @@
-use crate::api::protobuf::{domain, reply, Proto};
+use crate::api::protobuf::{Proto, domain, reply};
 use crate::shared::wire;
 use axum::extract::State;
 use axum::http::StatusCode;
 
 use serde::Deserialize;
-use serde_json::json;
 use serde_json::Value;
+use serde_json::json;
 
-use super::{err, ApiResult, Mgr};
+use super::{ApiResult, Mgr, err};
 
 #[derive(Deserialize)]
 pub(crate) struct SettingsPreviewReq {

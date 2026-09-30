@@ -2,7 +2,7 @@
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::Serialize;
 
 use crate::config::{Config, Limits};

@@ -1,12 +1,12 @@
 //! Installed theme discovery and request-local styling; daemon defaults remain unchanged.
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use axum::{
     extract::{Query, State},
     http::StatusCode,
 };
 use serde_json::json;
 
-use super::{err, ApiResult, Mgr};
+use super::{ApiResult, Mgr, err};
 use crate::{api::protobuf::reply, shared::wire};
 
 fn engine(argv: &[String]) -> &str {
@@ -88,7 +88,7 @@ pub(crate) async fn highlight_themes(
             return Err(err(
                 StatusCode::BAD_REQUEST,
                 "Unsupported syntax highlighter.",
-            ))
+            ));
         }
     };
     let Some(program) = argv.first() else {

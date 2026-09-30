@@ -215,10 +215,10 @@ impl Manager {
         if cfg.project(&project).is_none() {
             bail!("no such worker project: {project}");
         }
-        if let Some(caller_project) = caller_project {
-            if caller_project != project {
-                bail!("caller {caller} may spawn workers only in project {caller_project}");
-            }
+        if let Some(caller_project) = caller_project
+            && caller_project != project
+        {
+            bail!("caller {caller} may spawn workers only in project {caller_project}");
         }
         Ok(project.to_string())
     }

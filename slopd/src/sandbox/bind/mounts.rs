@@ -4,14 +4,14 @@ use std::path::Path;
 
 use crate::config::{DnsConfig, Limits, MountMode, NetworkMode};
 use crate::sandbox::{
-    pane_less_utfchardef, persistent_tmp_path, private_resolver_path, ResolvedMount, PANE_TERM,
-    PRIVATE_RESOLVER,
+    PANE_TERM, PRIVATE_RESOLVER, ResolvedMount, pane_less_utfchardef, persistent_tmp_path,
+    private_resolver_path,
 };
 
 use super::policy::{
     daemon_config_binds, private_bind_paths, resolver_target, shared_binds, tmux_socket_bind,
 };
-use super::{BindContext, EnvArgs, BASE_ENV, PRIVATE_ADDRESS, PRIVATE_GATEWAY, PRIVATE_NETMASK};
+use super::{BASE_ENV, BindContext, EnvArgs, PRIVATE_ADDRESS, PRIVATE_GATEWAY, PRIVATE_NETMASK};
 
 fn push_args(a: &mut Vec<String>, args: &[&str]) {
     a.extend(args.iter().map(|arg| (*arg).to_string()));
@@ -66,10 +66,10 @@ pub(super) fn push_ro_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
     }
     // Mount the host resolver after ordinary read-only mounts.
     // Later preset mounts can still replace it.
-    if bind.network == NetworkMode::Host {
-        if let Some((src, target)) = bind.resolv {
-            push_args(a, &["--ro-bind", src, target]);
-        }
+    if bind.network == NetworkMode::Host
+        && let Some((src, target)) = bind.resolv
+    {
+        push_args(a, &["--ro-bind", src, target]);
     }
 
     for path in bind.rw {
@@ -86,10 +86,10 @@ pub(super) fn push_ro_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
 pub(super) fn push_capability_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
     // Mount the debug socket after ordinary mounts so another preset's /tmp mount cannot hide it.
     // The target path uses guest UID 0.
-    if bind.tmux {
-        if let Some((source, target)) = tmux_socket_bind(crate::tmux::tmux_socket()) {
-            push_args(a, &["--ro-bind", &source, &target]);
-        }
+    if bind.tmux
+        && let Some((source, target)) = tmux_socket_bind(crate::tmux::tmux_socket())
+    {
+        push_args(a, &["--ro-bind", &source, &target]);
     }
     if bind.daemon_config {
         for path in daemon_config_binds() {
@@ -130,10 +130,10 @@ pub(super) fn push_private_binds(
 
     // In private network mode, mount the resolver last at this target.
     // Preset or project mounts under /etc must not restore a resolver that uses host loopback.
-    if bind.network == NetworkMode::Private {
-        if let Some((src, target)) = bind.resolv {
-            push_args(a, &["--ro-bind", src, target]);
-        }
+    if bind.network == NetworkMode::Private
+        && let Some((src, target)) = bind.resolv
+    {
+        push_args(a, &["--ro-bind", src, target]);
     }
     Ok(())
 }

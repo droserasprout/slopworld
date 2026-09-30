@@ -1,9 +1,9 @@
 use super::super::format::print_json;
-use super::super::http::{request, Endpoint};
-use super::common::{encode_component, option_value, value_option};
+use super::super::http::{Endpoint, request};
 use super::Command;
+use super::common::{encode_component, option_value, value_option};
 use crate::shared::protocol::routes;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 pub(crate) const WORKTREE_USAGE: &str = "usage:\n  slopctl worktree list --project PROJECT\n  slopctl worktree create --project PROJECT [--name NAME] [--base REV] [--path EXISTING_CHECKOUT]\n  slopctl worktree rename ID --project PROJECT --name NAME\n  slopctl worktree remove ID --project PROJECT\n\nYou need the root token to rename or remove a worktree.\nThe daemon unregisters external checkouts and keeps their files.\nUse --option=VALUE for option values beginning with a dash.\n";
 pub(super) fn parse_worktree(args: &[String]) -> Result<Command, String> {

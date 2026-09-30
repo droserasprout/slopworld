@@ -1,6 +1,6 @@
 //! Serializable sandbox policy and validation; runtime setup lives in crate::sandbox.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::net::Ipv4Addr;
 

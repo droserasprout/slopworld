@@ -76,18 +76,24 @@ fn caches_share_sources_across_worktrees_and_inventory_survives_removal() {
     assert!(entries.iter().any(|e| e.kind == "cache-managed"
         && e.project.as_deref() == Some("renamed")
         && e.bytes == 6));
-    assert!(entries
-        .iter()
-        .any(|e| e.kind == "cache-external" && e.bytes == 6));
+    assert!(
+        entries
+            .iter()
+            .any(|e| e.kind == "cache-external" && e.bytes == 6)
+    );
     std::fs::remove_dir_all(linked).unwrap();
-    assert!(source(&p, &p.mounts[0])
-        .unwrap()
-        .join("build-output")
-        .exists());
+    assert!(
+        source(&p, &p.mounts[0])
+            .unwrap()
+            .join("build-output")
+            .exists()
+    );
     let orphans = inventory(&[]);
-    assert!(orphans
-        .iter()
-        .any(|e| e.kind == "cache-managed" && e.project.is_none() && e.bytes == 6));
+    assert!(
+        orphans
+            .iter()
+            .any(|e| e.kind == "cache-managed" && e.project.is_none() && e.bytes == 6)
+    );
     assert!(super::super::delete_stored_state("cache-managed", &p.id, &[]).is_err());
 }
 
@@ -139,17 +145,19 @@ fn cache_paths_reject_checkout_sources_traversal_and_metadata_destinations() {
     assert_eq!(mount.mode, MountMode::Cache);
     p.worktree_root = temp.join("custom-trees").to_string_lossy().into_owned();
     for path in [&p.worktree_root, &format!("{}/p/feature", p.worktree_root)] {
-        assert!(validate(
-            &p,
-            &Mount {
-                from: path.clone(),
-                to: "target".into(),
-                mode: MountMode::Cache,
-            }
-        )
-        .unwrap_err()
-        .to_string()
-        .contains("managed worktree storage"));
+        assert!(
+            validate(
+                &p,
+                &Mount {
+                    from: path.clone(),
+                    to: "target".into(),
+                    mode: MountMode::Cache,
+                }
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("managed worktree storage")
+        );
     }
 }
 

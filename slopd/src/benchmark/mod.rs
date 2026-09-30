@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 
-use crate::emu::{benchmark_content_hash as hash_content, Frame, SessionEmu};
+use crate::emu::{Frame, SessionEmu, benchmark_content_hash as hash_content};
 use crate::perf;
 use crate::session::{Event, EventMessage, ScreenView};
 

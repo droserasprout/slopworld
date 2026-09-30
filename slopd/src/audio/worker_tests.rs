@@ -1,6 +1,6 @@
 use super::*;
-use crate::audio::test_support::{FakeOutputFactory, FakeOutputState};
 use crate::audio::GENERATION;
+use crate::audio::test_support::{FakeOutputFactory, FakeOutputState};
 use std::sync::atomic::AtomicUsize;
 
 #[test]
@@ -60,13 +60,15 @@ fn failed_opener_start_clears_the_pending_identity_and_allows_retry() {
     assert!(worker.pending.is_none());
     assert_eq!(control.snapshot(), (None, generation));
     assert!(cancel.load(Ordering::Acquire));
-    assert!(state
-        .lock()
-        .unwrap()
-        .error
-        .as_deref()
-        .unwrap()
-        .contains("synthetic opener failure"));
+    assert!(
+        state
+            .lock()
+            .unwrap()
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("synthetic opener failure")
+    );
     // No source remains to trigger AlreadyPending or reuse a failed generation on the next play.
     assert!(!control.is_current("fixture", generation));
 }

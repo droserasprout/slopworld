@@ -4,10 +4,10 @@
 /// the package version as its base and appends the UTC build date and short commit so builds remain
 /// distinguishable. A source tree without Git falls back to Cargo's package version.
 pub fn resolve(fallback: &str, tag: Option<&str>, hash: Option<&str>, date: &str) -> String {
-    if let Some(tag) = tag {
-        if let Some(version) = release_version(tag) {
-            return version.to_owned();
-        }
+    if let Some(tag) = tag
+        && let Some(version) = release_version(tag)
+    {
+        return version.to_owned();
     }
     if let Some(hash) = hash.filter(|hash| !hash.trim().is_empty()) {
         return format!("{fallback}-{date}-{hash}");

@@ -1,7 +1,7 @@
 //! Exercise local log streaming without a daemon, journal, or game installation.
 #![cfg(unix)]
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::process::{Command, Output};

@@ -234,11 +234,13 @@ async fn stdin_failure_terminates_and_reaps_without_waiting_for_timeout() {
     assert!(error.downcast_ref::<TimedOut>().is_none(), "{error:#}");
     assert!(started.elapsed() < Duration::from_secs(5));
     let pid = fs::read_to_string(&marker).unwrap();
-    assert!(!StdCommand::new("kill")
-        .args(["-0", pid.trim()])
-        .stderr(Stdio::null())
-        .status()
-        .unwrap()
-        .success());
+    assert!(
+        !StdCommand::new("kill")
+            .args(["-0", pid.trim()])
+            .stderr(Stdio::null())
+            .status()
+            .unwrap()
+            .success()
+    );
     fs::remove_file(marker).unwrap();
 }

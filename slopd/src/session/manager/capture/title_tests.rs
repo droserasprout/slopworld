@@ -189,9 +189,11 @@ async fn new_conversation_updates_recovery_state_and_rejects_old_results() {
     let path = m.cfg_path.with_file_name("summary-cache.toml");
     tokio::task::spawn_blocking(move || {
         m.title_cache.flush().unwrap();
-        assert!(crate::title::SummaryCache::load(path)
-            .latest("agent")
-            .is_none());
+        assert!(
+            crate::title::SummaryCache::load(path)
+                .latest("agent")
+                .is_none()
+        );
     })
     .await
     .unwrap();

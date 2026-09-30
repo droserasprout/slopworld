@@ -1,5 +1,5 @@
 //! Configuration HTTP boundaries.
-use crate::api::protobuf::{domain, reply, ApiError, Proto};
+use crate::api::protobuf::{ApiError, Proto, domain, reply};
 use crate::shared::wire;
 
 use axum::extract::State;
@@ -8,7 +8,7 @@ use axum::http::StatusCode;
 use serde_json::json;
 
 use super::super::types::*;
-use super::{err, ok_json, ApiResult, Mgr};
+use super::{ApiResult, Mgr, err, ok_json};
 
 pub(crate) async fn get_config(State(m): State<Mgr>) -> ApiResult<wire::ConfigResult> {
     // Keep the raw text and parsed values from different snapshots when a user edits the file

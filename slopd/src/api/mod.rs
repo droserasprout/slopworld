@@ -14,9 +14,9 @@ use crate::shared::wire;
 use axum::http::{HeaderMap, StatusCode};
 use protobuf::{ApiError, Proto};
 use serde::de::DeserializeOwned;
+use serde_json::Value;
 #[cfg(test)]
 use serde_json::json;
-use serde_json::Value;
 
 use crate::session::Manager;
 
@@ -25,16 +25,15 @@ pub(super) type ApiResult<T = wire::Ack> = Result<Proto<T>, ApiError>;
 
 /// Requests permit only listed fields. Disk documents can preserve unrelated extensions.
 fn parse_owned<T: DeserializeOwned>(value: Value, fields: &[&str]) -> Result<T, ApiError> {
-    if let Some(object) = value.as_object() {
-        if let Some(field) = object
+    if let Some(object) = value.as_object()
+        && let Some(field) = object
             .keys()
             .find(|field| !fields.contains(&field.as_str()))
-        {
-            return Err(err(
-                StatusCode::BAD_REQUEST,
-                format!("unknown request field {field:?}"),
-            ));
-        }
+    {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            format!("unknown request field {field:?}"),
+        ));
     }
     serde_json::from_value(value).map_err(|error| err(StatusCode::BAD_REQUEST, error))
 }

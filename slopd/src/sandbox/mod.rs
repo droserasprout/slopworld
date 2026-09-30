@@ -13,9 +13,9 @@ mod state;
 
 use std::path::Path;
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 
-use crate::config::{expand, mount_target, Config, MountMode, ProjectCfg, SessionCfg};
+use crate::config::{Config, MountMode, ProjectCfg, SessionCfg, expand, mount_target};
 use crate::presets::{SandboxPreset, Table};
 
 pub use host::{host_argv, host_session_name, is_shell_command, shell_split};
@@ -25,11 +25,11 @@ pub use network::prepare_network;
 pub(crate) use network::{dns_servers, private_resolver_path};
 pub(crate) use observe::inspect_session;
 pub use paths::{refused, validate_preset, validate_preset_name};
-pub(crate) use plan::{read as read_launch_plan, LaunchPlan, PlanView};
+pub(crate) use plan::{LaunchPlan, PlanView, read as read_launch_plan};
 pub(crate) use plan::{sanitize_diagnostic, sanitize_process_argv};
+pub use state::StoredState;
 #[cfg(test)]
 use state::direct_child;
-pub use state::StoredState;
 pub(crate) use state::{
     delete_stored_state, empty_trash, finish_restored_state, persistent_tmp_path, private_path,
     purge_trash, remove_ephemeral_state, restore_stored_state, restore_trashed_state,
@@ -238,7 +238,9 @@ pub(crate) fn agent_shell_path(cfg: &Config) -> Result<String> {
         }
     }
 
-    bail!("The daemon PATH does not contain executable {executable:?} for agent shell {configured:?}.")
+    bail!(
+        "The daemon PATH does not contain executable {executable:?} for agent shell {configured:?}."
+    )
 }
 
 fn is_executable_file(path: &Path) -> bool {

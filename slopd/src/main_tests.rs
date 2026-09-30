@@ -428,30 +428,34 @@ async fn revoking_a_grant_closes_an_existing_websocket_before_read_or_write() {
     )
     .await
     .expect("revoked websocket stayed open or published target data");
-    assert!(socket
-        .send(tokio_tungstenite::tungstenite::Message::Binary(
-            wire::ClientMessage {
-                payload: Some(wire::client_message::Payload::Sub(wire::NameReq {
-                    name: Some("target".into())
-                }))
-            }
-            .encode_to_vec()
-        ))
-        .await
-        .is_err());
-    assert!(socket
-        .send(tokio_tungstenite::tungstenite::Message::Binary(
-            wire::ClientMessage {
-                payload: Some(wire::client_message::Payload::Keys(wire::KeysReq {
-                    name: Some("target".into()),
-                    keys: vec!["Enter".into()],
-                    ..Default::default()
-                }))
-            }
-            .encode_to_vec()
-        ))
-        .await
-        .is_err());
+    assert!(
+        socket
+            .send(tokio_tungstenite::tungstenite::Message::Binary(
+                wire::ClientMessage {
+                    payload: Some(wire::client_message::Payload::Sub(wire::NameReq {
+                        name: Some("target".into())
+                    }))
+                }
+                .encode_to_vec()
+            ))
+            .await
+            .is_err()
+    );
+    assert!(
+        socket
+            .send(tokio_tungstenite::tungstenite::Message::Binary(
+                wire::ClientMessage {
+                    payload: Some(wire::client_message::Payload::Keys(wire::KeysReq {
+                        name: Some("target".into()),
+                        keys: vec!["Enter".into()],
+                        ..Default::default()
+                    }))
+                }
+                .encode_to_vec()
+            ))
+            .await
+            .is_err()
+    );
 
     server.abort();
 }

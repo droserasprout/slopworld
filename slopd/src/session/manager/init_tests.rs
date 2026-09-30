@@ -2,22 +2,20 @@ use super::*;
 
 #[tokio::test]
 async fn initialization_reconciles_sessions_before_pruning_persisted_credentials() {
-    let Some(root) = crate::test_support::isolated() else {
+    let Some(root) = crate::test_support::isolated_with_env(|command, root| {
+        // This test runs alone in a child process; never load the user's catalogs or tmux.
+        for (key, value) in [
+            ("SLOPD_TMUX_SOCKET", root.join("tmux")),
+            ("SLOPD_PRESETS", root.join("presets")),
+            ("SLOPD_JUKEBOX", root.join("jukebox")),
+            ("XDG_RUNTIME_DIR", root.join("runtime")),
+        ] {
+            command.env(key, value);
+        }
+    }) else {
         return;
     };
     let socket = root.join("tmux").to_str().unwrap().to_owned();
-    // This test runs alone in a child process; never load the user's catalogs or tmux.
-    for (key, value) in [
-        ("SLOPD_TMUX_SOCKET", PathBuf::from(&socket)),
-        ("SLOPD_PRESETS", root.join("presets")),
-        ("SLOPD_JUKEBOX", root.join("jukebox")),
-        ("XDG_RUNTIME_DIR", root.join("runtime")),
-    ] {
-        // SAFETY: this isolated current-thread test sets its environment before starting work.
-        unsafe {
-            std::env::set_var(key, value);
-        }
-    }
     let mut cfg = Config::default();
     cfg.daemon.token = "test-root-token".into();
     for name in ["kept", "replaced"] {

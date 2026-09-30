@@ -141,12 +141,14 @@ fn assert_debug_preset(table: &Table) {
         );
     }
     // The launcher mounts procfs for the private PID namespace.
-    assert!(!debug
-        .ro
-        .iter()
-        .chain(&debug.rw)
-        .chain(&debug.dev)
-        .any(|path| path == "/proc"));
+    assert!(
+        !debug
+            .ro
+            .iter()
+            .chain(&debug.rw)
+            .chain(&debug.dev)
+            .any(|path| path == "/proc")
+    );
 }
 
 fn assert_builtin_cache_presets(table: &Table) {

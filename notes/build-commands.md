@@ -8,6 +8,12 @@ generation and lint recipes have separate owners in `make/`. `test-tools` owns s
 contract/catalog and maintenance-script checks.
 Language test targets run only their own suite.
 
+The daemon and IPC benchmark use Rust 2024. Isolated Rust fixtures configure native
+environment overrides on the child `Command` before startup. Dynamic provider URL
+and catalog failure fixtures use `test_support`'s process-local overlay through
+test-only lookups in `usage/providers.rs` and `paths.rs`; they must not mutate the
+native environment while HTTP or Tokio helper threads can read it.
+
 Rust and Python tmux fixtures use explicit `-S` sockets inside their own temporary
 directories, including cleanup and recovery handles. Tests do not need access to
 the host's default tmux socket directory or a `TMUX_TMPDIR` override. Rust test

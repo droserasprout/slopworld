@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use super::control::{Control, SourceRequirement};
 use super::playback::{self, AudioOutput, OutputFactory};
-use super::{station, AudioState};
+use super::{AudioState, station};
 
 pub(super) enum Cmd {
     Play { source: String, generation: u64 },

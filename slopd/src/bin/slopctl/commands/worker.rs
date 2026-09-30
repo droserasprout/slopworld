@@ -1,8 +1,8 @@
 use super::super::format::emit;
-use super::super::http::{request, Endpoint};
+use super::super::http::{Endpoint, request};
+use super::Command;
 use super::common::{option_value, value_option};
 use super::task::print_wait_hint;
-use super::Command;
 use crate::shared::protocol::routes;
 use serde_json::json;
 

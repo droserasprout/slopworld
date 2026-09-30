@@ -1,12 +1,12 @@
 //! Files, preview, search, and Git HTTP boundaries.
-use crate::api::protobuf::{domain, reply, Proto};
+use crate::api::protobuf::{Proto, domain, reply};
 use crate::shared::wire;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::{
     path::{Path, PathBuf},
     time::Duration,
@@ -15,7 +15,7 @@ use tokio::io::{AsyncBufRead, AsyncReadExt};
 use tokio::process::Command;
 
 use super::super::types::*;
-use super::{err, ApiResult, Mgr};
+use super::{ApiResult, Mgr, err};
 
 /// Limit preview response size to bound memory use in the daemon and game.
 /// Generated documents can exceed the size needed for a UI preview.

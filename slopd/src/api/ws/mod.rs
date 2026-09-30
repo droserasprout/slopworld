@@ -11,18 +11,18 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
 use crate::grant::{Cap, Level};
-use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
+use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use futures::StreamExt;
-use tokio::sync::{broadcast, Mutex, OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore, broadcast};
 use tokio::task::JoinHandle;
 
 use crate::session::{AuthChange, Event, EventMessage, ScreenView, WatchGuard};
 
 use super::types::{ClientMsg, ScrollReq};
-use super::{err, presented_token, Mgr};
+use super::{Mgr, err, presented_token};
 
 type WsTx = Arc<Mutex<futures::stream::SplitSink<WebSocket, Message>>>;
 type WsSubs = Arc<Mutex<HashMap<String, WatchGuard>>>;
@@ -130,7 +130,7 @@ pub(super) async fn ws_upgrade(
                 StatusCode::UNAUTHORIZED,
                 "The authentication token is missing or invalid.",
             )
-            .into_response()
+            .into_response();
         }
     };
     let generation = m.auth_generation();
@@ -179,18 +179,18 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
     let mut deferred = VecDeque::new();
 
     loop {
-        if !scrolls.has_pending() {
-            if let Some(cm) = deferred.pop_front() {
-                if let ClientMsg::Scroll(req) = cm {
-                    if !scrolls.enqueue(req, &m, &cap) {
-                        tracing::debug!("closing WebSocket after scroll queue overload");
-                        break;
-                    }
-                } else if !Box::pin(handle_client_msg(cm, &m, &cap, &tx, &subs)).await {
+        if !scrolls.has_pending()
+            && let Some(cm) = deferred.pop_front()
+        {
+            if let ClientMsg::Scroll(req) = cm {
+                if !scrolls.enqueue(req, &m, &cap) {
+                    tracing::debug!("closing WebSocket after scroll queue overload");
                     break;
                 }
-                continue;
+            } else if !Box::pin(handle_client_msg(cm, &m, &cap, &tx, &subs)).await {
+                break;
             }
+            continue;
         }
         tokio::select! {
             biased;

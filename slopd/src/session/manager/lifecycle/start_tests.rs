@@ -21,26 +21,32 @@ fn manager_for_start() -> Arc<Manager> {
 async fn target_resolution_reports_missing_sessions_and_projects() {
     let manager = manager_for_start();
     let mut cfg = manager.config().await;
-    assert!(manager
-        .resolve_target(&cfg, "missing")
-        .await
-        .unwrap_err()
-        .to_string()
-        .contains("no such session: missing"));
+    assert!(
+        manager
+            .resolve_target(&cfg, "missing")
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("no such session: missing")
+    );
     cfg.sessions[0].project.clear();
-    assert!(manager
-        .resolve_target(&cfg, "agent")
-        .await
-        .unwrap_err()
-        .to_string()
-        .contains("belongs to no project"));
+    assert!(
+        manager
+            .resolve_target(&cfg, "agent")
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("belongs to no project")
+    );
     cfg.sessions[0].project = "deleted".into();
-    assert!(manager
-        .resolve_target(&cfg, "agent")
-        .await
-        .unwrap_err()
-        .to_string()
-        .contains("project deleted, which does not exist"));
+    assert!(
+        manager
+            .resolve_target(&cfg, "agent")
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("project deleted, which does not exist")
+    );
     let session = SessionCfg {
         name: "ephemeral".into(),
         project: "project".into(),
@@ -63,10 +69,12 @@ fn directory_preparation_creates_only_temporary_projects_and_rejects_files() {
         dir: root.join("nested").to_string_lossy().into_owned(),
         ..Default::default()
     };
-    assert!(prepare_project_dir(&project)
-        .unwrap_err()
-        .to_string()
-        .contains("not a directory"));
+    assert!(
+        prepare_project_dir(&project)
+            .unwrap_err()
+            .to_string()
+            .contains("not a directory")
+    );
     assert!(!root.exists());
     project.temp = true;
     assert_eq!(prepare_project_dir(&project).unwrap(), project.dir);
@@ -77,16 +85,20 @@ fn directory_preparation_creates_only_temporary_projects_and_rejects_files() {
     project.dir = file.to_string_lossy().into_owned();
     prepare_project_dir(&project).unwrap_err();
     project.temp = true;
-    assert!(prepare_project_dir(&project)
-        .unwrap_err()
-        .to_string()
-        .contains("could not create project directory"));
+    assert!(
+        prepare_project_dir(&project)
+            .unwrap_err()
+            .to_string()
+            .contains("could not create project directory")
+    );
     project.dir = "/".into();
     project.temp = false;
-    assert!(prepare_project_dir(&project)
-        .unwrap_err()
-        .to_string()
-        .contains("overlaps a protected location"));
+    assert!(
+        prepare_project_dir(&project)
+            .unwrap_err()
+            .to_string()
+            .contains("overlaps a protected location")
+    );
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -110,9 +122,11 @@ async fn preparation_rejects_missing_commands_and_invalid_worker_ownership() {
             session.task_id = task.into();
         }
         let error = manager.prepare_start("agent").await.err().unwrap();
-        assert!(error
-            .to_string()
-            .contains("must have a task ID and a parent session"));
+        assert!(
+            error
+                .to_string()
+                .contains("must have a task ID and a parent session")
+        );
     }
     {
         let mut cfg = manager.cfg.write().await;

@@ -4,13 +4,13 @@ use std::collections::HashSet;
 use std::path::Path;
 
 use anyhow::Result;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::process::Command;
 
 use crate::config::SessionCfg;
 use crate::tmux::Tmux;
 
-use super::{read_launch_plan, sanitize_process_argv, PlanView};
+use super::{PlanView, read_launch_plan, sanitize_process_argv};
 
 #[derive(Debug, Clone)]
 struct Process {
@@ -131,10 +131,10 @@ fn proc_tree(root: u32, scope: Option<&str>) -> Option<Vec<Process>> {
         let Ok(pid) = name.to_string_lossy().parse::<u32>() else {
             continue;
         };
-        if pid != root {
-            if let Some(process) = read_proc(pid) {
-                all.push(process);
-            }
+        if pid != root
+            && let Some(process) = read_proc(pid)
+        {
+            all.push(process);
         }
     }
 

@@ -1,7 +1,7 @@
 //! Host desktop application associations used by the Files sidebar.
 
 use super::super::*;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};

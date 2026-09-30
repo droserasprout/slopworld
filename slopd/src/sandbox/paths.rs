@@ -5,7 +5,7 @@ use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result};
 
-use crate::config::{expand, Config};
+use crate::config::{Config, expand};
 use crate::presets::{SandboxPreset, Table};
 
 use super::state_root;
@@ -97,7 +97,7 @@ fn safety_path(path: &Path) -> Result<PathBuf> {
                 anyhow::ensure!(probe.pop(), "safety path has no existing ancestor");
             }
             Err(error) => {
-                return Err(error).with_context(|| format!("resolving {}", probe.display()))
+                return Err(error).with_context(|| format!("resolving {}", probe.display()));
             }
         }
     }

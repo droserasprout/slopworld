@@ -5,8 +5,9 @@ use std::{
 
 use super::super::types::SearchReq;
 use super::{
-    browse_limit, entry_name, file_path, filter_gitignored, highlighter_argv, list_dir, parse_kind,
-    read_image_bytes, read_preview, search_preview, IMAGE_LIMIT, READ_LIMIT, SEARCH_TEXT_LIMIT,
+    IMAGE_LIMIT, READ_LIMIT, SEARCH_TEXT_LIMIT, browse_limit, entry_name, file_path,
+    filter_gitignored, highlighter_argv, list_dir, parse_kind, read_image_bytes, read_preview,
+    search_preview,
 };
 use crate::presets::PresetSource;
 use axum::http::StatusCode;

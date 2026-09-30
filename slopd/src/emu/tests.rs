@@ -81,11 +81,13 @@ fn repeated_renders_reuse_cached_rows() {
     let second = e.render();
 
     assert_eq!(first.content_hash, second.content_hash);
-    assert!(first
-        .lines
-        .iter()
-        .zip(&second.lines)
-        .all(|(old, new)| Arc::ptr_eq(old, new)));
+    assert!(
+        first
+            .lines
+            .iter()
+            .zip(&second.lines)
+            .all(|(old, new)| Arc::ptr_eq(old, new))
+    );
 }
 
 #[test]
@@ -117,11 +119,13 @@ fn cursor_only_damage_does_not_rebuild_rows() {
     e.feed(b"\x1b[2;8H");
     let second = e.render();
 
-    assert!(first
-        .lines
-        .iter()
-        .zip(&second.lines)
-        .all(|(old, new)| Arc::ptr_eq(old, new)));
+    assert!(
+        first
+            .lines
+            .iter()
+            .zip(&second.lines)
+            .all(|(old, new)| Arc::ptr_eq(old, new))
+    );
     assert_eq!(first.content_hash, second.content_hash);
     assert_eq!((second.cx, second.cy), (7, 1));
 }
@@ -220,20 +224,24 @@ fn resize_and_scroll_force_full_refreshes() {
     e.resize(20, 2);
     let resized = e.render();
     assert_eq!(resized.lines.len(), 2);
-    assert!(before_resize
-        .lines
-        .iter()
-        .take(2)
-        .zip(&resized.lines)
-        .all(|(old, new)| !Arc::ptr_eq(old, new)));
+    assert!(
+        before_resize
+            .lines
+            .iter()
+            .take(2)
+            .zip(&resized.lines)
+            .all(|(old, new)| !Arc::ptr_eq(old, new))
+    );
 
     drop(e.scroll_snapshot(1));
     let after_scroll = e.render();
-    assert!(resized
-        .lines
-        .iter()
-        .zip(&after_scroll.lines)
-        .all(|(old, new)| !Arc::ptr_eq(old, new)));
+    assert!(
+        resized
+            .lines
+            .iter()
+            .zip(&after_scroll.lines)
+            .all(|(old, new)| !Arc::ptr_eq(old, new))
+    );
 }
 
 #[test]
@@ -245,20 +253,24 @@ fn alternate_screen_transitions_force_full_refreshes() {
     e.feed(b"\x1b[?1049halt");
     let alternate = e.render();
     assert!(alternate.alt_screen);
-    assert!(primary_before
-        .lines
-        .iter()
-        .zip(&alternate.lines)
-        .all(|(old, new)| !Arc::ptr_eq(old, new)));
+    assert!(
+        primary_before
+            .lines
+            .iter()
+            .zip(&alternate.lines)
+            .all(|(old, new)| !Arc::ptr_eq(old, new))
+    );
 
     e.feed(b"\x1b[?1049l");
     let primary = e.render();
     assert!(!primary.alt_screen);
-    assert!(alternate
-        .lines
-        .iter()
-        .zip(&primary.lines)
-        .all(|(old, new)| !Arc::ptr_eq(old, new)));
+    assert!(
+        alternate
+            .lines
+            .iter()
+            .zip(&primary.lines)
+            .all(|(old, new)| !Arc::ptr_eq(old, new))
+    );
 }
 
 #[test]
@@ -269,11 +281,13 @@ fn metadata_only_damage_reuses_rows() {
     e.feed(b"\x1b]0;new title\x07\x1b[?1000h");
     let second = e.render();
 
-    assert!(first
-        .lines
-        .iter()
-        .zip(&second.lines)
-        .all(|(old, new)| Arc::ptr_eq(old, new)));
+    assert!(
+        first
+            .lines
+            .iter()
+            .zip(&second.lines)
+            .all(|(old, new)| Arc::ptr_eq(old, new))
+    );
     assert_eq!(first.content_hash, second.content_hash);
     assert_eq!(second.title, "new title");
     assert!(second.app_mouse);
@@ -494,10 +508,12 @@ fn takes_tmux_titles_without_printing_them() {
     let frame = e.render();
     assert_eq!(frame.title, "echo");
     assert!(frame.lines.iter().all(|line| !line.contains("echo")));
-    assert!(frame
-        .lines
-        .iter()
-        .any(|line| line.contains("one two three")));
+    assert!(
+        frame
+            .lines
+            .iter()
+            .any(|line| line.contains("one two three"))
+    );
 }
 
 #[test]
@@ -510,10 +526,12 @@ fn an_unterminated_tmux_title_eventually_returns_to_terminal_output() {
 
     let frame = e.render();
     assert_eq!(frame.title, "");
-    assert!(frame
-        .lines
-        .iter()
-        .any(|line| line.contains("visible-after-bad-title")));
+    assert!(
+        frame
+            .lines
+            .iter()
+            .any(|line| line.contains("visible-after-bad-title"))
+    );
 }
 
 #[test]
@@ -625,11 +643,12 @@ fn synchronized_clear_waits_for_end_and_keeps_primary_history() {
     assert_eq!(after.lines[1].as_ref(), "\x1b[0m");
 
     e.feed(b"\x1b[?1049hfullscreen\x1b[2J");
-    assert!(e
-        .render()
-        .lines
-        .iter()
-        .all(|line| line.as_ref() == "\x1b[0m"));
+    assert!(
+        e.render()
+            .lines
+            .iter()
+            .all(|line| line.as_ref() == "\x1b[0m")
+    );
     e.feed(b"\x1b[?1049l");
     let primary = e.render();
     assert_eq!(primary.history, 1);

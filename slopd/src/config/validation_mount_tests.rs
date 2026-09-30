@@ -69,13 +69,17 @@ fn relative_cache_links_cannot_nest_mount_destinations() {
         ],
         ..Default::default()
     };
-    assert!(validate_mount_paths(&p)
-        .unwrap_err()
-        .to_string()
-        .contains("cannot overlap"));
+    assert!(
+        validate_mount_paths(&p)
+            .unwrap_err()
+            .to_string()
+            .contains("cannot overlap")
+    );
     p.mounts.reverse();
-    assert!(validate_mount_paths(&p)
-        .unwrap_err()
-        .to_string()
-        .contains("cannot overlap"));
+    assert!(
+        validate_mount_paths(&p)
+            .unwrap_err()
+            .to_string()
+            .contains("cannot overlap")
+    );
 }

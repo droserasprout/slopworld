@@ -139,7 +139,7 @@ async fn main() -> Result<()> {
 
 /// Wait for Ctrl+C or SIGTERM to begin graceful HTTP shutdown.
 async fn shutdown() {
-    use tokio::signal::unix::{signal, SignalKind};
+    use tokio::signal::unix::{SignalKind, signal};
     let mut interrupt = signal(SignalKind::interrupt())
         .map_err(|error| {
             tracing::error!("cannot listen for SIGINT: {error:#}");

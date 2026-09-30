@@ -274,10 +274,12 @@ fn snapshots_cannot_depend_on_unsnapshotted_live_presets() {
         requires: vec!["global".into()],
         ..sandbox()
     }];
-    assert!(validate_definition(&saved)
-        .unwrap_err()
-        .to_string()
-        .contains("unsnapshotted dependency"));
+    assert!(
+        validate_definition(&saved)
+            .unwrap_err()
+            .to_string()
+            .contains("unsnapshotted dependency")
+    );
 }
 
 #[tokio::test]

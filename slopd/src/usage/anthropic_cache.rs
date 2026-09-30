@@ -1,7 +1,7 @@
 //! Shared Anthropic cache identity, bounded locking, and request deduplication.
 //! providers owns credentials and HTTP; polling owns per-daemon retry schedules.
 
-use super::providers::{self, usage_url, Creds, PollErr, ProviderResponse, RATE_LIMIT_FLOOR};
+use super::providers::{self, Creds, PollErr, ProviderResponse, RATE_LIMIT_FLOOR, usage_url};
 use crate::clock::unix_ms;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -199,10 +199,10 @@ pub(super) fn fetch(creds: &Creds) -> Result<ProviderResponse, PollErr> {
     let body = match providers::fetch(creds) {
         Ok(body) => body,
         Err(error) => {
-            if let Some(delay) = error.retry_after {
-                if lock.is_some() {
-                    save_anthropic_rate_limit(&cache_path, delay);
-                }
+            if let Some(delay) = error.retry_after
+                && lock.is_some()
+            {
+                save_anthropic_rate_limit(&cache_path, delay);
             }
             return Err(error);
         }

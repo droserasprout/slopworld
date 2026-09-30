@@ -1,4 +1,4 @@
-use super::super::providers::{fetch_anthropic, ProviderCredentials};
+use super::super::providers::{ProviderCredentials, fetch_anthropic};
 use super::super::test_http::{credentials, server};
 use super::*;
 use serde_json::json;
@@ -11,7 +11,7 @@ fn anthropic_fetch_reuses_cached_success_and_shared_backoff() {
     let creds_path = root.join("creds");
     let body = json!({"five_hour":{"utilization":42}});
     let (url, handle) = server(200, "", &body.to_string());
-    std::env::set_var("SLOPD_USAGE_URL", url);
+    crate::test_support::set_env("SLOPD_USAGE_URL", url);
     let fetch_cached = || fetch_anthropic(ProviderCredentials::Anthropic(credentials(&creds_path)));
     let first = fetch_cached().unwrap_or_else(|e| panic!("{e}"));
     handle.join().unwrap();
@@ -31,7 +31,7 @@ fn anthropic_fetch_reuses_cached_success_and_shared_backoff() {
     assert!(!cache.with_extension("json.tmp").exists());
 
     let (url, handle) = server(429, "Retry-After: 900\r\n", "{}");
-    std::env::set_var("SLOPD_USAGE_URL", url);
+    crate::test_support::set_env("SLOPD_USAGE_URL", url);
     assert_ne!(anthropic_cache_paths(&credentials(&creds_path)).0, cache);
     assert_eq!(fetch_cached().err().unwrap().retry_after, Some(900));
     handle.join().unwrap();
@@ -82,7 +82,7 @@ fn cache_keys_separate_accounts_and_endpoints_and_lock_failure_still_fetches() {
     let one = root.join("one");
     let two = root.join("two");
     let (url, handle) = server(200, "", "{\"ok\":true}");
-    std::env::set_var("SLOPD_USAGE_URL", url);
+    crate::test_support::set_env("SLOPD_USAGE_URL", url);
     assert_ne!(
         anthropic_cache_paths(&credentials(&one)),
         anthropic_cache_paths(&credentials(&two))
@@ -141,7 +141,7 @@ fn contended_cache_defers_without_an_outbound_request() {
     };
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     listener.set_nonblocking(true).unwrap();
-    std::env::set_var(
+    crate::test_support::set_env(
         "SLOPD_USAGE_URL",
         format!("http://{}/usage", listener.local_addr().unwrap()),
     );
@@ -167,7 +167,7 @@ fn changed_credentials_at_the_same_path_cannot_reuse_success_or_backoff() {
     for rate_limited in [false, true] {
         let body = json!({"five_hour":{"utilization":77}});
         let (url, handle) = server(200, "", &body.to_string());
-        std::env::set_var("SLOPD_USAGE_URL", url);
+        crate::test_support::set_env("SLOPD_USAGE_URL", url);
         let old = credentials(&root.join("same-credentials-path"));
         let (old_cache, old_lock) = anthropic_cache_paths(&old);
         if rate_limited {
@@ -188,8 +188,10 @@ fn changed_credentials_at_the_same_path_cannot_reuse_success_or_backoff() {
             super::super::test_http::header(&request, "authorization").as_deref(),
             Some("Bearer different-account-access-token")
         );
-        assert!(!std::fs::read_to_string(new_cache)
-            .unwrap()
-            .contains(&changed.token));
+        assert!(
+            !std::fs::read_to_string(new_cache)
+                .unwrap()
+                .contains(&changed.token)
+        );
     }
 }

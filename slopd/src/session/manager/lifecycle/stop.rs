@@ -193,13 +193,13 @@ impl Manager {
         }
 
         // Only disposable sandbox state is deleted; durable private state survives.
-        if plan.remove_ephemeral_state {
-            if let Err(error) = crate::sandbox::remove_ephemeral_state(&plan.session) {
-                tracing::warn!(
-                    "removing temporary private state for {}: {error:#}",
-                    plan.name
-                );
-            }
+        if plan.remove_ephemeral_state
+            && let Err(error) = crate::sandbox::remove_ephemeral_state(&plan.session)
+        {
+            tracing::warn!(
+                "removing temporary private state for {}: {error:#}",
+                plan.name
+            );
         }
         if plan.remove_temp_project {
             self.temp.write().await.remove(&plan.project);

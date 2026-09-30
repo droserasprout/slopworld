@@ -6,13 +6,13 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use rand::seq::SliceRandom;
 use rodio::{ChannelCount, SampleRate, Source};
 use ureq::unversioned::transport::Connector;
 
-use super::title::monotonic_millis;
 pub(super) use super::title::TitleSink;
+use super::title::monotonic_millis;
 use super::{CONNECT, GENERATION, STREAM_IDLE};
 
 #[derive(Clone, Copy)]

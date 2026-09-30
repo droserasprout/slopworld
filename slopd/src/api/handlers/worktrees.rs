@@ -1,11 +1,11 @@
-use super::{err, ApiResult, Mgr};
-use crate::api::protobuf::{domain, reply, Proto};
+use super::{ApiResult, Mgr, err};
+use crate::api::protobuf::{Proto, domain, reply};
 use crate::grant::Cap;
 use crate::shared::wire;
 use axum::{
+    Extension,
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
-    Extension,
 };
 use serde::Deserialize;
 

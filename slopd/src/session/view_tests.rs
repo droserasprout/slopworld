@@ -14,10 +14,12 @@ fn project_paths_keep_config_and_daemon_expansion_separate() {
     assert_eq!(wire["dir"], "~/repo");
     assert_eq!(wire["expanded_dir"], expected.to_string_lossy().as_ref());
     assert!(wire.get("config").is_none());
-    assert!(serde_json::to_value(config)
-        .unwrap()
-        .get("expanded_dir")
-        .is_none());
+    assert!(
+        serde_json::to_value(config)
+            .unwrap()
+            .get("expanded_dir")
+            .is_none()
+    );
     let event = serde_json::to_value(super::super::Event::Projects {
         projects: vec![view],
     })

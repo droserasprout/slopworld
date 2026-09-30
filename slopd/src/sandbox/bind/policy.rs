@@ -6,7 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::config::{expand, Config, ProjectCfg, SessionCfg};
+use crate::config::{Config, ProjectCfg, SessionCfg, expand};
 use crate::presets::Table;
 
 use crate::sandbox::{presets_for, private_path, refused};

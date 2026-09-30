@@ -141,7 +141,7 @@ pub(super) fn copy_definition(
         None => {
             return Err(PresetError::Missing(format!(
                 "unknown {kind} preset: {old_name}"
-            )))
+            )));
         }
     };
     definition.rename(target.to_string());

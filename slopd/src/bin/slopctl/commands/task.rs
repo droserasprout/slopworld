@@ -1,10 +1,10 @@
-use super::super::format::{emit, print_json, print_task};
-use super::super::http::{request, Endpoint};
 use super::super::TASK_WAIT_INTERVAL;
+use super::super::format::{emit, print_json, print_task};
+use super::super::http::{Endpoint, request};
 use super::common::{arg, only, option_value, rest, value_option};
 use super::{Command, USAGE};
 use crate::shared::protocol::{enums::task_status, routes};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::thread;
 use std::time::{Duration, Instant};
 

@@ -3,7 +3,7 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
-use super::{fail_state, AudioState, GENERATION};
+use super::{AudioState, GENERATION, fail_state};
 
 pub(super) struct RequestState {
     pub(super) source: Option<String>,

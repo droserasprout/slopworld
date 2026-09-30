@@ -20,8 +20,8 @@ fn restrict_child(ruleset_fd: std::os::fd::RawFd) -> io::Result<()> {
 #[cfg(target_os = "linux")]
 pub(super) fn restrict(command: &mut Command, paths: &[&Path]) -> io::Result<()> {
     use landlock::{
-        Access, AccessFs, CompatLevel, Compatible, PathBeneath, PathFd, Ruleset, RulesetAttr,
-        RulesetCreatedAttr, ABI,
+        ABI, Access, AccessFs, CompatLevel, Compatible, PathBeneath, PathFd, Ruleset, RulesetAttr,
+        RulesetCreatedAttr,
     };
     use std::os::fd::{AsRawFd, OwnedFd};
     use std::os::unix::process::CommandExt;

@@ -278,9 +278,11 @@ async fn clearing_modeled_settings_preserves_only_unknown_fields() {
     assert_eq!(agent.limits.pids, Some(100));
     reloaded.sessions[0].limits = Limits::default();
     reloaded.save(&path).await.unwrap();
-    assert!(Config::load(&path).await.unwrap().sessions[0]
-        .limits
-        .is_empty());
+    assert!(
+        Config::load(&path).await.unwrap().sessions[0]
+            .limits
+            .is_empty()
+    );
     let text = tokio::fs::read_to_string(&path).await.unwrap();
     assert!(text.contains("future_policy = \"keep\""));
     assert!(text.contains("future_agent = \"keep\""));
@@ -360,38 +362,44 @@ state_id = "11111111-1111-4111-8111-111111111111"
 "#;
     tokio::fs::write(&path, text).await.unwrap();
     let err = Config::load(&path).await.unwrap_err();
-    assert!(err
-        .to_string()
-        .contains("project.workspace_root was removed"));
+    assert!(
+        err.to_string()
+            .contains("project.workspace_root was removed")
+    );
     assert_eq!(tokio::fs::read_to_string(&path).await.unwrap(), text);
     let cfg = Config::default();
-    assert!(cfg
-        .save(&path)
-        .await
-        .unwrap_err()
-        .to_string()
-        .contains("project.workspace_root was removed"));
+    assert!(
+        cfg.save(&path)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("project.workspace_root was removed")
+    );
     assert_eq!(tokio::fs::read_to_string(&path).await.unwrap(), text);
     let text = text.replace(
         "workspace_root = \"/tmp/trees\"",
         "worktree_root = \"/tmp/trees\"",
     );
     tokio::fs::write(&path, &text).await.unwrap();
-    assert!(Config::load(&path)
-        .await
-        .unwrap_err()
-        .to_string()
-        .contains("session.workspace was removed"));
+    assert!(
+        Config::load(&path)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("session.workspace was removed")
+    );
     let text = text.replace("workspace = \"tree-id\"", "worktree = \"tree-id\"");
     tokio::fs::write(&path, &text).await.unwrap();
     let loaded = Config::load(&path).await.unwrap();
     assert_eq!(loaded.projects[0].worktree_root, "/tmp/trees");
     assert_eq!(loaded.sessions[0].worktree, "tree-id");
     loaded.save(&path).await.unwrap();
-    assert!(tokio::fs::read_to_string(&path)
-        .await
-        .unwrap()
-        .contains("future_project"));
+    assert!(
+        tokio::fs::read_to_string(&path)
+            .await
+            .unwrap()
+            .contains("future_project")
+    );
     tokio::fs::remove_dir_all(root).await.unwrap();
 }
 

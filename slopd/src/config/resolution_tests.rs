@@ -241,9 +241,10 @@ fn arguments_extend_captured_default_and_explicit_commands() {
         ["agent", "--safe", "--model", "two words", "--label", ""]
     );
     session.cmd = Some("custom --flag".into());
-    assert!(cfg
-        .command_of(&session)
-        .starts_with("custom --flag --model"));
+    assert!(
+        cfg.command_of(&session)
+            .starts_with("custom --flag --model")
+    );
     session.args = Some("  ".into());
     assert_eq!(cfg.command_of(&session), "custom --flag");
     session.cmd = None;

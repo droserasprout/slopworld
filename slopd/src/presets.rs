@@ -464,9 +464,9 @@ impl Table {
 
 mod edit;
 use edit::valid_name;
+pub use edit::{PresetError, copy_builtin, delete_user, validate_and_save};
 #[cfg(test)]
 use edit::{check_delete, copy_definition, write_user_file_in};
-pub use edit::{copy_builtin, delete_user, validate_and_save, PresetError};
 
 static TABLE: OnceLock<RwLock<Arc<Table>>> = OnceLock::new();
 

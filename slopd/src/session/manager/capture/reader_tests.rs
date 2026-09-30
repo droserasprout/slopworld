@@ -39,13 +39,15 @@ async fn due_output_reaches_the_screen_for_watched_and_unwatched_panes() {
             .await;
 
         assert!(manager.screen("agent").await.is_some());
-        assert!(manager
-            .screen("agent")
-            .await
-            .unwrap()
-            .lines
-            .iter()
-            .any(|line| line.contains("hello")));
+        assert!(
+            manager
+                .screen("agent")
+                .await
+                .unwrap()
+                .lines
+                .iter()
+                .any(|line| line.contains("hello"))
+        );
         assert!(
             matches!(events.try_recv(), Ok(event) if matches!(event.event(), Event::Screen { .. }))
         );
@@ -366,12 +368,14 @@ async fn exit_and_eof_flush_output_received_before_the_last_draw() {
         manager
             .run_control_loop("agent", emu, ControlLineReceiver::new(rx), pending)
             .await;
-        assert!(manager
-            .screen("agent")
-            .await
-            .unwrap()
-            .lines
-            .iter()
-            .any(|line| line.contains("final output")));
+        assert!(
+            manager
+                .screen("agent")
+                .await
+                .unwrap()
+                .lines
+                .iter()
+                .any(|line| line.contains("final output"))
+        );
     }
 }

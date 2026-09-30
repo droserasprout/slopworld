@@ -32,16 +32,20 @@ fn summary_cache_round_trips_without_storing_the_prompt() {
         Some("Fix parser")
     );
     assert_eq!(restored.latest("codex").as_deref(), Some("Fix parser"));
-    assert!(restored
-        .get("fix the parser", "Summarise in six words.", "other/model")
-        .is_none());
-    assert!(restored
-        .get(
-            "fix the parser",
-            "Use a different instruction.",
-            "test/model"
-        )
-        .is_none());
+    assert!(
+        restored
+            .get("fix the parser", "Summarise in six words.", "other/model")
+            .is_none()
+    );
+    assert!(
+        restored
+            .get(
+                "fix the parser",
+                "Use a different instruction.",
+                "test/model"
+            )
+            .is_none()
+    );
 
     cache.clear_latest("codex");
     cache.flush().unwrap();
@@ -81,9 +85,11 @@ fn task_cache_insert_preserves_latest_and_evicts_oldest_entry() {
     }
 
     assert_eq!(cache.latest("codex").as_deref(), Some("Session title"));
-    assert!(cache
-        .get("task-0", "Summarise in six words.", "test/model")
-        .is_none());
+    assert!(
+        cache
+            .get("task-0", "Summarise in six words.", "test/model")
+            .is_none()
+    );
     assert_eq!(
         cache
             .get(
@@ -160,9 +166,11 @@ fn slow_disk_does_not_block_mutations_and_latest_snapshot_wins() {
             .as_deref(),
         Some("Reusable")
     );
-    assert!(!fs::read_to_string(&path)
-        .unwrap()
-        .contains("a private prompt"));
+    assert!(
+        !fs::read_to_string(&path)
+            .unwrap()
+            .contains("a private prompt")
+    );
     drop(cache);
     drop(restored);
     fs::remove_dir_all(path.parent().unwrap()).unwrap();

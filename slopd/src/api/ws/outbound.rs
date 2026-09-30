@@ -9,7 +9,7 @@ use axum::extract::ws::Message;
 use futures::SinkExt;
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
-use tokio::time::{sleep_until, Instant};
+use tokio::time::{Instant, sleep_until};
 
 use super::super::Mgr;
 use super::{WsSubs, WsTx};
@@ -51,20 +51,18 @@ pub(super) async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool
         EventMessage::new(Event::Capabilities {
             capabilities: crate::runtime::capabilities(),
         }),
-    ) {
-        if send(tx, cap, &ev).await.is_err() {
-            return false;
-        }
+    ) && send(tx, cap, &ev).await.is_err()
+    {
+        return false;
     }
     if let Some(ev) = scope_event(
         cap,
         EventMessage::new(Event::Sessions {
             sessions: m.views().await,
         }),
-    ) {
-        if send(tx, cap, &ev).await.is_err() {
-            return false;
-        }
+    ) && send(tx, cap, &ev).await.is_err()
+    {
+        return false;
     }
     if !cap.may_create() {
         return true;
@@ -218,21 +216,21 @@ pub(super) async fn send(tx: &WsTx, cap: &Cap, ev: &EventMessage) -> Result<(), 
             "capability revoked",
         )));
     }
-    if let Event::Screen { screen } = ev.event() {
-        if !screen.input_timings.is_empty() {
-            use prost::Message as _;
-            let mut message = ev
-                .event()
-                .to_protobuf()
-                .map_err(|e| axum::Error::new(std::io::Error::other(e.to_string())))?;
-            if let Some(crate::shared::wire::event::Payload::Screen(s)) = &mut message.payload {
-                let at = crate::latency::now();
-                for t in &mut s.input_timings {
-                    t.send_us = at;
-                }
+    if let Event::Screen { screen } = ev.event()
+        && !screen.input_timings.is_empty()
+    {
+        use prost::Message as _;
+        let mut message = ev
+            .event()
+            .to_protobuf()
+            .map_err(|e| axum::Error::new(std::io::Error::other(e.to_string())))?;
+        if let Some(crate::shared::wire::event::Payload::Screen(s)) = &mut message.payload {
+            let at = crate::latency::now();
+            for t in &mut s.input_timings {
+                t.send_us = at;
             }
-            bytes = message.encode_to_vec();
         }
+        bytes = message.encode_to_vec();
     }
     crate::perf::count("websocket-bytes", bytes.len() as u64);
     let result = tx.send(Message::Binary(bytes)).await;

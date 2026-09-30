@@ -8,10 +8,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::Deserialize;
 use serde_json::Value;
-use tokio::sync::{broadcast, mpsc, RwLock};
+use tokio::sync::{RwLock, broadcast, mpsc};
 use tokio::task::JoinHandle;
 
 mod agent_templates;
@@ -35,17 +35,17 @@ pub(crate) use agent_templates::validate_definition as validate_template_definit
 pub(crate) use agent_templates::{AgentTemplate, AgentTemplateError, AgentTemplateStore};
 pub use events::Event;
 pub(crate) use events::EventMessage;
+pub use manager::{Manager, WatchGuard};
 #[cfg(test)]
 pub(crate) use manager::{test_manager, test_manager_with_socket};
-pub use manager::{Manager, WatchGuard};
 pub(crate) use view::FrameViewArgs;
 pub use view::{
     ProjectView, ScreenView, SessionLaunchView, SessionReaderView, SessionRuntimeView, SessionView,
     SessionWorkerView,
 };
 
-use input::{merge_input, Input};
-use prompt::{render_prompt, render_prompt_with, PromptVars};
+use input::{Input, merge_input};
+use prompt::{PromptVars, render_prompt, render_prompt_with};
 pub use text::strip_sgr;
 use title::{TitleAction, TitleCapture, TitleRequest, TitleSettings};
 use validation::{
@@ -60,8 +60,8 @@ use input::INPUT_BATCH;
 use validation::normalize_path;
 
 use crate::config::{
-    expand, Config, LibraryItemCfg, LibraryItemKind, LibraryItemLink, NetworkMode, ProjectCfg,
-    SessionCfg, TitlePolicy,
+    Config, LibraryItemCfg, LibraryItemKind, LibraryItemLink, NetworkMode, ProjectCfg, SessionCfg,
+    TitlePolicy, expand,
 };
 use crate::emu::{Frame, SessionEmu};
 use crate::tmux::Tmux;

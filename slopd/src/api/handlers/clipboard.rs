@@ -1,5 +1,5 @@
 //! Host clipboard HTTP boundaries.
-use crate::api::protobuf::{domain, reply, Proto};
+use crate::api::protobuf::{Proto, domain, reply};
 use crate::shared::wire;
 
 use axum::http::StatusCode;
@@ -7,7 +7,7 @@ use axum::http::StatusCode;
 use serde_json::json;
 
 use super::super::types::ClipReq;
-use super::{err, ApiResult};
+use super::{ApiResult, err};
 
 /// Return 502 for a missing or unresponsive tool. The request itself is valid.
 pub(crate) async fn clip_read() -> ApiResult<wire::TextResult> {

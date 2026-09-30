@@ -23,17 +23,21 @@ fn sidecar_requires_the_published_bind_and_a_token() {
     validate_slopcar_config(&cfg).unwrap();
 
     cfg.daemon.bind = "127.0.0.1:7717".into();
-    assert!(validate_slopcar_config(&cfg)
-        .unwrap_err()
-        .to_string()
-        .contains("0.0.0.0"));
+    assert!(
+        validate_slopcar_config(&cfg)
+            .unwrap_err()
+            .to_string()
+            .contains("0.0.0.0")
+    );
 
     cfg.daemon.bind = "0.0.0.0:7717".into();
     cfg.daemon.token = "  ".into();
-    assert!(validate_slopcar_config(&cfg)
-        .unwrap_err()
-        .to_string()
-        .contains("non-empty"));
+    assert!(
+        validate_slopcar_config(&cfg)
+            .unwrap_err()
+            .to_string()
+            .contains("non-empty")
+    );
 }
 
 #[test]
@@ -54,10 +58,11 @@ fn sidecar_rejects_inner_resource_limits() {
 
 #[test]
 fn native_capabilities_keep_host_integrations() {
-    let Some(_) = crate::test_support::isolated() else {
+    let Some(_) = crate::test_support::isolated_with_env(|command, _| {
+        command.env_remove("SLOPD_RUNTIME");
+    }) else {
         return;
     };
-    std::env::remove_var("SLOPD_RUNTIME");
     let caps = capabilities();
     assert_eq!(caps.runtime, "native");
     assert!(caps.audio_playback && caps.clipboard && caps.desktop_open && caps.per_session_limits);
@@ -69,12 +74,15 @@ fn native_capabilities_keep_host_integrations() {
 #[test]
 fn non_unicode_runtime_is_rejected() {
     use std::os::unix::ffi::OsStringExt;
-    let Some(_) = crate::test_support::isolated() else {
+    let Some(_) = crate::test_support::isolated_with_env(|command, _| {
+        command.env("SLOPD_RUNTIME", std::ffi::OsString::from_vec(vec![0xff]));
+    }) else {
         return;
     };
-    std::env::set_var("SLOPD_RUNTIME", std::ffi::OsString::from_vec(vec![0xff]));
-    assert!(validate_runtime_name()
-        .unwrap_err()
-        .to_string()
-        .contains("UTF-8"));
+    assert!(
+        validate_runtime_name()
+            .unwrap_err()
+            .to_string()
+            .contains("UTF-8")
+    );
 }

@@ -1,7 +1,7 @@
 //! Worktree operations do not depend on task outcomes or worker lifetimes.
 use super::super::*;
 use super::directories::CreatedDirectories;
-use crate::worktrees::{git, Store, Worktree};
+use crate::worktrees::{Store, Worktree, git};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -328,10 +328,11 @@ impl Manager {
             }
         }
         for session in &new.sessions {
-            if let Some(previous) = old.session(&session.name) {
-                if previous.worktree != session.worktree && self.tmux.exists(&session.name).await {
-                    bail!("stop session {} before changing its worktree", session.name);
-                }
+            if let Some(previous) = old.session(&session.name)
+                && previous.worktree != session.worktree
+                && self.tmux.exists(&session.name).await
+            {
+                bail!("stop session {} before changing its worktree", session.name);
             }
             if !session.worktree.is_empty() && session.worktree != "main" {
                 let p = new
@@ -393,7 +394,11 @@ impl Manager {
                 || original.starts_with(&source)
                 || (std::path::Path::new(&mount.to).is_absolute() && target.starts_with(&original))
             {
-                bail!("Project mount {} -> {} exposes the original checkout. Edit the mount before selecting a worktree.", mount.from, mount.to);
+                bail!(
+                    "Project mount {} -> {} exposes the original checkout. Edit the mount before selecting a worktree.",
+                    mount.from,
+                    mount.to
+                );
             }
         }
         let mut resolved = p.clone();

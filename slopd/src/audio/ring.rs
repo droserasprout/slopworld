@@ -1,9 +1,9 @@
 //! Callback-safe sample delivery, prefill pacing, and terminal feeder completion.
 
 use rodio::{ChannelCount, Sample, SampleRate, Source};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, SyncSender, TryRecvError, TrySendError};
-use std::sync::Arc;
 use std::time::Duration;
 
 use super::{GENERATION, QUEUE_POLL};

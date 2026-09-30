@@ -1,11 +1,11 @@
 //! Game-free output and ring fixtures shared by the audio owner tests.
 
-use super::playback::{AudioOutput, OutputFactory};
-use super::ring::{Ring, RING};
 use super::GENERATION;
+use super::playback::{AudioOutput, OutputFactory};
+use super::ring::{RING, Ring};
 use rodio::{ChannelCount, Sample, SampleRate, Source};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::mpsc::{sync_channel, SyncSender};
+use std::sync::mpsc::{SyncSender, sync_channel};
 use std::sync::{Arc, Mutex};
 
 pub(super) struct FakeOutputState {
