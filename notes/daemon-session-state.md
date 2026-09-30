@@ -110,6 +110,9 @@ Scroll snapshots must not consume bells.
 
 `tmux/server.rs` owns server startup and readiness, including the inline fallback.
 An empty server remains alive through pane creation. Startup errors stop session creation.
+Each startup attempt owns a unique transient systemd unit, so private sockets and
+restarts do not compete with an existing unit. `TMUX_TMPDIR`, when set, passes to
+the service so server and client agree on the socket directory.
 A required host-marker failure rolls back only the newly created tmux session ID.
 
 New sessions use this sequence:

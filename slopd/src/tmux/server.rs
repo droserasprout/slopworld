@@ -40,26 +40,10 @@ impl Tmux {
             return Ok(());
         }
 
-        let unit = Command::new("systemd-run")
-            .args([
-                "--user",
-                "--quiet",
-                "--collect",
-                "--unit=slopworld-tmux",
-                "--property=Type=forking",
-                "--",
-                "tmux",
-                "-L",
-                &self.socket,
-                "start-server",
-                ";",
-                "set-option",
-                "-s",
-                "exit-empty",
-                "off",
-            ])
-            .status()
-            .await;
+        // Independent sockets must not compete for a fixed unit, and a recently
+        // stopped server's unit may still be waiting for systemd to collect it.
+        let unit_name = format!("slopworld-tmux-{}", uuid::Uuid::new_v4());
+        let unit = self.start_server_unit(&unit_name).await;
 
         // systemd-run returns when it queues the job. Check the socket to confirm server startup.
         let mut up = false;
@@ -74,11 +58,11 @@ impl Tmux {
         }
 
         if up {
-            tracing::info!("tmux server started in slopworld-tmux.service");
+            tracing::info!(unit = %unit_name, "tmux server started in a transient user service");
         } else {
             match unit {
                 Ok(s) if s.success() => {
-                    tracing::warn!("The slopworld-tmux.service unit started no server. slopd will start tmux inline.")
+                    tracing::warn!(unit = %unit_name, "The tmux unit started no server. slopd will start tmux inline.")
                 }
                 Ok(s) => tracing::warn!("systemd-run failed ({s}). slopd will start tmux inline."),
                 Err(_) => {
@@ -102,6 +86,34 @@ impl Tmux {
         );
         self.configure_emoji_widths().await;
         Ok(())
+    }
+
+    async fn start_server_unit(&self, name: &str) -> std::io::Result<std::process::ExitStatus> {
+        let mut command = Command::new("systemd-run");
+        command
+            .args(["--user", "--quiet", "--collect"])
+            .arg(format!("--unit={name}"))
+            .arg("--property=Type=forking");
+        // Services inherit the manager's environment, not the client's. The
+        // server and every client must resolve -L against the same socket root.
+        if std::env::var_os("TMUX_TMPDIR").is_some() {
+            command.arg("--setenv=TMUX_TMPDIR");
+        }
+        command
+            .args([
+                "--",
+                "tmux",
+                "-L",
+                &self.socket,
+                "start-server",
+                ";",
+                "set-option",
+                "-s",
+                "exit-empty",
+                "off",
+            ])
+            .status()
+            .await
     }
 
     async fn configure_emoji_widths(&self) {

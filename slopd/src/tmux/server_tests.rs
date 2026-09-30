@@ -12,6 +12,63 @@ fn mock_tmux(root: &std::path::Path, script: &str) {
 }
 
 #[tokio::test]
+async fn systemd_startup_uses_distinct_units_for_sockets_and_restarts() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    mock_tmux(
+        &root,
+        r#"
+printf '%s\n' "$*" >> "$TMUX_TEST_LOG"
+case "$3" in
+list-sessions)
+    if [ -f "$TMUX_TEST_LOG.ready.$2" ]; then
+        printf 'no sessions' >&2
+    else
+        printf 'no server running on socket' >&2
+    fi
+    exit 1;;
+start-server) : > "$TMUX_TEST_LOG.ready.$2";;
+esac
+"#,
+    );
+    let runner = root.join("bin/systemd-run");
+    std::fs::write(
+        &runner,
+        r#"#!/bin/sh
+printf '%s\n' "$@" >> "$TMUX_TEST_LOG.systemd"
+while [ "$1" != '--' ]; do shift; done
+shift
+exec "$@"
+"#,
+    )
+    .unwrap();
+    std::fs::set_permissions(runner, std::fs::Permissions::from_mode(0o700)).unwrap();
+    std::env::set_var("TMUX_TMPDIR", root.join("sockets"));
+
+    Tmux::new("first").ensure_server().await.unwrap();
+    Tmux::new("second").ensure_server().await.unwrap();
+    std::fs::remove_file(root.join("commands.ready.first")).unwrap();
+    Tmux::new("first").ensure_server().await.unwrap();
+
+    let commands = std::fs::read_to_string(root.join("commands.systemd")).unwrap();
+    let units: std::collections::HashSet<_> = commands
+        .lines()
+        .filter(|line| line.starts_with("--unit=slopworld-tmux-"))
+        .collect();
+    assert_eq!(units.len(), 3, "each server attempt owns a distinct unit");
+    for flag in [
+        "--property=Type=forking",
+        "--collect",
+        "--setenv=TMUX_TMPDIR",
+    ] {
+        assert_eq!(commands.lines().filter(|line| *line == flag).count(), 3);
+    }
+    assert!(commands.contains("tmux\n-L\nfirst\nstart-server\n;\nset-option\n-s\nexit-empty\noff"));
+    assert!(commands.contains("tmux\n-L\nsecond\nstart-server\n;\nset-option\n-s\nexit-empty\noff"));
+}
+
+#[tokio::test]
 async fn server_check_errors_stop_spawn_before_session_creation() {
     let Some(root) = crate::test_support::isolated() else {
         return;
@@ -48,6 +105,30 @@ esac
         .spawn("name", "/tmp", 80, 24, &["true".into()], false)
         .await
         .is_err());
+    let commands = std::fs::read_to_string(root.join("commands")).unwrap();
+    assert!(commands.contains("start-server"));
+    assert!(!commands.contains("new-session"));
+}
+
+#[tokio::test]
+async fn successful_inline_command_without_ready_server_stops_session_creation() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    mock_tmux(
+        &root,
+        r#"
+printf '%s\n' "$*" >> "$TMUX_TEST_LOG"
+case "$3" in
+list-sessions) printf 'no server running on socket' >&2; exit 1;;
+esac
+"#,
+    );
+    let error = Tmux::new("test")
+        .spawn("name", "/tmp", 80, 24, &["true".into()], false)
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("left no ready server"));
     let commands = std::fs::read_to_string(root.join("commands")).unwrap();
     assert!(commands.contains("start-server"));
     assert!(!commands.contains("new-session"));
