@@ -74,10 +74,13 @@ fn wraps_a_hyperlinked_run_in_osc8() {
 
 #[test]
 fn closes_a_hyperlink_left_open_at_the_margin() {
-    let mut e = SessionEmu::new(8, 2);
+    let mut e = SessionEmu::new(6, 2);
     e.feed(b"\x1b]8;;https://a.example\x1b\\linked");
     let f = e.render();
-    assert!(f.lines[0].ends_with("linked\x1b]8;;\x1b\\"));
+    assert_eq!(
+        f.lines[0],
+        "\x1b[0m\x1b]8;;https://a.example\x1b\\linked\x1b]8;;\x1b\\".into()
+    );
 }
 
 #[test]

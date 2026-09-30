@@ -99,7 +99,11 @@ async fn cancelled_highlight_removes_its_temporary_file() {
     let marker = format!("cancelled-highlight-{}", uuid::Uuid::new_v4());
     let task_marker = marker.clone();
     let mut tasks = tokio::task::JoinSet::new();
-    tasks.spawn(async move { super::highlight_text("sleep 30", "txt", &task_marker).await });
+    // The highlighter appends its input filename. Let the shell consume that
+    // argument instead of passing it to sleep as an invalid duration.
+    tasks.spawn(async move {
+        super::highlight_text("sh -c 'exec sleep 30'", "txt", &task_marker).await
+    });
 
     let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(3);
     let mut temporary = None;

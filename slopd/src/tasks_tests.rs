@@ -1,6 +1,17 @@
 use super::*;
 
 #[test]
+fn unknown_task_status_lists_valid_tags() {
+    let error = serde_json::from_str::<Status>("\"stale\"")
+        .unwrap_err()
+        .to_string();
+    assert!(
+        error.contains("queued") && error.contains("working"),
+        "{error}"
+    );
+}
+
+#[test]
 fn update_journal_replays_and_snapshot_generation_prevents_resurrection() {
     let dir = std::env::temp_dir().join(format!("slopd-task-journal-{}", std::process::id()));
     drop(fs::remove_dir_all(&dir));

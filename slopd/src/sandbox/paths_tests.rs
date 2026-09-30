@@ -1,6 +1,39 @@
 use super::*;
 use crate::sandbox::state_root;
 
+// Shipped definitions must be valid independently of installed tools, dangling
+// host aliases, and user preset overrides. Environment changes stay in a child.
+fn isolated_preset_environment() -> Option<std::path::PathBuf> {
+    let root = crate::test_support::isolated()?;
+    let home = root.join("home");
+    std::fs::create_dir_all(&home).unwrap();
+    for (variable, path) in [
+        ("HOME", home.clone()),
+        ("XDG_CONFIG_HOME", home.join(".config")),
+        ("XDG_DATA_HOME", home.join(".local/share")),
+        ("XDG_CACHE_HOME", home.join(".cache")),
+        ("XDG_RUNTIME_DIR", root.join("runtime")),
+        ("SLOPD_CONFIG", home.join(".config/slopworld/config.toml")),
+        ("SLOPD_PRESETS", home.join(".config/slopworld")),
+    ] {
+        std::env::set_var(variable, path);
+    }
+    for variable in [
+        "XAUTHORITY",
+        "WAYLAND_DISPLAY",
+        "ANDROID_HOME",
+        "ANDROID_SDK_ROOT",
+        "JAVA_HOME",
+        "DEVELOPER_DIR",
+        "SSH_AUTH_SOCK",
+        "SLOPWORLD_PROFILE",
+        "SLOPWORLD_GAME",
+    ] {
+        std::env::set_var(variable, root.join(variable));
+    }
+    Some(root)
+}
+
 /// Reject protected paths, their ancestors, and their descendants.
 /// Mounting `~/.config` can expose the token just as mounting the token file can.
 #[test]
@@ -47,7 +80,10 @@ fn no_bind_list_reaches_the_token_the_presets_or_another_session() {
 /// For example, `~/.local/share/pnpm` shares a parent directory with `state_root`.
 #[test]
 fn no_shipped_preset_asks_for_something_refused() {
-    let t = Table::load();
+    let Some(_) = isolated_preset_environment() else {
+        return;
+    };
+    let t = Table::builtins();
     for pr in &t.sandbox {
         for path in pr
             .ro
@@ -216,6 +252,9 @@ fn refused_follows_existing_symlink_parents_before_checking_protected_paths() {
 
 #[test]
 fn shipped_presets_pass_the_central_validator() {
+    let Some(_) = isolated_preset_environment() else {
+        return;
+    };
     let table = Table::builtins();
     for preset in &table.sandbox {
         validate_preset_name(&preset.name, &table)

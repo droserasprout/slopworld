@@ -57,9 +57,26 @@ async fn restricted_worktree_creation() {
         // The sandbox command is unavailable in this test namespace.
         // Use ordinary Git to verify worktree contents and registration. Later tests check removal requirements.
         assert_eq!(git(&root, &["rev-parse", "worker"]).await.unwrap(), base);
+        let registered = git(&root, &["worktree", "list", "--porcelain"])
+            .await
+            .unwrap();
+        assert!(registered.contains(&format!("worktree {}\n", path.display())));
     } else {
         remove_tree(&w).await.unwrap();
     }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn metadata_paths_reports_unreadable_commondir() {
+    let root = repo();
+    let path = root.join("linked");
+    std::fs::create_dir(&path).unwrap();
+    allocate(&root, &path, "linked", "HEAD").await.unwrap();
+    let gitdir = metadata_paths(&path).unwrap().remove(0);
+    std::fs::remove_file(gitdir.join("commondir")).unwrap();
+    std::fs::create_dir(gitdir.join("commondir")).unwrap();
+    metadata_paths(&path).unwrap_err();
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -664,9 +681,15 @@ async fn worktree_resolution_mounts_metadata_and_keeps_project_scope() {
     match manager.remove_worktree("repo".into(), w.id).await {
         Ok(()) => assert!(!Path::new(&w.path).exists()),
         Err(error) => {
-            // Some CI hosts cannot create Bubblewrap user namespaces. Git removal must
-            // restore the link before leaving the checkout available for inspection.
-            assert!(error.to_string().contains("Git worktree removal"));
+            // Some CI hosts cannot create Bubblewrap user namespaces.
+            assert!(
+                mismatched_proc_namespace(),
+                "unexpected removal error: {error}"
+            );
+            assert!(
+                error.to_string().contains("Creating new namespace failed"),
+                "unexpected removal error: {error}"
+            );
             assert_eq!(
                 std::fs::read_link(Path::new(&w.path).join("target")).unwrap(),
                 cache
@@ -708,6 +731,7 @@ async fn store_reads_only_worktree_catalog_and_fields() {
 
 #[tokio::test]
 async fn relocation_rollback_restores_checkout_registration_and_catalog() {
+    use std::os::unix::ffi::OsStringExt;
     let root = repo();
     let source = root.join("source");
     std::fs::create_dir(&source).unwrap();
@@ -721,6 +745,9 @@ async fn relocation_rollback_restores_checkout_registration_and_catalog() {
         managed: true,
         ..Default::default()
     };
+    let invalid = root.join(std::ffi::OsString::from_vec(vec![b'x', 0xff]));
+    assert!(relocate_tree(&original, &invalid).await.is_err());
+    assert!(source.exists());
     let config = root.join("config.toml");
     let mut store = Store::default();
     store.worktrees.push(original.clone());

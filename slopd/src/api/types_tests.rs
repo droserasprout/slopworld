@@ -41,6 +41,10 @@ fn unknown_and_missing_websocket_tags_are_rejected() {
         .unwrap()
         .to_string();
     assert!(unknown.contains("unknown variant"), "{unknown}");
+    assert!(
+        unknown.contains("redraw") && unknown.contains("sub"),
+        "{unknown}"
+    );
 
     let missing = serde_json::from_str::<ClientMsg>(r#"{"name":"agent"}"#)
         .err()

@@ -558,6 +558,8 @@ fn only_a_file_is_ever_shared() {
     let s = SessionCfg {
         name: "a".into(),
         project: "p".into(),
+        // Exercise this preset without the default command's host credentials.
+        cmd: Some("true".into()),
         sandbox: vec!["t".into()],
         ..Default::default()
     };

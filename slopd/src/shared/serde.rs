@@ -17,7 +17,7 @@ macro_rules! wire_enum {
             where D: serde::Deserializer<'de> {
                 let value = <String as serde::Deserialize>::deserialize(deserializer)?;
                 $(if value == $value { return Ok($variant); })+
-                Err(<D::Error as serde::de::Error>::unknown_variant(&value, &[]))
+                Err(<D::Error as serde::de::Error>::unknown_variant(&value, &[$($value),+]))
             }
         }
     };
@@ -94,7 +94,10 @@ macro_rules! wire_client_msg_deserialize {
                         .map_err(D::Error::custom)?;
                         Ok($crate::wire_client_msg_construct!($variant, req $(, { $( $field ),+ })?))
                     }),+
-                    other => Err(D::Error::unknown_variant(other, &[])),
+                    other => Err(D::Error::unknown_variant(
+                        other,
+                        &[$($crate::wire_client_msg_tag!($variant)),+],
+                    )),
                 }
             }
         }

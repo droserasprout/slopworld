@@ -49,6 +49,13 @@ struct StatusRow {
     source: Option<String>,
 }
 
+/// Counts may be partial when any tracked or per-file Git diff fails.
+#[derive(Default)]
+struct Counts {
+    by_path: HashMap<String, (Option<u32>, Option<u32>)>,
+    complete: bool,
+}
+
 /// Enough for any working tree a person is actually reading. Past it the tree is not a tree
 /// any more, and a `git status` that long is a build directory somebody forgot to ignore.
 const LIMIT: usize = 2000;
@@ -143,14 +150,18 @@ pub async fn status_with_counts(
             .await
             .ok()
     };
-    let counts_complete = counts.is_some();
+    let counts_complete = counts.as_ref().is_some_and(|counts| counts.complete);
     let counts = counts.unwrap_or_default();
     let changed = rows.len();
-    let added = counts.values().filter_map(|c| c.0).sum();
-    let deleted = counts.values().filter_map(|c| c.1).sum();
+    let added = counts.by_path.values().filter_map(|c| c.0).sum();
+    let deleted = counts.by_path.values().filter_map(|c| c.1).sum();
     let mut changes = Vec::new();
     for row in rows.into_iter().take(LIMIT) {
-        let (added, deleted) = counts.get(&row.path).copied().unwrap_or((None, None));
+        let (added, deleted) = counts
+            .by_path
+            .get(&row.path)
+            .copied()
+            .unwrap_or((None, None));
         changes.push(Change {
             path: row.path,
             status: row.status,
@@ -305,17 +316,22 @@ async fn status_rows_command(
     Ok((rows, false))
 }
 
-/// The repository root, or `None` where there is none. An error here is git missing or
-/// unrunnable, which is worth saying. A non-zero exit is only "not a repository".
+/// The repository root, or `None` outside a repository. Other Git failures are errors.
 async fn toplevel(dir: &Path) -> std::io::Result<Option<PathBuf>> {
     let out = inspection_command(dir)
         .args(["rev-parse", "--show-toplevel"])
         .output()
         .await?;
     if !out.status.success() {
-        return Ok(None);
+        let error = String::from_utf8_lossy(&out.stderr);
+        if error.starts_with("fatal: not a git repository (") {
+            return Ok(None);
+        }
+        return Err(std::io::Error::other(error.trim().to_string()));
     }
-    let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    let path = String::from_utf8_lossy(&out.stdout);
+    let path = path.strip_suffix('\n').unwrap_or(&path);
+    let path = path.strip_suffix('\r').unwrap_or(path);
     Ok((!path.is_empty()).then(|| PathBuf::from(path)))
 }
 
@@ -340,10 +356,13 @@ async fn branch(root: &Path) -> String {
 /// comparison, so each gets the same no-index reading used by the diff pager. In an unborn
 /// repository, staged additions also need the no-index reading so later worktree edits are not
 /// lost behind the cached version.
-async fn numstat(root: &Path, rows: &[StatusRow]) -> HashMap<String, (Option<u32>, Option<u32>)> {
+async fn numstat(root: &Path, rows: &[StatusRow]) -> Counts {
     let _perf = crate::perf::timer("git-numstat");
     if rows.is_empty() {
-        return HashMap::new();
+        return Counts {
+            complete: true,
+            ..Counts::default()
+        };
     }
 
     // Waiting counts toward the caller's optional-count timeout. Cancellation releases the
@@ -359,6 +378,7 @@ async fn numstat(root: &Path, rows: &[StatusRow]) -> HashMap<String, (Option<u32
             tracked.push(source);
         }
     }
+    let mut complete = true;
     let (out, has_head) = if tracked.is_empty() {
         // An untracked-only answer has no index-side diff to read. Its paths are counted by the
         // no-index pass below, and skipping this command matters when a directory expands to
@@ -381,8 +401,8 @@ async fn numstat(root: &Path, rows: &[StatusRow]) -> HashMap<String, (Option<u32
         .await
         {
             Ok(s) => (s, true),
-            Err(_) => (
-                run_paths(
+            Err(_) => match head_exists(root).await {
+                Ok(false) => match run_paths(
                     root,
                     &[
                         "diff",
@@ -396,9 +416,18 @@ async fn numstat(root: &Path, rows: &[StatusRow]) -> HashMap<String, (Option<u32
                     tracked.iter().copied(),
                 )
                 .await
-                .unwrap_or_default(),
-                false,
-            ),
+                {
+                    Ok(s) => (s, false),
+                    Err(_) => {
+                        complete = false;
+                        (String::new(), false)
+                    }
+                },
+                _ => {
+                    complete = false;
+                    (String::new(), true)
+                }
+            },
         }
     };
     let mut counts = parse_numstat(&out);
@@ -422,10 +451,30 @@ async fn numstat(root: &Path, rows: &[StatusRow]) -> HashMap<String, (Option<u32
     for (path, count) in no_index {
         if let Some(count) = count {
             counts.insert(path, count);
+        } else {
+            complete = false;
         }
     }
 
-    counts
+    Counts {
+        by_path: counts,
+        complete,
+    }
+}
+
+async fn head_exists(root: &Path) -> std::io::Result<bool> {
+    let out = inspection_command(root)
+        .args(["rev-parse", "--verify", "-q", "HEAD"])
+        .env("GIT_OPTIONAL_LOCKS", "0")
+        .output()
+        .await?;
+    match out.status.code() {
+        Some(0) => Ok(true),
+        Some(1) => Ok(false),
+        _ => Err(std::io::Error::other(
+            String::from_utf8_lossy(&out.stderr).trim().to_string(),
+        )),
+    }
 }
 
 /// Git uses a trailing slash for an untracked directory, but a gitlink added to the index is

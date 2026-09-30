@@ -106,12 +106,16 @@ fn failed_source_keeps_other_output_and_reports_nonzero_exit() {
         let output = fixture.run(&[source]);
         assert!(!output.status.success());
         let error = String::from_utf8(output.stderr).unwrap();
-        assert!(error.contains("game log command exited with"), "{error}");
-        assert!(error.contains('7'), "{error}");
+        assert!(
+            error.contains("game log command exited with exit status: 7"),
+            "{error}"
+        );
         let text = String::from_utf8(output.stdout).unwrap();
-        assert!(text.contains("partial"));
         if source == "all" {
+            assert!(text.contains("[game] partial\n"));
             assert!(text.contains("[daemon] healthy"));
+        } else {
+            assert_eq!(text, "partial\n");
         }
     }
 }

@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
 
 const CACHE_VERSION: u32 = 1;
+const KEY_VERSION: u32 = 2;
 const MAX_CACHE_ENTRIES: usize = 1024;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -317,13 +318,13 @@ fn cache_key(prompt: &str, summary_prompt: &str, model: &str) -> String {
     let prompt: String = prompt.chars().take(MAX_PROMPT_CHARS).collect();
     let mut input = Vec::with_capacity(model.len() + summary_prompt.len() + prompt.len() + 32);
     input.extend_from_slice(b"slopworld-prompt-summary\0");
-    input.extend_from_slice(model.as_bytes());
-    input.push(0);
-    input.extend_from_slice(summary_prompt.as_bytes());
-    input.push(0);
-    input.extend_from_slice(prompt.as_bytes());
+    // Lengths keep embedded NULs from moving bytes across field boundaries.
+    for field in [model, summary_prompt, &prompt] {
+        input.extend_from_slice(&(field.len() as u64).to_le_bytes());
+        input.extend_from_slice(field.as_bytes());
+    }
     format!(
-        "v{CACHE_VERSION}-{:016x}{:016x}",
+        "v{KEY_VERSION}-{:016x}{:016x}",
         fnv(&input, 0xcbf29ce484222325),
         fnv(&input, 0x84222325cbf29ce4)
     )

@@ -164,7 +164,20 @@ fn benchmark_task_restart(config: &Path) -> Result<()> {
             Some(format!("restart {sample}")),
         )?;
     }
-    measure("task restart bounded 10000 updates", |_| {
+    let expected_count = tasks.all().len();
+    let restarted = Tasks::load(config)?;
+    anyhow::ensure!(
+        restarted.all().len() == expected_count,
+        "restart lost task records"
+    );
+    anyhow::ensure!(
+        restarted
+            .get("worker", "bench-0")
+            .and_then(|task| task.note)
+            == Some("restart 9999".into()),
+        "restart lost the final task update"
+    );
+    measure("task restart 10000 updates", |_| {
         Tasks::load(config)
             .expect("persisted benchmark task fixture loads")
             .all()
