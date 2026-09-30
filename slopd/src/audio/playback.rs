@@ -2,23 +2,21 @@
 
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::mpsc::{sync_channel, Receiver, SyncSender, TryRecvError, TrySendError};
+use std::sync::mpsc::{sync_channel, SyncSender};
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
 use rodio::cpal::traits::{DeviceTrait, HostTrait};
-use rodio::{cpal, ChannelCount, Sample, SampleRate, Source};
+use rodio::{cpal, Sample, Source};
 
+use super::ring::{enqueue_chunk, FinishedOnDrop, Ring, RING};
 use super::station::{
     local_title, next_playlist_source, open_file, open_source, AudioFormat, Playlist, TitleSink,
 };
-use super::{GENERATION, QUEUE_POLL, REOPEN_PAUSE};
+use super::{GENERATION, REOPEN_PAUSE};
 
 const CHUNK: usize = 4096;
-pub(crate) const RING: usize = 256;
 const PREFILL_SECS: usize = 1;
-const SPAN: usize = 8192;
 
 /// ALSA PCM devices for sound servers, in preference order.
 /// cpal uses ALSA on Linux. These PCM plugins connect it to sound servers such as PipeWire.
@@ -132,12 +130,10 @@ pub(crate) struct OpenedSource {
     pub(crate) playlist: Option<Playlist>,
     pub(crate) format: AudioFormat,
     pub(crate) title: TitleSink,
-    pub(crate) initial_title: Option<String>,
 }
 
 pub(crate) struct CommittedSource {
     pub(crate) title: TitleSink,
-    pub(crate) initial_title: Option<String>,
 }
 
 /// Opens the source and probes its decoder away from the command worker. The title sink remains
@@ -152,7 +148,11 @@ pub(crate) fn open(source: &str, title: TitleSink) -> Result<OpenedSource> {
         p.next()
             .expect("a directory playlist is non-empty by construction")
     });
-    let initial_title = first_path.as_ref().and_then(|path| local_title(path));
+    if let Some(initial_title) = first_path.as_ref().and_then(|path| local_title(path)) {
+        // Queue the first track before the feeder can advance. Activation publishes the most
+        // recent pending title, so a fast playlist cannot be overwritten by this initial one.
+        title.set(Some(initial_title));
+    }
     let first = match first_path.as_ref() {
         Some(path) => open_file(path)?,
         None => open_source(source, &title)?,
@@ -168,7 +168,6 @@ pub(crate) fn open(source: &str, title: TitleSink) -> Result<OpenedSource> {
         playlist,
         format,
         title,
-        initial_title,
     })
 }
 
@@ -179,13 +178,28 @@ pub(crate) fn commit(
     output: &dyn AudioOutput,
     volume: f32,
 ) -> Result<Option<CommittedSource>> {
+    commit_with_spawn(opened, output, volume, |feed| {
+        std::thread::Builder::new()
+            .name("slopd audio feed".into())
+            .spawn(feed)
+            .map(|_| ())
+    })
+}
+
+// Startup is fallible; output publication is deferred until a feeder exists. The gate prevents
+// decoding or title updates before append, and drops the prepared feeder on stale work or unwind.
+fn commit_with_spawn(
+    opened: OpenedSource,
+    output: &dyn AudioOutput,
+    volume: f32,
+    spawn: impl FnOnce(Box<dyn FnOnce() + Send>) -> std::io::Result<()>,
+) -> Result<Option<CommittedSource>> {
     let OpenedSource {
         source,
         first,
         playlist,
         format,
         title,
-        initial_title,
     } = opened;
     let generation = title.generation;
     if generation != GENERATION.load(Ordering::SeqCst) {
@@ -197,23 +211,25 @@ pub(crate) fn commit(
     let queued = Arc::new(AtomicUsize::new(0));
     let prefill_samples =
         format.rate.get() as usize * format.channels.get() as usize * PREFILL_SECS;
-    output.set_volume(volume);
-    output.append(Box::new(Ring {
+    let finished = Arc::new(AtomicBool::new(false));
+    let ring = Ring {
         rx,
         held: Vec::new(),
         at: 0,
         channels: format.channels,
         rate: format.rate,
         generation,
+        cancelled: title.cancelled.clone(),
         ready: ready.clone(),
+        finished: finished.clone(),
         queued: queued.clone(),
         prefill_samples,
-    }));
-
+    };
     let feed_title = title.clone();
-    std::thread::Builder::new()
-        .name("slopd audio feed".into())
-        .spawn(move || {
+    let (start_tx, start_rx) = sync_channel(1);
+    spawn(Box::new(move || {
+        let _finished_on_exit = FinishedOnDrop(finished);
+        if start_rx.recv().is_ok() {
             feed(FeedArgs {
                 first,
                 source,
@@ -224,15 +240,27 @@ pub(crate) fn commit(
                 title: feed_title,
                 ready,
                 queued,
-            })
-        })
-        .context("starting the feeder")?;
-
-    output.play();
-    Ok(Some(CommittedSource {
-        title,
-        initial_title,
+            });
+        }
     }))
+    .context("starting the feeder")?;
+
+    // Replacement while starting the feeder discards both the ring and the gated feeder.
+    if generation != GENERATION.load(Ordering::SeqCst) || title.cancelled.load(Ordering::Acquire) {
+        return Ok(None);
+    }
+    output.set_volume(volume);
+    output.append(Box::new(ring));
+    output.play();
+    // Replacement during output I/O is handled by the ring's generation check; never start
+    // decoding a candidate that has already been retired.
+    if generation != GENERATION.load(Ordering::SeqCst) || title.cancelled.load(Ordering::Acquire) {
+        return Ok(None);
+    }
+    start_tx
+        .send(())
+        .context("feeder exited before output commit")?;
+    Ok(Some(CommittedSource { title }))
 }
 
 // The feeder owns its inputs so the audio thread can run independently of the caller.
@@ -263,12 +291,16 @@ fn feed(args: FeedArgs) {
         ready,
         queued,
     } = args;
-    let _ready_on_exit = ReadyOnDrop(ready.clone());
     let prefill_samples =
         format.rate.get() as usize * format.channels.get() as usize * PREFILL_SECS;
     let mut current = Some(first);
 
     loop {
+        if title.cancelled.load(Ordering::Acquire)
+            || generation != GENERATION.load(Ordering::SeqCst)
+        {
+            return;
+        }
         let decoded = match current.take() {
             Some(d) => d,
             None if playlist.is_some() => {
@@ -289,7 +321,12 @@ fn feed(args: FeedArgs) {
                 // Reaching here means the decoder itself stopped, so do not rebuild it in a
                 // tight loop and repeatedly play a relay's connection-opening buffer.
                 tracing::warn!("Audio decoder for {source} ended. Rebuilding after a pause.");
-                if !super::wait_for_retry(REOPEN_PAUSE, generation, &GENERATION) {
+                if !super::wait_for_retry(
+                    REOPEN_PAUSE,
+                    generation,
+                    &GENERATION,
+                    Some(&title.cancelled),
+                ) {
                     return;
                 }
                 match open_source(&source, &title) {
@@ -313,7 +350,9 @@ fn feed(args: FeedArgs) {
 
         let mut chunk = Vec::with_capacity(CHUNK);
         for sample in decoded {
-            if generation != GENERATION.load(Ordering::SeqCst) {
+            if title.cancelled.load(Ordering::Acquire)
+                || generation != GENERATION.load(Ordering::SeqCst)
+            {
                 return;
             }
             chunk.push(sample);
@@ -337,139 +376,6 @@ fn feed(args: FeedArgs) {
     }
 }
 
-pub(crate) fn enqueue_chunk(
-    tx: &SyncSender<Vec<Sample>>,
-    chunk: Vec<Sample>,
-    ready: &AtomicBool,
-    queued: &AtomicUsize,
-    prefill_samples: usize,
-    generation: u64,
-) -> bool {
-    let len = chunk.len();
-    let mut chunk = chunk;
-    loop {
-        // Publish the count before the chunk: an active consumer may receive immediately after a
-        // successful send. Failed sends roll it back before retrying.
-        queued.fetch_add(len, Ordering::AcqRel);
-        match tx.try_send(chunk) {
-            Ok(()) => break,
-            Err(TrySendError::Disconnected(_)) => {
-                queued.fetch_sub(len, Ordering::AcqRel);
-                return false;
-            }
-            Err(TrySendError::Full(returned)) => {
-                queued.fetch_sub(len, Ordering::AcqRel);
-                if generation != GENERATION.load(Ordering::SeqCst) {
-                    return false;
-                }
-                chunk = returned;
-                std::thread::sleep(QUEUE_POLL);
-            }
-        }
-    }
-
-    if !ready.load(Ordering::Relaxed) && queued.load(Ordering::Acquire) >= prefill_samples {
-        ready.store(true, Ordering::Release);
-    }
-    true
-}
-
-struct ReadyOnDrop(Arc<AtomicBool>);
-
-impl Drop for ReadyOnDrop {
-    fn drop(&mut self) {
-        self.0.store(true, Ordering::Release);
-    }
-}
-
-/// Supply decoded samples to the audio callback.
-/// Return silence when the ring buffer is empty so network delays do not block the callback.
-pub(crate) struct Ring {
-    pub(crate) rx: Receiver<Vec<Sample>>,
-    pub(crate) held: Vec<Sample>,
-    pub(crate) at: usize,
-    pub(crate) channels: ChannelCount,
-    pub(crate) rate: SampleRate,
-    /// The source generation for this run.
-    /// A generation change ends this source so the player advances to the next source.
-    pub(crate) generation: u64,
-    /// Playback waits here while the feeder builds a small amount of live headroom.
-    pub(crate) ready: Arc<AtomicBool>,
-    /// Samples still in the channel, excluding `held`. Used only at chunk boundaries so the audio
-    /// callback does not perform an atomic operation per sample.
-    pub(crate) queued: Arc<AtomicUsize>,
-    pub(crate) prefill_samples: usize,
-}
-
-impl Iterator for Ring {
-    type Item = Sample;
-
-    fn next(&mut self) -> Option<Sample> {
-        // Superseded, or stopped. This is the retirement `Player::clear` could not do:
-        // clear pauses the player and blocks on a source that never ends.
-        if self.generation != GENERATION.load(Ordering::SeqCst) {
-            return None;
-        }
-        if !self.ready.load(Ordering::Acquire) {
-            return Some(0.0);
-        }
-        if self.at >= self.held.len() {
-            match self.rx.try_recv() {
-                Ok(next) => {
-                    let len = next.len();
-                    // Direct test senders do not publish a count. Production always does. Keep
-                    // the accounting saturating without adding work to every sample callback.
-                    match self
-                        .queued
-                        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
-                            Some(n.saturating_sub(len))
-                        }) {
-                        Ok(_) | Err(_) => {}
-                    }
-                    self.held = next;
-                    self.at = 0;
-                }
-                // The buffer is empty, but the feeder remains active.
-                // Do not return None because that would end playback.
-                Err(TryRecvError::Empty) => {
-                    // Restore the initial buffer level before resuming playback.
-                    // Otherwise, a long reconnection can cause repeated buffer underruns.
-                    self.ready.store(false, Ordering::Release);
-                    if self.queued.load(Ordering::Acquire) >= self.prefill_samples {
-                        self.ready.store(true, Ordering::Release);
-                    }
-                    return Some(0.0);
-                }
-                Err(TryRecvError::Disconnected) => return None,
-            }
-        }
-        let Some(sample) = self.held.get(self.at).copied() else {
-            return Some(0.0);
-        };
-        self.at += 1;
-        Some(sample)
-    }
-}
-
-impl Source for Ring {
-    /// Return a finite span aligned to complete audio frames.
-    /// Rodio rebuilds channel and sample-rate converters only at span boundaries.
-    /// None would preserve the first station's format and play later streams at incorrect speeds.
-    /// Frame alignment preserves channel positions. SPAN remains below rodio's 32768-sample limit.
-    fn current_span_len(&self) -> Option<usize> {
-        let channels = self.channels.get() as usize;
-        Some(SPAN.div_ceil(channels) * channels)
-    }
-
-    fn channels(&self) -> ChannelCount {
-        self.channels
-    }
-
-    fn sample_rate(&self) -> SampleRate {
-        self.rate
-    }
-
-    fn total_duration(&self) -> Option<Duration> {
-        None
-    }
-}
+#[cfg(test)]
+#[path = "playback_tests.rs"]
+mod tests;

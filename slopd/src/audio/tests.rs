@@ -1,7 +1,8 @@
+use super::test_support::{ring, FakeOutputFactory, FakeOutputState};
 use super::{
     enqueue_chunk, local_title, open_device, pcm_id, stream_title, supported_file, wait_for_retry,
-    AudioOutput, AudioState, Feed, Icy, OutputFactory, Playlist, Reconnect, Ring, StreamBody,
-    StreamConnector, TitleSink, CONNECT, GENERATION, NULL_PCM, RING, SERVER_PCMS, STREAM_IDLE,
+    AudioState, Feed, Icy, OutputFactory, Playlist, Reconnect, Ring, StreamBody, StreamConnector,
+    TitleSink, CONNECT, GENERATION, NULL_PCM, RING, SERVER_PCMS, STREAM_IDLE,
 };
 use rodio::cpal::traits::{DeviceTrait, HostTrait};
 use rodio::{cpal, ChannelCount, Sample, SampleRate, Source};
@@ -10,38 +11,9 @@ use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
-use std::sync::mpsc::{sync_channel, SyncSender};
+use std::sync::mpsc::sync_channel;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-
-struct FakeOutputState {
-    opens: AtomicUsize,
-    appends: AtomicUsize,
-    volumes: Mutex<Vec<f32>>,
-}
-
-struct FakeOutputFactory(Arc<FakeOutputState>);
-
-struct FakeOutput(Arc<FakeOutputState>);
-
-impl OutputFactory for FakeOutputFactory {
-    fn open(&self) -> anyhow::Result<Box<dyn AudioOutput>> {
-        self.0.opens.fetch_add(1, Ordering::AcqRel);
-        Ok(Box::new(FakeOutput(self.0.clone())))
-    }
-}
-
-impl AudioOutput for FakeOutput {
-    fn append(&self, _source: Box<dyn Source + Send>) {
-        self.0.appends.fetch_add(1, Ordering::AcqRel);
-    }
-
-    fn set_volume(&self, volume: f32) {
-        self.0.volumes.lock().unwrap().push(volume);
-    }
-
-    fn play(&self) {}
-}
 
 #[test]
 fn active_source_only_matches_the_current_playing_source() {
@@ -88,25 +60,6 @@ fn a_fake_output_factory_can_commit_a_probed_source() {
     assert_eq!(state.volumes.lock().unwrap().last().copied(), Some(0.73));
 }
 
-fn ring() -> (SyncSender<Vec<Sample>>, Ring) {
-    let (tx, rx) = sync_channel(RING);
-    (
-        tx,
-        Ring {
-            rx,
-            held: Vec::new(),
-            at: 0,
-            channels: ChannelCount::new(2).unwrap(),
-            rate: SampleRate::new(44100).unwrap(),
-            // Use the current generation. Only ignored tests change it, and they run separately.
-            generation: GENERATION.load(Ordering::SeqCst),
-            ready: Arc::new(AtomicBool::new(true)),
-            queued: Arc::new(AtomicUsize::new(0)),
-            prefill_samples: 1,
-        },
-    )
-}
-
 /// Append stations with different channel counts and sample rates to one player.
 /// A sample ramp measures playback position without counting trailing converter output.
 /// This test requires no network connection or audio device.
@@ -142,7 +95,9 @@ fn a_station_of_any_shape_plays_at_its_own_speed() {
             channels: ChannelCount::new(channels).unwrap(),
             rate: SampleRate::new(rate).unwrap(),
             generation: GENERATION.load(Ordering::SeqCst),
+            cancelled: Arc::new(AtomicBool::new(false)),
             ready: Arc::new(AtomicBool::new(true)),
+            finished: Arc::new(AtomicBool::new(false)),
             queued: Arc::new(AtomicUsize::new(0)),
             prefill_samples: 1,
         });
@@ -331,7 +286,9 @@ fn an_underrun_rebuilds_headroom_before_resuming() {
         channels: ChannelCount::new(1).unwrap(),
         rate: SampleRate::new(5).unwrap(),
         generation,
+        cancelled: Arc::new(AtomicBool::new(false)),
         ready: ready.clone(),
+        finished: Arc::new(AtomicBool::new(false)),
         queued: queued.clone(),
         prefill_samples: 5,
     };
@@ -376,7 +333,8 @@ fn retry_wait_can_be_cancelled_by_a_new_selection() {
     assert!(!wait_for_retry(
         Duration::from_secs(30),
         generation,
-        &active
+        &active,
+        None
     ));
 }
 
@@ -389,11 +347,13 @@ fn a_stream_body_break_is_hidden_from_its_consumer() {
     let mut stream = Reconnect {
         inner: Box::new(io::Cursor::new(b"abc".to_vec())),
         reopen: move || {
-            rest.pop_front()
-                .ok_or_else(|| io::Error::other("synthetic stream exhausted"))
+            rest.pop_front().ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidData, "synthetic stream exhausted")
+            })
         },
         source: "synthetic fixture".to_string(),
         generation: GENERATION.load(Ordering::SeqCst),
+        cancelled: Arc::new(AtomicBool::new(false)),
         read_since_open: false,
     };
 
@@ -428,11 +388,13 @@ fn a_stream_read_failure_is_hidden_from_its_consumer() {
             bytes: io::Cursor::new(b"before".to_vec()),
         }),
         reopen: move || {
-            next.take()
-                .ok_or_else(|| io::Error::other("synthetic stream exhausted"))
+            next.take().ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidData, "synthetic stream exhausted")
+            })
         },
         source: "synthetic fixture".to_string(),
         generation: GENERATION.load(Ordering::SeqCst),
+        cancelled: Arc::new(AtomicBool::new(false)),
         read_since_open: false,
     };
 
@@ -487,6 +449,7 @@ fn loopback_http_responses_share_one_audio_reader() {
         reopen: move || connector.connect(),
         source: "loopback fixture".to_string(),
         generation: GENERATION.load(Ordering::SeqCst),
+        cancelled: Arc::new(AtomicBool::new(false)),
         read_since_open: false,
     };
 
@@ -603,6 +566,7 @@ fn an_idle_http_body_reconnects_without_rebuilding_the_reader() {
         reopen: move || connector.connect(),
         source: "idle loopback fixture".to_string(),
         generation: GENERATION.load(Ordering::SeqCst),
+        cancelled: Arc::new(AtomicBool::new(false)),
         read_since_open: false,
     };
 
@@ -634,11 +598,13 @@ fn decoder_survives_synthetic_body_breaks() {
     let stream = Reconnect {
         inner: Box::new(io::Cursor::new(encoded[..cuts[0]].to_vec())),
         reopen: move || {
-            rest.pop_front()
-                .ok_or_else(|| io::Error::other("synthetic stream exhausted"))
+            rest.pop_front().ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidData, "synthetic stream exhausted")
+            })
         },
         source: "local OGG fixture".to_string(),
         generation: GENERATION.load(Ordering::SeqCst),
+        cancelled: Arc::new(AtomicBool::new(false)),
         read_since_open: false,
     };
     let decoded = rodio::Decoder::builder()
@@ -648,7 +614,7 @@ fn decoder_survives_synthetic_body_breaks() {
         .build()
         .unwrap();
 
-    assert_eq!(decoded.take(uninterrupted).count(), uninterrupted);
+    assert_eq!(decoded.count(), uninterrupted);
 }
 
 /// End an empty source when its feeder disconnects.
@@ -761,7 +727,8 @@ fn icy_keeps_the_metadata_out_of_the_audio() {
     let mut buf = [0u8; 3];
     loop {
         match icy.read(&mut buf) {
-            Ok(0) | Err(_) => break,
+            Ok(0) => break,
+            Err(error) => panic!("unexpected ICY read error: {error}"),
             Ok(n) => out.extend_from_slice(&buf[..n]),
         }
     }
@@ -857,6 +824,7 @@ fn reconnect_preserves_invalid_data_and_empty_reads_do_nothing() {
         },
         source: "synthetic fixture".to_string(),
         generation: GENERATION.load(Ordering::SeqCst),
+        cancelled: Arc::new(AtomicBool::new(false)),
         read_since_open: false,
     };
 
@@ -974,4 +942,75 @@ fn lists_output_devices() {
         "open_device: {:?}",
         open_device().map(|_| "ok").map_err(|e| format!("{e:#}"))
     );
+}
+
+#[test]
+fn simultaneous_final_handles_send_one_shutdown() {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let audio = super::Audio {
+        inner: Arc::new(super::AudioInner {
+            tx,
+            state: Arc::new(Mutex::new(AudioState::default())),
+            control: Arc::new(super::Control::new()),
+        }),
+    };
+    let other = audio.clone();
+    let barrier = Arc::new(std::sync::Barrier::new(2));
+    let other_barrier = barrier.clone();
+    let thread = std::thread::spawn(move || {
+        other_barrier.wait();
+        drop(other);
+    });
+    barrier.wait();
+    drop(audio);
+    thread.join().unwrap();
+    assert!(matches!(
+        rx.recv_timeout(Duration::from_secs(2)).unwrap(),
+        super::WorkerMsg::Shutdown
+    ));
+    assert!(rx.recv().is_err());
+}
+
+#[test]
+fn reconnect_propagates_a_changed_codec_from_reopen() {
+    let mut attempts = 0;
+    let mut stream = Reconnect {
+        inner: Box::new(io::Cursor::new(Vec::new())),
+        reopen: || {
+            attempts += 1;
+            Err(io::Error::new(io::ErrorKind::InvalidData, "changed MIME"))
+        },
+        source: "synthetic codec change".to_string(),
+        generation: GENERATION.load(Ordering::SeqCst),
+        cancelled: Arc::new(AtomicBool::new(false)),
+        read_since_open: true,
+    };
+    assert_eq!(
+        stream.read(&mut [0; 1]).unwrap_err().kind(),
+        io::ErrorKind::InvalidData
+    );
+    drop(stream);
+    assert_eq!(attempts, 1);
+}
+
+#[test]
+fn cancellation_ends_reconnect_without_requiring_a_new_generation() {
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let retry_cancel = cancelled.clone();
+    let mut attempts = 0;
+    let mut stream = Reconnect {
+        inner: Box::new(io::Cursor::new(Vec::new())),
+        reopen: || {
+            attempts += 1;
+            retry_cancel.store(true, Ordering::Release);
+            Err(io::Error::other("cancelled connection"))
+        },
+        source: "cancelled retry fixture".into(),
+        generation: GENERATION.load(Ordering::SeqCst),
+        cancelled,
+        read_since_open: true,
+    };
+    assert_eq!(stream.read(&mut [0; 1]).unwrap(), 0);
+    drop(stream);
+    assert_eq!(attempts, 1);
 }

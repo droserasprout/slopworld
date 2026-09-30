@@ -36,3 +36,11 @@ coverage scope.
 See [session state](daemon-session-state.md), [sandbox isolation](sandbox-isolation.md),
 [configuration stores](daemon-config-stores.md), [agent templates](daemon-agent-templates.md),
 and [workers](daemon-workers.md) for the contracts that edits must preserve.
+
+Audio request identity and publication belong to `audio/control.rs`. `worker.rs`
+coordinates commands and opener completions; `playback.rs` prepares output and
+starts feeders; `ring.rs` owns callback buffering; `title.rs` serializes candidate
+metadata activation. Publication locks request then state after playback I/O.
+Title activation holds its phase lock before entering that publication boundary.
+Final-handle cleanup cancels owned opens and feeders without advancing the global
+source generation; dropping an idle player must not retire another player.
