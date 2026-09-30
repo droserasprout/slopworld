@@ -1,6 +1,8 @@
 # Sandbox boundaries
 
-Start in `sandbox/bind.rs` for path guards and `sandbox/state.rs` for private storage.
+Start in `sandbox/bind.rs` for mount construction, `sandbox/paths.rs` for path guards,
+and `sandbox/state.rs` for private storage. `state/inventory.rs` owns inventory;
+`seed.rs` owns initialization, independently of resolver preparation in `network.rs`.
 Presets define access.
 [Scoped grants](agent-grants.md) independently define API authority.
 Host escapes are explicit exceptions, not proof that the filesystem sandbox failed.
@@ -8,7 +10,8 @@ Host escapes are explicit exceptions, not proof that the filesystem sandbox fail
 The daemon must reject ordinary binds to protected paths and their ancestors, including config,
 endpoint, preset and state roots. Apply private overlays last so another bind cannot recover
 the host original. An invalid project root stops startup.
-Silently removing it would change what the agent edits.
+Silently removing it would change what the agent edits. Unresolvable safety paths fail closed;
+only genuinely missing suffixes below resolved parents are allowed.
 Launch and settings preview reject unknown or invalid selected sandbox presets. Stale names are
 not silently omitted.
 
@@ -17,6 +20,10 @@ Display-name changes preserve these IDs, so reused names do not cause collisions
 The daemon does not delete private state because of age for configured agents in the Down state.
 Reset and delete move state into trash.
 Temporary errands control their own cleanup. Persistent `/tmp` follows that same state lifetime.
+It overlays workspace mounts under `/tmp`; debug sockets follow it, then private overlays.
+Private copies publish only after seeding succeeds. Seeding omits source symlinks and bounds
+nesting; a private source root must itself be a real file or directory. Trash inventory measures
+links themselves and never follows a linked trash root, entry, or metadata file.
 
 Shared credential files are writable host inodes overlaid on private state. Mountpoints prevent deletion but permit truncation and overwrite.
 Atomic replacement can fail with EBUSY.
@@ -57,8 +64,10 @@ Repository and global configuration remain writable and unchanged.
 claims about process, token, Docker or desktop isolation.
 
 Launch inspection treats live argv, including process titles and option names, as untrusted.
-Only fixed diagnostic flags remain after redaction. Cgroup expansion requires the saved per-launch
-scope identity and a pane descendant in that scope. Older plans use ancestry alone, never the
+Only fixed diagnostic flags remain after redaction. Untrusted saved plans also hide paths,
+wrapper values, environment keys, and executable names; their canonical per-launch scope
+identity survives. When the saved executable is hidden, live comparison is unavailable.
+Cgroup expansion requires the saved per-launch scope identity and a pane descendant in that scope. Older plans use ancestry alone, never the
 shared tmux cgroup, to avoid reporting unrelated sessions.
 
 Linked project worktrees mount only their Git metadata at its real paths. Worktree removal

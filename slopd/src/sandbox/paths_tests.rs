@@ -145,11 +145,30 @@ fn sandbox_validation_uses_the_candidate_replacement() {
         ..Default::default()
     };
     let table = Table {
-        sandbox: vec![candidate.clone(), dependency],
+        sandbox: vec![
+            SandboxPreset {
+                name: "tool".into(),
+                ro: vec!["/".into()],
+                ..Default::default()
+            },
+            dependency,
+        ],
         commands: Vec::new(),
     };
 
     validate_preset(&candidate, &table).unwrap();
+    let invalid = SandboxPreset {
+        ro: vec!["/".into()],
+        ..candidate.clone()
+    };
+    let valid_table = Table {
+        sandbox: vec![candidate.clone()],
+        commands: vec![],
+    };
+    assert!(validate_preset(&invalid, &valid_table)
+        .unwrap_err()
+        .to_string()
+        .contains("exposes"));
 }
 
 #[test]
@@ -174,8 +193,19 @@ fn refused_follows_existing_symlink_parents_before_checking_protected_paths() {
     let home = dirs::home_dir().expect("home directory");
     let link = root.join("home");
     symlink(home, &link).unwrap();
-    let alias = link;
-    assert!(refused(&alias.to_string_lossy()).is_some());
+    assert!(refused(&link.to_string_lossy()).is_some());
+    // Resolve the link before preserving a missing suffix under protected state.
+    let real = root.join("real");
+    std::fs::create_dir_all(&real).unwrap();
+    let real_link = root.join("real-link");
+    symlink(&real, &real_link).unwrap();
+    assert_eq!(
+        safety_path(&real_link.join("missing-child")).unwrap(),
+        real.join("missing-child")
+    );
+    let state_link = root.join("state");
+    symlink(state_root(), &state_link).unwrap();
+    assert!(refused(&state_link.join("missing-child").to_string_lossy()).is_some());
     drop(std::fs::remove_dir_all(&root));
 }
 
@@ -186,4 +216,32 @@ fn shipped_presets_pass_the_central_validator() {
         validate_preset_name(&preset.name, &table)
             .unwrap_or_else(|e| panic!("{} is invalid: {e:#}", preset.name));
     }
+}
+
+#[cfg(unix)]
+#[test]
+fn unresolved_symlinks_and_lookup_errors_fail_closed() {
+    use std::os::unix::fs::symlink;
+    let root = std::env::temp_dir().join(format!("slopd-safety-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&root).unwrap();
+    let looped = root.join("loop");
+    symlink(&looped, &looped).unwrap();
+    let dangling = root.join("dangling");
+    symlink(root.join("missing"), &dangling).unwrap();
+    for path in [&looped, &dangling] {
+        safety_path(path).unwrap_err();
+        assert!(refused(&path.to_string_lossy()).is_some());
+        assert!(overlaps(&path.to_string_lossy(), "/usr"));
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn missing_suffix_parent_traversal_rechecks_existing_aliases() {
+    let root = std::env::temp_dir().join(format!("slopd-safety-parent-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&root).unwrap();
+    std::os::unix::fs::symlink(dirs::home_dir().unwrap(), root.join("home")).unwrap();
+    assert!(refused(&root.join("missing/../home").to_string_lossy()).is_some());
+    std::fs::remove_dir_all(root).unwrap();
 }

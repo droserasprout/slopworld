@@ -253,6 +253,13 @@ fn inventory_and_deletion_do_not_follow_symlinks() {
             let path = base.join(name);
             std::os::unix::fs::symlink(&target, &path).unwrap();
             assert_eq!(tree_size(&path), fs::symlink_metadata(&path).unwrap().len());
+            let entries = stored_states(&[]);
+            let row = entries
+                .iter()
+                .find(|row| row.kind == kind && row.key == name)
+                .unwrap();
+            assert_eq!(row.bytes, fs::symlink_metadata(&path).unwrap().len());
+            assert!(row.session.is_none());
             delete_stored_state(kind, name, &[]).unwrap();
             fs::symlink_metadata(&path).unwrap_err();
             assert_eq!(fs::read(outside.join("keep")).unwrap(), b"external data");
@@ -276,4 +283,44 @@ fn missing_and_ephemeral_state_cleanup_is_idempotent() {
     remove_ephemeral_state(&s).unwrap();
     remove_ephemeral_state(&s).unwrap();
     assert!(!live.exists());
+}
+
+#[test]
+fn trash_inventory_ignores_linked_metadata_and_refuses_linked_root() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    let s = session("external owner");
+    let external = root.join("external");
+    fs::create_dir_all(&external).unwrap();
+    let metadata = external.join(TRASH_SESSION);
+    fs::write(&metadata, toml::to_string(&s).unwrap()).unwrap();
+    fs::create_dir_all(trash_root().join("item")).unwrap();
+    std::os::unix::fs::symlink(&metadata, trash_root().join("item").join(TRASH_SESSION)).unwrap();
+    std::os::unix::fs::symlink(&external, trash_root().join("link")).unwrap();
+    let entries = stored_states(&[]);
+    assert_eq!(entries.len(), 2);
+    assert!(entries.iter().all(|row| row.session.is_none()));
+    assert_eq!(
+        entries.iter().find(|row| row.key == "link").unwrap().bytes,
+        fs::symlink_metadata(trash_root().join("link"))
+            .unwrap()
+            .len()
+    );
+    fs::remove_dir_all(trash_root()).unwrap();
+    std::os::unix::fs::symlink(&external, trash_root()).unwrap();
+    purge_trash().unwrap_err();
+    empty_trash().unwrap_err();
+    assert!(stored_states(&[]).is_empty());
+    assert!(metadata.is_file());
+}
+
+#[test]
+fn trash_cleanup_propagates_non_missing_root_errors() {
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
+    fs::create_dir_all(state_root()).unwrap();
+    fs::write(trash_root(), "not a directory").unwrap();
+    purge_trash().unwrap_err();
 }

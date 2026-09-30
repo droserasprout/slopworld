@@ -40,7 +40,7 @@ fn caches_share_sources_across_worktrees_and_inventory_survives_removal() {
         cmd: Some("/usr/bin/true".into()),
         ..Default::default()
     };
-    for checkout in [&main, &linked] {
+    for (index, checkout) in [&main, &linked].into_iter().enumerate() {
         reconcile(&p, checkout).unwrap();
         let mut effective = p.clone();
         effective.dir = checkout.to_string_lossy().into_owned();
@@ -49,12 +49,20 @@ fn caches_share_sources_across_worktrees_and_inventory_survives_removal() {
             .lower();
         for mount in &p.mounts {
             let src = source(&p, mount).unwrap();
-            assert!(src.is_dir(), "missing sources are created at launch");
+            assert!(
+                src.is_dir(),
+                "reconciliation prepares relative cache storage"
+            );
+            if index == 1 {
+                assert_eq!(std::fs::read(src.join("build-output")).unwrap(), b"cached");
+            }
             assert!(argv.windows(3).any(|args| args[0] == "--bind"
                 && args[1] == src.to_string_lossy()
                 && args[2] == src.to_string_lossy()));
             assert_eq!(std::fs::read_link(checkout.join(&mount.to)).unwrap(), src);
-            std::fs::write(src.join("build-output"), "cached").unwrap();
+            if index == 0 {
+                std::fs::write(src.join("build-output"), "cached").unwrap();
+            }
         }
     }
     let mut renamed = p.clone();
@@ -166,7 +174,13 @@ fn cache_links_preserve_output_and_reject_changed_targets() {
     let target = checkout.join("build/target");
     std::fs::create_dir_all(&target).unwrap();
     std::fs::write(target.join("artifact"), "mine").unwrap();
+    let cache_source = source(&p, &p.mounts[0]).unwrap();
+    let old = root().join(&p.id).join("relative/build/target");
+    std::fs::create_dir_all(&old).unwrap();
+    std::fs::write(old.join("artifact"), "cached").unwrap();
     assert!(reconcile(&p, &checkout).is_err());
+    assert!(!cache_source.exists(), "refusal must not create the source");
+    assert_eq!(std::fs::read(old.join("artifact")).unwrap(), b"cached");
     assert_eq!(
         std::fs::read_to_string(target.join("artifact")).unwrap(),
         "mine"
@@ -233,10 +247,31 @@ fn absolute_cache_destinations_keep_direct_mounts() {
         projects: vec![p.clone()],
         ..Default::default()
     };
-    let argv = super::super::build_plan(&cfg, &s, &p).unwrap().lower();
     let src = source(&p, &p.mounts[0]).unwrap();
+    assert!(!src.exists());
+    let argv = super::super::build_plan(&cfg, &s, &p).unwrap().lower();
+    assert!(src.is_dir());
     assert!(argv.windows(3).any(|args| args[0] == "--bind"
         && args[1] == src.to_string_lossy()
         && args[2] == destination.to_string_lossy()));
     std::fs::symlink_metadata(&destination).unwrap_err();
+}
+
+#[test]
+fn restoration_reports_conflicting_files_and_links() {
+    let root = std::env::temp_dir().join(format!("slopd-cache-restore-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&root).unwrap();
+    let target = root.join("target");
+    let source = root.join("source");
+    let links = [(target.clone(), source.clone())];
+    restore_links(&links).unwrap();
+    restore_links(&links).unwrap(); // expected dangling link is already restored
+    std::fs::remove_file(&target).unwrap();
+    std::fs::write(&target, "occupant").unwrap();
+    assert!(restore_links(&links).is_err());
+    assert_eq!(std::fs::read(&target).unwrap(), b"occupant");
+    std::fs::remove_file(&target).unwrap();
+    std::os::unix::fs::symlink(root.join("other"), &target).unwrap();
+    assert!(restore_links(&links).is_err());
+    std::fs::remove_dir_all(root).unwrap();
 }

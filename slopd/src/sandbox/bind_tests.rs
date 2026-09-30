@@ -5,7 +5,7 @@ use crate::sandbox::{
     validate_preset, PANE_TERM,
 };
 
-fn argv() -> Vec<String> {
+fn launch_plan_fixture() -> LaunchPlan {
     let cfg = Config::default();
     let s = SessionCfg {
         name: "a".into(),
@@ -18,7 +18,11 @@ fn argv() -> Vec<String> {
         dir: "/tmp".into(),
         ..Default::default()
     };
-    build_argv(&cfg, &s, &p).expect("sandbox argv")
+    crate::sandbox::build_plan(&cfg, &s, &p).expect("sandbox plan")
+}
+
+fn argv() -> Vec<String> {
+    launch_plan_fixture().lower()
 }
 
 fn at(a: &[String], needle: &str) -> usize {
@@ -348,8 +352,10 @@ fn private_resolver_binds_to_the_canonical_target() {
         "private resolver was not bound to {target}: {a:?}"
     );
     assert!(
-        !a.windows(3)
-            .any(|w| { w[0] == "--ro-bind" && w[1] == source && w[2] == "/etc/resolv.conf" }),
+        target == "/etc/resolv.conf"
+            || !a
+                .windows(3)
+                .any(|w| { w[0] == "--ro-bind" && w[1] == source && w[2] == "/etc/resolv.conf" }),
         "private resolver still targets the symlink: {a:?}"
     );
 }
@@ -357,18 +363,23 @@ fn private_resolver_binds_to_the_canonical_target() {
 /// This prevents /tmp from hiding the X11 socket.
 #[test]
 fn binds_come_after_the_skeleton() {
-    let a = argv();
-    let tmp = at(&a, "--tmpfs");
-    let first_bind = a
-        .iter()
-        .position(|x| x == "--ro-bind" || x == "--bind" || x == "--dev-bind")
-        .expect("some bind");
-    assert!(
-        tmp < first_bind,
-        "tmpfs at {tmp} buries the bind at {first_bind}"
+    let plan = launch_plan_fixture();
+    assert_eq!(
+        &plan.bwrap[plan.bwrap.len() - 8..],
+        ["--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp", "--dir", "/mnt"]
     );
-    assert!(at(&a, "--dev") < first_bind);
-    assert!(at(&a, "--proc") < first_bind);
+    let args = plan.lower();
+    let mounts_start = plan.limits.len() + plan.pasta.len() + plan.bwrap.len();
+    assert_eq!(
+        &args[mounts_start..mounts_start + plan.mounts.len()],
+        plan.mounts.as_slice()
+    );
+    assert_eq!(
+        effective_mount(&plan.mounts, "/tmp"),
+        Some(("--bind", "/tmp", "/tmp"))
+    );
+    assert!(effective_mount(&plan.mounts, "/dev").is_none());
+    assert!(effective_mount(&plan.mounts, "/proc").is_none());
 }
 
 /// Include the command's sandbox presets even when the project selects another preset.
@@ -770,10 +781,9 @@ fn mounting_the_primary_project_ro_overrides_its_mode() {
     };
     let a = build_argv(&cfg, &s, &p).expect("ro primary argv");
 
-    assert!(
-        a.windows(3)
-            .any(|w| w[0] == "--ro-bind" && w[1] == "/tmp" && w[2] == "/tmp"),
-        "primary project should be ro at its configured path: {a:?}"
+    assert_eq!(
+        effective_mount(&a, "/tmp"),
+        Some(("--ro-bind", "/tmp", "/tmp"))
     );
 }
 
@@ -797,7 +807,97 @@ fn persistent_tmp_is_bound_from_the_agent_state_tree() {
         .unwrap()
         .to_string_lossy()
         .to_string();
-    assert!(a
-        .windows(3)
-        .any(|w| w[0] == "--bind" && w[1] == source && w[2] == "/tmp"));
+    assert_eq!(
+        effective_mount(&a, "/tmp"),
+        Some(("--bind", source.as_str(), "/tmp"))
+    );
+}
+
+// Later mounts at an ancestor hide earlier mounts at a descendant target.
+fn effective_mount<'a>(args: &'a [String], target: &str) -> Option<(&'a str, &'a str, &'a str)> {
+    args.windows(3)
+        .rfind(|w| {
+            matches!(w[0].as_str(), "--bind" | "--ro-bind" | "--dev-bind")
+                && std::path::Path::new(target).starts_with(&w[2])
+        })
+        .map(|w| (w[0].as_str(), w[1].as_str(), w[2].as_str()))
+}
+
+#[test]
+fn explicit_host_dns_supports_regular_and_symlinked_resolver_layouts() {
+    let state_id = uuid::Uuid::new_v4().to_string();
+    let dns = DnsConfig::Servers {
+        servers: vec!["1.1.1.1".parse().unwrap()],
+    };
+    let source = private_resolver_path(&state_id)
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    for layout in [None, Some("/run/resolver/real.conf".into())] {
+        let target = layout.clone().unwrap_or_else(|| "/etc/resolv.conf".into());
+        assert_eq!(
+            mounts::resolver_bind_to(NetworkMode::Host, &dns, &state_id, layout),
+            Some((source.clone(), target))
+        );
+    }
+}
+
+#[test]
+fn workspace_and_persistent_tmp_do_not_hide_debug_sockets() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    std::env::set_var("TMUX_TMPDIR", &root);
+    let socket_dir = root.join(format!("tmux-{}", nix::unistd::getuid().as_raw()));
+    std::fs::create_dir_all(&socket_dir).unwrap();
+    std::fs::write(
+        socket_dir.join(crate::tmux::tmux_socket()),
+        "socket fixture",
+    )
+    .unwrap();
+    let cfg = Config::default();
+    let session = SessionCfg {
+        name: "a".into(),
+        state_id: uuid::Uuid::new_v4().to_string(),
+        project: "p".into(),
+        persistent_tmp: true,
+        cmd: Some("true".into()),
+        sandbox: vec!["debug-fixture".into()],
+        sandbox_snapshots: vec![SandboxPreset {
+            name: "debug-fixture".into(),
+            tmux: true,
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let project = ProjectCfg {
+        name: "p".into(),
+        dir: "/tmp".into(),
+        ..Default::default()
+    };
+    let plan = crate::sandbox::build_plan(&cfg, &session, &project).unwrap();
+    assert_eq!(
+        effective_mount(&plan.mounts, "/tmp"),
+        Some((
+            "--bind",
+            persistent_tmp_path(&session).unwrap().to_str().unwrap(),
+            "/tmp"
+        ))
+    );
+    assert_eq!(
+        effective_mount(&plan.mounts, "/tmp/tmux-0"),
+        Some(("--ro-bind", socket_dir.to_str().unwrap(), "/tmp/tmux-0"))
+    );
+    let args = plan.lower();
+    let skeleton_end = plan.limits.len() + plan.pasta.len() + plan.bwrap.len();
+    assert_eq!(
+        &args[skeleton_end..skeleton_end + plan.mounts.len()],
+        plan.mounts.as_slice()
+    );
+    let environment_start = skeleton_end + plan.mounts.len();
+    assert_eq!(
+        &args[environment_start..environment_start + plan.environment.len()],
+        plan.environment.as_slice()
+    );
+    assert_eq!(args[environment_start + plan.environment.len()], "--");
 }

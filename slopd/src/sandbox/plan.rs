@@ -12,6 +12,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::SessionCfg;
 
+mod redaction;
+pub(crate) use redaction::sanitize_process_argv;
+use redaction::{
+    redact_known, sanitize_command, sanitize_environment, sanitize_process_arg, sanitize_section,
+};
+
 pub(crate) const REDACTED: &str = "<redacted>";
 pub(crate) const UNKNOWN_ARG: &str = "<arg>";
 
@@ -47,17 +53,14 @@ pub(crate) struct PlanView {
 impl LaunchPlan {
     /// Convert the plan sections to the argument list for `tmux new-session`.
     pub(crate) fn lower(&self) -> Vec<String> {
-        let mut argv = Vec::new();
-        argv.extend(self.limits.iter().cloned());
-        argv.extend(self.pasta.iter().cloned());
-        argv.extend(self.bwrap.iter().cloned());
-        // bwrap runs mount operations before environment operations.
-        // Keep these operations in separate diagnostic sections.
-        argv.extend(self.mounts.iter().cloned());
-        argv.extend(self.environment.iter().cloned());
-        argv.push("--".into());
-        argv.extend(self.command.iter().cloned());
-        argv
+        lower_view(
+            &self.limits,
+            &self.pasta,
+            &self.bwrap,
+            &self.mounts,
+            &self.environment,
+            &self.command,
+        )
     }
 
     pub(crate) fn view(&self) -> PlanView {
@@ -70,7 +73,7 @@ impl LaunchPlan {
         let argv = lower_view(&limits, &pasta, &bwrap, &mounts, &environment, &command);
         PlanView {
             version: 1,
-            session: self.session.clone(),
+            session: redact_known(&self.session, &self.known_secrets),
             limits,
             pasta,
             bwrap,
@@ -95,16 +98,8 @@ impl LaunchPlan {
     }
 
     fn save_at(&self, path: &Path) -> Result<()> {
-        let dir = path
-            .parent()
-            .context("launch plan path has no parent directory")?;
-        let tmp = dir.join("launch-plan.json.tmp");
         let text = serde_json::to_string_pretty(&self.view())? + "\n";
-        std::fs::write(&tmp, text).with_context(|| format!("writing {}", tmp.display()))?;
-        set_private_mode(&tmp)?;
-        std::fs::rename(&tmp, path)
-            .with_context(|| format!("installing launch plan {}", path.display()))?;
-        Ok(())
+        crate::paths::write_atomic(path, &text, Some(0o600))
     }
 }
 
@@ -118,8 +113,11 @@ pub(crate) fn read(session: &SessionCfg) -> Result<Option<PlanView>> {
     let view: PlanView = serde_json::from_str(&text)
         .with_context(|| format!("parsing saved launch plan {}", path.display()))?;
     // Treat saved files as untrusted input, including files with manual changes.
-    // Apply the same redaction policy after a restart as for a new plan.
-    Ok(Some(sanitize_view(view)))
+    // After restart only fixed diagnostics and canonical scope identity survive;
+    // unknown credentials cannot be recovered from the original launch.
+    let mut view = sanitize_view(view);
+    view.session = session.name.clone();
+    Ok(Some(view))
 }
 
 pub(crate) fn render_view_human(view: &PlanView) -> String {
@@ -167,20 +165,6 @@ pub(crate) fn sanitize_diagnostic(_text: &str) -> String {
     "details omitted by launch redaction policy".into()
 }
 
-pub(crate) fn sanitize_process_argv(argv: &[String]) -> Vec<String> {
-    // Child processes can change their titles and `argv[0]`.
-    // Treat live arguments as untrusted, including environment names and option keys.
-    argv.iter()
-        .map(|arg| {
-            if safe_command_flag(arg) {
-                arg.clone()
-            } else {
-                UNKNOWN_ARG.into()
-            }
-        })
-        .collect()
-}
-
 fn lower_view(
     limits: &[String],
     pasta: &[String],
@@ -201,16 +185,29 @@ fn lower_view(
 }
 
 fn sanitize_view(view: PlanView) -> PlanView {
-    let limits = sanitize_section(&view.limits, &[]);
-    let pasta = sanitize_section(&view.pasta, &[]);
-    let bwrap = sanitize_section(&view.bwrap, &[]);
-    let environment = sanitize_environment(&view.environment, &[]);
-    let mounts = sanitize_section(&view.mounts, &[]);
-    let command = sanitize_command(&view.command, &[]);
+    // Only fixed diagnostics and a validated launch-scope identity survive an
+    // untrusted saved file. Paths, keys, executable names and wrapper values may
+    // contain credentials that are no longer known after a daemon restart.
+    let limits = view
+        .limits
+        .iter()
+        .map(|arg| {
+            if launch_scope(arg).is_some() {
+                arg.clone()
+            } else {
+                sanitize_process_arg(arg)
+            }
+        })
+        .collect::<Vec<_>>();
+    let pasta = sanitize_process_argv(&view.pasta);
+    let bwrap = sanitize_process_argv(&view.bwrap);
+    let environment = sanitize_process_argv(&view.environment);
+    let mounts = sanitize_process_argv(&view.mounts);
+    let command = sanitize_process_argv(&view.command);
     let argv = lower_view(&limits, &pasta, &bwrap, &mounts, &environment, &command);
     PlanView {
-        version: view.version,
-        session: redact_known(&view.session, &[]),
+        version: 1,
+        session: REDACTED.into(),
         limits,
         pasta,
         bwrap,
@@ -221,156 +218,12 @@ fn sanitize_view(view: PlanView) -> PlanView {
     }
 }
 
-fn sanitize_section(args: &[String], secrets: &[String]) -> Vec<String> {
-    args.iter().map(|arg| redact_known(arg, secrets)).collect()
-}
-
-fn sanitize_environment(args: &[String], secrets: &[String]) -> Vec<String> {
-    let mut out = Vec::with_capacity(args.len());
-    let mut i = 0;
-    while i < args.len() {
-        let Some(arg) = args.get(i) else {
-            break;
-        };
-        if arg == "--setenv" {
-            out.push(arg.clone());
-            if let Some(key) = args.get(i + 1) {
-                out.push(redact_known(key, secrets));
-            }
-            if args.get(i + 2).is_some() {
-                out.push(REDACTED.into());
-            }
-            i += 3.min(args.len() - i);
-            continue;
-        }
-        out.push(sanitize_env_assignment(arg, secrets));
-        i += 1;
-    }
-    out
-}
-
-fn sanitize_env_assignment(arg: &str, secrets: &[String]) -> String {
-    let Some((key, _)) = arg.split_once('=') else {
-        return redact_known(arg, secrets);
-    };
-    format!("{key}={REDACTED}")
-}
-
-fn sanitize_command(args: &[String], secrets: &[String]) -> Vec<String> {
-    if args.is_empty() {
-        return Vec::new();
-    }
-    let Some(first_arg) = args.first() else {
-        return Vec::new();
-    };
-    let first = first_arg
-        .split_once('=')
-        .map(|_| sanitize_env_assignment(first_arg, secrets))
-        .unwrap_or_else(|| redact_known(first_arg, secrets));
-    let mut out = vec![first];
-    let mut value_for_sensitive = false;
-    for arg in args.iter().skip(1) {
-        if value_for_sensitive {
-            out.push(REDACTED.into());
-            value_for_sensitive = false;
-            continue;
-        }
-        if let Some((key, _value)) = arg.split_once('=') {
-            if is_env_key(key) {
-                out.push(sanitize_env_assignment(arg, secrets));
-                continue;
-            }
-            if is_sensitive_key(key) {
-                out.push(format!("{}={REDACTED}", redact_known(key, secrets)));
-            } else {
-                out.push(UNKNOWN_ARG.into());
-            }
-            continue;
-        }
-        if let Some(key) = arg.strip_prefix('-') {
-            if is_sensitive_key(key) {
-                out.push(redact_known(arg, secrets));
-                value_for_sensitive = true;
-            } else if safe_command_flag(arg) {
-                out.push(redact_known(arg, secrets));
-            } else {
-                out.push(UNKNOWN_ARG.into());
-            }
-            continue;
-        }
-        if arg.contains('=') && is_env_key(arg.split('=').next().unwrap_or_default()) {
-            out.push(sanitize_env_assignment(arg, secrets));
-        } else {
-            out.push(UNKNOWN_ARG.into());
-        }
-    }
-    out
-}
-
-fn safe_command_flag(arg: &str) -> bool {
-    matches!(
-        arg,
-        "-h" | "--help"
-            | "-q"
-            | "--quiet"
-            | "-v"
-            | "--verbose"
-            | "-y"
-            | "--yes"
-            | "--full-auto"
-            | "--dangerously-bypass-approvals-and-sandbox"
-            | "--no-alt-screen"
-            | "--json"
-            | "--version"
-    )
-}
-
-fn is_env_key(key: &str) -> bool {
-    !key.is_empty()
-        && key.bytes().enumerate().all(|(i, byte)| {
-            byte == b'_' || byte.is_ascii_uppercase() || (i > 0 && byte.is_ascii_digit())
-        })
-}
-
-fn is_sensitive_key(key: &str) -> bool {
-    let key = key.trim_start_matches('-').to_ascii_lowercase();
-    [
-        "token",
-        "key",
-        "api-key",
-        "apikey",
-        "secret",
-        "password",
-        "passwd",
-        "credential",
-        "auth",
-        "cookie",
-        "private-key",
-        "refresh-token",
-        "access-token",
-    ]
-    .iter()
-    .any(|needle| key == *needle || key == format!("worker-{needle}"))
-}
-
-fn redact_known(value: &str, secrets: &[String]) -> String {
-    let mut out = value.to_string();
-    for secret in secrets.iter().filter(|secret| !secret.is_empty()) {
-        out = out.replace(secret, REDACTED);
-    }
-    out
-}
-
-#[cfg(unix)]
-fn set_private_mode(path: &Path) -> Result<()> {
-    use std::os::unix::fs::PermissionsExt;
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
-    Ok(())
-}
-
-#[cfg(not(unix))]
-fn set_private_mode(_path: &Path) -> Result<()> {
-    Ok(())
+/// A fixed prefix and canonical UUID keep scope identity safe for persisted views.
+pub(super) fn launch_scope(arg: &str) -> Option<&str> {
+    let unit = arg.strip_prefix("--unit=")?;
+    let id = unit.strip_prefix("slopworld-")?.strip_suffix(".scope")?;
+    let parsed = uuid::Uuid::parse_str(id).ok()?;
+    (parsed.to_string() == id).then_some(unit)
 }
 
 #[cfg(test)]

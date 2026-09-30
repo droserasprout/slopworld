@@ -1,3 +1,5 @@
+//! Host-session commands and shell-like argument parsing without expansion.
+
 use std::path::Path;
 
 use crate::config::{Config, ProjectCfg, SessionCfg};
@@ -103,7 +105,9 @@ pub(super) fn session_name_for(project: &str, shell: Option<&str>) -> String {
     }
 }
 
-/// `shell_split` preserves argv boundaries without expanding shell syntax.
+/// Preserve argv boundaries without expansion. Inside double quotes, backslash
+/// escapes only `$`, backtick, quote, backslash and newline, as in a POSIX shell.
+/// Incomplete quotes are accepted; a trailing backslash stays literal.
 pub fn shell_split(s: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut cur = String::new();
@@ -113,7 +117,12 @@ pub fn shell_split(s: &str) -> Vec<String> {
 
     for c in s.chars() {
         if escaped {
-            cur.push(c);
+            if quote == Some('"') && !matches!(c, '$' | '`' | '"' | '\\' | '\n') {
+                cur.push('\\');
+            }
+            if c != '\n' {
+                cur.push(c);
+            }
             any = true;
             escaped = false;
             continue;
@@ -150,3 +159,7 @@ pub fn shell_split(s: &str) -> Vec<String> {
     }
     out
 }
+
+#[cfg(test)]
+#[path = "host_tests.rs"]
+mod tests;

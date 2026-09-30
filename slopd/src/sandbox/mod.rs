@@ -1,3 +1,6 @@
+//! Resolve launch configuration and project mounts. Bind owns argument construction;
+//! state owns storage lifetime, and host owns unsandboxed command behavior.
+
 mod bind;
 pub(crate) mod cache;
 mod host;
@@ -5,6 +8,7 @@ mod network;
 mod observe;
 mod paths;
 mod plan;
+mod seed;
 mod state;
 
 use std::path::Path;
@@ -18,8 +22,6 @@ pub use host::{host_argv, host_session_name, is_shell_command, shell_split};
 #[cfg(test)]
 use host::{host_command, host_shell, session_name_for};
 pub use network::prepare_network;
-#[cfg(test)]
-use network::seed_into;
 pub(crate) use network::{dns_servers, private_resolver_path};
 pub(crate) use observe::inspect_session;
 pub use paths::{refused, validate_preset, validate_preset_name};

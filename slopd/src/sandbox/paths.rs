@@ -1,7 +1,9 @@
+//! Resolve host aliases for fail-closed path guards and validate preset dependencies.
+
 use std::ffi::OsString;
 use std::path::{Component, Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use crate::config::{expand, Config};
 use crate::presets::{SandboxPreset, Table};
@@ -11,12 +13,19 @@ use super::state_root;
 /// Reject paths that expose daemon credentials, configuration, preset definitions, or private session state.
 /// Also reject ancestors and descendants of these protected paths.
 pub fn refused(path: &str) -> Option<String> {
-    let path = safety_path(Path::new(path));
+    let path = match safety_path(Path::new(path)) {
+        Ok(path) => path,
+        Err(error) => return Some(format!("an unresolved safety path: {error:#}")),
+    };
     if path == Path::new("/") {
         return Some("the whole filesystem".into());
     }
-    if dirs::home_dir().is_some_and(|home| safety_path(&home) == path) {
-        return Some("the whole home directory".into());
+    if let Some(home) = dirs::home_dir() {
+        match safety_path(&home) {
+            Ok(home) if home == path => return Some("the whole home directory".into()),
+            Err(error) => return Some(format!("an unresolved home path: {error:#}")),
+            _ => {}
+        }
     }
 
     let keep = [
@@ -26,7 +35,10 @@ pub fn refused(path: &str) -> Option<String> {
         ("session private state", state_root()),
     ];
     for (what, kept) in keep {
-        let kept = safety_path(&kept);
+        let kept = match safety_path(&kept) {
+            Ok(kept) => kept,
+            Err(error) => return Some(format!("an unresolved protected path: {error:#}")),
+        };
         if kept.starts_with(&path) || path.starts_with(&kept) {
             return Some(what.into());
         }
@@ -36,38 +48,60 @@ pub fn refused(path: &str) -> Option<String> {
 
 /// Check aliases as well as literal spellings when a source could expose private originals.
 pub(super) fn overlaps(left: &str, right: &str) -> bool {
-    let left = safety_path(Path::new(left));
-    let right = safety_path(Path::new(right));
+    let (Ok(left), Ok(right)) = (safety_path(Path::new(left)), safety_path(Path::new(right)))
+    else {
+        return true; // An unresolved alias cannot establish disjointness.
+    };
     left.starts_with(&right) || right.starts_with(&left)
 }
 
 /// Resolve existing path components and keep the missing suffix.
 /// Safety checks then account for symlinks in existing parents.
 /// Presets can still specify paths for software that this machine does not have.
-fn safety_path(path: &Path) -> PathBuf {
+fn safety_path(path: &Path) -> Result<PathBuf> {
     let mut missing: Vec<OsString> = Vec::new();
-    let mut probe = path.to_path_buf();
-
-    while !probe.exists() {
-        let Some(name) = probe.file_name() else {
-            return lexical_path(path);
-        };
-        missing.push(name.to_os_string());
-        if !probe.pop() {
-            return lexical_path(path);
+    let mut probe = std::path::absolute(path)?;
+    loop {
+        match std::fs::canonicalize(&probe) {
+            Ok(mut resolved) => {
+                for name in missing.iter().rev() {
+                    resolved.push(name);
+                }
+                let normalized = lexical_path(&resolved);
+                // A missing `child/..` can reveal an existing alias after
+                // normalization. Resolve that spelling again instead of
+                // assuming the entire suffix is still missing.
+                if missing.iter().any(|name| name == "..") {
+                    return safety_path(&normalized);
+                }
+                return Ok(normalized);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                // An existing dangling symlink is an unresolved alias, not an
+                // optional missing suffix. Permission and other lookup failures
+                // must likewise never fall back to a lexical allow decision.
+                match std::fs::symlink_metadata(&probe) {
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Ok(_) => return Err(error).context("resolving existing safety path"),
+                    Err(error) => return Err(error).context("looking up safety path"),
+                }
+                let name = probe
+                    .components()
+                    .next_back()
+                    .context("safety path has no existing ancestor")?;
+                missing.push(name.as_os_str().to_owned());
+                anyhow::ensure!(probe.pop(), "safety path has no existing ancestor");
+            }
+            Err(error) => {
+                return Err(error).with_context(|| format!("resolving {}", probe.display()))
+            }
         }
     }
-
-    let mut out = std::fs::canonicalize(&probe).unwrap_or_else(|_| lexical_path(&probe));
-    for name in missing.iter().rev() {
-        out.push(name);
-    }
-    lexical_path(&out)
 }
 
 /// Normalize `.` and `..` without following symlinks.
 /// `safety_path` first follows symlinks where possible.
-/// It uses this function for missing suffixes or paths without existing parents.
+/// Use this only for suffixes below successfully resolved existing parents.
 fn lexical_path(path: &Path) -> PathBuf {
     let mut out = PathBuf::new();
     for component in path.components() {
@@ -171,7 +205,7 @@ fn validate_preset_paths(p: &SandboxPreset) -> Result<()> {
             let expanded = expand(raw);
             (!expanded.is_empty()).then(|| safety_path(Path::new(&expanded)))
         })
-        .collect();
+        .collect::<Result<_>>()?;
 
     for (kind, paths) in [("seed", p.seed.as_slice()), ("skip", p.skip.as_slice())] {
         for raw in paths {
@@ -179,7 +213,7 @@ fn validate_preset_paths(p: &SandboxPreset) -> Result<()> {
             if expanded.is_empty() {
                 continue;
             }
-            let path = safety_path(Path::new(&expanded));
+            let path = safety_path(Path::new(&expanded))?;
             if !private.iter().any(|root| path.starts_with(root)) {
                 anyhow::bail!(
                     "Sandbox preset {:?} {kind} path {raw:?} must be inside a private path.",
@@ -203,7 +237,7 @@ fn validate_preset_paths(p: &SandboxPreset) -> Result<()> {
                 p.name
             );
         }
-        let path = safety_path(Path::new(&expanded));
+        let path = safety_path(Path::new(&expanded))?;
         if !private.iter().any(|root| path.starts_with(root)) {
             anyhow::bail!(
                 "Sandbox preset {:?} shared path {raw:?} must be inside a private path.",
