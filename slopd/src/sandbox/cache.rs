@@ -92,6 +92,9 @@ pub(crate) fn reconcile(project: &ProjectCfg, checkout: &Path) -> Result<()> {
         if target.components().any(|c| c.as_os_str() == ".git") {
             bail!("cache link cannot replace Git metadata");
         }
+        // Refuse occupied checkout targets before migration or source creation.
+        // An expected existing link still needs its source prepared below.
+        link_present(&target, &source)?;
         // Move the old managed layout only when the new location is still absent.
         if mount.from.trim().is_empty() {
             let old = root()
@@ -121,15 +124,15 @@ pub(crate) fn reconcile(project: &ProjectCfg, checkout: &Path) -> Result<()> {
         if !source.is_dir() {
             bail!("cache source {} is not a directory", source.display());
         }
-        match std::fs::symlink_metadata(&target) {
-            Ok(meta) if meta.file_type().is_symlink() && std::fs::read_link(&target)? == source => continue,
-            Ok(_) => bail!("cache destination {} already exists; move its contents into {} and remove it before retrying", target.display(), source.display()),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
-            Err(error) => return Err(error.into()),
+        if link_present(&target, &source)? {
+            continue;
         }
         let parent = target.parent().context("cache destination parent")?;
         std::fs::create_dir_all(parent)?;
         check_parent(checkout, &target)?;
+        if link_present(&target, &source)? {
+            continue;
+        }
         symlink(&source, &target).with_context(|| format!("linking cache {}", target.display()))?;
     }
     Ok(())
@@ -208,11 +211,22 @@ pub(crate) fn remove_links(
 
 pub(crate) fn restore_links(links: &[(PathBuf, PathBuf)]) -> Result<()> {
     for (target, source) in links {
-        if !target.exists() && std::fs::symlink_metadata(target).is_err() {
-            symlink(source, target)?;
+        if !link_present(target, source)? {
+            symlink(source, target)
+                .with_context(|| format!("restoring cache link {}", target.display()))?;
         }
     }
     Ok(())
+}
+
+/// True only for the expected link. A dangling or foreign occupant is a conflict.
+fn link_present(target: &Path, source: &Path) -> Result<bool> {
+    match std::fs::symlink_metadata(target) {
+        Ok(meta) if meta.file_type().is_symlink() && std::fs::read_link(target)? == source => Ok(true),
+        Ok(_) => bail!("cache destination {} already exists; move its contents into {} and remove it before retrying", target.display(), source.display()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error).with_context(|| format!("checking cache link {}", target.display())),
+    }
 }
 
 pub(crate) fn validate(project: &ProjectCfg, mount: &Mount) -> Result<PathBuf> {

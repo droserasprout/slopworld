@@ -1,11 +1,13 @@
+//! Resolver preparation and launch-time DNS selection; private-copy seeding belongs to seed.
+
 use std::net::Ipv4Addr;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 
 use crate::config::{expand, Config, DnsConfig, NetworkMode, ProjectCfg, SessionCfg};
-use crate::presets::SandboxPreset;
 
+use super::seed::seed_into;
 use super::{persistent_tmp_path, presets_for, private_path, state_root, PRIVATE_RESOLVER};
 
 /// Create resolver files and initialize private copies before argument construction.
@@ -42,19 +44,26 @@ pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<(
                 continue;
             }
             let copy = private_path(&s.state_id, &host)?;
-            if copy.exists() {
+            if std::fs::symlink_metadata(&copy).is_ok() {
                 continue;
             }
-            let host_exists = Path::new(&host).exists();
-            if host_exists {
-                tracing::info!("session {:?} gets its own {host}", s.name);
-                seed_into(pr, &host, &copy)?;
-            } else if host.starts_with("/tmp/") {
-                // The sandbox uses tmpfs for /tmp. This path has no host source.
-                // Create an empty session-state directory for the bind mount in /tmp.
-                tracing::info!("session {:?} gets a fresh {host}", s.name);
-                std::fs::create_dir_all(&copy)
-                    .with_context(|| format!("making {}", copy.display()))?;
+            match std::fs::symlink_metadata(&host) {
+                Ok(_) => {
+                    tracing::info!("session {:?} gets its own {host}", s.name);
+                    seed_into(pr, &host, &copy)?;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    if host.starts_with("/tmp/") {
+                        // The sandbox uses tmpfs for /tmp. This path has no host source.
+                        // Create an empty session-state directory for the bind mount in /tmp.
+                        tracing::info!("session {:?} gets a fresh {host}", s.name);
+                        std::fs::create_dir_all(&copy)
+                            .with_context(|| format!("making {}", copy.display()))?;
+                    }
+                }
+                Err(error) => {
+                    return Err(error).with_context(|| format!("reading private source {host}"))
+                }
             }
         }
     }
@@ -79,93 +88,6 @@ fn prepare_resolver(session: &str, servers: &[String]) -> Result<()> {
         .join("\n");
     std::fs::write(&path, format!("{text}\n"))
         .with_context(|| format!("writing {}", path.display()))?;
-    Ok(())
-}
-
-/// Create a private copy from the host source if the copy does not exist.
-/// Later host changes do not replace the agent's changes in an existing copy.
-/// Delete the private copy to initialize it again.
-pub(super) fn seed_into(pr: &SandboxPreset, host: &str, copy: &Path) -> Result<()> {
-    if copy.exists() {
-        return Ok(());
-    }
-    if let Some(parent) = copy.parent() {
-        std::fs::create_dir_all(parent).with_context(|| format!("making {}", parent.display()))?;
-    }
-
-    // A file is its own seed.
-    if Path::new(host).is_file() {
-        std::fs::copy(host, copy).with_context(|| format!("seeding {}", copy.display()))?;
-        return Ok(());
-    }
-    std::fs::create_dir_all(copy).with_context(|| format!("making {}", copy.display()))?;
-
-    // Expand `skip` once before traversal. Also exclude shared files, which use host bind mounts.
-    // Copying shared credentials here could leave obsolete credentials in the session directory.
-    let skip: Vec<String> = pr
-        .skip
-        .iter()
-        .chain(pr.shared.iter())
-        .map(|s| expand(s))
-        .collect();
-    let skipped = |p: &Path| skip.iter().any(|s| Path::new(s) == p);
-
-    // Copy top-level files without tool-specific rules.
-    // `skip` excludes sensitive history and shared files.
-    match std::fs::read_dir(host) {
-        Ok(entries) => {
-            for entry in entries.flatten() {
-                if entry.path().is_file() && !skipped(&entry.path()) {
-                    let to = copy.join(entry.file_name());
-                    if let Err(e) = std::fs::copy(entry.path(), &to) {
-                        tracing::warn!("seeding {}: {e:#}", to.display());
-                    }
-                }
-            }
-        }
-        Err(e) => tracing::warn!("reading {host}: {e:#}"),
-    }
-
-    // Copy the subdirectories that the preset names, such as agents, commands, and plugins.
-    // A user preset can specify additional state for one project or agent.
-    for from in &pr.seed {
-        let from = expand(from);
-        let Ok(rel) = Path::new(&from).strip_prefix(host) else {
-            continue; // a seed for some other private path, or for another preset's
-        };
-        let to = copy.join(rel);
-        // Log missing sources and successful copies.
-        // A missing source can indicate optional software state or an incorrect preset path.
-        if !Path::new(&from).exists() {
-            tracing::info!("seed {from} is not on this machine, nothing copied");
-            continue;
-        }
-        match seed(Path::new(&from), &to, &skip) {
-            Ok(()) => tracing::info!("seeded {from}"),
-            Err(e) => tracing::warn!("seeding {} from {from}: {e:#}", to.display()),
-        }
-    }
-    Ok(())
-}
-
-/// Recursively copy an existing source entry, except paths in `skip`.
-/// Permit missing sources because presets describe optional software state.
-fn seed(from: &Path, to: &Path, skip: &[String]) -> Result<()> {
-    if !from.exists() || skip.iter().any(|s| Path::new(s) == from) {
-        return Ok(());
-    }
-    if from.is_file() {
-        if let Some(parent) = to.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::copy(from, to)?;
-        return Ok(());
-    }
-    std::fs::create_dir_all(to)?;
-    for entry in std::fs::read_dir(from)? {
-        let entry = entry?;
-        seed(&entry.path(), &to.join(entry.file_name()), skip)?;
-    }
     Ok(())
 }
 

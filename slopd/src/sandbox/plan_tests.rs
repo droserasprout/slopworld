@@ -85,7 +85,7 @@ fn restart_redaction_does_not_need_the_original_secret() {
     let safe = sanitize_view(view);
     let text = serde_json::to_string(&safe).unwrap();
     assert!(!text.contains("old-secret"));
-    assert!(text.contains(REDACTED));
+    assert!(text.contains(UNKNOWN_ARG));
 }
 
 #[test]
@@ -180,4 +180,80 @@ fn saved_projection_is_private_and_replaces_atomically() {
     );
 
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn overlapping_secrets_are_redacted_independent_of_order() {
+    for secrets in [
+        vec!["token", "token-long"],
+        vec!["token-long", "token"],
+        vec!["aba", "bab"],
+    ] {
+        let secrets = secrets.into_iter().map(str::to_owned).collect::<Vec<_>>();
+        let input = if secrets[0] == "aba" {
+            "ababa"
+        } else {
+            "token-long"
+        };
+        assert_eq!(redact_known(input, &secrets), REDACTED);
+    }
+}
+
+#[test]
+fn known_secrets_in_session_and_assignment_keys_are_redacted() {
+    let plan = LaunchPlan {
+        session: "SECRET-worker".into(),
+        limits: vec![],
+        pasta: vec![],
+        bwrap: vec![],
+        mounts: vec![],
+        environment: vec!["SECRET_KEY=value".into()],
+        command: vec!["SECRET_KEY=value".into(), "SECRET_KEY=value".into()],
+        known_secrets: vec!["SECRET".into()],
+    };
+    let view = plan.view();
+    assert_eq!(view.environment, ["<redacted>_KEY=<redacted>"]);
+    assert_eq!(
+        view.command,
+        ["<redacted>_KEY=<redacted>", "<redacted>_KEY=<redacted>"]
+    );
+    assert!(!serde_json::to_string(&view).unwrap().contains("SECRET"));
+}
+
+#[test]
+fn modified_saved_plan_cannot_reintroduce_unknown_credentials() {
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
+    let session = SessionCfg {
+        name: "configured".into(),
+        state_id: uuid::Uuid::new_v4().to_string(),
+        ..Default::default()
+    };
+    let dir = super::super::state_dir(&session).unwrap();
+    std::fs::create_dir_all(&dir).unwrap();
+    let scope = format!("--unit=slopworld-{}.scope", uuid::Uuid::new_v4());
+    let hostile = PlanView {
+        version: 1,
+        session: "unknown-secret".into(),
+        limits: vec!["unknown-secret".into(), scope.clone()],
+        pasta: vec!["unknown-secret".into()],
+        bwrap: vec!["unknown-secret".into()],
+        environment: vec!["unknown-secret=value".into()],
+        mounts: vec!["unknown-secret".into()],
+        command: vec!["unknown-secret".into(), "--help".into()],
+        argv: vec!["unknown-secret".into()],
+    };
+    std::fs::write(
+        dir.join("launch-plan.json"),
+        serde_json::to_string(&hostile).unwrap(),
+    )
+    .unwrap();
+    let safe = read(&session).unwrap().unwrap();
+    assert_eq!(safe.session, "configured");
+    assert_eq!(safe.limits[1], scope);
+    assert_eq!(safe.command, [UNKNOWN_ARG, "--help"]);
+    assert!(!serde_json::to_string(&safe)
+        .unwrap()
+        .contains("unknown-secret"));
 }

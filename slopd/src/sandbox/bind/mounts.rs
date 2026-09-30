@@ -79,7 +79,11 @@ pub(super) fn push_ro_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
     for path in bind.dev {
         push_args(a, &["--dev-bind", path, path]);
     }
+}
 
+/// Explicit host capabilities follow workspace and persistent /tmp mounts.
+/// Private overlays still apply last and retain their isolation policy.
+pub(super) fn push_capability_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
     // Mount the debug socket after ordinary mounts so another preset's /tmp mount cannot hide it.
     // The target path uses guest UID 0.
     if bind.tmux {
@@ -94,13 +98,17 @@ pub(super) fn push_ro_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
     }
 }
 
-/// Mount persistent `/tmp` before project and private-preset mounts.
-pub(super) fn push_persistent_tmp(a: &mut Vec<String>, bind: &BindContext<'_>) {
+/// Persistent `/tmp` overrides workspace mounts that cover `/tmp`.
+/// Debug sockets and private-preset mounts are applied afterward.
+pub(super) fn push_persistent_tmp(
+    a: &mut Vec<String>,
+    bind: &BindContext<'_>,
+) -> anyhow::Result<()> {
     if bind.s.persistent_tmp {
-        if let Ok(path) = persistent_tmp_path(bind.s) {
-            push_args(a, &["--bind", &path.to_string_lossy(), "/tmp"]);
-        }
+        let path = persistent_tmp_path(bind.s)?;
+        push_args(a, &["--bind", &path.to_string_lossy(), "/tmp"]);
     }
+    Ok(())
 }
 
 /// Mount private state, shared credentials, and DNS files after ordinary paths.
@@ -233,8 +241,17 @@ pub(super) fn resolver_bind(
     dns: &DnsConfig,
     state_id: &str,
 ) -> Option<(String, String)> {
+    resolver_bind_to(network, dns, state_id, resolver_target())
+}
+
+pub(super) fn resolver_bind_to(
+    network: NetworkMode,
+    dns: &DnsConfig,
+    state_id: &str,
+    target: Option<String>,
+) -> Option<(String, String)> {
+    let target = target.unwrap_or_else(|| "/etc/resolv.conf".into());
     if network == NetworkMode::Host {
-        let target = resolver_target()?;
         Some(match dns {
             DnsConfig::Resolved => {
                 let stub = "/run/systemd/resolve/stub-resolv.conf";
@@ -259,7 +276,7 @@ pub(super) fn resolver_bind(
                 .ok()?
                 .to_string_lossy()
                 .into_owned(),
-            resolver_target().unwrap_or_else(|| "/etc/resolv.conf".into()),
+            target,
         ))
     } else {
         None

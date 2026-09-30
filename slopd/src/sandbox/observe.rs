@@ -17,7 +17,7 @@ struct Process {
     pid: u32,
     ppid: u32,
     argv: Vec<String>,
-    cgroup: Option<String>,
+    cgroups: Vec<String>,
 }
 
 /// Return the saved plan and, when available, a redacted view of the pane's live process tree.
@@ -38,7 +38,8 @@ pub(crate) async fn inspect_session(
         }));
     }
 
-    let plan = read_launch_plan(session)?;
+    let session = session.clone();
+    let plan = tokio::task::spawn_blocking(move || read_launch_plan(&session)).await??;
     let scope = plan.as_ref().and_then(expected_scope);
     let exists = tmux.exists(name).await;
     let (live, comparison) = if !exists {
@@ -110,7 +111,12 @@ pub(crate) async fn inspect_session(
 }
 
 async fn observe_tree(root: u32, scope: Option<&str>) -> Option<(&'static str, Vec<Process>)> {
-    if let Some(processes) = proc_tree(root, scope) {
+    let scope = scope.map(str::to_owned);
+    if let Some(processes) = tokio::task::spawn_blocking(move || proc_tree(root, scope.as_deref()))
+        .await
+        .ok()
+        .flatten()
+    {
         return Some(("proc", processes));
     }
     ps_tree(root).await.map(|processes| ("ps", processes))
@@ -136,19 +142,16 @@ fn proc_tree(root: u32, scope: Option<&str>) -> Option<Vec<Process>> {
 }
 
 fn expected_scope(plan: &PlanView) -> Option<&str> {
-    plan.limits.iter().find_map(|arg| {
-        let unit = arg.strip_prefix("--unit=")?;
-        let id = unit.strip_prefix("slopworld-")?.strip_suffix(".scope")?;
-        uuid::Uuid::parse_str(id).ok()?;
-        Some(unit)
-    })
+    plan.limits
+        .iter()
+        .find_map(|arg| super::plan::launch_scope(arg))
 }
 
 fn in_scope(process: &Process, scope: &str) -> bool {
     process
-        .cgroup
-        .as_deref()
-        .is_some_and(|path| path.split('/').any(|part| part == scope))
+        .cgroups
+        .iter()
+        .any(|path| path.split('/').any(|part| part == scope))
 }
 
 fn select_tree(root: u32, mut all: Vec<Process>, scope: Option<&str>) -> Vec<Process> {
@@ -200,23 +203,24 @@ fn read_proc_at(proc_root: &Path, pid: u32) -> Option<Process> {
     let ppid = status
         .lines()
         .find_map(|line| line.strip_prefix("PPid:")?.trim().parse().ok())?;
-    let cgroup = std::fs::read_to_string(root.join("cgroup"))
-        .ok()
-        .and_then(|text| cgroup_key(&text));
+    let cgroups = std::fs::read_to_string(root.join("cgroup"))
+        .map(|text| cgroup_paths(&text))
+        .unwrap_or_default();
     Some(Process {
         pid,
         ppid,
         argv,
-        cgroup,
+        cgroups,
     })
 }
 
-fn cgroup_key(text: &str) -> Option<String> {
+fn cgroup_paths(text: &str) -> Vec<String> {
     text.lines()
         .filter_map(|line| line.rsplit_once(':'))
         .map(|(_, path)| path.trim())
-        .find(|path| !path.is_empty() && *path != "/")
-        .map(str::to_string)
+        .filter(|path| !path.is_empty() && *path != "/")
+        .map(str::to_owned)
+        .collect()
 }
 
 async fn ps_tree(root: u32) -> Option<Vec<Process>> {
@@ -250,27 +254,13 @@ fn parse_ps_tree(root: u32, output: &str) -> Option<Vec<Process>> {
             } else {
                 argv
             },
-            cgroup: None,
+            cgroups: Vec::new(),
         });
     }
     if !all.iter().any(|process| process.pid == root) {
         return None;
     }
-    let mut included = HashSet::from([root]);
-    loop {
-        let before = included.len();
-        for process in &all {
-            if included.contains(&process.ppid) {
-                included.insert(process.pid);
-            }
-        }
-        if included.len() == before {
-            break;
-        }
-    }
-    all.retain(|process| included.contains(&process.pid));
-    all.sort_by_key(|process| process.pid);
-    Some(all)
+    Some(select_tree(root, all, None))
 }
 
 fn compare(plan: Option<&PlanView>, processes: &[Process]) -> &'static str {
@@ -280,6 +270,9 @@ fn compare(plan: Option<&PlanView>, processes: &[Process]) -> &'static str {
     let Some(command) = plan.command.first() else {
         return "different";
     };
+    if command == super::plan::UNKNOWN_ARG || command == super::plan::REDACTED {
+        return "unavailable";
+    }
     let command = executable(command);
     if processes
         .iter()

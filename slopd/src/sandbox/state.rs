@@ -3,7 +3,6 @@
 use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result};
-use serde::Serialize;
 
 use crate::config::SessionCfg;
 
@@ -53,98 +52,27 @@ fn trash_root() -> PathBuf {
 
 const TRASH_SESSION: &str = ".slopworld-session.toml";
 
-#[derive(Debug, Clone, Serialize)]
-pub struct StoredState {
-    pub kind: String,
-    pub key: String,
-    pub session: Option<String>,
-    pub project: Option<String>,
-    pub path: String,
-    pub bytes: u64,
-    pub modified: u64,
-}
+mod inventory;
+#[cfg(test)]
+use inventory::tree_size;
+pub use inventory::StoredState;
+pub(crate) use inventory::{stored_entry, stored_states};
 
-fn tree_size(path: &Path) -> u64 {
-    let Ok(meta) = std::fs::symlink_metadata(path) else {
-        return 0;
-    };
-    if !meta.is_dir() {
-        return meta.len();
+/// The trash root is daemon-owned storage, never a link to external data.
+/// Entries may be symlinks: inventory reports the link itself and deletion unlinks it.
+fn trash_entries() -> Result<Option<std::fs::ReadDir>> {
+    let root = trash_root();
+    match std::fs::symlink_metadata(&root) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error).with_context(|| format!("reading {}", root.display())),
+        Ok(meta) => anyhow::ensure!(
+            meta.is_dir(),
+            "trash root must be a directory without symlinks"
+        ),
     }
-    std::fs::read_dir(path)
-        .ok()
-        .into_iter()
-        .flat_map(|entries| entries.flatten())
-        .map(|entry| tree_size(&entry.path()))
-        .sum()
-}
-
-pub(super) fn stored_entry(
-    kind: &str,
-    key: String,
-    session: Option<String>,
-    path: &Path,
-) -> StoredState {
-    let modified = std::fs::symlink_metadata(path)
-        .and_then(|m| m.modified())
-        .ok()
-        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    StoredState {
-        kind: kind.into(),
-        key,
-        session,
-        project: None,
-        path: path.to_string_lossy().into_owned(),
-        bytes: tree_size(path),
-        modified,
-    }
-}
-
-/// Return the state inventory for the settings UI.
-/// State without a configured state ID is orphaned state. Deletion requires an explicit request.
-pub(crate) fn stored_states(sessions: &[SessionCfg]) -> Vec<StoredState> {
-    if let Err(e) = purge_trash() {
-        tracing::warn!("purging private-state trash before inventory: {e:#}");
-    }
-    let root = state_root();
-    let mut out = Vec::new();
-    let Ok(entries) = std::fs::read_dir(&root) else {
-        return out;
-    };
-    for entry in entries.flatten() {
-        let key = entry.file_name().to_string_lossy().into_owned();
-        if key == ".trash" {
-            if let Ok(trash) = std::fs::read_dir(entry.path()) {
-                for item in trash.flatten() {
-                    let item_key = item.file_name().to_string_lossy().into_owned();
-                    let owner = sessions
-                        .iter()
-                        .filter(|s| crate::config::state_id_component(&s.state_id).is_ok())
-                        .find(|s| item_key.ends_with(&format!("-{}", s.state_id)))
-                        .map(|s| s.name.clone())
-                        .or_else(|| read_trashed_session(&item.path()).ok().map(|s| s.name));
-                    out.push(stored_entry("trash", item_key, owner, &item.path()));
-                }
-            }
-            continue;
-        }
-        let owner = sessions.iter().find_map(|s| {
-            state_dir(s)
-                .ok()
-                .filter(|path| path.file_name().is_some_and(|n| n == entry.file_name()))
-                .map(|_| s.name.clone())
-        });
-        out.push(stored_entry(
-            if owner.is_some() { "active" } else { "orphan" },
-            key,
-            owner,
-            &entry.path(),
-        ));
-    }
-    out.sort_by(|a, b| a.kind.cmp(&b.kind).then_with(|| a.key.cmp(&b.key)));
-    out
+    Ok(Some(
+        std::fs::read_dir(&root).with_context(|| format!("reading {}", root.display()))?,
+    ))
 }
 
 pub(crate) fn direct_child(root: &Path, key: &str) -> Result<PathBuf> {
@@ -196,10 +124,9 @@ fn remove_stored_path(path: &Path) -> Result<()> {
 /// Keep the trash directory for subsequent resets.
 pub(crate) fn empty_trash() -> Result<usize> {
     let root = trash_root();
-    let entries = match std::fs::read_dir(&root) {
-        Ok(entries) => entries,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(0),
-        Err(e) => return Err(e).with_context(|| format!("reading {}", root.display())),
+    let entries = match trash_entries()? {
+        Some(entries) => entries,
+        None => return Ok(0),
     };
     let mut removed = 0;
     for entry in entries {
@@ -241,7 +168,15 @@ pub(crate) fn restore_stored_state(key: &str, sessions: &[SessionCfg]) -> Result
 }
 
 fn read_trashed_session(path: &Path) -> Result<SessionCfg> {
+    anyhow::ensure!(
+        std::fs::symlink_metadata(path)?.is_dir(),
+        "trash entry must be a directory without symlinks"
+    );
     let metadata = path.join(TRASH_SESSION);
+    anyhow::ensure!(
+        std::fs::symlink_metadata(&metadata)?.is_file(),
+        "trash metadata must be a regular file without symlinks"
+    );
     let text = std::fs::read_to_string(&metadata)
         .with_context(|| format!("reading {}", metadata.display()))?;
     toml::from_str(&text).with_context(|| format!("parsing {}", metadata.display()))
@@ -285,6 +220,7 @@ pub(crate) fn trash_state(s: &SessionCfg, label: &str) -> Result<Option<PathBuf>
     if !source.exists() {
         return Ok(None);
     }
+    let text = toml::to_string(s).context("serializing private-state trash metadata")?;
     let root = trash_root();
     std::fs::create_dir_all(&root).with_context(|| format!("making {}", root.display()))?;
     let stamp = std::time::SystemTime::now()
@@ -305,7 +241,6 @@ pub(crate) fn trash_state(s: &SessionCfg, label: &str) -> Result<Option<PathBuf>
     std::fs::rename(&source, &destination)
         .with_context(|| format!("moving {} to {}", source.display(), destination.display()))?;
     let metadata = destination.join(TRASH_SESSION);
-    let text = toml::to_string(s).context("serializing private-state trash metadata")?;
     if let Err(e) = std::fs::write(&metadata, text) {
         if let Err(restore) = std::fs::rename(&destination, &source) {
             tracing::error!(
@@ -343,12 +278,14 @@ pub(crate) fn remove_ephemeral_state(s: &SessionCfg) -> Result<()> {
 pub(crate) fn purge_trash() -> Result<usize> {
     const RETAIN: std::time::Duration = std::time::Duration::from_secs(14 * 24 * 60 * 60);
     let root = trash_root();
-    let Ok(entries) = std::fs::read_dir(&root) else {
-        return Ok(0);
+    let entries = match trash_entries()? {
+        Some(entries) => entries,
+        None => return Ok(0),
     };
     let now = std::time::SystemTime::now();
     let mut purged = 0;
-    for entry in entries.flatten() {
+    for entry in entries {
+        let entry = entry.with_context(|| format!("reading {}", root.display()))?;
         // Read symlink metadata without following the link, as elsewhere in this module.
         // Treating a symlink as its target directory causes `remove_dir_all` to fail and prevents deletion.
         let Ok(meta) = std::fs::symlink_metadata(entry.path()) else {

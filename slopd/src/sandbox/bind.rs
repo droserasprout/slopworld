@@ -1,3 +1,5 @@
+//! Coordinate launch sections; mount ordering belongs to mounts, host-path policy to policy.
+
 use anyhow::Result;
 
 use crate::config::{Config, DnsConfig, NetworkMode, ProjectCfg, SessionCfg};
@@ -92,8 +94,9 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
     let mut environment = Vec::new();
     mounts::push_skeleton(&mut bwrap, network);
     mounts::push_ro_binds(&mut mounts_args, &bind);
-    mounts::push_persistent_tmp(&mut mounts_args, &bind);
     mounts::push_mounts(&mut mounts_args, mounts);
+    mounts::push_persistent_tmp(&mut mounts_args, &bind)?;
+    mounts::push_capability_binds(&mut mounts_args, &bind);
     mounts::push_private_binds(&mut mounts_args, &bind)?;
     mounts::push_env(
         &mut environment,

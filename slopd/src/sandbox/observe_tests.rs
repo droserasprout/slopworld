@@ -60,7 +60,7 @@ fn ps_output_selects_unsorted_descendants_and_tolerates_missing_arguments() {
     );
     assert_eq!(rows[1].argv, ["<unavailable>"]);
     assert_eq!(rows[2].argv, ["/bin/agent", "--token", "secret"]);
-    assert!(rows.iter().all(|row| row.cgroup.is_none()));
+    assert!(rows.iter().all(|row| row.cgroups.is_empty()));
     assert!(parse_ps_tree(99, output).is_none());
     assert!(parse_ps_tree(10, "").is_none());
 }
@@ -77,12 +77,12 @@ fn proc_files_preserve_argument_boundaries_and_handle_vanished_processes() {
     let row = read_proc_at(&root, 42).unwrap();
     assert_eq!((row.pid, row.ppid), (42, 7));
     assert_eq!(row.argv, ["/bin/agent", "two words", "�"]);
-    assert!(row.cgroup.is_none());
+    assert!(row.cgroups.is_empty());
     std::fs::write(directory.join("cgroup"), "0::/user.slice/launch.scope\n").unwrap();
     std::fs::write(directory.join("cmdline"), []).unwrap();
     let row = read_proc_at(&root, 42).unwrap();
     assert_eq!(row.argv, ["<unavailable>"]);
-    assert_eq!(row.cgroup.as_deref(), Some("/user.slice/launch.scope"));
+    assert_eq!(row.cgroups, ["/user.slice/launch.scope"]);
     std::fs::write(directory.join("status"), "PPid: invalid\n").unwrap();
     assert!(read_proc_at(&root, 42).is_none());
     std::fs::remove_dir_all(root).unwrap();
@@ -93,7 +93,7 @@ fn process(pid: u32, ppid: u32, cgroup: Option<&str>) -> Process {
         pid,
         ppid,
         argv: vec!["agent".into()],
-        cgroup: cgroup.map(str::to_string),
+        cgroups: cgroup.into_iter().map(str::to_owned).collect(),
     }
 }
 
@@ -170,15 +170,12 @@ fn tree_selection_reaches_unsorted_descendants_and_reparented_children() {
 
 #[test]
 fn cgroup_parser_skips_root_empty_and_malformed_entries() {
-    assert_eq!(cgroup_key("malformed\n0::/\n1:cpu:  \n"), None);
+    assert!(cgroup_paths("malformed\n0::/\n1:cpu:  \n").is_empty());
     assert_eq!(
-        cgroup_key("0::/\n1:cpu: /user.slice/launch.scope \n2:memory:/other"),
-        Some("/user.slice/launch.scope".into())
+        cgroup_paths("0::/\n1:cpu: /user.slice/launch.scope \n2:memory:/other"),
+        ["/user.slice/launch.scope", "/other"]
     );
-    assert_eq!(
-        cgroup_key("0::/unified.scope\n"),
-        Some("/unified.scope".into())
-    );
+    assert_eq!(cgroup_paths("0::/unified.scope\n"), ["/unified.scope"]);
 }
 
 #[test]
@@ -205,7 +202,7 @@ fn cgroup_expansion_requires_the_exact_launch_scope_and_a_descendant() {
         pid,
         ppid,
         argv: vec!["agent".into()],
-        cgroup: Some(group.into()),
+        cgroups: vec![group.into()],
     };
     let shared = "/user.slice/tmux.service";
     let own = format!("/user.slice/{scope}");
@@ -220,7 +217,7 @@ fn cgroup_expansion_requires_the_exact_launch_scope_and_a_descendant() {
     assert_eq!(ids(select_tree(10, all.clone(), Some(scope))), [10, 11, 12]);
     assert_eq!(ids(select_tree(10, all.clone(), None)), [10, 11]);
     let mut starting = all;
-    starting[1].cgroup = Some(shared.into());
+    starting[1].cgroups = vec![shared.into()];
     assert_eq!(ids(select_tree(10, starting, Some(scope))), [10, 11]);
 }
 
@@ -246,9 +243,54 @@ fn process_comparison_does_not_claim_success_without_a_live_command() {
                 pid: 1,
                 ppid: 0,
                 argv: vec!["/usr/bin/codex".into()],
-                cgroup: None,
+                cgroups: Vec::new(),
             }]
         ),
         "compatible"
     );
+}
+
+#[test]
+fn later_controller_membership_keeps_reparented_scope_descendants() {
+    let mut member = process(11, 10, None);
+    member.cgroups = cgroup_paths("2:cpu:/unrelated\n3:memory:/user.slice/launch.scope\n");
+    let mut reparented = process(12, 1, None);
+    reparented.cgroups = member.cgroups.clone();
+    assert!(in_scope(&member, "launch.scope"));
+    let selected = select_tree(
+        10,
+        vec![process(10, 1, None), member, reparented],
+        Some("launch.scope"),
+    );
+    assert_eq!(
+        selected.iter().map(|p| p.pid).collect::<Vec<_>>(),
+        [10, 11, 12]
+    );
+}
+
+#[tokio::test]
+async fn saved_plan_remains_visible_after_the_pane_exits() {
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
+    let session = SessionCfg {
+        name: "gone".into(),
+        state_id: uuid::Uuid::new_v4().to_string(),
+        ..Default::default()
+    };
+    let saved = plan(vec![]);
+    let dir = super::super::state_dir(&session).unwrap();
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("launch-plan.json"),
+        serde_json::to_string(&saved).unwrap(),
+    )
+    .unwrap();
+    let tmux = Tmux::new(format!("slopd-observe-{}", uuid::Uuid::new_v4()));
+    let view = inspect_session(&tmux, "gone", &session, false)
+        .await
+        .unwrap();
+    assert_eq!(view["plan"]["session"], "gone");
+    assert_eq!(view["live"]["status"], "not-running");
+    assert_eq!(view["comparison"], "unavailable");
 }
