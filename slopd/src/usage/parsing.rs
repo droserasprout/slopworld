@@ -103,13 +103,13 @@ pub(super) fn parse_credits(v: &Value) -> Snapshot {
             // With no purchased credits, the remaining balance is zero.
             // Show 100% spent so an empty account does not appear full.
             pct: if credits > 0.0 {
-                ((used / credits) * 100.0).clamp(0.0, 100.0) as f32
+                wire_number(((used / credits) * 100.0).clamp(0.0, 100.0))
             } else {
                 100.0
             },
             unit: Unit::Usd,
-            amount: Some(used as f32),
-            limit: Some(credits as f32),
+            amount: Some(wire_number(used)),
+            limit: Some(wire_number(credits)),
             // Credits are bought rather than granted, so there is no reset to count to.
             resets_in: None,
         }],
@@ -195,7 +195,7 @@ fn spend(v: &Value) -> Option<Window> {
         v.get("spend")?
             .get("percent")?
             .as_f64()
-            .map(|p| p.clamp(0.0, 100.0) as f32)
+            .map(|p| wire_number(p.clamp(0.0, 100.0)))
     })?;
 
     let limit = budget(e);
@@ -220,12 +220,12 @@ fn spend(v: &Value) -> Option<Window> {
 fn budget(e: &Value) -> Option<f32> {
     for k in ["monthly_limit_dollars", "limit_dollars"] {
         if let Some(d) = e[k].as_f64() {
-            return Some(d as f32);
+            return Some(wire_number(d));
         }
     }
     e["monthly_limit"]
         .as_f64()
-        .map(|cents| (cents / 100.0) as f32)
+        .map(|cents| wire_number(cents / 100.0))
 }
 
 /// None for everything else in the payload, which is most of it.
@@ -251,13 +251,15 @@ fn family(name: &str) -> Option<(String, String)> {
 fn percent(w: &Value) -> Option<f32> {
     for k in ["utilization", "used_pct", "used_percent", "percent_used"] {
         if let Some(p) = w[k].as_f64() {
-            return Some(p.clamp(0.0, 100.0) as f32);
+            return Some(wire_number(p.clamp(0.0, 100.0)));
         }
     }
 
     let remaining = w["remaining"].as_f64()?;
     let limit = w["limit"].as_f64().filter(|l| *l > 0.0)?;
-    Some((((limit - remaining) / limit) * 100.0).clamp(0.0, 100.0) as f32)
+    Some(wire_number(
+        (((limit - remaining) / limit) * 100.0).clamp(0.0, 100.0),
+    ))
 }
 
 /// Absolute instants are converted here, so the mod never parses a date.
@@ -380,6 +382,15 @@ fn offset_secs(s: &str) -> Option<i64> {
         return None;
     }
     Some(sign * (h * 3_600 + m * 60))
+}
+
+// The wire contract uses f32 for observational usage figures, not accounting arithmetic.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "usage display fields deliberately round provider f64 values to the wire contract's f32 precision"
+)]
+fn wire_number(value: f64) -> f32 {
+    value as f32
 }
 
 #[cfg(test)]

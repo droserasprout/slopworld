@@ -79,6 +79,10 @@ impl Pen {
     }
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "formatting primitive values into a String cannot fail"
+)]
 fn write_ink(out: &mut String, ink: Ink, base: u16) {
     use std::fmt::Write;
     match ink {
@@ -97,6 +101,10 @@ fn write_ink(out: &mut String, ink: Ink, base: u16) {
 
 /// Serialize each row independently. Reset attributes and trim trailing default cells.
 /// Emit only necessary CHA, pen, and link updates. Avoid allocating memory for each cell.
+#[expect(
+    clippy::expect_used,
+    reason = "the last slot comes from this row; formatting primitives into a String cannot fail"
+)]
 pub(super) fn serialize_row(row: &[Slot]) -> String {
     let mut out = String::from("\x1b[0m");
 

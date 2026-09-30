@@ -29,8 +29,10 @@ pub(crate) async fn ncspot(
 ) -> ApiResult<wire::SessionResult> {
     let session = m
         .open_spotify(
-            q.cols.map(|n| n.clamp(1, u16::MAX as u32) as u16),
-            q.rows.map(|n| n.clamp(1, u16::MAX as u32) as u16),
+            q.cols
+                .map(|n| u16::try_from(n.clamp(1, u32::from(u16::MAX))).unwrap_or(u16::MAX)),
+            q.rows
+                .map(|n| u16::try_from(n.clamp(1, u32::from(u16::MAX))).unwrap_or(u16::MAX)),
         )
         .await
         .map_err(|e| super::super::err(axum::http::StatusCode::INTERNAL_SERVER_ERROR, e))?;

@@ -562,7 +562,7 @@ async fn capture_retries_after_competing_idle_decay() {
     *manager.frame_commit_pause.lock().unwrap() = Some((reached.clone(), release.clone()));
     let capture = manager.apply_frame("agent", test_frame("new", 2));
     tokio::pin!(capture);
-    tokio::select! { _ = reached.notified() => {}, _ = capture.as_mut() => panic!("capture committed before pause") }
+    tokio::select! { () = reached.notified() => {}, () = capture.as_mut() => panic!("capture committed before pause") }
     manager
         .live
         .write()
@@ -641,7 +641,7 @@ async fn capture_cannot_commit_to_a_replacement_with_matching_counters() {
         emu.lock().unwrap().feed(b"old output");
         let capture = manager.render_and_broadcast("agent", &emu);
         tokio::pin!(capture);
-        tokio::select! { _ = reached.notified() => {}, _ = capture.as_mut() => panic!("capture finished before replacement") }
+        tokio::select! { () = reached.notified() => {}, () = capture.as_mut() => panic!("capture finished before replacement") }
         {
             let mut live = manager.live.write().await;
             let cfg = if replaced_emulator {

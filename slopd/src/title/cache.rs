@@ -308,8 +308,8 @@ fn set_latest(latest: &mut Vec<LatestEntry>, session: &str, title: &str) {
 fn save_cache(path: &Path, state: &CacheState) -> Result<()> {
     let file = CacheFile {
         version: CACHE_VERSION,
-        entries: state.entries.to_vec(),
-        latest: state.latest.to_vec(),
+        entries: state.entries.clone(),
+        latest: state.latest.clone(),
     };
     crate::paths::write_private_toml(path, &toml::to_string_pretty(&file)?)
 }

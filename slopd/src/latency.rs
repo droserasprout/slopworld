@@ -15,7 +15,7 @@ pub(crate) fn enabled() -> bool {
     crate::perf::enabled()
 }
 pub(crate) fn now() -> u64 {
-    EPOCH.get_or_init(Instant::now).elapsed().as_micros() as u64 + 1
+    crate::clock::duration_us(EPOCH.get_or_init(Instant::now).elapsed()).saturating_add(1)
 }
 #[derive(Debug)]
 pub(crate) struct InputTrace {

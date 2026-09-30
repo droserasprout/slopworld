@@ -126,10 +126,8 @@ pub fn shell_split(s: &str) -> Vec<String> {
 
         match quote {
             Some('\'') if c == '\'' => quote = None,
-            Some('\'') => cur.push(c),
             Some('"') if c == '"' => quote = None,
             Some('"') if c == '\\' => escaped = true,
-            Some(_) => cur.push(c),
             None if c == '\\' => {
                 escaped = true;
                 any = true;
@@ -144,7 +142,7 @@ pub fn shell_split(s: &str) -> Vec<String> {
                     any = false;
                 }
             }
-            None => cur.push(c),
+            _ => cur.push(c),
         }
     }
     if escaped {

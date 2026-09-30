@@ -356,6 +356,10 @@ async fn branch(root: &Path) -> String {
 /// comparison, so each gets the same no-index reading used by the diff pager. In an unborn
 /// repository, staged additions also need the no-index reading so later worktree edits are not
 /// lost behind the cached version.
+#[expect(
+    clippy::expect_used,
+    reason = "the process-global numstat semaphore is never closed"
+)]
 async fn numstat(root: &Path, rows: &[StatusRow]) -> Counts {
     let _perf = crate::perf::timer("git-numstat");
     if rows.is_empty() {

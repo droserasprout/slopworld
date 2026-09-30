@@ -141,6 +141,10 @@ pub(crate) fn open_stream(url: &str, title: &TitleSink) -> Result<Box<dyn Source
     let first = connector
         .connect()
         .with_context(|| format!("connecting to {url}"))?;
+    #[expect(
+        clippy::expect_used,
+        reason = "StreamConnector::connect stores the MIME type before returning a successful stream"
+    )]
     let mime = connector
         .mime
         .clone()

@@ -46,6 +46,10 @@ impl TaskStore {
         self.lock()?.create_owned(from, to, body, worker)
     }
 
+    #[expect(
+        clippy::expect_used,
+        reason = "a poisoned task store indicates a prior panic; returning an empty mailbox would hide failure"
+    )]
     pub(crate) fn tasks_for(&self, who: &str) -> Vec<Task> {
         self.0
             .lock()
@@ -53,10 +57,18 @@ impl TaskStore {
             .visible(who)
     }
 
+    #[expect(
+        clippy::expect_used,
+        reason = "a poisoned task store indicates a prior panic; returning an empty mailbox would hide failure"
+    )]
     pub(crate) fn all_tasks(&self) -> Vec<Task> {
         self.0.lock().expect("task store lock poisoned").all()
     }
 
+    #[expect(
+        clippy::expect_used,
+        reason = "a poisoned task store indicates a prior panic; returning None would hide failure"
+    )]
     pub(crate) fn task_for(&self, who: &str, id: &str) -> Option<Task> {
         self.0
             .lock()

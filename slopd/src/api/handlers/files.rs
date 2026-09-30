@@ -19,7 +19,8 @@ use super::{ApiResult, Mgr, err};
 
 /// Limit preview response size to bound memory use in the daemon and game.
 /// Generated documents can exceed the size needed for a UI preview.
-pub(crate) const READ_LIMIT: u64 = 512 * 1024;
+const READ_LIMIT_BYTES: usize = 512 * 1024;
+pub(crate) const READ_LIMIT: u64 = READ_LIMIT_BYTES as u64;
 
 /// Limit image preview size to bound response memory use while permitting screenshots.
 pub(crate) const IMAGE_LIMIT: u64 = 8 * 1024 * 1024;
@@ -150,7 +151,7 @@ pub(crate) async fn filter_gitignored(base: &std::path::Path, listing: &mut List
         input.push(0);
     }
 
-    let output = match crate::process::run_bounded_with_stdin(
+    let Ok(output) = crate::process::run_bounded_with_stdin(
         &mut cmd,
         &input,
         GITIGNORE_TIMEOUT,
@@ -163,9 +164,8 @@ pub(crate) async fn filter_gitignored(base: &std::path::Path, listing: &mut List
         },
     )
     .await
-    {
-        Ok(output) => output,
-        Err(_) => return,
+    else {
+        return;
     };
 
     // check-ignore exits 1 when no path matched. Any other failure, including output overflow,
@@ -358,7 +358,7 @@ pub(crate) async fn read_file(
     }))
 }
 
-pub(crate) const HIGHLIGHT_LIMIT: usize = READ_LIMIT as usize * 4;
+pub(crate) const HIGHLIGHT_LIMIT: usize = READ_LIMIT_BYTES * 4;
 pub(crate) const HIGHLIGHT_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// Own the temporary input even when the request future is cancelled during a write or process run.
@@ -520,7 +520,8 @@ async fn read_file_bounded(path: &Path, limit: u64, label: &str) -> Result<Vec<u
     }
 
     let file = tokio::fs::File::open(path).await?;
-    let mut bytes = Vec::with_capacity(metadata.len().min(limit) as usize);
+    let mut bytes =
+        Vec::with_capacity(usize::try_from(metadata.len().min(limit)).unwrap_or(usize::MAX));
     file.take(limit.saturating_add(1))
         .read_to_end(&mut bytes)
         .await?;

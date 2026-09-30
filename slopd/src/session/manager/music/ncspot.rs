@@ -240,6 +240,10 @@ impl crate::tmux::Tmux {
 // A separate one-percent command reaches the endpoint without overflowing its u16
 // multiplication (a single 101-percent command would overflow).
 fn volume_commands(volume: f32) -> String {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "volume is clamped to 0..=1 and rounded to an integer percentage before conversion"
+    )]
     let percent = u32::try_from(((volume.clamp(0.0, 1.0) * 100.0).round() as i32).clamp(0, 100))
         .unwrap_or_default();
     let mut commands = format!("voldown 100\nvoldown 1\nvolup {percent}\n");

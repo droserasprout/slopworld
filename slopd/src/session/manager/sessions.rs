@@ -261,7 +261,7 @@ impl Manager {
             tracing::debug!(
                 target: "slopd::perf",
                 lane = "host-metadata",
-                elapsed_us = started.elapsed().as_micros() as u64,
+                elapsed_us = crate::clock::duration_us(started.elapsed()),
                 "host metadata poll"
             );
         }));
@@ -586,9 +586,8 @@ impl Manager {
         // The control reader attaches by tmux name. A rename requires a new capture and emulator.
         let (running, reader) = {
             let mut live = self.live.write().await;
-            let mut l = match live.remove(old) {
-                Some(l) => l,
-                None => return,
+            let Some(mut l) = live.remove(old) else {
+                return;
             };
             let reader = take_reader_for_abort(&mut l);
             // The input consumer captures its tmux target at startup.

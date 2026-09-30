@@ -86,7 +86,7 @@ pub(super) async fn preview_reads_utf8_and_rejects_oversized_files() {
     assert_eq!(read_preview(&path).await.unwrap(), "# hello\n\nworld\n");
 
     let large = dir.join("large.md");
-    std::fs::write(&large, vec![b'x'; READ_LIMIT as usize + 1]).unwrap();
+    std::fs::write(&large, vec![b'x'; usize::try_from(READ_LIMIT).unwrap() + 1]).unwrap();
     let error = read_preview(&large).await.unwrap_err().to_string();
     assert!(error.contains("preview limit"));
 }
@@ -134,7 +134,7 @@ pub(super) async fn image_reads_bytes_and_rejects_oversized_files() {
     assert_eq!(read_image_bytes(&path).await.unwrap(), bytes);
 
     let large = dir.join("large.png");
-    std::fs::write(&large, vec![0u8; IMAGE_LIMIT as usize + 1]).unwrap();
+    std::fs::write(&large, vec![0u8; usize::try_from(IMAGE_LIMIT).unwrap() + 1]).unwrap();
     let error = read_image_bytes(&large).await.unwrap_err().to_string();
     assert!(error.contains("image") && error.contains("limit"));
 }

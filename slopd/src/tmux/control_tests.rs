@@ -20,3 +20,8 @@ fn parses_output_line() {
     // Pass the raw bytes to the VT parser so it can reconstruct the sequence.
     assert_eq!(parse_output(b"%output %0 A\xf0\x9f").unwrap(), b"A\xf0\x9f");
 }
+
+#[test]
+fn octal_decoding_retains_byte_boundaries_and_wrapping() {
+    assert_eq!(unescape(br"\000\377\400\777"), [0, 255, 0, 255]);
+}

@@ -100,8 +100,8 @@ async fn main() -> Result<()> {
                 let delay = m.maintenance_delay().await;
                 let wake = m.maintenance_wake();
                 tokio::select! {
-                    _ = tokio::time::sleep(delay) => m.retick().await,
-                    _ = wake.notified() => {}
+                    () = tokio::time::sleep(delay) => m.retick().await,
+                    () = wake.notified() => {}
                 }
             }
         })
@@ -152,8 +152,8 @@ async fn shutdown() {
         .ok();
     // A failed registration disables only that listener. It is never a shutdown event.
     tokio::select! {
-        _ = receive_signal(&mut interrupt) => {}
-        _ = receive_signal(&mut terminate) => {}
+        () = receive_signal(&mut interrupt) => {}
+        () = receive_signal(&mut terminate) => {}
     }
 }
 

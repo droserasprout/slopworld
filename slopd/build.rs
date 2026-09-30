@@ -4,8 +4,8 @@ mod version;
 use std::env;
 use std::process::Command;
 
-fn main() {
-    protobuf();
+fn main() -> std::io::Result<()> {
+    protobuf()?;
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/version.rs");
     watch_git();
@@ -18,6 +18,7 @@ fn main() {
         .unwrap_or_else(|| version_from_git(fallback));
 
     println!("cargo:rustc-env=SLOPWORLD_VERSION={version}");
+    Ok(())
 }
 
 // rev-parse resolves both ordinary repositories and linked-worktree metadata.
@@ -69,7 +70,7 @@ fn git(repo: &str, args: &[&str]) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
-fn protobuf() {
+fn protobuf() -> std::io::Result<()> {
     println!("cargo:rerun-if-changed=../shared/slopworld.proto");
     let mut config = prost_build::Config::new();
     config.message_attribute(
@@ -78,9 +79,7 @@ fn protobuf() {
     );
     config.boxed(".slopworld.PresetRequest.definition.sandbox");
     config.enum_attribute(".", "#[derive(serde::Serialize, serde::Deserialize)]");
-    let files = config
-        .load_fds(&["../shared/slopworld.proto"], &["../shared"])
-        .expect("load protocol schema");
+    let files = config.load_fds(&["../shared/slopworld.proto"], &["../shared"])?;
     for file in &files.file {
         for message in &file.message_type {
             for field in &message.field {
@@ -102,7 +101,5 @@ fn protobuf() {
     ] {
         config.field_attribute(name, "#[serde(skip_serializing)]");
     }
-    config
-        .compile_fds(files)
-        .expect("generate protocol bindings");
+    config.compile_fds(files)
 }

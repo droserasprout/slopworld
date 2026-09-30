@@ -28,6 +28,10 @@ pub(super) fn slug(name: &str) -> String {
     }
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "finite session catalogs leave an unused increasing numeric suffix"
+)]
 pub(super) fn free_name(live: &HashMap<String, Live>, cfg: &Config, base: &str) -> String {
     let taken = |n: &str| {
         live.contains_key(n)
@@ -118,6 +122,10 @@ pub(super) fn settle(p: &mut ProjectCfg) {
     }
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "finite project catalogs leave an unused increasing numeric suffix"
+)]
 pub(super) fn free_project_name(
     cfg: &Config,
     temp: &HashMap<String, ProjectCfg>,
@@ -137,9 +145,9 @@ pub(super) fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {
     if s.project.trim().is_empty() {
         bail!("Choose a project for session {:?}.", s.name);
     }
-    if cfg.project(&s.project).is_none() {
+    let Some(project) = cfg.project(&s.project) else {
         bail!("Project {:?} does not exist.", s.project);
-    }
+    };
     s.dns.validate(&format!("agent {}", s.name))?;
     let live_presets: Vec<String> = s
         .sandbox
@@ -153,7 +161,6 @@ pub(super) fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {
         .collect();
     check_presets(&live_presets)?;
     s.limits.validate()?;
-    let project = cfg.project(&s.project).expect("checked above");
     check_project_mounts(cfg, project)?;
     Ok(())
 }

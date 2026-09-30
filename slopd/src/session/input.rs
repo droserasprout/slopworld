@@ -48,6 +48,10 @@ pub(super) fn merge_input(items: Vec<Input>) -> Vec<Input> {
             _ => false,
         };
         if merged && !traces.is_empty() {
+            #[expect(
+                clippy::expect_used,
+                reason = "a successful merge requires an existing final batch item"
+            )]
             let previous = out
                 .pop()
                 .expect("merged input always has a previous batch item");
