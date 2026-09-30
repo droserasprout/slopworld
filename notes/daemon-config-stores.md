@@ -94,8 +94,12 @@ Configuration and personal-template stores use `paths::write_atomic_async` for o
 Both writers exclusively create unique sibling files; private writes set `0600` before
 content is written. Async writes flush before rename to catch background write errors.
 Interrupted saves may leave siblings, but leftovers neither block retries nor get overwritten.
-Preset HTTP mutations run that synchronous work on a blocking executor. Both helpers remove their
-temporary file on write, permission, or rename failure.
+Preset HTTP mutations run that synchronous work on a blocking executor.
+`presets/edit.rs` holds the catalog writer guard from fresh disk reads through validation
+and commit; dependency validation does not use the cached runtime table.
+Jukebox edits preserve legacy IDs at existing paths; new IDs require safe filenames.
+Deleting a station ID removes all matching files, including shadowed definitions.
+Both helpers remove their temporary file on write, permission, or rename failure.
 Endpoint descriptors use the same private atomic writer, so token bytes never appear in a
 temporary file with default permissions. Raw editor text is parsed before token redaction;
 invalid TOML produces an error rather than exposing unredacted text.

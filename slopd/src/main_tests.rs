@@ -64,6 +64,56 @@ fn message_has_target(message: &tokio_tungstenite::tungstenite::Message) -> bool
     event_has_target(wire::Event::decode(bytes.as_slice()).unwrap())
 }
 
+type TestSocket =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+async fn connect_socket(address: std::net::SocketAddr, token: &str) -> TestSocket {
+    let mut request = format!("ws://{address}{}", shared::protocol::WS_PATH)
+        .into_client_request()
+        .unwrap();
+    request
+        .headers_mut()
+        .insert(shared::protocol::TOKEN_HEADER, token.parse().unwrap());
+    request.headers_mut().insert(
+        "sec-websocket-protocol",
+        "slopworld.protobuf.v2".parse().unwrap(),
+    );
+    tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        tokio_tungstenite::connect_async(request),
+    )
+    .await
+    .expect("websocket connection timed out")
+    .unwrap()
+    .0
+}
+
+// A Pong confirms the server consumed earlier commands; drain their replies before revocation.
+async fn websocket_boundary<S, E>(socket: &mut S)
+where
+    S: futures::Stream<Item = Result<tokio_tungstenite::tungstenite::Message, E>>
+        + futures::Sink<tokio_tungstenite::tungstenite::Message, Error = E>
+        + Unpin,
+    E: std::fmt::Debug,
+{
+    use tokio_tungstenite::tungstenite::Message;
+    socket
+        .send(Message::Ping(b"boundary".to_vec()))
+        .await
+        .unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            let message = socket.next().await.unwrap().unwrap();
+            if matches!(message, Message::Pong(ref bytes) if bytes == b"boundary") {
+                break;
+            }
+            assert!(!matches!(message, Message::Close(_)));
+        }
+    })
+    .await
+    .expect("pre-revocation exchange did not complete");
+}
+
 async fn await_socket_close<S, E>(socket: &mut S)
 where
     S: futures::Stream<Item = Result<tokio_tungstenite::tungstenite::Message, E>> + Unpin,
@@ -268,6 +318,14 @@ async fn scoped_worker_catalog_is_allowlisted_and_project_scoped() {
         .create_agent_template_definition(template)
         .await
         .unwrap();
+    let excluded: crate::session::AgentTemplate = serde_json::from_value(serde_json::json!({
+        "name": "excluded", "defaults": {"cmd": "echo excluded"}
+    }))
+    .unwrap();
+    manager
+        .create_agent_template_definition(excluded)
+        .await
+        .unwrap();
     let token = manager
         .mint_grant("caller".into(), vec!["caller".into()], Level::Ro)
         .await
@@ -287,7 +345,13 @@ async fn scoped_worker_catalog_is_allowlisted_and_project_scoped() {
         http_wire::decode_response("GET", shared::protocol::routes::SPAWNABLE_TEMPLATES, &body)
             .unwrap();
     assert_eq!(value["project"], "repo");
-    assert_eq!(value["templates"][0]["name"], "review");
+    let names: Vec<_> = value["templates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|template| template["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, vec!["review"]);
 }
 
 #[tokio::test]
@@ -306,17 +370,7 @@ async fn revoking_a_grant_closes_an_existing_websocket_before_read_or_write() {
         axum::serve(listener, app).await.unwrap();
     });
 
-    let mut request = format!("ws://{address}{}", shared::protocol::WS_PATH)
-        .into_client_request()
-        .unwrap();
-    request
-        .headers_mut()
-        .insert(shared::protocol::TOKEN_HEADER, scoped.parse().unwrap());
-    request.headers_mut().insert(
-        "sec-websocket-protocol",
-        "slopworld.protobuf.v2".parse().unwrap(),
-    );
-    let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
+    let mut socket = connect_socket(address, &scoped).await;
 
     let initial = tokio::time::timeout(std::time::Duration::from_secs(1), socket.next())
         .await
@@ -352,6 +406,8 @@ async fn revoking_a_grant_closes_an_existing_websocket_before_read_or_write() {
         .await
         .unwrap();
 
+    websocket_boundary(&mut socket).await;
+
     let revoke = Request::builder()
         .method("DELETE")
         .uri(format!("{}/grantor", shared::protocol::routes::GRANTS))
@@ -363,14 +419,15 @@ async fn revoking_a_grant_closes_an_existing_websocket_before_read_or_write() {
         StatusCode::OK
     );
 
-    let terminal = tokio::time::timeout(std::time::Duration::from_secs(1), socket.next())
-        .await
-        .expect("revoked websocket stayed open")
-        .expect("revoked websocket did not terminate");
-    assert!(matches!(
-        terminal,
-        Err(_) | Ok(tokio_tungstenite::tungstenite::Message::Close(_))
-    ));
+    manager.emit(crate::session::Event::Sessions {
+        sessions: manager.views().await,
+    });
+    tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        await_socket_close(&mut socket),
+    )
+    .await
+    .expect("revoked websocket stayed open or published target data");
     assert!(socket
         .send(tokio_tungstenite::tungstenite::Message::Binary(
             wire::ClientMessage {
@@ -424,18 +481,13 @@ async fn disappearing_identities_close_sockets_and_do_not_follow_reused_names() 
                 let server = tokio::spawn(async move {
                     axum::serve(listener, app).await.unwrap();
                 });
-                let mut request = format!("ws://{address}{}", shared::protocol::WS_PATH)
-                    .into_client_request()
-                    .unwrap();
-                request
-                    .headers_mut()
-                    .insert(shared::protocol::TOKEN_HEADER, token.parse().unwrap());
-                request.headers_mut().insert(
-                    "sec-websocket-protocol",
-                    "slopworld.protobuf.v2".parse().unwrap(),
-                );
-                let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
-                let initial = socket.next().await.unwrap().unwrap();
+                let mut socket = connect_socket(address, &token).await;
+                let initial =
+                    tokio::time::timeout(std::time::Duration::from_secs(2), socket.next())
+                        .await
+                        .expect("initial snapshot timed out")
+                        .unwrap()
+                        .unwrap();
                 assert!(message_has_target(&initial));
                 socket
                     .send(tokio_tungstenite::tungstenite::Message::Binary(
@@ -448,6 +500,8 @@ async fn disappearing_identities_close_sockets_and_do_not_follow_reused_names() 
                     ))
                     .await
                     .unwrap();
+
+                websocket_boundary(&mut socket).await;
 
                 let old = cfg
                     .sessions

@@ -1,4 +1,7 @@
+//! tmux session transport and recovery metadata. `server` owns startup and readiness.
+
 pub(crate) mod control;
+mod server;
 
 use std::collections::HashMap;
 use std::process::Stdio;
@@ -145,104 +148,6 @@ impl Tmux {
         self.list().await.iter().any(|s| s == name)
     }
 
-    /// `list-sessions` returns a nonzero exit code if the server is stopped or has no sessions.
-    /// Only a stopped server produces the corresponding stderr message.
-    async fn server_running(&self) -> bool {
-        match Command::new("tmux")
-            .arg("-L")
-            .arg(&self.socket)
-            .arg("list-sessions")
-            .output()
-            .await
-        {
-            Ok(o) => {
-                o.status.success()
-                    || !String::from_utf8_lossy(&o.stderr).contains("no server running")
-            }
-            Err(_) => false,
-        }
-    }
-
-    /// tmux inherits the caller's cgroup unless it starts in a separate systemd user unit.
-    /// `tmux start-server` forks, so a scope can terminate before the server.
-    /// Use a `Type=forking` unit. Verify the socket before proceeding.
-    /// If systemd is unavailable, start the server directly.
-    pub async fn ensure_server(&self) {
-        if self.server_running().await {
-            self.configure_emoji_widths().await;
-            return;
-        }
-
-        let unit = Command::new("systemd-run")
-            .args([
-                "--user",
-                "--quiet",
-                "--collect",
-                "--unit=slopworld-tmux",
-                "--property=Type=forking",
-                "--",
-                "tmux",
-                "-L",
-                &self.socket,
-                "start-server",
-            ])
-            .status()
-            .await;
-
-        // systemd-run returns when it queues the job. Check the socket to confirm server startup.
-        let mut up = false;
-        if matches!(&unit, Ok(s) if s.success()) {
-            for _ in 0..20 {
-                if self.server_running().await {
-                    up = true;
-                    break;
-                }
-                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-            }
-        }
-
-        if up {
-            tracing::info!("tmux server started in slopworld-tmux.service");
-        } else {
-            match unit {
-                Ok(s) if s.success() => {
-                    tracing::warn!("The slopworld-tmux.service unit started no server. slopd will start tmux inline.")
-                }
-                Ok(s) => tracing::warn!("systemd-run failed ({s}). slopd will start tmux inline."),
-                Err(_) => {
-                    tracing::warn!("systemd-run is unavailable. slopd will start tmux inline.")
-                }
-            }
-            if let Err(e) = self.run(&["start-server"]).await {
-                tracing::error!("start tmux server: {e:#}");
-                return;
-            }
-        }
-
-        // Panes inherit this at creation, so it has to be in place before the first
-        // session is spawned.
-        let limit = crate::tmux::SCROLLBACK_LINES.to_string();
-        drop(
-            self.run(&["set-option", "-g", "history-limit", &limit])
-                .await,
-        );
-        self.configure_emoji_widths().await;
-    }
-
-    async fn configure_emoji_widths(&self) {
-        if let Err(error) = self
-            .run(&[
-                "set-option",
-                "-s",
-                "codepoint-widths[0]",
-                EMOJI_MODIFIER_WIDTHS,
-            ])
-            .await
-        {
-            tracing::warn!("cannot set tmux emoji modifier widths: {error:#}");
-        }
-    }
-
     pub async fn spawn(
         &self,
         name: &str,
@@ -254,7 +159,7 @@ impl Tmux {
     ) -> Result<()> {
         // Never let `new-session` be the command that forks the server: it would land in
         // slopd's own cgroup.
-        self.ensure_server().await;
+        self.ensure_server().await?;
 
         // Again here rather than only in ensure_server, which is a no-op against a server
         // someone else already started.
@@ -268,6 +173,9 @@ impl Tmux {
         let rows = rows.to_string();
         let mut args: Vec<&str> = vec![
             "new-session",
+            "-P",
+            "-F",
+            "#{session_id}",
             "-d",
             "-s",
             name,
@@ -280,24 +188,44 @@ impl Tmux {
         ];
         args.push("--");
         args.extend(argv.iter().map(String::as_str));
-        self.run(&args).await?;
+        let created = self.run(&args).await?;
+        let created = created.trim();
+        if !created
+            .strip_prefix('$')
+            .is_some_and(|id| !id.is_empty() && id.bytes().all(|byte| byte.is_ascii_digit()))
+        {
+            bail!("tmux did not return the created session identity");
+        }
 
         // Without this a detached pane clamps to the size of any later client. `window-size`
         // is a window option, so it wants a window target and the colon - see `resize`.
-        let target = format!("{name}:");
+        let target = format!("{created}:");
         drop(
             self.run(&["set-option", "-w", "-t", &target, "window-size", "manual"])
                 .await,
         );
-        drop(self.run(&["set-option", "-t", name, "status", "off"]).await);
-        self.run(&[
-            "set-option",
-            "-t",
-            name,
-            "@slopworld_host",
-            if host { "1" } else { "0" },
-        ])
-        .await?;
+        drop(
+            self.run(&["set-option", "-t", created, "status", "off"])
+                .await,
+        );
+        if let Err(error) = self
+            .run(&[
+                "set-option",
+                "-t",
+                created,
+                "@slopworld_host",
+                if host { "1" } else { "0" },
+            ])
+            .await
+        {
+            // Session IDs cannot follow a name reused while this command was in flight.
+            if let Err(cleanup) = self.kill(created).await {
+                return Err(error.context(format!(
+                    "created tmux session {created}; rollback failed: {cleanup:#}"
+                )));
+            }
+            return Err(error);
+        }
         Ok(())
     }
 
@@ -528,15 +456,19 @@ impl Tmux {
     }
 
     pub async fn clear_activity(&self, name: &str) -> Result<()> {
-        drop(
-            self.run(&["set-option", "-uq", "-t", name, ACTIVITY_STATE])
-                .await,
-        );
-        drop(
-            self.run(&["set-option", "-uq", "-t", name, ACTIVITY_SINCE])
-                .await,
-        );
-        Ok(())
+        let state = self
+            .run(&["set-option", "-uq", "-t", name, ACTIVITY_STATE])
+            .await;
+        let since = self
+            .run(&["set-option", "-uq", "-t", name, ACTIVITY_SINCE])
+            .await;
+        match (state, since) {
+            (Ok(_), Ok(_)) => Ok(()),
+            (Err(error), Ok(_)) | (Ok(_), Err(error)) => Err(error),
+            (Err(error), Err(second)) => {
+                Err(error.context(format!("both activity removals failed: {second:#}")))
+            }
+        }
     }
 
     pub async fn kill(&self, name: &str) -> Result<()> {

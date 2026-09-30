@@ -1,3 +1,5 @@
+//! Runtime capability discovery and sidecar configuration validation.
+
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use anyhow::{bail, Context, Result};
@@ -166,7 +168,8 @@ pub fn validate_runtime_name() -> Result<()> {
         Ok(value) if value != SLOPCAR => {
             bail!("Unknown SLOPD_RUNTIME value {value:?}. Expected {SLOPCAR:?}.")
         }
-        _ => Ok(()),
+        Err(std::env::VarError::NotUnicode(_)) => bail!("SLOPD_RUNTIME must be valid UTF-8"),
+        Ok(_) | Err(std::env::VarError::NotPresent) => Ok(()),
     }
 }
 
@@ -194,7 +197,8 @@ fn validate_slopcar_config(cfg: &Config) -> Result<()> {
         bail!("slopcar requires a non-empty [daemon] token");
     }
     for session in &cfg.sessions {
-        validate_slopcar_limits(&session.limits)?;
+        validate_slopcar_limits(&session.limits)
+            .with_context(|| format!("session {:?}", session.name))?;
     }
     Ok(())
 }

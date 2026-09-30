@@ -21,6 +21,10 @@ fn correlation_survives_coalescing_and_rejects_old_capture_and_run() {
 #[test]
 fn pending_is_bounded_deduplicated_and_expires() {
     let mut pending = Pending::default();
+    let trace = Arc::new(InputTrace::new("0123456789abcdef0123456789abcdef", now()));
+    pending.add(1, trace.clone());
+    pending.add(1, trace);
+    assert_eq!(pending.entries.len(), 1);
     for _ in 0..LIMIT + 10 {
         let trace = Arc::new(InputTrace::new("0123456789abcdef0123456789abcdef", now()));
         pending.add(1, trace.clone());
@@ -32,7 +36,7 @@ fn pending_is_bounded_deduplicated_and_expires() {
 }
 
 #[test]
-fn queued_arrivals_can_evict_input_before_dispatch_despite_new_frames() {
+fn cache_eviction_before_dispatch_prevents_frame_correlation() {
     let mut pending = Pending::default();
     let oldest = Arc::new(InputTrace::new("00000000000000000000000000000000", now()));
     pending.add(1, oldest.clone());
@@ -42,8 +46,7 @@ fn queued_arrivals_can_evict_input_before_dispatch_despite_new_frames() {
             Arc::new(InputTrace::new(&format!("{index:032x}"), now())),
         );
     }
-    // The real ordered input queue still owns oldest, but the correlation cache
-    // has already evicted it. A changing screen cannot restore that association.
+    // A retained trace cannot restore its association after the cache evicts it.
     oldest.dispatch();
     oldest.done(true);
     for seq in 1..=3 {

@@ -58,7 +58,10 @@ fn resolving_a_token_against_root_and_the_grants() {
 
     let tok = grants.mint(grant(&["a"], Level::Ro));
     assert_ne!(tok, "root");
-    match grants.resolve(Some(&tok), "root") {
+    let cap = grants.resolve(Some(&tok), "root").unwrap();
+    assert!(cap.allows("a", false, Level::Ro));
+    assert!(!cap.allows("a", false, Level::Rw));
+    match Some(cap) {
         Some(Cap::Scoped(g)) => assert!(g.sessions.contains("a")),
         other => panic!("expected a scoped cap, got {other:?}"),
     }

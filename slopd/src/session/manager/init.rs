@@ -81,7 +81,9 @@ impl Manager {
             tracing::error!("Worktree recovery failed. Records remain: {error:#}");
         }
 
-        m.tmux.ensure_server().await;
+        if let Err(error) = m.tmux.ensure_server().await {
+            tracing::error!("could not prepare tmux server: {error:#}");
+        }
         m.sync_from_config().await;
 
         // Prune credentials against the reconciled session identities.

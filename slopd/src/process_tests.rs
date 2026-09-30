@@ -173,10 +173,20 @@ async fn timeout_kills_and_reaps_the_child() {
     command
         .arg("-c")
         .arg(format!("echo $$ > '{marker}'; while :; do :; done"));
+    let child = spawn_child(&mut command, false).unwrap();
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !std::path::Path::new(&marker).exists() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("child did not publish readiness");
+    let pid = fs::read_to_string(&marker).unwrap();
     let started = Instant::now();
 
-    let error = run_bounded(
-        &mut command,
+    let error = capture_child(
+        child,
+        None,
         Duration::from_millis(200),
         CaptureLimits {
             stdout: 1024,
@@ -189,7 +199,6 @@ async fn timeout_kills_and_reaps_the_child() {
     assert!(error.downcast_ref::<TimedOut>().is_some());
     assert!(started.elapsed() < Duration::from_secs(2));
 
-    let pid = fs::read_to_string(&marker).unwrap();
     let alive = StdCommand::new("kill")
         .args(["-0", pid.trim()])
         .stderr(std::process::Stdio::null())
@@ -198,4 +207,38 @@ async fn timeout_kills_and_reaps_the_child() {
         .success();
     drop(fs::remove_file(&marker));
     assert!(!alive, "timed-out child was not killed and reaped");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn stdin_failure_terminates_and_reaps_without_waiting_for_timeout() {
+    let marker = std::env::temp_dir().join(format!("slopd-stdin-error-{}", uuid::Uuid::new_v4()));
+    let script = format!(
+        "echo $$ > '{}'; exec 0<&-; while :; do :; done",
+        marker.display()
+    );
+    let mut command = Command::new("sh");
+    command.args(["-c", &script]);
+    let started = Instant::now();
+    let error = run_bounded_with_stdin(
+        &mut command,
+        &vec![b'x'; 1024 * 1024],
+        Duration::from_secs(10),
+        CaptureLimits {
+            stdout: 8,
+            stderr: 8,
+        },
+    )
+    .await
+    .unwrap_err();
+    assert!(error.downcast_ref::<TimedOut>().is_none(), "{error:#}");
+    assert!(started.elapsed() < Duration::from_secs(5));
+    let pid = fs::read_to_string(&marker).unwrap();
+    assert!(!StdCommand::new("kill")
+        .args(["-0", pid.trim()])
+        .stderr(Stdio::null())
+        .status()
+        .unwrap()
+        .success());
+    fs::remove_file(marker).unwrap();
 }

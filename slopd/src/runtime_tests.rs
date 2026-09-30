@@ -40,36 +40,41 @@ fn sidecar_requires_the_published_bind_and_a_token() {
 fn sidecar_rejects_inner_resource_limits() {
     let mut cfg = sidecar_config();
     cfg.sessions.push(SessionCfg {
+        name: "limited-session".into(),
         limits: Limits {
             memory_mb: Some(512),
             ..Default::default()
         },
         ..Default::default()
     });
-    assert!(validate_slopcar_config(&cfg)
-        .unwrap_err()
-        .to_string()
-        .contains("outer container budget"));
+    let error = validate_slopcar_config(&cfg).unwrap_err();
+    assert!(format!("{error:#}").contains("outer container budget"));
+    assert!(error.to_string().contains("limited-session"));
 }
 
 #[test]
 fn native_capabilities_keep_host_integrations() {
-    let caps = Capabilities {
-        runtime: "native",
-        audio_playback: true,
-        ncspot: true,
-        clipboard: true,
-        desktop_open: true,
-        per_session_limits: true,
-        host_network_is_container: false,
-        host_terminals_are_container: false,
-        terminal: TerminalCapabilities {
-            scrollback_lines: crate::tmux::SCROLLBACK_LINES,
-            min_cols: crate::shared::protocol::TERMINAL_MIN_COLS,
-            max_cols: crate::shared::protocol::TERMINAL_MAX_COLS,
-            min_rows: crate::shared::protocol::TERMINAL_MIN_ROWS,
-            max_rows: crate::shared::protocol::TERMINAL_MAX_ROWS,
-        },
+    let Some(_) = crate::test_support::isolated() else {
+        return;
     };
-    assert!(caps.audio_playback && caps.per_session_limits);
+    std::env::remove_var("SLOPD_RUNTIME");
+    let caps = capabilities();
+    assert_eq!(caps.runtime, "native");
+    assert!(caps.audio_playback && caps.clipboard && caps.desktop_open && caps.per_session_limits);
+    assert!(!caps.host_network_is_container && !caps.host_terminals_are_container);
+    assert_eq!(caps.ncspot, ncspot_available());
+}
+
+#[cfg(unix)]
+#[test]
+fn non_unicode_runtime_is_rejected() {
+    use std::os::unix::ffi::OsStringExt;
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
+    std::env::set_var("SLOPD_RUNTIME", std::ffi::OsString::from_vec(vec![0xff]));
+    assert!(validate_runtime_name()
+        .unwrap_err()
+        .to_string()
+        .contains("UTF-8"));
 }

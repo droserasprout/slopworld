@@ -34,8 +34,8 @@ fn activity_cache_round_trips_and_clears() {
 }
 
 #[test]
-fn loaded_entries_drop_invalid_rows_duplicates_and_old_overflow() {
-    let mut entries = vec![
+fn loaded_entries_filter_invalid_rows_and_keep_last_duplicate() {
+    let entries = vec![
         CacheEntry {
             session: "duplicate".into(),
             state: State::Working,
@@ -57,18 +57,25 @@ fn loaded_entries_drop_invalid_rows_duplicates_and_old_overflow() {
             state_since: 4,
         },
     ];
-    entries.extend((0..=MAX_CACHE_ENTRIES).map(|n| CacheEntry {
-        session: format!("agent-{n}"),
-        state: State::Waiting,
-        state_since: n as u64,
-    }));
-
     let entries = trim_entries(entries);
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].session, "duplicate");
+    assert_eq!(entries[0].state, State::Idle);
+    assert_eq!(entries[0].state_since, 4);
+}
 
+#[test]
+fn loaded_entries_evict_old_overflow() {
+    let entries = trim_entries(
+        (0..=MAX_CACHE_ENTRIES)
+            .map(|n| CacheEntry {
+                session: format!("agent-{n}"),
+                state: State::Waiting,
+                state_since: n as u64,
+            })
+            .collect(),
+    );
     assert_eq!(entries.len(), MAX_CACHE_ENTRIES);
-    assert!(entries.iter().all(|entry| {
-        !entry.session.trim().is_empty() && entry.session != "down" && entry.session != "duplicate"
-    }));
     assert_eq!(entries.first().unwrap().session, "agent-1");
     assert_eq!(
         entries.last().unwrap().session,
@@ -131,7 +138,7 @@ fn burst_writer_keeps_latest_rename_clear_and_flushes_on_drop() {
 }
 
 #[test]
-fn background_write_error_is_reported_and_next_mutation_retries() {
+fn background_write_error_is_reported_and_unchanged_flush_retries() {
     let root = test_path();
     std::fs::write(&root, "not a directory").unwrap();
     let cache = ActivityCache::load(root.join("activity.toml"));
@@ -139,15 +146,72 @@ fn background_write_error_is_reported_and_next_mutation_retries() {
     assert!(cache.flush().is_err());
     std::fs::remove_file(&root).unwrap();
     std::fs::create_dir(&root).unwrap();
-    cache.remember("agent", State::Waiting, 20).unwrap();
+    cache.remember("agent", State::Working, 10).unwrap();
     cache.flush().unwrap();
     assert_eq!(
         ActivityCache::load(root.join("activity.toml"))
             .get("agent")
             .unwrap()
             .state_since,
-        20
+        10
     );
     drop(cache);
     std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn drop_waits_for_pending_write() {
+    let path = test_path();
+    let (entered_tx, entered_rx) = std::sync::mpsc::channel();
+    let gate = std::sync::Arc::new(std::sync::Barrier::new(2));
+    let writer_gate = gate.clone();
+    let cache = ActivityCache::load_with_writer(path.clone(), move |path, entries| {
+        entered_tx.send(()).unwrap();
+        writer_gate.wait();
+        super::save_cache(path, entries)
+    });
+    cache.remember("agent", State::Working, 123).unwrap();
+    entered_rx
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .unwrap();
+    let (done_tx, done_rx) = std::sync::mpsc::channel();
+    let dropper = std::thread::spawn(move || {
+        drop(cache);
+        done_tx.send(()).unwrap();
+    });
+    assert!(done_rx
+        .recv_timeout(std::time::Duration::from_millis(50))
+        .is_err());
+    gate.wait();
+    done_rx
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .unwrap();
+    dropper.join().unwrap();
+    let restored = ActivityCache::load(path.clone());
+    assert_eq!(restored.get("agent").unwrap().state_since, 123);
+    drop(restored);
+    std::fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn failed_writes_never_advance_durability_and_flush_retries_once() {
+    let attempts = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let writer_attempts = attempts.clone();
+    let cache = ActivityCache::load_with_writer(test_path(), move |_, _| {
+        writer_attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        anyhow::bail!("controlled write failure")
+    });
+    cache.remember("agent", State::Working, 1).unwrap();
+    let (mutex, wake) = &*cache.shared;
+    let mut pending = mutex.lock().unwrap();
+    while pending.attempted == 0 {
+        pending = wake.wait(pending).unwrap();
+    }
+    assert_eq!(pending.persisted, 0);
+    drop(pending);
+    cache.flush().unwrap_err();
+    assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 2);
+    assert_eq!(mutex.lock().unwrap().persisted, 0);
+    drop(cache);
+    assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 3);
 }

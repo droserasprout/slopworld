@@ -1,13 +1,24 @@
+//! Endpoint descriptor persistence; credentials are serialized but never debugged.
+
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Endpoint {
     pub url: String,
     pub token: String,
+}
+
+impl std::fmt::Debug for Endpoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Endpoint")
+            .field("url", &self.url)
+            .field("token", &"[redacted]")
+            .finish()
+    }
 }
 
 pub fn path() -> PathBuf {

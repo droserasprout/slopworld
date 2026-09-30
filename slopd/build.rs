@@ -8,10 +8,7 @@ fn main() {
     protobuf();
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/version.rs");
-    println!("cargo:rerun-if-changed=../.git/HEAD");
-    println!("cargo:rerun-if-changed=../.git/index");
-    println!("cargo:rerun-if-changed=../.git/packed-refs");
-    println!("cargo:rerun-if-changed=../.git/refs/tags");
+    watch_git();
     println!("cargo:rerun-if-env-changed=SLOPWORLD_BUILD_VERSION");
 
     let fallback = env!("CARGO_PKG_VERSION");
@@ -21,6 +18,28 @@ fn main() {
         .unwrap_or_else(|| version_from_git(fallback));
 
     println!("cargo:rustc-env=SLOPWORLD_VERSION={version}");
+}
+
+// rev-parse resolves both ordinary repositories and linked-worktree metadata.
+fn watch_git() {
+    let repo = env!("CARGO_MANIFEST_DIR").to_string() + "/..";
+    let mut paths = vec![
+        "HEAD".to_string(),
+        "index".into(),
+        "packed-refs".into(),
+        "refs/tags".into(),
+    ];
+    if let Some(active_ref) = git(&repo, &["symbolic-ref", "-q", "HEAD"]) {
+        paths.push(active_ref);
+    }
+    for path in paths {
+        if let Some(resolved) = git(
+            &repo,
+            &["rev-parse", "--path-format=absolute", "--git-path", &path],
+        ) {
+            println!("cargo:rerun-if-changed={resolved}");
+        }
+    }
 }
 
 fn version_from_git(fallback: &str) -> String {

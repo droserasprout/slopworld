@@ -1,3 +1,5 @@
+//! Bounded child I/O, cancellation, termination, and reaping; callers own command policy.
+
 use std::io;
 use std::process::{ExitStatus, Stdio};
 use std::time::Duration;
@@ -60,16 +62,30 @@ async fn run_bounded_with_input(
     timeout: Duration,
     limits: CaptureLimits,
 ) -> Result<BoundedOutput> {
-    let mut child = command
+    let child = spawn_child(command, input.is_some())?;
+    capture_child(child, input, timeout, limits).await
+}
+
+fn spawn_child(command: &mut Command, with_input: bool) -> Result<tokio::process::Child> {
+    command
         .kill_on_drop(true)
-        .stdin(if input.is_some() {
+        .stdin(if with_input {
             Stdio::piped()
         } else {
             Stdio::null()
         })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()?;
+        .spawn()
+        .map_err(anyhow::Error::from)
+}
+
+async fn capture_child(
+    mut child: tokio::process::Child,
+    input: Option<&[u8]>,
+    timeout: Duration,
+    limits: CaptureLimits,
+) -> Result<BoundedOutput> {
     let stdout = child.stdout.take().context("capturing stdout")?;
     let stderr = child.stderr.take().context("capturing stderr")?;
     let stdin = child.stdin.take();
@@ -90,15 +106,25 @@ async fn run_bounded_with_input(
     };
 
     let collected = tokio::time::timeout(timeout, async {
-        let stdout = read_bounded(stdout, limits.stdout);
-        let stderr = read_bounded(stderr, limits.stderr);
-        let status = child.wait();
-        let (stdout, stderr, status, input) = tokio::join!(stdout, stderr, status, write_stdin);
-        let (stdout, stdout_truncated) = stdout?;
-        let (stderr, stderr_truncated) = stderr?;
-        input?;
+        // Stop waiting as soon as any pipe fails; the outer owner terminates and reaps.
+        let (stdout, stderr, status, ()) = tokio::try_join!(
+            async {
+                read_bounded(stdout, limits.stdout)
+                    .await
+                    .map_err(anyhow::Error::from)
+            },
+            async {
+                read_bounded(stderr, limits.stderr)
+                    .await
+                    .map_err(anyhow::Error::from)
+            },
+            async { child.wait().await.map_err(anyhow::Error::from) },
+            write_stdin,
+        )?;
+        let (stdout, stdout_truncated) = stdout;
+        let (stderr, stderr_truncated) = stderr;
         Ok::<_, anyhow::Error>(BoundedOutput {
-            status: status?,
+            status,
             stdout,
             stderr,
             stdout_truncated,
@@ -107,14 +133,15 @@ async fn run_bounded_with_input(
     })
     .await;
 
-    match collected {
+    let result = match collected {
         Ok(result) => result,
-        Err(_) => {
-            drop(child.kill().await);
-            drop(child.wait().await);
-            Err(anyhow::Error::new(TimedOut))
-        }
+        Err(_timeout) => Err(anyhow::Error::new(TimedOut)),
+    };
+    if result.is_err() {
+        drop(child.kill().await);
+        drop(child.wait().await);
     }
+    result
 }
 
 /// Read to EOF while retaining only the configured prefix.

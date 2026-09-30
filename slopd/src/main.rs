@@ -140,18 +140,31 @@ async fn main() -> Result<()> {
 /// Wait for Ctrl+C or SIGTERM to begin graceful HTTP shutdown.
 async fn shutdown() {
     use tokio::signal::unix::{signal, SignalKind};
-    let mut term = match signal(SignalKind::terminate()) {
-        Ok(s) => s,
-        Err(e) => {
-            tracing::warn!("cannot listen for SIGTERM: {e:#}");
-            drop(tokio::signal::ctrl_c().await);
+    let mut interrupt = signal(SignalKind::interrupt())
+        .map_err(|error| {
+            tracing::error!("cannot listen for SIGINT: {error:#}");
+        })
+        .ok();
+    let mut terminate = signal(SignalKind::terminate())
+        .map_err(|error| {
+            tracing::error!("cannot listen for SIGTERM: {error:#}");
+        })
+        .ok();
+    // A failed registration disables only that listener. It is never a shutdown event.
+    tokio::select! {
+        _ = receive_signal(&mut interrupt) => {}
+        _ = receive_signal(&mut terminate) => {}
+    }
+}
+
+async fn receive_signal(signal: &mut Option<tokio::signal::unix::Signal>) {
+    if let Some(signal) = signal {
+        if signal.recv().await.is_some() {
             return;
         }
-    };
-    tokio::select! {
-        _ = tokio::signal::ctrl_c() => {}
-        _ = term.recv() => {}
+        tracing::error!("shutdown signal listener closed");
     }
+    std::future::pending::<()>().await;
 }
 
 /// Attach the token’s capability for handlers, or reject unauthorized requests.

@@ -36,13 +36,13 @@ pub(crate) fn run() -> Result<()> {
 
 fn benchmark_render_cases() {
     benchmark_render(
-        "render no-output",
+        "feed-and-render no-output",
         seeded(),
         |_emu, _| {},
         |emu| emu.render(),
     );
     benchmark_render(
-        "render cursor-only",
+        "feed-and-render cursor-only",
         seeded(),
         |emu, sample| {
             let position = if sample % 2 == 0 {
@@ -55,7 +55,7 @@ fn benchmark_render_cases() {
         |emu| emu.render(),
     );
     benchmark_render(
-        "render one-row-edit",
+        "feed-and-render one-row-edit",
         seeded(),
         |emu, sample| {
             let row = if sample % 2 == 0 {
@@ -68,7 +68,7 @@ fn benchmark_render_cases() {
         |emu| emu.render(),
     );
     benchmark_render(
-        "render full-redraw",
+        "feed-and-render full-redraw",
         seeded(),
         |emu, sample| emu.feed(&full_redraw(sample % 2 == 0)),
         |emu| emu.render(),
@@ -102,7 +102,7 @@ fn benchmark_history_padding() {
         }
         benchmark_render(
             &format!(
-                "render cursor history={count} {}",
+                "feed-and-render cursor history={count} {}",
                 if blank { "blank" } else { "text" }
             ),
             emu,
@@ -140,7 +140,7 @@ fn benchmark_content_hash_rows(frame: &Frame) -> usize {
 
 fn benchmark_websocket_serialization() {
     let screen = screen_view("bench-fresh", &seeded_frame());
-    measure("websocket-json fresh screen", |_| {
+    measure("websocket-protobuf fresh screen", |_| {
         EventMessage::new(Event::Screen {
             screen: screen.clone(),
         })
