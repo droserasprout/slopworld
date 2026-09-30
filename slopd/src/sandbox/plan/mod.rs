@@ -227,5 +227,4 @@ pub(super) fn launch_scope(arg: &str) -> Option<&str> {
 }
 
 #[cfg(test)]
-#[path = "plan_tests.rs"]
 mod tests;

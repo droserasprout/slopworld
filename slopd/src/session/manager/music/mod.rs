@@ -175,5 +175,4 @@ fn resolve_audio_source(selection: AudioSelection) -> anyhow::Result<String> {
 }
 
 #[cfg(test)]
-#[path = "music_tests.rs"]
 mod tests;

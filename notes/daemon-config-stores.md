@@ -13,7 +13,7 @@ restores the previous main document and catalog before another load or save.
 Callers must serialize writers and recovery through the configuration gate.
 The journal contains old credentials and is protected by sandbox path guards.
 Runtime DNS resolution belongs to `sandbox/network.rs`, temporary project paths to
-`paths.rs`, and tmux socket identity and history limits to `tmux.rs`.
+`paths.rs`, and tmux socket identity and history limits to `tmux/mod.rs`.
 `session/manager/config/mod.rs` serializes runtime changes and publication;
 `manager/lifecycle/reconcile.rs` applies accepted configuration to live sessions.
 `manager/config/cache.rs` coordinates cache links across projects and worktrees, tracking
@@ -27,7 +27,7 @@ The mod uses daemon APIs and reads `endpoint.toml` for connection credentials.
 It must not read or rewrite daemon TOML directly. Locations and overrides: [paths](ops-paths.md).
 
 Personal agent templates are a separate daemon-owned `agent_templates/` store beside
-the main config. `session/agent_templates.rs` defines its types and snapshot rules.
+the main config. `session/agent_templates/mod.rs` defines its types and snapshot rules.
 The manager loads the store at startup and serializes mutations atomically. Templates retain no parent
 agent or project metadata. Library items are one file per kind in `prompts/`, `breadcrumbs/`,
 `file_actions/`, and `shell_scripts/`.

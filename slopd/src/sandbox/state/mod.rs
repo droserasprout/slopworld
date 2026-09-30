@@ -7,7 +7,6 @@ use anyhow::{Context, Result};
 use crate::config::SessionCfg;
 
 #[cfg(test)]
-#[path = "state_tests.rs"]
 mod tests;
 
 /// Return the root directory for persistent session state.

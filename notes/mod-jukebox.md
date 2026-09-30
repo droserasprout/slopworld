@@ -32,7 +32,7 @@ Opener thread creation failures return through the same identity-checked worker 
 failures. A stale title is still stale state even if the corresponding audio was discarded.
 [Likes and recognition](mod-jukebox-library.md) cover the other side of that identity boundary.
 
-`manager/music.rs` owns source selection, recovery and the transition gate for both
+`manager/music/mod.rs` owns source selection, recovery and the transition gate for both
 HTTP and WebSocket commands. Transport handlers authorize and delegate; they do not
 sequence player shutdown or hold playback locks. Its private `music/ncspot.rs` owns a host
 errand terminal, a private IPC runtime directory and bounded status reads. The tmux

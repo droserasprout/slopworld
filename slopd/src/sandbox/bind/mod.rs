@@ -148,5 +148,4 @@ struct EnvArgs<'a> {
 }
 
 #[cfg(test)]
-#[path = "bind_tests.rs"]
 mod tests;

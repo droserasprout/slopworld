@@ -255,5 +255,4 @@ fn clean(raw: &str) -> Option<String> {
 }
 
 #[cfg(test)]
-#[path = "title_tests.rs"]
 mod tests;

@@ -7,7 +7,6 @@ import shlex
 import subprocess
 import shutil
 import time
-import uuid
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -74,9 +73,9 @@ class SuiteTests(unittest.TestCase):
             status = root / 'done.json'
             config = root / 'tmux.conf'
             config.write_text('set-option -g history-limit 128\n')
-            socket = 'slopworld-history-test-' + uuid.uuid4().hex
+            socket = str(root / 'tmux')
             def tmux(*args):
-                return subprocess.check_output(['tmux', '-L', socket, *args], text=True, timeout=5)
+                return subprocess.check_output(['tmux', '-S', socket, *args], text=True, timeout=5)
             try:
                 tmux('-f', str(config), 'new-session', '-d', '-s', 'fixture',
                      command(status, 128) + '; exec sleep 30')
@@ -95,7 +94,7 @@ class SuiteTests(unittest.TestCase):
                 self.assertGreaterEqual(len(lines), 128)
                 self.assertTrue(all(line.isascii() and line.isalnum() for line in lines))
             finally:
-                subprocess.run(['tmux', '-L', socket, 'kill-server'], capture_output=True, timeout=5)
+                subprocess.run(['tmux', '-S', socket, 'kill-server'], capture_output=True, timeout=5)
 
     def test_setup_does_not_send_enter_without_confirmed_paste(self):
         with tempfile.TemporaryDirectory() as directory:

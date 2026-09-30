@@ -479,5 +479,4 @@ pub(crate) fn validate_definition(template: &AgentTemplate) -> Result<()> {
 }
 
 #[cfg(test)]
-#[path = "agent_templates_tests.rs"]
 mod tests;

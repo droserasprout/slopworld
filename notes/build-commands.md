@@ -8,6 +8,11 @@ generation and lint recipes have separate owners in `make/`. `test-tools` owns s
 contract/catalog and maintenance-script checks.
 Language test targets run only their own suite.
 
+`test-daemon` and `coverage-daemon` run through `tools/test_tmux.py`, which owns a
+temporary `TMUX_TMPDIR` for the test process and its children. They do not need
+access to the host's default tmux socket directory. Python tmux fixtures use
+explicit sockets inside their own temporary directories.
+
 Make owns target dependencies and exports settings from `make/config.mk` to the
 maintenance scripts in `tools/`. Keep multi-step shell logic there.
 

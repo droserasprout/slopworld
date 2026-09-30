@@ -1,7 +1,7 @@
 # Sandbox boundaries
 
-Start in `sandbox/bind.rs` for mount construction, `sandbox/paths.rs` for path guards,
-and `sandbox/state.rs` for private storage. `state/inventory.rs` owns inventory;
+Start in `sandbox/bind/mod.rs` for mount construction, `sandbox/paths.rs` for path guards,
+and `sandbox/state/mod.rs` for private storage. `state/inventory.rs` owns inventory;
 `seed.rs` owns initialization, independently of resolver preparation in `network.rs`.
 Presets define access.
 [Scoped grants](agent-grants.md) independently define API authority.

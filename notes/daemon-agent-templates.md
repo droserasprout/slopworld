@@ -12,7 +12,7 @@ boundary. The mod never reads these files directly. Every definition has a persi
 not reuse conflict tokens. These are stale-write guards, not revision history or links to
 instantiated agents.
 
-`session/agent_templates.rs` defines templates with optional settings that agents copy once.
+`session/agent_templates/mod.rs` defines templates with optional settings that agents copy once.
 Optional scalar choices copy into agent settings.
 Omitted fields use these defaults:
 
