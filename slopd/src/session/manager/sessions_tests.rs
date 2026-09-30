@@ -583,12 +583,14 @@ async fn remembered_host_edits_preserve_labels_and_reject_agent_collisions() {
     assert_eq!(cfg.host_terminals[0].label.as_deref(), Some("My shell"));
     assert_eq!(cfg.host_terminals[0].path, "/new");
     assert!(cfg.host_terminals[0].autostart);
-    assert!(manager
-        .remember_host_terminal("agent", "repo", "/collision")
-        .await
-        .unwrap_err()
-        .to_string()
-        .contains("conflicts"));
+    assert!(
+        manager
+            .remember_host_terminal("agent", "repo", "/collision")
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("conflicts")
+    );
     assert_eq!(manager.config().await.host_terminals.len(), 1);
     std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
 }
@@ -616,10 +618,12 @@ async fn manual_labels_count_unicode_characters_clear_and_invalidate_pending_tit
                 assert!(live[name].title.title().is_none());
             }
         }
-        assert!(manager
-            .set_label(name, "界".repeat(MAX_MANUAL_LABEL_CHARS + 1))
-            .await
-            .is_err());
+        assert!(
+            manager
+                .set_label(name, "界".repeat(MAX_MANUAL_LABEL_CHARS + 1))
+                .await
+                .is_err()
+        );
         assert_eq!(
             manager.live.read().await[name].cfg.label.as_deref(),
             Some(label.as_str())
@@ -631,12 +635,14 @@ async fn manual_labels_count_unicode_characters_clear_and_invalidate_pending_tit
         toml::from_str(&std::fs::read_to_string(&manager.cfg_path).unwrap()).unwrap();
     assert!(saved.sessions[0].label.is_none());
     assert!(saved.host_terminals[0].label.is_none());
-    assert!(manager
-        .set_label("missing", "label".into())
-        .await
-        .unwrap_err()
-        .to_string()
-        .contains("no such session"));
+    assert!(
+        manager
+            .set_label("missing", "label".into())
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("no such session")
+    );
     std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
 }
 
@@ -712,12 +718,14 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
     );
     assert!(manager.config().await.session("old").is_some());
     assert!(manager.live.read().await.contains_key("old"));
-    assert!(!manager
-        .stored_states()
-        .await
-        .unwrap()
-        .iter()
-        .any(|s| s.kind == "trash"));
+    assert!(
+        !manager
+            .stored_states()
+            .await
+            .unwrap()
+            .iter()
+            .any(|s| s.kind == "trash")
+    );
     drop(fault);
 
     manager.remove("old").await.unwrap();

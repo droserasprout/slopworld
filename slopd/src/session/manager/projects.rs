@@ -215,16 +215,15 @@ impl Manager {
     pub async fn remove_project(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
         let cfg = self.config().await;
-        if let Some(p) = cfg.project(name) {
-            if !p.id.is_empty()
-                && crate::worktrees::Store::load(&self.cfg_path)
-                    .await?
-                    .worktrees
-                    .iter()
-                    .any(|w| w.project_id == p.id)
-            {
-                bail!("remove project worktrees explicitly first");
-            }
+        if let Some(p) = cfg.project(name)
+            && !p.id.is_empty()
+            && crate::worktrees::Store::load(&self.cfg_path)
+                .await?
+                .worktrees
+                .iter()
+                .any(|w| w.project_id == p.id)
+        {
+            bail!("remove project worktrees explicitly first");
         }
         self.update_cfg(|cfg| {
             if cfg.project(name).is_none() {

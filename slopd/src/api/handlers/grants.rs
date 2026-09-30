@@ -1,4 +1,4 @@
-use crate::api::protobuf::{domain, reply, Proto};
+use crate::api::protobuf::{Proto, domain, reply};
 use crate::shared::wire;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -8,7 +8,7 @@ use serde_json::json;
 use crate::grant::Level;
 
 use super::super::types::GrantReq;
-use super::{err, ApiResult, Mgr};
+use super::{ApiResult, Mgr, err};
 
 /// Mint a grant: let `grantor` watch or drive the named `sessions`. Root-only by the router,
 /// so only the mod asks. The daemon refuses a host session in the scope - the one line the
@@ -26,7 +26,7 @@ pub(crate) async fn mint_grant(
             return Err(err(
                 StatusCode::BAD_REQUEST,
                 format!("level must be \"ro\" or \"rw\", not {other:?}"),
-            ))
+            ));
         }
     };
     let token = m

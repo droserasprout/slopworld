@@ -18,10 +18,11 @@ fn command() -> PresetDefinition {
 
 #[test]
 fn mutations_validate_committed_files_without_waiting_for_catalog_reload() {
-    let Some(root) = crate::test_support::isolated() else {
+    let Some(_) = crate::test_support::isolated_with_env(|command, root| {
+        command.env("SLOPD_PRESETS", root.join("presets"));
+    }) else {
         return;
     };
-    std::env::set_var("SLOPD_PRESETS", root.join("presets"));
     assert!(!table().contains(PresetKind::SandboxPresets, "dependency"));
     validate_and_save(sandbox()).unwrap();
     validate_and_save(command()).unwrap();
@@ -39,10 +40,11 @@ fn mutations_validate_committed_files_without_waiting_for_catalog_reload() {
 
 #[test]
 fn concurrent_delete_and_dependency_creation_cannot_commit_an_unresolved_reference() {
-    let Some(root) = crate::test_support::isolated() else {
+    let Some(_) = crate::test_support::isolated_with_env(|command, root| {
+        command.env("SLOPD_PRESETS", root.join("presets"));
+    }) else {
         return;
     };
-    std::env::set_var("SLOPD_PRESETS", root.join("presets"));
     validate_and_save(sandbox()).unwrap();
     let guard = mutation_guard().unwrap();
     let start = Arc::new(std::sync::Barrier::new(3));

@@ -16,8 +16,8 @@ fn content_type_reads_gio_info() {
 #[test]
 fn associations_keep_default_order_and_remove_duplicates() {
     let apps = desktop_apps(
-            "Default application for “text/plain”: editor.desktop\n\nRegistered applications:\n\teditor.desktop\n\tviewer.desktop\nRecommended applications:\n\tviewer.desktop\n",
-        );
+        "Default application for “text/plain”: editor.desktop\n\nRegistered applications:\n\teditor.desktop\n\tviewer.desktop\nRecommended applications:\n\tviewer.desktop\n",
+    );
     assert_eq!(
         apps.iter().map(|app| app.id.as_str()).collect::<Vec<_>>(),
         vec!["editor.desktop", "viewer.desktop"]
@@ -49,9 +49,9 @@ fn text_types_include_plain_text_handlers() {
 #[test]
 fn full_associations_keep_gio_order_before_extra_entries() {
     let apps = associated_apps(
-            "text/x-toml",
-            "Default application for “text/x-toml”: first.desktop\nRegistered applications:\n\tfirst.desktop\n",
-        );
+        "text/x-toml",
+        "Default application for “text/x-toml”: first.desktop\nRegistered applications:\n\tfirst.desktop\n",
+    );
     assert_eq!(
         apps.first().map(|app| app.id.as_str()),
         Some("first.desktop")

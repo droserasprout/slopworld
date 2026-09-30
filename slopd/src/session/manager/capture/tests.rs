@@ -1,4 +1,4 @@
-use super::super::lifecycle::stop::{reset_process_state, DetachCause, ReaderDisposition};
+use super::super::lifecycle::stop::{DetachCause, ReaderDisposition, reset_process_state};
 use super::*;
 use std::io::Write;
 use std::os::fd::OwnedFd;
@@ -139,11 +139,13 @@ async fn stale_reader_cannot_mark_a_replacement_down() {
     let live = manager.live.read().await;
     assert_eq!(live["agent"].state, State::Working);
     assert!(live["agent"].capture.emu.is_some());
-    assert!(live["agent"]
-        .capture
-        .reader_token
-        .as_ref()
-        .is_some_and(|token| Arc::ptr_eq(token, &current)));
+    assert!(
+        live["agent"]
+            .capture
+            .reader_token
+            .as_ref()
+            .is_some_and(|token| Arc::ptr_eq(token, &current))
+    );
 }
 
 #[tokio::test]

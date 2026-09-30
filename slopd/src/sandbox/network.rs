@@ -5,10 +5,10 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 
-use crate::config::{expand, Config, DnsConfig, NetworkMode, ProjectCfg, SessionCfg};
+use crate::config::{Config, DnsConfig, NetworkMode, ProjectCfg, SessionCfg, expand};
 
 use super::seed::seed_into;
-use super::{persistent_tmp_path, presets_for, private_path, state_root, PRIVATE_RESOLVER};
+use super::{PRIVATE_RESOLVER, persistent_tmp_path, presets_for, private_path, state_root};
 
 /// Create resolver files and initialize private copies before argument construction.
 /// Keep existing private copies. Private network mode always uses a generated resolver file.
@@ -62,7 +62,7 @@ pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<(
                     }
                 }
                 Err(error) => {
-                    return Err(error).with_context(|| format!("reading private source {host}"))
+                    return Err(error).with_context(|| format!("reading private source {host}"));
                 }
             }
         }

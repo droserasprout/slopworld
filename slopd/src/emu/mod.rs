@@ -822,12 +822,13 @@ pub struct MouseInput {
 
 /// Legacy/UTF-8 coordinate byte: raw, or a UTF-8 char past 127 under 1005.
 fn push_coord(out: &mut Vec<u8>, v: u32, utf8: bool) {
-    if utf8 && v > 127 {
-        if let Some(c) = char::from_u32(v) {
-            let mut buf = [0u8; 4];
-            out.extend_from_slice(c.encode_utf8(&mut buf).as_bytes());
-            return;
-        }
+    if utf8
+        && v > 127
+        && let Some(c) = char::from_u32(v)
+    {
+        let mut buf = [0u8; 4];
+        out.extend_from_slice(c.encode_utf8(&mut buf).as_bytes());
+        return;
     }
     out.push(v.min(255) as u8);
 }

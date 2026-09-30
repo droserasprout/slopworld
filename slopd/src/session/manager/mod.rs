@@ -45,7 +45,7 @@ use super::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::{RwLock, broadcast};
 
 /// Shared daemon coordinator; each subsystem keeps its own state and locks.
 pub struct Manager {

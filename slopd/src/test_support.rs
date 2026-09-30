@@ -31,6 +31,13 @@ impl Drop for TmuxSocket {
 }
 
 pub(crate) fn isolated() -> Option<PathBuf> {
+    isolated_with_env(|_, _| {})
+}
+
+/// Configure the child's environment before its test harness or runtime starts threads.
+pub(crate) fn isolated_with_env(
+    configure: impl FnOnce(&mut std::process::Command, &std::path::Path),
+) -> Option<PathBuf> {
     let thread = std::thread::current();
     let name = thread.name()?;
     if std::env::var("SLOPD_ISOLATED_TEST").as_deref() == Ok(name) {
@@ -38,7 +45,8 @@ pub(crate) fn isolated() -> Option<PathBuf> {
     }
     let root = std::env::temp_dir().join(format!("slopd-isolated-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(root.join("cache")).unwrap();
-    let output = std::process::Command::new(std::env::current_exe().unwrap())
+    let mut command = std::process::Command::new(std::env::current_exe().unwrap());
+    command
         .args(["--exact", name, "--nocapture"])
         .env("SLOPD_ISOLATED_TEST", name)
         .env("SLOPD_TEST_ROOT", &root)
@@ -46,8 +54,9 @@ pub(crate) fn isolated() -> Option<PathBuf> {
         .env("SLOPD_CACHE", root.join("cache"))
         .env_remove("OPENROUTER_API_KEY")
         .env("NO_PROXY", "*")
-        .env("no_proxy", "*")
-        .output();
+        .env("no_proxy", "*");
+    configure(&mut command, &root);
+    let output = command.output();
     let cleanup = std::fs::remove_dir_all(&root);
     let cleanup_failure = cleanup
         .as_ref()
@@ -69,4 +78,29 @@ pub(crate) fn isolated() -> Option<PathBuf> {
     );
     cleanup.expect("clean isolated test directory");
     None
+}
+
+// Dynamic provider URLs and catalog failure fixtures use an isolated process-local
+// overlay. Native environment mutation would race with HTTP or Tokio helper threads.
+static ENVIRONMENT: std::sync::Mutex<std::collections::BTreeMap<String, std::ffi::OsString>> =
+    std::sync::Mutex::new(std::collections::BTreeMap::new());
+
+pub(crate) fn set_env(key: &str, value: impl AsRef<std::ffi::OsStr>) {
+    assert!(std::env::var_os("SLOPD_ISOLATED_TEST").is_some());
+    ENVIRONMENT
+        .lock()
+        .unwrap()
+        .insert(key.into(), value.as_ref().into());
+}
+
+pub(crate) fn var_os(key: &str) -> Option<std::ffi::OsString> {
+    let value = ENVIRONMENT.lock().unwrap().get(key).cloned();
+    value.or_else(|| std::env::var_os(key))
+}
+
+pub(crate) fn var(key: &str) -> Result<String, std::env::VarError> {
+    var_os(key)
+        .ok_or(std::env::VarError::NotPresent)?
+        .into_string()
+        .map_err(std::env::VarError::NotUnicode)
 }

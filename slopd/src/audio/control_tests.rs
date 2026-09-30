@@ -12,14 +12,16 @@ fn stale_success_and_failure_cannot_overwrite_the_replacement() {
     let generation = control.snapshot().1;
     control.request.lock().unwrap().source = Some("replacement".into());
     let original = state.lock().unwrap().clone();
-    assert!(control
-        .publish_current(
-            &state,
-            generation,
-            SourceRequirement::Exact("old"),
-            |_, _| { panic!("stale success must not publish") }
-        )
-        .is_none());
+    assert!(
+        control
+            .publish_current(
+                &state,
+                generation,
+                SourceRequirement::Exact("old"),
+                |_, _| { panic!("stale success must not publish") }
+            )
+            .is_none()
+    );
     control.fail_current(&state, "old", generation, "old failure".into());
     control.fail_current(
         &state,

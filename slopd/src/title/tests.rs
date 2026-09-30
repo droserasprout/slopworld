@@ -56,7 +56,7 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Vec<u8>> {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::UnexpectedEof,
                     "incomplete request",
-                ))
+                ));
             }
             Err(error) => return Err(error),
             Ok(n) => {

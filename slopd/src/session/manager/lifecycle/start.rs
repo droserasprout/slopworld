@@ -3,10 +3,10 @@
 //! Resolve a StartPlan, create a silent tmux pane, attach its reader, then run the command.
 //! The plan carries the same launch inputs through each stage and its failure cleanup.
 
-use super::stop::{finish_reader, reset_process_state, take_reader_for_abort, ReaderDisposition};
-use crate::sandbox::{build_plan, LaunchPlan};
+use super::stop::{ReaderDisposition, finish_reader, reset_process_state, take_reader_for_abort};
+use crate::sandbox::{LaunchPlan, build_plan};
 use crate::session::*;
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 
 /// Resolved inputs for one start attempt, including host terminals and workers.
 /// LaunchPlan describes sandbox execution; this also carries tmux and session setup.
@@ -79,7 +79,9 @@ impl Manager {
                 if cfg.session(name).is_some()
                     && (live.host || live.cfg.state_id != session.state_id)
                 {
-                    bail!("Session {name} has an incompatible live identity; reconcile it before starting.");
+                    bail!(
+                        "Session {name} has an incompatible live identity; reconcile it before starting."
+                    );
                 }
                 (live.cols, live.rows, live.host, live.host_path.clone())
             }
@@ -300,18 +302,18 @@ impl Manager {
             .get(name)
             .filter(|live| live.ephemeral && !live.host)
             .map(|live| live.cfg.clone());
-        if self.tmux.exists(name).await {
-            if let Err(cleanup) = self.tmux.kill(name).await {
-                tracing::warn!("could not clean up failed start {name}: {cleanup:#}");
-            }
+        if self.tmux.exists(name).await
+            && let Err(cleanup) = self.tmux.kill(name).await
+        {
+            tracing::warn!("could not clean up failed start {name}: {cleanup:#}");
         }
         if worker {
             self.invalidate_session(name).await;
         }
-        if let Some(session) = ephemeral {
-            if let Err(error) = crate::sandbox::remove_ephemeral_state(&session) {
-                tracing::warn!("removing temporary private state for {name}: {error:#}");
-            }
+        if let Some(session) = ephemeral
+            && let Err(error) = crate::sandbox::remove_ephemeral_state(&session)
+        {
+            tracing::warn!("removing temporary private state for {name}: {error:#}");
         }
     }
 }

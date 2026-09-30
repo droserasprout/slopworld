@@ -49,22 +49,24 @@ async fn disabled_and_short_tasks_ignore_even_cached_summaries() {
     cache(&m, &task).await;
     m.cfg.write().await.daemon.task_summaries = TitlePolicy::Never;
     m.clone().run_task_summary(task.clone()).await;
-    assert!(m
-        .tasks
-        .task_for("host", &task.id)
-        .unwrap()
-        .summary
-        .is_none());
+    assert!(
+        m.tasks
+            .task_for("host", &task.id)
+            .unwrap()
+            .summary
+            .is_none()
+    );
     m.cfg.write().await.daemon.task_summaries = TitlePolicy::Always;
     task.body = "猫犬鳥".into();
     cache(&m, &task).await;
     m.clone().run_task_summary(task.clone()).await;
-    assert!(m
-        .tasks
-        .task_for("host", &task.id)
-        .unwrap()
-        .summary
-        .is_none());
+    assert!(
+        m.tasks
+            .task_for("host", &task.id)
+            .unwrap()
+            .summary
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -74,10 +76,12 @@ async fn completed_summary_does_not_resurrect_a_removed_task() {
     m.tasks.remove_task("host", &task.id, true).unwrap();
     m.clone().run_task_summary(task).await;
     assert!(m.tasks.all_tasks().is_empty());
-    assert!(crate::tasks::Tasks::load(&m.cfg_path)
-        .unwrap()
-        .all()
-        .is_empty());
+    assert!(
+        crate::tasks::Tasks::load(&m.cfg_path)
+            .unwrap()
+            .all()
+            .is_empty()
+    );
 }
 
 #[tokio::test]

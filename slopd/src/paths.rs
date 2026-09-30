@@ -1,4 +1,10 @@
+//! Filesystem paths, metadata and atomic publication; test_support owns test overrides.
+
+#[cfg(test)]
+use crate::test_support as env;
 use anyhow::{Context, Result};
+#[cfg(not(test))]
+use std::env;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -157,7 +163,7 @@ pub fn cache_root() -> PathBuf {
 
 /// Return an application subdirectory, or the path set by `variable`.
 pub fn dir(variable: &str, base: Option<PathBuf>, child: &str) -> PathBuf {
-    if let Ok(dir) = std::env::var(variable) {
+    if let Ok(dir) = env::var(variable) {
         return PathBuf::from(dir);
     }
     root(base).join(child)

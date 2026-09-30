@@ -48,10 +48,12 @@ fn task_owner_preserves_visibility_authority_and_durable_mutations() {
         task.id
     );
     assert!(m.tasks.all_tasks().is_empty());
-    assert!(crate::tasks::Tasks::load(&m.cfg_path)
-        .unwrap()
-        .all()
-        .is_empty());
+    assert!(
+        crate::tasks::Tasks::load(&m.cfg_path)
+            .unwrap()
+            .all()
+            .is_empty()
+    );
 }
 
 #[test]
@@ -78,10 +80,12 @@ fn bulk_removal_is_atomic_and_pruning_respects_visibility() {
     assert_eq!(m.tasks.prune_tasks("host", false).unwrap(), 1);
     assert_eq!(m.tasks.all_tasks()[0].id, b.id);
     assert_eq!(m.tasks.remove_tasks("host", &[b.id], true).unwrap(), 1);
-    assert!(crate::tasks::Tasks::load(&m.cfg_path)
-        .unwrap()
-        .all()
-        .is_empty());
+    assert!(
+        crate::tasks::Tasks::load(&m.cfg_path)
+            .unwrap()
+            .all()
+            .is_empty()
+    );
 }
 
 #[test]

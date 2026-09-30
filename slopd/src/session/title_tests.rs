@@ -123,9 +123,11 @@ fn title_submission_reports_uncertain_editing_without_a_submission() {
 fn title_submission_uses_all_literal_chunks_before_enter() {
     let mut composer = Composer::ready();
     let chunks = vec!["fix ".to_string(), "the parser".to_string()];
-    assert!(build_title_submission(&mut composer, &chunks, true)
-        .0
-        .is_none());
+    assert!(
+        build_title_submission(&mut composer, &chunks, true)
+            .0
+            .is_none()
+    );
 
     let enter = vec!["Enter".to_string()];
     let (submission, uncertain) = build_title_submission(&mut composer, &enter, false);
@@ -162,15 +164,19 @@ fn once_attempt_is_consumed_on_failure_and_rearmed_only_by_new_conversation() {
     let mut capture = TitleCapture::default();
     let first = request(&mut capture, &settings, "Fix the parser");
     capture.paste("Another prompt");
-    assert!(capture
-        .capture_keys(&settings, &["Enter".into()], false)
-        .is_none());
+    assert!(
+        capture
+            .capture_keys(&settings, &["Enter".into()], false)
+            .is_none()
+    );
     assert!(!capture.finish(&first, None));
     capture.disable();
     capture.paste("Still the same conversation");
-    assert!(capture
-        .capture_keys(&settings, &["Enter".into()], false)
-        .is_none());
+    assert!(
+        capture
+            .capture_keys(&settings, &["Enter".into()], false)
+            .is_none()
+    );
     capture.paste("/new");
     assert!(matches!(
         capture.capture_keys(&settings, &["Enter".into()], false),
@@ -187,9 +193,11 @@ fn approval_answers_never_consume_the_once_attempt_even_with_zero_minimum() {
     let mut capture = TitleCapture::default();
     for answer in ["yes", "1", "okay", "cancel"] {
         capture.paste(answer);
-        assert!(capture
-            .capture_keys(&settings, &["Enter".into()], false)
-            .is_none());
+        assert!(
+            capture
+                .capture_keys(&settings, &["Enter".into()], false)
+                .is_none()
+        );
     }
     let next = request(&mut capture, &settings, "Fix the parser");
     assert!(capture.accepts(&next));
@@ -216,9 +224,11 @@ fn stale_and_repeated_results_cannot_replace_a_title_or_clear_new_work() {
 fn restored_title_consumes_once_and_label_edits_cancel_pending_work() {
     let mut capture = TitleCapture::restored(Some("Restored".into()));
     capture.paste("More work");
-    assert!(capture
-        .capture_keys(&settings(TitlePolicy::Once), &["Enter".into()], false)
-        .is_none());
+    assert!(
+        capture
+            .capture_keys(&settings(TitlePolicy::Once), &["Enter".into()], false)
+            .is_none()
+    );
     let pending = request(&mut capture, &settings(TitlePolicy::Always), "New work");
     capture.label_changed(false);
     assert!(!capture.accepts(&pending));

@@ -3,14 +3,14 @@
 //! The daemon stores each other live credential as a `Grant` beside its configuration.
 //! It revokes the grant when the grantor or a target session no longer exists.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 #[derive(Debug)]
@@ -148,10 +148,10 @@ impl Grants {
                     return Ok(Self {
                         path: Some(path),
                         by_token: HashMap::new(),
-                    })
+                    });
                 }
                 Err(error) => {
-                    return Err(error).with_context(|| format!("checking {}", path.display()))
+                    return Err(error).with_context(|| format!("checking {}", path.display()));
                 }
             };
             if metadata.permissions().mode() & 0o777 != 0o600 {
@@ -166,7 +166,7 @@ impl Grants {
                 return Ok(Self {
                     path: Some(path),
                     by_token: HashMap::new(),
-                })
+                });
             }
             Err(error) => return Err(error).with_context(|| format!("reading {}", path.display())),
         };
@@ -344,16 +344,17 @@ impl Grants {
             if let Some(path) = &self.path {
                 match fs::remove_file(path) {
                     Ok(()) => {
-                        return Err(error).context("grant store cleared after revoke write failure")
+                        return Err(error)
+                            .context("grant store cleared after revoke write failure");
                     }
                     Err(clear_error) if clear_error.kind() == std::io::ErrorKind::NotFound => {
-                        return Err(error).context("grant store absent after revoke write failure")
+                        return Err(error).context("grant store absent after revoke write failure");
                     }
                     Err(clear_error) => {
                         return Err(error).context(format!(
                             "grant revoke write failed and {} could not be cleared: {clear_error}",
                             path.display()
-                        ))
+                        ));
                     }
                 }
             }

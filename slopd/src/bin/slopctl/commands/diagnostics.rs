@@ -1,10 +1,10 @@
-use super::super::format::{print_json, print_status};
-use super::super::http::{request, status_value, Endpoint};
 use super::super::HOST;
-use super::common::{arg, encode_component, only};
+use super::super::format::{print_json, print_status};
+use super::super::http::{Endpoint, request, status_value};
 use super::Command;
+use super::common::{arg, encode_component, only};
 use crate::shared::protocol::routes;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 pub(crate) const PEERS_USAGE: &str = "usage:
   slopctl peers

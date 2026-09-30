@@ -1,7 +1,7 @@
 //! Per-kind library file validation, loading, and save preparation.
 //! The transaction owner commits prepared files with the main document.
 use super::{LibraryItemCfg, LibraryItemKind};
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use std::collections::HashSet;
 use std::path::{Component, Path, PathBuf};
 

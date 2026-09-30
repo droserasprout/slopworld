@@ -359,7 +359,9 @@ impl Manager {
 
     async fn update_endpoint(&self, token: &str) {
         if let Err(e) = crate::endpoint::update_token(&self.endpoint_path, token).await {
-            tracing::warn!("The daemon accepted the config but could not update the endpoint descriptor: {e:#}");
+            tracing::warn!(
+                "The daemon accepted the config but could not update the endpoint descriptor: {e:#}"
+            );
         }
     }
 

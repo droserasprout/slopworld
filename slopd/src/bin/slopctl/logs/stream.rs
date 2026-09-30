@@ -1,9 +1,9 @@
 //! Own log readers and child lifetimes; selection and rendering stay in `logs`.
 //! Drop the bounded receiver before cancellation and joins to release blocked senders.
 
-use super::{clean_log_line, source_command, write_log_line, LogSource, LogsOptions};
+use super::{LogSource, LogsOptions, clean_log_line, source_command, write_log_line};
 use std::io::{self, BufRead, BufReader, LineWriter, Write};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use std::time::Duration;
 

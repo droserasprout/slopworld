@@ -6,7 +6,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::{OnceLock, RwLock};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use serde::{Deserialize, Serialize};
 
 /// Expected request failures and filesystem failures from editing user stations.

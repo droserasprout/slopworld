@@ -1,6 +1,6 @@
 //! Explicit terminal launches and file or desktop action HTTP boundaries.
 
-use crate::api::protobuf::{domain, reply, Proto};
+use crate::api::protobuf::{Proto, domain, reply};
 use crate::shared::wire;
 use axum::extract::{Query, State};
 use serde_json::json;
@@ -9,7 +9,7 @@ use crate::config::{LibraryItemCfg, LibraryItemKind};
 use crate::session::RunWhere;
 
 use super::super::types::{FileActionReq, OpenAppsQuery, RunReq};
-use super::{err, ApiResult, Mgr};
+use super::{ApiResult, Mgr, err};
 
 pub(crate) async fn run(
     State(m): State<Mgr>,

@@ -1,7 +1,7 @@
 //! Effective launch settings, captured presets, and editor previews.
 //! Resolution does not prepare private state or start processes.
-use super::{default_agent, Config, DnsConfig, Limits, NetworkMode, ProjectCfg, SessionCfg};
-use serde_json::{json, Value};
+use super::{Config, DnsConfig, Limits, NetworkMode, ProjectCfg, SessionCfg, default_agent};
+use serde_json::{Value, json};
 
 /// Execution precedence shared by launch and editor labels. Preset policy selection
 /// remains independent: an explicit command can retain captured sandbox settings.

@@ -5,7 +5,7 @@
 use std::process::Stdio;
 use std::time::Duration;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
@@ -77,11 +77,7 @@ fn xwayland_clipboard(desktop: &str, display: &str) -> bool {
 }
 
 fn tool_order(xwayland: bool) -> &'static [usize] {
-    if xwayland {
-        &[1, 2]
-    } else {
-        &[0, 1, 2]
-    }
+    if xwayland { &[1, 2] } else { &[0, 1, 2] }
 }
 
 /// Check whether a missing executable caused the error.
@@ -155,7 +151,9 @@ async fn run(text: Option<&str>, pick: fn(&Tool) -> &'static [&'static str]) -> 
     }
     match last {
         Some(e) => Err(e),
-        None if xwayland => bail!("GNOME/XWayland clipboard requires xclip or xsel; wl-clipboard can steal terminal focus"),
+        None if xwayland => bail!(
+            "GNOME/XWayland clipboard requires xclip or xsel; wl-clipboard can steal terminal focus"
+        ),
         None => bail!("no clipboard tool on this host (wl-copy, xclip or xsel)"),
     }
 }

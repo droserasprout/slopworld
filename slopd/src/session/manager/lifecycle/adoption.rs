@@ -214,17 +214,17 @@ impl Manager {
         l.state = State::Working;
         l.last_change = now;
         l.state_since = now;
-        if !l.ephemeral {
-            if let Some(activity) = decision.activity {
-                l.state = activity.state;
-                l.state_since = activity.state_since;
-                // Preserve displayed age; restart Working decay without a prior frame.
-                l.last_change = if activity.state == State::Working {
-                    now
-                } else {
-                    0
-                };
-            }
+        if !l.ephemeral
+            && let Some(activity) = decision.activity
+        {
+            l.state = activity.state;
+            l.state_since = activity.state_since;
+            // Preserve displayed age; restart Working decay without a prior frame.
+            l.last_change = if activity.state == State::Working {
+                now
+            } else {
+                0
+            };
         }
         l
     }

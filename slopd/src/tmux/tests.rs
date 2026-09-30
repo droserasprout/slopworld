@@ -1,6 +1,6 @@
 use super::{
-    clean_title, parse_host_metadata_rows, parse_length_framed_field, parse_pos, HostMetadata,
-    ReaderMetadata,
+    HostMetadata, ReaderMetadata, clean_title, parse_host_metadata_rows, parse_length_framed_field,
+    parse_pos,
 };
 
 #[tokio::test]

@@ -92,15 +92,17 @@ async fn stale_reader_exit_cannot_detach_a_replacement_and_current_exit_does_not
     row.input.sender = Some(input);
     live.insert("agent".into(), row);
 
-    assert!(manager
-        .detach_live_locked(
-            &mut live,
-            "agent",
-            DetachCause::ProcessExit {
-                reader_token: Arc::new(())
-            }
-        )
-        .is_none());
+    assert!(
+        manager
+            .detach_live_locked(
+                &mut live,
+                "agent",
+                DetachCause::ProcessExit {
+                    reader_token: Arc::new(())
+                }
+            )
+            .is_none()
+    );
     let row = &live["agent"];
     assert_eq!(row.run_id, 42);
     assert_eq!(row.state, State::Working);
@@ -224,10 +226,12 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
     assert!(!manager.temp.read().await.contains_key("scratch"));
     assert!(!private.exists());
     assert!(unrelated.exists());
-    assert!(tokio::time::timeout(Duration::from_secs(2), cancellation)
-        .await
-        .unwrap()
-        .is_err());
+    assert!(
+        tokio::time::timeout(Duration::from_secs(2), cancellation)
+            .await
+            .unwrap()
+            .is_err()
+    );
     assert!(matches!(
         events.try_recv().unwrap().event(),
         Event::Sessions { sessions } if sessions.is_empty()

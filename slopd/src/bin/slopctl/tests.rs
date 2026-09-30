@@ -1,18 +1,18 @@
-use super::take_json_flag;
 use super::USAGE;
+use super::take_json_flag;
 use crate::commands::{
+    AGENT_CREATE_USAGE, AGENT_USAGE, Command, InboxFilter, PEERS_USAGE, SANDBOX_INSPECT_USAGE,
+    SANDBOX_USAGE, SPAWN_USAGE, STATUS_USAGE, SpawnArgs, TASK_LIST_USAGE, TASK_SHOW_USAGE,
+    TASK_USAGE, TEMPLATE_SHOW_USAGE, TEMPLATE_USAGE, TEMPLATES_USAGE, UpdateAction, WORKER_USAGE,
     command_help, parse_command, parse_command_with_task_id, run_agent_create, run_spawn,
-    task_is_terminal, wait_for_task, Command, InboxFilter, SpawnArgs, UpdateAction,
-    AGENT_CREATE_USAGE, AGENT_USAGE, PEERS_USAGE, SANDBOX_INSPECT_USAGE, SANDBOX_USAGE,
-    SPAWN_USAGE, STATUS_USAGE, TASK_LIST_USAGE, TASK_SHOW_USAGE, TASK_USAGE, TEMPLATES_USAGE,
-    TEMPLATE_SHOW_USAGE, TEMPLATE_USAGE, WORKER_USAGE,
+    task_is_terminal, wait_for_task,
 };
-use crate::http::{request, Endpoint};
+use crate::http::{Endpoint, request};
 use crate::logs::{
-    clean_log_line, expand_home, parse_logs_args, source_command, write_log_line, LogSelection,
-    LogSource, LogsOptions, DEFAULT_LOG_LINES, LOGS_USAGE,
+    DEFAULT_LOG_LINES, LOGS_USAGE, LogSelection, LogSource, LogsOptions, clean_log_line,
+    expand_home, parse_logs_args, source_command, write_log_line,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -541,16 +541,20 @@ fn inbox_filters_direction_status_and_newest_first() {
 #[test]
 fn task_completion_accepts_only_known_terminal_states() {
     for status in ["queued", "accepted", "working"] {
-        assert!(!task_is_terminal(&json!({
-            "task": { "status": status }
-        }))
-        .unwrap());
+        assert!(
+            !task_is_terminal(&json!({
+                "task": { "status": status }
+            }))
+            .unwrap()
+        );
     }
     for status in ["done", "failed", "canceled"] {
-        assert!(task_is_terminal(&json!({
-            "task": { "status": status }
-        }))
-        .unwrap());
+        assert!(
+            task_is_terminal(&json!({
+                "task": { "status": status }
+            }))
+            .unwrap()
+        );
     }
     assert_eq!(
         task_is_terminal(&json!({ "task": { "status": "stalled" } })).unwrap_err(),
@@ -921,7 +925,9 @@ fn agent_creation_encodes_template_path_and_preserves_body_fields() {
     );
     let request = server.join().unwrap().unwrap();
     result.unwrap();
-    assert!(request.starts_with("POST /api/templates/team%2Fcaf%C3%A9%3Fx%23y/create HTTP/1.1\r\n"));
+    assert!(
+        request.starts_with("POST /api/templates/team%2Fcaf%C3%A9%3Fx%23y/create HTTP/1.1\r\n")
+    );
     let body: Value = serde_json::from_str(request.split_once("\r\n\r\n").unwrap().1).unwrap();
     assert_eq!(body["name"], "review worker");
     assert_eq!(body["project"], "my repo");
@@ -931,9 +937,23 @@ fn agent_creation_encodes_template_path_and_preserves_body_fields() {
 #[test]
 fn worktree_options_preserve_selection_and_reject_ambiguous_requests() {
     use super::commands::WorktreeChoice;
-    assert_eq!(parse_command(&words("worker spawn --project repo --template codex --new-worktree --base HEAD --worktree-name feature task")),
-        Ok(Command::Spawn { project: "repo".into(), template: "codex".into(), durable: true, body: "task".into(),
-            worktree: WorktreeChoice { new_worktree: true, base: "HEAD".into(), worktree_name: "feature".into(), ..Default::default() } }));
+    assert_eq!(
+        parse_command(&words(
+            "worker spawn --project repo --template codex --new-worktree --base HEAD --worktree-name feature task"
+        )),
+        Ok(Command::Spawn {
+            project: "repo".into(),
+            template: "codex".into(),
+            durable: true,
+            body: "task".into(),
+            worktree: WorktreeChoice {
+                new_worktree: true,
+                base: "HEAD".into(),
+                worktree_name: "feature".into(),
+                ..Default::default()
+            }
+        })
+    );
     parse_command(&words(
         "worker spawn --project repo --template codex --worktree abc --new-worktree task",
     ))

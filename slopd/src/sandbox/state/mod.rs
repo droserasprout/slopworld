@@ -22,10 +22,10 @@ pub(crate) fn state_root() -> PathBuf {
 pub(crate) fn private_path(state_id: &str, host: &str) -> Result<PathBuf> {
     let host = Path::new(host);
     let root = state_root().join(crate::config::state_id_component(state_id)?);
-    if let Some(home) = dirs::home_dir() {
-        if let Ok(rel) = host.strip_prefix(&home) {
-            return Ok(root.join("home").join(rel));
-        }
+    if let Some(home) = dirs::home_dir()
+        && let Ok(rel) = host.strip_prefix(&home)
+    {
+        return Ok(root.join("home").join(rel));
     }
     Ok(root
         .join("root")
@@ -52,9 +52,9 @@ fn trash_root() -> PathBuf {
 const TRASH_SESSION: &str = ".slopworld-session.toml";
 
 mod inventory;
+pub use inventory::StoredState;
 #[cfg(test)]
 use inventory::tree_size;
-pub use inventory::StoredState;
 pub(crate) use inventory::{stored_entry, stored_states};
 
 /// The trash root is daemon-owned storage, never a link to external data.
@@ -200,13 +200,13 @@ pub(crate) fn rollback_restored_state(key: &str, session: &SessionCfg) -> Result
 
 pub(crate) fn finish_restored_state(session: &SessionCfg) -> Result<()> {
     let metadata = state_dir(session)?.join(TRASH_SESSION);
-    if let Err(e) = std::fs::remove_file(&metadata) {
-        if e.kind() != std::io::ErrorKind::NotFound {
-            tracing::warn!(
-                "removing restored-state metadata {}: {e:#}",
-                metadata.display()
-            );
-        }
+    if let Err(e) = std::fs::remove_file(&metadata)
+        && e.kind() != std::io::ErrorKind::NotFound
+    {
+        tracing::warn!(
+            "removing restored-state metadata {}: {e:#}",
+            metadata.display()
+        );
     }
     Ok(())
 }

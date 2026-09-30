@@ -294,9 +294,11 @@ fn compact_journal_preserves_creations_and_updates() {
     assert_eq!(loaded.status, Status::Done);
     assert_eq!(loaded.note, None);
     assert_eq!(loaded.summary.as_deref(), Some("summary"));
-    assert!(!fs::read_to_string(&tasks.journal)
-        .unwrap()
-        .contains("large body"));
+    assert!(
+        !fs::read_to_string(&tasks.journal)
+            .unwrap()
+            .contains("large body")
+    );
     drop(fs::remove_dir_all(dir));
 }
 
@@ -520,10 +522,12 @@ fn failed_snapshots_preserve_memory_and_allow_cancel_remove_and_prune_retries() 
     );
     drop(fault);
     assert_eq!(tasks.prune("worker", false).unwrap(), 1);
-    assert!(Tasks::load(&dir.join("config.toml"))
-        .unwrap()
-        .all()
-        .is_empty());
+    assert!(
+        Tasks::load(&dir.join("config.toml"))
+            .unwrap()
+            .all()
+            .is_empty()
+    );
     fs::remove_dir_all(dir).unwrap();
 }
 

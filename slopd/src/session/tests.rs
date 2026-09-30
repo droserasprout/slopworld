@@ -3,10 +3,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use super::{
-    check_library_item, check_name, check_project, free_name, free_project_name,
-    hold_action_command, json_to_toml, merge_input, merge_toml, normalize_action_command,
-    normalize_path, project_action_path, settle, slug, strip_sgr, Input, Live, LiveCapture,
-    LiveInput, State, TitleCapture, INPUT_BATCH,
+    INPUT_BATCH, Input, Live, LiveCapture, LiveInput, State, TitleCapture, check_library_item,
+    check_name, check_project, free_name, free_project_name, hold_action_command, json_to_toml,
+    merge_input, merge_toml, normalize_action_command, normalize_path, project_action_path, settle,
+    slug, strip_sgr,
 };
 use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg};
 

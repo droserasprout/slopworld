@@ -1,5 +1,5 @@
 use super::*;
-use crate::config::{catalog::prepare_library, LibraryItemCfg};
+use crate::config::{LibraryItemCfg, catalog::prepare_library};
 
 struct Fixture(PathBuf);
 impl Fixture {

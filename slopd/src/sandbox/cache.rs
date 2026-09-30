@@ -2,10 +2,10 @@
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 
-use super::state::{stored_entry, StoredState};
-use crate::config::{expand, Mount, MountMode, ProjectCfg};
+use super::state::{StoredState, stored_entry};
+use crate::config::{Mount, MountMode, ProjectCfg, expand};
 
 pub(crate) fn root() -> PathBuf {
     crate::paths::cache_root().join("mounts")
@@ -76,7 +76,9 @@ pub(crate) fn reconcile(project: &ProjectCfg, checkout: &Path) -> Result<()> {
         return Ok(());
     }
     if crate::runtime::is_slopcar() {
-        bail!("relative cache links are unavailable in sidecar mode until host and container cache paths are mapped identically");
+        bail!(
+            "relative cache links are unavailable in sidecar mode until host and container cache paths are mapped identically"
+        );
     }
     for mount in project
         .mounts
@@ -110,7 +112,11 @@ pub(crate) fn reconcile(project: &ProjectCfg, checkout: &Path) -> Result<()> {
                 }
                 if source.is_dir() {
                     if std::fs::read_dir(&source)?.next().is_some() {
-                        bail!("legacy cache {} and new cache {} both contain data; merge them manually", old.display(), source.display());
+                        bail!(
+                            "legacy cache {} and new cache {} both contain data; merge them manually",
+                            old.display(),
+                            source.display()
+                        );
                     }
                     std::fs::remove_dir(&source)?;
                 }
@@ -145,7 +151,9 @@ pub(crate) fn require_links(project: &ProjectCfg, checkout: &Path) -> Result<()>
             .iter()
             .any(|m| m.mode == MountMode::Cache && relative(m))
     {
-        bail!("relative cache links are unavailable in sidecar mode until host and container cache paths are mapped identically");
+        bail!(
+            "relative cache links are unavailable in sidecar mode until host and container cache paths are mapped identically"
+        );
     }
     for mount in project
         .mounts
@@ -226,10 +234,18 @@ pub(crate) fn restore_links(links: &[(PathBuf, PathBuf)]) -> Result<()> {
 /// True only for the expected link. A dangling or foreign occupant is a conflict.
 fn link_present(target: &Path, source: &Path) -> Result<bool> {
     match std::fs::symlink_metadata(target) {
-        Ok(meta) if meta.file_type().is_symlink() && std::fs::read_link(target)? == source => Ok(true),
-        Ok(_) => bail!("cache destination {} already exists; move its contents into {} and remove it before retrying", target.display(), source.display()),
+        Ok(meta) if meta.file_type().is_symlink() && std::fs::read_link(target)? == source => {
+            Ok(true)
+        }
+        Ok(_) => bail!(
+            "cache destination {} already exists; move its contents into {} and remove it before retrying",
+            target.display(),
+            source.display()
+        ),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
-        Err(error) => Err(error).with_context(|| format!("checking cache link {}", target.display())),
+        Err(error) => {
+            Err(error).with_context(|| format!("checking cache link {}", target.display()))
+        }
     }
 }
 

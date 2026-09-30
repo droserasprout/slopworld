@@ -1,8 +1,8 @@
 //! Shared summary resolution and OpenRouter transport.
 //! Session eligibility belongs to session::title; persistence belongs to cache.
 
-use anyhow::{bail, Context, Result};
-use serde_json::{json, Value};
+use anyhow::{Context, Result, bail};
+use serde_json::{Value, json};
 use std::time::Duration;
 
 const URL: &str = "https://openrouter.ai/api/v1/chat/completions";
@@ -12,7 +12,7 @@ const MAX_TITLE_CHARS: usize = 60;
 const REQUEST_ATTEMPTS: usize = 2;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(8);
 mod cache;
-pub use cache::{cache_path, SummaryCache};
+pub use cache::{SummaryCache, cache_path};
 
 #[derive(Clone)]
 pub(crate) struct SummaryInput {

@@ -1,13 +1,13 @@
 //! Root-only CRUD for user jukebox station definitions.
 
-use crate::api::protobuf::{reply, Proto};
+use crate::api::protobuf::{Proto, reply};
 use crate::shared::wire;
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use serde_json::json;
 
-use super::super::{err, ApiResult, Mgr};
+use super::super::{ApiResult, Mgr, err};
 
 pub(crate) async fn jukebox_presets() -> ApiResult<wire::JukeboxCatalog> {
     // The regular catalog omits URLs before sending data to the mod.
@@ -59,13 +59,13 @@ pub(crate) async fn delete_jukebox_preset(
 
 async fn save(m: Mgr, body: wire::Station, original_id: Option<String>) -> ApiResult<wire::Ack> {
     let station = station_from_wire(body)?;
-    if let Some(original_id) = original_id {
-        if station.id != original_id {
-            return Err(err(
-                StatusCode::BAD_REQUEST,
-                "Keep the station ID unchanged when you edit it.",
-            ));
-        }
+    if let Some(original_id) = original_id
+        && station.id != original_id
+    {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "Keep the station ID unchanged when you edit it.",
+        ));
     }
     tokio::task::spawn_blocking(move || crate::jukebox::save_user(station))
         .await

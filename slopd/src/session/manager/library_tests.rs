@@ -1,4 +1,4 @@
-use super::{auto_resume_inputs, routed_action_label, Manager};
+use super::{Manager, auto_resume_inputs, routed_action_label};
 use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg};
 use crate::session::Input;
 use std::os::unix::process::ExitStatusExt;

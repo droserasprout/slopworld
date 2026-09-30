@@ -20,7 +20,7 @@ mod worker;
 
 use control::Control;
 use playback::{OutputFactory, RodioOutputFactory};
-use worker::{run, Cmd, WorkerMsg};
+use worker::{Cmd, WorkerMsg, run};
 
 pub(crate) const CONNECT: Duration = Duration::from_secs(15);
 /// Limit the time to open headers and the decoder. Clear this deadline after each successful response.
@@ -254,13 +254,13 @@ fn wait_for_retry(
 }
 
 #[cfg(test)]
-pub(crate) use playback::{open_device, pcm_id, NULL_PCM, SERVER_PCMS};
+pub(crate) use playback::{NULL_PCM, SERVER_PCMS, open_device, pcm_id};
 #[cfg(test)]
-pub(crate) use ring::{enqueue_chunk, Ring, RING};
+pub(crate) use ring::{RING, Ring, enqueue_chunk};
 #[cfg(test)]
 pub(crate) use station::{
-    local_title, stream_title, supported_file, Feed, Icy, Playlist, Reconnect, StreamBody,
-    StreamConnector,
+    Feed, Icy, Playlist, Reconnect, StreamBody, StreamConnector, local_title, stream_title,
+    supported_file,
 };
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 //! Reconcile one config snapshot: prune, refresh rows, autostart, then adopt surviving panes.
 
-use super::stop::{finish_reader, DetachCause, ReaderDisposition};
+use super::stop::{DetachCause, ReaderDisposition, finish_reader};
 use crate::session::*;
 
 /// Own reconciliation order; callers enter through `Manager::sync_from_config`.
@@ -44,11 +44,12 @@ impl Manager {
                 live.get(&name)
                     .is_some_and(|row| identity_conflict(cfg, &name, row))
             };
-            if incompatible && self.tmux.exists(&name).await {
-                if let Err(error) = self.tmux.kill(&name).await {
-                    tracing::error!("cannot retire incompatible session {name}: {error:#}");
-                    continue;
-                }
+            if incompatible
+                && self.tmux.exists(&name).await
+                && let Err(error) = self.tmux.kill(&name).await
+            {
+                tracing::error!("cannot retire incompatible session {name}: {error:#}");
+                continue;
             }
             ready.push(name);
         }

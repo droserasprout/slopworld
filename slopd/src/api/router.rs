@@ -11,7 +11,7 @@ use crate::shared::protocol::routes;
 
 use super::handlers::*;
 use super::ws::ws_upgrade;
-use super::{err, Mgr};
+use super::{Mgr, err};
 
 pub(crate) fn router(m: Mgr) -> Router {
     scoped_routes(m.clone())

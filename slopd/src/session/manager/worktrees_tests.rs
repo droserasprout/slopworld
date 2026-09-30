@@ -36,40 +36,46 @@ async fn explicit_action_scope_checks_registration_readiness_and_checkout_path()
     std::fs::create_dir_all(&root).unwrap();
     let main = root.join("main");
     std::fs::create_dir(&main).unwrap();
-    assert!(std::process::Command::new("git")
-        .args(["init", "-q"])
-        .arg(&main)
-        .status()
-        .unwrap()
-        .success());
-    assert!(std::process::Command::new("git")
-        .arg("-C")
-        .arg(&main)
-        .args([
-            "-c",
-            "user.name=Test",
-            "-c",
-            "user.email=test@example.invalid",
-            "commit",
-            "-q",
-            "--allow-empty",
-            "-m",
-            "initial"
-        ])
-        .status()
-        .unwrap()
-        .success());
+    assert!(
+        std::process::Command::new("git")
+            .args(["init", "-q"])
+            .arg(&main)
+            .status()
+            .unwrap()
+            .success()
+    );
+    assert!(
+        std::process::Command::new("git")
+            .arg("-C")
+            .arg(&main)
+            .args([
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.invalid",
+                "commit",
+                "-q",
+                "--allow-empty",
+                "-m",
+                "initial"
+            ])
+            .status()
+            .unwrap()
+            .success()
+    );
     // A registered child checkout must not be authorized as part of Main just because
     // its absolute path has Main's prefix.
     let tree = main.join("checkouts/one");
-    assert!(std::process::Command::new("git")
-        .arg("-C")
-        .arg(&main)
-        .args(["worktree", "add", "-q", "-b", "one"])
-        .arg(&tree)
-        .status()
-        .unwrap()
-        .success());
+    assert!(
+        std::process::Command::new("git")
+            .arg("-C")
+            .arg(&main)
+            .args(["worktree", "add", "-q", "-b", "one"])
+            .arg(&tree)
+            .status()
+            .unwrap()
+            .success()
+    );
     let manager = crate::session::test_manager(Config {
         projects: vec![ProjectCfg {
             id: "p-id".into(),

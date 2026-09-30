@@ -1,8 +1,8 @@
 //! Catalog-backed checkout moves. Callers retain their operation guards through commit or rollback.
 //! Pending records retain both paths across daemon termination; recovery never guesses which tree to delete.
 
-use super::{relocate_tree, Store, Worktree};
-use anyhow::{anyhow, Result};
+use super::{Store, Worktree, relocate_tree};
+use anyhow::{Result, anyhow};
 use std::path::Path;
 
 pub(crate) struct Relocations {
@@ -41,7 +41,10 @@ impl Relocations {
                 .get_mut(*index)
                 .ok_or_else(|| anyhow!("relocation source disappeared from the catalog"))?;
             source.phase = "relocating".into();
-            source.error = format!("Interrupted relocation: inspect {} and {} and repair Git registration before editing the catalog.", source.path, destination.path);
+            source.error = format!(
+                "Interrupted relocation: inspect {} and {} and repair Git registration before editing the catalog.",
+                source.path, destination.path
+            );
         }
         pending.save(config).await
     }
@@ -64,13 +67,13 @@ impl Relocations {
             }
             self.completed += 1;
         }
-        if !self.moves.is_empty() {
-            if let Err(error) = self.candidate.save(config).await {
-                return match self.rollback(config).await {
-                    Ok(()) => Err(error),
-                    Err(rollback) => Err(anyhow!("{error:#}; rollback also failed: {rollback:#}")),
-                };
-            }
+        if !self.moves.is_empty()
+            && let Err(error) = self.candidate.save(config).await
+        {
+            return match self.rollback(config).await {
+                Ok(()) => Err(error),
+                Err(rollback) => Err(anyhow!("{error:#}; rollback also failed: {rollback:#}")),
+            };
         }
         Ok(())
     }

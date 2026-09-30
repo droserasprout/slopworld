@@ -3,8 +3,8 @@
 use super::{RenderCache, SideSink};
 use alacritty_terminal::index::Column;
 use alacritty_terminal::index::Line;
-use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::Term;
+use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::vte::ansi::cursor_icon::CursorIcon;
 use alacritty_terminal::vte::ansi::*;
 use unicode_width::UnicodeWidthStr;

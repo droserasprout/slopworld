@@ -1,4 +1,4 @@
-use super::{ensure_non_overlapping, install, parse, try_run, Args, MOD_DIRS, MOD_NAME, USAGE};
+use super::{Args, MOD_DIRS, MOD_NAME, USAGE, ensure_non_overlapping, install, parse, try_run};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};

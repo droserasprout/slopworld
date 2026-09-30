@@ -4,9 +4,9 @@ use crate::{
     shared::protocol::routes,
 };
 use axum::{
-    body::{to_bytes, Body},
-    http::Request,
     Extension, Router,
+    body::{Body, to_bytes},
+    http::Request,
 };
 use prost::Message;
 use tower::ServiceExt;
@@ -52,7 +52,7 @@ async fn preset_routes_persist_reload_validate_and_protect_stream_urls() {
     let Some(root) = crate::test_support::isolated() else {
         return;
     };
-    std::env::set_var("SLOPD_JUKEBOX", root.join("jukebox"));
+    crate::test_support::set_env("SLOPD_JUKEBOX", root.join("jukebox"));
     let manager = crate::session::test_manager_with_socket(
         crate::config::Config::default(),
         format!("jukebox-{}", uuid::Uuid::new_v4()),
@@ -107,10 +107,12 @@ fn radio_station() -> wire::Station {
 async fn assert_initial_catalog_empty(app: &Router) {
     let (status, bytes) = request(app, "GET", routes::JUKEBOX_PRESETS, None).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(wire::JukeboxCatalog::decode(bytes.as_slice())
-        .unwrap()
-        .stations
-        .is_empty());
+    assert!(
+        wire::JukeboxCatalog::decode(bytes.as_slice())
+            .unwrap()
+            .stations
+            .is_empty()
+    );
 }
 
 fn scoped_app(manager: &std::sync::Arc<crate::session::Manager>, level: Level) -> Router {
@@ -144,10 +146,12 @@ async fn assert_error(
 ) {
     let (status, bytes) = request(app, method, path, station).await;
     assert_eq!(status, expected);
-    assert!(!wire::Error::decode(bytes.as_slice())
-        .unwrap()
-        .error
-        .is_empty());
+    assert!(
+        !wire::Error::decode(bytes.as_slice())
+            .unwrap()
+            .error
+            .is_empty()
+    );
 }
 
 async fn create_and_read_preset(
@@ -284,10 +288,12 @@ async fn update_and_delete_preset(
     assert_preset_event(events);
     let (status, bytes) = request(app, "DELETE", path, None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
-    assert!(wire::Error::decode(bytes.as_slice())
-        .unwrap()
-        .error
-        .contains("unknown jukebox preset"));
+    assert!(
+        wire::Error::decode(bytes.as_slice())
+            .unwrap()
+            .error
+            .contains("unknown jukebox preset")
+    );
 }
 
 async fn assert_storage_errors(
@@ -298,7 +304,7 @@ async fn assert_storage_errors(
 ) {
     let blocked_dir = root.join("not-a-directory");
     std::fs::write(&blocked_dir, "not a directory").unwrap();
-    std::env::set_var("SLOPD_JUKEBOX", &blocked_dir);
+    crate::test_support::set_env("SLOPD_JUKEBOX", &blocked_dir);
     assert_error(
         app,
         "POST",

@@ -138,7 +138,7 @@ fn seed(from: &Path, to: &Path, skip: &[PathBuf], depth: usize) -> Result<()> {
 
 #[cfg(target_os = "linux")]
 fn publish(stage: &Path, copy: &Path) -> Result<()> {
-    use nix::fcntl::{renameat2, RenameFlags};
+    use nix::fcntl::{RenameFlags, renameat2};
     match renameat2(None, stage, None, copy, RenameFlags::RENAME_NOREPLACE) {
         Ok(()) | Err(nix::errno::Errno::EEXIST) => Ok(()),
         Err(error) => Err(error.into()),

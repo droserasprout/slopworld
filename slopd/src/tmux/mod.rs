@@ -9,7 +9,7 @@ use std::sync::OnceLock;
 #[cfg(test)]
 use std::sync::{Arc, Mutex};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use tokio::process::{Child, Command};
 
 use crate::session::State;
@@ -570,7 +570,7 @@ impl Tmux {
         cols: u16,
         rows: u16,
     ) -> Result<(Child, std::fs::File)> {
-        use nix::pty::{openpty, Winsize};
+        use nix::pty::{Winsize, openpty};
 
         let ws = Winsize {
             ws_row: rows,

@@ -12,15 +12,15 @@ where
     I: Iterator<Item = u8>,
 {
     while let Some(byte) = bytes.next() {
-        if byte == 0x1b {
-            if let Some(next) = bytes.next() {
-                match next {
-                    b'[' => skip_until(&mut bytes, |next| (0x40..=0x7e).contains(&next)),
-                    b']' => skip_osc(&mut bytes),
-                    _ => {}
-                }
-                continue;
+        if byte == 0x1b
+            && let Some(next) = bytes.next()
+        {
+            match next {
+                b'[' => skip_until(&mut bytes, |next| (0x40..=0x7e).contains(&next)),
+                b']' => skip_osc(&mut bytes),
+                _ => {}
             }
+            continue;
         }
 
         // Most terminal output is ASCII and needs no UTF-8 validation for individual characters.
@@ -41,12 +41,11 @@ where
             *slot = next;
             ch_bytes += 1;
         }
-        if ch_bytes == ch_len {
-            if let Some(bytes) = ch.get(..ch_bytes) {
-                if let Ok(ch) = std::str::from_utf8(bytes) {
-                    out.push_str(ch);
-                }
-            }
+        if ch_bytes == ch_len
+            && let Some(bytes) = ch.get(..ch_bytes)
+            && let Ok(ch) = std::str::from_utf8(bytes)
+        {
+            out.push_str(ch);
         }
     }
 }

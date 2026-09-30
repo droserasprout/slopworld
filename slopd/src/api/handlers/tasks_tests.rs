@@ -296,11 +296,12 @@ async fn bulk_cancel_remove_and_prune_enforce_scope() {
         .0,
         StatusCode::BAD_REQUEST
     );
-    assert!(m
-        .tasks
-        .all_tasks()
-        .iter()
-        .all(|t| t.status == crate::tasks::Status::Queued));
+    assert!(
+        m.tasks
+            .all_tasks()
+            .iter()
+            .all(|t| t.status == crate::tasks::Status::Queued)
+    );
     let Proto(reply) = cancel_tasks(
         State(m.clone()),
         Extension(Cap::Root),

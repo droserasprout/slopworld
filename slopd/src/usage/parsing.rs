@@ -4,8 +4,8 @@ use crate::clock::unix_ms;
 use serde_json::Value;
 
 use super::{
-    providers::ProviderResponse, Snapshot, Unit, Window, CLAUDE_SESSION, CLAUDE_SPEND, CLAUDE_WEEK,
-    OPENAI_SESSION, OPENAI_WEEK, OPENROUTER_BALANCE,
+    CLAUDE_SESSION, CLAUDE_SPEND, CLAUDE_WEEK, OPENAI_SESSION, OPENAI_WEEK, OPENROUTER_BALANCE,
+    Snapshot, Unit, Window, providers::ProviderResponse,
 };
 
 pub(super) fn parse_openai(v: &Value) -> Snapshot {
@@ -274,10 +274,10 @@ fn resets_in(w: &Value) -> Option<u64> {
             return Some(at.saturating_sub(unix_ms() / 1000));
         }
         // RFC3339, parsed by hand rather than pulling in chrono for one field.
-        if let Some(s) = w[k].as_str() {
-            if let Some(at) = epoch_from_rfc3339(s) {
-                return Some(at.saturating_sub(unix_ms() / 1000));
-            }
+        if let Some(s) = w[k].as_str()
+            && let Some(at) = epoch_from_rfc3339(s)
+        {
+            return Some(at.saturating_sub(unix_ms() / 1000));
         }
     }
     None

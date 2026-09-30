@@ -53,9 +53,11 @@ async fn scoped_worktree_requests_cannot_cross_projects_or_register_host_paths()
     ))
     .await;
     assert_eq!(result.unwrap_err().0, StatusCode::FORBIDDEN);
-    assert!(crate::worktrees::Store::load(&manager.cfg_path)
-        .await
-        .unwrap()
-        .worktrees
-        .is_empty());
+    assert!(
+        crate::worktrees::Store::load(&manager.cfg_path)
+            .await
+            .unwrap()
+            .worktrees
+            .is_empty()
+    );
 }

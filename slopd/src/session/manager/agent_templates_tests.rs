@@ -220,9 +220,11 @@ async fn template_writes_compare_versions_and_preserve_rejected_drafts() {
         .replace_agent_template_definition("reviewer", original.version, stale_draft)
         .await
         .unwrap_err();
-    assert!(error
-        .downcast_ref::<crate::session::AgentTemplateError>()
-        .is_some());
+    assert!(
+        error
+            .downcast_ref::<crate::session::AgentTemplateError>()
+            .is_some()
+    );
     assert_eq!(manager.agent_templates().await[0].description, "winner");
 
     let stale_delete = manager

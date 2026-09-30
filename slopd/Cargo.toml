@@ -1,7 +1,7 @@
 [package]
 name = "slopd"
 version = "0.0.1"
-edition = "2021"
+edition = "2024"
 description = "Session daemon for SlopWorld: tmux + bubblewrap agent sessions behind a localhost API"
 
 [dependencies]
@@ -62,7 +62,6 @@ assertions_on_result_states = "warn"
 
 await_holding_lock = "warn"
 await_holding_refcell_ref = "warn"
-if_let_mutex = "warn"  # only relevant on editions before 2024
 large_futures = "warn"
 
 mem_forget = "warn"

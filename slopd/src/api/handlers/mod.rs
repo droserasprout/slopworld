@@ -5,7 +5,7 @@ use serde_json::json;
 
 use crate::grant::{Cap, Level};
 
-use super::{err, ApiResult, Mgr};
+use super::{ApiResult, Mgr, err};
 
 mod settings;
 pub(crate) use settings::*;

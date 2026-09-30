@@ -22,13 +22,15 @@ fn repo() -> PathBuf {
             "initial",
         ],
     ] {
-        assert!(std::process::Command::new("git")
-            .arg("-C")
-            .arg(&path)
-            .args(args)
-            .status()
-            .unwrap()
-            .success());
+        assert!(
+            std::process::Command::new("git")
+                .arg("-C")
+                .arg(&path)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
     }
     path
 }
@@ -88,7 +90,7 @@ struct LifecycleFixture {
 
 async fn lifecycle_fixture() -> LifecycleFixture {
     use crate::config::{Config, ProjectCfg};
-    use crate::session::{test_manager, WorktreeRequest};
+    use crate::session::{WorktreeRequest, test_manager};
     let root = repo();
     let mut cfg = Config::default();
     cfg.projects.push(ProjectCfg {
@@ -195,10 +197,12 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
         .rename_worktree("repo".into(), w.id.clone(), "blocked".into())
         .await
         .unwrap_err();
-    assert!(manager
-        .remove_worktree("repo".into(), w.id.clone())
-        .await
-        .is_err());
+    assert!(
+        manager
+            .remove_worktree("repo".into(), w.id.clone())
+            .await
+            .is_err()
+    );
     manager.remove("one").await.unwrap();
     assert!(Path::new(&w.path).exists());
     manager.remove("two").await.unwrap();
@@ -206,10 +210,12 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
 
     // Failed removal neither commits nor destroys files. Retry uses the actual current branch.
     std::fs::write(Path::new(&w.path).join("untracked"), "keep me").unwrap();
-    assert!(manager
-        .remove_worktree("repo".into(), w.id.clone())
-        .await
-        .is_err());
+    assert!(
+        manager
+            .remove_worktree("repo".into(), w.id.clone())
+            .await
+            .is_err()
+    );
     assert_eq!(
         git(Path::new(&w.path), &["rev-parse", "HEAD"])
             .await
@@ -252,7 +258,7 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
 #[tokio::test]
 async fn ignored_data_detached_head_and_crash_records_are_preserved() {
     use crate::config::{Config, ProjectCfg};
-    use crate::session::{test_manager, WorktreeRequest};
+    use crate::session::{WorktreeRequest, test_manager};
     let root = repo();
     let mut cfg = Config::default();
     cfg.projects.push(ProjectCfg {
@@ -272,12 +278,14 @@ async fn ignored_data_detached_head_and_crash_records_are_preserved() {
     // Ignored data is not assumed to be disposable build output.
     std::fs::write(root.join(".git/info/exclude"), "precious\n").unwrap();
     std::fs::write(path.join("precious"), "not committed").unwrap();
-    assert!(manager
-        .remove_worktree("repo".into(), w.id.clone())
-        .await
-        .unwrap_err()
-        .to_string()
-        .contains("ignored"));
+    assert!(
+        manager
+            .remove_worktree("repo".into(), w.id.clone())
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("ignored")
+    );
     assert!(path.join("precious").exists());
     std::fs::remove_file(path.join("precious")).unwrap();
     // Agent-controlled detached HEAD is valid, but new unreachable work blocks teardown.
@@ -285,27 +293,31 @@ async fn ignored_data_detached_head_and_crash_records_are_preserved() {
     let metadata = metadata_paths(path).unwrap();
     std::fs::write(metadata[0].join("HEAD"), format!("{}\n", w.base)).unwrap();
     std::fs::write(path.join("file"), "detached change\n").unwrap();
-    assert!(std::process::Command::new("git")
-        .arg("-C")
-        .arg(path)
-        .args([
-            "-c",
-            "user.name=Test",
-            "-c",
-            "user.email=test@example.invalid",
-            "commit",
-            "-qam",
-            "detached work"
-        ])
-        .status()
-        .unwrap()
-        .success());
-    assert!(manager
-        .remove_worktree("repo".into(), w.id.clone())
-        .await
-        .unwrap_err()
-        .to_string()
-        .contains("retained local branch"));
+    assert!(
+        std::process::Command::new("git")
+            .arg("-C")
+            .arg(path)
+            .args([
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.invalid",
+                "commit",
+                "-qam",
+                "detached work"
+            ])
+            .status()
+            .unwrap()
+            .success()
+    );
+    assert!(
+        manager
+            .remove_worktree("repo".into(), w.id.clone())
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("retained local branch")
+    );
     assert_eq!(manager.worktree_list("repo").await.unwrap()[1].branch, "");
     // Restart recovery reports an interrupted operation without committing, deleting or relaunching.
     let mut store = Store::load(&manager.cfg_path).await.unwrap();
@@ -365,13 +377,15 @@ async fn assert_rejected_managed_worktree_names(
         assert!(!root.join(".worktrees").exists());
     }
 
-    assert!(std::process::Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(["branch", "already-exists"])
-        .status()
-        .unwrap()
-        .success());
+    assert!(
+        std::process::Command::new("git")
+            .arg("-C")
+            .arg(root)
+            .args(["branch", "already-exists"])
+            .status()
+            .unwrap()
+            .success()
+    );
     let collision = Box::pin(manager.create_worktree(WorktreeRequest {
         project: "repo".into(),
         name: "already-exists".into(),
@@ -381,11 +395,13 @@ async fn assert_rejected_managed_worktree_names(
     .unwrap_err();
     assert!(collision.to_string().contains("already exists"));
     assert!(!root.join(".worktrees").exists());
-    assert!(Store::load(&manager.cfg_path)
-        .await
-        .unwrap()
-        .worktrees
-        .is_empty());
+    assert!(
+        Store::load(&manager.cfg_path)
+            .await
+            .unwrap()
+            .worktrees
+            .is_empty()
+    );
 }
 
 async fn create_managed_worktrees(
@@ -478,7 +494,7 @@ fn mismatched_proc_namespace() -> bool {
 #[tokio::test]
 async fn external_checkouts_and_interrupted_teardown_have_independent_records() {
     use crate::config::{Config, ProjectCfg};
-    use crate::session::{test_manager, WorktreeRequest};
+    use crate::session::{WorktreeRequest, test_manager};
     let root = repo();
     let manager = test_manager(Config {
         projects: vec![ProjectCfg {
@@ -528,13 +544,15 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
     );
     // Simulate completed Git removal before the daemon saves the result.
     // Recovery does not delete files. A retry can finish without an existing checkout or nested sandbox.
-    assert!(std::process::Command::new("git")
-        .arg("-C")
-        .arg(&root)
-        .args(["worktree", "remove", &renamed_path])
-        .status()
-        .unwrap()
-        .success());
+    assert!(
+        std::process::Command::new("git")
+            .arg("-C")
+            .arg(&root)
+            .args(["worktree", "remove", &renamed_path])
+            .status()
+            .unwrap()
+            .success()
+    );
     manager
         .remove_worktree("renamed".into(), w.id)
         .await
@@ -564,10 +582,12 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
         .await
         .unwrap();
     assert!(external.join("file").exists());
-    assert!(manager
-        .remove_worktree("renamed".into(), "main".into())
-        .await
-        .is_err());
+    assert!(
+        manager
+            .remove_worktree("renamed".into(), "main".into())
+            .await
+            .is_err()
+    );
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -613,7 +633,7 @@ async fn git_mutations_cannot_follow_metadata_symlinks_outside_the_worktree_gran
 #[tokio::test]
 async fn worktree_resolution_mounts_metadata_and_keeps_project_scope() {
     use crate::config::{Config, Mount, MountMode, NetworkMode, ProjectCfg, SessionCfg};
-    use crate::session::{test_manager, WorktreeRequest};
+    use crate::session::{WorktreeRequest, test_manager};
     let root = repo();
     let cache = root.with_extension("cache");
     let manager = test_manager(Config {
@@ -652,9 +672,10 @@ async fn worktree_resolution_mounts_metadata_and_keeps_project_scope() {
     let args = crate::sandbox::build_plan(&cfg, &session, &effective)
         .unwrap()
         .lower();
-    assert!(args
-        .windows(3)
-        .any(|v| v[0] == "--bind" && v[1] == w.repository && v[2] == w.repository));
+    assert!(
+        args.windows(3)
+            .any(|v| v[0] == "--bind" && v[1] == w.repository && v[2] == w.repository)
+    );
     assert!(args.windows(3).any(|v| v[0] == "--bind"
         && v[1] == cache.to_string_lossy()
         && v[2] == cache.to_string_lossy()));

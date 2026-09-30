@@ -13,7 +13,7 @@ mod validation;
 pub use daemon::*;
 pub use library::*;
 pub use model::*;
-pub use persistence::{redact_token_text, TOKEN_REDACTED};
+pub use persistence::{TOKEN_REDACTED, redact_token_text};
 pub use sandbox::*;
 pub(crate) use validation::{
     project_name_component, state_id_component, validate_mount_paths, validate_project_names,

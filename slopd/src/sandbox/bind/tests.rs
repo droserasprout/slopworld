@@ -1,8 +1,8 @@
 use super::*;
 use crate::config::Limits;
 use crate::sandbox::{
-    build_argv, persistent_tmp_path, presets_for, private_path, private_resolver_path,
-    validate_preset, PANE_TERM,
+    PANE_TERM, build_argv, persistent_tmp_path, presets_for, private_path, private_resolver_path,
+    validate_preset,
 };
 
 fn launch_plan_fixture() -> LaunchPlan {
@@ -58,10 +58,12 @@ fn arbitrary_mounts_keep_paths_modes_and_missing_sources_fail_launch() {
         && w[1] == file.to_string_lossy()
         && w[2] == "/mnt/custom.txt"));
     project.mounts[0].from = root.join("missing").to_string_lossy().into();
-    assert!(build_argv(&Config::default(), &session, &project)
-        .unwrap_err()
-        .to_string()
-        .contains("does not exist"));
+    assert!(
+        build_argv(&Config::default(), &session, &project)
+            .unwrap_err()
+            .to_string()
+            .contains("does not exist")
+    );
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -95,10 +97,12 @@ fn path_mounts_cannot_recover_private_sources_and_private_overlays_win() {
         }],
         ..Default::default()
     };
-    assert!(build_argv(&Config::default(), &session, &project)
-        .unwrap_err()
-        .to_string()
-        .contains("private preset state"));
+    assert!(
+        build_argv(&Config::default(), &session, &project)
+            .unwrap_err()
+            .to_string()
+            .contains("private preset state")
+    );
     project.mounts[0].from = public.to_string_lossy().into();
     project.mounts[0].to = private.to_string_lossy().into();
     let argv = build_argv(&Config::default(), &session, &project).unwrap();
@@ -187,13 +191,17 @@ fn network_mode_selects_the_expected_namespace() {
     assert!(private.contains(&"none".into()));
     assert!(private.contains(&"--share-net".into()));
     assert!(private.contains(&PRIVATE_ADDRESS.into()));
-    assert!(private
-        .windows(2)
-        .any(|w| w[0] == "--tcp-ns" && w[1] == "7717"));
+    assert!(
+        private
+            .windows(2)
+            .any(|w| w[0] == "--tcp-ns" && w[1] == "7717")
+    );
     assert!(!private.contains(&"--map-host-loopback".into()));
-    assert!(private
-        .windows(2)
-        .any(|w| w[0] == "--netmask" && w[1] == PRIVATE_NETMASK));
+    assert!(
+        private
+            .windows(2)
+            .any(|w| w[0] == "--netmask" && w[1] == PRIVATE_NETMASK)
+    );
     let resolved: Vec<_> = private
         .windows(2)
         .filter(|w| w[0] == "--dns-host")
@@ -229,21 +237,27 @@ fn private_network_forwards_only_a_local_daemon_port() {
     };
     cfg.daemon.bind = "127.0.0.1:8899".into();
     let local = build_argv(&cfg, &s, &p).unwrap();
-    assert!(local
-        .windows(2)
-        .any(|w| w[0] == "--tcp-ns" && w[1] == "8899"));
+    assert!(
+        local
+            .windows(2)
+            .any(|w| w[0] == "--tcp-ns" && w[1] == "8899")
+    );
 
     cfg.daemon.bind = "10.0.0.5:8899".into();
     let remote = build_argv(&cfg, &s, &p).unwrap();
-    assert!(remote
-        .windows(2)
-        .any(|w| w[0] == "--tcp-ns" && w[1] == "none"));
+    assert!(
+        remote
+            .windows(2)
+            .any(|w| w[0] == "--tcp-ns" && w[1] == "none")
+    );
 
     cfg.daemon.bind = "127.0.0.2:8899".into();
     let other_loopback = build_argv(&cfg, &s, &p).unwrap();
-    assert!(other_loopback
-        .windows(2)
-        .any(|w| w[0] == "--tcp-ns" && w[1] == "none"));
+    assert!(
+        other_loopback
+            .windows(2)
+            .any(|w| w[0] == "--tcp-ns" && w[1] == "none")
+    );
 }
 
 #[test]
@@ -291,15 +305,18 @@ fn resource_limits_wrap_the_agent_in_a_systemd_scope() {
     // Outermost: the scope is the very first thing, ahead of bwrap.
     assert_eq!(a[0], "systemd-run");
     assert!(a.contains(&"--scope".into()));
-    assert!(a
-        .windows(2)
-        .any(|w| w[0] == "--property" && w[1] == "MemoryMax=512M"));
-    assert!(a
-        .windows(2)
-        .any(|w| w[0] == "--property" && w[1] == "TasksMax=64"));
-    assert!(a
-        .windows(2)
-        .any(|w| w[0] == "--property" && w[1] == "CPUQuota=150%"));
+    assert!(
+        a.windows(2)
+            .any(|w| w[0] == "--property" && w[1] == "MemoryMax=512M")
+    );
+    assert!(
+        a.windows(2)
+            .any(|w| w[0] == "--property" && w[1] == "TasksMax=64")
+    );
+    assert!(
+        a.windows(2)
+            .any(|w| w[0] == "--property" && w[1] == "CPUQuota=150%")
+    );
     // An unset cap is absent, never zero.
     assert!(!a.iter().any(|x| x.starts_with("LimitNOFILE")));
     // bwrap follows the scope's own `--` separator.
@@ -366,7 +383,9 @@ fn binds_come_after_the_skeleton() {
     let plan = launch_plan_fixture();
     assert_eq!(
         &plan.bwrap[plan.bwrap.len() - 8..],
-        ["--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp", "--dir", "/mnt"]
+        [
+            "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp", "--dir", "/mnt"
+        ]
     );
     let args = plan.lower();
     let mounts_start = plan.limits.len() + plan.pasta.len() + plan.bwrap.len();
@@ -428,15 +447,19 @@ fn worker_identity_is_exported_to_the_sandbox() {
         ..Default::default()
     };
     let a = build_argv(&cfg, &s, &p).expect("worker sandbox argv");
-    assert!(a
-        .windows(3)
-        .any(|w| { w[0] == "--setenv" && w[1] == "SLOPWORLD_TASK_ID" && w[2] == "task-7" }));
-    assert!(a
-        .windows(3)
-        .any(|w| { w[0] == "--setenv" && w[1] == "SLOPD_TOKEN" && w[2] == "worker-secret" }));
-    assert!(a
-        .windows(3)
-        .any(|w| { w[0] == "--setenv" && w[1] == "SLOPD_URL" && w[2] == "http://127.0.0.1:7717" }));
+    assert!(
+        a.windows(3)
+            .any(|w| { w[0] == "--setenv" && w[1] == "SLOPWORLD_TASK_ID" && w[2] == "task-7" })
+    );
+    assert!(
+        a.windows(3)
+            .any(|w| { w[0] == "--setenv" && w[1] == "SLOPD_TOKEN" && w[2] == "worker-secret" })
+    );
+    assert!(
+        a.windows(3).any(|w| {
+            w[0] == "--setenv" && w[1] == "SLOPD_URL" && w[2] == "http://127.0.0.1:7717"
+        })
+    );
     assert!(a.windows(2).any(|w| w[0] == "--tcp-ns" && w[1] == "7717"));
     assert!(!a.contains(&"--map-host-loopback".into()));
     assert!(a.contains(&"--share-net".into()));
@@ -643,9 +666,10 @@ fn pi_extension_is_disabled_when_daemon_owns_titles() {
         ..Default::default()
     };
     let a = build_argv(&cfg, &s, &p).expect("pi sandbox argv");
-    assert!(a
-        .windows(3)
-        .any(|w| { w[0] == "--setenv" && w[1] == "SLOPWORLD_PI_TITLES" && w[2] == "never" }));
+    assert!(
+        a.windows(3)
+            .any(|w| { w[0] == "--setenv" && w[1] == "SLOPWORLD_PI_TITLES" && w[2] == "never" })
+    );
 }
 
 #[test]
@@ -846,10 +870,11 @@ fn explicit_host_dns_supports_regular_and_symlinked_resolver_layouts() {
 
 #[test]
 fn workspace_and_persistent_tmp_do_not_hide_debug_sockets() {
-    let Some(root) = crate::test_support::isolated() else {
+    let Some(root) = crate::test_support::isolated_with_env(|command, root| {
+        command.env("TMUX_TMPDIR", root);
+    }) else {
         return;
     };
-    std::env::set_var("TMUX_TMPDIR", &root);
     let socket_dir = root.join(format!("tmux-{}", nix::unistd::getuid().as_raw()));
     std::fs::create_dir_all(&socket_dir).unwrap();
     std::fs::write(

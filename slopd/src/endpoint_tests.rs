@@ -1,4 +1,4 @@
-use super::{update_token, url_for, write_endpoint, Endpoint};
+use super::{Endpoint, update_token, url_for, write_endpoint};
 
 #[test]
 fn loopback_url_is_written_for_wildcard_binds() {

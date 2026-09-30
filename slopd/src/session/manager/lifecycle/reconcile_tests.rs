@@ -30,10 +30,12 @@ async fn cancelling_batch_cleanup_aborts_all_removed_readers() {
     drop(pruning);
 
     for completion in completions {
-        assert!(tokio::time::timeout(Duration::from_secs(1), completion)
-            .await
-            .expect("removed reader survived cancellation of batch cleanup")
-            .is_err());
+        assert!(
+            tokio::time::timeout(Duration::from_secs(1), completion)
+                .await
+                .expect("removed reader survived cancellation of batch cleanup")
+                .is_err()
+        );
     }
 }
 

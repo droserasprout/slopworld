@@ -1,7 +1,7 @@
 //! tmux control-mode reader lifecycle.
 
 use super::super::lifecycle::stop::{
-    finish_reader, reader_owned_by, replace_reader, ReaderDisposition,
+    ReaderDisposition, finish_reader, reader_owned_by, replace_reader,
 };
 use super::*;
 use std::sync::atomic::AtomicBool;

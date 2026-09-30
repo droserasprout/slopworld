@@ -34,23 +34,21 @@ impl Manager {
             let live = self.live.read().await;
             let l = live.get(name)?;
             let emu = l.capture.emu.clone()?;
-            if let Ok(cache) = self.scroll_cache.lock() {
-                if let Some(cached) = cache.get(name) {
-                    if cached.run_id == l.run_id
-                        && cached
-                            .emu
-                            .upgrade()
-                            .is_some_and(|cached| Arc::ptr_eq(&cached, &emu))
-                        && cached.live_seq == l.seq
-                        && cached.off == off
-                        && cached.cols == l.cols
-                        && cached.rows == l.rows
-                    {
-                        let mut view = cached.view.clone();
-                        view.request_id = request_id;
-                        return Some(view);
-                    }
-                }
+            if let Ok(cache) = self.scroll_cache.lock()
+                && let Some(cached) = cache.get(name)
+                && cached.run_id == l.run_id
+                && cached
+                    .emu
+                    .upgrade()
+                    .is_some_and(|cached| Arc::ptr_eq(&cached, &emu))
+                && cached.live_seq == l.seq
+                && cached.off == off
+                && cached.cols == l.cols
+                && cached.rows == l.rows
+            {
+                let mut view = cached.view.clone();
+                view.request_id = request_id;
+                return Some(view);
             }
             (emu, l.run_id, l.seq, l.cols, l.rows)
         };

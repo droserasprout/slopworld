@@ -1,10 +1,10 @@
 //! Personal agent-template catalog, snapshot, and instantiation boundaries.
-use crate::api::protobuf::{domain, reply, Proto};
+use crate::api::protobuf::{Proto, domain, reply};
 use crate::shared::wire;
 
+use axum::Extension;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
-use axum::Extension;
 use serde_json::json;
 
 use crate::grant::Cap;
@@ -12,7 +12,7 @@ use crate::grant::Cap;
 use super::super::types::{
     CreateAgentTemplateReq, SaveAgentTemplateReq, SpawnableTemplatesQuery, TemplateVersionQuery,
 };
-use super::{err, ApiResult, Mgr};
+use super::{ApiResult, Mgr, err};
 
 fn template_error(error: anyhow::Error) -> crate::api::protobuf::ApiError {
     let status = match error.downcast_ref::<crate::session::AgentTemplateError>() {

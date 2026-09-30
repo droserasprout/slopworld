@@ -4,34 +4,34 @@ use crate::sandbox::state_root;
 // Shipped definitions must be valid independently of installed tools, dangling
 // host aliases, and user preset overrides. Environment changes stay in a child.
 fn isolated_preset_environment() -> Option<std::path::PathBuf> {
-    let root = crate::test_support::isolated()?;
-    let home = root.join("home");
-    std::fs::create_dir_all(&home).unwrap();
-    for (variable, path) in [
-        ("HOME", home.clone()),
-        ("XDG_CONFIG_HOME", home.join(".config")),
-        ("XDG_DATA_HOME", home.join(".local/share")),
-        ("XDG_CACHE_HOME", home.join(".cache")),
-        ("XDG_RUNTIME_DIR", root.join("runtime")),
-        ("SLOPD_CONFIG", home.join(".config/slopworld/config.toml")),
-        ("SLOPD_PRESETS", home.join(".config/slopworld")),
-    ] {
-        std::env::set_var(variable, path);
-    }
-    for variable in [
-        "XAUTHORITY",
-        "WAYLAND_DISPLAY",
-        "ANDROID_HOME",
-        "ANDROID_SDK_ROOT",
-        "JAVA_HOME",
-        "DEVELOPER_DIR",
-        "SSH_AUTH_SOCK",
-        "SLOPWORLD_PROFILE",
-        "SLOPWORLD_GAME",
-    ] {
-        std::env::set_var(variable, root.join(variable));
-    }
-    Some(root)
+    crate::test_support::isolated_with_env(|command, root| {
+        let home = root.join("home");
+        std::fs::create_dir_all(&home).unwrap();
+        for (variable, path) in [
+            ("HOME", home.clone()),
+            ("XDG_CONFIG_HOME", home.join(".config")),
+            ("XDG_DATA_HOME", home.join(".local/share")),
+            ("XDG_CACHE_HOME", home.join(".cache")),
+            ("XDG_RUNTIME_DIR", root.join("runtime")),
+            ("SLOPD_CONFIG", home.join(".config/slopworld/config.toml")),
+            ("SLOPD_PRESETS", home.join(".config/slopworld")),
+        ] {
+            command.env(variable, path);
+        }
+        for variable in [
+            "XAUTHORITY",
+            "WAYLAND_DISPLAY",
+            "ANDROID_HOME",
+            "ANDROID_SDK_ROOT",
+            "JAVA_HOME",
+            "DEVELOPER_DIR",
+            "SSH_AUTH_SOCK",
+            "SLOPWORLD_PROFILE",
+            "SLOPWORLD_GAME",
+        ] {
+            command.env(variable, root.join(variable));
+        }
+    })
 }
 
 /// Reject protected paths, their ancestors, and their descendants.
@@ -113,10 +113,11 @@ fn preset_validation_covers_private_seed_skip_and_shared_paths() {
     let mut p = SandboxPreset {
         name: "tool".into(),
         private: vec![private.to_string_lossy().into_owned()],
-        shared: vec![root
-            .join(".toolbox/credentials")
-            .to_string_lossy()
-            .into_owned()],
+        shared: vec![
+            root.join(".toolbox/credentials")
+                .to_string_lossy()
+                .into_owned(),
+        ],
         ..Default::default()
     };
     let table = Table {
@@ -206,10 +207,12 @@ fn sandbox_validation_uses_the_candidate_replacement() {
         sandbox: vec![candidate.clone()],
         commands: vec![],
     };
-    assert!(validate_preset(&invalid, &valid_table)
-        .unwrap_err()
-        .to_string()
-        .contains("exposes"));
+    assert!(
+        validate_preset(&invalid, &valid_table)
+            .unwrap_err()
+            .to_string()
+            .contains("exposes")
+    );
 }
 
 #[test]

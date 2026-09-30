@@ -1,4 +1,4 @@
-use crate::api::protobuf::{domain, reply, Proto};
+use crate::api::protobuf::{Proto, domain, reply};
 use crate::shared::wire;
 use axum::extract::{Path, State};
 
@@ -8,7 +8,7 @@ use crate::config::LibraryItemCfg;
 use crate::session::RunWhere;
 
 use super::super::types::*;
-use super::{err, ApiResult, Mgr};
+use super::{ApiResult, Mgr, err};
 
 pub(crate) async fn list_projects(State(m): State<Mgr>) -> ApiResult<wire::ProjectsReply> {
     reply(json!({ "projects": m.projects().await }))

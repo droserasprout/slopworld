@@ -118,11 +118,13 @@ async fn failed_poll_joins_keep_previous_usage_and_aggregate_as_stale() {
     assert!(!cancel_snapshot.0.ok);
     assert_eq!(panic_snapshot.0.windows, previous.windows);
     assert_eq!(cancel_snapshot.0.windows, previous.windows);
-    assert!(panic_snapshot
-        .0
-        .error
-        .as_deref()
-        .is_some_and(|error| error.contains("usage poll task failed")));
+    assert!(
+        panic_snapshot
+            .0
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("usage poll task failed"))
+    );
 
     let merged = merge(
         [
@@ -147,10 +149,12 @@ fn valid_openai_response_omits_non_applicable_session_row() {
         );
     let merged = merge([("openai", &openai)], &crate::config::Daemon::default());
 
-    assert!(merged
-        .rows
-        .iter()
-        .any(|row| row.key == OPENAI_WEEK && row.window.is_some()));
+    assert!(
+        merged
+            .rows
+            .iter()
+            .any(|row| row.key == OPENAI_WEEK && row.window.is_some())
+    );
     assert!(!merged.rows.iter().any(|row| row.key == OPENAI_SESSION));
 }
 
@@ -260,10 +264,11 @@ fn parser_failure_keeps_the_last_good_numbers() {
     assert!(!kept.ok);
     assert_eq!(kept.windows, good.windows);
     assert_eq!(kept.plan, "max");
-    assert!(kept
-        .error
-        .as_deref()
-        .is_some_and(|error| error.contains("shape slopd does not know")));
+    assert!(
+        kept.error
+            .as_deref()
+            .is_some_and(|error| error.contains("shape slopd does not know"))
+    );
 }
 fn session_snapshot(pct: u32) -> Snapshot {
     parse(

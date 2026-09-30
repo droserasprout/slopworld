@@ -3,7 +3,7 @@
 use super::super::lifecycle::stop::DetachCause;
 use super::*;
 use crate::clock::unix_ms;
-use crate::session::manager::session_state::{classify_activity, ActivityRecord};
+use crate::session::manager::session_state::{ActivityRecord, classify_activity};
 
 // Effects leave the live lock before any event publication or persistence.
 #[derive(Default)]
@@ -152,10 +152,10 @@ impl Manager {
 
     #[cfg(test)]
     pub(crate) async fn apply_frame(&self, name: &str, frame: Frame) {
-        if let Some(previous) = self.frame_snapshot(name).await {
-            if let Some(effects) = self.apply_captured_frame(name, frame, None, previous).await {
-                self.publish_frame_effects(name, effects).await;
-            }
+        if let Some(previous) = self.frame_snapshot(name).await
+            && let Some(effects) = self.apply_captured_frame(name, frame, None, previous).await
+        {
+            self.publish_frame_effects(name, effects).await;
         }
     }
 

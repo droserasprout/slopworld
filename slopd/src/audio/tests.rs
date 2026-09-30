@@ -1,11 +1,11 @@
-use super::test_support::{ring, FakeOutputFactory, FakeOutputState};
+use super::test_support::{FakeOutputFactory, FakeOutputState, ring};
 use super::{
-    enqueue_chunk, local_title, open_device, pcm_id, stream_title, supported_file, wait_for_retry,
-    AudioState, Feed, Icy, OutputFactory, Playlist, Reconnect, Ring, StreamBody, StreamConnector,
-    TitleSink, CONNECT, GENERATION, NULL_PCM, RING, SERVER_PCMS, STREAM_IDLE,
+    AudioState, CONNECT, Feed, GENERATION, Icy, NULL_PCM, OutputFactory, Playlist, RING, Reconnect,
+    Ring, SERVER_PCMS, STREAM_IDLE, StreamBody, StreamConnector, TitleSink, enqueue_chunk,
+    local_title, open_device, pcm_id, stream_title, supported_file, wait_for_retry,
 };
 use rodio::cpal::traits::{DeviceTrait, HostTrait};
-use rodio::{cpal, ChannelCount, Sample, SampleRate, Source};
+use rodio::{ChannelCount, Sample, SampleRate, Source, cpal};
 use std::collections::VecDeque;
 use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::net::TcpListener;
@@ -256,7 +256,7 @@ fn cancelling_a_withheld_header_releases_the_loopback_connection() {
                     if e.kind() == io::ErrorKind::WouldBlock
                         || e.kind() == io::ErrorKind::TimedOut =>
                 {
-                    break
+                    break;
                 }
                 Err(_) => break,
             }

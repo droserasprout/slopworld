@@ -156,10 +156,10 @@ impl Manager {
         if player.session.is_none() {
             player.session = self.adopted_ncspot().await;
         }
-        if let Some(name) = player.session.as_ref() {
-            if self.tmux.is_ncspot(name).await {
-                self.stop(name).await?;
-            }
+        if let Some(name) = player.session.as_ref()
+            && self.tmux.is_ncspot(name).await
+        {
+            self.stop(name).await?;
         }
         *player = Player::default();
         Ok(())

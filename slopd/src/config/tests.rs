@@ -1,7 +1,7 @@
 use super::{
-    expand, mount_target, redact_token_text, Config, DnsConfig, FileActionMode, HostTerminalCfg,
-    LibraryItemCfg, LibraryItemKind, LibraryItemLink, Limits, NetworkMode, ProjectCfg, SessionCfg,
-    TitlePolicy, DEFAULT_SUMMARY_PROMPT, DEFAULT_WORKER_PROMPT, TOKEN_REDACTED,
+    Config, DEFAULT_SUMMARY_PROMPT, DEFAULT_WORKER_PROMPT, DnsConfig, FileActionMode,
+    HostTerminalCfg, LibraryItemCfg, LibraryItemKind, LibraryItemLink, Limits, NetworkMode,
+    ProjectCfg, SessionCfg, TOKEN_REDACTED, TitlePolicy, expand, mount_target, redact_token_text,
 };
 use crate::paths::temp_dir;
 
@@ -555,10 +555,11 @@ fn the_shipped_breadcrumb_is_offered_but_never_written_down() {
     assert!(sc.builtin);
     assert_eq!(sc.text.matches("{{ random_tip }}").count(), 5);
     assert!(cfg.is_builtin_library_item("Useful tips"));
-    assert!(cfg
-        .library_items_all()
-        .iter()
-        .any(|s| s.name == "Useful tips" && s.builtin));
+    assert!(
+        cfg.library_items_all()
+            .iter()
+            .any(|s| s.name == "Useful tips" && s.builtin)
+    );
 
     // Omit the built-in entry from saved configuration. Loading must not duplicate it.
     let text = toml::to_string_pretty(&cfg).unwrap();

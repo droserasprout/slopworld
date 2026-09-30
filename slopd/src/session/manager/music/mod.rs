@@ -3,7 +3,7 @@
 //! The transition gate covers each complete source change, including its direct reply.
 
 use super::Manager;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::Deserialize;
 use std::sync::Arc;
 

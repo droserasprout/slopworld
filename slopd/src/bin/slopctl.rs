@@ -12,9 +12,9 @@ mod shared;
 #[path = "slopctl/tests.rs"]
 mod tests;
 
-use commands::{parse_command, Command, USAGE};
+use commands::{Command, USAGE, parse_command};
 use http::load_endpoint;
-use logs::{run_logs, LOGS_USAGE};
+use logs::{LOGS_USAGE, run_logs};
 use std::process::ExitCode;
 use std::time::Duration;
 

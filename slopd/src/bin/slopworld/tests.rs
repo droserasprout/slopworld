@@ -288,9 +288,11 @@ fn print_reset_and_invalid_working_dir_preserve_profile() {
     assert!(!profile.join(MARKER).exists());
     let mut init_print = args();
     init_print.init_profile = true;
-    assert!(run_launcher(init_print)
-        .unwrap_err()
-        .contains("cannot be combined"));
+    assert!(
+        run_launcher(init_print)
+            .unwrap_err()
+            .contains("cannot be combined")
+    );
     let mut absent = args();
     let absent_profile = root.join("absent-profile");
     absent.profile = Some(absent_profile.to_string_lossy().into_owned());
@@ -300,9 +302,11 @@ fn print_reset_and_invalid_working_dir_preserve_profile() {
     let mut invalid = args();
     invalid.print = false;
     invalid.working_dir = Some(root.join("missing").to_string_lossy().into_owned());
-    assert!(run_launcher(invalid)
-        .unwrap_err()
-        .contains("working directory"));
+    assert!(
+        run_launcher(invalid)
+            .unwrap_err()
+            .contains("working directory")
+    );
     assert_eq!(std::fs::read(&mods).unwrap(), custom);
     std::fs::remove_dir_all(root).unwrap();
 }

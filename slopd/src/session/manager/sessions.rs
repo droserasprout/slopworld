@@ -177,12 +177,12 @@ impl Manager {
             }
         };
 
-        if sync_tmux && (live_changed || cfg_changed) {
-            if let Some(project) = project {
-                if let Err(error) = self.tmux.set_host_metadata(name, &project, path).await {
-                    tracing::debug!("could not refresh host metadata for {name}: {error:#}");
-                }
-            }
+        if sync_tmux
+            && (live_changed || cfg_changed)
+            && let Some(project) = project
+            && let Err(error) = self.tmux.set_host_metadata(name, &project, path).await
+        {
+            tracing::debug!("could not refresh host metadata for {name}: {error:#}");
         }
         live_changed || cfg_changed
     }
@@ -227,10 +227,10 @@ impl Manager {
 
     pub(super) async fn start_host_metadata_poll(self: &Arc<Self>) {
         let mut poll = self.host_metadata.task.lock().await;
-        if let Some(task) = poll.as_ref() {
-            if !task.is_finished() {
-                return;
-            }
+        if let Some(task) = poll.as_ref()
+            && !task.is_finished()
+        {
+            return;
         }
         if let Some(task) = poll.take() {
             drop(task.await);
@@ -342,12 +342,11 @@ impl Manager {
         if let Some(p) = self.config().await.project(&s.project) {
             self.resolve_worktree(p, &s.worktree).await?;
         }
-        if let Some(old) = self.session_cfg(name).await {
-            if (old.worktree != s.worktree || old.project != s.project)
-                && self.tmux.exists(name).await
-            {
-                bail!("stop the session before moving it to another worktree");
-            }
+        if let Some(old) = self.session_cfg(name).await
+            && (old.worktree != s.worktree || old.project != s.project)
+            && self.tmux.exists(name).await
+        {
+            bail!("stop the session before moving it to another worktree");
         }
         let renamed = s.name != name;
         check_name(&s.name)?;
@@ -679,10 +678,12 @@ impl Manager {
             })
             .await
         {
-            if let Some(path) = trashed.as_deref() {
-                if let Err(restore) = crate::sandbox::restore_trashed_state(&session, path) {
-                    tracing::error!("Config deletion failed: {e:#}. Restoring private state also failed: {restore:#}.");
-                }
+            if let Some(path) = trashed.as_deref()
+                && let Err(restore) = crate::sandbox::restore_trashed_state(&session, path)
+            {
+                tracing::error!(
+                    "Config deletion failed: {e:#}. Restoring private state also failed: {restore:#}."
+                );
             }
             return Err(e);
         }
@@ -768,8 +769,8 @@ impl Manager {
         }
 
         crate::sandbox::restore_stored_state(key, &cfg.sessions)?;
-        if add {
-            if let Err(e) = self
+        if add
+            && let Err(e) = self
                 .update_cfg(|cfg| {
                     if cfg.session(&session.name).is_some() {
                         bail!(
@@ -782,12 +783,13 @@ impl Manager {
                     Ok(())
                 })
                 .await
-            {
-                if let Err(rollback) = crate::sandbox::rollback_restored_state(key, &session) {
-                    tracing::error!("Saving the restored agent config failed: {e:#}. Rolling back state also failed: {rollback:#}.");
-                }
-                return Err(e);
+        {
+            if let Err(rollback) = crate::sandbox::rollback_restored_state(key, &session) {
+                tracing::error!(
+                    "Saving the restored agent config failed: {e:#}. Rolling back state also failed: {rollback:#}."
+                );
             }
+            return Err(e);
         }
         crate::sandbox::finish_restored_state(&session)?;
         self.sync_from_config().await;

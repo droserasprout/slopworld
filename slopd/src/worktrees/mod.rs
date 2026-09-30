@@ -1,5 +1,5 @@
 //! Durable checkout records. Task and session cleanup never mutate this store or its trees.
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::Duration;

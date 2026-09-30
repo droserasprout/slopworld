@@ -105,4 +105,4 @@ emit_dispatch('decode_request', '1', 'Request', request_kinds, '&[u8]', 'Value',
 emit_dispatch('encode_response', '2', 'Response', response_kinds, 'Value', 'Vec<u8>', True, True)
 
 (ROOT / 'slopd/src/shared/http_wire.rs').write_text('\n'.join(out) + '\n')
-subprocess.run(['rustfmt', '--edition', '2021', str(ROOT / 'slopd/src/shared/http_wire.rs')], check=True)
+subprocess.run(['rustfmt', '--edition', '2024', str(ROOT / 'slopd/src/shared/http_wire.rs')], check=True)

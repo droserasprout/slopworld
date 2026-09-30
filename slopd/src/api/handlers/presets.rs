@@ -1,5 +1,5 @@
 //! Preset catalog and persistence HTTP boundaries.
-use crate::api::protobuf::{domain, reply, Proto};
+use crate::api::protobuf::{Proto, domain, reply};
 use crate::shared::wire;
 
 use axum::extract::{Path, State};
@@ -7,7 +7,7 @@ use axum::http::StatusCode;
 
 use serde_json::json;
 
-use super::{err, ApiResult, Mgr};
+use super::{ApiResult, Mgr, err};
 
 use crate::presets::PresetKind;
 
@@ -125,7 +125,7 @@ pub(crate) async fn update_preset(
             return Err(err(
                 StatusCode::BAD_REQUEST,
                 "The kind field does not match the supplied definition.",
-            ))
+            ));
         }
     };
     match &mut definition {
@@ -168,12 +168,13 @@ mod tests {
 
     #[tokio::test]
     async fn update_distinguishes_validation_from_storage_failure() {
-        let Some(root) = crate::test_support::isolated() else {
+        let Some(root) = crate::test_support::isolated_with_env(|command, root| {
+            command.env("SLOPD_PRESETS", root.join("blocked-presets"));
+        }) else {
             return;
         };
         let blocked = root.join("blocked-presets");
         std::fs::write(&blocked, "not a directory").unwrap();
-        std::env::set_var("SLOPD_PRESETS", &blocked);
         let manager = crate::session::test_manager(crate::config::Config::default());
         let request = |command: &str| {
             Proto(wire::PresetRequest {

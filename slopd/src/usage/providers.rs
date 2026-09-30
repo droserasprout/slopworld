@@ -7,6 +7,10 @@ use std::time::{Duration, SystemTime};
 use serde_json::Value;
 
 use super::Snapshot;
+#[cfg(test)]
+use crate::test_support as env;
+#[cfg(not(test))]
+use std::env;
 
 #[cfg(test)]
 #[path = "providers_tests.rs"]
@@ -21,15 +25,15 @@ const OAUTH_BETA: &str = "oauth-2025-04-20";
 const TIMEOUT: Duration = Duration::from_secs(20);
 
 pub(super) fn usage_url() -> String {
-    std::env::var("SLOPD_USAGE_URL").unwrap_or_else(|_| USAGE_URL.to_string())
+    env::var("SLOPD_USAGE_URL").unwrap_or_else(|_| USAGE_URL.to_string())
 }
 
 fn credits_url() -> String {
-    std::env::var("SLOPD_CREDITS_URL").unwrap_or_else(|_| CREDITS_URL.to_string())
+    env::var("SLOPD_CREDITS_URL").unwrap_or_else(|_| CREDITS_URL.to_string())
 }
 
 fn openai_usage_url() -> String {
-    std::env::var("SLOPD_OPENAI_USAGE_URL").unwrap_or_else(|_| OPENAI_USAGE_URL.to_string())
+    env::var("SLOPD_OPENAI_USAGE_URL").unwrap_or_else(|_| OPENAI_USAGE_URL.to_string())
 }
 
 /// Read credentials for each poll and release them after the request.
@@ -216,17 +220,17 @@ pub(super) fn fetch(creds: &Creds) -> Result<Value, PollErr> {
             return Err(PollErr {
                 msg: "Anthropic is rate-limiting usage checks (429)".into(),
                 retry_after: Some(rate_limit_delay(&res)),
-            })
+            });
         }
         // 401 means the token in the file is no longer good, which is a thing the user
         // fixes rather than waits out.
         401 => {
             return Err(PollErr::new(
                 "Claude rejected the login (401). Is the host still signed in?",
-            ))
+            ));
         }
         s if !(200..300).contains(&s) => {
-            return Err(PollErr::new(format!("usage endpoint returned {s}")))
+            return Err(PollErr::new(format!("usage endpoint returned {s}")));
         }
         _ => {}
     }
@@ -240,7 +244,7 @@ pub(super) fn fetch(creds: &Creds) -> Result<Value, PollErr> {
 /// Do not log, save, or copy the key to another file.
 pub(super) fn read_key(file: &str) -> anyhow::Result<String> {
     if file.trim().is_empty() {
-        let key = std::env::var(KEY_ENV).unwrap_or_default();
+        let key = env::var(KEY_ENV).unwrap_or_default();
         if key.trim().is_empty() {
             anyhow::bail!(
                 "${KEY_ENV} is missing from slopd's environment. Export it or specify a key file."
@@ -276,17 +280,17 @@ pub(super) fn fetch_credits(key: &str) -> Result<Value, PollErr> {
             return Err(PollErr {
                 msg: "OpenRouter is rate-limiting credit checks (429)".into(),
                 retry_after: Some(rate_limit_delay(&res)),
-            })
+            });
         }
         // Something the user fixes rather than waits out, and the one failure worth naming the key
         // in. This is the only thing here that could be a stale copy in a file.
         401 | 403 => {
             return Err(PollErr::new(format!(
                 "OpenRouter rejected the key ({status}). Is the key still valid?"
-            )))
+            )));
         }
         s if !(200..300).contains(&s) => {
-            return Err(PollErr::new(format!("credits endpoint returned {s}")))
+            return Err(PollErr::new(format!("credits endpoint returned {s}")));
         }
         _ => {}
     }
@@ -313,15 +317,15 @@ pub(super) fn fetch_openai(creds: &OpenAiCreds) -> Result<Value, PollErr> {
             return Err(PollErr {
                 msg: "OpenAI is rate-limiting usage checks (429)".into(),
                 retry_after: Some(rate_limit_delay(&res)),
-            })
+            });
         }
         401 | 403 => {
             return Err(PollErr::new(format!(
                 "OpenAI rejected the Codex login ({status}). Sign in with `codex login`."
-            )))
+            )));
         }
         s if !(200..300).contains(&s) => {
-            return Err(PollErr::new(format!("OpenAI usage endpoint returned {s}")))
+            return Err(PollErr::new(format!("OpenAI usage endpoint returned {s}")));
         }
         _ => {}
     }

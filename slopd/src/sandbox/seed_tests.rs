@@ -166,10 +166,11 @@ fn the_files_on_top_are_cut_back_by_skip_and_by_what_is_shared() {
         name: "t".into(),
         private: vec![host.to_string_lossy().into_owned()],
         skip: vec![host.join("history.jsonl").to_string_lossy().into_owned()],
-        shared: vec![host
-            .join(".credentials.json")
-            .to_string_lossy()
-            .into_owned()],
+        shared: vec![
+            host.join(".credentials.json")
+                .to_string_lossy()
+                .into_owned(),
+        ],
         ..Default::default()
     };
     let copy = root.join("copy");
