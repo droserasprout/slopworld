@@ -17,6 +17,11 @@ A literal command without a preset does not.
 Choosing a shell does not share its host dotfiles: the separate userdata presets are opt-in.
 Required capabilities must remain visible but unselectable in the editor.
 
+The built-in Codex command keeps `tui.animations` enabled while disabling its individual effects.
+Codex CLI currently couples the Working timer's periodic redraw to that master switch, so
+turning animations off freezes the timer. Keep the command override until Codex separates
+timer refreshes from decorative effects.
+
 Apply mounts in this order:
 
 1. The basic mounts.
