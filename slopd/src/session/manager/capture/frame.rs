@@ -3,13 +3,13 @@
 use super::super::lifecycle::stop::DetachCause;
 use super::*;
 use crate::clock::unix_ms;
-use crate::session::manager::session_state::classify_activity;
+use crate::session::manager::session_state::{classify_activity, ActivityRecord};
 
 // Effects leave the live lock before any event publication or persistence.
 #[derive(Default)]
 pub(super) struct FrameEffects {
     screen: Option<ScreenView>,
-    activity: Option<(State, u64)>,
+    activity: Option<ActivityRecord>,
     announce: bool,
 }
 
@@ -45,12 +45,48 @@ impl Manager {
         let _perf = crate::perf::timer("frame");
         let started = crate::perf::enabled().then(std::time::Instant::now);
         let captured_at = crate::latency::enabled().then(crate::latency::now);
+        let gate = {
+            let live = self.live.read().await;
+            let Some(current) = live.get(name) else {
+                return;
+            };
+            if !current
+                .capture
+                .emu
+                .as_ref()
+                .is_some_and(|current| std::ptr::eq(current.as_ref(), emu))
+            {
+                return;
+            }
+            current.capture.render.clone()
+        };
+        let rendering = gate.lock().await;
+        let Some(previous) = self.frame_snapshot(name).await else {
+            return;
+        };
+        // Verify again after waiting for the prior capture to commit.
+        if !self
+            .live
+            .read()
+            .await
+            .get(name)
+            .and_then(|live| live.capture.emu.as_ref())
+            .is_some_and(|current| std::ptr::eq(current.as_ref(), emu))
+        {
+            return;
+        }
         // Release the emulator lock before classification or publication can await.
         let frame = match emu.lock() {
             Ok(mut e) => e.render(),
             Err(_) => return,
         };
-        self.apply_frame_timed(name, frame, captured_at).await;
+        let effects = self
+            .apply_captured_frame(name, frame, captured_at, previous)
+            .await;
+        drop(rendering);
+        if let Some(effects) = effects {
+            self.publish_frame_effects(name, effects).await;
+        }
         if let Some(started) = started {
             tracing::debug!(
                 target: "slopd::perf",
@@ -116,30 +152,48 @@ impl Manager {
 
     #[cfg(test)]
     pub(crate) async fn apply_frame(&self, name: &str, frame: Frame) {
-        self.apply_frame_timed(name, frame, None).await;
+        if let Some(previous) = self.frame_snapshot(name).await {
+            if let Some(effects) = self.apply_captured_frame(name, frame, None, previous).await {
+                self.publish_frame_effects(name, effects).await;
+            }
+        }
     }
 
-    async fn apply_frame_timed(&self, name: &str, frame: Frame, captured_at: Option<u64>) {
+    async fn apply_captured_frame(
+        &self,
+        name: &str,
+        frame: Frame,
+        captured_at: Option<u64>,
+        mut previous: FrameSnapshot,
+    ) -> Option<FrameEffects> {
         loop {
-            let Some(previous) = self.frame_snapshot(name).await else {
-                return;
-            };
             let delta = self.frame_delta(&previous, &frame);
             if !delta.needs_commit(&previous) {
-                return;
+                return None;
             }
-
+            #[cfg(test)]
+            {
+                let pause = self.frame_commit_pause.lock().unwrap().take();
+                if let Some((reached, release)) = pause {
+                    reached.notify_one();
+                    release.notified().await;
+                }
+            }
             match self
                 .commit_frame(name, &previous, &frame, delta, captured_at)
                 .await
             {
-                FrameCommit::Superseded => return,
-                // Keep these terminal bytes; only their classification became stale.
-                FrameCommit::Reclassify => continue,
-                FrameCommit::Applied(effects) => {
-                    self.publish_frame_effects(name, effects).await;
-                    return;
+                FrameCommit::Superseded => return None,
+                FrameCommit::Reclassify => {
+                    let live = self.live.read().await;
+                    let current = live.get(name)?;
+                    // Only classification may refresh; retain the capture owner and order.
+                    if !previous.owns(current) {
+                        return None;
+                    }
+                    previous = FrameSnapshot::from_live(current);
                 }
+                FrameCommit::Applied(effects) => return Some(effects),
             }
         }
     }
@@ -166,7 +220,7 @@ impl Manager {
             return FrameCommit::Superseded;
         };
         // A newer run or frame makes this capture obsolete.
-        if l.run_id != previous.run_id || l.seq != previous.seq {
+        if !previous.owns(l) {
             return FrameCommit::Superseded;
         }
         // State decay invalidates classification, not terminal output.
@@ -182,7 +236,7 @@ impl Manager {
             effects.announce = true;
             // Temporary sessions have no durable activity record.
             if !l.ephemeral {
-                effects.activity = Some((delta.next_state, l.state_since));
+                effects.activity = Some(ActivityRecord::from_live(l));
             }
         }
         // Titles and newly latched bells must also reach inactive tabs.
@@ -200,8 +254,8 @@ impl Manager {
             self.emit(Event::Screen { screen });
         }
         // Publish the screen before awaiting tmux; disk fallback writes are queued.
-        if let Some((state, state_since)) = effects.activity {
-            self.persist_activity(name, state, state_since).await;
+        if let Some(activity) = effects.activity {
+            self.persist_activity(name, activity).await;
         }
         if effects.announce {
             self.announce_sessions().await;

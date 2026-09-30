@@ -91,6 +91,14 @@ fn desktop_scan_does_not_follow_directory_symlinks() {
     let desktop = applications.join("editor.desktop");
     std::fs::write(&desktop, "[Desktop Entry]\nType=Application\nName=Editor\n").unwrap();
     symlink(&applications, applications.join("loop")).unwrap();
+    let external = root.join("external");
+    std::fs::create_dir_all(&external).unwrap();
+    std::fs::write(
+        external.join("unique.desktop"),
+        "[Desktop Entry]\nName=External\n",
+    )
+    .unwrap();
+    symlink(&external, applications.join("linked")).unwrap();
 
     let mut files = Vec::new();
     collect_desktop_files(&applications, &mut files);
@@ -101,4 +109,32 @@ fn desktop_scan_does_not_follow_directory_symlinks() {
 
 fn tempfile_path(name: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!("slopworld-{name}-{}", std::process::id()))
+}
+
+#[test]
+fn direct_desktop_ids_win_nested_collisions_within_each_xdg_root() {
+    let root = tempfile_path("desktop-collision");
+    let apps = root.join("applications");
+    std::fs::create_dir_all(apps.join("nested")).unwrap();
+    let direct = apps.join("nested-editor.desktop");
+    std::fs::write(
+        &direct,
+        "[Desktop Entry]\nName=Direct\nMimeType=text/plain;\n",
+    )
+    .unwrap();
+    std::fs::write(
+        apps.join("nested/editor.desktop"),
+        "[Desktop Entry]\nName=Nested\nMimeType=text/plain;\n",
+    )
+    .unwrap();
+    let discovery = super::DesktopDiscovery::load(std::slice::from_ref(&root));
+    let result = discovery.associated_apps("text/plain", "nested-editor.desktop");
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].name, "Direct");
+    assert_eq!(result[0].desktop_file.as_deref(), direct.to_str());
+    assert_eq!(
+        desktop_file_path_in("nested-editor.desktop", std::slice::from_ref(&root)),
+        Some(direct)
+    );
+    std::fs::remove_dir_all(root).unwrap();
 }

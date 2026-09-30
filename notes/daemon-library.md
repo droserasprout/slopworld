@@ -2,9 +2,12 @@
 
 Library presents agent templates, prompts, shell errands, breadcrumbs, and file actions.
 Start in `manager/library.rs`, `manager/errands.rs`, and `config/mod.rs`.
+Project catalog changes and relocation coordination live in `manager/projects.rs`.
+Library discovery runs on a blocking worker and retains its last valid snapshot if that worker fails.
 Put user instructions in the book. Runnable entries choose explicit host execution or an agent template. Template errands copy settings and snapshots once.
 Source-agent settings and sandbox snapshots resolve before a live row or temporary project is created.
-They use the selected project's mounts.
+They use the selected project's mounts. A fresh temporary errand clears inherited
+worktree selection and rejects an explicit worktree.
 Missing execution choices cause failure before session allocation. Agent-shell requests can still clone a
 source agent via `like`. File actions execute on the daemon host. They do not participate in
 agent breadcrumb delivery.

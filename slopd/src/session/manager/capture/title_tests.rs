@@ -135,9 +135,12 @@ async fn disabled_or_short_requests_are_discarded_and_failures_keep_previous_tit
 
 #[tokio::test]
 async fn disabling_titles_clears_work_and_cache_before_old_results_can_commit() {
-    let (m, request) = fixture().await;
+    let (m, first) = fixture().await;
+    assert!(m.apply_title_result("agent", &first, summary("Old")).await);
+    assert_eq!(m.live.read().await["agent"].title.title(), Some("Old"));
+    let request = prepare(&m, "Separate pending work").await;
+    assert!(m.live.read().await["agent"].title.accepts(&request));
     m.capture_title_paste("agent", "unfinished input").await;
-    m.title_cache.remember("agent", "Old");
     let mut cfg = m.config().await;
     assert!(!m.reconcile_title_settings(&cfg).await);
     cfg.daemon.agent_titles = TitlePolicy::Never;
@@ -154,6 +157,10 @@ async fn disabling_titles_clears_work_and_cache_before_old_results_can_commit() 
     m.capture_title_keys("agent", &["Enter".into()], false)
         .await;
     assert!(m.title_cache.latest("agent").is_none());
+    assert!(
+        !m.live.read().await["agent"].title.has_pending(),
+        "unfinished input produced a request"
+    );
 }
 
 #[tokio::test]
@@ -163,11 +170,12 @@ async fn new_conversation_updates_recovery_state_and_rejects_old_results() {
         m.apply_title_result("agent", &request, summary("Old title"))
             .await
     );
-    let pending = prepare(&m, "Old request still running").await;
     for (input, expected) in [
         ("/new Named conversation", Some("Named conversation")),
         ("/new", None),
     ] {
+        let pending = prepare(&m, "Old request still running").await;
+        assert!(m.live.read().await["agent"].title.accepts(&pending));
         m.capture_title_paste("agent", input).await;
         m.capture_title_keys("agent", &["Enter".into()], false)
             .await;

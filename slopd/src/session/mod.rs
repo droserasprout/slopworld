@@ -162,6 +162,8 @@ struct Live {
 /// Emulator and the reader task that owns it.
 #[derive(Default)]
 struct LiveCapture {
+    // Serialize rendering through frame commit for this capture owner.
+    render: Arc<tokio::sync::Mutex<()>>,
     emu: Option<Arc<Mutex<SessionEmu>>>,
     reader: Option<JoinHandle<()>>,
     // Prevent a replaced reader from clearing its successor’s emulator.

@@ -164,3 +164,63 @@ async fn legacy_waiting_state_decays_without_new_output() {
     manager.retick().await;
     assert_eq!(manager.live.read().await["agent"].state, State::Idle);
 }
+
+#[tokio::test]
+async fn delayed_activity_cannot_overwrite_newer_state_or_restore_cleared_history() {
+    let Some(_root) = crate::test_support::isolated() else {
+        return;
+    };
+    let (manager, _) = quiet_session().await;
+    let older = ActivityRecord::from_live(&manager.live.read().await["agent"]);
+    let ordering = manager.activity_mutation.lock().await;
+    let old_write = manager.persist_activity("agent", older);
+    tokio::pin!(old_write);
+    assert!(futures::poll!(old_write.as_mut()).is_pending());
+    let newer = {
+        let mut live = manager.live.write().await;
+        let row = live.get_mut("agent").unwrap();
+        row.set_state(State::Idle);
+        row.state_since = 42;
+        ActivityRecord::from_live(row)
+    };
+    let new_write = manager.persist_activity("agent", newer);
+    tokio::pin!(new_write);
+    assert!(futures::poll!(new_write.as_mut()).is_pending());
+    drop(ordering);
+    old_write.await;
+    new_write.await;
+    let saved = manager.activity_cache.get("agent").unwrap();
+    assert_eq!(saved.state, State::Idle);
+    assert_eq!(saved.state_since, 42);
+
+    let older = ActivityRecord::from_live(&manager.live.read().await["agent"]);
+    let ordering = manager.activity_mutation.lock().await;
+    let old_write = manager.persist_activity("agent", older);
+    tokio::pin!(old_write);
+    assert!(futures::poll!(old_write.as_mut()).is_pending());
+    super::super::lifecycle::stop::reset_process_state(
+        manager.live.write().await.get_mut("agent").unwrap(),
+    );
+    drop(ordering);
+    tokio::join!(manager.clear_activity("agent"), old_write);
+    assert!(manager.activity_cache.get("agent").is_none());
+}
+
+#[tokio::test]
+async fn retick_does_not_classify_a_replacement_identity_with_matching_counters() {
+    let (manager, _) = quiet_session().await;
+    let previous = manager.retick_snapshots(unix_ms()).await.remove(0);
+    manager
+        .live
+        .write()
+        .await
+        .get_mut("agent")
+        .unwrap()
+        .cfg
+        .state_id = uuid::Uuid::new_v4().to_string();
+    assert_eq!(
+        manager.commit_retick(&previous, State::Idle).await,
+        (false, None)
+    );
+    assert_eq!(manager.live.read().await["agent"].state, State::Working);
+}

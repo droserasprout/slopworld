@@ -35,11 +35,18 @@ impl Manager {
         let jukebox_loaded = crate::jukebox::reload();
 
         let m = Arc::new(Self {
+            #[cfg(test)]
+            frame_commit_pause: Mutex::new(None),
+            #[cfg(test)]
+            input_sink: Mutex::new(None),
+            #[cfg(test)]
+            _test_directory: None,
             tmux: Tmux::new(crate::tmux::tmux_socket()),
             cfg_path,
             endpoint_path: crate::endpoint::path(),
             live: RwLock::new(HashMap::new()),
             temp: RwLock::new(HashMap::new()),
+            library_snapshot: Mutex::new(cfg.library_items_all()),
             cfg: RwLock::new(cfg),
             templates: TemplateStore::new(templates),
             config_state: ConfigState::new(
@@ -51,11 +58,12 @@ impl Manager {
             host_metadata: HostMetadataPoll::default(),
             signals: Signals::new(),
             scroll_cache: Mutex::new(HashMap::new()),
+            activity_mutation: tokio::sync::Mutex::new(()),
             activity_cache,
             music: MusicState::new(),
             events,
             auth: Authorization::new(grants),
-            session_boundary: tokio::sync::RwLock::new(()),
+            session_boundary: Arc::new(tokio::sync::RwLock::new(())),
             resize_mutation: tokio::sync::Mutex::new(()),
             tasks: crate::session::manager::TaskStore::new(tasks),
             worker_spawn: tokio::sync::Mutex::new(()),
@@ -64,10 +72,10 @@ impl Manager {
         });
 
         // Recover filesystem state before reconciling sessions.
-        if let Ok(n) = crate::sandbox::purge_trash() {
-            if n > 0 {
-                tracing::info!("purged {n} expired private-state trash entries");
-            }
+        match crate::sandbox::purge_trash() {
+            Ok(n) if n > 0 => tracing::info!("purged {n} expired private-state trash entries"),
+            Ok(_) => {}
+            Err(error) => tracing::warn!("could not purge private-state trash: {error:#}"),
         }
         if let Err(error) = m.recover_worktrees().await {
             tracing::error!("Worktree recovery failed. Records remain: {error:#}");

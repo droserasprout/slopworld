@@ -120,22 +120,23 @@ impl Manager {
                         .map(|_| ())
                 }
             }
-            Some(selection) => match self.stop_ncspot().await {
-                Err(e) => Err(e),
-                Ok(()) => match selection {
-                    Some(s) => match resolve_audio_source(s) {
-                        Ok(source) => {
-                            self.music.audio.play(&source, req.volume);
+            Some(selection) => {
+                // Validation precedes playback changes under the same transition guard.
+                let source = selection.map(resolve_audio_source).transpose();
+                match source {
+                    Err(error) => Err(error),
+                    Ok(source) => match self.stop_ncspot().await {
+                        Err(error) => Err(error),
+                        Ok(()) => {
+                            match source {
+                                Some(source) => self.music.audio.play(&source, req.volume),
+                                None => self.music.audio.stop(),
+                            }
                             Ok(())
                         }
-                        Err(e) => Err(e),
                     },
-                    None => {
-                        self.music.audio.stop();
-                        Ok(())
-                    }
-                },
-            },
+                }
+            }
             None => self.music_volume(req.volume).await,
         };
         if let Err(e) = result {

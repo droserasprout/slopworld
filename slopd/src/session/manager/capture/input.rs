@@ -20,7 +20,7 @@ impl Manager {
             }
             _ => item,
         };
-        let (spawn_rx, unsent) = {
+        let (spawn_rx, unsent, tracked) = {
             let mut live = self.live.write().await;
             if let Some(l) = live.get_mut(name) {
                 if let Some(trace) = trace {
@@ -42,9 +42,9 @@ impl Manager {
                     .send(item)
                     .err()
                     .map(|e| e.0);
-                (spawn_rx, unsent)
+                (spawn_rx, unsent, Some((l.cfg.state_id.clone(), l.run_id)))
             } else {
-                (None, Some(item))
+                (None, Some(item), None)
             }
         };
         if let Some((rx, identity, run_id)) = spawn_rx {
@@ -52,9 +52,15 @@ impl Manager {
             let name = name.to_string();
             tokio::spawn(async move { Self::run_input(manager, name, identity, run_id, rx).await });
         }
-        // Preserve direct dispatch for untracked panes or a closed consumer.
+        // Failed tracked sends retain the same identity check as queued delivery.
         if let Some(item) = unsent {
-            Self::send_input(&self.tmux, name, item).await;
+            match tracked {
+                Some((identity, run_id)) => {
+                    self.dispatch_queued_input(name, &identity, run_id, item)
+                        .await;
+                }
+                None => Self::send_input(&self.tmux, name, item).await,
+            }
         }
     }
 
@@ -107,6 +113,11 @@ impl Manager {
                     && live.input.sender.is_some()
             }) {
                 return false;
+            }
+            #[cfg(test)]
+            if let Some(sink) = self.input_sink.lock().unwrap().as_ref() {
+                sink.send(item).unwrap();
+                return true;
             }
             Self::send_input(&self.tmux, name, item).await;
             true
@@ -273,6 +284,7 @@ impl Manager {
     }
 
     pub(in crate::session::manager) async fn nudge_redraw(self: &Arc<Self>, name: &str) {
+        let _resize = self.resize_mutation.lock().await;
         // A brief size change triggers SIGWINCH so the application restores terminal modes.
         let Some((cols, rows)) = self.size_of(name).await else {
             return;
@@ -285,7 +297,7 @@ impl Manager {
             return;
         }
         tokio::time::sleep(Duration::from_millis(60)).await;
-        // Restore the latest size; a real resize may have arrived during the nudge.
+        // Keep the guard through restoration so real resizes publish afterward.
         let Some((cols, rows)) = self.size_of(name).await else {
             return;
         };

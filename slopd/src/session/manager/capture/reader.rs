@@ -139,13 +139,34 @@ fn seed_emulator(e: &mut SessionEmu, cap: &crate::tmux::Screen, rows: u16) {
     e.feed(seed.as_bytes());
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct ClipboardPump {
     copying: Arc<AtomicBool>,
     wake: Arc<tokio::sync::Notify>,
 }
 
 impl ClipboardPump {
+    fn finish(&self, name: &str, emu: Arc<Mutex<SessionEmu>>) {
+        if !self.copying.load(Ordering::Relaxed) {
+            self.start_if_idle(name, &emu);
+            return;
+        }
+        let pump = self.clone();
+        let name = name.to_owned();
+        // Preserve clipboard ordering even after the reader exits. The final
+        // pending value follows the in-flight write and retains its emulator.
+        tokio::spawn(async move {
+            loop {
+                let done = pump.wake.notified();
+                if !pump.copying.load(Ordering::Relaxed) {
+                    break;
+                }
+                done.await;
+            }
+            pump.start_if_idle(&name, &emu);
+        });
+    }
+
     fn start_if_idle(&self, name: &str, emu: &Mutex<SessionEmu>) {
         // Only the reader starts writes; the detached task only clears this flag.
         if self.copying.load(Ordering::Relaxed) {
@@ -386,6 +407,8 @@ impl Manager {
         // Replay handshake output before reading newer bytes from the transport.
         for line in pending {
             if !process_control_line(&emu, &line, &mut schedule, self.watched(name)) {
+                self.flush_control_exit(name, &emu, &schedule, &clipboard)
+                    .await;
                 return;
             }
         }
@@ -418,6 +441,39 @@ impl Manager {
                     schedule.wake(Instant::now(), self.watched(name));
                 }
             }
+        }
+        if let Some(error) = rx
+            .failure
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take()
+        {
+            tracing::warn!("control stream {name}: {error}");
+        }
+        self.flush_control_exit(name, &emu, &schedule, &clipboard)
+            .await;
+    }
+
+    async fn flush_control_exit(
+        &self,
+        name: &str,
+        emu: &Arc<Mutex<SessionEmu>>,
+        schedule: &DrawSchedule,
+        clipboard: &ClipboardPump,
+    ) {
+        if schedule.dirty {
+            self.render_and_broadcast(name, emu).await;
+        }
+        if self.watched(name)
+            && self
+                .live
+                .read()
+                .await
+                .get(name)
+                .and_then(|live| live.capture.emu.as_ref())
+                .is_some_and(|current| Arc::ptr_eq(current, emu))
+        {
+            clipboard.finish(name, emu.clone());
         }
     }
 

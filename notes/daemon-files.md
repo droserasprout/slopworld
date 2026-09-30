@@ -17,6 +17,7 @@ coverage scope.
 | `api/` | Routing, HTTP/Protobuf boundaries, and WebSocket transport. `handlers/actions.rs` owns explicit launches and file actions; `handlers/config.rs` owns config patch policy. See [file mutation boundary](daemon-file-mutations.md). |
 | `session/` | Session types, agent-template definitions, input, validation, wire views. `events.rs` owns published events and their shared encoding cache; `protobuf.rs` owns wire conversion. |
 | `session/manager/` | `Manager` and its guards, configuration synchronization, session lifecycle, capture, task-store ownership, workers. |
+| `session/manager/projects.rs` | Project catalog edits and checkout relocation coordination. `directories.rs` owns newly created directories until commit. |
 | `session/manager/lifecycle/` | Start, stop, adoption, and reconciliation of configured sessions. |
 | `session/manager/capture/` | Terminal readers, input, frames, scrollback, and title capture. |
 | `session/manager/init.rs`, `maintenance.rs` | Startup recovery and maintenance scheduling. Configuration transactions stay in `manager/config/mod.rs`; `lifecycle/reconcile.rs` applies them to live sessions. |

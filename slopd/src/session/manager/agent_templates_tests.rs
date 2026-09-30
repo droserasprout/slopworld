@@ -6,21 +6,27 @@ use crate::presets::SandboxPreset;
 async fn template_creation_uses_destination_project_mounts() {
     let root = std::env::temp_dir().join(format!("slopd-template-mounts-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&root).unwrap();
+    let source_mount = root.join("source-mount");
+    let destination_mount = root.join("destination-mount");
+    std::fs::create_dir_all(&source_mount).unwrap();
+    std::fs::create_dir_all(&destination_mount).unwrap();
     let manager = crate::session::test_manager(Config {
         projects: ["repo", "extra"]
             .into_iter()
             .map(|name| ProjectCfg {
                 name: name.into(),
                 dir: root.to_string_lossy().into_owned(),
-                mounts: if name == "repo" {
-                    vec![crate::config::Mount {
-                        from: "/tmp".into(),
-                        to: "/mnt/extra".into(),
-                        mode: crate::config::MountMode::Ro,
-                    }]
-                } else {
-                    Vec::new()
-                },
+                mounts: vec![crate::config::Mount {
+                    from: if name == "repo" {
+                        &source_mount
+                    } else {
+                        &destination_mount
+                    }
+                    .to_string_lossy()
+                    .into_owned(),
+                    to: format!("/mnt/{name}"),
+                    mode: crate::config::MountMode::Ro,
+                }],
                 ..Default::default()
             })
             .collect(),
@@ -36,14 +42,20 @@ async fn template_creation_uses_destination_project_mounts() {
         .await
         .unwrap();
     manager
-        .create_from_agent_template("reviewer", "new-agent".into(), "repo".into(), None, None)
+        .create_from_agent_template("reviewer", "new-agent".into(), "extra".into(), None, None)
         .await
         .unwrap();
-    assert!(manager.config().await.session("new-agent").unwrap().project == "repo");
-    assert_eq!(
-        manager.config().await.project("repo").unwrap().mounts.len(),
-        1
-    );
+    let cfg = manager.config().await;
+    let session = cfg.session("new-agent").unwrap();
+    assert_eq!(session.project, "extra");
+    let plan = crate::sandbox::build_plan(&cfg, session, cfg.project("extra").unwrap()).unwrap();
+    assert!(plan.mounts.windows(3).any(|args| args
+        == [
+            "--ro-bind",
+            destination_mount.to_str().unwrap(),
+            "/mnt/extra"
+        ]));
+    assert!(!plan.mounts.iter().any(|arg| arg == "/mnt/repo"));
     manager.templates.store.write().await.templates[0]
         .defaults
         .autostart = Some(true);
@@ -91,7 +103,15 @@ async fn saving_a_template_persists_it_separately_from_config() {
         .await
         .unwrap();
     assert_eq!(manager.agent_templates().await.len(), 1);
-    assert!(AgentTemplateStore::path_for(&manager.cfg_path).is_dir());
+    let loaded = AgentTemplateStore::load(&AgentTemplateStore::path_for(&manager.cfg_path))
+        .await
+        .unwrap();
+    let saved = loaded.get("reviewer").unwrap();
+    assert_eq!(saved.description, "Review changes");
+    assert_eq!(
+        toml::to_string(saved).unwrap(),
+        toml::to_string(&manager.agent_templates().await[0]).unwrap()
+    );
     assert!(!manager.cfg_path.is_file());
     drop(std::fs::remove_dir_all(root));
 }
@@ -231,4 +251,38 @@ async fn template_writes_compare_versions_and_preserve_rejected_drafts() {
         .unwrap();
     assert!(recreated.version > original.version);
     drop(std::fs::remove_dir_all(root));
+}
+
+#[tokio::test]
+async fn caller_cancellation_cannot_separate_catalog_commit_from_publication() {
+    let manager = crate::session::test_manager(Config::default());
+    let template: AgentTemplate = serde_json::from_value(serde_json::json!({
+        "name": "owned", "description": "Committed despite cancellation", "defaults": {}
+    }))
+    .unwrap();
+    let reached = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    *manager.templates.publish_pause.lock().unwrap() = Some((reached.clone(), release.clone()));
+    let caller = {
+        let manager = manager.clone();
+        tokio::spawn(async move { manager.create_agent_template_definition(template).await })
+    };
+    reached.notified().await;
+    assert!(manager.agent_templates().await.is_empty());
+    assert!(
+        AgentTemplateStore::load(&AgentTemplateStore::path_for(&manager.cfg_path))
+            .await
+            .unwrap()
+            .get("owned")
+            .is_some()
+    );
+    caller.abort();
+    assert!(caller.await.unwrap_err().is_cancelled());
+    release.notify_one();
+    // The mutation gate is held through publication by the detached owner.
+    let _done = manager.templates.mutation.lock().await;
+    assert_eq!(
+        manager.agent_templates().await[0].description,
+        "Committed despite cancellation"
+    );
 }

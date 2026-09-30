@@ -136,6 +136,8 @@ async fn stopped_session_resize_clamps_dimensions_and_updates_the_mirror() {
 async fn stale_input_queues_exit_without_draining_into_replacements() {
     for replaced_identity in [true, false] {
         let manager = crate::session::test_manager(Config::default());
+        let (sink, mut received) = mpsc::unbounded_channel();
+        *manager.input_sink.lock().unwrap() = Some(sink);
         let (tx, rx) = mpsc::unbounded_channel();
         let mut live = Live::new(
             SessionCfg {
@@ -170,6 +172,17 @@ async fn stale_input_queues_exit_without_draining_into_replacements() {
         .await
         .expect("stale queue kept consuming input");
         assert!(tx.is_closed());
+        assert!(received.try_recv().is_err(), "stale input reached dispatch");
+        let (identity, run) = {
+            let live = manager.live.read().await;
+            (live["target"].cfg.state_id.clone(), live["target"].run_id)
+        };
+        assert!(
+            manager
+                .dispatch_queued_input("target", &identity, run, Input::Bytes(b"current".to_vec()))
+                .await
+        );
+        assert!(matches!(received.try_recv().unwrap(), Input::Bytes(bytes) if bytes == b"current"));
     }
 }
 

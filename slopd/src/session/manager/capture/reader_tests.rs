@@ -14,6 +14,14 @@ async fn due_output_reaches_the_screen_for_watched_and_unwatched_panes() {
         live.ephemeral = true;
         manager.live.write().await.insert("agent".into(), live);
         let emu = Arc::new(Mutex::new(SessionEmu::new(80, 24)));
+        manager
+            .live
+            .write()
+            .await
+            .get_mut("agent")
+            .unwrap()
+            .capture
+            .emu = Some(emu.clone());
         let mut events = manager.events.subscribe();
         let mut schedule = DrawSchedule::default();
         assert!(matches!(
@@ -59,6 +67,14 @@ async fn subscription_during_render_leaves_a_clean_tick_pending_for_each_reader(
     live.ephemeral = true;
     manager.live.write().await.insert("agent".into(), live);
     let emu = Arc::new(Mutex::new(SessionEmu::new(80, 24)));
+    manager
+        .live
+        .write()
+        .await
+        .get_mut("agent")
+        .unwrap()
+        .capture
+        .emu = Some(emu.clone());
     emu.lock().unwrap().feed(b"final output");
     let mut changes = manager.signals.watchers_changed.subscribe();
     let mut other_reader = manager.signals.watchers_changed.subscribe();
@@ -324,4 +340,38 @@ fn snapshot_seed_keeps_primary_history_out_of_alternate_screen() {
     assert!(!primary.alt_screen);
     assert!(primary.lines.join("\n").contains("history"));
     assert!(!primary.lines.join("\n").contains("alt first"));
+}
+
+#[tokio::test]
+async fn exit_and_eof_flush_output_received_before_the_last_draw() {
+    for exit in [false, true] {
+        let manager = crate::session::test_manager(Config::default());
+        let emu = Arc::new(Mutex::new(SessionEmu::new(80, 24)));
+        let mut row = Live::new(
+            SessionCfg {
+                name: "agent".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        row.ephemeral = true;
+        row.capture.emu = Some(emu.clone());
+        manager.live.write().await.insert("agent".into(), row);
+        let (tx, rx) = mpsc::channel(2);
+        let mut pending = vec![b"%output %1 final output".to_vec()];
+        if exit {
+            pending.push(b"%exit".to_vec());
+        }
+        drop(tx);
+        manager
+            .run_control_loop("agent", emu, ControlLineReceiver::new(rx), pending)
+            .await;
+        assert!(manager
+            .screen("agent")
+            .await
+            .unwrap()
+            .lines
+            .iter()
+            .any(|line| line.contains("final output")));
+    }
 }

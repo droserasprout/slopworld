@@ -4,6 +4,8 @@ use super::*;
 
 /// Scrollback view keyed by the live frame, offset, and grid size.
 pub(crate) struct CachedScroll {
+    run_id: u64,
+    emu: std::sync::Weak<Mutex<SessionEmu>>,
     pub(in crate::session::manager) live_seq: u64,
     pub(in crate::session::manager) off: u32,
     pub(in crate::session::manager) cols: u16,
@@ -28,32 +30,53 @@ impl Manager {
             return self.screen(name).await;
         }
 
-        let (emu, seq, cols, rows) = {
+        let (emu, run_id, seq, cols, rows) = {
             let live = self.live.read().await;
             let l = live.get(name)?;
-            (l.capture.emu.clone()?, l.seq, l.cols, l.rows)
-        };
-
-        if let Ok(c) = self.scroll_cache.lock() {
-            if let Some(cached) = c.get(name) {
-                if cached.live_seq == seq
-                    && cached.off == off
-                    && cached.cols == cols
-                    && cached.rows == rows
-                {
-                    let mut view = cached.view.clone();
-                    view.request_id = request_id;
-                    return Some(view);
+            let emu = l.capture.emu.clone()?;
+            if let Ok(cache) = self.scroll_cache.lock() {
+                if let Some(cached) = cache.get(name) {
+                    if cached.run_id == l.run_id
+                        && cached
+                            .emu
+                            .upgrade()
+                            .is_some_and(|cached| Arc::ptr_eq(&cached, &emu))
+                        && cached.live_seq == l.seq
+                        && cached.off == off
+                        && cached.cols == l.cols
+                        && cached.rows == l.rows
+                    {
+                        let mut view = cached.view.clone();
+                        view.request_id = request_id;
+                        return Some(view);
+                    }
                 }
             }
-        }
+            (emu, l.run_id, l.seq, l.cols, l.rows)
+        };
 
         let (grid, achieved, history, title) = {
             let mut e = emu.lock().ok()?;
             e.scroll_snapshot(off)
         };
+        // Hold this read guard through returning or cache insertion so teardown
+        // cannot clear the cache and then receive a stale entry from this request.
+        let live = self.live.read().await;
+        let current = live.get(name)?;
+        if current.run_id != run_id
+            || current.seq != seq
+            || current.cols != cols
+            || current.rows != rows
+            || !current
+                .capture
+                .emu
+                .as_ref()
+                .is_some_and(|current| Arc::ptr_eq(current, &emu))
+        {
+            return None;
+        }
         if achieved == 0 {
-            let mut view = self.screen(name).await?;
+            let mut view = current.screen.clone()?;
             view.request_id = request_id;
             view.history = history;
             return Some(view);
@@ -76,6 +99,8 @@ impl Manager {
             c.insert(
                 name.to_string(),
                 CachedScroll {
+                    run_id,
+                    emu: Arc::downgrade(&emu),
                     live_seq: seq,
                     off,
                     cols,

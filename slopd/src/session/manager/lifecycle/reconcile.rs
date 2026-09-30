@@ -155,7 +155,11 @@ impl Manager {
         self: &Arc<Self>,
         cfg: &Config,
     ) {
-        for tab in cfg.host_terminals.iter().filter(|tab| tab.autostart) {
+        for tab in cfg
+            .host_terminals
+            .iter()
+            .filter(|tab| tab.autostart && cfg.session(&tab.name).is_none())
+        {
             if self.tmux.exists(&tab.name).await {
                 continue;
             }

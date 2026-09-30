@@ -171,7 +171,8 @@ async fn edits_survive_restart_and_rejected_renames_preserve_both_definitions() 
     let original = store.create(template()).unwrap();
     let mut other = template();
     other.name = "other".into();
-    store.create(other).unwrap();
+    other.description = "Destination definition".into();
+    let other = store.create(other).unwrap();
     store.save(&path).await.unwrap();
     let mut store = AgentTemplateStore::load(&path).await.unwrap();
     let mut draft = original.clone();
@@ -181,6 +182,16 @@ async fn edits_survive_restart_and_rejected_renames_preserve_both_definitions() 
         .unwrap_err();
     assert_eq!(store.templates.len(), 2);
     assert_eq!(store.get(&original.name).unwrap().version, original.version);
+    assert_eq!(
+        toml::to_string(store.get("other").unwrap()).unwrap(),
+        toml::to_string(&other).unwrap()
+    );
+    store.save(&path).await.unwrap();
+    let mut store = AgentTemplateStore::load(&path).await.unwrap();
+    assert_eq!(
+        toml::to_string(store.get("other").unwrap()).unwrap(),
+        toml::to_string(&other).unwrap()
+    );
     let mut draft = original.clone();
     draft.name = "renamed".into();
     let renamed = store
@@ -216,36 +227,77 @@ fn an_instance_keeps_captured_behavior_when_live_entries_change() {
 }
 
 #[test]
-fn capture_rejects_stale_sandbox_references() {
-    let mut command = command();
-    command.sandbox = vec!["missing-command-preset".into(), "captured".into()];
-    let source = SessionCfg {
-        name: "slop-lxh".into(),
-        project: "slopworld".into(),
-        command_snapshot: Some(command),
-        sandbox: vec!["missing-agent-preset".into(), "invalid".into()],
-        sandbox_snapshots: vec![
-            sandbox(),
-            SandboxPreset {
-                name: "invalid".into(),
-                requires: vec!["missing-dependency".into()],
-                ..Default::default()
-            },
-        ],
-        ..Default::default()
-    };
-    let project = ProjectCfg {
-        name: "slopworld".into(),
-        ..Default::default()
-    };
-    let result = AgentTemplate::from_session(
-        "copy".into(),
-        String::new(),
-        &source,
-        &project,
-        &Config::default(),
+fn capture_rejects_each_stale_sandbox_reference() {
+    for missing in ["command", "agent", "transitive"] {
+        let mut command = command();
+        let mut source = SessionCfg {
+            command_snapshot: Some(command.clone()),
+            ..Default::default()
+        };
+        match missing {
+            "command" => {
+                command.sandbox = vec!["missing-command-preset".into()];
+                source.command_snapshot = Some(command);
+            }
+            "agent" => source.sandbox = vec!["missing-agent-preset".into()],
+            _ => {
+                source.sandbox = vec!["invalid".into()];
+                source.sandbox_snapshots = vec![SandboxPreset {
+                    name: "invalid".into(),
+                    requires: vec!["missing-dependency".into()],
+                    ..Default::default()
+                }];
+            }
+        }
+        let before = toml::to_string(&source).unwrap();
+        assert!(
+            AgentTemplate::from_session(
+                "copy".into(),
+                String::new(),
+                &source,
+                &ProjectCfg::default(),
+                &Config::default()
+            )
+            .is_err(),
+            "{missing}"
+        );
+        assert_eq!(toml::to_string(&source).unwrap(), before);
+    }
+}
+
+#[test]
+fn snapshots_cannot_depend_on_unsnapshotted_live_presets() {
+    let mut saved = template();
+    saved.defaults.sandbox = vec!["captured".into()];
+    saved.defaults.sandbox_presets = vec![SandboxPreset {
+        requires: vec!["global".into()],
+        ..sandbox()
+    }];
+    assert!(validate_definition(&saved)
+        .unwrap_err()
+        .to_string()
+        .contains("unsnapshotted dependency"));
+}
+
+#[tokio::test]
+async fn failed_catalog_commit_keeps_the_previous_generation_loadable() {
+    let root =
+        std::env::temp_dir().join(format!("slopd-template-failure-{}", uuid::Uuid::new_v4()));
+    let path = root.join("agent_templates");
+    let mut store = AgentTemplateStore::default();
+    let original = store.create(template()).unwrap();
+    store.save(&path).await.unwrap();
+    store.remove(&original.name, original.version).unwrap();
+    let mut replacement = template();
+    replacement.name = "replacement".into();
+    store.create(replacement).unwrap();
+    let _fault = crate::paths::fail_writes(&path.join(".index.toml"));
+    assert!(store.save(&path).await.is_err());
+    let loaded = AgentTemplateStore::load(&path).await.unwrap();
+    assert_eq!(
+        toml::to_string(loaded.get(&original.name).unwrap()).unwrap(),
+        toml::to_string(&original).unwrap()
     );
-    result.unwrap_err();
-    // A rejected capture leaves the source settings intact.
-    assert!(source.sandbox.contains(&"missing-agent-preset".into()));
+    assert!(loaded.get("replacement").is_none());
+    std::fs::remove_dir_all(root).unwrap();
 }

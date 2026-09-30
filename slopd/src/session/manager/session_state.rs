@@ -19,7 +19,33 @@ pub(super) fn classification_deadline(live: &Live) -> Option<u64> {
         .then(|| live.last_change.saturating_add(IDLE_MS))
 }
 
+/// Recovery metadata carries the process identity which produced it.
+#[derive(Debug, PartialEq, Eq)]
+pub(super) struct ActivityRecord {
+    identity: String,
+    run_id: u64,
+    state: State,
+    state_since: u64,
+}
+impl ActivityRecord {
+    pub(super) fn from_live(live: &Live) -> Self {
+        Self {
+            identity: live.cfg.state_id.clone(),
+            run_id: live.run_id,
+            state: live.state,
+            state_since: live.state_since,
+        }
+    }
+    fn matches(&self, live: &Live) -> bool {
+        live.cfg.state_id == self.identity
+            && live.run_id == self.run_id
+            && live.state == self.state
+            && live.state_since == self.state_since
+    }
+}
+
 struct RetickSnapshot {
+    identity: String,
     name: String,
     run_id: u64,
     seq: u64,
@@ -46,6 +72,7 @@ impl Manager {
                     return None;
                 }
                 Some(RetickSnapshot {
+                    identity: l.cfg.state_id.clone(),
                     name: n.clone(),
                     run_id: l.run_id,
                     seq: l.seq,
@@ -62,16 +89,20 @@ impl Manager {
         &self,
         previous: &RetickSnapshot,
         state: State,
-    ) -> (bool, Option<(State, u64)>) {
+    ) -> (bool, Option<ActivityRecord>) {
         let mut live = self.live.write().await;
         if let Some(l) = live.get_mut(&previous.name) {
             // A newer frame, run, or state supersedes this activity sample.
-            if l.run_id != previous.run_id || l.seq != previous.seq || l.state != previous.state {
+            if l.cfg.state_id != previous.identity
+                || l.run_id != previous.run_id
+                || l.seq != previous.seq
+                || l.state != previous.state
+            {
                 return (false, None);
             }
             l.retick_seq = previous.seq;
             if l.set_state(state) {
-                let activity = (!l.ephemeral).then_some((l.state, l.state_since));
+                let activity = (!l.ephemeral).then(|| ActivityRecord::from_live(l));
                 return (true, activity);
             }
         }
@@ -112,9 +143,8 @@ impl Manager {
             let state = classify_activity(false, previous.last_change, now);
             let (changed, activity) = self.commit_retick(&previous, state).await;
             dirty_list |= changed;
-            if let Some((state, state_since)) = activity {
-                self.persist_activity(&previous.name, state, state_since)
-                    .await;
+            if let Some(activity) = activity {
+                self.persist_activity(&previous.name, activity).await;
             }
         }
 
@@ -142,6 +172,7 @@ impl Manager {
     // does not prevent the other recovery source from being updated.
 
     pub(super) async fn clear_activity(&self, name: &str) {
+        let _activity = self.activity_mutation.lock().await;
         if let Err(error) = self.activity_cache.clear(name) {
             tracing::warn!(
                 target: "slopd::activity",
@@ -160,23 +191,41 @@ impl Manager {
         }
     }
 
-    pub(super) async fn persist_activity(&self, name: &str, state: State, state_since: u64) {
-        if let Err(error) = self.activity_cache.remember(name, state, state_since) {
-            tracing::warn!(
-                target: "slopd::activity",
-                session = %name,
-                %error,
-                "could not persist session activity"
-            );
-        }
-        if let Err(error) = self.tmux.set_activity(name, state, state_since).await {
-            tracing::warn!(
-                target: "slopd::activity",
-                session = %name,
-                %error,
-                "could not persist tmux session activity"
-            );
-        }
+    pub(super) async fn persist_activity(&self, name: &str, record: ActivityRecord) {
+        self.session_read_operation(async {
+            let _activity = self.activity_mutation.lock().await;
+            // Recheck after ordering behind prior writes and clears. The shared
+            // boundary prevents name reuse during the tmux write, without a live lock.
+            if !self
+                .live
+                .read()
+                .await
+                .get(name)
+                .is_some_and(|live| record.matches(live))
+            {
+                return;
+            }
+            let ActivityRecord {
+                state, state_since, ..
+            } = record;
+            if let Err(error) = self.activity_cache.remember(name, state, state_since) {
+                tracing::warn!(
+                    target: "slopd::activity",
+                    session = %name,
+                    %error,
+                    "could not persist session activity"
+                );
+            }
+            if let Err(error) = self.tmux.set_activity(name, state, state_since).await {
+                tracing::warn!(
+                    target: "slopd::activity",
+                    session = %name,
+                    %error,
+                    "could not persist tmux session activity"
+                );
+            }
+        })
+        .await;
     }
 }
 

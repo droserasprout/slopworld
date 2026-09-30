@@ -275,8 +275,8 @@ pub(super) fn json_to_toml(value: Value) -> Result<toml::Value> {
         Value::Number(v) => {
             if let Some(v) = v.as_i64() {
                 toml::Value::Integer(v)
-            } else if let Some(v) = v.as_u64().and_then(|v| i64::try_from(v).ok()) {
-                toml::Value::Integer(v)
+            } else if v.is_u64() {
+                bail!("The config patch contains an integer outside the TOML range.")
             } else if let Some(v) = v.as_f64() {
                 toml::Value::Float(v)
             } else {

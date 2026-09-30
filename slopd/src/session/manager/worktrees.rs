@@ -1,5 +1,6 @@
 //! Worktree operations do not depend on task outcomes or worker lifetimes.
 use super::super::*;
+use super::directories::CreatedDirectories;
 use crate::worktrees::{git, Store, Worktree};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
@@ -144,7 +145,15 @@ impl Manager {
         let mut cache = self.worktrees.views.lock().await;
         let stamp = file_stamp(&self.cfg_path.with_file_name("worktrees.toml")).await;
         if cache.stamp.as_ref() != Some(&stamp) {
-            let store = Store::load(&self.cfg_path).await.unwrap_or_default();
+            let store = match Store::load(&self.cfg_path).await {
+                Ok(store) => store,
+                Err(error) => {
+                    tracing::warn!(
+                        "could not reload worktree index; keeping the last valid index: {error:#}"
+                    );
+                    return cache.by_id.clone();
+                }
+            };
             cache.by_id = Arc::new(
                 store
                     .worktrees
@@ -555,11 +564,7 @@ impl Manager {
         if !managed {
             validate_external_worktree(&root, &repository, &requested_path).await?;
         }
-        let path = if managed {
-            create_managed_worktree_path(requested_path, &name).await?
-        } else {
-            requested_path
-        };
+        let path = requested_path;
         Ok(PreparedWorktree {
             root,
             project: project.clone(),
@@ -588,17 +593,35 @@ impl Manager {
             base,
             mut worktree,
         } = prepared;
-        let path = Path::new(&worktree.path);
+        let mut directories = CreatedDirectories::default();
         let mut store = Store::load(&self.cfg_path).await?;
         if store
             .worktrees
             .iter()
-            .any(|registered| Path::new(&registered.path) == path)
+            .any(|registered| registered.path == worktree.path)
         {
             bail!("checkout already registered");
         }
+        if worktree.managed {
+            let path = create_managed_worktree_path(
+                PathBuf::from(&worktree.path),
+                &worktree.name,
+                &mut directories,
+            )?;
+            worktree.path = path.to_string_lossy().into_owned();
+            if store
+                .worktrees
+                .iter()
+                .any(|registered| registered.path == worktree.path)
+            {
+                bail!("checkout already registered");
+            }
+        }
+        let path = Path::new(&worktree.path);
         store.worktrees.push(worktree.clone());
         store.save(&self.cfg_path).await?;
+        // The allocating record now owns crash recovery for this directory.
+        directories.commit();
 
         let result = if worktree.managed {
             crate::worktrees::allocate(&root, path, &branch, &base).await
@@ -727,27 +750,31 @@ async fn validate_external_worktree(root: &Path, repository: &str, path: &Path) 
     Ok(())
 }
 
-async fn create_managed_worktree_path(requested_path: PathBuf, name: &str) -> Result<PathBuf> {
+fn create_managed_worktree_path(
+    requested_path: PathBuf,
+    name: &str,
+    directories: &mut CreatedDirectories,
+) -> Result<PathBuf> {
     let project_dir = requested_path
         .parent()
         .context("worktree project directory")?;
-    tokio::fs::create_dir_all(project_dir).await?;
-    if tokio::fs::symlink_metadata(project_dir)
-        .await?
+    directories.create_all(project_dir)?;
+    if std::fs::symlink_metadata(project_dir)?
         .file_type()
         .is_symlink()
     {
         bail!("worktree project directory cannot be a symlink");
     }
-    let project_dir = project_dir.canonicalize()?;
-    let path = project_dir.join(name);
+    let path = project_dir.canonicalize()?.join(name);
     if let Some(why) = crate::sandbox::refused(&path.to_string_lossy()) {
         bail!("worktree reaches {why}");
     }
-    if path.exists() {
-        bail!("worktree path {} already exists", path.display());
+    match std::fs::symlink_metadata(&path) {
+        Ok(_) => bail!("worktree path {} already exists", path.display()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
     }
-    tokio::fs::create_dir(&path).await?;
+    directories.create_all(&path)?;
     Ok(path)
 }
 

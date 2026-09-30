@@ -203,8 +203,12 @@ pub(crate) fn remove_links(
         Ok(())
     })();
     if let Err(error) = result {
-        restore_links(&links)?;
-        return Err(error);
+        return match restore_links(&links) {
+            Ok(()) => Err(error),
+            Err(rollback) => Err(anyhow::anyhow!(
+                "{error:#}; restoring cache links also failed: {rollback:#}"
+            )),
+        };
     }
     Ok(links)
 }

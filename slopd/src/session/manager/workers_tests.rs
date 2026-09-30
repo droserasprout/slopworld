@@ -62,6 +62,14 @@ async fn worker_policy_keeps_template_names_distinct() {
             .name,
         "team-review"
     );
+    assert_eq!(
+        manager
+            .spawnable_worker_template("caller", "repo", "team-review")
+            .await
+            .unwrap()
+            .name,
+        "team-review"
+    );
     let error = manager
         .spawnable_worker_template("caller", "repo", "review")
         .await

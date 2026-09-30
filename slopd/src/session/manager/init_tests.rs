@@ -47,7 +47,6 @@ async fn initialization_reconciles_sessions_before_pruning_persisted_credentials
         .await
         .unwrap();
     let path = seed.cfg_path.clone();
-    drop(seed);
     cfg.sessions[1].state_id = uuid::Uuid::new_v4().to_string();
 
     let manager = Manager::new(cfg.clone(), path.clone()).await.unwrap();
@@ -68,11 +67,15 @@ async fn initialization_reconciles_sessions_before_pruning_persisted_credentials
     assert_eq!(crate::grant::Grants::load(&path).unwrap().count(), 1);
 
     drop(manager);
+    drop(seed);
     drop(
         tokio::process::Command::new("tmux")
             .args(["-L", &socket, "kill-server"])
             .output()
             .await,
     );
-    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    assert!(
+        !path.parent().unwrap().exists(),
+        "fixture directory survived its owner"
+    );
 }

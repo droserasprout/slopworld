@@ -17,16 +17,20 @@ impl std::fmt::Display for TemplatePersistence {
 
 /// Personal catalog and its transaction gate; readers can continue while a draft saves.
 pub(crate) struct TemplateStore {
-    pub(super) store: RwLock<AgentTemplateStore>,
+    pub(super) store: Arc<RwLock<AgentTemplateStore>>,
     // Hold through version checks, persistence, and publication to prevent lost edits.
-    mutation: tokio::sync::Mutex<()>,
+    mutation: Arc<tokio::sync::Mutex<()>>,
+    #[cfg(test)]
+    publish_pause: Mutex<Option<(Arc<tokio::sync::Notify>, Arc<tokio::sync::Notify>)>>,
 }
 
 impl TemplateStore {
     pub(super) fn new(store: AgentTemplateStore) -> Self {
         Self {
-            store: RwLock::new(store),
-            mutation: tokio::sync::Mutex::new(()),
+            store: Arc::new(RwLock::new(store)),
+            mutation: Arc::new(tokio::sync::Mutex::new(())),
+            #[cfg(test)]
+            publish_pause: Mutex::new(None),
         }
     }
 }
@@ -174,15 +178,30 @@ impl Manager {
         &self,
         mutation: impl FnOnce(&mut AgentTemplateStore) -> Result<T>,
     ) -> Result<T> {
-        let _mutation = self.templates.mutation.lock().await;
+        let _mutation = self.templates.mutation.clone().lock_owned().await;
         let mut store = self.templates.store.read().await.clone();
         let result = mutation(&mut store)?;
         store.validate()?;
-        store
-            .save(&AgentTemplateStore::path_for(&self.cfg_path))
-            .await
-            .map_err(|error| error.context(TemplatePersistence))?;
-        *self.templates.store.write().await = store;
+        let published = self.templates.store.clone();
+        let path = AgentTemplateStore::path_for(&self.cfg_path);
+        #[cfg(test)]
+        let publish_pause = self.templates.publish_pause.lock().unwrap().take();
+        // Once prepared, cancellation cannot separate disk commit from publication.
+        tokio::spawn(async move {
+            let _mutation = _mutation;
+            store
+                .save(&path)
+                .await
+                .map_err(|error| error.context(TemplatePersistence))?;
+            #[cfg(test)]
+            if let Some((reached, release)) = publish_pause {
+                reached.notify_one();
+                release.notified().await;
+            }
+            *published.write().await = store;
+            Ok::<_, anyhow::Error>(())
+        })
+        .await??;
         Ok(result)
     }
 }

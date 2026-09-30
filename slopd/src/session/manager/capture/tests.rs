@@ -555,9 +555,12 @@ async fn capture_retries_after_competing_idle_decay() {
     manager.apply_frame("agent", test_frame("old", 1)).await;
     let mut events = manager.events.subscribe();
 
-    let frame = test_frame("new", 2);
-    let previous = manager.frame_snapshot("agent").await.unwrap();
-    let delta = manager.frame_delta(&previous, &frame);
+    let reached = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    *manager.frame_commit_pause.lock().unwrap() = Some((reached.clone(), release.clone()));
+    let capture = manager.apply_frame("agent", test_frame("new", 2));
+    tokio::pin!(capture);
+    tokio::select! { _ = reached.notified() => {}, _ = capture.as_mut() => panic!("capture committed before pause") }
     manager
         .live
         .write()
@@ -565,13 +568,8 @@ async fn capture_retries_after_competing_idle_decay() {
         .get_mut("agent")
         .unwrap()
         .set_state(State::Idle);
-    assert!(matches!(
-        manager
-            .commit_frame("agent", &previous, &frame, delta, None)
-            .await,
-        frame::FrameCommit::Reclassify
-    ));
-    manager.apply_frame("agent", frame).await;
+    release.notify_one();
+    capture.await;
 
     let live = manager.live.read().await;
     assert_eq!(live["agent"].state, State::Working);
@@ -609,4 +607,56 @@ async fn prompt_wording_does_not_override_activity() {
         .last_change = 0;
     manager.apply_frame("agent", frame).await;
     assert_eq!(manager.live.read().await["agent"].state, State::Idle);
+}
+
+#[tokio::test]
+async fn control_read_failures_reach_the_attach_boundary() {
+    let root = std::env::temp_dir();
+    let master = std::fs::File::open(root).unwrap(); // Reading a directory fails with EISDIR.
+    let mut receiver = spawn_control_reader(master);
+    let error = wait_for_control_attach(&mut receiver).await.unwrap_err();
+    assert!(error.downcast_ref::<std::io::Error>().is_some());
+}
+
+#[tokio::test]
+async fn capture_cannot_commit_to_a_replacement_with_matching_counters() {
+    for replaced_emulator in [false, true] {
+        let manager = crate::session::test_manager(Config::default());
+        let emu = Arc::new(Mutex::new(SessionEmu::new(80, 24)));
+        let mut row = Live::new(
+            SessionCfg {
+                name: "agent".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        row.ephemeral = true;
+        row.capture.emu = Some(emu.clone());
+        manager.live.write().await.insert("agent".into(), row);
+        let reached = Arc::new(tokio::sync::Notify::new());
+        let release = Arc::new(tokio::sync::Notify::new());
+        *manager.frame_commit_pause.lock().unwrap() = Some((reached.clone(), release.clone()));
+        emu.lock().unwrap().feed(b"old output");
+        let capture = manager.render_and_broadcast("agent", &emu);
+        tokio::pin!(capture);
+        tokio::select! { _ = reached.notified() => {}, _ = capture.as_mut() => panic!("capture finished before replacement") }
+        {
+            let mut live = manager.live.write().await;
+            let cfg = if replaced_emulator {
+                live["agent"].cfg.clone()
+            } else {
+                SessionCfg {
+                    name: "agent".into(),
+                    ..Default::default()
+                }
+            };
+            let mut replacement = Live::new(cfg, TitleCapture::default());
+            replacement.capture.emu = Some(Arc::new(Mutex::new(SessionEmu::new(80, 24))));
+            live.insert("agent".into(), replacement);
+        }
+        release.notify_one();
+        capture.await;
+        assert!(manager.screen("agent").await.is_none());
+        assert_eq!(manager.live.read().await["agent"].state, State::Down);
+    }
 }
