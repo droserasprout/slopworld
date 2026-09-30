@@ -736,5 +736,4 @@ fn parse_length_framed_field(input: &str) -> Option<(Option<String>, &str)> {
 }
 
 #[cfg(test)]
-#[path = "tmux_tests.rs"]
 mod tests;

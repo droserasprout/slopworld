@@ -259,5 +259,4 @@ async fn auth_invalidated(changes: &mut broadcast::Receiver<AuthChange>, cap: &C
 }
 
 #[cfg(test)]
-#[path = "ws_tests.rs"]
 mod tests;

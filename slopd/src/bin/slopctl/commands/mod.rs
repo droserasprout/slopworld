@@ -1,16 +1,9 @@
-#[path = "commands/agent.rs"]
 mod agent;
-#[path = "commands/common.rs"]
 mod common;
-#[path = "commands/diagnostics.rs"]
 mod diagnostics;
-#[path = "commands/task.rs"]
 mod task;
-#[path = "commands/templates.rs"]
 mod templates;
-#[path = "commands/worker.rs"]
 mod worker;
-#[path = "commands/worktree.rs"]
 mod worktree;
 
 use super::http::Endpoint;

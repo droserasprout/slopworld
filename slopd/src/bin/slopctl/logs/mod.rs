@@ -6,7 +6,6 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::{Command as ProcessCommand, Stdio};
 
-#[path = "logs/stream.rs"]
 mod stream;
 use stream::{run_all_logs, run_one_log};
 

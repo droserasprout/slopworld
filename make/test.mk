@@ -9,7 +9,7 @@ test-plan-notes: ## Check plan note status headers
 	@$(PYTHON) tools/check_plan_status.py
 
 test-daemon: api-contract ## Run Rust tests
-	@cd slopd && $(CARGO) test --quiet $(TEST_ARGS)
+	@cd slopd && $(PYTHON) ../tools/test_tmux.py $(CARGO) test --quiet $(TEST_ARGS)
 
 test-mod: protobuf-deps api-contract ## Run game-free C# tests
 	@$(DOTNET) run --project "$(TEST_PROJECT)" --configuration Release -- --quiet

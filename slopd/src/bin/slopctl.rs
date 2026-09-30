@@ -1,10 +1,10 @@
-#[path = "slopctl/commands.rs"]
+#[path = "slopctl/commands/mod.rs"]
 mod commands;
 #[path = "slopctl/format.rs"]
 mod format;
 #[path = "slopctl/http.rs"]
 mod http;
-#[path = "slopctl/logs.rs"]
+#[path = "slopctl/logs/mod.rs"]
 mod logs;
 #[path = "../shared/mod.rs"]
 mod shared;
