@@ -114,18 +114,66 @@ async fn a_pure_rename_keeps_zero_line_counts() {
 
 #[tokio::test]
 async fn a_directory_that_is_no_repository_is_not_an_error() {
-    let dir = std::env::temp_dir().join("slopd-git-none");
-    drop(tokio::fs::create_dir_all(&dir).await);
-    // Only meaningful where the temp dir is not itself inside a checkout, which is the
-    // usual arrangement. A machine where it is would make this vacuous rather than wrong.
-    if let Ok(answer) = status(&dir).await {
-        assert!(answer.is_none() || answer.unwrap().root != dir);
-    }
+    let dir = std::env::temp_dir().join(format!("slopd-git-none-{}", uuid::Uuid::new_v4()));
+    tokio::fs::create_dir_all(&dir).await.unwrap();
+    let probe = Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .current_dir(&dir)
+        .output()
+        .await
+        .unwrap();
+    assert!(!probe.status.success(), "fixture is inside a repository");
+    assert!(status(&dir).await.unwrap().is_none());
+    tokio::fs::remove_dir_all(&dir).await.unwrap();
+}
+
+#[tokio::test]
+async fn repository_root_keeps_trailing_spaces() {
+    let dir = std::env::temp_dir().join(format!("slopd-git-root-{}  ", uuid::Uuid::new_v4()));
+    tokio::fs::create_dir_all(&dir).await.unwrap();
+    let init = Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(&dir)
+        .status()
+        .await
+        .unwrap();
+    assert!(init.success());
+    assert_eq!(toplevel(&dir).await.unwrap(), Some(dir.clone()));
+    tokio::fs::remove_dir_all(&dir).await.unwrap();
+}
+
+#[tokio::test]
+async fn broken_repository_root_is_an_error() {
+    let dir = std::env::temp_dir().join(format!("slopd-git-broken-{}", uuid::Uuid::new_v4()));
+    tokio::fs::create_dir_all(&dir).await.unwrap();
+    tokio::fs::write(dir.join(".git"), "gitdir: missing-directory\n")
+        .await
+        .unwrap();
+    toplevel(&dir).await.unwrap_err();
+    tokio::fs::remove_dir_all(&dir).await.unwrap();
+}
+
+#[tokio::test]
+async fn failed_file_count_marks_numstat_incomplete() {
+    let dir = std::env::temp_dir().join(format!("slopd-git-count-{}", uuid::Uuid::new_v4()));
+    tokio::fs::create_dir_all(&dir).await.unwrap();
+    let counts = numstat(
+        &dir,
+        &[StatusRow {
+            path: "missing.txt".into(),
+            status: "??".into(),
+            source: None,
+        }],
+    )
+    .await;
+    assert!(!counts.complete);
+    assert!(counts.by_path.is_empty());
+    tokio::fs::remove_dir_all(&dir).await.unwrap();
 }
 
 #[tokio::test]
 async fn an_untracked_directory_reports_its_files() {
-    let dir = std::env::temp_dir().join(format!("slopd-git-untracked-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("slopd-git-untracked-{}", uuid::Uuid::new_v4()));
     let nested = dir.join("untracked/nested");
     tokio::fs::create_dir_all(&nested).await.unwrap();
     tokio::fs::write(nested.join("file.txt"), "hello\n")
@@ -530,7 +578,7 @@ async fn clean_and_process_filters_cannot_spawn_during_inspection() {
 }
 
 #[tokio::test]
-async fn a_large_status_is_capped_before_numstat() {
+async fn a_large_status_reports_capped_rows_without_counts() {
     let dir = std::env::temp_dir().join(format!("slopd-git-large-{}", std::process::id()));
     drop(tokio::fs::remove_dir_all(&dir).await);
     tokio::fs::create_dir_all(&dir).await.unwrap();
@@ -555,6 +603,7 @@ async fn a_large_status_is_capped_before_numstat() {
     assert_eq!(answer.changes.len(), LIMIT);
     assert_eq!(answer.added, 0);
     assert_eq!(answer.deleted, 0);
+    assert!(!answer.counts_complete);
 
     tokio::fs::remove_dir_all(&dir).await.unwrap();
 }

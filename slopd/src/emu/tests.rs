@@ -690,10 +690,12 @@ fn repeated_resizes_do_not_turn_blank_padding_into_history() {
 #[test]
 fn resizing_preserves_existing_blank_history() {
     let mut e = SessionEmu::new(20, 4);
-    e.feed(b"\x1b[4;1H\r\nprompt");
+    e.feed(b"\x1b[2;1Hadjacent\x1b[4;1H\r\nprompt");
     assert_eq!(e.history_lines(), 1);
     e.resize(20, 3);
-    assert!(e.history_lines() >= 1);
+    assert_eq!(e.history_lines(), 2);
+    assert!((0..20).all(|col| e.term.grid()[Line(-2)][Column(col)] == Cell::default()));
+    assert_eq!(e.term.grid()[Line(-1)][Column(0)].c, 'a');
 }
 
 #[test]
@@ -711,5 +713,9 @@ fn resizing_an_initial_capture_preserves_real_history() {
     assert_eq!(e.render().history, 1);
 
     e.resize(20, rows - 1);
-    assert!(e.render().history >= 1);
+    let (grid, offset, history, title) = e.scroll_snapshot(2);
+    assert_eq!((offset, history), (2, 2));
+    let frame = SessionEmu::frame_from_grid(grid, 20, rows - 1, title);
+    assert!(frame.lines[0].contains("line-0"));
+    assert!(frame.lines[1].contains("line-1"));
 }

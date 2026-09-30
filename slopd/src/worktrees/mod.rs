@@ -152,6 +152,7 @@ pub(crate) fn project_root(project: &crate::config::ProjectCfg) -> PathBuf {
 /// A failed repair puts the directory back at its original path.
 pub(crate) async fn relocate_tree(w: &Worktree, destination: &Path) -> Result<()> {
     let source = Path::new(&w.path);
+    let destination_arg = destination.to_str().context("non-UTF-8 worktree path")?;
     if !std::fs::symlink_metadata(source)?.file_type().is_dir() || source.canonicalize()? != source
     {
         bail!("worktree source path changed");
@@ -171,11 +172,7 @@ pub(crate) async fn relocate_tree(w: &Worktree, destination: &Path) -> Result<()
     std::fs::rename(source, destination)?;
     let repair = git_command(
         &repo,
-        &[
-            "worktree",
-            "repair",
-            destination.to_str().context("non-UTF-8 worktree path")?,
-        ],
+        &["worktree", "repair", destination_arg],
         &[&repo, destination],
     )
     .await;
@@ -206,12 +203,16 @@ pub(crate) fn metadata_paths(path: &Path) -> Result<Vec<PathBuf>> {
         bail!("linked Git directory has no HEAD");
     }
     let mut paths = vec![gitdir.clone()];
-    if let Ok(common) = std::fs::read_to_string(gitdir.join("commondir")) {
-        let common = gitdir.join(common.trim()).canonicalize()?;
-        if !common.join("objects").is_dir() {
-            bail!("linked Git common directory has no object store");
+    match std::fs::read_to_string(gitdir.join("commondir")) {
+        Ok(common) => {
+            let common = gitdir.join(common.trim()).canonicalize()?;
+            if !common.join("objects").is_dir() {
+                bail!("linked Git common directory has no object store");
+            }
+            paths.push(common);
         }
-        paths.push(common);
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
     }
     for p in &paths {
         if let Some(why) = crate::sandbox::refused(&p.to_string_lossy()) {

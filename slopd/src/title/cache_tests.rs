@@ -106,6 +106,15 @@ fn cache_test_path() -> PathBuf {
 }
 
 #[test]
+fn cache_key_frames_fields_containing_nul() {
+    assert_ne!(
+        cache_key("c", "a\0b", "model"),
+        cache_key("b\0c", "a", "model")
+    );
+    assert!(cache_key("prompt", "summary", "model").starts_with("v2-"));
+}
+
+#[test]
 fn slow_disk_does_not_block_mutations_and_latest_snapshot_wins() {
     use std::sync::mpsc;
     use std::time::Duration;
@@ -125,15 +134,22 @@ fn slow_disk_does_not_block_mutations_and_latest_snapshot_wins() {
     cache.remember("agent", "Old result");
     started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
 
-    // These operations must complete while the first save is still suspended.
-    cache.remember("agent", "New conversation");
-    cache.rename_latest("agent", "renamed", Some("New conversation"));
-    assert!(cache.latest("agent").is_none());
-    assert_eq!(cache.latest("renamed").as_deref(), Some("New conversation"));
-    cache.clear_latest("renamed");
-    cache.clear_latest("renamed");
-    cache.insert_cached("a private prompt", "instruction", "model", "Reusable");
+    // Run mutations on another thread so a lock regression reaches the deadline.
+    let (done_tx, done_rx) = mpsc::channel();
+    let mutation = std::thread::spawn(move || {
+        cache.remember("agent", "New conversation");
+        cache.rename_latest("agent", "renamed", Some("New conversation"));
+        assert!(cache.latest("agent").is_none());
+        assert_eq!(cache.latest("renamed").as_deref(), Some("New conversation"));
+        cache.clear_latest("renamed");
+        cache.clear_latest("renamed");
+        cache.insert_cached("a private prompt", "instruction", "model", "Reusable");
+        done_tx.send(cache).unwrap();
+    });
+    let result = done_rx.recv_timeout(Duration::from_secs(2));
     resume_tx.send(()).unwrap();
+    let cache = result.expect("cache mutations blocked on the writer");
+    mutation.join().unwrap();
     cache.flush().unwrap();
     let restored = SummaryCache::load(path.clone());
     assert!(restored.latest("agent").is_none());
@@ -173,14 +189,38 @@ fn failed_writes_keep_memory_and_recover_on_the_next_mutation() {
 
 #[test]
 fn dropping_cache_drains_pending_rename_and_clear() {
+    use std::sync::mpsc;
+    use std::time::Duration;
     let path = cache_test_path();
-    {
-        let cache = SummaryCache::load(path.clone());
-        cache.remember("old", "Old title");
-        cache.rename_latest("old", "new", Some("Renamed title"));
-        cache.remember("discard", "Temporary");
-        cache.clear_latest("discard");
-    }
+    let (started_tx, started_rx) = mpsc::channel();
+    let (resume_tx, resume_rx) = mpsc::channel();
+    let first = std::sync::atomic::AtomicBool::new(true);
+    let cache = SummaryCache::load_with_writer(path.clone(), move |path, state| {
+        if first.swap(false, std::sync::atomic::Ordering::Relaxed) {
+            started_tx.send(()).unwrap();
+            resume_rx.recv().unwrap();
+        }
+        save_cache(path, state)
+    });
+    cache.remember("old", "Old title");
+    started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    cache.rename_latest("old", "new", Some("Renamed title"));
+    cache.remember("discard", "Temporary");
+    cache.clear_latest("discard");
+    let (drop_started_tx, drop_started_rx) = mpsc::channel();
+    let (dropped_tx, dropped_rx) = mpsc::channel();
+    let drop_thread = std::thread::spawn(move || {
+        drop_started_tx.send(()).unwrap();
+        drop(cache);
+        dropped_tx.send(()).unwrap();
+    });
+    drop_started_rx
+        .recv_timeout(Duration::from_secs(5))
+        .unwrap();
+    assert!(dropped_rx.recv_timeout(Duration::from_millis(100)).is_err());
+    resume_tx.send(()).unwrap();
+    dropped_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    drop_thread.join().unwrap();
     let restored = SummaryCache::load(path.clone());
     assert_eq!(restored.latest("new").as_deref(), Some("Renamed title"));
     assert!(restored.latest("old").is_none());

@@ -57,6 +57,7 @@ requests carry the selected worktree ID. Empty selects Main. Reject a path belon
 registered checkout, even a checkout nested under Main.
 Project action validation resolves symlinks and existing ancestors before accepting a path.
 Linked worktrees use Git metadata at real paths. Check each metadata path against the registered repository.
+Metadata mount planning fails when a present `commondir` cannot be read; only an absent file is optional.
 Before selecting another worktree, edit literal mounts that expose the original checkout.
 Relative mount destinations follow the selected checkout.
 Relative cache mounts install checkout links to project storage that outlives each checkout.
