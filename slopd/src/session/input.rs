@@ -48,7 +48,9 @@ pub(super) fn merge_input(items: Vec<Input>) -> Vec<Input> {
             _ => false,
         };
         if merged && !traces.is_empty() {
-            let previous = out.pop().unwrap();
+            let previous = out
+                .pop()
+                .expect("merged input always has a previous batch item");
             let (previous, mut prior) = match previous {
                 Input::Traced(inner, prior) => (*inner, prior),
                 item => (item, Vec::new()),

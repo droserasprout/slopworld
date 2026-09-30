@@ -36,10 +36,10 @@ fn themes_are_request_local_and_preserve_command_arguments() {
             assert!(position < end);
         }
     }
-    assert!(themed_command("bat", "highlight", "monokai").is_err());
-    assert!(themed_command("wrapper bat", "bat", "monokai").is_err());
+    themed_command("bat", "highlight", "monokai").unwrap_err();
+    themed_command("wrapper bat", "bat", "monokai").unwrap_err();
     for theme in ["../../tmp/theme", "/tmp/theme", "x\n--other", "$(whoami)"] {
-        assert!(themed_command("highlight", "highlight", theme).is_err());
+        themed_command("highlight", "highlight", theme).unwrap_err();
     }
 }
 
@@ -61,7 +61,7 @@ fn theme_catalogs_keep_names_and_drop_headers() {
         parse_themes("bat", "Monokai Extended\nOneHalfDark\n").unwrap(),
         ["Monokai Extended", "OneHalfDark"]
     );
-    assert!(parse_themes("pygments", "{}").is_err());
+    parse_themes("pygments", "{}").unwrap_err();
 }
 
 #[tokio::test]
@@ -140,10 +140,8 @@ async fn draft_highlighter_catalog_and_preview_leave_defaults_unchanged() {
     assert!(off.engine.is_empty());
     assert!(off.themes.is_empty());
     let request = serde_json::from_value(json!({"text":"sample", "command":""})).unwrap();
-    assert!(
-        super::super::files::highlight(State(manager.clone()), Proto(request))
-            .await
-            .is_err()
-    );
+    super::super::files::highlight(State(manager.clone()), Proto(request))
+        .await
+        .unwrap_err();
     assert_eq!(manager.config().await.commands.highlighter, original);
 }

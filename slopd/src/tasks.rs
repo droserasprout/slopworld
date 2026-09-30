@@ -7,7 +7,7 @@ use std::io::Write;
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
 /// The user at the keyboard, never a session.
@@ -203,12 +203,12 @@ impl Tasks {
                     }
                 }
                 if let Some(update) = entry.update {
-                    if let Some(&index) = positions.get(&update.id) {
-                        let task = &mut file.tasks[index];
-                        task.status = update.status;
-                        task.note = update.note;
-                        task.summary = update.summary;
-                        task.updated_ms = update.updated_ms;
+                    if !apply_journal_update(&mut file.tasks, &positions, update) {
+                        tracing::warn!(
+                            "stopping at task journal entry with invalid task position in {}",
+                            journal.display()
+                        );
+                        break;
                     }
                 }
             }
@@ -331,7 +331,12 @@ impl Tasks {
         else {
             return Ok(None);
         };
-        let mut task = self.file.tasks[index].clone();
+        let mut task = self
+            .file
+            .tasks
+            .get(index)
+            .ok_or_else(|| anyhow!("Task {id} disappeared while loading its worker state."))?
+            .clone();
         if task.status.is_terminal() {
             return Ok(Some(task.clone()));
         }
@@ -377,7 +382,12 @@ impl Tasks {
             .iter()
             .position(|t| t.id == id)
             .with_context(|| format!("Task {id} does not exist."))?;
-        let mut task = self.file.tasks[index].clone();
+        let mut task = self
+            .file
+            .tasks
+            .get(index)
+            .ok_or_else(|| anyhow!("Task {id} disappeared before update."))?
+            .clone();
         if !task.recipient_is(who) {
             bail!("Only the recipient can update this task.");
         }
@@ -396,7 +406,12 @@ impl Tasks {
         let Some(index) = self.file.tasks.iter().position(|task| task.id == id) else {
             return Ok(None);
         };
-        let mut task = self.file.tasks[index].clone();
+        let mut task = self
+            .file
+            .tasks
+            .get(index)
+            .ok_or_else(|| anyhow!("Task {id} disappeared before summary update."))?
+            .clone();
         let summary = summary.trim().to_string();
         if summary.is_empty() {
             return Ok(Some(task.clone()));
@@ -459,7 +474,12 @@ impl Tasks {
             .iter()
             .position(|t| t.id == id && (force || t.visible_to(who)))
             .with_context(|| format!("Task {id} does not exist."))?;
-        if !force && !self.file.tasks[at].status.is_terminal() {
+        let task_at = self
+            .file
+            .tasks
+            .get(at)
+            .ok_or_else(|| anyhow!("Task {id} disappeared before removal."))?;
+        if !force && !task_at.status.is_terminal() {
             bail!("Task {id} is unfinished. Finish, fail, or cancel it before you remove it.");
         }
         let mut candidate = self.file.tasks.clone();
@@ -528,9 +548,19 @@ impl Tasks {
     }
 
     fn commit_update(&mut self, index: usize, candidate: Task) -> Result<()> {
-        let previous = std::mem::replace(&mut self.file.tasks[index], candidate.clone());
+        let slot =
+            self.file.tasks.get_mut(index).ok_or_else(|| {
+                anyhow!("Task {} disappeared before update commit.", candidate.id)
+            })?;
+        let previous = std::mem::replace(slot, candidate.clone());
         if let Err(error) = self.append_update(&candidate) {
-            self.file.tasks[index] = previous;
+            let slot = self.file.tasks.get_mut(index).ok_or_else(|| {
+                anyhow!(
+                    "Task {} disappeared while rolling back its update.",
+                    candidate.id
+                )
+            })?;
+            *slot = previous;
             return Err(error);
         }
         Ok(())
@@ -620,6 +650,24 @@ impl Tasks {
         }
         Ok(())
     }
+}
+
+fn apply_journal_update(
+    tasks: &mut [Task],
+    positions: &HashMap<String, usize>,
+    update: TaskUpdate,
+) -> bool {
+    let Some(&index) = positions.get(&update.id) else {
+        return true;
+    };
+    let Some(task) = tasks.get_mut(index) else {
+        return false;
+    };
+    task.status = update.status;
+    task.note = update.note;
+    task.summary = update.summary;
+    task.updated_ms = update.updated_ms;
+    true
 }
 
 #[cfg(test)]

@@ -196,7 +196,11 @@ impl ActivityCache {
             .iter()
             .position(|entry| entry.session == old)
             .unwrap_or(at.min(entries.len()));
-        entries[at].session = new.to_string();
+        if let Some(entry) = entries.get_mut(at) {
+            entry.session = new.to_string();
+        } else {
+            return Ok(());
+        }
         pending.revision += 1;
         self.shared.1.notify_all();
         Ok(())
@@ -226,7 +230,7 @@ impl Drop for ActivityCache {
             self.shared.1.notify_all();
         }
         if let Some(writer) = self.writer.take() {
-            let _ = writer.join();
+            drop(writer.join());
         }
     }
 }

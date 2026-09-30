@@ -22,7 +22,7 @@ pub(super) fn rest(args: &[String], from: usize, missing: &str) -> Result<String
     if args.len() <= from {
         return Err(missing.to_string());
     }
-    Ok(args[from..].join(" "))
+    Ok(args.get(from..).unwrap_or_default().join(" "))
 }
 
 pub(super) fn only(args: &[String], at: usize) -> Result<(), String> {

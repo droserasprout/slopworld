@@ -200,7 +200,12 @@ fn request_once(
 }
 
 fn message_content(body: &Value) -> Option<String> {
-    let content = &body["choices"][0]["message"]["content"];
+    let content = body
+        .get("choices")?
+        .as_array()?
+        .first()?
+        .get("message")?
+        .get("content")?;
     if let Some(text) = content.as_str() {
         return Some(text.to_string());
     }
@@ -208,7 +213,7 @@ fn message_content(body: &Value) -> Option<String> {
     let parts = content.as_array()?;
     let text: String = parts
         .iter()
-        .filter_map(|part| part["text"].as_str())
+        .filter_map(|part| part.get("text").and_then(Value::as_str))
         .collect();
     (!text.is_empty()).then_some(text)
 }

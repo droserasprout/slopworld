@@ -196,7 +196,7 @@ fn startup_keeps_valid_stations_but_reload_rejects_partial_catalogs() {
     let startup = Catalog::load_from(&dir);
     assert_eq!(startup.stations.len(), 1);
     assert_eq!(startup.stations[0].metadata.name, "Valid");
-    assert!(Catalog::try_load_from(&dir).is_err());
+    Catalog::try_load_from(&dir).unwrap_err();
     std::fs::remove_file(dir.join("a-broken.toml")).unwrap();
     assert_eq!(Catalog::try_load_from(&dir).unwrap().stations.len(), 1);
     std::fs::remove_dir_all(&dir).unwrap();

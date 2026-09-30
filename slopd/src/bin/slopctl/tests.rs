@@ -199,8 +199,8 @@ fn compatibility_command_aliases_are_rejected() {
             "accepted alias: {command}"
         );
     }
-    assert!(parse_command(&words("worker --project repo --template codex task")).is_err());
-    assert!(parse_command(&words("task task-7")).is_err());
+    parse_command(&words("worker --project repo --template codex task")).unwrap_err();
+    parse_command(&words("task task-7")).unwrap_err();
 }
 
 #[test]
@@ -215,7 +215,7 @@ fn task_commands_require_explicit_subcommands() {
             id: "task-7".into()
         })
     );
-    assert!(parse_command(&words("task task-7")).is_err());
+    parse_command(&words("task task-7")).unwrap_err();
 }
 
 #[test]
@@ -233,14 +233,12 @@ fn task_commands_use_the_worker_task_id_when_id_is_omitted() {
             id: "task-7".into()
         })
     );
-    for command in ["task accept", "task progress", "task finish", "task fail"] {
-        let action = match command.rsplit_once(' ').unwrap().1 {
-            "accept" => UpdateAction::Accept,
-            "progress" => UpdateAction::Progress,
-            "finish" => UpdateAction::Finish,
-            "fail" => UpdateAction::Fail,
-            _ => unreachable!(),
-        };
+    for (command, action) in [
+        ("task accept", UpdateAction::Accept),
+        ("task progress", UpdateAction::Progress),
+        ("task finish", UpdateAction::Finish),
+        ("task fail", UpdateAction::Fail),
+    ] {
         assert_eq!(
             parse_command_with_task_id(&words(command), task_id),
             Ok(Command::Update {
@@ -417,7 +415,7 @@ fn spawn_delimiter_preserves_options_as_literal_task_text() {
             }
         }
     }
-    assert!(parse_command(&words("worker spawn --project repo --template review --")).is_err());
+    parse_command(&words("worker spawn --project repo --template review --")).unwrap_err();
 }
 
 #[test]
@@ -501,13 +499,13 @@ fn command_parser_validates_fixed_arity_and_flags() {
         parse_command(&words("peers now")).unwrap_err(),
         "unexpected argument: now\n\n".to_string() + USAGE
     );
-    assert!(parse_command(&words("task")).is_err());
-    assert!(parse_command(&words("task prune --wat")).is_err());
-    assert!(parse_command(&words("task list --status")).is_err());
-    assert!(parse_command(&words("worker spawn parent task")).is_err());
-    assert!(parse_command(&words("template list --wat")).is_err());
-    assert!(parse_command(&words("task wait")).is_err());
-    assert!(parse_command(&words("task wait task-7 extra")).is_err());
+    parse_command(&words("task")).unwrap_err();
+    parse_command(&words("task prune --wat")).unwrap_err();
+    parse_command(&words("task list --status")).unwrap_err();
+    parse_command(&words("worker spawn parent task")).unwrap_err();
+    parse_command(&words("template list --wat")).unwrap_err();
+    parse_command(&words("task wait")).unwrap_err();
+    parse_command(&words("task wait task-7 extra")).unwrap_err();
 }
 
 #[test]
@@ -565,9 +563,9 @@ fn logs_accepts_positional_source() {
 
 #[test]
 fn logs_rejects_duplicate_source_and_invalid_line_count() {
-    assert!(parse_logs_args(&words("game --daemon")).is_err());
-    assert!(parse_logs_args(&words("--lines 0")).is_err());
-    assert!(parse_logs_args(&words("--lines 100001")).is_err());
+    parse_logs_args(&words("game --daemon")).unwrap_err();
+    parse_logs_args(&words("--lines 0")).unwrap_err();
+    parse_logs_args(&words("--lines 100001")).unwrap_err();
 }
 
 #[test]
@@ -602,7 +600,7 @@ fn inbox_filters_direction_status_and_newest_first() {
         ids(InboxFilter::parse(&words("--status done")).unwrap()),
         ["done"]
     );
-    assert!(InboxFilter::parse(&words("--unknown")).is_err());
+    InboxFilter::parse(&words("--unknown")).unwrap_err();
 }
 
 #[test]
@@ -1001,14 +999,14 @@ fn worktree_options_preserve_selection_and_reject_ambiguous_requests() {
     assert_eq!(parse_command(&words("worker spawn --project repo --template codex --new-worktree --base HEAD --worktree-name feature task")),
         Ok(Command::Spawn { project: "repo".into(), template: "codex".into(), durable: true, body: "task".into(),
             worktree: WorktreeChoice { new_worktree: true, base: "HEAD".into(), worktree_name: "feature".into(), ..Default::default() } }));
-    assert!(parse_command(&words(
-        "worker spawn --project repo --template codex --worktree abc --new-worktree task"
+    parse_command(&words(
+        "worker spawn --project repo --template codex --worktree abc --new-worktree task",
     ))
-    .is_err());
-    assert!(parse_command(&words(
-        "worker spawn --project repo --template codex --base HEAD task"
+    .unwrap_err();
+    parse_command(&words(
+        "worker spawn --project repo --template codex --base HEAD task",
     ))
-    .is_err());
+    .unwrap_err();
     assert_eq!(
         parse_command(&words("worktree remove abc --project repo")),
         Ok(Command::Worktree {

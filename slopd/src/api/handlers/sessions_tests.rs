@@ -107,7 +107,7 @@ async fn replacing_session_configuration_is_root_only_and_root_can_change_sandbo
         );
     }
 
-    let _ = update(
+    update(
         State(manager.clone()),
         Extension(Cap::Root),
         Path("agent".into()),

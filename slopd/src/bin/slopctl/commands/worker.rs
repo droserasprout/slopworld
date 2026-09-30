@@ -60,7 +60,10 @@ fn parse_spawn(args: &[String], options_at: usize) -> Result<Command, String> {
     let mut template = None;
     let mut i = options_at;
     while i < args.len() {
-        match args[i].as_str() {
+        let Some(option) = args.get(i) else {
+            break;
+        };
+        match option.as_str() {
             "--" => {
                 i += 1;
                 break;
@@ -69,7 +72,7 @@ fn parse_spawn(args: &[String], options_at: usize) -> Result<Command, String> {
             "--one-shot" => durable = false,
             "--new-worktree" => worktree.new_worktree = true,
             "--worktree" | "--base" | "--worktree-name" => {
-                let flag = args[i].clone();
+                let flag = option.clone();
                 i += 1;
                 let value = args
                     .get(i)
@@ -127,7 +130,7 @@ fn parse_spawn(args: &[String], options_at: usize) -> Result<Command, String> {
         template,
         durable,
         worktree,
-        body: args[i..].join(" "),
+        body: args.get(i..).unwrap_or_default().join(" "),
     })
 }
 

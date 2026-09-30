@@ -77,16 +77,17 @@ pub(super) fn read_creds_once(path: &PathBuf) -> anyhow::Result<Creds> {
     let text =
         std::fs::read_to_string(path).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
     let v: Value = serde_json::from_str(&text)?;
-    let o = &v["claudeAiOauth"];
+    let o = v.get("claudeAiOauth").unwrap_or(&Value::Null);
 
-    let token = o["accessToken"]
-        .as_str()
+    let token = o
+        .get("accessToken")
+        .and_then(Value::as_str)
         .ok_or_else(|| anyhow::anyhow!("no OAuth token in {}", path.display()))?
         .to_string();
 
     if let Some(why) = expiry_error(
-        o["expiresAt"].as_u64(),
-        o["refreshTokenExpiresAt"].as_u64(),
+        o.get("expiresAt").and_then(Value::as_u64),
+        o.get("refreshTokenExpiresAt").and_then(Value::as_u64),
         unix_ms(),
     ) {
         anyhow::bail!("{why}");
@@ -94,8 +95,9 @@ pub(super) fn read_creds_once(path: &PathBuf) -> anyhow::Result<Creds> {
 
     Ok(Creds {
         token,
-        plan: o["subscriptionType"]
-            .as_str()
+        plan: o
+            .get("subscriptionType")
+            .and_then(Value::as_str)
             .unwrap_or_default()
             .to_string(),
         path: path.clone(),
@@ -106,13 +108,17 @@ pub(super) fn read_openai_creds(path: &PathBuf) -> anyhow::Result<OpenAiCreds> {
     let text =
         std::fs::read_to_string(path).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
     let v: Value = serde_json::from_str(&text)?;
-    let token = v["tokens"]["access_token"]
-        .as_str()
+    let token = v
+        .get("tokens")
+        .and_then(|tokens| tokens.get("access_token"))
+        .and_then(Value::as_str)
         .filter(|v| !v.is_empty())
         .ok_or_else(|| anyhow::anyhow!("no ChatGPT access token in {}", path.display()))?
         .to_string();
-    let account_id = v["tokens"]["account_id"]
-        .as_str()
+    let account_id = v
+        .get("tokens")
+        .and_then(|tokens| tokens.get("account_id"))
+        .and_then(Value::as_str)
         .filter(|v| !v.is_empty())
         .map(str::to_string);
 
@@ -207,9 +213,12 @@ pub(super) fn save_anthropic_cache(path: &Path, body: &Value, retry_until_ms: Op
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600));
+        drop(std::fs::set_permissions(
+            &tmp,
+            std::fs::Permissions::from_mode(0o600),
+        ));
     }
-    let _ = std::fs::rename(tmp, path);
+    drop(std::fs::rename(tmp, path));
 }
 
 pub(super) fn save_anthropic_rate_limit(path: &Path, delay: u64) {

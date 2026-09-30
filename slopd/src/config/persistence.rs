@@ -28,7 +28,9 @@ pub fn redact_token_text(text: &str) -> Result<String> {
         if !secret.is_empty() {
             let decor = value.decor().clone();
             *token = toml_edit::value(TOKEN_REDACTED);
-            *token.as_value_mut().unwrap().decor_mut() = decor;
+            if let Some(value) = token.as_value_mut() {
+                *value.decor_mut() = decor;
+            }
         }
     }
     Ok(document.to_string())

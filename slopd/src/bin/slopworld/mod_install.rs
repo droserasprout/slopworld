@@ -43,8 +43,8 @@ pub(crate) fn try_run(args: &[String]) -> Result<Option<String>, String> {
 
     match args.get(1).map(String::as_str) {
         None | Some("-h") | Some("--help") | Some("help") => Ok(Some(USAGE.to_string())),
-        Some("install") => run_install(&args[2..]),
-        Some("uninstall") => run_uninstall(&args[2..]),
+        Some("install") => run_install(args.get(2..).unwrap_or_default()),
+        Some("uninstall") => run_uninstall(args.get(2..).unwrap_or_default()),
         Some(command) => Err(format!("unknown mod command {command}\n\n{USAGE}")),
     }
 }
@@ -93,10 +93,14 @@ fn parse(args: &[String], allow_source: bool) -> Result<Args, String> {
             "--source" if allow_source => out.source = Some(next_path(&mut it, "--source")?),
             "--mods" => out.mods = Some(next_path(&mut it, "--mods")?),
             value if allow_source && value.starts_with("--source=") => {
-                out.source = Some(PathBuf::from(&value[9..]));
+                out.source = Some(PathBuf::from(
+                    value.strip_prefix("--source=").unwrap_or_default(),
+                ));
             }
             value if value.starts_with("--mods=") => {
-                out.mods = Some(PathBuf::from(&value[7..]));
+                out.mods = Some(PathBuf::from(
+                    value.strip_prefix("--mods=").unwrap_or_default(),
+                ));
             }
             value if value.starts_with('-') => return Err(format!("unknown option {value}")),
             value => return Err(format!("unexpected argument {value}")),
@@ -144,7 +148,7 @@ fn install(source: &Path, mods: &Path) -> Result<String, String> {
     let (staging, backup) = reserve_install_paths(source, mods)?;
 
     if let Err(error) = copy_mod(source, &staging) {
-        let _ = fs::remove_dir_all(&staging);
+        drop(fs::remove_dir_all(&staging));
         return Err(error);
     }
 
@@ -157,29 +161,29 @@ fn commit_install(staging: &Path, destination: &Path, backup: &Path) -> Result<(
         Ok(_) => true,
         Err(error) if error.kind() == io::ErrorKind::NotFound => false,
         Err(error) => {
-            let _ = fs::remove_dir_all(staging);
+            drop(fs::remove_dir_all(staging));
             return Err(format!("checking {}: {error}", destination.display()));
         }
     };
     if had_destination {
         match fs::symlink_metadata(backup) {
             Ok(_) => {
-                let _ = fs::remove_dir_all(staging);
+                drop(fs::remove_dir_all(staging));
                 return Err(format!("backup path already exists: {}", backup.display()));
             }
             Err(error) if error.kind() == io::ErrorKind::NotFound => {}
             Err(error) => {
-                let _ = fs::remove_dir_all(staging);
+                drop(fs::remove_dir_all(staging));
                 return Err(format!("checking {}: {error}", backup.display()));
             }
         }
         if let Err(error) = fs::rename(destination, backup) {
-            let _ = fs::remove_dir_all(staging);
+            drop(fs::remove_dir_all(staging));
             return Err(format!("backing up {}: {error}", destination.display()));
         }
     }
     if let Err(error) = fs::rename(staging, destination) {
-        let _ = fs::remove_dir_all(staging);
+        drop(fs::remove_dir_all(staging));
         if had_destination {
             if let Err(rollback) = fs::rename(backup, destination) {
                 return Err(format!("installing {}: {error}; old installation remains at {} because rollback failed: {rollback}", destination.display(), backup.display()));

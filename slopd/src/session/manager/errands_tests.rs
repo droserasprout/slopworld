@@ -100,10 +100,10 @@ async fn errands_require_host_or_settings_before_allocating_and_copy_template_on
         manager.live.read().await[&name].cfg.limits.memory_mb,
         Some(256)
     );
-    assert!(manager
+    manager
         .create_errand_session(&cfg, &item, &want, false, false, "")
         .await
-        .is_err());
+        .unwrap_err();
     item.agent_template.clear();
     item.name = "host-command".into();
     let host = manager
@@ -187,10 +187,10 @@ async fn host_persistence_failure_leaves_no_live_or_temporary_state() {
     std::fs::remove_dir_all(parent).unwrap();
     std::fs::write(parent, "blocks config directory").unwrap();
 
-    assert!(manager
+    manager
         .create_errand_session(&cfg, &item, &RunWhere::default(), true, true, "")
         .await
-        .is_err());
+        .unwrap_err();
     assert!(manager.live.read().await.is_empty());
     assert!(manager.temp.read().await.is_empty());
     assert!(manager.config().await.host_terminals.is_empty());

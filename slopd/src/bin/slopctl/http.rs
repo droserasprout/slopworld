@@ -18,7 +18,7 @@ pub(crate) fn load_endpoint() -> Result<Endpoint, String> {
     if let Ok(url) = std::env::var("SLOPD_URL") {
         // Permit an explicitly empty SLOPD_TOKEN for a daemon without authentication.
         // Reject an absent variable here instead of sending an empty token that could cause an HTTP 401 response.
-        let token = std::env::var("SLOPD_TOKEN").map_err(|_| {
+        let token = std::env::var("SLOPD_TOKEN").map_err(|_error| {
             "SLOPD_URL is set, but SLOPD_TOKEN is missing. Set SLOPD_TOKEN= if the daemon has no token."
                 .to_string()
         })?;
@@ -104,7 +104,9 @@ pub(crate) fn request(
 /// Report the caller's identity, daemon connection status, and pending task counts.
 /// Include connection failures in the status value instead of returning an error.
 pub(crate) fn status_value(endpoint: &Endpoint, session: &str) -> Value {
-    let mut out = json!({ "session": session, "endpoint": endpoint.url });
+    let mut out = serde_json::Map::new();
+    out.insert("session".to_string(), json!(session));
+    out.insert("endpoint".to_string(), json!(endpoint.url));
     match request(
         endpoint,
         session,
@@ -113,13 +115,16 @@ pub(crate) fn status_value(endpoint: &Endpoint, session: &str) -> Value {
         None,
     ) {
         Ok(v) => {
-            out["daemon"] = json!("ok");
-            out["version"] = v["version"].clone();
+            out.insert("daemon".to_string(), json!("ok"));
+            out.insert(
+                "version".to_string(),
+                v.get("version").cloned().unwrap_or(Value::Null),
+            );
         }
         Err(e) => {
-            out["daemon"] = json!("unreachable");
-            out["error"] = json!(e);
-            return out;
+            out.insert("daemon".to_string(), json!("unreachable"));
+            out.insert("error".to_string(), json!(e));
+            return Value::Object(out);
         }
     }
     match request(
@@ -137,22 +142,30 @@ pub(crate) fn status_value(endpoint: &Endpoint, session: &str) -> Value {
                 .unwrap_or_default();
             let open = |t: &Value| {
                 !matches!(
-                    t["status"].as_str().unwrap_or(""),
+                    t.get("status").and_then(Value::as_str).unwrap_or(""),
                     crate::shared::protocol::enums::task_status::DONE
                         | crate::shared::protocol::enums::task_status::FAILED
                         | crate::shared::protocol::enums::task_status::CANCELED
                 )
             };
-            out["waiting"] = json!(tasks
-                .iter()
-                .filter(|t| t["to"].as_str() == Some(session) && open(t))
-                .count());
-            out["sent"] = json!(tasks
-                .iter()
-                .filter(|t| t["from"].as_str() == Some(session) && open(t))
-                .count());
+            out.insert(
+                "waiting".to_string(),
+                json!(tasks
+                    .iter()
+                    .filter(|t| t.get("to").and_then(Value::as_str) == Some(session) && open(t))
+                    .count()),
+            );
+            out.insert(
+                "sent".to_string(),
+                json!(tasks
+                    .iter()
+                    .filter(|t| t.get("from").and_then(Value::as_str) == Some(session) && open(t))
+                    .count()),
+            );
         }
-        Err(e) => out["error"] = json!(e),
+        Err(e) => {
+            out.insert("error".to_string(), json!(e));
+        }
     }
-    out
+    Value::Object(out)
 }

@@ -104,14 +104,14 @@ fn openrouter_keys_are_trimmed_reread_and_file_selection_overrides_environment()
     let Some(root) = crate::test_support::isolated() else {
         return;
     };
-    assert!(read_key("").is_err());
+    read_key("").unwrap_err();
     std::env::set_var(KEY_ENV, " \n ");
-    assert!(read_key("").is_err());
+    read_key("").unwrap_err();
     std::env::set_var(KEY_ENV, " env-token \n");
     assert_eq!(read_key(" \t ").unwrap(), "env-token");
     let path = root.join("key");
     let name = path.to_str().unwrap();
-    assert!(read_key(name).is_err());
+    read_key(name).unwrap_err();
     std::fs::write(&path, "  ").unwrap();
     assert!(read_key(name)
         .unwrap_err()

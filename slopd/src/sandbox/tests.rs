@@ -224,7 +224,7 @@ fn stored_state_keys_cannot_escape_or_name_the_trash_root() {
 #[test]
 fn a_private_tree_is_seeded_once_with_the_files_on_top_and_what_the_preset_names() {
     let root = std::env::temp_dir().join(format!("slopd-seed-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
     let host = root.join("host");
     std::fs::create_dir_all(host.join("agents")).unwrap();
     std::fs::create_dir_all(host.join("projects")).unwrap();
@@ -262,7 +262,7 @@ fn a_private_tree_is_seeded_once_with_the_files_on_top_and_what_the_preset_names
         "the agent's own"
     );
 
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 /// Exclude top-level files that `skip` or `shared` specifies.
@@ -271,7 +271,7 @@ fn a_private_tree_is_seeded_once_with_the_files_on_top_and_what_the_preset_names
 #[test]
 fn the_files_on_top_are_cut_back_by_skip_and_by_what_is_shared() {
     let root = std::env::temp_dir().join(format!("slopd-top-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
     let host = root.join("host");
     std::fs::create_dir_all(&host).unwrap();
     std::fs::write(host.join("settings.json"), "wanted").unwrap();
@@ -304,7 +304,7 @@ fn the_files_on_top_are_cut_back_by_skip_and_by_what_is_shared() {
         "a copy of the credential was left in the session directory"
     );
 
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 /// Copy a complete seed directory except the paths that `skip` specifies.
@@ -312,7 +312,7 @@ fn the_files_on_top_are_cut_back_by_skip_and_by_what_is_shared() {
 #[test]
 fn a_seeded_directory_comes_across_whole_bar_what_skip_names() {
     let root = std::env::temp_dir().join(format!("slopd-skip-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
     let host = root.join("host");
     std::fs::create_dir_all(host.join("agent/sessions")).unwrap();
     std::fs::create_dir_all(host.join("agent/nested/deep")).unwrap();
@@ -342,7 +342,7 @@ fn a_seeded_directory_comes_across_whole_bar_what_skip_names() {
         "the transcripts came across"
     );
 
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]

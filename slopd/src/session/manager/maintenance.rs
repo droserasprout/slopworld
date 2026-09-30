@@ -89,7 +89,11 @@ impl Manager {
     pub async fn reload_presets_if_changed(self: &Arc<Self>) -> bool {
         let disk = crate::presets::Table::stamp();
         let reloaded = {
-            let mut seen = self.config_state.presets_mtime.lock().unwrap();
+            let mut seen = self
+                .config_state
+                .presets_mtime
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
             if *seen == disk || !crate::presets::reload() {
                 false
             } else {
@@ -109,7 +113,11 @@ impl Manager {
     pub async fn reload_jukebox_if_changed(self: &Arc<Self>) -> bool {
         let disk = crate::paths::dir_stamp(&crate::jukebox::Catalog::dir());
         let reloaded = {
-            let mut seen = self.config_state.jukebox_mtime.lock().unwrap();
+            let mut seen = self
+                .config_state
+                .jukebox_mtime
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
             if *seen == disk || !crate::jukebox::reload() {
                 false
             } else {

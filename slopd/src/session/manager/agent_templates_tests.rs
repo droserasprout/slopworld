@@ -65,7 +65,7 @@ async fn template_creation_uses_destination_project_mounts() {
             .unwrap()
             .autostart
     );
-    let _ = std::fs::remove_dir_all(root);
+    drop(std::fs::remove_dir_all(root));
 }
 
 #[tokio::test]
@@ -93,7 +93,7 @@ async fn saving_a_template_persists_it_separately_from_config() {
     assert_eq!(manager.agent_templates().await.len(), 1);
     assert!(AgentTemplateStore::path_for(&manager.cfg_path).is_dir());
     assert!(!manager.cfg_path.is_file());
-    let _ = std::fs::remove_dir_all(root);
+    drop(std::fs::remove_dir_all(root));
 }
 
 #[tokio::test]
@@ -147,7 +147,7 @@ async fn an_instantiated_template_can_still_be_edited_without_live_dependencies(
     manager.update("new-agent", update).await.unwrap();
     let session = manager.config().await.session("new-agent").unwrap().clone();
     assert!(!session.sandbox_snapshots.is_empty());
-    let _ = std::fs::remove_dir_all(root);
+    drop(std::fs::remove_dir_all(root));
 }
 
 #[tokio::test]
@@ -230,5 +230,5 @@ async fn template_writes_compare_versions_and_preserve_rejected_drafts() {
         .await
         .unwrap();
     assert!(recreated.version > original.version);
-    let _ = std::fs::remove_dir_all(root);
+    drop(std::fs::remove_dir_all(root));
 }

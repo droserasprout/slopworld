@@ -67,7 +67,7 @@ fn dns_validation_rejects_empty_duplicate_and_too_many_servers() {
     ] {
         assert!(dns.validate("project repo").is_err());
     }
-    assert!(DnsConfig::Resolved.validate("project repo").is_ok());
+    DnsConfig::Resolved.validate("project repo").unwrap();
 }
 
 #[test]
@@ -81,7 +81,7 @@ fn resource_limits_are_agent_owned_and_reject_zero() {
 
     assert!(Limits::default().is_empty());
     assert!(!session.is_empty());
-    assert!(session.validate().is_ok());
+    session.validate().unwrap();
 
     for invalid in [
         Limits {
@@ -652,7 +652,7 @@ fn config_rejects_sessions_without_a_valid_state_identity() {
                 project = "repo"
             "#,
     );
-    assert!(result.is_err());
+    result.unwrap_err();
 
     // New in-memory sessions, including short-lived errands, always have an identity.
     assert!(!SessionCfg::default().state_id.is_empty());
@@ -691,7 +691,7 @@ fn config_rejects_unsafe_or_duplicate_project_names() {
     let error = Config::parse(duplicate).unwrap_err().to_string();
     assert!(error.contains("already exists"), "{error}");
 
-    assert!(Config::parse("[[project]]\nname = \"repo.v2\"\ndir = \"/tmp\"\n").is_ok());
+    Config::parse("[[project]]\nname = \"repo.v2\"\ndir = \"/tmp\"\n").unwrap();
 }
 
 #[test]

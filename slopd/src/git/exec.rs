@@ -82,13 +82,13 @@ fn install() -> std::io::Result<()> {
         len: filter.len() as u16,
         filter: filter.as_ptr() as *mut _,
     };
-    // SAFETY: prctl reads the valid filter during this call. It retains no userspace pointer.
-    unsafe {
-        if libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0
-            || libc::prctl(libc::PR_SET_SECCOMP, libc::SECCOMP_MODE_FILTER, &program) != 0
-        {
-            return Err(std::io::Error::last_os_error());
-        }
+    // SAFETY: prctl sets this child process before exec; it retains no userspace pointer.
+    if unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) } != 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    // SAFETY: `program` points to the valid filter array above for the duration of this call.
+    if unsafe { libc::prctl(libc::PR_SET_SECCOMP, libc::SECCOMP_MODE_FILTER, &program) } != 0 {
+        return Err(std::io::Error::last_os_error());
     }
     Ok(())
 }

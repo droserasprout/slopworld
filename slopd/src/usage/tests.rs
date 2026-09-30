@@ -463,7 +463,7 @@ fn polling_failure_backoff_recovers_and_disabling_resets_schedules() {
         let before = Instant::now();
         poller.settle(Snapshot::failed(&poller.snap, "offline"), None, 60);
         assert_eq!(poller.fails, attempt);
-        assert_eq!(poller.snap.windows[0].pct, 42.0);
+        assert_eq!(poller.snap.windows[0].pct.to_bits(), 42.0_f32.to_bits());
         assert_eq!(
             poller.snap.error,
             Some(format!("offline - next try in {}m", delay / 60))
@@ -475,7 +475,7 @@ fn polling_failure_backoff_recovers_and_disabling_resets_schedules() {
     assert_eq!(poller.fails, 0);
     assert!(poller.snap.ok);
     assert!(poller.snap.error.is_none());
-    assert_eq!(poller.snap.windows[0].pct, 55.0);
+    assert_eq!(poller.snap.windows[0].pct.to_bits(), 55.0_f32.to_bits());
     poller.item_due.insert(
         CLAUDE_SESSION.into(),
         Instant::now() + Duration::from_secs(600),
@@ -502,7 +502,7 @@ fn row_schedule_retains_values_until_due_and_expires_missing_windows() {
         "anthropic",
         now + Duration::from_secs(1),
     );
-    assert_eq!(early.windows[0].pct, 10.0);
+    assert_eq!(early.windows[0].pct.to_bits(), 10.0_f32.to_bits());
     let missing = Snapshot {
         ok: true,
         ..Default::default()
@@ -524,7 +524,7 @@ fn row_schedule_retains_values_until_due_and_expires_missing_windows() {
         "anthropic",
         now + interval,
     );
-    assert_eq!(refreshed.windows[0].pct, 90.0);
+    assert_eq!(refreshed.windows[0].pct.to_bits(), 90.0_f32.to_bits());
     assert_eq!(poller.item_due[CLAUDE_SESSION], now + interval + interval);
 }
 
@@ -547,7 +547,7 @@ fn shorter_intervals_refresh_immediately_and_disabled_rows_clear_schedules() {
         .unwrap()
         .interval_secs = Some(300);
     let refreshed = filter_snapshot(&mut poller, session_snapshot(90), &daemon, "anthropic", now);
-    assert_eq!(refreshed.windows[0].pct, 90.0);
+    assert_eq!(refreshed.windows[0].pct.to_bits(), 90.0_f32.to_bits());
     assert_eq!(
         poller.item_due[CLAUDE_SESSION],
         now + Duration::from_secs(300)

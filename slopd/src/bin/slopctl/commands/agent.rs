@@ -44,7 +44,10 @@ pub(super) fn parse_agent_command(args: &[String]) -> Result<Command, String> {
     let mut start = false;
     let mut i = 3;
     while i < args.len() {
-        match args[i].as_str() {
+        let Some(option) = args.get(i) else {
+            break;
+        };
+        match option.as_str() {
             "--project" => {
                 i += 1;
                 project = Some(
@@ -106,7 +109,9 @@ pub(crate) fn run_agent_create(
         ),
         Some(json!({ "name": name, "project": project, "start": start })),
     )?;
-    v["started"] = json!(start);
+    v.as_object_mut()
+        .ok_or_else(|| "agent create response must be an object".to_string())?
+        .insert("started".to_string(), json!(start));
     if json_output {
         print_json(&v);
     } else {

@@ -101,7 +101,7 @@ async fn warm(dir: &Path) -> std::io::Result<()> {
     let Some(root) = toplevel(dir).await? else {
         return Ok(());
     };
-    let _ = status_rows(&root).await?;
+    drop(status_rows(&root).await?);
     Ok(())
 }
 
@@ -245,7 +245,7 @@ async fn status_rows_command(
         .ok_or_else(|| std::io::Error::other("capturing git status errors"))?;
     let stderr_task = tokio::spawn(async move {
         let mut error = String::new();
-        let _ = BufReader::new(stderr).read_to_string(&mut error).await;
+        drop(BufReader::new(stderr).read_to_string(&mut error).await);
         error
     });
     let mut fields = Vec::new();
@@ -284,9 +284,9 @@ async fn status_rows_command(
             source,
         });
         if rows.len() > LIMIT {
-            let _ = child.kill().await;
-            let _ = child.wait().await;
-            let _ = stderr_task.await;
+            drop(child.kill().await);
+            drop(child.wait().await);
+            drop(stderr_task.await);
             rows.truncate(LIMIT);
             return Ok((rows, true));
         }

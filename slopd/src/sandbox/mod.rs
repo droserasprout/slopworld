@@ -130,11 +130,7 @@ fn resolve_mounts(
     for m in &p.mounts {
         let relative_cache = m.mode == MountMode::Cache && cache::relative(m);
         let source = if m.mode == MountMode::Cache {
-            let owner = cfg
-                .projects
-                .iter()
-                .find(|original| original.name == p.name)
-                .unwrap_or(p);
+            let owner = cfg.project(&p.name).unwrap_or(p);
             let source = cache::validate(owner, m)?;
             if paths::overlaps(&source.to_string_lossy(), dir) {
                 bail!("cache source must be outside the selected worktree");
@@ -160,11 +156,7 @@ fn resolve_mounts(
         }
         if m.mode == MountMode::Cache {
             if relative_cache {
-                let owner = cfg
-                    .projects
-                    .iter()
-                    .find(|original| original.name == p.name)
-                    .unwrap_or(p);
+                let owner = cfg.project(&p.name).unwrap_or(p);
                 cache::require_links(owner, Path::new(&dir))?;
             } else {
                 std::fs::create_dir_all(&source)?;
@@ -183,7 +175,9 @@ fn resolve_mounts(
                 mode: MountMode::Cache,
             });
         } else if Path::new(&target) == Path::new(&dir) {
-            mounts[0].mode = m.mode;
+            if let Some(mount) = mounts.first_mut() {
+                mount.mode = m.mode;
+            }
         } else {
             mounts.push(ResolvedMount {
                 host_dir: source,

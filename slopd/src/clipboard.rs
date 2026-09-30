@@ -133,10 +133,16 @@ async fn run(text: Option<&str>, pick: fn(&Tool) -> &'static [&'static str]) -> 
     );
     // Never fall back to the focus-stealing Wayland helper on this path.
     for &index in tool_order(xwayland) {
-        let argv = pick(&TOOLS[index]);
+        let Some(tool) = TOOLS.get(index) else {
+            continue;
+        };
+        let argv = pick(tool);
+        let Some(&program) = argv.first() else {
+            continue;
+        };
         match tokio::time::timeout_at(deadline, one(argv, text)).await {
             Err(_) => {
-                last = Some(anyhow::anyhow!("{} timed out", argv[0]));
+                last = Some(anyhow::anyhow!("{program} timed out"));
                 break;
             }
             Ok(Ok(out)) => return Ok(out),
@@ -158,12 +164,15 @@ async fn one(argv: &[&str], text: Option<&str>) -> Result<String> {
     let Some(t) = text else {
         return paste(argv).await;
     };
+    let (program, arguments) = argv
+        .split_first()
+        .ok_or_else(|| anyhow::anyhow!("clipboard command has no executable"))?;
 
     // A copy tool can start a child to serve the selection after its parent exits.
     // The child inherits pipes and keeps them open, so wait_with_output could wait indefinitely.
     // Do not collect output. Report failures through exit status.
-    let mut child = Command::new(argv[0])
-        .args(&argv[1..])
+    let mut child = Command::new(program)
+        .args(arguments)
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -176,20 +185,23 @@ async fn one(argv: &[&str], text: Option<&str>) -> Result<String> {
     let mut stdin = child
         .stdin
         .take()
-        .ok_or_else(|| anyhow::anyhow!("{}: no stdin", argv[0]))?;
+        .ok_or_else(|| anyhow::anyhow!("{program}: no stdin"))?;
     stdin.write_all(t.as_bytes()).await?;
     drop(stdin);
 
     let status = child.wait().await?;
     if !status.success() {
-        bail!("{} {}", argv[0], status);
+        bail!("{program} {status}");
     }
     Ok(String::new())
 }
 
 async fn paste(argv: &[&str]) -> Result<String> {
-    let out = Command::new(argv[0])
-        .args(&argv[1..])
+    let (program, arguments) = argv
+        .split_first()
+        .ok_or_else(|| anyhow::anyhow!("clipboard command has no executable"))?;
+    let out = Command::new(program)
+        .args(arguments)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -197,11 +209,7 @@ async fn paste(argv: &[&str]) -> Result<String> {
         .output()
         .await?;
     if !out.status.success() {
-        bail!(
-            "{}: {}",
-            argv[0],
-            String::from_utf8_lossy(&out.stderr).trim()
-        );
+        bail!("{program}: {}", String::from_utf8_lossy(&out.stderr).trim());
     }
     // Text-only tool arguments request a text clipboard format. The general path can return
     // arbitrary data, so reject NUL and invalid UTF-8 at this String/JSON boundary. Do not

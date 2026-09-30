@@ -29,7 +29,7 @@ fn breadcrumbs_require_text_but_no_execution_context() {
         ..Default::default()
     };
     let cfg = Config::default();
-    assert!(check_library_item(&cfg, &item).is_ok());
+    check_library_item(&cfg, &item).unwrap();
     item.text = " \n\t".into();
     assert_eq!(
         check_library_item(&cfg, &item).unwrap_err().to_string(),
@@ -77,9 +77,9 @@ fn file_actions_require_a_command_instead_of_prompt_text() {
         );
     }
     item.command = Some("cat {{ absolute_path }}".into());
-    assert!(check_library_item(&cfg, &item).is_ok());
+    check_library_item(&cfg, &item).unwrap();
     item.text = " \t".into();
-    assert!(check_library_item(&cfg, &item).is_ok());
+    check_library_item(&cfg, &item).unwrap();
     item.text = "unexpected prompt".into();
     assert_eq!(
         check_library_item(&cfg, &item).unwrap_err().to_string(),
@@ -97,7 +97,7 @@ fn deferred_library_destinations_allow_no_project_but_reject_unknown_projects() 
             text: "Review the changes".into(),
             ..Default::default()
         };
-        assert!(check_library_item(&cfg, &item).is_ok());
+        check_library_item(&cfg, &item).unwrap();
         item.project = "missing".into();
         assert_eq!(
             check_library_item(&cfg, &item).unwrap_err().to_string(),

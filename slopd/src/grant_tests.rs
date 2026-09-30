@@ -125,5 +125,5 @@ fn losing_a_target_revokes_the_whole_grant_and_its_resolved_copies() {
 #[test]
 fn entropy_failure_never_yields_a_grant_token() {
     let mut short = &[0u8; 8][..];
-    assert!(super::gen_token_from(&mut short).is_err());
+    super::gen_token_from(&mut short).unwrap_err();
 }

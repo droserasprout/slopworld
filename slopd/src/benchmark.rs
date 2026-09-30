@@ -211,8 +211,14 @@ where
     timings.sort_by(f64::total_cmp);
     println!(
         "{name:<44} p50={:.3} p95={:.3}",
-        timings[(timings.len() - 1) * 50 / 100],
-        timings[(timings.len() - 1) * 95 / 100],
+        timings
+            .get((timings.len() - 1) * 50 / 100)
+            .copied()
+            .expect("benchmark samples are nonempty"),
+        timings
+            .get((timings.len() - 1) * 95 / 100)
+            .copied()
+            .expect("benchmark samples are nonempty"),
     );
 }
 

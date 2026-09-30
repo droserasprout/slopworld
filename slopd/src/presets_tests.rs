@@ -199,14 +199,14 @@ fn assert_shell_userdata_presets(table: &Table) {
 
 #[test]
 fn unknown_preset_fields_are_rejected() {
-    assert!(toml::from_str::<PresetFile>(
+    toml::from_str::<PresetFile>(
         r#"
             [[sandbox]]
             name = "sandbox"
             unexpected = "value"
             "#,
     )
-    .is_err());
+    .unwrap_err();
 }
 
 /// Check that agent presets keep private state and host-access presets include warnings.
@@ -334,7 +334,7 @@ fn command_kind_is_required() {
             "#,
     );
 
-    assert!(file.is_err());
+    file.unwrap_err();
 }
 
 #[test]
@@ -347,7 +347,7 @@ fn kind_parsing_and_typed_table_dispatch_cover_all_sources() {
         "app_presets".parse::<PresetKind>().unwrap(),
         PresetKind::AppPresets
     );
-    assert!("app".parse::<PresetKind>().is_err());
+    "app".parse::<PresetKind>().unwrap_err();
     assert_eq!(
         "other".parse::<PresetKind>().unwrap_err(),
         "unknown preset kind: other"
@@ -516,13 +516,13 @@ fn user_only_sandbox_delete_checks_command_and_sandbox_dependencies() {
         }],
         commands: Vec::new(),
     };
-    assert!(check_delete(
+    check_delete(
         PresetKind::SandboxPresets,
         "builtin",
         &builtin,
-        &override_users
+        &override_users,
     )
-    .is_ok());
+    .unwrap();
 }
 
 /// User entries replace built-in entries with the same name.
@@ -570,7 +570,7 @@ fn user_files_override_by_name() {
 #[test]
 fn saving_one_preset_does_not_reserialize_an_unrelated_file() {
     let dir = std::env::temp_dir().join(format!("slopd-presets-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(dir.join("sandbox_presets")).unwrap();
     let untouched = dir.join("sandbox_presets/other.toml");
     let original = "# keep this comment\nname = \"other\"\ndescription = \"handwritten\"\n";
@@ -590,13 +590,13 @@ fn saving_one_preset_does_not_reserialize_an_unrelated_file() {
 
     assert_eq!(std::fs::read_to_string(untouched).unwrap(), original);
     assert!(dir.join("sandbox_presets/changed.toml").exists());
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
 fn user_files_are_direct_definitions_in_their_kind_directory() {
     let dir = std::env::temp_dir().join(format!("slopd-preset-direct-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     write_user_file_in(
         &dir,
         PresetKind::AppPresets,
@@ -615,5 +615,5 @@ fn user_files_are_direct_definitions_in_their_kind_directory() {
     assert!(!text.contains("[[command]]"));
     let loaded = Table::try_load_from(&dir).unwrap();
     assert_eq!(loaded.command("tool").unwrap().cmd, "tool");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }

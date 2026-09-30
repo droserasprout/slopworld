@@ -18,10 +18,13 @@ impl SessionCfg {
         }
         let mut index = 0;
         while index < selected.len() {
+            let Some(selected_name) = selected.get(index) else {
+                break;
+            };
             if let Some(preset) = previous
                 .sandbox_snapshots
                 .iter()
-                .find(|p| p.name == selected[index])
+                .find(|p| &p.name == selected_name)
             {
                 for required in &preset.requires {
                     if !selected.contains(required) {
@@ -203,13 +206,15 @@ impl Config {
             }],
         );
         let network = self.network_of(s, p);
+        let network_name = match network {
+            NetworkMode::None => crate::shared::protocol::enums::network_mode::NONE,
+            NetworkMode::Private => crate::shared::protocol::enums::network_mode::PRIVATE,
+            NetworkMode::Host => crate::shared::protocol::enums::network_mode::HOST,
+        };
         Self::preview_field(
             fields,
             "Network",
-            vec![format!(
-                "{} — agent setting",
-                serde_json::to_value(network).unwrap().as_str().unwrap()
-            )],
+            vec![format!("{network_name} — agent setting")],
         );
         let dns = self.dns_of(s, p);
         let dns_label = match &dns {

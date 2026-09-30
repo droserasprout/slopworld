@@ -35,12 +35,17 @@ where
         let mut ch_bytes = 1;
         while ch_bytes < ch_len {
             let Some(next) = bytes.next() else { break };
-            ch[ch_bytes] = next;
+            let Some(slot) = ch.get_mut(ch_bytes) else {
+                break;
+            };
+            *slot = next;
             ch_bytes += 1;
         }
         if ch_bytes == ch_len {
-            if let Ok(ch) = std::str::from_utf8(&ch[..ch_bytes]) {
-                out.push_str(ch);
+            if let Some(bytes) = ch.get(..ch_bytes) {
+                if let Ok(ch) = std::str::from_utf8(bytes) {
+                    out.push_str(ch);
+                }
             }
         }
     }

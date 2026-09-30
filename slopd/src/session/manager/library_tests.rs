@@ -111,8 +111,8 @@ fn only_runnable_library_pass_the_errand_guard() {
         kind,
         ..Default::default()
     };
-    assert!(Manager::validate_errand(&sc(LibraryItemKind::Prompt)).is_ok());
-    assert!(Manager::validate_errand(&sc(LibraryItemKind::Shell)).is_ok());
+    Manager::validate_errand(&sc(LibraryItemKind::Prompt)).unwrap();
+    Manager::validate_errand(&sc(LibraryItemKind::Shell)).unwrap();
     assert!(Manager::validate_errand(&sc(LibraryItemKind::Breadcrumb)).is_err());
     assert!(Manager::validate_errand(&sc(LibraryItemKind::FileAction)).is_err());
 }
@@ -235,30 +235,24 @@ fn project_file_actions_expand_and_quote_the_absolute_path() {
         Some("sed -n '1p' '/tmp/slopworld-project/src/file name.rs'")
     );
 
-    assert!(Manager::resolve_file_action(
-        &cfg,
-        "repo",
-        "/tmp/slopworld-project/file",
-        "   ",
-        false,
-    )
-    .is_err());
-    assert!(Manager::resolve_file_action(
+    Manager::resolve_file_action(&cfg, "repo", "/tmp/slopworld-project/file", "   ", false)
+        .unwrap_err();
+    Manager::resolve_file_action(
         &cfg,
         "repo",
         "/tmp/slopworld-project-other/file",
         "cat {{ absolute_path }}",
         false,
     )
-    .is_err());
-    assert!(Manager::resolve_file_action(
+    .unwrap_err();
+    Manager::resolve_file_action(
         &cfg,
         "missing",
         "/tmp/file",
         "cat {{ absolute_path }}",
         false,
     )
-    .is_err());
+    .unwrap_err();
 }
 
 async fn delivery_fixture() -> (
@@ -431,7 +425,7 @@ async fn canceled_project_update_retains_boundary_until_commit() {
         .unwrap();
     request.abort();
     assert!(request.await.unwrap_err().is_cancelled());
-    assert!(manager.session_boundary.try_write().is_err());
+    manager.session_boundary.try_write().unwrap_err();
     release.notify_one();
     tokio::time::timeout(
         Duration::from_secs(5),

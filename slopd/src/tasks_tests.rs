@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn update_journal_replays_and_snapshot_generation_prevents_resurrection() {
     let dir = std::env::temp_dir().join(format!("slopd-task-journal-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&dir);
+    drop(fs::remove_dir_all(&dir));
     fs::create_dir_all(&dir).unwrap();
     let config = dir.join("config.toml");
     let mut tasks = Tasks::load(&config).unwrap();
@@ -55,19 +55,19 @@ fn update_journal_replays_and_snapshot_generation_prevents_resurrection() {
     // Simulate a crash after replacing the snapshot but before retiring its old journal.
     fs::write(dir.join("tasks.journal"), old_journal).unwrap();
     assert!(Tasks::load(&config).unwrap().all().is_empty());
-    let _ = fs::remove_dir_all(dir);
+    drop(fs::remove_dir_all(dir));
 }
 #[test]
 fn visibility_updates_and_persistence() {
     let dir = std::env::temp_dir().join(format!("slopd-tasks-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&dir);
+    drop(fs::remove_dir_all(&dir));
     fs::create_dir_all(&dir).unwrap();
     let mut s = Tasks::load(&dir.join("config.toml")).unwrap();
     let t = s
         .create("alice".into(), "bob".into(), "check".into())
         .unwrap();
     assert!(s.visible("eve").is_empty());
-    assert!(s.update("alice", &t.id, Status::Done, None).is_err());
+    s.update("alice", &t.id, Status::Done, None).unwrap_err();
     s.update("bob", &t.id, Status::Done, Some("ok".into()))
         .unwrap();
     assert_eq!(
@@ -78,13 +78,13 @@ fn visibility_updates_and_persistence() {
             .status,
         Status::Done
     );
-    let _ = fs::remove_dir_all(dir);
+    drop(fs::remove_dir_all(dir));
 }
 
 #[test]
 fn summary_round_trips_without_changing_task_age() {
     let dir = std::env::temp_dir().join(format!("slopd-task-summary-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&dir);
+    drop(fs::remove_dir_all(&dir));
     fs::create_dir_all(&dir).unwrap();
     let config = dir.join("config.toml");
     let mut tasks = Tasks::load(&config).unwrap();
@@ -106,7 +106,7 @@ fn summary_round_trips_without_changing_task_age() {
         Tasks::load(&config).unwrap().all()[0].summary.as_deref(),
         Some("Inspect sidebar layout")
     );
-    let _ = fs::remove_dir_all(dir);
+    drop(fs::remove_dir_all(dir));
 }
 
 /// Ordinary removal requires a terminal task. Root access permits removal of active tasks.
@@ -114,7 +114,7 @@ fn summary_round_trips_without_changing_task_age() {
 #[test]
 fn removing_and_pruning_finished_work() {
     let dir = std::env::temp_dir().join(format!("slopd-rm-tasks-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&dir);
+    drop(fs::remove_dir_all(&dir));
     fs::create_dir_all(&dir).unwrap();
     let config = dir.join("config.toml");
     let mut s = Tasks::load(&config).unwrap();
@@ -135,13 +135,14 @@ fn removing_and_pruning_finished_work() {
         .cancel_many("bob", std::slice::from_ref(&accepted.id), false)
         .unwrap();
     assert_eq!(canceled[0].status, Status::Canceled);
-    assert!(s.update("bob", &accepted.id, Status::Done, None).is_err());
-    assert!(s.remove("alice", &accepted.id, false).is_ok());
+    s.update("bob", &accepted.id, Status::Done, None)
+        .unwrap_err();
+    s.remove("alice", &accepted.id, false).unwrap();
 
-    assert!(s.remove("eve", &over.id, false).is_err()); // not a participant
-    assert!(s.remove("alice", &live.id, false).is_err()); // still in flight
-    assert!(s.remove("alice", &live.id, true).is_ok()); // the root reaches it
-    assert!(s.remove("alice", &over.id, false).is_ok()); // finished, so either side may
+    s.remove("eve", &over.id, false).unwrap_err(); // not a participant
+    s.remove("alice", &live.id, false).unwrap_err(); // still in flight
+    s.remove("alice", &live.id, true).unwrap(); // the root reaches it
+    s.remove("alice", &over.id, false).unwrap(); // finished, so either side may
 
     let first = s
         .create("alice".into(), "bob".into(), "first batch item".into())
@@ -175,13 +176,13 @@ fn removing_and_pruning_finished_work() {
     s.update("bob", &mine.id, Status::Done, None).unwrap();
     assert_eq!(s.prune("nobody", true).unwrap(), 1); // `all` ignores who is asking
     assert!(Tasks::load(&config).unwrap().visible("alice").is_empty());
-    let _ = fs::remove_dir_all(dir);
+    drop(fs::remove_dir_all(dir));
 }
 
 #[test]
 fn invalid_store_is_ignored_and_loaded_ids_continue_the_sequence() {
     let dir = std::env::temp_dir().join(format!("slopd-bad-tasks-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&dir);
+    drop(fs::remove_dir_all(&dir));
     fs::create_dir_all(&dir).unwrap();
     let config = dir.join("config.toml");
     fs::write(dir.join("tasks.toml"), "[").unwrap();
@@ -197,13 +198,13 @@ fn invalid_store_is_ignored_and_loaded_ids_continue_the_sequence() {
         .unwrap();
     assert_eq!(first.id.rsplit_once('-').unwrap().1, "0001");
     assert_eq!(second.id.rsplit_once('-').unwrap().1, "0002");
-    let _ = fs::remove_dir_all(dir);
+    drop(fs::remove_dir_all(dir));
 }
 
 #[test]
 fn worker_task_metadata_and_daemon_failure_survive_reload() {
     let dir = std::env::temp_dir().join(format!("slopd-worker-tasks-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&dir);
+    drop(fs::remove_dir_all(&dir));
     fs::create_dir_all(&dir).unwrap();
     let config = dir.join("config.toml");
     let mut tasks = Tasks::load(&config).unwrap();
@@ -237,7 +238,7 @@ fn worker_task_metadata_and_daemon_failure_survive_reload() {
         .unwrap()
         .unwrap();
     assert_eq!(unchanged.note.as_deref(), Some("worker exited"));
-    let _ = fs::remove_dir_all(dir);
+    drop(fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -276,7 +277,7 @@ fn compact_journal_preserves_creations_and_updates() {
     assert!(!fs::read_to_string(&tasks.journal)
         .unwrap()
         .contains("large body"));
-    let _ = fs::remove_dir_all(dir);
+    drop(fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -333,19 +334,19 @@ fn task_authority_survives_rename_but_not_name_reuse() {
         .unwrap();
     assert_eq!(tasks.visible("second-id")[0].id, next.id);
     assert!(tasks.get("second-id", &task.id).is_none());
-    assert!(tasks
+    tasks
         .update("second-id", &task.id, Status::Done, None)
-        .is_err());
-    assert!(tasks
+        .unwrap_err();
+    tasks
         .cancel_many("second-id", std::slice::from_ref(&task.id), false)
-        .is_err());
+        .unwrap_err();
     tasks
         .update("first-id", &task.id, Status::Done, None)
         .unwrap();
-    assert!(tasks.remove("second-id", &task.id, false).is_err());
-    assert!(tasks
+    tasks.remove("second-id", &task.id, false).unwrap_err();
+    tasks
         .remove_many("second-id", std::slice::from_ref(&task.id), false)
-        .is_err());
+        .unwrap_err();
     assert_eq!(tasks.prune("second-id", false).unwrap(), 0);
     // Renaming changes only the label resolved by the manager; the authority is unchanged.
     let renamed = participant("renamed", "first-id");
@@ -396,11 +397,15 @@ fn failed_journal_updates_preserve_memory_and_can_be_retried() {
     // Move the journal aside and put a directory in its place to fail append deterministically.
     fs::rename(&tasks.journal, dir.join("saved-journal")).unwrap();
     fs::create_dir(&tasks.journal).unwrap();
-    assert!(tasks
+    tasks
         .update("worker", &task.id, Status::Done, Some("lost".into()))
-        .is_err());
-    assert!(tasks.set_summary(&task.id, "lost summary".into()).is_err());
-    assert!(tasks.fail_worker(&task.id, "lost failure".into()).is_err());
+        .unwrap_err();
+    tasks
+        .set_summary(&task.id, "lost summary".into())
+        .unwrap_err();
+    tasks
+        .fail_worker(&task.id, "lost failure".into())
+        .unwrap_err();
     let current = tasks.get("worker", &task.id).unwrap();
     assert_eq!(current.status, Status::Queued);
     assert_eq!(current.note, None);
@@ -456,9 +461,9 @@ fn failed_snapshots_preserve_memory_and_allow_cancel_remove_and_prune_retries() 
         .create("host".into(), "worker".into(), "work".into())
         .unwrap();
     let fault = crate::paths::fail_writes(&tasks.path);
-    assert!(tasks
+    tasks
         .cancel_many("worker", std::slice::from_ref(&task.id), false)
-        .is_err());
+        .unwrap_err();
     assert_eq!(
         tasks.get("worker", &task.id).unwrap().status,
         Status::Queued
@@ -468,11 +473,11 @@ fn failed_snapshots_preserve_memory_and_allow_cancel_remove_and_prune_retries() 
         .cancel_many("worker", std::slice::from_ref(&task.id), false)
         .unwrap();
     let fault = crate::paths::fail_writes(&tasks.path);
-    assert!(tasks.remove("worker", &task.id, false).is_err());
-    assert!(tasks
+    tasks.remove("worker", &task.id, false).unwrap_err();
+    tasks
         .remove_many("worker", std::slice::from_ref(&task.id), false)
-        .is_err());
-    assert!(tasks.prune("worker", false).is_err());
+        .unwrap_err();
+    tasks.prune("worker", false).unwrap_err();
     assert_eq!(
         tasks.get("worker", &task.id).unwrap().status,
         Status::Canceled
@@ -508,9 +513,9 @@ fn snapshot_keeps_poisoning_until_journal_cleanup_succeeds() {
     assert!(tasks.journal_poisoned);
     fs::remove_dir(&tasks.journal).unwrap();
     fs::write(&tasks.journal, b"broken tail").unwrap();
-    assert!(tasks
+    tasks
         .create("host".into(), "worker".into(), "blocked".into())
-        .is_err());
+        .unwrap_err();
     assert_eq!(fs::read(&tasks.journal).unwrap(), b"broken tail");
     tasks.save().unwrap();
     assert!(!tasks.journal_poisoned);

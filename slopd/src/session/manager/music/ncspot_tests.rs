@@ -16,10 +16,12 @@ fn relative_commands_reach_volume_endpoints_from_any_start() {
                     _ => panic!("unexpected volume command"),
                 };
             }
-            let expected = if target == 1.0 {
+            let expected = if target.to_bits() == 1.0_f32.to_bits() {
                 u16::MAX
             } else {
-                (u16::MAX / 100) * (target * 100.0).round() as u16
+                (u16::MAX / 100)
+                    * u16::try_from(((target * 100.0).round() as i32).clamp(0, 100))
+                        .unwrap_or_default()
             };
             assert_eq!(actual, expected, "initial={initial}, target={target}");
         }
@@ -43,10 +45,12 @@ async fn check_recovery(saved_volume: Option<f32>) {
     struct Cleanup(String, PathBuf);
     impl Drop for Cleanup {
         fn drop(&mut self) {
-            let _ = std::process::Command::new("tmux")
-                .args(["-L", &self.0, "kill-server"])
-                .output();
-            let _ = std::fs::remove_dir_all(&self.1);
+            drop(
+                std::process::Command::new("tmux")
+                    .args(["-L", &self.0, "kill-server"])
+                    .output(),
+            );
+            drop(std::fs::remove_dir_all(&self.1));
         }
     }
     let _cleanup = Cleanup(tmux_socket.clone(), root.clone());
@@ -116,7 +120,10 @@ async fn check_recovery(saved_volume: Option<f32>) {
     assert_eq!(state.source.as_deref(), Some("ncspot"));
     assert_eq!(state.session.as_deref(), Some("player"));
     assert_eq!(state.title.as_deref(), Some("Surviving song"));
-    assert_eq!(state.volume, saved_volume.unwrap_or(1.0));
+    assert_eq!(
+        state.volume.to_bits(),
+        saved_volume.unwrap_or(1.0).to_bits()
+    );
     server.await.unwrap();
     manager.stop_ncspot().await.unwrap();
     manager.stop_ncspot().await.unwrap();
@@ -157,7 +164,7 @@ async fn ipc_rejects_oversized_and_silent_responses() {
         let server = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.unwrap();
             if !silent {
-                let _ = stream.write_all(&vec![b'x'; 64 * 1024]).await;
+                drop(stream.write_all(&vec![b'x'; 64 * 1024]).await);
             }
             std::future::pending::<()>().await;
         });
@@ -168,7 +175,7 @@ async fn ipc_rejects_oversized_and_silent_responses() {
             assert!(result.to_string().contains("truncated"));
         }
         server.abort();
-        let _ = server.await;
+        drop(server.await);
         tokio::fs::remove_dir_all(dir).await.unwrap();
     }
 }
@@ -183,15 +190,13 @@ fn status_handles_paused_stopped_and_missing_track() {
         parse_status(r#"{"mode":{"Paused":0},"playable":{"title":"Episode"}}"#).unwrap(),
         (false, Some("Episode".into()))
     );
-    assert!(parse_status("not json").is_err());
+    parse_status("not json").unwrap_err();
 }
 #[tokio::test]
 async fn missing_socket_is_a_bounded_error() {
-    assert!(
-        snapshot(Path::new("/nonexistent/slopworld-ncspot.sock"), None)
-            .await
-            .is_err()
-    );
+    snapshot(Path::new("/nonexistent/slopworld-ncspot.sock"), None)
+        .await
+        .unwrap_err();
 }
 
 #[tokio::test]
@@ -201,9 +206,11 @@ async fn ncspot_marker_survives_new_handle_and_does_not_mark_other_tabs() {
     struct Cleanup(String);
     impl Drop for Cleanup {
         fn drop(&mut self) {
-            let _ = std::process::Command::new("tmux")
-                .args(["-L", &self.0, "kill-server"])
-                .output();
+            drop(
+                std::process::Command::new("tmux")
+                    .args(["-L", &self.0, "kill-server"])
+                    .output(),
+            );
         }
     }
     let _cleanup = Cleanup(socket.clone());

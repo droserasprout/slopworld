@@ -41,7 +41,7 @@ pub(super) fn free_name(live: &HashMap<String, Live>, cfg: &Config, base: &str) 
     (2..)
         .map(|i| format!("{base}-{i}"))
         .find(|n| !taken(n))
-        .unwrap()
+        .expect("an increasing suffix eventually produces an unused session name")
 }
 
 pub(super) fn check_project(p: &ProjectCfg) -> Result<()> {
@@ -130,7 +130,7 @@ pub(super) fn free_project_name(
     (2..)
         .map(|i| format!("{base}-{i}"))
         .find(|n| !taken(n))
-        .unwrap()
+        .expect("an increasing suffix eventually produces an unused project name")
 }
 
 pub(super) fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {

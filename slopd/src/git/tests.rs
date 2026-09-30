@@ -54,7 +54,7 @@ fn numstat_keeps_tabs_in_a_filename() {
 #[tokio::test]
 async fn a_pure_rename_keeps_zero_line_counts() {
     let dir = std::env::temp_dir().join(format!("slopd-git-rename-{}", std::process::id()));
-    let _ = tokio::fs::remove_dir_all(&dir).await;
+    drop(tokio::fs::remove_dir_all(&dir).await);
     tokio::fs::create_dir_all(&dir).await.unwrap();
     tokio::fs::write(dir.join("old.txt"), "unchanged\n")
         .await
@@ -115,7 +115,7 @@ async fn a_pure_rename_keeps_zero_line_counts() {
 #[tokio::test]
 async fn a_directory_that_is_no_repository_is_not_an_error() {
     let dir = std::env::temp_dir().join("slopd-git-none");
-    let _ = tokio::fs::create_dir_all(&dir).await;
+    drop(tokio::fs::create_dir_all(&dir).await);
     // Only meaningful where the temp dir is not itself inside a checkout, which is the
     // usual arrangement. A machine where it is would make this vacuous rather than wrong.
     if let Ok(answer) = status(&dir).await {
@@ -212,7 +212,7 @@ async fn an_untracked_directory_reports_its_files() {
 async fn a_nested_repository_does_not_add_its_worktree_to_the_parent() {
     let dir = std::env::temp_dir().join(format!("slopd-git-nested-{}", std::process::id()));
     let nested = dir.join("nested");
-    let _ = tokio::fs::remove_dir_all(&dir).await;
+    drop(tokio::fs::remove_dir_all(&dir).await);
     tokio::fs::create_dir_all(&nested).await.unwrap();
 
     for path in [&dir, &nested] {
@@ -285,7 +285,7 @@ async fn an_untracked_nested_repository_stays_a_boundary_row() {
     let dir =
         std::env::temp_dir().join(format!("slopd-git-untracked-nested-{}", std::process::id()));
     let nested = dir.join("outer/nested");
-    let _ = tokio::fs::remove_dir_all(&dir).await;
+    drop(tokio::fs::remove_dir_all(&dir).await);
     tokio::fs::create_dir_all(&nested).await.unwrap();
 
     for path in [&dir, &nested] {
@@ -403,7 +403,7 @@ async fn seed_repository_with_git_helpers(dir: &Path, marker: &Path) {
         .await
         .unwrap();
     assert!(add.success());
-    let _ = tokio::fs::remove_file(marker).await;
+    drop(tokio::fs::remove_file(marker).await);
 }
 
 async fn assert_configured_repository_status(dir: &Path, marker: &Path) {
@@ -457,7 +457,7 @@ async fn seed_unborn_repository_with_git_helper(dir: &Path, marker: &Path) {
         .await
         .unwrap();
     assert!(add.success());
-    let _ = tokio::fs::remove_file(marker).await;
+    drop(tokio::fs::remove_file(marker).await);
 }
 
 async fn assert_unborn_repository_status(dir: &Path, marker: &Path) {
@@ -532,7 +532,7 @@ async fn clean_and_process_filters_cannot_spawn_during_inspection() {
 #[tokio::test]
 async fn a_large_status_is_capped_before_numstat() {
     let dir = std::env::temp_dir().join(format!("slopd-git-large-{}", std::process::id()));
-    let _ = tokio::fs::remove_dir_all(&dir).await;
+    drop(tokio::fs::remove_dir_all(&dir).await);
     tokio::fs::create_dir_all(&dir).await.unwrap();
 
     let init = Command::new("git")

@@ -68,7 +68,7 @@ pub(crate) fn state_id_component(state_id: &str) -> Result<&str> {
 pub(crate) fn validate_state_id(state_id: &str) -> Result<()> {
     state_id_component(state_id)?;
     let uuid = Uuid::parse_str(state_id)
-        .map_err(|_| anyhow::anyhow!("Use a canonical UUID for the private-state ID."))?;
+        .map_err(|_error| anyhow::anyhow!("Use a canonical UUID for the private-state ID."))?;
     if uuid.to_string() != state_id {
         bail!("Use a canonical UUID for the private-state ID.");
     }

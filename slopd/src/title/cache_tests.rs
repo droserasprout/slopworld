@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn summary_cache_round_trips_without_storing_the_prompt() {
     let path = std::env::temp_dir().join(format!("slopd-title-cache-{}.toml", std::process::id()));
-    let _ = fs::remove_file(&path);
+    drop(fs::remove_file(&path));
 
     let cache = SummaryCache::load(path.clone());
     cache.insert(
@@ -55,7 +55,7 @@ fn summary_cache_round_trips_without_storing_the_prompt() {
         Some("Fix parser")
     );
     drop(cache);
-    let _ = fs::remove_file(path);
+    drop(fs::remove_file(path));
 }
 
 #[test]
@@ -64,7 +64,7 @@ fn task_cache_insert_preserves_latest_and_evicts_oldest_entry() {
         "slopd-title-task-cache-{}.toml",
         std::process::id()
     ));
-    let _ = fs::remove_file(&path);
+    drop(fs::remove_file(&path));
 
     let cache = SummaryCache::load(path.clone());
     cache.insert(
@@ -96,7 +96,7 @@ fn task_cache_insert_preserves_latest_and_evicts_oldest_entry() {
     );
 
     drop(cache);
-    let _ = fs::remove_file(path);
+    drop(fs::remove_file(path));
 }
 
 fn cache_test_path() -> PathBuf {

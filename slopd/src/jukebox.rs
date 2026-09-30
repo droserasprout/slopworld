@@ -6,7 +6,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::{OnceLock, RwLock};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
 /// Expected request failures and filesystem failures from editing user stations.
@@ -102,7 +102,7 @@ impl Catalog {
     fn load_from(dir: &Path) -> Self {
         let mut catalog = Self::default();
         // Startup keeps valid stations even when another definition is broken.
-        let _ = catalog.merge_dir(dir, false);
+        drop(catalog.merge_dir(dir, false));
         catalog
     }
 
@@ -340,7 +340,11 @@ fn normalize(mut station: Station, path: Option<&Path>) -> Result<Station> {
         }
     }
     if station.default_rate == 0 {
-        station.default_rate = station.streams[0].rate;
+        station.default_rate = station
+            .streams
+            .first()
+            .ok_or_else(|| anyhow!("station must have at least one stream"))?
+            .rate;
     }
     if !rates.contains(&station.default_rate) {
         bail!("default_rate has no matching stream");
@@ -355,7 +359,10 @@ fn cell() -> &'static RwLock<Catalog> {
 }
 
 pub fn catalog() -> Catalog {
-    cell().read().unwrap().clone()
+    cell()
+        .read()
+        .unwrap_or_else(|error| error.into_inner())
+        .clone()
 }
 
 pub fn reload() -> bool {
@@ -366,7 +373,7 @@ pub fn reload() -> bool {
             return false;
         }
     };
-    *cell().write().unwrap() = fresh;
+    *cell().write().unwrap_or_else(|error| error.into_inner()) = fresh;
     true
 }
 

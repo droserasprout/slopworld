@@ -236,7 +236,8 @@ impl crate::tmux::Tmux {
 // A separate one-percent command reaches the endpoint without overflowing its u16
 // multiplication (a single 101-percent command would overflow).
 fn volume_commands(volume: f32) -> String {
-    let percent = (volume.clamp(0.0, 1.0) * 100.0).round() as u32;
+    let percent = u32::try_from(((volume.clamp(0.0, 1.0) * 100.0).round() as i32).clamp(0, 100))
+        .unwrap_or_default();
     let mut commands = format!("voldown 100\nvoldown 1\nvolup {percent}\n");
     if percent == 100 {
         commands.push_str("volup 1\n");
@@ -264,24 +265,33 @@ async fn snapshot(socket: &Path, volume: Option<f32>) -> Result<(bool, Option<St
 
 fn parse_status(line: &str) -> Result<(bool, Option<String>)> {
     let status: serde_json::Value = serde_json::from_str(line)?;
-    let playing = status["mode"].get("Playing").is_some();
-    let title = status["playable"]["title"].as_str().map(|title| {
-        let artists = status["playable"]["artists"]
-            .as_array()
-            .map(|artists| {
-                artists
-                    .iter()
-                    .filter_map(|v| v.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            })
-            .unwrap_or_default();
-        if artists.is_empty() {
-            title.into()
-        } else {
-            format!("{artists} - {title}")
-        }
-    });
+    let playing = status
+        .get("mode")
+        .and_then(|mode| mode.get("Playing"))
+        .is_some();
+    let title = status
+        .get("playable")
+        .and_then(|playable| playable.get("title"))
+        .and_then(serde_json::Value::as_str)
+        .map(|title| {
+            let artists = status
+                .get("playable")
+                .and_then(|playable| playable.get("artists"))
+                .and_then(serde_json::Value::as_array)
+                .map(|artists| {
+                    artists
+                        .iter()
+                        .filter_map(|v| v.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                })
+                .unwrap_or_default();
+            if artists.is_empty() {
+                title.into()
+            } else {
+                format!("{artists} - {title}")
+            }
+        });
     Ok((playing, title))
 }
 

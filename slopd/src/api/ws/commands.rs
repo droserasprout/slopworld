@@ -39,7 +39,7 @@ pub(super) async fn handle_client_msg(
     let operation = async {
         match cm {
             ClientMsg::Redraw { cols, rows } => handle_redraw(m, cap, cols.zip(rows)),
-            ClientMsg::Sub { .. } => unreachable!(),
+            ClientMsg::Sub { .. } => {}
             ClientMsg::Unsub { name } => handle_unsub(name, subs).await,
             ClientMsg::Keys(req) => handle_keys(req, m, cap).await,
             ClientMsg::Resize(req) => handle_resize(req, m, cap).await,
@@ -61,10 +61,12 @@ pub(super) async fn handle_client_msg(
     };
     if shared {
         if let Some(trace) = trace {
-            m.session_read_operation(crate::latency::CURRENT.scope(Some(trace), operation))
-                .await
+            Box::pin(
+                m.session_read_operation(crate::latency::CURRENT.scope(Some(trace), operation)),
+            )
+            .await
         } else {
-            m.session_read_operation(operation).await
+            Box::pin(m.session_read_operation(operation)).await
         }
     } else {
         m.session_operation(operation).await

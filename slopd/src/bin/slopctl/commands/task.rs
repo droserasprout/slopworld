@@ -136,7 +136,7 @@ pub(super) fn parse_task_command(
                 });
             }
             Ok(Command::Inbox {
-                filter: InboxFilter::parse(&args[2..])?,
+                filter: InboxFilter::parse(args.get(2..).unwrap_or_default())?,
             })
         }
         Some("show") => parse_task_show(args, task_id),
@@ -205,7 +205,7 @@ fn parse_task_update(
         return Ok(Command::Help { usage });
     }
     let id = task_id_arg(args, 2, &format!("{name} needs a task id"), task_id)?;
-    let note = (args.len() > 3).then(|| args[3..].join(" "));
+    let note = (args.len() > 3).then(|| args.get(3..).unwrap_or_default().join(" "));
     Ok(Command::Update { action, id, note })
 }
 
@@ -340,7 +340,11 @@ pub(crate) fn wait_for_task(
         }
         // Show progress during long waits without adding diagnostics to the final JSON.
         // Reuse the response instead of making a separate status request.
-        let status = v["task"]["status"].as_str().unwrap();
+        let status = v
+            .get("task")
+            .and_then(|task| task.get("status"))
+            .and_then(Value::as_str)
+            .ok_or_else(|| "task response is missing status".to_string())?;
         if status != reported_status || reported_at.elapsed() >= Duration::from_secs(30) {
             eprintln!(
                 "Waiting for task {id}: {status} ({} s elapsed). The wait is active. Do not poll status separately.",
@@ -419,7 +423,10 @@ pub(super) fn run_prune(
     if json {
         print_json(&v);
     } else {
-        println!("removed {}", v["removed"].as_u64().unwrap_or(0));
+        println!(
+            "removed {}",
+            v.get("removed").and_then(Value::as_u64).unwrap_or(0)
+        );
     }
     Ok(())
 }

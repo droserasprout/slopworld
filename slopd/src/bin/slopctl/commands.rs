@@ -14,7 +14,7 @@ mod worker;
 mod worktree;
 
 use super::http::Endpoint;
-use super::logs::LOGS_USAGE;
+use super::logs::{run_logs, LOGS_USAGE};
 
 pub(crate) use task::{InboxFilter, UpdateAction};
 pub(crate) use worker::{SpawnArgs, WorktreeChoice};
@@ -177,14 +177,15 @@ pub(crate) fn parse_command_with_task_id(
         .first()
         .map(String::as_str)
         .ok_or_else(|| format!("missing command\n\n{USAGE}"))?;
-    if has_help(&args[1..]) {
+    let rest = args.get(1..).unwrap_or_default();
+    if has_help(rest) {
         if let Some(usage) = command_help(command) {
             return Ok(Command::Help { usage });
         }
     }
     match command {
         "logs" => Ok(Command::Logs {
-            args: args[1..].to_vec(),
+            args: rest.to_vec(),
         }),
         "worker" => worker::parse_worker_command(args),
         "worktree" => worktree::parse_worktree(args),
@@ -232,8 +233,11 @@ impl Command {
                     id,
                 },
             ),
-            Self::Help { .. } => unreachable!("help is handled before endpoint load"),
-            Self::Logs { .. } => unreachable!("local commands are dispatched before endpoint load"),
+            Self::Help { usage } => {
+                print!("{usage}");
+                Ok(())
+            }
+            Self::Logs { args } => run_logs(&args, json_output),
             Self::Delegate { to, body } => {
                 task::run_delegate(endpoint, session, json_output, &to, &body)
             }

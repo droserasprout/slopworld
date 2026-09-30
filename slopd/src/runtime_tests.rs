@@ -15,12 +15,12 @@ fn sidecar_config() -> Config {
 #[test]
 fn sidecar_requires_the_published_bind_and_a_token() {
     let mut cfg = sidecar_config();
-    assert!(validate_slopcar_config(&cfg).is_ok());
+    validate_slopcar_config(&cfg).unwrap();
 
     // A non-default port is fine as long as the bind stays the IPv4 wildcard. `slopcar --port`
     // publishes whatever port it seeds, so a sidecar can coexist beside a native daemon.
     cfg.daemon.bind = "0.0.0.0:7718".into();
-    assert!(validate_slopcar_config(&cfg).is_ok());
+    validate_slopcar_config(&cfg).unwrap();
 
     cfg.daemon.bind = "127.0.0.1:7717".into();
     assert!(validate_slopcar_config(&cfg)

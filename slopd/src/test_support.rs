@@ -3,9 +3,9 @@ use std::path::PathBuf;
 
 pub(crate) fn isolated() -> Option<PathBuf> {
     let thread = std::thread::current();
-    let name = thread.name().expect("named test thread");
+    let name = thread.name()?;
     if std::env::var("SLOPD_ISOLATED_TEST").as_deref() == Ok(name) {
-        return Some(PathBuf::from(std::env::var_os("SLOPD_TEST_ROOT").unwrap()));
+        return Some(PathBuf::from(std::env::var_os("SLOPD_TEST_ROOT")?));
     }
     let root = std::env::temp_dir().join(format!("slopd-isolated-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(root.join("cache")).unwrap();

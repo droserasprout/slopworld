@@ -126,7 +126,10 @@ impl DnsConfig {
         {
             bail!("{owner} DNS servers must be unicast IPv4 addresses");
         }
-        if servers.windows(2).any(|pair| pair[0] == pair[1]) {
+        if servers
+            .windows(2)
+            .any(|pair| matches!(pair, [first, second] if first == second))
+        {
             bail!("{owner} DNS servers must be unique");
         }
         Ok(())

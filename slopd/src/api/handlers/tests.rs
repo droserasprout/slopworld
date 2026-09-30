@@ -105,7 +105,7 @@ pub(super) fn highlighter_command_appends_or_expands_the_file() {
         highlighter_argv("tool --file=%s", path).unwrap(),
         ["tool", "--file=/tmp/slopworld/highlight/code file.rs"]
     );
-    assert!(highlighter_argv("   ", path).is_err());
+    highlighter_argv("   ", path).unwrap_err();
 }
 
 #[test]
@@ -117,8 +117,8 @@ pub(super) fn preset_source_and_kind_errors_are_explicit() {
         PresetSource::from_presence(false, false).as_str(),
         "unknown"
     );
-    assert!(parse_kind("sandbox_presets").is_ok());
-    assert!(parse_kind("app_presets").is_ok());
+    parse_kind("sandbox_presets").unwrap();
+    parse_kind("app_presets").unwrap();
     let (status, body) = parse_kind("other").unwrap_err();
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert!(body.0.error.contains("unknown preset kind"));
@@ -310,10 +310,10 @@ pub(super) fn browse_limit_is_bounded() {
 #[test]
 pub(super) fn file_names_are_one_component() {
     assert_eq!(entry_name("note.md").unwrap(), "note.md");
-    assert!(entry_name("").is_err());
-    assert!(entry_name(".").is_err());
-    assert!(entry_name("src/note.md").is_err());
-    assert!(entry_name("src\\note.md").is_err());
+    entry_name("").unwrap_err();
+    entry_name(".").unwrap_err();
+    entry_name("src/note.md").unwrap_err();
+    entry_name("src\\note.md").unwrap_err();
 }
 
 #[test]
@@ -341,7 +341,7 @@ pub(super) fn search_preview_preserves_utf8_boundaries() {
     let preview = search_preview(&text, 1_601);
 
     assert!(preview.contains("test"));
-    assert!(std::str::from_utf8(preview.as_bytes()).is_ok());
+    std::str::from_utf8(preview.as_bytes()).unwrap();
 }
 
 #[test]

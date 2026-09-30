@@ -84,13 +84,13 @@ fn write_ink(out: &mut String, ink: Ink, base: u16) {
     match ink {
         Ink::Unsaid => {}
         Ink::Basic(off) => {
-            let _ = write!(out, ";{}", base + off);
+            write!(out, ";{}", base + off).expect("writing to a String cannot fail");
         }
         Ink::Indexed(i) => {
-            let _ = write!(out, ";{};5;{i}", base + 8);
+            write!(out, ";{};5;{i}", base + 8).expect("writing to a String cannot fail");
         }
         Ink::Rgb(r, g, b) => {
-            let _ = write!(out, ";{};2;{r};{g};{b}", base + 8);
+            write!(out, ";{};2;{r};{g};{b}", base + 8).expect("writing to a String cannot fail");
         }
     }
 }
@@ -119,7 +119,12 @@ pub(super) fn serialize_row(row: &[Slot]) -> String {
     let mut cur_uri: &str = "";
     // Without CHA, the mod advances one column for each emitted character.
     let mut expected = 0usize;
-    for (col, slot) in row[..=last].iter().enumerate() {
+    for (col, slot) in row
+        .get(..=last)
+        .expect("last nonblank slot is within the row")
+        .iter()
+        .enumerate()
+    {
         let (c, marks, pen, uri) = match slot {
             Slot::Spacer => continue,
             Slot::Blank => (' ', None, Pen::default(), ""),
@@ -132,7 +137,7 @@ pub(super) fn serialize_row(row: &[Slot]) -> String {
         };
         if col != expected {
             use std::fmt::Write;
-            let _ = write!(out, "\x1b[{}G", col + 1);
+            write!(out, "\x1b[{}G", col + 1).expect("writing to a String cannot fail");
             expected = col;
         }
         if pen != cur_pen {
@@ -141,7 +146,8 @@ pub(super) fn serialize_row(row: &[Slot]) -> String {
         }
         if uri != cur_uri {
             use std::fmt::Write;
-            let _ = write!(out, "\x1b]8;;{}\x1b\\", safe_uri(uri));
+            write!(out, "\x1b]8;;{}\x1b\\", safe_uri(uri))
+                .expect("writing to a String cannot fail");
             cur_uri = uri;
         }
         if let Some(marks) = marks {
@@ -154,7 +160,8 @@ pub(super) fn serialize_row(row: &[Slot]) -> String {
             } else {
                 1
             };
-            let _ = write!(out, "\x1b[{};{}z", marks.len() + 1, width);
+            write!(out, "\x1b[{};{}z", marks.len() + 1, width)
+                .expect("writing to a String cannot fail");
             out.push(c);
             out.extend(marks);
             expected += width;
@@ -167,7 +174,7 @@ pub(super) fn serialize_row(row: &[Slot]) -> String {
         if matches!(row.get(col + 1), Some(Slot::Spacer)) {
             use std::fmt::Write;
             expected = col + 2;
-            let _ = write!(out, "\x1b[{}G", expected + 1);
+            write!(out, "\x1b[{}G", expected + 1).expect("writing to a String cannot fail");
         }
     }
     if !cur_uri.is_empty() {

@@ -30,7 +30,7 @@ fn activity_cache_round_trips_and_clears() {
     restored.clear("renamed").unwrap();
     restored.flush().unwrap();
     assert!(ActivityCache::load(path.clone()).get("renamed").is_none());
-    let _ = std::fs::remove_file(path);
+    drop(std::fs::remove_file(path));
 }
 
 #[test]
@@ -91,7 +91,7 @@ fn down_clears_an_entry_and_rename_replaces_the_destination() {
     cache.flush().unwrap();
     assert!(ActivityCache::load(path.clone()).get("new").is_none());
 
-    let _ = std::fs::remove_file(path);
+    drop(std::fs::remove_file(path));
 }
 
 #[test]
@@ -107,7 +107,7 @@ fn invalid_and_future_cache_files_are_ignored() {
     .unwrap();
     assert!(ActivityCache::load(path.clone()).get("agent").is_none());
 
-    let _ = std::fs::remove_file(path);
+    drop(std::fs::remove_file(path));
 }
 
 #[test]
@@ -127,7 +127,7 @@ fn burst_writer_keeps_latest_rename_clear_and_flushes_on_drop() {
     assert!(restored.get("removed").is_none());
     assert_eq!(restored.get("final").unwrap().state_since, 1999);
     drop(restored);
-    let _ = std::fs::remove_file(path);
+    drop(std::fs::remove_file(path));
 }
 
 #[test]

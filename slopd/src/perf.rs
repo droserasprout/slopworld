@@ -96,27 +96,24 @@ pub(crate) fn report() -> Option<String> {
     names.sort_unstable();
     let mut line = String::from("perf");
     for name in names {
-        let mut metric = metrics
-            .get(name)
-            .expect("metric name collected from the same map")
-            .samples_us
-            .clone();
+        let mut metric = metrics.get(name)?.samples_us.clone();
         metric.sort_unstable();
         line.push(' ');
         line.push_str(name);
         line.push_str(" calls=");
-        line.push_str(&metrics[name].calls.to_string());
+        let metric_counts = metrics.get(name)?;
+        line.push_str(&metric_counts.calls.to_string());
         line.push_str(" work=");
-        line.push_str(&metrics[name].work.to_string());
+        line.push_str(&metric_counts.work.to_string());
         if !metric.is_empty() {
             line.push_str(" p50_us=");
             line.push_str(&percentile(&metric, 50).to_string());
             line.push_str(" p95_us=");
             line.push_str(&percentile(&metric, 95).to_string());
         }
-        if metrics[name].peak_backlog > 0 {
+        if metric_counts.peak_backlog > 0 {
             line.push_str(" backlog=");
-            line.push_str(&metrics[name].peak_backlog.to_string());
+            line.push_str(&metric_counts.peak_backlog.to_string());
         }
         line.push(';');
     }
@@ -125,7 +122,7 @@ pub(crate) fn report() -> Option<String> {
 
 fn percentile(samples: &[u64], percentile: usize) -> u64 {
     let index = (samples.len() - 1) * percentile / 100;
-    samples[index]
+    samples.get(index).copied().unwrap_or_default()
 }
 
 pub(crate) fn maybe_report() {

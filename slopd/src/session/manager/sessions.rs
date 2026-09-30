@@ -233,7 +233,7 @@ impl Manager {
             }
         }
         if let Some(task) = poll.take() {
-            let _ = task.await;
+            drop(task.await);
         }
 
         let targets = self.host_metadata_targets().await;
@@ -369,7 +369,12 @@ impl Manager {
                     .iter()
                     .position(|x| x.name == name)
                     .ok_or_else(|| anyhow!("no such session: {name}"))?;
-                if cfg.sessions[idx].worker {
+                if cfg
+                    .sessions
+                    .get(idx)
+                    .ok_or_else(|| anyhow!("no such session: {name}"))?
+                    .worker
+                {
                     bail!("Task-owned worker {name} cannot be edited. Retry its task instead.");
                 }
                 if renamed
@@ -386,7 +391,11 @@ impl Manager {
                     bail!("session {} already exists", new_name);
                 }
 
-                let previous = cfg.sessions[idx].clone();
+                let previous = cfg
+                    .sessions
+                    .get(idx)
+                    .ok_or_else(|| anyhow!("no such session: {name}"))?
+                    .clone();
                 s.preserve_selected_snapshots(&previous);
                 check_belongs(cfg, &s)?;
                 s.limits.validate()?;
@@ -399,13 +408,17 @@ impl Manager {
                 // Preserve the agent's private state identity during all edits, including renames.
                 // The protocol does not expose this field and must not permit changes to it.
                 s.state_id = previous.state_id;
-                cfg.sessions[idx] = s.clone();
+                let session = cfg
+                    .sessions
+                    .get_mut(idx)
+                    .ok_or_else(|| anyhow!("no such session: {name}"))?;
+                *session = s.clone();
                 Ok(((), true))
             })
             .await?;
 
         let Some(prepared) = prepared else {
-            unreachable!("session update always changes its candidate")
+            return Ok(());
         };
 
         if tmux_running {

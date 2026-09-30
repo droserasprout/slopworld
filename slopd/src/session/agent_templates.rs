@@ -280,7 +280,11 @@ impl AgentTemplateStore {
             .iter()
             .position(|existing| existing.name == old_name)
             .ok_or_else(|| AgentTemplateError::Missing(old_name.to_string()))?;
-        let actual = self.templates[index].version;
+        let actual = self
+            .templates
+            .get(index)
+            .ok_or_else(|| AgentTemplateError::Missing(old_name.to_string()))?
+            .version;
         if actual != expected_version {
             return Err(AgentTemplateError::Conflict {
                 name: old_name.to_string(),
@@ -295,7 +299,11 @@ impl AgentTemplateStore {
         template.version = self.allocate_version()?;
         validate_template_name(&template.name)?;
         validate_definition(&template)?;
-        self.templates[index] = template.clone();
+        let target = self
+            .templates
+            .get_mut(index)
+            .ok_or_else(|| AgentTemplateError::Missing(old_name.to_string()))?;
+        *target = template.clone();
         self.templates.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(template)
     }
@@ -392,7 +400,10 @@ impl AgentTemplate {
         }
         let mut index = 0;
         while index < selected.len() {
-            if let Some(preset) = effective_table.sandbox(&selected[index]) {
+            let Some(selected_name) = selected.get(index) else {
+                break;
+            };
+            if let Some(preset) = effective_table.sandbox(selected_name) {
                 for required in &preset.requires {
                     if !selected.contains(required) {
                         selected.push(required.clone());

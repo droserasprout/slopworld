@@ -210,12 +210,12 @@ pub(crate) async fn spawn_worker(
             .worktree_base(&from, &project, &q.base)
             .await
             .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-        m.create_worktree(crate::session::WorktreeRequest {
+        Box::pin(m.create_worktree(crate::session::WorktreeRequest {
             project: project.clone(),
             name: q.worktree_name,
             base,
             path: String::new(),
-        })
+        }))
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?
         .id

@@ -167,7 +167,7 @@ async fn supplied_stdin_and_large_outputs_are_drained_concurrently() {
 #[tokio::test]
 async fn timeout_kills_and_reaps_the_child() {
     let marker = std::env::temp_dir().join(format!("slopd-process-timeout-{}", std::process::id()));
-    let _ = fs::remove_file(&marker);
+    drop(fs::remove_file(&marker));
     let marker = marker.to_string_lossy().replace('\'', "'\\''");
     let mut command = Command::new("sh");
     command
@@ -196,6 +196,6 @@ async fn timeout_kills_and_reaps_the_child() {
         .status()
         .unwrap()
         .success();
-    let _ = fs::remove_file(&marker);
+    drop(fs::remove_file(&marker));
     assert!(!alive, "timed-out child was not killed and reaped");
 }

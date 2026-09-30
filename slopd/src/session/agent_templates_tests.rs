@@ -82,7 +82,7 @@ fn sandbox_dependencies_follow_snapshots_instead_of_live_definitions() {
 fn template_store_rejects_duplicate_names() {
     let mut store = AgentTemplateStore::default();
     store.create(template()).unwrap();
-    assert!(store.create(template()).is_err());
+    store.create(template()).unwrap_err();
 }
 
 #[tokio::test]
@@ -105,12 +105,12 @@ async fn template_store_round_trips_its_snapshots() {
         loaded.defaults.sandbox_presets[0].description,
         "Captured sandbox"
     );
-    let _ = std::fs::remove_dir_all(root);
+    drop(std::fs::remove_dir_all(root));
 }
 
 #[test]
 fn legacy_origin_is_rejected() {
-    assert!(toml::from_str::<AgentTemplate>(
+    toml::from_str::<AgentTemplate>(
         r#"
 name = "legacy"
 version = 4
@@ -123,7 +123,7 @@ agent = "old-agent"
 [defaults]
 "#,
     )
-    .is_err());
+    .unwrap_err();
 }
 
 #[tokio::test]
@@ -145,7 +145,7 @@ async fn version_cursor_survives_reload_and_delete_recreate() {
     let mut recreated_store = AgentTemplateStore::load(&path).await.unwrap();
     let recreated = recreated_store.create(template()).unwrap();
     assert!(recreated.version > first.version);
-    let _ = std::fs::remove_dir_all(root);
+    drop(std::fs::remove_dir_all(root));
 }
 
 #[test]
@@ -156,9 +156,9 @@ fn version_tokens_stay_exact_in_json_clients() {
     };
     let last = store.create(template()).unwrap();
     assert_eq!(last.version, MAX_VERSION);
-    assert!(store
+    store
         .replace(&last.name, last.version, last.clone())
-        .is_err());
+        .unwrap_err();
     assert_eq!(store.get(&last.name).unwrap().version, last.version);
 }
 
@@ -176,9 +176,9 @@ async fn edits_survive_restart_and_rejected_renames_preserve_both_definitions() 
     let mut store = AgentTemplateStore::load(&path).await.unwrap();
     let mut draft = original.clone();
     draft.name = "other".into();
-    assert!(store
+    store
         .replace(&original.name, original.version, draft)
-        .is_err());
+        .unwrap_err();
     assert_eq!(store.templates.len(), 2);
     assert_eq!(store.get(&original.name).unwrap().version, original.version);
     let mut draft = original.clone();
@@ -245,7 +245,7 @@ fn capture_rejects_stale_sandbox_references() {
         &project,
         &Config::default(),
     );
-    assert!(result.is_err());
+    result.unwrap_err();
     // A rejected capture leaves the source settings intact.
     assert!(source.sandbox.contains(&"missing-agent-preset".into()));
 }

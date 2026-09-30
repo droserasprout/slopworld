@@ -419,11 +419,13 @@ impl Iterator for Ring {
                     let len = next.len();
                     // Direct test senders do not publish a count. Production always does. Keep
                     // the accounting saturating without adding work to every sample callback.
-                    let _ = self
+                    match self
                         .queued
                         .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
                             Some(n.saturating_sub(len))
-                        });
+                        }) {
+                        Ok(_) | Err(_) => {}
+                    }
                     self.held = next;
                     self.at = 0;
                 }

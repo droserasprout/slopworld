@@ -483,7 +483,7 @@ fn write_user_file(
     valid_name(name)?;
     let _guard = user_write_lock()
         .lock()
-        .map_err(|_| anyhow::anyhow!("preset write lock is poisoned"))?;
+        .map_err(|_error| anyhow::anyhow!("preset write lock is poisoned"))?;
     write_user_file_in(&Table::dir(), kind, name, sandbox, command)
 }
 
@@ -666,7 +666,10 @@ fn cell() -> &'static RwLock<Arc<Table>> {
 /// Keep a shared reference to this table during the call.
 /// This preserves the table if presets reload while a caller builds command arguments.
 pub fn table() -> Arc<Table> {
-    cell().read().unwrap().clone()
+    cell()
+        .read()
+        .unwrap_or_else(|error| error.into_inner())
+        .clone()
 }
 
 pub fn reload() -> bool {
@@ -677,7 +680,7 @@ pub fn reload() -> bool {
             return false;
         }
     };
-    *cell().write().unwrap() = fresh;
+    *cell().write().unwrap_or_else(|error| error.into_inner()) = fresh;
     true
 }
 

@@ -13,6 +13,7 @@ async fn initialization_reconciles_sessions_before_pruning_persisted_credentials
         ("SLOPD_JUKEBOX", root.join("jukebox")),
         ("XDG_RUNTIME_DIR", root.join("runtime")),
     ] {
+        // SAFETY: this isolated current-thread test sets its environment before starting work.
         unsafe {
             std::env::set_var(key, value);
         }
@@ -67,9 +68,11 @@ async fn initialization_reconciles_sessions_before_pruning_persisted_credentials
     assert_eq!(crate::grant::Grants::load(&path).unwrap().count(), 1);
 
     drop(manager);
-    let _ = tokio::process::Command::new("tmux")
-        .args(["-L", &socket, "kill-server"])
-        .output()
-        .await;
+    drop(
+        tokio::process::Command::new("tmux")
+            .args(["-L", &socket, "kill-server"])
+            .output()
+            .await,
+    );
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }

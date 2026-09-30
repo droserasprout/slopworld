@@ -116,7 +116,9 @@ impl ControlLineReceiver {
     // Limit queued transport memory to CONTROL_QUEUE_CHUNKS * CONTROL_QUEUE_CHUNK_BYTES.
     async fn recv(&mut self) -> Option<Vec<u8>> {
         loop {
-            if let Some(offset) = self.pending[self.searched..]
+            if let Some(offset) = self
+                .pending
+                .get(self.searched..)?
                 .iter()
                 .position(|&byte| byte == b'\n')
             {
