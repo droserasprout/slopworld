@@ -12,7 +12,7 @@ mkdir -p "${COVERAGE_DIR}"
 (
     cd slopd
     export LLVM_COV="$(command -v llvm-cov)" LLVM_PROFDATA="$(command -v llvm-profdata)"
-    ${PYTHON} ../tools/test_tmux.py ${CARGO} llvm-cov --no-report
+    ${CARGO} llvm-cov --no-report
     ${CARGO} llvm-cov report --cobertura --output-path "../${COVERAGE_DIR}/rust.cobertura.xml"
     ${CARGO} llvm-cov report --ignore-filename-regex "${RUST_COVERAGE_EXCLUDE}" \
         --cobertura --output-path "../${COVERAGE_DIR}/rust.filtered.cobertura.xml"

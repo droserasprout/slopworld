@@ -26,24 +26,24 @@ It does not read or write environment values.
 | `LC_ALL` | [`slopd/src/api/handlers/files.rs:144`](./slopd/src/api/handlers/files.rs#L144), [`slopd/src/git/mod.rs:91`](./slopd/src/git/mod.rs#L91), [`slopd/src/worktrees/mod.rs:291`](./slopd/src/worktrees/mod.rs#L291) |
 | `LESSUTFCHARDEF` | [`slopd/src/sandbox/bind/mounts.rs:177`](./slopd/src/sandbox/bind/mounts.rs#L177), [`slopd/src/sandbox/mod.rs:46`](./slopd/src/sandbox/mod.rs#L46) |
 | `LOGNAME` | [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16) |
-| `NO_PROXY` | [`slopd/src/test_support.rs:19`](./slopd/src/test_support.rs#L19) |
+| `NO_PROXY` | [`slopd/src/test_support.rs:48`](./slopd/src/test_support.rs#L48) |
 | `OPENROUTER_API_KEY` | [`slopd/src/title/mod.rs:81`](./slopd/src/title/mod.rs#L81), [`slopd/src/usage/providers.rs:243`](./slopd/src/usage/providers.rs#L243) |
 | `OUT_DIR` | [`bench/ipc/rust/src/main.rs:3`](./bench/ipc/rust/src/main.rs#L3), [`slopd/src/shared/mod.rs:10`](./slopd/src/shared/mod.rs#L10) |
 | `PATH` | [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16), [`slopd/src/worktrees/mod.rs:276`](./slopd/src/worktrees/mod.rs#L276), [`slopd/tests/slopctl_logs.rs:29`](./slopd/tests/slopctl_logs.rs#L29) |
 | `PULSE_SERVER` | [`slopd/src/session/manager/music/ncspot.rs:28`](./slopd/src/session/manager/music/ncspot.rs#L28) |
 | `RIMWORLD` | [`notes/core-gotchas.md:7`](./notes/core-gotchas.md#L7), [`notes/core-gotchas.md:8`](./notes/core-gotchas.md#L8) |
 | `SHELL` | [`docs/src/reference/api.md:56`](./docs/src/reference/api.md#L56), [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16), [`slopd/src/sandbox/bind/mounts.rs:215`](./slopd/src/sandbox/bind/mounts.rs#L215), [`slopd/src/sandbox/host.rs:28`](./slopd/src/sandbox/host.rs#L28) |
-| `SLOPD_CACHE` | [`docs/src/guides/project-worktrees.md:107`](./docs/src/guides/project-worktrees.md#L107), [`slopd/src/paths.rs:152`](./slopd/src/paths.rs#L152), [`slopd/src/test_support.rs:17`](./slopd/src/test_support.rs#L17) |
+| `SLOPD_CACHE` | [`docs/src/guides/project-worktrees.md:107`](./docs/src/guides/project-worktrees.md#L107), [`slopd/src/paths.rs:152`](./slopd/src/paths.rs#L152), [`slopd/src/test_support.rs:46`](./slopd/src/test_support.rs#L46) |
 | `SLOPD_CONFIG` | [`slopd/src/config/persistence.rs:77`](./slopd/src/config/persistence.rs#L77) |
 | `SLOPD_CREDITS_URL` | [`slopd/src/usage/providers.rs:28`](./slopd/src/usage/providers.rs#L28) |
 | `SLOPD_ENDPOINT` | [`slopd/src/bin/slopctl/http.rs:27`](./slopd/src/bin/slopctl/http.rs#L27), [`slopd/src/bin/slopworld.rs:174`](./slopd/src/bin/slopworld.rs#L174), [`slopd/src/endpoint.rs:25`](./slopd/src/endpoint.rs#L25), [`slopd/tests/slopctl_logs.rs:32`](./slopd/tests/slopctl_logs.rs#L32) |
 | `SLOPD_GIT_EXEC_TEST_CHILD` | [`slopd/src/api/ws/tests.rs:18`](./slopd/src/api/ws/tests.rs#L18), [`slopd/src/bin/slopctl/format_tests.rs:23`](./slopd/src/bin/slopctl/format_tests.rs#L23), [`slopd/src/git/exec_tests.rs:6`](./slopd/src/git/exec_tests.rs#L6) |
-| `SLOPD_ISOLATED_TEST` | [`slopd/src/test_support.rs:7`](./slopd/src/test_support.rs#L7), [`slopd/src/test_support.rs:14`](./slopd/src/test_support.rs#L14) |
+| `SLOPD_ISOLATED_TEST` | [`slopd/src/test_support.rs:36`](./slopd/src/test_support.rs#L36), [`slopd/src/test_support.rs:43`](./slopd/src/test_support.rs#L43) |
 | `SLOPD_LOG` | [`slopd/slopd.service:12`](./slopd/slopd.service#L12) |
 | `SLOPD_OPENAI_USAGE_URL` | [`slopd/src/usage/providers.rs:32`](./slopd/src/usage/providers.rs#L32) |
 | `SLOPD_RUNTIME` | [`slopd/src/runtime.rs:40`](./slopd/src/runtime.rs#L40), [`slopd/src/runtime.rs:167`](./slopd/src/runtime.rs#L167) |
-| `SLOPD_STATE` | [`slopd/src/test_support.rs:16`](./slopd/src/test_support.rs#L16) |
-| `SLOPD_TEST_ROOT` | [`slopd/src/test_support.rs:15`](./slopd/src/test_support.rs#L15) |
+| `SLOPD_STATE` | [`slopd/src/test_support.rs:45`](./slopd/src/test_support.rs#L45) |
+| `SLOPD_TEST_ROOT` | [`slopd/src/test_support.rs:44`](./slopd/src/test_support.rs#L44) |
 | `SLOPD_TITLE_URL` | [`slopd/src/title/mod.rs:76`](./slopd/src/title/mod.rs#L76) |
 | `SLOPD_TMUX_SOCKET` | [`slopd/src/tmux/mod.rs:25`](./slopd/src/tmux/mod.rs#L25) |
 | `SLOPD_TOKEN` | [`slopd/src/bin/slopctl/http.rs:21`](./slopd/src/bin/slopctl/http.rs#L21), [`slopd/src/sandbox/bind/mounts.rs:233`](./slopd/src/sandbox/bind/mounts.rs#L233) |

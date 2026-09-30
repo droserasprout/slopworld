@@ -1,5 +1,34 @@
-//! Run environment-dependent tests alone so overrides cannot affect parallel tests.
+//! Own isolated test processes and temporary tmux socket lifetimes.
 use std::path::PathBuf;
+
+/// Own the socket directory until every test client and recovery handle is done.
+pub(crate) struct TmuxSocket {
+    pub(crate) path: String,
+    directory: PathBuf,
+}
+
+impl TmuxSocket {
+    pub(crate) fn new() -> Self {
+        let directory = std::env::temp_dir().join(format!("slop-tmux-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&directory).expect("test tmux directory");
+        Self {
+            path: directory.join("socket").to_str().unwrap().to_owned(),
+            directory,
+        }
+    }
+}
+
+impl Drop for TmuxSocket {
+    fn drop(&mut self) {
+        // Stop the server before removing its socket, including after a panic.
+        drop(
+            std::process::Command::new("tmux")
+                .args(["-S", &self.path, "kill-server"])
+                .output(),
+        );
+        drop(std::fs::remove_dir_all(&self.directory));
+    }
+}
 
 pub(crate) fn isolated() -> Option<PathBuf> {
     let thread = std::thread::current();

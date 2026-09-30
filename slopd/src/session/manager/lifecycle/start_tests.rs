@@ -168,6 +168,7 @@ async fn command_waits_for_reader_and_first_screen_is_complete() {
     let socket = format!("slopd-start-{}", uuid::Uuid::new_v4());
     let root = std::env::temp_dir().join(&socket);
     std::fs::create_dir_all(&root).unwrap();
+    let socket = root.join("tmux").to_str().unwrap().to_owned();
     let manager = crate::session::test_manager_with_socket(Config::default(), socket.clone());
     let session = SessionCfg {
         name: "preview".into(),
@@ -235,7 +236,7 @@ async fn command_waits_for_reader_and_first_screen_is_complete() {
     drop(manager.tmux.kill("preview").await);
     drop(
         tokio::process::Command::new("tmux")
-            .args(["-L", &socket, "kill-server"])
+            .args(["-S", &socket, "kill-server"])
             .output()
             .await,
     );

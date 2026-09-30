@@ -191,21 +191,11 @@ async fn stale_input_queues_exit_without_draining_into_replacements() {
 #[tokio::test]
 #[ignore = "isolated tmux throughput diagnostic"]
 async fn benchmark_mixed_input_dispatch() {
-    struct Server(String);
-    impl Drop for Server {
-        fn drop(&mut self) {
-            drop(
-                std::process::Command::new("tmux")
-                    .args(["-L", &self.0, "kill-server"])
-                    .output(),
-            );
-        }
-    }
-    let server = Server(format!("slopd-input-bench-{}", uuid::Uuid::new_v4()));
+    let socket_owner = crate::test_support::TmuxSocket::new();
     let output = tokio::process::Command::new("tmux")
         .args([
-            "-L",
-            &server.0,
+            "-S",
+            &socket_owner.path,
             "-f",
             "/dev/null",
             "new-session",
@@ -222,7 +212,7 @@ async fn benchmark_mixed_input_dispatch() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let tmux = Tmux::new(&server.0);
+    let tmux = Tmux::new(&socket_owner.path);
     for label in ["mixed", "keys"] {
         let events = (0..600)
             .map(|index| {

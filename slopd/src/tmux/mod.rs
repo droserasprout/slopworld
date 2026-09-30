@@ -114,10 +114,19 @@ impl Tmux {
         }
     }
 
+    fn socket_args(&self) -> [&str; 2] {
+        // Test fixtures supply absolute socket paths instead of using the host's
+        // default socket directory. Production keeps its named socket contract.
+        #[cfg(test)]
+        if std::path::Path::new(&self.socket).is_absolute() {
+            return ["-S", &self.socket];
+        }
+        ["-L", &self.socket]
+    }
+
     async fn run(&self, args: &[&str]) -> Result<String> {
         let out = Command::new("tmux")
-            .arg("-L")
-            .arg(&self.socket)
+            .args(self.socket_args())
             .args(args)
             .output()
             .await?;
@@ -572,8 +581,7 @@ impl Tmux {
         let pty = openpty(Some(&ws), None)?;
 
         let child = Command::new("tmux")
-            .arg("-L")
-            .arg(&self.socket)
+            .args(self.socket_args())
             .args(["-C", "attach", "-t", name])
             .stdin(Stdio::from(pty.slave.try_clone()?))
             .stdout(Stdio::from(pty.slave.try_clone()?))
@@ -655,8 +663,7 @@ impl Tmux {
         let buf = format!("slopworld-{name}");
         let target = format!("{name}:.0");
         let mut child = Command::new("tmux")
-            .arg("-L")
-            .arg(&self.socket)
+            .args(self.socket_args())
             .args(["load-buffer", "-b", buf.as_str(), "-"])
             .arg(";")
             .args(["paste-buffer", "-d", "-r", "-p", "-b", &buf, "-t", &target])

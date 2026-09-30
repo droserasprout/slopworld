@@ -4,19 +4,39 @@ use super::{
 };
 
 #[tokio::test]
-async fn emoji_modifier_widths_match_two_cell_sequences() {
-    let socket = format!("slop-emoji-width-{}", uuid::Uuid::new_v4());
-    struct Cleanup(String);
-    impl Drop for Cleanup {
-        fn drop(&mut self) {
-            drop(
-                std::process::Command::new("tmux")
-                    .args(["-L", &self.0, "kill-server"])
-                    .output(),
-            );
-        }
+async fn socket_fixture_stops_its_server_and_removes_its_directory() {
+    for _ in 0..2 {
+        let socket_owner = crate::test_support::TmuxSocket::new();
+        let tmux = super::Tmux::new(&socket_owner.path);
+        let directory = std::path::Path::new(&socket_owner.path)
+            .parent()
+            .unwrap()
+            .to_owned();
+        tmux.run(&[
+            "-f",
+            "/dev/null",
+            "new-session",
+            "-d",
+            "-s",
+            "fixture",
+            "sleep",
+            "60",
+        ])
+        .await
+        .unwrap();
+        assert!(tmux.server_running().await.unwrap());
+
+        drop(socket_owner);
+
+        assert!(!directory.exists());
+        assert!(!tmux.server_running().await.unwrap());
     }
-    let _cleanup = Cleanup(socket.clone());
+}
+
+#[tokio::test]
+async fn emoji_modifier_widths_match_two_cell_sequences() {
+    let socket_owner = crate::test_support::TmuxSocket::new();
+    let socket = socket_owner.path.clone();
     let tmux = super::Tmux::new(&socket);
     tmux.run(&["new-session", "-d", "-s", "bootstrap", "sleep", "60"])
         .await
@@ -62,18 +82,8 @@ async fn emoji_modifier_widths_match_two_cell_sequences() {
 
 #[tokio::test]
 async fn reader_identity_survives_a_new_daemon_tmux_handle() {
-    let socket = format!("slop-reader-{}", uuid::Uuid::new_v4());
-    struct Cleanup(String);
-    impl Drop for Cleanup {
-        fn drop(&mut self) {
-            drop(
-                std::process::Command::new("tmux")
-                    .args(["-L", &self.0, "kill-server"])
-                    .output(),
-            );
-        }
-    }
-    let _cleanup = Cleanup(socket.clone());
+    let socket_owner = crate::test_support::TmuxSocket::new();
+    let socket = socket_owner.path.clone();
     let tmux = super::Tmux::new(&socket);
     tmux.run(&[
         "-f",
@@ -125,7 +135,7 @@ impl Drop for PasteFixture {
     fn drop(&mut self) {
         drop(
             std::process::Command::new("tmux")
-                .args(["-L", &self.socket, "kill-server"])
+                .args(["-S", &self.socket, "kill-server"])
                 .output(),
         );
         drop(std::fs::remove_dir_all(&self.dir));
@@ -148,7 +158,12 @@ async fn paste_follows_the_current_application_mode() {
     );
     let fixture = PasteFixture {
         dir: std::env::temp_dir().join(&id),
-        socket: id,
+        socket: std::env::temp_dir()
+            .join(&id)
+            .join("socket")
+            .to_str()
+            .unwrap()
+            .to_owned(),
     };
     std::fs::create_dir(&fixture.dir).unwrap();
     let payload = "hello λ 🦀\nsecond line\r\n".repeat(4096).into_bytes();
@@ -306,18 +321,8 @@ fn host_metadata_keeps_fields_independent_and_rejects_empty_answers() {
 
 #[tokio::test]
 async fn host_metadata_batch_matches_target_panes_across_windows() {
-    let tmux = super::Tmux::new(format!("slop-metadata-{}", uuid::Uuid::new_v4()));
-    struct Cleanup(super::Tmux);
-    impl Drop for Cleanup {
-        fn drop(&mut self) {
-            drop(
-                std::process::Command::new("tmux")
-                    .args(["-L", &self.0.socket, "kill-server"])
-                    .output(),
-            );
-        }
-    }
-    let _cleanup = Cleanup(tmux.clone());
+    let socket_owner = crate::test_support::TmuxSocket::new();
+    let tmux = super::Tmux::new(&socket_owner.path);
     tmux.run(&[
         "-f",
         "/dev/null",

@@ -69,6 +69,47 @@ exec "$@"
 }
 
 #[tokio::test]
+async fn systemd_startup_preserves_the_explicit_fixture_socket_path() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    mock_tmux(
+        &root,
+        r#"
+case "$3" in
+list-sessions)
+    if [ -f "$TMUX_TEST_LOG.ready" ]; then
+        printf 'no sessions' >&2
+    else
+        printf 'no server running on socket' >&2
+    fi
+    exit 1;;
+start-server) : > "$TMUX_TEST_LOG.ready";;
+esac
+"#,
+    );
+    let runner = root.join("bin/systemd-run");
+    std::fs::write(
+        &runner,
+        r#"#!/bin/sh
+printf '%s\n' "$@" >> "$TMUX_TEST_LOG.systemd"
+while [ "$1" != '--' ]; do shift; done
+shift
+exec "$@"
+"#,
+    )
+    .unwrap();
+    std::fs::set_permissions(runner, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let socket = root.join("socket");
+    Tmux::new(socket.to_str().unwrap())
+        .ensure_server()
+        .await
+        .unwrap();
+    let commands = std::fs::read_to_string(root.join("commands.systemd")).unwrap();
+    assert!(commands.contains(&format!("tmux\n-S\n{}\nstart-server", socket.display())));
+}
+
+#[tokio::test]
 async fn server_check_errors_stop_spawn_before_session_creation() {
     let Some(root) = crate::test_support::isolated() else {
         return;
