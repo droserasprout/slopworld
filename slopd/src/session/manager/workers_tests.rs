@@ -289,7 +289,7 @@ async fn durable_worker_parent_survives_a_daemon_restart() {
     assert!(child.worker.durable);
     assert_eq!(child.worker.parent, "caller");
     assert_eq!(child.worker.task_id, "task-7");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -317,5 +317,5 @@ fn worker_task_uses_caller_as_parent_metadata() {
     let worker = task.worker.unwrap();
     assert_eq!(worker.parent, "caller");
     assert!(!worker.durable);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }

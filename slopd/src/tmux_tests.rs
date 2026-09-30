@@ -9,9 +9,11 @@ async fn emoji_modifier_widths_match_two_cell_sequences() {
     struct Cleanup(String);
     impl Drop for Cleanup {
         fn drop(&mut self) {
-            let _ = std::process::Command::new("tmux")
-                .args(["-L", &self.0, "kill-server"])
-                .output();
+            drop(
+                std::process::Command::new("tmux")
+                    .args(["-L", &self.0, "kill-server"])
+                    .output(),
+            );
         }
     }
     let _cleanup = Cleanup(socket.clone());
@@ -64,9 +66,11 @@ async fn reader_identity_survives_a_new_daemon_tmux_handle() {
     struct Cleanup(String);
     impl Drop for Cleanup {
         fn drop(&mut self) {
-            let _ = std::process::Command::new("tmux")
-                .args(["-L", &self.0, "kill-server"])
-                .output();
+            drop(
+                std::process::Command::new("tmux")
+                    .args(["-L", &self.0, "kill-server"])
+                    .output(),
+            );
         }
     }
     let _cleanup = Cleanup(socket.clone());
@@ -122,10 +126,12 @@ async fn paste_follows_the_current_application_mode() {
     }
     impl Drop for Fixture {
         fn drop(&mut self) {
-            let _ = std::process::Command::new("tmux")
-                .args(["-L", &self.socket, "kill-server"])
-                .output();
-            let _ = std::fs::remove_dir_all(&self.dir);
+            drop(
+                std::process::Command::new("tmux")
+                    .args(["-L", &self.socket, "kill-server"])
+                    .output(),
+            );
+            drop(std::fs::remove_dir_all(&self.dir));
         }
     }
 
@@ -290,9 +296,11 @@ async fn host_metadata_batch_matches_target_panes_across_windows() {
     struct Cleanup(super::Tmux);
     impl Drop for Cleanup {
         fn drop(&mut self) {
-            let _ = std::process::Command::new("tmux")
-                .args(["-L", &self.0.socket, "kill-server"])
-                .output();
+            drop(
+                std::process::Command::new("tmux")
+                    .args(["-L", &self.0.socket, "kill-server"])
+                    .output(),
+            );
         }
     }
     let _cleanup = Cleanup(tmux.clone());

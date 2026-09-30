@@ -34,7 +34,7 @@ async fn reader_metadata_distinguishes_missing_files_from_read_errors() {
     #[cfg(unix)]
     {
         std::os::unix::fs::symlink("loop", dir.join("loop")).unwrap();
-        assert!(reader_stat(&dir.join("loop")).await.is_err());
+        reader_stat(&dir.join("loop")).await.unwrap_err();
     }
 }
 

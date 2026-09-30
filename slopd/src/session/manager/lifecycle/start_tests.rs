@@ -75,7 +75,7 @@ fn directory_preparation_creates_only_temporary_projects_and_rejects_files() {
     let file = root.join("file");
     std::fs::write(&file, "occupied").unwrap();
     project.dir = file.to_string_lossy().into_owned();
-    assert!(prepare_project_dir(&project).is_err());
+    prepare_project_dir(&project).unwrap_err();
     project.temp = true;
     assert!(prepare_project_dir(&project)
         .unwrap_err()
@@ -232,11 +232,13 @@ async fn command_waits_for_reader_and_first_screen_is_complete() {
         Ok(())
     }
     .await;
-    let _ = manager.tmux.kill("preview").await;
-    let _ = tokio::process::Command::new("tmux")
-        .args(["-L", &socket, "kill-server"])
-        .output()
-        .await;
+    drop(manager.tmux.kill("preview").await);
+    drop(
+        tokio::process::Command::new("tmux")
+            .args(["-L", &socket, "kill-server"])
+            .output()
+            .await,
+    );
     std::fs::remove_dir_all(root).unwrap();
     result.unwrap();
 }

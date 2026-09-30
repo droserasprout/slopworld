@@ -14,7 +14,7 @@ async fn missing_template_worker_requests_are_rejected_before_task_creation() {
     let manager = crate::session::test_manager(crate::config::Config::default());
     let mut headers = HeaderMap::new();
     headers.insert(SESSION_HEADER, HeaderValue::from_static(crate::tasks::HOST));
-    let result = spawn_worker(
+    let result = Box::pin(spawn_worker(
         axum::extract::State(manager.clone()),
         Extension(Cap::Root),
         headers,
@@ -22,7 +22,7 @@ async fn missing_template_worker_requests_are_rejected_before_task_creation() {
             body: Some("missing template".into()),
             ..Default::default()
         }),
-    )
+    ))
     .await;
     let Err((status, Proto(body))) = result else {
         panic!("missing template request unexpectedly succeeded");

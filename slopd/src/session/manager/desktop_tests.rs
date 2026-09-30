@@ -42,8 +42,8 @@ fn text_types_include_plain_text_handlers() {
     let entry = parse_desktop_entry("editor.desktop", &path).unwrap();
     assert!(entry.supports("text/x-toml"));
     assert!(!entry.supports("image/png"));
-    let _ = std::fs::remove_file(path);
-    let _ = std::fs::remove_dir(dir);
+    drop(std::fs::remove_file(path));
+    drop(std::fs::remove_dir(dir));
 }
 
 #[test]
@@ -77,7 +77,7 @@ fn desktop_ids_resolve_to_launchable_files() {
     );
     assert!(desktop_file_path_in("../editor.desktop", std::slice::from_ref(&root)).is_none());
 
-    let _ = std::fs::remove_dir_all(root);
+    drop(std::fs::remove_dir_all(root));
 }
 
 #[cfg(unix)]
@@ -96,7 +96,7 @@ fn desktop_scan_does_not_follow_directory_symlinks() {
     collect_desktop_files(&applications, &mut files);
     assert_eq!(files, vec![desktop]);
 
-    let _ = std::fs::remove_dir_all(root);
+    drop(std::fs::remove_dir_all(root));
 }
 
 fn tempfile_path(name: &str) -> std::path::PathBuf {

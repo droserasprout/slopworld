@@ -13,17 +13,21 @@ pub(crate) struct Relocations {
 }
 
 impl Relocations {
-    pub(crate) fn new(store: Store, moves: Vec<(usize, Worktree)>) -> Self {
+    pub(crate) fn new(store: Store, moves: Vec<(usize, Worktree)>) -> Result<Self> {
         let mut candidate = store.clone();
         for (index, destination) in &moves {
-            candidate.worktrees[*index] = destination.clone();
+            let worktree = candidate
+                .worktrees
+                .get_mut(*index)
+                .ok_or_else(|| anyhow!("relocation source disappeared from the catalog"))?;
+            *worktree = destination.clone();
         }
-        Self {
+        Ok(Self {
             original: store,
             candidate,
             moves,
             completed: 0,
-        }
+        })
     }
 
     async fn record_intent(&self, config: &Path) -> Result<()> {
@@ -32,7 +36,10 @@ impl Relocations {
         }
         let mut pending = self.original.clone();
         for (index, destination) in &self.moves {
-            let source = &mut pending.worktrees[*index];
+            let source = pending
+                .worktrees
+                .get_mut(*index)
+                .ok_or_else(|| anyhow!("relocation source disappeared from the catalog"))?;
             source.phase = "relocating".into();
             source.error = format!("Interrupted relocation: inspect {} and {} and repair Git registration before editing the catalog.", source.path, destination.path);
         }
@@ -42,7 +49,11 @@ impl Relocations {
     pub(crate) async fn execute(&mut self, config: &Path) -> Result<()> {
         self.record_intent(config).await?;
         for (index, destination) in &self.moves {
-            let source = &self.original.worktrees[*index];
+            let source = self
+                .original
+                .worktrees
+                .get(*index)
+                .ok_or_else(|| anyhow!("relocation source disappeared from the catalog"))?;
             if let Err(error) = relocate_tree(source, Path::new(&destination.path)).await {
                 // The failed move can itself need manual recovery if Git repair and its rollback fail.
                 // Restore earlier successful moves but retain intent for the whole batch.
@@ -66,12 +77,15 @@ impl Relocations {
 
     async fn restore_completed(&mut self) -> Result<()> {
         while self.completed > 0 {
-            let (index, destination) = &self.moves[self.completed - 1];
-            relocate_tree(
-                destination,
-                Path::new(&self.original.worktrees[*index].path),
-            )
-            .await?;
+            let Some((index, destination)) = self.moves.get(self.completed - 1) else {
+                return Err(anyhow!("completed relocation is missing from its plan"));
+            };
+            let source = self
+                .original
+                .worktrees
+                .get(*index)
+                .ok_or_else(|| anyhow!("relocation source disappeared from the catalog"))?;
+            relocate_tree(destination, Path::new(&source.path)).await?;
             self.completed -= 1;
         }
         Ok(())

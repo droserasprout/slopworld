@@ -31,7 +31,7 @@ impl Manager {
 
     pub(crate) fn invalidate_auth(&self, change: AuthChange) {
         self.auth.generation.fetch_add(1, Ordering::AcqRel);
-        let _ = self.auth.changes.send(change);
+        drop(self.auth.changes.send(change));
     }
 
     pub async fn resolve_cap(&self, presented: Option<&str>) -> Option<crate::grant::Cap> {

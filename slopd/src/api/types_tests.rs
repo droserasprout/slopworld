@@ -71,7 +71,7 @@ fn audio_selection_has_distinct_stop_volume_and_catalog_shapes() {
     match wire {
         ClientMsg::Audio(req) => {
             assert!(req.selection.is_none());
-            assert_eq!(req.volume, 0.5);
+            assert_eq!(req.volume.to_bits(), 0.5_f32.to_bits());
         }
         _ => panic!("expected an audio message"),
     }

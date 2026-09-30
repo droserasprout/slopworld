@@ -25,7 +25,7 @@ struct Scratch(PathBuf);
 
 impl Drop for Scratch {
     fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
+        drop(std::fs::remove_dir_all(&self.0));
     }
 }
 
@@ -73,10 +73,14 @@ fn benchmark_task_size(config: &Path, count: usize) -> Result<()> {
         config.with_file_name("tasks.toml"),
         toml::to_string_pretty(&fixture)?,
     )?;
-    let _ = std::fs::remove_file(config.with_file_name("tasks.journal"));
+    drop(std::fs::remove_file(config.with_file_name("tasks.journal")));
     let snapshot = std::fs::read(config.with_file_name("tasks.toml"))?;
     let mut tasks = Tasks::load(config)?;
-    assert_eq!(tasks.all().len(), count);
+    anyhow::ensure!(
+        tasks.all().len() == count,
+        "seeded {} tasks, expected {count}",
+        tasks.all().len()
+    );
     measure(&format!("task list clone {count} records"), |_| {
         std::hint::black_box(tasks.all()).len()
     });
@@ -86,44 +90,46 @@ fn benchmark_task_size(config: &Path, count: usize) -> Result<()> {
     measure_prepared(
         &format!("task create journal {count} records"),
         || {
-            std::fs::write(config.with_file_name("tasks.toml"), &snapshot).unwrap();
-            let _ = std::fs::remove_file(config.with_file_name("tasks.journal"));
-            Tasks::load(config).unwrap()
+            std::fs::write(config.with_file_name("tasks.toml"), &snapshot)?;
+            drop(std::fs::remove_file(config.with_file_name("tasks.journal")));
+            Tasks::load(config)
         },
         |tasks| {
-            tasks
-                .create_owned(
-                    crate::tasks::Participant {
-                        name: "host".into(),
-                        identity: "host".into(),
-                    },
-                    crate::tasks::Participant {
-                        name: "worker".into(),
-                        identity: "worker".into(),
-                    },
-                    "x".repeat(1024),
-                    None,
-                )
-                .unwrap();
+            tasks.create_owned(
+                crate::tasks::Participant {
+                    name: "host".into(),
+                    identity: "host".into(),
+                },
+                crate::tasks::Participant {
+                    name: "worker".into(),
+                    identity: "worker".into(),
+                },
+                "x".repeat(1024),
+                None,
+            )?;
+            Ok(())
         },
-    );
+    )?;
     measure_prepared(
         &format!("task create snapshot reference {count} records"),
-        || fixture.tasks.clone(),
+        || Ok(fixture.tasks.clone()),
         |tasks| {
-            let mut task = tasks[0].clone();
+            let mut task = tasks
+                .first()
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("task fixture is empty"))?;
             task.id = "new-task".into();
             tasks.push(task);
             crate::paths::write_private_toml(
                 &config.with_file_name("reference.toml"),
-                &toml::to_string_pretty(&TaskFixtureRef { tasks }).unwrap(),
-            )
-            .unwrap();
+                &toml::to_string_pretty(&TaskFixtureRef { tasks })?,
+            )?;
+            Ok(())
         },
-    );
+    )?;
     // Restore the fixture after the independent creation probes.
     std::fs::write(config.with_file_name("tasks.toml"), &snapshot)?;
-    let _ = std::fs::remove_file(config.with_file_name("tasks.journal"));
+    drop(std::fs::remove_file(config.with_file_name("tasks.journal")));
     measure(&format!("task update+save {count} records"), |sample| {
         // Update the first record: history serialization dominates without a long lookup.
         tasks
@@ -148,7 +154,7 @@ fn benchmark_task_restart(config: &Path) -> Result<()> {
             tasks: initial.all(),
         })?,
     )?;
-    let _ = std::fs::remove_file(config.with_file_name("tasks.journal"));
+    drop(std::fs::remove_file(config.with_file_name("tasks.journal")));
     let mut tasks = Tasks::load(config)?;
     for sample in 0..10_000 {
         tasks.update(
@@ -159,25 +165,37 @@ fn benchmark_task_restart(config: &Path) -> Result<()> {
         )?;
     }
     measure("task restart bounded 10000 updates", |_| {
-        Tasks::load(config).unwrap().all().len()
+        Tasks::load(config)
+            .expect("persisted benchmark task fixture loads")
+            .all()
+            .len()
     });
     Ok(())
 }
 
 // Fixed single-operation samples allow seeding outside the timer without growing the catalog
 // throughout calibration. These creation percentiles are per operation, unlike batch probes.
-fn measure_prepared<T>(name: &str, mut prepare: impl FnMut() -> T, mut action: impl FnMut(&mut T)) {
+fn measure_prepared<T>(
+    name: &str,
+    mut prepare: impl FnMut() -> Result<T>,
+    mut action: impl FnMut(&mut T) -> Result<()>,
+) -> Result<()> {
     let mut timings = Vec::new();
     for sample in 0..60 {
-        let mut value = prepare();
+        let mut value = prepare()?;
         let start = std::time::Instant::now();
-        action(&mut value);
+        action(&mut value)?;
         if sample >= 10 {
             timings.push(start.elapsed().as_secs_f64() * 1e6);
         }
     }
     timings.sort_by(f64::total_cmp);
-    println!("{name:<44} p50={:.3} p95={:.3}", timings[24], timings[46]);
+    println!(
+        "{name:<44} p50={:.3} p95={:.3}",
+        timings.get(24).copied().expect("50 measured samples"),
+        timings.get(46).copied().expect("50 measured samples")
+    );
+    Ok(())
 }
 
 fn benchmark_activity(scratch: &Scratch) -> Result<()> {
@@ -202,8 +220,8 @@ fn benchmark_activity(scratch: &Scratch) -> Result<()> {
             |sample| {
                 cache
                     .remember("agent-0", State::Working, sample as u64 + 1_000_000)
-                    .unwrap();
-                cache.flush().unwrap();
+                    .expect("benchmark activity update");
+                cache.flush().expect("benchmark activity flush");
                 sample
             },
         );
@@ -217,9 +235,9 @@ fn benchmark_activity(scratch: &Scratch) -> Result<()> {
                             State::Working,
                             (sample * 32 + update) as u64 + 2_000_000,
                         )
-                        .unwrap();
+                        .expect("benchmark activity update");
                 }
-                cache.flush().unwrap();
+                cache.flush().expect("benchmark activity flush");
                 sample
             },
         );

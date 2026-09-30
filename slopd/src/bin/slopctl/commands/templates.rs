@@ -161,7 +161,11 @@ fn print_template_details(template: &Value) {
     print_template(template);
     println!("version  {}", template["version"].as_u64().unwrap_or(0));
     let defaults = &template["defaults"];
-    let command = defaults["command"]["name"].as_str().unwrap_or("");
+    let command = defaults
+        .get("command")
+        .and_then(|command| command.get("name"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
     let cmd = defaults["cmd"].as_str().unwrap_or("");
     if !command.is_empty() {
         println!("command  {command}");

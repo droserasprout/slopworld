@@ -649,7 +649,10 @@ impl<R: Read> Read for Icy<R> {
         }
         // Never read past the metadata boundary: bytes beyond it are not audio.
         let want = buf.len().min(self.left);
-        let n = self.inner.read(&mut buf[..want])?;
+        let Some(buf) = buf.get_mut(..want) else {
+            return Err(io::Error::other("audio read length exceeds buffer"));
+        };
+        let n = self.inner.read(buf)?;
         self.left -= n;
         Ok(n)
     }
@@ -667,7 +670,7 @@ pub(crate) fn stream_title(raw: &[u8]) -> Option<Option<String>> {
         None => rest.find('\'')?,
     };
 
-    let title = rest[..end].trim();
+    let title = rest.get(..end)?.trim();
     Some(if title.is_empty() {
         None
     } else {

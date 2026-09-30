@@ -96,7 +96,7 @@ fn preset_validation_covers_private_seed_skip_and_shared_paths() {
     let error = validate_preset(&p, &table).unwrap_err().to_string();
     assert!(error.contains("skip path"), "{error}");
 
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]
@@ -169,14 +169,14 @@ fn refused_follows_existing_symlink_parents_before_checking_protected_paths() {
     use std::os::unix::fs::symlink;
 
     let root = std::env::temp_dir().join(format!("slopd-symlink-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
     std::fs::create_dir_all(&root).unwrap();
     let home = dirs::home_dir().expect("home directory");
     let link = root.join("home");
     symlink(home, &link).unwrap();
     let alias = link;
     assert!(refused(&alias.to_string_lossy()).is_some());
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]

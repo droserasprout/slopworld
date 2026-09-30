@@ -325,7 +325,7 @@ fn screens_require_a_live_grant_for_the_named_session() {
     assert!(scope_event(&cap, event.clone()).is_some());
     assert!(scope_event(&scoped(&["other"], Level::Ro), event.clone()).is_none());
     let Cap::Scoped(grant) = cap.clone() else {
-        unreachable!()
+        panic!("test capability must be scoped")
     };
     let mut grants = crate::grant::Grants::default();
     grants.mint(grant);
@@ -522,13 +522,13 @@ async fn subscriptions_filter_frames_and_flush_latest_frames_before_control_even
     let cap = scoped(&["a", "b"], Level::Ro);
     for name in ["a", "b", "secret", "a"] {
         assert!(
-            handle_client_msg(
+            Box::pin(handle_client_msg(
                 ClientMsg::Sub { name: name.into() },
                 &manager,
                 &cap,
                 &socket.tx,
                 &subs
-            )
+            ))
             .await
         );
     }
@@ -582,13 +582,13 @@ async fn subscriptions_filter_frames_and_flush_latest_frames_before_control_even
     assert_eq!(latest.get("a"), Some(&4));
     assert_eq!(latest.get("b"), Some(&5));
     assert!(
-        handle_client_msg(
+        Box::pin(handle_client_msg(
             ClientMsg::Unsub { name: "a".into() },
             &manager,
             &cap,
             &socket.tx,
             &subs
-        )
+        ))
         .await
     );
     assert!(!subs.lock().await.contains_key("a"));
@@ -638,7 +638,7 @@ async fn scroll_replies_keep_request_order_and_skip_missing_or_cancelled_capture
     }
     let cap = scoped(&["a"], Level::Ro);
     let Cap::Scoped(grant) = &cap else {
-        unreachable!()
+        panic!("test capability must be scoped")
     };
     grant
         .revoked
@@ -674,13 +674,11 @@ async fn auth_changes_ignore_unrelated_credentials_but_close_on_revocation_or_lo
     let cap = scoped(&["a"], Level::Ro);
     events.send(AuthChange::RootTokenChanged).unwrap();
     events.send(AuthChange::GrantsRevoked).unwrap();
-    assert!(
-        tokio::time::timeout(Duration::from_millis(20), auth_invalidated(&mut rx, &cap))
-            .await
-            .is_err()
-    );
+    tokio::time::timeout(Duration::from_millis(20), auth_invalidated(&mut rx, &cap))
+        .await
+        .unwrap_err();
     let Cap::Scoped(grant) = &cap else {
-        unreachable!()
+        panic!("test capability must be scoped")
     };
     grant
         .revoked
@@ -747,7 +745,7 @@ async fn frame_pump_stops_when_authority_is_revoked_while_waiting_to_send() {
     .await
     .unwrap();
     let Cap::Scoped(grant) = &cap else {
-        unreachable!()
+        panic!("test capability must be scoped")
     };
     grant
         .revoked

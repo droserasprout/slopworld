@@ -144,7 +144,7 @@ async fn shutdown() {
         Ok(s) => s,
         Err(e) => {
             tracing::warn!("cannot listen for SIGTERM: {e:#}");
-            let _ = tokio::signal::ctrl_c().await;
+            drop(tokio::signal::ctrl_c().await);
             return;
         }
     };

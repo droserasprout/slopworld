@@ -87,7 +87,11 @@ impl Manager {
                         .iter()
                         .position(|w| w.id == id && w.project_id == p.id)
                         .ok_or_else(|| anyhow!("no worktree {id}"))?;
-                    let old = store.worktrees[index].clone();
+                    let old = store
+                        .worktrees
+                        .get(index)
+                        .ok_or_else(|| anyhow!("no worktree {id}"))?
+                        .clone();
                     if !old.managed || old.phase != "ready" {
                         bail!("only ready managed worktrees can be renamed");
                     }
@@ -125,7 +129,7 @@ impl Manager {
                         let mut relocations = crate::worktrees::relocation::Relocations::new(
                             store,
                             vec![(index, updated.clone())],
-                        );
+                        )?;
                         relocations.execute(&manager.cfg_path).await?;
                     }
                     Ok(updated)
@@ -482,13 +486,12 @@ impl Manager {
     pub(crate) async fn create_worktree(self: &Arc<Self>, q: WorktreeRequest) -> Result<Worktree> {
         self.reload_if_changed().await;
         let manager = self.clone();
-        manager
-            .session_read_operation(async {
-                let _lock = manager.worktrees.mutation.lock().await;
-                let prepared = manager.prepare_worktree(&q).await?;
-                manager.finish_worktree_creation(prepared).await
-            })
-            .await
+        Box::pin(manager.session_read_operation(async {
+            let _lock = manager.worktrees.mutation.lock().await;
+            let prepared = manager.prepare_worktree(&q).await?;
+            manager.finish_worktree_creation(prepared).await
+        }))
+        .await
     }
 
     async fn prepare_worktree(&self, q: &WorktreeRequest) -> Result<PreparedWorktree> {
@@ -514,7 +517,7 @@ impl Manager {
         .await?;
         let id = uuid::Uuid::new_v4().to_string();
         let name = if q.name.is_empty() {
-            id[..8].to_string()
+            id.get(..8).unwrap_or(&id).to_string()
         } else {
             q.name.clone()
         };
@@ -608,7 +611,11 @@ impl Manager {
             .err()
             .map(|error| format!("{error:#}"))
             .unwrap_or_default();
-        *store.worktrees.last_mut().unwrap() = worktree.clone();
+        *store
+            .worktrees
+            .last_mut()
+            .ok_or_else(|| anyhow!("created worktree disappeared before publication"))? =
+            worktree.clone();
         store.save(&self.cfg_path).await?;
         self.announce_projects().await;
         if !worktree.error.is_empty() {
@@ -634,11 +641,20 @@ impl Manager {
             let mut store = Store::load(&manager.cfg_path).await?;
             let i = store.worktrees.iter().position(|w| w.id == id && w.project_id == p.id && !p.id.is_empty())
                 .ok_or_else(|| anyhow!("no removable worktree {id}"))?;
-            let w = store.worktrees[i].clone();
+            let w = store
+                .worktrees
+                .get(i)
+                .ok_or_else(|| anyhow!("no removable worktree {id}"))?
+                .clone();
             if w.phase == "relocating" { bail!("Repair the interrupted relocation before removing this worktree: {}", w.error); }
             let users = manager.worktree_attachments(&w).await;
             if !users.is_empty() { bail!("Worktree remains attached to {}. Remove or move these sessions first.", users.join(", ")); }
-            store.worktrees[i].phase = "removing".into(); store.save(&manager.cfg_path).await?;
+            store
+                .worktrees
+                .get_mut(i)
+                .ok_or_else(|| anyhow!("no removable worktree {id}"))?
+                .phase = "removing".into();
+            store.save(&manager.cfg_path).await?;
             let result = async {
                 if !w.managed { return Ok(()); } // Unregister external checkouts. Never delete their files.
                 let path = Path::new(&w.path);
@@ -672,7 +688,21 @@ impl Manager {
             }.await;
             match result {
                 Ok(()) => { store.worktrees.remove(i); store.save(&manager.cfg_path).await?; Ok(()) }
-                Err(e) => { store.worktrees[i].phase = if Path::new(&w.path).is_dir() { "ready" } else { "error" }.into(); store.worktrees[i].error = format!("{e:#}"); store.save(&manager.cfg_path).await?; Err(e) }
+                Err(e) => {
+                    let worktree = store
+                        .worktrees
+                        .get_mut(i)
+                        .ok_or_else(|| anyhow!("no removable worktree {id}"))?;
+                    worktree.phase = if Path::new(&w.path).is_dir() {
+                        "ready"
+                    } else {
+                        "error"
+                    }
+                    .into();
+                    worktree.error = format!("{e:#}");
+                    store.save(&manager.cfg_path).await?;
+                    Err(e)
+                }
             }
         }).await
     }

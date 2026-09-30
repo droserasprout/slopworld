@@ -187,7 +187,7 @@ fn cache_links_preserve_output_and_reject_changed_targets() {
     std::os::unix::fs::symlink(temp.join("other"), &target).unwrap();
     assert!(require_links(&p, &checkout).is_err());
     assert!(reconcile(&p, &checkout).is_err());
-    assert!(remove_links(&p, &checkout).is_err());
+    remove_links(&p, &checkout).unwrap_err();
     assert_eq!(std::fs::read_link(&target).unwrap(), temp.join("other"));
     std::fs::remove_file(&target).unwrap();
     std::os::unix::fs::symlink(&cache_source, &target).unwrap();
@@ -238,5 +238,5 @@ fn absolute_cache_destinations_keep_direct_mounts() {
     assert!(argv.windows(3).any(|args| args[0] == "--bind"
         && args[1] == src.to_string_lossy()
         && args[2] == destination.to_string_lossy()));
-    assert!(std::fs::symlink_metadata(&destination).is_err());
+    std::fs::symlink_metadata(&destination).unwrap_err();
 }

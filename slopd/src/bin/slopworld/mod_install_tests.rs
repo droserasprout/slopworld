@@ -10,7 +10,7 @@ fn scratch(name: &str) -> PathBuf {
         std::process::id(),
         NEXT.fetch_add(1, Ordering::Relaxed)
     ));
-    let _ = fs::remove_dir_all(&path);
+    drop(fs::remove_dir_all(&path));
     fs::create_dir_all(&path).unwrap();
     path
 }
@@ -26,7 +26,7 @@ fn command_dispatch_is_opt_in() {
         try_run(&args(&["mod", "--help"])).unwrap(),
         Some(USAGE.to_string())
     );
-    assert!(try_run(&args(&["mod", "unknown"])).is_err());
+    try_run(&args(&["mod", "unknown"])).unwrap_err();
 }
 
 #[test]
@@ -91,7 +91,7 @@ fn installation_cannot_target_the_source_tree() {
     let nested_source = destination.join("source");
     fs::create_dir_all(&nested_source).unwrap();
     fs::write(nested_source.join("marker"), "keep").unwrap();
-    assert!(install(&nested_source, &source.join("Mods")).is_err());
+    install(&nested_source, &source.join("Mods")).unwrap_err();
     assert_eq!(
         fs::read_to_string(nested_source.join("marker")).unwrap(),
         "keep"

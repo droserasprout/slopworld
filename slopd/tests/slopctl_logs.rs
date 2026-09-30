@@ -11,14 +11,15 @@ struct Fixture(PathBuf);
 impl Fixture {
     fn new() -> Self {
         let path = std::env::temp_dir().join(format!("slopctl-logs-{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir(&path).unwrap();
+        std::fs::create_dir(&path).expect("create log fixture directory");
         Self(path)
     }
 
     fn source(&self, name: &str, script: &str) {
         let path = self.0.join(name);
-        std::fs::write(&path, format!("#!/bin/sh\n{script}\n")).unwrap();
-        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        std::fs::write(&path, format!("#!/bin/sh\n{script}\n")).expect("write log fixture command");
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700))
+            .expect("make log fixture command executable");
     }
 
     fn run(&self, args: &[&str]) -> Output {
@@ -32,13 +33,13 @@ impl Fixture {
             .env_remove("SLOPD_URL")
             .env_remove("SLOPD_TOKEN")
             .output()
-            .unwrap()
+            .expect("run slopctl logs")
     }
 }
 
 impl Drop for Fixture {
     fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
+        drop(std::fs::remove_dir_all(&self.0));
     }
 }
 

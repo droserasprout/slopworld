@@ -11,7 +11,7 @@ fn mock_server(responses: Vec<(u16, &'static str)>) -> (String, thread::JoinHand
     let handle = thread::spawn(move || {
         for (status, response) in responses {
             let (mut stream, _) = listener.accept().expect("accept title request");
-            let _ = read_request(&mut stream);
+            drop(read_request(&mut stream));
             let bytes = response.as_bytes();
             let reason = if status == 200 {
                 "OK"

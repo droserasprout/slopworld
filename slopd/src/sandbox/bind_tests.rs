@@ -526,7 +526,7 @@ fn a_shared_file_lands_on_top_of_the_private_copy_it_sits_in() {
 #[test]
 fn only_a_file_is_ever_shared() {
     let root = std::env::temp_dir().join(format!("slopd-shared-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
     std::fs::create_dir_all(root.join("dir")).unwrap();
     std::fs::write(root.join("creds.json"), "token").unwrap();
 
@@ -567,7 +567,7 @@ fn only_a_file_is_ever_shared() {
         .to_string();
     assert!(error.contains("not a regular file"), "{error}");
 
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 /// The environment is built, not inherited.
 #[test]

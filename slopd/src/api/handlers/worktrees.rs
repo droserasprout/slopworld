@@ -50,7 +50,7 @@ pub(crate) async fn create_worktree(
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     reply(
-        m.create_worktree(q)
+        Box::pin(m.create_worktree(q))
             .await
             .map_err(|e| err(StatusCode::BAD_REQUEST, e))?,
     )

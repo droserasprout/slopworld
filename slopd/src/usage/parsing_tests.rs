@@ -21,9 +21,9 @@ fn reads_the_shape_the_endpoint_speaks() {
     assert!(s.ok);
     assert_eq!(s.windows.len(), 3, "null windows are absent, not zero");
     assert_eq!(s.windows[0].key, "claude_session");
-    assert_eq!(s.windows[0].pct, 52.0);
+    assert_eq!(s.windows[0].pct.to_bits(), 52.0_f32.to_bits());
     assert_eq!(s.windows[1].key, "claude_week");
-    assert_eq!(s.windows[1].pct, 55.0);
+    assert_eq!(s.windows[1].pct.to_bits(), 55.0_f32.to_bits());
     assert!(s.windows[0].resets_in.unwrap() > 0);
 }
 
@@ -37,7 +37,9 @@ fn spend_is_money_and_not_a_rate_limit() {
     assert!(rates
         .clone()
         .all(|w| w.unit == Unit::Pct && w.amount.is_none()));
-    assert!(rates.map(|w| w.pct).all(|p| p != 20.93 && p != 21.0));
+    assert!(rates
+        .map(|w| w.pct.to_bits())
+        .all(|p| p != 20.93_f32.to_bits() && p != 21.0_f32.to_bits()));
 
     let m = s.windows.last().unwrap();
     assert_eq!(m.key, "claude_spend");
@@ -58,7 +60,7 @@ fn spend_without_a_readable_budget_stays_a_percentage() {
     let m = parse(&v, String::new()).windows.pop().unwrap();
     assert_eq!(m.key, "claude_spend");
     assert_eq!(m.unit, Unit::Pct);
-    assert_eq!(m.pct, 21.0);
+    assert_eq!(m.pct.to_bits(), 21.0_f32.to_bits());
     assert!(m.amount.is_none());
 }
 
@@ -94,7 +96,10 @@ fn spend_off_is_not_spend_zero() {
 #[test]
 fn utilization_is_a_percentage_not_a_fraction() {
     let v: Value = serde_json::from_str(r#"{"five_hour":{"utilization":0.8}}"#).unwrap();
-    assert_eq!(parse(&v, String::new()).windows[0].pct, 0.8);
+    assert_eq!(
+        parse(&v, String::new()).windows[0].pct.to_bits(),
+        0.8_f32.to_bits()
+    );
 }
 
 /// Recognize model-specific weekly windows by their key prefix.
@@ -122,7 +127,10 @@ fn per_model_weeks_come_through_named() {
 #[test]
 fn remaining_over_limit_is_inverted() {
     let v: Value = serde_json::from_str(r#"{"seven_day":{"remaining":250,"limit":1000}}"#).unwrap();
-    assert_eq!(parse(&v, String::new()).windows[0].pct, 75.0);
+    assert_eq!(
+        parse(&v, String::new()).windows[0].pct.to_bits(),
+        75.0_f32.to_bits()
+    );
 }
 
 /// Report an unrecognized payload as an error with no usage values.
@@ -194,7 +202,7 @@ fn credits_are_a_balance_in_money() {
     assert_eq!(w.unit, Unit::Usd);
     assert_eq!(w.amount, Some(10.0));
     assert_eq!(w.limit, Some(25.0));
-    assert_eq!(w.pct, 40.0);
+    assert_eq!(w.pct.to_bits(), 40.0_f32.to_bits());
     // Purchased credits have no scheduled reset.
     assert!(w.resets_in.is_none());
 }
@@ -204,7 +212,10 @@ fn credits_are_a_balance_in_money() {
 #[test]
 fn no_credits_is_spent_rather_than_untouched() {
     let v: Value = serde_json::from_str(r#"{"data":{"total_credits":0,"total_usage":0}}"#).unwrap();
-    assert_eq!(parse_credits(&v).windows[0].pct, 100.0);
+    assert_eq!(
+        parse_credits(&v).windows[0].pct.to_bits(),
+        100.0_f32.to_bits()
+    );
 }
 
 #[test]
@@ -235,10 +246,10 @@ fn openai_primary_and_secondary_windows_stay_separate_from_anthropic() {
     assert_eq!(s.plan, "pro");
     assert_eq!(s.windows[0].key, "openai_session");
     assert_eq!(s.windows[0].label, "session");
-    assert_eq!(s.windows[0].pct, 12.5);
+    assert_eq!(s.windows[0].pct.to_bits(), 12.5_f32.to_bits());
     assert_eq!(s.windows[1].key, "openai_week");
     assert_eq!(s.windows[1].label, "weekly");
-    assert_eq!(s.windows[1].pct, 42.0);
+    assert_eq!(s.windows[1].pct.to_bits(), 42.0_f32.to_bits());
     assert!(s.windows.iter().all(|w| w.resets_in.is_some()));
 }
 

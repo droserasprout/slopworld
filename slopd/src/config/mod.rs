@@ -52,12 +52,11 @@ pub fn expand(path: &str) -> String {
 
     let mut out = String::with_capacity(path.len());
     let mut rest = path.as_str();
-    while let Some(at) = rest.find('$') {
-        out.push_str(&rest[..at]);
-        let after = &rest[at + 1..];
+    while let Some((before, after)) = rest.split_once('$') {
+        out.push_str(before);
         let (name, tail) = if let Some(braced) = after.strip_prefix('{') {
-            match braced.find('}') {
-                Some(end) => (&braced[..end], &braced[end + 1..]),
+            match braced.split_once('}') {
+                Some((name, tail)) => (name, tail),
                 None => {
                     out.push('$');
                     rest = after;
@@ -68,7 +67,7 @@ pub fn expand(path: &str) -> String {
             let end = after
                 .find(|c: char| !c.is_ascii_alphanumeric() && c != '_')
                 .unwrap_or(after.len());
-            (&after[..end], &after[end..])
+            after.split_at_checked(end).unwrap_or((after, ""))
         };
         if name.is_empty() {
             out.push('$');

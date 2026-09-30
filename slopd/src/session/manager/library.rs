@@ -114,7 +114,7 @@ impl Manager {
         let (store, planned) = self
             .plan_project_worktree_relocations(name, &old_project, &p)
             .await?;
-        let mut relocations = crate::worktrees::relocation::Relocations::new(store, planned);
+        let mut relocations = crate::worktrees::relocation::Relocations::new(store, planned)?;
         relocations.execute(&self.cfg_path).await?;
         #[cfg(test)]
         {
@@ -131,10 +131,14 @@ impl Manager {
                     .iter()
                     .position(|x| x.name == name)
                     .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
-                if cfg.projects[idx].temp != p.temp {
+                let old_project = cfg
+                    .projects
+                    .get(idx)
+                    .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
+                if old_project.temp != p.temp {
                     bail!("The daemon cannot change project temporary mode after creation.");
                 }
-                p.id = cfg.projects[idx].id.clone();
+                p.id = old_project.id.clone();
                 if p.id.is_empty() {
                     p.id = uuid::Uuid::new_v4().to_string();
                 }
@@ -144,7 +148,11 @@ impl Manager {
                     bail!("project {} already exists", p.name);
                 }
                 let renamed = p.name.clone();
-                cfg.projects[idx] = p;
+                let project = cfg
+                    .projects
+                    .get_mut(idx)
+                    .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
+                *project = p;
                 if renamed != name {
                     for s in cfg.sessions.iter_mut().filter(|s| s.project == name) {
                         s.project = renamed.clone();
@@ -324,7 +332,11 @@ impl Manager {
             if sc.name != name && cfg.library.iter().any(|existing| existing.name == sc.name) {
                 bail!("library item {} already exists", sc.name);
             }
-            cfg.library[idx] = sc.clone();
+            let item = cfg
+                .library
+                .get_mut(idx)
+                .ok_or_else(|| anyhow!("library item {} does not exist", sc.name))?;
+            *item = sc.clone();
             Ok(())
         })
         .await?;
@@ -399,8 +411,11 @@ impl Manager {
         argv: &[String],
         directory: &str,
     ) -> Result<process::BoundedOutput> {
-        let mut command = Command::new(&argv[0]);
-        command.args(&argv[1..]);
+        let (program, arguments) = argv
+            .split_first()
+            .ok_or_else(|| anyhow!("command has no executable"))?;
+        let mut command = Command::new(program);
+        command.args(arguments);
         if !directory.is_empty() {
             command.current_dir(directory);
         }

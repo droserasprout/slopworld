@@ -114,27 +114,29 @@ impl Manager {
         .await
     }
 
-    pub(crate) async fn send_input(tmux: &Tmux, name: &str, item: Input) {
-        let (item, trace) = match item {
-            Input::Traced(item, traces) => {
-                for trace in &traces {
-                    trace.dispatch();
+    pub(crate) async fn send_input(tmux: &Tmux, name: &str, mut item: Input) {
+        let mut traces = Vec::new();
+        let (what, res) = loop {
+            match item {
+                Input::Traced(inner, mut nested) => {
+                    for trace in &nested {
+                        trace.dispatch();
+                    }
+                    traces.append(&mut nested);
+                    item = *inner;
                 }
-                (*item, traces)
-            }
-            other => (other, Vec::new()),
-        };
-        let (what, res) = match item {
-            Input::Traced(..) => unreachable!("trace wrappers are never nested"),
-            Input::Keys { keys, literal } => ("keys", tmux.send_keys(name, &keys, literal).await),
-            Input::Bytes(b) => ("bytes", tmux.send_bytes(name, &b).await),
-            Input::Paste { bytes } => ("paste", tmux.paste_bytes(name, &bytes).await),
-            Input::Gap(d) => {
-                tokio::time::sleep(d).await;
-                return;
+                Input::Keys { keys, literal } => {
+                    break ("keys", tmux.send_keys(name, &keys, literal).await)
+                }
+                Input::Bytes(b) => break ("bytes", tmux.send_bytes(name, &b).await),
+                Input::Paste { bytes } => break ("paste", tmux.paste_bytes(name, &bytes).await),
+                Input::Gap(d) => {
+                    tokio::time::sleep(d).await;
+                    return;
+                }
             }
         };
-        for trace in trace {
+        for trace in traces {
             trace.done(res.is_ok());
         }
         if let Err(e) = res {

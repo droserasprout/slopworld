@@ -184,13 +184,13 @@ fn patches_are_explicit_and_preserve_false_zero_empty_and_escaped_map_keys() {
         "session",
         "daemon",
     ] {
-        assert!(config_patch(wire::ConfigPatch {
+        config_patch(wire::ConfigPatch {
             values: Some(wire::EditableConfig {
                 daemon: Some(wire::Daemon::default()),
                 ..Default::default()
             }),
-            paths: vec![path.into()]
+            paths: vec![path.into()],
         })
-        .is_err());
+        .unwrap_err();
     }
 }

@@ -14,7 +14,7 @@ impl Fixture {
 
 impl Drop for Fixture {
     fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
+        drop(std::fs::remove_dir_all(&self.0));
     }
 }
 
@@ -279,11 +279,11 @@ async fn symlink_mutations_preserve_external_targets_including_dangling_links() 
                 .0
                 .ok
         );
-        assert!(std::fs::symlink_metadata(&link).is_err());
+        std::fs::symlink_metadata(&link).unwrap_err();
         let renamed = fixture.0.join("renamed");
         assert_eq!(std::fs::read_link(&renamed).unwrap(), *target);
         assert!(remove_file(request(&renamed, "", "")).await.unwrap().0.ok);
-        assert!(std::fs::symlink_metadata(&renamed).is_err());
+        std::fs::symlink_metadata(&renamed).unwrap_err();
         assert_eq!(std::fs::read(&file).unwrap(), b"file data");
         assert_eq!(
             std::fs::read(directory.join("child")).unwrap(),

@@ -222,9 +222,10 @@ impl Tmux {
         // Panes inherit this at creation, so it has to be in place before the first
         // session is spawned.
         let limit = crate::tmux::SCROLLBACK_LINES.to_string();
-        self.run(&["set-option", "-g", "history-limit", &limit])
-            .await
-            .ok();
+        drop(
+            self.run(&["set-option", "-g", "history-limit", &limit])
+                .await,
+        );
         self.configure_emoji_widths().await;
     }
 
@@ -258,9 +259,10 @@ impl Tmux {
         // Again here rather than only in ensure_server, which is a no-op against a server
         // someone else already started.
         let limit = crate::tmux::SCROLLBACK_LINES.to_string();
-        self.run(&["set-option", "-g", "history-limit", &limit])
-            .await
-            .ok();
+        drop(
+            self.run(&["set-option", "-g", "history-limit", &limit])
+                .await,
+        );
 
         let cols = cols.to_string();
         let rows = rows.to_string();
@@ -283,12 +285,11 @@ impl Tmux {
         // Without this a detached pane clamps to the size of any later client. `window-size`
         // is a window option, so it wants a window target and the colon - see `resize`.
         let target = format!("{name}:");
-        self.run(&["set-option", "-w", "-t", &target, "window-size", "manual"])
-            .await
-            .ok();
-        self.run(&["set-option", "-t", name, "status", "off"])
-            .await
-            .ok();
+        drop(
+            self.run(&["set-option", "-w", "-t", &target, "window-size", "manual"])
+                .await,
+        );
+        drop(self.run(&["set-option", "-t", name, "status", "off"]).await);
         self.run(&[
             "set-option",
             "-t",
@@ -527,12 +528,14 @@ impl Tmux {
     }
 
     pub async fn clear_activity(&self, name: &str) -> Result<()> {
-        self.run(&["set-option", "-uq", "-t", name, ACTIVITY_STATE])
-            .await
-            .ok();
-        self.run(&["set-option", "-uq", "-t", name, ACTIVITY_SINCE])
-            .await
-            .ok();
+        drop(
+            self.run(&["set-option", "-uq", "-t", name, ACTIVITY_STATE])
+                .await,
+        );
+        drop(
+            self.run(&["set-option", "-uq", "-t", name, ACTIVITY_SINCE])
+                .await,
+        );
         Ok(())
     }
 
@@ -791,7 +794,7 @@ fn parse_host_metadata_rows(mut output: &str) -> Option<HashMap<String, HostMeta
 /// keeps tabs, newlines and colons inside either value from changing where the next field starts.
 fn parse_length_framed_field(input: &str) -> Option<(Option<String>, &str)> {
     let colon = input.find(':')?;
-    let length = input[..colon].parse::<usize>().ok()?;
+    let length = input.get(..colon)?.parse::<usize>().ok()?;
     let value_start = colon + 1;
     let value_end = value_start.checked_add(length)?;
     let value = input.get(value_start..value_end)?;

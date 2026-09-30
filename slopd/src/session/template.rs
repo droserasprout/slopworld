@@ -4,20 +4,24 @@
 pub(super) fn render<'a>(text: &str, mut resolve: impl FnMut(&str) -> Option<&'a str>) -> String {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
-    while let Some(start) = rest.find("{{") {
-        let Some(end_rel) = rest[start + 2..].find("}}") else {
+    while let Some((before, after_open)) = rest.split_once("{{") {
+        out.push_str(before);
+        let Some((raw_key, after_close)) = after_open.split_once("}}") else {
+            out.push_str("{{");
+            out.push_str(after_open);
+            rest = "";
             break;
         };
-        let end = start + 2 + end_rel;
-        out.push_str(&rest[..start]);
-        let key = rest[start + 2..end].trim();
+        let key = raw_key.trim();
         let value = resolve(key);
         if let Some(value) = value {
             out.push_str(value);
         } else {
-            out.push_str(&rest[start..end + 2]);
+            out.push_str("{{");
+            out.push_str(raw_key);
+            out.push_str("}}");
         }
-        rest = &rest[end + 2..];
+        rest = after_close;
     }
     out.push_str(rest);
     out

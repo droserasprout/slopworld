@@ -81,14 +81,16 @@ async fn cleanup_rename_fixture(
 ) {
     for name in names {
         if manager.tmux.exists(name).await {
-            let _ = manager.tmux.kill(name).await;
+            drop(manager.tmux.kill(name).await);
         }
     }
-    let _ = std::process::Command::new("tmux")
-        .args(["-L", socket, "kill-server"])
-        .output();
-    let _ = std::fs::remove_dir_all(root);
-    let _ = std::fs::remove_dir_all(manager.cfg_path.parent().unwrap());
+    drop(
+        std::process::Command::new("tmux")
+            .args(["-L", socket, "kill-server"])
+            .output(),
+    );
+    drop(std::fs::remove_dir_all(root));
+    drop(std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()));
 }
 
 fn replacement(name: &str) -> SessionCfg {
@@ -716,7 +718,10 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
     let archived = entries.iter().find(|s| s.kind == "trash").unwrap();
     assert_eq!(archived.session.as_deref(), Some("old"));
     let fault = crate::paths::fail_writes(&manager.cfg_path);
-    assert!(manager.restore_stored_state(&archived.key).await.is_err());
+    manager
+        .restore_stored_state(&archived.key)
+        .await
+        .unwrap_err();
     assert!(!private.exists());
     assert!(manager.config().await.session("old").is_none());
     assert_eq!(

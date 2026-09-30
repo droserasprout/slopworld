@@ -5,12 +5,24 @@ use std::path::Path;
 use std::process::Command;
 
 #[cfg(target_os = "linux")]
+fn restrict_child(ruleset_fd: std::os::fd::RawFd) -> io::Result<()> {
+    // SAFETY: prctl changes only this child process's state before exec.
+    if unsafe { nix::libc::prctl(nix::libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) } != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    // SAFETY: the callback retains the live ruleset fd; CLOEXEC closes it at exec.
+    if unsafe { nix::libc::syscall(nix::libc::SYS_landlock_restrict_self, ruleset_fd, 0) } < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
 pub(super) fn restrict(command: &mut Command, paths: &[&Path]) -> io::Result<()> {
     use landlock::{
         Access, AccessFs, CompatLevel, Compatible, PathBeneath, PathFd, Ruleset, RulesetAttr,
         RulesetCreatedAttr, ABI,
     };
-    use nix::libc;
     use std::os::fd::{AsRawFd, OwnedFd};
     use std::os::unix::process::CommandExt;
 
@@ -45,17 +57,9 @@ pub(super) fn restrict(command: &mut Command, paths: &[&Path]) -> io::Result<()>
     })?;
     // The crate's restrict_self method is for ordinary process context. Keep the post-fork
     // callback to syscall-only work rather than calling a higher-level Rust builder there.
-    // SAFETY: only prctl and landlock_restrict_self run between fork and exec. The closure retains
-    // the ruleset descriptor. CLOEXEC closes it on exec. This code allocates no memory and takes no locks.
+    // SAFETY: the callback performs only the syscall setup below before exec.
     unsafe {
-        command.pre_exec(move || {
-            if libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0
-                || libc::syscall(libc::SYS_landlock_restrict_self, ruleset.as_raw_fd(), 0) < 0
-            {
-                return Err(io::Error::last_os_error());
-            }
-            Ok(())
-        });
+        command.pre_exec(move || restrict_child(ruleset.as_raw_fd()));
     }
     Ok(())
 }

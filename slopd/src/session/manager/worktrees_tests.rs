@@ -109,32 +109,32 @@ async fn assert_action_scope_rules(
         .await
         .unwrap();
     assert_eq!(Path::new(&cfg.projects[0].dir), tree);
-    assert!(manager
+    manager
         .file_action_command("p", "one", file, "cat {{ absolute_path }}", true)
         .await
-        .is_ok());
-    assert!(manager
+        .unwrap();
+    manager
         .file_action_command("p", "main", file, "pwd", true)
         .await
-        .is_err());
-    assert!(manager
+        .unwrap_err();
+    manager
         .file_action_command(
             "p",
             "one",
             &main.join("file").to_string_lossy(),
             "pwd",
-            true
+            true,
         )
         .await
-        .is_err());
-    assert!(manager
+        .unwrap_err();
+    manager
         .file_action_command("p", "unregistered", file, "pwd", true)
         .await
-        .is_err());
-    assert!(manager
+        .unwrap_err();
+    manager
         .file_action_command("wrong-project", "one", file, "pwd", true)
         .await
-        .is_err());
+        .unwrap_err();
     let output = manager
         .file_action("p", "one", file, "pwd", false)
         .await
@@ -144,27 +144,27 @@ async fn assert_action_scope_rules(
     let outside = root.join("outside");
     std::fs::create_dir(&outside).unwrap();
     std::os::unix::fs::symlink(&outside, tree.join("escape")).unwrap();
-    assert!(manager
+    manager
         .file_action_command(
             "p",
             "one",
             &tree.join("escape/new").to_string_lossy(),
             "pwd",
-            true
+            true,
         )
         .await
-        .is_err());
+        .unwrap_err();
     store.worktrees[0].phase = "removing".into();
     store.save(&manager.cfg_path).await.unwrap();
-    assert!(manager
+    manager
         .file_action_command("p", "one", file, "pwd", true)
         .await
-        .is_err());
+        .unwrap_err();
     store.worktrees[0].phase = "ready".into();
     store.save(&manager.cfg_path).await.unwrap();
     std::fs::remove_dir_all(tree).unwrap();
-    assert!(manager
+    manager
         .file_action_command("p", "one", file, "pwd", true)
         .await
-        .is_err());
+        .unwrap_err();
 }

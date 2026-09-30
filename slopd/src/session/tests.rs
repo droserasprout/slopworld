@@ -258,7 +258,7 @@ fn an_entry_must_have_something_to_send() {
         text: "hello".into(),
         ..errand
     };
-    assert!(check_library_item(&cfg, &fine).is_ok());
+    check_library_item(&cfg, &fine).unwrap();
 }
 
 #[test]
@@ -286,8 +286,8 @@ fn temp_project_names_dodge_both_tables() {
 
 #[test]
 fn rejects_names_tmux_would_read_as_targets() {
-    assert!(check_name("claude").is_ok());
-    assert!(check_name("claude-2").is_ok());
+    check_name("claude").unwrap();
+    check_name("claude-2").unwrap();
     assert!(check_name("").is_err());
     assert!(check_name("two words").is_err());
     assert!(check_name("win:pane").is_err());
@@ -314,7 +314,7 @@ fn json_patch_conversion_rejects_null_and_preserves_nested_values() {
     assert_eq!(value["count"].as_integer(), Some(3));
     assert_eq!(value["nested"][0].as_str(), Some("one"));
     assert_eq!(value["nested"][1].as_bool(), Some(false));
-    assert!(json_to_toml(serde_json::Value::Null).is_err());
+    json_to_toml(serde_json::Value::Null).unwrap_err();
 }
 
 #[test]

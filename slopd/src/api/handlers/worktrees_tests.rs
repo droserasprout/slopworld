@@ -41,7 +41,7 @@ async fn scoped_worktree_requests_cannot_cross_projects_or_register_host_paths()
     )
     .await;
     assert_eq!(result.unwrap_err().0, StatusCode::BAD_REQUEST);
-    let result = create_worktree(
+    let result = Box::pin(create_worktree(
         State(manager.clone()),
         Extension(cap()),
         HeaderMap::new(),
@@ -50,7 +50,7 @@ async fn scoped_worktree_requests_cannot_cross_projects_or_register_host_paths()
             path: Some("/tmp/another-checkout".into()),
             ..Default::default()
         }),
-    )
+    ))
     .await;
     assert_eq!(result.unwrap_err().0, StatusCode::FORBIDDEN);
     assert!(crate::worktrees::Store::load(&manager.cfg_path)

@@ -37,17 +37,17 @@ async fn missing_pane_is_not_evidence_of_a_successful_launch() {
     assert!(view["live"]["pane_pid"].is_null());
     assert_eq!(view["live"]["processes"], json!([]));
     assert_eq!(view["comparison"], "unavailable");
-    assert!(inspect_session(
+    inspect_session(
         &tmux,
         "bad",
         &SessionCfg {
             state_id: "../invalid".into(),
             ..Default::default()
         },
-        false
+        false,
     )
     .await
-    .is_err());
+    .unwrap_err();
 }
 
 #[test]

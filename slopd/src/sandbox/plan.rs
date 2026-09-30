@@ -229,8 +229,11 @@ fn sanitize_environment(args: &[String], secrets: &[String]) -> Vec<String> {
     let mut out = Vec::with_capacity(args.len());
     let mut i = 0;
     while i < args.len() {
-        if args[i] == "--setenv" {
-            out.push(args[i].clone());
+        let Some(arg) = args.get(i) else {
+            break;
+        };
+        if arg == "--setenv" {
+            out.push(arg.clone());
             if let Some(key) = args.get(i + 1) {
                 out.push(redact_known(key, secrets));
             }
@@ -240,7 +243,7 @@ fn sanitize_environment(args: &[String], secrets: &[String]) -> Vec<String> {
             i += 3.min(args.len() - i);
             continue;
         }
-        out.push(sanitize_env_assignment(&args[i], secrets));
+        out.push(sanitize_env_assignment(arg, secrets));
         i += 1;
     }
     out
@@ -257,13 +260,16 @@ fn sanitize_command(args: &[String], secrets: &[String]) -> Vec<String> {
     if args.is_empty() {
         return Vec::new();
     }
-    let first = args[0]
+    let Some(first_arg) = args.first() else {
+        return Vec::new();
+    };
+    let first = first_arg
         .split_once('=')
-        .map(|_| sanitize_env_assignment(&args[0], secrets))
-        .unwrap_or_else(|| redact_known(&args[0], secrets));
+        .map(|_| sanitize_env_assignment(first_arg, secrets))
+        .unwrap_or_else(|| redact_known(first_arg, secrets));
     let mut out = vec![first];
     let mut value_for_sensitive = false;
-    for arg in &args[1..] {
+    for arg in args.iter().skip(1) {
         if value_for_sensitive {
             out.push(REDACTED.into());
             value_for_sensitive = false;

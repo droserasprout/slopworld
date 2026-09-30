@@ -117,14 +117,14 @@ fn seed_emulator(e: &mut SessionEmu, cap: &crate::tmux::Screen, rows: u16) {
             // CUP homes the cursor; SGR 0 resets text attributes before replaying history.
             seed.push_str("\x1b[H\x1b[0m");
             // CRLF starts each captured line in column zero, advancing or scrolling the grid.
-            seed.push_str(&cap.lines[..split].join("\r\n"));
+            seed.push_str(&cap.lines.get(..split).unwrap_or_default().join("\r\n"));
             seed.push_str("\r\n");
         }
         // DECSET 1049 saves the primary cursor and enters a cleared alternate screen.
         seed.push_str("\x1b[?1049h");
-        &cap.lines[split..]
+        cap.lines.get(split..).unwrap_or_default()
     } else {
-        &cap.lines[..]
+        cap.lines.as_slice()
     };
     // Start the visible content at home with default text attributes.
     seed.push_str("\x1b[H\x1b[0m");
@@ -256,7 +256,9 @@ impl Manager {
         };
         finish_reader(replaced_reader);
 
-        let _ = start_tx.send(());
+        if start_tx.send(()).is_err() {
+            return Ok(false);
+        }
         match ready_rx.await {
             Ok(Ok(())) => {
                 self.render_and_broadcast(name, &emu).await;
@@ -291,7 +293,7 @@ impl Manager {
         error: String,
     ) {
         // Release startup before cleanup waits for its session boundary.
-        let _ = ready_tx.send(Err(error));
+        drop(ready_tx.send(Err(error)));
         self.mark_down(name, reader_token).await;
     }
 
@@ -358,7 +360,7 @@ impl Manager {
             }
         };
 
-        let _ = ready_tx.send(Ok(()));
+        drop(ready_tx.send(Ok(())));
         self.run_control_loop(&name, emu, rx, pending).await;
 
         // Reap before mark_down so the client releases the PTY slave.

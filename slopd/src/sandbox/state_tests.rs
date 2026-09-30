@@ -96,9 +96,9 @@ fn restore_rejects_missing_corrupt_and_unsafe_metadata_without_moving_data() {
     let trash = trash_root().join("broken");
     fs::create_dir_all(&trash).unwrap();
     fs::write(trash.join("payload"), "keep").unwrap();
-    assert!(restore_stored_state("broken", &[]).is_err());
+    restore_stored_state("broken", &[]).unwrap_err();
     fs::write(trash.join(TRASH_SESSION), "invalid [toml").unwrap();
-    assert!(restore_stored_state("broken", &[]).is_err());
+    restore_stored_state("broken", &[]).unwrap_err();
     for identity in ["../escape", ".trash", "not-a-uuid"] {
         let mut s = session("broken");
         s.state_id = identity.into();
@@ -119,7 +119,7 @@ fn failed_trash_metadata_write_restores_the_original_tree() {
     let s = session("rollback");
     let live = seed(&s);
     fs::create_dir(live.join(TRASH_SESSION)).unwrap();
-    assert!(trash_state(&s, "reset").is_err());
+    trash_state(&s, "reset").unwrap_err();
     assert_eq!(fs::read(live.join("home/memory")).unwrap(), b"remember me");
     assert_eq!(fs::read_dir(trash_root()).unwrap().count(), 0);
 }
@@ -190,7 +190,7 @@ fn deletion_rejects_owned_state_and_traversal_and_removes_only_requested_orphans
         for kind in ["orphan", "trash"] {
             assert!(delete_stored_state(kind, bad, &sessions).is_err());
         }
-        assert!(restore_stored_state(bad, &sessions).is_err());
+        restore_stored_state(bad, &sessions).unwrap_err();
     }
     assert_eq!(fs::read(live.join("home/memory")).unwrap(), b"remember me");
     let orphan = session("orphan");
@@ -254,7 +254,7 @@ fn inventory_and_deletion_do_not_follow_symlinks() {
             std::os::unix::fs::symlink(&target, &path).unwrap();
             assert_eq!(tree_size(&path), fs::symlink_metadata(&path).unwrap().len());
             delete_stored_state(kind, name, &[]).unwrap();
-            assert!(fs::symlink_metadata(&path).is_err());
+            fs::symlink_metadata(&path).unwrap_err();
             assert_eq!(fs::read(outside.join("keep")).unwrap(), b"external data");
         }
     }

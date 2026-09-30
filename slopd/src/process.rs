@@ -74,8 +74,8 @@ async fn run_bounded_with_input(
     let stderr = child.stderr.take().context("capturing stderr")?;
     let stdin = child.stdin.take();
     if input.is_some() && stdin.is_none() {
-        let _ = child.kill().await;
-        let _ = child.wait().await;
+        drop(child.kill().await);
+        drop(child.wait().await);
         anyhow::bail!("capturing stdin");
     }
 
@@ -110,8 +110,8 @@ async fn run_bounded_with_input(
     match collected {
         Ok(result) => result,
         Err(_) => {
-            let _ = child.kill().await;
-            let _ = child.wait().await;
+            drop(child.kill().await);
+            drop(child.wait().await);
             Err(anyhow::Error::new(TimedOut))
         }
     }
@@ -134,7 +134,7 @@ pub(crate) async fn read_bounded<R: AsyncRead + Unpin>(
         }
         let room = limit.saturating_sub(output.len());
         let take = room.min(read);
-        output.extend_from_slice(&buffer[..take]);
+        output.extend(buffer.iter().take(take).copied());
         if take < read {
             truncated = true;
         }

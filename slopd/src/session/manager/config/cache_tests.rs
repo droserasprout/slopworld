@@ -34,12 +34,12 @@ async fn cache_configuration_removes_only_owned_links() {
     reconcile_cache_links(&path, &configured, &changed)
         .await
         .unwrap();
-    assert!(std::fs::symlink_metadata(&link).is_err());
+    std::fs::symlink_metadata(&link).unwrap_err();
     assert!(source.is_dir());
     std::os::unix::fs::symlink(temp.join("different"), &link).unwrap();
-    assert!(reconcile_cache_links(&path, &configured, &changed)
+    reconcile_cache_links(&path, &configured, &changed)
         .await
-        .is_err());
+        .unwrap_err();
     assert_eq!(std::fs::read_link(&link).unwrap(), temp.join("different"));
 }
 
@@ -73,9 +73,9 @@ async fn failed_reconciliation_restores_removed_links() {
     let mut changed = configured.clone();
     changed.projects[0].mounts[0].to = "occupied".into();
     std::fs::write(checkout.join("occupied"), "keep this file").unwrap();
-    assert!(reconcile_cache_links(&path, &configured, &changed)
+    reconcile_cache_links(&path, &configured, &changed)
         .await
-        .is_err());
+        .unwrap_err();
 
     assert_eq!(
         std::fs::read_link(checkout.join("old-target")).unwrap(),

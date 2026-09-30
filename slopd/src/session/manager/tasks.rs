@@ -2,19 +2,26 @@
 
 use super::super::*;
 use crate::tasks::{Participant, Status, Task, WorkerTask};
+use anyhow::anyhow;
 
 /// Keep synchronous task-file access here with its mutex and store.
 /// The configuration manager and other callers use this owner's typed operations.
 pub(crate) struct TaskStore(std::sync::Mutex<crate::tasks::Tasks>);
 
 impl TaskStore {
+    fn lock(&self) -> Result<std::sync::MutexGuard<'_, crate::tasks::Tasks>> {
+        self.0
+            .lock()
+            .map_err(|error| anyhow!("task store lock poisoned: {error}"))
+    }
+
     pub(crate) fn new(tasks: crate::tasks::Tasks) -> Self {
         Self(std::sync::Mutex::new(tasks))
     }
 
     #[cfg(test)]
     pub(crate) fn create_task(&self, from: String, to: String, body: String) -> Result<Task> {
-        self.0.lock().unwrap().create(from, to, body)
+        self.lock()?.create(from, to, body)
     }
 
     #[cfg(test)]
@@ -26,10 +33,7 @@ impl TaskStore {
         parent: String,
         durable: bool,
     ) -> Result<Task> {
-        self.0
-            .lock()
-            .unwrap()
-            .create_worker(from, to, body, parent, durable)
+        self.lock()?.create_worker(from, to, body, parent, durable)
     }
 
     pub(crate) fn create_owned(
@@ -39,19 +43,25 @@ impl TaskStore {
         body: String,
         worker: Option<WorkerTask>,
     ) -> Result<Task> {
-        self.0.lock().unwrap().create_owned(from, to, body, worker)
+        self.lock()?.create_owned(from, to, body, worker)
     }
 
     pub(crate) fn tasks_for(&self, who: &str) -> Vec<Task> {
-        self.0.lock().unwrap().visible(who)
+        self.0
+            .lock()
+            .expect("task store lock poisoned")
+            .visible(who)
     }
 
     pub(crate) fn all_tasks(&self) -> Vec<Task> {
-        self.0.lock().unwrap().all()
+        self.0.lock().expect("task store lock poisoned").all()
     }
 
     pub(crate) fn task_for(&self, who: &str, id: &str) -> Option<Task> {
-        self.0.lock().unwrap().get(who, id)
+        self.0
+            .lock()
+            .expect("task store lock poisoned")
+            .get(who, id)
     }
 
     pub(crate) fn update_task(
@@ -61,31 +71,31 @@ impl TaskStore {
         status: Status,
         note: Option<String>,
     ) -> Result<Task> {
-        self.0.lock().unwrap().update(who, id, status, note)
+        self.lock()?.update(who, id, status, note)
     }
 
     pub(crate) fn set_task_summary(&self, id: &str, summary: String) -> Result<Option<Task>> {
-        self.0.lock().unwrap().set_summary(id, summary)
+        self.lock()?.set_summary(id, summary)
     }
 
     pub(crate) fn cancel_tasks(&self, who: &str, ids: &[String], force: bool) -> Result<Vec<Task>> {
-        self.0.lock().unwrap().cancel_many(who, ids, force)
+        self.lock()?.cancel_many(who, ids, force)
     }
 
     pub(crate) fn remove_task(&self, who: &str, id: &str, force: bool) -> Result<Task> {
-        self.0.lock().unwrap().remove(who, id, force)
+        self.lock()?.remove(who, id, force)
     }
 
     pub(crate) fn remove_tasks(&self, who: &str, ids: &[String], force: bool) -> Result<usize> {
-        self.0.lock().unwrap().remove_many(who, ids, force)
+        self.lock()?.remove_many(who, ids, force)
     }
 
     pub(crate) fn prune_tasks(&self, who: &str, all: bool) -> Result<usize> {
-        self.0.lock().unwrap().prune(who, all)
+        self.lock()?.prune(who, all)
     }
 
     fn fail_worker(&self, task_id: &str, note: String) -> Result<Option<Task>> {
-        self.0.lock().unwrap().fail_worker(task_id, note)
+        self.lock()?.fail_worker(task_id, note)
     }
 }
 

@@ -164,8 +164,8 @@ fn wide_character_damage_updates_the_spacer_cell() {
     // with the complete grid after writing over the wide character's spacer.
     let mut expected = SessionEmu::new(20, 2);
     expected.feed("你X".as_bytes());
-    let _ = expected.render();
-    let _ = expected.scroll_snapshot(1);
+    drop(expected.render());
+    drop(expected.scroll_snapshot(1));
     expected.feed(b"\x1b[1;2HY");
     let expected_frame = expected.render();
 
@@ -227,7 +227,7 @@ fn resize_and_scroll_force_full_refreshes() {
         .zip(&resized.lines)
         .all(|(old, new)| !Arc::ptr_eq(old, new)));
 
-    let _ = e.scroll_snapshot(1);
+    drop(e.scroll_snapshot(1));
     let after_scroll = e.render();
     assert!(resized
         .lines

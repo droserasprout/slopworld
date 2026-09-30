@@ -241,7 +241,7 @@ impl Drop for Audio {
         // The worker and opener threads hold completion senders, so receiver closure cannot
         // signal that callers are gone. Wake it explicitly when the final public handle drops.
         if Arc::strong_count(&self.inner) == 1 {
-            let _ = self.inner.tx.send(WorkerMsg::Shutdown);
+            drop(self.inner.tx.send(WorkerMsg::Shutdown));
         }
     }
 }
@@ -689,22 +689,22 @@ fn spawn_open(
                 }
                 Err(error) => (Err(error), None),
             };
-            let _ = completion_tx.send(WorkerMsg::Opened {
+            drop(completion_tx.send(WorkerMsg::Opened {
                 source,
                 generation,
                 result,
                 output,
-            });
+            }));
         });
     if let Err(error) = spawned {
         let why = format!("could not start source opener: {error}");
         tracing::warn!("audio: {why}");
-        let _ = tx.send(WorkerMsg::Opened {
+        drop(tx.send(WorkerMsg::Opened {
             source: failure_source,
             generation,
             result: Err(anyhow::Error::msg(why)),
             output: None,
-        });
+        }));
     }
 }
 

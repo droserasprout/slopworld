@@ -366,7 +366,7 @@ struct HighlightTempFile(PathBuf);
 
 impl Drop for HighlightTempFile {
     fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.0);
+        drop(std::fs::remove_file(&self.0));
     }
 }
 
@@ -802,8 +802,8 @@ async fn read_search_record<R: AsyncBufRead + Unpin>(
 }
 
 async fn stop_search_child(child: &mut tokio::process::Child) {
-    let _ = child.kill().await;
-    let _ = child.wait().await;
+    drop(child.kill().await);
+    drop(child.wait().await);
 }
 
 fn search_match(record: &Value) -> Value {

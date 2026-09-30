@@ -272,7 +272,7 @@ impl Grants {
     /// Revoke every grant that a session owns. Save the revocation before returning.
     #[cfg(test)]
     pub fn revoke_grantor(&mut self, grantor: &str) {
-        let _ = self.try_revoke_grantor(grantor);
+        drop(self.try_revoke_grantor(grantor));
     }
 
     pub fn try_revoke_grantor(&mut self, grantor: &str) -> Result<bool> {

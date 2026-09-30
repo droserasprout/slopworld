@@ -57,7 +57,7 @@ async fn concurrent_structured_writes_keep_both_changes() {
     let cfg = manager.config().await;
     assert_eq!(cfg.daemon.title_model, "left-model");
     assert_eq!(cfg.daemon.summary_prompt, "right-prompt");
-    let _ = std::fs::remove_file(manager.cfg_path.clone());
+    drop(std::fs::remove_file(manager.cfg_path.clone()));
 }
 
 #[tokio::test]
@@ -77,7 +77,7 @@ async fn raw_replacement_persists_the_real_token_for_a_redacted_candidate() {
     let persisted = std::fs::read_to_string(&manager.cfg_path).unwrap();
     assert!(persisted.contains("real-root-token"));
     assert!(!persisted.contains(crate::config::TOKEN_REDACTED));
-    let _ = std::fs::remove_file(manager.cfg_path.clone());
+    drop(std::fs::remove_file(manager.cfg_path.clone()));
 }
 
 #[tokio::test]
@@ -107,7 +107,7 @@ async fn json_patch_preserves_omitted_fields_and_redacted_token() {
     assert_eq!(updated.daemon.token, "real-root-token");
     assert_eq!(updated.daemon.summary_prompt, "keep this prompt");
     assert_eq!(updated.daemon.title_min_chars, 42);
-    let _ = std::fs::remove_file(manager.cfg_path.clone());
+    drop(std::fs::remove_file(manager.cfg_path.clone()));
 }
 
 #[tokio::test]
@@ -179,7 +179,7 @@ async fn invalid_config_does_not_consume_its_disk_stamp() {
         Some(failed_stamp)
     );
 
-    let _ = std::fs::remove_file(path);
+    drop(std::fs::remove_file(path));
 }
 
 #[tokio::test]

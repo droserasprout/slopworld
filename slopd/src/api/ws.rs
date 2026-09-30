@@ -190,7 +190,7 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
                 // so direct responses retain the same order as the incoming commands.
                 if matches!(&cm, ClientMsg::Sub { .. })
                     && !scrolls.flush(&tx, &cap).await { break; }
-                if !handle_client_msg(cm, &m, &cap, &tx, &subs).await { break; }
+                if !Box::pin(handle_client_msg(cm, &m, &cap, &tx, &subs)).await { break; }
             }
         }
     }

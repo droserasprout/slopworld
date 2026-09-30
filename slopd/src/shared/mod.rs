@@ -2,7 +2,10 @@
 pub(crate) mod protocol;
 mod serde;
 
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "the protobuf schema includes types used by other consumers"
+)]
 pub(crate) mod wire {
     include!(concat!(env!("OUT_DIR"), "/slopworld.rs"));
 }

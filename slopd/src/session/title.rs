@@ -213,6 +213,14 @@ impl Default for Composer {
 }
 
 impl Composer {
+    fn char_before_cursor(&self) -> Option<char> {
+        self.text.get(..self.cursor)?.last().copied()
+    }
+
+    fn char_at_cursor(&self) -> Option<char> {
+        self.text.get(self.cursor).copied()
+    }
+
     fn ready() -> Self {
         Self {
             certain: true,
@@ -271,11 +279,16 @@ impl Composer {
             }
             "C-k" => self.text.truncate(self.cursor),
             "C-w" => {
-                while self.cursor > 0 && self.text[self.cursor - 1].is_whitespace() {
+                while self.cursor > 0 && self.char_before_cursor().is_some_and(char::is_whitespace)
+                {
                     self.cursor -= 1;
                     self.text.remove(self.cursor);
                 }
-                while self.cursor > 0 && !self.text[self.cursor - 1].is_whitespace() {
+                while self.cursor > 0
+                    && self
+                        .char_before_cursor()
+                        .is_some_and(|ch| !ch.is_whitespace())
+                {
                     self.cursor -= 1;
                     self.text.remove(self.cursor);
                 }
@@ -291,19 +304,27 @@ impl Composer {
     }
 
     fn word_left(&mut self) {
-        while self.cursor > 0 && self.text[self.cursor - 1].is_whitespace() {
+        while self.cursor > 0 && self.char_before_cursor().is_some_and(char::is_whitespace) {
             self.cursor -= 1;
         }
-        while self.cursor > 0 && !self.text[self.cursor - 1].is_whitespace() {
+        while self.cursor > 0
+            && self
+                .char_before_cursor()
+                .is_some_and(|ch| !ch.is_whitespace())
+        {
             self.cursor -= 1;
         }
     }
 
     fn word_right(&mut self) {
-        while self.cursor < self.text.len() && self.text[self.cursor].is_whitespace() {
+        while self.cursor < self.text.len()
+            && self.char_at_cursor().is_some_and(char::is_whitespace)
+        {
             self.cursor += 1;
         }
-        while self.cursor < self.text.len() && !self.text[self.cursor].is_whitespace() {
+        while self.cursor < self.text.len()
+            && self.char_at_cursor().is_some_and(|ch| !ch.is_whitespace())
+        {
             self.cursor += 1;
         }
     }

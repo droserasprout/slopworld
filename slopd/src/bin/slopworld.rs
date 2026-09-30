@@ -91,7 +91,7 @@ fn run() -> Result<ExitCode, String> {
         }
         return Ok(ExitCode::SUCCESS);
     }
-    if args.len() == 1 && args[0] == "--version" {
+    if args.len() == 1 && args.first().is_some_and(|arg| arg == "--version") {
         println!("{}", env!("SLOPWORLD_VERSION"));
         return Ok(ExitCode::SUCCESS);
     }
@@ -165,7 +165,10 @@ fn run() -> Result<ExitCode, String> {
         return Ok(ExitCode::SUCCESS);
     }
 
-    let mut command = Command::new(&argv[0]);
+    let Some(executable) = argv.first() else {
+        return Err("game command is empty".to_string());
+    };
+    let mut command = Command::new(executable);
     if let Some(working_dir) = args.working_dir.as_deref() {
         let working_dir = PathBuf::from(expand(working_dir));
         if !working_dir.is_dir() {
@@ -182,13 +185,13 @@ fn run() -> Result<ExitCode, String> {
         command.env("SLOPD_ENDPOINT", &sidecar.endpoint);
     }
     let status = command
-        .args(&argv[1..])
+        .args(argv.get(1..).unwrap_or_default())
         .status()
-        .map_err(|e| format!("launching {}: {e}", argv[0]))?;
+        .map_err(|e| format!("launching {executable}: {e}"))?;
 
     // Report failure if a signal terminates the game without an exit code.
     Ok(match status.code() {
-        Some(c) => ExitCode::from(c.clamp(0, 255) as u8),
+        Some(c) => ExitCode::from(u8::try_from(c.clamp(0, 255)).unwrap_or(u8::MAX)),
         None => ExitCode::FAILURE,
     })
 }

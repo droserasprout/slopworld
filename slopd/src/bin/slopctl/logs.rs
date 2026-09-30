@@ -124,7 +124,7 @@ fn set_log_selection(
 fn parse_log_lines(value: &str) -> Result<usize, String> {
     let lines = value
         .parse::<usize>()
-        .map_err(|_| format!("--lines is not a positive number: {value}"))?;
+        .map_err(|_error| format!("--lines is not a positive number: {value}"))?;
     if lines == 0 || lines > MAX_LOG_LINES {
         return Err(format!(
             "--lines must be between 1 and {MAX_LOG_LINES}: {value}"
@@ -149,7 +149,7 @@ pub(crate) fn expand_home(value: &str) -> Result<PathBuf, String> {
         return Ok(if value == "~" {
             home
         } else {
-            home.join(&value[2..])
+            home.join(value.strip_prefix("~/").unwrap_or_default())
         });
     }
     Ok(PathBuf::from(value))
@@ -233,8 +233,8 @@ fn run_one_log(source: LogSource, options: LogsOptions, json: bool) -> Result<()
     let stdout = match child.stdout.take() {
         Some(stdout) => stdout,
         None => {
-            let _ = child.kill();
-            let _ = child.wait();
+            drop(child.kill());
+            drop(child.wait());
             return Err(format!("{} logs produced no output pipe", source.name()));
         }
     };
@@ -250,8 +250,8 @@ fn run_one_log(source: LogSource, options: LogsOptions, json: bool) -> Result<()
             Ok(_) => {
                 let line = clean_log_line(std::mem::take(&mut line));
                 if let Err(e) = write_log_line(&mut output, source, &line, false, json) {
-                    let _ = child.kill();
-                    let _ = child.wait();
+                    drop(child.kill());
+                    drop(child.wait());
                     if e.kind() == io::ErrorKind::BrokenPipe {
                         return Ok(());
                     }
@@ -259,16 +259,16 @@ fn run_one_log(source: LogSource, options: LogsOptions, json: bool) -> Result<()
                 }
             }
             Err(e) => {
-                let _ = child.kill();
-                let _ = child.wait();
+                drop(child.kill());
+                drop(child.wait());
                 return Err(format!("reading {} logs: {e}", source.name()));
             }
         }
     }
 
     if let Err(e) = output.flush() {
-        let _ = child.kill();
-        let _ = child.wait();
+        drop(child.kill());
+        drop(child.wait());
         if e.kind() == io::ErrorKind::BrokenPipe {
             return Ok(());
         }
@@ -307,8 +307,8 @@ fn spawn_log_source(
     let stdout = match child.stdout.take() {
         Some(stdout) => stdout,
         None => {
-            let _ = child.kill();
-            let _ = child.wait();
+            drop(child.kill());
+            drop(child.wait());
             return Err(format!("{} logs produced no output pipe", source.name()));
         }
     };
@@ -325,38 +325,38 @@ fn spawn_log_source(
                     let line = clean_log_line(std::mem::take(&mut line));
                     if sender.send(LogEvent::Line(source, line)).is_err() {
                         kill_child(&worker_child);
-                        let _ = wait_child(&worker_child, source);
+                        drop(wait_child(&worker_child, source));
                         return;
                     }
                 }
                 Err(e) => {
                     kill_child(&worker_child);
-                    let _ = wait_child(&worker_child, source);
-                    let _ = sender.send(LogEvent::Finished(
+                    drop(wait_child(&worker_child, source));
+                    drop(sender.send(LogEvent::Finished(
                         source,
                         Err(format!("reading {} logs: {e}", source.name())),
-                    ));
+                    )));
                     return;
                 }
             }
         }
 
         let result = wait_child(&worker_child, source);
-        let _ = sender.send(LogEvent::Finished(source, result));
+        drop(sender.send(LogEvent::Finished(source, result)));
     });
     Ok((child, worker))
 }
 
 fn kill_child(child: &SharedChild) {
     if let Ok(mut child) = child.lock() {
-        let _ = child.kill();
+        drop(child.kill());
     }
 }
 
 fn wait_child(child: &SharedChild, source: LogSource) -> Result<(), String> {
     let status = child
         .lock()
-        .map_err(|_| format!("waiting for {} logs: child lock poisoned", source.name()))?
+        .map_err(|_error| format!("waiting for {} logs: child lock poisoned", source.name()))?
         .wait()
         .map_err(|e| format!("waiting for {} logs: {e}", source.name()))?;
     if status.success() {
@@ -414,7 +414,7 @@ fn run_all_logs(options: LogsOptions, json: bool) -> Result<(), String> {
         }
     }
     for worker in workers {
-        let _ = worker.join();
+        drop(worker.join());
     }
 
     if let Some(error) = output_error {

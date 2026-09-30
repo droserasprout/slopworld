@@ -86,7 +86,7 @@ pub struct Manager {
 impl Manager {
     /// Publish one event with encoding shared across subscribers.
     pub(crate) fn emit(&self, event: Event) {
-        let _ = self.events.send(EventMessage::new(event));
+        drop(self.events.send(EventMessage::new(event)));
     }
 }
 

@@ -50,7 +50,7 @@ pub async fn update_token(path: &Path, token: &str) -> Result<()> {
 }
 
 pub fn remove() {
-    let _ = std::fs::remove_file(path());
+    drop(std::fs::remove_file(path()));
 }
 
 async fn write_endpoint(path: &Path, endpoint: &Endpoint) -> Result<()> {

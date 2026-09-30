@@ -38,13 +38,19 @@ impl InputTrace {
         }
     }
     pub(crate) fn dispatch(&self) {
-        let mut t = self.timing.lock().unwrap();
+        let mut t = self
+            .timing
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
         if t.tmux_us == 0 {
             t.tmux_us = now();
         }
     }
     pub(crate) fn done(&self, ok: bool) {
-        let mut t = self.timing.lock().unwrap();
+        let mut t = self
+            .timing
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
         if ok {
             t.tmux_done_us = now();
         } else {
@@ -70,7 +76,13 @@ impl Pending {
     }
     fn prune(&mut self, run: u64, at: u64) {
         self.entries.retain(|(r, t)| {
-            *r == run && at.saturating_sub(t.timing.lock().unwrap().received_us) < TTL_US
+            *r == run
+                && at.saturating_sub(
+                    t.timing
+                        .lock()
+                        .unwrap_or_else(|error| error.into_inner())
+                        .received_us,
+                ) < TTL_US
         });
     }
     pub(crate) fn capture(&mut self, run: u64, seq: u64, at: u64) -> Vec<InputTiming> {
@@ -78,7 +90,10 @@ impl Pending {
         self.entries
             .iter()
             .filter_map(|(_, trace)| {
-                let mut t = trace.timing.lock().unwrap();
+                let mut t = trace
+                    .timing
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner());
                 // Do not correlate input dispatched while an older capture was being classified.
                 if t.tmux_us == 0 || t.tmux_us > at {
                     return None;

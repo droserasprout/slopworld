@@ -181,9 +181,11 @@ async fn benchmark_mixed_input_dispatch() {
     struct Server(String);
     impl Drop for Server {
         fn drop(&mut self) {
-            let _ = std::process::Command::new("tmux")
-                .args(["-L", &self.0, "kill-server"])
-                .output();
+            drop(
+                std::process::Command::new("tmux")
+                    .args(["-L", &self.0, "kill-server"])
+                    .output(),
+            );
         }
     }
     let server = Server(format!("slopd-input-bench-{}", uuid::Uuid::new_v4()));
@@ -234,7 +236,7 @@ async fn benchmark_mixed_input_dispatch() {
                 Input::Keys { keys, literal } => {
                     tmux.send_keys("sink", &keys, literal).await.unwrap()
                 }
-                _ => unreachable!("diagnostic only creates bytes and keys"),
+                _ => panic!("diagnostic only creates bytes and keys"),
             }
         }
         println!("input dispatch {label}: events=600 commands={commands} elapsed_ms={:.3} events_per_second={:.1}",

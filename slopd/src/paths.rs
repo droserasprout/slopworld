@@ -41,7 +41,7 @@ fn temp_path(path: &Path) -> PathBuf {
 }
 
 fn cleanup_temp(path: &Path) {
-    let _ = std::fs::remove_file(path);
+    drop(std::fs::remove_file(path));
 }
 
 #[cfg(unix)]
@@ -132,7 +132,7 @@ pub async fn write_atomic_async(path: &Path, text: &str, mode: Option<u32>) -> R
     }
     .await;
     if result.is_err() && created {
-        let _ = tokio::fs::remove_file(&tmp).await;
+        drop(tokio::fs::remove_file(&tmp).await);
     }
     result
 }
@@ -210,7 +210,10 @@ impl Drop for WriteFault {
 #[cfg(test)]
 fn check_write_fault(path: &Path) -> Result<()> {
     anyhow::ensure!(
-        !WRITE_FAULTS.lock().unwrap().contains(&path.to_owned()),
+        !WRITE_FAULTS
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .contains(&path.to_owned()),
         "injected persistence failure"
     );
     Ok(())

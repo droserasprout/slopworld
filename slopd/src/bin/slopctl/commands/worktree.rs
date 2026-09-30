@@ -22,7 +22,7 @@ pub(super) fn parse_worktree(args: &[String]) -> Result<Command, String> {
         i += 1;
     }
     while i < args.len() {
-        let flag = &args[i];
+        let flag = args.get(i).ok_or(WORKTREE_USAGE)?;
         i += 1;
         let value = args.get(i).ok_or(WORKTREE_USAGE)?.clone();
         i += 1;
@@ -96,22 +96,31 @@ pub(super) fn run(
     } else if action == "remove" {
         println!("Worktree removed. Branches retained.");
     } else {
-        let rows: Vec<&Value> = value["worktrees"]
-            .as_array()
+        let rows: Vec<&Value> = value
+            .get("worktrees")
+            .and_then(Value::as_array)
             .map(|v| v.iter().collect())
             .unwrap_or_else(|| vec![&value]);
         for w in rows {
             println!(
                 "{}  {}  {}\n  {}",
-                w["id"].as_str().unwrap_or(""),
-                w["name"].as_str().unwrap_or(""),
-                w["branch"].as_str().unwrap_or(""),
-                w["path"].as_str().unwrap_or("")
+                w.get("id").and_then(Value::as_str).unwrap_or(""),
+                w.get("name").and_then(Value::as_str).unwrap_or(""),
+                w.get("branch").and_then(Value::as_str).unwrap_or(""),
+                w.get("path").and_then(Value::as_str).unwrap_or("")
             );
-            if let Some(error) = w["error"].as_str().filter(|s| !s.is_empty()) {
+            if let Some(error) = w
+                .get("error")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+            {
                 println!("  {error}");
             }
-            if let Some(attachments) = w["attachments"].as_array().filter(|v| !v.is_empty()) {
+            if let Some(attachments) = w
+                .get("attachments")
+                .and_then(Value::as_array)
+                .filter(|v| !v.is_empty())
+            {
                 println!(
                     "  attached: {}",
                     attachments

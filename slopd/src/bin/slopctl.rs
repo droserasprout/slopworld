@@ -33,7 +33,8 @@ fn main() -> ExitCode {
 
 fn run() -> Result<(), String> {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
-    if args.is_empty() || matches!(args[0].as_str(), "-h" | "--help" | "help") {
+    let command = args.first().map(String::as_str);
+    if matches!(command, None | Some("-h" | "--help" | "help")) {
         print!("{USAGE}");
         return Ok(());
     }
@@ -44,7 +45,10 @@ fn run() -> Result<(), String> {
         print!("{USAGE}");
         return Ok(());
     }
-    if matches!(args[0].as_str(), "-h" | "--help" | "help") {
+    if matches!(
+        args.first().map(String::as_str),
+        Some("-h" | "--help" | "help")
+    ) {
         print!("{USAGE}");
         return Ok(());
     }

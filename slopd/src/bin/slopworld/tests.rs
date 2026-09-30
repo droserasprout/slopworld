@@ -6,7 +6,7 @@ fn scratch(what: &str) -> PathBuf {
     let n = N.fetch_add(1, Ordering::Relaxed);
     let dir =
         std::env::temp_dir().join(format!("slopworld-test-{}-{what}-{n}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     dir
 }
 
@@ -64,7 +64,7 @@ fn the_window_fix_can_be_disabled() {
 #[test]
 fn an_unknown_long_option_is_a_mistake_rather_than_a_game_argument() {
     let owned = vec!["--profil".to_string(), "/p".to_string()];
-    assert!(parse(&owned).is_err());
+    parse(&owned).unwrap_err();
 }
 
 #[test]
@@ -82,7 +82,7 @@ fn help_is_not_a_run() {
 
 #[test]
 fn a_missing_value_is_refused() {
-    assert!(parse(&["--game".to_string()]).is_err());
+    parse(&["--game".to_string()]).unwrap_err();
 }
 
 #[test]
@@ -125,7 +125,7 @@ fn sidecar_endpoint_is_required_and_must_exist() {
             .endpoint,
         endpoint
     );
-    std::fs::remove_dir_all(root).ok();
+    drop(std::fs::remove_dir_all(root));
 }
 
 #[test]
@@ -138,7 +138,7 @@ fn an_explicit_mac_game_uses_the_app_mods_directory() {
     let (found, mods) = game_target(None, executable.to_str(), None).unwrap();
     assert_eq!(found, executable);
     assert_eq!(mods, app.join("Mods"));
-    std::fs::remove_dir_all(root).ok();
+    drop(std::fs::remove_dir_all(root));
 }
 
 #[test]
@@ -155,7 +155,7 @@ fn seeding_writes_a_marker_and_a_mod_list() {
     for e in EXPANSIONS {
         assert!(xml.contains(e), "{e} is known, so it is never offered");
     }
-    std::fs::remove_dir_all(&p).ok();
+    drop(std::fs::remove_dir_all(&p));
 }
 
 /// Omit the version to prevent the game from resetting a mismatched mod list and enabling every expansion.
@@ -177,7 +177,7 @@ fn seeding_twice_does_not_overwrite_a_list_somebody_edited() {
     );
     seed(&p, true, false).expect("resets");
     assert!(std::fs::read_to_string(&mods).unwrap().contains(SLOPWORLD));
-    std::fs::remove_dir_all(&p).ok();
+    drop(std::fs::remove_dir_all(&p));
 }
 
 #[test]
@@ -196,7 +196,7 @@ fn sidecar_seeding_defaults_to_warm_without_overwriting_settings() {
         std::fs::read_to_string(&settings).unwrap(),
         "uiScheme = \"slopworld\"\n"
     );
-    std::fs::remove_dir_all(&p).ok();
+    drop(std::fs::remove_dir_all(&p));
 }
 
 #[test]
@@ -213,7 +213,7 @@ fn launcher_lock_rejects_a_second_owner_and_reopens_after_drop() {
     drop(first);
     InstanceLock::acquire(&p).expect("the kernel releases the lock after the owner exits");
     if let Some(parent) = p.parent() {
-        std::fs::remove_dir_all(parent).ok();
+        drop(std::fs::remove_dir_all(parent));
     }
 }
 
@@ -225,7 +225,7 @@ fn a_missing_marker_is_put_back() {
     std::fs::remove_file(p.join(MARKER)).expect("removed");
     seed(&p, false, false).expect("seeds again");
     assert!(p.join(MARKER).is_file());
-    std::fs::remove_dir_all(&p).ok();
+    drop(std::fs::remove_dir_all(&p));
 }
 
 #[test]

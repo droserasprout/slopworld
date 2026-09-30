@@ -199,8 +199,18 @@ impl Manager {
     pub(super) async fn reload_if_stale(self: &Arc<Self>) {
         let disk = disk_mtime(&self.cfg_path).await;
         let library = Config::library_stamp_for(&self.cfg_path);
-        let stale = *self.config_state.cfg_mtime.lock().unwrap() != disk
-            || *self.config_state.library_mtime.lock().unwrap() != library;
+        let stale = *self
+            .config_state
+            .cfg_mtime
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            != disk
+            || *self
+                .config_state
+                .library_mtime
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                != library;
         if stale {
             self.reload_if_changed().await;
         }
@@ -212,8 +222,16 @@ impl Manager {
         let disk = disk_mtime(&self.cfg_path).await;
         let library_disk = Config::library_stamp_for(&self.cfg_path);
         {
-            let cfg_seen = self.config_state.cfg_mtime.lock().unwrap();
-            let library_seen = self.config_state.library_mtime.lock().unwrap();
+            let cfg_seen = self
+                .config_state
+                .cfg_mtime
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            let library_seen = self
+                .config_state
+                .library_mtime
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
             if *cfg_seen == disk && *library_seen == library_disk {
                 return false;
             }
@@ -245,8 +263,16 @@ impl Manager {
         tracing::info!("config changed on disk, reloading");
         let endpoint_token = self.publish_config(change).await;
         // Record disk stamps only after accepted contents are visible in memory.
-        *self.config_state.cfg_mtime.lock().unwrap() = disk;
-        *self.config_state.library_mtime.lock().unwrap() = library_disk;
+        *self
+            .config_state
+            .cfg_mtime
+            .lock()
+            .unwrap_or_else(|error| error.into_inner()) = disk;
+        *self
+            .config_state
+            .library_mtime
+            .lock()
+            .unwrap_or_else(|error| error.into_inner()) = library_disk;
         self.update_endpoint(&endpoint_token).await;
         drop(persist);
         self.finish_config_change(ConfigRefresh::DiskReload).await;
@@ -268,9 +294,16 @@ impl Manager {
     }
 
     async fn mark_cfg_mtime(&self) {
-        *self.config_state.cfg_mtime.lock().unwrap() = disk_mtime(&self.cfg_path).await;
-        *self.config_state.library_mtime.lock().unwrap() =
-            Config::library_stamp_for(&self.cfg_path);
+        *self
+            .config_state
+            .cfg_mtime
+            .lock()
+            .unwrap_or_else(|error| error.into_inner()) = disk_mtime(&self.cfg_path).await;
+        *self
+            .config_state
+            .library_mtime
+            .lock()
+            .unwrap_or_else(|error| error.into_inner()) = Config::library_stamp_for(&self.cfg_path);
     }
 
     async fn publish_config(&self, change: ConfigChange) -> String {

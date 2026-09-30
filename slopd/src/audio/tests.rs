@@ -526,7 +526,7 @@ fn cancelling_an_active_body_terminates_read_exact() {
     let (done_tx, done_rx) = std::sync::mpsc::channel();
     let reader = std::thread::spawn(move || {
         let result = body.read_exact(&mut [0u8; 1]);
-        let _ = done_tx.send(result);
+        drop(done_tx.send(result));
     });
     // Bound the test: Interrupted used to retry forever even after the socket closed.
     let result = done_rx.recv_timeout(Duration::from_secs(2));

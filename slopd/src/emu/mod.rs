@@ -482,12 +482,16 @@ impl SessionEmu {
             if row < 0 || col >= cols {
                 continue;
             }
-            let row = row as usize;
+            let Ok(row) = usize::try_from(row) else {
+                continue;
+            };
             if row >= rows {
                 continue;
             }
             let cell = ind.cell;
-            grid[row][col] = slot_from_cell(cell);
+            if let Some(slot) = grid.get_mut(row).and_then(|line| line.get_mut(col)) {
+                *slot = slot_from_cell(cell);
+            }
         }
         grid
     }
@@ -536,11 +540,14 @@ impl SessionEmu {
             || cursor.shape == CursorShape::Hidden
             || !mode.contains(TermMode::SHOW_CURSOR)
             || crow < 0
-            || crow as usize >= rows;
+            || usize::try_from(crow).map_or(true, |crow| crow >= rows);
         let (cx, cy) = if hidden {
             (0u16, self.rows)
         } else {
-            (cursor.point.column.0 as u16, crow as u16)
+            (
+                cursor.point.column.0 as u16,
+                u16::try_from(crow).unwrap_or_default(),
+            )
         };
 
         let cursor_shape = match cursor.shape {
@@ -597,9 +604,25 @@ impl SessionEmu {
                 cells_inspected += 1;
                 let point = Point::new(Line(row as i32 - display_offset as i32), Column(col));
                 let current = slot_from_cell(&self.term.grid()[point]);
-                if self.render_cache.cells[row][col] != current {
-                    self.render_cache.cells[row][col] = current;
-                    changed[row] = true;
+                let Some(cached_row) = self.render_cache.cells.get_mut(row) else {
+                    self.render_cache.invalidate();
+                    break;
+                };
+                let Some(cached_cell) = cached_row.get_mut(col) else {
+                    self.render_cache.invalidate();
+                    break;
+                };
+                if *cached_cell != current {
+                    *cached_cell = current;
+                    if let Some(row_changed) = changed.get_mut(row) {
+                        *row_changed = true;
+                    } else {
+                        self.render_cache.invalidate();
+                        break;
+                    }
+                }
+                if !self.render_cache.valid {
+                    break;
                 }
             }
         }
@@ -607,14 +630,23 @@ impl SessionEmu {
             crate::perf::count("frame-full-renders", 1);
             serialized_rows += self.rebuild_render_cache(display_offset, alt_screen);
         } else {
-            for (row, changed) in changed.into_iter().enumerate() {
-                if changed {
-                    let line: Arc<str> = Arc::from(serialize_row(&self.render_cache.cells[row]));
+            for (((row_changed, cells), row_hash), (activity_hash, cached_line)) in changed
+                .into_iter()
+                .zip(&self.render_cache.cells)
+                .zip(&mut self.render_cache.row_hashes)
+                .zip(
+                    self.render_cache
+                        .activity_row_hashes
+                        .iter_mut()
+                        .zip(&mut self.render_cache.lines),
+                )
+            {
+                if row_changed {
+                    let line: Arc<str> = Arc::from(serialize_row(cells));
                     serialized_rows += 1;
-                    self.render_cache.row_hashes[row] = hash_row(&line);
-                    self.render_cache.activity_row_hashes[row] =
-                        activity_row_hash(&self.render_cache.cells[row]);
-                    self.render_cache.lines[row] = line;
+                    *row_hash = hash_row(&line);
+                    *activity_hash = activity_row_hash(cells);
+                    *cached_line = line;
                 }
             }
             self.render_cache.content_hash = hash_rows(&self.render_cache.row_hashes);

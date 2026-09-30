@@ -70,11 +70,9 @@ async fn control_line_receiver_resumes_long_line_after_cancelled_recv() {
     }
 
     // Like the control loop's timer branch, cancel recv while a partial line is pending.
-    assert!(
-        tokio::time::timeout(Duration::from_millis(10), lines.recv())
-            .await
-            .is_err()
-    );
+    tokio::time::timeout(Duration::from_millis(10), lines.recv())
+        .await
+        .unwrap_err();
     assert_eq!(lines.pending.len(), 3 * CONTROL_QUEUE_CHUNK_BYTES);
     assert_eq!(lines.searched, lines.pending.len());
 

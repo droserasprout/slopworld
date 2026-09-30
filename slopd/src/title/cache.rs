@@ -246,7 +246,7 @@ impl Drop for SummaryCache {
             self.shared.1.notify_all();
         }
         if let Some(writer) = self.writer.take() {
-            let _ = writer.join();
+            drop(writer.join());
         }
     }
 }

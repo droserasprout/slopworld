@@ -11,11 +11,10 @@ fn task_owner_preserves_visibility_authority_and_durable_mutations() {
     assert_eq!(m.tasks.tasks_for("recipient").len(), 1);
     assert!(m.tasks.tasks_for("stranger").is_empty());
     assert!(m.tasks.task_for("stranger", &task.id).is_none());
-    assert!(m
-        .tasks
+    m.tasks
         .update_task("sender", &task.id, Status::Accepted, None)
-        .is_err());
-    assert!(m.tasks.remove_task("sender", &task.id, false).is_err());
+        .unwrap_err();
+    m.tasks.remove_task("sender", &task.id, false).unwrap_err();
     let accepted = m
         .tasks
         .update_task(
@@ -27,10 +26,9 @@ fn task_owner_preserves_visibility_authority_and_durable_mutations() {
         .unwrap();
     assert_eq!(accepted.status, Status::Accepted);
     assert_eq!(accepted.note.as_deref(), Some("Reviewing"));
-    assert!(m
-        .tasks
+    m.tasks
         .cancel_tasks("sender", std::slice::from_ref(&task.id), false)
-        .is_err());
+        .unwrap_err();
     let canceled = m
         .tasks
         .cancel_tasks("recipient", std::slice::from_ref(&task.id), false)
@@ -69,10 +67,9 @@ fn bulk_removal_is_atomic_and_pruning_respects_visibility() {
     m.tasks
         .update_task("worker", &b.id, Status::Failed, None)
         .unwrap();
-    assert!(m
-        .tasks
+    m.tasks
         .remove_tasks("host", &[a.id.clone(), b.id.clone()], false)
-        .is_err());
+        .unwrap_err();
     assert_eq!(m.tasks.all_tasks().len(), 2);
     assert_eq!(m.tasks.prune_tasks("host", false).unwrap(), 1);
     assert_eq!(m.tasks.all_tasks()[0].id, b.id);
