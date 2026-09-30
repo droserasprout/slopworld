@@ -40,23 +40,19 @@ async fn recovery_applies_volume_when_no_applied_marker_exists() {
 
 async fn check_recovery(saved_volume: Option<f32>) {
     let id = uuid::Uuid::new_v4();
-    let tmux_socket = format!("slop-ncspot-recovery-{id}");
+    let socket_owner = crate::test_support::TmuxSocket::new();
+    let tmux_socket = socket_owner.path.clone();
     let root = std::env::temp_dir().join(format!("ncspot-recovery-{id}"));
-    struct Cleanup(String, PathBuf);
+    struct Cleanup(PathBuf);
     impl Drop for Cleanup {
         fn drop(&mut self) {
-            drop(
-                std::process::Command::new("tmux")
-                    .args(["-L", &self.0, "kill-server"])
-                    .output(),
-            );
-            drop(std::fs::remove_dir_all(&self.1));
+            drop(std::fs::remove_dir_all(&self.0));
         }
     }
-    let _cleanup = Cleanup(tmux_socket.clone(), root.clone());
+    let _cleanup = Cleanup(root.clone());
     let output = tokio::process::Command::new("tmux")
         .args([
-            "-L",
+            "-S",
             &tmux_socket,
             "-f",
             "/dev/null",
@@ -205,23 +201,13 @@ async fn missing_socket_is_a_bounded_error() {
 
 #[tokio::test]
 async fn ncspot_marker_survives_new_handle_and_does_not_mark_other_tabs() {
-    let socket = format!("slop-ncspot-{}", uuid::Uuid::new_v4());
+    let socket_owner = crate::test_support::TmuxSocket::new();
+    let socket = socket_owner.path.clone();
     let tmux = crate::tmux::Tmux::new(&socket);
-    struct Cleanup(String);
-    impl Drop for Cleanup {
-        fn drop(&mut self) {
-            drop(
-                std::process::Command::new("tmux")
-                    .args(["-L", &self.0, "kill-server"])
-                    .output(),
-            );
-        }
-    }
-    let _cleanup = Cleanup(socket.clone());
     for name in ["player", "other"] {
         let output = tokio::process::Command::new("tmux")
             .args([
-                "-L",
+                "-S",
                 &socket,
                 "-f",
                 "/dev/null",
@@ -249,19 +235,9 @@ async fn ncspot_marker_survives_new_handle_and_does_not_mark_other_tabs() {
 
 #[tokio::test]
 async fn failed_volume_marker_is_retried_without_repeating_applied_ipc_commands() {
-    let socket = format!("slopd-volume-marker-{}", uuid::Uuid::new_v4());
+    let socket_owner = crate::test_support::TmuxSocket::new();
+    let socket = socket_owner.path.clone();
     let manager = crate::session::test_manager_with_socket(Config::default(), &socket);
-    struct Server(String);
-    impl Drop for Server {
-        fn drop(&mut self) {
-            drop(
-                std::process::Command::new("tmux")
-                    .args(["-L", &self.0, "kill-server"])
-                    .output(),
-            );
-        }
-    }
-    let _server = Server(socket);
     let root = manager.cfg_path.parent().unwrap();
     let ipc = root.join("ncspot.sock");
     let listener = tokio::net::UnixListener::bind(&ipc).unwrap();

@@ -5,7 +5,7 @@ async fn initialization_reconciles_sessions_before_pruning_persisted_credentials
     let Some(root) = crate::test_support::isolated() else {
         return;
     };
-    let socket = format!("slopd-init-{}", uuid::Uuid::new_v4());
+    let socket = root.join("tmux").to_str().unwrap().to_owned();
     // This test runs alone in a child process; never load the user's catalogs or tmux.
     for (key, value) in [
         ("SLOPD_TMUX_SOCKET", PathBuf::from(&socket)),
@@ -70,7 +70,7 @@ async fn initialization_reconciles_sessions_before_pruning_persisted_credentials
     drop(seed);
     drop(
         tokio::process::Command::new("tmux")
-            .args(["-L", &socket, "kill-server"])
+            .args(["-S", &socket, "kill-server"])
             .output()
             .await,
     );

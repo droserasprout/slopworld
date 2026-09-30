@@ -2,7 +2,8 @@ use super::*;
 
 #[tokio::test]
 async fn host_inspection_bypasses_invalid_sandbox_identity() {
-    let tmux = Tmux::new(format!("slopd-observe-{}", uuid::Uuid::new_v4()));
+    let socket_owner = crate::test_support::TmuxSocket::new();
+    let tmux = Tmux::new(&socket_owner.path);
     let view = inspect_session(
         &tmux,
         "host",
@@ -24,7 +25,8 @@ async fn host_inspection_bypasses_invalid_sandbox_identity() {
 
 #[tokio::test]
 async fn missing_pane_is_not_evidence_of_a_successful_launch() {
-    let tmux = Tmux::new(format!("slopd-observe-{}", uuid::Uuid::new_v4()));
+    let socket_owner = crate::test_support::TmuxSocket::new();
+    let tmux = Tmux::new(&socket_owner.path);
     let session = SessionCfg {
         state_id: uuid::Uuid::new_v4().to_string(),
         ..Default::default()
@@ -286,7 +288,8 @@ async fn saved_plan_remains_visible_after_the_pane_exits() {
         serde_json::to_string(&saved).unwrap(),
     )
     .unwrap();
-    let tmux = Tmux::new(format!("slopd-observe-{}", uuid::Uuid::new_v4()));
+    let socket_owner = crate::test_support::TmuxSocket::new();
+    let tmux = Tmux::new(&socket_owner.path);
     let view = inspect_session(&tmux, "gone", &session, false)
         .await
         .unwrap();

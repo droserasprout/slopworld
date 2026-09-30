@@ -13,6 +13,12 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
     // The task store is a sibling of config.toml. Caches use the XDG cache root and are
     // independently redirected by the test environment.
     std::fs::create_dir_all(&directory).expect("test manager directory");
+    let socket = socket.into();
+    let socket = if std::path::Path::new(&socket).is_absolute() {
+        socket
+    } else {
+        directory.join("tmux").to_str().unwrap().to_owned()
+    };
     let cfg_path = directory.join("config.toml");
     let (events, _) = broadcast::channel(16);
     Arc::new(Manager {
@@ -53,6 +59,12 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
 pub(super) struct TestDirectory(PathBuf);
 impl Drop for TestDirectory {
     fn drop(&mut self) {
+        let socket = self.0.join("tmux");
+        drop(
+            std::process::Command::new("tmux")
+                .args(["-S", socket.to_str().unwrap(), "kill-server"])
+                .output(),
+        );
         drop(std::fs::remove_dir_all(&self.0));
     }
 }

@@ -7,8 +7,7 @@ impl Tmux {
     /// Only a stopped server produces the corresponding stderr message.
     pub(super) async fn server_running(&self) -> Result<bool> {
         let output = Command::new("tmux")
-            .arg("-L")
-            .arg(&self.socket)
+            .args(self.socket_args())
             .arg("list-sessions")
             .output()
             .await
@@ -103,8 +102,8 @@ impl Tmux {
             .args([
                 "--",
                 "tmux",
-                "-L",
-                &self.socket,
+                self.socket_args()[0],
+                self.socket_args()[1],
                 "start-server",
                 ";",
                 "set-option",

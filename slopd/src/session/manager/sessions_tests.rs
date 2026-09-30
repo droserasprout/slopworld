@@ -8,7 +8,7 @@ async fn rename_fixture(running: bool) -> (Arc<Manager>, std::path::PathBuf, Str
         uuid::Uuid::new_v4()
     ));
     std::fs::create_dir_all(&root).unwrap();
-    let socket = format!("slopd-session-rename-{}", uuid::Uuid::new_v4());
+    let socket = root.join("tmux").to_str().unwrap().to_owned();
     let manager = crate::session::test_manager_with_socket(
         Config {
             projects: vec![ProjectCfg {
@@ -86,7 +86,7 @@ async fn cleanup_rename_fixture(
     }
     drop(
         std::process::Command::new("tmux")
-            .args(["-L", socket, "kill-server"])
+            .args(["-S", socket, "kill-server"])
             .output(),
     );
     drop(std::fs::remove_dir_all(root));
