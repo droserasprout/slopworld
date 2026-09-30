@@ -90,6 +90,7 @@ message SessionConfig {
   optional string parent = 17;
   optional string task_id = 18;
   optional string worktree = 19;
+  optional string args = 20;
 }
 
 message HostTerminalCfg {
@@ -144,6 +145,7 @@ message SessionLaunchView {
   repeated Mount mounts = 10;
   bool autostart = 11;
   bool auto_resume = 12;
+  optional string args = 13;
 }
 
 message SessionWorkerView {
@@ -256,6 +258,7 @@ message AgentTemplateDefaults {
   Limits limits = 8;
   optional bool autostart = 9;
   optional bool auto_resume = 10;
+  optional string args = 11;
 }
 
 message UsageWindow {

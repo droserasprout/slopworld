@@ -327,3 +327,15 @@ fn worker_task_uses_caller_as_parent_metadata() {
     assert!(!worker.durable);
     drop(std::fs::remove_dir_all(dir));
 }
+
+#[test]
+fn worker_inherits_extra_arguments_from_selected_template() {
+    let mut selected = template("reviewer");
+    selected.defaults.args = Some("--model 'two words'".into());
+    let worker = worker_session_from_template(&selected, "worker".into(), "repo", "caller");
+    assert_eq!(worker.args, selected.defaults.args);
+    assert_eq!(
+        Config::default().command_of(&worker),
+        "codex --full-auto --model 'two words'"
+    );
+}

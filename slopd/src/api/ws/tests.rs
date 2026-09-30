@@ -79,6 +79,7 @@ fn view(name: &str) -> SessionView {
             command: String::new(),
             command_preset: String::new(),
             cmd: None,
+            args: None,
             sandbox: Vec::new(),
             persistent_tmp: false,
             agent: String::new(),

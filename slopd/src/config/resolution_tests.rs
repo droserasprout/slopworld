@@ -205,6 +205,9 @@ fn command_preview_uses_normalized_execution_precedence() {
     };
     assert!(preview(&session, false).contains("daemon default"));
     assert!(preview(&session, true).contains("Use destination daemon"));
+    session.args = Some("--model preview".into());
+    assert!(preview(&session, true).contains("append arguments: --model preview"));
+    session.args = None;
     session.command_snapshot = Some(CommandPreset {
         name: "captured".into(),
         cmd: "captured-line".into(),
@@ -219,4 +222,36 @@ fn command_preview_uses_normalized_execution_precedence() {
     session.command_snapshot = None;
     session.command = " bash ".into();
     assert!(preview(&session, true).contains("selected command preset"));
+}
+
+#[test]
+fn arguments_extend_captured_default_and_explicit_commands() {
+    let cfg = Config::default();
+    let mut session = SessionCfg {
+        command_snapshot: Some(CommandPreset {
+            name: "captured".into(),
+            cmd: "agent --safe".into(),
+            ..Default::default()
+        }),
+        args: Some(" --model 'two words' --label \"\" ".into()),
+        ..Default::default()
+    };
+    assert_eq!(
+        crate::sandbox::shell_split(&cfg.command_of(&session)),
+        ["agent", "--safe", "--model", "two words", "--label", ""]
+    );
+    session.cmd = Some("custom --flag".into());
+    assert!(cfg
+        .command_of(&session)
+        .starts_with("custom --flag --model"));
+    session.args = Some("  ".into());
+    assert_eq!(cfg.command_of(&session), "custom --flag");
+    session.cmd = None;
+    session.command_snapshot = None;
+    session.args = None;
+    let default = cfg.command_of(&session);
+    session.args = Some("--extra".into());
+    assert_eq!(cfg.command_of(&session), format!("{default} --extra"));
+    session.command = "missing-arguments-test-preset".into();
+    assert!(cfg.command_of(&session).is_empty());
 }

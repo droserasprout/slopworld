@@ -75,10 +75,16 @@ namespace SlopWorld
             UiControls.Select(l, "Command", CommandLabel(preset), CommandOptions(), out _);
 
             // This field sets the raw command line. It can replace the selected preset or daemon default.
+            l.Label("Command line override");
             _s.Cmd = UiControls.Field(l, "agent.cmd", _s.Cmd ?? "");
             GUI.color = UiTheme.Dim;
             l.Label(CommandNote(preset));
             GUI.color = Color.white;
+
+            l.Gap(UiTheme.GapS);
+            l.Label("Arguments");
+            _s.Args = UiControls.Field(l, "agent.args", _s.Args ?? "");
+            UiLayout.Note(l, "Appended to the preset, default, or overridden command line. Quote values containing spaces.");
 
             l.Gap(UiTheme.GapS);
             _s.Autostart = RecipeFlag(l, "autostart", "Start with the daemon", _s.Autostart, value => _s.Autostart = value);

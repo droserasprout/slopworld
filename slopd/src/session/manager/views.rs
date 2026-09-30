@@ -49,6 +49,7 @@ impl Manager {
                         command: l.cfg.command.clone(),
                         command_preset: cfg.command_name(&l.cfg),
                         cmd: l.cfg.cmd.clone(),
+                        args: l.cfg.args.clone(),
                         sandbox: l.cfg.sandbox.clone(),
                         persistent_tmp: l.cfg.persistent_tmp,
                         agent: cfg.command_of(&l.cfg),

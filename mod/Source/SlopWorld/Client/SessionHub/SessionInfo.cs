@@ -20,6 +20,7 @@ namespace SlopWorld
         public string CommandPreset = "";
         // Custom command line for this agent. An empty value uses the preset's command.
         public string Cmd = "";
+        public string Args = "";
         // Sandbox presets selected by this agent, in addition to its command dependencies.
         public List<string> Sandbox = new List<string>();
         // Use a private directory in persistent agent state instead of a new /tmp tmpfs for each run.
@@ -131,6 +132,7 @@ namespace SlopWorld
                 AutoResume = AutoResume,
             };
             if (!string.IsNullOrWhiteSpace(Cmd)) value.Cmd = Cmd;
+            if (!string.IsNullOrWhiteSpace(Args)) value.Args = Args;
             if (!string.IsNullOrWhiteSpace(Label)) value.Label = Label;
             return value;
         }

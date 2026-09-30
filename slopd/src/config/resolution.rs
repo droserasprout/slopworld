@@ -115,15 +115,26 @@ impl Config {
     }
 
     /// Return the command to execute: the explicit command line, the snapshot, or the command preset.
+    /// Append the agent's shell-quoted arguments after resolving the base command.
     /// A missing preset gives an empty command, which `start` rejects.
     pub fn command_of(&self, s: &SessionCfg) -> String {
-        match s.command_selection() {
+        let command = match s.command_selection() {
             CommandSelection::Explicit(command) => command.to_string(),
             CommandSelection::Captured(snapshot) => snapshot.cmd.clone(),
             CommandSelection::Selected | CommandSelection::Default => crate::presets::table()
                 .command(&self.command_name(s))
                 .map(|c| c.cmd.clone())
                 .unwrap_or_default(),
+        };
+        // Arguments cannot turn an unavailable preset into a standalone command.
+        match s
+            .args
+            .as_deref()
+            .map(str::trim)
+            .filter(|args| !args.is_empty())
+        {
+            Some(args) if !command.trim().is_empty() => format!("{command} {args}"),
+            _ => command,
         }
     }
 
@@ -224,7 +235,17 @@ impl Config {
             "Command",
             vec![
                 if recipe && matches!(selection, CommandSelection::Default) {
-                    "Use destination daemon's default command".into()
+                    match s
+                        .args
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|args| !args.is_empty())
+                    {
+                        Some(args) => format!(
+                            "Use destination daemon's default command; append arguments: {args}"
+                        ),
+                        None => "Use destination daemon's default command".into(),
+                    }
                 } else {
                     format!("{command} — {command_source}")
                 },

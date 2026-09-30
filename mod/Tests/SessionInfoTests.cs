@@ -48,6 +48,7 @@ namespace SlopWorld.Tests
                     "command": "claude",
                     "command_preset": "claude",
                     "cmd": "run --x",
+                    "args": "--extra",
                     "sandbox": [
                       "home",
                       "net"
@@ -112,6 +113,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal(123L, session.LastChange, "last change");
             AssertEx.Equal(456L, session.StateSince, "state since");
             AssertEx.Equal("/work/file.rs", session.ReaderPath, "reader path");
+            AssertEx.Equal("--extra", session.Args, "extra arguments from launch view");
             AssertEx.Equal("file-key", session.ReaderKey, "reader key");
             AssertEx.Equal("proj/main", session.ReaderScope, "reader scope");
             AssertEx.True(session.ReaderPinned, "reader pinned");
@@ -127,6 +129,7 @@ namespace SlopWorld.Tests
                 Project = "proj",
                 Command = "claude",
                 Cmd = "run --x",
+                Args = "--extra",
                 Sandbox = new List<string> { "home" },
                 PersistentTmp = true,
                 Label = "label",
@@ -145,6 +148,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("agent", json["name"].AsString(), "written name");
             AssertEx.Equal("proj", json["project"].AsString(), "written project");
             AssertEx.Equal("run --x", json["cmd"].AsString(), "written command override");
+            AssertEx.Equal("--extra", json["args"].AsString(), "written extra arguments");
             AssertEx.Equal("home", json["sandbox"][0].AsString(), "written sandbox");
             AssertEx.True(json["persistent_tmp"].AsBool(), "written persistent /tmp");
             AssertEx.Equal("label", json["label"].AsString(), "written label");

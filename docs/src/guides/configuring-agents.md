@@ -45,6 +45,7 @@ identifies the software so the sandbox can mount its configuration paths.
 | --- | --- |
 | `command` | A command preset name. |
 | `cmd` | Optional raw command line, used instead of the preset's default. |
+| `args` | Extra arguments appended to the preset, daemon default, or overridden command line. Quote values containing spaces. |
 | `sandbox` | Additional sandbox presets for this agent. |
 | `network` | Network mode for this agent: `none`, `private`, or `host`. |
 | `dns` | `resolved` to use the daemon's current resolver, or one or two explicit IPv4 server addresses. |
@@ -54,6 +55,10 @@ identifies the software so the sandbox can mount its configuration paths.
 | `auto_resume` | Send `/resume` after a fresh agent process reaches a settled prompt. |
 
 Without `command`, `cmd` does not inherit the command preset's sandbox dependencies.
+
+Use **Arguments** in the agent or template editor to extend the command without replacing it.
+For example, `args = '--model "my model"'` adds two arguments to the preset command.
+Templates copy these arguments into both agents and workers. Blank arguments leave the command unchanged.
 
 ## Agent templates
 

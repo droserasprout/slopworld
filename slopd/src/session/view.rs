@@ -85,6 +85,7 @@ pub struct SessionLaunchView {
     /// Resolved preset; empty for a custom command without a preset sandbox.
     pub command_preset: String,
     pub cmd: Option<String>,
+    pub args: Option<String>,
     pub sandbox: Vec<String>,
     pub persistent_tmp: bool,
     /// Resolved command line.

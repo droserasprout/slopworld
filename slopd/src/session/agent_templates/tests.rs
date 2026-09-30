@@ -25,6 +25,7 @@ fn template() -> AgentTemplate {
         defaults: AgentTemplateDefaults {
             command: Some(command()),
             cmd: None,
+            args: None,
             sandbox: vec![],
             sandbox_presets: vec![],
             persistent_tmp: Some(false),
@@ -300,4 +301,30 @@ async fn failed_catalog_commit_keeps_the_previous_generation_loadable() {
     );
     assert!(loaded.get("replacement").is_none());
     std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn arguments_survive_capture_persistence_and_instance_overrides() {
+    let mut source = template().instantiate("source".into(), "repo".into());
+    source.args = Some("--model 'two words'".into());
+    let captured = AgentTemplate::capture(
+        "with-arguments".into(),
+        String::new(),
+        &source,
+        &ProjectCfg::default(),
+        &Config::default(),
+    )
+    .unwrap();
+    let loaded: AgentTemplate = toml::from_str(&toml::to_string(&captured).unwrap()).unwrap();
+    let mut instance = loaded.instantiate("new".into(), "repo".into());
+    assert_eq!(instance.args, source.args);
+    assert_eq!(
+        Config::default().command_of(&instance),
+        "agent --safe --model 'two words'"
+    );
+    let mut overrides = instance.clone();
+    overrides.args = None;
+    loaded.apply_overrides(&mut instance, &overrides);
+    assert_eq!(Config::default().command_of(&instance), "agent --safe");
+    assert!(instance.command_snapshot.is_some());
 }
