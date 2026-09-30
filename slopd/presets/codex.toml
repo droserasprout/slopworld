@@ -23,5 +23,7 @@ name = "codex"
 kind = "agent"
 description = "OpenAI Codex CLI"
 # SlopWorld owns the session lifecycle; explicitly keep Codex in embedded mode.
-cmd = "codex --no-daemon --yolo -c tui.fullscreen_transcript=false"
+# Keep the Working timer's one-second repaint active without decorative effects.
+# Codex currently stops scheduling timer frames when the animation master switch is false.
+cmd = "codex --no-daemon --yolo -c tui.fullscreen_transcript=false -c tui.animations=true -c tui.effects.starfield=false -c tui.effects.shimmer=false -c tui.effects.welcome=false -c tui.effects.effort=false -c tui.effects.progress=false -c tui.effects.title=false"
 sandbox = ["codex"]
