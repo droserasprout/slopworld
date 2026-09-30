@@ -2,6 +2,9 @@
 
 `worktrees/mod.rs` owns `worktrees.toml` and bounded Git operations.
 `manager/worktrees.rs` handles allocation, selection, attachments, recovery, and removal.
+`manager/projects.rs` owns project edits and checkout relocation coordination.
+`manager/directories.rs` owns newly created directories until commit, removing only its
+empty directories on failure. Allocation transfers ownership to its durable allocating record.
 The project keeps its original directory.
 The daemon assigns its stable ID when it saves the project or creates the first worktree.
 Session `worktree` is an ID, with empty or `main` selecting the original checkout.

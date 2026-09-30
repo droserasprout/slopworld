@@ -123,6 +123,7 @@ fn project_directory_must_exist_unless_it_is_temporary() {
         .unwrap_err()
         .to_string();
     assert!(error.contains("is not a directory"), "{error}");
+    assert!(!missing.exists());
 
     assert_eq!(
         prepare_project_dir(&project("temporary", &missing, true)).unwrap(),
@@ -531,6 +532,15 @@ async fn current_host_metadata_persists_path_and_updates_foreground_process() {
         .apply_host_metadata(vec![("shell".into(), 16)], metadata("/stale", "python"))
         .await;
     assert!(!manager.live.read().await["shell"].process_running);
+    assert_eq!(manager.live.read().await["shell"].host_path, "/old");
+    assert_eq!(
+        Config::load(&manager.cfg_path)
+            .await
+            .unwrap()
+            .host_terminals[0]
+            .path,
+        "/old"
+    );
     manager
         .apply_host_metadata(
             vec![("shell".into(), 17), ("missing".into(), 17)],

@@ -7,7 +7,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 tokio::task_local! {
-    static OWNER: usize;
+    static OWNER: (usize, Arc<tokio::sync::OwnedRwLockWriteGuard<()>>);
     static READ_OWNER: usize;
     static REQUEST: usize;
 }
@@ -41,7 +41,9 @@ impl Manager {
         operation: F,
     ) -> F::Output {
         let owner = self as *const Self as usize;
-        if OWNER.try_with(|current| *current == owner).unwrap_or(false)
+        if OWNER
+            .try_with(|current| current.0 == owner)
+            .unwrap_or(false)
             || READ_OWNER
                 .try_with(|current| *current == owner)
                 .unwrap_or(false)
@@ -52,6 +54,36 @@ impl Manager {
         READ_OWNER.scope(owner, operation).await
     }
 
+    /// Transfer a prepared operation and its exclusive guard to an owned task.
+    /// Nested callers share the guard, so cancellation cannot release identity
+    /// protection before resource commit or cleanup finishes.
+    pub(super) async fn owned_session_operation<F>(self: &Arc<Self>, operation: F) -> F::Output
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        let owner = Arc::as_ptr(self) as usize;
+        let inherited = OWNER
+            .try_with(|current| (current.0 == owner).then(|| current.1.clone()))
+            .ok()
+            .flatten();
+        let guard = match inherited {
+            Some(guard) => guard,
+            None => {
+                assert!(
+                    !READ_OWNER
+                        .try_with(|current| *current == owner)
+                        .unwrap_or(false),
+                    "exclusive session operation inside a shared boundary"
+                );
+                Arc::new(self.session_boundary.clone().write_owned().await)
+            }
+        };
+        tokio::spawn(OWNER.scope((owner, guard), operation))
+            .await
+            .expect("owned session operation panicked")
+    }
+
     /// Nested lifecycle calls share the boundary. Spawned tasks must acquire their own boundary.
     pub(crate) fn session_operation<'a, F: Future + 'a>(
         &'a self,
@@ -60,7 +92,10 @@ impl Manager {
         let operation = Box::pin(operation);
         async move {
             let owner = self as *const Self as usize;
-            if OWNER.try_with(|current| *current == owner).unwrap_or(false) {
+            if OWNER
+                .try_with(|current| current.0 == owner)
+                .unwrap_or(false)
+            {
                 return operation.await;
             }
             assert!(
@@ -69,8 +104,8 @@ impl Manager {
                     .unwrap_or(false),
                 "exclusive session operation inside a shared boundary"
             );
-            let _guard = self.session_boundary.write().await;
-            OWNER.scope(owner, operation).await
+            let guard = Arc::new(self.session_boundary.clone().write_owned().await);
+            OWNER.scope((owner, guard), operation).await
         }
     }
 }

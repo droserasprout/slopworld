@@ -97,10 +97,9 @@ impl Manager {
     pub(super) async fn commit_prepared_cfg(&self, prepared: PreparedConfigChange) -> Result<()> {
         let PreparedConfigChange { change, _persist } = prepared;
         let old = self.cfg.read().await.clone();
-        let removed = reconcile_cache_links(&self.cfg_path, &old, &change.new).await?;
+        let links = reconcile_cache_links(&self.cfg_path, &old, &change.new).await?;
         if let Err(error) = self.persist_cfg(&change.new).await {
-            crate::sandbox::cache::restore_links(&removed)?;
-            return Err(error);
+            return Err(links.rollback_error(error));
         }
         let endpoint_token = self.publish_config(change).await;
         // Keep endpoint token writes ordered with configuration commits.
@@ -176,11 +175,10 @@ impl Manager {
     /// Save and publish under the caller's persistence gate; reconcile sessions after release.
     async fn commit_document_change(&self, old: &Config, prepared: DocumentChange) -> Result<()> {
         let DocumentChange { change, document } = prepared;
-        let removed = reconcile_cache_links(&self.cfg_path, old, &change.new).await?;
+        let links = reconcile_cache_links(&self.cfg_path, old, &change.new).await?;
         let text = toml::to_string_pretty(&document)?;
         if let Err(error) = self.persist_cfg_text(&text).await {
-            crate::sandbox::cache::restore_links(&removed)?;
-            return Err(error);
+            return Err(links.rollback_error(error));
         }
         let endpoint_token = self.publish_config(change).await;
         self.update_endpoint(&endpoint_token).await;
@@ -283,27 +281,57 @@ impl Manager {
 
     async fn persist_cfg(&self, cfg: &Config) -> Result<()> {
         cfg.save(&self.cfg_path).await?;
-        self.mark_cfg_mtime().await;
+        self.mark_saved_config(cfg).await;
         Ok(())
     }
 
     async fn persist_cfg_text(&self, text: &str) -> Result<()> {
         Config::save_text(&self.cfg_path, text).await?;
-        self.mark_cfg_mtime().await;
+        self.mark_saved_document(text).await;
         Ok(())
     }
 
-    async fn mark_cfg_mtime(&self) {
+    // Sample revisions BEFORE verification. A write after verification must remain
+    // unseen; a write before verification is accepted only when contents match.
+    async fn mark_saved_document(&self, expected: &str) {
+        let stamp = disk_mtime(&self.cfg_path).await;
+        let matches = tokio::fs::read_to_string(&self.cfg_path)
+            .await
+            .is_ok_and(|actual| actual == expected);
         *self
             .config_state
             .cfg_mtime
             .lock()
-            .unwrap_or_else(|error| error.into_inner()) = disk_mtime(&self.cfg_path).await;
+            .unwrap_or_else(|error| error.into_inner()) = matches.then_some(stamp).flatten();
+        // Document edits never accept a new library catalog revision.
+    }
+
+    async fn mark_saved_config(&self, expected: &Config) {
+        let stamp = disk_mtime(&self.cfg_path).await;
+        let library_stamp = Config::library_stamp_for(&self.cfg_path);
+        let matches = match Config::load(&self.cfg_path).await {
+            Ok(actual) => {
+                match (
+                    toml::Value::try_from(actual),
+                    toml::Value::try_from(expected),
+                ) {
+                    (Ok(actual), Ok(expected)) => actual == expected,
+                    _ => false,
+                }
+            }
+            Err(_) => false,
+        };
+        *self
+            .config_state
+            .cfg_mtime
+            .lock()
+            .unwrap_or_else(|error| error.into_inner()) = matches.then_some(stamp).flatten();
         *self
             .config_state
             .library_mtime
             .lock()
-            .unwrap_or_else(|error| error.into_inner()) = Config::library_stamp_for(&self.cfg_path);
+            .unwrap_or_else(|error| error.into_inner()) =
+            matches.then_some(library_stamp).flatten();
     }
 
     async fn publish_config(&self, change: ConfigChange) -> String {

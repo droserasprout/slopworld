@@ -166,8 +166,7 @@ impl Manager {
                 .set_worker_worktree(name, &plan.session.project, &plan.session.worktree)
                 .await?;
             let durable = !self.is_ephemeral(name).await;
-            if let Err(error) = self
-                .tmux
+            self.tmux
                 .set_worker_metadata(
                     name,
                     &plan.session.parent,
@@ -176,9 +175,7 @@ impl Manager {
                     &plan.session.state_id,
                 )
                 .await
-            {
-                tracing::warn!("could not persist worker metadata for {name}: {error:#}");
-            }
+                .context("persisting essential worker metadata")?;
         }
         if plan.host {
             if let Err(error) = self
@@ -214,7 +211,10 @@ impl Manager {
 
     /// Serialize startup with other session mutations.
     pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
-        self.session_operation(self.start_inner(name)).await
+        let manager = self.clone();
+        let name = name.to_owned();
+        self.owned_session_operation(async move { manager.start_inner(&name).await })
+            .await
     }
 
     /// Prepare, create, attach, then launch; unwind resources on failure.

@@ -29,7 +29,7 @@ fn codex_composer_rearms_new_and_skips_uncertain_input() {
     c.key("Up");
     assert!(c.key("Enter").is_none());
     c.literal("fresh prompt");
-    assert!(matches!(c.key("Enter"), Some(Submission::Prompt(_))));
+    assert!(matches!(c.key("Enter"), Some(Submission::Prompt(prompt)) if prompt == "fresh prompt"));
 }
 
 #[test]
@@ -50,7 +50,7 @@ fn codex_composer_handles_common_controls_and_resynchronizes() {
     c.literal("replacement");
     assert!(c.key("Enter").is_none());
     c.literal("fresh prompt");
-    assert!(matches!(c.key("Enter"), Some(Submission::Prompt(_))));
+    assert!(matches!(c.key("Enter"), Some(Submission::Prompt(prompt)) if prompt == "fresh prompt"));
 }
 
 #[test]
@@ -225,4 +225,24 @@ fn restored_title_consumes_once_and_label_edits_cancel_pending_work() {
     assert_eq!(capture.title(), Some("Restored"));
     capture.label_changed(true);
     assert!(capture.title().is_none());
+}
+
+#[test]
+fn editing_boundaries_preserve_the_prompt() {
+    for key in ["Left", "C-b", "BSpace", "C-h", "Right", "C-f", "DC", "C-d"] {
+        let mut c = Composer::ready();
+        c.literal("fresh prompt");
+        if matches!(key, "Left" | "C-b" | "BSpace" | "C-h") {
+            c.key("Home");
+        }
+        c.key(key);
+        assert!(
+            matches!(c.key("Enter"), Some(Submission::Prompt(prompt)) if prompt == "fresh prompt"),
+            "{key}"
+        );
+    }
+    let mut c = Composer::ready();
+    c.key("C-d");
+    c.literal("uncertain");
+    assert!(c.key("Enter").is_none());
 }

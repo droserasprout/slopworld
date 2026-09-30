@@ -68,7 +68,7 @@ fn merges_a_run_of_mouse_reports() {
     ]);
     assert_eq!(batch.len(), 1);
     match &batch[0] {
-        Input::Bytes(b) => assert_eq!(b.len(), 30),
+        Input::Bytes(b) => assert_eq!(b, &b"\x1b[<64;1;1M".repeat(3)),
         _ => panic!("wrong kind"),
     }
 }
@@ -78,6 +78,14 @@ fn stops_merging_at_the_command_ceiling() {
     let items: Vec<Input> = (0..600).map(|_| Input::Bytes(vec![b'x'; 2])).collect();
     let batch = merge_input(items);
     assert!(batch.len() > 1, "1200 bytes must not become one command");
+    let bytes: Vec<_> = batch
+        .iter()
+        .flat_map(|item| match item {
+            Input::Bytes(bytes) => bytes.clone(),
+            _ => panic!("wrong kind"),
+        })
+        .collect();
+    assert_eq!(bytes, vec![b'x'; 1200]);
     for item in &batch {
         match item {
             Input::Bytes(b) => assert!(b.len() <= INPUT_BATCH),
@@ -106,7 +114,9 @@ fn a_paste_is_never_merged_and_never_reordered() {
             bytes
         } if bytes == b"hello"
     ));
-    assert!(matches!(&batch[3], Input::Keys { .. }));
+    assert!(matches!(&batch[0], Input::Bytes(bytes) if bytes == b"ab"));
+    assert!(matches!(&batch[2], Input::Bytes(bytes) if bytes == b"cd"));
+    assert!(matches!(&batch[3], Input::Keys { keys, literal: false } if keys == &["Enter"]));
 }
 
 #[test]
@@ -126,6 +136,7 @@ fn literal_and_named_keys_do_not_share_a_command() {
         },
     ]);
     assert_eq!(batch.len(), 2);
+    assert!(matches!(&batch[1], Input::Keys { keys, literal: true } if keys == &["hi"]));
     match &batch[0] {
         Input::Keys { keys, literal } => {
             assert_eq!(keys, &["Up".to_string(), "Down".to_string()]);
@@ -377,8 +388,10 @@ fn project_mounts_round_trip_through_toml() {
     )
     .unwrap();
 
+    let cfg = Config::parse(&toml::to_string(&cfg).unwrap()).unwrap();
     let project = cfg.project("main").unwrap();
     assert_eq!(project.mounts.len(), 1);
+    assert_eq!(project.mounts[0].from, "/tmp");
     assert_eq!(project.mounts[0].to, "/mnt/lib");
     assert_eq!(project.mounts[0].mode, crate::config::MountMode::Ro);
 }
@@ -403,7 +416,10 @@ fn input_tracing_preserves_merging_and_each_request_identity() {
     assert_eq!(traces.len(), 2);
     assert!(Arc::ptr_eq(&traces[0], &first));
     assert!(Arc::ptr_eq(&traces[1], &second));
-    assert!(matches!(result[1], Input::Gap(_)));
+    assert!(
+        matches!(result[1], Input::Gap(duration) if duration == std::time::Duration::from_millis(1))
+    );
+    assert!(matches!(&result[2], Input::Bytes(bytes) if bytes == &[5]));
 }
 
 #[test]

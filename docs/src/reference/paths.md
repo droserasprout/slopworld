@@ -13,7 +13,7 @@ These tables show default paths and supported overrides. Most Linux SlopWorld pa
 | `~/.config/slopworld/breadcrumbs/<name>.toml` | beside `SLOPD_CONFIG` | Personal breadcrumb library items, one definition per file. |
 | `~/.config/slopworld/file_actions/<name>.toml` | beside `SLOPD_CONFIG` | Personal file-action library items, one definition per file. |
 | `~/.config/slopworld/shell_scripts/<name>.toml` | beside `SLOPD_CONFIG` | Personal shell-script library items, one definition per file. |
-| `~/.config/slopworld/agent_templates/<name>.toml` | beside `SLOPD_CONFIG` | Personal agent templates, one definition per file. |
+| `~/.config/slopworld/agent_templates/generation-<id>/<name>.toml` | beside `SLOPD_CONFIG` | Personal agent templates, one definition per file; `.index.toml` selects the committed generation. |
 | `~/.config/slopworld/sandbox_presets/<name>.toml` | `SLOPD_PRESETS` root | User sandbox definitions, one definition per file. |
 | `~/.config/slopworld/app_presets/<name>.toml` | `SLOPD_PRESETS` root | User app definitions, one definition per file. |
 | `~/.config/slopworld/tasks.toml` | beside `SLOPD_CONFIG` | Task mailbox state. |

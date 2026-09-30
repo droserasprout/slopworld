@@ -344,7 +344,9 @@ impl Manager {
             }
             (None, _) => sc.project.clone(),
         };
-        let selected_worktree = if want.worktree.is_empty() {
+        let selected_worktree = if fresh {
+            String::new()
+        } else if want.worktree.is_empty() {
             source
                 .as_ref()
                 .map(|s| s.worktree.clone())

@@ -3,10 +3,11 @@ use super::*;
 #[test]
 fn unresolved_and_unfinished_placeholders_survive() {
     assert_eq!(
-        render("{{ known }} / {{ unknown }} / {{ unfinished", |key| {
-            (key == "known").then_some("value")
-        }),
-        "value / {{ unknown }} / {{ unfinished"
+        render(
+            "{{ known }} / {{ unknown }} / {{ known }} / {{ unfinished",
+            |key| { (key == "known").then_some("value") }
+        ),
+        "value / {{ unknown }} / value / {{ unfinished"
     );
 }
 

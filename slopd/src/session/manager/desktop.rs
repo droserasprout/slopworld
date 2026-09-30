@@ -3,7 +3,7 @@
 use super::super::*;
 use anyhow::{bail, Context, Result};
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 use std::time::Duration;
 use tokio::process::Command;
@@ -37,7 +37,12 @@ impl Manager {
         .await?;
         let mime = content_type(&info)?;
         let associations = command_output("gio", &["mime", &mime]).await?;
-        Ok(associated_apps(&mime, &associations))
+        tokio::task::spawn_blocking(move || {
+            let discovery = DesktopDiscovery::load(&desktop_search_paths());
+            discovery.associated_apps(&mime, &associations)
+        })
+        .await
+        .context("desktop discovery task failed")
     }
 }
 
@@ -64,48 +69,95 @@ fn content_type(info: &str) -> Result<String> {
         .ok_or_else(|| anyhow::anyhow!("gio did not report a content type"))
 }
 
-fn desktop_apps(associations: &str) -> Vec<DesktopApp> {
-    let mut seen = HashSet::new();
-    associations
-        .lines()
-        .filter_map(|line| {
-            let id = desktop_id(line)?;
-            if id.is_empty()
-                || !id.ends_with(".desktop")
-                || id.chars().any(char::is_whitespace)
-                || !seen.insert(id.to_string())
-            {
-                return None;
+// A single filesystem snapshot supplies association names, launch paths and fallback
+// enumeration. Roots retain XDG precedence; within a root direct IDs win collisions.
+struct DesktopDiscovery {
+    files: HashMap<String, PathBuf>,
+    entries: HashMap<String, DesktopEntry>,
+}
+impl DesktopDiscovery {
+    fn load(roots: &[PathBuf]) -> Self {
+        let mut discovery = Self {
+            files: HashMap::new(),
+            entries: HashMap::new(),
+        };
+        for root in roots {
+            let applications = root.join("applications");
+            let mut files = Vec::new();
+            collect_desktop_files(&applications, &mut files);
+            files.sort_by_key(|path| (path.components().count(), path.clone()));
+            for path in files {
+                let Ok(relative) = path.strip_prefix(&applications) else {
+                    continue;
+                };
+                let id = desktop_file_id(relative);
+                if discovery.files.contains_key(&id) {
+                    continue;
+                }
+                if let Some(entry) = parse_desktop_entry(&id, &path) {
+                    discovery.entries.insert(id.clone(), entry);
+                }
+                discovery.files.insert(id, path);
             }
-            Some(DesktopApp {
-                id: id.to_string(),
-                name: desktop_name(id),
-                desktop_file: desktop_file_path(id).map(|path| path.to_string_lossy().into_owned()),
+        }
+        discovery
+    }
+    fn app(&self, id: &str) -> DesktopApp {
+        DesktopApp {
+            id: id.to_owned(),
+            name: self
+                .entries
+                .get(id)
+                .map(|entry| entry.name.clone())
+                .unwrap_or_else(|| {
+                    id.strip_suffix(".desktop")
+                        .unwrap_or(id)
+                        .replace(['-', '_'], " ")
+                }),
+            desktop_file: self
+                .files
+                .get(id)
+                .map(|path| path.to_string_lossy().into_owned()),
+        }
+    }
+    fn desktop_apps(&self, associations: &str) -> Vec<DesktopApp> {
+        let mut seen = HashSet::new();
+        associations
+            .lines()
+            .filter_map(|line| {
+                let id = desktop_id(line)?;
+                if id.is_empty()
+                    || !id.ends_with(".desktop")
+                    || id.chars().any(char::is_whitespace)
+                    || !seen.insert(id.to_owned())
+                {
+                    return None;
+                }
+                Some(self.app(id))
             })
-        })
-        .collect()
+            .collect()
+    }
+    fn associated_apps(&self, mime: &str, associations: &str) -> Vec<DesktopApp> {
+        let mut apps = self.desktop_apps(associations);
+        let mut seen: HashSet<_> = apps.iter().map(|app| app.id.clone()).collect();
+        let mut entries: Vec<_> = self.entries.values().collect();
+        entries.sort_by_key(|entry| (entry.name.to_lowercase(), entry.id.clone()));
+        for entry in entries {
+            if entry.supports(mime) && seen.insert(entry.id.clone()) {
+                apps.push(self.app(&entry.id));
+            }
+        }
+        apps
+    }
 }
 
+#[cfg(test)]
+fn desktop_apps(associations: &str) -> Vec<DesktopApp> {
+    DesktopDiscovery::load(&desktop_search_paths()).desktop_apps(associations)
+}
+#[cfg(test)]
 fn associated_apps(mime: &str, associations: &str) -> Vec<DesktopApp> {
-    let mut apps = desktop_apps(associations);
-    let mut seen = apps
-        .iter()
-        .map(|app| app.id.clone())
-        .collect::<HashSet<_>>();
-
-    let mut entries = desktop_entries();
-    entries.sort_by_key(|a| a.name.to_lowercase());
-    for entry in entries {
-        if !entry.supports(mime) || !seen.insert(entry.id.clone()) {
-            continue;
-        }
-        apps.push(DesktopApp {
-            desktop_file: Some(entry.desktop_file.to_string_lossy().into_owned()),
-            id: entry.id,
-            name: entry.name,
-        });
-    }
-    apps
+    DesktopDiscovery::load(&desktop_search_paths()).associated_apps(mime, associations)
 }
 
 fn desktop_id(line: &str) -> Option<&str> {
@@ -118,21 +170,10 @@ fn desktop_id(line: &str) -> Option<&str> {
     Some(line)
 }
 
-fn desktop_name(id: &str) -> String {
-    desktop_file_path(id)
-        .and_then(|path| desktop_entry_name(&path))
-        .unwrap_or_else(|| {
-            id.strip_suffix(".desktop")
-                .unwrap_or(id)
-                .replace(['-', '_'], " ")
-        })
-}
-
 #[derive(Debug)]
 struct DesktopEntry {
     id: String,
     name: String,
-    desktop_file: PathBuf,
     mime_types: HashSet<String>,
 }
 
@@ -143,11 +184,7 @@ impl DesktopEntry {
     }
 }
 
-fn desktop_file_path(id: &str) -> Option<PathBuf> {
-    let roots = desktop_search_paths();
-    desktop_file_path_in(id, &roots)
-}
-
+#[cfg(test)]
 fn desktop_file_path_in(id: &str, roots: &[PathBuf]) -> Option<PathBuf> {
     let relative = Path::new(id);
     if relative.is_absolute()
@@ -157,24 +194,7 @@ fn desktop_file_path_in(id: &str, roots: &[PathBuf]) -> Option<PathBuf> {
     {
         return None;
     }
-    for root in roots {
-        let applications = root.join("applications");
-        let direct = applications.join(relative);
-        if direct.is_file() {
-            return Some(direct);
-        }
-
-        let mut files = Vec::new();
-        collect_desktop_files(&applications, &mut files);
-        if let Some(path) = files.into_iter().find(|path| {
-            path.strip_prefix(&applications)
-                .ok()
-                .is_some_and(|relative| desktop_file_id(relative) == id)
-        }) {
-            return Some(path);
-        }
-    }
-    None
+    DesktopDiscovery::load(roots).files.get(id).cloned()
 }
 
 fn desktop_search_paths() -> Vec<PathBuf> {
@@ -198,56 +218,6 @@ fn desktop_search_paths() -> Vec<PathBuf> {
             .map(PathBuf::from),
     );
     paths
-}
-
-fn desktop_entry_name(path: &Path) -> Option<String> {
-    let text = std::fs::read_to_string(path).ok()?;
-    let mut entry = false;
-    for line in text.lines() {
-        let line = line.trim();
-        if line == "[Desktop Entry]" {
-            entry = true;
-            continue;
-        }
-        if line.starts_with('[') {
-            if entry {
-                break;
-            }
-            continue;
-        }
-        if entry {
-            if let Some(name) = line.strip_prefix("Name=") {
-                let name = unescape_desktop_value(name);
-                if !name.is_empty() {
-                    return Some(name);
-                }
-            }
-        }
-    }
-    None
-}
-
-fn desktop_entries() -> Vec<DesktopEntry> {
-    let mut out = Vec::new();
-    let mut seen = HashSet::new();
-    for root in desktop_search_paths() {
-        let applications = root.join("applications");
-        let mut files = Vec::new();
-        collect_desktop_files(&applications, &mut files);
-        for path in files {
-            let Ok(relative) = path.strip_prefix(&applications) else {
-                continue;
-            };
-            let id = desktop_file_id(relative);
-            if !seen.insert(id.clone()) {
-                continue;
-            }
-            if let Some(entry) = parse_desktop_entry(&id, &path) {
-                out.push(entry);
-            }
-        }
-    }
-    out
 }
 
 fn collect_desktop_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -327,13 +297,12 @@ fn parse_desktop_entry(id: &str, path: &Path) -> Option<DesktopEntry> {
         return None;
     }
     let name = name?.trim().to_string();
-    if name.is_empty() || mime_types.is_empty() {
+    if name.is_empty() {
         return None;
     }
     Some(DesktopEntry {
         id: id.to_string(),
         name,
-        desktop_file: path.to_path_buf(),
         mime_types,
     })
 }

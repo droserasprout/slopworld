@@ -9,8 +9,10 @@ Runtime DNS resolution belongs to `sandbox/network.rs`, temporary project paths 
 `paths.rs`, and tmux socket identity and history limits to `tmux.rs`.
 `session/manager/config/mod.rs` serializes runtime changes and publication;
 `manager/lifecycle/reconcile.rs` applies accepted configuration to live sessions.
-`manager/config/cache.rs` coordinates cache links across projects and worktrees, returning
-removed links for restoration if saving fails. Patch and replacement share document preparation
+`manager/config/cache.rs` coordinates cache links across projects and worktrees, tracking
+added and removed links for rollback if reconciliation or saving fails. Rollback errors retain
+the original cause. Save acknowledgements sample revisions before verifying accepted contents;
+document saves acknowledge only the main TOML revision. Patch and replacement share document preparation
 and commit helpers; callers retain the persistence gate until publication and endpoint updates finish.
 Startup lives in `manager/init.rs`, and polling in `manager/maintenance.rs`.
 The mod owns profile preferences that remain available offline.

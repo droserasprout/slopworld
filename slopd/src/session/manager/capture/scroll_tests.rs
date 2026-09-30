@@ -89,3 +89,22 @@ async fn live_and_empty_history_requests_preserve_the_live_frame() {
     assert!(m.scroll_capture("agent", 1, 1).await.is_none());
     assert!(m.scroll_capture("agent", 0, 1).await.is_some());
 }
+
+#[tokio::test]
+async fn replacement_emulator_cannot_reuse_a_cache_with_matching_frame_and_size() {
+    let manager = fixture(b"one\r\ntwo\r\nthree\r\nfour\r\nfive").await;
+    let old = manager.scroll_capture("agent", 1, 1).await.unwrap();
+    let mut replacement = SessionEmu::new(12, 3);
+    replacement.feed(b"new one\r\nnew two\r\nnew three\r\nnew four\r\nnew five");
+    manager
+        .live
+        .write()
+        .await
+        .get_mut("agent")
+        .unwrap()
+        .capture
+        .emu = Some(Arc::new(Mutex::new(replacement)));
+    let fresh = manager.scroll_capture("agent", 1, 2).await.unwrap();
+    assert_ne!(fresh.lines, old.lines);
+    assert!(fresh.lines.iter().any(|line| line.contains("new two")));
+}

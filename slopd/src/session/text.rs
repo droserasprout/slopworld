@@ -16,7 +16,7 @@ where
             if let Some(next) = bytes.next() {
                 match next {
                     b'[' => skip_until(&mut bytes, |next| (0x40..=0x7e).contains(&next)),
-                    b']' => skip_until(&mut bytes, |next| next == 0x07 || next == 0x1b),
+                    b']' => skip_osc(&mut bytes),
                     _ => {}
                 }
                 continue;
@@ -48,6 +48,17 @@ where
                 }
             }
         }
+    }
+}
+
+// OSC ends at BEL or the complete ST pair, never at ESC alone.
+fn skip_osc(bytes: &mut impl Iterator<Item = u8>) {
+    let mut escape = false;
+    for byte in bytes {
+        if byte == 0x07 || (escape && byte == b'\\') {
+            break;
+        }
+        escape = byte == 0x1b;
     }
 }
 

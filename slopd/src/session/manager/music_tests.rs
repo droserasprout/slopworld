@@ -22,6 +22,7 @@ fn resolve_audio_rejects_malformed_selections() {
         (None, Some("t"), None),
         (Some("s"), Some("t"), Some("f")),
         (None, Some("t"), Some("f")),
+        (Some("s"), None, Some("f")),
     ];
     for (station, stream, file) in cases {
         let selection = AudioSelection {

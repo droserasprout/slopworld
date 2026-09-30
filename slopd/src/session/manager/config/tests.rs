@@ -22,6 +22,10 @@ async fn persisted_root_token_changes_invalidate_existing_auth() {
         AuthChange::RootTokenChanged
     ));
     assert_eq!(manager.config().await.daemon.token, "rotated-root");
+    assert_eq!(
+        Config::load(&manager.cfg_path).await.unwrap().daemon.token,
+        "rotated-root"
+    );
 }
 
 #[test]
@@ -191,7 +195,13 @@ async fn configuration_entry_points_preserve_notification_scope() {
     let mut events = manager.events.subscribe();
 
     // Structured edits leave announcements to the operation that requested the edit.
-    manager.update_cfg(|_| Ok(())).await.unwrap();
+    manager
+        .update_cfg(|cfg| {
+            cfg.daemon.title_model = "new model".into();
+            Ok(())
+        })
+        .await
+        .unwrap();
     assert!(events.try_recv().is_err());
 
     let text = toml::to_string_pretty(&manager.config().await).unwrap();
@@ -225,4 +235,33 @@ async fn configuration_entry_points_preserve_notification_scope() {
         Event::Library { .. }
     ));
     assert!(events.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn save_acknowledgement_leaves_an_external_replacement_unseen() {
+    let manager = test_manager(Config::default());
+    let expected = toml::to_string(&manager.config().await).unwrap();
+    let mut external = manager.config().await;
+    external.daemon.title_model = "external model".into();
+    external.save(&manager.cfg_path).await.unwrap();
+    manager.mark_saved_document(&expected).await;
+    assert!(manager.config_state.cfg_mtime.lock().unwrap().is_none());
+    assert!(manager.reload_if_changed().await);
+    assert_eq!(manager.config().await.daemon.title_model, "external model");
+}
+
+#[tokio::test]
+async fn document_save_does_not_acknowledge_an_external_library_revision() {
+    let manager = test_manager(Config::default());
+    let expected = toml::to_string(&manager.config().await).unwrap();
+    Config::save_text(&manager.cfg_path, &expected)
+        .await
+        .unwrap();
+    let accepted = Some(UNIX_EPOCH);
+    *manager.config_state.library_mtime.lock().unwrap() = accepted;
+    manager.mark_saved_document(&expected).await;
+    assert_eq!(
+        *manager.config_state.library_mtime.lock().unwrap(),
+        accepted
+    );
 }

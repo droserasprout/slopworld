@@ -173,11 +173,12 @@ impl Manager {
 
     /// Release resources and publish the outcome after the live-map lock is released.
     pub(in crate::session::manager) async fn execute_cleanup(self: &Arc<Self>, plan: CleanupPlan) {
+        // Abort owned readers before any cancellation point.
+        finish_reader(plan.reader);
         if plan.revoke_grants {
             // The session boundary prevents name reuse until cleanup finishes.
             self.invalidate_session(&plan.name).await;
         }
-        finish_reader(plan.reader);
         self.forget_scroll(&plan.name);
 
         if plan.announce_sessions {

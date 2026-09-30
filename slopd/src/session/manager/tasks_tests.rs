@@ -14,7 +14,9 @@ fn task_owner_preserves_visibility_authority_and_durable_mutations() {
     m.tasks
         .update_task("sender", &task.id, Status::Accepted, None)
         .unwrap_err();
+    assert_task(&m, &task.id, Status::Queued, None);
     m.tasks.remove_task("sender", &task.id, false).unwrap_err();
+    assert_task(&m, &task.id, Status::Queued, None);
     let accepted = m
         .tasks
         .update_task(
@@ -26,9 +28,11 @@ fn task_owner_preserves_visibility_authority_and_durable_mutations() {
         .unwrap();
     assert_eq!(accepted.status, Status::Accepted);
     assert_eq!(accepted.note.as_deref(), Some("Reviewing"));
+    assert_task(&m, &task.id, Status::Accepted, Some("Reviewing"));
     m.tasks
         .cancel_tasks("sender", std::slice::from_ref(&task.id), false)
         .unwrap_err();
+    assert_task(&m, &task.id, Status::Accepted, Some("Reviewing"));
     let canceled = m
         .tasks
         .cancel_tasks("recipient", std::slice::from_ref(&task.id), false)
@@ -109,11 +113,36 @@ fn worker_failure_only_changes_unfinished_worker_tasks() {
         Status::Queued
     );
     m.fail_worker_task(&worker.id, "Exited");
+    assert_task(&m, &ordinary.id, Status::Queued, None);
     m.fail_worker_task(&worker.id, "Must not overwrite terminal result");
+    assert_task(&m, &ordinary.id, Status::Queued, None);
     let saved = crate::tasks::Tasks::load(&m.cfg_path)
         .unwrap()
         .get("host", &worker.id)
         .unwrap();
     assert_eq!(saved.status, Status::Failed);
     assert_eq!(saved.note.as_deref(), Some("Exited"));
+}
+
+fn assert_task(manager: &Manager, id: &str, status: Status, note: Option<&str>) {
+    let live = manager.tasks.task_for("host", id); // Host visibility is not implicit in this lookup.
+    let live = live
+        .or_else(|| {
+            manager
+                .tasks
+                .all_tasks()
+                .into_iter()
+                .find(|task| task.id == id)
+        })
+        .unwrap();
+    let saved = crate::tasks::Tasks::load(&manager.cfg_path)
+        .unwrap()
+        .all()
+        .into_iter()
+        .find(|task| task.id == id)
+        .unwrap();
+    for task in [live, saved] {
+        assert_eq!(task.status, status);
+        assert_eq!(task.note.as_deref(), note);
+    }
 }

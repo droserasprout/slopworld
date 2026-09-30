@@ -61,6 +61,10 @@ lock, then publishes events and persists activity after releasing it.
 Capture retries classification when only state changes. It preserves pending terminal output.
 It discards captures that a newer run or frame replaces.
 Stop and reset advance the run identity so an old reader cannot restore a down row.
+Each capture owner serializes rendering through commit and snapshots identity before rendering.
+Scrollback insertion and cache hits recheck the run and emulator while holding the live read guard.
+Activity persistence serializes writes and clears, rechecks durable identity, run and transition,
+and keeps the shared session boundary through tmux I/O without holding the live lock.
 
 On adoption, existing tmux activity options take precedence over the disk fallback.
 Temporary terminal readers store intent, display label, project/worktree, source identity and pin
@@ -111,12 +115,17 @@ New sessions use this sequence:
 
 Starting the command before capture and attachment loses output during that interval.
 A pager can remain blank until input triggers a redraw.
-Startup controls this sequence, not the mod's pixel cache.
+Startup owns its exclusive boundary through an independent completion task, including
+nested callers and cancellation. Essential worker adoption metadata must save successfully
+before launch proceeds. Startup controls this sequence, not the mod's pixel cache.
 Adoption still initializes the mirror from an already running pane.
 
 Terminal bytes remain complete under backpressure.
 A bounded queue of byte chunks must still reassemble long control lines after dequeue.
 Dropping its receiver must wake the blocking reader.
+Control transport read errors reach the reader boundary. Exit and EOF flush dirty
+output and hand off the final clipboard write before teardown. Clipboard handoff
+retains ordering behind an existing write after the reader exits.
 Child cleanup must kill and reap the child before session removal.
 
 Paste admission checks the tracked live session under the session boundary; the

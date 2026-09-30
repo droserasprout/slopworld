@@ -162,9 +162,71 @@ async fn assert_action_scope_rules(
         .unwrap_err();
     store.worktrees[0].phase = "ready".into();
     store.save(&manager.cfg_path).await.unwrap();
+    assert_eq!(
+        manager
+            .file_action_command("p", "one", file, "pwd", true)
+            .await
+            .unwrap(),
+        "pwd"
+    );
     std::fs::remove_dir_all(tree).unwrap();
     manager
         .file_action_command("p", "one", file, "pwd", true)
         .await
         .unwrap_err();
+}
+
+#[tokio::test]
+async fn failed_view_load_keeps_valid_rows_and_retries_the_same_file_stamp() {
+    let manager = crate::session::test_manager(Config::default());
+    let path = manager.cfg_path.with_file_name("worktrees.toml");
+    let good = toml::to_string(&Store {
+        worktrees: vec![Worktree {
+            id: "kept".into(),
+            name: "kept".into(),
+            ..Default::default()
+        }],
+    })
+    .unwrap();
+    std::fs::write(&path, &good).unwrap();
+    assert!(manager.worktree_view_index().await.contains_key("kept"));
+    // Keep both length and timestamp identical between the failed read and repair.
+    std::fs::write(&path, "!".repeat(good.len())).unwrap();
+    let stamp = std::fs::metadata(&path).unwrap().modified().unwrap();
+    assert!(manager.worktree_view_index().await.contains_key("kept"));
+    std::fs::write(&path, &good).unwrap();
+    std::fs::File::open(&path)
+        .unwrap()
+        .set_modified(stamp)
+        .unwrap();
+    assert!(manager.worktree_view_index().await.contains_key("kept"));
+    assert_eq!(
+        manager.worktrees.views.lock().await.stamp,
+        Some(file_stamp(&path).await)
+    );
+}
+
+#[tokio::test]
+async fn allocation_record_failure_removes_only_newly_created_directories() {
+    let manager = crate::session::test_manager(Config::default());
+    let parent = manager.cfg_path.parent().unwrap().join("checkouts");
+    let _fault = crate::paths::fail_writes(&manager.cfg_path.with_file_name("worktrees.toml"));
+    let prepared = PreparedWorktree {
+        root: PathBuf::from("/tmp"),
+        project: ProjectCfg::default(),
+        branch: "new".into(),
+        base: "base".into(),
+        worktree: Worktree {
+            name: "new".into(),
+            path: parent.join("new").to_string_lossy().into_owned(),
+            managed: true,
+            ..Default::default()
+        },
+    };
+    manager
+        .finish_worktree_creation(prepared)
+        .await
+        .unwrap_err();
+    assert!(!parent.exists());
+    assert!(manager.cfg_path.parent().unwrap().is_dir());
 }

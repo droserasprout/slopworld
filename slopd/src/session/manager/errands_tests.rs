@@ -316,3 +316,38 @@ async fn persistent_host_errand_saves_tab_and_live_metadata() {
     assert!(manager.temp.read().await.is_empty());
     std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
 }
+
+#[tokio::test]
+async fn fresh_errands_do_not_inherit_the_source_worktree() {
+    let cfg = Config {
+        projects: vec![ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        }],
+        sessions: vec![SessionCfg {
+            name: "source".into(),
+            project: "repo".into(),
+            worktree: "old-checkout".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let manager = crate::session::test_manager(cfg.clone());
+    let item = LibraryItemCfg {
+        name: "review".into(),
+        link: LibraryItemLink::Temp,
+        ..Default::default()
+    };
+    let name = manager
+        .create_errand_session(&cfg, &item, &RunWhere::default(), false, false, "source")
+        .await
+        .unwrap();
+    let live = manager.live.read().await;
+    assert!(live[&name].cfg.worktree.is_empty());
+    assert!(manager
+        .temp
+        .read()
+        .await
+        .contains_key(&live[&name].cfg.project));
+}

@@ -12,6 +12,7 @@ pub(super) struct Player {
     socket: Option<PathBuf>,
     volume: f32,
     applied_volume: Option<f32>,
+    persisted_volume: Option<f32>,
 }
 
 pub(super) fn runtime() -> Result<PathBuf> {
@@ -51,6 +52,7 @@ impl Manager {
                 socket: Some(root.join("slopworld-ncspot/ncspot/ncspot.sock")),
                 volume,
                 applied_volume,
+                persisted_volume: applied_volume,
             };
         }
     }
@@ -145,6 +147,7 @@ impl Manager {
         player.socket = Some(socket);
         player.volume = volume.unwrap_or(1.0).clamp(0.0, 1.0);
         player.applied_volume = None;
+        player.persisted_volume = None;
         Ok(session)
     }
 
@@ -192,12 +195,13 @@ impl Player {
             Ok((playing, title)) => {
                 state.playing = playing;
                 state.title = title;
-                if volume.is_some() {
-                    if let Err(e) = manager.tmux.set_ncspot_volume(name, self.volume).await {
-                        tracing::warn!("could not remember ncspot volume: {e:#}");
+                self.applied_volume = Some(self.volume);
+                if self.persisted_volume != Some(self.volume) {
+                    match manager.tmux.set_ncspot_volume(name, self.volume).await {
+                        Ok(()) => self.persisted_volume = Some(self.volume),
+                        Err(error) => tracing::warn!("could not remember ncspot volume: {error:#}"),
                     }
                 }
-                self.applied_volume = Some(self.volume);
             }
             // ncspot authenticates before creating its socket.
             // Keep the terminal usable during login. A missing socket does not indicate playback failure.

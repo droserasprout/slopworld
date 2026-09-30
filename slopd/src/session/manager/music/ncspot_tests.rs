@@ -194,9 +194,13 @@ fn status_handles_paused_stopped_and_missing_track() {
 }
 #[tokio::test]
 async fn missing_socket_is_a_bounded_error() {
-    snapshot(Path::new("/nonexistent/slopworld-ncspot.sock"), None)
-        .await
-        .unwrap_err();
+    tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        snapshot(Path::new("/nonexistent/slopworld-ncspot.sock"), None),
+    )
+    .await
+    .expect("missing socket lookup exceeded its deadline")
+    .unwrap_err();
 }
 
 #[tokio::test]
@@ -241,4 +245,86 @@ async fn ncspot_marker_survives_new_handle_and_does_not_mark_other_tabs() {
     adopted.kill("player").await.unwrap();
     assert!(!adopted.exists("player").await);
     assert!(adopted.exists("other").await);
+}
+
+#[tokio::test]
+async fn failed_volume_marker_is_retried_without_repeating_applied_ipc_commands() {
+    let socket = format!("slopd-volume-marker-{}", uuid::Uuid::new_v4());
+    let manager = crate::session::test_manager_with_socket(Config::default(), &socket);
+    struct Server(String);
+    impl Drop for Server {
+        fn drop(&mut self) {
+            drop(
+                std::process::Command::new("tmux")
+                    .args(["-L", &self.0, "kill-server"])
+                    .output(),
+            );
+        }
+    }
+    let _server = Server(socket);
+    let root = manager.cfg_path.parent().unwrap();
+    let ipc = root.join("ncspot.sock");
+    let listener = tokio::net::UnixListener::bind(&ipc).unwrap();
+    manager
+        .tmux
+        .spawn(
+            "player",
+            root.to_str().unwrap(),
+            80,
+            24,
+            &["sleep".into(), "60".into()],
+            true,
+        )
+        .await
+        .unwrap();
+    manager.tmux.mark_ncspot("player").await.unwrap();
+    let tmux = manager.tmux.clone();
+    let server = tokio::spawn(async move {
+        for attempt in 0..2 {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            if attempt == 0 {
+                tmux.kill("player").await.unwrap();
+            }
+            stream
+                .write_all(b"{\"mode\":\"Stopped\",\"playable\":null}\n")
+                .await
+                .unwrap();
+            let mut commands = Vec::new();
+            stream.read_to_end(&mut commands).await.unwrap();
+            assert_eq!(
+                commands,
+                if attempt == 0 {
+                    volume_commands(0.42).into_bytes()
+                } else {
+                    Vec::new()
+                }
+            );
+        }
+    });
+    let mut player = Player {
+        session: Some("player".into()),
+        socket: Some(ipc),
+        volume: 0.42,
+        ..Default::default()
+    };
+    player.state(&manager).await.unwrap();
+    assert_eq!(player.applied_volume, Some(0.42));
+    assert_eq!(player.persisted_volume, None);
+    manager
+        .tmux
+        .spawn(
+            "player",
+            root.to_str().unwrap(),
+            80,
+            24,
+            &["sleep".into(), "60".into()],
+            true,
+        )
+        .await
+        .unwrap();
+    manager.tmux.mark_ncspot("player").await.unwrap();
+    player.state(&manager).await.unwrap();
+    assert_eq!(player.persisted_volume, Some(0.42));
+    assert_eq!(manager.tmux.ncspot_volume("player").await, Some(0.42));
+    server.await.unwrap();
 }

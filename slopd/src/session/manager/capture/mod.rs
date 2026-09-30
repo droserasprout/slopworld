@@ -28,6 +28,8 @@ struct FrameMeta {
 }
 
 struct FrameSnapshot {
+    identity: String,
+    emu: Option<Arc<Mutex<SessionEmu>>>,
     content_hash: u64,
     activity_hash: u64,
     state: State,
@@ -42,6 +44,17 @@ struct FrameSnapshot {
 }
 
 impl FrameSnapshot {
+    fn owns(&self, live: &Live) -> bool {
+        self.identity == live.cfg.state_id
+            && self.run_id == live.run_id
+            && self.seq == live.seq
+            && match (&self.emu, &live.capture.emu) {
+                (Some(captured), Some(current)) => Arc::ptr_eq(captured, current),
+                (None, None) => true,
+                _ => false,
+            }
+    }
+
     fn from_live(l: &Live) -> Self {
         let (cursor, meta) = l
             .screen
@@ -62,6 +75,8 @@ impl FrameSnapshot {
             .unwrap_or_default();
 
         Self {
+            identity: l.cfg.state_id.clone(),
+            emu: l.capture.emu.clone(),
             content_hash: l.hash,
             activity_hash: l.activity_hash,
             state: l.state,
@@ -99,6 +114,7 @@ struct ControlLineReceiver {
     rx: mpsc::Receiver<Vec<u8>>,
     pending: Vec<u8>,
     searched: usize,
+    failure: Arc<Mutex<Option<std::io::Error>>>,
 }
 
 impl ControlLineReceiver {
@@ -107,6 +123,7 @@ impl ControlLineReceiver {
             rx,
             pending: Vec::new(),
             searched: 0,
+            failure: Arc::default(),
         }
     }
 
@@ -179,11 +196,21 @@ async fn wait_for_control_attach(rx: &mut ControlLineReceiver) -> Result<Vec<Vec
         }
         pending.push(line);
     }
+    if let Some(error) = rx
+        .failure
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .take()
+    {
+        return Err(error.into());
+    }
     Err(anyhow!("control client closed before attach completed"))
 }
 
 fn spawn_control_reader(master: std::fs::File) -> ControlLineReceiver {
     let (tx, rx) = mpsc::channel::<Vec<u8>>(CONTROL_QUEUE_CHUNKS);
+    let receiver = ControlLineReceiver::new(rx);
+    let failure = receiver.failure.clone();
     std::thread::spawn(move || {
         use std::io::Read;
 
@@ -203,11 +230,15 @@ fn spawn_control_reader(master: std::fs::File) -> ControlLineReceiver {
                         break;
                     }
                 }
-                Err(_) => break,
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(error) => {
+                    *failure.lock().unwrap_or_else(|error| error.into_inner()) = Some(error);
+                    break;
+                }
             }
         }
     });
-    ControlLineReceiver::new(rx)
+    receiver
 }
 
 #[cfg(test)]

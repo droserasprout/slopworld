@@ -16,9 +16,13 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
     let cfg_path = directory.join("config.toml");
     let (events, _) = broadcast::channel(16);
     Arc::new(Manager {
+        frame_commit_pause: Mutex::new(None),
+        input_sink: Mutex::new(None),
+        _test_directory: Some(TestDirectory(directory.clone())),
         tmux: Tmux::new(socket),
         cfg_path: cfg_path.clone(),
         endpoint_path: cfg_path.with_extension("endpoint.toml"),
+        library_snapshot: Mutex::new(config.library_items_all()),
         cfg: RwLock::new(config),
         templates: TemplateStore::new(AgentTemplateStore::default()),
         live: RwLock::new(HashMap::new()),
@@ -27,13 +31,14 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
         host_metadata: HostMetadataPoll::default(),
         signals: super::Signals::new(),
         scroll_cache: Mutex::new(HashMap::new()),
+        activity_mutation: tokio::sync::Mutex::new(()),
         activity_cache: crate::activity::ActivityCache::load(crate::activity::cache_path(
             &cfg_path,
         )),
         music: MusicState::new(),
         events,
         auth: Authorization::new(crate::grant::Grants::default()),
-        session_boundary: tokio::sync::RwLock::new(()),
+        session_boundary: Arc::new(tokio::sync::RwLock::new(())),
         resize_mutation: tokio::sync::Mutex::new(()),
         tasks: super::TaskStore::new(
             crate::tasks::Tasks::load(&cfg_path).expect("test task store"),
@@ -42,4 +47,12 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
         worktrees: WorktreeState::default(),
         title_cache: crate::title::SummaryCache::load(directory.join("summary-cache.toml")),
     })
+}
+
+// Declared last in the fixture's lifetime: Manager resources no longer use it on drop.
+pub(super) struct TestDirectory(PathBuf);
+impl Drop for TestDirectory {
+    fn drop(&mut self) {
+        drop(std::fs::remove_dir_all(&self.0));
+    }
 }

@@ -33,6 +33,10 @@ async fn usage_broadcasts_only_when_the_readout_changes() {
     let event = events.try_recv().expect("usage event");
     assert!(matches!(event.event(), Event::Usage { usage } if usage == &changed));
     assert_eq!(manager.usage().await, changed);
+    assert!(matches!(
+        events.try_recv(),
+        Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+    ));
 }
 
 #[tokio::test]

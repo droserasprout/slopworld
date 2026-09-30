@@ -134,11 +134,17 @@ fn config_patch_conversion_preserves_signed_integers_and_floats() {
 
 #[test]
 fn config_patches_replace_arrays_and_preserve_unknown_nested_fields() {
-    let mut document = json_to_toml(serde_json::json!({
-        "daemon": {"bind": "127.0.0.1:9999", "extension": {"enabled": true}},
-        "project": [{"name": "old"}],
-        "untouched": "keep",
-    }))
+    let mut document: toml::Value = toml::from_str(
+        r#"
+untouched = "keep"
+[[project]]
+name = "old"
+[daemon]
+bind = "127.0.0.1:9999"
+[daemon.extension]
+enabled = true
+"#,
+    )
     .unwrap();
     merge_toml(
         &mut document,
@@ -150,15 +156,17 @@ fn config_patches_replace_arrays_and_preserve_unknown_nested_fields() {
     );
     assert_eq!(
         document,
-        json_to_toml(serde_json::json!({
-            "daemon": {
-                "bind": "127.0.0.1:8888",
-                "extension": {"enabled": true},
-                "new_field": 42,
-            },
-            "project": [],
-            "untouched": "keep",
-        }))
+        toml::from_str::<toml::Value>(
+            r#"
+untouched = "keep"
+project = []
+[daemon]
+bind = "127.0.0.1:8888"
+new_field = 42
+[daemon.extension]
+enabled = true
+"#
+        )
         .unwrap()
     );
 }
@@ -185,5 +193,18 @@ fn file_action_paths_are_normalized_before_checking_project_containment() {
             .unwrap_err()
             .to_string(),
         "Enter a path for the file action."
+    );
+}
+
+#[test]
+fn config_patches_reject_integers_above_toml_range() {
+    for value in [i64::MAX as u64 + 1, u64::MAX] {
+        json_to_toml(serde_json::json!(value)).unwrap_err();
+    }
+    assert_eq!(
+        json_to_toml(serde_json::json!(2_f64.powi(63)))
+            .unwrap()
+            .as_float(),
+        Some(2_f64.powi(63))
     );
 }

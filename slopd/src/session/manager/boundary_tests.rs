@@ -114,9 +114,46 @@ async fn replacement_waits_for_authorized_use_and_then_rejects_the_old_capabilit
         let replace = manager.replace_config(&text);
         tokio::pin!(replace);
         assert!(futures::poll!(replace.as_mut()).is_pending());
+        assert!(manager.cap_ok(&cap, "target", level).await);
         release.send(()).unwrap();
         request.await;
         replace.await.unwrap();
         assert!(!manager.cap_ok(&cap, "target", level).await);
     }
+}
+
+#[tokio::test]
+async fn cancelling_a_nested_owned_operation_retains_the_exclusive_boundary() {
+    let manager = crate::session::test_manager(Config::default());
+    let reached = std::sync::Arc::new(tokio::sync::Notify::new());
+    let release = std::sync::Arc::new(tokio::sync::Notify::new());
+    let finished = std::sync::Arc::new(tokio::sync::Notify::new());
+    let caller = {
+        let manager = manager.clone();
+        let reached = reached.clone();
+        let release = release.clone();
+        let finished = finished.clone();
+        tokio::spawn(async move {
+            manager
+                .session_operation(async {
+                    manager
+                        .owned_session_operation(async move {
+                            reached.notify_one();
+                            release.notified().await;
+                            finished.notify_one();
+                        })
+                        .await;
+                })
+                .await;
+        })
+    };
+    reached.notified().await;
+    caller.abort();
+    assert!(caller.await.unwrap_err().is_cancelled());
+    let replacement = manager.session_operation(async {});
+    tokio::pin!(replacement);
+    assert!(futures::poll!(replacement.as_mut()).is_pending());
+    release.notify_one();
+    finished.notified().await;
+    replacement.await;
 }
