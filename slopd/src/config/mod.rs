@@ -1,11 +1,13 @@
 //! Configuration module, project/session lookups, and configured-path resolution.
 
+mod catalog;
 mod daemon;
 mod library;
 mod model;
 mod persistence;
 mod resolution;
 mod sandbox;
+mod transaction;
 mod validation;
 
 pub use daemon::*;

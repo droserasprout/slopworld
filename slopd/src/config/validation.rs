@@ -50,6 +50,7 @@ pub(crate) fn validate_project_names(projects: &[ProjectCfg]) -> Result<()> {
 pub(crate) fn state_id_component(state_id: &str) -> Result<&str> {
     if state_id.is_empty()
         || state_id == ".trash"
+        || state_id.chars().any(char::is_control)
         || state_id.bytes().any(|b| b == b'/' || b == b'\\')
     {
         bail!("The private-state ID must be one path component.");

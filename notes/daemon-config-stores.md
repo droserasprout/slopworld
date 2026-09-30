@@ -4,7 +4,14 @@ The daemon owns machine configuration.
 `config/` owns its model, resolution, validation, and persistence.
 The root records live in `model.rs`; daemon settings, sandbox policy types, and
 library definitions have separate modules. Library lookups and supplied content live
-with the library types. Token redaction belongs to configuration persistence.
+with the library types. Token redaction belongs to configuration persistence;
+diagnostic formatting also redacts root and worker credentials.
+`catalog.rs` validates and serializes every library entry before mutation.
+`transaction.rs` owns the private undo journal beside the main config, rollback, and
+recovery on typed load/save. The journal commits when removed; an interrupted save
+restores the previous main document and catalog before another load or save.
+Callers must serialize writers and recovery through the configuration gate.
+The journal contains old credentials and is protected by sandbox path guards.
 Runtime DNS resolution belongs to `sandbox/network.rs`, temporary project paths to
 `paths.rs`, and tmux socket identity and history limits to `tmux.rs`.
 `session/manager/config/mod.rs` serializes runtime changes and publication;
@@ -42,7 +49,9 @@ The project shortcut copies paths once. It does not rebuild a running sandbox.
 
 Agents own command, sandbox additions, network, DNS, resource limits, and startup/private-state
 behavior. Network defaults to `private`. DNS `resolved` follows the resolver seen by the daemon.
-An unset limit means no limit.
+An unset limit means no limit. DNS and resource-limit tables reject unknown keys;
+resolved DNS rejects nonempty server lists (the wire format includes empty lists).
+Unknown fields elsewhere retain the configuration preservation contract.
 
 At startup, the daemon resolves `agent_shell` to an absolute executable path and sets the sandbox
 `SHELL` variable. This default is separate from the host shell preset for errands.
@@ -74,7 +83,9 @@ Config and template loads read the current schema without rewriting files. API w
 current request fields.
 When the main config is missing, load existing library files before creating its default.
 Typed saves reject unreadable or malformed existing config instead of replacing it.
-Library replacement writes new entries before removing retired files.
+Library replacement and main-document writes share a recoverable transaction.
+Failed commits restore original file bytes; failed restoration retains the journal
+for retry and reports the recovery error.
 User-level catalog definitions remain editable through their owning API.
 
 Configuration and personal-template stores use `paths::write_atomic_async` for owner-only

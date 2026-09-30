@@ -56,10 +56,11 @@ pub enum DnsConfig {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct DnsWire {
     mode: String,
     #[serde(default)]
-    servers: Vec<Ipv4Addr>,
+    servers: Option<Vec<Ipv4Addr>>,
 }
 
 impl Serialize for DnsConfig {
@@ -94,9 +95,22 @@ impl<'de> Deserialize<'de> for DnsConfig {
 
         let wire = DnsWire::deserialize(deserializer)?;
         match wire.mode.as_str() {
-            crate::shared::protocol::enums::dns_mode::RESOLVED => Ok(Self::Resolved),
+            crate::shared::protocol::enums::dns_mode::RESOLVED => {
+                // Protobuf repeated fields serialize as empty lists even for resolved DNS.
+                // Reject actual addresses, which would otherwise be silently discarded.
+                if wire
+                    .servers
+                    .as_ref()
+                    .is_some_and(|servers| !servers.is_empty())
+                {
+                    return Err(D::Error::custom("resolved DNS must not specify servers"));
+                }
+                Ok(Self::Resolved)
+            }
             crate::shared::protocol::enums::dns_mode::SERVERS => Ok(Self::Servers {
-                servers: wire.servers,
+                servers: wire
+                    .servers
+                    .ok_or_else(|| D::Error::missing_field("servers"))?,
             }),
             other => Err(D::Error::unknown_variant(
                 other,
@@ -138,6 +152,7 @@ impl DnsConfig {
 
 /// Agent resource limits enforced by systemd. Unset fields impose no limit.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Limits {
     /// Maximum memory in MiB (systemd `MemoryMax`). The kernel enforces this limit through OOM termination.
     #[serde(default, skip_serializing_if = "Option::is_none")]

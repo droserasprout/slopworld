@@ -55,7 +55,7 @@ pub struct ProjectCfg {
 
 /// An agent is a command preset plus its process settings. Workspace mounts belong to the project
 /// so every agent in the same project starts from the same directory view.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SessionCfg {
     // Identity and workspace.
     /// Empty selects the original project checkout.
@@ -198,5 +198,39 @@ impl Default for SessionCfg {
             task_id: String::new(),
             worker_token: None,
         }
+    }
+}
+
+impl std::fmt::Debug for SessionCfg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SessionCfg")
+            .field("worktree", &self.worktree)
+            .field("name", &self.name)
+            .field("label", &self.label)
+            .field("intent", &self.intent)
+            .field("reader_label", &self.reader_label)
+            .field("reader_path", &self.reader_path)
+            .field("reader_key", &self.reader_key)
+            .field("reader_scope", &self.reader_scope)
+            .field("reader_pinned", &self.reader_pinned)
+            .field("reader_line", &self.reader_line)
+            .field("state_id", &self.state_id)
+            .field("project", &self.project)
+            .field("command", &self.command)
+            .field("cmd", &self.cmd)
+            .field("command_snapshot", &self.command_snapshot)
+            .field("sandbox", &self.sandbox)
+            .field("sandbox_snapshots", &self.sandbox_snapshots)
+            .field("persistent_tmp", &self.persistent_tmp)
+            .field("network", &self.network)
+            .field("dns", &self.dns)
+            .field("limits", &self.limits)
+            .field("autostart", &self.autostart)
+            .field("auto_resume", &self.auto_resume)
+            .field("worker", &self.worker)
+            .field("parent", &self.parent)
+            .field("task_id", &self.task_id)
+            .field("worker_token", &super::TOKEN_REDACTED)
+            .finish()
     }
 }

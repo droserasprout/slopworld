@@ -12,7 +12,12 @@ fn no_bind_list_reaches_the_token_the_presets_or_another_session() {
         assert!(refused(&home.join("src").to_string_lossy()).is_none());
     }
 
-    for kept in [Config::path_in_use(), Table::dir(), state_root()] {
+    for kept in [
+        Config::path_in_use(),
+        Config::recovery_path_for(&Config::path_in_use()),
+        Table::dir(),
+        state_root(),
+    ] {
         assert!(
             refused(&kept.to_string_lossy()).is_some(),
             "{} is bindable",

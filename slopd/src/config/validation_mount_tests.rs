@@ -43,6 +43,10 @@ fn path_mounts_reject_empty_relative_protected_and_duplicate_targets() {
         to: "/work/repo/relative".into(),
         mode: MountMode::Rw,
     });
+    let absolute = p.mounts[1].clone();
+    let mut absolute_only = p.clone();
+    absolute_only.mounts = vec![absolute];
+    validate_mount_paths(&absolute_only).unwrap();
     assert!(validate_mount_paths(&p).is_err());
 }
 

@@ -19,7 +19,7 @@ pub const DEFAULT_TITLE_MIN_CHARS: usize = 0;
 /// Default instruction for external title generation.
 pub const DEFAULT_SUMMARY_PROMPT: &str = "Summarise this prompt in at most 6 words for a session title. Reply with only the title in sentence case, without quotes, punctuation, or commentary. If prompt is too short to summarize - return it verbatim.";
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Daemon {
     // Listener and authentication.
     pub bind: String,
@@ -236,5 +236,27 @@ impl Default for CommandDefaults {
             editor: default_editor(),
             highlighter: default_highlighter(),
         }
+    }
+}
+
+impl std::fmt::Debug for Daemon {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Daemon")
+            .field("bind", &self.bind)
+            .field("token", &super::TOKEN_REDACTED)
+            .field("usage_poll_secs", &self.usage_poll_secs)
+            .field("usage_items", &self.usage_items)
+            .field("claude_credentials", &self.claude_credentials)
+            .field("openrouter_key_file", &self.openrouter_key_file)
+            .field("openai_credentials", &self.openai_credentials)
+            .field("agent_titles", &self.agent_titles)
+            .field("title_model", &self.title_model)
+            .field("summary_prompt", &self.summary_prompt)
+            .field("title_min_chars", &self.title_min_chars)
+            .field("pi_titles", &self.pi_titles)
+            .field("task_summaries", &self.task_summaries)
+            .field("instructions", &self.instructions)
+            .field("worker_templates", &self.worker_templates)
+            .finish()
     }
 }

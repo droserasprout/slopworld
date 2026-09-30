@@ -3,7 +3,39 @@
 use super::{default_agent, Config, DnsConfig, Limits, NetworkMode, ProjectCfg, SessionCfg};
 use serde_json::{json, Value};
 
+/// Execution precedence shared by launch and editor labels. Preset policy selection
+/// remains independent: an explicit command can retain captured sandbox settings.
+enum CommandSelection<'a> {
+    Explicit(&'a str),
+    Captured(&'a crate::presets::CommandPreset),
+    Selected,
+    Default,
+}
+
+impl CommandSelection<'_> {
+    fn source(&self) -> &'static str {
+        match self {
+            Self::Explicit(_) => "agent command line",
+            Self::Captured(_) => "captured command",
+            Self::Selected => "selected command preset",
+            Self::Default => "daemon default",
+        }
+    }
+}
+
 impl SessionCfg {
+    fn command_selection(&self) -> CommandSelection<'_> {
+        if let Some(command) = self.cmd.as_deref().map(str::trim).filter(|c| !c.is_empty()) {
+            CommandSelection::Explicit(command)
+        } else if let Some(snapshot) = &self.command_snapshot {
+            CommandSelection::Captured(snapshot)
+        } else if !self.command.trim().is_empty() {
+            CommandSelection::Selected
+        } else {
+            CommandSelection::Default
+        }
+    }
+
     /// Keep captured definitions only for selected presets and their transitive dependencies.
     /// A command-line override changes execution but preserves the selected preset's configuration.
     pub(crate) fn preserve_selected_snapshots(&mut self, previous: &Self) {
@@ -85,16 +117,14 @@ impl Config {
     /// Return the command to execute: the explicit command line, the snapshot, or the command preset.
     /// A missing preset gives an empty command, which `start` rejects.
     pub fn command_of(&self, s: &SessionCfg) -> String {
-        if let Some(c) = s.cmd.as_deref().map(str::trim).filter(|c| !c.is_empty()) {
-            return c.to_string();
+        match s.command_selection() {
+            CommandSelection::Explicit(command) => command.to_string(),
+            CommandSelection::Captured(snapshot) => snapshot.cmd.clone(),
+            CommandSelection::Selected | CommandSelection::Default => crate::presets::table()
+                .command(&self.command_name(s))
+                .map(|c| c.cmd.clone())
+                .unwrap_or_default(),
         }
-        if let Some(snapshot) = &s.command_snapshot {
-            return snapshot.cmd.clone();
-        }
-        crate::presets::table()
-            .command(&self.command_name(s))
-            .map(|c| c.cmd.clone())
-            .unwrap_or_default()
     }
 
     /// Resolve global, command, then agent presets, deduplicated with dependencies first.
@@ -187,23 +217,18 @@ impl Config {
         } else {
             command
         };
-        let command_source = if s.cmd.as_ref().is_some_and(|cmd| !cmd.trim().is_empty()) {
-            "agent command line"
-        } else if s.command_snapshot.is_some() {
-            "captured command"
-        } else if !s.command.is_empty() {
-            "selected command preset"
-        } else {
-            "daemon default"
-        };
+        let selection = s.command_selection();
+        let command_source = selection.source();
         Self::preview_field(
             fields,
             "Command",
-            vec![if recipe && s.command.is_empty() && s.cmd.is_none() {
-                "Use destination daemon's default command".into()
-            } else {
-                format!("{command} — {command_source}")
-            }],
+            vec![
+                if recipe && matches!(selection, CommandSelection::Default) {
+                    "Use destination daemon's default command".into()
+                } else {
+                    format!("{command} — {command_source}")
+                },
+            ],
         );
         let network = self.network_of(s, p);
         let network_name = match network {
