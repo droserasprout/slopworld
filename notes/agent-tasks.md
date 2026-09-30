@@ -27,6 +27,7 @@ The store returns tasks visible to the caller. CLI filters select entries from t
 `--json` serializes the same result as the text output.
 The CLI parser recognizes help immediately after the command name. Task text
 preserves help words. Spawn options end before the task body.
+With an injected task ID, update positionals are notes; `--id ID` selects an explicit target.
 Task authority is separate from terminal-input authority.
 The grant's session scope is the delegation allowlist.
 

@@ -1,12 +1,14 @@
 # Profile and launch boundary
 
-The Rust `slopworld` launcher owns profile seeding, process lifetime and single-instance
-locking. Linux and macOS targets share it. The mod only patches when the profile marker
-exists. Launching the game directly bypasses this requirement.
+The Rust `slopworld` launcher owns profile seeding and process lifetime.
+`slopworld/instance.rs` owns locking and external-game detection. Linux and macOS targets
+share it. The mod only patches when the profile marker exists. Launching the game directly bypasses this requirement.
 
 Profile mod-list seeding omits `<version>`: RimWorld can discard a mismatched versioned list
 and re-enable expansions. Reject `=` in save-data paths because the game splits the argument
 on it. Reset is explicit. Ordinary launch must preserve existing profile choices.
+Validate launch paths before seeding; print mode must leave profiles untouched.
+Resolve existing ancestors for absent profiles so seeding cannot change the lock identity.
 
 The launcher waits rather than execs so its service lifetime matches the game. Hold the
 profile-keyed kernel lock through exit and also detect games launched outside the launcher.

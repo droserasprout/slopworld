@@ -62,10 +62,21 @@ fn install_replaces_only_the_named_mod_and_uninstall_removes_it() {
     fs::create_dir_all(mods.join(MOD_NAME)).unwrap();
     fs::write(mods.join(MOD_NAME).join("old.txt"), "old").unwrap();
     fs::write(mods.join("Keep.txt"), "keep").unwrap();
+    fs::create_dir_all(mods.join("Neighbor")).unwrap();
+    let neighbor = mods.join("Neighbor/marker");
+    fs::write(&neighbor, "neighbor").unwrap();
 
     let source = fs::canonicalize(source).unwrap();
     let mods = fs::canonicalize(mods).unwrap();
-    install(&source, &mods).unwrap();
+    try_run(&args(&[
+        "mod",
+        "install",
+        "--source",
+        source.to_str().unwrap(),
+        "--mods",
+        mods.to_str().unwrap(),
+    ]))
+    .unwrap();
     assert_eq!(
         fs::read_to_string(mods.join(MOD_NAME).join("About/About.xml")).unwrap(),
         "new"
@@ -73,7 +84,15 @@ fn install_replaces_only_the_named_mod_and_uninstall_removes_it() {
     assert!(!mods.join(MOD_NAME).join("old.txt").exists());
     assert_eq!(fs::read_to_string(mods.join("Keep.txt")).unwrap(), "keep");
 
-    super::remove_existing(&mods.join(MOD_NAME)).unwrap();
+    assert_eq!(fs::read_to_string(&neighbor).unwrap(), "neighbor");
+    try_run(&args(&[
+        "mod",
+        "uninstall",
+        "--mods",
+        mods.to_str().unwrap(),
+    ]))
+    .unwrap();
+    assert_eq!(fs::read_to_string(&neighbor).unwrap(), "neighbor");
     assert!(!mods.join(MOD_NAME).exists());
     assert!(mods.join("Keep.txt").exists());
     fs::remove_dir_all(root).unwrap();

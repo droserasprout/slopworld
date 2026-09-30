@@ -1,6 +1,8 @@
 # Diagnostics
 
-`slopctl logs` reads game and journal output.
+`slopctl logs` reads game and journal output. `slopctl/logs/stream.rs` owns
+bounded fan-in and child cleanup. Drop the receiver before joining producers,
+and keep child cancellation available during reaping.
 The book describes command options and paths.
 Use `slopctl status` for API health. Service active status alone does not prove the listener
 bound.

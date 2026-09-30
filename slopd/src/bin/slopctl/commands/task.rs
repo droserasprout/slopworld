@@ -1,7 +1,7 @@
 use super::super::format::{emit, print_json, print_task};
 use super::super::http::{request, Endpoint};
 use super::super::TASK_WAIT_INTERVAL;
-use super::common::{arg, only, rest};
+use super::common::{arg, only, option_value, rest, value_option};
 use super::{Command, USAGE};
 use crate::shared::protocol::{enums::task_status, routes};
 use serde_json::{json, Value};
@@ -27,6 +27,8 @@ pub(crate) const TASK_USAGE: &str = "usage:
   slopctl task prune [--include-active]
 
 Manage delegated tasks. Omit ID when SLOPWORLD_TASK_ID is set.
+For updates with an injected ID, all positional words are the note; use --id ID
+to target another task. Use -- before a note beginning with a flag.
 ";
 pub(crate) const TASK_LIST_USAGE: &str = "usage:
   slopctl task list [--all] [--sent] [--received] [--status STATUS]
@@ -57,22 +59,22 @@ It writes the final result to stdout. Omit ID when SLOPWORLD_TASK_ID is set.
 pub(crate) const ACCEPT_USAGE: &str = "usage:
   slopctl task accept [ID] [NOTE...]
 
-Accept a queued task. Add an optional note. When SLOPWORLD_TASK_ID is set, omit ID.
+Accept a queued task. Add an optional note. When SLOPWORLD_TASK_ID is set, omit ID; use --id ID to target another task.
 ";
 pub(crate) const PROGRESS_USAGE: &str = "usage:
   slopctl task progress [ID] [NOTE...]
 
-Set an accepted task to working. Add an optional note. When SLOPWORLD_TASK_ID is set, omit ID.
+Set an accepted task to working. Add an optional note. When SLOPWORLD_TASK_ID is set, omit ID; use --id ID to target another task.
 ";
 pub(crate) const FINISH_USAGE: &str = "usage:
   slopctl task finish [ID] [RESULT...]
 
-Mark a task as done. Add an optional result. When SLOPWORLD_TASK_ID is set, omit ID.
+Mark a task as done. Add an optional result. When SLOPWORLD_TASK_ID is set, omit ID; use --id ID to target another task.
 ";
 pub(crate) const FAIL_USAGE: &str = "usage:
   slopctl task fail [ID] [ERROR...]
 
-Mark a task as failed. Add an optional reason. When SLOPWORLD_TASK_ID is set, omit ID.
+Mark a task as failed. Add an optional reason. When SLOPWORLD_TASK_ID is set, omit ID; use --id ID to target another task.
 ";
 pub(crate) const REMOVE_USAGE: &str = "usage:
   slopctl task remove [ID]
@@ -204,8 +206,26 @@ fn parse_task_update(
     ) {
         return Ok(Command::Help { usage });
     }
-    let id = task_id_arg(args, 2, &format!("{name} needs a task id"), task_id)?;
-    let note = (args.len() > 3).then(|| args.get(3..).unwrap_or_default().join(" "));
+    let mut note_at = 2;
+    let (flag, inline) = args
+        .get(2)
+        .map(|arg| value_option(arg))
+        .unwrap_or(("", None));
+    let id = if flag == "--id" {
+        let id = option_value(args, &mut note_at, flag, inline)?;
+        note_at += 1;
+        id
+    } else if let Some(id) = task_id {
+        id.to_string()
+    } else {
+        note_at = 3;
+        task_id_arg(args, 2, &format!("{name} needs a task id"), None)?
+    };
+    // A delimiter also permits notes that begin with --id or a help flag.
+    if args.get(note_at).is_some_and(|arg| arg == "--") {
+        note_at += 1;
+    }
+    let note = (args.len() > note_at).then(|| args.get(note_at..).unwrap_or_default().join(" "));
     Ok(Command::Update { action, id, note })
 }
 

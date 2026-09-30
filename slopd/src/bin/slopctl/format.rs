@@ -40,16 +40,16 @@ pub(crate) fn print_task(t: &Value) {
         when.push_str(&format!(", moved {}", age(updated)));
     }
     println!(
-        "{}  {} -> {}  [{}]  {}\n  {}",
+        "{}  {} -> {}  [{}]  {}",
         t["id"].as_str().unwrap_or("?"),
         t["from"].as_str().unwrap_or("?"),
         t["to"].as_str().unwrap_or("?"),
         t["status"].as_str().unwrap_or("?"),
-        when,
-        t["body"].as_str().unwrap_or("")
+        when
     );
+    print_task_text(t["body"].as_str().unwrap_or(""));
     if let Some(note) = t["note"].as_str() {
-        println!("  {note}");
+        print_task_text(note);
     }
     if let Some(worker) = t.get("worker") {
         println!(
@@ -63,6 +63,11 @@ pub(crate) fn print_task(t: &Value) {
             }
         );
     }
+}
+
+/// Frame continuation and empty lines so task text cannot resemble a new record.
+fn print_task_text(text: &str) {
+    println!("  {}", text.replace('\n', "\n  "));
 }
 
 pub(crate) fn print_status(v: &Value) {

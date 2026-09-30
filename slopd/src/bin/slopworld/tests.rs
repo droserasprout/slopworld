@@ -1,7 +1,7 @@
 use super::*;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-fn scratch(what: &str) -> PathBuf {
+pub(super) fn scratch(what: &str) -> PathBuf {
     static N: AtomicU32 = AtomicU32::new(0);
     let n = N.fetch_add(1, Ordering::Relaxed);
     let dir =
@@ -117,6 +117,7 @@ fn sidecar_endpoint_is_required_and_must_exist() {
     let root = scratch("endpoint");
     std::fs::create_dir_all(&root).unwrap();
     let endpoint = root.join("endpoint.toml");
+    assert!(sidecar_paths_from(Some("/profile"), endpoint.to_str()).is_err());
     std::fs::write(&endpoint, "url = \"http://127.0.0.1:7718\"\n").unwrap();
     assert_eq!(
         sidecar_paths_from(Some("/profile"), endpoint.to_str())
@@ -147,13 +148,31 @@ fn seeding_writes_a_marker_and_a_mod_list() {
     seed(&p, false, false).expect("seeds");
     assert!(p.join(MARKER).is_file(), "the mod looks for this one");
     let xml = std::fs::read_to_string(p.join("Config/ModsConfig.xml")).expect("written");
-    assert!(xml.contains(CORE) && xml.contains(SLOPWORLD));
+    let active = xml
+        .split("<activeMods>")
+        .nth(1)
+        .unwrap()
+        .split("</activeMods>")
+        .next()
+        .unwrap();
+    assert!(active.contains(&format!("<li>{CORE}</li>")));
+    assert!(active.contains(&format!("<li>{SLOPWORLD}</li>")));
+    let known = xml
+        .split("<knownExpansions>")
+        .nth(1)
+        .unwrap()
+        .split("</knownExpansions>")
+        .next()
+        .unwrap();
     assert!(
         !p.join("Config/SlopWorld.toml").exists(),
         "native profiles keep their regular UI default"
     );
     for e in EXPANSIONS {
-        assert!(xml.contains(e), "{e} is known, so it is never offered");
+        assert!(
+            known.contains(&format!("<li>{e}</li>")),
+            "{e} is known, so it is never offered"
+        );
     }
     drop(std::fs::remove_dir_all(&p));
 }
@@ -199,25 +218,7 @@ fn sidecar_seeding_defaults_to_warm_without_overwriting_settings() {
     drop(std::fs::remove_dir_all(&p));
 }
 
-#[test]
-fn launcher_lock_rejects_a_second_owner_and_reopens_after_drop() {
-    let p = scratch("lock").join("launcher.lock");
-    let first = InstanceLock::acquire(&p).expect("first launcher owns the lock");
-    let second = InstanceLock::acquire(&p);
-    let err = match second {
-        Ok(_) => panic!("second launcher must be rejected"),
-        Err(e) => e,
-    };
-    assert!(err.contains("another SlopWorld session"));
-
-    drop(first);
-    InstanceLock::acquire(&p).expect("the kernel releases the lock after the owner exits");
-    if let Some(parent) = p.parent() {
-        drop(std::fs::remove_dir_all(parent));
-    }
-}
-
-/// Restore a missing marker in an existing profile so the mod can detect the profile.
+/// Restore a missing marker so the mod can detect an existing profile.
 #[test]
 fn a_missing_marker_is_put_back() {
     let p = scratch("marker");
@@ -226,36 +227,6 @@ fn a_missing_marker_is_put_back() {
     seed(&p, false, false).expect("seeds again");
     assert!(p.join(MARKER).is_file());
     drop(std::fs::remove_dir_all(&p));
-}
-
-#[test]
-fn savedatafolder_is_read_from_the_argv() {
-    let pinned: &[u8] = b"/g/RimWorldLinux\0-savedatafolder=/p\0-popupwindow\0";
-    assert_eq!(savedatafolder_of(pinned), Some(PathBuf::from("/p")));
-    let vanilla: &[u8] = b"/g/RimWorldLinux\0-popupwindow\0";
-    assert_eq!(savedatafolder_of(vanilla), None);
-}
-
-#[test]
-fn the_launcher_lock_is_keyed_on_the_profile() {
-    let native = launcher_lock_path(Path::new("/data/profile"));
-    let sidecar = launcher_lock_path(Path::new("/data/profile-slopcar"));
-    assert_ne!(native, sidecar, "different profiles must not share a lock");
-    assert_eq!(
-        native,
-        launcher_lock_path(Path::new("/data/profile")),
-        "one profile must map to one lock"
-    );
-    assert_eq!(
-        native.parent(),
-        sidecar.parent(),
-        "both locks live under the same slopworld directory"
-    );
-    assert_eq!(
-        lock_file_name(Path::new("/data/new-profile")),
-        lock_file_name(Path::new("/data/missing/../new-profile")),
-        "equivalent absent profiles must share the race-prevention lock"
-    );
 }
 
 #[test]
@@ -291,4 +262,47 @@ fn a_relative_profile_is_made_absolute() {
     let p = profile_dir(Some("some/where")).expect("resolves");
     assert!(p.is_absolute(), "{}", p.display());
     assert!(p.ends_with("some/where"));
+}
+
+#[test]
+fn print_reset_and_invalid_working_dir_preserve_profile() {
+    let root = scratch("launch-validation");
+    let game = root.join("game");
+    std::fs::create_dir_all(game.join("Mods/SlopWorld/About")).unwrap();
+    std::fs::write(game.join(EXE), "fixture").unwrap();
+    std::fs::write(game.join("Mods/SlopWorld/About/About.xml"), "fixture").unwrap();
+    let profile = root.join("profile");
+    seed(&profile, false, false).unwrap();
+    let mods = profile.join("Config/ModsConfig.xml");
+    let custom = b"<custom>edited mod list</custom>\n";
+    std::fs::write(&mods, custom).unwrap();
+    let args = || Args {
+        game: Some(game.to_string_lossy().into_owned()),
+        profile: Some(profile.to_string_lossy().into_owned()),
+        reset: true,
+        print: true,
+        ..Args::default()
+    };
+    std::fs::remove_file(profile.join(MARKER)).unwrap();
+    run_launcher(args()).unwrap();
+    assert!(!profile.join(MARKER).exists());
+    let mut init_print = args();
+    init_print.init_profile = true;
+    assert!(run_launcher(init_print)
+        .unwrap_err()
+        .contains("cannot be combined"));
+    let mut absent = args();
+    let absent_profile = root.join("absent-profile");
+    absent.profile = Some(absent_profile.to_string_lossy().into_owned());
+    run_launcher(absent).unwrap();
+    assert!(!absent_profile.exists());
+    assert_eq!(std::fs::read(&mods).unwrap(), custom);
+    let mut invalid = args();
+    invalid.print = false;
+    invalid.working_dir = Some(root.join("missing").to_string_lossy().into_owned());
+    assert!(run_launcher(invalid)
+        .unwrap_err()
+        .contains("working directory"));
+    assert_eq!(std::fs::read(&mods).unwrap(), custom);
+    std::fs::remove_dir_all(root).unwrap();
 }

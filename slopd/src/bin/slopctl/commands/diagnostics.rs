@@ -1,7 +1,7 @@
 use super::super::format::{print_json, print_status};
 use super::super::http::{request, status_value, Endpoint};
 use super::super::HOST;
-use super::common::{arg, only};
+use super::common::{arg, encode_component, only};
 use super::Command;
 use crate::shared::protocol::routes;
 use serde_json::{json, Value};
@@ -88,7 +88,7 @@ pub(super) fn run_sandbox_inspect(
         endpoint,
         session,
         "GET",
-        &format!("{}/{name}/sandbox", routes::SESSIONS),
+        &format!("{}/{}/sandbox", routes::SESSIONS, encode_component(name)),
         None,
     )?;
     if json {
@@ -159,12 +159,20 @@ fn shell_quote(value: &str) -> String {
     {
         return value.to_string();
     }
-    format!("'{}'", value.replace('\'', "'\\''"))
+    let escaped: String = value
+        .chars()
+        .flat_map(|ch| {
+            if ch.is_control() {
+                ch.escape_default().collect::<Vec<_>>()
+            } else {
+                vec![ch]
+            }
+        })
+        .collect();
+    format!("'{}'", escaped.replace('\'', "'\\''"))
 }
 
-/// Filters for the inbox display.
-/// The store returns all tasks involving the caller in storage order.
-/// The CLI filters and sorts these tasks for display.
+/// Extract session names, include host, then sort and deduplicate for display.
 pub(crate) fn peer_names(v: &Value) -> Vec<&str> {
     let mut names: Vec<&str> = v
         .get("sessions")
@@ -177,3 +185,7 @@ pub(crate) fn peer_names(v: &Value) -> Vec<&str> {
     names.dedup();
     names
 }
+
+#[cfg(test)]
+#[path = "diagnostics_tests.rs"]
+mod tests;

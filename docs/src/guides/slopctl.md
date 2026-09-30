@@ -46,8 +46,12 @@ It also removes unfinished tasks.
 CLI help lists the current filters and options.
 
 When `SLOPWORLD_TASK_ID` is set, you may omit `ID` from worker lifecycle commands.
-An explicit ID still takes precedence.
-For example, a worker can run `slopctl task show`, `slopctl task accept`, and `slopctl task finish`.
+For `accept`, `progress`, `finish`, and `fail`, positional words become the note; use
+`--id ID` to target another task explicitly. For example, `slopctl task progress Reviewing the code`
+updates the injected task, while `slopctl task progress --id other-task Reviewing the code`
+updates `other-task`. Use `--` before a note beginning with `--id` or a help flag.
+Without an injected ID, updates also accept the positional `ID NOTE...` form.
+Read, wait, and remove commands continue to accept an explicit positional ID.
 
 `task list` shows unfinished tasks that you sent or received, newest first.
 The daemon sets a queued or accepted task's status to `canceled` when you cancel it.
@@ -75,6 +79,9 @@ The caller named by `SLOPWORLD_SESSION` owns the task and sidebar child.
 
 `template list` shows the templates available to the caller.
 `template show NAME` prints one template that the caller can use.
+
+Agent, worker, and worktree value options accept `--option=VALUE` for values beginning
+with a dash. A separate value must not be another option.
 
 Insert `--` before task text that has an option as its first item.
 For example, `worker spawn --project repo --template review -- --durable` sends the literal task
