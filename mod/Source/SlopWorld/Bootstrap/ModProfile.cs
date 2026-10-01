@@ -60,7 +60,7 @@ namespace SlopWorld
             {
                 _complained = true;
                 Log.Error(
-                    "[SlopWorld] this profile has no SlopWorld changes. " +
+                    "[SlopWorld] skipped profile-specific changes. " +
                     "The save data folder " + Folder + " does not contain " + Marker + ". " +
                     "Start the game with the `slopworld` launcher.");
             }
@@ -69,7 +69,7 @@ namespace SlopWorld
             {
                 var text =
                     "The game loaded SlopWorld, but this profile lacks the required marker file. " +
-                    "SlopWorld has made no changes to your game.\n\n" +
+                    "SlopWorld skipped its profile-specific changes because the marker is missing.\n\n" +
                     "SlopWorld uses a separate save folder. It removes the colony simulation, " +
                     "the base game music, and the world's mountains. Its saves require SlopWorld.\n\n" +
                     "Start the game with this command:\n\n    slopworld\n\n" +
