@@ -11,6 +11,7 @@ namespace SlopWorld
             public string Label, Title, Dir, Text;
             public bool Host, Valid;
             public object Font;
+            public Func<SessionInfo, string> Builder;
             public int FontRevision;
         }
 
@@ -24,7 +25,8 @@ namespace SlopWorld
             var entry = _entries.GetValue(info, Create);
             if (entry.Valid && entry.Label == info.Label && entry.Title == info.Title &&
                 entry.Dir == info.Dir && entry.Host == info.Host &&
-                ReferenceEquals(entry.Font, font) && entry.FontRevision == fontRevision)
+                ReferenceEquals(entry.Font, font) && entry.FontRevision == fontRevision &&
+                entry.Builder == build)
                 return entry.Text;
 
             entry.Valid = false;
@@ -34,6 +36,7 @@ namespace SlopWorld
             entry.Host = info.Host;
             entry.Font = font;
             entry.FontRevision = fontRevision;
+            entry.Builder = build;
             entry.Text = build(info);
             entry.Valid = true;
             return entry.Text;
