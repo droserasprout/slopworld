@@ -58,3 +58,9 @@ Later screen updates do not restore evicted IDs. `complete_with_slip` is an
 injector outcome, not proof of a representative latency distribution. For mixed
 mouse/key dispatch capacity, run the opt-in isolated diagnostic with
 `make test-daemon TEST_ARGS='benchmark_mixed_input_dispatch -- --ignored --nocapture'`.
+
+The isolated worker-removal diagnostic
+`make test-daemon TEST_ARGS='benchmark_worker_removal_scaling -- --ignored --nocapture'`
+compares populations of 1/10/100 and 100 sequential deletions of stopped durable
+workers with private state and grants. It measures daemon persistence and cleanup,
+excluding live-process shutdown, task history, socket delivery, and the game UI.

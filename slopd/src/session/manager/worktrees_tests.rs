@@ -1,6 +1,83 @@
 use super::*;
 
 #[tokio::test]
+async fn indexed_config_validation_keeps_worktree_ownership_and_running_move_checks() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+    let project = ProjectCfg {
+        name: "repo".into(),
+        id: uuid::Uuid::new_v4().to_string(),
+        dir: "/tmp".into(),
+        ..Default::default()
+    };
+    let old = Config {
+        projects: vec![project.clone()],
+        sessions: vec![SessionCfg {
+            name: "worker".into(),
+            project: project.name.clone(),
+            worktree: "main".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let mut store = Store {
+        worktrees: vec![Worktree {
+            id: "checkout".into(),
+            project_id: project.id.clone(),
+            ..Default::default()
+        }],
+    };
+    store.save(&manager.cfg_path).await.unwrap();
+    let mut new = old.clone();
+    new.sessions[0].worktree = "checkout".into();
+    manager.validate_worktree_config(&old, &new).await.unwrap();
+
+    manager
+        .tmux
+        .spawn(
+            "worker",
+            "/tmp",
+            80,
+            24,
+            &["sleep".into(), "60".into()],
+            false,
+        )
+        .await
+        .unwrap();
+    let error = manager
+        .validate_worktree_config(&old, &new)
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("stop session worker"));
+    manager.tmux.kill("worker").await.unwrap();
+
+    store.worktrees[0].project_id = uuid::Uuid::new_v4().to_string();
+    store.save(&manager.cfg_path).await.unwrap();
+    let error = manager
+        .validate_worktree_config(&old, &new)
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("unknown worktree"));
+
+    store.worktrees[0].project_id = project.id;
+    store.save(&manager.cfg_path).await.unwrap();
+    new.sessions.clear();
+    manager.validate_worktree_config(&old, &new).await.unwrap();
+    new.projects[0].dir = "/changed".into();
+    let error = manager
+        .validate_worktree_config(&old, &new)
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("original checkout directory"));
+    new.projects.clear();
+    let error = manager
+        .validate_worktree_config(&old, &new)
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("before removing its identity"));
+}
+
+#[tokio::test]
 async fn view_index_reloads_external_catalog_edits() {
     let manager = crate::session::test_manager(Config::default());
     assert!(manager.worktree_view_index().await.is_empty());

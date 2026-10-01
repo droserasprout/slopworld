@@ -4,6 +4,46 @@ use crate::session::test_manager;
 use std::time::{Duration, UNIX_EPOCH};
 
 #[tokio::test]
+async fn removing_and_replacing_sessions_revokes_only_changed_identities() {
+    let manager = test_manager(Config {
+        sessions: ["kept", "removed", "replaced"]
+            .into_iter()
+            .map(|name| SessionCfg {
+                name: name.into(),
+                ..Default::default()
+            })
+            .collect(),
+        ..Default::default()
+    });
+    manager.cfg.write().await.daemon.token = "root-for-revocation-test".into();
+    let mut caps = Vec::new();
+    for name in ["kept", "removed", "replaced"] {
+        let token = manager
+            .mint_grant(name.into(), vec![name.into()], crate::grant::Level::Rw)
+            .await
+            .unwrap();
+        caps.push(manager.resolve_cap(Some(&token)).await.unwrap());
+    }
+    manager
+        .update_cfg(|cfg| {
+            cfg.sessions.retain(|session| session.name != "removed");
+            cfg.sessions
+                .iter_mut()
+                .find(|session| session.name == "replaced")
+                .unwrap()
+                .state_id = uuid::Uuid::new_v4().to_string();
+            cfg.sessions.reverse();
+            Ok(())
+        })
+        .await
+        .unwrap();
+    assert!(caps[0].is_valid());
+    assert!(!caps[1].is_valid());
+    assert!(!caps[2].is_valid());
+    assert_eq!(manager.grant_count().await, 1);
+}
+
+#[tokio::test]
 async fn persisted_root_token_changes_invalidate_existing_auth() {
     let manager = test_manager(Config::default());
     let mut changes = manager.auth_changes();

@@ -1,6 +1,38 @@
 use super::super::lifecycle::start::prepare_project_dir;
 use super::*;
 
+#[tokio::test]
+async fn removal_save_failure_restores_private_state_before_retry() {
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
+    let (manager, root, _socket) = rename_fixture(false).await;
+    let session = manager.config().await.sessions[0].clone();
+    let state = crate::sandbox::state_dir(&session).unwrap();
+    std::fs::create_dir_all(&state).unwrap();
+    std::fs::write(state.join("retained"), "private state").unwrap();
+    let fault = crate::paths::fail_writes(&manager.cfg_path);
+    manager.remove("old").await.unwrap_err();
+    assert_eq!(
+        std::fs::read_to_string(state.join("retained")).unwrap(),
+        "private state"
+    );
+    assert!(manager.config().await.session("old").is_some());
+    assert!(
+        Config::load(&manager.cfg_path)
+            .await
+            .unwrap()
+            .session("old")
+            .is_some()
+    );
+    drop(fault);
+    manager.remove("old").await.unwrap();
+    assert!(!state.exists());
+    assert!(manager.config().await.session("old").is_none());
+    assert!(!manager.live.read().await.contains_key("old"));
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 async fn rename_fixture(running: bool) -> (Arc<Manager>, std::path::PathBuf, String) {
     let root = std::env::temp_dir().join(format!(
         "slopd-session-rename-{}-{}",

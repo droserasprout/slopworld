@@ -22,6 +22,10 @@ the original cause. Save acknowledgements sample revisions before verifying acce
 document saves acknowledge only the main TOML revision. Patch and replacement share document preparation
 and commit helpers; callers retain the persistence gate until publication and endpoint updates finish.
 Startup lives in `manager/init.rs`, and polling in `manager/maintenance.rs`.
+`manager/config/removal.rs` deletes one session from an accepted TOML document under
+the persistence gate. It saves before changing memory and leaves library stamps and
+unrelated catalogs untouched. Recovery or a stale/unavailable document falls back to
+the generic transaction. Deletion cannot introduce new worktree or mount references.
 The mod owns profile preferences that remain available offline.
 The mod uses daemon APIs and reads `endpoint.toml` for connection credentials.
 It must not read or rewrite daemon TOML directly. Locations and overrides: [paths](ops-paths.md).
@@ -36,7 +40,11 @@ Sandboxes, apps, and jukebox stations use `sandbox_presets/`, `app_presets/`, an
 
 Config patches deep-merge the original TOML document, preserving omitted and unknown fields.
 Typed `Config::save` serializes modeled fields and preserves unrelated document fields when
-editing an existing file. The redacted-token sentinel means keep the stored token.
+editing an existing file.
+Whole-config identity comparisons and named TOML array preservation build temporary
+indexes once per operation. Preserve first-match lookup semantics; per-row linear
+searches make a single worker deletion quadratic in the session count.
+The redacted-token sentinel means keep the stored token.
 An empty token means replace the stored token with an empty value. Never round-trip the endpoint secret through a settings draft.
 
 Projects own directories, temporary-project behavior, and shared mounts. Independent worktree

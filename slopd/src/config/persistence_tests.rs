@@ -1,6 +1,61 @@
 use super::*;
 use crate::config::catalog::{load_library, prepare_library, validate_library_name};
 
+#[test]
+fn named_array_preservation_handles_reordering_removal_and_duplicate_names() {
+    let parse = |text: &str| toml::from_str::<toml::Value>(text).unwrap();
+    let previous = parse(
+        r#"
+        [[session]]
+        name = "removed"
+        extension = "discard"
+        [[session]]
+        name = "kept"
+        label = "clear this modeled field"
+        extension = "first"
+        [session.nested]
+        extension = "nested"
+        [[session]]
+        name = "kept"
+        extension = "duplicate"
+        [[session]]
+        name = "other"
+        extension = "other"
+    "#,
+    );
+    let old_model = parse(
+        r#"
+        [[session]]
+        name = "kept"
+        label = "clear this modeled field"
+        [session.nested]
+        [[session]]
+        name = "kept"
+        [[session]]
+        name = "other"
+    "#,
+    );
+    let mut next = parse(
+        r#"
+        [[session]]
+        name = "other"
+        [[session]]
+        name = "new"
+        [[session]]
+        name = "kept"
+        [session.nested]
+    "#,
+    );
+    preserve_unknown_fields(&mut next, &previous, Some(&old_model));
+    let sessions = next["session"].as_array().unwrap();
+    assert_eq!(sessions.len(), 3);
+    assert_eq!(sessions[0]["extension"].as_str(), Some("other"));
+    assert!(sessions[1].get("extension").is_none());
+    assert_eq!(sessions[2]["extension"].as_str(), Some("first"));
+    assert!(sessions[2].get("label").is_none());
+    assert_eq!(sessions[2]["nested"]["extension"].as_str(), Some("nested"));
+}
+
 async fn save_library(
     dirs: &[(LibraryItemKind, PathBuf)],
     library: &[LibraryItemCfg],
