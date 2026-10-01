@@ -5,68 +5,68 @@ using System.Linq;
 
 namespace SlopWorld
 {
-    // Each editable text field stores its displayed value and both snapshots used to merge reloads.
-    // Keep the path and formatting rules with the value.
-    // Separate dictionaries could become inconsistent during a pending request.
-    public sealed class DaemonConfigFieldState
-    {
-        public readonly string Key;
-        public string Path { get; private set; }
-        public string Text { get; set; }
-        public string LocalBaseline { get; set; }
-        public string RemoteBaseline { get; set; }
-        public bool ZeroMeansBlank { get; private set; }
-        public bool HasPendingNormalization { get; private set; }
-        public string PendingNormalization { get; private set; }
-
-        internal DaemonConfigFieldState(string key, string path, string text, bool zeroMeansBlank)
-        {
-            Key = key;
-            Path = path;
-            Text = text ?? "";
-            LocalBaseline = Text;
-            RemoteBaseline = Text;
-            ZeroMeansBlank = zeroMeansBlank;
-        }
-
-        internal void Configure(string path, bool zeroMeansBlank)
-        {
-            Path = path;
-            ZeroMeansBlank |= zeroMeansBlank;
-        }
-
-        internal void QueueNormalization(string value)
-        {
-            PendingNormalization = value ?? "";
-            HasPendingNormalization = true;
-        }
-
-        internal void ClearNormalization()
-        {
-            PendingNormalization = null;
-            HasPendingNormalization = false;
-        }
-
-        internal bool IsDirty => !StringEquals(Text, LocalBaseline);
-
-        internal bool NormalizeIfUnchanged(string normalized)
-        {
-            if (IsDirty) return false;
-            Text = normalized ?? "";
-            LocalBaseline = Text;
-            RemoteBaseline = Text;
-            return true;
-        }
-
-        static bool StringEquals(string left, string right) =>
-            string.Equals(left ?? "", right ?? "", StringComparison.Ordinal);
-    }
-
     // Store state for one daemon settings page without game dependencies.
     // This record retains editable values, raw text, and the server snapshot after the page closes.
     // A later reload uses this state to merge changes.
     public sealed class DaemonConfigDraft
     {
+        // Each editable text field stores its displayed value and both snapshots used to merge reloads.
+        // Keep the path and formatting rules with the value.
+        // Separate dictionaries could become inconsistent during a pending request.
+        sealed class DaemonConfigFieldState
+        {
+            public readonly string Key;
+            public string Path { get; private set; }
+            public string Text { get; set; }
+            public string LocalBaseline { get; set; }
+            public string RemoteBaseline { get; set; }
+            public bool ZeroMeansBlank { get; private set; }
+            public bool HasPendingNormalization { get; private set; }
+            public string PendingNormalization { get; private set; }
+
+            internal DaemonConfigFieldState(string key, string path, string text, bool zeroMeansBlank)
+            {
+                Key = key;
+                Path = path;
+                Text = text ?? "";
+                LocalBaseline = Text;
+                RemoteBaseline = Text;
+                ZeroMeansBlank = zeroMeansBlank;
+            }
+
+            internal void Configure(string path, bool zeroMeansBlank)
+            {
+                Path = path;
+                ZeroMeansBlank |= zeroMeansBlank;
+            }
+
+            internal void QueueNormalization(string value)
+            {
+                PendingNormalization = value ?? "";
+                HasPendingNormalization = true;
+            }
+
+            internal void ClearNormalization()
+            {
+                PendingNormalization = null;
+                HasPendingNormalization = false;
+            }
+
+            internal bool IsDirty => !StringEquals(Text, LocalBaseline);
+
+            internal bool NormalizeIfUnchanged(string normalized)
+            {
+                if (IsDirty) return false;
+                Text = normalized ?? "";
+                LocalBaseline = Text;
+                RemoteBaseline = Text;
+                return true;
+            }
+
+            static bool StringEquals(string left, string right) =>
+                string.Equals(left ?? "", right ?? "", StringComparison.Ordinal);
+        }
+
         readonly Dictionary<string, DaemonConfigFieldState> _fields =
             new Dictionary<string, DaemonConfigFieldState>();
 

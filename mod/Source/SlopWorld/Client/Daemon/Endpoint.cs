@@ -31,7 +31,7 @@ namespace SlopWorld
         {
             try
             {
-                var text = File.ReadAllText(Path());
+                var text = File.ReadAllText(DescriptorPath());
                 var value = Toml.ParseFlat(text);
                 var uri = new Uri(value["url"], UriKind.Absolute);
                 if (!string.Equals(uri.Scheme, "http", StringComparison.OrdinalIgnoreCase) ||
@@ -48,7 +48,7 @@ namespace SlopWorld
 
         static ConnectionInfo Fallback() => new ConnectionInfo(DefaultHost, DefaultPort, "");
 
-        static string Path()
+        static string DescriptorPath()
         {
             var explicitPath = Environment.GetEnvironmentVariable("SLOPD_ENDPOINT");
             if (!string.IsNullOrEmpty(explicitPath)) return explicitPath;
@@ -57,7 +57,7 @@ namespace SlopWorld
             if (string.IsNullOrEmpty(root))
                 root = System.Environment.GetFolderPath(
                     Environment.SpecialFolder.UserProfile) + "/.config";
-            return System.IO.Path.Combine(root, "slopworld", "endpoint.toml");
+            return Path.Combine(root, "slopworld", "endpoint.toml");
         }
     }
 }
