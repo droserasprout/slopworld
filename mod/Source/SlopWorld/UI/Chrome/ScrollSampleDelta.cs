@@ -8,12 +8,19 @@ namespace SlopWorld
     {
         const double MaxGap = 0.25;
         bool _baseline;
+        int _generation;
         double _x, _y, _time, _discardBefore;
 
         public void Discard(double now) { _baseline = false; _discardBefore = now; }
 
         public bool Read(double x, double y, double sampled, double now, out double dx, out double dy)
+            => Read(x, y, sampled, now, 0, out dx, out dy);
+
+        public bool Read(double x, double y, double sampled, double now, int generation,
+                         out double dx, out double dy)
         {
+            if (_generation != generation) _baseline = false;
+            _generation = generation;
             dx = dy = 0;
             if (sampled <= _discardBefore || now - sampled > MaxGap || !Finite(x) || !Finite(y))
             {

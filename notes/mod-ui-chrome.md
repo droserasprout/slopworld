@@ -32,8 +32,11 @@ GUI groups use the ordinary path.
 Page closure invalidates the snapshot. Other hosts can
 retain a router around renderers whose wheel handling belongs entirely to `SmoothScroll`. X11 discovery and valuator queries run on one dedicated background sampler,
 with at most one request in flight and no queued backlog. IMGUI only consumes the latest
-completed snapshot and falls back to Unity input while sampling is pending. Logical fallback
-invalidates older native motion so late replies cannot move the viewport twice.
+completed snapshot and falls back to Unity input while sampling is pending. The native sampler
+re-reads master-pointer axes on each query, retries transient absence/failure with a one-second
+backoff, and marks source changes so recovery starts with a fresh baseline. The profile's
+Smooth scrolling preference disables native sampling and uses logical wheel steps immediately.
+Logical fallback invalidates older native motion so late replies cannot move the viewport twice.
 
 `Window.Margin` translates the GUI group. It is not padding. Shared windows use zero margin
 and explicit body padding. An absorbing window can consume MouseDown before controls see it.

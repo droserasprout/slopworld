@@ -16,6 +16,7 @@ namespace SlopWorld.Tests
             {
                 CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
                 var settings = ModSettings.Load();
+                AssertEx.Equal(true, settings.smoothScrolling, "smooth scrolling default");
                 AssertEx.Equal(true, settings.autoConnect, "missing file default");
                 AssertEx.Equal(210f, settings.sidebarWidth, "width default");
                 AssertEx.Equal(0.25f, settings.sidebarFilesOpenFraction,
@@ -32,7 +33,7 @@ namespace SlopWorld.Tests
                 settings.Write();
                 string path = Path.Combine(profile, "Config", "SlopWorld.toml");
                 string saved = File.ReadAllText(path);
-                AssertEx.Equal(47, Toml.ParseFlat(saved).Count, "persisted key count excludes runtime state");
+                AssertEx.Equal(48, Toml.ParseFlat(saved).Count, "persisted key count excludes runtime state");
                 AssertEx.True(saved.Contains("ecoDim = 0.375"), "invariant float");
                 var loaded = ModSettings.Load();
                 foreach (var field in typeof(ModSettings).GetFields(BindingFlags.Instance | BindingFlags.Public))
@@ -47,6 +48,7 @@ namespace SlopWorld.Tests
                 AssertEx.Equal(0.25f, loaded.sidebarFilesOpenFraction,
                     "missing fraction default");
                 AssertEx.Equal(true, loaded.autoConnect, "malformed boolean default");
+                AssertEx.Equal(true, loaded.smoothScrolling, "older profile enables smooth scrolling");
                 AssertEx.Equal(1f, ModSettings.NormalizeSidebarFilesOpenFraction(2f),
                     "fraction upper clamp");
                 AssertEx.Equal(0f, ModSettings.NormalizeSidebarFilesOpenFraction(-1f),

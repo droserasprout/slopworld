@@ -199,6 +199,14 @@ namespace SlopWorld
         static void DrawDisplay(Listing_Standard l)
         {
             UiLayout.SectionHeading(l, "Display");
+            bool smooth = UiControls.Checkbox(l, "Smooth scrolling", S.smoothScrolling,
+                "Use precise touchpad scrolling in terminals, panels, and Markdown. "
+                + "Turn off to use wheel steps. Applies immediately.");
+            if (smooth != S.smoothScrolling)
+            {
+                S.smoothScrolling = smooth;
+                S.MarkDirty();
+            }
             string mode = FramePolicy.Normalize(S.displayMode);
             int fps = FramePolicy.Clamp(S.foregroundFps);
             string framePacingLabel = mode == FramePolicy.Sync ? "VSync" : fps + " FPS";

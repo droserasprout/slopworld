@@ -194,6 +194,7 @@ namespace SlopWorld
 
         public string displayMode = FramePolicy.Sync;
         public int foregroundFps = 60;
+        public bool smoothScrolling = true;
 
         // Backdrop dimming: 0 leaves the menu background unchanged. See Eco.Shade.
         public float ecoDim = 0.45f;
@@ -290,6 +291,7 @@ namespace SlopWorld
             Field("temperatureUnit", (ModSettings s) => ref s.temperatureUnit, Text, String),
             Field("ecoMode", (ModSettings s) => ref s.ecoMode, Bool, String),
             Field("displayMode", (ModSettings s) => ref s.displayMode, Text, String),
+            Field("smoothScrolling", (ModSettings s) => ref s.smoothScrolling, Bool, String),
             Field("foregroundFps", (ModSettings s) => ref s.foregroundFps, Int, Number),
             Field("ecoDim", (ModSettings s) => ref s.ecoDim, Float, Number),
         };
@@ -412,6 +414,7 @@ namespace SlopWorld
             SlopWorld.TemperatureUnit.Normalize(S.temperatureUnit);
         public static bool EcoMode => S.ecoMode;
         public static string DisplayMode => FramePolicy.Normalize(S.displayMode);
+        public static bool SmoothScrolling => S.smoothScrolling;
         public static int ForegroundFps => FramePolicy.Clamp(S.foregroundFps);
         public static float EcoDim => S.ecoDim;
     }
