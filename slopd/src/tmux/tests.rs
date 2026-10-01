@@ -477,3 +477,92 @@ fn parse_host_metadata(metadata: &str) -> Option<HostMetadata> {
     }
     Some(HostMetadata { path, command })
 }
+
+#[tokio::test]
+async fn pane_death_detaches_capture_but_retains_status_and_final_output() {
+    assert_pane_death_detaches_capture(false).await;
+}
+
+#[tokio::test]
+async fn renamed_pane_death_detaches_capture_but_retains_status_and_final_output() {
+    assert_pane_death_detaches_capture(true).await;
+}
+
+async fn assert_pane_death_detaches_capture(rename: bool) {
+    use crate::tmux::Tmux;
+    let root = std::env::temp_dir().join(format!("slopd-exit-capture-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&root).unwrap();
+    let tmux = Tmux::new(root.join("socket").to_string_lossy().into_owned());
+    tmux.spawn(
+        "worker",
+        "/tmp",
+        80,
+        24,
+        &["sleep".into(), "2147483647".into()],
+        false,
+    )
+    .await
+    .unwrap();
+    tmux.retain_exit("worker").await.unwrap();
+    let name = if rename {
+        tmux.rename("worker", "renamed").await.unwrap();
+        "renamed"
+    } else {
+        "worker"
+    };
+    let (mut client, master) = tmux.control_attach(name, 80, 24).unwrap();
+    let drain = std::thread::spawn(move || {
+        use std::io::Read;
+        let mut master = master;
+        let mut data = Vec::new();
+        drop(master.read_to_end(&mut data));
+        data
+    });
+    // Wait for attachment before replacing the placeholder, including its -k path.
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            if !tmux
+                .run(&["list-clients", "-t", name])
+                .await
+                .unwrap()
+                .is_empty()
+            {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(tmux.pane_exit(name).await.unwrap().is_none());
+    tmux.start_command(
+        name,
+        "/tmp",
+        &[
+            "bash".into(),
+            "-c".into(),
+            "printf 'fatal bootstrap evidence'; exit 7".into(),
+        ],
+    )
+    .await
+    .unwrap();
+    let status = tokio::time::timeout(std::time::Duration::from_secs(5), client.wait())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(status.success());
+    drop(drain.join().unwrap());
+    let exit = tmux.pane_exit(name).await.unwrap().unwrap();
+    assert!(exit.contains("exit status 7"), "{exit}");
+    assert!(
+        tmux.capture(name, 200)
+            .await
+            .unwrap()
+            .lines
+            .iter()
+            .any(|line| line.contains("fatal bootstrap evidence"))
+    );
+    tmux.kill(name).await.unwrap();
+    drop(tmux.run(&["kill-server"]).await);
+    std::fs::remove_dir_all(root).unwrap();
+}

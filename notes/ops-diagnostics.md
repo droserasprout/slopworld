@@ -8,6 +8,14 @@ Use `slopctl status` for API health. Service active status alone does not prove 
 bound.
 [Sandbox diagnostics](ops-debug-from-sandbox.md) explains misleading host observations.
 
+Managed process exits save `exit.json` beside the retained launch plan in the session's
+opaque private-state directory. It contains the exit status or signal, run/task identity, and
+up to 200 history lines plus the viewport. The file is owner-only because terminal contents
+can include private data; it is not emitted into journals or exposed through the scoped API.
+Durable state keeps it until reset/delete moves that state into trash. Temporary state follows
+its ordinary cleanup lifetime. Capture failure with a live pane does not create a process-exit
+record. If writing fails, the dead tmux pane remains available for manual inspection.
+
 `SLOPWORLD_DEBUG=1` enables aggregate counters and correlated input timelines in
 daemon and game. Counters and timelines exclude terminal contents.
 Start captures after loading and warmup.

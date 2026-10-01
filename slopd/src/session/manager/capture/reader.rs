@@ -1,4 +1,5 @@
-//! tmux control-mode reader lifecycle.
+//! tmux control-mode reader attachment and transport lifetime.
+//! Startup owns failed launches; exit handling owns confirmed process exits and recovery.
 
 use super::super::lifecycle::stop::{
     ReaderDisposition, finish_reader, reader_owned_by, replace_reader,
@@ -9,6 +10,14 @@ use tokio::time::Instant;
 
 use crate::tmux::control::parse_output;
 use anyhow::anyhow;
+
+/// Only attachment to a new startup placeholder may fail the process run.
+/// Adoption, rename, and recovery observe an independently running process.
+#[derive(Clone, Copy)]
+enum Attachment {
+    Startup,
+    Existing,
+}
 
 // Limit watched terminal redraws to roughly one per display frame.
 const FAST_TICK: Duration = Duration::from_millis(16);
@@ -132,6 +141,9 @@ fn seed_emulator(e: &mut SessionEmu, cap: &crate::tmux::Screen, rows: u16) {
     seed.push_str(&visible.join("\r\n"));
     // CUP restores the cursor using one-based row and column coordinates.
     seed.push_str(&format!("\x1b[{};{}H", cap.cy + 1, cap.cx + 1));
+    if cap.bracketed_paste {
+        seed.push_str("\x1b[?2004h");
+    }
     if !cap.title.is_empty() {
         // OSC 0 restores the window/icon title; BEL terminates the sequence.
         seed.push_str(&format!("\x1b]0;{}\x07", cap.title));
@@ -226,7 +238,30 @@ fn process_control_line(
 }
 
 impl Manager {
+    /// Release capture ownership without declaring process exit. A failed
+    /// attachment must remain eligible for retry, and stale work must leave a
+    /// replacement reader alone. Drop the handle rather than aborting the
+    /// completing reader, which may be executing this cleanup itself.
+    pub(super) async fn release_completed_reader(&self, name: &str, token: &Arc<()>) -> bool {
+        let mut live = self.live.write().await;
+        let Some(current) = live.get_mut(name).filter(|l| reader_owned_by(l, token)) else {
+            return false;
+        };
+        current.capture.emu = None;
+        current.capture.reader_token = None;
+        drop(current.capture.reader.take());
+        true
+    }
+
     pub(crate) async fn spawn_reader(self: &Arc<Self>, name: &str) -> Result<bool> {
+        self.attach_reader(name, Attachment::Existing).await
+    }
+
+    pub(crate) async fn start_reader(self: &Arc<Self>, name: &str) -> Result<bool> {
+        self.attach_reader(name, Attachment::Startup).await
+    }
+
+    async fn attach_reader(self: &Arc<Self>, name: &str, attachment: Attachment) -> Result<bool> {
         let (cols, rows, has_emu) = {
             let live = self.live.read().await;
             match live.get(name) {
@@ -255,7 +290,8 @@ impl Manager {
             tokio::spawn(async move {
                 // Wait until the handle and token are installed before allowing cleanup.
                 if start_rx.await.is_ok() {
-                    m.run_control(name, emu, reader_token, ready_tx).await;
+                    m.run_control(name, emu, reader_token, ready_tx, attachment)
+                        .await;
                 }
             })
         };
@@ -278,7 +314,9 @@ impl Manager {
         finish_reader(replaced_reader);
 
         if start_tx.send(()).is_err() {
-            return Ok(false);
+            self.cleanup_reader_start(name, &reader_token, attachment)
+                .await;
+            return Err(anyhow!("control reader for {name} exited before starting"));
         }
         match ready_rx.await {
             Ok(Ok(())) => {
@@ -296,13 +334,28 @@ impl Manager {
                 }
             }
             Ok(Err(error)) => {
-                self.mark_down(name, &reader_token).await;
+                self.cleanup_reader_start(name, &reader_token, attachment)
+                    .await;
                 Err(anyhow!(error))
             }
             Err(_) => {
-                self.mark_down(name, &reader_token).await;
+                self.cleanup_reader_start(name, &reader_token, attachment)
+                    .await;
                 Err(anyhow!("control reader for {name} exited before attach"))
             }
+        }
+    }
+
+    async fn cleanup_reader_start(
+        self: &Arc<Self>,
+        name: &str,
+        token: &Arc<()>,
+        attachment: Attachment,
+    ) {
+        if matches!(attachment, Attachment::Startup) {
+            self.mark_down(name, token).await;
+        } else {
+            self.release_completed_reader(name, token).await;
         }
     }
 
@@ -312,18 +365,27 @@ impl Manager {
         reader_token: &Arc<()>,
         ready_tx: tokio::sync::oneshot::Sender<Result<(), String>>,
         error: String,
+        attachment: Attachment,
     ) {
+        if matches!(attachment, Attachment::Existing) {
+            // Release failed capture before waking the caller so an immediate
+            // retry cannot mistake the failed attachment for a live reader.
+            self.release_completed_reader(name, reader_token).await;
+        }
         // Release startup before cleanup waits for its session boundary.
         drop(ready_tx.send(Err(error)));
-        self.mark_down(name, reader_token).await;
+        if matches!(attachment, Attachment::Startup) {
+            self.mark_down(name, reader_token).await;
+        }
     }
 
-    pub(crate) async fn run_control(
+    async fn run_control(
         self: Arc<Self>,
         name: String,
         emu: Arc<Mutex<SessionEmu>>,
         reader_token: Arc<()>,
         ready_tx: tokio::sync::oneshot::Sender<Result<(), String>>,
+        attachment: Attachment,
     ) {
         let (cols, rows) = match self.live.read().await.get(&name) {
             Some(l) => (l.cols, l.rows),
@@ -333,6 +395,7 @@ impl Manager {
                     &reader_token,
                     ready_tx,
                     format!("session {name} disappeared before control attach"),
+                    attachment,
                 )
                 .await;
                 return;
@@ -346,7 +409,7 @@ impl Manager {
                     crate::sandbox::sanitize_diagnostic(&e.to_string())
                 );
                 tracing::error!("{error}");
-                self.fail_reader_start(&name, &reader_token, ready_tx, error)
+                self.fail_reader_start(&name, &reader_token, ready_tx, error, attachment)
                     .await;
                 return;
             }
@@ -375,13 +438,23 @@ impl Manager {
                 if let Err(kill_error) = child.kill().await {
                     tracing::debug!("stopping failed control client for {name}: {kill_error}");
                 }
-                self.fail_reader_start(&name, &reader_token, ready_tx, error)
+                self.fail_reader_start(&name, &reader_token, ready_tx, error, attachment)
                     .await;
                 return;
             }
         };
 
         drop(ready_tx.send(Ok(())));
+        // A pane can die while slopd is offline or between status inspection and
+        // attachment. The death hook is not replayed for an already-dead pane.
+        // Inspect after the handshake: later deaths will wake this attached client.
+        if matches!(self.tmux.pane_exit(&name).await, Ok(Some(_)))
+            && let Err(error) = child.kill().await
+        {
+            tracing::debug!("stopping control client for dead pane {name}: {error}");
+        }
+        // Drain queued output and perform the ordinary frame/clipboard handoff
+        // even when attachment discovers an exit instead of receiving its hook.
         self.run_control_loop(&name, emu, rx, pending).await;
 
         // Reap before mark_down so the client releases the PTY slave.
@@ -389,7 +462,7 @@ impl Manager {
         if let Err(error) = child.kill().await {
             tracing::debug!("stopping control client for {name}: {error}");
         }
-        self.mark_down(&name, &reader_token).await;
+        self.reader_ended(name, reader_token).await;
     }
 
     async fn run_control_loop(

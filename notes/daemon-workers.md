@@ -23,8 +23,14 @@ normally disappear on exit. Existing tmux metadata can still permit adoption aft
 
 Removing a parent does not remove its children. Orphaned children become top-level rows.
 Every new worker receives the initial worker prompt through explicit paste-and-submit delivery.
-Prompt construction belongs to the caller; delivery waits for readiness, pastes the completed
-text, then queues a delay and Enter. It does not consume hidden pending breadcrumbs.
+Prompt construction belongs to the caller. Agent delivery requires bracketed-paste mode and
+a settled nonblank frame, then pastes the completed text and queues a delay and Enter.
+Host and shell errands use frame settling without the agent mode requirement. Readiness uses
+a monotonic deadline; a timeout withholds input and fails the undelivered worker's task.
+An attached startup reader can still be Down
+before its first frame and must keep waiting. Admission rechecks the mode, run identity, and
+deadline. Lost readiness retries settling within the original deadline, for prompts and auto-resume.
+Delivery does not consume hidden pending breadcrumbs.
 
 Task completion and worker removal never commit or remove [project worktrees](daemon-worktrees.md).
 

@@ -4,6 +4,8 @@ Start in `sandbox/bind/mod.rs` for mount construction, `sandbox/paths.rs` for pa
 and `sandbox/state/mod.rs` for private storage. `state/inventory.rs` owns inventory;
 `seed.rs` owns initialization, independently of resolver preparation in `network.rs`.
 Presets define access.
+The launcher restores the PID namespace's `/proc` after all overlays. Even an old captured
+debug preset must not replace it with host `/proc`.
 [Scoped grants](agent-grants.md) independently define API authority.
 Host escapes are explicit exceptions, not proof that the filesystem sandbox failed.
 

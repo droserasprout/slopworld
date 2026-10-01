@@ -179,6 +179,9 @@ impl Manager {
                 .await
                 .context("persisting essential worker metadata")?;
         }
+        if !plan.host {
+            self.tmux.retain_exit(name).await?;
+        }
         if plan.host {
             if let Err(error) = self
                 .tmux
@@ -243,7 +246,7 @@ impl Manager {
         let run_id = self.reset_live_for_start(name, auto_resume_pending).await;
 
         // Attachment must succeed before the real command can produce output.
-        match self.spawn_reader(name).await {
+        match self.start_reader(name).await {
             Ok(true) => {}
             Ok(false) => {
                 self.cleanup_failed_start(name, plan.is_worker()).await;

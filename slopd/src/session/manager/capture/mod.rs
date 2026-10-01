@@ -3,6 +3,8 @@
 use super::super::*;
 use anyhow::anyhow;
 
+mod exit;
+
 const CONTROL_ATTACH_TIMEOUT: Duration = Duration::from_secs(5);
 
 // Limit queued transport bytes without limiting line size.

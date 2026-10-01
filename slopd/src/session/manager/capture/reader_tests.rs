@@ -297,6 +297,7 @@ fn snapshot_seed_restores_primary_history_cursor_and_title() {
     seed_emulator(
         &mut emu,
         &crate::tmux::Screen {
+            bracketed_paste: true,
             lines: vec!["history".into(), "first".into(), "second".into()],
             cx: 3,
             cy: 1,
@@ -323,6 +324,7 @@ fn snapshot_seed_keeps_primary_history_out_of_alternate_screen() {
     seed_emulator(
         &mut emu,
         &crate::tmux::Screen {
+            bracketed_paste: true,
             lines: vec!["history".into(), "alt first".into(), "alt second".into()],
             cx: 2,
             cy: 0,
