@@ -70,7 +70,13 @@ Eco mode pauses the game simulation while the daemon and agents continue running
 from Settings under "Game". It leaves terminal responsiveness and foreground frame pacing
 unchanged.
 
-The independent "Display" section offers VSync or FPS presets at 15, 30, 60, 120, 144,
+## Display
+
+Settings → Appearance → Interface → Display includes **Smooth scrolling**, enabled by default.
+It uses precise touchpad movement in terminals, panels, and Markdown where supported.
+Turn it off to use wheel steps. The change applies immediately and is saved with the profile.
+
+The "Display" section also offers VSync or FPS presets at 15, 30, 60, 120, 144,
 and 240 FPS. FPS limits disable VSync. Lower limits save power but reduce responsiveness.
 All modes use 15 FPS while the window does not have focus.
 They restore foreground pacing when the window gets focus.

@@ -237,6 +237,7 @@ namespace SlopWorld
 
         static bool PreciseHandled(Vector2 wheel)
         {
+            if (!Settings.SmoothScrolling) return false;
             if (_preciseAvailable && _preciseAmount.sqrMagnitude > 0.000001f &&
                 (_preciseClaim != null || _preciseSpent)) return true;
 
@@ -257,6 +258,20 @@ namespace SlopWorld
 
         void ClaimPrecise(Rect outer, Vector2 max)
         {
+            if (!Settings.SmoothScrolling)
+            {
+                // Stop native requests and forget duplicate suppression immediately. Reject
+                // in-flight motion on re-enable instead of delivering the disabled gesture.
+                X11ScrollInput.DiscardPendingMovement();
+                _preciseFrame = -1;
+                _preciseAvailable = false;
+                _preciseSpent = false;
+                _preciseAmount = Vector2.zero;
+                _preciseClaim = null;
+                _lastPreciseSpentFrame = -1;
+                _preciseWheelEvent = null;
+                return;
+            }
             int frame = Time.frameCount;
             var e = Event.current;
             bool wheel = e.type == EventType.ScrollWheel;
@@ -328,7 +343,7 @@ namespace SlopWorld
                 {
                     X11ScrollInput.DiscardPendingMovement();
                     // Raw frame input cannot represent a merged queue delta.
-                    var raw = WheelEventQueue.UsesLogicalDelta(e)
+                    var raw = !Settings.SmoothScrolling || WheelEventQueue.UsesLogicalDelta(e)
                         ? e.delta : Input.mouseScrollDelta;
                     _claimAmount = new Vector2(PrecisionDelta(e.delta.x, raw.x),
                         PrecisionDelta(e.delta.y, raw.y)) * Speed;
@@ -340,7 +355,7 @@ namespace SlopWorld
 
         bool SpendPrecise()
         {
-            if (_preciseClaim != this || _preciseSpent) return false;
+            if (!Settings.SmoothScrolling || _preciseClaim != this || _preciseSpent) return false;
 
             _preciseSpent = true;
             _preciseClaim = null;
