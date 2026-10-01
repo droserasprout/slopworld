@@ -224,6 +224,7 @@ impl Manager {
 
     /// Prepare, create, attach, then launch; unwind resources on failure.
     async fn start_inner(self: &Arc<Self>, name: &str) -> Result<()> {
+        let _terminal = self.terminal_boundary(name).write_owned().await;
         let plan = self.prepare_start(name).await?;
         if let Some(launch) = &plan.launch {
             // Save before tmux receives the command so a rejected launch remains inspectable.

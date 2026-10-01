@@ -348,6 +348,7 @@ impl Manager {
         {
             bail!("stop the session before moving it to another worktree");
         }
+        let _terminal = self.terminal_boundary(name).write_owned().await;
         let renamed = s.name != name;
         check_name(&s.name)?;
         let new_name = s.name.clone();
@@ -434,6 +435,7 @@ impl Manager {
         if renamed {
             self.readopt(name, &new_name).await;
         }
+        drop(_terminal);
         self.sync_from_config().await;
         Ok(())
     }

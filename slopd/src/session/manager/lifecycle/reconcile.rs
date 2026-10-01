@@ -36,7 +36,9 @@ impl Manager {
                 .collect()
         };
         let mut ready = Vec::new();
+        let mut terminal_guards = Vec::new();
         for name in names {
+            terminal_guards.push(self.terminal_boundary(&name).write_owned().await);
             // Replacing a host or a different durable agent identity requires the
             // old process to end before a new agent can be planned or adopted.
             let incompatible = {
@@ -63,6 +65,8 @@ impl Manager {
                 })
                 .collect::<Vec<_>>()
         };
+
+        drop(terminal_guards);
 
         // Abort the whole batch before cleanup yields, so cancellation cannot strand readers.
         for plan in &mut plans {

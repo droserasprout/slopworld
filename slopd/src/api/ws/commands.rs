@@ -28,6 +28,27 @@ pub(super) async fn handle_client_msg(
         ClientMsg::Paste(r) => crate::latency::InputTrace::begin(&r.trace_id),
         _ => None,
     };
+    // Root input cannot be revoked by a worker's lifecycle. Protect its target
+    // directly so unrelated session removal does not stall socket intake.
+    let terminal_name = match &cm {
+        ClientMsg::Keys(req) => Some(&req.name),
+        ClientMsg::Mouse(req) => Some(&req.name),
+        ClientMsg::Paste(req) => Some(&req.name),
+        ClientMsg::Resize(req) => Some(&req.name),
+        _ => None,
+    };
+    let terminal_guard = if cap.may_create() {
+        if let Some(name) = terminal_name {
+            let Some(guard) = m.terminal_input_guard(name).await else {
+                return true;
+            };
+            Some(guard)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
     let shared = matches!(
         &cm,
         ClientMsg::Keys(_)
@@ -58,7 +79,13 @@ pub(super) async fn handle_client_msg(
         }
         true
     };
-    if shared {
+    if terminal_guard.is_some() {
+        if let Some(trace) = trace {
+            crate::latency::CURRENT.scope(Some(trace), operation).await
+        } else {
+            operation.await
+        }
+    } else if shared {
         if let Some(trace) = trace {
             Box::pin(
                 m.session_read_operation(crate::latency::CURRENT.scope(Some(trace), operation)),

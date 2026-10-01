@@ -192,40 +192,44 @@ impl Manager {
     }
 
     pub(super) async fn persist_activity(&self, name: &str, record: ActivityRecord) {
-        self.session_read_operation(async {
-            let _activity = self.activity_mutation.lock().await;
-            // Recheck after ordering behind prior writes and clears. The shared
-            // boundary prevents name reuse during the tmux write, without a live lock.
-            if !self
-                .live
-                .read()
-                .await
-                .get(name)
-                .is_some_and(|live| record.matches(live))
-            {
-                return;
-            }
-            let ActivityRecord {
-                state, state_since, ..
-            } = record;
-            if let Err(error) = self.activity_cache.remember(name, state, state_since) {
-                tracing::warn!(
-                    target: "slopd::activity",
-                    session = %name,
-                    %error,
-                    "could not persist session activity"
-                );
-            }
-            if let Err(error) = self.tmux.set_activity(name, state, state_since).await {
-                tracing::warn!(
-                    target: "slopd::activity",
-                    session = %name,
-                    %error,
-                    "could not persist tmux session activity"
-                );
-            }
-        })
-        .await;
+        // Reader attachment renders inline during startup and rename. That caller
+        // already excludes lifecycle changes and can own this terminal's writer.
+        let _terminal = if self.session_write_operation_active() {
+            None
+        } else {
+            Some(self.terminal_boundary(name).read_owned().await)
+        };
+        let _activity = self.activity_mutation.lock().await;
+        // Recheck after ordering behind prior writes and clears. The terminal
+        // boundary prevents name reuse during the tmux write, without a live lock.
+        if !self
+            .live
+            .read()
+            .await
+            .get(name)
+            .is_some_and(|live| record.matches(live))
+        {
+            return;
+        }
+        let ActivityRecord {
+            state, state_since, ..
+        } = record;
+        if let Err(error) = self.activity_cache.remember(name, state, state_since) {
+            tracing::warn!(
+                target: "slopd::activity",
+                session = %name,
+                %error,
+                "could not persist session activity"
+            );
+        }
+        if let Err(error) = self.tmux.set_activity(name, state, state_since).await {
+            tracing::warn!(
+                target: "slopd::activity",
+                session = %name,
+                %error,
+                "could not persist tmux session activity"
+            );
+        }
     }
 }
 

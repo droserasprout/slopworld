@@ -45,9 +45,11 @@ impl Manager {
             self.fail_worker_task(&session.task_id, format!("worker session {name}: {reason}"));
         }
         // Keep the dead pane if recording failed; it still holds evidence.
+        let terminal = self.terminal_boundary(name).write_owned().await;
         if saved && let Err(error) = self.tmux.kill(name).await {
             tracing::debug!(session = %name, "exit pane cleanup: {error}");
         }
+        drop(terminal);
         self.mark_down(name, token).await;
     }
 

@@ -64,6 +64,7 @@ impl Manager {
             events,
             auth: Authorization::new(grants),
             session_boundary: Arc::new(tokio::sync::RwLock::new(())),
+            terminal_boundaries: Mutex::new(HashMap::new()),
             resize_mutation: tokio::sync::Mutex::new(()),
             tasks: crate::session::manager::TaskStore::new(tasks),
             worker_spawn: tokio::sync::Mutex::new(()),

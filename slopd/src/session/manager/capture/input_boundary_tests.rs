@@ -190,6 +190,81 @@ async fn stale_input_queues_exit_without_draining_into_replacements() {
     }
 }
 
+#[tokio::test]
+async fn root_input_admission_and_delivery_continue_during_unrelated_worker_removal() {
+    let (manager, mut queued) = queued_manager().await;
+    let (sink, mut delivered) = mpsc::unbounded_channel();
+    *manager.input_sink.lock().unwrap() = Some(sink);
+    let (identity, run) = {
+        let live = manager.live.read().await;
+        (live["target"].cfg.state_id.clone(), live["target"].run_id)
+    };
+    // Hold the same boundaries as lifecycle work. Every iteration exercises
+    // admission and delivery while the global writer is still active.
+    for index in 0..100 {
+        let _session = manager.session_boundary.write().await;
+        let _worker = manager.terminal_boundary("worker").write_owned().await;
+        let input = async {
+            let _admission = manager.terminal_input_guard("target").await.unwrap();
+            manager
+                .send_keys("target", vec![index.to_string()], true)
+                .await;
+            drop(_admission);
+            let item = queued.recv().await.unwrap();
+            assert!(
+                manager
+                    .dispatch_queued_input("target", &identity, run, item)
+                    .await
+            );
+            assert!(
+                matches!(delivered.recv().await.unwrap(), Input::Keys { keys, literal: true }
+                if keys == vec![index.to_string()])
+            );
+        };
+        tokio::time::timeout(Duration::from_secs(1), input)
+            .await
+            .expect("unrelated lifecycle work blocked terminal input");
+    }
+}
+
+#[tokio::test]
+async fn successive_terminal_frames_continue_during_unrelated_lifecycle_work() {
+    let (manager, _) = queued_manager().await;
+    let _session = manager.session_boundary.write().await;
+    let _worker = manager.terminal_boundary("worker").write_owned().await;
+    let mut emu = crate::emu::SessionEmu::new(80, 24);
+    let frames = async {
+        emu.feed(b"first");
+        manager.apply_frame("target", emu.render()).await;
+        emu.feed(b"\r\nsecond");
+        manager.apply_frame("target", emu.render()).await;
+    };
+    tokio::time::timeout(Duration::from_secs(2), frames)
+        .await
+        .expect("activity persistence blocked subsequent frames");
+    assert_eq!(manager.live.read().await["target"].seq, 2);
+}
+
+#[tokio::test]
+async fn target_lifecycle_blocks_input_and_rechecks_the_run_before_delivery() {
+    let (manager, _) = queued_manager().await;
+    let (sink, mut delivered) = mpsc::unbounded_channel();
+    *manager.input_sink.lock().unwrap() = Some(sink);
+    let identity = manager.live.read().await["target"].cfg.state_id.clone();
+    let lifecycle = manager.terminal_boundary("target").write_owned().await;
+    let admission = manager.terminal_input_guard("target");
+    let dispatch = manager.dispatch_queued_input("target", &identity, 0, Input::Bytes(vec![1]));
+    tokio::pin!(admission, dispatch);
+    assert!(futures::poll!(admission.as_mut()).is_pending());
+    assert!(futures::poll!(dispatch.as_mut()).is_pending());
+    manager.live.write().await.get_mut("target").unwrap().run_id += 1;
+    drop(lifecycle);
+    drop(admission.await.unwrap());
+    assert!(!dispatch.await);
+    assert!(delivered.try_recv().is_err());
+    assert!(manager.terminal_input_guard("missing").await.is_none());
+}
+
 // Explicit diagnostic: production batching and tmux dispatch, isolated from the
 // user's server and desktop. No timing assertion: report capacity, not a flaky test.
 #[tokio::test]
