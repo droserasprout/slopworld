@@ -23,6 +23,7 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
     let (events, _) = broadcast::channel(16);
     Arc::new(Manager {
         frame_commit_pause: Mutex::new(None),
+        scroll_capture_pause: Mutex::new(None),
         reader_attach_pause: Mutex::new(None),
         input_sink: Mutex::new(None),
         _test_directory: Some(TestDirectory(directory.clone())),

@@ -74,6 +74,10 @@ It discards captures that a newer run or frame replaces.
 Stop and reset advance the run identity so an old reader cannot restore a down row.
 Each capture owner serializes rendering through commit and snapshots identity before rendering.
 Scrollback insertion and cache hits recheck the run and emulator while holding the live read guard.
+Live updates during a scroll capture do not cancel its reply: the client needs the
+captured sequence and history extent to translate it and release its pending request.
+Only captures still matching the live sequence populate the daemon scroll cache.
+A history clear or alternate-screen transition returns the current live frame instead.
 Activity persistence serializes writes and clears, rechecks durable identity, run and transition,
 and keeps the per-name terminal boundary through tmux I/O without holding the live lock.
 Inline attachment renders under the existing exclusive session operation instead,
