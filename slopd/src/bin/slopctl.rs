@@ -9,6 +9,9 @@ mod logs;
 #[path = "../shared/mod.rs"]
 mod shared;
 #[cfg(test)]
+#[path = "../test_http.rs"]
+mod test_http;
+#[cfg(test)]
 #[path = "slopctl/tests.rs"]
 mod tests;
 

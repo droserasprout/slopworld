@@ -20,21 +20,17 @@ class WireContractTests(unittest.TestCase):
         cls.data = wire_contract.load()["protocol"]
         cls.generated = wire_contract.rust(cls.data)
 
-    def test_event_declaration_has_generated_tag_mapping(self) -> None:
-        self.assertIn("macro_rules! wire_event_tag", self.generated)
-        for value in self.data["websocket"]["events"]:
-            self.assertIn(
-                f"({wire_contract.pascal(value)}) => {{\n        $crate::shared::protocol::events::{wire_contract.upper(value)}\n    }};",
-                self.generated,
-            )
-
-    def test_client_message_declaration_has_generated_tag_mapping(self) -> None:
-        self.assertIn("macro_rules! wire_client_msg_tag", self.generated)
-        for value in self.data["websocket"]["messages"]:
-            self.assertIn(
-                f"({wire_contract.pascal(value)}) => {{\n        $crate::shared::protocol::messages::{wire_contract.upper(value)}\n    }};",
-                self.generated,
-            )
+    def test_websocket_catalog_matches_protobuf_payloads(self) -> None:
+        schema = (wire_contract.SHARED / "slopworld.proto").read_text()
+        for message, section in (("Event", "events"), ("ClientMessage", "messages")):
+            with self.subTest(message=message):
+                payload = re.search(
+                    rf"message {message}\s*\{{\s*oneof payload\s*\{{(.*?)\}}",
+                    schema, re.S,
+                )
+                self.assertIsNotNone(payload)
+                names = re.findall(r"\w+\s+(\w+)\s*=\s*\d+;", payload[1])
+                self.assertEqual(names, self.data["websocket"][section])
 
     def test_protobuf_route_types_match_handler_signatures(self) -> None:
         from reference import api_routes, read_files

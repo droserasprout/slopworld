@@ -20,34 +20,17 @@ agent unless you use --start. The daemon returns the new identity.
 Use --option=VALUE for option values beginning with a dash.
 ";
 pub(super) fn parse_agent_command(args: &[String]) -> Result<Command, String> {
-    if matches!(
-        args.get(1).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help { usage: AGENT_USAGE });
-    }
     if args.get(1).map(String::as_str) != Some("create") {
         return Err(format!(
             "agent needs the create subcommand\n\n{AGENT_USAGE}"
         ));
-    }
-    if matches!(
-        args.get(2).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help {
-            usage: AGENT_CREATE_USAGE,
-        });
     }
     let name = arg(args, 2, "agent create needs a name")?.to_string();
     let mut project = None;
     let mut template = None;
     let mut start = false;
     let mut i = 3;
-    while i < args.len() {
-        let Some(option) = args.get(i) else {
-            break;
-        };
+    while let Some(option) = args.get(i) {
         let (flag, inline) = value_option(option);
         match flag {
             "--project" => project = Some(option_value(args, &mut i, flag, inline)?),

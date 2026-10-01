@@ -107,15 +107,6 @@ def cs_string(value: str) -> str:
 
 def rust(data: dict) -> str:
     lines = rust_header("protocol")
-    for macro, section in (("wire_event_tag", "events"), ("wire_client_msg_tag", "messages")):
-        lines += ["#[macro_export]", f"macro_rules! {macro} {{"]
-        for value in data["websocket"][section]:
-            lines += [
-                f"    ({pascal(value)}) => {{",
-                f"        $crate::shared::protocol::{section}::{upper(value)}",
-                "    };",
-            ]
-        lines += ["}", ""]
     lines += [
         "pub(crate) const TOKEN_HEADER: &str = "
         + rust_string(data["http"]["headers"]["token"])

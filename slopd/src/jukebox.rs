@@ -126,24 +126,10 @@ impl Catalog {
 
     // Reload rejects a partial catalog so the caller can retain the last good snapshot.
     fn merge_dir(&mut self, dir: &Path, strict: bool) -> Result<()> {
-        let entries = match std::fs::read_dir(dir) {
-            Ok(entries) => entries,
-            Err(e) if !strict || e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-            Err(e) => return Err(e).with_context(|| format!("reading {}", dir.display())),
-        };
-        let mut files: Vec<PathBuf> = entries
-            .filter(|entry| strict || entry.is_ok())
-            .map(|e| e.map(|e| e.path()))
-            .collect::<std::io::Result<Vec<_>>>()?
-            .into_iter()
-            .filter(|p| {
-                p.extension()
-                    .is_some_and(|x| x.to_string_lossy().eq_ignore_ascii_case("toml"))
-            })
-            .collect();
-        files.sort();
-
-        for path in files {
+        let files =
+            crate::paths::read_sorted_dir(dir, |error| if strict { Err(error) } else { Ok(()) })
+                .with_context(|| format!("reading {}", dir.display()))?;
+        for path in files.into_iter().filter(|path| is_definition(path)) {
             let station = std::fs::read_to_string(&path)
                 .with_context(|| format!("reading jukebox definition {}", path.display()))
                 .and_then(|text| parse(&text, &path));
@@ -249,23 +235,10 @@ fn find_user_file(dir: &Path, id: &str) -> Result<Option<PathBuf>> {
 }
 
 fn find_user_files(dir: &Path, id: &str) -> Result<Vec<PathBuf>> {
-    let entries = match std::fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(error) => return Err(error).with_context(|| format!("reading {}", dir.display())),
-    };
-    let mut paths = entries
-        .map(|entry| entry.map(|entry| entry.path()))
-        .collect::<std::io::Result<Vec<_>>>()?;
-    paths.sort();
+    let paths = crate::paths::read_sorted_dir(dir, Err)
+        .with_context(|| format!("reading {}", dir.display()))?;
     let mut found = Vec::new();
-    for path in paths {
-        if !path
-            .extension()
-            .is_some_and(|ext| ext.to_string_lossy().eq_ignore_ascii_case("toml"))
-        {
-            continue;
-        }
+    for path in paths.into_iter().filter(|path| is_definition(path)) {
         let text = std::fs::read_to_string(&path)?;
         let Ok(station) = parse(&text, &path) else {
             continue;
@@ -275,6 +248,11 @@ fn find_user_files(dir: &Path, id: &str) -> Result<Vec<PathBuf>> {
         }
     }
     Ok(found)
+}
+
+fn is_definition(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|ext| ext.to_string_lossy().eq_ignore_ascii_case("toml"))
 }
 
 fn valid_id(id: &str) -> Result<()> {

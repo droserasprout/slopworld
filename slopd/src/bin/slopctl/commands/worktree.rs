@@ -25,8 +25,8 @@ pub(super) fn parse_worktree(args: &[String]) -> Result<Command, String> {
             .clone();
         i += 1;
     }
-    while i < args.len() {
-        let (flag, inline) = value_option(args.get(i).ok_or(WORKTREE_USAGE)?);
+    while let Some(option) = args.get(i) {
+        let (flag, inline) = value_option(option);
         let allowed = flag == "--project"
             || (flag == "--name" && matches!(action.as_str(), "create" | "rename"))
             || (matches!(flag, "--base" | "--path") && action == "create");

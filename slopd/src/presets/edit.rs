@@ -18,7 +18,7 @@ fn current_users() -> Result<Table, PresetError> {
     let mut users = Table::default();
     for kind in [PresetKind::SandboxPresets, PresetKind::AppPresets] {
         users
-            .read_user_dir(kind, &Table::dir_for(kind))
+            .read_user_dir(kind, &Table::dir_for(kind), true)
             .map_err(PresetError::Storage)?;
     }
     Ok(users)

@@ -23,6 +23,8 @@ mod session;
 mod shared;
 mod tasks;
 #[cfg(test)]
+mod test_http;
+#[cfg(test)]
 mod test_support;
 mod title;
 mod tmux;

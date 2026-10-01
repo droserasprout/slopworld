@@ -1,6 +1,33 @@
 use super::*;
 
 #[test]
+fn sorted_directory_reads_preserve_order_and_caller_error_policy() {
+    let root = std::env::temp_dir().join(format!("slopd-scan-{}", uuid::Uuid::new_v4()));
+    assert!(read_sorted_dir(&root, Err).unwrap().is_empty());
+    std::fs::create_dir(&root).unwrap();
+    for name in ["z.toml", "a.TOML", "m.txt"] {
+        std::fs::write(root.join(name), "").unwrap();
+    }
+    assert_eq!(
+        read_sorted_dir(&root, Err).unwrap(),
+        ["a.TOML", "m.txt", "z.toml"].map(|name| root.join(name))
+    );
+    let blocked = root.join("z.toml");
+    read_sorted_dir(&blocked, Err).unwrap_err();
+    let mut failures = 0;
+    assert!(
+        read_sorted_dir(&blocked, |_| {
+            failures += 1;
+            Ok(())
+        })
+        .unwrap()
+        .is_empty()
+    );
+    assert_eq!(failures, 1);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn root_uses_the_supplied_base_or_the_current_directory() {
     assert_eq!(
         root(Some(PathBuf::from("/tmp/config"))),

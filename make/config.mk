@@ -78,7 +78,7 @@ TEST_PROJECT := mod/Tests/SlopWorld.Tests.csproj
 TEST_DLL     := mod/Tests/bin/Release/net8.0/SlopWorld.Tests.dll
 COVERAGE_DIR := coverage
 # Native llvm-cov file filter. Test modules live in adjacent excluded files.
-RUST_COVERAGE_EXCLUDE ?= /tests/|/benches/|/benchmark/|/(tests|test_support|benchmark|[^/]*_tests)\.rs$$|/shared/(http_wire|protocol)\.rs$$|/target/|/rustc[^/]*/library/
+RUST_COVERAGE_EXCLUDE ?= /tests/|/benches/|/benchmark/|/(tests|test_support|test_http|http_fixture|benchmark|[^/]*_tests)\.rs$$|/shared/(http_wire|protocol)\.rs$$|/target/|/rustc[^/]*/library/
 
 # Settings passed to maintenance scripts.
 export BUILD CARGO CARGOFLAGS COVERAGE_DIR DOTNET PYTHON

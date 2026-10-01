@@ -13,6 +13,33 @@ pub(crate) async fn disk_mtime(path: &Path) -> Option<SystemTime> {
     tokio::fs::metadata(path).await.ok()?.modified().ok()
 }
 
+/// Discover entries in filename order. Missing directories are empty; callers
+/// decide whether other read failures abort a reload or are skipped at startup.
+/// Catalog owners retain extension, parsing, and duplicate-resolution policy.
+pub(crate) fn read_sorted_dir(
+    dir: &Path,
+    mut on_error: impl FnMut(std::io::Error) -> std::io::Result<()>,
+) -> std::io::Result<Vec<PathBuf>> {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(error) => {
+            if error.kind() != std::io::ErrorKind::NotFound {
+                on_error(error)?;
+            }
+            return Ok(Vec::new());
+        }
+    };
+    let mut paths = Vec::new();
+    for entry in entries {
+        match entry {
+            Ok(entry) => paths.push(entry.path()),
+            Err(error) => on_error(error)?,
+        }
+    }
+    paths.sort();
+    Ok(paths)
+}
+
 /// Store temporary work under `/tmp` so the host controls its removal.
 pub const TEMP_ROOT: &str = "/tmp/slopworld";
 

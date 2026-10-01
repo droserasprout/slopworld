@@ -289,8 +289,12 @@ impl Table {
 
     fn try_load_from(dir: &Path) -> anyhow::Result<Self> {
         let mut t = Self::builtins();
-        t.read_user_dir(PresetKind::SandboxPresets, &dir.join("sandbox_presets"))?;
-        t.read_user_dir(PresetKind::AppPresets, &dir.join("app_presets"))?;
+        t.read_user_dir(
+            PresetKind::SandboxPresets,
+            &dir.join("sandbox_presets"),
+            true,
+        )?;
+        t.read_user_dir(PresetKind::AppPresets, &dir.join("app_presets"), true)?;
         Ok(t)
     }
 
@@ -317,66 +321,32 @@ impl Table {
 
     fn merge_user_dirs(&mut self, root: &Path) {
         for kind in [PresetKind::SandboxPresets, PresetKind::AppPresets] {
-            self.merge_user_dir(kind, &root.join(kind.as_str()));
+            drop(self.read_user_dir(kind, &root.join(kind.as_str()), false));
         }
     }
 
-    /// Read files in filename order to resolve duplicate names consistently.
-    /// Each user file contains one sandbox or application definition.
-    /// Skip malformed files at startup so the rest of the catalog remains usable.
-    fn merge_user_dir(&mut self, kind: PresetKind, dir: &Path) {
-        let entries = match std::fs::read_dir(dir) {
-            Ok(entries) => entries,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
-            Err(error) => {
-                tracing::warn!("reading {}: {error}", dir.display());
-                return;
+    /// Startup keeps valid definitions; reload and mutations reject partial catalogs.
+    fn read_user_dir(&mut self, kind: PresetKind, dir: &Path, strict: bool) -> anyhow::Result<()> {
+        let paths = crate::paths::read_sorted_dir(dir, |error| {
+            if strict {
+                return Err(error);
             }
-        };
-        let mut files: Vec<PathBuf> = entries
-            .filter_map(|entry| match entry {
-                Ok(entry) => Some(entry.path()),
-                Err(error) => {
-                    tracing::warn!("reading entry in {}: {error}", dir.display());
-                    None
-                }
-            })
-            .filter(|p| p.extension().is_some_and(|x| x == "toml"))
-            .collect();
-        files.sort();
-        for path in files {
-            let text = match std::fs::read_to_string(&path) {
-                Ok(t) => t,
-                Err(e) => {
-                    tracing::warn!("reading {}: {e}", path.display());
-                    continue;
-                }
-            };
-            if let Err(e) = self.parse_user_definition(kind, &path, &text) {
-                tracing::warn!("{} does not parse: {e}", path.display());
-            }
-        }
-    }
-
-    fn read_user_dir(&mut self, kind: PresetKind, dir: &Path) -> anyhow::Result<()> {
-        let entries = match std::fs::read_dir(dir) {
-            Ok(entries) => entries,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-            Err(error) => return Err(error.into()),
-        };
-        let mut files: Vec<PathBuf> = entries
-            .map(|entry| entry.map(|entry| entry.path()))
-            .collect::<std::io::Result<Vec<_>>>()?
+            tracing::warn!("reading {}: {error}", dir.display());
+            Ok(())
+        })?;
+        for path in paths
             .into_iter()
-            .filter(|path| {
-                path.extension()
-                    .is_some_and(|extension| extension == "toml")
-            })
-            .collect();
-        files.sort();
-        for path in files {
-            let text = std::fs::read_to_string(&path)?;
-            self.parse_user_definition(kind, &path, &text)?;
+            .filter(|p| p.extension().is_some_and(|x| x == "toml"))
+        {
+            let result = std::fs::read_to_string(&path)
+                .map_err(anyhow::Error::from)
+                .and_then(|text| self.parse_user_definition(kind, &path, &text));
+            if let Err(error) = result {
+                if strict {
+                    return Err(error);
+                }
+                tracing::warn!("reading definition {}: {error}", path.display());
+            }
         }
         Ok(())
     }

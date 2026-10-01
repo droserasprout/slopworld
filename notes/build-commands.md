@@ -14,6 +14,10 @@ and catalog failure fixtures use `test_support`'s process-local overlay through
 test-only lookups in `usage/providers.rs` and `paths.rs`; they must not mutate the
 native environment while HTTP or Tokio helper threads can read it.
 
+`slopd/src/test_http.rs` owns bounded request reads and connection waits shared by
+CLI, title-provider, and usage-provider fixtures. Response scripts and Protobuf
+adaptation stay with their test owners.
+
 Rust and Python tmux fixtures use explicit `-S` sockets inside their own temporary
 directories, including cleanup and recovery handles. Tests do not need access to
 the host's default tmux socket directory or a `TMUX_TMPDIR` override. Rust test
