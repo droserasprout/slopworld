@@ -67,3 +67,6 @@ Daemon settings use partial patches, not hidden fields sent in both directions. 
 Project catalog responses retain editable `dir` and supply daemon-resolved `expanded_dir`
 for path operations. Never expand these paths using the game process environment: sidecar
 homes and environment variables can differ.
+
+Jukebox editor bitrates preserve unsigned wire values; an acknowledged mutation
+succeeds independently of catalog refresh.
