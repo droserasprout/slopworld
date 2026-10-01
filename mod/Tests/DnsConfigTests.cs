@@ -42,6 +42,18 @@ namespace SlopWorld.Tests
             AssertEx.Equal("::1 is not an IPv4 address", error, "IPv6 error");
         }
 
+        public static void RejectsUnspecifiedAndMulticastServers()
+        {
+            foreach (string address in new[] { "0.0.0.0", "224.0.0.0", "239.255.255.255" })
+            {
+                AssertEx.False(DnsConfig.TryParseServers(address, out var servers, out var error), "daemon rejects " + address);
+                AssertEx.Equal(0, servers.Count, "excluded address is never added");
+                AssertEx.True(error.Contains("unicast IPv4"), "actionable validation error");
+            }
+            foreach (string address in new[] { "127.0.0.1", "223.255.255.255", "240.0.0.0" })
+                AssertEx.True(DnsConfig.TryParseServers(address, out _, out _), "matches daemon acceptance of " + address);
+        }
+
         static void RoundTripsDnsModes()
         {
             var resolved = DnsConfig.FromWire(ProtobufFixtures.Read<Wire.DnsConfig>(JVal.Parse("{\"mode\":\"resolved\",\"servers\":[]}")));

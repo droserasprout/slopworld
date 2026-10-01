@@ -70,6 +70,12 @@ namespace SlopWorld
                     error = $"{part} is not an IPv4 address";
                     return false;
                 }
+                byte first = address.GetAddressBytes()[0];
+                if (address.Equals(IPAddress.Any) || (first >= 224 && first <= 239))
+                {
+                    error = $"{part} must be a unicast IPv4 address";
+                    return false;
+                }
                 string normalized = address.ToString();
                 if (servers.Contains(normalized))
                 {
