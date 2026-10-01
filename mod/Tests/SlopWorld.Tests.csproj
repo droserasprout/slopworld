@@ -65,6 +65,7 @@
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubWire.cs" Link="Source/Client/SessionHub/HubWire.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Projects/MountPresentation.cs" Link="Source/MountPresentation.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/JukeboxPresetInfo.cs" Link="Source/JukeboxPresetInfo.cs" />
+    <Compile Include="../Source/SlopWorld/Client/SessionHub/WorkerWorktreeOptions.cs" Link="Source/WorkerWorktreeOptions.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/PresetInfo.cs" Link="Source/Client/SessionHub/PresetInfo.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/CommandInfo.cs" Link="Source/Client/SessionHub/CommandInfo.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/AgentTemplateInfo.cs" Link="Source/Client/SessionHub/AgentTemplateInfo.cs" />
