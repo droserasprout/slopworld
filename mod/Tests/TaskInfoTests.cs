@@ -5,6 +5,13 @@ namespace SlopWorld.Tests
 {
     static class TaskInfoTests
     {
+        public static void SummaryDoesNotSplitSurrogatePair()
+        {
+            var task = new TaskInfo { Body = new string('a', TaskInfo.SummaryChars - 1) + "\U0001F600tail" };
+            AssertEx.Equal(new string('a', TaskInfo.SummaryChars - 1) + "...", task.Summary,
+                "truncate before a split scalar");
+        }
+
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             yield return ("reads task mailbox records", ReadsTask);

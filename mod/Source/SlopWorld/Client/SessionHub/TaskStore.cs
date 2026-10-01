@@ -14,39 +14,13 @@ namespace SlopWorld
         bool _loading;
         double _nextPoll;
         int _refreshSerial;
-        readonly Queue<CancellationBatch> _cancellations = new Queue<CancellationBatch>();
-        readonly HashSet<string> _cancelingIds = new HashSet<string>();
-        bool _cancellationInFlight;
-        readonly Queue<RemovalBatch> _removals = new Queue<RemovalBatch>();
-        readonly HashSet<string> _removingIds = new HashSet<string>();
-        bool _removalInFlight;
+        readonly TaskBatchQueue _cancellations;
+        readonly TaskBatchQueue _removals;
 
-        sealed class RemovalBatch
+        public TaskStore()
         {
-            public readonly List<string> Ids;
-            public readonly Action Ok;
-            public readonly Action<string> Fail;
-
-            public RemovalBatch(List<string> ids, Action ok, Action<string> fail)
-            {
-                Ids = ids;
-                Ok = ok;
-                Fail = fail;
-            }
-        }
-
-        sealed class CancellationBatch
-        {
-            public readonly List<string> Ids;
-            public readonly Action Ok;
-            public readonly Action<string> Fail;
-
-            public CancellationBatch(List<string> ids, Action ok, Action<string> fail)
-            {
-                Ids = ids;
-                Ok = ok;
-                Fail = fail;
-            }
+            _cancellations = new TaskBatchQueue(SendCancellation, () => Refresh());
+            _removals = new TaskBatchQueue(SendRemoval, () => Refresh());
         }
 
         public int OpenTasks => Tasks.Count(t => !t.Terminal);
@@ -123,100 +97,36 @@ namespace SlopWorld
         public void CancelMany(IEnumerable<string> ids, Action ok = null,
                                Action<string> fail = null)
         {
-            if (ids == null) return;
-
-            var batchIds = new List<string>();
-            foreach (string id in ids.Where(value => !string.IsNullOrEmpty(value)).Distinct())
-            {
-                if (!_cancelingIds.Add(id)) continue;
-                batchIds.Add(id);
-            }
-
-            if (batchIds.Count == 0) return;
-            _cancellations.Enqueue(new CancellationBatch(batchIds, ok, fail));
             InvalidateRefresh();
-            PumpCancellations();
+            _cancellations.Enqueue(ids, ok, fail);
         }
 
-        void PumpCancellations()
+        void SendCancellation(List<string> ids, Action<TaskBatchQueue.Outcome> done)
         {
-            if (_cancellationInFlight || _cancellations.Count == 0) return;
-
-            var pending = _cancellations.Dequeue();
-            _cancellationInFlight = true;
-            var body = new Wire.RemoveTasksReq { Ids = { pending.Ids } };
+            var body = new Wire.RemoveTasksReq { Ids = { ids } };
             DaemonClient.Post<Wire.TasksReply>(WireProtocol.Routes.TasksCancel, body, j =>
             {
-                _cancellationInFlight = false;
-                foreach (string id in pending.Ids) _cancelingIds.Remove(id);
                 foreach (var task in j.Tasks.Select(TaskInfo.FromWire)) Upsert(task);
-                pending.Ok?.Invoke();
-                FinishCancellations();
-            }, error =>
-            {
-                _cancellationInFlight = false;
-                foreach (string id in pending.Ids) _cancelingIds.Remove(id);
-                pending.Fail?.Invoke(error);
-                FinishCancellations();
-            }, TaskInfo.Host);
-        }
-
-        void FinishCancellations()
-        {
-            if (_cancellations.Count == 0) Refresh();
-            PumpCancellations();
+                done(new TaskBatchQueue.Outcome(null));
+            }, error => done(new TaskBatchQueue.Outcome(error)), TaskInfo.Host);
         }
 
         public void RemoveMany(IEnumerable<string> ids, Action ok = null,
                                Action<string> fail = null)
         {
-            if (ids == null) return;
-
-            var batchIds = new List<string>();
-            foreach (string id in ids.Where(value => !string.IsNullOrEmpty(value)).Distinct())
-            {
-                // Ignore repeated clicks while the batch is pending.
-                // Duplicate requests could report missing tasks after the first request removes them.
-                if (!_removingIds.Add(id)) continue;
-                batchIds.Add(id);
-            }
-
-            if (batchIds.Count == 0) return;
-            _removals.Enqueue(new RemovalBatch(batchIds, ok, fail));
             InvalidateRefresh();
-            PumpRemovals();
+            _removals.Enqueue(ids, ok, fail);
         }
 
-        void PumpRemovals()
+        void SendRemoval(List<string> ids, Action<TaskBatchQueue.Outcome> done)
         {
-            if (_removalInFlight || _removals.Count == 0) return;
-
-            var pending = _removals.Dequeue();
-            _removalInFlight = true;
-            var body = new Wire.RemoveTasksReq { Ids = { pending.Ids } };
+            var body = new Wire.RemoveTasksReq { Ids = { ids } };
             DaemonClient.Post<Wire.Removed>(WireProtocol.Routes.TasksRemove, body, _ =>
             {
-                _removalInFlight = false;
-                foreach (string id in pending.Ids) _removingIds.Remove(id);
-                var removed = new HashSet<string>(pending.Ids);
+                var removed = new HashSet<string>(ids);
                 Tasks = Tasks.Where(t => !removed.Contains(t.Id)).ToList();
-                pending.Ok?.Invoke();
-                FinishRemoval();
-            }, error =>
-            {
-                _removalInFlight = false;
-                foreach (string id in pending.Ids) _removingIds.Remove(id);
-                pending.Fail?.Invoke(error);
-                FinishRemoval();
-            }, TaskInfo.Host);
-        }
-
-        void FinishRemoval()
-        {
-            // Reconcile with the daemon after the last response. This also repairs the local view
-            // if a request failed or another participant changed the board.
-            if (_removals.Count == 0) Refresh();
-            PumpRemovals();
+                done(new TaskBatchQueue.Outcome(null));
+            }, error => done(new TaskBatchQueue.Outcome(error)), TaskInfo.Host);
         }
 
         public void Prune(Action ok = null, Action<string> fail = null)
