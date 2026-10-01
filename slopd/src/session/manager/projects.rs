@@ -191,16 +191,8 @@ impl Manager {
                     .context("worktree root")?;
                 let project_dir = root.join(&p.name);
                 directories.create_all(&project_dir)?;
-                if std::fs::symlink_metadata(&project_dir)?
-                    .file_type()
-                    .is_symlink()
-                {
-                    bail!("worktree project directory cannot be a symlink");
-                }
-                let dest = project_dir.canonicalize()?.join(&w.name);
-                if let Some(why) = crate::sandbox::refused(&dest.to_string_lossy()) {
-                    bail!("worktree reaches {why}");
-                }
+                let dest =
+                    super::worktrees::checked_worktree_destination(&project_dir, &w.name).await?;
                 if std::fs::symlink_metadata(&dest).is_ok() {
                     bail!("destination {} already exists", dest.display());
                 }

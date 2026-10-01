@@ -3,13 +3,26 @@
 //! Other `_inner` helpers are ordinary implementation details, not a locking guarantee.
 
 use crate::session::Manager;
+use std::collections::HashMap;
 use std::future::Future;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, Weak};
 
 tokio::task_local! {
     static OWNER: (usize, Arc<tokio::sync::OwnedRwLockWriteGuard<()>>);
     static READ_OWNER: usize;
     static REQUEST: usize;
+}
+
+/// Reuse live per-name locks and discard expired names as temporary terminals disappear.
+fn named_lock<T: Default>(locks: &Mutex<HashMap<String, Weak<T>>>, name: &str) -> Arc<T> {
+    let mut locks = locks.lock().unwrap_or_else(|error| error.into_inner());
+    if let Some(lock) = locks.get(name).and_then(Weak::upgrade) {
+        return lock;
+    }
+    locks.retain(|_, lock| lock.strong_count() > 0);
+    let lock = Arc::new(T::default());
+    locks.insert(name.to_string(), Arc::downgrade(&lock));
+    lock
 }
 
 impl Manager {
@@ -18,33 +31,12 @@ impl Manager {
     /// Root terminal input uses only this boundary; scoped admission retains the global
     /// authorization boundary. Queued delivery rechecks identity under this guard.
     pub(crate) fn terminal_boundary(&self, name: &str) -> Arc<tokio::sync::RwLock<()>> {
-        let mut boundaries = self
-            .terminal_boundaries
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        if let Some(boundary) = boundaries.get(name).and_then(std::sync::Weak::upgrade) {
-            return boundary;
-        }
-        // Expired names must not accumulate as disposable workers come and go.
-        boundaries.retain(|_, boundary| boundary.strong_count() > 0);
-        let boundary = Arc::new(tokio::sync::RwLock::new(()));
-        boundaries.insert(name.to_string(), Arc::downgrade(&boundary));
-        boundary
+        named_lock(&self.terminal_boundaries, name)
     }
 
     /// Resize publication and redraw restoration serialize only within this name.
     pub(super) fn terminal_resize(&self, name: &str) -> Arc<tokio::sync::Mutex<()>> {
-        let mut resizes = self
-            .terminal_resizes
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        if let Some(resize) = resizes.get(name).and_then(std::sync::Weak::upgrade) {
-            return resize;
-        }
-        resizes.retain(|_, resize| resize.strong_count() > 0);
-        let resize = Arc::new(tokio::sync::Mutex::new(()));
-        resizes.insert(name.to_string(), Arc::downgrade(&resize));
-        resize
+        named_lock(&self.terminal_resizes, name)
     }
 
     pub(super) fn session_write_operation_active(&self) -> bool {

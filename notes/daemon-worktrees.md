@@ -3,6 +3,8 @@
 `worktrees/mod.rs` owns `worktrees.toml` and bounded Git operations.
 `manager/worktrees.rs` handles allocation, selection, attachments, recovery, and removal.
 `manager/projects.rs` owns project edits and checkout relocation coordination.
+Creation and both rename paths share destination validation in `manager/worktrees.rs`;
+callers retain directory ownership and their collision-error policy.
 `manager/directories.rs` owns newly created directories until commit, removing only its
 empty directories on failure. Allocation transfers ownership to its durable allocating record.
 The project keeps its original directory.

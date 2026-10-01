@@ -1,7 +1,9 @@
 //! Shared Anthropic cache identity, bounded locking, and request deduplication.
 //! providers owns credentials and HTTP; polling owns per-daemon retry schedules.
 
-use super::providers::{self, Creds, PollErr, ProviderResponse, RATE_LIMIT_FLOOR, usage_url};
+use super::providers::{
+    self, AnthropicCreds, PollErr, ProviderResponse, RATE_LIMIT_FLOOR_SECS, anthropic_usage_url,
+};
 use crate::clock::unix_ms;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -24,14 +26,14 @@ struct AnthropicUsageCache {
 }
 
 /// Cache and lock files live under XDG's cache root, partitioned by credentials and endpoint.
-fn anthropic_cache_paths(creds: &Creds) -> (PathBuf, PathBuf) {
+fn anthropic_cache_paths(creds: &AnthropicCreds) -> (PathBuf, PathBuf) {
     let mut hash = 0xcbf29ce484222325u64;
     for byte in creds
         .path
         .to_string_lossy()
         .bytes()
         .chain([0u8])
-        .chain(usage_url().bytes())
+        .chain(anthropic_usage_url().bytes())
     {
         hash = (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3);
     }
@@ -150,7 +152,7 @@ fn save_anthropic_cache(path: &Path, body: &Value, retry_until_ms: Option<u64>) 
 }
 
 fn save_anthropic_rate_limit(path: &Path, delay: u64) {
-    let delay = delay.max(RATE_LIMIT_FLOOR);
+    let delay = delay.max(RATE_LIMIT_FLOOR_SECS);
     save_anthropic_cache(
         path,
         &Value::Null,
@@ -175,7 +177,7 @@ fn cached_response(path: &Path, plan: &str) -> Option<Result<ProviderResponse, P
     })
 }
 
-pub(super) fn fetch(creds: &Creds) -> Result<ProviderResponse, PollErr> {
+pub(super) fn fetch(creds: &AnthropicCreds) -> Result<ProviderResponse, PollErr> {
     let (cache_path, lock_path) = anthropic_cache_paths(creds);
     if let Some(answer) = cached_response(&cache_path, &creds.plan) {
         return answer;
@@ -196,7 +198,7 @@ pub(super) fn fetch(creds: &Creds) -> Result<ProviderResponse, PollErr> {
             return answer;
         }
     }
-    let body = match providers::fetch(creds) {
+    let body = match providers::fetch_anthropic_usage(creds) {
         Ok(body) => body,
         Err(error) => {
             if let Some(delay) = error.retry_after

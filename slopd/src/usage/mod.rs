@@ -23,8 +23,8 @@ mod test_http;
 use parsing::{parse, parse_credits, parse_openai};
 use parsing::{parse_anthropic, parse_openai_response, parse_openrouter};
 use providers::{
-    FetchProvider, ParseProvider, RATE_LIMIT_FLOOR, ReadProvider, fetch_anthropic,
-    fetch_openai_provider, fetch_openrouter, read_anthropic, read_openai, read_openrouter,
+    FetchProvider, ParseProvider, RATE_LIMIT_FLOOR_SECS, ReadProvider, fetch_anthropic,
+    fetch_openai, fetch_openrouter, read_anthropic, read_openai, read_openrouter,
 };
 
 pub const CLAUDE_SESSION: &str = "claude_session";
@@ -167,9 +167,11 @@ fn backoff(base: u64, fails: u32, asked: Option<u64>) -> u64 {
     let grown = base
         .saturating_mul(1u64 << fails.saturating_sub(1).min(16))
         .min(BACKOFF_CAP);
-    grown
-        .max(asked.unwrap_or(0))
-        .max(if asked.is_some() { RATE_LIMIT_FLOOR } else { 0 })
+    grown.max(asked.unwrap_or(0)).max(if asked.is_some() {
+        RATE_LIMIT_FLOOR_SECS
+    } else {
+        0
+    })
 }
 
 fn human(secs: u64) -> String {
@@ -288,7 +290,7 @@ struct Provider<'a> {
 
 fn minimum_poll_secs(source: &str) -> u64 {
     if source == "anthropic" {
-        RATE_LIMIT_FLOOR
+        RATE_LIMIT_FLOOR_SECS
     } else {
         10
     }
@@ -401,22 +403,22 @@ fn preserve_parse_failure(previous: &Snapshot, parsed: Snapshot) -> Snapshot {
 fn watch_anthropic_stamp(
     d: &crate::config::Daemon,
     poller: &mut Poller,
-    creds_stamp: &mut Option<SystemTime>,
+    anthropic_creds_stamp: &mut Option<SystemTime>,
     now: Instant,
 ) {
     let creds_path = PathBuf::from(crate::config::expand(&d.claude_credentials));
     let stamp = std::fs::metadata(&creds_path)
         .and_then(|md| md.modified())
         .ok();
-    if stamp != *creds_stamp {
+    if stamp != *anthropic_creds_stamp {
         // End a retry delay early only after a failure and after the first file check.
         // Claude Code rewrites this file when it refreshes a token.
         // Do not let those writes control the polling rate when polls succeed.
-        if creds_stamp.is_some() && poller.fails > 0 {
+        if anthropic_creds_stamp.is_some() && poller.fails > 0 {
             poller.fails = 0;
             poller.due = now;
         }
-        *creds_stamp = stamp;
+        *anthropic_creds_stamp = stamp;
     }
 }
 
@@ -517,39 +519,42 @@ const LOOK: Duration = Duration::from_secs(30);
 /// Provider polling state for the background task started by main.
 /// Log errors without logging each successful poll.
 struct UsagePollers {
-    anth: Poller,
-    cred: Poller,
+    anthropic: Poller,
+    openrouter: Poller,
     openai: Poller,
-    creds_stamp: Option<SystemTime>,
+    anthropic_creds_stamp: Option<SystemTime>,
 }
 
 impl UsagePollers {
     fn new() -> Self {
         Self {
-            anth: Poller::new("Anthropic"),
-            cred: Poller::new("OpenRouter"),
+            anthropic: Poller::new("Anthropic"),
+            openrouter: Poller::new("OpenRouter"),
             openai: Poller::new("OpenAI"),
-            creds_stamp: None,
+            anthropic_creds_stamp: None,
         }
     }
 
     /// Adapter construction is separate from polling policy and publication.
     fn providers(&mut self) -> [Provider<'_>; 3] {
         let UsagePollers {
-            anth, cred, openai, ..
+            anthropic,
+            openrouter,
+            openai,
+            ..
         } = self;
 
         [
             Provider {
                 source: "anthropic",
-                poller: anth,
+                poller: anthropic,
                 read: read_anthropic,
                 fetch: fetch_anthropic,
                 parse: parse_anthropic,
             },
             Provider {
                 source: "openrouter",
-                poller: cred,
+                poller: openrouter,
                 read: read_openrouter,
                 fetch: fetch_openrouter,
                 parse: parse_openrouter,
@@ -558,7 +563,7 @@ impl UsagePollers {
                 source: "openai",
                 poller: openai,
                 read: read_openai,
-                fetch: fetch_openai_provider,
+                fetch: fetch_openai,
                 parse: parse_openai_response,
             },
         ]
@@ -568,7 +573,7 @@ impl UsagePollers {
         let cfg = m.config().await;
         let d = &cfg.daemon;
         let now = Instant::now();
-        watch_anthropic_stamp(d, &mut self.anth, &mut self.creds_stamp, now);
+        watch_anthropic_stamp(d, &mut self.anthropic, &mut self.anthropic_creds_stamp, now);
         let mut providers = self.providers();
 
         for provider in &mut providers {

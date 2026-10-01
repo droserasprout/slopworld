@@ -33,7 +33,7 @@ pub(crate) use templates::{TEMPLATE_SHOW_USAGE, TEMPLATE_USAGE, TEMPLATES_USAGE}
 #[cfg(test)]
 pub(crate) use worker::{SPAWN_USAGE, WORKER_USAGE, run_spawn};
 
-pub(crate) const USAGE: &str = "slopctl - delegate work and inspect SlopWorld diagnostics
+pub(crate) const USAGE: &str = task::task_usage!("slopctl - delegate work and inspect SlopWorld diagnostics
 
 common delegation flow:
   slopctl task delegate AGENT TASK...  # create a task and keep its ID
@@ -43,17 +43,7 @@ The task wait command polls until the task reaches a terminal state. It has no
 short timeout. Do not poll task, inbox, or status while it waits.
 
 usage:
-  slopctl task delegate AGENT TASK...
-  slopctl task list [--all] [--sent] [--received] [--status STATUS]
-  slopctl task show [ID]
-  slopctl task wait [ID]
-  slopctl task accept [ID] [NOTE...]
-  slopctl task progress [ID] [NOTE...]
-  slopctl task finish [ID] [RESULT...]
-  slopctl task fail [ID] [ERROR...]
-  slopctl task remove [ID]
-  slopctl task prune [--include-active]
-  slopctl worker spawn [--one-shot] [--worktree ID | --new-worktree] [--base REV] --project PROJECT --template TEMPLATE [--] TASK...
+", "  slopctl worker spawn [--one-shot] [--worktree ID | --new-worktree] [--base REV] --project PROJECT --template TEMPLATE [--] TASK...
   slopctl agent create NAME --project PROJECT --template TEMPLATE [--start]
   slopctl template list [--project PROJECT]
   slopctl template show NAME [--project PROJECT]
@@ -72,7 +62,7 @@ SLOPWORLD_SESSION identifies the caller. It defaults to `host`, the user at the
 keyboard. The daemon accepts `host` only with the root token. When
 SLOPWORLD_TASK_ID is set, omit IDs from task lifecycle commands.
 SLOPD_ENDPOINT selects endpoint.toml. SLOPD_URL and SLOPD_TOKEN override it.
-";
+");
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Command {
