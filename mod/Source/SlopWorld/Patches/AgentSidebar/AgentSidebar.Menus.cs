@@ -203,14 +203,20 @@ namespace SlopWorld
                     () => TerminalWindow.OpenOverPane(new SpawnWorkerDialog(null, name))),
             };
 
-            int agents = 0;
+            int configured = 0;
             foreach (var s in hub.Sessions)
-                if (s.Project == name) agents++;
-
+                if (s.Project == name && !s.Ephemeral && !s.Host) configured++;
+            int worktrees = SidebarScopes.All(name).Count(scope => scope.Worktree != "main");
+            var blockers = new List<string>();
+            if (configured > 0)
+                blockers.Add($"{configured} configured session{(configured == 1 ? "" : "s")}");
+            if (worktrees > 0)
+                blockers.Add($"{worktrees} worktree{(worktrees == 1 ? "" : "s")}");
+            // Cached counts explain known blockers; the daemon rechecks both stores.
             var del = new FloatMenuOption(
-                agents > 0 ? $"Delete ({agents} agent{(agents == 1 ? "" : "s")})" : "Delete",
+                blockers.Count > 0 ? "Delete (" + string.Join(", ", blockers) + ")" : "Delete",
                 () => TerminalWindow.OpenOverPane(CatalogActions.RemoveProject(name)));
-            del.Disabled = agents > 0;
+            del.Disabled = blockers.Count > 0;
             opts.Add(del);
 
             TerminalWindow.OpenOverPane(new UiMenu(opts));

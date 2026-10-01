@@ -98,6 +98,8 @@
     <Compile Include="../Source/SlopWorld/Sim/Colony/AgentRenamePolicy.cs" Link="Source/Sim/Colony/AgentRenamePolicy.cs" />
     <Compile Include="../Source/SlopWorld/UI/Usage/UsageRowsCache.cs" Link="Source/UI/Usage/UsageRowsCache.cs" />
     <Compile Include="../Source/SlopWorld/UI/Usage/ClockTextCache.cs" Link="Source/UI/Usage/ClockTextCache.cs" />
+    <Compile Include="../Source/SlopWorld/Patches/AgentSidebar/SidebarProjectState.cs" Link="Source/Patches/AgentSidebar/SidebarProjectState.cs" />
+    <Compile Include="../Source/SlopWorld/Patches/AgentSidebar/SidebarAgentRows.cs" Link="Source/Patches/AgentSidebar/SidebarAgentRows.cs" />
     <Compile Include="../Source/SlopWorld/Patches/AgentSidebar/SidebarTitleCache.cs" Link="Source/Patches/AgentSidebar/SidebarTitleCache.cs" />
     <Compile Include="../Source/SlopWorld/Patches/AgentSidebar/SidebarTab.cs" Link="Source/Patches/AgentSidebar/SidebarTab.cs" />
     <Compile Include="../Source/SlopWorld/Patches/AgentSidebar/SidebarTabDefinition.cs" Link="Source/Patches/AgentSidebar/SidebarTabDefinition.cs" />

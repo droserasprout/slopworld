@@ -117,7 +117,7 @@ namespace SlopWorld
                 _savedScale = scale;
             }
 
-            float s = AgentSidebar.Place(entries, locs, count, plus);
+            float s = AgentSidebar.Place(entries, locs, count);
 
             if (count > 0)
             {

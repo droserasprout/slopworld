@@ -46,7 +46,7 @@ namespace SlopWorld
         }
 
         public static float Place(
-            List<ColonistBar.Entry> entries, List<Vector2> locs, int count, bool plus)
+            List<ColonistBar.Entry> entries, List<Vector2> locs, int count)
         {
             BeginSessionSnapshot();
             Interaction.BeginFrame();
@@ -62,9 +62,9 @@ namespace SlopWorld
             var hub = SessionHub.Instance;
             var status = StatusFilter;
             int workspaceRevision = WorkspaceLayout.Revision;
-            if (Layout.Matches(entries, count, plus, CurrentTab, hub.SessionsVersion,
+            if (Layout.Matches(entries, count, CurrentTab, hub.SessionsVersion,
                                hub.ProjectsRevision, Projects.Revision, status, Width,
-                               UI.screenHeight, Body.height, TextH, workspaceRevision))
+                               UI.screenHeight, Body.height, TextH, workspaceRevision, hub.Config.Pager, hub.Config.Editor))
             {
                 PerfTrace.Count("sidebar-layout-hits");
                 Layout.RestoreLocations(locs, count);
@@ -82,9 +82,9 @@ namespace SlopWorld
             float y = LayoutAgents(entries, locs, measure);
             Layout.AgentContentH = Mathf.Max(Body.height, y + Pad);
             Layout.LastScale = measure.Scale;
-            Layout.RememberInputs(entries, count, plus, CurrentTab, hub.SessionsVersion,
+            Layout.RememberInputs(entries, count, CurrentTab, hub.SessionsVersion,
                 hub.ProjectsRevision, Projects.Revision, status, Width, UI.screenHeight,
-                Body.height, TextH, locs, workspaceRevision);
+                Body.height, TextH, locs, workspaceRevision, hub.Config.Pager, hub.Config.Editor);
 
             return measure.Scale;
         }
@@ -101,7 +101,7 @@ namespace SlopWorld
                     rows += b.Count;
 
             // Add is outside this viewport now, so the body already accounts for its height.
-            float scale = Fit(rows, Layout.Order.Count, false, room, GhostRoom());
+            float scale = Fit(rows, Layout.Order.Count, room, GhostRoom());
             float face = ColonistBarColonistDrawer.PawnTextureSize.y * scale;
             return new PlacementMeasure
             {
@@ -134,7 +134,6 @@ namespace SlopWorld
             var bucket = Layout.Buckets.TryGetValue(key, out var b) ? b : Empty;
             bool folded = Folded.Contains(key);
             var ghosts = Layout.Ghosts.TryGetValue(key, out var gs) ? gs : EmptyGhosts;
-            int workers = WorkerCount(key);
             AgentCounts(key, out int active, out int total);
 
             Layout.Heads.Add(new Head
@@ -173,14 +172,9 @@ namespace SlopWorld
             Layout.TotalCounts.TryGetValue(project, out total);
         }
 
-        static int WorkerCount(string project)
-        {
-            return Layout.WorkerCounts.TryGetValue(project, out int count) ? count : 0;
-        }
-
         static float LayoutWorkers(string parent, float width, float y, int depth)
         {
-            if (depth > 32 || !Layout.Workers.TryGetValue(parent, out var workers)) return y;
+            if (depth > 32 || !Layout.WorkersByParentSession.TryGetValue(parent, out var workers)) return y;
             foreach (var worker in workers)
             {
                 y = WorkerRow(worker, width, y, depth + 1);
@@ -222,10 +216,12 @@ namespace SlopWorld
             (ColonistBar.BaseSize.y + ColonistBar.BaseSpaceBetweenColonistsVertical) * s,
             TextH + RowGap);
 
-        static float Fit(int rows, int groups, bool plus, float room, float ghosts)
+        static float Fit(int rows, int groups, float room, float ghosts)
         {
             if (rows <= 0) return Nominal;
-            float fixedH = groups * HeadH + (plus ? AddH + 2f : 0f) + ghosts;
+            float headings = groups * HeadH;
+            float edgePadding = 2f * Pad;
+            float fixedH = headings + edgePadding + ghosts;
             float each = ColonistBar.BaseSize.y + ColonistBar.BaseSpaceBetweenColonistsVertical;
             float s = (room - fixedH) / (rows * each);
             // Fonts do not shrink with portraits, so once the labels set the pitch there is
@@ -241,8 +237,8 @@ namespace SlopWorld
             float h = Layout.TopGhosts.Count * GhostH + Layout.TopWorkers.Count * WorkerH;
             foreach (var kv in Layout.Ghosts)
                 if (!Folded.Contains(kv.Key)) h += kv.Value.Count * GhostH;
-            foreach (var kv in Layout.Workers)
-                if (!Folded.Contains(kv.Key)) h += WorkerCount(kv.Key) * WorkerH;
+            foreach (var kv in Layout.WorkerCountsByProject)
+                if (!Folded.Contains(kv.Key)) h += kv.Value * WorkerH;
             return h;
         }
 

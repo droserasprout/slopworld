@@ -19,7 +19,8 @@ handoffs change routed rows locally. `RoutedSessionRows` caches scan/sort result
 session version, project-filter revision, pager/editor command settings and explicit local reader
 invalidation. Config-only command changes must reclassify routed membership. Pager session
 handoffs, native preview identity/content changes and reader collection mutations invalidate it.
-Frame geometry resets preserve routed membership. Changing row height does not require a scan.
+Agent geometry also keys on pager/editor settings, since command changes can move a row
+between Agents and Files/Git. Frame geometry resets preserve routed membership. Changing row height does not require a scan.
 Routed headers and tree viewports must share clipping.
 The shared draggable split for Files and Git retains independent scroll owners and a stable tree boundary when headers change. See [Files](mod-ui-files.md).
 
@@ -39,3 +40,8 @@ Legacy sessions still use command/name classification.
 
 Resizing must renegotiate each visible terminal's assigned slot. Moving navigation between
 left and right changes geometry, not view identity, focus, or scroll ownership.
+
+Worker height counts use the actual nested lists grouped by the parent session’s project,
+which also owns folding. Agent shortcuts in other tabs derive order from the colonist
+inventory without depending on cleared Agents geometry. Resize-dependent pane updates
+wait for the next frame’s workspace snapshot; Library reselection refreshes its catalog.

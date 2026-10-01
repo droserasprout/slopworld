@@ -88,6 +88,7 @@ namespace SlopWorld
     {
         static void Prefix()
         {
+            AgentSidebar.ApplyPendingLayoutChange();
             var current = Event.current;
             if (current == null) return;
             var stack = Find.WindowStack;

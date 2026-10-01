@@ -76,7 +76,7 @@ namespace SlopWorld
 
     public sealed class SidebarTabRegistry
     {
-        readonly SidebarTabDefinition[] _definitions;
+        readonly System.Collections.ObjectModel.ReadOnlyCollection<SidebarTabDefinition> _definitions;
         readonly Dictionary<SidebarTab, SidebarTabDefinition> _byTab =
             new Dictionary<SidebarTab, SidebarTabDefinition>();
         readonly Dictionary<string, SidebarTabDefinition> _byName =
@@ -87,7 +87,7 @@ namespace SlopWorld
             if (definitions == null || definitions.Length == 0)
                 throw new ArgumentException("A sidebar tab registry needs definitions.", nameof(definitions));
 
-            _definitions = (SidebarTabDefinition[])definitions.Clone();
+            _definitions = Array.AsReadOnly((SidebarTabDefinition[])definitions.Clone());
             foreach (var definition in _definitions)
             {
                 if (definition == null)

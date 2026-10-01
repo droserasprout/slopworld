@@ -104,10 +104,9 @@ namespace SlopWorld
                         Layout.TopWorkers.Add(s);
                         continue;
                     }
-                    if (!Layout.Workers.TryGetValue(s.Parent, out var children))
-                        Layout.Workers[s.Parent] = children = new List<SessionInfo>();
+                    if (!Layout.WorkersByParentSession.TryGetValue(s.Parent, out var children))
+                        Layout.WorkersByParentSession[s.Parent] = children = new List<SessionInfo>();
                     children.Add(s);
-                    Increment(Layout.WorkerCounts, s.Project);
                     continue;
                 }
                 if ((!s.Ephemeral && !s.Host) || IsRouted(s) || !Passes(s.Project) ||
@@ -134,10 +133,14 @@ namespace SlopWorld
                 : b == Loose ? -1
                 : string.CompareOrdinal(a, b));
 
+            // Nesting keys are session names; folding belongs to the parent's project.
+            SidebarAgentRows.CountWorkersByProject(Layout.WorkersByParentSession,
+                SnapshotGet, Layout.WorkerCountsByProject);
+
             Layout.TopGhosts.Sort(ByName);
             Layout.TopWorkers.Sort(ByName);
             foreach (var list in Layout.Ghosts.Values) list.Sort(ByName);
-            foreach (var list in Layout.Workers.Values) list.Sort(ByName);
+            foreach (var list in Layout.WorkersByParentSession.Values) list.Sort(ByName);
         }
 
         static readonly List<int> Empty = new List<int>();

@@ -113,7 +113,7 @@ namespace SlopWorld
         static long _frameSessionsVersion = -1;
         static long _renderStarted;
 
-        const string Loose = "no project";
+        const string Loose = SidebarAgentRows.Loose;
 
         static HashSet<string> Folded => Projects.Folded;
 
