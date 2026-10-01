@@ -191,7 +191,7 @@ namespace SlopWorld
             // An old queued frame can arrive after the snapshot from a new subscription.
             // Do not let it replace the new baseline.
             // Otherwise, the next current frame could appear to scroll by one row.
-            if (buf.Seq >= 0 && (int)screen.Seq < buf.Seq) return;
+            if (buf.HasSequence && screen.Seq < buf.Seq) return;
             buf.FromWire(screen);
         }
 

@@ -67,7 +67,7 @@ namespace SlopWorld
                         ? _panel._historyLiveCols : _panel._history.Cols,
                     Rows = _panel._historyLiveRows > 0
                         ? _panel._historyLiveRows : _panel._history.Rows,
-                    AltScreen = _panel._historyLiveSeq >= 0
+                    AltScreen = _panel._historyLiveSeq.HasValue
                         ? _panel._historyLiveAltScreen : _panel._history.AltScreen,
                 };
             }
@@ -118,7 +118,7 @@ namespace SlopWorld
                     _panel._historyLiveAltScreen == live.AltScreen;
 
                 int shift = 0;
-                if (compatible && _panel._historyLiveSeq >= 0 &&
+                if (compatible && _panel._historyLiveSeq.HasValue &&
                     live.Seq == _panel._historyLiveSeq)
                 {
                     compatible = live.History == _panel._historyLiveHistory;
@@ -128,7 +128,7 @@ namespace SlopWorld
                     shift = live.History - _panel._historyLiveHistory;
                     compatible = shift >= 0;
                 }
-                else if (compatible && _panel._historyLiveSeq >= 0 &&
+                else if (compatible && _panel._historyLiveSeq.HasValue &&
                          live.Seq != _panel._historyLiveSeq)
                 {
                     compatible = false;
@@ -151,7 +151,7 @@ namespace SlopWorld
 
             public void ResetForNewRun()
             {
-                if (_panel._selectionCoordinator.LastLiveSeq < 0 &&
+                if (_panel._selectionCoordinator.LastLiveSeq == null &&
                     !_panel._historyWarmed && _panel._historyRequests.Count == 0 &&
                     _panel._scrollOff == 0)
                     return;
@@ -198,7 +198,7 @@ namespace SlopWorld
                 _panel._history = new TerminalHistory();
                 _panel._historyRequests.Clear();
                 _panel._historyDisplayedFrame = null;
-                _panel._historyLiveSeq = -1;
+                _panel._historyLiveSeq = null;
                 _panel._historyLiveHistory = -1;
                 _panel._historyLiveCols = 0;
                 _panel._historyLiveRows = 0;

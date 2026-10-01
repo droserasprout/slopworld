@@ -20,9 +20,11 @@ namespace SlopWorld
             public int RepaintFrames, Paints, Blits;
             public int RowCacheHits, RowCacheMisses;
             public float UpdateLiveMs, TryViewMs, ParseMs, PaintMs, BlitMs;
-            public int Anchor, Target, Requested, Seq, Rows, Cols, LiveShift;
+            public ulong? Seq;
+            public int Anchor, Target, Requested, Rows, Cols, LiveShift;
             public float OffsetPixels;
-            public int LastDisplayAnchor, LastDisplaySeq;
+            public int LastDisplayAnchor;
+            public ulong? LastDisplaySeq;
         }
 
         ScrollDebugState _scrollDebug;
@@ -49,9 +51,9 @@ namespace SlopWorld
                     LastInputFrame = -1,
                     Anchor = -1,
                     Requested = -1,
-                    Seq = -1,
+                    Seq = null,
                     LastDisplayAnchor = -1,
-                    LastDisplaySeq = int.MinValue,
+                    LastDisplaySeq = null,
                 };
             }
 
@@ -91,7 +93,7 @@ namespace SlopWorld
         void ScrollDebugDisplayable(int anchor, ScreenBuf view, bool ready)
         {
             if (!ScrollDebugEnabled || !_scrollDebug.Active || !ready) return;
-            int seq = view?.Seq ?? -1;
+            ulong? seq = view?.Seq;
             if (_scrollDebug.LastDisplayAnchor == anchor && _scrollDebug.LastDisplaySeq == seq)
                 return;
 
@@ -153,7 +155,7 @@ namespace SlopWorld
             _scrollDebug.OffsetPixels = offsetPixels;
             _scrollDebug.Target = _scrollOff;
             _scrollDebug.Requested = _wantedScrollOff;
-            _scrollDebug.Seq = buf?.Seq ?? -1;
+            _scrollDebug.Seq = buf?.Seq;
             _scrollDebug.Rows = buf?.Rows ?? 0;
             _scrollDebug.Cols = buf?.Cols ?? 0;
             ScrollDebugMaybeReport(false);

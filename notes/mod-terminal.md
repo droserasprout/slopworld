@@ -45,3 +45,7 @@ All tool attempts share one three-second deadline, leaving time for the mod's
 five-second HTTP request timeout.
 Text reads request a text clipboard format and decode UTF-8; they do not infer
 image formats from byte prefixes.
+
+Screen sequences retain unsigned daemon identity with explicit initialization. Local
+history composition revisions stay separate. Visual snapshots preserve sequence
+identity but omit latency samples so displaying retained frames cannot replay them.

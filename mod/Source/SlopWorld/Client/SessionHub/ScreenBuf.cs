@@ -6,8 +6,16 @@ namespace SlopWorld
     {
         static readonly int[] NoChangedRows = new int[0];
 
-        public int Seq = -1;
-        internal ulong WireSeq;
+        ulong _seq;
+        public bool HasSequence { get; private set; }
+        public ulong Seq
+        {
+            get => _seq;
+            set { _seq = value; HasSequence = true; }
+        }
+        // Local history composition revision, independent of the daemon sequence.
+        public int CacheRevision;
+        internal ulong WireSeq => Seq;
         internal Google.Protobuf.Collections.RepeatedField<Wire.InputTiming> InputTimings;
         public int Cols, Rows, Cx, Cy;
         // Change ContentRevision only when visible row text or terminal dimensions change.
@@ -39,7 +47,7 @@ namespace SlopWorld
         public string Title = "";
         public string[] Lines = new string[0];
 
-        // The terminal window parses runs on demand and invalidates them when Seq changes.
+        // The terminal window parses runs on demand; row changes invalidate parsed runs.
         public List<SgrRun>[] Runs;
         // Palette revision used to parse the runs. A scheme change requires parsing again.
         public int RunsRev = -1;
@@ -54,13 +62,16 @@ namespace SlopWorld
         internal List<UrlScan.Span>[] AutoLinks;
 
         // The history cache needs a stable frame while the live buffer continues receiving output.
+        // Preserve wire identity, but omit InputTimings: visual snapshots must not replay latency samples.
         // Share parsed runs. FromWire replaces them only in the source buffer.
         // Copy incomplete arrays so parsing can fill null slots independently in the source and snapshot.
         public ScreenBuf Snapshot()
         {
             return new ScreenBuf
             {
-                Seq = Seq,
+                _seq = _seq,
+                HasSequence = HasSequence,
+                CacheRevision = CacheRevision,
                 Cols = Cols,
                 Rows = Rows,
                 ContentRevision = ContentRevision,
