@@ -2,6 +2,7 @@
 //! crate::config owns data types and persistence; this module coordinates runtime changes.
 
 mod cache;
+mod removal;
 mod state;
 
 pub(crate) use state::ConfigState;
@@ -338,10 +339,10 @@ impl Manager {
         let endpoint_token = change.new.daemon.token.clone();
 
         let old = self.config().await;
+        let next_sessions = change.new.session_index();
         for session in &old.sessions {
-            if !change
-                .new
-                .session(&session.name)
+            if !next_sessions
+                .get(session.name.as_str())
                 .is_some_and(|next| next.state_id == session.state_id)
             {
                 self.invalidate_session(&session.name).await;

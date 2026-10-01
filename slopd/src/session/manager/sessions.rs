@@ -669,19 +669,14 @@ impl Manager {
         }
         self.stop(name).await?;
         let session = self
-            .config()
+            .cfg
+            .read()
             .await
             .session(name)
             .cloned()
             .ok_or_else(|| anyhow!("no such session: {name}"))?;
         let trashed = crate::sandbox::trash_state(&session, name)?;
-        if let Err(e) = self
-            .update_cfg(|cfg| {
-                cfg.sessions.retain(|s| s.name != name);
-                Ok(())
-            })
-            .await
-        {
+        if let Err(e) = self.remove_configured_session(name).await {
             if let Some(path) = trashed.as_deref()
                 && let Err(restore) = crate::sandbox::restore_trashed_state(&session, path)
             {
@@ -807,3 +802,7 @@ impl Manager {
 #[cfg(test)]
 #[path = "sessions_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "removal_bench.rs"]
+mod removal_bench;

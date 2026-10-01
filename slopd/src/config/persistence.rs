@@ -169,6 +169,39 @@ impl Config {
         crate::paths::write_atomic_async(path, text, Some(0o600)).await
     }
 
+    /// Prepare a deletion only from the accepted disk revision. Recover first,
+    /// then sample on both sides of the read so unseen edits use the normal path.
+    pub(crate) async fn session_removal_text(
+        path: &Path,
+        name: &str,
+        accepted: Option<SystemTime>,
+    ) -> Result<Option<String>> {
+        super::transaction::recover(path).await?;
+        if accepted.is_none() || crate::paths::disk_mtime(path).await != accepted {
+            return Ok(None);
+        }
+        let text = tokio::fs::read_to_string(path).await?;
+        if crate::paths::disk_mtime(path).await != accepted {
+            return Ok(None);
+        }
+        let mut document: toml_edit::DocumentMut = text.parse()?;
+        // Typed saves emit arrays of tables. Alternate valid encodings retain
+        // the generic save path rather than gaining another mutation policy.
+        let Some(sessions) = document
+            .get_mut("session")
+            .and_then(toml_edit::Item::as_array_of_tables_mut)
+        else {
+            return Ok(None);
+        };
+        let before = sessions.len();
+        sessions
+            .retain(|session| session.get("name").and_then(toml_edit::Item::as_str) != Some(name));
+        if sessions.len() == before {
+            return Ok(None);
+        }
+        Ok(Some(document.to_string()))
+    }
+
     /// Create a copy for clients. Replace a nonempty token with the redaction sentinel.
     /// This prevents `GET /api/config` from exposing the secret.
     /// Keep an empty token to indicate that authentication is disabled.
@@ -220,6 +253,15 @@ fn preserve_unknown_fields(
             }
         }
         (toml::Value::Array(modeled), toml::Value::Array(previous)) => {
+            // Named arrays include every configured worker. Match each old
+            // document once, preserving the former first-match behavior.
+            let previous = named_entries(previous);
+            let previous_modeled = named_entries(
+                previous_modeled
+                    .and_then(toml::Value::as_array)
+                    .map(Vec::as_slice)
+                    .unwrap_or_default(),
+            );
             for current in modeled.iter_mut() {
                 let Some(current_table) = current.as_table() else {
                     continue;
@@ -227,24 +269,24 @@ fn preserve_unknown_fields(
                 let Some(name) = current_table.get("name").and_then(toml::Value::as_str) else {
                     continue;
                 };
-                if let Some(previous_entry) = previous
-                    .iter()
-                    .find(|entry| entry.get("name").and_then(toml::Value::as_str) == Some(name))
-                {
-                    let old_model =
-                        previous_modeled
-                            .and_then(toml::Value::as_array)
-                            .and_then(|entries| {
-                                entries.iter().find(|entry| {
-                                    entry.get("name").and_then(toml::Value::as_str) == Some(name)
-                                })
-                            });
+                if let Some(previous_entry) = previous.get(name) {
+                    let old_model = previous_modeled.get(name).copied();
                     preserve_unknown_fields(current, previous_entry, old_model);
                 }
             }
         }
         _ => {}
     }
+}
+
+fn named_entries(entries: &[toml::Value]) -> std::collections::HashMap<&str, &toml::Value> {
+    let mut index = std::collections::HashMap::with_capacity(entries.len());
+    for entry in entries {
+        if let Some(name) = entry.get("name").and_then(toml::Value::as_str) {
+            index.entry(name).or_insert(entry);
+        }
+    }
+    index
 }
 
 #[cfg(test)]

@@ -299,6 +299,27 @@ impl Manager {
 
     pub(super) async fn validate_worktree_config(&self, old: &Config, new: &Config) -> Result<()> {
         let store = Store::load(&self.cfg_path).await?;
+        // Worker removal validates the whole candidate. Index cross-references
+        // once so sessions and worker-owned worktrees do not multiply scans.
+        let old_sessions = old.session_index();
+        let mut projects_by_name = HashMap::new();
+        let mut projects_by_id = HashMap::new();
+        for project in &new.projects {
+            projects_by_name
+                .entry(project.name.as_str())
+                .or_insert(project);
+            projects_by_id.entry(project.id.as_str()).or_insert(project);
+        }
+        let worktree_projects: std::collections::HashSet<_> = store
+            .worktrees
+            .iter()
+            .map(|w| w.project_id.as_str())
+            .collect();
+        let worktrees: std::collections::HashSet<_> = store
+            .worktrees
+            .iter()
+            .map(|w| (w.project_id.as_str(), w.id.as_str()))
+            .collect();
         let mut ids = std::collections::HashSet::new();
         for p in &new.projects {
             if !p.id.is_empty() {
@@ -309,12 +330,8 @@ impl Manager {
             }
         }
         for p in &old.projects {
-            if store
-                .worktrees
-                .iter()
-                .any(|w| !p.id.is_empty() && w.project_id == p.id)
-            {
-                let retained = new.projects.iter().find(|n| n.id == p.id).ok_or_else(|| {
+            if !p.id.is_empty() && worktree_projects.contains(p.id.as_str()) {
+                let retained = projects_by_id.get(p.id.as_str()).ok_or_else(|| {
                     anyhow!(
                         "remove project {} worktrees explicitly before removing its identity",
                         p.name
@@ -328,20 +345,18 @@ impl Manager {
             }
         }
         for session in &new.sessions {
-            if let Some(previous) = old.session(&session.name)
+            if let Some(previous) = old_sessions.get(session.name.as_str())
                 && previous.worktree != session.worktree
                 && self.tmux.exists(&session.name).await
             {
                 bail!("stop session {} before changing its worktree", session.name);
             }
             if !session.worktree.is_empty() && session.worktree != "main" {
-                let p = new
-                    .project(&session.project)
+                let p = projects_by_name
+                    .get(session.project.as_str())
                     .ok_or_else(|| anyhow!("unknown worktree project"))?;
-                if !store
-                    .worktrees
-                    .iter()
-                    .any(|w| !p.id.is_empty() && w.id == session.worktree && w.project_id == p.id)
+                if p.id.is_empty()
+                    || !worktrees.contains(&(p.id.as_str(), session.worktree.as_str()))
                 {
                     bail!("session {} selects an unknown worktree", session.name);
                 }

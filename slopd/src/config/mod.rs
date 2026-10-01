@@ -21,6 +21,16 @@ pub(crate) use validation::{
 };
 
 impl Config {
+    /// Build once for whole-config comparisons instead of scanning per session.
+    /// Preserve `session`'s first-match behavior for duplicate names.
+    pub(crate) fn session_index(&self) -> std::collections::HashMap<&str, &SessionCfg> {
+        let mut index = std::collections::HashMap::with_capacity(self.sessions.len());
+        for session in &self.sessions {
+            index.entry(session.name.as_str()).or_insert(session);
+        }
+        index
+    }
+
     pub fn session(&self, name: &str) -> Option<&SessionCfg> {
         self.sessions.iter().find(|s| s.name == name)
     }
