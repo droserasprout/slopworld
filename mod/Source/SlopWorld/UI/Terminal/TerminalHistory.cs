@@ -243,9 +243,9 @@ namespace SlopWorld
 
             view = new ScreenBuf
             {
-                // Blit's cache keys on Seq/Off. Include the row-cache revision because a
-                // newly arrived overlapping snapshot can improve this same anchor.
-                Seq = unchecked(_template.Seq * 397 ^ _version),
+                // An overlapping snapshot can improve this anchor without a new wire sequence.
+                Seq = _template.Seq,
+                CacheRevision = _version,
                 Cols = _template.Cols,
                 Rows = _template.Rows,
                 Cx = 0,
@@ -273,6 +273,7 @@ namespace SlopWorld
             _pinnedView = new ScreenBuf
             {
                 Seq = view.Seq,
+                CacheRevision = view.CacheRevision,
                 Off = view.Off,
                 Rows = view.Rows,
                 Cols = view.Cols,

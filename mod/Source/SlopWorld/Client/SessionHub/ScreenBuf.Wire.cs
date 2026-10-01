@@ -15,14 +15,14 @@ namespace SlopWorld
             int previousCy = Cy;
             int previousHistory = History;
             bool previousAltScreen = AltScreen;
-            int previousSeq = Seq;
+            ulong previousSeq = Seq;
+            bool hadSequence = HasSequence;
             var previousRuns = Runs;
             int previousRunsRev = RunsRev;
             bool previousRunsComplete = RunsComplete;
             bool previousHasLinks = HasLinks;
 
-            Seq = (int)s.Seq;
-            WireSeq = s.Seq;
+            Seq = s.Seq;
             InputTimings = s.InputTimings.Count == 0 ? null : s.InputTimings;
             Cols = Math.Max(TerminalLimits.ClientMinCols,
                 Math.Min(TerminalLimits.ClientMaxCols, (s.HasCols ? (int)s.Cols : 80)));
@@ -92,7 +92,7 @@ namespace SlopWorld
             // A subscription replay can update the retained buffer without advancing the
             // daemon sequence. It is a new observation of the same live epoch, not rows that
             // scrolled while this tab was away. Only a strictly newer frame may move history.
-            bool newer = previousSeq >= 0 && Seq > previousSeq;
+            bool newer = hadSequence && Seq > previousSeq;
             int visibleShift = Off == 0 && newer &&
                 !previousAltScreen && !AltScreen
                 ? VerticalShift(previousLines, Lines, previousRows, Rows, previousCy)

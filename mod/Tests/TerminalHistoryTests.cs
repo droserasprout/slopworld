@@ -599,7 +599,7 @@ namespace SlopWorld.Tests
             for (int n = 1; n <= 250; n++)
             {
                 var next = Frame(0, "live-" + n, "live-" + (n + 1), "live-" + (n + 2));
-                next.Seq = 7 + n;
+                next.Seq = (ulong)(7 + n);
                 AssertEx.True(history.UpdateLive(next, 1), "compatible shift is retained");
             }
 

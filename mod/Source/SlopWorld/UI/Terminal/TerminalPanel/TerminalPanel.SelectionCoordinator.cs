@@ -12,16 +12,16 @@ namespace SlopWorld
             readonly TerminalPanel _panel;
 
             public int Offset { get; private set; }
-            public int LastLiveSeq { get; private set; } = -1;
+            public ulong? LastLiveSeq { get; private set; }
 
             public TerminalSelectionCoordinator(TerminalPanel window)
             {
                 _panel = window;
             }
 
-            public void NoteLiveFrame(int liveSeq, int liveShift)
+            public void NoteLiveFrame(ulong liveSeq, int liveShift)
             {
-                if (LastLiveSeq >= 0 && Offset == 0 &&
+                if (LastLiveSeq.HasValue && Offset == 0 &&
                     (_panel._state.Selection.HasSelection || _panel._state.Selection.Dragging ||
                         _panel._state.Selection.WordDragging))
                     MoveRows(-liveShift);
@@ -38,10 +38,10 @@ namespace SlopWorld
             public void ResetForNewRun()
             {
                 Offset = 0;
-                LastLiveSeq = -1;
+                LastLiveSeq = null;
             }
 
-            public void ResetLiveSequence() => LastLiveSeq = -1;
+            public void ResetLiveSequence() => LastLiveSeq = null;
 
             public Vector2Int CellAt(Rect body, Vector2 mouse)
             {

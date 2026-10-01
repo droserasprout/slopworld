@@ -71,7 +71,7 @@ namespace SlopWorld
             var info = SessionHub.Instance.Get(name);
             if (info == null) return;
             if (_displayedFrames.TryGetValue(name, out var previous) &&
-                previous.Frame.Seq == frame.Seq && previous.Frame.Off == frame.Off &&
+                previous.Frame.Seq == frame.Seq && previous.Frame.CacheRevision == frame.CacheRevision && previous.Frame.Off == frame.Off &&
                 previous.Frame.Cols == frame.Cols && previous.Frame.Rows == frame.Rows &&
                 previous.RunId == info.RunId &&
                 previous.ConnectionGeneration == SessionHub.Instance.ConnectionGeneration)

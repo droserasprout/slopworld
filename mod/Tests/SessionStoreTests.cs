@@ -6,6 +6,21 @@ namespace SlopWorld.Tests
 {
     static class SessionStoreTests
     {
+        public static void ScreenSequencesRemainUnsignedAcrossIntegerBoundaries()
+        {
+            var store = new SessionStore();
+            ulong[] sequences = { 0, int.MaxValue, (ulong)int.MaxValue + 1,
+                uint.MaxValue, (ulong)uint.MaxValue + 1, ulong.MaxValue };
+            foreach (ulong seq in sequences)
+            {
+                store.ApplyScreen(new Wire.ScreenView { Name = "agent", Seq = seq });
+                Assert.That(store.Screen("agent").Seq, Is.EqualTo(seq));
+                if (seq == 0) continue;
+                store.ApplyScreen(new Wire.ScreenView { Name = "agent", Seq = seq - 1 });
+                Assert.That(store.Screen("agent").Seq, Is.EqualTo(seq), "stale frame rejected");
+            }
+        }
+
         static Wire.SessionsReply Sessions(string name) =>
             new Wire.SessionsReply { Sessions = { new Wire.SessionView {
                 Name = name, Launch = new Wire.SessionLaunchView(), Worker = new Wire.SessionWorkerView(), Reader = new Wire.SessionReaderView(), Runtime = new Wire.SessionRuntimeView()

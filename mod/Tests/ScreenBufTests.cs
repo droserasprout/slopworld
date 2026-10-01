@@ -5,6 +5,26 @@ namespace SlopWorld.Tests
 {
     static class ScreenBufTests
     {
+        public static void LargeSequencesPreserveScrollAndSnapshotIdentity()
+        {
+            var screen = new ScreenBuf();
+            AssertEx.False(screen.Snapshot().HasSequence, "uninitialized snapshot");
+            foreach (ulong seq in new[] { (ulong)int.MaxValue, (ulong)uint.MaxValue, ulong.MaxValue - 1 })
+            {
+                screen.FromWire(new Wire.ScreenView { Seq = seq, History = 1 });
+                screen.FromWire(new Wire.ScreenView { Seq = seq + 1, History = 2 });
+                AssertEx.Equal(1, screen.LiveShift, "scroll across integer boundary");
+                screen.InputTimings = new Google.Protobuf.Collections.RepeatedField<Wire.InputTiming>();
+                screen.InputTimings.Add(new Wire.InputTiming());
+                var snapshot = screen.Snapshot();
+                AssertEx.True(snapshot.HasSequence, "initialized snapshot");
+                AssertEx.Equal(seq + 1, snapshot.WireSeq, "snapshot wire identity");
+                AssertEx.True(snapshot.InputTimings == null, "snapshot does not replay timing samples");
+                screen.FromWire(new Wire.ScreenView { Seq = seq + 1, History = 3 });
+                AssertEx.Equal(0, screen.LiveShift, "replay is not new scrolling");
+            }
+        }
+
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             yield return ("scroll overlap matches exhaustive reference", OverlapReference);
@@ -73,7 +93,7 @@ namespace SlopWorld.Tests
                 "\"cursor_blink\":false,\"app_mouse\":true,\"app_drag\":true," +
                 "\"alt_screen\":true,\"title\":\"vim\",\"lines\":[\"one\",\"two\"]}")));
 
-            AssertEx.Equal(7, screen.Seq, "sequence");
+            AssertEx.Equal(7UL, screen.Seq, "sequence");
             AssertEx.Equal(120, screen.Cols, "columns");
             AssertEx.Equal(40, screen.Rows, "rows");
             AssertEx.Equal(3, screen.Cx, "cursor x");
@@ -96,7 +116,7 @@ namespace SlopWorld.Tests
             var screen = new ScreenBuf();
             screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse("{}")));
 
-            AssertEx.Equal(0, screen.Seq, "sequence default");
+            AssertEx.Equal(0UL, screen.Seq, "sequence default");
             AssertEx.Equal(80, screen.Cols, "columns default");
             AssertEx.Equal(24, screen.Rows, "rows default");
             AssertEx.Equal(0, screen.Cx, "cursor x default");

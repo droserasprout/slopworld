@@ -35,7 +35,7 @@ namespace SlopWorld
             public bool RefreshPending;
             public long RunId;
             public int ConnectionGeneration;
-            public int LiveSeq;
+            public ulong? LiveSeq;
             public int LiveHistory;
             public int Cols;
             public int Rows;
@@ -59,7 +59,7 @@ namespace SlopWorld
 
         TerminalHistory _history = new TerminalHistory();
         bool _historyRestorePending;
-        int _historyLiveSeq = -1;
+        ulong? _historyLiveSeq;
         int _historyLiveHistory = -1;
         int _historyLiveCols;
         int _historyLiveRows;
