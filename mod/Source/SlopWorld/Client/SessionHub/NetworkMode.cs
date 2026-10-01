@@ -21,7 +21,7 @@ namespace SlopWorld
         public static string Label(NetworkMode mode) => mode == NetworkMode.None
             ? "No network"
             : mode == NetworkMode.Host
-                ? "Host network (full local access)"
+                ? "Host network (daemon’s local network)"
                 : "Private network (Internet, no host loopback)";
 
         public static string ShortLabel(NetworkMode mode) => mode == NetworkMode.None

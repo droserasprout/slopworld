@@ -36,7 +36,7 @@ namespace SlopWorld.Tests
                            "none label");
             AssertEx.Equal("Private network (Internet, no host loopback)",
                            NetworkModeText.Label(NetworkMode.Private), "private label");
-            AssertEx.Equal("Host network (full local access)",
+            AssertEx.Equal("Host network (daemon’s local network)",
                            NetworkModeText.Label(NetworkMode.Host), "host label");
             AssertEx.Equal("no network", NetworkModeText.ShortLabel(NetworkMode.None),
                            "none short label");

@@ -169,7 +169,7 @@ namespace SlopWorld
         protected void DrawFileActionMode(Listing_Standard l)
         {
             UiControls.Select(l, "After choosing the file action",
-                FileActionModeText.Label(_s.Mode), FileActionModeOptions(), out _,
+                FileActionModeLabel(_s.Mode), FileActionModeOptions(), out _,
                 openMenu: TerminalWindow.OpenOverPane);
         }
 
@@ -258,6 +258,11 @@ namespace SlopWorld
 
         protected string RunExplanation => Explain();
 
+        static string FileActionModeLabel(FileActionMode mode) => mode == FileActionMode.ShowResult
+            ? "Show result"
+            : mode == FileActionMode.OpenTerminal ? "Open terminal"
+            : mode == FileActionMode.Nothing ? "Nothing" : "Ask every time";
+
         IEnumerable<SelectorOption> LinkOptions()
         {
             return new[]
@@ -275,13 +280,13 @@ namespace SlopWorld
         {
             return new[]
             {
-                new SelectorOption(FileActionModeText.Label(FileActionMode.Nothing),
+                new SelectorOption(FileActionModeLabel(FileActionMode.Nothing),
                     () => _s.Mode = FileActionMode.Nothing),
-                new SelectorOption(FileActionModeText.Label(FileActionMode.Ask),
+                new SelectorOption(FileActionModeLabel(FileActionMode.Ask),
                     () => _s.Mode = FileActionMode.Ask),
-                new SelectorOption(FileActionModeText.Label(FileActionMode.ShowResult),
+                new SelectorOption(FileActionModeLabel(FileActionMode.ShowResult),
                     () => _s.Mode = FileActionMode.ShowResult),
-                new SelectorOption(FileActionModeText.Label(FileActionMode.OpenTerminal),
+                new SelectorOption(FileActionModeLabel(FileActionMode.OpenTerminal),
                     () => _s.Mode = FileActionMode.OpenTerminal),
             };
         }

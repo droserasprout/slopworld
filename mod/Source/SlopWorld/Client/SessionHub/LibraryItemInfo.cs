@@ -1,12 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using Verse;
-
-
 namespace SlopWorld
 {
     // Save the errand definition in config.toml. Agents created for errands are temporary.

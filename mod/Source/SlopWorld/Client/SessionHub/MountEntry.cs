@@ -23,12 +23,17 @@ namespace SlopWorld
             }
         }
 
-        public static string ModeName(MountMode mode) =>
-            mode == MountMode.Cache ? WireProtocol.MountMode.Cache :
-            mode == MountMode.Ro ? WireProtocol.MountMode.Ro : WireProtocol.MountMode.Rw;
-
-        public static string ModeLabel(MountMode mode) =>
-            mode == MountMode.Cache ? "Cache" : mode == MountMode.None ? "None" : mode == MountMode.Ro ? "Read-only" : "Read-write";
+        public static string ModeName(MountMode mode)
+        {
+            switch (mode)
+            {
+                case MountMode.Cache: return WireProtocol.MountMode.Cache;
+                case MountMode.Ro: return WireProtocol.MountMode.Ro;
+                case MountMode.Rw:
+                case MountMode.None:
+                default: return WireProtocol.MountMode.Rw;
+            }
+        }
 
         public static MountEntry FromWire(Wire.Mount j) => new MountEntry
         {

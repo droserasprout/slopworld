@@ -270,7 +270,7 @@ namespace SlopWorld
                             "mount.to." + mount.FieldId, mount.To);
                     }
                     if (UiButtons.Button(new Rect(2f * (pathW + gap), ry, modeW, UiTheme.RowH),
-                        MountEntry.ModeLabel(mount.Mode), UiTheme.Btn.Ghost))
+                        MountPresentation.ModeLabel(mount.Mode), UiTheme.Btn.Ghost))
                     {
                         var modes = new List<FloatMenuOption>
                         {
