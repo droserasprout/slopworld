@@ -13,6 +13,31 @@ tokio::task_local! {
 }
 
 impl Manager {
+    /// Lifecycle callers already hold the session boundary. Acquire this guard before
+    /// tmux identity changes, and keep it through live-state publication or rollback.
+    /// Root terminal input uses only this boundary; scoped admission retains the global
+    /// authorization boundary. Queued delivery rechecks identity under this guard.
+    pub(crate) fn terminal_boundary(&self, name: &str) -> Arc<tokio::sync::RwLock<()>> {
+        let mut boundaries = self
+            .terminal_boundaries
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if let Some(boundary) = boundaries.get(name).and_then(std::sync::Weak::upgrade) {
+            return boundary;
+        }
+        // Expired names must not accumulate as disposable workers come and go.
+        boundaries.retain(|_, boundary| boundary.strong_count() > 0);
+        let boundary = Arc::new(tokio::sync::RwLock::new(()));
+        boundaries.insert(name.to_string(), Arc::downgrade(&boundary));
+        boundary
+    }
+
+    pub(super) fn session_write_operation_active(&self) -> bool {
+        OWNER
+            .try_with(|current| current.0 == self as *const Self as usize)
+            .unwrap_or(false)
+    }
+
     pub(super) fn session_request_active(&self) -> bool {
         REQUEST
             .try_with(|owner| *owner == self as *const Self as usize)

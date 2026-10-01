@@ -5,6 +5,16 @@ use crate::emu::MouseInput;
 use anyhow::anyhow;
 
 impl Manager {
+    /// Root socket commands need only protect their target, without waiting for
+    /// unrelated lifecycle work. Missing rows must never use direct tmux fallback.
+    pub(crate) async fn terminal_input_guard(
+        &self,
+        name: &str,
+    ) -> Option<tokio::sync::OwnedRwLockReadGuard<()>> {
+        let guard = self.terminal_boundary(name).read_owned().await;
+        self.live.read().await.contains_key(name).then_some(guard)
+    }
+
     fn paste_ready(live: &Live) -> bool {
         // A new reader can be attached before its first frame classifies the pane.
         // Teardown clears the reader token along with the running state.
@@ -109,24 +119,20 @@ impl Manager {
         run_id: u64,
         item: Input,
     ) -> bool {
-        self.session_read_operation(async {
-            // A stopped or replaced run must not receive its predecessor's queued input.
-            if !self.live.read().await.get(name).is_some_and(|live| {
-                live.cfg.state_id == identity
-                    && live.run_id == run_id
-                    && live.input.sender.is_some()
-            }) {
-                return false;
-            }
-            #[cfg(test)]
-            if let Some(sink) = self.input_sink.lock().unwrap().as_ref() {
-                sink.send(item).unwrap();
-                return true;
-            }
-            Self::send_input(&self.tmux, name, item).await;
-            true
-        })
-        .await
+        let _terminal = self.terminal_boundary(name).read_owned().await;
+        // A stopped or replaced run must not receive its predecessor's queued input.
+        if !self.live.read().await.get(name).is_some_and(|live| {
+            live.cfg.state_id == identity && live.run_id == run_id && live.input.sender.is_some()
+        }) {
+            return false;
+        }
+        #[cfg(test)]
+        if let Some(sink) = self.input_sink.lock().unwrap().as_ref() {
+            sink.send(item).unwrap();
+            return true;
+        }
+        Self::send_input(&self.tmux, name, item).await;
+        true
     }
 
     pub(crate) async fn send_input(tmux: &Tmux, name: &str, mut item: Input) {
@@ -195,7 +201,7 @@ impl Manager {
     }
 
     pub(in crate::session::manager) async fn ensure_paste_ready(&self, name: &str) -> Result<()> {
-        // The caller holds the session boundary; admission needs no tmux process.
+        // The caller holds the session or terminal boundary; admission needs no tmux process.
         if !self
             .live
             .read()

@@ -268,6 +268,7 @@ impl Manager {
     }
 
     async fn mark_down_inner(self: &Arc<Self>, name: &str, reader_token: &Arc<()>) {
+        let _terminal = self.terminal_boundary(name).write_owned().await;
         let plan = {
             let mut live = self.live.write().await;
             // The token prevents an old reader from detaching its replacement.

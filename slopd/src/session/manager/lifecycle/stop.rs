@@ -218,6 +218,7 @@ impl Manager {
     }
 
     async fn stop_inner(self: &Arc<Self>, name: &str) -> Result<()> {
+        let _terminal = self.terminal_boundary(name).write_owned().await;
         if self.tmux.exists(name).await {
             self.tmux.kill(name).await?;
         }
@@ -244,6 +245,7 @@ impl Manager {
     }
 
     async fn forget_inner(self: &Arc<Self>, name: &str) {
+        let _terminal = self.terminal_boundary(name).write_owned().await;
         let plan = {
             let mut live = self.live.write().await;
             self.detach_live_locked(&mut live, name, DetachCause::Forget)

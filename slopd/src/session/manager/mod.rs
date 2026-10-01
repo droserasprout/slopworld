@@ -82,6 +82,9 @@ pub struct Manager {
     // Operation locks spanning multiple owners.
     // Shared for ordinary requests, exclusive for session identity and lifecycle changes.
     pub(super) session_boundary: Arc<tokio::sync::RwLock<()>>,
+    // Per-name input guards exclude only the terminal being changed by lifecycle work.
+    pub(super) terminal_boundaries:
+        Mutex<HashMap<String, std::sync::Weak<tokio::sync::RwLock<()>>>>,
     // Keep tmux resize acceptance and published dimensions in request order.
     pub(super) resize_mutation: tokio::sync::Mutex<()>,
     // Prevent child-name collisions and interleaved task/session writes.

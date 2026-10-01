@@ -31,9 +31,14 @@ configured agent under the same name. If the old pane cannot be killed, the inco
 live row is not reclassified as that agent. Startup independently rejects retained host
 or mismatched durable identities for configured agents, even after the old pane exits.
 The session boundary and configuration persistence gate protect the operation from preparation through commit.
-Session identity and grant changes take the exclusive boundary. Terminal input, task routes,
-and direct worktree creation hold the shared boundary, so checkout and task persistence do not stop
-unrelated input. A queued input item rechecks its session and run identity under that guard.
+Session identity and grant changes take the exclusive boundary. Task routes and direct
+worktree creation hold the shared boundary, so checkout and task persistence do not stop
+unrelated input. Root socket keys, mouse, paste, and resize use a per-name terminal boundary so
+unrelated lifecycle work cannot delay them. Scoped admission retains the shared
+session boundary for authorization. Ordered delivery rechecks session and run
+identity under the terminal boundary. Lifecycle holds its exclusive terminal guard
+from before tmux identity changes through publication or rollback; acquire it after
+the session boundary and release it before reconciliation can start the same name.
 Resize requests serialize their tmux update and dimension publication separately.
 A detached task completes its commit or rollback even if a caller cancels the request.
 A persistence failure restores the old tmux name.
@@ -64,7 +69,9 @@ Stop and reset advance the run identity so an old reader cannot restore a down r
 Each capture owner serializes rendering through commit and snapshots identity before rendering.
 Scrollback insertion and cache hits recheck the run and emulator while holding the live read guard.
 Activity persistence serializes writes and clears, rechecks durable identity, run and transition,
-and keeps the shared session boundary through tmux I/O without holding the live lock.
+and keeps the per-name terminal boundary through tmux I/O without holding the live lock.
+Inline attachment renders under the existing exclusive session operation instead,
+so startup and rename do not reacquire their own terminal writer.
 
 On adoption, existing tmux activity options take precedence over the disk fallback.
 Temporary terminal readers store intent, display label, project/worktree, source identity and pin
