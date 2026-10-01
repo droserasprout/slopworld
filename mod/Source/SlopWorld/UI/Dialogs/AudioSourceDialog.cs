@@ -117,7 +117,7 @@ namespace SlopWorld
 
             if (UiLayout.Button(l, "Add bitrate preset", UiTheme.Btn.Ghost))
             {
-                int rate = 128;
+                uint rate = 128;
                 _source.Streams.Add(new JukeboxStreamInfo
                 {
                     Rate = rate,
@@ -133,12 +133,12 @@ namespace SlopWorld
             string name = (_source.Name ?? "").Trim();
             if (name.Length == 0) { _error = "Enter a source name."; return; }
             EnsureStreams();
-            var rates = new HashSet<int>();
+            var rates = new HashSet<uint>();
             for (int i = 0; i < _source.Streams.Count; i++)
             {
                 var stream = _source.Streams[i];
-                int rate;
-                if (!int.TryParse((_rates[i] ?? "").Trim(), NumberStyles.Integer,
+                uint rate;
+                if (!uint.TryParse((_rates[i] ?? "").Trim(), NumberStyles.Integer,
                     CultureInfo.InvariantCulture, out rate) || rate <= 0)
                 { _error = "Enter a positive bitrate for every preset."; return; }
                 string url = (stream.Url ?? "").Trim();

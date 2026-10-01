@@ -12,7 +12,7 @@ namespace SlopWorld
         public string Name = "";
         public string Donate = "";
         public string TitleRegex = "";
-        public int DefaultRate;
+        public uint DefaultRate;
         public List<JukeboxStreamInfo> Streams = new List<JukeboxStreamInfo>();
 
         public JukeboxPresetInfo Copy() => new JukeboxPresetInfo
@@ -30,7 +30,7 @@ namespace SlopWorld
             var station = new Wire.Station
             {
                 Id = Id ?? "",
-                DefaultRate = (uint)Math.Max(0, DefaultRate),
+                DefaultRate = DefaultRate,
                 Metadata = new Wire.StationMetadata
                 {
                     Name = Name ?? "",
@@ -41,7 +41,7 @@ namespace SlopWorld
             foreach (var stream in Streams ?? new List<JukeboxStreamInfo>())
                 station.Streams.Add(new Wire.StationStream
                 {
-                    Rate = (uint)Math.Max(0, stream.Rate),
+                    Rate = stream.Rate,
                     Key = stream.Key ?? "",
                     Url = stream.Url ?? "",
                 });
@@ -57,10 +57,10 @@ namespace SlopWorld
                 Name = metadata.Name,
                 Donate = metadata.Donate,
                 TitleRegex = metadata.TitleRegex,
-                DefaultRate = (int)station.DefaultRate,
+                DefaultRate = station.DefaultRate,
                 Streams = station.Streams.Select(stream => new JukeboxStreamInfo
                 {
-                    Rate = (int)stream.Rate,
+                    Rate = stream.Rate,
                     Key = stream.Key,
                     Url = stream.Url,
                 }).ToList(),
@@ -81,7 +81,7 @@ namespace SlopWorld
 
     public sealed class JukeboxStreamInfo
     {
-        public int Rate;
+        public uint Rate;
         public string Key = "";
         public string Url = "";
 
@@ -125,7 +125,7 @@ namespace SlopWorld
         public static void Save(JukeboxPresetInfo preset, bool isNew, string originalId,
                                 Action ok, Action<string> fail)
         {
-            Action<Wire.Ack> done = _ => Refresh(ok, fail);
+            Action<Wire.Ack> done = _ => MutationSucceeded(ok);
             if (isNew)
                 DaemonClient.Post(WireProtocol.Routes.JukeboxPresets, preset.ToWire(), done, fail);
             else
@@ -133,10 +133,18 @@ namespace SlopWorld
                     Uri.EscapeDataString(originalId ?? preset.Id), preset.ToWire(), done, fail);
         }
 
+        // A failed refresh must not turn an acknowledged mutation into a failed save.
+        // Refresh exposes its own error to the catalog UI.
+        static void MutationSucceeded(Action ok)
+        {
+            Refresh();
+            ok?.Invoke();
+        }
+
         public static void Remove(string id, Action ok, Action<string> fail)
         {
             DaemonClient.Delete(WireProtocol.Routes.JukeboxPresets + "/" +
-                Uri.EscapeDataString(id), _ => Refresh(ok, fail), fail);
+                Uri.EscapeDataString(id), _ => MutationSucceeded(ok), fail);
         }
     }
 }
