@@ -22,6 +22,20 @@ namespace SlopWorld.Tests
             yield return ("uses daemon factory metadata when available", UsesFactoryMetadata);
         }
 
+        public static void TerminalLimitsCapBeforeNarrowing()
+        {
+            var limits = TerminalLimits.FromWire(new Wire.TerminalCapabilities
+            {
+                ScrollbackLines = uint.MaxValue, MinCols = uint.MaxValue, MaxCols = uint.MaxValue,
+                MinRows = uint.MaxValue, MaxRows = uint.MaxValue
+            });
+            AssertEx.Equal(TerminalLimits.ClientMaxScrollbackLines, limits.ScrollbackLines, "scrollback saturates");
+            AssertEx.Equal(TerminalLimits.ClientMaxCols, limits.MinCols, "minimum columns saturate");
+            AssertEx.Equal(TerminalLimits.ClientMaxCols, limits.MaxCols, "maximum columns saturate");
+            AssertEx.Equal(TerminalLimits.ClientMaxRows, limits.MinRows, "minimum rows saturate");
+            AssertEx.Equal(TerminalLimits.ClientMaxRows, limits.MaxRows, "maximum rows saturate");
+        }
+
         static void IndependentPageSaves()
         {
             var credentials = DaemonConfig.FromWire(ProtobufFixtures.Read<Wire.Config>(JVal.Parse("{}")));

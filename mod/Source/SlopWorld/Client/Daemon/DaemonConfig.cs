@@ -86,12 +86,12 @@ namespace SlopWorld
         {
             var result = new TerminalLimits();
             if (j == null) return result;
-            int scrollback = (int)j.ScrollbackLines;
+            int scrollback = (int)Math.Min((uint)ClientMaxScrollbackLines, j.ScrollbackLines);
             result.ScrollbackLines = Math.Max(1, Math.Min(ClientMaxScrollbackLines, scrollback));
 
-            int minCols = (int)j.MinCols;
-            int maxCols = (int)j.MaxCols;
-            if (minCols < 1 || maxCols < minCols)
+            int minCols = (int)Math.Min((uint)ClientMaxCols, j.MinCols);
+            int maxCols = (int)Math.Min((uint)ClientMaxCols, j.MaxCols);
+            if (j.MinCols < 1 || j.MaxCols < j.MinCols)
             {
                 minCols = result.MinCols;
                 maxCols = result.MaxCols;
@@ -100,9 +100,9 @@ namespace SlopWorld
             result.MaxCols = Math.Max(result.MinCols,
                 Math.Min(ClientMaxCols, maxCols));
 
-            int minRows = (int)j.MinRows;
-            int maxRows = (int)j.MaxRows;
-            if (minRows < 1 || maxRows < minRows)
+            int minRows = (int)Math.Min((uint)ClientMaxRows, j.MinRows);
+            int maxRows = (int)Math.Min((uint)ClientMaxRows, j.MaxRows);
+            if (j.MinRows < 1 || j.MaxRows < j.MinRows)
             {
                 minRows = result.MinRows;
                 maxRows = result.MaxRows;
