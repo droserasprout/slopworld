@@ -93,6 +93,7 @@ pub struct HostMetadata {
 }
 
 pub struct Screen {
+    pub bracketed_paste: bool,
     pub lines: Vec<String>,
     pub cx: u16,
     pub cy: u16,
@@ -246,6 +247,44 @@ impl Tmux {
         args.extend(argv.iter().map(String::as_str));
         self.run(&args).await?;
         Ok(())
+    }
+
+    /// Keep process status and terminal output until the reader records the exit.
+    /// Detaching readers on pane death wakes their control streams without a timer.
+    pub(crate) async fn retain_exit(&self, name: &str) -> Result<()> {
+        let target = format!("{name}:.0");
+        self.run(&["set-option", "-p", "-t", &target, "remain-on-exit", "on"])
+            .await?;
+        // Session IDs survive rename; a saved name would leave the renamed
+        // pane's readers attached after process exit.
+        let id = self
+            .run(&["display-message", "-p", "-t", &target, "#{session_id}"])
+            .await?;
+        let hook = format!("detach-client -s {}", id.trim());
+        self.run(&["set-hook", "-t", name, "pane-died", &hook])
+            .await?;
+        Ok(())
+    }
+
+    /// A live pane is distinct from a disconnected capture client.
+    pub(crate) async fn pane_exit(&self, name: &str) -> Result<Option<String>> {
+        let target = format!("{name}:.0");
+        let value = self
+            .run(&[
+                "display-message",
+                "-p",
+                "-t",
+                &target,
+                "#{pane_dead}|#{pane_dead_status}|#{pane_dead_signal}",
+            ])
+            .await?;
+        let mut fields = value.trim().split('|');
+        if fields.next() != Some("1") {
+            return Ok(None);
+        }
+        let status = fields.next().unwrap_or("");
+        let signal = fields.next().unwrap_or("");
+        Ok(Some(format!("exit status {status}, signal {signal}")))
     }
 
     /// The tmux server can continue after slopd stops.
@@ -540,12 +579,14 @@ impl Tmux {
                 "-p",
                 "-t",
                 &target,
-                "#{cursor_x} #{cursor_y} #{alternate_on} #{pane_title}",
+                "#{bracket_paste_flag} #{cursor_x} #{cursor_y} #{alternate_on} #{pane_title}",
             ])
             .await
             .unwrap_or_default();
 
-        let (cx, cy, alt_screen, title) = parse_pos(&pos);
+        let (paste, pos) = pos.split_once(' ').unwrap_or(("0", ""));
+        let bracketed_paste = paste == "1";
+        let (cx, cy, alt_screen, title) = parse_pos(pos);
 
         // Remove the final newline from `capture-pane` before splitting rows.
         // Otherwise, the extra empty row scrolls the restored content upward.
@@ -553,6 +594,7 @@ impl Tmux {
         let body = body.strip_suffix('\n').unwrap_or(&body);
 
         Ok(Screen {
+            bracketed_paste,
             lines: body.split('\n').map(str::to_string).collect(),
             cx,
             cy,

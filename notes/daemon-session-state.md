@@ -135,6 +135,17 @@ Control transport read errors reach the reader boundary. Exit and EOF flush dirt
 output and hand off the final clipboard write before teardown. Clipboard handoff
 retains ordering behind an existing write after the reader exits.
 Child cleanup must kill and reap the child before session removal.
+Managed panes retain exit status until `capture/exit.rs` records it and removes the dead pane.
+Attachment inspects pane status after the control handshake: the death hook is not replayed
+for panes that exited while the daemon was offline.
+The pane-death hook targets the stable tmux session ID, so rename preserves reader wakeup.
+It detaches control clients to wake their readers. A control disconnect alone
+does not establish process exit: a live pane gets a replacement reader under the same session
+boundary, without failing its worker task. Adoption, rename, and recovery attachment failures preserve the process; only startup
+attachment may fail a new run.
+Failed attachments and unavailable pane status release the completed reader's capture ownership,
+allowing later attachment to retry without changing the run or failing the task.
+Tmux query errors preserve the task unless a successful listing confirms the pane disappeared.
 
 Paste admission checks the tracked live session under the session boundary; the
 ordered input consumer checks identity again before delivery. Avoid a tmux session

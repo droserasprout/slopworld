@@ -425,6 +425,11 @@ impl SessionEmu {
         Some(out)
     }
 
+    /// Input-mode handshake for managed agent startup; text alone is not readiness.
+    pub(crate) fn bracketed_paste_enabled(&self) -> bool {
+        self.term.mode().contains(TermMode::BRACKETED_PASTE)
+    }
+
     /// Capture history with a hidden cursor, then restore the live view.
     /// Return the actual offset, limited to the available history.
     pub fn scroll_snapshot(&mut self, off: u32) -> (Vec<Vec<Slot>>, u32, u32, String) {

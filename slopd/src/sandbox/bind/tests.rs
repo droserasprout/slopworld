@@ -928,3 +928,36 @@ fn workspace_and_persistent_tmp_do_not_hide_debug_sockets() {
     );
     assert_eq!(args[environment_start + plan.environment.len()], "--");
 }
+
+#[test]
+fn stale_template_proc_overlay_cannot_replace_the_pid_namespace_proc() {
+    let session = SessionCfg {
+        name: "worker".into(),
+        cmd: Some("true".into()),
+        sandbox: vec!["old-debug".into()],
+        sandbox_snapshots: vec![crate::presets::SandboxPreset {
+            name: "old-debug".into(),
+            ro: vec!["/proc".into()],
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let root = std::env::temp_dir().join(format!("slopd-proc-overlay-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&root).unwrap();
+    let project = ProjectCfg {
+        name: "repo".into(),
+        dir: root.to_string_lossy().into(),
+        ..Default::default()
+    };
+    let argv = build_argv(&Config::default(), &session, &project).unwrap();
+    let overlay = argv
+        .windows(3)
+        .position(|w| w == ["--ro-bind", "/proc", "/proc"])
+        .unwrap();
+    let restored = argv
+        .windows(2)
+        .rposition(|w| w == ["--proc", "/proc"])
+        .unwrap();
+    assert!(restored > overlay);
+    std::fs::remove_dir_all(root).unwrap();
+}

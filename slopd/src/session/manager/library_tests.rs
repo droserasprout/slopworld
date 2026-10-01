@@ -273,8 +273,16 @@ async fn delivery_fixture() -> (
     live.input.sender = Some(tx);
     manager.live.write().await.insert("worker".into(), live);
     let mut emu = crate::emu::SessionEmu::new(80, 24);
-    emu.feed(b"ready> ");
+    emu.feed(b"\x1b[?2004hready> ");
     manager.apply_frame("worker", emu.render()).await;
+    manager
+        .live
+        .write()
+        .await
+        .get_mut("worker")
+        .unwrap()
+        .capture
+        .emu = Some(std::sync::Arc::new(std::sync::Mutex::new(emu)));
     (manager, rx)
 }
 
@@ -374,7 +382,11 @@ async fn prompt_and_auto_resume_recheck_ownership_after_waiting_for_admission() 
         let (manager, mut rx) = delivery_fixture().await;
         let target = manager.delivery_target("worker").await.unwrap();
         let guard = manager.session_boundary.write().await;
-        let mut admission = Box::pin(manager.admit_delivery(&target, prompt));
+        let mut admission = Box::pin(manager.admit_delivery(
+            &target,
+            prompt,
+            tokio::time::Instant::now() + super::READY_TIMEOUT,
+        ));
         assert!(futures::poll!(admission.as_mut()).is_pending());
         {
             let mut live = manager.live.write().await;
@@ -435,4 +447,182 @@ async fn canceled_project_update_retains_boundary_until_commit() {
     )
     .await
     .unwrap();
+}
+
+#[tokio::test]
+async fn stable_startup_text_without_paste_mode_is_not_submitted_on_timeout() {
+    let (manager, mut rx) = delivery_fixture().await;
+    let emu = manager.live.read().await["worker"]
+        .capture
+        .emu
+        .clone()
+        .unwrap();
+    emu.lock().unwrap().feed(b"\x1b[?2004l");
+    let target = manager.delivery_target("worker").await.unwrap();
+    manager
+        .deliver_until(
+            &target,
+            "unsafe startup input",
+            tokio::time::Instant::now() + Duration::from_millis(850),
+        )
+        .await;
+    assert!(rx.try_recv().is_err());
+    // A mode-only handshake must begin a new settling period even if seq is unchanged.
+    emu.lock().unwrap().feed(b"\x1b[?2004h");
+    manager.deliver(&target, "ready input").await;
+    assert_prompt_submission(&mut rx, "ready input").await;
+}
+
+#[tokio::test]
+async fn paste_mode_is_rechecked_when_startup_input_is_admitted() {
+    let (manager, mut rx) = delivery_fixture().await;
+    let target = manager.delivery_target("worker").await.unwrap();
+    manager.live.read().await["worker"]
+        .capture
+        .emu
+        .as_ref()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .feed(b"\x1b[?2004l");
+    manager
+        .admit_delivery(
+            &target,
+            Some("no longer ready"),
+            tokio::time::Instant::now() + super::READY_TIMEOUT,
+        )
+        .await;
+    assert!(rx.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn host_shell_delivery_does_not_require_agent_paste_mode() {
+    let (manager, mut rx) = delivery_fixture().await;
+    manager.live.write().await.get_mut("worker").unwrap().host = true;
+    manager.live.read().await["worker"]
+        .capture
+        .emu
+        .as_ref()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .feed(b"\x1b[?2004l");
+    manager
+        .deliver(
+            &manager.delivery_target("worker").await.unwrap(),
+            "shell input",
+        )
+        .await;
+    assert_prompt_submission(&mut rx, "shell input").await;
+}
+
+#[tokio::test]
+async fn attached_startup_reader_waits_for_a_frame_instead_of_abandoning_delivery() {
+    let (manager, _rx) = delivery_fixture().await;
+    {
+        let mut live = manager.live.write().await;
+        let current = live.get_mut("worker").unwrap();
+        current.state = crate::session::State::Down;
+        current.screen = None;
+        current.capture.reader_token = Some(std::sync::Arc::new(()));
+    }
+    let target = manager.delivery_target("worker").await.unwrap();
+    assert!(matches!(
+        manager
+            .wait_ready_until(&target, tokio::time::Instant::now())
+            .await,
+        super::Ready::Timeout
+    ));
+}
+
+#[tokio::test]
+async fn readiness_timeout_fails_only_the_undelivered_workers_current_task() {
+    let (manager, mut rx) = delivery_fixture().await;
+    let identity = manager.live.read().await["worker"].cfg.state_id.clone();
+    let task = manager
+        .tasks
+        .create_owned(
+            crate::tasks::Participant {
+                name: crate::tasks::HOST.into(),
+                identity: String::new(),
+            },
+            crate::tasks::Participant {
+                name: "worker".into(),
+                identity,
+            },
+            "review".into(),
+            Some(crate::tasks::WorkerTask {
+                session: "worker".into(),
+                parent: crate::tasks::HOST.into(),
+                durable: true,
+            }),
+        )
+        .unwrap();
+    {
+        let mut live = manager.live.write().await;
+        let current = live.get_mut("worker").unwrap();
+        current.cfg.worker = true;
+        current.cfg.task_id = task.id.clone();
+    }
+    let target = manager.delivery_target("worker").await.unwrap();
+    manager
+        .deliver_until(&target, "never delivered", tokio::time::Instant::now())
+        .await;
+    assert!(rx.try_recv().is_err());
+    assert_eq!(
+        manager
+            .tasks
+            .task_for(crate::tasks::HOST, &task.id)
+            .unwrap()
+            .status,
+        crate::tasks::Status::Failed
+    );
+}
+
+#[tokio::test]
+async fn delivery_retries_readiness_lost_while_waiting_for_admission() {
+    for recover in [true, false] {
+        let (manager, mut rx) = delivery_fixture().await;
+        let target = manager.delivery_target("worker").await.unwrap();
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+        let guard = manager.session_boundary.write().await;
+        let mut delivery =
+            Box::pin(manager.submit_when_ready(&target, Some("retry prompt"), deadline));
+        // Polling explicitly keeps delivery suspended until the screen has settled;
+        // the next poll reaches admission and blocks on the boundary we own.
+        assert!(futures::poll!(delivery.as_mut()).is_pending());
+        tokio::time::sleep(super::SETTLE_TIME + Duration::from_millis(10)).await;
+        assert!(futures::poll!(delivery.as_mut()).is_pending());
+        let emu = manager.live.read().await["worker"]
+            .capture
+            .emu
+            .clone()
+            .unwrap();
+        emu.lock().unwrap().feed(b"\x1b[?2004l");
+        drop(guard);
+        // Admission must reject the changed mode and return to readiness waiting.
+        assert!(futures::poll!(delivery.as_mut()).is_pending());
+        assert!(rx.try_recv().is_err());
+        if recover {
+            emu.lock().unwrap().feed(b"\x1b[?2004h");
+            assert!(matches!(delivery.await, super::Ready::Settled));
+            assert_prompt_submission(&mut rx, "retry prompt").await;
+        } else {
+            assert!(matches!(delivery.await, super::Ready::Timeout));
+            assert!(rx.try_recv().is_err());
+        }
+    }
+}
+
+#[tokio::test]
+async fn admission_does_not_submit_after_its_deadline() {
+    let (manager, mut rx) = delivery_fixture().await;
+    let target = manager.delivery_target("worker").await.unwrap();
+    let guard = manager.session_boundary.write().await;
+    let mut admission =
+        Box::pin(manager.admit_delivery(&target, Some("expired"), tokio::time::Instant::now()));
+    assert!(futures::poll!(admission.as_mut()).is_pending());
+    drop(guard);
+    assert_eq!(admission.await, super::Admission::Timeout);
+    assert!(rx.try_recv().is_err());
 }
