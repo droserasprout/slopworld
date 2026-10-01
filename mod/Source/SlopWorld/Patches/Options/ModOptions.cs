@@ -19,6 +19,7 @@ namespace SlopWorld
         public enum PageId
         {
             Config,
+            Display,
             Commands,
             CommandDefaults,
             CommandBinaries,
@@ -83,16 +84,18 @@ namespace SlopWorld
         {
             new TabSpec(PageId.Config, "SlopWorld_Config", "General", () => Icons.Gear,
                 () => new ConfigPage()),
+            new TabSpec(PageId.Display, "SlopWorld_Display", "Display", () => Icons.Display,
+                () => new DisplayPage()),
             new TabSpec(PageId.Appearance, "SlopWorld_Appearance", "Appearance", () => Icons.Type,
                 null),
             new TabSpec(PageId.AppearanceInterface, "SlopWorld_AppearanceInterface", "Interface",
                 null, () => new AppearancePage(), PageId.Appearance),
+            new TabSpec(PageId.AppearanceWorkspace, "SlopWorld_AppearanceWorkspace", "Workspace",
+                null, () => new WorkspacePage(), PageId.Appearance),
             new TabSpec(PageId.Terminal, "SlopWorld_Terminal", "Terminal", null,
                 () => new TerminalPage(), PageId.Appearance),
             new TabSpec(PageId.AppearanceCode, "SlopWorld_AppearanceCode", "Code", null,
                 () => new CodePage(), PageId.Appearance),
-            new TabSpec(PageId.AppearanceWorkspace, "SlopWorld_AppearanceWorkspace", "Workspace",
-                null, () => new WorkspacePage(), PageId.Appearance),
             new TabSpec(PageId.Integrations, "SlopWorld_Integrations", "Integrations",
                 () => Icons.Link, null),
             new TabSpec(PageId.Credentials, "SlopWorld_Credentials", "Credentials", null,

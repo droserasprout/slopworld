@@ -93,7 +93,9 @@ namespace SlopWorld
             DrawOverlay(rect);
         }
 
-        void DrawFieldsBody(Rect r)
+        // Preview pages can compose a pinned preview around the form while this shell
+        // retains the daemon status, save footer, and overlay lifecycle.
+        protected virtual void DrawFieldsBody(Rect r)
         {
             _listing.Draw(r, DrawFieldsWithMetadata, DrawTrailingFields);
         }

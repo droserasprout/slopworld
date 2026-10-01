@@ -15,6 +15,9 @@ namespace SlopWorld
             + "    let count = 42;\n"
             + "    println!(\"{name}: {count} {raw}\");\n"
             + "}\n";
+        readonly SmoothScroll _scroll = new SmoothScroll();
+        readonly SettingsContentHeight _height = new SettingsContentHeight(300f);
+        readonly SettingsPreviewLayout _layout = new SettingsPreviewLayout();
         readonly List<string> _themes = new List<string>();
         string _command, _engine = "", _catalogError, _previewError;
         string _preview = Sample;
@@ -170,11 +173,71 @@ namespace SlopWorld
                 string theme = Appearance.Theme(_engine);
                 UiControls.Select(l, "Theme (" + (_engine == "pygments" ? "Pygments" : _engine) + ")", theme.Length == 0 ? "Use command default" : theme, choices, out _);
             }
-            l.Gap(UiTheme.GapM);
-            UiLayout.SectionHeading(l, _previewLoading ? "Preview · Loading…" : "Preview");
             if (_previewError != null) UiLayout.Note(l, _previewError);
+        }
+
+        protected override void DrawFieldsBody(Rect inner)
+        {
+            Text.Font = GameFont.Small;
             _ = TerminalFont.Style;
-            DrawPreview(l.GetRect(Mathf.Max(150f, TerminalFont.CellH * 9f)));
+            float previewH = Mathf.Max(150f, TerminalFont.CellH * 9f);
+            float formH = _height.BeginFrame(Time.frameCount);
+            float blockH = UiTheme.RowH + UiTheme.GapXS + previewH;
+            bool stacked = inner.height < UiTheme.RowH + UiTheme.GapM + blockH;
+            float width = UiScrollBody.Measure(inner, 0f,
+                UiScrollbarReservation.Always).ContentWidth;
+            _layout.Arrange(stacked ? width : inner.width, inner.height, stacked,
+                formH, previewH, 0);
+            if (stacked)
+            {
+                // Short windows scroll the form and preview together, above the save footer.
+                var geometry = UiScrollBody.Measure(inner, formH + UiTheme.GapM + blockH,
+                    UiScrollbarReservation.Always);
+                using (_scroll.Scope(inner, geometry.View))
+                {
+                    DrawForm(SettingsPageLayout.ToRect(_layout.Form));
+                    DrawPreviewBlock(SettingsPageLayout.ToRect(_layout.PreviewCaption),
+                        SettingsPageLayout.ToRect(_layout.Preview));
+                }
+            }
+            else
+            {
+                var form = Place(inner, _layout.Form);
+                var geometry = UiScrollBody.Measure(form, formH,
+                    UiScrollbarReservation.Always);
+                using (_scroll.Scope(form, geometry.View))
+                    DrawForm(geometry.View);
+                DrawPreviewBlock(Place(inner, _layout.PreviewCaption),
+                    Place(inner, _layout.Preview));
+            }
+        }
+
+        void DrawForm(Rect rect)
+        {
+            var l = new Listing_Standard { maxOneColumn = true };
+            bool begun = false;
+            try
+            {
+                l.Begin(rect);
+                begun = true;
+                DrawMetadataStatus(l);
+                DrawFields(l);
+                _height.Measure(l.CurHeight - rect.y + UiTheme.GapS);
+            }
+            finally
+            {
+                if (begun) l.End();
+            }
+        }
+
+        static Rect Place(Rect origin, UiLayoutRect local) =>
+            new Rect(origin.x + local.X, origin.y + local.Y, local.Width, local.Height);
+
+        void DrawPreviewBlock(Rect caption, Rect preview)
+        {
+            Text.Font = GameFont.Small;
+            UiLayout.SectionHeading(caption, _previewLoading ? "Preview · Loading…" : "Preview");
+            DrawPreview(preview);
         }
 
         void DrawPreview(Rect rect)
