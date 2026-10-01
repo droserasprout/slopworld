@@ -538,7 +538,7 @@ namespace SlopWorld
         {
             if (selection == "stop")
             {
-                hub.Audio.SendAudio(null, null, null, volume);
+                hub.Audio.Stop(volume);
                 return;
             }
             if (_spotify)
@@ -548,10 +548,14 @@ namespace SlopWorld
             }
             if (_station != null)
             {
-                hub.Audio.SendAudio(_station.Id, _station.Path(_station.Rate), null, volume);
+                string stream = _station.Path(_station.Rate);
+                if (_station.Id == null || stream == null) hub.Audio.Stop(volume);
+                else hub.Audio.PlayStation(_station.Id, stream, volume);
                 return;
             }
-            hub.Audio.SendAudio(null, null, OstPath(), volume);
+            string file = OstPath();
+            if (file == null) hub.Audio.Stop(volume);
+            else hub.Audio.PlayFile(file, volume);
         }
 
         // Read the daemon playback report. Log failures once per selection.
@@ -605,7 +609,7 @@ namespace SlopWorld
             var hub = SessionHub.Instance;
             if (hub == null || !hub.Online) return;
             if (!hub.Capabilities.AudioPlayback) return;
-            hub.Audio.SendAudio(null, null, null, Volume());
+            hub.Audio.Stop(Volume());
         }
 
         // Mark the selection for the next Update, which checks connection state before sending.
