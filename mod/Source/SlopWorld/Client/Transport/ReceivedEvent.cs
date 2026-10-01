@@ -48,37 +48,43 @@ namespace SlopWorld
     // compatibility and its malformed-message behavior. Keep schema field numbers here explicit.
     internal static class ValidatedLiveScreen
     {
+        // Event.screen and the canonical ScreenView subset in shared/slopworld.proto.
+        const ulong EventScreenTag = (5 << 3) | 2;
+        const int ScreenNameField = 1, ScreenSequenceField = 2, ScreenOffsetField = 7;
+        const int ScreenTitleField = 14, ScreenRequestIdField = 15, ScreenLinesField = 16;
+        const ulong LastScreenTag = (ScreenLinesField << 3) | 2;
+
         static readonly System.Text.UTF8Encoding Utf8 = new System.Text.UTF8Encoding(false, true);
 
         public static bool TryName(byte[] bytes, out string name)
         {
             name = null;
             int at = 0;
-            if (!Varint(bytes, ref at, out ulong tag) || tag != 42 ||
+            if (!Varint(bytes, ref at, out ulong tag) || tag != EventScreenTag ||
                 !Varint(bytes, ref at, out ulong size) || size != (ulong)(bytes.Length - at)) return false;
             int previous = 0, nameAt = 0, nameSize = 0;
             while (at < bytes.Length)
             {
                 if (!Varint(bytes, ref at, out tag)) return false;
-                if (tag > 130) return false;
+                if (tag > LastScreenTag) return false;
                 int field = (int)(tag >> 3);
-                if (field < 1 || field > 16 || field < previous ||
-                    (field == previous && field != 16)) return false;
+                if (field < ScreenNameField || field > ScreenLinesField || field < previous ||
+                    (field == previous && field != ScreenLinesField)) return false;
                 previous = field;
-                if (field == 1 || field == 14 || field == 16)
+                if (field == ScreenNameField || field == ScreenTitleField || field == ScreenLinesField)
                 {
                     if ((tag & 7) != 2 || !Varint(bytes, ref at, out size) ||
                         size > (ulong)(bytes.Length - at)) return false;
                     try { Utf8.GetCharCount(bytes, at, (int)size); }
                     catch (System.Text.DecoderFallbackException) { return false; }
-                    if (field == 1) { nameAt = at; nameSize = (int)size; }
+                    if (field == ScreenNameField) { nameAt = at; nameSize = (int)size; }
                     at += (int)size;
                 }
                 else
                 {
                     if ((tag & 7) != 0 || !Varint(bytes, ref at, out ulong value)) return false;
-                    if ((field == 7 || field == 15) && value != 0) return false;
-                    if (field != 2 && field != 15 && value > uint.MaxValue) return false;
+                    if ((field == ScreenOffsetField || field == ScreenRequestIdField) && value != 0) return false;
+                    if (field != ScreenSequenceField && field != ScreenRequestIdField && value > uint.MaxValue) return false;
                 }
             }
             if (nameSize == 0) return false;
