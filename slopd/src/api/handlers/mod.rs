@@ -1,7 +1,6 @@
-use crate::api::protobuf::reply;
+use crate::api::protobuf::Proto;
+use crate::shared::wire;
 use axum::http::StatusCode;
-
-use serde_json::json;
 
 use crate::grant::{Cap, Level};
 
@@ -39,9 +38,9 @@ pub(crate) use sessions::*;
 pub(crate) use system::*;
 pub(crate) use tasks::*;
 pub(crate) use templates::*;
-fn ok_json(r: anyhow::Result<()>) -> ApiResult {
+fn ack_result(r: anyhow::Result<()>) -> ApiResult {
     r.map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    reply(json!({ "ok": true }))
+    Ok(Proto(wire::Ack { ok: true }))
 }
 
 /// Return 403 for denied or unknown names without revealing session existence.

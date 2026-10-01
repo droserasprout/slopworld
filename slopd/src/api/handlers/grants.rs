@@ -57,7 +57,7 @@ pub(crate) async fn revoke_grants(
     m.revoke_grants(&grantor)
         .await
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?;
-    reply(json!({ "ok": true }))
+    Ok(Proto(wire::Ack { ok: true }))
 }
 
 #[cfg(test)]

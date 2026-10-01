@@ -100,7 +100,7 @@ pub(crate) async fn copy_preset(
             .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?;
     copied.map_err(preset_error)?;
     m.reload_presets_if_changed().await;
-    reply(json!({ "ok": true }))
+    Ok(Proto(wire::Ack { ok: true }))
 }
 
 pub(crate) async fn update_preset(
@@ -137,7 +137,7 @@ pub(crate) async fn update_preset(
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?
         .map_err(preset_error)?;
     m.reload_presets_if_changed().await;
-    reply(json!({ "ok": true }))
+    Ok(Proto(wire::Ack { ok: true }))
 }
 
 pub(crate) async fn delete_preset(
@@ -150,7 +150,7 @@ pub(crate) async fn delete_preset(
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?;
     deleted.map_err(preset_error)?;
     m.reload_presets_if_changed().await;
-    reply(json!({ "ok": true }))
+    Ok(Proto(wire::Ack { ok: true }))
 }
 
 fn preset_error(error: crate::presets::PresetError) -> crate::api::protobuf::ApiError {

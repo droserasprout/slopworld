@@ -36,7 +36,7 @@ pub(crate) async fn create_project(
     Proto(value): Proto<wire::Project>,
 ) -> ApiResult<wire::Ack> {
     let p = crate::api::parse_project(domain(value)?)?;
-    super::ok_json(m.add_project(p).await)
+    super::ack_result(m.add_project(p).await)
 }
 
 pub(crate) async fn project_preview(
@@ -56,14 +56,14 @@ pub(crate) async fn update_project(
     Proto(value): Proto<wire::Project>,
 ) -> ApiResult<wire::Ack> {
     let p = crate::api::parse_project(domain(value)?)?;
-    super::ok_json(m.update_project(&name, p).await)
+    super::ack_result(m.update_project(&name, p).await)
 }
 
 pub(crate) async fn destroy_project(
     State(m): State<Mgr>,
     Path(name): Path<String>,
 ) -> ApiResult<wire::Ack> {
-    super::ok_json(m.remove_project(&name).await)
+    super::ack_result(m.remove_project(&name).await)
 }
 
 pub(crate) async fn list_library(State(m): State<Mgr>) -> ApiResult<wire::LibraryReply> {
@@ -75,7 +75,7 @@ pub(crate) async fn create_library_item(
     Proto(sc): Proto<wire::LibraryItem>,
 ) -> ApiResult<wire::Ack> {
     let sc: LibraryItemCfg = domain(sc)?;
-    super::ok_json(m.add_library_item(sc).await)
+    super::ack_result(m.add_library_item(sc).await)
 }
 
 pub(crate) async fn update_library_item(
@@ -84,14 +84,14 @@ pub(crate) async fn update_library_item(
     Proto(sc): Proto<wire::LibraryItem>,
 ) -> ApiResult<wire::Ack> {
     let sc: LibraryItemCfg = domain(sc)?;
-    super::ok_json(m.update_library_item(&name, sc).await)
+    super::ack_result(m.update_library_item(&name, sc).await)
 }
 
 pub(crate) async fn destroy_library_item(
     State(m): State<Mgr>,
     Path(name): Path<String>,
 ) -> ApiResult<wire::Ack> {
-    super::ok_json(m.remove_library_item(&name).await)
+    super::ack_result(m.remove_library_item(&name).await)
 }
 
 /// Return the temporary agent's name after startup, before delayed text delivery.

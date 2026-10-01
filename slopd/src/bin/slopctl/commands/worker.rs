@@ -1,3 +1,5 @@
+//! Worker command parsing and execution share one owned spawn request.
+
 use super::super::format::emit;
 use super::super::http::{Endpoint, request};
 use super::Command;
@@ -87,28 +89,29 @@ fn parse_spawn(args: &[String], options_at: usize) -> Result<Command, String> {
     if !worktree.new_worktree && (!worktree.base.is_empty() || !worktree.worktree_name.is_empty()) {
         return Err("--base and --worktree-name require --new-worktree".into());
     }
-    Ok(Command::Spawn {
+    Ok(Command::Spawn(SpawnArgs {
         project,
         template,
         durable,
         worktree,
         body: args.get(i..).unwrap_or_default().join(" "),
-    })
+    }))
 }
 
-pub(crate) struct SpawnArgs<'a> {
-    pub(crate) project: &'a str,
-    pub(crate) template: &'a str,
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct SpawnArgs {
+    pub(crate) project: String,
+    pub(crate) template: String,
     pub(crate) durable: bool,
-    pub(crate) worktree: &'a WorktreeChoice,
-    pub(crate) body: &'a str,
+    pub(crate) worktree: WorktreeChoice,
+    pub(crate) body: String,
 }
 
 pub(crate) fn run_spawn(
     endpoint: &Endpoint,
     session: &str,
     json: bool,
-    args: SpawnArgs<'_>,
+    args: SpawnArgs,
 ) -> Result<(), String> {
     let v = request(
         endpoint,

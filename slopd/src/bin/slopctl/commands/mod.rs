@@ -12,7 +12,9 @@ use super::http::Endpoint;
 use super::logs::{LOGS_USAGE, run_logs};
 
 pub(crate) use task::{InboxFilter, UpdateAction};
-pub(crate) use worker::{SpawnArgs, WorktreeChoice};
+pub(crate) use worker::SpawnArgs;
+#[cfg(test)]
+pub(crate) use worker::WorktreeChoice;
 #[cfg(test)]
 pub(crate) use worktree::WorktreeArgs;
 
@@ -85,13 +87,7 @@ pub(crate) enum Command {
         to: String,
         body: String,
     },
-    Spawn {
-        project: String,
-        template: String,
-        durable: bool,
-        worktree: WorktreeChoice,
-        body: String,
-    },
+    Spawn(SpawnArgs),
     Templates {
         project: Option<String>,
     },
@@ -240,24 +236,7 @@ impl Command {
             Self::Delegate { to, body } => {
                 task::run_delegate(endpoint, session, json_output, &to, &body)
             }
-            Self::Spawn {
-                project,
-                template,
-                durable,
-                worktree,
-                body,
-            } => worker::run_spawn(
-                endpoint,
-                session,
-                json_output,
-                SpawnArgs {
-                    project: &project,
-                    template: &template,
-                    durable,
-                    worktree: &worktree,
-                    body: &body,
-                },
-            ),
+            Self::Spawn(args) => worker::run_spawn(endpoint, session, json_output, args),
             Self::Templates { project } => {
                 templates::run_templates(endpoint, session, json_output, project.as_deref())
             }

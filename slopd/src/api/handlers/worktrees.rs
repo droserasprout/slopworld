@@ -61,7 +61,7 @@ pub(crate) async fn remove_worktree(
     Path(id): Path<String>,
     Query(q): Query<WorktreeQuery>,
 ) -> ApiResult {
-    super::ok_json(m.remove_worktree(q.project, id).await)
+    super::ack_result(m.remove_worktree(q.project, id).await)
 }
 
 pub(crate) async fn rename_worktree(
