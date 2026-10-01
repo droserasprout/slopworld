@@ -28,7 +28,9 @@ control/history/replies while coalescing unsolicited live screens. The daemon ke
 history replies ordered independently of command intake. Panel subscriptions and
 input do not wait for an earlier history capture; request IDs reject obsolete replies. A reconnect inside a
 callback must not redirect the rest of an old batch into the new connection. Closing wakes
-blocked readers and drops queued payload references. `ReceivedEvent` validates canonical live screens before the queue lock without allocating row
+blocked readers and drops queued payload references. `IncomingMessageQueue` owns buffering;
+`MiniWebSocket.Frames` owns frame encoding and validation. A valid peer Close is echoed
+with client masking before transport cleanup. `ReceivedEvent` validates canonical live screens before the queue lock without allocating row
 strings. The queue owns the encoded payload until lazy decode on dispatch. Unknown fields,
 noncanonical envelopes, history and replies use the generated parser immediately.
 Keep the conservative validator aligned with `ScreenView`. The generated-parser fallback

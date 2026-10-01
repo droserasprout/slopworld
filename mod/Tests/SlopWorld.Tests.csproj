@@ -83,6 +83,7 @@
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalPanelGeometry.cs" Link="Source/UI/Terminal/TerminalPanelGeometry.cs" />
     <Compile Include="../Source/SlopWorld/Settings/FramePolicy.cs" Link="Source/Settings/FramePolicy.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubEventBatch.cs" Link="Source/Client/SessionHub/HubEventBatch.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Transport/IncomingMessageQueue.cs" Link="Source/IncomingMessageQueue.cs" />
     <Compile Include="../Source/SlopWorld/Client/Transport/MiniWebSocket.cs" Link="Source/Client/Transport/MiniWebSocket.cs" />
     <Compile Include="../Source/SlopWorld/Client/Transport/MiniWebSocket.Frames.cs" Link="Source/Client/Transport/MiniWebSocket.Frames.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubTransport.cs" Link="Source/Client/SessionHub/HubTransport.cs" />

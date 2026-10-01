@@ -118,6 +118,11 @@ namespace SlopWorld.Tests
                 ("unexpected continuation", new byte[] { 0x80, 0 }, "unexpected continuation frame"),
                 ("fragmented message budget", new byte[] { 0x02, 1, 0 }.Concat(Header(0x80, 32UL * 1024 * 1024)).ToArray(), "fragmented message is too large"),
                 ("nested binary message", new byte[] { 0x02, 0, 0x82, 0 }, "new binary frame while fragmented message is pending"),
+                ("nonminimal short length", new byte[] { 0x82, 126, 0, 125 }, "nonminimal websocket length"),
+                ("nonminimal long length", new byte[] { 0x82, 127, 0, 0, 0, 0, 0, 0, 255, 255 }, "nonminimal websocket length"),
+                ("one-byte close", new byte[] { 0x88, 1, 0 }, "invalid websocket close payload"),
+                ("reserved close status", new byte[] { 0x88, 2, 3, 237 }, "invalid websocket close status"),
+                ("invalid close UTF8", new byte[] { 0x88, 3, 3, 232, 255 }, "invalid websocket close reason"),
                 ("truncated short length", new byte[] { 0x82, 126, 0 }, "socket closed mid-frame"),
                 ("truncated long length", new byte[] { 0x82, 127, 0, 0 }, "socket closed mid-frame"),
                 ("truncated payload", new byte[] { 0x82, 3, 1 }, "socket closed mid-payload"),
@@ -202,6 +207,31 @@ namespace SlopWorld.Tests
                 Assert.That(socket.LastError, Does.StartWith(kind == "eof" || kind == "oversized-header" ? "no handshake response" : "handshake refused:"));
                 Assert.That(socket.Incoming.Enqueue(Array.Empty<byte>()), Is.EqualTo(IncomingEnqueueResult.Closed));
             });
+        }
+
+        public static void PeerCloseIsEchoedMaskedBeforeTransportCleanup()
+        {
+            foreach (byte[] payload in new[] { Array.Empty<byte>(), new byte[] { 3, 232, (byte)'b', (byte)'y', (byte)'e' } })
+            {
+                WithPeer(ValidResponse, stream =>
+                {
+                    stream.Write(Header(0x88, (ulong)payload.Length));
+                    stream.Write(payload);
+                    Assert.That(stream.ReadByte(), Is.EqualTo(0x88));
+                    Assert.That(stream.ReadByte(), Is.EqualTo(0x80 | payload.Length), "close response is masked");
+                    var mask = Read(stream, 4);
+                    var echoed = Read(stream, payload.Length);
+                    for (int i = 0; i < echoed.Length; i++) echoed[i] ^= mask[i & 3];
+                    Assert.That(echoed, Is.EqualTo(payload));
+                    Assert.That(stream.ReadByte(), Is.EqualTo(-1), "transport closes after response");
+                }, (socket, port) =>
+                {
+                    Assert.That(socket.Connect("127.0.0.1", port, "/ws", ""), Is.True);
+                    Assert.That(SpinWait.SpinUntil(() => !socket.Connected, 5000), Is.True);
+                    Assert.That(socket.LastError, Is.Null);
+                    Assert.That(socket.Incoming.Enqueue(Array.Empty<byte>()), Is.EqualTo(IncomingEnqueueResult.Closed));
+                });
+            }
         }
 
         public static void UpgradeAcceptsHeaderCaseAndConnectionTokensAndSendsAuthentication()

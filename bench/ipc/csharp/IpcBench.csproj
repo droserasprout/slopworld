@@ -5,6 +5,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="../../../mod/Source/SlopWorld/Client/Generated/*.cs" />
     <Compile Include="../../../mod/Source/SlopWorld/Client/Transport/MiniWebSocket*.cs" />
+    <Compile Include="../../../mod/Source/SlopWorld/Client/Transport/IncomingMessageQueue.cs" />
     <Compile Include="../../../mod/Source/SlopWorld/Client/Transport/ReceivedEvent.cs" />
     <Compile Include="../../../mod/Source/SlopWorld/Client/SessionHub/HubEventBatch.cs" />
   </ItemGroup>

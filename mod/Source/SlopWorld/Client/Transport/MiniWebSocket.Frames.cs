@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text;
 
 namespace SlopWorld
 {
@@ -32,7 +33,8 @@ namespace SlopWorld
             // Server frames are never masked, so bit 7 of b1 is always 0 here.
             if ((b1 & 0x80) != 0)
                 throw new IOException("masked server frame");
-            long len = b1 & 0x7f;
+            int lengthMarker = b1 & 0x7f;
+            long len = lengthMarker;
 
             if (len == 126)
             {
@@ -50,10 +52,13 @@ namespace SlopWorld
             if (len < 0 || len > MaxFrame)
                 throw new IOException($"frame length out of range: {len}");
 
+            if ((lengthMarker == 126 && len < 126) ||
+                (lengthMarker == 127 && len < 65536))
+                throw new IOException("nonminimal websocket length");
+
             if ((opcode & 0x8) != 0 && (!fin || len > 125))
                 throw new IOException("malformed control frame");
-            if ((opcode == 0x1 || (opcode >= 0x3 && opcode <= 0x7)) ||
-                ((opcode & 0x8) != 0 && opcode != 0x8 && opcode != 0x9 && opcode != 0xA))
+            if (!SupportedOpcode(opcode))
                 throw new IOException($"unsupported websocket opcode: {opcode}");
             if (opcode == 0x0 && fragOpcode == 0)
                 throw new IOException("unexpected continuation frame");
@@ -65,6 +70,71 @@ namespace SlopWorld
                 throw new IOException("fragmented message is too large");
 
             return new WebSocketFrame(fin, opcode, ReadExactly((int)len));
+        }
+
+        static bool SupportedOpcode(int opcode)
+        {
+            switch (opcode)
+            {
+                case 0x0: // continuation
+                case 0x2: // binary
+                case 0x8: // close
+                case 0x9: // ping
+                case 0xA: // pong
+                    return true;
+                default: return false;
+            }
+        }
+
+        void WriteFrame(byte opcode, byte[] payload)
+        {
+            using (var ms = new MemoryStream())
+            {
+                ms.WriteByte((byte)(0x80 | opcode)); // FIN + opcode
+
+                // Clients must mask. The length prefix widens with the payload.
+                int len = payload.Length;
+                if (len < 126)
+                {
+                    ms.WriteByte((byte)(0x80 | len));
+                }
+                else if (len <= ushort.MaxValue)
+                {
+                    ms.WriteByte(0x80 | 126);
+                    ms.WriteByte((byte)(len >> 8));
+                    ms.WriteByte((byte)len);
+                }
+                else
+                {
+                    ms.WriteByte(0x80 | 127);
+                    for (int i = 7; i >= 0; i--)
+                        ms.WriteByte((byte)((long)len >> (8 * i)));
+                }
+
+                var mask = new byte[4];
+                _rng.GetBytes(mask);
+                ms.Write(mask, 0, 4);
+
+                for (int i = 0; i < payload.Length; i++)
+                    ms.WriteByte((byte)(payload[i] ^ mask[i & 3]));
+
+                var frame = ms.ToArray();
+                _net.Write(frame, 0, frame.Length);
+                _net.Flush();
+            }
+        }
+
+        static void ValidateClosePayload(byte[] payload)
+        {
+            if (payload.Length == 0) return;
+            if (payload.Length == 1) throw new IOException("invalid websocket close payload");
+            int status = (payload[0] << 8) | payload[1];
+            bool standard = status >= 1000 && status <= 1014 &&
+                status != 1004 && status != 1005 && status != 1006;
+            if (!standard && (status < 3000 || status >= 5000))
+                throw new IOException("invalid websocket close status");
+            try { new UTF8Encoding(false, true).GetString(payload, 2, payload.Length - 2); }
+            catch (DecoderFallbackException) { throw new IOException("invalid websocket close reason"); }
         }
 
         int ReadByteOrThrow()
