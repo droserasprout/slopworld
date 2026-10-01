@@ -143,6 +143,9 @@ namespace SlopWorld.Tests
             cache.Get(info, font, 2, build);
             AssertEx.Equal(8, builds, "failed cleanup is retried");
             AssertEx.Equal("", cache.Get(null, font, 2, build), "missing session");
+            AssertEx.Equal("replacement", cache.Get(info, font, 2, _ => "replacement"),
+                "changing the builder invalidates otherwise identical inputs");
+            AssertEx.Equal("changed", cache.Get(info, font, 2, build), "original builder rebuilds on return");
         }
     }
 }

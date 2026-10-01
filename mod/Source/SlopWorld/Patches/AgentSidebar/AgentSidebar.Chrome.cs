@@ -9,6 +9,7 @@ namespace SlopWorld
     // Fixed sidebar chrome: tabs, add strip, actions, headings, and overflow shadow.
     public static partial class AgentSidebar
     {
+        // Fade the scrolling body into the shadow above the fixed add strip.
         static void DrawAgentShadow()
         {
             if (Layout.AgentContentH <= Body.height) return;
@@ -143,44 +144,42 @@ namespace SlopWorld
 
         static void DrawHead(Head head)
         {
-            var r = head.Rect;
-            RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
+            using (WidgetState.Save())
+            {
+                var r = head.Rect;
+                RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
 
-            GUI.color = UiTheme.Faint;
-            var arrow = new Rect(CellX, r.y + (HeadH - ArrowW) / 2f, ArrowW, ArrowW);
-            if (Event.current.type == EventType.Repaint)
-                GUI.DrawTexture(arrow, head.Folded ? TexButton.Reveal : TexButton.Collapse);
+                GUI.color = UiTheme.Faint;
+                var arrow = new Rect(CellX, r.y + (HeadH - ArrowW) / 2f, ArrowW, ArrowW);
+                if (Event.current.type == EventType.Repaint)
+                    GUI.DrawTexture(arrow, head.Folded ? TexButton.Reveal : TexButton.Collapse);
 
-            Text.Font = GameFont.Tiny;
+                Text.Font = GameFont.Tiny;
 
-            float lx = arrow.xMax + UiTheme.GapXS;
-            string count = head.Count;
-            float countW = UiTheme.Wide(count);
-            var countRect = new Rect(r.xMax - CellX - countW, r.y, countW, HeadH);
-            GUI.color = UiTheme.Faint;
-            UiText.RowLabel(countRect, count, TextAnchor.MiddleRight);
+                float lx = arrow.xMax + UiTheme.GapXS;
+                string count = head.Count;
+                float countW = UiTheme.Wide(count);
+                var countRect = new Rect(r.xMax - CellX - countW, r.y, countW, HeadH);
+                GUI.color = UiTheme.Faint;
+                UiText.RowLabel(countRect, count, TextAnchor.MiddleRight);
 
-            var p = SessionHub.Instance.Project(head.Label);
+                var p = SessionHub.Instance.Project(head.Label);
 
-            Text.Font = GameFont.Small;
-            GUI.color = UiTheme.Faint;
-            var label = new Rect(lx, r.y, Mathf.Max(0f, countRect.x - Pad - lx), HeadH);
-            UiText.RowLabel(label, head.Label);
+                Text.Font = GameFont.Small;
+                GUI.color = UiTheme.Faint;
+                var label = new Rect(lx, r.y, Mathf.Max(0f, countRect.x - Pad - lx), HeadH);
+                UiText.RowLabel(label, head.Label);
 
-            Slab.Hairline(new Rect(CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
-                UiTheme.Edge);
+                Slab.Hairline(new Rect(CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
+                    UiTheme.Edge);
 
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.Font = GameFont.Small;
-
-            TooltipHandler.TipRegion(r, p == null
-                ? "Agents whose project has gone, and anyone here who is not an agent.\n\n" +
-                  "Click to fold."
-                : $"{p.Dir}\n({ProjectsView.Summary(p)})\n\n" +
-                  "Click to fold, right-click for the project.");
+                TooltipHandler.TipRegion(r, p == null
+                    ? "Agents whose project has gone, and anyone here who is not an agent.\n\n" +
+                      "Click to fold."
+                    : $"{p.Dir}\n({ProjectsView.Summary(p)})\n\n" +
+                      "Click to fold, right-click for the project.");
+            }
         }
 
-        // A soft edge marks the fixed add strip over the scrolling body without reserving a scrollbar gutter.
     }
 }

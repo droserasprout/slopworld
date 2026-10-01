@@ -6,6 +6,16 @@ using Verse;
 
 namespace SlopWorld
 {
+    static class SidebarPawnLabel
+    {
+        internal static bool Begin(Pawn pawn, out bool previousWrap)
+        {
+            previousWrap = Text.WordWrap;
+            Text.WordWrap = false;
+            return !AgentSidebar.Drawing && !PlayerPawn.IsPlayer(pawn);
+        }
+    }
+
     [HarmonyLib.HarmonyPatch(typeof(GenMapUI), nameof(GenMapUI.DrawPawnLabel),
         new[] { typeof(Pawn), typeof(Vector2), typeof(float), typeof(float),
                 typeof(Dictionary<string, string>), typeof(GameFont), typeof(bool),
@@ -17,9 +27,7 @@ namespace SlopWorld
         // Keep map names single-line, and restore the shared text state even if drawing fails.
         static bool Prefix(Pawn pawn, out bool __state)
         {
-            __state = Text.WordWrap;
-            Text.WordWrap = false;
-            return !AgentSidebar.Drawing && !PlayerPawn.IsPlayer(pawn);
+            return SidebarPawnLabel.Begin(pawn, out __state);
         }
 
         static Exception Finalizer(Exception __exception, bool __state)
@@ -39,9 +47,7 @@ namespace SlopWorld
     {
         static bool Prefix(Pawn pawn, out bool __state)
         {
-            __state = Text.WordWrap;
-            Text.WordWrap = false;
-            return !AgentSidebar.Drawing && !PlayerPawn.IsPlayer(pawn);
+            return SidebarPawnLabel.Begin(pawn, out __state);
         }
 
         static Exception Finalizer(Exception __exception, bool __state)

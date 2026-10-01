@@ -30,6 +30,8 @@ namespace SlopWorld
 
         struct RowPresentation
         {
+            public object Font;
+            public int FontRevision, AtlasRevision;
             public string Name;
             public string Title;
             public string RawTitle;
@@ -210,17 +212,6 @@ namespace SlopWorld
             }
         }
 
-        static string AgentIndicators(SessionInfo info)
-        {
-            if (info == null) return "";
-
-            int mask = (info.Autostart ? 1 : 0)
-                | (info.AutoResume ? 2 : 0)
-                | (info.Network == NetworkMode.Host ? 4 : 0)
-                | (info.PersistentTmp ? 8 : 0);
-            return IndicatorText[mask];
-        }
-
         internal static string Ago(SessionInfo info)
         {
             return Present(info, info?.State ?? AgentState.Down).Ago;
@@ -235,7 +226,10 @@ namespace SlopWorld
                 | (info.AutoResume ? 2 : 0)
                 | (info.Network == NetworkMode.Host ? 4 : 0)
                 | (info.PersistentTmp ? 8 : 0);
-            if (Presentations.TryGetValue(info, out var cached) && cached.Name == info.Name &&
+            var font = Text.CurFontStyle?.font;
+            if (Presentations.TryGetValue(info, out var cached) &&
+                ReferenceEquals(cached.Font, font) && cached.FontRevision == UiFont.Revision &&
+                cached.AtlasRevision == _titleFontRevision && cached.Name == info.Name &&
                 cached.RawTitle == info.Title && cached.Label == info.Label && cached.Dir == info.Dir &&
                 cached.Host == info.Host && cached.State == state &&
                 cached.StateSince == info.StateSince && cached.IndicatorMask == mask)
@@ -249,6 +243,9 @@ namespace SlopWorld
             string stateName = StateName(state);
             cached = new RowPresentation
             {
+                Font = font,
+                FontRevision = UiFont.Revision,
+                AtlasRevision = _titleFontRevision,
                 Name = info.Name,
                 Title = Title(info),
                 RawTitle = info.Title,
