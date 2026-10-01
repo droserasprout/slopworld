@@ -7,22 +7,31 @@ using SlopWorld.Wire;
 class Program
 {
     static long sink;
-    static readonly Func<long> Allocated = (Func<long>)Delegate.CreateDelegate(typeof(Func<long>), typeof(GC).GetMethod("GetAllocatedBytesForCurrentThread"));
+    const int WarmupCount = 300;
+    const int SampleCount = 21;
+    static Func<long> AllocationCounter()
+    {
+        var method = typeof(GC).GetMethod("GetAllocatedBytesForCurrentThread");
+        if (method == null)
+            throw new NotSupportedException("IPC allocation benchmarks require a Mono runtime exposing GC.GetAllocatedBytesForCurrentThread.");
+        return (Func<long>)Delegate.CreateDelegate(typeof(Func<long>), method);
+    }
+    static Func<long> allocated;
     static void Measure(string fixture, string lane, int wire, int iterations, Action action)
     {
-        for (int i = 0; i < 300; i++) action();
-        var us = new double[21]; var allocations = new double[21];
+        for (int i = 0; i < WarmupCount; i++) action();
+        var us = new double[SampleCount]; var allocations = new double[SampleCount];
         for (int sample = 0; sample < us.Length; sample++)
         {
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-            long before = Allocated(); var timer = Stopwatch.StartNew();
+            long before = allocated(); var timer = Stopwatch.StartNew();
             for (int i = 0; i < iterations; i++) action();
             timer.Stop();
             us[sample] = timer.Elapsed.TotalMilliseconds * 1000 / iterations;
-            allocations[sample] = (Allocated() - before) / (double)iterations;
+            allocations[sample] = (allocated() - before) / (double)iterations;
         }
         Array.Sort(us); Array.Sort(allocations);
-        Console.WriteLine(string.Join(",", fixture, lane, wire, us[10].ToString("F3", System.Globalization.CultureInfo.InvariantCulture), us[19].ToString("F3", System.Globalization.CultureInfo.InvariantCulture), allocations[10].ToString("F0", System.Globalization.CultureInfo.InvariantCulture)));
+        Console.WriteLine(string.Join(",", fixture, lane, wire, us[SampleCount / 2].ToString("F3", System.Globalization.CultureInfo.InvariantCulture), us[(int)Math.Ceiling(SampleCount * 0.95) - 1].ToString("F3", System.Globalization.CultureInfo.InvariantCulture), allocations[SampleCount / 2].ToString("F0", System.Globalization.CultureInfo.InvariantCulture)));
     }
     static void Main(string[] args)
     {
@@ -36,6 +45,7 @@ class Program
             return;
         }
 
+        allocated = AllocationCounter();
         Console.WriteLine("fixture,lane,wire_bytes,p50_us,p95_us,allocated_bytes");
         if (args.Length != 1) throw new ArgumentException("fixture directory is required");
         foreach (string kind in new[] { "plain", "ansi", "unicode", "large" })
