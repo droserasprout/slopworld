@@ -47,7 +47,7 @@ namespace SlopWorld
             (s, j) => s.ReaderKey = j.Reader.Key,
             (s, j) => s.ReaderScope = j.Reader.Scope,
             (s, j) => s.ReaderPinned = j.Reader.Pinned,
-            (s, j) => s.ReaderLine = (int)j.Reader.Line,
+            (s, j) => s.ReaderLine = j.Reader.Line,
             (s, j) => s.Bell = j.Runtime.Bell,
             (s, j) => s.LastChange = (long)j.Runtime.LastChange,
             (s, j) => s.StateSince = (long)j.Runtime.StateSince,

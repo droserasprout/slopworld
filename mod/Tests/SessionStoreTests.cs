@@ -42,6 +42,47 @@ namespace SlopWorld.Tests
             Assert.That(completed, Is.EqualTo(2), "stale reads still settle their callers");
         }
 
+        public static void SupersededRefreshWaitsForWinningOutcome()
+        {
+            foreach (bool fail in new[] { false, true })
+            {
+                DaemonClient.Requests.Clear();
+                var store = new SessionStore();
+                int completed = 0, failed = 0;
+                Action done = () => { Assert.That(store.Get("winner"), Is.Not.Null); completed++; };
+                Action<string> error = message => { Assert.That(message, Is.EqualTo("offline")); failed++; };
+                store.Refresh(done, error);
+                store.Refresh(done, error);
+                DaemonClient.Requests[0].Ok(ProtobufFixtures.Json(Sessions("stale")));
+                Assert.That(completed + failed, Is.Zero);
+                if (fail) DaemonClient.Requests[1].Fail("offline");
+                else DaemonClient.Requests[1].Ok(ProtobufFixtures.Json(Sessions("winner")));
+                Assert.That(completed, Is.EqualTo(fail ? 0 : 2));
+                Assert.That(failed, Is.EqualTo(fail ? 2 : 0));
+                DaemonClient.Requests[0].Fail("stale error");
+                Assert.That(completed + failed, Is.EqualTo(2));
+            }
+        }
+
+        public static void PushSettlesWaitersBeforeStaleHttpFailure()
+        {
+            DaemonClient.Requests.Clear();
+            var store = new SessionStore();
+            int completed = 0, failed = 0;
+            store.Refresh(() =>
+            {
+                Assert.That(store.Get("pushed"), Is.Not.Null);
+                completed++;
+                store.Refresh(() => completed++, _ => failed++);
+            }, _ => failed++);
+            store.ApplySessions(Sessions("pushed"));
+            Assert.That(completed, Is.EqualTo(1));
+            DaemonClient.Requests[0].Fail("old failure");
+            Assert.That(failed, Is.Zero);
+            DaemonClient.Requests[1].Ok(ProtobufFixtures.Json(Sessions("later")));
+            Assert.That(completed, Is.EqualTo(2));
+        }
+
         public static void PushSupersedesPendingRefresh()
         {
             DaemonClient.Requests.Clear();
@@ -76,9 +117,25 @@ namespace SlopWorld.Tests
             store.Run("project", "echo hello", "label", name => {
                 Assert.That(store.Get(name), Is.Not.Null, "session exists before opening its terminal");
                 started = name;
-            }, shell: false, text: "prompt", host: true, temp: true,
-                path: "/work", hold: true, like: "seed", agentTemplate: "template",
-                readerPath: "/source/file", readerKey: "key", readerScope: "scope", readerLine: 17, readerPinned: true);
+            }, options: new SessionRunOptions
+            {
+                Shell = false,
+                Text = "prompt",
+                Host = true,
+                Temp = true,
+                Path = "/work",
+                Hold = true,
+                Like = "seed",
+                AgentTemplate = "template",
+                Reader = new ReaderLaunchOptions
+                {
+                    Path = "/source/file",
+                    Key = "key",
+                    Scope = "scope",
+                    Line = 2147483648L,
+                    Pinned = true,
+                },
+            });
             var request = DaemonClient.Requests.Single();
             Assert.That(request.Method, Is.EqualTo("POST"));
             Assert.That(request.Path, Is.EqualTo(WireProtocol.Routes.Run));
@@ -95,7 +152,7 @@ namespace SlopWorld.Tests
             Assert.That(body.Reader.Path, Is.EqualTo("/source/file"));
             Assert.That(body.Reader.Key, Is.EqualTo("key"));
             Assert.That(body.Reader.Scope, Is.EqualTo("scope"));
-            Assert.That(body.Reader.Line, Is.EqualTo(17));
+            Assert.That(body.Reader.Line, Is.EqualTo(2147483648U));
             Assert.That(body.Reader.Pinned, Is.True);
             request.Ok(JVal.Parse("{\"session\":\"created\"}"));
             Assert.That(started, Is.Null);

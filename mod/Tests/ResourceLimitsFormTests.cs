@@ -16,6 +16,27 @@ namespace SlopWorld.Tests
         }
 
         [Test]
+        public void LargeUnsignedLimitsSurviveOpeningEditingAndSaving()
+        {
+            var wire = new Wire.Limits
+            {
+                MemoryMb = 2147483648U, Pids = uint.MaxValue,
+                Nofile = uint.MaxValue, CpuPct = 2147483648U,
+            };
+            var form = new ResourceLimitsForm(SessionLimits.FromWire(wire));
+            form.Draw(_listing);
+            Assert.That(form.TrySave(out var saved, out _), Is.True);
+            Assert.That(saved.ToWire(), Is.EqualTo(wire));
+            UiControls.FormEdits["limits.memory"] = "4294967295";
+            form.Draw(_listing);
+            Assert.That(form.TrySave(out saved, out _), Is.True);
+            Assert.That(saved.MemoryMb, Is.EqualTo(uint.MaxValue));
+            UiControls.FormEdits["limits.memory"] = "4294967296";
+            form.Draw(_listing);
+            Assert.That(form.TrySave(out _, out _), Is.False);
+        }
+
+        [Test]
         public void OpeningAndSavingLeavesBlankLimitsUncapped()
         {
             var form = new ResourceLimitsForm(new SessionLimits());

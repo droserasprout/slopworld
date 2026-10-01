@@ -76,7 +76,7 @@ namespace SlopWorld
         public string ReaderKey = "";
         public string ReaderScope = "";
         public bool ReaderPinned;
-        public int ReaderLine;
+        public uint ReaderLine;
 
         // The application sent a bell that the user has not acknowledged.
         // The daemon clears it when the client subscribes to the pane on opening the terminal.

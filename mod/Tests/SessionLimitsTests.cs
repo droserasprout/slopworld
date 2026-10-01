@@ -28,10 +28,10 @@ namespace SlopWorld.Tests
                 "{\"memory_mb\":512,\"pids\":64,\"nofile\":null,\"cpu_pct\":75}")));
 
             AssertEx.False(limits.IsEmpty, "set limits are not empty");
-            AssertEx.Equal(512, limits.MemoryMb.Value, "memory limit");
-            AssertEx.Equal(64, limits.Pids.Value, "pid limit");
+            AssertEx.Equal(512U, limits.MemoryMb.Value, "memory limit");
+            AssertEx.Equal(64U, limits.Pids.Value, "pid limit");
             AssertEx.False(limits.Nofile.HasValue, "null nofile limit");
-            AssertEx.Equal(75, limits.CpuPct.Value, "CPU limit");
+            AssertEx.Equal(75U, limits.CpuPct.Value, "CPU limit");
             AssertEx.Equal("{\"memory_mb\":512,\"pids\":64,\"cpu_pct\":75}",
                            limits.ToJson(), "only set limits serialize");
 

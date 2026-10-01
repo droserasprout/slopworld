@@ -158,7 +158,7 @@ namespace SlopWorld
             if (info != null && !info.Host && !info.Worker && !string.IsNullOrEmpty(info.Project))
                 opts.Add(new FloatMenuOption("Shell", () =>
                     hub.SessionStore.Run(info.Project, "", "", session => TerminalWindow.Open(session),
-                        UiLayout.Fail, like: name)));
+                        UiLayout.Fail, options: new SessionRunOptions { Like = name })));
 
             if (info != null && !info.Ephemeral && !info.Host)
                 opts.Add(new FloatMenuOption("Storage", () => StoragePage.FocusAgent(name)));

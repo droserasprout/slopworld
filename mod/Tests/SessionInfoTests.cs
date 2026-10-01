@@ -5,6 +5,23 @@ namespace SlopWorld.Tests
 {
     static class SessionInfoTests
     {
+        public static void PreservesUnsignedReaderLine()
+        {
+            foreach (uint line in new[] { 2147483648U, uint.MaxValue })
+            {
+                var session = SessionInfo.FromWire(new Wire.SessionView
+                {
+                    Launch = new Wire.SessionLaunchView(),
+                    Runtime = new Wire.SessionRuntimeView(),
+                    Worker = new Wire.SessionWorkerView(),
+                    Reader = new Wire.SessionReaderView { Line = line },
+                });
+                AssertEx.Equal(line, session.ReaderLine, "reader line preserves wire range");
+                AssertEx.True(PagerCommands.FileCommand("less", "less", "file", session.ReaderLine)
+                    .Contains("+" + line), "restored command preserves unsigned line");
+            }
+        }
+
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             yield return ("reads the complete wire shape", ReadsCompleteWireShape);
@@ -92,8 +109,8 @@ namespace SlopWorld.Tests
             AssertEx.Equal(NetworkMode.Host, session.Network, "effective network");
             AssertEx.Equal(DnsMode.Servers, session.Dns.Mode, "effective DNS mode");
             AssertEx.Sequence(new[] { "8.8.8.8" }, session.Dns.Servers, "effective DNS servers");
-            AssertEx.Equal(1024, session.Limits.MemoryMb.Value, "agent memory limit");
-            AssertEx.Equal(64, session.Limits.Pids.Value, "agent process limit");
+            AssertEx.Equal(1024U, session.Limits.MemoryMb.Value, "agent memory limit");
+            AssertEx.Equal(64U, session.Limits.Pids.Value, "agent process limit");
             AssertEx.True(session.Autostart, "autostart");
             AssertEx.True(session.AutoResume, "auto resume");
             AssertEx.True(session.AutoResumePending, "auto resume pending");
@@ -117,7 +134,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("file-key", session.ReaderKey, "reader key");
             AssertEx.Equal("proj/main", session.ReaderScope, "reader scope");
             AssertEx.True(session.ReaderPinned, "reader pinned");
-            AssertEx.Equal(17, session.ReaderLine, "reader line");
+            AssertEx.Equal(17U, session.ReaderLine, "reader line");
             AssertEx.False(session.Gone, "alive session is not gone");
         }
 
