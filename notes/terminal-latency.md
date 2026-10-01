@@ -3,6 +3,8 @@
 Set `SLOPWORLD_DEBUG=1` in **both the daemon and game process environments** before
 starting them. Both peers must use builds supporting this diagnostic extension.
 Performance and latency tracing share this switch and are off by default.
+Both stage runtime records in a bounded main-thread queue; the frame hook drains
+it to the file only after `EndFrame` (or during shutdown).
 A shell export does not change the environment of an already running service.
 Use the normal service/launcher configuration for your installation.
 

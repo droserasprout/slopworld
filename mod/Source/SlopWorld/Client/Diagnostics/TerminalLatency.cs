@@ -24,11 +24,14 @@ namespace SlopWorld
         {
             internal static readonly Queue<string> Logs = new Queue<string>();
             internal static int DroppedLogs;
-            internal static readonly LatencyTimeline Timeline = new LatencyTimeline(Now, line =>
-            {
-                if (Logs.Count < 1024) Logs.Enqueue(line);
-                else DroppedLogs++;
-            });
+            internal static readonly LatencyTimeline Timeline = new LatencyTimeline(Now, Record);
+        }
+        // Performance and latency producers stage records on the main thread.
+        // Only the post-endpoint drain may call the file sink.
+        internal static void Record(string line)
+        {
+            if (TraceState.Logs.Count < 1024) TraceState.Logs.Enqueue(line);
+            else TraceState.DroppedLogs++;
         }
         internal static LatencyTimeline Timeline => TraceState.Timeline;
         // Flush outside the timed frame endpoint. Logging itself must not block SendBinary.
