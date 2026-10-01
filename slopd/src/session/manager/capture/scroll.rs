@@ -57,12 +57,19 @@ impl Manager {
             let mut e = emu.lock().ok()?;
             e.scroll_snapshot(off)
         };
+        #[cfg(test)]
+        {
+            let pause = self.scroll_capture_pause.lock().unwrap().take();
+            if let Some((reached, release)) = pause {
+                reached.notify_one();
+                release.notified().await;
+            }
+        }
         // Hold this read guard through returning or cache insertion so teardown
         // cannot clear the cache and then receive a stale entry from this request.
         let live = self.live.read().await;
         let current = live.get(name)?;
         if current.run_id != run_id
-            || current.seq != seq
             || current.cols != cols
             || current.rows != rows
             || !current
@@ -73,10 +80,17 @@ impl Manager {
         {
             return None;
         }
-        if achieved == 0 {
+        if achieved == 0
+            || current
+                .screen
+                .as_ref()
+                .is_some_and(|screen| screen.alt_screen || screen.history < history)
+        {
+            // This fallback is the current live frame, so keep its own extent
+            // if output has advanced since the snapshot. Clearing history or
+            // entering the alternate screen also retires the captured rows.
             let mut view = current.screen.clone()?;
             view.request_id = request_id;
-            view.history = history;
             return Some(view);
         }
         let frame = crate::emu::SessionEmu::frame_from_grid(grid, cols, rows, title);
@@ -93,7 +107,13 @@ impl Manager {
             frame,
         );
 
-        if let Ok(mut c) = self.scroll_cache.lock() {
+        // Output can commit while this snapshot waits for the live lock. Its
+        // captured sequence and history extent still let the client translate
+        // the rows. Dropping that reply strands the client's in-flight request.
+        // Return it, but do not replace a cache from the newer live sequence.
+        if current.seq == seq
+            && let Ok(mut c) = self.scroll_cache.lock()
+        {
             c.insert(
                 name.to_string(),
                 CachedScroll {

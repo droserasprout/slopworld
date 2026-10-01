@@ -38,6 +38,8 @@ impl Manager {
             #[cfg(test)]
             frame_commit_pause: Mutex::new(None),
             #[cfg(test)]
+            scroll_capture_pause: Mutex::new(None),
+            #[cfg(test)]
             reader_attach_pause: Mutex::new(None),
             #[cfg(test)]
             input_sink: Mutex::new(None),

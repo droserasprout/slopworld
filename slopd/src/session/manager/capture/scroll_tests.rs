@@ -108,3 +108,119 @@ async fn replacement_emulator_cannot_reuse_a_cache_with_matching_frame_and_size(
     assert_ne!(fresh.lines, old.lines);
     assert!(fresh.lines.iter().any(|line| line.contains("new two")));
 }
+
+#[tokio::test]
+async fn live_update_during_scroll_capture_still_completes_the_request() {
+    let manager = fixture(b"one\r\ntwo\r\nthree\r\nfour\r\nfive").await;
+    let before = manager.screen("agent").await.unwrap();
+    let reached = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    *manager.scroll_capture_pause.lock().unwrap() = Some((reached.clone(), release.clone()));
+    let capture = manager.scroll_capture("agent", 1, 42);
+    tokio::pin!(capture);
+    tokio::select! {
+        () = reached.notified() => {},
+        _ = capture.as_mut() => panic!("capture returned before pause"),
+    }
+
+    let emu = manager.live.read().await["agent"]
+        .capture
+        .emu
+        .clone()
+        .unwrap();
+    let frame = {
+        let mut emu = emu.lock().unwrap();
+        emu.feed(b"\r\nsix");
+        emu.render()
+    };
+    manager.apply_frame("agent", frame).await;
+    // A newer request can finish while the old one is awaiting validation.
+    let fresh = manager.scroll_capture("agent", 1, 43).await.unwrap();
+    release.notify_one();
+    let delayed = capture
+        .await
+        .expect("live output must not strand a scroll request");
+    assert_eq!(delayed.request_id, 42);
+    assert_eq!(delayed.seq, before.seq);
+    assert_eq!(delayed.history, before.history);
+    assert!(delayed.lines[0].contains("two"));
+    assert_eq!(fresh.history, delayed.history + 1);
+    assert!(fresh.lines[0].contains("three"));
+    let cache = manager.scroll_cache.lock().unwrap();
+    assert_eq!(cache["agent"].view.seq, fresh.seq);
+    assert_eq!(cache["agent"].view.lines, fresh.lines);
+}
+
+#[tokio::test]
+async fn incompatible_terminal_change_during_capture_cannot_repopulate_cache() {
+    for change in ["run", "emulator", "size", "removed"] {
+        let manager = fixture(b"one\r\ntwo\r\nthree\r\nfour").await;
+        let reached = Arc::new(tokio::sync::Notify::new());
+        let release = Arc::new(tokio::sync::Notify::new());
+        *manager.scroll_capture_pause.lock().unwrap() = Some((reached.clone(), release.clone()));
+        let capture = manager.scroll_capture("agent", 1, 42);
+        tokio::pin!(capture);
+        tokio::select! {
+            () = reached.notified() => {},
+            _ = capture.as_mut() => panic!("capture returned before pause"),
+        }
+        {
+            let mut live = manager.live.write().await;
+            let current = live.get_mut("agent").unwrap();
+            match change {
+                "run" => current.run_id += 1,
+                "emulator" => {
+                    current.capture.emu = Some(Arc::new(Mutex::new(SessionEmu::new(12, 3))))
+                }
+                "size" => current.rows += 1,
+                _ => {
+                    live.remove("agent");
+                }
+            }
+            manager.forget_scroll("agent");
+        }
+        release.notify_one();
+        assert!(capture.await.is_none(), "{change}");
+        assert!(manager.scroll_cache.lock().unwrap().is_empty(), "{change}");
+    }
+}
+
+#[tokio::test]
+async fn live_fallback_during_capture_preserves_current_metadata() {
+    for (initial, output) in [
+        (b"one".as_slice(), b"\r\ntwo\r\nthree\r\nfour".as_slice()),
+        (b"one\r\ntwo\r\nthree\r\nfour", b"\x1b[3J\rnew"),
+        (b"one\r\ntwo\r\nthree\r\nfour", b"\x1b[?1049hnew"),
+    ] {
+        let manager = fixture(initial).await;
+        let reached = Arc::new(tokio::sync::Notify::new());
+        let release = Arc::new(tokio::sync::Notify::new());
+        *manager.scroll_capture_pause.lock().unwrap() = Some((reached.clone(), release.clone()));
+        let capture = manager.scroll_capture("agent", 1, 42);
+        tokio::pin!(capture);
+        tokio::select! {
+            () = reached.notified() => {},
+            _ = capture.as_mut() => panic!("capture returned before pause"),
+        }
+        let emu = manager.live.read().await["agent"]
+            .capture
+            .emu
+            .clone()
+            .unwrap();
+        let frame = {
+            let mut emu = emu.lock().unwrap();
+            emu.feed(output);
+            emu.render()
+        };
+        manager.apply_frame("agent", frame).await;
+        let live = manager.screen("agent").await.unwrap();
+        release.notify_one();
+        let reply = capture.await.unwrap();
+        assert_eq!(reply.request_id, 42);
+        assert_eq!(reply.off, 0);
+        assert_eq!(reply.seq, live.seq);
+        assert_eq!(reply.history, live.history);
+        assert_eq!(reply.lines, live.lines);
+        assert_eq!(reply.alt_screen, live.alt_screen);
+    }
+}
