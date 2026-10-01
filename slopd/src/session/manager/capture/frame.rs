@@ -268,7 +268,19 @@ impl Manager {
     }
 
     async fn mark_down_inner(self: &Arc<Self>, name: &str, reader_token: &Arc<()>) {
-        let _terminal = self.terminal_boundary(name).write_owned().await;
+        let terminal = self.terminal_boundary(name).write_owned().await;
+        self.mark_down_with_terminal(name, reader_token, &terminal)
+            .await;
+    }
+
+    /// Startup failure already owns this name's terminal writer. Keep that
+    /// protection through cleanup without recursively acquiring the same lock.
+    pub(in crate::session::manager) async fn mark_down_with_terminal(
+        self: &Arc<Self>,
+        name: &str,
+        reader_token: &Arc<()>,
+        _terminal: &tokio::sync::OwnedRwLockWriteGuard<()>,
+    ) {
         let plan = {
             let mut live = self.live.write().await;
             // The token prevents an old reader from detaching its replacement.

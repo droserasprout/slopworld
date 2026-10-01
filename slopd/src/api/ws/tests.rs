@@ -378,7 +378,7 @@ impl Drop for SocketPair {
     }
 }
 
-async fn socket_pair() -> SocketPair {
+async fn raw_socket_pair() -> (WebSocket, ClientSocket, JoinHandle<()>) {
     let (ready, socket) = tokio::sync::oneshot::channel();
     let ready = Arc::new(Mutex::new(Some(ready)));
     let app = axum::Router::new().route(
@@ -407,7 +407,12 @@ async fn socket_pair() -> SocketPair {
     let (client, _) = tokio_tungstenite::connect_async(format!("ws://{address}/"))
         .await
         .unwrap();
-    let (tx, _) = socket.await.unwrap().split();
+    (socket.await.unwrap(), client, server)
+}
+
+async fn socket_pair() -> SocketPair {
+    let (socket, client, server) = raw_socket_pair().await;
+    let (tx, _) = socket.split();
     SocketPair {
         tx: Arc::new(Mutex::new(tx)),
         client,
@@ -846,4 +851,158 @@ async fn frame_pump_stops_when_authority_is_revoked_while_waiting_to_send() {
         .unwrap();
     // Keep the broadcaster alive: termination must come from failed delivery.
     assert_eq!(events.receiver_count(), 0);
+}
+
+#[tokio::test]
+async fn root_panel_subscription_and_history_continue_during_unrelated_lifecycle_work() {
+    let manager = crate::session::test_manager(crate::config::Config {
+        sessions: vec![crate::config::SessionCfg {
+            name: "pager".into(),
+            autostart: false,
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    manager.sync_from_config().await;
+    let mut emu = crate::emu::SessionEmu::new(80, 24);
+    emu.feed(b"pager ready");
+    manager.apply_frame("pager", emu.render()).await;
+    let mut socket = socket_pair().await;
+    let subs: WsSubs = Default::default();
+    let (release, wait) = tokio::sync::oneshot::channel::<()>();
+    let transaction = manager.session_operation(async { wait.await.unwrap() });
+    tokio::pin!(transaction);
+    assert!(futures::poll!(transaction.as_mut()).is_pending());
+    let subscribe = handle_client_msg(
+        ClientMsg::Sub {
+            name: "pager".into(),
+        },
+        &manager,
+        &Cap::Root,
+        &socket.tx,
+        &subs,
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_secs(1), subscribe)
+            .await
+            .expect("subscription waited on unrelated lifecycle")
+    );
+    assert!(
+        matches!(receive(&mut socket.client).await, crate::shared::wire::event::Payload::Screen(s) if s.name == "pager")
+    );
+    let mut scrolls = ScrollReplies::new();
+    assert!(scrolls.enqueue(
+        ScrollReq {
+            name: "pager".into(),
+            off: 0,
+            request_id: 17
+        },
+        &manager,
+        &Cap::Root
+    ));
+    assert!(
+        tokio::time::timeout(
+            Duration::from_secs(1),
+            scrolls.send_next(&socket.tx, &Cap::Root)
+        )
+        .await
+        .unwrap()
+    );
+    receive(&mut socket.client).await;
+    let unsub = handle_client_msg(
+        ClientMsg::Unsub {
+            name: "pager".into(),
+        },
+        &manager,
+        &Cap::Root,
+        &socket.tx,
+        &subs,
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_secs(1), unsub)
+            .await
+            .unwrap()
+    );
+    assert!(subs.lock().await.is_empty());
+    release.send(()).unwrap();
+    transaction.await;
+}
+
+#[tokio::test]
+async fn panel_switch_and_unsubscribe_overtake_an_unfinished_history_capture() {
+    use crate::shared::wire::{self, client_message::Payload as C, event::Payload as E};
+    use futures::SinkExt;
+    use prost::Message as _;
+    let manager = crate::session::test_manager(crate::config::Config {
+        sessions: ["pager", "other"]
+            .into_iter()
+            .map(|name| crate::config::SessionCfg {
+                name: name.into(),
+                autostart: false,
+                ..Default::default()
+            })
+            .collect(),
+        ..Default::default()
+    });
+    manager.sync_from_config().await;
+    for name in ["pager", "other"] {
+        let mut emu = crate::emu::SessionEmu::new(80, 24);
+        emu.feed(b"ready");
+        manager.apply_frame(name, emu.render()).await;
+    }
+    let (socket, mut client, server) = raw_socket_pair().await;
+    let (tx, rx) = socket.split();
+    let subs: WsSubs = Default::default();
+    let mut scrolls = ScrollReplies::new();
+    let (release, wait) = tokio::sync::oneshot::channel::<()>();
+    let permit = scrolls.slots.clone().try_acquire_owned().unwrap();
+    scrolls.pending.push_back(PendingScroll {
+        capture: tokio::spawn(async move {
+            wait.await.unwrap();
+            Some(screen("pager", 17))
+        }),
+        ready: None,
+        _permit: permit,
+    });
+    let mut intake = CommandIntake {
+        tx: Arc::new(Mutex::new(tx)),
+        rx,
+        subs: subs.clone(),
+        auth_changes: manager.auth_changes(),
+        scrolls,
+    };
+    let driving = tokio::spawn(async move { intake.run(&manager, &Cap::Root).await });
+    for command in [
+        C::Sub(wire::NameReq {
+            name: Some("pager".into()),
+        }),
+        C::Unsub(wire::NameReq {
+            name: Some("pager".into()),
+        }),
+        C::Sub(wire::NameReq {
+            name: Some("other".into()),
+        }),
+    ] {
+        client
+            .send(tokio_tungstenite::tungstenite::Message::Binary(
+                wire::ClientMessage {
+                    payload: Some(command),
+                }
+                .encode_to_vec(),
+            ))
+            .await
+            .unwrap();
+    }
+    assert!(matches!(receive(&mut client).await, E::Screen(s) if s.name == "pager" && s.seq != 17));
+    assert!(matches!(receive(&mut client).await, E::Screen(s) if s.name == "other"));
+    assert!(!subs.lock().await.contains_key("pager"));
+    assert!(subs.lock().await.contains_key("other"));
+    release.send(()).unwrap();
+    assert!(matches!(receive(&mut client).await, E::Screen(s) if s.name == "pager" && s.seq == 17));
+    client.close(None).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(1), driving)
+        .await
+        .unwrap()
+        .unwrap();
+    server.abort();
 }

@@ -21,7 +21,9 @@ the editor's **Save as template** action captures through the hub rather than wr
 state.
 
 Unity Mono requires the custom WebSocket transport. Preserve lossless backpressure for
-control/history/replies while coalescing unsolicited live screens. A reconnect inside a
+control/history/replies while coalescing unsolicited live screens. The daemon keeps
+history replies ordered independently of command intake. Panel subscriptions and
+input do not wait for an earlier history capture; request IDs reject obsolete replies. A reconnect inside a
 callback must not redirect the rest of an old batch into the new connection. Closing wakes
 blocked readers and drops queued payload references. `ReceivedEvent` validates canonical live screens before the queue lock without allocating row
 strings. The queue owns the encoded payload until lazy decode on dispatch. Unknown fields,

@@ -254,14 +254,39 @@ impl Manager {
     }
 
     pub(crate) async fn spawn_reader(self: &Arc<Self>, name: &str) -> Result<bool> {
-        self.attach_reader(name, Attachment::Existing).await
+        self.session_operation(async {
+            let terminal = self.terminal_boundary(name).write_owned().await;
+            self.spawn_reader_with_terminal(name, &terminal).await
+        })
+        .await
     }
 
-    pub(crate) async fn start_reader(self: &Arc<Self>, name: &str) -> Result<bool> {
-        self.attach_reader(name, Attachment::Startup).await
+    /// Caller owns the session boundary and this name's terminal writer through
+    /// dimension sampling, attachment, and inline failure cleanup.
+    pub(in crate::session::manager) async fn spawn_reader_with_terminal(
+        self: &Arc<Self>,
+        name: &str,
+        terminal: &tokio::sync::OwnedRwLockWriteGuard<()>,
+    ) -> Result<bool> {
+        self.attach_reader(name, Attachment::Existing, terminal)
+            .await
     }
 
-    async fn attach_reader(self: &Arc<Self>, name: &str, attachment: Attachment) -> Result<bool> {
+    pub(in crate::session::manager) async fn start_reader(
+        self: &Arc<Self>,
+        name: &str,
+        terminal: &tokio::sync::OwnedRwLockWriteGuard<()>,
+    ) -> Result<bool> {
+        self.attach_reader(name, Attachment::Startup, terminal)
+            .await
+    }
+
+    async fn attach_reader(
+        self: &Arc<Self>,
+        name: &str,
+        attachment: Attachment,
+        terminal: &tokio::sync::OwnedRwLockWriteGuard<()>,
+    ) -> Result<bool> {
         let (cols, rows, has_emu) = {
             let live = self.live.read().await;
             match live.get(name) {
@@ -271,6 +296,15 @@ impl Manager {
         };
         if has_emu {
             return Ok(false);
+        }
+
+        #[cfg(test)]
+        {
+            let pause = self.reader_attach_pause.lock().unwrap().take();
+            if let Some((reached, release)) = pause {
+                reached.notify_one();
+                release.notified().await;
+            }
         }
 
         let mut e = SessionEmu::new(cols, rows);
@@ -314,7 +348,7 @@ impl Manager {
         finish_reader(replaced_reader);
 
         if start_tx.send(()).is_err() {
-            self.cleanup_reader_start(name, &reader_token, attachment)
+            self.cleanup_reader_start(name, &reader_token, attachment, terminal)
                 .await;
             return Err(anyhow!("control reader for {name} exited before starting"));
         }
@@ -334,12 +368,12 @@ impl Manager {
                 }
             }
             Ok(Err(error)) => {
-                self.cleanup_reader_start(name, &reader_token, attachment)
+                self.cleanup_reader_start(name, &reader_token, attachment, terminal)
                     .await;
                 Err(anyhow!(error))
             }
             Err(_) => {
-                self.cleanup_reader_start(name, &reader_token, attachment)
+                self.cleanup_reader_start(name, &reader_token, attachment, terminal)
                     .await;
                 Err(anyhow!("control reader for {name} exited before attach"))
             }
@@ -351,9 +385,10 @@ impl Manager {
         name: &str,
         token: &Arc<()>,
         attachment: Attachment,
+        terminal: &tokio::sync::OwnedRwLockWriteGuard<()>,
     ) {
         if matches!(attachment, Attachment::Startup) {
-            self.mark_down(name, token).await;
+            self.mark_down_with_terminal(name, token, terminal).await;
         } else {
             self.release_completed_reader(name, token).await;
         }
@@ -572,3 +607,7 @@ impl Manager {
 #[cfg(test)]
 #[path = "reader_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "reader_boundary_tests.rs"]
+mod boundary_tests;

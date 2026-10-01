@@ -38,6 +38,8 @@ impl Manager {
             #[cfg(test)]
             frame_commit_pause: Mutex::new(None),
             #[cfg(test)]
+            reader_attach_pause: Mutex::new(None),
+            #[cfg(test)]
             input_sink: Mutex::new(None),
             #[cfg(test)]
             _test_directory: None,
@@ -65,7 +67,7 @@ impl Manager {
             auth: Authorization::new(grants),
             session_boundary: Arc::new(tokio::sync::RwLock::new(())),
             terminal_boundaries: Mutex::new(HashMap::new()),
-            resize_mutation: tokio::sync::Mutex::new(()),
+            terminal_resizes: Mutex::new(HashMap::new()),
             tasks: crate::session::manager::TaskStore::new(tasks),
             worker_spawn: tokio::sync::Mutex::new(()),
             worktrees: WorktreeState::default(),

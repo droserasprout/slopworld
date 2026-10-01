@@ -86,11 +86,14 @@ pub struct Manager {
     pub(super) terminal_boundaries:
         Mutex<HashMap<String, std::sync::Weak<tokio::sync::RwLock<()>>>>,
     // Keep tmux resize acceptance and published dimensions in request order.
-    pub(super) resize_mutation: tokio::sync::Mutex<()>,
+    pub(super) terminal_resizes: Mutex<HashMap<String, std::sync::Weak<tokio::sync::Mutex<()>>>>,
     // Prevent child-name collisions and interleaved task/session writes.
     pub(super) worker_spawn: tokio::sync::Mutex<()>,
     #[cfg(test)]
     pub(super) frame_commit_pause:
+        Mutex<Option<(Arc<tokio::sync::Notify>, Arc<tokio::sync::Notify>)>>,
+    #[cfg(test)]
+    pub(super) reader_attach_pause:
         Mutex<Option<(Arc<tokio::sync::Notify>, Arc<tokio::sync::Notify>)>>,
     #[cfg(test)]
     pub(super) input_sink: Mutex<Option<tokio::sync::mpsc::UnboundedSender<Input>>>,

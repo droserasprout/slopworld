@@ -55,16 +55,20 @@ impl ScrollReplies {
         let manager = m.clone();
         let cap = cap.clone();
         let capture = tokio::spawn(async move {
-            manager
-                .session_read_operation(async {
-                    if !manager.cap_ok(&cap, &req.name, Level::Ro).await {
-                        return None;
-                    }
-                    manager
-                        .scroll_capture(&req.name, req.off, req.request_id)
-                        .await
-                })
-                .await
+            let operation = async {
+                if !manager.cap_ok(&cap, &req.name, Level::Ro).await {
+                    return None;
+                }
+                manager
+                    .scroll_capture(&req.name, req.off, req.request_id)
+                    .await
+            };
+            if cap.may_create() {
+                let _terminal = manager.terminal_input_guard(&req.name).await?;
+                operation.await
+            } else {
+                manager.session_read_operation(operation).await
+            }
         });
         self.pending.push_back(PendingScroll {
             capture,
@@ -159,9 +163,9 @@ pub(super) async fn ws_upgrade(
 }
 
 async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
-    let (tx, mut rx) = socket.split();
+    let (tx, rx) = socket.split();
     let tx = Arc::new(Mutex::new(tx));
-    let mut auth_changes = m.auth_changes();
+    let auth_changes = m.auth_changes();
     if m.auth_generation() != generation {
         return;
     }
@@ -175,70 +179,66 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
     }
 
     let pump = spawn_frame_pump(events, tx.clone(), subs.clone(), cap.clone());
-    // Capture scrollback concurrently with command intake, but reply in request order.
-    let mut scrolls = ScrollReplies::new();
-    let mut deferred = VecDeque::new();
-
-    loop {
-        if !scrolls.has_pending()
-            && let Some(cm) = deferred.pop_front()
-        {
-            if let ClientMsg::Scroll(req) = cm {
-                if !scrolls.enqueue(req, &m, &cap) {
-                    tracing::debug!("closing WebSocket after scroll queue overload");
-                    break;
-                }
-            } else if !Box::pin(handle_client_msg(cm, &m, &cap, &tx, &subs)).await {
-                break;
-            }
-            continue;
-        }
-        tokio::select! {
-            biased;
-            invalidated = auth_invalidated(&mut auth_changes, &cap) => {
-                if invalidated { break; }
-            }
-            sent = scrolls.send_next(&tx, &cap), if scrolls.has_pending() => {
-                if !sent { break; }
-            }
-            msg = rx.next() => {
-                let Some(Ok(msg)) = msg else { break };
-                if matches!(msg, Message::Close(_)) { break; }
-                let Message::Binary(bytes) = msg else { continue };
-                let Ok(cm) = super::client_message::decode(&bytes) else {
-                    tracing::debug!("invalid Protobuf command");
-                    continue;
-                };
-
-                if !deferred.is_empty() {
-                    if deferred.len() >= 16 {
-                        tracing::debug!("closing WebSocket after deferred command overload");
-                        break;
-                    }
-                    deferred.push_back(cm);
-                    continue;
-                }
-                if let ClientMsg::Scroll(req) = cm {
-                    // Overload closes the connection; no request disappears without a reply.
-                    if !scrolls.enqueue(req, &m, &cap) {
-                        tracing::debug!("closing WebSocket after scroll queue overload");
-                        break;
-                    }
-                    continue;
-                }
-                if matches!(&cm, ClientMsg::Sub { .. }) && scrolls.has_pending() {
-                    deferred.push_back(cm);
-                    continue;
-                }
-                if !Box::pin(handle_client_msg(cm, &m, &cap, &tx, &subs)).await { break; }
-            }
-        }
-    }
+    let mut intake = CommandIntake {
+        tx,
+        rx,
+        subs: subs.clone(),
+        auth_changes,
+        scrolls: ScrollReplies::new(),
+    };
+    intake.run(&m, &cap).await;
 
     // Clear subscriptions immediately because the frame task also owns this Arc.
     // Aborting the task does not guarantee immediate release of its watch guards.
     subs.lock().await.clear();
     pump.abort();
+}
+
+/// Socket intake remains independent of history capture completion. Replies keep
+/// their own FIFO; subscriptions and input retain their wire arrival order.
+struct CommandIntake {
+    tx: WsTx,
+    rx: futures::stream::SplitStream<WebSocket>,
+    subs: WsSubs,
+    auth_changes: broadcast::Receiver<AuthChange>,
+    scrolls: ScrollReplies,
+}
+
+impl CommandIntake {
+    async fn run(&mut self, m: &Mgr, cap: &Cap) {
+        loop {
+            tokio::select! {
+                biased;
+                invalidated = auth_invalidated(&mut self.auth_changes, cap) => {
+                    if invalidated { break; }
+                }
+                sent = self.scrolls.send_next(&self.tx, cap), if self.scrolls.has_pending() => {
+                    if !sent { break; }
+                }
+                msg = self.rx.next() => {
+                    let Some(Ok(msg)) = msg else { break };
+                    if matches!(msg, Message::Close(_)) { break; }
+                    let Message::Binary(bytes) = msg else { continue };
+                    let Ok(cm) = super::client_message::decode(&bytes) else {
+                        tracing::debug!("invalid Protobuf command");
+                        continue;
+                    };
+
+                    if let ClientMsg::Scroll(req) = cm {
+                        // Overload closes the connection; no request disappears without a reply.
+                        if !self.scrolls.enqueue(req, m, cap) {
+                            tracing::debug!("closing WebSocket after scroll queue overload");
+                            break;
+                        }
+                        continue;
+                    }
+                    // History replies carry their session and request identity. Keep
+                    // their FIFO order, but never put panel switches or input behind them.
+                    if !Box::pin(handle_client_msg(cm, m, cap, &self.tx, &self.subs)).await { break; }
+                }
+            }
+        }
+    }
 }
 
 async fn auth_invalidated(changes: &mut broadcast::Receiver<AuthChange>, cap: &Cap) -> bool {

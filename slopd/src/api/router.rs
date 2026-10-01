@@ -16,6 +16,7 @@ use super::{Mgr, err};
 pub(crate) fn router(m: Mgr) -> Router {
     scoped_routes(m.clone())
         .merge(shared_routes(m.clone()))
+        .merge(snapshot_routes(m.clone()))
         .merge(root_routes())
         .with_state(m)
 }
@@ -23,8 +24,8 @@ pub(crate) fn router(m: Mgr) -> Router {
 fn scoped_routes(m: Mgr) -> Router<Mgr> {
     // Scoped routes revalidate credentials and hold the session boundary through each request.
     Router::new()
-        .route(routes::SESSIONS, get(list).post(create))
-        .route(routes::SESSION, get(one).delete(destroy))
+        .route(routes::SESSIONS, post(create))
+        .route(routes::SESSION, delete(destroy))
         .route(routes::SESSION_CWD, get(cwd))
         .route(routes::SESSION_SANDBOX, get(sandbox))
         .route(routes::SESSION_START, post(start))
@@ -35,8 +36,25 @@ fn scoped_routes(m: Mgr) -> Router<Mgr> {
         .route(routes::SESSION_STATE_RESET, post(reset_state))
         .route(routes::SPAWNABLE_TEMPLATES, get(list_spawnable_templates))
         .route(routes::WORKERS, post(spawn_worker))
-        .route(crate::shared::protocol::WS_PATH, get(ws_upgrade))
         .layer(middleware::from_fn_with_state(m, scoped_request))
+}
+
+fn snapshot_routes(m: Mgr) -> Router<Mgr> {
+    Router::new()
+        .route(routes::SESSIONS, get(list))
+        .route(routes::SESSION, get(one))
+        .route(crate::shared::protocol::WS_PATH, get(ws_upgrade))
+        .layer(middleware::from_fn_with_state(m, snapshot_request))
+}
+
+async fn snapshot_request(State(m): State<Mgr>, req: Request, next: Next) -> Response {
+    if req.extensions().get::<Cap>().is_some_and(Cap::may_create) {
+        // Root snapshots use accepted in-memory state. Maintenance owns external
+        // reloads; a read must not queue behind lifecycle I/O or trigger it itself.
+        next.run(req).await
+    } else {
+        bounded_request(m, req, next, true).await
+    }
 }
 
 fn shared_routes(m: Mgr) -> Router<Mgr> {

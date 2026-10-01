@@ -84,3 +84,55 @@ fn recovered_activity_is_kept_only_for_durable_workers() {
         }
     }
 }
+
+#[tokio::test]
+async fn reconciliation_keeps_attached_worker_identity_without_reprobing_tmux_metadata() {
+    use super::*;
+    let socket = crate::test_support::TmuxSocket::new();
+    let session = SessionCfg {
+        name: "worker".into(),
+        worker: true,
+        parent: "parent".into(),
+        task_id: "task".into(),
+        ..Default::default()
+    };
+    let cfg = Config {
+        sessions: vec![session.clone()],
+        ..Default::default()
+    };
+    let manager = crate::session::test_manager_with_socket(cfg.clone(), socket.path.clone());
+    manager
+        .tmux
+        .spawn(
+            "worker",
+            "/tmp",
+            120,
+            34,
+            &["sleep".into(), "60".into()],
+            false,
+        )
+        .await
+        .unwrap();
+    // Metadata is a recovery source; an attached reader already owns live identity.
+    let stale_identity = uuid::Uuid::new_v4().to_string();
+    manager
+        .tmux
+        .set_worker_metadata("worker", "parent", "task", true, &stale_identity)
+        .await
+        .unwrap();
+    manager
+        .tmux
+        .set_worker_worktree("worker", "stale-project", "stale-worktree")
+        .await
+        .unwrap();
+    let mut row = Live::new(session.clone(), TitleCapture::default());
+    row.capture.emu = Some(Arc::new(Mutex::new(crate::emu::SessionEmu::new(120, 34))));
+    manager.live.write().await.insert("worker".into(), row);
+    for _ in 0..3 {
+        assert!(!manager.session_operation(manager.adopt_orphans(&cfg)).await);
+        let live = manager.live.read().await;
+        assert_eq!(live["worker"].cfg.state_id, session.state_id);
+        assert_eq!(live["worker"].cfg.project, session.project);
+        assert_eq!(live["worker"].cfg.worktree, session.worktree);
+    }
+}

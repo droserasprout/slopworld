@@ -229,3 +229,34 @@ async fn normalized_errors_keep_response_metadata() {
         .unwrap();
     assert_eq!(wire::Error::decode(body).unwrap().error, "bad body");
 }
+
+#[tokio::test]
+async fn root_session_snapshots_continue_during_an_unrelated_lifecycle_transaction() {
+    let manager = crate::session::test_manager(crate::config::Config {
+        sessions: vec![crate::config::SessionCfg {
+            name: "pager".into(),
+            autostart: false,
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    manager.sync_from_config().await;
+    let app = crate::api::router(manager.clone()).layer(Extension(crate::grant::Cap::Root));
+    let (release, wait) = tokio::sync::oneshot::channel::<()>();
+    let transaction = manager.session_operation(async { wait.await.unwrap() });
+    tokio::pin!(transaction);
+    assert!(futures::poll!(transaction.as_mut()).is_pending());
+    for path in ["/api/sessions", "/api/sessions/pager"] {
+        let response = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            app.clone()
+                .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap()),
+        )
+        .await
+        .expect("root snapshot waited on lifecycle I/O")
+        .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+    release.send(()).unwrap();
+    transaction.await;
+}
