@@ -145,9 +145,13 @@ namespace SlopWorld
                         return _summary;
                     }
                     string one = OneLine(Body);
+                    int end = Math.Min(one.Length, SummaryChars);
+                    // UTF-16 truncation must keep both halves of a scalar together.
+                    if (end < one.Length && end > 0 && char.IsHighSurrogate(one[end - 1]) &&
+                        char.IsLowSurrogate(one[end])) end--;
                     _summary = one.Length <= SummaryChars
                         ? one
-                        : one.Substring(0, SummaryChars).TrimEnd() + "...";
+                        : one.Substring(0, end).TrimEnd() + "...";
                 }
                 return _summary;
             }

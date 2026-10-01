@@ -76,3 +76,5 @@ unsigned wire values; an acknowledged mutation succeeds independently of catalog
 
 Session launch options group optional execution and reader metadata. Reader lines and
 resource caps preserve unsigned wire ranges through editing and reader restoration.
+Task mutation queues reserve IDs per operation kind; overlapping callers wait for every
+shared batch outcome, including failures.

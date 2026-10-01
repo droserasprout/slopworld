@@ -89,6 +89,7 @@
     <Compile Include="../Source/SlopWorld/Client/SessionHub/TerminalIO.cs" Link="Source/Client/SessionHub/TerminalIO.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/SessionRunOptions.cs" Link="Source/SessionRunOptions.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/SessionStore.cs" Link="Source/Client/SessionHub/SessionStore.cs" />
+    <Compile Include="../Source/SlopWorld/Client/SessionHub/TaskBatchQueue.cs" Link="Source/TaskBatchQueue.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/TaskStore.cs" Link="Source/Client/SessionHub/TaskStore.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/PeriodicWork.cs" Link="Source/Sim/Lifecycle/PeriodicWork.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/HiddenWorkCadence.cs" Link="Source/Sim/Lifecycle/HiddenWorkCadence.cs" />
