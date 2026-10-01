@@ -61,7 +61,7 @@ namespace SlopWorld
                     case ScalarType.Float:
                         return ((double)_value).ToString("R", CultureInfo.InvariantCulture);
                     case ScalarType.DateTime:
-                        return _value.ToString();
+                        return ((IConvertible)_value).ToString(CultureInfo.InvariantCulture);
                     default: throw new InvalidOperationException("unknown TOML scalar type");
                 }
             }
