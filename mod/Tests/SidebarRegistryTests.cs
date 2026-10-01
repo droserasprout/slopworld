@@ -68,6 +68,9 @@ namespace SlopWorld.Tests
             var registry = new SidebarTabRegistry(input);
             input[0] = files;
             Assert.That(registry.Definitions.ToArray(), Is.EqualTo(new[] { agents, files }), "caller array mutation cannot reorder navigation");
+            Assert.That(registry.Definitions, Is.Not.InstanceOf<SidebarTabDefinition[]>());
+            var exposed = (IList<SidebarTabDefinition>)registry.Definitions;
+            Assert.Throws<NotSupportedException>(() => exposed[0] = files);
             Assert.That(registry.For(SidebarTab.Agents), Is.SameAs(agents));
             Assert.That(registry.FromPersisted("files"), Is.SameAs(files));
             foreach (string name in new[] { null, "", "FILES", "unknown" })

@@ -7,24 +7,24 @@ namespace SlopWorld
 {
     public static partial class AgentSidebar
     {
-        public static float DrawRouted(Rect body, SidebarTab tab)
+        public static float DrawRouted(Rect body)
         {
-            DrawRoutedRows(body, tab, null, body.width, 0f);
+            DrawRoutedRows(body, null, body.width, 0f);
             return RoutedHeight;
         }
 
-        public static void DrawRouted(Rect body, SidebarTab tab, SmoothScroll scroll)
+        public static void DrawRouted(Rect body, SmoothScroll scroll)
         {
             if (body.width <= 0f || body.height <= 0f || RoutedHeight <= 0f) return;
             var geometry = UiScrollBody.Measure(body, RoutedHeight,
                 UiScrollbarReservation.WhenNeeded);
             using (scroll.Scope(body, geometry.View))
             {
-                DrawRoutedRows(body, tab, scroll, geometry.View.width, scroll.Position.y);
+                DrawRoutedRows(body, scroll, geometry.View.width, scroll.Position.y);
             }
         }
 
-        static void DrawRoutedRows(Rect body, SidebarTab tab, SmoothScroll scroll,
+        static void DrawRoutedRows(Rect body, SmoothScroll scroll,
                                    float width, float scrollY)
         {
             if (SmoothScroll.WheelOnly) return;
@@ -49,7 +49,7 @@ namespace SlopWorld
                         rowY + 1f, width - CellX - ArrowW - UiTheme.GapXS - Pad, NameH),
                     Face = Rect.zero,
                 };
-                DrawRoutedRow(row, info, tab);
+                DrawRoutedRow(row, info);
                 // Drawing happens in the scroll-local group, while clicks happen after it has
                 // ended. Clip screen-space hit rectangles to the viewport so partial rows
                 // cannot intercept clicks in the tree or chrome outside the upper pane.
@@ -71,7 +71,7 @@ namespace SlopWorld
             }
         }
 
-        static void DrawRoutedRow(Row row, SessionInfo info, SidebarTab tab)
+        static void DrawRoutedRow(Row row, SessionInfo info)
         {
             bool current = row.Session == TerminalWindow.CurrentName;
             RowChrome.Hover(row.Line, current, true, RowHoverPolicy.OverlayAware);

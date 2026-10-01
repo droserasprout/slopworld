@@ -33,9 +33,7 @@ namespace SlopWorld
                 string source = Settings.FoldedProjects;
                 if (_folded == null || _foldedSource != source)
                 {
-                    _folded = new HashSet<string>();
-                    foreach (var name in source.Split('\n'))
-                        if (name.Length > 0) _folded.Add(name);
+                    _folded = ParseNames(source);
                     _foldedSource = source;
                     _revision++;
                 }
@@ -50,9 +48,7 @@ namespace SlopWorld
                 string source = Settings.SidebarFilter;
                 if (_filter == null || _filterSource != source)
                 {
-                    _filter = new HashSet<string>();
-                    foreach (var name in source.Split('\n'))
-                        if (name.Length > 0) _filter.Add(name);
+                    _filter = ParseNames(source);
                     _filterSource = source;
                     _revision++;
                 }
@@ -62,10 +58,23 @@ namespace SlopWorld
 
         public void SetFolded(string key, bool on)
         {
-            if (on) Folded.Add(key);
-            else Folded.Remove(key);
-            Save(Folded, value => Settings.S.foldedProjects = value);
+            var folded = Folded;
+            bool changed = on ? folded.Add(key) : folded.Remove(key);
+            if (changed) Save(folded, value => Settings.S.foldedProjects = value);
         }
+
+        public void SetFolded(IEnumerable<string> keys, bool on)
+        {
+            var folded = Folded;
+            bool changed = false;
+            foreach (string key in keys)
+                changed |= on ? folded.Add(key) : folded.Remove(key);
+            if (changed) Save(folded, value => Settings.S.foldedProjects = value);
+        }
+
+        static HashSet<string> ParseNames(string source) =>
+            new HashSet<string>((source ?? "").Split(new[] { '\n' },
+                StringSplitOptions.RemoveEmptyEntries), StringComparer.Ordinal);
 
         public void ToggleFilter(string key)
         {

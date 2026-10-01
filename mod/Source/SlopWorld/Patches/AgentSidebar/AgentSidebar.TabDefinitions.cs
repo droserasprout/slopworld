@@ -18,8 +18,8 @@ namespace SlopWorld
                 new SidebarTabDefinition(
                     SidebarTab.Agents, "agents", "agents",
                     "Agents: view all sessions, grouped by project.",
-                    true, true, false,
-                    new SidebarTabHandlers
+                    hasActions: true, canFold: true, canToggleDotfiles: false,
+                    handlers: new SidebarTabHandlers
                     {
                         Draw = DrawAgentTab,
                         Click = Menus,
@@ -31,8 +31,8 @@ namespace SlopWorld
                 new SidebarTabDefinition(
                     SidebarTab.Files, "files", "files",
                     "Files: browse each project's files in a tree.",
-                    true, true, true,
-                    new SidebarTabHandlers
+                    hasActions: true, canFold: true, canToggleDotfiles: true,
+                    handlers: new SidebarTabHandlers
                     {
                         Draw = DrawFilesView,
                         Click = ClickFilesView,
@@ -60,8 +60,8 @@ namespace SlopWorld
                 new SidebarTabDefinition(
                     SidebarTab.Git, "git", "git",
                     "Git: view changes since the last commit in each working tree.",
-                    true, true, false,
-                    new SidebarTabHandlers
+                    hasActions: true, canFold: true, canToggleDotfiles: false,
+                    handlers: new SidebarTabHandlers
                     {
                         Draw = DrawGitView,
                         Click = ClickGitView,
@@ -81,8 +81,8 @@ namespace SlopWorld
                 new SidebarTabDefinition(
                     SidebarTab.Search, "search", "search",
                     "Search: find text in any project.",
-                    true, false, true,
-                    new SidebarTabHandlers
+                    hasActions: true, canFold: false, canToggleDotfiles: true,
+                    handlers: new SidebarTabHandlers
                     {
                         Draw = () => SearchView.Draw(Body),
                         Click = SearchView.Clicks,
@@ -95,8 +95,8 @@ namespace SlopWorld
                 new SidebarTabDefinition(
                     SidebarTab.Tasks, "tasks", "tasks",
                     "Tasks: view and manage delegated tasks.",
-                    true, false, false,
-                    new SidebarTabHandlers
+                    hasActions: true, canFold: false, canToggleDotfiles: false,
+                    handlers: new SidebarTabHandlers
                     {
                         Draw = () => TasksView.Draw(Body),
                         Click = TasksView.Clicks,
@@ -109,14 +109,15 @@ namespace SlopWorld
                     SidebarTab.Library, "library", "library",
                     "Library: manage saved items, projects, worktrees, and presets. " +
                     "Saved items include templates, prompts, commands, breadcrumbs, and file actions.",
-                    true, true, false,
-                    new SidebarTabHandlers
+                    hasActions: true, canFold: true, canToggleDotfiles: false,
+                    handlers: new SidebarTabHandlers
                     {
                         Draw = () => LibraryView.Draw(Body),
                         Click = LibraryView.Clicks,
                         Close = LibraryView.Closed,
                         DrawActions = DrawLibraryActions,
-                        Refresh = () => LibraryView.Refresh(UiLayout.Fail),
+                        Refresh = RefreshLibrary,
+                        Reselected = RefreshLibrary,
                         // Fetch on entry as well, including when socket updates are unavailable.
                         Entered = () => LibraryView.Refresh(),
                         SetAllFolds = LibraryView.SetAllFolded,
@@ -131,11 +132,11 @@ namespace SlopWorld
         static void DrawReaderView(SidebarTab tab)
         {
             var body = Body;
-            PrepareRouted(tab);
+            PrepareRouted();
             var split = FilesSplit(body);
             HandleFilesDivider(body, split);
             split = FilesSplit(body);
-            DrawRouted(ToRect(split.Upper), tab, Interaction.FilesRoutedScroll);
+            DrawRouted(ToRect(split.Upper), Interaction.FilesRoutedScroll);
             if (tab == SidebarTab.Files)
                 FilesView.Draw(ToRect(split.Lower), !Interaction.FilesDividerDragging);
             else
@@ -166,7 +167,7 @@ namespace SlopWorld
 
         static void SetAgentFolds(bool folded)
         {
-            foreach (var key in Layout.Order) Fold(key, folded);
+            Projects.SetFolded(Layout.Order, folded);
         }
 
         static bool AllAgentsFolded()
@@ -228,13 +229,15 @@ namespace SlopWorld
                 "Refresh Git status for every working tree.", GitView.Refresh);
         }
 
+        static void RefreshLibrary() => LibraryView.Refresh(UiLayout.Fail);
+
         static void DrawLibraryActions(SidebarTabActionContext context)
         {
             var r = ActionRect(context);
             DrawFoldAction(ref r);
             DrawLibraryProjectFilterAction(ref r);
             Tab(r, Icons.Refresh, false, "Refresh the Library data.",
-                () => LibraryView.Refresh(UiLayout.Fail));
+                RefreshLibrary);
         }
 
         static void DrawLibraryProjectFilterAction(ref Rect r)

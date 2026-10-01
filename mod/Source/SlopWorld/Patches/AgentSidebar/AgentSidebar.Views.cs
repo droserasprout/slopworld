@@ -355,7 +355,7 @@ namespace SlopWorld
 
         static readonly RoutedSessionRows RoutedCache = new RoutedSessionRows();
 
-        static void PrepareRouted(SidebarTab tab)
+        static void PrepareRouted()
         {
             FileReaders.Restore();
             Layout.ViewRows.Clear();
@@ -390,15 +390,19 @@ namespace SlopWorld
                 return order;
             }
 
-            // Tree views have no Rows, but Alt+number must still return to an agent.
-            foreach (var key in Layout.Order)
-                foreach (int i in Layout.Buckets[key])
-                    if (Layout.Named.TryGetValue(i, out var session) && session != null)
-                    {
-                        var info = SnapshotGet(session);
-                        if (info != null && PassesStatus(info.State)) order.Add(session);
-                    }
-            return order;
+            // Tree views clear geometry. Read the colonist inventory independently so
+            // Alt+number works even before the Agents tab has ever been laid out.
+            var agents = new List<SessionInfo>();
+            var bar = Find.ColonistBar;
+            if (bar != null)
+                foreach (var entry in bar.Entries)
+                {
+                    var info = SnapshotGet(Session(entry.pawn));
+                    if (info != null && !info.Host && !info.Ephemeral && !info.Worker &&
+                        !IsRouted(info) && Passes(info.Project) && PassesStatus(info.State))
+                        agents.Add(info);
+                }
+            return SidebarAgentRows.OrderAgents(agents, AgentColony.CompareNames);
         }
 
         public static List<string> WalkOrder()

@@ -125,8 +125,8 @@ namespace SlopWorld
                 GUIUtility.hotControl = 0;
             Interaction.FilesDividerControl = 0;
             Interaction.FilesDividerDragging = false;
+            if (Interaction.FilesDividerChanged) Settings.S.Write();
             Interaction.FilesDividerChanged = false;
-            Settings.S.Write();
         }
 
         static void Click(Row row, SessionInfo info)
@@ -211,11 +211,11 @@ namespace SlopWorld
 
         static void SetWidth(float w)
         {
-            float before = Width;
+            float before = Settings.S.sidebarWidth;
             Settings.S.sidebarWidth = Mathf.Clamp(w, MinWidth, MaxWidth);
-            if (Mathf.Abs(Width - before) > 0.01f)
+            if (Mathf.Abs(Settings.S.sidebarWidth - before) > 0.01f)
                 Interaction.WidthChanged = true;
-            Patch_MainTabWindowShift.Reposition();
+            DeferLayoutChange();
         }
 
         static void EndResize()
@@ -227,7 +227,7 @@ namespace SlopWorld
             if (Interaction.WidthChanged)
             {
                 Interaction.WidthChanged = false;
-                RefreshPanels();
+                DeferLayoutChange(refreshPanels: true);
             }
             Settings.S.Write();
         }
@@ -241,8 +241,28 @@ namespace SlopWorld
         // instances, field focus, and scroll positions alive.
         public static void LayoutChanged()
         {
+            DeferLayoutChange(refreshPanels: true);
+        }
+
+        static int _layoutChangeFrame = -1;
+        static bool _refreshAfterLayout;
+
+        static void DeferLayoutChange(bool refreshPanels = false)
+        {
+            _layoutChangeFrame = Time.frameCount;
+            _refreshAfterLayout |= refreshPanels;
+        }
+
+        // WorkspaceLayout holds geometry for the entire frame. Apply dependent changes
+        // from Root.OnGUI only after the new settings can enter its next snapshot.
+        internal static void ApplyPendingLayoutChange()
+        {
+            if (_layoutChangeFrame < 0 || _layoutChangeFrame == Time.frameCount) return;
+            _layoutChangeFrame = -1;
+            bool refresh = _refreshAfterLayout;
+            _refreshAfterLayout = false;
             Patch_MainTabWindowShift.Reposition();
-            RefreshPanels();
+            if (refresh) RefreshPanels();
         }
 
         static void Absorb()
