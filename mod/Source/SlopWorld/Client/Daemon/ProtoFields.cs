@@ -7,6 +7,11 @@ using Google.Protobuf.Reflection;
 namespace SlopWorld
 {
     // Editor-only leaf snapshots. Generated messages own the schema and binary codec.
+    // Maps must have string keys. Message values are traversed; repeated fields are
+    // atomic object[] leaves, compared in order and replaced as a whole by Apply.
+    // Paths use protobuf field names separated by dots. Map-key segments escape
+    // '~' as '~0' and '.' as '~1'; split the path before unescaping each key.
+    // Apply accepts these leaf paths and values, not arbitrary protobuf field masks.
     internal static class ProtoFields
     {
         public static string Escape(string key) => key.Replace("~", "~0").Replace(".", "~1");
