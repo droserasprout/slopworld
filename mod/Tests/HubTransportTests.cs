@@ -16,12 +16,14 @@ namespace SlopWorld.Tests
             public IncomingMessageQueue Incoming { get; } = new IncomingMessageQueue();
             public readonly List<Wire.ClientMessage> Sent = new List<Wire.ClientMessage>();
             public int Disposals;
+            public bool ThrowOnConnect;
             public string Host, Path, Token;
             public int Port;
             public Socket(bool connects = true, string error = null) { _connects = connects; LastError = error; }
             public bool Connect(string host, int port, string path, string token, int timeoutMs = 3000)
             {
                 Host = host; Port = port; Path = path; Token = token;
+                if (ThrowOnConnect) { Connected = true; throw new InvalidOperationException("setup failed"); }
                 return Connected = _connects;
             }
             public void SendBinary(byte[] payload) => Sent.Add(Wire.ClientMessage.Parser.ParseFrom(payload));
@@ -52,6 +54,94 @@ namespace SlopWorld.Tests
                 Hub.Disconnect();
                 Settings.S.autoConnect = _autoConnect;
                 UnityEngine.Time.realtimeSinceStartup = _time;
+            }
+        }
+
+        public static void EveryConnectionAttemptInvalidatesCapabilitiesBeforeScheduling()
+        {
+            var previous = DaemonCapabilities.Current;
+            try
+            {
+                var first = new Socket();
+                using var env = new Environment(first, new Socket(false, "refused"), new Socket());
+                var capabilities = DaemonCapabilities.FromWire(new Wire.Capabilities { Runtime = "slopcar" });
+                int attempts = 0;
+                env.Hub.OnConnecting = () => { capabilities = DaemonCapabilities.Reset(); attempts++; };
+                env.Hub.Connect();
+                Assert.That(capabilities.Known, Is.False, "manual attempt invalidates before completion");
+                Assert.That(DaemonCapabilities.Current, Is.SameAs(capabilities));
+                env.Complete();
+                env.Hub.Update();
+                Assert.That(capabilities.Known, Is.False, "socket success is not a capability announcement");
+                capabilities = DaemonCapabilities.FromWire(new Wire.Capabilities { Runtime = "native" });
+                first.Connected = false;
+                env.Hub.Update();
+                UnityEngine.Time.realtimeSinceStartup += 1f;
+                env.Hub.Update();
+                Assert.That(capabilities.Known, Is.False, "automatic retry invalidates both views");
+                Assert.That(DaemonCapabilities.Current, Is.SameAs(capabilities));
+                env.Complete();
+                env.Hub.Update();
+                UnityEngine.Time.realtimeSinceStartup += 2f;
+                env.Hub.Update();
+                Assert.That(attempts, Is.EqualTo(3), "failed attempts also notify before retry");
+                Assert.That(capabilities.Known, Is.False);
+            }
+            finally { DaemonCapabilities.Current = previous; }
+        }
+
+        public static void SocketSetupExceptionsArePumpedAndRetryAfterBackoff()
+        {
+            var broken = new Socket { ThrowOnConnect = true };
+            using var env = new Environment(broken, new Socket());
+            env.Hub.Connect();
+            env.Complete();
+            Assert.That(env.Hub.Status, Is.EqualTo("connecting"), "worker cannot publish UI state");
+            Assert.That(broken.Disposals, Is.Zero, "main thread owns failed socket cleanup");
+            env.Hub.Update();
+            Assert.That(broken.Disposals, Is.EqualTo(1));
+            Assert.That(env.Hub.Status, Is.EqualTo("offline: setup failed"));
+            UnityEngine.Time.realtimeSinceStartup += 1f;
+            env.Hub.Update();
+            env.Complete();
+            env.Hub.Update();
+            Assert.That(env.Hub.Connected, Is.True, "exception releases attempt for retry");
+        }
+
+        public static void FactoryAndSchedulerExceptionsRecoverAndStaleFailuresAreIgnored()
+        {
+            using var env = new Environment();
+            foreach (bool schedulerFails in new[] { false, true })
+            {
+                bool fail = true;
+                var socket = new Socket();
+                var pending = new Queue<Action>();
+                var hub = new HubTransport(
+                    () => { if (fail) throw new InvalidOperationException("factory failed"); return socket; },
+                    action => { if (fail && schedulerFails) throw new InvalidOperationException("scheduler failed"); pending.Enqueue(action); });
+                try
+                {
+                    hub.Connect();
+                    if (!schedulerFails) pending.Dequeue()();
+                    hub.Update();
+                    Assert.That(hub.Status, Is.EqualTo("offline: " + (schedulerFails ? "scheduler" : "factory") + " failed"));
+                    Assert.That(pending, Is.Empty, "backoff prevents immediate retry");
+                    fail = false;
+                    UnityEngine.Time.realtimeSinceStartup += 1f;
+                    hub.Update();
+                    pending.Dequeue()();
+                    hub.Update();
+                    Assert.That(hub.Connected, Is.True);
+                    fail = true;
+                    hub.Connect();
+                    if (!schedulerFails) pending.Dequeue()();
+                    fail = false;
+                    hub.Connect();
+                    pending.Dequeue()();
+                    hub.Update();
+                    Assert.That(hub.Connected, Is.True, "stale failure cannot replace newer success");
+                }
+                finally { hub.Disconnect(); }
             }
         }
 

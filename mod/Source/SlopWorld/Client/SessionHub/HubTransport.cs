@@ -11,6 +11,7 @@ namespace SlopWorld
     {
         // The coordinator assigns callbacks after creating the services.
         // These callbacks keep connection and message handling outside the transport.
+        public Action OnConnecting = null;
         public Action OnConnected = null;
         public Action<Wire.Event> OnMessage = null;
 
@@ -162,18 +163,27 @@ namespace SlopWorld
             int serial = ++_connectSerial;
             _connecting = true;
             Status = "connecting";
-            _queueConnect(() =>
+            OnConnecting?.Invoke();
+            try { _queueConnect(() => OpenSocket(connection, serial)); }
+            catch (Exception error)
             {
-                var socket = _socketFactory();
-                bool connected = socket.Connect(connection.Host, connection.Port, WireProtocol.WsPath,
-                                                connection.Token);
-                _connectResults.Enqueue(new ConnectResult
-                {
-                    Serial = serial,
-                    Socket = socket,
-                    Error = connected ? null : socket.LastError,
-                });
-            });
+                _connectResults.Enqueue(new ConnectResult { Serial = serial, Error = error.Message });
+            }
+        }
+
+        void OpenSocket(ConnectionInfo connection, int serial)
+        {
+            // Transfer even a partially initialized socket to the main-thread result
+            // pump, which owns disposal, stale-attempt rejection, and retry timing.
+            var result = new ConnectResult { Serial = serial };
+            try
+            {
+                result.Socket = _socketFactory();
+                if (!result.Socket.Connect(connection.Host, connection.Port, WireProtocol.WsPath, connection.Token))
+                    result.Error = result.Socket.LastError ?? "connection failed";
+            }
+            catch (Exception error) { result.Error = error.Message; }
+            _connectResults.Enqueue(result);
         }
 
         void PumpConnectResults()
@@ -190,7 +200,7 @@ namespace SlopWorld
                 }
 
                 _connecting = false;
-                if (result.Socket != null && result.Socket.Connected)
+                if (result.Error == null && result.Socket != null && result.Socket.Connected)
                 {
                     _ws = result.Socket;
                     Status = "connected";

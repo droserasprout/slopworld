@@ -7,6 +7,7 @@ namespace SlopWorld
     public sealed class DaemonCapabilities
     {
         public static DaemonCapabilities Current = new DaemonCapabilities();
+        public static DaemonCapabilities Reset() => Current = new DaemonCapabilities();
         public bool Known;
         public string Runtime = "native";
         public bool AudioPlayback = true;

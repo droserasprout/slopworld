@@ -36,6 +36,8 @@ namespace SlopWorld
             _catalog = new HubCatalog(() => _sessions.Refresh());
             _terminal = new TerminalIO(_transport);
             _audio = new AudioBus(_transport);
+            // A new attempt may target a different runtime. Do not reuse its predecessor's capabilities.
+            _transport.OnConnecting = () => Capabilities = DaemonCapabilities.Reset();
             _transport.OnConnected = () =>
             {
                 _connectionGeneration++;
