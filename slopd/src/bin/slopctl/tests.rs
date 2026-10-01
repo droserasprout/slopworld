@@ -964,25 +964,25 @@ fn worktree_options_preserve_selection_and_reject_ambiguous_requests() {
     .unwrap_err();
     assert_eq!(
         parse_command(&words("worktree remove abc --project repo")),
-        Ok(Command::Worktree {
+        Ok(Command::Worktree(crate::commands::WorktreeArgs {
             action: "remove".into(),
             project: "repo".into(),
             id: "abc".into(),
             name: String::new(),
             base: String::new(),
             path: String::new()
-        })
+        }))
     );
     assert_eq!(
         parse_command(&words("worktree rename abc --project repo --name feature")),
-        Ok(Command::Worktree {
+        Ok(Command::Worktree(crate::commands::WorktreeArgs {
             action: "rename".into(),
             project: "repo".into(),
             id: "abc".into(),
             name: "feature".into(),
             base: String::new(),
             path: String::new()
-        })
+        }))
     );
 }
 

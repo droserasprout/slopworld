@@ -34,67 +34,33 @@ pub(super) fn valid_name(name: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn write_definition(path: &std::path::Path, definition: &PresetDefinition) -> anyhow::Result<()> {
+pub(super) fn save_definition_in(dir: &Path, definition: &PresetDefinition) -> anyhow::Result<()> {
+    let (kind, name) = match definition {
+        PresetDefinition::Sandbox(preset) => (PresetKind::SandboxPresets, &preset.name),
+        PresetDefinition::Command(preset) => (PresetKind::AppPresets, &preset.name),
+    };
+    let target = user_file_path(dir, kind, name)?;
     let text = match definition {
         PresetDefinition::Sandbox(preset) => toml::to_string_pretty(&**preset)?,
         PresetDefinition::Command(preset) => toml::to_string_pretty(&**preset)?,
     };
     // Presets intentionally retain the existing umask-controlled permission policy.
-    crate::paths::write_atomic(path, &text, None)
+    crate::paths::write_atomic(&target, &text, None)
 }
 
-fn write_user_file(
-    kind: PresetKind,
-    name: &str,
-    sandbox: Option<SandboxPreset>,
-    command: Option<CommandPreset>,
-) -> anyhow::Result<()> {
+fn user_file_path(dir: &Path, kind: PresetKind, name: &str) -> anyhow::Result<PathBuf> {
     valid_name(name)?;
-    write_user_file_in(&Table::dir(), kind, name, sandbox, command)
-}
-
-pub(super) fn write_user_file_in(
-    dir: &std::path::Path,
-    kind: PresetKind,
-    name: &str,
-    sandbox: Option<SandboxPreset>,
-    command: Option<CommandPreset>,
-) -> anyhow::Result<()> {
     let kind_dir = dir.join(kind.as_str());
     std::fs::create_dir_all(&kind_dir)?;
-    let target = kind_dir.join(format!("{name}.toml"));
-    let definition = match kind {
-        PresetKind::SandboxPresets => {
-            sandbox.map(|preset| PresetDefinition::Sandbox(Box::new(preset)))
-        }
-        PresetKind::AppPresets => command.map(|preset| PresetDefinition::Command(Box::new(preset))),
-    };
-    match definition {
-        Some(definition) => write_definition(&target, &definition),
-        None => {
-            if target.exists() {
-                std::fs::remove_file(target)?;
-            }
-            Ok(())
-        }
-    }
-}
-
-fn save_definition(definition: PresetDefinition) -> anyhow::Result<()> {
-    match definition {
-        PresetDefinition::Sandbox(preset) => {
-            let name = preset.name.clone();
-            write_user_file(PresetKind::SandboxPresets, &name, Some(*preset), None)
-        }
-        PresetDefinition::Command(preset) => {
-            let name = preset.name.clone();
-            write_user_file(PresetKind::AppPresets, &name, None, Some(*preset))
-        }
-    }
+    Ok(kind_dir.join(format!("{name}.toml")))
 }
 
 fn remove_user(kind: PresetKind, name: &str) -> anyhow::Result<()> {
-    write_user_file(kind, name, None, None)
+    let target = user_file_path(&Table::dir(), kind, name)?;
+    if target.exists() {
+        std::fs::remove_file(target)?;
+    }
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -155,7 +121,7 @@ pub fn copy_builtin(kind: PresetKind, old_name: &str, target: &str) -> Result<()
     let users = current_users()?;
     let definition = copy_definition(kind, old_name, target, &builtins, &users)?;
     valid_name(target).map_err(|error| PresetError::Invalid(error.to_string()))?;
-    save_definition(definition).map_err(PresetError::Storage)
+    save_definition_in(&Table::dir(), &definition).map_err(PresetError::Storage)
 }
 
 /// Validate an API replacement against the table containing that replacement, then persist it.
@@ -191,7 +157,7 @@ pub fn validate_and_save(definition: PresetDefinition) -> Result<(), PresetError
             }
         }
     }
-    save_definition(definition).map_err(PresetError::Storage)
+    save_definition_in(&Table::dir(), &definition).map_err(PresetError::Storage)
 }
 
 pub(super) fn check_delete(
