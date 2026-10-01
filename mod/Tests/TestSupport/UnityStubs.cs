@@ -159,6 +159,7 @@ namespace UnityEngine
 
     public static class GUIUtility
     {
+        public static string systemCopyBuffer;
         public static Vector2 Origin;
         public static Vector2 GUIToScreenPoint(Vector2 p) => new Vector2(p.x + Origin.x, p.y + Origin.y);
     }

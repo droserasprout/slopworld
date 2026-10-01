@@ -11,6 +11,9 @@ reads. It aborts the request because asynchronous Mono HTTP does not reliably ho
 `Timeout`. Keep the 32 MiB response bound and release admission on every outcome.
 `python3 bench/terminal-input/test_http_transport_mono.py` exercises the production
 transport on system Mono without Unity.
+Clipboard channels share pending request outcomes with all callers. Repeated copies
+verify current desktop contents before skipping a write; cached text does not prove ownership.
+
 Its completion pump yields after 32 callbacks or approximately 2 ms.
 Individual callbacks remain indivisible, so large result handlers still need bounded work.
 
