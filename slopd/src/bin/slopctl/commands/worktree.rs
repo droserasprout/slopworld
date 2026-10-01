@@ -1,3 +1,5 @@
+//! Worktree command parsing and execution share one owned argument record.
+
 use super::super::format::print_json;
 use super::super::http::{Endpoint, request};
 use super::Command;
@@ -45,23 +47,24 @@ pub(super) fn parse_worktree(args: &[String]) -> Result<Command, String> {
     if project.is_empty() || (action == "rename" && name.is_empty()) {
         return Err(WORKTREE_USAGE.into());
     }
-    Ok(Command::Worktree {
+    Ok(Command::Worktree(WorktreeArgs {
         action,
         project,
         name,
         base,
         path,
         id,
-    })
+    }))
 }
 
-pub(super) struct WorktreeArgs {
-    pub(super) action: String,
-    pub(super) project: String,
-    pub(super) name: String,
-    pub(super) base: String,
-    pub(super) path: String,
-    pub(super) id: String,
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct WorktreeArgs {
+    pub(crate) action: String,
+    pub(crate) project: String,
+    pub(crate) name: String,
+    pub(crate) base: String,
+    pub(crate) path: String,
+    pub(crate) id: String,
 }
 
 pub(super) fn run(

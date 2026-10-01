@@ -13,6 +13,8 @@ use super::logs::{LOGS_USAGE, run_logs};
 
 pub(crate) use task::{InboxFilter, UpdateAction};
 pub(crate) use worker::{SpawnArgs, WorktreeChoice};
+#[cfg(test)]
+pub(crate) use worktree::WorktreeArgs;
 
 #[cfg(test)]
 pub(crate) use agent::{AGENT_CREATE_USAGE, AGENT_USAGE, run_agent_create};
@@ -72,14 +74,7 @@ SLOPD_ENDPOINT selects endpoint.toml. SLOPD_URL and SLOPD_TOKEN override it.
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Command {
-    Worktree {
-        action: String,
-        project: String,
-        name: String,
-        base: String,
-        path: String,
-        id: String,
-    },
+    Worktree(worktree::WorktreeArgs),
     Help {
         usage: &'static str,
     },
@@ -236,26 +231,7 @@ impl Command {
         json_output: bool,
     ) -> Result<(), String> {
         match self {
-            Self::Worktree {
-                action,
-                project,
-                name,
-                base,
-                path,
-                id,
-            } => worktree::run(
-                endpoint,
-                session,
-                json_output,
-                worktree::WorktreeArgs {
-                    action,
-                    project,
-                    name,
-                    base,
-                    path,
-                    id,
-                },
-            ),
+            Self::Worktree(args) => worktree::run(endpoint, session, json_output, args),
             Self::Help { usage } => {
                 print!("{usage}");
                 Ok(())

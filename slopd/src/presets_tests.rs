@@ -612,15 +612,12 @@ fn saving_one_preset_does_not_reserialize_an_unrelated_file() {
     let original = "# keep this comment\nname = \"other\"\ndescription = \"handwritten\"\n";
     std::fs::write(&untouched, original).unwrap();
 
-    write_user_file_in(
+    save_definition_in(
         &dir,
-        PresetKind::SandboxPresets,
-        "changed",
-        Some(SandboxPreset {
+        &PresetDefinition::Sandbox(Box::new(SandboxPreset {
             name: "changed".into(),
             ..Default::default()
-        }),
-        None,
+        })),
     )
     .unwrap();
 
@@ -633,16 +630,13 @@ fn saving_one_preset_does_not_reserialize_an_unrelated_file() {
 fn user_files_are_direct_definitions_in_their_kind_directory() {
     let dir = std::env::temp_dir().join(format!("slopd-preset-direct-{}", std::process::id()));
     drop(std::fs::remove_dir_all(&dir));
-    write_user_file_in(
+    save_definition_in(
         &dir,
-        PresetKind::AppPresets,
-        "tool",
-        None,
-        Some(CommandPreset {
+        &PresetDefinition::Command(Box::new(CommandPreset {
             name: "tool".into(),
             cmd: "tool".into(),
             ..Default::default()
-        }),
+        })),
     )
     .unwrap();
 
