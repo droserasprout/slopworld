@@ -81,7 +81,7 @@ namespace SlopWorld
             _lastGc = gc;
             foreach (var pair in Samples) AppendSample(text, pair.Key, pair.Value);
             MemoryTrace.Append(text, now);
-            TerminalLatencyFrame.WriteRecord(text.ToString());
+            TerminalLatency.Record(text.ToString());
             Samples.Clear();
         }
 

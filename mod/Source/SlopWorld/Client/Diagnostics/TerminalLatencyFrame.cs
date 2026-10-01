@@ -13,7 +13,7 @@ namespace SlopWorld
 
         // Dedicated file avoids Verse's global message cap during input storms.
         // One main-thread writer flushes once per frame after the timed endpoint.
-        internal static void WriteRecord(string line)
+        static void WriteRecord(string line)
         {
             if (_failed || _output == null) return;
             try { _output.WriteLine(line); }
