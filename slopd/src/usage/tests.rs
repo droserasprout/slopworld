@@ -495,3 +495,32 @@ async fn polling_laps_preserve_failure_deadlines_and_publish_placeholder_toggles
             .poll
     );
 }
+
+#[test]
+fn merged_usage_preserves_each_providers_last_good_timestamp() {
+    let good = Snapshot {
+        ok: true,
+        fetched_ms: 42,
+        windows: vec![Window {
+            key: CLAUDE_SESSION.into(),
+            label: "session".into(),
+            pct: 10.0,
+            unit: Unit::Pct,
+            amount: None,
+            limit: None,
+            resets_in: Some(100),
+        }],
+        ..Default::default()
+    };
+    let failed = Snapshot::failed(&good, "offline");
+    let fresh = Snapshot {
+        fetched_ms: 99,
+        ..good.clone()
+    };
+    let merged = merge(
+        [("anthropic", &failed), ("openai", &fresh)],
+        &crate::config::Daemon::default(),
+    );
+    assert_eq!(merged.source_fetched_ms["anthropic"], 42);
+    assert_eq!(merged.source_fetched_ms["openai"], 99);
+}

@@ -5,6 +5,35 @@ namespace SlopWorld.Tests
 {
     static class UsageInfoTests
     {
+        public static void PartialFailureKeepsIndependentProviderCountdowns()
+        {
+            ulong now = (ulong)DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var snapshot = new Wire.UsageSnapshot
+            {
+                Ok = true,
+                Sources = { "a", "b" },
+                SourceFetchedMs = { { "a", now }, { "b", now } },
+                Rows = {
+                    new Wire.UsageRow { Key = "a", Provider = "a", Window = new Wire.UsageWindow { Key = "a", ResetsIn = 100 } },
+                    new Wire.UsageRow { Key = "b", Provider = "b", Window = new Wire.UsageWindow { Key = "b", ResetsIn = 100 } },
+                },
+            };
+            UnityEngine.Time.realtimeSinceStartup = 100;
+            var previous = UsageInfo.FromWire(snapshot);
+            UnityEngine.Time.realtimeSinceStartup = 140;
+            snapshot.Ok = false;
+            snapshot.FailedSources.Add("a");
+            snapshot.SourceFetchedMs["b"] = now + 40000;
+            var partial = UsageInfo.FromWire(snapshot, previous);
+            AssertEx.Equal(previous.Heard, partial.Heard, "aggregate timestamp preserved");
+            AssertEx.Equal(60L, partial.Remaining(partial.Row("a").Window), "failed provider retains anchor");
+            AssertEx.Equal(100L, partial.Remaining(partial.Row("b").Window), "healthy provider gets fresh anchor");
+            UnityEngine.Time.realtimeSinceStartup = 150;
+            var repeated = UsageInfo.FromWire(snapshot, partial);
+            AssertEx.Equal(50L, repeated.Remaining(repeated.Row("a").Window), "retained countdown continues");
+            AssertEx.Equal(90L, repeated.Remaining(repeated.Row("b").Window), "unchanged healthy poll is not refreshed twice");
+        }
+
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             yield return ("keeps provider failure local", KeepsProviderFailureLocal);

@@ -301,6 +301,7 @@ message UsageSnapshot {
   repeated UsageWindow windows = 7;
   repeated UsageCatalogEntry catalog = 8;
   repeated UsageRow rows = 9;
+  map<string, uint64> source_fetched_ms = 10;
 }
 
 message Capabilities {
