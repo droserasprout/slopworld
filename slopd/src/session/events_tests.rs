@@ -18,7 +18,7 @@ fn event_message_reuses_its_encoded_protobuf() {
 }
 
 #[test]
-fn every_event_uses_its_contract_tag_and_payload_name() {
+fn every_event_encodes_its_protobuf_payload() {
     let screen = ScreenView {
         input_timings: Vec::new(),
         name: String::new(),
@@ -38,29 +38,12 @@ fn every_event_uses_its_contract_tag_and_payload_name() {
         request_id: 0,
         lines: Vec::new(),
     };
-    // Each case pairs an event with its wire tag and payload key.
+    // Exercise the production encoder, including its Serde-to-Protobuf projections.
     let events = [
         (
             Event::Capabilities {
-                capabilities: crate::runtime::Capabilities {
-                    runtime: "native",
-                    audio_playback: true,
-                    ncspot: true,
-                    clipboard: true,
-                    desktop_open: true,
-                    per_session_limits: true,
-                    host_network_is_container: false,
-                    host_terminals_are_container: false,
-                    terminal: crate::runtime::TerminalCapabilities {
-                        scrollback_lines: crate::tmux::SCROLLBACK_LINES,
-                        min_cols: crate::shared::protocol::TERMINAL_MIN_COLS,
-                        max_cols: crate::shared::protocol::TERMINAL_MAX_COLS,
-                        min_rows: crate::shared::protocol::TERMINAL_MIN_ROWS,
-                        max_rows: crate::shared::protocol::TERMINAL_MAX_ROWS,
-                    },
-                },
+                capabilities: crate::runtime::capabilities(),
             },
-            "capabilities",
             "capabilities",
         ),
         (
@@ -68,13 +51,11 @@ fn every_event_uses_its_contract_tag_and_payload_name() {
                 sessions: Vec::new(),
             },
             "sessions",
-            "sessions",
         ),
         (
             Event::Projects {
                 projects: Vec::new(),
             },
-            "projects",
             "projects",
         ),
         (
@@ -82,14 +63,12 @@ fn every_event_uses_its_contract_tag_and_payload_name() {
                 library: Vec::new(),
             },
             "library",
-            "library",
         ),
-        (Event::Screen { screen }, "screen", "screen"),
+        (Event::Screen { screen }, "screen"),
         (
             Event::Usage {
                 usage: Default::default(),
             },
-            "usage",
             "usage",
         ),
         (
@@ -97,32 +76,29 @@ fn every_event_uses_its_contract_tag_and_payload_name() {
                 audio: Default::default(),
             },
             "audio",
-            "audio",
         ),
         (
             Event::Jukebox {
                 jukebox: Default::default(),
             },
             "jukebox",
-            "jukebox",
         ),
     ];
 
-    for (event, tag, payload) in events {
-        let value = serde_json::to_value(event).unwrap();
-        assert_eq!(value["t"], tag);
-        assert!(value.get(payload).is_some());
-        assert_eq!(value.as_object().unwrap().len(), 2);
+    for (event, expected) in events {
+        use crate::shared::wire::{Event as WireEvent, event::Payload};
+        let bytes = EventMessage::new(event).encoded().unwrap();
+        let payload = WireEvent::decode(bytes.as_ref()).unwrap().payload.unwrap();
+        let actual = match payload {
+            Payload::Capabilities(_) => "capabilities",
+            Payload::Sessions(_) => "sessions",
+            Payload::Projects(_) => "projects",
+            Payload::Library(_) => "library",
+            Payload::Screen(_) => "screen",
+            Payload::Usage(_) => "usage",
+            Payload::Audio(_) => "audio",
+            Payload::Jukebox(_) => "jukebox",
+        };
+        assert_eq!(actual, expected);
     }
 }
-
-crate::wire_event_serialize!(Event, {
-    Capabilities { capabilities },
-    Sessions { sessions },
-    Projects { projects },
-    Library { library },
-    Screen { screen },
-    Usage { usage },
-    Audio { audio },
-    Jukebox { jukebox },
-});

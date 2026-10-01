@@ -109,45 +109,24 @@ pub(super) fn parse_task_command(
     args: &[String],
     task_id: Option<&str>,
 ) -> Result<Command, String> {
-    if matches!(
-        args.get(1).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help { usage: TASK_USAGE });
-    }
-
     match args.get(1).map(String::as_str) {
-        Some("delegate") => {
-            if matches!(
-                args.get(2).map(String::as_str),
-                Some("-h" | "--help" | "help")
-            ) {
-                return Ok(Command::Help {
-                    usage: DELEGATE_USAGE,
-                });
-            }
-            parse_delegate(args, 2)
-        }
-        Some("list") => {
-            if matches!(
-                args.get(2).map(String::as_str),
-                Some("-h" | "--help" | "help")
-            ) {
-                return Ok(Command::Help {
-                    usage: TASK_LIST_USAGE,
-                });
-            }
-            Ok(Command::Inbox {
-                filter: InboxFilter::parse(args.get(2..).unwrap_or_default())?,
+        Some("delegate") => parse_delegate(args, 2),
+        Some("list") => Ok(Command::Inbox {
+            filter: InboxFilter::parse(args.get(2..).unwrap_or_default())?,
+        }),
+        Some(action @ ("show" | "wait" | "remove")) => {
+            let id = task_id_arg(args, 2, &format!("task {action} needs a task id"), task_id)?;
+            only(args, 3)?;
+            Ok(match action {
+                "show" => Command::Task { id },
+                "wait" => Command::Wait { id },
+                _ => Command::Remove { id },
             })
         }
-        Some("show") => parse_task_show(args, task_id),
-        Some("wait") => parse_task_wait(args, task_id),
         Some("accept") => parse_task_update(args, UpdateAction::Accept, task_id),
         Some("progress") => parse_task_update(args, UpdateAction::Progress, task_id),
         Some("finish") => parse_task_update(args, UpdateAction::Finish, task_id),
         Some("fail") => parse_task_update(args, UpdateAction::Fail, task_id),
-        Some("remove") => parse_task_remove(args, task_id),
         Some("prune") => parse_task_prune(args),
         Some(subcommand) => Err(format!(
             "unknown task subcommand: {subcommand}\n\n{TASK_USAGE}"
@@ -163,49 +142,17 @@ fn parse_delegate(args: &[String], recipient_at: usize) -> Result<Command, Strin
     })
 }
 
-fn parse_task_show(args: &[String], task_id: Option<&str>) -> Result<Command, String> {
-    if matches!(
-        args.get(2).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help {
-            usage: TASK_SHOW_USAGE,
-        });
-    }
-    let id = task_id_arg(args, 2, "task show needs a task id", task_id)?;
-    only(args, 3)?;
-    Ok(Command::Task { id })
-}
-
-fn parse_task_wait(args: &[String], task_id: Option<&str>) -> Result<Command, String> {
-    if matches!(
-        args.get(2).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help { usage: WAIT_USAGE });
-    }
-    let id = task_id_arg(args, 2, "task wait needs a task id", task_id)?;
-    only(args, 3)?;
-    Ok(Command::Wait { id })
-}
-
 fn parse_task_update(
     args: &[String],
     action: UpdateAction,
     task_id: Option<&str>,
 ) -> Result<Command, String> {
-    let (name, usage) = match &action {
-        UpdateAction::Accept => ("task accept", ACCEPT_USAGE),
-        UpdateAction::Progress => ("task progress", PROGRESS_USAGE),
-        UpdateAction::Finish => ("task finish", FINISH_USAGE),
-        UpdateAction::Fail => ("task fail", FAIL_USAGE),
+    let name = match &action {
+        UpdateAction::Accept => "task accept",
+        UpdateAction::Progress => "task progress",
+        UpdateAction::Finish => "task finish",
+        UpdateAction::Fail => "task fail",
     };
-    if matches!(
-        args.get(2).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help { usage });
-    }
     let mut note_at = 2;
     let (flag, inline) = args
         .get(2)
@@ -229,27 +176,7 @@ fn parse_task_update(
     Ok(Command::Update { action, id, note })
 }
 
-fn parse_task_remove(args: &[String], task_id: Option<&str>) -> Result<Command, String> {
-    if matches!(
-        args.get(2).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help {
-            usage: REMOVE_USAGE,
-        });
-    }
-    let id = task_id_arg(args, 2, "task remove needs a task id", task_id)?;
-    only(args, 3)?;
-    Ok(Command::Remove { id })
-}
-
 fn parse_task_prune(args: &[String]) -> Result<Command, String> {
-    if matches!(
-        args.get(2).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help { usage: PRUNE_USAGE });
-    }
     let all = match args.get(2).map(String::as_str) {
         None => false,
         Some("--include-active") => true,

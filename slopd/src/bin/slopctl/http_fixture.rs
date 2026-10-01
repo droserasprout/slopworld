@@ -2,12 +2,13 @@
 
 use crate::http::Endpoint;
 use crate::shared::{http_wire, wire};
+use crate::test_http::{accept_request, read_request};
 use prost::Message;
 use serde_json::Value;
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::Write;
 use std::net::{TcpListener, TcpStream};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 const DEADLINE: Duration = Duration::from_secs(5);
 type Server = thread::JoinHandle<Result<String, String>>;
@@ -42,25 +43,6 @@ fn start(status: &str, response: Response) -> (Endpoint, Server) {
         },
         server,
     )
-}
-
-fn accept_request(listener: &TcpListener, timeout: Duration) -> io::Result<TcpStream> {
-    let started = Instant::now();
-    loop {
-        match listener.accept() {
-            Ok((socket, _)) => return Ok(socket),
-            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
-                if started.elapsed() >= timeout {
-                    return Err(io::Error::new(
-                        io::ErrorKind::TimedOut,
-                        "no request arrived",
-                    ));
-                }
-                thread::sleep(Duration::from_millis(10));
-            }
-            Err(error) => return Err(error),
-        }
-    }
 }
 
 fn handle(mut socket: TcpStream, status: &str, response: Response) -> Result<String, String> {
@@ -104,46 +86,6 @@ fn handle(mut socket: TcpStream, status: &str, response: Response) -> Result<Str
     Ok(request)
 }
 
-fn read_request(socket: &TcpStream, timeout: Duration) -> io::Result<(String, Vec<u8>)> {
-    let mut reader = BufReader::new(socket.try_clone()?);
-    let mut request = String::new();
-    let mut content_length = 0;
-    let deadline = Instant::now() + timeout;
-    loop {
-        let remaining = deadline
-            .checked_duration_since(Instant::now())
-            .filter(|remaining| !remaining.is_zero())
-            .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "header deadline exceeded"))?;
-        reader.get_ref().set_read_timeout(Some(remaining))?;
-        let mut line = String::new();
-        if reader.read_line(&mut line)? == 0 {
-            return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                "EOF before end of headers",
-            ));
-        }
-        if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-            content_length = value
-                .trim()
-                .parse()
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        }
-        request.push_str(&line);
-        if request.len() > 64 * 1024 || content_length > 1024 * 1024 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "request exceeds fixture limit",
-            ));
-        }
-        if line == "\r\n" {
-            break;
-        }
-    }
-    let mut body = vec![0; content_length];
-    reader.read_exact(&mut body)?;
-    Ok((request, body))
-}
-
 fn encode(status: &str, method: &str, path: &str, body: &str) -> Result<Vec<u8>, String> {
     match serde_json::from_str::<Value>(body) {
         Ok(value) if status.starts_with("200") => {
@@ -167,6 +109,3 @@ fn encode(status: &str, method: &str, path: &str, body: &str) -> Result<Vec<u8>,
         Err(_) => Ok(vec![0x80]),
     }
 }
-
-#[path = "http_fixture_tests.rs"]
-mod tests;

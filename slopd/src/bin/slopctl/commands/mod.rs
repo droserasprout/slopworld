@@ -1,3 +1,5 @@
+//! CLI dispatch and help selection; command modules own argument policy and execution.
+
 mod agent;
 mod common;
 mod diagnostics;
@@ -150,6 +152,27 @@ pub(crate) fn command_help(command: &str) -> Option<&'static str> {
     })
 }
 
+fn subcommand_help(command: &str, subcommand: &str) -> Option<&'static str> {
+    Some(match (command, subcommand) {
+        ("worker", "spawn") => worker::SPAWN_USAGE,
+        ("agent", "create") => agent::AGENT_CREATE_USAGE,
+        ("template", "list") => templates::TEMPLATES_USAGE,
+        ("template", "show") => templates::TEMPLATE_SHOW_USAGE,
+        ("sandbox", "inspect") => diagnostics::SANDBOX_INSPECT_USAGE,
+        ("task", "delegate") => task::DELEGATE_USAGE,
+        ("task", "list") => task::TASK_LIST_USAGE,
+        ("task", "show") => task::TASK_SHOW_USAGE,
+        ("task", "wait") => task::WAIT_USAGE,
+        ("task", "accept") => task::ACCEPT_USAGE,
+        ("task", "progress") => task::PROGRESS_USAGE,
+        ("task", "finish") => task::FINISH_USAGE,
+        ("task", "fail") => task::FAIL_USAGE,
+        ("task", "remove") => task::REMOVE_USAGE,
+        ("task", "prune") => task::PRUNE_USAGE,
+        _ => return None,
+    })
+}
+
 fn has_help(args: &[String]) -> bool {
     matches!(
         args.first().map(String::as_str),
@@ -173,6 +196,13 @@ pub(crate) fn parse_command_with_task_id(
     let rest = args.get(1..).unwrap_or_default();
     if has_help(rest)
         && let Some(usage) = command_help(command)
+    {
+        return Ok(Command::Help { usage });
+    }
+    // Only the first argument after a known command can select help. Later help
+    // words belong to positional arguments or task text, including after `--`.
+    if has_help(args.get(2..).unwrap_or_default())
+        && let Some(usage) = rest.first().and_then(|sub| subcommand_help(command, sub))
     {
         return Ok(Command::Help { usage });
     }

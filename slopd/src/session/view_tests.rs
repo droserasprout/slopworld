@@ -20,11 +20,21 @@ fn project_paths_keep_config_and_daemon_expansion_separate() {
             .get("expanded_dir")
             .is_none()
     );
-    let event = serde_json::to_value(super::super::Event::Projects {
+    let event = super::super::Event::Projects {
         projects: vec![view],
-    })
+    }
+    .to_protobuf()
     .unwrap();
-    assert_eq!(event["projects"][0], wire);
+    let crate::shared::wire::event::Payload::Projects(projects) = event.payload.unwrap() else {
+        panic!("expected projects event")
+    };
+    let project = &projects.projects[0];
+    assert_eq!(project.name.as_deref(), Some("repo"));
+    assert_eq!(project.dir.as_deref(), Some("~/repo"));
+    assert_eq!(
+        project.expanded_dir.as_deref(),
+        Some(expected.to_string_lossy().as_ref())
+    );
 }
 
 #[test]

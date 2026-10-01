@@ -1,9 +1,10 @@
 //! Local HTTP fixtures shared by provider and cache tests.
 use super::providers::Creds;
-use std::io::{Read, Write};
+use crate::test_http::{accept_request, read_request};
+use std::io::Write;
 use std::net::TcpListener;
 use std::path::Path;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 // One request per server. A cache hit must succeed even after this listener closes.
 pub(super) fn server(
@@ -19,35 +20,13 @@ pub(super) fn server(
         body.len()
     );
     let handle = std::thread::spawn(move || {
-        let deadline = Instant::now() + Duration::from_secs(5);
-        let mut stream = loop {
-            match listener.accept() {
-                Ok((stream, _)) => break stream,
-                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    assert!(
-                        Instant::now() < deadline,
-                        "provider did not contact local server"
-                    );
-                    std::thread::sleep(Duration::from_millis(5));
-                }
-                Err(error) => panic!("accept: {error}"),
-            }
-        };
-        stream
-            .set_read_timeout(Some(Duration::from_secs(5)))
-            .unwrap();
+        let mut stream = accept_request(&listener, Duration::from_secs(5)).unwrap();
         stream
             .set_write_timeout(Some(Duration::from_secs(5)))
             .unwrap();
-        let mut request = Vec::new();
-        while !request.ends_with(b"\r\n\r\n") {
-            let mut byte = [0];
-            stream.read_exact(&mut byte).unwrap();
-            request.push(byte[0]);
-            assert!(request.len() < 16 * 1024);
-        }
+        let (request, _) = read_request(&stream, Duration::from_secs(5)).unwrap();
         stream.write_all(response.as_bytes()).unwrap();
-        String::from_utf8(request).unwrap()
+        request
     });
     (url, handle)
 }

@@ -26,38 +26,14 @@ Show one agent template. Agent callers may inspect only templates enabled for
 worker spawning. For a root caller, --project selects the worker project.
 ";
 pub(super) fn parse_template_command(args: &[String]) -> Result<Command, String> {
-    if matches!(
-        args.get(1).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help {
-            usage: TEMPLATE_USAGE,
-        });
-    }
     if args.get(1).map(String::as_str) != Some("show") {
         if args.get(1).map(String::as_str) == Some("list") {
-            if matches!(
-                args.get(2).map(String::as_str),
-                Some("-h" | "--help" | "help")
-            ) {
-                return Ok(Command::Help {
-                    usage: TEMPLATES_USAGE,
-                });
-            }
             let project = optional_project(args, 2, TEMPLATES_USAGE)?;
             return Ok(Command::Templates { project });
         }
         return Err(format!(
             "template needs the list or show subcommand\n\n{TEMPLATE_USAGE}"
         ));
-    }
-    if matches!(
-        args.get(2).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help {
-            usage: TEMPLATE_SHOW_USAGE,
-        });
     }
     let name = arg(args, 2, "template show needs a template name")?.to_string();
     let project = optional_project(args, 3, TEMPLATE_SHOW_USAGE)?;

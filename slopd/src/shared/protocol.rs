@@ -5,68 +5,6 @@
     reason = "generated bindings are shared across daemon and mod clients"
 )]
 
-#[macro_export]
-macro_rules! wire_event_tag {
-    (Capabilities) => {
-        $crate::shared::protocol::events::CAPABILITIES
-    };
-    (Sessions) => {
-        $crate::shared::protocol::events::SESSIONS
-    };
-    (Projects) => {
-        $crate::shared::protocol::events::PROJECTS
-    };
-    (Library) => {
-        $crate::shared::protocol::events::LIBRARY
-    };
-    (Screen) => {
-        $crate::shared::protocol::events::SCREEN
-    };
-    (Usage) => {
-        $crate::shared::protocol::events::USAGE
-    };
-    (Audio) => {
-        $crate::shared::protocol::events::AUDIO
-    };
-    (Jukebox) => {
-        $crate::shared::protocol::events::JUKEBOX
-    };
-}
-
-#[macro_export]
-macro_rules! wire_client_msg_tag {
-    (Redraw) => {
-        $crate::shared::protocol::messages::REDRAW
-    };
-    (Sub) => {
-        $crate::shared::protocol::messages::SUB
-    };
-    (Unsub) => {
-        $crate::shared::protocol::messages::UNSUB
-    };
-    (Keys) => {
-        $crate::shared::protocol::messages::KEYS
-    };
-    (Resize) => {
-        $crate::shared::protocol::messages::RESIZE
-    };
-    (Scroll) => {
-        $crate::shared::protocol::messages::SCROLL
-    };
-    (Mouse) => {
-        $crate::shared::protocol::messages::MOUSE
-    };
-    (Paste) => {
-        $crate::shared::protocol::messages::PASTE
-    };
-    (Breadcrumb) => {
-        $crate::shared::protocol::messages::BREADCRUMB
-    };
-    (Audio) => {
-        $crate::shared::protocol::messages::AUDIO
-    };
-}
-
 pub(crate) const TOKEN_HEADER: &str = "x-slop-token";
 pub(crate) const SESSION_HEADER: &str = "x-slop-session";
 pub(crate) const WS_PATH: &str = "/ws";

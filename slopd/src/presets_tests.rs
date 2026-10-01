@@ -1,6 +1,34 @@
 use super::*;
 
 #[test]
+fn startup_keeps_valid_presets_while_reload_rejects_partial_catalogs() {
+    let root = std::env::temp_dir().join(format!("slopd-presets-{}", uuid::Uuid::new_v4()));
+    let dir = root.join("app_presets");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("broken.toml"), "[invalid").unwrap();
+    std::fs::write(
+        dir.join("tool.toml"),
+        "name = 'tool'\nkind = 'agent'\ncmd = 'tool'\n",
+    )
+    .unwrap();
+    // Presets intentionally require lowercase extensions; jukebox accepts either case.
+    std::fs::write(dir.join("ignored.TOML"), "[invalid").unwrap();
+    let mut startup = Table::default();
+    startup.merge_user_dirs(&root);
+    assert_eq!(startup.commands.len(), 1);
+    assert_eq!(startup.command("tool").unwrap().cmd, "tool");
+    Table::try_load_from(&root).unwrap_err();
+    std::fs::remove_file(dir.join("broken.toml")).unwrap();
+    assert!(
+        Table::try_load_from(&root)
+            .unwrap()
+            .command("tool")
+            .is_some()
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn builtins_parse_and_name_themselves() {
     let table = load_builtin_table();
     assert_standard_commands(&table);

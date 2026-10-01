@@ -39,3 +39,7 @@ pub(super) fn decode(bytes: &[u8]) -> anyhow::Result<ClientMsg> {
         },
     )
 }
+
+#[cfg(test)]
+#[path = "client_message_tests.rs"]
+mod tests;

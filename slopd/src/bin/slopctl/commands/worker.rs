@@ -33,21 +33,7 @@ pub(crate) struct WorktreeChoice {
     pub worktree_name: String,
 }
 pub(super) fn parse_worker_command(args: &[String]) -> Result<Command, String> {
-    if matches!(
-        args.get(1).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help {
-            usage: WORKER_USAGE,
-        });
-    }
     if args.get(1).map(String::as_str) == Some("spawn") {
-        if matches!(
-            args.get(2).map(String::as_str),
-            Some("-h" | "--help" | "help")
-        ) {
-            return Ok(Command::Help { usage: SPAWN_USAGE });
-        }
         return parse_spawn(args, 2);
     }
     Err(format!(
@@ -61,10 +47,7 @@ fn parse_spawn(args: &[String], options_at: usize) -> Result<Command, String> {
     let mut project = None;
     let mut template = None;
     let mut i = options_at;
-    while i < args.len() {
-        let Some(option) = args.get(i) else {
-            break;
-        };
+    while let Some(option) = args.get(i) {
         let (flag, inline) = value_option(option);
         match flag {
             "--" if inline.is_none() => {
@@ -90,12 +73,7 @@ fn parse_spawn(args: &[String], options_at: usize) -> Result<Command, String> {
         }
         i += 1;
     }
-    let Some(project) = project else {
-        return Err(format!(
-            "spawn requires --project PROJECT and --template TEMPLATE.\n\n{SPAWN_USAGE}"
-        ));
-    };
-    let Some(template) = template else {
+    let (Some(project), Some(template)) = (project, template) else {
         return Err(format!(
             "spawn requires --project PROJECT and --template TEMPLATE.\n\n{SPAWN_USAGE}"
         ));

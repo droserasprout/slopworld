@@ -105,6 +105,8 @@ Both writers exclusively create unique sibling files; private writes set `0600` 
 content is written. Async writes flush before rename to catch background write errors.
 Interrupted saves may leave siblings, but leftovers neither block retries nor get overwritten.
 Preset HTTP mutations run that synchronous work on a blocking executor.
+`paths.rs` shares sorted directory discovery for presets and jukebox; each catalog
+keeps its extension matching, startup/reload error policy, and definition validation.
 `presets/edit.rs` holds the catalog writer guard from fresh disk reads through validation
 and commit; dependency validation does not use the cached runtime table.
 Jukebox edits preserve legacy IDs at existing paths; new IDs require safe filenames.

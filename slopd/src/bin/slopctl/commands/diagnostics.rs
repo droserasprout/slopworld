@@ -28,26 +28,10 @@ show the sanitized launch plan and, when available, the live process tree for NA
 The saved plan remains available after a process exits or a daemon restart.
 ";
 pub(super) fn parse_sandbox(args: &[String]) -> Result<Command, String> {
-    if matches!(
-        args.get(1).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help {
-            usage: SANDBOX_USAGE,
-        });
-    }
     if args.get(1).map(String::as_str) != Some("inspect") {
         return Err(format!(
             "sandbox needs the inspect subcommand\n\n{SANDBOX_USAGE}"
         ));
-    }
-    if matches!(
-        args.get(2).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help {
-            usage: SANDBOX_INSPECT_USAGE,
-        });
     }
     let name = arg(args, 2, "sandbox inspect needs a session name")?.to_string();
     only(args, 3)?;
