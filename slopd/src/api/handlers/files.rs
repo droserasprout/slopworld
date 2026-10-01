@@ -622,7 +622,7 @@ pub(crate) async fn create_file(Proto(q): Proto<wire::FileReq>) -> ApiResult<wir
     };
     result.map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
 
-    reply(json!({ "ok": true }))
+    Ok(Proto(wire::Ack { ok: true }))
 }
 
 pub(crate) async fn rename_file(Proto(q): Proto<wire::FileReq>) -> ApiResult<wire::Ack> {
@@ -656,7 +656,7 @@ pub(crate) async fn rename_file(Proto(q): Proto<wire::FileReq>) -> ApiResult<wir
     )
     .with_context(|| format!("The daemon could not rename {}.", source.display()))
     .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    reply(json!({ "ok": true }))
+    Ok(Proto(wire::Ack { ok: true }))
 }
 
 pub(crate) async fn remove_file(Proto(q): Proto<wire::FileReq>) -> ApiResult<wire::Ack> {
@@ -681,7 +681,7 @@ pub(crate) async fn remove_file(Proto(q): Proto<wire::FileReq>) -> ApiResult<wir
             .with_context(|| format!("The daemon could not remove {}.", path.display()))
             .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     }
-    reply(json!({ "ok": true }))
+    Ok(Proto(wire::Ack { ok: true }))
 }
 
 pub(crate) const SEARCH_LIMIT: usize = 200;

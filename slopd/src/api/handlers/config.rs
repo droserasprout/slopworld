@@ -8,7 +8,7 @@ use axum::http::StatusCode;
 use serde_json::json;
 
 use super::super::types::*;
-use super::{ApiResult, Mgr, err, ok_json};
+use super::{ApiResult, Mgr, ack_result, err};
 
 pub(crate) async fn get_config(State(m): State<Mgr>) -> ApiResult<wire::ConfigResult> {
     // Keep the raw text and parsed values from different snapshots when a user edits the file
@@ -52,7 +52,7 @@ pub(crate) async fn put_config(
     Proto(req): Proto<wire::ReplaceConfigRequest>,
 ) -> ApiResult<wire::Ack> {
     let req: ConfigReq = domain(req)?;
-    ok_json(m.replace_config(&req.text).await)
+    ack_result(m.replace_config(&req.text).await)
 }
 
 /// Apply only the fields named by the client, leaving unmentioned fields untouched.
@@ -60,7 +60,7 @@ pub(crate) async fn put_config_patch(
     State(m): State<Mgr>,
     Proto(req): Proto<wire::ConfigPatch>,
 ) -> ApiResult<wire::Ack> {
-    ok_json(m.patch_config(config_patch(req)?).await)
+    ack_result(m.patch_config(config_patch(req)?).await)
 }
 
 /// Assemble only selected editable leaves. Decode escaped map keys before looking up source values.

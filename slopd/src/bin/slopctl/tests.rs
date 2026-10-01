@@ -51,25 +51,25 @@ fn command_parser_builds_delegation_and_update_commands() {
         parse_command(&words(
             "worker spawn --durable --project repo --template codex inspect the build"
         )),
-        Ok(Command::Spawn {
+        Ok(Command::Spawn(SpawnArgs {
             worktree: Default::default(),
             project: "repo".to_string(),
             template: "codex".to_string(),
             durable: true,
             body: "inspect the build".to_string(),
-        })
+        }))
     );
     assert_eq!(
         parse_command(&words(
             "worker spawn --project repo --template codex run the checks"
         )),
-        Ok(Command::Spawn {
+        Ok(Command::Spawn(SpawnArgs {
             worktree: Default::default(),
             project: "repo".to_string(),
             template: "codex".to_string(),
             durable: true,
             body: "run the checks".to_string(),
-        })
+        }))
     );
     assert_eq!(
         parse_command(&words("sandbox inspect agent")),
@@ -199,62 +199,24 @@ fn task_commands_use_the_worker_task_id_when_id_is_omitted() {
 
 #[test]
 fn command_tree_has_group_and_leaf_help() {
-    assert_eq!(
-        parse_command(&words("task --help")),
-        Ok(Command::Help { usage: TASK_USAGE })
-    );
-    assert_eq!(
-        parse_command(&words("task list --help")),
-        Ok(Command::Help {
-            usage: TASK_LIST_USAGE
-        })
-    );
-    assert_eq!(
-        parse_command(&words("task show --help")),
-        Ok(Command::Help {
-            usage: TASK_SHOW_USAGE
-        })
-    );
-    assert_eq!(
-        parse_command(&words("worker --help")),
-        Ok(Command::Help {
-            usage: WORKER_USAGE
-        })
-    );
-    assert_eq!(
-        parse_command(&words("worker spawn --help")),
-        Ok(Command::Help { usage: SPAWN_USAGE })
-    );
-    assert_eq!(
-        parse_command(&words("template --help")),
-        Ok(Command::Help {
-            usage: TEMPLATE_USAGE
-        })
-    );
-    assert_eq!(
-        parse_command(&words("template list --help")),
-        Ok(Command::Help {
-            usage: TEMPLATES_USAGE
-        })
-    );
-    assert_eq!(
-        parse_command(&words("template show --help")),
-        Ok(Command::Help {
-            usage: TEMPLATE_SHOW_USAGE
-        })
-    );
-    assert_eq!(
-        parse_command(&words("agent create --help")),
-        Ok(Command::Help {
-            usage: AGENT_CREATE_USAGE
-        })
-    );
-    assert_eq!(
-        parse_command(&words("sandbox inspect --help")),
-        Ok(Command::Help {
-            usage: SANDBOX_INSPECT_USAGE
-        })
-    );
+    for (command, usage) in [
+        ("task", TASK_USAGE),
+        ("task list", TASK_LIST_USAGE),
+        ("task show", TASK_SHOW_USAGE),
+        ("worker", WORKER_USAGE),
+        ("worker spawn", SPAWN_USAGE),
+        ("template", TEMPLATE_USAGE),
+        ("template list", TEMPLATES_USAGE),
+        ("template show", TEMPLATE_SHOW_USAGE),
+        ("agent create", AGENT_CREATE_USAGE),
+        ("sandbox inspect", SANDBOX_INSPECT_USAGE),
+    ] {
+        assert_eq!(
+            parse_command(&words(&format!("{command} --help"))),
+            Ok(Command::Help { usage }),
+            "{command}"
+        );
+    }
 }
 
 #[test]
@@ -308,13 +270,13 @@ fn spawn_preserves_task_text_after_template_options() {
                 args.extend(body_args);
                 assert_eq!(
                     parse_command(&args),
-                    Ok(Command::Spawn {
+                    Ok(Command::Spawn(SpawnArgs {
                         worktree: Default::default(),
                         project: "repo".into(),
                         template: "codex".into(),
                         durable,
                         body: text.into(),
-                    })
+                    }))
                 );
             }
         }
@@ -339,13 +301,13 @@ fn spawn_delimiter_preserves_options_as_literal_task_text() {
                 assert_eq!(take_json_flag(&mut args), json);
                 assert_eq!(
                     parse_command(&args),
-                    Ok(Command::Spawn {
+                    Ok(Command::Spawn(SpawnArgs {
                         worktree: Default::default(),
                         project: "repo".into(),
                         template: "review".into(),
                         durable,
                         body: body.into(),
-                    })
+                    }))
                 );
             }
         }
@@ -388,11 +350,11 @@ fn spawn_posts_template_and_task_body_to_worker_endpoint() {
         "host",
         true,
         SpawnArgs {
-            worktree: &Default::default(),
-            project: "repo",
-            template: "codex",
+            worktree: Default::default(),
+            project: "repo".into(),
+            template: "codex".into(),
             durable: true,
-            body: "inspect the build",
+            body: "inspect the build".into(),
         },
     )
     .unwrap();
@@ -941,7 +903,7 @@ fn worktree_options_preserve_selection_and_reject_ambiguous_requests() {
         parse_command(&words(
             "worker spawn --project repo --template codex --new-worktree --base HEAD --worktree-name feature task"
         )),
-        Ok(Command::Spawn {
+        Ok(Command::Spawn(SpawnArgs {
             project: "repo".into(),
             template: "codex".into(),
             durable: true,
@@ -952,7 +914,7 @@ fn worktree_options_preserve_selection_and_reject_ambiguous_requests() {
                 worktree_name: "feature".into(),
                 ..Default::default()
             }
-        })
+        }))
     );
     parse_command(&words(
         "worker spawn --project repo --template codex --worktree abc --new-worktree task",
@@ -1073,13 +1035,13 @@ fn construction_options_reject_flags_as_values_and_accept_inline_dash_values() {
     );
     let command = parse_command_with_task_id(&words("worker spawn --project=-p --template=-t --new-worktree --base=-- --worktree-name=-n -- --one-shot task"), None).unwrap();
     match command {
-        Command::Spawn {
+        Command::Spawn(SpawnArgs {
             project,
             template,
             body,
             worktree,
             ..
-        } => {
+        }) => {
             assert_eq!(project, "-p");
             assert_eq!(template, "-t");
             assert_eq!(worktree.base, "--");

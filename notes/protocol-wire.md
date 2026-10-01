@@ -14,6 +14,8 @@ Check those events before adding frontend query paths. HTTP query routes also se
 an in-repo caller is not evidence that a route is dead.
 
 Rust cold handlers adapt existing Serde domain projections to generated messages in memory.
+Simple acknowledgements and clipboard text replies construct generated messages directly;
+request wrappers remain where domain validation or defaults differ from the wire types.
 Session reader, runtime, launch, and worker groups are nested messages.
 Reader metadata uses short field names within its group. Both peers must use this schema;
 there is no fallback for the former flat session fields. `RunReq.reader` likewise nests source metadata with short

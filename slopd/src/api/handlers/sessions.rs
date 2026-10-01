@@ -85,7 +85,7 @@ pub(crate) async fn create(
 ) -> ApiResult<wire::Ack> {
     super::guard_create(&cap)?;
     let s = crate::api::parse_session(domain(value)?)?;
-    super::ok_json(m.add(s).await)
+    super::ack_result(m.add(s).await)
 }
 
 pub(crate) async fn update(
@@ -96,7 +96,7 @@ pub(crate) async fn update(
 ) -> ApiResult<wire::Ack> {
     super::guard_root(&cap)?;
     let s = crate::api::parse_session(domain(value)?)?;
-    super::ok_json(m.update(&name, s).await)
+    super::ack_result(m.update(&name, s).await)
 }
 
 pub(crate) async fn destroy(
@@ -105,7 +105,7 @@ pub(crate) async fn destroy(
     Path(name): Path<String>,
 ) -> ApiResult<wire::Ack> {
     super::guard(&m, &cap, &name, Level::Rw).await?;
-    super::ok_json(m.remove(&name).await)
+    super::ack_result(m.remove(&name).await)
 }
 
 macro_rules! session_action {
@@ -116,7 +116,7 @@ macro_rules! session_action {
             Path(name): Path<String>,
         ) -> ApiResult {
             super::guard(&m, &cap, &name, Level::Rw).await?;
-            super::ok_json(m.$action(&name).await)
+            super::ack_result(m.$action(&name).await)
         })+
     };
 }
@@ -131,14 +131,14 @@ pub(crate) async fn stored_states(State(m): State<Mgr>) -> ApiResult<wire::Store
 }
 
 pub(crate) async fn empty_trash(State(m): State<Mgr>) -> ApiResult<wire::Ack> {
-    super::ok_json(m.empty_trash().await)
+    super::ack_result(m.empty_trash().await)
 }
 
 pub(crate) async fn delete_stored_state(
     State(m): State<Mgr>,
     Path((kind, key)): Path<(String, String)>,
 ) -> ApiResult<wire::Ack> {
-    super::ok_json(m.delete_stored_state(&kind, &key).await)
+    super::ack_result(m.delete_stored_state(&kind, &key).await)
 }
 
 pub(crate) async fn restore_stored_state(
@@ -159,7 +159,7 @@ pub(crate) async fn set_label(
 ) -> ApiResult<wire::Ack> {
     let q: super::super::types::LabelReq = domain(q)?;
     super::guard(&m, &cap, &name, Level::Rw).await?;
-    super::ok_json(m.set_label(&name, q.label).await)
+    super::ack_result(m.set_label(&name, q.label).await)
 }
 
 pub(crate) async fn set_reader_pinned(
@@ -168,9 +168,8 @@ pub(crate) async fn set_reader_pinned(
     Path(name): Path<String>,
     Proto(q): Proto<wire::ReaderPinnedReq>,
 ) -> ApiResult<wire::Ack> {
-    let q: super::super::types::ReaderPinnedReq = domain(q)?;
     super::guard(&m, &cap, &name, Level::Rw).await?;
-    super::ok_json(m.set_reader_pinned(&name, q.pinned).await)
+    super::ack_result(m.set_reader_pinned(&name, q.pinned).await)
 }
 
 #[cfg(test)]

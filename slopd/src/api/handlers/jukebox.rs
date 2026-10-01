@@ -54,7 +54,7 @@ pub(crate) async fn delete_jukebox_preset(
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?;
     deleted.map_err(jukebox_error)?;
     m.reload_jukebox_if_changed().await;
-    reply(json!({ "ok": true }))
+    Ok(Proto(wire::Ack { ok: true }))
 }
 
 async fn save(m: Mgr, body: wire::Station, original_id: Option<String>) -> ApiResult<wire::Ack> {
@@ -72,7 +72,7 @@ async fn save(m: Mgr, body: wire::Station, original_id: Option<String>) -> ApiRe
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?
         .map_err(jukebox_error)?;
     m.reload_jukebox_if_changed().await;
-    reply(json!({ "ok": true }))
+    Ok(Proto(wire::Ack { ok: true }))
 }
 
 fn station_from_wire(

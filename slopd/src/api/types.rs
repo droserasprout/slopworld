@@ -72,11 +72,6 @@ pub(crate) struct LabelReq {
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct ReaderPinnedReq {
-    pub(crate) pinned: bool,
-}
-
-#[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct SaveAgentTemplateReq {
     pub(crate) name: String,
@@ -205,12 +200,6 @@ pub(crate) struct ProjectPreviewReq {
     pub(crate) name: String,
     #[serde(default)]
     pub(crate) temp: bool,
-}
-
-#[derive(Deserialize)]
-pub(crate) struct ClipReq {
-    #[serde(default)]
-    pub(crate) text: String,
 }
 
 /// Accept numeric and textual Boolean flags for manual shell requests.

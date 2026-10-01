@@ -157,7 +157,7 @@ pub(crate) async fn destroy_template(
     m.remove_agent_template(&name, version)
         .await
         .map_err(template_error)?;
-    reply(json!({ "ok": true }))
+    Ok(Proto(wire::Ack { ok: true }))
 }
 
 pub(crate) async fn create_from_template(
