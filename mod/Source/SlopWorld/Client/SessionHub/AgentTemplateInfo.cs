@@ -109,18 +109,7 @@ namespace SlopWorld
             d.ClearArgs();
             if (!string.IsNullOrWhiteSpace(form.Args)) d.Args = form.Args;
             d.Sandbox.Clear(); d.SandboxPresets.Clear();
-            var pending = new Queue<string>(form.Sandbox.Concat(d.Command == null ? Enumerable.Empty<string>() : d.Command.Sandbox));
-            var names = new HashSet<string>();
-            while (pending.Count > 0)
-            {
-                string name = pending.Dequeue();
-                if (!names.Add(name)) continue;
-                var preset = DefaultsSnapshot.SandboxPresets.FirstOrDefault(p => p.Name == name)?.Clone()
-                    ?? SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == name)?.ToWire()
-                    ?? throw new InvalidOperationException("Unknown sandbox preset: " + name);
-                d.Sandbox.Add(name); d.SandboxPresets.Add(preset);
-                foreach (string dependency in preset.Requires) pending.Enqueue(dependency);
-            }
+            CaptureSandboxPresets(d, form.Sandbox);
             d.ClearPersistentTmp(); d.ClearAutostart(); d.ClearAutoResume(); d.ClearNetwork();
             if (SpecifiedFlags.Contains("persistent_tmp")) d.PersistentTmp = form.PersistentTmp;
             if (SpecifiedFlags.Contains("autostart")) d.Autostart = form.Autostart;
@@ -135,6 +124,24 @@ namespace SlopWorld
                 Description = Description,
                 Defaults = d
             };
+        }
+
+        // Breadth-first selection order is stable: explicit presets, command presets,
+        // then dependencies. Captured definitions win, and cycles are visited once.
+        void CaptureSandboxPresets(Wire.AgentTemplateDefaults d, IEnumerable<string> selected)
+        {
+            var pending = new Queue<string>(selected.Concat(d.Command == null ? Enumerable.Empty<string>() : d.Command.Sandbox));
+            var names = new HashSet<string>();
+            while (pending.Count > 0)
+            {
+                string name = pending.Dequeue();
+                if (!names.Add(name)) continue;
+                var preset = DefaultsSnapshot.SandboxPresets.FirstOrDefault(p => p.Name == name)?.Clone()
+                    ?? SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == name)?.ToWire()
+                    ?? throw new InvalidOperationException("Unknown sandbox preset: " + name);
+                d.Sandbox.Add(name); d.SandboxPresets.Add(preset);
+                foreach (string dependency in preset.Requires) pending.Enqueue(dependency);
+            }
         }
 
         // Initialize a new editor without setting the name or project.
