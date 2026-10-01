@@ -22,9 +22,9 @@ namespace SlopWorld.Tests
             AssertEx.Equal("ro", MountEntry.ModeName(MountMode.Ro), "read-only wire name");
             AssertEx.Equal("rw", MountEntry.ModeName(MountMode.Rw), "read-write wire name");
             AssertEx.Equal("rw", MountEntry.ModeName(MountMode.None), "none wire fallback");
-            AssertEx.Equal("None", MountEntry.ModeLabel(MountMode.None), "none label");
-            AssertEx.Equal("Read-only", MountEntry.ModeLabel(MountMode.Ro), "read-only label");
-            AssertEx.Equal("Read-write", MountEntry.ModeLabel(MountMode.Rw), "read-write label");
+            AssertEx.Equal("None", MountPresentation.ModeLabel(MountMode.None), "none label");
+            AssertEx.Equal("Read-only", MountPresentation.ModeLabel(MountMode.Ro), "read-only label");
+            AssertEx.Equal("Read-write", MountPresentation.ModeLabel(MountMode.Rw), "read-write label");
         }
 
         static void RoundTripsMountLists()

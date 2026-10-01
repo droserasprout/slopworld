@@ -16,8 +16,7 @@ namespace SlopWorld
         // `override` is a user definition replacing a system entry with the same name.
         public string Source = "";
         // Bind categories stay separate because the sandbox page groups what an agent receives
-        // by access mode. A device node goes with the read-only binds: it is bound rather than
-        // passed, and which flag bwrap gets is not this screen's business.
+        // by access mode. Dev is a separate device-bind category; the daemon owns bind flags.
         public List<string> Ro = new List<string>();
         public List<string> Rw = new List<string>();
         public List<string> Dev = new List<string>();

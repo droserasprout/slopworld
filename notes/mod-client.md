@@ -68,5 +68,6 @@ Project catalog responses retain editable `dir` and supply daemon-resolved `expa
 for path operations. Never expand these paths using the game process environment: sidecar
 homes and environment variables can differ.
 
-Jukebox editor bitrates preserve unsigned wire values; an acknowledged mutation
-succeeds independently of catalog refresh.
+The project UI owns temporary-project preview state and mount labels. Client models
+retain wire conversion and daemon-resolved paths. Jukebox editor bitrates preserve
+unsigned wire values; an acknowledged mutation succeeds independently of catalog refresh.

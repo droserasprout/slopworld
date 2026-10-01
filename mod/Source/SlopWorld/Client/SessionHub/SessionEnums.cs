@@ -1,12 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using Verse;
-
-
 namespace SlopWorld
 {
     // Down is "the process is not running". The colonist is put on the floor rather than killed,
@@ -36,10 +27,7 @@ namespace SlopWorld
             : mode == FileActionMode.Nothing ? WireProtocol.FileActionMode.Nothing
             : WireProtocol.FileActionMode.Ask;
 
-        public static string Label(FileActionMode mode) => mode == FileActionMode.ShowResult
-            ? "Show result"
-            : mode == FileActionMode.OpenTerminal ? "Open terminal"
-            : mode == FileActionMode.Nothing ? "Nothing" : "Ask every time";
+
     }
 
     // Temp is a fresh scratch directory per run. Ask is decided at the button.
