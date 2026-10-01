@@ -22,6 +22,19 @@ pub(super) async fn handle_client_msg(
     if let ClientMsg::Sub { name } = cm {
         return handle_sub(name, m, cap, tx, subs).await;
     }
+    // These commands only update connection state or schedule background work.
+    // They must not block intake behind an unrelated lifecycle transaction.
+    match cm {
+        ClientMsg::Unsub { name } => {
+            handle_unsub(name, subs).await;
+            return true;
+        }
+        ClientMsg::Redraw { cols, rows } => {
+            handle_redraw(m, cap, cols.zip(rows));
+            return true;
+        }
+        _ => {}
+    }
     let trace = match &cm {
         ClientMsg::Keys(r) => crate::latency::InputTrace::begin(&r.trace_id),
         ClientMsg::Mouse(r) => crate::latency::InputTrace::begin(&r.trace_id),
@@ -109,16 +122,22 @@ fn handle_redraw(m: &Mgr, cap: &Cap, shape: Option<(u16, u16)>) {
 }
 
 async fn handle_sub(name: String, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {
-    let screen = m
-        .session_read_operation(async {
-            if !m.cap_ok(cap, &name, Level::Ro).await {
-                return None;
-            }
-            subs.lock().await.insert(name.clone(), m.watching(&name));
-            m.clear_bell(&name).await;
-            m.screen(&name).await
-        })
-        .await;
+    let snapshot = async {
+        if !m.cap_ok(cap, &name, Level::Ro).await {
+            return None;
+        }
+        subs.lock().await.insert(name.clone(), m.watching(&name));
+        m.clear_bell(&name).await;
+        m.screen(&name).await
+    };
+    let screen = if cap.may_create() {
+        let Some(_terminal) = m.terminal_input_guard(&name).await else {
+            return true;
+        };
+        snapshot.await
+    } else {
+        m.session_read_operation(snapshot).await
+    };
     // Socket backpressure must not hold the session boundary.
     if let Some(s) = screen {
         return send(tx, cap, &EventMessage::new(Event::Screen { screen: s }))

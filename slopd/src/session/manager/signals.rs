@@ -7,6 +7,32 @@ use std::sync::{Arc, Mutex};
 
 use tokio::sync::RwLock;
 
+/// One active redraw pass plus the latest requested geometry. Repeated sidebar
+/// changes replace pending work rather than enqueue another whole-colony pass.
+#[derive(Default)]
+pub(crate) struct RedrawQueue {
+    running: bool,
+    pending: Option<Option<(u16, u16)>>,
+}
+
+impl RedrawQueue {
+    pub(crate) fn request(&mut self, shape: Option<(u16, u16)>) -> bool {
+        // A mode-only refresh must not erase an already requested geometry.
+        self.pending = Some(shape.or(self.pending.flatten()));
+        let spawn = !self.running;
+        self.running = true;
+        spawn
+    }
+
+    pub(crate) fn next(&mut self) -> Option<Option<(u16, u16)>> {
+        let pending = self.pending.take();
+        if pending.is_none() {
+            self.running = false;
+        }
+        pending
+    }
+}
+
 /// Temporary state for client coordination and redraw publication.
 /// Keep it separate from persistent configuration and live pane state.
 pub(crate) struct Signals {
@@ -15,6 +41,7 @@ pub(crate) struct Signals {
     // Watch receivers retain changes while readers await frame publication.
     pub(crate) watchers_changed: tokio::sync::watch::Sender<()>,
     pub(crate) maintenance_wake: Arc<tokio::sync::Notify>,
+    pub(crate) redraw: Mutex<RedrawQueue>,
     pub(crate) redraw_nudge: Arc<tokio::sync::Semaphore>,
 }
 
@@ -25,6 +52,7 @@ impl Signals {
             watchers: Mutex::new(HashMap::new()),
             watchers_changed: tokio::sync::watch::channel(()).0,
             maintenance_wake: Arc::new(tokio::sync::Notify::new()),
+            redraw: Mutex::new(RedrawQueue::default()),
             redraw_nudge: Arc::new(tokio::sync::Semaphore::new(1)),
         }
     }

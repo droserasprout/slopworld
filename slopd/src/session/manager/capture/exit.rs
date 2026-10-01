@@ -73,7 +73,8 @@ impl Manager {
             return;
         }
         tracing::warn!(session = %name, "control reader disconnected; reattaching to live pane");
-        // The session boundary keeps identity stable through replacement attachment.
+        // Attachment takes the terminal writer before sampling dimensions, so a
+        // resize admitted after retirement completes before the new mirror is built.
         if let Err(error) = self.spawn_reader(name).await {
             tracing::warn!(session = %name, "control reader recovery failed; process retained: {error}");
         }

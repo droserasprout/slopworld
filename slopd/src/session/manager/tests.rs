@@ -23,6 +23,7 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
     let (events, _) = broadcast::channel(16);
     Arc::new(Manager {
         frame_commit_pause: Mutex::new(None),
+        reader_attach_pause: Mutex::new(None),
         input_sink: Mutex::new(None),
         _test_directory: Some(TestDirectory(directory.clone())),
         tmux: Tmux::new(socket),
@@ -46,7 +47,7 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
         auth: Authorization::new(crate::grant::Grants::default()),
         session_boundary: Arc::new(tokio::sync::RwLock::new(())),
         terminal_boundaries: Mutex::new(HashMap::new()),
-        resize_mutation: tokio::sync::Mutex::new(()),
+        terminal_resizes: Mutex::new(HashMap::new()),
         tasks: super::TaskStore::new(
             crate::tasks::Tasks::load(&cfg_path).expect("test task store"),
         ),

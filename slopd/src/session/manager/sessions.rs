@@ -585,6 +585,9 @@ impl Manager {
     }
 
     pub(super) async fn readopt(self: &Arc<Self>, old: &str, new: &str) {
+        // Rename already protects the old name. Protect the destination before
+        // publishing its row so root resize cannot race replacement attachment.
+        let terminal = self.terminal_boundary(new).write_owned().await;
         // The control reader attaches by tmux name. A rename requires a new capture and emulator.
         let (running, reader) = {
             let mut live = self.live.write().await;
@@ -619,7 +622,7 @@ impl Manager {
             );
         }
         if running {
-            match self.spawn_reader(new).await {
+            match self.spawn_reader_with_terminal(new, &terminal).await {
                 Ok(true) => {
                     let m = self.clone();
                     let name = new.to_string();
@@ -691,7 +694,10 @@ impl Manager {
         if let Err(e) = crate::sandbox::purge_trash() {
             tracing::warn!("purging private-state trash: {e:#}");
         }
-        self.sync_from_config().await;
+        // This transaction removes only this row. A full reconciliation would
+        // probe and potentially restart every unrelated session for each deletion.
+        self.forget(name).await;
+        self.announce_sessions().await;
         Ok(())
     }
 

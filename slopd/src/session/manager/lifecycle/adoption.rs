@@ -3,6 +3,7 @@
 use crate::clock::unix_ms;
 use crate::config::HostTerminalCfg;
 use crate::session::*;
+use futures::StreamExt;
 
 /// Raw tmux observations and the matching saved host entry.
 struct AdoptionProbe {
@@ -100,9 +101,22 @@ impl Manager {
     pub(in crate::session::manager) async fn adopt_orphans(self: &Arc<Self>, cfg: &Config) -> bool {
         // Caller holds the session boundary across probing, live updates, and attachment.
         let names = self.tmux.list().await;
-        let probes =
-            futures::future::join_all(names.into_iter().map(|name| self.probe_orphan(cfg, name)))
-                .await;
+        // Attached readers already own authoritative live identity and metadata.
+        // Probe only missing or readerless rows; retain recovery after disconnect.
+        let names = {
+            let live = self.live.read().await;
+            names
+                .into_iter()
+                .filter(|name| live.get(name).is_none_or(|row| row.capture.emu.is_none()))
+                .collect::<Vec<_>>()
+        };
+        // Each probe launches several tmux clients. Bound recovery bursts as well
+        // as avoiding repeated probing during ordinary configuration edits.
+        let probes = futures::stream::iter(names)
+            .map(|name| self.probe_orphan(cfg, name))
+            .buffer_unordered(8)
+            .collect::<Vec<_>>()
+            .await;
         let decisions = probes
             .into_iter()
             .map(|probe| Self::decide_orphan(cfg, probe, &self.activity_cache));
@@ -117,6 +131,9 @@ impl Manager {
     /// Create or repair the live row before restoring dimensions and capture.
     async fn commit_adoption(self: &Arc<Self>, cfg: &Config, decision: AdoptionDecision) -> bool {
         let name = &decision.probe.name;
+        // Recovery may replace stale worker/host identity. Exclude root input
+        // and resize through row publication and attachment, as startup does.
+        let terminal = self.terminal_boundary(name).write_owned().await;
         let (created, needs_size) = {
             let mut live = self.live.write().await;
             let (row, created) = match live.entry(name.clone()) {
@@ -144,7 +161,7 @@ impl Manager {
         if needs_size {
             self.refresh_readerless_size(name).await;
         }
-        self.attach_adopted_reader(name).await;
+        self.attach_adopted_reader(name, &terminal).await;
         if decision.probe.host {
             // The saved host catalog alone owns persistence; a viewer stays temporary.
             if let Some(path) = &decision.probe.current_path {
@@ -254,8 +271,12 @@ impl Manager {
     }
 
     /// Attach capture and request a redraw only when a new reader starts.
-    async fn attach_adopted_reader(self: &Arc<Self>, name: &str) {
-        match self.spawn_reader(name).await {
+    async fn attach_adopted_reader(
+        self: &Arc<Self>,
+        name: &str,
+        terminal: &tokio::sync::OwnedRwLockWriteGuard<()>,
+    ) {
+        match self.spawn_reader_with_terminal(name, terminal).await {
             Ok(true) => {
                 let m = self.clone();
                 let name = name.to_owned();

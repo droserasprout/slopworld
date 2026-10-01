@@ -808,3 +808,43 @@ fn pending_title(title: &mut TitleCapture) -> TitleRequest {
     };
     request
 }
+
+#[tokio::test]
+async fn removing_one_durable_session_does_not_autostart_an_unrelated_host_tab() {
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
+    let (manager, root, socket) = rename_fixture(false).await;
+    manager
+        .update_cfg(|cfg| {
+            cfg.host_terminals.push(crate::config::HostTerminalCfg {
+                name: "unrelated".into(),
+                project: "repo".into(),
+                path: root.to_string_lossy().into_owned(),
+                autostart: true,
+                ..Default::default()
+            });
+            Ok(())
+        })
+        .await
+        .unwrap();
+    manager.remove("old").await.unwrap();
+    assert!(manager.config().await.session("old").is_none());
+    assert!(!manager.live.read().await.contains_key("old"));
+    assert!(
+        manager
+            .config()
+            .await
+            .host_terminals
+            .iter()
+            .any(|tab| tab.name == "unrelated")
+    );
+    assert!(!manager.tmux.exists("unrelated").await);
+    drop(
+        tokio::process::Command::new("tmux")
+            .args(["-S", &socket, "kill-server"])
+            .output()
+            .await,
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}

@@ -33,13 +33,19 @@ or mismatched durable identities for configured agents, even after the old pane 
 The session boundary and configuration persistence gate protect the operation from preparation through commit.
 Session identity and grant changes take the exclusive boundary. Task routes and direct
 worktree creation hold the shared boundary, so checkout and task persistence do not stop
-unrelated input. Root socket keys, mouse, paste, and resize use a per-name terminal boundary so
+unrelated input. Root socket keys, mouse, paste, resize, subscriptions, and history use a per-name terminal boundary so
 unrelated lifecycle work cannot delay them. Scoped admission retains the shared
 session boundary for authorization. Ordered delivery rechecks session and run
 identity under the terminal boundary. Lifecycle holds its exclusive terminal guard
 from before tmux identity changes through publication or rollback; acquire it after
 the session boundary and release it before reconciliation can start the same name.
-Resize requests serialize their tmux update and dimension publication separately.
+Resize requests serialize tmux acceptance and dimension publication per terminal,
+including redraw shrink/restore. Different terminals never share that resize lock.
+Redraw passes run at most eight panes concurrently. A burst retains only the latest
+pending geometry; a mode-only refresh preserves a pending explicit geometry.
+Root session snapshots and WebSocket upgrades read accepted state without entering
+the lifecycle boundary or triggering disk reloads. Scoped snapshots retain shared
+authorization protection; maintenance publishes external configuration changes.
 A detached task completes its commit or rollback even if a caller cancels the request.
 A persistence failure restores the old tmux name.
 If rollback also fails, the error and log report both failures and the observed tmux names.
@@ -72,6 +78,9 @@ Activity persistence serializes writes and clears, rechecks durable identity, ru
 and keeps the per-name terminal boundary through tmux I/O without holding the live lock.
 Inline attachment renders under the existing exclusive session operation instead,
 so startup and rename do not reacquire their own terminal writer.
+Reader attachment holds the terminal writer from dimension sampling through publication
+and failure cleanup. Startup passes its existing guard into cleanup; adoption protects
+size recovery, and rename protects the destination before publishing its live row.
 
 On adoption, existing tmux activity options take precedence over the disk fallback.
 Temporary terminal readers store intent, display label, project/worktree, source identity and pin
@@ -133,7 +142,11 @@ A pager can remain blank until input triggers a redraw.
 Startup owns its exclusive boundary through an independent completion task, including
 nested callers and cancellation. Essential worker adoption metadata must save successfully
 before launch proceeds. Startup controls this sequence, not the mod's pixel cache.
-Adoption still initializes the mirror from an already running pane.
+Adoption still initializes the mirror from an already running pane. Reconciliation
+probes only missing or readerless rows, with at most eight metadata probes in flight.
+An attached reader owns authoritative identity; tmux metadata is its recovery source.
+Deleting one durable session commits and cleans up that row without a full
+reconciliation of unrelated sessions.
 
 Terminal bytes remain complete under backpressure.
 A bounded queue of byte chunks must still reassemble long control lines after dequeue.

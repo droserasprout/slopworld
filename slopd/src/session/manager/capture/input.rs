@@ -3,6 +3,7 @@
 use super::*;
 use crate::emu::MouseInput;
 use anyhow::anyhow;
+use futures::StreamExt;
 
 impl Manager {
     /// Root socket commands need only protect their target, without waiting for
@@ -220,7 +221,7 @@ impl Manager {
 
     pub async fn resize(&self, name: &str, cols: u16, rows: u16) -> Result<()> {
         // Serialize tmux acceptance with dimension publication across shared requests.
-        let _resize = self.resize_mutation.lock().await;
+        let _resize = self.terminal_resize(name).lock_owned().await;
         let (cols, rows) = clamp_terminal_size(cols, rows);
         {
             let live = self.live.read().await;
@@ -261,8 +262,30 @@ impl Manager {
     /// Repaint all live panes asynchronously after a sidebar layout change.
     pub fn request_redraw(self: &Arc<Self>, shape: Option<(u16, u16)>) {
         let shape = shape.map(|(cols, rows)| clamp_terminal_size(cols, rows));
+        if !self
+            .signals
+            .redraw
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .request(shape)
+        {
+            return;
+        }
         let manager = self.clone();
-        tokio::spawn(async move { manager.redraw_panes(shape).await });
+        tokio::spawn(async move { manager.drain_redraws().await });
+    }
+
+    async fn drain_redraws(self: &Arc<Self>) {
+        loop {
+            let pending = self
+                .signals
+                .redraw
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .next();
+            let Some(shape) = pending else { return };
+            self.redraw_panes(shape).await;
+        }
     }
 
     async fn redraw_panes(self: &Arc<Self>, shape: Option<(u16, u16)>) {
@@ -281,20 +304,26 @@ impl Manager {
         let jobs = names.into_iter().map(|name| {
             let m = self.clone();
             async move {
-                if let Some((cols, rows)) = shape
-                    && let Err(e) = m.resize(&name, cols, rows).await
-                {
-                    tracing::debug!("redraw resize {name}: {e:#}");
-                    return;
+                if let Some((cols, rows)) = shape {
+                    let _terminal = m.terminal_boundary(&name).read_owned().await;
+                    if let Err(e) = m.resize(&name, cols, rows).await {
+                        tracing::debug!("redraw resize {name}: {e:#}");
+                        return;
+                    }
                 }
                 m.nudge_redraw(&name).await;
             }
         });
-        futures::future::join_all(jobs).await;
+        // Independent panes may redraw together without flooding tmux with clients.
+        futures::stream::iter(jobs)
+            .buffer_unordered(8)
+            .collect::<Vec<_>>()
+            .await;
     }
 
     pub(in crate::session::manager) async fn nudge_redraw(self: &Arc<Self>, name: &str) {
-        let _resize = self.resize_mutation.lock().await;
+        let _terminal = self.terminal_boundary(name).read_owned().await;
+        let _resize = self.terminal_resize(name).lock_owned().await;
         // A brief size change triggers SIGWINCH so the application restores terminal modes.
         let Some((cols, rows)) = self.size_of(name).await else {
             return;

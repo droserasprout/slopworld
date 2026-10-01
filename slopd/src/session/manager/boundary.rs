@@ -32,6 +32,21 @@ impl Manager {
         boundary
     }
 
+    /// Resize publication and redraw restoration serialize only within this name.
+    pub(super) fn terminal_resize(&self, name: &str) -> Arc<tokio::sync::Mutex<()>> {
+        let mut resizes = self
+            .terminal_resizes
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if let Some(resize) = resizes.get(name).and_then(std::sync::Weak::upgrade) {
+            return resize;
+        }
+        resizes.retain(|_, resize| resize.strong_count() > 0);
+        let resize = Arc::new(tokio::sync::Mutex::new(()));
+        resizes.insert(name.to_string(), Arc::downgrade(&resize));
+        resize
+    }
+
     pub(super) fn session_write_operation_active(&self) -> bool {
         OWNER
             .try_with(|current| current.0 == self as *const Self as usize)

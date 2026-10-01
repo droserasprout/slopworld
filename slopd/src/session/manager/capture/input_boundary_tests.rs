@@ -328,3 +328,193 @@ async fn benchmark_mixed_input_dispatch() {
         );
     }
 }
+
+#[tokio::test]
+async fn resizing_one_terminal_does_not_wait_for_another_terminals_redraw() {
+    let (manager, _) = queued_manager().await;
+    let background = manager.terminal_resize("worker").lock_owned().await;
+    tokio::time::timeout(Duration::from_secs(1), manager.resize("target", 100, 30))
+        .await
+        .expect("foreground resize waited on a different terminal")
+        .unwrap();
+    let target = manager.terminal_resize("target").lock_owned().await;
+    let resize = manager.resize("target", 90, 25);
+    tokio::pin!(resize);
+    assert!(futures::poll!(resize.as_mut()).is_pending());
+    assert_eq!(manager.size_of("target").await, Some((100, 30)));
+    drop(target);
+    resize.await.unwrap();
+    assert_eq!(manager.size_of("target").await, Some((90, 25)));
+    drop(background);
+}
+
+#[tokio::test]
+async fn redraw_restores_the_latest_size_before_a_same_terminal_resize() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+    let mut row = Live::new(
+        SessionCfg {
+            name: "target".into(),
+            ..Default::default()
+        },
+        TitleCapture::default(),
+    );
+    row.state = State::Working;
+    manager.live.write().await.insert("target".into(), row);
+    manager
+        .tmux
+        .spawn(
+            "target",
+            "/tmp",
+            120,
+            34,
+            &["sleep".into(), "60".into()],
+            true,
+        )
+        .await
+        .unwrap();
+    let nudge = manager.nudge_redraw("target");
+    tokio::pin!(nudge);
+    tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            tokio::select! {
+                () = nudge.as_mut() => panic!("nudge finished before its temporary resize was observed"),
+                size = manager.tmux.size("target") => {
+                    if size == Some((119, 34)) { break; }
+                }
+            }
+        }
+    }).await.unwrap();
+    let resize = manager.resize("target", 100, 30);
+    tokio::pin!(resize);
+    assert!(futures::poll!(resize.as_mut()).is_pending());
+    nudge.await;
+    assert_eq!(manager.tmux.size("target").await, Some((120, 34)));
+    resize.await.unwrap();
+    assert_eq!(manager.tmux.size("target").await, Some((100, 30)));
+}
+
+#[tokio::test]
+#[ignore = "isolated 100-pane load diagnostic"]
+async fn benchmark_terminal_load_contention() {
+    let (manager, cfg, _socket) = terminal_load_fixture(100).await;
+    let start = std::time::Instant::now();
+    let redraw = manager.redraw_panes(None);
+    tokio::pin!(redraw);
+    assert!(futures::poll!(redraw.as_mut()).is_pending());
+    let resize = async {
+        let start = std::time::Instant::now();
+        manager.resize("pane000", 100, 30).await.unwrap();
+        start.elapsed()
+    };
+    let ((), resize_elapsed) = tokio::join!(redraw, resize);
+    println!(
+        "panes=100 redraw_ms={:.1} foreground_resize_ms={:.1}",
+        start.elapsed().as_secs_f64() * 1000.0,
+        resize_elapsed.as_secs_f64() * 1000.0
+    );
+    for iteration in 0..3 {
+        let start = std::time::Instant::now();
+        manager.session_operation(manager.adopt_orphans(&cfg)).await;
+        println!(
+            "known_workers=100 adoption_pass={} elapsed_ms={:.1}",
+            iteration + 1,
+            start.elapsed().as_secs_f64() * 1000.0
+        );
+    }
+}
+
+// Setup stays outside timed work and owns the socket through every measurement.
+async fn terminal_load_fixture(
+    count: usize,
+) -> (Arc<Manager>, Config, crate::test_support::TmuxSocket) {
+    let socket = crate::test_support::TmuxSocket::new();
+    let mut sessions = Vec::new();
+    for index in 0..count {
+        let session = SessionCfg {
+            name: format!("pane{index:03}"),
+            worker: true,
+            parent: "parent".into(),
+            task_id: format!("task{index}"),
+            ..Default::default()
+        };
+        let output = tokio::process::Command::new("tmux")
+            .args([
+                "-S",
+                &socket.path,
+                "-f",
+                "/dev/null",
+                "new-session",
+                "-d",
+                "-s",
+                &session.name,
+                "sleep 120",
+                ";",
+                "set-option",
+                "-t",
+                &session.name,
+                "@slopworld_worker",
+                "1",
+                ";",
+                "set-option",
+                "-t",
+                &session.name,
+                "@slopworld_worker_parent",
+                "parent",
+                ";",
+                "set-option",
+                "-t",
+                &session.name,
+                "@slopworld_worker_task",
+                &session.task_id,
+                ";",
+                "set-option",
+                "-t",
+                &session.name,
+                "@slopworld_worker_durable",
+                "1",
+                ";",
+                "set-option",
+                "-t",
+                &session.name,
+                "@slopworld_worker_state",
+                &session.state_id,
+                ";",
+                "set-option",
+                "-t",
+                &session.name,
+                "@slopworld-worker-project",
+                "project",
+                ";",
+                "set-option",
+                "-t",
+                &session.name,
+                "@slopworld-worker-worktree",
+                "main",
+            ])
+            .output()
+            .await
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        sessions.push(session);
+    }
+    let cfg = Config {
+        sessions: sessions.clone(),
+        ..Default::default()
+    };
+    let manager = crate::session::test_manager_with_socket(cfg.clone(), socket.path.clone());
+    for session in sessions {
+        let name = session.name.clone();
+        let mut row = Live::new(session, TitleCapture::default());
+        row.state = State::Working;
+        row.capture.emu = Some(Arc::new(std::sync::Mutex::new(
+            crate::emu::SessionEmu::new(120, 34),
+        )));
+        manager.live.write().await.insert(name, row);
+    }
+    (manager, cfg, socket)
+}
