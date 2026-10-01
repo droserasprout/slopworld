@@ -12,7 +12,8 @@ The form sends portable form overrides to `SessionHub`. There is no template swi
 The existing agent editor's **Save as template** action uses a small naming dialog and the
 daemon capture route. Catalog edits and deletes send the daemon-owned version.
 A failed operation retains the open draft.
-Reload explicitly discards the draft and loads the newest catalog. Catalog request revisions suppress stale refresh responses while settling superseded page loads.
+Reload explicitly discards the draft and loads the newest catalog. Catalog request revisions suppress stale refresh responses. Superseded page loads wait
+for the winning request or pushed snapshot; its publication or failure settles all waiting callers.
 The form replaces the recipe, preserving unspecified choices: deep merging would retain
 cleared fields. Template flags offer Session default.
 Network and DNS are direct agent choices. Limits use No cap or Custom. Empty custom limits fail validation. The editor shows agent and template save errors while it remains open. Users select project mounts in the project editor

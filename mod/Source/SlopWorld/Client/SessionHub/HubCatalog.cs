@@ -67,7 +67,7 @@ namespace SlopWorld
         public void SaveLibraryItem(LibraryItemInfo s, bool isNew, string origName,
                                  Action ok, Action<string> fail)
         {
-            _library.Invalidate();
+            fail = _library.Invalidate(fail);
             Action<Wire.Ack> done = _ => { RefreshLibrary(); ok?.Invoke(); };
             if (isNew) DaemonClient.Post(LibraryPath, s.ToWire(), done, fail);
             else DaemonClient.Put($"{LibraryPath}/{HubWire.Esc(origName)}", s.ToWire(), done, fail);
@@ -75,7 +75,7 @@ namespace SlopWorld
 
         public void RemoveLibraryItem(string name, Action<string> fail = null)
         {
-            _library.Invalidate();
+            fail = _library.Invalidate(fail);
             DaemonClient.Delete($"{LibraryPath}/{HubWire.Esc(name)}",
                 _ => RefreshLibrary(), fail);
         }
@@ -87,22 +87,20 @@ namespace SlopWorld
             {
                 Presets = j.Presets.Select(PresetInfo.FromWire).ToList();
                 Commands = j.Commands.Select(CommandInfo.FromWire).ToList();
-                ok?.Invoke();
-            }, fail);
+            }, fail, ok);
 
         public void RefreshTemplates(Action<string> fail = null, Action loaded = null) =>
             _templates.Refresh<Wire.TemplatesReply>(TemplatesPath,
                 j =>
                 {
                     Templates = j.Templates.Select(AgentTemplateInfo.FromWire).ToList();
-                    loaded?.Invoke();
                 },
                 fail, loaded);
 
         public void SaveAgentTemplate(string source, string name, string description,
                                        Action ok, Action<string> fail)
         {
-            _templates.Invalidate();
+            fail = _templates.Invalidate(fail);
             DaemonClient.Post<Wire.TemplateResult>(TemplatesPath,
                 new Wire.SaveTemplateRequest { Name = name, Description = description, Source = source },
                 _ => { RefreshTemplates(); ok?.Invoke(); }, fail);
@@ -115,18 +113,18 @@ namespace SlopWorld
             Wire.AgentTemplate body;
             try { body = template.ToWire(form); }
             catch (InvalidOperationException error) { fail?.Invoke(error.Message); return; }
-            _templates.Invalidate();
-            Action<Wire.Ack> done = _ => { RefreshTemplates(); ok?.Invoke(); };
+            fail = _templates.Invalidate(fail);
+            Action done = () => { RefreshTemplates(); ok?.Invoke(); };
             if (isNew)
-                DaemonClient.Post<Wire.TemplateResult>(TemplatesPath, new Wire.SaveTemplateRequest { Name = body.Name, Description = body.Description, Version = body.Version, Defaults = body.Defaults }, _ => done(null), fail);
+                DaemonClient.Post<Wire.TemplateResult>(TemplatesPath, new Wire.SaveTemplateRequest { Name = body.Name, Description = body.Description, Version = body.Version, Defaults = body.Defaults }, _ => done(), fail);
             else
-                DaemonClient.Put<Wire.TemplateResult>($"{TemplatesPath}/{HubWire.Esc(originalName)}", body, _ => done(null), fail);
+                DaemonClient.Put<Wire.TemplateResult>($"{TemplatesPath}/{HubWire.Esc(originalName)}", body, _ => done(), fail);
         }
 
         public void DuplicateAgentTemplate(string source, string name, string description,
                                            Action ok, Action<string> fail)
         {
-            _templates.Invalidate();
+            fail = _templates.Invalidate(fail);
             var body = new Wire.SaveTemplateRequest { Name = name, Description = description, Duplicate = source };
             DaemonClient.Post<Wire.TemplateResult>(TemplatesPath, body,
                 _ => { RefreshTemplates(); ok?.Invoke(); }, fail);
@@ -135,7 +133,7 @@ namespace SlopWorld
         public void RemoveAgentTemplate(AgentTemplateInfo template, string originalName,
                                         Action ok, Action<string> fail)
         {
-            _templates.Invalidate();
+            fail = _templates.Invalidate(fail);
             string path = $"{TemplatesPath}/{HubWire.Esc(originalName ?? template.Name)}?{WireProtocol.TemplateVersionQuery}={template.Version}";
             DaemonClient.Delete(path, _ => { RefreshTemplates(); ok?.Invoke(); }, fail);
         }
@@ -143,28 +141,28 @@ namespace SlopWorld
         public void CopyPreset(string kind, string name, string newName,
                                Action ok, Action<string> fail)
         {
-            _presets.Invalidate();
+            fail = _presets.Invalidate(fail);
             DaemonClient.Post($"{PresetsPath}/{kind}/{Uri.EscapeDataString(name)}/copy",
                 new Wire.CopyPresetReq { Name = newName ?? "" }, PresetsSaved(ok, fail), fail);
         }
 
         public void SavePreset(PresetInfo p, Action ok, Action<string> fail)
         {
-            _presets.Invalidate();
+            fail = _presets.Invalidate(fail);
             DaemonClient.Put($"{PresetsPath}/sandbox_presets/{Uri.EscapeDataString(p.Name)}", new Wire.PresetRequest { Sandbox = p.ToWire() },
                 PresetsSaved(ok, fail), fail);
         }
 
         public void RemovePreset(string kind, string name, Action ok, Action<string> fail)
         {
-            _presets.Invalidate();
+            fail = _presets.Invalidate(fail);
             DaemonClient.Delete($"{PresetsPath}/{kind}/{Uri.EscapeDataString(name)}",
                 PresetsSaved(ok, fail), fail);
         }
 
         public void SaveCommand(CommandInfo c, Action ok, Action<string> fail)
         {
-            _presets.Invalidate();
+            fail = _presets.Invalidate(fail);
             DaemonClient.Put($"{PresetsPath}/app_presets/{Uri.EscapeDataString(c.Name)}", new Wire.PresetRequest { Command = c.ToWire() },
                 PresetsSaved(ok, fail), fail);
         }
@@ -186,7 +184,7 @@ namespace SlopWorld
             // Invalidate pending list requests before starting the write.
             // After a successful write, request a new catalog snapshot.
             // Earlier responses must not replace the catalog.
-            _projects.Invalidate();
+            fail = _projects.Invalidate(fail);
             Action<Wire.Ack> done = _ => { RefreshProjects(); _refreshSessions(); ok?.Invoke(); };
             if (isNew) DaemonClient.Post(ProjectsPath, p.ToWire(), done, fail);
             else DaemonClient.Put($"{ProjectsPath}/{HubWire.Esc(origName)}", p.ToWire(), done, fail);
@@ -198,7 +196,7 @@ namespace SlopWorld
 
         void DeleteProject(string path, Action<string> fail)
         {
-            _projects.Invalidate();
+            fail = _projects.Invalidate(fail);
             DaemonClient.Delete(path,
                 _ => { RefreshProjects(); _refreshSessions(); }, fail);
         }
@@ -206,22 +204,59 @@ namespace SlopWorld
 
     sealed class CatalogRequest
     {
+        sealed class Waiter
+        {
+            public Action Loaded;
+            public Action<string> Failed;
+        }
+        readonly List<Waiter> _waiters = new List<Waiter>();
         public int Revision { get; private set; }
-        public void Invalidate() => Revision++;
+
+        // Keep refresh callers pending through a mutation. Its reload supplies the
+        // winning snapshot; a failed mutation must also release those callers.
+        public Action<string> Invalidate(Action<string> fail)
+        {
+            int revision = ++Revision;
+            return error =>
+            {
+                if (revision == Revision) Settle(null, error);
+                fail?.Invoke(error);
+            };
+        }
 
         public void Apply<T>(T value, Action<T> apply)
         {
-            Invalidate();
-            apply(value);
+            Revision++;
+            Settle(() => apply(value), null);
         }
 
         public void Refresh<T>(string path, Action<T> apply, Action<string> fail,
-                            Action superseded = null) where T : Google.Protobuf.IMessage<T>, new()
+                            Action loaded = null) where T : Google.Protobuf.IMessage<T>, new()
         {
             int revision = ++Revision;
+            _waiters.Add(new Waiter { Loaded = loaded, Failed = fail });
             DaemonClient.Get<T>(path,
-                value => { if (revision == Revision) apply(value); else superseded?.Invoke(); },
-                error => { if (revision == Revision) fail?.Invoke(error); else superseded?.Invoke(); });
+                value => { if (revision == Revision) Settle(() => apply(value), null); },
+                error => { if (revision == Revision) Settle(null, error); });
+        }
+
+        void Settle(Action publish, string error)
+        {
+            // Detach before publishing/callbacks so reentrant refreshes belong to
+            // the next outcome. Every success callback sees the winning catalog.
+            var waiters = _waiters.ToArray();
+            _waiters.Clear();
+            try { publish?.Invoke(); }
+            catch (Exception e) { error = e.Message; }
+            foreach (var waiter in waiters)
+            {
+                try
+                {
+                    if (error == null) waiter.Loaded?.Invoke();
+                    else waiter.Failed?.Invoke(error);
+                }
+                catch (Exception e) { Verse.Log.Warning("[SlopWorld] catalog callback: " + e); }
+            }
         }
     }
 }

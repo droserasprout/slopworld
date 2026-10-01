@@ -8,6 +8,48 @@ namespace SlopWorld.Tests
             "}],\"library\":[{\"name\":" + JVal.Q(name) + "}],\"presets\":[{\"name\":" + JVal.Q(name) +
             "}],\"commands\":[{\"name\":" + JVal.Q(name) + "}]}");
 
+        public static void SupersededRefreshesWaitForWinningSuccessOrFailure()
+        {
+            var requests = DaemonClient.Requests;
+            requests.Clear();
+            var hub = new HubCatalog(() => { });
+            int loaded = 0, failed = 0;
+            Action success = () => { AssertEx.Equal("winner", hub.Templates[0].Name, "publish before callbacks"); loaded++; };
+            Action<string> failure = error => { AssertEx.Equal("unavailable", error, "winning failure"); failed++; };
+            hub.RefreshTemplates(failure, success);
+            hub.RefreshTemplates(failure, success);
+            requests[0].Ok(JVal.Parse(@"{""templates"":[{""name"":""stale""}]}"));
+            AssertEx.Equal(0, loaded, "stale success cannot settle callers");
+            requests[1].Ok(JVal.Parse(@"{""templates"":[{""name"":""winner""}]}"));
+            AssertEx.Equal(2, loaded, "both callers see winning snapshot");
+            hub.RefreshTemplates(failure, success);
+            hub.RefreshTemplates(failure, success);
+            requests[2].Fail("stale failure");
+            AssertEx.Equal(0, failed, "stale failure cannot settle callers");
+            requests[3].Fail("unavailable");
+            AssertEx.Equal(2, failed, "both callers receive winning error");
+            AssertEx.Equal(2, loaded, "failure is never reported as success");
+            requests.Clear();
+        }
+
+        public static void MutationFailureSettlesReadsAndReentrantRefreshWaitsForItsOwnOutcome()
+        {
+            var requests = DaemonClient.Requests;
+            requests.Clear();
+            var hub = new HubCatalog(() => { });
+            int failed = 0, loaded = 0;
+            hub.RefreshTemplates(_ => failed++);
+            hub.RemoveAgentTemplate(new AgentTemplateInfo(), null, null, _ => failed++);
+            requests[1].Fail("write failed");
+            AssertEx.Equal(2, failed, "write failure releases refresh and mutation callers");
+            hub.RefreshTemplates(loaded: () => { loaded++; hub.RefreshTemplates(loaded: () => loaded++); });
+            requests[2].Ok(JVal.Parse("{}"));
+            AssertEx.Equal(1, loaded, "reentrant request is not completed by old outcome");
+            requests[3].Ok(JVal.Parse("{}"));
+            AssertEx.Equal(2, loaded, "reentrant request completes on its response");
+            requests.Clear();
+        }
+
         public static void Ordering()
         {
             var requests = DaemonClient.Requests;
@@ -31,7 +73,8 @@ namespace SlopWorld.Tests
                 requests[1].Fail("stale");
                 AssertEx.Equal("new", names[i](), "newest GET wins");
                 AssertEx.Equal(i, errors, "stale failure ignored");
-                requests[2].Fail("current");
+                refreshes[i]();
+                requests[3].Fail("current");
             }
             AssertEx.Equal("new", hub.Commands[0].Name, "commands share preset revision");
             for (int i = 0; i < 2; i++)
@@ -78,7 +121,7 @@ namespace SlopWorld.Tests
             obsolete.Fail("stale");
             AssertEx.Equal(writes.Length, completed, "superseded load callback ignored");
             requests[requests.Count - 1].Ok(Snapshot("current"));
-            AssertEx.Equal(writes.Length + 1, completed, "current load callback delivered");
+            AssertEx.Equal(writes.Length + 2, completed, "both load callbacks see the current catalog");
             hub.RefreshProjects(fail);
             obsolete = requests[requests.Count - 1];
             hub.RemoveProject("a/b", fail);

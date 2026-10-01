@@ -47,7 +47,7 @@ namespace SlopWorld.Tests
                 AssertEx.Equal(revision + 1, catalog.TemplatesRevision, "write invalidates template reads");
                 AssertEx.False(settingsRevision == catalog.SettingsRevision, "settings previews observe catalog mutation");
                 pending.Ok(JVal.Parse("{\"templates\":[{\"name\":\"stale\"}]}"));
-                AssertEx.Equal(1, settled, "superseded editor leaves loading state");
+                AssertEx.Equal(0, settled, "superseded editor waits for the winning outcome");
                 AssertEx.True(ReferenceEquals(retained, catalog.Templates[0]), "stale reply cannot replace retained catalog");
                 string root = WireProtocol.Routes.Templates;
                 AssertEx.Equal(kind == "edit" ? "PUT" : kind.StartsWith("remove") ? "DELETE" : "POST",
@@ -90,6 +90,7 @@ namespace SlopWorld.Tests
                     AssertEx.Equal(root, requests[2].Path, "reload uses template route");
                     requests[2].Ok(JVal.Parse("{\"templates\":[{\"name\":\"fresh\"}]}"));
                     AssertEx.Equal("fresh", catalog.Templates[0].Name, "fresh snapshot replaces catalog");
+                    AssertEx.Equal(1, settled, "reload settles superseded editor");
                     AssertEx.Equal<string>(null, error, "successful write reports no error");
                 }
             }
