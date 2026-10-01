@@ -23,6 +23,8 @@ namespace SlopWorld
                 if (entry.Error != null) { onError(entry.Error); _events.Add(null); continue; }
                 if (entry.LiveName != null)
                 {
+                    // Keep a null slot rather than removing it: event indexes must
+                    // stay aligned with receive timestamps for latency dispatch.
                     if (_latest.TryGetValue(entry.LiveName, out var old)) _events[old] = null;
                     _latest[entry.LiveName] = _events.Count;
                 }
