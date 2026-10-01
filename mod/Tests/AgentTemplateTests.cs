@@ -4,6 +4,34 @@ namespace SlopWorld.Tests
 {
     static class AgentTemplateTests
     {
+        public static void CapturedDependenciesKeepBreadthFirstOrderAndDeduplicateCycles()
+        {
+            var catalog = SessionHub.Instance.Catalog;
+            var presets = catalog.Presets;
+            try
+            {
+                catalog.Presets = new List<PresetInfo>
+                {
+                    new PresetInfo { Name = "a", Description = "live" },
+                    new PresetInfo { Name = "b", Requires = new List<string> { "c" } },
+                };
+                var template = new AgentTemplateInfo();
+                template.DefaultsSnapshot.Command = new Wire.CommandPreset { Name = "agent", Sandbox = { "b", "a" } };
+                template.DefaultsSnapshot.SandboxPresets.Add(new Wire.SandboxPreset { Name = "a", Description = "captured", Requires = { "c" } });
+                template.DefaultsSnapshot.SandboxPresets.Add(new Wire.SandboxPreset { Name = "c", Requires = { "a" } });
+                var form = new SessionInfo { Command = "agent", Sandbox = new List<string> { "a", "a" } };
+                var saved = template.ToWire(form).Defaults;
+                AssertEx.Equal("a,b,c", string.Join(",", saved.Sandbox), "explicit, command, then dependency order");
+                AssertEx.Equal(3, saved.SandboxPresets.Count, "cycle and duplicates captured once");
+                AssertEx.Equal("captured", saved.SandboxPresets[0].Description, "captured definition wins");
+                saved.SandboxPresets[0].Description = "edited";
+                AssertEx.Equal("captured", template.DefaultsSnapshot.SandboxPresets[0].Description, "captured snapshot is independent");
+                form.Sandbox.Add("missing");
+                AssertEx.Throws<System.InvalidOperationException>(() => template.ToWire(form), "unknown dependency is rejected");
+            }
+            finally { catalog.Presets = presets; }
+        }
+
         public static void VersionTokensRemainExact()
         {
             var template = AgentTemplateInfo.FromWire(ProtobufFixtures.Read<Wire.AgentTemplate>(JVal.Parse("{\"version\":9007199254740991}")));
