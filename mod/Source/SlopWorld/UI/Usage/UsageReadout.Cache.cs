@@ -80,7 +80,7 @@ namespace SlopWorld
 
         static void CachedTip(Rect chip, UsageInfo usage, QuotaText row)
         {
-            long age = (long)usage.Age;
+            long age = (long)usage.AgeFor(row.Key);
             if (row.Age != age)
             {
                 row.Age = age;

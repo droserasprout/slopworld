@@ -5,7 +5,7 @@ using System.Linq;
 namespace SlopWorld
 {
     // When the last poll fails, Ok is false and Error explains the failure.
-    // Keep the windows from the last successful poll.
+    // The daemon retains provider windows; the client retains aggregate age on partial failure.
     public class UsageInfo
     {
         public bool Ok;
@@ -25,6 +25,8 @@ namespace SlopWorld
         // Monotonic timestamp of the last good data. Failed polls retain it so stale snapshots
         // do not appear fresh or restart reset countdowns.
         public float Heard;
+        readonly Dictionary<string, float> _sourceHeard = new Dictionary<string, float>();
+        readonly Dictionary<string, ulong> _sourceFetched = new Dictionary<string, ulong>();
 
         public bool Any => Windows.Count > 0;
 
@@ -33,20 +35,49 @@ namespace SlopWorld
 
         public UsageRow Row(string key) => Rows.FirstOrDefault(row => row.Key == key);
 
-        public float Age => UnityEngine.Time.realtimeSinceStartup - Heard;
+        public float Age => Math.Max(0f, UnityEngine.Time.realtimeSinceStartup - Heard);
+
+        public float AgeFor(string key)
+        {
+            string provider = Row(key)?.Provider ?? Catalog.FirstOrDefault(item => item.Key == key)?.Provider;
+            return provider != null && _sourceHeard.TryGetValue(provider, out float heard)
+                ? Math.Max(0f, UnityEngine.Time.realtimeSinceStartup - heard) : Age;
+        }
 
         // Clamp remaining time to zero so an expired window shows that its reset is due.
         public long Remaining(UsageWindow w) =>
-            w.ResetsIn < 0 ? -1 : Math.Max(0L, w.ResetsIn - (long)Age);
+            w.ResetsIn < 0 ? -1 : Math.Max(0L, w.ResetsIn - (long)AgeFor(w.Key));
 
         // prev contains the displayed snapshot.
         // A failed poll returns previous values without making them current again.
         public static UsageInfo FromWire(Wire.UsageSnapshot j, UsageInfo prev = null)
         {
             bool ok = j.Ok;
-            return Read(j, ok || prev == null
-                ? UnityEngine.Time.realtimeSinceStartup
-                : prev.Heard);
+            float now = UnityEngine.Time.realtimeSinceStartup;
+            var value = Read(j, ok || prev == null ? now : prev.Heard);
+            ulong unixMs = (ulong)DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            foreach (string source in j.Sources.Concat(j.Rows.Select(row => row.Provider))
+                .Concat(j.SourceFetchedMs.Keys).Distinct())
+            {
+                bool retained = prev != null && prev._sourceHeard.TryGetValue(source, out _);
+                if (j.SourceFetchedMs.TryGetValue(source, out ulong fetched) && fetched != 0)
+                {
+                    value._sourceFetched[source] = fetched;
+                    // Preserve the monotonic anchor for repeated snapshots of the same poll.
+                    value._sourceHeard[source] = retained &&
+                        prev._sourceFetched.TryGetValue(source, out ulong old) && old == fetched
+                        ? prev._sourceHeard[source]
+                        : now - (unixMs > fetched ? (unixMs - fetched) / 1000f : 0f);
+                }
+                else
+                {
+                    // Older daemons lack provider timestamps. Keep failed rows' observed ages.
+                    bool stale = j.FailedSources.Contains(source) ||
+                        j.Rows.Any(row => row.Provider == source && row.Stale);
+                    value._sourceHeard[source] = stale && retained ? prev._sourceHeard[source] : now;
+                }
+            }
+            return value;
         }
 
         static UsageInfo Read(Wire.UsageSnapshot j, float heard) => new UsageInfo

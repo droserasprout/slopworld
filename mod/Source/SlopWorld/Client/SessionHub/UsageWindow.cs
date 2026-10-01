@@ -27,7 +27,7 @@ namespace SlopWorld
             Unit = string.IsNullOrEmpty(w.Unit) ? WireProtocol.UsageUnit.Pct : w.Unit,
             Amount = !w.HasAmount ? -1f : (float)w.Amount,
             Limit = !w.HasLimit ? -1f : (float)w.Limit,
-            ResetsIn = !w.HasResetsIn ? -1 : (long)w.ResetsIn,
+            ResetsIn = !w.HasResetsIn ? -1 : (long)Math.Min((ulong)long.MaxValue, w.ResetsIn),
         };
 
         // Both halves are required: a unit with no figure under it has nothing to spend.

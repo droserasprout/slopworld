@@ -201,10 +201,9 @@ namespace SlopWorld
 
             if (!string.IsNullOrEmpty(usage.Plan)) lines.Add("plan: " + usage.Plan);
 
-            // How old the numbers are, always - Heard follows the last *good* poll, so this
-            // says the thing a failing readout is most often asked.
+            // Each provider retains its own last-good age across partial failures.
             if (usage.Heard > 0f && w != null)
-                lines.Add("refreshed " + Span((long)usage.Age) + " ago");
+                lines.Add("refreshed " + Span((long)usage.AgeFor(key)) + " ago");
 
             var row = usage.Row(key);
             if ((row != null && (row.Stale || usage.SourceFailed(row.Provider))) &&
@@ -248,7 +247,7 @@ namespace SlopWorld
             // A daemon without provider-local status (or a disconnected client) still gets
             // the old age-based warning. Once the daemon identifies a failed seller, age must
             // not dim healthy providers along with it.
-            return usage.FailedSources.Count == 0 && usage.Age > StaleAfter;
+            return usage.FailedSources.Count == 0 && usage.AgeFor(key) > StaleAfter;
         }
 
         // Keyed rather than windowed, so the settings page can name a row the daemon is not

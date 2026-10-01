@@ -6,6 +6,9 @@ Anthropic request coordination. Response fixtures and config definitions own fie
 units and defaults.
 
 Each provider has independent failure/backoff state. Failed polls retain the provider's last successful values.
+Merged snapshots carry each provider's last-good timestamp. The client anchors row ages
+and reset countdowns to that poll, independently of the aggregate failure timestamp.
+Repeated snapshots of one poll preserve the client's monotonic anchor.
 Disabling the provider clears its rows. An enabled source with no data still needs a placeholder,
 but a partial usage table also disables implicit default rows for that provider. The mod merges
 the static config catalog with dynamically discovered windows and keeps unedited dynamic rows

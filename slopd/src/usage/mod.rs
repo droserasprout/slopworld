@@ -103,6 +103,8 @@ pub struct Snapshot {
     pub plan: String,
     /// Unix millis of the last successful poll, so the mod can age the numbers.
     pub fetched_ms: u64,
+    /// Last successful poll per provider, preserved when its values survive a failed poll.
+    pub source_fetched_ms: HashMap<String, u64>,
     /// Enabled providers, including those without responses.
     /// The mod keeps a row for each expected resource.
     /// Unavailable sources keep their icons without values so the display layout remains stable.
@@ -147,6 +149,7 @@ impl Default for Snapshot {
             error: None,
             plan: String::new(),
             fetched_ms: 0,
+            source_fetched_ms: HashMap::new(),
             sources: Vec::new(),
             failed_sources: Vec::new(),
             windows: Vec::new(),
@@ -488,6 +491,8 @@ fn merge<'a>(
         any = true;
         out.ok &= p.ok;
         out.fetched_ms = out.fetched_ms.max(p.fetched_ms);
+        out.source_fetched_ms
+            .insert(source.to_string(), p.fetched_ms);
         if out.plan.is_empty() {
             out.plan = p.plan.clone();
         }
