@@ -86,6 +86,20 @@ namespace SlopWorld.Tests
             AssertEx.Equal("2025-01-02", values["day"], "date scalar conversion");
         }
 
+        public static void DatesRemainInvariantAcrossCultures()
+        {
+            var previous = System.Globalization.CultureInfo.CurrentCulture;
+            try
+            {
+                System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("fr-FR");
+                var values = Toml.ParseFlat("day = 2025-01-02\ntime = 12:34:56.123\nstamp = 2025-01-02T12:34:56Z\n");
+                AssertEx.Equal("2025-01-02", values["day"], "invariant date");
+                AssertEx.Equal("12:34:56.123", values["time"], "invariant fractional time");
+                AssertEx.Equal("2025-01-02T12:34:56Z", values["stamp"], "invariant timestamp");
+            }
+            finally { System.Globalization.CultureInfo.CurrentCulture = previous; }
+        }
+
         static void RejectsStructuredValues()
         {
             AssertEx.Throws<FormatException>(() => Toml.ParseFlat("items = [1, 2]"),

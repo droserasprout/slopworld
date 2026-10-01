@@ -106,7 +106,7 @@
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalRepaint.cs" Link="Source/UI/Terminal/TerminalRepaint.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/ResourceLimitsForm.cs" Link="Source/UI/Views/Shared/ResourceLimitsForm.cs" />
     <!-- Keep the tests independent of the game-bound mod assembly. -->
-    <Compile Include="../Source/SlopWorld/Client/Daemon/Toml.cs" Link="Source/Client/Daemon/Toml.cs" />
+    <Compile Include="../Source/SlopWorld/Serialization/Toml.cs" Link="Source/Serialization/Toml.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/ThemeCatalog.cs" Link="Source/UI/Chrome/ThemeCatalog.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonConfig.cs" Link="Source/Client/Daemon/DaemonConfig.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonConfigDraft.cs" Link="Source/Client/Daemon/DaemonConfigDraft.cs" />
