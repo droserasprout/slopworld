@@ -24,7 +24,7 @@ namespace SlopWorld
         bool _opening;
         string _pendingCommand;
         string _sourceCommand, _sourceLabel, _fileStamp;
-        int _readerLine;
+        long _readerLine;
         string _readerIntent = "view", _readerCommand;
         bool _refreshing;
         internal int Operation => _operation;
@@ -113,10 +113,10 @@ namespace SlopWorld
         public static bool IsEditorCommand(string command) =>
             PagerCommands.IsEditorCommand(SessionHub.Instance.Config.Editor, command);
 
-        public static string FileCommand(string value, string fallback, string file, int line = 0) =>
+        public static string FileCommand(string value, string fallback, string file, long line = 0) =>
             PagerCommands.FileCommand(value, fallback, file, line);
 
-        public static string PagerCommand(string file, int line = 0)
+        public static string PagerCommand(string file, long line = 0)
         {
             var settings = ModEntry.Instance.settings;
             string highlighter = SessionHub.Instance.Config.Highlighter;
@@ -136,7 +136,7 @@ namespace SlopWorld
                 settings.codeLineNumbers, batTheme);
         }
 
-        public static string EditorCommand(string file, int line = 0) =>
+        public static string EditorCommand(string file, long line = 0) =>
             PagerCommands.EditorCommand(SessionHub.Instance.Config.Editor, file, line);
 
         // Open a file in the persistent pager. Reuses the existing tmux session only when it
@@ -210,12 +210,23 @@ namespace SlopWorld
                     _filePath = null;
                     StopIf(oldSession);
                     UiLayout.Fail(msg);
-                }, host: true, path: filePath, intent: "view", readerPath: filePath,
-                readerKey: filePath, readerScope: project, readerPinned: _locked);
+                }, options: new SessionRunOptions
+                {
+                    Host = true,
+                    Path = filePath,
+                    Intent = "view",
+                    Reader = new ReaderLaunchOptions
+                    {
+                        Path = filePath,
+                        Key = filePath,
+                        Scope = project,
+                        Pinned = _locked,
+                    },
+                });
         }
 
         // Start a fresh pager at the requested line. Less's `:e` cannot open at a line atomically.
-        public void ViewFileAt(string project, string filePath, int line, string label, string intent = "view")
+        public void ViewFileAt(string project, string filePath, long line, string label, string intent = "view")
         {
             Open(project, PagerCommand(filePath, line), label, filePath, filePath, intent, line);
         }
@@ -227,7 +238,7 @@ namespace SlopWorld
         // Open a one-off command and retain a caller-supplied identity so a click on a pinned
         // routed header can focus that exact diff instead of creating a second tab.
         public void Open(string project, string command, string label, string key, string sourcePath = "",
-                         string intent = "view", int line = 0)
+                         string intent = "view", long line = 0)
         {
             if (_opening && _openProject == project && _key == key &&
                 _pendingCommand == command) return;
@@ -288,8 +299,20 @@ namespace SlopWorld
                     _filePath = null;
                     StopIf(oldSession);
                     UiLayout.Fail(msg);
-                }, host: true, path: sourcePath, intent: intent, readerPath: sourcePath,
-                readerKey: key, readerScope: project, readerLine: line, readerPinned: _locked);
+                }, options: new SessionRunOptions
+                {
+                    Host = true,
+                    Path = sourcePath,
+                    Intent = intent,
+                    Reader = new ReaderLaunchOptions
+                    {
+                        Path = sourcePath,
+                        Key = key,
+                        Scope = project,
+                        Line = line,
+                        Pinned = _locked,
+                    },
+                });
         }
 
         // The first successful probe establishes a baseline. Missing stamps support older daemons.
@@ -320,9 +343,20 @@ namespace SlopWorld
                     if (operation != _operation) return;
                     // Keep the old reader and stamp so a later probe retries the refresh.
                     _refreshing = false;
-                }, host: true, path: FilePath, intent: "view", readerPath: FilePath,
-                readerKey: _key, readerScope: _openProject, readerLine: _readerLine,
-                readerPinned: _locked);
+                }, options: new SessionRunOptions
+                {
+                    Host = true,
+                    Path = FilePath,
+                    Intent = "view",
+                    Reader = new ReaderLaunchOptions
+                    {
+                        Path = FilePath,
+                        Key = _key,
+                        Scope = _openProject,
+                        Line = _readerLine,
+                        Pinned = _locked,
+                    },
+                });
         }
 
         internal bool CanRestartForAppearance => Alive && !_opening && !_refreshing &&
@@ -353,9 +387,20 @@ namespace SlopWorld
                 if (operation != _operation) return;
                 _refreshing = false;
                 UiLayout.Fail(error);
-            }, host: true, path: _filePath ?? "", intent: _readerIntent,
-                readerPath: _filePath ?? "", readerKey: _key, readerScope: _openProject,
-                readerLine: _readerLine, readerPinned: _locked);
+            }, options: new SessionRunOptions
+            {
+                Host = true,
+                Path = _filePath ?? "",
+                Intent = _readerIntent,
+                Reader = new ReaderLaunchOptions
+                {
+                    Path = _filePath ?? "",
+                    Key = _key,
+                    Scope = _openProject,
+                    Line = _readerLine,
+                    Pinned = _locked,
+                },
+            });
         }
 
         // Bring the open one back, for a reader who clicked the row that is already showing.

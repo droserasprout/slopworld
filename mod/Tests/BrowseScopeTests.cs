@@ -246,7 +246,7 @@ namespace SlopWorld.Tests
                 Assert.That(tabs.Reopen(two.Key, "diff:src/file"), Is.False);
                 DaemonClient.Requests.Clear();
                 var store = new SessionStore();
-                store.Run(one.Key, "pwd", "reader", _ => { }, host: true);
+                store.Run(one.Key, "pwd", "reader", _ => { }, options: new SessionRunOptions { Host = true });
                 var request = (Wire.RunReq)DaemonClient.Requests.Single().Body;
                 Assert.That(request.Project, Is.EqualTo("renamed"));
                 Assert.That(request.Worktree, Is.EqualTo("one"));

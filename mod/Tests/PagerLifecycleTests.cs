@@ -23,13 +23,12 @@ namespace SlopWorld
         public bool Host, Temp;
         public string Project, Command;
         public void Run(string project, string command, string label, Action<string> started,
-                        Action<string> fail, bool host = false, bool temp = false, string path = "",
-                        string intent = "", string readerPath = "", string readerKey = "",
-                        string readerScope = "", int readerLine = 0, bool readerPinned = false)
+                        Action<string> fail, SessionRunOptions options = null)
         {
+            options = options ?? new SessionRunOptions();
             Starts++;
-            Host = host;
-            Temp = temp;
+            Host = options.Host;
+            Temp = options.Temp;
             Project = project;
             Command = command;
             Pending.Enqueue(started);

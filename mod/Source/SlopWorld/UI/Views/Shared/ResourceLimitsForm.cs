@@ -9,9 +9,9 @@ namespace SlopWorld
         {
             public string Text;
 
-            public LimitField(int? value) => Text = value?.ToString() ?? "";
+            public LimitField(uint? value) => Text = value?.ToString() ?? "";
 
-            public int? Value => int.TryParse((Text ?? "").Trim(), out var n) && n > 0 ? n : (int?)null;
+            public uint? Value => uint.TryParse((Text ?? "").Trim(), out var n) && n > 0 ? n : (uint?)null;
         }
 
         readonly LimitField _memory, _pids, _nofile, _cpu;

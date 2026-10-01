@@ -38,7 +38,9 @@ generated messages. HTTP decodes bounded Protobuf responses before main-thread c
 
 Every connection attempt resets both capability views to unknown until the new announcement.
 
-HTTP writes and pushed snapshots can race. Catalog operation revisions reject stale reads.
+HTTP writes and pushed snapshots can race. Catalog and session refresh revisions reject stale reads.
+Session refresh callers wait for the winning HTTP or pushed snapshot, and share its failure
+if the winning request fails. A run callback cannot open a pane before that refresh settles.
 A session rename can remove the old name in a pushed snapshot before its HTTP response:
 keep the temporary name mapping until success or failure settles it, preserving the pawn,
 terminal and selection without keeping a truly removed session alive.
@@ -71,3 +73,6 @@ homes and environment variables can differ.
 The project UI owns temporary-project preview state and mount labels. Client models
 retain wire conversion and daemon-resolved paths. Jukebox editor bitrates preserve
 unsigned wire values; an acknowledged mutation succeeds independently of catalog refresh.
+
+Session launch options group optional execution and reader metadata. Reader lines and
+resource caps preserve unsigned wire ranges through editing and reader restoration.

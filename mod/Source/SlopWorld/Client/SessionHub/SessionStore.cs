@@ -26,6 +26,31 @@ namespace SlopWorld
         readonly Dictionary<string, string> _pendingRenames = new Dictionary<string, string>();
         long _sessionsVersion;
         int _refreshSerial;
+        readonly List<RefreshWaiter> _refreshWaiters = new List<RefreshWaiter>();
+
+        sealed class RefreshWaiter
+        {
+            public Action Done;
+            public Action<string> Fail;
+        }
+
+        void SettleRefresh(Wire.SessionsReply value, string error = null)
+        {
+            // Detach first: callbacks may start a new refresh belonging to the next outcome.
+            var waiters = _refreshWaiters.ToArray();
+            _refreshWaiters.Clear();
+            try { if (value != null) ReplaceSessions(value); }
+            catch (Exception e) { error = e.Message; }
+            foreach (var waiter in waiters)
+            {
+                try
+                {
+                    if (error == null) waiter.Done?.Invoke();
+                    else waiter.Fail?.Invoke(error);
+                }
+                catch (Exception e) { Verse.Log.Warning("[SlopWorld] session refresh callback: " + e); }
+            }
+        }
 
         public long Version => _sessionsVersion;
 
@@ -128,7 +153,8 @@ namespace SlopWorld
         // Then discard screens for sessions that no longer exist.
         public void ApplySessions(Wire.SessionsReply ev)
         {
-            ReplaceSessions(ev);
+            _refreshSerial++;
+            SettleRefresh(ev);
         }
 
         void ReplaceSessions(Wire.SessionsReply ev)
@@ -215,17 +241,11 @@ namespace SlopWorld
 
         public void Refresh(Action done = null, Action<string> fail = null)
         {
-            long version = _sessionsVersion;
             int serial = ++_refreshSerial;
-            DaemonClient.Get<Wire.SessionsReply>(SessionsPath, j =>
-            {
-                // Prefer a WebSocket event over an HTTP snapshot requested before that event.
-                // Also prefer later refreshes over earlier ones.
-                // Stale responses can hide new sessions or restore stopped sessions to the list.
-                if (version == _sessionsVersion && serial == _refreshSerial)
-                    ReplaceSessions(j);
-                done?.Invoke();
-            }, fail);
+            _refreshWaiters.Add(new RefreshWaiter { Done = done, Fail = fail });
+            DaemonClient.Get<Wire.SessionsReply>(SessionsPath,
+                j => { if (serial == _refreshSerial) SettleRefresh(j); },
+                error => { if (serial == _refreshSerial) SettleRefresh(null, error); });
         }
 
         // A terminal path is relative to the shell's current directory, not necessarily the
@@ -238,11 +258,10 @@ namespace SlopWorld
         // Refresh Sessions before the callback so the new pane remains visible on the next frame.
         public void Run(string project, string command, string label,
                         Action<string> started, Action<string> fail = null,
-                        bool shell = true, string text = "", bool host = false, bool temp = false,
-                        string path = "", bool hold = false, string like = "", string agentTemplate = "", string worktree = "",
-                        string intent = "", string readerPath = "", string readerKey = "", string readerScope = "", int readerLine = 0,
-                        bool readerPinned = false)
+                        SessionRunOptions options = null)
         {
+            options = options ?? new SessionRunOptions();
+            string worktree = options.Worktree;
             if (BrowseScope.IsKey(project))
             {
                 var selected = BrowseScope.ProjectOf(project, SessionHub.Instance.Projects);
@@ -250,30 +269,11 @@ namespace SlopWorld
                 worktree = BrowseScope.WorktreeOf(project);
                 project = selected.Name;
             }
-            var request = new Wire.RunReq
-            {
-                Worktree = worktree ?? "",
-                Project = project ?? "",
-                Kind = shell ? "shell" : "prompt",
-                Command = command ?? "",
-                Path = path ?? "",
-                Label = label ?? "",
-                Intent = intent ?? "",
-                Reader = new Wire.RunReaderReq
-                {
-                    Path = readerPath ?? "",
-                    Key = readerKey ?? "",
-                    Scope = readerScope ?? "",
-                    Line = (uint)System.Math.Max(0, readerLine),
-                    Pinned = readerPinned,
-                },
-                Text = text ?? "",
-                Host = host,
-                Temp = temp,
-                Hold = hold,
-                Like = like ?? "",
-                AgentTemplate = agentTemplate ?? ""
-            };
+            var request = options.ToWire();
+            request.Worktree = worktree ?? "";
+            request.Project = project ?? "";
+            request.Command = command ?? "";
+            request.Label = label ?? "";
             if (TerminalWindow.TryPanelShape(out int cols, out int rows)) { request.Cols = (uint)cols; request.Rows = (uint)rows; }
             DaemonClient.Post<Wire.SessionResult>(RunPath, request, j => Started(j, started, fail), fail);
         }

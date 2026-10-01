@@ -160,7 +160,7 @@ namespace SlopWorld
             return command == exe || command.StartsWith(exe + " ");
         }
 
-        public static string FileCommand(string value, string fallback, string file, int line = 0)
+        public static string FileCommand(string value, string fallback, string file, long line = 0)
         {
             string template = App(value, fallback);
             bool hasFile = template.Contains("{file}");
@@ -176,12 +176,12 @@ namespace SlopWorld
             return command;
         }
 
-        public static string PagerCommand(string pager, string highlighter, string file, int line = 0) =>
+        public static string PagerCommand(string pager, string highlighter, string file, long line = 0) =>
             "env " + LessEnv(highlighter) + " " + FileCommand(pager, "less", file, line);
 
         // micro's +LINE selector follows the file. FileCommand puts a pager's selector before
         // its `-- FILE`, which makes +LINE look like a buffer name to micro.
-        public static string EditorCommand(string editor, string file, int line = 0)
+        public static string EditorCommand(string editor, string file, long line = 0)
         {
             string template = MicroTerminalClipboard(App(editor, "micro"));
             if (line < 1) return FileCommand(template, "micro", file);

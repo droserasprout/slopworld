@@ -293,8 +293,13 @@ namespace SlopWorld
             // an interactive command.
             RefreshAfterFileAction();
             SessionHub.Instance.SessionStore.Run(project, command, "fa-" + name,
-                session => TerminalWindow.Open(session), UiLayout.Fail,
-                host: host, temp: host, path: path, hold: true);
+                session => TerminalWindow.Open(session), UiLayout.Fail, options: new SessionRunOptions
+                {
+                    Host = host,
+                    Temp = host,
+                    Path = path,
+                    Hold = true,
+                });
         }
 
         static string ProjectRelative(string project, string path)
@@ -358,8 +363,12 @@ namespace SlopWorld
             string command = "bash -lc " + Pager.Quote(script);
             SessionHub.Instance.SessionStore.Run(node.Project ?? "", command,
                 "shell-" + node.Name,
-                session => TerminalWindow.Open(session), UiLayout.Fail,
-                host: true, temp: string.IsNullOrEmpty(node.Project), path: node.Path);
+                session => TerminalWindow.Open(session), UiLayout.Fail, options: new SessionRunOptions
+                {
+                    Host = true,
+                    Temp = string.IsNullOrEmpty(node.Project),
+                    Path = node.Path,
+                });
         }
 
         // Against the project's own directory. Null for the root itself, which has no relative
@@ -395,7 +404,7 @@ namespace SlopWorld
 
             SessionHub.Instance.SessionStore.Run(node.Project, cmd + " " + Pager.Quote(node.Path),
                 label + "-" + node.Name,
-                session => TerminalWindow.Open(session), UiLayout.Fail, host: true);
+                session => TerminalWindow.Open(session), UiLayout.Fail, options: new SessionRunOptions { Host = true });
         }
 
         // ------------------------------------------------------------------ viewer
@@ -503,8 +512,16 @@ namespace SlopWorld
             if (string.IsNullOrEmpty(project))
             {
                 SessionHub.Instance.SessionStore.Run("", Pager.EditorCommand(path, line), label,
-                    session => TerminalWindow.Open(session), UiLayout.Fail,
-                    host: true, temp: true, intent: "edit", readerPath: path);
+                    session => TerminalWindow.Open(session), UiLayout.Fail, options: new SessionRunOptions
+                    {
+                        Host = true,
+                        Temp = true,
+                        Intent = "edit",
+                        Reader = new ReaderLaunchOptions
+                        {
+                            Path = path,
+                        },
+                    });
                 return;
             }
             if (SidebarScopes.Project(project) == null)
@@ -513,8 +530,17 @@ namespace SlopWorld
                 return;
             }
             SessionHub.Instance.SessionStore.Run(project, Pager.EditorCommand(path, line), label,
-                session => TerminalWindow.Open(session), UiLayout.Fail, host: true, path: path,
-                intent: "edit", readerPath: path, readerScope: project);
+                session => TerminalWindow.Open(session), UiLayout.Fail, options: new SessionRunOptions
+                {
+                    Host = true,
+                    Path = path,
+                    Intent = "edit",
+                    Reader = new ReaderLaunchOptions
+                    {
+                        Path = path,
+                        Scope = project,
+                    },
+                });
         }
 
         public static string ViewerPath(string session) => Viewers.FilePath(session);

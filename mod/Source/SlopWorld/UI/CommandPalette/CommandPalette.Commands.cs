@@ -60,7 +60,7 @@ namespace SlopWorld
                 {
                     if (!string.IsNullOrEmpty(s.Project))
                         SessionHub.Instance.SessionStore.Run(s.Project, "", "", session => TerminalWindow.Open(session),
-                            UiLayout.Fail, like: s.Name);
+                            UiLayout.Fail, options: new SessionRunOptions { Like = s.Name });
                 }),
 
             new CommandDef("project.new", "Project: New", "Project",
