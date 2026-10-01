@@ -4,7 +4,8 @@ Source files use the single `SlopWorld` namespace.
 Directories describe component responsibilities. They do not create assembly boundaries. The SDK project discovers production C# sources recursively.
 
 - `Bootstrap/` owns startup, profile gating and the RimWorld `Mod` entry point.
-- `Client/` is split into `Daemon/`, `Transport/`, `SessionHub/` and generated protocol, defaults and usage data.
+- `Client/` is split into `Daemon/`, `Diagnostics/`, `Transport/`, `SessionHub/` and generated protocol, defaults and usage data.
+  `Diagnostics/` owns opt-in performance, memory and terminal-latency traces and their frame/file lifecycle.
 - `Sim/` is split into `Colony/`, `Content/`, `Jukebox/`, `Lifecycle/`,
   `Plague/`, `Terminal/`, `Worksite/` and `Incidents/`.
 - `Patches/` is grouped by `AgentSidebar/`, `Agents/`, `Chrome/`, `ColonistBar/`, `Eco/`,

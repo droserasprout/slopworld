@@ -75,43 +75,49 @@ namespace SlopWorld
             float seconds = now - _lastReport;
             int frame = Time.frameCount;
             int gc = GC.CollectionCount(0);
+            AppendContext(text, seconds > 0 ? (frame - _lastFrame) / seconds : 0, gc - _lastGc);
+            _lastReport = now;
+            _lastFrame = frame;
+            _lastGc = gc;
+            foreach (var pair in Samples) AppendSample(text, pair.Key, pair.Value);
+            MemoryTrace.Append(text, now);
+            TerminalLatencyFrame.WriteRecord(text.ToString());
+            Samples.Clear();
+        }
+
+        static void AppendContext(StringBuilder text, float fps, int collections)
+        {
             text.Append(" context eco=").Append(Eco.Resting ? 1 : 0)
                 .Append(" terminal=").Append(TerminalWindow.Covering ? 1 : 0)
                 .Append(" sessions=").Append(SessionHub.Instance.Sessions.Count)
                 .Append(" width=").Append(UI.screenWidth)
                 .Append(" height=").Append(UI.screenHeight)
-                .Append(" fps=").Append((seconds > 0 ? (frame - _lastFrame) / seconds : 0)
+                .Append(" fps=").Append(fps
                     .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))
-                .Append(" gc0=").Append(gc - _lastGc).Append(';');
-            _lastReport = now;
-            _lastFrame = frame;
-            _lastGc = gc;
-            foreach (var pair in Samples)
+                .Append(" gc0=").Append(collections).Append(';');
+        }
+
+        static void AppendSample(StringBuilder text, string name, Sample sample)
+        {
+            double ms = sample.Ticks * 1000.0 / Stopwatch.Frequency;
+            text.Append(' ').Append(name).Append(" calls=").Append(sample.Calls)
+                .Append(" work=").Append(sample.Work).Append(" ms=")
+                .Append(ms.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
+            if (sample.Durations != null && sample.Durations.Count > 0)
             {
-                var sample = pair.Value;
-                double ms = sample.Ticks * 1000.0 / Stopwatch.Frequency;
-                text.Append(' ').Append(pair.Key).Append(" calls=").Append(sample.Calls)
-                    .Append(" work=").Append(sample.Work).Append(" ms=")
-                    .Append(ms.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
-                if (sample.Durations != null && sample.Durations.Count > 0)
-                {
-                    sample.Durations.Sort();
-                    text.Append(" p50=").Append(Millis(sample.Durations, 50)
-                        .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
-                    text.Append(" p95=").Append(Millis(sample.Durations, 95)
-                        .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
-                    text.Append(" p99=").Append(Millis(sample.Durations, 99)
-                        .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
-                    text.Append(" max=").Append((sample.MaxTicks * 1000.0 / Stopwatch.Frequency)
-                        .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
-                }
-                if (sample.PeakBacklog > 0)
-                    text.Append(" backlog=").Append(sample.PeakBacklog);
-                text.Append(';');
+                sample.Durations.Sort();
+                text.Append(" p50=").Append(Millis(sample.Durations, 50)
+                    .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
+                text.Append(" p95=").Append(Millis(sample.Durations, 95)
+                    .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
+                text.Append(" p99=").Append(Millis(sample.Durations, 99)
+                    .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
+                text.Append(" max=").Append((sample.MaxTicks * 1000.0 / Stopwatch.Frequency)
+                    .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
             }
-            MemoryTrace.Append(text, now);
-            TerminalLatencyFrame.WriteRecord(text.ToString());
-            Samples.Clear();
+            if (sample.PeakBacklog > 0)
+                text.Append(" backlog=").Append(sample.PeakBacklog);
+            text.Append(';');
         }
 
         static double Millis(List<long> samples, int percentile)
