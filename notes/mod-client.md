@@ -36,6 +36,8 @@ preserves wire compatibility.
 Malformed messages reach the main-thread error callback without replacing queued live screens. Queue budgets count encoded bytes. `HubEventBatch` dispatches
 generated messages. HTTP decodes bounded Protobuf responses before main-thread callbacks.
 
+Every connection attempt resets both capability views to unknown until the new announcement.
+
 HTTP writes and pushed snapshots can race. Catalog operation revisions reject stale reads.
 A session rename can remove the old name in a pushed snapshot before its HTTP response:
 keep the temporary name mapping until success or failure settles it, preserving the pawn,
