@@ -70,11 +70,22 @@ class HttpTransportProbe
         if (done != expected || failed != 0) throw new Exception("done=" + done + " expected=" + expected + " failed=" + failed);
         Console.WriteLine("completed=" + done + " elapsed_ms=" + watch.ElapsedMilliseconds);
     }
+    static void ExpectTimeout(string path, int deadlineMs)
+    {
+        var watch = Stopwatch.StartNew();
+        DaemonClient.Get<SlopWorld.Wire.Ack>(path, r => Complete(false),
+            e => Complete(watch.ElapsedMilliseconds >= deadlineMs / 2 &&
+                watch.ElapsedMilliseconds <= deadlineMs + Math.Max(200, deadlineMs / 2)), timeoutMs: deadlineMs);
+    }
     static int Main(string[] args)
     {
         try
         {
             Settings.Connection.BaseUrl = args[0];
+            bool rejected = false;
+            try { DaemonClient.Get<SlopWorld.Wire.Ack>("/ok", r => Complete(false), timeoutMs: -2); }
+            catch (ArgumentOutOfRangeException) { rejected = true; }
+            if (!rejected) throw new Exception("Invalid timeout was not rejected synchronously");
             ThreadPool.SetMinThreads(4, 4);
             if (!ThreadPool.SetMaxThreads(16, 16)) throw new Exception("Cannot bound Mono worker pool");
             for (int i = 0; i < 64; i++)
@@ -89,15 +100,15 @@ class HttpTransportProbe
             Wait(67);
             DaemonClient.Get<SlopWorld.Wire.Ack>("/oversize", r => Complete(false), e => Complete(e.Contains("exceeds limit")));
             Wait(68);
-            DaemonClient.Get<SlopWorld.Wire.Ack>("/slow-body", r => Complete(false), e => Complete(true), timeoutMs: 100);
+            ExpectTimeout("/slow-body", 100);
             Wait(69, 2000);
-            DaemonClient.Get<SlopWorld.Wire.Ack>("/slow-error", r => Complete(false), e => Complete(true), timeoutMs: 100);
+            ExpectTimeout("/slow-error", 100);
             Wait(70, 2000);
             // Saturate transport slots, then expire a queued request before admission.
             for (int i = 0; i < 8; i++)
-                DaemonClient.Get<SlopWorld.Wire.Ack>("/slow-body", r => Complete(false), e => Complete(true), timeoutMs: 1000);
+                ExpectTimeout("/slow-body", 1000);
             Thread.Sleep(100);
-            DaemonClient.Get<SlopWorld.Wire.Ack>("/ok", r => Complete(false), e => Complete(true), timeoutMs: 50);
+            ExpectTimeout("/ok", 50);
             Wait(79, 2000);
             // Match the benchmark's highest typing rate, and check recovery after aborts.
             var paced = Stopwatch.StartNew();

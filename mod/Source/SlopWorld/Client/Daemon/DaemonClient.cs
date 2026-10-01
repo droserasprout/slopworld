@@ -69,6 +69,9 @@ namespace SlopWorld
                                 Action<T> ok, Action<string> fail, string session = null,
                                 int timeoutMs = DefaultTimeoutMs) where T : IMessage<T>, new()
         {
+            if (timeoutMs < Timeout.Infinite)
+                throw new ArgumentOutOfRangeException(nameof(timeoutMs));
+
             // Start a request trace only when the route has a trace category.
             // Other routes leave a null name, which can cause PerfTrace.End to fail before the caller's callback runs.
             string trace = TraceName(path);
