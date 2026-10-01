@@ -103,7 +103,7 @@ namespace SlopWorld
         // The first frame needs a safe content estimate before Listing_Standard has returned
         // the real height. It is replaced by `_fieldsH` at the next frame boundary and never
         // affects control identity or the page instance.
-        static float EstimateFieldsHeight() => 900f;
+        static float EstimateFieldsHeight() => 600f;
 
         static Rect Place(Rect origin, UiLayoutRect local) =>
             new Rect(origin.x + local.X, origin.y + local.Y, local.Width, local.Height);
@@ -126,7 +126,6 @@ namespace SlopWorld
                 l.Begin(rect);
                 begun = true;
                 DrawScale(l);
-                DrawDisplay(l);
                 DrawFont(l);
                 DrawScheme(l);
                 DrawCursor(l);
@@ -159,80 +158,6 @@ namespace SlopWorld
                 UiScale.Set(scale);
             }
             UiScale.Flush();
-
-            bool fullscreen = UiControls.Checkbox(l, "Fullscreen", S.fullscreen,
-                "Use window-manager fullscreen without changing Unity's render mode.");
-            if (fullscreen != S.fullscreen) WindowMaximizer.Set(fullscreen);
-
-            string density = UiDensityPreset.Normalize(S.uiDensity);
-            UiControls.Select(l, "Density", UiDensityPreset.Label(density),
-                new[]
-                {
-                    new SelectorOption("Default", () => SetSidebarLayout(ref S.uiDensity,
-                        UiDensityPreset.Default)),
-                    new SelectorOption("Compact", () => SetSidebarLayout(ref S.uiDensity,
-                        UiDensityPreset.Compact)),
-                }, out _);
-
-            if (UiLayout.Button(l, "Reset sidebar layout", UiTheme.Btn.Ghost))
-            {
-                S.sidebarSide = NavigationSide.Left;
-                S.uiDensity = UiDensityPreset.Default;
-                S.sidebarHidden = false;
-                S.sidebarWidth = WorkspaceLayout.DefaultNavigationWidth;
-                S.MarkDirty();
-                AgentSidebar.LayoutChanged();
-            }
-            UiLayout.Note(l, "Reset sidebar layout restores the default side, density, visibility, and width. "
-                + "Drag the sidebar edge to resize it.");
-
-        }
-
-        static void SetSidebarLayout(ref string field, string value)
-        {
-            if (field == value) return;
-            field = value;
-            S.MarkDirty();
-            AgentSidebar.LayoutChanged();
-        }
-
-        static void DrawDisplay(Listing_Standard l)
-        {
-            UiLayout.SectionHeading(l, "Display");
-            bool smooth = UiControls.Checkbox(l, "Smooth scrolling", S.smoothScrolling,
-                "Use precise touchpad scrolling in terminals, panels, and Markdown. "
-                + "Turn off to use wheel steps. Applies immediately.");
-            if (smooth != S.smoothScrolling)
-            {
-                S.smoothScrolling = smooth;
-                S.MarkDirty();
-            }
-            string mode = FramePolicy.Normalize(S.displayMode);
-            int fps = FramePolicy.Clamp(S.foregroundFps);
-            string framePacingLabel = mode == FramePolicy.Sync ? "VSync" : fps + " FPS";
-            string framePacingTip = mode == FramePolicy.Limit
-                ? "Disables VSync. Lower limits save power. Higher limits improve responsiveness."
-                : "VSync follows the display refresh rate for smooth presentation.";
-            if (UiLayout.Button(l, "Frame pacing: " + framePacingLabel,
-                    tip: framePacingTip))
-            {
-                var options = new List<FloatMenuOption>
-                {
-                    new FloatMenuOption("VSync", () =>
-                    {
-                        S.displayMode = FramePolicy.Sync;
-                        S.MarkDirty();
-                    })
-                };
-                options.AddRange(FramePolicy.Presets.Select(preset => new FloatMenuOption(
-                    preset + " FPS", () =>
-                    {
-                        S.displayMode = FramePolicy.Limit;
-                        S.foregroundFps = preset;
-                        S.MarkDirty();
-                    })));
-                Find.WindowStack.Add(new UiMenu(options));
-            }
         }
 
         void DrawScheme(Listing_Standard l)

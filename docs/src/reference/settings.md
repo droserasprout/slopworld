@@ -9,7 +9,9 @@ audio, RimWorld options, and credits. The [agent configuration guide](../guides/
 [sandbox guide](../guides/configuring-sandboxes.md), and
 [integration reference](integrations.md) describe the fields managed by those groups.
 
-**Appearance > Workspace** contains statusbar and sidebar controls.
+**Display**, immediately after General, contains fullscreen, frame pacing, and smooth scrolling.
+**Appearance > Interface** contains UI scale, fonts, colors, and cursor styling.
+**Appearance > Workspace** contains density, sidebar and statusbar controls.
 
 The **Storage** page lists private agent state and shared caches. Use it to reset an agent,
 restore state from trash, delete orphaned or trashed state, or empty the trash.

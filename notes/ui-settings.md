@@ -7,10 +7,13 @@ The Configuration page edits the raw daemon document. Keep RimWorld API names su
 Most profile preferences apply live. The mod saves them after an interaction and when Settings closes.
 The mod also saves dirty preferences on a timer. RimWorld saves its preferences through its own lifecycle.
 The mod applies UI scale on slider release. Live scaling moves the input target.
-Appearance → Interface → Display includes the profile-local Smooth scrolling switch, enabled
-by default. It applies live across shared scroll owners. Most appearance controls apply live.
+Display owns fullscreen, frame pacing, and the profile-local Smooth scrolling switch, enabled
+by default. Scrolling applies live across shared scroll owners. Appearance → Interface owns
+scale, fonts, colors, and cursor styling. Most appearance controls apply live.
 Code appearance is a draft with Save and Discard.
-Appearance → Workspace groups statusbar and sidebar preferences in one scrolling form.
+Appearance → Workspace groups density, sidebar, and statusbar preferences in one scrolling form.
+Interface, Terminal, and Code pin previews below their scrolling forms when space permits.
+Short windows scroll the form and preview together; Code retains its separate save footer.
 
 Appearance → Code owns pager and highlighter command controls (daemon configuration) and
 per-highlighter themes (local profile). Commands → Defaults keeps agent, shell, and editor

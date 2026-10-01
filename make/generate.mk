@@ -1,4 +1,4 @@
-.PHONY: api-contract api-docs reference bake-loading-font
+.PHONY: api-contract api-docs reference bake-loading-font bake-icons
 
 ## Generated files
 
@@ -20,3 +20,6 @@ bake-loading-font: ## Bake the loading screen font atlas from the bundled source
 .PHONY: check-generated
 check-generated: api-contract ## Reject uncommitted generated protocol changes
 	@git diff --exit-code -- shared slopd/src/shared mod/Source/SlopWorld/Client/Generated
+
+bake-icons: ## Bake the shared UI icons from an installed Nerd Font
+	@$(PYTHON) tools/icons.py

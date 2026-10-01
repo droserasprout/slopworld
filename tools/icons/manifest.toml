@@ -17,6 +17,11 @@
 glyph = "cod-terminal"
 code = "ea85"
 
+[display]
+glyph = "cod-device_desktop"
+code = "ea7a"
+note = "the Display settings tab uses a monitor, distinct from Commands' terminal"
+
 [gear]
 glyph = "cod-gear"
 code = "eaf8"

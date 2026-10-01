@@ -20,6 +20,8 @@ namespace SlopWorld
 
         public static Texture2D Terminal => Get("terminal");
 
+        public static Texture2D Display => Get("display");
+
         public static Texture2D Gear => Get("gear");
 
         // The top bar's config door is the same cog as the options row's. One glyph, two
