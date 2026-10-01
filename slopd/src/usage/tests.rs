@@ -38,7 +38,7 @@ fn absent_anthropic_rows_do_not_set_the_provider_interval() {
     // Before the first answer, every configured row is eligible to request an initial value.
     assert_eq!(
         provider_interval(&daemon, "anthropic", &poller),
-        RATE_LIMIT_FLOOR
+        RATE_LIMIT_FLOOR_SECS
     );
 
     poller.snap = parse(
@@ -63,8 +63,8 @@ fn backoff_doubles_and_caps() {
 #[test]
 fn retry_after_beats_the_guess() {
     assert_eq!(backoff(60, 1, Some(900)), 900);
-    assert_eq!(backoff(60, 1, Some(30)), RATE_LIMIT_FLOOR);
-    assert_eq!(backoff(60, 1, Some(0)), RATE_LIMIT_FLOOR);
+    assert_eq!(backoff(60, 1, Some(30)), RATE_LIMIT_FLOOR_SECS);
+    assert_eq!(backoff(60, 1, Some(0)), RATE_LIMIT_FLOOR_SECS);
     assert_eq!(backoff(60, 9, Some(7200)), 7200);
 }
 
@@ -437,17 +437,17 @@ async fn polling_laps_preserve_failure_deadlines_and_publish_placeholder_toggles
     // Keep the normal cadence above the Anthropic floor even with implicit rows.
     config.daemon.usage_poll_secs = 600;
     let mut pollers = UsagePollers::new();
-    pollers.anth.interval = Some(600);
-    pollers.anth.settle(
+    pollers.anthropic.interval = Some(600);
+    pollers.anthropic.settle(
         Snapshot::failed(&Snapshot::default(), "offline"),
         Some(900),
         600,
     );
-    let due = pollers.anth.due;
+    let due = pollers.anthropic.due;
     let first = crate::session::test_manager(config.clone());
     pollers.poll_once(&first).await;
-    assert_eq!(pollers.anth.due, due);
-    assert_eq!(pollers.anth.fails, 1);
+    assert_eq!(pollers.anthropic.due, due);
+    assert_eq!(pollers.anthropic.fails, 1);
     assert!(
         first
             .usage()
@@ -475,8 +475,8 @@ async fn polling_laps_preserve_failure_deadlines_and_publish_placeholder_toggles
         .interval_secs = Some(300);
     let changed = crate::session::test_manager(config);
     pollers.poll_once(&changed).await;
-    assert_eq!(pollers.anth.due, due);
-    assert_eq!(pollers.anth.fails, 1);
+    assert_eq!(pollers.anthropic.due, due);
+    assert_eq!(pollers.anthropic.fails, 1);
     let published = changed.usage().await;
     let session = published
         .rows

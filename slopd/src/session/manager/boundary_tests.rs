@@ -157,3 +157,29 @@ async fn cancelling_a_nested_owned_operation_retains_the_exclusive_boundary() {
     finished.notified().await;
     replacement.await;
 }
+
+#[test]
+fn named_locks_reuse_live_entries_and_prune_expired_names() {
+    fn check<T: Default>() {
+        let locks = Default::default();
+        let first = super::named_lock::<T>(&locks, "first");
+        assert!(std::sync::Arc::ptr_eq(
+            &first,
+            &super::named_lock(&locks, "first")
+        ));
+        let second = super::named_lock(&locks, "second");
+        assert!(!std::sync::Arc::ptr_eq(&first, &second));
+        drop(first);
+        let replacement = super::named_lock(&locks, "replacement");
+        assert!(!locks.lock().unwrap().contains_key("first"));
+        assert!(std::sync::Arc::ptr_eq(
+            &second,
+            &super::named_lock(&locks, "second")
+        ));
+        drop((second, replacement));
+        let _last = super::named_lock(&locks, "last");
+        assert_eq!(locks.lock().unwrap().len(), 1);
+    }
+    check::<tokio::sync::RwLock<()>>();
+    check::<tokio::sync::Mutex<()>>();
+}

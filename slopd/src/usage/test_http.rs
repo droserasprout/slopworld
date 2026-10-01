@@ -1,5 +1,5 @@
 //! Local HTTP fixtures shared by provider and cache tests.
-use super::providers::Creds;
+use super::providers::AnthropicCreds;
 use crate::test_http::{accept_request, read_request};
 use std::io::Write;
 use std::net::TcpListener;
@@ -31,8 +31,8 @@ pub(super) fn server(
     (url, handle)
 }
 
-pub(super) fn credentials(path: &Path) -> Creds {
-    Creds {
+pub(super) fn credentials(path: &Path) -> AnthropicCreds {
+    AnthropicCreds {
         token: "test-anthropic-token".into(),
         plan: "max".into(),
         path: path.into(),

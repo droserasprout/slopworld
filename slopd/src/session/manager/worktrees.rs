@@ -109,17 +109,7 @@ impl Manager {
                     }
                     let project_dir = old_path.parent().context("worktree root")?.to_path_buf();
                     tokio::fs::create_dir_all(&project_dir).await?;
-                    if tokio::fs::symlink_metadata(&project_dir)
-                        .await?
-                        .file_type()
-                        .is_symlink()
-                    {
-                        bail!("worktree project directory cannot be a symlink");
-                    }
-                    let destination = project_dir.canonicalize()?.join(&name);
-                    if let Some(why) = crate::sandbox::refused(&destination.to_string_lossy()) {
-                        bail!("worktree reaches {why}");
-                    }
+                    let destination = checked_worktree_destination(&project_dir, &name).await?;
                     let mut updated = old.clone();
                     updated.name = name;
                     updated.path = destination.to_string_lossy().into_owned();
@@ -627,7 +617,8 @@ impl Manager {
                 PathBuf::from(&worktree.path),
                 &worktree.name,
                 &mut directories,
-            )?;
+            )
+            .await?;
             worktree.path = path.to_string_lossy().into_owned();
             if store
                 .worktrees
@@ -770,16 +761,13 @@ async fn validate_external_worktree(root: &Path, repository: &str, path: &Path) 
     Ok(())
 }
 
-fn create_managed_worktree_path(
-    requested_path: PathBuf,
+/// Callers own directory creation and collision policy; all managed destinations share these guards.
+pub(super) async fn checked_worktree_destination(
+    project_dir: &Path,
     name: &str,
-    directories: &mut CreatedDirectories,
 ) -> Result<PathBuf> {
-    let project_dir = requested_path
-        .parent()
-        .context("worktree project directory")?;
-    directories.create_all(project_dir)?;
-    if std::fs::symlink_metadata(project_dir)?
+    if tokio::fs::symlink_metadata(project_dir)
+        .await?
         .file_type()
         .is_symlink()
     {
@@ -789,6 +777,19 @@ fn create_managed_worktree_path(
     if let Some(why) = crate::sandbox::refused(&path.to_string_lossy()) {
         bail!("worktree reaches {why}");
     }
+    Ok(path)
+}
+
+async fn create_managed_worktree_path(
+    requested_path: PathBuf,
+    name: &str,
+    directories: &mut CreatedDirectories,
+) -> Result<PathBuf> {
+    let project_dir = requested_path
+        .parent()
+        .context("worktree project directory")?;
+    directories.create_all(project_dir)?;
+    let path = checked_worktree_destination(project_dir, name).await?;
     match std::fs::symlink_metadata(&path) {
         Ok(_) => bail!("worktree path {} already exists", path.display()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}

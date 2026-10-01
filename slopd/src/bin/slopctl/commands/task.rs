@@ -14,8 +14,12 @@ pub(crate) const DELEGATE_USAGE: &str = "usage:
 
 Send TASK to AGENT.
 ";
-pub(crate) const TASK_USAGE: &str = "usage:
-  slopctl task delegate AGENT TASK...
+// Keep the root and task-group command inventory identical at compile time.
+macro_rules! task_usage {
+    ($before:literal, $after:literal) => {
+        concat!(
+            $before,
+            "  slopctl task delegate AGENT TASK...
   slopctl task list [--all] [--sent] [--received] [--status STATUS]
   slopctl task show [ID]
   slopctl task wait [ID]
@@ -25,11 +29,22 @@ pub(crate) const TASK_USAGE: &str = "usage:
   slopctl task fail [ID] [ERROR...]
   slopctl task remove [ID]
   slopctl task prune [--include-active]
+",
+            $after
+        )
+    };
+}
+pub(super) use task_usage;
 
+pub(crate) const TASK_USAGE: &str = task_usage!(
+    "usage:
+",
+    "
 Manage delegated tasks. Omit ID when SLOPWORLD_TASK_ID is set.
 For updates with an injected ID, all positional words are the note; use --id ID
 to target another task. Use -- before a note beginning with a flag.
-";
+"
+);
 pub(crate) const TASK_LIST_USAGE: &str = "usage:
   slopctl task list [--all] [--sent] [--received] [--status STATUS]
 

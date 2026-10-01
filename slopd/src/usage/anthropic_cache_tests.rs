@@ -108,7 +108,7 @@ fn anthropic_cache_shares_successes_and_rate_limit_backoff() {
     save_anthropic_cache(&path, &body, None);
     assert_eq!(fresh_anthropic_cache(&path), Some(body));
 
-    save_anthropic_rate_limit(&path, RATE_LIMIT_FLOOR);
+    save_anthropic_rate_limit(&path, RATE_LIMIT_FLOOR_SECS);
     assert!(fresh_anthropic_cache(&path).is_none());
     assert!(cached_anthropic_retry(&path).is_some_and(|seconds| seconds > 0));
 

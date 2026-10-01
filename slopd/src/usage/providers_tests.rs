@@ -45,24 +45,24 @@ fn openrouter_keys_are_trimmed_reread_and_file_selection_overrides_environment()
     let Some(root) = crate::test_support::isolated() else {
         return;
     };
-    read_key("").unwrap_err();
-    crate::test_support::set_env(KEY_ENV, " \n ");
-    read_key("").unwrap_err();
-    crate::test_support::set_env(KEY_ENV, " env-token \n");
-    assert_eq!(read_key(" \t ").unwrap(), "env-token");
+    read_openrouter_key("").unwrap_err();
+    crate::test_support::set_env(OPENROUTER_KEY_ENV, " \n ");
+    read_openrouter_key("").unwrap_err();
+    crate::test_support::set_env(OPENROUTER_KEY_ENV, " env-token \n");
+    assert_eq!(read_openrouter_key(" \t ").unwrap(), "env-token");
     let path = root.join("key");
     let name = path.to_str().unwrap();
-    read_key(name).unwrap_err();
+    read_openrouter_key(name).unwrap_err();
     std::fs::write(&path, "  ").unwrap();
     assert!(
-        read_key(name)
+        read_openrouter_key(name)
             .unwrap_err()
             .to_string()
             .contains("holds no key")
     );
     for token in ["first", "rotated"] {
         std::fs::write(&path, format!(" {token}\n")).unwrap();
-        assert_eq!(read_key(name).unwrap(), token);
+        assert_eq!(read_openrouter_key(name).unwrap(), token);
     }
 }
 
@@ -111,7 +111,7 @@ fn provider_requests_send_expected_headers_and_decode_json() {
     let (url, handle) = server(200, "", &body.to_string());
     crate::test_support::set_env("SLOPD_USAGE_URL", url);
     assert_eq!(
-        fetch(&credentials(&root.join("creds"))).unwrap_or_else(|e| panic!("{e}")),
+        fetch_anthropic_usage(&credentials(&root.join("creds"))).unwrap_or_else(|e| panic!("{e}")),
         body
     );
     let request = handle.join().unwrap();
@@ -122,7 +122,7 @@ fn provider_requests_send_expected_headers_and_decode_json() {
     );
     assert_eq!(
         header(&request, "anthropic-beta").as_deref(),
-        Some(OAUTH_BETA)
+        Some(ANTHROPIC_OAUTH_BETA)
     );
     assert_eq!(
         header(&request, "user-agent").as_deref(),
@@ -153,8 +153,8 @@ fn provider_requests_send_expected_headers_and_decode_json() {
             token: "openai-token".into(),
             account_id: account.clone(),
         };
-        let response = fetch_openai_provider(ProviderCredentials::OpenAi(creds))
-            .unwrap_or_else(|e| panic!("{e}"));
+        let response =
+            fetch_openai(ProviderCredentials::OpenAi(creds)).unwrap_or_else(|e| panic!("{e}"));
         assert_eq!(response.body, body);
         assert!(response.plan.is_none());
         let request = handle.join().unwrap();
@@ -186,15 +186,15 @@ fn provider_http_errors_preserve_rate_limits_and_do_not_expose_credentials() {
             let result = match provider {
                 "anthropic" => {
                     crate::test_support::set_env("SLOPD_USAGE_URL", url);
-                    fetch(&credentials(&root.join("creds")))
+                    fetch_anthropic_usage(&credentials(&root.join("creds")))
                 }
                 "openrouter" => {
                     crate::test_support::set_env("SLOPD_CREDITS_URL", url);
-                    fetch_credits("router-token")
+                    fetch_openrouter_credits("router-token")
                 }
                 _ => {
                     crate::test_support::set_env("SLOPD_OPENAI_USAGE_URL", url);
-                    fetch_openai(&OpenAiCreds {
+                    fetch_openai_usage(&OpenAiCreds {
                         token: "openai-token".into(),
                         account_id: None,
                     })
@@ -203,6 +203,14 @@ fn provider_http_errors_preserve_rate_limits_and_do_not_expose_credentials() {
             let error = result.expect_err("HTTP failure");
             assert_eq!(error.retry_after, expected_delay, "{provider}: {status}");
             assert!(error.msg.contains(&status.to_string()), "{}", error.msg);
+            if status == 403 {
+                let expected = match provider {
+                    "anthropic" => "usage endpoint returned 403",
+                    "openrouter" => "OpenRouter rejected the key (403). Is the key still valid?",
+                    _ => "OpenAI rejected the Codex login (403). Sign in with `codex login`.",
+                };
+                assert_eq!(error.msg, expected);
+            }
             for secret in [
                 "test-anthropic-token",
                 "router-token",
@@ -226,15 +234,15 @@ fn successful_http_status_with_invalid_json_is_a_non_rate_limit_error() {
         let result = match provider {
             "anthropic" => {
                 crate::test_support::set_env("SLOPD_USAGE_URL", url);
-                fetch(&credentials(&root.join("creds")))
+                fetch_anthropic_usage(&credentials(&root.join("creds")))
             }
             "openrouter" => {
                 crate::test_support::set_env("SLOPD_CREDITS_URL", url);
-                fetch_credits("router-token")
+                fetch_openrouter_credits("router-token")
             }
             _ => {
                 crate::test_support::set_env("SLOPD_OPENAI_USAGE_URL", url);
-                fetch_openai(&OpenAiCreds {
+                fetch_openai_usage(&OpenAiCreds {
                     token: "openai-token".into(),
                     account_id: None,
                 })
@@ -260,7 +268,7 @@ fn mismatched_credentials_are_rejected_before_any_network_request() {
     ] {
         crate::test_support::set_env(variable, &url);
     }
-    for fetcher in [fetch_anthropic as FetchProvider, fetch_openai_provider] {
+    for fetcher in [fetch_anthropic as FetchProvider, fetch_openai] {
         let error = fetcher(ProviderCredentials::OpenRouter("test".into()))
             .err()
             .unwrap();
@@ -299,7 +307,7 @@ fn a_half_written_credentials_file_is_read_again_rather_than_failed() {
             write_done.send(()).unwrap();
         })
     };
-    let got = read_creds_with_retry(&path, move || {
+    let got = read_anthropic_creds_with_retry(&path, move || {
         release_writer.send(()).unwrap();
         await_write.recv().unwrap();
     });
@@ -312,11 +320,11 @@ fn a_half_written_credentials_file_is_read_again_rather_than_failed() {
 
     // Report a parse error if the retry also reads invalid JSON.
     std::fs::write(&path, "half a {").unwrap();
-    assert!(read_creds(&path).is_err());
+    assert!(read_anthropic_creds(&path).is_err());
 
     // Report a missing file as an I/O error without a retry.
     std::fs::remove_file(&path).unwrap();
-    assert!(read_creds(&path).is_err());
+    assert!(read_anthropic_creds(&path).is_err());
 }
 
 /// Compare realistic epoch milliseconds to expose incorrect unit conversions.
