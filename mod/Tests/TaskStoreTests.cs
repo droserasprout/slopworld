@@ -6,6 +6,20 @@ namespace SlopWorld.Tests
 {
     static class TaskStoreTests
     {
+        public static void AddedWorkerTaskSurvivesOlderRefresh()
+        {
+            DaemonClient.Requests.Clear();
+            var store = new TaskStore();
+            store.Refresh();
+            store.Add(TaskInfo.FromWire(Task("worker-task", 10)));
+            DaemonClient.Requests[0].Ok(Tasks(Task("stale", 1)));
+            Assert.That(store.Tasks.Select(t => t.Id), Is.EqualTo(new[] { "worker-task" }));
+            store.Refresh();
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(2), "refresh admission released");
+            DaemonClient.Requests[1].Ok(Tasks(Task("worker-task", 11), Task("another", 12)));
+            Assert.That(store.Tasks.Count, Is.EqualTo(2));
+        }
+
         static Wire.Task Task(string id, ulong updated = 0, string status = "queued") =>
             new Wire.Task { Id = id, UpdatedMs = updated, Status = status };
 

@@ -207,7 +207,13 @@ namespace SlopWorld
                 {
                     _sending = false;
                     _error = error;
-                }, _worktree, _newWorktree, _newWorktree ? _baseCommit : "", _worktreeName);
+                }, new WorkerWorktreeOptions
+                {
+                    Worktree = _worktree,
+                    NewWorktree = _newWorktree,
+                    BaseRevision = _baseCommit,
+                    WorktreeName = _worktreeName,
+                });
         }
     }
 }

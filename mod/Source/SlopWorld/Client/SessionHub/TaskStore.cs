@@ -233,7 +233,10 @@ namespace SlopWorld
 
         public void Add(TaskInfo task)
         {
-            if (task != null) Upsert(task);
+            if (task == null) return;
+            // Worker creation can finish while an older task-board snapshot is in flight.
+            InvalidateRefresh();
+            Upsert(task);
         }
 
         void Upsert(TaskInfo task)
