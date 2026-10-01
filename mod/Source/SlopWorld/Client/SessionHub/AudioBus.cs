@@ -4,15 +4,19 @@ namespace SlopWorld
     {
         readonly HubTransport _transport;
         public AudioBus(HubTransport transport) { _transport = transport; }
-        public void SendAudio(string station, string stream, string file, float volume)
+        public void PlayFile(string file, float volume) =>
+            SendSelection(new Wire.AudioSelection { File = file }, volume);
+        public void PlayStation(string station, string stream, float volume) =>
+            SendSelection(new Wire.AudioSelection { Station = station, Stream = stream }, volume);
+        public void Stop(float volume) => _transport.Send(new Wire.ClientMessage
         {
-            var request = new Wire.AudioRequest { Volume = volume };
-            if (file != null) request.Selection = new Wire.AudioSelection { File = file };
-            else if (station != null && stream != null) request.Selection = new Wire.AudioSelection { Station = station, Stream = stream };
-            else request.Stop = new Wire.Empty();
-            _transport.Send(new Wire.ClientMessage { Audio = request });
-        }
-        public void SendSpotify(float volume) => _transport.Send(new Wire.ClientMessage { Audio = new Wire.AudioRequest { Volume = volume, Selection = new Wire.AudioSelection { Ncspot = true } } });
+            Audio = new Wire.AudioRequest { Volume = volume, Stop = new Wire.Empty() }
+        });
+        void SendSelection(Wire.AudioSelection selection, float volume) => _transport.Send(new Wire.ClientMessage
+        {
+            Audio = new Wire.AudioRequest { Volume = volume, Selection = selection }
+        });
+        public void SendSpotify(float volume) => SendSelection(new Wire.AudioSelection { Ncspot = true }, volume);
         public void SendVolume(float volume) => _transport.Send(new Wire.ClientMessage { Audio = new Wire.AudioRequest { Volume = volume } });
     }
 }
