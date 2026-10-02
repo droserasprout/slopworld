@@ -7,6 +7,7 @@ namespace SlopWorld
         readonly string _project;
         string _message;
         string _error;
+        bool _pending;
 
         GitCommitDialog(string project)
         {
@@ -27,11 +28,13 @@ namespace SlopWorld
 
             var foot = TextDialog.Footer(rect);
             if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
-            if (foot.Right("Commit", UiTheme.Btn.Primary)) Save();
+            if (foot.Right("Commit", UiTheme.Btn.Primary, !_pending)) Save();
         }
 
         void Save()
         {
+            if (_pending) return;
+            _error = null;
             string message = (_message ?? "").Trim();
             if (message.Length == 0)
             {
@@ -39,8 +42,12 @@ namespace SlopWorld
                 return;
             }
 
-            Close();
-            GitView.Commit(_project, message);
+            _pending = true;
+            GitView.Commit(_project, message, () => Close(), error =>
+            {
+                _pending = false;
+                _error = error;
+            });
         }
     }
 }
