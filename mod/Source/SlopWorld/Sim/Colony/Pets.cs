@@ -15,17 +15,28 @@ namespace SlopWorld
 
         // Drag selection calls Select for each enclosed object.
         // Limit repeated selection effects for each pet.
-        const float PokeCooldown = 0.4f;
+        const float PokeCooldownSeconds = 0.4f;
 
         // Limit repeated nuzzle replacements when an animal keeps trying to attack.
         // A mental state can assign another attack job after interruption.
-        const float NuzzleCooldown = 20f;
+        const float NuzzleCooldownSeconds = 20f;
 
-        // What vanilla's own nuzzle job allows.
-        const int NuzzleExpiry = 3000;
+        // Vanilla nuzzle expiry: 3000 game ticks.
+        const int NuzzleExpiryTicks = 3000;
 
         static readonly Dictionary<int, float> _lastPoke = new Dictionary<int, float>();
         static readonly Dictionary<int, float> _lastNuzzle = new Dictionary<int, float>();
+
+        static Game _cooldownGame;
+
+        static void EnsureCooldownGame()
+        {
+            var game = Current.Game;
+            if (ReferenceEquals(_cooldownGame, game)) return;
+            _cooldownGame = game;
+            _lastPoke.Clear();
+            _lastNuzzle.Clear();
+        }
 
         // A colony animal: player faction, not humanlike, not an agent.
         public static bool Is(Pawn p) =>
@@ -43,7 +54,7 @@ namespace SlopWorld
 
             // ModScenario removes the scenario's starting animal.
             // Remove any remaining colony animals, including pets from a repeated Place call.
-            // The intro can repeat because _armed is runtime state while its phase persists.
+            // Repeated placement deliberately replaces the previous pet.
             foreach (var other in On(map))
             {
                 Log.Message($"[SlopWorld] removing stray colony animal '{other.LabelShort}'");
@@ -90,9 +101,10 @@ namespace SlopWorld
         {
             if (pet == null || pet.Dead || !pet.Spawned) return;
 
+            EnsureCooldownGame();
             float now = Time.realtimeSinceStartup;
             if (_lastPoke.TryGetValue(pet.thingIDNumber, out float last)
-                && now - last < PokeCooldown) return;
+                && now - last < PokeCooldownSeconds) return;
             _lastPoke[pet.thingIDNumber] = now;
 
             pet.caller?.DoCall();
@@ -108,13 +120,14 @@ namespace SlopWorld
             if (agent == null || !agent.Spawned) return;
             if (pet.CurJobDef == JobDefOf.Nuzzle) return;
 
+            EnsureCooldownGame();
             float now = Time.realtimeSinceStartup;
             if (_lastNuzzle.TryGetValue(pet.thingIDNumber, out float last)
-                && now - last < NuzzleCooldown) return;
+                && now - last < NuzzleCooldownSeconds) return;
             _lastNuzzle[pet.thingIDNumber] = now;
 
             var job = JobMaker.MakeJob(JobDefOf.Nuzzle, agent);
-            job.expiryInterval = NuzzleExpiry;
+            job.expiryInterval = NuzzleExpiryTicks;
             pet.jobs.StartJob(job, JobCondition.InterruptForced);
         }
 

@@ -8,10 +8,10 @@ namespace SlopWorld
 {
     public class PlayerPawn : GameComponent
     {
-        const float FireballCooldown = 0.5f;
+        const float ProjectileCooldownSeconds = 0.5f;
 
         Pawn _pawn;
-        float _lastAction;
+        float _lastProjectileCast;
 
         readonly Game _game;
 
@@ -126,17 +126,22 @@ namespace SlopWorld
 
         void GoToCursor()
         {
-            var map = _pawn.Map;
-            if (map == null || map != Find.CurrentMap) return;
-
-            var target = UI.MouseMapPosition().ToIntVec3();
-            if (!target.InBounds(map)) return;
-            target = Walkable(map, target);
-            if (!target.IsValid) return;
+            if (!TryCursorTarget(out var map, out var target)) return;
 
             var job = JobMaker.MakeJob(JobDefOf.Goto, target);
             job.locomotionUrgency = LocomotionUrgency.Jog;
             _pawn.jobs?.StartJob(job, JobCondition.InterruptForced);
+        }
+
+        bool TryCursorTarget(out Map map, out IntVec3 target)
+        {
+            map = _pawn.Map;
+            target = IntVec3.Invalid;
+            if (map == null || map != Find.CurrentMap) return false;
+            var cursor = UI.MouseMapPosition().ToIntVec3();
+            if (!cursor.InBounds(map)) return false;
+            target = Walkable(map, cursor);
+            return target.IsValid;
         }
 
         static IntVec3 Walkable(Map map, IntVec3 near)
@@ -162,14 +167,7 @@ namespace SlopWorld
 
         void TeleportToCursor()
         {
-            var map = _pawn.Map;
-            if (map == null || map != Find.CurrentMap) return;
-
-            var target = UI.MouseMapPosition().ToIntVec3();
-            if (!target.InBounds(map)) return;
-
-            target = Walkable(map, target);
-            if (!target.IsValid) return;
+            if (!TryCursorTarget(out var map, out var target)) return;
 
             _pawn.jobs?.EndCurrentJob(JobCondition.InterruptForced);
             _pawn.Position = target;
@@ -178,14 +176,7 @@ namespace SlopWorld
 
         void CatWhistle()
         {
-            var map = _pawn.Map;
-            if (map == null || map != Find.CurrentMap) return;
-
-            var target = UI.MouseMapPosition().ToIntVec3();
-            if (!target.InBounds(map)) return;
-
-            target = Walkable(map, target);
-            if (!target.IsValid) return;
+            if (!TryCursorTarget(out var map, out var target)) return;
 
             var cat = Pets.On(map).FirstOrDefault();
             if (cat == null) return;
@@ -202,8 +193,7 @@ namespace SlopWorld
         void Cast(ThingDef projectileDef)
         {
             float now = Time.realtimeSinceStartup;
-            if (now - _lastAction < FireballCooldown) return;
-            _lastAction = now;
+            if (now - _lastProjectileCast < ProjectileCooldownSeconds) return;
 
             var map = _pawn.Map;
             if (map == null || map != Find.CurrentMap) return;
@@ -220,6 +210,7 @@ namespace SlopWorld
                 new LocalTargetInfo(targetCell),
                 new LocalTargetInfo(targetCell),
                 ProjectileHitFlags.All);
+            _lastProjectileCast = now;
         }
 
         public override void ExposeData()
