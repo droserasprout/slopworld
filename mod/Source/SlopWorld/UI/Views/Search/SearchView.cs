@@ -223,8 +223,8 @@ namespace SlopWorld
                 string url = WireProtocol.Routes.Search + "?path=" + Uri.EscapeDataString(p.Path) +
                     "&q=" + Uri.EscapeDataString(query) +
                     "&regex=" + (submitted.Regex ? "1" : "0") +
-                    "&case=" + (submitted.Case ? "1" : "0") +
-                    "&word=" + (submitted.Word ? "1" : "0") +
+                    "&case=" + (submitted.CaseSensitive ? "1" : "0") +
+                    "&word=" + (submitted.WholeWord ? "1" : "0") +
                     "&gitignore=" + (submitted.IncludeIgnored ? "0" : "1") +
                     "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0");
                 Requests.Add(() => Operations.IsCurrent(generation) && SidebarScopes.Enabled(p.Key), done =>
