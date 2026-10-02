@@ -6,6 +6,9 @@ The stream measures fixed-width cells and draws from the committed ASCII PNG atl
 match the previous IMGUI scale. `assets/fonts/clacon2.ttf` is only the source for
 `make bake-loading-font`.
 
+Measure the panel before reading its geometry; repaint reflows a resized stream even when
+no new words are due.
+
 Keep tip strings within printable ASCII, the atlas's supported range. The game-free
 `test-text-sprites` check rejects non-ASCII characters in tip literals while ignoring comments.
 The baker places all glyphs on a shared baseline derived from font metrics, including glyph
