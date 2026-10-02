@@ -17,6 +17,8 @@ namespace SlopWorld
 
         public override void FinalizeInit()
         {
+            if (!ModProfile.Ok) return;
+
             var player = Faction.OfPlayerSilentFail;
             if (player == null) return;
 

@@ -7,7 +7,7 @@ namespace SlopWorld
 {
     // Run one opening scene for each new colony. Block map and UI input during the scene.
     // ModScenario supplies no starting pawns. This scene adds pawns, the core, and the plague.
-    // Save the phase, but keep work lists only in memory.
+    // Save the phase and remaining population; rebuild animal kinds after loading.
     public class IntroDirector : GameComponent
     {
         const int AnimalsMin = 50;
@@ -46,6 +46,7 @@ namespace SlopWorld
         Map _map;
         List<PawnKindDef> _animalKinds;
         int _animalsLeft, _humansLeft;
+        bool _populationArmed;
 
         // Each phase transition resets the flag and timer.
         bool _armed;
@@ -134,12 +135,15 @@ namespace SlopWorld
             var map = TheMap;
             if (map == null) { Finish(); return; }
 
-            if (!_armed)
+            if (!_populationArmed)
             {
-                _armed = true;
+                _populationArmed = true;
                 Find.CameraDriver?.JumpToCurrentMapLoc(map.Center);
                 Pets.Place(map);
             }
+
+            if (_animalKinds == null) _animalKinds = Outskirts.Kinds(map);
+            if (_animalKinds.Count == 0) _animalsLeft = 0;
 
             int budget = SpawnsPerTick;
             while (budget-- > 0 && (_animalsLeft > 0 || _humansLeft > 0))
@@ -304,6 +308,10 @@ namespace SlopWorld
         {
             base.ExposeData();
             Scribe_Values.Look(ref _phase, "introPhase", Phase.Waiting);
+            Scribe_Values.Look(ref _animalsLeft, "introAnimalsLeft", 0);
+            Scribe_Values.Look(ref _humansLeft, "introHumansLeft", 0);
+            // Preserve population setup so loading does not replace the already placed pet.
+            Scribe_Values.Look(ref _populationArmed, "introPopulationArmed", false);
         }
     }
 }
