@@ -13,7 +13,9 @@ See [Eco](mod-eco.md).
 
 `Cutscene` owns the board during intro/exit. Save requests pass through `SaveCoordinator`:
 a colony discarded by NextPlanet must not become the next auto-resume save. Real-clock tick units differ from the base game assumptions.
-See [gotchas](core-gotchas.md).
+See [gotchas](core-gotchas.md). Duration formatting preserves caller precision and
+real-unit display options; it uses seconds through days without calendar years, quadrums,
+or vague calendar bounds.
 
 Profile gating applies to Harmony, def mutation and XML patches independently. New game
 integration must respect all three. See [profile](ops-profile.md).
