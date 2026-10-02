@@ -343,3 +343,112 @@ async fn managed_destination_rejects_symlink_parents_and_protected_paths() {
             .contains("worktree reaches session private state")
     );
 }
+
+#[tokio::test]
+async fn failed_removal_intent_preserves_external_checkout_and_catalog() {
+    let project = ProjectCfg {
+        name: "repo".into(),
+        id: uuid::Uuid::new_v4().to_string(),
+        dir: "/tmp".into(),
+        ..Default::default()
+    };
+    let manager = crate::session::test_manager(Config {
+        projects: vec![project.clone()],
+        ..Default::default()
+    });
+    let checkout = manager.cfg_path.parent().unwrap().join("external");
+    std::fs::create_dir(&checkout).unwrap();
+    std::fs::write(checkout.join("keep"), "external data").unwrap();
+    let store = Store {
+        worktrees: vec![Worktree {
+            id: "external".into(),
+            project_id: project.id,
+            path: checkout.to_string_lossy().into_owned(),
+            phase: "ready".into(),
+            ..Default::default()
+        }],
+    };
+    store.save(&manager.cfg_path).await.unwrap();
+    let catalog = manager.cfg_path.with_file_name("worktrees.toml");
+    let before = std::fs::read(&catalog).unwrap();
+    let fault = crate::paths::fail_writes(&catalog);
+    manager
+        .remove_worktree("repo".into(), "external".into())
+        .await
+        .unwrap_err();
+    assert_eq!(std::fs::read(&catalog).unwrap(), before);
+    drop(fault);
+
+    manager
+        .remove_worktree("repo".into(), "external".into())
+        .await
+        .unwrap();
+    assert!(
+        Store::load(&manager.cfg_path)
+            .await
+            .unwrap()
+            .worktrees
+            .is_empty()
+    );
+    assert_eq!(
+        std::fs::read_to_string(checkout.join("keep")).unwrap(),
+        "external data"
+    );
+    manager
+        .remove_worktree("repo".into(), "external".into())
+        .await
+        .unwrap_err();
+    assert!(checkout.join("keep").exists());
+}
+
+#[tokio::test]
+async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
+    let manager = crate::session::test_manager(Config::default());
+    let checkout = manager.cfg_path.parent().unwrap().join("deleted");
+    std::fs::create_dir(&checkout).unwrap();
+    let worktree = Worktree {
+        id: "deleted".into(),
+        path: checkout.to_string_lossy().into_owned(),
+        phase: "ready".into(),
+        managed: true,
+        ..Default::default()
+    };
+    let sibling = Worktree {
+        id: "sibling".into(),
+        phase: "ready".into(),
+        ..Default::default()
+    };
+    let mut removal = WorktreeRemoval {
+        project: ProjectCfg::default(),
+        worktree: worktree.clone(),
+        store: Store {
+            worktrees: vec![sibling, worktree],
+        },
+        index: 1,
+    };
+    removal.record_intent(&manager.cfg_path).await.unwrap();
+    // Simulate Git deleting the checkout before the final catalog write fails.
+    std::fs::remove_dir(&checkout).unwrap();
+    let fault = crate::paths::fail_writes(&manager.cfg_path.with_file_name("worktrees.toml"));
+    removal.finish(&manager.cfg_path, Ok(())).await.unwrap_err();
+    let retained = Store::load(&manager.cfg_path).await.unwrap();
+    assert_eq!(retained.worktrees[0].id, "sibling");
+    assert_eq!(retained.worktrees[0].phase, "ready");
+    assert_eq!(retained.worktrees[1].phase, "removing");
+    drop(fault);
+
+    manager.recover_worktrees().await.unwrap();
+    let recovered = Store::load(&manager.cfg_path).await.unwrap();
+    assert_eq!(recovered.worktrees[1].phase, "error");
+    let mut retry = WorktreeRemoval {
+        project: ProjectCfg::default(),
+        worktree: recovered.worktrees[1].clone(),
+        store: recovered,
+        index: 1,
+    };
+    retry.record_intent(&manager.cfg_path).await.unwrap();
+    retry.finish(&manager.cfg_path, Ok(())).await.unwrap();
+    let remaining = Store::load(&manager.cfg_path).await.unwrap();
+    assert_eq!(remaining.worktrees.len(), 1);
+    assert_eq!(remaining.worktrees[0].id, "sibling");
+}
