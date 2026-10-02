@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using NUnit.Framework;
 
 namespace SlopWorld.Tests
@@ -29,11 +30,11 @@ namespace SlopWorld.Tests
         public static void HistoryRetainsOnlyLatest64BackEntriesAndCanReplayThem()
         {
             var history = new SidebarViewHistory();
-            for (int i = 0; i < 70; i++) history.Visit(SidebarViewLocation.Task(i.ToString()));
+            for (int i = 0; i < 70; i++) history.Visit(SidebarViewLocation.Task(i.ToString(CultureInfo.InvariantCulture)));
             for (int i = 68; i >= 5; i--)
             {
                 Assert.That(history.Back(out var location), Is.True);
-                Assert.That(location, Is.EqualTo(SidebarViewLocation.Task(i.ToString())));
+                Assert.That(location, Is.EqualTo(SidebarViewLocation.Task(i.ToString(CultureInfo.InvariantCulture))));
                 Assert.That(history.Current, Is.EqualTo(location));
                 Assert.That(history.TryLast(SidebarTab.Tasks, out var last), Is.True);
                 Assert.That(last, Is.EqualTo(location), "back updates remembered target");
@@ -43,7 +44,7 @@ namespace SlopWorld.Tests
             for (int i = 6; i <= 69; i++)
             {
                 Assert.That(history.Forward(out var location), Is.True);
-                Assert.That(location, Is.EqualTo(SidebarViewLocation.Task(i.ToString())));
+                Assert.That(location, Is.EqualTo(SidebarViewLocation.Task(i.ToString(CultureInfo.InvariantCulture))));
                 Assert.That(history.TryLast(SidebarTab.Tasks, out var last), Is.True);
                 Assert.That(last, Is.EqualTo(location), "forward updates remembered target");
             }

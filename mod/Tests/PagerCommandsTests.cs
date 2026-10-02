@@ -50,7 +50,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("bat --style=numbers --style=plain --decorations=never --wrap=never --pager 'less -RS --shift=1 --wheel-lines=1' -- {file}",
                 PagerCommands.FilePager("bat --style=numbers -- {file}", false), "bat numbers off before file argument");
             string pipe = PagerCommands.PipePager("bat --paging=always --style=numbers");
-            AssertEx.True(pipe.EndsWith("--style=plain --decorations=never --color=never --language=txt --strip-ansi=never --wrap=never --pager 'less -RS --shift=1 --wheel-lines=1'"),
+            AssertEx.True(pipe.EndsWith("--style=plain --decorations=never --color=never --language=txt --strip-ansi=never --wrap=never --pager 'less -RS --shift=1 --wheel-lines=1'", StringComparison.Ordinal),
                 "bat passes through delta output without another gutter or highlighting pass");
             AssertEx.False(PagerCommands.FilePager("bat --pager 'less -R'", true).Contains("less -RS"),
                 "explicit bat pager remains selected");

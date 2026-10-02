@@ -1,5 +1,6 @@
-using System.Reflection;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Reflection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -114,7 +115,7 @@ namespace SlopWorld
             y += step;
             UiText.RowLabel(new Rect(rect.x, y, rect.width, line),
                 "CompiledOn".Translate(
-                    (NamedArgument)VersionControl.CurrentBuildDate.ToString("MMM d yyyy")));
+                    (NamedArgument)VersionControl.CurrentBuildDate.ToString("MMM d yyyy", CultureInfo.CurrentCulture)));
             y += step;
 
             if (SteamManager.Initialized)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace SlopWorld.Tests
@@ -371,9 +372,9 @@ namespace SlopWorld.Tests
                            "ordinary title length accepted");
             AssertEx.True(DaemonConfigValidation.TitleMinimum("2001", out value, out error),
                            "daemon title length above old UI limit accepted");
-            AssertEx.True(DaemonConfigValidation.WholeSeconds(int.MaxValue.ToString(), false,
+            AssertEx.True(DaemonConfigValidation.WholeSeconds(int.MaxValue.ToString(CultureInfo.InvariantCulture), false,
                 out value, out error), "full client poll range accepted");
-            AssertEx.True(DaemonConfigValidation.TitleMinimum(int.MaxValue.ToString(),
+            AssertEx.True(DaemonConfigValidation.TitleMinimum(int.MaxValue.ToString(CultureInfo.InvariantCulture),
                 out value, out error), "full client title range accepted");
             AssertEx.False(DaemonConfigValidation.TitleMinimum("2147483648",
                 out value, out error), "client integer overflow rejected");

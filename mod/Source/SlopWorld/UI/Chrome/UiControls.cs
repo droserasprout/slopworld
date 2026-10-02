@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -218,7 +219,7 @@ namespace SlopWorld
         public static bool SliderSetting(Listing_Standard l, string label, ModSettings settings,
             ref int field, int min, int max) =>
             SetSetting(settings, ref field, Mathf.RoundToInt(Slider(l, label, field,
-                min, max, field.ToString())));
+                min, max, field.ToString(CultureInfo.CurrentCulture))));
 
         public static bool Checkbox(Listing_Standard l, string label, bool on, string tip = null,
                                     bool locked = false)

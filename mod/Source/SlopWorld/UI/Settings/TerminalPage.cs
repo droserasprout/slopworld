@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using UnityEngine;
 using Verse;
@@ -225,7 +226,7 @@ namespace SlopWorld
             style.normal.textColor = th.Fg;
             for (int i = 0; i < AnsiColors; i++)
             {
-                string label = i.ToString("X");
+                string label = i.ToString("X", CultureInfo.InvariantCulture);
                 GUI.Label(new Rect(r.x + (i + 1) * cell, r.y, cell, cell), label, style);
                 GUI.Label(new Rect(r.x, r.y + (i + 1) * cell, cell, cell), label, style);
             }

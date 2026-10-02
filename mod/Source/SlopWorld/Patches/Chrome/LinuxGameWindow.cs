@@ -96,7 +96,7 @@ namespace SlopWorld
             IntPtr display = IntPtr.Zero;
             try
             {
-                display = XOpenDisplay(null);
+                display = XOpenDisplay(IntPtr.Zero);
                 if (display == IntPtr.Zero)
                 {
                     Warn("X11 display is unavailable. Could not change the game window state.");
@@ -138,7 +138,7 @@ namespace SlopWorld
             }
             finally
             {
-                if (display != IntPtr.Zero) XCloseDisplay(display);
+                if (display != IntPtr.Zero) _ = XCloseDisplay(display);
             }
         }
 
@@ -152,7 +152,7 @@ namespace SlopWorld
             if (!ResyncSurface()) return ResizeStage.Retry;
             bool maximized = SendState(display, root, window, state, 1, horizontal, vertical);
             RaiseAndActivate(display, root, window);
-            XFlush(display);
+            _ = XFlush(display);
             if (!maximized) return ResizeStage.Retry;
             _resyncedAt = Time.realtimeSinceStartup;
             return ResizeStage.Waiting;
@@ -167,7 +167,7 @@ namespace SlopWorld
                     ? SendState(display, root, window, state, 0, fullscreenAtom, IntPtr.Zero)
                     : SendState(display, root, window, state, 1, horizontal, vertical);
             RaiseAndActivate(display, root, window);
-            XFlush(display);
+            _ = XFlush(display);
             return sent ? WindowChange.Applied : WindowChange.Retry;
         }
 
@@ -180,7 +180,7 @@ namespace SlopWorld
             IntPtr display = IntPtr.Zero;
             try
             {
-                display = XOpenDisplay(null);
+                display = XOpenDisplay(IntPtr.Zero);
                 if (display == IntPtr.Zero) return false;
 
                 IntPtr root = XDefaultRootWindow(display);
@@ -205,7 +205,7 @@ namespace SlopWorld
                         8, 0, data, bytes.Length) != 0;
                     bool legacy = XChangeProperty(display, window, wmName, stringType,
                         8, 0, data, bytes.Length) != 0;
-                    XFlush(display);
+                    _ = XFlush(display);
                     return modern && legacy;
                 }
                 finally
@@ -220,7 +220,7 @@ namespace SlopWorld
             }
             finally
             {
-                if (display != IntPtr.Zero) XCloseDisplay(display);
+                if (display != IntPtr.Zero) _ = XCloseDisplay(display);
             }
         }
 
@@ -249,7 +249,8 @@ namespace SlopWorld
 
         static void RaiseAndActivate(IntPtr display, IntPtr root, IntPtr window)
         {
-            XRaiseWindow(display, window);
+            // Xlib reports raise/flush errors asynchronously; activation is best-effort.
+            _ = XRaiseWindow(display, window);
 
             IntPtr active = XInternAtom(display, "_NET_ACTIVE_WINDOW", 0);
             if (active == IntPtr.Zero) return;
@@ -265,7 +266,8 @@ namespace SlopWorld
                 data0 = new IntPtr(1), // source indication: application
             };
             IntPtr mask = new IntPtr(SubstructureNotifyMask | SubstructureRedirectMask);
-            XSendEvent(display, root, 0, mask, ref message);
+            if (XSendEvent(display, root, 0, mask, ref message) == 0)
+                Warn("the window manager rejected the activation request");
         }
 
         static void SetUndecorated(IntPtr display, IntPtr window)
@@ -321,7 +323,7 @@ namespace SlopWorld
             }
             finally
             {
-                XFree(data);
+                _ = XFree(data);
             }
 
             return IntPtr.Zero;
@@ -344,7 +346,7 @@ namespace SlopWorld
             }
             finally
             {
-                XFree(data);
+                _ = XFree(data);
             }
         }
 
@@ -394,16 +396,22 @@ namespace SlopWorld
         }
 
         [DllImport("libX11.so.6", CallingConvention = CallingConvention.Cdecl)]
-        static extern IntPtr XOpenDisplay(string displayName);
+        static extern IntPtr XOpenDisplay(IntPtr displayName);
 
+        // Cleanup and flush return values are not synchronous X server status codes.
         [DllImport("libX11.so.6", CallingConvention = CallingConvention.Cdecl)]
         static extern int XCloseDisplay(IntPtr display);
 
         [DllImport("libX11.so.6", CallingConvention = CallingConvention.Cdecl)]
         static extern IntPtr XDefaultRootWindow(IntPtr display);
 
-        [DllImport("libX11.so.6", CallingConvention = CallingConvention.Cdecl)]
-        static extern IntPtr XInternAtom(IntPtr display, string atomName, int onlyIfExists);
+        // Xlib atom names are narrow byte strings. Supply a terminated UTF-8 buffer
+        // explicitly instead of relying on Mono's default string marshaling.
+        static IntPtr XInternAtom(IntPtr display, string atomName, int onlyIfExists) =>
+            XInternAtomUtf8(display, Encoding.UTF8.GetBytes(atomName + "\0"), onlyIfExists);
+
+        [DllImport("libX11.so.6", EntryPoint = "XInternAtom", CallingConvention = CallingConvention.Cdecl)]
+        static extern IntPtr XInternAtomUtf8(IntPtr display, byte[] atomName, int onlyIfExists);
 
         [DllImport("libX11.so.6", CallingConvention = CallingConvention.Cdecl)]
         static extern int XGetWindowProperty(

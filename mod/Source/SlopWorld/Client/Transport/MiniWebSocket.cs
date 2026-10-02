@@ -74,15 +74,16 @@ namespace SlopWorld
                 string key = Convert.ToBase64String(keyBytes);
 
                 var req = new StringBuilder();
-                req.Append($"GET {path} HTTP/1.1\r\n");
-                req.Append($"Host: {host}:{port}\r\n");
+                req.Append("GET ").Append(path).Append(" HTTP/1.1\r\n");
+                req.Append("Host: ").Append(host).Append(':')
+                    .Append(port.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append("\r\n");
                 req.Append("Upgrade: websocket\r\n");
                 req.Append("Connection: Upgrade\r\n");
-                req.Append($"Sec-WebSocket-Key: {key}\r\n");
+                req.Append("Sec-WebSocket-Key: ").Append(key).Append("\r\n");
                 req.Append("Sec-WebSocket-Version: 13\r\n");
                 req.Append("Sec-WebSocket-Protocol: slopworld.protobuf.v2\r\n");
                 if (!string.IsNullOrEmpty(token))
-                    req.Append($"{WireProtocol.TokenHeader}: {token}\r\n");
+                    req.Append(WireProtocol.TokenHeader).Append(": ").Append(token).Append("\r\n");
                 req.Append("\r\n");
 
                 var bytes = Encoding.ASCII.GetBytes(req.ToString());
@@ -319,6 +320,7 @@ namespace SlopWorld
             Incoming.Close();
             _sendSignal.Set();
             Cleanup();
+            GC.SuppressFinalize(this);
         }
 
         void Cleanup()

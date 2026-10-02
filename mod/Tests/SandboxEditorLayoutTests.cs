@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using UnityEngine;
 
@@ -38,7 +39,7 @@ namespace SlopWorld.Tests
                             "preset draw and measurement use the same geometry" + $" ({source}, width {width})");
                         var description = EditorTrace.Draws.Single(d => d.Name == "preset.description").Rect;
                         AssertEx.True(description.height > 44f, "real form expands wrapped descriptions" + $" ({source}, width {width})");
-                        AssertEx.True(EditorTrace.Draws.Where(d => d.Name.StartsWith("preset."))
+                        AssertEx.True(EditorTrace.Draws.Where(d => d.Name.StartsWith("preset.", StringComparison.Ordinal))
                             .All(d => d.Rect.width == width && d.Rect.yMax <= measured),
                             "preset fields remain inside the measured extent" + $" ({source}, width {width})");
                         CheckHost(page, preset, null, width);
@@ -54,7 +55,7 @@ namespace SlopWorld.Tests
                         AssertEx.Equal(measured, page.TestCommand(command, width, true),
                             "command draw and measurement use the same geometry" + $" ({source}, width {width})");
                         AssertEx.Equal("check:one,check:two", string.Join(",",
-                            EditorTrace.Draws.Where(d => d.Name.StartsWith("check:")).Select(d => d.Name)),
+                            EditorTrace.Draws.Where(d => d.Name.StartsWith("check:", StringComparison.Ordinal)).Select(d => d.Name)),
                             "command dependencies retain catalog order and omit global" + $" ({source}, width {width})");
                         CheckHost(page, null, command, width);
                     }
@@ -85,7 +86,7 @@ namespace SlopWorld.Tests
                 EditorTrace.Draws.Where(d => d.Name == "rule").Select(d => d.Rect.y)),
                 "preset separators retain the original positions");
             AssertEx.Equal(184f, bottom, "hidden optional fields leave the original action position");
-            AssertEx.Equal(1, EditorTrace.Draws.Count(d => d.Name.StartsWith("preset.")),
+            AssertEx.Equal(1, EditorTrace.Draws.Count(d => d.Name.StartsWith("preset.", StringComparison.Ordinal)),
                 "empty system fields are hidden except the nonempty name");
 
             preset.Source = "user";
@@ -95,7 +96,7 @@ namespace SlopWorld.Tests
                 EditorTrace.Draws.Where(d => d.Name == "rule").Select(d => d.Rect.y)),
                 "editable preset separators retain the original positions");
             AssertEx.Equal(943f, bottom, "editable action position does not accumulate hairline heights");
-            AssertEx.Equal(12, EditorTrace.Draws.Count(d => d.Name.StartsWith("preset.")),
+            AssertEx.Equal(12, EditorTrace.Draws.Count(d => d.Name.StartsWith("preset.", StringComparison.Ordinal)),
                 "editable empty fields remain visible");
         }
 

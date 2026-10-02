@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using UnityEngine;
 using Verse;
@@ -11,7 +12,7 @@ namespace SlopWorld
         readonly System.Action<string> _pick;
         string _path;
         string _parent;
-        string[] _dirs = new string[0];
+        string[] _dirs = Array.Empty<string>();
         string _error;
         bool _pending;
         bool _truncated;
@@ -41,7 +42,7 @@ namespace SlopWorld
             _error = null;
             _path = null;
             _parent = null;
-            _dirs = new string[0];
+            _dirs = Array.Empty<string>();
 
             DaemonClient.Get<Wire.BrowseResult>($"{WireProtocol.Routes.Browse}?path={System.Uri.EscapeDataString(path)}&filter={System.Uri.EscapeDataString(_filter)}",
                 j =>

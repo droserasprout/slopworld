@@ -199,6 +199,10 @@ namespace SlopWorld
 
         protected virtual void DrawOverlay(Rect rect) { }
 
-        public virtual void Dispose() { _disposed = true; }
+        public virtual void Dispose()
+        {
+            _disposed = true;
+            GC.SuppressFinalize(this);
+        }
     }
 }

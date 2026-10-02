@@ -192,7 +192,7 @@ namespace SlopWorld.Tests
             var deletion = fixture.Requests[2];
             obsolete.Ok(Snapshot("stale", 0));
             AssertEx.Equal("initial", fixture.Name(0), "delete invalidates pending GET");
-            AssertEx.True(deletion.Path.EndsWith("/a%2Fb"), "escaped project deletion path");
+            AssertEx.True(deletion.Path.EndsWith("/a%2Fb", StringComparison.Ordinal), "escaped project deletion path");
             deletion.Ok(JVal.Parse("{}"));
             AssertEx.Equal(1, fixture.Sessions, "deletion refreshes session membership");
             AssertEx.Equal(0, fixture.Errors, "successful deletion reports no failure");

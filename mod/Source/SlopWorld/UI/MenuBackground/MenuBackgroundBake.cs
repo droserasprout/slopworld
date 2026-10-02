@@ -50,7 +50,7 @@ namespace SlopWorld
                 h ^= all[i];
                 h *= 16777619;
             }
-            return h.ToString("x8");
+            return h.ToString("x8", CultureInfo.InvariantCulture);
         }
 
         static string Root() => Path.Combine(Path.Combine(CacheRoot(), "slopworld"), "bg");

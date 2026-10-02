@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using RimWorld;
 using UnityEngine;
@@ -44,9 +45,9 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "Usage");
             l.Label("Global polling interval (seconds)");
             string pollSecs = _configState.DraftText("usage.poll", "daemon.usage_poll_secs",
-                _cfg.UsagePollSecs.ToString());
+                _cfg.UsagePollSecs.ToString(CultureInfo.InvariantCulture));
             pollSecs = UiControls.Field(l, "usage.poll", pollSecs,
-                defaultValue: _cfg.FactoryDefaults?.UsagePollSecs?.ToString());
+                defaultValue: _cfg.FactoryDefaults?.UsagePollSecs?.ToString(CultureInfo.InvariantCulture));
             _configState.SetDraftText("usage.poll", "daemon.usage_poll_secs", pollSecs);
             UiLayout.Validation(l, PollError(pollSecs, false));
             UiLayout.Note(l, "Every row uses this interval unless you set a separate interval below. " +
@@ -119,7 +120,7 @@ namespace SlopWorld
         {
             return _configState.DraftText("usage.item." + key,
                 "daemon.usage_items." + ProtoFields.Escape(key) + ".interval_secs",
-                interval > 0 ? interval.ToString() : "", zeroMeansBlank: true);
+                interval > 0 ? interval.ToString(CultureInfo.InvariantCulture) : "", zeroMeansBlank: true);
         }
 
         void SetDraftInterval(string key, string value)
@@ -395,7 +396,7 @@ namespace SlopWorld
             {
                 if (!_loaded || _cfg == null) return null;
                 string error = PollError(_configState.DraftText("usage.poll",
-                    "daemon.usage_poll_secs", _cfg.UsagePollSecs.ToString()), false);
+                    "daemon.usage_poll_secs", _cfg.UsagePollSecs.ToString(CultureInfo.InvariantCulture)), false);
                 if (!string.IsNullOrEmpty(error)) return error;
                 foreach (string fieldKey in _configState.DraftFieldKeys("usage.item."))
                 {
@@ -412,13 +413,13 @@ namespace SlopWorld
         {
             _configState.ClearQueuedNormalizations();
             string pollText = _configState.DraftText("usage.poll", "daemon.usage_poll_secs",
-                _cfg.UsagePollSecs.ToString());
+                _cfg.UsagePollSecs.ToString(CultureInfo.InvariantCulture));
             if (!DaemonConfigValidation.WholeSeconds(pollText, false, out int seconds,
                                                       out error)) return false;
             _cfg.UsagePollSecs = seconds;
             _configState.SetDraftText("usage.poll", "daemon.usage_poll_secs", pollText);
             _configState.QueueDraftTextNormalization("usage.poll", "daemon.usage_poll_secs",
-                seconds.ToString());
+                seconds.ToString(CultureInfo.InvariantCulture));
 
             foreach (string fieldKey in _configState.DraftFieldKeys("usage.item."))
             {
@@ -443,7 +444,7 @@ namespace SlopWorld
                     SetDraftInterval(key, text);
                     _configState.QueueDraftTextNormalization(fieldKey,
                         "daemon.usage_items." + ProtoFields.Escape(key) + ".interval_secs",
-                        seconds.ToString());
+                        seconds.ToString(CultureInfo.InvariantCulture));
                 }
                 else
                     return false;

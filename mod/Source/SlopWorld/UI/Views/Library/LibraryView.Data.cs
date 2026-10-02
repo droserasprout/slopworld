@@ -104,7 +104,7 @@ namespace SlopWorld
                 case MainRowKind.AppPreset:
                     return PrepareAppPresetDetails((CommandInfo)row.Model);
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    throw new ArgumentOutOfRangeException(nameof(row), row.MainKind, "Unknown library row kind.");
             }
         }
 

@@ -83,7 +83,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("fallback", SongRecognizer.ShortError(" \r\n ", "fallback"), "blank diagnostics use fallback");
             AssertEx.Equal("first", SongRecognizer.ShortError("  first  \r\nsecond", "fallback"), "only first trimmed line is shown");
             AssertEx.Equal(new string('x', 240), SongRecognizer.ShortError(new string('x', 300), "fallback"), "long diagnostics are capped");
-            AssertEx.Throws<ArgumentNullException>(() => new SongRecognizer(null), "runner is required");
+            AssertEx.Throws<ArgumentNullException>(() => { _ = new SongRecognizer(null); }, "runner is required");
         }
 
         // A runner that answers each command from a table keyed on the executable name and records

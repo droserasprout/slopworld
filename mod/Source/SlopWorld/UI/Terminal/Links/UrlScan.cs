@@ -26,7 +26,7 @@ namespace SlopWorld
         // second null, which leaves the caller's link standing.
         public static string Osc(string body)
         {
-            if (body == null || !body.StartsWith("8;")) return null;
+            if (body == null || !body.StartsWith("8;", StringComparison.Ordinal)) return null;
             var parts = body.Split(new[] { ';' }, 3);
             return parts.Length < 3 ? null : parts[2];
         }

@@ -1,3 +1,4 @@
+using System;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -164,7 +165,7 @@ namespace SlopWorld
             if (Pager.IsEditorCommand(cmd)) return RowAct.Edit;
             // The git view's diff, which is a whole `git -C ... --paginate diff` line and the
             // only git this half ever runs in an errand.
-            if (cmd.StartsWith("git ") && cmd.Contains(" diff")) return RowAct.Diff;
+            if (cmd.StartsWith("git ", StringComparison.Ordinal) && cmd.Contains(" diff")) return RowAct.Diff;
             return RowAct.None;
         }
 

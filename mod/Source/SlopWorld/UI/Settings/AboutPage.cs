@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
@@ -77,7 +78,7 @@ namespace SlopWorld
             {
                 Name = name;
                 Detail = detail;
-                Links = new CreditLink[0];
+                Links = Array.Empty<CreditLink>();
             }
 
             public Credit(string name, string detail, string url)
@@ -85,7 +86,7 @@ namespace SlopWorld
                 Name = name;
                 Detail = detail;
                 Links = string.IsNullOrEmpty(url)
-                    ? new CreditLink[0]
+                    ? Array.Empty<CreditLink>()
                     : new[] { new CreditLink(name, url) };
             }
 
@@ -93,7 +94,7 @@ namespace SlopWorld
             {
                 Name = name;
                 Detail = detail;
-                Links = links ?? new CreditLink[0];
+                Links = links ?? Array.Empty<CreditLink>();
             }
         }
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using UnityEngine;
 using Verse;
@@ -274,7 +275,7 @@ namespace SlopWorld
                         numberColor.a *= .6f;
                         _previewStyle.normal.textColor = numberColor;
                         GUI.Label(new Rect(6f, y, gutter, TerminalFont.CellH),
-                            (row + 1).ToString().PadLeft(3), _previewStyle);
+                            (row + 1).ToString(CultureInfo.CurrentCulture).PadLeft(3), _previewStyle);
                     }
                     foreach (var run in _previewLines[row])
                     {

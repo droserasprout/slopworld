@@ -178,8 +178,8 @@ namespace SlopWorld.Tests
             var clock = new ClockTextCache();
             Compare("topbar unchanged clock text", () =>
             {
-                string shortText = now.ToString("HH:mm");
-                string tip = now.ToString("dddd, d MMMM yyyy") + "\n" + now.ToString("HH:mm:ss");
+                string shortText = now.ToString("HH:mm", CultureInfo.InvariantCulture);
+                string tip = now.ToString("dddd, d MMMM yyyy", CultureInfo.InvariantCulture) + "\n" + now.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
                 return shortText.Length + tip.Length;
             }, () =>
             {
@@ -320,7 +320,7 @@ namespace SlopWorld.Tests
         {
             var sessions = Enumerable.Range(0, 10000).Select(i => new SessionInfo
             {
-                Name = "viewer-" + (10000 - i).ToString("D5"),
+                Name = "viewer-" + (10000 - i).ToString("D5", CultureInfo.InvariantCulture),
                 Project = i % 4 == 0 ? "visible" : "hidden",
             }).ToList();
             var rows = new List<SessionInfo>();

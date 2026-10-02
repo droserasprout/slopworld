@@ -1,3 +1,4 @@
+using System.Globalization;
 using UnityEngine;
 using Verse;
 
@@ -199,7 +200,7 @@ namespace SlopWorld
         {
             return from < 0f || to < 0f || to < from
                 ? "-"
-                : ((to - from) * 1000f).ToString("F1");
+                : ((to - from) * 1000f).ToString("F1", CultureInfo.InvariantCulture);
         }
 
         void ScrollDebugEnd()

@@ -40,7 +40,7 @@ class Program
             foreach (var name in new[] { "plain", "ansi", "unicode", "large" })
                 if (!Event.Parser.ParseFrom(File.ReadAllBytes(Path.Combine(args[1], name + ".pb"))).Equals(
                     Event.Parser.ParseFrom(File.ReadAllBytes(Path.Combine(args[1], name + ".rust.pb")))))
-                    throw new Exception("Rust/C# roundtrip mismatch: " + name);
+                    throw new InvalidDataException("Rust/C# roundtrip mismatch: " + name);
             Console.WriteLine("Rust/C# binary fixtures verified.");
             return;
         }
@@ -54,7 +54,7 @@ class Program
             var ev = Event.Parser.ParseFrom(binary);
             var parsed = Event.Parser.ParseFrom(binary);
             if (!parsed.Equals(ev) || parsed.PayloadCase != Event.PayloadOneofCase.Screen)
-                throw new Exception("fixture mismatch");
+                throw new InvalidDataException("fixture mismatch");
             Measure(kind, "protobuf-receive", binary.Length, 500, () => {
                 var value = new ReceivedEvent(binary); if (value.Error != null) throw value.Error;
                 foreach (var line in value.Value.Screen.Lines) sink += line.Length;

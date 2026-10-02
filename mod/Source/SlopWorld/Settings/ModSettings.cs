@@ -51,10 +51,10 @@ namespace SlopWorld
             Normalize(format) == TwelveHour ? "12-hour" : "24-hour";
 
         public static string Short(DateTime time) =>
-            time.ToString(Normalize(Settings.TimeFormat) == TwelveHour ? "h:mm tt" : "HH:mm");
+            time.ToString(Normalize(Settings.TimeFormat) == TwelveHour ? "h:mm tt" : "HH:mm", CultureInfo.CurrentCulture);
 
         public static string Long(DateTime time) =>
-            time.ToString(Normalize(Settings.TimeFormat) == TwelveHour ? "h:mm:ss tt" : "HH:mm:ss");
+            time.ToString(Normalize(Settings.TimeFormat) == TwelveHour ? "h:mm:ss tt" : "HH:mm:ss", CultureInfo.CurrentCulture);
     }
 
     public static class TemperatureUnit

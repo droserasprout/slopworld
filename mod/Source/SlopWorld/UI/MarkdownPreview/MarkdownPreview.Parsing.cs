@@ -220,8 +220,7 @@ namespace SlopWorld
         {
             var children = new List<MarkdownBlock>();
             AddBlocks(list, children);
-            int start = 1;
-            int.TryParse(list.OrderedStart, out start);
+            if (!int.TryParse(list.OrderedStart, out int start)) start = 1;
             return new MarkdownBlock
             {
                 Kind = BlockKind.List,

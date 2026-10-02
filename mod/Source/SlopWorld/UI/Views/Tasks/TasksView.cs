@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using UnityEngine;
 using Verse;
@@ -112,7 +113,7 @@ namespace SlopWorld
             int incoming = tasks.Count(t => t.Incoming && !t.Terminal);
             int sent = tasks.Count(t => t.Outgoing && !t.Terminal);
             int peer = tasks.Count(t => !t.Incoming && !t.Outgoing && !t.Terminal);
-            string count = Filtering ? tasks.Count + " of " + total : total.ToString();
+            string count = Filtering ? tasks.Count + " of " + total : total.ToString(CultureInfo.CurrentCulture);
             string text = count + " tasks  ·  " + incoming + " incoming  ·  " +
                 sent + " sent" + (peer > 0 ? "  ·  " + peer + " between agents" : "") +
                 (SelectedIds.Count > 0 ? "  ·  " + SelectedIds.Count + " selected" : "");

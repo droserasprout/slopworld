@@ -84,6 +84,6 @@ namespace SlopWorld
 
         public void ClearSelection() => _selected = null;
 
-        static readonly string[] Empty = new string[0];
+        static readonly string[] Empty = Array.Empty<string>();
     }
 }

@@ -1,6 +1,6 @@
 using System;
-using System.Linq;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SlopWorld.Tests
 {
@@ -44,7 +44,7 @@ namespace SlopWorld.Tests
             var roundTrip = MountEntry.ListFromWire(wire);
             AssertEx.Equal(wire.Count, roundTrip.Count, "wire mount count round trip");
             AssertEx.Sequence(wire, roundTrip.Select(m => m.ToWire()), "wire mount model round trip");
-            AssertEx.Equal(0, MountEntry.ListFromWire(new Wire.Mount[0]).Count, "empty mount list");
+            AssertEx.Equal(0, MountEntry.ListFromWire(Array.Empty<Wire.Mount>()).Count, "empty mount list");
         }
     }
 }

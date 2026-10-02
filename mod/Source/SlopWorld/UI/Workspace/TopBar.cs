@@ -383,7 +383,7 @@ namespace SlopWorld
                 return PagerCommands.RelativeFilePath(root, path);
             }
             string title = SessionHub.Instance.Get(session)?.Title;
-            return string.IsNullOrEmpty(title) ? state.ToString().ToLower() : title;
+            return string.IsNullOrEmpty(title) ? state.ToString().ToLowerInvariant() : title;
         }
     }
 }

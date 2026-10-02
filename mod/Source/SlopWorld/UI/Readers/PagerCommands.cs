@@ -1,8 +1,9 @@
 using System;
-using System.IO;
 using System.Collections.Generic;
-using System.Text;
+using System.Globalization;
+using System.IO;
 using System.Text.RegularExpressions;
+using System.Text;
 
 namespace SlopWorld
 {
@@ -228,7 +229,7 @@ namespace SlopWorld
             bool hasLine = template.Contains("{line}");
             string command = template
                 .Replace("{file}", Quote(file))
-                .Replace("{line}", (line < 1 ? 1 : line).ToString());
+                .Replace("{line}", (line < 1 ? 1 : line).ToString(CultureInfo.InvariantCulture));
             if (!hasFile)
             {
                 if (line > 0 && !hasLine) command += " +" + (line < 1 ? 1 : line);
@@ -251,7 +252,7 @@ namespace SlopWorld
             bool hasLine = template.Contains("{line}");
             string command = template
                 .Replace("{file}", Quote(file))
-                .Replace("{line}", line.ToString());
+                .Replace("{line}", line.ToString(CultureInfo.InvariantCulture));
             if (!hasFile) command += " " + Quote(file);
             if (!hasLine) command += " +" + line;
             return command;
