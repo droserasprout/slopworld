@@ -64,28 +64,16 @@ namespace SlopWorld.Tests
                 "reselection skips switch cleanup and persistence");
         }
 
-        static SidebarTabRegistry NewRegistry(List<string> events = null)
-        {
-            return new SidebarTabRegistry(
-                Definition(SidebarTab.Agents, "agents", events),
-                Definition(SidebarTab.Files, "files", events),
-                Definition(SidebarTab.Git, "git", events),
-                Definition(SidebarTab.Search, "search", events),
-                Definition(SidebarTab.Tasks, "tasks", events),
-                Definition(SidebarTab.Library, "library", events));
-        }
-
-        static SidebarTabDefinition Definition(SidebarTab tab, string name, List<string> events)
-        {
-            return new SidebarTabDefinition(tab, name, name, name, true,
-                tab != SidebarTab.Search && tab != SidebarTab.Tasks,
-                tab == SidebarTab.Files || tab == SidebarTab.Search,
-                new SidebarTabHandlers
+        static SidebarTabRegistry NewRegistry(List<string> events = null) =>
+            SidebarTabCatalog.CreateRegistry(tab =>
+            {
+                string name = SidebarTabCatalog.Definition(tab, new SidebarTabHandlers()).PersistedName;
+                return new SidebarTabHandlers
                 {
                     Close = events == null ? (Action)(() => { }) : () => events.Add("close-" + name),
                     Entered = events == null ? (Action)(() => { }) : () => events.Add("entered-" + name),
                     Reselected = events == null ? (Action)(() => { }) : () => events.Add("reselected-" + name),
-                });
-        }
+                };
+            });
     }
 }
