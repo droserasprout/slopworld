@@ -163,8 +163,25 @@ namespace SlopWorld
 
         ThemeCatalog(List<UiRecord> uiSchemes, List<TerminalRecord> terminalThemes)
         {
+            var terminalIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var terminal in terminalThemes) terminalIds.Add(terminal.Id);
+            foreach (var ui in uiSchemes)
+            {
+                if (!terminalIds.Contains(ui.Id))
+                    throw new FormatException("UI scheme " + ui.Id + " has no terminal theme for Match UI");
+                RequireOpaque(ui.Accent, "accent", ui.Id);
+                RequireOpaque(ui.Destructive, "destructive", ui.Id);
+                RequireOpaque(ui.CheckFace, "checkFace", ui.Id);
+            }
             UISchemes = uiSchemes;
             TerminalThemes = terminalThemes;
+        }
+
+        // Contrast-derived text has no access to the underlying window/map surface.
+        static void RequireOpaque(string color, string role, string id)
+        {
+            if (color.Length == 9 && !color.EndsWith("ff", StringComparison.OrdinalIgnoreCase))
+                throw new FormatException("UI scheme " + id + " requires opaque " + role);
         }
 
         public static ThemeCatalog Load(string modRoot)
@@ -246,46 +263,46 @@ namespace SlopWorld
             RequireVersion(table, path);
             RequireKeys(table, UiKeys, path, OptionalKeys);
             return new UiRecord(
-                OptionalInt(table, "order", path),
-                Required(table, "id", path, false),
-                Required(table, "label", path, false),
-                Required(table, "accent", path, true),
-                Required(table, "destructive", path, true),
-                Required(table, "accentText", path, true),
-                Required(table, "destructiveText", path, true),
-                Required(table, "checkFace", path, true),
-                Required(table, "windowBg", path, true),
-                Required(table, "viewBg", path, true),
-                Required(table, "popoverBg", path, true),
-                Required(table, "panel", path, true),
-                Required(table, "offlineBg", path, true),
-                Required(table, "scrim", path, true),
-                Required(table, "lead", path, true),
-                Required(table, "name", path, true),
-                Required(table, "dim", path, true),
-                Required(table, "faint", path, true),
-                Required(table, "off", path, true),
-                Required(table, "bad", path, true),
-                Required(table, "warn", path, true),
-                Required(table, "yes", path, true),
-                Required(table, "global", path, true),
-                Required(table, "edge", path, true),
-                Required(table, "edgeLit", path, true),
-                Required(table, "scrollTrough", path, true),
-                Required(table, "scrollThumb", path, true),
-                Required(table, "scrollThumbHover", path, true),
-                Required(table, "scrollThumbHeld", path, true),
-                Required(table, "rowBg", path, true),
-                Required(table, "rowOn", path, true),
-                Required(table, "hover", path, true),
-                Required(table, "stateWorking", path, true),
-                Required(table, "stateWaiting", path, true),
-                Required(table, "stateIdle", path, true),
-                Required(table, "stateDown", path, true),
-                Required(table, "btnFace", path, true),
-                Required(table, "btnHover", path, true),
-                Required(table, "btnDown", path, true),
-                Required(table, "knob", path, true));
+                order: OptionalInt(table, "order", path),
+                id: Required(table, "id", path, false),
+                label: Required(table, "label", path, false),
+                accent: Required(table, "accent", path, true),
+                destructive: Required(table, "destructive", path, true),
+                accentText: Required(table, "accentText", path, true),
+                destructiveText: Required(table, "destructiveText", path, true),
+                checkFace: Required(table, "checkFace", path, true),
+                windowBg: Required(table, "windowBg", path, true),
+                viewBg: Required(table, "viewBg", path, true),
+                popoverBg: Required(table, "popoverBg", path, true),
+                panel: Required(table, "panel", path, true),
+                offlineBg: Required(table, "offlineBg", path, true),
+                scrim: Required(table, "scrim", path, true),
+                lead: Required(table, "lead", path, true),
+                name: Required(table, "name", path, true),
+                dim: Required(table, "dim", path, true),
+                faint: Required(table, "faint", path, true),
+                off: Required(table, "off", path, true),
+                bad: Required(table, "bad", path, true),
+                warn: Required(table, "warn", path, true),
+                yes: Required(table, "yes", path, true),
+                global: Required(table, "global", path, true),
+                edge: Required(table, "edge", path, true),
+                edgeLit: Required(table, "edgeLit", path, true),
+                scrollTrough: Required(table, "scrollTrough", path, true),
+                scrollThumb: Required(table, "scrollThumb", path, true),
+                scrollThumbHover: Required(table, "scrollThumbHover", path, true),
+                scrollThumbHeld: Required(table, "scrollThumbHeld", path, true),
+                rowBg: Required(table, "rowBg", path, true),
+                rowOn: Required(table, "rowOn", path, true),
+                hover: Required(table, "hover", path, true),
+                stateWorking: Required(table, "stateWorking", path, true),
+                stateWaiting: Required(table, "stateWaiting", path, true),
+                stateIdle: Required(table, "stateIdle", path, true),
+                stateDown: Required(table, "stateDown", path, true),
+                btnFace: Required(table, "btnFace", path, true),
+                btnHover: Required(table, "btnHover", path, true),
+                btnDown: Required(table, "btnDown", path, true),
+                knob: Required(table, "knob", path, true));
         }
 
         static TerminalRecord ReadTerminalFile(TomlynTable table, string path)
