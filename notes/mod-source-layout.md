@@ -21,5 +21,8 @@ Use the [shared chrome](mod-ui-chrome.md) helpers for new controls and
 See [loading screen](mod-loading-screen.md) for ownership of the loading-time tip stream and
 its glyph atlas.
 
+`UI/Views/Shared/ProjectSummary.cs` owns project summary text shared by sidebar,
+Library and edit forms. Project editing belongs to `UI/Views/Projects/EditProjectDialog.cs`.
+
 Settings owns `IOptionPage`. Shared row visibility geometry lives in `UI/Chrome/`;
 terminal path recognition and lexical path resolution live in `UI/Utilities/`.

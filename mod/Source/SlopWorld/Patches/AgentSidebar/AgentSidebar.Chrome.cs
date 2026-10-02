@@ -176,7 +176,7 @@ namespace SlopWorld
                 TooltipHandler.TipRegion(r, p == null
                     ? "Agents whose project has gone, and anyone here who is not an agent.\n\n" +
                       "Click to fold."
-                    : $"{p.Dir}\n({ProjectsView.Summary(p)})\n\n" +
+                    : $"{p.Dir}\n({ProjectSummary.Of(p)})\n\n" +
                       "Click to fold, right-click for the project.");
             }
         }
