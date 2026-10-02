@@ -32,10 +32,13 @@ namespace SlopWorld
         public T Backing { get; private set; }
         public T Content { get; private set; }
         public T Active => Content ?? Backing;
+        // Host focus persists while focus transfers between retained panels.
         public bool Focused { get; private set; }
 
         public void SetBacking(T panel)
         {
+            if (panel != null && ReferenceEquals(Content, panel))
+                throw new ArgumentException("Panel already occupies the content slot", nameof(panel));
             if (ReferenceEquals(Backing, panel)) return;
             var previous = Active;
             if (Content == null) Hide(previous);
@@ -47,6 +50,8 @@ namespace SlopWorld
 
         public void SetContent(T panel)
         {
+            if (panel != null && ReferenceEquals(Backing, panel))
+                throw new ArgumentException("Panel already occupies the backing slot", nameof(panel));
             if (ReferenceEquals(Content, panel)) return;
             Hide(Active);
             Content?.Closed();
