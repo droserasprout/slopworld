@@ -30,10 +30,8 @@ namespace SlopWorld
         internal bool OwnsForwardedMouse(Event e) => _mouseFwd && e.button == _fwdButton &&
             (MouseType(e) == EventType.MouseDrag || MouseType(e) == EventType.MouseUp);
 
-        // An app in click-reporting mode (Claude Code is one) said nothing about motion. Therefore,
-        // A drag across its output was never its to receive - forwarded anyway, it left no way to
-        // select text short of holding Shift. The press goes over as a press. The moment it turns
-        // into a drag that click is closed and the rest taken as a selection.
+        // Forward the press so click-only apps can react. Without AppDrag, release that
+        // provisional press when dragging begins and let a left drag select terminal text.
         internal bool HandleMouseForward(Rect body, Event e)
         {
             int btn = Mathf.Clamp(e.button, 0, 2);

@@ -2,8 +2,8 @@ using System.Text;
 
 namespace SlopWorld
 {
-    // Per-panel state for the session binding and terminal input. The TerminalPanel partials
-    // expose this state through concern-specific facades rather than owning it directly.
+    // Session binding, buffered input, sizing, cursor timing, delivery counts and selection.
+    // Panel partials access this state directly; input controllers use the panel facade.
     sealed class TerminalPanelState
     {
         public string Name;
