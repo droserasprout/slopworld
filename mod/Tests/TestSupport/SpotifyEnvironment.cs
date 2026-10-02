@@ -5,7 +5,8 @@ namespace SlopWorld
     public static partial class Radio
     {
         static bool _quit, _muted, _blamed;
-        static object _station;
+        static Station _station;
+        static bool _read;
         static int _selectionRevision;
         // Persistence is intentionally omitted; this harness checks Spotify lifecycle only.
         static void Read() { }
@@ -15,10 +16,14 @@ namespace SlopWorld
         {
             _quit = _openingSpotify = _spotify = _muted = _blamed = false;
             _station = null;
+            _read = false;
+            _stations = new Station[0];
+            _catalogReady = false;
             _selectionRevision = 0;
             SessionHub.Instance = new SessionHub();
             TerminalWindow.Current = null;
         }
+        internal static bool CatalogReadyTest => _catalogReady;
         internal static bool SpotifyRequested => _spotify && !_muted && !_blamed && _station == null;
         internal static void QuitSpotifyTest() { _quit = true; }
         internal static void ReplaceSpotifyTest() { _spotify = false; Push(); }

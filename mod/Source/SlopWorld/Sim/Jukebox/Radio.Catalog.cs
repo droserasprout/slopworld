@@ -55,7 +55,8 @@ namespace SlopWorld
                 try
                 {
                     _titleRegex = new Regex(Metadata.TitleRegex,
-                        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+                        TimeSpan.FromMilliseconds(25));
                 }
                 catch (ArgumentException e)
                 {
@@ -86,7 +87,9 @@ namespace SlopWorld
                 artist = null;
                 song = title;
                 if (_titleRegex == null || string.IsNullOrEmpty(title)) return false;
-                Match match = _titleRegex.Match(title);
+                Match match;
+                try { match = _titleRegex.Match(title); }
+                catch (RegexMatchTimeoutException) { return false; }
                 if (!match.Success) return false;
 
                 Group artistGroup = match.Groups["artist"];
@@ -118,8 +121,6 @@ namespace SlopWorld
         public static void SetStations(Wire.JukeboxCatalog catalog)
         {
             if (catalog == null) return;
-            _catalogReady = true;
-
             string saved = null;
             if (_station != null) saved = _station.SelectionKey(_station.Rate);
             else if (_read) saved = Settings.Radio;
@@ -129,35 +130,7 @@ namespace SlopWorld
             {
                 try
                 {
-                    string id = item.Id;
-                    if (string.IsNullOrEmpty(id)) throw new InvalidOperationException("missing id");
-
-                    var metadata = item.Metadata;
-                    string name = metadata.Name;
-                    string donate = metadata.Donate;
-                    string titleRegex = metadata.TitleRegex;
-
-                    var rates = new List<int>();
-                    var keys = new List<string>();
-                    foreach (var stream in item.Streams)
-                    {
-                        int rate = (int)stream.Rate;
-                        string key = stream.Key;
-                        if (rate <= 0 || string.IsNullOrEmpty(key))
-                            throw new InvalidOperationException("stream needs a positive rate and key");
-                        if (rates.Contains(rate) || keys.Contains(key))
-                            throw new InvalidOperationException("duplicate stream rate or key");
-                        rates.Add(rate);
-                        keys.Add(key);
-                    }
-                    if (rates.Count == 0) throw new InvalidOperationException("no streams");
-
-                    int defaultRate = (int)item.DefaultRate;
-                    if (!rates.Contains(defaultRate))
-                        throw new InvalidOperationException("default rate has no stream");
-
-                    next.Add(new Station(id, name, donate, titleRegex,
-                        rates.ToArray(), keys.ToArray(), defaultRate));
+                    next.Add(ConvertStation(item));
                 }
                 catch (Exception e)
                 {
@@ -165,7 +138,14 @@ namespace SlopWorld
                 }
             }
 
+            // Publish the complete replacement before reconciling the saved selection.
             _stations = next.ToArray();
+            _catalogReady = true;
+            RestoreSelection(saved);
+        }
+
+        static void RestoreSelection(string saved)
+        {
             if (!_read || _spotify) return;
 
             _station = FindSelection(saved);
@@ -178,6 +158,39 @@ namespace SlopWorld
             // Apply the selection when the first catalog replaces the temporary OST choice.
             // Also apply it after a reload changes the URL for an existing key.
             if (nextSelection != null) Push();
+        }
+
+        static Station ConvertStation(Wire.Station item)
+        {
+            string id = item.Id;
+            if (string.IsNullOrEmpty(id)) throw new InvalidOperationException("missing id");
+
+            var metadata = item.Metadata;
+            string name = metadata.Name;
+            string donate = metadata.Donate;
+            string titleRegex = metadata.TitleRegex;
+
+            var rates = new List<int>();
+            var keys = new List<string>();
+            foreach (var stream in item.Streams)
+            {
+                int rate = (int)stream.Rate;
+                string key = stream.Key;
+                if (rate <= 0 || string.IsNullOrEmpty(key))
+                    throw new InvalidOperationException("stream needs a positive rate and key");
+                if (rates.Contains(rate) || keys.Contains(key))
+                    throw new InvalidOperationException("duplicate stream rate or key");
+                rates.Add(rate);
+                keys.Add(key);
+            }
+            if (rates.Count == 0) throw new InvalidOperationException("no streams");
+
+            int defaultRate = (int)item.DefaultRate;
+            if (!rates.Contains(defaultRate))
+                throw new InvalidOperationException("default rate has no stream");
+
+            return new Station(id, name, donate, titleRegex,
+                rates.ToArray(), keys.ToArray(), defaultRate);
         }
 
         static Station FindSelection(string saved)

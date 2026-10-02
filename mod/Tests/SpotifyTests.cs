@@ -90,6 +90,33 @@ namespace SlopWorld.Tests
             AssertEx.Equal(null, TerminalWindow.Current, "a replaced selection cannot reopen its terminal");
         }
 
+        public static void StaleRefreshFailuresAreIgnored()
+        {
+            Radio.ResetSpotifyTest();
+            Radio.OpenSpotify();
+            Radio.ReportSpotifyTest("player");
+            Radio.ReplaceSpotifyTest();
+            SessionHub.Instance.SessionStore.RefreshFailed("late selection error");
+            Radio.OpenSpotify();
+            Radio.ReportSpotifyTest("player");
+            Radio.QuitSpotifyTest();
+            SessionHub.Instance.SessionStore.RefreshFailed("late shutdown error");
+            AssertEx.Equal(null, TerminalWindow.Current, "stale failures open no terminal");
+        }
+
+        public static void NcspotReportsRequireSpotifySelectionEvenOnFailure()
+        {
+            Radio.ResetSpotifyTest();
+            AssertEx.False(Radio.AcceptsReport("ncspot", "late error"), "OST rejects retired Spotify failure");
+            AssertEx.False(Radio.AcceptsReport("ncspot", null), "OST rejects retired Spotify metadata");
+            AssertEx.True(Radio.AcceptsReport(null, "station failure"), "unidentified current source error remains accepted");
+            Radio.OpenSpotify();
+            AssertEx.True(Radio.AcceptsReport("ncspot", "current error"), "selected Spotify accepts its failure");
+            AssertEx.False(Radio.AcceptsReport("radio", null), "Spotify rejects other source metadata");
+            Radio.ReplaceSpotifyTest();
+            AssertEx.False(Radio.AcceptsReport("ncspot", "late error"), "source replacement rejects old failure");
+        }
+
         public static void LaunchFailureAllowsRetry()
         {
             Radio.ResetSpotifyTest();
