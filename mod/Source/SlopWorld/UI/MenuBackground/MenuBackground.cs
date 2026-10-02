@@ -36,7 +36,8 @@ namespace SlopWorld
         }
 
         static LayoutState _layout;
-        static string _failedKey;
+        static Texture2D _failedSource;
+        static MenuBackgroundPreset _failedPreset;
         static float _retryAt;
         static AnimationState _animation = new AnimationState
         {
@@ -145,22 +146,26 @@ namespace SlopWorld
             if (source == null) return false;
 
             MenuBackgroundPreset preset = Chosen;
-            string key = MenuBackgroundBake.Key(source, preset);
-            if (_frames != null && _srcKey == key) return true;
-            // Drawing can call Ready several times per frame. Keep the resident set during
-            // failures and give disk/decode errors a cooldown before doing expensive work again.
-            if (_failedKey == key && Time.realtimeSinceStartup < _retryAt)
+            // Drawing can ask several times per frame. Cool down failed readback as well as
+            // disk/decode work, using source identity before computing the persistent key.
+            if (_failedSource == source && _failedPreset == preset &&
+                Time.realtimeSinceStartup < _retryAt)
                 return _frames != null;
+            string key;
 
             // Build before touching the resident layout. The source belongs to vanilla (or the
             // content pack). Therefore, a failed replacement must leave both it and the current
             // frames available for the caller to keep drawing.
             Texture2D[] replacement = null;
-            var loadTimer = System.Diagnostics.Stopwatch.StartNew();
-            long workingSetBefore = MenuBackgroundMemory.WorkingSet();
+            System.Diagnostics.Stopwatch loadTimer = null;
+            long workingSetBefore = 0;
             bool baked = false;
             try
             {
+                key = MenuBackgroundBake.Key(source, preset);
+                if (_frames != null && _srcKey == key) return true;
+                loadTimer = System.Diagnostics.Stopwatch.StartNew();
+                workingSetBefore = MenuBackgroundMemory.WorkingSet();
                 replacement = MenuBackgroundBake.Load(key, preset);
                 if (replacement == null)
                 {
@@ -174,7 +179,8 @@ namespace SlopWorld
                 // an AggregateException whose own Message says only that one happened, so
                 // unwrap the cause to make the warning useful.
                 if (e is AggregateException agg) e = agg.Flatten().InnerException ?? e;
-                _failedKey = key;
+                _failedSource = source;
+                _failedPreset = preset;
                 _retryAt = Time.realtimeSinceStartup + 60f;
                 Log.Warning($"[SlopWorld] background bake failed, retrying in 60 seconds: {e}");
                 return _frames != null;
@@ -182,11 +188,13 @@ namespace SlopWorld
 
             if (replacement == null)
             {
-                _failedKey = key;
+                _failedSource = source;
+                _failedPreset = preset;
                 _retryAt = Time.realtimeSinceStartup + 60f;
                 return _frames != null;
             }
-            _failedKey = null;
+            _failedSource = null;
+            _failedPreset = null;
 
             // Transfer ownership on the main thread, then release only the retired set. The
             // source is never ours to destroy. It remains the bake input across preset changes.
@@ -204,7 +212,7 @@ namespace SlopWorld
             return true;
         }
 
-        // So the source capture below never bakes the rot from an already-rotted frame.
+        // Source capture must not feed a generated frame back into the baker.
         public static bool IsOurs(Texture2D tex)
         {
             if (tex == null || _frames == null) return false;
@@ -217,13 +225,13 @@ namespace SlopWorld
     // Patch the draw path: loading screens bypass MainMenuDrawer.Init, and BackgroundOnGUI owns
     // aspect fitting, letterboxing, and the expansion crossfade.
     [HarmonyPatch(typeof(UI_BackgroundMain), nameof(UI_BackgroundMain.BackgroundOnGUI))]
-    public static class Patch_MenuBackgroundRot
+    public static class Patch_MenuBackgroundDraw
     {
         static void Prefix(UI_BackgroundMain __instance)
         {
             Texture2D src = __instance.overrideBGImage;
 
-            // Never rebake from an already-rotted frame.
+            // Never rebake from an already-generated frame.
             if (MenuBackground.IsOurs(src)) src = null;
 
             // Supply vanilla's source only before the first bake. ContentFinder scans loaded mods.
