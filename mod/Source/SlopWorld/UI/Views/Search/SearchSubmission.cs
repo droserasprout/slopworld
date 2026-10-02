@@ -4,11 +4,11 @@ namespace SlopWorld
     public sealed class SearchSubmission
     {
         public readonly string Query;
-        public readonly bool Regex, Case, Word, IncludeIgnored;
+        public readonly bool Regex, CaseSensitive, WholeWord, IncludeIgnored;
         public SearchSubmission(string query, bool regex, bool sensitive, bool word, bool includeIgnored)
         {
             Query = (query ?? "").Trim();
-            Regex = regex; Case = sensitive; Word = word; IncludeIgnored = includeIgnored;
+            Regex = regex; CaseSensitive = sensitive; WholeWord = word; IncludeIgnored = includeIgnored;
         }
     }
 }

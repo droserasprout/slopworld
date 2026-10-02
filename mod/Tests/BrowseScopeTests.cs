@@ -264,7 +264,7 @@ namespace SlopWorld.Tests
             Assert.That(pending.Count, Is.EqualTo(5));
             var query = new SearchSubmission(" submitted ", true, false, true, false);
             Assert.That(query.Query, Is.EqualTo("submitted"));
-            Assert.That(query.Regex && query.Word && !query.Case && !query.IncludeIgnored, Is.True);
+            Assert.That(query.Regex && query.WholeWord && !query.CaseSensitive && !query.IncludeIgnored, Is.True);
         }
 
         public static void ReaderScopeSurvivesFilteringAndRoutesRequests()
