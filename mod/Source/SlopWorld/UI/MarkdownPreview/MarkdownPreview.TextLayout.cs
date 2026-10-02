@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using UnityEngine;
 
 namespace SlopWorld
@@ -46,10 +47,14 @@ namespace SlopWorld
                 string text = run.Text ?? "";
                 if (run.Code)
                 {
-                    for (int i = 0; i < text.Length; i++)
-                        if (text[i] != '\n' && text[i] != '\r')
+                    var elements = StringInfo.GetTextElementEnumerator(text);
+                    while (elements.MoveNext())
+                    {
+                        string element = elements.GetTextElement();
+                        if (element != "\n" && element != "\r" && element != "\r\n")
                             minimum = Mathf.Max(minimum,
-                                MeasureChunk(style, text[i].ToString()) + CodePadding(run) * 2f);
+                                MeasureChunk(style, element) + CodePadding(run) * 2f);
+                    }
                     continue;
                 }
 
@@ -208,9 +213,10 @@ namespace SlopWorld
         void AppendPreserved(ref TextLine line, TextLayout layout, InlineRun run,
                              string text, GUIStyle style, float width)
         {
-            for (int i = 0; i < text.Length; i++)
+            var elements = StringInfo.GetTextElementEnumerator(text);
+            while (elements.MoveNext())
             {
-                string value = text[i].ToString();
+                string value = elements.GetTextElement();
                 float charWidth = MeasureChunk(style, value);
                 float addedWidth = AddedWidth(line, run, style, charWidth);
                 if (line.Pieces.Count > 0 &&
@@ -233,19 +239,7 @@ namespace SlopWorld
                 return;
             }
 
-            for (int i = 0; i < word.Length; i++)
-            {
-                float charWidth = _styles.MeasureChar(style, word[i]);
-                float addedWidth = AddedWidth(line, run, style, charWidth);
-                if (line.Pieces.Count > 0 &&
-                    (line.Width + addedWidth > width || !string.IsNullOrEmpty(line.CopySuffix)))
-                {
-                    line.BreakAfter = TextBreakKind.SoftWrap;
-                    layout.Lines.Add(line);
-                    line = NewLine(style, run.Code);
-                }
-                AddCharPiece(line, run, word[i], style, charWidth);
-            }
+            AppendPreserved(ref line, layout, run, word, style, width);
         }
 
         static float Measure(GUIStyle style, string text) =>
@@ -254,14 +248,19 @@ namespace SlopWorld
         float MeasureChunk(GUIStyle style, string text)
         {
             if (string.IsNullOrEmpty(text)) return 0f;
+            if (text.Length == 1) return _styles.MeasureChar(style, text[0]);
             return text.Length > 128 ? MeasureCharacters(style, text) : Measure(style, text);
         }
 
         float MeasureCharacters(GUIStyle style, string text)
         {
             float width = 0f;
-            for (int i = 0; i < text.Length; i++)
-                width += _styles.MeasureChar(style, text[i]);
+            var elements = StringInfo.GetTextElementEnumerator(text);
+            while (elements.MoveNext())
+            {
+                string element = elements.GetTextElement();
+                width += element.Length == 1 ? _styles.MeasureChar(style, element[0]) : Measure(style, element);
+            }
             return width;
         }
 
@@ -320,27 +319,6 @@ namespace SlopWorld
             line.Height = Mathf.Max(line.Height, height > 0f ? height : style.lineHeight);
         }
 
-        void AddCharPiece(TextLine line, InlineRun run, char value,
-                          GUIStyle style, float width, float height = 0f)
-        {
-            if (line.Pieces.Count > 0)
-            {
-                var prior = line.Pieces[line.Pieces.Count - 1];
-                if (!prior.Run.IsImage && ReferenceEquals(prior.Run, run) &&
-                    ReferenceEquals(prior.Style, style))
-                {
-                    AppendChar(prior, value);
-                    prior.Width += width;
-                    prior.Height = Mathf.Max(prior.Height,
-                        height > 0f ? height : style.lineHeight);
-                    line.Width += width;
-                    line.Height = Mathf.Max(line.Height, prior.Height);
-                    return;
-                }
-            }
-            AddPiece(line, run, value.ToString(), style, width, height);
-        }
-
         static float PieceBaseline(InlineRun run, GUIStyle style, float height) =>
             run.IsImage || run.IsTask
                 ? (height > 0f ? height : style.lineHeight) : StyleSet.Baseline(style);
@@ -367,14 +345,5 @@ namespace SlopWorld
             piece.TextBuilder.Append(text);
         }
 
-        static void AppendChar(TextPiece piece, char value)
-        {
-            if (piece.TextBuilder == null)
-            {
-                piece.TextBuilder = new System.Text.StringBuilder(piece.Text ?? "");
-                piece.Text = null;
-            }
-            piece.TextBuilder.Append(value);
-        }
     }
 }

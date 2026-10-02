@@ -29,6 +29,18 @@ namespace SlopWorld
             public string Link;
             public string LocalLink;
 
+            public InlineRun Apply(InlineRun run)
+            {
+                run.Bold = Bold;
+                run.Italic = Italic;
+                run.Code = Code;
+                run.InlineCode = InlineCode;
+                run.Strike = Strike;
+                run.Link = Link;
+                run.LocalLink = LocalLink;
+                return run;
+            }
+
             public InlineStyle WithHtmlState(HtmlState state)
             {
                 var result = this;
@@ -346,7 +358,11 @@ namespace SlopWorld
 
                 if (inline is LiteralInline literal)
                 {
-                    AddRun(target, MarkdownMarkup.Decode(literal.Content.ToString()), currentStyle);
+                    AddRun(target, literal.Content.ToString(), currentStyle);
+                }
+                else if (inline is HtmlEntityInline entity)
+                {
+                    AddRun(target, entity.Transcoded.ToString(), currentStyle);
                 }
                 else if (inline is CodeInline codeInline)
                 {
@@ -372,23 +388,16 @@ namespace SlopWorld
                 else if (inline is AutolinkInline auto)
                 {
                     _paths.TryResolveLink(auto.Url, out var url, out var local);
-                    AddRun(target, MarkdownMarkup.Decode(auto.Url), currentStyle.WithLink(url, local));
+                    AddRun(target, auto.Url, currentStyle.WithLink(url, local));
                 }
                 else if (inline is TaskList task)
                 {
-                    target.Add(new InlineRun
+                    target.Add(currentStyle.Apply(new InlineRun
                     {
                         Text = task.Checked ? "[x] " : "[ ] ",
-                        Bold = currentStyle.Bold,
-                        Italic = currentStyle.Italic,
-                        Code = currentStyle.Code,
-                        InlineCode = currentStyle.InlineCode,
-                        Strike = currentStyle.Strike,
                         IsTask = true,
                         TaskChecked = task.Checked,
-                        Link = currentStyle.Link,
-                        LocalLink = currentStyle.LocalLink,
-                    });
+                    }));
                 }
                 else if (inline is LineBreakInline)
                 {
@@ -474,13 +483,7 @@ namespace SlopWorld
             {
                 var image = ParseImage(source);
                 if (image == null || tag.Closing) return false;
-                image.Bold = style.Bold;
-                image.Italic = style.Italic;
-                image.Code = style.Code;
-                image.InlineCode = style.InlineCode;
-                image.Strike = style.Strike;
-                image.Link = style.Link;
-                image.LocalLink = style.LocalLink;
+                style.Apply(image);
                 target.Add(image);
                 return true;
             }
@@ -522,7 +525,7 @@ namespace SlopWorld
                 }
                 else
                 {
-                    _paths.TryResolveLink(HtmlAttribute(tag.Attributes, "href"),
+                    _paths.TryResolveLink(MarkdownMarkup.Decode(HtmlAttribute(tag.Attributes, "href")),
                         out state.Link, out state.LocalLink);
                 }
                 return true;
@@ -538,19 +541,12 @@ namespace SlopWorld
         void AppendImage(LinkInline image, List<InlineRun> target, InlineStyle style)
         {
             if (image == null || string.IsNullOrWhiteSpace(image.Url)) return;
-            target.Add(new InlineRun
+            target.Add(style.Apply(new InlineRun
             {
                 IsImage = true,
-                ImagePath = MarkdownMarkup.Decode(image.Url),
-                ImageAlt = MarkdownMarkup.Decode(InlineText(image)),
-                Bold = style.Bold,
-                Italic = style.Italic,
-                Code = style.Code,
-                InlineCode = style.InlineCode,
-                Strike = style.Strike,
-                Link = style.Link,
-                LocalLink = style.LocalLink,
-            });
+                ImagePath = image.Url,
+                ImageAlt = InlineText(image),
+            }));
         }
 
         static string InlineText(ContainerInline container)
@@ -566,6 +562,11 @@ namespace SlopWorld
             if (inline is LiteralInline literal)
             {
                 target.Append(literal.Content.ToString());
+                return;
+            }
+            if (inline is HtmlEntityInline entity)
+            {
+                target.Append(entity.Transcoded.ToString());
                 return;
             }
             if (inline is CodeInline code)
@@ -679,18 +680,16 @@ namespace SlopWorld
                            bool faint = false)
         {
             if (string.IsNullOrEmpty(text)) return;
-            target.Add(new InlineRun
+            target.Add(style.Apply(new InlineRun
             {
                 Text = text,
-                Bold = style.Bold,
-                Italic = style.Italic,
-                Code = style.Code,
-                InlineCode = style.InlineCode,
-                Strike = style.Strike,
                 Faint = faint,
-                Link = style.Link,
-                LocalLink = style.LocalLink,
-            });
+            }));
         }
+    }
+    // Only raw HTML attributes need normalization; Markdig has already decoded its AST.
+    static class MarkdownMarkup
+    {
+        public static string Decode(string value) => System.Net.WebUtility.HtmlDecode(value ?? "");
     }
 }

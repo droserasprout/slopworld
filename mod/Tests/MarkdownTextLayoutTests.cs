@@ -28,6 +28,24 @@ namespace SlopWorld.Tests
                 yield return ($"long word of {length} characters wraps without losing copy offsets", () => LongWord(length));
         }
 
+        public static void NarrowCodeAndProseKeepUnicodeTextElementsAndCopyLosslessly()
+        {
+            const string source = "😀e\u0301𝄞界";
+            foreach (bool code in new[] { false, true })
+            {
+                var text = code ? source + "\n" + source : source;
+                var wrapped = Layout().Wrap(new List<InlineRun> { new InlineRun { Text = text, Code = code } }, 1f, 0);
+                Assert.That(Copy(wrapped), Is.EqualTo(text));
+                var elements = wrapped.Lines.SelectMany(line => line.Pieces).Select(piece => piece.Text).ToArray();
+                Assert.That(elements, Is.EqualTo(code
+                    ? new[] { "😀", "e\u0301", "𝄞", "界", "😀", "e\u0301", "𝄞", "界" }
+                    : new[] { "😀", "e\u0301", "𝄞", "界" }));
+            }
+            string longWord = string.Concat(Enumerable.Repeat(source, 40));
+            var longLayout = Layout().Wrap(new List<InlineRun> { new InlineRun { Text = longWord } }, 15f, 0);
+            Assert.That(Copy(longLayout), Is.EqualTo(longWord), "long-word measurement and wrapping agree on UTF-16 identity");
+        }
+
         static void LongWord(int length)
         {
             var styles = new StyleSet();

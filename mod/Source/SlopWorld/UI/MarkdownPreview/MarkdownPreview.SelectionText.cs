@@ -13,27 +13,27 @@ namespace SlopWorld
                                        Vector2Int end)
         {
             if (lines == null || lines.Count == 0) return "";
-            var a = start;
-            var b = end;
-            if (Before(b, a))
+            var normalizedStart = start;
+            var normalizedEnd = end;
+            if (Before(normalizedEnd, normalizedStart))
             {
-                var temp = a;
-                a = b;
-                b = temp;
+                var temp = normalizedStart;
+                normalizedStart = normalizedEnd;
+                normalizedEnd = temp;
             }
-            int first = Mathf.Clamp(a.y, 0, lines.Count - 1);
-            int last = Mathf.Clamp(b.y, 0, lines.Count - 1);
+            int firstLineIndex = Mathf.Clamp(normalizedStart.y, 0, lines.Count - 1);
+            int lastLineIndex = Mathf.Clamp(normalizedEnd.y, 0, lines.Count - 1);
             var output = new StringBuilder();
-            for (int i = first; i <= last; i++)
+            for (int i = firstLineIndex; i <= lastLineIndex; i++)
             {
                 string text = lines[i].Text ?? "";
-                int charStart = i == a.y ? a.x : 0;
-                int charEnd = i == b.y ? b.x : text.Length;
+                int charStart = i == normalizedStart.y ? normalizedStart.x : 0;
+                int charEnd = i == normalizedEnd.y ? normalizedEnd.x : text.Length;
                 charStart = Mathf.Clamp(charStart, 0, text.Length);
                 charEnd = Mathf.Clamp(charEnd, charStart, text.Length);
                 if (charEnd > charStart)
                     output.Append(text.Substring(charStart, charEnd - charStart));
-                if (i < last)
+                if (i < lastLineIndex)
                 {
                     output.Append(lines[i].Source.CopySuffix);
                     if (lines[i].CopyBreakAfter) output.Append('\n');
