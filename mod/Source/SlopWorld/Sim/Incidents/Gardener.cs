@@ -81,11 +81,13 @@ namespace SlopWorld
 
         void Leave()
         {
-            if (!Around) return;
-            _pawn.DeSpawn();
-            _pawn.Destroy();
+            var pawn = _pawn;
+            bool around = Around;
             _pawn = null;
             _leaveTick = 0;
+            if (!around) return;
+            pawn.DeSpawn();
+            pawn.Destroy();
         }
 
         void Arrive(int tick)
@@ -114,7 +116,7 @@ namespace SlopWorld
                 var pawn = PawnGenerator.GeneratePawn(req);
                 Dress(pawn);
                 GenSpawn.Spawn(pawn, cell, map);
-                Joint(pawn);
+                GetOrCreateJointStack(pawn);
 
                 _pawn = pawn;
                 _leaveTick = tick + Rand.Range(StayMin, StayMax);
@@ -160,11 +162,11 @@ namespace SlopWorld
 
             if (pawn.CurJobDef == JobDefOf.Ingest)
             {
-                Puff(pawn);
+                if (pawn.CurJob?.targetA.Thing?.def?.defName == JointName) Puff(pawn);
                 return;
             }
 
-            var joint = Joint(pawn);
+            var joint = GetOrCreateJointStack(pawn);
             if (joint == null) return;
 
             var job = JobMaker.MakeJob(JobDefOf.Ingest, joint);
@@ -172,7 +174,7 @@ namespace SlopWorld
             pawn.jobs.StartJob(job, JobCondition.InterruptForced);
         }
 
-        static Thing Joint(Pawn pawn)
+        static Thing GetOrCreateJointStack(Pawn pawn)
         {
             if (pawn?.inventory == null) return null;
 

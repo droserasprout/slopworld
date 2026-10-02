@@ -9,12 +9,13 @@ namespace SlopWorld
 
         protected override void Impact(Thing hitThing, bool blockedByShield = false)
         {
-            var map = Map;
-            var pos = Position;
-            var source = launcher;
+            // Capture the impact context before the base handler destroys the projectile.
+            var impactMap = Map;
+            var impactPosition = Position;
+            var instigator = launcher;
             base.Impact(hitThing, blockedByShield);
-            if (map != null)
-                GenExplosion.DoExplosion(pos, map, ExplosionRadius, DamageDefOf.Flame, source);
+            if (impactMap != null)
+                GenExplosion.DoExplosion(impactPosition, impactMap, ExplosionRadius, DamageDefOf.Flame, instigator);
         }
     }
 }
