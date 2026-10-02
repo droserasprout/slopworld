@@ -6,7 +6,7 @@ namespace SlopWorld
 {
     public static class InspectPaneAgent
     {
-        public static string Selected()
+        public static string SelectedSession()
         {
             if (Current.ProgramState != ProgramState.Playing) return null;
 
@@ -20,14 +20,14 @@ namespace SlopWorld
             return SessionSelectable.HasCurrent ? SessionSelectable.Current : null;
         }
 
-        public static string SelectedPawn()
+        public static string SelectedPawnSession()
         {
             if (Current.ProgramState != ProgramState.Playing) return null;
             var pawn = Find.Selector?.SingleSelectedThing as Pawn;
             return pawn == null ? null : AgentColony.Current?.SessionOf(pawn);
         }
 
-        public static bool AgentPawnSelected => SelectedPawn() != null;
+        public static bool AgentPawnSelected => SelectedPawnSession() != null;
 
         // A sidebar selection can have an action row without a pawn in Selector.
         // Suppress the inspect window for this state too, including during Eco rest.

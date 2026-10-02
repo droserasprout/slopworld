@@ -4,10 +4,10 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Handle interface function keys before GameComponentOnGUI and native IMGUI text controls.
+    // Dispatch workspace shortcuts before GameComponentOnGUI and native IMGUI text controls.
     // This prevents a focused editor from consuming interface shortcuts.
     [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.HandleEventsHighPriority))]
-    public static class Patch_InterfaceFunctionKeys
+    public static class Patch_WorkspaceShortcuts
     {
         static void Prefix()
         {
