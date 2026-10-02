@@ -1,21 +1,23 @@
-# Worksite constraints
+# Worksite ownership and invariants
 
-`Sim/Worksite/` turns agent Working time into construction and plague output. Progress must remain after the agent leaves Working.
-`Patches/Worksite/` owns its Harmony integration partial, including frame ownership scribing.
-The mod intentionally excludes resource hauling and the base game economy.
+Working agents receive construction work; interruption leaves progress on the frame.
+The agent-scoped work override sets Construction to priority 3 and other enabled
+work types to 0 while Working, then sets all enabled work types to 0 on Stop.
+It does not restore previous priorities. Construction eligibility belongs to
+[agent patches](mod-patches-agents.md).
 
-Disabling the work override is insufficient: leaving Construction enabled lets vanilla jobs
-steal frames while the agent is idle. Preserve the work-sheet restoration boundary.
+Worksite supplies frames directly, bypassing hauling and resource costs while
+retaining normal construction jobs and base-game placement checks. Only owned frames
+receive Worksite assignment, custom build work, completion effects, and floor-frame
+hiding. Unmarked frames, including legacy saves, retain vanilla behavior during
+normal operation. Simulation and patch ownership are mapped in
+[mod sources](mod-source-layout.md); completion effects belong to [plague](mod-plague.md).
 
-Placement uses rotated footprints and reserved run padding. An unplaceable member must not
-abort the entire run, while a fully blocked placement round needs backoff. Clear vanilla's
-first blocking thing or impossible frames can exhaust the open-frame budget forever.
+Placement respects rotated footprints and reserved run padding. An unplaceable
+member must not abort the whole run; fully blocked rounds require backoff. Terrain
+and furniture have different clearance requirements. Periodic sweeps remove blocked
+frames and frames no tracked agent has the skills to build. Preserve base-game
+constructability checks before assignment. Errand tuning stays beside its definitions.
 
-Tuning belongs beside the definitions/code, not in this note. Work duration and plague bloom
-must remain proportional when adding errands. Terrain frames and furniture have different
-clearance requirements.
-Retain base game constructability checks before assignment.
-
-Worksite claims frames before spawning and saves ownership on each frame. Assignment,
-work overrides, completion effects, and floor-frame hiding require that marker.
-Unmarked frames (including legacy saves) retain vanilla behavior.
+Agent Construction eligibility must survive disabled-work cache rebuilds, and its
+success policy must be enforced independently of job assignment.

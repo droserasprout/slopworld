@@ -1,18 +1,19 @@
-# Redeploy invariants
+# Daemon replacement boundary
 
-Tmux panes and the game must survive daemon replacement. The tmux server normally runs in
-a separate transient service.
-Tmux becomes a daemon, so set `Type=forking` and check its socket. Set `KillMode=process`
-for slopd. See the service and installer code before changing process ownership.
+Tmux panes and the game survive daemon-only replacement. `slopd.service` owns the
+simple daemon process; `tmux/server.rs` owns startup of the separate forking tmux
+service. Their lifetimes must remain independent.
 
-Rebuilding an emulator needs both captured content and mode restoration via redraw. Initialize primary scrollback separately from visible rows in the alternate screen.
-Putting all rows on either side loses history or mode. Restore OSC titles separately because they are not screen content.
+[Session state](daemon-session-state.md) owns reader recovery and emulator seeding;
+[host tabs](daemon-host-terminals.md) own saved-tab recovery; [workers](daemon-workers.md)
+own worker adoption. Tmux metadata carries live identity/activity across replacement,
+with disk fallback when applicable. Capture seeding and an application's subsequent
+redraw are distinct recovery stages.
 
-Tmux carries durable activity, host-tab and worker identity across daemon-only restarts.
-Those options take precedence over disk fallbacks.
-Renaming rebuilds reader and input handles that depend on the name.
-Size negotiation must check the actual tmux size again after redraw requests.
+Target-name collision rules belong to [tmux](daemon-tmux.md), and restart/install
+policy to [build commands](build-commands.md).
 
-All windows use the same name. Tmux resolves window names before session names.
-Window and pane targets need `name:` or `name:.0`.
-Names without these suffixes are safe for session operations only.
+New runs create a silent placeholder, attach capture, then replace it with the real
+command. Starting the command before attachment loses early output. Adoption instead
+seeds from the surviving pane's capture, including history, modes, and title, then
+requests a repaint. These are separate from the accepted-size redraw restoration.

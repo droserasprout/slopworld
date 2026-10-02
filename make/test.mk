@@ -1,12 +1,9 @@
-.PHONY: test-daemon test-mod test-wire-contract test-themes test-text-sprites test-bench-report test-pager test-plan-notes coverage coverage-daemon coverage-mod coverage-summary
+.PHONY: test-daemon test-mod test-wire-contract test-themes test-text-sprites test-bench-report test-pager coverage coverage-daemon coverage-mod coverage-summary
 
 ## Tests and coverage
 
 .PHONY: test-tools
-test-tools: test-wire-contract test-themes test-text-sprites test-bench-report test-plan-notes ## Test supporting tools and generated data
-
-test-plan-notes: ## Check plan note status headers
-	@$(PYTHON) tools/check_plan_status.py
+test-tools: test-wire-contract test-themes test-text-sprites test-bench-report ## Test supporting tools and generated data
 
 test-daemon: api-contract ## Run Rust tests
 	@cd slopd && $(CARGO) test --quiet $(TEST_ARGS)

@@ -57,7 +57,7 @@ These shortcuts are active inside the terminal pane and cannot be rebound.
 | Middle-click | Paste the host's PRIMARY selection (Wayland/X11). |
 | Shift+PgUp / Shift+PgDn | Scroll the mod's own scrollback (primary screen only). |
 | Shift+F1..F12 | Forward the F-key to the agent. |
-| Ctrl+click | Open a URL printed in the terminal, or show a file menu. The menu offers applicable Focus, View, Edit, Choose an application, File actions, and Copy path actions. View and Edit honor a `:line` suffix. |
+| Ctrl+click | Open a URL printed in the terminal, or show a file menu. The menu offers applicable Focus, View, Edit, Open in, File actions, and Copy path actions. View and Edit honor a `:line` suffix. |
 | Right-click | Terminal context menu. |
 | Double-click | Select a word and publish it to the host's PRIMARY selection. |
 | Triple-click | Select a line and publish it to the host's PRIMARY selection. |
@@ -89,3 +89,6 @@ Notable commands:
 
 - **View: Toggle Sidebar** — hide or show the left panel.
 - **Agent: Shell** — open a shell inside the selected agent's sandbox.
+
+The **Open in** submenu lists associated applications and **Other**. The daemon
+tries a native GTK chooser and falls back to the desktop portal if GTK startup fails.

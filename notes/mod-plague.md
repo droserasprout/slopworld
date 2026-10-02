@@ -1,19 +1,19 @@
 # Plague field
 
-`Sim/Plague/` controls the spatial field and effects.
-`Patches/Plague/` owns Harmony regrowth and fire-containment hooks.
-Worksite completion adds sources.
-The field stores earliest arrival per cell, not accumulated source lists. Never increase an existing arrival time.
-Age determines dose. Frequent lookups must not scan all sources again.
+`Sim/Plague/` owns the spatial field and effects; `Patches/Plague/` owns Harmony
+regrowth and fire-containment integration. [Worksite](mod-worksite.md) owns
+construction completion, and [simulation](mod-sim.md) owns departure behavior.
 
-Weak and full bands use different regrowth rules. Grandma's visiting keeps field progression but
-replaces damage with growth.
-Disabling only visible effects leaves destructive code paths active. Stable per-cell dithering prevents frame-to-frame shimmer.
+The field retains earliest arrival per cell; existing arrival times must never
+increase. Arrival age produces a rising dose, with the saved seed and stable cell
+identity determining None, Weak, or Full bands. Frequent lookups must not rescan
+all sources.
 
-Saved arrival offsets are encoded through the signed/unsigned scribe boundary and rebased
-on load. Keep elapsed-age semantics when changing storage. Fleck alpha belongs in the def's
-graphic color because instance color is combined with separately computed fading.
+Weak bands stunt existing non-tree plants while allowing vanilla wild spawning.
+Full bands strip vegetation and suppress wild spawning except in aura-covered
+cells. Grandma mode skips plague pawn/plant damage while field progression and
+flower sowing continue; fire containment still applies. Player-facing behavior is
+in [Fun](../docs/src/tour/fun.md).
 
 Blast safety covers all player-faction pawns, including untracked colonists. Fire
-spread checks both its source and destination; sparks recheck on impact. Departure
-bypasses containment. Cosmetic flecks isolate their random draws from gameplay.
+spread checks both source and destination, and sparks recheck containment on impact.

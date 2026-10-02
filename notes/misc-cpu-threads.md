@@ -1,18 +1,18 @@
 # CPU attribution
 
-Daemon PID totals include Tokio, capture and audio threads, not pane processes. Tokio workers
-are shared. A busy thread does not identify an agent. Tmux server/control clients and each
-agent's bwrap/pasta/process tree are separate. The game mixes mod and vanilla work on Unity's
-main thread, so OS accounting cannot separate those costs.
+Daemon CPU includes shared Tokio workers running capture/input tasks and dedicated
+OS audio threads; pane processes are separate. A busy runtime thread does not
+identify an agent. Tmux server/control clients and agents' bwrap/pasta/process trees
+have separate accounting. [Redeploy](daemon-redeploy.md) owns the service boundary.
+The game mixes mod and vanilla work on Unity's main thread, which OS accounting
+cannot separate.
 
-`pidstat -p PID` reports process totals.
-The `-t` option separates results by thread. Do not add aggregate and thread
-rows. Linux 100% is roughly one logical core, not the whole machine. A process tree alone
-also does not identify service or cgroup ownership.
-See [redeploy](daemon-redeploy.md).
+Tmux pane PIDs identify agent process trees. Sessions with configured resource limits
+use systemd scopes whose accounting includes descendants; sessions with no configured
+limits lack that boundary. See [sandbox isolation](sandbox-isolation.md).
 
-Tmux pane PIDs map agents to process trees. Where limits create a systemd scope, sample its
-`cpu.stat` usage delta over elapsed time to include descendants. Unlimited sessions do not
-have that accounting boundary. Named trace counters or sampled stacks are needed to map
-runtime CPU to operations.
-See [diagnostics](ops-diagnostics.md).
+Named trace timers measure elapsed time, and counters measure work. They can help
+correlate CPU samples but do not measure per-thread CPU time. CPU samples and stacks
+attribute runtime work. Measurement procedures belong in
+[CPU troubleshooting](../docs/src/reference/troubleshooting.md#cpu-usage);
+trace ownership belongs to [terminal latency](terminal-latency.md).

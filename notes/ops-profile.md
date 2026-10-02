@@ -1,22 +1,21 @@
 # Profile and launch boundary
 
-The Rust `slopworld` launcher owns profile seeding and process lifetime.
-`slopworld/instance.rs` owns locking and external-game detection. Linux and macOS targets
-share it. The mod only patches when the profile marker exists. Launching the game directly bypasses this requirement.
+The Rust launcher owns profile seeding and game process lifetime.
+`slopd/src/bin/slopworld/instance.rs` owns per-profile locking and Linux external-game
+detection. The mod owns [profile-specific gating](mod-profile.md).
 
-Profile mod-list seeding omits `<version>`: RimWorld can discard a mismatched versioned list
-and re-enable expansions. Reject `=` in save-data paths because the game splits the argument
-on it. Reset is explicit. Ordinary launch must preserve existing profile choices.
-Validate launch paths before seeding; print mode must leave profiles untouched.
-Resolve existing ancestors for absent profiles so seeding cannot change the lock identity.
+Seeding preserves an existing mod list unless reset is explicit. Seeded lists omit
+`<version>` so RimWorld cannot discard a mismatched list and re-enable expansions.
+Resolved profile paths reject `=` because the game's argument parser splits on it.
+Launch validation precedes seeding, and print mode never seeds.
 
-The launcher waits rather than execs so its service lifetime matches the game. Hold the
-profile-keyed kernel lock through exit and also detect games launched outside the launcher.
-Separate sidecar/native profiles must not share saves merely because endpoints coincide.
+The launcher retains a profile-keyed file lock through game exit on Linux and macOS.
+Direct-game process detection is Linux-only. Native and sidecar profiles have separate
+defaults; explicit profile paths can select the same folder. The endpoint does not
+choose lock identity.
 
-Profile refusal has three independent gates: Harmony registration, startup def mutation and
-XML patch operations. The game still loads new defs when patching is refused, so each entry
-point needs its own guard. The game loads assemblies before XML and runs static constructors afterward.
+User setup belongs to [game profiles](../docs/src/guides/game-profiles.md), paths to
+[the path reference](../docs/src/reference/paths.md), and window behavior to
+[Linux windowing](ui-window-fullscreen.md).
 
-See the [paths reference](../docs/src/reference/paths.md) for paths and overrides.
-See [fullscreen](ui-window-fullscreen.md) for window behavior.
+Profiles share Unity’s game log; the launcher does not redirect it.

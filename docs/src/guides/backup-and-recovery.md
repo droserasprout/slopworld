@@ -13,7 +13,7 @@ Agents can edit any file in a project directory that the sandbox mounts read-wri
 | Game profile | `~/.local/share/slopworld/profile` | Saves, screenshots, mod settings. |
 | Jukebox stations | `~/.config/slopworld/jukebox/` | User-defined radio stations. |
 | Jukebox likes | `~/.local/share/slopworld/jukebox.toml` | Liked songs. |
-| Task mailbox | `~/.config/slopworld/tasks.toml` | Delegated task state. |
+| Task mailbox | `~/.config/slopworld/tasks.toml` and `tasks.journal` beside it | Delegated task state; keep both files together. |
 
 If you set path overrides, back up those locations too. See [Paths and files](../reference/paths.md).
 

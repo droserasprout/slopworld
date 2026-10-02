@@ -1,4 +1,4 @@
-# Original palette references
+# Upstream palette references
 
 Non-SlopWorld schemes must preserve upstream colors, roles and
 opacity even if they fail the mod's contrast checks. SlopWorld Warm/Cold/Calm are house
@@ -7,7 +7,8 @@ schemes. This is reference data, not a claim that the current implementation mat
 Hex values below are opaque unless an alpha is explicitly present. ANSI rows run
 from slot 0 through 15. A palette is not necessarily a complete widget theme: do not
 present a locally invented role mapping or a third-party port as the original.
-Links to upstream branches are live references, not immutable snapshots.
+Reference snapshot retained during the notes review on 2026-10-02. Links to upstream
+branches are live references, not immutable snapshots or claims about current values.
 
 ## Dracula Classic
 
@@ -178,10 +179,7 @@ The [GNOME HIG palette](https://developer.gnome.org/hig/reference/palette.html) 
 explicitly for icons and illustrations. Its Yellow 5 is `#e5a50a`.
 Preserve that original hue when using that palette. Do not conflate HIG colors, terminal presets and Adwaita.
 
-## Monokai: original provenance still unresolved
-
-[Author's history](https://monokai.pro/history) distinguishes original Monokai from
-Monokai Pro. This audit did not check a definitive, complete original UI/ANSI table.
+## Monokai port reference
 
 [Microsoft's Monokai port](https://github.com/microsoft/vscode/blob/main/extensions/theme-monokai/themes/monokai-color-theme.json)
 identifies these colors derived from the original. This is a port reference, not certification:
@@ -191,7 +189,7 @@ editor background #272822; editor foreground #f8f8f2
 tab well / borders #1e1f1c; selection token #414339; focus token #75715e
 ```
 
-That port currently uses `#878b9180` for editor selection, `#75715e` for active list
+The retained port reference uses `#878b9180` for editor selection, `#75715e` for active list
 selection/button background, and `#3e3d32` for list hover. Preserve the distinction
 between historical palette tokens and current port roles. Do not label our existing
 16-color ANSI adaptation as an authenticated original.
@@ -219,11 +217,3 @@ The [terminal registry](https://github.com/microsoft/vscode/blob/main/src/vs/wor
 defines dark terminal foreground as `#cccccc` and inherits terminal selection from
 editor selection. Do not substitute editor foreground for terminal foreground merely
 because both belong to Dark+. Pin an upstream release before implementing exact fidelity.
-
-## Local follow-up
-
-Shipped role values now live in the [theme catalogs](mod-ui-identity.md).
-`UIScheme.Sel` remains 35% accent, and `TerminalTheme` multiplies selection alpha by
-0.35. These are local policies, not original palette definitions. Missing upstream
-roles need an explicit documented mapping.
-Do not adjust imported colors to satisfy local contrast checks.

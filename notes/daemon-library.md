@@ -1,32 +1,29 @@
-# Library and ephemeral errands
+# Daemon library
 
-Library presents agent templates, prompts, shell errands, breadcrumbs, and file actions.
-Start in `manager/library.rs`, `manager/errands.rs`, and `config/mod.rs`.
-Project catalog changes and relocation coordination live in `manager/projects.rs`.
-Library discovery runs on a blocking worker and retains its last valid snapshot if that worker fails.
-Put user instructions in the book. Runnable entries choose explicit host execution or an agent template. Template errands copy settings and snapshots once.
-Source-agent settings and sandbox snapshots resolve before a live row or temporary project is created.
-They use the selected project's mounts. A fresh temporary errand clears inherited
-worktree selection and rejects an explicit worktree.
-Missing execution choices cause failure before session allocation. Agent-shell requests can still clone a
-source agent via `like`. File actions execute on the daemon host. They do not participate in
-agent breadcrumb delivery.
+The library catalog contains prompts, shell errands, breadcrumbs, and file actions.
+Runnable items can reference [agent templates](daemon-agent-templates.md), which
+have their own catalog and API.
 
-Do not use `ephemeral` to determine persistence.
-Persistent host terminals use that presentation flag but retain configuration records and Down rows. Temporary errands disappear on stop/exit and own
-cleanup of their private state. See [host terminals](daemon-host-terminals.md).
+`config/library.rs` owns item definitions, supplied entries, and lookups.
+`config/catalog.rs` owns per-kind validation and preparation; `config/persistence.rs`
+owns disk load/save. `session/manager/library.rs` owns catalog operations and
+`api/handlers/library.rs` owns the HTTP boundary. `session/manager/errands.rs`
+owns launches.
 
-Errand creation returns before prompt delivery because agent startup can exceed the mod's
-HTTP timeout. Paste, gap, and Enter must remain one ordered queue sequence.
-Later user input cannot overtake it. Readiness timeout behavior differs from [auto-resume](agent-auto-resume.md).
-Command-only errands should not wait for readiness to deliver empty text.
+A user item shadows a supplied entry with the same name. Deleting that user item
+reveals the supplied entry again. Saved runnable entries require an explicit host
+or template execution choice. File actions run on the daemon host and do not
+participate in agent breadcrumb delivery.
+`session/template.rs` owns placeholder scanning; `session/prompt.rs` supplies values,
+including client-selected tips. Replacement text is literal and is not scanned again.
+Library breadcrumbs are inserted manually, never automatically at agent startup.
 
-Supplied library records are a separate layer.
-A user record replaces a supplied record with the same name.
-Deleting the user record restores the supplied record.
-
-The daemon stores each personal library item in a separate file in its `prompts/`, `breadcrumbs/`,
-`file_actions/`, and `shell_scripts/` directories beside `config.toml`.
-Agent templates use `agent_templates/`. Sandboxes and apps use `sandbox_presets/` and `app_presets/`. None
-of these catalogs inspect project checkouts, and instantiated templates still copy dependency
-snapshots.
+Temporary errands disappear on stop or exit and clean up their private state.
+`session/manager/library.rs` owns readiness and ordered paste, delay, and Enter for
+composed worker/errand prompts. Creation can return before delivery finishes;
+readiness timeout withholds input. Callers compose prompts before delivery.
+[Saved host tabs](daemon-host-terminals.md) have a separate persistence contract.
+Input and breadcrumb delivery belong to [session state](daemon-session-state.md).
+Storage belongs to [configuration stores](daemon-config-stores.md); directory
+locations are in the [path reference](../docs/src/reference/paths.md).
+User instructions belong in [Library items and errands](../docs/src/reference/integrations.md#library-items-and-errands).

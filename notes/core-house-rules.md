@@ -1,8 +1,9 @@
 # House rules
 
-- Do not use pull requests.
-- **Keep `AGENTS.md` short.** Put information about each subject in its own note in this directory.
-  When component responsibilities or behavior change, update the note for that component.
-- Keep notes **short**, with one subject in each file. Delete information that is no longer correct.
-- A note gives a summary of a source comment. It does not replace the comment.
-  Keep the comment with the code that it explains.
+Contribution workflow belongs to the [contributing guide](../docs/src/reference/contributing.md).
+Do not use pull requests.
+
+Keep `AGENTS.md` short and link to focused subject notes. The
+[note policy](README.md) owns scope and lifecycle. Keep explanations of local source
+decisions beside the code; notes capture cross-file context and must not replace
+those comments. The [writing guide](docs-prose-guide.md) covers note composition.

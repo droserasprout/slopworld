@@ -16,7 +16,8 @@ These tables show default paths and supported overrides. Most Linux SlopWorld pa
 | `~/.config/slopworld/agent_templates/generation-<id>/<name>.toml` | beside `SLOPD_CONFIG` | Personal agent templates, one definition per file; `.index.toml` selects the committed generation. |
 | `~/.config/slopworld/sandbox_presets/<name>.toml` | `SLOPD_PRESETS` root | User sandbox definitions, one definition per file. |
 | `~/.config/slopworld/app_presets/<name>.toml` | `SLOPD_PRESETS` root | User app definitions, one definition per file. |
-| `~/.config/slopworld/tasks.toml` | beside `SLOPD_CONFIG` | Task mailbox state. |
+| `~/.config/slopworld/tasks.toml` | beside `SLOPD_CONFIG` | Task mailbox snapshot; back up with `tasks.journal`. |
+| `~/.config/slopworld/tasks.journal` | beside `SLOPD_CONFIG` | Task mailbox updates; keep with `tasks.toml`. |
 | `~/.config/slopworld/worktrees.toml` | beside `SLOPD_CONFIG` | Registered worktrees. |
 | `~/.cache/slopworld/mounts/<project-id>/` | under `SLOPD_CACHE` | Shared managed cache data. It remains after you remove a worktree. |
 | `~/.cache/slopworld/prompt-summaries.toml` | under `SLOPD_CACHE` | Cached prompt titles. Mode `0600`. |

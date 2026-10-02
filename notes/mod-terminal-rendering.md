@@ -1,92 +1,22 @@
 # Terminal rendering
 
-`TerminalRunCache` owns cached ANSI rows and coordinates link decoration.
-`Sgr` decodes styled rows into the shared `SgrRun` model. `TerminalAutolinks` owns
-screen-wide link spans and run decoration; `UrlScan` recognizes URL text. Missing OSC 8 URI fields leave the current link intact;
-only an explicit empty URI closes it. Column-position escapes take the decoded-grid
-link scan because overwrites can join URL delimiters.
-The panel owns rendered text. Texture creation failure disables caching for that panel and falls back to direct painting.
-Cursor/selection overlays
-must not force text repaint. Row damage describes one received revision: if painting skipped
-that predecessor, use a full repaint rather than applying incomplete damage.
-Debug counters split broad full paints into skipped revisions, changed rows covering
-at least half the pane, and missing damage metadata. Debug damage bands count both
-frames and changed rows; a 75% cutoff experiment had no 50–74% paints in the typing
-workload, so it did not change the repaint decision.
-Debug performance records count history anchor shifts with unchanged cache geometry,
-matching nonlinked row overlap, and shifts that land on whole screen pixels. These
-measure reuse opportunities. History viewport changes still repaint the pane.
-Debug records split terminal run layout from its Unity text draw calls so broad
-paint cost can be attributed. Profiling calls are skipped without the debug flag.
-Single plain text spans use a clipped label directly; mixed text and sprite spans
-still use a GUI group to preserve their shared clip.
-The screen-sized texture may receive a source rectangle that exceeds its edge by
-less than one physical pixel because RimWorld rounds UI dimensions at noninteger
-scale. Clamp that small sampling overrun; larger excursions still use direct paint
-to avoid repeating the texture edge during fractional scrolling.
+`TerminalRenderer` coordinates painting; `TerminalPanel.Cache` owns panel textures
+and repaint lifetime. `TerminalRunCache` and `Sgr` own parsed rows; `TerminalTheme`
+and `TerminalFont` supply cache revisions. Parsed link decoration belongs to
+`TerminalAutolinks`, with URL recognition in `UrlScan`.
 
-Parsed runs contain resolved colors. Theme revision must invalidate both parsed and rendered
-caches. Shared RGB/RGBA decoding belongs to `HexColor`; terminal theme and cursor
-resolution remain in `TerminalTheme`.
-Match UI follows the UI scheme. Explicit terminal themes do not. Font atlas and UI
-scale changes also affect cell geometry and cached textures. Entering or leaving an
-alternate-screen app such as `less` invalidates the pixel cache even when the visible rows and
-content revision happen to be unchanged.
+Texture creation failure falls back to direct painting. Damage describes one received
+revision: skipped predecessors or missing damage require a full repaint. Cursor and
+selection overlays must not repaint text. Theme/font, geometry, history position,
+and screen-mode changes invalidate the appropriate parsed/rendered caches.
 
-The daemon owns cell geometry. Its CHA markers close wide glyphs even at the trimmed row
-end.
-ANSI decoding establishes text and geometry. `TerminalSpriteSequences` then joins
-compatible runs against an explicit sprite catalog without changing their occupied columns.
-Parsed runs retain that occupied width. They must not merge past a wide glyph. Never
-reconstruct widths from Unicode ranges or font metrics. Selection and copy share glyph
-boundaries. Word selection classifies complete Unicode scalars and compares whole non-word glyphs; endpoints remain terminal columns.
-The cache keeps complete scalar strings separate from continuation cells.
-Parsed emoji clusters must stay separate from adjacent text even when their scalar count
-happens to equal their occupied cell count; the renderer looks up the whole run as one atlas key.
+Daemon columns own glyph widths; never reconstruct them from Unicode ranges or font
+metrics. Complete scalars and occupied widths stay intact through parsing, sprite
+joining, selection, and copy. Emoji clusters remain separate from adjacent text so
+whole-key atlas lookup works. [Wire protocol](protocol-wire.md) owns cell encoding,
+and [shared text](mod-ui-text.md) owns clipped font/sprite layout and fallback.
 
-`UI/Text/InlineTextLayout` positions both font spans and catalog sprites.
-Its printable ASCII shortcut applies only when the sprite catalog has no key
-made entirely of printable ASCII and the daemon's column count equals
-the text length; font-fit exceptions still use the general layout path.
-`SharedTextRenderer` controls their clipped drawing for terminal runs and UI labels. Terminal layout consumes daemon
-columns, while UI layout measures plain spans and reserves a line-height box for sprites.
-The generated catalog matches text keys, including baked sequences, without width tables.
-The atlas generator takes standalone characters from the Noto Color Emoji font charset and
-sequence candidates from pinned Unicode emoji data. It keeps sequences that Noto shapes as
-one glyph. The daemon preserves zero-width cell components on the wire; the client joins
-adjacent cells only when their complete text matches a baked key. Daemon columns still own
-the width. Rebuild the atlas and generated keys together.
-The private tmux server sets skin tone modifiers to zero width with `codepoint-widths`, so
-newer handshake sequences occupy two columns like other emoji. Modifiers also stay zero-width
-after ordinary text or spaces; unattached modifiers at the left margin are discarded.
-The daemon mirror attaches
-modifiers and joined emoji to their first cell, and widens that cell when a variation selector,
-keycap mark, or flag pair makes tmux advance two columns. The joined part can be a symbol such
-as an arrow, so the mirror identifies a joined emoji from its first cell.
-`less` normally deletes emoji modifiers, joiners and selectors before output. New host and
-sandbox panes default `LESSUTFCHARDEF` to keep these as composing characters; a custom
-daemon environment value or sandbox preset can override it. Existing panes retain their
-launch environment until restarted.
-Catalog glyphs never reach Unity's font loader.
-Missing artwork occupies the same measured box with a replacement character. Unknown supplementary text reaches font fallback as complete
-scalars. Build details belong in [tools](build-tools.md).
-
-Autolinks may span physical rows and color runs. Explicit OSC 8 targets take precedence.
-A blank tail ends continuation. Compare link spans against the last parse, not the last received frame:
-multiple updates can arrive before a draw. Parsed rows and span metadata stay immutable
-when shared with snapshots. Link scans write column-indexed characters directly into
-reused storage. Sparse edits scan only rows joined to the edit by full-width text or an old link.
-Do not create selection/copy cell strings on this frequently used path.
-
-File-link activation is deliberately lazy: recognize on Ctrl+left-click, then open a dedicated file menu.
-Resolve paths against the terminal working directory. If tmux cannot inspect a
-sandboxed pane's current directory, the daemon uses its launch directory.
-View and Edit preserve diagnostic line numbers.
-A daemon browse of the parent confirms the target type before offering file operations.
-If a full name is absent, an em or en dash after an extension may end prose; use
-the shorter name only when that same complete browse confirms it exists.
-Directories omit View/Edit. Text files use the Files text policy. The “Choose an application”
-submenu and File actions reuse the Files menus. Missing or unconfirmed targets open no menu.
-Right-click keeps pane actions separate.
-Only paths inside the session project support reveal actions.
-Hover and repaint must not start filesystem work. URL and file-link behavior share terminal input ownership, not sidebar selection state.
+Input/link activation belongs to [terminal](mod-terminal.md), daemon widths and
+capture to [capture](daemon-terminal-capture.md), asset regeneration to
+[the build guide](../docs/src/build.md#text-sprite-asset-maintenance), and profiling
+to [latency diagnostics](terminal-latency.md).

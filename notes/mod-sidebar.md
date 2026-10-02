@@ -1,61 +1,48 @@
 # Sidebar integration
 
-`UI/Sidebar/` owns the project-grouped sidebar's layout, rendering and navigation.
-`Patches/AgentSidebar/` owns Harmony label and portrait integration; colonist-bar
-dispatch stays in `Patches/ColonistBar/`.
-The browse-scope catalog owns empty-state reasons (loading, failed, filtered, or unselected);
-tree chrome only renders the reason supplied by its source. Catalog reads return detached
-scope snapshots; callers cannot mutate retained identities. Bulk folding changes only the
-supplied groups, preserving groups hidden by a filter.
-View/navigation contracts are in [sidebar navigation](mod-sidebar-navigation.md).
+`UI/Sidebar/` owns grouped layout, rendering, and navigation.
+`Patches/AgentSidebar/` owns Harmony label/portrait integration; colonist-bar dispatch
+stays in `Patches/ColonistBar/`. Navigation and scope catalogs belong to
+[sidebar navigation](mod-sidebar-navigation.md).
 
-The base game controls entry indices for reordering.
-The sidebar controls their geometry. Filtered/folded
-entries must be parked offscreen for both drawing and hit testing. Swap locations around
-external `TryGetEntryAt` too: the normal draw finalizer has already restored vanilla positions.
-Nested calls must not restore an outer swap early.
+Vanilla supplies pawn entries and identities; the sidebar sorts indices within its
+groups and assigns geometry. Filtered/folded entries must be parked offscreen for
+drawing and hit testing. External hit tests need screen-space locations even after
+the draw finalizer restores vanilla positions. Nested calls must not restore an
+outer swap early, and exceptions must clear temporary drawing state.
 
-The back pass precedes base game input.
-The front pass adds labels and actions. A finalizer must
-clear temporary drawing state on exceptions. Compact portraits omit selection brackets and vanilla status overlays. Sidebar portrait
-drawing and shared task-avatar requests live with the sidebar patches; daemon indicators
-do not alter vanilla pawn idle classification. External bar hit tests translate scroll-content
-locations by the body origin minus the scroll position and restore that exact offset.
+The back pass precedes base-game input; the front pass adds labels/actions. Compact
+portraits omit selection brackets and vanilla status overlays. Sidebar indicators
+do not change vanilla idle classification.
 
-Layout caches cannot depend solely on daemon revisions: native previews and pending viewer
-handoffs change routed rows locally. `RoutedSessionRows` caches scan/sort results using the
-session version, project-filter revision, pager/editor command settings and explicit local reader
-invalidation. Config-only command changes must reclassify routed membership. Pager session
-handoffs, native preview identity/content changes and reader collection mutations invalidate it.
-Agent geometry also keys on pager/editor settings, since command changes can move a row
-between Agents and Files/Git. Frame geometry resets preserve routed membership. Changing row height does not require a scan.
-Routed headers and tree viewports must share clipping.
-The shared draggable split for Files and Git retains independent scroll owners and a stable tree boundary when headers change. See [Files](mod-ui-files.md).
+Worker hierarchy uses explicit daemon metadata, never names. Workers nest under a
+visible parent; root/host children and children with absent or filtered parents appear
+at the top level. Host, ephemeral, and worker rows are excluded from ordinary
+colonist/project agent counts. Rename handoffs preserve membership until HTTP and
+WebSocket agree. Manual start/restart failures surface the daemon error.
 
-Worker hierarchy comes from explicit daemon metadata, never names. The plus menu's Worker action
-opens the Spawn Worker dialog for a project, with template selection.
-Manual agent start and restart failures open an OK dialog with the daemon error, including starts
-from routed rows, gizmos, and the command palette.
-Project and agent context menus keep their worker actions. A project action uses the host session by default. The user can select an agent.
-An agent action uses that agent as context. Host, ephemeral, and worker rows are not ordinary colonists or
-part of project agent counts. A temporary session rename mapping preserves membership until the HTTP and WebSocket handoff completes.
-See [client](mod-client.md).
+`SidebarRowRenderer.RestoreHostPath` reconstructs truncated host cwd titles only
+when their suffix matches the session view's `Dir`. Saved tabs back it with persisted
+paths; temporary errands also carry it. Fixed labels bypass reconstruction, and
+command/application titles remain intact. See [host tabs](daemon-host-terminals.md).
 
-Files/Git terminal readers route by daemon intent. New reader names are opaque; snapshots carry
-their label, source path, browse scope, key, line and pin. `FileReaders` reattaches surviving
-pagers when Files or Git prepares routed rows. Search reattaches its own terminal reader
-on entry or before appearance-restart discovery.
-Appearance restarts and file refreshes preserve Search intent.
-Legacy sessions still use command/name classification.
+`RoutedSessionRows` owns routed-reader membership. [Files](mod-ui-files.md) owns
+shared tree/reader panes and reveal behavior; [Git](mod-ui-git.md) owns Git actions;
+[Search](mod-ui-search.md) owns its separate reader. [The client](mod-client.md)
+owns daemon handoffs and [terminal](mod-terminal.md) owns pane sizing/input.
+`TaskStore` supplies replacement snapshots to the host board, which lists and prunes
+the same global mailbox set; see [task mailboxes](agent-tasks.md).
 
-Resizing must renegotiate each visible terminal's assigned slot. Moving navigation between
-left and right changes geometry, not view identity, focus, or scroll ownership.
+Files/Git routed headers and tree viewports share clipping, upper scroll position,
+and a saved splitter fraction. Their draggable split has independent scroll owners
+and a stable tree boundary as reader headers change. Shared lifetime belongs to
+[file readers](mod-file-readers.md).
 
-Worker height counts use the actual nested lists grouped by the parent session’s project,
-which also owns folding. Agent shortcuts in other tabs derive order from the colonist
-inventory without depending on cleared Agents geometry. Resize-dependent pane updates
-wait for the next frame’s workspace snapshot; Library reselection refreshes its catalog.
+An empty project-filter set means all; unknown saved keys mean no match. Filtering
+also governs keyboard cycling. Vanilla buttons, inspect panes, gizmos, and colonist
+hit tests must all use the workspace inset; changing only sidebar drawing leaves
+invisible old hit targets. Shared scopes belong to [browse scopes](mod-ui-browse-scopes.md).
 
-Files reveal waits for active listings and probes exact paths when a capped listing omits
-the target. A missing checkout cannot select or reopen a reader. Git resolves HEAD when
-commands execute, using an empty tree for unborn diffs and index-only removal for unstaging.
+The worker dialog submits caller context, project, template, task body, and durability
+through SessionHub. It adds the returned task and starts task/session refreshes;
+only session refresh is awaited before notifying the dialog to open the terminal.

@@ -20,6 +20,9 @@
 
 # Guides
 
+- [Terminal latency measurements](guides/terminal-latency.md)
+- [Game profiles](guides/game-profiles.md)
+
 - [Configuring agents](./guides/configuring-agents.md)
 - [Configuring sandboxes](./guides/configuring-sandboxes.md)
 - [Agent collaboration](./guides/agent-collaboration.md)

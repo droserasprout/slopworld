@@ -1,46 +1,22 @@
 # Mod agent templates
 
-`HubCatalog` owns the daemon-backed template list and refreshes it on connection and
-when Library, the + menu, or agent/template editors open. Library lists templates alongside its
-other entries. `EditSessionDialog` handles both agents and templates using the same tabs,
-controls, snapshot-aware pickers, and preview. Template mode omits project, mounts, and
-private-state actions.
-Save writes to the template catalog. The **+ > Agent** submenu offers
-templates and **Custom**. Template selection happens before the editor opens.
-The form sends portable form overrides to `SessionHub`. There is no template switch/reset in the form.
+`HubCatalog` and `SessionHub` own the daemon-backed template catalog boundary.
+`EditSessionDialog` owns the shared agent/template form. The daemon owns persistence,
+captured snapshots, instantiation, and effective preview resolution. RimWorld profile
+settings never store templates.
 
-The existing agent editor's **Save as template** action uses a small naming dialog and the
-daemon capture route. Catalog edits and deletes send the daemon-owned version.
-A failed operation retains the open draft.
-Reload explicitly discards the draft and loads the newest catalog. Catalog request revisions suppress stale refresh responses. Superseded page loads wait
-for the winning request or pushed snapshot; its publication or failure settles all waiting callers.
-The form replaces the recipe, preserving unspecified choices: deep merging would retain
-cleared fields. Template flags offer Session default.
-Network and DNS are direct agent choices. Limits use No cap or Custom. Empty custom limits fail validation. The editor shows agent and template save errors while it remains open. Users select project mounts in the project editor
-and view them in the agent preview. The naming
-capture dialog always saves the agent's persistent custom settings.
-Capture never includes project settings. Agent and template limits use
-`ResourceLimitsForm`. Captured command and sandbox definitions take precedence over live catalog
-entries. Writes disable the editor until they settle.
-Shared sandbox pickers show missing references explicitly.
-You can delete direct references.
-Remove inherited references from their owning command or preset. The daemon stores
-templates in its catalog. RimWorld profile settings do not store them.
+Templates carry portable settings and captured command/sandbox dependencies; project
+mounts and identity remain contextual. Snapshot-aware pickers prefer captured
+sources. Naming capture uses the agent's saved configuration, not unsaved editor
+changes. Failed saves retain drafts, and workers cannot be captured.
 
-Library refresh reloads the daemon's user-level template catalog through its API.
+Daemon contracts belong to [templates](daemon-agent-templates.md); catalog and
+preview lifetimes belong to [the client](mod-client.md). Menu/editor workflows and
+blank-as-unlimited resource fields belong to
+[Configuring agents](../docs/src/guides/configuring-agents.md).
 
-`DaemonSettingsPreview` renders the daemon's effective settings and contribution sources.
-It does not resolve inheritance locally. Existing-agent editors fetch captured definitions
-through the root-only preview endpoint, so their pickers also show the saved snapshots.
-Preview requests apply to the draft and connection.
-Refresh handles external file edits.
-
-The project editor owns editable From/To/mode mount rows and labels their next-start effect.
-Add path appends a blank row.
-Add project copies current source and destination paths once. Library
-breadcrumbs remain available through explicit terminal context-menu insertion.
-They are not part of agent or template forms. `UiChoiceList` measures group headings inside the same scroll body
-as the choices.
-
-The agent editor leaves an unspecified command unresolved so the destination daemon owns
-its default, including across reconnects. Workers cannot be captured with Save as template.
+The `+ > Agent` menu chooses a template or Custom before opening the editor.
+`SessionHub.CreateFromTemplate` submits the selected template and overrides.
+`DaemonSettingsPreview` retains a response for a draft and invalidates it on draft,
+catalog, or connection changes. Template GET revisions reject stale replies; there
+is no pushed template-snapshot handler.

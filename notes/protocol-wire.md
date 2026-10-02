@@ -1,96 +1,31 @@
 # Wire coordination
 
-`shared/slopworld.proto` defines the binary messages.
-`shared/protocol.yaml` defines routes, request/response type mappings, enums, and limits. `make api-contract` generates C# bindings
-and the Rust HTTP type dispatcher.
-`slopd/build.rs` generates Rust messages with prost.
-`make api-docs` generates the route inventory. Never reuse field numbers.
-Preserve optional presence where omission selects a daemon default. Both peers require protocol version 2.
-HTTP uses `application/x-protobuf`.
-WebSockets require `slopworld.protobuf.v2` and binary frames. The [API reference](../docs/src/reference/api.md) owns public guidance.
+`shared/slopworld.proto` defines binary messages; `shared/protocol.yaml` owns routes,
+type mappings, enums, and limits. `make api-contract` generates C# bindings and the
+Rust HTTP dispatcher; `slopd/build.rs` generates Rust messages. `make api-docs`
+generates the route inventory. Never reuse field numbers; preserve optional presence
+where omission selects a daemon default.
 
-Usage, audio, and jukebox state already arrive through socket events.
-Check those events before adding frontend query paths. HTTP query routes also serve external clients, so absence of
-an in-repo caller is not evidence that a route is dead.
+Peers must be built for the current v2 schema. HTTP uses `application/x-protobuf`
+without version negotiation. WebSockets explicitly negotiate `slopworld.protobuf.v2`
+and carry application messages in binary frames. Unknown Protobuf field numbers
+remain readable; unexpected keys in internal Serde projections instead fail the
+JSON-to-message conversion guard.
 
-Rust cold handlers adapt existing Serde domain projections to generated messages in memory.
-Simple acknowledgements and clipboard text replies construct generated messages directly;
-request wrappers remain where domain validation or defaults differ from the wire types.
-Session reader, runtime, launch, and worker groups are nested messages.
-Reader metadata uses short field names within its group. Both peers must use this schema;
-there is no fallback for the former flat session fields. `RunReq.reader` likewise nests source metadata with short
-field names; omission supplies empty reader metadata.
-Unknown fields cause conversion to fail instead of silently disappearing. Screen events convert
-directly and cache encoded bytes for fanout. Persisted TOML and external-provider JSON are
-separate formats. C# uses generated messages throughout the client, with no custom JSON parser.
+Session reader, runtime, launch, and worker groups are nested messages; reader launch
+metadata is nested in `RunReq.reader`. Live screens may coalesce while replies/control
+events retain required ordering. Pending history captures must not block panel-switch
+or input command intake.
 
-Session rename, process replacement and transport reconnect are different identities.
-Session views carry reader intent and restoration metadata. `/api/run` accepts these fields for
-new terminal readers; a scoped pin update keeps tmux recovery metadata current. New reader names
-are opaque handles, while labels are presentation data. Older sessions without intent retain the
-client's legacy classification fallback.
-`run_id` invalidates history from the old process.
-Connection generations invalidate old subscriptions.
-HTTP mutation responses can trail socket snapshots, requiring a temporary rename handoff in
-the [mod client](mod-client.md).
+Public endpoint contracts belong to [the API](../docs/src/reference/api.md), client
+identity/handoffs to [the client](mod-client.md), terminal cells to
+[rendering](mod-terminal-rendering.md), delayed history to [history](mod-terminal-history.md),
+config projections to [stores](daemon-config-stores.md), provider windows to
+[usage](daemon-usage.md), authority to [grants](agent-grants.md), worker identity to
+[workers](daemon-workers.md), and timings to [latency](terminal-latency.md).
 
-Terminal row strings carry SGR/OSC styling and CHA column markers. Each emitted scalar
-advances the client's pen by one cell.
-A cell with zero-width components uses private `CSI <scalar-count>;<cell-width> z`
-before its complete text. Scalar counts are bounded by the remaining row payload, not a
-fixed cluster length: combining marks can exceed 32 scalars. The client treats that text as one cell. Adjacent cells
-that form a baked emoji sequence may be joined for drawing without changing copy text.
-A CHA immediately after a wide glyph supplies its occupied end, including at the trimmed row tail. The emulator's spacer cells own this geometry.
-
-Live screens may coalesce.
-History, request replies, and control events preserve ordering.
-`api/ws/mod.rs` owns connection lifetime and subscriptions; `api/ws/commands.rs` dispatches
-authorized commands, and `api/ws/outbound.rs` owns scoped snapshots, frame coalescing,
-and serialized writes. Snapshot and frame delivery stop on send failure.
-The WebSocket connection's `ScrollReplies` owns the bounded scroll captures, sends their replies in request order, and cancels pending captures on disconnect.
-Its four slots cover captures and completed replies until delivery. Overload closes the socket;
-a `Sub` waits behind older scroll replies while auth changes and close frames remain selectable.
-The per-client screen pump uses an 8 ms coalescing interval; capture has a
-separate 16 ms rate limit.
-History extent and echoed request identity are necessary to translate delayed snapshots.
-Metadata/title/bell changes must still reach inactive tabs without a text redraw.
-
-Effective network/DNS values are direct agent settings in the session model. Project responses
-contain workspace mounts.
-Configuration patches preserve omitted fields. A redacted token means retain the secret. See [configuration stores](daemon-config-stores.md).
-
-Configuration patches carry an editable Protobuf message plus explicit leaf paths. Paths
-preserve false, zero and empty-list writes while absent paths preserve daemon values.
-Map keys escape `~` as `~0` and `.` as `~1`. The serializer omits secrets and response metadata.
-
-`GET /api/config` includes factory defaults, the usage catalog, temporary-root policy and
-terminal limits.
-`/api/usage` and usage events include catalog metadata plus resolved rows.
-An absent row window represents missing values. Never substitute a guessed zero. Missing metadata
-makes daemon-policy resets and previews unavailable.
-Keep only independent client safety bounds local. Check advertised terminal ranges before layout or history arithmetic.
-`GET /api/whereis` is a root-only snapshot of the daemon environment for Settings.
-It reports resolved executable paths from slopd's effective `PATH`.
-This can differ from the game process PATH in native service and sidecar deployments.
-`GET /api/highlight/themes` lists themes for the configured highlighter on that same daemon.
-Its optional `command` query selects an unsaved highlighter; `POST /api/highlight` accepts the
-same optional command in its body for previews. Omission uses the daemon default; an empty
-command means Off. Neither request changes configuration.
-`POST /api/highlight` accepts optional profile-local `engine` and `theme` overrides; a themed
-request for a different engine is rejected instead of applying its theme to the new tool.
-
-Worker template source and caller/task parent are distinct. Use explicit worker metadata,
-never name parsing. Host errands run without a sandbox.
-Project errands use the selected project workspace and literal shared path mounts.
-They use settings from an explicitly chosen agent template, or from a source agent for `like` requests. Library entries can also explicitly run on the host.
-Root-only filesystem/clipboard/config surfaces must not accidentally inherit scoped session
-access. See [grants](agent-grants.md) and [workers](daemon-workers.md).
-
-Filesystem and Git replies can be bounded or partial. Clients must not present truncated
-counts as totals or treat missing optional metadata as failure of the whole view.
-
-Optional diagnostic input IDs and screen timings carry no terminal contents. IDs repeat
-on bounded subsequent live screens so coalescing preserves correlation. Daemon timings
-share a monotonic epoch. Only daemon-local differences are meaningful to a client.
-Per-socket send timestamps must not mutate the shared encoded event cache. Extended
-screens deliberately use the conservative client's generated-parser fallback.
+Terminal rows carry SGR/OSC styling and CHA column markers. Scalars normally advance
+one cell; private `CSI <scalar-count>;<cell-width> z` introduces a complete multi-scalar
+cell. Counts are bounded by remaining payload rather than a fixed cluster length.
+CHA after a wide glyph supplies its occupied end even at a trimmed tail. Sprite joins
+retain these columns and original copy text.

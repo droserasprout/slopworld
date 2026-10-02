@@ -1,32 +1,24 @@
 # Simulation guide
 
-`Sim/Colony/` maps daemon sessions to pawns.
-`Sim/Colony/` also owns intro/departure directors and their shared cutscene gate.
-`Sim/Lifecycle/` controls time, saves, and loads.
-[Worksites](mod-worksite.md) use the Working state to control construction.
-[Plague](mod-plague.md) converts completed work into map effects.
-[Incidents](mod-incidents.md) own cosmetic meetings and fire props.
+`Sim/Colony/` maps daemon sessions to pawns; `Sim/Lifecycle/` owns time, saves, and
+loads. [Mod sources](mod-source-layout.md) map the simulation and Harmony owners.
 
-The daemon is authoritative. Reconcile must preserve pawn identity across pending session
-renames and keep ephemeral/worker sessions sidebar-only. An exception aborts the whole sweep.
-Eco stops game ticks, so reconciliation also needs a wall-time path.
-See [Eco](mod-eco.md).
+The daemon is authoritative. Reconciliation preserves pawn identity across pending
+session renames and keeps ephemeral/worker sessions sidebar-only. An exception
+aborts the whole sweep.
 
-`Cutscene` owns the board during intro/exit. Save requests pass through `SaveCoordinator`:
-a colony discarded by NextPlanet must not become the next auto-resume save. Real-clock tick units differ from the base game assumptions.
-See [gotchas](core-gotchas.md). Duration formatting preserves caller precision and
-real-unit display options; it uses seconds through days without calendar years, quadrums,
-or vague calendar bounds.
+[Colony scenes](mod-colony-scenes.md) own intro/departure phases and save interaction.
+[Worksites](mod-worksite.md) use Working state to control construction; completion
+adds [plague](mod-plague.md) sources. `Sim/Incidents/Gardener` owns the visiting pawn,
+and `Companion` grants capybaras plague immunity.
 
-Profile gating applies to Harmony, def mutation and XML patches independently. New game
-integration must respect all three. See [profile](ops-profile.md).
-
-Shutdown saving belongs to the Root.Shutdown prefix; deferred OS close requests stay
-cancelled until that path runs. Log tooltips persist UTC timestamps independently of
-the solar calendar; old entries estimate their age from solar ticks once.
-
-Intro saves retain remaining population counts and rebuild animal kinds on load.
-AgentColony saves eye variants with pawn bindings; RobotFace owns texture selection.
-Pet interaction cooldowns belong to the current game.
-Departure keeps annulus blast work across wave deadlines and drains it during lulls
-and settling, under the per-tick cap, before discarding the map.
+Colony reconciliation also runs on wall time while [Eco](mod-eco.md) stops game
+ticks; agent arrivals use their final destination during rest. Periodic autosave
+runs from game ticks and therefore pauses with Eco. Explicit saves remain governed
+by [colony scene boundaries](mod-colony-scenes.md).
+[Profile isolation](mod-profile.md) owns independent Harmony, def, and XML gates.
+Game ticks represent simulation time: 60 per second at normal speed, not a fixed
+wall-clock cadence at every speed. Calendar absolute ticks have different units.
+Game log-entry timestamps use absolute ticks; SlopWorld tooltip ages retain UTC
+timestamps and estimate older entries once. Never pass calendar durations to
+game-tick APIs.

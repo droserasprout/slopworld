@@ -103,7 +103,7 @@ C#, and IPC suites three times. Results and reports go to the ignored
 `bench/results/<name>/` directory. `make bench-report BENCH_RUN=<name>` regenerates
 the report from saved CSVs; `BENCH_BASELINE=<older> BENCH_MODE=relative` shows
 percentage changes. Desktop terminal measurements use `make bench-terminal` on
-the graphical host. See [terminal latency](../../notes/terminal-latency.md).
+the graphical host. See [terminal latency](guides/terminal-latency.md).
 
 ## Logs and diagnostics
 
@@ -116,7 +116,7 @@ SLOPWORLD_DEBUG=1 make devloop
 
 The installer writes the supplied tracing values to the service unit. It restarts
 the daemon if those values change. A later installation without them restores the
-shipped unit. See `notes/terminal-latency.md` for capture and reporting instructions.
+shipped unit. See [terminal latency](guides/terminal-latency.md) for capture and reporting instructions.
 
 Unity writes Harmony and mod exceptions to `Player.log`, the game log.
 These exceptions do not appear in the terminal that started the game.
@@ -158,3 +158,29 @@ Pass options directly to each script:
 - `python3 tools/loc-report.py` writes a line-count snapshot.
 - `bash tools/fetch-harmony.sh` updates Harmony.
 - `bash tools/shot.sh OUTPUT` captures the game window (requires the `x11` sandbox preset).
+
+## Linux window options
+
+The launcher normally supplies `-popupwindow -screen-fullscreen 0 -force-opengl`.
+`slopworld --no-window-fix` omits those default arguments. It does not disable the
+mod's Linux window-manager hook, which still follows the saved fullscreen setting.
+
+## Text-sprite asset maintenance
+
+The text-sprite generator writes the shared atlas and `UI/Text/TextSpriteData.cs`
+together. Its sequence input is pinned to Unicode 17 in
+[`assets/unicode/emoji-test.txt`](../../assets/unicode/emoji-test.txt); optional
+`--sequences /path/to/keys.txt` adds one literal UTF-8 key per line. Regenerate
+artwork and keys together, preserving atlas slot order. Normal builds use committed
+assets and do not need the local bake fonts. `make test-text-sprites` checks generated
+metadata and rejects non-ASCII loading-tip literal codepoints; it does not reject
+every ASCII control character.
+
+Action icons use `make bake-icons`. The baker defaults to 64 px and accepts `--size`
+and `--font` through `python3 tools/icons.py`; `--report` prints glyph size/ink coverage.
+The chosen Nerd Font is a build input and is not shipped.
+
+Shared C# helper fixture setup can occur outside timing, while cold-cache creation
+and revision-triggered rebuilds may intentionally be part of the measured operation.
+Inspect benchmark delegates before interpreting results; helper timings do not
+predict Unity rendering costs.

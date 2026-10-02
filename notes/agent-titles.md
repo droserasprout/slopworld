@@ -1,29 +1,23 @@
-# Generated agent titles
+# Agent title ownership
 
-The daemon owns managed-session summaries: it sees submitted input and OSC titles, while
-keeping the OpenRouter credential outside agent sandboxes. Policies and defaults live in
-the daemon configuration model.
-`UI/Settings/SummariesPage.cs` is the editor.
+The daemon owns managed-session summaries. [Session title policy](../slopd/src/session/title.rs)
+owns composition, eligibility, and transitions; [title capture](../slopd/src/session/manager/capture/title.rs)
+coordinates provider requests and commits. [The title provider and cache](../slopd/src/title/)
+are separate from session policy. [SummariesPage](../mod/Source/SlopWorld/UI/Settings/SummariesPage.cs)
+edits daemon policies and defaults.
 
-Prompt capture is a privacy boundary. Approval/dialog input, cancelled composers, history
-recall and uncertain editing sequences must not become summarizer requests. Missing a title
-is preferable to sending unrelated input. Host shell commands never enter this path.
+Prompt capture excludes common approval answers, cancelled composers, history
+recall, and uncertain edits. Host shell commands never enter this path. Current
+managed-agent support covers Codex and Pi. Missing a title is preferable to sending
+unrelated input.
 
-The per-session title owner keeps a private request token. Completion must match that exact
-token; new conversations, label edits, rename, disable, reset, and replacement invalidate old work.
-`once` consumes its attempt even on failure, preventing repeated billable attempts.
-Generated titles override OSC redraws separately.
-Restoring a persistent session must not restore a previous conversation's title.
-`session/title.rs` owns composition, eligibility, and title transitions. Capture coordinates
-provider calls and commits; task summaries reuse the provider/cache path without session policy.
-Approval answers are excluded independently of terminal activity state.
+Late results cannot replace a newer conversation or manually edited label. The
+`once` policy consumes its attempt even on failure. Recovery may restore the current
+conversation's cached title; a new conversation or run clears it. The cache stores
+digests and summaries rather than submitted prompt text.
 
-`title/cache.rs` stores digests and summaries, not submitted prompt text. Mutations update
-bounded memory in live-commit order. One background writer persists coalesced snapshots,
-without holding the cache or session lock during filesystem I/O. Drop drains pending writes;
-an abrupt exit can lose the latest recovery title. Disk failures retain in-memory state and
-retry on the next mutation. Rename and clear share the same persistence order.
-
-Managed Pi disables its project auto-name extension so two writers cannot compete. Claude
-and OpenCode do not yet use this daemon path. The standalone Pi extension remains useful
-outside SlopWorld.
+The provider reads its configured OpenRouter key in the daemon. This is not a
+sandbox isolation guarantee: the Pi preset can separately forward
+`OPENROUTER_API_KEY`. See [Summaries](../docs/src/guides/configuring-agents.md#summaries)
+for settings and key handling, [Titles](../docs/src/tour/agents-and-projects.md#titles)
+for user behavior, and [task mailboxes](agent-tasks.md) for delegated-task summaries.

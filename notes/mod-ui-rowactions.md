@@ -1,10 +1,10 @@
 # Row action hit testing
 
-`RowActions` draws view, edit, and diff controls.
-Callers dispatch hits in a separate pass.
-Test the action strip before the row so one press cannot also open/select the row itself.
-Both passes need the same scroll-adjusted, clipped geometry. Button hover owns its tooltip.
+Files, Git, and Search supply action masks to the shared `RowActions` strip.
+Callers draw the strip and dispatch hits in separate passes. Both passes need the
+same scroll-adjusted, clipped row geometry. Test the strip before the row fallback
+so one press cannot also open or select the row.
 
-Reader ownership does not follow the clicked sidebar: Files owns view/edit, Git owns diffs.
-See [Files](mod-ui-files.md) and [Git](mod-ui-git.md). Hover strips may obscure a label's tail,
-but must not change row layout and move the target under the pointer.
+Button hover owns its tooltip. Hover strips may truncate a label's tail, but must
+not shift rows or their hit targets. Action dispatch and reader lifetime belong to
+[Files](mod-ui-files.md), [Git](mod-ui-git.md), and [Search](mod-ui-search.md).

@@ -1,88 +1,37 @@
 # Shared UI chrome
 
-`UI/Chrome/` owns shared controls. Styling and icon catalogs live in `UI/Theme/`,
-workspace host chrome in `UI/Workspace/`, and scrolling in `UI/Scrolling/`.
-Native scroll sampling stays under `UI/Scrolling/Platform/`.
+`UI/Chrome/` owns shared controls and layout helpers. `UiTheme` and styling/icon
+catalogs live in `UI/Theme/`; workspace host chrome lives in `UI/Workspace/`.
+Start with `UiText`, `UiButtons`, `UiControls`, `UiLayout`, and `Slab` when adding a control.
+`TextEntryController` owns shared native field invocation and delayed clipboard edits;
+focus memory belongs to [focus](ui-focus.md).
 
-Start with `UiTheme`, `UiText`, `UiButtons`, `UiControls`, `UiLayout`, and `Slab`.
-New controls should use their measurement, styling, and hit-testing paths.
-Alert messages scroll inside a viewport-capped window with a fixed footer. Shared text
-dialog notes use the same native wrapped layout for measurement and rendering. `WorkspaceLayout` owns the geometry
-snapshot shared by rendering, input, terminal size and Harmony hooks. See
-[layout ownership](ui-dynamic-layout-architecture.md) and [focus](ui-focus.md).
+Measurement, drawing, and hit testing must share stable geometry and control IDs
+across IMGUI passes. Measurement must not mutate form data. Cache layout by content
+and text metrics, not color alone; use shared measurement helpers. `Slab` geometry
+is flat and pixel-snapped. Hover must not alter bounds. Spacing and text metrics
+belong to shared chrome rather than individual themes.
 
-Labels containing catalog sprites use the shared text layout/renderer in `UI/Text/`.
-Measurement and truncation preserve catalog keys and plain text elements.
-Drawing clips the positioned spans to the label box. The atlas preserves caller opacity without inheriting text
-tint, and missing artwork cannot change layout. Plain labels retain the native text path. `PlainStatusLabel` and its height helper use
-only native wrapping; catalog keys remain literal text in these plain-text APIs.
+Chrome colors resolve on read. A texture that bakes them must invalidate on theme
+changes. [Theme identity](mod-ui-identity.md) owns catalog contracts. Other focused
+owners are [workspace layout](ui-dynamic-layout-architecture.md),
+[focus](ui-focus.md), [dialogs](mod-ui-windows.md), [Settings](ui-settings.md),
+[text](mod-ui-text.md), and [scrolling](mod-ui-scrolling.md).
 
-IMGUI events must share stable geometry and control IDs. Measure/draw passes cannot mutate
-form data differently. Cache layout by content and text metrics (including atlas/UI scale),
-not color alone. `GameFont.Tiny` may render Small.
-Use shared measurement helpers.
+`UiMenu` owns menu chains. `Patch_UiMenuWindowStack` closes the chain when a
+non-menu window is clicked, before the base game raises that window. Window-stack
+and submenu traps belong to [Harmony gotchas](core-gotchas.md).
 
-Theme catalogs require matching terminal IDs for every UI theme. Accent, destructive and
-checkbox faces must be opaque because their contrast-derived text has no backing-surface input.
+Responsive Settings forms pin Interface/Terminal/Code previews below the scrolling
+form when space permits. Short windows scroll form and preview together; Code
+retains a separate save footer. Measurement must not invoke controls/setters.
 
-`ContentHeight` retains shared listing extents and publishes measurements on the next frame
-so input and repaint use the same geometry. `SettingsLayout` owns only Settings geometry.
+`Window.Margin` translates the GUI group rather than adding padding. Shared hosts
+use explicit body padding. `GameFont.Tiny` may draw as Small, so measurement uses
+shared metrics. Use an explicit one-column listing rather than relying on a short
+vanilla listing rectangle. Runtime assets needing survival across map changes use
+`DontUnloadUnusedAsset`; this is not a rule for every generated texture.
 
-`SmoothScroll` owns fractional wheel input and terminal-style scrollbars. Consume precise input once.
-X11 samples accumulate motion rather than identify individual wheel packets. Claimed native
-motion suppresses matching logical wheel directions through the next frame, including multiple
-legacy packets per sample. Tiny native motion on a secondary axis need not appear in the
-logical packet. Do not correlate against IMGUI pointer/modifier snapshots: the native sample
-does not carry those values. Compacted wheel packets retain their logical delta. Drawing and hit tests need the
-same viewport clipping. Drag owners must respect `hotControl`, including replayed events.
-Flat result lists route wheel-only passes through `HandleWheel` using their last measured
-extent before model filtering, layout rebuilding or control allocation. The next normal pass
-refreshes geometry.
-Clicks and scrollbar drags retain normal control IDs. Do not skip nested
-scroll owners. Flat owners can call `HandleWheel(outer)` to reuse their last `Begin` extent.
-Resize requires new measurement. Keep native row controls clipped to visible rows on
-ordinary passes too, retaining a focused read-only field while it is offscreen. `ScrollWheelRouter` wraps Settings pages outside their field-focus scope and
-records the `SmoothScroll` tree on ordinary passes. Wheel passes replay only those regions,
-with current parent translations and inner-first spending, so page measurement and row work
-cannot amplify a touchpad backlog. Bounds/origin changes, failed captures and intervening
-GUI groups use the ordinary path.
-Page closure invalidates the snapshot. Other hosts can
-retain a router around renderers whose wheel handling belongs entirely to `SmoothScroll`. X11 discovery and valuator queries run on one dedicated background sampler,
-with at most one request in flight and no queued backlog. IMGUI only consumes the latest
-completed snapshot and falls back to Unity input while sampling is pending. The native sampler
-re-reads master-pointer axes on each query, retries transient absence/failure with a one-second
-backoff, and marks source changes so recovery starts with a fresh baseline. The profile's
-Smooth scrolling preference disables native sampling and uses logical wheel steps immediately.
-Logical fallback invalidates older native motion so late replies cannot move the viewport twice.
-
-`Window.Margin` translates the GUI group. It is not padding. Shared windows use zero margin
-and explicit body padding. An absorbing window can consume MouseDown before controls see it.
-Field replay must not start a second drag or apply a click to two overlapping targets.
-
-Menus need independent window instances per submenu level. Vanilla same-type replacement
-and promotion of a clicked outside window can destroy or bury a chain. Close menus before
-promoting the fullscreen host. `FloatMenuOption.Disabled` is inferred from a null action,
-so a submenu opener needs an action even if its work happens elsewhere.
-Menus that replace their option list after an asynchronous catalog update must close the
-old submenu and reset its row indices through `UiMenu.ReplaceOptions`.
-`MenuRowGeometry` owns retained offsets for hit testing, keyboard reveal, and visible rows.
-Option count, row height, or explicit replacement invalidates measurement; wheel passes
-reuse the scroll extent. Menu width measurement stops at its cap. Font pages retain catalogs
-for their lifetime. Settings measures category geometry once per frame and skips unrelated
-wheel input and category drawing on wheel passes.
-
-`WheelEventQueue` compacts compatible runs at the root GUI boundary while Settings or menus
-are open, including Layout passes. Scan once per frame to avoid quadratic work on mixed
-backlogs. Preserve pointer/modifier/display boundaries, direction reversals, and other event
-order. `SmoothScroll` uses logical deltas during compaction frames.
-
-The top bar has both map and terminal draw paths, but only one may handle input. It can lie
-outside the active window: use its own rectangles rather than window-relative hover helpers.
-Resource-owning helpers must restore `RenderTexture.active` and release temporary textures
-on failure as well as success.
-
-`TextEntryController` caches stripped native field/area styles by source style and UI metrics,
-checking font identity/size/style as well. Do not clone `GUIStyle` or allocate `RectOffset`
-per field per event: wheel fast paths do not remove ordinary Layout/repaint allocation costs.
-
-See [Linux window state](ui-window-fullscreen.md) for native title and fullscreen ownership.
+Menu levels need separate instances because vanilla same-type replacement can remove
+a standing menu before opening another. Submenu openers need a non-null action,
+since vanilla infers Disabled from a null action.

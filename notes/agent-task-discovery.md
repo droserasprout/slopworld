@@ -1,30 +1,9 @@
-# Telling agents about delegation
+# Task discovery
 
-Use a short supplied breadcrumb when the session has working task credentials:
+Tasks are shared mailbox records. Arrival does not notify or wake a running agent.
+Checking or reading a task does not consume it; removal follows the mailbox rules.
 
-> Delegate work once with `slopctl task delegate AGENT TASK...`.
-> Keep the returned ID.
-> Use `slopctl task wait ID` for the result. It waits until the task reaches a terminal state.
-> Do not poll `task list` or `status`.
-> End assigned work with `slopctl task finish ID` or `slopctl task fail ID`.
-
-Task-owned workers receive `SLOPWORLD_TASK_ID`.
-Inside a worker, `slopctl` accepts omitted IDs for the task lifecycle commands (`show`, `wait`, `accept`, `progress`, `finish`, `fail`, and
-`remove`).
-
-The root caller can create a task-owned child with
-`slopctl worker spawn [--durable] --project PROJECT --template TEMPLATE TASK...`.
-The caller owns the child in the sidebar.
-The selected template supplies its configuration.
-
-Task and worker commands use their explicit command trees.
-There are no root-level shorthand aliases. Task lifecycle commands use the `task` command tree.
-
-Keep transport, grants, and policy out of the prompt. Project instruction files do not
-own this capability because it belongs to a live SlopWorld session.
-
-The task body remains in the mailbox until the recipient checks it.
-Task arrival does not wake a running agent with a notification. Do not inject a task into a running TUI or submit it blindly.
-
-`slopctl peers` and `slopctl status` let a caller find valid recipients and check identity,
-reachability, and pending count.
+Command instructions belong to [Using slopctl](../docs/src/guides/slopctl.md),
+persistence and ownership to [task mailboxes](agent-tasks.md), worker creation to
+[workers](daemon-workers.md), and access rules to
+[Agent collaboration](../docs/src/guides/agent-collaboration.md).
