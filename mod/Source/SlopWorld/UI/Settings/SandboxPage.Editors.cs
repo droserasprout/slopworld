@@ -34,6 +34,9 @@ namespace SlopWorld
             }
         }
 
+        static float LibraryGroupHeight(int count) =>
+            (1 + Mathf.Max(1, count)) * UiTheme.RowH + UiTheme.GapS;
+
         float DrawLibraryGroup<T>(Rect view, float y, string heading, List<T> items,
                                   Func<T, string> label, Action<T> pick)
         {
@@ -86,10 +89,10 @@ namespace SlopWorld
             var all = SessionHub.Instance.Commands;
             var system = all.Where(c => c.Source == "system").ToList();
             var user = all.Where(c => c.Source != "system").ToList();
-            float h = (system.Count + user.Count + 3) * UiTheme.RowH;
+            float h = LibraryGroupHeight(system.Count) + LibraryGroupHeight(user.Count)
+                + UiTheme.GapS + UiTheme.BtnH;
             var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiTheme.ScrollbarW),
                 Mathf.Max(h, r.height));
-            view.height = Mathf.Max(r.height, h + UiTheme.GapS + UiTheme.BtnH);
             using (_listScroll.Scope(r, view))
             {
                 float y = 0f;

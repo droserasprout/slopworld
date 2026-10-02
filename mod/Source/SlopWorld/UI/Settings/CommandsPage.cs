@@ -21,12 +21,18 @@ namespace SlopWorld
             _agentCustom = _agentShellCustom = _shellCustom = _editorCustom = false;
         }
 
+        protected override void AfterDiscard()
+        {
+            _agentCustom = _agentShellCustom = _shellCustom = _editorCustom = false;
+        }
+
         protected override void DrawFields(Listing_Standard l)
         {
             CommandPicker.Draw(l, "Agent", "commands.agent",
                 _cfg.Agent, Commands(CommandInfo.AgentKind, _cfg.Agent),
                 _agentCustom, value => _cfg.Agent = value, value => _agentCustom = value,
-                defaultValue: _cfg.FactoryDefaults?.Agent);
+                customLabel: "Preset name", defaultValue: _cfg.FactoryDefaults?.Agent);
+            UiLayout.Note(l, "Agent and Shell select catalog preset names. Configure their commands on the Apps page.");
             CommandPicker.Draw(l, "Agent shell", "commands.agent-shell", _cfg.AgentShell,
                 Commands(CommandInfo.ShellKind, _cfg.AgentShell),
                 _agentShellCustom, value => _cfg.AgentShell = value,
@@ -35,16 +41,17 @@ namespace SlopWorld
             CommandPicker.Draw(l, "Shell", "commands.shell", _cfg.Shell,
                 Commands(CommandInfo.ShellKind, _cfg.Shell),
                 _shellCustom, value => _cfg.Shell = value, value => _shellCustom = value,
-                defaultValue: _cfg.FactoryDefaults?.Shell);
+                customLabel: "Preset name", defaultValue: _cfg.FactoryDefaults?.Shell);
 
             CommandPicker.Draw(l, "Editor", "commands.editor", _cfg.Editor, EditorChoices(),
                 _editorCustom, value => _cfg.Editor = value, value => _editorCustom = value,
                 defaultValue: _cfg.FactoryDefaults?.Editor);
 
             l.Gap(UiTheme.GapL);
-            UiLayout.SectionHeading(l, "Template rules");
+            UiLayout.SectionHeading(l, "Editor template rules");
             UiLayout.Note(l, "Use {file} to insert a quoted path. Use {line} to insert the line from a " +
-                "search result. If a template has no {file}, SlopWorld adds -- before the path.");
+                "search result. For a line jump, missing {file} appends the path and missing {line} " +
+                "appends +LINE after it. Without a line jump, missing {file} appends -- and the path.");
             UiLayout.Note(l, "SlopWorld splits each template into arguments. It does not use a shell.");
             l.Gap(UiTheme.GapM);
             if (UiLayout.Button(l, "Code"))

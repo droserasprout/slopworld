@@ -65,18 +65,31 @@ namespace SlopWorld
             if (_pickingKey != null) DrawPicker(rect, _pickingKey);
         }
 
+        List<UsageCatalogInfo> _catalog = new List<UsageCatalogInfo>();
+        Dictionary<string, UsageCatalogInfo> _catalogByKey =
+            new Dictionary<string, UsageCatalogInfo>();
+
+        public override void Draw(Rect rect)
+        {
+            if (_cfg != null) RefreshCatalog();
+            base.Draw(rect);
+        }
+
+        void RefreshCatalog()
+        {
+            _catalog = DaemonConfig.MergeUsageCatalogs(_cfg.UsageCatalog,
+                SessionHub.Instance.Usage.Catalog);
+            _catalogByKey = _catalog.ToDictionary(entry => entry.Key);
+        }
+
         void EnsureBaseItems()
         {
-            foreach (var entry in Catalog()) EnsureItem(entry.Key);
+            RefreshCatalog();
+            foreach (var entry in _catalog) EnsureItem(entry.Key);
         }
 
-        List<UsageCatalogInfo> Catalog() => DaemonConfig.MergeUsageCatalogs(
-            _cfg.UsageCatalog, SessionHub.Instance.Usage.Catalog);
-
-        UsageCatalogInfo Entry(string key)
-        {
-            return Catalog().FirstOrDefault(entry => entry.Key == key);
-        }
+        UsageCatalogInfo Entry(string key) =>
+            _catalogByKey.TryGetValue(key, out var entry) ? entry : null;
 
         string LabelFor(string key)
         {
@@ -142,25 +155,25 @@ namespace SlopWorld
         List<string> TableKeys()
         {
             var keys = new List<string>();
-            foreach (var entry in Catalog())
+            foreach (var entry in _catalog)
                 if (!keys.Contains(entry.Key)) keys.Add(entry.Key);
             foreach (var pair in _cfg.UsageItems)
                 if (!keys.Contains(pair.Key)) keys.Add(pair.Key);
             foreach (var w in SessionHub.Instance.Usage.Windows)
                 if (!keys.Contains(w.Key)) keys.Add(w.Key);
 
-            keys.Sort((a, b) => UsageRank(a).CompareTo(UsageRank(b)));
+            keys.Sort((a, b) =>
+            {
+                int rank = UsageRank(a).CompareTo(UsageRank(b));
+                return rank != 0 ? rank : System.StringComparer.Ordinal.Compare(a, b);
+            });
             return keys;
         }
 
-        int UsageRank(string key)
-        {
-            foreach (var entry in Catalog())
-                if (entry.Key == key) return entry.Rank;
-            foreach (var entry in SessionHub.Instance.Usage.Catalog)
-                if (entry.Key == key) return entry.Rank;
-            return int.MaxValue;
-        }
+        int UsageRank(string key) => Entry(key)?.Rank ?? int.MaxValue;
+
+        static string PollTooltip(bool polling) => polling
+            ? "Stop polling this usage window." : "Poll this usage window.";
 
         float DrawTable(Rect rect)
         {
@@ -189,7 +202,7 @@ namespace SlopWorld
                 DrawIconButton(cells[1], key);
 
                 SetPoll(key, ToggleCell.DrawCheck(cells[2], item.Poll,
-                    item.Poll ? "Stop polling this usage window." : "Poll this usage window.",
+                    PollTooltip(item.Poll),
                     false, RowHoverPolicy.OverlayAware));
 
                 var interval = cells[3];
@@ -221,7 +234,7 @@ namespace SlopWorld
                 float pollW = Mathf.Min(64f, rect.width / 4f);
                 DrawIconButton(new Rect(rect.x, y, iconW, UiTheme.FieldH), key);
                 SetPoll(key, ToggleCell.DrawCheck(new Rect(rect.x + iconW, y, pollW, UiTheme.FieldH),
-                    item.Poll, "Poll this usage window.", false, RowHoverPolicy.OverlayAware));
+                    item.Poll, PollTooltip(item.Poll), false, RowHoverPolicy.OverlayAware));
 
                 var field = new Rect(rect.x + iconW + pollW, y,
                     Mathf.Max(0f, rect.width - iconW - pollW), UiTheme.FieldH);

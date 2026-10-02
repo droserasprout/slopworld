@@ -39,27 +39,43 @@ namespace SlopWorld
             _actionError = null;
             _load.Load((ok, fail) => SessionHub.Instance.Catalog.LoadPresets(() => ok(true), fail), _ =>
             {
-                if (_preset != null && !_newEntry)
-                    _preset = SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == _preset.Name);
-                if (_command != null && !_newEntry)
-                    _command = SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == _command.Name);
-                if (_pendingPreset != null)
-                {
-                    _preset = SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == _pendingPreset);
-                    _pendingPreset = null;
-                    _command = null;
-                    _newEntry = false;
-                }
-                if (_pendingCommand != null)
-                {
-                    _command = SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == _pendingCommand);
-                    _pendingCommand = null;
-                    _preset = null;
-                    _newEntry = false;
-                }
-                if (_newPresetRequested) NewPreset();
-                else if (_newCommandRequested) NewCommand();
+                // Catalog completion publishes the winning revision before rebinding selection.
+                RebindSelection();
+                ApplyPendingSelection();
+                ApplyDeferredCreation();
             });
+        }
+
+        void RebindSelection()
+        {
+            if (_preset != null && !_newEntry)
+                _preset = SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == _preset.Name);
+            if (_command != null && !_newEntry)
+                _command = SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == _command.Name);
+        }
+
+        void ApplyPendingSelection()
+        {
+            if (_pendingPreset != null)
+            {
+                _preset = SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == _pendingPreset);
+                _pendingPreset = null;
+                _command = null;
+                _newEntry = false;
+            }
+            if (_pendingCommand != null)
+            {
+                _command = SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == _pendingCommand);
+                _pendingCommand = null;
+                _preset = null;
+                _newEntry = false;
+            }
+        }
+
+        void ApplyDeferredCreation()
+        {
+            if (_newPresetRequested) NewPreset();
+            else if (_newCommandRequested) NewCommand();
         }
 
         public void SelectPreset(string name)

@@ -33,6 +33,7 @@ namespace SlopWorld
                 if (_draft == null || _key != key)
                 {
                     _key = key;
+                    Path = "";
                     if (!Drafts.TryGetValue(key, out _draft))
                         Drafts[key] = _draft = new DaemonConfigDraft();
                 }
@@ -41,7 +42,12 @@ namespace SlopWorld
         }
 
         public DaemonConfig Config => Draft.Config;
-        public string Path { get; private set; } = "";
+        string _path = "";
+        public string Path
+        {
+            get => _key == Key ? _path : "";
+            private set => _path = value;
+        }
         public string Error { get => Draft.Error; set => Draft.Error = value; }
         public bool Loaded => Draft.Loaded;
         public bool Saving => Draft.Saving;
