@@ -46,6 +46,7 @@ namespace SlopWorld
         static void Add(List<FloatMenuOption> options, string label, SelectionCommand command,
                         SelectionCommandAvailability availability, Action action)
         {
+            if (action == null) return;
             var option = new FloatMenuOption(label, () =>
                 SelectionCommandPolicy.TryExecute(command, availability, action));
             option.Disabled = !SelectionCommandPolicy.IsEnabled(command, availability);

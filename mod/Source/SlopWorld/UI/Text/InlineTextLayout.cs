@@ -131,6 +131,8 @@ namespace SlopWorld
                 bool sprite = catalog.Match(text, i, out int length, out int slot);
                 if (!sprite) length = TerminalColumns.ScalarUnits(text, i);
                 int count = sprite ? TerminalColumns.ScalarCount(text.Substring(i, length)) : 1;
+                // Only the final scalar may own a continuation cell. Give its token the
+                // remaining daemon columns rather than guessing width from Unicode or artwork.
                 int width = i + length == text.Length ? columns - col : count;
                 if (!sprite && length == 1 && width == 1 && fitsCell(text[i]))
                 { i++; col++; continue; }

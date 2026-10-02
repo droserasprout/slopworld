@@ -73,8 +73,7 @@ namespace SlopWorld
             }
 
             var info = SessionHub.Instance.Get(_state.Name);
-            var selectionAvailability = new SelectionCommandAvailability(
-                _state.Selection.HasSelection, true, true, false);
+            var selectionAvailability = new SelectionCommandAvailability(canCopy: _state.Selection.HasSelection, canPaste: true, canSelectAll: true, canCut: false);
             SelectionCommands.AddCopy(options, selectionAvailability, CopySelection);
             if (info != null)
             {

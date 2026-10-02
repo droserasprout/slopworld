@@ -16,7 +16,7 @@ namespace SlopWorld.Tests
             var commands = new[] { SelectionCommand.Copy, SelectionCommand.Paste, SelectionCommand.SelectAll, SelectionCommand.Cut };
             for (int enabled = 0; enabled < commands.Length; enabled++)
             {
-                var available = new SelectionCommandAvailability(enabled == 0, enabled == 1, enabled == 2, enabled == 3);
+                var available = new SelectionCommandAvailability(canCopy: enabled == 0, canPaste: enabled == 1, canSelectAll: enabled == 2, canCut: enabled == 3);
                 int called = 0;
                 foreach (var command in commands)
                 {
@@ -30,7 +30,7 @@ namespace SlopWorld.Tests
 
         static void Disabled()
         {
-            var unavailable = new SelectionCommandAvailability(false, false, false, false);
+            var unavailable = new SelectionCommandAvailability(canCopy: false, canPaste: false, canSelectAll: false, canCut: false);
             int called = 0;
             foreach (SelectionCommand command in Enum.GetValues(typeof(SelectionCommand)))
             {
@@ -41,7 +41,7 @@ namespace SlopWorld.Tests
 
         static void SelectAll()
         {
-            var available = new SelectionCommandAvailability(false, false, true, false);
+            var available = new SelectionCommandAvailability(canCopy: false, canPaste: false, canSelectAll: true, canCut: false);
             int first = 0;
             int second = 0;
             AssertEx.True(SelectionCommandPolicy.TryExecute(
