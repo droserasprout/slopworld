@@ -19,7 +19,6 @@ namespace SlopWorld
         struct Errand
         {
             public BuildableDef What;
-            public float Seconds;
             public float Weight;
             public float Bloom; // cells of plague the finished thing seeds
             public Run Run; // how many go down at once, and in what shape
@@ -147,7 +146,6 @@ namespace SlopWorld
             _errands.Add(new Errand
             {
                 What = what,
-                Seconds = seconds,
                 Weight = weight,
                 Bloom = bloom,
                 Run = run,

@@ -200,7 +200,7 @@ namespace SlopWorld
             foreach (var thing in things)
             {
                 var frame = thing as Frame;
-                if (frame != null && frame.Spawned &&
+                if (Owns(frame) && frame.Spawned &&
                     WorkFor(frame.def?.entityDefToBuild) > 0f)
                     _frames.Add(frame);
             }
@@ -316,6 +316,19 @@ namespace SlopWorld
             // Construction must start before it can expand the plague.
             if (!Near(at)) return false;
 
+            if (!FitsClearance(what, at, rot)) return false;
+
+            // Reject cells that already have the requested terrain.
+            if (what is TerrainDef terrain && map.terrainGrid.TerrainAt(at) == terrain) return false;
+
+            if (!GenConstruct.CanPlaceBlueprintAt(what, at, rot, map, false, null, null, StuffFor(what))
+                    .Accepted) return false;
+
+            return pawn.CanReach(at, PathEndMode.Touch, Danger.Deadly);
+        }
+
+        bool FitsClearance(BuildableDef what, IntVec3 at, Rot4 rot)
+        {
             // Reserve space around buildings to keep paths open.
             // Floors need no margin and can reach a building edge.
             int pad = what is TerrainDef ? 0 : 1;
@@ -360,13 +373,7 @@ namespace SlopWorld
                 }
             }
 
-            // Reject cells that already have the requested terrain.
-            if (what is TerrainDef terrain && map.terrainGrid.TerrainAt(at) == terrain) return false;
-
-            if (!GenConstruct.CanPlaceBlueprintAt(what, at, rot, map, false, null, null, StuffFor(what))
-                    .Accepted) return false;
-
-            return pawn.CanReach(at, PathEndMode.Touch, Danger.Deadly);
+            return true;
         }
 
         // Use the dandelion harvest work value as the plant clearance threshold.
@@ -386,6 +393,7 @@ namespace SlopWorld
             var frame = ThingMaker.MakeThing(what.frameDef, StuffFor(what)) as Frame;
             if (frame == null) return null;
 
+            Claim(frame);
             frame.SetFactionDirect(Faction.OfPlayer);
             GenSpawn.Spawn(frame, at, map, rot);
             Fill(frame);

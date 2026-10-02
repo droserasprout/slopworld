@@ -14,3 +14,7 @@ Tuning belongs beside the definitions/code, not in this note. Work duration and 
 must remain proportional when adding errands. Terrain frames and furniture have different
 clearance requirements.
 Retain base game constructability checks before assignment.
+
+Worksite claims frames before spawning and saves ownership on each frame. Assignment,
+work overrides, completion effects, and floor-frame hiding require that marker.
+Unmarked frames (including legacy saves) retain vanilla behavior.
