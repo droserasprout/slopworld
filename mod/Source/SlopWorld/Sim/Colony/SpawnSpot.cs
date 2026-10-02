@@ -26,7 +26,7 @@ namespace SlopWorld
             if (TryNear(map, anchor, out var cell)) return cell;
             if (TryAnywhere(map, out cell)) return cell;
 
-            Log.Warning("[SlopWorld] No open spawn cell found. Using the map centre.");
+            Log.Warning("[SlopWorld] No open spawn cell found. Using a base-game spawn cell near the map center.");
             return CellFinder.RandomSpawnCellForPawnNear(map.Center, map);
         }
 

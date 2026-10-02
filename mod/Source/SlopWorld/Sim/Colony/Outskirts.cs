@@ -12,8 +12,8 @@ namespace SlopWorld
         const int Interval = 120;
 
         // Keep the target population below the initial population in the opening scene.
-        const int Animals = 30;
-        const int Humans = 12;
+        const int AnimalTarget = 30;
+        const int HumanTarget = 12;
 
         // Calculate this list again after loading a save.
         List<PawnKindDef> _kinds;
@@ -30,8 +30,8 @@ namespace SlopWorld
             Census(plague, out int animals, out int humans);
 
             // Generate at most one pawn per interval to limit generation work. Give animals priority.
-            if (animals < Animals) Arrive(plague, Kind());
-            else if (humans < Humans) Arrive(plague, PawnKindDefOf.Colonist);
+            if (animals < AnimalTarget) Arrive(plague, Kind());
+            else if (humans < HumanTarget) Arrive(plague, PawnKindDefOf.Colonist);
         }
 
         // Count living animals and humanlike pawns outside the plague area. Exclude the player faction.
@@ -56,8 +56,10 @@ namespace SlopWorld
         {
             if (kind == null) return;
 
+            float roadChance = kind.RaceProps.Humanlike
+                ? CellFinder.EdgeRoadChance_Neutral : CellFinder.EdgeRoadChance_Animal;
             if (!RCellFinder.TryFindRandomPawnEntryCell(out var cell, map,
-                    CellFinder.EdgeRoadChance_Animal, false, c => !plague.Reaches(c)))
+                    roadChance, false, c => !plague.Reaches(c)))
                 return;
 
             try
