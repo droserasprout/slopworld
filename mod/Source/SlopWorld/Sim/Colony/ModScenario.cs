@@ -47,11 +47,8 @@ namespace SlopWorld
             }
             catch (Exception e)
             {
-                // CopyForEditing reads playerFaction and surfaceLayer without null checks.
-                // If copying fails, modify the original scenario. The mod removes the scenario selection interface.
-                Log.Warning($"[SlopWorld] cannot copy Crashlanded ({e.Message}). " +
-                            "Removing parts from the original scenario.");
-                scen = basis;
+                throw new InvalidOperationException(
+                    "[SlopWorld] Cannot copy Crashlanded for the colony scenario.", e);
             }
 
             // Use AllParts and RemovePart because the parts list is internal.
