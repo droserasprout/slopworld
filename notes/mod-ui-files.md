@@ -46,6 +46,8 @@ Keep short files open.
 Markdown uses [native rendering](mod-markdown.md). JPG/PNG files use a native content
 reader backed by the daemon's bounded image route. Native readers share one replaceable
 preview and independently pinned headers; opening one releases the pager preview.
+Links from Markdown retain their captured root and use bounded native readers for text and images.
+They do not reuse an unscoped reader or launch a pager that could reopen a changed symlink.
 The file icon tool bakes icons from the
 vendored Material Icon Theme.
 Filename matches take precedence over the longest extension match. Update the manifest and C# lookup together.

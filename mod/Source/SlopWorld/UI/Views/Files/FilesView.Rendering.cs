@@ -420,7 +420,7 @@ namespace SlopWorld
 
         // Public for GitView: viewing a changed file is a Files operation, regardless of
         // which tree supplied the click. Opening it preserves the active sidebar tab.
-        public static void ViewFile(string project, string path, string label, int line = 0)
+        public static void ViewFile(string project, string path, string label, int line = 0, string previewRoot = null)
         {
             if (!string.IsNullOrEmpty(project)) project = SidebarScopes.Key(project);
             label = ReaderLabel(project, label);
@@ -434,7 +434,7 @@ namespace SlopWorld
                 Tree.SelectKey(ContentTreeView.SelectionKey(project, SidebarScopes.Relative(project, path)));
                 if (!string.IsNullOrEmpty(project)) AgentSidebar.RememberFile(project, path);
             }
-            if (line > 0)
+            if (line > 0 && previewRoot == null)
             {
                 ReleaseNativePreview();
                 if (Viewers.ReuseFile(project, path)) return;
@@ -442,11 +442,11 @@ namespace SlopWorld
                 return;
             }
             string name = System.IO.Path.GetFileName(path);
-            if (IsMarkdown(name) || IsImage(name))
+            if (previewRoot != null || IsMarkdown(name) || IsImage(name))
             {
-                if (NativeViewers.Reopen(project, path)) return;
+                if (previewRoot == null && NativeViewers.Reopen(project, path)) return;
                 Viewers.ReleasePreview();
-                OpenNative(project, path, name);
+                OpenNative(project, path, name, previewRoot);
                 return;
             }
             ReleaseNativePreview();
@@ -463,7 +463,7 @@ namespace SlopWorld
         static bool Showing(NativeTab tab) => tab != null &&
             ReferenceEquals(TerminalWindow.Showing, tab.View);
 
-        static void OpenNative(string project, string path, string name)
+        static void OpenNative(string project, string path, string name, string previewRoot = null)
         {
             var tab = NativeViewers.ForPreview();
             tab.OriginLabel = ReaderLabel(project, "view-" + name);
@@ -471,8 +471,8 @@ namespace SlopWorld
             tab.Project = project ?? "";
             tab.Path = path;
             tab.View = IsImage(name)
-                ? (ContentView)new ImagePreview(path, name)
-                : new MarkdownPreview(project, path, name);
+                ? (ContentView)new ImagePreview(path, name, previewRoot)
+                : new MarkdownPreview(project, path, name, previewRoot, plainText: !IsMarkdown(name));
             tab.Header = "view-native-" + (++Viewer.NativeHeader);
             TerminalWindow.OpenContent(tab.View);
         }

@@ -12,6 +12,7 @@ namespace SlopWorld
         readonly string _project;
         readonly string _path;
         readonly string _name;
+        readonly bool _plainText;
         readonly MarkdownPathResolver _paths;
         readonly MarkdownDocumentParser _parser;
         readonly MarkdownResourceStore _resources;
@@ -30,26 +31,27 @@ namespace SlopWorld
         float _viewportHeight = -1f;
         int _metricsRevision = int.MinValue;
 
-        public MarkdownPreview(string project, string path, string name)
+        public MarkdownPreview(string project, string path, string name, string root = null, bool plainText = false)
             : this(project, path,
-                string.IsNullOrEmpty(name) ? System.IO.Path.GetFileName(path) : name, null)
+                string.IsNullOrEmpty(name) ? System.IO.Path.GetFileName(path) : name, null, root, plainText)
         {
         }
 
         // Settings pages can preview a document before it exists on disk. Inline documents
         // share the normal Markdown pipeline but never cross the daemon's file-read boundary.
         public MarkdownPreview(string text, string name)
-            : this("", "", string.IsNullOrEmpty(name) ? "preview.md" : name, text ?? "")
+            : this("", "", string.IsNullOrEmpty(name) ? "preview.md" : name, text ?? "", null, false)
         {
         }
 
-        MarkdownPreview(string project, string path, string name, string inlineText)
+        MarkdownPreview(string project, string path, string name, string inlineText, string root, bool plainText)
         {
             _project = project ?? "";
             _path = path ?? "";
             _name = name;
+            _plainText = plainText;
             _inlineText = inlineText;
-            var originRoot = SidebarScopes.Directory(project);
+            var originRoot = root ?? SidebarScopes.Directory(project);
             _paths = new MarkdownPathResolver(_project, _path, () => originRoot);
             _parser = new MarkdownDocumentParser(_paths);
             _resources = new MarkdownResourceStore(_paths);
@@ -86,7 +88,7 @@ namespace SlopWorld
                 return;
             }
 
-            DaemonClient.Get<Wire.TextResult>(WireProtocol.Routes.Read + "?path=" + Uri.EscapeDataString(_path),
+            DaemonClient.Get<Wire.TextResult>(WireProtocol.Routes.Read + _paths.ScopedQuery(_path),
                 j =>
                 {
                     if (!IsCurrent(request)) return;
@@ -159,6 +161,8 @@ namespace SlopWorld
                 _metricsRevision = metricsRevision;
             }
 
+            _resources.RequestVisible(_layout.Placements, _layout.Generation, _scroll.Position.y, body.height,
+                _request, IsCurrent, _layout.Invalidate);
             _scroll.Draw(body, _layout.Width, _layout.Height,
                 (clipTop, clipBottom) => _renderer.Draw(_layout.Placements, _layout.Generation, _selection,
                     clipTop, clipBottom));
@@ -181,7 +185,9 @@ namespace SlopWorld
         {
             try
             {
-                _blocks = _parser.Parse(text);
+                _blocks = _plainText
+                    ? new List<MarkdownBlock> { new MarkdownBlock { Kind = BlockKind.Code, Code = text } }
+                    : _parser.Parse(text);
                 _highlightRevision = CodeHighlight.Revision;
                 _resources.Request(_blocks, request, IsCurrent, _layout.Invalidate);
                 _loading = false;
@@ -205,13 +211,9 @@ namespace SlopWorld
                 UiLayout.Fail("binary local links are not previewable");
                 return;
             }
-            if (FilesView.IsMarkdown(name))
-            {
-                FilesView.ViewFile(_project, path, name);
-                return;
-            }
-
-            FilesView.ViewFile(_project, path, "link-" + name);
+            // Linked text stays in the scoped native reader so a pager cannot reopen an
+            // unchecked symlink after validation. Nested documents retain this origin root.
+            FilesView.ViewFile(_project, path, name, previewRoot: _paths.ProjectRoot ?? "");
         }
 
         static void Status(Rect body, string text, Color color)

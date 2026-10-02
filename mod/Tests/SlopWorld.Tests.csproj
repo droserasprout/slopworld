@@ -13,6 +13,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownImageHeader.cs" Link="Source/MarkdownImageHeader.cs" />
+    <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Resources.cs" Link="Source/MarkdownPreview.Resources.cs" />
+    <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownImageBudget.cs" Link="Source/MarkdownImageBudget.cs" />
     <Compile Include="../Source/SlopWorld/Patches/Agents/EffectiveMethods.cs" Link="Source/EffectiveMethods.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/BrowseScopeCatalog.cs" Link="Source/BrowseScopeCatalog.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/SidebarScopes.Transport.cs" Link="Source/SidebarScopes.Transport.cs" />

@@ -166,7 +166,7 @@ namespace SlopWorld.Tests
 
         static MarkdownLayoutEngine Flow(string source, float width = 300f)
         {
-            var engine = new MarkdownLayoutEngine(new MarkdownResourceStore());
+            var engine = new MarkdownLayoutEngine(new MarkdownResourceStore(new MarkdownPathResolver("", "")));
             engine.Reflow(Parser().Parse(source), width);
             return engine;
         }
@@ -241,7 +241,7 @@ namespace SlopWorld.Tests
             try
             {
                 var blocks = Parser().Parse("```\nWWWW\n```");
-                var engine = new MarkdownLayoutEngine(new MarkdownResourceStore());
+                var engine = new MarkdownLayoutEngine(new MarkdownResourceStore(new MarkdownPathResolver("", "")));
                 engine.Reflow(blocks, 300);
                 var before = engine.Placements[0];
                 TerminalFont.Style = new GUIStyle(oldStyle) { fontSize = 24 };

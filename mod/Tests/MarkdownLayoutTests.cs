@@ -14,7 +14,7 @@ namespace SlopWorld.Tests
 
         static MarkdownLayoutEngine Flow(float width, params MarkdownBlock[] blocks)
         {
-            var engine = new MarkdownLayoutEngine(new MarkdownResourceStore());
+            var engine = new MarkdownLayoutEngine(new MarkdownResourceStore(new MarkdownPathResolver("", "")));
             engine.Reflow(blocks.ToList(), width);
             return engine;
         }
@@ -158,7 +158,7 @@ namespace SlopWorld.Tests
         public static void InvalidationAndClearRebuildAtTheSameWidth()
         {
             var blocks = new List<MarkdownBlock> { Paragraph(new InlineRun { Text = "first" }) };
-            var engine = new MarkdownLayoutEngine(new MarkdownResourceStore());
+            var engine = new MarkdownLayoutEngine(new MarkdownResourceStore(new MarkdownPathResolver("", "")));
             engine.InvalidateTypography();
             engine.Reflow(blocks, 200);
             var first = engine.Placements.Single();

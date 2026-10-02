@@ -12,15 +12,17 @@ namespace SlopWorld
     {
         readonly string _path;
         readonly string _name;
+        readonly string _root;
         readonly SmoothScroll _scroll = new SmoothScroll();
         Texture2D _texture;
         string _error;
         int _request;
         bool _actualSize;
 
-        public ImagePreview(string path, string name)
+        public ImagePreview(string path, string name, string root = null)
         {
             _path = path ?? "";
+            _root = root;
             _name = string.IsNullOrEmpty(name) ? Path.GetFileName(_path) : name;
         }
 
@@ -33,14 +35,18 @@ namespace SlopWorld
             ReleaseTexture();
             _scroll.JumpTo(Vector2.zero);
             DaemonClient.Get<Wire.ImageResult>(WireProtocol.Routes.Image +
-                "?path=" + Uri.EscapeDataString(_path), result =>
+                "?path=" + Uri.EscapeDataString(_path) +
+                (_root == null ? "" : "&root=" + Uri.EscapeDataString(_root)), result =>
                 {
                     if (request != _request) return;
                     Texture2D texture = null;
                     try
                     {
+                        var bytes = result.Data.ToByteArray();
+                        if (!MarkdownImageHeader.TrySize(bytes, out int width, out int height))
+                            throw new InvalidDataException("Image dimensions exceed the preview limit or are invalid");
                         texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-                        if (!texture.LoadImage(result.Data.ToByteArray(), true))
+                        if (!texture.LoadImage(bytes, true) || texture.width != width || texture.height != height)
                             throw new InvalidDataException("Unity could not decode the image");
                         texture.name = "SlopWorld image " + _name;
                         texture.hideFlags = HideFlags.HideAndDontSave;
