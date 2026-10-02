@@ -3,7 +3,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Pane geometry measurement and debounced daemon resize negotiation.
+    // Workspace arrangement and refresh dispatch. TerminalPanel.Sizing owns resize negotiation.
     public partial class TerminalWindow
     {
         // Retain pane geometry while a content view covers the workspace.
@@ -13,16 +13,13 @@ namespace SlopWorld
         internal static void RefreshPanels()
         {
             var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
-            if (window != null && window._terminals.Split)
+            if (window != null)
             {
                 window.ArrangeTerminal(WorkspaceLayout.Current.Content);
                 window._terminals.First.RefreshSize();
-                window._terminals.Second.RefreshSize();
-                SessionHub.Instance.Terminal.RefreshPanels();
+                window._terminals.Second?.RefreshSize();
             }
-            else if (TryPanelShape(out int cols, out int rows))
-                SessionHub.Instance.Terminal.RefreshPanels(cols, rows);
-            else SessionHub.Instance.Terminal.RefreshPanels();
+            SessionHub.Instance.Terminal.RefreshPanels();
         }
 
         internal static bool TryPanelShape(out int cols, out int rows)

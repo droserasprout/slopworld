@@ -106,7 +106,7 @@ namespace SlopWorld
                 defaultLabel = "Terminal",
                 defaultDesc = $"Open the terminal for '{Session}'.\nState: {state.ToString().ToLower()}",
                 icon = Icons.Terminal,
-                defaultIconColor = TerminalWindow.StateColor(state),
+                defaultIconColor = UiTheme.AgentStateColor(state),
                 hotKey = ModDefOf.SlopOpenTerminal,
                 action = () => TerminalWindow.Open(Session),
             };

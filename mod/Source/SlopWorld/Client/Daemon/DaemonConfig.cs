@@ -77,10 +77,26 @@ namespace SlopWorld
         public const int ClientMaxRows = 200;
 
         public int ScrollbackLines = 10000;
-        public int MinCols = 20;
+        public const int DefaultMinCols = 20;
+        public const int DefaultMinRows = 5;
+        public int MinCols = DefaultMinCols;
         public int MaxCols = 500;
-        public int MinRows = 5;
+        public int MinRows = DefaultMinRows;
         public int MaxRows = 200;
+
+        public void EffectiveRange(out int minCols, out int maxCols, out int minRows, out int maxRows)
+        {
+            EffectiveAxis(MinCols, MaxCols, DefaultMinCols, ClientMaxCols, out minCols, out maxCols);
+            EffectiveAxis(MinRows, MaxRows, DefaultMinRows, ClientMaxRows, out minRows, out maxRows);
+        }
+
+        static void EffectiveAxis(int minimum, int maximum, int defaultMinimum, int ceiling,
+                                  out int min, out int max)
+        {
+            bool valid = minimum >= 1 && maximum >= minimum;
+            min = valid ? Math.Min(ceiling, minimum) : defaultMinimum;
+            max = valid ? Math.Max(min, Math.Min(ceiling, maximum)) : ceiling;
+        }
 
         public static TerminalLimits FromWire(Wire.TerminalCapabilities j)
         {

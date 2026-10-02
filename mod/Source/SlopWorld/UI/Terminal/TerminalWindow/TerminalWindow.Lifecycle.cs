@@ -240,15 +240,6 @@ namespace SlopWorld
             window._terminals.OpenSplit(name);
         }
 
-        public static Color StateColor(AgentState s)
-        {
-            switch (s)
-            {
-                case AgentState.Working: return UiTheme.StateWorking;
-                case AgentState.Waiting: return UiTheme.StateWaiting;
-                case AgentState.Idle: return UiTheme.StateIdle;
-                default: return UiTheme.StateDown;
-            }
-        }
+
     }
 }

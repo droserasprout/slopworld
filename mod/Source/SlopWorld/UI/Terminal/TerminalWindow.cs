@@ -78,7 +78,7 @@ namespace SlopWorld
                     bool input = Find.WindowStack == null || Find.WindowStack.GetsInput(this);
                     _panels.SetFocus(input);
                     Rect body = DrawTopBar(rect, input);
-                    DrawBody(body, input, hub);
+                    DrawBody(body, input);
                     Find.CurrentMap?.GetComponent<CoreTip>()?.DrawHint();
                     if (TerminalVisible && _showStopped && _name != null && hub.Get(_name)?.Gone == true)
                         MapGizmoUtility.MapUIOnGUI();
@@ -109,20 +109,19 @@ namespace SlopWorld
                 Mathf.Max(0f, body.height - pad * 2f));
         }
 
-        bool DrawBody(Rect body, bool input, SessionHub hub)
+        void DrawBody(Rect body, bool input)
         {
             var active = _panels.Active;
-            if (active == null) return false;
+            if (active == null) return;
             if (!TerminalVisible && input) _terminal.HandleChrome(Event.current);
             // Chrome input may close or replace the panel. Do not deliver the same event
             // to its replacement using bounds computed for the old panel.
-            if (!ReferenceEquals(active, _panels.Active)) return false;
+            if (!ReferenceEquals(active, _panels.Active)) return;
             _panels.Arrange(new UiLayoutRect(body.x, body.y, body.width, body.height));
             if (TerminalVisible || active is OptionsView) active.Draw(body);
             else
                 using (new FieldFocusScope(_fieldLifetime, input && !ModOptions.KeyboardCaptureActive))
                     active.Draw(body);
-            return TerminalVisible && _terminal.DrewScreen;
         }
 
     }

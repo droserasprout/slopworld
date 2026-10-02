@@ -56,7 +56,7 @@ namespace SlopWorld
         {
             // State chip, so the list scans the same way the map overlay does.
             var chip = new Rect(r.x + 6f, r.y + 6f, 10f, r.height - 12f);
-            Slab.Fill(chip, TerminalWindow.StateColor(s.State));
+            Slab.Fill(chip, UiTheme.AgentStateColor(s.State));
 
             float l1 = UiListRow.LineY(r, 0);
 
@@ -71,7 +71,7 @@ namespace SlopWorld
 
             // The state in words next to the name, so the row scans without decoding the
             // color of the chip beside it.
-            GUI.color = TerminalWindow.StateColor(s.State);
+            GUI.color = UiTheme.AgentStateColor(s.State);
             UiText.RowLabel(new Rect(stateX, l1, UiTheme.Wide("connecting") + 4f,
                 UiTheme.LineH), s.State.ToString().ToLower());
             GUI.color = UiTheme.Dim;
