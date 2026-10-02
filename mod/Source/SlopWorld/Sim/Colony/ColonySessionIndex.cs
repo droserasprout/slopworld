@@ -6,8 +6,12 @@ namespace SlopWorld
     internal sealed class ColonySessionIndex
     {
         readonly HashSet<string> _names = new HashSet<string>();
+        readonly HashSet<string> _eligibleNames = new HashSet<string>();
         long _version = -1;
         bool _initialized;
+
+        internal static bool IsColonySession(SessionInfo session) =>
+            !session.Ephemeral && !session.Worker;
 
         public bool Contains(string name) => _names.Contains(name);
 
@@ -15,20 +19,15 @@ namespace SlopWorld
         {
             if (_initialized && _version == version) return false;
             _version = version;
-            int count = 0;
-            bool changed = !_initialized;
+            _eligibleNames.Clear();
             foreach (var session in sessions)
-            {
-                if (session.Ephemeral || session.Worker) continue;
-                count++;
-                if (!_names.Contains(session.Name)) changed = true;
-            }
+                if (IsColonySession(session)) _eligibleNames.Add(session.Name);
+            bool changed = !_initialized || !_names.SetEquals(_eligibleNames);
             _initialized = true;
-            if (!changed && count == _names.Count) return false;
+            if (!changed) return false;
 
             _names.Clear();
-            foreach (var session in sessions)
-                if (!session.Ephemeral && !session.Worker) _names.Add(session.Name);
+            _names.UnionWith(_eligibleNames);
             return true;
         }
     }

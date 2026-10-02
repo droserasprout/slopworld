@@ -50,9 +50,18 @@ namespace SlopWorld
             new Weighted { Color = EyeColor.Missing, Weight = 10f },
  };
 
-        // Per-pawn assignment, stable across saves for the life of the pawn. Keyed on
-        // thingIDNumber because it survives a spawn cycle.
+        // Runtime assignments keyed by pawn identity. AgentColony persists bound variants.
         static readonly Dictionary<int, EyeColor> _eyeColors = new Dictionary<int, EyeColor>();
+
+        static Game _assignmentGame;
+
+        static void EnsureAssignmentGame()
+        {
+            var game = Current.Game;
+            if (ReferenceEquals(_assignmentGame, game)) return;
+            _assignmentGame = game;
+            _eyeColors.Clear();
+        }
 
         // Omit _north because the faceplate node is hidden when facing north.
         // Graphic_Multi mirrors _east for the west view.
@@ -75,7 +84,7 @@ namespace SlopWorld
                 pawn.story.hairDef = hair;
                 return;
             }
-            // Keep the last style after exhausting attempts so hair remains non-null.
+            // Keep the original scalp style after exhausting attempts.
         }
 
         public static void RandomizeHairColor(Pawn pawn)
@@ -91,6 +100,7 @@ namespace SlopWorld
         public static void Assign(Pawn pawn)
         {
             if (pawn == null) return;
+            EnsureAssignmentGame();
             if (_eyeColors.ContainsKey(pawn.thingIDNumber)) return;
 
             var color = ColorWeights.RandomElementByWeight(p => p.Weight).Color;
@@ -103,6 +113,7 @@ namespace SlopWorld
         {
             if (pawn?.story == null) return;
 
+            EnsureAssignmentGame();
             _eyeColors[pawn.thingIDNumber] =
                 ColorWeights.RandomElementByWeight(p => p.Weight).Color;
 
@@ -122,7 +133,16 @@ namespace SlopWorld
         public static EyeColor ColorOf(Pawn pawn)
         {
             if (pawn == null) return EyeColor.Blue;
+            EnsureAssignmentGame();
             return _eyeColors.TryGetValue(pawn.thingIDNumber, out var c) ? c : EyeColor.Blue;
+        }
+
+        internal static void Restore(Pawn pawn, EyeColor color)
+        {
+            if (pawn == null) return;
+            EnsureAssignmentGame();
+            _eyeColors[pawn.thingIDNumber] = color;
+            pawn.Drawer?.renderer?.SetAllGraphicsDirty();
         }
 
         // The texPath for this pawn's eye color, falling back to Blue if unassigned.

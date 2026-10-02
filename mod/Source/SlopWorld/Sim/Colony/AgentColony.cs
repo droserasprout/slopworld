@@ -255,21 +255,21 @@ namespace SlopWorld
         bool PendingRenameKeeps(string name)
         {
             var hub = SessionHub.Instance;
-            return AgentRenamePolicy.Keeps(name, _membership.Contains,
+            return AgentRenamePolicy.KeepsBinding(name, _membership.Contains,
                 hub.PendingRenameDestination, hub.PendingRenameSource);
         }
 
         bool PendingRenameCovers(string sessionName)
         {
             var hub = SessionHub.Instance;
-            return AgentRenamePolicy.Covers(sessionName, _pawns.ContainsKey,
+            return AgentRenamePolicy.HasBindingForSession(sessionName, _pawns.ContainsKey,
                 hub.PendingRenameDestination, hub.PendingRenameSource);
         }
 
         string PendingRenameSession(string bindingName)
         {
             var hub = SessionHub.Instance;
-            return AgentRenamePolicy.SessionName(bindingName, _membership.Contains,
+            return AgentRenamePolicy.ResolveSessionName(bindingName, _membership.Contains,
                 hub.PendingRenameDestination, hub.PendingRenameSource);
         }
 
@@ -484,6 +484,9 @@ namespace SlopWorld
             return map.Center;
         }
 
+        // Save eye variants by binding name, alongside the pawn references.
+        Dictionary<string, RobotFace.EyeColor> _savedEyeColors;
+
         // Supply working lists for Scribe_Collections to retain dictionary keys and values between XML loading and reference resolution.
         // The short overload cannot supply these lists for Reference values and returns an empty dictionary with an error.
         // Only Scribe uses these temporary lists.
@@ -498,6 +501,22 @@ namespace SlopWorld
             if (_pawns == null) _pawns = new Dictionary<string, Pawn>();
             Scribe_Collections.Look(ref _seen, "agentStates", LookMode.Value, LookMode.Value);
             if (_seen == null) _seen = new Dictionary<string, AgentState>();
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
+                _savedEyeColors = new Dictionary<string, RobotFace.EyeColor>();
+                foreach (var binding in _pawns)
+                    if (binding.Value != null)
+                        _savedEyeColors[binding.Key] = RobotFace.ColorOf(binding.Value);
+            }
+            Scribe_Collections.Look(ref _savedEyeColors, "agentEyeColors", LookMode.Value, LookMode.Value);
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                foreach (var binding in _pawns)
+                    if (_savedEyeColors != null && _savedEyeColors.TryGetValue(binding.Key, out var color))
+                        RobotFace.Restore(binding.Value, color);
+                    else RobotFace.Assign(binding.Value);
+                _savedEyeColors = null;
+            }
             Scribe_Values.Look(ref _jukeboxSent, "jukeboxSent", false);
             _reindex = true; // whatever the table is now, it is not what the index holds
             _orderDirty = true;

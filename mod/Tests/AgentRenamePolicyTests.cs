@@ -105,7 +105,7 @@ namespace SlopWorld.Tests
 
             foreach (var name in bindings.Keys.ToList())
                 if (!members.Contains(name) &&
-                    !AgentRenamePolicy.Keeps(name, members.Contains, Destination, Source))
+                    !AgentRenamePolicy.KeepsBinding(name, members.Contains, Destination, Source))
                 {
                     bindings.Remove(name);
                     seen.Remove(name);
@@ -113,12 +113,12 @@ namespace SlopWorld.Tests
 
             foreach (var session in store.Sessions)
                 if (members.Contains(session.Name) && !bindings.ContainsKey(session.Name) &&
-                    !AgentRenamePolicy.Covers(session.Name, bindings.ContainsKey, Destination, Source))
+                    !AgentRenamePolicy.HasBindingForSession(session.Name, bindings.ContainsKey, Destination, Source))
                     bindings[session.Name] = new PawnState("spawned-" + session.Name, AgentState.Down);
 
             foreach (var name in bindings.Keys.ToList())
             {
-                string session = AgentRenamePolicy.SessionName(name, members.Contains,
+                string session = AgentRenamePolicy.ResolveSessionName(name, members.Contains,
                                                                 Destination, Source);
                 var state = store.Get(session)?.State ?? AgentState.Down;
                 seen[name] = state;
