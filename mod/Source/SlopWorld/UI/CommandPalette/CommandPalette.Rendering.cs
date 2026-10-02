@@ -8,6 +8,7 @@ namespace SlopWorld
     {
         public override void DoWindowContents(Rect rect)
         {
+            using (WidgetState.Save())
             using (FieldLifetimeScope.Push(_fieldLifetime))
             {
                 // A raised rectangular surface: this is an instrument panel, not a vanilla menu.
@@ -150,7 +151,7 @@ namespace SlopWorld
                     var row = new Rect(0f, y, view.width, RowH);
                     bool selected = i == _subIndex;
 
-                    RowChrome.Hover(row, selected, true, RowHoverPolicy.Local,
+                    RowChrome.Hover(row, selected, options[i].O.Enabled, RowHoverPolicy.Local,
                         RowSelectionStyle.Palette);
 
                     if (UiButtons.RowButton(row))

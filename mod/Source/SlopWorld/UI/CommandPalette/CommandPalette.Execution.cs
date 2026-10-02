@@ -197,7 +197,7 @@ namespace SlopWorld
                     {
                         Command = e,
                         Label = Fuzzy.Highlight(e.Label, hits),
-                        Score = score + RecentBonus(e.Id),
+                        Score = score,
                     });
                 }
                 else if (Fuzzy.Match(e.Id, _filter, out score))
@@ -208,19 +208,19 @@ namespace SlopWorld
                     {
                         Command = e,
                         Label = e.Label,
-                        Score = score - IdCost + RecentBonus(e.Id),
+                        Score = score - IdCost,
                     });
                 }
             }
 
-            // Keep catalog order when commands have the same score.
-            _matches.AddRange(scored.OrderByDescending(h => h.Score));
+            // Recency breaks equal-score ties; otherwise preserve catalog order.
+            _matches.AddRange(scored.OrderByDescending(h => h.Score)
+                .ThenByDescending(h => RecentBonus(h.Command.Id)));
         }
 
         bool Listed(CommandDef e) => _matches.Any(h => h.Command == e);
 
-        // Give recent commands a small score bonus.
-        // The bonus breaks ties but cannot outrank a better match.
+        // Used only after the fuzzy score, so recency cannot outrank a better match.
         static int RecentBonus(string id)
         {
             int i = _recent.IndexOf(id);

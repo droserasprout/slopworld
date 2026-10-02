@@ -160,7 +160,7 @@ namespace SlopWorld
             return false;
         }
 
-        float DrawCommandInput(Rect inner)
+        void DrawCommandInput(Rect inner)
         {
             string was = _input;
             _input = UiText.BareField(inner, "paletteInput", _input);
@@ -172,7 +172,6 @@ namespace SlopWorld
                 _scroll.JumpTo(Vector2.zero);
                 Resize();
             }
-            return inner.height;
         }
 
         void BackToCommands()

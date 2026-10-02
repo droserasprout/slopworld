@@ -16,16 +16,18 @@ namespace SlopWorld
 
         // --------------------------------------------------------------- sub-option builders
 
+        static SubOption AgentOption(SessionInfo session) => new SubOption
+        {
+            Label = $"{session.Name}  ({session.State.ToString().ToLowerInvariant()})  -  {session.Project}",
+            Value = session.Name,
+        };
+
         static List<SubOption> AgentsSub(params AgentState[] states)
         {
             var set = new HashSet<AgentState>(states);
             var list = SessionHub.Instance.Sessions
                 .Where(s => set.Contains(s.State) && !s.Ephemeral)
-                .Select(s => new SubOption
-                {
-                    Label = $"{s.Name}  ({s.State.ToString().ToLower()})  -  {s.Project}",
-                    Value = s.Name,
-                })
+                .Select(AgentOption)
                 .ToList();
 
             if (list.Count == 0)
@@ -37,11 +39,7 @@ namespace SlopWorld
         {
             var list = SessionHub.Instance.Sessions
                 .Where(s => !s.Ephemeral && !s.Host)
-                .Select(s => new SubOption
-                {
-                    Label = $"{s.Name}  ({s.State.ToString().ToLower()})  -  {s.Project}",
-                    Value = s.Name,
-                })
+                .Select(AgentOption)
                 .ToList();
 
             if (list.Count == 0)
@@ -53,11 +51,7 @@ namespace SlopWorld
         {
             var list = SessionHub.Instance.Sessions
                 .Where(s => !s.Ephemeral && !s.Host && !s.Worker)
-                .Select(s => new SubOption
-                {
-                    Label = $"{s.Name}  ({s.State.ToString().ToLower()})  -  {s.Project}",
-                    Value = s.Name,
-                })
+                .Select(AgentOption)
                 .ToList();
 
             if (list.Count == 0)
@@ -70,11 +64,7 @@ namespace SlopWorld
             var colony = AgentColony.Current;
             var list = SessionHub.Instance.Sessions
                 .Where(s => !s.Ephemeral && !s.Host && colony?.PawnOf(s.Name) != null)
-                .Select(s => new SubOption
-                {
-                    Label = $"{s.Name}  ({s.State.ToString().ToLower()})  -  {s.Project}",
-                    Value = s.Name,
-                })
+                .Select(AgentOption)
                 .ToList();
 
             if (list.Count == 0)
@@ -89,11 +79,7 @@ namespace SlopWorld
         {
             var list = SessionHub.Instance.Sessions
                 .Where(s => !s.Host && !s.Worker && !string.IsNullOrEmpty(s.Project))
-                .Select(s => new SubOption
-                {
-                    Label = $"{s.Name}  ({s.State.ToString().ToLower()})  -  {s.Project}",
-                    Value = s.Name,
-                })
+                .Select(AgentOption)
                 .ToList();
 
             if (list.Count == 0)
