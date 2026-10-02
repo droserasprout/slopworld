@@ -147,7 +147,8 @@ namespace SlopWorld
             // Said rather than corrected: a half-typed "#8" is not a mistake yet, and a field
             // that rewrote itself under the cursor would be unusable.
             if (!string.IsNullOrEmpty(s.cursorColor) &&
-                !TerminalTheme.TryHex(s.cursorColor, out _))
+                (!HexColor.TryHex(s.cursorColor, out _) ||
+                 s.cursorColor.Trim().TrimStart('#').Length != 6))
             {
                 GUI.color = UiTheme.Bad;
                 l.Label("Enter a valid #rrggbb color, or leave the field blank to use the theme cursor color.");

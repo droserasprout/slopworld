@@ -20,54 +20,20 @@ namespace SlopWorld
         {
             Name = name;
             Label = label;
-            Fg = Hex(fg);
-            Bg = Hex(bg);
-            Cursor = Hex(cursor);
-            CursorText = Hex(cursorText);
-            Selection = Hex(selection, 0.35f);
-            Link = Hex(link);
+            Fg = HexColor.Hex(fg);
+            Bg = HexColor.Hex(bg);
+            Cursor = HexColor.Hex(cursor);
+            CursorText = HexColor.Hex(cursorText);
+            Selection = HexColor.Hex(selection, 0.35f);
+            Link = HexColor.Hex(link);
             Ansi = new Color[16];
-            for (int i = 0; i < Ansi.Length; i++) Ansi[i] = Hex(ansi[i]);
+            for (int i = 0; i < Ansi.Length; i++) Ansi[i] = HexColor.Hex(ansi[i]);
         }
 
         TerminalTheme(ThemeCatalog.TerminalRecord record)
             : this(record.Id, record.Label, record.Fg, record.Bg, record.Cursor,
                    record.CursorText, record.Selection, record.Link, record.Ansi)
         { }
-
-        public static Color Hex(string s, float a = 1f)
-        {
-            if (TryHex(s, out var c)) { c.a *= a; return c; }
-            return new Color(1f, 1f, 1f, a);
-        }
-
-        public static bool TryHex(string s, out Color c)
-        {
-            c = Color.white;
-            if (string.IsNullOrEmpty(s)) return false;
-            s = s.Trim();
-            if (s.Length > 0 && s[0] == '#') s = s.Substring(1);
-            if (s.Length != 6 && s.Length != 8) return false;
-            uint v = 0;
-            for (int i = 0; i < s.Length; i++)
-            {
-                int d = Digit(s[i]);
-                if (d < 0) return false;
-                v = v * 16u + (uint)d;
-            }
-            if (s.Length == 6) v = (v << 8) | 0xFF;
-            c = new Color(((v >> 24) & 0xFF) / 255f, ((v >> 16) & 0xFF) / 255f,
-                          ((v >> 8) & 0xFF) / 255f, (v & 0xFF) / 255f);
-            return true;
-        }
-
-        static int Digit(char ch)
-        {
-            if (ch >= '0' && ch <= '9') return ch - '0';
-            if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
-            if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
-            return -1;
-        }
 
         static List<TerminalTheme> _all;
 
@@ -135,7 +101,7 @@ namespace SlopWorld
             string hex = Settings.CursorColor;
             if (_current != null && _name == name && _cursorHex == hex) return;
             _current = Get(name);
-            _cursor = TryHex(hex, out var c) ? c : _current.Cursor;
+            _cursor = HexColor.TryHex(hex, out var c) ? c : _current.Cursor;
             _name = name;
             _cursorHex = hex;
             _rev++;

@@ -2,7 +2,9 @@
 
 `TerminalRunCache` owns cached ANSI rows and coordinates link decoration.
 `Sgr` decodes styled rows into the shared `SgrRun` model. `TerminalAutolinks` owns
-screen-wide link spans and run decoration; `UrlScan` recognizes URL text.
+screen-wide link spans and run decoration; `UrlScan` recognizes URL text. Missing OSC 8 URI fields leave the current link intact;
+only an explicit empty URI closes it. Column-position escapes take the decoded-grid
+link scan because overwrites can join URL delimiters.
 The panel owns rendered text. Texture creation failure disables caching for that panel and falls back to direct painting.
 Cursor/selection overlays
 must not force text repaint. Row damage describes one received revision: if painting skipped
@@ -24,7 +26,8 @@ scale. Clamp that small sampling overrun; larger excursions still use direct pai
 to avoid repeating the texture edge during fractional scrolling.
 
 Parsed runs contain resolved colors. Theme revision must invalidate both parsed and rendered
-caches.
+caches. Shared RGB/RGBA decoding belongs to `HexColor`; terminal theme and cursor
+resolution remain in `TerminalTheme`.
 Match UI follows the UI scheme. Explicit terminal themes do not. Font atlas and UI
 scale changes also affect cell geometry and cached textures. Entering or leaving an
 alternate-screen app such as `less` invalidates the pixel cache even when the visible rows and

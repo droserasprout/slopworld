@@ -84,7 +84,7 @@ namespace SlopWorld
         // Six digits is opaque. Eight carries alpha. Invalid values are magenta so a broken
         // hand-edited catalog is visible during development instead of silently black.
         static Color Hex(string s) =>
-            TerminalTheme.TryHex(s, out var c) ? c : Color.magenta;
+            HexColor.TryHex(s, out var c) ? c : Color.magenta;
 
         // Catalog validation keeps Accent, Destructive and CheckFace opaque.
         // Callers use those roles without opacity fades when selecting contrast.

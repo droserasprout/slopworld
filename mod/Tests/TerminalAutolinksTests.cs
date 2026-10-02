@@ -12,6 +12,15 @@ namespace SlopWorld.Tests
             yield return ("preserves explicit hyperlink metadata", PreservesExplicitHyperlink);
         }
 
+        public static void LinksAfterColumnOverwrite()
+        {
+            var cache = new TerminalRunCache();
+            var rows = cache.Parse(new[] { "https:xxxxx\x1b[7G//host" }, 20, 1, 1,
+                out _, out _);
+            AssertEx.True(rows[0].Exists(run => run.Url == "https://host"),
+                "candidate filtering preserves links assembled by CHA overwrite");
+        }
+
         static void AutolinksAcrossColorsAndRows()
         {
             AssertEx.False(TerminalAutolinks.MayContainLink(new[] { "plain output", "with ANSI \x1b[31mred" }),

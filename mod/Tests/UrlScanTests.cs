@@ -73,6 +73,8 @@ namespace SlopWorld.Tests
             AssertEx.Equal("http://x", UrlScan.Osc("8;id=1;http://x"), "params are skipped");
             AssertEx.Equal("", UrlScan.Osc("8;;"), "an empty uri closes a link");
             AssertEx.True(UrlScan.Osc("0;title") == null, "a non-link OSC leaves the caller's url standing");
+            AssertEx.True(UrlScan.Osc("8;") == null, "missing URI does not close a link");
+            AssertEx.True(UrlScan.Osc("8;id=1") == null, "parameters without URI leave the link open");
             AssertEx.True(UrlScan.Osc(null) == null, "null body is not a link");
         }
 

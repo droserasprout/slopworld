@@ -56,8 +56,8 @@ namespace SlopWorld
             wash.a = 0.14f;
             foreach (var span in _links.HoverSpans)
             {
-                float l = SnapX(body.x + span.C0 * cw);
-                float r = SnapX(body.x + span.C1 * cw);
+                float l = SnapX(body.x + span.StartColumn * cw);
+                float r = SnapX(body.x + span.EndColumnExclusive * cw);
                 l = Mathf.Max(l, body.x);
                 r = Mathf.Min(r, body.xMax);
                 if (r <= l) continue;

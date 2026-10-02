@@ -6,7 +6,7 @@ using UnityEngine;
 namespace SlopWorld
 {
     // The daemon's emulator already did the hard part. Therefore, we only ever see SGR color
-    // escapes, CHA column markers and the OSC 8 links it passes on.
+    // escapes, CHA column markers, private cell-width markers and OSC 8 links.
     public static class Sgr
     {
         // The active scheme supplies the default pane foreground and background colors.

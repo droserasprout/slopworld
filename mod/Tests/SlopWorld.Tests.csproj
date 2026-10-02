@@ -14,7 +14,7 @@
 
   <ItemGroup>
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalHistoryRestore.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalWindow/TerminalLinkService.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalPanel/TerminalLinkService.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/RealClock.Formatting.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/QuitInterceptor.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/LogEntryClock.cs" />
