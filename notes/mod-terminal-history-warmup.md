@@ -1,7 +1,8 @@
 # Terminal history
 
 `TerminalHistory` indexes snapshots in live-bottom coordinates. Live growth shifts that
-coordinate system.
+coordinate system. Storage uses wide coordinates; a shift beyond the entire retained
+range clears and reseeds the cache without walking the reported shift.
 Translate delayed replies using the captured and current history extents.
 
 A TUI may rewrite its prompt before scrolling. Old live rows and a delayed capture's live

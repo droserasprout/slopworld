@@ -218,7 +218,7 @@ namespace SlopWorld
 
                     _panel._historyRequests.Remove(sb.ScrollRequestId);
                     int shift = TerminalHistory.CaptureShift(sb, live);
-                    _panel._history.Add(sb, live, request.Offset, allowStale: !current);
+                    _panel._history.Add(sb, live, allowStale: !current);
                     int history = sb.History + shift;
                     if (live != null && live.Seq >= sb.Seq)
                         history = live.History;
