@@ -33,7 +33,9 @@ namespace SlopWorld
             if (map == null) return;
 
             if (!_used && Event.current.type == EventType.MouseDown && Event.current.button == 0
-                && Find.WindowStack.FloatMenu == null)
+                && Find.WindowStack.FloatMenu == null
+                && !Find.WindowStack.AnyWindowAbsorbingAllInput
+                && Find.WindowStack.GetWindowAt(Event.current.mousePosition) == null)
             {
                 var pawn = At(map, UI.MouseCell());
                 if (pawn != null)
