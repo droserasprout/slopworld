@@ -9,6 +9,7 @@ namespace SlopWorld
         public static bool Intersects(float rowTop, float rowHeight, float top, float height) =>
             rowHeight > 0f && height > 0f && rowTop + rowHeight > top && rowTop < top + height;
 
+        // Ends must be nondecreasing exclusive row ends. Returns Count if none ends after top.
         public static int First(IList<float> ends, float top)
         {
             int lo = 0, hi = ends.Count;

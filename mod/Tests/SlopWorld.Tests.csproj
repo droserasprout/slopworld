@@ -120,7 +120,7 @@
     <Compile Include="../Source/SlopWorld/Patches/AgentSidebar/SidebarViewHistory.cs" Link="Source/Patches/AgentSidebar/SidebarViewHistory.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/ContentTreeState.cs" Link="Source/UI/Views/Shared/ContentTreeState.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/SelectionCommandPolicy.cs" Link="Source/UI/Text/SelectionCommandPolicy.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/VisibleRows.cs" Link="Source/UI/Views/Shared/VisibleRows.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/VisibleRows.cs" Link="Source/UI/Chrome/VisibleRows.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/ContentTreeIndex.cs" Link="Source/UI/Views/Shared/ContentTreeIndex.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/ProjectSessionCounts.cs" Link="Source/UI/Views/Shared/ProjectSessionCounts.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/RoutedSessionRows.cs" Link="Source/UI/Views/Shared/RoutedSessionRows.cs" />
@@ -154,7 +154,7 @@
     <Compile Include="../Source/SlopWorld/Client/Generated/*.cs" Link="Source/Client/Generated/%(Filename)%(Extension)" />
     <Compile Include="../Source/SlopWorld/UI/Utilities/Fuzzy.cs" Link="Source/UI/Utilities/Fuzzy.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/UrlScan.cs" Link="Source/UI/Terminal/UrlScan.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/PathScan.cs" Link="Source/UI/Views/Shared/PathScan.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Utilities/PathScan.cs" Link="Source/UI/Utilities/PathScan.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Sgr.cs" Link="Source/UI/Terminal/Sgr.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/SgrRun.cs" Link="Source/UI/Terminal/SgrRun.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalAutolinks.cs" Link="Source/UI/Terminal/TerminalAutolinks.cs" />

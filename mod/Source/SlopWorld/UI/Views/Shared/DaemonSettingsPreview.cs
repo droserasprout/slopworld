@@ -8,13 +8,23 @@ namespace SlopWorld
     public sealed class DaemonSettingsPreview
     {
         readonly AsyncLoadState<SandboxPreviewData> _load = new AsyncLoadState<SandboxPreviewData>();
-        string _key;
+        readonly struct PreviewKey : IEquatable<PreviewKey>
+        {
+            readonly string _endpoint;
+            readonly int _connectionGeneration;
+            readonly string _catalogRevision;
+            public PreviewKey(string endpoint, int connectionGeneration, string catalogRevision)
+            { _endpoint = endpoint; _connectionGeneration = connectionGeneration; _catalogRevision = catalogRevision; }
+            public bool Equals(PreviewKey other) => _endpoint == other._endpoint &&
+                _connectionGeneration == other._connectionGeneration && _catalogRevision == other._catalogRevision;
+        }
+        PreviewKey? _key;
         Wire.SettingsPreviewRequest _body;
 
         public void Draw(Rect rect, Wire.SettingsPreviewRequest body, ref SmoothScroll scroll)
         {
-            string key = DaemonClient.BaseUrl + "\n" + SessionHub.Instance.ConnectionGeneration + "\n" + SessionHub.Instance.Catalog.SettingsRevision;
-            if (_key != key || !body.Equals(_body))
+            var key = new PreviewKey(DaemonClient.BaseUrl, SessionHub.Instance.ConnectionGeneration, SessionHub.Instance.Catalog.SettingsRevision);
+            if (!_key.HasValue || !_key.Value.Equals(key) || !body.Equals(_body))
             {
                 _key = key;
                 _body = body.Clone();

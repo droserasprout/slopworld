@@ -10,8 +10,6 @@ namespace SlopWorld
     {
         public string Title = "";
         public string Subtitle = "";
-        public string Network = "";
-        public List<string> Presets = new List<string>();
         public List<string> Notes = new List<string>();
         public List<SandboxPreviewField> Fields = new List<SandboxPreviewField>();
 

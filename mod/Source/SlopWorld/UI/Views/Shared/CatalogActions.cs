@@ -4,7 +4,7 @@ namespace SlopWorld
     static class CatalogActions
     {
         static void StartFailed(string name, string message) =>
-            TerminalWindow.OpenOverPane(AlertDialog.Create("Agent failed to start",
+            TerminalWindow.OpenOverPane(AlertDialog.Create("Session failed to start",
                 $"Could not start '{name}':\n{message}", "OK", null,
                 primaryKind: UiTheme.Btn.Danger));
 

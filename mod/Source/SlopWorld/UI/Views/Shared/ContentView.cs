@@ -8,7 +8,7 @@ namespace SlopWorld
         // What the top bar calls this, where a pane would have named its agent.
         string Title { get; }
 
-        // The body rect, in screen coordinates. Called once a frame per event.
+        // The body rect, in screen coordinates. Called for each IMGUI event; a frame may contain multiple events.
         void Draw(Rect body);
 
     }
@@ -29,12 +29,4 @@ namespace SlopWorld
         public virtual void FocusChanged(bool focused) { Focused = focused; }
     }
 
-    // An options page is built lazily, loaded once, then handed its rect. Config-backed pages
-    // use Load to read their source, while local pages can make it a no-op. The shared shape
-    // lets ModOptions dispatch every category from the same tab table.
-    public interface IOptionPage
-    {
-        void Load();
-        void Draw(Rect rect);
-    }
 }
