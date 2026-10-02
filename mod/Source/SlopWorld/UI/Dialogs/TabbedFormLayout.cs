@@ -21,6 +21,9 @@ namespace SlopWorld
     // narrow windows collapse the content area to zero instead of producing negative rects.
     public static class TabbedFormLayout
     {
+        /// <summary>Arrange the padded form with a left rail of railWidth, title lane of
+        /// headerHeight, and footer of footerHeight. edgeGap is reserved on both vertical
+        /// sides of the body; bodyGap separates the rail from the body.</summary>
         public static TabbedFormGeometry Arrange(UiLayoutRect form, float railWidth,
                                                   float headerHeight, float footerHeight,
                                                   float edgeGap, float bodyGap)

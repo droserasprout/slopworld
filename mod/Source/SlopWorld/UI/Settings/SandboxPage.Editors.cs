@@ -371,7 +371,7 @@ namespace SlopWorld
                 () => SessionHub.Instance.Catalog.RemovePreset(kind, name, () =>
                 {
                     _preset = null; _command = null; _error = null; Load();
-                }, msg => _error = msg)));
+                }, msg => _error = msg), destructive: true));
         }
 
         void DoFooter(Rect bar)
