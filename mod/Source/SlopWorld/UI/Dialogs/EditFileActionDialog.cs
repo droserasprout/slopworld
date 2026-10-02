@@ -19,7 +19,7 @@ namespace SlopWorld
             DrawFileActionMode(listing);
             DrawExplanation(listing,
                 "The Files sidebar offers this command. Use {{ absolute_path }} or {{ relative_path }}.");
-            DrawCommand(listing, "Command (path is appended unless substituted)", _agentDefault);
+            DrawCommand(listing, "Command (path is appended unless substituted)", "Enter a host command");
         }
     }
 }

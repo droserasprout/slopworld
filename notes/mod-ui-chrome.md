@@ -1,7 +1,9 @@
 # Shared UI chrome
 
 Start with `UiTheme`, `UiText`, `UiButtons`, `UiControls`, `UiLayout`, and `Slab`.
-New controls should use their measurement, styling, and hit-testing paths. `WorkspaceLayout` owns the geometry
+New controls should use their measurement, styling, and hit-testing paths.
+Alert messages scroll inside a viewport-capped window with a fixed footer. Shared text
+dialog notes use the same native wrapped layout for measurement and rendering. `WorkspaceLayout` owns the geometry
 snapshot shared by rendering, input, terminal size and Harmony hooks. See
 [layout ownership](ui-dynamic-layout-architecture.md) and [focus](ui-focus.md).
 

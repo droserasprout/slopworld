@@ -17,9 +17,8 @@ namespace SlopWorld
                 float y = rect.y + UiTheme.HeaderH + UiTheme.GapM;
                 if (!string.IsNullOrEmpty(note))
                 {
-                    float h = noteHeight >= 0f ? noteHeight : UiTheme.RowH;
-                    GUI.color = UiTheme.Dim;
-                    UiText.RowLabel(new Rect(rect.x, y, rect.width, h), note);
+                    float h = Mathf.Max(noteHeight, UiText.PlainStatusLabelHeight(note, rect.width));
+                    UiText.PlainStatusLabel(new Rect(rect.x, y, rect.width, h), note, UiTheme.Dim);
                     y += h + UiTheme.GapS;
                 }
 

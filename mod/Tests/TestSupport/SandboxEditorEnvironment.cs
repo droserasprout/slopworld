@@ -171,8 +171,10 @@ namespace SlopWorld
         {
             public string Text;
             public Action Confirm;
+            public bool Destructive;
         }
-        public static object Create(string text, Action action) => new Prompt { Text = text, Confirm = action };
+        public static object Create(string text, Action action, bool destructive = false) =>
+            new Prompt { Text = text, Confirm = action, Destructive = destructive };
     }
     sealed partial class SessionHub
     {

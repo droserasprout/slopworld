@@ -19,7 +19,7 @@ namespace SlopWorld
         // Asked for rather than assumed: `[defaults] shell` is a per-machine answer and
         // this dialog would otherwise print somebody else's.
         protected string _agentDefault = "claude";
-        protected string _shellDefault = "bash";
+        protected string _shellDefault = "Daemon default";
 
         protected EditLibraryItemDialog(LibraryItemInfo existing, bool copy, LibraryItemKind kind)
         {
@@ -200,7 +200,7 @@ namespace SlopWorld
             if (shown != shownPlaceholder) _s.Command = shown;
         }
 
-        protected float DrawTextEditor(Rect rect, float y)
+        protected void DrawTextEditor(Rect rect, float y)
         {
             UiLayout.SectionHeading(new Rect(rect.x, y, rect.width, UiTheme.RowH), TextHeading);
             y += UiTheme.RowH + UiTheme.GapXS;
@@ -215,7 +215,6 @@ namespace SlopWorld
             {
                 _s.Text = "";
             }
-            return rect.yMax - y;
         }
 
         void DrawFooter(Rect rect)

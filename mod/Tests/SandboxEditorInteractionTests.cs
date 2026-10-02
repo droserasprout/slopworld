@@ -104,6 +104,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal(!command && source == "override"
                 ? "Reset this user override and return to the system preset?" : "Remove this user preset?",
                 prompt.Text, "confirmation describes requested operation");
+            AssertEx.True(prompt.Destructive, "removal uses destructive confirmation");
             prompt.Confirm();
             var request = DaemonClient.Requests.Single();
             AssertEx.Equal("DELETE", request.Method, "confirmed removal reaches catalog");
