@@ -27,22 +27,22 @@ namespace SlopWorld
         internal struct Reveal
         {
             public SmoothScroll Scroll;
-            public float Top, Height, Viewport, Scale;
+            public float ContentTop, ContentHeight, ViewportHeight, ScreenPixelsPerUnit;
         }
 
         internal sealed class ScrollRegion : IDisposable
         {
             internal readonly SmoothScroll Scroll;
-            internal readonly Vector2 Origin;
-            internal readonly float Scale, Height, Offset;
+            internal readonly Vector2 ScreenOrigin;
+            internal readonly float ScreenPixelsPerUnit, ViewportHeight, ContentOffset;
             readonly ScrollRegion _previous;
             internal ScrollRegion(SmoothScroll scroll, Rect outer)
             {
                 Scroll = scroll;
-                Origin = GUIUtility.GUIToScreenPoint(outer.position);
-                Scale = Mathf.Abs(GUIUtility.GUIToScreenPoint(outer.position + Vector2.up).y - Origin.y);
-                Height = outer.height;
-                Offset = scroll.Position.y;
+                ScreenOrigin = GUIUtility.GUIToScreenPoint(outer.position);
+                ScreenPixelsPerUnit = Mathf.Abs(GUIUtility.GUIToScreenPoint(outer.position + Vector2.up).y - ScreenOrigin.y);
+                ViewportHeight = outer.height;
+                ContentOffset = scroll.Position.y;
                 _previous = _scroll;
                 _scroll = this;
             }
@@ -96,14 +96,14 @@ namespace SlopWorld
             var bottom = GUIUtility.GUIToScreenPoint(new Vector2(rect.x, rect.yMax));
             for (var scroll = _scroll; scroll != null; scroll = scroll.Previous)
             {
-                if (scroll.Scale <= 0.001f) continue;
+                if (scroll.ScreenPixelsPerUnit <= 0.001f) continue;
                 target.Scrolls.Add(new Reveal
                 {
                     Scroll = scroll.Scroll,
-                    Top = (top.y - scroll.Origin.y) / scroll.Scale + scroll.Offset,
-                    Height = (bottom.y - top.y) / scroll.Scale,
-                    Viewport = scroll.Height,
-                    Scale = scroll.Scale,
+                    ContentTop = (top.y - scroll.ScreenOrigin.y) / scroll.ScreenPixelsPerUnit + scroll.ContentOffset,
+                    ContentHeight = (bottom.y - top.y) / scroll.ScreenPixelsPerUnit,
+                    ViewportHeight = scroll.ViewportHeight,
+                    ScreenPixelsPerUnit = scroll.ScreenPixelsPerUnit,
                 });
             }
         }
@@ -126,14 +126,20 @@ namespace SlopWorld
             TextFieldSelection.ReleaseFocus();
             GUI.FocusControl(name);
             GUIUtility.keyboardControl = target.Id;
-            // Account for inner scrolling before revealing the field in an outer viewport.
+            RevealTarget(target);
+        }
+
+        // Scrolls are registered inner-to-outer. Each movement shifts the field in screen
+        // pixels; convert the accumulated shift into the next viewport's content units.
+        static void RevealTarget(Target target)
+        {
             float screenShift = 0f;
             foreach (var reveal in target.Scrolls)
             {
                 float before = reveal.Scroll.Position.y;
-                reveal.Scroll.Reveal(reveal.Top - screenShift / reveal.Scale,
-                    Mathf.Min(reveal.Height, reveal.Viewport), reveal.Viewport);
-                screenShift += (reveal.Scroll.Position.y - before) * reveal.Scale;
+                reveal.Scroll.Reveal(reveal.ContentTop - screenShift / reveal.ScreenPixelsPerUnit,
+                    Mathf.Min(reveal.ContentHeight, reveal.ViewportHeight), reveal.ViewportHeight);
+                screenShift += (reveal.Scroll.Position.y - before) * reveal.ScreenPixelsPerUnit;
             }
         }
     }

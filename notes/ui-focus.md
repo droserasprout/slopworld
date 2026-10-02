@@ -2,7 +2,7 @@
 
 `WorkspacePanelOwner` controls panel visibility and focus.
 `FieldFocusScope` restores focus within a form. Each Settings tab and shared dialog has its own `FieldLifetime`, including
-focus memory. Closing cancels that lifetime and pending clipboard work.
+focus memory. Closing cancels that lifetime and pending clipboard work, and retires retained text-selection gestures and editor references.
 
 `TextEntryController` owns native invocation, exact control-ID lookup, pending clipboard edits
 and function-key focus release. Editable shared fields register by name.
