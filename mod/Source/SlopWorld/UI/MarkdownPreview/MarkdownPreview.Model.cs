@@ -250,18 +250,4 @@ namespace SlopWorld
         }
     }
 
-    static class MarkdownMarkup
-    {
-        public static string Decode(string value) => (value ?? "")
-            .Replace("&quot;", "\"")
-            .Replace("&#34;", "\"")
-            .Replace("&amp;", "&")
-            .Replace("&#38;", "&")
-            .Replace("&lt;", "<")
-            .Replace("&#60;", "<")
-            .Replace("&gt;", ">")
-            .Replace("&#62;", ">")
-            .Replace("&#39;", "'")
-            .Replace("&apos;", "'");
-    }
 }

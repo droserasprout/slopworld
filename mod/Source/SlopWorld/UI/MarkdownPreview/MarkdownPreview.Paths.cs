@@ -4,7 +4,7 @@ using System.IO;
 namespace SlopWorld
 {
     // Resolves document-relative resources once for both the parser and resource loader.
-    // Keeping the project boundary here makes every caller use the same filesystem guard.
+    // This is a lexical guard; the daemon enforces the root against symlinks when opening files.
     sealed class MarkdownPathResolver
     {
         readonly string _project;
@@ -27,7 +27,7 @@ namespace SlopWorld
         {
             external = null;
             local = null;
-            source = MarkdownMarkup.Decode(source).Trim();
+            source = (source ?? "").Trim();
             if (source.Length == 0 || source.StartsWith("#", StringComparison.Ordinal)) return false;
 
             if (Uri.TryCreate(source, UriKind.Absolute, out var uri) &&
@@ -78,7 +78,7 @@ namespace SlopWorld
 
         public string ResolveImagePath(string source)
         {
-            source = MarkdownMarkup.Decode(source).Trim();
+            source = (source ?? "").Trim();
             if (source.Length == 0 || source.StartsWith("//", StringComparison.Ordinal) ||
                 source.StartsWith("data:", StringComparison.OrdinalIgnoreCase)) return null;
             if (Uri.TryCreate(source, UriKind.Absolute, out var uri) &&

@@ -40,6 +40,23 @@ namespace SlopWorld.Tests
             AssertEx.Equal("before outer inner tail after", Text(runs), "supported tags disappear without losing text");
         }
 
+        public static void EntitiesDecodeOnceWithoutFallbackStyling()
+        {
+            var runs = Parse("&copy; &#169; &#x1F600; &amp;lt; **&trade;** `&amp;lt;`")[0].Runs;
+            AssertEx.Equal("© © 😀 &lt; ™ &amp;lt;", Text(runs), "AST entities decode once while code stays literal");
+            AssertEx.False(runs.Any(run => run.Faint), "entities are ordinary text");
+            AssertEx.True(runs.Single(run => run.Text == "™").Bold, "entity keeps enclosing style");
+            runs = Parse("<a href='https://example.test/&amp;lt;'>html</a> [md](https://example.test/&amp;lt;)")[0].Runs;
+            AssertEx.Equal("https://example.test/&lt;", runs.Single(run => run.Text == "html").Link, "raw HTML URL decodes once");
+            AssertEx.Equal("https://example.test/&lt;", runs.Single(run => run.Text == "md").Link, "Markdig URL is already decoded");
+            var image = Parse("![&copy; &amp;lt;](a&amp;lt;.png)")[0].Runs.Single(run => run.IsImage);
+            AssertEx.Equal("© &lt;", image.ImageAlt, "image alt uses entity AST nodes");
+            AssertEx.Equal("a&lt;.png", image.ImagePath, "image path does not decode Markdig twice");
+            image = Parse("before <img src='a&amp;lt;.png'>")[0].Runs.Single(run => run.IsImage);
+            var resolver = new MarkdownPathResolver("demo", "/work/demo/readme.md", () => "/work/demo");
+            AssertEx.Equal("/work/demo/a&lt;.png", resolver.ResolveImagePath(image.ImagePath), "resource resolution preserves normalized entities");
+        }
+
         public static void MarkdownEmphasisLinksAndBreaksRetainMeaning()
         {
             var runs = Parse("**bold *both*** `literal` [local](next.md) [web](https://example.test) <https://example.test/auto>  \nnext")[0].Runs;
