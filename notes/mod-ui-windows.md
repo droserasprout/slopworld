@@ -2,7 +2,9 @@
 
 `ModOptions` registers the Settings tree and caches page instances. Read its definitions
 for current navigation.
-`UI/Settings/` and `UI/Dialogs/` contain forms. Avoid duplicating the
+Settings pages live in `UI/Settings/`; feature editors live beside their feature,
+including agent editors in `UI/Agents/`. `UI/Dialogs/` owns generic dialogs and
+`UI/Forms/` owns reusable form fields, previews and geometry. Avoid duplicating the
 page/control inventory here. [Apply behavior](ui-settings.md) owns persistence boundaries.
 
 Options renders inside the fullscreen content host.

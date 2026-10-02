@@ -1,6 +1,6 @@
 # The mod's action icons, and which glyph each slot wears.
 #
-# The key is the slot that UI/Chrome/Icons.cs requests.
+# The key is the slot that UI/Theme/Icons.cs requests.
 # The tool also uses the key as the generated PNG name.
 #
 # Each glyph is a Codicon from a Nerd Font.

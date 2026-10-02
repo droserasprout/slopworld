@@ -1,6 +1,8 @@
 # Sidebar integration
 
-`Patches/AgentSidebar/` owns the project-grouped sidebar and its colonist-bar integration.
+`UI/Sidebar/` owns the project-grouped sidebar's layout, rendering and navigation.
+`Patches/AgentSidebar/` owns Harmony label and portrait integration; colonist-bar
+dispatch stays in `Patches/ColonistBar/`.
 The browse-scope catalog owns empty-state reasons (loading, failed, filtered, or unselected);
 tree chrome only renders the reason supplied by its source. Catalog reads return detached
 scope snapshots; callers cannot mutate retained identities. Bulk folding changes only the

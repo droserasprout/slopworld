@@ -1,6 +1,8 @@
 # Mod client
 
-`SessionHub` coordinates the main-thread services under `Client/SessionHub/`.
+`Client/SessionHub/` coordinates connection lifetime and cross-service handoffs.
+Main-thread services and their models live together under `Client/Sessions/`,
+`Catalog/`, `Tasks/`, `Terminal/`, `Usage/` and `Audio/`.
 Use the responsible services for session, catalog, task, terminal, and audio operations. Cross-service subscription
 and rename handoffs stay on the hub. `DaemonClient` replays HTTP callbacks on the main thread.
 HTTP I/O awaits completion and admits at most eight active requests. Blocking

@@ -1,5 +1,9 @@
 # Shared UI chrome
 
+`UI/Chrome/` owns shared controls. Styling and icon catalogs live in `UI/Theme/`,
+workspace host chrome in `UI/Workspace/`, and scrolling in `UI/Scrolling/`.
+Native scroll sampling stays under `UI/Scrolling/Platform/`.
+
 Start with `UiTheme`, `UiText`, `UiButtons`, `UiControls`, `UiLayout`, and `Slab`.
 New controls should use their measurement, styling, and hit-testing paths.
 Alert messages scroll inside a viewport-capped window with a fixed footer. Shared text

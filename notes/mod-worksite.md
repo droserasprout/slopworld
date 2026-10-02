@@ -1,6 +1,7 @@
 # Worksite constraints
 
 `Sim/Worksite/` turns agent Working time into construction and plague output. Progress must remain after the agent leaves Working.
+`Patches/Worksite/` owns its Harmony integration partial, including frame ownership scribing.
 The mod intentionally excludes resource hauling and the base game economy.
 
 Disabling the work override is insufficient: leaving Construction enabled lets vanilla jobs
