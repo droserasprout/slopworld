@@ -14,8 +14,9 @@ Only one lookup is active, with cancellation and timeout.
 Active unmuted playback is eligible even when its raw title is null. `SongRecognizer` uses an injected process runner so tests need
 neither a sound device nor the external service.
 
-History parsing is independent of Unity rendering. OST staging/install tooling owns export
-filenames and SongDef updates.
+History reads the shared likes file as flat `[[like]]` records, independently of Unity rendering.
+The table is read-only; its Edit file action uses the same file-opening owner as the Like paths.
+OST staging/install tooling owns export filenames and SongDef updates.
 Do not duplicate the track catalog in notes.
 
 `Radio.LikesPath()` owns the game-local likes path. `UI/Jukebox/JukeboxLikesFile` opens

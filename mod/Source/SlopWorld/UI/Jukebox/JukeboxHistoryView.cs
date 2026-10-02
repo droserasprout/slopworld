@@ -10,8 +10,8 @@ namespace SlopWorld
 {
     // Full-screen browsing surface for the likes file. The file parser lives in JukeboxHistory so
     // this stays about rendering. Search, selection, per-field copy, and a detail panel for the
-    // long original metadata that a table row can only hint at. The file remains editable Use the
-    // button below to edit the file. The table is read-only.
+    // long original metadata that a table row can only hint at. The table is read-only;
+    // the toolbar's Edit file action opens the shared source file for editing.
     public sealed class JukeboxHistoryView : ContentView
     {
         struct Columns
@@ -28,6 +28,7 @@ namespace SlopWorld
         static float RowH => Mathf.Max(UiTheme.LineH + UiTheme.GapXS, 28f);
 
         readonly SmoothScroll _scroll = new SmoothScroll();
+        readonly SmoothScroll _detailScroll = new SmoothScroll();
         readonly List<JukeboxHistory.Entry> _all = new List<JukeboxHistory.Entry>();
         readonly List<JukeboxHistory.Entry> _view = new List<JukeboxHistory.Entry>();
         string _path = "";
@@ -47,6 +48,14 @@ namespace SlopWorld
         public override void Closed() { }
 
         public override void Draw(Rect body)
+        {
+            if (body.width <= 0f || body.height <= 0f) return;
+            GUI.BeginGroup(body);
+            try { DrawContents(new Rect(0f, 0f, body.width, body.height)); }
+            finally { GUI.EndGroup(); }
+        }
+
+        void DrawContents(Rect body)
         {
             using (WidgetState.Save())
             {
@@ -69,11 +78,12 @@ namespace SlopWorld
                 DrawStatus(status);
 
                 // The detail panel reserves space at the bottom only while a row is selected.
-                float detailH = _selected == null
-                    ? 0f : Mathf.Clamp(body.height * 0.32f, 150f, 220f);
+                float tableTop = status.yMax + UiTheme.GapS;
+                float availableH = Mathf.Max(0f, body.yMax - tableTop);
+                float detailH = _selected == null ? 0f
+                    : Mathf.Min(availableH, Mathf.Clamp(body.height * 0.32f, 150f, 220f));
                 var detail = new Rect(body.x, body.yMax - detailH, body.width, detailH);
 
-                float tableTop = status.yMax + UiTheme.GapS;
                 float tableBottom = detailH > 0f ? detail.y - UiTheme.GapS : body.yMax;
                 DrawTable(new Rect(body.x, tableTop, body.width, Mathf.Max(0f, tableBottom - tableTop)));
 
@@ -110,25 +120,25 @@ namespace SlopWorld
 
         void DrawTable(Rect table)
         {
+            if (table.width <= 2f || table.height < HeaderH + 2f) return;
             Slab.Box(table, UiTheme.Well, UiTheme.Edge);
-            var columns = Layout(table.width - 2f);
             var header = new Rect(table.x + 1f, table.y + 1f, table.width - 2f, HeaderH);
-            Slab.Fill(header, UiTheme.RowOn);
-            DrawHeader(header, columns);
-            Slab.Hairline(new Rect(header.x, header.yMax, header.width, 1f), UiTheme.Edge);
-
             var list = new Rect(table.x + 1f, header.yMax + 1f,
                 table.width - 2f, Mathf.Max(0f, table.yMax - header.yMax - 2f));
 
+            float contentH = Mathf.Max(list.height, _view.Count * RowH);
+            var geometry = UiScrollBody.Measure(list, contentH,
+                UiScrollbarReservation.WhenNeeded);
+            // Headers and rows use the same width after scrollbar reservation.
+            var columns = Layout(geometry.ContentWidth);
+            Slab.Fill(header, UiTheme.RowOn);
+            DrawHeader(new Rect(header.x, header.y, geometry.ContentWidth, header.height), columns);
+            Slab.Hairline(new Rect(header.x, header.yMax, header.width, 1f), UiTheme.Edge);
             if (_view.Count == 0)
             {
                 DrawEmpty(list);
                 return;
             }
-
-            float contentH = Mathf.Max(list.height, _view.Count * RowH);
-            var geometry = UiScrollBody.Measure(list, contentH,
-                UiScrollbarReservation.WhenNeeded);
             using (_scroll.Scope(list, geometry.View))
             {
                 for (int i = 0; i < _view.Count; i++)
@@ -153,6 +163,9 @@ namespace SlopWorld
 
         static Columns Layout(float width)
         {
+            // Narrow panes keep the track identity; the detail view exposes hidden metadata.
+            if (width < 320f) return new Columns { Title = width };
+            if (width < 650f) return new Columns { Artist = width * 0.4f, Title = width * 0.6f };
             float at = Mathf.Clamp(width * 0.17f, 120f, 190f);
             float source = Mathf.Clamp(width * 0.16f, 100f, 180f);
             float artist = Mathf.Clamp(width * 0.19f, 120f, 220f);
@@ -180,6 +193,7 @@ namespace SlopWorld
 
         static void HeaderCell(Rect r, string label)
         {
+            if (r.width <= CellPad * 2f) return;
             GUI.color = UiTheme.Lead;
             UiText.RowLabel(r.ContractedBy(CellPad, 0f), label);
             GUI.color = Color.white;
@@ -202,11 +216,15 @@ namespace SlopWorld
 
             // Clicking a row opens its detail. Clicking the open one closes it again.
             if (UiButtons.RowButton(r))
+            {
                 _selected = selected ? null : e;
+                _detailScroll.JumpTo(Vector2.zero);
+            }
         }
 
         static void Cell(Rect r, string text, Color color)
         {
+            if (r.width <= CellPad * 2f) return;
             GUI.color = string.IsNullOrEmpty(text) ? UiTheme.Faint : color;
             UiText.RowLabel(r.ContractedBy(CellPad, 0f),
                 string.IsNullOrEmpty(text) ? "-" : text);
@@ -223,23 +241,35 @@ namespace SlopWorld
             Slab.Box(r, UiTheme.Well, UiTheme.Edge);
             var inner = r.ContractedBy(CellPad + 2f, CellPad);
 
-            var head = new Rect(inner.x, inner.y, inner.width, UiTheme.BtnH);
-            var headBar = new UiLayout.Bar(head);
-            if (headBar.Right("Copy line", UiTheme.Btn.Ghost)) Copy(e.Line, "\"" + e.Line + "\"");
-            GUI.color = UiTheme.Lead;
-            UiText.RowLabel(headBar.Rest(), "Details  -  click a field to copy it");
-            GUI.color = Color.white;
+            if (inner.width <= 0f || inner.height <= 0f) return;
 
-            float y = head.yMax + UiTheme.GapS;
-            y = CopyField(inner, y, "When", DisplayAt(e.At), e.At);
-            y = CopyField(inner, y, "Source", e.Source, e.Source);
-            y = CopyField(inner, y, "Artist", e.Artist, e.Artist);
-            y = CopyField(inner, y, "Title", e.Title, e.Title);
+            // Reserve the scrollbar before measuring wrapped metadata. Every field and its
+            // hit region lives inside this clipped scroll body, even at short panel heights.
+            float width = Mathf.Max(0f, inner.width - UiTheme.ScrollbarW);
+            float labelW = Mathf.Min(78f, width * 0.3f);
+            float originalH = UiText.PlainStatusLabelHeight(
+                string.IsNullOrEmpty(e.Original) ? "-" : e.Original, Mathf.Max(1f, width - labelW));
+            originalH = Mathf.Max(RowH, originalH);
+            float contentH = UiTheme.BtnH + UiTheme.GapS + 4f * (RowH + UiTheme.GapXS)
+                + originalH + UiTheme.GapXS;
+            var geometry = UiScrollBody.Measure(inner, contentH, UiScrollbarReservation.Always);
+            using (_detailScroll.Scope(inner, geometry.View))
+            {
+                var area = geometry.View;
+                var head = new Rect(0f, 0f, area.width, UiTheme.BtnH);
+                var headBar = new UiLayout.Bar(head);
+                if (headBar.Right("Copy line", UiTheme.Btn.Ghost)) Copy(e.Line, "\"" + e.Line + "\"");
+                GUI.color = UiTheme.Lead;
+                UiText.RowLabel(headBar.Rest(), "Details  -  click a field to copy it");
+                GUI.color = Color.white;
 
-            // The original gets whatever height is left, wrapped, so a long ICY string stays
-            // readable rather than clipping at the column edge.
-            float originalH = Mathf.Max(RowH, inner.yMax - y);
-            CopyField(inner, y, "Original", e.Original, e.Original, originalH, wrap: true);
+                float y = head.yMax + UiTheme.GapS;
+                y = CopyField(area, y, "When", DisplayAt(e.At), e.At);
+                y = CopyField(area, y, "Source", e.Source, e.Source);
+                y = CopyField(area, y, "Artist", e.Artist, e.Artist);
+                y = CopyField(area, y, "Title", e.Title, e.Title);
+                CopyField(area, y, "Original", e.Original, e.Original, originalH, wrap: true);
+            }
         }
 
         // One labelled, click-to-copy value. Returns the y below it so the caller can stack.
@@ -250,12 +280,12 @@ namespace SlopWorld
             var row = new Rect(area.x, y, area.width, height);
             bool over = RowChrome.Hover(row, false, true, RowHoverPolicy.OverlayAware);
 
-            const float LabelW = 78f;
+            float labelW = Mathf.Min(78f, row.width * 0.3f);
             GUI.color = UiTheme.Dim;
-            UiText.RowLabel(new Rect(row.x, row.y, LabelW, RowH), label);
+            UiText.RowLabel(new Rect(row.x, row.y, labelW, RowH), label);
             GUI.color = Color.white;
 
-            var valueRect = new Rect(row.x + LabelW, row.y, row.width - LabelW, height);
+            var valueRect = new Rect(row.x + labelW, row.y, row.width - labelW, height);
             string text = string.IsNullOrEmpty(display) ? "-" : display;
             GUI.color = string.IsNullOrEmpty(display) ? UiTheme.Faint : UiTheme.Name;
             if (wrap)

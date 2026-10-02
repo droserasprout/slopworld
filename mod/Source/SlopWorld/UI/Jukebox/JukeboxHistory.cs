@@ -4,8 +4,8 @@ using System.Collections.Generic;
 namespace SlopWorld
 {
     // The likes-file reader, kept apart from the history view so the file format can be
-    // exercised without Unity. The daemon appends current TOML [[like]] tables. A malformed
-    // table is dropped rather than shown as broken.
+    // exercised without Unity. Mod Like paths share this file with daemon playback. Each
+    // [[like]] contains flat scalar fields; a malformed table is dropped rather than shown.
     public static class JukeboxHistory
     {
         public sealed class Entry
@@ -37,7 +37,7 @@ namespace SlopWorld
 
             foreach (string line in (text ?? "").Replace("\r\n", "\n").Split('\n'))
             {
-                if (line.Trim() == "[[like]]")
+                if (IsLikeHeader(line))
                 {
                     FinishTable(entries, table);
                     table.Clear();
@@ -53,6 +53,15 @@ namespace SlopWorld
             FinishTable(entries, table);
             entries.Reverse();
             return entries;
+        }
+
+        static bool IsLikeHeader(string line)
+        {
+            string trimmed = line.Trim();
+            const string header = "[[like]]";
+            if (!trimmed.StartsWith(header, StringComparison.Ordinal)) return false;
+            string rest = trimmed.Substring(header.Length).TrimStart();
+            return rest.Length == 0 || rest[0] == '#';
         }
 
         static void FinishTable(List<Entry> entries, List<string> lines)

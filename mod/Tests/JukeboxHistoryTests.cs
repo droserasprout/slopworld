@@ -11,6 +11,7 @@ namespace SlopWorld.Tests
             yield return ("leaves missing original fields empty", MissingOriginalFieldsStayEmpty);
             yield return ("drops a malformed table without losing the rest", MalformedTable);
             yield return ("returns nothing for an empty file", EmptyFile);
+            yield return ("commented headers keep likes separate", CommentedHeaders);
         }
 
         public static void LaterLikesAppearBeforeEarlierLikes()
@@ -81,6 +82,18 @@ namespace SlopWorld.Tests
             var entries = JukeboxHistory.Parse(text);
             AssertEx.Equal(1, entries.Count, "the malformed table is dropped, the good one kept");
             AssertEx.Equal("Kept", entries[0].Title, "the surviving entry is intact");
+        }
+
+        static void CommentedHeaders()
+        {
+            var entries = JukeboxHistory.Parse(
+                "  [[like]] # first like\r\ntitle = \"Earlier\"\r\n" +
+                "[[like]]# another like\ntitle = \"Later\"\n");
+            AssertEx.Equal(2, entries.Count, "comments do not merge adjacent likes");
+            AssertEx.Equal("Later", entries[0].Title, "commented likes retain newest-first order");
+            AssertEx.Equal("Earlier", entries[1].Title, "earlier table stays intact");
+            AssertEx.Equal(0, JukeboxHistory.Parse("[[like]]invalid\ntitle = \"Ignored\"\n").Count,
+                "non-comment trailing text is not a header");
         }
 
         static void EmptyFile()
