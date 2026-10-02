@@ -7,12 +7,15 @@ Animation has a one-time transition from the original art, then independent dept
 Keep depth motion separate from redraw variation.
 A single repeating sequence makes both repeat visibly. Closed-loop presets require continuity from last phase to first.
 
-The cache key includes source, dimensions, preset, algorithm version and a tuning hash.
+Bake owns cache and returned-frame cleanup; its effect partials own only pixel math.
+The cache key includes a SHA-256 of source pixels, dimensions, preset, algorithm version and a tuning hash.
+Content-pack sources are immutable: each texture is hashed once, with weak caching so
+identity lookup does not retain unloaded assets or repeat readback during drawing.
 Changing constants without invalidating the cache otherwise appears to have no effect.
 Frames use BC1/DXT1 where supported and RGB24 otherwise.
 They then discard CPU copies.
 Frame generation and loading share compression.
-The portable JPEG cache and its key remain unchanged.
+The disk frames remain portable JPEGs.
 Dimensions not divisible by four retain RGB24. A compression failure disables further
 attempts for the process. Replacement logs report actual formats, estimated pixel bytes,
 Unity native texture bytes, loading time, and process/managed memory.
