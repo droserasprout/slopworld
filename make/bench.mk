@@ -11,7 +11,7 @@ bench-mod: ## Run the C# helper benchmark into shared CSV results
 bench-ipc: ## Run production Protobuf IPC into shared CSV results
 	@MAKE_CMD="$(MAKE_BIN)" $(PYTHON) tools/bench-report.py run --suite ipc --build "$(BUILD)" $(if $(BENCH_RUN),--run "$(BENCH_RUN)")
 
-bench-build: api-contract protobuf-deps
+bench-build: api-contract mod-deps
 	@bash tools/bench.sh build
 
 bench-report: ## Render saved CSV results; BENCH_BASELINE and BENCH_MODE=relative compare runs

@@ -40,7 +40,9 @@ sources under `bench/`.
 
 The mod SDK project owns compiler settings, references and assembly metadata. Make
 passes the configuration, game assembly path and daemon version. NuGet restores
-locked .NET Framework reference assemblies.
+locked .NET Framework reference assemblies. `mod/Dependencies/Runtime.csproj` owns
+the locked third-party runtime packages; `make mod-deps` stages their runtime DLLs
+for the mod, tests and benchmarks. Game references and Harmony remain outside that graph.
 IPC benchmarks and the terminal-input HTTP regression need Mono.
 Game references must keep `Private=false`: RimWorld loads every DLL in `Assemblies/`.
 

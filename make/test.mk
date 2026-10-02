@@ -11,7 +11,7 @@ test-plan-notes: ## Check plan note status headers
 test-daemon: api-contract ## Run Rust tests
 	@cd slopd && $(CARGO) test --quiet $(TEST_ARGS)
 
-test-mod: protobuf-deps api-contract ## Run game-free C# tests
+test-mod: mod-deps api-contract ## Run game-free C# tests
 	@$(DOTNET) run --project "$(TEST_PROJECT)" --configuration Release -- --quiet
 
 test-wire-contract: api-contract ## Test shared definitions and generated bindings
@@ -35,7 +35,7 @@ coverage: coverage-daemon coverage-mod ## Measure Rust and game-free C# test cov
 coverage-daemon: api-contract ## Measure Rust coverage and write coverage/rust.cobertura.xml
 	@bash tools/coverage.sh daemon
 
-coverage-mod: protobuf-deps api-contract ## Measure game-free C# coverage and write coverage/csharp.cobertura.xml
+coverage-mod: mod-deps api-contract ## Measure game-free C# coverage and write coverage/csharp.cobertura.xml
 	@bash tools/coverage.sh mod
 
 coverage-summary: ## Summarize existing Rust and C# coverage reports

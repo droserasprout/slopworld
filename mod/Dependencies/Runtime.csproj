@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+  <!-- Pin Mono-compatible runtime packages; only resolved runtime assemblies are shipped.
+       Game references and the RimWorld Harmony build belong to the mod project. -->
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.36.1" />
+    <PackageReference Include="Markdig" Version="0.18.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Tomlyn" Version="0.19.0" />
+  </ItemGroup>
+  <Target Name="CopyRuntime" AfterTargets="Build">
+    <Copy SourceFiles="@(ReferenceCopyLocalPaths)" DestinationFolder="../Assemblies" />
+  </Target>
+</Project>

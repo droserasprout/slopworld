@@ -127,7 +127,9 @@ journalctl --user -u slopd -f               # daemon log
 slopctl logs --follow                        # combined game + daemon
 ```
 
-`make protobuf-deps` restores the locked Google.Protobuf runtime and its Mono dependencies.
+`make mod-deps` restores locked Markdig, Newtonsoft.Json, Tomlyn, Google.Protobuf,
+and their Mono runtime dependencies. `make protobuf-deps` remains an alias.
+See [runtime package maintenance](../../mod/Dependencies/README.md) for updates.
 `make BUILD=release bench BENCH_RUN=<name>` builds once before three measurement runs.
 `make bench-report BENCH_RUN=<name>` reads their saved CSVs and writes
 `bench/results/<name>/report.md`. The report includes IPC timings, allocations,
