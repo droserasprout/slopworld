@@ -219,6 +219,9 @@ fn flag<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
 
 #[derive(Deserialize)]
 pub(crate) struct BrowseReq {
+    /// Case-sensitive name substring, applied before the response limit.
+    #[serde(default)]
+    pub(crate) filter: String,
     #[serde(default)]
     pub(crate) path: String,
     /// Include files only when requested.

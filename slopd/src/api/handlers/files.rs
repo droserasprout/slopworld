@@ -46,6 +46,7 @@ pub(crate) async fn list_dir(
     want_files: bool,
     hidden: bool,
     limit: usize,
+    filter: &str,
 ) -> std::io::Result<Listing> {
     let mut out = Listing {
         dirs: Vec::new(),
@@ -59,7 +60,7 @@ pub(crate) async fn list_dir(
     let mut rd = tokio::fs::read_dir(base).await?;
     while let Some(e) = rd.next_entry().await? {
         let name = e.file_name().to_string_lossy().into_owned();
-        if !hidden && name.starts_with('.') {
+        if (!hidden && name.starts_with('.')) || !name.contains(filter) {
             continue;
         }
 
@@ -235,7 +236,7 @@ pub(crate) async fn browse(
     };
 
     let limit = browse_limit(q.limit);
-    let mut out = list_dir(&base, q.files, q.hidden, limit)
+    let mut out = list_dir(&base, q.files, q.hidden, limit, &q.filter)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
 
