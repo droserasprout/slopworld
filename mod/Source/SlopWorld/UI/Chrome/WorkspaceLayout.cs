@@ -95,8 +95,18 @@ namespace SlopWorld
                 float requested = Settings.SidebarWidth;
                 string side = NavigationSide.Normalize(Settings.SidebarSide);
                 float top = shown ? TopBar.H : 0f;
-                _current = Compute(width, height, shown, visible, side, requested, top,
-                    UiMetrics.Revision);
+                var geometry = Compute(width, height, shown, visible, side, requested, top);
+                var key = new LayoutKey(width, height, shown, visible, side,
+                    geometry.Navigation.width, geometry.TopBar.height, UiMetrics.Revision);
+                if (!_hasCurrent || !_lastKey.Equals(key))
+                {
+                    _lastKey = key;
+                    unchecked { _revision++; }
+                    if (_revision == 0) _revision = 1;
+                }
+                _current = new WorkspaceGeometry(geometry.Viewport, geometry.Navigation,
+                    geometry.TopBar, geometry.Content, geometry.Side, geometry.NavigationVisible,
+                    _revision);
                 _currentFrame = Time.frameCount;
                 _hasCurrent = true;
                 return _current;
@@ -105,12 +115,13 @@ namespace SlopWorld
 
         public static int Revision => Current.Revision;
 
-        // Pure geometry entry point used by tests and by callers that already have resolved
+        // Pure geometry entry point; revision is supplied by the caller, never advanced here.
+        // Used by tests and by callers that already have resolved
         // metrics. `shown` is separate from screenshot filtering so cutscenes can reclaim the
         // whole viewport without changing the meaning of screenshot mode.
         public static WorkspaceGeometry Compute(float viewportWidth, float viewportHeight,
             bool shown, bool navigationVisible, string side, float requestedNavigationWidth,
-            float topBarHeight, int metricsRevision = 0)
+            float topBarHeight, int revision = 0)
         {
             float width = Mathf.Max(0f, viewportWidth);
             float height = Mathf.Max(0f, viewportHeight);
@@ -133,17 +144,8 @@ namespace SlopWorld
             var content = new Rect(contentX, top, contentWidth,
                 Mathf.Max(0f, height - top));
 
-            var key = new LayoutKey(width, height, shown, visible, normalizedSide,
-                navigationWidth, top, metricsRevision);
-            if (!_lastKey.Equals(key))
-            {
-                _lastKey = key;
-                unchecked { _revision++; }
-                if (_revision == 0) _revision = 1;
-            }
-
             return new WorkspaceGeometry(viewport, navigation, topBar, content,
-                normalizedSide, visible, _revision);
+                normalizedSide, visible, revision);
         }
 
         public static float NavigationWidth(float viewportWidth, float requested)

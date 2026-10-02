@@ -24,7 +24,7 @@ namespace SlopWorld
                 Width = width;
                 Flexible = flexible;
                 Anchor = anchor;
-                LeftPad = leftPad;
+                LeftPad = Mathf.Max(0f, leftPad);
             }
         }
 

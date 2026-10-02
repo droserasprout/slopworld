@@ -37,6 +37,7 @@ namespace SlopWorld
             public Rect Config;
             public Rect Jukebox;
             public Rect Core;
+            public bool HasConfig;
             public bool HasJukebox;
             public bool HasCore;
             public float Right;
@@ -146,7 +147,8 @@ namespace SlopWorld
         static float Doors(Rect r, bool live)
         {
             PrepareDoors(r);
-            Door(_doors.Config, Icons.Config, "Settings", ModOptions.Toggle, live);
+            if (_doors.HasConfig)
+                Door(_doors.Config, Icons.Config, "Settings", ModOptions.Toggle, live);
             if (_doors.HasCore)
                 Thing(_doors.Core, ModDefOf.Ship_ComputerCore,
                     default, CoreTip.OpenMenu, live);
@@ -167,29 +169,24 @@ namespace SlopWorld
 
             float x = r.xMax - Pad;
             _doors = new DoorLayout();
-            x -= UiTheme.GapS + IconW;
-            _doors.Config = Slot(r, x, IconW);
+            _doors.HasConfig = TrySlot(r, ref x, UiTheme.GapS, out _doors.Config);
             // The settings cog is this interface's door. What is left of the line is the
             // colony's.
             float gap = UiTheme.GapM;
 
-            if (showCore && CoreTip.On(map))
+            if (showCore && CoreTip.On(map) && TrySlot(r, ref x, gap, out _doors.Core))
             {
-                x -= gap + IconW;
-                _doors.Core = Slot(r, x, IconW);
                 _doors.HasCore = true;
                 gap = UiTheme.GapS;
             }
 
-            if (showJukebox && Jukebox.On(map))
+            if (showJukebox && Jukebox.On(map) && TrySlot(r, ref x, gap, out _doors.Jukebox))
             {
-                x -= gap + IconW;
-                _doors.Jukebox = Slot(r, x, IconW);
                 _doors.JukeboxTip = Jukebox.IconTip();
                 _doors.HasJukebox = true;
             }
 
-            _doors.Right = x - UiTheme.GapM;
+            _doors.Right = Mathf.Max(r.x, x - UiTheme.GapM);
             _doorsFrame = Time.frameCount;
             _doorsRect = r;
             _doorsMap = map;
@@ -198,9 +195,16 @@ namespace SlopWorld
             _doorsReady = true;
         }
 
-        // Centre the glyph-sized hit slot inside the taller bar.
-        static Rect Slot(Rect r, float x, float w) =>
-            new Rect(x, r.y + (r.height - w) / 2f, w, w);
+        // Omit doors that cannot fit; drawing and hit testing share these bounded slots.
+        static bool TrySlot(Rect bar, ref float right, float gap, out Rect slot)
+        {
+            slot = default;
+            float x = right - gap - IconW;
+            if (x < bar.x || bar.height < IconW) return false;
+            slot = new Rect(x, bar.y + (bar.height - IconW) / 2f, IconW, IconW);
+            right = x;
+            return true;
+        }
 
         // Off-grey until the pointer is on it, the way the strip's own icons were.
         static void Door(Rect r, Texture2D icon, string tip, System.Action go, bool live)

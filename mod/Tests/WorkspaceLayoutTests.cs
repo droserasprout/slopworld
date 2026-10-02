@@ -56,11 +56,18 @@ namespace SlopWorld.Tests
             var second = WorkspaceLayout.Compute(800f, 600f, true, true,
                 NavigationSide.Left, 210f, 26f, 2);
             AssertEx.True(second.Revision != first.Revision,
-                "metric changes advance the workspace revision");
+                "pure computation preserves the supplied revision");
             var unchanged = WorkspaceLayout.Compute(800f, 600f, true, true,
                 NavigationSide.Left, 210f, 26f, 2);
             AssertEx.Equal(second.Revision, unchanged.Revision,
                 "unchanged geometry keeps its revision");
+            UnityEngine.Time.frameCount++;
+            var current = WorkspaceLayout.Current;
+            WorkspaceLayout.Compute(3f, 2f, false, false, NavigationSide.Right, 1f, 1f, 900);
+            UnityEngine.Time.frameCount++;
+            AssertEx.Equal(current.Revision, WorkspaceLayout.Current.Revision,
+                "ad hoc computation cannot invalidate the retained workspace snapshot");
+
             AssertEx.Equal(NavigationSide.Left,
                 NavigationSide.Normalize("unknown"), "unknown side falls back left");
             AssertEx.Equal(UiDensityPreset.Default,

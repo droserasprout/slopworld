@@ -31,7 +31,7 @@ namespace SlopWorld.Tests
 
         public static void Measurement()
         {
-            var height = new SettingsContentHeight(400f);
+            var height = new ContentHeight(400f);
             AssertEx.Equal(400f, height.BeginFrame(10), "first frame uses estimate");
             height.Measure(800f);
             AssertEx.Equal(400f, height.BeginFrame(10), "input cannot move repaint geometry");

@@ -69,6 +69,21 @@ namespace SlopWorld.Tests
             AssertEx.Equal(100f, fitted[1].XMax,
                 "fitting flex minimums do not create overflow");
 
+            foreach (float otherWeight in new[] { 0f, 1f })
+            {
+                var zeroWeight = new[]
+                {
+                    UiLayoutItem.Row(UiLayoutSize.Flexible(0f, 20f), 0f),
+                    UiLayoutItem.Row(UiLayoutSize.Flexible(otherWeight, 10f), 0f),
+                };
+                UiComposition.Arrange(UiLayoutAxis.Row,
+                    new UiLayoutRect(0f, 0f, 100f, 10f), UiLayoutPadding.Zero, 0f,
+                    zeroWeight, fitted);
+                AssertEx.Equal(20f, fitted[0].Width, "zero weight keeps only its minimum");
+                AssertEx.Equal(otherWeight == 0f ? 10f : 80f, fitted[1].Width,
+                    "only positive weights share surplus");
+            }
+
             var fixedMinimum = new[]
             {
                 new UiLayoutItem(UiLayoutSize.Fixed(10f, 25f),

@@ -1,7 +1,8 @@
 # Dynamic UI architecture
 
 `WorkspaceLayout` computes the geometry shared by drawing, hit testing, terminal sizing,
-and Harmony integration.
+and Harmony integration. `Compute` is pure; only the retained `Current` snapshot
+advances the workspace revision.
 Navigation side and density come from mod settings.
 Placement policy stays separate from rendering. See [shared chrome](mod-ui-chrome.md) for metrics,
 composition, measurement caching, and responsive Settings forms.

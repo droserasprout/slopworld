@@ -10,7 +10,7 @@ namespace SlopWorld
     public class TerminalPage : IOptionPage
     {
         readonly SmoothScroll _scroll = new SmoothScroll();
-        readonly SettingsContentHeight _height = new SettingsContentHeight(400f);
+        readonly ContentHeight _height = new ContentHeight(400f);
         readonly SettingsPreviewLayout _layout = new SettingsPreviewLayout();
 
         public void Load() { }
