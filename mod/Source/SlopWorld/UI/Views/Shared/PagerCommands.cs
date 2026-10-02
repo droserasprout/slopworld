@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace SlopWorld
@@ -44,11 +46,71 @@ namespace SlopWorld
         static string App(string value, string fallback) =>
             string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 
-        static string Executable(string value, string fallback)
+        internal readonly struct CommandWord
         {
-            string command = App(value, fallback);
-            int end = command.IndexOfAny(new[] { ' ', '\t' });
-            return end < 0 ? command : command.Substring(0, end);
+            public readonly string Value;
+            public readonly int Start, End;
+            public readonly bool Quoted;
+            public CommandWord(string value, int start, int end, bool quoted)
+            { Value = value; Start = start; End = end; Quoted = quoted; }
+        }
+
+        // Decode shell words without expanding them; retain source offsets for safe insertion.
+        internal static List<CommandWord> Words(string command)
+        {
+            var words = new List<CommandWord>();
+            command = command ?? "";
+            int at = 0;
+            while (at < command.Length)
+            {
+                while (at < command.Length && char.IsWhiteSpace(command[at])) at++;
+                if (at == command.Length) break;
+                int start = at;
+                char quote = '\0';
+                bool quoted = false;
+                var value = new StringBuilder();
+                while (at < command.Length)
+                {
+                    char c = command[at];
+                    if (quote == '\0' && char.IsWhiteSpace(c)) break;
+                    at++;
+                    if (c == '\\' && quote != '\'' && at < command.Length)
+                    {
+                        char next = command[at];
+                        if (quote == '\0' || next == '"' || next == '\\' || next == '$' || next == '`' || next == '\n')
+                        {
+                            quoted = true;
+                            at++;
+                            if (next != '\n') value.Append(next);
+                            continue;
+                        }
+                    }
+                    if (c == quote) { quote = '\0'; quoted = true; continue; }
+                    if (quote == '\0' && (c == '\'' || c == '"'))
+                    { quote = c; quoted = true; continue; }
+                    value.Append(c);
+                }
+                words.Add(new CommandWord(value.ToString(), start, at, quoted));
+            }
+            return words;
+        }
+
+        internal static string Executable(string value, string fallback = "")
+        {
+            var words = Words(App(value, fallback));
+            return words.Count == 0 ? "" : words[0].Value;
+        }
+
+        internal static string InsertOptions(string command, string options, string placeholder)
+        {
+            var words = Words(command);
+            for (int i = 1; i < words.Count; i++)
+            {
+                var word = words[i];
+                if (!word.Quoted && (word.Value == "--" || word.Value == placeholder))
+                    return command.Insert(word.Start, options + " ");
+            }
+            return command + " " + options;
         }
 
         // Sidebar editors run through slopd, so micro's external clipboard backend cannot
@@ -62,10 +124,8 @@ namespace SlopWorld
                 command.IndexOf("-clipboard", StringComparison.Ordinal) >= 0)
                 return command;
 
-            int end = command.IndexOfAny(new[] { ' ', '\t' });
-            return end < 0
-                ? command + " -clipboard terminal"
-                : command.Insert(end, " -clipboard terminal");
+            int end = Words(command)[0].End;
+            return command.Insert(end, " -clipboard terminal");
         }
 
         // The env vars for a persistent `less` that pipes every file through `highlight`.
@@ -107,13 +167,8 @@ namespace SlopWorld
             }
         }
 
-        static string Options(string command, string options)
-        {
-            int at = command.IndexOf(" -- ", StringComparison.Ordinal);
-            if (at < 0 && command.EndsWith(" --", StringComparison.Ordinal)) at = command.Length - 3;
-            if (at < 0) at = command.IndexOf(" {file}", StringComparison.Ordinal);
-            return at < 0 ? command + " " + options : command.Insert(at, " " + options);
-        }
+        static string Options(string command, string options) =>
+            InsertOptions(command, options, "{file}");
 
         static string BatOptions(string command, string options)
         {
@@ -147,17 +202,23 @@ namespace SlopWorld
             return "env " + theme + "DELTA_PAGER=" + Quote(PipePager(pager)) + " " + git;
         }
 
-        public static bool IsPagerCommand(string pager, string command)
-        {
-            string exe = Executable(pager, "less");
-            return command == exe || command.StartsWith(exe + " ") ||
-                (command.StartsWith("env ") && command.Contains(" " + exe + " "));
-        }
+        public static bool IsPagerCommand(string pager, string command) =>
+            CommandExecutable(command, allowEnv: true) == Executable(pager, "less");
 
-        public static bool IsEditorCommand(string editor, string command)
+        public static bool IsEditorCommand(string editor, string command) =>
+            CommandExecutable(command, allowEnv: false) == Executable(editor, "micro");
+
+        static string CommandExecutable(string command, bool allowEnv)
         {
-            string exe = Executable(editor, "micro");
-            return command == exe || command.StartsWith(exe + " ");
+            var words = Words(command);
+            if (words.Count == 0) return null;
+            int at = 0;
+            if (allowEnv && words[0].Value == "env")
+            {
+                at++;
+                while (at < words.Count && words[at].Value.IndexOf('=') > 0) at++;
+            }
+            return at < words.Count ? words[at].Value : null;
         }
 
         public static string FileCommand(string value, string fallback, string file, long line = 0)

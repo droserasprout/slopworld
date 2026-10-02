@@ -21,7 +21,7 @@ namespace SlopWorld
         public readonly List<Action<string>> Failures = new List<Action<string>>();
         public int Starts, Stops;
         public bool Host, Temp;
-        public string Project, Command;
+        public string Project, Command, Intent;
         public void Run(string project, string command, string label, Action<string> started,
                         Action<string> fail, SessionRunOptions options = null)
         {
@@ -31,6 +31,7 @@ namespace SlopWorld
             Temp = options.Temp;
             Project = project;
             Command = command;
+            Intent = options.Intent;
             Pending.Enqueue(started);
             Failures.Add(fail);
         }
@@ -73,12 +74,42 @@ namespace SlopWorld.Tests
 {
     static class PagerLifecycleTests
     {
+        static void AppearanceSearch()
+        {
+            var previous = SessionHub.Instance;
+            try
+            {
+                SessionHub.Instance = new SessionHub();
+                var hub = SessionHub.Instance;
+                var info = new SessionInfo { Name = "search-restored", Alive = true, Intent = "search",
+                    ReaderPath = "/p/file", ReaderKey = "/p/file", ReaderLine = 12, Project = "p",
+                    ReaderPinned = true };
+                hub.Sessions[info.Name] = info;
+                var pager = new Pager();
+                pager.AttachRestored(info);
+                AssertEx.True(pager.CanRestartForAppearance, "restored Search reader participates");
+                hub.Config.Pager = "less --RAW-CONTROL-CHARS";
+                pager.RestartForAppearance(pager.Session, pager.Operation);
+                AssertEx.True(hub.SessionStore.Command.Contains("--RAW-CONTROL-CHARS"), "uses current config");
+                AssertEx.True(hub.SessionStore.Command.Contains("+12"), "retains source line");
+                AssertEx.Equal("search", hub.SessionStore.Intent, "restart keeps Search routing");
+                hub.SessionStore.Complete("replacement");
+                string command = hub.SessionStore.Command;
+                pager.RefreshIfChanged("baseline");
+                pager.RefreshIfChanged("changed");
+                AssertEx.Equal(command, hub.SessionStore.Command, "refresh retains rebuilt command");
+                AssertEx.Equal("search", hub.SessionStore.Intent, "refresh keeps Search routing");
+            }
+            finally { SessionHub.Instance = previous; }
+        }
+
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             yield return ("reader settings restart preserves pin and background focus", AppearanceRestart);
             yield return ("reader settings restart ignores stale confirmation", AppearanceStale);
             yield return ("failed reader settings restart keeps old process", AppearanceFailure);
             yield return ("restored diff restart uses current pager", AppearanceDiff);
+            yield return ("restored Search appearance preserves intent and refresh command", AppearanceSearch);
             yield return ("bat file pager uses the selected bat highlighter theme", BatFileTheme);
             yield return ("changed file refresh keeps its pinned tab and active pane", RefreshActive);
             yield return ("background refresh does not steal terminal focus", RefreshBackground);
