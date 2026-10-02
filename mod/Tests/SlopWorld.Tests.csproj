@@ -13,7 +13,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/UI/Views/Git/GitCommands.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Files/NativeAppPicker.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Git/GitStatus.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalHistoryRestore.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalInputController.Keyboard.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalPanel/TerminalLinkService.cs" />

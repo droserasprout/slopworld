@@ -84,16 +84,7 @@ namespace SlopWorld
             return right - w - 5f;
         }
 
-        static bool NeedsStage(string status)
-        {
-            if (string.IsNullOrEmpty(status) || status == "??") return true;
-            return status.Length > 1 && status[1] != ' ';
-        }
-
-        static bool IsStaged(string status) => !string.IsNullOrEmpty(status)
-            && status != "??" && status[0] != ' ';
-
-        static bool Any(Node node, System.Func<string, bool> test)
+        static bool Any(Node node, System.Func<GitStatus, bool> test)
         {
             if (!node.IsDir) return test(node.Status);
             if (node.Kids == null) return false;
@@ -105,11 +96,11 @@ namespace SlopWorld
         static bool HasStaged(Repo repo)
         {
             foreach (var status in repo.Changes.Values)
-                if (IsStaged(status)) return true;
+                if (new GitStatus(status).IsStaged) return true;
             return false;
         }
 
-        static void GitAction(Repo repo, string command, string notice)
+        static void GitAction(Repo repo, string command, string notice, bool completeCommand = false)
         {
             if (repo == null || !repo.IsRepo || repo.Error != null || string.IsNullOrEmpty(repo.Root))
             {
@@ -119,7 +110,7 @@ namespace SlopWorld
 
             // A project may point below the repository root. Validate its selected checkout
             // directory while Git uses the repository root returned by the daemon.
-            string full = "git -C " + Pager.Quote(repo.Root) + " " + command;
+            string full = completeCommand ? command : "git -C " + Pager.Quote(repo.Root) + " " + command;
             DaemonClient.Post<Wire.OutputResult>(WireProtocol.Routes.FileAction, FilesView.ScopeAction(repo.Project, repo.Dir, full),
                 _ =>
                 {
@@ -134,12 +125,12 @@ namespace SlopWorld
             GitAction(repo, "add -- " + Pager.Quote(rel), "staged " + rel);
 
         static void Unstage(Repo repo, string rel) =>
-            GitAction(repo, "reset -- " + Pager.Quote(rel), "unstaged " + rel);
+            GitAction(repo, GitCommands.Unstage(repo.Root, rel), "unstaged " + rel, true);
 
         static void StageAll(Repo repo) => GitAction(repo, "add --all", "staged all changes");
 
         static void UnstageAll(Repo repo) =>
-            GitAction(repo, "reset -- .", "unstaged all changes");
+            GitAction(repo, GitCommands.Unstage(repo.Root, "."), "unstaged all changes", true);
 
         public static void StageAll(string project)
         {
@@ -196,7 +187,7 @@ namespace SlopWorld
             {
                 // A capped response omits all numstat values, so null there means unknown,
                 // not necessarily binary. Preserve the binary marker for complete answers.
-                if (!node.Owner.Truncated)
+                if (node.Owner.CountsComplete && !node.Owner.Truncated)
                     right = Tail(right, row.y, "bin", UiTheme.Faint);
             }
             else
@@ -206,7 +197,7 @@ namespace SlopWorld
                 if (node.Added > 0) right = Tail(right, row.y, "+" + node.Added,
                     UiTheme.Yes);
             }
-            return Tail(right, row.y, Mark(node.Status), MarkColor(node.Status));
+            return Tail(right, row.y, node.Status.Mark, MarkColor(node.Status));
         }
 
         // Every changed file offers Diff. Existing files additionally offer Edit; text and
@@ -216,64 +207,34 @@ namespace SlopWorld
             if (node.IsDir) return RowAct.None;
 
             var acts = RowAct.Diff;
-            if (!Present(node.Status)) return acts;
+            if (!node.Status.Present) return acts;
 
             acts |= RowAct.Edit;
             if (FilesView.IsText(node.Name) || FilesView.IsImage(node.Name)) acts |= RowAct.View;
             return acts;
         }
 
-        // A path is absent when either worktree deletion or staged deletion is authoritative.
-        static bool Present(string status)
-        {
-            if (string.IsNullOrEmpty(status) || status == "??") return true;
-            char staged = status[0], worktree = status.Length > 1 ? status[1] : ' ';
-            if (worktree == 'D') return false;
-            return !(staged == 'D' && worktree == ' ');
-        }
-
-        // The porcelain pair said in one character, because one is what fits: the staged
-        // letter where there is one, the unstaged letter otherwise. Which of the two it was
-        // is the color's job below.
-        static string Mark(string status)
-        {
-            if (string.IsNullOrEmpty(status)) return "?";
-            if (status == "??") return "?";
-            char staged = status[0];
-            char worktree = status.Length > 1 ? status[1] : ' ';
-            return (staged != ' ' && staged != '?' ? staged : worktree).ToString();
-        }
-
         // Staged is the color of a thing that is going somewhere. Everything else is the
         // color of a thing that is not. Untracked is neither, and is dimmer than both.
-        static Color MarkColor(string status)
+        static Color MarkColor(GitStatus status)
         {
-            if (string.IsNullOrEmpty(status) || status == "??") return UiTheme.Faint;
-            if (Unmerged(status)) return UiTheme.Bad;
-            return status[0] != ' ' ? UiTheme.Yes : UiTheme.Warn;
+            if (status.Unknown || status.Untracked) return UiTheme.Faint;
+            if (status.Unmerged) return UiTheme.Bad;
+            return status.IsStaged ? UiTheme.Yes : UiTheme.Warn;
         }
 
         static string Says(Node node)
         {
-            string s = node.Status ?? "";
-            if (s == "??") return "untracked";
-            if (Unmerged(s)) return "unmerged";
+            var status = node.Status;
+            string s = status.Pair;
+            if (status.Untracked) return "untracked";
+            if (status.Unmerged) return "unmerged";
 
-            char staged = s.Length > 0 ? s[0] : ' ';
-            char worktree = s.Length > 1 ? s[1] : ' ';
+            char staged = status.Staged, worktree = status.Worktree;
             var parts = new List<string>();
             if (staged != ' ') parts.Add(Word(staged) + ", staged");
             if (worktree != ' ') parts.Add(Word(worktree) + " since");
             return parts.Count == 0 ? s : string.Join("; ", parts.ToArray());
-        }
-
-        // Git uses DD and AA as unmerged pairs without a U character. Keep all seven
-        // porcelain conflict pairs red and describe them as one state rather than two
-        // ordinary staged/worktree operations.
-        static bool Unmerged(string status)
-        {
-            return status == "AA" || status == "DD" || status == "AU" || status == "UD" ||
-                status == "UA" || status == "DU" || status == "UU";
         }
 
         static string Word(char c)
@@ -481,14 +442,14 @@ namespace SlopWorld
             FilesView.AddFileActions(opts, project, abs, node.Name);
             FilesView.AddOpenIn(opts, abs, project);
 
-            bool canStage = Any(node, NeedsStage);
-            bool canUnstage = Any(node, IsStaged);
+            bool canStage = Any(node, status => status.NeedsStage);
+            bool canUnstage = Any(node, status => status.IsStaged);
             if (canStage)
                 opts.Add(new FloatMenuOption("Stage", () => Stage(repo, node.Rel)));
             if (canUnstage)
                 opts.Add(new FloatMenuOption("Unstage", () => Unstage(repo, node.Rel)));
 
-            if (!node.IsDir && Present(node.Status))
+            if (!node.IsDir && node.Status.Present)
                 opts.Add(new FloatMenuOption("Edit", () =>
                     FilesView.EditFile(project, abs, "edit-" + node.Name)));
 
@@ -578,28 +539,8 @@ namespace SlopWorld
             return false;
         }
 
-        // Use delta as git's pager because daemon errands are argv, not shell pipelines. Force
-        // color and LESS=R: git's default X avoids the alternate screen, preventing the pane
-        // from sending wheel input to less. F would quit on short diffs. `-C` anchors paths
-        // when a project points below the repository root.
-        static string DiffCmd(Repo repo, string rel, string status)
-        {
-            string git = "git -C " + Pager.Quote(repo.Root) +
-                " -c " + Pager.Quote("core.pager=LESS=R delta --paging=always") + " --paginate";
-
-            // A truly untracked file has no index entry or HEAD blob to diff against.
-            // `--no-index` against the empty file shows its current contents as added. An
-            // unstaged add (` A`) can still be diffed against HEAD. Sending it through
-            // `--no-index` makes the pager finish without leaving the diff visible.
-            if (status == "??")
-                return git + " diff --color=always --no-index -- /dev/null " + Pager.Quote(rel);
-
-            // Against HEAD rather than the index or the worktree alone. What a reader means by
-            // "what changed here" is both halves at once, which is also what the counts beside the
-            // row are.
-            string cmd = git + " diff --color=always HEAD";
-            return rel == null ? cmd : cmd + " -- " + Pager.Quote(rel);
-        }
+        static string DiffCmd(Repo repo, string rel, string status) =>
+            GitCommands.Diff(repo.Root, rel, new GitStatus(status).Untracked);
 
         // ------------------------------------------------------------------ lifecycle
 
