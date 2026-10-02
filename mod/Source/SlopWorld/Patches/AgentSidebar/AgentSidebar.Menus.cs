@@ -139,7 +139,7 @@ namespace SlopWorld
                     if (current != null) LabelDialog.Open(name, current.Label);
                 }));
 
-            if (info != null && !info.Host)
+            if (DelegateTaskDialog.Eligible(info))
                 opts.Add(new FloatMenuOption("Delegate task", () =>
                     TerminalWindow.OpenOverPane(new DelegateTaskDialog(name))));
 

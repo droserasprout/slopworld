@@ -33,6 +33,7 @@ namespace SlopWorld
 
         public SpawnWorkerDialog(string caller, string project)
         {
+            SessionHub.Instance.RefreshConfig(UiLayout.Fail);
             _fixedCaller = caller;
             _project = project ?? "";
             if (WorktreeChoices.TryGetValue(ChoiceKey, out var choice)) { _worktree = choice.Worktree; _newWorktree = choice.NewWorktree; }
@@ -62,9 +63,9 @@ namespace SlopWorld
                 UiTheme.LineH + UiTheme.GapXS + UiTheme.CompactH);
             var callerOptions = _agents.Select(agent => new SelectorOption(AgentLabel(agent), () =>
             {
-                _caller = agent.Name;
+                SelectCaller(agent.Name);
             })).ToList();
-            callerOptions.Insert(0, new SelectorOption("You (host)", () => _caller = TaskInfo.Host));
+            callerOptions.Insert(0, new SelectorOption("You (host)", () => SelectCaller(TaskInfo.Host)));
             bool callerCanChoose = string.IsNullOrEmpty(_fixedCaller) && callerOptions.Count > 0;
             UiControls.Select(callerRect, "Caller", AgentLabel(_caller),
                 callerOptions, out _, callerCanChoose
@@ -81,46 +82,18 @@ namespace SlopWorld
             y += UiTheme.LineH + UiTheme.GapS;
             var templateRect = new Rect(rect.x, y, rect.width,
                 UiTheme.LineH + UiTheme.GapXS + UiTheme.CompactH);
+            if (!AvailableTemplates().Any(t => t.Name == _template)) _template = "";
             var templateOptions = AvailableTemplates().Select(template =>
                 new SelectorOption(template.DisplayLabel, () => _template = template.Name)).ToList();
             bool templateCanChoose = templateOptions.Count > 0;
             UiControls.Select(templateRect, "Template", TemplateLabel(_template),
                 templateOptions, out _, templateCanChoose
-                    ? "All agent templates are available to you. Manage worker access in Settings > Agents > Workers."
-                    : "No agent templates are available in the catalog.",
+                    ? "Choose a template allowed for this caller. Manage worker access in Settings > Agents > Workers."
+                    : "No agent templates are available to this caller.",
                 templateCanChoose);
 
             y = templateRect.yMax + UiTheme.GapM;
-            var worktreeRect = new Rect(rect.x, y, rect.width, UiTheme.LineH + UiTheme.GapXS + UiTheme.CompactH);
-            var choices = new List<SelectorOption> { new SelectorOption("New worktree", () => { _newWorktree = true; _worktree = ""; }) };
-            choices.AddRange(_worktrees.Where(w => w.Phase == "ready").Select(w => new SelectorOption(
-                w.Name + (string.IsNullOrEmpty(w.Branch) ? " (detached)" : " — " + w.Branch),
-                () => { _newWorktree = false; _worktree = w.Id; })));
-            UiControls.Select(worktreeRect, "Worktree", _newWorktree ? "New worktree" :
-                _worktrees.FirstOrDefault(w => w.Id == _worktree)?.Name ?? "Main checkout", choices, out _);
-            y = worktreeRect.yMax + UiTheme.GapS;
-            if (_newWorktree)
-            {
-                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH), "Base revision (blank uses caller's HEAD)");
-                y += UiTheme.LineH;
-                _baseRevision = UiText.Field(new Rect(rect.x, y, rect.width, UiTheme.CompactH), "spawn-worker.base", _baseRevision);
-                y += UiTheme.CompactH + UiTheme.GapS;
-                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH), "Worktree name (optional)");
-                y += UiTheme.LineH;
-                _worktreeName = UiText.Field(new Rect(rect.x, y, rect.width, UiTheme.CompactH), "spawn-worker.worktree-name", _worktreeName);
-                y += UiTheme.CompactH + UiTheme.GapS;
-                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH),
-                    "The new worktree uses committed files. Uncommitted changes stay in the caller's checkout.");
-                y += UiTheme.LineH + UiTheme.GapS;
-                string previewKey = _caller + "\n" + _baseRevision;
-                if (previewKey != _previewKey) ResolveBase();
-                if (UiButtons.Button(new Rect(rect.x, y, 130f, UiTheme.BtnH), "Resolve base", on: !_sending)) ResolveBase();
-                UiText.RowLabel(new Rect(rect.x + 140f, y, rect.width - 140f, UiTheme.BtnH),
-                    _previewError ?? (string.IsNullOrEmpty(_baseCommit)
-                        ? "Resolve the base revision before you start the worker."
-                        : _baseCommit));
-                y += UiTheme.BtnH + UiTheme.GapS;
-            }
+            y = DrawWorktreeFields(rect, y);
             GUI.color = UiTheme.Name;
             UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH), "Task");
             GUI.color = Color.white;
@@ -154,10 +127,52 @@ namespace SlopWorld
             if (foot.Right("Spawn", UiTheme.Btn.Primary, ready)) Send();
         }
 
+        void SelectCaller(string caller)
+        {
+            _caller = caller;
+            if (!AvailableTemplates().Any(t => t.Name == _template)) _template = "";
+        }
+
+        float DrawWorktreeFields(Rect rect, float y)
+        {
+            var worktreeRect = new Rect(rect.x, y, rect.width, UiTheme.LineH + UiTheme.GapXS + UiTheme.CompactH);
+            var choices = new List<SelectorOption> { new SelectorOption("New worktree", () => { _newWorktree = true; _worktree = ""; }) };
+            choices.AddRange(_worktrees.Where(w => w.Phase == "ready").Select(w => new SelectorOption(
+                w.Name + (string.IsNullOrEmpty(w.Branch) ? " (detached)" : " — " + w.Branch),
+                () => { _newWorktree = false; _worktree = w.Id; })));
+            UiControls.Select(worktreeRect, "Worktree", _newWorktree ? "New worktree" :
+                _worktrees.FirstOrDefault(w => w.Id == _worktree)?.Name ?? "Main checkout", choices, out _);
+            y = worktreeRect.yMax + UiTheme.GapS;
+            if (_newWorktree)
+            {
+                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH), "Base revision (blank uses caller's HEAD)");
+                y += UiTheme.LineH;
+                _baseRevision = UiText.Field(new Rect(rect.x, y, rect.width, UiTheme.CompactH), "spawn-worker.base", _baseRevision);
+                y += UiTheme.CompactH + UiTheme.GapS;
+                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH), "Worktree name (optional)");
+                y += UiTheme.LineH;
+                _worktreeName = UiText.Field(new Rect(rect.x, y, rect.width, UiTheme.CompactH), "spawn-worker.worktree-name", _worktreeName);
+                y += UiTheme.CompactH + UiTheme.GapS;
+                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH),
+                    "The new worktree uses committed files. Uncommitted changes stay in the caller's checkout.");
+                y += UiTheme.LineH + UiTheme.GapS;
+                string previewKey = _caller + "\n" + _baseRevision;
+                if (previewKey != _previewKey) ResolveBase();
+                if (UiButtons.Button(new Rect(rect.x, y, 130f, UiTheme.BtnH), "Resolve base", on: !_sending)) ResolveBase();
+                UiText.RowLabel(new Rect(rect.x + 140f, y, rect.width - 140f, UiTheme.BtnH),
+                    _previewError ?? (string.IsNullOrEmpty(_baseCommit)
+                        ? "Resolve the base revision before you start the worker."
+                        : _baseCommit));
+                y += UiTheme.BtnH + UiTheme.GapS;
+            }
+            return y;
+        }
+
         IEnumerable<AgentTemplateInfo> AvailableTemplates()
         {
             return SessionHub.Instance.Templates
-                .Where(template => template != null)
+                .Where(template => template != null && (_caller == TaskInfo.Host ||
+                    SessionHub.Instance.Config.WorkerTemplates.Contains(template.Name)))
                 .OrderBy(template => template.Name, StringComparer.OrdinalIgnoreCase);
         }
 
@@ -194,6 +209,13 @@ namespace SlopWorld
 
         void Send()
         {
+            if (_sending) return;
+            if (!AvailableTemplates().Any(t => t.Name == _template))
+            {
+                _template = "";
+                _error = "Choose a template allowed for this caller.";
+                return;
+            }
             _sending = true;
             _error = null;
             SessionHub.Instance.SpawnWorker(_caller, _project, _template, _body.Trim(), _durable,
