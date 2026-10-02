@@ -27,6 +27,21 @@ namespace SlopWorld.Tests
                 new Vector2Int(lines.Last().Text.Length, lines.Count - 1));
         }
 
+        public static void LayoutGenerationChangesOnlyWhenPlacementsChange()
+        {
+            var engine = Flow(200, Paragraph(new InlineRun { Text = "one" }));
+            int generation = engine.Generation;
+            var blocks = new List<MarkdownBlock> { Paragraph(new InlineRun { Text = "one" }) };
+            engine.Reflow(blocks, 200);
+            AssertEx.Equal(generation, engine.Generation, "same-width draw keeps visibility index");
+            engine.Invalidate();
+            engine.Reflow(blocks, 200);
+            AssertEx.True(engine.Generation > generation, "invalidation at same width replaces index");
+            generation = engine.Generation;
+            engine.Clear();
+            AssertEx.True(engine.Generation > generation, "document clear retires old index");
+        }
+
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             foreach (string alignment in new[] { "left", "center", "right" })

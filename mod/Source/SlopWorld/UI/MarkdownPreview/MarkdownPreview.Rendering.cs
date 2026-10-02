@@ -9,6 +9,7 @@ namespace SlopWorld
         readonly MarkdownResourceStore _resources;
         readonly List<LinkHit> _links = new List<LinkHit>();
         readonly List<float> _prefixBottoms = new List<float>();
+        int _layoutGeneration = -1;
         float _clipTop;
         float _clipBottom;
 
@@ -24,11 +25,15 @@ namespace SlopWorld
             _links.Clear();
         }
 
-        public void Draw(List<Placement> placements, MarkdownSelection selection,
+        public void Draw(List<Placement> placements, int generation, MarkdownSelection selection,
                          float clipTop, float clipBottom)
         {
             _links.Clear();
-            BuildVisibilityIndex(placements);
+            if (_layoutGeneration != generation)
+            {
+                BuildVisibilityIndex(placements);
+                _layoutGeneration = generation;
+            }
             _clipTop = clipTop;
             _clipBottom = clipBottom;
             int first = FirstVisiblePlacement(placements, _clipTop);

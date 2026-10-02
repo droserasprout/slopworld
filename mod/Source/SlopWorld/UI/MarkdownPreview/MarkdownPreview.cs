@@ -160,10 +160,10 @@ namespace SlopWorld
             }
 
             _scroll.Draw(body, _layout.Width, _layout.Height,
-                (clipTop, clipBottom) => _renderer.Draw(_layout.Placements, _selection,
+                (clipTop, clipBottom) => _renderer.Draw(_layout.Placements, _layout.Generation, _selection,
                     clipTop, clipBottom));
-            _input.HandleLinks(body, _scroll.Position, _renderer.Links);
-            _input.Handle(body, _scroll.Position, _renderer.Links);
+            if (!_input.HandleLinks(body, _scroll.Position, _renderer.Links))
+                _input.Handle(body, _scroll.Position);
         }
 
         void BeginLoad()

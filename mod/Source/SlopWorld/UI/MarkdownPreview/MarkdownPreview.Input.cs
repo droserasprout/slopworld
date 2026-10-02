@@ -18,7 +18,7 @@ namespace SlopWorld
             _openLocalLink = openLocalLink;
         }
 
-        public void Handle(Rect body, Vector2 scroll, List<LinkHit> links)
+        public void Handle(Rect body, Vector2 scroll)
         {
             var e = Event.current;
             if (e == null) return;
@@ -71,10 +71,10 @@ namespace SlopWorld
             }
         }
 
-        public void HandleLinks(Rect body, Vector2 scroll, List<LinkHit> links)
+        public bool HandleLinks(Rect body, Vector2 scroll, List<LinkHit> links)
         {
             var e = Event.current;
-            if (e == null) return;
+            if (e == null) return false;
 
             foreach (var hit in links)
             {
@@ -91,9 +91,10 @@ namespace SlopWorld
                     if (hit.LocalPath != null) _openLocalLink(hit.LocalPath);
                     else if (!string.IsNullOrEmpty(hit.Url)) Application.OpenURL(hit.Url);
                     e.Use();
-                    return;
+                    return true;
                 }
             }
+            return false;
         }
 
         static Rect ClipToBody(Rect value, Rect body)
