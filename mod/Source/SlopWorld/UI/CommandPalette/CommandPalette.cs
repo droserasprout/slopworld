@@ -97,6 +97,7 @@ namespace SlopWorld
             if (open != null) { open.Close(); return; }
 
             SessionHub.Instance.SessionStore.Refresh();
+            SessionHub.Instance.TaskStore.Refresh();
             SessionHub.Instance.Catalog.RefreshProjects();
             SessionHub.Instance.Catalog.RefreshLibrary();
             SessionHub.Instance.Catalog.LoadPresets();
@@ -129,8 +130,9 @@ namespace SlopWorld
             public bool IsEnabled => Enabled();
 
             public static CommandDef ForAgent(string id, string label,
-                Func<List<SubOption>> filter, Action<SessionInfo> action, Func<bool> enabled = null) =>
-                For(id, label, "Agent", filter, v => SessionHub.Instance.Get(v), action, enabled);
+                Func<List<SubOption>> filter, Action<SessionInfo> action, Func<bool> enabled = null,
+                string group = "Agent") =>
+                For(id, label, group, filter, v => SessionHub.Instance.Get(v), action, enabled);
 
             public static CommandDef ForProject(string id, string label,
                 Func<List<SubOption>> filter, Action<ProjectInfo> action, Func<bool> enabled = null) =>

@@ -123,7 +123,7 @@ namespace SlopWorld
                 if (!s.Host) return;
                 var name = s.Name;
                 TerminalWindow.OpenOverPane(CatalogActions.RemoveHost(name));
-            }),
+            }, group: "Host"),
 
             new CommandDef("daemon.reconnect", "Daemon: Reconnect", "Daemon",
                 _ => SessionHub.Instance.Connect()),
