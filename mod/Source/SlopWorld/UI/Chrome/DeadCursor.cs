@@ -267,6 +267,24 @@ namespace SlopWorld
             int w = src.width, h = src.height;
             var srcPx = TextureReadback.ReadBack(src);
 
+            var px = PreparePixels(srcPx, w, h, choice.Reversed, Settings.CursorGrayscale);
+
+            _hotspot = Tip(px);
+            _px = px;
+
+            _tex = new Texture2D(N, N, TextureFormat.ARGB32, false)
+            {
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+            };
+            _tex.SetPixels(px);
+            _tex.Apply();
+            _builtKey = choice.Key;
+            _builtGrayscale = Settings.CursorGrayscale;
+        }
+
+        static Color[] PreparePixels(Color[] srcPx, int w, int h, bool reversed, bool grayscale)
+        {
             var px = new Color[N * N];
             float sx = (float)w / N, sy = (float)h / N;
 
@@ -277,7 +295,7 @@ namespace SlopWorld
 
                 for (int x = 0; x < N; x++)
                 {
-                    int mx = choice.Reversed ? N - 1 - x : x;
+                    int mx = reversed ? N - 1 - x : x;
                     int x0 = Mathf.FloorToInt(mx * sx);
                     int x1 = Mathf.Min(w, Mathf.Max(x0 + 1, Mathf.FloorToInt((mx + 1) * sx)));
 
@@ -303,7 +321,7 @@ namespace SlopWorld
 
                     float a = aSum / n;
                     float lum = aSum > 0f ? lumSum / aSum : 0f;
-                    if (Settings.CursorGrayscale)
+                    if (grayscale)
                     {
                         float v = Floor + Range * lum;
                         px[y * N + x] = new Color(v, v, v, a);
@@ -318,19 +336,7 @@ namespace SlopWorld
                     }
                 }
             }
-
-            _hotspot = Tip(px);
-            _px = px;
-
-            _tex = new Texture2D(N, N, TextureFormat.ARGB32, false)
-            {
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp,
-            };
-            _tex.SetPixels(px);
-            _tex.Apply();
-            _builtKey = choice.Key;
-            _builtGrayscale = Settings.CursorGrayscale;
+            return px;
         }
 
         static void ClearBuilt()
