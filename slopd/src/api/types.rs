@@ -236,6 +236,8 @@ pub(crate) struct BrowseReq {
 #[derive(Deserialize)]
 pub(crate) struct ReadReq {
     pub(crate) path: String,
+    #[serde(default)]
+    pub(crate) root: Option<String>,
 }
 
 #[derive(Deserialize)]

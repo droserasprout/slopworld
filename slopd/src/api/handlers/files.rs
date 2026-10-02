@@ -348,9 +348,10 @@ pub(crate) async fn read_file(
     }
 
     let path = std::path::PathBuf::from(crate::config::expand(path));
-    let text = read_preview(&path)
+    let bytes = read_file_bounded(&path, READ_LIMIT, "file", q.root.as_deref())
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    let text = String::from_utf8(bytes).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     reply(json!({
         "path": path,
         "text": text,
@@ -491,7 +492,7 @@ pub(crate) async fn read_image(
     }
 
     let path = std::path::PathBuf::from(crate::config::expand(path));
-    let bytes = read_image_bytes(&path)
+    let bytes = read_file_bounded(&path, IMAGE_LIMIT, "image", q.root.as_deref())
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     reply(json!({
@@ -501,8 +502,28 @@ pub(crate) async fn read_image(
     }))
 }
 
-async fn read_file_bounded(path: &Path, limit: u64, label: &str) -> Result<Vec<u8>> {
-    let metadata = tokio::fs::metadata(path).await?;
+async fn read_file_bounded(
+    path: &Path,
+    limit: u64,
+    label: &str,
+    root: Option<&str>,
+) -> Result<Vec<u8>> {
+    let file = if let Some(root) = root {
+        let root = PathBuf::from(crate::config::expand(root));
+        let path = path.to_owned();
+        tokio::fs::File::from_std(
+            tokio::task::spawn_blocking(move || super::preview_scope::open(&root, &path)).await??,
+        )
+    } else {
+        tokio::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(nix::libc::O_NONBLOCK)
+            .open(path)
+            .await?
+    };
+    // Inspect the opened descriptor: a replacement between metadata and open must not
+    // bypass file-kind or size limits, and a FIFO must never block the preview request.
+    let metadata = file.metadata().await?;
     if !metadata.is_file() {
         bail!("The path does not identify a file.");
     }
@@ -519,7 +540,6 @@ async fn read_file_bounded(path: &Path, limit: u64, label: &str) -> Result<Vec<u
         );
     }
 
-    let file = tokio::fs::File::open(path).await?;
     let mut bytes =
         Vec::with_capacity(usize::try_from(metadata.len().min(limit)).unwrap_or(usize::MAX));
     file.take(limit.saturating_add(1))
@@ -535,12 +555,14 @@ async fn read_file_bounded(path: &Path, limit: u64, label: &str) -> Result<Vec<u
     Ok(bytes)
 }
 
+#[cfg(test)]
 pub(crate) async fn read_image_bytes(path: &Path) -> Result<Vec<u8>> {
-    read_file_bounded(path, IMAGE_LIMIT, "image").await
+    read_file_bounded(path, IMAGE_LIMIT, "image", None).await
 }
 
+#[cfg(test)]
 pub(crate) async fn read_preview(path: &Path) -> Result<String> {
-    let bytes = read_file_bounded(path, READ_LIMIT, "file").await?;
+    let bytes = read_file_bounded(path, READ_LIMIT, "file", None).await?;
     String::from_utf8(bytes).context("The file is not valid UTF-8.")
 }
 
@@ -980,3 +1002,7 @@ mod mutation_tests;
 #[cfg(test)]
 #[path = "files_reader_tests.rs"]
 mod reader_tests;
+
+#[cfg(test)]
+#[path = "preview_read_tests.rs"]
+mod preview_read_tests;

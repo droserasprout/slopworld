@@ -20,6 +20,7 @@ mod highlighting;
 mod jukebox;
 mod library;
 mod presets;
+mod preview_scope;
 mod sessions;
 mod system;
 mod tasks;
