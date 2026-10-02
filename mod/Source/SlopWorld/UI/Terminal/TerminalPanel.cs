@@ -87,7 +87,8 @@ namespace SlopWorld
             // can publish a new live sequence while the local scroll offset remains active.
             int? restoredShift = RestoredHistoryShift(live);
             NoteLiveFrame(live, restoredShift);
-            var style = TerminalFont.Style;
+            // Refresh font metrics before reading the cell height.
+            _ = TerminalFont.Style;
             float cellH = TerminalFont.CellH;
             bool historyInput = HistoryInputEnabled(live);
             PrepareHistoryScroll(cellH, live);

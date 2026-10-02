@@ -70,7 +70,7 @@ namespace SlopWorld
             var state = session == null
                 ? AgentState.Down
                 : SessionHub.Instance.Get(session)?.State ?? AgentState.Down;
-            __result = TerminalWindow.StateColor(state);
+            __result = UiTheme.AgentStateColor(state);
         }
     }
 }

@@ -6,6 +6,17 @@ namespace SlopWorld.Tests
 {
     static class TerminalGeometryRegressionTests
     {
+        public static void RejectsNonFiniteGeometry()
+        {
+            foreach (float invalid in new[] { float.NaN, float.PositiveInfinity, float.NegativeInfinity })
+            {
+                Assert.That(TerminalPanelGeometry.TryMeasure(new UiLayoutRect(0, 0, invalid, 100), 10, 10, out _, out _), Is.False);
+                Assert.That(TerminalPanelGeometry.TryMeasure(new UiLayoutRect(0, 0, 100, invalid), 10, 10, out _, out _), Is.False);
+                Assert.That(TerminalPanelGeometry.TryMeasure(new UiLayoutRect(0, 0, 100, 100), invalid, 10, out _, out _), Is.False);
+                Assert.That(TerminalPanelGeometry.TryMeasure(new UiLayoutRect(0, 0, 100, 100), 10, invalid, out _, out _), Is.False);
+            }
+        }
+
         public static void WordSelectionUsesUnicodeAndWholeEmoji()
         {
             var cells = new[] { "α", "β", "γ", " ", "😀", null, "😁", null, "𐐀", "𐐁" };

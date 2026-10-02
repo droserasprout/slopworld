@@ -9,7 +9,8 @@ When a user closes or switches panels during input, stop the old draw before it 
 
 Each panel sets its size from its assigned bounds. Rendering, hit tests, and resize requests share a pixel-snapped cell advance.
 If returned frames disagree, send another resize request. A redeploy can lose the request.
-Do not send one grid size to both split panes. Do not restore a static size from the last session.
+Settings refresh resizes each bound panel through its own size owner; the daemon-wide
+refresh carries no dimensions. Do not send one grid size to both split panes. Do not restore a static size from the last session.
 The app does not save split placement. Daemon capabilities report the supported dimension range and history capacity.
 The client checks and limits these values before layout and cache allocation. The client also applies its own allocation limits.
 Before the capability announcement arrives, the client uses local safety limits.

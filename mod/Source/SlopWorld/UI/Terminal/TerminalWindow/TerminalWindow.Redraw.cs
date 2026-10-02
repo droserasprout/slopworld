@@ -17,9 +17,8 @@ namespace SlopWorld
             base.ExtraOnGUI();
             if (Event.current.type != EventType.Repaint) return;
 
-            // UI.screenWidth truncates the width and can leave the last pixel column uncovered.
-            // PaneOverDraw prevents the map from repainting that column.
-            // Fill it here instead of widening the pane.
+            // Logical viewport dimensions can truncate the last row or column.
+            // Cover those trailing pixels without widening the pane.
             Slab.Fill(TerminalPanel.OverdrawBackground(new Rect(0f, 0f,
                 Mathf.Ceil(Screen.width / Prefs.UIScale),
                 Mathf.Ceil(Screen.height / Prefs.UIScale))), Background);
