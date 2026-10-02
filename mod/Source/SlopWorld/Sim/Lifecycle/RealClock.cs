@@ -32,7 +32,7 @@ namespace SlopWorld
         // Pauses and delayed ticks make this value lower than elapsed wall time.
         public static float Seconds(int ticks) => ticks / TicksPerRealSecond;
 
-        // Absolute ticks represent wall time, including pauses, delayed frames, and time while the game was not running.
+        // Legacy log migration only: solar ticks approximate age but can shift with local time or longitude.
         public static float SecondsSince(int absTick)
         {
             if (Verse.Current.ProgramState != ProgramState.Playing) return 0f;
@@ -61,7 +61,7 @@ namespace SlopWorld
             _lastMap = map;
             bool eco = Eco.Resting;
 
-            // Eco stops game ticks. Absolute ticks still represent wall time for dates and log-entry ages.
+            // Eco stops game ticks. Absolute ticks still represent local civil time for dates.
             // Sample once per second and when state changes.
             // Refresh immediately on entering or leaving Eco.
             bool solarDue = _solarRecalc.Due(Time.realtimeSinceStartupAsDouble, 1.0);

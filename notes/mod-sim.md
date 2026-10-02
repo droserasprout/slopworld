@@ -19,3 +19,7 @@ or vague calendar bounds.
 
 Profile gating applies to Harmony, def mutation and XML patches independently. New game
 integration must respect all three. See [profile](ops-profile.md).
+
+Shutdown saving belongs to the Root.Shutdown prefix; deferred OS close requests stay
+cancelled until that path runs. Log tooltips persist UTC timestamps independently of
+the solar calendar; old entries estimate their age from solar ticks once.

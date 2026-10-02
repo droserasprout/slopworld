@@ -52,7 +52,19 @@ namespace SlopWorld
         }
     }
 
-    // Use RealClock timestamp conversion for log entry tooltips.
+    [HarmonyPatch(typeof(LogEntry), MethodType.Constructor, typeof(LogEntryDef))]
+    public static class Patch_LogEntryCreated
+    {
+        static void Postfix(LogEntry __instance) => LogEntryClock.Created(__instance);
+    }
+
+    [HarmonyPatch(typeof(LogEntry), nameof(LogEntry.ExposeData))]
+    public static class Patch_LogEntryClockSave
+    {
+        static void Postfix(LogEntry __instance) => LogEntryClock.Expose(__instance);
+    }
+
+    // Keep log ages independent of the solar calendar.
     [HarmonyPatch(typeof(LogEntry), nameof(LogEntry.GetTipString))]
     public static class Patch_LogEntryTip
     {
@@ -60,7 +72,7 @@ namespace SlopWorld
         {
             if (__instance.Timestamp < 0) return true; // never stamped
 
-            string ago = RealClock.Period(RealClock.SecondsSince(__instance.Timestamp));
+            string ago = RealClock.Period(LogEntryClock.SecondsSince(__instance));
             __result = "OccurredTimeAgo".Translate(ago).CapitalizeFirst() + ".";
             return false;
         }
