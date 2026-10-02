@@ -26,6 +26,7 @@ namespace SlopWorld
 
         static void Open(Node node)
         {
+            if (!ReaderScopeAvailable(node.Project)) return;
             GitView.CancelPendingDiff();
             Tree.Select(node);
             // Marked, and nobody showing it: whatever was in the pane is not about this row.
@@ -423,17 +424,11 @@ namespace SlopWorld
         public static void ViewFile(string project, string path, string label, int line = 0, string previewRoot = null)
         {
             if (!string.IsNullOrEmpty(project)) project = SidebarScopes.Key(project);
-            label = ReaderLabel(project, label);
             GitView.CancelPendingDiff();
-            // A project that has gone takes the mark with it: the tree would otherwise
-            // highlight a row nobody is reading.
-            if (!string.IsNullOrEmpty(project) && SidebarScopes.Project(project) == null)
-                ClearSelection();
-            else
-            {
-                Tree.SelectKey(ContentTreeView.SelectionKey(project, SidebarScopes.Relative(project, path)));
-                if (!string.IsNullOrEmpty(project)) AgentSidebar.RememberFile(project, path);
-            }
+            if (!ReaderScopeAvailable(project)) return;
+            label = ReaderLabel(project, label);
+            Tree.SelectKey(ContentTreeView.SelectionKey(project, SidebarScopes.Relative(project, path)));
+            if (!string.IsNullOrEmpty(project)) AgentSidebar.RememberFile(project, path);
             if (line > 0 && previewRoot == null)
             {
                 ReleaseNativePreview();
@@ -452,6 +447,19 @@ namespace SlopWorld
             ReleaseNativePreview();
             if (Viewers.ReuseFile(project, path)) return;
             Viewers.ForPreview().ViewFile(project, path, label);
+        }
+
+        // Storage readers have no scope. Scoped readers must still refer to a ready checkout,
+        // even when its parent project survives deletion of the worktree.
+        static bool ReaderScopeAvailable(string project)
+        {
+            if (string.IsNullOrEmpty(project)) return true;
+            SidebarScopes.Update();
+            var scope = SidebarScopes.Find(SidebarScopes.Key(project));
+            if (scope != null && scope.Ready) return true;
+            ClearSelection();
+            UiLayout.Fail("This reader's checkout is no longer available.");
+            return false;
         }
 
         internal static string ReaderLabel(string scope, string label)
@@ -497,6 +505,7 @@ namespace SlopWorld
 
         static void ViewSourceFile(string project, string path, string label)
         {
+            if (!ReaderScopeAvailable(project)) return;
             GitView.CancelPendingDiff();
             Tree.SelectKey(ContentTreeView.SelectionKey(project, SidebarScopes.Relative(project, path)));
             if (!string.IsNullOrEmpty(project)) AgentSidebar.RememberFile(project, path);
@@ -507,6 +516,7 @@ namespace SlopWorld
         public static void EditFile(string project, string path, string label, int line = 0)
         {
             if (!string.IsNullOrEmpty(project)) project = SidebarScopes.Key(project);
+            if (!ReaderScopeAvailable(project)) return;
             GitView.CancelPendingDiff();
             if (!string.IsNullOrEmpty(project)) AgentSidebar.RememberFile(project, path);
             if (string.IsNullOrEmpty(project))

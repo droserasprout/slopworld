@@ -32,7 +32,7 @@ namespace SlopWorld
             public string Root;        // the project dir this hangs off, for a relative path
             public string Project;     // stable browsing scope key, resolved to project/worktree at the request boundary
             public int Depth;
-            // Invalidates a listing already in flight when Reload forgets this node.
+            // Identifies each listing and invalidates delayed work when Reload forgets this node.
             public int ListingVersion;
             public List<System.Action> Loaded;
 
@@ -494,19 +494,65 @@ namespace SlopWorld
         {
             if (version != _focusVersion) return;
             parent.Expanded = true;
+            BumpTree();
             Fetch(parent, () =>
             {
                 if (version != _focusVersion || parent.Children == null) return;
                 var child = parent.Children.FirstOrDefault(n => n.Name == parts[at]);
-                if (child == null) { UiLayout.Fail($"path not found: {string.Join("/", parts)}"); return; }
-                if (at + 1 < parts.Count)
-                {
-                    if (!child.IsDir) { UiLayout.Fail($"not a directory: {child.Name}"); return; }
-                    Reveal(child, parts, at + 1, version);
-                    return;
-                }
-                Tree.RevealKey(ContentTreeView.SelectionKey(project: child.Project, path: Relative(child)));
+                if (child != null) RevealChild(child, parts, at, version);
+                else if (parent.More) RevealOmittedChild(parent, parts, at, version);
+                else UiLayout.Fail($"path not found: {string.Join("/", parts)}");
             });
+        }
+
+        static void RevealChild(Node child, List<string> parts, int at, int version)
+        {
+            if (at + 1 < parts.Count)
+            {
+                if (!child.IsDir) { UiLayout.Fail($"not a directory: {child.Name}"); return; }
+                Reveal(child, parts, at + 1, version);
+                return;
+            }
+            Tree.RevealKey(ContentTreeView.SelectionKey(project: child.Project, path: Relative(child)));
+        }
+
+        // A capped listing cannot establish absence. Probe the exact file, then try a
+        // directory listing if it is not a regular file. No extra siblings need loading.
+        static void RevealOmittedChild(Node parent, List<string> parts, int at, int version)
+        {
+            string path = parent.Path.TrimEnd('/') + "/" + parts[at];
+            int listingVersion = parent.ListingVersion;
+            bool current() => version == _focusVersion && listingVersion == parent.ListingVersion;
+            void found(bool directory, Wire.BrowseResult listing = null)
+            {
+                if (!current()) return;
+                var child = parent.Children.FirstOrDefault(n => n.Name == parts[at]);
+                if (child == null)
+                {
+                    child = Child(parent, parts[at], directory, directory, false);
+                    if (listing != null)
+                    {
+                        child.Children = Listed(child, listing);
+                        child.More = listing.Truncated;
+                        child.HasChildren = child.Children.Count > 0 || child.More;
+                    }
+                    parent.Children.Add(child);
+                    BumpTree();
+                }
+                RevealChild(child, parts, at, version);
+            }
+            void fail(string error)
+            {
+                if (current()) UiLayout.Fail("Could not reveal " + path + ": " + error);
+            }
+            DaemonClient.Get<Wire.FileStatResult>(WireProtocol.Routes.FileStat +
+                "?path=" + Uri.EscapeDataString(path), stat =>
+                {
+                    if (!current()) return;
+                    if (stat.IsFile) found(false);
+                    else DaemonClient.Get<Wire.BrowseResult>(BrowseUrl(path),
+                        listing => found(true, listing), fail);
+                }, fail);
         }
 
         // Everything listed will be replaced by a fresh answer about visibility. Keep the old
@@ -565,13 +611,21 @@ namespace SlopWorld
 
         static void CancelQueuedBrowse()
         {
+            var foreground = new List<BrowseRequest>();
             while (BrowseQueue.Count > 0)
             {
                 var request = BrowseQueue.Dequeue();
-                if (request.Node.Path == request.Path &&
-                    request.Node.ListingVersion == request.Version)
-                    request.Node.Loading = false;
+                if (request.Node.Path != request.Path || request.Node.ListingVersion != request.Version) continue;
+                // Reveal may have joined a queued background refresh. Keep that foreground
+                // waiter alive while discarding the remaining recursive background work.
+                if (request.Node.Loaded != null && request.Node.Loaded.Count > 0)
+                {
+                    request.Descend = false;
+                    foreground.Add(request);
+                }
+                else request.Node.Loading = false;
             }
+            foreach (var request in foreground) BrowseQueue.Enqueue(request);
         }
 
         public static void FocusDirectory(string path, string label)
@@ -678,7 +732,8 @@ namespace SlopWorld
 
         static void Fetch(Node node, System.Action done = null)
         {
-            if (node.Children != null) { done?.Invoke(); return; }
+            // Join an active refresh before consulting its stale children.
+            if (!node.Loading && node.Children != null && node.Error == null) { done?.Invoke(); return; }
             if (done != null)
             {
                 if (node.Loaded == null) node.Loaded = new List<System.Action>();
@@ -693,6 +748,7 @@ namespace SlopWorld
 
         static void QueueBrowse(Node node, bool descend)
         {
+            node.ListingVersion++;
             BrowseQueue.Enqueue(new BrowseRequest
             {
                 Node = node,
@@ -712,13 +768,16 @@ namespace SlopWorld
 
                 BrowseInFlight++;
                 DaemonClient.Get<Wire.BrowseResult>(
-                    WireProtocol.Routes.Browse + "?files=1&path=" + System.Uri.EscapeDataString(request.Path) +
-                    "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0") +
-                    "&gitignore=" + (Settings.SidebarShowGitignored ? "0" : "1"),
+                    BrowseUrl(request.Path),
                     j => CompleteBrowse(request, j, null),
                     msg => CompleteBrowse(request, null, msg));
             }
         }
+
+        static string BrowseUrl(string path) => WireProtocol.Routes.Browse +
+            "?files=1&path=" + Uri.EscapeDataString(path) +
+            "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0") +
+            "&gitignore=" + (Settings.SidebarShowGitignored ? "0" : "1");
 
         static bool Current(BrowseRequest request) =>
             (request.Node.Project == null || SidebarScopes.Enabled(request.Node.Project)) &&

@@ -196,7 +196,7 @@ namespace SlopWorld
             // Quietly: a name this table has that the bake does not is a generic page, not a
             // red error every frame it is on screen.
             tex = ContentFinder<Texture2D>.Get(Dir + icon, false);
-            if (tex == null && icon != Plain)
+            if ((tex == null || tex == BaseContent.BadTex) && icon != Plain)
                 tex = ContentFinder<Texture2D>.Get(Dir + Plain, false);
 
             Cache[icon] = tex;

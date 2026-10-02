@@ -53,3 +53,6 @@ Worker height counts use the actual nested lists grouped by the parent sessionâ€
 which also owns folding. Agent shortcuts in other tabs derive order from the colonist
 inventory without depending on cleared Agents geometry. Resize-dependent pane updates
 wait for the next frameâ€™s workspace snapshot; Library reselection refreshes its catalog.
+
+Files reveal waits for active listings and probes exact paths when a capped listing omits
+the target. A missing checkout cannot select or reopen a reader.

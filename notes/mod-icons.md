@@ -28,4 +28,5 @@ Notable aliases: `gear` serves options/config, `eye` serves hidden/view, `debug-
 is the stop icon, `circle-filled` is the state dot, `symbol-event` is the Library icon,
 `text-size` is type, `credit-card` is usage, and `link` is Integrations. `RobotFace_south` is a pawn
 faceplate, not a sidebar icon.
-`FileIcons` uses a separate set of images generated from Material Icon Theme.
+`UI/Views/Shared/FileIcons.cs` owns the shared file/tree lookup, including cached
+fallbacks for null and `BadTex` misses. It uses a separate set of images generated from Material Icon Theme.
