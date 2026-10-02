@@ -28,7 +28,7 @@ namespace SlopWorld
 
             UiLayout.SectionHeading(l, "Rendering");
             string mode = FramePolicy.Normalize(S.displayMode);
-            int fps = FramePolicy.Clamp(S.foregroundFps);
+            int fps = FramePolicy.NearestPreset(S.foregroundFps);
             string framePacingLabel = mode == FramePolicy.Sync ? "VSync" : fps + " FPS";
             string framePacingTip = mode == FramePolicy.Limit
                 ? "Disables VSync. Lower limits save power. Higher limits improve responsiveness."

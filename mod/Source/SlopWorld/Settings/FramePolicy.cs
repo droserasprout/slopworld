@@ -11,7 +11,7 @@ namespace SlopWorld
         // Values from older settings files that used "game" now use the VSync policy.
         public static string Normalize(string mode) => mode == Limit ? Limit : Sync;
 
-        public static int Clamp(int fps)
+        public static int NearestPreset(int fps)
         {
             int closest = Presets[0];
             long distance = Math.Abs((long)fps - closest);
@@ -30,7 +30,7 @@ namespace SlopWorld
         public bool Follow(bool focused, string mode, int fps, ref int target, ref int sync)
         {
             mode = Normalize(mode);
-            int nextTarget = !focused ? 15 : mode == Sync ? -1 : Clamp(fps);
+            int nextTarget = !focused ? 15 : mode == Sync ? -1 : NearestPreset(fps);
             int nextSync = focused && mode == Sync ? 1 : 0;
             bool changed = target != nextTarget || sync != nextSync;
             target = nextTarget;
