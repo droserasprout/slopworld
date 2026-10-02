@@ -5,43 +5,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The files and git tabs are different answers laid out in the same instrument: a set of
-    // project bands, followed by an indented tree. The source supplies the answer-specific
-    // rows and actions. This class owns the geometry, scroll view, selection and input pass.
-    public interface IContentTreeNode
-    {
-        string Name { get; }
-        string Key { get; }
-        string ScopeKey { get; }
-        bool IsDirectory { get; }
-        int Depth { get; }
-        bool CanExpand { get; }
-        bool Loading { get; }
-        string Error { get; }
-        bool More { get; }
-        IEnumerable<IContentTreeNode> Children { get; }
-    }
-
-    public sealed class ContentTreeGroup
-    {
-        public readonly string Key;
-        public string ParentKey;
-        public readonly string Label;
-        public readonly string Path;
-        public readonly object Value;
-        public readonly IContentTreeNode Root;
-
-        public ContentTreeGroup(string key, string label, string path, object value,
-            IContentTreeNode root)
-        {
-            Key = key;
-            Label = label;
-            Path = path;
-            Value = value;
-            Root = root;
-        }
-    }
-
     public interface IContentTreeLoader
     {
         void EnsureLoaded(IContentTreeNode node);

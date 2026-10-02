@@ -16,6 +16,13 @@
     <Compile Include="../Source/SlopWorld/UI/Text/TextElementLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Git/GitCommands.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Files/NativeAppPicker.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Browsing/ContentTreeContracts.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Browsing/ContentTreeController.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Files/FileNode.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Files/FileTypes.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Files/FilesStore.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Files/FilesStore.Browsing.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Files/FilesStore.Reveal.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Git/GitStatus.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/History/TerminalHistoryRestore.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Input/TerminalInputController.Keyboard.cs" />
