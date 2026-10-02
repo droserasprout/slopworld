@@ -40,7 +40,10 @@ Clipboard routes use `/api/clipboard` for CLIPBOARD and `/api/clipboard/primary`
 Wayland/X11 PRIMARY selection. Their `/text` variants read text without image data.
 
 Workspace reads use the browse, read, image, search, and Git routes. Browse returns directory
-entries, accepts file, hidden, gitignore, and limit flags, and caps the limit at 500. Read returns bounded UTF-8 text. Image returns bounded image bytes. Search requires a project path
+entries, accepts file, hidden, gitignore, and limit flags, and caps the limit at 500.
+The optional `filter` query matches a case-sensitive substring of each entry name before
+the cap is applied. Narrow the filter when `truncated` is true to reach omitted entries.
+Read returns bounded UTF-8 text. Image returns bounded image bytes. Search requires a project path
 and query, supports regex, case, word, hidden, and gitignore flags, and caps results at 200.
 Git returns repository status or `repo: false` when the path is not a repository.
 Use `counts=false` to skip line counting.
