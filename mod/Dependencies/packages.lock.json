@@ -12,6 +12,16 @@
           "System.Runtime.CompilerServices.Unsafe": "4.5.2"
         }
       },
+      "Markdig": {
+        "type": "Direct",
+        "requested": "[0.18.3, )",
+        "resolved": "0.18.3",
+        "contentHash": "gLlWW+BaePzd6pnaZaug5Ten0zY7oqqZUvYkUBHAKuKl7DUQ6HN6JBhzNAuSMg5aWQ+E00Fhm5UlrWy2yJxs9g==",
+        "dependencies": {
+          "Microsoft.NETFramework.ReferenceAssemblies": "1.0.0",
+          "jnm2.ReferenceAssemblies.net35": "1.0.1"
+        }
+      },
       "Microsoft.NETFramework.ReferenceAssemblies": {
         "type": "Direct",
         "requested": "[1.0.3, )",
@@ -20,6 +30,23 @@
         "dependencies": {
           "Microsoft.NETFramework.ReferenceAssemblies.net472": "1.0.3"
         }
+      },
+      "Newtonsoft.Json": {
+        "type": "Direct",
+        "requested": "[13.0.3, )",
+        "resolved": "13.0.3",
+        "contentHash": "HrC5BXdl00IP9zeV+0Z848QWPAoCr9P3bDEZguI+gkLcBKAOxix/tLEAAHC+UvDNPv4a2d18lOReHMOagPa+zQ=="
+      },
+      "Tomlyn": {
+        "type": "Direct",
+        "requested": "[0.19.0, )",
+        "resolved": "0.19.0",
+        "contentHash": "GlI2o8R8jbZIaE+YX6uA/VoAOH7zIxYeqxDm7jHW2hqUhuB+q19oKold35FkMuv8IZDoCqsTMolaBv2eBLBmrQ=="
+      },
+      "jnm2.ReferenceAssemblies.net35": {
+        "type": "Transitive",
+        "resolved": "1.0.1",
+        "contentHash": "v0inupvZNhNKp4ZiZjOm12dj/JLLOeFmtnXRP8qTWT/3SkJknXYgUosL2HRzYeVy7fXpX3WZq76BYEGrmIFc5w=="
       },
       "Microsoft.NETFramework.ReferenceAssemblies.net472": {
         "type": "Transitive",

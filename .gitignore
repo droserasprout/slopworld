@@ -4,6 +4,10 @@ coverage/
 mod/Source/SlopWorld/obj/
 mod/Source/SlopWorld/bin/
 mod/Assemblies/SlopWorld.dll
+# Runtime libraries restored by make mod-deps.
+mod/Assemblies/Markdig.dll
+mod/Assemblies/Newtonsoft.Json.dll
+mod/Assemblies/Tomlyn.dll
 *.pdb
 *.mdb
 .tokensave

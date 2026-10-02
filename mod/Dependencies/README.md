@@ -1,10 +1,20 @@
-# Protobuf runtime
+# Mod runtime packages
 
-`make protobuf-deps` restores Google.Protobuf 3.36.1 and its locked transitive dependencies
-for net472, then copies the runtime DLLs into `mod/Assemblies`. This target framework supports
-the game's Unity Mono runtime. The standalone IPC benchmark runs the same codec on Mono.
+`make mod-deps` restores Markdig 0.18.3, Newtonsoft.Json 13.0.3, Tomlyn 0.19.0,
+and Google.Protobuf 3.36.1 with locked transitive dependencies for net472, then copies
+only runtime assemblies into `mod/Assemblies`. This target framework supports the
+game's Unity Mono runtime. Markdig stays at its dependency-light Mono-compatible version.
+The mod, game-free tests, coverage and benchmarks depend on this target;
+`make protobuf-deps` remains an alias.
 
-The shipped System.Memory, System.Buffers, System.Numerics.Vectors and
-System.Runtime.CompilerServices.Unsafe versions come from `packages.lock.json`.
-The corresponding licenses are beside the assemblies. Json.NET remains because the
+`Runtime.csproj` owns package versions; `packages.lock.json` owns the resolved graph
+and content hashes. To update packages, edit the project, run
+`make mod-deps MOD_DEPS_LOCKED=false`, review the lock and shipped DLL changes, then
+run `make mod-deps` and `make test-mod`. The three parser DLLs are generated and ignored.
+The existing Protobuf runtime DLLs remain checked in.
+
+RimWorld and Unity assemblies come from the game installation and must never be copied
+into the mod. Harmony comes from the RimWorld Harmony release through `tools/fetch-harmony.sh`.
+The corresponding licenses stay beside the assemblies. Json.NET remains because the
 external SongRec integration uses JSON. The daemon IPC client no longer uses Json.NET.
+The standalone IPC benchmark runs the same Protobuf codec on Mono.

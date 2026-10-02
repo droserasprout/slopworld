@@ -73,6 +73,8 @@ DOTNET      ?= dotnet
 PYTHON      ?= python3
 MOD_PROJECT  := mod/Source/SlopWorld/SlopWorld.csproj
 MOD_WARNINGS_AS_ERRORS ?= false
+# Disable only when intentionally regenerating the runtime package lock.
+MOD_DEPS_LOCKED ?= true
 MOD_DLL      := mod/Assemblies/SlopWorld.dll
 TEST_PROJECT := mod/Tests/SlopWorld.Tests.csproj
 TEST_DLL     := mod/Tests/bin/Release/net8.0/SlopWorld.Tests.dll
