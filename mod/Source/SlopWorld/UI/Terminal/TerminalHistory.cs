@@ -21,8 +21,8 @@ namespace SlopWorld
         // Keys stay fixed while the live bottom advances. `_origin` translates the public
         // coordinate space to storage coordinates, avoiding a dictionary-sized copy for every
         // line the watched terminal scrolls.
-        readonly Dictionary<int, string> _lines = new Dictionary<int, string>();
-        int _origin;
+        readonly Dictionary<long, string> _lines = new Dictionary<long, string>();
+        long _origin;
         public int Count => _lines.Count;
         public int Cols => _template?.Cols ?? 0;
         public bool TryLine(int globalRow, out string line) =>
@@ -147,6 +147,12 @@ namespace SlopWorld
                 Reset(live);
                 return false;
             }
+            // No retained coordinate survives a shift this large. Reseed in bounded work.
+            if (shift >= MaxHistoryRows + MaxScreenRows)
+            {
+                Reset(live);
+                return false;
+            }
             if (shift > 0)
             {
                 // A TUI may rewrite its prompt before scrolling between streamed frames.
@@ -174,7 +180,7 @@ namespace SlopWorld
             return true;
         }
 
-        public void Add(ScreenBuf frame, ScreenBuf live, int nearOff, bool allowStale = false)
+        public void Add(ScreenBuf frame, ScreenBuf live, bool allowStale = false)
         {
             if (frame == null || frame.Lines == null || frame.Lines.Length == 0) return;
             bool current = live == null || live.Seq == frame.Seq;
@@ -363,7 +369,7 @@ namespace SlopWorld
                 // Translation cannot turn that old prompt into authoritative history.
                 if (!includeLive && (globalRow >= 0 || row >= frame.Off)) continue;
                 if (globalRow < -MaxHistoryRows || globalRow >= MaxScreenRows) continue;
-                int key = Storage(globalRow);
+                long key = Storage(globalRow);
                 string line = frame.Lines[row];
                 if (!_lines.TryGetValue(key, out var old) || old != line)
                 {
@@ -385,7 +391,7 @@ namespace SlopWorld
                 _lines.Remove(Storage(-MaxHistoryRows - delta));
         }
 
-        int Storage(int global) => global + _origin;
+        long Storage(int global) => global + _origin;
 
         void Changed()
         {

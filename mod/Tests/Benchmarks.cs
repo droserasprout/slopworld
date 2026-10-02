@@ -364,13 +364,13 @@ namespace SlopWorld.Tests
             };
             var history = new TerminalHistory();
             history.Reset(live);
-            history.Add(reply, live, 17);
+            history.Add(reply, live);
             AssertEx.True(history.TryView(1, true, out _), "warm first-scroll fixture");
             Measure("history first view cold index (no network)", () =>
             {
                 var cold = new TerminalHistory();
                 cold.Reset(live);
-                cold.Add(reply, live, 17);
+                cold.Add(reply, live);
                 return cold.TryView(1, true, out var view) ? view.Lines.Length : -1;
             });
             int anchor = 1;
@@ -388,7 +388,7 @@ namespace SlopWorld.Tests
                 {
                     Seq = 1, Cols = 120, Rows = 34, Off = offset, History = 1000,
                     Lines = Enumerable.Range(-offset, 34).Select(i => "row " + i).ToArray(),
-                }, live, offset);
+                }, live);
             Measure("history eight-screen coverage check", () => history.WarmupOffset(live));
         }
     }
