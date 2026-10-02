@@ -46,6 +46,8 @@ A successful snapshot does not clear journal poisoning until journal cleanup suc
 Snapshot mutations may commit while appends remain blocked awaiting repair.
 
 The mod's `TaskStore` publishes replacement task/list snapshots after mutations and refreshes.
+The operator board lists and prunes with the host identity and `all=true`, so pruning covers
+the same global task set shown by the board.
 Task filters and fitted summaries expire with the list; an open task reader resolves its
 stable ID on each draw and shows an unavailable state after removal. Task text wrapping and
 selection share Unicode-element boundaries while retaining UTF-16 copy offsets.

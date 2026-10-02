@@ -71,6 +71,7 @@ namespace SlopWorld.Tests
             store.Update(true);
             var request = DaemonClient.Requests.Single();
             Assert.That(request.Method, Is.EqualTo("GET"));
+            Assert.That(request.Session, Is.EqualTo(TaskInfo.Host));
             Assert.That(request.Path, Is.EqualTo(WireProtocol.Routes.Tasks + "?all=true"));
             store.Update(true);
             Assert.That(DaemonClient.Requests.Count, Is.EqualTo(1), "one refresh in flight");
@@ -174,7 +175,8 @@ namespace SlopWorld.Tests
             bool completed = false;
             store.Prune(() => completed = true);
             Assert.That(DaemonClient.Requests[0].Method, Is.EqualTo("DELETE"));
-            Assert.That(DaemonClient.Requests[0].Path, Is.EqualTo(WireProtocol.Routes.Tasks));
+            Assert.That(DaemonClient.Requests[0].Path, Is.EqualTo(WireProtocol.Routes.Tasks + "?all=true"));
+            Assert.That(DaemonClient.Requests[0].Session, Is.EqualTo(TaskInfo.Host));
             DaemonClient.Requests[0].Ok(ProtobufFixtures.Json(new Wire.Removed()));
             Assert.That(completed, Is.True);
             Assert.That(store.Tasks.Select(t => t.Id), Is.EqualTo(new[] { "open" }));
