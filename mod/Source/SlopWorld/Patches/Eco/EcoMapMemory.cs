@@ -22,13 +22,14 @@ namespace SlopWorld
             AccessTools.Field(typeof(SectionLayer_Things), "tmpFormerlyEnabled");
         static readonly FieldInfo Atlases =
             AccessTools.Field(typeof(GlobalTextureAtlasManager), "pawnTextureAtlases");
-        sealed class State { public bool Released; }
-        static readonly ConditionalWeakTable<MapDrawer, State> States =
-            new ConditionalWeakTable<MapDrawer, State>();
-        static readonly ConditionalWeakTable<SectionLayer, State> ReleasedLayers =
-            new ConditionalWeakTable<SectionLayer, State>();
-        static readonly ConditionalWeakTable<MapDrawer, State>.CreateValueCallback NewState =
-            _ => new State();
+        sealed class DrawerReleaseState { public bool Released; }
+        sealed class ReleasedLayer { }
+        static readonly ConditionalWeakTable<MapDrawer, DrawerReleaseState> States =
+            new ConditionalWeakTable<MapDrawer, DrawerReleaseState>();
+        static readonly ConditionalWeakTable<SectionLayer, ReleasedLayer> ReleasedLayers =
+            new ConditionalWeakTable<SectionLayer, ReleasedLayer>();
+        static readonly ConditionalWeakTable<MapDrawer, DrawerReleaseState>.CreateValueCallback NewState =
+            _ => new DrawerReleaseState();
 
         internal static bool BeforeMeshUpdate(MapDrawer drawer)
         {
@@ -67,7 +68,7 @@ namespace SlopWorld
                     if (layer is SectionLayer_Things things)
                         ((List<LayerSubMesh>)FormerlyEnabled.GetValue(things)).Clear();
                     layer.Dispose();
-                    ReleasedLayers.GetValue(layer, _ => new State()).Released = true;
+                    ReleasedLayers.GetValue(layer, _ => new ReleasedLayer());
                     layers++;
                 }
             state.Released = true;
@@ -101,7 +102,7 @@ namespace SlopWorld
             4L * (sub.tris.Capacity + (long)sub.colors.Capacity);
 
         internal static bool CanRegenerate(SectionLayer layer) =>
-            !Eco.Resting || !ReleasedLayers.TryGetValue(layer, out var state) || !state.Released;
+            !Eco.Resting || !ReleasedLayers.TryGetValue(layer, out _);
 
         // Prevent direct regeneration from allocating released layer geometry during Eco rest.
         [HarmonyPatch]
