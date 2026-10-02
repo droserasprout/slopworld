@@ -92,10 +92,9 @@ namespace SlopWorld
         Refresh = 2,
     }
 
-    // Hover actions shared by FilesView and GitView. They replace the row's right-hand
-    // tail temporarily and are right-aligned so the column stays fixed. Drawing is manual:
-    // both trees handle clicks in a second pass outside the scroll group, and answering in
-    // `Widgets.ButtonImage` would also pass the same MouseDown to the row.
+    // Hover actions shared by Files, Git and Search replace the right-hand row tail.
+    // Files/Git hit-test in a second pass outside the scroll group; Search handles clicks
+    // inside its drawing pass. Manual drawing leaves each owner to consume a click once.
     public static class RowActions
     {
         public const float IconW = ActionStrip.IconW;

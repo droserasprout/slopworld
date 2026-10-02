@@ -22,6 +22,7 @@ namespace SlopWorld
             _tops.Clear();
         }
 
+        // Append in flattened order with nondecreasing exclusive ends.
         public void Add(float top, float end, string selectionKey)
         {
             _ends.Add(end);
@@ -29,6 +30,7 @@ namespace SlopWorld
         }
 
         public void Commit(int revision) { _revision = revision; _valid = true; }
+        // Returns the first row ending after top, or the row count.
         public int First(float top) => VisibleRows.First(_ends, top);
         public bool Reveal(string key, out float top) => _tops.TryGetValue(key, out top);
     }

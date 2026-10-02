@@ -17,6 +17,7 @@ namespace SlopWorld
 
         public bool IsCollapsed(string key) => key != null && _collapsed.Contains(key);
 
+        // Returns true when the group opens.
         public bool ToggleCollapsed(string key)
         {
             if (key == null) return false;
@@ -40,11 +41,11 @@ namespace SlopWorld
 
         public void SetAllFolded(IEnumerable<string> keys, bool folded)
         {
-            _collapsed.Clear();
-            if (folded && keys != null)
-                foreach (var key in keys)
-                    if (key != null) _collapsed.Add(key);
-            Bump();
+            bool changed = false;
+            foreach (var key in keys ?? Empty)
+                if (key != null)
+                    changed |= folded ? _collapsed.Add(key) : _collapsed.Remove(key);
+            if (changed) Bump();
         }
 
         public bool AllFolded(IEnumerable<string> keys)

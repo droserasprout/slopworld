@@ -460,7 +460,7 @@ namespace SlopWorld
         }
         public void JumpTo(Vector2 position) => _scroll.JumpTo(position);
 
-        public void Clicks(Action releaseViewer = null)
+        public void Clicks()
         {
             if (!ColonistBarStrip.Interactive) return;
             var e = Event.current;
@@ -468,7 +468,7 @@ namespace SlopWorld
 
             foreach (var line in _lines)
             {
-                if (!ColonistBarStrip.MouseOver(Screen(line.Rect))) continue;
+                if (!ColonistBarStrip.MouseOver(ClippedScreen(line.Rect))) continue;
 
                 if (line.Group != null)
                 {
@@ -555,11 +555,21 @@ namespace SlopWorld
             if (options != null) TerminalWindow.OpenOverPane(new UiMenu(options));
         }
 
+        Rect ClippedScreen(Rect row)
+        {
+            var screen = Screen(row);
+            float left = Mathf.Max(screen.xMin, _body.xMin);
+            float top = Mathf.Max(screen.yMin, _body.yMin);
+            float right = Mathf.Min(screen.xMax, _body.xMax);
+            float bottom = Mathf.Min(screen.yMax, _body.yMax);
+            return right <= left || bottom <= top ? Rect.zero : new Rect(left, top, right - left, bottom - top);
+        }
+
         Rect Screen(Rect row)
         {
             var moved = new Rect(_body.x + row.x - _scroll.Position.x,
                 _body.y + row.y - _scroll.Position.y, row.width, row.height);
-            return moved.yMax <= _body.y || moved.y >= _body.yMax ? Rect.zero : moved;
+            return moved;
         }
     }
 }

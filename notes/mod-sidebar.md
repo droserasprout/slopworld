@@ -2,7 +2,9 @@
 
 `Patches/AgentSidebar/` owns the project-grouped sidebar and its colonist-bar integration.
 The browse-scope catalog owns empty-state reasons (loading, failed, filtered, or unselected);
-tree chrome only renders the reason supplied by its source.
+tree chrome only renders the reason supplied by its source. Catalog reads return detached
+scope snapshots; callers cannot mutate retained identities. Bulk folding changes only the
+supplied groups, preserving groups hidden by a filter.
 View/navigation contracts are in [sidebar navigation](mod-sidebar-navigation.md).
 
 The base game controls entry indices for reordering.
