@@ -77,6 +77,8 @@ homes and environment variables can differ.
 The project UI owns temporary-project preview state and mount labels. Client models
 retain wire conversion and daemon-resolved paths. Jukebox editor bitrates preserve
 unsigned wire values; an acknowledged mutation succeeds independently of catalog refresh.
+Audio-source validation builds a detached candidate, preserves existing stream keys, and
+allocates missing keys against the entire draft before submission.
 
 Session launch options group optional execution and reader metadata. Reader lines and
 resource caps preserve unsigned wire ranges through editing and reader restoration.
