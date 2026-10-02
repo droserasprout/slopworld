@@ -60,7 +60,7 @@ namespace SlopWorld
                 var project = SessionHub.Instance.Project(_s.Project);
                 GUI.color = UiTheme.Dim;
                 l.Label(project != null
-                    ? $"{project.Dir}  ({ProjectsView.Summary(project)})"
+                    ? $"{project.Dir}  ({ProjectSummary.Of(project)})"
                     : SessionHub.Instance.Projects.Count == 0
                         ? "No projects exist. Add a project in the Projects window."
                         : "");

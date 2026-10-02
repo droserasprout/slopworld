@@ -441,7 +441,7 @@ namespace SlopWorld
         }
 
         static RowDetails PrepareProjectDetails(ProjectInfo project) => ActionDetails(
-            new List<string> { project.Name, "Project", project.Dir, ProjectsView.Summary(project) },
+            new List<string> { project.Name, "Project", project.Dir, ProjectSummary.Of(project) },
             "Edit", () => TerminalWindow.OpenOverPane(new EditProjectDialog(project)),
             "Worktrees", () => TerminalWindow.OpenOverPane(EditProjectDialog.ForWorktrees(project)),
             () => ProjectMenu(project));

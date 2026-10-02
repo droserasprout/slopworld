@@ -249,7 +249,7 @@ namespace SlopWorld
                     return "Running it opens a list of projects, plus a temporary one.";
                 default:
                     return project != null
-                        ? $"{project.Dir}  ({ProjectsView.Summary(project)})"
+                        ? $"{project.Dir}  ({ProjectSummary.Of(project)})"
                         : SessionHub.Instance.Projects.Count == 0
                             ? "No projects exist. Add a project in the Projects window."
                             : "";
