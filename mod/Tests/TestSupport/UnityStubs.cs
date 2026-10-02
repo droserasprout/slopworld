@@ -13,7 +13,27 @@ namespace UnityEngine
         public readonly System.Collections.Generic.List<string> Prepared = new System.Collections.Generic.List<string>();
         public void RequestCharactersInTexture(string text, int size, FontStyle style) => Prepared.Add(text);
     }
-    public class Texture2D { public int width = 20, height = 20; }
+    public enum TextureFormat { RGBA32 }
+    public enum HideFlags { HideAndDontSave }
+    public class Object
+    {
+        public bool Destroyed;
+        public static void Destroy(Object value) { if (value != null) value.Destroyed = true; }
+    }
+    public class Texture2D : Object
+    {
+        public int width = 20, height = 20;
+        public string name;
+        public HideFlags hideFlags;
+        public static int DecodeCalls;
+        public Texture2D() { }
+        public Texture2D(int w, int h, TextureFormat format, bool mipmap) { width = w; height = h; }
+        public bool LoadImage(byte[] bytes, bool nonReadable)
+        {
+            DecodeCalls++;
+            return SlopWorld.MarkdownImageHeader.TrySize(bytes, out width, out height);
+        }
+    }
     public class GUIStyleState { public Color textColor; }
     public class GUIStyle
     {

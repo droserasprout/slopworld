@@ -89,9 +89,9 @@ namespace SlopWorld
 
         ImageMetrics ImageMetrics(InlineRun image, float available)
         {
-            var texture = _resources.ImageFor(image);
-            float naturalWidth = texture == null ? 320f : texture.width;
-            float naturalHeight = texture == null ? 180f : texture.height;
+            var natural = _resources.ImageSizeFor(image);
+            float naturalWidth = natural.Width;
+            float naturalHeight = natural.Height;
 
             bool explicitWidth = image.ImageWidth > 0f;
             bool explicitHeight = image.ImageHeight > 0f;

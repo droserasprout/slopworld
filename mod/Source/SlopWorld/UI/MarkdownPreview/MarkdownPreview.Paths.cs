@@ -117,7 +117,11 @@ namespace SlopWorld
             return source.Substring(0, end);
         }
 
-        string ProjectRoot => _projectRoot != null
+        // Keep scope in the request even when it is missing: the daemon must fail closed.
+        public string ScopedQuery(string path) => "?path=" + Uri.EscapeDataString(path)
+            + "&root=" + Uri.EscapeDataString(ProjectRoot ?? "");
+
+        public string ProjectRoot => _projectRoot != null
             ? _projectRoot()
             : SessionHub.Instance.Project(_project)?.ExpandedDir;
 

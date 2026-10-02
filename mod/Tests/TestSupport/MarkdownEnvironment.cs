@@ -26,9 +26,5 @@ namespace SlopWorld
             fontSize = 16,
         };
     }
-    sealed class MarkdownResourceStore
-    {
-        public Texture2D ImageFor(InlineRun run) => null;
-    }
     static partial class UiTheme { public const float TinyH = 11f; }
 }
