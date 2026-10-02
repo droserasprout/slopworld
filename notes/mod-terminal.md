@@ -2,6 +2,7 @@
 
 `TerminalWindow` shows shared workspace controls. `TerminalSplit` holds one or two panels.
 `TerminalPanel` owns terminal state, caches, subscriptions, and input.
+Saved terminal recall yields to any existing workspace window, including a content-only view.
 When Settings covers a terminal, the panel stays open. Settings changes its visibility and focus.
 When a user closes or switches panels during input, stop the old draw before it recreates released resources.
 
