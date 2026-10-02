@@ -1,10 +1,13 @@
 # Files and readers
 
-`FilesStore` owns roots, browse requests and refresh. `FileReaders` owns the pager collection
-shared with Git.
-`FilesViewerController` controls native Markdown and JPG/PNG reader lifetimes.
-`ContentTreeController` owns semantic selection/folds. Static `FilesView` methods are entry
-points, not another state owner. All filesystem reads use daemon APIs. Viewers, editors and file actions run on the daemon
+`FilesView` is the entry facade. `FilesBrowser` coordinates sidebar navigation and the tree's
+draw/input passes. `FilesStore` owns roots, directory focus, browse requests and refresh;
+delayed replies recheck the issuing store's listing and reveal identities.
+`FilesViewerController` owns native reader tabs, preview handoffs and reader probes.
+`FileReaders` owns the pager collection shared with Git. `FilesActions` owns path menus
+and filesystem mutations. `ContentTreeController` owns semantic selection/folds;
+`ContentTreeView` owns geometry and hit testing. All filesystem reads use daemon APIs.
+Viewers, editors and file actions run on the daemon
 host without private agent state. The selected registered worktree validates action paths and supplies
 the working directory. Host reader sessions are disposable, not saved host-shell tabs.
 
