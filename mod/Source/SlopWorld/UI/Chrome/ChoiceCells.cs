@@ -106,9 +106,8 @@ namespace SlopWorld
         }
     }
 
-    public sealed class UiChoice<T>
+    public sealed class UiChoice
     {
-        public T Value;
         public string Group;
         public string Label;
         public string Tip;
@@ -120,9 +119,9 @@ namespace SlopWorld
 
     // Framed choice-list contract: inset, empty state, scrolling, row pitch, and checkbox
     // input are shared. Adapters calculate dependency/implicit state and receive changes.
-    public static class UiChoiceList<T>
+    public static class UiChoiceList
     {
-        public static void Draw(Rect outer, System.Collections.Generic.IList<UiChoice<T>> choices,
+        public static void Draw(Rect outer, System.Collections.Generic.IList<UiChoice> choices,
                                 SmoothScroll scroll, string empty)
         {
             using (WidgetState.Save())
