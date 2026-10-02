@@ -244,7 +244,7 @@ namespace SlopWorld
                 "Host rows check the game's PATH. Daemon rows use the daemon's effective PATH.";
             float width = UiScrollBody.Measure(inner, 0f,
                 UiScrollbarReservation.Always).ContentWidth;
-            float captionH = UiText.StatusLabelHeight(caption, width);
+            float captionH = UiText.PlainStatusLabelHeight(caption, width);
             float top = captionH + UiTheme.GapS + UiTheme.RowH;
             var geometry = UiScrollBody.Measure(inner, top + ContentHeight(width),
                 UiScrollbarReservation.Always);
@@ -252,13 +252,13 @@ namespace SlopWorld
             {
                 // Even the first wheel pass must not construct native path fields.
                 if (SmoothScroll.WheelOnly) return;
-                UiText.StatusLabel(new Rect(0f, 0f, geometry.View.width, captionH), caption,
+                UiText.PlainStatusLabel(new Rect(0f, 0f, geometry.View.width, captionH), caption,
                     UiTheme.Dim);
                 DrawHeader(new Rect(0f, captionH + UiTheme.GapS, geometry.View.width,
                     UiTheme.RowH));
                 if (_results == null)
                 {
-                    UiText.StatusLabel(new Rect(0f, top, geometry.View.width,
+                    UiText.PlainStatusLabel(new Rect(0f, top, geometry.View.width,
                         Mathf.Max(UiTheme.LineH, geometry.View.height - top)),
                         _error ?? (_loading ? "Checking host PATH" : "No scan results."),
                         _error != null ? UiTheme.Bad : UiTheme.Dim);

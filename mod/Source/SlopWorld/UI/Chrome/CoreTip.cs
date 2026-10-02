@@ -8,7 +8,7 @@ namespace SlopWorld
     // A left click on the persona core opens a context menu.
     // "Hint" shows a tip bubble that fades after three seconds.
     // "Kill something" sends 5 to 10 lightning strikes at a random person, animal,
-    // or tree on the map.
+    // or tree on the map, selected independently for each strike.
     // Grandma's visiting and Eco mode hide this option.
     // "Next planet" burns the map and lands a new colony.
     public class CoreTip : MapComponent
@@ -123,29 +123,31 @@ namespace SlopWorld
                 return;
             }
 
-            Text.Font = GameFont.Small;
-            Text.WordWrap = true;
-            float w = 320f;
-            float h = Text.CalcHeight(_stickyTip, w - 16f) + 20f;
-            float margin = 8f;
+            using (WidgetState.Save())
+            {
+                Text.Font = GameFont.Small;
+                Text.WordWrap = true;
+                float w = 320f;
+                float h = Text.CalcHeight(_stickyTip, w - 16f) + 20f;
+                float margin = 8f;
 
-            // Place above the click position. If it hits the top edge, place below.
-            float y = _stickyAt.y - h - 12f;
-            if (y < margin) y = _stickyAt.y + 12f;
-            // Clamp bottom edge too.
-            if (y + h > UI.screenHeight - margin) y = UI.screenHeight - margin - h;
-            if (y < margin) y = margin; // last resort: top margin
+                // Place above the click position. If it hits the top edge, place below.
+                float y = _stickyAt.y - h - 12f;
+                if (y < margin) y = _stickyAt.y + 12f;
+                // Clamp bottom edge too.
+                if (y + h > UI.screenHeight - margin) y = UI.screenHeight - margin - h;
+                if (y < margin) y = margin; // last resort: top margin
 
-            var tipRect = new Rect(_stickyAt.x - w / 2f, y, w, h);
-            if (tipRect.x < margin) tipRect.x = margin;
-            if (tipRect.xMax > UI.screenWidth - margin) tipRect.x = UI.screenWidth - margin - w;
+                var tipRect = new Rect(_stickyAt.x - w / 2f, y, w, h);
+                if (tipRect.x < margin) tipRect.x = margin;
+                if (tipRect.xMax > UI.screenWidth - margin) tipRect.x = UI.screenWidth - margin - w;
 
-            // A floating rectangular panel, not vanilla's window: this is a hint over the
-            // map, on the same surface the command palette uses.
-            Slab.Box(tipRect, UiTheme.PopoverBg, UiTheme.Edge);
-            var inner = tipRect.ContractedBy(8f);
-            Widgets.Label(inner, _stickyTip);
-            Text.WordWrap = false;
+                // A floating rectangular panel, not vanilla's window: this is a hint over the
+                // map, on the same surface the command palette uses.
+                Slab.Box(tipRect, UiTheme.PopoverBg, UiTheme.Edge);
+                var inner = tipRect.ContractedBy(8f);
+                Widgets.Label(inner, _stickyTip);
+            }
         }
 
         // The status-bar button resolves the core cell, anchors the hint to that cell and
@@ -238,7 +240,7 @@ namespace SlopWorld
             _stickyCell = _menuCell;
         }
 
-        // Strike a random living thing with 5-10 lightnings.
+        // Arm 5-10 strikes, each choosing a random living thing independently.
         void KillAction()
         {
             if (Settings.GrandmaMode || Settings.EcoMode) return;

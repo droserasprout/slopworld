@@ -13,15 +13,16 @@ namespace SlopWorld
         readonly TextAnchor _anchor;
         readonly bool _wrap;
 
-        WidgetState(bool capture)
+        WidgetState(Color color, GameFont font, TextAnchor anchor, bool wrap)
         {
-            _color = GUI.color;
-            _font = Text.Font;
-            _anchor = Text.Anchor;
-            _wrap = Text.WordWrap;
+            _color = color;
+            _font = font;
+            _anchor = anchor;
+            _wrap = wrap;
         }
 
-        public static WidgetState Save() => new WidgetState(true);
+        public static WidgetState Save() => new WidgetState(
+            GUI.color, Text.Font, Text.Anchor, Text.WordWrap);
 
         public void Dispose()
         {

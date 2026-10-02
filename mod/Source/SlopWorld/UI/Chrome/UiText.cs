@@ -6,10 +6,10 @@ namespace SlopWorld
 {
     public abstract class UiText : UiTheme
     {
-        // Wrapped status and empty-state text has the same font/anchor/color contract across
-        // pages. Keep its measurement beside the draw path so dynamic fonts do not make a
-        // caller reserve a height from a different face.
-        public static float StatusLabelHeight(string text, float width,
+        // Plain-text-only wrapped status/empty-state labels: catalog sprite keys remain
+        // literal text. Measurement and drawing both use Verse's native wrapping; sprite
+        // labels belong to RowLabel or a renderer with an explicit sprite-aware layout.
+        public static float PlainStatusLabelHeight(string text, float width,
                                                GameFont font = GameFont.Small)
         {
             using (WidgetState.Save())
@@ -21,7 +21,7 @@ namespace SlopWorld
             }
         }
 
-        public static void StatusLabel(Rect r, string text, Color color,
+        public static void PlainStatusLabel(Rect r, string text, Color color,
                                        GameFont font = GameFont.Small,
                                        TextAnchor anchor = TextAnchor.UpperLeft)
         {
@@ -93,16 +93,7 @@ namespace SlopWorld
                 string label = TruncateText(text, r.width);
                 Verse.Text.Anchor = UpperAnchor(anchor);
 
-                // Text.LineHeightOf is the box UiFont sized to hold the face. Drawing
-                // into a fresh CalcHeight box was shorter for some dynamic sizes, cutting
-                // descenders despite the row itself having enough space for them.
-                float lineH = LineHOf(Verse.Text.Font);
-                float y = Slab.SnapY(r.y + (r.height - lineH) * VerticalFactor(anchor));
-                float yMax = Slab.SnapY(y + lineH);
-                // A fractional scroll offset can snap the two edges inward by one pixel.
-                // never let screen-pixel snapping make the label shorter than its metric.
-                float h = Mathf.Max(lineH, yMax - y);
-                draw(new Rect(r.x, y, r.width, h), label);
+                draw(SnappedLine(r, anchor), label);
             }
         }
 
@@ -113,10 +104,7 @@ namespace SlopWorld
                 Verse.Text.WordWrap = false;
                 Verse.Text.Anchor = UpperAnchor(anchor);
                 float lineH = LineHOf(Verse.Text.Font);
-                float y = Slab.SnapY(r.y + (r.height - lineH) * VerticalFactor(anchor));
-                float yMax = Slab.SnapY(y + lineH);
-                float h = Mathf.Max(lineH, yMax - y);
-                var line = new Rect(r.x, y, r.width, h);
+                var line = SnappedLine(r, anchor);
                 var source = Verse.Text.CurFontStyle;
                 if (source == null)
                 {
@@ -149,6 +137,15 @@ namespace SlopWorld
                 }
                 SharedTextRenderer.Draw(layout, line, lineH, style, offset);
             }
+        }
+
+        static Rect SnappedLine(Rect row, TextAnchor anchor)
+        {
+            // Keep UiFont's full line metric even when fractional scroll offsets snap inward.
+            float lineH = LineHOf(Verse.Text.Font);
+            float y = Slab.SnapY(row.y + (row.height - lineH) * VerticalFactor(anchor));
+            float yMax = Slab.SnapY(y + lineH);
+            return new Rect(row.x, y, row.width, Mathf.Max(lineH, yMax - y));
         }
 
         static FontStyle Italic(FontStyle style)

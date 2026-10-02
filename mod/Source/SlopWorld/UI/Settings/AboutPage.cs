@@ -844,8 +844,8 @@ namespace SlopWorld
             Text.Font = font;
             Text.WordWrap = true;
             Text.Anchor = anchor;
-            float h = UiText.StatusLabelHeight(text, r.width, font);
-            UiText.StatusLabel(new Rect(r.x, y, r.width, h), text, color, font, anchor);
+            float h = UiText.PlainStatusLabelHeight(text, r.width, font);
+            UiText.PlainStatusLabel(new Rect(r.x, y, r.width, h), text, color, font, anchor);
             Text.Anchor = wasAnchor;
             Text.WordWrap = wasWrap;
             GUI.color = wasColor;

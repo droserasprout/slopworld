@@ -17,7 +17,7 @@ namespace SlopWorld
         public static void Empty(Rect body)
         {
             var r = new Rect(CellX, body.y + Pad, body.width - CellX * 2f, RowH * 3f);
-            UiText.StatusLabel(r, SessionHub.Instance.Online
+            UiText.PlainStatusLabel(r, SessionHub.Instance.Online
                 ? "No project has a directory yet."
                 : $"daemon {SessionHub.Instance.Status}", UiTheme.Faint, GameFont.Tiny);
         }

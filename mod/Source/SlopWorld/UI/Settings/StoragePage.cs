@@ -69,7 +69,7 @@ namespace SlopWorld
                 "State from deleted or reset agents expires after 14 days. Shared caches remain.";
             float width = UiScrollBody.Measure(inner, 0f,
                 UiScrollbarReservation.Always).ContentWidth;
-            float captionH = UiText.StatusLabelHeight(caption, width);
+            float captionH = UiText.PlainStatusLabelHeight(caption, width);
             float rowH = StorageRowHeight(width);
             var list = inner;
             var geometry = UiScrollBody.Measure(list,
@@ -77,7 +77,7 @@ namespace SlopWorld
                 UiScrollbarReservation.Always);
             using (_scroll.Scope(list, geometry.View))
             {
-                UiText.StatusLabel(new Rect(0f, 0f, geometry.View.width, captionH), caption,
+                UiText.PlainStatusLabel(new Rect(0f, 0f, geometry.View.width, captionH), caption,
                     UiTheme.Dim);
                 for (int i = 0; i < _entries.Count; i++)
                     DrawRow(new Rect(0f, captionH + UiTheme.GapS + i * rowH,
@@ -87,7 +87,7 @@ namespace SlopWorld
 
             if (_entries.Count == 0)
             {
-                UiText.StatusLabel(new Rect(list.x, list.y + captionH + UiTheme.GapS,
+                UiText.PlainStatusLabel(new Rect(list.x, list.y + captionH + UiTheme.GapS,
                         list.width, Mathf.Max(0f, list.height - captionH - UiTheme.GapS)),
                     _error ?? (_loading ? "Scanning" : "No storage entries."),
                     _error != null ? UiTheme.Bad : UiTheme.Dim);

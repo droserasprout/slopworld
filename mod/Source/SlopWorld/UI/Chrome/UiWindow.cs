@@ -55,7 +55,7 @@ namespace SlopWorld
         }
 
         protected static float MessageHeight(string text, float width)
-            => UiText.StatusLabelHeight(text, width);
+            => UiText.PlainStatusLabelHeight(text, width);
 
         public override void DoWindowContents(Rect rect)
         {

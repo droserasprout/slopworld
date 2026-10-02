@@ -56,7 +56,7 @@ namespace SlopWorld
             float messageH = MessageHeight(_message, rect.width);
             var message = new Rect(rect.x, messageY, rect.width, messageH);
 
-            UiText.StatusLabel(message, _message, UiTheme.Name);
+            UiText.PlainStatusLabel(message, _message, UiTheme.Name);
 
             DrawActions(new UiLayout.Bar(UiLayout.FooterBar(rect)));
         }

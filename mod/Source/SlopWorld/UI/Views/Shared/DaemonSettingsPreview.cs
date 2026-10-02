@@ -24,10 +24,10 @@ namespace SlopWorld
             var refresh = new Rect(rect.x, rect.yMax - UiTheme.BtnH, rect.width, UiTheme.BtnH);
             rect.height -= UiTheme.BtnH + UiTheme.GapS;
             if (UiButtons.Button(refresh, "Refresh preview", UiTheme.Btn.Ghost, !_load.Loading)) _key = null;
-            if (_load.Loading) UiText.StatusLabel(rect, "Resolving settings with the daemon", UiTheme.Dim);
+            if (_load.Loading) UiText.PlainStatusLabel(rect, "Resolving settings with the daemon", UiTheme.Dim);
             else if (!_load.HasValue)
             {
-                UiText.StatusLabel(rect, _load.Error ?? "Preview unavailable", UiTheme.Bad);
+                UiText.PlainStatusLabel(rect, _load.Error ?? "Preview unavailable", UiTheme.Bad);
 
             }
             else SandboxPreviewPanel.Draw(rect, ref scroll, _load.Value);

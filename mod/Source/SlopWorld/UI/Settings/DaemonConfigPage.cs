@@ -81,7 +81,7 @@ namespace SlopWorld
 
             if (!_loaded && !DrawFieldsBeforeLoad && (!DrawFieldsWhenOffline || _cfg == null))
             {
-                UiText.StatusLabel(inner, _error ?? "Waiting for the daemon",
+                UiText.PlainStatusLabel(inner, _error ?? "Waiting for the daemon",
                     _error != null ? UiTheme.Bad : UiTheme.Dim);
             }
             else
