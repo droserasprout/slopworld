@@ -55,7 +55,7 @@ namespace SlopWorld
                 // Toolbar: the search field takes the middle, actions sit on the right.
                 var toolbar = new Rect(body.x, body.y, body.width, UiTheme.BtnH);
                 var bar = new UiLayout.Bar(toolbar);
-                if (bar.Right("Edit file", UiTheme.Btn.Ghost)) StoragePage.EditLikes();
+                if (bar.Right("Edit file", UiTheme.Btn.Ghost)) JukeboxLikesFile.Edit();
                 if (bar.Right("Refresh", UiTheme.Btn.Ghost)) Reload();
                 string query = UiText.Field(bar.Rest(), "jukebox-history-search", _query);
                 if (query != _query)

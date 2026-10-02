@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using UnityEngine;
 using Verse;
@@ -104,21 +103,6 @@ namespace SlopWorld
                 GUI.color = UiTheme.Bad;
                 UiText.RowLabel(foot.Rest(), _error);
                 GUI.color = Color.white;
-            }
-        }
-
-        public static void EditLikes()
-        {
-            try
-            {
-                string path = Radio.LikesPath();
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
-                FilesView.EditFile(null, path, "edit-jukebox.toml");
-            }
-            catch (Exception e)
-            {
-                Log.Error("[SlopWorld] jukebox: could not open liked songs: " + e);
-                UiLayout.Fail("could not open liked songs");
             }
         }
 

@@ -261,7 +261,7 @@ namespace SlopWorld
             new CommandDef("jukebox.stop-on-exit", "Jukebox: Toggle Stop on Exit", "Jukebox",
                 _ => Radio.ToggleStopOnExit()),
             new CommandDef("jukebox.edit-likes", "Jukebox: Edit Likes", "Jukebox",
-                _ => StoragePage.EditLikes()),
+                _ => JukeboxLikesFile.Edit()),
 
             new CommandDef("game.new-looks", "Game: New looks", "Game",
                 _ => CoreTip.NewLooks(), enabled: Playing),

@@ -17,3 +17,6 @@ neither a sound device nor the external service.
 History parsing is independent of Unity rendering. OST staging/install tooling owns export
 filenames and SongDef updates.
 Do not duplicate the track catalog in notes.
+
+`Radio.LikesPath()` owns the game-local likes path. `UI/Jukebox/JukeboxLikesFile` opens
+it through the game host’s file association, including in sidecar deployments.
