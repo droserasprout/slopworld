@@ -22,8 +22,9 @@ namespace SlopWorld
         }
     }
 
+    // Shared eligibility also gates JobDriver_Strip, beyond the float-menu order.
     [HarmonyPatch(typeof(StrippableUtility), nameof(StrippableUtility.CanBeStrippedByColony))]
-    public static class Patch_NoStripAgentsDowned
+    public static class Patch_NoStripAgentsByColony
     {
         static void Postfix(Thing th, ref bool __result)
         {

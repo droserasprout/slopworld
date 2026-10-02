@@ -13,6 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/Patches/Agents/EffectiveMethods.cs" Link="Source/EffectiveMethods.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/BrowseScopeCatalog.cs" Link="Source/BrowseScopeCatalog.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/SidebarScopes.Transport.cs" Link="Source/SidebarScopes.Transport.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/BrowseScope.cs" Link="Source/BrowseScope.cs" />
