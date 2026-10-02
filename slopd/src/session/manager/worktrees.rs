@@ -667,79 +667,189 @@ impl Manager {
         project: String,
         id: String,
     ) -> Result<()> {
-        let manager = self.clone();
-        manager.session_operation(async {
-            let _lock = manager.worktrees.mutation.lock().await;
-            let cfg = manager.config().await;
-            let p = cfg.project(&project).ok_or_else(|| anyhow!("no project {project}"))?;
-            let mut store = Store::load(&manager.cfg_path).await?;
-            let i = store.worktrees.iter().position(|w| w.id == id && w.project_id == p.id && !p.id.is_empty())
-                .ok_or_else(|| anyhow!("no removable worktree {id}"))?;
-            let w = store
-                .worktrees
-                .get(i)
-                .ok_or_else(|| anyhow!("no removable worktree {id}"))?
-                .clone();
-            if w.phase == "relocating" { bail!("Repair the interrupted relocation before removing this worktree: {}", w.error); }
-            let users = manager.worktree_attachments(&w).await;
-            if !users.is_empty() { bail!("Worktree remains attached to {}. Remove or move these sessions first.", users.join(", ")); }
-            store
-                .worktrees
-                .get_mut(i)
-                .ok_or_else(|| anyhow!("no removable worktree {id}"))?
-                .phase = "removing".into();
-            store.save(&manager.cfg_path).await?;
-            let result = async {
-                if !w.managed { return Ok(()); } // Unregister external checkouts. Never delete their files.
-                let path = Path::new(&w.path);
-                if path.exists() {
-                    if path.is_symlink() { bail!("A symlink replaced the worktree path."); }
-                    let common = git(path, &["rev-parse", "--path-format=absolute", "--git-common-dir"]).await?;
-                    if Path::new(&common).canonicalize()? != Path::new(&w.repository).canonicalize()? { bail!("worktree repository identity changed"); }
-                    let links = crate::sandbox::cache::remove_links(p, path)?;
-                    let removal = async {
-                    let status = git(path, &["status", "--porcelain=v1", "--untracked-files=all", "--ignored", "--ignore-submodules=none"]).await?;
-                    anyhow::ensure!(status.is_empty(), "The worktree has tracked changes, untracked files, or ignored files. Resolve them before removal.");
-                    let head = git(path, &["rev-parse", "--verify", "HEAD"]).await?;
-                    let retained_branches = git(path, &["for-each-ref", "--format=%(refname)", &format!("--contains={head}"), "refs/heads/"]).await?;
-                    anyhow::ensure!(!retained_branches.is_empty(), "HEAD has no retained local branch. Create one before you remove the worktree.");
-                    crate::worktrees::remove_tree(&w).await?;
-                    Ok::<_, anyhow::Error>(())
-                    }.await;
-                    if removal.is_err() && path.is_dir() {
-                        crate::sandbox::cache::restore_links(&links)?;
-                    }
-                    removal?;
-                } else {
-                    // Git can remove the checkout before the daemon saves the record.
-                    // Remove only this Git registration. Do not prune other worktrees.
-                    let listing = git(Path::new(&w.repository), &["worktree", "list", "--porcelain", "-z"]).await?;
-                    if listing.split('\0').any(|line| line == format!("worktree {}", w.path)) {
-                        crate::worktrees::forget_missing(&w).await?;
-                    }
-                }
-                Ok::<_, anyhow::Error>(())
-            }.await;
-            match result {
-                Ok(()) => { store.worktrees.remove(i); store.save(&manager.cfg_path).await?; Ok(()) }
-                Err(e) => {
-                    let worktree = store
-                        .worktrees
-                        .get_mut(i)
-                        .ok_or_else(|| anyhow!("no removable worktree {id}"))?;
-                    worktree.phase = if Path::new(&w.path).is_dir() {
-                        "ready"
-                    } else {
-                        "error"
-                    }
-                    .into();
-                    worktree.error = format!("{e:#}");
-                    store.save(&manager.cfg_path).await?;
-                    Err(e)
-                }
-            }
-        }).await
+        self.session_operation(self.remove_worktree_inner(&project, &id))
+            .await
     }
+
+    async fn remove_worktree_inner(&self, project: &str, id: &str) -> Result<()> {
+        // Keep project identity and catalog writes serialized through deletion or recovery.
+        let _mutation = self.worktrees.mutation.lock().await;
+        let mut removal = self.prepare_worktree_removal(project, id).await?;
+        removal.record_intent(&self.cfg_path).await?;
+        let result = remove_worktree_checkout(&removal.project, &removal.worktree).await;
+        removal.finish(&self.cfg_path, result).await
+    }
+
+    async fn prepare_worktree_removal(&self, project: &str, id: &str) -> Result<WorktreeRemoval> {
+        let cfg = self.config().await;
+        let project = cfg
+            .project(project)
+            .ok_or_else(|| anyhow!("no project {project}"))?
+            .clone();
+        let store = Store::load(&self.cfg_path).await?;
+        let index = store
+            .worktrees
+            .iter()
+            .position(|w| w.id == id && w.project_id == project.id && !project.id.is_empty())
+            .ok_or_else(|| anyhow!("no removable worktree {id}"))?;
+        let worktree = store
+            .worktrees
+            .get(index)
+            .ok_or_else(|| anyhow!("no removable worktree {id}"))?
+            .clone();
+        if worktree.phase == "relocating" {
+            bail!(
+                "Repair the interrupted relocation before removing this worktree: {}",
+                worktree.error
+            );
+        }
+        let users = self.worktree_attachments(&worktree).await;
+        if !users.is_empty() {
+            bail!(
+                "Worktree remains attached to {}. Remove or move these sessions first.",
+                users.join(", ")
+            );
+        }
+        Ok(WorktreeRemoval {
+            project,
+            worktree,
+            store,
+            index,
+        })
+    }
+}
+
+/// The catalog mutation guard keeps this selected record and its index stable.
+/// Retain the original record while the catalog stores the removal intent.
+struct WorktreeRemoval {
+    project: ProjectCfg,
+    worktree: Worktree,
+    store: Store,
+    index: usize,
+}
+
+impl WorktreeRemoval {
+    fn record_mut(&mut self) -> Result<&mut Worktree> {
+        self.store
+            .worktrees
+            .get_mut(self.index)
+            .ok_or_else(|| anyhow!("no removable worktree {}", self.worktree.id))
+    }
+
+    async fn record_intent(&mut self, config: &Path) -> Result<()> {
+        self.record_mut()?.phase = "removing".into();
+        self.store.save(config).await
+    }
+
+    async fn finish(mut self, config: &Path, result: Result<()>) -> Result<()> {
+        match result {
+            Ok(()) => {
+                self.store.worktrees.remove(self.index);
+                self.store.save(config).await
+            }
+            Err(error) => {
+                // A failed deletion remains inspectable and retryable. A failed catalog
+                // save after deletion instead leaves the durable removing intent for recovery.
+                let phase = if Path::new(&self.worktree.path).is_dir() {
+                    "ready"
+                } else {
+                    "error"
+                };
+                let record = self.record_mut()?;
+                record.phase = phase.into();
+                record.error = format!("{error:#}");
+                self.store.save(config).await?;
+                Err(error)
+            }
+        }
+    }
+}
+
+async fn remove_worktree_checkout(project: &ProjectCfg, worktree: &Worktree) -> Result<()> {
+    // Unregister external checkouts without touching their files or Git registration.
+    if !worktree.managed {
+        return Ok(());
+    }
+    let path = Path::new(&worktree.path);
+    if !path.exists() {
+        return forget_missing_worktree(worktree).await;
+    }
+    validate_removal_repository(worktree).await?;
+
+    // Cache contents outlive checkouts. Remove only their unchanged links before
+    // cleanliness inspection, and restore those links if validation or deletion fails.
+    let links = crate::sandbox::cache::remove_links(project, path)?;
+    let result = remove_clean_worktree(worktree).await;
+    if result.is_err() && path.is_dir() {
+        crate::sandbox::cache::restore_links(&links)?;
+    }
+    result
+}
+
+async fn validate_removal_repository(worktree: &Worktree) -> Result<()> {
+    let path = Path::new(&worktree.path);
+    if path.is_symlink() {
+        bail!("A symlink replaced the worktree path.");
+    }
+    let common = git(
+        path,
+        &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    )
+    .await?;
+    if Path::new(&common).canonicalize()? != Path::new(&worktree.repository).canonicalize()? {
+        bail!("worktree repository identity changed");
+    }
+    Ok(())
+}
+
+async fn remove_clean_worktree(worktree: &Worktree) -> Result<()> {
+    let path = Path::new(&worktree.path);
+    let status = git(
+        path,
+        &[
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+            "--ignored",
+            "--ignore-submodules=none",
+        ],
+    )
+    .await?;
+    anyhow::ensure!(
+        status.is_empty(),
+        "The worktree has tracked changes, untracked files, or ignored files. Resolve them before removal."
+    );
+    let head = git(path, &["rev-parse", "--verify", "HEAD"]).await?;
+    let retained_branches = git(
+        path,
+        &[
+            "for-each-ref",
+            "--format=%(refname)",
+            &format!("--contains={head}"),
+            "refs/heads/",
+        ],
+    )
+    .await?;
+    anyhow::ensure!(
+        !retained_branches.is_empty(),
+        "HEAD has no retained local branch. Create one before you remove the worktree."
+    );
+    crate::worktrees::remove_tree(worktree).await
+}
+
+async fn forget_missing_worktree(worktree: &Worktree) -> Result<()> {
+    // Git can delete the checkout before its record is saved. Retire only this
+    // registration; never prune unrelated worktrees or delete a recreated checkout.
+    let listing = git(
+        Path::new(&worktree.repository),
+        &["worktree", "list", "--porcelain", "-z"],
+    )
+    .await?;
+    let registration = format!("worktree {}", worktree.path);
+    if listing.split('\0').any(|line| line == registration) {
+        crate::worktrees::forget_missing(worktree).await?;
+    }
+    Ok(())
 }
 
 async fn validate_external_worktree(root: &Path, repository: &str, path: &Path) -> Result<()> {
