@@ -21,6 +21,8 @@ namespace SlopWorld
     // site.
     internal static class FieldLifetimeScope
     {
+        // Deliberate fallback for unscoped controls. Content that can close or be replaced
+        // must push its own lifetime and cancel it at that boundary.
         static readonly FieldLifetime ProcessLifetime = new FieldLifetime();
 
         [ThreadStatic]

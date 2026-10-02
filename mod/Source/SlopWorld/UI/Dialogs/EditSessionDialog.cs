@@ -119,7 +119,8 @@ namespace SlopWorld
             _dnsServers = _s.Dns?.Mode == DnsMode.Servers
                 ? string.Join(", ", _s.Dns.Servers.ToArray())
                 : "";
-            AcceptOnEnter(Save);
+            // Template descriptions are multiline; Enter must remain a newline.
+            if (!EditingTemplate) AcceptOnEnter(Save);
         }
 
 
