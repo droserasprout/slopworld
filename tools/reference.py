@@ -238,7 +238,13 @@ def api_routes(files: dict[Path, str]) -> list[Route]:
             if path_value is None:
                 continue
             before = text[: match.start()]
-            scope = "root-only" if before.rfind("let root = Router::new()") > before.rfind("let scoped = Router::new()") else "scoped"
+            # Route families own middleware access; fail rather than silently label
+            # a new family as accessible to scoped grants.
+            functions = list(re.finditer(r"\bfn\s+(\w+)\s*\(", before))
+            family = functions[-1].group(1) if functions else None
+            if family not in {"root_routes", "scoped_routes", "shared_routes", "snapshot_routes"}:
+                raise ValueError(f"unknown API route family: {family}")
+            scope = "root-only" if family == "root_routes" else "scoped"
             route_hit = hit(path, text, match.start())
             for method_match in method_pattern.finditer(body):
                 routes.append(

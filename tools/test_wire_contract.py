@@ -35,8 +35,9 @@ class WireContractTests(unittest.TestCase):
     def test_protobuf_route_types_match_handler_signatures(self) -> None:
         from reference import api_routes, read_files
         root = Path(__file__).resolve().parents[1]
-        source = "\n".join(p.read_text().split("#[cfg(test)]")[0]
-                           for p in sorted((root / "slopd/src/api/handlers").rglob("*.rs")))
+        source = "\n".join(p.read_text()
+                           for p in sorted((root / "slopd/src/api/handlers").rglob("*.rs"))
+                           if not (p.stem.endswith("_tests") or p.stem == "tests"))
         signatures = {m[1]: (m[2], m[3] or "Ack") for m in re.finditer(
             r"pub\(crate\) async fn (\w+)\(([^{}]*?)\) -> ApiResult(?:<wire::(\w+)>)?\s*\{", source)}
         # Session actions share a body-free request and an acknowledgement response.
@@ -55,6 +56,23 @@ class WireContractTests(unittest.TestCase):
             request = re.search(r"Proto<wire::(\w+)>", body)
             self.assertEqual(declared[(route.method, route.path)],
                              [request[1] if request else "Empty", response], route.handler)
+
+    def test_route_access_groups_preserve_root_boundaries(self) -> None:
+        from reference import api_routes, read_files
+        routes = {(route.method, route.path): route.scope for route in api_routes(read_files())}
+        for endpoint in (("GET", "/api/config"), ("PUT", "/api/worktrees/:id"),
+                         ("POST", "/api/grants")):
+            self.assertEqual(routes[endpoint], "root-only", endpoint)
+        for endpoint in (("GET", "/api/sessions"), ("POST", "/api/sessions"),
+                         ("GET", "/api/tasks"), ("GET", "/ws")):
+            self.assertEqual(routes[endpoint], "scoped", endpoint)
+
+    def test_public_inventory_separates_websocket_directions(self) -> None:
+        from api_docs import render
+        page = render()
+        self.assertIn("Client → daemon | `ClientMessage`", page)
+        self.assertIn("Daemon → client | `Event`", page)
+        self.assertNotIn("| Handler |", page)
 
     def test_rust_generation_is_deterministic(self) -> None:
         self.assertEqual(self.generated, wire_contract.rust(self.data))

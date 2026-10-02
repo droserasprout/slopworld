@@ -7,7 +7,9 @@ Codicons glyph names and codepoints. Generated PNGs live in
 Committed PNGs keep normal builds independent of local fonts. The mapping is stable,
 but bake output depends on the selected Nerd Font and rasterizer. A common scale
 preserves relative glyph sizes; do not fit every glyph independently.
-Bake workflow belongs to [the build guide](../docs/src/build.md#occasional-maintenance).
+Run `make bake-icons` to regenerate action icons. The baker defaults to 64 px;
+`python3 tools/icons.py` accepts `--size`, `--font`, and `--report` for glyph metrics.
+The selected Nerd Font is a build input and is not shipped.
 
 `Icons.Get` caches `BadTex` when content lookup returns null. File icon lookup is a
 separate catalog; general texture lifetime traps

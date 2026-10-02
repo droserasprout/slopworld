@@ -14,5 +14,5 @@ limits lack that boundary. See [sandbox isolation](sandbox-isolation.md).
 Named trace timers measure elapsed time, and counters measure work. They can help
 correlate CPU samples but do not measure per-thread CPU time. CPU samples and stacks
 attribute runtime work. Measurement procedures belong in
-[CPU troubleshooting](../docs/src/reference/troubleshooting.md#cpu-usage);
+[Performance diagnostics](../docs/src/guides/performance-diagnostics.md);
 trace ownership belongs to [terminal latency](terminal-latency.md).

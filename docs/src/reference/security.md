@@ -1,50 +1,42 @@
 # Security model
 
-SlopWorld is not production-grade security software. It gives more isolation than running
-agents unsandboxed on your desktop, but that is the extent of the guarantee.
+SlopWorld provides more isolation than running agents directly on your desktop,
+but does not guarantee security. Back up writable projects and mounted data;
+see [Backup and recovery](../guides/backup-and-recovery.md).
 
-**Before you use SlopWorld, make a backup copy of your data.**
+## What isolation provides
 
-## Sandbox stack
+Bubblewrap isolates namespaces and controls visible filesystem paths.
+Network mode determines whether an agent has no access, private outbound access,
+or the host network. Only private mode uses `pasta`. See
+[Network and DNS](../guides/configuring-sandboxes.md#network) for configuration.
 
-Each agent runs inside a layered sandbox:
+## What can reach host data
 
-- **systemd-run** wraps the process tree in a transient user scope when you configure resource limits.
-- **Bubblewrap** (bwrap) provides filesystem isolation through bind mounts with
-  `--clearenv`.
-- **pasta** provides network isolation with a synthetic DNS resolver.
-- **tmux** owns the terminal session on a private socket.
+Project directories, including `.git`, are writable by default. Agents can change
+Git configuration and install hooks. Configure read-only mounts where appropriate.
 
-## Sandbox configuration
+Shared credentials are writable host files when the selected preset includes the
+mount and the source exists. Refreshes and in-place writes reach other sandboxes
+using that file. See [Credential mounts](../guides/configuring-sandboxes.md#credentials).
+Usage polling reads host credentials separately; see [Usage polling](integrations.md#usage-polling).
 
-The [sandbox guide](../guides/configuring-sandboxes.md) describes bind kinds, protected
-paths, private-state lifecycle, and resource limits. The
-[agent guide](../guides/configuring-agents.md#network) describes network modes and DNS.
-Network and DNS are agent settings. Project mounts are workspace settings.
+Presets can expose host capabilities. The `slopworld-debug` preset deliberately
+permits broad host access for game development. In non-worker sessions its
+read-only endpoint bind exposes the root token; read-only access does not restrict
+credential use. Workers instead receive scoped credentials. Escape warnings do
+not enumerate every secret exposure.
 
-## Credentials
+## Daemon API authority
 
-Credential files (`~/.claude/.credentials.json` and `~/.codex/auth.json`) use `shared` mounts.
-Each mount gives private state read-write access to the host file.
-Token refreshes from agents update the host file, so every sandbox sees the same credentials.
-The daemon reads credential values again on each poll. It never copies or logs these values.
+Root authorization controls grants, host sessions, and configuration. Scoped grants
+restrict selected agent sessions; see [Agent collaboration](../guides/agent-collaboration.md).
+When `[daemon].token` is empty, authentication is disabled and every request has
+root authority.
 
-A bind mount cannot be atomically renamed, so in-sandbox tools write with `O_TRUNC` on
-the host inode.
+## Limits
 
-## Scoped grants
-
-[Agent collaboration](../guides/agent-collaboration.md) describes scoped terminal
-access and task authority. Only callers with root authorization can create grants.
-The daemon also creates scoped credentials for workers. Host sessions remain root-only.
-
-## Remaining exposure
-
-- No seccomp, `--new-session`, or disk quota.
-- SlopWorld mounts project directories, including `.git`, with read-write access. Agents can install hooks or
-  alter git configuration.
-- Resource limits apply only when configured.
-- The `slopworld-debug` preset is an intentionally broad host escape for game
-  development. Its `escapes` warning identifies actual host access.
-  Its read-only endpoint bind exposes the daemon root token; read-only file access
-  does not restrict use of that credential.
+Agent sandboxes have no general seccomp policy or per-agent disk quota.
+[Resource limits](../guides/configuring-agents.md) apply only when configured and
+do not create an isolation boundary. See [Configuring sandboxes](../guides/configuring-sandboxes.md)
+for mounts, environment, and special access.

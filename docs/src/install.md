@@ -9,12 +9,14 @@ Then run these commands:
 git clone https://github.com/droserasprout/slopworld.git
 cd slopworld
 RIMWORLD=/path/to/RimWorld/game make install
-slopworld
+slopworld --game /path/to/RimWorld/game
 ```
 
 `RIMWORLD` is the directory that contains the native Linux game executable.
-Use the launcher to give SlopWorld its own game profile.
-The loading screen uses its bundled glyph atlas and does not install an operating-system font.
+`RIMWORLD` configures the build and installation; the launcher uses `--game` or
+`SLOPWORLD_GAME` for a custom location. The launcher searches `~/RimWorld/game`, then standard GOG and Steam paths.
+Standard game locations can use bare
+`slopworld`. The launcher uses a separate [game profile](guides/game-profiles.md).
 
 ## macOS
 

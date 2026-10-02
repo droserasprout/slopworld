@@ -21,21 +21,24 @@ daemon log and need a separate log capture; they are not in this file.
 
 Keep geometry, focus, frame pacing, colony load, and session count constant. Repeat
 workloads separately and record build revisions, hardware, terminal size, and display
-refresh rate. Compare with tracing disabled to assess instrumentation overhead.
+refresh rate.
 
-The game replaces `SlopWorld-trace.log` at startup, so copy captures before restarting.
+With diagnostics enabled, the game truncates `SlopWorld-trace.log` at startup.
+Copy captures before restarting. Capture output is created exclusively; use a new
+`TRACE_OUT` or label for each capture.
 `TRACE_LOG` overrides the source for `trace-mod`. The desktop benchmark uses
 `BENCH_TRACE_LOG` or its `--log` option instead. Without an override, Make's capture
-uses `PROFILE`; the desktop runner follows `SLOPCAR_PROFILE`, then `SLOPWORLD_PROFILE`,
-then the XDG SlopWorld profile. The game log announces the actual path.
+and the desktop runner follow `PROFILE`, then `SLOPCAR_PROFILE`, then
+`SLOPWORLD_PROFILE`, then the XDG SlopWorld profile. The game log announces the actual path.
 
 ## Guided Linux desktop benchmark
 
-On Wayland, install ydotool, wl-clipboard, xdotool, libX11, and libXtst, with an
+On Wayland, install ydotool 1.x, xdotool, libX11, and libXtst, with an
 accessible running ydotoold. Use the launcher's default XWayland game window;
 native Wayland windows lack the required focus guard. Set `YDOTOOL_SOCKET` for a
-custom socket. On X11, install xdotool, xclip, libX11, and libXtst. On GNOME with
-XWayland, also install xclip for clipboard ownership and verification. The runner
+custom socket. On X11, install xdotool, libX11, and libXtst. Automatic setup and typing also
+require wl-clipboard on Wayland and xclip on X11 (including GNOME/XWayland).
+Manually prepared history-only and htop-only phases do not need clipboard tools. The runner
 checks readiness and does not change permissions or services.
 
 Start one empty local host-shell tab, with the cursor at the prompt and no selection.
@@ -71,8 +74,9 @@ physical keypress or IME composition test. The shell line grows throughout the r
 No history or typed text is deleted.
 
 Use `make bench-terminal-typing` for automatic filling followed by typing only.
-For history only, set `BENCH_PHASE=history` and `BENCH_FILL_HISTORY=1`; check `make`
-and `make/bench.mk` for current runner options. Manually prepared individual phases
+For history only, set `BENCH_PHASE=history` and `BENCH_FILL_HISTORY=1`.
+ `BENCH_PHASE`, `BENCH_FILL_HISTORY`, `BENCH_MULTIPLIER`, and
+`BENCH_PREPARE_SECONDS` select phase, setup, pace, and focus countdown. Manually prepared individual phases
 use their own prompt/countdown. Add htop with a separate phase:
 
 ```sh
@@ -91,12 +95,12 @@ make bench-report BENCH_RUN=terminal-next
 make bench-report BENCH_RUN=terminal-next BENCH_BASELINE=terminal-baseline BENCH_MODE=relative
 ```
 
-The runner verifies clipboard delivery and stops ineffective typing. All phases
-require performance records and completed traces; history requires completed
-`history_scroll` samples. Performance counters alone do not validate history latency.
-Compare history runs only when their observed input sources match: precise X11
-movement is accumulated per frame, while fallback wheel packets have different
-sampling boundaries. The tool cannot verify the selected tab or causal text echo.
+The runner verifies clipboard delivery and stops ineffective typing. Every phase
+requires performance records and at least one valid completed latency sample;
+history additionally requires a completed `history_scroll` sample. Performance
+counters alone do not validate history latency.
+Compare history runs only when observed input sources match. The tool cannot verify
+the selected tab or causal text echo.
 
 `complete_with_slip` means injection deadlines shifted while event count stayed
 fixed. Compare actual durations and slip counts; it is not an exact pacing success.
@@ -105,21 +109,7 @@ repeat questionable runs into new directories.
 
 ## Interpreting latency
 
-Reports use nearest-rank p50/p95/p99/max in microseconds. Each request observation
-may batch characters. Correlation means the next changed frame after dispatch,
-not proof that the application echoed input; background output can satisfy it.
-No-output input and hidden panes can time out. History samples measure consumed
-local movement through a ready repaint and frame end, including uncached-history waits.
-Superseded movement is not a fast success.
-
-Frame end is before display presentation, so these results are not physical
-key-to-photon latency. GPU, compositor, and scanout need external instrumentation.
-Never subtract client and daemon clocks. Transport residual includes both network
-directions and unmeasured client/codec work, not one-way network latency.
-
-Completed percentiles exclude failures and incomplete observations. Inspect those
-counts before comparing tails; tiny samples do not establish reliable p99 results.
-Performance lanes overlap, memory counters overlap, and GC collection counts do not
-measure allocated bytes. Do not add them together. Helper benchmarks do not measure
-Unity CPU or end-to-end latency. Ownership details are in
-[terminal latency](../../../notes/terminal-latency.md).
+Reports give latency percentiles for completed observations. Correlation is not
+proof of application echo. Incomplete or partial samples are withheld; inspect
+outcome counts before comparing tails. Frame end precedes display presentation,
+so physical key-to-photon latency requires external instrumentation.

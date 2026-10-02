@@ -1,73 +1,57 @@
 # Backup and recovery
 
-**Before you use SlopWorld, back up your data.** The sandbox is not a security boundary.
-Agents can edit any file in a project directory that the sandbox mounts read-write.
+Back up your data before running agents, including writable project directories,
+worktrees, and other mounted data. See the [Security model](../reference/security.md)
+for sandbox limits.
 
-## Data to include in backups
+## What to back up
 
-| State | Path | Notes |
+These are native Linux default locations. See [Paths and files](../reference/paths.md)
+for overrides, XDG locations, and sidecar/macOS paths.
+
+| Data | Linux default location | Include |
 | --- | --- | --- |
-| Daemon configuration | `~/.config/slopworld/config.toml` | Agents, projects, settings, credentials paths. |
-| User library and catalogs | `~/.config/slopworld/{prompts,breadcrumbs,file_actions,shell_scripts,agent_templates,sandbox_presets,app_presets}/*.toml` | Custom library entries, templates, sandboxes, and apps. |
-| Agent private state | `~/.local/share/slopworld/sessions/` | Per-agent tool state, history, configuration copies. |
-| Game profile | `~/.local/share/slopworld/profile` | Saves, screenshots, mod settings. |
-| Jukebox stations | `~/.config/slopworld/jukebox/` | User-defined radio stations. |
-| Jukebox likes | `~/.local/share/slopworld/jukebox.toml` | Liked songs. |
-| Task mailbox | `~/.config/slopworld/tasks.toml` and `tasks.journal` beside it | Delegated task state; keep both files together. |
+| Configuration and catalogs | `~/.config/slopworld/` | `config.toml`, grants, worktree records, task mailbox and journal, user libraries, presets, and the entire `agent_templates/` directory including its index and generations. |
+| Agent private state | `~/.local/share/slopworld/sessions/` | Tool state, history, configuration copies, and recoverable trash. |
+| Game profile | `~/.local/share/slopworld/profile/` | Saves and mod settings. |
+| Jukebox | `~/.config/slopworld/jukebox/` and `~/.local/share/slopworld/jukebox.toml` | Stations and liked songs. |
+| External data | Your project, worktree, cache-mount, and credential-source paths | These are not backed up by copying SlopWorld's roots. |
 
-If you set path overrides, back up those locations too. See [Paths and files](../reference/paths.md).
+Preserve `config.toml`, which contains the authoritative daemon token.
+The endpoint descriptor can be recreated; it cannot replace that configuration.
+Daemon caches, including activity and prompt summaries, are disposable.
 
-The daemon reads its authoritative token from `[daemon].token` in `config.toml`.
-At startup, it writes `endpoint.toml` with mode `0600`. This file contains the URL and token.
-If `endpoint.toml` is missing, the daemon creates it from `config.toml`.
-Include `config.toml` in your backup. The endpoint file cannot replace it.
+## Recover a machine or profile
 
-The daemon can regenerate prompt-summary titles.
-It uses `~/.cache/slopworld/session-activity.toml` as a fallback when tmux metadata is unavailable.
-Include this file if you need its saved activity ages after a full reboot.
+Restore configuration, private state, the game profile, and external data to their
+configured locations. Restore projects before starting agents that reference them.
 
-## Restart vs. reset vs. delete
-
-| Action | Effect |
-| --- | --- |
-| **Restart** | Stops the process and sandbox. Starts a new process with the same private state. Private network mode gets a new `pasta` namespace. Restart after network changes. |
-| **Reset private state** | Moves state to trash for 14 days. The next start copies host files and configured seeds. Use it to clear damaged state or tool data. |
-| **Delete** | Deletes the agent from configuration. If private state exists, the daemon moves it to trash for 14 days. |
-
-## Trash and recovery
-
-Reset and delete move private state to
-`~/.local/share/slopworld/sessions/.trash/`. The daemon keeps entries for at least 14 days.
-It deletes expired entries during cleanup.
-To restore private state:
-
-1. Stop the agent.
-2. If the agent has fresh private state, reset it.
-3. Open **Settings > Storage**.
-4. Select **Restore** on the agent's trash entry.
-
-If you deleted the agent, **Restore** can add it back to the configuration when its name is free.
-Configured agents keep their state while they are Down. The daemon does not delete this state because of age.
-Orphaned state from deleted agents appears in **Settings > Storage**.
-Delete these entries when you do not need them.
-
-## Daemon restart
-
-`make install-daemon` restarts the daemon when its binary or service file changes.
-Tmux sessions and the game continue because they run outside the daemon's cgroup.
-After restart, the daemon rebuilds each terminal emulator from its existing tmux pane.
-It restores scrollback, alternate-screen mode, and pane titles.
-
-Tmux session options named `@slopworld_*` preserve state and timing metadata.
-After a full reboot, tmux loses these options. The daemon then uses `session-activity.toml` as a fallback.
-
-## Full recovery after reboot
-
-After a reboot, start the daemon:
+For the native Linux service, start the daemon with:
 
 ```sh
 systemctl --user start slopd
 ```
 
-Agents with autostart enabled start automatically. Start other agents from the sidebar.
-Private state, configuration, and the game profile remain on disk while the daemon is stopped.
+For containers, follow [Sidecar worker](sidecar.md); on macOS, follow the
+[macOS guide](macos.md). Agents with autostart enabled start automatically.
+Start other agents from the sidebar. The daemon recreates its endpoint descriptor
+from the saved configuration. See [Updating](../updating.md) for daemon restart behavior.
+
+## Recover one agent's private state
+
+Resetting or deleting a configured agent moves its state to recoverable trash,
+retained for at least 14 days. Temporary-agent state is removed instead.
+See [Private state](configuring-agents.md#private-state) for the lifecycle of
+restart, reset, and deletion.
+
+To restore a trash entry:
+
+1. Stop the agent.
+2. If it has fresh private state, reset it.
+3. Open **Settings > Storage**.
+4. Select **Restore** on the agent's trash entry.
+
+A deleted agent can be restored when its name is available and its saved project
+and mounts remain valid. Restore the project configuration first if needed.
+Configured agents retain their private state while Down. Remove unwanted orphaned
+entries through **Settings > Storage**.

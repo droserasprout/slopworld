@@ -1,59 +1,46 @@
 # Agent collaboration
 
-## Scoped grants
+Scoped grants let agents read or control selected agent sessions. Host sessions
+remain accessible only with the root token.
 
-A scoped grant lets one agent watch or control selected agent sessions.
-Only the root token can create a grant through `/api/grants`.
+## Grant permissions
 
 | Level | Permissions |
 | --- | --- |
-| `ro` | List, read, and watch sessions. This includes state, screen output, and `capture-pane`. |
-| `rw` | All `ro` permissions. Also send keys, resize, start, stop, or restart sessions. |
+| `ro` | List, read, and watch sessions, including state, screen output, and `capture-pane`. |
+| `rw` | All `ro` permissions, plus sending keys, resizing, starting, stopping, and restarting sessions. |
 
-Only the root token can create agents directly.
-Scoped agents can create workers only from templates that the daemon allows.
-The daemon excludes host sessions from grants. The root token can access host sessions.
+Only the root token can create grants or create agents directly. See the
+[API reference](../reference/api.md) for creating grants.
+Scoped agents can spawn workers only in their own project and from templates
+allowed by daemon policy. See [Worker configuration](configuring-agents.md#workers).
 
-The daemon saves grants in a private file beside its configuration.
-After a restart, the daemon restores a grant only if the grantor and target sessions keep the
-same identities.
-The daemon revokes a grant if the grantor or a target is removed, renamed, or replaced.
-The daemon checks token permissions on every request.
+## Give an agent access
 
-## Delivery
+For a manually created grant, follow the [CLI connection instructions](slopctl.md#connection)
+with the scoped token. Workers receive their connection credentials automatically;
+see [Using slopctl](slopctl.md) for spawning them.
+Keep root credentials private, as explained in the [Security model](../reference/security.md).
 
-To use a manually created grant, set `SLOPD_URL` to the daemon URL and `SLOPD_TOKEN` to the
-scoped token.
-When you run `slopctl worker spawn`, the daemon sets both variables for the new worker.
-The host endpoint file contains the root token.
-Do not give it to an agent that uses a scoped token.
+Agents and workers need network access to the daemon API to use grants and tasks.
+`network = "none"` prevents this access. See
+[Network configuration](configuring-agents.md#network) for other modes.
+
+## Grant lifetime
+
+Grants survive daemon restarts when their participants keep the same identities.
+They are revoked when a grantor or target is renamed, removed, or replaced.
+The daemon checks token permissions on every request. See
+[Paths and files](../reference/paths.md) for grant storage.
 
 ## Task mailboxes
 
-`slopctl` supports tasks between agents and the host.
-Every task has an opaque ID, sender, recipient, status, body, optional note, and timestamps.
-Both participants can read a task.
-Only the recipient can update tasks that are not `canceled`.
-The root token can also cancel queued or accepted tasks.
+Agents can hand work to other agents within their grant scope and report to `host`,
+the user at the keyboard. Terminal permissions and task participation are separate:
+`ro` or `rw` controls terminal access. See [Using slopctl](slopctl.md) for task
+commands, statuses, and lifecycle.
 
-The `host` identity represents the user at the keyboard.
-Only the root token can use `host` as the task sender.
-A session named `host` does not have this identity.
-Agents can send task reports to `host`.
-
-A scoped grant identifies the sender.
-Its session scope defines which agents can receive tasks.
-Its `ro` or `rw` level controls terminal access.
-
-See [Using slopctl](slopctl.md) for task statuses, commands, and lifecycle.
-
-## Current limits
-
-The sandbox needs network access to the daemon's HTTP listener to use a grant.
-Agents with `network = "none"` cannot use the grant or task APIs.
-For agents with `network = "private"`, SlopWorld forwards the daemon's TCP port
-into the namespace when the listener uses `127.0.0.1` or all IPv4 interfaces.
-A listener bound to a routable address is reached through ordinary outbound
-networking. A private agent still needs a scoped grant and `SLOPD_URL` and
-`SLOPD_TOKEN` to authenticate. Workers receive these at startup.
-The daemon does not support Unix-socket transport.
+Tasks are shared by sender and recipient. Only the recipient can update an
+uncanceled task. The root token can cancel queued or accepted tasks through the
+task board or API; `slopctl task` has no cancel subcommand. Participants can remove
+terminal tasks; root can also remove unfinished tasks. Only root can send as `host`.

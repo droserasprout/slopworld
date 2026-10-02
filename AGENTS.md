@@ -44,6 +44,7 @@ Follow the patterns in the reviewed Rust files listed in `priv/BIG_REVIEW.md`:
   operation guards through commit or rollback, and handle partial failure and cancellation.
 - Keep comments beside the code they explain. Describe contracts, ordering, lifetimes, and
   non-obvious reasons; use short section comments to orient readers in longer flows.
+- Binary-root tests use the binary's subdirectory; standalone `src/bin/` files become executables.
 - Keep tests beside their owner in separate test modules. Name the behavior being protected;
   cover failure, recovery, stale work, and repeated cleanup. Control race ordering explicitly.
 

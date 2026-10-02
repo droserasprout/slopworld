@@ -1,7 +1,7 @@
-# Keyboard shortcuts
+# Keyboard and mouse shortcuts
 
-`KeyBindingDef`s define shortcuts that you can change on the game's key-bindings settings page.
-The tables identify fixed shortcuts that you cannot change.
+Tables show defaults. Change rebindable assignments in RimWorld's keyboard
+settings; built-in controls cannot be rebound.
 
 ## Interface
 
@@ -10,9 +10,6 @@ The tables identify fixed shortcuts that you cannot change.
 | Ctrl+backquote | Command palette | yes (key only, Ctrl is fixed) |
 | F11 | Toggle window-manager fullscreen | yes |
 | F12 | Open/close terminal | yes |
-| ? | Show keyboard shortcuts view on the map | no |
-
-Open **Keyboard shortcuts** from the computer core menu to show the view.
 
 ## Navigation
 
@@ -24,11 +21,15 @@ Open **Keyboard shortcuts** from the computer core menu to show the view.
 | F4 | Sidebar: Search view | yes |
 | F5 | Sidebar: Tasks view | yes |
 | F6 | Sidebar: Library view | yes |
-| Alt+Z | Previous session | no |
-| Alt+X | Next session | no |
 
-The mod handles F-keys without Shift.
-Shift+F-key sends the F-key to the agent.
+## Built-in navigation
+
+| Key | Action and scope |
+| --- | --- |
+| ? | Open help from the map, or leave the open help view. |
+| Ctrl+current sidebar key | Focus that sidebar view's last target. |
+| Alt+Z / Alt+X | Previous/next session in the terminal window. |
+| Alt+1..9, Alt+0 | Select an agent on the map or switch panes in the terminal window; 0 is tenth. Number row and keypad work. |
 
 ## Agent (map, with agent selected)
 
@@ -47,22 +48,23 @@ These shortcuts are active inside the terminal pane and cannot be rebound.
 
 | Key | Action |
 | --- | --- |
-| Escape | Forwarded to the agent. |
+| Escape | Forwarded to the agent; in help content, return to the backing pane or map. |
 | Shift+Escape | Close the terminal. |
-| Alt+1..9, Alt+0 | Select agent by sidebar position (0 is tenth). |
-| Alt+Z / Alt+X | Select the previous/next session. |
-| Shift+Enter | Send `\e[13;2u` (newline without submitting). |
+| Shift+Enter | Send a newline-without-submit sequence to compatible applications. |
 | Ctrl+C | Copy selected text. Without a selection, send SIGINT. |
 | Ctrl+V | Paste from clipboard. Codex panes paste text normally and forward image data to Codex for attachments. |
-| Middle-click | Paste the host's PRIMARY selection (Wayland/X11). |
 | Shift+PgUp / Shift+PgDn | Scroll the mod's own scrollback (primary screen only). |
-| Shift+F1..F12 | Forward the F-key to the agent. |
+| Shift+F1..F12 | Forward the F-key to the agent from the terminal pane. |
+
+## Terminal mouse controls
+
+| Gesture | Action |
+| --- | --- |
+| Middle-click | Paste the host's PRIMARY selection (Wayland/X11). |
 | Ctrl+click | Open a URL printed in the terminal, or show a file menu. The menu offers applicable Focus, View, Edit, Open in, File actions, and Copy path actions. View and Edit honor a `:line` suffix. |
 | Right-click | Terminal context menu. |
 | Double-click | Select a word and publish it to the host's PRIMARY selection. |
 | Triple-click | Select a line and publish it to the host's PRIMARY selection. |
-
-## Mouse wheel (terminal)
 
 On the primary screen, the mouse wheel scrolls the mod's scrollback history. On the
 alternate screen, the wheel sends arrow keys (Up/Down) to the application. When the
@@ -78,17 +80,15 @@ application requests mouse reporting, the mod forwards wheel input as mouse even
 | 4 | Teleport | yes |
 | 5 | Cat whistle | yes |
 
-## Command palette
+## Help and command palette
+
+Open help with **Keyboard shortcuts** in the computer core menu or palette.
 
 Ctrl+backquote (by default) opens a filtered command list. Type to filter.
-Use the arrow keys and Enter to navigate. The palette lists all window and sidebar actions, agent operations,
-library errands, and configuration commands. Recently used commands appear first when
+Use the arrow keys and Enter to navigate. Commands and their availability depend on the current context. Recently used commands appear first when
 unfiltered.
 
 Notable commands:
 
 - **View: Toggle Sidebar** — hide or show the left panel.
-- **Agent: Shell** — open a shell inside the selected agent's sandbox.
-
-The **Open in** submenu lists associated applications and **Other**. The daemon
-tries a native GTK chooser and falls back to the desktop portal if GTK startup fails.
+- **Agent: Shell** — open a shell inside an eligible selected agent's sandbox.

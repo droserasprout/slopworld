@@ -1,21 +1,20 @@
 # Sidecar worker
 
 A sidecar runs `slopd`, tmux, and the agent sandboxes in a Docker container. The game
-can remain on the host and connect to the sidecar over a loopback port. A sidecar is an execution mode.
-It is separate from the native macOS installation described in the [macOS guide](macos.md).
+can remain on the host and connect to the sidecar over a loopback port. This page covers standalone sidecar setup. The native-game
+[macOS workflow](macos.md) uses the same Linux sidecar.
 
 ## Requirements
 
-- Docker or Docker Desktop
-- A local copy of the SlopWorld repository
+See [Requirements](../requirements.md) for sidecar prerequisites.
 
 ## Start a worker
 
 Build and check the image:
 
 ```sh
-./slopcar/slopcar build
-./slopcar/slopcar doctor
+make sidecar-build
+make sidecar-doctor
 ```
 
 Pass `--workspace` for each project that agents may access. Use absolute paths.
@@ -39,12 +38,11 @@ refresh-token updates remain shared with the host.
 Claude's rotating `$HOME/.claude/.credentials.json` needs a read-write mount at
 `/home/slop/.claude/.credentials.json`.
 
-The launcher rejects these paths:
-
-- The filesystem root.
-- The entire home directory.
-- The Docker socket or configuration.
-- Paths that overlap SlopWorld's token or private state.
+Workspace and credential sources cannot be the filesystem root, the entire home
+folder, or paths overlapping sidecar configuration or session state. Credential
+mounts also protect container configuration/state targets and reject Docker socket
+or configuration sources. See the [technical README](../../../slopcar/README.md)
+for the detailed mount constraints.
 
 ## Use it with the Linux game
 
@@ -56,7 +54,10 @@ SLOPCAR_CONFIG="$HOME/.config/slopworld-car" make sidecar-run
 ```
 
 The sidecar profile is separate from the native profile.
-`SLOPCAR_PROFILE` overrides the sidecar profile. Start the worker before running the game. Other clients can set `SLOPD_ENDPOINT`
+See [Paths and files](../reference/paths.md) for overrides and
+[Game profiles](game-profiles.md) for profile behavior.
+
+Start the worker before running the game. Other clients can set `SLOPD_ENDPOINT`
 to the sidecar's `endpoint.toml`.
 
 ## Lifecycle
@@ -78,3 +79,7 @@ The launcher rejects a configuration directory that specifies another port.
 
 For container security flags and nested-namespace constraints, see the
 [technical README](https://github.com/droserasprout/slopworld/blob/main/slopcar/README.md#outer-isolation).
+
+Make targets use `SLOPCAR_CONFIG` and `SLOPCAR_DATA` with `slopworld-car` defaults.
+The standalone script uses `SLOPCAR_CONFIG_DIR` and `SLOPCAR_DATA_DIR` with
+`slopworld` defaults. Set both pairs consistently when combining these workflows.

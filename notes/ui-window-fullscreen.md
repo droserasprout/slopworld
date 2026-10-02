@@ -10,4 +10,4 @@ Initial fullscreen follows window resize/maximize and remains the final geometry
 change. Updating only outer bounds can misalign pixels and input coordinates.
 The [source](../mod/Source/SlopWorld/Patches/Chrome/LinuxGameWindow.cs) owns platform
 calls and retry sequencing. Launch options belong to
-[Linux window options](../docs/src/build.md#linux-window-options).
+[Display settings](../docs/src/reference/settings.md#display).
