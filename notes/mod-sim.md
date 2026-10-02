@@ -1,7 +1,8 @@
 # Simulation guide
 
 `Sim/Colony/` maps daemon sessions to pawns.
-`Sim/Lifecycle/` controls time, saves, loads, and cutscenes.
+`Sim/Colony/` also owns intro/departure directors and their shared cutscene gate.
+`Sim/Lifecycle/` controls time, saves, and loads.
 [Worksites](mod-worksite.md) use the Working state to control construction.
 [Plague](mod-plague.md) converts completed work into map effects.
 [Incidents](mod-incidents.md) own cosmetic meetings and fire props.
@@ -23,3 +24,9 @@ integration must respect all three. See [profile](ops-profile.md).
 Shutdown saving belongs to the Root.Shutdown prefix; deferred OS close requests stay
 cancelled until that path runs. Log tooltips persist UTC timestamps independently of
 the solar calendar; old entries estimate their age from solar ticks once.
+
+Intro saves retain remaining population counts and rebuild animal kinds on load.
+AgentColony saves eye variants with pawn bindings; RobotFace owns texture selection.
+Pet interaction cooldowns belong to the current game.
+Departure keeps annulus blast work across wave deadlines and drains it during lulls
+and settling, under the per-tick cap, before discarding the map.

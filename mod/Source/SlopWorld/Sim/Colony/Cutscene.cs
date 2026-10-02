@@ -8,8 +8,7 @@ namespace SlopWorld
         // Loading a save during a scene restores the interface.
         public static bool Playing => IntroDirector.UiHidden || NextPlanet.Leaving;
 
-        // Hold agent arrivals until the opening scene permits them.
-        // Also hold arrivals while the colony leaves the planet.
+        // Hold agent-linked colony work before intro arrivals and throughout departure.
         public static bool AgentsHeld => IntroDirector.AgentsHeld || NextPlanet.Leaving;
     }
 }

@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using System.Linq;
-using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -39,12 +37,11 @@ namespace SlopWorld
 
         Phase _phase = Phase.Off;
 
-        // Accumulate fractional explosion counts in _owed.
-        // Rounding each tick separately can discard small increases and prevent explosions.
+        // Keep ring geometry and fractional counts across waves and per-tick caps.
         Map _map;
         IntVec3 _origin;
         float _front;
-        float _owed;
+        readonly BlastBacklog _blasts = new BlastBacklog();
         float _at;
         int _wave;
         float _from;
@@ -53,6 +50,8 @@ namespace SlopWorld
         // AutoSaver uses this flag to suspend saves.
         // Patch_AutoResume uses it to leave the menu available for the next colony.
         public static bool Pending { get; private set; }
+
+        internal static void CompletePendingLanding() => Pending = false;
 
         // Cutscene uses this flag to hide the UI. Patch_ContainFire uses it to permit fire spread.
         public static bool Leaving { get; private set; }
@@ -92,7 +91,7 @@ namespace SlopWorld
 
             _origin = TheCore(_map)?.Position ?? _map.Center;
             _front = 0f;
-            _owed = 0f;
+            _blasts.Clear();
             _wave = 0;
 
             // Use the maximum zoom distance from the camera configuration.
@@ -115,7 +114,7 @@ namespace SlopWorld
             _at = Time.realtimeSinceStartup + seconds;
         }
 
-        // Advance phases in real time so a window that pauses the game cannot stop the scene.
+        // Advance wave deadlines in real time. Blasts drain when game ticks resume.
         public override void GameComponentUpdate()
         {
             if (_phase == Phase.Off) return;
@@ -129,7 +128,7 @@ namespace SlopWorld
 
                 case Phase.Wave:
                     // End the wave at its deadline, even if game ticks did not advance the front to its target.
-                    _front = _to;
+                    AdvanceFront(_to);
                     if (_wave < Waves) Go(Phase.Lull, LullSeconds);
                     else Go(Phase.Settle, SettleSeconds); // the front is at the edge
                     break;
@@ -139,7 +138,8 @@ namespace SlopWorld
                     break;
 
                 case Phase.Settle:
-                    Leave();
+                    // Drain the final wave before discarding the map, even after the settle deadline.
+                    if (!_blasts.Pending) Leave();
                     break;
             }
         }
@@ -153,31 +153,28 @@ namespace SlopWorld
             _wave++;
             _from = _front;
             _to = Reach(_map, _origin) * _wave / Waves;
-            _owed = 0f; // a fraction of a blast banked across a lull is not owed
             Go(Phase.Wave, WaveSeconds);
         }
 
         public override void GameComponentTick()
         {
-            if (_phase != Phase.Wave) return;
-            Step();
-        }
-
-        void Step()
-        {
+            if (_phase != Phase.Wave && _phase != Phase.Lull && _phase != Phase.Settle) return;
             if (_map == null || !Find.Maps.Contains(_map)) { Leave(); return; }
 
-            float done = Mathf.Clamp01(1f - (_at - Time.realtimeSinceStartup) / WaveSeconds);
-            float front = Mathf.Lerp(_from, _to, done);
+            if (_phase == Phase.Wave)
+            {
+                float done = Mathf.Clamp01(1f - (_at - Time.realtimeSinceStartup) / WaveSeconds);
+                AdvanceFront(Mathf.Lerp(_from, _to, done));
+            }
+
+            for (int i = 0; i < BlastsPerTick && _blasts.TryTake(out var inner, out var outer); i++)
+                Blast(_map, Mathf.Sqrt(Rand.Range(inner * inner, outer * outer)));
+        }
+
+        void AdvanceFront(float front)
+        {
             if (front <= _front) return;
-
-            // Convert the new ring area to an explosion count. Retain fractional counts for later ticks.
-            _owed += Mathf.PI * (front * front - _front * _front) / CellsPerBlast;
-            int n = Mathf.Min(Mathf.FloorToInt(_owed), BlastsPerTick);
-            _owed -= n;
-
-            for (int i = 0; i < n; i++) Blast(_map, Rand.Range(_front, front));
-
+            _blasts.AddRing(_front, front, CellsPerBlast);
             _front = front;
         }
 
@@ -218,64 +215,6 @@ namespace SlopWorld
             float x = Mathf.Max(from.x, map.Size.x - from.x);
             float z = Mathf.Max(from.z, map.Size.z - from.z);
             return Mathf.Sqrt(x * x + z * z);
-        }
-
-        // Modify the completed option list. DoMainMenuControls draws options and web links in separate passes.
-        // Column identifies the first pass without depending on labels or layout. Remove the four translated options from that pass.
-        [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
-        public static class Patch_MenuOption
-        {
-            static readonly string[] Dropped =
-                { "Save", "LoadGame", "ReviewScenario", "QuitToMainMenu" };
-
-            public static bool Column;
-
-            // Use the expected row count before the first menu display.
-            // Update it after drawing the option list. The menu reads RequestedTabSize when it opens, not each frame.
-            public static int Net = 0 - Dropped.Length;
-
-            static void Prefix(List<ListableOption> optList)
-            {
-                bool first = Column;
-                Column = false;
-
-                if (!first) return; // the web links, drawn beside the options
-                if (Current.ProgramState != ProgramState.Playing) return;
-                if (Leaving) return;
-                if (!(Find.WindowStack?.currentlyDrawnWindow is MainTabWindow_Menu)) return;
-
-                int gone = optList.RemoveAll(o => o != null && Dropped.Any(
-                    key => o.label == (string)key.Translate()));
-
-                Net = 0 - gone;
-            }
-        }
-
-        [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls))]
-        public static class Patch_MenuFirstColumn
-        {
-            static void Prefix() => Patch_MenuOption.Column = true;
-        }
-
-        // Adjust the fixed menu height for removed rows. The menu has no scrolling.
-        [HarmonyPatch(typeof(MainTabWindow_Menu), "RequestedTabSize", MethodType.Getter)]
-        public static class Patch_MenuSize
-        {
-            // Use the minimum option height plus the space between options.
-            const float RowH = 45f + 7f;
-
-            static void Postfix(ref Vector2 __result) => __result.y += RowH * Patch_MenuOption.Net;
-        }
-
-        [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.MainMenuOnGUI))]
-        public static class Patch_LandAgain
-        {
-            static void Prefix()
-            {
-                if (!Pending) return;
-                Pending = false;
-                Find.WindowStack.Add(new Page_SelectScenario());
-            }
         }
     }
 }
