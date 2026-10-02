@@ -13,6 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/Sim/Lifecycle/RealClock.Formatting.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownImageHeader.cs" Link="Source/MarkdownImageHeader.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Resources.cs" Link="Source/MarkdownPreview.Resources.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownImageBudget.cs" Link="Source/MarkdownImageBudget.cs" />

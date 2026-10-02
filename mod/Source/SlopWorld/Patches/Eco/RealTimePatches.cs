@@ -11,9 +11,10 @@ namespace SlopWorld
     [HarmonyPatch(typeof(GenDate), nameof(GenDate.ToStringTicksToPeriod))]
     public static class Patch_TicksToPeriod
     {
-        static bool Prefix(int numTicks, bool shortForm, ref string __result)
+        static bool Prefix(int numTicks, bool allowSeconds, bool shortForm, bool canUseDecimals,
+            bool canUseDecimalsShortForm, ref string __result)
         {
-            __result = RealClock.Period(RealClock.Seconds(numTicks), shortForm);
+            __result = RealClock.GameTickDuration(numTicks, allowSeconds, shortForm, canUseDecimals, canUseDecimalsShortForm);
             return false;
         }
     }
@@ -22,9 +23,9 @@ namespace SlopWorld
     [HarmonyPatch(typeof(GenDate), nameof(GenDate.ToStringTicksToPeriodVerbose))]
     public static class Patch_TicksToPeriodVerbose
     {
-        static bool Prefix(int numTicks, ref string __result)
+        static bool Prefix(int numTicks, bool allowHours, ref string __result)
         {
-            __result = RealClock.Period(RealClock.Seconds(numTicks));
+            __result = RealClock.GameTickDuration(numTicks, allowHours: allowHours);
             return false;
         }
     }
@@ -35,7 +36,7 @@ namespace SlopWorld
     {
         static bool Prefix(int numTicks, ref string __result)
         {
-            __result = RealClock.Period(RealClock.Seconds(numTicks));
+            __result = RealClock.GameTickDuration(numTicks);
             return false;
         }
     }
@@ -44,9 +45,9 @@ namespace SlopWorld
     [HarmonyPatch(typeof(GenDate), nameof(GenDate.ToStringTicksToDays))]
     public static class Patch_TicksToDays
     {
-        static bool Prefix(int numTicks, ref string __result)
+        static bool Prefix(int numTicks, string format, ref string __result)
         {
-            __result = RealClock.Period(RealClock.Seconds(numTicks));
+            __result = RealClock.GameTickDuration(numTicks, format: format);
             return false;
         }
     }

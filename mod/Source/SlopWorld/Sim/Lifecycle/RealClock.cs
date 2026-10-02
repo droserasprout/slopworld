@@ -9,11 +9,8 @@ namespace SlopWorld
     // The calendar instead maps one game day to one real day by rewriting
     // gameStartAbsTick. All vanilla sky, hour, season, and date readers then agree.
     // Absolute-tick timestamps must convert through SecondsPerAbsTick.
-    public class RealClock : GameComponent
+    public partial class RealClock : GameComponent
     {
-        // Ticks the game runs per real second at Normal speed.
-        public const float TicksPerRealSecond = 60f;
-
         // Real seconds per absolute tick. One calendar day equals one real day.
         public const float SecondsPerAbsTick = 86400f / GenDate.TicksPerDay;
 
@@ -44,32 +41,6 @@ namespace SlopWorld
             if (ticks == null) return 0f;
 
             return Mathf.Max((ticks.TicksAbs - absTick) * SecondsPerAbsTick, 0f);
-        }
-
-        // The base-game calendar has no minute unit. Supply the mod's own words for minutes.
-        public static string Period(float seconds, bool shortForm = false)
-        {
-            float s = Mathf.Max(seconds, 0f);
-            if (s >= 86400f) return Unit(s / 86400f, "Period1Day", "PeriodDays", "LetterDay", shortForm);
-            if (s >= 3600f) return Unit(s / 3600f, "Period1Hour", "PeriodHours", "LetterHour", shortForm);
-            if (s >= 60f) return Unit(s / 60f, null, null, "LetterMinute", shortForm);
-            return Unit(s, "Period1Second", "PeriodSeconds", "LetterSecond", shortForm);
-        }
-
-        static string Unit(float count, string oneKey, string manyKey, string letterKey, bool shortForm)
-        {
-            int n = Mathf.FloorToInt(count);
-
-            if (shortForm)
-            {
-                string letter = letterKey.Translate();
-                return n + letter;
-            }
-
-            if (oneKey == null) return n == 1 ? "1 minute" : n + " minutes";
-
-            string word = n == 1 ? oneKey.Translate() : manyKey.Translate(n.ToString());
-            return word;
         }
 
         public override void GameComponentUpdate()
