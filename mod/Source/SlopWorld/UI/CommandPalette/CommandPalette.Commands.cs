@@ -239,7 +239,7 @@ namespace SlopWorld
             new CommandDef("view.zoom-out", "View: Zoom Out", "View",
                 _ => UiScale.Zoom(-1)),
             new CommandDef("window.fullscreen", "Window: Toggle Fullscreen", "View",
-                _ => WindowMaximizer.Toggle()),
+                _ => LinuxGameWindow.Toggle()),
 
             new CommandDef("help.shortcuts", "Help: Keyboard Shortcuts", "Help",
                 _ => ShortcutHelpWindow.Toggle(), enabled: () => ShortcutHelpWindow.CanOpen),

@@ -191,7 +191,7 @@ namespace SlopWorld
             if (Bound(ModDefOf.SlopToggleFullscreen, e))
             {
                 UiMenu.CloseAll();
-                WindowMaximizer.Toggle();
+                LinuxGameWindow.Toggle();
                 return true;
             }
             return false;

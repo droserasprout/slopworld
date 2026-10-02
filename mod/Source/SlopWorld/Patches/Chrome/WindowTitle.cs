@@ -23,7 +23,7 @@ namespace SlopWorld
 
             float now = Time.realtimeSinceStartup;
             if (now < _nextTry) return;
-            if (WindowMaximizer.TrySetTitle(title))
+            if (LinuxGameWindow.TrySetTitle(title))
             {
                 _applied = title;
                 return;
