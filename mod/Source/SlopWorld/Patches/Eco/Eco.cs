@@ -42,15 +42,40 @@ namespace SlopWorld
         static float _backdropDim = float.NaN;
         static bool _backdropGeometryReady;
         static Map _backdropMap;
-        static Camera _backdropCamera;
-        static Vector3 _backdropCameraPosition;
-        static Quaternion _backdropCameraRotation;
-        static float _backdropCameraOrtho;
-        static float _backdropCameraFov;
-        static float _backdropCameraAspect;
-        static Rect _backdropPixelRect;
-        static int _backdropScreenWidth = -1;
-        static int _backdropScreenHeight = -1;
+        static BackdropView _backdropView;
+
+        // One capture supplies both cache comparison and the committed projection inputs.
+        struct BackdropView
+        {
+            public Camera Camera;
+            public Vector3 Position;
+            public Quaternion Rotation;
+            public float Ortho, Fov, Aspect;
+            public Rect PixelRect;
+            public int Width, Height;
+
+            public static BackdropView Capture()
+            {
+                var camera = UnityEngine.Camera.main;
+                var view = new BackdropView { Camera = camera, Width = UI.screenWidth, Height = UI.screenHeight };
+                if (camera != null)
+                {
+                    var transform = camera.transform;
+                    view.Position = transform.position;
+                    view.Rotation = transform.rotation;
+                    view.Ortho = camera.orthographicSize;
+                    view.Fov = camera.fieldOfView;
+                    view.Aspect = camera.aspect;
+                    view.PixelRect = camera.pixelRect;
+                }
+                return view;
+            }
+
+            public bool Matches(BackdropView other) => Camera == other.Camera &&
+                Width == other.Width && Height == other.Height && Position == other.Position &&
+                Rotation == other.Rotation && Ortho == other.Ortho && Fov == other.Fov &&
+                Aspect == other.Aspect && PixelRect == other.PixelRect;
+        }
         static float _backdropW, _backdropH;
         static Vector3 _backdropCenter;
 
@@ -86,27 +111,15 @@ namespace SlopWorld
 
         static bool FitBackdrop(Map map, Texture2D tex)
         {
-            Camera camera = Camera.main;
+            var view = BackdropView.Capture();
             bool changed = !_backdropGeometryReady || _backdropTexture != tex ||
-                _backdropMap != map || _backdropScreenWidth != UI.screenWidth ||
-                _backdropScreenHeight != UI.screenHeight || _backdropCamera != camera;
-
-            if (!changed && camera != null)
-            {
-                var transform = camera.transform;
-                changed = _backdropCameraPosition != transform.position ||
-                    _backdropCameraRotation != transform.rotation ||
-                    _backdropCameraOrtho != camera.orthographicSize ||
-                    _backdropCameraFov != camera.fieldOfView ||
-                    _backdropCameraAspect != camera.aspect ||
-                    _backdropPixelRect != camera.pixelRect;
-            }
+                _backdropMap != map || !_backdropView.Matches(view);
 
             if (!changed) return true;
 
             // Project screen corners to map coordinates without assuming an orthographic camera viewed from above.
             var a = UI.UIToMapPosition(0f, 0f);
-            var b = UI.UIToMapPosition(UI.screenWidth, UI.screenHeight);
+            var b = UI.UIToMapPosition(view.Width, view.Height);
             float viewW = Mathf.Abs(b.x - a.x), viewH = Mathf.Abs(b.z - a.z);
             if (viewW <= 0f || viewH <= 0f) return false;
 
@@ -120,28 +133,7 @@ namespace SlopWorld
             _backdropH = h;
             _backdropCenter = new Vector3((a.x + b.x) * 0.5f, 0f, (a.z + b.z) * 0.5f);
             _backdropMap = map;
-            _backdropCamera = camera;
-            if (camera != null)
-            {
-                var transform = camera.transform;
-                _backdropCameraPosition = transform.position;
-                _backdropCameraRotation = transform.rotation;
-                _backdropCameraOrtho = camera.orthographicSize;
-                _backdropCameraFov = camera.fieldOfView;
-                _backdropCameraAspect = camera.aspect;
-                _backdropPixelRect = camera.pixelRect;
-            }
-            else
-            {
-                _backdropCameraPosition = default;
-                _backdropCameraRotation = default;
-                _backdropCameraOrtho = 0f;
-                _backdropCameraFov = 0f;
-                _backdropCameraAspect = 0f;
-                _backdropPixelRect = default;
-            }
-            _backdropScreenWidth = UI.screenWidth;
-            _backdropScreenHeight = UI.screenHeight;
+            _backdropView = view;
             _backdropGeometryReady = true;
             return true;
         }
