@@ -12,11 +12,6 @@ namespace SlopWorld
         protected override bool ShowEditButton => true;
         protected override string SavedMessage => "Worker settings saved.";
 
-        public WorkersPage()
-        {
-            SessionHub.Instance.Catalog.RefreshTemplates();
-        }
-
         protected override void AfterLoad()
         {
             // Reload templates when this page opens or reloads.

@@ -41,32 +41,31 @@ namespace SlopWorld
             }
         }
 
+        enum ProbeOutcome { Pending, Found, Missing, Unavailable }
+
         sealed class BinaryResult
         {
             public readonly BinarySpec Spec;
             public string Path { get; private set; }
-            public bool Resolved { get; private set; }
-            bool _found;
+            public ProbeOutcome Outcome { get; private set; }
+            public string Status { get; private set; } = "Checking";
+            public bool Resolved => Outcome != ProbeOutcome.Pending;
+            public bool Found => Outcome == ProbeOutcome.Found;
 
-            public BinaryResult(BinarySpec spec)
-            {
-                Spec = spec;
-            }
-
-            public bool Found => Resolved && _found;
+            public BinaryResult(BinarySpec spec) { Spec = spec; }
 
             public void SetPath(string path)
             {
                 Path = path;
-                _found = !string.IsNullOrEmpty(path);
-                Resolved = true;
+                Outcome = string.IsNullOrEmpty(path) ? ProbeOutcome.Missing : ProbeOutcome.Found;
+                Status = Found ? null : "not found";
             }
 
-            public void SetStatus(bool found, string status)
+            public void SetStatus(ProbeOutcome outcome, string status)
             {
-                Path = status;
-                _found = found;
-                Resolved = true;
+                Path = null;
+                Outcome = outcome;
+                Status = status;
             }
         }
 
@@ -216,12 +215,12 @@ namespace SlopWorld
                 if (result.Spec.Probe != ProbeKind.DaemonPath) continue;
                 if (_daemonLoading)
                 {
-                    result.SetStatus(false, "Checking daemon");
+                    result.SetStatus(ProbeOutcome.Pending, "Checking daemon");
                     continue;
                 }
                 if (_daemonError != null)
                 {
-                    result.SetStatus(false, "daemon unavailable");
+                    result.SetStatus(ProbeOutcome.Unavailable, "daemon unavailable");
                     continue;
                 }
                 string path = null;
@@ -346,7 +345,7 @@ namespace SlopWorld
             if (!result.Resolved)
             {
                 GUI.color = UiTheme.Dim;
-                UiText.RowLabel(path, "Checking");
+                UiText.RowLabel(path, result.Status);
             }
             else if (result.Found)
             {
@@ -359,7 +358,7 @@ namespace SlopWorld
             }
             else
             {
-                UiText.RowLabel(path, "not found");
+                UiText.RowLabel(path, result.Status);
             }
             GUI.color = Color.white;
         }

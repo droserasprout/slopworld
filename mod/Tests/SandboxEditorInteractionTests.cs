@@ -155,6 +155,10 @@ namespace SlopWorld.Tests
             page.TestCommandList(300);
             AssertEx.Equal(2, EditorTrace.Draws.Count(d => d.Name == "(none)"), "both empty command groups explained");
             AssertEx.Equal(1, page.TestNewCommands, "new command action dispatched");
+            var commandView = EditorTrace.Draws.Single(d => d.Name == "scroll").Rect;
+            var newCommand = EditorTrace.Draws.Single(d => d.Name == "+ New command").Rect;
+            AssertEx.True(newCommand.yMax <= commandView.yMax,
+                "empty command groups and creation button fit inside scroll extent");
             page.TestPresetHost(null, 300);
             page.TestCommandHost(null, 300);
             AssertEx.True(EditorTrace.Draws.Any(d => d.Name == "Select a preset to inspect or edit it."), "empty preset editor explained");

@@ -354,11 +354,11 @@ namespace SlopWorld.Tests
                            "minimum poll interval accepted");
             AssertEx.Equal(10, value, "minimum poll value");
             AssertEx.True(DaemonConfigValidation.WholeSeconds("3600", false, out value, out error),
-                           "maximum poll interval accepted");
+                           "ordinary poll interval accepted");
             AssertEx.False(DaemonConfigValidation.WholeSeconds("9", false, out value, out error),
                            "below-range poll rejected");
-            AssertEx.False(DaemonConfigValidation.WholeSeconds("3601", false, out value, out error),
-                           "above-range poll rejected");
+            AssertEx.True(DaemonConfigValidation.WholeSeconds("3601", false, out value, out error),
+                           "daemon poll interval above old UI limit accepted");
             AssertEx.False(DaemonConfigValidation.WholeSeconds("1.5", false, out value, out error),
                            "fractional poll rejected");
             AssertEx.True(DaemonConfigValidation.WholeSeconds("", true, out value, out error),
@@ -368,9 +368,15 @@ namespace SlopWorld.Tests
             AssertEx.True(DaemonConfigValidation.TitleMinimum("0", out value, out error),
                            "minimum title length accepted");
             AssertEx.True(DaemonConfigValidation.TitleMinimum("2000", out value, out error),
-                           "maximum title length accepted");
-            AssertEx.False(DaemonConfigValidation.TitleMinimum("2001", out value, out error),
-                           "above-range title length rejected");
+                           "ordinary title length accepted");
+            AssertEx.True(DaemonConfigValidation.TitleMinimum("2001", out value, out error),
+                           "daemon title length above old UI limit accepted");
+            AssertEx.True(DaemonConfigValidation.WholeSeconds(int.MaxValue.ToString(), false,
+                out value, out error), "full client poll range accepted");
+            AssertEx.True(DaemonConfigValidation.TitleMinimum(int.MaxValue.ToString(),
+                out value, out error), "full client title range accepted");
+            AssertEx.False(DaemonConfigValidation.TitleMinimum("2147483648",
+                out value, out error), "client integer overflow rejected");
             AssertEx.False(DaemonConfigValidation.TitleMinimum("", out value, out error),
                            "blank title length rejected");
         }

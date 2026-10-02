@@ -41,7 +41,7 @@ namespace SlopWorld
                     _loaded = true;
                     _error = null;
                 },
-                msg => { _error = msg; _text = ""; });
+                msg => _error = msg);
         }
 
         protected override void DoBody(Rect rect)
@@ -95,6 +95,7 @@ namespace SlopWorld
                 _ =>
                 {
                     _error = null;
+                    SessionHub.Instance.RefreshConfig();
                     SessionHub.Instance.SessionStore.Refresh();
                     Messages.Message("SlopWorld: config saved.",
                         MessageTypeDefOf.TaskCompletion, false);

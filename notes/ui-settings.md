@@ -2,7 +2,8 @@
 
 Use Settings for the UI.
 The Configuration page edits the raw daemon document. Keep RimWorld API names such as
-`Dialog_Options` intact. `ModOptions` owns navigation.
+`Dialog_Options` intact. `ModOptions` owns navigation. `RimWorldPage` owns the retained vanilla options dialog and
+its settings, build details, and links; `AboutPage` owns credits and the Easter egg.
 The options footer is suppressed at its direct button call site; page buttons keep normal behavior.
 
 Most profile preferences apply live. The mod saves them after an interaction and when Settings closes.
@@ -46,6 +47,8 @@ Daemon pages keep separate drafts for each page and endpoint. Save sends only ch
 Page action failures remain separate from request-load errors, so an unrelated load completion
 cannot clear a newer mutation failure.
 The mod acknowledges the submitted snapshot and preserves edits made during the request.
+Config paths are cleared when the active endpoint changes; Edit waits for its successful load.
+Raw config replacement refreshes the shared config snapshot. Failed reloads preserve editor text.
 Reload merges remote values into fields the user did not edit. It reports conflicts in those
 fields. Discard loads the latest remote snapshot. Do not reload unrelated pages when saving.
 General controls remain available when daemon loading fails. See

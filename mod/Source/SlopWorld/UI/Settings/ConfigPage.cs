@@ -9,6 +9,8 @@ namespace SlopWorld
     // General page for connection and game settings. The daemon config stays in raw TOML.
     public class ConfigPage : DaemonConfigPage
     {
+        const float DimmingStep = 0.05f;
+
         protected override bool RefreshHealthOnLoad => true;
         protected override bool DrawFieldsBeforeLoad => true;
         protected override bool ShowEditButton => true;
@@ -27,12 +29,12 @@ namespace SlopWorld
                 "Pauses the game simulation and map drawing. Terminal sessions continue to run.");
 
             // Show the dimming slider only when Eco mode draws the backdrop.
-            // Use 0.05 steps because Eco.Shade uses the value as a material key.
+            // Offer 5% precision; Eco updates the color on its reused backdrop material.
             if (s.ecoMode)
             {
                 l.Gap(UiTheme.GapS);
                 float dim = Mathf.Round(UiControls.Slider(l, "Backdrop dimming", s.ecoDim,
-                    0f, 0.8f, Mathf.RoundToInt(s.ecoDim * 100f) + "%") * 20f) / 20f;
+                    0f, 0.8f, Mathf.RoundToInt(s.ecoDim * 100f) + "%") / DimmingStep) * DimmingStep;
                 if (dim != s.ecoDim) { s.ecoDim = dim; s.MarkDirty(); }
             }
 
