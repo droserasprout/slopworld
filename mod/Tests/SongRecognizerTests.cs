@@ -30,6 +30,19 @@ namespace SlopWorld.Tests
             AssertEx.Equal(0, runner.Calls.Count, "already canceled recognition launches nothing");
         }
 
+        public static void CanceledInputSelectionAndDefaultLookupLaunchNothing()
+        {
+            using var cancel = new CancellationTokenSource();
+            cancel.Cancel();
+            var runner = Runner(Ok("speaker"), Ok(TrackJson("A", "B")));
+            var recognizer = new SongRecognizer(runner);
+            var input = recognizer.SelectInput(cancel.Token);
+            AssertEx.Equal(null, input.Device, "canceled probe returns fallback device");
+            AssertEx.Equal("default input", input.Label, "canceled probe returns fallback label");
+            AssertEx.Equal(RecognitionStatus.Canceled, recognizer.Recognize(cancel.Token).Status, "default lookup observes cancellation");
+            AssertEx.Equal(0, runner.Calls.Count, "cancellation skips both pactl and songrec");
+        }
+
         public static void RunnerCancellationOverridesSuccessfulOutput()
         {
             var run = Ok(TrackJson("A", "B"));

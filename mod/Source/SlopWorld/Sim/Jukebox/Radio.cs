@@ -562,8 +562,8 @@ namespace SlopWorld
         // If a radio station fails, notify the player and select OST. OST failures have no fallback.
         public static void Report(bool playing, string error, string title, string source = null, string session = null)
         {
+            if (!AcceptsReport(source, error)) return;
             ReportSpotify(error, source, session);
-            if (_spotify != (source == "ncspot") && string.IsNullOrEmpty(error)) return;
             bool identityChanged = RecognitionTrack.Update(playing, _muted, SourceLabel());
             if (identityChanged)
             {

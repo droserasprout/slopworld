@@ -50,6 +50,11 @@ namespace SlopWorld
             // The audio reply identifies the terminal session, so no HTTP launch request is necessary.
         }
 
+        // Reject known Spotify reports after a source change, including failures.
+        // Unidentified failures still belong to the selected non-Spotify source.
+        internal static bool AcceptsReport(string source, string error) => !_quit
+            && (source == "ncspot" ? _spotify : !_spotify || !string.IsNullOrEmpty(error));
+
         static void ReportSpotify(string error, string source, string session)
         {
             if (_quit || !_openingSpotify || source != "ncspot") return;
@@ -66,7 +71,11 @@ namespace SlopWorld
             {
                 if (!_quit && revision == _selectionRevision)
                     TerminalWindow.Open(session);
-            }, UiLayout.Fail);
+            }, errorMessage =>
+            {
+                if (!_quit && revision == _selectionRevision)
+                    UiLayout.Fail(errorMessage);
+            });
         }
     }
 }

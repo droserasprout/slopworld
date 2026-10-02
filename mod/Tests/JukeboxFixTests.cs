@@ -77,6 +77,33 @@ namespace SlopWorld.Tests
                 "a result from the replaced source cannot apply");
         }
 
+        public static void TrackRevisionRejectsLateRecognitionWithinTheSameSource()
+        {
+            var track = new RecognitionTrackState();
+            track.Update(true, false, "Example Radio");
+            int revision = track.Revision;
+            AssertEx.True(track.IsCurrent(revision, track.Source), "unchanged playback accepts the request");
+            track.Advance();
+            AssertEx.False(track.IsCurrent(revision, track.Source), "a changed raw title invalidates the old recognition");
+        }
+
+        public static void NativeLikesRoundTripEscapedMetadata()
+        {
+            string path = TempLikePath();
+            try
+            {
+                var track = new NativeTrackSnapshot("Artist\"\\\t", "Title\n\u0001🍩", "Source\r\n🦅");
+                AssertEx.True(JukeboxLikeWriter.TryAppend(path, track, DateTime.UtcNow,
+                    out var record, out string error), "escaped metadata can be saved: " + error);
+                var entries = JukeboxHistory.Parse(File.ReadAllText(path));
+                AssertEx.Equal(1, entries.Count, "escaped metadata keeps one valid TOML record");
+                AssertEx.Equal(track.Artist, entries[0].Artist, "artist survives shared quoting");
+                AssertEx.Equal(track.Title, entries[0].Title, "title survives shared quoting");
+                AssertEx.Equal(track.Source, entries[0].Source, "source survives shared quoting");
+            }
+            finally { Remove(path); }
+        }
+
         static void CancellationWins()
         {
             using (var cancel = new CancellationTokenSource())

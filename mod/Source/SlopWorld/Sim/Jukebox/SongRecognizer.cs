@@ -124,6 +124,7 @@ namespace SlopWorld
         // If pactl cannot provide a sink, let SongRec use its default input.
         public AudioInput SelectInput(CancellationToken cancel = default)
         {
+            if (cancel.IsCancellationRequested) return new AudioInput(null, "default input");
             var run = _runner.Run(
                 new ProcessSpec { FileName = "pactl", Arguments = "get-default-sink", TimeoutMs = SinkTimeoutMs },
                 cancel);

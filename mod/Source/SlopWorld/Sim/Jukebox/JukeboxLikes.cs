@@ -1,7 +1,6 @@
 using System;
 using System.Globalization;
 using System.IO;
-using System.Text;
 
 namespace SlopWorld
 {
@@ -73,12 +72,12 @@ namespace SlopWorld
                 if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
                 File.AppendAllText(path,
                     "[[like]]" + Environment.NewLine +
-                    "at = " + Quote(at) + Environment.NewLine +
-                    "source = " + Quote(track.Source) + Environment.NewLine +
-                    "artist = " + Quote(track.Artist) + Environment.NewLine +
-                    "title = " + Quote(track.Title) + Environment.NewLine +
-                    "original_artist = " + Quote(track.Artist) + Environment.NewLine +
-                    "original_title = " + Quote(track.Title) + Environment.NewLine +
+                    "at = " + Toml.Quote(at) + Environment.NewLine +
+                    "source = " + Toml.Quote(track.Source) + Environment.NewLine +
+                    "artist = " + Toml.Quote(track.Artist) + Environment.NewLine +
+                    "title = " + Toml.Quote(track.Title) + Environment.NewLine +
+                    "original_artist = " + Toml.Quote(track.Artist) + Environment.NewLine +
+                    "original_title = " + Toml.Quote(track.Title) + Environment.NewLine +
                     Environment.NewLine);
                 record = new NativeLikeRecord(track, at);
                 return true;
@@ -88,25 +87,6 @@ namespace SlopWorld
                 error = e.Message;
                 return false;
             }
-        }
-
-        static string Quote(string value)
-        {
-            var b = new StringBuilder(value == null ? 2 : value.Length + 2);
-            b.Append('"');
-            foreach (char c in value ?? "")
-            {
-                switch (c)
-                {
-                    case '\\': b.Append("\\\\"); break;
-                    case '"': b.Append("\\\""); break;
-                    case '\n': b.Append("\\n"); break;
-                    case '\r': b.Append("\\r"); break;
-                    case '\t': b.Append("\\t"); break;
-                    default: b.Append(c); break;
-                }
-            }
-            return b.Append('"').ToString();
         }
     }
 }

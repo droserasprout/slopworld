@@ -49,7 +49,8 @@ socket is reused. It is separate from the source transition gate; polling never 
 that gate. No shared live-session lock spans IPC.
 Stop the managed terminal before OST/radio launch.
 Muting currently also stops it. `Radio.Spotify.cs` owns capability fallback and terminal
-opening, including rejection of late replies after a source change or shutdown.
+opening, including rejection of late replies and refresh failures after a source change or shutdown.
 `Radio` keeps Spotify selection separate from the
 null-station OST case and ignores mismatched source metadata during transitions.
+Station title patterns run with a finite timeout; formatting failures retain raw metadata.
 See the [tour](../docs/src/tour/fun.md#spotify-proof-of-concept) for setup and limits.
