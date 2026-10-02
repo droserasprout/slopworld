@@ -132,7 +132,7 @@ namespace SlopWorld
         public void Prune(Action ok = null, Action<string> fail = null)
         {
             InvalidateRefresh();
-            DaemonClient.Delete<Wire.Removed>(WireProtocol.Routes.Tasks, j =>
+            DaemonClient.Delete<Wire.Removed>(WireProtocol.Routes.Tasks + "?all=true", j =>
             {
                 Tasks = Tasks.Where(t => !t.Terminal).ToList();
                 ok?.Invoke();
