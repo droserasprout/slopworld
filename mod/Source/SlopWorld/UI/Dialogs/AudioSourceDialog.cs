@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Globalization;
 using UnityEngine;
@@ -121,7 +120,8 @@ namespace SlopWorld
                 _source.Streams.Add(new JukeboxStreamInfo
                 {
                     Rate = rate,
-                    Key = _source.Id + "-" + rate,
+                    // Allocate a stable key only once the edited bitrate is valid.
+                    Key = "",
                 });
                 _rates.Add(rate.ToString(CultureInfo.InvariantCulture));
             }
@@ -130,30 +130,8 @@ namespace SlopWorld
 
         void Save()
         {
-            string name = (_source.Name ?? "").Trim();
-            if (name.Length == 0) { _error = "Enter a source name."; return; }
-            EnsureStreams();
-            var rates = new HashSet<uint>();
-            for (int i = 0; i < _source.Streams.Count; i++)
-            {
-                var stream = _source.Streams[i];
-                uint rate;
-                if (!uint.TryParse((_rates[i] ?? "").Trim(), NumberStyles.Integer,
-                    CultureInfo.InvariantCulture, out rate) || rate <= 0)
-                { _error = "Enter a positive bitrate for every preset."; return; }
-                string url = (stream.Url ?? "").Trim();
-                if (!(url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-                      url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
-                { _error = "Every stream URL must start with http:// or https://."; return; }
-                if (!rates.Add(rate))
-                { _error = "Each bitrate preset must be unique."; return; }
-
-                stream.Rate = rate;
-                stream.Url = url;
-                if (string.IsNullOrEmpty(stream.Key)) stream.Key = _source.Id + "-" + rate;
-            }
-            if (!rates.Contains(_source.DefaultRate)) _source.DefaultRate = _source.Streams[0].Rate;
-            JukeboxPresetStore.Save(_source, _isNew, _originalId,
+            if (!AudioSourceDraft.TryPrepare(_source, _rates, out var candidate, out _error)) return;
+            JukeboxPresetStore.Save(candidate, _isNew, _originalId,
                 () => Close(), error => _error = error);
         }
     }
