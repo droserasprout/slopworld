@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
@@ -347,9 +348,9 @@ namespace SlopWorld
             string root = repo.Root ?? "";
             if (root.Length == 0 || string.IsNullOrEmpty(abs)) return null;
             if (root == "/")
-                return abs.StartsWith("/") && abs.Length > 1 ? abs.Substring(1) : null;
+                return abs.StartsWith("/", StringComparison.Ordinal) && abs.Length > 1 ? abs.Substring(1) : null;
             root = root.TrimEnd('/');
-            return abs.StartsWith(root + "/") ? abs.Substring(root.Length + 1) : null;
+            return abs.StartsWith(root + "/", StringComparison.Ordinal) ? abs.Substring(root.Length + 1) : null;
         }
 
         public static bool Changed(string project, string abs)

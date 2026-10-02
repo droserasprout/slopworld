@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -152,7 +153,7 @@ namespace SlopWorld
             if (Settings.UsageSpent)
                 return w.Amount >= 10f
                     ? "$" + Mathf.RoundToInt(w.Amount)
-                    : "$" + w.Amount.ToString("0.00");
+                    : "$" + w.Amount.ToString("0.00", CultureInfo.CurrentCulture);
 
             if (w.Limit < 0f)
                 return Mathf.RoundToInt(Left(w)) + "%";
@@ -160,7 +161,7 @@ namespace SlopWorld
             float left = Mathf.Max(0f, w.Limit - w.Amount);
             return left >= 10f
                 ? "$" + Mathf.RoundToInt(left)
-                : "$" + left.ToString("0.00");
+                : "$" + left.ToString("0.00", CultureInfo.CurrentCulture);
         }
 
         // Floored at zero: a window can be spent past its limit.
@@ -245,7 +246,7 @@ namespace SlopWorld
         // currently reporting - the whole point of choosing an icon for it in advance.
         public static string Long(string key, string fallback = null)
         {
-            if (key.StartsWith("claude_week_"))
+            if (key.StartsWith("claude_week_", StringComparison.Ordinal))
                 return "Claude weekly " + key.Substring(12).Replace('_', ' ');
             return string.IsNullOrEmpty(fallback) ? key : fallback;
         }

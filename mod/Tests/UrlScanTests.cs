@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace SlopWorld.Tests
 {
@@ -11,6 +12,7 @@ namespace SlopWorld.Tests
             yield return ("ignores non-web schemes and bare schemes", IgnoresNonWebAndBare);
             yield return ("trims trailing punctuation and balances brackets", TrimsAndBalances);
             yield return ("parses OSC 8 link bodies", ParsesOsc);
+            yield return ("OSC prefixes require literal protocol characters", OscPrefixesAreLiteral);
             yield return ("stops at URL-forbidden punctuation", StopsAtForbiddenPunctuation);
         }
 
@@ -76,6 +78,19 @@ namespace SlopWorld.Tests
             AssertEx.True(UrlScan.Osc("8;") == null, "missing URI does not close a link");
             AssertEx.True(UrlScan.Osc("8;id=1") == null, "parameters without URI leave the link open");
             AssertEx.True(UrlScan.Osc(null) == null, "null body is not a link");
+        }
+
+        static void OscPrefixesAreLiteral()
+        {
+            var previous = CultureInfo.CurrentCulture;
+            try
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+                AssertEx.True(UrlScan.Osc("8\u00ad;;http://x") == null,
+                    "culture-ignorable characters cannot impersonate an OSC 8 prefix");
+                AssertEx.Equal("http://x", UrlScan.Osc("8;;http://x"), "literal prefix remains valid");
+            }
+            finally { CultureInfo.CurrentCulture = previous; }
         }
 
         static void StopsAtForbiddenPunctuation()

@@ -109,7 +109,7 @@ namespace SlopWorld
             }
         }
 
-        static Station[] _stations = new Station[0];
+        static Station[] _stations = Array.Empty<Station>();
         // Before the first catalog arrives, a saved radio selection can have no matching station object.
         static bool _catalogReady;
 

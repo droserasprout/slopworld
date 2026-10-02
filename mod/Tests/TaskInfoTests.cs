@@ -59,7 +59,7 @@ namespace SlopWorld.Tests
             var task = new TaskInfo { Body = new string('x', TaskInfo.SummaryChars + 40) };
             AssertEx.Equal(TaskInfo.SummaryChars + 3, task.Summary.Length,
                            "bounded preview plus ellipsis");
-            AssertEx.True(task.Summary.EndsWith("..."), "long preview marker");
+            AssertEx.True(task.Summary.EndsWith("...", StringComparison.Ordinal), "long preview marker");
             AssertEx.Equal(new string('y', TaskInfo.SummaryChars),
                 new TaskInfo { Body = new string('y', TaskInfo.SummaryChars) }.Summary,
                 "boundary is preserved");

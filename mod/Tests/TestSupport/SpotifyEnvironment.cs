@@ -17,7 +17,7 @@ namespace SlopWorld
             _quit = _openingSpotify = _spotify = _muted = _blamed = false;
             _station = null;
             _read = false;
-            _stations = new Station[0];
+            _stations = Array.Empty<Station>();
             _catalogReady = false;
             _selectionRevision = 0;
             SessionHub.Instance = new SessionHub();

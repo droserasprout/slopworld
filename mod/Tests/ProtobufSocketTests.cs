@@ -1,11 +1,11 @@
 using System;
 using System.IO;
-using System.Net;
 using System.Net.Sockets;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
+using System.Threading;
 using Google.Protobuf;
 namespace SlopWorld.Tests
 {
@@ -46,7 +46,7 @@ namespace SlopWorld.Tests
             string request = Header(stream);
             AssertEx.True(request.Contains("Sec-WebSocket-Protocol: slopworld.protobuf.v2"), "version negotiation requested");
             string key = null;
-            foreach (string line in request.Split('\n')) if (line.StartsWith("Sec-WebSocket-Key:")) key = line.Substring(18).Trim();
+            foreach (string line in request.Split('\n')) if (line.StartsWith("Sec-WebSocket-Key:", StringComparison.Ordinal)) key = line.Substring(18).Trim();
             string accept;
             // Match the RFC 6455 section 4.2.2 handshake, including its required SHA-1.
 #pragma warning disable CA5350 // Do Not Use Weak Cryptographic Algorithms

@@ -17,6 +17,15 @@ namespace SlopWorld
             { _endpoint = endpoint; _connectionGeneration = connectionGeneration; _catalogRevision = catalogRevision; }
             public bool Equals(PreviewKey other) => _endpoint == other._endpoint &&
                 _connectionGeneration == other._connectionGeneration && _catalogRevision == other._catalogRevision;
+            public override bool Equals(object obj) => obj is PreviewKey other && Equals(other);
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = (_endpoint?.GetHashCode() ?? 0) * 397 ^ _connectionGeneration;
+                    return hash * 397 ^ (_catalogRevision?.GetHashCode() ?? 0);
+                }
+            }
         }
         PreviewKey? _key;
         Wire.SettingsPreviewRequest _body;

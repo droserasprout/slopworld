@@ -7,6 +7,20 @@ namespace SlopWorld.Tests
     public class RealClockFormattingTests
     {
         [Test]
+        public void FractionalDurationsUseTheDisplayCulture()
+        {
+            var previous = CultureInfo.CurrentCulture;
+            try
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
+                Assert.That(RealClock.GameTickDuration(5400), Is.EqualTo("1,5 minutes"));
+                Assert.That(RealClock.GameTickDuration(324000, shortForm: true,
+                    canUseDecimalsShortForm: true), Is.EqualTo("1,5h"));
+            }
+            finally { CultureInfo.CurrentCulture = previous; }
+        }
+
+        [Test]
         public void GameDurationsHonorDisplayOptions()
         {
             var previous = CultureInfo.CurrentCulture;

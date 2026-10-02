@@ -157,7 +157,7 @@ namespace SlopWorld
                 .Where(s => s.Kind != LibraryItemKind.Breadcrumb && s.Kind != LibraryItemKind.FileAction)
                 .Select(s => new SubOption
                 {
-                    Label = $"{s.Name}  ({s.Kind.ToString().ToLower()})",
+                    Label = $"{s.Name}  ({s.Kind.ToString().ToLowerInvariant()})",
                     Value = s.Name,
                 })
                 .ToList();
@@ -173,7 +173,7 @@ namespace SlopWorld
                 .Where(s => !s.Builtin)
                 .Select(s => new SubOption
                 {
-                    Label = $"{s.Name}  ({s.Kind.ToString().ToLower()})",
+                    Label = $"{s.Name}  ({s.Kind.ToString().ToLowerInvariant()})",
                     Value = s.Name,
                     Enabled = true,
                 })

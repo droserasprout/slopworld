@@ -1,3 +1,4 @@
+using System.Globalization;
 using Verse;
 
 namespace SlopWorld
@@ -9,7 +10,7 @@ namespace SlopWorld
         {
             public string Text;
 
-            public LimitField(uint? value) => Text = value?.ToString() ?? "";
+            public LimitField(uint? value) => Text = value?.ToString(CultureInfo.InvariantCulture) ?? "";
 
             public uint? Value => uint.TryParse((Text ?? "").Trim(), out var n) && n > 0 ? n : (uint?)null;
         }

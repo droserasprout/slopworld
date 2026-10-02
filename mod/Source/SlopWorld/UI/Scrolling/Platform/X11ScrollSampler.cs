@@ -249,8 +249,9 @@ namespace SlopWorld
 
         sealed class NativeApi : IApi
         {
-            public IntPtr Open() => XOpenDisplay(null);
-            public void Close(IntPtr display) => XCloseDisplay(display);
+            public IntPtr Open() => XOpenDisplay(IntPtr.Zero);
+            // Close has no synchronous success status; it always releases the display.
+            public void Close(IntPtr display) => _ = XCloseDisplay(display);
             public bool SupportsScrolling(IntPtr display)
             {
                 int major = 2, minor = 1;
@@ -263,7 +264,7 @@ namespace SlopWorld
         }
 
         [DllImport("libX11.so.6", CallingConvention = CallingConvention.Cdecl)]
-        static extern IntPtr XOpenDisplay(string displayName);
+        static extern IntPtr XOpenDisplay(IntPtr displayName);
 
         [DllImport("libX11.so.6", CallingConvention = CallingConvention.Cdecl)]
         static extern int XCloseDisplay(IntPtr display);

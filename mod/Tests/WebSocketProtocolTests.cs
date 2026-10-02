@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Sockets;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
+using System.Threading;
 using Google.Protobuf;
 using NUnit.Framework;
 
@@ -66,7 +66,7 @@ namespace SlopWorld.Tests
 
         static string Upgrade(string request)
         {
-            string key = request.Split('\n').Single(line => line.StartsWith("Sec-WebSocket-Key:")).Substring(18).Trim();
+            string key = request.Split('\n').Single(line => line.StartsWith("Sec-WebSocket-Key:", StringComparison.Ordinal)).Substring(18).Trim();
             // Match the RFC 6455 section 4.2.2 handshake, including its required SHA-1.
 #pragma warning disable CA5350 // Do Not Use Weak Cryptographic Algorithms
             using var sha = SHA1.Create();

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -46,9 +47,9 @@ namespace SlopWorld
             l.Gap(UiTheme.GapL);
             l.Label("Minimum prompt length");
             string minPromptChars = _configState.DraftText("summaries.minimum",
-                "daemon.title_min_chars", _cfg.TitleMinChars.ToString());
+                "daemon.title_min_chars", _cfg.TitleMinChars.ToString(CultureInfo.InvariantCulture));
             minPromptChars = UiControls.Field(l, "usage.summary.minimum", minPromptChars,
-                defaultValue: _cfg.FactoryDefaults?.TitleMinChars?.ToString());
+                defaultValue: _cfg.FactoryDefaults?.TitleMinChars?.ToString(CultureInfo.InvariantCulture));
             _configState.SetDraftText("summaries.minimum", "daemon.title_min_chars",
                 minPromptChars);
             UiLayout.Validation(l, MinimumError(minPromptChars));
@@ -120,20 +121,20 @@ namespace SlopWorld
 
         protected override string ValidationError => !_loaded || _cfg == null ? null :
             MinimumError(_configState.DraftText("summaries.minimum",
-                "daemon.title_min_chars", _cfg.TitleMinChars.ToString()));
+                "daemon.title_min_chars", _cfg.TitleMinChars.ToString(CultureInfo.InvariantCulture)));
 
         protected override bool PrepareSave(out string error)
         {
             _configState.ClearQueuedNormalizations();
             string minPromptChars = _configState.DraftText("summaries.minimum",
-                "daemon.title_min_chars", _cfg.TitleMinChars.ToString());
+                "daemon.title_min_chars", _cfg.TitleMinChars.ToString(CultureInfo.InvariantCulture));
             if (!DaemonConfigValidation.TitleMinimum(minPromptChars, out int minimum,
                                                       out error)) return false;
             _cfg.TitleMinChars = minimum;
             _configState.SetDraftText("summaries.minimum", "daemon.title_min_chars",
                 minPromptChars);
             _configState.QueueDraftTextNormalization("summaries.minimum",
-                "daemon.title_min_chars", minimum.ToString());
+                "daemon.title_min_chars", minimum.ToString(CultureInfo.InvariantCulture));
             error = null;
             return true;
         }

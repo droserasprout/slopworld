@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using RimWorld;
 using UnityEngine;
@@ -182,7 +183,7 @@ namespace SlopWorld
                     GUI.color = UiTheme.Dim;
                     var count = new Rect(row.width * 0.5f, row.y,
                         right - row.width * 0.5f, row.height);
-                    UiText.RowLabel(count, repo.Changed.ToString(), TextAnchor.MiddleRight);
+                    UiText.RowLabel(count, repo.Changed.ToString(CultureInfo.CurrentCulture), TextAnchor.MiddleRight);
                     GUI.color = UiTheme.Faint;
                     return count.x - 4f;
                 }

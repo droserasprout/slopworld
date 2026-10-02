@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Reflection.Emit;
+using System.Reflection;
 using HarmonyLib;
 using RimWorld;
 using Verse;
@@ -104,7 +104,7 @@ namespace SlopWorld
             return new UiCommandAction(UiTheme.Btn.Default)
             {
                 defaultLabel = "Terminal",
-                defaultDesc = $"Open the terminal for '{Session}'.\nState: {state.ToString().ToLower()}",
+                defaultDesc = $"Open the terminal for '{Session}'.\nState: {state.ToString().ToLowerInvariant()}",
                 icon = Icons.Terminal,
                 defaultIconColor = UiTheme.AgentStateColor(state),
                 hotKey = ModDefOf.SlopOpenTerminal,

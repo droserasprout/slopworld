@@ -1,10 +1,11 @@
+using System;
 using System.Collections.Generic;
 
 namespace SlopWorld
 {
     public partial class ScreenBuf
     {
-        static readonly int[] NoChangedRows = new int[0];
+        static readonly int[] NoChangedRows = Array.Empty<int>();
 
         ulong _seq;
         public bool HasSequence { get; private set; }
@@ -45,7 +46,7 @@ namespace SlopWorld
         public bool AltScreen;
         // Application title from OSC 0/2. Empty until the application supplies a title.
         public string Title = "";
-        public string[] Lines = new string[0];
+        public string[] Lines = Array.Empty<string>();
 
         // The terminal window parses runs on demand; row changes invalidate parsed runs.
         public List<SgrRun>[] Runs;
@@ -90,7 +91,7 @@ namespace SlopWorld
                 AppDrag = AppDrag,
                 AltScreen = AltScreen,
                 Title = Title,
-                Lines = Lines == null ? new string[0] : (string[])Lines.Clone(),
+                Lines = Lines == null ? Array.Empty<string>() : (string[])Lines.Clone(),
                 Runs = RunsComplete || Runs == null ? Runs : (List<SgrRun>[])Runs.Clone(),
                 RunsRev = RunsRev,
                 RunsComplete = RunsComplete,

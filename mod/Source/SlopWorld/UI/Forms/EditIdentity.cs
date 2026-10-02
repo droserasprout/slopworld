@@ -41,7 +41,7 @@ namespace SlopWorld
                 case EditMode.Copy: return $"Copy of '{CopySource}'";
                 case EditMode.Edit: return $"Edit '{OriginalName}'";
                 case EditMode.New: return "New " + noun;
-                default: throw new System.ArgumentOutOfRangeException(nameof(Mode), Mode, null);
+                default: throw new System.InvalidOperationException($"Unknown edit mode: {Mode}");
             }
         }
 

@@ -50,7 +50,7 @@ namespace SlopWorld.Tests
             extended[unknown.Length] = 0xa0; extended[unknown.Length + 1] = 0x06; extended[unknown.Length + 2] = 1;
             var parsed = new ReceivedEvent(extended);
             AssertEx.Equal("future", parsed.LiveName, "unknown protobuf field remains forward compatible");
-            AssertEx.True(new ReceivedEvent(new byte[0]).Error != null, "missing oneof payload rejected");
+            AssertEx.True(new ReceivedEvent(Array.Empty<byte>()).Error != null, "missing oneof payload rejected");
         }
 
         public static void CloseReleasesProducerWaitingForCapacity()

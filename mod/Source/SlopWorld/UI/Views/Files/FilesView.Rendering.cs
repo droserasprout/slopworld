@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
@@ -308,11 +309,11 @@ namespace SlopWorld
             string root = SidebarScopes.Directory(project);
             if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(path)) return null;
             if (root == "/")
-                return path.StartsWith("/") && path.Length > 1 ? path.Substring(1) : null;
+                return path.StartsWith("/", StringComparison.Ordinal) && path.Length > 1 ? path.Substring(1) : null;
 
             root = root.TrimEnd('/');
             if (path == root) return null;
-            return path.StartsWith(root + "/") ? path.Substring(root.Length + 1) : null;
+            return path.StartsWith(root + "/", StringComparison.Ordinal) ? path.Substring(root.Length + 1) : null;
         }
 
         static bool IsRoot(Node node) => node.Depth == 0;
@@ -379,11 +380,11 @@ namespace SlopWorld
             string root = node.Root;
             if (string.IsNullOrEmpty(root)) return null;
             if (root == "/")
-                return node.Path.StartsWith("/") && node.Path.Length > 1
+                return node.Path.StartsWith("/", StringComparison.Ordinal) && node.Path.Length > 1
                     ? node.Path.Substring(1) : null;
             root = root.TrimEnd('/');
             if (node.Path.Length <= root.Length + 1) return null;
-            return node.Path.StartsWith(root + "/") ? node.Path.Substring(root.Length + 1) : null;
+            return node.Path.StartsWith(root + "/", StringComparison.Ordinal) ? node.Path.Substring(root.Length + 1) : null;
         }
 
         static void Copy(string text) => DaemonClipboard.Copy(text,

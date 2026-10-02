@@ -524,7 +524,7 @@ namespace SlopWorld.Tests
             store.Complete(store.Requests[0], "pinned");
             tabs.Lock("pinned");
             tabs.ForPreview().ViewFile("p", "/gone/pending", "pending");
-            tabs.Invalidate(tab => tab.FilePath != null && tab.FilePath.StartsWith("/gone/"));
+            tabs.Invalidate(tab => tab.FilePath != null && tab.FilePath.StartsWith("/gone/", StringComparison.Ordinal));
             AssertEx.False(tabs.IsSession("pinned"), "deletion overrides pin");
             store.Complete(store.Requests[1], "late");
             AssertEx.False(SessionHub.Instance.Get("late").Alive, "late handoff is stopped");

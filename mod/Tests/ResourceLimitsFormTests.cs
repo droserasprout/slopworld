@@ -1,3 +1,4 @@
+using System.Globalization;
 using NUnit.Framework;
 using Verse;
 
@@ -103,7 +104,7 @@ namespace SlopWorld.Tests
                 Assert.That(form.TrySave(out var saved, out _), Is.EqualTo(valid), id + ": " + text);
                 if (!valid) continue;
                 var expected = SessionLimits.FromWire(baseline.ToWire());
-                uint? value = text.Length == 0 ? null : uint.Parse(text);
+                uint? value = text.Length == 0 ? null : uint.Parse(text, CultureInfo.InvariantCulture);
                 switch (id)
                 {
                     case "limits.memory": expected.MemoryMb = value; break;

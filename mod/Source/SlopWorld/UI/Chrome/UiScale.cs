@@ -1,3 +1,4 @@
+using System.Globalization;
 using UnityEngine;
 using Verse;
 
@@ -18,7 +19,7 @@ namespace SlopWorld
 
         public static float Current => Prefs.UIScale;
 
-        public static string Readout(float scale) => scale.ToString("0.##") + "x";
+        public static string Readout(float scale) => scale.ToString("0.##", CultureInfo.CurrentCulture) + "x";
 
         // Live at once - Verse.UI re-derives the scaled screen every OnGUI and the window
         // stack re-lays itself out when it changes. The write to Prefs.xml waits for Flush,

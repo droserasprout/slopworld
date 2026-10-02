@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -486,7 +487,7 @@ namespace SlopWorld
             if (ReferenceEquals(match, _showing) && Viewer.Reopen())
             {
                 SessionHub.Instance.Terminal.SendKeys(Viewer.Session,
-                    new[] { match.Line.ToString() + "g" }, true);
+                    new[] { match.Line.ToString(CultureInfo.InvariantCulture) + "g" }, true);
                 return;
             }
             _showing = match;

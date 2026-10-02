@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using Verse;
 
 namespace SlopWorld
@@ -33,14 +34,14 @@ namespace SlopWorld
         // The base game has no long minute labels; the mod uses English.
         static string Minutes(float count, bool shortForm, string format)
         {
-            string number = format == null ? Math.Floor(count).ToString() : count.ToString(format);
+            string number = format == null ? Math.Floor(count).ToString(CultureInfo.CurrentCulture) : count.ToString(format, CultureInfo.CurrentCulture);
             if (shortForm) return number + "LetterMinute".Translate();
             return number == "1" ? "1 minute" : number + " minutes";
         }
 
         static string Unit(float count, string oneKey, string manyKey, string letterKey, bool shortForm, string format)
         {
-            string number = format == null ? Math.Floor(count).ToString() : count.ToString(format);
+            string number = format == null ? Math.Floor(count).ToString(CultureInfo.CurrentCulture) : count.ToString(format, CultureInfo.CurrentCulture);
             if (shortForm) return number + letterKey.Translate();
             return number == "1" ? oneKey.Translate() : manyKey.Translate(number);
         }

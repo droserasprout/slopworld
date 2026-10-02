@@ -60,7 +60,7 @@ namespace SlopWorld.Tests
                     case Operation.Edit: catalog.SaveAgentTemplateForm(template, form, false, "old/name", ok, fail); break;
                     case Operation.Remove: catalog.RemoveAgentTemplate(template, null, ok, fail); break;
                     case Operation.RemoveOriginal: catalog.RemoveAgentTemplate(template, "old/name", ok, fail); break;
-                    default: throw new ArgumentOutOfRangeException(nameof(kind));
+                    default: throw new InvalidOperationException($"Unknown template operation: {kind}");
                 }
                 var write = requests[1];
                 AssertEx.Equal(revision + 1, catalog.TemplatesRevision, "write invalidates template reads");
