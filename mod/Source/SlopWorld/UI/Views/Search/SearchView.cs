@@ -206,7 +206,7 @@ namespace SlopWorld
             _selected = null;
             _loading = true;
             Scroll.JumpTo(Vector2.zero);
-            int generation = Operations.Begin();
+            long generation = Operations.Begin();
 
             _pending = projects.Count;
             if (_pending == 0) { _loading = false; return; }
@@ -242,7 +242,7 @@ namespace SlopWorld
             ReleaseViewer();
         }
 
-        static void OnResults(Group group, BrowseScope project, int generation, Wire.SearchResult j)
+        static void OnResults(Group group, BrowseScope project, long generation, Wire.SearchResult j)
         {
             if (!Operations.IsCurrent(generation)) return;
             foreach (var row in j.Matches)
@@ -265,7 +265,7 @@ namespace SlopWorld
             Done(generation);
         }
 
-        static void OnError(Group group, int generation, string msg)
+        static void OnError(Group group, long generation, string msg)
         {
             if (!Operations.IsCurrent(generation)) return;
             group.Error = msg;
@@ -275,7 +275,7 @@ namespace SlopWorld
 
         static void DirtyLayout() => _layoutDirty = true;
 
-        static void Done(int generation)
+        static void Done(long generation)
         {
             if (!Operations.IsCurrent(generation)) return;
             _pending--;

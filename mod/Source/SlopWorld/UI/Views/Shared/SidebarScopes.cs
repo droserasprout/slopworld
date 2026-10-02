@@ -44,7 +44,7 @@ namespace SlopWorld
             var p = Project(project);
             return p == null ? null : Catalog.Error(BrowseScope.ProjectIdOf(p));
         }
-        public static List<BrowseScope> All(string project)
+        public static IReadOnlyList<BrowseScope> All(string project)
         {
             Update();
             var p = Project(project);
@@ -66,6 +66,6 @@ namespace SlopWorld
         public static void Update() => Update(false);
         static void Update(bool includeHidden) => Catalog.Update(SessionHub.Instance.Projects,
             SessionHub.Instance.ProjectsRevision, Settings.SidebarFilter, Settings.S.sidebarWorktrees ?? "", SessionHub.Instance.Online,
-            saved => { Settings.S.sidebarWorktrees = saved; Settings.S.Write(); }, includeHidden);
+            includeHidden);
     }
 }

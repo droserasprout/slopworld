@@ -303,7 +303,7 @@ namespace SlopWorld
             if (showLoading || clearError) BumpTree();
 
             string dir = repo.Dir;
-            int generation = repo.Operations.Begin();
+            long generation = repo.Operations.Begin();
             GetGit(repo, generation, WireProtocol.Routes.Git + "?counts=false&path=" + System.Uri.EscapeDataString(dir),
                 j =>
                 {
@@ -367,7 +367,7 @@ namespace SlopWorld
                 });
         }
 
-        static void GetGit(Repo repo, int generation, string url, System.Action<Wire.GitResult> success,
+        static void GetGit(Repo repo, long generation, string url, System.Action<Wire.GitResult> success,
             System.Action<string> fail)
         {
             Requests.Add(() => repo.Operations.IsCurrent(generation) && SidebarScopes.Enabled(repo.Project), done =>
@@ -400,18 +400,18 @@ namespace SlopWorld
         {
             repo.NextRefresh = Time.realtimeSinceStartup + 5f;
             if (!ReferenceEquals(Get(project), repo)) return;
-            var callbacks = repo.Refreshes.Complete();
-            if (callbacks == null)
+            var completion = repo.Refreshes.Complete();
+            if (completion.NeedsFollowUp)
             {
                 Fetch(project);
                 return;
             }
-            foreach (var callback in callbacks) callback();
+            foreach (var callback in completion.Callbacks) callback();
         }
 
         // Keep the usable status tree if counting fails. A newer refresh owns its own
         // generation, and expanding/collapsing rows while counts arrive must survive.
-        static void FetchCounts(Repo repo, int generation)
+        static void FetchCounts(Repo repo, long generation)
         {
             GetGit(repo, generation, WireProtocol.Routes.Git + "?path=" + System.Uri.EscapeDataString(repo.Dir),
                 j =>

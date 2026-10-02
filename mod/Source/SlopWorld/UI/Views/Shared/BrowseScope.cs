@@ -9,6 +9,7 @@ namespace SlopWorld
     public sealed class BrowseScope
     {
         public string ProjectId, Project, Worktree, Name, Path, Phase, Branch, Error;
+        internal BrowseScope Copy() => (BrowseScope)MemberwiseClone();
         public string Key => Identity(ProjectId, Worktree);
         public string ProjectKey => Identity(ProjectId, "");
         public string Label => Worktree == "main" ? "Main checkout" : Name;
@@ -35,7 +36,12 @@ namespace SlopWorld
         readonly HashSet<string> _exceptions;
         public BrowseScopeChoices(string saved) => _exceptions = new HashSet<string>(
             (saved ?? "").Split('\n').Where(s => s.Length > 0));
-        public bool Chosen(BrowseScope scope) => (scope.Worktree == "main") != _exceptions.Contains(scope.Key);
+        public bool Chosen(BrowseScope scope)
+        {
+            bool enabledByDefault = scope.Worktree == "main";
+            bool hasOverride = _exceptions.Contains(scope.Key);
+            return hasOverride ? !enabledByDefault : enabledByDefault;
+        }
         public void Toggle(BrowseScope scope)
         {
             if (!scope.Ready) return;

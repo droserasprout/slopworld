@@ -160,7 +160,7 @@ namespace SlopWorld
 
         void Scan()
         {
-            int generation = _operations.Begin();
+            long generation = _operations.Begin();
             _loading = true;
             _error = null;
             _resolved = 0;
@@ -190,7 +190,7 @@ namespace SlopWorld
             });
         }
 
-        void Resolve(int generation, BinaryResult result, string path)
+        void Resolve(long generation, BinaryResult result, string path)
         {
             if (!_operations.IsCurrent(generation) || result.Resolved) return;
             result.SetPath(path);
@@ -198,7 +198,7 @@ namespace SlopWorld
             if (_resolved >= _hostCount) _loading = false;
         }
 
-        void Fail(int generation, string message)
+        void Fail(long generation, string message)
         {
             if (!_operations.IsCurrent(generation)) return;
             _error = message;

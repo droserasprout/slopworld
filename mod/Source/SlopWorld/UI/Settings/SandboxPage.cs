@@ -15,7 +15,8 @@ namespace SlopWorld
         readonly AsyncLoadState<bool> _load = new AsyncLoadState<bool>();
         readonly Section _section;
 
-        string _error { get => _load.Error; set => _load.SetError(value); }
+        string _actionError;
+        string _error { get => _actionError ?? _load.Error; set => _actionError = value; }
         bool _loaded => _load.HasValue && !_load.Loading;
 
         readonly SmoothScroll _listScroll = new SmoothScroll();
@@ -35,6 +36,7 @@ namespace SlopWorld
 
         public void Load()
         {
+            _actionError = null;
             _load.Load((ok, fail) => SessionHub.Instance.Catalog.LoadPresets(() => ok(true), fail), _ =>
             {
                 if (_preset != null && !_newEntry)
@@ -55,7 +57,6 @@ namespace SlopWorld
                     _preset = null;
                     _newEntry = false;
                 }
-                _error = null;
                 if (_newPresetRequested) NewPreset();
                 else if (_newCommandRequested) NewCommand();
             });
