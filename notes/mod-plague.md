@@ -12,3 +12,7 @@ Disabling only visible effects leaves destructive code paths active. Stable per-
 Saved arrival offsets are encoded through the signed/unsigned scribe boundary and rebased
 on load. Keep elapsed-age semantics when changing storage. Fleck alpha belongs in the def's
 graphic color because instance color is combined with separately computed fading.
+
+Blast safety covers all player-faction pawns, including untracked colonists. Fire
+spread checks both its source and destination; sparks recheck on impact. Departure
+bypasses containment. Cosmetic flecks isolate their random draws from gameplay.
