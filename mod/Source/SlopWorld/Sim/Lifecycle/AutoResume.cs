@@ -14,11 +14,13 @@ namespace SlopWorld
     {
         static bool _tried;
 
+        // Observe Pending before the normal-priority landing hook consumes it.
+        [HarmonyPriority(Priority.First)]
         static void Prefix()
         {
             // NextPlanet is creating a new colony through the menu.
             // Do not start a competing resume operation.
-            if (NextPlanet.Pending) return;
+            if (NextPlanet.Pending) { _tried = true; return; }
 
             if (_tried) return;
             _tried = true;

@@ -26,16 +26,22 @@ namespace SlopWorld
             if (s >= 86400f || !allowHours)
                 return Unit(s / 86400f, "Period1Day", "PeriodDays", "LetterDay", shortForm, format);
             if (s >= 3600f) return Unit(s / 3600f, "Period1Hour", "PeriodHours", "LetterHour", shortForm, format);
-            if (s >= 60f || !allowSeconds) return Unit(s / 60f, null, null, "LetterMinute", shortForm, format);
+            if (s >= 60f || !allowSeconds) return Minutes(s / 60f, shortForm, format);
             return Unit(s, "Period1Second", "PeriodSeconds", "LetterSecond", shortForm, format);
         }
 
-        // The base-game calendar has no minute unit. Supply the mod's own words for minutes.
+        // The base game has no long minute labels; the mod uses English.
+        static string Minutes(float count, bool shortForm, string format)
+        {
+            string number = format == null ? Math.Floor(count).ToString() : count.ToString(format);
+            if (shortForm) return number + "LetterMinute".Translate();
+            return number == "1" ? "1 minute" : number + " minutes";
+        }
+
         static string Unit(float count, string oneKey, string manyKey, string letterKey, bool shortForm, string format)
         {
             string number = format == null ? Math.Floor(count).ToString() : count.ToString(format);
             if (shortForm) return number + letterKey.Translate();
-            if (oneKey == null) return number == "1" ? "1 minute" : number + " minutes";
             return number == "1" ? oneKey.Translate() : manyKey.Translate(number);
         }
     }

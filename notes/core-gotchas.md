@@ -7,7 +7,7 @@
   Search for `patching incomplete:`. Disassemble `$RIMWORLD/RimWorldLinux_Data/Managed/Assembly-CSharp.dll`
   with `ikdasm` rather than guessing. The source tree under `$RIMWORLD/Source` helps too.
 - **Tick units differ.** `TicksGame` is 60 ticks per real second. `TicksAbs` is 60,000 ticks per real day.
-  Only pawn-log timestamps use absolute ticks.
+  Native pawn-log timestamps use absolute ticks; SlopWorld tooltip ages use saved UTC timestamps.
   Do not pass absolute durations to game-tick APIs.
 - An exception in `AgentColony.GameComponentTick` aborts the full reconcile.
 - Draw order is map interface, window `ExtraOnGUI`, then window contents. The terminal

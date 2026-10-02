@@ -5,13 +5,12 @@ namespace SlopWorld
 {
     // Intercept the first OS close request to save before exit.
     // Cancel wantsToQuit and defer saving and Root.Shutdown until the next frame.
-    // Permit repeated requests and programmatic shutdown.
+    // Keep external requests cancelled until the deferred shutdown starts.
     public static class QuitInterceptor
     {
-        // null = idle, "pending" = save and quit on next frame
-        static string _state;
-        // Set before Root.Shutdown so its Application.Quit call can pass through wantsToQuit without repeating the save sequence.
-        static bool _shuttingDown;
+        enum Phase { Idle, Pending, ShuttingDown }
+
+        static Phase _phase;
 
         public static void Register()
         {
@@ -22,27 +21,24 @@ namespace SlopWorld
         // Must return true to allow the quit, false to cancel it.
         static bool OnWantsToQuit()
         {
-            // Permit another close request when shutdown is pending or active.
-            if (_state != null || _shuttingDown) return true;
-
             // Programmatic shutdown (profile Quit button): let it through.
             if (SaveCoordinator.ConsumeProgrammaticShutdown()) return true;
 
-            _state = "pending";
+            if (_phase == Phase.ShuttingDown) return true;
+            if (_phase == Phase.Pending) return false;
+
+            _phase = Phase.Pending;
             // Cancel this OS quit request.
             // Save and shut down on the next frame.
             return false;
         }
 
         // Patch_Root_Update calls this each frame.
-        // For a pending request, attempt to save before calling Root.Shutdown.
+        // Root.Shutdown owns the save through Patch_SaveOnShutdown.
         public static void Check()
         {
-            if (_state != "pending") return;
-            _state = null;
-
-            _shuttingDown = true;
-            SaveCoordinator.SaveNow();
+            if (_phase != Phase.Pending) return;
+            _phase = Phase.ShuttingDown;
             Root.Shutdown();
         }
     }

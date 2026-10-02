@@ -4,6 +4,8 @@ namespace SlopWorld
     // Run immediately when the content becomes visible.
     internal sealed class HiddenWorkCadence
     {
+        const double HiddenIntervalSeconds = 0.25;
+
         bool _hidden;
         PeriodicWork _work;
 
@@ -14,10 +16,10 @@ namespace SlopWorld
             if (!hidden) return true;
             if (entering)
             {
-                _work.Delay(now, 0.25);
+                _work.Delay(now, HiddenIntervalSeconds);
                 return true;
             }
-            return _work.Due(now, 0.25);
+            return _work.Due(now, HiddenIntervalSeconds);
         }
     }
 }
