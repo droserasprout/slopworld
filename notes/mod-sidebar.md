@@ -11,8 +11,10 @@ Nested calls must not restore an outer swap early.
 
 The back pass precedes base game input.
 The front pass adds labels and actions. A finalizer must
-clear temporary drawing state on exceptions. Portrait selection corners need the same crop,
-scroll group and coordinate transform as the portrait, including multi-selection.
+clear temporary drawing state on exceptions. Compact portraits omit selection brackets and vanilla status overlays. Sidebar portrait
+drawing and shared task-avatar requests live with the sidebar patches; daemon indicators
+do not alter vanilla pawn idle classification. External bar hit tests translate scroll-content
+locations by the body origin minus the scroll position and restore that exact offset.
 
 Layout caches cannot depend solely on daemon revisions: native previews and pending viewer
 handoffs change routed rows locally. `RoutedSessionRows` caches scan/sort results using the

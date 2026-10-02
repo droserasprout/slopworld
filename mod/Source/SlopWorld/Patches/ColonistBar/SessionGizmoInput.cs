@@ -10,7 +10,7 @@ namespace SlopWorld
     // Store action rectangles so both stages use the same hit test.
     public static class SessionGizmoInput
     {
-        const float GizmoH = 75f;
+        public const float ActionRowHeight = 75f;
         const float AbsorbX = 12f;
         const float AbsorbBottom = 14f;
 
@@ -51,8 +51,8 @@ namespace SlopWorld
                 if (RectFrame == Time.frameCount) return false;
 
                 var content = WorkspaceLayout.Current.Content;
-                var firstRow = new Rect(content.x, AgentSidebar.AddBar.y - GizmoH,
-                    content.width, GizmoH + AbsorbBottom);
+                var firstRow = new Rect(content.x, AgentSidebar.AddBar.y - ActionRowHeight,
+                    content.width, ActionRowHeight + AbsorbBottom);
                 return firstRow.Contains(e.mousePosition);
             }
         }

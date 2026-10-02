@@ -18,6 +18,8 @@ namespace SlopWorld
             get => _current;
             set
             {
+                // Repeated map draw passes synchronize state without creating a new visit.
+                if (Syncing && _current == value) return;
                 _current = value;
                 AgentSidebar.RememberAgent(value);
 

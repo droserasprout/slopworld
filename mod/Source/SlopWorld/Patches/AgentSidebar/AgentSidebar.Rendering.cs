@@ -65,7 +65,6 @@ namespace SlopWorld
             SidebarRowRenderer.BeginFrame(SessionHub.Instance.SessionsVersion);
             _renderStarted = PerfTrace.Start();
             Drawing = true;
-            Patch_SidebarPortraitDraw.ClearDeferredSelection();
 
             // The panel, fixed chrome and menus run here, before vanilla consumes input.
             // Only the agent body remains grouped around vanilla's portrait pass.
