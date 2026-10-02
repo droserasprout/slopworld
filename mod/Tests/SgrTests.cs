@@ -237,17 +237,17 @@ namespace SlopWorld.Tests
             foreach (var sample in cases)
             {
                 var runs = Sgr.ParseLine(sample.Wire);
-                AssertEx.Equal(sample.Key, runs[0].Text, "complete sequence reaches renderer");
-                AssertEx.Equal(sample.Width, runs[0].Columns, "daemon width survives sequence");
-                AssertEx.True(runs[0].IsCluster, "sequence is one display cluster");
+                AssertEx.Equal(sample.Key, runs[0].Text, "complete sequence reaches renderer" + ": " + sample.Key);
+                AssertEx.Equal(sample.Width, runs[0].Columns, "daemon width survives sequence" + ": " + sample.Key);
+                AssertEx.True(runs[0].IsCluster, "sequence is one display cluster" + ": " + sample.Key);
                 AssertEx.Equal(sample.Key + "x", TerminalColumns.Slice(TerminalColumns.Cells(runs),
-                    0, sample.Width), "copy keeps sequence once");
+                    0, sample.Width), "copy keeps sequence once" + ": " + sample.Key);
                 AssertEx.True(TextSpriteCatalog.Shared.Match(sample.Key, 0, out int length, out _)
-                    && length == sample.Key.Length, "sequence has Noto artwork");
+                    && length == sample.Key.Length, "sequence has Noto artwork" + ": " + sample.Key);
                 var layout = InlineTextLayout.Cells(runs[0].Text, runs[0].Columns, 7f,
                     TextSpriteCatalog.Shared, _ => true);
-                AssertEx.True(layout.Spans[0].Sprite >= 0, "sequence selects atlas sprite");
-                AssertEx.Equal(sample.Width * 7f, layout.Spans[0].Width, "sprite uses daemon cells");
+                AssertEx.True(layout.Spans[0].Sprite >= 0, "sequence selects atlas sprite" + ": " + sample.Key);
+                AssertEx.Equal(sample.Width * 7f, layout.Spans[0].Width, "sprite uses daemon cells" + ": " + sample.Key);
             }
             var combining = Sgr.ParseLine("\x1b[0m\x1b[2;1zéx");
             AssertEx.Equal("é", combining[0].Text, "non-emoji combining text is preserved");

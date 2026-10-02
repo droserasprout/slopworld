@@ -25,6 +25,17 @@ namespace SlopWorld.Tests
                 "always-reserved forms keep their stable gutter below the viewport");
             AssertEx.Equal(382f, always.ContentWidth, "always-reserved width");
             AssertEx.Equal(200f, always.View.Height, "viewport clamps short content height");
+            View(atViewport, 400f, 200f);
+            View(aboveViewport, 382f, 240f);
+            View(always, 382f, 200f);
+        }
+
+        static void View(ScrollableGeometry geometry, float width, float height)
+        {
+            AssertEx.Equal(0f, geometry.View.X, "view uses local X origin");
+            AssertEx.Equal(0f, geometry.View.Y, "view uses local Y origin");
+            AssertEx.Equal(width, geometry.View.Width, "view width");
+            AssertEx.Equal(height, geometry.View.Height, "view height");
         }
     }
 }

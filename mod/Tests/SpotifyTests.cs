@@ -2,6 +2,30 @@ namespace SlopWorld.Tests
 {
     static class SpotifyTests
     {
+        public static void NonNcspotReportDoesNotCompletePendingLaunch()
+        {
+            Radio.ResetSpotifyTest();
+            Radio.OpenSpotify();
+            Radio.ReportSpotifyTest("unrelated", source: "radio");
+            AssertEx.Equal(null, SessionHub.Instance.SessionStore.Refreshed, "shared production report filter rejects another source");
+            Radio.ReportSpotifyTest("player");
+            SessionHub.Instance.SessionStore.Refreshed();
+            AssertEx.Equal("player", TerminalWindow.Current, "ncspot reply still completes pending launch");
+        }
+
+        public static void SessionRefreshFailureIsReportedAndAllowsRetry()
+        {
+            Radio.ResetSpotifyTest();
+            Radio.OpenSpotify();
+            Radio.ReportSpotifyTest("player");
+            AssertEx.Throws<System.Exception>(() => SessionHub.Instance.SessionStore.RefreshFailed("offline"), "refresh failure reaches user");
+            AssertEx.Equal(null, TerminalWindow.Current, "failed refresh opens nothing");
+            Radio.OpenSpotify();
+            Radio.ReportSpotifyTest("retry");
+            SessionHub.Instance.SessionStore.Refreshed();
+            AssertEx.Equal("retry", TerminalWindow.Current, "retry completes after refresh failure");
+        }
+
         public static void MissingCapabilityFallsBackAndRejectsLateTerminalOpen()
         {
             Radio.ResetSpotifyTest();

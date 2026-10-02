@@ -6,6 +6,8 @@ namespace SlopWorld.Tests
 {
     static class SandboxEditorInteractionTests
     {
+        enum EditorKind { Preset, Command }
+
         static void Run(Action action)
         {
             var hub = SessionHub.Instance;
@@ -30,32 +32,34 @@ namespace SlopWorld.Tests
 
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
-            foreach (bool command in new[] { false, true })
+            foreach (EditorKind editor in new[] { EditorKind.Preset, EditorKind.Command })
             {
-                string kind = command ? "command" : "preset";
-                yield return (kind + " save reports failure and settles successful retry", () => Run(() => Save(command)));
-                yield return (kind + " system copy reports failure and reloads after success", () => Run(() => Copy(command)));
+                string kind = editor == EditorKind.Command ? "command" : "preset";
+                yield return (kind + " save reports failure and settles successful retry", () => Run(() => Save(editor)));
+                yield return (kind + " system copy reports failure and reloads after success", () => Run(() => Copy(editor)));
                 foreach (string source in new[] { "user", "override" })
-                    yield return (kind + " " + source + " removal waits for confirmation", () => Run(() => Remove(command, source)));
+                    yield return (kind + " " + source + " removal waits for confirmation", () => Run(() => Remove(editor, source)));
             }
         }
 
-        static void Draw(SandboxPage page, bool command, string source)
+        static void Draw(SandboxPage page, EditorKind editor, string source)
         {
+            bool command = editor == EditorKind.Command;
             if (command) page.TestCommandHost(new CommandInfo { Name = "name with space", Source = source, Cmd = "bash -l" }, 300);
             else page.TestPresetHost(new PresetInfo { Name = "name with space", Source = source, Tmux = true }, 300);
         }
 
-        static string Kind(bool command) => command ? "app_presets" : "sandbox_presets";
+        static string RouteKind(EditorKind editor) => editor == EditorKind.Command ? "app_presets" : "sandbox_presets";
 
-        static void Save(bool command)
+        static void Save(EditorKind editor)
         {
+            bool command = editor == EditorKind.Command;
             var page = new SandboxPage { TestNewEntry = true };
             EditorTrace.Clicks.Add("Save");
-            Draw(page, command, "user");
+            Draw(page, editor, "user");
             var request = DaemonClient.Requests.Single();
             AssertEx.Equal("PUT", request.Method, "save uses catalog write");
-            AssertEx.True(request.Path.EndsWith("/" + Kind(command) + "/name%20with%20space", StringComparison.Ordinal), "identity is escaped in route");
+            AssertEx.True(request.Path.EndsWith("/" + RouteKind(editor) + "/name%20with%20space", StringComparison.Ordinal), "identity is escaped in route");
             var body = (Wire.PresetRequest)request.Body;
             if (command) AssertEx.Equal("bash -l", body.Command.Cmd, "command payload retained");
             else AssertEx.True(body.Sandbox.Tmux, "generated bind setting retained");
@@ -65,7 +69,7 @@ namespace SlopWorld.Tests
             page.TestFooter();
             AssertEx.True(EditorTrace.Draws.Any(d => d.Name == "save rejected"), "footer displays failure");
             EditorTrace.Clicks.Add("Save");
-            Draw(page, command, "user");
+            Draw(page, editor, "user");
             DaemonClient.Requests.Last().Ok(JVal.Parse("{}"));
             AssertEx.Equal<string>(null, page.TestError, "successful retry clears error");
             AssertEx.False(page.TestNewEntry, "successful save settles new identity");
@@ -73,32 +77,33 @@ namespace SlopWorld.Tests
             AssertEx.Equal(0, page.TestLoads, "save does not reload the page draft");
         }
 
-        static void Copy(bool command)
+        static void Copy(EditorKind editor)
         {
             var page = new SandboxPage();
             EditorTrace.Clicks.Add("Copy to user");
-            Draw(page, command, "system");
+            Draw(page, editor, "system");
             var request = DaemonClient.Requests.Single();
             AssertEx.Equal("POST", request.Method, "copy creates an override");
-            AssertEx.True(request.Path.EndsWith("/" + Kind(command) + "/name%20with%20space/copy", StringComparison.Ordinal), "copy uses escaped catalog identity");
+            AssertEx.True(request.Path.EndsWith("/" + RouteKind(editor) + "/name%20with%20space/copy", StringComparison.Ordinal), "copy uses escaped catalog identity");
             AssertEx.Equal("name with space", ((Wire.CopyPresetReq)request.Body).Name, "copy retains original name");
             request.Fail("copy rejected");
             AssertEx.Equal("copy rejected", page.TestError, "copy failure reported");
             AssertEx.Equal(0, page.TestLoads, "failed copy leaves draft alone");
             EditorTrace.Clicks.Add("Copy to user");
-            Draw(page, command, "system");
+            Draw(page, editor, "system");
             DaemonClient.Requests.Last().Ok(JVal.Parse("{}"));
             AssertEx.Equal(1, page.TestLoads, "successful copy reloads selection");
             AssertEx.Equal<string>(null, page.TestError, "successful copy clears error");
         }
 
-        static void Remove(bool command, string source)
+        static void Remove(EditorKind editor, string source)
         {
+            bool command = editor == EditorKind.Command;
             var page = new SandboxPage();
             SessionHub.Instance.Presets.Add(new PresetInfo { Name = "name with space", Source = source });
             string button = source == "override" ? "Reset to system" : "Remove";
             EditorTrace.Clicks.Add(button);
-            Draw(page, command, source);
+            Draw(page, editor, source);
             AssertEx.Equal(0, DaemonClient.Requests.Count, "opening confirmation does not delete");
             var prompt = (ConfirmDialog.Prompt)Verse.Find.WindowStack.Single();
             AssertEx.Equal(!command && source == "override"
@@ -108,7 +113,7 @@ namespace SlopWorld.Tests
             prompt.Confirm();
             var request = DaemonClient.Requests.Single();
             AssertEx.Equal("DELETE", request.Method, "confirmed removal reaches catalog");
-            AssertEx.True(request.Path.EndsWith("/" + Kind(command) + "/name%20with%20space", StringComparison.Ordinal), "delete targets selected entry");
+            AssertEx.True(request.Path.EndsWith("/" + RouteKind(editor) + "/name%20with%20space", StringComparison.Ordinal), "delete targets selected entry");
             request.Fail("still in use");
             AssertEx.Equal("still in use", page.TestError, "failed removal reported");
             AssertEx.True(command ? page.TestSelectedCommand != null : page.TestSelectedPreset != null, "failed removal retains selection");

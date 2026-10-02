@@ -10,22 +10,22 @@ namespace SlopWorld.Tests
         {
             foreach (var item in new[]
             {
-                ("queued", DelegatedTaskStatus.Queued, false),
-                ("accepted", DelegatedTaskStatus.Accepted, false),
-                ("working", DelegatedTaskStatus.Working, false),
-                ("done", DelegatedTaskStatus.Done, true),
-                ("failed", DelegatedTaskStatus.Failed, true),
-                ("canceled", DelegatedTaskStatus.Canceled, true),
+                (Wire: "queued", Parsed: DelegatedTaskStatus.Queued, Terminal: false),
+                (Wire: "accepted", Parsed: DelegatedTaskStatus.Accepted, Terminal: false),
+                (Wire: "working", Parsed: DelegatedTaskStatus.Working, Terminal: false),
+                (Wire: "done", Parsed: DelegatedTaskStatus.Done, Terminal: true),
+                (Wire: "failed", Parsed: DelegatedTaskStatus.Failed, Terminal: true),
+                (Wire: "canceled", Parsed: DelegatedTaskStatus.Canceled, Terminal: true),
             })
-                yield return ($"task status {item.Item1} roundtrips and classifies terminal state", () =>
+                yield return ($"task status {item.Wire} roundtrips and classifies terminal state", () =>
                 {
-                    var task = TaskInfo.FromWire(new Wire.Task { Status = item.Item1.ToUpperInvariant() });
-                    Assert.That(task.Status, Is.EqualTo(item.Item2));
-                    Assert.That(task.Terminal, Is.EqualTo(item.Item3));
-                    Assert.That(TaskInfo.StatusText(task.Status), Is.EqualTo(item.Item1));
+                    var task = TaskInfo.FromWire(new Wire.Task { Status = item.Wire.ToUpperInvariant() });
+                    Assert.That(task.Status, Is.EqualTo(item.Parsed));
+                    Assert.That(task.Terminal, Is.EqualTo(item.Terminal));
+                    Assert.That(TaskInfo.StatusText(task.Status), Is.EqualTo(item.Wire));
                 });
-            foreach (var item in new[] { (-120, "now"), (0, "now"), (15, "15s"), (150, "2m"), (9000, "2h"), (216000, "2d") })
-                yield return ($"task age formats {item.Item1} seconds", () => Age(item.Item1, item.Item2));
+            foreach (var item in new[] { (Elapsed: -120, Expected: "now"), (Elapsed: 0, Expected: "now"), (Elapsed: 15, Expected: "15s"), (Elapsed: 150, Expected: "2m"), (Elapsed: 9000, Expected: "2h"), (Elapsed: 216000, Expected: "2d") })
+                yield return ($"task age formats {item.Elapsed} seconds", () => Age(item.Elapsed, item.Expected));
         }
 
         static void Age(int seconds, string expected)

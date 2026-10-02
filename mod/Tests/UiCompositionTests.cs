@@ -2,7 +2,18 @@ namespace SlopWorld.Tests
 {
     static class UiCompositionTests
     {
-        public static void Arrange()
+        static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+
+        static void AssertGeometry(UiLayoutRect[] rectangles)
+        {
+            foreach (var rect in rectangles)
+            {
+                AssertEx.True(Finite(rect.X) && Finite(rect.Y) && Finite(rect.Width) && Finite(rect.Height), "all rectangle components are finite");
+                AssertEx.True(rect.Width >= 0f && rect.Height >= 0f, "rectangle dimensions are nonnegative");
+            }
+        }
+
+        public static void PreferredSizesAndOrder()
         {
             var items = new[]
             {
@@ -18,6 +29,7 @@ namespace SlopWorld.Tests
                 new UiLayoutRect(0f, 0f, 100f, 100f),
                 new UiLayoutPadding(2f, 3f, 4f, 5f), 4f, items, output);
 
+            AssertGeometry(output);
             AssertEx.Equal(20f, output[0].Height, "fixed column height");
             AssertEx.Equal(12f, output[1].Height, "content column height");
             AssertEx.Equal(52f, output[2].Height, "flexible column fills remainder");
@@ -30,9 +42,14 @@ namespace SlopWorld.Tests
                 new UiLayoutPadding(2f, 3f, 4f, 5f), 0f,
                 new[] { new UiLayoutItem(UiLayoutSize.Fixed(10f), UiLayoutSize.Flexible(),
                     10f, 0f) }, offset);
+            AssertGeometry(offset);
             AssertEx.Equal(9f, offset[0].X, "arrangement preserves available x origin");
             AssertEx.Equal(12f, offset[0].Y, "arrangement preserves available y origin");
 
+        }
+
+        public static void OverflowRemainsFiniteAndNonnegative()
+        {
             var overflow = new[]
             {
                 new UiLayoutItem(UiLayoutSize.Fixed(80f, 120f), UiLayoutSize.Flexible(),
@@ -43,14 +60,12 @@ namespace SlopWorld.Tests
             var tiny = new UiLayoutRect[overflow.Length];
             UiComposition.Arrange(UiLayoutAxis.Row, new UiLayoutRect(0f, 0f, 4f, 3f),
                 new UiLayoutPadding(10f, 10f, 10f, 10f), -2f, overflow, tiny);
-            for (int i = 0; i < tiny.Length; i++)
-            {
-                AssertEx.True(tiny[i].Width >= 0f && tiny[i].Height >= 0f,
-                    "overflow rectangles are nonnegative");
-                AssertEx.True(tiny[i].Width == tiny[i].Width && tiny[i].Height == tiny[i].Height,
-                    "overflow rectangles are finite");
-            }
+            AssertGeometry(tiny);
 
+        }
+
+        public static void FlexibleMinimumsReserveSpaceBeforeSharingSurplus()
+        {
             var minimums = new[]
             {
                 new UiLayoutItem(UiLayoutSize.Flexible(1f, 40f),
@@ -62,6 +77,7 @@ namespace SlopWorld.Tests
             UiComposition.Arrange(UiLayoutAxis.Row,
                 new UiLayoutRect(0f, 0f, 100f, 10f), UiLayoutPadding.Zero, 0f,
                 minimums, fitted);
+            AssertGeometry(fitted);
             AssertEx.Equal(46f, fitted[0].Width,
                 "flex distribution reserves the first minimum");
             AssertEx.Equal(54f, fitted[1].Width,
@@ -79,11 +95,16 @@ namespace SlopWorld.Tests
                 UiComposition.Arrange(UiLayoutAxis.Row,
                     new UiLayoutRect(0f, 0f, 100f, 10f), UiLayoutPadding.Zero, 0f,
                     zeroWeight, fitted);
+                AssertGeometry(fitted);
                 AssertEx.Equal(20f, fitted[0].Width, "zero weight keeps only its minimum");
                 AssertEx.Equal(otherWeight == 0f ? 10f : 80f, fitted[1].Width,
                     "only positive weights share surplus");
             }
 
+        }
+
+        public static void MeasurementHonorsFixedMinimums()
+        {
             var fixedMinimum = new[]
             {
                 new UiLayoutItem(UiLayoutSize.Fixed(10f, 25f),

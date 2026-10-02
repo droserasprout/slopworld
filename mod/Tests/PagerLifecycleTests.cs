@@ -17,36 +17,47 @@ namespace SlopWorld
 
     sealed partial class PagerTestStore
     {
-        public readonly Queue<Action<string>> Pending = new Queue<Action<string>>();
-        public readonly List<Action<string>> Failures = new List<Action<string>>();
-        public int Starts, Stops;
-        public bool Host, Temp;
-        public string Project, Command, Intent;
+        public sealed class LaunchRequest
+        {
+            public string Project, Command, Label;
+            public Wire.RunReq Options;
+            public Action<string> Started, Failed;
+            public bool Settled;
+        }
+        public readonly List<LaunchRequest> Requests = new List<LaunchRequest>();
+        public readonly List<(string Session, bool Pinned)> Pins = new List<(string, bool)>();
+        public int Starts => Requests.Count;
+        public int Stops;
+        public bool Host => Requests[Requests.Count - 1].Options.Host;
+        public bool Temp => Requests[Requests.Count - 1].Options.Temp;
+        public string Project => Requests[Requests.Count - 1].Project;
+        public string Command => Requests[Requests.Count - 1].Command;
+        public string Intent => Requests[Requests.Count - 1].Options.Intent;
         public void Run(string project, string command, string label, Action<string> started,
                         Action<string> fail, SessionRunOptions options = null)
         {
-            options = options ?? new SessionRunOptions();
-            Starts++;
-            Host = options.Host;
-            Temp = options.Temp;
-            Project = project;
-            Command = command;
-            Intent = options.Intent;
-            Pending.Enqueue(started);
-            Failures.Add(fail);
+            Requests.Add(new LaunchRequest { Project = project, Command = command, Label = label,
+                Options = (options ?? new SessionRunOptions()).ToWire(), Started = started, Failed = fail });
         }
-        public void Complete(string name)
+        public void Complete(LaunchRequest request, string name, bool listed = true)
         {
-            SessionHub.Instance.Sessions[name] = new SessionInfo { Name = name, Alive = true };
-            Pending.Dequeue()(name);
+            request.Settled = true;
+            if (listed) SessionHub.Instance.Sessions[name] = new SessionInfo { Name = name, Alive = true };
+            request.Started(name);
         }
-        public void CompleteUnlisted(string name) => Pending.Dequeue()(name);
+        public void Fail(LaunchRequest request, string error)
+        {
+            request.Settled = true;
+            request.Failed(error);
+        }
+        // Other fixture owners use ordinary in-order completion; lifecycle races select handles.
+        public void Complete(string name) => Complete(Requests.Find(request => !request.Settled), name);
         public void Stop(string name)
         {
             Stops++;
             if (SessionHub.Instance.Sessions.TryGetValue(name, out var info)) info.Alive = false;
         }
-        public void SetReaderPinned(string name, bool pinned) { }
+        public void SetReaderPinned(string name, bool pinned) => Pins.Add((name, pinned));
     }
 
     static class TerminalWindow
@@ -93,7 +104,7 @@ namespace SlopWorld.Tests
                 AssertEx.True(hub.SessionStore.Command.Contains("--RAW-CONTROL-CHARS"), "uses current config");
                 AssertEx.True(hub.SessionStore.Command.Contains("+12"), "retains source line");
                 AssertEx.Equal("search", hub.SessionStore.Intent, "restart keeps Search routing");
-                hub.SessionStore.Complete("replacement");
+                hub.SessionStore.Complete(hub.SessionStore.Requests[0], "replacement");
                 string command = hub.SessionStore.Command;
                 pager.RefreshIfChanged("baseline");
                 pager.RefreshIfChanged("changed");
@@ -150,7 +161,15 @@ namespace SlopWorld.Tests
             AssertEx.True(store.Command.Contains("less -N"), "current pager command is rebuilt");
             AssertEx.Equal("original", pager.Session, "old session retained until ready");
             AssertEx.Equal(0, store.Stops, "old process stays alive during restart");
-            store.Complete("restyled");
+            var replacement = store.Requests[1];
+            AssertEx.Equal("p", replacement.Project, "restart project scope");
+            AssertEx.Equal("/file", replacement.Options.Reader.Path, "restart reader path");
+            AssertEx.Equal("/file", replacement.Options.Reader.Key, "restart reader key");
+            AssertEx.Equal("p", replacement.Options.Reader.Scope, "restart reader scope");
+            AssertEx.True(replacement.Options.Reader.Pinned, "restart sends retained pin");
+            AssertEx.True(replacement.Options.Host, "reader launches on host");
+            store.Complete(replacement, "restyled");
+            AssertEx.True(store.Pins.Contains(("restyled", true)), "replacement pin published to daemon");
             AssertEx.Equal("restyled", pager.Session, "same tab receives replacement");
             AssertEx.True(pager.Locked, "pin retained");
             AssertEx.Equal("settings-backing-session", TerminalWindow.Current, "settings focus retained");
@@ -174,8 +193,7 @@ namespace SlopWorld.Tests
             var pager = WatchedFile();
             var store = SessionHub.Instance.SessionStore;
             pager.RestartForAppearance(pager.Session, pager.Operation);
-            AssertEx.Throws<Exception>(() => store.Failures[1]("cannot restart"), "failure reported");
-            store.Pending.Dequeue();
+            AssertEx.Throws<Exception>(() => store.Fail(store.Requests[1], "cannot restart"), "failure reported");
             AssertEx.Equal("original", pager.Session, "failed replacement keeps original");
             AssertEx.Equal(0, store.Stops, "original process survives");
             AssertEx.True(pager.CanRestartForAppearance, "retry remains possible");
@@ -199,7 +217,7 @@ namespace SlopWorld.Tests
                 pager.RestartForAppearance(pager.Session, pager.Operation);
                 AssertEx.Equal("env BAT_THEME='Monokai Extended' DELTA_PAGER='less -N -+N -S --shift=1 --wheel-lines=1' git -c delta.line-numbers=true -c delta.minus-style='syntax auto' diff HEAD",
                     SessionHub.Instance.SessionStore.Command, "recovered diff uses the selected bat theme");
-                SessionHub.Instance.SessionStore.Complete("new-diff");
+                SessionHub.Instance.SessionStore.Complete(SessionHub.Instance.SessionStore.Requests[0], "new-diff");
                 AssertEx.True(pager.Locked, "restored diff pin retained");
             }
             finally { ModEntry.Instance.settings.codeBatTheme = oldTheme; }
@@ -229,7 +247,7 @@ namespace SlopWorld.Tests
             SessionHub.Instance = new SessionHub();
             var pager = new Pager();
             pager.ViewFile("p", "/file", "file");
-            SessionHub.Instance.SessionStore.Complete("original");
+            SessionHub.Instance.SessionStore.Complete(SessionHub.Instance.SessionStore.Requests[0], "original");
             new ReaderProbe(pager).Apply(true, "first");
             return pager;
         }
@@ -268,7 +286,7 @@ namespace SlopWorld.Tests
             new ReaderProbe(pager).Apply(true, "third");
             AssertEx.Equal(2, store.Starts, "one refresh at a time");
             AssertEx.Equal("original", pager.Session, "old reader survives until handoff");
-            store.Complete("refreshed");
+            store.Complete(store.Requests[1], "refreshed");
             AssertEx.Equal("refreshed", TerminalWindow.Current, "visible pane follows replacement");
             AssertEx.True(pager.Locked, "pin survives refresh");
             AssertEx.False(SessionHub.Instance.Get("original").Alive, "old process retired");
@@ -283,7 +301,7 @@ namespace SlopWorld.Tests
             var pager = WatchedFile();
             new ReaderProbe(pager).Apply(true, "second");
             TerminalWindow.Open("another-session");
-            SessionHub.Instance.SessionStore.Complete("refreshed");
+            SessionHub.Instance.SessionStore.Complete(SessionHub.Instance.SessionStore.Requests[1], "refreshed");
             AssertEx.Equal("another-session", TerminalWindow.Current, "focus is unchanged");
             AssertEx.Equal("refreshed", pager.Session, "hidden reader is still updated");
         }
@@ -293,13 +311,12 @@ namespace SlopWorld.Tests
             var pager = WatchedFile();
             var store = SessionHub.Instance.SessionStore;
             new ReaderProbe(pager).Apply(true, "second");
-            store.Pending.Dequeue();
-            store.Failures[1]("temporary failure");
+            store.Fail(store.Requests[1], "temporary failure");
             AssertEx.Equal("original", pager.Session, "failure keeps original reader");
             AssertEx.True(pager.Alive, "failure does not stop the preview");
             new ReaderProbe(pager).Apply(true, "second");
             AssertEx.Equal(3, store.Starts, "unchanged failed stamp is retried");
-            store.Complete("retry");
+            store.Complete(store.Requests[2], "retry");
             AssertEx.Equal("retry", pager.Session, "retry handoff succeeds");
         }
 
@@ -309,16 +326,18 @@ namespace SlopWorld.Tests
             var store = SessionHub.Instance.SessionStore;
             new ReaderProbe(pager).Apply(true, "second");
             pager.ViewFile("p", "/other", "other");
-            store.Complete("obsolete-refresh");
+            var obsolete = store.Requests[1];
+            var current = store.Requests[2];
+            store.Complete(current, "other");
+            store.Complete(obsolete, "obsolete-refresh");
             AssertEx.False(SessionHub.Instance.Get("obsolete-refresh").Alive, "late result stopped");
-            store.Complete("other");
             AssertEx.Equal("other", pager.Session, "new preview wins");
             new ReaderProbe(pager).Apply(true, "other-first");
             AssertEx.Equal(3, store.Starts, "replacement starts with its own baseline");
 
             new ReaderProbe(pager).Apply(true, "other-second");
             pager.Invalidate();
-            store.Complete("closed-refresh");
+            store.Complete(store.Requests[3], "closed-refresh");
             AssertEx.False(SessionHub.Instance.Get("closed-refresh").Alive, "closed reader stays closed");
         }
 
@@ -331,7 +350,7 @@ namespace SlopWorld.Tests
                 string command = editor ? Pager.EditorCommand("/file") : "git diff | less";
                 pager.Open("p", command, "file", editor ? "/file" : "diff:/file", "/file");
                 var store = SessionHub.Instance.SessionStore;
-                store.Complete("reader");
+                store.Complete(store.Requests[0], "reader");
                 new ReaderProbe(pager).Apply(true, "first");
                 new ReaderProbe(pager).Apply(true, "second");
                 AssertEx.Equal(1, store.Starts, "only source-file pagers restart");
@@ -344,7 +363,7 @@ namespace SlopWorld.Tests
             var pager = new Pager();
             pager.ViewFileAt("p", "/file", 42, "file");
             var store = SessionHub.Instance.SessionStore;
-            store.Complete("reader");
+            store.Complete(store.Requests[0], "reader");
             string command = store.Command;
             new ReaderProbe(pager).Apply(true, "first");
             new ReaderProbe(pager).Apply(true, "second");
@@ -360,10 +379,10 @@ namespace SlopWorld.Tests
             tabs.ForPreview().ViewFileAt("p", "/file", 42, "file");
             AssertEx.True(tabs.ReuseFile("p", "/file"), "pending source is already owned");
             AssertEx.Equal(1, store.Starts, "pending source does not start twice");
-            store.Complete("file");
+            store.Complete(store.Requests[0], "file");
             tabs.Lock("file");
             tabs.ForPreview().ViewFile("p", "/other", "other");
-            store.Complete("other");
+            store.Complete(store.Requests[1], "other");
             AssertEx.True(tabs.ReuseFile("p", "/file"), "pinned source reopens by path");
             AssertEx.Equal("file", TerminalWindow.Current, "existing line-targeted reader receives focus");
             AssertEx.Equal(2, store.Starts, "reopening does not create a duplicate reader");
@@ -381,18 +400,17 @@ namespace SlopWorld.Tests
             var pager = new Pager();
             var store = SessionHub.Instance.SessionStore;
             Start(pager, file, "/one");
-            store.Complete("one");
+            store.Complete(store.Requests[0], "one");
             Start(pager, file, "/two");
             AssertEx.Equal("one", pager.Session, "old reader remains visible during handoff");
-            var error = AssertEx.Throws<Exception>(() => store.Failures[1]("start failed"), "failure reaches UI");
-            store.Pending.Dequeue();
+            var error = AssertEx.Throws<Exception>(() => store.Fail(store.Requests[1], "start failed"), "failure reaches UI");
             AssertEx.Equal("start failed", error.Message, "original failure is reported");
             AssertEx.Equal<string>(null, pager.Session, "failed handoff clears the reader");
             AssertEx.False(pager.Owns("p", "/two"), "failed request no longer owns the key");
             AssertEx.False(pager.Reopen(), "failed reader cannot reopen");
             AssertEx.Equal(1, store.Stops, "old reader is stopped once");
             Start(pager, file, "/two");
-            store.Complete("retry");
+            store.Complete(store.Requests[2], "retry");
             AssertEx.True(pager.Matches("p", "/two"), "same key can retry after failure");
             AssertEx.Equal(3, store.Starts, "retry starts a new reader");
         }
@@ -404,10 +422,9 @@ namespace SlopWorld.Tests
             var store = SessionHub.Instance.SessionStore;
             Start(pager, file, "/one");
             Start(pager, file, "/two");
-            store.Failures[0]("obsolete failure");
-            store.Pending.Dequeue();
+            store.Fail(store.Requests[0], "obsolete failure");
             AssertEx.True(pager.Owns("p", "/two"), "stale failure preserves pending identity");
-            store.Complete("two");
+            store.Complete(store.Requests[1], "two");
             AssertEx.True(pager.Matches("p", "/two"), "replacement completes normally");
             AssertEx.Equal("two", TerminalWindow.Current, "replacement has focus");
             AssertEx.Equal(0, store.Stops, "stale failure cannot stop the replacement");
@@ -424,7 +441,7 @@ namespace SlopWorld.Tests
             AssertEx.False(pager.LockPreview("p", "/other"), "key identity must match");
             AssertEx.True(pager.LockPreview("p", "/one"), "pending reader can pin by identity");
             pager.Release();
-            store.Complete("one");
+            store.Complete(store.Requests[0], "one");
             pager.CloseIf("one");
             AssertEx.True(pager.Alive && pager.Locked, "preview release and panel close preserve pinned reader");
             AssertEx.Equal(0, store.Stops, "pinned reader has not been stopped");
@@ -443,7 +460,7 @@ namespace SlopWorld.Tests
             var pager = new Pager();
             var store = SessionHub.Instance.SessionStore;
             Start(pager, file, "/one");
-            store.Complete("one");
+            store.Complete(store.Requests[0], "one");
             pager.CloseIf(null);
             pager.CloseIf("other");
             AssertEx.True(pager.Alive, "unrelated panel close leaves reader alive");
@@ -451,7 +468,7 @@ namespace SlopWorld.Tests
             SessionHub.Instance.Sessions.Remove("one");
             pager.CloseIf("one");
             AssertEx.Equal(1, store.Stops, "owned reader is stopped even without snapshot metadata");
-            store.Complete("late");
+            store.Complete(store.Requests[1], "late");
             AssertEx.False(SessionHub.Instance.Get("late").Alive, "late completion is stopped");
             AssertEx.Equal<string>(null, pager.Session, "late completion cannot revive closed reader");
             AssertEx.Equal("one", TerminalWindow.Current, "late completion cannot take focus");
@@ -464,13 +481,13 @@ namespace SlopWorld.Tests
             var pager = new Pager();
             var store = SessionHub.Instance.SessionStore;
             Start(pager, file, "/one");
-            store.Complete("dead");
+            store.Complete(store.Requests[0], "dead");
             SessionHub.Instance.Get("dead").Alive = false;
             AssertEx.False(pager.Reopen(), "dead reader cannot reopen");
             AssertEx.False(pager.Lock(), "dead reader cannot pin");
             AssertEx.False(pager.Owns("p", "/one"), "dead reader releases its identity");
             Start(pager, file, "/one");
-            store.Complete("replacement");
+            store.Complete(store.Requests[1], "replacement");
             AssertEx.Equal(2, store.Starts, "same key starts again after process death");
             AssertEx.True(pager.Matches("p", "/one"), "replacement owns the identity");
             AssertEx.Equal("replacement", TerminalWindow.Current, "replacement takes focus");
@@ -483,15 +500,15 @@ namespace SlopWorld.Tests
             var tabs = new PagerTabs();
             var store = SessionHub.Instance.SessionStore;
             tabs.OpenFresh("p", "git diff", "diff-one", "diff:one");
-            store.Complete("old");
+            store.Complete(store.Requests[0], "old");
             tabs.Lock("old");
             tabs.ForPreview().ViewFile("p", "/two", "view-two");
-            store.Complete("two");
+            store.Complete(store.Requests[1], "two");
             tabs.OpenFresh("p", "git diff", "diff-one", "diff:one");
             tabs.OpenFresh("p", "git diff", "diff-one", "diff:one");
             AssertEx.Equal(3, store.Starts, "pending refresh shares its start");
             AssertEx.Equal(0, store.Stops, "old diff survives until handoff");
-            store.Complete("fresh");
+            store.Complete(store.Requests[2], "fresh");
             AssertEx.True(tabs.IsLocked("fresh"), "pin survives process replacement");
             AssertEx.True(tabs.IsSession("two"), "other preview remains open");
             AssertEx.False(tabs.IsSession("old"), "old snapshot retired");
@@ -504,16 +521,16 @@ namespace SlopWorld.Tests
             var tabs = new PagerTabs();
             var store = SessionHub.Instance.SessionStore;
             tabs.ForPreview().ViewFile("p", "/gone/pinned", "pinned");
-            store.Complete("pinned");
+            store.Complete(store.Requests[0], "pinned");
             tabs.Lock("pinned");
             tabs.ForPreview().ViewFile("p", "/gone/pending", "pending");
             tabs.Invalidate(tab => tab.FilePath != null && tab.FilePath.StartsWith("/gone/"));
             AssertEx.False(tabs.IsSession("pinned"), "deletion overrides pin");
-            store.Complete("late");
+            store.Complete(store.Requests[1], "late");
             AssertEx.False(SessionHub.Instance.Get("late").Alive, "late handoff is stopped");
             AssertEx.Equal(2, store.Stops, "both deleted readers stopped");
             tabs.ForPreview().ViewFile("p", "/kept", "kept");
-            store.Complete("kept");
+            store.Complete(store.Requests[2], "kept");
             tabs.Invalidate(tab => tab.FilePath == "/gone");
             AssertEx.True(tabs.IsSession("kept"), "unrelated reader survives");
         }
@@ -524,14 +541,14 @@ namespace SlopWorld.Tests
             var pager = new Pager();
             var store = SessionHub.Instance.SessionStore;
             pager.ViewFile("p", "/one", "one");
-            store.Complete("one");
+            store.Complete(store.Requests[0], "one");
             var probe = new ReaderProbe(pager);
             pager.ViewFile("p", "/two", "two");
             probe.Apply(false);
-            store.Complete("two");
+            store.Complete(store.Requests[1], "two");
             AssertEx.True(pager.Alive, "old path cannot cancel a pending replacement");
             pager.ViewFile("p", "/one", "one");
-            store.Complete("new-one");
+            store.Complete(store.Requests[2], "new-one");
             probe.Apply(false);
             AssertEx.True(pager.Alive, "old session cannot close a reopened path");
             var current = new ReaderProbe(pager);
@@ -555,7 +572,7 @@ namespace SlopWorld.Tests
             var tabs = new PagerTabs();
             var store = SessionHub.Instance.SessionStore;
             tabs.ForPreview().ViewFile("p", "/one", "view-one");
-            store.Complete("file");
+            store.Complete(store.Requests[0], "file");
             tabs.ForPreview().Open("p", "git diff", "diff-one", "diff:one");
             AssertEx.False(tabs.Reopen("p", "diff:one"), "old source is not the pending diff");
             tabs.ForPreview().Open("p", "git diff", "diff-one", "diff:one");
@@ -563,7 +580,7 @@ namespace SlopWorld.Tests
             AssertEx.True(store.Host, "diff runs on host");
             AssertEx.False(store.Temp, "diff retains project cwd");
             AssertEx.Equal("p", store.Project, "diff project");
-            store.Complete("diff");
+            store.Complete(store.Requests[1], "diff");
             AssertEx.True(tabs.Reopen("p", "diff:one"), "completed diff can reopen");
             AssertEx.Equal("diff", TerminalWindow.Current, "correct reader is active");
             AssertEx.Equal(1, store.Stops, "source retired after diff handoff");
@@ -576,7 +593,7 @@ namespace SlopWorld.Tests
             var store = SessionHub.Instance.SessionStore;
             pager.Open("p", "git diff", "diff-one", "diff:one");
             pager.Release();
-            store.CompleteUnlisted("late-diff");
+            store.Complete(store.Requests[0], "late-diff", listed: false);
             AssertEx.Equal(1, store.Stops, "superseded run is stopped without a session snapshot row");
         }
 
@@ -587,15 +604,15 @@ namespace SlopWorld.Tests
             var tabs = new PagerTabs(() => nativeReleases++);
             var store = SessionHub.Instance.SessionStore;
             tabs.ForPreview().ViewFile("p", "/one", "view-one");
-            store.Complete("file");
+            store.Complete(store.Requests[0], "file");
             tabs.Lock("file");
             tabs.ForPreview().Open("p", "git diff", "diff-one", "diff:one");
-            store.Complete("diff");
+            store.Complete(store.Requests[1], "diff");
             AssertEx.True(tabs.Reopen("p", "/one"), "source remains independently addressable");
             AssertEx.True(tabs.Reopen("p", "diff:one"), "diff has a separate identity");
             AssertEx.Equal(2, nativeReleases, "reopening does not replace a native preview");
             tabs.ForPreview().ViewFile("p", "/two", "view-two");
-            store.Complete("two");
+            store.Complete(store.Requests[2], "two");
             AssertEx.False(tabs.IsSession("diff"), "file replaces the unpinned diff");
             AssertEx.True(tabs.IsSession("file"), "pinned source survives replacement");
             AssertEx.Equal(1, store.Stops, "only the shared preview was stopped");
@@ -614,12 +631,12 @@ namespace SlopWorld.Tests
             AssertEx.True(store.Host, "file viewer runs on host");
             AssertEx.False(store.Temp, "viewer retains project cwd");
             AssertEx.Equal("p", store.Project, "viewer project");
-            store.Complete("one");
+            store.Complete(store.Requests[0], "one");
             pager.ViewFile("p", "/two", "view-two");
             AssertEx.False(pager.Matches("p", "/two"), "old session is not the pending file");
             pager.ViewFile("p", "/two", "view-two");
             AssertEx.Equal(2, store.Starts, "replacement click is coalesced");
-            store.Complete("two");
+            store.Complete(store.Requests[1], "two");
             pager.ViewFile("p", "/two", "view-two");
             AssertEx.Equal(2, store.Starts, "live file is reused");
             AssertEx.Equal(1, store.Stops, "only replaced session stopped");
@@ -631,10 +648,10 @@ namespace SlopWorld.Tests
             var tabs = new PagerTabs();
             var store = SessionHub.Instance.SessionStore;
             tabs.ForPreview().ViewFile("p", "/one", "view-one");
-            store.Complete("one");
+            store.Complete(store.Requests[0], "one");
             tabs.Lock("one");
             tabs.ForPreview().ViewFile("p", "/two", "view-two");
-            store.Complete("two");
+            store.Complete(store.Requests[1], "two");
             AssertEx.True(tabs.Reopen("p", "/one"), "find pinned file independently of selection");
             AssertEx.Equal("one", TerminalWindow.Current, "focus pinned session");
             AssertEx.Equal(2, store.Starts, "no duplicate session");

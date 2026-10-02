@@ -57,6 +57,10 @@ namespace SlopWorld.Tests
             var narrow = InlineTextLayout.Cells("😀x", 2, 7f, Catalog, c => true);
             AssertEx.Equal(7f, narrow.Spans[0].Width, "same sprite may occupy one cell");
             AssertEx.Equal(7f, narrow.Spans[1].X, "next text starts at the daemon column");
+            var cluster = InlineTextLayout.CellCluster("👩‍💻", 2, 7f, Catalog);
+            AssertEx.Equal("👩‍💻", cluster.Spans[0].Text, "complete known cluster");
+            AssertEx.Equal(2, cluster.Spans[0].Sprite, "known cluster catalog slot");
+            AssertEx.Equal(14f, cluster.Spans[0].Width, "known cluster follows daemon columns");
             var sequence = InlineTextLayout.Cells("👩‍💻x", 4, 7f, Catalog, c => true);
             AssertEx.Equal(21f, sequence.Spans[0].Width, "sequence preserves supplied scalar cells");
             AssertEx.Equal(21f, sequence.Spans[1].X, "sequence cannot collapse terminal geometry");

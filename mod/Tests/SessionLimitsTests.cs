@@ -16,9 +16,13 @@ namespace SlopWorld.Tests
             var limits = SessionLimits.FromWire(ProtobufFixtures.Read<Wire.Limits>(JVal.Parse("{}")));
 
             AssertEx.True(limits.IsEmpty, "missing limits are empty");
-            AssertEx.True(!limits.MemoryMb.HasValue && !limits.Pids.HasValue &&
-                          !limits.Nofile.HasValue && !limits.CpuPct.HasValue,
-                          "missing limits remain unset");
+            AssertEx.False(limits.MemoryMb.HasValue, "missing memory cap stays unset");
+            AssertEx.False(limits.Pids.HasValue, "missing process cap stays unset");
+            AssertEx.False(limits.Nofile.HasValue, "missing file cap stays unset");
+            AssertEx.False(limits.CpuPct.HasValue, "missing CPU cap stays unset");
+            var absent = SessionLimits.FromWire(null);
+            AssertEx.True(absent.IsEmpty, "null limits are empty");
+            AssertEx.Equal("{}", absent.ToJson(), "null limits serialize empty");
             AssertEx.Equal("{}", limits.ToJson(), "empty limits JSON");
         }
 

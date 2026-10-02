@@ -55,6 +55,7 @@ namespace UnityEngine
         }
         float Scale => font == null ? 1f : (fontSize > 0 ? fontSize : font.fontSize) / (float)font.fontSize;
         public float lineHeight => font == null ? 1f : font.Height * Scale;
+        // Synthetic deterministic advances exercise wrapping; these are not Unity font measurements.
         public Vector2 CalcSize(GUIContent content)
         {
             float width = 0f;
@@ -166,7 +167,7 @@ namespace UnityEngine
 
     public static class Mathf
     {
-        public static bool Approximately(float a, float b) => System.Math.Abs(a - b) < .0001f;
+        public static bool Approximately(float a, float b) => System.Math.Abs(a - b) < System.Math.Max(0.000001f * System.Math.Max(System.Math.Abs(a), System.Math.Abs(b)), float.Epsilon * 8f);
         public static int Max(int a, int b) => a > b ? a : b;
         public static int Min(int a, int b) => a < b ? a : b;
         public static float Min(float a, float b) => a < b ? a : b;

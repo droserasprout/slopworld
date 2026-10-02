@@ -87,12 +87,13 @@ namespace SlopWorld.Tests
                     case "missing": Directory.Delete(target, true); expected = "theme directory is missing"; break;
                     case "empty": File.Delete(source); File.WriteAllText(Path.Combine(target, "ignored.txt"), "not a theme"); expected = "catalog has no files"; break;
                     case "malformed": File.WriteAllText(source, "not toml"); expected = "invalid " + source + " theme file"; break;
-                    default:
+                    case "duplicate":
                         string custom = Change(terminal, t => { t.Remove("order"); t["id"] = "duplicate"; });
                         File.WriteAllText(source, custom);
                         File.WriteAllText(Path.Combine(target, "copy.toml"), custom);
                         expected = "theme id is duplicated: duplicate";
                         break;
+                    default: throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown fixture");
                 }
                 var error = Assert.Throws<FormatException>(() => ThemeCatalog.Load(root));
                 Assert.That(error.Message, Does.Contain(expected));

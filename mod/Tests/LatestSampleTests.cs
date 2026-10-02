@@ -1,36 +1,63 @@
 using System;
 using System.Threading;
+using System.Threading.Tasks;
+using System.Reflection;
 
 namespace SlopWorld.Tests
 {
     static class LatestSampleTests
     {
+        static bool ResultPending(LatestSample<int> sample)
+        {
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var gate = typeof(LatestSample<int>).GetField("_gate", flags).GetValue(sample);
+            lock (gate) return (bool)typeof(LatestSample<int>).GetField("_resultPending", flags).GetValue(sample);
+        }
+
         public static void BlockedNativeReadDoesNotBlockOrQueueWheelFlood()
         {
-            using var entered = new ManualResetEventSlim();
-            using var release = new ManualResetEventSlim();
+            using var firstEntered = new ManualResetEventSlim();
+            using var secondEntered = new ManualResetEventSlim();
+            using var releaseFirst = new ManualResetEventSlim();
+            using var releaseSecond = new ManualResetEventSlim();
             int calls = 0;
             using var sample = new LatestSample<int>(() =>
             {
-                Interlocked.Increment(ref calls);
-                entered.Set();
-                release.Wait();
-                return 42;
+                int invocation = Interlocked.Increment(ref calls);
+                if (invocation == 1) { firstEntered.Set(); releaseFirst.Wait(); }
+                else { secondEntered.Set(); releaseSecond.Wait(); }
+                return 41 + invocation;
             });
+            Task flood = null;
             try
             {
-                AssertEx.Equal(false, sample.TryRead(out _, out _), "first call schedules only");
-                AssertEx.Equal(true, entered.Wait(2000), "native read started on worker");
-                for (int i = 0; i < 10000; i++)
-                    AssertEx.Equal(false, sample.TryRead(out _, out _), "input never waits for native read");
-                AssertEx.Equal(1, Volatile.Read(ref calls), "no backlog of native requests");
-                release.Set();
-                int value = 0;
-                AssertEx.Equal(true, SpinWait.SpinUntil(() => sample.TryRead(out value, out _), 2000),
-                    "completed sample becomes available");
-                AssertEx.Equal(42, value, "native result published");
+                AssertEx.False(sample.TryRead(out _, out _), "first call schedules only");
+                AssertEx.True(firstEntered.Wait(2000), "native read started on worker");
+                flood = Task.Run(() =>
+                {
+                    for (int i = 0; i < 10000; i++)
+                        AssertEx.False(sample.TryRead(out _, out _), "input never waits for native read");
+                });
+                AssertEx.True(flood.Wait(2000), "wheel caller finishes while native read remains blocked");
+                AssertEx.Equal(1, Volatile.Read(ref calls), "flood cannot queue native requests");
+                releaseFirst.Set();
+                AssertEx.True(SpinWait.SpinUntil(() => ResultPending(sample), 2000), "first result published without more polls");
+                AssertEx.True(sample.TryRead(out int value, out _), "consume first result and request one successor");
+                AssertEx.Equal(42, value, "first result");
+                AssertEx.True(secondEntered.Wait(2000), "one successor starts");
+                releaseSecond.Set();
+                AssertEx.True(SpinWait.SpinUntil(() => ResultPending(sample), 2000), "second result published without more polls");
+                var worker = (Thread)typeof(LatestSample<int>).GetField("_worker", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sample);
+                AssertEx.True(SpinWait.SpinUntil(() => (worker.ThreadState & ThreadState.WaitSleepJoin) != 0, 2000), "worker returns to idle wait");
+                AssertEx.Equal(2, Volatile.Read(ref calls), "no preexisting wheel request starts a third read");
             }
-            finally { sample.Dispose(); release.Set(); }
+            finally
+            {
+                sample.Dispose();
+                releaseFirst.Set();
+                releaseSecond.Set();
+                flood?.Wait(2000);
+            }
         }
 
         public static void NativeFailureStopsSamplingAndIsReportedWithoutThrowingOnCaller()

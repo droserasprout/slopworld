@@ -89,60 +89,60 @@ namespace SlopWorld.Tests
 
         public static void RuntimeStringPreferencesAreNullSafeAndReflectLiveEdits() => WithSettings(settings =>
         {
-            var cases = new (Action<string> Set, Func<string> Get, string Fallback)[]
+            var cases = new (string Name, Action<string> Set, Func<string> Get, string Fallback)[]
             {
-                (v => settings.foldedProjects = v, () => Settings.FoldedProjects, ""),
-                (v => settings.sidebarTab = v, () => Settings.SidebarTab, ""),
-                (v => settings.sidebarAgentStatus = v, () => Settings.SidebarAgentStatus, "all"),
-                (v => settings.sidebarFilter = v, () => Settings.SidebarFilter, ""),
-                (v => settings.commandPaletteHistory = v, () => Settings.CommandPaletteHistory, ""),
-                (v => settings.usageIcons = v, () => Settings.UsageIcons, ""),
-                (v => settings.fontName = v, () => Settings.FontName, ""),
-                (v => settings.uiFontName = v, () => Settings.UIFontName, ""),
-                (v => settings.uiScheme = v, () => Settings.UIScheme, ""),
-                (v => settings.theme = v, () => Settings.Theme, ""),
-                (v => settings.cursorColor = v, () => Settings.CursorColor, ""),
-                (v => settings.cursor = v, () => Settings.Cursor, "tame"),
-                (v => settings.radio = v, () => Settings.Radio, ""),
-                (v => settings.radioHiddenSources = v, () => Settings.RadioHiddenSources, ""),
+                ("foldedProjects", v => settings.foldedProjects = v, () => Settings.FoldedProjects, ""),
+                ("sidebarTab", v => settings.sidebarTab = v, () => Settings.SidebarTab, ""),
+                ("sidebarAgentStatus", v => settings.sidebarAgentStatus = v, () => Settings.SidebarAgentStatus, "all"),
+                ("sidebarFilter", v => settings.sidebarFilter = v, () => Settings.SidebarFilter, ""),
+                ("commandPaletteHistory", v => settings.commandPaletteHistory = v, () => Settings.CommandPaletteHistory, ""),
+                ("usageIcons", v => settings.usageIcons = v, () => Settings.UsageIcons, ""),
+                ("fontName", v => settings.fontName = v, () => Settings.FontName, ""),
+                ("uiFontName", v => settings.uiFontName = v, () => Settings.UIFontName, ""),
+                ("uiScheme", v => settings.uiScheme = v, () => Settings.UIScheme, ""),
+                ("theme", v => settings.theme = v, () => Settings.Theme, ""),
+                ("cursorColor", v => settings.cursorColor = v, () => Settings.CursorColor, ""),
+                ("cursor", v => settings.cursor = v, () => Settings.Cursor, "tame"),
+                ("radio", v => settings.radio = v, () => Settings.Radio, ""),
+                ("radioHiddenSources", v => settings.radioHiddenSources = v, () => Settings.RadioHiddenSources, ""),
             };
             for (int i = 0; i < cases.Length; i++)
             {
                 var item = cases[i];
                 item.Set(null);
-                AssertEx.Equal(item.Fallback, item.Get(), "null preference fallback " + i);
+                AssertEx.Equal(item.Fallback, item.Get(), "null preference fallback " + item.Name);
                 item.Set("live value\nsecond line");
-                AssertEx.Equal("live value\nsecond line", item.Get(), "live preference preserved " + i);
+                AssertEx.Equal("live value\nsecond line", item.Get(), "live preference preserved " + item.Name);
                 item.Set("");
-                AssertEx.Equal("", item.Get(), "explicit empty preference preserved " + i);
+                AssertEx.Equal("", item.Get(), "explicit empty preference preserved " + item.Name);
             }
         });
 
         public static void RuntimeTogglesFollowBothEnabledAndDisabledValues() => WithSettings(settings =>
         {
-            var cases = new (Action<bool> Set, Func<bool> Get)[]
+            var cases = new (string Name, Action<bool> Set, Func<bool> Get)[]
             {
-                (v => settings.autoConnect = v, () => Settings.AutoConnect),
-                (v => settings.fullscreen = v, () => Settings.Fullscreen),
-                (v => settings.sidebarHidden = v, () => Settings.SidebarHidden),
-                (v => settings.sidebarShowHidden = v, () => Settings.SidebarShowHidden),
-                (v => settings.sidebarShowGitignored = v, () => Settings.SidebarShowGitignored),
-                (v => settings.usageSpent = v, () => Settings.UsageSpent),
-                (v => settings.cursorGrayscale = v, () => Settings.CursorGrayscale),
-                (v => settings.radioMute = v, () => Settings.RadioMute),
-                (v => settings.statusbarUsage = v, () => Settings.StatusbarUsage),
-                (v => settings.statusbarJukebox = v, () => Settings.StatusbarJukebox),
-                (v => settings.statusbarGM = v, () => Settings.StatusbarGM),
-                (v => settings.statusbarAgentIndicators = v, () => Settings.StatusbarAgentIndicators),
-                (v => settings.radioStopOnExit = v, () => Settings.RadioStopOnExit),
-                (v => settings.grandmaMode = v, () => Settings.GrandmaMode),
-                (v => settings.ecoMode = v, () => Settings.EcoMode),
+                ("autoConnect", v => settings.autoConnect = v, () => Settings.AutoConnect),
+                ("fullscreen", v => settings.fullscreen = v, () => Settings.Fullscreen),
+                ("sidebarHidden", v => settings.sidebarHidden = v, () => Settings.SidebarHidden),
+                ("sidebarShowHidden", v => settings.sidebarShowHidden = v, () => Settings.SidebarShowHidden),
+                ("sidebarShowGitignored", v => settings.sidebarShowGitignored = v, () => Settings.SidebarShowGitignored),
+                ("usageSpent", v => settings.usageSpent = v, () => Settings.UsageSpent),
+                ("cursorGrayscale", v => settings.cursorGrayscale = v, () => Settings.CursorGrayscale),
+                ("radioMute", v => settings.radioMute = v, () => Settings.RadioMute),
+                ("statusbarUsage", v => settings.statusbarUsage = v, () => Settings.StatusbarUsage),
+                ("statusbarJukebox", v => settings.statusbarJukebox = v, () => Settings.StatusbarJukebox),
+                ("statusbarGM", v => settings.statusbarGM = v, () => Settings.StatusbarGM),
+                ("statusbarAgentIndicators", v => settings.statusbarAgentIndicators = v, () => Settings.StatusbarAgentIndicators),
+                ("radioStopOnExit", v => settings.radioStopOnExit = v, () => Settings.RadioStopOnExit),
+                ("grandmaMode", v => settings.grandmaMode = v, () => Settings.GrandmaMode),
+                ("ecoMode", v => settings.ecoMode = v, () => Settings.EcoMode),
             };
             foreach (var item in cases)
                 foreach (bool value in new[] { false, true })
                 {
                     item.Set(value);
-                    AssertEx.Equal(value, item.Get(), "runtime toggle follows live preference");
+                    AssertEx.Equal(value, item.Get(), "runtime toggle follows live preference: " + item.Name);
                 }
             settings.sidebarWidth = 333;
             settings.fontSize = 18;
@@ -219,5 +219,17 @@ namespace SlopWorld.Tests
                 AssertEx.Equal("24-hour", TimeFormat.Label(settings.timeFormat), "fallback label");
             }
         });
+        public static void AlternateTemperatureKeepsItsEmojiLabel()
+        {
+                AssertEx.Equal(TemperatureUnit.Alternate,
+                    TemperatureUnit.Normalize(TemperatureUnit.Alternate),
+                    "custom temperature unit normalization");
+                AssertEx.Equal(TemperatureUnit.AlternateLabel,
+                    TemperatureUnit.Label(TemperatureUnit.Alternate, "Fahrenheit"),
+                    "custom temperature unit label");
+                AssertEx.Equal("\u0067\u006c\u0061\u007a\u0065\u0064\U0001F369\u002f\u0062\u0061\u006c\u0064\U0001F985", TemperatureUnit.AlternateLabel,
+                    "custom temperature unit keeps the real emoji label");
+        }
+
     }
 }

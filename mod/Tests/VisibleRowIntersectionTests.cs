@@ -17,7 +17,7 @@ namespace SlopWorld.Tests
         }
 
         [Test]
-        public void WorkDependsOnViewportForBothSingleAndStackedRows()
+        public void IntersectingRowCountIsBoundedForBothSingleAndStackedRows()
         {
             foreach (float rowHeight in new[] { 24f, 72f })
             {

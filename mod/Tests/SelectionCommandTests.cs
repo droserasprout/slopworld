@@ -11,20 +11,32 @@ namespace SlopWorld.Tests
             yield return ("select all keeps caller side effects", SelectAll);
         }
 
+        public static void EachCommandUsesItsOwnAvailabilityAndAction()
+        {
+            var commands = new[] { SelectionCommand.Copy, SelectionCommand.Paste, SelectionCommand.SelectAll, SelectionCommand.Cut };
+            for (int enabled = 0; enabled < commands.Length; enabled++)
+            {
+                var available = new SelectionCommandAvailability(enabled == 0, enabled == 1, enabled == 2, enabled == 3);
+                int called = 0;
+                foreach (var command in commands)
+                {
+                    int before = called;
+                    bool expected = command == commands[enabled];
+                    AssertEx.Equal(expected, SelectionCommandPolicy.TryExecute(command, available, () => called++), "availability for " + command);
+                    AssertEx.Equal(before + (expected ? 1 : 0), called, "action count after " + command);
+                }
+            }
+        }
+
         static void Disabled()
         {
             var unavailable = new SelectionCommandAvailability(false, false, false, false);
-            bool called = false;
-            AssertEx.False(SelectionCommandPolicy.TryExecute(
-                SelectionCommand.Copy, unavailable, () => called = true),
-                "disabled copy is rejected");
-            AssertEx.False(called, "disabled copy does not invoke its action");
-            AssertEx.False(SelectionCommandPolicy.TryExecute(
-                SelectionCommand.Paste, unavailable, () => called = true),
-                "disabled paste is rejected");
-            AssertEx.False(SelectionCommandPolicy.TryExecute(
-                SelectionCommand.Cut, unavailable, () => called = true),
-                "disabled cut is rejected");
+            int called = 0;
+            foreach (SelectionCommand command in Enum.GetValues(typeof(SelectionCommand)))
+            {
+                AssertEx.False(SelectionCommandPolicy.TryExecute(command, unavailable, () => called++), "disabled " + command);
+                AssertEx.Equal(0, called, "rejected " + command + " never calls the action");
+            }
         }
 
         static void SelectAll()

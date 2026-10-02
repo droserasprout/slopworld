@@ -4,7 +4,6 @@ using UnityEngine;
 
 namespace UnityEngine
 {
-    static partial class GUI { public static Color color; }
 }
 
 namespace Verse

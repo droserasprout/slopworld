@@ -15,7 +15,12 @@ namespace SlopWorld.Tests
             AssertContained(wide, 1000f, 500f);
 
             float breakpoint = SandboxLayout.Breakpoint(Gap);
-            AssertEx.False(Arrange(breakpoint, 500f, Gap).Stacked,
+            var atBreakpoint = Arrange(breakpoint, 500f, Gap);
+            AssertEx.Equal(SandboxLayout.ListMinimumWidth + SandboxLayout.EditorMinimumWidth + Gap, breakpoint, "breakpoint is both minima plus gap");
+            AssertEx.Equal(SandboxLayout.ListMinimumWidth, atBreakpoint.List.Width, "breakpoint list minimum");
+            AssertEx.Equal(SandboxLayout.EditorMinimumWidth, atBreakpoint.Editor.Width, "breakpoint editor minimum");
+            AssertEx.Equal(Gap, atBreakpoint.Editor.X - atBreakpoint.List.XMax, "breakpoint pane separation");
+            AssertEx.False(atBreakpoint.Stacked,
                 "breakpoint fits both panes");
             AssertEx.True(Arrange(breakpoint - 0.01f, 500f, Gap).Stacked,
                 "below the breakpoint stacks panes");

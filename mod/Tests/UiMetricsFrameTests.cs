@@ -52,7 +52,8 @@ namespace SlopWorld.Tests
                 case "density": Settings.S.uiDensity = "compact"; break;
                 case "scale": Prefs.UIScale = 1.5f; break;
                 case "font": UiFont.RevisionValue++; break;
-                default: UiTheme.AtlasRevisionValue++; break;
+                case "atlas": UiTheme.AtlasRevisionValue++; break;
+                default: throw new ArgumentOutOfRangeException(nameof(kind));
             }
             Assert.That(UiMetrics.Revision, Is.EqualTo(revision), "event passes use one snapshot");
             Assert.That(UiMetrics.DensityRevision, Is.EqualTo(density));

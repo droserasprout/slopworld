@@ -23,7 +23,11 @@ namespace SlopWorld.Tests
 
         static Wire.SessionsReply Sessions(string name) =>
             new Wire.SessionsReply { Sessions = { new Wire.SessionView {
-                Name = name, Launch = new Wire.SessionLaunchView(), Worker = new Wire.SessionWorkerView(), Reader = new Wire.SessionReaderView(), Runtime = new Wire.SessionRuntimeView()
+                Name = name,
+                Launch = new Wire.SessionLaunchView(),
+                Worker = new Wire.SessionWorkerView(),
+                Reader = new Wire.SessionReaderView(),
+                Runtime = new Wire.SessionRuntimeView()
             } } };
 
         public static void RefreshRejectsSupersededSnapshots()

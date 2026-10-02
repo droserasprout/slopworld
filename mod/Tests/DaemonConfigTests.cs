@@ -123,11 +123,22 @@ namespace SlopWorld.Tests
 
         static void UsesFactoryMetadata()
         {
-            var config = DaemonConfig.FromWire(ProtobufFixtures.Read<Wire.Config>(JVal.Parse("{}")), ProtobufFixtures.Read<Wire.ConfigMetadata>(JVal.Parse(
-                "{\"defaults\":{\"daemon\":{\"usage_poll_secs\":17,\"title_model\":\"daemon/model\"}," +
-                "\"defaults\":{\"agent\":\"daemon-agent\"},\"commands\":{}}," +
-                "\"usage_catalog\":[{\"key\":\"custom\",\"label\":\"Custom\",\"provider\":\"x\",\"unit\":\"usd\",\"rank\":9,\"default_poll\":false}]," +
-                "\"temporary_root\":\"/daemon/tmp\",\"terminal\":{\"scrollback_lines\":12,\"min_cols\":21,\"max_cols\":301,\"min_rows\":6,\"max_rows\":101}}")));
+            const string metadataJson = """
+                {
+                  "defaults": {
+                    "daemon": { "usage_poll_secs": 17, "title_model": "daemon/model" },
+                    "defaults": { "agent": "daemon-agent" },
+                    "commands": {}
+                  },
+                  "usage_catalog": [{ "key": "custom", "label": "Custom", "provider": "x",
+                    "unit": "usd", "rank": 9, "default_poll": false }],
+                  "temporary_root": "/daemon/tmp",
+                  "terminal": { "scrollback_lines": 12, "min_cols": 21, "max_cols": 301,
+                    "min_rows": 6, "max_rows": 101 }
+                }
+                """;
+            var config = DaemonConfig.FromWire(new Wire.Config(),
+                ProtobufFixtures.Read<Wire.ConfigMetadata>(JVal.Parse(metadataJson)));
             AssertEx.True(config.MetadataAvailable, "metadata available");
             AssertEx.Equal(17, config.FactoryDefaults.UsagePollSecs, "daemon poll factory");
             AssertEx.Equal("daemon/model", config.FactoryDefaults.TitleModel, "daemon title factory");
@@ -165,6 +176,7 @@ namespace SlopWorld.Tests
                 TitleMinChars = 42,
                 PiTitles = "never",
                 WorkerPrompt = "Retrieve $SLOPWORLD_TASK_ID, accept it, and finish it.",
+                TaskSummaries = "once",
                 Agent = "codex --full-auto",
                 AgentShell = "zsh",
                 Shell = "bash -lc",
@@ -196,6 +208,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal(expected.PiTitles, actual.PiTitles, "Pi titles round trip");
             AssertEx.Equal(expected.WorkerPrompt, actual.WorkerPrompt,
                            "worker prompt round trip");
+            AssertEx.Equal(expected.TaskSummaries, actual.TaskSummaries, "task summaries round trip");
             AssertEx.Equal(expected.Agent, actual.Agent, "agent round trip");
             AssertEx.Equal(expected.AgentShell, actual.AgentShell, "agent shell round trip");
             AssertEx.Equal(expected.Shell, actual.Shell, "shell round trip");

@@ -7,6 +7,7 @@ namespace SlopWorld
         static bool _quit, _muted, _blamed;
         static object _station;
         static int _selectionRevision;
+        // Persistence is intentionally omitted; this harness checks Spotify lifecycle only.
         static void Read() { }
         static void Save() { }
         static void Push() { _selectionRevision++; _openingSpotify = false; }
@@ -21,8 +22,8 @@ namespace SlopWorld
         internal static bool SpotifyRequested => _spotify && !_muted && !_blamed && _station == null;
         internal static void QuitSpotifyTest() { _quit = true; }
         internal static void ReplaceSpotifyTest() { _spotify = false; Push(); }
-        internal static void ReportSpotifyTest(string session, string error = null) =>
-            ReportSpotify(error, "ncspot", session);
+        internal static void ReportSpotifyTest(string session, string error = null, string source = "ncspot") =>
+            ReportSpotify(error, source, session);
     }
 
     sealed partial class SessionHub
@@ -34,6 +35,7 @@ namespace SlopWorld
     sealed partial class PagerTestStore
     {
         public Action Refreshed;
-        public void Refresh(Action ok, Action<string> fail) { Refreshed = ok; }
+        public Action<string> RefreshFailed;
+        public void Refresh(Action ok, Action<string> fail) { Refreshed = ok; RefreshFailed = fail; }
     }
 }

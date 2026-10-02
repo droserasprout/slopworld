@@ -67,8 +67,9 @@ namespace SlopWorld.Tests
 
         static void PrefersWordHeadsToMidWordMatches()
         {
-            Fuzzy.Match("SlopWorld", "sw", out int wordHeadScore);
-            Fuzzy.Match("somewhere", "sw", out int midWordScore);
+            bool head = Fuzzy.Match("SlopWorld", "sw", out int wordHeadScore);
+            bool middle = Fuzzy.Match("somewhere", "sw", out int midWordScore);
+            AssertEx.True(head && middle, "both candidates match before comparing scores");
 
             AssertEx.True(wordHeadScore > midWordScore,
                           "word-head match should outrank mid-word match");

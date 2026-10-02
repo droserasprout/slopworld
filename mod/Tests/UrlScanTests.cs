@@ -7,14 +7,14 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
-            yield return ("extracts a web url mid-sentence", ExtractsWebUrl);
+            yield return ("extracts web URLs with boundary and scheme-case rules", ExtractsWebUrlWithBoundaryAndSchemeRules);
             yield return ("ignores non-web schemes and bare schemes", IgnoresNonWebAndBare);
             yield return ("trims trailing punctuation and balances brackets", TrimsAndBalances);
             yield return ("parses OSC 8 link bodies", ParsesOsc);
             yield return ("stops at URL-forbidden punctuation", StopsAtForbiddenPunctuation);
         }
 
-        static void ExtractsWebUrl()
+        static void ExtractsWebUrlWithBoundaryAndSchemeRules()
         {
             var spans = UrlScan.FindUrls("see http://example.com/x here");
 

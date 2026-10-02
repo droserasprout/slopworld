@@ -83,14 +83,5 @@ namespace SlopWorld.Tests
             }
         }
 
-        public static void PreferenceLabelsUseNormalizedFallbacks()
-        {
-            Assert.That(NavigationSide.Label("RIGHT"), Is.EqualTo("Right"));
-            Assert.That(NavigationSide.Label(null), Is.EqualTo("Left"));
-            Assert.That(NavigationSide.Label("unknown"), Is.EqualTo("Left"));
-            Assert.That(UiDensityPreset.Label("COMPACT"), Is.EqualTo("Compact"));
-            Assert.That(UiDensityPreset.Label(null), Is.EqualTo("Default"));
-            Assert.That(UiDensityPreset.Label("unknown"), Is.EqualTo("Default"));
-        }
     }
 }

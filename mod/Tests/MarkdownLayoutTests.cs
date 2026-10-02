@@ -24,7 +24,7 @@ namespace SlopWorld.Tests
             var lines = new List<SelectionLine>();
             MarkdownSelectionText.CollectText(lines, text, 0, 0);
             return MarkdownSelectionText.CopyRange(lines, new Vector2Int(0, 0),
-                new Vector2Int(lines.Last().Text.Length, lines.Count - 1));
+                new Vector2Int(lines.Last().Text.Length, lines.Count - 1)) + (lines.Last().Source.CopySuffix ?? "");
         }
 
         public static void LayoutGenerationChangesOnlyWhenPlacementsChange()
@@ -212,5 +212,111 @@ namespace SlopWorld.Tests
             AssertEx.Equal("<unsupported>", Copy(placements[1].Text), "raw content remains selectable");
             AssertEx.True(engine.Styles != null, "layout initializes typography");
         }
+        public static void OrderedMarkerGutter()
+        {
+            AssertEx.Equal(32f, MarkdownTableGeometry.MarkerGutter(100, 24),
+                "wide ordered marker gets marker width plus spacing");
+            AssertEx.Equal(20f, MarkdownTableGeometry.MarkerGutter(20, 24),
+                "marker gutter never exceeds the available list width");
+        }
+
+        public static void TableGeometry()
+        {
+            var widths = MarkdownTableGeometry.AllocateColumns(100,
+                new[] { 20f, 20f }, new[] { 20f, 100f });
+            AssertEx.Equal(20f, widths[0], "short numeric column stays near its need");
+            AssertEx.Equal(80f, widths[1], "prose column receives remaining viewport width");
+            AssertEx.Equal(100f, widths[0] + widths[1], "column widths fill the viewport");
+
+            var table = PreviewParser().Parse("| n | prose |\n| ---: | :---: |\n| 1 | text |")[0];
+            AssertEx.Equal(TableAlignment.Right, table.ColumnAlignments[0],
+                "right table alignment is retained");
+            AssertEx.Equal(TableAlignment.Center, table.ColumnAlignments[1],
+                "center table alignment is retained");
+            AssertEx.Equal(0f, MarkdownTableGeometry.Padding(1f),
+                "narrow table cells remove padding before overflowing");
+        }
+
+        public static void NestedListGeometry()
+        {
+            var engine = PreviewFlow("100. outer\n     - nested\n101. next");
+            float lastBottom = 0f;
+            float firstX = -1f;
+            foreach (var placement in engine.Placements)
+            {
+                if (placement.Kind != PlacementKind.Text) continue;
+                AssertEx.True(placement.Y >= lastBottom, "nested text never overlaps a sibling");
+                lastBottom = placement.Y + placement.Height;
+                if (firstX < 0f) firstX = placement.X;
+            }
+            foreach (var placement in engine.Placements)
+                if (placement.Kind == PlacementKind.Bullet && placement.X == UiTheme.GapM)
+                    AssertEx.True(placement.X + placement.Text.Width < firstX,
+                        "three-digit marker leaves a gap before content");
+            var tight = PreviewFlow("- one\n- two");
+            var loose = PreviewFlow("- one\n\n- two");
+            AssertEx.True(loose.Height > tight.Height, "loose list changes actual block spacing");
+        }
+
+        public static void TerminalTypography()
+        {
+            var oldStyle = TerminalFont.Style;
+            int oldRevision = TerminalFont.Rev;
+            try
+            {
+                var blocks = PreviewParser().Parse("```\nWWWW\n```");
+                var engine = new MarkdownLayoutEngine(new MarkdownResourceStore(new MarkdownPathResolver("", "")));
+                engine.Reflow(blocks, 300);
+                var before = engine.Placements[0];
+                TerminalFont.Style = new GUIStyle(oldStyle) { fontSize = 24 };
+                TerminalFont.Rev++;
+                engine.Reflow(blocks, 300);
+                AssertEx.True(engine.Placements[0].Text.Width > before.Text.Width,
+                    "same-width reflow sees a terminal font change without UI metric changes");
+                var settled = engine.Placements[0];
+                engine.Reflow(blocks, 300);
+                AssertEx.True(ReferenceEquals(settled, engine.Placements[0]),
+                    "unchanged frames retain the settled geometry");
+            }
+            finally { TerminalFont.Style = oldStyle; TerminalFont.Rev = oldRevision; }
+        }
+
+        public static void NarrowTableBounds()
+        {
+            var engine = PreviewFlow("| a | b |\n| ---: | :---: |\n| `W` | W |", 40);
+            var placement = engine.Placements[0];
+            var lines = new List<SelectionLine>();
+            MarkdownSelectionText.CollectTable(lines, placement);
+            foreach (var line in lines)
+                AssertEx.True(line.X + line.Width <= placement.X + placement.Width,
+                    "selection is clipped to the table even when one glyph cannot fit");
+            AssertEx.Equal("a\nb\nW\nW", PreviewCopy(lines),
+                "clipping preserves complete source text for copying");
+            foreach (var row in placement.Table.Rows)
+                foreach (var cell in row.Cells)
+                    AssertEx.True(cell.Lines.Count > 0, "narrow cells retain source lines");
+        }
+
+        static MarkdownDocumentParser PreviewParser()
+        {
+            var paths = new MarkdownPathResolver("demo", "/work/demo/docs/readme.md",
+                () => "/work/demo");
+            return new MarkdownDocumentParser(paths);
+        }
+
+        static MarkdownLayoutEngine PreviewFlow(string source, float width = 300f)
+        {
+            var engine = new MarkdownLayoutEngine(new MarkdownResourceStore(new MarkdownPathResolver("", "")));
+            engine.Reflow(PreviewParser().Parse(source), width);
+            return engine;
+        }
+
+        static TextLayout PreviewWrap(string text, float width, bool code = false) =>
+            new MarkdownTextLayout(new StyleSet(), (run, available) => new ImageMetrics(1, 1))
+                .Wrap(new List<InlineRun> { new InlineRun { Text = text, Code = code } }, width, 0);
+
+        static string PreviewCopy(List<SelectionLine> lines) => MarkdownSelectionText.CopyRange(lines,
+            new Vector2Int(0, 0), new Vector2Int(lines[lines.Count - 1].Text.Length, lines.Count - 1)) + (lines[lines.Count - 1].Source.CopySuffix ?? "");
+
     }
 }

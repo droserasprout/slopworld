@@ -35,7 +35,7 @@ namespace SlopWorld.Tests
             Eco.Resting = true;
             Assert.That(EcoMapMemory.BeforeMeshUpdate(board), Is.False);
             Assert.That(board.sections, Is.SameAs(sections));
-            board.WholeMapChanged(1); // Arrivals can still invalidate geometry while resting.
+            board.WholeMapChanged(1); // Mark the board dirty while its retained geometry is released.
             Assert.That(terrain.subMeshes, Is.Empty);
             Assert.That(things.tmpFormerlyEnabled, Is.Empty);
             Assert.That(custom.subMeshes.Count, Is.EqualTo(1));

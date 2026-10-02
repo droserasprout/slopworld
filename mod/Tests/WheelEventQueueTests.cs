@@ -118,6 +118,27 @@ namespace SlopWorld.Tests
             Assert.That(WheelEventQueue.UsesLogicalDelta(next), Is.False);
         }
 
+        [Test]
+        public void DifferentDisplaysKeepSeparateWheelRunsAndOrder()
+        {
+            for (int display = 0; display < 3; display++)
+                for (int i = 0; i < 12; i++)
+                {
+                    var wheel = Wheel(display + 1);
+                    wheel.displayIndex = display;
+                    Event.EnqueueTestEvent(wheel);
+                }
+            WheelEventQueue.Compact(new Event { type = EventType.Layout });
+            Assert.That(Event.GetEventCount(), Is.EqualTo(3));
+            var next = new Event();
+            for (int display = 0; display < 3; display++)
+            {
+                Assert.That(Event.PopEvent(next), Is.True);
+                Assert.That(next.displayIndex, Is.EqualTo(display));
+                Assert.That(next.delta.y, Is.EqualTo(12f * (display + 1)));
+            }
+        }
+
         static Event Wheel(float y) => new Event
         {
             type = EventType.ScrollWheel,

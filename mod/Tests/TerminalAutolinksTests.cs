@@ -48,8 +48,9 @@ namespace SlopWorld.Tests
 
             AssertEx.Equal(0, Sgr.ParseLines(Array.Empty<string>(), 80).Length,
                            "empty screen has no rows");
-            AssertEx.Equal(1, Sgr.ParseLines(new[] { "plain" }, 0)[0].Count,
-                           "zero width falls back to row width");
+            var fallback = Sgr.ParseLines(new[] { "https://example.test/path" }, 0)[0];
+            AssertEx.Equal(1, fallback.Count, "zero width falls back to linked row width");
+            AssertEx.Equal("https://example.test/path", fallback[0].Url, "fallback width retains the complete URL");
 
             var cache = new TerminalRunCache();
             var first = cache.Parse(new[] { "plain", "\x1b[31mred", "界" }, 16, 1, 1,

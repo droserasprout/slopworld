@@ -116,7 +116,11 @@ namespace SlopWorld.Tests
             live.History = 12;
             AssertEx.Equal(12, TerminalHistory.ScrollLimit(live),
                 "new output can extend a previously empty history");
+            int target = TerminalHistory.PageOffset(0, 5, true, live);
+            AssertEx.Equal(5, target, "caller can target prior positive history");
             live.History = 0;
+            target = TerminalHistory.PageOffset(target, 0, true, live);
+            AssertEx.Equal(0, target, "caller clamps stale scroll target after live history clears");
             AssertEx.Equal(0, TerminalHistory.ScrollLimit(live),
                 "clearing history immediately removes the old scroll range");
         }
