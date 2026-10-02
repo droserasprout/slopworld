@@ -4,19 +4,19 @@ using UnityEngine;
 namespace SlopWorld
 {
     // Link hit testing owns the row-spanning link state used by hover painting and clicks.
-    // TerminalWindow still owns pane geometry and input policy. This class only understands
+    // TerminalPanel owns pane geometry and input policy. This class only understands
     // parsed terminal runs.
     internal sealed class TerminalLinkService
     {
         internal struct HoverSpan
         {
-            public int Row, C0, C1;
+            public int Row, StartColumn, EndColumnExclusive;
 
-            public HoverSpan(int row, int c0, int c1)
+            public HoverSpan(int row, int startColumn, int endColumnExclusive)
             {
                 Row = row;
-                C0 = c0;
-                C1 = c1;
+                StartColumn = startColumn;
+                EndColumnExclusive = endColumnExclusive;
             }
         }
 
@@ -55,31 +55,31 @@ namespace SlopWorld
 
             // Outwards over everything carrying the same URL.
             string url = line[hit].Url;
-            LinkSegment(line, hit, url, out int c0, out int c1);
-            var spans = new List<HoverSpan> { new HoverSpan(cell.y, c0, c1) };
+            LinkSegment(line, hit, url, out int startColumn, out int endColumnExclusive);
+            var spans = new List<HoverSpan> { new HoverSpan(cell.y, startColumn, endColumnExclusive) };
             int width = Mathf.Max(1, buf.Cols);
 
             int scanRow = cell.y;
-            int edge = c0;
+            int edge = startColumn;
             while (scanRow > 0 && edge <= 0)
             {
                 var previous = buf.Runs[scanRow - 1];
                 if (!LinkAtEdge(previous, url, width, false,
-                        out int previousC0, out int previousC1)) break;
-                spans.Insert(0, new HoverSpan(scanRow - 1, previousC0, previousC1));
+                        out int previousStartColumn, out int previousEndColumnExclusive)) break;
+                spans.Insert(0, new HoverSpan(scanRow - 1, previousStartColumn, previousEndColumnExclusive));
                 scanRow--;
-                edge = previousC0;
+                edge = previousStartColumn;
             }
 
             scanRow = cell.y;
-            edge = c1;
+            edge = endColumnExclusive;
             while (scanRow + 1 < buf.Runs.Length && edge >= width)
             {
                 var next = buf.Runs[scanRow + 1];
-                if (!LinkAtEdge(next, url, width, true, out int nextC0, out int nextC1)) break;
-                spans.Add(new HoverSpan(scanRow + 1, nextC0, nextC1));
+                if (!LinkAtEdge(next, url, width, true, out int nextStartColumn, out int nextEndColumnExclusive)) break;
+                spans.Add(new HoverSpan(scanRow + 1, nextStartColumn, nextEndColumnExclusive));
                 scanRow++;
-                edge = nextC1;
+                edge = nextEndColumnExclusive;
             }
 
             _hoverSpans.AddRange(spans);
@@ -87,34 +87,34 @@ namespace SlopWorld
         }
 
         static bool LinkAtEdge(List<SgrRun> line, string url, int width, bool start,
-            out int c0, out int c1)
+            out int startColumn, out int endColumnExclusive)
         {
-            c0 = c1 = 0;
+            startColumn = endColumnExclusive = 0;
             for (int i = 0; i < line.Count; i++)
             {
                 if (line[i].Url != url) continue;
-                LinkSegment(line, i, url, out c0, out c1);
-                if (start ? c0 == 0 : c1 >= width) return true;
+                LinkSegment(line, i, url, out startColumn, out endColumnExclusive);
+                if (start ? startColumn == 0 : endColumnExclusive >= width) return true;
             }
             return false;
         }
 
         static void LinkSegment(List<SgrRun> line, int index, string url,
-            out int start, out int end)
+            out int startColumn, out int endColumnExclusive)
         {
-            start = line[index].Col;
-            end = start + line[index].Columns;
+            startColumn = line[index].Col;
+            endColumnExclusive = startColumn + line[index].Columns;
             int i = index - 1;
-            while (i >= 0 && line[i].Url == url && line[i].Col + line[i].Columns == start)
+            while (i >= 0 && line[i].Url == url && line[i].Col + line[i].Columns == startColumn)
             {
-                start = line[i].Col;
+                startColumn = line[i].Col;
                 i--;
             }
 
             i = index + 1;
-            while (i < line.Count && line[i].Url == url && end == line[i].Col)
+            while (i < line.Count && line[i].Url == url && endColumnExclusive == line[i].Col)
             {
-                end += line[i].Columns;
+                endColumnExclusive += line[i].Columns;
                 i++;
             }
         }

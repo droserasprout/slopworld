@@ -32,12 +32,12 @@ namespace SlopWorld.Tests
             links.Track(buf, new Vector2Int(1, 0));
             Assert.That(links.HoverUrl, Is.EqualTo(url));
             Assert.That(links.HoverSpans.Count, Is.EqualTo(2));
-            Assert.That((links.HoverSpans[0].C0, links.HoverSpans[0].C1), Is.EqualTo((0, 4)));
-            Assert.That(links.HoverSpans[1].C1, Is.EqualTo(1));
+            Assert.That((links.HoverSpans[0].StartColumn, links.HoverSpans[0].EndColumnExclusive), Is.EqualTo((0, 4)));
+            Assert.That(links.HoverSpans[1].EndColumnExclusive, Is.EqualTo(1));
             Assert.That(links.Find(buf, new Vector2Int(1, 1)), Is.Null);
             links.ClearHover();
             links.Track(buf, new Vector2Int(2, 0));
-            Assert.That(links.HoverSpans[0].C0, Is.EqualTo(0));
+            Assert.That(links.HoverSpans[0].StartColumn, Is.EqualTo(0));
         }
     }
 }

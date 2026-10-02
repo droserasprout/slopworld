@@ -12,10 +12,11 @@ namespace SlopWorld
                 var first = runs[i];
                 if (!catalog.HasLongerKey(first.Text)) continue;
                 string key = first.Text;
-                int best = i;
+                // Remember the longest complete key while the joined text remains a prefix.
+                int bestEndIndex = i;
                 string bestKey = key;
-                int columns = first.Columns;
-                int bestColumns = columns;
+                int joinedColumns = first.Columns;
+                int bestColumns = joinedColumns;
                 for (int j = i + 1; j < runs.Count; j++)
                 {
                     var next = runs[j];
@@ -25,17 +26,17 @@ namespace SlopWorld
                         first.HasBg != next.HasBg || first.Bold != next.Bold ||
                         first.Url != next.Url) break;
                     key += next.Text;
-                    columns += next.Columns;
+                    joinedColumns += next.Columns;
                     if (catalog.Match(key, 0, out int length, out _) && length == key.Length)
-                    { best = j; bestColumns = columns; bestKey = key; }
+                    { bestEndIndex = j; bestColumns = joinedColumns; bestKey = key; }
                     if (!catalog.HasLongerKey(key)) break;
                 }
-                if (best == i) continue;
+                if (bestEndIndex == i) continue;
                 first.Text = bestKey;
                 first.CellWidth = bestColumns;
                 first.IsCluster = true;
                 runs[i] = first;
-                runs.RemoveRange(i + 1, best - i);
+                runs.RemoveRange(i + 1, bestEndIndex - i);
             }
         }
 

@@ -28,7 +28,7 @@ namespace SlopWorld
         {
             if (body == null || !body.StartsWith("8;")) return null;
             var parts = body.Split(new[] { ';' }, 3);
-            return parts.Length < 3 ? "" : parts[2];
+            return parts.Length < 3 ? null : parts[2];
         }
 
         public static List<Span> FindUrls(string text)

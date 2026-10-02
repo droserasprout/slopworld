@@ -133,6 +133,9 @@ namespace SlopWorld
                         {
                             i += 2;
                             while (i < line.Length && !(line[i] >= '@' && line[i] <= '~')) i++;
+                            // CHA can overwrite intervening text and join a visible delimiter.
+                            // Let the decoded column grid decide whether it is a URL.
+                            if (i < line.Length && line[i] == 'G') return true;
                         }
                         else if (i + 1 < line.Length && line[i + 1] == ']')
                         {
