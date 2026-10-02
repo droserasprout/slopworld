@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -7,6 +8,32 @@ namespace SlopWorld
 {
     public partial class Worksite
     {
+        // Ownership follows the frame through save/load without changing shared definitions.
+        // Unmarked frames, including old saves, retain vanilla behavior.
+        sealed class FrameOwnership
+        {
+            public FrameOwnership() { }
+            public bool Owned;
+        }
+
+        static readonly ConditionalWeakTable<Frame, FrameOwnership> Ownership =
+            new ConditionalWeakTable<Frame, FrameOwnership>();
+
+        static bool Owns(Frame frame) =>
+            frame != null && Ownership.TryGetValue(frame, out var marker) && marker.Owned;
+
+        static void Claim(Frame frame) => Ownership.GetOrCreateValue(frame).Owned = true;
+
+        [HarmonyPatch(typeof(Frame), nameof(Frame.ExposeData))]
+        public static class Patch_FrameOwnership
+        {
+            static void Postfix(Frame __instance)
+            {
+                var marker = Ownership.GetOrCreateValue(__instance);
+                Scribe_Values.Look(ref marker.Owned, "slopWorldWorksite", false);
+            }
+        }
+
         // Use work requirements from the errand table for agent construction.
         // Keep the base game value when WorkFor returns zero.
         [HarmonyPatch(typeof(Frame), nameof(Frame.WorkToBuild), MethodType.Getter)]
@@ -14,6 +41,7 @@ namespace SlopWorld
         {
             static void Postfix(Frame __instance, ref float __result)
             {
+                if (!Owns(__instance)) return;
                 float work = WorkFor(__instance?.def?.entityDefToBuild);
                 if (work > 0f) __result = work;
             }
@@ -26,7 +54,7 @@ namespace SlopWorld
         {
             static void Prefix(Frame __instance)
             {
-                if (__instance == null || !__instance.Spawned) return;
+                if (!Owns(__instance) || !__instance.Spawned) return;
 
                 var what = __instance.def?.entityDefToBuild;
                 if (WorkFor(what) <= 0f) return;
@@ -54,7 +82,7 @@ namespace SlopWorld
             static bool Prefix(Frame __instance)
             {
                 var what = __instance?.def?.entityDefToBuild;
-                return !(what is TerrainDef) || WorkFor(what) <= 0f;
+                return !Owns(__instance) || !(what is TerrainDef) || WorkFor(what) <= 0f;
             }
         }
     }
