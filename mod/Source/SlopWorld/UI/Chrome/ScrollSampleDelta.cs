@@ -7,6 +7,7 @@ namespace SlopWorld
     internal sealed class ScrollSampleDelta
     {
         const double MaxGap = 0.25;
+        const double MaxSampleChange = 100;
         bool _baseline;
         int _generation;
         double _x, _y, _time, _discardBefore;
@@ -29,8 +30,10 @@ namespace SlopWorld
             }
             bool contiguous = _baseline && sampled >= _time && sampled - _time <= MaxGap;
             double changeX = x - _x, changeY = y - _y;
+            // Advance the baseline even across discontinuities; the next sample starts here.
+            // Exactly MaxSampleChange is accepted on either axis.
             _x = x; _y = y; _time = sampled; _baseline = true;
-            if (!contiguous || Math.Abs(changeX) > 100 || Math.Abs(changeY) > 100) return false;
+            if (!contiguous || Math.Abs(changeX) > MaxSampleChange || Math.Abs(changeY) > MaxSampleChange) return false;
             dx = changeX; dy = changeY;
             return true;
         }

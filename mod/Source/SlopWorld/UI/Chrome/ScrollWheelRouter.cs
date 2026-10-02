@@ -15,7 +15,8 @@ namespace SlopWorld
             public Rect Outer;
             public Rect View;
             public bool Precise;
-            public Vector2 Origin;
+            // Screen position of local zero after entering this region's scroll group.
+            public Vector2 ScreenOrigin;
             public readonly List<Region> Children = new List<Region>();
 
             public void Replay()
@@ -30,7 +31,7 @@ namespace SlopWorld
         readonly Stack<Region> _parents = new Stack<Region>();
         Rect _bounds;
         bool _ready;
-        bool _supported;
+        bool _captureSupported;
 
         public void Invalidate() => _ready = false;
 
@@ -39,7 +40,7 @@ namespace SlopWorld
             // An enclosing router records the complete tree, including this subtree.
             if (_capturing != null) { draw(); return; }
             var origin = GUIUtility.GUIToScreenPoint(new Vector2());
-            if (SmoothScroll.WheelOnly && _ready && bounds.Equals(_bounds) && origin.Equals(_root.Origin))
+            if (SmoothScroll.WheelOnly && _ready && bounds.Equals(_bounds) && origin.Equals(_root.ScreenOrigin))
             {
                 foreach (var region in _root.Children) region.Replay();
                 return;
@@ -47,9 +48,9 @@ namespace SlopWorld
 
             bool wheel = SmoothScroll.WheelOnly;
             _ready = false;
-            _supported = true;
+            _captureSupported = true;
             _bounds = bounds;
-            _root.Origin = origin;
+            _root.ScreenOrigin = origin;
             _root.Children.Clear();
             _parents.Clear();
             _parents.Push(_root);
@@ -60,7 +61,7 @@ namespace SlopWorld
                 draw();
                 // Existing wheel fast paths may omit their scroll scopes entirely.
                 // Only an ordinary pass can publish a complete tree.
-                _ready = !wheel && _supported && _parents.Count == 1;
+                _ready = !wheel && _captureSupported && _parents.Count == 1;
             }
             finally
             {
@@ -69,6 +70,7 @@ namespace SlopWorld
             }
         }
 
+        // Called after entering the scroll group; origin is the pre-group screen origin.
         internal static void Begin(SmoothScroll scroll, Rect outer, Rect view,
                                    bool precise, Vector2 origin)
         {
@@ -77,14 +79,14 @@ namespace SlopWorld
             var parent = router._parents.Peek();
             // Arbitrary intervening GUI groups may add clipping or transforms we cannot
             // replay. Keep the ordinary path for those renderers rather than misroute input.
-            if (!parent.Origin.Equals(origin)) router._supported = false;
+            if (!parent.ScreenOrigin.Equals(origin)) router._captureSupported = false;
             var region = new Region
             {
                 Scroll = scroll,
                 Outer = outer,
                 View = view,
                 Precise = precise,
-                Origin = GUIUtility.GUIToScreenPoint(new Vector2())
+                ScreenOrigin = GUIUtility.GUIToScreenPoint(new Vector2())
             };
             parent.Children.Add(region);
             router._parents.Push(region);

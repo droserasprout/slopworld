@@ -16,7 +16,11 @@ not color alone. `GameFont.Tiny` may render Small.
 Use shared measurement helpers.
 
 `SmoothScroll` owns fractional wheel input and terminal-style scrollbars. Consume precise input once.
-A delayed Unity wheel event must not scroll a second time. Drawing and hit tests need the
+X11 samples accumulate motion rather than identify individual wheel packets. Claimed native
+motion suppresses matching logical wheel directions through the next frame, including multiple
+legacy packets per sample. Tiny native motion on a secondary axis need not appear in the
+logical packet. Do not correlate against IMGUI pointer/modifier snapshots: the native sample
+does not carry those values. Compacted wheel packets retain their logical delta. Drawing and hit tests need the
 same viewport clipping. Drag owners must respect `hotControl`, including replayed events.
 Flat result lists route wheel-only passes through `HandleWheel` using their last measured
 extent before model filtering, layout rebuilding or control allocation. The next normal pass

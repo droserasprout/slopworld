@@ -11,7 +11,9 @@ namespace SlopWorld
         readonly AutoResetEvent _wake = new AutoResetEvent(false);
         readonly Func<T> _read;
         readonly Thread _worker;
-        bool _busy, _fresh, _stopped;
+        // Mutable sample state is protected by _gate. An outstanding read includes
+        // the wake-up request before the worker starts the native query.
+        bool _readOutstanding, _resultPending, _stopped;
         T _value;
         Exception _error;
 
@@ -28,11 +30,11 @@ namespace SlopWorld
             {
                 value = _value;
                 error = _error;
-                bool fresh = _fresh;
-                _fresh = false;
-                if (!_stopped && !_busy)
+                bool fresh = _resultPending;
+                _resultPending = false;
+                if (!_stopped && !_readOutstanding)
                 {
-                    _busy = true;
+                    _readOutstanding = true;
                     _wake.Set();
                 }
                 return fresh;
@@ -58,8 +60,8 @@ namespace SlopWorld
                     {
                         if (_stopped) return;
                         _value = value;
-                        _fresh = true;
-                        _busy = false;
+                        _resultPending = true;
+                        _readOutstanding = false;
                     }
                 }
             }
