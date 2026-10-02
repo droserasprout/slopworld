@@ -16,7 +16,7 @@ namespace SlopWorld
             + "    println!(\"{name}: {count} {raw}\");\n"
             + "}\n";
         readonly SmoothScroll _scroll = new SmoothScroll();
-        readonly SettingsContentHeight _height = new SettingsContentHeight(300f);
+        readonly ContentHeight _height = new ContentHeight(300f);
         readonly SettingsPreviewLayout _layout = new SettingsPreviewLayout();
         readonly List<string> _themes = new List<string>();
         string _command, _engine = "", _catalogError, _previewError;

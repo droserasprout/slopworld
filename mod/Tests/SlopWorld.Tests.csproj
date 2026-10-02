@@ -85,6 +85,7 @@
     <Compile Include="../Source/SlopWorld/UI/Chrome/ScrollableGeometry.cs" Link="Source/UI/Chrome/ScrollableGeometry.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/SandboxLayout.cs" Link="Source/UI/Settings/SandboxLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/SandboxPage.Editors.cs" Link="Source/UI/Settings/SandboxPage.Editors.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/ContentHeight.cs" Link="Source/UI/Chrome/ContentHeight.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/SettingsLayout.cs" Link="Source/UI/Settings/SettingsLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/WorkspacePanel.cs" Link="Source/UI/Views/Shared/WorkspacePanel.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/WorkspaceSplit.cs" Link="Source/UI/Views/Shared/WorkspaceSplit.cs" />

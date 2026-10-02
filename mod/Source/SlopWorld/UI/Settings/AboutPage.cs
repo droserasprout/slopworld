@@ -189,8 +189,8 @@ namespace SlopWorld
         readonly SmoothScroll _rimWorldScroll = new SmoothScroll();
         readonly Dialog_Options _rimWorldOptions = new Dialog_Options();
         float _contentHeight;
-        readonly SettingsContentHeight _height = new SettingsContentHeight(FirstPassHeight);
-        readonly SettingsContentHeight _rimWorldHeight = new SettingsContentHeight(1800f);
+        readonly ContentHeight _height = new ContentHeight(FirstPassHeight);
+        readonly ContentHeight _rimWorldHeight = new ContentHeight(1800f);
         readonly MouseClickSequence _alternateClicks = new MouseClickSequence();
         int _autoScrollFrame = -1;
         bool _alternateAbout;

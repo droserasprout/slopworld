@@ -44,7 +44,7 @@ namespace SlopWorld
         public static UiLayoutSize Content(float value, float minimum = 0f) =>
             new UiLayoutSize(UiLayoutSizeKind.Content, value, minimum);
 
-        // Value is the flex weight. A zero weight still receives its minimum.
+        // Value is the flex weight. A zero weight keeps its base size but receives no surplus.
         public static UiLayoutSize Flexible(float weight = 1f, float minimum = 0f) =>
             new UiLayoutSize(UiLayoutSizeKind.Flexible, weight, minimum);
 
@@ -170,7 +170,7 @@ namespace SlopWorld
                 var item = items[i];
                 baseTotal += MainBase(item);
                 if (item.Main.Kind == UiLayoutSizeKind.Flexible)
-                    flexWeight += item.Main.Value > 0f ? item.Main.Value : 1f;
+                    flexWeight += item.Main.Value;
             }
 
             // Every item receives its fixed/content/minimum base first. Only genuine
@@ -185,9 +185,9 @@ namespace SlopWorld
                 float main = MainBase(item);
                 if (item.Main.Kind == UiLayoutSizeKind.Flexible)
                     main += flexWeight <= 0f ? 0f : flexSpace *
-                        (item.Main.Value > 0f ? item.Main.Value : 1f) / flexWeight;
+                        (item.Main.Value) / flexWeight;
 
-                float cross = CrossPreferred(axis, item, innerCross);
+                float cross = CrossPreferred(item, innerCross);
                 float crossStart = CrossOffset(item.Alignment, innerCross, cross);
                 float x = axis == UiLayoutAxis.Row
                     ? cursor : available.X + left + crossStart;
@@ -210,7 +210,7 @@ namespace SlopWorld
             return Math.Max(item.Main.Minimum, Math.Max(0f, preferred));
         }
 
-        static float CrossPreferred(UiLayoutAxis axis, UiLayoutItem item, float available)
+        static float CrossPreferred(UiLayoutItem item, float available)
         {
             float value;
             if (item.Cross.Kind == UiLayoutSizeKind.Fixed)

@@ -9,15 +9,19 @@ namespace SlopWorld
     public sealed class ScrollableListing
     {
         readonly SmoothScroll _scroll = new SmoothScroll();
-        readonly SettingsContentHeight _height;
+        readonly ContentHeight _height;
 
         public ScrollableListing(float initialHeight = 900f)
         {
-            _height = new SettingsContentHeight(initialHeight);
+            _height = new ContentHeight(initialHeight);
         }
 
+        // Called after Listing.End, in scroll-content coordinates. Return the new bottom;
+        // its measured extent becomes visible on the next frame.
+        public delegate float DrawTrailing(Rect bounds, float bottom);
+
         public void Draw(Rect frame, Action<Listing_Standard> drawListing,
-                         Func<Rect, float, float> drawTrailing = null)
+                         DrawTrailing drawTrailing = null)
         {
             using (WidgetState.Save())
             {

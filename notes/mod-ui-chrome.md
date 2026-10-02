@@ -18,6 +18,9 @@ Use shared measurement helpers.
 Theme catalogs require matching terminal IDs for every UI theme. Accent, destructive and
 checkbox faces must be opaque because their contrast-derived text has no backing-surface input.
 
+`ContentHeight` retains shared listing extents and publishes measurements on the next frame
+so input and repaint use the same geometry. `SettingsLayout` owns only Settings geometry.
+
 `SmoothScroll` owns fractional wheel input and terminal-style scrollbars. Consume precise input once.
 X11 samples accumulate motion rather than identify individual wheel packets. Claimed native
 motion suppresses matching logical wheel directions through the next frame, including multiple
