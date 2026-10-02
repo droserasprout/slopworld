@@ -17,8 +17,8 @@
     <Compile Include="../Source/SlopWorld/UI/Views/Git/GitCommands.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Files/NativeAppPicker.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Git/GitStatus.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalHistoryRestore.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalInputController.Keyboard.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/History/TerminalHistoryRestore.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Input/TerminalInputController.Keyboard.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalPanel/TerminalLinkService.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/RealClock.Formatting.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/QuitInterceptor.cs" />
@@ -28,10 +28,10 @@
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Resources.cs" Link="Source/MarkdownPreview.Resources.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownImageBudget.cs" Link="Source/MarkdownImageBudget.cs" />
     <Compile Include="../Source/SlopWorld/Patches/Agents/EffectiveMethods.cs" Link="Source/EffectiveMethods.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/BrowseScopeCatalog.cs" Link="Source/BrowseScopeCatalog.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/SidebarScopes.Transport.cs" Link="Source/SidebarScopes.Transport.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/BrowseScope.cs" Link="Source/BrowseScope.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/BoundedWork.cs" Link="Source/BoundedWork.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Browsing/BrowseScopeCatalog.cs" Link="Source/BrowseScopeCatalog.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Browsing/SidebarScopes.Transport.cs" Link="Source/SidebarScopes.Transport.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Browsing/BrowseScope.cs" Link="Source/BrowseScope.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Async/BoundedWork.cs" Link="Source/BoundedWork.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Search/SearchSubmission.cs" Link="Source/SearchSubmission.cs" />
     <PackageReference Include="NUnit" Version="4.6.1" />
     <PackageReference Include="NUnitLite" Version="4.6.1" />
@@ -55,9 +55,9 @@
       <HintPath>../Assemblies/Tomlyn.dll</HintPath>
       <Private>true</Private>
     </Reference>
-    <Compile Include="../Source/SlopWorld/UI/Chrome/ScrollWheelRouter.cs" Link="Source/ScrollWheelRouter.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Scrolling/ScrollWheelRouter.cs" Link="Source/ScrollWheelRouter.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/MenuRowGeometry.cs" Link="Source/MenuRowGeometry.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Chrome/WheelEventQueue.cs" Link="Source/WheelEventQueue.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Scrolling/WheelEventQueue.cs" Link="Source/WheelEventQueue.cs" />
     <!-- Use the shipped parser and deterministic text metrics. -->
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Styles.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.Styles.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Layout.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.Layout.cs" />
@@ -66,50 +66,50 @@
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Model.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.Model.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Paths.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.Paths.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Parsing.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.Parsing.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/RefreshQueue.cs" Link="Source/RefreshQueue.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Async/RefreshQueue.cs" Link="Source/RefreshQueue.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/CodeAppearanceDraft.cs" Link="Source/CodeAppearanceDraft.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/CodeHighlight.cs" Link="Source/CodeHighlight.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/Pager.cs" Link="Source/Pager.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/PagerTabs.cs" Link="Source/PagerTabs.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Readers/CodeHighlight.cs" Link="Source/CodeHighlight.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Readers/Pager.cs" Link="Source/Pager.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Readers/PagerTabs.cs" Link="Source/PagerTabs.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/MouseClickSequence.cs" Link="Source/MouseClickSequence.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Chrome/LatestSample.cs" Link="Source/LatestSample.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Chrome/X11ScrollSampler.cs" Link="Source/X11ScrollSampler.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Scrolling/Platform/LatestSample.cs" Link="Source/LatestSample.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Scrolling/Platform/X11ScrollSampler.cs" Link="Source/X11ScrollSampler.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/UiEvent.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Chrome/NativeScrollCoverage.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Chrome/ScrollSampleDelta.cs" Link="Source/ScrollSampleDelta.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Chrome/ScrollSampleBudget.cs" Link="Source/ScrollSampleBudget.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/HubCatalog.cs" Link="Source/Client/SessionHub/HubCatalog.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Scrolling/NativeScrollCoverage.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Scrolling/ScrollSampleDelta.cs" Link="Source/ScrollSampleDelta.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Scrolling/ScrollSampleBudget.cs" Link="Source/ScrollSampleBudget.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Catalog/HubCatalog.cs" Link="Source/Client/Catalog/HubCatalog.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubWire.cs" Link="Source/Client/SessionHub/HubWire.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Projects/MountPresentation.cs" Link="Source/MountPresentation.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/JukeboxPresetInfo.cs" Link="Source/JukeboxPresetInfo.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/WorkerWorktreeOptions.cs" Link="Source/WorkerWorktreeOptions.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/PresetInfo.cs" Link="Source/Client/SessionHub/PresetInfo.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/CommandInfo.cs" Link="Source/Client/SessionHub/CommandInfo.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/AgentTemplateInfo.cs" Link="Source/Client/SessionHub/AgentTemplateInfo.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Audio/JukeboxPresetInfo.cs" Link="Source/JukeboxPresetInfo.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Sessions/WorkerWorktreeOptions.cs" Link="Source/WorkerWorktreeOptions.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Catalog/PresetInfo.cs" Link="Source/Client/Catalog/PresetInfo.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Catalog/CommandInfo.cs" Link="Source/Client/Catalog/CommandInfo.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Catalog/AgentTemplateInfo.cs" Link="Source/Client/Catalog/AgentTemplateInfo.cs" />
     <Compile Include="../Source/SlopWorld/Settings/ModSettings.cs" Link="Source/Settings/ModSettings.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Chrome/WorkspaceLayout.cs" Link="Source/UI/Chrome/WorkspaceLayout.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Workspace/WorkspaceLayout.cs" Link="Source/UI/Workspace/WorkspaceLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/UiMetrics.cs" Link="Source/UI/Chrome/UiMetrics.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/UiComposition.cs" Link="Source/UI/Chrome/UiComposition.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Chrome/ScrollableGeometry.cs" Link="Source/UI/Chrome/ScrollableGeometry.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Scrolling/ScrollableGeometry.cs" Link="Source/UI/Scrolling/ScrollableGeometry.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/SandboxLayout.cs" Link="Source/UI/Settings/SandboxLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/SandboxPage.Editors.cs" Link="Source/UI/Settings/SandboxPage.Editors.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Chrome/ContentHeight.cs" Link="Source/UI/Chrome/ContentHeight.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Scrolling/ContentHeight.cs" Link="Source/UI/Scrolling/ContentHeight.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/SettingsLayout.cs" Link="Source/UI/Settings/SettingsLayout.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/WorkspacePanel.cs" Link="Source/UI/Views/Shared/WorkspacePanel.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/WorkspaceSplit.cs" Link="Source/UI/Views/Shared/WorkspaceSplit.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Workspace/WorkspacePanel.cs" Link="Source/UI/Workspace/WorkspacePanel.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Workspace/WorkspaceSplit.cs" Link="Source/UI/Workspace/WorkspaceSplit.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/FieldFocusOrder.cs" Link="Source/UI/Text/FieldFocusOrder.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalPanelGeometry.cs" Link="Source/UI/Terminal/TerminalPanelGeometry.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalPanelGeometry.cs" Link="Source/UI/Terminal/Rendering/TerminalPanelGeometry.cs" />
     <Compile Include="../Source/SlopWorld/Settings/FramePolicy.cs" Link="Source/Settings/FramePolicy.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubEventBatch.cs" Link="Source/Client/SessionHub/HubEventBatch.cs" />
     <Compile Include="../Source/SlopWorld/Client/Transport/IncomingMessageQueue.cs" Link="Source/IncomingMessageQueue.cs" />
     <Compile Include="../Source/SlopWorld/Client/Transport/MiniWebSocket.cs" Link="Source/Client/Transport/MiniWebSocket.cs" />
     <Compile Include="../Source/SlopWorld/Client/Transport/MiniWebSocket.Frames.cs" Link="Source/Client/Transport/MiniWebSocket.Frames.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubTransport.cs" Link="Source/Client/SessionHub/HubTransport.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/TerminalIO.cs" Link="Source/Client/SessionHub/TerminalIO.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/SessionRunOptions.cs" Link="Source/SessionRunOptions.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/SessionStore.cs" Link="Source/Client/SessionHub/SessionStore.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/TaskBatchQueue.cs" Link="Source/TaskBatchQueue.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/TaskStore.cs" Link="Source/Client/SessionHub/TaskStore.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Terminal/TerminalIO.cs" Link="Source/Client/Terminal/TerminalIO.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Sessions/SessionRunOptions.cs" Link="Source/SessionRunOptions.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Sessions/SessionStore.cs" Link="Source/Client/Sessions/SessionStore.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Tasks/TaskBatchQueue.cs" Link="Source/TaskBatchQueue.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Tasks/TaskStore.cs" Link="Source/Client/Tasks/TaskStore.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/PeriodicWork.cs" Link="Source/Sim/Lifecycle/PeriodicWork.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/HiddenWorkCadence.cs" Link="Source/Sim/Lifecycle/HiddenWorkCadence.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Colony/BlastBacklog.cs" Link="Source/Sim/Colony/BlastBacklog.cs" />
@@ -117,68 +117,68 @@
     <Compile Include="../Source/SlopWorld/Sim/Colony/AgentRenamePolicy.cs" Link="Source/Sim/Colony/AgentRenamePolicy.cs" />
     <Compile Include="../Source/SlopWorld/UI/Usage/UsageRowsCache.cs" Link="Source/UI/Usage/UsageRowsCache.cs" />
     <Compile Include="../Source/SlopWorld/UI/Usage/ClockTextCache.cs" Link="Source/UI/Usage/ClockTextCache.cs" />
-    <Compile Include="../Source/SlopWorld/Patches/AgentSidebar/SidebarProjectState.cs" Link="Source/Patches/AgentSidebar/SidebarProjectState.cs" />
-    <Compile Include="../Source/SlopWorld/Patches/AgentSidebar/SidebarAgentRows.cs" Link="Source/Patches/AgentSidebar/SidebarAgentRows.cs" />
-    <Compile Include="../Source/SlopWorld/Patches/AgentSidebar/SidebarTitleCache.cs" Link="Source/Patches/AgentSidebar/SidebarTitleCache.cs" />
-    <Compile Include="../Source/SlopWorld/Patches/AgentSidebar/SidebarTab.cs" Link="Source/Patches/AgentSidebar/SidebarTab.cs" />
-    <Compile Include="../Source/SlopWorld/Patches/AgentSidebar/SidebarTabDefinition.cs" Link="Source/Patches/AgentSidebar/SidebarTabDefinition.cs" />
-    <Compile Include="../Source/SlopWorld/Patches/AgentSidebar/SidebarViewHistory.cs" Link="Source/Patches/AgentSidebar/SidebarViewHistory.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/ContentTreeState.cs" Link="Source/UI/Views/Shared/ContentTreeState.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Sidebar/SidebarProjectState.cs" Link="Source/UI/Sidebar/SidebarProjectState.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Sidebar/SidebarAgentRows.cs" Link="Source/UI/Sidebar/SidebarAgentRows.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Sidebar/SidebarTitleCache.cs" Link="Source/UI/Sidebar/SidebarTitleCache.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Sidebar/SidebarTab.cs" Link="Source/UI/Sidebar/SidebarTab.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Sidebar/SidebarTabDefinition.cs" Link="Source/UI/Sidebar/SidebarTabDefinition.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Sidebar/SidebarViewHistory.cs" Link="Source/UI/Sidebar/SidebarViewHistory.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Browsing/ContentTreeState.cs" Link="Source/UI/Browsing/ContentTreeState.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/SelectionCommandPolicy.cs" Link="Source/UI/Text/SelectionCommandPolicy.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Chrome/VisibleRows.cs" Link="Source/UI/Chrome/VisibleRows.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/ContentTreeIndex.cs" Link="Source/UI/Views/Shared/ContentTreeIndex.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/ProjectSessionCounts.cs" Link="Source/UI/Views/Shared/ProjectSessionCounts.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/RoutedSessionRows.cs" Link="Source/UI/Views/Shared/RoutedSessionRows.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/SidebarFilesSplit.cs" Link="Source/UI/Views/Shared/SidebarFilesSplit.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalRepaint.cs" Link="Source/UI/Terminal/TerminalRepaint.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/ResourceLimitsForm.cs" Link="Source/UI/Views/Shared/ResourceLimitsForm.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Scrolling/VisibleRows.cs" Link="Source/UI/Scrolling/VisibleRows.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Browsing/ContentTreeIndex.cs" Link="Source/UI/Browsing/ContentTreeIndex.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Projects/ProjectSessionCounts.cs" Link="Source/UI/Views/Projects/ProjectSessionCounts.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Readers/RoutedSessionRows.cs" Link="Source/UI/Readers/RoutedSessionRows.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Browsing/SidebarFilesSplit.cs" Link="Source/UI/Browsing/SidebarFilesSplit.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalRepaint.cs" Link="Source/UI/Terminal/Rendering/TerminalRepaint.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Forms/ResourceLimitsForm.cs" Link="Source/UI/Forms/ResourceLimitsForm.cs" />
     <!-- Keep the tests independent of the game-bound mod assembly. -->
     <Compile Include="../Source/SlopWorld/Serialization/Toml.cs" Link="Source/Serialization/Toml.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Chrome/ThemeCatalog.cs" Link="Source/UI/Chrome/ThemeCatalog.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Theme/ThemeCatalog.cs" Link="Source/UI/Theme/ThemeCatalog.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonConfig.cs" Link="Source/Client/Daemon/DaemonConfig.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonConfigDraft.cs" Link="Source/Client/Daemon/DaemonConfigDraft.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/DaemonConfigValidation.cs" Link="Source/UI/Settings/DaemonConfigValidation.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/Endpoint.cs" Link="Source/Client/Daemon/Endpoint.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/MountEntry.cs" Link="Source/Client/SessionHub/MountEntry.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/NetworkMode.cs" Link="Source/Client/SessionHub/NetworkMode.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Catalog/MountEntry.cs" Link="Source/Client/Catalog/MountEntry.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Sessions/NetworkMode.cs" Link="Source/Client/Sessions/NetworkMode.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Projects/TempProjectPreviewState.cs" Link="Source/TempProjectPreviewState.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/ProjectInfo.cs" Link="Source/Client/SessionHub/ProjectInfo.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Catalog/ProjectInfo.cs" Link="Source/Client/Catalog/ProjectInfo.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/DaemonCapabilities.cs" Link="Source/Client/SessionHub/DaemonCapabilities.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonHealth.cs" Link="Source/Client/Daemon/DaemonHealth.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/SessionEnums.cs" Link="Source/Client/SessionHub/SessionEnums.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/LibraryItemInfo.cs" Link="Source/Client/SessionHub/LibraryItemInfo.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/DnsConfig.cs" Link="Source/Client/SessionHub/DnsConfig.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/SessionLimits.cs" Link="Source/Client/SessionHub/SessionLimits.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/SessionInfo.cs" Link="Source/Client/SessionHub/SessionInfo.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/SessionInfo.Wire.cs" Link="Source/Client/SessionHub/SessionInfo.Wire.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/TaskInfo.cs" Link="Source/Client/SessionHub/TaskInfo.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/ScreenBuf.cs" Link="Source/Client/SessionHub/ScreenBuf.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/ScreenBuf.Wire.cs" Link="Source/Client/SessionHub/ScreenBuf.Wire.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/UsageWindow.cs" Link="Source/Client/SessionHub/UsageWindow.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/UsageInfo.cs" Link="Source/Client/SessionHub/UsageInfo.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Sessions/SessionEnums.cs" Link="Source/Client/Sessions/SessionEnums.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Catalog/LibraryItemInfo.cs" Link="Source/Client/Catalog/LibraryItemInfo.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Sessions/DnsConfig.cs" Link="Source/Client/Sessions/DnsConfig.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Sessions/SessionLimits.cs" Link="Source/Client/Sessions/SessionLimits.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Sessions/SessionInfo.cs" Link="Source/Client/Sessions/SessionInfo.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Sessions/SessionInfo.Wire.cs" Link="Source/Client/Sessions/SessionInfo.Wire.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Tasks/TaskInfo.cs" Link="Source/Client/Tasks/TaskInfo.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Terminal/ScreenBuf.cs" Link="Source/Client/Terminal/ScreenBuf.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Terminal/ScreenBuf.Wire.cs" Link="Source/Client/Terminal/ScreenBuf.Wire.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Usage/UsageWindow.cs" Link="Source/Client/Usage/UsageWindow.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Usage/UsageInfo.cs" Link="Source/Client/Usage/UsageInfo.cs" />
     <Compile Include="../Source/SlopWorld/Client/Generated/*.cs" Link="Source/Client/Generated/%(Filename)%(Extension)" />
     <Compile Include="../Source/SlopWorld/UI/Utilities/Fuzzy.cs" Link="Source/UI/Utilities/Fuzzy.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Terminal/UrlScan.cs" Link="Source/UI/Terminal/UrlScan.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Links/UrlScan.cs" Link="Source/UI/Terminal/Links/UrlScan.cs" />
     <Compile Include="../Source/SlopWorld/UI/Utilities/PathScan.cs" Link="Source/UI/Utilities/PathScan.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Terminal/Sgr.cs" Link="Source/UI/Terminal/Sgr.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Terminal/SgrRun.cs" Link="Source/UI/Terminal/SgrRun.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalAutolinks.cs" Link="Source/UI/Terminal/TerminalAutolinks.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalSpriteSequences.cs" Link="Source/UI/Terminal/TerminalSpriteSequences.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalColumns.cs" Link="Source/UI/Terminal/TerminalColumns.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalHistory.cs" Link="Source/UI/Terminal/TerminalHistory.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalRunCache.cs" Link="Source/UI/Terminal/TerminalRunCache.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/Sgr.cs" Link="Source/UI/Terminal/Rendering/Sgr.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/SgrRun.cs" Link="Source/UI/Terminal/Rendering/SgrRun.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Links/TerminalAutolinks.cs" Link="Source/UI/Terminal/Links/TerminalAutolinks.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalSpriteSequences.cs" Link="Source/UI/Terminal/Rendering/TerminalSpriteSequences.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalColumns.cs" Link="Source/UI/Terminal/Rendering/TerminalColumns.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/History/TerminalHistory.cs" Link="Source/UI/Terminal/History/TerminalHistory.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalRunCache.cs" Link="Source/UI/Terminal/Rendering/TerminalRunCache.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/SharedTextRenderer.cs" Link="Source/UI/Text/SharedTextRenderer.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/InlineTextLayout.cs" Link="Source/UI/Text/InlineTextLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TextSpriteCatalog.cs" Link="Source/UI/Text/TextSpriteCatalog.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TextSpriteData.cs" Link="Source/UI/Text/TextSpriteData.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TextSelectionRules.cs" Link="Source/UI/Text/TextSelectionRules.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/PagerCommands.cs" Link="Source/UI/Views/Shared/PagerCommands.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/OperationGate.cs" Link="Source/UI/Views/Shared/OperationGate.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Views/Shared/AsyncLoadState.cs" Link="Source/UI/Views/Shared/AsyncLoadState.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Readers/PagerCommands.cs" Link="Source/UI/Readers/PagerCommands.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Async/OperationGate.cs" Link="Source/UI/Async/OperationGate.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Async/AsyncLoadState.cs" Link="Source/UI/Async/AsyncLoadState.cs" />
     <Compile Include="../Source/SlopWorld/UI/Utilities/NameTools.cs" Link="Source/UI/Utilities/NameTools.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Dialogs/AudioSourceDraft.cs" Link="Source/UI/Dialogs/AudioSourceDraft.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Dialogs/EditIdentity.cs" Link="Source/UI/Dialogs/EditIdentity.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Dialogs/TabbedFormLayout.cs" Link="Source/UI/Dialogs/TabbedFormLayout.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Jukebox/AudioSourceDraft.cs" Link="Source/UI/Jukebox/AudioSourceDraft.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Forms/EditIdentity.cs" Link="Source/UI/Forms/EditIdentity.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Forms/TabbedFormLayout.cs" Link="Source/UI/Forms/TabbedFormLayout.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Jukebox/SongRecognizer.cs" Link="Source/Sim/Jukebox/SongRecognizer.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Jukebox/Radio.Catalog.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Jukebox/Radio.Spotify.cs" Link="Source/Sim/Jukebox/Radio.Spotify.cs" />

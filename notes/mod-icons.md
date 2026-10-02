@@ -1,13 +1,13 @@
 # Icons
 
 Action icons are 64px PNGs baked from VS Code [Codicons][c] by `tools/icons.py` and
-loaded through `UI/Chrome/Icons.cs`. The slot names are semantic (`Icons.Agents`, not
+loaded through `UI/Theme/Icons.cs`. The slot names are semantic (`Icons.Agents`, not
 `Icons.Robot`) so artwork can change without changing call sites.
 
 [c]: https://github.com/microsoft/vscode-codicons
 
 `tools/icons/manifest.toml` maps slots to glyph names and codepoints.
-The generated files are in `mod/Textures/SlopWorld/Icons/`. Update the manifest and `UI/Chrome/Icons.cs` together manually.
+The generated files are in `mod/Textures/SlopWorld/Icons/`. Update the manifest and `UI/Theme/Icons.cs` together manually.
 The mod's flat settings parser does not load this catalog.
 Run `python3 tools/icons.py`.
 The `--report` option prints glyph size and ink coverage.
@@ -28,5 +28,5 @@ Notable aliases: `gear` serves options/config, `eye` serves hidden/view, `debug-
 is the stop icon, `circle-filled` is the state dot, `symbol-event` is the Library icon,
 `text-size` is type, `credit-card` is usage, and `link` is Integrations. `RobotFace_south` is a pawn
 faceplate, not a sidebar icon.
-`UI/Views/Shared/FileIcons.cs` owns the shared file/tree lookup, including cached
+`UI/Browsing/FileIcons.cs` owns the shared file/tree lookup, including cached
 fallbacks for null and `BadTex` misses. It uses a separate set of images generated from Material Icon Theme.

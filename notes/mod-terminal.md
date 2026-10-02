@@ -1,5 +1,9 @@
 # Terminal ownership and input
 
+`UI/Terminal/` groups helpers under `Input/`, `Rendering/`, `History/` and `Links/`.
+`TerminalPanel/` and `TerminalWindow/` each contain their entry file and partials.
+Shared workspace contracts and host chrome live in `UI/Workspace/`.
+
 `TerminalWindow` shows shared workspace controls. `TerminalSplit` holds one or two panels.
 `TerminalPanel` owns terminal state, caches, subscriptions, and input.
 Saved terminal recall yields to any existing workspace window, including a content-only view.

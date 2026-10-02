@@ -1,6 +1,7 @@
 # Plague field
 
 `Sim/Plague/` controls the spatial field and effects.
+`Patches/Plague/` owns Harmony regrowth and fire-containment hooks.
 Worksite completion adds sources.
 The field stores earliest arrival per cell, not accumulated source lists. Never increase an existing arrival time.
 Age determines dose. Frequent lookups must not scan all sources again.
