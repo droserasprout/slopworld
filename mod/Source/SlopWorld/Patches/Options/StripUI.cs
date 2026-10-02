@@ -14,13 +14,13 @@ namespace SlopWorld
     {
         static readonly (Type Type, string Method)[] Targets =
         {
-            (typeof(Messages), "MessagesDoGUI"),                 // message toasts, top-left
-            (typeof(LetterStack), "LettersOnGUI"),               // letter stack, right edge
-            (typeof(AlertsReadout), "AlertsReadoutOnGUI"),       // alert list, right edge
-            (typeof(ResourceReadout), "ResourceReadoutOnGUI"),   // resource counts, bottom-left
-            (typeof(GlobalControls), "GlobalControlsOnGUI"),     // date/temp/speed, bottom-right
-            (typeof(MouseoverReadout), "MouseoverReadoutOnGUI"), // under-cursor readout, bottom-left
-            (typeof(LearningReadout), "LearningReadoutOnGUI"),   // tutorial concept panel, top-right
+            (typeof(Messages), nameof(Messages.MessagesDoGUI)),                 // message toasts, top-left
+            (typeof(LetterStack), nameof(LetterStack.LettersOnGUI)),               // letter stack, right edge
+            (typeof(AlertsReadout), nameof(AlertsReadout.AlertsReadoutOnGUI)),       // alert list, right edge
+            (typeof(ResourceReadout), nameof(ResourceReadout.ResourceReadoutOnGUI)),   // resource counts, bottom-left
+            (typeof(GlobalControls), nameof(GlobalControls.GlobalControlsOnGUI)),     // date/temp/speed, bottom-right
+            (typeof(MouseoverReadout), nameof(MouseoverReadout.MouseoverReadoutOnGUI)), // under-cursor readout, bottom-left
+            (typeof(LearningReadout), nameof(LearningReadout.LearningReadoutOnGUI)),   // tutorial concept panel, top-right
         };
 
         public static void Apply(Harmony h)
@@ -75,22 +75,12 @@ namespace SlopWorld
         }
     }
 
-    // Draw only the inspect string for agent pawns. Hide other pawn content.
-    // Keep normal drawing for selections that are not pawns.
-    [HarmonyPatch(typeof(InspectPaneFiller), "DoPaneContentsFor")]
+    // Agent selections hide the entire inspect window in InspectPanePatch.
+    // Hide pawn content here too; retain normal drawing for non-pawn selections.
+    [HarmonyPatch(typeof(InspectPaneFiller), nameof(InspectPaneFiller.DoPaneContentsFor))]
     public static class Patch_Hide_InspectContents
     {
-        static bool Prefix(ISelectable sel, Rect rect)
-        {
-            if (!(sel is Pawn pawn)) return true;
-            if (AgentColony.Current?.SessionOf(pawn) == null) return false;
-
-            // Draw the inspect string at the content origin because the widget row is absent.
-            Widgets.BeginGroup(rect);
-            InspectPaneFiller.DrawInspectStringFor(sel, rect.AtZero());
-            Widgets.EndGroup();
-            return false;
-        }
+        static bool Prefix(ISelectable sel) => !(sel is Pawn);
     }
 
     // Hide cell selection cycling because only colonists are selectable.
@@ -123,10 +113,10 @@ namespace SlopWorld
             var post = new HarmonyMethod(
                 AccessTools.Method(typeof(Patch_MainButtons), nameof(KeepOnly)));
 
-            h.Patch(AccessTools.PropertyGetter(typeof(MainButtonWorker), "Visible"), postfix: post);
+            h.Patch(AccessTools.PropertyGetter(typeof(MainButtonWorker), nameof(MainButtonWorker.Visible)), postfix: post);
             foreach (var t in typeof(MainButtonWorker).AllSubclassesNonAbstract())
             {
-                var g = AccessTools.DeclaredPropertyGetter(t, "Visible");
+                var g = AccessTools.DeclaredPropertyGetter(t, nameof(MainButtonWorker.Visible));
                 if (g != null) h.Patch(g, postfix: post);
             }
 
@@ -168,12 +158,12 @@ namespace SlopWorld
                 AccessTools.Method(typeof(Patch_InspectTabs), nameof(Hide)));
 
             // Patch the base getter for tabs that inherit it, including Health.
-            h.Patch(AccessTools.PropertyGetter(typeof(InspectTabBase), "IsVisible"), postfix: post);
+            h.Patch(AccessTools.PropertyGetter(typeof(InspectTabBase), nameof(InspectTabBase.IsVisible)), postfix: post);
 
             // Patch overrides that calculate visibility independently.
             foreach (var t in Drop)
             {
-                var g = AccessTools.DeclaredPropertyGetter(t, "IsVisible");
+                var g = AccessTools.DeclaredPropertyGetter(t, nameof(InspectTabBase.IsVisible));
                 if (g != null) h.Patch(g, postfix: post);
             }
         }
