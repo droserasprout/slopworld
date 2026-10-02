@@ -9,8 +9,9 @@ Directories describe component responsibilities. They do not create assembly bou
 - `Serialization/` owns shared format adapters; callers own feature-specific schema validation.
 - `Sim/` is split into `Colony/`, `Content/`, `Jukebox/`, `Lifecycle/`,
   `Plague/`, `Terminal/`, `Worksite/` and `Incidents/`.
-- `Patches/` is grouped by `AgentSidebar/`, `Agents/`, `Chrome/`, `ColonistBar/`, `Eco/`,
+- `Patches/` is grouped by `AgentSidebar/`, `Agents/`, `Chrome/`, `ColonistBar/`, `Colony/`, `Eco/`,
   `LoadingScreen/`, `MainMenu/` and `Options/`.
+  Harmony integration stays in `Patches/`; simulation components stay in `Sim/`.
 - `UI/` keeps existing feature folders and groups shared chrome, terminal code, text helpers,
   usage readouts, utilities and body views under `Chrome/`, `Terminal/`, `Text/`, `Usage/`,
   `Utilities/` and `Views/`.
