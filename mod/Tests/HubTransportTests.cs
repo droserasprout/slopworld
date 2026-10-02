@@ -26,7 +26,12 @@ namespace SlopWorld.Tests
                 if (ThrowOnConnect) { Connected = true; throw new InvalidOperationException("setup failed"); }
                 return Connected = _connects;
             }
-            public void SendBinary(byte[] payload) => Sent.Add(Wire.ClientMessage.Parser.ParseFrom(payload));
+            public bool SendBinary(byte[] payload)
+            {
+                if (!Connected) return false;
+                Sent.Add(Wire.ClientMessage.Parser.ParseFrom(payload));
+                return true;
+            }
             public void Dispose() { Disposals++; Connected = false; Incoming.Close(); }
             public void Enqueue(ulong id) => Incoming.Enqueue(new Wire.Event {
                 Sessions = new Wire.SessionsReply { Sessions = { new Wire.SessionView { Runtime = new Wire.SessionRuntimeView { Seq = id } } } }
@@ -54,6 +59,23 @@ namespace SlopWorld.Tests
                 Hub.Disconnect();
                 Settings.S.autoConnect = _autoConnect;
                 UnityEngine.Time.realtimeSinceStartup = _time;
+            }
+        }
+
+        public static void InputAcceptanceTracksConnectionWithoutReplay()
+        {
+            var socket = new Socket();
+            using (var env = new Environment(socket))
+            {
+                var terminal = new TerminalIO(env.Hub);
+                Assert.That(terminal.SendKeys("agent", new[] { "before" }, true), Is.False);
+                env.Connect();
+                Assert.That(socket.Sent, Is.Empty);
+                Assert.That(terminal.SendKeys("agent", new[] { "accepted" }, true), Is.True);
+                Assert.That(socket.Sent.Count, Is.EqualTo(1));
+                socket.Dispose();
+                Assert.That(terminal.SendKeys("agent", new[] { "after" }, true), Is.False);
+                Assert.That(socket.Sent.Count, Is.EqualTo(1));
             }
         }
 

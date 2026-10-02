@@ -39,6 +39,8 @@ Malformed messages reach the main-thread error callback without replacing queued
 generated messages. HTTP decodes bounded Protobuf responses before main-thread callbacks.
 
 Every connection attempt resets both capability views to unknown until the new announcement.
+Terminal key sends expose local socket-queue acceptance for offline input accounting;
+acceptance is not daemon acknowledgement.
 
 HTTP writes and pushed snapshots can race. Catalog and session refresh revisions reject stale reads.
 Session refresh callers wait for the winning HTTP or pushed snapshot, and share its failure

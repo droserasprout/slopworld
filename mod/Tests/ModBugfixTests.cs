@@ -244,7 +244,7 @@ namespace SlopWorld.Tests
                 return _result;
             }
 
-            public void SendBinary(byte[] text) { }
+            public bool SendBinary(byte[] text) => Connected;
 
             public void Dispose()
             {

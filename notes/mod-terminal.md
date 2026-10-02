@@ -22,6 +22,8 @@ Before adding another key binding, check `TerminalHotkeys` and the panel input c
 
 Clipboard handling depends on the target. Codex checks for text before it handles its image-paste shortcut.
 Ctrl+V with plain text can cause a missing-image error.
+Flush buffered literal input before clipboard or PRIMARY paste requests, including local fallback.
+Rejected buffered input is discarded and counted, never replayed after reconnect.
 Host panes accept only text. PRIMARY selection and explicit OSC clipboard writes use separate channels from ordinary CLIPBOARD.
 Clicks in history stay local. Release forwarded drags even when Shift or focus changes.
 

@@ -108,5 +108,15 @@ namespace SlopWorld.Tests
             foreach (var action in invalid) Assert.Throws<OverflowException>(() => action());
             Assert.That(sent, Is.Empty);
         }
+        public static void TerminalKeysReportTransportRejection()
+        {
+            bool accepted = false;
+            var terminal = new TerminalIO(_ => accepted);
+            Assert.That(terminal.SendKeys("agent", new[] { "text" }, true), Is.False);
+            accepted = true;
+            Assert.That(terminal.SendKeys("agent", new[] { "text" }, true), Is.True);
+            var hub = new HubTransport();
+            Assert.That(new TerminalIO(hub).SendKeys("agent", new[] { "text" }, true), Is.False);
+        }
     }
 }

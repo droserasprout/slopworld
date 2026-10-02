@@ -17,7 +17,7 @@ namespace SlopWorld
         string LastError { get; }
         IncomingMessageQueue Incoming { get; }
         bool Connect(string host, int port, string path, string token, int timeoutMs = 3000);
-        void SendBinary(byte[] text);
+        bool SendBinary(byte[] text);
     }
 
     public partial class MiniWebSocket : IDisposable, IHubSocket
@@ -181,11 +181,12 @@ namespace SlopWorld
             return protocol == "slopworld.protobuf.v2" && string.Equals(accept, expected, StringComparison.Ordinal);
         }
 
-        public void SendBinary(byte[] text)
+        public bool SendBinary(byte[] text)
         {
-            if (!Connected || (text == null || text.Length == 0)) return;
+            if (!Connected || (text == null || text.Length == 0)) return false;
             _outgoing.Enqueue(text);
             _sendSignal.Set();
+            return true;
         }
 
         void WriteLoop()

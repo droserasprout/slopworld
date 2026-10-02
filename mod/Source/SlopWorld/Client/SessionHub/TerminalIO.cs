@@ -5,11 +5,13 @@ namespace SlopWorld
 {
     class TerminalIO
     {
-        readonly Action<Wire.ClientMessage> _send;
+        readonly Func<Wire.ClientMessage, bool> _send;
         // Desired subscriptions survive disconnection and replay when the transport reconnects.
         readonly HashSet<string> _subs = new HashSet<string>();
-        public TerminalIO(HubTransport transport) : this(transport.Send) { }
-        internal TerminalIO(Action<Wire.ClientMessage> send) { _send = send; }
+        public TerminalIO(HubTransport transport) : this(transport.TrySend) { }
+        internal TerminalIO(Func<Wire.ClientMessage, bool> send) { _send = send; }
+        internal TerminalIO(Action<Wire.ClientMessage> send)
+            : this(message => { send(message); return true; }) { }
         public void Subscribe(string name)
         {
             _subs.Add(name);
@@ -33,7 +35,7 @@ namespace SlopWorld
         {
             foreach (var name in _subs.ToList()) Sub(name);
         }
-        public void SendKeys(string name, IEnumerable<string> keys, bool literal) =>
+        public bool SendKeys(string name, IEnumerable<string> keys, bool literal) =>
             _send(new Wire.ClientMessage
             {
                 Keys = new Wire.KeysReq

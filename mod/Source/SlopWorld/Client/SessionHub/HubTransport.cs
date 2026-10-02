@@ -83,11 +83,15 @@ namespace SlopWorld
 
         // Send all hub socket messages through this method.
         // Discard messages when the socket is disconnected.
-        public void Send(Wire.ClientMessage message)
+        public void Send(Wire.ClientMessage message) => TrySend(message);
+
+        // Acceptance means queued locally, not acknowledged by the daemon. Never replay
+        // rejected input after reconnect: it may reach a different application state.
+        public bool TrySend(Wire.ClientMessage message)
         {
-            if (_ws == null || !_ws.Connected) return;
+            if (_ws == null || !_ws.Connected) return false;
             TerminalLatency.Begin(message);
-            _ws.SendBinary(message.ToByteArray());
+            return _ws.SendBinary(message.ToByteArray());
         }
 
         // Called every frame from the coordinator's Update.
