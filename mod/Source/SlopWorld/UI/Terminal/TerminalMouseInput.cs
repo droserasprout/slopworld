@@ -73,66 +73,77 @@ namespace SlopWorld
 
         internal void HandleMouse(Rect body, Event e)
         {
-            // Do not start terminal input when another control owns the drag, such as the sidebar, scrollbar, or divider.
-            if (MouseType(e) == EventType.MouseDown && GUIUtility.hotControl != 0) return;
-            // Continue a forwarded press even if Shift or app mode changes.
-            if (_panel.OwnsForwardedMouse(e))
+            bool observedClick = false;
+            try
             {
-                if (_panel.HandleMouseForward(body, e)) return;
-                _panel.SelectionInput.Handle(body, e);
-                return;
-            }
-            // Handle the scrollbar before terminal input. It covers the terminal's rightmost cells.
-            if (_panel.HandleHistoryBarInput(body, e)) return;
-
-            // Keep the pane menu available in every mode, including full-screen TUIs.
-            if (IsContextMenuEvent(e))
-            {
-                if (IsMouseDownInside(body, e))
+                // Do not start terminal input when another control owns the drag, such as the sidebar, scrollbar, or divider.
+                if (MouseType(e) == EventType.MouseDown && GUIUtility.hotControl != 0) return;
+                // Continue a forwarded press even if Shift or app mode changes.
+                if (_panel.OwnsForwardedMouse(e))
                 {
-                    string url = _panel.LinkUnder(body, e.mousePosition);
-                    _panel.OpenMenu(url);
+                    if (_panel.HandleMouseForward(body, e)) return;
+                    _panel.SelectionInput.Handle(body, e);
+                    return;
                 }
-                e.Use();
-                return;
-            }
+                // Handle the scrollbar before terminal input. It covers the terminal's rightmost cells.
+                if (_panel.HandleHistoryBarInput(body, e)) return;
 
-            // Middle-click pastes the PRIMARY selection. Handle it before app mouse reporting.
-            if (IsPrimaryPasteEvent(body, e))
+                // Keep the pane menu available in every mode, including full-screen TUIs.
+                if (IsContextMenuEvent(e))
+                {
+                    if (IsMouseDownInside(body, e))
+                    {
+                        string url = _panel.LinkUnder(body, e.mousePosition);
+                        _panel.OpenMenu(url);
+                    }
+                    e.Use();
+                    return;
+                }
+
+                // Middle-click pastes the PRIMARY selection. Handle it before app mouse reporting.
+                if (IsPrimaryPasteEvent(body, e))
+                {
+                    _panel.JumpToLive();
+                    _panel.PastePrimarySelection();
+                    e.Use();
+                    return;
+                }
+
+                // Open URLs with Ctrl+click before app mouse reporting. A TUI may consume the click.
+                if (IsLinkClick(body, e))
+                {
+                    TerminalPanel.OpenUrl(_panel.LinkUnder(body, e.mousePosition));
+                    e.Use();
+                    return;
+                }
+
+                if (IsPathClick(body, e, out string path, out int line))
+                {
+                    _panel.OpenPathMenu(path, line);
+                    e.Use();
+                    return;
+                }
+
+                // Handle multi-click selection even when the app reports mouse input.
+                observedClick = MouseType(e) == EventType.MouseDown && e.button == 0 &&
+                    body.Contains(e.mousePosition);
+                if (_panel.SelectionInput.TryHandleMultiClick(body, e))
+                {
+                    return;
+                }
+
+                var live = SessionHub.Instance.Screen(_panel.SessionName);
+                // Shift selects text instead of sending the click to the app.
+                if (ShouldForwardMouse(live, e) && _panel.HandleMouseForward(body, e)) return;
+                if (!IsPrimaryMouse(e)) return;
+
+                _panel.SelectionInput.Handle(body, e);
+            }
+            finally
             {
-                _panel.JumpToLive();
-                _panel.PastePrimarySelection();
-                e.Use();
-                return;
+                if (!observedClick && MouseType(e) == EventType.MouseDown)
+                    _panel.SelectionInput.ResetClicks();
             }
-
-            // Open URLs with Ctrl+click before app mouse reporting. A TUI may consume the click.
-            if (IsLinkClick(body, e))
-            {
-                TerminalPanel.OpenUrl(_panel.LinkUnder(body, e.mousePosition));
-                e.Use();
-                return;
-            }
-
-            if (IsPathClick(body, e, out string path, out int line))
-            {
-                _panel.OpenPathMenu(path, line);
-                e.Use();
-                return;
-            }
-
-            // Handle multi-click selection even when the app reports mouse input.
-            if (_panel.SelectionInput.TryHandleMultiClick(body, e))
-            {
-                return;
-            }
-
-            var live = SessionHub.Instance.Screen(_panel.SessionName);
-            // Shift selects text instead of sending the click to the app.
-            if (ShouldForwardMouse(live, e) && _panel.HandleMouseForward(body, e)) return;
-            if (!IsPrimaryMouse(e)) return;
-
-            _panel.SelectionInput.Handle(body, e);
         }
 
         static bool IsContextMenuEvent(Event e) => e.button == 1;
@@ -171,75 +182,6 @@ namespace SlopWorld
             e.control || e.command || Input.GetKey(KeyCode.LeftControl) ||
             Input.GetKey(KeyCode.RightControl);
 
-
-        static string MapKey(Event e, bool altScreen)
-        {
-            // Use tmux modifier names. Send Shift only on the alternate screen because shells do not define those xterm sequences.
-            string mod = "";
-            if (e.control) mod += "C-";
-            if (e.alt) mod += "M-";
-            if (e.shift && altScreen) mod += "S-";
-
-            switch (e.keyCode)
-            {
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter: return "Enter";
-                case KeyCode.Escape: return "Escape";
-                case KeyCode.Backspace: return mod + "BSpace";
-                case KeyCode.Tab: return e.shift ? "BTab" : "Tab";
-                case KeyCode.UpArrow: return mod + "Up";
-                case KeyCode.DownArrow: return mod + "Down";
-                case KeyCode.LeftArrow: return mod + "Left";
-                case KeyCode.RightArrow: return mod + "Right";
-                case KeyCode.Home: return mod + "Home";
-                case KeyCode.End: return mod + "End";
-                case KeyCode.PageUp: return mod + "PPage";
-                case KeyCode.PageDown: return mod + "NPage";
-                case KeyCode.Delete: return mod + "DC";
-                case KeyCode.Insert: return mod + "IC";
-                case KeyCode.F1: return "F1";
-                case KeyCode.F2: return "F2";
-                case KeyCode.F3: return "F3";
-                case KeyCode.F4: return "F4";
-                case KeyCode.F5: return "F5";
-                case KeyCode.F6: return "F6";
-                case KeyCode.F7: return "F7";
-                case KeyCode.F8: return "F8";
-                case KeyCode.F9: return "F9";
-                case KeyCode.F10: return "F10";
-                case KeyCode.F11: return "F11";
-                case KeyCode.F12: return "F12";
-            }
-
-            // The caller handles Ctrl+V as paste. Do not forward it as a key.
-            if (e.control && e.keyCode == KeyCode.V) return null;
-
-            if (e.control)
-            {
-                switch (e.keyCode)
-                {
-                    case KeyCode.Space:
-                    case KeyCode.At: return "C-@";
-                    case KeyCode.LeftBracket: return "C-[";
-                    case KeyCode.Backslash: return "C-\\";
-                    case KeyCode.RightBracket: return "C-]";
-                    case KeyCode.Caret: return "C-^";
-                    case KeyCode.Underscore: return "C-_";
-                    case KeyCode.Alpha2: if (e.shift) return "C-@"; break;
-                    case KeyCode.Alpha6: if (e.shift) return "C-^"; break;
-                    case KeyCode.Minus: if (e.shift) return "C-_"; break;
-                }
-            }
-
-            if (e.keyCode >= KeyCode.A && e.keyCode <= KeyCode.Z)
-            {
-                char c = (char)('a' + (e.keyCode - KeyCode.A));
-                if (e.control) return "C-" + c;
-                if (e.alt) return "M-" + c;
-            }
-
-            return null;
-        }
 
     }
 }

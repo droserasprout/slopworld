@@ -83,8 +83,20 @@ namespace UnityEngine
     [System.Flags]
     public enum EventModifiers { None = 0, Shift = 1 }
 
+    public enum KeyCode
+    {
+        A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+        F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
+        Alpha2, Alpha6, At, Backslash, Backspace, Caret, Delete, DownArrow, End, Escape,
+        Home, Insert, KeypadEnter, LeftArrow, LeftBracket, Minus, PageDown, PageUp,
+        Return, RightArrow, RightBracket, Space, Tab, Underscore, UpArrow
+    }
+
+
     public class Event
     {
+        public KeyCode keyCode;
+        public bool control, alt, shift;
         public int button, clickCount;
         public Vector2 mousePosition;
         public Vector2 delta;

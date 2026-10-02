@@ -15,7 +15,8 @@ The client checks and limits these values before layout and cache allocation. Th
 Before the capability announcement arrives, the client uses local safety limits.
 
 Escape belongs to the application. The workspace handles close and leave keys before it forwards input.
-Send shifted navigation keys to the application on alternate screens.
+Send shifted navigation keys to the application on alternate screens. Tab and function
+keys retain Ctrl/Alt modifiers; Shift+Tab uses BTab and shifted function keys retain Shift.
 On the primary screen, page keys scroll local history. Send Tab to the application.
 The terminal input controller also owns adjacent-session navigation and pawn selection
 from the map; Harmony hooks only dispatch it.
@@ -26,7 +27,8 @@ Ctrl+V with plain text can cause a missing-image error.
 Flush buffered literal input before clipboard or PRIMARY paste requests, including local fallback.
 Rejected buffered input is discarded and counted, never replayed after reconnect.
 Host panes accept only text. PRIMARY selection and explicit OSC clipboard writes use separate channels from ordinary CLIPBOARD.
-Clicks in history stay local. Release forwarded drags even when Shift or focus changes.
+Clicks in history stay local. A press routed to menus, paste, or links resets the local
+multi-click sequence. Capture selection only after a multi-click finds selectable text. Release forwarded drags even when Shift or focus changes.
 
 Unity can lose semicolon character events. The named-key fallback runs once per frame.
 It sends Shift+semicolon as a colon. Flush ordinary text before it sends semicolons as pasted text.

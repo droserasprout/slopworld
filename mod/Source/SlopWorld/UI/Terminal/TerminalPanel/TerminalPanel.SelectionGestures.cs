@@ -115,16 +115,16 @@ namespace SlopWorld
         }
 
         // A word, or the run of identical characters a non-word cell sits in.
-        internal void DoubleClickSelect(Vector2Int cell)
+        internal bool DoubleClickSelect(Vector2Int cell)
         {
             var buf = DisplayedBuf();
-            if (buf == null) return;
+            if (buf == null) return false;
             EnsureRuns(buf);
-            if (cell.y < 0 || cell.y >= buf.Runs.Length) return;
+            if (cell.y < 0 || cell.y >= buf.Runs.Length) return false;
 
             var cells = TerminalColumns.Cells(buf.Runs[cell.y]);
             int len = TerminalColumns.ContentColumns(cells);
-            if (cell.x < 0 || cell.x >= len) { ClearSelection(); return; }
+            if (cell.x < 0 || cell.x >= len) { ClearSelection(); return false; }
 
             TerminalColumns.WordRange(cells, cell.x, out int c0, out int c1);
             _state.Selection.WordStart = new Vector2Int(c0, cell.y);
@@ -138,6 +138,7 @@ namespace SlopWorld
             _state.Selection.WordDragging = true;
             _state.Selection.LineDragging = false;
             CopyPrimarySelection();
+            return true;
         }
 
         internal void UpdateWordSelection(Vector2Int cell)
@@ -172,17 +173,18 @@ namespace SlopWorld
             a.y < b.y || (a.y == b.y && a.x < b.x);
 
         // The row, not the logical line: the daemon does not mark where one wrapped.
-        internal void TripleClickSelect(int row)
+        internal bool TripleClickSelect(int row)
         {
             var buf = DisplayedBuf();
-            if (buf == null) return;
+            if (buf == null) return false;
             EnsureRuns(buf);
-            if (row < 0 || row >= buf.Runs.Length) return;
+            if (row < 0 || row >= buf.Runs.Length) return false;
 
             int len = TerminalColumns.ContentColumns(TerminalColumns.Cells(buf.Runs[row]));
-            if (len == 0) { ClearSelection(); return; }
+            if (len == 0) { ClearSelection(); return false; }
             SelectSpan(row, 0, len - 1);
             CopyPrimarySelection();
+            return true;
         }
 
         internal void SelectLineRange(int anchor, int row)
