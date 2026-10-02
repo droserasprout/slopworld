@@ -154,6 +154,7 @@ namespace SlopWorld
                     value => _highlighterCustom = value, defaultValue: _cfg.FactoryDefaults?.Highlighter);
                 if (_pagerCustom || _highlighterCustom)
                     UiLayout.Note(l, "Pager templates accept {file} and {line}. Highlighter templates use %s for the file path.");
+                // Apply edits from this GUI pass; Draw checks changes made before the pass.
                 if (_command != SelectedCommand) Reload();
             }
             else UiLayout.Note(l, "Connect to the daemon to configure the pager and highlighter.");
@@ -195,9 +196,9 @@ namespace SlopWorld
                     UiScrollbarReservation.Always);
                 using (_scroll.Scope(inner, geometry.View))
                 {
-                    DrawForm(SettingsPageLayout.ToRect(_layout.Form));
-                    DrawPreviewBlock(SettingsPageLayout.ToRect(_layout.PreviewCaption),
-                        SettingsPageLayout.ToRect(_layout.Preview));
+                    DrawForm(UiRect.ToRect(_layout.Form));
+                    DrawPreviewBlock(UiRect.ToRect(_layout.PreviewCaption),
+                        UiRect.ToRect(_layout.Preview));
                 }
             }
             else

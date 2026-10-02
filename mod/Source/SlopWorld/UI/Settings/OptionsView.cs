@@ -8,13 +8,6 @@ namespace SlopWorld
     // input. Preserve vanilla's GUI-coordinate category layout inside a temporary group.
     public class OptionsView : ContentView
     {
-        // As wide as the config page needs and no wider: 177 for the category column, the
-        // rest for two columns of fields. A form stretched across a 4K screen is a form
-        // nobody can read a row of.
-        const float MaxW = 1020f;
-        // Room above the first category row. There is none below: the band runs to the
-        // bottom and the hidden OK button's row is what reads as padding.
-        static float PadY => UiTheme.GapL;
         // What vanilla reserves at the foot of the page for the OK button. Handed back to
         // the options list, the button being gone (Patch_OptionsOk).
         const float OkRow = 60f;
@@ -42,8 +35,7 @@ namespace SlopWorld
 
         public override string Title => "Settings";
 
-        // The tab the column is on. Therefore, the doors that used to swap a category on an open
-        // dialog still have something to swap it on.
+        // Navigate in place; release field focus on category changes and clear selected-mod state.
         public OptionCategoryDef Category
         {
             get { return _dlg.selectedCategory; }
@@ -55,15 +47,6 @@ namespace SlopWorld
             }
         }
 
-        // The centred band inside whatever room the pages are given, and the rect handed to
-        // the dialog once a group is open on it. Both are shared with the patch that shapes
-        // the window the *main menu* still opens (Patch_OptionsBand): one band, two roads.
-        public static Rect Band(Rect r)
-        {
-            float w = Mathf.Min(r.width, MaxW);
-            return new Rect(r.x + (r.width - w) / 2f, r.y + PadY, w, r.height - PadY);
-        }
-
         // The height is the band's plus the row vanilla takes off for the OK button. Therefore, the
         // options list fills the band and the button - suppressed, see Patch_OptionsOk - is laid
         // out past the bottom of the group.
@@ -72,7 +55,7 @@ namespace SlopWorld
 
         public override void Draw(Rect body)
         {
-            var band = Band(body);
+            var band = UiLayout.CenteredBand(body);
             // Other views own wheel input outside Settings or already consumed.
             if (SmoothScroll.WheelOnly && (Event.current.type == EventType.Used ||
                 !band.Contains(Event.current.mousePosition))) return;

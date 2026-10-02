@@ -6,17 +6,18 @@ namespace SlopWorld
 {
     public static class SettingsPageLayout
     {
-        public static Rect Body(Rect page, bool footer = true) => ToRect(SettingsLayout.Body(
-            FromRect(page), UiTheme.GapM, footer ? UiTheme.BtnH : 0f, UiTheme.GapS));
+        public static Rect Body(Rect page) => UiRect.ToRect(SettingsLayout.Body(
+            UiRect.FromRect(page), UiTheme.GapM, UiTheme.BtnH, UiTheme.GapS));
+
+        public static Rect BodyWithoutFooter(Rect page) => UiRect.ToRect(SettingsLayout.Body(
+            UiRect.FromRect(page), UiTheme.GapM, 0f, UiTheme.GapS));
 
         public static Rect Footer(Rect page) =>
-            ToRect(SettingsLayout.Footer(FromRect(page), UiTheme.BtnH));
+            UiRect.ToRect(SettingsLayout.Footer(UiRect.FromRect(page), UiTheme.BtnH));
 
         public static Rect Inset(Rect rect, float padding) =>
-            ToRect(SettingsLayout.Inset(FromRect(rect), padding));
+            UiRect.ToRect(SettingsLayout.Inset(UiRect.FromRect(rect), padding));
 
-        public static UiLayoutRect FromRect(Rect r) => new UiLayoutRect(r.x, r.y, r.width, r.height);
-        public static Rect ToRect(UiLayoutRect r) => new Rect(r.X, r.Y, r.Width, r.Height);
     }
 
     // The page keeps this owner across resizes, preserving field identity and scroll.

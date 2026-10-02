@@ -185,15 +185,6 @@ namespace SlopWorld
         static readonly List<Tab> Column = new List<Tab>();
         static readonly Dictionary<PageId, Tab> Tabs = new Dictionary<PageId, Tab>();
 
-        sealed class RimWorldPage : IOptionPage
-        {
-            readonly AboutPage _page = new AboutPage();
-
-            public void Load() { }
-
-            public void Draw(Rect rect) => _page.DrawRimWorld(rect);
-        }
-
         public static OptionCategoryDef CategoryFor(PageId key) => TabFor(key)?.Def;
 
         // Let the Keyboard page capture input before terminal shortcuts when it waits for a binding.

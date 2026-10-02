@@ -59,10 +59,10 @@ namespace SlopWorld
         {
             UiLayout.Title(TitleRect(rect), _identity.Title("project"));
 
-            var layout = TabbedFormLayout.Arrange(SettingsPageLayout.FromRect(rect), 132f,
+            var layout = TabbedFormLayout.Arrange(UiRect.FromRect(rect), 132f,
                 UiTheme.HeaderH, UiTheme.BtnH, UiTheme.GapS, UiTheme.GapM);
-            DrawRail(SettingsPageLayout.ToRect(layout.Rail));
-            var body = SettingsPageLayout.ToRect(layout.Body);
+            DrawRail(UiRect.ToRect(layout.Rail));
+            var body = UiRect.ToRect(layout.Body);
 
             switch (_tab)
             {
@@ -79,7 +79,7 @@ namespace SlopWorld
 
             }
 
-            var foot = new UiLayout.Bar(SettingsPageLayout.ToRect(layout.Footer));
+            var foot = new UiLayout.Bar(UiRect.ToRect(layout.Footer));
             if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
             if (foot.Right("Save", UiTheme.Btn.Primary, !_saving)) Save();
         }

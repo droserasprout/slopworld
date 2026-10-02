@@ -23,8 +23,10 @@ namespace SlopWorld
             return Inset(new UiLayoutRect(page.X, page.Y, page.Width, body), padding);
         }
 
-        public static UiLayoutRect Footer(UiLayoutRect page, float height) =>
-            new UiLayoutRect(page.X, page.YMax - Math.Min(page.Height, Math.Max(0f, height)),
-                page.Width, Math.Min(page.Height, Math.Max(0f, height)));
+        public static UiLayoutRect Footer(UiLayoutRect page, float height)
+        {
+            float footer = Math.Min(page.Height, Math.Max(0f, height));
+            return new UiLayoutRect(page.X, page.YMax - footer, page.Width, footer);
+        }
     }
 }

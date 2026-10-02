@@ -46,7 +46,7 @@ namespace SlopWorld
             }
 
             Text.Font = GameFont.Small;
-            var inner = SettingsPageLayout.Body(rect, false);
+            var inner = SettingsPageLayout.BodyWithoutFooter(rect);
 
             float previewH = PreviewHeight();
             float formH = _fieldsH > 0f ? _fieldsH : EstimateFieldsHeight();
@@ -240,6 +240,7 @@ namespace SlopWorld
             if (UiLayout.Button(l, "Rescan installed fonts"))
             {
                 UiFont.Rescan();
+                _fontOptions = null;
                 _contentRevision++;
             }
             l.Gap(UiTheme.GapM);

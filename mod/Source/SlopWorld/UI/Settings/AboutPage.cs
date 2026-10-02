@@ -1,10 +1,8 @@
-using System.Reflection;
 using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
-using Verse.Steam;
 
 namespace SlopWorld
 {
@@ -39,6 +37,7 @@ namespace SlopWorld
         const int AlternateTitleTextSize = 56;
         const int AlternateBodyTextSize = 26;
 
+        // Keep the Easter-egg copy encoded so casual source searches do not spoil it.
         static readonly string AlternateTitle =
             System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("V2VsY29tZSBIdW1hbnMh"));
         static readonly string AlternateIntro =
@@ -186,22 +185,18 @@ namespace SlopWorld
             "https://terryfail.bandcamp.com/");
 
         readonly SmoothScroll _scroll = new SmoothScroll();
-        readonly SmoothScroll _rimWorldScroll = new SmoothScroll();
-        readonly Dialog_Options _rimWorldOptions = new Dialog_Options();
         float _contentHeight;
         readonly ContentHeight _height = new ContentHeight(FirstPassHeight);
-        readonly ContentHeight _rimWorldHeight = new ContentHeight(1800f);
         readonly MouseClickSequence _alternateClicks = new MouseClickSequence();
         int _autoScrollFrame = -1;
         bool _alternateAbout;
         int _alternateRetry;
-        List<ListableOption> _links;
         Texture2D _alternateTexture;
 
         public void Draw(Rect rect)
         {
             Text.Font = GameFont.Small;
-            var inner = SettingsPageLayout.Body(rect, false);
+            var inner = SettingsPageLayout.BodyWithoutFooter(rect);
 
             float viewWidth = Mathf.Max(1f, inner.width - UiTheme.ScrollbarW);
             float viewHeight = Mathf.Max(inner.height,
@@ -234,183 +229,6 @@ namespace SlopWorld
             float next = Mathf.Min(max,
                 _scroll.Position.y + AutoScrollSpeed * Time.unscaledDeltaTime);
             _scroll.JumpTo(new Vector2(_scroll.Position.x, next));
-        }
-
-        public void DrawRimWorld(Rect rect)
-        {
-            Text.Font = GameFont.Small;
-            var inner = SettingsPageLayout.Body(rect, false);
-
-            float viewWidth = Mathf.Max(1f, inner.width - UiTheme.ScrollbarW);
-            float viewHeight = Mathf.Max(inner.height,
-                _rimWorldHeight.BeginFrame(Time.frameCount));
-            var view = new Rect(0f, 0f, viewWidth, viewHeight);
-
-            using (_rimWorldScroll.Scope(inner, view))
-            {
-                var content = new Rect(ContentPaddingX, ContentPaddingY,
-                    Mathf.Max(1f, view.width - ContentPaddingX * 2f),
-                    Mathf.Max(1f, view.height - ContentPaddingY * 2f));
-                float y = DrawEulaDisclaimer(content, content.y);
-                y = DrawRimWorldHeader(content, y);
-                y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Graphics,
-                    "DoVideoOptions");
-                y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Interface,
-                    "DoUIOptions");
-                y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Controls,
-                    "DoControlsOptions");
-                _rimWorldHeight.Measure(y + ContentPaddingY);
-            }
-        }
-
-        float DrawRimWorldHeader(Rect rect, float y)
-        {
-            float columnWidth = Mathf.Max(1f, (rect.width - ColumnGap) / 2f);
-            var build = new Rect(rect.x, y, columnWidth, rect.height);
-            var links = new Rect(rect.x + columnWidth + ColumnGap, y,
-                columnWidth, rect.height);
-
-            float buildBottom = DrawVersionInfo(build, build.y);
-            float linksBottom = DrawWebLinks(links, links.y);
-            return Mathf.Max(buildBottom, linksBottom) + HeadingGap;
-        }
-
-        float DrawRimWorldSection(Rect rect, float y, OptionCategoryDef category,
-            string methodName)
-        {
-            if (category == null) return y;
-
-            var method = typeof(Dialog_Options).GetMethod(methodName,
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            if (method == null) return y;
-
-            UiLayout.SectionHeading(
-                new Rect(rect.x, y, rect.width, UiTheme.RowH), category.LabelCap);
-            y += UiTheme.RowH + UiTheme.GapXS;
-
-            var listing = new Listing_Standard { maxOneColumn = true };
-            listing.Begin(new Rect(rect.x, y, rect.width, 10000f));
-            listing.verticalSpacing = UiTheme.GapXS;
-            listing.Gap(UiTheme.GapS + UiTheme.GapXS);
-            try
-            {
-                method.Invoke(_rimWorldOptions, new object[] { listing });
-                float used = listing.CurHeight;
-                listing.End();
-                return y + used + HeadingGap;
-            }
-            catch
-            {
-                listing.End();
-                throw;
-            }
-        }
-
-        float DrawVersionInfo(Rect rect, float y)
-        {
-            float line = UiTheme.LineH;
-            float step = line + UiTheme.GapXS;
-            GUI.color = UiTheme.Dim;
-            UiText.RowLabel(new Rect(rect.x, y, rect.width, line), "RimWorld build");
-            GUI.color = Color.white;
-            y += step;
-
-            UiText.RowLabel(new Rect(rect.x, y, rect.width, line),
-                "VersionIndicator".Translate(
-                    (NamedArgument)VersionControl.CurrentVersionString));
-            y += step;
-            UiText.RowLabel(new Rect(rect.x, y, rect.width, line),
-                "CompiledOn".Translate(
-                    (NamedArgument)VersionControl.CurrentBuildDate.ToString("MMM d yyyy")));
-            y += step;
-
-            if (SteamManager.Initialized)
-            {
-                y += UiTheme.GapXS;
-                UiText.RowLabel(new Rect(rect.x, y, rect.width, line),
-                    "LoggedIntoSteamAs".Translate(
-                        (NamedArgument)SteamUtility.SteamPersonaName));
-                y += step;
-            }
-
-            y += UiTheme.GapS;
-            var lvg = Current.Root?.gameObject.GetComponent<LatestVersionGetter>();
-            if (lvg != null)
-            {
-                lvg.DrawAt(new Rect(rect.x, y, rect.width, 50f));
-                y += 50f + UiTheme.GapXS;
-            }
-
-            return y + UiTheme.GapS + UiTheme.GapXS;
-        }
-
-        float DrawWebLinks(Rect rect, float y)
-        {
-            if (_links == null) _links = BuildLinks();
-
-            return y + OptionListingUtility.DrawOptionListing(
-                new Rect(rect.x, y, rect.width, 1000f), _links);
-        }
-
-        static List<ListableOption> BuildLinks()
-        {
-            return new List<ListableOption>
-            {
-                new ListableOption_WebLink(
-                    "FictionPrimer".Translate(),
-                    "https://rimworldgame.com/backstory",
-                    TexButton.IconBlog),
-                new ListableOption_WebLink(
-                    "LudeonBlog".Translate(),
-                    "https://ludeon.com/blog",
-                    TexButton.IconBlog),
-                new ListableOption_WebLink(
-                    "Subreddit".Translate(),
-                    "https://www.reddit.com/r/RimWorld/",
-                    TexButton.IconReddit),
-                new ListableOption_WebLink(
-                    "OfficialWiki".Translate(),
-                    "https://rimworldwiki.com",
-                    TexButton.IconWiki),
-                new ListableOption_WebLink(
-                    "TynansX".Translate(),
-                    "https://x.com/TynanSylvester",
-                    TexButton.IconX),
-                new ListableOption_WebLink(
-                    "TynansDesignBook".Translate(),
-                    "https://tynansylvester.com/book",
-                    TexButton.IconBook),
-                new ListableOption_WebLink(
-                    "HelpTranslate".Translate(),
-                    "https://rimworldgame.com/helptranslate",
-                    TexButton.IconForums),
-                new ListableOption_WebLink(
-                    "BuySoundtrack".Translate(),
-                    () =>
-                    {
-                        var opts = new List<FloatMenuOption>
-                        {
-                            new FloatMenuOption(
-                                "BuySoundtrack_Classic".Translate(),
-                                () => Application.OpenURL(
-                                    "https://store.steampowered.com/app/990430/RimWorld_Soundtrack/")),
-                            new FloatMenuOption(
-                                "BuySoundtrack_Royalty".Translate(),
-                                () => Application.OpenURL(
-                                    "https://store.steampowered.com/app/1244270/RimWorld_Royalty_Soundtrack/")),
-                            new FloatMenuOption(
-                                "BuySoundtrack_Anomaly".Translate(),
-                                () => Application.OpenURL(
-                                    "https://store.steampowered.com/app/2914900/RimWorld_Anomaly_Soundtrack/")),
-                            new FloatMenuOption(
-                                "BuySoundtrack_Odyssey".Translate(),
-                                () => Application.OpenURL(
-                                    "https://store.steampowered.com/app/3689230/RimWorld_Odyssey_Soundtrack/")),
-                        };
-                        Find.WindowStack.Add(new UiMenu(opts));
-                    },
-                    TexButton.IconSoundtrack),
-            };
         }
 
         float DrawCredits(Rect r)

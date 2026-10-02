@@ -95,7 +95,7 @@ namespace SlopWorld
 
         public override void Draw(Rect body)
         {
-            var panel = OptionsView.Band(body);
+            var panel = UiLayout.CenteredBand(body);
             Slab.Box(panel, UiTheme.WindowBg, UiTheme.Edge);
             var rect = panel.ContractedBy(UiTheme.GapM);
             UiLayout.Title(rect, Title);
