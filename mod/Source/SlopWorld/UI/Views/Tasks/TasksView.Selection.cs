@@ -12,6 +12,7 @@ namespace SlopWorld
             if (!ColonistBarStrip.Interactive) return;
 
             var e = Event.current;
+            if (!ColonistBarStrip.MouseOver(_body)) return;
             if (e.rawType != EventType.MouseDown || (e.button != 0 && e.button != 1)) return;
 
             foreach (var line in Lines)

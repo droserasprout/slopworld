@@ -31,6 +31,9 @@ namespace SlopWorld
             if (ReferenceEquals(_taskSnapshot, allTasks) && !_filtersDirty)
                 return VisibleTasks;
 
+            // TaskStore publishes a replacement list for every mutation and refresh.
+            // Retire fitted strings with that snapshot so old TaskInfo objects cannot accumulate.
+            if (!ReferenceEquals(_taskSnapshot, allTasks)) FittedSummaries.Clear();
             _taskSnapshot = allTasks;
             _filtersDirty = false;
             VisibleTasks.Clear();

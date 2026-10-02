@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using UnityEngine;
 using Verse;
+using TextRange = SlopWorld.TextElementLayout.Range;
 
 namespace SlopWorld
 {
@@ -15,14 +16,15 @@ namespace SlopWorld
         static float MessageTextInset => AvatarSize - AvatarOverlap + UiTheme.GapS;
         static float MessageTextX => AvatarOverlap + MessageTextInset;
 
+        readonly string _taskId;
         TaskInfo _task;
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly List<DialogueLine> _selectionLines = new List<DialogueLine>();
         readonly List<SenderHit> _senderHits = new List<SenderHit>();
         readonly List<TextRange> _bodyRanges = new List<TextRange>();
         readonly List<TextRange> _noteRanges = new List<TextRange>();
-        readonly Dictionary<char, float> _smallCharWidths =
-            new Dictionary<char, float>();
+        readonly Dictionary<string, float> _smallElementWidths =
+            new Dictionary<string, float>();
         TaskInfo _layoutTask;
         float _layoutWidth = -1f;
         float _layoutScale = -1f;
@@ -38,23 +40,13 @@ namespace SlopWorld
         int _selectionControl;
         bool _draggingSelection;
 
-        struct TextRange
-        {
-            public int Start, End;
-
-            public TextRange(int start, int end)
-            {
-                Start = start;
-                End = end;
-            }
-        }
-
         struct DialogueLine
         {
             public int Start, End;
             public float X, Y, Width, Height;
             public string Text;
             public float[] Edges;
+            public int[] Boundaries;
         }
 
         struct SenderHit
@@ -64,7 +56,7 @@ namespace SlopWorld
             public Rect Name;
         }
 
-        public TaskDetailView(TaskInfo task) { _task = task; }
+        public TaskDetailView(TaskInfo task) { _task = task; _taskId = task?.Id; }
 
         public static void Open(TaskInfo task)
         {
@@ -89,7 +81,7 @@ namespace SlopWorld
             TerminalWindow.OpenContent(new TaskDetailView(task));
         }
 
-        public override string Title => "Task " + (_task?.Id ?? "");
+        public override string Title => "Task " + (_taskId ?? "");
 
         public override void Opened() { }
 
@@ -108,6 +100,24 @@ namespace SlopWorld
             Slab.Box(panel, UiTheme.WindowBg, UiTheme.Edge);
             var rect = panel.ContractedBy(UiTheme.GapM);
             UiLayout.Title(rect, Title);
+
+            var current = SessionHub.Instance.Tasks.FirstOrDefault(task => task.Id == _taskId);
+            if (!ReferenceEquals(current, _task))
+            {
+                if (current?.Body != _task?.Body || current?.Note != _task?.Note) ClearSelection();
+                _task = current;
+            }
+            if (_task == null)
+            {
+                _senderHits.Clear();
+                ClearSelection();
+                UiText.PlainStatusLabel(new Rect(rect.x, rect.y + UiTheme.HeaderH,
+                    rect.width, UiTheme.LineH * 2f), "This task is no longer available.", UiTheme.Dim);
+                var close = new UiLayout.Bar(UiLayout.FooterBar(rect));
+                if (close.Right("Close", UiTheme.Btn.Ghost))
+                    Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
+                return;
+            }
 
             float top = rect.y + UiTheme.HeaderH + UiTheme.GapS;
             float bottom = rect.yMax - UiTheme.BtnH - UiTheme.GapS;
@@ -156,12 +166,12 @@ namespace SlopWorld
 
             if (_task.Incoming && !_task.Terminal &&
                 foot.Left("Change status", UiTheme.Btn.Default))
-                TaskActions.OpenMenu(_task, updated => _task = updated);
+                TaskActions.OpenMenu(_task);
 
             if ((_task.Status == DelegatedTaskStatus.Queued ||
                  _task.Status == DelegatedTaskStatus.Accepted) &&
                 foot.Left("Cancel", UiTheme.Btn.Danger))
-                TaskActions.CancelTask(_task, updated => _task = updated);
+                TaskActions.CancelTask(_task);
             else if (_task.Terminal && foot.Left("Remove", UiTheme.Btn.Danger))
                 TaskActions.RemoveTask(_task);
 

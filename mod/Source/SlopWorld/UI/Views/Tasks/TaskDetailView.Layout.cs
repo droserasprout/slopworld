@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Verse;
+using TextRange = SlopWorld.TextElementLayout.Range;
 
 namespace SlopWorld
 {
@@ -60,53 +61,13 @@ namespace SlopWorld
 
         List<TextRange> WrappedRanges(string text, float width)
         {
-            text = text ?? "";
-            var ranges = new List<TextRange>();
-            if (text.Length == 0)
-            {
-                ranges.Add(new TextRange(0, 0));
-                return ranges;
-            }
-
             var wasFont = Text.Font;
             var wasWrap = Text.WordWrap;
             try
             {
                 Text.Font = GameFont.Small;
                 Text.WordWrap = false;
-                int start = 0;
-                int lastBreak = -1;
-                float lineWidth = 0f;
-                for (int i = 0; i < text.Length; i++)
-                {
-                    if (text[i] == '\n')
-                    {
-                        ranges.Add(new TextRange(start, i));
-                        start = i + 1;
-                        lastBreak = -1;
-                        lineWidth = 0f;
-                        continue;
-                    }
-
-                    float charWidth = SmallCharWidth(text[i]);
-                    if (lineWidth + charWidth <= width || i == start)
-                    {
-                        lineWidth += charWidth;
-                        if (char.IsWhiteSpace(text[i])) lastBreak = i + 1;
-                        continue;
-                    }
-
-                    int split = lastBreak > start ? lastBreak : i;
-                    if (split <= start) split = Mathf.Min(start + 1, text.Length);
-                    ranges.Add(new TextRange(start, split));
-                    start = split;
-                    lastBreak = -1;
-                    lineWidth = 0f;
-                    i = start - 1;
-                }
-
-                if (start <= text.Length) ranges.Add(new TextRange(start, text.Length));
-                return ranges;
+                return TextElementLayout.Wrap(text, width, SmallElementWidth);
             }
             finally
             {
@@ -115,7 +76,7 @@ namespace SlopWorld
             }
         }
 
-        float SmallCharWidth(char value)
+        float SmallElementWidth(string value)
         {
             float scale = Prefs.UIScale;
             string fontName = Settings.UIFontName ?? "";
@@ -125,12 +86,12 @@ namespace SlopWorld
                 _metricsScale = scale;
                 _metricsFontSize = Settings.UIFontSize;
                 _metricsFontName = fontName;
-                _smallCharWidths.Clear();
+                _smallElementWidths.Clear();
             }
 
-            if (_smallCharWidths.TryGetValue(value, out var width)) return width;
-            width = Text.CalcSize(value.ToString()).x;
-            _smallCharWidths[value] = width;
+            if (_smallElementWidths.TryGetValue(value, out var width)) return width;
+            width = Text.CalcSize(value).x;
+            _smallElementWidths[value] = width;
             return width;
         }
 
@@ -150,8 +111,13 @@ namespace SlopWorld
                 {
                     string lineText = text.Substring(range.Start, range.End - range.Start);
                     var edges = new float[lineText.Length + 1];
-                    for (int i = 1; i < edges.Length; i++)
-                        edges[i] = edges[i - 1] + SmallCharWidth(lineText[i - 1]);
+                    var boundaries = TextElementLayout.Boundaries(lineText);
+                    for (int i = 0; i < boundaries.Length - 1; i++)
+                    {
+                        int start = boundaries[i], end = boundaries[i + 1];
+                        for (int offset = start + 1; offset < end; offset++) edges[offset] = edges[start];
+                        edges[end] = edges[start] + SmallElementWidth(lineText.Substring(start, end - start));
+                    }
 
                     _selectionLines.Add(new DialogueLine
                     {
@@ -163,6 +129,7 @@ namespace SlopWorld
                         Height = lineH,
                         Text = lineText,
                         Edges = edges,
+                        Boundaries = boundaries,
                     });
                     lineY += lineH;
                 }

@@ -76,7 +76,8 @@ namespace SlopWorld
         bool HandleSenderClicks(Rect viewport)
         {
             var e = Event.current;
-            if (e == null || e.button != 0 || UiEvent.RawType(e) != EventType.MouseDown)
+            if (e == null || e.button != 0 || UiEvent.RawType(e) != EventType.MouseDown ||
+                !viewport.Contains(e.mousePosition))
                 return false;
 
             foreach (var hit in _senderHits)
@@ -165,7 +166,7 @@ namespace SlopWorld
             int first = Mathf.Max(0, insertion - 1);
             int last = Mathf.Min(_selectionLines.Count - 1, insertion);
             int lineIndex = first;
-            float best = float.MaxValue;
+            float bestVertical = float.MaxValue, bestHorizontal = float.MaxValue;
             for (int i = first; i <= last; i++)
             {
                 var line = _selectionLines[i];
@@ -174,10 +175,10 @@ namespace SlopWorld
                 float left = line.X;
                 float right = line.X + line.Width;
                 float horizontal = x < left ? left - x : x > right ? x - right : 0f;
-                float distance = vertical * 10000f + horizontal;
-                if (distance < best)
+                if (vertical < bestVertical || (vertical == bestVertical && horizontal < bestHorizontal))
                 {
-                    best = distance;
+                    bestVertical = vertical;
+                    bestHorizontal = horizontal;
                     lineIndex = i;
                 }
             }
@@ -186,12 +187,12 @@ namespace SlopWorld
             if (x <= selected.X) return selected.Start;
             if (x >= selected.X + selected.Width) return selected.End;
 
-            for (int i = 0; i < selected.Text.Length; i++)
+            for (int i = 0; i < selected.Boundaries.Length - 1; i++)
             {
-                float left = selected.X + selected.Edges[i];
-                float right = selected.X + selected.Edges[i + 1];
+                float left = selected.X + selected.Edges[selected.Boundaries[i]];
+                float right = selected.X + selected.Edges[selected.Boundaries[i + 1]];
                 if (x < (left + right) * 0.5f)
-                    return selected.Start + i;
+                    return selected.Start + selected.Boundaries[i];
             }
             return selected.End;
         }
