@@ -196,18 +196,19 @@ namespace SlopWorld.Tests
                 new SessionInfo { Project = "a" },
                 new SessionInfo { Project = "a", Host = true },
                 new SessionInfo { Project = "b", Worker = true },
+                new SessionInfo { Project = "a", Ephemeral = true },
                 new SessionInfo { Project = null },
                 new SessionInfo { Project = "" },
             };
-            AssertEx.Equal(2, cache.Get(sessions, 0, "a"), "all sessions retain their count");
-            AssertEx.Equal(1, cache.Get(ForbiddenSessions(), 0, "b"), "cached project");
+            AssertEx.Equal(1, cache.Get(sessions, 0, "a"), "only configured agents count");
+            AssertEx.Equal(0, cache.Get(ForbiddenSessions(), 0, "b"), "workers do not count");
             AssertEx.Equal(1, cache.Get(ForbiddenSessions(), 0, null), "null project");
             AssertEx.Equal(1, cache.Get(ForbiddenSessions(), 0, ""), "empty project");
             AssertEx.Equal(0, cache.Get(ForbiddenSessions(), 0, "missing"), "unknown project");
             sessions[0].Project = "b";
             sessions.RemoveAt(1);
             AssertEx.Equal(0, cache.Get(sessions, 1, "a"), "move and removal invalidate");
-            AssertEx.Equal(2, cache.Get(ForbiddenSessions(), 1, "b"), "updated total");
+            AssertEx.Equal(1, cache.Get(ForbiddenSessions(), 1, "b"), "updated total");
         }
 
         static IEnumerable<SessionInfo> ForbiddenSessions()

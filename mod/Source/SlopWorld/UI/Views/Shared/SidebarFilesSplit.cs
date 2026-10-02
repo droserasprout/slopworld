@@ -31,11 +31,7 @@ namespace SlopWorld
                     new UiLayoutRect(body.X, body.Y, body.Width, 0f),
                     new UiLayoutRect(body.X, body.Y, body.Width, 0f), body, false, Clamp01(fraction));
 
-            float divider = SafeNonNegative(dividerHeight);
-            // Preserve two non-empty panes when the requested divider is taller than the
-            // viewport. At that size a visible divider would consume the entire view.
-            if (divider >= body.Height) divider = 0f;
-            float available = Math.Max(0f, body.Height - divider);
+            float available = AvailableHeight(body.Height, dividerHeight, out float divider);
             float normalized = ClampFraction(fraction, available, upperMinimum, lowerMinimum);
             float upperHeight = available * normalized;
             float lowerHeight = available - upperHeight;
@@ -67,12 +63,18 @@ namespace SlopWorld
                                        float dividerHeight)
         {
             if (body.Height <= 0f) return Clamp01(0f);
-            float divider = SafeNonNegative(dividerHeight);
-            if (divider >= body.Height) divider = 0f;
-            float available = Math.Max(0f, body.Height - divider);
+            float available = AvailableHeight(body.Height, dividerHeight, out float divider);
             float raw = available <= 0f ? 0f
                 : (pointerY - body.Y - divider / 2f) / available;
             return ClampFraction(raw, available, upperMinimum, lowerMinimum);
+        }
+
+        static float AvailableHeight(float height, float dividerHeight, out float divider)
+        {
+            divider = SafeNonNegative(dividerHeight);
+            // An oversized divider must not consume both panes.
+            if (divider >= height) divider = 0f;
+            return Math.Max(0f, height - divider);
         }
 
         static float Clamp01(float value)

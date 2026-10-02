@@ -22,7 +22,7 @@ namespace SlopWorld
         }
 
 
-        public static void Clicks() => Tree.Clicks(ReleaseViewerForTree);
+        public static void Clicks() => Tree.Clicks();
 
         static void Open(Node node)
         {
@@ -589,12 +589,6 @@ namespace SlopWorld
         {
             GitView.CancelPendingDiff();
             ClearSelection();
-            Viewers.ReleasePreview();
-            ReleaseNativePreview();
-        }
-
-        static void ReleaseViewerForTree()
-        {
             Viewers.ReleasePreview();
             ReleaseNativePreview();
         }

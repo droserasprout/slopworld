@@ -16,14 +16,24 @@ namespace SlopWorld.Tests
         {
             var state = new ContentTreeState();
             var groups = new[] { "one", "two" };
+            state.SetCollapsed("hidden", true);
+            int revision = state.Revision;
             state.SetAllFolded(groups, true);
             AssertEx.True(state.AllFolded(groups), "all groups are folded");
+            AssertEx.Equal(revision + 1, state.Revision, "bulk change bumps once");
+            revision = state.Revision;
+            state.SetAllFolded(groups, true);
+            AssertEx.Equal(revision, state.Revision, "repeated folding is a no-op");
             AssertEx.True(state.ToggleCollapsed("one"), "opening reports true");
             AssertEx.False(state.AllFolded(groups), "one open means not all folded");
             AssertEx.False(state.ToggleCollapsed("one"), "closing reports false");
             AssertEx.True(state.AllFolded(groups), "closing restores all folded");
             state.SetAllFolded(groups, false);
             AssertEx.False(state.AllFolded(groups), "empty fold set is not all folded");
+            AssertEx.True(state.IsCollapsed("hidden"), "bulk folding preserves hidden groups");
+            revision = state.Revision;
+            state.SetAllFolded(null, false);
+            AssertEx.Equal(revision, state.Revision, "missing group set is a no-op");
         }
 
         static void Revision()

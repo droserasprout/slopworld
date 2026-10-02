@@ -8,26 +8,29 @@ namespace SlopWorld
     {
         public static long LocalRevision { get; private set; }
         public static void Invalidate() { LocalRevision++; }
-        long _sessions = -1, _local = -1;
-        int _projects = -1, _count = -1;
-        string _pager, _editor;
+        long _sessionsRevision = -1;
+        long _localRevision = -1;
+        int _projectsRevision = -1;
+        int _rowCount = -1;
+        string _pagerCommand;
+        string _editorCommand;
 
         public float Ensure(List<SessionInfo> rows, IEnumerable<SessionInfo> sessions,
                             long sessionsRevision, int projectsRevision, string pager, string editor,
                             Predicate<SessionInfo> include,
                             Action<List<SessionInfo>> append, float rowHeight)
         {
-            if (_sessions != sessionsRevision || _projects != projectsRevision ||
-                _local != LocalRevision || _count != rows.Count ||
-                _pager != pager || _editor != editor)
+            if (_sessionsRevision != sessionsRevision || _projectsRevision != projectsRevision ||
+                _localRevision != LocalRevision || _rowCount != rows.Count ||
+                _pagerCommand != pager || _editorCommand != editor)
             {
                 Rebuild(rows, sessions, include, append, rowHeight);
-                _sessions = sessionsRevision;
-                _projects = projectsRevision;
-                _local = LocalRevision;
-                _count = rows.Count;
-                _pager = pager;
-                _editor = editor;
+                _sessionsRevision = sessionsRevision;
+                _projectsRevision = projectsRevision;
+                _localRevision = LocalRevision;
+                _rowCount = rows.Count;
+                _pagerCommand = pager;
+                _editorCommand = editor;
             }
             return rows.Count * rowHeight;
         }
