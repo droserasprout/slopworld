@@ -41,12 +41,14 @@ namespace SlopWorld
         static readonly List<Entry> EmptyEntries = new List<Entry>();
 
         List<Entry> _entries => _load.Value ?? EmptyEntries;
-        string _error { get => _load.Error; set => _load.SetError(value); }
+        string _actionError;
+        string _error { get => _actionError ?? _load.Error; set => _actionError = value; }
         bool _loading => _load.Loading;
         bool _hasTrash => _entries.Any(e => e.Kind == "trash");
 
         public void Load()
         {
+            _actionError = null;
             _load.Load((ok, fail) => DaemonClient.Get<Wire.StoredStates>(WireProtocol.Routes.State, j => ok(
                 j.Entries.Select(Entry.FromWire)
                     .OrderBy(e => KindRank(e.Kind))

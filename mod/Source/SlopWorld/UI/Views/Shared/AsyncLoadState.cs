@@ -3,11 +3,13 @@ using System;
 namespace SlopWorld
 {
     // Request state owns waiting/error/retry bookkeeping. The request delegate performs the
-    // endpoint-specific work, so rendering never starts a network call.
+    // endpoint-specific work, so rendering never starts a network call. Callers retain
+    // action errors separately so load completion cannot erase a newer mutation failure.
     public sealed class AsyncLoadState<T>
     {
         readonly OperationGate _operations = new OperationGate();
 
+        // Value retains the last success after failure; HasValue marks its availability.
         public T Value { get; private set; }
         public bool HasValue { get; private set; }
         public bool Loading { get; private set; }
@@ -16,7 +18,7 @@ namespace SlopWorld
         public void Load(Action<Action<T>, Action<string>> request,
                          Action<T> loaded = null)
         {
-            int generation = _operations.Begin();
+            long generation = _operations.Begin();
             Loading = true;
             Error = null;
             request(value =>
@@ -40,12 +42,6 @@ namespace SlopWorld
         {
             _operations.Invalidate();
             Loading = false;
-        }
-
-        public void SetError(string error)
-        {
-            Loading = false;
-            Error = error;
         }
     }
 }

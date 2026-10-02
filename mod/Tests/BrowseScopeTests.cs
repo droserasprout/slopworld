@@ -18,7 +18,7 @@ namespace SlopWorld.Tests
             public readonly BrowseScopeCatalog Catalog;
             public Fixture() => Catalog = new BrowseScopeCatalog(p => Filter.Length == 0 || Filter == p,
                 () => Now, (p, done) => Requests.Add((p, done)));
-            public void Update(bool menu = false) => Catalog.Update(Projects, ProjectsRevision, Filter, Saved, true, saved => Saved = saved, menu);
+            public void Update(bool menu = false) => Catalog.Update(Projects, ProjectsRevision, Filter, Saved, true, menu);
             public void Toggle(BrowseScope scope) => Catalog.Toggle(scope, saved => Saved = saved);
             public void Reply(int index, params BrowseScope[] scopes) => Requests[index].Reply(scopes.ToList(), null);
             public void Refresh() { Now += 6; Update(); }
@@ -26,6 +26,28 @@ namespace SlopWorld.Tests
         static BrowseScope Scope(string worktree = "main", string phase = "ready", string path = null) =>
             new BrowseScope { ProjectId = "p-id", Project = "p", Worktree = worktree, Name = worktree,
                 Phase = phase, Path = path ?? "/p/" + worktree };
+
+        public static void CatalogSnapshotsDoNotExposeRetainedState()
+        {
+            var f = new Fixture(); f.Update();
+            var reply = Scope();
+            string key = reply.Key;
+            f.Reply(0, reply);
+            reply.Path = "/changed-input";
+            var all = f.Catalog.All("p-id");
+            all[0].ProjectId = "changed";
+            f.Catalog.Find(key).Path = "/changed-find";
+            f.Catalog.EnabledScopes()[0].Path = "/changed-enabled";
+            Assert.That(f.Catalog.Find(key).Path, Is.EqualTo("/p/main"));
+            Assert.That(f.Catalog.Enabled(key), Is.True);
+            Assert.That(((IList<BrowseScope>)all).IsReadOnly, Is.True);
+        }
+
+        public static void WorkLimitMustBePositive()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => new BoundedWork(0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new BoundedWork(-1));
+        }
 
         public static void EmptyViewsExplainCatalogState()
         {
@@ -229,10 +251,10 @@ namespace SlopWorld.Tests
             var work = new BoundedWork(2);
             var gate = new OperationGate();
             var pending = new List<Action>();
-            int old = gate.Begin();
+            long old = gate.Begin();
             for (int i = 0; i < 20; i++) work.Add(() => gate.IsCurrent(old), done => pending.Add(done));
             Assert.That(pending.Count, Is.EqualTo(2));
-            int current = gate.Begin();
+            long current = gate.Begin();
             for (int i = 0; i < 3; i++) work.Add(() => gate.IsCurrent(current), done => pending.Add(done));
             pending[0](); pending[0]();
             Assert.That(pending.Count, Is.EqualTo(3), "one completion releases one slot, skipping stale queued scopes");

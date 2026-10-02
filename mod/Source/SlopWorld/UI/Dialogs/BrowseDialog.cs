@@ -32,7 +32,7 @@ namespace SlopWorld
 
         void Load(string path)
         {
-            int generation = _operations.Begin();
+            long generation = _operations.Begin();
             _pending = true;
             _error = null;
             _path = null;

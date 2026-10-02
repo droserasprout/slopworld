@@ -43,6 +43,8 @@ set the native mouse-wheel step to one line, and reader panes send one wheel act
 An explicit bat `--pager` remains the user's choice.
 
 Daemon pages keep separate drafts for each page and endpoint. Save sends only changed fields.
+Page action failures remain separate from request-load errors, so an unrelated load completion
+cannot clear a newer mutation failure.
 The mod acknowledges the submitted snapshot and preserves edits made during the request.
 Reload merges remote values into fields the user did not edit. It reports conflicts in those
 fields. Discard loads the latest remote snapshot. Do not reload unrelated pages when saving.

@@ -9,6 +9,7 @@ namespace SlopWorld.Tests
         {
             yield return ("refresh during a read waits for a coalesced follow-up", RefreshDuringRead);
             yield return ("operation gate invalidates older tokens", GateTokens);
+            yield return ("operation gate skips reserved zero on wrap", GateWrap);
             yield return ("late callbacks cannot mutate a newer load", LateCallbacks);
             yield return ("invalidation stops loading without a replacement", Invalidate);
             yield return ("current operations accept multiple callbacks", MultipleCallbacks);
@@ -23,22 +24,33 @@ namespace SlopWorld.Tests
             AssertEx.True(queue.Request(() => completed++), "first request starts");
             AssertEx.False(queue.Request(() => completed++), "mutation queues a follow-up");
             AssertEx.False(queue.Request(), "repeated refresh is coalesced");
-            AssertEx.Equal<Action[]>(null, queue.Complete(), "old snapshot cannot satisfy consumers");
+            AssertEx.True(queue.Complete().NeedsFollowUp, "old snapshot cannot satisfy consumers");
             AssertEx.Equal(0, completed, "callbacks wait");
             AssertEx.True(queue.Request(), "one follow-up starts");
-            foreach (var callback in queue.Complete()) callback();
+            foreach (var callback in queue.Complete().Callbacks) callback();
             AssertEx.Equal(2, completed, "both consumers get the fresh snapshot");
             AssertEx.False(queue.Loading, "failure or success finishes loading");
             AssertEx.False(queue.Pending, "no redundant third request");
             AssertEx.True(queue.Request(), "retry can start after completion");
-            AssertEx.Equal(0, queue.Complete().Length, "callbacks are not retained for retry");
+            AssertEx.Equal(0, queue.Complete().Callbacks.Length, "callbacks are not retained for retry");
+        }
+
+        static void GateWrap()
+        {
+            var gate = new OperationGate();
+            typeof(OperationGate).GetField("_generation", System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic).SetValue(gate, -1L);
+            long token = gate.Begin();
+            AssertEx.True(token != 0 && gate.IsCurrent(token), "wrapped token remains usable");
+            gate.Invalidate();
+            AssertEx.False(gate.IsCurrent(token), "invalidation still rejects wrapped token");
         }
 
         static void GateTokens()
         {
             var gate = new OperationGate();
-            int first = gate.Begin();
-            int second = gate.Begin();
+            long first = gate.Begin();
+            long second = gate.Begin();
 
             AssertEx.False(gate.IsCurrent(first), "starting a new operation invalidates the old token");
             AssertEx.True(gate.IsCurrent(second), "the newest token is current");
