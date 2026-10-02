@@ -60,8 +60,7 @@ namespace SlopWorld
     public static class TemperatureUnit
     {
         public const string Alternate = "alternate";
-        public static readonly string AlternateLabel =
-            System.Text.Encoding.UTF8.GetString(new byte[] { 0x67, 0x6C, 0x61, 0x7A, 0x65, 0x64, 0xF0, 0x9F, 0x8D, 0xA9, 0x2F, 0x62, 0x61, 0x6C, 0x64, 0xF0, 0x9F, 0xA6, 0x85 });
+        public const string AlternateLabel = "glazed🍩/bald🦅";
 
         public static bool IsAlternate(string unit) => unit == Alternate;
 
@@ -87,8 +86,9 @@ namespace SlopWorld
         {
             if (_dirtyAge < 0) return;
             if (++_dirtyAge < FlushAfter) return;
-            _dirtyAge = -1;
+            // Keep the pending change if persistence fails; the next frame can retry.
             Write();
+            _dirtyAge = -1;
         }
 
         public bool autoConnect = true;
@@ -415,7 +415,7 @@ namespace SlopWorld
         public static bool EcoMode => S.ecoMode;
         public static string DisplayMode => FramePolicy.Normalize(S.displayMode);
         public static bool SmoothScrolling => S.smoothScrolling;
-        public static int ForegroundFps => FramePolicy.Clamp(S.foregroundFps);
+        public static int ForegroundFps => FramePolicy.NearestPreset(S.foregroundFps);
         public static float EcoDim => S.ecoDim;
     }
 }

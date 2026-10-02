@@ -72,6 +72,26 @@ namespace SlopWorld.Tests
             AssertEx.Equal("not-dirty", ModSettings.Load().theme, "later dirty cycle persists again");
         });
 
+        public static void FailedDirtyFlushRetainsPendingSettingsForRetry() => WithProfile(profile =>
+        {
+            Directory.CreateDirectory(profile);
+            string config = Path.Combine(profile, "Config");
+            File.WriteAllText(config, "blocks directory creation");
+            var settings = new ModSettings { theme = "pending-theme" };
+            settings.MarkDirty();
+            for (int i = 0; i < 119; i++) settings.FlushIfDue();
+            AssertEx.Throws<IOException>(() => settings.FlushIfDue(), "failed write remains observable");
+            File.Delete(config);
+            settings.theme = "latest-pending-theme";
+            settings.FlushIfDue();
+            AssertEx.Equal("latest-pending-theme", ModSettings.Load().theme, "next frame retries current settings");
+            string path = Path.Combine(config, "SlopWorld.toml");
+            string saved = File.ReadAllText(path);
+            settings.theme = "clean-change";
+            settings.FlushIfDue();
+            AssertEx.Equal(saved, File.ReadAllText(path), "successful retry clears dirty state");
+        });
+
         public static void MissingProfileUsesRelativeConfigDirectory() => WithProfile(profile =>
         {
             string oldDirectory = Directory.GetCurrentDirectory();

@@ -6,7 +6,7 @@ the daemon.
 The colony save stores which terminals to reopen.
 
 Adding a setting requires the typed `Fields` persistence entry as well as the field/shim.
-Disk persistence omits runtime dirty state. Game-free disk round trips cover the public settings.
+Disk persistence omits runtime dirty state. Failed timer writes retain pending changes for retry. Game-free disk round trips cover the public settings.
 See [apply behavior](ui-settings.md) before changing save timing.
 
 `FramePolicy` controls display pacing. It saves and restores Unity's vSync/FPS pair.
