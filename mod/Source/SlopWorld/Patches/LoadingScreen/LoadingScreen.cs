@@ -105,36 +105,28 @@ namespace SlopWorld
         // discarding it. Only a new load or mode change starts a fresh stream.
         internal static int Generation;
 
-        internal static int Lines
+        internal static int Lines => _lineCount;
+        internal static Vector2 Box => _box;
+
+        // Call before reading geometry or checking Generation; getters never trigger a reflow.
+        internal static void Measure()
         {
-            get { var _ = Box; return _lineCount; }
-        }
+            int fontSize = FontSize;
+            int width = UI.screenWidth, height = UI.screenHeight;
+            if (_measuredW == width && _measuredH == height && _measuredFontSize == fontSize) return;
 
-        internal static Vector2 Box
-        {
-            get
-            {
-                int fontSize = FontSize;
-                if (_measuredW == UI.screenWidth && _measuredH == UI.screenHeight
-                    && _measuredFontSize == fontSize)
-                    return _box;
+            _measuredW = width;
+            _measuredH = height;
+            _measuredFontSize = fontSize;
+            Generation++;
 
-                _measuredW = UI.screenWidth;
-                _measuredH = UI.screenHeight;
-                _measuredFontSize = fontSize;
-                Generation++;
-
-                float w = Mathf.Min(MaxWidth, Mathf.Max(MinWidth, UI.screenWidth * WidthRatio));
-                w = Mathf.Min(w, Mathf.Max(120f, UI.screenWidth - 40f));
-                float h = Mathf.Max(1f, UI.screenHeight);
-                float textHeight = Mathf.Max(1f, h - Margin.y * 2f);
-
-                float lineHeight = fontSize * GlyphScale * GlyphLineHeight / GlyphSource;
-                _lineCount = Mathf.Max(1, Mathf.FloorToInt(textHeight / lineHeight));
-                _box = new Vector2(w, h);
-
-                return _box;
-            }
+            float w = Mathf.Min(MaxWidth, Mathf.Max(MinWidth, width * WidthRatio));
+            w = Mathf.Min(w, Mathf.Max(120f, width - 40f));
+            float h = Mathf.Max(1f, height);
+            float textHeight = Mathf.Max(1f, h - Margin.y * 2f);
+            float lineHeight = fontSize * GlyphScale * GlyphLineHeight / GlyphSource;
+            _lineCount = Mathf.Max(1, Mathf.FloorToInt(textHeight / lineHeight));
+            _box = new Vector2(w, h);
         }
 
         // The visible stream is a line buffer, not a pre-wrapped wall. Keeping lines explicitly
@@ -352,6 +344,7 @@ namespace SlopWorld
 
         internal static void Advance()
         {
+            Measure();
             Vector2 box = Box;
             int generation = Generation;
             bool grandma = Settings.GrandmaMode;
@@ -371,6 +364,13 @@ namespace SlopWorld
                 return;
             }
 
+            float width = Mathf.Max(1f, box.x - Margin.x * 2f);
+            if (resized)
+            {
+                ReflowStream(width);
+                _streamGeneration = generation;
+            }
+
             float now = Time.realtimeSinceStartup;
             if (_lastAdvancedAt < 0f)
             {
@@ -386,13 +386,6 @@ namespace SlopWorld
             int count = Mathf.Min(MaxWordsPerFrame, Mathf.FloorToInt(_wordBudget));
             if (count <= 0) return;
             _wordBudget -= count;
-
-            float width = Mathf.Max(1f, box.x - Margin.x * 2f);
-            if (resized)
-            {
-                ReflowStream(width);
-                _streamGeneration = generation;
-            }
 
             for (int i = 0; i < count; i++)
             {
@@ -465,7 +458,7 @@ namespace SlopWorld
     }
 
     // Draw the stream and nothing else. The status box and mod summary are not useful while a
-    // map is being generated. LongEventsOnGUI centres this full-height window horizontally.
+    // map is being generated. Right-align the panel and center it vertically.
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsOnGUI))]
     public static class Patch_LoadingLayout
     {
@@ -485,6 +478,7 @@ namespace SlopWorld
 
         static void EnsureSize()
         {
+            Patch_LoadingTips.Measure();
             Vector2 box = Patch_LoadingTips.Box;
             if (_sizedAt == Patch_LoadingTips.Generation) return;
             _sizedAt = Patch_LoadingTips.Generation;

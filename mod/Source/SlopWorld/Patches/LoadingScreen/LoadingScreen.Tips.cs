@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Verse;
 
@@ -11,10 +12,14 @@ namespace SlopWorld
         const string Sweet = " )";
 
         // Which of the two disqualifies is the whole of the difference between the modes.
-        static bool Shown(string tip, bool grandma) => !tip.EndsWith(grandma ? Sad : Sweet);
+        static bool Shown(string tip, bool grandma) => !tip.EndsWith(grandma ? Sad : Sweet, StringComparison.Ordinal);
 
-        static string Strip(string tip) =>
-            tip.EndsWith(Sad) || tip.EndsWith(Sweet) ? tip.Substring(0, tip.Length - 2) : tip;
+        static string Strip(string tip)
+        {
+            if (tip.EndsWith(Sad, StringComparison.Ordinal)) return tip.Substring(0, tip.Length - Sad.Length);
+            if (tip.EndsWith(Sweet, StringComparison.Ordinal)) return tip.Substring(0, tip.Length - Sweet.Length);
+            return tip;
+        }
 
         static readonly List<string> Tips = new List<string>
         {
@@ -42,7 +47,7 @@ namespace SlopWorld
             "I am a cyborg. My weak body couldn't deal with the viruses of the 21st century.",
             // Archer (FX)
             "You're not my supervisor!",
-            "Holy shit, our security is atrocious. Seriously, it's really bad.",
+            "Holy shit, our security is atrocious. Seriously, it's really bad. (",
             "Can you close your eyes? It feels like I'm banging tail-lights on a country road. (",
             // Midnight Gospel
             "Did you get a chance to read the Universe Simulator FAQ I left in your inbox?",
