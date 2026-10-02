@@ -99,7 +99,7 @@ namespace SlopWorld
                                             TextEditor editor, FieldLifetime lifetime)
         {
             var e = Event.current;
-            if (e == null || string.IsNullOrEmpty(name)) return PrepareResult.None;
+            if (e == null || string.IsNullOrEmpty(name) || lifetime == null || !lifetime.Alive) return PrepareResult.None;
 
             var state = GetState(name, lifetime);
             if (editor != null) state.Editor = editor;
@@ -164,7 +164,7 @@ namespace SlopWorld
         public static void FinishMultiClick(string name, TextEditor editor,
                                              FieldLifetime lifetime)
         {
-            if (string.IsNullOrEmpty(name)) return;
+            if (string.IsNullOrEmpty(name) || lifetime == null || !lifetime.Alive) return;
             var state = GetState(name, lifetime);
             if (_activeName != name || _activeState != state || !state.Dragging) return;
 
@@ -189,7 +189,7 @@ namespace SlopWorld
                                   TextEditor editor, FieldLifetime lifetime)
         {
             var e = Event.current;
-            if (e == null || string.IsNullOrEmpty(name)) return;
+            if (e == null || string.IsNullOrEmpty(name) || lifetime == null || !lifetime.Alive) return;
 
             var state = GetState(name, lifetime);
             if (editor != null) state.Editor = editor;
@@ -289,6 +289,24 @@ namespace SlopWorld
             }
         }
 
+        // Cancellation retires both gesture ownership and retained native editor references.
+        internal static void Retire(FieldLifetime lifetime)
+        {
+            var retired = new List<string>();
+            foreach (var pair in States)
+            {
+                if (pair.Value.Lifetime != lifetime) continue;
+                if (ReferenceEquals(_activeState, pair.Value)) ClearActive(pair.Value);
+                retired.Add(pair.Key);
+            }
+            foreach (var name in retired) States.Remove(name);
+            if (_lastClickLifetime == lifetime)
+            {
+                _lastClickName = null;
+                _lastClickLifetime = null;
+            }
+        }
+
         static State GetState(string name, FieldLifetime lifetime)
         {
             if (!States.TryGetValue(name, out var state))
@@ -296,7 +314,11 @@ namespace SlopWorld
                 state = new State();
                 States.Add(name, state);
             }
-            if (state.Lifetime != lifetime) state.Reset(lifetime);
+            if (state.Lifetime != lifetime)
+            {
+                if (ReferenceEquals(_activeState, state)) ClearActive(state);
+                state.Reset(lifetime);
+            }
             return state;
         }
 

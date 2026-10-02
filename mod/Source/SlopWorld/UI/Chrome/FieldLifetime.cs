@@ -12,7 +12,12 @@ namespace SlopWorld
 
         public bool Alive => _alive;
 
-        public void Cancel() => _alive = false;
+        public void Cancel()
+        {
+            if (!_alive) return;
+            _alive = false;
+            TextFieldSelection.Retire(this);
+        }
     }
 
     // IMGUI has no current Window argument while a control is being drawn. The window/content
