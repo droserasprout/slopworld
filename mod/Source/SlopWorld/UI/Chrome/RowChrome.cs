@@ -25,12 +25,13 @@ namespace SlopWorld
         }
 
         // For scroll-local rows whose outer viewport already resolved hover before entering
-        // the translated group. The policy remains explicit even though the boolean is cached.
-        public static bool Hover(Rect rect, bool selected, bool enabled, bool hovered,
+        // the translated group. highlighted is the final caller-resolved highlight; None suppresses
+        // hover even when it is true. Selection highlighting remains independent.
+        public static bool HighlightResolved(Rect rect, bool selected, bool enabled, bool highlighted,
                                  RowHoverPolicy hoverPolicy,
                                  RowSelectionStyle selectionStyle = RowSelectionStyle.Standard)
         {
-            bool over = enabled && hoverPolicy != RowHoverPolicy.None && hovered;
+            bool over = enabled && hoverPolicy != RowHoverPolicy.None && highlighted;
             return PaintHover(rect, selected, over, selectionStyle);
         }
 
