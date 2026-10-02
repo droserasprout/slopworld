@@ -48,33 +48,7 @@ namespace SlopWorld
         {
             _identity = copy ? EditIdentity.ForCopy(existing?.Name) :
                 existing == null ? EditIdentity.ForNew() : EditIdentity.ForEdit(existing.Name);
-            _s = existing == null
-                ? new SessionInfo { Name = "", Project = project ?? "" }
-                : new SessionInfo
-                {
-                    Name = copy
-                        ? _identity.CopyName(SessionHub.Instance.Sessions.Select(x => x.Name),
-                            "agent")
-                        : existing.Name,
-                    Label = copy ? "" : existing.Label,
-                    Project = existing.Project,
-                    Worktree = existing.Worktree,
-                    WorktreeName = existing.WorktreeName,
-                    Command = existing.Command,
-                    CommandPreset = existing.CommandPreset,
-                    Cmd = existing.Cmd,
-                    Args = existing.Args,
-                    Sandbox = new List<string>(existing.Sandbox),
-                    PersistentTmp = existing.PersistentTmp,
-                    Network = existing.Network,
-                    Dns = existing.Dns.Copy(),
-                    Limits = existing.Limits,
-                    Mounts = new List<MountEntry>(existing.Mounts
-                        .Select(m => new MountEntry { From = m.From, To = m.To, Mode = m.Mode })),
-                    Agent = existing.Agent,
-                    Autostart = existing.Autostart,
-                    AutoResume = existing.AutoResume,
-                };
+            _s = CreateDraft(existing, project, copy);
 
 
             if (existing != null && !copy)
@@ -98,31 +72,65 @@ namespace SlopWorld
                 _s.Name = template.Name;
             }
 
+            RefreshCatalogs();
+            // Leave an unspecified command unresolved. The destination daemon applies its
+            // current default at save/start; an HTTP reply must not turn it into a stale choice.
+
+            LoadRawFields();
+            // Template descriptions are multiline; Enter must remain a newline.
+            if (!EditingTemplate) AcceptOnEnter(Save);
+        }
+
+
+        void LoadRawFields()
+        {
+            _resourceLimits = new ResourceLimitsForm(_s.Limits);
+            _dnsServers = _s.Dns?.Mode == DnsMode.Servers
+                ? string.Join(", ", _s.Dns.Servers.ToArray())
+                : "";
+        }
+
+        static void RefreshCatalogs()
+        {
             SessionHub.Instance.Catalog.RefreshProjects();
             // Both tables are files the daemon reads, so they are asked for on every open
             // rather than once per process.
             SessionHub.Instance.Catalog.LoadPresets();
             SessionHub.Instance.Catalog.RefreshTemplates();
             SessionHub.Instance.Catalog.RefreshLibrary();
-            if (!EditingTemplate && string.IsNullOrEmpty(_s.CommandPreset) && string.IsNullOrEmpty(_s.Command) &&
-                string.IsNullOrWhiteSpace(_s.Cmd))
-                DaemonClient.Get<Wire.ConfigResult>(WireProtocol.Routes.Config,
-                    j =>
-                    {
-                        if (string.IsNullOrEmpty(_templateName) && string.IsNullOrEmpty(_s.Command) &&
-                            string.IsNullOrEmpty(_s.CommandPreset) && string.IsNullOrWhiteSpace(_s.Cmd))
-                            _s.CommandPreset = j.Values.Defaults.Agent;
-                    },
-                    UiLayout.Fail);
-
-            _resourceLimits = new ResourceLimitsForm(_s.Limits);
-            _dnsServers = _s.Dns?.Mode == DnsMode.Servers
-                ? string.Join(", ", _s.Dns.Servers.ToArray())
-                : "";
-            // Template descriptions are multiline; Enter must remain a newline.
-            if (!EditingTemplate) AcceptOnEnter(Save);
         }
 
+        SessionInfo CreateDraft(SessionInfo existing, string project, bool copy)
+        {
+            return existing == null
+                ? new SessionInfo { Name = "", Project = project ?? "" }
+                : new SessionInfo
+                {
+                    Name = copy
+                        ? _identity.CopyName(SessionHub.Instance.Sessions.Select(x => x.Name),
+                            "agent")
+                        : existing.Name,
+                    Label = copy ? "" : existing.Label,
+                    Project = existing.Project,
+                    Worktree = existing.Worktree,
+                    WorktreeName = existing.WorktreeName,
+                    Command = existing.Command,
+                    CommandPreset = existing.CommandPreset,
+                    Cmd = existing.Cmd,
+                    Args = existing.Args,
+                    Sandbox = new List<string>(existing.Sandbox),
+                    PersistentTmp = existing.PersistentTmp,
+                    Network = existing.Network,
+                    Dns = existing.Dns.Copy(),
+                    Limits = existing.Limits,
+                    Mounts = new List<MountEntry>(existing.Mounts
+                        .Select(m => new MountEntry { From = m.From, To = m.To, Mode = m.Mode })),
+                    Agent = existing.Agent,
+                    Worker = existing.Worker,
+                    Autostart = existing.Autostart,
+                    AutoResume = existing.AutoResume,
+                };
+        }
 
         // A left rail of short pages rather than one long form. The agent, its sandbox, its
         // resource limits, and the preview each get their own tab.
@@ -171,7 +179,7 @@ namespace SlopWorld
             }
             if (!EditingTemplate && !_identity.IsNew && foot.Left("Reset private state", UiTheme.Btn.Danger))
                 Find.WindowStack.Add(CatalogActions.ResetState(_identity.OriginalName));
-            if (!EditingTemplate && !_identity.IsNew && foot.Left("Save as template", UiTheme.Btn.Ghost))
+            if (!EditingTemplate && !_identity.IsNew && !_s.Worker && foot.Left("Save as template", UiTheme.Btn.Ghost))
                 Find.WindowStack.Add(new SaveAgentTemplateDialog(_identity.OriginalName));
             if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
             bool save = foot.Right("Save", UiTheme.Btn.Primary, !_templateBusy && !_saving);

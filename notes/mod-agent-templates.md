@@ -41,3 +41,6 @@ Add project copies current source and destination paths once. Library
 breadcrumbs remain available through explicit terminal context-menu insertion.
 They are not part of agent or template forms. `UiChoiceList` measures group headings inside the same scroll body
 as the choices.
+
+The agent editor leaves an unspecified command unresolved so the destination daemon owns
+its default, including across reconnects. Workers cannot be captured with Save as template.

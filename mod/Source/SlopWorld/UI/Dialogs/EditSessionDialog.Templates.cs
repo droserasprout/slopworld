@@ -64,21 +64,26 @@ namespace SlopWorld
             }
             try
             {
-                var request = new Wire.SettingsPreviewRequest();
-                if (EditingTemplate) { request.Recipe = true; request.Template = _templateDraft.ToWire(_s); }
-                else
-                {
-                    request.Session = _s.ToWire();
-                    if (!_identity.IsNew) request.Existing = _identity.OriginalName;
-                    else if (!string.IsNullOrEmpty(_templateName) && _templateSnapshot != null)
-                    {
-                        var baseline = new SessionInfo(); _templateSnapshot.ApplyTo(baseline);
-                        request.Template = _templateSnapshot.ToWire(baseline);
-                    }
-                }
+                var request = EditingTemplate ? TemplatePreviewRequest() : AgentPreviewRequest();
                 _settingsPreview.Draw(rect, request, ref _previewScroll);
             }
             catch (InvalidOperationException error) { UiText.PlainStatusLabel(rect, error.Message, UiTheme.Bad); }
+        }
+
+        Wire.SettingsPreviewRequest TemplatePreviewRequest() =>
+            new Wire.SettingsPreviewRequest { Recipe = true, Template = _templateDraft.ToWire(_s) };
+
+        Wire.SettingsPreviewRequest AgentPreviewRequest()
+        {
+            var request = new Wire.SettingsPreviewRequest { Session = _s.ToWire() };
+            if (!_identity.IsNew) request.Existing = _identity.OriginalName;
+            else if (!string.IsNullOrEmpty(_templateName) && _templateSnapshot != null)
+            {
+                var baseline = new SessionInfo();
+                _templateSnapshot.ApplyTo(baseline);
+                request.Template = _templateSnapshot.ToWire(baseline);
+            }
+            return request;
         }
 
         void ReloadTemplate()
