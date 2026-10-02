@@ -23,6 +23,8 @@ its glyph atlas.
 
 `UI/Views/Shared/ProjectSummary.cs` owns project summary text shared by sidebar,
 Library and edit forms. Project editing belongs to `UI/Views/Projects/EditProjectDialog.cs`.
+Library keeps rendering, category/worktree data and interaction in feature-owned partials.
+Worktree refresh failures retain the last successful rows and expose a retry in the view.
 
 Settings owns `IOptionPage`. Shared row visibility geometry lives in `UI/Chrome/`;
 terminal path recognition and lexical path resolution live in `UI/Utilities/`.
