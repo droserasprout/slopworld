@@ -28,3 +28,7 @@ Worktree refresh failures retain the last successful rows and expose a retry in 
 
 Settings owns `IOptionPage`. Shared row visibility geometry lives in `UI/Chrome/`;
 terminal path recognition and lexical path resolution live in `UI/Utilities/`.
+
+Usage rows follow daemon snapshot polling and rank. Usage icon policy owns reservations
+and fallback assignment: reserve chosen and built-in icons, assign new keys in ordinal
+order with polled rows first, and retain existing assignments across replacement snapshots.

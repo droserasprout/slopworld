@@ -64,7 +64,7 @@ namespace SlopWorld.Tests
             ["IdleWorkTests.Titles"] = "Idle work: sidebar title invalidation",
             ["EcoWorkTests.Maintenance"] = "Eco: maintenance transitions",
             ["EcoWorkTests.Membership"] = "Eco: colony membership revisions",
-            ["UsageReadoutTests.Usage"] = "Usage readout: usage snapshot and settings invalidation",
+            ["UsageReadoutTests.Usage"] = "Usage readout: authoritative snapshot polling",
             ["UsageReadoutTests.Clock"] = "Usage readout: clock boundaries and locale",
             ["UiMetricsTests.Values"] = "UI metrics: density and font floors",
             ["UiMetricsTests.Invalidation"] = "UI metrics: invalidation channels",

@@ -25,6 +25,7 @@ namespace SlopWorld
         static Font _font;
         static int _size, _atlas, _measuredAtlas = -1;
         static FontStyle _fontStyle;
+        static GameFont _gameFont;
         static float _scale;
 
         static UsageReadout()
@@ -35,10 +36,11 @@ namespace SlopWorld
         static float Width(string text)
         {
             var style = Text.CurFontStyle;
-            if (_style != style || _font != style.font || _size != style.fontSize ||
+            if (_gameFont != Text.Font || _style != style || _font != style.font || _size != style.fontSize ||
                 _fontStyle != style.fontStyle || _scale != Prefs.UIScale || _measuredAtlas != _atlas)
             {
                 Widths.Clear();
+                _gameFont = Text.Font;
                 _style = style;
                 _font = style.font;
                 _size = style.fontSize;
@@ -59,7 +61,7 @@ namespace SlopWorld
 
         static void PrepareQuotas(UsageInfo usage)
         {
-            bool changed = RowCache.Prepare(usage, SessionHub.Instance.Config);
+            bool changed = RowCache.Prepare(usage);
             if (!changed && _spent == Settings.UsageSpent && ReferenceEquals(_culture, CultureInfo.CurrentCulture))
                 return;
             _spent = Settings.UsageSpent;
