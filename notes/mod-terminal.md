@@ -4,6 +4,7 @@
 `TerminalPanel` owns terminal state, caches, subscriptions, and input.
 Saved terminal recall yields to any existing workspace window, including a content-only view.
 When Settings covers a terminal, the panel stays open. Settings changes its visibility and focus.
+A durable stopped session retains its pane binding while content covers it, so returning restores its actions.
 When a user closes or switches panels during input, stop the old draw before it recreates released resources.
 
 Each panel sets its size from its assigned bounds. Rendering, hit tests, and resize requests share a pixel-snapped cell advance.

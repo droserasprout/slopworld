@@ -101,40 +101,25 @@ namespace SlopWorld
                 _panel._historyRestorePending = true;
             }
 
-            public int RestoredShift(ScreenBuf live)
+            public int? RestoredShift(ScreenBuf live)
             {
-                if (!_panel._historyRestorePending || live == null) return int.MinValue;
+                if (!_panel._historyRestorePending || live == null) return null;
                 _panel._historyRestorePending = false;
 
                 var info = SessionHub.Instance.Get(_panel._state.Name);
-                bool compatible = info != null && _panel._activeHistoryCache != null &&
-                    _panel._activeHistoryCache.RunId == info.RunId &&
-                    _panel._activeHistoryCache.ConnectionGeneration ==
-                        SessionHub.Instance.ConnectionGeneration &&
-                    (_panel._historyLiveCols <= 0 || live.Cols <= 0 ||
-                        _panel._historyLiveCols == live.Cols) &&
-                    (_panel._historyLiveRows <= 0 || live.Rows <= 0 ||
-                        _panel._historyLiveRows == live.Rows) &&
-                    _panel._historyLiveAltScreen == live.AltScreen;
-
-                int shift = 0;
-                if (compatible && _panel._historyLiveSeq.HasValue &&
-                    live.Seq == _panel._historyLiveSeq)
-                {
-                    compatible = live.History == _panel._historyLiveHistory;
-                }
-                else if (compatible && _panel._historyLiveHistory >= 0)
-                {
-                    shift = live.History - _panel._historyLiveHistory;
-                    compatible = shift >= 0;
-                }
-                else if (compatible && _panel._historyLiveSeq.HasValue &&
-                         live.Seq != _panel._historyLiveSeq)
-                {
-                    compatible = false;
-                }
-
-                if (compatible) return shift;
+                var cache = _panel._activeHistoryCache;
+                var result = cache == null ? default(TerminalHistoryRestore.Result) :
+                    new TerminalHistoryRestore
+                    {
+                        RunId = cache.RunId,
+                        ConnectionGeneration = cache.ConnectionGeneration,
+                        Cols = _panel._historyLiveCols,
+                        Rows = _panel._historyLiveRows,
+                        AltScreen = _panel._historyLiveAltScreen,
+                        Sequence = _panel._historyLiveSeq,
+                        History = _panel._historyLiveHistory,
+                    }.Evaluate(info?.RunId, SessionHub.Instance.ConnectionGeneration, live);
+                if (result.Compatible) return result.Shift;
 
                 _panel._activeHistoryCache = null;
                 _panel._history = new TerminalHistory();

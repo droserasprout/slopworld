@@ -70,12 +70,11 @@ namespace SlopWorld
             set => _state.Selection.EdgeFrame = value;
         }
 
-        void NoteLiveFrame(ScreenBuf live, int restoredShift = int.MinValue)
+        void NoteLiveFrame(ScreenBuf live, int? restoredShift = null)
         {
             if (live == null || live.Seq == _selectionCoordinator.LastLiveSeq) return;
 
-            int liveShift = restoredShift == int.MinValue
-                ? TerminalHistory.ShiftSince(_historyLiveHistory, live) : restoredShift;
+            int liveShift = restoredShift ?? TerminalHistory.ShiftSince(_historyLiveHistory, live);
             _selectionCoordinator.NoteLiveFrame(live.Seq, liveShift);
             _historyLiveSeq = live.Seq;
             _historyLiveHistory = live.History;

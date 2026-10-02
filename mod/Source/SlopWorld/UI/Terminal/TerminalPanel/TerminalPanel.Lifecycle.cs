@@ -33,6 +33,7 @@ namespace SlopWorld
         {
             if (name == _state.Name) return;
             ReleasePanelInput();
+            ScrollDebugEnd();
             SaveScrollbackState(_state.Name);
             _historyCoordinator.SaveCache(_state.Name);
             // A content-only window has no terminal pane to unsubscribe.
@@ -134,18 +135,13 @@ namespace SlopWorld
 
                 ResetHistoryForNewRun();
 
-                if (!covered)
+                // Durable sessions retain their binding and actions even under content.
+                if (info != null)
                 {
-                    // Keep a durable agent's pane in place after its process exits. Do not
-                    // update SessionSelectable.Current or open another session: the stopped
-                    // pane is still the user's focus and its Start gizmo remains available.
-                    if (info != null)
-                    {
-                        _state.ShowStopped = true;
-                        return true;
-                    }
-                    return false;
+                    _state.ShowStopped = true;
+                    return true;
                 }
+                if (!covered) return false;
                 hub.Unsubscribe(_state.Name);
                 _state.Name = null;
             }

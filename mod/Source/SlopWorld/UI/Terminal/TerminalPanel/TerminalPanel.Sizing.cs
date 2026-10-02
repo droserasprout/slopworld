@@ -30,12 +30,12 @@ namespace SlopWorld
         // A loop rather than a statement. A resize is one fire-and-forget message over a socket
         // that may be down, and the daemon answers a size it already holds with a no-op. The frame
         // carries the emulator's dimensions, so that closes the loop.
-        void NegotiateSize(Rect body, ScreenBuf buf)
+        void NegotiateSize(ScreenBuf buf)
         {
             // The getter builds or refreshes the font and, as part of that, measures the
             // cells. Reading CellW/CellH first sees zero on the first pane and stale values
             // after a font setting changes.
-            var style = TerminalFont.Style;
+            _ = TerminalFont.Style;
             SyncSnap();
             float cw = DisplayCellW();
             if (!TerminalPanelGeometry.TryMeasure(Bounds, cw, TerminalFont.CellH,
