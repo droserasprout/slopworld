@@ -16,7 +16,7 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            _form.Draw(SettingsPageLayout.Body(rect, false), DrawFields);
+            _form.Draw(SettingsPageLayout.BodyWithoutFooter(rect), DrawFields);
         }
 
         static void DrawFields(Listing_Standard l)

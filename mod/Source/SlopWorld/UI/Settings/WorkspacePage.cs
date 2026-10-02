@@ -14,7 +14,7 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            _form.Draw(SettingsPageLayout.Body(rect, false), DrawFields);
+            _form.Draw(SettingsPageLayout.BodyWithoutFooter(rect), DrawFields);
         }
 
         static void DrawFields(Listing_Standard l)
@@ -89,10 +89,7 @@ namespace SlopWorld
 
         static void SetWorkspaceLayout(ref string field, string value)
         {
-            if (field == value) return;
-            field = value;
-            S.MarkDirty();
-            AgentSidebar.LayoutChanged();
+            if (UiControls.SetSetting(S, ref field, value)) AgentSidebar.LayoutChanged();
         }
     }
 }

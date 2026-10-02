@@ -25,8 +25,8 @@ namespace SlopWorld
         void DrawCore(Rect rect)
         {
             Text.Font = GameFont.Small;
-            var inner = SettingsPageLayout.Body(rect, false);
-            var style = TerminalFont.Style;
+            var inner = SettingsPageLayout.BodyWithoutFooter(rect);
+            _ = TerminalFont.Style;
             float ph = Mathf.Clamp(
                 Mathf.Max(TerminalFont.CellH * PreviewRows + 10f, MatrixPreviewH),
                 MatrixPreviewH, MatrixPreviewMaxH);
@@ -42,9 +42,9 @@ namespace SlopWorld
                     UiScrollbarReservation.Always);
                 using (_scroll.Scope(inner, geometry.View))
                 {
-                    DrawFields(SettingsPageLayout.ToRect(_layout.Form), S);
-                    DrawPreviewBlock(SettingsPageLayout.ToRect(_layout.PreviewCaption),
-                        SettingsPageLayout.ToRect(_layout.Preview));
+                    DrawFields(UiRect.ToRect(_layout.Form), S);
+                    DrawPreviewBlock(UiRect.ToRect(_layout.PreviewCaption),
+                        UiRect.ToRect(_layout.Preview));
                 }
             }
             else

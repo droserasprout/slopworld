@@ -142,10 +142,10 @@ namespace SlopWorld
                 ? (_templateDraft.Version == 0 ? "New template" : "Edit template")
                 : _identity.Title("agent"));
 
-            var layout = TabbedFormLayout.Arrange(SettingsPageLayout.FromRect(rect), 132f,
+            var layout = TabbedFormLayout.Arrange(UiRect.FromRect(rect), 132f,
                 UiTheme.HeaderH, UiTheme.BtnH, UiTheme.GapS, UiTheme.GapM);
-            DrawRail(SettingsPageLayout.ToRect(layout.Rail));
-            var body = SettingsPageLayout.ToRect(layout.Body);
+            DrawRail(UiRect.ToRect(layout.Rail));
+            var body = UiRect.ToRect(layout.Body);
 
             bool enabled = GUI.enabled;
             GUI.enabled = enabled && !_templateBusy && !_saving;
@@ -171,7 +171,7 @@ namespace SlopWorld
             }
             finally { GUI.enabled = enabled; }
 
-            var foot = new UiLayout.Bar(SettingsPageLayout.ToRect(layout.Footer));
+            var foot = new UiLayout.Bar(UiRect.ToRect(layout.Footer));
             if (EditingTemplate)
             {
                 if (_templateDraft.Version != 0 &&

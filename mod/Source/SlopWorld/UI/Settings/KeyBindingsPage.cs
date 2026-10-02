@@ -41,7 +41,7 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            var inner = SettingsPageLayout.Body(rect, false);
+            var inner = SettingsPageLayout.BodyWithoutFooter(rect);
 
             // Build the content model once per frame.
             var cats = DefDatabase<KeyBindingCategoryDef>.AllDefs
@@ -99,7 +99,7 @@ namespace SlopWorld
                 if (!bindingsMap.TryGetValue(cat, out list) || list.Count == 0) continue;
                 height += CatH;
                 if (!_folded.Contains(cat))
-                    height += list.Count * BindingHeight(Mathf.Max(0f, width - Indent)) + Gap;
+                    height += list.Count * BindingHeight(BindingWidth(width)) + Gap;
             }
             return height;
         }
@@ -141,11 +141,18 @@ namespace SlopWorld
                 if (folded) return y - rect.y;
 
                 foreach (var binding in list)
-                    y += DrawBinding(new Rect(rect.x + Mathf.Min(Indent, rect.width), y, Mathf.Max(0f, rect.width - Indent), BindingHeight(Mathf.Max(0f, rect.width - Indent))), binding);
+                {
+                    float rowWidth = BindingWidth(rect.width);
+                    float rowHeight = BindingHeight(rowWidth);
+                    y += DrawBinding(new Rect(rect.x + Mathf.Min(Indent, rect.width), y,
+                        rowWidth, rowHeight), binding);
+                }
                 y += Gap;
                 return y - rect.y;
             }
         }
+
+        static float BindingWidth(float width) => Mathf.Max(0f, width - Indent);
 
         static float BindingHeight(float width) => width < KeyW + 160f + Gap
             ? UiTheme.LineH + Gap + RowH : RowH;

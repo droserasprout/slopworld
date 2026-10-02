@@ -21,6 +21,7 @@ namespace SlopWorld
     {
         public const float ListMinimumWidth = 220f;
         public const float EditorMinimumWidth = 320f;
+        public const float EditorWidthFraction = 0.60f;
         public const float EditorPreferredWidth = 590f;
 
         public static float Breakpoint(float gap) =>
@@ -44,7 +45,7 @@ namespace SlopWorld
             }
 
             float editorWidth = Math.Min(EditorPreferredWidth,
-                Math.Max(EditorMinimumWidth, content.Width * 0.60f));
+                Math.Max(EditorMinimumWidth, content.Width * EditorWidthFraction));
             editorWidth = Math.Min(editorWidth,
                 content.Width - safeGap - ListMinimumWidth);
             float listWidth = content.Width - safeGap - editorWidth;

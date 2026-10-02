@@ -96,7 +96,7 @@ namespace SlopWorld
             // Use the same centred band as Settings. The fullscreen chrome provides the
             // maximized reader, while the band keeps message lines from stretching across
             // a wide monitor.
-            var panel = OptionsView.Band(body);
+            var panel = UiLayout.CenteredBand(body);
             Slab.Box(panel, UiTheme.WindowBg, UiTheme.Edge);
             var rect = panel.ContractedBy(UiTheme.GapM);
             UiLayout.Title(rect, Title);

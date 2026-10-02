@@ -10,6 +10,17 @@ namespace SlopWorld
 {
     public abstract class UiLayout : UiControls
     {
+        const float CenteredBandMaxWidth = 1020f;
+
+        // Shared readable content band for settings, help, and task details.
+        public static Rect CenteredBand(Rect rect)
+        {
+            float width = Mathf.Min(rect.width, CenteredBandMaxWidth);
+            float inset = Mathf.Min(rect.height, UiTheme.GapL);
+            return new Rect(rect.x + (rect.width - width) / 2f,
+                rect.y + inset, width, rect.height - inset);
+        }
+
         // Listing_Standard uses this oversized rect so a scroll body can measure its content
         // without constraining the listing to the current viewport.
         public const float ListingHeight = 4000f;

@@ -328,7 +328,7 @@ namespace SlopWorld
             static void Prefix(ref Rect inRect)
             {
                 if (OptionsView.Drawing) return;
-                var band = OptionsView.Band(inRect);
+                var band = UiLayout.CenteredBand(inRect);
                 GUI.BeginGroup(band);
                 _grouped = true;
                 inRect = OptionsView.Inner(band);
