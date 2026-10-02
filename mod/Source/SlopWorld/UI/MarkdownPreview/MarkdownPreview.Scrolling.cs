@@ -15,9 +15,9 @@ namespace SlopWorld
             _scroll.JumpTo(Vector2.zero);
         }
 
-        public void Draw(Rect body, float width, float height, Action<float, float> draw)
+        public void Draw(Rect body, float contentWidth, float contentHeight, Action<float, float> draw)
         {
-            var view = new Rect(0f, 0f, width, Mathf.Max(body.height, height));
+            var view = new Rect(0f, 0f, contentWidth, Mathf.Max(body.height, contentHeight));
             using (WidgetState.Save())
             using (_scroll.Scope(body, view))
             {

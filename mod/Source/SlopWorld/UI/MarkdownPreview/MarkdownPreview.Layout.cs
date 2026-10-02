@@ -21,6 +21,7 @@ namespace SlopWorld
 
         public StyleSet Styles => _styles;
         public List<Placement> Placements => _placements;
+        public int Generation { get; private set; }
         public float Width => _width;
         public float Height { get; private set; }
 
@@ -54,6 +55,7 @@ namespace SlopWorld
 
         public void Clear()
         {
+            Generation++;
             _placements.Clear();
             _width = -1f;
             Height = 0f;
@@ -66,6 +68,7 @@ namespace SlopWorld
             if (Mathf.Approximately(width, _width)) return;
 
             _width = width;
+            Generation++;
             _placements.Clear();
             float y = UiTheme.GapM;
             float contentWidth = Mathf.Max(1f, width - UiTheme.GapM * 2f);
@@ -404,15 +407,19 @@ namespace SlopWorld
                     if (!last)
                     {
                         var next = children[childIndex + 1];
-                        itemY += block.Tight &&
-                            (child.Kind == BlockKind.List || next.Kind == BlockKind.List)
-                            ? UiTheme.GapS : block.Tight ? 0f : BlockGap(child);
+                        itemY += GapBetweenListChildren(block.Tight, child, next);
                     }
                 }
                 float itemGap = block.Tight ? UiTheme.GapXS : UiTheme.GapM;
                 y = Mathf.Max(itemY, y + bulletText.Height) + itemGap;
             }
             return y;
+        }
+
+        static float GapBetweenListChildren(bool tight, MarkdownBlock child, MarkdownBlock next)
+        {
+            if (!tight) return BlockGap(child);
+            return child.Kind == BlockKind.List || next.Kind == BlockKind.List ? UiTheme.GapS : 0f;
         }
 
         float PlaceTable(MarkdownBlock block, float x, float y, float width)
@@ -490,4 +497,70 @@ namespace SlopWorld
         }
 
     }
+    static class MarkdownTableGeometry
+    {
+        public static float MarkerGutter(float width, float markerWidth) =>
+            Mathf.Min(width, markerWidth + UiTheme.GapS);
+
+        public static float Padding(float cellWidth) =>
+            Mathf.Min(UiTheme.GapS, Mathf.Max(0f, (cellWidth - 1f) / 2f));
+
+        public static float InnerWidth(float cellWidth)
+        {
+            float padding = Padding(cellWidth);
+            return Mathf.Max(0f, cellWidth - padding * 2f);
+        }
+
+        public static float AlignX(float x, float availableWidth, float contentWidth,
+                                   TableAlignment alignment)
+        {
+            float spare = Mathf.Max(0f, availableWidth - contentWidth);
+            if (alignment == TableAlignment.Center) return x + spare / 2f;
+            if (alignment == TableAlignment.Right) return x + spare;
+            return x;
+        }
+
+        public static float[] AllocateColumns(float width, float[] minimum, float[] preferred)
+        {
+            int count = minimum.Length;
+            var result = new float[count];
+            float totalMinimum = 0f;
+            for (int i = 0; i < count; i++) totalMinimum += minimum[i];
+            if (totalMinimum > width)
+            {
+                float scale = width / Mathf.Max(1f, totalMinimum);
+                for (int i = 0; i < count; i++) result[i] = minimum[i] * scale;
+                return result;
+            }
+
+            for (int i = 0; i < count; i++) result[i] = minimum[i];
+            float remaining = width - totalMinimum;
+            while (remaining > .01f)
+            {
+                int active = 0;
+                for (int i = 0; i < count; i++)
+                    if (result[i] + .01f < preferred[i]) active++;
+                if (active == 0)
+                {
+                    float share = remaining / count;
+                    for (int i = 0; i < count; i++) result[i] += share;
+                    break;
+                }
+
+                float activeShare = remaining / active;
+                float consumed = 0f;
+                for (int i = 0; i < count; i++)
+                {
+                    if (result[i] + .01f >= preferred[i]) continue;
+                    float add = Mathf.Min(activeShare, preferred[i] - result[i]);
+                    result[i] += add;
+                    consumed += add;
+                }
+                if (consumed <= .01f) break;
+                remaining -= consumed;
+            }
+            return result;
+        }
+    }
+
 }
