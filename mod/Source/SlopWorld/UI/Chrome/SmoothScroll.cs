@@ -70,7 +70,6 @@ namespace SlopWorld
         // Observe actual consumed movement, including precise samples consumed on
         // non-wheel GUI passes. Legacy wheel duplicates must not look like clamps.
         internal Action<Vector2, Vector2, string> ObserveInput;
-        static bool _claimDuplicate;
 
         // Put the list somewhere with no gesture behind it. A jump to a selected row is not a
         // scroll and should not be animated into one.
@@ -216,94 +215,90 @@ namespace SlopWorld
         // Nested scroll views register in draw order. The last Begin claim is the innermost
         // box and receives the wheel. The event is muted before any content is drawn, so
         // no native widget can apply its own stepped wheel movement.
-        static SmoothScroll _claim;
-        static Vector2 _claimAmount;
-        static bool _claimHasAmount;
-        static Event _wheelEvent;
-
-        // XInput is sampled once per rendered frame rather than once per IMGUI pass. The
-        // same draw-order ownership rule as wheel events lets a nested list replace its
-        // enclosing list before End spends the movement.
-        static int _preciseFrame = -1;
-        static bool _preciseAvailable;
-        static bool _preciseSpent;
-        static Vector2 _preciseAmount;
-        static SmoothScroll _preciseClaim;
-        static int _lastPreciseSpentFrame = -1;
-        static Vector2 _lastPreciseSpentAmount;
-        static Event _preciseWheelEvent;
-        static Vector2 _preciseWheelDelta;
-        static Vector2 _preciseWheelMouse;
-
-        static bool PreciseHandled(Vector2 wheel)
+        sealed class WheelClaim
         {
-            if (!Settings.SmoothScrolling) return false;
-            if (_preciseAvailable && _preciseAmount.sqrMagnitude > 0.000001f &&
-                (_preciseClaim != null || _preciseSpent)) return true;
-
-            // The legacy button event can arrive one frame after the valuator movement
-            // that caused it. Do not spend that same movement a second time, but only
-            // suppress a matching direction so an unrelated wheel gesture still works.
-            return _lastPreciseSpentFrame == Time.frameCount - 1 &&
-                SameDirection(wheel, _lastPreciseSpentAmount);
+            public SmoothScroll Owner;
+            public Vector2 Amount;
+            public bool HasAmount;
+            public bool Duplicate;
+            public Event Event;
         }
 
-        static bool SameDirection(Vector2 a, Vector2 b)
+        // One native sample per frame, with an optional refresh before movement arrives.
+        sealed class PrecisePacket
         {
-            bool x = Mathf.Abs(a.x) > 0.0001f && Mathf.Abs(b.x) > 0.0001f;
-            bool y = Mathf.Abs(a.y) > 0.0001f && Mathf.Abs(b.y) > 0.0001f;
-            return (x && Mathf.Sign(a.x) == Mathf.Sign(b.x)) ||
-                (y && Mathf.Sign(a.y) == Mathf.Sign(b.y));
+            public int Frame = -1;
+            public bool Available;
+            public bool Spent;
+            public Vector2 Amount;
+            public SmoothScroll Owner;
+            public Event WheelEvent;
+            public Vector2 WheelDelta;
+            public Vector2 WheelMouse;
+            public readonly NativeScrollCoverage Coverage = new NativeScrollCoverage();
+        }
+
+        static readonly WheelClaim Wheel = new WheelClaim();
+        static readonly PrecisePacket Precise = new PrecisePacket();
+
+        static bool PreciseCovers(Event e)
+        {
+            if (!Settings.SmoothScrolling || WheelEventQueue.UsesLogicalDelta(e)) return false;
+            return Precise.Coverage.Covers(Time.frameCount, e.delta.x, e.delta.y);
         }
 
         void ClaimPrecise(Rect outer, Vector2 max)
         {
-            if (!Settings.SmoothScrolling)
+            if (!Settings.SmoothScrolling || WheelEventQueue.UsesLogicalDelta(Event.current))
             {
-                // Stop native requests and forget duplicate suppression immediately. Reject
-                // in-flight motion on re-enable instead of delivering the disabled gesture.
+                // Disabled smoothing and compacted queues use logical movement exclusively.
+                // Reject in-flight native motion instead of replaying that movement later.
                 X11ScrollInput.DiscardPendingMovement();
-                _preciseFrame = -1;
-                _preciseAvailable = false;
-                _preciseSpent = false;
-                _preciseAmount = Vector2.zero;
-                _preciseClaim = null;
-                _lastPreciseSpentFrame = -1;
-                _preciseWheelEvent = null;
+                Precise.Frame = -1;
+                Precise.Available = false;
+                Precise.Spent = false;
+                Precise.Amount = Vector2.zero;
+                Precise.Owner = null;
+                Precise.Coverage.Clear();
+                Precise.WheelEvent = null;
                 return;
             }
             int frame = Time.frameCount;
             var e = Event.current;
             bool wheel = e.type == EventType.ScrollWheel;
             bool newWheel = wheel &&
-                (!ReferenceEquals(_preciseWheelEvent, e) ||
-                    _preciseWheelDelta.x != e.delta.x || _preciseWheelDelta.y != e.delta.y ||
-                    _preciseWheelMouse.x != e.mousePosition.x ||
-                    _preciseWheelMouse.y != e.mousePosition.y);
-            bool refresh = newWheel && !_preciseSpent &&
-                _preciseAmount.sqrMagnitude <= 0.000001f;
-            if (_preciseFrame != frame || refresh)
+                (!ReferenceEquals(Precise.WheelEvent, e) ||
+                    Precise.WheelDelta.x != e.delta.x || Precise.WheelDelta.y != e.delta.y ||
+                    Precise.WheelMouse.x != e.mousePosition.x ||
+                    Precise.WheelMouse.y != e.mousePosition.y);
+            bool refresh = newWheel && !Precise.Spent &&
+                Precise.Amount.sqrMagnitude <= 0.000001f;
+            if (Precise.Frame != frame || refresh)
             {
-                _preciseFrame = frame;
-                _preciseClaim = null;
-                _preciseSpent = false;
+                Precise.Frame = frame;
+                Precise.Owner = null;
+                Precise.Spent = false;
                 Vector2 units;
-                _preciseAvailable = X11ScrollInput.TryRead(out units, wheel);
-                _preciseAmount = units * X11Speed;
+                Precise.Available = X11ScrollInput.TryRead(out units, wheel);
+                Precise.Amount = units * X11Speed;
                 if (wheel)
                 {
-                    _preciseWheelEvent = e;
-                    _preciseWheelDelta = e.delta;
-                    _preciseWheelMouse = e.mousePosition;
+                    Precise.WheelEvent = e;
+                    Precise.WheelDelta = e.delta;
+                    Precise.WheelMouse = e.mousePosition;
                 }
-                else _preciseWheelEvent = null;
+                else Precise.WheelEvent = null;
             }
 
-            if (!_preciseAvailable || _preciseSpent ||
-                _preciseAmount.sqrMagnitude <= 0.000001f) return;
+            if (!Precise.Available || Precise.Spent ||
+                Precise.Amount.sqrMagnitude <= 0.000001f) return;
             if (max.x <= 0f && max.y <= 0f) return;
             if (!outer.Contains(Event.current.mousePosition)) return;
-            _preciseClaim = this;
+            if (Precise.Owner == null)
+            {
+                Precise.Coverage.Record(frame, Precise.Amount.x, Precise.Amount.y);
+            }
+            Precise.Owner = this;
         }
 
         void ClaimWheel(Rect outer, Vector2 max)
@@ -311,12 +306,12 @@ namespace SlopWorld
             var e = Event.current;
             if (e.type == EventType.ScrollWheel)
             {
-                _claim = null;
-                _claimHasAmount = false;
-                _wheelEvent = e;
+                Wheel.Owner = null;
+                Wheel.HasAmount = false;
+                Wheel.Event = e;
             }
             else if (e.type != EventType.Used || e.rawType != EventType.ScrollWheel ||
-                !ReferenceEquals(_wheelEvent, e)) return;
+                !ReferenceEquals(Wheel.Event, e)) return;
 
             // Nothing to scroll: leave the event for whatever is underneath. A box that
             // swallowed the wheel while showing its whole content would pin the page
@@ -324,20 +319,20 @@ namespace SlopWorld
             if (max.x <= 0f && max.y <= 0f) return;
             if (!outer.Contains(e.mousePosition)) return;
 
-            _claim = this;
+            Wheel.Owner = this;
             // The first Begin reads the input. Nested Begins see the same Used event and
             // replace only the owner, not the already decoded pixel amount.
-            if (!_claimHasAmount)
+            if (!Wheel.HasAmount)
             {
                 // A zero XInput sample is common when IMGUI ran a layout pass before the
                 // actual wheel event arrived in this frame. Only suppress Unity when a
                 // scroll view really claimed a non-zero precise sample. Otherwise the
                 // logical event is the input we have to spend.
-                _claimDuplicate = PreciseHandled(e.delta);
-                if (_claimDuplicate)
+                Wheel.Duplicate = PreciseCovers(e);
+                if (Wheel.Duplicate)
                 {
                     // XInput already supplied this packet, including any sub-step parts.
-                    _claimAmount = Vector2.zero;
+                    Wheel.Amount = Vector2.zero;
                 }
                 else
                 {
@@ -345,25 +340,23 @@ namespace SlopWorld
                     // Raw frame input cannot represent a merged queue delta.
                     var raw = !Settings.SmoothScrolling || WheelEventQueue.UsesLogicalDelta(e)
                         ? e.delta : Input.mouseScrollDelta;
-                    _claimAmount = new Vector2(PrecisionDelta(e.delta.x, raw.x),
+                    Wheel.Amount = new Vector2(PrecisionDelta(e.delta.x, raw.x),
                         PrecisionDelta(e.delta.y, raw.y)) * Speed;
                 }
-                _claimHasAmount = true;
+                Wheel.HasAmount = true;
             }
             e.Use();
         }
 
         bool SpendPrecise()
         {
-            if (!Settings.SmoothScrolling || _preciseClaim != this || _preciseSpent) return false;
+            if (!Settings.SmoothScrolling || Precise.Owner != this || Precise.Spent) return false;
 
-            _preciseSpent = true;
-            _preciseClaim = null;
-            _lastPreciseSpentFrame = Time.frameCount;
-            _lastPreciseSpentAmount = _preciseAmount;
+            Precise.Spent = true;
+            Precise.Owner = null;
             var next = new Vector2(
-                Mathf.Clamp(_pos.x + _preciseAmount.x, 0f, _max.x),
-                Mathf.Clamp(_pos.y + _preciseAmount.y, 0f, _max.y));
+                Mathf.Clamp(_pos.x + Precise.Amount.x, 0f, _max.x),
+                Mathf.Clamp(_pos.y + Precise.Amount.y, 0f, _max.y));
             ObserveInput?.Invoke(_pos, next, "precise");
             _pos = next;
             return true;
@@ -384,16 +377,16 @@ namespace SlopWorld
         bool SpendWheel()
         {
             var e = Event.current;
-            if (_claim != this || !ReferenceEquals(_wheelEvent, e) ||
+            if (Wheel.Owner != this || !ReferenceEquals(Wheel.Event, e) ||
                 (e.type != EventType.ScrollWheel && e.type != EventType.Used)) return false;
 
-            _claim = null;
-            _claimHasAmount = false;
-            _wheelEvent = null;
+            Wheel.Owner = null;
+            Wheel.HasAmount = false;
+            Wheel.Event = null;
             var next = new Vector2(
-                Mathf.Clamp(_pos.x + _claimAmount.x, 0f, _max.x),
-                Mathf.Clamp(_pos.y + _claimAmount.y, 0f, _max.y));
-            ObserveInput?.Invoke(_pos, next, _claimDuplicate ? "duplicate" : "wheel");
+                Mathf.Clamp(_pos.x + Wheel.Amount.x, 0f, _max.x),
+                Mathf.Clamp(_pos.y + Wheel.Amount.y, 0f, _max.y));
+            ObserveInput?.Invoke(_pos, next, Wheel.Duplicate ? "duplicate" : "wheel");
             _pos = next;
             e.Use();
             return true;

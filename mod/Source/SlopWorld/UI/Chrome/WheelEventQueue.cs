@@ -38,6 +38,7 @@ namespace SlopWorld
                     continue;
                 }
 
+                // PopEvent reuses Scratch; every queued event needs its own snapshot.
                 previous = new Event(Scratch);
                 Pending.Add(previous);
             }

@@ -16,9 +16,9 @@ namespace SlopWorld
         public static Rect Hit(Rect outer, Rect track) => new Rect(
             outer.xMax - UiTheme.ScrollHitW, track.y, UiTheme.ScrollHitW, track.height);
 
-        public static float ThumbHeight(Rect track, float viewport, float max) =>
+        public static float ThumbHeight(Rect track, float viewport, float maxScrollOffset) =>
             Mathf.Clamp(track.height * Mathf.Max(0f, viewport) /
-                Mathf.Max(0.0001f, viewport + Mathf.Max(0f, max)),
+                Mathf.Max(0.0001f, viewport + Mathf.Max(0f, maxScrollOffset)),
                 Mathf.Min(UiTheme.ScrollMinThumbH, track.height), track.height);
 
         public static Rect Thumb(Rect track, float height, float normalized) => new Rect(
