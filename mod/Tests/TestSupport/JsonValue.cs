@@ -53,10 +53,10 @@ namespace SlopWorld
         public bool Bool => IsBool && (bool)_token;
 
         public string AsString(string fallback = "") => Str ?? fallback;
-        public int AsInt(int fallback = 0) => Str == null && !IsNull ? (int)Num : fallback;
-        public long AsLong(long fallback = 0) => Str == null && !IsNull ? (long)Num : fallback;
+        public int AsInt(int fallback = 0) => IsNumber ? (int)Num : fallback;
+        public long AsLong(long fallback = 0) => IsNumber ? (long)Num : fallback;
         public bool AsBool(bool fallback = false) => IsNull ? fallback : Bool;
-        public float AsFloat(float fallback = 0f) => Str == null && !IsNull ? (float)Num : fallback;
+        public float AsFloat(float fallback = 0f) => IsNumber ? (float)Num : fallback;
 
         public IEnumerable<JVal> Items => ItemsOf(_token as JArray);
 
@@ -199,41 +199,6 @@ namespace SlopWorld
             MaxDepth = 128;
         }
 
-        internal void Expect(JsonToken token)
-        {
-            ReadRequired();
-            if (TokenType != token) throw Invalid();
-        }
-
-        internal bool More(JsonToken end)
-        {
-            ReadRequired();
-            if (TokenType == end) return false;
-            if (TokenType != JsonToken.PropertyName) throw Invalid();
-            return true;
-        }
-
-        internal string PropertyName()
-        {
-            if (TokenType != JsonToken.PropertyName) throw Invalid();
-            return (string)base.Value;
-        }
-
-        internal string String()
-        {
-            ReadRequired();
-            if (TokenType != JsonToken.String) throw Invalid();
-            return (string)base.Value;
-        }
-
-        internal double Number()
-        {
-            ReadRequired();
-            if (TokenType != JsonToken.Integer && TokenType != JsonToken.Float)
-                throw Invalid();
-            return NumberValue();
-        }
-
         internal new JVal Value(bool decode = true)
         {
             ReadRequired();
@@ -286,9 +251,10 @@ namespace SlopWorld
                     if (QuoteChar != '"') throw Invalid();
                     break;
                 case JsonToken.Integer:
+                    // Keep exact integer tokens for Protobuf versions and identities.
+                    break;
                 case JsonToken.Float:
-                    // Preserve double-based conversions and equality.
-                    SetToken(JsonToken.Float, NumberValue());
+                    NumberValue(); // Reject nonfinite floating-point input.
                     break;
             }
             return true;
@@ -474,27 +440,6 @@ namespace SlopWorld
                 if (_at < _text.Length && (_text[_at] == '+' || _text[_at] == '-')) _at++;
                 Digits();
             }
-        }
-
-        internal bool NumberIsZero()
-        {
-            Peek();
-            int start = _at;
-            Number();
-            int end = _at;
-            bool needsConversion = false;
-            bool nonzero = false;
-            for (int i = start; i < end; i++)
-            {
-                char c = _text[i];
-                if (c == '.' || c == 'e' || c == 'E') needsConversion = true;
-                else if (c >= '1' && c <= '9') nonzero = true;
-            }
-            if (!needsConversion) return !nonzero;
-            if (!double.TryParse(_text.Substring(start, end - start), NumberStyles.Float,
-                                 CultureInfo.InvariantCulture, out var value) ||
-                double.IsNaN(value) || double.IsInfinity(value)) throw Invalid();
-            return value == 0d;
         }
 
         FormatException Invalid() => new FormatException("Invalid JSON at offset " + _at);
