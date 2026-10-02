@@ -13,9 +13,12 @@ namespace SlopWorld
 
         public bool Prepare(DateTime now, string format, CultureInfo culture)
         {
+            culture = culture ?? CultureInfo.CurrentCulture;
             long second = now.Ticks / TimeSpan.TicksPerSecond;
             format = TimeFormat.Normalize(format);
-            if (_second == second && _format == format && ReferenceEquals(_culture, culture)) return false;
+            // Mutable cultures can change their date/time data without changing identity.
+            // Cache only read-only cultures; editable ones are formatted on every call.
+            if (culture.IsReadOnly && _second == second && _format == format && ReferenceEquals(_culture, culture)) return false;
             _second = second;
             _format = format;
             _culture = culture;

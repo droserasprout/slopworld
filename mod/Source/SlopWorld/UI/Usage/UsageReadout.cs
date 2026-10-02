@@ -18,11 +18,6 @@ namespace SlopWorld
         // minute of silence is the socket being down.
         const float StaleAfter = 150f;
 
-        // Worked out once per key and kept - see IconFor. Static because the top bar draws
-        // the same numbers from outside any map, and an icon that changed with the layout
-        // would be a different resource for the same window.
-        static readonly Dictionary<string, ThingDef> _icons = new Dictionary<string, ThingDef>();
-
         static PeriodicWork ClockSample;
         static DateTime _clockNow;
 
@@ -35,10 +30,6 @@ namespace SlopWorld
                 _clockNow = DateTime.Now;
             return _clockNow;
         }
-
-        static int _next;
-
-        static ThingDef[] _pool;
 
         public static float ClockWidth(DateTime now)
         {
@@ -267,106 +258,6 @@ namespace SlopWorld
                 if (entry.Key == key && !string.IsNullOrEmpty(entry.Label)) return entry.Label;
             return Long(key);
         }
-
-        // Arbitrary but stable, which is all an icon has to be - unless somebody has said
-        // otherwise, which is what Settings.UsageIcons holds. Remembered per key rather than
-        // worked out per frame, or an icon would move between polls depending on which other
-        // windows were in one.
-        public static ThingDef IconFor(string key)
-        {
-            ThingDef def;
-            if (_icons.TryGetValue(key, out def)) return def;
-
-            def = Chosen(key) ?? Known(key);
-            while (def == null && _next < Pool.Length)
-            {
-                var next = Pool[_next++];
-                if (next != null && !_icons.ContainsValue(next)) def = next;
-            }
-
-            // Null is cached too: a def this build does not have is a row that draws its
-            // number and nothing else.
-            _icons[key] = def;
-            return def;
-        }
-
-        // The choices, dropped so the next draw makes them again. Called when the page that
-        // edits them saves: the table above is a cache and this is the only thing that
-        // invalidates it.
-        public static void Invalidate()
-        {
-            _icons.Clear();
-            _next = 0;
-        }
-
-        // Store one `key=defName` pair per line, as for folded projects.
-        // Treat a missing key or unknown def as no selection.
-        // In that case, use Known and the pool to select a def.
-        public static ThingDef Chosen(string key)
-        {
-            foreach (var line in Settings.UsageIcons.Split('\n'))
-            {
-                int eq = line.IndexOf('=');
-                if (eq <= 0 || line.Substring(0, eq).Trim() != key) continue;
-
-                string defName = line.Substring(eq + 1).Trim();
-                return defName.Length == 0
-                    ? null
-                    : DefDatabase<ThingDef>.GetNamedSilentFail(defName);
-            }
-            return null;
-        }
-
-        // Written back by the settings page. A blank def name is the line removed rather than
-        // a row with no icon: what "none" means here is "whatever this would have picked".
-        public static void Choose(string key, ThingDef def)
-        {
-            var kept = new List<string>();
-            foreach (var line in Settings.UsageIcons.Split('\n'))
-            {
-                int eq = line.IndexOf('=');
-                if (eq <= 0 || line.Trim().Length == 0) continue;
-                if (line.Substring(0, eq).Trim() == key) continue;
-                kept.Add(line.Trim());
-            }
-
-            if (def != null) kept.Add(key + "=" + def.defName);
-
-            Settings.S.usageIcons = string.Join("\n", kept.ToArray());
-            // Written on the click rather than on the way out of a window, the way the column's own
-            // width and folds are. Nothing here closes to save it.
-            Settings.S.Write();
-            Invalidate();
-        }
-
-        static ThingDef Known(string key)
-        {
-            switch (key)
-            {
-                case "claude_session": return ThingDefOf.Chemfuel;
-                case "claude_week": return ThingDefOf.Steel;
-                case "claude_week_opus": return ThingDefOf.Plasteel;
-                case "claude_week_sonnet": return ThingDefOf.ComponentIndustrial;
-                case "claude_week_cowork": return ThingDefOf.Jade;
-                case "claude_spend": return ThingDefOf.Silver;
-                // Money like the row above it, and the two are never the same coin. What is left of
-                // a budget and what is left of a wallet are different questions.
-                case "openrouter_balance": return ThingDefOf.Gold;
-                default: return null;
-            }
-        }
-
-        // Only so no two rows wear the same icon. Built on first use rather than in a field
-        // initialiser. ThingDefOf is filled during startup, and a static touched too early caches a
-        // row of nulls.
-        static ThingDef[] Pool => _pool ?? (_pool = new[]
-        {
-            ThingDefOf.Uranium,
-            ThingDefOf.Jade,
-            ThingDefOf.ComponentSpacer,
-            ThingDefOf.MedicineIndustrial,
-            ThingDefOf.WoodLog,
-        });
 
         // A countdown to a reset four hours out does not need its seconds.
         static string Span(long secs)

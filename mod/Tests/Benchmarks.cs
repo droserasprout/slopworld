@@ -190,24 +190,22 @@ namespace SlopWorld.Tests
             var usage = new UsageInfo();
             usage.Sources.Add("anthropic");
             usage.Sources.Add("openai");
-            var config = new DaemonConfig();
-            config.UsageItems["claude_session"] = new DaemonConfig.UsageItemConfig { Poll = true };
             usage.Rows.Add(new UsageRow { Key = "openai_week", Rank = 3, Poll = true });
             usage.Rows.Add(new UsageRow { Key = "disabled", Rank = 1, Poll = false });
             usage.Rows.Add(new UsageRow { Key = "claude_session", Rank = 0, Poll = true });
             var rows = new UsageRowsCache();
-            rows.Prepare(usage, config);
+            rows.Prepare(usage);
             AssertEx.Sequence(new[] { "claude_session", "openai_week" }, rows.Rows, "benchmark rows exercise enabled ordering");
             // Cold uses the production row builder, to isolate reuse from row-policy changes.
             Measure("topbar quota rows / cold cache", () =>
             {
                 var cold = new UsageRowsCache();
-                cold.Prepare(usage, config);
+                cold.Prepare(usage);
                 return cold.Rows.Count;
             });
             Measure("topbar quota rows / unchanged", () =>
             {
-                rows.Prepare(usage, config);
+                rows.Prepare(usage);
                 return rows.Rows.Count;
             });
         }
