@@ -317,7 +317,7 @@ namespace SlopWorld
             _query = UiText.Field(field, "library.query", _query);
             if (before != _query) _scroll.JumpTo(Vector2.zero);
             if (_query.Length == 0 && GUI.GetNameOfFocusedControl() != "library.query")
-                UiText.StatusLabel(field.ContractedBy(Pad, 0f), "Search library", UiTheme.Faint, GameFont.Tiny);
+                UiText.PlainStatusLabel(field.ContractedBy(Pad, 0f), "Search library", UiTheme.Faint, GameFont.Tiny);
             TooltipHandler.TipRegion(field, "Search library names and content");
             var filter = new Rect(field.x, field.yMax + Pad, field.width, UiTheme.FieldH);
             if (UiButtons.Button(filter, _kind.Length == 0 ? "All types ▾" : _kind + " ▾"))
@@ -965,7 +965,7 @@ namespace SlopWorld
         static void Empty(Rect body)
         {
             var r = new Rect(body.x + CellX, body.y + Pad, body.width - CellX * 2f, RowH * 3f);
-            UiText.StatusLabel(r, !SessionHub.Instance.Online
+            UiText.PlainStatusLabel(r, !SessionHub.Instance.Online
                 ? $"daemon {SessionHub.Instance.Status}"
                 : _query.Length > 0 || _kind.Length > 0
                     ? "No matching entries."

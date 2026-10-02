@@ -51,8 +51,8 @@ namespace SlopWorld
 
     static class UiText
     {
-        public static float StatusLabelHeight(string text, float width) => Verse.Text.CalcHeight(text, width);
-        public static void StatusLabel(Rect r, string text, Color color) => EditorTrace.Record(text, r);
+        public static float PlainStatusLabelHeight(string text, float width) => Verse.Text.CalcHeight(text, width);
+        public static void PlainStatusLabel(Rect r, string text, Color color) => EditorTrace.Record(text, r);
         public static void RowLabel(Rect r, string text) => EditorTrace.Record(text, r);
         public static string Field(Rect r, string name, string value, bool on)
         {

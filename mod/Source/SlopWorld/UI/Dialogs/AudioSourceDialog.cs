@@ -83,7 +83,7 @@ namespace SlopWorld
             }
 
             if (!string.IsNullOrEmpty(_error))
-                UiText.StatusLabel(new Rect(rect.x, rect.yMax - UiTheme.BtnH - UiTheme.GapS -
+                UiText.PlainStatusLabel(new Rect(rect.x, rect.yMax - UiTheme.BtnH - UiTheme.GapS -
                     UiTheme.LineH, rect.width, UiTheme.LineH), _error, UiTheme.Bad);
 
             var foot = new UiLayout.Bar(UiLayout.FooterBar(rect));

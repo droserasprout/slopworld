@@ -73,11 +73,11 @@ namespace SlopWorld
         static float Height(SandboxPreviewData data, float width)
         {
             float y = 0f;
-            y += UiText.StatusLabelHeight(data.Title, width) + UiTheme.GapXS;
+            y += UiText.PlainStatusLabelHeight(data.Title, width) + UiTheme.GapXS;
             if (!string.IsNullOrEmpty(data.Subtitle))
-                y += UiText.StatusLabelHeight(data.Subtitle, width) + UiTheme.GapXS;
+                y += UiText.PlainStatusLabelHeight(data.Subtitle, width) + UiTheme.GapXS;
             if (data.Notes.Count > 0)
-                y += UiText.StatusLabelHeight(string.Join("\n", data.Notes.ToArray()), width) +
+                y += UiText.PlainStatusLabelHeight(string.Join("\n", data.Notes.ToArray()), width) +
                      UiTheme.GapS;
             foreach (var field in data.Fields)
             {
@@ -85,7 +85,7 @@ namespace SlopWorld
                     ? "(nothing)"
                     : string.Join("\n", field.Values.ToArray());
                 y += UiTheme.RowH + UiTheme.GapXS +
-                     UiText.StatusLabelHeight(text, width) + UiTheme.GapM;
+                     UiText.PlainStatusLabelHeight(text, width) + UiTheme.GapM;
             }
             return y + UiTheme.GapM;
         }
@@ -97,16 +97,16 @@ namespace SlopWorld
             string text = field.Values.Count == 0
                 ? "(nothing)"
                 : string.Join("\n", field.Values.ToArray());
-            float h = UiText.StatusLabelHeight(text, width);
-            UiText.StatusLabel(new Rect(0f, y, width, h), text,
+            float h = UiText.PlainStatusLabelHeight(text, width);
+            UiText.PlainStatusLabel(new Rect(0f, y, width, h), text,
                 field.Values.Count == 0 ? UiTheme.Faint : UiTheme.Name);
             return y + h + UiTheme.GapM;
         }
 
         static float TextBlock(float width, float y, string text, Color color)
         {
-            float h = UiText.StatusLabelHeight(text, width);
-            UiText.StatusLabel(new Rect(0f, y, width, h), text, color);
+            float h = UiText.PlainStatusLabelHeight(text, width);
+            UiText.PlainStatusLabel(new Rect(0f, y, width, h), text, color);
             return y + h;
         }
     }

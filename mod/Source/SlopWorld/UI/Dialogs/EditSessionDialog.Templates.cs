@@ -52,14 +52,14 @@ namespace SlopWorld
         {
             if (!_resourceLimits.TrySave(out var limits, out var limitError))
             {
-                UiText.StatusLabel(rect, limitError, UiTheme.Bad);
+                UiText.PlainStatusLabel(rect, limitError, UiTheme.Bad);
                 return;
             }
             _s.Limits = limits;
             string dnsError;
             if (!DnsForm.TrySave(_s.Dns, _dnsServers, out dnsError))
             {
-                UiText.StatusLabel(rect, "DNS: " + dnsError, UiTheme.Bad);
+                UiText.PlainStatusLabel(rect, "DNS: " + dnsError, UiTheme.Bad);
                 return;
             }
             try
@@ -78,7 +78,7 @@ namespace SlopWorld
                 }
                 _settingsPreview.Draw(rect, request, ref _previewScroll);
             }
-            catch (InvalidOperationException error) { UiText.StatusLabel(rect, error.Message, UiTheme.Bad); }
+            catch (InvalidOperationException error) { UiText.PlainStatusLabel(rect, error.Message, UiTheme.Bad); }
         }
 
         void ReloadTemplate()

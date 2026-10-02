@@ -118,7 +118,7 @@ namespace SlopWorld
         public static void ValidationLabel(Rect rect, string text)
         {
             if (string.IsNullOrEmpty(text)) return;
-            UiText.StatusLabel(rect, text, Bad, GameFont.Tiny);
+            UiText.PlainStatusLabel(rect, text, Bad, GameFont.Tiny);
         }
 
         public struct Bar

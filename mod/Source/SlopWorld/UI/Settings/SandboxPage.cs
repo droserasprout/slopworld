@@ -145,7 +145,7 @@ namespace SlopWorld
 
             if (!_loaded)
             {
-                UiText.StatusLabel(inner, _error ?? "Waiting for the daemon",
+                UiText.PlainStatusLabel(inner, _error ?? "Waiting for the daemon",
                     _error != null ? UiTheme.Bad : UiTheme.Dim);
             }
             else
@@ -169,9 +169,9 @@ namespace SlopWorld
             float captionWidth = presets
                 ? Mathf.Max(0f, r.width - actionWidth - UiTheme.GapS)
                 : r.width;
-            float captionHeight = UiText.StatusLabelHeight(caption, captionWidth);
+            float captionHeight = UiText.PlainStatusLabelHeight(caption, captionWidth);
             float rowHeight = Mathf.Max(captionHeight, presets ? UiTheme.BtnH : 0f);
-            UiText.StatusLabel(new Rect(r.x, y, captionWidth, captionHeight), caption,
+            UiText.PlainStatusLabel(new Rect(r.x, y, captionWidth, captionHeight), caption,
                 UiTheme.Dim);
             if (presets && UiButtons.Button(
                     new Rect(r.xMax - actionWidth, y, actionWidth, UiTheme.BtnH),

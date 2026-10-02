@@ -130,8 +130,8 @@ namespace SlopWorld
             if (!string.IsNullOrEmpty(p.Escapes))
             {
                 string warning = $"Host access: {p.Escapes}.";
-                float warningH = UiText.StatusLabelHeight(warning, view.width);
-                if (draw) UiText.StatusLabel(new Rect(0f, y, view.width, warningH), warning,
+                float warningH = UiText.PlainStatusLabelHeight(warning, view.width);
+                if (draw) UiText.PlainStatusLabel(new Rect(0f, y, view.width, warningH), warning,
                     UiTheme.Warn);
                 y += warningH + UiTheme.GapM;
             }
@@ -342,7 +342,7 @@ namespace SlopWorld
 
         void EmptyEditor(Rect r, string text)
         {
-            UiText.StatusLabel(new Rect(r.x, r.y, r.width, UiTheme.LineH * 2f), text,
+            UiText.PlainStatusLabel(new Rect(r.x, r.y, r.width, UiTheme.LineH * 2f), text,
                 UiTheme.Dim);
         }
 

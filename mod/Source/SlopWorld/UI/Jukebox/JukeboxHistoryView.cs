@@ -260,7 +260,7 @@ namespace SlopWorld
             GUI.color = string.IsNullOrEmpty(display) ? UiTheme.Faint : UiTheme.Name;
             if (wrap)
             {
-                UiText.StatusLabel(valueRect, text,
+                UiText.PlainStatusLabel(valueRect, text,
                     string.IsNullOrEmpty(display) ? UiTheme.Faint : UiTheme.Name);
             }
             else

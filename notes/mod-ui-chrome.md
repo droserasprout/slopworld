@@ -8,7 +8,8 @@ snapshot shared by rendering, input, terminal size and Harmony hooks. See
 Labels containing catalog sprites use the shared text layout/renderer in `UI/Text/`.
 Measurement and truncation preserve catalog keys and plain text elements.
 Drawing clips the positioned spans to the label box. The atlas preserves caller opacity without inheriting text
-tint, and missing artwork cannot change layout. Plain labels retain the native text path.
+tint, and missing artwork cannot change layout. Plain labels retain the native text path. `PlainStatusLabel` and its height helper use
+only native wrapping; catalog keys remain literal text in these plain-text APIs.
 
 IMGUI events must share stable geometry and control IDs. Measure/draw passes cannot mutate
 form data differently. Cache layout by content and text metrics (including atlas/UI scale),

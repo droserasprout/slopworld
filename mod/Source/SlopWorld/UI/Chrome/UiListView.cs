@@ -53,7 +53,7 @@ namespace SlopWorld
                 if (items.Count == 0)
                 {
                     string note = hub.Online ? EmptyNote : UiLayout.Unreachable;
-                    UiText.StatusLabel(new Rect(UiTheme.GapXS, UiTheme.GapS,
+                    UiText.PlainStatusLabel(new Rect(UiTheme.GapXS, UiTheme.GapS,
                             geometry.View.width - UiTheme.GapS, geometry.View.height), note,
                         UiTheme.Dim);
                 }
