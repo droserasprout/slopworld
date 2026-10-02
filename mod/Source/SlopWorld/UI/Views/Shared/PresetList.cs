@@ -58,7 +58,7 @@ namespace SlopWorld
                         Locked = true,
                         Warn = pr.IsEscape || pr.Source == "missing",
                     });
-                    // A preset can be selected directly and inherited from the project. Keep the direct row editable so users can remove it separately.
+                    // A preset can be selected directly and inherited from the command. Keep the direct row editable so users can remove it separately.
                     if (!chosen.Contains(pr.Name)) continue;
                 }
                 choices.Add(new UiChoice
@@ -75,7 +75,7 @@ namespace SlopWorld
                     },
                 });
             }
-            choices = choices.OrderBy(c => c.Group == "From project" ? 0 : c.Group == "From command" ? 1
+            choices = choices.OrderBy(c => c.Group == "From command" ? 1
                 : c.Group == "Required by selected presets" ? 2 : c.Group == "Available additions" ? 4 : 3).ToList();
 
             UiChoiceList.Draw(outer, choices, scroll,

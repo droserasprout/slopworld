@@ -22,16 +22,7 @@ namespace SlopWorld
             while (start < end && IsWrapper(text[start])) start++;
             while (end > start && IsTail(text[end - 1])) end--;
 
-            // Compiler locations commonly append :line or :line:column.
-            int location = end;
-            while (location > start)
-            {
-                int colon = text.LastIndexOf(':', location - 1, location - start);
-                if (colon < start || !Digits(text, colon + 1, location)) break;
-                line = Number(text, colon + 1, location);
-                location = colon;
-            }
-            if (location < end) end = location;
+            end = ParseLocationSuffix(text, start, end, out line, out _);
 
             if (end <= start) return null;
             string path = text.Substring(start, end - start);
@@ -51,8 +42,26 @@ namespace SlopWorld
             return path;
         }
 
+        // Strip numeric suffixes right-to-left. The leftmost number is the source line;
+        // the next is the column. Keep accepting repeated numeric suffixes as before.
+        static int ParseLocationSuffix(string text, int start, int end, out int line, out int column)
+        {
+            line = column = 0;
+            int location = end;
+            while (location > start)
+            {
+                int colon = text.LastIndexOf(':', location - 1, location - start);
+                if (colon < start || !Digits(text, colon + 1, location)) break;
+                column = line;
+                line = Number(text, colon + 1, location);
+                location = colon;
+            }
+            return location;
+        }
+
         // Resolve a diagnostic against the terminal cwd, then require the result to remain
-        // below the configured project root. The viewer runs from the project root, so it
+        // lexically below the configured project root; this does not resolve symlinks.
+        // Scoped daemon read boundaries own physical containment. The viewer runs from the project root, so it
         // needs this absolute form even when the terminal printed a relative path.
         public static string ResolveProjectPath(string root, string cwd, string path)
         {
