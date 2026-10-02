@@ -1,36 +1,26 @@
 # Git view
 
-`GitStore` owns repository snapshots keyed by the shared project/worktree scope identity.
-Project folds hide checkout folds without changing their state. Disabled scopes invalidate
-status and count generations. The bounded request queue discards stale work before dispatch.
-`FileReaders` shares reader ownership with Files. Git shares
-Files' tree geometry and semantic selection helpers, but is not lazy: status supplies a
-flat changed-path set from which the tree is rebuilt. All Git access happens in the daemon.
+`GitView` owns the changed-path tree and Git actions; `GitStore` owns repository
+snapshots keyed by the shared project/worktree scope identity. `GitCommitDialog`
+owns the commit UI. Git inspection, stage/unstage/commit actions, and diff processes
+run host-side through the daemon, without private agent state.
+The [daemon Git boundary](daemon-git.md) owns host inspection; the
+[source map](daemon-files.md) identifies file API owners.
 
-Visible Files/Git views poll status on a five-second deadline after each completed read.
-Refreshes during a read combine into one subsequent request.
-Diff selections use the visible status snapshot to start the pager immediately; Git reads
-current file contents when that command runs. A cold cache fetches the repository root first.
-Restarting a matching pager retains its pin. Routed headers only focus existing readers.
-Navigation cancels pending cold-cache selections.
+Status can render before optional line counts. Late counts cannot overwrite newer
+status. A status-read failure clears stale status and tree data; an optional count
+failure leaves status usable.
 
-Status arrives before line counts. Both requests share an operation token.
-Late counts must not overwrite newer paths or statuses, or discard expansion. Failure leaves the status usable.
-Unchanged status snapshots retain their last line counts, and a count reply invalidates the tree
-only when a displayed count or its completeness changes.
-Capped status gives lower-bound counts and skips numstat. Nested repositories are separate
-working trees, not recursively dirty contents of the parent.
-The daemon limits line counting across repositories separately from status reads. Waiting
-for a count slot consumes the optional-count timeout.
-Under load, paths can arrive without line counts until a later refresh.
+Diff selection uses the visible snapshot, while the host pager reads current file
+contents when launched. Untracked files require individual no-index diffs against
+`/dev/null`; a repository diff omits them.
 
-Diffs run on the daemon host in the selected worktree's working directory, without private agent state. Untracked
-files need individual no-index diffs against `/dev/null`.
-A repository diff omits them.
-Git/delta/less paging flags must keep short output open and preserve alternate-screen wheel
-routing. `PagerCommands` owns quoting and command shape.
+Tree geometry, semantic selection, and reader lifetime belong to
+[file readers](mod-file-readers.md). Files and Git share that reader collection;
+[row actions](mod-ui-rowactions.md) route view/edit to Files and diffs to Git.
 
-Git creates diffs opened from either tree. Both tabs display the same resizable reader pane.
-Replace only the shared unlocked preview.
-Tab changes preserve preview and pinned readers.
-View/Edit and Diff actions keep the active sidebar tab. Editors remain independent sessions.
+Commands resolve HEAD when executed. Unborn repositories use an empty tree for
+diffs, and unstaging removes from the index only.
+
+Partial/capped results cannot be shown as complete totals. Missing optional counts
+do not invalidate an otherwise successful status view.

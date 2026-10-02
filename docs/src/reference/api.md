@@ -15,6 +15,9 @@ Upgrade the daemon, mod, and CLI together. JSON clients are incompatible.
 Write operations use HTTP so the caller can inspect daemon error bodies. The generator
 derives the complete method, path, access, and handler inventory from the daemon router.
 See the [API route inventory](api-routes.md).
+Keep public behavior and contracts that the inventory cannot express on this page.
+Wire-format and generator ownership are documented in
+[wire protocol](../../../notes/protocol-wire.md).
 
 Session and task routes support appropriately scoped grants. Creating a session and replacing
 its configuration (`PUT /api/sessions/:name`) require root authority. Scoped `rw` grants retain
@@ -139,6 +142,15 @@ Project messages contain the directory, temporary flag, and shared `mounts`, for
 `[{"from":"/work/shared","to":"/mnt/shared","mode":"ro"}]`. Mounts store literal paths,
 not project references. Both TOML and API writes use `from` and `to`. Session messages contain direct agent network, DNS, limits, and startup settings. DNS has an explicit mode and server list, shown schematically as:
 `{"mode":"resolved"}` or `{"mode":"servers","servers":["IPv4", ...]}`.
+
+### Settings discovery and highlighting
+
+Root-only `GET /api/whereis` resolves executables from the daemon's effective `PATH`,
+not the game's environment. `GET /api/highlight/themes` accepts an optional unsaved
+`command` query; `POST /api/highlight` accepts the same optional command in its body.
+Omission uses the daemon default and an empty command means Off; neither changes
+configuration. Profile-local `engine`/`theme` overrides apply only to the matching
+highlighter engine, and mismatched themed requests are rejected.
 
 ## WebSocket
 

@@ -1,22 +1,16 @@
-# UI colors and identity
+# UI and terminal theme identity
 
-`UIScheme` defines chrome semantic roles.
-`TerminalTheme` defines ANSI and pane colors. Persist
-stable IDs, not picker labels. Match UI intentionally connects the terminal palette to chrome.
-Explicit terminal choices remain independent.
+`UIScheme` owns chrome semantic roles; `TerminalTheme` owns ANSI and pane colors.
+Settings persist stable IDs rather than picker labels. Match UI follows the current
+UI scheme's same-ID terminal theme. Explicit terminal choices remain independent.
 
-Shipped palettes live one theme per file under `mod/Themes/UI/` and `mod/Themes/Terminal/`.
-`ThemeCatalog` loads those files at runtime.
-Optional contiguous `order` fields place the three SlopWorld themes first.
-All other IDs sort alphabetically. Run `make validate-themes` before you build the mod.
-The target rejects duplicate IDs, missing roles, invalid colors, and ANSI rows other than 16.
-`Well` and `Sel` remain derived roles. UI and terminal theme IDs match so Match UI needs no aliases.
+Shipped definitions live one theme per file under `mod/Themes/UI/` and
+`mod/Themes/Terminal/`; `ThemeCatalog` loads them at runtime. Every UI scheme must
+have a same-ID terminal theme, while terminal-only IDs are allowed. `Well` and `Sel`
+are derived roles, not editable catalog roles. Accent, destructive, and checkbox
+faces must be opaque because their contrast-derived text has no backing-surface input.
 
-Named upstream palettes must preserve their values and roles. Adapt missing widget roles
-explicitly rather than silently altering upstream colors to satisfy contrast checks.
-[Palette references](reference-original-palettes.md) record source values and differences from those values.
-You can adjust SlopWorld palettes directly.
-
-Chrome colors resolve on read. Any new texture that bakes them needs revision invalidation,
-as terminal textures already do. Shared `Slab` geometry is flat and pixel-snapped.
-Hover must not alter bounds. Spacing and text metrics belong to shared chrome, not individual schemes.
+[Palette references](reference-original-palettes.md) own upstream value and role
+policy. [Build commands](build-commands.md) own catalog validation. Shared geometry
+and metrics belong to [chrome](mod-ui-chrome.md); terminal texture invalidation
+belongs to [terminal rendering](mod-terminal-rendering.md).

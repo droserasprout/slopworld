@@ -6,6 +6,7 @@ The mod's refusal dialog means you started the game without the launcher.
 `ModBootstrap` checks for a `slopworld.profile` marker written by the launcher
 into the save-data folder. Start with `slopworld` (or `make run`) instead of running
 `RimWorldLinux` directly.
+See [Game profiles](../guides/game-profiles.md) to initialize or repair the profile marker.
 
 ## The launcher cannot find the game
 
@@ -84,6 +85,8 @@ journalctl --user -u slopd -n 30 --no-pager
 
 An empty result means the command found no listener on that port. Check `[daemon].bind` in `config.toml`.
 Before you diagnose a startup hang, check that you are inspecting the host or container that runs the daemon.
+The service uses `Type=simple`, so active status does not establish listener readiness.
+Read the journal for configuration, Git warmup, recovery, reconciliation, and bind failures.
 
 ## Settings changes have no effect
 
@@ -131,3 +134,21 @@ Use `slopctl logs --follow` to read combined logs. See [Using slopctl](../guides
 [Attaching from a terminal](../guides/terminal.md) for tmux access.
 
 Set `SLOPD_LOG=slopd=debug` to enable daemon debug logging.
+
+## CPU usage
+
+On Linux, use `pidstat -p PID 1` for process totals and `pidstat -t -p PID 1`
+for thread rows. Do not add the aggregate and thread rows together. Roughly 100%
+means one logical core, not the whole machine.
+
+Inspect the tmux pane PID on SlopWorld's private socket to identify an agent's
+process tree; see [Attaching from a terminal](../guides/terminal.md). Daemon totals
+exclude those pane processes. Capture/input tasks share Tokio workers, while audio
+also uses dedicated threads. Unity's main thread mixes mod and vanilla work.
+
+For a session with configured resource limits, read its systemd scope's `cpu.stat`
+twice and divide the change in `usage_usec` by elapsed microseconds, then multiply
+by 100 for CPU percentage. This includes descendants. Sessions without configured
+limits have no such scope. A process tree alone does not establish cgroup ownership.
+Use CPU samples/stacks to attribute runtime work; SlopWorld trace timers measure
+elapsed time and can only help correlate those samples.

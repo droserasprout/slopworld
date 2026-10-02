@@ -1,16 +1,15 @@
 # Loading screen
 
-`Patches/LoadingScreen/` owns the loading-time tip stream and its Harmony drawing hooks.
-The stream measures fixed-width cells and draws from the committed ASCII PNG atlas in
-`Textures/SlopWorld/LoadingFont.png`. It draws at 80% of the configured loading font size to
-match the previous IMGUI scale. `assets/fonts/clacon2.ttf` is only the source for
-`make bake-loading-font`.
+`Patches/LoadingScreen/` owns the loading-time tip stream and Harmony drawing hooks.
+The stream measures fixed-width cells and draws the committed ASCII atlas. Loading
+text size follows the terminal font preference rather than an independent setting.
 
-Measure the panel before reading its geometry; repaint reflows a resized stream even when
-no new words are due.
+Measure the panel before reading geometry. Repaint reflows a resized retained stream
+when no new words are due. The custom loading-screen owner handles both layout and
+drawing suppression of vanilla panels. Tips can draw during map generation, so their
+random selection must not consume deterministic gameplay RNG.
 
-Keep tip strings within printable ASCII, the atlas's supported range. The game-free
-`test-text-sprites` check rejects non-ASCII characters in tip literals while ignoring comments.
-The baker places all glyphs on a shared baseline derived from font metrics, including glyph
-overhangs, and leaves transparent gutters between cells to avoid atlas bleed. Keep the runtime
-line-height constant in sync with the baker's metric check.
+Tips use printable ASCII U+0020–U+007E with newline as an explicit paragraph separator.
+Unsupported glyphs fall back to `?`. Glyphs share a baseline and transparent gutters;
+keep the runtime line-height constant aligned with the baker's metric check.
+Baking and static check scope belong to [the build guide](../docs/src/build.md).

@@ -1,184 +1,24 @@
-# Session state and terminal capture
+# Session state ownership
 
-`session/manager/session_state.rs` owns activity classification, idle decay, and activity persistence.
-`session_state.rs` also owns the classification deadline shared by retick selection and maintenance scheduling.
-`views.rs` owns client session projection and snapshot publication.
-`maintenance.rs` schedules polls and state refreshes; `signals.rs` tracks subscriptions and usage.
-`capture/input.rs` owns ordered input delivery, paste admission, sizing, and repaint requests.
-`capture/breadcrumbs.rs` renders explicitly selected library breadcrumbs for paste without
-submission. `library.rs` delivers already composed worker/errand prompts with a delay and Enter.
-Ordinary key delivery does not inject context. `capture/scroll.rs` owns cached scroll views.
-Watch guards live beside their subscription bookkeeping in `signals.rs`.
-Manager authorization lives in `caps.rs`: `Authorization` groups grants and credential invalidation.
-`HostMetadataPoll` in `sessions.rs` groups the poll timestamp and outstanding tmux job.
-`capture/reader.rs` and `capture/frame.rs` connect tmux output to the emulator and session events.
+`session/manager/session_state.rs` owns activity classification, idle decay, and
+activity persistence. `views.rs` owns client projection and publication;
+`maintenance.rs` schedules refreshes. Capture and lifecycle owners are separate:
+[terminal capture](daemon-terminal-capture.md) and [session lifecycle](daemon-session-lifecycle.md).
 
-`manager/init.rs` loads persisted grants, tasks, and templates before returning a manager.
-Load failures propagate to `main` before listeners and background services start.
+Activity and rendering use different content hashes. Meaningful output, application
+mouse/drag mode, alternate-screen state, and title changes update activity; cursor
+position, shape, and blink alone do not. Terminal wording does not determine state.
+Waiting survives only for wire/recovery compatibility and falls back to activity
+classification.
 
-`LiveInput` groups queued input and startup sequencing; `LiveCapture` groups the emulator and reader ownership.
-Run identity stays on `Live`. Teardown resets individual fields and handles reader disposition separately.
+Last activity time and state-transition time have separate meaning: activity can
+change without a state transition. Persisted ages use epoch time while runtime decay
+uses a monotonic clock. Capture classifications must not commit against a replaced
+run or newer frame.
 
-`SessionView` groups reader metadata, launch settings, worker ownership, and runtime status.
-All four groups serialize as nested messages. Worker membership is `worker.enabled`.
+Wire projection belongs to [protocol](protocol-wire.md), accepted config to
+[stores](daemon-config-stores.md), host recovery to [host tabs](daemon-host-terminals.md),
+worker/task consequences to [workers](daemon-workers.md), prompt/breadcrumb delivery
+to [library](daemon-library.md), and process survival to [redeploy](daemon-redeploy.md).
 
-Session operation wrappers acquire the boundary and delegate to `_inner` helpers.
-`detach_live_locked` instead requires the caller to pass the locked live-session map.
-
-Session edits check a complete candidate configuration before renaming tmux.
-Reconciliation retires a former host or different durable identity before installing a
-configured agent under the same name. If the old pane cannot be killed, the incompatible
-live row is not reclassified as that agent. Startup independently rejects retained host
-or mismatched durable identities for configured agents, even after the old pane exits.
-The session boundary and configuration persistence gate protect the operation from preparation through commit.
-Session identity and grant changes take the exclusive boundary. Task routes and direct
-worktree creation hold the shared boundary, so checkout and task persistence do not stop
-unrelated input. Root socket keys, mouse, paste, resize, subscriptions, and history use a per-name terminal boundary so
-unrelated lifecycle work cannot delay them. Scoped admission retains the shared
-session boundary for authorization. Ordered delivery rechecks session and run
-identity under the terminal boundary. Lifecycle holds its exclusive terminal guard
-from before tmux identity changes through publication or rollback; acquire it after
-the session boundary and release it before reconciliation can start the same name.
-Resize requests serialize tmux acceptance and dimension publication per terminal,
-including redraw shrink/restore. Different terminals never share that resize lock.
-Redraw passes run at most eight panes concurrently. A burst retains only the latest
-pending geometry; a mode-only refresh preserves a pending explicit geometry.
-Root session snapshots and WebSocket upgrades read accepted state without entering
-the lifecycle boundary or triggering disk reloads. Scoped snapshots retain shared
-authorization protection; maintenance publishes external configuration changes.
-A detached task completes its commit or rollback even if a caller cancels the request.
-A persistence failure restores the old tmux name.
-If rollback also fails, the error and log report both failures and the observed tmux names.
-Configuration and live state retain the old name and require manual recovery.
-
-Classification uses meaningful terminal activity and a ten-second idle timeout.
-Terminal wording does not determine state; legacy `state_rule` configuration is ignored.
-Waiting remains in the wire/recovery enum for compatibility, but capture no longer infers it.
-Recovered Waiting rows fall back to activity classification.
-
-Activity uses a different content hash from rendering.
-Faint single-dot Braille particles in near-background gray count as background spaces for activity only.
-Codex's prompt animation uses these particles.
-Real text, other Braille, and visible style changes remain activity.
-
-Mode and title changes also update `last_change`.
-Changes only to cursor position, shape, or blink do not update it.
-`state_since` is separate. It changes only on transitions through `Live::set_state`.
-Retick discards classifications if the run, frame sequence, or state changed before commit.
-Old snapshots must not mark newer frames as classified.
-
-Capture compares and classifies outside the live write lock, validates and commits under that
-lock, then publishes events and persists activity after releasing it.
-Capture retries classification when only state changes. It preserves pending terminal output.
-It discards captures that a newer run or frame replaces.
-Stop and reset advance the run identity so an old reader cannot restore a down row.
-Each capture owner serializes rendering through commit and snapshots identity before rendering.
-Scrollback insertion and cache hits recheck the run and emulator while holding the live read guard.
-Live updates during a scroll capture do not cancel its reply: the client needs the
-captured sequence and history extent to translate it and release its pending request.
-Only captures still matching the live sequence populate the daemon scroll cache.
-A history clear or alternate-screen transition returns the current live frame instead.
-Activity persistence serializes writes and clears, rechecks durable identity, run and transition,
-and keeps the per-name terminal boundary through tmux I/O without holding the live lock.
-Inline attachment renders under the existing exclusive session operation instead,
-so startup and rename do not reacquire their own terminal writer.
-Reader attachment holds the terminal writer from dimension sampling through publication
-and failure cleanup. Startup passes its existing guard into cleanup; adoption protects
-size recovery, and rename protects the destination before publishing its live row.
-
-On adoption, existing tmux activity options take precedence over the disk fallback.
-Temporary terminal readers store intent, display label, project/worktree, source identity and pin
-state in a tmux session option. Adoption restores these into live state; session views pass them
-to game clients. Pin and manual-label changes update the tmux copy. They are runtime fields,
-not agent configuration. Native Markdown previews have no tmux session.
-Explicit stop/start must clear that history.
-Persisted activity remains epoch milliseconds. `ActivityCache` applies mutations immediately
-in memory and uses one background writer for ordered, coalesced snapshots. Rename and clear
-share that order. Only successful writes advance durability; a flush retries an already
-failed snapshot once. Drop drains pending work and retries an idle failed snapshot once.
-Abrupt termination can lose the latest pending fallback snapshot, while tmux metadata remains the primary recovery source. Capture publishes screens
-before awaiting the tmux activity write. `flush` is a blocking durability barrier for tests/shutdown,
-never for a Tokio worker.
-An adopted Working row uses the adoption sample as its runtime decay clock until its first frame.
-The `state_since` value retains the restored age shown to the user.
-See [redeploy](daemon-redeploy.md).
-
-The reader scheduler owns dirty-state consumption and draw timestamps; rendering executes
-its selected action. Snapshot seeding adapts tmux captures in the capture layer.
-Clipboard writes remain detached from reader lifetime.
-
-Clean readers have no recurring timer.
-Output, subscription changes, and completed clipboard writes wake readers as necessary.
-Subscription changes remain pending while readers wait for rendering.
-Watched output uses the last draw as its 16 ms rate limit. Output after an idle
-period can capture immediately; output arriving within that interval waits only
-until the next allowed draw. Unwatched output retains the 200 ms render limit.
-After a viewport clear, watched readers allow a short quiet interval for replacement
-rows before capture, capped for continuous output. Pager horizontal redraws can span
-several tmux output records; publishing between the clear and those rows flashes a
-partial screen. Subscription and clipboard wakes preserve that interval.
-Daemon maintenance uses independent monotonic deadlines for configuration, presets, jukebox, host metadata, and idle classification.
-
-Tmux answers terminal queries.
-The local VT mirror must ignore `PtyWrite`.
-Otherwise, duplicate replies appear in shell input as text such as `?6c`.
-Its erase and resize behavior matches tmux rather than every Alacritty default.
-Preserve real and styled history but exclude untouched leading padding.
-The emulator caches the hidden padding extent across cursor-only updates. Operations that can
-scroll, reset, switch screens, or resize invalidate it before the next render.
-Scroll snapshots must not consume bells.
-
-`tmux/server.rs` owns server startup and readiness, including the inline fallback.
-An empty server remains alive through pane creation. Startup errors stop session creation.
-Each startup attempt owns a unique transient systemd unit, so private sockets and
-restarts do not compete with an existing unit. `TMUX_TMPDIR`, when set, passes to
-the service so server and client agree on the socket directory.
-A required host-marker failure rolls back only the newly created tmux session ID.
-
-New sessions use this sequence:
-
-1. Create a silent placeholder pane.
-2. Attach the control reader.
-3. Replace the placeholder with the real command.
-
-Starting the command before capture and attachment loses output during that interval.
-A pager can remain blank until input triggers a redraw.
-Startup owns its exclusive boundary through an independent completion task, including
-nested callers and cancellation. Essential worker adoption metadata must save successfully
-before launch proceeds. Startup controls this sequence, not the mod's pixel cache.
-Adoption still initializes the mirror from an already running pane. Reconciliation
-probes only missing or readerless rows, with at most eight metadata probes in flight.
-An attached reader owns authoritative identity; tmux metadata is its recovery source.
-Deleting one durable session commits and cleans up that row without a full
-reconciliation of unrelated sessions.
-
-Terminal bytes remain complete under backpressure.
-A bounded queue of byte chunks must still reassemble long control lines after dequeue.
-Dropping its receiver must wake the blocking reader.
-Control transport read errors reach the reader boundary. Exit and EOF flush dirty
-output and hand off the final clipboard write before teardown. Clipboard handoff
-retains ordering behind an existing write after the reader exits.
-Child cleanup must kill and reap the child before session removal.
-Managed panes retain exit status until `capture/exit.rs` records it and removes the dead pane.
-Attachment inspects pane status after the control handshake: the death hook is not replayed
-for panes that exited while the daemon was offline.
-The pane-death hook targets the stable tmux session ID, so rename preserves reader wakeup.
-It detaches control clients to wake their readers. A control disconnect alone
-does not establish process exit: a live pane gets a replacement reader under the same session
-boundary, without failing its worker task. Adoption, rename, and recovery attachment failures preserve the process; only startup
-attachment may fail a new run.
-Failed attachments and unavailable pane status release the completed reader's capture ownership,
-allowing later attachment to retry without changing the run or failing the task.
-Tmux query errors preserve the task unless a successful listing confirms the pane disappeared.
-
-Paste admission checks the tracked live session under the session boundary; the
-ordered input consumer checks identity again before delivery. Avoid a tmux session
-listing on every paste. An attached reader also admits paste before the first
-frame changes the newly started session's Down state. The load-buffer and
-paste-buffer commands share one tmux client invocation, preserving current
-application bracketed-paste mode.
-
-Titles and bells invalidate session metadata even without visible text changes.
-Inactive tabs depend on those events.
-Presentation, activity, and list invalidation have different requirements.
-Do not combine them into one dirty flag.
+Existing tmux activity metadata takes precedence over disk fallback on adoption.

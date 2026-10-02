@@ -94,8 +94,8 @@ namespace SlopWorld
     }
 
     // Hover actions shared by Files, Git and Search replace the right-hand row tail.
-    // Files/Git hit-test in a second pass outside the scroll group; Search handles clicks
-    // inside its drawing pass. Manual drawing leaves each owner to consume a click once.
+    // Files, Git and Search dispatch hits in a separate click pass using the drawn geometry.
+    // Manual drawing leaves each owner to consume a click once.
     public static class RowActions
     {
         public const float IconW = ActionStrip.IconW;

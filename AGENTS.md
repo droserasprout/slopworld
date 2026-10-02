@@ -16,7 +16,7 @@ communicate through HTTP and WebSocket. `slopcar/` packages the Linux daemon for
 
 Start with the relevant map. Follow its focused links. Then read the source and tests.
 Do not read every note. User workflows live in the [book index](docs/src/SUMMARY.md).
-A `notes/plan-*` file tracks a change through review and merge.
+A `priv/notes/plan-*` file tracks a change through review and merge.
 It does not describe current behavior.
 
 | Area | Starting points |
@@ -26,7 +26,7 @@ It does not describe current behavior.
 | UI and terminal ownership | [Workspace](notes/ui-dynamic-layout-architecture.md), [sidebar](notes/mod-sidebar.md), [terminal](notes/mod-terminal.md) |
 | Client/daemon boundary | [Client](notes/mod-client.md), [wire contract](notes/protocol-wire.md), [config ownership](notes/daemon-config-stores.md) |
 | Agent access and collaboration | [Sandbox](notes/sandbox-isolation.md), [tasks](notes/agent-tasks.md), [workers](notes/daemon-workers.md) |
-| Build and runtime operations | [Build](notes/build-commands.md), [paths](notes/ops-paths.md), [diagnostics](notes/ops-diagnostics.md), [sidecar status](notes/ops-macos-compatibility-status.md) |
+| Build and runtime operations | [Build](notes/build-commands.md), [paths](notes/ops-paths.md), [diagnostics](notes/ops-diagnostics.md), [sidecar architecture](notes/ops-macos-compatibility.md) |
 
 ## Rust code guidelines
 

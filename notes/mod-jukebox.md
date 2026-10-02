@@ -1,56 +1,20 @@
-# Jukebox boundaries
+# Jukebox ownership
 
-`Sim/Jukebox/Radio.cs` connects game audio settings to the daemon.
-`audio/` controls decoding and playback. The source list has built-in `ost` and `spotify` entries plus user-owned TOML station
-presets. Source visibility is a mod preference.
-The daemon owns preset contents and stream URLs. Settings edits presets through root-only daemon routes rather than reading `~/.config`
-from the game process. See the book for catalog configuration.
-The preset editor reports missing stations as 404, invalid definitions as 400, and storage failures as 500.
+`Sim/Jukebox/Radio.cs` owns mod selection and preferences; `Radio.Catalog.cs`
+consumes the daemon's user-station catalog. `Jukebox.cs` adds the mod-provided OST
+and Spotify choices. The daemon owns station definitions and stream URLs, with
+root-only API edits. Playback and catalog owners are mapped in
+[daemon sources](daemon-files.md), storage in [configuration stores](daemon-config-stores.md),
+and transport in [the client](mod-client.md).
 
-The mod shows Spotify only while the native daemon reports an executable `ncspot`.
-Otherwise, it disables Spotify in Audio settings and omits it from the jukebox menu. A saved Spotify selection falls back
-to OST when the capability snapshot says the player is unavailable.
+Native daemon playback disables vanilla music. Sidecar mode uses RimWorld's native
+music manager for the SlopWorld OST. Muting a daemon stream sends stop to avoid
+continued downloads; muting Spotify stops its managed player, while sidecar mute
+controls native music. Shutdown stops managed playback.
 
-Native and sidecar playback differ: daemon mode disables vanilla music, while sidecar mode
-uses the native manager for the SlopWorld OST. Mute must stop daemon downloads, not just set
-volume to zero. Shutdown delivery needs a latch because Unity may run frames after Quit.
+Once capabilities arrive, Spotify requires both `ncspot` and `AudioPlayback`.
+Slopcar supplies neither. A saved unavailable Spotify selection falls back to OST.
 
-Audio tests use fixtures or loopback only.
-Never contact real stations or recognition services in tests.
-Source probing runs off the audio command worker. Each request gets a generation and a
-cancellation flag, so stop/replacement remains responsive and stale success, failure, and
-metadata cannot commit. Opening has its own header deadline.
-After commit, the live body idle timeout controls the stream instead of the opening deadline. Metadata observed
-during probing is published only after the output commits. Transport cancellation must return
-a terminal I/O error.
-`Interrupted` tells readers to retry, which makes retired feeders loop.
-
-The audio worker receives an explicit shutdown when the final public handle drops; opener
-completion senders do not extend the player lifetime. State and title publication holds the
-request identity boundary through mutation, while opening and output commit stay outside it.
-Opener thread creation failures return through the same identity-checked worker path as open
-failures. A stale title is still stale state even if the corresponding audio was discarded.
-[Likes and recognition](mod-jukebox-library.md) cover the other side of that identity boundary.
-
-`manager/music/mod.rs` owns source selection, recovery and the transition gate for both
-HTTP and WebSocket commands. Transport handlers authorize and delegate; they do not
-sequence player shutdown or hold playback locks. Its private `music/ncspot.rs` owns a host
-errand terminal, a private IPC runtime directory and bounded status reads. The tmux
-`@slopworld_ncspot` marker identifies the player across redeployment.
-Names and adopted host commands do not. Startup restores the player after session adoption, preserving its
-last applied volume without sending volume commands. If no applied-volume marker exists
-(for example, recovery during login), the first successful IPC poll initializes volume.
-Relative volume commands need an extra one-percent step to reach zero/full scale because
-ncspot truncates each percentage step to an integer. The mod launches through WebSocket
-audio selection and opens the terminal named in the audio reply.
-The stop command at shutdown uses the same ordered connection. The ncspot operation
-guard serializes polling, volume persistence and terminal replacement because the IPC
-socket is reused. It is separate from the source transition gate; polling never takes
-that gate. No shared live-session lock spans IPC.
-Stop the managed terminal before OST/radio launch.
-Muting currently also stops it. `Radio.Spotify.cs` owns capability fallback and terminal
-opening, including rejection of late replies and refresh failures after a source change or shutdown.
-`Radio` keeps Spotify selection separate from the
-null-station OST case and ignores mismatched source metadata during transitions.
-Station title patterns run with a finite timeout; formatting failures retain raw metadata.
-See the [tour](../docs/src/tour/fun.md#spotify-proof-of-concept) for setup and limits.
+`Radio` also owns mod track metadata; [likes and recognition](mod-jukebox-library.md)
+own its identity rules. User setup and operational limits belong to the
+[jukebox tour](../docs/src/tour/fun.md#jukebox).

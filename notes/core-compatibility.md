@@ -1,6 +1,9 @@
-# Compatibility
+# Compatibility policy
 
-SlopWorld is pre-0.0.1. Do not preserve legacy wire fields, path aliases, config names or
-fallback routes for compatibility. Change the daemon, mod, and notes together.
-Changes may invalidate stale clients and old local state instead of migrating them. Remove old paths
-or fail explicitly. Do not silently accept both forms.
+Compatibility is an explicit decision at each contract owner: migrate, reject a
+removed form, or retain a documented compatibility path. Update every affected
+participant and focused note when changing that contract.
+
+Concrete wire decisions belong to [wire protocol](protocol-wire.md), persistence
+decisions to [configuration stores](daemon-config-stores.md) and their focused
+catalog owners, and public route guarantees to the [API reference](../docs/src/reference/api.md).

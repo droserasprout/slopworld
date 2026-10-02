@@ -1,13 +1,14 @@
 # Stripping vanilla systems
 
-`Patches/` suppresses simulation and UI entry points while retaining RimWorld definitions.
-Keep definitions that lookup and persistence code uses. Do not delete a def merely because its control is hidden.
+Strip patches disable selected vanilla simulation, interaction, and UI behavior
+while retaining definitions needed by lookup, persistence, or other readers.
+Do not delete a def merely because its visible control is hidden.
 
-Hidden buttons/keys remain callable elsewhere. Gate activation and every key read path as
-well as drawing and the binding editor. Vanilla implied bindings and screenshot handling
-can consume input before the terminal. Restoring defaults must not revive stripped keys.
+Hidden buttons and keys remain callable elsewhere. Filter vanilla activation and
+key-read paths as well as drawing and the binding editor, preserving intentional
+mod-owned key readers. Vanilla implied bindings and screenshot handling can consume
+input before the terminal. Hidden vanilla input remains filtered after resetting
+bindings; reset sanitization separately clears conflicting WASD camera-dolly assignments.
 
-Options category defs stay registered even when hidden. Merge/reposition their UI without
-breaking `AllDefs`, `GetNamed`, or vanilla's fixed-coordinate layout. GUI groups need cleanup after exceptions.
-The embedded Options view and standalone main-menu dialog use different hosts.
-See [content views](mod-content-views.md) and [Settings](ui-settings.md).
+Settings category layout belongs to [dialogs](mod-ui-windows.md). The two Options
+hosts and GUI-group lifetime also belong to that dialog owner.

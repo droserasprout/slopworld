@@ -66,7 +66,8 @@ The daemon does not commit changes or force removal.
 Ignored build output can also block removal.
 
 Branches stay in the repository.
-The **×** action unregisters an external worktree and keeps its files.
+The **×** action removes only an external worktree’s SlopWorld record. It keeps
+its files and Git’s linked-worktree registration.
 You cannot remove the **main** checkout.
 Remove registered worktree records before you remove a project.
 

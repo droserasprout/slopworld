@@ -13,8 +13,7 @@ Use the Makefile for project commands. See [Build from source](../build.md) for
 setup, build modes, formatting, tests, and coverage. Before you finish code changes, run the relevant tests.
 Run `make lint`. It treats compiler and Clippy warnings as errors and checks formatting.
 
-Commit all work on `main`.
-Use branches only for work that you will merge into `main`.
+Do not use pull requests.
 See the [house rules](https://github.com/droserasprout/slopworld/blob/main/notes/core-house-rules.md).
 
 ## Generated output
@@ -34,8 +33,14 @@ Do not add generated client constants for these models.
 `make docs` builds the mdBook.
 `make docs-serve` serves it locally.
 Git ignores output under `docs/book/`.
+Add new or moved book pages to `docs/src/SUMMARY.md`.
 
 Developer notes describe relationships between files and constraints that code cannot show.
 Use the notes in the repository's `notes/` directory to find a topic and the
-[prose guide](https://github.com/droserasprout/slopworld/blob/main/notes/docs-prose-guide.md)
-for writing rules. Published documentation takes precedence over developer notes.
+[developer-note writing guide](https://github.com/droserasprout/slopworld/blob/main/notes/docs-prose-guide.md)
+for writing rules. The book owns public user procedures; verify behavior claims
+against source and tests when resolving conflicts with developer notes.
+
+Rust test bodies live beside their owner in separate test modules. Binary-root tests
+use the binary's subdirectory because standalone `src/bin/` files become executables.
+Keep standalone fixtures in excluded test files.

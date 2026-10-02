@@ -1,20 +1,20 @@
 # Search ownership
 
-Search spans daemon `rg` execution and the sidebar's `SearchView`. Operation tokens reject
-late replies after query replacement/clear or scope changes. Each submission snapshots the
-enabled ready checkouts from the shared scope catalog. At most four requests run at once.
-Replacement queries keep that limit while old requests drain. Bound daemon output while reading, not after
-collecting it.
-UTF-8 truncation must preserve usable match context.
+`SearchView` owns the sidebar search view and submits requests to the daemon file
+API. It consumes the [shared scope catalog](mod-sidebar-navigation.md); each
+submission captures the enabled ready checkouts. Replies for a replaced query or
+scope cannot update current results.
 
-Query edits do not trigger a search until submission. Result geometry is fully measured but
-only visible rows draw and accept clicks. Wheel-only passes update the offset without
-visiting rows.
-They preserve movement but omit intermediate row work.
-Closing the tab releases field focus but keeps its reader.
-Replacing or explicitly dismissing the Search-owned pager releases that session.
-Files and Git keep independent reader ownership.
+Filter changes rerun the last submitted query and options without replacing draft
+controls. They release an unpinned Search preview but preserve pinned Search readers.
+Search owns a separate pager; Files and Git share [FileReaders](mod-file-readers.md).
+Closing the Search tab releases field focus and preserves its reader.
 
-Filter changes rerun the last immutable submission, preserving draft fields and the reader.
-Results and history use stable scope keys plus relative paths. Reader actions retain the root
-from that result. Project and checkout headings separate identical paths and failed scopes.
+Results retain their captured root for reader actions. Project and checkout groups
+keep identical relative paths distinct. Scope and history identity belong to
+[sidebar navigation](mod-sidebar-navigation.md), daemon execution to the
+[daemon file API](daemon-files.md), and user workflow to the
+[interface guide](../docs/src/tour/interface.md).
+
+Search reattaches its reader on entry and before appearance-restart discovery;
+appearance restarts preserve Search intent.

@@ -29,7 +29,7 @@ and short hash to the package version.
 | Game profile (saves, mod settings) | Yes |
 | User library, templates, sandboxes, and apps (`{prompts,breadcrumbs,file_actions,shell_scripts,agent_templates,sandbox_presets,app_presets}/*.toml`) | Yes |
 | Jukebox stations and likes | Yes |
-| Task mailbox (`tasks.toml`) | Yes |
+| Task mailbox (`tasks.toml` and `tasks.journal`) | Yes |
 | Prompt summaries | Yes |
 | Daemon token | Yes (the daemon generates it only on the first run or after manual deletion) |
 

@@ -1,17 +1,15 @@
-# Agent patches
+# Agent pawn patches
 
-Start in `Patches/Agents/` for pawn protection and work overrides.
-Colonist-bar geometry belongs to `Patches/ColonistBar/` and [sidebar integration](mod-sidebar.md).
+`mod/Source/SlopWorld/Patches/Agents/` owns pawn protection and interaction overrides;
+[mod sources](mod-source-layout.md) map neighboring integrations.
 
-Agent names use `NameSingle`. The base game parent-name logic casts to `NameTriple`. Suppress
-relation generation rather than fabricating relatives. Virtual relation targets require
-manual patch registration.
+Agents use `NameSingle` and are excluded from relation generation rather than given
+fabricated relatives. Stopping a session normally marks its retained pawn offline/downed;
+it does not retire or replace that pawn. Reconciliation can repair injuries from old
+saves. Agents must not become rescue/strip targets merely because their process stopped.
 
-Disabled-work lists are pawn-owned caches, so Construction eligibility must survive cache
-rebuilds. The stat part enforces construction success.
-Patching only a job path misses the base game failure roll on each tick.
-That roll can erase materials and progress.
-
-A down agent is a stopped process, not an injured colonist to rescue, strip or replace.
-Protection must cover attachment and cell damage paths as well as direct pawn damage.
-Session cycling and gizmo redraws must respect the terminal's input/layer ownership.
+Protection covers direct pawn damage and animal targeting. Fire attachment and fire
+damage protection applies to every player-faction pawn, including untracked colonists.
+Construction eligibility/success belongs to [Worksite](mod-worksite.md), sidebar
+geometry to [sidebar](mod-sidebar.md), lifecycle to [simulation](mod-sim.md), and
+session/gizmo input to [terminal](mod-terminal.md).

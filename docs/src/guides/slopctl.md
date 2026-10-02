@@ -4,6 +4,9 @@
 
 Use `slopctl sandbox inspect NAME` to view the sanitized launch plan and the live process tree
 for a session. The saved plan remains available after the process exits or a daemon restart.
+Live comparison is best-effort: it checks whether the saved command executable
+appears in an observable pane process tree. Without a usable PID/tree or executable,
+comparison is unavailable; it does not compare every field of the saved plan.
 
 ## Identity
 

@@ -46,3 +46,5 @@ The daemon also creates scoped credentials for workers. Host sessions remain roo
 - Resource limits apply only when configured.
 - The `slopworld-debug` preset is an intentionally broad host escape for game
   development. Its `escapes` warning identifies actual host access.
+  Its read-only endpoint bind exposes the daemon root token; read-only file access
+  does not restrict use of that credential.

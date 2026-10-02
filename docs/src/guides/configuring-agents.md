@@ -118,6 +118,11 @@ model, minimum prompt length, and the shared `summary_prompt`.
 The daemon sends the configured instruction before each submitted prompt.
 Changing the instruction also selects a separate summary cache entry.
 
+The summary provider reads the OpenRouter key in the daemon, from the configured
+key file or, when no file is configured, `OPENROUTER_API_KEY`. The Pi command preset
+also forwards that environment variable into its sandbox when set; using a key file
+for summaries does not itself share that file with agents.
+
 ## Workers
 
 **Settings > Agents > Workers** sets the worker prompt and selects templates that agents can use
@@ -167,6 +172,10 @@ project mount changes when an agent starts. It does not rebuild a running sandbo
 
 Auto-resume runs only for a new agent process.
 A daemon restart that adopts an existing tmux pane does not submit `/resume` again.
+The editor calls this **Auto-resume last conversation**. After startup settles, the
+daemon sends `/resume`, Enter, a short gap, and another Enter to confirm the latest
+conversation in compatible CLIs. If startup never settles, it skips the sequence
+and releases the keyboard hold.
 
 ## Shell
 

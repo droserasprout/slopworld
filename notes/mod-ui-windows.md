@@ -1,20 +1,28 @@
 # Settings and dialogs
 
-`ModOptions` registers the Settings tree and caches page instances. Read its definitions
-for current navigation.
-Settings pages live in `UI/Settings/`; feature editors live beside their feature,
-including agent editors in `UI/Agents/`. `UI/Dialogs/` owns generic dialogs and
-`UI/Forms/` owns reusable form fields, previews and geometry. Avoid duplicating the
-page/control inventory here. [Apply behavior](ui-settings.md) owns persistence boundaries.
+`ModOptions` owns Settings navigation and lazily retained page instances. Directory
+owners are mapped in [mod sources](mod-source-layout.md), and persistence belongs
+to [Settings](ui-settings.md).
 
-Options renders inside the fullscreen content host.
-Ordinary dialogs appear above it through `TerminalWindow.OpenOverPane`. Vanilla dialogs opened by a page need the same Super-layer
-promotion or the terminal paints over them. See [content views](mod-content-views.md).
+In-game Options uses an embedded content host; the main menu uses a real dialog.
+Embedded drawing must clean up GUI groups after exceptions. Dialogs above a terminal
+host need Super-layer promotion: `OpenOverPane` applies it, and `ChromeDialogs`
+also promotes added dialog-layer windows. [Workspace panels](mod-workspace-panels.md)
+own retained content lifetime.
 
-Shared form geometry and scroll lifetimes must preserve drafts/focus when rearranging for
-small viewports. Measure and draw the same field sequence, but measurement must not invoke
-controls or setters. Keep footers and overlays with their feature owner.
+Alerts scroll their message inside a capped viewport with a fixed action footer.
+Shared text-dialog notes measure and draw through the same native wrapping path.
+Shared form geometry/focus belongs to [chrome](mod-ui-chrome.md) and [focus](ui-focus.md).
 
-Vanilla category definitions remain in the database even when hidden. Patches translate
-base game fixed row positions into the mod layout.
-Deleting defs or patching only drawing leaves lookup and shortcut behavior inconsistent. See [stripping](mod-patches-strip.md).
+Hidden vanilla category definitions remain registered and layout preserves vanilla
+row indexing and lookup identity. [Stripping](mod-patches-strip.md) owns disabling
+behavior without deleting definitions.
+
+`RimWorldPage` owns the retained vanilla dialog/settings and build links; `AboutPage`
+owns credits. Both embedded and standalone Options closure release pages and save
+SlopWorld profile preferences; RimWorld preferences retain their own lifecycle.
+
+Over-pane UI draws after the fullscreen fill in window contents. Screenshot visibility
+checks cover map components/extras/overlays separately from the pane. Absorbing windows
+can consume input before lower owners; `Use()` alone does not arbitrate overlapping
+targets. Gesture owners retain release even outside bounds.

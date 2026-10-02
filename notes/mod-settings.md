@@ -1,26 +1,24 @@
-# Mod settings
+# Profile settings ownership
 
-Profile preferences live in `Settings/ModSettings.cs`, exposed by the `Settings` shim.
-They must remain usable offline. Endpoint credentials and agent session state belong to
-the daemon.
-The colony save stores which terminals to reopen.
+`Settings/ModSettings.cs` owns profile preferences that remain usable offline.
+Only preferences consumed through the static `Settings` projection need shim
+properties. Daemon configuration and endpoint credentials belong to
+[the daemon](daemon-config-stores.md).
 
-Adding a setting requires the typed `Fields` persistence entry as well as the field/shim.
-Disk persistence omits runtime dirty state. Failed timer writes retain pending changes for retry. Game-free disk round trips cover the public settings.
-See [apply behavior](ui-settings.md) before changing save timing.
+Every persisted field requires an explicit typed entry in `Fields`. Disk persistence
+omits runtime dirty state; failed timer writes retain pending changes for retry.
+[Settings apply behavior](ui-settings.md) owns application and save timing.
+The alternate temperature label is a profile preference stored separately from
+RimWorld's closed temperature enum.
 
-`FramePolicy` controls display pacing. It saves and restores Unity's vSync/FPS pair.
-Eco must not become a second foreground pacing owner. Font and terminal-theme changes need
-explicit cache invalidation.
-Ordinary UI colors resolve on read. Visibility preferences
-hide presentation without disabling polling, audio, or the corresponding map object.
+Feature owners are [terminal recall](mod-terminal.md), [Eco](mod-eco.md),
+[shared chrome](mod-ui-chrome.md),
+and [terminal rendering](mod-terminal-rendering.md) for appearance caches and emoji.
 
-Dial-up uses the same persisted display-mode field. Its `Root.OnGUI` compositor delays
-GPU presentation bands only. Layout, input, and terminal state keep their ordinary cadence.
-Render-target failures restore direct drawing. See [incidents](mod-incidents.md) for map jokes.
+`FramePolicy` owns foreground vSync/FPS pacing and the unfocused 15 FPS cap; Eco
+is not a second foreground pacing owner. Temperature-triggered camera/UI sound
+overrides belong to `Patches/Options/TemperatureSounds.cs`; map-scoped sounds retain
+their original definitions.
 
-The mod stores custom temperature aliases separately because `TemperatureDisplayMode` is a
-closed RimWorld enum. Emoji labels use the Pango-baked UI atlas because Unity's dynamic
-font path does not reliably render color emoji. Audio overrides apply only to camera/UI
-one-shots.
-Map-scoped sounds retain their original definitions.
+When Eco or Grandma mode disables destructive effects, cancel pending effects
+rather than deferring them until the mode ends. Strike-specific cleanup stays with CoreTip.

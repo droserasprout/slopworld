@@ -77,6 +77,19 @@ It keeps the state for at least 14 days. The daemon deletes private state when i
 
 ## Credentials
 
+Shared credential mounts apply only when the selected preset shares an existing
+host source. In-place truncation or overwrite changes the host file; a mountpoint
+blocks unlinking, not writes. Inspect `/proc/self/mountinfo` inside the sandbox to
+identify active mounts before changing files.
+
+For example, recursively removing a private `.claude` directory with an active
+shared credential mount can delete sibling files while leaving the credential
+mountpoint and parent directory, and return failure. Sibling traversal order is
+unspecified. An ordinary restart does not reseed an existing private copy; resetting
+private state or deliberate repair is needed to recreate removed files. State
+locations and overrides are listed in [Paths and files](../reference/paths.md).
+
+
 Use `shared` entries to mount a host-owned file read-write over its private-state copy.
 Use them for rotating credentials (`~/.claude/.credentials.json` and `~/.codex/auth.json`).
 The agent can read and overwrite the file in place. It cannot delete the file because the

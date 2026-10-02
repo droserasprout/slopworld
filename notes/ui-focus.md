@@ -1,22 +1,21 @@
 # UI focus
 
-`WorkspacePanelOwner` controls panel visibility and focus.
-`FieldFocusScope` restores focus within a form. Each Settings tab and shared dialog has its own `FieldLifetime`, including
-focus memory. Closing cancels that lifetime and pending clipboard work, and retires retained text-selection gestures and editor references.
+`WorkspacePanelOwner` owns panel focus. `FieldLifetime` owns editable-field state in
+Settings, shared dialogs, the command palette, Search, Library, and TerminalWindow.
+Closing a lifetime makes delayed edits inert and retires selection gestures; it
+need not cancel an outstanding clipboard request.
 
-`TextEntryController` owns native invocation, exact control-ID lookup, pending clipboard edits
-and function-key focus release. Editable shared fields register by name.
-Registration skips disabled and read-only fields.
-Tab/Shift+Tab traversal remains deferred.
-Runtime checks showed that traversal failed, so the mod removed the handler. Terminal rendering never enters a field scope. Its
-Tab/BTab keys still reach the application.
+`FieldFocusScope` owns focus memory in Settings, shared dialogs, and eligible
+TerminalWindow content. When a form regains input, restore its remembered field only
+if it is still registered and enabled/editable. Disabled and read-only fields do
+not register. An explicit mouse press takes precedence. Scroll owners reveal the
+focused field through nested areas; identity is by field name rather than geometry
+or control ID.
 
-When a form regains input, restore its remembered field only if that field still exists.
-An explicit mouse press takes precedence. Scroll owners reveal keyboard-focused fields,
-including fields inside nested scroll areas. Field names remain valid through geometry and control-ID changes.
-Registration reuses storage between passes.
+Restoring focus does not move the caret. `TextFieldSelection` separately owns custom
+word/line selection and selection dragging. Field Tab/Shift+Tab traversal remains
+unimplemented. Panel navigation belongs to [workspace layout](ui-dynamic-layout-architecture.md),
+and terminal focus and key routing to [terminal input](mod-terminal.md).
 
-Buttons, checkboxes and selectors also await traversal support. Focus restoration
-selects the field. Native TextEditor still controls its caret and selection.
-Keyboard navigation between panels remains deferred.
-Terminal panes currently get focus by click.
+See [FieldFocusScope](../mod/Source/SlopWorld/UI/Text/FieldFocusScope.cs) and
+[focus tests](../mod/Tests/FieldFocusTests.cs) for the local contracts.

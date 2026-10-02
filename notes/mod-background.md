@@ -1,27 +1,17 @@
 # Baked backgrounds
 
-`UI/MenuBackground/` derives cached menu/loading/Eco frames from the installed game's art.
-Hook drawing rather than menu initialization: loading screens bypass the latter.
+`UI/MenuBackground/` derives cached menu/loading/Eco frames from the selected source
+texture. `BackgroundOnGUI` is the entry point because loading screens bypass menu
+initialization. Selection uses an override when present, otherwise the content
+lookup for `UI/HeroArt/BGPlanet`.
 
-Animation has a one-time transition from the original art, then independent depth and phase.
-Keep depth motion separate from redraw variation.
-A single repeating sequence makes both repeat visibly. Closed-loop presets require continuity from last phase to first.
+Source textures remain provider-owned and are assumed immutable for their lifetime.
+Bake owns generated frame/cache cleanup; effect partials own pixel math. Build a
+replacement before releasing the resident set, and keep the old set on failure.
+[Eco](mod-eco.md) consumes frames rather than owning another baker.
 
-Bake owns cache and returned-frame cleanup; its effect partials own only pixel math.
-The cache key includes a SHA-256 of source pixels, dimensions, preset, algorithm version and a tuning hash.
-Content-pack sources are immutable: each texture is hashed once, with weak caching so
-identity lookup does not retain unloaded assets or repeat readback during drawing.
-Changing constants without invalidating the cache otherwise appears to have no effect.
-Frames use BC1/DXT1 where supported and RGB24 otherwise.
-They then discard CPU copies.
-Frame generation and loading share compression.
-The disk frames remain portable JPEGs.
-Dimensions not divisible by four retain RGB24. A compression failure disables further
-attempts for the process. Replacement logs report actual formats, estimated pixel bytes,
-Unity native texture bytes, loading time, and process/managed memory.
-Working-set changes include unrelated allocations and delayed destruction.
-They do not measure texture savings.
-
-Build replacements before releasing the resident set. Partial loads and frame generation control their own cleanup.
-Failed replacements keep the old set and delay retries. Source textures remain owned by the
-content pack. Eco is another consumer, not another baker or texture owner.
+Every installed replacement begins a transition from source art. Depth motion and
+phase variation remain independent; closed-loop presets preserve last-to-first
+phase continuity. Background memory logs describe replacement work, not texture
+savings; process deltas include unrelated allocation/deferred destruction. General
+memory interpretation belongs to [diagnostics](terminal-latency.md).

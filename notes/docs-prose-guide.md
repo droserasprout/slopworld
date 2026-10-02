@@ -1,13 +1,13 @@
-# Prose guide
+# Writing developer notes
 
-Developer notes explain where to start, which component responsibilities to preserve, or why an approach fails.
-Do not use them to repeat implementation details.
+Notes explain where to start, which component responsibilities to preserve, and
+non-obvious constraints or failure reasons. Keep facts with their owner and link to
+source, tests, or the main user-doc page.
 
-Keep facts with the component that they describe.
-Link to code, tests, or the main book page for the subject.
-Do not copy inventories, defaults, control lists, or procedures.
-Use source comments to explain decisions about that source.
-Do not move comments into notes because they are long.
+Avoid duplicating inventories, defaults, control lists, or procedures readily found
+in source or the book. Preserve cross-component requirements that would otherwise
+be hard to discover, including sequences whose order matters. Prefer a few short
+paragraphs. User-procedure ownership belongs to [human documentation](docs-human-docs.md).
 
-Prefer a few short paragraphs. Preserve a longer sequence only when shortening it would
-hide a requirement that applies to multiple components. Delete completed migration instructions and session history.
+Source comments stay beside the code they explain; see [house rules](core-house-rules.md).
+Note cleanup and plan retention belong to the [note policy](README.md).

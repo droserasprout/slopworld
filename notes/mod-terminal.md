@@ -1,64 +1,44 @@
 # Terminal ownership and input
 
-`UI/Terminal/` groups helpers under `Input/`, `Rendering/`, `History/` and `Links/`.
-`TerminalPanel/` and `TerminalWindow/` each contain their entry file and partials.
-Shared workspace contracts and host chrome live in `UI/Workspace/`.
+`TerminalWindow` hosts workspace controls; `TerminalSplit` holds one or two distinct
+panels. `TerminalPanel` owns terminal state, rendering, history, caches, subscriptions,
+and input. Source directories are mapped in [mod sources](mod-source-layout.md),
+content lifetime in [workspace panels](mod-workspace-panels.md), and geometry in
+[workspace layout](ui-dynamic-layout-architecture.md).
 
-`TerminalWindow` shows shared workspace controls. `TerminalSplit` holds one or two panels.
-`TerminalPanel` owns terminal state, caches, subscriptions, and input.
-Saved terminal recall yields to any existing workspace window, including a content-only view.
-When Settings covers a terminal, the panel stays open. Settings changes its visibility and focus.
-A durable stopped session retains its pane binding while content covers it, so returning restores its actions.
-When a user closes or switches panels during input, stop the old draw before it recreates released resources.
+The input controller separates workspace actions, local history, and application
+input. `TerminalHotkeys` owns adjacent-session navigation and map pawn selection;
+Harmony only dispatches it. Pane clicks, split creation, and session switching select
+focus. Visible terminal panes bypass field focus scopes. Auto-resume pending consumes
+terminal keys while preserving workspace controls. Shortcut/modifier behavior belongs
+to [keyboard shortcuts](../docs/src/reference/keyboard-shortcuts.md).
 
-Each panel sets its size from its assigned bounds. Rendering, hit tests, and resize requests share a pixel-snapped cell advance.
-If returned frames disagree, send another resize request. A redeploy can lose the request.
-Settings refresh resizes each bound panel through its own size owner; the daemon-wide
-refresh carries no dimensions. Do not send one grid size to both split panes. Do not restore a static size from the last session.
-The app does not save split placement. Daemon capabilities report the supported dimension range and history capacity.
-The client checks and limits these values before layout and cache allocation. The client also applies its own allocation limits.
-Before the capability announcement arrives, the client uses local safety limits.
+Each panel negotiates dimensions from its assigned bounds. Rendering, hit tests, and
+resize share a pixel-snapped cell advance. Refresh resizes each bound panel and uses
+a no-argument global redraw; it must not send one pane's geometry to another.
+Advertised capabilities are checked against independent client allocation limits.
+Split placement is not saved.
 
-Escape belongs to the application. The workspace handles close and leave keys before it forwards input.
-Send shifted navigation keys to the application on alternate screens. Tab and function
-keys retain Ctrl/Alt modifiers; Shift+Tab uses BTab and shifted function keys retain Shift.
-On the primary screen, page keys scroll local history. Send Tab to the application.
-The terminal input controller also owns adjacent-session navigation and pawn selection
-from the map; Harmony hooks only dispatch it.
-Before adding another key binding, check `TerminalHotkeys` and the panel input code.
+Focus loss flushes pending literal input and releases forwarded mouse presses.
+Flush buffered text before clipboard/PRIMARY paste, including fallback. Rejected
+input is discarded rather than replayed on reconnect. Codex paste checks for text
+before forwarding its image shortcut. Host panes accept text only; CLIPBOARD,
+PRIMARY, and explicit OSC writes remain separate channels. Selection over missing
+rows leaves the clipboard unchanged rather than copying partial text.
 
-Clipboard handling depends on the target. Codex checks for text before it handles its image-paste shortcut.
-Ctrl+V with plain text can cause a missing-image error.
-Flush buffered literal input before clipboard or PRIMARY paste requests, including local fallback.
-Rejected buffered input is discarded and counted, never replayed after reconnect.
-Host panes accept only text. PRIMARY selection and explicit OSC clipboard writes use separate channels from ordinary CLIPBOARD.
-Clicks in history stay local. A press routed to menus, paste, or links resets the local
-multi-click sequence. Capture selection only after a multi-click finds selectable text. Release forwarded drags even when Shift or focus changes.
+Closing/switching a panel during input must stop its old draw before released
+resources are recreated. Sidebar/keyboard selection preserves pawn selection while
+skipping camera jumps during Eco rest. Explicit breadcrumb insertion belongs to the
+panel; breadcrumbs remain library content rather than agent/template form fields.
 
-Unity can lose semicolon character events. The named-key fallback runs once per frame.
-It sends Shift+semicolon as a colon. Flush ordinary text before it sends semicolons as pasted text.
+Other owners are [history](mod-terminal-history.md), [rendering](mod-terminal-rendering.md),
+[daemon capture](daemon-terminal-capture.md), [daemon clipboard](daemon-clipboard.md),
+and [latency diagnostics](terminal-latency.md).
 
-See [history](mod-terminal-history-warmup.md) for scroll-cache requirements.
-See [rendering](mod-terminal-rendering.md) for damage, fonts, and links.
-See [daemon capture](daemon-session-state.md) for terminal bytes and query responses.
+URL and file-link activation share terminal input ownership. File recognition is lazy
+on activation, with daemon parent browsing confirming target type before menus.
+View/Edit retain diagnostic line targets; file operations reuse FilesActions. Hover
+and repaint must not start filesystem work. Reveal is restricted to session projects.
 
-With latency tracing enabled, SmoothScroll's movement observer timestamps consumed
-history input before position changes, including precise input on non-wheel passes.
-Only a ready view repaint completes it. Replaced movement is superseded. Clamped
-movement records no motion. The client deduplicates legacy wheel events without
-cancelling precise samples. Panel release cancels pending observations. Precise
-X11 movement is accumulated per frame, not correlated per physical wheel notch.
-These are local client measurements, not tmux or presentation timestamps.
-
-On GNOME with `DISPLAY`, daemon clipboard operations use `xclip`/`xsel` through
-XWayland's clipboard bridge. They must not fall back to `wl-clipboard`: its
-focus-acquiring helper surface can interrupt paste input. Missing X11 tools are
-reported as a dependency error. Other desktops retain the Wayland-first order.
-All tool attempts share one three-second deadline, leaving time for the mod's
-five-second HTTP request timeout.
-Text reads request a text clipboard format and decode UTF-8; they do not infer
-image formats from byte prefixes.
-
-Screen sequences retain unsigned daemon identity with explicit initialization. Local
-history composition revisions stay separate. Visual snapshots preserve sequence
-identity but omit latency samples so displaying retained frames cannot replay them.
+Agent gizmo dispatch respects terminal input/layer ownership. Read-only native
+previews own selection/copy while paste may target their retained terminal.
