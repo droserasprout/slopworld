@@ -42,16 +42,22 @@ namespace SlopWorld
             Set(dir > 0
                 ? (grid > at + 0.001f ? grid : grid + Coarse)
                 : (grid < at - 0.001f ? grid : grid - Coarse));
-            Flush();
+            SavePending();
         }
 
-        // The deferred write, taken as soon as no hand is on the knob. From the Appearance
-        // page each frame, and from Zoom, which has no page behind it to come back to.
+        // Appearance calls this each frame to save after the slider is released.
+        // Palette Zoom saves immediately, even while its activation click is held.
         public static void Flush()
         {
-            if (!_unsaved || Input.GetMouseButton(0)) return;
-            _unsaved = false;
+            if (Input.GetMouseButton(0)) return;
+            SavePending();
+        }
+
+        static void SavePending()
+        {
+            if (!_unsaved) return;
             Prefs.Save();
+            _unsaved = false;
         }
     }
 }

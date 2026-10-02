@@ -42,7 +42,7 @@ namespace SlopWorld
         public static int Revision => _revision;
 
         // Replaces the built-in fonts with the user's chosen OS font in every
-        // Text font-style array. Called from WriteSettings and from the bootstrap.
+        // Text font-style array. Called at startup and when appearance settings change.
         public static void Apply()
         {
             int size = Settings.UIFontSize;

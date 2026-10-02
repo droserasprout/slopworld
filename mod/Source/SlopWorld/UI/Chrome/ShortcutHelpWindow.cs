@@ -205,11 +205,11 @@ namespace SlopWorld
             {
                 new ShortcutRow("Alt+Z", "Previous session"),
                 new ShortcutRow("Alt+X", "Next session"),
-                new ShortcutRow("Ctrl+F1..F6", "Focus the last target in that sidebar view"),
+                new ShortcutRow("Ctrl+sidebar key", "Focus that view’s last target using its current binding"),
             }));
             groups.Add(new ShortcutGroup("Built-in · Terminal", new[]
             {
-                new ShortcutRow("Escape", "Forward to the agent"),
+                new ShortcutRow("Escape", "Forward to the agent in the active terminal pane"),
                 new ShortcutRow("Shift+Escape", "Close the terminal"),
                 new ShortcutRow("Alt+1..9, Alt+0", "Select an agent by sidebar position"),
                 new ShortcutRow("Shift+Enter", "Send a newline without submitting"),
@@ -226,7 +226,8 @@ namespace SlopWorld
             }));
             groups.Add(new ShortcutGroup("Built-in · Interface", new[]
             {
-                new ShortcutRow("?", "Show or hide this view on the map"),
+                new ShortcutRow("?", "Open help from the map, or leave the help view"),
+                new ShortcutRow("Escape", "Leave help and return to the backing pane or map"),
             }));
             return groups;
         }
