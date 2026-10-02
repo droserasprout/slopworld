@@ -1,6 +1,8 @@
 # Sidebar integration
 
 `Patches/AgentSidebar/` owns the project-grouped sidebar and its colonist-bar integration.
+The browse-scope catalog owns empty-state reasons (loading, failed, filtered, or unselected);
+tree chrome only renders the reason supplied by its source.
 View/navigation contracts are in [sidebar navigation](mod-sidebar-navigation.md).
 
 The base game controls entry indices for reordering.

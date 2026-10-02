@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 
@@ -14,33 +13,26 @@ namespace SlopWorld
 
         static float RowH => UiTheme.TinyRowH;
 
-        public static void Empty(Rect body)
+        public static void Empty(Rect body, string reason)
         {
-            var r = new Rect(CellX, body.y + Pad, body.width - CellX * 2f, RowH * 3f);
-            UiText.PlainStatusLabel(r, SessionHub.Instance.Online
-                ? "No project has a directory yet."
-                : $"daemon {SessionHub.Instance.Status}", UiTheme.Faint, GameFont.Tiny);
-        }
-
-        public static List<string> Projects()
-        {
-            var names = new List<string>();
-            foreach (var p in SessionHub.Instance.Projects)
-                if (!string.IsNullOrEmpty(p.Dir) && AgentSidebar.Passes(p.Name))
-                    names.Add(p.Name);
-            names.Sort(System.StringComparer.Ordinal);
-            return names;
+            float inset = Mathf.Min(CellX, Mathf.Max(0f, body.width) / 2f);
+            var r = new Rect(body.x + inset, body.y + Pad,
+                Mathf.Max(0f, body.width - inset * 2f), RowH * 3f);
+            UiText.PlainStatusLabel(r, reason, UiTheme.Faint, GameFont.Tiny);
         }
 
         public static float Note(float width, float y, int depth, string text, Color color)
         {
-            float x = CellX + depth * Indent;
+            float available = Mathf.Max(0f, width - Pad);
+            // Reserve label space even when a deeply nested tree is squeezed narrow.
+            float labelSpace = Mathf.Min(available, UiTheme.LineH * 3f);
+            float x = Mathf.Min(CellX + Mathf.Max(0, depth) * Indent, available - labelSpace);
             using (WidgetState.Save())
             {
                 GUI.color = color;
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
-                var r = new Rect(x, y, width - x - Pad, RowH);
+                var r = new Rect(x, y, Mathf.Max(0f, available - x), RowH);
                 UiText.RowLabel(r, text);
             }
             return y + RowH;

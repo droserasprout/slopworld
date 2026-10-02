@@ -75,6 +75,7 @@ namespace SlopWorld
     public abstract class ContentTreeSource
     {
         public abstract IList<ContentTreeGroup> Groups();
+        public abstract string EmptyReason { get; }
 
         // A source increments this when the visible tree shape or any cached row state changes.
         // ContentTreeView keeps the flattened row index until then, so a large expanded tree is
@@ -174,7 +175,7 @@ namespace SlopWorld
                 var groups = Groups();
                 if (groups.Count == 0)
                 {
-                    ViewChrome.Empty(body);
+                    ViewChrome.Empty(body, _source.EmptyReason);
                     return;
                 }
 

@@ -27,6 +27,25 @@ namespace SlopWorld.Tests
             new BrowseScope { ProjectId = "p-id", Project = "p", Worktree = worktree, Name = worktree,
                 Phase = phase, Path = path ?? "/p/" + worktree };
 
+        public static void EmptyViewsExplainCatalogState()
+        {
+            var f = new Fixture();
+            Assert.That(f.Catalog.EmptyReason(), Is.EqualTo("No projects are available."));
+            f.Filter = "hidden";
+            f.Update();
+            Assert.That(f.Catalog.EmptyReason(), Does.Contain("filter"));
+            f.Filter = "";
+            f.Update();
+            Assert.That(f.Catalog.EmptyReason(), Is.EqualTo("Loading checkouts…"));
+            f.Requests[0].Reply(null, "offline");
+            Assert.That(f.Catalog.EmptyReason(), Does.StartWith("Unable to load checkouts."));
+            f.Refresh();
+            f.Reply(1, Scope());
+            f.Toggle(f.Catalog.All("p-id").Single());
+            Assert.That(f.Catalog.EnabledScopes(), Is.Empty);
+            Assert.That(f.Catalog.EmptyReason(), Does.StartWith("No checkouts are selected"));
+        }
+
         public static void SidebarCatalogRequestsIdentifyTheHostCaller()
         {
             DaemonClient.Requests.Clear();
