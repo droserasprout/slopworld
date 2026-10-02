@@ -1,186 +1,85 @@
 # Build from source
 
-## Toolchain
+## Prerequisites
 
-- **Rust** stable toolchain — builds the daemon and launcher using the 2024 edition.
-- **.NET SDK** — install the version pinned in `global.json`; it builds the `net472` mod and runs C# tests and formatting.
-  NuGet restores framework reference assemblies.
-  The IPC benchmarks and terminal-input HTTP regression require Mono.
-- **Protobuf compiler (`protoc`)** — Rust builds require this compiler. Use **36.1**
-  for `make api-contract`; CI pins this version to keep generated C# output stable.
-  Install `protobuf-compiler` on Debian/Ubuntu or `protobuf` on Arch.
-  On macOS, run `brew install protobuf`.
-- **GNU Make** — the Makefile defines all targets.
-  On macOS, install GNU Make with `brew install make`.
-  Use `gmake` on macOS.
-- **PyYAML** — parses the compact shared wire contract used by `make api-contract`.
+- **Rust** stable toolchain builds the daemon and launcher using the 2024 edition.
+- **.NET SDK**: install the version pinned in `global.json`. It builds the `net472`
+  mod and runs C# tests and formatting. NuGet restores framework reference assemblies.
+- **Protobuf compiler (`protoc`)**: Rust builds require it. Contract generation
+  requires **36.1** to keep generated C# output stable. Install the matching binary
+  archive from the [Protobuf v36.1 release](https://github.com/protocolbuffers/protobuf/releases/tag/v36.1)
+  and put its `bin` directory on `PATH`. Distro packages are suitable when they
+  provide that version; check with `protoc --version`.
+- **GNU Make** runs the repository targets. On macOS, install it with
+  `brew install make` and use `gmake`.
+- **PyYAML** parses the shared wire contract during `make api-contract`.
 
-Set `RIMWORLD` to the Linux game directory (the folder containing `RimWorldLinux`).
-Install RimWorld so the mod can link against assemblies in `Managed/`.
+Set `RIMWORLD` to the Linux game directory containing `RimWorldLinux`.
+Building the mod requires the game's assemblies in `Managed/`. For native macOS,
+follow the [macOS guide](guides/macos.md).
 
-## Targets
+## Build and install
 
-Run `make` to list targets. Make defines dependencies and shared settings.
-Scripts in `tools/` support maintenance, platform checks, and IPC benchmarks.
-`bench/terminal-input/` contains the terminal input runner and tests. New reports
-and local runs go to the ignored `bench/results/` directory.
-`mod/Source/SlopWorld/SlopWorld.csproj` owns C# compiler settings and references.
-Build with `make all`, `make daemon`, or `make mod`.
-Component checks also have `-daemon` and `-mod` targets.
+Run `make` to list targets:
 
-`make install` installs the daemon, systemd unit, launcher, mod, and bundled UI
-font. `make clean` removes build output.
+```sh
+make all       # daemon, launcher, and mod
+make daemon    # daemon and launcher
+make mod       # mod; requires game assemblies
+```
 
-## Build modes
+`BUILD` is `debug` by default. Use `make BUILD=release all` for a release build.
+Both modes produce `mod/Assemblies/SlopWorld.dll`; Git does not track this output.
+`make clean` removes build output. Exact numeric `MAJOR.MINOR.PATCH` tags at HEAD, optionally prefixed by `v`, set
+the release version. Untagged checkouts append the UTC build date and short hash
+to the package version. Without Git data, builds use the package version alone.
 
-`BUILD` is `debug` (default) or `release`.
-Both produce `mod/Assemblies/SlopWorld.dll`.
-`lint-mod` always rebuilds in Release.
+`make install` installs the daemon, systemd unit, launcher, and mod.
+See [Install](install.md) for the complete setup procedure.
 
-SemVer-tagged builds embed the tag version.
-Untagged checkouts append the UTC build date and short commit hash to the package version.
-If a directory has no Git data, the build uses the package version alone.
-The build produces the mod assembly locally. Git does not track it.
-The release workflow publishes the daemon archive.
-Source installations and Arch packages build the mod against the target RimWorld installation.
+## Checks
 
-The loading screen uses a committed ASCII glyph atlas, so installing an operating-system
-font is not part of the build or install. `make bake-loading-font` regenerates the atlas
-from `assets/fonts/clacon2.ttf` when its artwork changes.
+| Target | Purpose | Extra requirements |
+| --- | --- | --- |
+| `make format` | Format Rust and C# production, test, and benchmark sources | — |
+| `make lint` | Rust formatting/Clippy and a Release mod build with C# formatting checks | Game assemblies |
+| `make test` | All game-free Rust, C#, tool, and pager tests | `tmux`, `less` |
+| `make ci` | Game-free tests with coverage, formatting, Rust lint, and generated-contract checks | `tmux`, `less`, coverage tools |
 
-## Formatting
-
-C# formatting uses `dotnet format` in folder mode for production code, tests, and
-benchmark sources under `bench/`.
-It excludes generated client bindings and build output.
-`.editorconfig` preserves single-line statements.
-`make check-format-csharp` checks this scope without game assemblies.
-`make ci` runs this check.
-`lint-mod` checks formatting after its Release build and treats warnings as errors.
-
-Rust formatting and linting use `cargo fmt` and `cargo clippy`.
-
-## Tests and coverage
-
-`make test` runs all game-free tests: Rust, C# under `mod/Tests/`, supporting tools, and
-pager integration.
-Pager tests require `tmux` and `less`.
 Use `test-daemon`, `test-mod`, `test-tools`, or `test-pager` to run a subset.
+`make check-format-csharp` checks C# formatting without game assemblies.
 
-`make ci` runs Rust and C# tests with coverage.
-It also runs supporting-tool and pager tests, Rust lint, and generated-contract drift checks.
-GitHub Actions calls this target.
-The target does not need game assemblies.
-`make coverage-summary` summarizes existing reports.
+`make coverage` writes `coverage/rust.cobertura.xml` and
+`coverage/csharp.cobertura.xml`. Install `cargo-llvm-cov` with
+`cargo install cargo-llvm-cov --locked` and the matching `llvm-cov` and
+`llvm-profdata` binaries. Use `coverage-daemon` or `coverage-mod` for one component,
+and `make coverage-summary` to summarize existing reports.
 
-`make coverage` produces Cobertura XML reports for Rust and C#.
-It requires `cargo-llvm-cov` and the matching `llvm-cov`/`llvm-profdata` binaries.
-Install `cargo-llvm-cov` with `cargo install cargo-llvm-cov --locked`.
-Use `coverage-daemon` or `coverage-mod` to measure one component.
+## More workflows
 
-Each coverage run prints a summary.
-The Rust report is `coverage/rust.cobertura.xml`.
-The C# report is `coverage/csharp.cobertura.xml`.
-C# coverage measures the production files linked into the test harness.
+`make BUILD=release bench BENCH_RUN=<name>` measures the daemon, C#, and IPC
+suites. Reports go to `bench/results/<name>/`. Use
+`make bench-report BENCH_RUN=<name>` to regenerate a report from saved CSVs;
+`BENCH_BASELINE=<older> BENCH_MODE=relative` compares runs. IPC benchmarks and
+terminal-input HTTP regression require Mono.
 
-Rust also writes `coverage/rust.filtered.cobertura.xml` and a native per-file table at
-`coverage/rust.files.txt`. Both use the same test run.
-The default report follows `cargo-llvm-cov`'s built-in exclusions.
-These include `tests.rs` and `*_tests.rs`.
-The filtered report also applies `RUST_COVERAGE_EXCLUDE` from `make/config.mk`.
-This filter omits generated bindings, standalone test files, benchmarks, and external Rust
-library sources.
-Override that variable to change the file scope.
-Unit tests are in adjacent `*_tests.rs` or `tests.rs` files.
-The source loads these files as child modules with `#[cfg(test)]` and `#[path]`.
-The tests retain access to private implementation details.
-Small test hooks embedded in production code remain measured by the file-based filter.
-`make coverage-summary` prints both rates. File paths shared by multiple binaries may appear
-more than once in LLVM reports.
+- [Terminal latency measurements](guides/terminal-latency.md) covers desktop
+  input benchmarks, tracing, and report interpretation.
+- [IPC benchmark suite](../../bench/ipc/README.md) explains its scope.
+- [Runtime package maintenance](../../mod/Dependencies/README.md) covers dependency updates.
+- [Troubleshooting](reference/troubleshooting.md) covers logs and diagnosis.
+- [Contributing](reference/contributing.md) covers repository and documentation workflows.
 
-`make BUILD=release bench BENCH_RUN=<name>` builds once and measures the daemon,
-C#, and IPC suites three times. Results and reports go to the ignored
-`bench/results/<name>/` directory. `make bench-report BENCH_RUN=<name>` regenerates
-the report from saved CSVs; `BENCH_BASELINE=<older> BENCH_MODE=relative` shows
-percentage changes. Desktop terminal measurements use `make bench-terminal` on
-the graphical host. See [terminal latency](guides/terminal-latency.md).
+## Local development loop
 
-## Logs and diagnostics
+`make devloop` lists Git worktrees in the terminal where you run it.
+Use these controls:
 
-Tracing is opt-in. To collect performance and latency records while using
-`devloop`, pass the flags in the process environment:
+- Press Enter to rebuild the previous selection.
+- Enter a number to select a different checkout.
+- Enter `q` to exit.
 
-```sh
-SLOPWORLD_DEBUG=1 make devloop
-```
-
-The installer writes the supplied tracing values to the service unit. It restarts
-the daemon if those values change. A later installation without them restores the
-shipped unit. See [terminal latency](guides/terminal-latency.md) for capture and reporting instructions.
-
-Unity writes Harmony and mod exceptions to `Player.log`, the game log.
-These exceptions do not appear in the terminal that started the game.
-`make logs` shows new entries in this file.
-
-```sh
-journalctl --user -u slopd -f               # daemon log
-slopctl logs --follow                        # combined game + daemon
-```
-
-`make mod-deps` restores locked Markdig, Newtonsoft.Json, Tomlyn, Google.Protobuf,
-and their Mono runtime dependencies. `make protobuf-deps` remains an alias.
-See [runtime package maintenance](../../mod/Dependencies/README.md) for updates.
-`make BUILD=release bench BENCH_RUN=<name>` builds once before three measurement runs.
-`make bench-report BENCH_RUN=<name>` reads their saved CSVs and writes
-`bench/results/<name>/report.md`. The report includes IPC timings, allocations,
-and wire sizes.
-`make bench-latest BENCH_RUN=<name>` writes `bench/latest-report.md` without a dated run name
-or capture timestamps. The repository does not keep a checked-in latest snapshot.
-For a focused run, set `BENCH_FALLBACK_RUN=<full-run>` to carry forward suites
-and phases absent from that run. The report labels which source supplied each phase.
-Each timing shows the median p50 or p95 across runs.
-Brackets show the minimum and maximum across runs.
-These ranges show variation between runs. They are not confidence intervals.
-Daemon measurements use calibrated batches of operations.
-Raw logs and CSVs stay local and ignored.
-`make BUILD=release bench-ipc BENCH_RUN=<name>` measures Protobuf on Mono,
-CoreCLR (.NET 8), and Rust.
-See [the benchmark suite](../../bench/ipc/README.md) for scope and recorded results.
-
-## Occasional maintenance
-
-Run these scripts from the repository root.
-Pass options directly to each script:
-
-- `python3 tools/appicon.py`, `python3 tools/icons.py`, and `python3 tools/emoji_atlas.py`
-  regenerate assets.
-- `python3 tools/analyze_ui_schemes.py --check-warm` checks UI scheme luminance.
-- `python3 tools/loc-report.py` writes a line-count snapshot.
-- `bash tools/fetch-harmony.sh` updates Harmony.
-- `bash tools/shot.sh OUTPUT` captures the game window (requires the `x11` sandbox preset).
-
-## Linux window options
-
-The launcher normally supplies `-popupwindow -screen-fullscreen 0 -force-opengl`.
-`slopworld --no-window-fix` omits those default arguments. It does not disable the
-mod's Linux window-manager hook, which still follows the saved fullscreen setting.
-
-## Text-sprite asset maintenance
-
-The text-sprite generator writes the shared atlas and `UI/Text/TextSpriteData.cs`
-together. Its sequence input is pinned to Unicode 17 in
-[`assets/unicode/emoji-test.txt`](../../assets/unicode/emoji-test.txt); optional
-`--sequences /path/to/keys.txt` adds one literal UTF-8 key per line. Regenerate
-artwork and keys together, preserving atlas slot order. Normal builds use committed
-assets and do not need the local bake fonts. `make test-text-sprites` checks generated
-metadata and rejects non-ASCII loading-tip literal codepoints; it does not reject
-every ASCII control character.
-
-Action icons use `make bake-icons`. The baker defaults to 64 px and accepts `--size`
-and `--font` through `python3 tools/icons.py`; `--report` prints glyph size/ink coverage.
-The chosen Nerd Font is a build input and is not shipped.
-
-Shared C# helper fixture setup can occur outside timing, while cold-cache creation
-and revision-triggered rebuilds may intentionally be part of the measured operation.
-Inspect benchmark delegates before interpreting results; helper timings do not
-predict Unity rendering costs.
+The game starts only after the install step succeeds.
+The picker also lists worktrees that you created manually.
+It uses each checkout's normal host build directories.
+The sidecar devloop uses a separate script.

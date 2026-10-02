@@ -1,7 +1,9 @@
 # Attaching from a terminal
 
-The daemon runs tmux on a private socket named `slopworld`.
-Use a host terminal to connect to an agent session.
+These commands apply to a native Linux daemon reachable from the host terminal.
+The default private socket is `slopworld`; see [Paths and files](../reference/paths.md)
+for socket overrides. Sidecar and macOS tmux sessions run inside the Linux container;
+use the in-game terminal for those deployments.
 
 ## Listing sessions
 
@@ -9,7 +11,7 @@ Use a host terminal to connect to an agent session.
 tmux -L slopworld list-sessions
 ```
 
-This command lists every agent session that the daemon manages.
+This lists sessions on the SlopWorld tmux server, including host and temporary sessions.
 The `-L slopworld` option selects the SlopWorld socket. Bare `tmux` commands use the
 default socket and cannot find these sessions.
 
@@ -33,25 +35,8 @@ tmux -L slopworld capture-pane -t SESSION_NAME: -p -S -100   # last 100 lines
 `capture-pane -p` prints the pane contents to standard output without attaching.
 Add `-S -100` to show the last 100 lines. Add `-e` to include ANSI escape sequences.
 
-## Target syntax
+## Stop safely
 
-SlopWorld names each window `bwrap`.
-Tmux checks window names before session names when it resolves a target.
-Use `NAME:` or `NAME:.0` to target a window or pane.
-Use bare names only with `kill-session`, `rename-session`, or `attach`.
-
-## Safe interaction
-
-Do not run `tmux kill-session` while the daemon runs.
-Use the mod's Stop action to end an agent session. The daemon can then update its session map and remove private state.
-
-## Logs
-
-For daemon and game logs without attaching to a session:
-
-```sh
-slopctl logs --follow
-journalctl --user -u slopd -f
-```
-
-See [Using slopctl](slopctl.md) for the full log interface.
+Use the mod's **Stop** action so the daemon performs its normal cleanup.
+See [Host terminals](host-terminals.md) for host-tab
+Stop and Remove behavior, and [Using slopctl](slopctl.md#logs) for logs.

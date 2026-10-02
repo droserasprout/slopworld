@@ -1,74 +1,30 @@
 # Agents and projects
 
-## Projects
+## Projects provide workspaces
 
-A project is a directory and a set of shared project mounts. The daemon's `config.toml` defines projects as `[[project]]` entries.
+A project supplies a working directory and shared mounts. It can also have several
+checkouts. See [Configuring projects](../guides/configuring-projects.md) and
+[Project worktrees](../guides/project-worktrees.md).
 
-Each project names:
+## Agents run commands
 
-- A working directory. The daemon mounts it read-write in every agent sandbox.
-- Optional additional directories, each with read-only or read-write access.
+An agent runs a command app in a project, with its own launch settings.
+See [Configuring agents](../guides/configuring-agents.md) to choose a CLI and
+[Sandboxing](sandboxing.md) to inspect its access.
 
-Temporary projects (`temp = true`) have no directory initially.
-The daemon creates one under `/tmp/slopworld/` when the agent starts.
+## Session states
 
-## Agents (sessions)
+- **Down** means the process is not running.
+- **Working** means the terminal has recent activity.
+- **Idle** means the terminal has been quiet.
 
-An agent is a session inside a project. It has a name and a command preset for the software it runs.
-It also has its own command-line, sandbox, network, DNS, resource-limit, and startup settings.
+A quiet terminal can still have a computing agent; state describes terminal activity.
 
-A command preset names software instead of a raw command. The sandbox uses the preset to mount
-the software's configuration paths. For example, the Claude preset mounts `~/.claude` as
-private storage.
+## Related workflows
 
-Each agent specifies its network mode directly. The documented default is `private`.
-DNS `resolved` follows the daemon's current resolver.
-An unset resource limit means no limit.
-
-## State
-
-The daemon reports terminal activity:
-
-- **Down** — not running.
-- **Working** — meaningful terminal activity occurred within the last ten seconds.
-- **Idle** — no meaningful terminal activity for ten seconds.
-
-Prompt wording does not determine state. Cursor-only changes and faint prompt
-particles do not keep an agent Working. An agent can still be computing while
-its terminal is quiet.
-
-**Waiting** can appear briefly when restoring an older session, then falls back
-to activity classification. The daemon no longer detects it from approval prompts.
-
-Two clocks track state independently.
-The pane's last-change time determines when a pane without changes becomes idle.
-The state-since time records when the current state started.
-Tmux session metadata preserves both times through daemon restarts.
-
-## Lifecycle
-
-- **Start** creates the tmux session inside a Bubblewrap sandbox.
-- **Stop** sends a signal to the agent's session.
-- **Remove** stops the agent, then removes its configuration.
-- **Reset** removes the agent's private state (tool caches, conversation history) and
-  moves it to a 14-day trash directory.
-
-Tmux and RimWorld run outside the daemon's process group, so agents keep running through daemon restarts.
-The daemon caches a stopped agent's state age and restores it after restart.
-
-## Ephemeral agents
-
-Library errands create temporary sessions. The daemon does not write them to `config.toml`.
-When the process exits, the daemon removes the session. You cannot restart it.
-Project host shells keep a persistent tab. See [Host terminals](../reference/integrations.md#host-terminals).
-
-## Titles
-
-The daemon can use an OpenRouter model to summarize an agent's prompt. Agent title policies
-are `never`, `once` (first prompt only), or `always` (follows the current task). Host terminal
-titles come from the terminal application unless you set a fixed label. The daemon's agent
-title override is separate from the terminal's OSC title.
-
-Approval answers such as `yes`, `1`, and `cancel` never become generated titles, even
-when the minimum prompt length is zero. A failed `once` attempt is not retried for
-later prompts; `/new` starts a fresh attempt budget.
+- [Library items and errands](../guides/library.md) for reusable prompts and temporary commands.
+- [Host terminals](../guides/host-terminals.md) for persistent shell tabs.
+- [Agent collaboration](../guides/agent-collaboration.md) for grants and task handoffs.
+- [Private state](../guides/configuring-agents.md#private-state) and
+  [Backup and recovery](../guides/backup-and-recovery.md) for restart, reset, and restore.
+- [Prompt summaries](../reference/integrations.md#prompt-summaries) for supported CLI titles.

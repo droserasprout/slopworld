@@ -26,4 +26,4 @@ readiness timeout withholds input. Callers compose prompts before delivery.
 Input and breadcrumb delivery belong to [session state](daemon-session-state.md).
 Storage belongs to [configuration stores](daemon-config-stores.md); directory
 locations are in the [path reference](../docs/src/reference/paths.md).
-User instructions belong in [Library items and errands](../docs/src/reference/integrations.md#library-items-and-errands).
+User instructions belong in [Library items and errands](../docs/src/guides/library.md).

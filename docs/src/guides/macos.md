@@ -1,17 +1,15 @@
 # macOS
 
-The macOS workflow runs RimWorld and the mod natively. The daemon and agent sandboxes
-run in Docker. This page covers the Mac installation.
-See [Sidecar worker](sidecar.md) for the standalone worker procedure.
+RimWorld and the mod run natively on macOS. The daemon and agent sandboxes run
+in a Linux sidecar container. See [Sidecar worker](sidecar.md) for standalone use.
 
-## Prerequisites
+## Before you start
 
-- Homebrew
-- A native RimWorld 1.6 app
+See [Requirements](../requirements.md) for the game and host prerequisites.
 
-## Install
+## One-time setup
 
-Run these commands to clone the repository and install SlopWorld:
+Clone the repository and make GNU Make available so you can invoke `gmake`:
 
 ```sh
 git clone https://github.com/droserasprout/slopworld.git
@@ -19,28 +17,28 @@ cd slopworld
 brew install make
 gmake mac-setup
 open -a Docker
+```
+
+`mac-setup` installs build tools, the .NET SDK, and Docker Desktop. Open Docker
+Desktop before continuing.
+
+## Install and launch
+
+```sh
 gmake mac
 ```
 
-`mac-setup` installs the Mac build dependencies and Docker Desktop. `mac` builds the
-Docker worker, installs the mod, and launches the game.
+This builds and checks the sidecar image, installs the mod, starts the configured
+container, and launches native RimWorld.
 
-The default `MAC_RIMWORLD` is the GOG bundle at `~/Documents/RimWorld.app`. Override it
-for a Steam or other install:
+The default `MAC_RIMWORLD` is `~/Documents/RimWorld.app`. Override it for a game
+installed elsewhere:
 
 ```sh
 MAC_RIMWORLD=/path/to/RimWorld.app gmake mac
 ```
 
-The game uses a separate SlopWorld profile. `mac-run` uses the Rust `slopworld` launcher.
-It explicitly supplies the native app executable, working directory, Mods directory, and sidecar endpoint.
-The Mac and Linux launchers thus use the same profile initialization and launch safety checks.
+The game uses a separate SlopWorld profile. See [Game profiles](game-profiles.md)
+for profile behavior and [Paths and files](../reference/paths.md) for locations.
 
-## Updating
-
-Get the latest changes.
-Then run:
-
-```sh
-gmake mac
-```
+For later changes, follow [Updating and uninstalling](../updating.md).

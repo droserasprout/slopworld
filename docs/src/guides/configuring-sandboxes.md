@@ -1,23 +1,36 @@
 # Configuring sandboxes
 
-## Preset files
+## Edit presets
 
-Sandbox presets use TOML files. The daemon includes default presets.
-Each file in `~/.config/slopworld/sandbox_presets/` defines one preset. A user preset
-replaces a preset with the same name.
+Edit sandbox presets under **Settings > Sandbox** and app presets under
+**Settings > Commands > Apps**. Both reload without a rebuild. The daemon checks
+`config.toml` and preset directories every two seconds.
 
-The daemon checks `config.toml` and both preset directories every two seconds.
-It reloads presets when it detects a file or directory change.
-New presets appear on the Settings > Commands > Apps page without a rebuild.
+Sandbox preset files default to `~/.config/slopworld/sandbox_presets/`.
+See [Paths and files](../reference/paths.md) for overrides. A user preset replaces
+a supplied preset with the same name; deleting an override restores the supplied one.
 
-## The global preset
+## Example
 
-The daemon applies the `global` preset before all other presets.
-Its built-in definition makes existing `/usr`, `/etc`, `/opt`, and `~/.local/bin` paths read-only.
-The daemon also creates `/proc`, `/dev`, and a temporary `/tmp` in each sandbox.
-Copy `global.toml` into the user preset directory to create an editable override.
+Save one preset definition per file:
 
-## Bind kinds
+```toml
+name = "my-tools"
+description = "Tools and shared working data"
+ro = ["/opt/my-tools"]
+rw = ["~/shared-data"]
+env = ["MY_TOOL_TOKEN"]
+
+[setenv]
+MY_TOOL_MODE = "local"
+```
+
+Paths expand `~` and environment variables. An unset variable omits the whole path.
+Missing preset sources are skipped; an invalid project directory prevents launch.
+Protected paths, including the daemon's configuration and private state, cannot
+be mounted through ordinary path fields.
+
+## Mount fields
 
 | Kind | Behavior |
 | --- | --- |
@@ -33,103 +46,55 @@ The daemon omits a preset bind when its host path does not exist. A `private` bi
 an existing session copy when its host path is missing.
 If a path contains an unset environment variable, the daemon omits the whole path.
 
-## Bind order
+## Global preset and composition
 
-The main path layers follow this order:
+The implicit `global` preset supplies existing `/usr`, `/etc`, `/opt`, and
+`~/.local/bin` read-only. Sandboxes also have `/proc`, `/dev`, and a temporary `/tmp`.
+Copy `global.toml` to the user preset directory to override it.
 
-1. The implicit `global` preset.
-2. Named command and agent presets.
-3. Persistent `/tmp`, if enabled.
-4. The project's primary directory and project mounts.
-5. Private copies.
-6. Shared files.
-7. The private-network resolver, when private network mode is active.
+`requires` adds other presets. Missing or cyclic dependencies are rejected when
+saving; required presets appear as disabled controls in the editor.
 
-Later mounts cover earlier mounts at the same path. The daemon removes duplicate paths
-within each bind kind. It applies read-write binds after read-only binds, so read-write
-access takes priority when both use the same path. Private copies cover earlier mounts at
-the same path. Shared files cover the copies so agents can update the host files.
+Overlapping mounts can cover earlier paths. Use the agent editor's Preview tab to
+check the resolved result. See [Sandboxing](../tour/sandboxing.md) for preview and
+inspection workflows.
 
-## Protected paths
+## Private copies and credentials {#credentials}
 
-The daemon rejects bind paths that resolve to `/` or `$HOME`.
-It also rejects these daemon-owned paths, their parents, and their children:
+A new private directory copies regular files directly inside the source and
+configured `seed` paths, except those excluded by `skip`. Existing copies are
+retained and are not reseeded on restart. See [Paths and files](../reference/paths.md)
+for state locations and [Backup and recovery](backup-and-recovery.md) for reset and restore.
 
-- The daemon configuration file
-- The daemon endpoint file
-- The daemon preset directory
-- The session-state root
+`shared` mounts existing host credential files read-write over private copies.
+Host updates reach the sandboxes, and agents can overwrite those files in place.
+Treat them as writable host data; see the [Security model](../reference/security.md).
 
-The daemon logs a warning and omits an invalid preset bind. An invalid project directory
-stops the operation because the daemon must mount project directories read-write.
+A non-empty `escapes` field warns about host capabilities outside the sandbox.
+Platform-specific presets are described in [Supported integrations](../reference/integrations.md).
 
-## Private state
+## Network and DNS {#network}
 
-Private mounts create a per-session copy at
-`$XDG_DATA_HOME/slopworld/sessions/<state-id>/`. The default data root is `~/.local/share`.
-`SLOPD_STATE` overrides this path. The daemon assigns the opaque state ID at creation.
-Renaming an agent does not change this ID.
-On the first start, the daemon copies missing top-level files and selected `seed` paths into
-private state. Add paths such as history and other large data to `skip` to exclude them.
+Agents own their network mode:
 
-When you reset or remove an agent, the daemon moves its private state to trash.
-It keeps the state for at least 14 days. The daemon deletes private state when it removes a temporary agent.
+| Mode | Behavior |
+| --- | --- |
+| `none` | The agent has a private network namespace with no network access. |
+| `private` | `pasta` provides synthetic DNS and outbound access. It forwards only the daemon TCP port back to the host when the daemon listens on `127.0.0.1` or all IPv4 interfaces. |
+| `host` | Uses the host network and can reach local services. |
 
-## Credentials
+With `private`, `pasta` routes DNS requests. `resolved` uses the daemon's current resolver.
+An explicit `dns` value supplies one or two IPv4 servers to `pasta`.
 
-Shared credential mounts apply only when the selected preset shares an existing
-host source. In-place truncation or overwrite changes the host file; a mountpoint
-blocks unlinking, not writes. Inspect `/proc/self/mountinfo` inside the sandbox to
-identify active mounts before changing files.
+With `host`, `resolved` uses the host resolver. The daemon writes explicit server addresses to a
+resolver file and mounts it in the sandbox. With `none`, the sandbox has no network access. DNS
+settings have no effect.
+Network and DNS changes take effect on the next agent start.
 
-For example, recursively removing a private `.claude` directory with an active
-shared credential mount can delete sibling files while leaving the credential
-mountpoint and parent directory, and return failure. Sibling traversal order is
-unspecified. An ordinary restart does not reseed an existing private copy; resetting
-private state or deliberate repair is needed to recreate removed files. State
-locations and overrides are listed in [Paths and files](../reference/paths.md).
+## Resource limits
 
-
-Use `shared` entries to mount a host-owned file read-write over its private-state copy.
-Use them for rotating credentials (`~/.claude/.credentials.json` and `~/.codex/auth.json`).
-The agent can read and overwrite the file in place. It cannot delete the file because the
-mountpoint blocks deletion.
-
-The daemon does not seed shared files. The built-in Claude and Codex presets use shared
-entries for rotating auth files. In-place host updates appear in every sandbox without a private-state reset.
-
-## Escape warnings
-
-A non-empty `escapes` value identifies a capability that gives access to the host.
-The agent editor shows a warning when you select the preset.
-
-## Dependencies
-
-The `requires` field lists presets that the daemon must add.
-When you save a preset, the daemon rejects missing or cyclic dependencies.
-The mod shows required presets as disabled controls. For example, `systemd` requires `dbus`.
-
-## Mobile development
-
-The built-in `android-dev` preset exposes installed Android and Java tools as read-only
-paths. It gives each agent private Android and Gradle state. Android builds write to the
-project.
-
-The built-in `ios-dev` preset exposes installed Xcode tools as read-only paths.
-It keeps each agent's Xcode user settings private and allows writes to build directories.
-These paths target future native macOS workers. On Linux, the daemon skips Xcode paths that do not exist.
-
-Add `android-debug` when an Android agent needs USB devices or an accelerated emulator.
-It requires the GPU, X11, and Wayland presets. Add `ios-debug` when an iOS agent needs
-simulator state or connected-device debugging. The daemon marks both debug presets as
-host escapes.
-
-## Process limits
-
-The daemon uses only the agent's `limits` values (`memory_mb`, `pids`, `nofile`, and
-`cpu_pct`). An unset value means no configured cap. If any value is set, the daemon places
-the process tree in a transient `systemd-run --user --scope`. It rejects zero values when you save agent settings.
-Resource limits do not provide an isolation boundary.
+Set process limits in the [agent editor](configuring-agents.md).
+Limits do not provide an isolation boundary.
 
 ## Environment
 
@@ -142,12 +107,3 @@ The daemon then sets `SHELL` to the agent's configured shell.
 
 Default presets do not forward configuration-root variables such as `CODEX_HOME`.
 The Codex preset stores `~/.codex` in private state.
-
-## Preset API
-
-`GET /api/presets` returns the complete effective definition and its source (`system`,
-`user`, or `override`). The `:kind` values are `sandbox_presets` and `app_presets`.
-`POST /api/presets/:kind/:name/copy`, `PUT`, and `DELETE` edit user entries.
-The daemon checks definitions before it saves them. It writes each saved file atomically.
-Deleting a user override restores the supplied preset.
-You cannot delete a user-only sandbox while a command or another sandbox requires it.

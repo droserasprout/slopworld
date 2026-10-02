@@ -1,29 +1,42 @@
 # Game profiles
 
-The launcher uses a separate RimWorld save-data folder with a `slopworld.profile`
-marker. Select it with `slopworld --profile /path/to/profile`. Default locations and
-environment overrides are in [Paths and files](../reference/paths.md). Native and
-sidecar defaults differ; an explicit path can select the same folder, so choose
-separate paths when you want separate saves.
+## Choose a profile
 
-To create missing profile files or restore the marker without starting the game:
+The launcher uses a separate RimWorld save-data folder. A normal launch initializes
+missing profile data automatically:
+
+```sh
+slopworld --profile /path/to/profile
+```
+
+See [Paths and files](../reference/paths.md) for defaults and overrides. Standard
+native, [sidecar](sidecar.md), and [macOS](macos.md) Make workflows use separate
+paths. Explicit paths can select the same folder, so choose separate folders when
+you want separate saves. Profile paths cannot contain `=`.
+
+## Initialize or repair without launching
+
+Create the profile marker and missing mod list without opening the game:
 
 ```sh
 slopworld --profile /path/to/profile --init-profile
 ```
 
-Existing profile choices are preserved. To explicitly replace the profile's mod
-list, add `--reset`:
+Existing settings and mod choices are preserved. With `--sidecar`, initialization
+sets the sidecar UI default only when `Config/SlopWorld.toml` is missing.
+
+## Replace the mod list
+
+To replace `Config/ModsConfig.xml`, add `--reset`:
 
 ```sh
 slopworld --profile /path/to/profile --init-profile --reset
 ```
 
-Reset discards the existing mod list. `--sidecar` selects the sidecar UI default
-during initialization. `--print` prints launch arguments without seeding or starting
-the game and cannot be combined with `--init-profile`. Profile paths cannot contain
-`=`. The launcher excludes simultaneous launches of the same profile.
+This discards the existing mod list; it does not reset saves or the whole profile.
 
-Use the launcher for normal play. If the mod refuses to patch, see
-[troubleshooting](../reference/troubleshooting.md#the-mod-refuses-to-patch).
-Platform setup belongs to [macOS](macos.md) and [sidecar](sidecar.md).
+## Troubleshooting
+
+Use the launcher for normal play. See [The mod refuses to patch](../reference/troubleshooting.md#the-mod-refuses-to-patch)
+for marker repair and [Multiple instances](../reference/troubleshooting.md#multiple-instances)
+for launch conflicts.

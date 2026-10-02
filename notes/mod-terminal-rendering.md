@@ -18,5 +18,5 @@ and [shared text](mod-ui-text.md) owns clipped font/sprite layout and fallback.
 
 Input/link activation belongs to [terminal](mod-terminal.md), daemon widths and
 capture to [capture](daemon-terminal-capture.md), asset regeneration to
-[the build guide](../docs/src/build.md#text-sprite-asset-maintenance), and profiling
+[shared text](mod-ui-text.md), and profiling
 to [latency diagnostics](terminal-latency.md).

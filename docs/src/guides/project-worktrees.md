@@ -2,7 +2,6 @@
 
 Several checkouts can belong to one project. Agents can attach to and share a worktree.
 Tasks, workers, and worktrees have independent lifetimes. Completing a task or removing its worker does not commit or remove a worktree.
-By default, the daemon keeps each worker after its process exits.
 
 ## Create and use a worktree
 
@@ -25,32 +24,17 @@ Agents can commit, switch branches, or detach HEAD. These actions do not change 
 Select **Terminal** in the worktree list to inspect it.
 Select **Refresh** to update Git state and attachments.
 
-On Linux, the daemon requires Landlock ABI 3 or newer to create managed worktrees.
-It requires Bubblewrap to remove managed worktrees.
+Managed worktree operations need the Linux capabilities listed in
+[Requirements](../requirements.md).
 
-Managed worktrees default to `<project_path>/.worktrees/<worktree-name>`.
+See [Paths and files](../reference/paths.md) for default and custom worktree roots.
 Ignore `.worktrees/` in the project's Git ignore rules to keep nested checkouts out of commits.
-Project settings can set a custom root. Those checkouts use
-`<custom-root>/<project-name>/<worktree-name>`. Renaming a project leaves its local
+Project settings can set a custom root. Renaming a project leaves its local
 `.worktrees` checkouts in place. Checkouts under a custom root follow the project name.
 Renaming a managed worktree moves its checkout directory and repairs Git's registration.
 Its branch keeps its name. Move or remove attached sessions before renaming a checkout.
 A worktree without a supplied name uses a short generated name.
-Use **Rename** in the worktree list or the CLI command below.
-
-## Browse several checkouts
-
-In the sidebar's global **Project** filter, a project without registered worktrees has a single
-checkbox. A project with worktrees opens a submenu with checkboxes for **main** and each worktree.
-Selecting a checkout in a hidden project restores the project and its saved choices.
-Files and Git show each enabled, ready checkout under its own fold. Search
-queries those checkouts and separates their results. You can disable every checkout for a
-project while keeping its agents visible. Hiding and restoring a project preserves its choices.
-The catalog updates worktree names and status. A temporarily unavailable checkout keeps
-its saved choice and returns when ready. New worktrees start disabled.
-
-Editors, diffs, file actions and host terminals opened from a checkout use that checkout.
-These browsing choices do not move agents between worktrees.
+Use **Rename** in the worktree list.
 
 ## Remove a worktree
 
@@ -58,7 +42,6 @@ Remove or move every attached session, including stopped workers and host termin
 Then select **×** on the worktree row in project settings.
 This action removes a worktree. It does not remove a worker.
 For an existing managed checkout, tracked changes, untracked files, and ignored files block removal.
-The daemon removes its unchanged cache links before checking cleanliness and restores them if removal fails.
 A changed cache link blocks removal. Cache contents remain in shared storage.
 It must also have a retained local branch that contains HEAD.
 Resolve the reported condition and try again.
@@ -71,74 +54,34 @@ its files and Git’s linked-worktree registration.
 You cannot remove the **main** checkout.
 Remove registered worktree records before you remove a project.
 
-## CLI
+## Access and related guides
+
+Renaming, removing, and registering external checkouts require the root token.
+Agents can create and select worktrees only in their own project.
+
+- [Interface](../tour/interface.md) explains browsing and checkout filters.
+- [Configuring projects](configuring-projects.md#shared-cache-mounts) covers mounts and shared caches.
+- [Using slopctl](slopctl.md) documents worktree commands and worker lifetime.
+
+## Browse several checkouts
+
+The shared Project filter offers Main and worktree choices for Files, Git, and
+Search. Main starts enabled; new worktrees start disabled. Choices survive hiding
+and restoring projects and do not change agents' checkouts. Unavailable checkouts
+retain their choices and return when ready. Files and Git fold checkouts separately;
+Search groups their results. Editors, file actions, and terminals opened from a
+checkout use that checkout.
+
+## Worktree CLI examples
 
 ```sh
 slopctl worktree list --project repo
 slopctl worktree create --project repo --name feature --base HEAD
 slopctl worker spawn --project repo --template codex --worktree WORKTREE_ID "Implement feature"
-slopctl worker spawn --project repo --template codex --new-worktree "Independent task"
-slopctl worktree remove WORKTREE_ID --project repo
+slopctl worker spawn --project repo --template codex --new-worktree --base HEAD --worktree-name feature "Independent task"
 slopctl worktree rename WORKTREE_ID --project repo --name clearer-name
+slopctl worktree remove WORKTREE_ID --project repo
 ```
 
-Use the root token to remove a worktree or register an external checkout.
-Agents can create and select worktrees only in their own project.
-The `--one-shot` option removes the worker session after its process exits. Its worktree remains.
-The CLI accepts `--durable` to request the default behavior explicitly.
-
-Mount sources and absolute destinations keep their host paths.
-Relative destinations use the selected checkout.
-If a mount exposes the original checkout, edit it before you launch in another worktree.
-
-## Shared cache mounts
-
-Open the project's **Mounts** tab and add a row.
-Select **Cache** as the mode. The other modes are **Read-only** and **Read-write**.
-Set **To** to a relative path, such as `target` or `node_modules`.
-The daemon creates a link to the same writable cache in every checkout, including **main**.
-Host builds and agents in another checkout follow the same link. The cache source is bound at
-its own path inside agent sandboxes.
-You can also set an absolute destination.
-Keep absolute destinations outside the original checkout when you use other worktrees.
-Restart agents after you change mounts.
-
-Leave **From** blank to use managed storage under `$XDG_CACHE_HOME/slopworld/mounts/<project-id>`.
-The daemon uses `~/.cache` when `$XDG_CACHE_HOME` is unset.
-If you set `$SLOPD_CACHE`, managed caches use `$SLOPD_CACHE/mounts`.
-Each relative destination has its own readable `link-...` directory beneath the project ID.
-The daemon moves data from the previous managed cache layout when it creates the link.
-Set **From** to an absolute host directory to use external storage.
-Saving the mounts creates missing cache directories and links. New worktrees get links when they
-are registered. If a destination already contains build output, move its contents into the cache
-source shown in the error, remove the old destination, then save the mounts again. The daemon
-never replaces an existing file, directory, or changed link. A missing or changed link blocks agent
-launch until you restore it or save the mounts to recreate a missing link.
-Removing a cache row removes only its unchanged checkout links. Its cache data remains in storage.
-In sidecar mode, relative cache links are unavailable until the host and container use the same
-absolute cache path; configuration reports this limitation. Absolute cache destinations retain
-their existing sandbox mount behavior.
-Keep cache sources outside the checkout and managed worktree storage.
-A cache mount cannot replace the checkout root or Git metadata.
-
-**Settings > Storage** lists managed caches by project and external cache directories.
-Each entry shows its size and path.
-Managed caches stay in the list after you remove their mounts or project.
-Removing a worker or worktree does not remove cache data.
-Private-state reset and trash controls do not remove cache data.
-Unconfigured external caches stay on disk but leave the inventory.
-Concurrent builds share writable cache contents. Use caches that support concurrent access.
-
-## Local development
-
-`make devloop` lists Git worktrees in the terminal where you run it.
-Use these controls:
-
-- Press Enter to rebuild the previous selection.
-- Enter a number to select a different checkout.
-- Enter `q` to exit.
-
-The game starts only after the install step succeeds.
-The picker also lists worktrees that you created manually.
-It uses each checkout's normal host build directories.
-The sidecar devloop uses a separate script.
+Worker `--one-shot` cleanup leaves its checkout intact; `--durable` requests the
+persistent default explicitly. See [Using slopctl](slopctl.md) for task commands.

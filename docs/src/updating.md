@@ -2,7 +2,7 @@
 
 ## Updating
 
-To get the latest source and install it, run these commands:
+Get the latest source and install it:
 
 ```sh
 cd slopworld
@@ -10,59 +10,21 @@ git pull
 RIMWORLD=/path/to/RimWorld/game make install
 ```
 
-`make install` rebuilds and installs the daemon, runner, and mod.
-The loading screen's ASCII atlas ships with the mod, so this does not install an OS font.
-It restarts the systemd service only when the daemon binary changed.
+This rebuilds and installs the daemon, runner, and mod. The native Linux service
+restarts when its binary or effective service unit changes; an inactive service
+is started. Tmux sessions and the game continue through a daemon restart.
 
-Tmux sessions and the game continue after a daemon restart.
-The daemon rebuilds each running agent's terminal emulator from the existing tmux pane.
+Installation preserves configuration, the configured token, private state,
+complete template directories, and game profiles. See [Paths and files](reference/paths.md)
+for locations and [Backup and recovery](guides/backup-and-recovery.md) for backup scope.
+If startup fails after an update, see [Troubleshooting](reference/troubleshooting.md).
 
-Release versions follow the SemVer tag at `HEAD`. An untagged checkout appends the UTC build date
-and short hash to the package version.
+## Other platforms
 
-## Data that updates preserve
-
-| State | Survives update |
-| --- | --- |
-| `config.toml` (agents, projects, settings) | Yes |
-| Per-agent private state (`sessions/<state-id>/`) | Yes |
-| Game profile (saves, mod settings) | Yes |
-| User library, templates, sandboxes, and apps (`{prompts,breadcrumbs,file_actions,shell_scripts,agent_templates,sandbox_presets,app_presets}/*.toml`) | Yes |
-| Jukebox stations and likes | Yes |
-| Task mailbox (`tasks.toml` and `tasks.journal`) | Yes |
-| Prompt summaries | Yes |
-| Daemon token | Yes (the daemon generates it only on the first run or after manual deletion) |
-
-Configuration patches preserve unknown fields. Other configuration writes may remove them.
-Wire formats, config names, and path layouts may change between versions without compatibility
-support.
-
-## Compatibility
-
-If the daemon fails to start after an update, check its log for configuration errors:
-
-```sh
-journalctl --user -u slopd -n 30 --no-pager
-```
-
-Correct the fields that the error identifies.
-Replace the removed `[daemon.usage]`, `[daemon.openrouter]`, and `[daemon.openai]` settings with `[daemon.usage_items.*]` rows.
-See [Integrations](reference/integrations.md).
-
-## macOS
-
-To get changes and rebuild the Mac installation, run this command:
-
-```sh
-gmake mac
-```
-
-This rebuilds the Docker worker, reinstalls the native mod, and starts the game.
-
-## Sidecar worker
-
-See [Sidecar worker](guides/sidecar.md) for instructions to manage images and containers. Rebuilding
-the image does not remove the configured data or endpoint directories.
+On macOS, pull the latest source and run `gmake mac` to rebuild the sidecar,
+reinstall the mod, and launch the game. See [macOS setup](guides/macos.md).
+For standalone containers, follow [Sidecar lifecycle](guides/sidecar.md#lifecycle).
+Rebuilding an image preserves configured data and endpoint directories.
 
 ## Uninstalling
 
@@ -70,16 +32,20 @@ the image does not remove the configured data or endpoint directories.
 make uninstall
 ```
 
-This removes the daemon binary, systemd unit, runner, and any per-user loading font left by an
-older version.
-It also removes the mod from the game's Mods folder.
-It preserves configuration and profile data.
+This removes native Linux program files, the service unit, the mod, and any legacy
+per-user loading font. It preserves configuration and profile data.
 
-To remove configuration and data:
+Tmux and its agents remain running after uninstall. Stop agents before deleting
+their state. For the default native Linux socket, end the remaining server with:
 
 ```sh
-rm -rf ~/.config/slopworld
-rm -rf ~/.local/share/slopworld
+tmux -L slopworld kill-server
 ```
 
-The game profile defaults to `~/.local/share/slopworld/profile`. Before you remove the profile, make a backup copy of its saves.
+## Delete user data
+
+Back up saves and project data first; see [Backup and recovery](guides/backup-and-recovery.md).
+Complete removal includes configuration, persistent data, and caches, including
+managed build caches. Consult [Paths and files](reference/paths.md) for XDG roots,
+SlopWorld overrides, and sidecar/macOS locations before deleting anything.
+SlopWorld's directories do not include external projects, worktrees, or credential sources.

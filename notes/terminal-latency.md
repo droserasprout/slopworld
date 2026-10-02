@@ -27,3 +27,10 @@ and frame end. Replaced targets are superseded; clamped movement is not motion.
 Precise X11 movement is aggregated per frame rather than per physical notch. Input
 ownership belongs to [terminal](mod-terminal.md); broader ownership is
 indexed in [diagnostics](ops-diagnostics.md).
+
+Desktop phases require performance records and at least one valid latency sample;
+history also requires a completed `history_scroll` sample. Precise X11 and wheel
+fallback sampling boundaries differ. `complete_with_slip` retains event count but
+shifts deadlines. Compare actual duration and slip counts. Transport residual
+includes both network directions and unmeasured client/codec work. Performance
+lanes overlap; helper timings do not predict Unity or end-to-end costs.

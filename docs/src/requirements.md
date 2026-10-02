@@ -1,32 +1,31 @@
 # Requirements
 
-## Linux
+## Choose an install mode
 
-- **Linux** for the complete installer and launcher. You can use any modern Linux distribution.
-- **systemd**
-- **Bubblewrap** - for sandboxing.
-- **passt (pasta)** - for networking
-- **tmux** - terminal multiplexer.
+Use a [native Linux installation](install.md#linux), a [native macOS game with a
+Linux sidecar](guides/macos.md), or a [standalone sidecar worker](guides/sidecar.md).
+The mod requires RimWorld **1.6**.
 
-## RimWorld
+## Native Linux
 
-Use the native Linux build of RimWorld.
-Set the `RIMWORLD` environment variable to the game directory.
+Core service and sandbox prerequisites are systemd user services/scopes,
+Bubblewrap, `pasta` (from passt), and tmux. Run `make check-reqs` for the complete
+host check, including required commands, libraries, an agent CLI, and optional tools.
 
-Tests used the GOG version. The Steam version should work the same way.
+Use the native game directory containing `RimWorldLinux` and
+`RimWorldLinux_Data/Managed/`. Set `RIMWORLD` to that directory for Make build
+and installation targets; the installed launcher accepts `--game` or `SLOPWORLD_GAME`.
+See [Build from source](build.md) for the compiler and generation toolchain.
 
-## macOS
+Managed worktree creation requires Landlock ABI 3 or newer; removal requires
+Bubblewrap. See [Project worktrees](guides/project-worktrees.md).
 
-- **macOS** with a native RimWorld 1.6 app.
-- **Homebrew**. The setup command installs GNU Make, the .NET SDK, and Docker Desktop.
+## macOS and sidecar
 
-See [macOS](guides/macos.md) for the installation steps.
+Native macOS setup requires a RimWorld 1.6 app and Homebrew. Its setup target
+installs GNU Make, the .NET SDK, and Docker Desktop; follow the [macOS guide](guides/macos.md).
+Standalone sidecar setup requires Docker or Docker Desktop and a local repository
+checkout; follow [Sidecar worker](guides/sidecar.md).
 
-## Sidecar worker
-
-- **Docker** or Docker Desktop.
-- A local copy of the SlopWorld repository.
-
-See [Sidecar worker](guides/sidecar.md) for installation instructions and workspace mounts.
-
-For the build toolchain and contributor checks, see [Build from source](build.md).
+These workflows supply daemon runtime dependencies in the Linux container;
+the host does not need the native Linux service dependencies.
