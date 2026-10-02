@@ -49,7 +49,7 @@ namespace SlopWorld
             {
                 var run = line[i];
                 if (run.Url == null) continue;
-                if (cell.x >= run.Col && cell.x < run.Col + run.Text.Length) { hit = i; break; }
+                if (cell.x >= run.Col && cell.x < run.Col + run.Columns) { hit = i; break; }
             }
             if (hit < 0) return null;
 
@@ -103,9 +103,9 @@ namespace SlopWorld
             out int start, out int end)
         {
             start = line[index].Col;
-            end = start + line[index].Text.Length;
+            end = start + line[index].Columns;
             int i = index - 1;
-            while (i >= 0 && line[i].Url == url && line[i].Col + line[i].Text.Length == start)
+            while (i >= 0 && line[i].Url == url && line[i].Col + line[i].Columns == start)
             {
                 start = line[i].Col;
                 i--;
@@ -114,7 +114,7 @@ namespace SlopWorld
             i = index + 1;
             while (i < line.Count && line[i].Url == url && end == line[i].Col)
             {
-                end += line[i].Text.Length;
+                end += line[i].Columns;
                 i++;
             }
         }

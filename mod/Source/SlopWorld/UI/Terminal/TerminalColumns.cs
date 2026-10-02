@@ -121,7 +121,31 @@ namespace SlopWorld
             return cells[col] ?? "";
         }
 
-        // Word selection needs a character class. Copy keeps the entire scalar string.
+        // Endpoints remain terminal columns; classify complete scalars and compare complete
+        // non-word glyphs so adjacent emoji sharing a surrogate do not become one selection.
+        internal static void WordRange(string[] cells, int column, out int first, out int last)
+        {
+            string anchor = GlyphText(cells, column);
+            bool word = IsWordGlyph(anchor);
+            first = last = column;
+            int length = ContentColumns(cells);
+            while (first > 0 && SameWordClass(GlyphText(cells, first - 1), anchor, word)) first--;
+            while (last + 1 < length && SameWordClass(GlyphText(cells, last + 1), anchor, word)) last++;
+        }
+
+        static bool SameWordClass(string glyph, string anchor, bool word) =>
+            word ? IsWordGlyph(glyph) : glyph == anchor;
+
+        static bool IsWordGlyph(string glyph)
+        {
+            if (string.IsNullOrEmpty(glyph)) return false;
+            if (char.IsLetterOrDigit(glyph, 0) || glyph == "_") return true;
+            var category = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(glyph, 0);
+            return category == System.Globalization.UnicodeCategory.NonSpacingMark ||
+                category == System.Globalization.UnicodeCategory.SpacingCombiningMark;
+        }
+
+        // Legacy single-character access; selection and copy use complete glyph strings.
         public static char Glyph(string[] cells, int col)
         {
             string glyph = GlyphText(cells, col);
