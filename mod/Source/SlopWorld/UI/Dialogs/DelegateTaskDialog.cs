@@ -19,7 +19,7 @@ namespace SlopWorld
         {
             _to = recipient ?? "";
             _agents = SessionHub.Instance.Sessions
-                .Where(s => s != null && !s.Host && !string.IsNullOrEmpty(s.Name))
+                .Where(s => Eligible(s))
                 .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase).ToList();
         }
 
@@ -66,7 +66,7 @@ namespace SlopWorld
             var foot = new UiLayout.Bar(UiLayout.FooterBar(rect));
             if (foot.Left("Cancel", UiTheme.Btn.Ghost, !_sending)) Close();
 
-            bool ready = canChoose && !string.IsNullOrEmpty(_to) &&
+            bool ready = Eligible(SessionHub.Instance.Get(_to)) &&
                 !string.IsNullOrWhiteSpace(_body) && !_sending;
             if (foot.Right("Delegate", UiTheme.Btn.Primary, ready)) Send();
         }
@@ -84,8 +84,18 @@ namespace SlopWorld
             return $"{agent.Name}  -  {project}";
         }
 
+        internal static bool Eligible(SessionInfo agent) =>
+            agent != null && !agent.Host && !agent.Ephemeral && !string.IsNullOrEmpty(agent.Name);
+
         void Send()
         {
+            if (_sending) return;
+            if (!Eligible(SessionHub.Instance.Get(_to)))
+            {
+                _error = "Choose an available, non-ephemeral agent.";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(_body)) return;
             _sending = true;
             _error = null;
             SessionHub.Instance.TaskStore.Create(_to, _body.Trim(), _ => Close(), error =>

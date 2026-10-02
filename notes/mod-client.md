@@ -58,7 +58,8 @@ the editable projection.
 Project, template and agent settings previews resolve on the daemon. Worker creation also stays
 daemon-owned: `SessionHub` sends caller context, project, selected template, task body, and
 durability.
-The daemon applies the worker allowlist to scoped agent callers.
+The worker dialog filters templates by the selected caller and rechecks the choice before
+submitting. The daemon applies the worker allowlist to scoped agent callers.
 The client then refreshes tasks and sessions before opening the returned terminal.
 `DaemonSettingsPreview` retains one draft response per editor and invalidates it on draft,
 catalog or connection changes. Refresh retries failures and rereads external files.
