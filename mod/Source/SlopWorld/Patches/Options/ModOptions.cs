@@ -10,7 +10,7 @@ namespace SlopWorld
 {
     // Place options in the content area beside the category column. Limit page width.
     // Base game categories use window coordinates, so center the content with a GUI group.
-    // See OptionsView and ChromeShift.
+    // See OptionsView and ModOptions.Patches.cs.
     public static partial class ModOptions
     {
         // OptionsView owns the content band, width, and button space.
@@ -48,7 +48,6 @@ namespace SlopWorld
             public readonly PageId Key;
             public readonly string DefName;
             public readonly string Label;
-            public readonly Func<OptionCategoryDef> Existing;
             public readonly Func<Texture2D> Icon;
             public readonly Func<IOptionPage> PageFactory;
             public readonly PageId? Parent;
@@ -60,26 +59,13 @@ namespace SlopWorld
                 Key = key;
                 DefName = defName;
                 Label = label;
-                Existing = null;
                 Icon = icon;
                 PageFactory = pageFactory;
-                Parent = parent;
-            }
-
-            public TabSpec(PageId key, Func<OptionCategoryDef> existing, PageId? parent = null)
-            {
-                Key = key;
-                DefName = null;
-                Label = null;
-                Existing = existing;
-                Icon = null;
-                PageFactory = null;
                 Parent = parent;
             }
         }
 
         // Define categories and page factories in display order.
-        // Existing base game categories use their DefOf definitions.
         static readonly TabSpec[] TabSpecs =
         {
             new TabSpec(PageId.Config, "SlopWorld_Config", "General", () => Icons.Gear,
@@ -138,21 +124,19 @@ namespace SlopWorld
             public readonly Func<Texture2D> Icon;
             public readonly Func<IOptionPage> PageFactory;
             public readonly Tab Parent;
-            public readonly bool Synthetic;
 
             IOptionPage _page;
             readonly ScrollWheelRouter _wheel = new ScrollWheelRouter();
             FieldLifetime _fields = new FieldLifetime();
 
             public Tab(PageId key, OptionCategoryDef def, Func<Texture2D> icon,
-                Func<IOptionPage> pageFactory, Tab parent, bool synthetic)
+                Func<IOptionPage> pageFactory, Tab parent)
             {
                 Key = key;
                 Def = def;
                 Icon = icon;
                 PageFactory = pageFactory;
                 Parent = parent;
-                Synthetic = synthetic;
             }
 
             public bool HasPage => PageFactory != null;
@@ -245,7 +229,7 @@ namespace SlopWorld
             HideMergedCategory(OptionCategoryDefOf.Controls);
 
             foreach (var tab in Column)
-                if (tab.Synthetic) DefDatabase<OptionCategoryDef>.Add(tab.Def);
+                DefDatabase<OptionCategoryDef>.Add(tab.Def);
 
             // Move mod categories to the start of the database in display order. Leave other categories after them.
             var all = DefDatabase<OptionCategoryDef>.AllDefsListForReading;
@@ -266,14 +250,10 @@ namespace SlopWorld
 
         static Tab Add(TabSpec spec, OptionCategoryDef general)
         {
-            var def = spec.Existing != null
-                ? spec.Existing()
-                : MakeDef(spec.DefName, spec.Label, general);
-            if (def == null) return null;
+            var def = MakeDef(spec.DefName, spec.Label, general);
 
             var parent = spec.Parent.HasValue ? TabFor(spec.Parent.Value) : null;
-            var tab = new Tab(spec.Key, def, spec.Icon, spec.PageFactory, parent,
-                spec.Existing == null);
+            var tab = new Tab(spec.Key, def, spec.Icon, spec.PageFactory, parent);
             Column.Add(tab);
             Tabs.Add(tab.Key, tab);
             return tab;

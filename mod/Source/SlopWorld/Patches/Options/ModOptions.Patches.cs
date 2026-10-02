@@ -10,22 +10,29 @@ namespace SlopWorld
 {
     public static partial class ModOptions
     {
-        // Hide the translated OK button while the options content view is active.
-        [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText),
-            new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool),
-                    typeof(TextAnchor?) })]
+        // Only the direct footer call in DoWindowContents is replaced; page/dialog buttons
+        // still use Widgets.ButtonText even while Settings is visible elsewhere.
+        [HarmonyPatch(typeof(Dialog_Options), nameof(Dialog_Options.DoWindowContents))]
         public static class Patch_OptionsOk
         {
-            static bool Prefix(string label, ref bool __result)
+            static bool FooterButton(Rect rect, string label, bool drawBackground, bool doMouseoverSound,
+                bool active, TextAnchor? overrideTextAnchor) => !OptionsView.Anywhere &&
+                Widgets.ButtonText(rect, label, drawBackground, doMouseoverSound, active, overrideTextAnchor);
+
+            static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
             {
-                // Check the active view before translating labels because this prefix receives every button.
-                if (!OptionsView.Anywhere) return true;
-
-                string ok = "OK".Translate();
-                if (label != ok) return true;
-
-                __result = false;
-                return false;
+                var button = AccessTools.Method(typeof(Widgets), nameof(Widgets.ButtonText),
+                    new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool), typeof(TextAnchor?) });
+                var replacement = AccessTools.Method(typeof(Patch_OptionsOk), nameof(FooterButton));
+                var code = new List<CodeInstruction>(instructions);
+                int matches = 0;
+                foreach (var instruction in code)
+                    if (instruction.Calls(button)) matches++;
+                // RimWorld 1.6 has exactly one direct ButtonText call here: its OK footer.
+                if (matches != 1) throw new InvalidOperationException("Options footer ButtonText call is no longer unique");
+                foreach (var instruction in code)
+                    if (instruction.Calls(button)) instruction.operand = replacement;
+                return code;
             }
         }
 
@@ -186,29 +193,33 @@ namespace SlopWorld
                         UpdateRailScroll(OptionsView.RailViewport, RailContentHeight());
                     return false;
                 }
-                var tab = TabOf(optionCategory);
+                if (OptionsView.Drawing) DrawContentRailRow(__instance, r, optionCategory);
+                else DrawVanillaDialogRow(__instance, r, optionCategory);
+                return false;
+            }
+
+            static void DrawContentRailRow(Dialog_Options instance, Rect r, OptionCategoryDef category)
+            {
+                var tab = TabOf(category);
                 int index = Index(r);
                 var row = Slot(r, tab);
-                if (OptionsView.Drawing)
-                {
-                    var viewport = OptionsView.RailViewport;
-                    float max = index == 0
-                        ? UpdateRailScroll(viewport, RailContentHeight()) :
-                        Mathf.Max(0f, RailContentHeight() - viewport.height);
-                    if (index == 0) DrawRailScrollbar(viewport, max);
-                    row = new Rect(row.x - viewport.x, row.y - viewport.y - _railScroll,
-                        row.width, row.height);
-                    if (row.yMax <= 0f || row.y >= viewport.height) return false;
+                var viewport = OptionsView.RailViewport;
+                float max = index == 0
+                    ? UpdateRailScroll(viewport, RailContentHeight())
+                    : Mathf.Max(0f, RailContentHeight() - viewport.height);
+                if (index == 0) DrawRailScrollbar(viewport, max);
+                row = new Rect(row.x - viewport.x, row.y - viewport.y - _railScroll, row.width, row.height);
+                if (row.yMax <= 0f || row.y >= viewport.height) return;
 
-                    GUI.BeginGroup(viewport);
-                    try { DrawRow(__instance, row, tab, optionCategory); }
-                    finally { GUI.EndGroup(); }
-                    return false;
-                }
+                GUI.BeginGroup(viewport);
+                try { DrawRow(instance, row, tab, category); }
+                finally { GUI.EndGroup(); }
+            }
 
-                Text.Font = GameFont.Small;
-                DrawRow(__instance, row, tab, optionCategory);
-                return false;
+            static void DrawVanillaDialogRow(Dialog_Options instance, Rect r, OptionCategoryDef category)
+            {
+                var tab = TabOf(category);
+                DrawRow(instance, Slot(r, tab), tab, category);
             }
 
             static void DrawRow(Dialog_Options instance, Rect row, Tab tab,
@@ -340,13 +351,6 @@ namespace SlopWorld
 
 
         // Main menu.
-
-        // Hide version information in the menu corner because the About tab provides it.
-        [HarmonyPatch(typeof(VersionControl), nameof(VersionControl.DrawInfoInCorner))]
-        public static class Patch_VersionCorner
-        {
-            static bool Prefix() => false;
-        }
 
         // Hide main menu web links because the About tab provides them.
         [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]

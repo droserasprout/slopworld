@@ -3,6 +3,7 @@
 Use Settings for the UI.
 The Configuration page edits the raw daemon document. Keep RimWorld API names such as
 `Dialog_Options` intact. `ModOptions` owns navigation.
+The options footer is suppressed at its direct button call site; page buttons keep normal behavior.
 
 Most profile preferences apply live. The mod saves them after an interaction and when Settings closes.
 The mod also saves dirty preferences on a timer. RimWorld saves its preferences through its own lifecycle.
