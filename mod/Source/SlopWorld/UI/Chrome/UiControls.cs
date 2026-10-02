@@ -391,7 +391,7 @@ namespace SlopWorld
             var e = Event.current;
             var hit = new Rect(track.x - SliderKnobWidth / 2f, r.y,
                 track.width + SliderKnobWidth, RowH);
-            EventType mouseType = e.type == EventType.Used ? e.rawType : e.type;
+            EventType mouseType = UiEvent.RawType(e);
             var state = GUIUtility.GetStateObject(typeof(SliderState), id) as SliderState;
             released = false;
             if (mouseType == EventType.MouseDown && e.button == 0 && hit.Contains(e.mousePosition))

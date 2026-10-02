@@ -79,7 +79,7 @@ namespace UnityEngine
         public static Vector2 operator +(Vector2 a, Vector2 b) => new Vector2(a.x + b.x, a.y + b.y);
     }
 
-    public enum EventType { ScrollWheel, KeyDown, MouseDown, Layout }
+    public enum EventType { ScrollWheel, KeyDown, MouseDown, Layout, Used, Ignore }
     [System.Flags]
     public enum EventModifiers { None = 0, Shift = 1 }
 
@@ -88,7 +88,7 @@ namespace UnityEngine
         public int button, clickCount;
         public Vector2 mousePosition;
         public Vector2 delta;
-        public EventType type;
+        public EventType type, rawType;
         public EventModifiers modifiers;
         public int displayIndex;
         static readonly System.Collections.Generic.Queue<Event> Events =
@@ -103,6 +103,7 @@ namespace UnityEngine
             mousePosition = e.mousePosition;
             delta = e.delta;
             type = e.type;
+            rawType = e.rawType;
             modifiers = e.modifiers;
             displayIndex = e.displayIndex;
         }

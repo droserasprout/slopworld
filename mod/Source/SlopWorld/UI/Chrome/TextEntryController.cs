@@ -59,105 +59,134 @@ namespace SlopWorld
             return true;
         }
 
+        struct NativePreparation
+        {
+            public Event Event;
+            public GUIStyle Style;
+            public int ControlId;
+            public TextEditor FieldEditor;
+            public TextFieldSelection.PrepareResult Selection;
+            public bool MouseDown, Replay, KeepSelection;
+            public int Button, Cursor, Select;
+            public EventType OldType;
+        }
+
         public static string Draw(Rect r, string text, bool area, bool focused, string name,
                                   bool readOnly = false)
         {
             string source = text ?? "";
             var wasColor = GUI.color;
-            bool over = Mouse.IsOver(r);
-            // Most callers leave GUI.color white. Use the menu and sidebar text colors for these entries.
-            // Preserve placeholder and error colors that the caller supplies.
-            if (wasColor == Color.white)
-                GUI.color = focused || over ? UiText.Lead : UiText.Name;
-
-            var e = Event.current;
-            bool eventOver = e != null && r.Contains(e.mousePosition);
-            int button = -1;
-            bool mouseDown = eventOver && MouseDown(e, out button);
-            var style = Bare(area ? Verse.Text.CurTextAreaStyle
-                                  : Verse.Text.CurTextFieldStyle, area);
-            // Bind selection and read-only restoration to the exact control we draw rather
-            // than resolving it through the global focus name. Touching another row's
-            // editor would clamp its cursor to our text length.
-            int controlId = GUIUtility.GetControlID(name.GetHashCode(), FocusType.Keyboard, r);
-            var fieldEditor = (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), controlId);
-            var focusedEditor = GUIUtility.keyboardControl == controlId ? fieldEditor : null;
-            var prepared = TextFieldSelection.Prepare(r, name, source, style,
-                focusedEditor, FieldLifetimeScope.Current);
-            bool replay = (prepared == TextFieldSelection.PrepareResult.None ||
-                prepared == TextFieldSelection.PrepareResult.TrackedMouseDown) &&
-                (mouseDown && (e.type == EventType.Used || e.type == EventType.ContextClick));
-            if (!replay && prepared == TextFieldSelection.PrepareResult.None &&
-                TextFieldSelection.ShouldReplay(name, e, FieldLifetimeScope.Current))
-                replay = true;
-            var oldType = replay ? e.type : EventType.Ignore;
-            EventType replayType = UiEvent.RawType(e);
-            var beforeEditor = mouseDown && button == 1 ? focusedEditor : null;
-            bool keepSelection = beforeEditor != null && beforeEditor.IsOverSelection(e.mousePosition);
-            int beforeCursor = keepSelection ? beforeEditor.cursorIndex : 0;
-            int beforeSelect = keepSelection ? beforeEditor.selectIndex : 0;
-
-            // WindowStack may have consumed the event before this window's contents run. Give
-            // the native editor its mouse-down once, then leave the event Used as before. This
-            // is what lets a click focus a field even when it sits below an absorbing window.
-            if (replay) e.type = replayType == EventType.ContextClick
-                ? EventType.MouseDown : replayType;
-
+            var lifetime = FieldLifetimeScope.Current;
+            NativePreparation input = default;
+            bool prepared = false;
             try
             {
+                PruneDeadEdits();
+                if (wasColor == Color.white)
+                    GUI.color = focused || Mouse.IsOver(r) ? UiText.Lead : UiText.Name;
+                input = PrepareNative(r, source, area, name, lifetime);
+                prepared = true;
+                // Replay only after preparation returns, so finally always owns restoration.
+                if (input.Replay)
+                {
+                    var raw = UiEvent.RawType(input.Event);
+                    input.Event.type = raw == EventType.ContextClick ? EventType.MouseDown : raw;
+                }
                 var content = new GUIContent(source);
-                DrawNativeTextField(r, controlId, content, area, -1, style);
-                var result = content.text;
-
-                var editor = GUIUtility.keyboardControl == controlId ? fieldEditor : null;
-                if (keepSelection && editor != null)
-                {
-                    editor.cursorIndex = beforeCursor;
-                    editor.selectIndex = beforeSelect;
-                }
-                ApplyPendingEdits(name, editor, FieldLifetimeScope.Current);
-                if (readOnly && editor != null && editor.text != source)
-                {
-                    int cursor = editor.cursorIndex;
-                    int select = editor.selectIndex;
-                    editor.text = source;
-                    editor.cursorIndex = Mathf.Clamp(cursor, 0, source.Length);
-                    editor.selectIndex = Mathf.Clamp(select, 0, source.Length);
-                }
-                if (editor != null) result = readOnly ? source : editor.text;
-                if (!readOnly) FieldFocusScope.Register(name, controlId, r);
-
-                if (prepared == TextFieldSelection.PrepareResult.MultiClick)
-                    TextFieldSelection.FinishMultiClick(name, editor,
-                        FieldLifetimeScope.Current);
-
-                if (prepared == TextFieldSelection.PrepareResult.None ||
-                    prepared == TextFieldSelection.PrepareResult.SelectionDrag)
-                    TextFieldSelection.Handle(r, name, source, style, editor,
-                        FieldLifetimeScope.Current);
-
-                if (MouseUp(e)) CopyPrimarySelection(editor);
-
-                if (mouseDown && button == 2 && !readOnly)
-                {
-                    RequestPaste(name, area, primary: true, lifetime: FieldLifetimeScope.Current);
-                    e.Use();
-                }
-                else if (mouseDown && button == 1)
-                {
-                    OpenContextMenu(name, area, editor, FieldLifetimeScope.Current, readOnly);
-                    e.Use();
-                }
-
+                DrawNativeTextField(r, input.ControlId, content, area, -1, input.Style);
+                var editor = ReconcileEditor(name, source, readOnly, input, lifetime);
+                string result = editor == null ? content.text : readOnly ? source : editor.text;
+                if (!readOnly) FieldFocusScope.Register(name, input.ControlId, r);
+                FinishDraw(r, name, source, area, readOnly, input, editor, lifetime);
                 return result;
             }
             finally
             {
-                // A ContextClick that the native field did not consume still belongs to us.
-                // Restore only an event that is genuinely still live. A native Use() must stay
-                // Used so lower layers do not interpret the same click a second time.
-                if (replay && e.type != EventType.Used) e.type = oldType;
+                // A native Use() must stay Used so lower layers cannot replay the click.
+                if (prepared && input.Replay && input.Event.type != EventType.Used)
+                    input.Event.type = input.OldType;
                 GUI.color = wasColor;
+            }
+        }
+
+        static NativePreparation PrepareNative(Rect r, string source, bool area, string name,
+                                               FieldLifetime lifetime)
+        {
+            var e = Event.current;
+            var input = new NativePreparation { Event = e, Button = -1 };
+            input.MouseDown = e != null && r.Contains(e.mousePosition) && MouseDown(e, out input.Button);
+            input.Style = Bare(area ? Verse.Text.CurTextAreaStyle : Verse.Text.CurTextFieldStyle, area);
+            // Bind reconciliation to this exact control, never another focused row's editor.
+            input.ControlId = GUIUtility.GetControlID(name.GetHashCode(), FocusType.Keyboard, r);
+            input.FieldEditor = (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), input.ControlId);
+            var focusedEditor = GUIUtility.keyboardControl == input.ControlId ? input.FieldEditor : null;
+            input.Selection = TextFieldSelection.Prepare(r, name, source, input.Style, focusedEditor, lifetime);
+            input.Replay = (input.Selection == TextFieldSelection.PrepareResult.None ||
+                input.Selection == TextFieldSelection.PrepareResult.TrackedMouseDown) &&
+                input.MouseDown && (e.type == EventType.Used || e.type == EventType.ContextClick);
+            if (!input.Replay && input.Selection == TextFieldSelection.PrepareResult.None)
+                input.Replay = TextFieldSelection.ShouldReplay(name, e, lifetime);
+            input.OldType = input.Replay ? e.type : EventType.Ignore;
+            input.KeepSelection = input.MouseDown && input.Button == 1 && focusedEditor != null &&
+                focusedEditor.IsOverSelection(e.mousePosition);
+            if (input.KeepSelection)
+            {
+                input.Cursor = focusedEditor.cursorIndex;
+                input.Select = focusedEditor.selectIndex;
+            }
+            return input;
+        }
+
+        static TextEditor ReconcileEditor(string name, string source, bool readOnly,
+                                          NativePreparation input, FieldLifetime lifetime)
+        {
+            var editor = GUIUtility.keyboardControl == input.ControlId ? input.FieldEditor : null;
+            if (editor == null) return null;
+            if (input.KeepSelection)
+            {
+                editor.cursorIndex = input.Cursor;
+                editor.selectIndex = input.Select;
+            }
+            ApplyPendingEdits(name, editor, lifetime);
+            if (readOnly && editor.text != source)
+            {
+                int cursor = editor.cursorIndex, select = editor.selectIndex;
+                editor.text = source;
+                editor.cursorIndex = Mathf.Clamp(cursor, 0, source.Length);
+                editor.selectIndex = Mathf.Clamp(select, 0, source.Length);
+            }
+            return editor;
+        }
+
+        static void FinishDraw(Rect r, string name, string source, bool area, bool readOnly,
+                               NativePreparation input, TextEditor editor, FieldLifetime lifetime)
+        {
+            if (input.Selection == TextFieldSelection.PrepareResult.MultiClick)
+                TextFieldSelection.FinishMultiClick(name, editor, lifetime);
+            if (input.Selection == TextFieldSelection.PrepareResult.None ||
+                input.Selection == TextFieldSelection.PrepareResult.SelectionDrag)
+                TextFieldSelection.Handle(r, name, source, input.Style, editor, lifetime);
+            if (MouseUp(input.Event)) CopyPrimarySelection(editor);
+            if (input.MouseDown && input.Button == 2 && !readOnly)
+            {
+                RequestPaste(name, area, primary: true, lifetime: lifetime);
+                input.Event.Use();
+            }
+            else if (input.MouseDown && input.Button == 1)
+            {
+                OpenContextMenu(name, area, editor, lifetime, readOnly);
+                input.Event.Use();
+            }
+        }
+
+        // Prune independently of focus/name so closed fields cannot retain clipboard data.
+        static void PruneDeadEdits()
+        {
+            int count = PendingEdits.Count;
+            for (int i = 0; i < count; i++)
+            {
+                var edit = PendingEdits.Dequeue();
+                if (edit.Lifetime != null && edit.Lifetime.Alive) PendingEdits.Enqueue(edit);
             }
         }
 
@@ -225,6 +254,7 @@ namespace SlopWorld
         static void QueueEdit(string name, int controlId, Action<TextEditor> apply,
                               FieldLifetime lifetime = null)
         {
+            PruneDeadEdits();
             if (string.IsNullOrEmpty(name) || controlId == 0 || apply == null) return;
             var owner = lifetime ?? FieldLifetimeScope.Current;
             if (!owner.Alive) return;
