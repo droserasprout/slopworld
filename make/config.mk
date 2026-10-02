@@ -72,7 +72,7 @@ CARGO       ?= cargo
 DOTNET      ?= dotnet
 PYTHON      ?= python3
 MOD_PROJECT  := mod/Source/SlopWorld/SlopWorld.csproj
-MOD_WARNINGS_AS_ERRORS ?= false
+MOD_WARNINGS_AS_ERRORS ?= true
 # Disable only when intentionally regenerating the runtime package lock.
 MOD_DEPS_LOCKED ?= true
 MOD_DLL      := mod/Assemblies/SlopWorld.dll

@@ -48,7 +48,10 @@ namespace SlopWorld.Tests
             string key = null;
             foreach (string line in request.Split('\n')) if (line.StartsWith("Sec-WebSocket-Key:")) key = line.Substring(18).Trim();
             string accept;
+            // Match the RFC 6455 section 4.2.2 handshake, including its required SHA-1.
+#pragma warning disable CA5350 // Do Not Use Weak Cryptographic Algorithms
             using (var sha = SHA1.Create()) accept = Convert.ToBase64String(sha.ComputeHash(Encoding.ASCII.GetBytes(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")));
+#pragma warning restore CA5350
             byte[] header = Encoding.ASCII.GetBytes("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Protocol: slopworld.protobuf.v2\r\nSec-WebSocket-Accept: " + accept + "\r\n\r\n");
             stream.Write(header, 0, header.Length);
         }
