@@ -46,6 +46,7 @@ namespace SlopWorld
                 // Check protection after checking for required changes to reduce work on later sweeps.
                 if (Spared(p)) continue;
 
+                // Roll once per eligible sweep, including plants that regrew or survived an earlier ignition.
                 // Try ignition before removing vegetation because TryStartFireIn checks flammable cell contents.
                 if (Rand.Value < dose.PlantIgnite &&
                     FireUtility.TryStartFireIn(p.Position, map, dose.FireSize, null))

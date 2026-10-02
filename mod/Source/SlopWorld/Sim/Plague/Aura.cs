@@ -274,7 +274,7 @@ namespace SlopWorld
 
         // Keep the effect small to identify the single restored plant.
         static void Puff(Thing t) =>
-            PlagueFx.At(ModDefOf.SlopCleanAir, t, 10, 0.85f, 0.20f, 0.28f);
+            PlagueFx.At(ModDefOf.SlopCleanAir, t, count: 10, scale: 0.85f, speed: 0.20f, spread: 0.28f);
 
         static AccessTools.FieldRef<Plant, int> BindLeafless()
         {

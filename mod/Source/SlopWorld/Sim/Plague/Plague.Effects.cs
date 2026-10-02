@@ -10,13 +10,14 @@ namespace SlopWorld
     // Plague.cs owns the field, clock, and saved state.
     public partial class Plague
     {
+        // Shared pawn and plant policy for each band.
         // Use one random value per pawn to select at most one effect. Add the probabilities.
-        struct Dose
+        struct BandProfile
         {
             public float PExplode, PIgnite, PBleed, PVomit;
             public float BleedMin, BleedMax;
             public float FireSize;
-            public float PlantIgnite; // per plant, once, on the sweep that strips it
+            public float PlantIgnite; // per eligible sweep; regrowth or successful ignition can make a plant eligible again
 
             // Strip plants only in the full band to distinguish it from the weak band.
             public bool Strips;
@@ -29,7 +30,7 @@ namespace SlopWorld
             public float StuntFrom;
         }
 
-        static readonly Dose Full = new Dose
+        static readonly BandProfile Full = new BandProfile
         {
             PExplode = 0.015f,
             PIgnite = 0.020f,
@@ -44,7 +45,7 @@ namespace SlopWorld
         };
 
         // The weak band excludes explosions and limits plant growth instead of removing plants.
-        static readonly Dose Weak = new Dose
+        static readonly BandProfile Weak = new BandProfile
         {
             PExplode = 0f,
             PIgnite = 0.005f,
@@ -101,35 +102,36 @@ namespace SlopWorld
             }
         }
 
-        void Detonate(Pawn pawn, Dose dose)
+        void Detonate(Pawn pawn, BandProfile dose)
         {
-            // Use cut damage instead of an explosion when an agent is nearby.
-            if (AgentNear(pawn.Position, BlastSafeRadius)) { Bleed(pawn, dose); return; }
+            // Use cut damage instead of an explosion when any player-faction pawn is nearby.
+            if (PlayerPawnNear(pawn.Position, BlastSafeRadius)) { Bleed(pawn, dose); return; }
 
             PlagueFx.Burst(pawn);
             GenExplosion.DoExplosion(pawn.Position, map, BlastRadius, DamageDefOf.Bomb,
                 null, damAmount: BlastDamage, ignoredThings: Untouchable());
         }
 
-        // Exclude the core, pets, player buildings, and construction frames from explosion damage.
+        // Exclude the core, player pawns, pets, player buildings, and construction frames from explosion damage.
         List<Thing> Untouchable()
         {
             var spared = map.listerThings.ThingsOfDef(ModDefOf.Ship_ComputerCore).ToList();
             spared.AddRange(Pets.On(map).Cast<Thing>());
+            spared.AddRange(map.mapPawns.AllPawnsSpawned.Where(p => p.Faction?.IsPlayer == true).Cast<Thing>());
             spared.AddRange(map.listerBuildings.allBuildingsColonist.Cast<Thing>());
             spared.AddRange(map.listerThings.ThingsInGroup(ThingRequestGroup.BuildingFrame));
             return spared;
         }
 
         // Show plague gas before attaching fire to identify the cause.
-        static void Ignite(Pawn pawn, Dose dose)
+        static void Ignite(Pawn pawn, BandProfile dose)
         {
             PlagueFx.Act(pawn);
             pawn.TryAttachFire(dose.FireSize, null);
         }
 
         // The game disables health ticks, so direct damage causes death instead of continued blood loss.
-        void Bleed(Pawn pawn, Dose dose)
+        void Bleed(Pawn pawn, BandProfile dose)
         {
             var pos = pawn.Position;
             PlagueFx.Act(pawn); // before the damage, which may be the one that drops it
@@ -167,15 +169,11 @@ namespace SlopWorld
             return pawn.Faction == null || !pawn.Faction.IsPlayer;
         }
 
-        bool AgentNear(IntVec3 cell, float radius)
+        bool PlayerPawnNear(IntVec3 cell, float radius)
         {
-            var colony = AgentColony.Current;
-            if (colony == null) return false;
-
-            foreach (var kv in colony.All)
+            foreach (var p in map.mapPawns.AllPawnsSpawned)
             {
-                var p = kv.Value;
-                if (p == null || !p.Spawned || p.Map != map) continue;
+                if (p.Faction?.IsPlayer != true) continue;
                 if (p.Position.DistanceTo(cell) <= radius) return true;
             }
             return false;

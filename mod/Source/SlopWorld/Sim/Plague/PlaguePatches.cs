@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Reflection;
+using System.Reflection.Emit;
 using HarmonyLib;
 using RimWorld;
 using Verse;
@@ -42,4 +45,43 @@ namespace SlopWorld
             return plague.Reaches(__instance.Position);
         }
     }
+    // Both spread paths call TryStartFireIn with the candidate cell and its map.
+    // Rewrite only those calls so unrelated ignition retains its normal behavior.
+    [HarmonyPatch]
+    public static class Patch_FireSpreadDestination
+    {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Fire), "TrySpread");
+            yield return AccessTools.Method(typeof(Spark), "Impact");
+        }
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            var original = AccessTools.Method(typeof(FireUtility), nameof(FireUtility.TryStartFireIn));
+            var replacement = AccessTools.Method(typeof(Patch_FireSpreadDestination), nameof(TrySpreadTo));
+            foreach (var instruction in instructions)
+            {
+                if (instruction.Calls(original))
+                {
+                    instruction.opcode = OpCodes.Call;
+                    instruction.operand = replacement;
+                }
+                yield return instruction;
+            }
+        }
+
+        // Recheck at spark impact: the aura or field can change while the spark travels.
+        static bool TrySpreadTo(IntVec3 c, Map map, float fireSize, Thing instigator, SimpleCurve curve)
+        {
+            if (!NextPlanet.Leaving)
+            {
+                var plague = map?.GetComponent<Plague>();
+                if (plague?.Active == true &&
+                    (Aura.Of(map)?.Covers(c) == true || !plague.Reaches(c))) return false;
+            }
+            return FireUtility.TryStartFireIn(c, map, fireSize, instigator, curve);
+        }
+    }
+
 }
