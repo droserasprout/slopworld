@@ -11,17 +11,23 @@ namespace SlopWorld
         List<Wire.Worktree> _worktreeChoices = new List<Wire.Worktree>();
         string _worktreeProject;
         string _worktreeError;
+        readonly OperationGate _worktreeRequests = new OperationGate();
 
         void RefreshWorktreeChoices()
         {
+            long request = _worktreeRequests.Begin();
+            string endpoint = DaemonClient.BaseUrl;
+            int connection = SessionHub.Instance.ConnectionGeneration;
             string project = _s.Project;
             _worktreeProject = project;
             _worktreeChoices.Clear();
             _worktreeError = null;
             if (string.IsNullOrEmpty(project)) return;
             DaemonClient.Get<Wire.WorktreesReply>(WireProtocol.Routes.Worktrees + "?project=" + System.Uri.EscapeDataString(project),
-                reply => { if (_s.Project == project) _worktreeChoices = reply.Worktrees.ToList(); },
-                error => { if (_s.Project == project) _worktreeError = error; }, TaskInfo.Host, 60000);
+                reply => { if (_worktreeRequests.IsCurrent(request) && _s.Project == project &&
+                    endpoint == DaemonClient.BaseUrl && connection == SessionHub.Instance.ConnectionGeneration) _worktreeChoices = reply.Worktrees.ToList(); },
+                error => { if (_worktreeRequests.IsCurrent(request) && _s.Project == project &&
+                    endpoint == DaemonClient.BaseUrl && connection == SessionHub.Instance.ConnectionGeneration) _worktreeError = error; }, TaskInfo.Host, 60000);
         }
         // This tab sets the agent name, workspace, and command required for startup.
         // The other tabs provide additional settings.
@@ -104,10 +110,7 @@ namespace SlopWorld
             _s.Name = name;
             _s.Project = project;
             _templateName = template.Name;
-            _resourceLimits = new ResourceLimitsForm(_s.Limits);
-            _dnsServers = _s.Dns?.Mode == DnsMode.Servers
-                ? string.Join(", ", _s.Dns.Servers.ToArray())
-                : "";
+            LoadRawFields();
         }
 
         // Reach and the extra sandbox presets this agent adds on top of its command's.
