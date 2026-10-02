@@ -176,8 +176,11 @@ namespace SlopWorld
             byte[] challenge = Encoding.ASCII.GetBytes(
                 key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
             string expected;
+            // RFC 6455 section 4.2.2 requires SHA-1 for Sec-WebSocket-Accept.
+#pragma warning disable CA5350 // Do Not Use Weak Cryptographic Algorithms
             using (var sha1 = SHA1.Create())
                 expected = Convert.ToBase64String(sha1.ComputeHash(challenge));
+#pragma warning restore CA5350
             return protocol == "slopworld.protobuf.v2" && string.Equals(accept, expected, StringComparison.Ordinal);
         }
 

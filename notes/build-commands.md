@@ -38,6 +38,16 @@ The shared C# formatter covers mod production and test sources plus C# benchmark
 sources under `bench/`.
 `make ci` runs this check without the game. The formatter excludes generated client bindings and build output.
 
+`Directory.Build.props` owns shared C# analyzer settings for the mod, tests and
+IPC benchmark: .NET 8 recommended rules, build-time style analysis and warnings
+as errors. The runtime dependency staging project is outside this policy.
+`global.json` pins the SDK used locally and in CI so analyzer behavior is stable.
+`.editorconfig` owns rule selection: API shape, game naming and optimization
+advice are non-blocking; correctness and explicit culture checks remain blocking.
+Linked production sources retain the net472 API contract even inside net8.0
+harnesses. Generated bindings are marked generated; test exceptions stay scoped
+to test sources. Protocol-required cryptography has local, justified suppressions.
+
 The mod SDK project owns compiler settings, references and assembly metadata. Make
 passes the configuration, game assembly path and daemon version. NuGet restores
 locked .NET Framework reference assemblies. `mod/Dependencies/Runtime.csproj` owns

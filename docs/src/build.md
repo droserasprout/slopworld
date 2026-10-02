@@ -3,7 +3,7 @@
 ## Toolchain
 
 - **Rust** stable toolchain — builds the daemon and launcher using the 2024 edition.
-- **.NET SDK** — builds the `net472` mod and runs C# tests and formatting.
+- **.NET SDK** — install the version pinned in `global.json`; it builds the `net472` mod and runs C# tests and formatting.
   NuGet restores framework reference assemblies.
   The IPC benchmarks and terminal-input HTTP regression require Mono.
 - **Protobuf compiler (`protoc`)** — Rust builds require this compiler. Use **36.1**

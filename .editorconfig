@@ -60,3 +60,76 @@ csharp_space_between_method_call_parameter_list_parentheses = false
 csharp_space_between_method_call_empty_parameter_list_parentheses = false
 csharp_space_between_parentheses = false
 csharp_space_between_square_brackets = false
+
+# The mod is a game integration, not a general-purpose library API. Plain data
+# fields and Harmony/game naming are established contracts. Keep API shape and
+# micro-optimization advice visible without making it a build requirement.
+# CA1051: Do not declare visible instance fields
+dotnet_diagnostic.CA1051.severity = none
+# CA1707: Identifiers should not contain underscores
+dotnet_diagnostic.CA1707.severity = suggestion
+# CA1711: Identifiers should not have incorrect suffix
+dotnet_diagnostic.CA1711.severity = suggestion
+# CA1716: Identifiers should not match keywords
+dotnet_diagnostic.CA1716.severity = suggestion
+# CA1720: Identifier contains type name
+dotnet_diagnostic.CA1720.severity = suggestion
+# CA1725: Parameter names should match base declaration
+dotnet_diagnostic.CA1725.severity = suggestion
+# CA1068: CancellationToken parameters must come last
+dotnet_diagnostic.CA1068.severity = suggestion
+# CA2211: Non-constant fields should not be visible
+dotnet_diagnostic.CA2211.severity = suggestion
+# CA1805: Do not initialize unnecessarily
+dotnet_diagnostic.CA1805.severity = suggestion
+# CA1822: Mark members as static
+dotnet_diagnostic.CA1822.severity = suggestion
+# CA1852: Seal internal types
+dotnet_diagnostic.CA1852.severity = suggestion
+# CA1859: Use concrete types when possible for improved performance
+dotnet_diagnostic.CA1859.severity = suggestion
+# CA1861: Avoid constant arrays as arguments
+dotnet_diagnostic.CA1861.severity = suggestion
+# CA1860: Avoid using 'Enumerable.Any()' extension method
+dotnet_diagnostic.CA1860.severity = suggestion
+
+[mod/Source/SlopWorld/**.cs]
+# These files also compile inside net8.0 test/benchmark projects. Their runtime
+# contract remains net472 on Unity Mono; do not suggest newer framework APIs.
+# CA1510: Use ArgumentNullException throw helper
+dotnet_diagnostic.CA1510.severity = none
+# CA1512: Use ArgumentOutOfRangeException throw helper
+dotnet_diagnostic.CA1512.severity = none
+# CA1845: Use span-based 'string.Concat'
+dotnet_diagnostic.CA1845.severity = none
+# CA1846: Prefer 'AsSpan' over 'Substring'
+dotnet_diagnostic.CA1846.severity = none
+# CA1850: Prefer static 'HashData' method over 'ComputeHash'
+dotnet_diagnostic.CA1850.severity = none
+# CA1865: Use char overload
+dotnet_diagnostic.CA1865.severity = none
+# CA2249: Consider using 'string.Contains' instead of 'string.IndexOf'
+dotnet_diagnostic.CA2249.severity = none
+
+[mod/Source/SlopWorld/Sim/Jukebox/SongRecognizer.cs]
+# net472 ReadToEndAsync has no token overload. The runner registers cancellation
+# to kill the child, which closes its output streams and completes these reads.
+# CA2016: Forward the 'CancellationToken' parameter to methods
+dotnet_diagnostic.CA2016.severity = none
+
+[mod/Source/SlopWorld/Client/Generated/*.cs]
+# Protocol generation owns these files; handwritten callers remain analyzed.
+generated_code = true
+
+[mod/Tests/**.cs]
+# Fault-injection tests deliberately throw generic exceptions.
+# CA2201: Do not raise reserved exception types
+dotnet_diagnostic.CA2201.severity = none
+# CA1850: Prefer static 'HashData' method over 'ComputeHash'
+dotnet_diagnostic.CA1850.severity = suggestion
+
+[mod/Tests/TestSupport/SandboxEditorEnvironment.cs]
+# Game stubs mirror external type names and scoped draw helpers. Their fake
+# IDisposable scroll scopes restore geometry; they do not own native resources.
+# CA1001: Types that own disposable fields should be disposable
+dotnet_diagnostic.CA1001.severity = none

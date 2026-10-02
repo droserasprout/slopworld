@@ -1,0 +1,9 @@
+<Project>
+  <!-- Runtime.csproj only stages third-party DLLs; these rules own our C# sources. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'SlopWorld' Or '$(MSBuildProjectName)' == 'SlopWorld.Tests' Or '$(MSBuildProjectName)' == 'IpcBench'">
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>8.0-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>
