@@ -9,6 +9,21 @@ import validate_themes as themes
 
 
 class ThemeValidationTests(unittest.TestCase):
+    def test_contrast_faces_require_opacity_but_panels_allow_alpha(self):
+        source = (themes.THEMES / "UI" / "slopworld-warm.toml").read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "slopworld-warm.toml"
+            with patch.object(themes, "ROOT", root):
+                for role in ("accent", "destructive", "checkFace"):
+                    original = next(line for line in source.splitlines() if line.startswith(role + " ="))
+                    with self.subTest(role=role):
+                        path.write_text(source.replace(original, f'{role} = "#ABCDEF80"'))
+                        with self.assertRaisesRegex(ValueError, role + " must be opaque"):
+                            themes.read_file(path, themes.UI_KEYS, themes.UI_COLORS)
+                        path.write_text(source.replace(original, f'{role} = "#ABCDEFFF"'))
+                        themes.read_file(path, themes.UI_KEYS, themes.UI_COLORS)
+
     def test_boolean_integer_fields_are_rejected(self):
         source = (themes.THEMES / "UI" / "slopworld-warm.toml").read_text()
         with tempfile.TemporaryDirectory() as directory:

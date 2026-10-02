@@ -44,9 +44,14 @@ namespace SlopWorld.Tests
                 foreach (string color in new[] { "#123", "1234567", "#12zz34", "#123456789" })
                     yield return ($"{(terminal ? "terminal" : "UI")} theme rejects color {color}", () => Reject(terminal,
                         t => t[terminal ? "fg" : "accent"] = color, "not a valid color"));
-                foreach (string kind in new[] { "missing", "empty", "duplicate", "malformed" })
+                foreach (string kind in new[] { "missing", "empty", "duplicate", "malformed", "unmatched" })
                     yield return ($"{(terminal ? "terminal" : "UI")} theme directory rejects {kind}", () => BadDirectory(terminal, kind));
             }
+            foreach (string role in new[] { "accent", "destructive", "checkFace" })
+                yield return ($"UI theme requires opaque {role}", () => Reject(false,
+                    t => t[role] = "#ABCDEF80", "requires opaque " + role));
+            yield return ("UI theme requires a matching terminal ID", () => Reject(false,
+                t => { t.Remove("order"); t["id"] = "unmatched"; }, "has no terminal theme for Match UI"));
             yield return ("terminal theme requires ANSI array", () => Reject(true, t => t["ansi"] = "colors", "missing array 'ansi'"));
             yield return ("terminal theme rejects numeric ANSI slot", () => Reject(true, t => ((TomlArray)t["ansi"])[4] = 42L, "ansi[4] is not a valid color"));
             yield return ("terminal theme rejects invalid ANSI color", () => Reject(true, t => ((TomlArray)t["ansi"])[9] = "#gggggg", "ansi[9] is not a valid color"));
@@ -75,6 +80,10 @@ namespace SlopWorld.Tests
                 string expected;
                 switch (kind)
                 {
+                    case "unmatched":
+                        File.WriteAllText(source, Change(terminal, t => { t.Remove("order"); t["id"] = "unmatched"; }));
+                        expected = "has no terminal theme for Match UI";
+                        break;
                     case "missing": Directory.Delete(target, true); expected = "theme directory is missing"; break;
                     case "empty": File.Delete(source); File.WriteAllText(Path.Combine(target, "ignored.txt"), "not a theme"); expected = "catalog has no files"; break;
                     case "malformed": File.WriteAllText(source, "not toml"); expected = "invalid " + source + " theme file"; break;
@@ -94,10 +103,10 @@ namespace SlopWorld.Tests
         public static void AcceptsUppercaseAlphaColorsAndExternalThemesWithoutOrder()
         {
             var catalog = ThemeCatalog.LoadText(
-                Change(false, t => { t.Remove("order"); t["id"] = "custom-ui"; t["accent"] = "#ABCDEF80"; }),
-                Change(true, t => { t.Remove("order"); t["id"] = "custom-terminal"; ((TomlArray)t["ansi"])[0] = "#ABCDEF"; }));
+                Change(false, t => { t.Remove("order"); t["id"] = "custom"; t["panel"] = "#ABCDEF80"; }),
+                Change(true, t => { t.Remove("order"); t["id"] = "custom"; ((TomlArray)t["ansi"])[0] = "#ABCDEF"; }));
             Assert.That(catalog.UISchemes.Single().Order, Is.Null);
-            Assert.That(catalog.UISchemes.Single().Accent, Is.EqualTo("#ABCDEF80"));
+            Assert.That(catalog.UISchemes.Single().Panel, Is.EqualTo("#ABCDEF80"));
             Assert.That(catalog.TerminalThemes.Single().Order, Is.Null);
             Assert.That(catalog.TerminalThemes.Single().Ansi[0], Is.EqualTo("#ABCDEF"));
             Assert.Throws<FormatException>(() => ThemeCatalog.Load(null));

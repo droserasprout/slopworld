@@ -101,6 +101,10 @@ def read_file(path: Path, expected: set[str], colors: tuple[str, ...] = ()) -> d
     for key in colors:
         if not isinstance(data[key], str) or not COLOR.fullmatch(data[key]):
             fail(path, f"{key} must be #rrggbb or #rrggbbaa")
+    if expected == UI_KEYS:
+        for key in ("accent", "destructive", "checkFace"):
+            if len(data[key]) == 9 and data[key][-2:].lower() != "ff":
+                fail(path, f"{key} must be opaque for contrast-derived text")
     return data
 
 

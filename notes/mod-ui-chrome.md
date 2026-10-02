@@ -15,6 +15,9 @@ form data differently. Cache layout by content and text metrics (including atlas
 not color alone. `GameFont.Tiny` may render Small.
 Use shared measurement helpers.
 
+Theme catalogs require matching terminal IDs for every UI theme. Accent, destructive and
+checkbox faces must be opaque because their contrast-derived text has no backing-surface input.
+
 `SmoothScroll` owns fractional wheel input and terminal-style scrollbars. Consume precise input once.
 X11 samples accumulate motion rather than identify individual wheel packets. Claimed native
 motion suppresses matching logical wheel directions through the next frame, including multiple

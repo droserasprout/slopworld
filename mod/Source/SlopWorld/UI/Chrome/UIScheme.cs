@@ -28,59 +28,47 @@ namespace SlopWorld
         public readonly Color Well, Sel;
         public readonly Color[] Swatches;
 
-        UIScheme(string id, string label,
-                 string accent, string destructive,
-                 string accentText, string destructiveText, string checkFace,
-                 string windowBg, string viewBg, string popoverBg, string panel,
-                 string offlineBg, string scrim,
-                 string lead, string name, string dim, string faint, string off,
-                 string bad, string warn, string yes, string global,
-                 string edge, string edgeLit,
-                 string scrollTrough, string scrollThumb,
-                 string scrollThumbHover, string scrollThumbHeld,
-                 string rowBg, string rowOn, string hover,
-                 string stateWorking, string stateWaiting, string stateIdle, string stateDown,
-                 string btnFace, string btnHover, string btnDown, string knob)
+        UIScheme(ThemeCatalog.UiRecord record)
         {
-            Id = id;
-            Label = label;
-            Accent = Hex(accent);
-            Destructive = Hex(destructive);
-            AccentText = Hex(accentText);
-            DestructiveText = Hex(destructiveText);
-            CheckFace = Hex(checkFace);
-            WindowBg = Hex(windowBg);
-            ViewBg = Hex(viewBg);
-            PopoverBg = Hex(popoverBg);
-            Panel = Hex(panel);
-            OfflineBg = Hex(offlineBg);
-            Scrim = Hex(scrim);
-            Lead = Hex(lead);
-            Name = Hex(name);
-            Dim = Hex(dim);
-            Faint = Hex(faint);
-            Off = Hex(off);
-            Bad = Hex(bad);
-            Warn = Hex(warn);
-            Yes = Hex(yes);
-            Global = Hex(global);
-            Edge = Hex(edge);
-            EdgeLit = Hex(edgeLit);
-            ScrollTrough = Hex(scrollTrough);
-            ScrollThumb = Hex(scrollThumb);
-            ScrollThumbHover = Hex(scrollThumbHover);
-            ScrollThumbHeld = Hex(scrollThumbHeld);
-            RowBg = Hex(rowBg);
-            RowOn = Hex(rowOn);
-            Hover = Hex(hover);
-            StateWorking = Hex(stateWorking);
-            StateWaiting = Hex(stateWaiting);
-            StateIdle = Hex(stateIdle);
-            StateDown = Hex(stateDown);
-            BtnFace = Hex(btnFace);
-            BtnHover = Hex(btnHover);
-            BtnDown = Hex(btnDown);
-            Knob = Hex(knob);
+            Id = record.Id;
+            Label = record.Label;
+            Accent = Hex(record.Accent);
+            Destructive = Hex(record.Destructive);
+            AccentText = Hex(record.AccentText);
+            DestructiveText = Hex(record.DestructiveText);
+            CheckFace = Hex(record.CheckFace);
+            WindowBg = Hex(record.WindowBg);
+            ViewBg = Hex(record.ViewBg);
+            PopoverBg = Hex(record.PopoverBg);
+            Panel = Hex(record.Panel);
+            OfflineBg = Hex(record.OfflineBg);
+            Scrim = Hex(record.Scrim);
+            Lead = Hex(record.Lead);
+            Name = Hex(record.Name);
+            Dim = Hex(record.Dim);
+            Faint = Hex(record.Faint);
+            Off = Hex(record.Off);
+            Bad = Hex(record.Bad);
+            Warn = Hex(record.Warn);
+            Yes = Hex(record.Yes);
+            Global = Hex(record.Global);
+            Edge = Hex(record.Edge);
+            EdgeLit = Hex(record.EdgeLit);
+            ScrollTrough = Hex(record.ScrollTrough);
+            ScrollThumb = Hex(record.ScrollThumb);
+            ScrollThumbHover = Hex(record.ScrollThumbHover);
+            ScrollThumbHeld = Hex(record.ScrollThumbHeld);
+            RowBg = Hex(record.RowBg);
+            RowOn = Hex(record.RowOn);
+            Hover = Hex(record.Hover);
+            StateWorking = Hex(record.StateWorking);
+            StateWaiting = Hex(record.StateWaiting);
+            StateIdle = Hex(record.StateIdle);
+            StateDown = Hex(record.StateDown);
+            BtnFace = Hex(record.BtnFace);
+            BtnHover = Hex(record.BtnHover);
+            BtnDown = Hex(record.BtnDown);
+            Knob = Hex(record.Knob);
             Well = ViewBg;
             Sel = new Color(Accent.r, Accent.g, Accent.b, 0.35f);
             Swatches = new[]
@@ -93,27 +81,13 @@ namespace SlopWorld
             };
         }
 
-        UIScheme(ThemeCatalog.UiRecord record)
-            : this(record.Id, record.Label,
-                   record.Accent, record.Destructive,
-                   record.AccentText, record.DestructiveText, record.CheckFace,
-                   record.WindowBg, record.ViewBg, record.PopoverBg, record.Panel,
-                   record.OfflineBg, record.Scrim,
-                   record.Lead, record.Name, record.Dim, record.Faint, record.Off,
-                   record.Bad, record.Warn, record.Yes, record.Global,
-                   record.Edge, record.EdgeLit,
-                   record.ScrollTrough, record.ScrollThumb,
-                   record.ScrollThumbHover, record.ScrollThumbHeld,
-                   record.RowBg, record.RowOn, record.Hover,
-                   record.StateWorking, record.StateWaiting, record.StateIdle, record.StateDown,
-                   record.BtnFace, record.BtnHover, record.BtnDown, record.Knob)
-        { }
-
         // Six digits is opaque. Eight carries alpha. Invalid values are magenta so a broken
         // hand-edited catalog is visible during development instead of silently black.
         static Color Hex(string s) =>
             TerminalTheme.TryHex(s, out var c) ? c : Color.magenta;
 
+        // Catalog validation keeps Accent, Destructive and CheckFace opaque.
+        // Callers use those roles without opacity fades when selecting contrast.
         public static Color TextOn(Color background) =>
             Contrast(Color.white, background) >= Contrast(Color.black, background)
                 ? Color.white : Color.black;
@@ -163,7 +137,8 @@ namespace SlopWorld
             }
         }
 
-        static UIScheme Fallback() => new UIScheme("slopworld-warm", "SlopWorld Warm",
+        static UIScheme Fallback() => new UIScheme(new ThemeCatalog.UiRecord(
+            order: 0, id: "slopworld-warm", label: "SlopWorld Warm",
             accent: "#a97c39", destructive: "#b43424",
             accentText: "#17120a", destructiveText: "#ffffff", checkFace: "#876335",
             windowBg: "#2b2014", viewBg: "#221b11", popoverBg: "#312722",
@@ -178,7 +153,7 @@ namespace SlopWorld
             stateWorking: "#91bdd8", stateWaiting: "#facc4d",
             stateIdle: "#a79c87", stateDown: "#c86a50",
             btnFace: "#ffffff1a", btnHover: "#ffffff26", btnDown: "#ffffff4d",
-            knob: "#ffffff");
+            knob: "#ffffff"));
 
         public static UIScheme Get(string id)
         {
