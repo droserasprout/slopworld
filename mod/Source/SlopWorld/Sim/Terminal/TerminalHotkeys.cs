@@ -4,7 +4,7 @@ using Verse;
 namespace SlopWorld
 {
     // GameComponentOnGUI handles the map help shortcut and Alt+number shortcuts.
-    // Patch_InterfaceFunctionKeys handles interface function keys before components and widgets run.
+    // Patch_WorkspaceShortcuts dispatches workspace shortcuts before components and widgets run.
     public class TerminalHotkeys : GameComponent
     {
         public TerminalHotkeys(Game game) { }

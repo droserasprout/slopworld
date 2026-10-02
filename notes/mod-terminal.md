@@ -15,6 +15,8 @@ Before the capability announcement arrives, the client uses local safety limits.
 Escape belongs to the application. The workspace handles close and leave keys before it forwards input.
 Send shifted navigation keys to the application on alternate screens.
 On the primary screen, page keys scroll local history. Send Tab to the application.
+The terminal input controller also owns adjacent-session navigation and pawn selection
+from the map; Harmony hooks only dispatch it.
 Before adding another key binding, check `TerminalHotkeys` and the panel input code.
 
 Clipboard handling depends on the target. Codex checks for text before it handles its image-paste shortcut.

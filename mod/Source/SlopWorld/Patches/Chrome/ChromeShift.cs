@@ -68,28 +68,30 @@ namespace SlopWorld
             ShiftPane(__instance);
         }
 
-        // Move the open inspect pane immediately after a layout change.
+        // Refit all open main-tab windows after a layout change.
         public static void Reposition()
         {
-            var pane = Find.WindowStack?.WindowOfType<MainTabWindow_Inspect>();
-            if (pane != null) ShiftPane(pane);
+            var windows = Find.WindowStack?.Windows;
+            if (windows == null) return;
+            foreach (var window in windows)
+                if (window is MainTabWindow pane) ShiftPane(pane);
         }
 
         static void ShiftPane(MainTabWindow pane)
         {
             var content = WorkspaceLayout.Current.Content;
             var r = pane.windowRect;
-            if (pane.Anchor == MainTabWindowAnchor.Left)
-                r.x = content.x;
-            else if (pane.Anchor == MainTabWindowAnchor.Right)
-                r.x = Mathf.Max(content.x, content.xMax - r.width);
-            else return;
+            if (pane.Anchor != MainTabWindowAnchor.Left && pane.Anchor != MainTabWindowAnchor.Right) return;
             if (!NaturalWidths.TryGetValue(pane, out float natural))
             {
                 natural = r.width;
                 NaturalWidths[pane] = natural;
             }
             r.width = Mathf.Min(natural, content.width);
+            if (pane.Anchor == MainTabWindowAnchor.Left)
+                r.x = content.x;
+            else if (pane.Anchor == MainTabWindowAnchor.Right)
+                r.x = Mathf.Max(content.x, content.xMax - r.width);
             pane.windowRect = r;
         }
     }

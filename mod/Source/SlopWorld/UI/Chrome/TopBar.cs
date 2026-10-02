@@ -275,7 +275,7 @@ namespace SlopWorld
                 return;
             }
 
-            string session = TerminalWindow.CurrentName ?? InspectPaneAgent.Selected();
+            string session = TerminalWindow.CurrentName ?? InspectPaneAgent.SelectedSession();
             var hub = SessionHub.Instance;
 
             if (session == null)

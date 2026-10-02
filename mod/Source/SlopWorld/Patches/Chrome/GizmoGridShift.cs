@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
 using HarmonyLib;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -10,20 +11,21 @@ namespace SlopWorld
     // Place the bottom gizmo grid beside the sidebar and above the add bar.
     // Active distinguishes this grid from the Architect designator grid.
 
-    [HarmonyPatch(typeof(GizmoGridDrawer), "DrawGizmoGridFor")]
+    [HarmonyPatch(typeof(MapGizmoUtility), "MapUIOnGUI")]
     public static class Patch_GizmoGridFlag
     {
-        // Identify bottom gizmo drawing while DrawGizmoGridFor runs with the UI visible.
+        // Only map gizmos use the sidebar bottom margin; nested scopes restore their caller.
         public static bool Active;
 
-        static void Prefix()
+        static void Prefix(out bool __state)
         {
-            if (UiLayout.Shown) Active = true;
+            __state = Active;
+            Active = UiLayout.Shown;
         }
 
-        static void Postfix()
+        static void Finalizer(bool __state)
         {
-            Active = false;
+            Active = __state;
         }
     }
 
@@ -56,6 +58,8 @@ namespace SlopWorld
             var vectorY = AccessTools.Field(typeof(Vector2), nameof(Vector2.y));
             var gridTop = AccessTools.Method(typeof(Patch_GizmoGridShift), nameof(GridTop));
 
+            // Vanilla computes (float)(UI.screenHeight - 35) - GizmoSpacing.y - 75f.
+            // Preserve the expression's entry labels so branches still enter the replacement.
             for (int i = 0; i + 8 < code.Count; i++)
             {
                 if (code[i].opcode != OpCodes.Ldsfld || !Equals(code[i].operand, screenHeight)
