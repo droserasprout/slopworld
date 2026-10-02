@@ -15,6 +15,9 @@ namespace SlopWorld
         int _selected = -1;
         bool _keyboardSelection;
         Event _acceptEvent;
+        int _acceptFrame = -1;
+        Event _dispatchedEvent;
+        int _dispatchedFrame = -1;
 
         // Keyboard navigation belongs to the menu rather than the control that opened it.
         // Use rawType because an absorbing window may consume event.type before this body
@@ -26,12 +29,18 @@ namespace SlopWorld
             // it there so an accepted form underneath cannot submit at the same time. Skip
             // the same event when the body is reached.
             if (Event.current != null &&
+                Event.current.type == EventType.Used && _acceptFrame == Time.frameCount &&
                 ReferenceEquals(Event.current, _acceptEvent)) return true;
 
             // WindowStack draws parents before children. Give the deepest open menu first
             // refusal so an arrow or Enter cannot answer for a row hidden behind its child.
-            if (_child != null && _child.HandleKeyboard())
+            var child = _child;
+            if (child != null && child.HandleKeyboard())
             {
+                // The child still gets its own WindowStack draw later in this pass.
+                // Record dispatch before it can process the consumed key a second time.
+                child._dispatchedEvent = Event.current;
+                child._dispatchedFrame = Time.frameCount;
                 _keyboardSelection = true;
                 return true;
             }
@@ -184,15 +193,16 @@ namespace SlopWorld
                 return;
             }
 
-            var option = _options[_selected];
-            SoundDefOf.Click.PlayOneShotOnCamera();
-            CloseTree();
-            if (option.action != null) option.action();
+            ActivateOption(_options[_selected]);
         }
 
         public override void OnAcceptKeyPressed()
         {
+            if (Event.current != null && Event.current.type == EventType.Used &&
+                _acceptFrame == Time.frameCount && ReferenceEquals(_acceptEvent, Event.current)) return;
+            if (_child != null) { _child.OnAcceptKeyPressed(); return; }
             _acceptEvent = Event.current;
+            _acceptFrame = Time.frameCount;
             EnsureSelection();
             Event.current.Use();
             ActivateSelection();

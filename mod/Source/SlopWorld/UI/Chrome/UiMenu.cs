@@ -268,7 +268,21 @@ namespace SlopWorld
 
         public override void DoWindowContents(Rect rect)
         {
-            using (WidgetState.Save()) DrawContents(rect);
+            try
+            {
+                if (_dispatchedFrame == Time.frameCount &&
+                    ReferenceEquals(_dispatchedEvent, Event.current)) return;
+                using (WidgetState.Save()) DrawContents(rect);
+            }
+            finally
+            {
+                // Only skip the child draw paired with its parent's dispatch, never a
+                // later key packet that reuses Unity's Event object.
+                _dispatchedEvent = null;
+                _dispatchedFrame = -1;
+                _acceptEvent = null;
+                _acceptFrame = -1;
+            }
         }
 
         void DrawContents(Rect rect)
@@ -402,7 +416,7 @@ namespace SlopWorld
             bool nest = o is UiSubmenu;
             bool lit = over || _open == i || _selected == i;
 
-            RowChrome.Hover(r, _selected == i, on, lit, RowHoverPolicy.Local,
+            RowChrome.HighlightResolved(r, _selected == i, on, lit, RowHoverPolicy.Local,
                 RowSelectionStyle.Hover);
             if (o.tooltip.HasValue) TooltipHandler.TipRegion(r, o.tooltip.Value);
 
@@ -448,13 +462,17 @@ namespace SlopWorld
                 return false;
             }
 
-            SoundDefOf.Click.PlayOneShotOnCamera();
-            // Close the complete menu tree before running the action.
-            // Otherwise, a new menu or dialog could open below the menus that started the action.
             _selected = i;
-            CloseTree();
-            if (o.action != null) o.action();
+            ActivateOption(o);
             return true;
+        }
+
+        void ActivateOption(FloatMenuOption option)
+        {
+            SoundDefOf.Click.PlayOneShotOnCamera();
+            // Close the tree before an action can open a replacement menu or dialog.
+            CloseTree();
+            option.action?.Invoke();
         }
 
         void OpenChild(int i, UiSubmenu sub)

@@ -11,6 +11,7 @@ namespace SlopWorld
         public int Count => _tops.Length - 1;
         public float Height => _tops[Count];
 
+        // Heights must be finite and nonnegative so cumulative row offsets stay ordered.
         public void Build(int count, Func<int, float> height)
         {
             _tops = new float[count + 1];
@@ -28,11 +29,11 @@ namespace SlopWorld
             return FirstEndingAfter(y);
         }
 
-        public void Visible(float top, float height, out int first, out int end)
+        public void Visible(float top, float height, out int firstVisible, out int endExclusive)
         {
-            first = top + height <= 0f ? 0 : FirstEndingAfter(top);
-            end = FirstStartingAtOrAfter(top + height);
-            if (end < first) end = first;
+            firstVisible = top + height <= 0f ? 0 : FirstEndingAfter(top);
+            endExclusive = FirstStartingAtOrAfter(top + height);
+            if (endExclusive < firstVisible) endExclusive = firstVisible;
         }
 
         int FirstEndingAfter(float y)
