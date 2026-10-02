@@ -126,11 +126,13 @@ namespace SlopWorld
                         }
                         else if (j > 0)
                         {
+                            // The prefix maximum allows gaps; only the immediately previous
+                            // position can earn the consecutive-match bonus.
                             int cand = prevMax[j - 1], arg = prevArg[j - 1];
-                            int run = best[i - 1, j - 1];
-                            if (run != int.MinValue && run + Consecutive > cand)
+                            int adjacentScore = best[i - 1, j - 1];
+                            if (adjacentScore != int.MinValue && adjacentScore + Consecutive > cand)
                             {
-                                cand = run + Consecutive;
+                                cand = adjacentScore + Consecutive;
                                 arg = j - 1;
                             }
                             if (cand != int.MinValue)

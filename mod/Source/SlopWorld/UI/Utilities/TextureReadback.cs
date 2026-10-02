@@ -18,7 +18,6 @@ namespace SlopWorld
                 RenderTexture.active = target;
                 copy = new Texture2D(source.width, source.height, TextureFormat.ARGB32, false);
                 copy.ReadPixels(new Rect(0, 0, source.width, source.height), 0, 0);
-                copy.Apply();
                 return copy.GetPixels();
             }
             finally
