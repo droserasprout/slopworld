@@ -12,14 +12,14 @@ namespace SlopWorld
         static SidebarTabDefinition CurrentDefinition =>
             TabRegistry.FromPersisted(Settings.SidebarTab);
 
-        static SidebarTabRegistry BuildTabRegistry()
+        static SidebarTabRegistry BuildTabRegistry() => SidebarTabCatalog.CreateRegistry(HandlersFor);
+
+        static SidebarTabHandlers HandlersFor(SidebarTab tab)
         {
-            return new SidebarTabRegistry(
-                new SidebarTabDefinition(
-                    SidebarTab.Agents, "agents", "agents",
-                    "Agents: view all sessions, grouped by project.",
-                    hasActions: true, canFold: true, canToggleDotfiles: false,
-                    handlers: new SidebarTabHandlers
+            switch (tab)
+            {
+                case SidebarTab.Agents:
+                    return new SidebarTabHandlers
                     {
                         Draw = DrawAgentTab,
                         Click = Menus,
@@ -27,12 +27,9 @@ namespace SlopWorld
                         Refresh = () => SessionHub.Instance.SessionStore.Refresh(),
                         SetAllFolds = SetAgentFolds,
                         AllFolded = AllAgentsFolded,
-                    }),
-                new SidebarTabDefinition(
-                    SidebarTab.Files, "files", "files",
-                    "Files: browse each project's files in a tree.",
-                    hasActions: true, canFold: true, canToggleDotfiles: true,
-                    handlers: new SidebarTabHandlers
+                    };
+                case SidebarTab.Files:
+                    return new SidebarTabHandlers
                     {
                         Draw = DrawFilesView,
                         Click = ClickFilesView,
@@ -56,12 +53,9 @@ namespace SlopWorld
                             FilesView.Entered();
                             GitView.Refresh();
                         },
-                    }),
-                new SidebarTabDefinition(
-                    SidebarTab.Git, "git", "git",
-                    "Git: view changes since the last commit in each working tree.",
-                    hasActions: true, canFold: true, canToggleDotfiles: false,
-                    handlers: new SidebarTabHandlers
+                    };
+                case SidebarTab.Git:
+                    return new SidebarTabHandlers
                     {
                         Draw = DrawGitView,
                         Click = ClickGitView,
@@ -77,12 +71,9 @@ namespace SlopWorld
                         },
                         Entered = GitView.Refresh,
                         Reselected = GitView.Refresh,
-                    }),
-                new SidebarTabDefinition(
-                    SidebarTab.Search, "search", "search",
-                    "Search: find text in any project.",
-                    hasActions: true, canFold: false, canToggleDotfiles: true,
-                    handlers: new SidebarTabHandlers
+                    };
+                case SidebarTab.Search:
+                    return new SidebarTabHandlers
                     {
                         Draw = () => SearchView.Draw(Body),
                         Click = SearchView.Clicks,
@@ -91,12 +82,9 @@ namespace SlopWorld
                         FilterChanged = SidebarScopes.Update,
                         Close = SearchView.Closed,
                         Entered = SearchView.Entered,
-                    }),
-                new SidebarTabDefinition(
-                    SidebarTab.Tasks, "tasks", "tasks",
-                    "Tasks: view and manage delegated tasks.",
-                    hasActions: true, canFold: false, canToggleDotfiles: false,
-                    handlers: new SidebarTabHandlers
+                    };
+                case SidebarTab.Tasks:
+                    return new SidebarTabHandlers
                     {
                         Draw = () => TasksView.Draw(Body),
                         Click = TasksView.Clicks,
@@ -104,13 +92,9 @@ namespace SlopWorld
                         Refresh = () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail),
                         Entered = () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail),
                         Reselected = () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail),
-                    }),
-                new SidebarTabDefinition(
-                    SidebarTab.Library, "library", "library",
-                    "Library: manage saved items, projects, worktrees, and presets. " +
-                    "Saved items include templates, prompts, commands, breadcrumbs, and file actions.",
-                    hasActions: true, canFold: true, canToggleDotfiles: false,
-                    handlers: new SidebarTabHandlers
+                    };
+                case SidebarTab.Library:
+                    return new SidebarTabHandlers
                     {
                         Draw = () => LibraryView.Draw(Body),
                         Click = LibraryView.Clicks,
@@ -122,7 +106,9 @@ namespace SlopWorld
                         Entered = () => LibraryView.Refresh(),
                         SetAllFolds = LibraryView.SetAllFolded,
                         AllFolded = () => LibraryView.AllFolded,
-                    }));
+                    };
+                default: throw new ArgumentOutOfRangeException(nameof(tab));
+            }
         }
 
         static void DrawFilesView() => DrawReaderView(SidebarTab.Files);

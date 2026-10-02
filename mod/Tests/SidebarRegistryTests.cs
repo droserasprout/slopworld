@@ -71,6 +71,7 @@ namespace SlopWorld.Tests
             Assert.That(registry.Definitions, Is.Not.InstanceOf<SidebarTabDefinition[]>());
             var exposed = (IList<SidebarTabDefinition>)registry.Definitions;
             Assert.Throws<NotSupportedException>(() => exposed[0] = files);
+            Assert.That(registry.Definitions.ToArray(), Is.EqualTo(new[] { agents, files }), "rejected mutation leaves navigation order intact");
             Assert.That(registry.For(SidebarTab.Agents), Is.SameAs(agents));
             Assert.That(registry.FromPersisted("files"), Is.SameAs(files));
             foreach (string name in new[] { null, "", "FILES", "unknown" })

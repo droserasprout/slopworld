@@ -1,6 +1,7 @@
 # Sidebar navigation
 
-`SidebarTabRegistry` is the ordered definition table.
+`SidebarTabCatalog` owns navigation order, persisted IDs and capabilities shared by registration and game-free tests.
+`AgentSidebar` supplies game-bound handlers; `SidebarTabRegistry` owns the read-only definitions and lookup.
 `SidebarViewHistory` stores semantic back/forward targets. Persist stable tab IDs, not enum positions or reconstructed row objects.
 Unknown tabs select Agents instead.
 Stale history targets may select a tab without a row.
