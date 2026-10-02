@@ -330,8 +330,7 @@ namespace SlopWorld
 
             string selected = editor?.SelectedText ?? "";
             var options = new List<FloatMenuOption>();
-            var availability = new SelectionCommandAvailability(
-                selected.Length > 0, !readOnly, true, selected.Length > 0);
+            var availability = new SelectionCommandAvailability(canCopy: selected.Length > 0, canPaste: !readOnly, canSelectAll: true, canCut: selected.Length > 0);
             SelectionCommands.Add(
                 options, availability,
                 () => DaemonClipboard.Copy(selected),

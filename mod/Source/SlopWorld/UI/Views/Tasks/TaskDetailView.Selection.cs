@@ -244,7 +244,7 @@ namespace SlopWorld
         {
             var options = new List<FloatMenuOption>();
             SelectionCommands.Add(options,
-                new SelectionCommandAvailability(HasSelection, false, true, false),
+                new SelectionCommandAvailability(canCopy: HasSelection, canPaste: false, canSelectAll: true, canCut: false),
                 CopySelection, null, SelectAll);
             TerminalWindow.OpenOverPane(new UiMenu(options));
         }

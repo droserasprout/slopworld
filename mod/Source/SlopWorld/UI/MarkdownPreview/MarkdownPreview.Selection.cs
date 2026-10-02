@@ -187,8 +187,7 @@ namespace SlopWorld
         {
             var options = new List<FloatMenuOption>();
             SelectionCommands.Add(options,
-                new SelectionCommandAvailability(_hasSelection,
-                    TerminalWindow.CanPasteClipboardToAgent, true, false),
+                new SelectionCommandAvailability(canCopy: _hasSelection, canPaste: TerminalWindow.CanPasteClipboardToAgent, canSelectAll: true, canCut: false),
                 CopySelection, TerminalWindow.PasteClipboardToAgent, SelectAll);
             TerminalWindow.OpenOverPane(new UiMenu(options));
         }

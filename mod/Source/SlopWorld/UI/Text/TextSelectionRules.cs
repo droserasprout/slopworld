@@ -74,7 +74,7 @@ namespace SlopWorld
             return original;
         }
 
-        public static int CodePointIndex(string text, int index)
+        static int CodePointIndex(string text, int index)
         {
             if (string.IsNullOrEmpty(text)) return 0;
 
