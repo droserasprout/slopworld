@@ -14,10 +14,10 @@ namespace SlopWorld
         public static int Clamp(int fps)
         {
             int closest = Presets[0];
-            int distance = Math.Abs(fps - closest);
+            long distance = Math.Abs((long)fps - closest);
             for (int i = 1; i < Presets.Length; i++)
             {
-                int candidateDistance = Math.Abs(fps - Presets[i]);
+                long candidateDistance = Math.Abs((long)fps - Presets[i]);
                 if (candidateDistance < distance)
                 {
                     closest = Presets[i];

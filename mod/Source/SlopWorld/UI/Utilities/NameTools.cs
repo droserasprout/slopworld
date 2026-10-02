@@ -21,13 +21,14 @@ namespace SlopWorld
             stem = stem.TrimEnd(' ', '-', '_');
             if (stem.Length == 0) stem = name ?? fallback;
 
-            var used = taken.ToList();
-            for (int n = 2; n <= 99; n++)
+            var used = new HashSet<string>(taken, StringComparer.Ordinal);
+            // At most used.Count candidates can collide, so one more always finds a name.
+            for (long n = 2; n <= (long)used.Count + 2; n++)
             {
                 string candidate = stem + "-" + n;
                 if (!used.Contains(candidate)) return candidate;
             }
-            return stem;
+            throw new InvalidOperationException("No free copy name found.");
         }
 
         static bool IsNameSeparator(char c) => c == ' ' || c == '-' || c == '_';

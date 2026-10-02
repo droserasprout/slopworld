@@ -16,6 +16,17 @@ namespace SlopWorld.Tests
             yield return ("range exposes ordered endpoints", OrderedRange);
         }
 
+        public static void IsolatedSurrogatesRemainSelectable()
+        {
+            foreach (string scalar in new[] { "\ud800", "\udc00" })
+            {
+                var range = TextSelectionRules.WordRange("a" + scalar + "b", 1);
+                AssertEx.Equal(1, range.Start, "isolated surrogate starts at its code unit");
+                AssertEx.Equal(2, range.End, "isolated surrogate ends after its code unit");
+                AssertEx.Equal(1, TextSelectionRules.WordRange(scalar, 0).End, "trailing isolated surrogate does not throw");
+            }
+        }
+
         static void UnicodeWord()
         {
             var range = TextSelectionRules.WordRange("αβ 42", 1);

@@ -13,7 +13,7 @@ namespace SlopWorld.Tests
                           RemovesSeparatedNumericCopySuffix);
             yield return ("skips an occupied suggestion",
                           SkipsAnOccupiedSuggestion);
-            yield return ("falls back when every suggestion is occupied", AllSuggestionsOccupied);
+            yield return ("continues beyond the first 98 occupied suggestions", AllSuggestionsOccupied);
         }
 
         static void PreservesDigitsThatArePartOfAName()
@@ -41,11 +41,11 @@ namespace SlopWorld.Tests
 
         static void AllSuggestionsOccupied()
         {
-            var taken = new List<string>();
+            var taken = new List<string> { "agent" };
             for (int n = 2; n <= 99; n++) taken.Add("agent-" + n);
 
-            AssertEx.Equal("agent", NameTools.FreeName("agent", taken, "fallback"),
-                           "original stem is the final fallback");
+            AssertEx.Equal("agent-100", NameTools.FreeName("agent", taken, "fallback"),
+                           "occupied stem and suffixes never become suggestions");
         }
     }
 }
