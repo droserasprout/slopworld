@@ -85,7 +85,11 @@ namespace SlopWorld
             return at;
         }
 
-        static int CodePointAt(string text, int index) => char.ConvertToUtf32(text, index);
+        // Incomplete editable UTF-16 is still selectable as one code unit.
+        static int CodePointAt(string text, int index) =>
+            char.IsHighSurrogate(text[index]) && index + 1 < text.Length &&
+            char.IsLowSurrogate(text[index + 1])
+                ? char.ConvertToUtf32(text, index) : text[index];
 
         static int NextCodePoint(string text, int index)
         {
