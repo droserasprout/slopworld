@@ -21,10 +21,9 @@ namespace SlopWorld
             public string Rel;          // relative to the repository root, which is what git takes back
             public string Project;
             public bool IsDir;
-            public bool Expanded = true; // a change tree is small, so it opens showing everything
             public List<Node> Kids;
             public Repo Owner;
-            public string Status;       // the porcelain pair, files only
+            public GitStatus Status;       // the porcelain pair, files only
             public int Added = -1;      // -1 is "git counted none or was not asked to count"
             public int Deleted = -1;
             public int Depth;
@@ -59,7 +58,7 @@ namespace SlopWorld
             public bool Truncated;      // the daemon capped both the tree and its partial summary
             public int Changed, Added, Deleted;
             public Node Tree;
-            public HashSet<string> Shut = new HashSet<string>();  // folded directories, by Rel
+            public HashSet<string> Shut = new HashSet<string>();  // default open; retain only folded directories, by Rel
 
             // Porcelain status by relative path, for Files lookups without a tree walk per row.
             public Dictionary<string, string> Changes = new Dictionary<string, string>();
@@ -505,7 +504,7 @@ namespace SlopWorld
                     Rel = rel,
                     IsDir = false,
                     Depth = at.Depth + 1,
-                    Status = f.Status,
+                    Status = new GitStatus(f.Status),
                     // Null where git counted nothing (binary or a capped response). Kept apart
                     // from zero, which is a real count and a different row.
                     Added = !f.HasAdded ? -1 : (int)f.Added,

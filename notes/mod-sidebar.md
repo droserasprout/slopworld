@@ -55,4 +55,5 @@ inventory without depending on cleared Agents geometry. Resize-dependent pane up
 wait for the next frame’s workspace snapshot; Library reselection refreshes its catalog.
 
 Files reveal waits for active listings and probes exact paths when a capped listing omits
-the target. A missing checkout cannot select or reopen a reader.
+the target. A missing checkout cannot select or reopen a reader. Git resolves HEAD when
+commands execute, using an empty tree for unborn diffs and index-only removal for unstaging.
