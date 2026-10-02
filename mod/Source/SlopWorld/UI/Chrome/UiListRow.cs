@@ -7,6 +7,7 @@ namespace SlopWorld
     // frame geometry. Their row contents stay separate because their actions differ.
     public static class UiListRow
     {
+        // The final two gaps are the lower row inset and spacing before the next row.
         public static float TwoLineH =>
                 UiTheme.GapXS + UiTheme.LineH + UiTheme.RowBtnH + UiTheme.GapXS +
                 UiTheme.GapXS;

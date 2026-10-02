@@ -7,10 +7,8 @@ namespace SlopWorld
     // so edges land on the screen pixel grid at non-integer UI scales.
     public static class Slab
     {
-        // A border is one screen pixel whatever the UI scale. A line that thickens with the
-        // scale turns this deliberately light rectangular frame into a heavy box. Public
-        // Two boxes that share an edge must overlap by this width.
-        // For example, this prevents a double seam between a menu and its submenu.
+        // Borders are one screen pixel at every UI scale. Adjacent boxes must overlap
+        // by LineW at shared edges to avoid double seams, including menu/submenu seams.
         public static float LineW => 1f / Prefs.UIScale;
 
         // What a focus ring is worth: two screen pixels, outside the widget. Therefore, the control
@@ -69,8 +67,7 @@ namespace SlopWorld
         public static void VHairline(Rect r, Color c) =>
             Flat(new Rect(r.x, r.y, LineW, r.height), c);
 
-        // Nothing to do for a color that is not there - a ghost at rest asks for all of this in
-        // nothing. It is a bill for no box.
+        // Draw only during Repaint, and skip fully transparent colors.
         static bool Paint(Color c) =>
             Event.current.type == EventType.Repaint && c.a > 0f;
 

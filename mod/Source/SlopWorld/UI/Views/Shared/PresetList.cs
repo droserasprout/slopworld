@@ -31,8 +31,8 @@ namespace SlopWorld
 
             if (presets.Count == 0)
             {
-                UiChoiceList<PresetInfo>.Draw(outer,
-                    new List<UiChoice<PresetInfo>>(), scroll,
+                UiChoiceList.Draw(outer,
+                    new List<UiChoice>(), scroll,
                     "No optional presets are available.");
                 return;
             }
@@ -41,16 +41,15 @@ namespace SlopWorld
                 .OrderBy(p => p.Source == "system" ? 0 : 1)
                 .ThenBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase)
                 .ToList();
-            var choices = new List<UiChoice<PresetInfo>>();
+            var choices = new List<UiChoice>();
             foreach (var pr in presets)
             {
                 bool inherited = implied != null && implied.Contains(pr.Name);
                 bool dependency = required.Contains(pr.Name) && !chosen.Contains(pr.Name);
                 if (inherited || dependency)
                 {
-                    choices.Add(new UiChoice<PresetInfo>
+                    choices.Add(new UiChoice
                     {
-                        Value = pr,
                         Group = implied == null ? "Required by selected presets"
                             : inherited ? "From command" : "Required by selected presets",
                         Label = pr.Source == "missing" ? pr.Name + " (missing)" : pr.Name,
@@ -62,9 +61,8 @@ namespace SlopWorld
                     // A preset can be selected directly and inherited from the project. Keep the direct row editable so users can remove it separately.
                     if (!chosen.Contains(pr.Name)) continue;
                 }
-                choices.Add(new UiChoice<PresetInfo>
+                choices.Add(new UiChoice
                 {
-                    Value = pr,
                     Group = implied == null ? null : chosen.Contains(pr.Name) ? additionsLabel : "Available additions",
                     Label = pr.Source == "missing" ? pr.Name + " (missing)" : pr.Name,
                     Tip = Tip(pr, false),
@@ -80,7 +78,7 @@ namespace SlopWorld
             choices = choices.OrderBy(c => c.Group == "From project" ? 0 : c.Group == "From command" ? 1
                 : c.Group == "Required by selected presets" ? 2 : c.Group == "Available additions" ? 4 : 3).ToList();
 
-            UiChoiceList<PresetInfo>.Draw(outer, choices, scroll,
+            UiChoiceList.Draw(outer, choices, scroll,
                 "No optional presets are available.");
         }
 

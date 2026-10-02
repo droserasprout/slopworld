@@ -276,11 +276,6 @@ namespace SlopWorld
             }
         }
 
-        // Settings pages leave room for their footer, but otherwise use the tab's whole
-        // content area. The old caption and card chrome are intentionally gone.
-        public static Rect PageBody(Rect page) =>
-            new Rect(page.x, page.y, page.width, page.height - BtnH - GapS);
-
         public static Rect FooterBar(Rect rect) =>
             new Rect(rect.x, rect.yMax - BtnH, rect.width, BtnH);
 
@@ -295,18 +290,6 @@ namespace SlopWorld
                 Slab.Hairline(new Rect(rect.x, line.yMax, rect.width, 1f), Edge);
             }
         }
-
-        public static string PathList(Rect r, string name, string label, string text)
-        {
-            float h = RowH;
-            SectionHeading(new Rect(r.x, r.y, r.width, h), label);
-            var box = new Rect(r.x, r.y + h + GapXS, r.width,
-                Mathf.Max(r.height - h - GapXS, 40f));
-            return Area(box, name, text);
-        }
-
-        public static string FreeName(string name, IEnumerable<string> taken, string fallback)
-            => NameTools.FreeName(name, taken, fallback);
 
         public static void DrawRail<T>(Rect r, (string label, T tab)[] tabs, ref T active,
                                        Func<T, bool> enabled = null)
