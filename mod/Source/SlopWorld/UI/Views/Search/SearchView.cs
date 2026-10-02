@@ -64,7 +64,7 @@ namespace SlopWorld
         static readonly List<LayoutRow> Layout = new List<LayoutRow>();
         static readonly SmoothScroll Scroll = new SmoothScroll();
         static readonly Pager Viewer = new Pager();
-        internal static Pager ActivePager => Viewer;
+        internal static Pager ActivePager { get { RestoreReader(); return Viewer; } }
         static FieldLifetime _fieldLifetime = new FieldLifetime();
 
         static SearchSubmission _submitted;
@@ -86,12 +86,17 @@ namespace SlopWorld
         static float _contentHeight;
         static int _layoutRevision = int.MinValue;
 
-        public static void Entered()
+        static void RestoreReader()
         {
-            if (Viewer.Session == null || !Viewer.Alive)
+            if (!Viewer.Opening && (Viewer.Session == null || !Viewer.Alive))
                 foreach (var info in SessionHub.Instance.Sessions)
                     if (info != null && info.Alive && info.Intent == "search")
                         Viewer.AttachRestored(info);
+        }
+
+        public static void Entered()
+        {
+            RestoreReader();
             ResetFieldLifetime();
             _focus = true;
         }

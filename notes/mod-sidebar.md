@@ -39,7 +39,9 @@ See [client](mod-client.md).
 
 Files/Git terminal readers route by daemon intent. New reader names are opaque; snapshots carry
 their label, source path, browse scope, key, line and pin. `FileReaders` reattaches surviving
-pagers when Files or Git prepares routed rows. Search reattaches its own terminal reader on entry.
+pagers when Files or Git prepares routed rows. Search reattaches its own terminal reader
+on entry or before appearance-restart discovery.
+Appearance restarts and file refreshes preserve Search intent.
 Legacy sessions still use command/name classification.
 
 Resizing must renegotiate each visible terminal's assigned slot. Moving navigation between

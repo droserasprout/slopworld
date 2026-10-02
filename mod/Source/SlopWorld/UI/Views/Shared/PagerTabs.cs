@@ -108,9 +108,9 @@ namespace SlopWorld
             if (_preview.Matches(project, key))
                 return _preview.Reopen();
 
-            foreach (var pager in _locked)
-                if (pager.Matches(project, key))
-                    return pager.Reopen();
+            foreach (var tab in _locked)
+                if (tab.Matches(project, key))
+                    return tab.Reopen();
             return false;
         }
 

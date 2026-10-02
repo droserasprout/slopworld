@@ -28,6 +28,7 @@ namespace SlopWorld
         string _readerIntent = "view", _readerCommand;
         bool _refreshing;
         internal int Operation => _operation;
+        internal bool Opening => _opening;
 
         // Who is showing, or null. Read rather than acted on - the two views use it to tell
         // "click the row that is already open" from "click a different one".
@@ -51,7 +52,7 @@ namespace SlopWorld
             _project = info.Intent == "view" ? _openProject : null;
             _filePath = info.ReaderPath;
             _pendingCommand = info.Intent == "diff" ? "restored-diff" : null;
-            _sourceCommand = info.Intent == "view" && !string.IsNullOrEmpty(info.ReaderPath)
+            _sourceCommand = (info.Intent == "view" || info.Intent == "search") && !string.IsNullOrEmpty(info.ReaderPath)
                 ? PagerCommand(info.ReaderPath, info.ReaderLine) : null;
             _sourceLabel = info.Label;
             _readerLine = info.ReaderLine;
@@ -347,7 +348,7 @@ namespace SlopWorld
                 {
                     Host = true,
                     Path = FilePath,
-                    Intent = "view",
+                    Intent = _readerIntent,
                     Reader = new ReaderLaunchOptions
                     {
                         Path = FilePath,
@@ -378,7 +379,7 @@ namespace SlopWorld
                 if (operation != _operation) { StopIf(session); return; }
                 _refreshing = false;
                 _session = session;
-                if (_readerIntent == "view") _sourceCommand = command;
+                if (_readerIntent == "view" || _readerIntent == "search") _sourceCommand = command;
                 if (_locked) SessionHub.Instance.SessionStore.SetReaderPinned(session, true);
                 TerminalWindow.ReplaceReader(oldSession, session);
                 StopIf(oldSession);

@@ -8,6 +8,7 @@ namespace SlopWorld.Tests
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             yield return ("quotes argv the way a shell would", QuotesArgv);
+            yield return ("quoted executables and option boundaries", QuotedCommands);
             yield return ("templates file and line into commands", TemplatesFileAndLine);
             yield return ("templates file actions with the requested path", FileActionPaths);
             yield return ("builds pager and editor invocations", BuildsPagerAndEditor);
@@ -19,6 +20,29 @@ namespace SlopWorld.Tests
             yield return ("code appearance stays draft until saved", AppearanceDraft);
             yield return ("code appearance save preserves subsequent edits", AppearancePendingSave);
             yield return ("failed appearance persistence preserves applied settings", AppearanceSaveFailure);
+        }
+
+        static void QuotedCommands()
+        {
+            string pager = "'/opt/my tools/less'";
+            string command = PagerCommands.PagerCommand(pager, "highlight", "/a");
+            AssertEx.True(PagerCommands.IsPagerCommand(pager, command), "quoted pager under env");
+            AssertEx.False(PagerCommands.IsPagerCommand(pager, "env NOTE=" + pager + " cat /a"),
+                "an executable inside an environment value is not a pager");
+            AssertEx.True(PagerCommands.FilePager(pager, true).Contains("-N"), "quoted basename gets options");
+            string editor = "\"/opt/my tools/micro\"";
+            AssertEx.Equal(editor + " -clipboard terminal '/a' +7",
+                PagerCommands.EditorCommand(editor, "/a", 7), "options follow complete executable");
+            AssertEx.True(PagerCommands.IsEditorCommand(editor, PagerCommands.EditorCommand(editor, "/a")),
+                "quoted editor classification");
+            var settings = new ModSettings { codeHighlightTheme = "dark" };
+            AssertEx.Equal("highlight --title 'a -- b %s'\t--style='dark' --\t%s",
+                CodeHighlight.Command("highlight --title 'a -- b %s'\t--\t%s", settings),
+                "quoted boundaries remain literal");
+            AssertEx.Equal("highlight --style='dark' --",
+                CodeHighlight.Command("highlight --", settings), "trailing terminator");
+            AssertEx.Equal("highlight --style='dark' %s",
+                CodeHighlight.Command("highlight %s", settings), "placeholder remains present");
         }
 
         static void AppearanceDraft()
