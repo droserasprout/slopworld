@@ -54,28 +54,30 @@ namespace SlopWorld.Tests
                 AssertEx.True(DnsConfig.TryParseServers(address, out _, out _), "matches daemon acceptance of " + address);
         }
 
+        static DnsConfig ReadDns(string json) => DnsConfig.FromWire(ProtobufFixtures.Read<Wire.DnsConfig>(JVal.Parse(json)));
+
         static void RoundTripsDnsModes()
         {
-            var resolved = DnsConfig.FromWire(ProtobufFixtures.Read<Wire.DnsConfig>(JVal.Parse("{\"mode\":\"resolved\",\"servers\":[]}")));
+            var resolved = ReadDns("{\"mode\":\"resolved\",\"servers\":[]}");
             AssertEx.True(resolved.IsResolved, "resolved mode");
             AssertEx.Equal("System resolver", resolved.Label,
                            "resolved label");
             AssertEx.Equal("{\"mode\":\"resolved\",\"servers\":[]}", resolved.ToJson(),
                            "resolved JSON");
 
-            var custom = DnsConfig.FromWire(ProtobufFixtures.Read<Wire.DnsConfig>(JVal.Parse(
-                "{\"mode\":\"servers\",\"servers\":[\"8.8.8.8\",\"1.1.1.1\"]}")));
+            var custom = ReadDns(
+                "{\"mode\":\"servers\",\"servers\":[\"8.8.8.8\",\"1.1.1.1\"]}");
             AssertEx.False(custom.IsResolved, "custom mode");
             AssertEx.Sequence(new[] { "8.8.8.8", "1.1.1.1" }, custom.Servers,
                               "custom servers");
             AssertEx.Equal("Custom DNS: 8.8.8.8, 1.1.1.1", custom.Label, "custom label");
-            AssertEx.Equal(custom.ToJson(), DnsConfig.FromWire(ProtobufFixtures.Read<Wire.DnsConfig>(JVal.Parse(custom.ToJson()))).ToJson(),
+            AssertEx.Equal(custom.ToJson(), ReadDns(custom.ToJson()).ToJson(),
                            "custom JSON round trip");
 
             var copy = custom.Copy();
             copy.Servers[0] = "9.9.9.9";
             AssertEx.Equal("8.8.8.8", custom.Servers[0], "DNS copy owns its list");
-            AssertEx.True(DnsConfig.FromWire(ProtobufFixtures.Read<Wire.DnsConfig>(JVal.Parse("{\"mode\":\"unknown\"}")))
+            AssertEx.True(ReadDns("{\"mode\":\"unknown\"}")
                               .IsResolved, "unknown mode fallback");
 
             var empty = DnsConfig.Custom();

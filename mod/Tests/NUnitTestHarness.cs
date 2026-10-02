@@ -56,45 +56,44 @@ namespace SlopWorld.Tests
                                type.Name.EndsWith("Tests", StringComparison.Ordinal))
                 .OrderBy(type => type.FullName, StringComparer.Ordinal);
 
+        static readonly IReadOnlyDictionary<string, string> MethodLabels = new Dictionary<string, string>
+        {
+            ["FramePolicyTests.Transitions"] = "FramePolicy: focus and settings transitions",
+            ["IdleWorkTests.Messages"] = "Idle work: message ordering and bounded batches",
+            ["IdleWorkTests.Scheduling"] = "Idle work: elapsed-time scheduling",
+            ["IdleWorkTests.Titles"] = "Idle work: sidebar title invalidation",
+            ["EcoWorkTests.Maintenance"] = "Eco: maintenance transitions",
+            ["EcoWorkTests.Membership"] = "Eco: colony membership revisions",
+            ["UsageReadoutTests.Usage"] = "Usage readout: usage snapshot and settings invalidation",
+            ["UsageReadoutTests.Clock"] = "Usage readout: clock boundaries and locale",
+            ["UiMetricsTests.Values"] = "UI metrics: density and font floors",
+            ["UiMetricsTests.Invalidation"] = "UI metrics: invalidation channels",
+            ["ScrollableGeometryTests.Policies"] = "Scrollable geometry: named reservation policy",
+            ["SandboxLayoutTests.Placement"] = "Sandbox layout: master/detail geometry",
+            ["SandboxEditorLayoutTests.Geometry"] = "Sandbox editor layout: rows and visibility",
+            ["SettingsLayoutTests.Bounds"] = "Settings layout: bounded page and footer",
+            ["SettingsLayoutTests.Measurement"] = "Settings layout: frame-stable content height",
+            ["WorkspacePanelTests.Lifecycle"] = "Workspace panels: ownership and focus lifecycle",
+            ["WorkspacePanelTests.Geometry"] = "Terminal panels: independent geometry",
+            ["WorkspacePanelTests.SplitLifecycle"] = "Workspace split: focus and retention",
+            ["WorkspacePanelTests.SplitGeometry"] = "Workspace split: bounded geometry",
+            ["FieldFocusTests.Availability"] = "Field focus: live form changes",
+            ["FieldFocusTests.Restoration"] = "Field focus: restoration and owner isolation",
+        };
+
         static string Label(Type type)
         {
             var name = type.Name.Substring(0, type.Name.Length - "Tests".Length);
-            return name == "Json" ? "JVal" : name == "Toml" ? "TOML" : name == "ModBugfix"
-                ? "Mod bugfix" : name;
-        }
-
-        static string NamedLabel(Type type, MethodInfo method)
-        {
-            var key = type.Name + "." + method.Name;
-            switch (key)
+            switch (name)
             {
-                case "ModSettingsTests.Persistence": return "ModSettings: persistence";
-                case "FramePolicyTests.Transitions": return "FramePolicy: focus and settings transitions";
-                case "IdleWorkTests.Messages": return "Idle work: message ordering and bounded batches";
-                case "IdleWorkTests.Scheduling": return "Idle work: elapsed-time scheduling";
-                case "IdleWorkTests.Titles": return "Idle work: sidebar title invalidation";
-                case "EcoWorkTests.Maintenance": return "Eco: maintenance transitions";
-                case "EcoWorkTests.Membership": return "Eco: colony membership revisions";
-                case "EcoWorkTests.Usage": return "Eco: usage snapshot and settings invalidation";
-                case "EcoWorkTests.Clock": return "Eco: clock boundaries and locale";
-                case "HubCatalogTests.Ordering": return "HubCatalog: ordering";
-                case "WorkspaceLayoutTests.Geometry": return "Workspace: geometry";
-                case "UiMetricsTests.Values": return "UI metrics: density and font floors";
-                case "UiMetricsTests.Invalidation": return "UI metrics: invalidation channels";
-                case "UiCompositionTests.Arrange": return "UI composition: measure and arrange";
-                case "ScrollableGeometryTests.Policies": return "Scrollable geometry: named reservation policy";
-                case "SandboxLayoutTests.Placement": return "Sandbox layout: master/detail geometry";
-                case "SandboxEditorLayoutTests.Geometry": return "Sandbox editor layout: rows and visibility";
-                case "SettingsLayoutTests.Bounds": return "Settings layout: bounded page and footer";
-                case "SettingsLayoutTests.Measurement": return "Settings layout: frame-stable content height";
-                case "WorkspacePanelTests.Lifecycle": return "Workspace panels: ownership and focus lifecycle";
-                case "WorkspacePanelTests.Geometry": return "Terminal panels: independent geometry";
-                case "WorkspacePanelTests.SplitLifecycle": return "Workspace split: focus and retention";
-                case "WorkspacePanelTests.SplitGeometry": return "Workspace split: bounded geometry";
-                case "FieldFocusTests.Availability": return "Field focus: live form changes";
-                case "FieldFocusTests.Restoration": return "Field focus: restoration and owner isolation";
-                default: return Label(type) + ": " + method.Name;
+                case "Json": return "JVal";
+                case "Toml": return "TOML";
+                default: return name;
             }
         }
+
+        static string NamedLabel(Type type, MethodInfo method) =>
+            MethodLabels.TryGetValue(type.Name + "." + method.Name, out var label)
+                ? label : Label(type) + ": " + method.Name;
     }
 }

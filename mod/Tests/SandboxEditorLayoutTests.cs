@@ -7,6 +7,7 @@ namespace SlopWorld.Tests
     {
         public static void Geometry()
         {
+            var previousHub = SessionHub.Instance;
             SessionHub.Instance = new SessionHub();
             SessionHub.Instance.Presets.Add(new PresetInfo { Name = "global" });
             SessionHub.Instance.Presets.Add(new PresetInfo { Name = "one" });
@@ -23,23 +24,23 @@ namespace SlopWorld.Tests
                             Description = new string('x', 100),
                             Escapes = "host access",
                         };
-                        preset.Ro.Add(" /raw/path ");
+                        preset.Ro.Add(" /raw/path " + $" ({source}, width {width})");
                         preset.Setenv["A"] = " value ";
                         var page = new SandboxPage();
                         string before = preset.ToJson();
                         EditorTrace.Draws.Clear();
                         EditorTrace.EditValue = "measurement must not edit";
                         float measured = page.TestPreset(preset, width, false);
-                        AssertEx.Equal(0, EditorTrace.Draws.Count, "preset measurement invokes no controls");
-                        AssertEx.Equal(before, preset.ToJson(), "preset measurement preserves draft data");
+                        AssertEx.Equal(0, EditorTrace.Draws.Count, "preset measurement invokes no controls" + $" ({source}, width {width})");
+                        AssertEx.Equal(before, preset.ToJson(), "preset measurement preserves draft data" + $" ({source}, width {width})");
                         EditorTrace.EditValue = null;
                         AssertEx.Equal(measured, page.TestPreset(preset, width, true),
-                            "preset draw and measurement use the same geometry");
+                            "preset draw and measurement use the same geometry" + $" ({source}, width {width})");
                         var description = EditorTrace.Draws.Single(d => d.Name == "preset.description").Rect;
-                        AssertEx.True(description.height > 44f, "real form expands wrapped descriptions");
+                        AssertEx.True(description.height > 44f, "real form expands wrapped descriptions" + $" ({source}, width {width})");
                         AssertEx.True(EditorTrace.Draws.Where(d => d.Name.StartsWith("preset."))
                             .All(d => d.Rect.width == width && d.Rect.yMax <= measured),
-                            "preset fields remain inside the measured extent");
+                            "preset fields remain inside the measured extent" + $" ({source}, width {width})");
                         CheckHost(page, preset, null, width);
 
                         var command = new CommandInfo { Name = "agent", Source = source };
@@ -47,14 +48,14 @@ namespace SlopWorld.Tests
                         EditorTrace.Draws.Clear();
                         EditorTrace.EditValue = "measurement must not edit";
                         measured = page.TestCommand(command, width, false);
-                        AssertEx.Equal(0, EditorTrace.Draws.Count, "command measurement invokes no controls");
-                        AssertEx.Equal(before, command.ToJson(), "command measurement preserves draft data");
+                        AssertEx.Equal(0, EditorTrace.Draws.Count, "command measurement invokes no controls" + $" ({source}, width {width})");
+                        AssertEx.Equal(before, command.ToJson(), "command measurement preserves draft data" + $" ({source}, width {width})");
                         EditorTrace.EditValue = null;
                         AssertEx.Equal(measured, page.TestCommand(command, width, true),
-                            "command draw and measurement use the same geometry");
+                            "command draw and measurement use the same geometry" + $" ({source}, width {width})");
                         AssertEx.Equal("check:one,check:two", string.Join(",",
                             EditorTrace.Draws.Where(d => d.Name.StartsWith("check:")).Select(d => d.Name)),
-                            "command dependencies retain catalog order and omit global");
+                            "command dependencies retain catalog order and omit global" + $" ({source}, width {width})");
                         CheckHost(page, null, command, width);
                     }
 
@@ -68,7 +69,7 @@ namespace SlopWorld.Tests
             {
                 EditorTrace.EditValue = null;
                 EditorTrace.Draws.Clear();
-                SessionHub.Instance = new SessionHub();
+                SessionHub.Instance = previousHub;
             }
         }
 

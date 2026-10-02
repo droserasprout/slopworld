@@ -11,8 +11,8 @@ namespace SlopWorld.Tests
         {
             yield return ("recognition does not require a title", UntitledPlaybackIsEligible);
             yield return ("muted and stopped playback is ineligible", MutedAndStoppedAreIneligible);
-            yield return ("a stopped track rejects its late result", StopInvalidatesRecognition);
-            yield return ("cancellation rejects an otherwise successful result", CancellationWins);
+            yield return ("recognition state rejects results after stop or source replacement", StopInvalidatesRecognition);
+            yield return ("CanApply rejects a successful result after cancellation", CancellationWins);
             yield return ("native OST paths become structured tracks", NativePathMapping);
             yield return ("native likes keep each sampled track", NativeTracksStayDistinct);
             yield return ("a missing native track writes nothing", MissingNativeTrackWritesNothing);
@@ -20,10 +20,7 @@ namespace SlopWorld.Tests
 
         sealed class FakeRecognition : IRecognitionService
         {
-            readonly ManualResetEventSlim _gate;
             public int Calls;
-
-            public FakeRecognition(ManualResetEventSlim gate = null) { _gate = gate; }
 
             public AudioInput SelectInput(CancellationToken cancel) =>
                 new AudioInput(null, "fixture input");
@@ -31,7 +28,6 @@ namespace SlopWorld.Tests
             public RecognitionResult Recognize(AudioInput input, CancellationToken cancel)
             {
                 Calls++;
-                _gate?.Wait();
                 return new RecognitionResult
                 {
                     Status = RecognitionStatus.Ok,

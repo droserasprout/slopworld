@@ -1,10 +1,11 @@
+using NUnit.Framework;
 using System;
 
 namespace SlopWorld.Tests
 {
     static class WorkspaceLayoutTests
     {
-        public static void Geometry()
+        public static void Placement()
         {
             var left = WorkspaceLayout.Compute(1920f, 1080f, true, true,
                 NavigationSide.Left, 210f, 26f);
@@ -32,6 +33,10 @@ namespace SlopWorld.Tests
             AssertEx.Equal(0f, cutscene.TopBar.height, "cutscene hides top bar layout");
             AssertEx.Equal(1920f, cutscene.Content.width, "cutscene restores full width");
 
+        }
+
+        public static void TinyBoundsRemainNonnegative()
+        {
             var narrow = WorkspaceLayout.Compute(100f, 50f, true, true,
                 NavigationSide.Left, 210f, 80f);
             AssertEx.True(narrow.Navigation.width >= 0f && narrow.Content.width >= 0f,
@@ -51,6 +56,10 @@ namespace SlopWorld.Tests
                 && tinyRight.Content.height >= 0f,
                 "tiny right-side geometry is nonnegative");
 
+        }
+
+        public static void RevisionStability()
+        {
             var first = WorkspaceLayout.Compute(800f, 600f, true, true,
                 NavigationSide.Left, 210f, 26f, 1);
             var second = WorkspaceLayout.Compute(800f, 600f, true, true,
@@ -68,10 +77,24 @@ namespace SlopWorld.Tests
             AssertEx.Equal(current.Revision, WorkspaceLayout.Current.Revision,
                 "ad hoc computation cannot invalidate the retained workspace snapshot");
 
+        }
+
+        public static void Normalization()
+        {
             AssertEx.Equal(NavigationSide.Left,
                 NavigationSide.Normalize("unknown"), "unknown side falls back left");
             AssertEx.Equal(UiDensityPreset.Default,
                 UiDensityPreset.Normalize("unknown"), "unknown density falls back default");
         }
+        public static void PreferenceLabelsUseNormalizedFallbacks()
+        {
+            Assert.That(NavigationSide.Label("RIGHT"), Is.EqualTo("Right"));
+            Assert.That(NavigationSide.Label(null), Is.EqualTo("Left"));
+            Assert.That(NavigationSide.Label("unknown"), Is.EqualTo("Left"));
+            Assert.That(UiDensityPreset.Label("COMPACT"), Is.EqualTo("Compact"));
+            Assert.That(UiDensityPreset.Label(null), Is.EqualTo("Default"));
+            Assert.That(UiDensityPreset.Label("unknown"), Is.EqualTo("Default"));
+        }
+
     }
 }

@@ -15,6 +15,15 @@ namespace SlopWorld.Tests
                     AssertEx.True(body.YMax <= footer.Y, "body never overlaps footer");
                     Contained(page, SettingsLayout.Body(page, 16f, 0f, 8f));
                 }
+            var representative = new UiLayoutRect(17f, 31f, 300f, 600f);
+            var expectedBody = SettingsLayout.Body(representative, 16f, 32f, 8f);
+            var expectedFooter = SettingsLayout.Footer(representative, 32f);
+            AssertEx.Equal(33f, expectedBody.X, "body inset X");
+            AssertEx.Equal(47f, expectedBody.Y, "body inset Y");
+            AssertEx.Equal(268f, expectedBody.Width, "body width after padding");
+            AssertEx.Equal(528f, expectedBody.Height, "body height after footer gap and padding");
+            AssertEx.Equal(599f, expectedFooter.Y, "footer bottom alignment");
+            AssertEx.Equal(representative.YMax, expectedFooter.YMax, "footer ends at page bottom");
             var full = new UiLayoutRect(0f, 0f, 500f, 600f);
             AssertEx.Equal(40f, SettingsLayout.Body(full, 16f, 0f, 8f).Height -
                 SettingsLayout.Body(full, 16f, 32f, 8f).Height,

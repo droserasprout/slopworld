@@ -118,7 +118,7 @@ namespace SlopWorld.Tests
             Action<Exception> onError = error => throw error;
             var binary = frame.ToByteArray();
             foreach (int count in new[] { 1, 8, 32 })
-                Measure($"screen batch {count} frames / one session", () =>
+                Measure($"screen {count} offered frames / one latest dispatch", () =>
                 {
                     for (int i = 0; i < count; i++) incoming.Enqueue(binary);
                     batch.Read(incoming, onError);
@@ -192,7 +192,12 @@ namespace SlopWorld.Tests
             usage.Sources.Add("openai");
             var config = new DaemonConfig();
             config.UsageItems["claude_session"] = new DaemonConfig.UsageItemConfig { Poll = true };
+            usage.Rows.Add(new UsageRow { Key = "openai_week", Rank = 3, Poll = true });
+            usage.Rows.Add(new UsageRow { Key = "disabled", Rank = 1, Poll = false });
+            usage.Rows.Add(new UsageRow { Key = "claude_session", Rank = 0, Poll = true });
             var rows = new UsageRowsCache();
+            rows.Prepare(usage, config);
+            AssertEx.Sequence(new[] { "claude_session", "openai_week" }, rows.Rows, "benchmark rows exercise enabled ordering");
             // Cold uses the production row builder, to isolate reuse from row-policy changes.
             Measure("topbar quota rows / cold cache", () =>
             {
@@ -325,9 +330,7 @@ namespace SlopWorld.Tests
             var routed = new RoutedSessionRows();
             Compare("routing 10000 sessions / 2500 visible", () =>
             {
-                float height = 0;
-                for (int i = 0; i < 3; i++)
-                    height = RoutedSessionRows.Rebuild(rows, sessions, include, null, 20);
+                float height = RoutedSessionRows.Rebuild(rows, sessions, include, null, 20);
                 return (long)height;
             }, () => (long)routed.Ensure(rows, sessions, 1, 1, "less", "micro", include, null, 20));
             Measure("routing changed revision", () =>

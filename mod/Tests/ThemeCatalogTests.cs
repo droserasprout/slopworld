@@ -32,11 +32,15 @@ namespace SlopWorld.Tests
         public static void RejectsMalformedAndPartialFiles()
         {
             string ui = "version = 1\norder = 0\nid = \"broken\"\nlabel = \"Broken\"\n";
-            string terminal = "version = 1\norder = 0\nid = \"broken\"\nlabel = \"Broken\"\n";
+            string terminal = File.ReadAllText(Path.Combine("mod", "Themes", "Terminal", "slopworld-warm.toml"));
             AssertEx.Throws<FormatException>(() => ThemeCatalog.LoadText(ui, terminal),
                                              "partial UI catalog");
             AssertEx.Throws<FormatException>(() => ThemeCatalog.LoadText("not toml", terminal),
                                              "malformed UI catalog");
+            string validUi = File.ReadAllText(Path.Combine("mod", "Themes", "UI", "slopworld-warm.toml"));
+            AssertEx.Throws<FormatException>(() => ThemeCatalog.LoadText(validUi,
+                "version = 1\nid = \"broken\"\nlabel = \"Broken\"\n"), "partial terminal catalog");
+
         }
 
         public static void RejectsWrongAnsiLength()

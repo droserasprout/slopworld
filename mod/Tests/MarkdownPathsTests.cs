@@ -53,5 +53,49 @@ namespace SlopWorld.Tests
                 AssertEx.False(resolver.IsInsideProject("/work/demo/file"), "unresolved project cannot authorize paths");
             }
         }
+        public static void RejectsImageSchemes()
+        {
+            var resolver = new MarkdownPathResolver("demo", "/work/demo/docs/readme.md",
+                () => "/work/demo");
+            AssertEx.Equal(null, resolver.ResolveImagePath("https://example.test/a.png"),
+                "remote images stay disabled");
+            AssertEx.Equal(null, resolver.ResolveImagePath("data:image/png;base64,AA=="),
+                "data images stay disabled");
+            AssertEx.Equal(null, resolver.ResolveImagePath("ftp://example.test/a.png"),
+                "unsupported image schemes stay disabled");
+        }
+
+        public static void DecodesUriPaths()
+        {
+            var resolver = new MarkdownPathResolver("demo", "/work/demo/docs/readme.md",
+                () => "/work/demo");
+            AssertEx.Equal("/work/demo/docs/my file.md",
+                resolver.ResolvedDestination("my%20file.md?view=raw#section"),
+                "query and fragment are removed before percent decoding");
+            AssertEx.Equal("/work/demo/docs/café.md",
+                resolver.ResolvedDestination("caf%C3%A9.md"), "Unicode URI paths decode");
+            AssertEx.Equal("/work/demo/docs/100%done.md",
+                resolver.ResolvedDestination("100%25done.md"), "encoded literal percent decodes once");
+        }
+
+        public static void RejectsEncodedTraversal()
+        {
+            var resolver = new MarkdownPathResolver("demo", "/work/demo/docs/readme.md",
+                () => "/work/demo");
+            AssertEx.Equal(null, resolver.ResolvedDestination("%2e%2e/%2e%2e/etc/passwd"),
+                "encoded traversal is checked after decoding");
+        }
+
+
+
+    }
+
+    static class MarkdownPathResolverTestExtensions
+    {
+        public static string ResolvedDestination(this MarkdownPathResolver resolver, string source)
+        {
+            resolver.TryResolveLink(source, out var external, out var local);
+            return external == null ? local : external;
+        }
     }
 }

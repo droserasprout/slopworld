@@ -33,7 +33,7 @@ namespace SlopWorld.Tests
             AssertEx.False(money.IsMoney, "money unit without an amount stays percentage-only");
             money.Unit = "USD";
             money.Amount = 2f;
-            AssertEx.False(money.IsMoney, "units are wire-normalized before construction");
+            AssertEx.False(money.IsMoney, "noncanonical unit is not treated as money");
         }
     }
 }

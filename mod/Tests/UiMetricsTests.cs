@@ -29,6 +29,11 @@ namespace SlopWorld.Tests
 
         public static void Invalidation()
         {
+            string density = Settings.S.uiDensity;
+            float scale = Prefs.UIScale;
+            int font = UiFont.RevisionValue, atlas = UiTheme.AtlasRevisionValue;
+            try
+            {
             ModEntry.Instance.settings.uiDensity = UiDensityPreset.Default;
             Verse.Prefs.UIScale = 1f;
             UiFont.RevisionValue = 0;
@@ -60,6 +65,16 @@ namespace SlopWorld.Tests
             UnityEngine.Time.frameCount++;
             AssertEx.True(UiMetrics.TypographyRevision != baseTypography,
                 "font and atlas transitions invalidate typography");
+            }
+            finally
+            {
+                Settings.S.uiDensity = density;
+                Prefs.UIScale = scale;
+                UiFont.RevisionValue = font;
+                UiTheme.AtlasRevisionValue = atlas;
+                UnityEngine.Time.frameCount++;
+                UiMetrics.BeginFrame();
+            }
         }
     }
 }

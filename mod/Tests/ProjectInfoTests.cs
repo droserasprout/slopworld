@@ -7,7 +7,7 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
-            yield return ("uses daemon metadata for temporary paths", BuildsTemporaryPaths);
+            yield return ("missing temporary path metadata stays unavailable", MissingTemporaryMetadata);
             yield return ("ignores stale temporary previews", IgnoresStaleTemporaryPreviews);
             yield return ("coalesces and bounds temporary preview retries", CoalescesPreviewRequests);
             yield return ("temporary preview resumes after mode is disabled", ResumesAfterDisable);
@@ -92,7 +92,7 @@ namespace SlopWorld.Tests
             }
         }
 
-        static void BuildsTemporaryPaths()
+        static void MissingTemporaryMetadata()
         {
             AssertEx.Equal("", ProjectInfo.TempRoot, "missing temp metadata is unavailable");
         }

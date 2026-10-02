@@ -15,7 +15,7 @@ namespace SlopWorld.Tests
         static void ErrandExecution()
         {
             var empty = LibraryItemInfo.FromWire(ProtobufFixtures.Read<Wire.LibraryItem>(JVal.Parse("{}")));
-            AssertEx.True(!empty.Host && empty.AgentTemplate == "", "entries require an execution choice");
+            AssertEx.True(!empty.Host && empty.AgentTemplate == "", "missing wire fields leave the execution choice unset");
             var item = new LibraryItemInfo { Name = "review", AgentTemplate = "reviewer" };
             var parsed = LibraryItemInfo.FromWire(ProtobufFixtures.Read<Wire.LibraryItem>(JVal.Parse(item.ToJson())));
             AssertEx.Equal("reviewer", parsed.AgentTemplate, "template choice survives wire");

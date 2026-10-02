@@ -128,7 +128,9 @@ namespace SlopWorld.Tests
                     case "state/reset": store.ResetState("a/b c", fail); break;
                     case "remove": store.Remove("a/b c", fail); break;
                     case "label": store.SetLabel("a/b c", null, ok, fail); break;
-                    default: store.Save(new SessionInfo { Name = "a/b c", Cmd = "echo hello" }, operation == "create", "a/b c", ok, fail); break;
+                    case "create": store.Save(new SessionInfo { Name = "a/b c", Cmd = "echo hello" }, true, "a/b c", ok, fail); break;
+                    case "edit": store.Save(new SessionInfo { Name = "a/b c", Cmd = "echo hello" }, false, "a/b c", ok, fail); break;
+                    default: throw new ArgumentOutOfRangeException(nameof(operation), operation, "Unknown operation");
                 }
                 var request = requests.Single();
                 string root = WireProtocol.Routes.Sessions;
@@ -186,5 +188,65 @@ namespace SlopWorld.Tests
             }
             finally { DaemonClient.Requests.Clear(); }
         }
+        public static void SessionRenameSettles()
+        {
+            var store = RenameStore("old");
+            var edited = new SessionInfo { Name = "new" };
+            bool failed = false;
+            store.Save(edited, false, "old", () => { }, _ => failed = true);
+            AssertEx.True(store.TryPendingRename("old", out var destination) && destination == "new",
+                           "rename is pending before response");
+
+            // Pushed list first: the reverse lookup keeps the colony aware of the source.
+            store.ApplySessions(RenameSnapshot("new"));
+            AssertEx.True(store.TryPendingRenameSource("new", out var source) && source == "old",
+                           "pushed destination exposes pending source");
+            RenameRequest("PUT").Ok(JVal.Null);
+            AssertEx.False(store.TryPendingRename("old", out _), "success settles pending rename");
+            AssertEx.False(failed, "success did not call failure");
+            AssertEx.True(store.Get("new") != null, "destination remains in store");
+
+            // Callback first: the local rename settles the mapping before the next push.
+            store = RenameStore("old");
+            store.Save(edited, false, "old", () => { }, _ => failed = true);
+            RenameRequest("PUT").Ok(JVal.Null);
+            AssertEx.False(store.TryPendingRename("old", out _), "callback-first success settles");
+            store.ApplySessions(RenameSnapshot("new"));
+            AssertEx.True(store.Get("new") != null, "callback-first push keeps destination");
+
+            // A failed request removes the exemption, and deleting a session remains ordinary.
+            store = RenameStore("old");
+            store.Save(edited, false, "old", () => { }, _ => failed = true);
+            RenameRequest("PUT").Fail("rejected");
+            AssertEx.True(failed, "failure callback ran");
+            AssertEx.False(store.TryPendingRename("old", out _), "failure settles pending rename");
+            store.ApplySessions(RenameSnapshot());
+            AssertEx.True(store.Get("old") == null, "deleted session is gone");
+        }
+
+        static SessionStore RenameStore(string name)
+        {
+            DaemonClient.Requests.Clear();
+            var store = new SessionStore();
+            store.ApplySessions(RenameSnapshot(name));
+            return store;
+        }
+
+        static DaemonClient.Request RenameRequest(string method) =>
+            DaemonClient.Requests.Last(r => r.Method == method);
+
+        static Wire.SessionsReply RenameSnapshot(string name = null)
+        {
+            var reply = new Wire.SessionsReply();
+            if (name != null) reply.Sessions.Add(new Wire.SessionView {
+                Name = name,
+                Launch = new Wire.SessionLaunchView(),
+                Worker = new Wire.SessionWorkerView(),
+                Reader = new Wire.SessionReaderView(),
+                Runtime = new Wire.SessionRuntimeView { Alive = true, State = "working" },
+            });
+            return reply;
+        }
+
     }
 }

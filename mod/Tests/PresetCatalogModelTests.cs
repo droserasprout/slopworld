@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace SlopWorld.Tests
 {
-    static class PresetCopyTests
+    static class PresetCatalogModelTests
     {
         static PresetInfo Preset() => new PresetInfo
         {
@@ -22,18 +22,26 @@ namespace SlopWorld.Tests
             var copy = original.Copy();
             AssertEx.Equal(original.ToWire(), copy.ToWire(), "all editable fields survive copying");
             AssertEx.Equal("override", copy.Source, "response metadata survives copying");
-            var originalLists = new[] { original.Requires, original.Ro, original.Rw, original.Dev,
-                original.Env, original.Private, original.Shared, original.Seed, original.Skip };
-            var copiedLists = new[] { copy.Requires, copy.Ro, copy.Rw, copy.Dev,
-                copy.Env, copy.Private, copy.Shared, copy.Seed, copy.Skip };
-            for (int i = 0; i < copiedLists.Length; i++)
+            var collections = new (string Name, List<string> Original, List<string> Copy)[]
             {
-                string value = originalLists[i][0];
-                copiedLists[i][0] = "changed";
-                copiedLists[i].Add("added");
-                AssertEx.Sequence(new[] { value }, originalLists[i], "copy edits leave source list " + i);
-                originalLists[i].Clear();
-                AssertEx.Sequence(new[] { "changed", "added" }, copiedLists[i], "source edits leave copy list " + i);
+                ("Requires", original.Requires, copy.Requires),
+                ("Ro", original.Ro, copy.Ro),
+                ("Rw", original.Rw, copy.Rw),
+                ("Dev", original.Dev, copy.Dev),
+                ("Env", original.Env, copy.Env),
+                ("Private", original.Private, copy.Private),
+                ("Shared", original.Shared, copy.Shared),
+                ("Seed", original.Seed, copy.Seed),
+                ("Skip", original.Skip, copy.Skip),
+            };
+            foreach (var pair in collections)
+            {
+                string value = pair.Original[0];
+                pair.Copy[0] = "changed";
+                pair.Copy.Add("added");
+                AssertEx.Sequence(new[] { value }, pair.Original, "copy edits leave source " + pair.Name);
+                pair.Original.Clear();
+                AssertEx.Sequence(new[] { "changed", "added" }, pair.Copy, "source edits leave copy " + pair.Name);
             }
             copy.Setenv["MODE"] = "changed";
             copy.Setenv["NEW"] = "value";

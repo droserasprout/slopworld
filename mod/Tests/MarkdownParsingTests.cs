@@ -15,11 +15,11 @@ namespace SlopWorld.Tests
         {
             foreach (string tag in new[] { "b", "strong", "i", "em", "code", "kbd", "samp", "del", "s", "strike" })
                 yield return ("HTML style scope: " + tag, () => HtmlStyleScope(tag));
-            foreach (var dimension in new[] { ("32px", 32f), ("12.5", 12.5f), ("50%", 0f), ("-1", 0f), ("bad", 0f) })
-                yield return ("HTML image dimension: " + dimension.Item1, () =>
+            foreach (var dimension in new[] { (Input: "32px", ExpectedWidth: 32f), (Input: "12.5", ExpectedWidth: 12.5f), (Input: "50%", ExpectedWidth: 0f), (Input: "-1", ExpectedWidth: 0f), (Input: "bad", ExpectedWidth: 0f) })
+                yield return ("HTML image dimension: " + dimension.Input, () =>
                 {
-                    var image = Parse("before <img src='figure.png' width='" + dimension.Item1 + "' height='16PX'>")[0].Runs.Single(r => r.IsImage);
-                    AssertEx.Equal(dimension.Item2, image.ImageWidth, "absolute positive dimensions only");
+                    var image = Parse("before <img src='figure.png' width='" + dimension.Input + "' height='16PX'>")[0].Runs.Single(r => r.IsImage);
+                    AssertEx.Equal(dimension.ExpectedWidth, image.ImageWidth, "absolute positive dimensions only");
                     AssertEx.Equal(16f, image.ImageHeight, "pixel suffix is case insensitive");
                 });
         }
@@ -27,9 +27,13 @@ namespace SlopWorld.Tests
         static void HtmlStyleScope(string tag)
         {
             var runs = Parse("before <" + tag + ">outer <" + tag + ">inner</" + tag + "> tail</" + tag + "> after")[0].Runs;
+            int offset = 0;
             foreach (var run in runs)
             {
-                bool styled = run.Text != "before " && run.Text != " after";
+                int end = offset + run.Text.Length;
+                bool styled = offset >= "before ".Length && end <= "before outer inner tail".Length;
+                AssertEx.True(styled || end <= "before ".Length || offset >= "before outer inner tail".Length, "run does not cross a style boundary");
+                offset = end;
                 AssertEx.Equal(styled && (tag == "b" || tag == "strong"), run.Bold, "bold scope");
                 AssertEx.Equal(styled && (tag == "i" || tag == "em"), run.Italic, "italic scope");
                 bool code = styled && (tag == "code" || tag == "kbd" || tag == "samp");
@@ -143,5 +147,56 @@ namespace SlopWorld.Tests
             AssertEx.Equal(2, table.Rows[0].Cells.Count, "table has two visible columns");
             AssertEx.Sequence(new[] { TableAlignment.Left, TableAlignment.Left }, table.ColumnAlignments.Take(2), "explicit and implicit left alignment");
         }
+        public static void ListTightness()
+        {
+            var tight = PreviewParser().Parse("- one\n- two")[0];
+            var loose = PreviewParser().Parse("- one\n\n- two")[0];
+            AssertEx.True(tight.Kind == BlockKind.List && tight.Tight,
+                "ordinary list is tight");
+            AssertEx.True(loose.Kind == BlockKind.List && !loose.Tight,
+                "blank item separation preserves loose list semantics");
+        }
+
+        public static void SixHeadingLevels()
+        {
+            var blocks = PreviewParser().Parse("# one\n\n## two\n\n### three\n\n#### four\n\n##### five\n\n###### six");
+            AssertEx.Equal(6, blocks.Count, "all heading blocks are retained");
+            for (int i = 0; i < blocks.Count; i++)
+                AssertEx.Equal(i + 1, blocks[i].Level, "heading level " + (i + 1));
+        }
+
+        public static void ImagesKeepAltText()
+        {
+            var blocks = PreviewParser().Parse("![diagram](diagram.png)\n\n![][missing]\n\n[missing]: empty.png");
+            var first = blocks[0].Runs[0];
+            var second = blocks[1].Runs[0];
+
+            AssertEx.True(first.IsImage, "ordinary markdown image is an image run");
+            AssertEx.Equal("diagram", first.ImageAlt, "ordinary image keeps alt text");
+            AssertEx.Equal("diagram.png", first.ImagePath, "ordinary image keeps source path");
+            AssertEx.True(second.IsImage, "reference markdown image is an image run");
+            AssertEx.Equal("", second.ImageAlt, "empty alt text is retained exactly");
+            AssertEx.Equal("empty.png", second.ImagePath, "reference image resolves its definition");
+        }
+
+        public static void LinkedImagesKeepLinks()
+        {
+            var blocks = PreviewParser().Parse("[![diagram](diagram.png)](other.md)");
+            var image = blocks[0].Runs[0];
+
+            AssertEx.True(image.IsImage, "linked image remains an image run");
+            AssertEx.Equal("diagram", image.ImageAlt, "linked image keeps alt text");
+            AssertEx.Equal("/work/demo/docs/other.md", image.LocalLink,
+                "enclosing relative link is retained");
+            AssertEx.Equal(null, image.Link, "local image link has no external URL");
+        }
+
+        static MarkdownDocumentParser PreviewParser()
+        {
+            var paths = new MarkdownPathResolver("demo", "/work/demo/docs/readme.md",
+                () => "/work/demo");
+            return new MarkdownDocumentParser(paths);
+        }
+
     }
 }

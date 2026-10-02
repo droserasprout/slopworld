@@ -3,7 +3,7 @@ using NUnit.Framework;
 
 namespace SlopWorld.Tests
 {
-    static class ConfigDraftNormalizationTests
+    static class DaemonConfigDraftTests
     {
         public static void NormalizationOnlyTouchesUneditedFieldsAndCanBeCanceled()
         {

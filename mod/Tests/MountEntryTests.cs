@@ -42,7 +42,8 @@ namespace SlopWorld.Tests
 
             var wire = mounts.Select(m => m.ToWire()).ToList();
             var roundTrip = MountEntry.ListFromWire(wire);
-            AssertEx.Equal(wire[0], roundTrip[0].ToWire(), "mount binary model round trip");
+            AssertEx.Equal(wire.Count, roundTrip.Count, "wire mount count round trip");
+            AssertEx.Sequence(wire, roundTrip.Select(m => m.ToWire()), "wire mount model round trip");
             AssertEx.Equal(0, MountEntry.ListFromWire(new Wire.Mount[0]).Count, "empty mount list");
         }
     }

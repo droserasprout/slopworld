@@ -122,8 +122,22 @@ namespace SlopWorld.Tests
         {
             var usage = UsageInfo.FromWire(ProtobufFixtures.Read<Wire.UsageSnapshot>(JVal.Parse(
                 "{\"ok\":false,\"sources\":[\"anthropic\"]," +
-                "\"catalog\":[{\"key\":\"claude_session\",\"label\":\"Claude session\",\"provider\":\"anthropic\",\"unit\":\"pct\",\"rank\":0,\"default_poll\":true}]," +
-                "\"rows\":[{\"key\":\"claude_session\",\"label\":\"Claude session\",\"provider\":\"anthropic\",\"unit\":\"pct\",\"rank\":0,\"poll\":true,\"stale\":true,\"window\":null}]," +
+                "\"catalog\":[{" +
+                "\"key\":\"claude_session\"," +
+                "\"label\":\"Claude session\"," +
+                "\"provider\":\"anthropic\"," +
+                "\"unit\":\"pct\"," +
+                "\"rank\":0," +
+                "\"default_poll\":true}]," +
+                "\"rows\":[{" +
+                "\"key\":\"claude_session\"," +
+                "\"label\":\"Claude session\"," +
+                "\"provider\":\"anthropic\"," +
+                "\"unit\":\"pct\"," +
+                "\"rank\":0," +
+                "\"poll\":true," +
+                "\"stale\":true," +
+                "\"window\":null}]," +
                 "\"windows\":[]}")));
             AssertEx.Equal(1, usage.Rows.Count, "daemon row remains visible");
             AssertEx.True(usage.Rows[0].Window == null, "missing value is not fabricated");

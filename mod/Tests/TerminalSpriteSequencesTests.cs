@@ -41,6 +41,9 @@ namespace SlopWorld.Tests
             AssertEx.Equal(3, incomplete.Count, "incomplete longer key keeps trailing runs");
             AssertEx.Equal("ab", incomplete[0].Text, "retain the last complete key");
             AssertEx.Equal("c", incomplete[1].Text, "unmatched suffix stays separate");
+            AssertEx.Equal("x", incomplete[2].Text, "following text remains intact");
+            AssertEx.Equal(3, incomplete[2].Col, "following text retains its column");
+            AssertEx.Equal(1, incomplete[2].Columns, "following text retains its width");
 
             foreach (var second in new[]
             {

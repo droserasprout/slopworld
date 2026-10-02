@@ -2,7 +2,7 @@ namespace SlopWorld.Tests
 {
     static class ScrollSampleDeltaTests
     {
-        public static void FractionalMovementSurvivesRecentSamplesIncludingSameFrameRefresh()
+        public static void FractionalMovementSurvivesRecentSamples()
         {
             var motion = new ScrollSampleDelta();
             AssertEx.Equal(false, motion.Read(5, 10, 1, 1.01, out _, out _), "first snapshot is baseline");

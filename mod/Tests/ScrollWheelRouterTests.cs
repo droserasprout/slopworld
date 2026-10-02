@@ -78,6 +78,7 @@ namespace SlopWorld.Tests
             SmoothScroll.WheelOnly = false;
             router.Draw(bounds, draw);
             SmoothScroll.WheelOnly = true;
+            SmoothScroll.WheelOnly = true;
             router.Draw(bounds, draw);
             Assert.That(draws, Is.EqualTo(3));
         }
@@ -100,10 +101,13 @@ namespace SlopWorld.Tests
             SmoothScroll.WheelOnly = true;
             router.Draw(bounds, draw);
             Assert.That(draws, Is.EqualTo(2));
+            SmoothScroll.WheelOnly = false;
+            router.Draw(bounds, () => { using (scroll.Scope(bounds, bounds)) { } });
             Assert.Throws<InvalidOperationException>(() => router.Draw(bounds, () =>
             {
                 using (scroll.Scope(bounds, bounds)) throw new InvalidOperationException();
             }));
+            SmoothScroll.WheelOnly = true;
             router.Draw(bounds, draw);
             Assert.That(draws, Is.EqualTo(3));
         }

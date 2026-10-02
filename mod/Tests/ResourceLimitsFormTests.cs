@@ -87,14 +87,33 @@ namespace SlopWorld.Tests
             Assert.That(saved.MemoryMb, Is.Null);
         }
 
-        [Test]
-        public void AgentCanClearItsCap()
+        [TestCase("limits.memory")]
+        [TestCase("limits.pids")]
+        [TestCase("limits.nofile")]
+        [TestCase("limits.cpu")]
+        public void EditsValidateAndPreserveOtherFields(string id)
         {
-            var form = new ResourceLimitsForm(new SessionLimits { MemoryMb = 4096 });
-            UiControls.FormEdits["limits.memory"] = "";
-            form.Draw(_listing);
-            Assert.That(form.TrySave(out var saved, out _), Is.True);
-            Assert.That(saved.MemoryMb, Is.Null);
+            var baseline = new SessionLimits { MemoryMb = 256, Pids = 512, Nofile = 1024, CpuPct = 75 };
+            var form = new ResourceLimitsForm(baseline);
+            foreach (string text in new[] { "123", "", "invalid", "4294967296", "456" })
+            {
+                UiControls.FormEdits[id] = text;
+                form.Draw(_listing);
+                bool valid = text == "123" || text == "" || text == "456";
+                Assert.That(form.TrySave(out var saved, out _), Is.EqualTo(valid), id + ": " + text);
+                if (!valid) continue;
+                var expected = SessionLimits.FromWire(baseline.ToWire());
+                uint? value = text.Length == 0 ? null : uint.Parse(text);
+                switch (id)
+                {
+                    case "limits.memory": expected.MemoryMb = value; break;
+                    case "limits.pids": expected.Pids = value; break;
+                    case "limits.nofile": expected.Nofile = value; break;
+                    case "limits.cpu": expected.CpuPct = value; break;
+                    default: throw new System.ArgumentOutOfRangeException(nameof(id));
+                }
+                Assert.That(saved.ToWire(), Is.EqualTo(expected.ToWire()), "only edited field changes: " + id);
+            }
         }
     }
 }

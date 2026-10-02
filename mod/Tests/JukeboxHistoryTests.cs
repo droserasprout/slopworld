@@ -13,6 +13,15 @@ namespace SlopWorld.Tests
             yield return ("returns nothing for an empty file", EmptyFile);
         }
 
+        public static void LaterLikesAppearBeforeEarlierLikes()
+        {
+            var entries = JukeboxHistory.Parse("[[like]]\nat = \"2024-01-01T00:00:00Z\"\ntitle = \"Earlier\"\n" +
+                "[[like]]\nat = \"2024-01-02T00:00:00Z\"\ntitle = \"Later\"\n");
+            AssertEx.Equal(2, entries.Count, "both likes retained");
+            AssertEx.Equal("Later", entries[0].Title, "last appended like is first");
+            AssertEx.Equal("Earlier", entries[1].Title, "earlier like follows");
+        }
+
         static void RecognizedLike()
         {
             string text = string.Join("\n", new[]

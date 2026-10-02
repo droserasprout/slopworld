@@ -16,7 +16,7 @@ namespace SlopWorld.Tests
             var lines = new List<SelectionLine>();
             MarkdownSelectionText.CollectText(lines, layout, 0, 0);
             return MarkdownSelectionText.CopyRange(lines, new Vector2Int(0, 0),
-                new Vector2Int(lines.Last().Text.Length, lines.Count - 1));
+                new Vector2Int(lines.Last().Text.Length, lines.Count - 1)) + (lines.Last().Source.CopySuffix ?? "");
         }
 
         public static IEnumerable<(string Name, Action Body)> Cases()
@@ -135,5 +135,94 @@ namespace SlopWorld.Tests
             Assert.That(wrapped.Lines.Last().LogicalOffset, Is.EqualTo(source.Length));
             Assert.That(wrapped.Lines.Last().LogicalLength, Is.Zero);
         }
+        public static void CodeContinuations()
+        {
+            var layout = PreviewWrap("abcdef", 3f, true);
+            AssertEx.True(layout.Lines.Count >= 2, "narrow code wraps into visual lines");
+            AssertEx.True(layout.Lines[1].Continuation,
+                "soft-wrapped code line is visually marked as a continuation");
+            AssertEx.Equal("abcdef", PreviewCopyCodeLines(layout),
+                "continuation treatment does not change copied source");
+        }
+
+        public static void InlineCodePadding()
+        {
+            var run = new InlineRun { Text = "x", Code = true, InlineCode = true };
+            var layout = new MarkdownTextLayout(new StyleSet(), (item, available) =>
+                new ImageMetrics(1, 1)).Wrap(new List<InlineRun> { run }, 100, 0);
+            var piece = layout.Lines[0].Pieces[0];
+            AssertEx.Equal(UiTheme.GapXS, piece.PaddingLeft, "inline chip has left padding");
+            AssertEx.Equal(UiTheme.GapXS, piece.PaddingRight, "inline chip has right padding");
+            AssertEx.Equal(8f + UiTheme.GapXS * 2f, piece.Width,
+                "inline chip width includes both paddings");
+        }
+
+        public static void TypographyInvalidation()
+        {
+            var styles = new StyleSet();
+            var oldNormal = styles.Normal;
+            var layout = new MarkdownTextLayout(styles, (run, available) =>
+                new ImageMetrics(1, 1));
+            layout.InvalidateMetrics();
+            AssertEx.True(!ReferenceEquals(oldNormal, styles.Normal),
+                "metrics invalidation replaces cached styles");
+        }
+
+        public static void HeadingCodeFont()
+        {
+            var styles = new StyleSet();
+            for (int heading = 1; heading <= 6; heading++)
+            {
+                var prose = styles.For(new InlineRun(), heading);
+                var code = styles.For(new InlineRun { Code = true }, heading);
+                AssertEx.True(ReferenceEquals(code.font, TerminalFont.Style.font),
+                    "heading code retains terminal face");
+                int size = prose.fontSize > 0 ? prose.fontSize : prose.font.fontSize;
+                AssertEx.Equal(size, code.fontSize, "code follows heading size even for baked fonts");
+                AssertEx.Equal(styles.MeasureChar(code, 'W'), styles.MeasureChar(code, 'i'),
+                    "code glyph advances stay monospaced");
+            }
+            AssertEx.True(styles.H1.fontSize > styles.H2.fontSize &&
+                styles.H2.fontSize > styles.H3.font.fontSize,
+                "zero-size baked styles still get distinct heading sizes");
+        }
+
+        public static void MixedBaselines()
+        {
+            var styles = new StyleSet();
+            var layout = new MarkdownTextLayout(styles, (run, width) => new ImageMetrics(20, 40))
+                .Wrap(new List<InlineRun>
+                {
+                    new InlineRun { Text = "Wi" },
+                    new InlineRun { Text = "code", Code = true, InlineCode = true },
+                    new InlineRun { IsImage = true },
+                }, 300, 0);
+            var line = layout.Lines[0];
+            AssertEx.True(styles.MeasureChar(styles.Normal, 'W') > styles.MeasureChar(styles.Normal, 'i'),
+                "test exercises unequal proportional advances");
+            var prose = line.Pieces[0];
+            var code = line.Pieces[1];
+            AssertEx.Equal(prose.OffsetY + StyleSet.Baseline(prose.Style),
+                code.OffsetY + StyleSet.Baseline(code.Style), "font ascents share a baseline");
+            foreach (var piece in line.Pieces)
+                AssertEx.True(piece.OffsetY + piece.Height <= line.Height,
+                    "line bounds contain shifted images and font descenders");
+            AssertEx.True(line.Height > 40f, "descenders extend below the inline image baseline");
+        }
+
+        static TextLayout PreviewWrap(string text, float width, bool code = false) =>
+            new MarkdownTextLayout(new StyleSet(), (run, available) => new ImageMetrics(1, 1))
+                .Wrap(new List<InlineRun> { new InlineRun { Text = text, Code = code } }, width, 0);
+
+        static string PreviewCopy(List<SelectionLine> lines) => MarkdownSelectionText.CopyRange(lines,
+            new Vector2Int(0, 0), new Vector2Int(lines[lines.Count - 1].Text.Length, lines.Count - 1)) + (lines[lines.Count - 1].Source.CopySuffix ?? "");
+
+        static string PreviewCopyCodeLines(TextLayout layout)
+        {
+            var lines = new List<SelectionLine>();
+            MarkdownSelectionText.CollectText(lines, layout, 0, 0);
+            return PreviewCopy(lines);
+        }
+
     }
 }

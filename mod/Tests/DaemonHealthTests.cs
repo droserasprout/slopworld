@@ -8,7 +8,7 @@ namespace SlopWorld.Tests
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             yield return ("reads health metadata", ReadsHealthMetadata);
-            yield return ("defaults missing health metadata", DefaultsMissingMetadata);
+            yield return ("defaults a null health response", DefaultsNullResponse);
         }
 
         static void ReadsHealthMetadata()
@@ -20,7 +20,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("slopbox", health.Hostname, "hostname");
         }
 
-        static void DefaultsMissingMetadata()
+        static void DefaultsNullResponse()
         {
             var health = DaemonHealth.FromWire(ProtobufFixtures.Read<Wire.Health>(null));
             AssertEx.False(health.Known, "known");

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Google.Protobuf;
 namespace SlopWorld
 {
+    // Requests are recorded without I/O; tests choose when and which callback completes.
     static class DaemonClient
     {
         const string GetMethod = "GET", PostMethod = "POST", PutMethod = "PUT", DeleteMethod = "DELETE";

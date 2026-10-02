@@ -33,6 +33,7 @@ namespace SlopWorld.Tests
             var agent = SidebarViewLocation.Agent("alpha");
             var file = SidebarViewLocation.File("project", "/project/README.md");
 
+            history.Visit(SidebarViewLocation.Agent("earlier"));
             history.Visit(agent);
             history.Visit(file);
 
@@ -50,6 +51,7 @@ namespace SlopWorld.Tests
             var agent = SidebarViewLocation.Agent("alpha");
             var file = SidebarViewLocation.File("project", "/project/README.md");
             var git = SidebarViewLocation.Git("project", "README.md");
+            history.Visit(SidebarViewLocation.Agent("earlier"));
             history.Visit(agent);
             history.Visit(file);
             history.Visit(git);

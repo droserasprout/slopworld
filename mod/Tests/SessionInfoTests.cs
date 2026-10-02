@@ -37,6 +37,9 @@ namespace SlopWorld.Tests
                 {
                   "name": "agent",
                   "project": "proj",
+                  "worktree": "tree-id",
+                  "worktree_name": "feature",
+                  "intent": "search",
                   "dir": "/work",
                   "ephemeral": true,
                   "host": true,
@@ -71,6 +74,7 @@ namespace SlopWorld.Tests
                       "net"
                     ],
                     "persistent_tmp": true,
+                    "mounts": [{ "from": "shared", "to": "/mnt/shared", "mode": "ro" }],
                     "agent": "/usr/bin/claude",
                     "network": "host",
                     "dns": {
@@ -97,6 +101,13 @@ namespace SlopWorld.Tests
 
             AssertEx.Equal("agent", session.Name, "name");
             AssertEx.Equal("proj", session.Project, "project");
+            AssertEx.Equal("tree-id", session.Worktree, "worktree identity");
+            AssertEx.Equal("feature", session.WorktreeName, "worktree display name");
+            AssertEx.Equal("search", session.Intent, "reader intent");
+            AssertEx.Equal(1, session.Mounts.Count, "mount count");
+            AssertEx.Equal("shared", session.Mounts[0].From, "mount source");
+            AssertEx.Equal("/mnt/shared", session.Mounts[0].To, "mount destination");
+            AssertEx.Equal(MountMode.Ro, session.Mounts[0].Mode, "mount mode");
             AssertEx.Equal("/work", session.Dir, "directory");
             AssertEx.Equal("claude", session.Command, "command");
             AssertEx.Equal("claude", session.CommandPreset, "command preset");
@@ -144,6 +155,7 @@ namespace SlopWorld.Tests
             {
                 Name = "agent",
                 Project = "proj",
+                Worktree = "tree-id",
                 Command = "claude",
                 Cmd = "run --x",
                 Args = "--extra",
@@ -164,6 +176,8 @@ namespace SlopWorld.Tests
 
             AssertEx.Equal("agent", json["name"].AsString(), "written name");
             AssertEx.Equal("proj", json["project"].AsString(), "written project");
+            AssertEx.Equal("claude", json["command"].AsString(), "written command preset");
+            AssertEx.Equal("tree-id", json["worktree"].AsString(), "written worktree identity");
             AssertEx.Equal("run --x", json["cmd"].AsString(), "written command override");
             AssertEx.Equal("--extra", json["args"].AsString(), "written extra arguments");
             AssertEx.Equal("home", json["sandbox"][0].AsString(), "written sandbox");

@@ -18,6 +18,7 @@ namespace SlopWorld.Tests
             GUI.TextLabels.Clear();
             GUI.LabelClippings.Clear();
             GUI.SpriteColors.Clear();
+            GUI.SpriteDraws.Clear();
             GUI.TextGroupDepth = 0;
             GUI.FailSprite = false;
         }
@@ -56,6 +57,22 @@ namespace SlopWorld.Tests
                 AssertEx.Equal(16f, GUI.TextGroups[0].width, "paint clips to caller bounds");
                 AssertEx.Equal(0, GUI.TextGroupDepth, "clip group restored");
             }
+        }
+
+        public static void KnownSpriteUsesAtlasSlotAndCenteredBounds()
+        {
+            var atlas = new Texture2D();
+            Reset(atlas);
+            var layout = InlineTextLayout.CellCluster("😀", 2, 10f, TextSpriteCatalog.Shared);
+            SharedTextRenderer.Draw(layout, new Rect(30, 40, 20, 16), 16f, new GUIStyle());
+            var draw = GUI.SpriteDraws[0];
+            AssertEx.Equal(atlas, draw.Texture, "shipped atlas used");
+            AssertEx.Equal(new Rect(2, 0, 16, 16), draw.Box, "glyph centers in its two-column advance inside clip group");
+            int slot = Array.IndexOf(TextSpriteData.Keys, "😀");
+            AssertEx.True(slot >= 0, "known key has a generated slot");
+            AssertEx.Equal(new Rect(slot % TextSpriteData.AtlasColumns / (float)TextSpriteData.AtlasColumns,
+                (TextSpriteData.AtlasRows - slot / TextSpriteData.AtlasColumns - 1) / (float)TextSpriteData.AtlasRows,
+                1f / TextSpriteData.AtlasColumns, 1f / TextSpriteData.AtlasRows), draw.Uv, "draw samples expected atlas cell");
         }
 
         public static void ArtworkPreservesOpacityAndGuiState()

@@ -31,6 +31,13 @@ namespace SlopWorld.Tests
             AssertEx.Equal(3, queue.Count, "backlog retained");
             AssertEx.Equal(3, batch.Read(queue, _ => errors++), "next frame");
             AssertEx.Equal(0, batch.Read(queue, _ => errors++), "idle");
+        }
+
+        public static void MalformedMessagesAndDeferredDecode()
+        {
+            var queue = new IncomingMessageQueue();
+            var batch = new HubEventBatch();
+            int errors = 0;
             queue.Enqueue(Screen("a", 10)); queue.Enqueue(new byte[] { 0x80 });
             AssertEx.Equal(2, queue.Count, "malformed message cannot replace valid live screen");
             batch.Read(queue, _ => errors++);
@@ -44,15 +51,23 @@ namespace SlopWorld.Tests
             var parsed = new ReceivedEvent(extended);
             AssertEx.Equal("future", parsed.LiveName, "unknown protobuf field remains forward compatible");
             AssertEx.True(new ReceivedEvent(new byte[0]).Error != null, "missing oneof payload rejected");
+        }
+
+        public static void CloseReleasesProducerWaitingForCapacity()
+        {
             var overloaded = new IncomingMessageQueue();
             for (int i = 0; i < IncomingMessageQueue.MaxMessages; i++) overloaded.Enqueue(Control((ulong)i));
             IncomingEnqueueResult blocked = IncomingEnqueueResult.Accepted;
-            using (var started = new ManualResetEvent(false))
+            var producer = new Thread(() => blocked = overloaded.Enqueue(Control(999))) { IsBackground = true };
+            producer.Start();
+            try
             {
-                var producer = new Thread(() => { started.Set(); blocked = overloaded.Enqueue(Control(999)); });
-                producer.Start(); AssertEx.True(started.WaitOne(1000), "producer started");
-                overloaded.Close(); AssertEx.True(producer.Join(1000), "close releases blocked reader");
+                AssertEx.True(SpinWait.SpinUntil(() => (producer.ThreadState & ThreadState.WaitSleepJoin) != 0, 2000),
+                    "producer entered capacity wait before close");
+                overloaded.Close();
+                AssertEx.True(producer.Join(2000), "close releases blocked producer");
             }
+            finally { overloaded.Close(); producer.Join(2000); }
             AssertEx.Equal(IncomingEnqueueResult.Closed, blocked, "backpressure wakes on disconnect");
             AssertEx.Equal(0, overloaded.Count, "close drops queue references");
         }

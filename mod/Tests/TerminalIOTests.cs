@@ -7,6 +7,15 @@ namespace SlopWorld.Tests
 {
     static class TerminalIOTests
     {
+        public static void UnsubscribedRenameEmitsNoCommands()
+        {
+            var sent = new List<Wire.ClientMessage>();
+            var terminal = new TerminalIO(sent.Add);
+            terminal.Rename("closed", "renamed");
+            terminal.Resubscribe();
+            Assert.That(sent, Is.Empty, "unsubscribed names have no socket commands");
+        }
+
         public static void RenameAndReconnect()
         {
             var sent = new List<Wire.ClientMessage>();
@@ -94,18 +103,18 @@ namespace SlopWorld.Tests
         {
             var sent = new List<Wire.ClientMessage>();
             var terminal = new TerminalIO(sent.Add);
-            var invalid = new Action[] {
-                () => terminal.RequestScroll("agent", -1, 1),
-                () => terminal.Resize("agent", -1, 24),
-                () => terminal.Resize("agent", 80, -1),
-                () => terminal.RefreshPanels(-1, 24),
-                () => terminal.RefreshPanels(80, -1),
-                () => terminal.SendMouse("agent", "press", -1, 0, 0),
-                () => terminal.SendMouse("agent", "press", 0, -1, 0),
-                () => terminal.SendMouse("agent", "press", 0, 0, -1),
-                () => terminal.SendMouse("agent", "press", 0, 0, 0, -1),
+            var invalid = new (string Name, Action Run)[] {
+                ("negative scroll offset", () => terminal.RequestScroll("agent", -1, 1)),
+                ("negative columns", () => terminal.Resize("agent", -1, 24)),
+                ("negative rows", () => terminal.Resize("agent", 80, -1)),
+                ("negative redraw columns", () => terminal.RefreshPanels(-1, 24)),
+                ("negative redraw rows", () => terminal.RefreshPanels(80, -1)),
+                ("negative mouse button", () => terminal.SendMouse("agent", "press", -1, 0, 0)),
+                ("negative mouse column", () => terminal.SendMouse("agent", "press", 0, -1, 0)),
+                ("negative mouse row", () => terminal.SendMouse("agent", "press", 0, 0, -1)),
+                ("negative click count", () => terminal.SendMouse("agent", "press", 0, 0, 0, -1)),
             };
-            foreach (var action in invalid) Assert.Throws<OverflowException>(() => action());
+            foreach (var action in invalid) Assert.Throws<OverflowException>(() => action.Run(), action.Name);
             Assert.That(sent, Is.Empty);
         }
         public static void TerminalKeysReportTransportRejection()

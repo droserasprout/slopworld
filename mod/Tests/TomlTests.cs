@@ -28,7 +28,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("abc#123", values["token"], "literal value");
             AssertEx.Equal("a=b # stays in the quoted value", values["query"],
                            "equals and hash in quoted value");
-            AssertEx.Equal("hello", values["plain"], "bare value comment");
+            AssertEx.Equal("hello", values["plain"], "quoted value with trailing comment");
             AssertEx.Equal(4, values.Count, "parsed entry count");
             AssertEx.Equal(0, Toml.ParseFlat(null).Count, "null TOML text");
         }
