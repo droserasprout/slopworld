@@ -82,7 +82,7 @@ namespace SlopWorld
 
         ScreenBuf DisplayedScreen() => _historyCoordinator.DisplayedScreen();
 
-        int RestoredHistoryShift(ScreenBuf live) => _historyCoordinator.RestoredShift(live);
+        int? RestoredHistoryShift(ScreenBuf live) => _historyCoordinator.RestoredShift(live);
 
         bool HistoryInputEnabled(ScreenBuf live) => _historyCoordinator.InputEnabled(live);
 

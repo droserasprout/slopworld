@@ -62,6 +62,9 @@ namespace SlopWorld
                 ? Math.Max(0, live.History - previousHistory) : live.LiveShift;
 
         // Live metadata is authoritative even before warmup and after an application clears history.
+        internal static int PageOffset(int offset, int rows, bool up, ScreenBuf live) =>
+            (int)Math.Max(0L, Math.Min(ScrollLimit(live), (long)offset + (up ? rows : -rows)));
+
         public static int ScrollLimit(ScreenBuf live)
         {
             return live == null ? 0 : Math.Min(MaxHistoryRows, live.History);

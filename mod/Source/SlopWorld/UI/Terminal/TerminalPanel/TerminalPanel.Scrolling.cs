@@ -91,7 +91,8 @@ namespace SlopWorld
         {
             float now = Time.realtimeSinceStartup;
             ScrollDebugInput();
-            _wantedScrollOff = requestOff >= 0 ? requestOff : _scrollOff;
+            _wantedScrollOff = Mathf.Clamp(requestOff >= 0 ? requestOff : _scrollOff, 0,
+                TerminalHistory.ScrollLimit(SessionHub.Instance.Screen(_state.Name)));
             _scrollPending = true;
             ScrollDebugQueued(_wantedScrollOff);
             bool fresh = fromLive || !_hasWheelDirection || up != _lastWheelUp ||
@@ -185,34 +186,26 @@ namespace SlopWorld
 
             _scrollOff = target;
 
-            // Fetch missing visible rows first, then progressively fill eight viewports in
-            // the gesture direction. Each capture overlaps the preceding cached window.
-            int rows = Mathf.Max(2, live?.Rows ?? (_state.Rows > 0 ? _state.Rows : 24));
-            int lookahead = Mathf.Max(2, rows / 2);
-            int probe = TerminalHistory.PrefetchAnchor(
-                target, lookahead, up, limit);
-            bool fractional = Mathf.Abs(pixels / cellH - Mathf.Round(pixels / cellH)) > 0.0001f;
-            int request = -1;
-            if (!_history.Covers(target, fractional))
-            {
-                // Near the live edge, one lookahead frame overlaps live and covers both jobs.
-                // A larger leap needs its exact viewport first. If that viewport is present but
-                // lacks the fractional edge row, fetch a newer bridge into the cached range.
-                if (fromLive && target <= lookahead) request = probe;
-                else if (!_history.Covers(target, false)) request = target;
-                else request = Mathf.Max(1, target - lookahead);
-            }
-            else
-                request = _history.PrefetchOffset(target, rows, up, limit);
-
-            // A new live frame makes the old snapshots stale, but they are still the best
-            // frame to show until this offset has been captured again. Request a replacement
-            // without tearing down the visible bridge.
-            if (_historyRefreshPending && !HistoryRequestPending(target))
-                request = target;
-
+            int request = PlanHistoryRequest(live, target, pixels, cellH, up, fromLive, limit);
             if (request > 0 && !HistoryRequestPending(request))
                 QueueScroll(up, fromLive, request);
+        }
+
+        // Visible gaps outrank speculative lookahead; refresh keeps the old display as a bridge.
+        int PlanHistoryRequest(ScreenBuf live, int target, float pixels, float cellH,
+                               bool up, bool fromLive, int limit)
+        {
+            if (_historyRefreshPending && !HistoryRequestPending(target)) return target;
+            int rows = Mathf.Max(2, live?.Rows ?? (_state.Rows > 0 ? _state.Rows : 24));
+            int lookahead = Mathf.Max(2, rows / 2);
+            bool fractional = Mathf.Abs(pixels / cellH - Mathf.Round(pixels / cellH)) > 0.0001f;
+            if (_history.Covers(target, fractional))
+                return _history.PrefetchOffset(target, rows, up, limit);
+            if (fromLive && target <= lookahead)
+                return TerminalHistory.PrefetchAnchor(target, lookahead, up, limit);
+            if (!_history.Covers(target, false)) return target;
+            // Only the fractional edge is missing: bridge toward the live viewport.
+            return Mathf.Max(1, target - lookahead);
         }
 
         bool HistoryRequestPending(int off)

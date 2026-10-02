@@ -336,10 +336,13 @@ namespace SlopWorld
             page = Mathf.Max(1, page);
             bool up = e.keyCode == KeyCode.PageUp;
             bool fromLive = _panel.ScrollOffset <= 0;
-            if (up) _panel.ScrollOffset += page;
-            else _panel.ScrollOffset = Mathf.Max(0, _panel.ScrollOffset - page);
-            _panel.JumpHistoryTo(_panel.ScrollOffset);
-            _panel.QueueScroll(up, fromLive);
+            int target = TerminalHistory.PageOffset(_panel.ScrollOffset, page, up, live);
+            if (target != _panel.ScrollOffset)
+            {
+                _panel.ScrollOffset = target;
+                _panel.JumpHistoryTo(target);
+                _panel.QueueScroll(up, fromLive);
+            }
             e.Use();
             return true;
         }
