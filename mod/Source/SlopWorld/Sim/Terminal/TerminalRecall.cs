@@ -46,7 +46,7 @@ namespace SlopWorld
             }
 
             // Keep a terminal that is already open.
-            if (TerminalWindow.CurrentName != null)
+            if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null)
             {
                 _done = true;
                 return;
@@ -56,7 +56,7 @@ namespace SlopWorld
             if (_giveUpAt < 0f) _giveUpAt = now + WaitSeconds;
 
             var info = SessionHub.Instance.Get(_last);
-            if (info != null && !info.Gone)
+            if (info?.Alive == true)
             {
                 TerminalWindow.Open(_last);
                 _done = true;
@@ -65,7 +65,8 @@ namespace SlopWorld
 
             if (now >= _giveUpAt)
             {
-                Log.Message($"[SlopWorld] Session {_last} never connected. Leaving the terminal closed.");
+                string reason = info == null ? "was not found" : "is stopped";
+                Log.Message($"[SlopWorld] Session {_last} {reason}. Leaving the terminal closed.");
                 _done = true;
             }
         }
