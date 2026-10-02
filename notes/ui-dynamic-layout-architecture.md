@@ -10,7 +10,8 @@ composition, measurement caching, and responsive Settings forms.
 `IContentView` extends `IWorkspacePanel` with instance identity, minimum size hints,
 assigned bounds, visibility and focus lifecycle. `WorkspacePanelOwner` retains a backing
 `TerminalSplit` while Settings or another content view covers it. The split owns one or
-two terminal panels and routes focus and size to each child.
+two distinct terminal panels and routes focus and size to each child. A retained panel
+cannot occupy both workspace slots or both split children.
 See [terminal](mod-terminal.md) for opening, resizing, and closing panes. Split placement is not persisted.
 
 `TerminalPanel` owns session/input state, rendering, history, selection, caches and

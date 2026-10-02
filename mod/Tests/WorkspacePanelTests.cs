@@ -31,6 +31,10 @@ namespace SlopWorld.Tests
             AssertEx.Equal("terminal:open,terminal:show,terminal:focus,terminal:blur,terminal:hide,settings:open,settings:show,settings:focus",
                 string.Join(",", events), "covering a terminal hides it without closing it");
             events.Clear();
+            NUnit.Framework.Assert.Throws<System.ArgumentException>(() => owner.SetContent(terminal));
+            NUnit.Framework.Assert.Throws<System.ArgumentException>(() => owner.SetBacking(settings));
+            AssertEx.Equal(0, events.Count, "alias rejection has no lifecycle side effects");
+            events.Clear();
             owner.SetContent(settings);
             owner.Arrange(new UiLayoutRect(20f, 30f, 400f, 300f));
             owner.Arrange(new UiLayoutRect(50f, 40f, 250f, 200f));
@@ -65,6 +69,9 @@ namespace SlopWorld.Tests
             split.Open();
             split.SetVisible(true);
             split.SetFocus(true);
+            NUnit.Framework.Assert.Throws<System.ArgumentNullException>(() => split.Add(null));
+            NUnit.Framework.Assert.Throws<System.ArgumentException>(() => split.Add(first));
+            AssertEx.Equal<Panel>(null, split.Second, "invalid adds preserve empty second slot");
             split.Add(second);
             AssertEx.Equal("a:open,a:show,a:focus,b:open,b:show,a:blur,b:focus",
                 string.Join(",", events), "opening a split transfers focus without closing the first");

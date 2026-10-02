@@ -10,7 +10,7 @@ namespace SlopWorld
         public T Selected { get; private set; }
         bool _opened, _visible, _focused;
 
-        public WorkspaceSplit(T first) { First = Selected = first; }
+        public WorkspaceSplit(T first) { First = Selected = first ?? throw new ArgumentNullException(nameof(first)); }
         public void Open()
         {
             if (_opened) return;
@@ -27,6 +27,8 @@ namespace SlopWorld
         }
         public void Add(T panel)
         {
+            if (panel == null) throw new ArgumentNullException(nameof(panel));
+            if (ReferenceEquals(panel, First)) throw new ArgumentException("Panel already occupies the first slot", nameof(panel));
             if (Second != null) throw new InvalidOperationException("Split already has two panels");
             Second = panel;
             if (_opened) panel.Opened();
