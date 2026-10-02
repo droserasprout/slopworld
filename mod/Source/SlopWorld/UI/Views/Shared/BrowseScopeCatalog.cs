@@ -51,6 +51,21 @@ namespace SlopWorld
             .Where(s => s.Ready && _choices.Chosen(s) && _passes(s.Project))
             .OrderBy(s => s.Project, StringComparer.Ordinal).ThenBy(s => s.Worktree == "main" ? 0 : 1)
             .ThenBy(s => s.Name, StringComparer.Ordinal).ToList();
+        public string EmptyReason()
+        {
+            if (_catalogs.Count == 0) return "No projects are available.";
+            var visible = _catalogs.Values.Where(c => _passes(c.Name)).ToList();
+            if (visible.Count == 0) return "No projects match the sidebar filter.";
+            if (visible.Any(c => c.Error != null)) return "Unable to load checkouts. Check the project filter for details.";
+            if (visible.Any(c => c.Loading || c.Scopes.Any(s => s.Phase == "loading")))
+                return "Loading checkouts…";
+            var scopes = visible.SelectMany(c => c.Scopes).ToList();
+            if (scopes.Any(s => s.Ready) && !scopes.Any(s => s.Ready && _choices.Chosen(s)))
+                return "No checkouts are selected in the sidebar filter.";
+            if (visible.All(c => string.IsNullOrEmpty(c.Path))) return "No project has a directory yet.";
+            return "No ready checkouts are available.";
+        }
+
         public IEnumerable<string> GroupKeys => _catalogs.Values.SelectMany(c => c.Scopes)
             .SelectMany(s => new[] { s.ProjectKey, s.Key }).Distinct();
         public string Toggle(BrowseScope scope, Action<string> persist = null)

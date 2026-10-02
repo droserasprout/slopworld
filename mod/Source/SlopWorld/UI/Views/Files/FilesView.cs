@@ -91,6 +91,7 @@ namespace SlopWorld
                 ^ (int)SessionHub.Instance.SessionsVersion
                 ^ SessionHub.Instance.ProjectsRevision ^ SidebarScopes.Revision);
 
+            public override string EmptyReason => SidebarScopes.EmptyReason();
             public override IList<ContentTreeGroup> Groups() => TreeController.Groups();
 
             public override bool IsGroupCollapsed(ContentTreeGroup group) =>

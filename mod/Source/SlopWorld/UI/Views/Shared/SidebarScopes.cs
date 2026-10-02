@@ -51,6 +51,11 @@ namespace SlopWorld
             return p == null ? new List<BrowseScope>() : Catalog.All(BrowseScope.ProjectIdOf(p));
         }
         public static List<BrowseScope> EnabledScopes() { Update(); return Catalog.EnabledScopes(); }
+        public static string EmptyReason()
+        {
+            Update();
+            return SessionHub.Instance.Online ? Catalog.EmptyReason() : $"daemon {SessionHub.Instance.Status}";
+        }
         public static IEnumerable<string> GroupKeys => Catalog.GroupKeys;
         public static void Toggle(BrowseScope scope)
         {
