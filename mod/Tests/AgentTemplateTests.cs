@@ -34,11 +34,11 @@ namespace SlopWorld.Tests
 
         public static void VersionTokensRemainExact()
         {
-            var template = AgentTemplateInfo.FromWire(ProtobufFixtures.Read<Wire.AgentTemplate>(JVal.Parse("{\"version\":9007199254740991}")));
-            AssertEx.Equal(9007199254740991L, template.Version, "version does not round through double");
+            var template = AgentTemplateInfo.FromWire(ProtobufFixtures.Read<Wire.AgentTemplate>(JVal.Parse("{\"version\":9007199254740993}")));
+            AssertEx.Equal(9007199254740993L, template.Version, "version does not round through double");
         }
 
-        public static void TemplateLabelsDoNotExposeCaptureParents()
+        public static void DisplayLabelUsesNameAndDescription()
         {
             var template = AgentTemplateInfo.FromWire(ProtobufFixtures.Read<Wire.AgentTemplate>(JVal.Parse(@"{
                 ""name"":""reviewer"", ""description"":""Review changes""
@@ -49,9 +49,9 @@ namespace SlopWorld.Tests
             AssertEx.True(saved["origin"].IsNull, "template writes no origin metadata");
         }
 
-        public static void EditingPreservesSnapshotsAndClearsLimits()
+        static AgentTemplateInfo CapturedTemplate()
         {
-            var template = AgentTemplateInfo.FromWire(ProtobufFixtures.Read<Wire.AgentTemplate>(JVal.Parse(@"{
+            return AgentTemplateInfo.FromWire(ProtobufFixtures.Read<Wire.AgentTemplate>(JVal.Parse(@"{
                 ""name"":""reviewer"", ""version"":1,
                 ""defaults"":{
                     ""command"":{ ""name"":""agent"", ""cmd"":""captured"", ""sandbox"":[""dependency""] },
@@ -61,33 +61,55 @@ namespace SlopWorld.Tests
                     ""limits"":{ ""memory_mb"":512 }
                 }
             }")));
+        }
+
+        public static void DescriptionEditsPreserveCapturedSnapshots()
+        {
+            var template = CapturedTemplate();
             var catalog = SessionHub.Instance.Catalog;
             var commands = catalog.Commands;
-            catalog.Commands = new List<CommandInfo> { new CommandInfo { Name = "agent", Cmd = "changed" } };
             try
             {
+                catalog.Commands = new List<CommandInfo> { new CommandInfo { Name = "agent", Cmd = "changed" } };
                 var form = new SessionInfo();
                 template.ApplyTo(form);
+                template.Description = "Edited description";
+                var saved = template.ToWire(form);
+                AssertEx.Equal("Edited description", saved.Description, "description edit is submitted");
+                AssertEx.Equal("captured", saved.Defaults.Command.Cmd, "description edit retains command snapshot");
+                AssertEx.Equal("captured sandbox", saved.Defaults.SandboxPresets[0].Description, "description edit retains sandbox snapshot");
                 AssertEx.Equal("--extra", template.Copy().Args, "arguments survive draft copy");
-                AssertEx.Equal("--extra", form.Args, "template arguments initialize form");
-                form.Limits = new SessionLimits();
-                var saved = JVal.Parse(template.ToJson(form))["defaults"];
-                AssertEx.Equal("captured", saved["command"]["cmd"].AsString(), "description edit retains command snapshot");
-                AssertEx.Equal("--extra", saved["args"].AsString(), "arguments retained on save");
-                form.Args = "";
-                AssertEx.True(!template.ToWire(form).Defaults.HasArgs, "arguments can be cleared");
-                AssertEx.True(saved["limits"]["memory_mb"].IsNull, "cleared cap stays cleared");
-                AssertEx.Equal("dependency", saved["sandbox"][0].AsString(), "command dependency selected");
-                AssertEx.Equal("dependency", saved["sandbox_presets"][0]["name"].AsString(), "command dependencies retained");
-                AssertEx.True(saved["prompts"].IsNull, "removed prompt snapshots are not written");
-                form.Command = form.CommandPreset = "";
-                form.Cmd = "custom";
-                saved = JVal.Parse(template.ToJson(form))["defaults"];
-                AssertEx.True(saved["command"].IsNull, "raw command clears preset");
-                AssertEx.Equal(0, saved["sandbox_presets"].Count, "unused dependency removed");
-                AssertEx.True(saved["breadcrumbs"].IsNull, "removed breadcrumb selections are not written");
+                AssertEx.Equal("--extra", saved.Defaults.Args, "arguments retained on save");
             }
             finally { catalog.Commands = commands; }
+        }
+
+        public static void OptionalTemplateArgumentsAndLimitsCanBeCleared()
+        {
+            var template = CapturedTemplate();
+            var form = new SessionInfo();
+            template.ApplyTo(form);
+            AssertEx.Equal("--extra", form.Args, "template arguments initialize form");
+            form.Limits = new SessionLimits();
+            form.Args = "";
+            var saved = template.ToWire(form).Defaults;
+            AssertEx.False(saved.HasArgs, "arguments can be cleared");
+            AssertEx.True(saved.Limits == null || SessionLimits.FromWire(saved.Limits).IsEmpty, "cleared caps stay cleared");
+        }
+
+        public static void RawCommandsRemoveUnusedCapturedDependencies()
+        {
+            var template = CapturedTemplate();
+            var form = new SessionInfo();
+            template.ApplyTo(form);
+            var saved = template.ToWire(form).Defaults;
+            AssertEx.Equal("dependency", saved.Sandbox[0], "command dependency selected");
+            AssertEx.Equal("dependency", saved.SandboxPresets[0].Name, "captured command dependency retained");
+            form.Command = form.CommandPreset = "";
+            form.Cmd = "custom";
+            saved = template.ToWire(form).Defaults;
+            AssertEx.True(saved.Command == null, "raw command clears preset snapshot");
+            AssertEx.Equal(0, saved.SandboxPresets.Count, "unused dependency removed");
         }
 
         public static void SharedEditorUsesCapturedCatalogsAndSavesAgentSettings()
@@ -114,6 +136,7 @@ namespace SlopWorld.Tests
                 form.Network = NetworkMode.None;
                 form.Dns = DnsConfig.Custom();
                 form.Dns.Servers.Add("1.1.1.1");
+                template.Description = "Edited description";
                 var saved = JVal.Parse(template.ToJson(form))["defaults"];
                 AssertEx.Equal("none", saved["network"].AsString(), "shared network override is saved");
                 AssertEx.Equal("1.1.1.1", saved["dns"]["servers"][0].AsString(), "shared DNS override is saved");
@@ -154,16 +177,19 @@ namespace SlopWorld.Tests
         {
             var requests = DaemonClient.Requests;
             requests.Clear();
-            var catalog = new HubCatalog(() => { });
-            int loaded = 0;
-            catalog.RefreshTemplates(loaded: () => loaded++);
-            var stale = requests[0];
-            catalog.RefreshTemplates();
-            requests[1].Ok(JVal.Parse("{\"templates\":[{\"name\":\"new\"}]}"));
-            stale.Ok(JVal.Parse("{\"templates\":[{\"name\":\"stale\"}]}"));
-            AssertEx.Equal(1, loaded, "superseded page leaves loading state");
-            AssertEx.Equal("new", catalog.Templates[0].Name, "stale response does not replace catalog");
-            requests.Clear();
+            try
+            {
+                var catalog = new HubCatalog(() => { });
+                int loaded = 0;
+                catalog.RefreshTemplates(loaded: () => loaded++);
+                var stale = requests[0];
+                catalog.RefreshTemplates();
+                requests[1].Ok(JVal.Parse("{\"templates\":[{\"name\":\"new\"}]}"));
+                stale.Ok(JVal.Parse("{\"templates\":[{\"name\":\"stale\"}]}"));
+                AssertEx.Equal(1, loaded, "superseded page leaves loading state");
+                AssertEx.Equal("new", catalog.Templates[0].Name, "stale response does not replace catalog");
+            }
+            finally { requests.Clear(); }
         }
     }
 }

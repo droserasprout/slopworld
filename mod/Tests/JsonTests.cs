@@ -5,6 +5,21 @@ namespace SlopWorld.Tests
 {
     static class JsonTests
     {
+        public static void NumericAccessorsUseFallbackForEveryNonnumber()
+        {
+            foreach (string json in new[] { "null", "true", "false", "[]", "{}", "\"12\"" })
+            {
+                var value = JVal.Parse(json);
+                AssertEx.Equal(17, value.AsInt(17), "int fallback for " + json);
+                AssertEx.Equal(18L, value.AsLong(18), "long fallback for " + json);
+                AssertEx.Equal(19f, value.AsFloat(19), "float fallback for " + json);
+            }
+            var number = JVal.Parse("12");
+            AssertEx.Equal(12, number.AsInt(17), "int number");
+            AssertEx.Equal(12L, number.AsLong(18), "long number");
+            AssertEx.Equal(12f, number.AsFloat(19), "float number");
+        }
+
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             yield return ("parses nested values and accessors", ParsesNestedValuesAndAccessors);
