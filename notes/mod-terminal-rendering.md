@@ -3,7 +3,7 @@
 `TerminalRunCache` owns cached ANSI rows and coordinates link decoration.
 `Sgr` decodes styled rows into the shared `SgrRun` model. `TerminalAutolinks` owns
 screen-wide link spans and run decoration; `UrlScan` recognizes URL text.
-The panel owns rendered text.
+The panel owns rendered text. Texture creation failure disables caching for that panel and falls back to direct painting.
 Cursor/selection overlays
 must not force text repaint. Row damage describes one received revision: if painting skipped
 that predecessor, use a full repaint rather than applying incomplete damage.
@@ -36,7 +36,7 @@ ANSI decoding establishes text and geometry. `TerminalSpriteSequences` then join
 compatible runs against an explicit sprite catalog without changing their occupied columns.
 Parsed runs retain that occupied width. They must not merge past a wide glyph. Never
 reconstruct widths from Unicode ranges or font metrics. Selection and copy share glyph
-boundaries.
+boundaries. Word selection classifies complete Unicode scalars and compares whole non-word glyphs; endpoints remain terminal columns.
 The cache keeps complete scalar strings separate from continuation cells.
 Parsed emoji clusters must stay separate from adjacent text even when their scalar count
 happens to equal their occupied cell count; the renderer looks up the whole run as one atlas key.

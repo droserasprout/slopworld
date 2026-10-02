@@ -17,7 +17,7 @@ namespace SlopWorld
 
         // Cache the pane between screen frames: the daemon updates more slowly than the monitor.
         // Use an opaque screen-sized target so GUI coordinates and glyph edges remain stable.
-        // disable the cache for the process after a render-target failure.
+        // Disable this panel's cache after a render-target failure.
         bool Blit(Rect body, ScreenBuf buf, float cw, float ch)
         {
             if (_noCache) return false;
@@ -52,38 +52,35 @@ namespace SlopWorld
                     hideFlags = HideFlags.DontUnloadUnusedAsset, // see TerminalFont
                 };
 
-            if (!_cache.IsCreated()) { _cache.Create(); fresh = true; }
-
-            var key = new TerminalCacheKey
+            if (!_cache.IsCreated())
             {
-                Buffer = buf,
-                Session = _state.Name,
-                Offset = buf.Off,
-                AltScreen = buf.AltScreen,
-                X = body.x,
-                Y = body.y,
-                Width = body.width,
-                Height = body.height,
-                CellW = cw,
-                CellH = ch,
-                Lead = CacheLead(body, ch),
-                Theme = TerminalTheme.Rev,
-                Font = TerminalFont.Rev,
-            };
+                if (!_cache.Create())
+                {
+                    DisableCache(new System.InvalidOperationException("Render texture creation failed"));
+                    return false;
+                }
+                fresh = true;
+            }
+
+            var key = CacheKey(body, buf, cw, ch);
             bool repaintAll = fresh || !_cacheKey.Matches(key);
             var repaint = TerminalRepaintPolicy.Choose(repaintAll, _cacheContentRevision, buf,
                                                        out var repaintReason);
-            if (PerfTrace.Enabled && !repaintAll &&
-                buf.ContentRevision == unchecked(_cacheContentRevision + 1) &&
-                buf.ChangedRows != null && buf.ChangedRows.Length > 0)
-            {
-                int changed = buf.ChangedRows.Length;
-                int total = System.Math.Max(1, buf.Lines?.Length ?? 0);
-                string band = changed == total ? "100" : changed * 4 >= total * 3 ? "75-99" :
-                    changed * 2 >= total ? "50-74" : "0-49";
-                PerfTrace.Count("terminal-cache-damage-" + band, changed);
-            }
+            TraceCacheDamage(buf, repaintAll);
             if (repaint == TerminalRepaint.None) PerfTrace.Count("terminal-cache-hits");
+            PaintCache(key, repaintAll, repaint, repaintReason);
+            if (repaintAll) _cacheKey = key;
+            _cacheContentRevision = buf.ContentRevision;
+
+            return true;
+        }
+
+        void PaintCache(TerminalCacheKey key, bool repaintAll, TerminalRepaint repaint,
+                        TerminalRepaintReason repaintReason)
+        {
+            var body = new Rect(key.X, key.Y, key.Width, key.Height);
+            var buf = key.Buffer;
+            float cw = key.CellW, ch = key.CellH;
             if (repaintAll)
             {
                 if (PerfTrace.Enabled && _cacheKey.Buffer != null &&
@@ -121,7 +118,6 @@ namespace SlopWorld
                     PerfTrace.End("terminal-cache-full-paint", paintStarted, 1);
                 }
 
-                _cacheKey = key;
             }
             else if (repaint != TerminalRepaint.None)
             {
@@ -166,9 +162,40 @@ namespace SlopWorld
                 }
             }
 
-            _cacheContentRevision = buf.ContentRevision;
+        }
 
-            return true;
+        TerminalCacheKey CacheKey(Rect body, ScreenBuf buf, float cw, float ch)
+        {
+            return new TerminalCacheKey
+            {
+                Buffer = buf,
+                Session = _state.Name,
+                Offset = buf.Off,
+                AltScreen = buf.AltScreen,
+                X = body.x,
+                Y = body.y,
+                Width = body.width,
+                Height = body.height,
+                CellW = cw,
+                CellH = ch,
+                Lead = CacheLead(body, ch),
+                Theme = TerminalTheme.Rev,
+                Font = TerminalFont.Rev,
+            };
+        }
+
+        void TraceCacheDamage(ScreenBuf buf, bool repaintAll)
+        {
+            if (PerfTrace.Enabled && !repaintAll &&
+                buf.ContentRevision == unchecked(_cacheContentRevision + 1) &&
+                buf.ChangedRows != null && buf.ChangedRows.Length > 0)
+            {
+                int changed = buf.ChangedRows.Length;
+                int total = System.Math.Max(1, buf.Lines?.Length ?? 0);
+                string band = changed == total ? "100" : changed * 4 >= total * 3 ? "75-99" :
+                    changed * 2 >= total ? "50-74" : "0-49";
+                PerfTrace.Count("terminal-cache-damage-" + band, changed);
+            }
         }
 
         void DisableCache(System.Exception e)

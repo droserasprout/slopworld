@@ -67,12 +67,15 @@ namespace SlopWorld
                 if (!drawn)
                 {
                     GUI.BeginGroup(body);
-                    SyncSnap();
-                    var localBody = new Rect(0f, 0f, body.width, body.height);
-                    long paintStarted = PerfTrace.Start();
-                    Paint(localBody, buf, cw, ch, shift);
-                    PerfTrace.End("terminal-direct-paint", paintStarted, 1);
-                    GUI.EndGroup();
+                    try
+                    {
+                        SyncSnap();
+                        var localBody = new Rect(0f, 0f, body.width, body.height);
+                        long paintStarted = PerfTrace.Start();
+                        Paint(localBody, buf, cw, ch, shift);
+                        PerfTrace.End("terminal-direct-paint", paintStarted, 1);
+                    }
+                    finally { GUI.EndGroup(); }
                 }
             }
 
@@ -163,23 +166,24 @@ namespace SlopWorld
 
         internal bool HandleHistoryBarInput(Rect body, Event e)
         {
+            EventType type = MouseType(e);
+            // Reaching live output can hide the bar before the held button is released.
+            if (_historyBarDragging && type == EventType.MouseUp && e.button == 0)
+            {
+                _historyBarDragging = false;
+                GUIUtility.hotControl = 0;
+                e.Use();
+                return true;
+            }
             if (!HistoryInputEnabled(SessionHub.Instance.Screen(_state.Name)) ||
                 !HistoryBarAvailable() || !_historyScrollReady) return false;
 
             HistoryBarGeometry(body, out var hit, out var track, out var thumb);
-            EventType type = MouseType(e);
             if (_historyBarDragging)
             {
                 if (type == EventType.MouseDrag)
                 {
                     DragHistoryBar(e.mousePosition.y, track, thumb.height);
-                    e.Use();
-                    return true;
-                }
-                if (type == EventType.MouseUp && e.button == 0)
-                {
-                    _historyBarDragging = false;
-                    GUIUtility.hotControl = 0;
                     e.Use();
                     return true;
                 }

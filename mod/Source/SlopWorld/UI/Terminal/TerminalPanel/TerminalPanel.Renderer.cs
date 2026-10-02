@@ -87,7 +87,7 @@ namespace SlopWorld
                 if (rows == null)
                 {
                     for (int row = 0; row < buf.Runs.Length; row++) PaintRow(
-                        body, buf.Runs[row], row, cw, ch, yShift, style, body.y);
+                        body, buf.Runs[row], row, cw, ch, yShift, style);
                 }
                 else
                 {
@@ -99,7 +99,7 @@ namespace SlopWorld
                         Widgets.DrawBoxSolid(new Rect(body.x, _panel.SnapY(y), body.width,
                                                        _panel.SnapY(y + ch) - _panel.SnapY(y)),
                                              SolidTerminalBackground);
-                        PaintRow(body, buf.Runs[row], row, cw, ch, yShift, style, body.y);
+                        PaintRow(body, buf.Runs[row], row, cw, ch, yShift, style);
                     }
                 }
 
@@ -136,10 +136,10 @@ namespace SlopWorld
             }
 
             void PaintRow(Rect body, List<SgrRun> runs, int row, float cw, float ch,
-                          float yShift, GUIStyle style, float clipTop)
+                          float yShift, GUIStyle style)
             {
                 float y = body.y + yShift + row * ch;
-                if (y + ch < clipTop || y > body.yMax) return;
+                if (y + ch < body.y || y > body.yMax) return;
 
                 float bgTop = _panel.SnapY(y);
                 float bgBot = _panel.SnapY(y + ch);

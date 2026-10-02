@@ -126,11 +126,7 @@ namespace SlopWorld
             int len = TerminalColumns.ContentColumns(cells);
             if (cell.x < 0 || cell.x >= len) { ClearSelection(); return; }
 
-            char anchor = TerminalColumns.Glyph(cells, cell.x);
-            bool word = IsWordChar(anchor);
-            int c0 = cell.x, c1 = cell.x;
-            while (c0 > 0 && SameClass(TerminalColumns.Glyph(cells, c0 - 1), anchor, word)) c0--;
-            while (c1 + 1 < len && SameClass(TerminalColumns.Glyph(cells, c1 + 1), anchor, word)) c1++;
+            TerminalColumns.WordRange(cells, cell.x, out int c0, out int c1);
             _state.Selection.WordStart = new Vector2Int(c0, cell.y);
             _state.Selection.WordEnd = new Vector2Int(c1, cell.y);
             _state.Selection.A = _state.Selection.WordStart;
@@ -155,11 +151,7 @@ namespace SlopWorld
             int len = TerminalColumns.ContentColumns(cells);
             if (len == 0) return;
             int x = Mathf.Clamp(cell.x, 0, len - 1);
-            char anchor = TerminalColumns.Glyph(cells, x);
-            bool word = IsWordChar(anchor);
-            int c0 = x, c1 = x;
-            while (c0 > 0 && SameClass(TerminalColumns.Glyph(cells, c0 - 1), anchor, word)) c0--;
-            while (c1 + 1 < len && SameClass(TerminalColumns.Glyph(cells, c1 + 1), anchor, word)) c1++;
+            TerminalColumns.WordRange(cells, x, out int c0, out int c1);
 
             var destinationStart = new Vector2Int(c0, cell.y);
             var destinationEnd = new Vector2Int(c1, cell.y);
@@ -210,11 +202,5 @@ namespace SlopWorld
             _state.Selection.HasSelection = true;
         }
 
-        static bool SameClass(char c, char anchor, bool word) =>
-            word ? IsWordChar(c) : c == anchor;
-
-        static bool IsWordChar(char c) =>
-            (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-            (c >= '0' && c <= '9') || c == '_';
     }
 }
