@@ -100,11 +100,12 @@ namespace SlopWorld
             return false;
         }
 
-        static void GitAction(Repo repo, string command, string notice, bool completeCommand = false)
+        static void GitAction(Repo repo, string command, string notice, bool completeCommand = false,
+            System.Action ok = null, System.Action<string> fail = null)
         {
             if (repo == null || !repo.IsRepo || repo.Error != null || string.IsNullOrEmpty(repo.Root))
             {
-                UiLayout.Fail("repository is not available");
+                (fail ?? UiLayout.Fail)("repository is not available");
                 return;
             }
 
@@ -117,8 +118,9 @@ namespace SlopWorld
                     Messages.Message("SlopWorld: " + notice,
                         MessageTypeDefOf.SilentInput, false);
                     Fetch(repo.Project);
+                    ok?.Invoke();
                 },
-                msg => UiLayout.Fail("Git: " + msg));
+                msg => (fail ?? UiLayout.Fail)("Git: " + msg));
         }
 
         static void Stage(Repo repo, string rel) =>
@@ -168,16 +170,16 @@ namespace SlopWorld
             GitCommitDialog.Open(project);
         }
 
-        public static void Commit(string project, string message)
+        public static void Commit(string project, string message, System.Action ok, System.Action<string> fail)
         {
             var repo = Known(project);
             if (repo == null || !HasStaged(repo))
             {
-                UiLayout.Fail("no staged changes to commit");
+                fail("no staged changes to commit");
                 return;
             }
 
-            GitAction(repo, "commit -m " + Pager.Quote(message) + " --", "committed changes");
+            GitAction(repo, "commit -m " + Pager.Quote(message) + " --", "committed changes", ok: ok, fail: fail);
         }
 
         static float RowTail(Rect row, Node node, float right)
