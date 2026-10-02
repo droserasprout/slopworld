@@ -146,15 +146,17 @@ namespace SlopWorld
         // Draw passes run inside the sidebar's scroll group, so cached locations are local to
         // that group. Selector.TryGetEntryAt runs outside it and needs screen coordinates.
         static bool _hitTranslated;
+        static Vector2 _hitOffset;
 
         public static bool BeginHitTest()
         {
-            if (_hitTranslated || !_applied || AgentSidebar.Panel.x <= 0f) return false;
+            if (_hitTranslated || !_applied || AgentSidebar.AgentScrollOpen) return false;
             var bar = Find.ColonistBar;
             if (bar == null) return false;
             if (!(DrawLocsField.GetValue(bar) is List<Vector2> locs)) return false;
+            _hitOffset = AgentSidebar.AgentContentOffset;
             for (int i = 0; i < locs.Count; i++)
-                locs[i] = new Vector2(locs[i].x + AgentSidebar.Panel.x, locs[i].y);
+                locs[i] += _hitOffset;
             _hitTranslated = true;
             return true;
         }
@@ -170,7 +172,7 @@ namespace SlopWorld
                 return;
             }
             for (int i = 0; i < locs.Count; i++)
-                locs[i] = new Vector2(locs[i].x - AgentSidebar.Panel.x, locs[i].y);
+                locs[i] -= _hitOffset;
             _hitTranslated = false;
         }
     }

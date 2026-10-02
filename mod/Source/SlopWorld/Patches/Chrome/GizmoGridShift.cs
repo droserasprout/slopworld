@@ -35,7 +35,7 @@ namespace SlopWorld
         static float GridTop(float screenHeight, float spacingY)
         {
             if (Patch_GizmoGridFlag.Active)
-                return AgentSidebar.AddBar.y - 75f;
+                return AgentSidebar.AddBar.y - SessionGizmoInput.ActionRowHeight;
 
             return screenHeight - 35f - spacingY - 75f;
         }

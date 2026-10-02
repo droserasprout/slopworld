@@ -3,19 +3,10 @@ using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using RimWorld;
-using UnityEngine;
 using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>Retain base game pawn gizmos. Session actions come from
-    /// <see cref="SessionSelectable"/> through <see cref="SessionGizmoSelection"/>.</summary>
-    [HarmonyPatch(typeof(Pawn), nameof(Pawn.GetGizmos))]
-    public static class Patch_Pawn_GetGizmos
-    {
-        // Keep pawn gizmos unchanged. SessionSelectable supplies session actions separately.
-    }
-
     /// <summary>The mod does not assign <c>PriorityWork</c>. A saved cell with zero coordinates
     /// can still produce a "Clear prioritized work" button. Remove that unused action.</summary>
     [HarmonyPatch(typeof(PriorityWork), nameof(PriorityWork.GetGizmos))]

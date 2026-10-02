@@ -4,8 +4,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Disable the base game opacity reduction for entries on other maps.
-    // This also prevents dimming stopped agents whose pawns the bar classifies as elsewhere.
+    // Keep every entry at full location opacity, including entries in world view.
+    // Agent visibility is intentionally independent of the viewed map or caravan;
+    // the sidebar portrait owns stopped-session tint and the bar retains drag fades.
     [HarmonyPatch(typeof(ColonistBarColonistDrawer), "ApplyEntryInAnotherMapAlphaFactor")]
     public static class Patch_ColonistBarNoOtherMapDim
     {

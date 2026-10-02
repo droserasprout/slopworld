@@ -320,7 +320,6 @@ namespace SlopWorld
                 if (Interaction.AgentScrollOpen)
                 {
                     DrawRows();
-                    Patch_SidebarPortraitDraw.DrawDeferredSelection();
                     EndAgentScroll();
                     DrawAgentShadow();
                     Absorb();

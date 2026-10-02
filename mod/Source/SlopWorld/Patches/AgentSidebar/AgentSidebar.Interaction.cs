@@ -12,6 +12,9 @@ namespace SlopWorld
         const float FilesDividerH = 1f;
         const float FilesDividerHitPad = 5f;
 
+        // Cached bar entries are local to the agent scroll content, even between draw passes.
+        public static Vector2 AgentContentOffset => Body.position - Interaction.AgentScroll.Position;
+
         public static bool AgentScrollOpen => Interaction.AgentScrollOpen;
 
         // Clip CPU-side row work as well as pixels. Input passes retain their control order.
@@ -152,7 +155,6 @@ namespace SlopWorld
         {
             EndAgentScroll();
             if (!Input.GetMouseButton(0)) EndFilesDivider();
-            Patch_SidebarPortraitDraw.ClearDeferredSelection();
             Drawing = false;
             PerfTrace.End("sidebar", _renderStarted, Layout.Rows.Count);
             _renderStarted = 0L;

@@ -82,6 +82,9 @@ namespace SlopWorld
     [HarmonyPatch(typeof(Command), "GizmoOnGUIInt")]
     static class Patch_SlopCommandShortcutLabel
     {
+        // RimWorld 1.6 loads this Rect local for the shortcut-label Widgets.Label call.
+        const int ShortcutLabelRectLocal = 5;
+
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions,
                                                         ILGenerator generator)
         {
@@ -94,7 +97,7 @@ namespace SlopWorld
             for (int i = 3; i < code.Count; i++)
             {
                 if (code[i].opcode != OpCodes.Call || !Equals(code[i].operand, label)
-                    || !IsLocalLoad(code[i - 3], 5))
+                    || !IsLocalLoad(code[i - 3], ShortcutLabelRectLocal))
                     continue;
 
                 // Vanilla puts the shortcut label at y + 3. Move just UiCommandAction's
