@@ -24,7 +24,7 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "Window");
             bool fullscreen = UiControls.Checkbox(l, "Fullscreen", S.fullscreen,
                 "Use window-manager fullscreen without changing Unity's render mode.");
-            if (fullscreen != S.fullscreen) WindowMaximizer.Set(fullscreen);
+            if (fullscreen != S.fullscreen) LinuxGameWindow.Set(fullscreen);
 
             UiLayout.SectionHeading(l, "Rendering");
             string mode = FramePolicy.Normalize(S.displayMode);

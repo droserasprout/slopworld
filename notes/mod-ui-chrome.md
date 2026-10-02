@@ -67,3 +67,5 @@ on failure as well as success.
 `TextEntryController` caches stripped native field/area styles by source style and UI metrics,
 checking font identity/size/style as well. Do not clone `GUIStyle` or allocate `RectOffset`
 per field per event: wheel fast paths do not remove ordinary Layout/repaint allocation costs.
+
+See [Linux window state](ui-window-fullscreen.md) for native title and fullscreen ownership.

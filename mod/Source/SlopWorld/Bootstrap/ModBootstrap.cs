@@ -70,7 +70,7 @@ namespace SlopWorld
             // Adjust the frame rate when the window loses focus.
             // Check each frame, including frames in menus.
             BackgroundFrames.Follow();
-            WindowMaximizer.Follow();
+            LinuxGameWindow.Follow();
             ModEntry.Instance?.settings.FlushIfDue();
             DeadCursor.Tick();
             // Check clicks once per frame in Update instead of once per GUI event in OnGUI.

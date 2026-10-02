@@ -12,7 +12,7 @@ namespace SlopWorld
     // Request fullscreen through the X11 window manager so geometry and input coordinates change together.
     // Resize the Unity surface before the initial fullscreen request.
     // Keep window decorations disabled because Mutter can restore the title bar after fullscreen ends.
-    public static class WindowMaximizer
+    public static class LinuxGameWindow
     {
         const float RetrySeconds = 1f;
         const float StartupSettleSeconds = 1.5f;
@@ -22,6 +22,9 @@ namespace SlopWorld
         const int ClientMessage = 33;
         const long SubstructureNotifyMask = 1L << 19;
         const long SubstructureRedirectMask = 1L << 20;
+
+        enum WindowChange { Retry, WaitingForResize, Applied, Unsupported }
+        enum ResizeStage { Retry, Waiting, Ready }
 
         static bool? _applied;
         static float _nextTry;
@@ -42,11 +45,10 @@ namespace SlopWorld
             if (_applied == null && !Ready(now)) return;
             if (now < _nextTry) return;
 
-            bool done = TrySet(want);
-            if (done) _applied = want;
-            // Use the short retry interval while waiting for the initial resize. Use the normal interval for other retries.
-            bool resyncing = !done && _applied == null && _resyncedAt >= 0f;
-            _nextTry = Time.realtimeSinceStartup + (resyncing ? ResyncPollSeconds : RetrySeconds);
+            var result = TrySet(want);
+            if (result == WindowChange.Applied || result == WindowChange.Unsupported) _applied = want;
+            _nextTry = Time.realtimeSinceStartup
+                + (result == WindowChange.WaitingForResize ? ResyncPollSeconds : RetrySeconds);
         }
 
         public static void Set(bool fullscreen)
@@ -71,12 +73,13 @@ namespace SlopWorld
 
         // Resize the Unity render surface to the monitor dimensions before requesting EWMH fullscreen.
         // Keep Unity in windowed mode to avoid its fullscreen freeze.
-        static void ResyncSurface()
+        static bool ResyncSurface()
         {
             int w = Display.main.systemWidth;
             int h = Display.main.systemHeight;
-            if (w <= 0 || h <= 0) return;
+            if (w <= 0 || h <= 0) return false;
             Screen.SetResolution(w, h, FullScreenMode.Windowed);
+            return true;
         }
 
         // Continue when screen dimensions reach the monitor dimensions or the resize timeout expires.
@@ -87,8 +90,8 @@ namespace SlopWorld
             return sized || now - _resyncedAt >= ResyncTimeoutSeconds;
         }
 
-        // Return false when Follow must retry. Return true after success or an unsupported operation.
-        static bool TrySet(bool fullscreen)
+        // Keep retryable discovery and resize waits distinct from completed or unsupported requests.
+        static WindowChange TrySet(bool fullscreen)
         {
             IntPtr display = IntPtr.Zero;
             try
@@ -98,12 +101,12 @@ namespace SlopWorld
                 {
                     Warn("X11 display is unavailable. Could not change the game window state.");
                     // Retry because X11 display access can become available after startup, particularly in the debug sandbox.
-                    return false;
+                    return WindowChange.Retry;
                 }
 
                 IntPtr root = XDefaultRootWindow(display);
                 IntPtr window = FindGameWindow(display, root);
-                if (window == IntPtr.Zero) return false;
+                if (window == IntPtr.Zero) return WindowChange.Retry;
 
                 IntPtr state = XInternAtom(display, "_NET_WM_STATE", 0);
                 IntPtr fullscreenAtom = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", 0);
@@ -113,54 +116,59 @@ namespace SlopWorld
                     || horizontal == IntPtr.Zero || vertical == IntPtr.Zero)
                 {
                     Warn("the window manager does not expose EWMH window-state atoms");
-                    return true;
+                    return WindowChange.Unsupported;
                 }
 
                 SetUndecorated(display, window);
 
-                bool initial = !_applied.HasValue;
-                bool wasFullscreen = _applied == true;
-                bool ok;
-                if (fullscreen)
+                if (fullscreen && !_applied.HasValue)
                 {
-                    // Initialize fullscreen in two phases. First resize the surface and request maximization.
-                    // Raise the window and flush X11 requests during this phase.
-                    // Then request fullscreen after the resize completes or times out.
-                    // The retained maximized state restores the work area when fullscreen ends.
-                    if (initial && _resyncedAt < 0f)
-                    {
-                        ResyncSurface();
-                        _resyncedAt = Time.realtimeSinceStartup;
-                        SendState(display, root, window, state, 1, horizontal, vertical);
-                        RaiseAndActivate(display, root, window);
-                        XFlush(display);
-                        return false;
-                    }
-                    if (initial && !ResyncLanded(Time.realtimeSinceStartup)) return false;
-
-                    ok = SendState(display, root, window, state, 1, fullscreenAtom, IntPtr.Zero);
-                }
-                else
-                {
-                    // Remove fullscreen while retaining maximization so the window fills the work area and leaves desktop controls visible.
-                    ok = wasFullscreen
-                        ? SendState(display, root, window, state, 0, fullscreenAtom, IntPtr.Zero)
-                        : SendState(display, root, window, state, 1, horizontal, vertical);
+                    var resize = PrepareInitialFullscreen(display, root, window, state, horizontal, vertical);
+                    if (resize == ResizeStage.Retry) return WindowChange.Retry;
+                    if (resize == ResizeStage.Waiting) return WindowChange.WaitingForResize;
                 }
 
-                RaiseAndActivate(display, root, window);
-                XFlush(display);
-                return ok;
+                return ApplyWindowState(display, root, window, state, fullscreenAtom,
+                    horizontal, vertical, fullscreen);
             }
             catch (Exception e)
             {
                 Warn("could not change the game window state: " + e.Message);
-                return true;
+                return WindowChange.Unsupported;
             }
             finally
             {
                 if (display != IntPtr.Zero) XCloseDisplay(display);
             }
+        }
+
+        // First resize Unity and maximize the window, then wait for the surface or its timeout.
+        // Retain maximization so leaving fullscreen restores the desktop work area.
+        static ResizeStage PrepareInitialFullscreen(IntPtr display, IntPtr root, IntPtr window,
+            IntPtr state, IntPtr horizontal, IntPtr vertical)
+        {
+            if (_resyncedAt >= 0f)
+                return ResyncLanded(Time.realtimeSinceStartup) ? ResizeStage.Ready : ResizeStage.Waiting;
+            if (!ResyncSurface()) return ResizeStage.Retry;
+            bool maximized = SendState(display, root, window, state, 1, horizontal, vertical);
+            RaiseAndActivate(display, root, window);
+            XFlush(display);
+            if (!maximized) return ResizeStage.Retry;
+            _resyncedAt = Time.realtimeSinceStartup;
+            return ResizeStage.Waiting;
+        }
+
+        static WindowChange ApplyWindowState(IntPtr display, IntPtr root, IntPtr window,
+            IntPtr state, IntPtr fullscreenAtom, IntPtr horizontal, IntPtr vertical, bool fullscreen)
+        {
+            bool sent = fullscreen
+                ? SendState(display, root, window, state, 1, fullscreenAtom, IntPtr.Zero)
+                : _applied == true
+                    ? SendState(display, root, window, state, 0, fullscreenAtom, IntPtr.Zero)
+                    : SendState(display, root, window, state, 1, horizontal, vertical);
+            RaiseAndActivate(display, root, window);
+            XFlush(display);
+            return sent ? WindowChange.Applied : WindowChange.Retry;
         }
 
         // Use the same process ID window lookup for X11 titles and fullscreen changes.
@@ -270,7 +278,8 @@ namespace SlopWorld
             }
 
             // Set MWM_HINTS_DECORATIONS with decorations=0 to remove the frame and title bar.
-            int[] value = { 2, 0, 0, 0, 0 };
+            // Xlib's format=32 consumes native C longs, including on 64-bit Linux.
+            IntPtr[] value = { new IntPtr(2), IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero };
             GCHandle pinned = GCHandle.Alloc(value, GCHandleType.Pinned);
             try
             {
