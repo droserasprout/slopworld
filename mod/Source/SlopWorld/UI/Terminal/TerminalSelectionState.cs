@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    // Selection state is kept separately from TerminalWindow's session and render state. The
+    // Per-panel selection state, kept separate from the rest of TerminalPanelState. The
     // gesture controller gets a narrow panel surface. Panel partials use this state directly.
     sealed class TerminalSelectionState
     {

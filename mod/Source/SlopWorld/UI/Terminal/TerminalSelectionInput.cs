@@ -7,8 +7,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Owns mouse selection gesture state and routing. The terminal window still owns the
-    // selection model for now. Keeping this event choreography here prevents input dispatch
+    // Owns mouse selection gesture state and routing. TerminalPanel owns the
+    // selection model. Keeping this event choreography here prevents input dispatch
     // from also knowing how a drag, word selection, and line selection are completed.
     sealed class TerminalSelectionInput
     {
@@ -20,6 +20,8 @@ namespace SlopWorld
             _panel = panel;
         }
 
+        internal void ResetClicks() => _clicks.Reset();
+
         public bool TryHandleMultiClick(Rect body, Event e)
         {
             if (TerminalInputController.MouseType(e) != EventType.MouseDown || e.button != 0 ||
@@ -28,10 +30,18 @@ namespace SlopWorld
             int clickCount = _clicks.Observe(e, Time.realtimeSinceStartup);
             if (clickCount < 2) return false;
 
-            _panel.CaptureSelection(body);
             var cell = _panel.CellAt(body, e.mousePosition);
-            if (clickCount >= 3) _panel.TripleClickSelect(cell.y);
-            else _panel.DoubleClickSelect(cell);
+            bool selected = clickCount >= 3 ? _panel.TripleClickSelect(cell.y) :
+                _panel.DoubleClickSelect(cell);
+            if (!selected)
+            {
+                _clicks.Reset();
+                _panel.ClearSelection();
+                _panel.ReleaseSelection();
+                e.Use();
+                return true;
+            }
+            _panel.CaptureSelection(body);
             if (clickCount >= 3) _clicks.Reset();
             e.Use();
             return true;
@@ -75,13 +85,7 @@ namespace SlopWorld
             if (!_panel.Dragging) return;
             _panel.SelectionMouse = e.mousePosition;
             _panel.SelectionMoved = true;
-            var cell = _panel.CellAt(body, e.mousePosition);
-            if (e.mousePosition.y < body.y || e.mousePosition.y >= body.yMax)
-            {
-                int rows = Mathf.Max(1, _panel.Rows > 0 ? _panel.Rows :
-                    SessionHub.Instance.Screen(_panel.SessionName)?.Rows ?? 1);
-                cell.y = Mathf.Clamp(cell.y, 0, rows - 1);
-            }
+            var cell = SelectionCell(body, e);
             if (_panel.LineDragging)
                 _panel.SelectLineRange(_panel.LineStart, cell.y);
             else if (_panel.WordDragging)
@@ -94,9 +98,8 @@ namespace SlopWorld
             e.Use();
         }
 
-        void End(Rect body, Event e)
+        Vector2Int SelectionCell(Rect body, Event e)
         {
-            if (!_panel.Dragging) return;
             var cell = _panel.CellAt(body, e.mousePosition);
             if (e.mousePosition.y < body.y || e.mousePosition.y >= body.yMax)
             {
@@ -104,6 +107,13 @@ namespace SlopWorld
                     SessionHub.Instance.Screen(_panel.SessionName)?.Rows ?? 1);
                 cell.y = Mathf.Clamp(cell.y, 0, rows - 1);
             }
+            return cell;
+        }
+
+        void End(Rect body, Event e)
+        {
+            if (!_panel.Dragging) return;
+            var cell = SelectionCell(body, e);
 
             // A double click selects a word and a triple click replaces it with a row. Do not
             // copy the intermediate word to CLIPBOARD. The completed triple-click line is
