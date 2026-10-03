@@ -32,13 +32,14 @@ namespace SlopWorld
                 _cfg.Agent, Commands(CommandInfo.AgentKind, _cfg.Agent),
                 _agentCustom, value => _cfg.Agent = value, value => _agentCustom = value,
                 customLabel: "Preset name", defaultValue: _cfg.FactoryDefaults?.Agent);
-            UiLayout.Note(l, "Agent and Shell select catalog preset names. Configure their commands on the Apps page.");
+
             CommandPicker.Draw(l, "Agent shell", "commands.agent-shell", _cfg.AgentShell,
                 Commands(CommandInfo.ShellKind, _cfg.AgentShell),
                 _agentShellCustom, value => _cfg.AgentShell = value,
                 value => _agentShellCustom = value, "Custom executable",
                 _cfg.FactoryDefaults?.AgentShell);
-            CommandPicker.Draw(l, "Shell", "commands.shell", _cfg.Shell,
+
+            CommandPicker.Draw(l, "User shell", "commands.shell", _cfg.Shell,
                 Commands(CommandInfo.ShellKind, _cfg.Shell),
                 _shellCustom, value => _cfg.Shell = value, value => _shellCustom = value,
                 customLabel: "Preset name", defaultValue: _cfg.FactoryDefaults?.Shell);
@@ -47,15 +48,17 @@ namespace SlopWorld
                 _editorCustom, value => _cfg.Editor = value, value => _editorCustom = value,
                 defaultValue: _cfg.FactoryDefaults?.Editor);
 
+            l.Gap(UiTheme.GapM);
+
+            if (UiLayout.Button(l, "Code"))
+                ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.AppearanceCode));
+
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Editor template rules");
             UiLayout.Note(l, "Use {file} to insert a quoted path. Use {line} to insert the line from a " +
                 "search result. For a line jump, missing {file} appends the path and missing {line} " +
                 "appends +LINE after it. Without a line jump, missing {file} appends -- and the path.");
             UiLayout.Note(l, "SlopWorld splits each template into arguments. It does not use a shell.");
-            l.Gap(UiTheme.GapM);
-            if (UiLayout.Button(l, "Code"))
-                ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.AppearanceCode));
         }
 
         static List<CommandChoice> Commands(string kind, string current)
@@ -74,9 +77,9 @@ namespace SlopWorld
         static List<CommandChoice> EditorChoices() => new List<CommandChoice>
         {
             new CommandChoice("micro", "micro"),
-            new CommandChoice("vim", "vim"),
             new CommandChoice("nano", "nano"),
-            new CommandChoice("Neovim", "nvim"),
+            new CommandChoice("vim", "vim"),
+            new CommandChoice("nvim", "nvim"),
             new CommandChoice("Emacs client", "emacsclient -c"),
         };
 
