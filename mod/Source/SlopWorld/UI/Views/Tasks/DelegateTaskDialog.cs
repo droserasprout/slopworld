@@ -17,6 +17,7 @@ namespace SlopWorld
 
         public DelegateTaskDialog(string recipient)
         {
+            resizeable = true;
             _to = recipient ?? "";
             _agents = SessionHub.Instance.Sessions
                 .Where(s => Eligible(s))
@@ -24,6 +25,8 @@ namespace SlopWorld
         }
 
         public override Vector2 InitialSize => new Vector2(560f, 360f);
+
+        protected override Vector2 MinimumSize => InitialSize;
 
         protected override void DoBody(Rect rect)
         {

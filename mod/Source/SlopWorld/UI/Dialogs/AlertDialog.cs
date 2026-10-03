@@ -22,6 +22,7 @@ namespace SlopWorld
         AlertDialog(string title, string message, string primaryLabel, Action primary,
                         string secondaryLabel, Action secondary, UiTheme.Btn primaryKind, float width)
         {
+            resizeable = true;
             _message = message ?? "";
             _width = width;
             _title = title ?? "SlopWorld";
@@ -51,6 +52,9 @@ namespace SlopWorld
         }
 
         protected override bool Closable => false;
+
+        protected override Vector2 MinimumSize => new Vector2(
+            Mathf.Min(360f, InitialSize.x), Mathf.Min(180f, InitialSize.y));
 
         protected override void DoBody(Rect rect)
         {

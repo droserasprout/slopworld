@@ -26,12 +26,15 @@ namespace SlopWorld
 
         public BrowseDialog(string start, System.Action<string> pick)
         {
+            resizeable = true;
             _pick = pick;
             AcceptOnEnter(UseCurrent);
             Load(start ?? "");
         }
 
         public override Vector2 InitialSize => new Vector2(520f, 480f);
+
+        protected override Vector2 MinimumSize => new Vector2(420f, 340f);
 
         void Load(string path, bool keepFilter = false)
         {
