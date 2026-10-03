@@ -16,9 +16,11 @@ text is unchanged. Scheduling owns dirty-state consumption; rendering executes i
 selected action. Clipboard write handoff is independent of reader lifetime.
 
 A reader disconnect is not process exit. Confirmed live panes recover readers;
-failed status queries do not declare exit. Confirmed exit records evidence before
-removing the pane. Screen capture can fall back to the last in-memory frame, and
-failed evidence writes preserve the dead pane for inspection.
+failed status queries do not declare exit. Missing pane status must be confirmed
+against a checked session listing; a running tmux server with no sessions confirms
+absence. Confirmed exit records evidence before removing the pane. Screen capture
+can fall back to the last in-memory frame, and failed evidence writes preserve the
+dead pane for inspection.
 
 Startup seeding/repaint belongs to [redeploy](daemon-redeploy.md), process transitions
 to [lifecycle](daemon-session-lifecycle.md), activity to [state](daemon-session-state.md),

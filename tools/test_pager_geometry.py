@@ -2,6 +2,7 @@
 
 import pathlib
 import re
+import shutil
 import subprocess
 import tempfile
 import time
@@ -79,6 +80,13 @@ def main():
                     break
                 time.sleep(0.05)
             assert all(line.startswith("1F46F") for line in lines[:18]), lines[:18]
+            if shutil.which("bat"):
+                # bat receives the file; LESS carries the diagnostic line selector to its pager.
+                tmux("new-session", "-d", "-s", "bat-line", "-x", "80", "-y", "12",
+                     "env", "LESS=-RSc +19", "bat", "--paging=always", "--style=plain",
+                     "--wrap=never", "--pager", "less -RS --shift=1 --wheel-lines=1",
+                     "--", str(long))
+                wait_for("bat-line", "line 19")
             print("Pager geometry and emoji sequence output passed")
         finally:
             subprocess.run(["tmux", "-S", socket, "kill-server"], check=False)

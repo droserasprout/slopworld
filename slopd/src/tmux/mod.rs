@@ -146,9 +146,24 @@ impl Tmux {
     }
 
     pub(crate) async fn list_checked(&self) -> Result<Vec<String>> {
-        Ok(self
-            .run(&["list-sessions", "-F", "#{session_name}"])
-            .await?
+        let output = Command::new("tmux")
+            .args(self.socket_args())
+            .args(["list-sessions", "-F", "#{session_name}"])
+            .output()
+            .await?;
+        // A running server with no sessions confirms that a departed host pane
+        // is absent. Other failures must not be used as evidence of process exit.
+        if !output.status.success() {
+            let error = String::from_utf8_lossy(&output.stderr);
+            if error.trim() == "no sessions" {
+                return Ok(Vec::new());
+            }
+            bail!(
+                "tmux command failed: {}",
+                crate::sandbox::sanitize_diagnostic(&error)
+            );
+        }
+        Ok(String::from_utf8_lossy(&output.stdout)
             .lines()
             .map(str::to_string)
             .collect())
@@ -279,8 +294,12 @@ impl Tmux {
             ])
             .await?;
         let mut fields = value.trim().split('|');
-        if fields.next() != Some("1") {
-            return Ok(None);
+        match fields.next() {
+            Some("0") => return Ok(None),
+            Some("1") => {}
+            // display-message can succeed with empty fields for a missing target.
+            // Exit handling confirms absence with a checked session listing.
+            _ => bail!("tmux returned no pane status for {name}"),
         }
         let status = fields.next().unwrap_or("");
         let signal = fields.next().unwrap_or("");
