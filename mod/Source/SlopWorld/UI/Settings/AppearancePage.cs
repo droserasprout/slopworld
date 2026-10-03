@@ -249,9 +249,10 @@ namespace SlopWorld
 
         void DrawCursor(Listing_Standard l)
         {
+            UiLayout.SectionHeading(l, "Mouse");
             CursorRow(l);
             l.Gap(UiTheme.GapS);
-            bool grayscale = UiControls.Checkbox(l, "Grayscale cursor", S.cursorGrayscale,
+            bool grayscale = UiControls.Checkbox(l, "Grayscale", S.cursorGrayscale,
                 "Use neutral grey instead of each asset's original colors.");
             if (grayscale != S.cursorGrayscale)
             {
@@ -289,7 +290,7 @@ namespace SlopWorld
             float col = Mathf.Min(230f, row.width - boxW - UiTheme.GapXS);
 
             UiText.RowLabel(new Rect(row.x, row.y, col - UiTheme.GapXS, row.height),
-                "Mouse cursor");
+                "Cursor");
 
             var box = new Rect(row.x + col, row.y + (row.height - boxW) / 2f, boxW, boxW);
             var choice = DeadCursor.ChoiceFor(DeadCursor.CurrentKey);
