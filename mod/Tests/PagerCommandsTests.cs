@@ -143,6 +143,15 @@ namespace SlopWorld.Tests
 
         static void BuildsPagerAndEditor()
         {
+            AssertEx.Equal("env LESS='-RSc +19' bat --paging=always -- '/f'",
+                PagerCommands.PagerCommand("bat --paging=always", "", "/f", 19),
+                "bat line target reaches its child pager rather than becoming a filename");
+            AssertEx.Equal("env LESS='-RSc +19' '/opt/my tools/bat' -- '/f'",
+                PagerCommands.PagerCommand("'/opt/my tools/bat' -- {file}", "", "/f", 19),
+                "bat file placeholder still retains the line target");
+            AssertEx.Equal("env LESS=-RSc bat --highlight-line=19 -- '/f'",
+                PagerCommands.PagerCommand("bat --highlight-line={line} -- {file}", "", "/f", 19),
+                "explicit line templates retain their configured behavior");
             AssertEx.Equal("env LESS=-RSc less -- '/f'", PagerCommands.PagerCommand("less", "", "/f"),
                            "pager paints from the top and retains the alternate screen");
             AssertEx.Equal("LESSOPEN='|highlight %s' LESS=-RSc", PagerCommands.LessEnv("highlight"),

@@ -566,3 +566,26 @@ async fn assert_pane_death_detaches_capture(rename: bool) {
     drop(tmux.run(&["kill-server"]).await);
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[tokio::test]
+async fn missing_pane_status_is_not_a_live_process_and_empty_server_lists_no_sessions() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let tmux = super::Tmux::new(&socket.path);
+    tmux.ensure_server().await.unwrap();
+    tmux.spawn(
+        "survivor",
+        "/tmp",
+        80,
+        24,
+        &["sleep".into(), "60".into()],
+        true,
+    )
+    .await
+    .unwrap();
+    tmux.pane_exit("missing").await.unwrap_err();
+    assert!(tmux.pane_exit("survivor").await.unwrap().is_none());
+    assert_eq!(tmux.list_checked().await.unwrap(), vec!["survivor"]);
+    tmux.kill("survivor").await.unwrap();
+    assert!(tmux.list_checked().await.unwrap().is_empty());
+    tmux.pane_exit("survivor").await.unwrap_err();
+}

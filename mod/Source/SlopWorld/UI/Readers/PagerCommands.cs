@@ -238,8 +238,19 @@ namespace SlopWorld
             return command;
         }
 
-        public static string PagerCommand(string pager, string highlighter, string file, long line = 0) =>
-            "env " + LessEnv(highlighter) + " " + FileCommand(pager, "less", file, line);
+        public static string PagerCommand(string pager, string highlighter, string file, long line = 0)
+        {
+            string environment = LessEnv(highlighter);
+            // bat opens the file and starts less itself. Its argv cannot contain less's
+            // +LINE selector; pass that selector to the child pager through LESS instead.
+            if (line > 0 && Path.GetFileName(Executable(pager, "less")) == "bat" &&
+                !(pager ?? "").Contains("{line}"))
+            {
+                environment = environment.Replace("LESS=-RSc", "LESS=" + Quote("-RSc +" + line.ToString(CultureInfo.InvariantCulture)));
+                line = 0;
+            }
+            return "env " + environment + " " + FileCommand(pager, "less", file, line);
+        }
 
         // micro's +LINE selector follows the file. FileCommand puts a pager's selector before
         // its `-- FILE`, which makes +LINE look like a buffer name to micro.

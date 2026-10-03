@@ -392,3 +392,67 @@ async fn adoption_finalizes_a_pane_that_exited_without_a_reader() {
             .any(|line| line.as_str().unwrap().contains("offline exit evidence"))
     );
 }
+
+#[tokio::test]
+async fn host_reader_exit_removes_tab_without_explicit_stop() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let cfg = Config {
+        projects: vec![ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let manager = crate::session::test_manager_with_socket(cfg, socket.path.clone());
+    let item = LibraryItemCfg {
+        name: "reader".into(),
+        project: "repo".into(),
+        kind: LibraryItemKind::Shell,
+        host: true,
+        command: Some("/bin/sh -c 'printf ready; read reply'".into()),
+        ..Default::default()
+    };
+    let name = manager
+        .run_errand(
+            item,
+            RunWhere {
+                intent: "view".into(),
+                reader_path: "/tmp/sample".into(),
+                ..Default::default()
+            },
+            true,
+            false,
+            "",
+        )
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !manager
+            .tmux
+            .capture(&name, 0)
+            .await
+            .unwrap()
+            .lines
+            .iter()
+            .any(|line| line.contains("ready"))
+        {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    manager
+        .tmux
+        .send_keys(&name, &["Enter".into()], false)
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while manager.live.read().await.contains_key(&name) {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("exited host reader tab must disappear");
+    assert!(!manager.tmux.exists(&name).await);
+}
