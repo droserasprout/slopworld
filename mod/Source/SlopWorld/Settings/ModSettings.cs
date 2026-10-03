@@ -57,17 +57,18 @@ namespace SlopWorld
             time.ToString(Normalize(Settings.TimeFormat) == TwelveHour ? "h:mm:ss tt" : "HH:mm:ss", CultureInfo.CurrentCulture);
     }
 
+    // The meme choice changes only the displayed label; temperatures still follow game preferences.
     public static class TemperatureUnit
     {
-        public const string Alternate = "alternate";
-        public const string AlternateLabel = "glazed🍩/bald🦅";
+        public const string MemeMode = "glazed-bald";
+        public const string MemeLabel = "glazed🍩/bald🦅";
 
-        public static bool IsAlternate(string unit) => unit == Alternate;
+        public static bool IsMemeMode(string unit) => unit == MemeMode;
 
-        public static string Normalize(string unit) => IsAlternate(unit) ? Alternate : "";
+        public static string Normalize(string unit) => IsMemeMode(unit) ? MemeMode : "";
 
         public static string Label(string unit, string fallback) =>
-            IsAlternate(unit) ? AlternateLabel : fallback;
+            IsMemeMode(unit) ? MemeLabel : fallback;
     }
 
     // Loading enables the mod unconditionally. Settings cover daemon connection and UI
