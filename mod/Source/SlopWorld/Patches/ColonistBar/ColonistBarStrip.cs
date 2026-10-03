@@ -63,9 +63,8 @@ namespace SlopWorld
         public static bool SidebarHover(Rect r) =>
             Find.WindowStack?.WindowOfType<UiMenu>() == null && Hover(r);
 
-        // The map-layer draw is pointless under a terminal and would register the bar's
-        // reorderable groups twice a frame.
-        public static bool Suppressed => Active && !Drawing;
+        // Hide native portraits with the sidebar; avoid duplicate reorder groups under terminals.
+        public static bool Suppressed => Settings.SidebarHidden || (Active && !Drawing);
 
         // Mirrors the private ColonistBar.Visible: the bar hides itself under 800x500 and
         // while the tile picker is up.
@@ -218,12 +217,15 @@ namespace SlopWorld
 
         // Only the outermost call owns the swap. The bar asks this of itself from inside its own
         // OnGUI, and restoring there would undo the layout being drawn.
-        static void Prefix(out HitState __state)
+        static bool Prefix(out HitState __state)
         {
+            __state = default;
+            if (Settings.SidebarHidden) return false;
             __state = new HitState { Restore = !ColonistBarStrip.Applied };
             if (__state.Restore) ColonistBarStrip.Apply();
             if (!ColonistBarStrip.Drawing)
                 __state.Translated = ColonistBarStrip.BeginHitTest();
+            return true;
         }
 
         static void Finalizer(HitState __state)

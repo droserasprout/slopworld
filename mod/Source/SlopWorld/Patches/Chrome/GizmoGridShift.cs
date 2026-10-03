@@ -45,7 +45,7 @@ namespace SlopWorld
             if (!Patch_GizmoGridFlag.Active) return;
             var content = WorkspaceLayout.Current.Content;
             float start = content.x + UiTheme.GapM;
-            if (content.width >= UI.screenWidth - 0.01f) return;
+            // Agent actions need no inspect-pane offset, even with the sidebar hidden.
             startX = InspectPaneAgent.AgentSelectionActive
                 ? start : Mathf.Max(startX, start);
         }

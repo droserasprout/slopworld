@@ -13,3 +13,7 @@ Panel lifecycle belongs to [workspace panels](mod-workspace-panels.md), terminal
 sizing/input to [terminal ownership](mod-terminal.md), and form focus to
 [focus](ui-focus.md). Specialized renderers own internal layout, including
 [Markdown](mod-markdown.md). Validation boundaries belong to [C# tests](test-csharp.md).
+
+Agent action buttons anchor to the content's left edge plus the shared gap even
+when the sidebar is hidden. Their replaced inspect pane must not reserve a vanilla
+horizontal offset.
