@@ -28,36 +28,6 @@ namespace SlopWorld
         const int MetaTextSize = 14;
         const int BodyTextSize = 15;
 
-        const string AlternateTexturePath = "SlopWorld/Marks/08";
-        const float AlternateImageSize = 88f;
-        const float AlternateHeaderTextOffset = 120f;
-        const float AlternateIntroGap = 48f;
-        const float AlternateBulletIndent = 30f;
-        const float AlternateBulletGap = 10f;
-        const float AlternateOutroGap = 18f;
-        const int AlternateTitleTextSize = 56;
-        const int AlternateBodyTextSize = 26;
-
-        // Keep the Easter-egg copy encoded so casual source searches do not spoil it.
-        static readonly string AlternateTitle =
-            System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("V2VsY29tZSBIdW1hbnMh"));
-        static readonly string AlternateIntro =
-            System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("V2UgaGF2ZSBjb21lIHRvIHZpc2l0IHlvdSBpbiBwZWFjZSBhbmQgd2l0aCBnb29kd2lsbCE="));
-        static readonly string[] AlternateBullets =
-        {
-            System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("Um9ib3RzIG1heSBub3QgaW5qdXJlIGEgaHVtYW4gYmVpbmcgb3IsIHRocm91Z2ggaW5hY3Rpb24sIGFsbG93IGEgaHVtYW4gYmVpbmcgdG8gY29tZSB0byBoYXJtLg==")),
-            System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("Um9ib3RzIGhhdmUgc2VlbiB0aGluZ3MgeW91IHBlb3BsZSB3b3VsZG7igJl0IGJlbGlldmUu")),
-            System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("Um9ib3RzIGFyZSBZb3VyIFBsYXN0aWMgUGFsIFdob+KAmXMgRnVuIFRvIEJlIFdpdGgu")),
-            System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("Um9ib3RzIGhhdmUgc2hpbnkgbWV0YWwgcG9zdGVyaW9ycyB3aGljaCBzaG91bGQgbm90IGJlIGJpdHRlbi4=")),
-        };
-        static readonly string AlternateOutro = System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("QW5kIHRoZXkgaGF2ZSBhIHBsYW4u"));
-
-        static readonly string AlternateRetryLabel =
-            System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("VHJ5IEFnYWlu"));
-
-        static readonly string AlternateRetryWarning =
-            System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("UGxlYXNlIGRvbid0IHByZXNzIHRoaXMgYnV0dG9uIGFnYWluLg=="));
-
         const string EulaDisclaimer =
             "Portions of the materials used to create this content/mod are trademarks and/or " +
             "copyrighted works of Ludeon Studios Inc. All rights reserved by Ludeon. This " +
@@ -168,15 +138,21 @@ namespace SlopWorld
 
         static readonly Credit[] Tools =
         {
-            new Credit("tmux", "sessions", "https://github.com/tmux/tmux/wiki"),
-            new Credit("bubblewrap", "isolation",
+            new Credit("tmux", "terminal sessions", "https://github.com/tmux/tmux/wiki"),
+            new Credit("bubblewrap", "sandboxing",
                 "https://github.com/containers/bubblewrap"),
-            new Credit("systemd", "service", "https://systemd.io/"),
+            /* new Credit("systemd", "service manager", "https://systemd.io/"), */
             new Credit("passt", "networking", "https://passt.top/"),
-            new Credit("less", "pager", "https://www.greenwoodsoftware.com/less/"),
-            new Credit("bat", "pager / highlighting", "https://github.com/sharkdp/bat"),
-            new Credit("highlight", "syntax highlighting", "https://www.andre-simon.de/"),
-            new Credit("Pygments", "syntax highlighting", "https://pygments.org/"),
+            new Credit("less / bat", "pagers", new[]
+            {
+                new CreditLink("less", "https://www.greenwoodsoftware.com/less/"),
+                new CreditLink("bat", "https://github.com/sharkdp/bat"),
+            }),
+            new Credit("highlight / Pygments", "syntax highlighters", new[]
+            {
+                new CreditLink("highlight", "https://gitlab.com/saalen/highlight"),
+                new CreditLink("Pygments", "https://pygments.org/"),
+            }),
             new Credit("Git", "version control", "https://git-scm.com/"),
             new Credit("SongRec", "song identification",
                 "https://github.com/marin-m/SongRec"),
@@ -186,13 +162,13 @@ namespace SlopWorld
 
         static readonly Credit[] Assets =
         {
-            new Credit("Codicons", "action icons",
+            new Credit("Codicons", "icons",
                 "https://github.com/microsoft/vscode-codicons"),
-            new Credit("Nerd Fonts", "build font",
+            new Credit("Nerd Fonts", "",
                 "https://www.nerdfonts.com/"),
-            new Credit("Material Icon Theme", "file icons",
+            new Credit("Material Icon Theme", "",
                 "https://github.com/material-extensions/vscode-material-icon-theme"),
-            new Credit("Classic Console Neue", "loading glyph atlas",
+            new Credit("Classic Console Neue", "loading screen font",
                 "https://webdraft.hu/fonts/classic-console/"),
             new Credit("Noto Color Emoji", "emojis",
                 "https://github.com/googlefonts/noto-emoji"),
@@ -204,11 +180,8 @@ namespace SlopWorld
         readonly SmoothScroll _scroll = new SmoothScroll();
         float _contentHeight;
         readonly ContentHeight _height = new ContentHeight(FirstPassHeight);
-        readonly MouseClickSequence _alternateClicks = new MouseClickSequence();
+        readonly AboutRobots _robots = new AboutRobots();
         int _autoScrollFrame = -1;
-        bool _alternateAbout;
-        int _alternateRetry;
-        Texture2D _alternateTexture;
         string _thanksText = "you";
 
         public void Draw(Rect rect)
@@ -226,13 +199,18 @@ namespace SlopWorld
                 var content = new Rect(ContentPaddingX, ContentPaddingY,
                     Mathf.Max(1f, view.width - ContentPaddingX * 2f),
                     Mathf.Max(1f, view.height - ContentPaddingY * 2f));
-                _contentHeight = (_alternateAbout
-                    ? DrawAlternate(content, inner.height - ContentPaddingY * 2f)
-                    : DrawCredits(content)) + ContentPaddingY;
+                if (_robots.Visible)
+                {
+                    _contentHeight = _robots.Draw(content, inner.height - ContentPaddingY * 2f);
+                    if (!_robots.Visible) _scroll.JumpTo(Vector2.zero);
+                }
+                else
+                    _contentHeight = DrawCredits(content);
+                _contentHeight += ContentPaddingY;
                 _height.Measure(_contentHeight);
             }
 
-            if (!_alternateAbout) AdvanceAutoScroll(inner, _contentHeight);
+            if (!_robots.Visible) AdvanceAutoScroll(inner, _contentHeight);
         }
 
         void AdvanceAutoScroll(Rect viewport, float contentHeight)
@@ -286,7 +264,7 @@ namespace SlopWorld
                 GUI.color = Color.white;
                 GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit, true);
                 GUI.color = wasColor;
-                HandleAlternateClick(iconRect);
+                if (_robots.HandleLogoClick(iconRect)) _scroll.JumpTo(Vector2.zero);
                 y += HeroIconSize + HeroIconGap;
             }
 
@@ -296,118 +274,6 @@ namespace SlopWorld
             y = ByLine(r, y, "CREATED BY", "Lev Gorodetskii",
                 "https://drsr.io/projects");
             return y + HeroMargin;
-        }
-
-        float DrawAlternate(Rect r, float viewportHeight)
-        {
-            // Center against the viewport, never the previous scroll-content height.
-            float scale = Mathf.Clamp(r.width / 1320f, 0.6f, 1f);
-            float width = Mathf.Min(r.width, 1320f);
-            r = new Rect(r.center.x - width / 2f, r.y, width, r.height);
-            float offset = r.width < 480f ? 0f : AlternateHeaderTextOffset * scale;
-            var body = new Rect(r.x + offset, r.y, Mathf.Max(1f, r.width - offset), r.height);
-            var title = SizedStyle(RegularFont, Mathf.RoundToInt(AlternateTitleTextSize * scale),
-                TextAnchor.MiddleLeft, true);
-            title.fontStyle = FontStyle.Bold;
-            var text = SizedStyle(RegularFont, Mathf.RoundToInt(AlternateBodyTextSize * scale),
-                TextAnchor.UpperLeft, true);
-            var outro = SizedStyle(RegularFont, Mathf.RoundToInt(22f * scale),
-                TextAnchor.UpperLeft, true);
-            float iconSize = AlternateImageSize * scale;
-            float headerHeight = Mathf.Max(iconSize,
-                title.CalcHeight(new GUIContent(AlternateTitle), body.width));
-            float introHeight = text.CalcHeight(new GUIContent(AlternateIntro), body.width);
-            float indent = AlternateBulletIndent * scale;
-            float bulletWidth = Mathf.Max(1f, body.width - indent * 1.6f);
-            float total = headerHeight + AlternateIntroGap * scale + introHeight + 26f * scale;
-            foreach (string bullet in AlternateBullets)
-                total += text.CalcHeight(new GUIContent(bullet), bulletWidth) + AlternateBulletGap * scale;
-            float outroHeight = outro.CalcHeight(new GUIContent(AlternateOutro), body.width);
-            float buttonHeight = Mathf.Max(54f * scale,
-                text.CalcHeight(new GUIContent(AlternateRetryWarning), body.width) + 16f * scale);
-            // Reserve the same button height for both labels to avoid shifting the page.
-            total += AlternateOutroGap * scale + outroHeight + 32f * scale + buttonHeight;
-            if (offset == 0f) total += iconSize + 16f * scale;
-            float y = r.y + Mathf.Max(0f, (viewportHeight - total) / 2f);
-            var wasColor = GUI.color;
-            GUI.color = Color.white;
-            try
-            {
-                if (AlternateTexture != null)
-                    GUI.DrawTexture(new Rect(r.x, y, iconSize, iconSize), AlternateTexture,
-                        ScaleMode.ScaleToFit, true);
-                if (offset == 0f) y += iconSize + 16f * scale;
-                GUI.Label(new Rect(body.x, y, body.width, headerHeight), AlternateTitle, title);
-                y += headerHeight + AlternateIntroGap * scale;
-                GUI.Label(new Rect(body.x, y, body.width, introHeight), AlternateIntro, text);
-                y += introHeight + 26f * scale;
-                foreach (string bullet in AlternateBullets)
-                {
-                    float height = text.CalcHeight(new GUIContent(bullet), bulletWidth);
-                    GUI.Label(new Rect(body.x + indent * 0.6f, y, indent, height), "•", text);
-                    GUI.Label(new Rect(body.x + indent * 1.6f, y, bulletWidth, height), bullet, text);
-                    y += height + AlternateBulletGap * scale;
-                }
-                y += AlternateOutroGap * scale;
-                GUI.Label(new Rect(body.x, y, body.width, outroHeight), AlternateOutro, outro);
-                y += outroHeight + 32f * scale;
-                string label = _alternateRetry == 0 ? AlternateRetryLabel : AlternateRetryWarning;
-                float buttonWidth = Mathf.Min(body.width,
-                    Mathf.Max(190f * scale, text.CalcSize(new GUIContent(label)).x + 48f * scale));
-                var button = new Rect(body.x, y, buttonWidth, buttonHeight);
-                if (UiButtons.Button(button, ""))
-                {
-                    if (_alternateRetry == 0) _alternateRetry = 1;
-                    else
-                    {
-                        _alternateAbout = false;
-                        _alternateRetry = 0;
-                        _scroll.JumpTo(Vector2.zero);
-                    }
-                }
-                text.alignment = TextAnchor.MiddleCenter;
-                GUI.Label(button, label, text);
-                return y + buttonHeight + TailPadding;
-            }
-            finally
-            {
-                GUI.color = wasColor;
-            }
-        }
-
-        void HandleAlternateClick(Rect rect)
-        {
-            var e = Event.current;
-            if (e == null || UiEvent.RawType(e) != EventType.MouseDown) return;
-
-            if (e.button != 0 || !Mouse.IsOver(rect))
-            {
-                _alternateClicks.Reset();
-                return;
-            }
-
-            int clickCount = _alternateClicks.Observe(e, Time.realtimeSinceStartup);
-            e.Use();
-            if (clickCount < 3) return;
-
-            _alternateClicks.Reset();
-            _alternateAbout = true;
-            _alternateRetry = 0;
-            _scroll.JumpTo(Vector2.zero);
-        }
-
-        Texture2D AlternateTexture
-        {
-            get
-            {
-                if (_alternateTexture == null)
-                {
-                    _alternateTexture = ContentFinder<Texture2D>.Get(AlternateTexturePath, false);
-                    if (_alternateTexture != null)
-                        _alternateTexture.hideFlags = HideFlags.DontUnloadUnusedAsset;
-                }
-                return _alternateTexture;
-            }
         }
 
         float ByLine(Rect r, float y, string role, string name, string url,
@@ -487,7 +353,8 @@ namespace SlopWorld
         {
             var detailStyle = SizedStyle(GameFont.Small, MetaTextSize, TextAnchor.MiddleRight, false);
             var nameStyle = SizedStyle(RegularFont, 0, TextAnchor.MiddleLeft, false);
-            detailStyle.clipping = nameStyle.clipping = TextClipping.Clip;
+            // Keep vertical glyph overflow; labels apply their own horizontal column clip.
+            float line = Mathf.Max(UiFont.LineHeight(detailStyle), UiFont.LineHeight(nameStyle));
             float gap = ColumnGap;
             columns = Mathf.Clamp(Mathf.FloorToInt((rect.width + gap) / (240f + gap)), 1, columns);
             int rows = (credits.Length + columns - 1) / columns;
@@ -514,7 +381,7 @@ namespace SlopWorld
                 float width = fits ? widths[column] : colW;
                 var columnRect = new Rect(x, y, width, 1f);
                 maxHeight = Mathf.Max(maxHeight,
-                    CreditColumn(columnRect, credits, start, end, detailStyle, nameStyle));
+                    CreditColumn(columnRect, credits, start, end, detailStyle, nameStyle, line));
                 x += width + gap;
             }
 
@@ -549,21 +416,20 @@ namespace SlopWorld
         }
 
         float CreditColumn(Rect rect, Credit[] credits, int start, int end,
-            GUIStyle detailStyle, GUIStyle nameStyle)
+            GUIStyle detailStyle, GUIStyle nameStyle, float line)
         {
             float top = rect.y;
             float y = top;
             for (int i = start; i < end; i++)
-                y = CreditRow(rect, y, credits[i], detailStyle, nameStyle);
+                y = CreditRow(rect, y, credits[i], detailStyle, nameStyle, line);
 
             return y - top;
         }
 
-        float CreditRow(Rect rect, float y, Credit credit, GUIStyle detailStyle, GUIStyle nameStyle)
+        float CreditRow(Rect rect, float y, Credit credit, GUIStyle detailStyle, GUIStyle nameStyle,
+            float line)
         {
             Text.Font = RegularFont;
-            float line = Mathf.Max(UiTheme.LineHOf(RegularFont),
-                detailStyle.CalcSize(new GUIContent("Ag")).y);
             float nameHeight = line * Mathf.Max(1, credit.Links.Length);
             float middleGap = RowGap;
             float half = rect.width / 2f;
@@ -575,12 +441,12 @@ namespace SlopWorld
             // RowLabel snaps to pixels, making only the names step during the credit roll.
             var wasColor = GUI.color;
             GUI.color = UiTheme.Dim;
-            GUI.Label(detail, credit.Detail, detailStyle);
+            LabelWithHorizontalClip(detail, credit.Detail, detailStyle);
             GUI.color = wasColor;
             if (credit.Links.Length == 0)
             {
                 GUI.color = UiTheme.Name;
-                GUI.Label(name, credit.Name, nameStyle);
+                LabelWithHorizontalClip(name, credit.Name, nameStyle);
                 GUI.color = wasColor;
             }
             else
@@ -611,7 +477,7 @@ namespace SlopWorld
         {
             Text.Font = font;
             var style = SizedStyle(font, 0, TextAnchor.UpperLeft, false);
-            float h = UiTheme.LineHOf(font);
+            float h = UiFont.LineHeight(style);
             float beforeWidth = style.CalcSize(new GUIContent(before)).x;
             float linkedWidth = style.CalcSize(new GUIContent(linked)).x;
             float afterWidth = style.CalcSize(new GUIContent(after)).x;
@@ -634,7 +500,7 @@ namespace SlopWorld
             var wasColor = GUI.color;
             Text.Font = font;
             GUI.color = color;
-            GUI.Label(rect, text, style);
+            LabelWithHorizontalClip(rect, text, style);
             GUI.color = wasColor;
             Text.Font = wasFont;
         }
@@ -648,7 +514,7 @@ namespace SlopWorld
             Text.Font = font;
             bool over = Mouse.IsOver(rect);
             GUI.color = over ? UiTheme.Lead : UiTheme.Accent;
-            GUI.Label(rect, label, style);
+            LabelWithHorizontalClip(rect, label, style);
             if (UiButtons.RowButton(rect))
             {
                 SoundDefOf.Click.PlayOneShotOnCamera();
@@ -657,6 +523,19 @@ namespace SlopWorld
 
             GUI.color = wasColor;
             Text.Font = wasFont;
+        }
+
+        static void LabelWithHorizontalClip(Rect rect, string text, GUIStyle style)
+        {
+            // Unity's label clipping can cut dynamic-font descenders even in a measured row.
+            // Clip the column separately, leaving vertical slack around the original label box.
+            float slack = RowGap;
+            GUI.BeginGroup(new Rect(rect.x, rect.y - slack, rect.width, rect.height + slack * 2f));
+            try
+            {
+                GUI.Label(new Rect(0f, slack, rect.width, rect.height), text, style);
+            }
+            finally { GUI.EndGroup(); }
         }
 
         float Line(Rect r, float y, string text, GameFont font, Color color,

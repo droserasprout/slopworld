@@ -275,7 +275,7 @@ namespace SlopWorld
 
         // Check companion immunity and aura protection.
         // Individual protection can continue after the thing leaves the pulse area.
-        bool Spared(Thing t) => Companion.IsImmune(t as Pawn)
+        bool Spared(Thing t) => Capybara.IsImmune(t as Pawn)
             || (_runtime.Aura ?? (_runtime.Aura = Aura.Of(map)))?.Spares(t) == true;
 
         public bool Active => _active;

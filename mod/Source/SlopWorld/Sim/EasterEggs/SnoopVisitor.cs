@@ -7,32 +7,33 @@ using Verse.AI;
 
 namespace SlopWorld
 {
-    public class Gardener : GameComponent
+    // Easter egg: Snoop visits at 04:20 and 16:20 local time to smoke smokeleaf.
+    public class SnoopVisitor : GameComponent
     {
-        const int FirstWindow = 0x104;
-        const int SecondWindow = 0x3D4;
+        const int MorningVisitMinute = 4 * 60 + 20;
+        const int AfternoonVisitMinute = 16 * 60 + 20;
 
-        const int Interval = 60;
-        const int SmokeInterval = 600;
-        const int Stash = 40;
+        const int VisitCheckIntervalTicks = 60;
+        const int SmokeIntervalTicks = 600;
+        const int JointStackCount = 40;
 
-        const int StayMin = 0x4650;
-        const int StayMax = 0x8CA0;
+        const int MinStayTicks = 18000;
+        const int MaxStayTicks = 36000;
 
         const string HairName = "Afro";
         const string SkinName = "Skin_Melanin9";
         const string JointName = "SmokeleafJoint";
 
-        static readonly string Handle = System.Text.Encoding.UTF8.GetString(new byte[] { 0x53, 0x6E, 0x6F, 0x6F, 0x70 });
+        const string VisitorName = "Snoop";
 
         static readonly Color Hair = new Color(0.13f, 0.12f, 0.11f);
 
-        long _firstDay;
-        long _secondDay;
+        long _morningVisitDay;
+        long _afternoonVisitDay;
         int _leaveTick;
         Pawn _pawn;
 
-        public Gardener(Game game) { }
+        public SnoopVisitor(Game game) { }
 
         public override void GameComponentTick()
         {
@@ -40,8 +41,8 @@ namespace SlopWorld
 
             int tick = Find.TickManager.TicksGame;
 
-            if (tick % SmokeInterval == 0) Smoke();
-            if (tick % Interval != 0) return;
+            if (tick % SmokeIntervalTicks == 0) Smoke();
+            if (tick % VisitCheckIntervalTicks != 0) return;
             if (Cutscene.AgentsHeld) return;
 
             if (_leaveTick > 0 && tick >= _leaveTick)
@@ -54,35 +55,35 @@ namespace SlopWorld
             long today = now.Ticks / TimeSpan.TicksPerDay;
             double mins = now.TimeOfDay.TotalMinutes;
 
-            bool firstDue = mins >= FirstWindow && mins < SecondWindow;
-            bool secondDue = mins >= SecondWindow;
+            bool morningDue = mins >= MorningVisitMinute && mins < AfternoonVisitMinute;
+            bool afternoonDue = mins >= AfternoonVisitMinute;
 
-            if (_firstDay == 0 && _secondDay == 0)
+            if (_morningVisitDay == 0 && _afternoonVisitDay == 0)
             {
-                _firstDay = firstDue ? today : today - 1;
-                _secondDay = secondDue ? today : today - 1;
+                _morningVisitDay = morningDue ? today : today - 1;
+                _afternoonVisitDay = afternoonDue ? today : today - 1;
             }
 
-            if (firstDue && _firstDay < today)
+            if (morningDue && _morningVisitDay < today)
             {
-                _firstDay = today;
+                _morningVisitDay = today;
                 Arrive(tick);
                 return;
             }
 
-            if (secondDue && _secondDay < today)
+            if (afternoonDue && _afternoonVisitDay < today)
             {
-                _secondDay = today;
+                _afternoonVisitDay = today;
                 Arrive(tick);
             }
         }
 
-        bool Around => _pawn != null && !_pawn.Destroyed && !_pawn.Dead && _pawn.Spawned;
+        bool VisitorIsPresent => _pawn != null && !_pawn.Destroyed && !_pawn.Dead && _pawn.Spawned;
 
         void Leave()
         {
             var pawn = _pawn;
-            bool around = Around;
+            bool around = VisitorIsPresent;
             _pawn = null;
             _leaveTick = 0;
             if (!around) return;
@@ -92,7 +93,7 @@ namespace SlopWorld
 
         void Arrive(int tick)
         {
-            if (Around) return;
+            if (VisitorIsPresent) return;
 
             var map = Find.CurrentMap ?? Find.AnyPlayerHomeMap;
             if (map == null) return;
@@ -114,25 +115,25 @@ namespace SlopWorld
                     fixedGender: Gender.Male);
 
                 var pawn = PawnGenerator.GeneratePawn(req);
-                Dress(pawn);
+                ApplySnoopAppearance(pawn);
                 GenSpawn.Spawn(pawn, cell, map);
                 GetOrCreateJointStack(pawn);
 
                 _pawn = pawn;
-                _leaveTick = tick + Rand.Range(StayMin, StayMax);
+                _leaveTick = tick + Rand.Range(MinStayTicks, MaxStayTicks);
             }
             catch (Exception e)
             {
-                Log.Warning($"[SlopWorld] gardener: {e.Message}");
+                Log.Warning($"[SlopWorld] Snoop visitor: {e.Message}");
             }
         }
 
-        static void Dress(Pawn pawn)
+        static void ApplySnoopAppearance(Pawn pawn)
         {
             if (pawn?.story == null) return;
 
             var last = (pawn.Name as NameTriple)?.Last ?? "";
-            pawn.Name = new NameTriple(Handle, Handle, last);
+            pawn.Name = new NameTriple(VisitorName, VisitorName, last);
 
             var hair = DefDatabase<HairDef>.GetNamedSilentFail(HairName);
             if (hair != null) pawn.story.hairDef = hair;
@@ -155,7 +156,7 @@ namespace SlopWorld
 
         void Smoke()
         {
-            if (!Around) return;
+            if (!VisitorIsPresent) return;
 
             var pawn = _pawn;
             if (pawn.Downed || pawn.jobs == null) return;
@@ -185,7 +186,7 @@ namespace SlopWorld
             if (held != null) return held;
 
             var made = ThingMaker.MakeThing(def);
-            made.stackCount = Stash;
+            made.stackCount = JointStackCount;
             return pawn.inventory.innerContainer.TryAdd(made) ? made : null;
         }
 
@@ -205,10 +206,10 @@ namespace SlopWorld
         public override void ExposeData()
         {
             base.ExposeData();
-            Scribe_Values.Look(ref _firstDay, "gardenerFirstDay", 0L);
-            Scribe_Values.Look(ref _secondDay, "gardenerSecondDay", 0L);
-            Scribe_Values.Look(ref _leaveTick, "gardenerLeave", 0);
-            Scribe_References.Look(ref _pawn, "gardenerPawn");
+            Scribe_Values.Look(ref _morningVisitDay, "snoopMorningVisitDay", 0L);
+            Scribe_Values.Look(ref _afternoonVisitDay, "snoopAfternoonVisitDay", 0L);
+            Scribe_Values.Look(ref _leaveTick, "snoopLeaveTick", 0);
+            Scribe_References.Look(ref _pawn, "snoopVisitorPawn");
         }
     }
 }

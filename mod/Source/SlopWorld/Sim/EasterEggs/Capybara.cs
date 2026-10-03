@@ -4,9 +4,11 @@ using Verse;
 
 namespace SlopWorld
 {
-    public class Companion : GameComponent
+    // Easter egg: clicking a capybara grants map-local capybaras plague immunity.
+    public class Capybara : GameComponent
     {
-        static readonly string TargetDef = System.Text.Encoding.UTF8.GetString(new byte[] { 0x43, 0x61, 0x70, 0x79, 0x62, 0x61, 0x72, 0x61 });
+        const string CapybaraDefName = "Capybara";
+        const string CapybaraBadgePath = "SlopWorld/Marks/07";
         const float BubbleSeconds = 3f;
         const float BadgeSize = 24f;
         const float BadgeLift = 48f;
@@ -14,15 +16,15 @@ namespace SlopWorld
         readonly HashSet<Pawn> _immune = new HashSet<Pawn>();
         Pawn _bubblePawn;
         float _bubbleUntil;
-        bool _used;
+        bool _activated;
 
         static Texture2D _badge;
 
-        public Companion(Game game) { }
+        public Capybara(Game game) { }
 
         // Runtime-only state resets on load. Activation also clears existing plague marks.
         public static bool IsImmune(Pawn pawn) =>
-            pawn != null && Verse.Current.Game?.GetComponent<Companion>()?._immune.Contains(pawn) == true;
+            pawn != null && Verse.Current.Game?.GetComponent<Capybara>()?._immune.Contains(pawn) == true;
 
         public override void GameComponentOnGUI()
         {
@@ -32,36 +34,36 @@ namespace SlopWorld
             var map = Find.CurrentMap;
             if (map == null) return;
 
-            if (!_used && Event.current.type == EventType.MouseDown && Event.current.button == 0
+            if (!_activated && Event.current.type == EventType.MouseDown && Event.current.button == 0
                 && Find.WindowStack.FloatMenu == null
                 && !Find.WindowStack.AnyWindowAbsorbingAllInput
                 && Find.WindowStack.GetWindowAt(Event.current.mousePosition) == null)
             {
-                var pawn = At(map, UI.MouseCell());
+                var pawn = CapybaraAt(map, UI.MouseCell());
                 if (pawn != null)
                 {
                     Event.current.Use();
-                    Activate(map, pawn);
+                    GrantCapybaraImmunity(map, pawn);
                 }
             }
 
             DrawBubble(map);
         }
 
-        static Pawn At(Map map, IntVec3 cell)
+        static Pawn CapybaraAt(Map map, IntVec3 cell)
         {
             foreach (var pawn in map.mapPawns.AllPawnsSpawned)
-                if (pawn.Position == cell && pawn.def?.defName == TargetDef)
+                if (pawn.Position == cell && pawn.def?.defName == CapybaraDefName)
                     return pawn;
             return null;
         }
 
-        void Activate(Map map, Pawn clicked)
+        void GrantCapybaraImmunity(Map map, Pawn clicked)
         {
-            _used = true;
+            _activated = true;
             foreach (var pawn in map.mapPawns.AllPawnsSpawned)
             {
-                if (pawn.def?.defName != TargetDef) continue;
+                if (pawn.def?.defName != CapybaraDefName) continue;
 
                 _immune.Add(pawn);
                 var plague = pawn.health?.hediffSet?.GetFirstHediffOfDef(ModDefOf.SlopPlague);
@@ -102,7 +104,7 @@ namespace SlopWorld
             {
                 if (_badge == null)
                 {
-                    _badge = ContentFinder<Texture2D>.Get("SlopWorld/Marks/07", false);
+                    _badge = ContentFinder<Texture2D>.Get(CapybaraBadgePath, false);
                     if (_badge != null) _badge.hideFlags = HideFlags.DontUnloadUnusedAsset;
                 }
                 return _badge;

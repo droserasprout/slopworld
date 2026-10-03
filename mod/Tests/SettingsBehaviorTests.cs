@@ -192,11 +192,11 @@ namespace SlopWorld.Tests
             AssertEx.Equal(119, settings.foregroundFps, "read does not rewrite stored FPS");
             settings.sidebarSide = NavigationSide.Right;
             settings.displayMode = FramePolicy.Limit;
-            settings.temperatureUnit = TemperatureUnit.Alternate;
+            settings.temperatureUnit = TemperatureUnit.MemeMode;
             settings.sidebarFilesOpenFraction = 2;
             AssertEx.Equal(NavigationSide.Right, Settings.SidebarSide, "explicit right side retained");
             AssertEx.Equal(FramePolicy.Limit, Settings.DisplayMode, "explicit FPS cap retained");
-            AssertEx.Equal(TemperatureUnit.Alternate, Settings.TemperatureUnit, "custom unit retained");
+            AssertEx.Equal(TemperatureUnit.MemeMode, Settings.TemperatureUnit, "custom unit retained");
             AssertEx.Equal(1f, Settings.SidebarFilesOpenFraction, "runtime fraction clamped");
             AssertEx.Equal("Celsius", TemperatureUnit.Label("unknown", "Celsius"), "unknown unit uses supplied label");
         });
@@ -239,15 +239,15 @@ namespace SlopWorld.Tests
                 AssertEx.Equal("24-hour", TimeFormat.Label(settings.timeFormat), "fallback label");
             }
         });
-        public static void AlternateTemperatureKeepsItsEmojiLabel()
+        public static void MemeModeKeepsItsEmojiLabel()
         {
-                AssertEx.Equal(TemperatureUnit.Alternate,
-                    TemperatureUnit.Normalize(TemperatureUnit.Alternate),
+                AssertEx.Equal(TemperatureUnit.MemeMode,
+                    TemperatureUnit.Normalize(TemperatureUnit.MemeMode),
                     "custom temperature unit normalization");
-                AssertEx.Equal(TemperatureUnit.AlternateLabel,
-                    TemperatureUnit.Label(TemperatureUnit.Alternate, "Fahrenheit"),
+                AssertEx.Equal(TemperatureUnit.MemeLabel,
+                    TemperatureUnit.Label(TemperatureUnit.MemeMode, "Fahrenheit"),
                     "custom temperature unit label");
-                AssertEx.Equal("\u0067\u006c\u0061\u007a\u0065\u0064\U0001F369\u002f\u0062\u0061\u006c\u0064\U0001F985", TemperatureUnit.AlternateLabel,
+                AssertEx.Equal("glazed🍩/bald🦅", TemperatureUnit.MemeLabel,
                     "custom temperature unit keeps the real emoji label");
         }
 

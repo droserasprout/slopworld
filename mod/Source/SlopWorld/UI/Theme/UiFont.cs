@@ -207,7 +207,7 @@ namespace SlopWorld
 
         // Use the tallest layout or glyph bounds, including the style's padding. The latter is
         // what keeps the lower edge of a dynamic glyph inside the row it is laid out in.
-        static float LineHeight(GUIStyle style)
+        internal static float LineHeight(GUIStyle style)
         {
             bool wrap = style.wordWrap;
             try
