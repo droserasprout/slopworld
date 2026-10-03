@@ -33,6 +33,7 @@ namespace SlopWorld
 
         public SpawnWorkerDialog(string caller, string project)
         {
+            resizeable = true;
             SessionHub.Instance.RefreshConfig(UiLayout.Fail);
             _fixedCaller = caller;
             _project = project ?? "";
@@ -53,6 +54,8 @@ namespace SlopWorld
         }
 
         public override Vector2 InitialSize => new Vector2(680f, 740f);
+
+        protected override Vector2 MinimumSize => InitialSize;
 
         protected override void DoBody(Rect rect)
         {

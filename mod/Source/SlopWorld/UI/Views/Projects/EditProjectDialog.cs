@@ -55,6 +55,8 @@ namespace SlopWorld
         // Project identity and shared mounts each get their own tab.
         public override Vector2 InitialSize => new Vector2(780f, 680f);
 
+        protected override Vector2 MinimumSize => new Vector2(660f, 420f);
+
         protected override void DoBody(Rect rect)
         {
             UiLayout.Title(TitleRect(rect), _identity.Title("project"));

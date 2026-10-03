@@ -46,6 +46,7 @@ namespace SlopWorld
 
         EditSessionDialog(SessionInfo existing, string project, bool copy, AgentTemplateInfo template = null)
         {
+            resizeable = true;
             _identity = copy ? EditIdentity.ForCopy(existing?.Name) :
                 existing == null ? EditIdentity.ForNew() : EditIdentity.ForEdit(existing.Name);
             _s = CreateDraft(existing, project, copy);
@@ -135,6 +136,8 @@ namespace SlopWorld
         // A left rail of short pages rather than one long form. The agent, its sandbox, its
         // resource limits, and the preview each get their own tab.
         public override Vector2 InitialSize => new Vector2(660f, 800f);
+
+        protected override Vector2 MinimumSize => new Vector2(600f, 420f);
 
         protected override void DoBody(Rect rect)
         {

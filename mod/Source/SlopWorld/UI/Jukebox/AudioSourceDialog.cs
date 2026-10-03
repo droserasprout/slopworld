@@ -19,6 +19,7 @@ namespace SlopWorld
 
         AudioSourceDialog(JukeboxPresetInfo source, bool isNew, string originalId)
         {
+            resizeable = true;
             _source = source;
             _isNew = isNew;
             _originalId = originalId;
@@ -66,6 +67,8 @@ namespace SlopWorld
         }
 
         public override Vector2 InitialSize => new Vector2(600f, 520f);
+
+        protected override Vector2 MinimumSize => new Vector2(520f, 340f);
 
         protected override void DoBody(Rect rect)
         {

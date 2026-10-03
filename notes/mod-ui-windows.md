@@ -14,6 +14,9 @@ Alerts scroll their message inside a capped viewport with a fixed action footer.
 Shared text-dialog notes measure and draw through the same native wrapping path.
 Shared form geometry/focus belongs to [chrome](mod-ui-chrome.md) and [focus](ui-focus.md).
 
+`UiWindow` owns resize bounds; resizable forms declare `MinimumSize`.
+Native grip integration belongs to `Patches/Chrome/WindowResizeCorner.cs`.
+
 Hidden vanilla category definitions remain registered and layout preserves vanilla
 row indexing and lookup identity. [Stripping](mod-patches-strip.md) owns disabling
 behavior without deleting definitions.

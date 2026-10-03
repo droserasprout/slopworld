@@ -112,6 +112,7 @@ namespace SlopWorld
 
         public ProjectWorktreeDialog(string project, Mode mode, Action changed, Wire.Worktree renaming = null)
         {
+            resizeable = true;
             _project = project; _mode = mode; _changed = changed; _renaming = renaming;
             if (mode == Mode.Rename && renaming == null) throw new ArgumentNullException(nameof(renaming));
             if (mode == Mode.Rename) _name = renaming.Name;
@@ -119,6 +120,8 @@ namespace SlopWorld
         }
 
         public override Vector2 InitialSize => new Vector2(580f, 380f);
+
+        protected override Vector2 MinimumSize => new Vector2(480f, 300f);
 
         protected override void DoBody(Rect rect)
         {

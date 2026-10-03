@@ -1,4 +1,5 @@
 using System;
+using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -23,6 +24,26 @@ namespace SlopWorld
 
         Action _acceptAction;
         readonly FieldLifetime _fieldLifetime = new FieldLifetime();
+
+        static readonly AccessTools.FieldRef<Window, WindowResizer> Resizer =
+            AccessTools.FieldRefAccess<Window, WindowResizer>("resizer");
+
+        protected virtual Vector2 MinimumSize => new Vector2(150f, 150f);
+
+        public override void WindowOnGUI()
+        {
+            if (resizeable)
+            {
+                // Window handles resize input before DoWindowContents, so set its bounds here.
+                ref var resizer = ref Resizer(this);
+                if (resizer == null) resizer = new WindowResizer();
+                var minimum = MinimumSize;
+                resizer.minWindowSize = new Vector2(
+                    Mathf.Min(minimum.x, UI.screenWidth),
+                    Mathf.Min(minimum.y, UI.screenHeight));
+            }
+            base.WindowOnGUI();
+        }
 
         // Single-line forms can opt into the shared RimWorld accept binding without each
         // repeating the same event plumbing. Multiline editors leave this unset so Enter

@@ -23,6 +23,7 @@ namespace SlopWorld
 
         protected EditLibraryItemDialog(LibraryItemInfo existing, bool copy, LibraryItemKind kind)
         {
+            resizeable = true;
             if (copy && existing == null) throw new ArgumentNullException(nameof(existing));
 
             // A duplicate is a new daemon entry. It must POST rather than PUT, and its name is
@@ -90,6 +91,8 @@ namespace SlopWorld
         // What is left at the bottom is the prompt box - the one field here somebody writes
         // paragraphs in. The one that gets squeezed when anything above grows.
         public override Vector2 InitialSize => new Vector2(600f, 740f);
+
+        protected override Vector2 MinimumSize => InitialSize;
 
         protected abstract string TitleNoun { get; }
         protected abstract string TextHeading { get; }
