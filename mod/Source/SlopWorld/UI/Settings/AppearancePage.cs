@@ -13,12 +13,9 @@ namespace SlopWorld
         const float PickerWidth = 430f;
         const float PickerHeight = 360f;
 
-        readonly SmoothScroll _scroll = new SmoothScroll();
         readonly SmoothScroll _pickScroll = new SmoothScroll();
-        readonly SettingsPreviewLayout _layout = new SettingsPreviewLayout();
-        float _fieldsH;
-        float _measuredFieldsH;
-        int _measurementFrame = -1;
+        readonly SettingsPreviewForm _form = new SettingsPreviewForm(600f,
+            UiScrollbarReservation.WhenNeeded);
         bool _pickingCursor;
         int _contentRevision;
 
@@ -36,60 +33,9 @@ namespace SlopWorld
 
         void DrawCore(Rect rect)
         {
-            // Listing measurement is produced while drawing. Promote it only at a frame
-            // boundary so Layout, input and Repaint passes in one frame use identical bounds.
-            if (_measurementFrame != Time.frameCount)
-            {
-                if (_measurementFrame >= 0 && _measuredFieldsH > 0f)
-                    _fieldsH = _measuredFieldsH;
-                _measurementFrame = Time.frameCount;
-            }
-
             Text.Font = GameFont.Small;
-            var inner = SettingsPageLayout.BodyWithoutFooter(rect);
-
-            float previewH = PreviewHeight();
-            float formH = _fieldsH > 0f ? _fieldsH : EstimateFieldsHeight();
-            float blockH = UiTheme.RowH + UiTheme.GapXS + previewH;
-            // Keep the preview pinned to the bottom while there is room for at least one
-            // usable form row. The form owns its scrollbar. Only genuinely short windows
-            // move the preview into the shared scrolling column.
-            float minimumFormViewport = UiTheme.RowH;
-            bool stacked = inner.height < minimumFormViewport + UiTheme.GapM + blockH;
-
-            if (!stacked)
-            {
-                _layout.Arrange(inner.width, inner.height, false, formH, previewH,
-                    _contentRevision);
-                var form = Place(inner, _layout.Form);
-                var formGeometry = UiScrollBody.Measure(form, _fieldsH,
-                    UiScrollbarReservation.WhenNeeded);
-                using (_scroll.Scope(form, formGeometry.View))
-                    DrawFields(new Rect(0f, 0f, formGeometry.View.width,
-                        Mathf.Max(form.height, _fieldsH)));
-
-                DrawPreviewBlock(Place(inner, _layout.PreviewCaption),
-                    Place(inner, _layout.Preview));
-            }
-            else
-            {
-                // A short settings window becomes one scrollable column. The preview is
-                // content, not a fixed overlay, so the last cursor/font setting remains
-                // reachable even when the viewport is shorter than the form.
-                float contentH = formH + UiTheme.GapM + blockH;
-                var frame = inner;
-                var geometry = UiScrollBody.Measure(frame, contentH,
-                    UiScrollbarReservation.WhenNeeded);
-                _layout.Arrange(geometry.View.width, inner.height, true, formH, previewH,
-                    _contentRevision);
-                using (_scroll.Scope(frame, geometry.View))
-                {
-                    DrawFields(new Rect(_layout.Form.X, _layout.Form.Y,
-                        _layout.Form.Width, Mathf.Max(_layout.Form.Height, _fieldsH)));
-                    DrawPreviewBlock(ToRect(_layout.PreviewCaption),
-                        ToRect(_layout.Preview));
-                }
-            }
+            _form.Draw(SettingsPageLayout.BodyWithoutFooter(rect), PreviewHeight(),
+                DrawFields, DrawPreviewBlock, _contentRevision);
 
             if (_pickingCursor)
                 DrawCursorPicker(rect);
@@ -100,41 +46,18 @@ namespace SlopWorld
                 + UiTheme.LineHOf(GameFont.Medium) + UiTheme.GapS * 8 + 90f,
             200f, 230f);
 
-        // The first frame needs a safe content estimate before Listing_Standard has returned
-        // the real height. It is replaced by `_fieldsH` at the next frame boundary and never
-        // affects control identity or the page instance.
-        static float EstimateFieldsHeight() => 600f;
-
-        static Rect Place(Rect origin, UiLayoutRect local) =>
-            new Rect(origin.x + local.X, origin.y + local.Y, local.Width, local.Height);
-
-        static Rect ToRect(UiLayoutRect local) =>
-            new Rect(local.X, local.Y, local.Width, local.Height);
-
         static void DrawPreviewBlock(Rect caption, Rect preview)
         {
             UiLayout.SectionHeading(caption, "Preview");
             DrawPreview(preview);
         }
 
-        void DrawFields(Rect rect)
+        void DrawFields(Listing_Standard l)
         {
-            var l = new Listing_Standard { maxOneColumn = true };
-            bool begun = false;
-            try
-            {
-                l.Begin(rect);
-                begun = true;
-                DrawScale(l);
-                DrawFont(l);
-                DrawScheme(l);
-                DrawCursor(l);
-                _measuredFieldsH = l.CurHeight - rect.y + UiTheme.GapS;
-            }
-            finally
-            {
-                if (begun) l.End();
-            }
+            DrawScale(l);
+            DrawFont(l);
+            DrawScheme(l);
+            DrawCursor(l);
         }
 
         void DrawScale(Listing_Standard l)

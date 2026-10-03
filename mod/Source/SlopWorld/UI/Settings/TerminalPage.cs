@@ -10,9 +10,7 @@ namespace SlopWorld
     // on dialog close. ModOptions hosts it as an `OptionCategoryDef` page.
     public class TerminalPage : IOptionPage
     {
-        readonly SmoothScroll _scroll = new SmoothScroll();
-        readonly ContentHeight _height = new ContentHeight(400f);
-        readonly SettingsPreviewLayout _layout = new SettingsPreviewLayout();
+        readonly SettingsPreviewForm _form = new SettingsPreviewForm(400f);
 
         public void Load() { }
 
@@ -31,36 +29,8 @@ namespace SlopWorld
             float ph = Mathf.Clamp(
                 Mathf.Max(TerminalFont.CellH * PreviewRows + 10f, MatrixPreviewH),
                 MatrixPreviewH, MatrixPreviewMaxH);
-            float formH = _height.BeginFrame(Time.frameCount);
-            float blockH = UiTheme.RowH + UiTheme.GapXS + ph;
-            bool stacked = inner.height < UiTheme.RowH + UiTheme.GapM + blockH;
-            float width = UiScrollBody.Measure(inner, 0f,
-                UiScrollbarReservation.Always).ContentWidth;
-            _layout.Arrange(stacked ? width : inner.width, inner.height, stacked, formH, ph, 0);
-            if (stacked)
-            {
-                var geometry = UiScrollBody.Measure(inner, formH + UiTheme.GapM + blockH,
-                    UiScrollbarReservation.Always);
-                using (_scroll.Scope(inner, geometry.View))
-                {
-                    DrawFields(UiRect.ToRect(_layout.Form), S);
-                    DrawPreviewBlock(UiRect.ToRect(_layout.PreviewCaption),
-                        UiRect.ToRect(_layout.Preview));
-                }
-            }
-            else
-            {
-                var form = Place(inner, _layout.Form);
-                var geometry = UiScrollBody.Measure(form, formH,
-                    UiScrollbarReservation.Always);
-                using (_scroll.Scope(form, geometry.View))
-                    DrawFields(geometry.View, S);
-                DrawPreviewBlock(Place(inner, _layout.PreviewCaption), Place(inner, _layout.Preview));
-            }
+            _form.Draw(inner, ph, DrawFields, DrawPreviewBlock);
         }
-
-        static Rect Place(Rect origin, UiLayoutRect local) =>
-            new Rect(origin.x + local.X, origin.y + local.Y, local.Width, local.Height);
 
         static void DrawPreviewBlock(Rect caption, Rect preview)
         {
@@ -69,23 +39,11 @@ namespace SlopWorld
             DrawPreview(preview, TerminalFont.Style);
         }
 
-        void DrawFields(Rect rect, ModSettings s)
+        void DrawFields(Listing_Standard l)
         {
-            var l = new Listing_Standard { maxOneColumn = true };
-            bool begun = false;
-            try
-            {
-                l.Begin(rect);
-                begun = true;
-                DrawFont(l, s);
-                DrawTheme(l, s);
-                DrawCursor(l, s);
-                _height.Measure(l.CurHeight - rect.y + UiTheme.GapS);
-            }
-            finally
-            {
-                if (begun) l.End();
-            }
+            DrawFont(l, S);
+            DrawTheme(l, S);
+            DrawCursor(l, S);
         }
 
         List<FloatMenuOption> _fontOptions;

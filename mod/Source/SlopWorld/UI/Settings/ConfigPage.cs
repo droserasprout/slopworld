@@ -14,7 +14,7 @@ namespace SlopWorld
         protected override bool RefreshHealthOnLoad => true;
         protected override bool DrawFieldsBeforeLoad => true;
         protected override bool ShowEditButton => true;
-        protected override bool ShowSaveButton => true;
+        protected override bool ShowSaveButton => false;
 
         protected override void DrawFields(Listing_Standard l)
         {

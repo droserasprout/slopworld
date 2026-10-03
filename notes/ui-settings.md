@@ -4,6 +4,8 @@ Profile preferences belong to `ModSettings`; machine configuration belongs to th
 daemon; RimWorld preferences keep their own lifecycle. Settings > General uses
 `ConfigPage`. The palette action Configuration: Edit config.toml opens the raw
 `ConfigWindow`, separately from the Settings pages.
+General's editable preferences apply live; its footer offers Reload and Edit for
+daemon configuration, without Save/Discard controls.
 
 Most profile preferences apply live. Controls mark them dirty for a quiet-period
 flush, and Settings closure writes them. UI scale applies on slider release so its
@@ -23,7 +25,10 @@ pins and pane bindings; failed starts retain old readers. User choices belong to
 [Settings reference](../docs/src/reference/settings.md), reader lifetime to
 [file readers](mod-file-readers.md), and command construction to `PagerCommands`.
 
-Page geometry belongs to `SettingsLayout`, responsive forms to [chrome](mod-ui-chrome.md),
+Page geometry belongs to `SettingsLayout`. `SettingsPreviewForm` owns retained
+scrolling and frame-stable form measurement for Interface, Terminal, and Code;
+`SettingsPreviewLayout` owns their pinned/stacked preview geometry.
+Responsive forms belong to [chrome](mod-ui-chrome.md),
 scrolling to [scrolling](mod-ui-scrolling.md), registration/dialogs to
 [windows](mod-ui-windows.md), and worker delivery to [workers](daemon-workers.md).
 See `CodeAppearanceDraftTests` and `PagerCommandsTests` for local draft/command contracts.
