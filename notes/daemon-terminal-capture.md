@@ -33,6 +33,8 @@ The private tmux server and emulator agree on composing emoji modifiers and join
 cell widths. New panes default `LESSUTFCHARDEF` to retain modifiers/joiners/selectors;
 custom environment/presets can override it, and existing panes keep launch settings
 until restarted. These daemon rules determine client columns.
+CI and the sidecar runtime use Debian forky with the same pinned tmux package;
+older distro packages can lack the required width ranges.
 
 Reader cleanup owns cancellation and child reaping before tmux/session removal.
 Dropping a task handle detaches work rather than aborting it; keep explicit ownership

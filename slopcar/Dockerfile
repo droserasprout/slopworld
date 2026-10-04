@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Debian trixie publishes linux/amd64 and linux/arm64 natively, so the launcher no longer pins a
+# Debian forky publishes linux/amd64 and linux/arm64 natively, so the launcher no longer pins a
 # platform and Apple Silicon runs the image without emulation. slopd's sandbox skeleton reads the
 # host's own usr-merge layout at runtime, so this multiarch tree works the same as Arch's did.
 
@@ -22,11 +22,8 @@ COPY slopd/presets ./presets
 RUN touch src/main.rs src/bin/slopctl.rs \
     && cargo build --release --locked --bin slopd --bin slopctl
 
-# The runtime base is the official Node image on the same Debian trixie, kept multiarch
-# (amd64 + arm64, no emulation). npm's `--allow-scripts` allowlist below needs npm 12, which in
-# turn needs node >= 22 — newer than trixie's own nodejs — so we take node from this base rather
-# than apt.
-FROM node:22-trixie-slim@sha256:7b8a0c89c54499bee567618f96578e1a12a800f062fbdbfd1fb6a443fa6f6284
+# Forky supplies tmux 3.7c and Node 24; npm's script allowlist needs npm 12.
+FROM debian:forky-slim@sha256:7bb96d9b4ccd7f46f54853c258a56df0c6b628a63e65c2317959da18fd36932c
 
 ARG CLAUDE_CODE_VERSION=2.1.245
 ARG CODEX_VERSION=0.149.1
@@ -42,11 +39,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         less \
         libasound2t64 \
         micro \
+        nodejs \
+        npm \
         openssh-client \
         passt \
         python3 \
         ripgrep \
-        tmux \
+        tmux=3.7c-1 \
     && npm install --global "npm@${NPM_VERSION}" \
     && npm install --global \
         --allow-scripts=@anthropic-ai/claude-code,opencode-ai,@google/genai,protobufjs,koffi \
@@ -60,10 +59,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=build --chmod=755 /build/slopd/target/release/slopd /usr/local/bin/slopd
 COPY --from=build --chmod=755 /build/slopd/target/release/slopctl /usr/local/bin/slopctl
 
-# The node base contains a `node` user with UID 1000.
-# Remove that user so the `slop` user can use UID 1000.
-RUN userdel --remove node \
-    && useradd --create-home --uid 1000 --shell /bin/bash slop \
+RUN useradd --create-home --uid 1000 --shell /bin/bash slop \
     && install -d -o slop -g slop -m 0700 \
         /home/slop/.cache \
         /home/slop/.claude \
