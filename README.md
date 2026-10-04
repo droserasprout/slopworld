@@ -20,3 +20,8 @@ slopworld
 `RIMWORLD` defaults to `~/GOG Games/RimWorld/game`. Run `just gogdl-login gogdl-install` to install a GOG copy.
 
 Always start the game with `slopworld`. Mod will refuse to run on vanilla game profile.
+
+## License
+
+SlopWorld code is licensed under [MIT](LICENSE). Bundled third-party components
+and assets retain their own licenses.
