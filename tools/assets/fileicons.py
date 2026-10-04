@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bake the files view icons from vendored SVG files.
 
-Usage: python3 tools/assets/fileicons.py [--fetch] [--size N]
+Usage: uv run --locked --extra assets python -m tools.assets.fileicons [--fetch] [--size N]
   --fetch   Download the manifest icons into assets/fileicons/svg again.
   --size    Set the PNG edge length. The default is 32 pixels.
 
@@ -30,16 +30,13 @@ import urllib.request
 import numpy as np
 from PIL import Image
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(os.path.dirname(HERE))
-SRC = os.path.join(ROOT, "assets", "fileicons", "svg")
-MANIFEST = os.path.join(ROOT, "assets", "fileicons", "manifest.toml")
-OUT = os.path.join(ROOT, "mod", "Textures", "SlopWorld", "FileIcons")
+from tools import ROOT
 
-UPSTREAM = (
-    "https://raw.githubusercontent.com/material-extensions/"
-    "vscode-material-icon-theme/main/icons/{}.svg"
-)
+SRC = os.path.join(ROOT, 'assets', 'fileicons', 'svg')
+MANIFEST = os.path.join(ROOT, 'assets', 'fileicons', 'manifest.toml')
+OUT = os.path.join(ROOT, 'mod', 'Textures', 'SlopWorld', 'FileIcons')
+
+UPSTREAM = 'https://raw.githubusercontent.com/material-extensions/vscode-material-icon-theme/main/icons/{}.svg'
 
 # Use four samples for each output pixel.
 # Larger values increase processing time without improving these SVG files.
@@ -47,7 +44,7 @@ SUPER = 4
 
 
 def names():
-    with open(MANIFEST, "rb") as f:
+    with open(MANIFEST, 'rb') as f:
         return list(tomllib.load(f).keys())
 
 
@@ -59,18 +56,18 @@ def fetch(icons):
             with urllib.request.urlopen(url, timeout=30) as r:
                 body = r.read()
         except Exception as e:
-            print(f"  {name}: {e}", file=sys.stderr)
+            print(f'  {name}: {e}', file=sys.stderr)
             continue
-        with open(os.path.join(SRC, f"{name}.svg"), "wb") as f:
+        with open(os.path.join(SRC, f'{name}.svg'), 'wb') as f:
             f.write(body)
-        print(f"  {name}")
+        print(f'  {name}')
 
 
 def render(path, edge):
     """One SVG at `edge` pixels square, as RGBA."""
     try:
         png = subprocess.run(
-            ["rsvg-convert", "-w", str(edge), "-h", str(edge), "-a", path],
+            ['rsvg-convert', '-w', str(edge), '-h', str(edge), '-a', path],
             check=True,
             capture_output=True,
         ).stdout
@@ -78,13 +75,13 @@ def render(path, edge):
         import cairosvg  # only reached where rsvg-convert is not
 
         png = cairosvg.svg2png(url=path, output_width=edge, output_height=edge)
-    return Image.open(io.BytesIO(png)).convert("RGBA")
+    return Image.open(io.BytesIO(png)).convert('RGBA')
 
 
 def bake(name, size):
-    src = os.path.join(SRC, f"{name}.svg")
+    src = os.path.join(SRC, f'{name}.svg')
     if not os.path.exists(src):
-        print(f"  {name}: no SVG. Run with --fetch.", file=sys.stderr)
+        print(f'  {name}: no SVG. Run with --fetch.', file=sys.stderr)
         return False
 
     big = render(src, size * SUPER)
@@ -100,27 +97,27 @@ def bake(name, size):
     rgb = np.divide(box[..., :3], alpha, out=np.zeros_like(box[..., :3]), where=alpha > 0)
     out = np.concatenate([rgb, alpha], axis=-1)
 
-    img = Image.fromarray(np.clip(out * 255.0 + 0.5, 0, 255).astype(np.uint8), "RGBA")
-    img.save(os.path.join(OUT, f"{name}.png"), optimize=True)
+    img = Image.fromarray(np.clip(out * 255.0 + 0.5, 0, 255).astype(np.uint8), 'RGBA')
+    img.save(os.path.join(OUT, f'{name}.png'), optimize=True)
     return True
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--fetch", action="store_true")
-    ap.add_argument("--size", type=int, default=32)
+    ap.add_argument('--fetch', action='store_true')
+    ap.add_argument('--size', type=int, default=32)
     args = ap.parse_args()
 
     icons = names()
     if args.fetch:
-        print(f"fetching {len(icons)} icons")
+        print(f'fetching {len(icons)} icons')
         fetch(icons)
 
     os.makedirs(OUT, exist_ok=True)
     done = sum(bake(n, args.size) for n in icons)
-    print(f"{done}/{len(icons)} icons at {args.size}px -> {os.path.relpath(OUT, ROOT)}")
+    print(f'{done}/{len(icons)} icons at {args.size}px -> {os.path.relpath(OUT, ROOT)}')
     return 0 if done == len(icons) else 1
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     sys.exit(main())

@@ -12,8 +12,11 @@
   provide that version; check with `protoc --version`.
 - **just** runs the repository recipes. Install it with your package manager
   or `cargo install just --locked`. On macOS, use `brew install just`.
-- **PyYAML** parses the shared wire contract during `just api-contract`.
 - **Python 3.11 or newer** runs tooling and reads Cargo version metadata for mod builds.
+  **uv** manages the tooling environment from `pyproject.toml` and `uv.lock`.
+  Recipes synchronize locked dependencies automatically; `just sync-tools` prepares
+  the environment explicitly. Asset generators use the optional `assets` dependencies
+  and also require their native graphics libraries.
 
 Set `RIMWORLD` to the Linux game directory containing `RimWorldLinux`.
 Building the mod requires the game's assemblies in `Managed/`. For native macOS,
@@ -47,18 +50,25 @@ See [Install](install.md) for the complete setup procedure.
 
 | Target | Purpose | Extra requirements |
 | --- | --- | --- |
-| `just format` | Format Rust and C# production, test, and benchmark sources | — |
-| `just lint` | Rust formatting/Clippy and a Release mod build with C# formatting checks | Game assemblies |
+| `just format` | Format Python tools and Rust/C# production, test, and benchmark sources | — |
+| `just lint` | Python Ruff checks, Rust formatting/Clippy, and a Release mod build with C# formatting checks | Game assemblies |
 | `just test` | All game-free Rust, C#, tool, and pager tests | `tmux`, `less` |
 | `just ci` | Game-free tests with coverage, formatting, Rust lint, and generated-contract checks | `tmux`, `less`, coverage tools |
 
 Use `test-daemon`, `test-mod`, `test-tools`, or `test-pager` to run a subset.
+`just test-tools` runs benchmark helper tests and the Python package tests through pytest,
+writing branch coverage to `coverage/python.cobertura.xml`. Existing unittest tests run under pytest.
+`just lint-tools` formats the package and sorts imports before checking it with Ruff.
+`just format-tools` applies the 120-column, single-quote style and sorts imports. Both tools and pytest-cov belong
+to the uv `dev` dependency group. Tools run as modules from the repository root through uv;
+for example, `uv run --locked python -m tools.docs.reference`.
+Use `just lock-tools` after changing Python dependencies and commit `uv.lock`.
+For an asset tool, use `uv run --locked --extra assets python -m tools.assets.emoji --help`.
 `just check-format-csharp` checks C# formatting without game assemblies.
 
-`just coverage` writes `coverage/rust.cobertura.xml` and
-`coverage/csharp.cobertura.xml`. Install `cargo-llvm-cov` with
+`just coverage` writes Python, Rust, and C# reports under `coverage/`. Install `cargo-llvm-cov` with
 `cargo install cargo-llvm-cov --locked` and the matching `llvm-cov` and
-`llvm-profdata` binaries. Use `coverage-daemon` or `coverage-mod` for one component,
+`llvm-profdata` binaries. Use `coverage-tools`, `coverage-daemon`, or `coverage-mod` for one component,
 and `just coverage-summary` to summarize existing reports.
 
 ## More workflows

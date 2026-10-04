@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Draw faceplate textures for agent pawns.
 
-Usage: python3 tools/assets/roboface.py [variant ...]
+Usage: uv run --locked --extra assets python -m tools.assets.roboface [variant ...]
   Variants: blue red green purple yellow white missing (default: all)
 
 Each variant creates RobotFace_{Variant}_{south,east}.png in the mod textures directory.
@@ -21,16 +21,19 @@ The tool does not create a north texture because the faceplate has no back.
 The node leaves the pawn's head visible when the pawn faces away.
 Graphic_Multi creates the west texture by mirroring the east texture.
 """
+
 import os
 import sys
 
 import numpy as np
 from PIL import Image
 
-OUT = os.path.join(os.path.dirname(__file__), "..", "..", "mod", "Textures", "SlopWorld")
+from tools import ROOT
 
-N = 128                     # the head frame RimWorld draws us into
-SS = 4                      # supersample factor
+OUT = ROOT / 'mod/Textures/SlopWorld'
+
+N = 128  # the head frame RimWorld draws us into
+SS = 4  # supersample factor
 S = N * SS
 
 # The shape the metal is cut against: a superellipse centred at (CX, CY),
@@ -65,12 +68,12 @@ C_BOLT = np.array([0.52, 0.535, 0.56])
 
 # Eye glow colors.
 EYE_COLORS = {
-    "Blue": np.array([0.45, 0.75, 0.95]),
-    "Red": np.array([0.95, 0.25, 0.15]),
-    "Green": np.array([0.25, 0.85, 0.40]),
-    "Purple": np.array([0.75, 0.35, 0.95]),
-    "Yellow": np.array([0.95, 0.80, 0.20]),
-    "White": np.array([0.85, 0.88, 0.95]),
+    'Blue': np.array([0.45, 0.75, 0.95]),
+    'Red': np.array([0.95, 0.25, 0.15]),
+    'Green': np.array([0.25, 0.85, 0.40]),
+    'Purple': np.array([0.75, 0.35, 0.95]),
+    'Yellow': np.array([0.95, 0.80, 0.20]),
+    'White': np.array([0.85, 0.88, 0.95]),
 }
 
 # Missing variant colors.
@@ -125,8 +128,7 @@ class Renderer:
 
 def steel(x0, y0, x1, y1):
     t = np.clip((Y - y0) / (y1 - y0), 0, 1)[..., None]
-    lit = np.clip(1.0 - (((X - (x0 + (x1 - x0) * 0.3)) ** 2
-                          + (Y - (y0 + (y1 - y0) * 0.25)) ** 2) / 900.0), 0, 1)
+    lit = np.clip(1.0 - (((X - (x0 + (x1 - x0) * 0.3)) ** 2 + (Y - (y0 + (y1 - y0) * 0.25)) ** 2) / 900.0), 0, 1)
     return np.clip(C_PLATE_TOP * (1 - t) + C_PLATE_BOT * t + lit[..., None] * 0.09, 0, 1)
 
 
@@ -163,8 +165,7 @@ def iris(r, cx, cy, glow):
     """Glowing lens inside the socket. Painted on its own layer so the base
     plate is rendered without eyes and composited later."""
     m = cover(disc(cx, cy, IRIS_R))
-    g = np.clip(1.25 - ((X - (cx - IRIS_R)) + (Y - (cy - IRIS_R))) / (IRIS_R * 4),
-                0.35, 1.0)
+    g = np.clip(1.25 - ((X - (cx - IRIS_R)) + (Y - (cy - IRIS_R))) / (IRIS_R * 4), 0.35, 1.0)
     r.rgb = r.rgb * (1 - m[..., None]) + (glow * (g * 0.95)[..., None]) * m[..., None]
     r.a = np.maximum(r.a, m)
 
@@ -193,7 +194,7 @@ def bolt(r, cx, cy, region):
 def build_base(facing):
     """Render the base plate (no eyes) at supersampled resolution."""
     r = Renderer()
-    if facing == "south":
+    if facing == 'south':
         region = front(r, below(PLATE_TOP))
         for x in EYES_X:
             socket(r, x, EYE_Y)
@@ -213,7 +214,7 @@ def build_eyes(facing, glow_or_none):
     """Render the eyes at supersampled resolution. glow_or_none is an RGB array
     for a colored glow, or None for void holes."""
     r = Renderer()
-    if facing == "south":
+    if facing == 'south':
         positions = [(x, EYE_Y) for x in EYES_X]
     else:
         positions = [(73.5, EYE_Y)]
@@ -238,19 +239,19 @@ def composite(base_r, eye_r):
 
 def save(rgb, a, name):
     img = np.clip(np.concatenate([rgb, a[..., None]], -1), 0, 1)
-    path = os.path.join(OUT, f"RobotFace_{name}.png")
+    path = os.path.join(OUT, f'RobotFace_{name}.png')
     Image.fromarray((img * 255).astype(np.uint8)).save(path)
-    print("wrote", os.path.normpath(path))
+    print('wrote', os.path.normpath(path))
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     # Build the base plates once per facing — these are the same for every variant.
-    bases = {f: build_base(f) for f in ("south", "east")}
+    bases = {f: build_base(f) for f in ('south', 'east')}
 
-    wanted = sys.argv[1:] if len(sys.argv) > 1 else list(EYE_COLORS.keys()) + ["Missing"]
+    wanted = sys.argv[1:] if len(sys.argv) > 1 else list(EYE_COLORS.keys()) + ['Missing']
 
     for variant in wanted:
-        if variant == "Missing":
+        if variant == 'Missing':
             glow = None
         elif variant in EYE_COLORS:
             glow = EYE_COLORS[variant]
@@ -258,7 +259,7 @@ if __name__ == "__main__":
             print(f"unknown variant '{variant}'; choose from {list(EYE_COLORS.keys())} + Missing")
             continue
 
-        for facing in ("south", "east"):
+        for facing in ('south', 'east'):
             eye_r = build_eyes(facing, glow)
             rgb, a = composite(bases[facing], eye_r)
-            save(rgb, a, f"{variant}_{facing}")
+            save(rgb, a, f'{variant}_{facing}')

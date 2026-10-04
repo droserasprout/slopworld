@@ -2,7 +2,7 @@ name: Set up pinned build tools
 description: Cache and install matching Linux tools for test and release builds
 inputs:
   coverage:
-    description: Install cargo-llvm-cov, just, and protoc
+    description: Include cargo-llvm-cov, just, protoc, and uv
     default: 'false'
 runs:
   using: composite
@@ -16,3 +16,6 @@ runs:
       env:
         INSTALL_COVERAGE: ${{ inputs.coverage }}
       run: bash "$GITHUB_ACTION_PATH/install.sh"
+    - name: Synchronize locked Python dependencies
+      shell: bash
+      run: uv sync --locked --no-python-downloads

@@ -116,10 +116,10 @@ def load_reporter():
 
 
 def write_performance_summary(log, output, mode='x'):
-    # The benchmark lives under bench/terminal-input; the shared summary tool is under tools/.
-    summary = Path(__file__).resolve().parents[2] / 'tools' / 'trace-summary.py'
+    root = Path(__file__).resolve().parents[2]
     with output.open(mode) as report:
-        subprocess.run([sys.executable, str(summary), str(log)], stdout=report, check=True)
+        subprocess.run([sys.executable, '-m', 'tools.trace.summary', str(log.resolve())],
+                       cwd=root, stdout=report, check=True)
 
 
 def revision():
