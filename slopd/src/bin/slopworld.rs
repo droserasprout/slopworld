@@ -20,7 +20,7 @@ const MARKER: &str = "slopworld.profile";
 
 /// The two mods a profile starts with, in load order.
 const CORE: &str = "ludeon.rimworld";
-const SLOPWORLD: &str = "drsr.slopworld";
+const SLOPWORLD: &str = "io.drsr.slopworld";
 const SIDECAR_UI_SETTINGS: &str = "uiScheme = \"slopworld-warm\"\n";
 
 /// List RimWorld 1.6 expansions explicitly so the game treats owned DLC as known.

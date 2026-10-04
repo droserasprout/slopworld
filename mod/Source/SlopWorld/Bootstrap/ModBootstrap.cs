@@ -20,7 +20,7 @@ namespace SlopWorld
                 return;
             }
 
-            var h = new Harmony("drsr.slopworld");
+            var h = new Harmony("io.drsr.slopworld");
             try
             {
                 h.PatchAll(Assembly.GetExecutingAssembly());

@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-  <packageId>drsr.slopworld</packageId>
+  <packageId>io.drsr.slopworld</packageId>
   <name>SlopWorld</name>
-  <author>droserasprout</author>
-  <description>Disables the colony simulation. Each colonist represents a live AI coding agent session. The slopd daemon manages these sessions in tmux under bubblewrap. Select a colonist. Open its terminal.
+  <author>Lev Gorodetskii</author>
+  <description>This mod turns joy into work, chill into butthurt, and art into slop.
 
-The mod requires slopd on the host as a systemd user service.</description>
+  Don't install it into regular RimWorld mod directory! Use `slopworld` CLI tool.
+  </description>
+  <url>https://github.com/droserasprout/slopworld</url>
   <supportedVersions>
     <li>1.6</li>
   </supportedVersions>
