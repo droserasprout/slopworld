@@ -13,6 +13,11 @@ not select the sidecar profile; sidecar launch recipes set it explicitly.
 builds a snapshot without private files or build caches; preparation records the
 binary version for package metadata, build and check. Cargo fetches dependencies
 in preparation and uses frozen builds afterward.
+Arch runtime requirements cover the audio library, default shell, core session
+infrastructure, Git/worktrees and workspace search. Pager/editor/highlighter tools,
+fallback process inspection and desktop/music integrations are optional dependencies.
+Command defaults still select fixed tools, so optional package metadata does not
+imply automatic fallback.
 
 `bench/` owns benchmark runners, shared result handling, reporting, and their tests.
 `tools/assets/` owns asset generators and text-sprite checks; `assets/` owns bundled
