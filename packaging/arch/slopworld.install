@@ -8,7 +8,7 @@ The mod is staged at /usr/share/slopworld/SlopWorld. RimWorld loads mods from
 inside its own install, so attach it as your normal user (not root):
 
   RIMWORLD=/path/to/RimWorld/game
-  ln -s /usr/share/slopworld/SlopWorld "$RIMWORLD/Mods/SlopWorld"
+  ln -sT /usr/share/slopworld/SlopWorld "$RIMWORLD/Mods/SlopWorld"
 
 Then start the daemon for your user:
 
@@ -20,5 +20,12 @@ EOF
 }
 
 post_upgrade() {
-  post_install
+  cat <<'EOF'
+SlopWorld was upgraded. Reload the unit and restart the daemon as your normal user:
+
+  systemctl --user daemon-reload
+  systemctl --user try-restart slopd.service
+
+Restart your Ananicy service if it was already running so it loads the new rule.
+EOF
 }

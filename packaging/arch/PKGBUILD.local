@@ -5,7 +5,7 @@
 #   makepkg -p PKGBUILD.local -si
 #
 # The mod half links against the game's own assemblies, so RIMWORLD must point at
-# a real Linux install (default ~/RimWorld/game, override in the environment).
+# a real Linux install (default ~/GOG Games/RimWorld/game, override in the environment).
 
 pkgname=slopworld
 pkgver=0.0.1
@@ -16,7 +16,7 @@ url="https://github.com/droserasprout/slopworld"
 license=('custom')
 depends=('alsa-lib' 'bash' 'bubblewrap' 'git' 'glib2' 'highlight' 'less' 'micro'
   'passt' 'procps-ng' 'ripgrep' 'systemd' 'tmux')
-makedepends=('cargo' 'git' 'dotnet-sdk' 'lld' 'just')
+makedepends=('cargo' 'git' 'dotnet-sdk' 'lld' 'just' 'protobuf' 'python' 'python-yaml')
 optdepends=(
   'wl-clipboard: clipboard and PRIMARY selection under Wayland'
   'xclip: clipboard and PRIMARY selection under X11'
@@ -33,9 +33,8 @@ _managed="$RIMWORLD/RimWorldLinux_Data/Managed"
 _src="$(realpath "$startdir/../..")"
 
 pkgver() {
-  cd "$_src"
   local _v
-  _v="$(tools/version.sh "$(grep -m1 '^version' slopd/Cargo.toml | cut -d'"' -f2)")"
+  _v="$(cat "$srcdir/slopworld/.slopworld-build-version")"
   # Arch package versions cannot contain the hyphens used by untagged binaries.
   printf '%s\n' "${_v//-/.r}"
 }
@@ -50,7 +49,15 @@ prepare() {
   # itself. tar rather than cp, which has no way to say that.
   local _skip=(
     --exclude=./.git
+    --exclude=./.worktrees
+    --exclude=./priv
+    --exclude=./target
     --exclude=./slopd/target
+    --exclude=./mod/Source/SlopWorld/obj
+    --exclude=./mod/Source/SlopWorld/bin
+    --exclude=./mod/Dependencies/obj
+    --exclude=./mod/Dependencies/bin
+    --exclude=./mod/Assemblies/SlopWorld.dll
     '--exclude=./packaging/arch/*.pkg.tar.*'
   )
   local _d
@@ -60,29 +67,36 @@ prepare() {
 
   rm -rf "$srcdir/slopworld"
   mkdir -p "$srcdir/slopworld"
-  tar -C "$_src" -cf - "${_skip[@]}" . | tar -C "$srcdir/slopworld" -xf -
-  cd "$srcdir/slopworld"
+  # makepkg enables errexit but not pipefail; reject a partial source archive.
+  (set -o pipefail; tar -C "$_src" -cf - "${_skip[@]}" . | tar -C "$srcdir/slopworld" -xf -)
+  # The snapshot has no Git metadata. Capture its version from the source checkout
+  # once so pkgver, build and check cannot disagree after a checkout or date change.
+  "$_src/tools/version.sh" "$(grep -m1 '^version' "$srcdir/slopworld/slopd/Cargo.toml" | cut -d'"' -f2)" \
+    > "$srcdir/slopworld/.slopworld-build-version"
+  cd "$srcdir/slopworld" || return
   export RUSTUP_TOOLCHAIN=stable
   cargo fetch --manifest-path slopd/Cargo.toml --locked
 }
 
 build() {
-  cd "$srcdir/slopworld"
-  local _version="${pkgver//.r/-}"
+  cd "$srcdir/slopworld" || return
+  local _version
+  _version="$(cat .slopworld-build-version)"
   export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$PWD/target" SLOPWORLD_BUILD_VERSION="$_version"
-  just BUILD=release VERSION="$_version" RIMWORLD="$RIMWORLD" mod
+  just BUILD=release CARGOFLAGS='--release --frozen' VERSION="$_version" RIMWORLD="$RIMWORLD" mod
 }
 
 check() {
-  cd "$srcdir/slopworld"
-  local _version="${pkgver//.r/-}"
+  cd "$srcdir/slopworld" || return
+  local _version
+  _version="$(cat .slopworld-build-version)"
   export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$PWD/target" SLOPWORLD_BUILD_VERSION="$_version"
-  cd slopd
+  cd slopd || return
   cargo test --release --frozen
 }
 
 package() {
-  cd "$srcdir/slopworld"
+  cd "$srcdir/slopworld" || return
 
   install -Dm755 target/release/slopd "$pkgdir/usr/bin/slopd"
   install -Dm755 target/release/slopctl "$pkgdir/usr/bin/slopctl"
