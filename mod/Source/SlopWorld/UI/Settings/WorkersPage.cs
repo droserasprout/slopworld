@@ -22,7 +22,7 @@ namespace SlopWorld
 
         protected override void DrawFields(Listing_Standard l)
         {
-            UiLayout.SectionHeading(l, "Available worker templates");
+            UiLayout.SectionHeading(l, "Templates");
             UiLayout.Note(l, "Selected templates are available to agents that create task workers. " +
                 "You can use any catalog template from the Worker menu.");
 
@@ -47,10 +47,9 @@ namespace SlopWorld
             }
 
             l.Gap(UiTheme.GapL);
-            UiLayout.SectionHeading(l, "Worker settings");
+            UiLayout.SectionHeading(l, "Instructions");
             UiLayout.Note(l, "The daemon sends this prompt when it starts a worker from a selected template. " +
                 "Task commands use the worker's task ID when SLOPWORLD_TASK_ID is set.");
-            l.Label("Worker prompt");
             _cfg.WorkerPrompt = UiControls.Area(l, 180f, "instructions.worker_prompt",
                 _cfg.WorkerPrompt, on: true, defaultValue: _cfg.FactoryDefaults?.WorkerPrompt,
                 resize: _promptResize);

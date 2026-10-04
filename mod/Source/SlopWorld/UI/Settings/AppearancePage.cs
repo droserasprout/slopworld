@@ -62,7 +62,7 @@ namespace SlopWorld
 
         void DrawScale(Listing_Standard l)
         {
-            UiLayout.SectionHeading(l, "Layout");
+            UiLayout.SectionHeading(l, "Scale");
 
             // The knob and readout follow the mouse. Apply the scale only after mouse release.
             // The scale changes this row's position. See UiControls.Slider.
@@ -85,6 +85,7 @@ namespace SlopWorld
 
         void DrawScheme(Listing_Standard l)
         {
+            UiLayout.SectionHeading(l, "Colors");
             // Nothing to invalidate on the way out: every color in the mod is read through shared
             // UI chrome on the frame it is drawn. Therefore, the page under the dropdown has
             // already changed by the time the menu closes over it. See UIScheme.
@@ -172,7 +173,7 @@ namespace SlopWorld
 
         void DrawCursor(Listing_Standard l)
         {
-            UiLayout.SectionHeading(l, "Mouse");
+            UiLayout.SectionHeading(l, "Mouse cursor");
             CursorRow(l);
             l.Gap(UiTheme.GapS);
             bool grayscale = UiControls.Checkbox(l, "Grayscale", S.cursorGrayscale,
