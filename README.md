@@ -19,4 +19,4 @@ slopworld
 
 `RIMWORLD` defaults to `~/GOG Games/RimWorld/game`. Run `just gogdl-login gogdl-install` to install a GOG copy.
 
-Always start the game with `slopworld`. If you start RimWorld directly, it does not use the separate SlopWorld profile.
+Always start the game with `slopworld`. Mod will refuse to run on vanilla game profile.

@@ -38,6 +38,7 @@ namespace SlopWorld.Tests
                         AssertEx.Equal(measured, page.TestPreset(preset, width, true),
                             "preset draw and measurement use the same geometry" + $" ({source}, width {width})");
                         var description = EditorTrace.Draws.Single(d => d.Name == "preset.description").Rect;
+                        AssertEx.True(description.height <= 240f, "preset description growth stays bounded");
                         AssertEx.True(description.height > 44f, "real form expands wrapped descriptions" + $" ({source}, width {width})");
                         AssertEx.True(EditorTrace.Draws.Where(d => d.Name.StartsWith("preset.", StringComparison.Ordinal))
                             .All(d => d.Rect.width == width && d.Rect.yMax <= measured),

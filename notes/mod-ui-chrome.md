@@ -6,6 +6,19 @@ Start with `UiText`, `UiButtons`, `UiControls`, `UiLayout`, and `Slab` when addi
 `TextEntryController` owns shared native field invocation and delayed clipboard edits;
 focus memory belongs to [focus](ui-focus.md).
 
+Multiline `Area` controls opt into vertical resizing with a form-owned `UiAreaResize`.
+Listing areas measure their height automatically; rectangle callers use `UiText.AreaHeight`
+in their layout. Prompts retain a manual height. Template descriptions and preset
+areas opt into content growth, capped at 240 pixels. Dragging overrides growth;
+the grip's right-click Fit to content action restores it. Read-only preset areas
+grow without a grip. Sizing-enabled fields own an inner scroll viewport and reveal
+the caret after keyboard edits; full-dialog editors keep their window-owned sizing.
+Measurement is pure and includes the same padding and scrollbar gutter as drawing.
+The adapter reuses the native window resizer and compact corner grip, reserves text space above the grip, and retires input capture with the field lifetime.
+The native grip includes a Unity button that takes mouse capture. The area adapter
+restores its own capture and invokes the native grip once after the text control on
+every enabled IMGUI pass, keeping control allocation consistent while idle and dragging.
+
 Measurement, drawing, and hit testing must share stable geometry and control IDs
 across IMGUI passes. Measurement must not mutate form data. Cache layout by content
 and text metrics, not color alone; use shared measurement helpers. `Slab` geometry

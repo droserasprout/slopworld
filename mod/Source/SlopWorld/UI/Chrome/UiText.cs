@@ -226,8 +226,51 @@ namespace SlopWorld
             TextEntryController.Draw(inner, text, false, focused, name, true);
         }
 
+        public static float AreaHeight(float width, string text, UiAreaResize resize, bool editable = true)
+        {
+            float contentWidth = Mathf.Max(1f, width - FieldPadX * 2f - UiTheme.ScrollbarW);
+            float content = Text.CalcHeight(string.IsNullOrEmpty(text) ? " " : text, contentWidth)
+                + FieldPadY * 4f + (editable ? UiAreaResize.CornerSize : 0f);
+            return resize.MeasuredHeight(content);
+        }
+
         public static string Area(Rect r, string name, string text, bool on = true,
-                                  bool frame = true, string defaultValue = null)
+                                  bool frame = true, string defaultValue = null,
+                                  UiAreaResize resize = null)
+        {
+            // The caller lays out this pass using the measured height. Commit drag changes for the next
+            // pass so the field, following rows and scroll extent share the same geometry.
+            AreaSizingMenu(r, resize, on && GUI.enabled);
+            resize?.Input(r, name, on && GUI.enabled);
+            string value = AreaCore(r, name, text, on, frame, defaultValue, resize);
+            resize?.Complete(r, on && GUI.enabled);
+            return value;
+        }
+
+        static void AreaSizingMenu(Rect r, UiAreaResize resize, bool enabled)
+        {
+            if (resize == null || !enabled) return;
+            var corner = new Rect(r.xMax - UiAreaResize.CornerSize,
+                r.yMax - UiAreaResize.CornerSize, UiAreaResize.CornerSize, UiAreaResize.CornerSize);
+            TooltipHandler.TipRegion(corner, resize.CanGrow
+                ? "Drag to resize. Right-click for Fit to content." : "Drag to resize.");
+            var e = Event.current;
+            var type = UiEvent.RawType(e);
+            if (!resize.CanGrow || !Mouse.IsOver(corner) ||
+                !((type == EventType.MouseDown && e.button == 1) || type == EventType.ContextClick)) return;
+            var lifetime = FieldLifetimeScope.Current;
+            UiMenu.Open(new System.Collections.Generic.List<FloatMenuOption>
+            {
+                new FloatMenuOption("Fit to content", () =>
+                {
+                    if (lifetime.Alive) resize.FitToContent();
+                }),
+            });
+            e.Use();
+        }
+
+        static string AreaCore(Rect r, string name, string text, bool on,
+                               bool frame, string defaultValue, UiAreaResize resize)
         {
             bool released = on && TextEntryController.ReleaseFunctionKeyFocus(name);
             bool focused = on && !released && GUI.GetNameOfFocusedControl() == name;
@@ -237,18 +280,36 @@ namespace SlopWorld
             }
 
             var inner = frame ? r.ContractedBy(FieldPadX, FieldPadY * 2f) : r;
-            text = ResetDefault(r, ref inner, name, text, defaultValue, on);
-            if (!on) return Stated(inner, text, TextAnchor.UpperLeft);
+            if (resize != null && on) inner.height = Mathf.Max(0f, inner.height - UiAreaResize.CornerSize);
+            text = ResetDefault(r, ref inner, name, text, defaultValue, on, resize?.Scroll);
             if (released) return text;
+            if (resize == null)
+            {
+                if (!on) return Stated(inner, text, TextAnchor.UpperLeft);
+                GUI.SetNextControlName(name);
+                return TextEntryController.Draw(inner, text, true, focused, name);
+            }
 
-            GUI.SetNextControlName(name);
-            return TextEntryController.Draw(inner, text, true, focused, name);
+            // Reserve scrollbar width consistently, even before content overflows.
+            float width = Mathf.Max(1f, inner.width - UiTheme.ScrollbarW);
+            var view = new Rect(0f, 0f, width,
+                Mathf.Max(inner.height, Text.CalcHeight(string.IsNullOrEmpty(text) ? " " : text, width)));
+            using (resize.Scroll.Scope(inner, view))
+            {
+                if (!on) return Stated(view, text, TextAnchor.UpperLeft);
+                GUI.SetNextControlName(name);
+                string value = TextEntryController.Draw(view, text, true, focused, name);
+                var editor = TextEntryController.CurrentEditor(name);
+                if (editor != null && (value != text || UiEvent.RawType(Event.current) == EventType.KeyDown))
+                    resize.Scroll.Reveal(editor.graphicalCursorPos.y, UiTheme.LineH, inner.height);
+                return value;
+            }
         }
 
         // Null means no default. An empty string is a real default. Reserve a right-hand
         // gutter so wrapped text and selection never overlap the reset hit target.
         static string ResetDefault(Rect r, ref Rect inner, string name, string text,
-                                   string defaultValue, bool on)
+                                   string defaultValue, bool on, SmoothScroll scroll = null)
         {
             if (defaultValue == null) return text;
             float size = Mathf.Min(CompactH, Mathf.Min(r.height, r.width));
@@ -259,6 +320,10 @@ namespace SlopWorld
             if (!UiLayout.IconButton(button, Icons.Refresh, Name,
                     size / 4f + IconInset / 2f,
                     on && (text ?? "") != defaultValue)) return text;
+
+            // The reset caret starts at zero, including when the default still overflows
+            // the area's viewport. Retire the outer scroll offset alongside native scrolling.
+            scroll?.JumpTo(Vector2.zero);
 
             // Update Unity's focused editor as well as the form value. Otherwise its cached
             // text can restore the old value on the next draw.

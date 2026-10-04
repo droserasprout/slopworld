@@ -9,6 +9,7 @@ namespace SlopWorld
     {
         bool _alive = true;
         internal readonly FieldFocusScope.Memory Focus = new FieldFocusScope.Memory();
+        internal Action CancelResize;
 
         public bool Alive => _alive;
 
@@ -16,6 +17,7 @@ namespace SlopWorld
         {
             if (!_alive) return;
             _alive = false;
+            CancelResize?.Invoke();
             TextFieldSelection.Retire(this);
         }
     }

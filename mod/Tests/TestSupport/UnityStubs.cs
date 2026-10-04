@@ -80,7 +80,8 @@ namespace UnityEngine
         public static Vector2 operator +(Vector2 a, Vector2 b) => new Vector2(a.x + b.x, a.y + b.y);
     }
 
-    public enum EventType { ScrollWheel, KeyDown, MouseDown, Layout, Used, Ignore }
+    public enum EventType { ScrollWheel, KeyDown, MouseDown, Layout, Used, Ignore, MouseDrag, MouseUp, Repaint }
+    public enum FocusType { Passive }
     [System.Flags]
     public enum EventModifiers { None = 0, Shift = 1 }
 
@@ -96,6 +97,8 @@ namespace UnityEngine
 
     public class Event
     {
+        public static Event current;
+        public void Use() => type = EventType.Used;
         public KeyCode keyCode;
         public bool control, alt, shift;
         public int button, clickCount;
@@ -189,10 +192,14 @@ namespace UnityEngine
 
         public float xMax => x + width;
         public float yMax => y + height;
+        public bool Contains(Vector2 point) => point.x >= x && point.x < xMax &&
+            point.y >= y && point.y < yMax;
     }
 
     public static class GUIUtility
     {
+        public static int hotControl;
+        public static int GetControlID(int hint, FocusType focus) => hint == 0 ? 1 : hint;
         public static string systemCopyBuffer;
         public static Vector2 Origin;
         public static Vector2 GUIToScreenPoint(Vector2 p) => new Vector2(p.x + Origin.x, p.y + Origin.y);

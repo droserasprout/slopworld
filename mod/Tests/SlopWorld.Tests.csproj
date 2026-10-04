@@ -13,6 +13,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/UI/Chrome/UiAreaResize.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/FieldLifetime.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TextElementLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Git/GitCommands.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Files/NativeAppPicker.cs" />
