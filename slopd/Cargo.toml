@@ -3,6 +3,7 @@ name = "slopd"
 version = "0.0.1"
 edition = "2024"
 description = "Session daemon for SlopWorld: tmux + bubblewrap agent sessions behind a localhost API"
+license = "MIT"
 
 [dependencies]
 prost = "0.14.4"
