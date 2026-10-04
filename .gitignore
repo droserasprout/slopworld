@@ -11,7 +11,6 @@ mod/Assemblies/Tomlyn.dll
 *.pdb
 *.mdb
 .tokensave
-.ost-staging/
 docs/book/
 # Temporary implementation plans and review scratch notes.
 _plans/
