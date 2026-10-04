@@ -12,6 +12,8 @@ not select the sidecar profile; sidecar launch recipes set it explicitly.
 `bench/` owns benchmark runners, shared result handling, reporting, and their tests.
 `tools/assets/` owns asset generators and text-sprite checks; `assets/` owns bundled
 source data and icon manifests. Generated runtime assets stay in `mod/`.
+OST production scripts and staged audio belong to the private repository under
+`priv/ost/`; shipped soundtrack files and song definitions belong to `mod/`.
 
 The mod project owns game references/compiler settings; `Directory.Build.props`
 and `.editorconfig` own shared C# analysis, and `global.json` pins the SDK.

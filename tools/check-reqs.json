@@ -51,7 +51,6 @@
         {"label": "human docs", "kind": "command", "commands": ["mdbook"]},
         {"label": "game screenshot window lookup", "kind": "command", "commands": ["xdotool"]},
         {"label": "game screenshot capture", "kind": "command", "commands": ["import"]},
-        {"label": "OST audio conversion", "kind": "command", "commands": ["ffmpeg"]},
         {"label": "Python tooling", "kind": "command", "commands": ["python3"]},
         {"label": "Python image module: numpy", "kind": "python_module", "module": "numpy"},
         {"label": "Python image module: Pillow", "kind": "python_module", "module": "PIL"},
