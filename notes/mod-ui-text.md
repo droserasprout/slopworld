@@ -14,3 +14,8 @@ to [shared chrome](mod-ui-chrome.md).
 Sequence input is pinned to `assets/unicode/emoji-test.txt` (Unicode 17); regenerate
 keys and artwork together without changing slot order. Normal builds use committed
 assets. `just test-text-sprites` checks generated metadata and loading-tip literals.
+
+`assets/fonts/noto-emoji/` owns the bundled font, installed-source checksum, and
+license. `tools/assets/emoji_font.py` selects it through a process-local Fontconfig
+configuration shared by emoji, atlas, and application-icon bakers. Character
+enumeration and rendering use the same file; no installed emoji font is required.

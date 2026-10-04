@@ -11,6 +11,8 @@ import importlib.util
 import os
 import subprocess
 
+import emoji_font
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 EMOJI_TOOL = os.path.join(HERE, "emoji.py")
@@ -34,7 +36,7 @@ def load_emoji_tool():
 
 def font_codepoints():
     raw = subprocess.check_output(
-        ["fc-query", "--format=%{charset}\\n", "/usr/share/fonts/noto/NotoColorEmoji.ttf"],
+        ["fc-query", "--format=%{charset}\\n", str(emoji_font.DEFAULT_FONT)],
         text=True,
     )
     result = []
