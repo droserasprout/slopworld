@@ -75,7 +75,7 @@ namespace SlopWorld
         public static void DrawGhostLabel(Rect r, SessionInfo info, string fallback,
                                            bool hostIcon, float markWidth, bool italic = false)
         {
-            RowAct act = RowActions.Of(info);
+            RowAct act = SessionRowAction.Of(info);
             string title = GhostTitle(info, fallback, act);
             string context = GhostContext(info, title, act);
             GameFont oldFont = Text.Font;

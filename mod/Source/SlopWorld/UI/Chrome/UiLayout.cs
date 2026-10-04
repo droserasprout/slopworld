@@ -25,23 +25,6 @@ namespace SlopWorld
         // without constraining the listing to the current viewport.
         public const float ListingHeight = 4000f;
 
-        // A scene has the board and everything else stands down, so the room goes back
-        // rather than leaving a button row indented against nothing.
-        public static bool Shown => !Cutscene.Playing;
-
-        // Accessors for callers that only need an inset. New geometry code
-        // should consume Snapshot so right-side navigation cannot be mistaken for a left
-        // margin.
-        public static WorkspaceGeometry Snapshot => WorkspaceLayout.Current;
-        public static float LeftInset => Snapshot.LeftInset;
-        public static float RightInset => Snapshot.RightInset;
-        public static float TopInset => Snapshot.TopInset;
-        public static Rect ContentRect => Snapshot.Content;
-
-        // Screenshot mode filters vanilla chrome separately. The top bar and inspect controls
-        // run before that filter, so Hidden is independent of layout insets.
-        public static bool Hidden => Find.ScreenshotModeHandler?.FiltersCurrentEvent ?? false;
-
         // One measurement rule for every action row, kept beside the layout helpers rather
         // than duplicated by individual windows.
         public static float BtnW(string label, float floor) =>
@@ -176,9 +159,6 @@ namespace SlopWorld
             }
         }
 
-        public const string Unreachable =
-            "Daemon unreachable. Is slopd running?  systemctl --user status slopd";
-
         public static void Fail(string msg) =>
             Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false);
 
@@ -233,18 +213,17 @@ namespace SlopWorld
             return false;
         }
 
-        public static void Header(Rect rect, string title, SessionHub hub)
+        public static void Header(Rect rect, string title, string status, bool online)
         {
             using (WidgetState.Save())
             {
                 Title(rect, title);
-                Status(new Rect(rect.x, rect.y, rect.width, HeaderH), hub);
+                Status(new Rect(rect.x, rect.y, rect.width, HeaderH), status, online);
             }
         }
 
-        static void Status(Rect line, SessionHub hub)
+        static void Status(Rect line, string text, bool online)
         {
-            string text = $"{DaemonClient.BaseUrl} - {hub.Status}";
             float w = Wide(text);
 
             float h = RowH;
@@ -255,7 +234,7 @@ namespace SlopWorld
 
             var marker = new Rect(badge.x + GapS, badge.y + (h - StatusMarker) / 2f,
                 StatusMarker, StatusMarker);
-            Slab.Fill(marker, hub.Online ? Yes : Bad);
+            Slab.Fill(marker, online ? Yes : Bad);
 
             using (WidgetState.Save())
             {

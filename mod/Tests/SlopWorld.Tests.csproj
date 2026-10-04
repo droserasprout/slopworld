@@ -205,6 +205,7 @@
   <ItemGroup>
     <Compile Include="../Source/SlopWorld/Client/Transport/ReceivedEvent.cs" Link="Source/Client/Transport/ReceivedEvent.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonClipboard.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/UiClipboard.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/ProtoFields.cs" Link="Source/Client/Daemon/ProtoFields.cs" />
   </ItemGroup>
   <ItemGroup><Compile Include="../Source/SlopWorld/Client/Diagnostics/TerminalLatency.cs" /></ItemGroup>

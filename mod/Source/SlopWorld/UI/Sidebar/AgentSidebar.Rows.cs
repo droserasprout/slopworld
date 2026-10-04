@@ -190,7 +190,7 @@ namespace SlopWorld
                 if (SkipAgentPaint(row.Line)) continue;
                 var info = row.Session == null ? null : hub.Get(row.Session);
                 var state = info?.State ?? AgentState.Down;
-                var tint = UiTheme.AgentStateColor(state);
+                var tint = AgentPresentation.AgentStateColor(state);
 
                 if (row.Worker)
                 {
@@ -214,7 +214,7 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
             var text = row.Text;
 
-            var act = RowActions.Of(info);
+            var act = SessionRowAction.Of(info);
             if (act != RowAct.None)
             {
                 float d = Mathf.Min(GhostMarkW, text.height);
@@ -257,7 +257,7 @@ namespace SlopWorld
 
             Text.Font = GameFont.Tiny;
             AgentState state = info?.State ?? AgentState.Down;
-            Color tint = info == null ? UiTheme.Dim : UiTheme.AgentStateColor(state);
+            Color tint = info == null ? UiTheme.Dim : AgentPresentation.AgentStateColor(state);
             string ago = state == AgentState.Down ? "" : SidebarRowRenderer.Ago(info);
             float ageW = ago.Length == 0 ? 0f : UiTheme.Wide(ago);
             float nameW = Mathf.Max(0f, row.Text.width -
@@ -295,7 +295,7 @@ namespace SlopWorld
 
             GUI.color = UiTheme.ViewBg;
             GUI.DrawTexture(Icons.DotBox(center, d + BadgeRing * 2f), Icons.Dot);
-            var stateColor = UiTheme.AgentStateColor(state);
+            var stateColor = AgentPresentation.AgentStateColor(state);
             GUI.color = new Color(stateColor.r, stateColor.g, stateColor.b, BadgeAlpha);
             GUI.DrawTexture(Icons.DotBox(center, d), Icons.Dot);
             GUI.color = Color.white;

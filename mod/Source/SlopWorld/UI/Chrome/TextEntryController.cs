@@ -272,7 +272,7 @@ namespace SlopWorld
             // Like the terminal, a completed mouse selection becomes the host PRIMARY
             // selection. Keep it separate from the ordinary Copy action and CLIPBOARD.
             string selected = editor == null ? null : editor.SelectedText;
-            if (!string.IsNullOrEmpty(selected)) DaemonClipboard.CopyPrimary(selected);
+            if (!string.IsNullOrEmpty(selected)) UiClipboard.Provider.Copy(selected, true);
         }
 
         static void QueuePaste(string name, int controlId, string text, bool area,
@@ -299,25 +299,8 @@ namespace SlopWorld
             var owner = lifetime ?? FieldLifetimeScope.Current;
             if (!owner.Alive) return;
 
-            if (!SessionHub.Instance.Capabilities.Clipboard)
-            {
-                if (!primary)
-                {
-                    // The daemon is unavailable in sidecar mode. Unity's local buffer is the
-                    // only ordinary clipboard surface the game can access there.
-                    QueuePaste(name, controlId, GUIUtility.systemCopyBuffer, area, owner);
-                }
-                return;
-            }
-
-            string path = primary ? WireProtocol.Routes.ClipboardPrimaryText : WireProtocol.Routes.ClipboardText;
-            DaemonClient.Get<Wire.TextResult>(path,
-                j => QueuePaste(name, controlId, j.Text, area, owner),
-                _ =>
-                {
-                    if (!primary)
-                        QueuePaste(name, controlId, GUIUtility.systemCopyBuffer, area, owner);
-                });
+            UiClipboard.Provider.Read(primary,
+                text => QueuePaste(name, controlId, text, area, owner));
         }
 
         static void OpenContextMenu(string name, bool area, TextEditor editor,
@@ -333,12 +316,12 @@ namespace SlopWorld
             var availability = new SelectionCommandAvailability(canCopy: selected.Length > 0, canPaste: !readOnly, canSelectAll: true, canCut: selected.Length > 0);
             SelectionCommands.Add(
                 options, availability,
-                () => DaemonClipboard.Copy(selected),
+                () => UiClipboard.Provider.Copy(selected, false),
                 !readOnly ? (Action)(() => RequestPaste(name, controlId, area, false, lifetime)) : null,
                 () => QueueEdit(name, controlId, e => e.SelectAll(), lifetime),
                 !readOnly ? (Action)(() =>
                 {
-                    DaemonClipboard.Copy(selected);
+                    UiClipboard.Provider.Copy(selected, false);
                     QueueEdit(name, controlId, e => e.DeleteSelection(), lifetime);
                 }) : null);
 

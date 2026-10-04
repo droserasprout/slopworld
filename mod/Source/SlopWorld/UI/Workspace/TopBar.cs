@@ -75,7 +75,7 @@ namespace SlopWorld
 
         static void DrawCore(bool interactive)
         {
-            if (!UiLayout.Shown || UiLayout.Hidden) return;
+            if (!WorkspaceVisibility.Shown || WorkspaceVisibility.Hidden) return;
             if (Event.current.type == EventType.Layout) return;
 
             var r = Rect;
@@ -307,9 +307,9 @@ namespace SlopWorld
             float inset = Mathf.Round(r.height * 0.27f);
             var chip = new Rect(r.x, r.y + inset, UiTheme.StatusMarker,
                 r.height - inset * 2f);
-            Slab.Fill(chip, UiTheme.AgentStateColor(state));
+            Slab.Fill(chip, AgentPresentation.AgentStateColor(state));
 
-            GUI.color = UiTheme.AgentStateColor(state);
+            GUI.color = AgentPresentation.AgentStateColor(state);
             float w = Mathf.Min(UiTheme.Wide(session) + UiTheme.GapXS,
                 Mathf.Max(0f, r.width - UiTheme.StatusMarker - UiTheme.GapS * 2f));
             var name = new Rect(chip.xMax + UiTheme.GapS, r.y, w, r.height);
@@ -349,9 +349,9 @@ namespace SlopWorld
 
             float inset = Mathf.Round(r.height * 0.27f);
             Slab.Fill(new Rect(x, r.y + inset, markerW, r.height - inset * 2f),
-                UiTheme.AgentStateColor(state));
+                AgentPresentation.AgentStateColor(state));
 
-            GUI.color = UiTheme.AgentStateColor(state);
+            GUI.color = AgentPresentation.AgentStateColor(state);
             UiText.RowLabel(new Rect(x + markerW + UiTheme.GapS, r.y, nameDrawW, r.height),
                 session);
 

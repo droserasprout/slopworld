@@ -564,7 +564,7 @@ namespace SlopWorld
             // diff, but the daemon still owns the routed session and can stop it directly.
             var info = SessionHub.Instance.Get(session);
             if (info == null || !info.Ephemeral) return false;
-            if ((RowActions.Of(info) & RowAct.Diff) == 0) return false;
+            if ((SessionRowAction.Of(info) & RowAct.Diff) == 0) return false;
             SessionHub.Instance.SessionStore.Stop(session);
             return true;
         }

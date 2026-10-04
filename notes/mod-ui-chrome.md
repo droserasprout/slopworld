@@ -4,7 +4,15 @@
 catalogs live in `UI/Theme/`; workspace host chrome lives in `UI/Workspace/`.
 Start with `UiText`, `UiButtons`, `UiControls`, `UiLayout`, and `Slab` when adding a control.
 `TextEntryController` owns shared native field invocation and delayed clipboard edits;
-focus memory belongs to [focus](ui-focus.md).
+focus memory belongs to [focus](ui-focus.md). Clipboard access uses `IUiClipboard`;
+bootstrap installs the daemon adapter, which owns capability checks and native fallback.
+Providers deliver reads on the UI thread; fields retain delayed-edit lifetime checks.
+
+Shared headers receive status text and availability; list views receive their empty
+message and header/footer drawing from the feature owner. Session action classification
+belongs to `SessionRowAction`, and agent color mapping to `AgentPresentation`.
+Bootstrap supplies `RowChrome` overlay hit testing from the map host. Scene and
+screenshot visibility belong to `WorkspaceVisibility`, outside generic layout helpers.
 
 Multiline `Area` controls opt into vertical resizing with a form-owned `UiAreaResize`.
 Listing areas measure their height automatically; rectangle callers use `UiText.AreaHeight`

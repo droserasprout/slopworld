@@ -275,7 +275,7 @@ namespace SlopWorld
             // tab directly through the session store. Durable agents are deliberately excluded.
             var info = SessionHub.Instance.Get(session);
             if (info == null || !info.Ephemeral) return false;
-            RowAct action = RowActions.Of(info);
+            RowAct action = SessionRowAction.Of(info);
             if ((action & (RowAct.View | RowAct.Edit)) == 0) return false;
             SessionHub.Instance.SessionStore.Stop(session);
             return true;

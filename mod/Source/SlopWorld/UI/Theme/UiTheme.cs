@@ -9,17 +9,6 @@ namespace SlopWorld
     // on the screen pixel grid.
     public abstract class UiTheme
     {
-        public static Color AgentStateColor(AgentState s)
-        {
-            switch (s)
-            {
-                case AgentState.Working: return UiTheme.StateWorking;
-                case AgentState.Waiting: return UiTheme.StateWaiting;
-                case AgentState.Idle: return UiTheme.StateIdle;
-                default: return UiTheme.StateDown;
-            }
-        }
-
         const int TextCacheLimit = 512;
         static readonly Dictionary<TextCacheKey, float> WidthCache =
             new Dictionary<TextCacheKey, float>();

@@ -28,7 +28,7 @@ namespace SlopWorld
 
         public override void GameComponentOnGUI()
         {
-            if (Eco.Bare || UiLayout.Hidden) return;
+            if (Eco.Bare || WorkspaceVisibility.Hidden) return;
             if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null) return;
 
             var map = Find.CurrentMap;

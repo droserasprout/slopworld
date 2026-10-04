@@ -4,6 +4,49 @@ namespace SlopWorld.Tests
 {
     static class DaemonClipboardTests
     {
+        public static void FieldClipboardReadsUseHostChannelsAndFallbackOnlyForOrdinaryPaste()
+        {
+            bool capability = SessionHub.Instance.Capabilities.Clipboard;
+            string buffer = UnityEngine.GUIUtility.systemCopyBuffer;
+            try
+            {
+                var provider = new DaemonUiClipboard();
+                SessionHub.Instance.Capabilities.Clipboard = true;
+                foreach (bool primary in new[] { false, true })
+                {
+                    DaemonClient.Requests.Clear();
+                    string received = null;
+                    provider.Read(primary, text => received = text);
+                    AssertEx.Equal(null, received, "read waits for transport");
+                    AssertEx.Equal(primary ? WireProtocol.Routes.ClipboardPrimaryText : WireProtocol.Routes.ClipboardText,
+                        DaemonClient.Requests[0].Path, "selection channel is preserved");
+                    DaemonClient.Requests[0].Ok(JVal.Parse("{\"text\":\"host text\"}"));
+                    AssertEx.Equal("host text", received, "host reply reaches field owner");
+
+                    received = null;
+                    provider.Read(primary, text => received = text);
+                    UnityEngine.GUIUtility.systemCopyBuffer = "local fallback";
+                    DaemonClient.Requests[1].Fail("unavailable");
+                    AssertEx.Equal(primary ? null : "local fallback", received,
+                        "PRIMARY never falls back to CLIPBOARD");
+                }
+
+                SessionHub.Instance.Capabilities.Clipboard = false;
+                DaemonClient.Requests.Clear();
+                string local = null;
+                provider.Read(false, text => local = text);
+                AssertEx.Equal("local fallback", local, "sidecar uses native buffer");
+                provider.Read(true, _ => { throw new Exception("PRIMARY unavailable"); });
+                AssertEx.Equal(0, DaemonClient.Requests.Count, "unavailable host avoids requests");
+            }
+            finally
+            {
+                SessionHub.Instance.Capabilities.Clipboard = capability;
+                UnityEngine.GUIUtility.systemCopyBuffer = buffer;
+                DaemonClient.Requests.Clear();
+            }
+        }
+
         public static void DuplicateWaitersReceiveFailureAndRetry()
         {
             foreach (bool primary in new[] { false, true })
