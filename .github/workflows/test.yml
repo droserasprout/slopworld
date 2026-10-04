@@ -20,6 +20,12 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # Called release tests and manual runs get their own group; only branch pushes
+  # supersede older runs. Never share a group with the calling Release workflow.
+  group: test-${{ github.event_name == 'push' && inputs.ref == '' && github.ref_type == 'branch' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'push' && inputs.ref == '' && github.ref_type == 'branch' }}
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -39,7 +45,7 @@ jobs:
           apt-get install -y --no-install-recommends \
             ca-certificates curl git unzip build-essential pkg-config \
             libasound2-dev libicu78 libssl3t64 zlib1g \
-            protobuf-compiler python3 python3-yaml procps just tmux=3.7c-1 less ripgrep bubblewrap
+            python3 python3-yaml procps tmux=3.7c-1 less ripgrep bubblewrap
 
       - uses: actions/checkout@v4
         with:
@@ -49,11 +55,20 @@ jobs:
         id: revision
         run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      - uses: ./.github/actions/setup-build-tools
+        with:
+          coverage: 'true'
+
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
           # The game-free harness targets net8.0 and needs its matching runtime.
           dotnet-version: '8.0.x'
+          cache: true
+          cache-dependency-path: |
+            mod/Dependencies/packages.lock.json
+            mod/Tests/packages.lock.json
+            .config/dotnet-tools.json
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -63,25 +78,29 @@ jobs:
         with:
           workspaces: slopd
 
-      - name: Install pinned Protobuf compiler
-        run: |
-          # Generated C# output must match the compiler used by just api-contract.
-          curl -fsSL https://github.com/protocolbuffers/protobuf/releases/download/v36.1/protoc-36.1-linux-x86_64.zip -o "$RUNNER_TEMP/protoc.zip"
-          echo "c4bc672d9d49214dc8cafdceadf4df92182d6ca8e3ec65a56b2d7de5602669b4  $RUNNER_TEMP/protoc.zip" | sha256sum --check
-          unzip -q "$RUNNER_TEMP/protoc.zip" -d "$RUNNER_TEMP/protoc"
-          echo "$RUNNER_TEMP/protoc/bin" >> "$GITHUB_PATH"
-
       - name: Check bubblewrap namespaces in the CI container
         run: |
           bwrap --unshare-all --ro-bind / / --proc /proc --dev /dev -- /usr/bin/true
 
-      - name: Install Rust coverage tooling
+      - name: Expose Rust LLVM tools
         run: |
-          cargo install cargo-llvm-cov --locked
           echo "$(dirname "$(rustc --print target-libdir)")/bin" >> "$GITHUB_PATH"
 
-      - name: Run game-free CI checks
-        run: just ci
+      # Keep the same checks/order as just ci, with separate step timings.
+      - name: Check generated files and formatting
+        run: just check-generated check-format-daemon check-format-csharp
+
+      - name: Test tools and pager
+        run: just test-tools test-pager
+
+      - name: Lint Rust
+        run: just lint-daemon
+
+      - name: Test Rust with coverage
+        run: just coverage-daemon
+
+      - name: Test C# with coverage
+        run: just coverage-mod
 
       - name: Report coverage
         run: |

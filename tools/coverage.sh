@@ -27,7 +27,7 @@ echo "Per-file coverage: ${COVERAGE_DIR}/rust.files.txt"
 mod)
 ${DOTNET} tool restore
 mkdir -p "${COVERAGE_DIR}"
-${DOTNET} build "${TEST_PROJECT}" --configuration Release -p:Coverage=true
+${DOTNET} build "${TEST_PROJECT}" --configuration Release -p:Coverage=true -p:RestoreLockedMode=true
 # Measure handwritten behavior, not protoc's generated serialization machinery.
 ${DOTNET} tool run coverlet -- "${TEST_DLL}" \
 	--target dotnet --targetargs "${TEST_DLL} --quiet" \

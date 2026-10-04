@@ -3,15 +3,74 @@
 
 from __future__ import annotations
 
-import sys
+import os
+from pathlib import Path
 import re
 import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
-from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import wire_contract  # noqa: E402
+from generated_files import write_if_changed  # noqa: E402
+
+FIXED_MTIME_NS = 1_700_000_000_000_000_000
+
+
+class GeneratedFileTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.directory = Path(self.temp.name)
+        self.path = self.directory / "generated.rs"
+        self.path.write_bytes(b"original\n")
+        os.utime(self.path, ns=(FIXED_MTIME_NS, FIXED_MTIME_NS))
+
+    def test_new_output_creates_parent_directories(self) -> None:
+        path = self.directory / "nested/generated.rs"
+        write_if_changed(path, b"new\n")
+        self.assertEqual(path.read_bytes(), b"new\n")
+        self.assertEqual(path.stat().st_mode & 0o777, 0o644)
+
+    def test_unchanged_output_preserves_timestamp(self) -> None:
+        before = self.path.stat().st_mtime_ns
+        write_if_changed(self.path, b"original\n")
+        self.assertEqual(self.path.stat().st_mtime_ns, before)
+
+    def test_changed_output_replaces_content_and_preserves_permissions(self) -> None:
+        self.path.chmod(0o640)
+        write_if_changed(self.path, b"changed\n")
+        self.assertEqual(self.path.read_bytes(), b"changed\n")
+        self.assertEqual(self.path.stat().st_mode & 0o777, 0o640)
+
+    def test_failed_publication_keeps_original_and_cleans_temporary_file(self) -> None:
+        with patch("generated_files.os.replace", side_effect=OSError("failure")):
+            with self.assertRaises(OSError):
+                write_if_changed(self.path, b"changed\n")
+        self.assertEqual(self.path.read_bytes(), b"original\n")
+        self.assertEqual(list(self.directory.iterdir()), [self.path])
+
+    def test_repeated_full_generation_preserves_all_output_timestamps(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        shutil.copytree(root / "shared", self.directory / "shared")
+        tools = self.directory / "tools"
+        tools.mkdir()
+        for name in ("api_contract.py", "generated_files.py", "wire_contract.py", "protobuf_http.py"):
+            shutil.copy(root / "tools" / name, tools / name)
+        command = [sys.executable, str(tools / "api_contract.py")]
+        subprocess.run(command, check=True, capture_output=True)
+        outputs = list((self.directory / "mod").rglob("*.cs"))
+        outputs += list((self.directory / "slopd").rglob("*.rs"))
+        self.assertEqual(len(outputs), 4)
+        for path in outputs:
+            os.utime(path, ns=(FIXED_MTIME_NS, FIXED_MTIME_NS))
+        before = {path: (path.read_bytes(), path.stat().st_mtime_ns) for path in outputs}
+        subprocess.run(command, check=True, capture_output=True)
+        self.assertEqual(before, {path: (path.read_bytes(), path.stat().st_mtime_ns)
+                                  for path in outputs})
 
 
 class WireContractTests(unittest.TestCase):

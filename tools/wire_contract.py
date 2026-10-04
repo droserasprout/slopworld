@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from generated_files import write_if_changed
+
 try:
     import yaml
 except ImportError as exc:  # pragma: no cover - exercised by a missing developer dependency
@@ -219,8 +221,7 @@ def outputs(data: dict) -> dict[Path, str]:
 
 def main() -> None:
     for path, content in outputs(load()).items():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content)
+        write_if_changed(path, content.encode())
         print(f"generated {path.relative_to(ROOT)}")
 
 

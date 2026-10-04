@@ -16,7 +16,7 @@ test-daemon: api-contract
 # Run game-free C# tests
 [group('Tests and coverage')]
 test-mod: mod-deps api-contract
-    {{ DOTNET }} run --project "{{ TEST_PROJECT }}" --configuration Release -- --quiet
+    {{ DOTNET }} run --project "{{ TEST_PROJECT }}" --configuration Release -p:RestoreLockedMode=true -- --quiet
 
 # Test shared definitions and generated bindings
 [group('Tests and coverage')]

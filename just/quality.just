@@ -19,12 +19,16 @@ format-csharp:
 check-format-csharp:
     {{ CSHARP_FORMAT_COMMAND }} --verify-no-changes
 
+# Check Rust source formatting without compiling
+[group('Formatting')]
+check-format-daemon:
+    cd slopd && {{ CARGO }} fmt --check
+
 # Lint
 
 # Check Rust formatting and Clippy
 [group('Lint')]
-lint-daemon: api-contract
-    cd slopd && {{ CARGO }} fmt --check
+lint-daemon: api-contract check-format-daemon
     cd slopd && {{ CARGO }} clippy --all-targets -- -D warnings
 
 # Build and check C# formatting (requires game assemblies)

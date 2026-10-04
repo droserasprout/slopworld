@@ -8,10 +8,7 @@ rust-licenses:
 # Generate stable shared protocol bindings
 [group('Generated files')]
 api-contract:
-    mkdir -p mod/Source/SlopWorld/Client/Generated
-    protoc -I shared --csharp_out=mod/Source/SlopWorld/Client/Generated shared/slopworld.proto
-    {{ PYTHON }} tools/wire_contract.py
-    {{ PYTHON }} tools/protobuf_http.py
+    {{ PYTHON }} tools/api_contract.py
 
 # Generate the mdBook API route inventory
 [group('Generated files')]

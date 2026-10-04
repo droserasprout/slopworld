@@ -14,7 +14,7 @@ install-runner: daemon
 
 # Install the mod into the game's Mods folder
 [group('Installation')]
-install-mod: mod
+install-mod: daemon mod
     "{{ RUNNER }}" mod install --source mod --mods "{{ MODS }}"
 
 # Remove installed files, keeping config and saves

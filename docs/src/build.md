@@ -13,6 +13,7 @@
 - **just** runs the repository recipes. Install it with your package manager
   or `cargo install just --locked`. On macOS, use `brew install just`.
 - **PyYAML** parses the shared wire contract during `just api-contract`.
+- **Python 3.11 or newer** runs tooling and reads Cargo version metadata for mod builds.
 
 Set `RIMWORLD` to the Linux game directory containing `RimWorldLinux`.
 Building the mod requires the game's assemblies in `Managed/`. For native macOS,
@@ -34,6 +35,7 @@ Settings accept environment values or `just NAME=value recipe` overrides. Put
 assignments before recipe names.
 
 Both modes produce `mod/Assemblies/SlopWorld.dll`; Git does not track this output.
+`just mod` builds only C#; installation builds the Rust launcher when needed.
 `just clean` removes build output. Exact numeric `MAJOR.MINOR.PATCH` tags at HEAD, optionally prefixed by `v`, set
 the release version. Untagged checkouts append the UTC build date and short hash
 to the package version. Without Git data, builds use the package version alone.

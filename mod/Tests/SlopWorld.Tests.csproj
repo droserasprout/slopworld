@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RootNamespace>SlopWorld.Tests</RootNamespace>
     <AssemblyName>SlopWorld.Tests</AssemblyName>
     <LangVersion>latest</LangVersion>
