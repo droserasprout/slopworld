@@ -9,7 +9,7 @@ Use [Game profiles](../guides/game-profiles.md) to select and initialize the pro
 ## The launcher cannot find the game
 
 Pass `slopworld --game /path/to/game` or set `SLOPWORLD_GAME` for the launcher.
-Set `RIMWORLD` for Make build/install/run targets. See [Install](../install.md).
+Set `RIMWORLD` for just build/install/run targets. See [Install](../install.md).
 
 ## Harmony exceptions at startup
 

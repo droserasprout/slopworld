@@ -20,7 +20,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT = ROOT / "reference.md"
-TEXT_SUFFIXES = {".cs", ".md", ".rs", ".service", ".sh", ".toml"}
+TEXT_SUFFIXES = {".cs", ".md", ".rs", ".service", ".sh", ".toml", ".just"}
 SKIP_PARTS = {"target", "obj"}
 ENV_NAME = r"[A-Z][A-Z0-9_]*"
 
@@ -52,9 +52,9 @@ def tracked_files() -> list[Path]:
         ).splitlines()
     except (OSError, subprocess.CalledProcessError):
         names = []
-        for directory in (ROOT / "slopd", ROOT / "mod", ROOT / "notes", ROOT / "docs"):
+        for directory in (ROOT / "slopd", ROOT / "mod", ROOT / "notes", ROOT / "docs", ROOT / "just"):
             names.extend(str(p.relative_to(ROOT)) for p in directory.rglob("*"))
-        names.extend(["Makefile", "README.md"])
+        names.extend(["justfile", "README.md"])
 
     files = []
     for name in names:
@@ -64,7 +64,7 @@ def tracked_files() -> list[Path]:
         generated_bin = "bin" in path.parts and "src" not in path.parts
         if any(part in SKIP_PARTS for part in path.parts) or generated_bin or "docs/book" in path.as_posix():
             continue
-        if path.name != "Makefile" and path.suffix not in TEXT_SUFFIXES:
+        if path.name != "justfile" and path.suffix not in TEXT_SUFFIXES:
             continue
         files.append(path)
     return sorted(set(files))
@@ -105,6 +105,10 @@ def cli_name(path: Path) -> str:
 
 
 def env_inventory(files: dict[Path, str]) -> tuple[dict[str, list[Hit]], list[Hit]]:
+    # The environment reference belongs to the mod and daemon, including their
+    # launchers, services and presets. Build recipes and tooling have separate settings.
+    files = {path: text for path, text in files.items()
+             if path.relative_to(ROOT).parts[0] in {"mod", "slopd"}}
     names: dict[str, list[Hit]] = defaultdict(list)
     dynamic: list[Hit] = []
     constants: dict[str, str] = {}
@@ -117,7 +121,9 @@ def env_inventory(files: dict[Path, str]) -> tuple[dict[str, list[Hit]], list[Hi
             constants[match.group(1)] = match.group(2)
 
     direct_patterns = [
-        rf"(?:std::)?env::var\(\s*['\"]({ENV_NAME})['\"]",
+        rf"(?:std::)?env::(?:var|var_os)\(\s*['\"]({ENV_NAME})['\"]",
+        rf"\boption_env_nonempty\(\s*['\"]({ENV_NAME})['\"]",
+        rf"\bEnvironment\.GetEnvironmentVariable\(\s*['\"]({ENV_NAME})['\"]",
         rf"option_env!\(\s*['\"]({ENV_NAME})['\"]",
         rf"env!\(\s*['\"]({ENV_NAME})['\"]",
         rf"\.env\(\s*['\"]({ENV_NAME})['\"]",
@@ -146,18 +152,12 @@ def env_inventory(files: dict[Path, str]) -> tuple[dict[str, list[Hit]], list[Hi
         for match in re.finditer(r"--setenv[=\"',\s]+(?:[a-z][A-Za-z0-9_]*|k|key)", text):
             dynamic.append(hit(path, text, match.start()))
 
-        # Preset paths and documentation are part of the environment interface even when
+        # Preset paths are part of the environment interface even when
         # Rust delegates the lookup to a crate. Rust source is excluded here because `${NAME}`
         # is also Rust's format-string capture syntax, not necessarily an environment lookup.
         if path.suffix in {".md", ".toml"}:
             for match in re.finditer(rf"\$\{{({ENV_NAME})(?::[^}}]*)?\}}|\$({ENV_NAME})\b", text):
                 add_hit(names, match.group(1) or match.group(2), hit(path, text, match.start()))
-
-    for path, text in files.items():
-        if path.name != "Makefile":
-            continue
-        for match in re.finditer(rf"^({ENV_NAME})\s*\?=", text, re.MULTILINE):
-            add_hit(names, match.group(1), hit(path, text, match.start()))
 
     return dict(sorted(names.items())), sorted(set(dynamic), key=lambda x: (x.path, x.line))
 
@@ -264,9 +264,9 @@ def cli_inventory(files: dict[Path, str]) -> tuple[list[tuple[str, str, Hit]], l
     options: list[tuple[str, str, Hit]] = []
 
     for path, text in files.items():
-        if path.name == "Makefile":
-            for match in re.finditer(r"^([A-Za-z0-9_.-]+):[^\n]*##\s*(.+)$", text, re.MULTILINE):
-                commands.append(("make", f"make {match.group(1)}", hit(path, text, match.start(), match.group(0).strip())))
+        if path.name == "justfile" or path.suffix == ".just":
+            for match in re.finditer(r"^# ([^\n]+)\n(?:\[group\([^\n]*\)\]\n)*([A-Za-z0-9_.-]+):", text, re.MULTILINE):
+                commands.append(("just", f"just {match.group(2)}", hit(path, text, match.start(), match.group(0).strip())))
 
         if path.suffix != ".rs" or "/bin/" not in str(path):
             continue
@@ -370,7 +370,7 @@ def render(files: dict[Path, str]) -> str:
         for tool, option, item in options:
             lines.append(f"| `{tool}` | `{md_cell(option)}` | {source_link(item)} |")
 
-    lines.extend(["", "## Scanner scope", "", "The scanner reads tracked and untracked, non-ignored text files under the project, excluding generated build output and this generated file. It recognizes explicit Rust/service/Make environment access, `$VAR` expansion, Axum `.route(...)` declarations, Rust CLI usage text and Make targets.", ""])
+    lines.extend(["", "## Scanner scope", "", "The scanner reads tracked and untracked, non-ignored text files under the project, excluding generated build output and this generated file. Environment variables come only from mod and daemon files, including launchers, services and presets; just settings and development tooling are excluded. It recognizes explicit Rust/C#/service environment access, `$VAR` expansion, Axum `.route(...)` declarations, Rust CLI usage text and documented just recipes.", ""])
     return "\n".join(lines)
 
 

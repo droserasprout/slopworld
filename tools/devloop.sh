@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u
 
-make_cmd=${MAKE_CMD:?MAKE_CMD is required}
+just_cmd=${JUST_CMD:?JUST_CMD is required}
 repository=$(git rev-parse --path-format=absolute --git-common-dir) || exit 1
 selected=$PWD
 exec 3<>/dev/tty || { echo 'devloop requires an interactive terminal' >&2; exit 1; }
@@ -42,5 +42,5 @@ while true; do
 		continue
 	fi
 	printf '\nBuilding %s (%s)\n' "$selected" "$(git -C "$selected" rev-parse --short HEAD)" >&3
-	"$make_cmd" -C "$selected" install && "$make_cmd" -C "$selected" run
+	(cd "$selected" && "$just_cmd" install && "$just_cmd" run)
 done

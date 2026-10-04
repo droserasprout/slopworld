@@ -26,9 +26,9 @@ namespace SlopWorld.Tests
             Console.WriteLine("SlopWorld game-free C# benchmarks");
             Console.WriteLine($"CoreCLR ({RuntimeInformation.FrameworkDescription}). {RuntimeInformation.OSArchitecture}.");
 #if DEBUG
-            Console.WriteLine("Debug build: use make bench-mod BUILD=release for comparisons.");
+            Console.WriteLine("Debug build: use just BUILD=release bench-mod for comparisons.");
 #else
-            Console.WriteLine("Release build. Make disabled tiered compilation.");
+            Console.WriteLine("Release build. The benchmark script disabled tiered compilation.");
 #endif
             Console.WriteLine("50 warmed batch samples. p50 and p95 are microseconds per operation.");
             Console.WriteLine("B/op counts managed allocations on this thread. References model simple baseline algorithms.");

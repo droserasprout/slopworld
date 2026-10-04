@@ -20,7 +20,7 @@ It does not read or write environment values.
 | `GIT_OPTIONAL_LOCKS` | [`slopd/src/api/handlers/files.rs:143`](./slopd/src/api/handlers/files.rs#L143), [`slopd/src/git/mod.rs:243`](./slopd/src/git/mod.rs#L243), [`slopd/src/git/mod.rs:472`](./slopd/src/git/mod.rs#L472), [`slopd/src/git/mod.rs:509`](./slopd/src/git/mod.rs#L509), [`slopd/src/git/mod.rs:529`](./slopd/src/git/mod.rs#L529), [`slopd/src/git/mod.rs:552`](./slopd/src/git/mod.rs#L552), [`slopd/src/worktrees/mod.rs:88`](./slopd/src/worktrees/mod.rs#L88) |
 | `GIT_PAGER` | [`slopd/src/api/handlers/files.rs:144`](./slopd/src/api/handlers/files.rs#L144), [`slopd/src/git/mod.rs:89`](./slopd/src/git/mod.rs#L89) |
 | `GIT_TERMINAL_PROMPT` | [`slopd/src/api/handlers/files.rs:145`](./slopd/src/api/handlers/files.rs#L145), [`slopd/src/git/mod.rs:90`](./slopd/src/git/mod.rs#L90), [`slopd/src/worktrees/mod.rs:288`](./slopd/src/worktrees/mod.rs#L288) |
-| `HOME` | [`docs/src/guides/configuring-sandboxes.md:55`](./docs/src/guides/configuring-sandboxes.md#L55), [`docs/src/guides/sidecar.md:25`](./docs/src/guides/sidecar.md#L25), [`docs/src/guides/sidecar.md:26`](./docs/src/guides/sidecar.md#L26), [`docs/src/guides/sidecar.md:37`](./docs/src/guides/sidecar.md#L37), [`docs/src/guides/sidecar.md:39`](./docs/src/guides/sidecar.md#L39), [`docs/src/guides/sidecar.md:55`](./docs/src/guides/sidecar.md#L55), [`slopd/presets/1password.toml:3`](./slopd/presets/1password.toml#L3), [`slopd/src/sandbox/bind/mounts.rs:165`](./slopd/src/sandbox/bind/mounts.rs#L165) (+1 more) |
+| `HOME` | [`slopd/presets/1password.toml:3`](./slopd/presets/1password.toml#L3), [`slopd/src/sandbox/bind/mounts.rs:165`](./slopd/src/sandbox/bind/mounts.rs#L165), [`slopd/src/worktrees/mod.rs:279`](./slopd/src/worktrees/mod.rs#L279) |
 | `JAVA_HOME` | [`slopd/presets/android-dev.toml:13`](./slopd/presets/android-dev.toml#L13) |
 | `LANG` | [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16) |
 | `LC_ALL` | [`slopd/src/api/handlers/files.rs:146`](./slopd/src/api/handlers/files.rs#L146), [`slopd/src/git/mod.rs:91`](./slopd/src/git/mod.rs#L91), [`slopd/src/worktrees/mod.rs:291`](./slopd/src/worktrees/mod.rs#L291) |
@@ -28,22 +28,23 @@ It does not read or write environment values.
 | `LOGNAME` | [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16) |
 | `NO_PROXY` | [`slopd/src/test_support.rs:56`](./slopd/src/test_support.rs#L56) |
 | `OPENROUTER_API_KEY` | [`slopd/src/title/mod.rs:81`](./slopd/src/title/mod.rs#L81), [`slopd/src/usage/providers.rs:261`](./slopd/src/usage/providers.rs#L261) |
-| `OUT_DIR` | [`bench/ipc/rust/src/main.rs:5`](./bench/ipc/rust/src/main.rs#L5), [`slopd/src/shared/mod.rs:10`](./slopd/src/shared/mod.rs#L10) |
-| `PATH` | [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16), [`slopd/src/tmux/server_tests.rs:7`](./slopd/src/tmux/server_tests.rs#L7), [`slopd/src/worktrees/mod.rs:276`](./slopd/src/worktrees/mod.rs#L276), [`slopd/tests/slopctl_logs.rs:30`](./slopd/tests/slopctl_logs.rs#L30) |
+| `OUT_DIR` | [`slopd/src/shared/mod.rs:10`](./slopd/src/shared/mod.rs#L10) |
+| `PATH` | [`mod/Source/SlopWorld/UI/Settings/BinariesPage.cs:427`](./mod/Source/SlopWorld/UI/Settings/BinariesPage.cs#L427), [`slopd/src/runtime.rs:71`](./slopd/src/runtime.rs#L71), [`slopd/src/runtime.rs:135`](./slopd/src/runtime.rs#L135), [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16), [`slopd/src/sandbox/mod.rs:230`](./slopd/src/sandbox/mod.rs#L230), [`slopd/src/tmux/server_tests.rs:7`](./slopd/src/tmux/server_tests.rs#L7), [`slopd/src/worktrees/mod.rs:276`](./slopd/src/worktrees/mod.rs#L276), [`slopd/tests/slopctl_logs.rs:30`](./slopd/tests/slopctl_logs.rs#L30) |
 | `PULSE_SERVER` | [`slopd/src/session/manager/music/ncspot.rs:28`](./slopd/src/session/manager/music/ncspot.rs#L28) |
-| `SHELL` | [`docs/src/reference/api.md:62`](./docs/src/reference/api.md#L62), [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16), [`slopd/src/sandbox/bind/mounts.rs:215`](./slopd/src/sandbox/bind/mounts.rs#L215), [`slopd/src/sandbox/host.rs:28`](./slopd/src/sandbox/host.rs#L28) |
-| `SLOPD_CACHE` | [`docs/src/guides/project-worktrees.md:108`](./docs/src/guides/project-worktrees.md#L108), [`slopd/src/paths.rs:185`](./slopd/src/paths.rs#L185), [`slopd/src/test_support.rs:54`](./slopd/src/test_support.rs#L54) |
+| `SHELL` | [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16), [`slopd/src/sandbox/bind/mounts.rs:215`](./slopd/src/sandbox/bind/mounts.rs#L215), [`slopd/src/sandbox/host.rs:28`](./slopd/src/sandbox/host.rs#L28) |
+| `SLOPCAR_PROFILE` | [`slopd/src/bin/slopworld.rs:342`](./slopd/src/bin/slopworld.rs#L342), [`slopd/src/bin/slopworld.rs:380`](./slopd/src/bin/slopworld.rs#L380) |
+| `SLOPD_CACHE` | [`slopd/src/paths.rs:185`](./slopd/src/paths.rs#L185), [`slopd/src/test_support.rs:54`](./slopd/src/test_support.rs#L54) |
 | `SLOPD_CONFIG` | [`slopd/src/config/persistence.rs:77`](./slopd/src/config/persistence.rs#L77) |
 | `SLOPD_CREDITS_URL` | [`slopd/src/usage/providers.rs:33`](./slopd/src/usage/providers.rs#L33) |
-| `SLOPD_ENDPOINT` | [`slopd/src/bin/slopctl/http.rs:27`](./slopd/src/bin/slopctl/http.rs#L27), [`slopd/src/bin/slopworld.rs:171`](./slopd/src/bin/slopworld.rs#L171), [`slopd/src/endpoint.rs:25`](./slopd/src/endpoint.rs#L25), [`slopd/tests/slopctl_logs.rs:33`](./slopd/tests/slopctl_logs.rs#L33) |
+| `SLOPD_ENDPOINT` | [`mod/Source/SlopWorld/Client/Daemon/Endpoint.cs:53`](./mod/Source/SlopWorld/Client/Daemon/Endpoint.cs#L53), [`mod/Tests/EndpointTests.cs:22`](./mod/Tests/EndpointTests.cs#L22), [`mod/Tests/EndpointTests.cs:46`](./mod/Tests/EndpointTests.cs#L46), [`mod/Tests/EndpointTests.cs:80`](./mod/Tests/EndpointTests.cs#L80), [`slopd/src/bin/slopctl/http.rs:27`](./slopd/src/bin/slopctl/http.rs#L27), [`slopd/src/bin/slopworld.rs:381`](./slopd/src/bin/slopworld.rs#L381), [`slopd/src/bin/slopworld.rs:171`](./slopd/src/bin/slopworld.rs#L171), [`slopd/src/endpoint.rs:25`](./slopd/src/endpoint.rs#L25) (+1 more) |
 | `SLOPD_GIT_EXEC_TEST_CHILD` | [`slopd/src/api/ws/tests.rs:18`](./slopd/src/api/ws/tests.rs#L18), [`slopd/src/bin/slopctl/format_tests.rs:23`](./slopd/src/bin/slopctl/format_tests.rs#L23), [`slopd/src/git/exec_tests.rs:6`](./slopd/src/git/exec_tests.rs#L6) |
-| `SLOPD_ISOLATED_TEST` | [`slopd/src/test_support.rs:43`](./slopd/src/test_support.rs#L43), [`slopd/src/test_support.rs:51`](./slopd/src/test_support.rs#L51) |
+| `SLOPD_ISOLATED_TEST` | [`slopd/src/test_support.rs:43`](./slopd/src/test_support.rs#L43), [`slopd/src/test_support.rs:89`](./slopd/src/test_support.rs#L89), [`slopd/src/test_support.rs:51`](./slopd/src/test_support.rs#L51) |
 | `SLOPD_LOG` | [`slopd/slopd.service:12`](./slopd/slopd.service#L12) |
 | `SLOPD_OPENAI_USAGE_URL` | [`slopd/src/usage/providers.rs:37`](./slopd/src/usage/providers.rs#L37) |
 | `SLOPD_PRESETS` | [`slopd/src/api/handlers/presets.rs:172`](./slopd/src/api/handlers/presets.rs#L172), [`slopd/src/presets/edit_tests.rs:22`](./slopd/src/presets/edit_tests.rs#L22), [`slopd/src/presets/edit_tests.rs:44`](./slopd/src/presets/edit_tests.rs#L44) |
 | `SLOPD_RUNTIME` | [`slopd/src/runtime.rs:40`](./slopd/src/runtime.rs#L40), [`slopd/src/runtime.rs:167`](./slopd/src/runtime.rs#L167), [`slopd/src/runtime_tests.rs:78`](./slopd/src/runtime_tests.rs#L78) |
 | `SLOPD_STATE` | [`slopd/src/test_support.rs:53`](./slopd/src/test_support.rs#L53) |
-| `SLOPD_TEST_ROOT` | [`slopd/src/test_support.rs:52`](./slopd/src/test_support.rs#L52) |
+| `SLOPD_TEST_ROOT` | [`slopd/src/test_support.rs:44`](./slopd/src/test_support.rs#L44), [`slopd/src/test_support.rs:52`](./slopd/src/test_support.rs#L52) |
 | `SLOPD_TITLE_URL` | [`slopd/src/title/mod.rs:76`](./slopd/src/title/mod.rs#L76) |
 | `SLOPD_TMUX_SOCKET` | [`slopd/src/tmux/mod.rs:25`](./slopd/src/tmux/mod.rs#L25) |
 | `SLOPD_TOKEN` | [`slopd/src/bin/slopctl/http.rs:21`](./slopd/src/bin/slopctl/http.rs#L21), [`slopd/src/sandbox/bind/mounts.rs:233`](./slopd/src/sandbox/bind/mounts.rs#L233) |
@@ -51,27 +52,28 @@ It does not read or write environment values.
 | `SLOPD_USAGE_URL` | [`slopd/src/usage/providers.rs:29`](./slopd/src/usage/providers.rs#L29) |
 | `SLOPWORLD_BUILD_VERSION` | [`slopd/build.rs:15`](./slopd/build.rs#L15) |
 | `SLOPWORLD_DAEMON_UNIT` | [`slopd/src/bin/slopctl/logs/mod.rs:163`](./slopd/src/bin/slopctl/logs/mod.rs#L163), [`slopd/tests/slopctl_logs.rs:32`](./slopd/tests/slopctl_logs.rs#L32) |
-| `SLOPWORLD_DEBUG` | [`slopd/src/perf.rs:25`](./slopd/src/perf.rs#L25) |
-| `SLOPWORLD_GAME` | [`slopd/presets/slopworld-debug.toml:23`](./slopd/presets/slopworld-debug.toml#L23) |
+| `SLOPWORLD_DEBUG` | [`mod/Source/SlopWorld/Client/Diagnostics/PerfTrace.cs:35`](./mod/Source/SlopWorld/Client/Diagnostics/PerfTrace.cs#L35), [`mod/Source/SlopWorld/Client/Diagnostics/TerminalLatency.cs:17`](./mod/Source/SlopWorld/Client/Diagnostics/TerminalLatency.cs#L17), [`slopd/src/perf.rs:25`](./slopd/src/perf.rs#L25) |
+| `SLOPWORLD_GAME` | [`slopd/presets/slopworld-debug.toml:23`](./slopd/presets/slopworld-debug.toml#L23), [`slopd/src/bin/slopworld.rs:265`](./slopd/src/bin/slopworld.rs#L265) |
 | `SLOPWORLD_GAME_LOG` | [`slopd/src/bin/slopctl/logs/mod.rs:141`](./slopd/src/bin/slopctl/logs/mod.rs#L141), [`slopd/tests/slopctl_logs.rs:31`](./slopd/tests/slopctl_logs.rs#L31) |
 | `SLOPWORLD_PI_TITLES` | [`slopd/src/sandbox/bind/mounts.rs:225`](./slopd/src/sandbox/bind/mounts.rs#L225) |
-| `SLOPWORLD_PROFILE` | [`slopd/presets/slopworld-debug.toml:18`](./slopd/presets/slopworld-debug.toml#L18) |
+| `SLOPWORLD_PROFILE` | [`slopd/presets/slopworld-debug.toml:18`](./slopd/presets/slopworld-debug.toml#L18), [`slopd/src/bin/slopworld.rs:343`](./slopd/src/bin/slopworld.rs#L343) |
 | `SLOPWORLD_PROJECT` | [`slopd/src/sandbox/bind/mounts.rs:167`](./slopd/src/sandbox/bind/mounts.rs#L167) |
 | `SLOPWORLD_SESSION` | [`slopd/src/bin/slopctl.rs:80`](./slopd/src/bin/slopctl.rs#L80), [`slopd/src/sandbox/bind/mounts.rs:166`](./slopd/src/sandbox/bind/mounts.rs#L166) |
-| `SLOPWORLD_TASK_ID` | [`docs/src/guides/configuring-agents.md:132`](./docs/src/guides/configuring-agents.md#L132), [`docs/src/reference/integrations.md:45`](./docs/src/reference/integrations.md#L45), [`slopd/src/bin/slopctl/commands/task.rs:451`](./slopd/src/bin/slopctl/commands/task.rs#L451), [`slopd/src/sandbox/bind/mounts.rs:169`](./slopd/src/sandbox/bind/mounts.rs#L169) |
+| `SLOPWORLD_TASK_ID` | [`slopd/src/bin/slopctl/commands/task.rs:451`](./slopd/src/bin/slopctl/commands/task.rs#L451), [`slopd/src/sandbox/bind/mounts.rs:169`](./slopd/src/sandbox/bind/mounts.rs#L169) |
 | `SLOPWORLD_VERSION` | [`slopd/src/api/handlers/sessions.rs:16`](./slopd/src/api/handlers/sessions.rs#L16), [`slopd/src/bin/slopworld.rs:93`](./slopd/src/bin/slopworld.rs#L93), [`slopd/src/title/mod.rs:177`](./slopd/src/title/mod.rs#L177), [`slopd/src/usage/providers.rs:23`](./slopd/src/usage/providers.rs#L23), [`slopd/src/usage/providers.rs:283`](./slopd/src/usage/providers.rs#L283), [`slopd/src/usage/providers.rs:299`](./slopd/src/usage/providers.rs#L299) |
 | `SSH_AUTH_SOCK` | [`slopd/presets/ssh-agent.toml:5`](./slopd/presets/ssh-agent.toml#L5) |
 | `TERM` | [`slopd/src/sandbox/bind/mounts.rs:175`](./slopd/src/sandbox/bind/mounts.rs#L175) |
 | `TMUX_TEST_LOG` | [`slopd/src/tmux/server_tests.rs:8`](./slopd/src/tmux/server_tests.rs#L8) |
-| `TMUX_TMPDIR` | [`slopd/src/sandbox/bind/tests.rs:874`](./slopd/src/sandbox/bind/tests.rs#L874), [`slopd/src/tmux/server_tests.rs:9`](./slopd/src/tmux/server_tests.rs#L9) |
+| `TMUX_TMPDIR` | [`slopd/src/sandbox/bind/policy.rs:90`](./slopd/src/sandbox/bind/policy.rs#L90), [`slopd/src/sandbox/bind/tests.rs:874`](./slopd/src/sandbox/bind/tests.rs#L874), [`slopd/src/tmux/server.rs:98`](./slopd/src/tmux/server.rs#L98), [`slopd/src/tmux/server_tests.rs:9`](./slopd/src/tmux/server_tests.rs#L9) |
 | `USER` | [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16) |
 | `WAYLAND_DISPLAY` | [`slopd/presets/wayland.toml:4`](./slopd/presets/wayland.toml#L4) |
 | `XAUTHORITY` | [`slopd/presets/x11.toml:1`](./slopd/presets/x11.toml#L1), [`slopd/presets/x11.toml:7`](./slopd/presets/x11.toml#L7) |
-| `XDG_CACHE_HOME` | [`docs/src/guides/project-worktrees.md:106`](./docs/src/guides/project-worktrees.md#L106), [`docs/src/guides/project-worktrees.md:107`](./docs/src/guides/project-worktrees.md#L107) |
+| `XDG_CACHE_HOME` | [`mod/Source/SlopWorld/UI/MenuBackground/MenuBackgroundBake.cs:64`](./mod/Source/SlopWorld/UI/MenuBackground/MenuBackgroundBake.cs#L64) |
+| `XDG_CONFIG_HOME` | [`mod/Source/SlopWorld/Client/Daemon/Endpoint.cs:56`](./mod/Source/SlopWorld/Client/Daemon/Endpoint.cs#L56), [`mod/Tests/EndpointTests.cs:81`](./mod/Tests/EndpointTests.cs#L81) |
 | `XDG_CURRENT_DESKTOP` | [`slopd/src/clipboard.rs:127`](./slopd/src/clipboard.rs#L127) |
 | `XDG_DATA_DIRS` | [`slopd/src/session/manager/desktop.rs:211`](./slopd/src/session/manager/desktop.rs#L211) |
-| `XDG_DATA_HOME` | [`docs/src/guides/configuring-sandboxes.md:69`](./docs/src/guides/configuring-sandboxes.md#L69), [`docs/src/reference/paths.md:31`](./docs/src/reference/paths.md#L31), [`docs/src/reference/paths.md:32`](./docs/src/reference/paths.md#L32), [`docs/src/reference/paths.md:33`](./docs/src/reference/paths.md#L33), [`docs/src/reference/paths.md:36`](./docs/src/reference/paths.md#L36), [`docs/src/reference/paths.md:37`](./docs/src/reference/paths.md#L37), [`slopd/presets/slopworld-debug.toml:19`](./slopd/presets/slopworld-debug.toml#L19), [`slopd/presets/slopworld-debug.toml:50`](./slopd/presets/slopworld-debug.toml#L50) (+2 more) |
-| `XDG_RUNTIME_DIR` | [`slopd/presets/audio.toml:4`](./slopd/presets/audio.toml#L4), [`slopd/presets/dbus.toml:6`](./slopd/presets/dbus.toml#L6), [`slopd/presets/podman.toml:5`](./slopd/presets/podman.toml#L5), [`slopd/presets/systemd.toml:7`](./slopd/presets/systemd.toml#L7), [`slopd/presets/systemd.toml:10`](./slopd/presets/systemd.toml#L10), [`slopd/presets/wayland.toml:4`](./slopd/presets/wayland.toml#L4), [`slopd/presets/x11.toml:1`](./slopd/presets/x11.toml#L1) |
+| `XDG_DATA_HOME` | [`mod/Source/SlopWorld/Sim/Jukebox/Radio.cs:320`](./mod/Source/SlopWorld/Sim/Jukebox/Radio.cs#L320), [`slopd/presets/slopworld-debug.toml:19`](./slopd/presets/slopworld-debug.toml#L19), [`slopd/presets/slopworld-debug.toml:50`](./slopd/presets/slopworld-debug.toml#L50), [`slopd/presets/slopworld-debug.toml:51`](./slopd/presets/slopworld-debug.toml#L51), [`slopd/src/bin/slopworld.rs:344`](./slopd/src/bin/slopworld.rs#L344), [`slopd/src/session/manager/desktop.rs:202`](./slopd/src/session/manager/desktop.rs#L202) |
+| `XDG_RUNTIME_DIR` | [`slopd/presets/audio.toml:4`](./slopd/presets/audio.toml#L4), [`slopd/presets/dbus.toml:6`](./slopd/presets/dbus.toml#L6), [`slopd/presets/podman.toml:5`](./slopd/presets/podman.toml#L5), [`slopd/presets/systemd.toml:7`](./slopd/presets/systemd.toml#L7), [`slopd/presets/systemd.toml:10`](./slopd/presets/systemd.toml#L10), [`slopd/presets/wayland.toml:4`](./slopd/presets/wayland.toml#L4), [`slopd/presets/x11.toml:1`](./slopd/presets/x11.toml#L1), [`slopd/src/bin/slopworld/instance.rs:65`](./slopd/src/bin/slopworld/instance.rs#L65) |
 
 ### Dynamic environment handling
 
@@ -88,61 +90,61 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 
 | Method | Path | Handler | Router scope | Source |
 | --- | --- | --- | --- | --- |
-| `GET` | `/api/audio` | `audio` | `scoped` | [`slopd/src/api/router.rs:132`](./slopd/src/api/router.rs#L132) |
-| `GET` | `/api/browse` | `browse` | `scoped` | [`slopd/src/api/router.rs:143`](./slopd/src/api/router.rs#L143) |
-| `GET` | `/api/capabilities` | `capabilities` | `scoped` | [`slopd/src/api/router.rs:95`](./slopd/src/api/router.rs#L95) |
-| `GET` | `/api/clipboard` | `clip_read` | `scoped` | [`slopd/src/api/router.rs:124`](./slopd/src/api/router.rs#L124) |
-| `POST` | `/api/clipboard` | `clip_write` | `scoped` | [`slopd/src/api/router.rs:124`](./slopd/src/api/router.rs#L124) |
-| `GET` | `/api/clipboard/primary` | `clip_read_primary` | `scoped` | [`slopd/src/api/router.rs:126`](./slopd/src/api/router.rs#L126) |
-| `POST` | `/api/clipboard/primary` | `clip_write_primary` | `scoped` | [`slopd/src/api/router.rs:126`](./slopd/src/api/router.rs#L126) |
-| `GET` | `/api/clipboard/primary/text` | `clip_read_primary_text` | `scoped` | [`slopd/src/api/router.rs:130`](./slopd/src/api/router.rs#L130) |
-| `GET` | `/api/clipboard/text` | `clip_read_text` | `scoped` | [`slopd/src/api/router.rs:125`](./slopd/src/api/router.rs#L125) |
-| `GET` | `/api/config` | `get_config` | `scoped` | [`slopd/src/api/router.rs:121`](./slopd/src/api/router.rs#L121) |
-| `PUT` | `/api/config` | `put_config` | `scoped` | [`slopd/src/api/router.rs:122`](./slopd/src/api/router.rs#L122) |
-| `PUT` | `/api/config/patch` | `put_config_patch` | `scoped` | [`slopd/src/api/router.rs:123`](./slopd/src/api/router.rs#L123) |
-| `POST` | `/api/file-action` | `file_action` | `scoped` | [`slopd/src/api/router.rs:110`](./slopd/src/api/router.rs#L110) |
-| `DELETE` | `/api/files` | `remove_file` | `scoped` | [`slopd/src/api/router.rs:149`](./slopd/src/api/router.rs#L149) |
-| `POST` | `/api/files` | `create_file` | `scoped` | [`slopd/src/api/router.rs:149`](./slopd/src/api/router.rs#L149) |
-| `PUT` | `/api/files` | `rename_file` | `scoped` | [`slopd/src/api/router.rs:149`](./slopd/src/api/router.rs#L149) |
-| `GET` | `/api/files/stat` | `file_stat` | `scoped` | [`slopd/src/api/router.rs:145`](./slopd/src/api/router.rs#L145) |
-| `GET` | `/api/git` | `git_status` | `scoped` | [`slopd/src/api/router.rs:154`](./slopd/src/api/router.rs#L154) |
-| `GET` | `/api/grants` | `list_grants` | `scoped` | [`slopd/src/api/router.rs:112`](./slopd/src/api/router.rs#L112) |
-| `POST` | `/api/grants` | `mint_grant` | `scoped` | [`slopd/src/api/router.rs:112`](./slopd/src/api/router.rs#L112) |
-| `DELETE` | `/api/grants/:grantor` | `revoke_grants` | `scoped` | [`slopd/src/api/router.rs:113`](./slopd/src/api/router.rs#L113) |
+| `GET` | `/api/audio` | `audio` | `root-only` | [`slopd/src/api/router.rs:132`](./slopd/src/api/router.rs#L132) |
+| `GET` | `/api/browse` | `browse` | `root-only` | [`slopd/src/api/router.rs:143`](./slopd/src/api/router.rs#L143) |
+| `GET` | `/api/capabilities` | `capabilities` | `root-only` | [`slopd/src/api/router.rs:95`](./slopd/src/api/router.rs#L95) |
+| `GET` | `/api/clipboard` | `clip_read` | `root-only` | [`slopd/src/api/router.rs:124`](./slopd/src/api/router.rs#L124) |
+| `POST` | `/api/clipboard` | `clip_write` | `root-only` | [`slopd/src/api/router.rs:124`](./slopd/src/api/router.rs#L124) |
+| `GET` | `/api/clipboard/primary` | `clip_read_primary` | `root-only` | [`slopd/src/api/router.rs:126`](./slopd/src/api/router.rs#L126) |
+| `POST` | `/api/clipboard/primary` | `clip_write_primary` | `root-only` | [`slopd/src/api/router.rs:126`](./slopd/src/api/router.rs#L126) |
+| `GET` | `/api/clipboard/primary/text` | `clip_read_primary_text` | `root-only` | [`slopd/src/api/router.rs:130`](./slopd/src/api/router.rs#L130) |
+| `GET` | `/api/clipboard/text` | `clip_read_text` | `root-only` | [`slopd/src/api/router.rs:125`](./slopd/src/api/router.rs#L125) |
+| `GET` | `/api/config` | `get_config` | `root-only` | [`slopd/src/api/router.rs:121`](./slopd/src/api/router.rs#L121) |
+| `PUT` | `/api/config` | `put_config` | `root-only` | [`slopd/src/api/router.rs:122`](./slopd/src/api/router.rs#L122) |
+| `PUT` | `/api/config/patch` | `put_config_patch` | `root-only` | [`slopd/src/api/router.rs:123`](./slopd/src/api/router.rs#L123) |
+| `POST` | `/api/file-action` | `file_action` | `root-only` | [`slopd/src/api/router.rs:110`](./slopd/src/api/router.rs#L110) |
+| `DELETE` | `/api/files` | `remove_file` | `root-only` | [`slopd/src/api/router.rs:149`](./slopd/src/api/router.rs#L149) |
+| `POST` | `/api/files` | `create_file` | `root-only` | [`slopd/src/api/router.rs:149`](./slopd/src/api/router.rs#L149) |
+| `PUT` | `/api/files` | `rename_file` | `root-only` | [`slopd/src/api/router.rs:149`](./slopd/src/api/router.rs#L149) |
+| `GET` | `/api/files/stat` | `file_stat` | `root-only` | [`slopd/src/api/router.rs:145`](./slopd/src/api/router.rs#L145) |
+| `GET` | `/api/git` | `git_status` | `root-only` | [`slopd/src/api/router.rs:154`](./slopd/src/api/router.rs#L154) |
+| `GET` | `/api/grants` | `list_grants` | `root-only` | [`slopd/src/api/router.rs:112`](./slopd/src/api/router.rs#L112) |
+| `POST` | `/api/grants` | `mint_grant` | `root-only` | [`slopd/src/api/router.rs:112`](./slopd/src/api/router.rs#L112) |
+| `DELETE` | `/api/grants/:grantor` | `revoke_grants` | `root-only` | [`slopd/src/api/router.rs:113`](./slopd/src/api/router.rs#L113) |
 | `GET` | `/api/health` | `health` | `scoped` | [`slopd/src/api/router.rs:64`](./slopd/src/api/router.rs#L64) |
-| `POST` | `/api/highlight` | `highlight` | `scoped` | [`slopd/src/api/router.rs:146`](./slopd/src/api/router.rs#L146) |
-| `GET` | `/api/highlight/themes` | `highlight_themes` | `scoped` | [`slopd/src/api/router.rs:147`](./slopd/src/api/router.rs#L147) |
-| `GET` | `/api/image` | `read_image` | `scoped` | [`slopd/src/api/router.rs:148`](./slopd/src/api/router.rs#L148) |
-| `GET` | `/api/jukebox` | `jukebox` | `scoped` | [`slopd/src/api/router.rs:134`](./slopd/src/api/router.rs#L134) |
-| `GET` | `/api/jukebox/presets` | `jukebox_presets` | `scoped` | [`slopd/src/api/router.rs:135`](./slopd/src/api/router.rs#L135) |
-| `POST` | `/api/jukebox/presets` | `create_jukebox_preset` | `scoped` | [`slopd/src/api/router.rs:135`](./slopd/src/api/router.rs#L135) |
-| `DELETE` | `/api/jukebox/presets/:id` | `delete_jukebox_preset` | `scoped` | [`slopd/src/api/router.rs:139`](./slopd/src/api/router.rs#L139) |
-| `PUT` | `/api/jukebox/presets/:id` | `update_jukebox_preset` | `scoped` | [`slopd/src/api/router.rs:139`](./slopd/src/api/router.rs#L139) |
-| `GET` | `/api/library` | `list_library` | `scoped` | [`slopd/src/api/router.rs:103`](./slopd/src/api/router.rs#L103) |
-| `POST` | `/api/library` | `create_library_item` | `scoped` | [`slopd/src/api/router.rs:103`](./slopd/src/api/router.rs#L103) |
-| `DELETE` | `/api/library/:name` | `destroy_library_item` | `scoped` | [`slopd/src/api/router.rs:104`](./slopd/src/api/router.rs#L104) |
-| `PUT` | `/api/library/:name` | `update_library_item` | `scoped` | [`slopd/src/api/router.rs:104`](./slopd/src/api/router.rs#L104) |
-| `POST` | `/api/library/:name/run` | `run_library_item` | `scoped` | [`slopd/src/api/router.rs:108`](./slopd/src/api/router.rs#L108) |
-| `POST` | `/api/ncspot` | `ncspot` | `scoped` | [`slopd/src/api/router.rs:133`](./slopd/src/api/router.rs#L133) |
-| `GET` | `/api/open-apps` | `open_apps` | `scoped` | [`slopd/src/api/router.rs:111`](./slopd/src/api/router.rs#L111) |
-| `GET` | `/api/presets` | `presets` | `scoped` | [`slopd/src/api/router.rs:118`](./slopd/src/api/router.rs#L118) |
-| `DELETE` | `/api/presets/:kind/:name` | `delete_preset` | `scoped` | [`slopd/src/api/router.rs:119`](./slopd/src/api/router.rs#L119) |
-| `PUT` | `/api/presets/:kind/:name` | `update_preset` | `scoped` | [`slopd/src/api/router.rs:119`](./slopd/src/api/router.rs#L119) |
-| `POST` | `/api/presets/:kind/:name/copy` | `copy_preset` | `scoped` | [`slopd/src/api/router.rs:120`](./slopd/src/api/router.rs#L120) |
-| `GET` | `/api/projects` | `list_projects` | `scoped` | [`slopd/src/api/router.rs:97`](./slopd/src/api/router.rs#L97) |
-| `POST` | `/api/projects` | `create_project` | `scoped` | [`slopd/src/api/router.rs:97`](./slopd/src/api/router.rs#L97) |
-| `DELETE` | `/api/projects/:name` | `destroy_project` | `scoped` | [`slopd/src/api/router.rs:99`](./slopd/src/api/router.rs#L99) |
-| `GET` | `/api/projects/:name` | `one_project` | `scoped` | [`slopd/src/api/router.rs:99`](./slopd/src/api/router.rs#L99) |
-| `PUT` | `/api/projects/:name` | `update_project` | `scoped` | [`slopd/src/api/router.rs:99`](./slopd/src/api/router.rs#L99) |
-| `POST` | `/api/projects/preview` | `project_preview` | `scoped` | [`slopd/src/api/router.rs:98`](./slopd/src/api/router.rs#L98) |
-| `GET` | `/api/read` | `read_file` | `scoped` | [`slopd/src/api/router.rs:144`](./slopd/src/api/router.rs#L144) |
-| `POST` | `/api/run` | `run` | `scoped` | [`slopd/src/api/router.rs:109`](./slopd/src/api/router.rs#L109) |
-| `GET` | `/api/search` | `search` | `scoped` | [`slopd/src/api/router.rs:153`](./slopd/src/api/router.rs#L153) |
+| `POST` | `/api/highlight` | `highlight` | `root-only` | [`slopd/src/api/router.rs:146`](./slopd/src/api/router.rs#L146) |
+| `GET` | `/api/highlight/themes` | `highlight_themes` | `root-only` | [`slopd/src/api/router.rs:147`](./slopd/src/api/router.rs#L147) |
+| `GET` | `/api/image` | `read_image` | `root-only` | [`slopd/src/api/router.rs:148`](./slopd/src/api/router.rs#L148) |
+| `GET` | `/api/jukebox` | `jukebox` | `root-only` | [`slopd/src/api/router.rs:134`](./slopd/src/api/router.rs#L134) |
+| `GET` | `/api/jukebox/presets` | `jukebox_presets` | `root-only` | [`slopd/src/api/router.rs:135`](./slopd/src/api/router.rs#L135) |
+| `POST` | `/api/jukebox/presets` | `create_jukebox_preset` | `root-only` | [`slopd/src/api/router.rs:135`](./slopd/src/api/router.rs#L135) |
+| `DELETE` | `/api/jukebox/presets/:id` | `delete_jukebox_preset` | `root-only` | [`slopd/src/api/router.rs:139`](./slopd/src/api/router.rs#L139) |
+| `PUT` | `/api/jukebox/presets/:id` | `update_jukebox_preset` | `root-only` | [`slopd/src/api/router.rs:139`](./slopd/src/api/router.rs#L139) |
+| `GET` | `/api/library` | `list_library` | `root-only` | [`slopd/src/api/router.rs:103`](./slopd/src/api/router.rs#L103) |
+| `POST` | `/api/library` | `create_library_item` | `root-only` | [`slopd/src/api/router.rs:103`](./slopd/src/api/router.rs#L103) |
+| `DELETE` | `/api/library/:name` | `destroy_library_item` | `root-only` | [`slopd/src/api/router.rs:104`](./slopd/src/api/router.rs#L104) |
+| `PUT` | `/api/library/:name` | `update_library_item` | `root-only` | [`slopd/src/api/router.rs:104`](./slopd/src/api/router.rs#L104) |
+| `POST` | `/api/library/:name/run` | `run_library_item` | `root-only` | [`slopd/src/api/router.rs:108`](./slopd/src/api/router.rs#L108) |
+| `POST` | `/api/ncspot` | `ncspot` | `root-only` | [`slopd/src/api/router.rs:133`](./slopd/src/api/router.rs#L133) |
+| `GET` | `/api/open-apps` | `open_apps` | `root-only` | [`slopd/src/api/router.rs:111`](./slopd/src/api/router.rs#L111) |
+| `GET` | `/api/presets` | `presets` | `root-only` | [`slopd/src/api/router.rs:118`](./slopd/src/api/router.rs#L118) |
+| `DELETE` | `/api/presets/:kind/:name` | `delete_preset` | `root-only` | [`slopd/src/api/router.rs:119`](./slopd/src/api/router.rs#L119) |
+| `PUT` | `/api/presets/:kind/:name` | `update_preset` | `root-only` | [`slopd/src/api/router.rs:119`](./slopd/src/api/router.rs#L119) |
+| `POST` | `/api/presets/:kind/:name/copy` | `copy_preset` | `root-only` | [`slopd/src/api/router.rs:120`](./slopd/src/api/router.rs#L120) |
+| `GET` | `/api/projects` | `list_projects` | `root-only` | [`slopd/src/api/router.rs:97`](./slopd/src/api/router.rs#L97) |
+| `POST` | `/api/projects` | `create_project` | `root-only` | [`slopd/src/api/router.rs:97`](./slopd/src/api/router.rs#L97) |
+| `DELETE` | `/api/projects/:name` | `destroy_project` | `root-only` | [`slopd/src/api/router.rs:99`](./slopd/src/api/router.rs#L99) |
+| `GET` | `/api/projects/:name` | `one_project` | `root-only` | [`slopd/src/api/router.rs:99`](./slopd/src/api/router.rs#L99) |
+| `PUT` | `/api/projects/:name` | `update_project` | `root-only` | [`slopd/src/api/router.rs:99`](./slopd/src/api/router.rs#L99) |
+| `POST` | `/api/projects/preview` | `project_preview` | `root-only` | [`slopd/src/api/router.rs:98`](./slopd/src/api/router.rs#L98) |
+| `GET` | `/api/read` | `read_file` | `root-only` | [`slopd/src/api/router.rs:144`](./slopd/src/api/router.rs#L144) |
+| `POST` | `/api/run` | `run` | `root-only` | [`slopd/src/api/router.rs:109`](./slopd/src/api/router.rs#L109) |
+| `GET` | `/api/search` | `search` | `root-only` | [`slopd/src/api/router.rs:153`](./slopd/src/api/router.rs#L153) |
 | `GET` | `/api/sessions` | `list` | `scoped` | [`slopd/src/api/router.rs:44`](./slopd/src/api/router.rs#L44) |
 | `POST` | `/api/sessions` | `create` | `scoped` | [`slopd/src/api/router.rs:27`](./slopd/src/api/router.rs#L27) |
 | `DELETE` | `/api/sessions/:name` | `destroy` | `scoped` | [`slopd/src/api/router.rs:28`](./slopd/src/api/router.rs#L28) |
 | `GET` | `/api/sessions/:name` | `one` | `scoped` | [`slopd/src/api/router.rs:45`](./slopd/src/api/router.rs#L45) |
-| `PUT` | `/api/sessions/:name` | `update` | `scoped` | [`slopd/src/api/router.rs:87`](./slopd/src/api/router.rs#L87) |
+| `PUT` | `/api/sessions/:name` | `update` | `root-only` | [`slopd/src/api/router.rs:87`](./slopd/src/api/router.rs#L87) |
 | `GET` | `/api/sessions/:name/cwd` | `cwd` | `scoped` | [`slopd/src/api/router.rs:29`](./slopd/src/api/router.rs#L29) |
 | `PUT` | `/api/sessions/:name/label` | `set_label` | `scoped` | [`slopd/src/api/router.rs:34`](./slopd/src/api/router.rs#L34) |
 | `PUT` | `/api/sessions/:name/reader-pinned` | `set_reader_pinned` | `scoped` | [`slopd/src/api/router.rs:35`](./slopd/src/api/router.rs#L35) |
@@ -151,11 +153,11 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 | `POST` | `/api/sessions/:name/start` | `start` | `scoped` | [`slopd/src/api/router.rs:31`](./slopd/src/api/router.rs#L31) |
 | `POST` | `/api/sessions/:name/state/reset` | `reset_state` | `scoped` | [`slopd/src/api/router.rs:36`](./slopd/src/api/router.rs#L36) |
 | `POST` | `/api/sessions/:name/stop` | `stop` | `scoped` | [`slopd/src/api/router.rs:32`](./slopd/src/api/router.rs#L32) |
-| `POST` | `/api/settings/preview` | `settings_preview` | `scoped` | [`slopd/src/api/router.rs:88`](./slopd/src/api/router.rs#L88) |
-| `GET` | `/api/state` | `stored_states` | `scoped` | [`slopd/src/api/router.rs:114`](./slopd/src/api/router.rs#L114) |
-| `DELETE` | `/api/state/:kind/:key` | `delete_stored_state` | `scoped` | [`slopd/src/api/router.rs:116`](./slopd/src/api/router.rs#L116) |
-| `DELETE` | `/api/state/trash` | `empty_trash` | `scoped` | [`slopd/src/api/router.rs:115`](./slopd/src/api/router.rs#L115) |
-| `POST` | `/api/state/trash/:key/restore` | `restore_stored_state` | `scoped` | [`slopd/src/api/router.rs:117`](./slopd/src/api/router.rs#L117) |
+| `POST` | `/api/settings/preview` | `settings_preview` | `root-only` | [`slopd/src/api/router.rs:88`](./slopd/src/api/router.rs#L88) |
+| `GET` | `/api/state` | `stored_states` | `root-only` | [`slopd/src/api/router.rs:114`](./slopd/src/api/router.rs#L114) |
+| `DELETE` | `/api/state/:kind/:key` | `delete_stored_state` | `root-only` | [`slopd/src/api/router.rs:116`](./slopd/src/api/router.rs#L116) |
+| `DELETE` | `/api/state/trash` | `empty_trash` | `root-only` | [`slopd/src/api/router.rs:115`](./slopd/src/api/router.rs#L115) |
+| `POST` | `/api/state/trash/:key/restore` | `restore_stored_state` | `root-only` | [`slopd/src/api/router.rs:117`](./slopd/src/api/router.rs#L117) |
 | `DELETE` | `/api/tasks` | `prune_tasks` | `scoped` | [`slopd/src/api/router.rs:65`](./slopd/src/api/router.rs#L65) |
 | `GET` | `/api/tasks` | `list_tasks` | `scoped` | [`slopd/src/api/router.rs:65`](./slopd/src/api/router.rs#L65) |
 | `POST` | `/api/tasks` | `create_task` | `scoped` | [`slopd/src/api/router.rs:65`](./slopd/src/api/router.rs#L65) |
@@ -164,19 +166,19 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 | `POST` | `/api/tasks/:id` | `update_task` | `scoped` | [`slopd/src/api/router.rs:71`](./slopd/src/api/router.rs#L71) |
 | `POST` | `/api/tasks/cancel` | `cancel_tasks` | `scoped` | [`slopd/src/api/router.rs:69`](./slopd/src/api/router.rs#L69) |
 | `POST` | `/api/tasks/remove` | `remove_tasks` | `scoped` | [`slopd/src/api/router.rs:70`](./slopd/src/api/router.rs#L70) |
-| `GET` | `/api/templates` | `list_templates` | `scoped` | [`slopd/src/api/router.rs:89`](./slopd/src/api/router.rs#L89) |
-| `POST` | `/api/templates` | `save_template` | `scoped` | [`slopd/src/api/router.rs:89`](./slopd/src/api/router.rs#L89) |
-| `DELETE` | `/api/templates/:name` | `destroy_template` | `scoped` | [`slopd/src/api/router.rs:90`](./slopd/src/api/router.rs#L90) |
-| `PUT` | `/api/templates/:name` | `replace_template` | `scoped` | [`slopd/src/api/router.rs:90`](./slopd/src/api/router.rs#L90) |
-| `POST` | `/api/templates/:name/create` | `create_from_template` | `scoped` | [`slopd/src/api/router.rs:94`](./slopd/src/api/router.rs#L94) |
+| `GET` | `/api/templates` | `list_templates` | `root-only` | [`slopd/src/api/router.rs:89`](./slopd/src/api/router.rs#L89) |
+| `POST` | `/api/templates` | `save_template` | `root-only` | [`slopd/src/api/router.rs:89`](./slopd/src/api/router.rs#L89) |
+| `DELETE` | `/api/templates/:name` | `destroy_template` | `root-only` | [`slopd/src/api/router.rs:90`](./slopd/src/api/router.rs#L90) |
+| `PUT` | `/api/templates/:name` | `replace_template` | `root-only` | [`slopd/src/api/router.rs:90`](./slopd/src/api/router.rs#L90) |
+| `POST` | `/api/templates/:name/create` | `create_from_template` | `root-only` | [`slopd/src/api/router.rs:94`](./slopd/src/api/router.rs#L94) |
 | `GET` | `/api/templates/spawnable` | `list_spawnable_templates` | `scoped` | [`slopd/src/api/router.rs:37`](./slopd/src/api/router.rs#L37) |
-| `GET` | `/api/usage` | `usage` | `scoped` | [`slopd/src/api/router.rs:131`](./slopd/src/api/router.rs#L131) |
-| `GET` | `/api/whereis` | `whereis` | `scoped` | [`slopd/src/api/router.rs:96`](./slopd/src/api/router.rs#L96) |
+| `GET` | `/api/usage` | `usage` | `root-only` | [`slopd/src/api/router.rs:131`](./slopd/src/api/router.rs#L131) |
+| `GET` | `/api/whereis` | `whereis` | `root-only` | [`slopd/src/api/router.rs:96`](./slopd/src/api/router.rs#L96) |
 | `POST` | `/api/workers` | `spawn_worker` | `scoped` | [`slopd/src/api/router.rs:38`](./slopd/src/api/router.rs#L38) |
 | `GET` | `/api/worktrees` | `list_worktrees` | `scoped` | [`slopd/src/api/router.rs:76`](./slopd/src/api/router.rs#L76) |
 | `POST` | `/api/worktrees` | `create_worktree` | `scoped` | [`slopd/src/api/router.rs:76`](./slopd/src/api/router.rs#L76) |
-| `DELETE` | `/api/worktrees/:id` | `remove_worktree` | `scoped` | [`slopd/src/api/router.rs:83`](./slopd/src/api/router.rs#L83) |
-| `PUT` | `/api/worktrees/:id` | `rename_worktree` | `scoped` | [`slopd/src/api/router.rs:83`](./slopd/src/api/router.rs#L83) |
+| `DELETE` | `/api/worktrees/:id` | `remove_worktree` | `root-only` | [`slopd/src/api/router.rs:83`](./slopd/src/api/router.rs#L83) |
+| `PUT` | `/api/worktrees/:id` | `rename_worktree` | `root-only` | [`slopd/src/api/router.rs:83`](./slopd/src/api/router.rs#L83) |
 | `POST` | `/api/worktrees/preview` | `preview_worktree` | `scoped` | [`slopd/src/api/router.rs:75`](./slopd/src/api/router.rs#L75) |
 | `GET` | `/ws` | `ws_upgrade` | `scoped` | [`slopd/src/api/router.rs:46`](./slopd/src/api/router.rs#L46) |
 
@@ -186,7 +188,90 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 
 | Tool | Invocation | Source |
 | --- | --- | --- |
-| `make` | `make help` | [`Makefile:16`](./Makefile#L16) |
+| `just` | `just all` | [`just/popular.just:3`](./just/popular.just#L3) |
+| `just` | `just api-contract` | [`just/generate.just:3`](./just/generate.just#L3) |
+| `just` | `just api-docs` | [`just/generate.just:11`](./just/generate.just#L11) |
+| `just` | `just bake-icons` | [`just/generate.just:31`](./just/generate.just#L31) |
+| `just` | `just bake-loading-font` | [`just/generate.just:21`](./just/generate.just#L21) |
+| `just` | `just bench` | [`just/popular.just:23`](./just/popular.just#L23) |
+| `just` | `just bench-daemon` | [`just/bench.just:3`](./just/bench.just#L3) |
+| `just` | `just bench-ipc` | [`just/bench.just:13`](./just/bench.just#L13) |
+| `just` | `just bench-latest` | [`just/bench.just:28`](./just/bench.just#L28) |
+| `just` | `just bench-mod` | [`just/bench.just:8`](./just/bench.just#L8) |
+| `just` | `just bench-report` | [`just/bench.just:23`](./just/bench.just#L23) |
+| `just` | `just bench-terminal` | [`just/bench.just:33`](./just/bench.just#L33) |
+| `just` | `just bench-terminal-typing` | [`just/bench.just:38`](./just/bench.just#L38) |
+| `just` | `just check-format-csharp` | [`just/quality.just:17`](./just/quality.just#L17) |
+| `just` | `just check-generated` | [`just/generate.just:26`](./just/generate.just#L26) |
+| `just` | `just check-reqs` | [`just/misc.just:22`](./just/misc.just#L22) |
+| `just` | `just ci` | [`just/popular.just:19`](./just/popular.just#L19) |
+| `just` | `just clean` | [`just/build.just:27`](./just/build.just#L27) |
+| `just` | `just coverage` | [`just/test.just:43`](./just/test.just#L43) |
+| `just` | `just coverage-daemon` | [`just/test.just:47`](./just/test.just#L47) |
+| `just` | `just coverage-mod` | [`just/test.just:52`](./just/test.just#L52) |
+| `just` | `just coverage-summary` | [`just/test.just:57`](./just/test.just#L57) |
+| `just` | `just daemon` | [`just/build.just:3`](./just/build.just#L3) |
+| `just` | `just devloop` | [`just/misc.just:42`](./just/misc.just#L42) |
+| `just` | `just docs` | [`just/misc.just:32`](./just/misc.just#L32) |
+| `just` | `just docs-serve` | [`just/misc.just:37`](./just/misc.just#L37) |
+| `just` | `just format` | [`just/popular.just:7`](./just/popular.just#L7) |
+| `just` | `just format-csharp` | [`just/quality.just:12`](./just/quality.just#L12) |
+| `just` | `just format-daemon` | [`just/quality.just:7`](./just/quality.just#L7) |
+| `just` | `just gogdl-install` | [`just/rimworld.just:8`](./just/rimworld.just#L8) |
+| `just` | `just gogdl-login` | [`just/rimworld.just:3`](./just/rimworld.just#L3) |
+| `just` | `just gogdl-update` | [`just/rimworld.just:13`](./just/rimworld.just#L13) |
+| `just` | `just help` | [`justfile:5`](./justfile#L5) |
+| `just` | `just install` | [`just/popular.just:28`](./just/popular.just#L28) |
+| `just` | `just install-daemon` | [`just/install.just:3`](./just/install.just#L3) |
+| `just` | `just install-mod` | [`just/install.just:15`](./just/install.just#L15) |
+| `just` | `just install-runner` | [`just/install.just:9`](./just/install.just#L9) |
+| `just` | `just lint` | [`just/popular.just:11`](./just/popular.just#L11) |
+| `just` | `just lint-daemon` | [`just/quality.just:24`](./just/quality.just#L24) |
+| `just` | `just lint-mod` | [`just/quality.just:30`](./just/quality.just#L30) |
+| `just` | `just logs` | [`just/misc.just:3`](./just/misc.just#L3) |
+| `just` | `just mac` | [`just/macos.just:17`](./just/macos.just#L17) |
+| `just` | `just mac-build` | [`just/macos.just:22`](./just/macos.just#L22) |
+| `just` | `just mac-check` | [`just/macos.just:70`](./just/macos.just#L70) |
+| `just` | `just mac-docker-check` | [`just/macos.just:60`](./just/macos.just#L60) |
+| `just` | `just mac-doctor` | [`just/macos.just:26`](./just/macos.just#L26) |
+| `just` | `just mac-game-check` | [`just/macos.just:65`](./just/macos.just#L65) |
+| `just` | `just mac-install` | [`just/macos.just:3`](./just/macos.just#L3) |
+| `just` | `just mac-logs` | [`just/macos.just:50`](./just/macos.just#L50) |
+| `just` | `just mac-mod` | [`just/macos.just:74`](./just/macos.just#L74) |
+| `just` | `just mac-profile` | [`just/macos.just:79`](./just/macos.just#L79) |
+| `just` | `just mac-run` | [`just/macos.just:8`](./just/macos.just#L8) |
+| `just` | `just mac-setup` | [`just/macos.just:55`](./just/macos.just#L55) |
+| `just` | `just mac-start` | [`just/macos.just:35`](./just/macos.just#L35) |
+| `just` | `just mac-status` | [`just/macos.just:45`](./just/macos.just#L45) |
+| `just` | `just mac-stop` | [`just/macos.just:40`](./just/macos.just#L40) |
+| `just` | `just mod` | [`just/build.just:8`](./just/build.just#L8) |
+| `just` | `just mod-deps` | [`just/build.just:17`](./just/build.just#L17) |
+| `just` | `just pkg-arch` | [`just/misc.just:27`](./just/misc.just#L27) |
+| `just` | `just reference` | [`just/generate.just:16`](./just/generate.just#L16) |
+| `just` | `just run` | [`just/popular.just:32`](./just/popular.just#L32) |
+| `just` | `just sidecar-build` | [`just/sidecar.just:10`](./just/sidecar.just#L10) |
+| `just` | `just sidecar-devloop` | [`just/sidecar.just:20`](./just/sidecar.just#L20) |
+| `just` | `just sidecar-doctor` | [`just/sidecar.just:15`](./just/sidecar.just#L15) |
+| `just` | `just sidecar-run` | [`just/sidecar.just:3`](./just/sidecar.just#L3) |
+| `just` | `just test` | [`just/popular.just:15`](./just/popular.just#L15) |
+| `just` | `just test-bench-report` | [`just/test.just:32`](./just/test.just#L32) |
+| `just` | `just test-daemon` | [`just/test.just:7`](./just/test.just#L7) |
+| `just` | `just test-mod` | [`just/test.just:12`](./just/test.just#L12) |
+| `just` | `just test-pager` | [`just/test.just:38`](./just/test.just#L38) |
+| `just` | `just test-recipes` | [`just/test.just:65`](./just/test.just#L65) |
+| `just` | `just test-reference` | [`just/test.just:70`](./just/test.just#L70) |
+| `just` | `just test-text-sprites` | [`just/test.just:27`](./just/test.just#L27) |
+| `just` | `just test-themes` | [`just/test.just:22`](./just/test.just#L22) |
+| `just` | `just test-tools` | [`just/test.just:3`](./just/test.just#L3) |
+| `just` | `just test-wire-contract` | [`just/test.just:17`](./just/test.just#L17) |
+| `just` | `just trace-mod` | [`just/misc.just:11`](./just/misc.just#L11) |
+| `just` | `just trace-summary` | [`just/misc.just:17`](./just/misc.just#L17) |
+| `just` | `just uninstall` | [`just/install.just:20`](./just/install.just#L20) |
+| `just` | `just uninstall-daemon` | [`just/install.just:26`](./just/install.just#L26) |
+| `just` | `just uninstall-font` | [`just/install.just:47`](./just/install.just#L47) |
+| `just` | `just uninstall-mod` | [`just/install.just:42`](./just/install.just#L42) |
+| `just` | `just uninstall-runner` | [`just/install.just:36`](./just/install.just#L36) |
+| `just` | `just validate-themes` | [`just/build.just:22`](./just/build.just#L22) |
 | `slopctl` | `&'static str,` | [`slopd/src/bin/slopctl/commands/mod.rs:71`](./slopd/src/bin/slopctl/commands/mod.rs#L71) |
 | `slopctl` | `slopctl agent create NAME --project PROJECT --template TEMPLATE [--start]` | [`slopd/src/bin/slopctl/commands/mod.rs:47`](./slopd/src/bin/slopctl/commands/mod.rs#L47) |
 | `slopctl` | `slopctl logs [game\|daemon\|all] [--lines N] [--follow]` | [`slopd/src/bin/slopctl/commands/mod.rs:57`](./slopd/src/bin/slopctl/commands/mod.rs#L57) |
@@ -223,4 +308,4 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 
 ## Scanner scope
 
-The scanner reads tracked and untracked, non-ignored text files under the project, excluding generated build output and this generated file. It recognizes explicit Rust/service/Make environment access, `$VAR` expansion, Axum `.route(...)` declarations, Rust CLI usage text and Make targets.
+The scanner reads tracked and untracked, non-ignored text files under the project, excluding generated build output and this generated file. Environment variables come only from mod and daemon files, including launchers, services and presets; just settings and development tooling are excluded. It recognizes explicit Rust/C#/service environment access, `$VAR` expansion, Axum `.route(...)` declarations, Rust CLI usage text and documented just recipes.

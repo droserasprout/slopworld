@@ -93,7 +93,7 @@ dbg_macro = "warn"
 allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
 
-# Keep editor and Make checks aligned.
+# Keep editor and just checks aligned.
 too_many_lines = "warn"
 excessive_nesting = "warn"
 manual_let_else = "warn"

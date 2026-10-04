@@ -1,11 +1,14 @@
 # Wire coordination
 
 `shared/slopworld.proto` defines binary messages; `shared/protocol.yaml` owns routes,
-type mappings, enums, and limits. `make api-contract` generates C# bindings and the
-Rust HTTP dispatcher; `slopd/build.rs` generates Rust messages. `make api-docs`
+type mappings, enums, and limits. `just api-contract` generates C# bindings and the
+Rust HTTP dispatcher; `slopd/build.rs` generates Rust messages. `just api-docs`
 generates the route inventory from the router and shared HTTP type mappings.
 `tools/reference.py` reads middleware access from the named route-family functions
-and rejects unknown families; handler-level checks still determine effective access. Never reuse field numbers; preserve optional presence
+and rejects unknown families; handler-level checks still determine effective access.
+Its environment inventory covers mod and daemon files, including launchers, services
+and presets; build recipe and development tooling settings stay outside that inventory.
+Never reuse field numbers; preserve optional presence
 where omission selects a daemon default.
 
 Peers must be built for the current v2 schema. HTTP uses `application/x-protobuf`

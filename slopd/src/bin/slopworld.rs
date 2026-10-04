@@ -135,7 +135,7 @@ fn run_launcher(args: Args) -> Result<ExitCode, String> {
     let installed = mods.join("SlopWorld/About/About.xml");
     if !installed.is_file() {
         return Err(format!(
-            "SlopWorld is missing from this game's mod directory: {}. Run `make install-mod`.",
+            "SlopWorld is missing from this game's mod directory: {}. Run `just install-mod`.",
             installed.display()
         ));
     }
@@ -166,7 +166,7 @@ fn run_launcher(args: Args) -> Result<ExitCode, String> {
         command.current_dir(working_dir);
     }
     if let Some(sidecar) = &sidecar {
-        // The Makefile can receive a literal `~`. Neither the game nor the mod expands shell paths.
+        // The justfile can receive a literal `~`. Neither the game nor the mod expands shell paths.
         // Pass the resolved path to the child process.
         command.env("SLOPD_ENDPOINT", &sidecar.endpoint);
     }

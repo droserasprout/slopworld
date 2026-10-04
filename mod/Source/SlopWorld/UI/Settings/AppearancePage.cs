@@ -368,7 +368,7 @@ namespace SlopWorld
                 Text.Font = GameFont.Small;
                 GUI.color = UiTheme.Name;
                 UiText.RowLabel(new Rect(r.x + labelW + 4f, r.y,
-                    r.width - labelW - 10f, r.height), "make test");
+                    r.width - labelW - 10f, r.height), "just test");
             }
         }
 

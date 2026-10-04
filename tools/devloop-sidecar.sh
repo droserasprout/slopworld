@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u
 
-make_cmd=${MAKE_CMD:?MAKE_CMD is required}
+just_cmd=${JUST_CMD:?JUST_CMD is required}
 repo=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 slopcar="$repo/slopcar/slopcar"
 
@@ -19,10 +19,10 @@ sidecar_env=(
 )
 
 while true; do
-	"$make_cmd" sidecar-build
-	"$make_cmd" install-mod
+	"$just_cmd" sidecar-build
+	"$just_cmd" install-mod
 	"${sidecar_env[@]}" "$slopcar" rm >/dev/null 2>&1 || true
 	"${sidecar_env[@]}" "$slopcar" start "$@"
-	"$make_cmd" sidecar-run
+	"$just_cmd" sidecar-run
 	sleep 1
 done

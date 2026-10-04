@@ -79,6 +79,6 @@
   </ItemGroup>
   <Target Name="CheckRimWorldReferences" BeforeTargets="ResolveReferences">
     <Error Condition="!Exists('$(RimWorldManaged)/Assembly-CSharp.dll')"
-           Text="Missing RimWorld assemblies under $(RimWorldManaged); set RIMWORLD or MANAGED when using Make, or RimWorldManaged when using dotnet build." />
+           Text="Missing RimWorld assemblies under $(RimWorldManaged); set RIMWORLD or MANAGED when using just, or RimWorldManaged when using dotnet build." />
   </Target>
 </Project>

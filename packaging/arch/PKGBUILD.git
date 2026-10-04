@@ -14,7 +14,7 @@ url="https://github.com/droserasprout/slopworld"
 license=('custom')
 depends=('alsa-lib' 'bash' 'bubblewrap' 'git' 'glib2' 'highlight' 'less' 'micro'
   'passt' 'procps-ng' 'ripgrep' 'systemd' 'tmux')
-makedepends=('cargo' 'git' 'dotnet-sdk' 'lld')
+makedepends=('cargo' 'git' 'dotnet-sdk' 'lld' 'just')
 optdepends=(
   'wl-clipboard: clipboard and PRIMARY selection under Wayland'
   'xclip: clipboard and PRIMARY selection under X11'
@@ -52,7 +52,7 @@ build() {
   local _version
   _version="$(tools/version.sh "$(grep -m1 '^version' slopd/Cargo.toml | cut -d'"' -f2)")"
   export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$PWD/target" SLOPWORLD_BUILD_VERSION="$_version"
-  make BUILD=release VERSION="$_version" RIMWORLD="$RIMWORLD" mod
+  just BUILD=release VERSION="$_version" RIMWORLD="$RIMWORLD" mod
 }
 
 check() {

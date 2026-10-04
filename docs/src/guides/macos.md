@@ -9,13 +9,13 @@ See [Requirements](../requirements.md) for the game and host prerequisites.
 
 ## One-time setup
 
-Clone the repository and make GNU Make available so you can invoke `gmake`:
+Clone the repository and install `just`:
 
 ```sh
 git clone https://github.com/droserasprout/slopworld.git
 cd slopworld
-brew install make
-gmake mac-setup
+brew install just
+just mac-setup
 open -a Docker
 ```
 
@@ -25,7 +25,7 @@ Desktop before continuing.
 ## Install and launch
 
 ```sh
-gmake mac
+just mac
 ```
 
 This builds and checks the sidecar image, installs the mod, starts the configured
@@ -35,7 +35,7 @@ The default `MAC_RIMWORLD` is `~/Documents/RimWorld.app`. Override it for a game
 installed elsewhere:
 
 ```sh
-MAC_RIMWORLD=/path/to/RimWorld.app gmake mac
+MAC_RIMWORLD=/path/to/RimWorld.app just mac
 ```
 
 The game uses a separate SlopWorld profile. See [Game profiles](game-profiles.md)

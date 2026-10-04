@@ -8,7 +8,7 @@ Then run these commands:
 ```sh
 git clone https://github.com/droserasprout/slopworld.git
 cd slopworld
-RIMWORLD=/path/to/RimWorld/game make install
+RIMWORLD=/path/to/RimWorld/game just install
 slopworld --game /path/to/RimWorld/game
 ```
 

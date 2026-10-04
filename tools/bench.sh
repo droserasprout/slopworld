@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Make supplies the tool settings. Build once, then run the same binaries each time.
+# just supplies the tool settings. Build once, then run the same binaries each time.
 set -euo pipefail
 configuration=Debug
 [[ "$BUILD" != release ]] || configuration=Release

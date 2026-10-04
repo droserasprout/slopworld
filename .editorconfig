@@ -1,4 +1,4 @@
-# What `make format` and `make lint` mean by "formatted". The C# half is the reason
+# What `just format` and `just lint` mean by "formatted". The C# half is the reason
 # this file exists: `dotnet format` reads its whole layout from here, and left to its
 # own defaults it would rewrite this codebase rather than tidy it.
 
@@ -11,9 +11,6 @@ insert_final_newline = true
 trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
-
-[Makefile]
-indent_style = tab
 
 [*.{toml,json,yml,yaml,xml,csproj}]
 indent_size = 2

@@ -10,9 +10,9 @@
   archive from the [Protobuf v36.1 release](https://github.com/protocolbuffers/protobuf/releases/tag/v36.1)
   and put its `bin` directory on `PATH`. Distro packages are suitable when they
   provide that version; check with `protoc --version`.
-- **GNU Make** runs the repository targets. On macOS, install it with
-  `brew install make` and use `gmake`.
-- **PyYAML** parses the shared wire contract during `make api-contract`.
+- **just** runs the repository recipes. Install it with your package manager
+  or `cargo install just --locked`. On macOS, use `brew install just`.
+- **PyYAML** parses the shared wire contract during `just api-contract`.
 
 Set `RIMWORLD` to the Linux game directory containing `RimWorldLinux`.
 Building the mod requires the game's assemblies in `Managed/`. For native macOS,
@@ -20,46 +20,50 @@ follow the [macOS guide](guides/macos.md).
 
 ## Build and install
 
-Run `make` to list targets:
+Run `just` to list recipes by group. Use `just --groups` to list group names,
+or `just --list --group Build` to show only build recipes:
 
 ```sh
-make all       # daemon, launcher, and mod
-make daemon    # daemon and launcher
-make mod       # mod; requires game assemblies
+just all       # daemon, launcher, and mod
+just daemon    # daemon and launcher
+just mod       # mod; requires game assemblies
 ```
 
-`BUILD` is `debug` by default. Use `make BUILD=release all` for a release build.
+`BUILD` is `debug` by default. Use `just BUILD=release all` for a release build.
+Settings accept environment values or `just NAME=value recipe` overrides. Put
+assignments before recipe names.
+
 Both modes produce `mod/Assemblies/SlopWorld.dll`; Git does not track this output.
-`make clean` removes build output. Exact numeric `MAJOR.MINOR.PATCH` tags at HEAD, optionally prefixed by `v`, set
+`just clean` removes build output. Exact numeric `MAJOR.MINOR.PATCH` tags at HEAD, optionally prefixed by `v`, set
 the release version. Untagged checkouts append the UTC build date and short hash
 to the package version. Without Git data, builds use the package version alone.
 
-`make install` installs the daemon, systemd unit, launcher, and mod.
+`just install` installs the daemon, systemd unit, launcher, and mod.
 See [Install](install.md) for the complete setup procedure.
 
 ## Checks
 
 | Target | Purpose | Extra requirements |
 | --- | --- | --- |
-| `make format` | Format Rust and C# production, test, and benchmark sources | — |
-| `make lint` | Rust formatting/Clippy and a Release mod build with C# formatting checks | Game assemblies |
-| `make test` | All game-free Rust, C#, tool, and pager tests | `tmux`, `less` |
-| `make ci` | Game-free tests with coverage, formatting, Rust lint, and generated-contract checks | `tmux`, `less`, coverage tools |
+| `just format` | Format Rust and C# production, test, and benchmark sources | — |
+| `just lint` | Rust formatting/Clippy and a Release mod build with C# formatting checks | Game assemblies |
+| `just test` | All game-free Rust, C#, tool, and pager tests | `tmux`, `less` |
+| `just ci` | Game-free tests with coverage, formatting, Rust lint, and generated-contract checks | `tmux`, `less`, coverage tools |
 
 Use `test-daemon`, `test-mod`, `test-tools`, or `test-pager` to run a subset.
-`make check-format-csharp` checks C# formatting without game assemblies.
+`just check-format-csharp` checks C# formatting without game assemblies.
 
-`make coverage` writes `coverage/rust.cobertura.xml` and
+`just coverage` writes `coverage/rust.cobertura.xml` and
 `coverage/csharp.cobertura.xml`. Install `cargo-llvm-cov` with
 `cargo install cargo-llvm-cov --locked` and the matching `llvm-cov` and
 `llvm-profdata` binaries. Use `coverage-daemon` or `coverage-mod` for one component,
-and `make coverage-summary` to summarize existing reports.
+and `just coverage-summary` to summarize existing reports.
 
 ## More workflows
 
-`make BUILD=release bench BENCH_RUN=<name>` measures the daemon, C#, and IPC
+`just BUILD=release BENCH_RUN=<name> bench` measures the daemon, C#, and IPC
 suites. Reports go to `bench/results/<name>/`. Use
-`make bench-report BENCH_RUN=<name>` to regenerate a report from saved CSVs;
+`just BENCH_RUN=<name> bench-report` to regenerate a report from saved CSVs;
 `BENCH_BASELINE=<older> BENCH_MODE=relative` compares runs. IPC benchmarks and
 terminal-input HTTP regression require Mono.
 
@@ -72,7 +76,7 @@ terminal-input HTTP regression require Mono.
 
 ## Local development loop
 
-`make devloop` lists Git worktrees in the terminal where you run it.
+`just devloop` lists Git worktrees in the terminal where you run it.
 Use these controls:
 
 - Press Enter to rebuild the previous selection.

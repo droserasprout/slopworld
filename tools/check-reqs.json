@@ -4,6 +4,7 @@
       "title": "Required: build dependencies",
       "required": true,
       "checks": [
+        {"label": "recipe runner", "kind": "command", "commands": ["just"]},
         {"label": "Rust/Cargo", "kind": "command", "commands": ["cargo"]},
         {"label": ".NET SDK", "kind": "command", "commands": ["dotnet"]},
         {"label": "RimWorld reference assemblies", "kind": "rimworld_assemblies"}
