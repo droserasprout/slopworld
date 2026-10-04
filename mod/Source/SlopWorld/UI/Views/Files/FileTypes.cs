@@ -40,5 +40,10 @@ namespace SlopWorld
             return ext == ".png" || ext == ".jpg" || ext == ".jpeg";
         }
 
+        // Source locations select the pager for text, but have no meaning for images.
+        // Scoped preview links retain their native reader even for ordinary text.
+        public static bool UseNativePreview(string name, int line, string previewRoot) =>
+            previewRoot != null || IsImage(name) || (line <= 0 && IsMarkdown(name));
+
     }
 }

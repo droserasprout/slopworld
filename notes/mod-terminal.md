@@ -37,7 +37,8 @@ and [latency diagnostics](terminal-latency.md).
 
 URL and file-link activation share terminal input ownership. File recognition is lazy
 on activation, with daemon parent browsing confirming target type before menus.
-View/Edit retain diagnostic line targets; file operations reuse FilesActions. Hover
+Text View/Edit retain diagnostic line targets; images offer View through the native
+reader. File operations reuse FilesActions. Hover
 and repaint must not start filesystem work. Reveal is restricted to session projects.
 
 Agent gizmo dispatch respects terminal input/layer ownership. Read-only native

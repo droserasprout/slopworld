@@ -60,12 +60,13 @@ namespace SlopWorld
             var options = new List<FloatMenuOption>();
             string name = Leaf(absolute);
             options.Add(new FloatMenuOption("Focus", () => FilesView.FocusPath(project, absolute)));
-            if (isFile && FilesView.IsText(name))
+            if (isFile && (FilesView.IsText(name) || FilesView.IsImage(name)))
             {
                 options.Add(new FloatMenuOption("View", () =>
                     FilesView.ViewFile(project, absolute, "view-" + name, line)));
-                options.Add(new FloatMenuOption("Edit", () =>
-                    FilesView.EditFile(project, absolute, "edit-" + name, line)));
+                if (FilesView.IsText(name))
+                    options.Add(new FloatMenuOption("Edit", () =>
+                        FilesView.EditFile(project, absolute, "edit-" + name, line)));
             }
             FilesView.AddOpenIn(options, absolute, project);
             FilesView.AddFileActions(options, project, absolute, name);
