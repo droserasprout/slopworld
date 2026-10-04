@@ -65,19 +65,19 @@ namespace SlopWorld
             label = ReaderLabel(project, label);
             _select(ContentTreeView.SelectionKey(project, SidebarScopes.Relative(project, path)));
             if (!string.IsNullOrEmpty(project)) AgentSidebar.RememberFile(project, path);
-            if (line > 0 && previewRoot == null)
-            {
-                ReleaseNativePreview();
-                if (Viewers.ReuseFile(project, path)) return;
-                Viewers.ForPreview().ViewFileAt(project, path, line, label);
-                return;
-            }
             string name = System.IO.Path.GetFileName(path);
-            if (previewRoot != null || FileTypes.IsMarkdown(name) || FileTypes.IsImage(name))
+            if (FileTypes.UseNativePreview(name, line, previewRoot))
             {
                 if (previewRoot == null && _nativeViewers.Reopen(project, path)) return;
                 Viewers.ReleasePreview();
                 OpenNative(project, path, name, previewRoot);
+                return;
+            }
+            if (line > 0)
+            {
+                ReleaseNativePreview();
+                if (Viewers.ReuseFile(project, path)) return;
+                Viewers.ForPreview().ViewFileAt(project, path, line, label);
                 return;
             }
             ReleaseNativePreview();

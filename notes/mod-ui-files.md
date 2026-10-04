@@ -8,6 +8,9 @@ Shared tree ownership lives in `UI/Browsing/`.
 
 Browsing, stat, and native text/image previews use daemon APIs. Source pagers and
 editors run as host commands and read paths directly, without private agent state.
+PNG/JPEG previews always use the native image reader, including paths carrying a
+source line. Text source locations use the pager unless a captured preview root
+requires a scoped native reader.
 The selected registered checkout validates action paths and supplies the working
 directory. Scope and history identity belong to [navigation](mod-sidebar-navigation.md).
 
