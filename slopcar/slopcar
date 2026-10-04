@@ -34,7 +34,7 @@ start options:
   --cpus NUMBER         outer CPU ceiling (default: 4)
   --pids-limit NUMBER   outer process/thread ceiling (default: 4096)
 
-The Debian trixie base is multiarch, so the image builds and runs natively on both amd64 and
+The Debian forky runtime base is multiarch, so the image builds and runs natively on both amd64 and
 Apple Silicon (arm64) with no emulation.
 EOF
 }
