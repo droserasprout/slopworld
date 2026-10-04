@@ -12,6 +12,7 @@ mkdir -p "${COVERAGE_DIR}"
 (
     cd slopd
     export LLVM_COV="$(command -v llvm-cov)" LLVM_PROFDATA="$(command -v llvm-profdata)"
+    ${CARGO} llvm-cov clean --profraw-only
     ${CARGO} llvm-cov --no-report
     ${CARGO} llvm-cov report --cobertura --output-path "../${COVERAGE_DIR}/rust.cobertura.xml"
     ${CARGO} llvm-cov report --ignore-filename-regex "${RUST_COVERAGE_EXCLUDE}" \
