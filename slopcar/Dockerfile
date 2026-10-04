@@ -43,6 +43,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         npm \
         openssh-client \
         passt \
+        procps \
         python3 \
         ripgrep \
         tmux=3.7c-1 \
