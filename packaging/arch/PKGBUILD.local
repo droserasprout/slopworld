@@ -15,7 +15,7 @@ arch=('x86_64')
 url="https://github.com/droserasprout/slopworld"
 license=('MIT')
 depends=('alsa-lib' 'bash' 'bubblewrap' 'git' 'passt' 'ripgrep' 'systemd' 'tmux')
-makedepends=('cargo' 'git' 'dotnet-sdk' 'lld' 'just' 'protobuf' 'python' 'python-yaml')
+makedepends=('cargo' 'git' 'dotnet-sdk' 'lld' 'just' 'protobuf' 'python' 'uv')
 optdepends=(
   'glib2: desktop application associations and native application chooser'
   'highlight: default syntax highlighter'
@@ -54,6 +54,7 @@ prepare() {
   # itself. tar rather than cp, which has no way to say that.
   local _skip=(
     --exclude=./.git
+    --exclude=./.venv
     --exclude=./.worktrees
     --exclude=./priv
     --exclude=./target
@@ -76,11 +77,12 @@ prepare() {
   (set -o pipefail; tar -C "$_src" -cf - "${_skip[@]}" . | tar -C "$srcdir/slopworld" -xf -)
   # The snapshot has no Git metadata. Capture its version from the source checkout
   # once so pkgver, build and check cannot disagree after a checkout or date change.
-  "$_src/tools/version.sh" "$(grep -m1 '^version' "$srcdir/slopworld/slopd/Cargo.toml" | cut -d'"' -f2)" \
+  "$_src/tools/version/version.sh" "$(grep -m1 '^version' "$srcdir/slopworld/slopd/Cargo.toml" | cut -d'"' -f2)" \
     > "$srcdir/slopworld/.slopworld-build-version"
   cd "$srcdir/slopworld" || return
   export RUSTUP_TOOLCHAIN=stable
   cargo fetch --manifest-path slopd/Cargo.toml --locked
+  uv sync --locked --no-python-downloads
 }
 
 build() {
@@ -88,7 +90,7 @@ build() {
   local _version
   _version="$(cat .slopworld-build-version)"
   export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$PWD/target" SLOPWORLD_BUILD_VERSION="$_version"
-  just BUILD=release CARGOFLAGS='--release --frozen' VERSION="$_version" RIMWORLD="$RIMWORLD" mod
+  UV_OFFLINE=true just BUILD=release CARGOFLAGS='--release --frozen' VERSION="$_version" RIMWORLD="$RIMWORLD" mod
 }
 
 check() {

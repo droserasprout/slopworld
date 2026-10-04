@@ -54,7 +54,7 @@ jobs:
           workspaces: slopd
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev python3-yaml curl unzip
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev curl unzip
 
       - uses: ./.github/actions/setup-build-tools
 

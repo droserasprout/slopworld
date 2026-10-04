@@ -11,18 +11,18 @@ export TRACE_OUT := env("TRACE_OUT", 'bench/results/' + (if BENCH_RUN != '' { BE
 # Capture new performance/latency log entries (requires tracing enabled)
 [group('Development tools')]
 trace-mod:
-    {{ PYTHON }} tools/trace-mod.py --log "{{ TRACE_LOG }}" --seconds "{{ TRACE_SECONDS }}" --label "{{ TRACE_LABEL }}" --output "{{ TRACE_OUT }}"
+    {{ PYTHON }} -m tools.trace.capture --log "{{ TRACE_LOG }}" --seconds "{{ TRACE_SECONDS }}" --label "{{ TRACE_LABEL }}" --output "{{ TRACE_OUT }}"
 
 export TRACE_FILES := env("TRACE_FILES", 'bench/results/*/raw/trace/*.log')
 # Summarize captured windows by observed Eco/terminal/session/size state
 [group('Development tools')]
 trace-summary:
-    {{ PYTHON }} tools/trace-summary.py {{ TRACE_FILES }}
+    {{ PYTHON }} -m tools.trace.summary {{ TRACE_FILES }}
 
 # Print required and optional host requirements
 [group('Development tools')]
 check-reqs:
-    RIMWORLD="{{ RIMWORLD }}" {{ PYTHON }} tools/check-reqs.py
+    RIMWORLD="{{ RIMWORLD }}" {{ PYTHON }} -m tools.host.check_reqs
 
 # Build and install Arch package
 [group('Development tools')]

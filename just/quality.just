@@ -35,3 +35,19 @@ lint-daemon: api-contract check-format-daemon
 [group('Lint')]
 lint-mod:
     "{{ just_executable() }}" BUILD=release MOD_WARNINGS_AS_ERRORS=true mod check-format-csharp
+
+# Format and check Python package code with Ruff
+[group('Lint')]
+lint-tools: format-tools
+    {{ UV }} run --locked ruff check tools
+
+# Fix automatically correctable Python package lint findings
+[group('Formatting')]
+fix-tools:
+    {{ UV }} run --locked ruff check --fix tools
+
+# Format the Python package with Ruff
+[group('Formatting')]
+format-tools:
+    {{ UV }} run --locked ruff check --select I --fix tools
+    {{ UV }} run --locked ruff format tools

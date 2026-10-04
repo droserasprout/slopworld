@@ -13,11 +13,14 @@ Output: mod/Textures/SlopWorld/SlopWorld_icon.png (128x128 RGBA).
 
 The tool requires NumPy, Pillow, pycairo, Pango, and Fontconfig; Noto Color Emoji is bundled.
 """
+
 import os
 import sys
 
 import numpy as np
 from PIL import Image
+
+from tools import ROOT
 
 # ── robot face geometry (lifted from roboface.py) ──────────────────────────
 
@@ -84,8 +87,7 @@ class Face:
 
 def steel(x0, y0, x1, y1):
     t = np.clip((Y - y0) / (y1 - y0), 0, 1)[..., None]
-    lit = np.clip(1.0 - (((X - (x0 + (x1 - x0) * 0.3)) ** 2
-                          + (Y - (y0 + (y1 - y0) * 0.25)) ** 2) / 900.0), 0, 1)
+    lit = np.clip(1.0 - (((X - (x0 + (x1 - x0) * 0.3)) ** 2 + (Y - (y0 + (y1 - y0) * 0.25)) ** 2) / 900.0), 0, 1)
     return np.clip(C_PLATE_TOP * (1 - t) + C_PLATE_BOT * t + lit[..., None] * 0.09, 0, 1)
 
 
@@ -113,8 +115,7 @@ def clipped(mask, region):
 def eye(f, cx, cy):
     f.paint(cover(disc(cx, cy, EYE_R)), C_LENS)
     iris = cover(disc(cx, cy, IRIS_R))
-    g = np.clip(1.25 - ((X - (cx - IRIS_R)) + (Y - (cy - IRIS_R))) / (IRIS_R * 4),
-                0.35, 1.0)
+    g = np.clip(1.25 - ((X - (cx - IRIS_R)) + (Y - (cy - IRIS_R))) / (IRIS_R * 4), 0.35, 1.0)
     f.rgb = f.rgb * (1 - iris[..., None]) + C_GLOW * (g * 0.95)[..., None] * iris[..., None]
     f.a = np.maximum(f.a, iris)
 
@@ -123,8 +124,7 @@ def mouth(f, x0, y0, x1, y1, bars):
     f.paint(cover(rrect(x0, y0, x1, y1, MOUTH_R)), C_LENS)
     inside = cover(rrect(x0 + 0.9, y0 + 0.9, x1 - 0.9, y1 - 0.9, MOUTH_R * 0.6))
     for x in bars:
-        f.paint(cover(rrect(x - BAR_W, y0, x + BAR_W, y1, BAR_W * 0.8)) * inside,
-                C_PLATE_BOT)
+        f.paint(cover(rrect(x - BAR_W, y0, x + BAR_W, y1, BAR_W * 0.8)) * inside, C_PLATE_BOT)
 
 
 def bolt(f, cx, cy, region):
@@ -148,9 +148,11 @@ def draw_robot():
 
 # ── step 1: render rose as a separate PNG ─────────────────────────────────
 
+
 def render_rose_png(target_h, out_path):
     """Render 🥀 via PangoCairo, save as a standalone RGBA PNG at target_h high."""
-    import emoji
+    from tools.assets import emoji
+
     cairo, Pango, PangoCairo = emoji._cairo()
 
     # Probe at 64pt to find the right pt size for target_h
@@ -184,23 +186,23 @@ def render_rose_png(target_h, out_path):
     arr = arr[:, :, [2, 1, 0, 3]]
     a = arr[:, :, 3]
     ys, xs = np.nonzero(a > 10)
-    rose = arr[ys.min():ys.max() + 1, xs.min():xs.max() + 1].astype(np.float32) / 255.0
+    rose = arr[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1].astype(np.float32) / 255.0
 
     # Scale to target_h
     rh, rw = rose.shape[:2]
     scale = target_h / rh
     new_w = max(1, int(round(rw * scale)))
     rose_pil = Image.fromarray((rose * 255).astype(np.uint8))
-    rose_scaled = np.array(rose_pil.resize((new_w, target_h), Image.LANCZOS),
-                           dtype=np.uint8)
+    rose_scaled = np.array(rose_pil.resize((new_w, target_h), Image.LANCZOS), dtype=np.uint8)
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     Image.fromarray(rose_scaled).save(out_path)
-    print("wrote", os.path.normpath(out_path))
+    print('wrote', os.path.normpath(out_path))
     surface.finish()
     return rose_scaled, new_w, target_h
 
 
 # ── step 2: composite ─────────────────────────────────────────────────────
+
 
 def make_icon(rose_path):
     # Load the rose PNG first: it is the layer *below* the robot face.
@@ -227,50 +229,43 @@ def make_icon(rose_path):
     ry0 = y0 - rose_top
     rx0 = x0 - rose_left
     if y1 > y0 and x1 > x0:
-        r_alpha = rose[ry0:ry0 + y1 - y0, rx0:rx0 + x1 - x0, 3]
-        r_rgb = rose[ry0:ry0 + y1 - y0, rx0:rx0 + x1 - x0, :3]
+        r_alpha = rose[ry0 : ry0 + y1 - y0, rx0 : rx0 + x1 - x0, 3]
+        r_rgb = rose[ry0 : ry0 + y1 - y0, rx0 : rx0 + x1 - x0, :3]
         icon[y0:y1, x0:x1, :3] = r_rgb * r_alpha[..., None]
         icon[y0:y1, x0:x1, 3] = np.maximum(icon[y0:y1, x0:x1, 3], r_alpha)
 
     # Robot face on top, covering the rose's stem where they overlap.
     robot = draw_robot()
     ra = robot[:, :, 3]
-    icon[:, :, :3] = robot[:, :, :3] * ra[..., None] \
-        + icon[:, :, :3] * (1 - ra[..., None])
+    icon[:, :, :3] = robot[:, :, :3] * ra[..., None] + icon[:, :, :3] * (1 - ra[..., None])
     icon[:, :, 3] = np.maximum(icon[:, :, 3], ra)
 
     return icon
 
 
 def main():
-    tex_dir = os.path.join(
-        os.path.dirname(__file__), "..", "..", "mod", "Textures", "SlopWorld",
-    )
+    tex_dir = ROOT / 'mod/Textures/SlopWorld'
     os.makedirs(tex_dir, exist_ok=True)
 
     # Step 1: render the rose as its own PNG
-    rose_path = os.path.join(tex_dir, "SlopWorld_rose.png")
+    rose_path = os.path.join(tex_dir, 'SlopWorld_rose.png')
     render_rose_png(target_h=32, out_path=rose_path)
 
     # Step 2: composite
     icon = make_icon(rose_path)
     img = np.clip(icon * 255, 0, 255).astype(np.uint8)
-    out_path = os.path.join(tex_dir, "SlopWorld_icon.png")
+    out_path = os.path.join(tex_dir, 'SlopWorld_icon.png')
     Image.fromarray(img).save(out_path)
-    print("wrote", os.path.normpath(out_path))
+    print('wrote', os.path.normpath(out_path))
 
     # Also update the pre-built pkg copy
-    pkg_path = os.path.join(
-        os.path.dirname(__file__), "..", "..",
-        "packaging", "arch", "pkg", "slopworld",
-        "usr", "share", "icons", "hicolor", "128x128", "apps", "slopworld.png",
-    )
+    pkg_path = ROOT / 'packaging/arch/pkg/slopworld/usr/share/icons/hicolor/128x128/apps/slopworld.png'
     if os.path.isdir(os.path.dirname(pkg_path)):
         Image.fromarray(img).save(pkg_path)
-        print("wrote", os.path.normpath(pkg_path))
+        print('wrote', os.path.normpath(pkg_path))
 
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     sys.exit(main())

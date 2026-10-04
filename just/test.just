@@ -2,7 +2,9 @@
 
 # Test supporting tools and generated data
 [group('Tests and coverage')]
-test-tools: test-recipes test-reference test-wire-contract test-themes test-text-sprites test-bench-report test-licenses
+test-tools: api-contract validate-themes test-licenses test-bench-report
+    mkdir -p "{{ COVERAGE_DIR }}"
+    {{ PYTHON }} -m pytest --cov=tools --cov-report=term-missing --cov-report=xml:coverage/python.cobertura.xml
 
 # Stage and verify notices shipped with the mod
 [group('Tests and coverage')]
@@ -21,17 +23,17 @@ test-mod: mod-deps api-contract
 # Test shared definitions and generated bindings
 [group('Tests and coverage')]
 test-wire-contract: api-contract
-    {{ PYTHON }} tools/test_wire_contract.py
+    {{ PYTHON }} -m tools.protocol.test_wire_contract
 
 # Test theme catalog build validation
 [group('Tests and coverage')]
 test-themes: validate-themes
-    {{ PYTHON }} tools/test_validate_themes.py
+    {{ PYTHON }} -m tools.themes.test_validate_themes
 
 # Check text sprite metadata and loading-tip ASCII coverage
 [group('Tests and coverage')]
 test-text-sprites:
-    {{ PYTHON }} tools/assets/test_text_sprites.py
+    {{ PYTHON }} -m tools.assets.test_text_sprites
 
 # Test benchmark reporting
 [group('Tests and coverage')]
@@ -42,36 +44,41 @@ test-bench-report:
 # Test pager geometry with isolated tmux and less (no game)
 [group('Tests and coverage')]
 test-pager:
-    {{ PYTHON }} tools/test_pager_geometry.py
+    {{ PYTHON }} -m tools.terminal.pager_geometry
 
-# Measure Rust and game-free C# test coverage
+# Measure Python, Rust and game-free C# test coverage
 [group('Tests and coverage')]
-coverage: coverage-daemon coverage-mod
+coverage: coverage-tools coverage-daemon coverage-mod
+
+# Measure Python package coverage and write coverage/python.cobertura.xml
+[group('Tests and coverage')]
+coverage-tools: test-tools
 
 # Measure Rust coverage and write coverage/rust.cobertura.xml
 [group('Tests and coverage')]
 coverage-daemon: api-contract
-    bash tools/coverage.sh daemon
+    bash tools/coverage/coverage.sh daemon
 
 # Measure game-free C# coverage and write coverage/csharp.cobertura.xml
 [group('Tests and coverage')]
 coverage-mod: mod-deps api-contract
-    bash tools/coverage.sh mod
+    bash tools/coverage/coverage.sh mod
 
-# Summarize existing Rust and C# coverage reports
+# Summarize existing Python, Rust and C# coverage reports
 [group('Tests and coverage')]
 coverage-summary:
-    {{ PYTHON }} tools/coverage_summary.py "{{ COVERAGE_DIR }}/rust.cobertura.xml" 'Rust (default scope)'
-    {{ PYTHON }} tools/coverage_summary.py "{{ COVERAGE_DIR }}/rust.filtered.cobertura.xml" 'Rust (excluding test/generated/benchmark files)'
+    {{ PYTHON }} -m tools.coverage.coverage_summary "{{ COVERAGE_DIR }}/python.cobertura.xml" 'Python'
+    {{ PYTHON }} -m tools.coverage.coverage_summary "{{ COVERAGE_DIR }}/rust.cobertura.xml" 'Rust (default scope)'
+    {{ PYTHON }} -m tools.coverage.coverage_summary "{{ COVERAGE_DIR }}/rust.filtered.cobertura.xml" 'Rust (excluding test/generated/benchmark files)'
     echo
-    {{ PYTHON }} tools/coverage_summary.py "{{ COVERAGE_DIR }}/csharp.cobertura.xml" 'C#'
+    {{ PYTHON }} -m tools.coverage.coverage_summary "{{ COVERAGE_DIR }}/csharp.cobertura.xml" 'C#'
 
 # Test recipe configuration and recursive overrides without building or launching
 [group('Tests and coverage')]
 test-recipes:
-    {{ PYTHON }} tools/test_recipes.py
+    {{ PYTHON }} -m tools.recipes.test_recipes
 
 # Test the mod and daemon environment reference scope
 [group('Tests and coverage')]
 test-reference:
-    {{ PYTHON }} tools/test_reference.py
+    {{ PYTHON }} -m tools.docs.test_reference

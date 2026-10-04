@@ -20,4 +20,4 @@ sidecar-doctor:
 # Rebuild and redeploy the sidecar before each game launch
 [group('Linux sidecar')]
 sidecar-devloop:
-    JUST_CMD="{{ just_executable() }}" SLOPCAR_PROFILE="{{ SLOPCAR_PROFILE }}" {{ SLOPCAR_ENV }} tools/devloop-sidecar.sh {{ SLOPCAR_START_ARGS }}
+    JUST_CMD="{{ just_executable() }}" SLOPCAR_PROFILE="{{ SLOPCAR_PROFILE }}" {{ SLOPCAR_ENV }} slopcar/devloop.sh {{ SLOPCAR_START_ARGS }}

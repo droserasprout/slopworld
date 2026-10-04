@@ -1,6 +1,6 @@
 /slopd/target
 /.worktrees/
-coverage/
+/coverage/
 mod/Source/SlopWorld/obj/
 mod/Source/SlopWorld/bin/
 mod/Assemblies/SlopWorld.dll
@@ -36,3 +36,11 @@ mod/Dependencies/obj/
 # License copies staged by just stage-licenses.
 /mod/About/LICENSE
 /mod/About/ThirdPartyNotices/
+
+# Local uv environment.
+/.venv/
+
+# Python test and lint caches.
+/.pytest_cache/
+/.ruff_cache/
+/.coverage

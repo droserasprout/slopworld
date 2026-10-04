@@ -52,7 +52,8 @@ RUNNER := TARGET + '/slopworld'
 SLOPCTL := TARGET + '/slopctl'
 export CARGO := env("CARGO", 'cargo')
 export DOTNET := env("DOTNET", 'dotnet')
-export PYTHON := env("PYTHON", 'python3')
+export UV := env("UV", 'uv')
+export PYTHON := env("PYTHON", UV + ' run --locked python')
 MOD_PROJECT := 'mod/Source/SlopWorld/SlopWorld.csproj'
 export MOD_WARNINGS_AS_ERRORS := env("MOD_WARNINGS_AS_ERRORS", 'true')
 # Disable only when intentionally regenerating the runtime package lock.

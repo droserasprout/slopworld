@@ -12,8 +12,8 @@ or `just NAME=value recipe`; assignments must precede recipe names. Exported set
 carry into recursive calls. `SLOPCAR_PROFILE` stays unexported so native commands do
 not select the sidecar profile; sidecar launch recipes set it explicitly.
 
-Mod compilation does not build Rust binaries. `tools/mod_version.py` reads the
-Cargo package fallback and uses `tools/version.sh` for the same tag/date/commit
+Mod compilation does not build Rust binaries. `tools/version/mod_version.py` reads the
+Cargo package fallback and uses `tools/version/version.sh` for the same tag/date/commit
 rules as Rust; `VERSION` overrides either build. Installer and launch recipes
 own their launcher build dependency. Protocol generators publish only changed
 bytes so repeated recipe invocations preserve compiler input timestamps.
@@ -23,7 +23,7 @@ Only an explicit `just clean` removes build output.
 
 `just ci` checks generated files, formatting and tool/pager behavior before lint
 and coverage. The test workflow exposes those stages separately for timings.
-Test and release share pinned tools through
+Test and release share pinned tools, including uv, through
 `.github/actions/setup-build-tools/`. It owns archive caching, tool versions,
 and the protoc checksum so both workflows generate matching bindings.
 Only superseded branch-push test runs are cancelled; release-called tests and
@@ -32,15 +32,26 @@ runtime/test dependency graphs and the coverage tool manifest.
 
 `packaging/arch/` owns Arch package staging and user setup hooks. The local package
 builds a snapshot without private files or build caches; preparation records the
-binary version for package metadata, build and check. Cargo fetches dependencies
-in preparation and uses frozen builds afterward.
+binary version for package metadata, build and check. Cargo and uv fetch locked dependencies
+in preparation; later builds use frozen Cargo dependencies and offline uv execution.
 Arch runtime requirements cover the audio library, default shell, core session
 infrastructure, Git/worktrees and workspace search. Pager/editor/highlighter tools,
 fallback process inspection and desktop/music integrations are optional dependencies.
 Pager and highlighter defaults use Auto to select installed tools. The editor still
 defaults to micro; optional package metadata does not imply an editor fallback.
 
+`tools/` is a repository Python package, with focused subpackages and tests beside
+their owners. `tools.ROOT` owns checkout paths; Python recipes use `uv run --locked python -m`
+and package imports rather than adding script directories to `sys.path`.
+`pyproject.toml` declares Python dependencies and `uv.lock` pins them. uv maintains
+the ignored `.venv/` without installing the repository package. Asset generators
+opt into the `assets` extra. The uv `dev` group owns Ruff, pytest, and pytest-cov.
+`just lint-tools` formats sources and sorts imports before checking core correctness rules; `just test-tools`
+prepares shared inputs and runs package tests with branch coverage, excluding test
+files and package markers. `just lock-tools` updates dependency resolution.
+
 `bench/` owns benchmark runners, shared result handling, reporting, and their tests.
+`slopcar/` owns the shared container devloop; platform workflows call it through `just`.
 `tools/assets/` owns asset generators and text-sprite checks; `assets/` owns bundled
 source data and icon manifests. Generated runtime assets stay in `mod/`.
 OST production scripts and staged audio belong to the private repository under

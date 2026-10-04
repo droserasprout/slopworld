@@ -6,7 +6,7 @@ for VS Code. The project vendors them under the MIT license ([license](../../lic
 `../../tools/assets/fileicons.py` builds the icons into `mod/Textures/SlopWorld/FileIcons/`.
 
 The project vendors the SVG files so builds work offline and use the same assets on every
-machine. `python3 tools/assets/fileicons.py --fetch` downloads updates from upstream.
+machine. `uv run --locked --extra assets python -m tools.assets.fileicons --fetch` downloads updates from upstream.
 Check the license when you fetch updates.
 
 The upstream project creates the open-folder variant at runtime and ships only

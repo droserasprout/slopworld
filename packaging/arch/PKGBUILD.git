@@ -13,7 +13,7 @@ arch=('x86_64')
 url="https://github.com/droserasprout/slopworld"
 license=('MIT')
 depends=('alsa-lib' 'bash' 'bubblewrap' 'git' 'passt' 'ripgrep' 'systemd' 'tmux')
-makedepends=('cargo' 'git' 'dotnet-sdk' 'lld' 'just' 'protobuf' 'python' 'python-yaml')
+makedepends=('cargo' 'git' 'dotnet-sdk' 'lld' 'just' 'protobuf' 'python' 'uv')
 optdepends=(
   'glib2: desktop application associations and native application chooser'
   'highlight: default syntax highlighter'
@@ -49,10 +49,11 @@ prepare() {
   }
   cd "$srcdir/$pkgname" || return
   # Keep daemon, mod and check versions identical even across a UTC date change.
-  tools/version.sh "$(grep -m1 '^version' slopd/Cargo.toml | cut -d'"' -f2)" \
+  tools/version/version.sh "$(grep -m1 '^version' slopd/Cargo.toml | cut -d'"' -f2)" \
     > .slopworld-build-version
   export RUSTUP_TOOLCHAIN=stable
   cargo fetch --manifest-path slopd/Cargo.toml --locked
+  uv sync --locked --no-python-downloads
 }
 
 build() {
@@ -60,7 +61,7 @@ build() {
   local _version
   _version="$(cat .slopworld-build-version)"
   export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$PWD/target" SLOPWORLD_BUILD_VERSION="$_version"
-  just BUILD=release CARGOFLAGS='--release --frozen' VERSION="$_version" RIMWORLD="$RIMWORLD" mod
+  UV_OFFLINE=true just BUILD=release CARGOFLAGS='--release --frozen' VERSION="$_version" RIMWORLD="$RIMWORLD" mod
 }
 
 check() {

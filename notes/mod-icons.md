@@ -10,7 +10,7 @@ its version, source, and checksums. Update upstream notices and glyph licenses i
 when updating the font. Bake output also depends on the rasterizer. A common scale
 preserves relative glyph sizes; do not fit every glyph independently.
 Run `just bake-icons` to regenerate action icons. The baker defaults to 64 px;
-`python3 tools/assets/icons.py` accepts `--size`, `--font`, and `--report` for glyph metrics.
+`uv run --locked --extra assets python -m tools.assets.icons` accepts `--size`, `--font`, and `--report` for glyph metrics.
 The font is a build input; the mod ships only the generated PNGs.
 
 `Icons.Get` caches `BadTex` when content lookup returns null. File icon lookup is a

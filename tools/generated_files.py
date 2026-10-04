@@ -1,9 +1,9 @@
 """Publish generated content without invalidating unchanged build inputs."""
 
 import os
-from pathlib import Path
 import stat
 import tempfile
+from pathlib import Path
 
 
 def write_if_changed(path: Path, content: bytes) -> None:
