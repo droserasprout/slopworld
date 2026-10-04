@@ -15,6 +15,7 @@ The existing Protobuf runtime DLLs remain checked in.
 
 RimWorld and Unity assemblies come from the game installation and must never be copied
 into the mod. Harmony comes from the RimWorld Harmony release through `tools/fetch-harmony.sh`.
-The corresponding licenses stay beside the assemblies. Json.NET remains because the
+The corresponding licenses live in `licenses/runtime/` and are staged into
+`mod/About/ThirdPartyNotices/` by the mod build. Json.NET remains because the
 external SongRec integration uses JSON. The daemon IPC client no longer uses Json.NET.
 The standalone IPC benchmark runs the same Protobuf codec on Mono.

@@ -1,6 +1,6 @@
 # Unmodified build input for tools/assets/icons.py. Runtime uses baked PNGs.
-# UPSTREAM-NOTICES.txt identifies the included glyph sets; licenses/ carries
-# upstream glyph licenses in addition to the Symbols font's LICENSE.
+# licenses/nerd-fonts/ in the repository root carries upstream font notices
+# and glyph licenses.
 version = "3.5.1"
 commit = "b894ea7803af6aade63d60a4381e006098ec9c4d"
 archive_url = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.5.1/NerdFontsSymbolsOnly.tar.xz"

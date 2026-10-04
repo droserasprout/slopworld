@@ -74,6 +74,7 @@ jobs:
           cp slopd/slopd.service           "${daemon}/"
           cp packaging/slopworld.desktop   "${daemon}/"
           cp LICENSE                      "${daemon}/"
+          cp -r licenses                  "${daemon}/"
           git rev-parse HEAD > "${daemon}/REVISION"
           tar czf "${daemon}.tar.gz" "${daemon}"
           sha256sum "${daemon}.tar.gz" > "${daemon}.tar.gz.sha256"

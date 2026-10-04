@@ -2,7 +2,11 @@
 
 # Test supporting tools and generated data
 [group('Tests and coverage')]
-test-tools: test-recipes test-reference test-wire-contract test-themes test-text-sprites test-bench-report
+test-tools: test-recipes test-reference test-wire-contract test-themes test-text-sprites test-bench-report test-licenses
+
+# Stage and verify notices shipped with the mod
+[group('Tests and coverage')]
+test-licenses: stage-licenses check-licenses
 
 # Run Rust tests
 [group('Tests and coverage')]

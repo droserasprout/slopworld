@@ -59,6 +59,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=build --chmod=755 /build/slopd/target/release/slopd /usr/local/bin/slopd
 COPY --from=build --chmod=755 /build/slopd/target/release/slopctl /usr/local/bin/slopctl
+COPY LICENSE /usr/share/licenses/slopworld/LICENSE
+COPY licenses/ /usr/share/licenses/slopworld/third-party/
 
 RUN useradd --create-home --uid 1000 --shell /bin/bash slop \
     && install -d -o slop -g slop -m 0700 \

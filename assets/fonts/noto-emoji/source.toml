@@ -1,5 +1,5 @@
 # Copied from the locally installed font; no download performed.
-# LICENSE is copied from /usr/share/licenses/noto-fonts-emoji/LICENSE.
+# licenses/noto-emoji/LICENSE.txt is copied from /usr/share/licenses/noto-fonts-emoji/LICENSE.
 upstream_url = "https://github.com/googlefonts/noto-emoji"
 installed_source = "/usr/share/fonts/noto/NotoColorEmoji.ttf"
 version = "Version 2.051;GOOG;noto-emoji:20250818:e92753bfa55fd449e427d4d325f9c8c40408c74e"

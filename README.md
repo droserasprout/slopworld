@@ -24,4 +24,4 @@ Always start the game with `slopworld`. Mod will refuse to run on vanilla game p
 ## License
 
 SlopWorld code is licensed under [MIT](LICENSE). Bundled third-party components
-and assets retain their own licenses.
+and assets retain their own [licenses and attribution](licenses/README.md).

@@ -16,3 +16,6 @@ slopcar/*
 !shared/
 shared/*
 !shared/slopworld.proto
+!LICENSE
+!licenses/
+!licenses/**

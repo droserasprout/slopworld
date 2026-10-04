@@ -32,3 +32,7 @@ mod/Dependencies/obj/
 
 # Separate local developer repository.
 /priv/
+
+# License copies staged by just stage-licenses.
+/mod/About/LICENSE
+/mod/About/ThirdPartyNotices/
