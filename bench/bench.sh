@@ -10,7 +10,7 @@ build)
     # shellcheck disable=SC2086
     (cd slopd && ${CARGO} build --quiet --bin slopd ${CARGOFLAGS})
     ${DOTNET} build "${TEST_PROJECT}" --configuration "$configuration" --verbosity quiet
-    bash tools/bench-ipc.sh build
+    bash bench/bench-ipc.sh build
     ;;
 run)
     if [[ "$suite" == gamefree || "$suite" == daemon ]]; then
@@ -20,7 +20,7 @@ run)
         DOTNET_TieredCompilation=0 ${DOTNET} "mod/Tests/bin/$configuration/net8.0/SlopWorld.Tests.dll" --perf-bench
     fi
     if [[ "$suite" == gamefree || "$suite" == ipc ]]; then
-        bash tools/bench-ipc.sh run
+        bash bench/bench-ipc.sh run
     fi
     ;;
 *) echo "usage: $0 {build|run} [gamefree|daemon|mod|ipc]" >&2; exit 2 ;;

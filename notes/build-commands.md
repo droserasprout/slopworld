@@ -9,6 +9,8 @@ or `just NAME=value recipe`; assignments must precede recipe names. Exported set
 carry into recursive calls. `SLOPCAR_PROFILE` stays unexported so native commands do
 not select the sidecar profile; sidecar launch recipes set it explicitly.
 
+`bench/` owns benchmark runners, shared result handling, reporting, and their tests.
+
 The mod project owns game references/compiler settings; `Directory.Build.props`
 and `.editorconfig` own shared C# analysis, and `global.json` pins the SDK.
 Game references keep `Private=false`: RimWorld loads DLLs from `Assemblies/`.
