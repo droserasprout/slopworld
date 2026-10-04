@@ -74,9 +74,10 @@ rejects paths in other checkouts, including checkouts nested under Main. Symlink
 are rejected. An empty worktree ID selects Main; requests must name another registered checkout explicitly.
 `host: true` with no project accepts an absolute host path.
 
-`GET /api/config` returns effective `values` plus response-only
-`metadata` containing factory defaults, usage catalog entries, temporary-root policy and
-terminal limits. Clients retain independent allocation limits.
+`GET /api/config` returns editable `values` plus response-only
+`metadata` containing factory defaults, usage catalog entries, temporary-root policy,
+terminal limits and `auto_commands`. Reader commands resolved from Auto use the
+daemon's PATH; editable values retain `auto`. Clients retain independent allocation limits.
 
 `POST /api/projects/preview` accepts `{ "name": "...", "temp": true }` and returns the
 daemon-normalized prospective temporary directory. It does not create a project.
@@ -146,6 +147,8 @@ not the game's environment. `GET /api/highlight/themes` accepts an optional unsa
 Omission uses the daemon default and an empty command means Off; neither changes
 configuration. Profile-local `engine`/`theme` overrides apply only to the matching
 highlighter engine, and mismatched themed requests are rejected.
+The `auto` command selects an installed highlighter; if none is available, highlighting
+returns the input text unchanged. Off also returns plain text.
 
 ## WebSocket
 

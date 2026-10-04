@@ -23,10 +23,11 @@ fn engine(argv: &[String]) -> &str {
 }
 
 pub(super) fn themed_command(command: &str, requested_engine: &str, theme: &str) -> Result<String> {
+    let command = crate::config::resolve_highlighter(command);
     if theme.is_empty() {
-        return Ok(command.to_owned());
+        return Ok(command);
     }
-    let mut argv = crate::sandbox::shell_split(command);
+    let mut argv = crate::sandbox::shell_split(&command);
     let current = engine(&argv);
     if current.is_empty() || current != requested_engine {
         bail!("The highlighter changed. Reload its appearance settings.");
@@ -75,6 +76,7 @@ pub(crate) async fn highlight_themes(
 ) -> ApiResult<wire::HighlightThemes> {
     // The draft command is request-local, including an explicit empty (Off) choice.
     let command = q.command.unwrap_or(m.config().await.commands.highlighter);
+    let command = crate::config::resolve_highlighter(&command);
     let argv = crate::sandbox::shell_split(&command);
     let kind = engine(&argv);
     if kind.is_empty() {

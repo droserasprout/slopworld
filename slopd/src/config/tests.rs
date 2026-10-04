@@ -615,7 +615,7 @@ fn config_round_trips_through_toml() {
         back.session("quiet").unwrap().label.as_deref(),
         Some("manual title")
     );
-    assert_eq!(back.commands.pager, "less");
+    assert_eq!(back.commands.pager, "auto");
     assert_eq!(back.commands.editor, "micro");
 }
 

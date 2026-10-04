@@ -41,7 +41,7 @@ namespace SlopWorld
 
         public static Wire.HighlightReq Request(string text, string language)
         {
-            string engine = Engine(SessionHub.Instance.Config.Highlighter);
+            string engine = Engine(SessionHub.Instance.Config.EffectiveHighlighter);
             return new Wire.HighlightReq
             {
                 Text = text, Language = language, Engine = engine,
@@ -49,7 +49,7 @@ namespace SlopWorld
             };
         }
 
-        public static string Revision => Command(SessionHub.Instance.Config.Highlighter,
+        public static string Revision => Command(SessionHub.Instance.Config.EffectiveHighlighter,
             ModEntry.Instance.settings) ?? "";
     }
 }

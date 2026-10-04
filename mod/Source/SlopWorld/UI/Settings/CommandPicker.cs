@@ -23,12 +23,12 @@ namespace SlopWorld
         public static void Draw(Listing_Standard l, string label, string fieldName, string value,
                        List<CommandChoice> choices, bool custom, Action<string> set,
                        Action<bool> setCustom, string customLabel = "Custom template",
-                       string defaultValue = null)
+                       string defaultValue = null, string selectedLabel = null)
         {
             bool isCustom = custom || !choices.Any(c => c.Value == value);
             string shown = isCustom
                 ? "Custom"
-                : choices.First(c => c.Value == value).Label;
+                : selectedLabel ?? choices.First(c => c.Value == value).Label;
             var options = choices.Select(c => new SelectorOption(c.Label, () =>
                 {
                     setCustom(false);

@@ -386,6 +386,9 @@ pub(crate) async fn highlight(
     let command = q.command.unwrap_or(m.config().await.commands.highlighter);
     let command = super::highlighting::themed_command(&command, &q.engine, &q.theme)
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    if command.trim().is_empty() {
+        return reply(json!({ "text": q.text, "bytes": q.text.len() }));
+    }
     let text = highlight_text(&command, &q.language, &q.text)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;

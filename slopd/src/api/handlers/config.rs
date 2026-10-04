@@ -35,6 +35,7 @@ pub(crate) async fn get_config(State(m): State<Mgr>) -> ApiResult<wire::ConfigRe
             "usage_catalog": crate::usage::catalog(),
             "temporary_root": crate::paths::TEMP_ROOT,
             "terminal": caps.terminal,
+            "auto_commands": factory.commands.resolved(),
         },
     }))
 }

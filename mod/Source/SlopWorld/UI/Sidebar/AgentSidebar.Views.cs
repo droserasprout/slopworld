@@ -361,7 +361,7 @@ namespace SlopWorld
             Layout.ViewRows.Clear();
             RoutedCache.Ensure(Layout.Routed, SessionHub.Instance.Sessions,
                 SessionHub.Instance.SessionsVersion, Projects.Revision,
-                SessionHub.Instance.Config.Pager, SessionHub.Instance.Config.Editor,
+                SessionHub.Instance.Config.EffectivePager, SessionHub.Instance.Config.Editor,
                 info => IsRouted(info) && Passes(info.Project) &&
                     ((RoutedAction(info) & RowAct.Diff) == 0 || FileReaders.Tabs.IsSession(info.Name)),
                 FilesView.AddRoutedPreviews, GhostH);

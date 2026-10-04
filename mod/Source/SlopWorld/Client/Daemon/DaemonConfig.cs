@@ -141,6 +141,7 @@ namespace SlopWorld
         public List<UsageCatalogInfo> UsageCatalog = new List<UsageCatalogInfo>();
         public string TemporaryRoot = "";
         public TerminalLimits Terminal = new TerminalLimits();
+        public Wire.CommandDefaults AutoCommands;
 
         public int UsagePollSecs;
         // One entry per usage window. A zero interval means the global interval applies.
@@ -176,6 +177,10 @@ namespace SlopWorld
         public string Editor = "";
         public string Highlighter = "";
 
+        // Keep editable choices (including Auto) separate from the daemon's host commands.
+        public string EffectivePager => Pager.Trim() == "auto" ? AutoCommands?.Pager ?? Pager : Pager;
+        public string EffectiveHighlighter => Highlighter.Trim() == "auto" ? AutoCommands?.Highlighter ?? Highlighter : Highlighter;
+
         public static DaemonConfig FromWire(Wire.Config v, Wire.ConfigMetadata metadata = null) =>
             Read(v.Daemon, v.Defaults, v.Commands, metadata);
         public static DaemonConfig FromSnapshot(Wire.EditableConfig v) => Read(v.Daemon, v.Defaults, v.Commands, null);
@@ -192,6 +197,7 @@ namespace SlopWorld
                     ?? new List<UsageCatalogInfo>(),
                 TemporaryRoot = metadata?.TemporaryRoot ?? "",
                 Terminal = TerminalLimits.FromWire(metadata?.Terminal),
+                AutoCommands = metadata?.AutoCommands,
                 UsagePollSecs = (int)d.UsagePollSecs,
                 UsageItems = d.UsageItems.ToDictionary(p => p.Key, p => new UsageItemConfig { Poll = p.Value.Poll, IntervalSecs = (int)p.Value.IntervalSecs }),
                 ClaudeCredentials =
@@ -224,6 +230,7 @@ namespace SlopWorld
             UsageCatalog = source.UsageCatalog;
             TemporaryRoot = source.TemporaryRoot;
             Terminal = source.Terminal;
+            AutoCommands = source.AutoCommands;
         }
 
         public static List<UsageCatalogInfo> MergeUsageCatalogs(

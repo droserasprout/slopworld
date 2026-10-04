@@ -33,3 +33,8 @@ invent missing daemon defaults. Public read-model contracts belong to
 [the API](../docs/src/reference/api.md);
 draft/save behavior to [Settings](ui-settings.md); protected filesystem boundaries
 to [sandbox isolation](sandbox-isolation.md).
+
+`config/commands.rs` resolves Auto reader tools using the daemon's PATH. Config API
+metadata carries `auto_commands` even when the saved choices are explicit; reader
+launches use those commands while drafts and saves retain `auto`. Highlight theme
+discovery and previews resolve request-local Auto choices through the same owner.

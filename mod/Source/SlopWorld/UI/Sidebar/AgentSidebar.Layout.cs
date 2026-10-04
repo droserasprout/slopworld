@@ -64,7 +64,7 @@ namespace SlopWorld
             int workspaceRevision = WorkspaceLayout.Revision;
             if (Layout.Matches(entries, count, CurrentTab, hub.SessionsVersion,
                                hub.ProjectsRevision, Projects.Revision, status, Width,
-                               UI.screenHeight, Body.height, TextH, workspaceRevision, hub.Config.Pager, hub.Config.Editor))
+                               UI.screenHeight, Body.height, TextH, workspaceRevision, hub.Config.EffectivePager, hub.Config.Editor))
             {
                 PerfTrace.Count("sidebar-layout-hits");
                 Layout.RestoreLocations(locs, count);
@@ -84,7 +84,7 @@ namespace SlopWorld
             Layout.LastScale = measure.Scale;
             Layout.RememberInputs(entries, count, CurrentTab, hub.SessionsVersion,
                 hub.ProjectsRevision, Projects.Revision, status, Width, UI.screenHeight,
-                Body.height, TextH, locs, workspaceRevision, hub.Config.Pager, hub.Config.Editor);
+                Body.height, TextH, locs, workspaceRevision, hub.Config.EffectivePager, hub.Config.Editor);
 
             return measure.Scale;
         }
