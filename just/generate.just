@@ -1,5 +1,10 @@
 # Generated files
 
+# Generate the locked Rust dependency license table
+[group('Generated files')]
+rust-licenses:
+    {{ PYTHON }} tools/rust_licenses.py
+
 # Generate stable shared protocol bindings
 [group('Generated files')]
 api-contract:

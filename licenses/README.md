@@ -5,7 +5,9 @@ attribution. `just stage-licenses` copies it into `mod/About/ThirdPartyNotices/`
 and copies the root project `LICENSE` into `mod/About/LICENSE`. Release archives,
 Arch packages, and the sidecar image also carry readable copies. These notices
 cover the bundled assets and mod runtime libraries; they are not a complete
-inventory of Rust dependencies or software installed in the sidecar.
+inventory of software installed in the sidecar. The generated
+[Rust dependency table](rust-dependencies.md) lists crate versions and license
+metadata; it does not include their full license texts or notices.
 
 | Component | License | Full text | Attribution and use |
 | --- | --- | --- | --- |

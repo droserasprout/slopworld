@@ -33,6 +33,9 @@ verifies their contents and rejects stale extra files. The mod build stages them
 automatically. Mod installers and Arch packages copy `About/` recursively.
 Release archives, Arch packages, and sidecar images also include readable copies
 from the canonical sources. Update only the canonical files.
+`just rust-licenses` refreshes the Rust inventory from the locked Cargo graph,
+including build/dev dependencies and all target platforms. Cargo manifests own
+its license metadata; the generated table does not replace distribution notices.
 
 The mod project owns game references/compiler settings; `Directory.Build.props`
 and `.editorconfig` own shared C# analysis, and `global.json` pins the SDK.
