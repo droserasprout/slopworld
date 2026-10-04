@@ -50,6 +50,7 @@ namespace SlopWorld
 
         void DrawFont(Listing_Standard l, ModSettings s)
         {
+            UiLayout.SectionHeading(l, "Font");
             // OS catalogs are stable for the page lifetime; group their faces once.
             if (_fontOptions == null)
             {
@@ -76,6 +77,7 @@ namespace SlopWorld
 
         void DrawTheme(Listing_Standard l, ModSettings s)
         {
+            UiLayout.SectionHeading(l, "Colors");
             if (UiLayout.Button(l,
                     $"Color scheme: {(s.theme == TerminalTheme.MatchUI ? "Match UI" : TerminalTheme.Current.Label)}"))
                 Find.WindowStack.Add(new UiMenu(new[]
@@ -99,6 +101,7 @@ namespace SlopWorld
 
         void DrawCursor(Listing_Standard l, ModSettings s)
         {
+            UiLayout.SectionHeading(l, "Terminal cursor");
             l.Label("Cursor color (#rrggbb, blank uses theme)");
             UiControls.SetSetting(s, ref s.cursorColor,
                 UiControls.Field(l, "term.cursor", s.cursorColor ?? "", defaultValue: ""));

@@ -149,6 +149,7 @@ namespace SlopWorld
 
         protected override void DrawFields(Listing_Standard l)
         {
+            UiLayout.SectionHeading(l, "Commands");
             if (_loaded && _cfg != null)
             {
                 CommandPicker.Draw(l, "Pager", "commands.pager", _cfg.Pager, PagerCommands(),
@@ -165,6 +166,8 @@ namespace SlopWorld
                 if (_command != SelectedCommand) Reload();
             }
             else UiLayout.Note(l, "Connect to the daemon to configure the pager and highlighter.");
+            l.Gap(UiTheme.GapM);
+            UiLayout.SectionHeading(l, "Display");
             Appearance.LineNumbers = UiControls.Checkbox(l, "Line numbers", Appearance.LineNumbers,
                 "Show source line numbers in files and diffs. Custom file pagers manage their own numbering.");
             l.Gap(UiTheme.GapM);

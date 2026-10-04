@@ -26,6 +26,7 @@ namespace SlopWorld
 
         protected override void DrawFields(Listing_Standard l)
         {
+            UiLayout.SectionHeading(l, "Policies");
             float rowH = UiTheme.FieldH + UiTheme.GapS;
             if (l.ColumnWidth < 430f)
             {
@@ -56,7 +57,8 @@ namespace SlopWorld
             UiLayout.Validation(l, MinimumError(minPromptChars));
             UiLayout.Note(l, "The daemon skips prompts shorter than this many characters. " +
                 "A short prompt does not count as the first title attempt.");
-            l.Gap(UiTheme.GapM);
+            l.Gap(UiTheme.GapL);
+            UiLayout.SectionHeading(l, "Summarizer");
             l.Label("Model");
             _cfg.TitleModel = UiControls.Field(l, "usage.summary.model", _cfg.TitleModel,
                 defaultValue: _cfg.FactoryDefaults?.TitleModel);

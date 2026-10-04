@@ -55,13 +55,8 @@ namespace SlopWorld
                 "Show autostart, resume-on-start, and host-network flags in agent rows.");
 
             UiLayout.SectionHeading(l, "Statusbar");
-            UiControls.CheckboxSetting(l, "Show Usage in statusbar", S, ref S.statusbarUsage,
-                "Show quota readouts in the top statusbar.");
-            UiControls.CheckboxSetting(l, "Show spent instead of left", S, ref S.usageSpent,
-                "Applies to every provider. Left is the amount remaining. Spent is the " +
-                "provider-facing percentage or amount used.");
             string summaryPosition = StatusbarSummaryMode.Normalize(S.statusbarSummaryPosition);
-            UiControls.Select(l, "Summary position", StatusbarSummaryMode.Label(summaryPosition),
+            UiControls.Select(l, "Session title position", StatusbarSummaryMode.Label(summaryPosition),
                 new[]
                 {
                     new SelectorOption("Left", () => SetSummaryPosition(StatusbarSummaryMode.Left)),
@@ -75,6 +70,11 @@ namespace SlopWorld
                     new SelectorOption("Center", () => SetClockPosition(StatusbarClockMode.Center)),
                     new SelectorOption("Hidden", () => SetClockPosition(StatusbarClockMode.Hidden)),
                 }, out _);
+            UiControls.CheckboxSetting(l, "Show Usage in statusbar", S, ref S.statusbarUsage,
+                "Show quota readouts in the top statusbar.");
+            UiControls.CheckboxSetting(l, "Show spent instead of left", S, ref S.usageSpent,
+                "Applies to every provider. Left is the amount remaining. Spent is the " +
+                "provider-facing percentage or amount used.");
             UiControls.CheckboxSetting(l, "Show Jukebox in statusbar", S, ref S.statusbarJukebox,
                 "Show the jukebox door when a jukebox is present.");
             UiControls.CheckboxSetting(l, "Show GM in statusbar", S, ref S.statusbarGM,
