@@ -45,7 +45,7 @@ namespace SlopWorld
         static int _lineCount;
         static int FontSize => Mathf.Clamp(Settings.FontSize + LoadingFontBump, 8, 32);
 
-        // Keep this grid in sync with tools/loading_font_atlas.py.
+        // Keep this grid in sync with tools/assets/loading_font_atlas.py.
         const string GlyphAtlasPath = "SlopWorld/LoadingFont";
         const int GlyphFirst = 32, GlyphLast = 126;
         const int GlyphSource = 64, GlyphWidth = 32, GlyphHeight = 64;

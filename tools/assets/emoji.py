@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Bake icon PNG files from emoji glyphs.
 
-Usage: python3 tools/emoji.py --emoji 🏆 --name trophy [--size 32] [--out DIR]
-       python3 tools/emoji.py --emoji 🏆 --name trophy --emoji 🎯 --name target
-       python3 tools/emoji.py --emoji 📻 --name Jukebox --size 128 --color
+Usage: python3 tools/assets/emoji.py --emoji 🏆 --name trophy [--size 32] [--out DIR]
+       python3 tools/assets/emoji.py --emoji 🏆 --name trophy --emoji 🎯 --name target
+       python3 tools/assets/emoji.py --emoji 📻 --name Jukebox --size 128 --color
 
 The tool renders each emoji from Noto Color Emoji through PangoCairo.
 It writes each result to <out>/<name>.png.
@@ -28,7 +28,7 @@ import numpy as np
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
+ROOT = os.path.dirname(os.path.dirname(HERE))
 DEFAULT_OUT = os.path.join(ROOT, "mod", "Textures", "SlopWorld", "FileIcons")
 
 # Find the color emoji font by name so a missing font causes an error.

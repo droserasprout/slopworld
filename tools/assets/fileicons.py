@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Bake the files view icons from vendored SVG files.
 
-Usage: python3 tools/fileicons.py [--fetch] [--size N]
-  --fetch   Download the manifest icons into tools/fileicons/svg again.
+Usage: python3 tools/assets/fileicons.py [--fetch] [--size N]
+  --fetch   Download the manifest icons into assets/fileicons/svg again.
   --size    Set the PNG edge length. The default is 32 pixels.
 
-The tool reads tools/fileicons/manifest.toml.
-It converts each tools/fileicons/svg/<name>.svg file to a PNG file.
+The tool reads assets/fileicons/manifest.toml.
+It converts each assets/fileicons/svg/<name>.svg file to a PNG file.
 It writes the PNG files to mod/Textures/SlopWorld/FileIcons.
 The tool requires Pillow and either rsvg-convert or CairoSVG.
 
@@ -16,7 +16,7 @@ Review the adjacent LICENSE file when you update the SVG files.
 
 The tool renders at four times the output size and then applies a box filter.
 This process preserves thin details that direct 32-pixel rendering can remove.
-tools/roboface.py uses the same process.
+tools/assets/roboface.py uses the same process.
 """
 
 import argparse
@@ -31,9 +31,9 @@ import numpy as np
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
-SRC = os.path.join(HERE, "fileicons", "svg")
-MANIFEST = os.path.join(HERE, "fileicons", "manifest.toml")
+ROOT = os.path.dirname(os.path.dirname(HERE))
+SRC = os.path.join(ROOT, "assets", "fileicons", "svg")
+MANIFEST = os.path.join(ROOT, "assets", "fileicons", "manifest.toml")
 OUT = os.path.join(ROOT, "mod", "Textures", "SlopWorld", "FileIcons")
 
 UPSTREAM = (

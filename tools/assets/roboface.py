@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Draw faceplate textures for agent pawns.
 
-Usage: python3 tools/roboface.py [variant ...]
+Usage: python3 tools/assets/roboface.py [variant ...]
   Variants: blue red green purple yellow white missing (default: all)
 
 Each variant creates RobotFace_{Variant}_{south,east}.png in the mod textures directory.
@@ -27,7 +27,7 @@ import sys
 import numpy as np
 from PIL import Image
 
-OUT = os.path.join(os.path.dirname(__file__), "..", "mod", "Textures", "SlopWorld")
+OUT = os.path.join(os.path.dirname(__file__), "..", "..", "mod", "Textures", "SlopWorld")
 
 N = 128                     # the head frame RimWorld draws us into
 SS = 4                      # supersample factor

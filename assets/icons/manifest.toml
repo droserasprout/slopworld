@@ -6,7 +6,7 @@
 # Each glyph is a Codicon from a Nerd Font.
 # `glyph` is the Nerd Fonts name.
 # `code` is its code point in the private-use area.
-# tools/icons.py reads the code point and uses the name as documentation.
+# tools/assets/icons.py reads the code point and uses the name as documentation.
 # The Nerd Fonts cheat sheet supplies both values: https://www.nerdfonts.com/cheat-sheet
 #
 # Use only Codicons so the glyphs have consistent weight and size.

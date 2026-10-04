@@ -4,7 +4,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // File-view icons are baked from the Material Icon Theme manifest by tools/fileicons.py
+    // File-view icons are baked from the Material Icon Theme manifest by tools/assets/fileicons.py
     // into loose textures. Keep the lookup table in code (the mod has no TOML parser), and
     // cache hits and misses because ContentFinder would otherwise scan every tree row.
     public static class FileIcons

@@ -21,7 +21,7 @@ reference:
 # Bake the loading screen font atlas from the bundled source font
 [group('Generated files')]
 bake-loading-font:
-    {{ PYTHON }} tools/loading_font_atlas.py --font "{{ FONT_SOURCE }}"
+    {{ PYTHON }} tools/assets/loading_font_atlas.py --font "{{ FONT_SOURCE }}"
 
 # Reject uncommitted generated protocol changes
 [group('Generated files')]
@@ -31,4 +31,4 @@ check-generated: api-contract
 # Bake the shared UI icons from an installed Nerd Font
 [group('Generated files')]
 bake-icons:
-    {{ PYTHON }} tools/icons.py
+    {{ PYTHON }} tools/assets/icons.py

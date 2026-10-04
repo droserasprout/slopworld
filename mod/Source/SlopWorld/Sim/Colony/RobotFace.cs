@@ -6,7 +6,7 @@ using Verse;
 namespace SlopWorld
 {
     // The plate is drawn over the vanilla head, while the agent skin override keeps exposed
-    // areas under hair and apparel metallic. tools/roboface.py has the geometry.
+    // areas under hair and apparel metallic. tools/assets/roboface.py has the geometry.
     public static class RobotFace
     {
         static readonly Color MetalSkinColor = new Color(0.42f, 0.435f, 0.46f);
