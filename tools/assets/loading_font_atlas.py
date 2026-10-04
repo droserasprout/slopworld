@@ -11,7 +11,7 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
+ROOT = os.path.dirname(os.path.dirname(HERE))
 DEFAULT_FONT = os.path.join(ROOT, "assets", "fonts", "clacon2.ttf")
 DEFAULT_TEXTURE = os.path.join(ROOT, "mod", "Textures", "SlopWorld", "LoadingFont.png")
 

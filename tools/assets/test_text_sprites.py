@@ -44,7 +44,7 @@ class TextSpriteMetadataTests(unittest.TestCase):
         self.assertIn("1️⃣", keys)
 
     def test_loading_tips_use_ascii_glyphs(self):
-        path = (pathlib.Path(__file__).parent.parent /
+        path = (pathlib.Path(__file__).resolve().parents[2] /
                 "mod/Source/SlopWorld/Patches/LoadingScreen/LoadingScreen.Tips.cs")
         source = path.read_text(encoding="utf-8")
         lines = source.splitlines()

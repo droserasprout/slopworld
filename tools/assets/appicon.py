@@ -247,7 +247,7 @@ def make_icon(rose_path):
 
 def main():
     tex_dir = os.path.join(
-        os.path.dirname(__file__), "..", "mod", "Textures", "SlopWorld",
+        os.path.dirname(__file__), "..", "..", "mod", "Textures", "SlopWorld",
     )
     os.makedirs(tex_dir, exist_ok=True)
 
@@ -264,7 +264,7 @@ def main():
 
     # Also update the pre-built pkg copy
     pkg_path = os.path.join(
-        os.path.dirname(__file__), "..",
+        os.path.dirname(__file__), "..", "..",
         "packaging", "arch", "pkg", "slopworld",
         "usr", "share", "icons", "hicolor", "128x128", "apps", "slopworld.png",
     )

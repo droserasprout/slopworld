@@ -27,7 +27,7 @@ test-themes: validate-themes
 # Check text sprite metadata and loading-tip ASCII coverage
 [group('Tests and coverage')]
 test-text-sprites:
-    {{ PYTHON }} tools/test_text_sprites.py
+    {{ PYTHON }} tools/assets/test_text_sprites.py
 
 # Test benchmark reporting
 [group('Tests and coverage')]

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Bake the mod action icons from a Nerd Font Codicons set.
 
-Usage: python3 tools/icons.py [--size N] [--margin N] [--font PATH] [--report]
+Usage: python3 tools/assets/icons.py [--size N] [--margin N] [--font PATH] [--report]
   --size    Set the PNG edge length. The default is 64 pixels.
   --margin  Set the clear margin. The default is 2 pixels.
   --font    Select a Nerd Font TTF file. The default is the first available FONTS entry.
   --report  Print the size and ink coverage of each glyph.
 
-Reads tools/icons/manifest.toml and writes mod/Textures/SlopWorld/Icons/<slot>.png.
+Reads assets/icons/manifest.toml and writes mod/Textures/SlopWorld/Icons/<slot>.png.
 The tool requires Pillow and an installed Nerd Font.
 On Arch Linux, install one of the ttf-*-nerd packages.
 Pillow uses its included FreeType library to render the font outlines.
@@ -39,8 +39,8 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
-MANIFEST = os.path.join(HERE, "icons", "manifest.toml")
+ROOT = os.path.dirname(os.path.dirname(HERE))
+MANIFEST = os.path.join(ROOT, "assets", "icons", "manifest.toml")
 OUT = os.path.join(ROOT, "mod", "Textures", "SlopWorld", "Icons")
 
 # Each Nerd Font has the same private-use glyphs.
