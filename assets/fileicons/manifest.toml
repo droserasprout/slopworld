@@ -3,7 +3,7 @@
 # Use one table for each icon.
 # The key is the upstream SVG name in the Material Icon Theme.
 # The key is also the generated PNG name and the value that FileIcons.cs uses.
-# See the LICENSE file in this directory.
+# See licenses/material-icon-theme/LICENSE.txt in the repository root.
 #
 #   ext   = extensions, without the dot, matched case-insensitively and
 #           longest-first, so `tar.gz` beats `gz`.

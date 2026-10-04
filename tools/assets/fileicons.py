@@ -12,7 +12,7 @@ The tool requires Pillow and either rsvg-convert or CairoSVG.
 
 The build uses vendored SVG files and does not require network access.
 Use --fetch to update the SVG files from upstream.
-Review the adjacent LICENSE file when you update the SVG files.
+Review licenses/material-icon-theme/LICENSE.txt when you update the SVG files.
 
 The tool renders at four times the output size and then applies a box filter.
 This process preserves thin details that direct 32-pixel rendering can remove.

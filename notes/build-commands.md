@@ -25,6 +25,15 @@ source data and icon manifests. Generated runtime assets stay in `mod/`.
 OST production scripts and staged audio belong to the private repository under
 `priv/ost/`; shipped soundtrack files and song definitions belong to `mod/`.
 
+The [attribution policy](core-attribution.md) applies to used libraries and assets.
+`licenses/` owns canonical third-party texts and attribution; the root `LICENSE`
+owns SlopWorld terms. `just stage-licenses` stages ignored copies into
+`mod/About/ThirdPartyNotices/` and `mod/About/LICENSE`; `just check-licenses`
+verifies their contents and rejects stale extra files. The mod build stages them
+automatically. Mod installers and Arch packages copy `About/` recursively.
+Release archives, Arch packages, and sidecar images also include readable copies
+from the canonical sources. Update only the canonical files.
+
 The mod project owns game references/compiler settings; `Directory.Build.props`
 and `.editorconfig` own shared C# analysis, and `global.json` pins the SDK.
 Game references keep `Private=false`: RimWorld loads DLLs from `Assemblies/`.

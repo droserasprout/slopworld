@@ -7,7 +7,7 @@ daemon: api-contract
 
 # Build the mod against the game's assemblies
 [group('Build')]
-mod: daemon validate-themes mod-deps
+mod: daemon validate-themes mod-deps stage-licenses
     version="{{ VERSION }}"; \
         if test -z "$version"; then version="$("{{ RUNNER }}" --version)" || exit; fi; \
         {{ DOTNET }} build "{{ MOD_PROJECT }}" --configuration {{ if BUILD == 'release' { 'Release' } else { 'Debug' } }} \
@@ -18,6 +18,16 @@ mod: daemon validate-themes mod-deps
 [group('Build')]
 mod-deps:
     {{ DOTNET }} build mod/Dependencies/Runtime.csproj --configuration Release --verbosity quiet -p:RestoreLockedMode={{ MOD_DEPS_LOCKED }}
+
+# Stage canonical license texts and attribution into the mod
+[group('Build')]
+stage-licenses:
+    {{ PYTHON }} tools/stage_licenses.py
+
+# Check staged license texts against the canonical sources
+[group('Tests and coverage')]
+check-licenses:
+    {{ PYTHON }} tools/stage_licenses.py --check
 
 # Validate the shipped UI and terminal theme catalogs
 [group('Build')]

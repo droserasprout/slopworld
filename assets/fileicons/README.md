@@ -1,7 +1,7 @@
 # File icons
 
 `svg/` contains files from the [Material Icon Theme](https://github.com/material-extensions/vscode-material-icon-theme)
-for VS Code. The project vendors them under the MIT license (`LICENSE`).
+for VS Code. The project vendors them under the MIT license ([license](../../licenses/material-icon-theme/LICENSE.txt)).
 `manifest.toml` lists which files the file view uses and the rules for each file.
 `../../tools/assets/fileicons.py` builds the icons into `mod/Textures/SlopWorld/FileIcons/`.
 
