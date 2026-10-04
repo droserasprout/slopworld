@@ -32,7 +32,7 @@ test-text-sprites:
 # Test benchmark reporting
 [group('Tests and coverage')]
 test-bench-report:
-    {{ PYTHON }} tools/test_bench_report.py
+    {{ PYTHON }} bench/test_bench_report.py
     {{ PYTHON }} -m unittest discover -s bench/terminal-input -p 'test_*.py'
 
 # Test pager geometry with isolated tmux and less (no game)

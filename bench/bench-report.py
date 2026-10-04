@@ -60,7 +60,7 @@ def parse_samples(output: str) -> OrderedDict[str, Sample]:
 
 
 def run_bench(build: str, run_number: int, raw_path: Path, suite="gamefree") -> OrderedDict[str, Sample]:
-    command = ["bash", "tools/bench.sh", "run", suite]
+    command = ["bash", "bench/bench.sh", "run", suite]
     print(f"\n=== performance run {run_number}: {' '.join(command)} ===", flush=True)
     repeat_path = raw_path / f"repeat-{run_number}"
     temporary = repeat_path / "tmp"
