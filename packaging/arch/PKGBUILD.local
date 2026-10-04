@@ -14,10 +14,15 @@ pkgdesc="RimWorld with the colony sim replaced by live AI coding agents"
 arch=('x86_64')
 url="https://github.com/droserasprout/slopworld"
 license=('custom')
-depends=('alsa-lib' 'bash' 'bubblewrap' 'git' 'glib2' 'highlight' 'less' 'micro'
-  'passt' 'procps-ng' 'ripgrep' 'systemd' 'tmux')
+depends=('alsa-lib' 'bash' 'bubblewrap' 'git' 'passt' 'ripgrep' 'systemd' 'tmux')
 makedepends=('cargo' 'git' 'dotnet-sdk' 'lld' 'just' 'protobuf' 'python' 'python-yaml')
 optdepends=(
+  'glib2: desktop application associations and native application chooser'
+  'highlight: default syntax highlighter'
+  'less: default file pager'
+  'micro: default file editor'
+  'procps-ng: fallback process inspection'
+  'songrec: jukebox song recognition'
   'wl-clipboard: clipboard and PRIMARY selection under Wayland'
   'xclip: clipboard and PRIMARY selection under X11'
   'xsel: clipboard and PRIMARY selection under X11 (fallback)'
