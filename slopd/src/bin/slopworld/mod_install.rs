@@ -1,3 +1,5 @@
+//! Owns mod copy, replacement and removal. game_config persists Linux launch defaults.
+
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -61,7 +63,31 @@ fn run_install(args: &[String]) -> Result<Option<String>, String> {
         .source
         .ok_or_else(|| "--source is required".to_string())?;
     let source = safe_directory(&source, "mod source directory")?;
-    Ok(Some(install(&source, &mods)?))
+    Ok(Some(install_and_remember(
+        &source,
+        &mods,
+        super::game_config::config_path,
+    )?))
+}
+
+fn install_and_remember(
+    source: &Path,
+    mods: &Path,
+    config_path: impl FnOnce() -> Result<PathBuf, String>,
+) -> Result<String, String> {
+    // Native macOS layouts and arbitrary mod destinations do not select a Linux default.
+    let game = mods.parent().filter(|game| game.join(super::EXE).is_file());
+    let config = game.map(|_| config_path()).transpose()?;
+    let message = install(source, mods)?;
+    if let (Some(game), Some(config)) = (game, config) {
+        super::game_config::save(game, &config).map_err(|error| {
+            format!(
+                "mod installed to {}, but {error}",
+                mods.join(MOD_NAME).display()
+            )
+        })?;
+    }
+    Ok(message)
 }
 
 fn run_uninstall(args: &[String]) -> Result<Option<String>, String> {

@@ -3,6 +3,11 @@
 The Rust launcher owns profile seeding and game process lifetime.
 `slopd/src/bin/slopworld/instance.rs` owns per-profile locking and Linux external-game
 detection. The mod owns [profile-specific gating](mod-profile.md).
+`slopworld/game_config.rs` owns the saved Linux game directory. The mod installer
+remembers the canonical parent of the destination Mods directory atomically after
+installation succeeds, when that parent contains `RimWorldLinux`. Other layouts
+leave the Linux default unchanged. Explicit arguments and environment override the
+saved path; invalid saved configuration blocks fallback to a different game.
 
 Seeding preserves an existing mod list unless reset is explicit. Seeded lists omit
 `<version>` so RimWorld cannot discard a mismatched list and re-enable expansions.

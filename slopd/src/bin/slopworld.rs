@@ -14,6 +14,9 @@ use instance::{InstanceLock, game_process_running, launcher_lock_path};
 #[path = "slopworld/mod_install.rs"]
 mod mod_install;
 
+#[path = "slopworld/game_config.rs"]
+mod game_config;
+
 /// The launcher writes this marker for the mod to detect.
 /// Only the file's existence controls detection. Its contents explain the profile to users.
 const MARKER: &str = "slopworld.profile";
@@ -45,7 +48,7 @@ slopworld - launch RimWorld into the SlopWorld profile
 usage: slopworld [options] [-- ] [game args...]
 
 options:
-  --game DIR       RimWorld install (default $SLOPWORLD_GAME, then the usual places)
+  --game DIR       RimWorld install (default $SLOPWORLD_GAME, game.toml, then usual places)
   --game-exe FILE  explicit game executable (for native macOS app bundles)
   --working-dir DIR
                    working directory for the game process
@@ -258,35 +261,22 @@ fn parse(args: &[String]) -> Result<Option<Args>, String> {
     Ok(Some(out))
 }
 
-/// Check an explicit game directory before standard Linux installation paths.
-/// Report an error for an invalid `--game` or environment value.
+/// Check explicit and saved game directories before standard Linux installation paths.
+/// Report an error for an invalid override or saved configuration.
 /// Skip missing standard paths.
 fn game_dir(explicit: Option<&str>) -> Result<PathBuf, String> {
-    if let Some(dir) = explicit.or(option_env_nonempty("SLOPWORLD_GAME").as_deref()) {
-        let dir = PathBuf::from(expand(dir));
-        return if dir.join(EXE).is_file() {
-            Ok(dir)
-        } else {
-            Err(format!("no {EXE} in {}", dir.display()))
-        };
-    }
-
     let guesses = [
         "~/RimWorld/game",
         "~/GOG Games/RimWorld/game",
         "~/.steam/steam/steamapps/common/RimWorld",
         "~/.local/share/Steam/steamapps/common/RimWorld",
     ];
-    for g in guesses {
-        let dir = PathBuf::from(expand(g));
-        if dir.join(EXE).is_file() {
-            return Ok(dir);
-        }
-    }
-    Err(format!(
-        "slopworld could not find RimWorld in {}. Pass --game DIR or set SLOPWORLD_GAME.",
-        guesses.join(", ")
-    ))
+    game_config::resolve(
+        explicit,
+        option_env_nonempty("SLOPWORLD_GAME").as_deref(),
+        game_config::config_path,
+        &guesses.map(|path| PathBuf::from(expand(path))),
+    )
 }
 
 fn game_target(
