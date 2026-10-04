@@ -3,7 +3,7 @@
 # Tracks the main branch for an always-current development build.
 #
 # The mod half links against the game's own assemblies, so RIMWORLD must point at
-# a real Linux install (default ~/RimWorld/game, override in the environment).
+# a real Linux install (default ~/GOG Games/RimWorld/game, override in the environment).
 
 pkgname=slopworld-git
 pkgver=0.0.1.r0.gHEAD
@@ -14,7 +14,7 @@ url="https://github.com/droserasprout/slopworld"
 license=('custom')
 depends=('alsa-lib' 'bash' 'bubblewrap' 'git' 'glib2' 'highlight' 'less' 'micro'
   'passt' 'procps-ng' 'ripgrep' 'systemd' 'tmux')
-makedepends=('cargo' 'git' 'dotnet-sdk' 'lld' 'just')
+makedepends=('cargo' 'git' 'dotnet-sdk' 'lld' 'just' 'protobuf' 'python' 'python-yaml')
 optdepends=(
   'wl-clipboard: clipboard and PRIMARY selection under Wayland'
   'xclip: clipboard and PRIMARY selection under X11'
@@ -31,7 +31,7 @@ install=slopworld.install
 _managed="$RIMWORLD/RimWorldLinux_Data/Managed"
 
 pkgver() {
-  cd "$srcdir/$pkgname"
+  cd "$srcdir/$pkgname" || return
   local _v
   _v="$(grep -m1 '^version' slopd/Cargo.toml | cut -d'"' -f2)"
   printf '%s.r%s.g%s' "$_v" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
@@ -42,30 +42,33 @@ prepare() {
     echo "no RimWorld install at $RIMWORLD; set RIMWORLD=<path>" >&2
     return 1
   }
-  cd "$srcdir/$pkgname"
+  cd "$srcdir/$pkgname" || return
+  # Keep daemon, mod and check versions identical even across a UTC date change.
+  tools/version.sh "$(grep -m1 '^version' slopd/Cargo.toml | cut -d'"' -f2)" \
+    > .slopworld-build-version
   export RUSTUP_TOOLCHAIN=stable
   cargo fetch --manifest-path slopd/Cargo.toml --locked
 }
 
 build() {
-  cd "$srcdir/$pkgname"
+  cd "$srcdir/$pkgname" || return
   local _version
-  _version="$(tools/version.sh "$(grep -m1 '^version' slopd/Cargo.toml | cut -d'"' -f2)")"
+  _version="$(cat .slopworld-build-version)"
   export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$PWD/target" SLOPWORLD_BUILD_VERSION="$_version"
-  just BUILD=release VERSION="$_version" RIMWORLD="$RIMWORLD" mod
+  just BUILD=release CARGOFLAGS='--release --frozen' VERSION="$_version" RIMWORLD="$RIMWORLD" mod
 }
 
 check() {
-  cd "$srcdir/$pkgname"
+  cd "$srcdir/$pkgname" || return
   local _version
-  _version="$(tools/version.sh "$(grep -m1 '^version' slopd/Cargo.toml | cut -d'"' -f2)")"
+  _version="$(cat .slopworld-build-version)"
   export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$PWD/target" SLOPWORLD_BUILD_VERSION="$_version"
-  cd slopd
+  cd slopd || return
   cargo test --release --frozen
 }
 
 package() {
-  cd "$srcdir/$pkgname"
+  cd "$srcdir/$pkgname" || return
 
   install -Dm755 target/release/slopd "$pkgdir/usr/bin/slopd"
   install -Dm755 target/release/slopctl "$pkgdir/usr/bin/slopctl"

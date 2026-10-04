@@ -9,6 +9,11 @@ or `just NAME=value recipe`; assignments must precede recipe names. Exported set
 carry into recursive calls. `SLOPCAR_PROFILE` stays unexported so native commands do
 not select the sidecar profile; sidecar launch recipes set it explicitly.
 
+`packaging/arch/` owns Arch package staging and user setup hooks. The local package
+builds a snapshot without private files or build caches; preparation records the
+binary version for package metadata, build and check. Cargo fetches dependencies
+in preparation and uses frozen builds afterward.
+
 `bench/` owns benchmark runners, shared result handling, reporting, and their tests.
 `tools/assets/` owns asset generators and text-sprite checks; `assets/` owns bundled
 source data and icon manifests. Generated runtime assets stay in `mod/`.
