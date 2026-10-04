@@ -7,6 +7,8 @@ import subprocess
 
 import yaml
 
+from generated_files import write_if_changed
+
 ROOT = Path(__file__).resolve().parents[1]
 protocol = yaml.safe_load((ROOT / 'shared/protocol.yaml').read_text())
 schema = set(re.findall(r'message (\w+) \{', (ROOT / 'shared/slopworld.proto').read_text()))
@@ -104,5 +106,8 @@ emit_dispatch('decode_response', '2', 'Response', response_kinds, '&[u8]', 'Valu
 emit_dispatch('decode_request', '1', 'Request', request_kinds, '&[u8]', 'Value', False, True)
 emit_dispatch('encode_response', '2', 'Response', response_kinds, 'Value', 'Vec<u8>', True, True)
 
-(ROOT / 'slopd/src/shared/http_wire.rs').write_text('\n'.join(out) + '\n')
-subprocess.run(['rustfmt', '--edition', '2024', str(ROOT / 'slopd/src/shared/http_wire.rs')], check=True)
+formatted = subprocess.run(
+    ['rustfmt', '--edition', '2024'], input='\n'.join(out) + '\n',
+    text=True, capture_output=True, check=True,
+).stdout
+write_if_changed(ROOT / 'slopd/src/shared/http_wire.rs', formatted.encode())

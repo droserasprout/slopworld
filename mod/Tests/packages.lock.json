@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net8.0": {
+      "NUnit": {
+        "type": "Direct",
+        "requested": "[4.6.1, )",
+        "resolved": "4.6.1",
+        "contentHash": "xS4+YaBFUv1r8bcAbjitSfYaRZGfMwUiMdiaRziBXZpKgVxKDSHhjUn0mV5mObHGZRZq6eNa+WFWr3g8grj66A=="
+      },
+      "NUnitLite": {
+        "type": "Direct",
+        "requested": "[4.6.1, )",
+        "resolved": "4.6.1",
+        "contentHash": "LT8XF9nBXGV3mAuDOLjo1Qo66Zx25CTcvnDH66bCBT5Yj/IKtFPjyhP5Y5rULZz0Uf2nWMVfRWkEwj5BwETE5w==",
+        "dependencies": {
+          "NUnit": "[4.6.1]"
+        }
+      }
+    }
+  }
+}

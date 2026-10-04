@@ -1,0 +1,18 @@
+name: Set up pinned build tools
+description: Cache and install matching Linux tools for test and release builds
+inputs:
+  coverage:
+    description: Install cargo-llvm-cov, just, and protoc
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/slopworld-build-tools
+        key: linux-x64-build-tools-${{ inputs.coverage }}-${{ hashFiles('.github/actions/setup-build-tools/*') }}
+    - name: Install tool archives
+      shell: bash
+      env:
+        INSTALL_COVERAGE: ${{ inputs.coverage }}
+      run: bash "$GITHUB_ACTION_PATH/install.sh"

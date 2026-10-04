@@ -9,6 +9,24 @@ or `just NAME=value recipe`; assignments must precede recipe names. Exported set
 carry into recursive calls. `SLOPCAR_PROFILE` stays unexported so native commands do
 not select the sidecar profile; sidecar launch recipes set it explicitly.
 
+Mod compilation does not build Rust binaries. `tools/mod_version.py` reads the
+Cargo package fallback and uses `tools/version.sh` for the same tag/date/commit
+rules as Rust; `VERSION` overrides either build. Installer and launch recipes
+own their launcher build dependency. Protocol generators publish only changed
+bytes so repeated recipe invocations preserve compiler input timestamps.
+`devloop` runs `just install run` together, sharing build dependencies once per
+iteration and retaining each worktree's Rust target and C# obj directories.
+Only an explicit `just clean` removes build output.
+
+`just ci` checks generated files, formatting and tool/pager behavior before lint
+and coverage. The test workflow exposes those stages separately for timings.
+Test and release share pinned tools through
+`.github/actions/setup-build-tools/`. It owns archive caching, tool versions,
+and the protoc checksum so both workflows generate matching bindings.
+Only superseded branch-push test runs are cancelled; release-called tests and
+manual runs have isolated concurrency groups. NuGet caching includes the locked
+runtime/test dependency graphs and the coverage tool manifest.
+
 `packaging/arch/` owns Arch package staging and user setup hooks. The local package
 builds a snapshot without private files or build caches; preparation records the
 binary version for package metadata, build and check. Cargo fetches dependencies

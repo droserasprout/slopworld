@@ -38,7 +38,7 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
     sys.exit(23)
 ''')
         stub.chmod(0o755)
-        for tool in ("cargo", "dotnet", "python3", "protoc", "uname"):
+        for tool in ("cargo", "dotnet", "python3", "uname"):
             (self.directory / tool).symlink_to(stub)
         self.env = os.environ.copy()
         # Make results independent of the caller's selected build/profile/tool settings.
@@ -78,14 +78,14 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
 
     def test_shared_generation_runs_once_for_multiple_builds(self):
         self.run_recipe("VERSION=1.2.3", "all")
-        self.assertEqual(len(self.calls("protoc")), 1)
+        self.assertEqual(len([call for call in self.calls("python3")
+                              if call["args"] == ["tools/api_contract.py"]]), 1)
         self.assertEqual(len(self.calls("cargo")), 1)
 
     def test_lint_forces_release_and_warnings_through_recursive_call(self):
         self.run_recipe("BUILD=debug", "MOD_WARNINGS_AS_ERRORS=false",
                         "VERSION=1.2.3", "lint-mod")
-        cargo, = self.calls("cargo")
-        self.assertEqual(cargo["args"], ["build", "--release"])
+        self.assertEqual(self.calls("cargo"), [])
         mod, = [call for call in self.calls("dotnet")
                 if "mod/Source/SlopWorld/SlopWorld.csproj" in call["args"]]
         self.assertIn("Release", mod["args"])
@@ -122,10 +122,31 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertIsNone(call["env"]["SLOPCAR_PROFILE"])
 
     def test_dependency_failure_stops_mod_build(self):
-        self.env["RECIPE_TEST_FAIL"] = "cargo"
+        self.env["RECIPE_TEST_FAIL"] = "dotnet"
         self.run_recipe("VERSION=1.2.3", "mod", success=False)
+        self.assertEqual(self.calls("cargo"), [])
+        dependency, = self.calls("dotnet")
+        self.assertIn("mod/Dependencies/Runtime.csproj", dependency["args"])
+
+    def test_mod_resolves_default_version_without_building_rust(self):
+        self.run_recipe("mod")
+        self.assertEqual(self.calls("cargo"), [])
+        self.assertIn(["tools/mod_version.py"],
+                      [call["args"] for call in self.calls("python3")])
+
+    def test_version_override_skips_default_resolution(self):
+        self.run_recipe("VERSION=1.2.3", "mod")
+        self.assertNotIn(["tools/mod_version.py"],
+                         [call["args"] for call in self.calls("python3")])
+        mod, = [call for call in self.calls("dotnet")
+                if "mod/Source/SlopWorld/SlopWorld.csproj" in call["args"]]
+        self.assertIn("-p:InformationalVersion=1.2.3", mod["args"])
+
+    def test_install_mod_still_builds_its_launcher(self):
+        # Fail during dependency staging so this test never invokes an installer.
+        self.env["RECIPE_TEST_FAIL"] = "dotnet"
+        self.run_recipe("VERSION=1.2.3", "install-mod", success=False)
         self.assertEqual(len(self.calls("cargo")), 1)
-        self.assertEqual(self.calls("dotnet"), [])
 
 
 if __name__ == "__main__":

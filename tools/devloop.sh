@@ -42,5 +42,7 @@ while true; do
 		continue
 	fi
 	printf '\nBuilding %s (%s)\n' "$selected" "$(git -C "$selected" rev-parse --short HEAD)" >&3
-	(cd "$selected" && "$just_cmd" install && "$just_cmd" run)
+	# Keep each worktree's build cache. One just invocation shares the daemon
+	# dependency between install and run, avoiding a second build/generation pass.
+	(cd "$selected" && "$just_cmd" install run)
 done

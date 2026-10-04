@@ -7,9 +7,9 @@ daemon: api-contract
 
 # Build the mod against the game's assemblies
 [group('Build')]
-mod: daemon validate-themes mod-deps stage-licenses
+mod: api-contract validate-themes mod-deps stage-licenses
     version="{{ VERSION }}"; \
-        if test -z "$version"; then version="$("{{ RUNNER }}" --version)" || exit; fi; \
+        if test -z "$version"; then version="$({{ PYTHON }} tools/mod_version.py)" || exit; fi; \
         {{ DOTNET }} build "{{ MOD_PROJECT }}" --configuration {{ if BUILD == 'release' { 'Release' } else { 'Debug' } }} \
             -p:RimWorldManaged="{{ if MANAGED =~ '^/' { MANAGED } else { justfile_directory() + '/' + MANAGED } }}" -p:InformationalVersion="$version" \
             -p:TreatWarningsAsErrors={{ MOD_WARNINGS_AS_ERRORS }} -p:RestoreLockedMode=true

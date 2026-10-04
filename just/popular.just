@@ -18,7 +18,7 @@ test: test-daemon test-mod test-tools test-pager
 
 # Run game-free CI checks with coverage
 [group('Common commands')]
-ci: coverage test-tools test-pager lint-daemon check-format-csharp check-generated
+ci: check-generated check-format-daemon check-format-csharp test-tools test-pager lint-daemon coverage
 
 # Run the game-free daemon, C# and IPC benchmarks into shared CSV results
 [group('Common commands')]
