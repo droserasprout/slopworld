@@ -23,6 +23,16 @@ These tables show default paths and supported overrides. Most Linux SlopWorld pa
 | `$XDG_CONFIG_HOME/slopworld/worktrees.toml` | beside `SLOPD_CONFIG` | Registered worktrees. |
 | `$XDG_CACHE_HOME/slopworld/mounts/<project-id>/` | under `SLOPD_CACHE` | Shared managed cache data. |
 
+## Launcher configuration
+
+| Path | Override | Description |
+| --- | --- | --- |
+| `$XDG_CONFIG_HOME/slopworld/game.toml` | `--game`, then `SLOPWORLD_GAME` | Default Linux game directory, remembered after mod installation succeeds. |
+
+With no `XDG_CONFIG_HOME`, the file lives at `~/.config/slopworld/game.toml`.
+It contains one `path` string. Installing the mod into a Linux game's `Mods`
+directory stores the canonical game directory path.
+
 ## Data
 
 | Path | Override | Description |
