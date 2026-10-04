@@ -75,7 +75,7 @@ namespace SlopWorld
                     "Start the game with this command:\n\n    slopworld\n\n" +
                     "The launcher creates the separate save folder and enables only Core and SlopWorld. " +
                     "It then starts the game with that folder. " +
-                    "Run `make install` to add the launcher to your PATH.\n\n" +
+                    "Run `just install` to add the launcher to your PATH.\n\n" +
                     "Current save folder: " + Folder;
 
                 Find.WindowStack.Add(AlertDialog.Create(

@@ -1,6 +1,6 @@
 # Game-free C# tests
 
-Run `make test-mod`, also included in `make test`. Build and coverage commands belong
+Run `just test-mod`, also included in `just test`. Build and coverage commands belong
 to [Build from source](../docs/src/build.md).
 
 The .NET 8/CoreCLR project explicitly links production sources and supplies substitutes

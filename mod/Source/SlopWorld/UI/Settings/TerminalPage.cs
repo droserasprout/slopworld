@@ -238,7 +238,7 @@ namespace SlopWorld
                 // A block cursor is a reversed cell, so the box goes down opaque and the
                 // character goes back over it. Exactly what DrawCursor does.
                 c = Run(style, "$ ", th.Ansi[10], 0, y, cols, PreviewPad);
-                Run(style, "make", th.Fg, c, y, cols, PreviewPad);
+                Run(style, "just", th.Fg, c, y, cols, PreviewPad);
                 if (c < cols)
                 {
                     Widgets.DrawBoxSolid(

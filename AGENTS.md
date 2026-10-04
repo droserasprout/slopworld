@@ -7,7 +7,7 @@ communicate through HTTP and WebSocket. `slopcar/` packages the Linux daemon for
 
 ## Working rules
 
-- Use Makefile targets. Run `make` to list them. Follow the [house rules](notes/core-house-rules.md).
+- Use just recipes. Run `just` to list them. Follow the [house rules](notes/core-house-rules.md).
 - Do not run the game, take screenshots, or inspect images unless the user asks.
 - Keep notes to high-level guides, ownership boundaries, and non-obvious traps. Update the
   focused note when an ownership rule or behavior changes. See the [note policy](notes/README.md).

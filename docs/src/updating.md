@@ -7,7 +7,7 @@ Get the latest source and install it:
 ```sh
 cd slopworld
 git pull
-RIMWORLD=/path/to/RimWorld/game make install
+RIMWORLD=/path/to/RimWorld/game just install
 ```
 
 This rebuilds and installs the daemon, runner, and mod. The native Linux service
@@ -21,7 +21,7 @@ If startup fails after an update, see [Troubleshooting](reference/troubleshootin
 
 ## Other platforms
 
-On macOS, pull the latest source and run `gmake mac` to rebuild the sidecar,
+On macOS, pull the latest source and run `just mac` to rebuild the sidecar,
 reinstall the mod, and launch the game. See [macOS setup](guides/macos.md).
 For standalone containers, follow [Sidecar lifecycle](guides/sidecar.md#lifecycle).
 Rebuilding an image preserves configured data and endpoint directories.
@@ -29,7 +29,7 @@ Rebuilding an image preserves configured data and endpoint directories.
 ## Uninstalling
 
 ```sh
-make uninstall
+just uninstall
 ```
 
 This removes native Linux program files, the service unit, the mod, and any legacy

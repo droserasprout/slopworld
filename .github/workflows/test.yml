@@ -39,7 +39,7 @@ jobs:
           apt-get install -y --no-install-recommends \
             ca-certificates curl git unzip build-essential pkg-config \
             libasound2-dev libicu78 libssl3t64 zlib1g \
-            protobuf-compiler python3 python3-yaml tmux=3.7c-1 less ripgrep bubblewrap
+            protobuf-compiler python3 python3-yaml just tmux=3.7c-1 less ripgrep bubblewrap
 
       - uses: actions/checkout@v4
         with:
@@ -63,7 +63,7 @@ jobs:
 
       - name: Install pinned Protobuf compiler
         run: |
-          # Generated C# output must match the compiler used by make api-contract.
+          # Generated C# output must match the compiler used by just api-contract.
           curl -fsSL https://github.com/protocolbuffers/protobuf/releases/download/v36.1/protoc-36.1-linux-x86_64.zip -o "$RUNNER_TEMP/protoc.zip"
           echo "c4bc672d9d49214dc8cafdceadf4df92182d6ca8e3ec65a56b2d7de5602669b4  $RUNNER_TEMP/protoc.zip" | sha256sum --check
           unzip -q "$RUNNER_TEMP/protoc.zip" -d "$RUNNER_TEMP/protoc"
@@ -79,11 +79,11 @@ jobs:
           echo "$(dirname "$(rustc --print target-libdir)")/bin" >> "$GITHUB_PATH"
 
       - name: Run game-free CI checks
-        run: make ci
+        run: just ci
 
       - name: Report coverage
         run: |
-          make coverage-summary >> "$GITHUB_STEP_SUMMARY"
+          just coverage-summary >> "$GITHUB_STEP_SUMMARY"
           echo 'C# coverage measures linked production files in the game-free harness, not the entire mod. No percentage threshold is enforced.' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload coverage reports

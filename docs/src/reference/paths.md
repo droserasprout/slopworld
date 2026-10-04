@@ -34,7 +34,7 @@ These tables show default paths and supported overrides. Most Linux SlopWorld pa
 | `$XDG_DATA_HOME/slopworld/jukebox.toml` | `XDG_DATA_HOME` | Jukebox likes (`[[like]]` tables). |
 | `$XDG_DATA_HOME/slopworld/profile` | `--profile`, then `SLOPCAR_PROFILE`, then `SLOPWORLD_PROFILE` | Game profile: saves, screenshots, and `Config/`. |
 
-`make run` passes `PROFILE` as the launcher's `--profile`. See
+`just run` passes `PROFILE` as the launcher's `--profile`. See
 [Game profiles](../guides/game-profiles.md) for initialization and
 [Backup and recovery](../guides/backup-and-recovery.md) for backup scope.
 
@@ -60,13 +60,13 @@ The default named socket is `slopworld`. `SLOPD_TMUX_SOCKET` overrides the name;
 
 ## Sidecar worker
 
-Makefile targets use the `slopworld-car` paths. The `slopcar` script uses the `slopworld` paths. Both follow XDG variables when set.
+just recipes use the `slopworld-car` paths. The `slopcar` script uses the `slopworld` paths. Both follow XDG variables when set.
 
 | Path | Used by | Override | Description |
 | --- | --- | --- | --- |
-| `~/.config/slopworld-car/` | Makefile targets | `SLOPCAR_CONFIG` | Sidecar configuration and endpoint descriptor. |
-| `~/.local/share/slopworld-car/` | Makefile targets | `SLOPCAR_DATA` | Sidecar state. |
-| `~/.local/share/slopworld-car/profile` | Makefile targets | `SLOPCAR_PROFILE` | Sidecar game profile. |
+| `~/.config/slopworld-car/` | just recipes | `SLOPCAR_CONFIG` | Sidecar configuration and endpoint descriptor. |
+| `~/.local/share/slopworld-car/` | just recipes | `SLOPCAR_DATA` | Sidecar state. |
+| `~/.local/share/slopworld-car/profile` | just recipes | `SLOPCAR_PROFILE` | Sidecar game profile. |
 | `$XDG_CONFIG_HOME/slopworld/` | `slopcar` script | `SLOPCAR_CONFIG_DIR` | Sidecar configuration and endpoint descriptor. |
 | `~/.local/share/slopworld/` | `slopcar` script | `SLOPCAR_DATA_DIR` | Sidecar state. |
 
@@ -74,4 +74,4 @@ Makefile targets use the `slopworld-car` paths. The `slopcar` script uses the `s
 
 | Path | Used by | Override | Description |
 | --- | --- | --- | --- |
-| `~/Library/Application Support/SlopWorld/sidecar-profile` | macOS Makefile targets | `MAC_PROFILE` | Separate profile used by the native macOS game. |
+| `~/Library/Application Support/SlopWorld/sidecar-profile` | macOS just recipes | `MAC_PROFILE` | Separate profile used by the native macOS game. |

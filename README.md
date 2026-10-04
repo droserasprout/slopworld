@@ -13,10 +13,10 @@ for setup instructions.
 ```sh
 git clone https://github.com/droserasprout/slopworld.git
 cd slopworld
-RIMWORLD=/path/to/RimWorld/game make install
+RIMWORLD=/path/to/RimWorld/game just install
 slopworld
 ```
 
-`RIMWORLD` defaults to `~/GOG Games/RimWorld/game`. Run `make gogdl-login gogdl-install` to install a GOG copy.
+`RIMWORLD` defaults to `~/GOG Games/RimWorld/game`. Run `just gogdl-login gogdl-install` to install a GOG copy.
 
 Always start the game with `slopworld`. If you start RimWorld directly, it does not use the separate SlopWorld profile.

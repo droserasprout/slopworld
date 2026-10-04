@@ -3,19 +3,19 @@
 Enable `SLOPWORLD_DEBUG=1` in both the daemon and game environments before starting
 supported builds. An export does not change an already running service. Use the
 normal service and launcher configuration; for the development loop, use
-`SLOPWORLD_DEBUG=1 make devloop`. Tracing is off by default.
+`SLOPWORLD_DEBUG=1 just devloop`. Tracing is off by default.
 
 ## Choose a capture
 
 After loading and warmup, capture a repeatable workload:
 
 ```sh
-make trace-mod TRACE_LABEL=typing TRACE_SECONDS=60 TRACE_OUT=/tmp/typing.log
+just TRACE_LABEL=typing TRACE_SECONDS=60 TRACE_OUT=/tmp/typing.log trace-mod
 python3 bench/terminal-input/latency-summary.py /tmp/typing.log
 ```
 
 `trace-mod` reads future game trace entries and does not start the game. Exercise
-keys, paste, or application mouse input while capturing. `make trace-summary`
+keys, paste, or application mouse input while capturing. `just trace-summary`
 summarizes game-side performance records. Daemon performance summaries use the
 daemon log and need a separate log capture; they are not in this file.
 
@@ -27,7 +27,7 @@ With diagnostics enabled, the game truncates `SlopWorld-trace.log` at startup.
 Copy captures before restarting. Capture output is created exclusively; use a new
 `TRACE_OUT` or label for each capture.
 `TRACE_LOG` overrides the source for `trace-mod`. The desktop benchmark uses
-`BENCH_TRACE_LOG` or its `--log` option instead. Without an override, Make's capture
+`BENCH_TRACE_LOG` or its `--log` option instead. Without an override, the trace recipe's capture
 and the desktop runner follow `PROFILE`, then `SLOPCAR_PROFILE`, then
 `SLOPWORLD_PROFILE`, then the XDG SlopWorld profile. The game log announces the actual path.
 
@@ -46,8 +46,8 @@ The shell needs Python 3 and tmux. Automatic setup does not support sandboxed or
 remote shells. Run on the graphical host:
 
 ```sh
-make bench-terminal BENCH_RUN=terminal-baseline
-make bench-terminal BENCH_RUN=terminal-next BENCH_MULTIPLIER=10 BENCH_PREPARE_SECONDS=20
+just BENCH_RUN=terminal-baseline bench-terminal
+just BENCH_RUN=terminal-next BENCH_MULTIPLIER=10 BENCH_PREPARE_SECONDS=20 bench-terminal
 ```
 
 Press Enter once in the runner, then focus the empty shell and put the pointer over
@@ -73,14 +73,14 @@ sends Enter once for the filler. Each Ctrl+V is one logical append event, not a
 physical keypress or IME composition test. The shell line grows throughout the run.
 No history or typed text is deleted.
 
-Use `make bench-terminal-typing` for automatic filling followed by typing only.
+Use `just bench-terminal-typing` for automatic filling followed by typing only.
 For history only, set `BENCH_PHASE=history` and `BENCH_FILL_HISTORY=1`.
  `BENCH_PHASE`, `BENCH_FILL_HISTORY`, `BENCH_MULTIPLIER`, and
 `BENCH_PREPARE_SECONDS` select phase, setup, pace, and focus countdown. Manually prepared individual phases
 use their own prompt/countdown. Add htop with a separate phase:
 
 ```sh
-make bench-terminal BENCH_RUN=terminal-htop BENCH_PHASE=htop BENCH_MULTIPLIER=10 BENCH_PREPARE_SECONDS=20
+just BENCH_RUN=terminal-htop BENCH_PHASE=htop BENCH_MULTIPLIER=10 BENCH_PREPARE_SECONDS=20 bench-terminal
 ```
 
 ## Artifacts and validity
@@ -91,8 +91,8 @@ Existing selected-phase artifacts are refused; use a new run name to repeat a ph
 Regenerate reports without injecting input:
 
 ```sh
-make bench-report BENCH_RUN=terminal-next
-make bench-report BENCH_RUN=terminal-next BENCH_BASELINE=terminal-baseline BENCH_MODE=relative
+just BENCH_RUN=terminal-next bench-report
+just BENCH_RUN=terminal-next BENCH_BASELINE=terminal-baseline BENCH_MODE=relative bench-report
 ```
 
 The runner verifies clipboard delivery and stops ineffective typing. Every phase

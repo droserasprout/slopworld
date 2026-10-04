@@ -13,8 +13,8 @@ See [Requirements](../requirements.md) for sidecar prerequisites.
 Build and check the image:
 
 ```sh
-make sidecar-build
-make sidecar-doctor
+just sidecar-build
+just sidecar-doctor
 ```
 
 Pass `--workspace` for each project that agents may access. Use absolute paths.
@@ -50,7 +50,7 @@ Use this command to build the Linux launcher with the worker's endpoint and prof
 
 ```sh
 RIMWORLD=/path/to/RimWorld/game \
-SLOPCAR_CONFIG="$HOME/.config/slopworld-car" make sidecar-run
+SLOPCAR_CONFIG="$HOME/.config/slopworld-car" just sidecar-run
 ```
 
 The sidecar profile is separate from the native profile.
@@ -80,6 +80,6 @@ The launcher rejects a configuration directory that specifies another port.
 For container security flags and nested-namespace constraints, see the
 [technical README](https://github.com/droserasprout/slopworld/blob/main/slopcar/README.md#outer-isolation).
 
-Make targets use `SLOPCAR_CONFIG` and `SLOPCAR_DATA` with `slopworld-car` defaults.
+just recipes use `SLOPCAR_CONFIG` and `SLOPCAR_DATA` with `slopworld-car` defaults.
 The standalone script uses `SLOPCAR_CONFIG_DIR` and `SLOPCAR_DATA_DIR` with
 `slopworld` defaults. Set both pairs consistently when combining these workflows.

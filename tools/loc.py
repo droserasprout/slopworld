@@ -39,6 +39,7 @@ LANGS = {
     ".rs": ("Rust", C_LIKE),
     ".py": ("Python", PY),
     ".sh": ("Shell", HASH),
+    ".just": ("Just", HASH),
     ".xml": ("XML", XML),
     ".csproj": ("XML", XML),
     ".toml": ("TOML", HASH),
@@ -46,7 +47,7 @@ LANGS = {
     ".md": ("Markdown", ((), (), ())),
 }
 
-BY_NAME = {"Makefile": ("Make", HASH)}
+BY_NAME = {"justfile": ("Just", HASH)}
 
 DOCS = {"Markdown"}
 
