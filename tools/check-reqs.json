@@ -57,8 +57,7 @@
         {"label": "Python Pango module: Pycairo", "kind": "python_module", "module": "cairo"},
         {"label": "Python Pango module: PyGObject", "kind": "python_module", "module": "gi"},
         {"label": "SVG rasterizer", "kind": "any_command", "commands": ["rsvg-convert"]},
-        {"label": "SVG rasterizer fallback", "kind": "python_module", "module": "cairosvg"},
-        {"label": "Emoji font", "kind": "font_match", "value": "Noto Color Emoji"}
+        {"label": "SVG rasterizer fallback", "kind": "python_module", "module": "cairosvg"}
       ]
     }
   ]

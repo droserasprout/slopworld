@@ -11,7 +11,7 @@ Process:
 
 Output: mod/Textures/SlopWorld/SlopWorld_icon.png (128x128 RGBA).
 
-The tool requires NumPy, Pillow, pycairo, Pango, and Noto Color Emoji.
+The tool requires NumPy, Pillow, pycairo, Pango, and Fontconfig; Noto Color Emoji is bundled.
 """
 import os
 import sys
@@ -150,11 +150,8 @@ def draw_robot():
 
 def render_rose_png(target_h, out_path):
     """Render 🥀 via PangoCairo, save as a standalone RGBA PNG at target_h high."""
-    import gi
-    gi.require_version('Pango', '1.0')
-    gi.require_version('PangoCairo', '1.0')
-    from gi.repository import Pango, PangoCairo
-    import cairo
+    import emoji
+    cairo, Pango, PangoCairo = emoji._cairo()
 
     # Probe at 64pt to find the right pt size for target_h
     probe_pt = 64

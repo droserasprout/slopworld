@@ -5,7 +5,7 @@ Usage: python3 tools/assets/emoji.py --emoji 🏆 --name trophy [--size 32] [--o
        python3 tools/assets/emoji.py --emoji 🏆 --name trophy --emoji 🎯 --name target
        python3 tools/assets/emoji.py --emoji 📻 --name Jukebox --size 128 --color
 
-The tool renders each emoji from Noto Color Emoji through PangoCairo.
+The tool renders each emoji from bundled Noto Color Emoji through PangoCairo.
 It writes each result to <out>/<name>.png.
 For monochrome output, the tool keeps the glyph alpha and sets each RGB channel to white.
 The caller can then tint the icon like other procedural icons.
@@ -21,31 +21,34 @@ The tool centers the content because Pango positions a glyph from its ink origin
 """
 
 import argparse
+from functools import lru_cache
 import os
 import sys
 
 import numpy as np
 from PIL import Image
 
+import emoji_font
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 DEFAULT_OUT = os.path.join(ROOT, "mod", "Textures", "SlopWorld", "FileIcons")
-
-# Find the color emoji font by name so a missing font causes an error.
-# Try common alternative names before reporting the error.
-EMOJI_FONTS = ["Noto Color Emoji", "NotoColorEmoji", "EmojiOne Color"]
 
 # Set the probe edge and the margin around the glyph bounds.
 PROBE = 256
 BREATHE = 1.08
 
 
+@lru_cache(maxsize=1)
 def _cairo():
     import cairo  # deferred: only needed when actually baking
     import gi
     gi.require_version("Pango", "1.0")
     gi.require_version("PangoCairo", "1.0")
     from gi.repository import Pango, PangoCairo
+    emoji_font.configure_font()
+    # A fresh map avoids any fonts cached before the private configuration.
+    PangoCairo.FontMap.set_default(PangoCairo.FontMap.new())
     return cairo, Pango, PangoCairo
 
 
@@ -58,16 +61,7 @@ def render(emoji, size):
 
     layout = PangoCairo.create_layout(ctx)
     layout.set_text(emoji, -1)
-    desc = None
-    for name in EMOJI_FONTS:
-        fd = Pango.FontDescription.from_string(f"{name} {size // 2}")
-        layout.set_font_description(fd)
-        # Check whether Pango found this font. If not, try the next name.
-        if Pango.FontDescription.get_family(fd):
-            desc = fd
-            break
-    if desc is None:
-        desc = Pango.FontDescription.from_string(f"{EMOJI_FONTS[0]} {size // 2}")
+    desc = Pango.FontDescription.from_string(f"{emoji_font.FAMILY} {size // 2}")
     layout.set_font_description(desc)
 
     ink, _logical = layout.get_pixel_extents()
