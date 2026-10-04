@@ -16,6 +16,10 @@ namespace SlopWorld
     // popovers and other window-local controls must request Local deliberately.
     public static class RowChrome
     {
+        // The host supplies overlay input policy. Window-local controls keep their native
+        // hit test; shared rows do not need to know which map or workspace owns them.
+        public static System.Func<Rect, bool> OverlayHitTest { get; set; } = Mouse.IsOver;
+
         public static bool Hover(Rect rect, bool selected, bool enabled,
                                  RowHoverPolicy hoverPolicy,
                                  RowSelectionStyle selectionStyle = RowSelectionStyle.Standard)
@@ -51,7 +55,7 @@ namespace SlopWorld
             switch (policy)
             {
                 case RowHoverPolicy.OverlayAware:
-                    return ColonistBarStrip.SidebarHover(rect);
+                    return OverlayHitTest(rect);
                 case RowHoverPolicy.Local:
                     return Mouse.IsOver(rect);
                 default:

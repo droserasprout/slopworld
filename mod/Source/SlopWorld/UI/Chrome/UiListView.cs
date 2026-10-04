@@ -19,7 +19,9 @@ namespace SlopWorld
 
         protected abstract void DrawRow(Rect r, T item);
 
-        protected abstract void DoFooter(Rect bar, SessionHub hub);
+        protected abstract void DoFooter(Rect bar);
+
+        protected virtual void DrawHeader(Rect rect) => UiLayout.Title(rect, Title);
 
         public override void Opened() { }
 
@@ -27,20 +29,18 @@ namespace SlopWorld
 
         public override void Draw(Rect rect)
         {
-            var hub = SessionHub.Instance;
-
             float top = rect.y + UiTheme.HeaderH + UiTheme.GapS;
             float foot = UiTheme.BtnH + UiTheme.GapS;
             var body = new Rect(rect.x, top, rect.width, rect.yMax - foot - top);
             if (_scroll.HandleWheel(body, _contentHeight)) return;
-            UiLayout.Header(rect, Title, hub);
-            DrawList(body, hub);
+            DrawHeader(rect);
+            DrawList(body);
 
             DoFooter(new Rect(rect.x, rect.yMax - UiTheme.BtnH, rect.width,
-                UiTheme.BtnH), hub);
+                UiTheme.BtnH));
         }
 
-        void DrawList(Rect rect, SessionHub hub)
+        void DrawList(Rect rect)
         {
             var items = Rows;
             float contentH = _contentHeight = items.Count * RowH + UiTheme.GapXS;
@@ -52,9 +52,8 @@ namespace SlopWorld
                 if (SmoothScroll.WheelOnly) return;
                 if (items.Count == 0)
                 {
-                    string note = hub.Online ? EmptyNote : UiLayout.Unreachable;
                     UiText.PlainStatusLabel(new Rect(UiTheme.GapXS, UiTheme.GapS,
-                            geometry.View.width - UiTheme.GapS, geometry.View.height), note,
+                            geometry.View.width - UiTheme.GapS, geometry.View.height), EmptyNote,
                         UiTheme.Dim);
                 }
 

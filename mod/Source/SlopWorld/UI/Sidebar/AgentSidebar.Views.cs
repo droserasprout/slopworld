@@ -336,7 +336,7 @@ namespace SlopWorld
             }
         }
 
-        static RowAct RoutedAction(SessionInfo info) => RowActions.Of(info);
+        static RowAct RoutedAction(SessionInfo info) => SessionRowAction.Of(info);
 
         public static bool IsRouted(SessionInfo info)
         {

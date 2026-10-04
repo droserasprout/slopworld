@@ -1,3 +1,5 @@
-## main
+# Changelog
 
-## 20260827
+## [0.1.0] - ????-??-??
+
+Initial release.

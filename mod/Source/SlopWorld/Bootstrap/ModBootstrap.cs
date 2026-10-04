@@ -20,6 +20,9 @@ namespace SlopWorld
                 return;
             }
 
+            UiClipboard.Provider = new DaemonUiClipboard();
+            RowChrome.OverlayHitTest = ColonistBarStrip.SidebarHover;
+
             var h = new Harmony("io.drsr.slopworld");
             try
             {

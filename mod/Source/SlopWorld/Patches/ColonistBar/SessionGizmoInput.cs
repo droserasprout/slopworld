@@ -59,7 +59,7 @@ namespace SlopWorld
 
         static bool MapActionStripVisible()
         {
-            if (!SessionSelectable.HasCurrent || !UiLayout.Shown || UiLayout.Hidden
+            if (!SessionSelectable.HasCurrent || !WorkspaceVisibility.Shown || WorkspaceVisibility.Hidden
                 || TerminalWindow.Covering)
                 return false;
 

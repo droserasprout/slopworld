@@ -25,7 +25,7 @@ namespace SlopWorld
         internal static bool TryPanelShape(out int cols, out int rows)
         {
             cols = rows = 0;
-            if (!UiLayout.Shown || UI.screenWidth <= 0 || UI.screenHeight <= 0) return false;
+            if (!WorkspaceVisibility.Shown || UI.screenWidth <= 0 || UI.screenHeight <= 0) return false;
             var style = TerminalFont.Style;
             if (style == null) return false;
             var content = WorkspaceLayout.Current.Content;

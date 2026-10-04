@@ -21,14 +21,21 @@ namespace SlopWorld
         // line heights.
         protected override float RowH => UiListRow.TwoLineH;
 
-        protected override string EmptyNote =>
-            "No projects yet. Add one, then put an agent in it.";
+        protected override string EmptyNote => SessionHub.Instance.Online
+            ? "No projects yet. Add one, then put an agent in it."
+            : "Daemon unreachable. Is slopd running?  systemctl --user status slopd";
+
+        protected override void DrawHeader(Rect rect)
+        {
+            var hub = SessionHub.Instance;
+            UiLayout.Header(rect, Title, $"{DaemonClient.BaseUrl} - {hub.Status}", hub.Online);
+        }
 
         protected override IList<ProjectInfo> Rows => SessionHub.Instance.Projects;
 
         readonly ProjectSessionCounts _counts = new ProjectSessionCounts();
 
-        protected override void DoFooter(Rect bar, SessionHub hub)
+        protected override void DoFooter(Rect bar)
         {
             var row = new UiLayout.Bar(bar);
 
@@ -36,7 +43,7 @@ namespace SlopWorld
                 TerminalWindow.OpenOverPane(new EditProjectDialog(null));
 
             if (row.Right("Reload", UiTheme.Btn.Ghost))
-                hub.Catalog.RefreshProjects(UiLayout.Fail);
+                SessionHub.Instance.Catalog.RefreshProjects(UiLayout.Fail);
         }
 
         protected override void DrawRow(Rect r, ProjectInfo p)

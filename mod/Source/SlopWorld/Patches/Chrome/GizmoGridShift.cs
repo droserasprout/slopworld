@@ -20,7 +20,7 @@ namespace SlopWorld
         static void Prefix(out bool __state)
         {
             __state = Active;
-            Active = UiLayout.Shown;
+            Active = WorkspaceVisibility.Shown;
         }
 
         static void Finalizer(bool __state)

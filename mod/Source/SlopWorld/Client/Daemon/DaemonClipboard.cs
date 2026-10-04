@@ -113,4 +113,29 @@ namespace SlopWorld
             Primary.Copy(text, ok, fail);
         }
     }
+
+    // Installs the daemon-backed clipboard for shared fields. Capability and transport
+    // decisions belong here; the UI retains focus and delayed-edit lifetime checks.
+    internal sealed class DaemonUiClipboard : IUiClipboard
+    {
+        public void Copy(string text, bool primary)
+        {
+            if (primary) DaemonClipboard.CopyPrimary(text);
+            else DaemonClipboard.Copy(text);
+        }
+
+        public void Read(bool primary, Action<string> receive)
+        {
+            if (!SessionHub.Instance.Capabilities.Clipboard)
+            {
+                if (!primary) receive(GUIUtility.systemCopyBuffer);
+                return;
+            }
+
+            string path = primary ? WireProtocol.Routes.ClipboardPrimaryText : WireProtocol.Routes.ClipboardText;
+            DaemonClient.Get<Wire.TextResult>(path, value => receive(value.Text),
+                _ => { if (!primary) receive(GUIUtility.systemCopyBuffer); });
+        }
+    }
+
 }
