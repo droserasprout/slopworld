@@ -109,7 +109,7 @@ impl Iterator for Ring {
                     // the accounting saturating without adding work to every sample callback.
                     match self
                         .queued
-                        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+                        .try_update(Ordering::AcqRel, Ordering::Acquire, |n| {
                             Some(n.saturating_sub(len))
                         }) {
                         Ok(_) | Err(_) => {}
