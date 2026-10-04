@@ -11,3 +11,6 @@ paragraphs. User-procedure ownership belongs to [human documentation](docs-human
 
 Source comments stay beside the code they explain; see [house rules](core-house-rules.md).
 Note cleanup and plan retention belong to the [note policy](README.md).
+
+Prose is a liability: every sentence needs to earn its upkeep. Remove stale prose when
+the behavior changes.
