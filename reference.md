@@ -29,20 +29,20 @@ It does not read or write environment values.
 | `NO_PROXY` | [`slopd/src/test_support.rs:56`](./slopd/src/test_support.rs#L56) |
 | `OPENROUTER_API_KEY` | [`slopd/src/title/mod.rs:81`](./slopd/src/title/mod.rs#L81), [`slopd/src/usage/providers.rs:261`](./slopd/src/usage/providers.rs#L261) |
 | `OUT_DIR` | [`slopd/src/shared/mod.rs:10`](./slopd/src/shared/mod.rs#L10) |
-| `PATH` | [`mod/Source/SlopWorld/UI/Settings/BinariesPage.cs:427`](./mod/Source/SlopWorld/UI/Settings/BinariesPage.cs#L427), [`slopd/src/runtime.rs:71`](./slopd/src/runtime.rs#L71), [`slopd/src/runtime.rs:135`](./slopd/src/runtime.rs#L135), [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16), [`slopd/src/sandbox/mod.rs:230`](./slopd/src/sandbox/mod.rs#L230), [`slopd/src/tmux/server_tests.rs:7`](./slopd/src/tmux/server_tests.rs#L7), [`slopd/src/worktrees/mod.rs:276`](./slopd/src/worktrees/mod.rs#L276), [`slopd/tests/slopctl_logs.rs:30`](./slopd/tests/slopctl_logs.rs#L30) |
+| `PATH` | [`mod/Source/SlopWorld/UI/Settings/BinariesPage.cs:427`](./mod/Source/SlopWorld/UI/Settings/BinariesPage.cs#L427), [`slopd/src/runtime.rs:71`](./slopd/src/runtime.rs#L71), [`slopd/src/runtime.rs:136`](./slopd/src/runtime.rs#L136), [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16), [`slopd/src/sandbox/mod.rs:230`](./slopd/src/sandbox/mod.rs#L230), [`slopd/src/tmux/server_tests.rs:7`](./slopd/src/tmux/server_tests.rs#L7), [`slopd/src/worktrees/mod.rs:276`](./slopd/src/worktrees/mod.rs#L276), [`slopd/tests/slopctl_logs.rs:30`](./slopd/tests/slopctl_logs.rs#L30) |
 | `PULSE_SERVER` | [`slopd/src/session/manager/music/ncspot.rs:28`](./slopd/src/session/manager/music/ncspot.rs#L28) |
 | `SHELL` | [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16), [`slopd/src/sandbox/bind/mounts.rs:215`](./slopd/src/sandbox/bind/mounts.rs#L215), [`slopd/src/sandbox/host.rs:28`](./slopd/src/sandbox/host.rs#L28) |
-| `SLOPCAR_PROFILE` | [`slopd/src/bin/slopworld.rs:342`](./slopd/src/bin/slopworld.rs#L342), [`slopd/src/bin/slopworld.rs:380`](./slopd/src/bin/slopworld.rs#L380) |
+| `SLOPCAR_PROFILE` | [`slopd/src/bin/slopworld.rs:332`](./slopd/src/bin/slopworld.rs#L332), [`slopd/src/bin/slopworld.rs:370`](./slopd/src/bin/slopworld.rs#L370) |
 | `SLOPD_CACHE` | [`slopd/src/paths.rs:185`](./slopd/src/paths.rs#L185), [`slopd/src/test_support.rs:54`](./slopd/src/test_support.rs#L54) |
 | `SLOPD_CONFIG` | [`slopd/src/config/persistence.rs:77`](./slopd/src/config/persistence.rs#L77) |
 | `SLOPD_CREDITS_URL` | [`slopd/src/usage/providers.rs:33`](./slopd/src/usage/providers.rs#L33) |
-| `SLOPD_ENDPOINT` | [`mod/Source/SlopWorld/Client/Daemon/Endpoint.cs:53`](./mod/Source/SlopWorld/Client/Daemon/Endpoint.cs#L53), [`mod/Tests/EndpointTests.cs:22`](./mod/Tests/EndpointTests.cs#L22), [`mod/Tests/EndpointTests.cs:46`](./mod/Tests/EndpointTests.cs#L46), [`mod/Tests/EndpointTests.cs:80`](./mod/Tests/EndpointTests.cs#L80), [`slopd/src/bin/slopctl/http.rs:27`](./slopd/src/bin/slopctl/http.rs#L27), [`slopd/src/bin/slopworld.rs:381`](./slopd/src/bin/slopworld.rs#L381), [`slopd/src/bin/slopworld.rs:171`](./slopd/src/bin/slopworld.rs#L171), [`slopd/src/endpoint.rs:25`](./slopd/src/endpoint.rs#L25) (+1 more) |
+| `SLOPD_ENDPOINT` | [`mod/Source/SlopWorld/Client/Daemon/Endpoint.cs:53`](./mod/Source/SlopWorld/Client/Daemon/Endpoint.cs#L53), [`mod/Tests/EndpointTests.cs:22`](./mod/Tests/EndpointTests.cs#L22), [`mod/Tests/EndpointTests.cs:46`](./mod/Tests/EndpointTests.cs#L46), [`mod/Tests/EndpointTests.cs:80`](./mod/Tests/EndpointTests.cs#L80), [`slopd/src/bin/slopctl/http.rs:27`](./slopd/src/bin/slopctl/http.rs#L27), [`slopd/src/bin/slopworld.rs:371`](./slopd/src/bin/slopworld.rs#L371), [`slopd/src/bin/slopworld.rs:174`](./slopd/src/bin/slopworld.rs#L174), [`slopd/src/endpoint.rs:25`](./slopd/src/endpoint.rs#L25) (+1 more) |
 | `SLOPD_GIT_EXEC_TEST_CHILD` | [`slopd/src/api/ws/tests.rs:18`](./slopd/src/api/ws/tests.rs#L18), [`slopd/src/bin/slopctl/format_tests.rs:23`](./slopd/src/bin/slopctl/format_tests.rs#L23), [`slopd/src/git/exec_tests.rs:6`](./slopd/src/git/exec_tests.rs#L6) |
 | `SLOPD_ISOLATED_TEST` | [`slopd/src/test_support.rs:43`](./slopd/src/test_support.rs#L43), [`slopd/src/test_support.rs:89`](./slopd/src/test_support.rs#L89), [`slopd/src/test_support.rs:51`](./slopd/src/test_support.rs#L51) |
 | `SLOPD_LOG` | [`slopd/slopd.service:12`](./slopd/slopd.service#L12) |
 | `SLOPD_OPENAI_USAGE_URL` | [`slopd/src/usage/providers.rs:37`](./slopd/src/usage/providers.rs#L37) |
 | `SLOPD_PRESETS` | [`slopd/src/api/handlers/presets.rs:172`](./slopd/src/api/handlers/presets.rs#L172), [`slopd/src/presets/edit_tests.rs:22`](./slopd/src/presets/edit_tests.rs#L22), [`slopd/src/presets/edit_tests.rs:44`](./slopd/src/presets/edit_tests.rs#L44) |
-| `SLOPD_RUNTIME` | [`slopd/src/runtime.rs:40`](./slopd/src/runtime.rs#L40), [`slopd/src/runtime.rs:167`](./slopd/src/runtime.rs#L167), [`slopd/src/runtime_tests.rs:78`](./slopd/src/runtime_tests.rs#L78) |
+| `SLOPD_RUNTIME` | [`slopd/src/runtime.rs:40`](./slopd/src/runtime.rs#L40), [`slopd/src/runtime.rs:168`](./slopd/src/runtime.rs#L168), [`slopd/src/runtime_tests.rs:78`](./slopd/src/runtime_tests.rs#L78) |
 | `SLOPD_STATE` | [`slopd/src/test_support.rs:53`](./slopd/src/test_support.rs#L53) |
 | `SLOPD_TEST_ROOT` | [`slopd/src/test_support.rs:44`](./slopd/src/test_support.rs#L44), [`slopd/src/test_support.rs:52`](./slopd/src/test_support.rs#L52) |
 | `SLOPD_TITLE_URL` | [`slopd/src/title/mod.rs:76`](./slopd/src/title/mod.rs#L76) |
@@ -53,14 +53,14 @@ It does not read or write environment values.
 | `SLOPWORLD_BUILD_VERSION` | [`slopd/build.rs:15`](./slopd/build.rs#L15) |
 | `SLOPWORLD_DAEMON_UNIT` | [`slopd/src/bin/slopctl/logs/mod.rs:163`](./slopd/src/bin/slopctl/logs/mod.rs#L163), [`slopd/tests/slopctl_logs.rs:32`](./slopd/tests/slopctl_logs.rs#L32) |
 | `SLOPWORLD_DEBUG` | [`mod/Source/SlopWorld/Client/Diagnostics/PerfTrace.cs:35`](./mod/Source/SlopWorld/Client/Diagnostics/PerfTrace.cs#L35), [`mod/Source/SlopWorld/Client/Diagnostics/TerminalLatency.cs:17`](./mod/Source/SlopWorld/Client/Diagnostics/TerminalLatency.cs#L17), [`slopd/src/perf.rs:25`](./slopd/src/perf.rs#L25) |
-| `SLOPWORLD_GAME` | [`slopd/presets/slopworld-debug.toml:23`](./slopd/presets/slopworld-debug.toml#L23), [`slopd/src/bin/slopworld.rs:265`](./slopd/src/bin/slopworld.rs#L265) |
+| `SLOPWORLD_GAME` | [`slopd/presets/slopworld-debug.toml:23`](./slopd/presets/slopworld-debug.toml#L23), [`slopd/src/bin/slopworld.rs:276`](./slopd/src/bin/slopworld.rs#L276) |
 | `SLOPWORLD_GAME_LOG` | [`slopd/src/bin/slopctl/logs/mod.rs:141`](./slopd/src/bin/slopctl/logs/mod.rs#L141), [`slopd/tests/slopctl_logs.rs:31`](./slopd/tests/slopctl_logs.rs#L31) |
 | `SLOPWORLD_PI_TITLES` | [`slopd/src/sandbox/bind/mounts.rs:225`](./slopd/src/sandbox/bind/mounts.rs#L225) |
-| `SLOPWORLD_PROFILE` | [`slopd/presets/slopworld-debug.toml:18`](./slopd/presets/slopworld-debug.toml#L18), [`slopd/src/bin/slopworld.rs:343`](./slopd/src/bin/slopworld.rs#L343) |
+| `SLOPWORLD_PROFILE` | [`slopd/presets/slopworld-debug.toml:18`](./slopd/presets/slopworld-debug.toml#L18), [`slopd/src/bin/slopworld.rs:333`](./slopd/src/bin/slopworld.rs#L333) |
 | `SLOPWORLD_PROJECT` | [`slopd/src/sandbox/bind/mounts.rs:167`](./slopd/src/sandbox/bind/mounts.rs#L167) |
 | `SLOPWORLD_SESSION` | [`slopd/src/bin/slopctl.rs:80`](./slopd/src/bin/slopctl.rs#L80), [`slopd/src/sandbox/bind/mounts.rs:166`](./slopd/src/sandbox/bind/mounts.rs#L166) |
 | `SLOPWORLD_TASK_ID` | [`slopd/src/bin/slopctl/commands/task.rs:451`](./slopd/src/bin/slopctl/commands/task.rs#L451), [`slopd/src/sandbox/bind/mounts.rs:169`](./slopd/src/sandbox/bind/mounts.rs#L169) |
-| `SLOPWORLD_VERSION` | [`slopd/src/api/handlers/sessions.rs:16`](./slopd/src/api/handlers/sessions.rs#L16), [`slopd/src/bin/slopworld.rs:93`](./slopd/src/bin/slopworld.rs#L93), [`slopd/src/title/mod.rs:177`](./slopd/src/title/mod.rs#L177), [`slopd/src/usage/providers.rs:23`](./slopd/src/usage/providers.rs#L23), [`slopd/src/usage/providers.rs:283`](./slopd/src/usage/providers.rs#L283), [`slopd/src/usage/providers.rs:299`](./slopd/src/usage/providers.rs#L299) |
+| `SLOPWORLD_VERSION` | [`slopd/src/api/handlers/sessions.rs:16`](./slopd/src/api/handlers/sessions.rs#L16), [`slopd/src/bin/slopworld.rs:96`](./slopd/src/bin/slopworld.rs#L96), [`slopd/src/title/mod.rs:177`](./slopd/src/title/mod.rs#L177), [`slopd/src/usage/providers.rs:23`](./slopd/src/usage/providers.rs#L23), [`slopd/src/usage/providers.rs:283`](./slopd/src/usage/providers.rs#L283), [`slopd/src/usage/providers.rs:299`](./slopd/src/usage/providers.rs#L299) |
 | `SSH_AUTH_SOCK` | [`slopd/presets/ssh-agent.toml:5`](./slopd/presets/ssh-agent.toml#L5) |
 | `TERM` | [`slopd/src/sandbox/bind/mounts.rs:175`](./slopd/src/sandbox/bind/mounts.rs#L175) |
 | `TMUX_TEST_LOG` | [`slopd/src/tmux/server_tests.rs:8`](./slopd/src/tmux/server_tests.rs#L8) |
@@ -69,10 +69,10 @@ It does not read or write environment values.
 | `WAYLAND_DISPLAY` | [`slopd/presets/wayland.toml:4`](./slopd/presets/wayland.toml#L4) |
 | `XAUTHORITY` | [`slopd/presets/x11.toml:1`](./slopd/presets/x11.toml#L1), [`slopd/presets/x11.toml:7`](./slopd/presets/x11.toml#L7) |
 | `XDG_CACHE_HOME` | [`mod/Source/SlopWorld/UI/MenuBackground/MenuBackgroundBake.cs:64`](./mod/Source/SlopWorld/UI/MenuBackground/MenuBackgroundBake.cs#L64) |
-| `XDG_CONFIG_HOME` | [`mod/Source/SlopWorld/Client/Daemon/Endpoint.cs:56`](./mod/Source/SlopWorld/Client/Daemon/Endpoint.cs#L56), [`mod/Tests/EndpointTests.cs:81`](./mod/Tests/EndpointTests.cs#L81) |
+| `XDG_CONFIG_HOME` | [`mod/Source/SlopWorld/Client/Daemon/Endpoint.cs:56`](./mod/Source/SlopWorld/Client/Daemon/Endpoint.cs#L56), [`mod/Tests/EndpointTests.cs:81`](./mod/Tests/EndpointTests.cs#L81), [`slopd/src/bin/slopworld/game_config.rs:17`](./slopd/src/bin/slopworld/game_config.rs#L17) |
 | `XDG_CURRENT_DESKTOP` | [`slopd/src/clipboard.rs:127`](./slopd/src/clipboard.rs#L127) |
 | `XDG_DATA_DIRS` | [`slopd/src/session/manager/desktop.rs:211`](./slopd/src/session/manager/desktop.rs#L211) |
-| `XDG_DATA_HOME` | [`mod/Source/SlopWorld/Sim/Jukebox/Radio.cs:320`](./mod/Source/SlopWorld/Sim/Jukebox/Radio.cs#L320), [`slopd/presets/slopworld-debug.toml:19`](./slopd/presets/slopworld-debug.toml#L19), [`slopd/presets/slopworld-debug.toml:50`](./slopd/presets/slopworld-debug.toml#L50), [`slopd/presets/slopworld-debug.toml:51`](./slopd/presets/slopworld-debug.toml#L51), [`slopd/src/bin/slopworld.rs:344`](./slopd/src/bin/slopworld.rs#L344), [`slopd/src/session/manager/desktop.rs:202`](./slopd/src/session/manager/desktop.rs#L202) |
+| `XDG_DATA_HOME` | [`mod/Source/SlopWorld/Sim/Jukebox/Radio.cs:320`](./mod/Source/SlopWorld/Sim/Jukebox/Radio.cs#L320), [`slopd/presets/slopworld-debug.toml:19`](./slopd/presets/slopworld-debug.toml#L19), [`slopd/presets/slopworld-debug.toml:50`](./slopd/presets/slopworld-debug.toml#L50), [`slopd/presets/slopworld-debug.toml:51`](./slopd/presets/slopworld-debug.toml#L51), [`slopd/src/bin/slopworld.rs:334`](./slopd/src/bin/slopworld.rs#L334), [`slopd/src/session/manager/desktop.rs:202`](./slopd/src/session/manager/desktop.rs#L202) |
 | `XDG_RUNTIME_DIR` | [`slopd/presets/audio.toml:4`](./slopd/presets/audio.toml#L4), [`slopd/presets/dbus.toml:6`](./slopd/presets/dbus.toml#L6), [`slopd/presets/podman.toml:5`](./slopd/presets/podman.toml#L5), [`slopd/presets/systemd.toml:7`](./slopd/presets/systemd.toml#L7), [`slopd/presets/systemd.toml:10`](./slopd/presets/systemd.toml#L10), [`slopd/presets/wayland.toml:4`](./slopd/presets/wayland.toml#L4), [`slopd/presets/x11.toml:1`](./slopd/presets/x11.toml#L1), [`slopd/src/bin/slopworld/instance.rs:65`](./slopd/src/bin/slopworld/instance.rs#L65) |
 
 ### Dynamic environment handling
@@ -188,11 +188,27 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 
 | Tool | Invocation | Source |
 | --- | --- | --- |
+| `just` | `just --justfile mac/justfile all` | [`mac/justfile:31`](./mac/justfile#L31) |
+| `just` | `just --justfile mac/justfile build` | [`mac/justfile:36`](./mac/justfile#L36) |
+| `just` | `just --justfile mac/justfile check` | [`mac/justfile:86`](./mac/justfile#L86) |
+| `just` | `just --justfile mac/justfile docker-check` | [`mac/justfile:76`](./mac/justfile#L76) |
+| `just` | `just --justfile mac/justfile doctor` | [`mac/justfile:41`](./mac/justfile#L41) |
+| `just` | `just --justfile mac/justfile game-check` | [`mac/justfile:81`](./mac/justfile#L81) |
+| `just` | `just --justfile mac/justfile help` | [`mac/justfile:6`](./mac/justfile#L6) |
+| `just` | `just --justfile mac/justfile install` | [`mac/justfile:17`](./mac/justfile#L17) |
+| `just` | `just --justfile mac/justfile logs` | [`mac/justfile:66`](./mac/justfile#L66) |
+| `just` | `just --justfile mac/justfile mod` | [`mac/justfile:90`](./mac/justfile#L90) |
+| `just` | `just --justfile mac/justfile profile` | [`mac/justfile:95`](./mac/justfile#L95) |
+| `just` | `just --justfile mac/justfile run` | [`mac/justfile:22`](./mac/justfile#L22) |
+| `just` | `just --justfile mac/justfile setup` | [`mac/justfile:71`](./mac/justfile#L71) |
+| `just` | `just --justfile mac/justfile start` | [`mac/justfile:51`](./mac/justfile#L51) |
+| `just` | `just --justfile mac/justfile status` | [`mac/justfile:61`](./mac/justfile#L61) |
+| `just` | `just --justfile mac/justfile stop` | [`mac/justfile:56`](./mac/justfile#L56) |
 | `just` | `just all` | [`just/popular.just:3`](./just/popular.just#L3) |
-| `just` | `just api-contract` | [`just/generate.just:3`](./just/generate.just#L3) |
-| `just` | `just api-docs` | [`just/generate.just:11`](./just/generate.just#L11) |
-| `just` | `just bake-icons` | [`just/generate.just:31`](./just/generate.just#L31) |
-| `just` | `just bake-loading-font` | [`just/generate.just:21`](./just/generate.just#L21) |
+| `just` | `just api-contract` | [`just/generate.just:8`](./just/generate.just#L8) |
+| `just` | `just api-docs` | [`just/generate.just:13`](./just/generate.just#L13) |
+| `just` | `just bake-icons` | [`just/generate.just:33`](./just/generate.just#L33) |
+| `just` | `just bake-loading-font` | [`just/generate.just:23`](./just/generate.just#L23) |
 | `just` | `just bench` | [`just/popular.just:23`](./just/popular.just#L23) |
 | `just` | `just bench-daemon` | [`just/bench.just:3`](./just/bench.just#L3) |
 | `just` | `just bench-ipc` | [`just/bench.just:13`](./just/bench.just#L13) |
@@ -202,14 +218,16 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 | `just` | `just bench-terminal` | [`just/bench.just:33`](./just/bench.just#L33) |
 | `just` | `just bench-terminal-typing` | [`just/bench.just:38`](./just/bench.just#L38) |
 | `just` | `just check-format-csharp` | [`just/quality.just:17`](./just/quality.just#L17) |
-| `just` | `just check-generated` | [`just/generate.just:26`](./just/generate.just#L26) |
+| `just` | `just check-format-daemon` | [`just/quality.just:22`](./just/quality.just#L22) |
+| `just` | `just check-generated` | [`just/generate.just:28`](./just/generate.just#L28) |
+| `just` | `just check-licenses` | [`just/build.just:27`](./just/build.just#L27) |
 | `just` | `just check-reqs` | [`just/misc.just:22`](./just/misc.just#L22) |
 | `just` | `just ci` | [`just/popular.just:19`](./just/popular.just#L19) |
-| `just` | `just clean` | [`just/build.just:27`](./just/build.just#L27) |
-| `just` | `just coverage` | [`just/test.just:43`](./just/test.just#L43) |
-| `just` | `just coverage-daemon` | [`just/test.just:47`](./just/test.just#L47) |
-| `just` | `just coverage-mod` | [`just/test.just:52`](./just/test.just#L52) |
-| `just` | `just coverage-summary` | [`just/test.just:57`](./just/test.just#L57) |
+| `just` | `just clean` | [`just/build.just:37`](./just/build.just#L37) |
+| `just` | `just coverage` | [`just/test.just:47`](./just/test.just#L47) |
+| `just` | `just coverage-daemon` | [`just/test.just:51`](./just/test.just#L51) |
+| `just` | `just coverage-mod` | [`just/test.just:56`](./just/test.just#L56) |
+| `just` | `just coverage-summary` | [`just/test.just:61`](./just/test.just#L61) |
 | `just` | `just daemon` | [`just/build.just:3`](./just/build.just#L3) |
 | `just` | `just devloop` | [`just/misc.just:42`](./just/misc.just#L42) |
 | `just` | `just docs` | [`just/misc.just:32`](./just/misc.just#L32) |
@@ -226,44 +244,32 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 | `just` | `just install-mod` | [`just/install.just:15`](./just/install.just#L15) |
 | `just` | `just install-runner` | [`just/install.just:9`](./just/install.just#L9) |
 | `just` | `just lint` | [`just/popular.just:11`](./just/popular.just#L11) |
-| `just` | `just lint-daemon` | [`just/quality.just:24`](./just/quality.just#L24) |
-| `just` | `just lint-mod` | [`just/quality.just:30`](./just/quality.just#L30) |
+| `just` | `just lint-daemon` | [`just/quality.just:29`](./just/quality.just#L29) |
+| `just` | `just lint-mod` | [`just/quality.just:34`](./just/quality.just#L34) |
 | `just` | `just logs` | [`just/misc.just:3`](./just/misc.just#L3) |
-| `just` | `just mac` | [`just/macos.just:17`](./just/macos.just#L17) |
-| `just` | `just mac-build` | [`just/macos.just:22`](./just/macos.just#L22) |
-| `just` | `just mac-check` | [`just/macos.just:70`](./just/macos.just#L70) |
-| `just` | `just mac-docker-check` | [`just/macos.just:60`](./just/macos.just#L60) |
-| `just` | `just mac-doctor` | [`just/macos.just:26`](./just/macos.just#L26) |
-| `just` | `just mac-game-check` | [`just/macos.just:65`](./just/macos.just#L65) |
-| `just` | `just mac-install` | [`just/macos.just:3`](./just/macos.just#L3) |
-| `just` | `just mac-logs` | [`just/macos.just:50`](./just/macos.just#L50) |
-| `just` | `just mac-mod` | [`just/macos.just:74`](./just/macos.just#L74) |
-| `just` | `just mac-profile` | [`just/macos.just:79`](./just/macos.just#L79) |
-| `just` | `just mac-run` | [`just/macos.just:8`](./just/macos.just#L8) |
-| `just` | `just mac-setup` | [`just/macos.just:55`](./just/macos.just#L55) |
-| `just` | `just mac-start` | [`just/macos.just:35`](./just/macos.just#L35) |
-| `just` | `just mac-status` | [`just/macos.just:45`](./just/macos.just#L45) |
-| `just` | `just mac-stop` | [`just/macos.just:40`](./just/macos.just#L40) |
 | `just` | `just mod` | [`just/build.just:8`](./just/build.just#L8) |
 | `just` | `just mod-deps` | [`just/build.just:17`](./just/build.just#L17) |
 | `just` | `just pkg-arch` | [`just/misc.just:27`](./just/misc.just#L27) |
-| `just` | `just reference` | [`just/generate.just:16`](./just/generate.just#L16) |
+| `just` | `just reference` | [`just/generate.just:18`](./just/generate.just#L18) |
 | `just` | `just run` | [`just/popular.just:32`](./just/popular.just#L32) |
+| `just` | `just rust-licenses` | [`just/generate.just:3`](./just/generate.just#L3) |
 | `just` | `just sidecar-build` | [`just/sidecar.just:10`](./just/sidecar.just#L10) |
 | `just` | `just sidecar-devloop` | [`just/sidecar.just:20`](./just/sidecar.just#L20) |
 | `just` | `just sidecar-doctor` | [`just/sidecar.just:15`](./just/sidecar.just#L15) |
 | `just` | `just sidecar-run` | [`just/sidecar.just:3`](./just/sidecar.just#L3) |
+| `just` | `just stage-licenses` | [`just/build.just:22`](./just/build.just#L22) |
 | `just` | `just test` | [`just/popular.just:15`](./just/popular.just#L15) |
-| `just` | `just test-bench-report` | [`just/test.just:32`](./just/test.just#L32) |
-| `just` | `just test-daemon` | [`just/test.just:7`](./just/test.just#L7) |
-| `just` | `just test-mod` | [`just/test.just:12`](./just/test.just#L12) |
-| `just` | `just test-pager` | [`just/test.just:38`](./just/test.just#L38) |
-| `just` | `just test-recipes` | [`just/test.just:65`](./just/test.just#L65) |
-| `just` | `just test-reference` | [`just/test.just:70`](./just/test.just#L70) |
-| `just` | `just test-text-sprites` | [`just/test.just:27`](./just/test.just#L27) |
-| `just` | `just test-themes` | [`just/test.just:22`](./just/test.just#L22) |
+| `just` | `just test-bench-report` | [`just/test.just:36`](./just/test.just#L36) |
+| `just` | `just test-daemon` | [`just/test.just:11`](./just/test.just#L11) |
+| `just` | `just test-licenses` | [`just/test.just:7`](./just/test.just#L7) |
+| `just` | `just test-mod` | [`just/test.just:16`](./just/test.just#L16) |
+| `just` | `just test-pager` | [`just/test.just:42`](./just/test.just#L42) |
+| `just` | `just test-recipes` | [`just/test.just:69`](./just/test.just#L69) |
+| `just` | `just test-reference` | [`just/test.just:74`](./just/test.just#L74) |
+| `just` | `just test-text-sprites` | [`just/test.just:31`](./just/test.just#L31) |
+| `just` | `just test-themes` | [`just/test.just:26`](./just/test.just#L26) |
 | `just` | `just test-tools` | [`just/test.just:3`](./just/test.just#L3) |
-| `just` | `just test-wire-contract` | [`just/test.just:17`](./just/test.just#L17) |
+| `just` | `just test-wire-contract` | [`just/test.just:21`](./just/test.just#L21) |
 | `just` | `just trace-mod` | [`just/misc.just:11`](./just/misc.just#L11) |
 | `just` | `just trace-summary` | [`just/misc.just:17`](./just/misc.just#L17) |
 | `just` | `just uninstall` | [`just/install.just:20`](./just/install.just#L20) |
@@ -271,7 +277,7 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 | `just` | `just uninstall-font` | [`just/install.just:47`](./just/install.just#L47) |
 | `just` | `just uninstall-mod` | [`just/install.just:42`](./just/install.just#L42) |
 | `just` | `just uninstall-runner` | [`just/install.just:36`](./just/install.just#L36) |
-| `just` | `just validate-themes` | [`just/build.just:22`](./just/build.just#L22) |
+| `just` | `just validate-themes` | [`just/build.just:32`](./just/build.just#L32) |
 | `slopctl` | `&'static str,` | [`slopd/src/bin/slopctl/commands/mod.rs:71`](./slopd/src/bin/slopctl/commands/mod.rs#L71) |
 | `slopctl` | `slopctl agent create NAME --project PROJECT --template TEMPLATE [--start]` | [`slopd/src/bin/slopctl/commands/mod.rs:47`](./slopd/src/bin/slopctl/commands/mod.rs#L47) |
 | `slopctl` | `slopctl logs [game\|daemon\|all] [--lines N] [--follow]` | [`slopd/src/bin/slopctl/commands/mod.rs:57`](./slopd/src/bin/slopctl/commands/mod.rs#L57) |
@@ -286,25 +292,25 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 | `slopctl` | `slopctl worktree list --project PROJECT` | [`slopd/src/bin/slopctl/commands/mod.rs:50`](./slopd/src/bin/slopctl/commands/mod.rs#L50) |
 | `slopctl` | `slopctl worktree remove ID --project PROJECT` | [`slopd/src/bin/slopctl/commands/mod.rs:52`](./slopd/src/bin/slopctl/commands/mod.rs#L52) |
 | `slopctl` | `slopctl worktree rename ID --project PROJECT --name NAME` | [`slopd/src/bin/slopctl/commands/mod.rs:53`](./slopd/src/bin/slopctl/commands/mod.rs#L53) |
-| `slopworld` | `slopworld [options] [-- ] [game args...]` | [`slopd/src/bin/slopworld.rs:45`](./slopd/src/bin/slopworld.rs#L45) |
-| `slopworld` | `slopworld mod install --source MOD_SOURCE --mods GAME_MODS` | [`slopd/src/bin/slopworld/mod_install.rs:19`](./slopd/src/bin/slopworld/mod_install.rs#L19) |
-| `slopworld` | `slopworld mod uninstall --mods GAME_MODS` | [`slopd/src/bin/slopworld/mod_install.rs:20`](./slopd/src/bin/slopworld/mod_install.rs#L20) |
+| `slopworld` | `slopworld [options] [-- ] [game args...]` | [`slopd/src/bin/slopworld.rs:48`](./slopd/src/bin/slopworld.rs#L48) |
+| `slopworld` | `slopworld mod install --source MOD_SOURCE --mods GAME_MODS` | [`slopd/src/bin/slopworld/mod_install.rs:21`](./slopd/src/bin/slopworld/mod_install.rs#L21) |
+| `slopworld` | `slopworld mod uninstall --mods GAME_MODS` | [`slopd/src/bin/slopworld/mod_install.rs:22`](./slopd/src/bin/slopworld/mod_install.rs#L22) |
 
 ### Options
 
 | Tool | Option | Source |
 | --- | --- | --- |
-| `slopworld` | `--game DIR — RimWorld install (default $SLOPWORLD_GAME, then the usual places)` | [`slopd/src/bin/slopworld.rs:48`](./slopd/src/bin/slopworld.rs#L48) |
-| `slopworld` | `--game-exe FILE — explicit game executable (for native macOS app bundles)` | [`slopd/src/bin/slopworld.rs:49`](./slopd/src/bin/slopworld.rs#L49) |
-| `slopworld` | `--init-profile — create or repair the profile, then exit without starting the game` | [`slopd/src/bin/slopworld.rs:55`](./slopd/src/bin/slopworld.rs#L55) |
-| `slopworld` | `--mods DIR — mod directory to validate (required with a non-Linux game layout)` | [`slopd/src/bin/slopworld.rs:52`](./slopd/src/bin/slopworld.rs#L52) |
-| `slopworld` | `--no-window-fix — omit SlopWorld's default X11/OpenGL window arguments` | [`slopd/src/bin/slopworld.rs:60`](./slopd/src/bin/slopworld.rs#L60) |
-| `slopworld` | `--print — print the argv this would run, and run nothing` | [`slopd/src/bin/slopworld.rs:59`](./slopd/src/bin/slopworld.rs#L59) |
-| `slopworld` | `--profile DIR — save data folder to use or create` | [`slopd/src/bin/slopworld.rs:53`](./slopd/src/bin/slopworld.rs#L53) |
-| `slopworld` | `--reset — rewrite the profile's mod list, discarding what is there` | [`slopd/src/bin/slopworld.rs:57`](./slopd/src/bin/slopworld.rs#L57) |
-| `slopworld` | `--sidecar — use the sidecar UI default while initializing the profile` | [`slopd/src/bin/slopworld.rs:56`](./slopd/src/bin/slopworld.rs#L56) |
-| `slopworld` | `--version — print the embedded SlopWorld version` | [`slopd/src/bin/slopworld.rs:58`](./slopd/src/bin/slopworld.rs#L58) |
-| `slopworld` | `-h, --help — this` | [`slopd/src/bin/slopworld.rs:61`](./slopd/src/bin/slopworld.rs#L61) |
+| `slopworld` | `--game DIR — RimWorld install (default $SLOPWORLD_GAME, game.toml, then usual places)` | [`slopd/src/bin/slopworld.rs:51`](./slopd/src/bin/slopworld.rs#L51) |
+| `slopworld` | `--game-exe FILE — explicit game executable (for native macOS app bundles)` | [`slopd/src/bin/slopworld.rs:52`](./slopd/src/bin/slopworld.rs#L52) |
+| `slopworld` | `--init-profile — create or repair the profile, then exit without starting the game` | [`slopd/src/bin/slopworld.rs:58`](./slopd/src/bin/slopworld.rs#L58) |
+| `slopworld` | `--mods DIR — mod directory to validate (required with a non-Linux game layout)` | [`slopd/src/bin/slopworld.rs:55`](./slopd/src/bin/slopworld.rs#L55) |
+| `slopworld` | `--no-window-fix — omit SlopWorld's default X11/OpenGL window arguments` | [`slopd/src/bin/slopworld.rs:63`](./slopd/src/bin/slopworld.rs#L63) |
+| `slopworld` | `--print — print the argv this would run, and run nothing` | [`slopd/src/bin/slopworld.rs:62`](./slopd/src/bin/slopworld.rs#L62) |
+| `slopworld` | `--profile DIR — save data folder to use or create` | [`slopd/src/bin/slopworld.rs:56`](./slopd/src/bin/slopworld.rs#L56) |
+| `slopworld` | `--reset — rewrite the profile's mod list, discarding what is there` | [`slopd/src/bin/slopworld.rs:60`](./slopd/src/bin/slopworld.rs#L60) |
+| `slopworld` | `--sidecar — use the sidecar UI default while initializing the profile` | [`slopd/src/bin/slopworld.rs:59`](./slopd/src/bin/slopworld.rs#L59) |
+| `slopworld` | `--version — print the embedded SlopWorld version` | [`slopd/src/bin/slopworld.rs:61`](./slopd/src/bin/slopworld.rs#L61) |
+| `slopworld` | `-h, --help — this` | [`slopd/src/bin/slopworld.rs:64`](./slopd/src/bin/slopworld.rs#L64) |
 
 ## Scanner scope
 

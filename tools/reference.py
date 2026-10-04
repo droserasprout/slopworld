@@ -52,7 +52,7 @@ def tracked_files() -> list[Path]:
         ).splitlines()
     except (OSError, subprocess.CalledProcessError):
         names = []
-        for directory in (ROOT / "slopd", ROOT / "mod", ROOT / "notes", ROOT / "docs", ROOT / "just"):
+        for directory in (ROOT / "slopd", ROOT / "mod", ROOT / "notes", ROOT / "docs", ROOT / "just", ROOT / "mac"):
             names.extend(str(p.relative_to(ROOT)) for p in directory.rglob("*"))
         names.extend(["justfile", "README.md"])
 
@@ -266,7 +266,8 @@ def cli_inventory(files: dict[Path, str]) -> tuple[list[tuple[str, str, Hit]], l
     for path, text in files.items():
         if path.name == "justfile" or path.suffix == ".just":
             for match in re.finditer(r"^# ([^\n]+)\n(?:\[group\([^\n]*\)\]\n)*([A-Za-z0-9_.-]+):", text, re.MULTILINE):
-                commands.append(("just", f"just {match.group(2)}", hit(path, text, match.start(), match.group(0).strip())))
+                invocation = "just --justfile mac/justfile" if path == ROOT / "mac/justfile" else "just"
+                commands.append(("just", f"{invocation} {match.group(2)}", hit(path, text, match.start(), match.group(0).strip())))
 
         if path.suffix != ".rs" or "/bin/" not in str(path):
             continue

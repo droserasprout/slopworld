@@ -5,7 +5,8 @@ and agent sandboxes. The current worker depends on Linux Bubblewrap/pasta; a nat
 macOS worker would require a different runtime backend. Multi-architecture images
 support amd64/arm64, which does not itself establish platform validation.
 
-Workspace paths match on host/container. Container mount/security policy belongs to
+`mac/` owns the native macOS workflow through its separate justfile; shared
+container tooling remains in `slopcar/`. Workspace paths match on host/container. Container mount/security policy belongs to
 [slopcar](../slopcar/README.md), and setup/lifecycle to
 [macOS](../docs/src/guides/macos.md) and [sidecar](../docs/src/guides/sidecar.md).
 Container replacement ends tmux processes while persistent private state remains;

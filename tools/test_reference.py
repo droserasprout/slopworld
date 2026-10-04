@@ -3,7 +3,7 @@
 
 import unittest
 
-from reference import ROOT, env_inventory
+from reference import ROOT, cli_inventory, env_inventory
 
 
 class EnvironmentInventoryTests(unittest.TestCase):
@@ -36,6 +36,16 @@ class EnvironmentInventoryTests(unittest.TestCase):
         })
         self.assertEqual([item.path for item in names["SLOPD_ENDPOINT"]],
                          ["slopd/src/config.rs"])
+
+
+class CommandInventoryTests(unittest.TestCase):
+    def test_mac_commands_use_the_separate_justfile(self):
+        commands, _ = cli_inventory({
+            ROOT / "just/build.just": "# Build shared code\nmod:\n",
+            ROOT / "mac/justfile": "# Build the native mod\nmod:\n",
+        })
+        self.assertEqual({command for _, command, _ in commands},
+                         {"just mod", "just --justfile mac/justfile mod"})
 
 
 if __name__ == "__main__":
