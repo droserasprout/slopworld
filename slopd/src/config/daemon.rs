@@ -206,19 +206,21 @@ impl Default for Defaults {
 /// The client expands `{file}` and `{line}` where supported.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandDefaults {
-    /// Pager command. The client appends the file unless `{file}` is present.
+    /// Pager command, or `auto` to choose an installed tool on the daemon host.
+    /// The client appends the file unless `{file}` is present.
     #[serde(default = "default_pager")]
     pub pager: String,
     /// Editor command. The client appends the file unless `{file}` is present.
     #[serde(default = "default_editor")]
     pub editor: String,
-    /// Command used by less's LESSOPEN hook. `%s` is replaced by less with the file path.
+    /// Highlighter command, `auto` for installed tools, or empty to disable highlighting.
+    /// In less's LESSOPEN hook, `%s` is replaced by less with the file path.
     #[serde(default = "default_highlighter")]
     pub highlighter: String,
 }
 
 fn default_pager() -> String {
-    "less".into()
+    "auto".into()
 }
 
 fn default_editor() -> String {
@@ -226,7 +228,7 @@ fn default_editor() -> String {
 }
 
 fn default_highlighter() -> String {
-    "highlight --out-format=xterm256".into()
+    "auto".into()
 }
 
 impl Default for CommandDefaults {

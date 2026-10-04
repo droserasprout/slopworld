@@ -56,6 +56,16 @@ Worker configuration uses `[daemon.instructions].worker_prompt` and
 
 ## Applying changes
 
+**Appearance > Code** offers Auto for the pager and syntax highlighter. Auto is the
+default for new configurations and selects tools installed on the daemon host:
+
+- Pager: bat → less → more.
+- Highlighter: bat → Pygments (`pygmentize`) → highlight → plain text.
+
+Explicit tool and custom command choices stay fixed. Selecting Off disables the
+highlighter. When Auto selects bat as the pager, its child pager uses less or more;
+without either, bat prints directly. Save and restart active readers to apply a change.
+
 | Change | When it applies |
 | --- | --- |
 | Most profile, game, and audio controls | Live; preferences are saved automatically. |

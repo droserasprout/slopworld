@@ -1,6 +1,7 @@
 //! Configuration module, project/session lookups, and configured-path resolution.
 
 mod catalog;
+mod commands;
 mod daemon;
 mod library;
 mod model;
@@ -10,6 +11,7 @@ mod sandbox;
 mod transaction;
 mod validation;
 
+pub(crate) use commands::resolve_highlighter;
 pub use daemon::*;
 pub use library::*;
 pub use model::*;

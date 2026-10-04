@@ -321,87 +321,88 @@ namespace SlopWorld.Wire {
             "RGVmYXVsdHMSIwoHcHJvamVjdBgEIAMoCzISLnNsb3B3b3JsZC5Qcm9qZWN0",
             "EikKB3Nlc3Npb24YBSADKAsyGC5zbG9wd29ybGQuU2Vzc2lvbkNvbmZpZxIx",
             "Cg1ob3N0X3Rlcm1pbmFsGAYgAygLMhouc2xvcHdvcmxkLkhvc3RUZXJtaW5h",
-            "bENmZ0oECAcQCFIKc3RhdGVfcnVsZSK1AQoOQ29uZmlnTWV0YWRhdGESIwoI",
+            "bENmZ0oECAcQCFIKc3RhdGVfcnVsZSLoAQoOQ29uZmlnTWV0YWRhdGESIwoI",
             "ZGVmYXVsdHMYASABKAsyES5zbG9wd29ybGQuQ29uZmlnEjMKDXVzYWdlX2Nh",
             "dGFsb2cYAiADKAsyHC5zbG9wd29ybGQuVXNhZ2VDYXRhbG9nRW50cnkSFgoO",
             "dGVtcG9yYXJ5X3Jvb3QYAyABKAkSMQoIdGVybWluYWwYBCABKAsyHy5zbG9w",
-            "d29ybGQuVGVybWluYWxDYXBhYmlsaXRpZXMiegoMQ29uZmlnUmVzdWx0EgwK",
-            "BHBhdGgYASABKAkSDAoEdGV4dBgCIAEoCRIhCgZ2YWx1ZXMYAyABKAsyES5z",
-            "bG9wd29ybGQuQ29uZmlnEisKCG1ldGFkYXRhGAQgASgLMhkuc2xvcHdvcmxk",
-            "LkNvbmZpZ01ldGFkYXRhIkcKC0NvbmZpZ1BhdGNoEikKBnZhbHVlcxgBIAEo",
-            "CzIZLnNsb3B3b3JsZC5FZGl0YWJsZUNvbmZpZxINCgVwYXRocxgCIAMoCSL9",
-            "AQoTU2F2ZVRlbXBsYXRlUmVxdWVzdBIRCgRuYW1lGAEgASgJSACIAQESGAoL",
-            "ZGVzY3JpcHRpb24YAiABKAlIAYgBARITCgZzb3VyY2UYAyABKAlIAogBARIW",
-            "CglkdXBsaWNhdGUYBCABKAlIA4gBARIUCgd2ZXJzaW9uGAUgASgESASIAQES",
-            "MgoIZGVmYXVsdHMYByABKAsyIC5zbG9wd29ybGQuQWdlbnRUZW1wbGF0ZURl",
-            "ZmF1bHRzQgcKBV9uYW1lQg4KDF9kZXNjcmlwdGlvbkIJCgdfc291cmNlQgwK",
-            "Cl9kdXBsaWNhdGVCCgoIX3ZlcnNpb25KBAgGEAciqwEKCFJ1bldoZXJlEhEK",
-            "BGNvbHMYASABKA1IAIgBARIRCgRyb3dzGAIgASgNSAGIAQESFAoHcHJvamVj",
-            "dBgDIAEoCUgCiAEBEgwKBHRlbXAYBCABKAgSEwoLcmFuZG9tX3RpcHMYBSAD",
-            "KAkSFQoId29ya3RyZWUYBiABKAlIA4gBAUIHCgVfY29sc0IHCgVfcm93c0IK",
-            "CghfcHJvamVjdEILCglfd29ya3RyZWUitgEKFlNldHRpbmdzUHJldmlld1Jl",
-            "cXVlc3QSEAoIZXhpc3RpbmcYASABKAkSKQoHc2Vzc2lvbhgCIAEoCzIYLnNs",
-            "b3B3b3JsZC5TZXNzaW9uQ29uZmlnEiMKB3Byb2plY3QYAyABKAsyEi5zbG9w",
-            "d29ybGQuUHJvamVjdBIqCgh0ZW1wbGF0ZRgEIAEoCzIYLnNsb3B3b3JsZC5B",
-            "Z2VudFRlbXBsYXRlEg4KBnJlY2lwZRgFIAEoCCItCgxQcmV2aWV3RmllbGQS",
-            "DQoFbGFiZWwYASABKAkSDgoGdmFsdWVzGAIgAygJIkgKElByZXZpZXdEZWZp",
-            "bml0aW9ucxIyCghkZWZhdWx0cxgBIAEoCzIgLnNsb3B3b3JsZC5BZ2VudFRl",
-            "bXBsYXRlRGVmYXVsdHMingEKD1NldHRpbmdzUHJldmlldxINCgV0aXRsZRgB",
-            "IAEoCRIQCghzdWJ0aXRsZRgCIAEoCRINCgVub3RlcxgDIAMoCRInCgZmaWVs",
-            "ZHMYBCADKAsyFy5zbG9wd29ybGQuUHJldmlld0ZpZWxkEjIKC2RlZmluaXRp",
-            "b25zGAUgASgLMh0uc2xvcHdvcmxkLlByZXZpZXdEZWZpbml0aW9ucyKgAQoK",
-            "TGF1bmNoUGxhbhIPCgd2ZXJzaW9uGAEgASgNEg8KB3Nlc3Npb24YAiABKAkS",
-            "DgoGbGltaXRzGAMgAygJEg0KBXBhc3RhGAQgAygJEg0KBWJ3cmFwGAUgAygJ",
-            "EhMKC2Vudmlyb25tZW50GAYgAygJEg4KBm1vdW50cxgHIAMoCRIPCgdjb21t",
-            "YW5kGAggAygJEgwKBGFyZ3YYCSADKAkiSAoLUHJvY2Vzc1ZpZXcSCwoDcGlk",
-            "GAEgASgNEgwKBHBwaWQYAiABKA0SDAoEYXJndhgDIAMoCRIQCghpbl9zY29w",
-            "ZRgEIAEoCCJ+Cg1MaXZlUHJvY2Vzc2VzEg4KBnN0YXR1cxgBIAEoCRIVCghw",
-            "YW5lX3BpZBgCIAEoDUgAiAEBEg4KBnNvdXJjZRgDIAEoCRIpCglwcm9jZXNz",
-            "ZXMYBCADKAsyFi5zbG9wd29ybGQuUHJvY2Vzc1ZpZXdCCwoJX3BhbmVfcGlk",
-            "Io8BCg1TYW5kYm94UmVwb3J0Eg8KB3Nlc3Npb24YASABKAkSDAoEaG9zdBgC",
-            "IAEoCBIjCgRwbGFuGAMgASgLMhUuc2xvcHdvcmxkLkxhdW5jaFBsYW4SJgoE",
-            "bGl2ZRgEIAEoCzIYLnNsb3B3b3JsZC5MaXZlUHJvY2Vzc2VzEhIKCmNvbXBh",
-            "cmlzb24YBSABKAkiegoMQXVkaW9SZXF1ZXN0Eg4KBnZvbHVtZRgDIAEoAhIu",
-            "CglzZWxlY3Rpb24YASABKAsyGS5zbG9wd29ybGQuQXVkaW9TZWxlY3Rpb25I",
-            "ABIgCgRzdG9wGAIgASgLMhAuc2xvcHdvcmxkLkVtcHR5SABCCAoGY2hhbmdl",
-            "IqQDCg1DbGllbnRNZXNzYWdlEiYKBnJlZHJhdxgBIAEoCzIULnNsb3B3b3Js",
-            "ZC5SZWRyYXdSZXFIABIhCgNzdWIYAiABKAsyEi5zbG9wd29ybGQuTmFtZVJl",
-            "cUgAEiMKBXVuc3ViGAMgASgLMhIuc2xvcHdvcmxkLk5hbWVSZXFIABIiCgRr",
-            "ZXlzGAQgASgLMhIuc2xvcHdvcmxkLktleXNSZXFIABImCgZyZXNpemUYBSAB",
-            "KAsyFC5zbG9wd29ybGQuUmVzaXplUmVxSAASJgoGc2Nyb2xsGAYgASgLMhQu",
-            "c2xvcHdvcmxkLlNjcm9sbFJlcUgAEiQKBW1vdXNlGAcgASgLMhMuc2xvcHdv",
-            "cmxkLk1vdXNlUmVxSAASJAoFcGFzdGUYCCABKAsyEy5zbG9wd29ybGQuUGFz",
-            "dGVSZXFIABIuCgpicmVhZGNydW1iGAkgASgLMhguc2xvcHdvcmxkLkJyZWFk",
-            "Y3J1bWJSZXFIABIoCgVhdWRpbxgKIAEoCzIXLnNsb3B3b3JsZC5BdWRpb1Jl",
-            "cXVlc3RIAEIJCgdwYXlsb2FkIvUCCgVFdmVudBIvCgxjYXBhYmlsaXRpZXMY",
-            "ASABKAsyFy5zbG9wd29ybGQuQ2FwYWJpbGl0aWVzSAASLAoIc2Vzc2lvbnMY",
-            "AiABKAsyGC5zbG9wd29ybGQuU2Vzc2lvbnNSZXBseUgAEiwKCHByb2plY3Rz",
-            "GAMgASgLMhguc2xvcHdvcmxkLlByb2plY3RzUmVwbHlIABIqCgdsaWJyYXJ5",
-            "GAQgASgLMhcuc2xvcHdvcmxkLkxpYnJhcnlSZXBseUgAEicKBnNjcmVlbhgF",
-            "IAEoCzIVLnNsb3B3b3JsZC5TY3JlZW5WaWV3SAASKQoFdXNhZ2UYBiABKAsy",
-            "GC5zbG9wd29ybGQuVXNhZ2VTbmFwc2hvdEgAEiYKBWF1ZGlvGAcgASgLMhUu",
-            "c2xvcHdvcmxkLkF1ZGlvU3RhdGVIABIsCgdqdWtlYm94GAggASgLMhkuc2xv",
-            "cHdvcmxkLkp1a2Vib3hDYXRhbG9nSABCCQoHcGF5bG9hZCJ3Cg1QcmVzZXRS",
-            "ZXF1ZXN0EisKB3NhbmRib3gYASABKAsyGC5zbG9wd29ybGQuU2FuZGJveFBy",
-            "ZXNldEgAEisKB2NvbW1hbmQYAiABKAsyGC5zbG9wd29ybGQuQ29tbWFuZFBy",
-            "ZXNldEgAQgwKCmRlZmluaXRpb24iPwoUUHJvamVjdFByZXZpZXdSZXN1bHQS",
-            "DAoEbmFtZRgBIAEoCRIMCgR0ZW1wGAIgASgIEgsKA2RpchgDIAEoCSKIAQoO",
-            "RWRpdGFibGVDb25maWcSIQoGZGFlbW9uGAEgASgLMhEuc2xvcHdvcmxkLkRh",
-            "ZW1vbhIlCghkZWZhdWx0cxgCIAEoCzITLnNsb3B3b3JsZC5EZWZhdWx0cxIs",
-            "Cghjb21tYW5kcxgDIAEoCzIaLnNsb3B3b3JsZC5Db21tYW5kRGVmYXVsdHMi",
-            "LAoOQmluYXJ5TG9jYXRpb24SDAoEbmFtZRgBIAEoCRIMCgRwYXRoGAIgASgJ",
-            "IjsKDFdoZXJlSXNSZXBseRIrCghiaW5hcmllcxgBIAMoCzIZLnNsb3B3b3Js",
-            "ZC5CaW5hcnlMb2NhdGlvbiLiAQoIV29ya3RyZWUSCgoCaWQYASABKAkSEgoK",
-            "cHJvamVjdF9pZBgCIAEoCRIMCgRuYW1lGAMgASgJEgwKBHBhdGgYBCABKAkS",
-            "EgoKcmVwb3NpdG9yeRgFIAEoCRIPCgdtYW5hZ2VkGAYgASgIEhYKDmluaXRp",
-            "YWxfYnJhbmNoGAcgASgJEgwKBGJhc2UYCCABKAkSDQoFcGhhc2UYCSABKAkS",
-            "DQoFZXJyb3IYCiABKAkSDgoGYnJhbmNoGAsgASgJEgwKBGhlYWQYDCABKAkS",
-            "EwoLYXR0YWNobWVudHMYDSADKAkiOAoOV29ya3RyZWVzUmVwbHkSJgoJd29y",
-            "a3RyZWVzGAEgAygLMhMuc2xvcHdvcmxkLldvcmt0cmVlIngKEUNyZWF0ZVdv",
-            "cmt0cmVlUmVxEg8KB3Byb2plY3QYASABKAkSEQoEbmFtZRgCIAEoCUgAiAEB",
-            "EhEKBGJhc2UYAyABKAlIAYgBARIRCgRwYXRoGAQgASgJSAKIAQFCBwoFX25h",
-            "bWVCBwoFX2Jhc2VCBwoFX3BhdGgiHgoMV29ya3RyZWVCYXNlEg4KBmNvbW1p",
-            "dBgBIAEoCUIRqgIOU2xvcFdvcmxkLldpcmViBnByb3RvMw=="));
+            "d29ybGQuVGVybWluYWxDYXBhYmlsaXRpZXMSMQoNYXV0b19jb21tYW5kcxgF",
+            "IAEoCzIaLnNsb3B3b3JsZC5Db21tYW5kRGVmYXVsdHMiegoMQ29uZmlnUmVz",
+            "dWx0EgwKBHBhdGgYASABKAkSDAoEdGV4dBgCIAEoCRIhCgZ2YWx1ZXMYAyAB",
+            "KAsyES5zbG9wd29ybGQuQ29uZmlnEisKCG1ldGFkYXRhGAQgASgLMhkuc2xv",
+            "cHdvcmxkLkNvbmZpZ01ldGFkYXRhIkcKC0NvbmZpZ1BhdGNoEikKBnZhbHVl",
+            "cxgBIAEoCzIZLnNsb3B3b3JsZC5FZGl0YWJsZUNvbmZpZxINCgVwYXRocxgC",
+            "IAMoCSL9AQoTU2F2ZVRlbXBsYXRlUmVxdWVzdBIRCgRuYW1lGAEgASgJSACI",
+            "AQESGAoLZGVzY3JpcHRpb24YAiABKAlIAYgBARITCgZzb3VyY2UYAyABKAlI",
+            "AogBARIWCglkdXBsaWNhdGUYBCABKAlIA4gBARIUCgd2ZXJzaW9uGAUgASgE",
+            "SASIAQESMgoIZGVmYXVsdHMYByABKAsyIC5zbG9wd29ybGQuQWdlbnRUZW1w",
+            "bGF0ZURlZmF1bHRzQgcKBV9uYW1lQg4KDF9kZXNjcmlwdGlvbkIJCgdfc291",
+            "cmNlQgwKCl9kdXBsaWNhdGVCCgoIX3ZlcnNpb25KBAgGEAciqwEKCFJ1bldo",
+            "ZXJlEhEKBGNvbHMYASABKA1IAIgBARIRCgRyb3dzGAIgASgNSAGIAQESFAoH",
+            "cHJvamVjdBgDIAEoCUgCiAEBEgwKBHRlbXAYBCABKAgSEwoLcmFuZG9tX3Rp",
+            "cHMYBSADKAkSFQoId29ya3RyZWUYBiABKAlIA4gBAUIHCgVfY29sc0IHCgVf",
+            "cm93c0IKCghfcHJvamVjdEILCglfd29ya3RyZWUitgEKFlNldHRpbmdzUHJl",
+            "dmlld1JlcXVlc3QSEAoIZXhpc3RpbmcYASABKAkSKQoHc2Vzc2lvbhgCIAEo",
+            "CzIYLnNsb3B3b3JsZC5TZXNzaW9uQ29uZmlnEiMKB3Byb2plY3QYAyABKAsy",
+            "Ei5zbG9wd29ybGQuUHJvamVjdBIqCgh0ZW1wbGF0ZRgEIAEoCzIYLnNsb3B3",
+            "b3JsZC5BZ2VudFRlbXBsYXRlEg4KBnJlY2lwZRgFIAEoCCItCgxQcmV2aWV3",
+            "RmllbGQSDQoFbGFiZWwYASABKAkSDgoGdmFsdWVzGAIgAygJIkgKElByZXZp",
+            "ZXdEZWZpbml0aW9ucxIyCghkZWZhdWx0cxgBIAEoCzIgLnNsb3B3b3JsZC5B",
+            "Z2VudFRlbXBsYXRlRGVmYXVsdHMingEKD1NldHRpbmdzUHJldmlldxINCgV0",
+            "aXRsZRgBIAEoCRIQCghzdWJ0aXRsZRgCIAEoCRINCgVub3RlcxgDIAMoCRIn",
+            "CgZmaWVsZHMYBCADKAsyFy5zbG9wd29ybGQuUHJldmlld0ZpZWxkEjIKC2Rl",
+            "ZmluaXRpb25zGAUgASgLMh0uc2xvcHdvcmxkLlByZXZpZXdEZWZpbml0aW9u",
+            "cyKgAQoKTGF1bmNoUGxhbhIPCgd2ZXJzaW9uGAEgASgNEg8KB3Nlc3Npb24Y",
+            "AiABKAkSDgoGbGltaXRzGAMgAygJEg0KBXBhc3RhGAQgAygJEg0KBWJ3cmFw",
+            "GAUgAygJEhMKC2Vudmlyb25tZW50GAYgAygJEg4KBm1vdW50cxgHIAMoCRIP",
+            "Cgdjb21tYW5kGAggAygJEgwKBGFyZ3YYCSADKAkiSAoLUHJvY2Vzc1ZpZXcS",
+            "CwoDcGlkGAEgASgNEgwKBHBwaWQYAiABKA0SDAoEYXJndhgDIAMoCRIQCghp",
+            "bl9zY29wZRgEIAEoCCJ+Cg1MaXZlUHJvY2Vzc2VzEg4KBnN0YXR1cxgBIAEo",
+            "CRIVCghwYW5lX3BpZBgCIAEoDUgAiAEBEg4KBnNvdXJjZRgDIAEoCRIpCglw",
+            "cm9jZXNzZXMYBCADKAsyFi5zbG9wd29ybGQuUHJvY2Vzc1ZpZXdCCwoJX3Bh",
+            "bmVfcGlkIo8BCg1TYW5kYm94UmVwb3J0Eg8KB3Nlc3Npb24YASABKAkSDAoE",
+            "aG9zdBgCIAEoCBIjCgRwbGFuGAMgASgLMhUuc2xvcHdvcmxkLkxhdW5jaFBs",
+            "YW4SJgoEbGl2ZRgEIAEoCzIYLnNsb3B3b3JsZC5MaXZlUHJvY2Vzc2VzEhIK",
+            "CmNvbXBhcmlzb24YBSABKAkiegoMQXVkaW9SZXF1ZXN0Eg4KBnZvbHVtZRgD",
+            "IAEoAhIuCglzZWxlY3Rpb24YASABKAsyGS5zbG9wd29ybGQuQXVkaW9TZWxl",
+            "Y3Rpb25IABIgCgRzdG9wGAIgASgLMhAuc2xvcHdvcmxkLkVtcHR5SABCCAoG",
+            "Y2hhbmdlIqQDCg1DbGllbnRNZXNzYWdlEiYKBnJlZHJhdxgBIAEoCzIULnNs",
+            "b3B3b3JsZC5SZWRyYXdSZXFIABIhCgNzdWIYAiABKAsyEi5zbG9wd29ybGQu",
+            "TmFtZVJlcUgAEiMKBXVuc3ViGAMgASgLMhIuc2xvcHdvcmxkLk5hbWVSZXFI",
+            "ABIiCgRrZXlzGAQgASgLMhIuc2xvcHdvcmxkLktleXNSZXFIABImCgZyZXNp",
+            "emUYBSABKAsyFC5zbG9wd29ybGQuUmVzaXplUmVxSAASJgoGc2Nyb2xsGAYg",
+            "ASgLMhQuc2xvcHdvcmxkLlNjcm9sbFJlcUgAEiQKBW1vdXNlGAcgASgLMhMu",
+            "c2xvcHdvcmxkLk1vdXNlUmVxSAASJAoFcGFzdGUYCCABKAsyEy5zbG9wd29y",
+            "bGQuUGFzdGVSZXFIABIuCgpicmVhZGNydW1iGAkgASgLMhguc2xvcHdvcmxk",
+            "LkJyZWFkY3J1bWJSZXFIABIoCgVhdWRpbxgKIAEoCzIXLnNsb3B3b3JsZC5B",
+            "dWRpb1JlcXVlc3RIAEIJCgdwYXlsb2FkIvUCCgVFdmVudBIvCgxjYXBhYmls",
+            "aXRpZXMYASABKAsyFy5zbG9wd29ybGQuQ2FwYWJpbGl0aWVzSAASLAoIc2Vz",
+            "c2lvbnMYAiABKAsyGC5zbG9wd29ybGQuU2Vzc2lvbnNSZXBseUgAEiwKCHBy",
+            "b2plY3RzGAMgASgLMhguc2xvcHdvcmxkLlByb2plY3RzUmVwbHlIABIqCgds",
+            "aWJyYXJ5GAQgASgLMhcuc2xvcHdvcmxkLkxpYnJhcnlSZXBseUgAEicKBnNj",
+            "cmVlbhgFIAEoCzIVLnNsb3B3b3JsZC5TY3JlZW5WaWV3SAASKQoFdXNhZ2UY",
+            "BiABKAsyGC5zbG9wd29ybGQuVXNhZ2VTbmFwc2hvdEgAEiYKBWF1ZGlvGAcg",
+            "ASgLMhUuc2xvcHdvcmxkLkF1ZGlvU3RhdGVIABIsCgdqdWtlYm94GAggASgL",
+            "Mhkuc2xvcHdvcmxkLkp1a2Vib3hDYXRhbG9nSABCCQoHcGF5bG9hZCJ3Cg1Q",
+            "cmVzZXRSZXF1ZXN0EisKB3NhbmRib3gYASABKAsyGC5zbG9wd29ybGQuU2Fu",
+            "ZGJveFByZXNldEgAEisKB2NvbW1hbmQYAiABKAsyGC5zbG9wd29ybGQuQ29t",
+            "bWFuZFByZXNldEgAQgwKCmRlZmluaXRpb24iPwoUUHJvamVjdFByZXZpZXdS",
+            "ZXN1bHQSDAoEbmFtZRgBIAEoCRIMCgR0ZW1wGAIgASgIEgsKA2RpchgDIAEo",
+            "CSKIAQoORWRpdGFibGVDb25maWcSIQoGZGFlbW9uGAEgASgLMhEuc2xvcHdv",
+            "cmxkLkRhZW1vbhIlCghkZWZhdWx0cxgCIAEoCzITLnNsb3B3b3JsZC5EZWZh",
+            "dWx0cxIsCghjb21tYW5kcxgDIAEoCzIaLnNsb3B3b3JsZC5Db21tYW5kRGVm",
+            "YXVsdHMiLAoOQmluYXJ5TG9jYXRpb24SDAoEbmFtZRgBIAEoCRIMCgRwYXRo",
+            "GAIgASgJIjsKDFdoZXJlSXNSZXBseRIrCghiaW5hcmllcxgBIAMoCzIZLnNs",
+            "b3B3b3JsZC5CaW5hcnlMb2NhdGlvbiLiAQoIV29ya3RyZWUSCgoCaWQYASAB",
+            "KAkSEgoKcHJvamVjdF9pZBgCIAEoCRIMCgRuYW1lGAMgASgJEgwKBHBhdGgY",
+            "BCABKAkSEgoKcmVwb3NpdG9yeRgFIAEoCRIPCgdtYW5hZ2VkGAYgASgIEhYK",
+            "DmluaXRpYWxfYnJhbmNoGAcgASgJEgwKBGJhc2UYCCABKAkSDQoFcGhhc2UY",
+            "CSABKAkSDQoFZXJyb3IYCiABKAkSDgoGYnJhbmNoGAsgASgJEgwKBGhlYWQY",
+            "DCABKAkSEwoLYXR0YWNobWVudHMYDSADKAkiOAoOV29ya3RyZWVzUmVwbHkS",
+            "JgoJd29ya3RyZWVzGAEgAygLMhMuc2xvcHdvcmxkLldvcmt0cmVlIngKEUNy",
+            "ZWF0ZVdvcmt0cmVlUmVxEg8KB3Byb2plY3QYASABKAkSEQoEbmFtZRgCIAEo",
+            "CUgAiAEBEhEKBGJhc2UYAyABKAlIAYgBARIRCgRwYXRoGAQgASgJSAKIAQFC",
+            "BwoFX25hbWVCBwoFX2Jhc2VCBwoFX3BhdGgiHgoMV29ya3RyZWVCYXNlEg4K",
+            "BmNvbW1pdBgBIAEoCUIRqgIOU2xvcFdvcmxkLldpcmViBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -502,7 +503,7 @@ namespace SlopWorld.Wire {
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.GitFile), global::SlopWorld.Wire.GitFile.Parser, new[]{ "Path", "Status", "Added", "Deleted" }, new[]{ "Added", "Deleted" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.GitResult), global::SlopWorld.Wire.GitResult.Parser, new[]{ "Repo", "Path", "Root", "Branch", "Changed", "Added", "Deleted", "Truncated", "CountsComplete", "Files" }, new[]{ "Added", "Deleted" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.Config), global::SlopWorld.Wire.Config.Parser, new[]{ "Daemon", "Defaults", "Commands", "Project", "Session", "HostTerminal" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.ConfigMetadata), global::SlopWorld.Wire.ConfigMetadata.Parser, new[]{ "Defaults", "UsageCatalog", "TemporaryRoot", "Terminal" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.ConfigMetadata), global::SlopWorld.Wire.ConfigMetadata.Parser, new[]{ "Defaults", "UsageCatalog", "TemporaryRoot", "Terminal", "AutoCommands" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.ConfigResult), global::SlopWorld.Wire.ConfigResult.Parser, new[]{ "Path", "Text", "Values", "Metadata" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.ConfigPatch), global::SlopWorld.Wire.ConfigPatch.Parser, new[]{ "Values", "Paths" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.SaveTemplateRequest), global::SlopWorld.Wire.SaveTemplateRequest.Parser, new[]{ "Name", "Description", "Source", "Duplicate", "Version", "Defaults" }, new[]{ "Name", "Description", "Source", "Duplicate", "Version" }, null, null, null),
@@ -34754,6 +34755,7 @@ namespace SlopWorld.Wire {
       usageCatalog_ = other.usageCatalog_.Clone();
       temporaryRoot_ = other.temporaryRoot_;
       terminal_ = other.terminal_ != null ? other.terminal_.Clone() : null;
+      autoCommands_ = other.autoCommands_ != null ? other.autoCommands_.Clone() : null;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -34810,6 +34812,18 @@ namespace SlopWorld.Wire {
       }
     }
 
+    /// <summary>Field number for the "auto_commands" field.</summary>
+    public const int AutoCommandsFieldNumber = 5;
+    private global::SlopWorld.Wire.CommandDefaults autoCommands_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::SlopWorld.Wire.CommandDefaults AutoCommands {
+      get { return autoCommands_; }
+      set {
+        autoCommands_ = value;
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -34829,6 +34843,7 @@ namespace SlopWorld.Wire {
       if(!usageCatalog_.Equals(other.usageCatalog_)) return false;
       if (TemporaryRoot != other.TemporaryRoot) return false;
       if (!object.Equals(Terminal, other.Terminal)) return false;
+      if (!object.Equals(AutoCommands, other.AutoCommands)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -34840,6 +34855,7 @@ namespace SlopWorld.Wire {
       hash ^= usageCatalog_.GetHashCode();
       if (TemporaryRoot.Length != 0) hash ^= TemporaryRoot.GetHashCode();
       if (terminal_ != null) hash ^= Terminal.GetHashCode();
+      if (autoCommands_ != null) hash ^= AutoCommands.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -34871,6 +34887,10 @@ namespace SlopWorld.Wire {
         output.WriteRawTag(34);
         output.WriteMessage(Terminal);
       }
+      if (autoCommands_ != null) {
+        output.WriteRawTag(42);
+        output.WriteMessage(AutoCommands);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -34894,6 +34914,10 @@ namespace SlopWorld.Wire {
         output.WriteRawTag(34);
         output.WriteMessage(Terminal);
       }
+      if (autoCommands_ != null) {
+        output.WriteRawTag(42);
+        output.WriteMessage(AutoCommands);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -34913,6 +34937,9 @@ namespace SlopWorld.Wire {
       }
       if (terminal_ != null) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(Terminal);
+      }
+      if (autoCommands_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(AutoCommands);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -34941,6 +34968,12 @@ namespace SlopWorld.Wire {
           Terminal = new global::SlopWorld.Wire.TerminalCapabilities();
         }
         Terminal.MergeFrom(other.Terminal);
+      }
+      if (other.autoCommands_ != null) {
+        if (autoCommands_ == null) {
+          AutoCommands = new global::SlopWorld.Wire.CommandDefaults();
+        }
+        AutoCommands.MergeFrom(other.AutoCommands);
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -34983,6 +35016,13 @@ namespace SlopWorld.Wire {
             input.ReadMessage(Terminal);
             break;
           }
+          case 42: {
+            if (autoCommands_ == null) {
+              AutoCommands = new global::SlopWorld.Wire.CommandDefaults();
+            }
+            input.ReadMessage(AutoCommands);
+            break;
+          }
         }
       }
     #endif
@@ -35022,6 +35062,13 @@ namespace SlopWorld.Wire {
               Terminal = new global::SlopWorld.Wire.TerminalCapabilities();
             }
             input.ReadMessage(Terminal);
+            break;
+          }
+          case 42: {
+            if (autoCommands_ == null) {
+              AutoCommands = new global::SlopWorld.Wire.CommandDefaults();
+            }
+            input.ReadMessage(AutoCommands);
             break;
           }
         }

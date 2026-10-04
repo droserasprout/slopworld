@@ -102,6 +102,7 @@ pub fn whereis() -> Vec<BinaryLocation> {
         "more",
         "bat",
         "highlight",
+        "pygmentize",
         "micro",
         "vim",
         "nvim",
@@ -131,7 +132,7 @@ pub struct BinaryLocation {
     pub path: String,
 }
 
-fn find_executable(name: &str) -> Option<String> {
+pub(crate) fn find_executable(name: &str) -> Option<String> {
     let path = std::env::var_os("PATH")?;
     std::env::split_paths(&path)
         .map(|dir| dir.join(name))

@@ -16,8 +16,8 @@ in preparation and uses frozen builds afterward.
 Arch runtime requirements cover the audio library, default shell, core session
 infrastructure, Git/worktrees and workspace search. Pager/editor/highlighter tools,
 fallback process inspection and desktop/music integrations are optional dependencies.
-Command defaults still select fixed tools, so optional package metadata does not
-imply automatic fallback.
+Pager and highlighter defaults use Auto to select installed tools. The editor still
+defaults to micro; optional package metadata does not imply an editor fallback.
 
 `bench/` owns benchmark runners, shared result handling, reporting, and their tests.
 `tools/assets/` owns asset generators and text-sprite checks; `assets/` owns bundled

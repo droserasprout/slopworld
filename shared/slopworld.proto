@@ -755,6 +755,7 @@ message ConfigMetadata {
   repeated UsageCatalogEntry usage_catalog = 2;
   string temporary_root = 3;
   TerminalCapabilities terminal = 4;
+  CommandDefaults auto_commands = 5;
 }
 
 message ConfigResult {

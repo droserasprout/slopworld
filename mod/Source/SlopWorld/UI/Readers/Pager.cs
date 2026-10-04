@@ -106,10 +106,10 @@ namespace SlopWorld
         // Git feeds its diff to the pager on stdin, so it needs the configured command
         // without file/line placeholders or the normal file argument.
         public static string PipePager =>
-            PagerCommands.PipePager(SessionHub.Instance.Config.Pager);
+            PagerCommands.PipePager(SessionHub.Instance.Config.EffectivePager);
 
         public static bool IsPagerCommand(string command) =>
-            PagerCommands.IsPagerCommand(SessionHub.Instance.Config.Pager, command);
+            PagerCommands.IsPagerCommand(SessionHub.Instance.Config.EffectivePager, command);
 
         public static bool IsEditorCommand(string command) =>
             PagerCommands.IsEditorCommand(SessionHub.Instance.Config.Editor, command);
@@ -120,8 +120,8 @@ namespace SlopWorld
         public static string PagerCommand(string file, long line = 0)
         {
             var settings = ModEntry.Instance.settings;
-            string highlighter = SessionHub.Instance.Config.Highlighter;
-            string pager = PagerCommands.FilePager(SessionHub.Instance.Config.Pager, settings.codeLineNumbers);
+            string highlighter = SessionHub.Instance.Config.EffectiveHighlighter;
+            string pager = PagerCommands.FilePager(SessionHub.Instance.Config.EffectivePager, settings.codeLineNumbers);
             // Bat reads files itself, so the LESSOPEN highlighter does not style a bat pager.
             if (CodeHighlight.Engine(highlighter) == "bat")
                 pager = CodeHighlight.Command(pager, settings);
@@ -131,9 +131,9 @@ namespace SlopWorld
         static string DiffCommand(string command)
         {
             var settings = ModEntry.Instance.settings;
-            string batTheme = CodeHighlight.Engine(SessionHub.Instance.Config.Highlighter) == "bat"
+            string batTheme = CodeHighlight.Engine(SessionHub.Instance.Config.EffectiveHighlighter) == "bat"
                 ? CodeHighlight.Theme(settings, "bat") : null;
-            return PagerCommands.DiffCommand(command, SessionHub.Instance.Config.Pager,
+            return PagerCommands.DiffCommand(command, SessionHub.Instance.Config.EffectivePager,
                 settings.codeLineNumbers, batTheme);
         }
 

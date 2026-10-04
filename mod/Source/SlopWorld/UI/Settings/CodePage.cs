@@ -87,6 +87,10 @@ namespace SlopWorld
 
         void Reload()
         {
+            ++_previewRequest;
+            _preview = Sample;
+            _previewError = null;
+            _previewLoading = false;
             _command = SelectedCommand;
             _engine = CodeHighlight.Engine(_command);
             _themes.Clear();
@@ -99,13 +103,15 @@ namespace SlopWorld
                 _loading = false;
                 _engine = result.Engine;
                 _themes.AddRange(result.Themes);
+                if (_command.Trim() == "auto") Preview();
             }, error =>
             {
                 if (_disposed || request != _catalogRequest) return;
                 _loading = false;
                 _catalogError = error;
             });
-            Preview();
+            // Resolve Auto's engine before choosing its profile-local theme.
+            if (_command.Trim() != "auto") Preview();
         }
 
         void Preview()
@@ -147,10 +153,12 @@ namespace SlopWorld
             {
                 CommandPicker.Draw(l, "Pager", "commands.pager", _cfg.Pager, PagerCommands(),
                     _pagerCustom, value => _cfg.Pager = value, value => _pagerCustom = value,
-                    defaultValue: _cfg.FactoryDefaults?.Pager);
+                    defaultValue: _cfg.FactoryDefaults?.Pager,
+                    selectedLabel: _cfg.Pager == "auto" ? AutoLabel(_cfg.AutoCommands?.Pager) : null);
                 CommandPicker.Draw(l, "Syntax highlighter", "commands.highlighter", _cfg.Highlighter,
                     HighlighterCommands(), _highlighterCustom, value => _cfg.Highlighter = value,
-                    value => _highlighterCustom = value, defaultValue: _cfg.FactoryDefaults?.Highlighter);
+                    value => _highlighterCustom = value, defaultValue: _cfg.FactoryDefaults?.Highlighter,
+                    selectedLabel: _cfg.Highlighter == "auto" ? AutoHighlighterLabel() : null);
                 if (_pagerCustom || _highlighterCustom)
                     UiLayout.Note(l, "Pager templates accept {file} and {line}. Highlighter templates use %s for the file path.");
                 // Apply edits from this GUI pass; Draw checks changes made before the pass.
@@ -164,7 +172,9 @@ namespace SlopWorld
             if (_loading) UiLayout.Note(l, "Loading installed themes…");
             else if (_catalogError != null) UiLayout.Note(l, _catalogError);
             else if (_engine.Length == 0)
-                UiLayout.Note(l, "Choose highlight, Pygments, or bat to select a theme here.");
+                UiLayout.Note(l, _command.Trim() == "auto"
+                    ? "No supported highlighter installed; using plain text."
+                    : "Choose highlight, Pygments, or bat to select a theme here.");
             else
             {
                 var choices = new List<FloatMenuOption> { new FloatMenuOption("Use command default", () => SelectTheme("")) };
@@ -245,14 +255,31 @@ namespace SlopWorld
             finally { GUI.EndClip(); GUI.color = previousColor; GUI.contentColor = previousContent; }
         }
 
+        static string AutoLabel(string command)
+        {
+            if (command == null) return "Auto";
+            string tool = System.IO.Path.GetFileName(SlopWorld.PagerCommands.Executable(command));
+            return "Auto (" + (tool.Length == 0 ? "none" : tool == "pygmentize" ? "Pygments" : tool) + ")";
+        }
+
+        string AutoHighlighterLabel()
+        {
+            if (_command?.Trim() == "auto" && !_loading && _catalogError == null)
+                return "Auto (" + (_engine.Length == 0 ? "none" : _engine == "pygments" ? "Pygments" : _engine) + ")";
+            return AutoLabel(_cfg.AutoCommands?.Highlighter);
+        }
+
         static List<CommandChoice> PagerCommands() => new List<CommandChoice>
         {
+            new CommandChoice("Auto", "auto"),
             new CommandChoice("less", "less"),
             new CommandChoice("bat", "bat --paging=always"),
+            new CommandChoice("more", "more"),
         };
 
         static List<CommandChoice> HighlighterCommands() => new List<CommandChoice>
         {
+            new CommandChoice("Auto", "auto"),
             new CommandChoice("highlight", "highlight --out-format=xterm256"),
             new CommandChoice("Pygments", "pygmentize -f terminal256 -O style=monokai"),
             new CommandChoice("bat", "bat --color=always --style=plain --paging=never"),
