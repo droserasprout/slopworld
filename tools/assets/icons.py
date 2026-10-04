@@ -4,16 +4,15 @@
 Usage: python3 tools/assets/icons.py [--size N] [--margin N] [--font PATH] [--report]
   --size    Set the PNG edge length. The default is 64 pixels.
   --margin  Set the clear margin. The default is 2 pixels.
-  --font    Select a Nerd Font TTF file. The default is the first available FONTS entry.
+  --font    Override the bundled Symbols Nerd Font TTF file.
   --report  Print the size and ink coverage of each glyph.
 
 Reads assets/icons/manifest.toml and writes mod/Textures/SlopWorld/Icons/<slot>.png.
-The tool requires Pillow and an installed Nerd Font.
-On Arch Linux, install one of the ttf-*-nerd packages.
+The tool requires Pillow and NumPy. The default font is bundled under
+assets/fonts/nerd-symbols/, with its pinned source and license notices.
 Pillow uses its included FreeType library to render the font outlines.
 
-The repository does not include the font because it is approximately four megabytes.
-The repository includes the generated PNG files, so normal builds do not need the font.
+The repository includes the generated PNG files, so normal builds do not run the baker.
 
 The Codicons set uses a 16-pixel editor grid with a consistent stroke weight.
 The glyph sizes differ by design.
@@ -43,29 +42,12 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 MANIFEST = os.path.join(ROOT, "assets", "icons", "manifest.toml")
 OUT = os.path.join(ROOT, "mod", "Textures", "SlopWorld", "Icons")
 
-# Each Nerd Font has the same private-use glyphs.
-# The Mono and Propo variants use the same glyph outlines.
-FONTS = [
-    "/usr/share/fonts/TTF/FiraCodeNerdFont-Regular.ttf",
-    "/usr/share/fonts/TTF/JetBrainsMonoNerdFont-Regular.ttf",
-    "/usr/share/fonts/nerd-fonts/SymbolsNerdFont-Regular.ttf",
-    os.path.expanduser("~/.local/share/fonts/SymbolsNerdFont-Regular.ttf"),
-]
+DEFAULT_FONT = os.path.join(ROOT, "assets", "fonts", "nerd-symbols",
+                            "SymbolsNerdFont-Regular.ttf")
 
 # Render each glyph at this size before fitting and downsampling it.
 # This size lets the tool reduce every manifest glyph instead of enlarging it.
 EM = 256
-
-
-def find_font(explicit):
-    if explicit:
-        return explicit
-    for p in FONTS:
-        if os.path.exists(p):
-            return p
-    print("No Nerd Font found. Use --font or install one (Arch: ttf-firacode-nerd).",
-          file=sys.stderr)
-    sys.exit(2)
 
 
 def ink(font, code):
@@ -85,14 +67,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--size", type=int, default=64)
     ap.add_argument("--margin", type=int, default=2)
-    ap.add_argument("--font")
+    ap.add_argument("--font", default=DEFAULT_FONT)
     ap.add_argument("--report", action="store_true")
     args = ap.parse_args()
 
     with open(MANIFEST, "rb") as f:
         table = tomllib.load(f)
 
-    path = find_font(args.font)
+    path = args.font
     font = ImageFont.truetype(path, EM)
 
     drawn = {}
