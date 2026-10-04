@@ -196,10 +196,12 @@ namespace SlopWorld
         }
 
         public static string Area(Listing_Standard l, float height, string name, string text,
-                                  bool on = true, bool frame = true, string defaultValue = null)
+                                  bool on = true, bool frame = true, string defaultValue = null,
+                                  UiAreaResize resize = null)
         {
             l.Gap(GapXS - l.verticalSpacing);
-            string value = Area(l.GetRect(height), name, text, on, frame, defaultValue);
+            string value = Area(l.GetRect(resize == null ? height : AreaHeight(l.ColumnWidth, text, resize, on)), name, text, on, frame,
+                defaultValue, resize);
             l.Gap(GapS);
             return value;
         }

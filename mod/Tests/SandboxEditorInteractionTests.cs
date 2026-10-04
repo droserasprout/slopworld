@@ -42,6 +42,65 @@ namespace SlopWorld.Tests
             }
         }
 
+        public static void ListEditingRetainsLineBreaksAndWhitespaceAcrossPasses()
+        {
+            Run(() =>
+            {
+                foreach (string input in new[] { "/one\n", "/one\n\n\n\n", "/o\nne", " /one \n  /two  \n" })
+                {
+                    var page = new SandboxPage();
+                    var preset = new PresetInfo { Name = "sample", Source = "user" };
+                    preset.Ro.Add("/one");
+                    EditorTrace.Edits["preset.ro"] = input;
+                    page.TestPreset(preset, 240f, true);
+                    EditorTrace.Edits.Clear();
+                    AssertEx.Equal(string.Join("|", DaemonConfig.Split(input)), string.Join("|", preset.Ro),
+                        "saved bind list remains normalized");
+                    string before = preset.ToJson();
+                    EditorTrace.Draws.Clear();
+                    float measured = page.TestPreset(preset, 240f, false);
+                    AssertEx.Equal(0, EditorTrace.Draws.Count, "draft measurement invokes no controls");
+                    AssertEx.Equal(before, preset.ToJson(), "draft measurement preserves configuration");
+                    AssertEx.Equal(measured, page.TestPreset(preset, 240f, true), "raw draft uses the same measurement and draw geometry");
+                    AssertEx.Equal(input, EditorTrace.FieldValues["preset.ro"],
+                        "the next pass preserves trailing breaks, mid-line breaks and whitespace");
+                    if (input.EndsWith("\n\n\n\n", StringComparison.Ordinal))
+                        AssertEx.True(EditorTrace.Draws.Single(d => d.Name == "preset.ro").Rect.height > 48f,
+                            "trailing blank lines grow the field");
+
+                    var replacement = new PresetInfo { Name = "sample", Source = "user" };
+                    replacement.Ro.Add("/fresh");
+                    page.TestPreset(replacement, 240f, true);
+                    AssertEx.Equal("/fresh", EditorTrace.FieldValues["preset.ro"],
+                        "a replacement draft does not inherit the previous entry's raw text");
+                }
+            });
+        }
+
+        public static void RenamingNewPresetPreservesRawListDrafts() => Run(() =>
+        {
+            var page = new SandboxPage { TestNewEntry = true };
+            var preset = new PresetInfo { Name = "new-preset", Source = "user" };
+            const string input = " /one \n\n\n";
+            EditorTrace.Edits["preset.ro"] = input;
+            page.TestPresetHost(preset, 240f);
+            EditorTrace.Edits.Clear();
+            EditorTrace.Edits["preset.name"] = "renamed";
+            page.TestPresetHost(preset, 240f);
+            EditorTrace.Edits.Clear();
+            page.TestPresetHost(preset, 240f);
+            AssertEx.Equal("renamed", preset.Name, "new preset name changes");
+            AssertEx.Equal(input, EditorTrace.FieldValues["preset.ro"],
+                "renaming keeps whitespace and trailing blank lines");
+            AssertEx.Sequence(new[] { "/one" }, preset.Ro, "daemon projection remains normalized");
+
+            var replacement = new PresetInfo { Name = "renamed", Source = "user" };
+            replacement.Ro.Add("/fresh");
+            page.TestPresetHost(replacement, 240f);
+            AssertEx.Equal("/fresh", EditorTrace.FieldValues["preset.ro"],
+                "replacing the selected object replaces its raw draft even with the same name");
+        });
+
         static void Draw(SandboxPage page, EditorKind editor, string source)
         {
             bool command = editor == EditorKind.Command;

@@ -5,12 +5,13 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Native resize-grip sizing for UiWindow.
+    // Native resize-grip sizing shared by UiWindow and opt-in multiline fields.
     [HarmonyPatch(typeof(WindowResizer), nameof(WindowResizer.DoResizeControl))]
     public static class Patch_WindowResizeCorner
     {
         static float CornerSize() =>
-            Find.WindowStack?.currentlyDrawnWindow is UiWindow ? 12f : 24f;
+            UiAreaResize.DrawingGrip || Find.WindowStack?.currentlyDrawnWindow is UiWindow
+                ? UiAreaResize.CornerSize : 24f;
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {

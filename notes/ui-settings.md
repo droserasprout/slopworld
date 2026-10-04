@@ -14,7 +14,14 @@ input target remains stable. Persistence ownership belongs to [mod settings](mod
 Daemon pages keep independent drafts and save changed fields only. Acknowledgement
 accepts submitted values while preserving edits made during the request. Reload
 merges unedited fields and reports conflicts; Discard takes the latest remote values.
-Stale callbacks cannot overwrite newer outcomes. Endpoint/raw-editor coordination
+Stale callbacks cannot overwrite newer outcomes.
+
+Sandbox list editors retain raw text for typing and measurement, including trailing
+blank lines; normalized daemon lists are projections of those drafts. Replacing
+the selected definition replaces its raw drafts. Renaming a new definition keeps
+its drafts and retained field geometry.
+
+Endpoint/raw-editor coordination
 belongs to [the client](mod-client.md) and daemon acceptance to
 [configuration stores](daemon-config-stores.md).
 

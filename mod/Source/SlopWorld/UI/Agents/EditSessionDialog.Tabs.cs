@@ -8,6 +8,7 @@ namespace SlopWorld
     // Agent editor fields, tab bodies, and their tab-specific option lists.
     public partial class EditSessionDialog
     {
+        readonly UiAreaResize _descriptionArea = new UiAreaResize(48f, grow: true);
         List<Wire.Worktree> _worktreeChoices = new List<Wire.Worktree>();
         string _worktreeProject;
         string _worktreeError;
@@ -43,7 +44,7 @@ namespace SlopWorld
             if (EditingTemplate)
             {
                 l.Label("Description");
-                _templateDraft.Description = UiControls.Area(l, 48f, "template.description", _templateDraft.Description);
+                _templateDraft.Description = UiControls.Area(l, 48f, "template.description", _templateDraft.Description, resize: _descriptionArea);
                 UiLayout.Note(l, "New agents copy these settings once. Select a project to provide the working directory and shared mounts.");
             }
             else

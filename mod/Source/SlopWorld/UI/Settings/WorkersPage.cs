@@ -9,6 +9,7 @@ namespace SlopWorld
     // The daemon owns the worker prompt and template allowlist.
     public sealed class WorkersPage : DaemonConfigPage
     {
+        readonly UiAreaResize _promptResize = new UiAreaResize(180f);
         protected override bool ShowEditButton => true;
         protected override string SavedMessage => "Worker settings saved.";
 
@@ -51,7 +52,8 @@ namespace SlopWorld
                 "Task commands use the worker's task ID when SLOPWORLD_TASK_ID is set.");
             l.Label("Worker prompt");
             _cfg.WorkerPrompt = UiControls.Area(l, 180f, "instructions.worker_prompt",
-                _cfg.WorkerPrompt, on: true, defaultValue: _cfg.FactoryDefaults?.WorkerPrompt);
+                _cfg.WorkerPrompt, on: true, defaultValue: _cfg.FactoryDefaults?.WorkerPrompt,
+                resize: _promptResize);
             UiLayout.Note(l, "The daemon stores each task body in its mailbox. This prompt tells the worker " +
                 "how to retrieve and report on the task. Reset changes this form only. Select Save to apply changes.");
 

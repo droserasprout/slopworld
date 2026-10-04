@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -16,7 +17,8 @@ namespace Verse
     static partial class Text
     {
         public static float CalcHeight(string text, float width) =>
-            13f * (float)Math.Ceiling(Math.Max(1, text.Length) * 7f / Math.Max(1f, width));
+            text.Split('\n').Sum(line =>
+                13f * (float)Math.Ceiling(Math.Max(1, line.Length) * 7f / Math.Max(1f, width)));
     }
     static class TooltipHandler { public static void TipRegion(Rect r, string text) { } }
     static class Find { public static readonly List<object> WindowStack = new List<object>(); }
@@ -59,7 +61,11 @@ namespace SlopWorld
             EditorTrace.FieldValues[name] = value;
             return on ? (EditorTrace.Edits.TryGetValue(name, out var edit) ? edit : EditorTrace.EditValue ?? value) : value;
         }
-        public static string Area(Rect r, string name, string value, bool on) => Field(r, name, value, on);
+        public static float AreaHeight(float width, string text, UiAreaResize resize, bool editable = true) =>
+            resize.MeasuredHeight(Verse.Text.CalcHeight(string.IsNullOrEmpty(text) ? " " : text,
+                Mathf.Max(1f, width - UiTheme.FieldPadX * 2f - UiTheme.ScrollbarW)) +
+                UiTheme.FieldPadY * 4f + (editable ? UiAreaResize.CornerSize : 0f));
+        public static string Area(Rect r, string name, string value, bool on, UiAreaResize resize = null) => Field(r, name, value, on);
     }
 
     static class UiButtons
@@ -143,7 +149,7 @@ namespace SlopWorld
     {
         public static void Hairline(Rect r, Color color) => EditorTrace.Record("rule", r);
     }
-    sealed class SmoothScroll : IDisposable
+    sealed class SmoothScroll
     {
         public static bool WheelOnly;
         public static readonly List<SmoothScroll> WheelTrace = new List<SmoothScroll>();
@@ -155,7 +161,13 @@ namespace SlopWorld
             GUIUtility.Origin = new Vector2(_origin.x + frame.x + view.x,
                 _origin.y + frame.y + view.y);
             ScrollWheelRouter.Begin(this, frame, view, precise, _origin);
-            return this;
+            return new ScrollScope(this);
+        }
+        sealed class ScrollScope : IDisposable
+        {
+            readonly SmoothScroll _owner;
+            public ScrollScope(SmoothScroll owner) { _owner = owner; }
+            public void Dispose() => _owner.Dispose();
         }
         public void Dispose()
         {

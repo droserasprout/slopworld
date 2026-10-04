@@ -113,6 +113,7 @@ namespace SlopWorld
         {
             if (_preset == null) { EmptyEditor(r, "Select a preset to inspect or edit it."); return; }
             var p = _preset;
+            BindAreas(p);
             bool editable = _newEntry || p.Source != "system";
             var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiTheme.ScrollbarW), 0f);
             // The same form measures and draws. Measurement must not invoke controls or setters.
@@ -195,6 +196,7 @@ namespace SlopWorld
         {
             if (_command == null) { EmptyEditor(r, "Select a command to inspect or edit it."); return; }
             var c = _command;
+            BindAreas(c);
             bool editable = _newEntry || c.Source != "system";
             var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiTheme.ScrollbarW), 0f);
             view.height = Mathf.Max(DrawCommandFields(view, c, editable, false) +
@@ -293,17 +295,34 @@ namespace SlopWorld
             return y + FieldHeight();
         }
 
+        readonly Dictionary<string, UiAreaResize> _areas = new Dictionary<string, UiAreaResize>();
+        object _areaOwner;
+
+        void BindAreas(object owner)
+        {
+            // Names remain editable while creating an entry; only a different draft
+            // should replace its raw text and retained field geometry.
+            if (ReferenceEquals(_areaOwner, owner)) return;
+            _areaOwner = owner;
+            _areas.Clear();
+            _listDrafts.Clear();
+        }
+
         float EditorArea(Rect view, float y, string label, string name, string value, bool editable,
                          float height, Action<string> set, bool draw)
         {
             if (!editable && string.IsNullOrWhiteSpace(value)) return y;
-            float actual = Mathf.Max(height, Text.CalcHeight(string.IsNullOrEmpty(value) ? " " : value,
-                view.width - UiTheme.FieldPadX * 2f) + UiTheme.FieldPadY * 4f);
+            if (!_areas.TryGetValue(name, out var sizing))
+            {
+                sizing = new UiAreaResize(height, minimum: height, grow: true);
+                _areas.Add(name, sizing);
+            }
+            float actual = UiText.AreaHeight(view.width, value, sizing, editable);
             if (draw)
             {
                 EditorCaption(view, y, label);
                 string next = UiText.Area(new Rect(0f, y + UiTheme.LineH + UiTheme.GapXS,
-                    view.width, actual), name, value, editable);
+                    view.width, actual), name, value, editable, resize: sizing);
                 // List/environment setters normalize text. Repainting must not rewrite it.
                 if (editable && next != value) set(next);
             }
@@ -320,15 +339,35 @@ namespace SlopWorld
         static float FieldHeight() => UiTheme.LineH + UiTheme.GapXS +
                                       UiTheme.FieldH + UiTheme.GapS;
 
+        // The editable document must retain whitespace and empty lines. The daemon list
+        // is a normalized projection, never the source for the next native editor pass.
+        sealed class ListDraft
+        {
+            public readonly List<string> Items;
+            public string Text;
+
+            public ListDraft(List<string> items)
+            {
+                Items = items;
+                Text = DaemonConfig.Lines(items);
+            }
+        }
+
+        readonly Dictionary<string, ListDraft> _listDrafts = new Dictionary<string, ListDraft>();
+
         float EditorList(Rect view, float y, string label, string name, List<string> items, bool editable, bool draw)
         {
-            string text = DaemonConfig.Lines(items);
-            y = EditorArea(view, y, label, name, text, editable, 48f, v =>
+            if (!_listDrafts.TryGetValue(name, out var draft) || draft.Items != items)
             {
+                draft = new ListDraft(items);
+                _listDrafts[name] = draft;
+            }
+            return EditorArea(view, y, label, name, draft.Text, editable, 48f, v =>
+            {
+                draft.Text = v;
                 items.Clear();
                 items.AddRange(DaemonConfig.Split(v));
             }, draw);
-            return y;
         }
 
         void EditorButtons(Rect view, float y, bool editable, string source,

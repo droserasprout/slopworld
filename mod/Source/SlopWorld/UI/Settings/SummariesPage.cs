@@ -10,6 +10,7 @@ namespace SlopWorld
     // Title policies and models. See notes/agent-titles.md.
     public class SummariesPage : DaemonConfigPage
     {
+        readonly UiAreaResize _promptResize = new UiAreaResize(150f);
         static readonly (string Label, Func<DaemonConfig, string> GetPolicy,
             Action<DaemonConfig, string> SetPolicy, bool AllowsAlways)[] Targets =
         {
@@ -65,7 +66,8 @@ namespace SlopWorld
             l.Gap(UiTheme.GapM);
             l.Label("Summarizer prompt");
             _cfg.SummaryPrompt = UiControls.Area(l, 150f, "usage.summary.prompt",
-                _cfg.SummaryPrompt, defaultValue: _cfg.FactoryDefaults?.SummaryPrompt);
+                _cfg.SummaryPrompt, defaultValue: _cfg.FactoryDefaults?.SummaryPrompt,
+                resize: _promptResize);
             UiLayout.Note(l, "When this field has text, the daemon sends it before the submitted prompt " +
                 "for session titles and task summaries. The daemon adds the submitted prompt automatically.");
 
