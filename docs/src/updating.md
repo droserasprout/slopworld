@@ -21,7 +21,7 @@ If startup fails after an update, see [Troubleshooting](reference/troubleshootin
 
 ## Other platforms
 
-On macOS, pull the latest source and run `just mac` to rebuild the sidecar,
+On macOS, pull the latest source and run `just --justfile mac/justfile all` to rebuild the sidecar,
 reinstall the mod, and launch the game. See [macOS setup](guides/macos.md).
 For standalone containers, follow [Sidecar lifecycle](guides/sidecar.md#lifecycle).
 Rebuilding an image preserves configured data and endpoint directories.

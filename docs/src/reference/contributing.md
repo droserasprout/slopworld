@@ -4,7 +4,8 @@
 
 `slopd/` contains the Rust daemon and host CLIs.
 `mod/` contains the C# mod, assets, and tests that run without the game.
-Build tools are in `tools/` and `just/`.
+Shared build tools are in `tools/` and `just/`. The native macOS workflow
+has its scripts, settings, and separate justfile in `mac/`.
 User documentation is in `docs/`. Implementation notes are in `notes/`.
 
 ## Development workflow

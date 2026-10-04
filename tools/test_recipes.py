@@ -42,7 +42,9 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
             (self.directory / tool).symlink_to(stub)
         self.env = os.environ.copy()
         # Make results independent of the caller's selected build/profile/tool settings.
-        settings = "\n".join(path.read_text() for path in (ROOT / "just").glob("*.just"))
+        settings = "\n".join(path.read_text()
+                             for directory in (ROOT / "just", ROOT / "mac")
+                             for path in directory.glob("*.just"))
         for key in re.findall(r"^(?:export )?([A-Z][A-Z_]+) :=", settings, re.MULTILINE):
             self.env.pop(key, None)
         self.env.update(PATH=str(self.directory) + os.pathsep + os.environ["PATH"],
@@ -101,12 +103,31 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         managed.mkdir(parents=True)
         (managed / "Assembly-CSharp.dll").touch()
         (app / "Mods").mkdir()
-        self.run_recipe("BUILD=release", "VERSION=1.2.3",
-                        f"MAC_RIMWORLD={app}", "mac-mod")
+        self.run_recipe("--justfile", str(ROOT / "mac/justfile"),
+                        "BUILD=release", "VERSION=1.2.3",
+                        f"MAC_RIMWORLD={app}", "mod", cwd=ROOT / "mac")
         mod, = [call for call in self.calls("dotnet")
                 if "mod/Source/SlopWorld/SlopWorld.csproj" in call["args"]]
+        self.assertEqual(mod["cwd"], str(ROOT))
+        self.assertEqual(mod["env"]["BUILD"], "release")
         self.assertIn(f"-p:RimWorldManaged={managed}", mod["args"])
         self.assertIn("Release", mod["args"])
+
+    def test_root_commands_exclude_the_mac_workflow(self):
+        result = self.run_recipe("--list")
+        self.assertNotIn("mac-", result.stdout)
+        self.assertNotIn("macOS", result.stdout)
+        result = self.run_recipe("--evaluate")
+        self.assertNotIn("MAC_RIMWORLD", result.stdout)
+
+    def test_mac_sidecar_workspace_defaults_to_repository_root(self):
+        result = self.run_recipe("--justfile", str(ROOT / "mac/justfile"),
+                                 "--evaluate", "SLOPCAR_WORKSPACE", cwd=ROOT / "mac")
+        self.assertEqual(result.stdout.strip(), str(ROOT))
+        result = self.run_recipe("--justfile", str(ROOT / "mac/justfile"),
+                                 "--evaluate", f"SLOPCAR_WORKSPACE={self.directory}",
+                                 "SLOPCAR_WORKSPACE")
+        self.assertEqual(result.stdout.strip(), str(self.directory))
 
     def test_typing_benchmark_forces_phase_and_preserves_other_settings(self):
         self.run_recipe("BENCH_PHASE=history", "BENCH_FILL_HISTORY=false",
