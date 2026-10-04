@@ -153,8 +153,10 @@ async fn draft_highlighter_catalog_and_preview_leave_defaults_unchanged() {
     assert!(off.themes.is_empty());
     assert_eq!(manager.config().await.commands.highlighter, original);
     let request = serde_json::from_value(json!({"text":"sample", "command":""})).unwrap();
-    super::super::files::highlight(State(manager.clone()), Proto(request))
+    let Proto(preview) = super::super::files::highlight(State(manager.clone()), Proto(request))
         .await
-        .unwrap_err();
+        .unwrap();
+    assert_eq!(preview.text, "sample");
+    assert_eq!(preview.bytes, 6);
     assert_eq!(manager.config().await.commands.highlighter, original);
 }
