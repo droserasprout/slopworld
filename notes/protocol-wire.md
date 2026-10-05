@@ -1,7 +1,7 @@
 # Wire coordination
 
 `shared/slopworld.proto` defines binary messages; `shared/protocol.yaml` owns routes,
-type mappings, enums, and limits. `just api-contract` generates C# bindings and the
+type mappings, enums, and limits. `just refresh-protocol` generates C# bindings and the
 Rust HTTP dispatcher; `slopd/build.rs` generates Rust messages. `just api-docs`
 generates the route inventory from the router and shared HTTP type mappings.
 `tools/docs/reference.py` reads middleware access from the named route-family functions

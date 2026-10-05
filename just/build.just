@@ -7,7 +7,7 @@ daemon:
 
 # Build the mod against the game's assemblies
 [group('Build')]
-mod: validate-themes mod-deps
+mod: validate-themes sync-mod
     version="{{ VERSION }}"; \
         if test -z "$version"; then version="$({{ PYTHON }} -m tools.version.mod_version)" || exit; fi; \
         {{ DOTNET }} build "{{ MOD_PROJECT }}" --configuration {{ if BUILD == 'release' { 'Release' } else { 'Debug' } }} \
@@ -16,7 +16,7 @@ mod: validate-themes mod-deps
 
 # Restore locked mod runtime packages for Unity Mono
 [group('Build')]
-mod-deps:
+sync-mod:
     {{ DOTNET }} build mod/Dependencies/Runtime.csproj --configuration Release --verbosity quiet -p:RestoreLockedMode={{ MOD_DEPS_LOCKED }}
 
 # Fetch and verify the latest RimWorld Harmony assembly
@@ -41,8 +41,3 @@ clean:
     rm -f "{{ MOD_DLL }}"
     rm -rf mod/Source/SlopWorld/obj
     rm -rf "{{ COVERAGE_DIR }}"
-
-# Keep the old entry point for existing developer scripts.
-[group('Build')]
-[private]
-protobuf-deps: mod-deps

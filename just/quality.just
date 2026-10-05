@@ -12,12 +12,12 @@ format-daemon:
 
 # Format C# production, test and benchmark sources
 [group('Formatting')]
-format-csharp:
+format-mod:
     {{ CSHARP_FORMAT_COMMAND }}
 
 # Check formatting across C# production, tests and benchmarks
 [group('Formatting')]
-check-format-csharp:
+check-format-mod:
     {{ CSHARP_FORMAT_COMMAND }} --verify-no-changes
 
 # Check Rust source formatting without compiling
@@ -35,7 +35,7 @@ lint-daemon: check-format-daemon
 # Build and check C# formatting (requires game assemblies)
 [group('Lint')]
 lint-mod:
-    "{{ just_executable() }}" BUILD=release MOD_WARNINGS_AS_ERRORS=true mod check-format-csharp
+    "{{ just_executable() }}" BUILD=release MOD_WARNINGS_AS_ERRORS=true mod check-format-mod
 
 # Format and check Python package code with Ruff
 [group('Lint')]

@@ -1,7 +1,7 @@
 # Third-party notices
 
 This directory is the canonical source for bundled third-party license texts and
-attribution. `just stage-licenses` copies it into `mod/About/ThirdPartyNotices/`
+attribution. `just refresh-licenses` copies it into `mod/About/ThirdPartyNotices/`
 and copies the root project `LICENSE` into `mod/About/LICENSE`. Release archives,
 Arch packages, and the sidecar image also carry readable copies. These notices
 cover the bundled assets and mod runtime libraries; they are not a complete
