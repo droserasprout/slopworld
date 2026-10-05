@@ -12,7 +12,7 @@
   provide that version; check with `protoc --version`.
 - **just** runs the repository recipes. Install it with your package manager
   or `cargo install just --locked`. On macOS, use `brew install just`.
-- **Python 3.11 or newer** runs tooling and reads Cargo version metadata for mod builds.
+- **Python 3.12 or newer** runs tooling and reads Cargo version metadata for mod builds.
   **uv** manages the tooling environment from `pyproject.toml` and `uv.lock`.
   Recipes synchronize locked dependencies automatically; `just sync-tools` prepares
   the environment explicitly. Asset generators use the optional `assets` dependencies
