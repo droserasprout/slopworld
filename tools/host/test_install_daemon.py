@@ -1,4 +1,4 @@
-"""Protect running inode ownership, effective unit comparison, and failed publication."""
+"""Protect running executable comparison, managed unit rendering, and restart decisions."""
 
 import subprocess
 from unittest.mock import patch
@@ -29,7 +29,7 @@ def test_unusable_pid_requires_restart(tmp_path, pid):
         assert installer.needs_restart(tmp_path / 'binary', tmp_path / 'unit', b'unit')
 
 
-def test_restart_compares_running_inode_and_effective_unit(tmp_path):
+def test_restart_compares_running_executable_contents_and_managed_unit(tmp_path):
     unit = tmp_path / 'unit'
     unit.write_bytes(b'unit')
     results = [subprocess.CompletedProcess([], 0), subprocess.CompletedProcess([], 0, stdout='123\n')]
@@ -78,3 +78,7 @@ def test_install_restarts_only_when_needed(tmp_path, monkeypatch, restart):
     calls = [call.args[0] for call in run.call_args_list]
     assert (['systemctl', '--user', 'restart', 'slopd.service'] in calls) == restart
     assert (tmp_path / 'bin/slopd').read_bytes() == b'slopd'
+    unit = (tmp_path / 'units/slopd.service').read_text()
+    assert f'"{tmp_path}/bin/slopd"' in unit
+    assert ['systemctl', '--user', 'enable', 'slopd.service'] in calls
+    assert ['systemctl', '--user', 'enable', '--now', 'slopd.service'] not in calls
