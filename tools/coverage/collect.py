@@ -25,6 +25,7 @@ def daemon(output: Path) -> None:
     llvm_profdata = shutil.which('llvm-profdata')
     if not llvm_cov or not llvm_profdata:
         raise ValueError('Missing LLVM coverage tools.')
+    exclusions = ['--ignore-filename-regex', os.environ['RUST_COVERAGE_EXCLUDE']]
     output.mkdir(parents=True, exist_ok=True)
     environment = {**os.environ, 'LLVM_COV': llvm_cov, 'LLVM_PROFDATA': llvm_profdata}
     cargo = command('CARGO', 'cargo') + ['llvm-cov']
@@ -37,7 +38,6 @@ def daemon(output: Path) -> None:
     report = output / 'rust.cobertura.xml'
     filtered = output / 'rust.filtered.cobertura.xml'
     cargo_run('report', '--cobertura', '--output-path', str(report))
-    exclusions = ['--ignore-filename-regex', os.environ['RUST_COVERAGE_EXCLUDE']]
     cargo_run('report', *exclusions, '--cobertura', '--output-path', str(filtered))
     with (output / 'rust.files.txt').open('w') as stream:
         cargo_run('report', *exclusions, stdout=stream)
