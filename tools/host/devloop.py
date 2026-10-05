@@ -30,7 +30,11 @@ def parse_worktrees(porcelain: bytes) -> list[Worktree]:
 def select(choice: str, worktrees: list[Worktree], current: Path) -> Path:
     if not choice:
         return current
-    if len(choice) < 6 and re.fullmatch('[1-9][0-9]*', choice) and int(choice) <= len(worktrees):
+    if (
+        len(choice) <= len(str(len(worktrees)))
+        and re.fullmatch('[1-9][0-9]*', choice)
+        and int(choice) <= len(worktrees)
+    ):
         return worktrees[int(choice) - 1].path
     raise ValueError('Choose a listed number.')
 
@@ -76,6 +80,9 @@ def main() -> None:
             commit = run(
                 ['git', '-C', str(current), 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True, check=False
             )
+            if commit.returncode:
+                log(f'Checkout unavailable: {current}', file=terminal_output)
+                continue
             log(f'\nBuilding {current} ({commit.stdout.strip()})', file=terminal_output)
             # One invocation shares install/run dependencies; a failure returns to selection.
             run([just, 'install', 'run'], cwd=current, check=False)
