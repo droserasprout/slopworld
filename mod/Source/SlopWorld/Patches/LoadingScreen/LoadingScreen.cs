@@ -25,7 +25,6 @@ namespace SlopWorld
         // This is the same padding on both sides of the panel: the stream begins at its
         // top-left inner corner, rather than inheriting GameplayTipWindow's centred label.
         internal static readonly Vector2 Margin = new Vector2(16f, 16f);
-        internal static readonly Color ContainerBackground = Color.black;
         internal static readonly Color StreamText = new Color(0.82f, 0.88f, 0.93f);
         // Keep the typewriter tail visible: word n-1 is muted and word n is deepest.
         internal static readonly Color PreviousWordText = ScaleRgb(StreamText, 0.75f);
@@ -131,8 +130,7 @@ namespace SlopWorld
 
         // The visible stream is a line buffer, not a pre-wrapped wall. Keeping lines explicitly
         // lets a full panel scroll one row at a time while the newly exposed row is populated.
-        // Advance runs after the panel background is issued during Repaint. Therefore, a new stream
-        // starts only with a visible container and fills naturally before scrolling begins.
+        // Advance runs during Repaint, so a new stream fills naturally before scrolling begins.
         static readonly List<string> Stream = new List<string>();
         static readonly List<string> Tokens = new List<string>();
         static readonly System.Text.StringBuilder PaintedBuilder = new System.Text.StringBuilder();
@@ -405,8 +403,8 @@ namespace SlopWorld
             if (LastRotated != null) LastRotated.SetValue(null, Time.realtimeSinceStartup);
         }
 
-        // The non-window-stack path draws vanilla chrome before DrawContents. The loading panel
-        // supplies its own full-rect fill, so both the shadow and the 1px border are stray edges.
+        // The non-window-stack path draws vanilla chrome before DrawContents. Suppress its
+        // background and shadow so the stream draws directly over the loading screen artwork.
         internal static void SuppressWindowChrome(Rect rect) { }
 
         [HarmonyTranspiler]
@@ -440,7 +438,6 @@ namespace SlopWorld
                 Mathf.Max(1f, rect.width - margin.x * 2f),
                 Mathf.Max(1f, rect.height - margin.y * 2f));
 
-            Widgets.DrawBoxSolid(rect, Patch_LoadingTips.ContainerBackground);
             Patch_LoadingTips.Advance();
 
             Widgets.BeginGroup(inner);

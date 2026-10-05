@@ -3,6 +3,7 @@
 `Patches/LoadingScreen/` owns the loading-time tip stream and Harmony drawing hooks.
 The stream measures fixed-width cells and draws the committed ASCII atlas. Loading
 text size follows the terminal font preference rather than an independent setting.
+The stream draws directly over the loading artwork, with no panel background or shadow.
 
 Measure the panel before reading geometry. Repaint reflows a resized retained stream
 when no new words are due. The custom loading-screen owner handles both layout and
