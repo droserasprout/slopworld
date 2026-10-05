@@ -58,7 +58,7 @@ def check_library(spec):
     )
     if path is None and shutil.which('ldconfig'):
         for line in run(['ldconfig', '-p']).splitlines():
-            if library in line and ' => ' in line:
+            if line.split() and line.split()[0] == library and ' => ' in line:
                 path = Path(line.rsplit(' => ', 1)[1])
                 break
     return Result(path is not None, str(path) if path else library)
@@ -76,29 +76,14 @@ def check_rimworld_assemblies(_spec):
 
 
 def check_rimworld_executable(_spec):
-    return check_rimworld_path('RimWorldLinux')
+    result = check_rimworld_path('RimWorldLinux')
+    return Result(result.found and os.access(result.detail, os.X_OK), result.detail)
 
 
 def check_python_module(spec):
     module = importlib.util.find_spec(spec['module'])
     path = module.origin if module and module.origin else None
     return Result(module is not None, path or spec['module'])
-
-
-def check_font_match(spec):
-    name = spec['value']
-    output = run(['fc-match', '-f', '%{family}\t%{file}\n', name]) if shutil.which('fc-match') else ''
-    family, separator, path = output.strip().partition('\t')
-    found = name.casefold() in family.casefold()
-    return Result(found, path if found and separator else name)
-
-
-def check_font_list(spec):
-    name = spec['value']
-    output = run(['fc-list', '-f', '%{family}\t%{file}\n']) if shutil.which('fc-list') else ''
-    match = next((line for line in output.splitlines() if name.casefold() in line.casefold()), '')
-    _family, separator, path = match.partition('\t')
-    return Result(bool(match), path if separator else name)
 
 
 CHECKS = {
@@ -108,8 +93,6 @@ CHECKS = {
     'rimworld_assemblies': check_rimworld_assemblies,
     'rimworld_executable': check_rimworld_executable,
     'python_module': check_python_module,
-    'font_match': check_font_match,
-    'font_list': check_font_list,
 }
 
 
