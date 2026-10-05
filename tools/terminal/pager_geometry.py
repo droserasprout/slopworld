@@ -1,4 +1,4 @@
-"""Exercise pager startup and wheel input in an isolated tmux server without the game."""
+"""Exercise pager startup and line navigation in an isolated tmux server without the game."""
 
 import pathlib
 import re
@@ -16,7 +16,7 @@ def main():
         socket = str(root / 'tmux')
 
         def tmux(*args):
-            return subprocess.check_output(['tmux', '-S', socket, *args], text=True)
+            return subprocess.check_output(['tmux', '-f', '/dev/null', '-S', socket, *args], text=True)
 
         def wait_for(name, expected):
             deadline = time.monotonic() + 5
@@ -27,7 +27,7 @@ def main():
                 time.sleep(0.05)
             raise AssertionError(f'{name}: expected {expected!r} at row 1, got {lines!r}')
 
-        # LESSOPEN's startup delay exposes the resize race without requiring a highlighter.
+        # Delay preprocessing to exercise pager startup at the supplied geometry.
         preprocessor = root / 'preprocess'
         preprocessor.write_text('#!/bin/sh\nsleep 0.1\ncat -- "$1"\n')
         preprocessor.chmod(0o700)
@@ -123,7 +123,7 @@ def main():
                 if lines and lines[0].startswith('1F46F'):
                     break
                 time.sleep(0.05)
-            assert all(line.startswith('1F46F') for line in lines[:18]), lines[:18]
+            assert lines[:18] == [row.rstrip() for row in source_rows], lines[:18]
             if shutil.which('bat'):
                 # bat receives the file; LESS carries the diagnostic line selector to its pager.
                 tmux(
