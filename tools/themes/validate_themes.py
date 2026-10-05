@@ -75,7 +75,7 @@ def fail(path: Path, message: str) -> None:
 def read_file(path: Path, expected: set[str], colors: tuple[str, ...] = ()) -> dict:
     try:
         data = tomllib.loads(path.read_text(encoding='utf-8'))
-    except (OSError, tomllib.TOMLDecodeError) as error:
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
         fail(path, f'invalid TOML: {error}')
 
     allowed = expected | {'order'}
