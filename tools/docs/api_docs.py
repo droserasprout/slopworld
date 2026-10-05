@@ -30,6 +30,9 @@ def render() -> str:
         '',
     ]
     routes = api_routes(read_files())
+    discovered = {(route.method, route.path) for route in routes if route.path != '/ws'}
+    if discovered != payloads.keys():
+        raise ValueError(f'HTTP route inventory differs from wire contract: {discovered ^ payloads.keys()}')
     families = {
         'sessions': 'Sessions and grants',
         'grants': 'Sessions and grants',
@@ -58,7 +61,10 @@ def render() -> str:
     for route in routes:
         if route.path == '/ws':
             continue
-        family = route.path.split('/')[2]
+        parts = route.path.split('/')
+        if len(parts) < 3 or parts[1] != 'api':
+            raise ValueError(f'HTTP route must have an /api/<family> path: {route.path}')
+        family = parts[2]
         groups.setdefault(families.get(family, 'Integrations and diagnostics'), []).append(route)
     for family, entries in groups.items():
         lines.extend(

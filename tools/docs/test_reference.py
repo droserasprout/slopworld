@@ -4,11 +4,20 @@
 import unittest
 
 from tools.docs.reference import ROOT
+from tools.docs.reference import api_routes
 from tools.docs.reference import cli_inventory
 from tools.docs.reference import env_inventory
 
 
 class EnvironmentInventoryTests(unittest.TestCase):
+    def test_generic_lookups_are_dynamic_and_path_overrides_are_named(self):
+        path = ROOT / 'slopd/src/example.rs'
+        names, dynamic = env_inventory(
+            {path: 'env::var(name);\nenv::var_os(variable);\ncrate::paths::dir("SLOPD_JUKEBOX", base, "jukebox");'}
+        )
+        self.assertEqual(set(names), {'SLOPD_JUKEBOX'})
+        self.assertEqual([item.line for item in dynamic], [1, 2])
+
     def test_build_and_tooling_variables_are_excluded(self):
         names, dynamic = env_inventory(
             {
@@ -53,6 +62,17 @@ class CommandInventoryTests(unittest.TestCase):
             }
         )
         self.assertEqual({command for _, command, _ in commands}, {'just mod', 'just --justfile mac/justfile mod'})
+
+
+class RouteInventoryTests(unittest.TestCase):
+    def test_unresolved_path_fails_instead_of_omitting_route(self):
+        with self.assertRaisesRegex(ValueError, 'unresolved API route path'):
+            api_routes({ROOT / 'slopd/src/api/router.rs': 'fn root_routes() { router.route(UNKNOWN, get(handler)) }'})
+
+    def test_documented_http_routes_match_wire_contract(self):
+        from tools.docs.api_docs import render
+
+        self.assertIn('# API route inventory', render())
 
 
 if __name__ == '__main__':

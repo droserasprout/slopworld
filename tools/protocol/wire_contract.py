@@ -85,16 +85,48 @@ def validate(data: dict) -> None:
         raise ValueError('protocol definition has no HTTP routes')
     for name, route in routes.items():
         if (
-            not isinstance(route['path'], str)
+            not isinstance(route, dict)
+            or not {'path', 'methods', 'scope', 'protobuf'} <= route.keys()
+            or not isinstance(route['path'], str)
             or not route['path'].startswith('/')
             or not isinstance(route['methods'], list)
             or not route['methods']
             or any(
-                m not in {'GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS', 'TRACE'} for m in route['methods']
+                not isinstance(m, str) or m not in {'GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS', 'TRACE'}
+                for m in route['methods']
             )
+            or not isinstance(route['scope'], str)
             or route['scope'] not in {'root', 'scoped'}
         ):
             raise ValueError(f'invalid route {name}')
+        payloads = route['protobuf']
+        if (
+            not isinstance(payloads, dict)
+            or set(payloads) != set(route['methods'])
+            or len(route['methods']) != len(set(route['methods']))
+        ):
+            raise ValueError(f'{name}: invalid Protobuf method mapping')
+        for pair in payloads.values():
+            if (
+                not isinstance(pair, list)
+                or len(pair) != 2
+                or any(
+                    not isinstance(value, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', value) for value in pair
+                )
+            ):
+                raise ValueError(f'{name}: expected Protobuf request/response names')
+    websocket = protocol['http'].get('websocket')
+    headers = protocol['http'].get('headers')
+    if (
+        not isinstance(websocket, dict)
+        or not isinstance(websocket.get('path'), str)
+        or not websocket['path'].startswith('/')
+    ):
+        raise ValueError('invalid HTTP WebSocket declaration')
+    if not isinstance(headers, dict) or any(
+        not isinstance(headers.get(key), str) or not headers[key] for key in ('token', 'session')
+    ):
+        raise ValueError('invalid HTTP headers')
     for name, values in {**protocol['websocket'], **protocol['enums']}.items():
         if (
             not isinstance(values, list)
@@ -106,14 +138,111 @@ def validate(data: dict) -> None:
     for name, value in protocol['constants'].items():
         if type(value) not in (str, bool, int):
             raise ValueError(f'protocol.{name}: expected string, boolean or integer')
+        if type(value) is int:
+            maximum = (
+                65535
+                if name in {'terminal_min_cols', 'terminal_max_cols', 'terminal_min_rows', 'terminal_max_rows'}
+                else 2147483647
+            )
+            if not 0 <= value <= maximum:
+                raise ValueError(f'protocol.{name}: integer must be between 0 and {maximum}')
+    validate_names(routes, 'routes')
+    validate_names(protocol['constants'], 'constants')
+    validate_names(protocol['enums'], 'enum modules', allow_hyphens=False)
+    for section, values in {**protocol['websocket'], **protocol['enums']}.items():
+        validate_names(values, section)
+
+
+def validate_names(names, section, *, allow_hyphens=True):
+    """Keep normalized identifiers legal and unique in both generated languages."""
+    rust_names, cs_names = set(), set()
+    pattern = r'[A-Za-z_][A-Za-z0-9_-]*' if allow_hyphens else r'[A-Za-z_][A-Za-z0-9_]*'
+    for name in names:
+        if not isinstance(name, str) or not re.fullmatch(pattern, name) or not pascal(name):
+            raise ValueError(f'{section}: invalid identifier {name!r}')
+        rust_name, cs_name = upper(name), pascal(name)
+        if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', cs_name):
+            raise ValueError(f'{section}: invalid generated identifier {name!r}')
+        if not allow_hyphens and name in {
+            'as',
+            'async',
+            'await',
+            'break',
+            'const',
+            'continue',
+            'crate',
+            'dyn',
+            'else',
+            'enum',
+            'extern',
+            'false',
+            'fn',
+            'for',
+            'if',
+            'impl',
+            'in',
+            'let',
+            'loop',
+            'match',
+            'mod',
+            'move',
+            'mut',
+            'pub',
+            'ref',
+            'return',
+            'self',
+            'Self',
+            'static',
+            'struct',
+            'super',
+            'trait',
+            'true',
+            'type',
+            'unsafe',
+            'use',
+            'where',
+            'while',
+            'abstract',
+            'become',
+            'box',
+            'do',
+            'final',
+            'gen',
+            'macro',
+            'override',
+            'priv',
+            'try',
+            'typeof',
+            'unsized',
+            'virtual',
+            'yield',
+        }:
+            raise ValueError(f'{section}: reserved Rust identifier {name!r}')
+        if rust_name in rust_names or cs_name in cs_names:
+            raise ValueError(f'{section}: duplicate generated identifier {name!r}')
+        rust_names.add(rust_name)
+        cs_names.add(cs_name)
 
 
 def rust_string(value: str) -> str:
-    return '"' + value.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n') + '"'
+    return source_string(value, rust=True)
 
 
 def cs_string(value: str) -> str:
-    return '"' + value.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n') + '"'
+    return source_string(value, rust=False)
+
+
+def source_string(value: str, *, rust: bool) -> str:
+    escapes = {'\\': '\\\\', '"': '\\"', '\n': '\\n', '\r': '\\r', '\t': '\\t'}
+
+    def escape(char):
+        if char in escapes:
+            return escapes[char]
+        if ord(char) < 32 or ord(char) == 127:
+            return '\\u{' + f'{ord(char):x}' + '}' if rust else '\\u' + f'{ord(char):04x}'
+        return char
+
+    return '"' + ''.join(escape(char) for char in value) + '"'
 
 
 def rust(data: dict) -> str:
