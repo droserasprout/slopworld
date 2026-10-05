@@ -50,6 +50,7 @@ def names():
 
 def fetch(icons):
     os.makedirs(SRC, exist_ok=True)
+    failed = False
     for name in icons:
         url = UPSTREAM.format(name)
         try:
@@ -57,10 +58,12 @@ def fetch(icons):
                 body = r.read()
         except Exception as e:
             print(f'  {name}: {e}', file=sys.stderr)
+            failed = True
             continue
         with open(os.path.join(SRC, f'{name}.svg'), 'wb') as f:
             f.write(body)
         print(f'  {name}')
+    return not failed
 
 
 def render(path, edge):
@@ -108,10 +111,14 @@ def main():
     ap.add_argument('--size', type=int, default=32)
     args = ap.parse_args()
 
+    if args.size <= 0:
+        ap.error('--size must be positive')
+
     icons = names()
     if args.fetch:
         print(f'fetching {len(icons)} icons')
-        fetch(icons)
+        if not fetch(icons):
+            return 1
 
     os.makedirs(OUT, exist_ok=True)
     done = sum(bake(n, args.size) for n in icons)

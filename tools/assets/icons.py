@@ -72,6 +72,9 @@ def main():
     ap.add_argument('--report', action='store_true')
     args = ap.parse_args()
 
+    if args.size <= 0 or args.margin < 0 or 2 * args.margin >= args.size:
+        ap.error('--size must be positive and --margin must leave a positive drawing area')
+
     with open(MANIFEST, 'rb') as f:
         table = tomllib.load(f)
 
@@ -89,7 +92,7 @@ def main():
             continue
         drawn[slot] = a
 
-    if not drawn:
+    if len(drawn) != len(table):
         return 1
 
     # One scale for the whole set, off the glyph that needs the most room.

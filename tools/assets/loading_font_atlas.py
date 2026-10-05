@@ -60,7 +60,7 @@ def main():
         char = chr(codepoint)
         draw.text((origin[0], origin[1] + baseline), char, font=font, fill=(255, 255, 255, 255), anchor='ls')
 
-    os.makedirs(os.path.dirname(args.texture), exist_ok=True)
+    os.makedirs(os.path.dirname(args.texture) or '.', exist_ok=True)
     atlas.save(args.texture, optimize=True)
     print(
         f'wrote ASCII {FIRST}-{LAST} PNG atlas ({atlas.width}x{atlas.height}, '
