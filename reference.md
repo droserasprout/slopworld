@@ -217,13 +217,13 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 | `just` | `just bench-report` | [`just/bench.just:23`](./just/bench.just#L23) |
 | `just` | `just bench-terminal` | [`just/bench.just:33`](./just/bench.just#L33) |
 | `just` | `just bench-terminal-typing` | [`just/bench.just:38`](./just/bench.just#L38) |
-| `just` | `just check-format-csharp` | [`just/quality.just:17`](./just/quality.just#L17) |
-| `just` | `just check-format-daemon` | [`just/quality.just:22`](./just/quality.just#L22) |
+| `just` | `just check-format-csharp` | [`just/quality.just:18`](./just/quality.just#L18) |
+| `just` | `just check-format-daemon` | [`just/quality.just:23`](./just/quality.just#L23) |
 | `just` | `just check-generated` | [`just/generate.just:28`](./just/generate.just#L28) |
-| `just` | `just check-licenses` | [`just/build.just:27`](./just/build.just#L27) |
+| `just` | `just check-licenses` | [`just/build.just:32`](./just/build.just#L32) |
 | `just` | `just check-reqs` | [`just/misc.just:22`](./just/misc.just#L22) |
 | `just` | `just ci` | [`just/popular.just:19`](./just/popular.just#L19) |
-| `just` | `just clean` | [`just/build.just:37`](./just/build.just#L37) |
+| `just` | `just clean` | [`just/build.just:42`](./just/build.just#L42) |
 | `just` | `just coverage` | [`just/test.just:49`](./just/test.just#L49) |
 | `just` | `just coverage-daemon` | [`just/test.just:57`](./just/test.just#L57) |
 | `just` | `just coverage-mod` | [`just/test.just:62`](./just/test.just#L62) |
@@ -233,11 +233,11 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 | `just` | `just devloop` | [`just/misc.just:42`](./just/misc.just#L42) |
 | `just` | `just docs` | [`just/misc.just:32`](./just/misc.just#L32) |
 | `just` | `just docs-serve` | [`just/misc.just:37`](./just/misc.just#L37) |
-| `just` | `just fix-tools` | [`just/quality.just:44`](./just/quality.just#L44) |
+| `just` | `just fix-tools` | [`just/quality.just:45`](./just/quality.just#L45) |
 | `just` | `just format` | [`just/popular.just:7`](./just/popular.just#L7) |
-| `just` | `just format-csharp` | [`just/quality.just:12`](./just/quality.just#L12) |
-| `just` | `just format-daemon` | [`just/quality.just:7`](./just/quality.just#L7) |
-| `just` | `just format-tools` | [`just/quality.just:49`](./just/quality.just#L49) |
+| `just` | `just format-csharp` | [`just/quality.just:13`](./just/quality.just#L13) |
+| `just` | `just format-daemon` | [`just/quality.just:8`](./just/quality.just#L8) |
+| `just` | `just format-tools` | [`just/quality.just:50`](./just/quality.just#L50) |
 | `just` | `just gogdl-install` | [`just/rimworld.just:8`](./just/rimworld.just#L8) |
 | `just` | `just gogdl-login` | [`just/rimworld.just:3`](./just/rimworld.just#L3) |
 | `just` | `just gogdl-update` | [`just/rimworld.just:13`](./just/rimworld.just#L13) |
@@ -247,9 +247,9 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 | `just` | `just install-mod` | [`just/install.just:15`](./just/install.just#L15) |
 | `just` | `just install-runner` | [`just/install.just:9`](./just/install.just#L9) |
 | `just` | `just lint` | [`just/popular.just:11`](./just/popular.just#L11) |
-| `just` | `just lint-daemon` | [`just/quality.just:29`](./just/quality.just#L29) |
-| `just` | `just lint-mod` | [`just/quality.just:34`](./just/quality.just#L34) |
-| `just` | `just lint-tools` | [`just/quality.just:39`](./just/quality.just#L39) |
+| `just` | `just lint-daemon` | [`just/quality.just:30`](./just/quality.just#L30) |
+| `just` | `just lint-mod` | [`just/quality.just:35`](./just/quality.just#L35) |
+| `just` | `just lint-tools` | [`just/quality.just:40`](./just/quality.just#L40) |
 | `just` | `just lock-tools` | [`just/generate.just:38`](./just/generate.just#L38) |
 | `just` | `just logs` | [`just/misc.just:3`](./just/misc.just#L3) |
 | `just` | `just mod` | [`just/build.just:8`](./just/build.just#L8) |
@@ -262,7 +262,7 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 | `just` | `just sidecar-devloop` | [`just/sidecar.just:20`](./just/sidecar.just#L20) |
 | `just` | `just sidecar-doctor` | [`just/sidecar.just:15`](./just/sidecar.just#L15) |
 | `just` | `just sidecar-run` | [`just/sidecar.just:3`](./just/sidecar.just#L3) |
-| `just` | `just stage-licenses` | [`just/build.just:22`](./just/build.just#L22) |
+| `just` | `just stage-licenses` | [`just/build.just:27`](./just/build.just#L27) |
 | `just` | `just sync-tools` | [`just/generate.just:43`](./just/generate.just#L43) |
 | `just` | `just test` | [`just/popular.just:15`](./just/popular.just#L15) |
 | `just` | `just test-bench-report` | [`just/test.just:38`](./just/test.just#L38) |
@@ -283,7 +283,7 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 | `just` | `just uninstall-font` | [`just/install.just:47`](./just/install.just#L47) |
 | `just` | `just uninstall-mod` | [`just/install.just:42`](./just/install.just#L42) |
 | `just` | `just uninstall-runner` | [`just/install.just:36`](./just/install.just#L36) |
-| `just` | `just validate-themes` | [`just/build.just:32`](./just/build.just#L32) |
+| `just` | `just validate-themes` | [`just/build.just:37`](./just/build.just#L37) |
 | `slopctl` | `&'static str,` | [`slopd/src/bin/slopctl/commands/mod.rs:71`](./slopd/src/bin/slopctl/commands/mod.rs#L71) |
 | `slopctl` | `slopctl agent create NAME --project PROJECT --template TEMPLATE [--start]` | [`slopd/src/bin/slopctl/commands/mod.rs:47`](./slopd/src/bin/slopctl/commands/mod.rs#L47) |
 | `slopctl` | `slopctl logs [game\|daemon\|all] [--lines N] [--follow]` | [`slopd/src/bin/slopctl/commands/mod.rs:57`](./slopd/src/bin/slopctl/commands/mod.rs#L57) |

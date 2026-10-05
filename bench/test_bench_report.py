@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Check benchmark aggregation and build/measurement ordering."""
-import importlib.util
 import io
 import sys
 import tempfile
@@ -9,10 +8,7 @@ from collections import OrderedDict
 from pathlib import Path
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location("bench_report", Path(__file__).with_name("bench-report.py"))
-report = importlib.util.module_from_spec(spec)
-sys.modules[spec.name] = report
-spec.loader.exec_module(report)
+from bench import report
 
 
 def run(p50, p95, allocated=10, wire=100):
@@ -232,7 +228,7 @@ class BenchReportTests(unittest.TestCase):
             report.data.add_metric(existing, "terminal", "typing", "paste", "latency/input_to_frame_end",
                                    "p50", "us", 1, 50000)
             with patch.object(report.data, "ROOT", Path(directory) / "results"), \
-                    patch.object(sys, "argv", ["bench-report.py", "run", "--run", "trial", "--output", str(output)]), \
+                    patch.object(sys, "argv", ["bench.report", "run", "--run", "trial", "--output", str(output)]), \
                     patch.object(report, "commit_hash", return_value="test"), \
                     patch.object(report.subprocess, "run", side_effect=lambda *a, **k: events.append("build")) as build, \
                     patch.object(report, "run_bench", side_effect=lambda b, n, p, s: events.append(n) or run(n, n + 1)):

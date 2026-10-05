@@ -4,7 +4,7 @@
 [group('Installation')]
 install-daemon: daemon
     TARGET="{{ TARGET }}" BIN="{{ BIN }}" UNITS="{{ UNITS }}" BUILD="{{ BUILD }}" \
-            tools/install-daemon.sh
+            {{ PYTHON }} -m tools.host.install_daemon
 
 # Install the launcher beside the daemon
 [group('Installation')]

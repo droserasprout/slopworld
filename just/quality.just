@@ -1,6 +1,7 @@
 CSHARP_FORMAT_INCLUDE := 'mod/Source/SlopWorld mod/Tests bench/ipc/csharp bench/terminal-input/tests/http_transport/Probe.cs'
 CSHARP_FORMAT_EXCLUDE := 'mod/Source/SlopWorld/obj mod/Tests/obj bench/ipc/csharp/obj mod/Source/SlopWorld/Client/Generated'
 CSHARP_FORMAT_COMMAND := DOTNET + ' format whitespace . --folder --include ' + CSHARP_FORMAT_INCLUDE + ' --exclude ' + CSHARP_FORMAT_EXCLUDE
+PYTHON_TOOLS := 'tools bench/runner.py bench/test_runner.py mac slopcar/*.py'
 
 # Formatting
 
@@ -39,15 +40,15 @@ lint-mod:
 # Format and check Python package code with Ruff
 [group('Lint')]
 lint-tools: format-tools
-    {{ UV }} run --locked ruff check tools
+    {{ UV }} run --locked ruff check {{ PYTHON_TOOLS }}
 
 # Fix automatically correctable Python package lint findings
 [group('Formatting')]
 fix-tools:
-    {{ UV }} run --locked ruff check --fix tools
+    {{ UV }} run --locked ruff check --fix {{ PYTHON_TOOLS }}
 
 # Format the Python package with Ruff
 [group('Formatting')]
 format-tools:
-    {{ UV }} run --locked ruff check --select I --fix tools
-    {{ UV }} run --locked ruff format tools
+    {{ UV }} run --locked ruff check --select I --fix {{ PYTHON_TOOLS }}
+    {{ UV }} run --locked ruff format {{ PYTHON_TOOLS }}

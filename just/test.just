@@ -4,7 +4,7 @@
 [group('Tests and coverage')]
 test-tools: api-contract validate-themes test-licenses test-bench-report
     mkdir -p "{{ COVERAGE_DIR }}"
-    {{ PYTHON }} -m pytest --cov=tools --cov-report=term-missing --cov-report=xml:coverage/python.cobertura.xml
+    {{ PYTHON }} -m pytest tools bench/test_runner.py mac/test_workflow.py slopcar/test_devloop.py --cov=tools --cov=bench.runner --cov=mac --cov=slopcar --cov-report=term-missing --cov-report=xml:coverage/python.cobertura.xml
 
 # Stage and verify notices shipped with the mod
 [group('Tests and coverage')]
@@ -38,7 +38,7 @@ test-text-sprites:
 # Test benchmark reporting
 [group('Tests and coverage')]
 test-bench-report:
-    {{ PYTHON }} bench/test_bench_report.py
+    {{ PYTHON }} -m bench.test_bench_report
     {{ PYTHON }} -m unittest discover -s bench/terminal-input -p 'test_*.py'
 
 # Test pager geometry with isolated tmux and less (no game)
@@ -57,12 +57,12 @@ coverage-tools: test-tools
 # Measure Rust coverage and write coverage/rust.cobertura.xml
 [group('Tests and coverage')]
 coverage-daemon: api-contract
-    bash tools/coverage/coverage.sh daemon
+    {{ PYTHON }} -m tools.coverage.collect daemon
 
 # Measure game-free C# coverage and write coverage/csharp.cobertura.xml
 [group('Tests and coverage')]
 coverage-mod: mod-deps api-contract
-    bash tools/coverage/coverage.sh mod
+    {{ PYTHON }} -m tools.coverage.collect mod
 
 # Summarize existing Python, Rust and C# coverage reports
 [group('Tests and coverage')]

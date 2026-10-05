@@ -19,8 +19,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "bench"))
-import results_data as data
+from bench import results_data as data
+from tools.utils import run
+from tools.utils import spawn
 RUNS = 3
 
 DAEMON_LINE = re.compile(
@@ -60,7 +61,7 @@ def parse_samples(output: str) -> OrderedDict[str, Sample]:
 
 
 def run_bench(build: str, run_number: int, raw_path: Path, suite="gamefree") -> OrderedDict[str, Sample]:
-    command = ["bash", "bench/bench.sh", "run", suite]
+    command = [sys.executable, "-m", "bench.runner", "run", suite]
     print(f"\n=== performance run {run_number}: {' '.join(command)} ===", flush=True)
     repeat_path = raw_path / f"repeat-{run_number}"
     temporary = repeat_path / "tmp"
@@ -70,7 +71,7 @@ def run_bench(build: str, run_number: int, raw_path: Path, suite="gamefree") -> 
     output: list[str] = []
     log_path = repeat_path / "gamefree.log"
     with log_path.open("x", encoding="utf-8") as log:
-        process = subprocess.Popen(
+        process = spawn(
             command,
             cwd=ROOT,
             env={**os.environ, "BUILD": build, "DOTNET": os.environ.get("DOTNET", "dotnet"),
@@ -204,7 +205,7 @@ def main() -> int:
             repeats = args.repeats or (RUNS if args.suite == "gamefree" else 1)
             if repeats < 1:
                 raise ValueError("repeats must be positive")
-            subprocess.run([os.environ.get("JUST_CMD", "just"), f"BUILD={args.build}", "bench-build"], cwd=ROOT, check=True)
+            run([os.environ.get("JUST_CMD", "just"), f"BUILD={args.build}", "bench-build"], cwd=ROOT, check=True)
             directory.mkdir(parents=True, exist_ok=True)
             data.add_metadata(directory, "gamefree", "", {"revision": commit_hash(), "build": args.build,
                 "started": dt.datetime.now(dt.timezone.utc).isoformat(), "suite": args.suite,

@@ -31,7 +31,7 @@ run: game-check mod-check ready
 # Install and run native macOS RimWorld with the sidecar
 [group('macOS')]
 all:
-    JUST_CMD="{{ just_executable() }}" mac/mac.sh
+    JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m mac.workflow all
 
 # Build the Linux sidecar image on macOS
 [group('macOS')]
@@ -46,12 +46,12 @@ doctor: build
 [group('macOS')]
 [private]
 ready: build
-    {{ SLOPCAR_ENV }} mac/mac-sidecar-start.sh {{ SLOPCAR_START_ARGS }}
+    {{ SLOPCAR_ENV }} {{ PYTHON }} -m mac.workflow start {{ SLOPCAR_START_ARGS }}
 
 # Start the configured macOS sidecar, reusing its container
 [group('macOS')]
 start: docker-check
-    {{ SLOPCAR_ENV }} mac/mac-sidecar-start.sh {{ SLOPCAR_START_ARGS }}
+    {{ SLOPCAR_ENV }} {{ PYTHON }} -m mac.workflow start {{ SLOPCAR_START_ARGS }}
 
 # Stop the macOS sidecar without removing its state
 [group('macOS')]
@@ -71,17 +71,17 @@ logs: docker-check
 # Install the macOS build tools and Docker Desktop with Homebrew
 [group('macOS')]
 setup:
-    bash mac/mac-check.sh setup
+    bash mac/setup.sh
 
 # Check Docker Desktop on macOS
 [group('macOS')]
 docker-check:
-    bash mac/mac-check.sh docker-check
+    {{ PYTHON }} -m mac.workflow docker-check
 
 # Check the native macOS RimWorld and .NET SDK paths
 [group('macOS')]
 game-check:
-    bash mac/mac-check.sh game-check
+    {{ PYTHON }} -m mac.workflow game-check
 
 # Check Docker, .NET SDK and the native macOS RimWorld install
 [group('macOS')]
@@ -100,7 +100,7 @@ profile: daemon
 [group('macOS')]
 [private]
 mod-check:
-    bash mac/mac-check.sh mod-check
+    {{ PYTHON }} -m mac.workflow mod-check
 
 [private]
 daemon:

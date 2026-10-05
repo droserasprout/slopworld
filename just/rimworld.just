@@ -3,14 +3,14 @@
 # Log into GOG interactively and save the gogdl token
 [group('GOG game installation')]
 gogdl-login:
-    bash tools/gogdl.sh login
+    {{ PYTHON }} -m tools.host.gogdl login
 
 # Install RimWorld's native Linux build with gogdl
 [group('GOG game installation')]
 gogdl-install:
-    bash tools/gogdl.sh install
+    {{ PYTHON }} -m tools.host.gogdl install
 
 # Update the local RimWorld copy with gogdl
 [group('GOG game installation')]
 gogdl-update:
-    bash tools/gogdl.sh update
+    {{ PYTHON }} -m tools.host.gogdl update

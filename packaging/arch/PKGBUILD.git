@@ -49,7 +49,7 @@ prepare() {
   }
   cd "$srcdir/$pkgname" || return
   # Keep daemon, mod and check versions identical even across a UTC date change.
-  tools/version/version.sh "$(grep -m1 '^version' slopd/Cargo.toml | cut -d'"' -f2)" \
+  python -m tools.version.mod_version \
     > .slopworld-build-version
   export RUSTUP_TOOLCHAIN=stable
   cargo fetch --manifest-path slopd/Cargo.toml --locked

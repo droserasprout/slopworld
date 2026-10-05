@@ -19,6 +19,11 @@ mod: api-contract validate-themes mod-deps stage-licenses
 mod-deps:
     {{ DOTNET }} build mod/Dependencies/Runtime.csproj --configuration Release --verbosity quiet -p:RestoreLockedMode={{ MOD_DEPS_LOCKED }}
 
+# Fetch and verify the latest RimWorld Harmony assembly
+[group('Build')]
+fetch-harmony destination='mod/Assemblies':
+    {{ PYTHON }} -m tools.dependencies.fetch_harmony {{ quote(destination) }}
+
 # Stage canonical license texts and attribution into the mod
 [group('Build')]
 stage-licenses:
