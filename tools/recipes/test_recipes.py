@@ -29,9 +29,6 @@ class RecipeTests(unittest.TestCase):
             + """
 import json, os, pathlib, sys
 tool = pathlib.Path(sys.argv[0]).name
-if tool == "uname":
-    print("Darwin")
-    sys.exit(0)
 keys = ("BUILD", "CARGOFLAGS", "MOD_DEPS_LOCKED", "SLOPCAR_PROFILE", "JUST_CMD")
 with open(os.environ["RECIPE_TEST_LOG"], "a") as log:
     log.write(json.dumps({"tool": tool, "args": sys.argv[1:], "cwd": os.getcwd(),
@@ -41,7 +38,7 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
 """
         )
         stub.chmod(0o755)
-        for tool in ('cargo', 'dotnet', 'python3', 'uv', 'uname'):
+        for tool in ('cargo', 'dotnet', 'uv'):
             (self.directory / tool).symlink_to(stub)
         self.env = os.environ.copy()
         # Make results independent of the caller's selected build/profile/tool settings.
