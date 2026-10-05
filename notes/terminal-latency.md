@@ -6,6 +6,9 @@ performance and latency records to `SlopWorld-trace.log` after frame end. Daemon
 `latency.rs` carries timestamps in screen metadata; `perf.rs` emits separate
 performance summaries through tracing to the daemon log. `trace-mod` and
 `trace-summary` consume game-side records only.
+The capture tool checks log identity and byte offsets during polling and at
+completion. An aborted capture removes its incomplete output so summaries cannot
+mistake it for a completed window.
 
 Correlation is the next changed frame after input dispatch, not verified application
 echo. Unity frame end is before physical presentation. Client and daemon clocks
