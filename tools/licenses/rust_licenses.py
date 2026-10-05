@@ -8,7 +8,7 @@ from tools import ROOT
 
 
 def cell(value):
-    return value.replace('|', '\\|').replace('\n', ' ')
+    return value.replace('|', '\\|').replace('\r\n', ' ').replace('\r', ' ').replace('\n', ' ')
 
 
 def main():
