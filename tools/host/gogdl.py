@@ -1,6 +1,7 @@
 """Log in, install, or update native Linux RimWorld with the configured gogdl command."""
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -28,7 +29,22 @@ def login(auth: Path, gogdl: list[str]) -> None:
     code = sys.stdin.readline().rstrip('\r\n')
     if not code:
         raise ValueError('authorization code is empty')
-    run(gogdl + ['auth', '--code', code])
+    # gogdl prints tokens on success and can return zero for a rejected code.
+    # Capture both streams and never include its response in diagnostics.
+    result = run(gogdl + ['auth', '--code', code], capture_output=True, text=True, check=False)
+    if result.returncode:
+        raise ValueError(f'gogdl authentication failed with exit status {result.returncode}')
+    try:
+        response = json.loads(result.stdout)
+    except (TypeError, ValueError):
+        raise ValueError('gogdl returned an invalid authentication response') from None
+    if (
+        not isinstance(response, dict)
+        or response.get('error')
+        or not response.get('access_token')
+        or not response.get('refresh_token')
+    ):
+        raise ValueError('gogdl authentication failed')
     if not has_credentials(auth):
         raise ValueError(f'gogdl did not save credentials to {auth}')
 
@@ -47,7 +63,6 @@ def main() -> None:
         raise ValueError(f'RimWorld is missing at {game}. Run just gogdl-install or set RIMWORLD.')
     if not has_credentials(auth):
         raise ValueError(f'The gogdl login is missing at {auth}. Run just gogdl-login.')
-    auth.parent.mkdir(parents=True, exist_ok=True)
     if args.action == 'install':
         game.mkdir(parents=True, exist_ok=True)
     run(

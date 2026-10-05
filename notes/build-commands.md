@@ -58,7 +58,8 @@ a shell. `tools/host/` owns daemon installation, GOG setup, and worktree develop
 
 The daemon installer compares running executable contents and the managed unit
 fragment; systemd drop-ins are outside that comparison. Inactive units activate once
-through restart.
+through restart. GOG login captures the CLI token response and verifies success before
+accepting saved credentials.
 
 `bench/runner.py` owns benchmark build/run subprocesses; `bench/report.py` owns
 collection and reporting. `bench/` also owns shared result handling and its tests.
