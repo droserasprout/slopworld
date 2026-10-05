@@ -5,13 +5,14 @@ Usage: uv run --locked python -m tools.themes.analyze_ui_schemes [--check-warm]
 
 The complete tables are parsed from the shipped per-theme TOML files rather
 than copied into this script. ``#rrggbbaa`` values are composited over
-``ViewBg`` before their contrast is measured, matching how the mod uses alpha
-washes in GUI.color.
+``ViewBg`` before their contrast is measured, as a view-surface estimate. Other UI backing surfaces are not measured.
+The analysis requires opaque surface colors.
 """
 
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 
 from tools.themes.validate_themes import load_catalog
@@ -35,18 +36,15 @@ SIGNALS = (
 STRUCTURE = ('edge', 'edgeLit', 'rowBg', 'rowOn', 'hover')
 CHECK_ROLES = SURFACES + TEXT + SIGNALS + STRUCTURE
 BUTTON_TEXT = ('accentText', 'destructiveText')
-REQUIRED_ROLES = CHECK_ROLES + BUTTON_TEXT
 
 
-def parse_schemes() -> dict[str, dict[str, str]]:
+def parse_schemes() -> dict[str, dict[str, str | int]]:
     """Load the validated UI catalog while retaining the report's old shape."""
 
     schemes = {scheme['id']: scheme for scheme in load_catalog()[0]}
     for scheme_id, scheme in schemes.items():
-        missing = set(REQUIRED_ROLES) - scheme.keys()
-        if missing:
-            missing_text = ', '.join(sorted(missing))
-            raise ValueError(f'{scheme_id} is missing color roles: {missing_text}')
+        if any(rgba(scheme[role])[3] != 1 for role in SURFACES):
+            raise ValueError(f'{scheme_id}: view-surface analysis requires opaque backgrounds')
     return schemes
 
 
@@ -76,11 +74,11 @@ def contrast(first: tuple[float, ...], second: tuple[float, ...]) -> float:
     return (high + 0.05) / (low + 0.05)
 
 
-def color(scheme: dict[str, str], role: str) -> tuple[float, ...]:
+def color(scheme: dict[str, str | int], role: str) -> tuple[float, ...]:
     return rgba(scheme[role])
 
 
-def rendered(scheme: dict[str, str], role: str) -> tuple[float, ...]:
+def rendered(scheme: dict[str, str | int], role: str) -> tuple[float, ...]:
     value = color(scheme, role)
     return over(value, color(scheme, 'viewBg')) if value[3] < 1 else value
 
@@ -89,7 +87,7 @@ def metric_name(role: str) -> str:
     return f'{role}.luminance' if role in SURFACES else f'{role}.contrast'
 
 
-def metrics(scheme: dict[str, str]) -> dict[str, float]:
+def metrics(scheme: dict[str, str | int]) -> dict[str, float]:
     view = color(scheme, 'viewBg')
     result = {metric_name(role): luminance(color(scheme, role)) for role in SURFACES}
     result.update({metric_name(role): contrast(rendered(scheme, role), view) for role in TEXT + SIGNALS + STRUCTURE})
@@ -98,7 +96,7 @@ def metrics(scheme: dict[str, str]) -> dict[str, float]:
     return result
 
 
-def print_report(schemes: dict[str, dict[str, str]]) -> None:
+def print_report(schemes: dict[str, dict[str, str | int]]) -> None:
     print('UI schemes: ' + ', '.join(schemes[scheme]['label'] for scheme in SCHEME_IDS))
     print()
     print('scheme                 View L   Accent   EdgeLit     Lead      Dim    Faint')
@@ -131,7 +129,7 @@ def print_report(schemes: dict[str, dict[str, str]]) -> None:
         print(f'  {label:<14} {delta:+6.1f}%')
 
 
-def check_warm(schemes: dict[str, dict[str, str]], tolerance: float) -> int:
+def check_warm(schemes: dict[str, dict[str, str | int]], tolerance: float) -> int:
     regular = metrics(schemes['slopworld-cold'])
     warm = metrics(schemes['slopworld-warm'])
     failures = []
@@ -172,8 +170,8 @@ def main() -> int:
         help='relative tolerance for --check-warm (default: 0.05)',
     )
     args = parser.parse_args()
-    if args.tolerance < 0:
-        parser.error('--tolerance must be non-negative')
+    if not math.isfinite(args.tolerance) or args.tolerance < 0:
+        parser.error('--tolerance must be finite and non-negative')
 
     try:
         schemes = parse_schemes()
