@@ -73,6 +73,15 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual(call['env']['BUILD'], 'release')
         self.assertEqual(call['cwd'], str(ROOT / 'slopd'))
 
+    def test_local_release_recipes_use_the_shared_orchestrator(self):
+        for recipe, action in (('release-package', 'package'), ('release-latest', 'publish')):
+            with self.subTest(recipe=recipe):
+                self.run_recipe(recipe)
+                call = self.calls('uv')[-1]
+                self.assertEqual(call['args'], ['run', '--locked', 'python', '-m', 'tools.release.latest', action])
+                self.assertEqual(call['env']['JUST_CMD'], JUST)
+        self.assertEqual(self.calls('cargo'), [])
+
     def test_invalid_build_fails_before_running_commands(self):
         result = self.run_recipe('BUILD=fast', 'daemon', success=False)
         self.assertIn('BUILD must be exactly debug or release', result.stderr)

@@ -10,6 +10,7 @@ help:
 import 'just/config.just'
 import 'just/popular.just'
 import 'just/build.just'
+import 'just/release.just'
 import 'just/test.just'
 import 'just/bench.just'
 import 'just/generate.just'

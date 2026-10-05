@@ -1,5 +1,5 @@
 name: Set up pinned build tools
-description: Cache and install matching Linux tools for test and release builds
+description: Cache and install pinned Linux tools for game-free CI checks
 inputs:
   coverage:
     description: Include cargo-llvm-cov, just, protoc, and uv

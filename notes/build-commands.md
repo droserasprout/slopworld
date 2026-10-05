@@ -24,10 +24,10 @@ Only an explicit `just clean` removes build output.
 
 `just ci` checks generated files, formatting and tool/pager behavior before lint
 and coverage. The test workflow exposes those stages separately for timings.
-Test and release share pinned tools, including uv, through
+CI installs pinned tools, including uv, through
 `.github/actions/setup-build-tools/`. It owns archive caching, tool versions,
-and the protoc checksum so both workflows generate matching bindings.
-Only superseded branch-push test runs are cancelled; release-called tests and
+and the protoc checksum for generated bindings.
+Only superseded branch-push test runs are cancelled; called tests and
 manual runs have isolated concurrency groups. NuGet caching includes the locked
 runtime/test dependency graphs and the coverage tool manifest.
 
@@ -84,7 +84,11 @@ build mode. Runtime package maintenance belongs to
 [Dependencies](../mod/Dependencies/README.md), game-free linked sources to
 [C# tests](test-csharp.md), and IPC fixtures to [IPC benchmarks](../bench/ipc/README.md).
 
-Daemon lint policy belongs to `slopd/Cargo.toml` and `slopd/clippy.toml`; CI/release
-behavior belongs to `.github/workflows/`. Installer behavior belongs to
+Daemon lint policy belongs to `slopd/Cargo.toml` and `slopd/clippy.toml`; CI
+checks belong to `.github/workflows/`. Local release recipes belong to
+`just/release.just`; `tools/release/latest.py` owns release-mode builds, archive staging,
+and rolling remote tag/publication ordering. Release inputs must come from a clean
+checkout; mod packaging selects tracked runtime assets and an explicit DLL allowlist
+to exclude game assemblies and local files. Installer behavior belongs to
 `slopd/src/bin/slopworld/mod_install.rs` and its tests. Profile/window lifetime is
 separate; see [profiles](ops-profile.md) and [daemon replacement](daemon-redeploy.md).

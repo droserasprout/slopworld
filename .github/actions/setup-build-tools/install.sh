@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared tool pins for test and release builds.
+# Pinned tools for game-free CI checks.
 set -euo pipefail
 
 just_version=1.58.0

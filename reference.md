@@ -256,6 +256,8 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 | `just` | `just mod-deps` | [`just/build.just:17`](./just/build.just#L17) |
 | `just` | `just pkg-arch` | [`just/misc.just:27`](./just/misc.just#L27) |
 | `just` | `just reference` | [`just/generate.just:18`](./just/generate.just#L18) |
+| `just` | `just release-latest` | [`just/release.just:8`](./just/release.just#L8) |
+| `just` | `just release-package` | [`just/release.just:3`](./just/release.just#L3) |
 | `just` | `just run` | [`just/popular.just:32`](./just/popular.just#L32) |
 | `just` | `just rust-licenses` | [`just/generate.just:3`](./just/generate.just#L3) |
 | `just` | `just sidecar-build` | [`just/sidecar.just:10`](./just/sidecar.just#L10) |
@@ -272,6 +274,7 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 | `just` | `just test-pager` | [`just/test.just:44`](./just/test.just#L44) |
 | `just` | `just test-recipes` | [`just/test.just:76`](./just/test.just#L76) |
 | `just` | `just test-reference` | [`just/test.just:81`](./just/test.just#L81) |
+| `just` | `just test-release` | [`just/release.just:13`](./just/release.just#L13) |
 | `just` | `just test-text-sprites` | [`just/test.just:33`](./just/test.just#L33) |
 | `just` | `just test-themes` | [`just/test.just:28`](./just/test.just#L28) |
 | `just` | `just test-tools` | [`just/test.just:3`](./just/test.just#L3) |
