@@ -69,7 +69,8 @@ namespace SlopWorld
         // Mirrors the private ColonistBar.Visible: the bar hides itself under 800x500 and
         // while the tile picker is up.
         public static bool BarShown =>
-            UI.screenWidth >= 800 && UI.screenHeight >= 500 && !Find.TilePicker.Active;
+            // The menu/loading handoff can retain ProgramState.Playing after clearing the world.
+            Current.Game?.World != null && UI.screenWidth >= 800 && UI.screenHeight >= 500 && !Find.TilePicker.Active;
 
         // Whether the column's add strip has the foot of the panel, which is the same
         // question as whether the panel is on screen at all. The layout is told so it can

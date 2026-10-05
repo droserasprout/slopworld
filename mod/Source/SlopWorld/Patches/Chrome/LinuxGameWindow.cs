@@ -10,7 +10,7 @@ namespace SlopWorld
 {
     // Use -popupwindow -screen-fullscreen 0 to avoid the Unity Linux Alt+Tab freeze.
     // Request fullscreen through the X11 window manager so geometry and input coordinates change together.
-    // Resize the Unity surface before the initial fullscreen request.
+    // Resize the Unity surface before initial fullscreen and geometry recovery.
     // Keep window decorations disabled because Mutter can restore the title bar after fullscreen ends.
     public static class LinuxGameWindow
     {
@@ -19,7 +19,9 @@ namespace SlopWorld
         // Check frequently after resizing so the intermediate window state remains brief.
         const float ResyncPollSeconds = 0.05f;
         const float ResyncTimeoutSeconds = 0.5f;
+        const float WindowSettleSeconds = 1f;
         const int ClientMessage = 33;
+        const int MotifDecorationsFlag = 2;
         const long SubstructureNotifyMask = 1L << 19;
         const long SubstructureRedirectMask = 1L << 20;
 
@@ -27,9 +29,12 @@ namespace SlopWorld
         enum ResizeStage { Retry, Waiting, Ready }
 
         static bool? _applied;
+        // Watch startup and explicitly armed scene transitions, then leave normal play idle.
+        static bool _watchWindow = true;
+        static float _windowQuietSince = -1f;
         static float _nextTry;
         static float _readySince = -1f;
-        // Store the time of the initial surface resize request, or a negative value before that request.
+        // Store the time of the current surface resize request, or a negative value before that request.
         // Wait for the resize or its timeout before requesting fullscreen.
         static float _resyncedAt = -1f;
         static bool _warned;
@@ -39,16 +44,45 @@ namespace SlopWorld
             if (Application.platform != RuntimePlatform.LinuxPlayer) return;
 
             bool want = Settings.Fullscreen;
-            if (_applied == want) return;
 
             float now = Time.realtimeSinceStartup;
             if (_applied == null && !Ready(now)) return;
+            bool watch = WatchingWindow(now);
+            if (_applied == want && !watch) return;
             if (now < _nextTry) return;
 
             var result = TrySet(want);
             if (result == WindowChange.Applied || result == WindowChange.Unsupported) _applied = want;
+            if (result == WindowChange.Unsupported) _watchWindow = false;
+            // Sending a request does not mean the WM or Unity has finished resizing.
+            // Only confirmed recovery may begin the quiet settling period.
+            if (result == WindowChange.Retry || result == WindowChange.WaitingForResize)
+                _windowQuietSince = -1f;
             _nextTry = Time.realtimeSinceStartup
-                + (result == WindowChange.WaitingForResize ? ResyncPollSeconds : RetrySeconds);
+                + (result == WindowChange.WaitingForResize || (result == WindowChange.Applied && watch)
+                    ? ResyncPollSeconds : RetrySeconds);
+        }
+
+        // Arm before queuing the menu transition. Pending covers the handoff to QuickStart;
+        // long events cover generation after Pending clears. No native work happens here.
+        public static void WatchWindow()
+        {
+            _watchWindow = true;
+            _windowQuietSince = -1f;
+            _resyncedAt = -1f;
+            _nextTry = 0f;
+        }
+
+        static bool WatchingWindow(float now)
+        {
+            if (!_watchWindow) return false;
+            if (NextPlanet.Pending || LongEventHandler.AnyEventNowOrWaiting)
+                _windowQuietSince = -1f;
+            else if (_windowQuietSince < 0f)
+                _windowQuietSince = now;
+            else if (_applied.HasValue && now - _windowQuietSince >= WindowSettleSeconds)
+                _watchWindow = false;
+            return _watchWindow;
         }
 
         public static void Set(bool fullscreen)
@@ -85,10 +119,11 @@ namespace SlopWorld
         // Continue when screen dimensions reach the monitor dimensions or the resize timeout expires.
         static bool ResyncLanded(float now)
         {
-            bool sized = Screen.width >= Display.main.systemWidth
-                && Screen.height >= Display.main.systemHeight;
-            return sized || now - _resyncedAt >= ResyncTimeoutSeconds;
+            return SurfaceSized() || now - _resyncedAt >= ResyncTimeoutSeconds;
         }
+
+        static bool SurfaceSized() => Display.main.systemWidth > 0 && Display.main.systemHeight > 0
+            && Screen.width == Display.main.systemWidth && Screen.height == Display.main.systemHeight;
 
         // Keep retryable discovery and resize waits distinct from completed or unsupported requests.
         static WindowChange TrySet(bool fullscreen)
@@ -108,6 +143,11 @@ namespace SlopWorld
                 IntPtr window = FindGameWindow(display, root);
                 if (window == IntPtr.Zero) return WindowChange.Retry;
 
+                // Scene changes can rewrite decorations and reset Unity's windowed size.
+                // The saved preference is not evidence of the current native window state.
+                SetUndecorated(display, window);
+                if (_applied == fullscreen && !fullscreen) return WindowChange.Applied;
+
                 IntPtr state = XInternAtom(display, "_NET_WM_STATE", 0);
                 IntPtr fullscreenAtom = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", 0);
                 IntPtr horizontal = XInternAtom(display, "_NET_WM_STATE_MAXIMIZED_HORZ", 0);
@@ -119,11 +159,12 @@ namespace SlopWorld
                     return WindowChange.Unsupported;
                 }
 
-                SetUndecorated(display, window);
+                if (_applied == fullscreen)
+                    return RecoverFullscreen(display, root, window, state, fullscreenAtom, horizontal, vertical);
 
                 if (fullscreen && !_applied.HasValue)
                 {
-                    var resize = PrepareInitialFullscreen(display, root, window, state, horizontal, vertical);
+                    var resize = PrepareFullscreen(display, root, window, state, horizontal, vertical);
                     if (resize == ResizeStage.Retry) return WindowChange.Retry;
                     if (resize == ResizeStage.Waiting) return WindowChange.WaitingForResize;
                 }
@@ -142,16 +183,73 @@ namespace SlopWorld
             }
         }
 
+        // Recover only changed fullscreen state/geometry. Keep background loading from
+        // stealing focus, and wait for actual WM state and Unity dimensions before settling.
+        static WindowChange RecoverFullscreen(IntPtr display, IntPtr root, IntPtr window,
+            IntPtr state, IntPtr fullscreenAtom, IntPtr horizontal, IntPtr vertical)
+        {
+            bool nativeFullscreen = HasWindowState(display, window, state, fullscreenAtom);
+            if (nativeFullscreen && SurfaceSized())
+            {
+                _resyncedAt = -1f;
+                return WindowChange.Applied;
+            }
+
+            if (!SurfaceSized())
+            {
+                // An ADD is a no-op while fullscreen is already set. Leave it before
+                // resizing so the final ADD makes the WM establish monitor geometry again.
+                if (_resyncedAt < 0f && nativeFullscreen)
+                {
+                    if (!SendState(display, root, window, state, 0, fullscreenAtom, IntPtr.Zero))
+                        return WindowChange.Retry;
+                    _ = XFlush(display);
+                }
+                var resize = PrepareFullscreen(display, root, window, state, horizontal, vertical, false);
+                if (resize == ResizeStage.Retry) return WindowChange.Retry;
+                if (resize == ResizeStage.Waiting) return WindowChange.WaitingForResize;
+            }
+
+            bool sent = SendState(display, root, window, state, 1, fullscreenAtom, IntPtr.Zero);
+            _ = XFlush(display);
+            return AwaitFullscreenRecovery(sent);
+        }
+
+        static WindowChange AwaitFullscreenRecovery(bool sent)
+        {
+            if (!sent) return WindowChange.Retry;
+
+            // The ADD completes this resize attempt, not recovery. If geometry is
+            // still wrong, allow the WM the retry interval to finish before starting
+            // another remove/resize/add cycle with a fresh surface request.
+            _resyncedAt = -1f;
+            return SurfaceSized() ? WindowChange.WaitingForResize : WindowChange.Retry;
+        }
+
+        static bool HasWindowState(IntPtr display, IntPtr window, IntPtr state, IntPtr wanted)
+        {
+            if (!GetProperty(display, window, state, IntPtr.Zero, out IntPtr data, out int format, out IntPtr count))
+                return false;
+            try
+            {
+                if (format != 32) return false;
+                for (int i = 0; i < count.ToInt32(); i++)
+                    if (Marshal.ReadIntPtr(data, i * IntPtr.Size) == wanted) return true;
+                return false;
+            }
+            finally { _ = XFree(data); }
+        }
+
         // First resize Unity and maximize the window, then wait for the surface or its timeout.
         // Retain maximization so leaving fullscreen restores the desktop work area.
-        static ResizeStage PrepareInitialFullscreen(IntPtr display, IntPtr root, IntPtr window,
-            IntPtr state, IntPtr horizontal, IntPtr vertical)
+        static ResizeStage PrepareFullscreen(IntPtr display, IntPtr root, IntPtr window,
+            IntPtr state, IntPtr horizontal, IntPtr vertical, bool activate = true)
         {
             if (_resyncedAt >= 0f)
                 return ResyncLanded(Time.realtimeSinceStartup) ? ResizeStage.Ready : ResizeStage.Waiting;
             if (!ResyncSurface()) return ResizeStage.Retry;
             bool maximized = SendState(display, root, window, state, 1, horizontal, vertical);
-            RaiseAndActivate(display, root, window);
+            if (activate) RaiseAndActivate(display, root, window);
             _ = XFlush(display);
             if (!maximized) return ResizeStage.Retry;
             _resyncedAt = Time.realtimeSinceStartup;
@@ -279,9 +377,13 @@ namespace SlopWorld
                 return;
             }
 
+            // Leave an intact hint alone: a property write makes the window manager
+            // reconsider its frame, so periodic checks should only repair changed hints.
+            if (HasUndecoratedHint(display, window, hints)) return;
+
             // Set MWM_HINTS_DECORATIONS with decorations=0 to remove the frame and title bar.
             // Xlib's format=32 consumes native C longs, including on 64-bit Linux.
-            IntPtr[] value = { new IntPtr(2), IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero };
+            IntPtr[] value = { new IntPtr(MotifDecorationsFlag), IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero };
             GCHandle pinned = GCHandle.Alloc(value, GCHandleType.Pinned);
             try
             {
@@ -292,6 +394,25 @@ namespace SlopWorld
             finally
             {
                 pinned.Free();
+            }
+        }
+
+        static bool HasUndecoratedHint(IntPtr display, IntPtr window, IntPtr hints)
+        {
+            if (!GetProperty(display, window, hints, hints, IntPtr.Zero, new IntPtr(5),
+                    out IntPtr data, out int format, out IntPtr count))
+                return false;
+
+            try
+            {
+                // Format 32 is returned as native C longs: flags, functions, decorations.
+                return format == 32 && count.ToInt64() >= 3
+                    && (Marshal.ReadIntPtr(data).ToInt64() & MotifDecorationsFlag) != 0
+                    && Marshal.ReadIntPtr(data, 2 * IntPtr.Size) == IntPtr.Zero;
+            }
+            finally
+            {
+                _ = XFree(data);
             }
         }
 
@@ -359,9 +480,16 @@ namespace SlopWorld
             data = IntPtr.Zero;
             format = 0;
             count = IntPtr.Zero;
-            return XGetWindowProperty(display, window, property, offset, length, 0,
+            bool found = XGetWindowProperty(display, window, property, offset, length, 0,
                 requestType, out actualType, out format, out count, out bytesAfter, out data) == 0
                 && data != IntPtr.Zero && count.ToInt64() > 0;
+            if (found) return true;
+
+            // Xlib can allocate a buffer even for an empty property. Only successful
+            // reads transfer ownership to the caller.
+            if (data != IntPtr.Zero) _ = XFree(data);
+            data = IntPtr.Zero;
+            return false;
         }
 
         static bool GetProperty(IntPtr display, IntPtr window, IntPtr property,

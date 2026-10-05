@@ -200,6 +200,7 @@ namespace SlopWorld
             _map = null;
             // Keep Leaving true until the map closes to prevent a brief display of its interface.
             Log.Message("[SlopWorld] discarding the colony, landing a new one");
+            LinuxGameWindow.WatchWindow();
             GenScene.GoToMainMenu();
         }
 

@@ -4,6 +4,9 @@
 placement if the skyfaller path fails. `AgentColony` owns agent arrivals and places
 them directly while Eco rests. `NextPlanet` owns departure and map discard.
 `Cutscene` exposes their combined Playing and AgentsHeld gates; it does not own phases.
+The menu landing hook queues `QuickStart` directly. New colony requests also queue
+generation before the scenario selection page enters the window stack, avoiding a
+setup-page flash during the loading handoff.
 
 `SaveCoordinator` coordinates SlopWorld autosave, shutdown, and main-menu transitions.
 It suppresses saves while `NextPlanet.Pending`: a discarded colony must not become

@@ -14,6 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/Patches/Chrome/LinuxGameWindow.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/UiAreaResize.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/FieldLifetime.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TextElementLayout.cs" />

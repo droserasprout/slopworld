@@ -61,7 +61,7 @@ namespace SlopWorld
         {
             if (!NextPlanet.Pending) return;
             NextPlanet.CompletePendingLanding();
-            Find.WindowStack.Add(new Page_SelectScenario());
+            QuickStart.Queue();
         }
     }
 }

@@ -7,6 +7,8 @@ stays in `Patches/ColonistBar/`. Navigation and scope catalogs belong to
 
 Hiding the sidebar suppresses the native colonist bar and its portrait hit tests on
 both the map and terminal paths; vanilla portraits must not remain as fallback UI.
+Visibility checks require a live world before reading its tile picker: scene teardown
+can retain the playing state after the world is cleared.
 
 Vanilla supplies pawn entries and identities; the sidebar sorts indices within its
 groups and assigns geometry. Filtered/folded entries must be parked offscreen for
