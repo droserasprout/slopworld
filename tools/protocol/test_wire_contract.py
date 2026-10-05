@@ -56,13 +56,14 @@ class GeneratedFileTests(unittest.TestCase):
         shutil.copytree(
             wire_contract.ROOT / 'tools', self.directory / 'tools', ignore=shutil.ignore_patterns('__pycache__')
         )
+        before = {p.relative_to(self.directory) for p in self.directory.rglob('*')}
         subprocess.run(
-            [sys.executable, '-c', 'import tools.protocol.protobuf_http'],
+            [sys.executable, '-B', '-c', 'import tools.protocol.protobuf_http'],
             cwd=self.directory,
             check=True,
             capture_output=True,
         )
-        self.assertFalse((self.directory / 'slopd').exists())
+        self.assertEqual(before, {p.relative_to(self.directory) for p in self.directory.rglob('*')})
 
     def test_repeated_full_generation_preserves_all_output_timestamps(self) -> None:
         root = wire_contract.ROOT
@@ -140,10 +141,13 @@ class WireContractTests(unittest.TestCase):
         from tools.docs.reference import read_files
 
         routes = {(route.method, route.path): route.scope for route in api_routes(read_files())}
-        for endpoint in (('GET', '/api/config'), ('PUT', '/api/worktrees/:id'), ('POST', '/api/grants')):
-            self.assertEqual(routes[endpoint], 'root-only', endpoint)
-        for endpoint in (('GET', '/api/sessions'), ('POST', '/api/sessions'), ('GET', '/api/tasks'), ('GET', '/ws')):
-            self.assertEqual(routes[endpoint], 'scoped', endpoint)
+        expected = {
+            (method, route['path']): 'root-only' if route['scope'] == 'root' else 'scoped'
+            for route in self.data['http']['routes'].values()
+            for method in route['methods']
+        }
+        expected[('GET', '/ws')] = 'scoped'
+        self.assertEqual(routes, expected)
 
     def test_public_inventory_separates_websocket_directions(self) -> None:
         from tools.docs.api_docs import render
@@ -152,9 +156,6 @@ class WireContractTests(unittest.TestCase):
         self.assertIn('Client → daemon | `ClientMessage`', page)
         self.assertIn('Daemon → client | `Event`', page)
         self.assertNotIn('| Handler |', page)
-
-    def test_rust_generation_is_deterministic(self) -> None:
-        self.assertEqual(self.generated, wire_contract.rust(self.data))
 
 
 class SharedDefinitionTests(unittest.TestCase):

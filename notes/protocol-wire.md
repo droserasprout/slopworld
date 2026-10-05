@@ -6,6 +6,9 @@ Rust HTTP dispatcher; `slopd/build.rs` generates Rust messages. `just api-docs`
 generates the route inventory from the router and shared HTTP type mappings.
 `tools/docs/reference.py` reads middleware access from the named route-family functions
 and rejects unknown families; handler-level checks still determine effective access.
+Unresolved route paths and HTTP inventory differences fail generation. The shared
+loader validates payload pairs, generated identifiers, and integer ranges; HTTP
+adapters reject overlapping patterns without a strictly more specific route.
 Its environment inventory covers mod and daemon files, including launchers, services
 and presets; build recipe and development tooling settings stay outside that inventory.
 Never reuse field numbers; preserve optional presence

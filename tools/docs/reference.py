@@ -120,6 +120,7 @@ def env_inventory(files: dict[Path, str]) -> tuple[dict[str, list[Hit]], list[Hi
             constants[match.group(1)] = match.group(2)
 
     direct_patterns = [
+        rf'\b(?:crate::)?paths::dir\(\s*"({ENV_NAME})"',
         rf"(?:std::)?env::(?:var|var_os)\(\s*['\"]({ENV_NAME})['\"]",
         rf"\boption_env_nonempty\(\s*['\"]({ENV_NAME})['\"]",
         rf"\bEnvironment\.GetEnvironmentVariable\(\s*['\"]({ENV_NAME})['\"]",
@@ -134,9 +135,11 @@ def env_inventory(files: dict[Path, str]) -> tuple[dict[str, list[Hit]], list[Hi
             for match in re.finditer(pattern, text):
                 add_hit(names, match.group(1), hit(path, text, match.start()))
 
-        for match in re.finditer(r'(?:std::)?env::(?:var|var_os)\(\s*([A-Z][A-Z0-9_]*)\s*\)', text):
+        for match in re.finditer(r'(?:std::)?env::(?:var|var_os)\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)', text):
             if match.group(1) in constants:
                 add_hit(names, constants[match.group(1)], hit(path, text, match.start()))
+            else:
+                dynamic.append(hit(path, text, match.start()))
 
         # Covers selected environment names passed through a local variable, such as the
         # clipboard backend's `Needs::X11 => "DISPLAY"`.
@@ -233,7 +236,9 @@ def api_routes(files: dict[Path, str]) -> list[Route]:
                     const_match = re.search(r'shared::protocol::([A-Z][A-Z0-9_]*)', body)
                     path_value = wire_paths.get(const_match.group(1)) if const_match else None
             if path_value is None:
-                continue
+                raise ValueError(
+                    f'unresolved API route path at {path.relative_to(ROOT)}:{text.count(chr(10), 0, match.start()) + 1}'
+                )
             before = text[: match.start()]
             # Route families own middleware access; fail rather than silently label
             # a new family as accessible to scoped grants.
@@ -393,7 +398,7 @@ def render(files: dict[Path, str]) -> str:
             '',
             '## Scanner scope',
             '',
-            'The scanner reads tracked and untracked, non-ignored text files under the project, excluding generated build output and this generated file. Environment variables come only from mod and daemon files, including launchers, services and presets; just settings and development tooling are excluded. It recognizes explicit Rust/C#/service environment access, `$VAR` expansion, Axum `.route(...)` declarations, Rust CLI usage text and documented just recipes.',
+            'The scanner reads tracked and untracked, non-ignored files with supported suffixes (.cs, .just, .md, .rs, .service, .sh, .toml) and justfiles under the project, excluding generated build output and this generated file. Environment variables come only from mod and daemon files, including launchers, services and presets; just settings and development tooling are excluded. It recognizes explicit Rust/C#/service environment access, `$VAR` expansion, Axum `.route(...)` declarations, Rust CLI usage text and documented just recipes.',
             '',
         ]
     )

@@ -5,24 +5,42 @@ import json
 import re
 import subprocess
 
-import yaml
-
 from tools import ROOT
 from tools.generated_files import write_if_changed
+from tools.protocol.wire_contract import load
+
+
+def validate_route_precedence(rows):
+    """Reject intersecting patterns unless one is strictly more specific."""
+    for index, (method, path, *_types) in enumerate(rows):
+        left = path.split('/')
+        for other_method, other_path, *_ in rows[index + 1 :]:
+            right = other_path.split('/')
+            if method != other_method or len(left) != len(right):
+                continue
+            if any(a != b and not a.startswith(':') and not b.startswith(':') for a, b in zip(left, right)):
+                continue
+            left_specific = any(not a.startswith(':') and b.startswith(':') for a, b in zip(left, right))
+            right_specific = any(a.startswith(':') and not b.startswith(':') for a, b in zip(left, right))
+            if left_specific == right_specific:
+                raise ValueError(f'ambiguous {method} routes: {path} and {other_path}')
 
 
 def main() -> None:
-    protocol = yaml.safe_load((ROOT / 'shared/protocol.yaml').read_text())
-    schema = set(re.findall(r'message (\w+) \{', (ROOT / 'shared/slopworld.proto').read_text()))
+    protocol = load(ROOT / 'shared')['protocol']
+    schema = set(re.findall(r'\bmessage\s+(\w+)\s*\{', (ROOT / 'shared/slopworld.proto').read_text()))
     rows = []
     for name, route in protocol['http']['routes'].items():
-        assert set(route['protobuf']) == set(route['methods']), name
+        if set(route['protobuf']) != set(route['methods']):
+            raise ValueError(f'{name}: payload methods differ from route methods')
         for method, (request, response) in route['protobuf'].items():
-            assert request in schema and response in schema, name
+            if request not in schema or response not in schema:
+                raise ValueError(f'{name}: unknown Protobuf payload type')
             rows.append((method, route['path'], request, response))
 
     # Static routes must win over parameter routes of equal depth. Keep this order in
     # the single lookup table so every adapter uses the same route selection.
+    validate_route_precedence(rows)
     rows.sort(key=lambda row: row[1].count(':'))
     request_kinds = sorted({row[2] for row in rows})
     response_kinds = sorted({row[3] for row in rows})
