@@ -1,0 +1,14 @@
+Package: slopworld
+Version: {version}
+Architecture: {architecture}
+Section: games
+Priority: optional
+Maintainer: Lev Gorodetskii <aur@drsr.io>
+Homepage: https://github.com/droserasprout/slopworld
+Depends: bash, bubblewrap, git, passt, ripgrep, systemd, tmux, {shared_libraries}
+Suggests: libglib2.0-bin, highlight, less, micro, procps, songrec, wl-clipboard, xclip, xsel
+Provides: slopd
+Description: RimWorld colony interface for live AI coding agents
+ Includes the Linux session daemon, CLI, launcher, and RimWorld 1.6 mod.
+ RimWorld must be installed separately. See /usr/share/doc/slopworld/README.Debian
+ for mod attachment and per-user daemon setup.

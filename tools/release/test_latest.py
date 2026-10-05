@@ -189,3 +189,37 @@ def test_failed_build_never_packages_or_publishes(monkeypatch):
             latest.main()
         package.assert_not_called()
         publish.assert_not_called()
+
+
+def test_native_packages_are_included_in_checksums_and_outputs(inputs, tmp_path):
+    output = tmp_path / 'release'
+
+    def native(name):
+        def build(staging, *args):
+            path = staging / name
+            path.write_bytes(name.encode())
+            return path
+
+        return build
+
+    with (
+        patch('tools.release.arch.package', side_effect=native('slopworld-latest-x86_64.pkg.tar.zst')),
+        patch('tools.release.container_debian.package', side_effect=native('slopworld-latest-amd64.deb')),
+    ):
+        assets = latest.package(output, 'revision', '1.0.0', native_packages=True)
+    names = [path.name for path in assets]
+    assert names[-3:] == ['slopworld-latest-x86_64.pkg.tar.zst', 'slopworld-latest-amd64.deb', 'SHA256SUMS']
+    assert len(assets[-1].read_text().splitlines()) == 4
+    for line in assets[-1].read_text().splitlines():
+        digest, name = line.split('  ')
+        assert digest == hashlib.sha256((output / name).read_bytes()).hexdigest()
+
+
+def test_native_package_failure_preserves_entire_previous_release(inputs, tmp_path):
+    output = tmp_path / 'release'
+    assets = latest.package(output, 'revision', '1.0.0')
+    previous = [path.read_bytes() for path in assets]
+    with patch('tools.release.arch.package', side_effect=ValueError('native build failed')):
+        with pytest.raises(ValueError, match='native build failed'):
+            latest.package(output, 'new revision', '1.0.1', native_packages=True)
+    assert [path.read_bytes() for path in assets] == previous

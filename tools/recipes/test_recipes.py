@@ -79,6 +79,13 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
                 self.assertEqual(call['env']['JUST_CMD'], JUST)
         self.assertEqual(self.calls('cargo'), [])
 
+    def test_debian_package_uses_orchestrator(self):
+        self.run_recipe('DEB_DIR=/tmp/package output', 'pkg-debian')
+        (call,) = self.calls('uv')
+        self.assertEqual(call['args'], ['run', '--locked', 'python', '-m', 'tools.release.debian'])
+        self.assertEqual(call['env']['JUST_CMD'], JUST)
+        self.assertEqual(self.calls('cargo'), [])
+
     def test_invalid_build_fails_before_running_commands(self):
         result = self.run_recipe('BUILD=fast', 'daemon', success=False)
         self.assertIn('BUILD must be exactly debug or release', result.stderr)
