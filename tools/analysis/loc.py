@@ -17,12 +17,18 @@ This excludes untracked and ignored files without a separate exclusion list.
 The tool counts an empty line as blank.
 It counts a line as a comment only when the complete line is a comment.
 A source line with a trailing comment counts as code, which matches cloc.
-The scanner recognizes quoted strings but not Rust raw strings.
+Python counts use its tokenizer and identify docstrings through its syntax tree.
+Other languages use an approximate scanner; raw strings and nested block comments
+are not recognized.
 """
 
+import ast
+import io
 import os
+import re
 import subprocess
 import sys
+import tokenize
 from pathlib import Path
 
 # line comments, block comment pairs, string quotes.
@@ -30,9 +36,7 @@ C_LIKE = (('//',), (('/*', '*/'),), ('"', "'"))
 HASH = (('#',), (), ('"', "'"))
 XML = ((), (('<!--', '-->'),), ())
 
-# Treat unassigned Python docstrings as comments.
-# All docstrings in this repository meet that condition.
-PY = (('#',), (('"""', '"""'), ("'''", "'''")), ("'", '"'))
+PY = HASH
 
 LANGS = {
     '.cs': ('C#', C_LIKE),
@@ -59,7 +63,7 @@ def syntax_for(path):
     return LANGS.get(path.suffix)
 
 
-def scan(line, syn, block):
+def scan(line, syn, block, *, rust=False):
     """Scan one line and return its code state, comment text, and block state.
 
     Join text from multiple comments on one line.
@@ -92,8 +96,20 @@ def scan(line, syn, block):
         if ch in quotes:
             # Count a string as code. Treat an unclosed string as code through the end of the line.
             code = True
-            end = line.find(ch, i + 1)
-            i = len(line) if end < 0 else end + 1
+            if rust and ch == "'":
+                lifetime = re.match(r"'[A-Za-z_][A-Za-z_0-9]*", line[i:])
+                if lifetime and not line.startswith("'", i + len(lifetime[0])):
+                    i += len(lifetime[0])
+                    continue
+            i += 1
+            while i < len(line):
+                if line[i] == chr(92):
+                    i += 2
+                elif line[i] == ch:
+                    i += 1
+                    break
+                else:
+                    i += 1
             continue
         opened = next((c for c in lines if line.startswith(c, i)), None)
         if opened:
@@ -118,16 +134,14 @@ def join(said):
 
 def count(path, syn):
     """Returns (total, blank, comment, code) for one file."""
-    try:
-        text = path.read_text(encoding='utf-8', errors='replace')
-    except OSError as e:
-        print(f'{path}: {e}', file=sys.stderr)
-        return 0, 0, 0, 0
+    text = path.read_text(encoding='utf-8', errors='replace')
+    if path.suffix == '.py':
+        return count_python(text)
     total = blank = comment = code = 0
     block = None
     for line in text.splitlines():
         total += 1
-        has_code, said, block = scan(line, syn, block)
+        has_code, said, block = scan(line, syn, block, rust=path.suffix == '.rs')
         if has_code:
             code += 1
         elif said is not None:
@@ -137,6 +151,34 @@ def count(path, syn):
         else:
             code += 1  # Count an unrecognized nonempty line as code.
     return total, blank, comment, code
+
+
+def count_python(text):
+    """Classify physical lines, counting only actual docstrings as comments."""
+    tree = ast.parse(text)
+    docstrings = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.body and isinstance(node.body[0], ast.Expr):
+                value = node.body[0].value
+                if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                    docstrings.add((value.lineno, value.col_offset))
+    code_lines, comment_lines = set(), set()
+    ignored = {tokenize.ENDMARKER, tokenize.ENCODING, tokenize.INDENT, tokenize.DEDENT, tokenize.NEWLINE, tokenize.NL}
+    for token in tokenize.generate_tokens(io.StringIO(text).readline):
+        if token.type in ignored:
+            continue
+        lines = range(token.start[0], token.end[0] + 1)
+        target = (
+            comment_lines
+            if token.type == tokenize.COMMENT or (token.type == tokenize.STRING and token.start in docstrings)
+            else code_lines
+        )
+        target.update(lines)
+    total = len(text.splitlines())
+    code = len(code_lines)
+    comments = len(comment_lines - code_lines)
+    return total, total - code - comments, comments, code
 
 
 PROSE = {'C#', 'Rust'}
@@ -155,7 +197,7 @@ def blocks(path, syn):
         return
     run, start, block = [], 0, None
     for n, line in enumerate(text.splitlines(), 1):
-        has_code, said, block = scan(line, syn, block)
+        has_code, said, block = scan(line, syn, block, rust=path.suffix == '.rs')
         if said is not None and not has_code:
             if not run:
                 start = n

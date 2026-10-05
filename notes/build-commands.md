@@ -63,6 +63,8 @@ accepting saved credentials.
 
 `bench/runner.py` owns benchmark build/run subprocesses; `bench/report.py` owns
 collection and reporting. `bench/` also owns shared result handling and its tests.
+`tools/analysis/loc_report.py` writes working-tree snapshots under ignored `dist/`
+by default, marks tracked modifications, and refuses to overwrite reports.
 `slopcar/` owns the shared container devloop; platform workflows call it through `just`.
 `tools/assets/` owns asset generators and text-sprite checks; `assets/` owns bundled
 source data and icon manifests. Generated runtime assets stay in `mod/`.
