@@ -16,7 +16,7 @@ def main():
     project_license = ROOT / 'mod/About/LICENSE'
     if args.check:
         if not source.is_dir() or not destination.is_dir():
-            parser.exit(1, 'license source or staged directory is missing; run just stage-licenses\n')
+            parser.exit(1, 'license source or staged directory is missing; run just refresh-licenses\n')
         expected = {p.relative_to(source): p.read_bytes() for p in source.rglob('*') if p.is_file()}
         actual = {p.relative_to(destination): p.read_bytes() for p in destination.rglob('*') if p.is_file()}
         if (
@@ -24,7 +24,7 @@ def main():
             or not project_license.exists()
             or (project_license.read_bytes() != (ROOT / 'LICENSE').read_bytes())
         ):
-            parser.exit(1, 'staged licenses differ; run just stage-licenses\n')
+            parser.exit(1, 'staged licenses differ; run just refresh-licenses\n')
         return
     # This directory is generated in full, so removed upstream notices cannot linger.
     if destination.exists():

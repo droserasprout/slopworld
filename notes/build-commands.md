@@ -16,8 +16,15 @@ not select the sidecar profile; sidecar launch recipes set it explicitly.
 Mod compilation does not build Rust binaries. `tools/version/mod_version.py` reads the
 Cargo package fallback and uses `tools/version/resolve.py` for the same tag/date/commit
 rules as Rust; `VERSION` overrides either build. Installer and launch recipes
-own their launcher build dependency. Protocol generators publish only changed
-bytes so repeated recipe invocations preserve compiler input timestamps.
+own their launcher build dependency. Regeneration is an explicit, isolated step
+after the main source changes: run `just refresh` for all outputs, or the relevant
+`refresh-protocol`, `refresh-api-docs`, `refresh-rust-licenses`, `refresh-reference`,
+or asset recipe,
+then review its diff and validate. The aggregate refresh stages licenses last;
+dependency lock updates remain separate. Builds, tests, lint, benchmarks, and docs builds
+consume existing generated files. `check-generated` compares temporary protocol
+outputs without modifying the checkout. Explicit generators publish only changed
+bytes to preserve compiler input timestamps.
 `devloop` runs `just install run` together, sharing build dependencies once per
 iteration and retaining each worktree's Rust target and C# obj directories.
 Only an explicit `just clean` removes build output.
@@ -48,7 +55,7 @@ and package imports rather than adding script directories to `sys.path`.
 the ignored `.venv/` without installing the repository package. Asset generators
 opt into the `assets` extra. The uv `dev` group owns Ruff, pytest, and pytest-cov.
 `just lint-tools` formats sources and sorts imports before checking core correctness rules; `just test-tools`
-prepares shared inputs and runs package tests with branch coverage, excluding test
+validates shared inputs and runs package tests with branch coverage, excluding test
 files and package markers. `just lock-tools` updates dependency resolution.
 
 `tools/utils.py` owns shared command parsing, subprocess execution, logging, and CLI
@@ -73,13 +80,16 @@ OST production scripts and staged audio belong to the private repository under
 
 The [attribution policy](core-attribution.md) applies to used libraries and assets.
 `licenses/` owns canonical third-party texts and attribution; the root `LICENSE`
-owns SlopWorld terms. `just stage-licenses` stages ignored copies into
+owns SlopWorld terms. `just refresh-licenses` stages ignored copies into
 `mod/About/ThirdPartyNotices/` and `mod/About/LICENSE`; `just check-licenses`
-verifies their contents and rejects stale extra files. The mod build stages them
-automatically. Mod installers and Arch packages copy `About/` recursively.
+verifies their contents and rejects stale extra files. Run staging explicitly after
+changing canonical notices and before distribution.
+Mod installation and release packaging check staged notices; license tests use
+temporary directories. Mod installers copy `About/` recursively; Arch packaging
+copies canonical notices directly into its distribution.
 Release archives, Arch packages, and sidecar images also include readable copies
 from the canonical sources. Update only the canonical files.
-`just rust-licenses` refreshes the Rust inventory from the locked Cargo graph,
+`just refresh-rust-licenses` refreshes the Rust inventory from the locked Cargo graph,
 including build/dev dependencies and all target platforms. Cargo manifests own
 its license metadata; the generated table does not replace distribution notices.
 

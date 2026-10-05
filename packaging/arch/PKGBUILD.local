@@ -121,6 +121,9 @@ package() {
   local _mod="$pkgdir/usr/share/slopworld/SlopWorld"
   install -d "$_mod"
   cp -r mod/{About,Defs,Patches,Sounds,Textures,Assemblies} "$_mod/"
+  # Distribution notices come from canonical inputs, independently of local refreshes.
+  install -Dm644 LICENSE "$_mod/About/LICENSE"
+  cp -r licenses "$_mod/About/ThirdPartyNotices"
   find "$_mod" -type d -exec chmod 755 {} +
   find "$_mod" -type f -exec chmod 644 {} +
 
