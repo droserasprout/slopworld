@@ -56,6 +56,10 @@ failure handling. Command settings use shell-style argument quoting without exec
 a shell. `tools/host/` owns daemon installation, GOG setup, and worktree development loops.
 `tools/coverage/collect.py` owns Rust and C# coverage orchestration.
 
+The daemon installer compares running executable contents and the managed unit
+fragment; systemd drop-ins are outside that comparison. Inactive units activate once
+through restart.
+
 `bench/runner.py` owns benchmark build/run subprocesses; `bench/report.py` owns
 collection and reporting. `bench/` also owns shared result handling and its tests.
 `slopcar/` owns the shared container devloop; platform workflows call it through `just`.
