@@ -26,7 +26,7 @@ def validate_route_precedence(rows):
                 raise ValueError(f'ambiguous {method} routes: {path} and {other_path}')
 
 
-def main() -> None:
+def main(output_root=ROOT) -> None:
     protocol = load(ROOT / 'shared')['protocol']
     schema = set(re.findall(r'\bmessage\s+(\w+)\s*\{', (ROOT / 'shared/slopworld.proto').read_text()))
     rows = []
@@ -134,7 +134,7 @@ def main() -> None:
         capture_output=True,
         check=True,
     ).stdout
-    write_if_changed(ROOT / 'slopd/src/shared/http_wire.rs', formatted.encode())
+    write_if_changed(output_root / 'slopd/src/shared/http_wire.rs', formatted.encode())
 
 
 if __name__ == '__main__':

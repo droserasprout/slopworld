@@ -2,12 +2,12 @@
 
 # Build the daemon and the launcher
 [group('Build')]
-daemon: api-contract
+daemon:
     cd slopd && {{ if VERSION != '' { 'SLOPWORLD_BUILD_VERSION="' + VERSION + '"' } else { '' } }} {{ CARGO }} build {{ CARGOFLAGS }}
 
 # Build the mod against the game's assemblies
 [group('Build')]
-mod: api-contract validate-themes mod-deps stage-licenses
+mod: validate-themes mod-deps
     version="{{ VERSION }}"; \
         if test -z "$version"; then version="$({{ PYTHON }} -m tools.version.mod_version)" || exit; fi; \
         {{ DOTNET }} build "{{ MOD_PROJECT }}" --configuration {{ if BUILD == 'release' { 'Release' } else { 'Debug' } }} \
@@ -23,11 +23,6 @@ mod-deps:
 [group('Build')]
 fetch-harmony destination='mod/Assemblies':
     {{ PYTHON }} -m tools.dependencies.fetch_harmony {{ quote(destination) }}
-
-# Stage canonical license texts and attribution into the mod
-[group('Build')]
-stage-licenses:
-    {{ PYTHON }} -m tools.licenses.stage_licenses
 
 # Check staged license texts against the canonical sources
 [group('Tests and coverage')]

@@ -31,7 +31,7 @@ pkg-arch:
 
 # Build user documentation
 [group('Development tools')]
-docs: api-docs
+docs:
     cd docs && mdbook build
 
 # Serve user documentation

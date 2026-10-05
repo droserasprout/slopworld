@@ -2,27 +2,28 @@
 
 # Test supporting tools and generated data
 [group('Tests and coverage')]
-test-tools: api-contract validate-themes test-licenses test-bench-report
+test-tools: validate-themes test-licenses test-bench-report
     mkdir -p "{{ COVERAGE_DIR }}"
     {{ PYTHON }} -m pytest tools bench/test_runner.py mac/test_workflow.py slopcar/test_devloop.py --cov=tools --cov=bench.runner --cov=mac --cov=slopcar --cov-report=term-missing --cov-report=xml:coverage/python.cobertura.xml
 
-# Stage and verify notices shipped with the mod
+# Test license staging and verification in isolation
 [group('Tests and coverage')]
-test-licenses: stage-licenses check-licenses
+test-licenses:
+    {{ PYTHON }} -m unittest tools.licenses.test_stage_licenses
 
 # Run Rust tests
 [group('Tests and coverage')]
-test-daemon: api-contract
+test-daemon:
     cd slopd && {{ CARGO }} test --quiet {{ TEST_ARGS }}
 
 # Run game-free C# tests
 [group('Tests and coverage')]
-test-mod: mod-deps api-contract
+test-mod: mod-deps
     {{ DOTNET }} run --project "{{ TEST_PROJECT }}" --configuration Release -p:RestoreLockedMode=true -- --quiet
 
 # Test shared definitions and generated bindings
 [group('Tests and coverage')]
-test-wire-contract: api-contract
+test-wire-contract:
     {{ PYTHON }} -m tools.protocol.test_wire_contract
 
 # Test theme catalog build validation
@@ -56,12 +57,12 @@ coverage-tools: test-tools
 
 # Measure Rust coverage and write coverage/rust.cobertura.xml
 [group('Tests and coverage')]
-coverage-daemon: api-contract
+coverage-daemon:
     {{ PYTHON }} -m tools.coverage.collect daemon
 
 # Measure game-free C# coverage and write coverage/csharp.cobertura.xml
 [group('Tests and coverage')]
-coverage-mod: mod-deps api-contract
+coverage-mod: mod-deps
     {{ PYTHON }} -m tools.coverage.collect mod
 
 # Summarize existing Python, Rust and C# coverage reports

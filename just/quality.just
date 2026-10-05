@@ -29,7 +29,7 @@ check-format-daemon:
 
 # Check Rust formatting and Clippy
 [group('Lint')]
-lint-daemon: api-contract check-format-daemon
+lint-daemon: check-format-daemon
     cd slopd && {{ CARGO }} clippy --all-targets -- -D warnings
 
 # Build and check C# formatting (requires game assemblies)

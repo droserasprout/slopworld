@@ -84,7 +84,7 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertIn('BUILD must be exactly debug or release', result.stderr)
         self.assertFalse(self.log.exists())
 
-    def test_shared_generation_runs_once_for_multiple_builds(self):
+    def test_builds_do_not_generate_sources(self):
         self.run_recipe('VERSION=1.2.3', 'all')
         self.assertEqual(
             len(
@@ -94,9 +94,27 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
                     if call['args'] == ['run', '--locked', 'python', '-m', 'tools.protocol.api_contract']
                 ]
             ),
-            1,
+            0,
         )
         self.assertEqual(len(self.calls('cargo')), 1)
+
+    def test_refresh_is_explicit_and_stages_licenses_last(self):
+        self.run_recipe('refresh')
+        modules = [call['args'][call['args'].index('-m') + 1] for call in self.calls('uv')]
+        self.assertEqual(
+            modules,
+            [
+                'tools.protocol.api_contract',
+                'tools.docs.api_docs',
+                'tools.docs.reference',
+                'tools.assets.loading_font_atlas',
+                'tools.assets.icons',
+                'tools.licenses.rust_licenses',
+                'tools.licenses.stage_licenses',
+            ],
+        )
+        self.assertEqual(self.calls('cargo'), [])
+        self.assertEqual(self.calls('dotnet'), [])
 
     def test_lint_forces_release_and_warnings_through_recursive_call(self):
         self.run_recipe('BUILD=debug', 'MOD_WARNINGS_AS_ERRORS=false', 'VERSION=1.2.3', 'lint-mod')
@@ -200,12 +218,21 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         (mod,) = [call for call in self.calls('dotnet') if 'mod/Source/SlopWorld/SlopWorld.csproj' in call['args']]
         self.assertIn('-p:InformationalVersion=1.2.3', mod['args'])
 
-    def test_python_environment_failure_stops_build_before_cargo(self):
+    def test_daemon_build_does_not_require_python_generation(self):
         self.env['RECIPE_TEST_FAIL'] = 'uv'
-        self.run_recipe('daemon', success=False)
-        self.assertEqual(self.calls('cargo'), [])
-        (call,) = self.calls('uv')
-        self.assertEqual(call['args'], ['run', '--locked', 'python', '-m', 'tools.protocol.api_contract'])
+        self.run_recipe('daemon')
+        self.assertEqual(len(self.calls('cargo')), 1)
+        self.assertEqual(self.calls('uv'), [])
+
+    def test_checks_and_builds_have_no_generation_dependencies(self):
+        for recipe in ('all', 'test', 'ci', 'bench-build', 'docs'):
+            with self.subTest(recipe=recipe):
+                result = self.run_recipe('--dry-run', recipe)
+                self.assertNotIn('tools.docs.api_docs', result.stderr)
+                self.assertNotIn('tools.licenses.stage_licenses', result.stderr)
+                for line in result.stderr.splitlines():
+                    if 'tools.protocol.api_contract' in line:
+                        self.assertTrue(line.endswith('--check'), line)
 
     def test_install_mod_still_builds_its_launcher(self):
         # Fail during dependency staging so this test never invokes an installer.
