@@ -15,6 +15,8 @@ def main():
     destination = ROOT / 'mod/About/ThirdPartyNotices'
     project_license = ROOT / 'mod/About/LICENSE'
     if args.check:
+        if not source.is_dir() or not destination.is_dir():
+            parser.exit(1, 'license source or staged directory is missing; run just stage-licenses\n')
         expected = {p.relative_to(source): p.read_bytes() for p in source.rglob('*') if p.is_file()}
         actual = {p.relative_to(destination): p.read_bytes() for p in destination.rglob('*') if p.is_file()}
         if (
