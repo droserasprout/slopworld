@@ -65,11 +65,16 @@ namespace SlopWorld
         }
     }
 
-    // PreOpen is the only opening hook that Page_SelectScenario declares.
-    // Root.OnGUI skips the window stack while a long event is pending, so this page does not draw.
-    [HarmonyPatch(typeof(Page_SelectScenario), "PreOpen")]
+    // Replace the New colony setup page before it enters the stack. Queuing in PreOpen
+    // still lets Add retain the page, which can draw before the loading event takes over.
+    [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.Add))]
     public static class Patch_QuickStart
     {
-        static void Postfix() => QuickStart.Queue();
+        static bool Prefix(Window window)
+        {
+            if (!(window is Page_SelectScenario)) return true;
+            QuickStart.Queue();
+            return false;
+        }
     }
 }

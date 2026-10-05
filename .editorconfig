@@ -114,6 +114,10 @@ dotnet_diagnostic.CA2249.severity = none
 # CA2016: Forward the 'CancellationToken' parameter to methods
 dotnet_diagnostic.CA2016.severity = none
 
+[mod/Source/SlopWorld/Patches/Chrome/LinuxGameWindow.cs]
+# Environment.ProcessId is unavailable on the mod's net472 Unity Mono runtime.
+dotnet_diagnostic.CA1837.severity = none
+
 [mod/Source/SlopWorld/Client/Generated/*.cs]
 # Protocol generation owns these files; handwritten callers remain analyzed.
 generated_code = true

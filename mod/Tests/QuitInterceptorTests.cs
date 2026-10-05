@@ -42,7 +42,7 @@ namespace SlopWorld.Tests
 
 namespace UnityEngine
 {
-    public static class Application
+    public static partial class Application
     {
         public static System.Func<bool> wantsToQuit;
     }
