@@ -1,6 +1,7 @@
 /slopd/target
 /.worktrees/
 /coverage/
+/dist/
 mod/Source/SlopWorld/obj/
 mod/Source/SlopWorld/bin/
 mod/Assemblies/SlopWorld.dll

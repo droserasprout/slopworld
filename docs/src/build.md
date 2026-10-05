@@ -46,6 +46,36 @@ to the package version. Without Git data, builds use the package version alone.
 `just install` installs the daemon, systemd unit, launcher, and mod.
 See [Install](install.md) for the complete setup procedure.
 
+## Rolling GitHub release
+
+Publish from a clean checkout on an x86_64 Linux host with RimWorld installed.
+Release builds run locally because the mod needs the game's assemblies.
+The GitHub Actions test workflow continues to run game-free checks.
+
+```sh
+just release-package  # build Release daemon and mod; prepare local archives
+just release-latest   # rebuild, then create or update the public latest release
+```
+
+Both recipes write `slopworld-latest-x86_64-linux.tar.gz`, `slopworld-latest-mod.zip`,
+`SHA256SUMS`, and `release-notes.md` into `dist/latest/`. Use `RELEASE_DIR` to change
+the output directory. The daemon archive includes all three binaries, service,
+desktop entry, and licenses. The ZIP contains the `SlopWorld/` mod folder, runtime
+DLLs, assets, and notices. Game assemblies and build sources stay out of the archives.
+Both archives record the full commit in `REVISION` and the shared build version in
+`VERSION`. The default rolling version uses the Cargo version, UTC date, and commit;
+`VERSION` overrides it for both components.
+
+Before publishing, run the [checks](#checks) and push the commit to GitHub. Authenticate
+the GitHub CLI with `gh auth login`; its selected repository is the destination.
+Use `GH_REPO=owner/repo` to select another repository, or `GH` to override the CLI
+command. Publishing moves the remote `latest` tag to the built commit, replaces
+assets with matching names, and marks the release as Latest. Local tags stay unchanged.
+The repository must allow mutable releases. A failed upload can leave the tag moved
+and some assets replaced; rerun `just release-latest` from the same commit to finish.
+
+Use `just test-release` for game-free packaging and publication tests.
+
 ## Checks
 
 | Target | Purpose | Extra requirements |
