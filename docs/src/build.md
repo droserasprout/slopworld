@@ -94,7 +94,7 @@ to the uv `dev` dependency group. Tools run as modules from the repository root 
 for example, `uv run --locked python -m tools.docs.reference`.
 Use `just lock-tools` after changing Python dependencies and commit `uv.lock`.
 For an asset tool, use `uv run --locked --extra assets python -m tools.assets.emoji --help`.
-`just check-format-csharp` checks C# formatting without game assemblies.
+`just check-format-mod` checks C# formatting without game assemblies.
 
 `just coverage` writes Python, Rust, and C# reports under `coverage/`. Install `cargo-llvm-cov` with
 `cargo install cargo-llvm-cov --locked` and the matching `llvm-cov` and

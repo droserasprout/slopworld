@@ -17,7 +17,7 @@ bench-ipc:
 
 [group('Benchmarks')]
 [private]
-bench-build: mod-deps
+bench-build: sync-mod
     {{ PYTHON }} -m bench.runner build
 
 # Render saved CSV results; BENCH_BASELINE and BENCH_MODE=relative compare runs

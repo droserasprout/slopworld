@@ -18,7 +18,7 @@ test-daemon:
 
 # Run game-free C# tests
 [group('Tests and coverage')]
-test-mod: mod-deps
+test-mod: sync-mod
     {{ DOTNET }} run --project "{{ TEST_PROJECT }}" --configuration Release -p:RestoreLockedMode=true -- --quiet
 
 # Test shared definitions and generated bindings
@@ -62,7 +62,7 @@ coverage-daemon:
 
 # Measure game-free C# coverage and write coverage/csharp.cobertura.xml
 [group('Tests and coverage')]
-coverage-mod: mod-deps
+coverage-mod: sync-mod
     {{ PYTHON }} -m tools.coverage.collect mod
 
 # Summarize existing Python, Rust and C# coverage reports

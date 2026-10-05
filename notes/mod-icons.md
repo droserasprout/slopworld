@@ -9,7 +9,7 @@ the pinned Symbols Nerd Font in `assets/fonts/nerd-symbols/`; `source.toml` reco
 its version, source, and checksums. Update upstream notices and glyph licenses in `licenses/nerd-fonts/`
 when updating the font. Bake output also depends on the rasterizer. A common scale
 preserves relative glyph sizes; do not fit every glyph independently.
-Run `just bake-icons` to regenerate action icons. The baker defaults to 64 px;
+Run `just refresh-icons` to regenerate action icons. The baker defaults to 64 px;
 `uv run --locked --extra assets python -m tools.assets.icons` accepts `--size`, `--font`, and `--report` for glyph metrics.
 The font is a build input; the mod ships only the generated PNGs.
 

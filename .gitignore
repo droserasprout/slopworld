@@ -5,7 +5,7 @@
 mod/Source/SlopWorld/obj/
 mod/Source/SlopWorld/bin/
 mod/Assemblies/SlopWorld.dll
-# Runtime libraries restored by just mod-deps.
+# Runtime libraries restored by just sync-mod.
 mod/Assemblies/Markdig.dll
 mod/Assemblies/Newtonsoft.Json.dll
 mod/Assemblies/Tomlyn.dll
@@ -34,7 +34,7 @@ mod/Dependencies/obj/
 # Separate local developer repository.
 /priv/
 
-# License copies staged by just stage-licenses.
+# License copies staged by just refresh-licenses.
 /mod/About/LICENSE
 /mod/About/ThirdPartyNotices/
 

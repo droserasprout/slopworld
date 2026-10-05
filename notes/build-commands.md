@@ -4,6 +4,10 @@ Use `just` to list recipes. [Build from source](../docs/src/build.md)
 owns toolchains, command usage, tests, coverage, and benchmark workflow.
 Common entry points live in `just/popular.just`; imported `.just` files own recipes,
 and `just/config.just` owns shared settings and coverage scope.
+Recipe names put the action first, followed by the component (`daemon`, `mod`, or
+`tools`) and any qualifier: `format-mod`, `check-format-daemon`,
+`refresh-daemon-licenses`. Bare `daemon` and `mod` are the build entry points;
+`refresh` and `refresh-*` own explicit regeneration. Use one canonical name per recipe.
 `mac/` owns native macOS checks, workflow modules, settings, and a separate justfile. It runs
 from the repository root and calls the root justfile explicitly for shared builds;
 exported settings carry across that boundary. Python modules own multi-step
@@ -18,7 +22,7 @@ Cargo package fallback and uses `tools/version/resolve.py` for the same tag/date
 rules as Rust; `VERSION` overrides either build. Installer and launch recipes
 own their launcher build dependency. Regeneration is an explicit, isolated step
 after the main source changes: run `just refresh` for all outputs, or the relevant
-`refresh-protocol`, `refresh-api-docs`, `refresh-rust-licenses`, `refresh-reference`,
+`refresh-protocol`, `refresh-api-docs`, `refresh-daemon-licenses`, `refresh-reference`,
 or asset recipe,
 then review its diff and validate. The aggregate refresh stages licenses last;
 dependency lock updates remain separate. Builds, tests, lint, benchmarks, and docs builds
@@ -89,7 +93,7 @@ temporary directories. Mod installers copy `About/` recursively; Arch packaging
 copies canonical notices directly into its distribution.
 Release archives, Arch packages, and sidecar images also include readable copies
 from the canonical sources. Update only the canonical files.
-`just refresh-rust-licenses` refreshes the Rust inventory from the locked Cargo graph,
+`just refresh-daemon-licenses` refreshes the Rust inventory from the locked Cargo graph,
 including build/dev dependencies and all target platforms. Cargo manifests own
 its license metadata; the generated table does not replace distribution notices.
 

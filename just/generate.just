@@ -2,11 +2,11 @@
 
 # Refresh generated files after source changes, then stage distribution notices
 [group('Generated files')]
-refresh: refresh-protocol refresh-api-docs refresh-reference refresh-loading-font refresh-icons refresh-rust-licenses refresh-licenses
+refresh: refresh-protocol refresh-api-docs refresh-reference refresh-loading-font refresh-icons refresh-daemon-licenses refresh-licenses
 
 # Generate the locked Rust dependency license table
 [group('Generated files')]
-refresh-rust-licenses:
+refresh-daemon-licenses:
     {{ PYTHON }} -m tools.licenses.rust_licenses
 
 # Generate stable shared protocol bindings
@@ -53,32 +53,3 @@ sync-tools:
 [group('Generated files')]
 refresh-licenses:
     {{ PYTHON }} -m tools.licenses.stage_licenses
-
-
-# Compatibility entry point; use refresh-rust-licenses.
-[private]
-rust-licenses: refresh-rust-licenses
-
-# Compatibility entry point; use refresh-protocol.
-[private]
-api-contract: refresh-protocol
-
-# Compatibility entry point; use refresh-api-docs.
-[private]
-api-docs: refresh-api-docs
-
-# Compatibility entry point; use refresh-reference.
-[private]
-reference: refresh-reference
-
-# Compatibility entry point; use refresh-loading-font.
-[private]
-bake-loading-font: refresh-loading-font
-
-# Compatibility entry point; use refresh-icons.
-[private]
-bake-icons: refresh-icons
-
-# Compatibility entry point; use refresh-licenses.
-[private]
-stage-licenses: refresh-licenses
