@@ -14,7 +14,9 @@ run `just mod-deps` and `just test-mod`. The three parser DLLs are generated and
 The existing Protobuf runtime DLLs remain checked in.
 
 RimWorld and Unity assemblies come from the game installation and must never be copied
-into the mod. Harmony comes from the RimWorld Harmony release through `tools/fetch-harmony.sh`.
+into the mod. `just fetch-harmony` downloads the latest RimWorld Harmony release,
+verifies its published SHA-256 digest, and atomically installs only `0Harmony.dll`.
+Pass a destination directory as an argument to install elsewhere.
 The corresponding licenses live in `licenses/runtime/` and are staged into
 `mod/About/ThirdPartyNotices/` by the mod build. Json.NET remains because the
 external SongRec integration uses JSON. The daemon IPC client no longer uses Json.NET.

@@ -23,7 +23,7 @@ ci: check-generated check-format-daemon check-format-csharp lint-tools test-tool
 # Run the game-free daemon, C# and IPC benchmarks into shared CSV results
 [group('Common commands')]
 bench:
-    JUST_CMD="{{ just_executable() }}" {{ PYTHON }} bench/bench-report.py run --suite gamefree --build "{{ BUILD }}" {{ if BENCH_RUN != '' { '--run "' + BENCH_RUN + '"' } else { '' } }}
+    JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m bench.report run --suite gamefree --build "{{ BUILD }}" {{ if BENCH_RUN != '' { '--run "' + BENCH_RUN + '"' } else { '' } }}
 
 # Install the daemon, runner and mod
 [group('Common commands')]

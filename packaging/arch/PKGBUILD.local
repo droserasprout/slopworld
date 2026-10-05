@@ -77,7 +77,7 @@ prepare() {
   (set -o pipefail; tar -C "$_src" -cf - "${_skip[@]}" . | tar -C "$srcdir/slopworld" -xf -)
   # The snapshot has no Git metadata. Capture its version from the source checkout
   # once so pkgver, build and check cannot disagree after a checkout or date change.
-  "$_src/tools/version/version.sh" "$(grep -m1 '^version' "$srcdir/slopworld/slopd/Cargo.toml" | cut -d'"' -f2)" \
+  (cd "$_src" && python -m tools.version.mod_version) \
     > "$srcdir/slopworld/.slopworld-build-version"
   cd "$srcdir/slopworld" || return
   export RUSTUP_TOOLCHAIN=stable

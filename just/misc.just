@@ -42,4 +42,4 @@ docs-serve:
 # Reinstall and relaunch after every game exit
 [group('Development tools')]
 devloop:
-    JUST_CMD="{{ just_executable() }}" tools/devloop.sh
+    JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m tools.host.devloop

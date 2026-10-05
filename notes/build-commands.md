@@ -4,16 +4,17 @@ Use `just` to list recipes. [Build from source](../docs/src/build.md)
 owns toolchains, command usage, tests, coverage, and benchmark workflow.
 Common entry points live in `just/popular.just`; imported `.just` files own recipes,
 and `just/config.just` owns shared settings and coverage scope.
-`mac/` owns native macOS scripts, settings, and a separate justfile. It runs
+`mac/` owns native macOS checks, workflow modules, settings, and a separate justfile. It runs
 from the repository root and calls the root justfile explicitly for shared builds;
-exported settings carry across that boundary. Scripts own multi-step
-shell work rather than duplicating it in recipes. Settings accept environment values
+exported settings carry across that boundary. Python modules own multi-step
+workflow orchestration rather than duplicating it in recipes. `mac/setup.sh` bootstraps
+uv before Python recipes can run. Settings accept environment values
 or `just NAME=value recipe`; assignments must precede recipe names. Exported settings
 carry into recursive calls. `SLOPCAR_PROFILE` stays unexported so native commands do
 not select the sidecar profile; sidecar launch recipes set it explicitly.
 
 Mod compilation does not build Rust binaries. `tools/version/mod_version.py` reads the
-Cargo package fallback and uses `tools/version/version.sh` for the same tag/date/commit
+Cargo package fallback and uses `tools/version/resolve.py` for the same tag/date/commit
 rules as Rust; `VERSION` overrides either build. Installer and launch recipes
 own their launcher build dependency. Protocol generators publish only changed
 bytes so repeated recipe invocations preserve compiler input timestamps.
@@ -50,7 +51,13 @@ opt into the `assets` extra. The uv `dev` group owns Ruff, pytest, and pytest-co
 prepares shared inputs and runs package tests with branch coverage, excluding test
 files and package markers. `just lock-tools` updates dependency resolution.
 
-`bench/` owns benchmark runners, shared result handling, reporting, and their tests.
+`tools/utils.py` owns shared command parsing, subprocess execution, logging, and CLI
+failure handling. Command settings use shell-style argument quoting without executing
+a shell. `tools/host/` owns daemon installation, GOG setup, and worktree development loops.
+`tools/coverage/collect.py` owns Rust and C# coverage orchestration.
+
+`bench/runner.py` owns benchmark build/run subprocesses; `bench/report.py` owns
+collection and reporting. `bench/` also owns shared result handling and its tests.
 `slopcar/` owns the shared container devloop; platform workflows call it through `just`.
 `tools/assets/` owns asset generators and text-sprite checks; `assets/` owns bundled
 source data and icon manifests. Generated runtime assets stay in `mod/`.
