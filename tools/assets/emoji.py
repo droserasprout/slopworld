@@ -39,7 +39,7 @@ BREATHE = 1.08
 
 
 @lru_cache(maxsize=1)
-def _cairo():
+def cairo_backend():
     import cairo  # deferred: only needed when actually baking
     import gi
 
@@ -55,8 +55,8 @@ def _cairo():
 
 
 def render(emoji, size):
-    """The emoji at `size` square: premultiplied RGBA, float32, channels first."""
-    cairo, Pango, PangoCairo = _cairo()
+    """The emoji at `size` square: premultiplied RGBA, float32, channels last."""
+    cairo, Pango, PangoCairo = cairo_backend()
 
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, size, size)
     ctx = cairo.Context(surface)
@@ -72,6 +72,7 @@ def render(emoji, size):
     PangoCairo.show_layout(ctx, layout)
 
     # Cairo stores premultiplied ARGB32 data as BGRA bytes. The alpha channel defines the shape.
+    surface.flush()
     buf = np.frombuffer(surface.get_data(), dtype=np.uint8).reshape(size, size, 4)
     return buf[..., [2, 1, 0, 3]].astype(np.float32) / 255.0
 
@@ -95,7 +96,7 @@ def bake(emoji, name, size, out, color=False):
     # Limit the square to the probe surface.
     cy, cx = (ys.min() + ys.max()) / 2, (xs.min() + xs.max()) / 2
     side = int(max(ys.max() - ys.min(), xs.max() - xs.min()) * BREATHE)
-    side = min(side, PROBE)  # cap at probe edge
+    side = max(1, min(side, PROBE))  # cap at probe edge
     y0 = max(0, int(cy - side / 2))
     x0 = max(0, int(cx - side / 2))
     # If the crop would fall short of the probe, shift it so it doesn't
@@ -146,6 +147,9 @@ def main():
     ap.add_argument('--out', default=DEFAULT_OUT, help='output directory')
     ap.add_argument('--color', action='store_true', help="keep the face's own colors instead of an alpha mask")
     args = ap.parse_args()
+
+    if args.size <= 0:
+        ap.error('--size must be positive')
 
     if len(args.emoji) != len(args.name):
         print('--emoji and --name must pair up one-to-one', file=sys.stderr)

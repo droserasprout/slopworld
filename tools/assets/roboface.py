@@ -22,6 +22,7 @@ The node leaves the pawn's head visible when the pawn faces away.
 Graphic_Multi creates the west texture by mirroring the east texture.
 """
 
+import argparse
 import os
 import sys
 
@@ -231,9 +232,9 @@ def composite(base_r, eye_r):
     """Composite eye layer over base at final (N×N) resolution."""
     base_rgb, base_a = base_r.extract()
     eye_rgb, eye_a = eye_r.extract()
-    # Straight alpha composite: result = base * (1 - eye_a) + eye
-    rgb = base_rgb * (1 - eye_a[..., None]) + eye_rgb
-    a = np.maximum(base_a, eye_a)
+    a = eye_a + base_a * (1 - eye_a)
+    premultiplied = base_rgb * (base_a * (1 - eye_a))[..., None] + eye_rgb * eye_a[..., None]
+    rgb = np.divide(premultiplied, a[..., None], out=np.zeros_like(premultiplied), where=a[..., None] > 0)
     return rgb, a
 
 
@@ -244,22 +245,21 @@ def save(rgb, a, name):
     print('wrote', os.path.normpath(path))
 
 
-if __name__ == '__main__':
-    # Build the base plates once per facing — these are the same for every variant.
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('variants', nargs='*', type=str.lower, choices=[*map(str.lower, EYE_COLORS), 'missing', 'all'])
+    args = parser.parse_args(argv)
+    registry = {**EYE_COLORS, 'Missing': None}
+    wanted = list(registry) if not args.variants or 'all' in args.variants else [v.title() for v in args.variants]
     bases = {f: build_base(f) for f in ('south', 'east')}
-
-    wanted = sys.argv[1:] if len(sys.argv) > 1 else list(EYE_COLORS.keys()) + ['Missing']
-
+    OUT.mkdir(parents=True, exist_ok=True)
     for variant in wanted:
-        if variant == 'Missing':
-            glow = None
-        elif variant in EYE_COLORS:
-            glow = EYE_COLORS[variant]
-        else:
-            print(f"unknown variant '{variant}'; choose from {list(EYE_COLORS.keys())} + Missing")
-            continue
-
         for facing in ('south', 'east'):
-            eye_r = build_eyes(facing, glow)
+            eye_r = build_eyes(facing, registry[variant])
             rgb, a = composite(bases[facing], eye_r)
             save(rgb, a, f'{variant}_{facing}')
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

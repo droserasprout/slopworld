@@ -11,7 +11,7 @@ from tools.assets import emoji_atlas
 
 
 class TextSpriteMetadataTests(unittest.TestCase):
-    def test_packaged_metadata_matches_generator(self):
+    def test_packaged_metadata_round_trips_through_writer(self):
         source = pathlib.Path(emoji_atlas.DEFAULT_DATA).read_text(encoding='utf-8')
         literals = re.findall(r'"((?:\\U[0-9A-F]{8})+)"', source)
         keys = [literal.encode('ascii').decode('unicode_escape') for literal in literals]
@@ -39,7 +39,7 @@ class TextSpriteMetadataTests(unittest.TestCase):
             source = output.read_text(encoding='utf-8')
             self.assertIn(r'"\U0001F469\U0000200D\U0001F4BB", "\U00002764\U0000FE0F", "\U0001F600"', source)
 
-    def test_pinned_unicode_data_has_sequence_qualifications(self):
+    def test_pinned_unicode_data_contains_representative_sequences(self):
         keys = set(emoji_atlas.unicode_sequences(emoji_atlas.DEFAULT_SEQUENCES))
         self.assertIn('👩‍💻', keys)
         self.assertIn('🏳️‍🌈', keys)

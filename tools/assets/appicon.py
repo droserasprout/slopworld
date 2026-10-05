@@ -9,6 +9,8 @@ Process:
   2. Put the faceplate over the rose.
   3. Move the stem tip slightly into the top of the skull.
 
+Usage: uv run --locked --extra assets python -m tools.assets.appicon
+
 Output: mod/Textures/SlopWorld/SlopWorld_icon.png (128x128 RGBA).
 
 The tool requires NumPy, Pillow, pycairo, Pango, and Fontconfig; Noto Color Emoji is bundled.
@@ -82,7 +84,7 @@ class Face:
     def paint(self, mask, color):
         m = mask[..., None]
         self.rgb = self.rgb * (1 - m) + np.asarray(color, np.float32) * m
-        self.a = np.maximum(self.a, mask)
+        self.a = mask + self.a * (1 - mask)
 
 
 def steel(x0, y0, x1, y1):
@@ -117,7 +119,7 @@ def eye(f, cx, cy):
     iris = cover(disc(cx, cy, IRIS_R))
     g = np.clip(1.25 - ((X - (cx - IRIS_R)) + (Y - (cy - IRIS_R))) / (IRIS_R * 4), 0.35, 1.0)
     f.rgb = f.rgb * (1 - iris[..., None]) + C_GLOW * (g * 0.95)[..., None] * iris[..., None]
-    f.a = np.maximum(f.a, iris)
+    f.a = iris + f.a * (1 - iris)
 
 
 def mouth(f, x0, y0, x1, y1, bars):
@@ -151,42 +153,16 @@ def draw_robot():
 
 def render_rose_png(target_h, out_path):
     """Render 🥀 via PangoCairo, save as a standalone RGBA PNG at target_h high."""
-    from tools.assets import emoji
+    from tools.assets.emoji import render
 
-    cairo, Pango, PangoCairo = emoji._cairo()
-
-    # Probe at 64pt to find the right pt size for target_h
-    probe_pt = 64
-    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 1024, 1024)
-    ctx = cairo.Context(surface)
-    layout = PangoCairo.create_layout(ctx)
-    layout.set_font_description(Pango.font_description_from_string(f'Noto Color Emoji {probe_pt}'))
-    layout.set_text('🥀', -1)
-    ink, logical = layout.get_pixel_extents()
-    ctx.move_to(-ink.x, -ink.y)
-    PangoCairo.show_layout(ctx, layout)
-    arr = np.frombuffer(surface.get_data(), dtype=np.uint8).reshape(1024, 1024, 4)
-    arr = arr[:, :, [2, 1, 0, 3]]
-    a = arr[:, :, 3]
-    ys, xs = np.nonzero(a > 10)
-    visible_h = ys.max() - ys.min() + 1
-    pt = max(12, int(round(probe_pt * target_h / visible_h)))
-    surface.finish()
-
-    # Render at the chosen pt
-    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 1024, 1024)
-    ctx = cairo.Context(surface)
-    layout = PangoCairo.create_layout(ctx)
-    layout.set_font_description(Pango.font_description_from_string(f'Noto Color Emoji {pt}'))
-    layout.set_text('🥀', -1)
-    ink, logical = layout.get_pixel_extents()
-    ctx.move_to(-ink.x, -ink.y)
-    PangoCairo.show_layout(ctx, layout)
-    arr = np.frombuffer(surface.get_data(), dtype=np.uint8).reshape(1024, 1024, 4)
-    arr = arr[:, :, [2, 1, 0, 3]]
-    a = arr[:, :, 3]
-    ys, xs = np.nonzero(a > 10)
-    rose = arr[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1].astype(np.float32) / 255.0
+    arr = render('🥀', 256)
+    ys, xs = np.nonzero(arr[..., 3] > 10 / 255.0)
+    if not len(ys):
+        raise RuntimeError('bundled Noto Color Emoji did not render the rose')
+    rose = arr[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
+    # PNG and Pillow RGBA expect straight-alpha color.
+    alpha = rose[..., 3:]
+    rose[..., :3] = np.divide(rose[..., :3], alpha, out=np.zeros_like(rose[..., :3]), where=alpha > 0)
 
     # Scale to target_h
     rh, rw = rose.shape[:2]
@@ -197,7 +173,6 @@ def render_rose_png(target_h, out_path):
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     Image.fromarray(rose_scaled).save(out_path)
     print('wrote', os.path.normpath(out_path))
-    surface.finish()
     return rose_scaled, new_w, target_h
 
 
@@ -219,13 +194,13 @@ def make_icon(rose_path):
     rose_left = int(round(CX - rw / 2))  # centred on the faceplate
 
     # Composite: rose behind, robot on top.
-    icon = np.zeros((128, 128, 4), dtype=np.float32)
+    icon = np.zeros((N, N, 4), dtype=np.float32)
 
     # Paste the rose first.
     y0 = max(0, rose_top)
-    y1 = min(128, rose_top + rh)
+    y1 = min(N, rose_top + rh)
     x0 = max(0, rose_left)
-    x1 = min(128, rose_left + rw)
+    x1 = min(N, rose_left + rw)
     ry0 = y0 - rose_top
     rx0 = x0 - rose_left
     if y1 > y0 and x1 > x0:
@@ -238,8 +213,10 @@ def make_icon(rose_path):
     robot = draw_robot()
     ra = robot[:, :, 3]
     icon[:, :, :3] = robot[:, :, :3] * ra[..., None] + icon[:, :, :3] * (1 - ra[..., None])
-    icon[:, :, 3] = np.maximum(icon[:, :, 3], ra)
+    icon[:, :, 3] = ra + icon[:, :, 3] * (1 - ra)
 
+    alpha = icon[..., 3:]
+    icon[..., :3] = np.divide(icon[..., :3], alpha, out=np.zeros_like(icon[..., :3]), where=alpha > 0)
     return icon
 
 
@@ -257,12 +234,6 @@ def main():
     out_path = os.path.join(tex_dir, 'SlopWorld_icon.png')
     Image.fromarray(img).save(out_path)
     print('wrote', os.path.normpath(out_path))
-
-    # Also update the pre-built pkg copy
-    pkg_path = ROOT / 'packaging/arch/pkg/slopworld/usr/share/icons/hicolor/128x128/apps/slopworld.png'
-    if os.path.isdir(os.path.dirname(pkg_path)):
-        Image.fromarray(img).save(pkg_path)
-        print('wrote', os.path.normpath(pkg_path))
 
     return 0
 
