@@ -52,6 +52,22 @@ fallback process inspection and desktop/music integrations are optional dependen
 Pager and highlighter defaults use Auto to select installed tools. The editor still
 defaults to micro; optional package metadata does not imply an editor fallback.
 
+`packaging/debian/` owns Debian binary metadata and installed user setup instructions.
+`tools/release/debian.py` builds native Debian/Ubuntu packages through `pkg-debian`;
+`tools/release/latest.py` shares the mod asset/runtime DLL allowlist with it.
+Rolling releases include both native package formats. `tools/release/arch.py`
+uses the existing Arch PKGBUILD metadata with a staged release payload and lets
+makepkg own package metadata/mtree generation. `tools/release/container_debian.py`
+rebuilds Rust in the pinned Debian toolchain from `packaging/debian/Dockerfile`;
+Debian packaging and its real archive tests run there before publication.
+Native rolling asset names stay stable, while package metadata carries full versions.
+The aggregate release computes checksums only after all four artifacts succeed.
+Debian shared-library dependencies come from the build host's `dpkg-shlibdeps`,
+so packages must be built on the target distribution rather than from Arch binaries.
+System packages stage the mod under `/usr/share/slopworld` and leave game attachment
+and user-service lifecycle to the user. Package builds publish only after all staging,
+dependency discovery, and archive construction succeed.
+
 `tools/` is a repository Python package, with focused subpackages and tests beside
 their owners. `tools.ROOT` owns checkout paths; Python recipes use `uv run --locked python -m`
 and package imports rather than adding script directories to `sys.path`.

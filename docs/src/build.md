@@ -57,14 +57,31 @@ just release-package  # build Release daemon and mod; prepare local archives
 just release-latest   # rebuild, then create or update the public latest release
 ```
 
-Both recipes write `slopworld-latest-x86_64-linux.tar.gz`, `slopworld-latest-mod.zip`,
-`SHA256SUMS`, and `release-notes.md` into `dist/latest/`. Use `RELEASE_DIR` to change
-the output directory. The daemon archive includes all three binaries, service,
+Both recipes write these assets into `dist/latest/`:
+
+- `slopworld-latest-x86_64-linux.tar.gz`
+- `slopworld-latest-mod.zip`
+- `slopworld-latest-x86_64.pkg.tar.zst`
+- `slopworld-latest-amd64.deb`
+- `SHA256SUMS` and `release-notes.md`
+
+Use `RELEASE_DIR` to change the output directory. Release builds require an Arch
+Linux x86_64 host with `makepkg`, `fakeroot`, and `pacman`, plus Podman (default)
+or Docker (`just CONTAINER=docker release-latest`). Root builds also require
+Bubblewrap to run `makepkg` as an ordinary UID. The Debian compiler image uses
+Debian 13 (trixie) and rebuilds the Rust binaries against its libraries; the mod
+payload is shared with the Arch build. The container also runs the Debian package
+integration tests. `just release-debian-image` prepares that image separately;
+`just test-release-debian` runs its real archive tests without compilation.
+Container compiler caches live under `dist/debian-build/`; `CONTAINER_BUILD_ARGS`
+and `CONTAINER_RUN_ARGS` accept additional build/run options. The daemon archive includes all three binaries, service,
 desktop entry, and licenses. The ZIP contains the `SlopWorld/` mod folder, runtime
 DLLs, assets, and notices. Game assemblies and build sources stay out of the archives.
-Both archives record the full commit in `REVISION` and the shared build version in
+Archives and packaged mods record the full commit in `REVISION` and the shared build version in
 `VERSION`. The default rolling version uses the Cargo version, UTC date, and commit;
-`VERSION` overrides it for both components.
+`VERSION` overrides it for both components. Native package filenames stay stable
+for rolling replacement; package metadata contains the full version. `SHA256SUMS`
+covers both archives and both packages.
 
 Before publishing, run the [checks](#checks) and push the commit to GitHub. Authenticate
 the GitHub CLI with `gh auth login`; its selected repository is the destination.
@@ -75,6 +92,31 @@ The repository must allow mutable releases. A failed upload can leave the tag mo
 and some assets replaced; rerun `just release-latest` from the same commit to finish.
 
 Use `just test-release` for game-free packaging and publication tests.
+
+## Debian packages
+
+Build on the Debian or Ubuntu release where the package will run, with the
+build prerequisites above, ALSA development headers (`libasound2-dev`),
+and `dpkg-dev` installed. RimWorld's native Linux assemblies are required.
+
+```sh
+RIMWORLD=/path/to/RimWorld/game just pkg-debian
+```
+
+The recipe builds Release binaries and the mod with one version, checks staged
+licenses, and writes `slopworld_<version>-1_<architecture>.deb` to `dist/debian/`.
+Use `just DEB_DIR=/path/to/output pkg-debian` to change the output directory.
+It supports native `amd64` and `arm64` builds; game availability and runtime
+validation are separate requirements. `VERSION` overrides the shared build version.
+The recipe packages the working tree; commit changes first for a reproducible source revision.
+
+The package includes all three binaries, the user service, desktop entry, icon,
+mod, and license notices. Shared-library requirements come from
+[dpkg-shlibdeps](https://manpages.debian.org/bookworm/dpkg-dev/dpkg-shlibdeps.1.en.html)
+on the build host; build on the oldest Debian/Ubuntu release you intend to support.
+Game assemblies and untracked mod assets are excluded. Package installation and
+user setup are covered in [Install](install.md#debian-and-ubuntu).
+`just test-release` covers Debian staging and failure handling without the game.
 
 ## Checks
 
