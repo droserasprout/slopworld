@@ -20,7 +20,9 @@ def resolve(fallback: str, tag: str | None, commit: str | None, date: str) -> st
 def from_git(fallback: str, repository: Path = ROOT) -> str:
     def git(*args: str) -> str | None:
         try:
-            result = run(['git', '-C', str(repository), *args], capture_output=True, text=True, check=False)
+            result = run(
+                ['git', '-C', str(repository), *args], capture_output=True, text=True, errors='replace', check=False
+            )
         except OSError:
             return None
         return result.stdout.strip() if result.returncode == 0 else None
