@@ -38,6 +38,9 @@ and coverage. The test workflow exposes those stages separately for timings.
 CI installs pinned tools, including uv, through
 `.github/actions/setup-build-tools/`. It owns archive caching, tool versions,
 and the protoc checksum for generated bindings.
+`.github/workflows/image.yml` owns sidecar publication to
+`ghcr.io/<repository-owner>/slopcar` for amd64 and arm64. Main pushes and manual
+runs publish full commit SHA tags; only runs on `main` update `latest`.
 Only superseded branch-push test runs are cancelled; called tests and
 manual runs have isolated concurrency groups. NuGet caching includes the locked
 runtime/test dependency graphs and the coverage tool manifest.
