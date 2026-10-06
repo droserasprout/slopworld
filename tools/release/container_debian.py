@@ -57,6 +57,14 @@ def package(output: Path, revision: str, version: str) -> Path:
             f'SLOPWORLD_BUILD_VERSION={version}',
             '--env',
             'CARGO_TARGET_DIR=/build/target',
+            # Docker preserves host checkout ownership while this image runs as
+            # root. Trust only the read-only checkout, including linked worktrees.
+            '--env',
+            'GIT_CONFIG_COUNT=1',
+            '--env',
+            'GIT_CONFIG_KEY_0=safe.directory',
+            '--env',
+            f'GIT_CONFIG_VALUE_0={ROOT}',
             'slopworld-debian-release',
             'bash',
             '-euc',

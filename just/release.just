@@ -10,6 +10,11 @@ release-package:
 release-latest:
     JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m tools.release.latest publish
 
+# Stage a source Arch package mod with the shared runtime allowlist and canonical notices
+[group('Release')]
+stage-arch-mod destination:
+    {{ PYTHON }} -m tools.release.source_mod {{ quote(destination) }}
+
 # Test release packaging and publication ordering without building or publishing
 [group('Tests and coverage')]
 test-release:

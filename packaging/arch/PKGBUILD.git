@@ -61,7 +61,7 @@ build() {
   local _version
   _version="$(cat .slopworld-build-version)"
   export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$PWD/target" SLOPWORLD_BUILD_VERSION="$_version"
-  UV_OFFLINE=true just BUILD=release CARGOFLAGS='--release --frozen' VERSION="$_version" RIMWORLD="$RIMWORLD" mod
+  UV_OFFLINE=true just BUILD=release CARGOFLAGS='--release --frozen' VERSION="$_version" RIMWORLD="$RIMWORLD" all
 }
 
 check() {
@@ -85,8 +85,7 @@ package() {
     "$pkgdir/usr/lib/systemd/user/slopd.service"
 
   local _mod="$pkgdir/usr/share/slopworld/SlopWorld"
-  install -d "$_mod"
-  cp -r mod/{About,Defs,Patches,Sounds,Textures,Assemblies} "$_mod/"
+  UV_OFFLINE=true just stage-arch-mod "$_mod"
   find "$_mod" -type d -exec chmod 755 {} +
   find "$_mod" -type f -exec chmod 644 {} +
 

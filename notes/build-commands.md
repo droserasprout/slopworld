@@ -44,7 +44,10 @@ runtime/test dependency graphs and the coverage tool manifest.
 
 `packaging/arch/` owns Arch package staging and user setup hooks. The local package
 builds a snapshot without private files or build caches; preparation records the
-binary version for package metadata, build and check. Cargo and uv fetch locked dependencies
+binary version for package metadata, build and check. Both source PKGBUILDs build
+the daemon and mod before optional checks. `tools/release/source_mod.py` stages
+their mods using the release asset-directory and runtime DLL allowlists, including
+themes, and copies notices from canonical sources. Cargo and uv fetch locked dependencies
 in preparation; later builds use frozen Cargo dependencies and offline uv execution.
 Arch runtime requirements cover the audio library, default shell, core session
 infrastructure, Git/worktrees and workspace search. Pager/editor/highlighter tools,
@@ -60,6 +63,8 @@ uses the existing Arch PKGBUILD metadata with a staged release payload and lets
 makepkg own package metadata/mtree generation. `tools/release/container_debian.py`
 rebuilds Rust in the pinned Debian toolchain from `packaging/debian/Dockerfile`;
 Debian packaging and its real archive tests run there before publication.
+The container trusts only the mounted checkout via Git's process environment;
+this allows Git reads when Docker preserves a different host owner.
 Native rolling asset names stay stable, while package metadata carries full versions.
 The aggregate release computes checksums only after all four artifacts succeed.
 Debian shared-library dependencies come from the build host's `dpkg-shlibdeps`,
