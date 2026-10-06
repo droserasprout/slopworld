@@ -17,25 +17,8 @@ namespace SlopWorld
         /// <summary>Move through the session list by <paramref name="dir"/> (-1 or 1).</summary>
         static void WalkMapSession(int dir)
         {
-            var order = TerminalWindow.TabOrder();
-            if (order.Count == 0) return;
-
-            string current = SessionSelectable.Current;
-            int idx = -1;
-            if (current != null)
-                idx = order.IndexOf(current);
-
-            int next = idx < 0
-                ? (dir > 0 ? 0 : order.Count - 1)  // nothing selected: start at one end
-                : (idx + dir + order.Count) % order.Count;
-
-            string target = order[next];
+            string target = SelectAdjacentSession(dir);
             if (target == null) return;
-
-            // Clear the previous pawn selection after selecting a session.
-            // Otherwise, map synchronization can replace a selected session that has no pawn.
-            SessionSelectable.Current = target;
-            Find.Selector?.ClearSelection();
 
             // Select the session pawn if one exists. EcoMapInput also moves the camera outside Eco rest.
             // Sessions without pawns leave the camera unchanged.

@@ -459,8 +459,26 @@ namespace SlopWorld
         // Select sessions with no process too.
         internal static void WalkSession(int dir)
         {
+            string target = SelectAdjacentSession(dir);
+            if (target == null) return;
+            AgentSidebar.ShowWithoutHistory(SidebarTab.Agents);
+
+            var info = SessionHub.Instance.Get(target);
+            if (info == null) return;
+
+            // Keep the current pane open when it already shows the target agent.
+            var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
+            if (w != null && target == w.SessionName) return;
+
+            TerminalWindow.Open(target);
+        }
+
+        // Map and pane navigation share ordering and selection; callers own pawn/camera
+        // behavior and opening panes. A missing selection starts at the requested end.
+        static string SelectAdjacentSession(int dir)
+        {
             var order = TabOrder();
-            if (order.Count == 0) return;
+            if (order.Count == 0) return null;
 
             string current = SessionSelectable.Current;
             int idx = -1;
@@ -472,20 +490,13 @@ namespace SlopWorld
                 : (idx + dir + order.Count) % order.Count;
 
             string target = order[next];
-            if (target == null) return;
+            if (target == null) return null;
 
+            // Clear the previous pawn after selecting the session, so map synchronization
+            // cannot replace a selected session that has no pawn.
             SessionSelectable.Current = target;
             Find.Selector?.ClearSelection();
-            AgentSidebar.ShowWithoutHistory(SidebarTab.Agents);
-
-            var info = SessionHub.Instance.Get(target);
-            if (info == null) return;
-
-            // Keep the current pane open when it already shows the target agent.
-            var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
-            if (w != null && target == w.SessionName) return;
-
-            TerminalWindow.Open(target);
+            return target;
         }
 
         // Start with visible sidebar rows in project order. Append hidden viewers, editors, folded agents, and temporary tabs.

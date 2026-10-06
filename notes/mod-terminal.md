@@ -7,7 +7,8 @@ content lifetime in [workspace panels](mod-workspace-panels.md), and geometry in
 [workspace layout](ui-dynamic-layout-architecture.md).
 
 The input controller separates workspace actions, local history, and application
-input. `TerminalHotkeys` owns adjacent-session navigation and map pawn selection;
+input. `TerminalInputController` shares adjacent-session ordering and selection between
+map and pane navigation; callers retain pawn/camera behavior and pane opening.
 Harmony only dispatches it. Pane clicks, split creation, and session switching select
 focus. Visible terminal panes bypass field focus scopes. Auto-resume pending consumes
 terminal keys while preserving workspace controls. Shortcut/modifier behavior belongs
