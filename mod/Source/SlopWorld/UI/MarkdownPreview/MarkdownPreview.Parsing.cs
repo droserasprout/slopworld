@@ -47,14 +47,24 @@ namespace SlopWorld
 
             public InlineStyle WithHtmlState(HtmlState state)
             {
+                return WithHtmlStyle(new InlineStyle
+                {
+                    Bold = state.Bold > 0, Italic = state.Italic > 0,
+                    Code = state.Code > 0, InlineCode = state.InlineCode > 0,
+                    Strike = state.Strike > 0, Link = state.Link, LocalLink = state.LocalLink,
+                });
+            }
+
+            public InlineStyle WithHtmlStyle(InlineStyle effect)
+            {
                 var result = this;
-                result.Bold = result.Bold || state.Bold > 0;
-                result.Italic = result.Italic || state.Italic > 0;
-                result.Code = result.Code || state.Code > 0;
-                result.InlineCode = result.InlineCode || state.InlineCode > 0;
-                result.Strike = result.Strike || state.Strike > 0;
-                result.Link = result.Link ?? state.Link;
-                result.LocalLink = result.LocalLink ?? state.LocalLink;
+                result.Bold |= effect.Bold;
+                result.Italic |= effect.Italic;
+                result.Code |= effect.Code;
+                result.InlineCode |= effect.InlineCode;
+                result.Strike |= effect.Strike;
+                result.Link = result.Link ?? effect.Link;
+                result.LocalLink = result.LocalLink ?? effect.LocalLink;
                 return result;
             }
 
@@ -92,6 +102,21 @@ namespace SlopWorld
             public int Strike;
             public string Link;
             public string LocalLink;
+
+            public void ApplyStyle(HtmlStyleKind kind, InlineStyle effect, bool closing)
+            {
+                int delta = closing ? -1 : 1;
+                if (effect.Bold) Bold = Math.Max(0, Bold + delta);
+                if (effect.Italic) Italic = Math.Max(0, Italic + delta);
+                if (effect.Code) Code = Math.Max(0, Code + delta);
+                if (effect.InlineCode) InlineCode = Math.Max(0, InlineCode + delta);
+                if (effect.Strike) Strike = Math.Max(0, Strike + delta);
+                if (kind == HtmlStyleKind.Link)
+                {
+                    Link = closing ? null : effect.Link;
+                    LocalLink = closing ? null : effect.LocalLink;
+                }
+            }
         }
 
         sealed class HtmlTagInfo
@@ -396,7 +421,7 @@ namespace SlopWorld
                 }
                 else if (inline is LineBreakInline lineBreak)
                 {
-                    AddRun(target, lineBreak.IsHard ? "\n" : " ", currentStyle);
+                    AddRun(target, lineBreak.IsHard || currentStyle.Code ? "\n" : " ", currentStyle);
                 }
                 else if (inline is HtmlInline html)
                 {
@@ -474,47 +499,10 @@ namespace SlopWorld
                 return true;
             }
 
-            if (name == "strong" || name == "b")
-            {
-                state.Bold = Math.Max(0, state.Bold + (tag.Closing ? -1 : 1));
-                return true;
-            }
-            if (name == "em" || name == "i")
-            {
-                state.Italic = Math.Max(0, state.Italic + (tag.Closing ? -1 : 1));
-                return true;
-            }
-            if (name == "code" || name == "kbd" || name == "samp")
-            {
-                state.Code = Math.Max(0, state.Code + (tag.Closing ? -1 : 1));
-                state.InlineCode = Math.Max(0, state.InlineCode + (tag.Closing ? -1 : 1));
-                return true;
-            }
-            if (name == "del" || name == "s" || name == "strike")
-            {
-                state.Strike = Math.Max(0, state.Strike + (tag.Closing ? -1 : 1));
-                return true;
-            }
-            if (name == "a")
-            {
-                if (tag.Closing)
-                {
-                    state.Link = null;
-                    state.LocalLink = null;
-                }
-                else
-                {
-                    _paths.TryResolveLink(tag.Attribute("href"),
-                        out state.Link, out state.LocalLink);
-                }
-                return true;
-            }
-
-            // Span is intentionally style-free. It is common in generated Markdown and
-            // stripping only this structural tag is safe. CSS is deliberately not interpreted.
-            if (name == "span") return true;
-
-            return false;
+            var kind = HtmlStyleFor(name);
+            if (kind == HtmlStyleKind.Unsupported) return false;
+            state.ApplyStyle(kind, ReadHtmlStyle(kind, tag.Attribute), tag.Closing);
+            return true;
         }
 
         void AppendImage(LinkInline image, List<InlineRun> target, InlineStyle style)

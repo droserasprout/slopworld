@@ -90,27 +90,54 @@ namespace SlopWorld
                 AppendHtmlNode(child, target, ref block, style);
         }
 
-        bool TryHtmlElementStyle(IElement element, ref InlineStyle style)
+        enum HtmlStyleKind { Unsupported, Plain, Bold, Italic, Code, Strike, Link }
+
+        // Tokenized inline tags and repaired DOM elements share this display policy.
+        // Their callers retain ownership of counter scopes and DOM scopes respectively.
+        static HtmlStyleKind HtmlStyleFor(string name)
         {
-            switch (element.LocalName)
+            switch (name)
             {
                 case "strong":
-                case "b": style.Bold = true; return true;
+                case "b": return HtmlStyleKind.Bold;
                 case "em":
-                case "i": style.Italic = true; return true;
+                case "i": return HtmlStyleKind.Italic;
                 case "code":
                 case "kbd":
-                case "samp": style = style.WithCode(); return true;
+                case "samp": return HtmlStyleKind.Code;
                 case "del":
                 case "s":
-                case "strike": style.Strike = true; return true;
-                case "a":
-                    _paths.TryResolveLink(element.GetAttribute("href"), out var link, out var local);
-                    style = style.WithLink(link, local);
-                    return true;
-                case "span": return true;
-                default: return false;
+                case "strike": return HtmlStyleKind.Strike;
+                case "a": return HtmlStyleKind.Link;
+                // Common generated markup; CSS is deliberately not interpreted.
+                case "span": return HtmlStyleKind.Plain;
+                default: return HtmlStyleKind.Unsupported;
             }
+        }
+
+        InlineStyle ReadHtmlStyle(HtmlStyleKind kind, System.Func<string, string> attribute)
+        {
+            var effect = new InlineStyle
+            {
+                Bold = kind == HtmlStyleKind.Bold,
+                Italic = kind == HtmlStyleKind.Italic,
+                Code = kind == HtmlStyleKind.Code,
+                InlineCode = kind == HtmlStyleKind.Code,
+                Strike = kind == HtmlStyleKind.Strike,
+            };
+            if (kind == HtmlStyleKind.Link)
+                _paths.TryResolveLink(attribute("href"), out effect.Link, out effect.LocalLink);
+            return effect;
+        }
+
+        bool TryHtmlElementStyle(IElement element, ref InlineStyle style)
+        {
+            var kind = HtmlStyleFor(element.LocalName);
+            if (kind == HtmlStyleKind.Unsupported) return false;
+            var effect = ReadHtmlStyle(kind, element.GetAttribute);
+            if (kind == HtmlStyleKind.Link) style = style.WithLink(effect.Link, effect.LocalLink);
+            style = style.WithHtmlStyle(effect);
+            return true;
         }
 
         static MarkdownBlock HtmlParagraph() => new MarkdownBlock

@@ -16,6 +16,14 @@ namespace SlopWorld
             public float Bottom;
             public bool Right;
 
+            public ImageFloat ForListItem(float gutter) => new ImageFloat
+            {
+                // The inherited left obstacle reserves the marker gutter until it ends.
+                // This copy keeps floats created by an item local to that item.
+                X = X + (Right ? 0f : gutter),
+                Width = Width, Bottom = Bottom, Right = Right,
+            };
+
             public Vector2 Bounds(float x, float y, float width)
             {
                 if (y >= Bottom) return new Vector2(0f, width);
@@ -154,7 +162,7 @@ namespace SlopWorld
                         return PlaceImage(image, x, y, width, 0f, block.Alignment);
                     }
                     if (TryAlignedImage(block.Runs, out image))
-                        return PlaceParagraphWithImage(block.Runs, image, x, y, width, flow);
+                        return PlaceParagraphWithImage(block, image, x, y, width, flow);
                     return PlaceText(block.Runs, x, y, width, 0, false, 0f, flow, block.Alignment);
 
                 case BlockKind.Heading:
@@ -209,15 +217,15 @@ namespace SlopWorld
             return placement.Width + UiTheme.GapS >= width ? bottom : y;
         }
 
-        float PlaceParagraphWithImage(List<InlineRun> runs, InlineRun image,
+        float PlaceParagraphWithImage(MarkdownBlock block, InlineRun image,
                                       float x, float y, float width, ImageFloat flow)
         {
             float textY = StartFloat(image, x, y, width, flow);
             if (textY > y) textY += UiTheme.GapS;
             var textRuns = new List<InlineRun>();
-            foreach (var run in runs)
+            foreach (var run in block.Runs)
                 if (run != image) textRuns.Add(run);
-            return PlaceText(textRuns, x, textY, width, 0, false, 0f, flow);
+            return PlaceText(textRuns, x, textY, width, 0, false, 0f, flow, block.Alignment);
         }
 
         float PlaceImage(InlineRun image, float x, float y, float width, float gap,
@@ -252,7 +260,9 @@ namespace SlopWorld
                     if (image != null) return false;
                     image = run;
                 }
-                else if (!string.IsNullOrWhiteSpace(run.Text)) return false;
+                // Explicit breaks and literal code whitespace are selectable content.
+                else if (run.Code || (run.Text ?? "").IndexOf('\n') >= 0 ||
+                         !string.IsNullOrWhiteSpace(run.Text)) return false;
             }
             return image != null;
         }
@@ -421,14 +431,8 @@ namespace SlopWorld
                     Text = bulletText,
                 });
 
-                // Inherit the outer obstacle, but keep images created inside an item local.
-                // A left obstacle also reserves the marker gutter until the float ends.
                 // Keep the base item bounds independent so later lines regain their width.
-                var itemFlow = new ImageFloat
-                {
-                    X = flow.X + (flow.Right ? 0f : gutter),
-                    Width = flow.Width, Bottom = flow.Bottom, Right = flow.Right,
-                };
+                var itemFlow = flow.ForListItem(gutter);
                 float itemY = y;
                 float innerX = x + gutter;
                 float innerWidth = Mathf.Max(1f, width - (innerX - x));

@@ -9,7 +9,9 @@ text/image containment and bounds resource/highlighter access. Asynchronous repl
 must not update a replaced document. Limited HTML is interpreted without browser
 behavior. AngleSharp owns HTML block tree repair and inline tag/attribute
 tokenization; Markdig owns Markdown structure. Both hand decoded text and attributes
-to the display policy, which must not decode them again. Direct string parsing uses
+to the display policy, which must not decode them again. Inline tokens and block
+elements share one tag/style/link policy; inline counters and repaired DOM boundaries
+retain their respective style lifetimes. Direct string parsing uses
 no resource loader or script integration; comments are suppressed and unrecognized
 tags/blocks remain faint text.
 Remote/data images are not fetched. Paragraph and heading HTML uses the same inline

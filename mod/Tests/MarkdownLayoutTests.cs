@@ -155,6 +155,40 @@ namespace SlopWorld.Tests
                 texts[1].Text.Lines[0].OffsetX, "paragraph aligns right");
         }
 
+        public static void FloatCaptionsRetainParagraphAlignmentAndSelectionGeometry()
+        {
+            foreach (string imageAlign in new[] { "left", "right" })
+                foreach (string textAlign in new[] { "center", "right" })
+                {
+                    var engine = PreviewFlow("<p align='" + textAlign + "'><img src='shot.png' width='40' height='60' align='" + imageAlign + "'>caption</p>", 400);
+                    var image = engine.Placements.Single(p => p.Kind == PlacementKind.Image);
+                    var text = engine.Placements.Single(p => p.Kind == PlacementKind.Text);
+                    var line = text.Text.Lines.Single();
+                    float inset = imageAlign == "left" ? image.Width + UiTheme.GapS : 0f;
+                    float spare = text.Width - image.Width - UiTheme.GapS - line.Width;
+                    float expected = inset + (textAlign == "center" ? spare / 2f : spare);
+                    AssertEx.Equal(expected, line.OffsetX, "caption alignment within float bounds");
+                    var selected = new List<SelectionLine>();
+                    MarkdownSelectionText.CollectText(selected, text.Text, text.X, text.Y);
+                    AssertEx.Equal(text.X + expected, selected.Single().X, "selection follows caption alignment");
+                    AssertEx.Equal("caption", Copy(text.Text), "aligned caption stays selectable");
+                }
+        }
+
+        public static void ImageOnlyParagraphRetainsExplicitBreaksAndLiteralCodeWhitespace()
+        {
+            foreach (string alignment in new[] { "", "left", "right" })
+            {
+                var engine = PreviewFlow("<p><br><img src='shot.png' width='40' height='60' align='" + alignment + "'><br></p>", 400);
+                var text = engine.Placements.Single(p => p.Kind == PlacementKind.Text);
+                AssertEx.Equal(3, text.Text.Lines.Count, "breaks surround image line");
+                AssertEx.Equal("\n\n", Copy(text.Text), "explicit breaks survive copying");
+            }
+            var literal = PreviewFlow("<p><code>  </code><img src='shot.png' width='40' height='60'></p>", 400);
+            AssertEx.Equal("  ", Copy(literal.Placements.Single(p => p.Kind == PlacementKind.Text).Text),
+                "literal code spaces are retained beside image");
+        }
+
         public static void FloatClearsSlabsAndDoesNotEscapeNestedContainers()
         {
             var engine = PreviewFlow("<img src='shot.png' width='80' height='200' align='right'>\n\n```\ncode\n```", 400);

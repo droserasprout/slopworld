@@ -71,6 +71,30 @@ namespace SlopWorld.Tests
             AssertEx.Equal("a b", Text(Parse("<p>a  b</p>")[0].Runs), "ordinary HTML still collapses whitespace");
         }
 
+        public static void InlineHtmlCodePreservesNewlinesAndEndsAtClosingTag()
+        {
+            foreach (string tag in new[] { "code", "kbd", "samp" })
+            {
+                var runs = Parse("prefix <" + tag + ">a\nb</" + tag + "> after\nnext").Single().Runs;
+                AssertEx.Equal("a\nb", Text(runs.Where(r => r.Code)), "HTML code retains literal source newline");
+                AssertEx.Equal("prefix a\nb after next", Text(runs), "ordinary soft breaks resume after closing code tag");
+            }
+        }
+
+        public static void InlineAndBlockHtmlShareDisplayStylePolicy()
+        {
+            foreach (string tag in new[] { "b", "strong", "i", "em", "code", "kbd", "samp", "del", "s", "strike", "span", "a" })
+            {
+                string markup = "<" + tag + " href='next.md'>styled</" + tag + ">";
+                var inline = Parse("prefix " + markup + " after").Single().Runs.Single(r => r.Text == "styled");
+                var block = Parse("<p>prefix " + markup + " after</p>").Single().Runs.Single(r => r.Text == "styled");
+                AssertEx.Equal((inline.Bold, inline.Italic, inline.Code, inline.InlineCode, inline.Strike),
+                    (block.Bold, block.Italic, block.Code, block.InlineCode, block.Strike), "shared effects for " + tag);
+                AssertEx.Equal(inline.Link, block.Link, "shared external link policy for " + tag);
+                AssertEx.Equal(inline.LocalLink, block.LocalLink, "shared scoped link policy for " + tag);
+            }
+        }
+
         public static void HtmlParagraphsAndAllHeadingLevelsBecomeStyledBlocks()
         {
             var blocks = Parse("<p align='center'>\n<img src='logo.png' width='32' height='32'>\n</p>\n\n<h1 align='center'>SlopWorld</h1>");
