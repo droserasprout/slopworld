@@ -104,30 +104,15 @@ namespace SlopWorld
             for (int y = 0; y < h; y++)
             {
                 int row = y * w;
-                // Locate this output row in the noise field.
-                float ny = y * yScale;
-                int ny0 = (int)ny, ny1 = Mathf.Min(nh - 1, ny0 + 1);
-                float fy = ny - ny0;
-                int r0 = ny0 * nw, r1 = ny1 * nw;
+                var noiseRow = new BandedNoiseRow(noise, nw, nh, y * yScale);
 
                 for (int x = 0; x < w; x++)
                 {
                     float f = fuel[row + x];
                     if (f <= 0f) continue;
 
-                    float nx = x * xScale;
-                    int nx0 = (int)nx, nx1 = Mathf.Min(nw - 1, nx0 + 1);
-                    float fx = nx - nx0;
-
-                    float a = noise[r0 + nx0], c0 = noise[r1 + nx0];
-                    a += (noise[r0 + nx1] - a) * fx;
-                    c0 += (noise[r1 + nx1] - c0) * fx;
-                    float n = a + (c0 - a) * fy;
-
                     // Fuel controls location. Shaped noise controls form.
-                    float s = (n - NoiseLow) * band;
-                    s = s < 0f ? 0f : (s > 1f ? 1f : s);
-                    float t = f * (s * s * (3f - 2f * s)) * heat;
+                    float t = f * noiseRow.Sample(x * xScale, NoiseLow, band) * heat;
                     if (t <= 0f) continue;
 
                     // Add fire as light instead of replacing the source pixel.

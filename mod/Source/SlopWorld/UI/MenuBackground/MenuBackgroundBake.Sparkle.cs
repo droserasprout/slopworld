@@ -149,26 +149,10 @@ namespace SlopWorld
             for (int y = 0; y < h; y++)
             {
                 int row = y * w;
-                float ny = y * yScale;
-                int ny0 = (int)ny, ny1 = Mathf.Min(nh - 1, ny0 + 1);
-                float fy = ny - ny0;
-                int r0 = ny0 * nw, r1 = ny1 * nw;
+                var noiseRow = new BandedNoiseRow(noise, nw, nh, y * yScale);
 
                 for (int x = 0; x < w; x++)
-                {
-                    float nx = x * xScale;
-                    int nx0 = (int)nx, nx1 = Mathf.Min(nw - 1, nx0 + 1);
-                    float fx = nx - nx0;
-
-                    float a = noise[r0 + nx0], c = noise[r1 + nx0];
-                    a += (noise[r0 + nx1] - a) * fx;
-                    c += (noise[r1 + nx1] - c) * fx;
-                    float n = a + (c - a) * fy;
-
-                    float t = (n - HazeLow) * band;
-                    t = t < 0f ? 0f : (t > 1f ? 1f : t);
-                    dst[row + x] = t * t * (3f - 2f * t);
-                }
+                    dst[row + x] = noiseRow.Sample(x * xScale, HazeLow, band);
             }
 
             return dst;
