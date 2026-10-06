@@ -9,6 +9,10 @@ namespace SlopWorld
     public class PlayerPawn : GameComponent
     {
         const float ProjectileCooldownSeconds = 0.5f;
+        static readonly string PlayerName =
+            System.Environment.GetEnvironmentVariable("USER") is string user && !string.IsNullOrWhiteSpace(user)
+                ? user
+                : System.Environment.UserName;
 
         Pawn _pawn;
         float _lastProjectileCast;
@@ -34,6 +38,13 @@ namespace SlopWorld
             p != null && Current?._pawn == p;
 
         public Pawn Pawn => _pawn;
+
+        public override void FinalizeInit()
+        {
+            if (!ModProfile.Ok) return;
+            // Saved pawn identity survives, but its name follows the user running this game.
+            if (_pawn != null) _pawn.Name = new NameSingle(PlayerName);
+        }
 
         public override void GameComponentUpdate()
         {
@@ -89,7 +100,7 @@ namespace SlopWorld
                 allowGay: true);
 
             var pawn = PawnGenerator.GeneratePawn(req);
-            pawn.Name = new NameSingle("Player");
+            pawn.Name = new NameSingle(PlayerName);
 
             GenSpawn.Spawn(pawn, map.Center, map);
             Log.Message("[SlopWorld] player pawn spawned");

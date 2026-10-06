@@ -3,6 +3,10 @@
 `Sim/Colony/` maps daemon sessions to pawns; `Sim/Lifecycle/` owns time, saves, and
 loads. [Mod sources](mod-source-layout.md) map the simulation and Harmony owners.
 
+`Sim/Colony/PlayerPawn` names the player from the game process's `$USER` (falling
+back to the OS username), including loaded saves. `Patches/Agents/PawnHoverLabel`
+keeps agent and player hover tooltips to names, health and any equipped weapon.
+
 The daemon is authoritative. Reconciliation preserves pawn identity across pending
 session renames and keeps ephemeral/worker sessions sidebar-only. An exception
 aborts the whole sweep.
