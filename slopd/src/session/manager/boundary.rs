@@ -13,6 +13,15 @@ tokio::task_local! {
     static REQUEST: usize;
 }
 
+/// A synchronous task-file owner inherits the active request's session guard.
+/// It performs no manager callbacks while holding these leases.
+pub(super) fn task_io_guards() -> impl Send + 'static {
+    (
+        OWNER.try_with(|(_, guard)| guard.clone()).ok(),
+        READ_OWNER.try_with(|(_, guard)| guard.clone()).ok(),
+    )
+}
+
 /// Capture before spawning: a request already reloaded and authorized against
 /// accepted state must not trigger another disk reload inside its owned work.
 fn carry_request_context<F: Future>(owner: usize, operation: F) -> impl Future<Output = F::Output> {

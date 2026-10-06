@@ -24,10 +24,10 @@ namespace SlopWorld.Tests
                 run(new[] { "b", "c" }, () => overlap++, _ => failed++);
                 Assert.That(DaemonClient.Requests.Count, Is.EqualTo(1));
                 if (failure) DaemonClient.Requests[0].Fail("denied");
-                else DaemonClient.Requests[0].Ok(cancel ? Tasks() : ProtobufFixtures.Json(new Wire.Removed()));
+                else DaemonClient.Requests[0].Ok(Batch("a", "b"));
                 Assert.That(overlap, Is.Zero, "waits for its remaining IDs");
                 Assert.That(duplicate, Is.EqualTo(failure ? 0 : 1));
-                DaemonClient.Requests[1].Ok(cancel ? Tasks() : ProtobufFixtures.Json(new Wire.Removed()));
+                DaemonClient.Requests[1].Ok(Batch("c"));
                 Assert.That(first + duplicate + overlap, Is.EqualTo(failure ? 0 : 3));
                 Assert.That(failed, Is.EqualTo(failure ? 3 : 0));
                 DaemonClient.Requests[2].Ok(Tasks());
@@ -52,6 +52,13 @@ namespace SlopWorld.Tests
 
         static Wire.Task Task(string id, ulong updated = 0, string status = "queued") =>
             new Wire.Task { Id = id, UpdatedMs = updated, Status = status };
+
+        static JVal Batch(params string[] ids)
+        {
+            var reply = new Wire.TaskBatchResult();
+            reply.Committed.Add(ids);
+            return ProtobufFixtures.Json(reply);
+        }
 
         static JVal Tasks(params Wire.Task[] tasks)
         {
@@ -128,7 +135,7 @@ namespace SlopWorld.Tests
             Assert.That(DaemonClient.Requests.Count, Is.EqualTo(1));
             Assert.That(((Wire.RemoveTasksReq)DaemonClient.Requests[0].Body).Ids,
                 Is.EqualTo(new[] { "a", "b" }));
-            DaemonClient.Requests[0].Ok(Tasks(Task("a", 4, "canceled")));
+            DaemonClient.Requests[0].Ok(ProtobufFixtures.Json(new Wire.TaskBatchResult { Committed = { "a", "b" }, Tasks = { Task("a", 4, "canceled") } }));
             Assert.That(completed, Is.EqualTo(1));
             Assert.That(store.Tasks.Single().Status, Is.EqualTo(DelegatedTaskStatus.Canceled));
             Assert.That(((Wire.RemoveTasksReq)DaemonClient.Requests[1].Body).Ids,
@@ -151,7 +158,7 @@ namespace SlopWorld.Tests
             store.RemoveMany(new[] { "b", "c" });
             Assert.That(((Wire.RemoveTasksReq)DaemonClient.Requests[0].Body).Ids,
                 Is.EqualTo(new[] { "a", "b" }));
-            DaemonClient.Requests[0].Ok(ProtobufFixtures.Json(new Wire.Removed()));
+            DaemonClient.Requests[0].Ok(Batch("a", "b"));
             Assert.That(store.Tasks.Select(t => t.Id), Is.EqualTo(new[] { "c" }));
             Assert.That(((Wire.RemoveTasksReq)DaemonClient.Requests[1].Body).Ids,
                 Is.EqualTo(new[] { "c" }));
@@ -177,14 +184,49 @@ namespace SlopWorld.Tests
             Assert.That(DaemonClient.Requests[0].Method, Is.EqualTo("DELETE"));
             Assert.That(DaemonClient.Requests[0].Path, Is.EqualTo(WireProtocol.Routes.Tasks + "?all=true"));
             Assert.That(DaemonClient.Requests[0].Session, Is.EqualTo(TaskInfo.Host));
-            DaemonClient.Requests[0].Ok(ProtobufFixtures.Json(new Wire.Removed()));
+            DaemonClient.Requests[0].Ok(Batch("done"));
             Assert.That(completed, Is.True);
             Assert.That(store.Tasks.Select(t => t.Id), Is.EqualTo(new[] { "open" }));
+            DaemonClient.Requests[1].Ok(Tasks(Task("open", 1)));
             string failure = null;
             store.Prune(null, error => failure = error);
-            DaemonClient.Requests[1].Fail("offline");
+            DaemonClient.Requests[2].Fail("offline");
             Assert.That(failure, Is.EqualTo("offline"));
             Assert.That(store.Tasks.Select(t => t.Id), Is.EqualTo(new[] { "open" }));
+        }
+        public static void PartialBatchAppliesProgressAndScopesOverlappingCallbacks()
+        {
+            foreach (bool cancel in new[] { false, true })
+            {
+                DaemonClient.Requests.Clear();
+                var store = new TaskStore();
+                store.Add(TaskInfo.FromWire(Task("a", 1)));
+                store.Add(TaskInfo.FromWire(Task("b", 2)));
+                int success = 0, failure = 0;
+                Action<string[], Action, Action<string>> run = (ids, ok, fail) =>
+                {
+                    if (cancel) store.CancelMany(ids, ok, fail);
+                    else store.RemoveMany(ids, ok, fail);
+                };
+                run(new[] { "a", "b", "c" }, () => success++, _ => failure++);
+                run(new[] { "a" }, () => success++, _ => failure++);
+                run(new[] { "b" }, () => success++, _ => failure++);
+                var result = new Wire.TaskBatchResult {
+                    Committed = { "a" },
+                    Failed = { new Wire.TaskBatchFailure { Id = "b", Error = "disk full" } },
+                    Unattempted = { "c" }
+                };
+                if (cancel) result.Tasks.Add(Task("a", 3, "canceled"));
+                DaemonClient.Requests[0].Ok(ProtobufFixtures.Json(result));
+                Assert.That(success, Is.EqualTo(1), "caller selecting only committed ID succeeds");
+                Assert.That(failure, Is.EqualTo(2));
+                Assert.That(store.Tasks.Any(t => t.Id == "b"), Is.True);
+                if (cancel) Assert.That(store.Tasks.Single(t => t.Id == "a").Terminal, Is.True);
+                else Assert.That(store.Tasks.Any(t => t.Id == "a"), Is.False);
+                Assert.That(DaemonClient.Requests[1].Method, Is.EqualTo("GET"), "partial completion refreshes the board");
+                run(new[] { "b" }, null, null);
+                Assert.That(DaemonClient.Requests[2].Method, Is.EqualTo("POST"), "retry reservation released");
+            }
         }
     }
 }

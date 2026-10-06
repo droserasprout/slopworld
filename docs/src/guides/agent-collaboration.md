@@ -44,3 +44,10 @@ Tasks are shared by sender and recipient. Only the recipient can update an
 uncanceled task. The root token can cancel queued or accepted tasks through the
 task board or API; `slopctl task` has no cancel subcommand. Participants can remove
 terminal tasks; root can also remove unfinished tasks. Only root can send as `host`.
+
+Bulk task cancellation and removal validate the entire selection before changing
+anything. Disk failures can then leave partial completion: replies identify committed,
+unchanged or absent, failed, and unattempted IDs. The task board applies completed
+changes and refreshes even when it reports a failure. Retrying a batch is safe; an
+already canceled task stays canceled, and an already removed task stays absent.
+Requests already handed to storage may finish after a client disconnects.

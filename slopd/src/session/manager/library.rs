@@ -459,9 +459,14 @@ impl Manager {
                 .await
                 .get(&target.name)
                 .filter(|live| target.matches(live) && live.cfg.worker)
-                .map(|live| live.cfg.task_id.clone());
-            if let Some(task) = task {
-                self.fail_worker_task(&task, "startup input withheld: agent readiness timed out");
+                .map(|live| (live.cfg.task_id.clone(), live.cfg.state_id.clone()));
+            if let Some((task, identity)) = task {
+                self.fail_worker_task_checked(
+                    &task,
+                    &identity,
+                    "startup input withheld: agent readiness timed out",
+                )
+                .await;
             }
         })
         .await;

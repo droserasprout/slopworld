@@ -21,7 +21,10 @@ impl Manager {
         // Load persisted stores before constructing shared state.
         let grants = crate::grant::Grants::load(&cfg_path)
             .with_context(|| format!("loading grant store for {}", cfg_path.display()))?;
-        let tasks = crate::tasks::Tasks::load(&cfg_path)
+        let task_path = cfg_path.clone();
+        let tasks = tokio::task::spawn_blocking(move || crate::tasks::Tasks::load(&task_path))
+            .await
+            .context("task startup owner panicked")?
             .with_context(|| format!("loading task store for {}", cfg_path.display()))?;
         let title_cache = crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path));
         let template_path = crate::session::AgentTemplateStore::path_for(&cfg_path);

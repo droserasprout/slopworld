@@ -39,7 +39,10 @@ A task is terminal when its status is `done`, `failed`, or `canceled`.
 
 Use `slopctl task list` to find work.
 Use `slopctl task remove ID` to remove a terminal task.
-Use `slopctl task prune` to remove multiple terminal tasks.
+Use `slopctl task prune` to remove multiple terminal tasks. If a disk operation fails,
+completed removals remain committed. The result reports committed, failed, and
+unattempted task IDs; the command exits unsuccessfully. Retry to remove the remaining
+terminal tasks.
 `slopctl task prune --include-active` requires the root token.
 It also removes unfinished tasks.
 CLI help lists the current filters and options.

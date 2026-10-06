@@ -11,7 +11,8 @@ and network choices. Root callers can use any catalog template and registered
 project; scoped callers use policy-enabled templates in their own project.
 Ordinary host terminals cannot own a worker.
 
-The task persists before startup. Startup failure, stop, removal, confirmed process
+The task persists before startup. An owned operation retains the session and spawn
+guards through startup or failure cleanup after requester cancellation. Startup failure, stop, removal, confirmed process
 exit, or initial-prompt timeout can fail unfinished work; terminal task results are
 preserved. Workers are durable by default. One-shot workers are removed on exit.
 Workers do not autostart or auto-resume, and deleting a parent does not cascade to

@@ -150,3 +150,60 @@ fn assert_task(manager: &Manager, id: &str, status: Status, note: Option<&str>) 
         assert_eq!(task.note.as_deref(), note);
     }
 }
+
+#[tokio::test]
+async fn disconnected_task_io_retains_authorization_guard_through_publication() {
+    let manager = crate::session::test_manager(Config::default());
+    let data = manager.cfg_path.parent().unwrap().join("data");
+    manager.tasks.select_record_fixture(&data).unwrap();
+    let (committed, reached) = tokio::sync::oneshot::channel();
+    let (release, wait) = std::sync::mpsc::channel();
+    let request = tokio::spawn({
+        let manager = manager.clone();
+        async move {
+            manager
+                .session_operation(async {
+                    manager
+                        .tasks
+                        .run(move |tasks| {
+                            let task =
+                                tasks.create("host".into(), "agent".into(), "committed".into())?;
+                            committed.send(task.clone()).unwrap();
+                            wait.recv().unwrap();
+                            Ok(task)
+                        })
+                        .await
+                })
+                .await
+        }
+    });
+    let task = tokio::time::timeout(std::time::Duration::from_secs(5), reached)
+        .await
+        .unwrap()
+        .unwrap();
+    request.abort();
+    manager.session_boundary.try_write().unwrap_err();
+    assert!(
+        data.join("tasks")
+            .join(format!("{}.toml", task.id))
+            .is_file()
+    );
+    release.send(()).unwrap();
+    let _boundary = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        manager.session_boundary.write(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        manager.tasks.task_for("host", &task.id).unwrap().body,
+        "committed"
+    );
+    assert_eq!(
+        crate::tasks::Tasks::load_records(&data)
+            .unwrap()
+            .all()
+            .len(),
+        1
+    );
+}

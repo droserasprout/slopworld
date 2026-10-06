@@ -29,7 +29,7 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | `config/` | Machine settings, assembled configuration view, validation and resolution. `legacy.rs` prepares the selected inline persistence layout. |
 | `git/` | Git inspection and restricted command execution; see [Git boundary](daemon-git.md). |
 | `worktrees/` | Independent worktree records and bounded Git operations. See [worktree ownership](daemon-worktrees.md). |
-| `tasks.rs`, `grant.rs` | Durable mailboxes and scoped authority. |
+| `tasks.rs`, `tasks/`, `grant.rs` | Mailbox model, indexed policy and persistence adapters; scoped authority. |
 | `audio/`, `jukebox.rs` | Playback and station catalog. `session/manager/music/` owns source selection and ncspot lifecycle. See [jukebox](mod-jukebox.md). |
 | `usage/` | Provider polling and quota normalization. |
 | `bin/` | Launcher, installer, and `slopctl` CLI. |

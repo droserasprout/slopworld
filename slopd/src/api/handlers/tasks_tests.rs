@@ -401,3 +401,65 @@ fn mailbox_manager() -> Mgr {
         ..Default::default()
     })
 }
+
+#[tokio::test]
+async fn batch_response_reports_partial_record_commits_and_idempotent_retry() {
+    let m = mailbox_manager();
+    let data = m.cfg_path.parent().unwrap().join("data");
+    m.tasks.select_record_fixture(&data).unwrap();
+    let a = m
+        .tasks
+        .create_task("alice".into(), "bob".into(), "first".into())
+        .unwrap();
+    let b = m
+        .tasks
+        .create_task("alice".into(), "bob".into(), "second".into())
+        .unwrap();
+    let c = m
+        .tasks
+        .create_task("alice".into(), "bob".into(), "third".into())
+        .unwrap();
+    let request = || {
+        Proto(wire::RemoveTasksReq {
+            ids: vec![c.id.clone(), b.id.clone(), a.id.clone()],
+        })
+    };
+    let fault = crate::paths::fail_writes(&data.join("tasks").join(format!("{}.toml", b.id)));
+    let Proto(result) = cancel_tasks(
+        State(m.clone()),
+        Extension(Cap::Root),
+        caller("host"),
+        request(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.committed, std::slice::from_ref(&a.id));
+    assert_eq!(result.failed[0].id, b.id);
+    assert_eq!(result.unattempted, std::slice::from_ref(&c.id));
+    drop(fault);
+    let Proto(result) = cancel_tasks(
+        State(m.clone()),
+        Extension(Cap::Root),
+        caller("host"),
+        request(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.unchanged, std::slice::from_ref(&a.id));
+    assert_eq!(result.committed, [b.id.clone(), c.id.clone()]);
+    let Proto(result) = remove_tasks(
+        State(m.clone()),
+        Extension(Cap::Root),
+        caller("host"),
+        request(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.removed, 3);
+    let Proto(result) = remove_tasks(State(m), Extension(Cap::Root), caller("host"), request())
+        .await
+        .unwrap();
+    assert_eq!(result.absent.len(), 3);
+    assert!(result.failed.is_empty());
+    assert_eq!(result.removed, 0);
+}

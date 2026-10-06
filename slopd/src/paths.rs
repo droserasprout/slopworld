@@ -96,6 +96,15 @@ fn set_private_mode(_path: &Path, _mode: Option<u32>) -> Result<()> {
 /// The caller chooses whether the destination has a private mode.
 /// Ordinary catalogs pass `None` and retain their umask policy.
 pub fn write_atomic(path: &Path, text: &str, mode: Option<u32>) -> Result<()> {
+    publish_atomic(path, text, mode, false)
+}
+
+#[cfg(test)]
+pub(crate) fn create_atomic(path: &Path, text: &str, mode: Option<u32>) -> Result<()> {
+    publish_atomic(path, text, mode, true)
+}
+
+fn publish_atomic(path: &Path, text: &str, mode: Option<u32>, exclusive: bool) -> Result<()> {
     use std::io::Write;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
@@ -120,7 +129,14 @@ pub fn write_atomic(path: &Path, text: &str, mode: Option<u32>) -> Result<()> {
             .with_context(|| format!("writing {}", tmp.display()))?;
         set_private_mode(&tmp, mode)?;
         drop(file);
-        std::fs::rename(&tmp, path).with_context(|| format!("installing {}", path.display()))
+        if exclusive {
+            std::fs::hard_link(&tmp, path)
+                .with_context(|| format!("reserving {}", path.display()))?;
+            cleanup_temp(&tmp);
+            Ok(())
+        } else {
+            std::fs::rename(&tmp, path).with_context(|| format!("installing {}", path.display()))
+        }
     })();
     if result.is_err() && created {
         cleanup_temp(&tmp);

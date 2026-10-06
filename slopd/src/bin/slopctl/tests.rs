@@ -1099,3 +1099,18 @@ fn injected_task_updates_preserve_notes_and_allow_explicit_targeting() {
     }
     parse_command_with_task_id(&words("task progress --id"), Some("injected")).unwrap_err();
 }
+
+#[test]
+fn partial_task_prune_reports_failure_after_preserving_response_details() {
+    let (endpoint, server) = serve(
+        "200 OK",
+        r#"{"removed":1,"committed":["a"],"failed":[{"id":"b","error":"disk full"}],"unattempted":["c"]}"#,
+    );
+    let result = Command::Prune { all: true }.run(&endpoint, "host", true);
+    server.join().unwrap().unwrap();
+    assert!(
+        result
+            .unwrap_err()
+            .contains("1 committed, 1 failed, 1 unattempted")
+    );
+}

@@ -402,7 +402,13 @@ namespace SlopWorld.Wire {
             "ZWF0ZVdvcmt0cmVlUmVxEg8KB3Byb2plY3QYASABKAkSEQoEbmFtZRgCIAEo",
             "CUgAiAEBEhEKBGJhc2UYAyABKAlIAYgBARIRCgRwYXRoGAQgASgJSAKIAQFC",
             "BwoFX25hbWVCBwoFX2Jhc2VCBwoFX3BhdGgiHgoMV29ya3RyZWVCYXNlEg4K",
-            "BmNvbW1pdBgBIAEoCUIRqgIOU2xvcFdvcmxkLldpcmViBnByb3RvMw=="));
+            "BmNvbW1pdBgBIAEoCSItChBUYXNrQmF0Y2hGYWlsdXJlEgoKAmlkGAEgASgJ",
+            "Eg0KBWVycm9yGAIgASgJIroBCg9UYXNrQmF0Y2hSZXN1bHQSEQoJY29tbWl0",
+            "dGVkGAEgAygJEhEKCXVuY2hhbmdlZBgCIAMoCRIOCgZhYnNlbnQYAyADKAkS",
+            "KwoGZmFpbGVkGAQgAygLMhsuc2xvcHdvcmxkLlRhc2tCYXRjaEZhaWx1cmUS",
+            "EwoLdW5hdHRlbXB0ZWQYBSADKAkSHgoFdGFza3MYBiADKAsyDy5zbG9wd29y",
+            "bGQuVGFzaxIPCgdyZW1vdmVkGAcgASgEQhGqAg5TbG9wV29ybGQuV2lyZWIG",
+            "cHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -527,7 +533,9 @@ namespace SlopWorld.Wire {
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.Worktree), global::SlopWorld.Wire.Worktree.Parser, new[]{ "Id", "ProjectId", "Name", "Path", "Repository", "Managed", "InitialBranch", "Base", "Phase", "Error", "Branch", "Head", "Attachments" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.WorktreesReply), global::SlopWorld.Wire.WorktreesReply.Parser, new[]{ "Worktrees" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.CreateWorktreeReq), global::SlopWorld.Wire.CreateWorktreeReq.Parser, new[]{ "Project", "Name", "Base", "Path" }, new[]{ "Name", "Base", "Path" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.WorktreeBase), global::SlopWorld.Wire.WorktreeBase.Parser, new[]{ "Commit" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.WorktreeBase), global::SlopWorld.Wire.WorktreeBase.Parser, new[]{ "Commit" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.TaskBatchFailure), global::SlopWorld.Wire.TaskBatchFailure.Parser, new[]{ "Id", "Error" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.TaskBatchResult), global::SlopWorld.Wire.TaskBatchResult.Parser, new[]{ "Committed", "Unchanged", "Absent", "Failed", "Unattempted", "Tasks", "Removed" }, null, null, null, null)
           }));
     }
     #endregion
@@ -43372,6 +43380,599 @@ namespace SlopWorld.Wire {
             break;
           case 10: {
             Commit = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  /// <summary>
+  /// A task batch is prevalidated, then commits independent records in stored order.
+  /// HTTP success includes partial completion; retry all IDs safely after a disconnect.
+  /// </summary>
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class TaskBatchFailure : pb::IMessage<TaskBatchFailure>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<TaskBatchFailure> _parser = new pb::MessageParser<TaskBatchFailure>(() => new TaskBatchFailure());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<TaskBatchFailure> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[122]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public TaskBatchFailure() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public TaskBatchFailure(TaskBatchFailure other) : this() {
+      id_ = other.id_;
+      error_ = other.error_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public TaskBatchFailure Clone() {
+      return new TaskBatchFailure(this);
+    }
+
+    /// <summary>Field number for the "id" field.</summary>
+    public const int IdFieldNumber = 1;
+    private string id_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Id {
+      get { return id_; }
+      set {
+        id_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "error" field.</summary>
+    public const int ErrorFieldNumber = 2;
+    private string error_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Error {
+      get { return error_; }
+      set {
+        error_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as TaskBatchFailure);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(TaskBatchFailure other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (Id != other.Id) return false;
+      if (Error != other.Error) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (Id.Length != 0) hash ^= Id.GetHashCode();
+      if (Error.Length != 0) hash ^= Error.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (Id.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(Id);
+      }
+      if (Error.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Error);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (Id.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(Id);
+      }
+      if (Error.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Error);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (Id.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Id);
+      }
+      if (Error.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Error);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(TaskBatchFailure other) {
+      if (other == null) {
+        return;
+      }
+      if (other.Id.Length != 0) {
+        Id = other.Id;
+      }
+      if (other.Error.Length != 0) {
+        Error = other.Error;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            Id = input.ReadString();
+            break;
+          }
+          case 18: {
+            Error = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            Id = input.ReadString();
+            break;
+          }
+          case 18: {
+            Error = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class TaskBatchResult : pb::IMessage<TaskBatchResult>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<TaskBatchResult> _parser = new pb::MessageParser<TaskBatchResult>(() => new TaskBatchResult());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<TaskBatchResult> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[123]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public TaskBatchResult() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public TaskBatchResult(TaskBatchResult other) : this() {
+      committed_ = other.committed_.Clone();
+      unchanged_ = other.unchanged_.Clone();
+      absent_ = other.absent_.Clone();
+      failed_ = other.failed_.Clone();
+      unattempted_ = other.unattempted_.Clone();
+      tasks_ = other.tasks_.Clone();
+      removed_ = other.removed_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public TaskBatchResult Clone() {
+      return new TaskBatchResult(this);
+    }
+
+    /// <summary>Field number for the "committed" field.</summary>
+    public const int CommittedFieldNumber = 1;
+    private static readonly pb::FieldCodec<string> _repeated_committed_codec
+        = pb::FieldCodec.ForString(10);
+    private readonly pbc::RepeatedField<string> committed_ = new pbc::RepeatedField<string>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<string> Committed {
+      get { return committed_; }
+    }
+
+    /// <summary>Field number for the "unchanged" field.</summary>
+    public const int UnchangedFieldNumber = 2;
+    private static readonly pb::FieldCodec<string> _repeated_unchanged_codec
+        = pb::FieldCodec.ForString(18);
+    private readonly pbc::RepeatedField<string> unchanged_ = new pbc::RepeatedField<string>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<string> Unchanged {
+      get { return unchanged_; }
+    }
+
+    /// <summary>Field number for the "absent" field.</summary>
+    public const int AbsentFieldNumber = 3;
+    private static readonly pb::FieldCodec<string> _repeated_absent_codec
+        = pb::FieldCodec.ForString(26);
+    private readonly pbc::RepeatedField<string> absent_ = new pbc::RepeatedField<string>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<string> Absent {
+      get { return absent_; }
+    }
+
+    /// <summary>Field number for the "failed" field.</summary>
+    public const int FailedFieldNumber = 4;
+    private static readonly pb::FieldCodec<global::SlopWorld.Wire.TaskBatchFailure> _repeated_failed_codec
+        = pb::FieldCodec.ForMessage(34, global::SlopWorld.Wire.TaskBatchFailure.Parser);
+    private readonly pbc::RepeatedField<global::SlopWorld.Wire.TaskBatchFailure> failed_ = new pbc::RepeatedField<global::SlopWorld.Wire.TaskBatchFailure>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<global::SlopWorld.Wire.TaskBatchFailure> Failed {
+      get { return failed_; }
+    }
+
+    /// <summary>Field number for the "unattempted" field.</summary>
+    public const int UnattemptedFieldNumber = 5;
+    private static readonly pb::FieldCodec<string> _repeated_unattempted_codec
+        = pb::FieldCodec.ForString(42);
+    private readonly pbc::RepeatedField<string> unattempted_ = new pbc::RepeatedField<string>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<string> Unattempted {
+      get { return unattempted_; }
+    }
+
+    /// <summary>Field number for the "tasks" field.</summary>
+    public const int TasksFieldNumber = 6;
+    private static readonly pb::FieldCodec<global::SlopWorld.Wire.Task> _repeated_tasks_codec
+        = pb::FieldCodec.ForMessage(50, global::SlopWorld.Wire.Task.Parser);
+    private readonly pbc::RepeatedField<global::SlopWorld.Wire.Task> tasks_ = new pbc::RepeatedField<global::SlopWorld.Wire.Task>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<global::SlopWorld.Wire.Task> Tasks {
+      get { return tasks_; }
+    }
+
+    /// <summary>Field number for the "removed" field.</summary>
+    public const int RemovedFieldNumber = 7;
+    private ulong removed_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ulong Removed {
+      get { return removed_; }
+      set {
+        removed_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as TaskBatchResult);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(TaskBatchResult other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if(!committed_.Equals(other.committed_)) return false;
+      if(!unchanged_.Equals(other.unchanged_)) return false;
+      if(!absent_.Equals(other.absent_)) return false;
+      if(!failed_.Equals(other.failed_)) return false;
+      if(!unattempted_.Equals(other.unattempted_)) return false;
+      if(!tasks_.Equals(other.tasks_)) return false;
+      if (Removed != other.Removed) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      hash ^= committed_.GetHashCode();
+      hash ^= unchanged_.GetHashCode();
+      hash ^= absent_.GetHashCode();
+      hash ^= failed_.GetHashCode();
+      hash ^= unattempted_.GetHashCode();
+      hash ^= tasks_.GetHashCode();
+      if (Removed != 0UL) hash ^= Removed.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      committed_.WriteTo(output, _repeated_committed_codec);
+      unchanged_.WriteTo(output, _repeated_unchanged_codec);
+      absent_.WriteTo(output, _repeated_absent_codec);
+      failed_.WriteTo(output, _repeated_failed_codec);
+      unattempted_.WriteTo(output, _repeated_unattempted_codec);
+      tasks_.WriteTo(output, _repeated_tasks_codec);
+      if (Removed != 0UL) {
+        output.WriteRawTag(56);
+        output.WriteUInt64(Removed);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      committed_.WriteTo(ref output, _repeated_committed_codec);
+      unchanged_.WriteTo(ref output, _repeated_unchanged_codec);
+      absent_.WriteTo(ref output, _repeated_absent_codec);
+      failed_.WriteTo(ref output, _repeated_failed_codec);
+      unattempted_.WriteTo(ref output, _repeated_unattempted_codec);
+      tasks_.WriteTo(ref output, _repeated_tasks_codec);
+      if (Removed != 0UL) {
+        output.WriteRawTag(56);
+        output.WriteUInt64(Removed);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      size += committed_.CalculateSize(_repeated_committed_codec);
+      size += unchanged_.CalculateSize(_repeated_unchanged_codec);
+      size += absent_.CalculateSize(_repeated_absent_codec);
+      size += failed_.CalculateSize(_repeated_failed_codec);
+      size += unattempted_.CalculateSize(_repeated_unattempted_codec);
+      size += tasks_.CalculateSize(_repeated_tasks_codec);
+      if (Removed != 0UL) {
+        size += 1 + pb::CodedOutputStream.ComputeUInt64Size(Removed);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(TaskBatchResult other) {
+      if (other == null) {
+        return;
+      }
+      committed_.Add(other.committed_);
+      unchanged_.Add(other.unchanged_);
+      absent_.Add(other.absent_);
+      failed_.Add(other.failed_);
+      unattempted_.Add(other.unattempted_);
+      tasks_.Add(other.tasks_);
+      if (other.Removed != 0UL) {
+        Removed = other.Removed;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            committed_.AddEntriesFrom(input, _repeated_committed_codec);
+            break;
+          }
+          case 18: {
+            unchanged_.AddEntriesFrom(input, _repeated_unchanged_codec);
+            break;
+          }
+          case 26: {
+            absent_.AddEntriesFrom(input, _repeated_absent_codec);
+            break;
+          }
+          case 34: {
+            failed_.AddEntriesFrom(input, _repeated_failed_codec);
+            break;
+          }
+          case 42: {
+            unattempted_.AddEntriesFrom(input, _repeated_unattempted_codec);
+            break;
+          }
+          case 50: {
+            tasks_.AddEntriesFrom(input, _repeated_tasks_codec);
+            break;
+          }
+          case 56: {
+            Removed = input.ReadUInt64();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            committed_.AddEntriesFrom(ref input, _repeated_committed_codec);
+            break;
+          }
+          case 18: {
+            unchanged_.AddEntriesFrom(ref input, _repeated_unchanged_codec);
+            break;
+          }
+          case 26: {
+            absent_.AddEntriesFrom(ref input, _repeated_absent_codec);
+            break;
+          }
+          case 34: {
+            failed_.AddEntriesFrom(ref input, _repeated_failed_codec);
+            break;
+          }
+          case 42: {
+            unattempted_.AddEntriesFrom(ref input, _repeated_unattempted_codec);
+            break;
+          }
+          case 50: {
+            tasks_.AddEntriesFrom(ref input, _repeated_tasks_codec);
+            break;
+          }
+          case 56: {
+            Removed = input.ReadUInt64();
             break;
           }
         }

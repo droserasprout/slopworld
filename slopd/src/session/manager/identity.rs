@@ -27,7 +27,7 @@ impl Manager {
                 .values()
                 .map(|live| live.cfg.state_id.clone()),
         );
-        occupied.extend(self.tasks.participant_identities()?);
+        occupied.extend(self.tasks.participant_identities_async().await?);
         occupied.extend(
             tokio::task::spawn_blocking(crate::sandbox::retained_state_identities)
                 .await

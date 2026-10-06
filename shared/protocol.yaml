@@ -115,19 +115,19 @@ http:
       protobuf:
         GET: [Empty, TasksReply]
         POST: [CreateTaskReq, TaskResult]
-        DELETE: [Empty, Removed]
+        DELETE: [Empty, TaskBatchResult]
       path: "/api/tasks"
       methods: [GET, POST, DELETE]
       scope: scoped
     tasks_cancel:
       protobuf:
-        POST: [RemoveTasksReq, TasksReply]
+        POST: [RemoveTasksReq, TaskBatchResult]
       path: "/api/tasks/cancel"
       methods: [POST]
       scope: scoped
     tasks_remove:
       protobuf:
-        POST: [RemoveTasksReq, Removed]
+        POST: [RemoveTasksReq, TaskBatchResult]
       path: "/api/tasks/remove"
       methods: [POST]
       scope: scoped

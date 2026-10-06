@@ -157,24 +157,8 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
         cfg,
         format!("lifecycle-{}", uuid::Uuid::new_v4()),
     );
-    let task = manager
-        .tasks
-        .create_worker(
-            "host".into(),
-            "child".into(),
-            "work".into(),
-            "parent".into(),
-            false,
-        )
-        .unwrap();
-    let session = SessionCfg {
-        name: "child".into(),
-        project: "scratch".into(),
-        worker: true,
-        task_id: task.id.clone(),
-        state_id: uuid::Uuid::new_v4().to_string(),
-        ..Default::default()
-    };
+    let session = temporary_worker_task_session(&manager);
+    let task_id = session.task_id.clone();
     let private = root.join("state").join(&session.state_id);
     std::fs::create_dir_all(&private).unwrap();
     std::fs::write(private.join("memory"), "worker state").unwrap();
@@ -235,7 +219,7 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
 
     let saved = crate::tasks::Tasks::load(&manager.cfg_path)
         .unwrap()
-        .get("host", &task.id)
+        .get("host", &task_id)
         .unwrap();
     assert_eq!(saved.status, crate::tasks::Status::Failed);
     assert_eq!(
@@ -247,8 +231,39 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
     manager.stop("child").await.unwrap();
     manager.forget("child").await;
     assert_eq!(
-        manager.tasks.task_for("host", &task.id).unwrap().note,
+        manager.tasks.task_for("host", &task_id).unwrap().note,
         saved.note
     );
     std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+}
+
+fn temporary_worker_task_session(manager: &Manager) -> SessionCfg {
+    let identity = uuid::Uuid::new_v4().to_string();
+    let task = manager
+        .tasks
+        .create_owned(
+            crate::tasks::Participant {
+                name: "host".into(),
+                identity: "host".into(),
+            },
+            crate::tasks::Participant {
+                name: "child".into(),
+                identity: identity.clone(),
+            },
+            "work".into(),
+            Some(crate::tasks::WorkerTask {
+                session: "child".into(),
+                parent: "parent".into(),
+                durable: false,
+            }),
+        )
+        .unwrap();
+    SessionCfg {
+        name: "child".into(),
+        project: "scratch".into(),
+        worker: true,
+        task_id: task.id.clone(),
+        state_id: identity,
+        ..Default::default()
+    }
 }

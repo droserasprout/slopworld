@@ -39,9 +39,11 @@ impl Manager {
         durable: bool,
         worktree: String,
     ) -> Result<WorkerSpawn> {
-        self.session_operation(
-            self.spawn_worker_inner(caller, project, template, body, durable, worktree),
-        )
+        let manager = self.clone();
+        self.owned_session_operation(Box::pin(async move {
+            Box::pin(manager.spawn_worker_inner(caller, project, template, body, durable, worktree))
+                .await
+        }))
         .await
     }
 
@@ -101,22 +103,55 @@ impl Manager {
             );
         }
 
-        let task = self.tasks.create_owned(
-            self.task_participant(&caller).await?,
-            crate::tasks::Participant {
-                name: session.name.clone(),
-                identity: session.state_id.clone(),
-            },
-            body,
-            Some(crate::tasks::WorkerTask {
-                session: session.name.clone(),
-                parent: caller,
-                durable,
-            }),
-        )?;
+        let task = self
+            .create_task_owned(
+                self.task_participant(&caller).await?,
+                crate::tasks::Participant {
+                    name: session.name.clone(),
+                    identity: session.state_id.clone(),
+                },
+                body,
+                Some(crate::tasks::WorkerTask {
+                    session: session.name.clone(),
+                    parent: caller,
+                    durable,
+                }),
+            )
+            .await?;
         self.spawn_task_summary_request(task.clone());
         session.task_id = task.id.clone();
 
+        self.register_task_worker(&session, durable).await?;
+
+        if let Err(error) = self.start(&session.name).await {
+            self.fail_worker_task_checked(
+                &task.id,
+                &session.state_id,
+                format!("worker failed to start: {error:#}"),
+            )
+            .await;
+            if !durable {
+                self.forget(&session.name).await;
+            }
+            return Err(error);
+        }
+
+        self.announce_sessions().await;
+        self.queue_delivery(&session.name, cfg.daemon.instructions.worker_prompt.clone())
+            .await;
+        Ok(WorkerSpawn {
+            task,
+            session: session.name,
+        })
+    }
+
+    /// Register the task-owned session before startup; record a failed task if
+    /// durable configuration cannot commit, while the spawn guard remains held.
+    async fn register_task_worker(
+        self: &Arc<Self>,
+        session: &SessionCfg,
+        durable: bool,
+    ) -> Result<()> {
         if durable {
             let persisted = self
                 .update_cfg(ConfigMutation::Agents, |cfg| {
@@ -133,10 +168,12 @@ impl Manager {
                 })
                 .await;
             if let Err(error) = persisted {
-                self.fail_worker_task(
-                    &task.id,
+                self.fail_worker_task_checked(
+                    &session.task_id,
+                    &session.state_id,
                     format!("could not persist worker session: {error:#}"),
-                );
+                )
+                .await;
                 return Err(error);
             }
             self.sync_from_config().await;
@@ -146,21 +183,7 @@ impl Manager {
             self.live.write().await.insert(session.name.clone(), live);
         }
 
-        if let Err(error) = self.start(&session.name).await {
-            self.fail_worker_task(&task.id, format!("worker failed to start: {error:#}"));
-            if !durable {
-                self.forget(&session.name).await;
-            }
-            return Err(error);
-        }
-
-        self.announce_sessions().await;
-        self.queue_delivery(&session.name, cfg.daemon.instructions.worker_prompt.clone())
-            .await;
-        Ok(WorkerSpawn {
-            task,
-            session: session.name,
-        })
+        Ok(())
     }
 
     async fn fresh_worker_name(&self, owner: &str) -> String {
