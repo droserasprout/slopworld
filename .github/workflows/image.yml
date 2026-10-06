@@ -2,7 +2,8 @@ name: Sidecar image
 
 on:
   push:
-    branches: [main]
+    # Temporary branch trigger for validating image publication before merge.
+    branches: [main, packaging-fixes]
   workflow_dispatch:
 
 permissions:
