@@ -421,7 +421,7 @@ namespace SlopWorld
                 bounds = flow.Bounds(x, y, width);
                 float itemX = x + bounds.x;
                 var bulletText = _textLayout.Wrap(markers[itemIndex++], gutter, 0);
-                _placements.Add(new Placement
+                var markerPlacement = new Placement
                 {
                     Kind = PlacementKind.Bullet,
                     X = itemX,
@@ -429,7 +429,8 @@ namespace SlopWorld
                     Width = gutter,
                     Height = bulletText.Height,
                     Text = bulletText,
-                });
+                };
+                _placements.Add(markerPlacement);
 
                 // Keep the base item bounds independent so later lines regain their width.
                 var itemFlow = flow.ForListItem(gutter);
@@ -440,7 +441,18 @@ namespace SlopWorld
                 for (int childIndex = 0; childIndex < children.Count; childIndex++)
                 {
                     var child = children[childIndex];
+                    int firstPlacement = _placements.Count;
                     itemY = Place(child, innerX, itemY, innerWidth, itemFlow);
+                    if (childIndex == 0 && _placements.Count > firstPlacement)
+                    {
+                        // The first child may clear the inherited float. Keep its marker
+                        // beside the resolved content rather than the original flow top.
+                        float firstY = _placements[firstPlacement].Y;
+                        for (int i = firstPlacement + 1; i < _placements.Count; i++)
+                            firstY = Mathf.Min(firstY, _placements[i].Y);
+                        markerPlacement.Y = firstY;
+                        markerPlacement.X = x + flow.Bounds(x, firstY, width).x;
+                    }
                     bool last = childIndex + 1 == children.Count;
                     if (!last)
                     {
@@ -450,7 +462,7 @@ namespace SlopWorld
                 }
                 if (itemFlow.Bottom > flow.Bottom) itemY = Mathf.Max(itemY, itemFlow.Bottom);
                 float itemGap = block.Tight ? UiTheme.GapXS : UiTheme.GapM;
-                y = Mathf.Max(itemY, y + bulletText.Height) + itemGap;
+                y = Mathf.Max(itemY, markerPlacement.Y + bulletText.Height) + itemGap;
             }
             return y;
         }

@@ -443,6 +443,30 @@ namespace SlopWorld.Tests
                     AssertEx.True(cell.Lines.Count > 0, "narrow cells retain source lines");
         }
 
+        public static void ListMarkerFollowsFirstChildBelowOuterFloat()
+        {
+            foreach (string alignment in new[] { "left", "right" })
+            {
+                var engine = PreviewFlow("<img src='shot.png' width='80' height='200' align='" + alignment + "'>\n\n- ```\n  code\n  ```", 400);
+                var bullet = engine.Placements.Single(p => p.Kind == PlacementKind.Bullet);
+                var code = engine.Placements.Single(p => p.Kind == PlacementKind.Code);
+                var image = engine.Placements.Single(p => p.Kind == PlacementKind.Image);
+                AssertEx.True(code.Y >= image.Y + image.Height, "code clears outer float");
+                AssertEx.Equal(code.Y, bullet.Y, "marker follows first child below outer float");
+                AssertEx.Equal(code.X, bullet.X + bullet.Width, "marker regains normal gutter below float");
+            }
+        }
+
+        public static void HtmlWhitespaceCollapsesAcrossStyleBoundaries()
+        {
+            var engine = PreviewFlow("<p>one <b> <i> two</i></b> three</p>", 400);
+            AssertEx.Equal("one two three", Copy(engine.Placements.Single(p => p.Kind == PlacementKind.Text).Text),
+                "HTML spaces collapse across nested inline elements");
+            engine = PreviewFlow("<p>one <code> two </code> three<br>four</p>", 400);
+            AssertEx.Equal("one  two  three\nfour", Copy(engine.Placements.Single(p => p.Kind == PlacementKind.Text).Text),
+                "code whitespace and explicit breaks survive normalization");
+        }
+
         static MarkdownDocumentParser PreviewParser()
         {
             var paths = new MarkdownPathResolver("demo", "/work/demo/docs/readme.md",

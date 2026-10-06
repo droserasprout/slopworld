@@ -40,7 +40,16 @@ namespace SlopWorld
             if (node is IText text)
             {
                 // The DOM has decoded entities once. Code keeps its literal whitespace.
-                AddRun(block.Runs, style.Code ? text.Data : Regex.Replace(text.Data, @"[ \t\r\n]+", " "), style);
+                string value = style.Code ? text.Data : Regex.Replace(text.Data, @"[ \t\r\n]+", " ");
+                // Collapsible spaces can straddle DOM nodes and inline style boundaries.
+                // Literal code and unsupported source retain their own whitespace.
+                if (!style.Code && value.Length > 0 && value[0] == ' ' && block.Runs.Count > 0)
+                {
+                    var previous = block.Runs[block.Runs.Count - 1];
+                    if (!previous.IsImage && !previous.Code && !previous.Faint &&
+                        !string.IsNullOrEmpty(previous.Text) && previous.Text[previous.Text.Length - 1] == ' ') value = value.Substring(1);
+                }
+                AddRun(block.Runs, value, style);
                 return;
             }
             if (!(node is IElement element)) return; // Comments have no visible content.
