@@ -1,5 +1,30 @@
 use super::*;
 
+#[tokio::test]
+async fn history_clear_retires_cached_rows() {
+    let manager = fixture(b"one\r\ntwo\r\nthree\r\nfour\r\nfive").await;
+    let old = manager.scroll_capture("agent", 1, 1).await.unwrap();
+    assert!(old.history > 0);
+    let emu = manager.live.read().await["agent"]
+        .capture
+        .emu
+        .clone()
+        .unwrap();
+    let frame = {
+        let mut emu = emu.lock().unwrap();
+        emu.feed(b"\x1b[3J");
+        emu.render()
+    };
+    assert_eq!(frame.history, 0);
+    manager.apply_frame("agent", frame).await;
+    let after = manager.scroll_capture("agent", 1, 2).await.unwrap();
+    assert_eq!(
+        after.history, 0,
+        "cleared history was served from the cache"
+    );
+    assert_eq!(after.off, 0);
+}
+
 async fn fixture(bytes: &[u8]) -> Arc<Manager> {
     let manager = crate::session::test_manager(Config::default());
     let mut emu = SessionEmu::new(12, 3);

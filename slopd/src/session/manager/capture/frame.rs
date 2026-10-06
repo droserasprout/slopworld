@@ -119,7 +119,12 @@ impl Manager {
             || meta.app_drag != previous.meta.app_drag
             || meta.alt_screen != previous.meta.alt_screen
             || meta.title != previous.meta.title;
-        let screen_changed = content_changed || cursor_changed || metadata_changed;
+        // History can grow or clear without changing the viewport. Publish its
+        // extent and advance the sequence so scroll caches cannot reuse old rows.
+        let screen_changed = content_changed
+            || cursor_changed
+            || metadata_changed
+            || frame.history != previous.history;
         crate::perf::count(
             if content_changed {
                 "frame-content-changed"
