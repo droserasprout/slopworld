@@ -2,6 +2,7 @@
 
 import subprocess
 import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -10,7 +11,7 @@ from tools import ROOT
 from tools import utils
 
 
-def test_command_overrides_preserve_quoting_without_shell_execution(monkeypatch):
+def test_command_overrides_preserve_quoting_without_shell_execution(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('TEST_TOOL', '"/tmp/tools with spaces/python" -X dev "$(false)"')
     assert utils.command('TEST_TOOL', 'python') == ['/tmp/tools with spaces/python', '-X', 'dev', '$(false)']
     monkeypatch.setenv('TEST_TOOL', '')
@@ -18,8 +19,8 @@ def test_command_overrides_preserve_quoting_without_shell_execution(monkeypatch)
         utils.command('TEST_TOOL', 'python')
 
 
-def test_process_helpers_default_to_checkout_and_propagate_failure(tmp_path):
-    with patch.object(utils.subprocess, 'run') as run:
+def test_process_helpers_default_to_checkout_and_propagate_failure(tmp_path: Path) -> None:
+    with patch.object(subprocess, 'run') as run:
         utils.run(['tool', 'one argument'])
         run.assert_called_once_with(['tool', 'one argument'], cwd=ROOT, check=True)
     result = utils.run([sys.executable, '-c', 'raise SystemExit(23)'], cwd=tmp_path, check=False)
@@ -33,8 +34,10 @@ def test_process_helpers_default_to_checkout_and_propagate_failure(tmp_path):
 
 
 @pytest.mark.parametrize('status,expected', [(23, 23), (-15, 143)])
-def test_cli_failure_does_not_print_secret_arguments(status, expected, capsys):
-    def fail():
+def test_cli_failure_does_not_print_secret_arguments(
+    status: int, expected: int, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def fail() -> None:
         raise subprocess.CalledProcessError(status, ['gogdl', '--code', 'secret'])
 
     with pytest.raises(SystemExit) as error:
@@ -43,14 +46,14 @@ def test_cli_failure_does_not_print_secret_arguments(status, expected, capsys):
     assert 'secret' not in capsys.readouterr().err
 
 
-def test_cli_interrupt_and_missing_setting_are_reported(capsys):
+def test_cli_interrupt_and_missing_setting_are_reported(capsys: pytest.CaptureFixture[str]) -> None:
     for exception, status in [
         (KeyboardInterrupt(), 130),
         (KeyError('REQUIRED_SETTING'), 1),
         (OSError('unavailable'), 1),
     ]:
 
-        def fail():
+        def fail() -> None:
             raise exception
 
         with pytest.raises(SystemExit) as error:

@@ -10,6 +10,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 DATA = Path(__file__).with_suffix('.json')
 
@@ -21,14 +22,14 @@ class Result:
 
 
 class Paint:
-    def __init__(self, enabled):
+    def __init__(self, enabled: bool) -> None:
         self.enabled = enabled
 
-    def __call__(self, code, text):
+    def __call__(self, code: str, text: str) -> str:
         return f'\033[{code}m{text}\033[0m' if self.enabled else text
 
 
-def run(command):
+def run(command: list[str]) -> str:
     return subprocess.run(
         command,
         text=True,
@@ -38,19 +39,19 @@ def run(command):
     ).stdout
 
 
-def check_command(spec):
+def check_command(spec: dict[str, Any]) -> Result:
     command = spec['commands'][0]
     path = shutil.which(command)
     return Result(path is not None, str(Path(path).absolute()) if path else command)
 
 
-def check_any_command(spec):
+def check_any_command(spec: dict[str, Any]) -> Result:
     path = next((path for item in spec['commands'] if (path := shutil.which(item))), None)
     detail = str(Path(path).absolute()) if path else 'one of: ' + ', '.join(spec['commands'])
     return Result(path is not None, detail)
 
 
-def check_library(spec):
+def check_library(spec: dict[str, Any]) -> Result:
     library = spec['value']
     path = next(
         (Path(root) / library for root in ('/usr/lib', '/usr/lib64') if (Path(root) / library).exists()),
@@ -64,23 +65,23 @@ def check_library(spec):
     return Result(path is not None, str(path) if path else library)
 
 
-def check_rimworld_path(relative):
+def check_rimworld_path(relative: str) -> Result:
     game = os.environ.get('RIMWORLD', '')
     root = Path(game).resolve() if game else None
     found = bool(root and (root / relative).is_file())
     return Result(found, str(root / relative) if root else 'RIMWORLD is unset')
 
 
-def check_rimworld_assemblies(_spec):
+def check_rimworld_assemblies(_spec: dict[str, Any]) -> Result:
     return check_rimworld_path('RimWorldLinux_Data/Managed/Assembly-CSharp.dll')
 
 
-def check_rimworld_executable(_spec):
+def check_rimworld_executable(_spec: dict[str, Any]) -> Result:
     result = check_rimworld_path('RimWorldLinux')
     return Result(result.found and os.access(result.detail, os.X_OK), result.detail)
 
 
-def check_python_module(spec):
+def check_python_module(spec: dict[str, Any]) -> Result:
     module = importlib.util.find_spec(spec['module'])
     path = module.origin if module and module.origin else None
     return Result(module is not None, path or spec['module'])
@@ -96,7 +97,7 @@ CHECKS = {
 }
 
 
-def arguments():
+def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '--color',
@@ -107,7 +108,7 @@ def arguments():
     return parser.parse_args()
 
 
-def main():
+def main() -> int:
     args = arguments()
     color = args.color == 'always' or (args.color == 'auto' and sys.stdout.isatty() and 'NO_COLOR' not in os.environ)
     paint = Paint(color)

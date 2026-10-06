@@ -6,7 +6,7 @@ import pathlib
 import re
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('files', nargs='+', type=pathlib.Path)
     args = parser.parse_args()
@@ -31,7 +31,7 @@ def main():
         print(f'\nFile: {path} ({len(records)} records; first and transition records excluded)')
         for key, rows in groups.items():
 
-            def total(lane, metric):
+            def total(lane: str, metric: str) -> float:
                 return sum(float(row.get(lane, {}).get(metric, 0)) for row in rows)
 
             frames = total('root-update', 'calls')

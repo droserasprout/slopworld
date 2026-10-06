@@ -17,6 +17,7 @@ import tempfile
 import tomllib
 import zipfile
 from pathlib import Path
+from typing import Any
 
 from tools import ROOT
 from tools.utils import command
@@ -96,8 +97,8 @@ def package(output: Path, revision: str, version: str, *, native_packages: bool 
         daemon = staging / DAEMON_NAME
         for binary in ('slopd', 'slopctl', 'slopworld'):
             copy_file(ROOT / 'slopd/target/release' / binary, daemon / 'bin' / binary)
-        for source in ('slopd/slopd.service', 'packaging/slopworld.desktop', 'LICENSE'):
-            copy_file(ROOT / source, daemon / Path(source).name)
+        for source_name in ('slopd/slopd.service', 'packaging/slopworld.desktop', 'LICENSE'):
+            copy_file(ROOT / source_name, daemon / Path(source_name).name)
         shutil.copytree(ROOT / 'licenses', daemon / 'licenses')
         metadata(daemon, revision, version)
 
@@ -121,8 +122,8 @@ def package(output: Path, revision: str, version: str, *, native_packages: bool 
             names.append(container_debian.package(staging, revision, version).name)
         checksums = []
         for name in names:
-            with (staging / name).open('rb') as source:
-                checksums.append(f'{hashlib.file_digest(source, "sha256").hexdigest()}  {name}\n')
+            with (staging / name).open('rb') as stream:
+                checksums.append(f'{hashlib.file_digest(stream, "sha256").hexdigest()}  {name}\n')
         (staging / 'SHA256SUMS').write_text(''.join(checksums))
         (staging / 'release-notes.md').write_text(
             f'Rolling local build for RimWorld 1.6.\n\nVersion: `{version}`\n\nCommit: `{revision}`\n\n'
@@ -135,14 +136,15 @@ def package(output: Path, revision: str, version: str, *, native_packages: bool 
     return [output / name for name in names]
 
 
-def github_json(gh: list[str], endpoint: str) -> dict | None:
+def github_json(gh: list[str], endpoint: str) -> dict[str, Any] | None:
     result = run([*gh, 'api', endpoint], capture_output=True, text=True, check=False)
     if result.returncode:
         # Authentication, network and permission failures must not look like a missing release.
         if '(HTTP 404)' in result.stderr:
             return None
         raise subprocess.CalledProcessError(result.returncode, result.args, result.stdout, result.stderr)
-    return json.loads(result.stdout)
+    document: dict[str, Any] = json.loads(result.stdout)
+    return document
 
 
 def publish(gh: list[str], repository: str, output: Path, revision: str, assets: list[Path]) -> None:

@@ -9,7 +9,7 @@ from tools.themes import validate_themes as themes
 
 
 class ThemeValidationTests(unittest.TestCase):
-    def test_contrast_faces_require_opacity_but_panels_allow_alpha(self):
+    def test_contrast_faces_require_opacity_but_panels_allow_alpha(self) -> None:
         source = (themes.THEMES / 'UI' / 'slopworld-warm.toml').read_text()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -24,7 +24,7 @@ class ThemeValidationTests(unittest.TestCase):
                         path.write_text(source.replace(original, f'{role} = "#ABCDEFFF"'))
                         themes.read_file(path, themes.UI_KEYS, themes.UI_COLORS)
 
-    def test_boolean_integer_fields_are_rejected(self):
+    def test_boolean_integer_fields_are_rejected(self) -> None:
         source = (themes.THEMES / 'UI' / 'slopworld-warm.toml').read_text()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

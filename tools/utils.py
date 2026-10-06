@@ -6,6 +6,10 @@ import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
+from typing import Literal
+from typing import TextIO
+from typing import overload
 
 from tools import ROOT
 
@@ -17,15 +21,44 @@ def command(setting: str, default: str) -> list[str]:
     return arguments
 
 
-def log(message: str, *, file=None) -> None:
+def log(message: str, *, file: TextIO | None = None) -> None:
     print(message, file=file, flush=True)
 
 
-def run(arguments: list[str], *, cwd: Path = ROOT, check: bool = True, **kwargs) -> subprocess.CompletedProcess:
+@overload
+def run(
+    arguments: list[str], *, cwd: Path = ROOT, check: bool = True, text: Literal[True], **kwargs: Any
+) -> subprocess.CompletedProcess[str]: ...
+
+
+@overload
+def run(
+    arguments: list[str], *, cwd: Path = ROOT, check: bool = True, text: Literal[False] = False, **kwargs: Any
+) -> subprocess.CompletedProcess[bytes]: ...
+
+
+def run(
+    arguments: list[str], *, cwd: Path = ROOT, check: bool = True, text: bool = False, **kwargs: Any
+) -> subprocess.CompletedProcess[Any]:
+    # subprocess owns the keyword surface; text mode determines the captured output type.
+    if text:
+        return subprocess.run(arguments, cwd=cwd, check=check, text=True, **kwargs)
     return subprocess.run(arguments, cwd=cwd, check=check, **kwargs)
 
 
-def spawn(arguments: list[str], *, cwd: Path = ROOT, **kwargs) -> subprocess.Popen:
+@overload
+def spawn(arguments: list[str], *, cwd: Path = ROOT, text: Literal[True], **kwargs: Any) -> subprocess.Popen[str]: ...
+
+
+@overload
+def spawn(
+    arguments: list[str], *, cwd: Path = ROOT, text: Literal[False] = False, **kwargs: Any
+) -> subprocess.Popen[bytes]: ...
+
+
+def spawn(arguments: list[str], *, cwd: Path = ROOT, text: bool = False, **kwargs: Any) -> subprocess.Popen[Any]:
+    if text:
+        return subprocess.Popen(arguments, cwd=cwd, text=True, **kwargs)
     return subprocess.Popen(arguments, cwd=cwd, **kwargs)
 
 

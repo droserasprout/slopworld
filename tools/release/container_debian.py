@@ -72,6 +72,6 @@ def package(output: Path, revision: str, version: str) -> Path:
     # Stable asset names replace the previous rolling package rather than leaving
     # stale versioned downloads on GitHub. Full versions stay in package metadata.
     generated = output / f'slopworld_{version}-1_amd64.deb'
-    destination = output / ASSET_NAME
-    generated.replace(destination)
-    return destination
+    archive_path = output / ASSET_NAME
+    generated.replace(archive_path)
+    return archive_path

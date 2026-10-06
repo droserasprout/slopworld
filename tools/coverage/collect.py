@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import TextIO
 
 from tools import ROOT
 from tools.utils import command
@@ -30,7 +31,7 @@ def daemon(output: Path) -> None:
     environment = {**os.environ, 'LLVM_COV': llvm_cov, 'LLVM_PROFDATA': llvm_profdata}
     cargo = command('CARGO', 'cargo') + ['llvm-cov']
 
-    def cargo_run(*args: str, stdout=None) -> None:
+    def cargo_run(*args: str, stdout: TextIO | None = None) -> None:
         run(cargo + list(args), cwd=ROOT / 'slopd', env=environment, stdout=stdout)
 
     cargo_run('clean', '--profraw-only')

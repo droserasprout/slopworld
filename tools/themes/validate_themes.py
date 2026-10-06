@@ -7,6 +7,8 @@ import re
 import sys
 import tomllib
 from pathlib import Path
+from typing import Any
+from typing import Never
 
 from tools import ROOT
 
@@ -68,11 +70,11 @@ TERMINAL_KEYS = {
 }
 
 
-def fail(path: Path, message: str) -> None:
+def fail(path: Path, message: str) -> Never:
     raise ValueError(f'{path.relative_to(ROOT)}: {message}')
 
 
-def read_file(path: Path, expected: set[str], colors: tuple[str, ...] = ()) -> dict:
+def read_file(path: Path, expected: set[str], colors: tuple[str, ...] = ()) -> dict[str, Any]:
     try:
         data = tomllib.loads(path.read_text(encoding='utf-8'))
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
@@ -108,7 +110,7 @@ def read_file(path: Path, expected: set[str], colors: tuple[str, ...] = ()) -> d
     return data
 
 
-def read_catalog(kind: str, expected: set[str], colors: tuple[str, ...] = ()) -> list[dict]:
+def read_catalog(kind: str, expected: set[str], colors: tuple[str, ...] = ()) -> list[dict[str, Any]]:
     directory = THEMES / kind
     paths = sorted(directory.glob('*.toml')) if directory.is_dir() else []
     if not paths:
@@ -133,7 +135,7 @@ def read_catalog(kind: str, expected: set[str], colors: tuple[str, ...] = ()) ->
     return pinned + unpinned
 
 
-def load_catalog() -> tuple[list[dict], list[dict]]:
+def load_catalog() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     ui = read_catalog('UI', UI_KEYS, UI_COLORS)
     terminal = read_catalog(
         'Terminal',

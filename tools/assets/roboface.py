@@ -25,11 +25,17 @@ Graphic_Multi creates the west texture by mirroring the east texture.
 import argparse
 import os
 import sys
+from typing import Protocol
+from typing import cast
 
 import numpy as np
+from numpy.typing import NDArray
 from PIL import Image
 
 from tools import ROOT
+
+type FloatArray = NDArray[np.float64]
+type ColorBuffer = NDArray[np.float32] | FloatArray
 
 OUT = ROOT / 'mod/Textures/SlopWorld'
 
@@ -82,44 +88,49 @@ C_VOID = np.array([0.02, 0.015, 0.025])
 C_VOID_RIM = np.array([0.12, 0.06, 0.08])
 
 _y, _x = np.mgrid[0:S, 0:S]
-X, Y = (_x + 0.5) / SS, (_y + 0.5) / SS
+X: FloatArray = (_x + 0.5) / SS
+Y: FloatArray = (_y + 0.5) / SS
 
 
-def cover(sd):
+def cover(sd: FloatArray) -> FloatArray:
     return np.clip(0.5 - sd * SS, 0.0, 1.0)
 
 
-def rrect(x0, y0, x1, y1, r):
+def rrect(x0: float, y0: float, x1: float, y1: float, r: float) -> FloatArray:
     hx, hy = (x1 - x0) / 2 - r, (y1 - y0) / 2 - r
     dx = np.abs(X - (x0 + x1) / 2) - hx
     dy = np.abs(Y - (y0 + y1) / 2) - hy
     outside = np.sqrt(np.maximum(dx, 0) ** 2 + np.maximum(dy, 0) ** 2)
-    return outside + np.minimum(np.maximum(dx, dy), 0) - r
+    return cast(FloatArray, outside + np.minimum(np.maximum(dx, dy), 0) - r)
 
 
-def disc(cx, cy, r):
+def disc(cx: float, cy: float, r: float) -> FloatArray:
     return np.sqrt((X - cx) ** 2 + (Y - cy) ** 2) - r
 
 
-def skull(inset=0.0):
+def skull(inset: float = 0.0) -> FloatArray:
     dx, dy = (X - CX) / RX, (Y - CY) / RY
     f = np.abs(dx) ** EXP + np.abs(dy) ** EXP
     return (f ** (1.0 / EXP) - 1.0) * min(RX, RY) + inset
 
 
+class Layer(Protocol):
+    def extract(self) -> tuple[FloatArray, FloatArray]: ...
+
+
 class Renderer:
     """Supersampled RGBA buffer with box-filtered extraction."""
 
-    def __init__(self):
-        self.rgb = np.zeros((S, S, 3), np.float32)
-        self.a = np.zeros((S, S), np.float32)
+    def __init__(self) -> None:
+        self.rgb: ColorBuffer = np.zeros((S, S, 3), np.float32)
+        self.a: ColorBuffer = np.zeros((S, S), np.float32)
 
-    def paint(self, mask, color):
+    def paint(self, mask: FloatArray, color: FloatArray) -> None:
         m = mask[..., None]
         self.rgb = self.rgb * (1 - m) + np.asarray(color, np.float32) * m
         self.a = np.maximum(self.a, mask)
 
-    def extract(self):
+    def extract(self) -> tuple[FloatArray, FloatArray]:
         """Box-filter down to N×N, returning straight-alpha RGBA."""
         px = np.dstack([self.rgb, self.a]).reshape(N, SS, N, SS, 4).mean(axis=(1, 3))
         rgb, a = px[..., :3], px[..., 3]
@@ -127,13 +138,13 @@ class Renderer:
         return rgb, a
 
 
-def steel(x0, y0, x1, y1):
+def steel(x0: float, y0: float, x1: float, y1: float) -> FloatArray:
     t = np.clip((Y - y0) / (y1 - y0), 0, 1)[..., None]
     lit = np.clip(1.0 - (((X - (x0 + (x1 - x0) * 0.3)) ** 2 + (Y - (y0 + (y1 - y0) * 0.25)) ** 2) / 900.0), 0, 1)
     return np.clip(C_PLATE_TOP * (1 - t) + C_PLATE_BOT * t + lit[..., None] * 0.09, 0, 1)
 
 
-def front(r, top_cut, *seamed_cuts):
+def front(r: Renderer, top_cut: FloatArray, *seamed_cuts: FloatArray) -> FloatArray:
     region = np.maximum(skull(SKIN_INSET), top_cut)
     for c in seamed_cuts:
         region = np.maximum(region, c)
@@ -146,23 +157,23 @@ def front(r, top_cut, *seamed_cuts):
     return region
 
 
-def below(y):
+def below(y: float) -> FloatArray:
     return y - Y
 
 
-def ahead_of(x):
+def ahead_of(x: float) -> FloatArray:
     return x - X
 
 
-def clipped(mask, region):
+def clipped(mask: FloatArray, region: FloatArray) -> FloatArray:
     return mask * cover(region + SEAM_W)
 
 
-def socket(r, cx, cy):
+def socket(r: Renderer, cx: float, cy: float) -> None:
     r.paint(cover(disc(cx, cy, EYE_R)), C_SOCKET)
 
 
-def iris(r, cx, cy, glow):
+def iris(r: Renderer, cx: float, cy: float, glow: FloatArray) -> None:
     """Glowing lens inside the socket. Painted on its own layer so the base
     plate is rendered without eyes and composited later."""
     m = cover(disc(cx, cy, IRIS_R))
@@ -171,7 +182,7 @@ def iris(r, cx, cy, glow):
     r.a = np.maximum(r.a, m)
 
 
-def void_eye(r, cx, cy):
+def void_eye(r: Renderer, cx: float, cy: float) -> None:
     """Void hole: black, with a faint red rim. Same layer as iris (overpaints
     the socket in the composite)."""
     inner = cover(disc(cx, cy, EYE_R - 1.4))
@@ -180,19 +191,19 @@ def void_eye(r, cx, cy):
     r.paint(np.clip(rim, 0, 1), C_VOID_RIM)
 
 
-def mouth(r, x0, y0, x1, y1, bars):
+def mouth(r: Renderer, x0: float, y0: float, x1: float, y1: float, bars: tuple[float, ...]) -> None:
     r.paint(cover(rrect(x0, y0, x1, y1, MOUTH_R)), C_SOCKET)
     inside = cover(rrect(x0 + 0.9, y0 + 0.9, x1 - 0.9, y1 - 0.9, MOUTH_R * 0.6))
     for x in bars:
         r.paint(cover(rrect(x - BAR_W, y0, x + BAR_W, y1, BAR_W * 0.8)) * inside, C_PLATE_BOT)
 
 
-def bolt(r, cx, cy, region):
+def bolt(r: Renderer, cx: float, cy: float, region: FloatArray) -> None:
     r.paint(clipped(cover(disc(cx, cy, BOLT_R)), region), C_BOLT)
     r.paint(clipped(cover(disc(cx, cy, BOLT_R * 0.45)), region), C_SEAM)
 
 
-def build_base(facing):
+def build_base(facing: str) -> Renderer:
     """Render the base plate (no eyes) at supersampled resolution."""
     r = Renderer()
     if facing == 'south':
@@ -211,7 +222,7 @@ def build_base(facing):
     return r
 
 
-def build_eyes(facing, glow_or_none):
+def build_eyes(facing: str, glow_or_none: FloatArray | None) -> Renderer:
     """Render the eyes at supersampled resolution. glow_or_none is an RGB array
     for a colored glow, or None for void holes."""
     r = Renderer()
@@ -228,7 +239,7 @@ def build_eyes(facing, glow_or_none):
     return r
 
 
-def composite(base_r, eye_r):
+def composite(base_r: Layer, eye_r: Layer) -> tuple[FloatArray, FloatArray]:
     """Composite eye layer over base at final (N×N) resolution."""
     base_rgb, base_a = base_r.extract()
     eye_rgb, eye_a = eye_r.extract()
@@ -238,14 +249,14 @@ def composite(base_r, eye_r):
     return rgb, a
 
 
-def save(rgb, a, name):
+def save(rgb: FloatArray, a: FloatArray, name: str) -> None:
     img = np.clip(np.concatenate([rgb, a[..., None]], -1), 0, 1)
     path = os.path.join(OUT, f'RobotFace_{name}.png')
     Image.fromarray((img * 255).astype(np.uint8)).save(path)
     print('wrote', os.path.normpath(path))
 
 
-def main(argv=None):
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('variants', nargs='*', type=str.lower, choices=[*map(str.lower, EYE_COLORS), 'missing', 'all'])
     args = parser.parse_args(argv)

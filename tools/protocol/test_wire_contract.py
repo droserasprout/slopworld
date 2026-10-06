@@ -11,8 +11,11 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
+from typing import ClassVar
 from unittest.mock import patch
 
+from tools import ROOT
 from tools.generated_files import write_if_changed
 from tools.protocol import wire_contract
 
@@ -53,9 +56,7 @@ class GeneratedFileTests(unittest.TestCase):
         self.assertEqual(list(self.directory.iterdir()), [self.path])
 
     def test_importing_http_generator_does_not_require_sources_or_write_outputs(self) -> None:
-        shutil.copytree(
-            wire_contract.ROOT / 'tools', self.directory / 'tools', ignore=shutil.ignore_patterns('__pycache__')
-        )
+        shutil.copytree(ROOT / 'tools', self.directory / 'tools', ignore=shutil.ignore_patterns('__pycache__'))
         before = {p.relative_to(self.directory) for p in self.directory.rglob('*')}
         subprocess.run(
             [sys.executable, '-B', '-c', 'import tools.protocol.protobuf_http'],
@@ -66,7 +67,7 @@ class GeneratedFileTests(unittest.TestCase):
         self.assertEqual(before, {p.relative_to(self.directory) for p in self.directory.rglob('*')})
 
     def test_repeated_full_generation_preserves_all_output_timestamps(self) -> None:
-        root = wire_contract.ROOT
+        root = ROOT
         shutil.copytree(root / 'shared', self.directory / 'shared')
         shutil.copytree(root / 'tools', self.directory / 'tools', ignore=shutil.ignore_patterns('__pycache__'))
         command = [sys.executable, '-m', 'tools.protocol.api_contract']
@@ -82,6 +83,9 @@ class GeneratedFileTests(unittest.TestCase):
 
 
 class WireContractTests(unittest.TestCase):
+    data: ClassVar[dict[str, Any]]
+    generated: ClassVar[str]
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.data = wire_contract.load()['protocol']
@@ -96,7 +100,7 @@ class WireContractTests(unittest.TestCase):
                     schema,
                     re.S,
                 )
-                self.assertIsNotNone(payload)
+                assert payload is not None
                 names = re.findall(r'\w+\s+(\w+)\s*=\s*\d+;', payload[1])
                 self.assertEqual(names, self.data['websocket'][section])
 
@@ -104,7 +108,7 @@ class WireContractTests(unittest.TestCase):
         from tools.docs.reference import api_routes
         from tools.docs.reference import read_files
 
-        root = wire_contract.ROOT
+        root = ROOT
         source = '\n'.join(
             p.read_text()
             for p in sorted((root / 'slopd/src/api/handlers').rglob('*.rs'))

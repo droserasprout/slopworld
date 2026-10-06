@@ -2,15 +2,17 @@
 
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from tools.release import debian
 from tools.release import latest
+from tools.utils import run as execute
 
 
 @pytest.fixture
-def package_inputs(tmp_path, monkeypatch):
+def package_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / 'checkout'
     monkeypatch.setattr(debian, 'ROOT', root)
     monkeypatch.setattr(latest, 'ROOT', root)
@@ -41,9 +43,9 @@ def package_inputs(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize('architecture', ['amd64', 'arm64'])
 def test_package_system_paths_permissions_dependencies_and_metadata(
-    package_inputs, tmp_path, monkeypatch, architecture
-):
-    def run(arguments, **kwargs):
+    package_inputs: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, architecture: str
+) -> None:
+    def run(arguments: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str] | None:
         if arguments[0] == 'dpkg-shlibdeps':
             assert (kwargs['cwd'] / 'debian/control').is_file()
             assert all(Path(binary).is_file() for binary in arguments[2:])
@@ -70,6 +72,7 @@ def test_package_system_paths_permissions_dependencies_and_metadata(
         assert (staging / 'usr/share/icons/hicolor/128x128/apps/slopworld.png').is_file()
         assert all(p.stat().st_mode & 0o777 == 0o644 for p in mod.rglob('*') if p.is_file())
         Path(arguments[4]).write_bytes(b'deb archive fixture')
+        return None
 
     monkeypatch.setattr(debian, 'run', run)
     result = debian.package(tmp_path / 'output with spaces', 'revision', '0.1.0-20261005-abcdef', architecture)
@@ -78,7 +81,9 @@ def test_package_system_paths_permissions_dependencies_and_metadata(
 
 
 @pytest.mark.parametrize('failure', ['input', 'scan', 'build', 'empty-dependencies'])
-def test_failed_package_preserves_previous_output(package_inputs, tmp_path, monkeypatch, failure):
+def test_failed_package_preserves_previous_output(
+    package_inputs: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
     output = tmp_path / 'output'
     output.mkdir()
     previous = output / 'slopworld_1.0.0-1_amd64.deb'
@@ -86,7 +91,7 @@ def test_failed_package_preserves_previous_output(package_inputs, tmp_path, monk
     if failure == 'input':
         (package_inputs / 'mod/Assemblies/Tomlyn.dll').unlink()
 
-    def run(arguments, **kwargs):
+    def run(arguments: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str] | None:
         if arguments[0] == 'dpkg-shlibdeps' and failure != 'scan':
             return subprocess.CompletedProcess(
                 arguments, 0, '' if failure == 'empty-dependencies' else 'shlibs:Depends=libc6\n'
@@ -101,13 +106,13 @@ def test_failed_package_preserves_previous_output(package_inputs, tmp_path, monk
 
 
 @pytest.mark.parametrize('version', ['snapshot', '1.0\nDepends: injected', '1:2.0', '', '../1'])
-def test_invalid_upstream_versions_are_rejected(version):
+def test_invalid_upstream_versions_are_rejected(version: str) -> None:
     with pytest.raises(ValueError, match='version'):
         debian.debian_version(version)
 
 
 @pytest.mark.parametrize('failing_tool', ['dpkg', 'dpkg-deb', 'dpkg-shlibdeps', 'just'])
-def test_tool_or_build_failure_stops_before_packaging(monkeypatch, failing_tool):
+def test_tool_or_build_failure_stops_before_packaging(monkeypatch: pytest.MonkeyPatch, failing_tool: str) -> None:
     from unittest.mock import patch
 
     monkeypatch.setattr('sys.argv', ['debian'])
@@ -115,7 +120,7 @@ def test_tool_or_build_failure_stops_before_packaging(monkeypatch, failing_tool)
     monkeypatch.setenv('VERSION', '1.0.0')
     monkeypatch.setattr(latest, 'git', lambda *args: 'revision')
 
-    def run(arguments, **kwargs):
+    def run(arguments: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str] | None:
         if arguments[0] == failing_tool:
             raise subprocess.CalledProcessError(1, arguments)
         return subprocess.CompletedProcess(arguments, 0, 'amd64\n')
@@ -126,12 +131,12 @@ def test_tool_or_build_failure_stops_before_packaging(monkeypatch, failing_tool)
         package.assert_not_called()
 
 
-def test_real_debian_archive_round_trip(package_inputs, tmp_path):
+def test_real_debian_archive_round_trip(package_inputs: Path, tmp_path: Path) -> None:
     import shutil
 
     if not all(shutil.which(tool) for tool in ('dpkg', 'dpkg-deb', 'dpkg-shlibdeps')):
         pytest.skip('Debian packaging tools are required for archive integration')
-    architecture = debian.run(['dpkg', '--print-architecture'], capture_output=True, text=True).stdout.strip()
+    architecture = execute(['dpkg', '--print-architecture'], capture_output=True, text=True).stdout.strip()
     if architecture not in ('amd64', 'arm64'):
         pytest.skip('Unsupported native Debian architecture')
     # Native ELF fixtures exercise the installed library database and archive tools
@@ -139,15 +144,15 @@ def test_real_debian_archive_round_trip(package_inputs, tmp_path):
     for binary in debian.BINARIES:
         shutil.copyfile('/bin/true', package_inputs / 'slopd/target/release' / binary)
     archive = debian.package(tmp_path / 'output', 'revision', '1.0.0', architecture)
-    result = debian.run(['dpkg-deb', '--field', str(archive), 'Depends'], capture_output=True, text=True)
+    result = execute(['dpkg-deb', '--field', str(archive), 'Depends'], capture_output=True, text=True)
     assert 'libc6' in result.stdout
     extracted = tmp_path / 'extracted'
-    debian.run(['dpkg-deb', '--extract', str(archive), str(extracted)])
+    execute(['dpkg-deb', '--extract', str(archive), str(extracted)])
     assert (extracted / 'usr/share/slopworld/SlopWorld/VERSION').read_text() == '1.0.0\n'
     assert (extracted / 'usr/bin/slopd').stat().st_mode & 0o111
-    result = debian.run(['dpkg-deb', '--fsys-tarfile', str(archive)], capture_output=True)
+    tar_result = execute(['dpkg-deb', '--fsys-tarfile', str(archive)], capture_output=True)
     import io
     import tarfile
 
-    with tarfile.open(fileobj=io.BytesIO(result.stdout)) as contents:
+    with tarfile.open(fileobj=io.BytesIO(tar_result.stdout)) as contents:
         assert all(member.uid == 0 and member.gid == 0 for member in contents.getmembers())

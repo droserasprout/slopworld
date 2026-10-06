@@ -5,6 +5,7 @@ import re
 import signal
 from dataclasses import dataclass
 from pathlib import Path
+from types import FrameType
 
 from tools.utils import log
 from tools.utils import run
@@ -72,7 +73,7 @@ def main() -> None:
             try:
                 current = select(line.rstrip('\n'), worktrees, current)
             except ValueError as error:
-                log(error, file=terminal_output)
+                log(str(error), file=terminal_output)
                 continue
             if not current.is_dir():
                 log(f'Checkout unavailable: {current}', file=terminal_output)
@@ -88,7 +89,7 @@ def main() -> None:
             run([just, 'install', 'run'], cwd=current, check=False)
 
 
-def exit_on_signal(*_) -> None:
+def exit_on_signal(_signal: int, _frame: FrameType | None) -> None:
     raise SystemExit(143)
 
 

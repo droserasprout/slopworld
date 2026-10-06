@@ -43,7 +43,7 @@ def parse_schemes() -> dict[str, dict[str, str | int]]:
 
     schemes = {scheme['id']: scheme for scheme in load_catalog()[0]}
     for scheme_id, scheme in schemes.items():
-        if any(rgba(scheme[role])[3] != 1 for role in SURFACES):
+        if any(rgba(str(scheme[role]))[3] != 1 for role in SURFACES):
             raise ValueError(f'{scheme_id}: view-surface analysis requires opaque backgrounds')
     return schemes
 
@@ -54,7 +54,8 @@ def rgba(value: str) -> tuple[float, float, float, float]:
         value += 'ff'
     if len(value) != 8:
         raise ValueError(f'invalid color: #{value}')
-    return tuple(int(value[i : i + 2], 16) / 255 for i in range(0, 8, 2))
+    r, g, b, a = (int(value[i : i + 2], 16) / 255 for i in range(0, 8, 2))
+    return r, g, b, a
 
 
 def over(foreground: tuple[float, ...], background: tuple[float, ...]) -> tuple[float, ...]:
@@ -75,7 +76,7 @@ def contrast(first: tuple[float, ...], second: tuple[float, ...]) -> float:
 
 
 def color(scheme: dict[str, str | int], role: str) -> tuple[float, ...]:
-    return rgba(scheme[role])
+    return rgba(str(scheme[role]))
 
 
 def rendered(scheme: dict[str, str | int], role: str) -> tuple[float, ...]:
@@ -97,7 +98,7 @@ def metrics(scheme: dict[str, str | int]) -> dict[str, float]:
 
 
 def print_report(schemes: dict[str, dict[str, str | int]]) -> None:
-    print('UI schemes: ' + ', '.join(schemes[scheme]['label'] for scheme in SCHEME_IDS))
+    print('UI schemes: ' + ', '.join(str(schemes[scheme]['label']) for scheme in SCHEME_IDS))
     print()
     print('scheme                 View L   Accent   EdgeLit     Lead      Dim    Faint')
     print('---------------------  -------  -------  --------  --------  -------  -------')

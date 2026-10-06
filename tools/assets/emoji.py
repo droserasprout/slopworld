@@ -24,8 +24,10 @@ import argparse
 import os
 import sys
 from functools import lru_cache
+from types import ModuleType
 
 import numpy as np
+from numpy.typing import NDArray
 from PIL import Image
 
 from tools import ROOT
@@ -39,7 +41,7 @@ BREATHE = 1.08
 
 
 @lru_cache(maxsize=1)
-def cairo_backend():
+def cairo_backend() -> tuple[ModuleType, ModuleType, ModuleType]:
     import cairo  # deferred: only needed when actually baking
     import gi
 
@@ -54,7 +56,7 @@ def cairo_backend():
     return cairo, Pango, PangoCairo
 
 
-def render(emoji, size):
+def render(emoji: str, size: int) -> NDArray[np.float32]:
     """The emoji at `size` square: premultiplied RGBA, float32, channels last."""
     cairo, Pango, PangoCairo = cairo_backend()
 
@@ -77,7 +79,7 @@ def render(emoji, size):
     return buf[..., [2, 1, 0, 3]].astype(np.float32) / 255.0
 
 
-def bake(emoji, name, size, out, color=False):
+def bake(emoji: str, name: str, size: int, out: str, color: bool = False) -> bool:
     try:
         # Keep premultiplied color during the LANCZOS filter.
         # This prevents transparent black pixels from darkening the glyph edge.
@@ -114,7 +116,7 @@ def bake(emoji, name, size, out, color=False):
     small = (
         np.asarray(
             Image.fromarray(np.clip(padded * 255 + 0.5, 0, 255).astype(np.uint8), 'RGBA').resize(
-                (size, size), Image.LANCZOS
+                (size, size), Image.Resampling.LANCZOS
             ),
             dtype=np.float32,
         )
@@ -139,7 +141,7 @@ def bake(emoji, name, size, out, color=False):
     return True
 
 
-def main():
+def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--emoji', action='append', required=True, help='an emoji to render (repeatable)')
     ap.add_argument('--name', action='append', required=True, help='output basename, one per --emoji (repeatable)')

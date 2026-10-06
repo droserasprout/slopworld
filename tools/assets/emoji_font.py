@@ -13,7 +13,7 @@ DEFAULT_FONT = ROOT / 'assets/fonts/noto-emoji/NotoColorEmoji.ttf'
 FAMILY = 'Noto Color Emoji'
 
 
-def configure_font():
+def configure_font() -> None:
     """Select only the bundled font before creating the baker's Pango font map."""
     if not DEFAULT_FONT.is_file():
         raise FileNotFoundError(DEFAULT_FONT)

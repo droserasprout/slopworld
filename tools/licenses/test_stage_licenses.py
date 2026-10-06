@@ -9,7 +9,7 @@ from tools.licenses import stage_licenses
 
 
 class LicenseTests(unittest.TestCase):
-    def test_check_rejects_missing_changed_and_extra_files_without_writing(self):
+    def test_check_rejects_missing_changed_and_extra_files_without_writing(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / 'licenses').mkdir()

@@ -6,16 +6,17 @@ import math
 import os
 import pathlib
 import time
+from typing import BinaryIO
 
 
-def validate_source(path, source, original):
+def validate_source(path: pathlib.Path, source: BinaryIO, original: os.stat_result) -> None:
     """Compare pathname identity and byte size with the open capture stream."""
     current = path.stat()
     if (current.st_dev, current.st_ino) != (original.st_dev, original.st_ino) or current.st_size < source.tell():
         raise RuntimeError('The game log was replaced or truncated. Repeat the capture after startup.')
 
 
-def capture(log, destination, seconds, label):
+def capture(log: pathlib.Path, destination: pathlib.Path, seconds: float, label: str) -> int:
     count = 0
     created = False
     try:

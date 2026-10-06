@@ -49,13 +49,13 @@ def package(output: Path, revision: str, version: str, architecture: str, binary
         latest.copy_file(ROOT / 'slopd/slopd.service', unit)
         unit.write_text(unit.read_text().replace('%h/.local/bin/slopd', '/usr/bin/slopd'))
         latest.stage_mod(staging / 'usr/share/slopworld/SlopWorld', revision, version)
-        for source, target in (
+        for source, relative_target in (
             ('packaging/slopworld.desktop', 'usr/share/applications/slopworld.desktop'),
             ('mod/Textures/SlopWorld/SlopWorld_icon.png', 'usr/share/icons/hicolor/128x128/apps/slopworld.png'),
             ('packaging/debian/README.Debian', 'usr/share/doc/slopworld/README.Debian'),
             ('LICENSE', 'usr/share/doc/slopworld/copyright'),
         ):
-            latest.copy_file(ROOT / source, staging / target)
+            latest.copy_file(ROOT / source, staging / relative_target)
         shutil.copytree(ROOT / 'licenses', staging / 'usr/share/doc/slopworld/third-party')
         # dpkg-shlibdeps requires a source control file even for binary-only staging.
         source_control = workspace / 'debian/control'

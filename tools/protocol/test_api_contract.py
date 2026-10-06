@@ -7,7 +7,7 @@ from unittest.mock import patch
 from tools.protocol import api_contract
 
 
-def test_check_preserves_stale_and_missing_outputs():
+def test_check_preserves_stale_and_missing_outputs() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory) / 'checkout'
         generated = Path(directory) / 'generated'

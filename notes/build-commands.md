@@ -73,9 +73,12 @@ their owners. `tools.ROOT` owns checkout paths; Python recipes use `uv run --loc
 and package imports rather than adding script directories to `sys.path`.
 `pyproject.toml` declares Python dependencies and `uv.lock` pins them. uv maintains
 the ignored `.venv/` without installing the repository package. Asset generators
-opt into the `assets` extra. The uv `dev` group owns Ruff, pytest, and pytest-cov.
-`just lint-tools` formats sources and sorts imports before checking core correctness rules; `just test-tools`
-validates shared inputs and runs package tests with branch coverage, excluding test
+opt into the `assets` extra. The uv `dev` group owns Ruff, strict mypy, pytest,
+pytest-cov, and the dependencies needed to type-check asset generators.
+`just lint-tools` formats sources and sorts imports before checking core correctness
+rules and running strict mypy across `tools/`, including its tests. Optional rendering
+backends without stubs have scoped missing-import overrides; package code remains strict.
+`just test-tools` validates shared inputs and runs package tests with branch coverage, excluding test
 files and package markers. `just lock-tools` updates dependency resolution.
 
 `tools/utils.py` owns shared command parsing, subprocess execution, logging, and CLI

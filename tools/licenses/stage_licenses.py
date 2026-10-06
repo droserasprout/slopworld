@@ -7,7 +7,7 @@ import shutil
 from tools import ROOT
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true', help='verify staged copies')
     args = parser.parse_args()

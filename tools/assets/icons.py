@@ -35,6 +35,7 @@ import sys
 import tomllib
 
 import numpy as np
+from numpy.typing import NDArray
 from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
@@ -51,7 +52,7 @@ DEFAULT_FONT = os.path.join(ROOT, 'assets', 'fonts', 'nerd-symbols', 'SymbolsNer
 EM = 256
 
 
-def ink(font, code):
+def ink(font: ImageFont.FreeTypeFont, code: int) -> NDArray[np.uint8] | None:
     """Return the cropped glyph pixels, or None if the glyph draws nothing."""
     # Use a three-em canvas and put the pen one em from each leading edge.
     # This prevents clipping for glyphs that extend beyond their advance width.
@@ -64,7 +65,7 @@ def ink(font, code):
     return a[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
 
 
-def main():
+def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument('--size', type=int, default=64)
     ap.add_argument('--margin', type=int, default=2)
@@ -106,8 +107,8 @@ def main():
         s = box / span
         # Resized at 4x the final edge and box-filtered down, not straight to size.
         big_w, big_h = max(1, round(w * s)) * 4, max(1, round(h * s)) * 4
-        small = Image.fromarray(a).resize((big_w, big_h), Image.LANCZOS)
-        small = np.asarray(small, dtype=np.float64).reshape(big_h // 4, 4, big_w // 4, 4).mean(axis=(1, 3)) / 255.0
+        resized = Image.fromarray(a).resize((big_w, big_h), Image.Resampling.LANCZOS)
+        small = np.asarray(resized, dtype=np.float64).reshape(big_h // 4, 4, big_w // 4, 4).mean(axis=(1, 3)) / 255.0
 
         # Centred in the square, rounding the odd pixel to the top-left the way the rest
         # of the chrome does.

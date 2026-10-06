@@ -1,6 +1,8 @@
 """Coverage orchestration respects paths, tool overrides, and early failure."""
 
+import shutil
 import subprocess
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -8,12 +10,14 @@ import pytest
 from tools.coverage import collect
 
 
-def test_rust_reports_use_absolute_output_paths_and_tool_environment(tmp_path, monkeypatch):
+def test_rust_reports_use_absolute_output_paths_and_tool_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv('CARGO', '"/tmp/cargo tool" --offline')
     monkeypatch.setenv('RUST_COVERAGE_EXCLUDE', '/tests/|/generated/')
     output = tmp_path / 'coverage with spaces'
     with (
-        patch.object(collect.shutil, 'which', side_effect=lambda tool: '/bin/' + tool),
+        patch.object(shutil, 'which', side_effect=lambda tool: '/bin/' + tool),
         patch.object(collect, 'run') as run,
         patch.object(collect, 'summarize') as summarize,
     ):
@@ -27,18 +31,18 @@ def test_rust_reports_use_absolute_output_paths_and_tool_environment(tmp_path, m
     assert summarize.call_count == 2
 
 
-def test_missing_cargo_llvm_cov_fails_before_creating_output(tmp_path):
-    with patch.object(collect.shutil, 'which', return_value=None), patch.object(collect, 'run') as run:
+def test_missing_cargo_llvm_cov_fails_before_creating_output(tmp_path: Path) -> None:
+    with patch.object(shutil, 'which', return_value=None), patch.object(collect, 'run') as run:
         with pytest.raises(ValueError, match='Missing cargo-llvm-cov'):
             collect.daemon(tmp_path / 'output')
         run.assert_not_called()
         assert not (tmp_path / 'output').exists()
 
 
-def test_failed_collection_does_not_publish_summary(tmp_path, monkeypatch):
+def test_failed_collection_does_not_publish_summary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('RUST_COVERAGE_EXCLUDE', '/tests/')
     with (
-        patch.object(collect.shutil, 'which', return_value='/bin/tool'),
+        patch.object(shutil, 'which', return_value='/bin/tool'),
         patch.object(collect, 'run', side_effect=subprocess.CalledProcessError(23, ['cargo'])),
         patch.object(collect, 'summarize') as summarize,
     ):
@@ -47,7 +51,9 @@ def test_failed_collection_does_not_publish_summary(tmp_path, monkeypatch):
         summarize.assert_not_called()
 
 
-def test_csharp_report_excludes_tests_and_generated_serialization(tmp_path, monkeypatch):
+def test_csharp_report_excludes_tests_and_generated_serialization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv('DOTNET', '"/tmp/dotnet tool"')
     monkeypatch.setenv('TEST_PROJECT', 'tests/project with spaces.csproj')
     monkeypatch.setenv('TEST_DLL', 'tests/library with spaces.dll')
@@ -62,10 +68,10 @@ def test_csharp_report_excludes_tests_and_generated_serialization(tmp_path, monk
     summarize.assert_called_once_with(tmp_path / 'csharp.cobertura.xml', 'C#')
 
 
-def test_missing_exclusions_fail_before_creating_output(tmp_path, monkeypatch):
+def test_missing_exclusions_fail_before_creating_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv('RUST_COVERAGE_EXCLUDE', raising=False)
     output = tmp_path / 'output'
-    with patch.object(collect.shutil, 'which', return_value='/bin/tool'), patch.object(collect, 'run') as run:
+    with patch.object(shutil, 'which', return_value='/bin/tool'), patch.object(collect, 'run') as run:
         with pytest.raises(KeyError, match='RUST_COVERAGE_EXCLUDE'):
             collect.daemon(output)
         run.assert_not_called()

@@ -6,10 +6,34 @@ requires-python = ">=3.12"
 dependencies = ["PyYAML"]
 
 [project.optional-dependencies]
-assets = ["numpy", "Pillow", "pycairo", "PyGObject", "CairoSVG"]
+assets = [
+    "numpy",
+    "Pillow",
+    "pycairo",
+    "PyGObject",
+    "CairoSVG",
+]
 
 [dependency-groups]
-dev = ["ruff", "pytest", "pytest-cov"]
+dev = [
+    "ruff",
+    "pytest",
+    "pytest-cov",
+    "mypy",
+    "types-PyYAML",
+    "Pillow",
+    "numpy",
+]
+
+[tool.mypy]
+files = ["tools"]
+python_version = "3.12"
+strict = true
+
+# Optional rendering backends expose runtime bindings without usable type stubs.
+[[tool.mypy.overrides]]
+module = ["cairo", "gi", "gi.repository.*", "cairosvg"]
+ignore_missing_imports = true
 
 [tool.ruff]
 line-length = 120

@@ -7,9 +7,10 @@ import pytest
 
 from tools.release import arch
 from tools.release import latest
+from tools.utils import run as execute
 
 
-def test_real_arch_package_metadata_and_safe_payload(tmp_path, monkeypatch):
+def test_real_arch_package_metadata_and_safe_payload(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     if not all(shutil.which(tool) for tool in ('makepkg', 'pacman', 'fakeroot', 'bwrap')):
         pytest.skip('Arch packaging tools are required')
     root = tmp_path / 'checkout'
@@ -39,9 +40,9 @@ def test_real_arch_package_metadata_and_safe_payload(tmp_path, monkeypatch):
     output = root / 'dist/output'
     output.mkdir(parents=True)
     archive = arch.package(output, 'revision', '1.0.0', mod)
-    result = arch.run(['pacman', '-Qip', str(archive)], capture_output=True, text=True)
+    result = execute(['pacman', '-Qip', str(archive)], capture_output=True, text=True)
     assert '1.0.0-1' in result.stdout
-    result = arch.run(['bsdtar', '-tf', str(archive)], capture_output=True, text=True)
+    result = execute(['bsdtar', '-tf', str(archive)], capture_output=True, text=True)
     assert '.BUILDINFO' in result.stdout and '.MTREE' in result.stdout
     assert 'usr/share/slopworld/SlopWorld/VERSION' in result.stdout
     assert 'usr/bin/slopd' in result.stdout

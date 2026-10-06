@@ -7,7 +7,7 @@ import pytest
 from tools.host import devloop
 
 
-def test_nul_records_preserve_spaces_newlines_and_detached_heads():
+def test_nul_records_preserve_spaces_newlines_and_detached_heads() -> None:
     records = b'worktree /tmp/a space\0HEAD abc\0branch refs/heads/feature/a\0\0worktree /tmp/line\nbreak\0HEAD def\0detached\0\0'
     worktrees = devloop.parse_worktrees(records)
     assert worktrees == [
@@ -19,6 +19,6 @@ def test_nul_records_preserve_spaces_newlines_and_detached_heads():
 
 
 @pytest.mark.parametrize('choice', ['0', '-1', '01', '3', '1;false', '100000', ' 1', '١'])
-def test_invalid_choice_does_not_select_a_checkout(choice):
+def test_invalid_choice_does_not_select_a_checkout(choice: str) -> None:
     with pytest.raises(ValueError, match='Choose a listed number'):
         devloop.select(choice, [devloop.Worktree(Path('/tmp/one'))], Path('/current'))

@@ -92,8 +92,8 @@ def package(output: Path, revision: str, version: str, mod: Path) -> Path:
     archives = list(workspace.glob('slopworld-*.pkg.tar.zst'))
     if len(archives) != 1:
         raise ValueError('makepkg did not produce exactly one release package')
-    destination = output / ASSET_NAME
-    archives[0].replace(destination)
+    archive_path = output / ASSET_NAME
+    archives[0].replace(archive_path)
     # Reading package metadata catches malformed archives before publication.
-    run(['pacman', '-Qip', str(destination)], capture_output=True, text=True)
-    return destination
+    run(['pacman', '-Qip', str(archive_path)], capture_output=True, text=True)
+    return archive_path

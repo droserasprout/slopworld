@@ -10,15 +10,15 @@ import time
 from tools import ROOT
 
 
-def main():
+def main() -> None:
     with tempfile.TemporaryDirectory(prefix='slopworld-pager-') as directory:
         root = pathlib.Path(directory)
         socket = str(root / 'tmux')
 
-        def tmux(*args):
+        def tmux(*args: str) -> str:
             return subprocess.check_output(['tmux', '-f', '/dev/null', '-S', socket, *args], text=True)
 
-        def wait_for(name, expected):
+        def wait_for(name: str, expected: str) -> list[str]:
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
                 lines = tmux('capture-pane', '-p', '-t', name + ':').splitlines()
@@ -45,7 +45,7 @@ def main():
         assert len(source_rows) == 18
         long_emoji.write_text('\n'.join(source_rows) + '\n')
 
-        def start(name, path):
+        def start(name: str, path: pathlib.Path) -> None:
             # Match the mod's LessEnv and the daemon's supplied startup geometry.
             tmux(
                 'new-session',
@@ -79,7 +79,9 @@ def main():
             lines = wait_for('long', 'line 4')
             assert lines[42] == 'line 46', lines
             sandbox = (ROOT / 'slopd/src/sandbox/mod.rs').read_text()
-            char_def = re.search(r'const PANE_LESS_UTFCHARDEF: &str = "([^"]+)";', sandbox).group(1)
+            match = re.search(r'const PANE_LESS_UTFCHARDEF: &str = "([^"]+)";', sandbox)
+            assert match is not None
+            char_def = match.group(1)
             tmux('set-option', '-s', 'codepoint-widths[0]', 'U+1F3FB-U+1F3FF=0')
             tmux(
                 'new-session',

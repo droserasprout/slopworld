@@ -1,8 +1,11 @@
 """GOG setup validates local state before invoking external commands."""
 
 import io
+import shutil
 import subprocess
 import sys
+from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -10,10 +13,10 @@ import pytest
 from tools.host import gogdl
 
 
-def test_empty_code_does_not_call_gogdl(tmp_path, monkeypatch):
+def test_empty_code_does_not_call_gogdl(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('GOGDL_LOGIN_URL', 'https://example.test/login')
     with (
-        patch.object(gogdl.shutil, 'which', return_value=None),
+        patch.object(shutil, 'which', return_value=None),
         patch.object(sys, 'stdin', io.StringIO('\n')),
         patch.object(gogdl, 'run') as run,
     ):
@@ -22,18 +25,18 @@ def test_empty_code_does_not_call_gogdl(tmp_path, monkeypatch):
         run.assert_not_called()
 
 
-def test_login_requires_saved_credentials(tmp_path, monkeypatch):
+def test_login_requires_saved_credentials(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('GOGDL_LOGIN_URL', 'https://example.test/login')
     auth = tmp_path / 'auth.json'
     for saved in (False, True):
 
-        def authenticate(*args, **kwargs):
+        def authenticate(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
             if saved:
                 auth.write_text('{}')
             return subprocess.CompletedProcess(args[0], 0, '{"access_token":"secret", "refresh_token":"secret"}', '')
 
         with (
-            patch.object(gogdl.shutil, 'which', return_value=None),
+            patch.object(shutil, 'which', return_value=None),
             patch.object(sys, 'stdin', io.StringIO('code with spaces\n')),
             patch.object(gogdl, 'run', side_effect=authenticate) as run,
         ):
@@ -46,7 +49,7 @@ def test_login_requires_saved_credentials(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize('action', ['install', 'update'])
-def test_missing_credentials_prevent_game_changes(tmp_path, monkeypatch, action):
+def test_missing_credentials_prevent_game_changes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, action: str) -> None:
     monkeypatch.setenv('GOGDL_AUTH', str(tmp_path / 'auth.json'))
     monkeypatch.setenv('GOGDL_PATH', str(tmp_path / 'game'))
     monkeypatch.setenv('RIMWORLD', str(tmp_path / 'game'))
@@ -63,7 +66,7 @@ def test_missing_credentials_prevent_game_changes(tmp_path, monkeypatch, action)
         assert not (tmp_path / 'game').exists()
 
 
-def test_install_keeps_paths_and_command_override_arguments(tmp_path, monkeypatch):
+def test_install_keeps_paths_and_command_override_arguments(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     auth = tmp_path / 'auth with spaces.json'
     auth.write_text('{}')
     game = tmp_path / 'game with spaces'
@@ -92,12 +95,14 @@ def test_install_keeps_paths_and_command_override_arguments(tmp_path, monkeypatc
 
 
 @pytest.mark.parametrize('response', ['{"error":true}', '{}', 'not JSON'])
-def test_failed_login_rejects_existing_credentials_without_printing_response(tmp_path, monkeypatch, capsys, response):
+def test_failed_login_rejects_existing_credentials_without_printing_response(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], response: str
+) -> None:
     monkeypatch.setenv('GOGDL_LOGIN_URL', 'https://example.test/login')
     auth = tmp_path / 'auth.json'
     auth.write_text('old credentials')
     with (
-        patch.object(gogdl.shutil, 'which', return_value=None),
+        patch.object(shutil, 'which', return_value=None),
         patch.object(sys, 'stdin', io.StringIO('code\n')),
         patch.object(gogdl, 'run', return_value=subprocess.CompletedProcess([], 0, response, 'secret')) as run,
     ):

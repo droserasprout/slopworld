@@ -37,10 +37,11 @@ lint-daemon: check-format-daemon
 lint-mod:
     "{{ just_executable() }}" BUILD=release MOD_WARNINGS_AS_ERRORS=true mod check-format-mod
 
-# Format and check Python package code with Ruff
+# Format Python code, check Ruff rules, and strictly type-check tools
 [group('Lint')]
 lint-tools: format-tools
     {{ UV }} run --locked ruff check {{ PYTHON_TOOLS }}
+    {{ UV }} run --locked mypy
 
 # Fix automatically correctable Python package lint findings
 [group('Formatting')]

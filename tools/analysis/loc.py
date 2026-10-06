@@ -29,7 +29,12 @@ import re
 import subprocess
 import sys
 import tokenize
+from collections.abc import Iterator
 from pathlib import Path
+
+type Block = tuple[str, str]
+type Syntax = tuple[tuple[str, ...], tuple[Block, ...], tuple[str, ...]]
+type Counts = tuple[int, int, int, int]
 
 # line comments, block comment pairs, string quotes.
 C_LIKE = (('//',), (('/*', '*/'),), ('"', "'"))
@@ -38,7 +43,7 @@ XML = ((), (('<!--', '-->'),), ())
 
 PY = HASH
 
-LANGS = {
+LANGS: dict[str, tuple[str, Syntax]] = {
     '.cs': ('C#', C_LIKE),
     '.rs': ('Rust', C_LIKE),
     '.py': ('Python', PY),
@@ -51,19 +56,19 @@ LANGS = {
     '.md': ('Markdown', ((), (), ())),
 }
 
-BY_NAME = {'justfile': ('Just', HASH)}
+BY_NAME: dict[str, tuple[str, Syntax]] = {'justfile': ('Just', HASH)}
 
 DOCS = {'Markdown'}
 
 
-def syntax_for(path):
+def syntax_for(path: Path) -> tuple[str, Syntax] | None:
     named = BY_NAME.get(path.name)
     if named:
         return named
     return LANGS.get(path.suffix)
 
 
-def scan(line, syn, block, *, rust=False):
+def scan(line: str, syn: Syntax, block: Block | None, *, rust: bool = False) -> tuple[bool, str | None, Block | None]:
     """Scan one line and return its code state, comment text, and block state.
 
     Join text from multiple comments on one line.
@@ -111,9 +116,9 @@ def scan(line, syn, block, *, rust=False):
                 else:
                     i += 1
             continue
-        opened = next((c for c in lines if line.startswith(c, i)), None)
-        if opened:
-            said.append(line[i + len(opened) :])
+        line_marker = next((c for c in lines if line.startswith(c, i)), None)
+        if line_marker:
+            said.append(line[i + len(line_marker) :])
             return code, join(said), None
         if not ch.isspace():
             code = True
@@ -121,7 +126,7 @@ def scan(line, syn, block, *, rust=False):
     return code, join(said), block
 
 
-def join(said):
+def join(said: list[str]) -> str | None:
     """Return comment text without markers or indentation, or return None.
 
     Remove additional markers from documentation comments.
@@ -132,13 +137,13 @@ def join(said):
     return ' '.join(s.strip() for s in said).strip().lstrip('/*!').strip()
 
 
-def count(path, syn):
+def count(path: Path, syn: Syntax) -> Counts:
     """Returns (total, blank, comment, code) for one file."""
     text = path.read_text(encoding='utf-8', errors='replace')
     if path.suffix == '.py':
         return count_python(text)
     total = blank = comment = code = 0
-    block = None
+    block: Block | None = None
     for line in text.splitlines():
         total += 1
         has_code, said, block = scan(line, syn, block, rust=path.suffix == '.rs')
@@ -153,7 +158,7 @@ def count(path, syn):
     return total, blank, comment, code
 
 
-def count_python(text):
+def count_python(text: str) -> Counts:
     """Classify physical lines, counting only actual docstrings as comments."""
     tree = ast.parse(text)
     docstrings = set()
@@ -163,7 +168,8 @@ def count_python(text):
                 value = node.body[0].value
                 if isinstance(value, ast.Constant) and isinstance(value.value, str):
                     docstrings.add((value.lineno, value.col_offset))
-    code_lines, comment_lines = set(), set()
+    code_lines: set[int] = set()
+    comment_lines: set[int] = set()
     ignored = {tokenize.ENDMARKER, tokenize.ENCODING, tokenize.INDENT, tokenize.DEDENT, tokenize.NEWLINE, tokenize.NL}
     for token in tokenize.generate_tokens(io.StringIO(text).readline):
         if token.type in ignored:
@@ -184,7 +190,7 @@ def count_python(text):
 PROSE = {'C#', 'Rust'}
 
 
-def blocks(path, syn):
+def blocks(path: Path, syn: Syntax) -> Iterator[tuple[int, list[str]]]:
     """Return comment blocks as a line number and a list of text lines.
 
     Join adjacent comment lines into one block.
@@ -195,7 +201,9 @@ def blocks(path, syn):
     except OSError as e:
         print(f'{path}: {e}', file=sys.stderr)
         return
-    run, start, block = [], 0, None
+    run: list[str] = []
+    start = 0
+    block: Block | None = None
     for n, line in enumerate(text.splitlines(), 1):
         has_code, said, block = scan(line, syn, block, rust=path.suffix == '.rs')
         if said is not None and not has_code:
@@ -212,7 +220,7 @@ def blocks(path, syn):
         yield start, run
 
 
-def show(paths, least):
+def show(paths: list[str], least: int) -> None:
     """Prints every comment in the C# and the Rust, file by file."""
     files = runs = 0
     for path in tracked(paths):
@@ -236,7 +244,7 @@ def show(paths, least):
     print(f'# {runs} comments in {files} files.')
 
 
-def tracked(paths):
+def tracked(paths: list[str]) -> list[Path]:
     out = subprocess.run(
         ['git', 'ls-files', '-z', '--', *paths],
         capture_output=True,
@@ -246,9 +254,9 @@ def tracked(paths):
     return [Path(p) for p in out.split('\0') if p]
 
 
-def measure(paths, docs=False, languages=None):
+def measure(paths: list[str], docs: bool = False, languages: set[str] | None = None) -> dict[str, list[int]]:
     """Returns per-language ``[files, lines, blank, comment, code]`` totals."""
-    rows = {}
+    rows: dict[str, list[int]] = {}
     for path in tracked(paths):
         found = syntax_for(path)
         if not found:
@@ -265,7 +273,7 @@ def measure(paths, docs=False, languages=None):
     return rows
 
 
-def main(argv):
+def main(argv: list[str]) -> None:
     docs = '--docs' in argv
     least = next((int(a.split('=')[1]) for a in argv if a.startswith('--min=')), 1)
     paths = [a for a in argv if not a.startswith('-')]

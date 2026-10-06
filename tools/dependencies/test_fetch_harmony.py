@@ -3,17 +3,20 @@
 import hashlib
 import io
 import json
+import os
 import tempfile
 import unittest
 import urllib.error
+import urllib.request
 import zipfile
 from pathlib import Path
+from unittest.mock import MagicMock
 from unittest.mock import patch
 
 from tools.dependencies import fetch_harmony as harmony
 
 
-def archive_bytes(entry=harmony.ARCHIVE_ENTRY, assembly=b'new assembly'):
+def archive_bytes(entry: str = harmony.ARCHIVE_ENTRY, assembly: bytes = b'new assembly') -> bytes:
     output = io.BytesIO()
     with zipfile.ZipFile(output, 'w') as archive:
         archive.writestr(entry, assembly)
@@ -22,7 +25,7 @@ def archive_bytes(entry=harmony.ARCHIVE_ENTRY, assembly=b'new assembly'):
 
 
 class FetchHarmonyTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.destination = Path(self.directory.name) / 'assemblies with spaces'
@@ -30,7 +33,13 @@ class FetchHarmonyTests(unittest.TestCase):
         self.target = self.destination / '0Harmony.dll'
         self.target.write_bytes(b'old assembly')
 
-    def fetch(self, archive, digest=None, assets=True, download_error=None):
+    def fetch(
+        self,
+        archive: bytes,
+        digest: str | None = None,
+        assets: bool = True,
+        download_error: Exception | None = None,
+    ) -> MagicMock:
         asset = {
             'name': harmony.ASSET_NAME,
             'browser_download_url': 'https://example.test/harmony.zip',
@@ -38,15 +47,15 @@ class FetchHarmonyTests(unittest.TestCase):
         }
         release = {'tag_name': 'v1.2.3', 'assets': [asset] if assets else []}
         responses = [io.BytesIO(json.dumps(release).encode()), download_error or io.BytesIO(archive)]
-        with patch.object(harmony.urllib.request, 'urlopen', side_effect=responses) as download:
+        with patch.object(urllib.request, 'urlopen', side_effect=responses) as download:
             harmony.fetch_harmony(self.destination)
         return download
 
-    def assert_untouched(self):
+    def assert_untouched(self) -> None:
         self.assertEqual(self.target.read_bytes(), b'old assembly')
         self.assertEqual(list(self.destination.iterdir()), [self.target])
 
-    def test_verified_assembly_replaces_existing_file_and_can_be_installed_repeatedly(self):
+    def test_verified_assembly_replaces_existing_file_and_can_be_installed_repeatedly(self) -> None:
         for _ in range(2):
             download = self.fetch(archive_bytes())
             self.assertEqual(self.target.read_bytes(), b'new assembly')
@@ -56,13 +65,13 @@ class FetchHarmonyTests(unittest.TestCase):
             self.assertEqual(download.call_args_list[1].args[0], 'https://example.test/harmony.zip')
         self.assertFalse((self.destination.parent / 'unexpected').exists())
 
-    def test_install_creates_missing_destination(self):
+    def test_install_creates_missing_destination(self) -> None:
         self.target.unlink()
         self.destination.rmdir()
         self.fetch(archive_bytes())
         self.assertEqual(self.target.read_bytes(), b'new assembly')
 
-    def test_missing_asset_and_invalid_digests_preserve_existing_installation(self):
+    def test_missing_asset_and_invalid_digests_preserve_existing_installation(self) -> None:
         with self.assertRaisesRegex(ValueError, 'has no HarmonyMod.zip asset'):
             self.fetch(archive_bytes(), assets=False)
         for digest in ('', 'sha256:abc', 'sha512:' + '0' * 64):
@@ -70,24 +79,24 @@ class FetchHarmonyTests(unittest.TestCase):
                 self.fetch(archive_bytes(), digest=digest)
         self.assert_untouched()
 
-    def test_checksum_mismatch_preserves_existing_installation(self):
+    def test_checksum_mismatch_preserves_existing_installation(self) -> None:
         with self.assertRaisesRegex(ValueError, 'failed SHA-256 verification'):
             self.fetch(archive_bytes(), digest='sha256:' + '0' * 64)
         self.assert_untouched()
 
-    def test_missing_empty_and_invalid_archives_preserve_existing_installation(self):
+    def test_missing_empty_and_invalid_archives_preserve_existing_installation(self) -> None:
         for archive in (archive_bytes(entry='other.dll'), archive_bytes(assembly=b''), b'invalid zip'):
             with self.subTest(archive=archive), self.assertRaises((ValueError, zipfile.BadZipFile)):
                 self.fetch(archive)
             self.assert_untouched()
 
-    def test_download_failure_preserves_existing_installation(self):
+    def test_download_failure_preserves_existing_installation(self) -> None:
         with self.assertRaises(urllib.error.URLError):
             self.fetch(archive_bytes(), download_error=urllib.error.URLError('connection lost'))
         self.assert_untouched()
 
-    def test_failed_publish_cleans_staging_file_and_next_attempt_recovers(self):
-        with patch.object(harmony.os, 'replace', side_effect=OSError('cannot publish')):
+    def test_failed_publish_cleans_staging_file_and_next_attempt_recovers(self) -> None:
+        with patch.object(os, 'replace', side_effect=OSError('cannot publish')):
             with self.assertRaisesRegex(OSError, 'cannot publish'):
                 self.fetch(archive_bytes())
         self.assert_untouched()

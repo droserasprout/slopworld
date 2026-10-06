@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from tools import ROOT
+from tools.docs.reference import Route
 from tools.docs.reference import api_routes
 from tools.docs.reference import read_files
 from tools.protocol import wire_contract
@@ -57,7 +58,7 @@ def render() -> str:
         'file-action': 'Library and actions',
         'open-apps': 'Library and actions',
     }
-    groups = {}
+    groups: dict[str, list[Route]] = {}
     for route in routes:
         if route.path == '/ws':
             continue

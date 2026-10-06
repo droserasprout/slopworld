@@ -7,11 +7,11 @@ import subprocess
 from tools import ROOT
 
 
-def cell(value):
+def cell(value: str) -> str:
     return value.replace('|', '\\|').replace('\r\n', ' ').replace('\r', ' ').replace('\n', ' ')
 
 
-def main():
+def main() -> None:
     metadata = json.loads(
         subprocess.check_output(
             [

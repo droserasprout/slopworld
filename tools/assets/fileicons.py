@@ -43,12 +43,12 @@ UPSTREAM = 'https://raw.githubusercontent.com/material-extensions/vscode-materia
 SUPER = 4
 
 
-def names():
+def names() -> list[str]:
     with open(MANIFEST, 'rb') as f:
         return list(tomllib.load(f).keys())
 
 
-def fetch(icons):
+def fetch(icons: list[str]) -> bool:
     os.makedirs(SRC, exist_ok=True)
     failed = False
     for name in icons:
@@ -66,7 +66,7 @@ def fetch(icons):
     return not failed
 
 
-def render(path, edge):
+def render(path: str, edge: int) -> Image.Image:
     """One SVG at `edge` pixels square, as RGBA."""
     try:
         png = subprocess.run(
@@ -81,7 +81,7 @@ def render(path, edge):
     return Image.open(io.BytesIO(png)).convert('RGBA')
 
 
-def bake(name, size):
+def bake(name: str, size: int) -> bool:
     src = os.path.join(SRC, f'{name}.svg')
     if not os.path.exists(src):
         print(f'  {name}: no SVG. Run with --fetch.', file=sys.stderr)
@@ -105,7 +105,7 @@ def bake(name, size):
     return True
 
 
-def main():
+def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument('--fetch', action='store_true')
     ap.add_argument('--size', type=int, default=32)

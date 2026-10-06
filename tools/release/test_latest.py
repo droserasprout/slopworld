@@ -1,20 +1,23 @@
 """Protect release archive contents and failure ordering without game or GitHub access."""
 
 import hashlib
+import platform
 import subprocess
 import tarfile
 import xml.etree.ElementTree as ET
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
+from tools import ROOT
 from tools.release import latest
 
 
-def test_runtime_allowlist_matches_mod_project_references():
-    project = ET.parse(latest.ROOT / 'mod/Source/SlopWorld/SlopWorld.csproj')
+def test_runtime_allowlist_matches_mod_project_references() -> None:
+    project = ET.parse(ROOT / 'mod/Source/SlopWorld/SlopWorld.csproj')
     runtime = {
         reference.attrib['Include']
         for reference in project.findall('.//Reference')
@@ -24,12 +27,12 @@ def test_runtime_allowlist_matches_mod_project_references():
 
 
 @pytest.fixture
-def inputs(tmp_path, monkeypatch):
+def inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / 'checkout'
     root.mkdir()
     monkeypatch.setattr(latest, 'ROOT', root)
 
-    def write(name, content=b'release input'):
+    def write(name: str, content: bytes = b'release input') -> Path:
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
@@ -62,13 +65,17 @@ def inputs(tmp_path, monkeypatch):
     return root
 
 
-def test_archives_include_runtime_licenses_metadata_and_exclude_game_and_local_files(inputs, tmp_path):
+def test_archives_include_runtime_licenses_metadata_and_exclude_game_and_local_files(
+    inputs: Path, tmp_path: Path
+) -> None:
     output = tmp_path / 'release output'
     assets = latest.package(output, 'a' * 40, '0.1.0-snapshot')
     with tarfile.open(assets[0]) as archive:
         prefix = latest.DAEMON_NAME
         assert archive.getmember(f'{prefix}/bin/slopd').mode & 0o111
-        assert archive.extractfile(f'{prefix}/REVISION').read() == b'a' * 40 + b'\n'
+        revision_file = archive.extractfile(f'{prefix}/REVISION')
+        assert revision_file is not None
+        assert revision_file.read() == b'a' * 40 + b'\n'
         assert f'{prefix}/licenses/dependency.txt' in archive.getnames()
     with zipfile.ZipFile(assets[1]) as archive:
         names = archive.namelist()
@@ -83,7 +90,7 @@ def test_archives_include_runtime_licenses_metadata_and_exclude_game_and_local_f
         assert digest == hashlib.sha256((output / name).read_bytes()).hexdigest()
 
 
-def test_missing_runtime_input_preserves_previous_archives(inputs, tmp_path):
+def test_missing_runtime_input_preserves_previous_archives(inputs: Path, tmp_path: Path) -> None:
     output = tmp_path / 'dist'
     assets = latest.package(output, 'a' * 40, 'snapshot')
     original = [asset.read_bytes() for asset in assets]
@@ -93,7 +100,7 @@ def test_missing_runtime_input_preserves_previous_archives(inputs, tmp_path):
     assert [asset.read_bytes() for asset in assets] == original
 
 
-def test_dirty_or_changed_checkout_is_rejected():
+def test_dirty_or_changed_checkout_is_rejected() -> None:
     with patch.object(latest, 'git', return_value=' M tracked'):
         with pytest.raises(ValueError, match='clean checkout'):
             latest.validate_checkout('revision')
@@ -102,7 +109,7 @@ def test_dirty_or_changed_checkout_is_rejected():
             latest.validate_checkout('revision')
 
 
-def test_build_forces_release_and_one_version_and_stops_on_failure(monkeypatch):
+def test_build_forces_release_and_one_version_and_stops_on_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('JUST_CMD', '/path with spaces/just')
     monkeypatch.setenv('VERSION', 'explicit-version')
     with patch.object(latest, 'run') as run, patch.object(latest, 'validate_checkout') as validate:
@@ -121,7 +128,7 @@ def test_build_forces_release_and_one_version_and_stops_on_failure(monkeypatch):
 
 
 @pytest.mark.parametrize('existing', [False, True])
-def test_publish_creates_or_updates_tag_before_upload_and_edits_after_upload(tmp_path, existing):
+def test_publish_creates_or_updates_tag_before_upload_and_edits_after_upload(tmp_path: Path, existing: bool) -> None:
     assets = [tmp_path / name for name in latest.ASSET_NAMES]
     with (
         patch.object(
@@ -146,7 +153,7 @@ def test_publish_creates_or_updates_tag_before_upload_and_edits_after_upload(tmp
     assert '--latest' in calls[-1]
 
 
-def test_immutable_release_and_upload_failure_stop_publication(tmp_path):
+def test_immutable_release_and_upload_failure_stop_publication(tmp_path: Path) -> None:
     with patch.object(latest, 'github_json', return_value={'immutable': True}), patch.object(latest, 'run') as run:
         with pytest.raises(ValueError, match='immutable'):
             latest.publish(['gh'], 'owner/repo', tmp_path, 'revision', [])
@@ -163,7 +170,7 @@ def test_immutable_release_and_upload_failure_stop_publication(tmp_path):
 @pytest.mark.parametrize(
     'status, stderr', [(404, 'gh: Not Found (HTTP 404)'), (403, 'gh: Forbidden (HTTP 403)'), (1, 'connection refused')]
 )
-def test_only_http_404_is_treated_as_missing(status, stderr):
+def test_only_http_404_is_treated_as_missing(status: int, stderr: str) -> None:
     result = subprocess.CompletedProcess(['gh'], status, '', stderr)
     with patch.object(latest, 'run', return_value=result):
         if status == 404:
@@ -173,11 +180,11 @@ def test_only_http_404_is_treated_as_missing(status, stderr):
                 latest.github_json(['gh'], 'endpoint')
 
 
-def test_failed_build_never_packages_or_publishes(monkeypatch):
+def test_failed_build_never_packages_or_publishes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr('sys.argv', ['latest', 'publish'])
     with (
-        patch.object(latest.platform, 'system', return_value='Linux'),
-        patch.object(latest.platform, 'machine', return_value='x86_64'),
+        patch.object(platform, 'system', return_value='Linux'),
+        patch.object(platform, 'machine', return_value='x86_64'),
         patch.object(latest, 'git', return_value='revision'),
         patch.object(latest, 'validate_checkout'),
         patch.object(latest, 'run', return_value=subprocess.CompletedProcess([], 0, 'owner/repo\n')),
@@ -191,11 +198,11 @@ def test_failed_build_never_packages_or_publishes(monkeypatch):
         publish.assert_not_called()
 
 
-def test_native_packages_are_included_in_checksums_and_outputs(inputs, tmp_path):
+def test_native_packages_are_included_in_checksums_and_outputs(inputs: Path, tmp_path: Path) -> None:
     output = tmp_path / 'release'
 
-    def native(name):
-        def build(staging, *args):
+    def native(name: str) -> Callable[..., Path]:
+        def build(staging: Path, *args: object) -> Path:
             path = staging / name
             path.write_bytes(name.encode())
             return path
@@ -215,7 +222,7 @@ def test_native_packages_are_included_in_checksums_and_outputs(inputs, tmp_path)
         assert digest == hashlib.sha256((output / name).read_bytes()).hexdigest()
 
 
-def test_native_package_failure_preserves_entire_previous_release(inputs, tmp_path):
+def test_native_package_failure_preserves_entire_previous_release(inputs: Path, tmp_path: Path) -> None:
     output = tmp_path / 'release'
     assets = latest.package(output, 'revision', '1.0.0')
     previous = [path.read_bytes() for path in assets]

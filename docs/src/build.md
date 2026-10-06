@@ -123,16 +123,18 @@ user setup are covered in [Install](install.md#debian-and-ubuntu).
 | Target | Purpose | Extra requirements |
 | --- | --- | --- |
 | `just format` | Format Python tools and Rust/C# production, test, and benchmark sources | — |
-| `just lint` | Python Ruff checks, Rust formatting/Clippy, and a Release mod build with C# formatting checks | Game assemblies |
+| `just lint` | Python Ruff and strict mypy checks, Rust formatting/Clippy, and a Release mod build with C# formatting checks | Game assemblies |
 | `just test` | All game-free Rust, C#, tool, and pager tests | `tmux`, `less` |
 | `just ci` | Game-free tests with coverage, formatting, Rust lint, and generated-contract checks | `tmux`, `less`, coverage tools |
 
 Use `test-daemon`, `test-mod`, `test-tools`, or `test-pager` to run a subset.
 `just test-tools` runs benchmark helper tests and the Python package tests through pytest,
 writing branch coverage to `coverage/python.cobertura.xml`. Existing unittest tests run under pytest.
-`just lint-tools` formats the package and sorts imports before checking it with Ruff.
-`just format-tools` applies the 120-column, single-quote style and sorts imports. Both tools and pytest-cov belong
-to the uv `dev` dependency group. Tools run as modules from the repository root through uv;
+`just lint-tools` formats the package and sorts imports before checking it with Ruff
+and running strict mypy across `tools/`, including its tests.
+`just format-tools` applies the 120-column, single-quote style and sorts imports.
+Ruff, mypy, and pytest-cov belong to the uv `dev` dependency group.
+Tools run as modules from the repository root through uv;
 for example, `uv run --locked python -m tools.docs.reference`.
 Use `just lock-tools` after changing Python dependencies and commit `uv.lock`.
 For an asset tool, use `uv run --locked --extra assets python -m tools.assets.emoji --help`.

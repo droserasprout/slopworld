@@ -18,11 +18,16 @@ The tool requires NumPy, Pillow, pycairo, Pango, and Fontconfig; Noto Color Emoj
 
 import os
 import sys
+from typing import cast
 
 import numpy as np
+from numpy.typing import NDArray
 from PIL import Image
 
 from tools import ROOT
+
+type FloatArray = NDArray[np.float64]
+type ColorBuffer = NDArray[np.float32] | FloatArray
 
 # ── robot face geometry (lifted from roboface.py) ──────────────────────────
 
@@ -51,49 +56,50 @@ C_BOLT = np.array([0.52, 0.535, 0.56])
 C_GLOW = np.array([0.45, 0.75, 0.95])
 
 _y, _x = np.mgrid[0:S, 0:S]
-X, Y = (_x + 0.5) / SS, (_y + 0.5) / SS
+X: FloatArray = (_x + 0.5) / SS
+Y: FloatArray = (_y + 0.5) / SS
 
 
-def cover(sd):
+def cover(sd: FloatArray) -> FloatArray:
     return np.clip(0.5 - sd * SS, 0.0, 1.0)
 
 
-def rrect(x0, y0, x1, y1, r):
+def rrect(x0: float, y0: float, x1: float, y1: float, r: float) -> FloatArray:
     hx, hy = (x1 - x0) / 2 - r, (y1 - y0) / 2 - r
     dx = np.abs(X - (x0 + x1) / 2) - hx
     dy = np.abs(Y - (y0 + y1) / 2) - hy
     outside = np.sqrt(np.maximum(dx, 0) ** 2 + np.maximum(dy, 0) ** 2)
-    return outside + np.minimum(np.maximum(dx, dy), 0) - r
+    return cast(FloatArray, outside + np.minimum(np.maximum(dx, dy), 0) - r)
 
 
-def disc(cx, cy, r):
+def disc(cx: float, cy: float, r: float) -> FloatArray:
     return np.sqrt((X - cx) ** 2 + (Y - cy) ** 2) - r
 
 
-def skull(inset=0.0):
+def skull(inset: float = 0.0) -> FloatArray:
     dx, dy = (X - CX) / RX, (Y - CY) / RY
     f = np.abs(dx) ** EXP + np.abs(dy) ** EXP
     return (f ** (1.0 / EXP) - 1.0) * min(RX, RY) + inset
 
 
 class Face:
-    def __init__(self):
-        self.rgb = np.zeros((S, S, 3), np.float32)
-        self.a = np.zeros((S, S), np.float32)
+    def __init__(self) -> None:
+        self.rgb: ColorBuffer = np.zeros((S, S, 3), np.float32)
+        self.a: ColorBuffer = np.zeros((S, S), np.float32)
 
-    def paint(self, mask, color):
+    def paint(self, mask: FloatArray, color: FloatArray) -> None:
         m = mask[..., None]
         self.rgb = self.rgb * (1 - m) + np.asarray(color, np.float32) * m
         self.a = mask + self.a * (1 - mask)
 
 
-def steel(x0, y0, x1, y1):
+def steel(x0: float, y0: float, x1: float, y1: float) -> FloatArray:
     t = np.clip((Y - y0) / (y1 - y0), 0, 1)[..., None]
     lit = np.clip(1.0 - (((X - (x0 + (x1 - x0) * 0.3)) ** 2 + (Y - (y0 + (y1 - y0) * 0.25)) ** 2) / 900.0), 0, 1)
     return np.clip(C_PLATE_TOP * (1 - t) + C_PLATE_BOT * t + lit[..., None] * 0.09, 0, 1)
 
 
-def front(f, *cuts):
+def front(f: Face, *cuts: FloatArray) -> FloatArray:
     region = skull(SKIN_INSET)
     for c in cuts:
         region = np.maximum(region, c)
@@ -106,15 +112,15 @@ def front(f, *cuts):
     return region
 
 
-def below(y):
+def below(y: float) -> FloatArray:
     return y - Y
 
 
-def clipped(mask, region):
+def clipped(mask: FloatArray, region: FloatArray) -> FloatArray:
     return mask * cover(region + SEAM_W)
 
 
-def eye(f, cx, cy):
+def eye(f: Face, cx: float, cy: float) -> None:
     f.paint(cover(disc(cx, cy, EYE_R)), C_LENS)
     iris = cover(disc(cx, cy, IRIS_R))
     g = np.clip(1.25 - ((X - (cx - IRIS_R)) + (Y - (cy - IRIS_R))) / (IRIS_R * 4), 0.35, 1.0)
@@ -122,19 +128,19 @@ def eye(f, cx, cy):
     f.a = iris + f.a * (1 - iris)
 
 
-def mouth(f, x0, y0, x1, y1, bars):
+def mouth(f: Face, x0: float, y0: float, x1: float, y1: float, bars: tuple[float, ...]) -> None:
     f.paint(cover(rrect(x0, y0, x1, y1, MOUTH_R)), C_LENS)
     inside = cover(rrect(x0 + 0.9, y0 + 0.9, x1 - 0.9, y1 - 0.9, MOUTH_R * 0.6))
     for x in bars:
         f.paint(cover(rrect(x - BAR_W, y0, x + BAR_W, y1, BAR_W * 0.8)) * inside, C_PLATE_BOT)
 
 
-def bolt(f, cx, cy, region):
+def bolt(f: Face, cx: float, cy: float, region: FloatArray) -> None:
     f.paint(clipped(cover(disc(cx, cy, BOLT_R)), region), C_BOLT)
     f.paint(clipped(cover(disc(cx, cy, BOLT_R * 0.45)), region), C_SEAM)
 
 
-def draw_robot():
+def draw_robot() -> FloatArray:
     f = Face()
     region = front(f, below(HAIRLINE))
     for x in EYES_X:
@@ -145,13 +151,13 @@ def draw_robot():
     px = np.dstack([f.rgb, f.a]).reshape(N, SS, N, SS, 4).mean(axis=(1, 3))
     rgb, a = px[..., :3], px[..., 3:]
     rgb = np.where(a > 1e-4, rgb / np.maximum(a, 1e-4), 0.0)
-    return np.clip(np.concatenate([rgb, a], -1), 0, 1)
+    return cast(FloatArray, np.clip(np.concatenate([rgb, a], -1), 0, 1))
 
 
 # ── step 1: render rose as a separate PNG ─────────────────────────────────
 
 
-def render_rose_png(target_h, out_path):
+def render_rose_png(target_h: int, out_path: str) -> tuple[NDArray[np.uint8], int, int]:
     """Render 🥀 via PangoCairo, save as a standalone RGBA PNG at target_h high."""
     from tools.assets.emoji import render
 
@@ -169,7 +175,7 @@ def render_rose_png(target_h, out_path):
     scale = target_h / rh
     new_w = max(1, int(round(rw * scale)))
     rose_pil = Image.fromarray((rose * 255).astype(np.uint8))
-    rose_scaled = np.array(rose_pil.resize((new_w, target_h), Image.LANCZOS), dtype=np.uint8)
+    rose_scaled = np.array(rose_pil.resize((new_w, target_h), Image.Resampling.LANCZOS), dtype=np.uint8)
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     Image.fromarray(rose_scaled).save(out_path)
     print('wrote', os.path.normpath(out_path))
@@ -179,7 +185,7 @@ def render_rose_png(target_h, out_path):
 # ── step 2: composite ─────────────────────────────────────────────────────
 
 
-def make_icon(rose_path):
+def make_icon(rose_path: str) -> NDArray[np.float32]:
     # Load the rose PNG first: it is the layer *below* the robot face.
     rose_pil = Image.open(rose_path)
     rose = np.array(rose_pil, dtype=np.float32) / 255.0
@@ -220,7 +226,7 @@ def make_icon(rose_path):
     return icon
 
 
-def main():
+def main() -> int:
     tex_dir = ROOT / 'mod/Textures/SlopWorld'
     os.makedirs(tex_dir, exist_ok=True)
 
@@ -245,7 +251,7 @@ def main():
     original_edge = max(artwork.size)
     target_edge = (original_edge + N - 2 * margin) / 2
     scale = target_edge / original_edge
-    fitted = artwork.resize(tuple(round(edge * scale) for edge in artwork.size), Image.Resampling.LANCZOS)
+    fitted = artwork.resize((round(artwork.width * scale), round(artwork.height * scale)), Image.Resampling.LANCZOS)
     canvas = Image.new('RGBA', (N, N))
     canvas.paste(fitted, ((N - fitted.width) // 2, (N - fitted.height) // 2))
     canvas.save(out_path)

@@ -4,13 +4,15 @@
 import json
 import re
 import subprocess
+from collections.abc import Sequence
+from pathlib import Path
 
 from tools import ROOT
 from tools.generated_files import write_if_changed
 from tools.protocol.wire_contract import load
 
 
-def validate_route_precedence(rows):
+def validate_route_precedence(rows: Sequence[tuple[str, str, *tuple[str, ...]]]) -> None:
     """Reject intersecting patterns unless one is strictly more specific."""
     for index, (method, path, *_types) in enumerate(rows):
         left = path.split('/')
@@ -26,7 +28,7 @@ def validate_route_precedence(rows):
                 raise ValueError(f'ambiguous {method} routes: {path} and {other_path}')
 
 
-def main(output_root=ROOT) -> None:
+def main(output_root: Path = ROOT) -> None:
     protocol = load(ROOT / 'shared')['protocol']
     schema = set(re.findall(r'\bmessage\s+(\w+)\s*\{', (ROOT / 'shared/slopworld.proto').read_text()))
     rows = []
@@ -103,7 +105,16 @@ def main(output_root=ROOT) -> None:
         ]
     )
 
-    def emit_dispatch(name, kind_index, kind_name, kinds, input_type, output_type, encode, test_only=False):
+    def emit_dispatch(
+        name: str,
+        kind_index: str,
+        kind_name: str,
+        kinds: list[str],
+        input_type: str,
+        output_type: str,
+        encode: bool,
+        test_only: bool = False,
+    ) -> None:
         if test_only:
             out.append('#[cfg(test)]')
         out.append(

@@ -30,21 +30,21 @@ PITCH_HEIGHT = CELL_HEIGHT + GUTTER * 2
 RUNTIME_LINE_HEIGHT = 60
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--font', default=DEFAULT_FONT)
     parser.add_argument('--texture', default=DEFAULT_TEXTURE)
     args = parser.parse_args()
 
     font = ImageFont.truetype(args.font, SOURCE_SIZE)
-    ascent, descent = font.getmetrics()
+    font_ascent, font_descent = font.getmetrics()
     if any(abs(font.getlength(chr(codepoint)) - CELL_WIDTH) > 0.01 for codepoint in range(FIRST, LAST + 1)):
         raise ValueError('source font must use a fixed half-em advance for printable ASCII')
     bounds = {chr(codepoint): font.getbbox(chr(codepoint), anchor='ls') for codepoint in range(FIRST, LAST + 1)}
     if min(box[0] for box in bounds.values()) < 0 or max(box[2] for box in bounds.values()) > CELL_WIDTH:
         raise ValueError('printable ASCII glyphs exceed their fixed-width cells')
-    ascent = max(ascent, max(-box[1] for box in bounds.values()))
-    descent = max(descent, max(box[3] for box in bounds.values()))
+    ascent = max(font_ascent, max(-box[1] for box in bounds.values()))
+    descent = max(font_descent, max(box[3] for box in bounds.values()))
     baseline = ascent
     line_height = ascent + descent
     if line_height > CELL_HEIGHT:
