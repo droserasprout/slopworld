@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
-using Verse;
 
 namespace SlopWorld
 {
@@ -37,31 +35,8 @@ namespace SlopWorld
 
         static List<TerminalTheme> _all;
 
-        public static List<TerminalTheme> All
-        {
-            get
-            {
-                if (_all == null) _all = LoadAll();
-                return _all;
-            }
-        }
-
-        static List<TerminalTheme> LoadAll()
-        {
-            try
-            {
-                string root = ModEntry.Instance?.Content?.RootDir;
-                var catalog = ThemeCatalog.Load(root);
-                var themes = new List<TerminalTheme>(catalog.TerminalThemes.Count);
-                foreach (var record in catalog.TerminalThemes) themes.Add(new TerminalTheme(record));
-                return themes;
-            }
-            catch (Exception e)
-            {
-                Log.Error("[SlopWorld] could not load terminal theme catalog: " + e);
-                return new List<TerminalTheme> { Fallback() };
-            }
-        }
+        public static List<TerminalTheme> All => _all ?? (_all = ThemeLoader.Load("terminal",
+            catalog => catalog.TerminalThemes.ConvertAll(record => new TerminalTheme(record)), Fallback));
 
         static TerminalTheme Fallback() => new TerminalTheme("slopworld-warm", "SlopWorld Warm",
             fg: "#d3cbb8", bg: "#14120e", cursor: "#e0b64a", cursorText: "#14120e",

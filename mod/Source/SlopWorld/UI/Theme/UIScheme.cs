@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
-using Verse;
 
 namespace SlopWorld
 {
@@ -109,33 +107,8 @@ namespace SlopWorld
 
         static List<UIScheme> _all;
 
-        public static List<UIScheme> All
-        {
-            get
-            {
-                if (_all == null) _all = LoadAll();
-                return _all;
-            }
-        }
-
-        static List<UIScheme> LoadAll()
-        {
-            try
-            {
-                string root = ModEntry.Instance?.Content?.RootDir;
-                var catalog = ThemeCatalog.Load(root);
-                var schemes = new List<UIScheme>(catalog.UISchemes.Count);
-                foreach (var record in catalog.UISchemes) schemes.Add(new UIScheme(record));
-                return schemes;
-            }
-            catch (Exception e)
-            {
-                // The build rejects invalid shipped data. This keeps a manually copied DLL
-                // usable if its content directory was omitted.
-                Log.Error("[SlopWorld] could not load UI theme catalog: " + e);
-                return new List<UIScheme> { Fallback() };
-            }
-        }
+        public static List<UIScheme> All => _all ?? (_all = ThemeLoader.Load("UI",
+            catalog => catalog.UISchemes.ConvertAll(record => new UIScheme(record)), Fallback));
 
         static UIScheme Fallback() => new UIScheme(new ThemeCatalog.UiRecord(
             order: 0, id: "slopworld-warm", label: "SlopWorld Warm",
