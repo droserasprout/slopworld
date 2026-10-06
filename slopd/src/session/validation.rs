@@ -10,6 +10,11 @@ pub(super) fn check_name(name: &str) -> Result<()> {
 }
 
 pub(super) fn slug(name: &str) -> String {
+    name_slug(name, "library")
+}
+
+/// Normalize generated names; the caller owns the empty-name fallback.
+pub(crate) fn name_slug(name: &str, fallback: &str) -> String {
     let mut out = String::with_capacity(name.len());
     for ch in name.chars() {
         if ch.is_whitespace() || ch == ':' || ch == '.' || ch == '/' {
@@ -21,11 +26,7 @@ pub(super) fn slug(name: &str) -> String {
         }
     }
     let out = out.trim_matches('-').to_string();
-    if out.is_empty() {
-        "library".into()
-    } else {
-        out
-    }
+    if out.is_empty() { fallback.into() } else { out }
 }
 
 #[expect(

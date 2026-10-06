@@ -15,6 +15,7 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | `api/` | Routing, HTTP/Protobuf boundaries, and WebSocket transport. `handlers/actions.rs` owns explicit launches and file actions; `handlers/config.rs` owns config patch policy. See [file mutation boundary](daemon-file-mutations.md) and [file preview boundary](daemon-file-previews.md). |
 | `api/handlers/files.rs` | File browsing, previews, Search routes, and Git status/count routes. Search runs bounded `rg` output with UTF-8-safe previews. |
 | `session/` | Session types, agent-template definitions, input, validation, wire views. `events.rs` owns published events and their shared encoding cache; `protobuf.rs` owns wire conversion. |
+| `session/validation.rs` | Generated-name normalization shared by library and host sessions; each caller chooses its empty-name fallback. |
 | `session/manager/` | `Manager` and its guards, configuration synchronization, session lifecycle, capture, task-store ownership, workers. |
 | `session/manager/projects.rs` | Project edits and relocation; `directories.rs` owns uncommitted directories. See [worktree ownership](daemon-worktrees.md). |
 | `session/manager/lifecycle/` | Start, stop, adoption, and reconciliation of configured sessions. |

@@ -1,8 +1,9 @@
-"""Shared robot geometry and steel shading in the 128-pixel head coordinate system.
+"""Shared robot geometry, detail painting, and steel shading in head coordinates.
 
 Generators own their cuts, eye palettes, and alpha compositing policies.
 """
 
+from typing import Protocol
 from typing import cast
 
 import numpy as np
@@ -32,6 +33,34 @@ C_BOLT = np.array([0.52, 0.535, 0.56])
 _y, _x = np.mgrid[0:S, 0:S]
 X: FloatArray = (_x + 0.5) / SS
 Y: FloatArray = (_y + 0.5) / SS
+
+
+class Painter(Protocol):
+    """Generators composite each shared detail with their own alpha policy."""
+
+    def paint(self, mask: FloatArray, color: FloatArray) -> None: ...
+
+
+def below(y: float) -> FloatArray:
+    return y - Y
+
+
+def clipped(mask: FloatArray, region: FloatArray) -> FloatArray:
+    return mask * cover(region + SEAM_W)
+
+
+def paint_mouth(
+    painter: Painter, x0: float, y0: float, x1: float, y1: float, bars: tuple[float, ...], socket_color: FloatArray
+) -> None:
+    painter.paint(cover(rrect(x0, y0, x1, y1, MOUTH_R)), socket_color)
+    inside = cover(rrect(x0 + 0.9, y0 + 0.9, x1 - 0.9, y1 - 0.9, MOUTH_R * 0.6))
+    for x in bars:
+        painter.paint(cover(rrect(x - BAR_W, y0, x + BAR_W, y1, BAR_W * 0.8)) * inside, C_PLATE_BOT)
+
+
+def paint_bolt(painter: Painter, cx: float, cy: float, region: FloatArray) -> None:
+    painter.paint(clipped(cover(disc(cx, cy, BOLT_R)), region), C_BOLT)
+    painter.paint(clipped(cover(disc(cx, cy, BOLT_R * 0.45)), region), C_SEAM)
 
 
 def cover(sd: FloatArray) -> FloatArray:

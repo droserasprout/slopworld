@@ -416,17 +416,7 @@ namespace SlopWorld
         // Not static: the anchor it drops against comes from the live pawn table.
         Pawn Spawn(string name, Map map)
         {
-            var req = new PawnGenerationRequest(
-                PawnKindDefOf.Colonist,
-                Faction.OfPlayer,
-                PawnGenerationContext.NonPlayer,
-                forceGenerateNewPawn: true,
-                canGeneratePawnRelations: false,
-                allowAddictions: false,
-                colonistRelationChanceFactor: 0f,
-                allowGay: true);
-
-            var pawn = PawnGenerator.GeneratePawn(req);
+            var pawn = ColonyPawn.Generate();
             pawn.Name = new NameSingle(name);
             RobotFace.FitHair(pawn);
             RobotFace.RandomizeHairColor(pawn);

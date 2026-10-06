@@ -78,18 +78,7 @@ pub(super) fn host_command(cfg: &Config, s: &SessionCfg, shell: Option<&str>) ->
 /// Names a host session `<project>-<shell>`, or just the shell when no project is set.
 pub fn host_session_name(project: &str) -> String {
     let raw = session_name_for(project, host_shell().as_deref());
-    let mut out = String::with_capacity(raw.len());
-    for ch in raw.chars() {
-        if ch.is_whitespace() || ch == ':' || ch == '.' || ch == '/' {
-            if !out.ends_with('-') {
-                out.push('-');
-            }
-        } else {
-            out.push(ch);
-        }
-    }
-    let out = out.trim_matches('-').to_string();
-    if out.is_empty() { "shell".into() } else { out }
+    crate::session::name_slug(&raw, "shell")
 }
 
 pub(super) fn session_name_for(project: &str, shell: Option<&str>) -> String {

@@ -131,7 +131,7 @@ namespace SlopWorld
 
                 case PlacementKind.Table:
                     DrawTableBackground(placement);
-                    DrawTableInlineCodeBackgrounds(placement);
+                    DrawTableCells(placement, background: true);
                     break;
             }
         }
@@ -158,24 +158,6 @@ namespace SlopWorld
                                 piece.Height).ContractedBy(1f),
                             UiTheme.RowBg);
                     at += piece.Width;
-                }
-            }
-        }
-
-        void DrawTableInlineCodeBackgrounds(Placement placement)
-        {
-            int first = FirstVisibleRow(placement.Table, placement.Y, _clipTop);
-            for (int rowIndex = first; rowIndex < placement.Table.Rows.Count; rowIndex++)
-            {
-                var row = placement.Table.Rows[rowIndex];
-                float y = placement.Y + row.Offset;
-                if (y >= _clipBottom) break;
-
-                float x = placement.X;
-                for (int cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
-                {
-                    DrawCell(placement.Table, row, cellIndex, x, y, true);
-                    x += placement.Table.Widths[cellIndex];
                 }
             }
         }
@@ -214,7 +196,7 @@ namespace SlopWorld
                     break;
 
                 case PlacementKind.Table:
-                    DrawTableText(placement);
+                    DrawTableCells(placement, background: false);
                     break;
             }
         }
@@ -390,7 +372,7 @@ namespace SlopWorld
             }
         }
 
-        void DrawTableText(Placement placement)
+        void DrawTableCells(Placement placement, bool background)
         {
             int first = FirstVisibleRow(placement.Table, placement.Y, _clipTop);
             for (int rowIndex = first; rowIndex < placement.Table.Rows.Count; rowIndex++)
@@ -402,7 +384,7 @@ namespace SlopWorld
                 float x = placement.X;
                 for (int cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
                 {
-                    DrawCell(placement.Table, row, cellIndex, x, y, false);
+                    DrawCell(placement.Table, row, cellIndex, x, y, background);
                     x += placement.Table.Widths[cellIndex];
                 }
             }

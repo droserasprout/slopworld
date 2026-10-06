@@ -89,17 +89,7 @@ namespace SlopWorld
 
         Pawn Spawn(Map map)
         {
-            var req = new PawnGenerationRequest(
-                PawnKindDefOf.Colonist,
-                Faction.OfPlayer,
-                PawnGenerationContext.NonPlayer,
-                forceGenerateNewPawn: true,
-                canGeneratePawnRelations: false,
-                allowAddictions: false,
-                colonistRelationChanceFactor: 0f,
-                allowGay: true);
-
-            var pawn = PawnGenerator.GeneratePawn(req);
+            var pawn = ColonyPawn.Generate();
             pawn.Name = new NameSingle(PlayerName);
 
             GenSpawn.Spawn(pawn, map.Center, map);

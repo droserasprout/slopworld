@@ -61,14 +61,6 @@ def front(f: Face, *cuts: geometry.FloatArray) -> geometry.FloatArray:
     return region
 
 
-def below(y: float) -> geometry.FloatArray:
-    return y - geometry.Y
-
-
-def clipped(mask: geometry.FloatArray, region: geometry.FloatArray) -> geometry.FloatArray:
-    return mask * geometry.cover(region + geometry.SEAM_W)
-
-
 def eye(f: Face, cx: float, cy: float) -> None:
     f.paint(geometry.cover(geometry.disc(cx, cy, geometry.EYE_R)), C_LENS)
     iris = geometry.cover(geometry.disc(cx, cy, geometry.IRIS_R))
@@ -81,30 +73,14 @@ def eye(f: Face, cx: float, cy: float) -> None:
     f.a = iris + f.a * (1 - iris)
 
 
-def mouth(f: Face, x0: float, y0: float, x1: float, y1: float, bars: tuple[float, ...]) -> None:
-    f.paint(geometry.cover(geometry.rrect(x0, y0, x1, y1, geometry.MOUTH_R)), C_LENS)
-    inside = geometry.cover(geometry.rrect(x0 + 0.9, y0 + 0.9, x1 - 0.9, y1 - 0.9, geometry.MOUTH_R * 0.6))
-    for x in bars:
-        f.paint(
-            geometry.cover(geometry.rrect(x - geometry.BAR_W, y0, x + geometry.BAR_W, y1, geometry.BAR_W * 0.8))
-            * inside,
-            geometry.C_PLATE_BOT,
-        )
-
-
-def bolt(f: Face, cx: float, cy: float, region: geometry.FloatArray) -> None:
-    f.paint(clipped(geometry.cover(geometry.disc(cx, cy, geometry.BOLT_R)), region), geometry.C_BOLT)
-    f.paint(clipped(geometry.cover(geometry.disc(cx, cy, geometry.BOLT_R * 0.45)), region), geometry.C_SEAM)
-
-
 def draw_robot() -> geometry.FloatArray:
     f = Face()
-    region = front(f, below(HAIRLINE))
+    region = front(f, geometry.below(HAIRLINE))
     for x in geometry.EYES_X:
         eye(f, x, geometry.EYE_Y)
-    mouth(f, *geometry.MOUTH, geometry.BARS_X)
+    geometry.paint_mouth(f, *geometry.MOUTH, geometry.BARS_X, C_LENS)
     for cx, cy in geometry.BOLTS:
-        bolt(f, cx, cy, region)
+        geometry.paint_bolt(f, cx, cy, region)
     px = np.dstack([f.rgb, f.a]).reshape(geometry.N, geometry.SS, geometry.N, geometry.SS, 4).mean(axis=(1, 3))
     rgb, a = px[..., :3], px[..., 3:]
     rgb = np.where(a > 1e-4, rgb / np.maximum(a, 1e-4), 0.0)

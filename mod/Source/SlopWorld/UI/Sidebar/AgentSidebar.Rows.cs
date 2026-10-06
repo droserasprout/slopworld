@@ -76,22 +76,7 @@ namespace SlopWorld
             bool current = row.Session == TerminalWindow.CurrentName;
             RowChrome.Hover(row.Line, current, true, RowHoverPolicy.OverlayAware);
 
-            var text = row.Text;
-            var act = RoutedAction(info);
-            if (act != RowAct.None)
-            {
-                float d = Mathf.Min(GhostMarkW, text.height);
-                if (Event.current.type == EventType.Repaint)
-                {
-                    var was = GUI.color;
-                    GUI.color = UiTheme.Off;
-                    GUI.DrawTexture(new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
-                        RowActions.Tex(act));
-                    GUI.color = was;
-                }
-                text.x += d + UiTheme.GapXS;
-                text.width -= d + UiTheme.GapXS;
-            }
+            var text = DrawActionMark(row.Text, RoutedAction(info));
 
             Text.Font = GameFont.Small;
             bool preview = FileReaders.IsSession(row.Session);
@@ -212,28 +197,28 @@ namespace SlopWorld
         static void DrawGhostRow(Row row, SessionInfo info)
         {
             Text.Font = GameFont.Small;
-            var text = row.Text;
-
-            var act = SessionRowAction.Of(info);
-            if (act != RowAct.None)
-            {
-                float d = Mathf.Min(GhostMarkW, text.height);
-                if (Event.current.type == EventType.Repaint)
-                {
-                    var was = GUI.color;
-                    GUI.color = UiTheme.Off;
-                    GUI.DrawTexture(
-                        new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
-                        RowActions.Tex(act));
-                    GUI.color = was;
-                }
-                text.x += d + UiTheme.GapXS;
-                text.width -= d + UiTheme.GapXS;
-            }
+            var text = DrawActionMark(row.Text, SessionRowAction.Of(info));
 
             SidebarRowRenderer.DrawGhostLabel(text, info, row.Session, true, GhostMarkW);
             GUI.color = Color.white;
             Click(row, info);
+        }
+
+        static Rect DrawActionMark(Rect text, RowAct action)
+        {
+            if (action == RowAct.None) return text;
+            float d = Mathf.Min(GhostMarkW, text.height);
+            if (Event.current.type == EventType.Repaint)
+            {
+                var was = GUI.color;
+                GUI.color = UiTheme.Off;
+                GUI.DrawTexture(new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
+                    RowActions.Tex(action));
+                GUI.color = was;
+            }
+            text.x += d + UiTheme.GapXS;
+            text.width -= d + UiTheme.GapXS;
+            return text;
         }
 
         // Worker children are intentionally quieter than agents: the task owns their identity,

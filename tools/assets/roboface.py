@@ -101,16 +101,8 @@ def front(r: Renderer, top_cut: geometry.FloatArray, *seamed_cuts: geometry.Floa
     return region
 
 
-def below(y: float) -> geometry.FloatArray:
-    return y - geometry.Y
-
-
 def ahead_of(x: float) -> geometry.FloatArray:
     return x - geometry.X
-
-
-def clipped(mask: geometry.FloatArray, region: geometry.FloatArray) -> geometry.FloatArray:
-    return mask * geometry.cover(region + geometry.SEAM_W)
 
 
 def socket(r: Renderer, cx: float, cy: float) -> None:
@@ -139,38 +131,22 @@ def void_eye(r: Renderer, cx: float, cy: float) -> None:
     r.paint(np.clip(rim, 0, 1), C_VOID_RIM)
 
 
-def mouth(r: Renderer, x0: float, y0: float, x1: float, y1: float, bars: tuple[float, ...]) -> None:
-    r.paint(geometry.cover(geometry.rrect(x0, y0, x1, y1, geometry.MOUTH_R)), C_SOCKET)
-    inside = geometry.cover(geometry.rrect(x0 + 0.9, y0 + 0.9, x1 - 0.9, y1 - 0.9, geometry.MOUTH_R * 0.6))
-    for x in bars:
-        r.paint(
-            geometry.cover(geometry.rrect(x - geometry.BAR_W, y0, x + geometry.BAR_W, y1, geometry.BAR_W * 0.8))
-            * inside,
-            geometry.C_PLATE_BOT,
-        )
-
-
-def bolt(r: Renderer, cx: float, cy: float, region: geometry.FloatArray) -> None:
-    r.paint(clipped(geometry.cover(geometry.disc(cx, cy, geometry.BOLT_R)), region), geometry.C_BOLT)
-    r.paint(clipped(geometry.cover(geometry.disc(cx, cy, geometry.BOLT_R * 0.45)), region), geometry.C_SEAM)
-
-
 def build_base(facing: str) -> Renderer:
     """Render the base plate (no eyes) at supersampled resolution."""
     r = Renderer()
     if facing == 'south':
-        region = front(r, below(PLATE_TOP))
+        region = front(r, geometry.below(PLATE_TOP))
         for x in geometry.EYES_X:
             socket(r, x, geometry.EYE_Y)
-        mouth(r, *geometry.MOUTH, geometry.BARS_X)
+        geometry.paint_mouth(r, *geometry.MOUTH, geometry.BARS_X, C_SOCKET)
         for cx, cy in geometry.BOLTS:
-            bolt(r, cx, cy, region)
+            geometry.paint_bolt(r, cx, cy, region)
     else:
-        region = front(r, below(PLATE_TOP), ahead_of(BACK_X))
+        region = front(r, geometry.below(PLATE_TOP), ahead_of(BACK_X))
         socket(r, 73.5, geometry.EYE_Y)
-        mouth(r, 63.0, geometry.MOUTH[1], 80.0, geometry.MOUTH[3], (66.0, 69.5, 73.0, 76.5))
+        geometry.paint_mouth(r, 63.0, geometry.MOUTH[1], 80.0, geometry.MOUTH[3], (66.0, 69.5, 73.0, 76.5), C_SOCKET)
         for cy in (59.5, 84.0):
-            bolt(r, BACK_X + 4.0, cy, region)
+            geometry.paint_bolt(r, BACK_X + 4.0, cy, region)
     return r
 
 
