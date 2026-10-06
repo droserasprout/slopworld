@@ -1,7 +1,7 @@
 //! Cache-link changes across project configuration and its worktrees.
 
-use crate::config::{Mount, MountMode};
-use crate::sandbox::cache;
+use crate::config::Mount;
+use crate::sandbox::cache::{self, is_relative_cache};
 use crate::session::*;
 use crate::worktrees::Store;
 
@@ -57,10 +57,6 @@ pub(super) async fn reconcile_cache_links(
         return Err(changes.rollback_error(error));
     }
     Ok(changes)
-}
-
-fn is_relative_cache(mount: &Mount) -> bool {
-    mount.mode == MountMode::Cache && cache::relative(mount)
 }
 
 /// A link survives only while its project directory and destination stay selected.
@@ -143,22 +139,9 @@ fn reconcile_checkout_links(
     checkout: &Path,
     added: &mut Vec<(PathBuf, PathBuf)>,
 ) -> Result<()> {
-    for mount in project
-        .mounts
-        .iter()
-        .filter(|mount| is_relative_cache(mount))
-    {
-        let target = checkout.join(expand(&mount.to));
-        let absent = match std::fs::symlink_metadata(&target) {
-            Ok(_) => false,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => true,
-            Err(error) => return Err(error.into()),
-        };
-        let mut selected = project.clone();
-        selected.mounts = vec![mount.clone()];
-        cache::reconcile(&selected, checkout)?;
-        if absent {
-            added.push((target, cache::source(project, mount)?));
+    for mount in cache::relative_mounts(project) {
+        if let Some(link) = cache::reconcile_mount(project, checkout, mount)? {
+            added.push(link);
         }
     }
     Ok(())

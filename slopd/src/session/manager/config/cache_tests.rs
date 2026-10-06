@@ -1,4 +1,5 @@
 use super::*;
+use crate::config::MountMode;
 
 #[tokio::test]
 async fn cache_configuration_removes_only_owned_links() {

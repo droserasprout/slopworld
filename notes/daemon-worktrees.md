@@ -25,5 +25,6 @@ requires the expected link and a source reachable at its absolute path. Explicit
 sources support home/environment expansion but are not relocated with the checkout.
 Conflicting paths/changed links require recovery rather than replacement; removing
 a checkout never deletes cache data. Config reconciliation belongs to
-`session/manager/config/cache.rs`, source validation to `sandbox/cache.rs`.
+`session/manager/config/cache.rs`; `sandbox/cache.rs` validates sources and returns
+each newly created link to the coordinator for rollback.
 Host inspection hardening belongs to [Git](daemon-git.md).
