@@ -249,7 +249,9 @@ impl Manager {
         };
         current.capture.emu = None;
         current.capture.reader_token = None;
+        current.capture.retry_at = Some(Instant::now() + super::exit::CAPTURE_RETRY_DELAY);
         drop(current.capture.reader.take());
+        self.signals.maintenance_wake.notify_one();
         true
     }
 
@@ -337,6 +339,7 @@ impl Manager {
                 Some(l) if l.capture.emu.is_none() => {
                     l.capture.emu = Some(emu.clone());
                     l.capture.reader_token = Some(reader_token.clone());
+                    l.capture.retry_at = None;
                     replace_reader(l, handle)
                 }
                 _ => {

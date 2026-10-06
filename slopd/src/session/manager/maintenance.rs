@@ -77,7 +77,10 @@ impl Manager {
         let mut delay = Duration::from_millis(deadline.saturating_sub(now));
         let activity_now = tokio::time::Instant::now();
         for l in live.values() {
-            if let Some(due) = classification_deadline(l, activity_now) {
+            for due in [classification_deadline(l, activity_now), l.capture.retry_at]
+                .into_iter()
+                .flatten()
+            {
                 delay = delay.min(due.saturating_duration_since(activity_now));
             }
         }

@@ -1,5 +1,54 @@
 use super::*;
 
+#[tokio::test]
+async fn maintenance_recovers_reader_after_unavailable_status_without_config_change() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+    let (session, task) = task_owned_session(&manager);
+    let token = Arc::new(());
+    let mut live = Live::new(session, TitleCapture::default());
+    live.set_state(State::Working);
+    live.capture.reader_token = Some(token.clone());
+    live.capture.emu = Some(Arc::new(Mutex::new(SessionEmu::new(80, 24))));
+    manager.live.write().await.insert("worker".into(), live);
+    manager.reader_ended("worker".into(), token).await;
+    manager
+        .tmux
+        .spawn(
+            "worker",
+            "/tmp",
+            80,
+            24,
+            &["sleep".into(), "2147483647".into()],
+            false,
+        )
+        .await
+        .unwrap();
+
+    // Maintenance must retry without a config edit or an explicit spawn_reader call.
+    let recovered = tokio::time::timeout(Duration::from_secs(6), async {
+        loop {
+            manager.retick().await;
+            if manager.live.read().await["worker"].capture.emu.is_some() {
+                break;
+            }
+            tokio::time::sleep(manager.maintenance_delay().await).await;
+        }
+    })
+    .await;
+    let status = manager
+        .tasks
+        .task_for(crate::tasks::HOST, &task.id)
+        .unwrap()
+        .status;
+    manager.stop("worker").await.unwrap();
+    assert!(
+        recovered.is_ok(),
+        "maintenance never retried the disconnected reader"
+    );
+    assert_eq!(status, crate::tasks::Status::Queued);
+}
+
 fn task_owned_session(manager: &Manager) -> (SessionCfg, crate::tasks::Task) {
     let mut session = SessionCfg {
         name: "worker".into(),
@@ -27,6 +76,90 @@ fn task_owned_session(manager: &Manager) -> (SessionCfg, crate::tasks::Task) {
         .unwrap();
     session.task_id = task.id.clone();
     (session, task)
+}
+
+#[tokio::test]
+async fn repeated_unavailable_status_schedules_a_bounded_retry_and_stop_cancels_it() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+    let (session, task) = task_owned_session(&manager);
+    let mut live = Live::new(session, TitleCapture::default());
+    live.state = State::Working;
+    live.capture.retry_at = Some(Instant::now());
+    manager.live.write().await.insert("worker".into(), live);
+    for _ in 0..2 {
+        manager.retry_capture_if_due().await;
+        let due = manager.live.read().await["worker"]
+            .capture
+            .retry_at
+            .unwrap();
+        assert!(due > Instant::now());
+        manager.retry_capture_if_due().await;
+        assert_eq!(
+            manager.live.read().await["worker"].capture.retry_at,
+            Some(due)
+        );
+        assert_eq!(
+            manager
+                .tasks
+                .task_for(crate::tasks::HOST, &task.id)
+                .unwrap()
+                .status,
+            crate::tasks::Status::Queued
+        );
+        manager
+            .live
+            .write()
+            .await
+            .get_mut("worker")
+            .unwrap()
+            .capture
+            .retry_at = Some(Instant::now());
+    }
+    manager.stop("worker").await.unwrap();
+    manager.retry_capture_if_due().await;
+    let live = manager.live.read().await;
+    assert_eq!(live["worker"].state, State::Down);
+    assert!(live["worker"].capture.retry_at.is_none());
+    assert!(live["worker"].capture.reader_token.is_none());
+}
+
+#[tokio::test]
+async fn retry_waiting_for_lifecycle_cannot_attach_to_a_replacement() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+    let mut live = Live::new(
+        SessionCfg {
+            name: "agent".into(),
+            ..Default::default()
+        },
+        TitleCapture::default(),
+    );
+    live.capture.retry_at = Some(Instant::now());
+    manager.live.write().await.insert("agent".into(), live);
+    let boundary = manager.session_boundary.write().await;
+    let retry = manager.retry_capture_if_due();
+    tokio::pin!(retry);
+    assert!(futures::poll!(retry.as_mut()).is_pending());
+    let replacement = Live::new(
+        SessionCfg {
+            name: "agent".into(),
+            ..Default::default()
+        },
+        TitleCapture::default(),
+    );
+    let identity = replacement.cfg.state_id.clone();
+    manager
+        .live
+        .write()
+        .await
+        .insert("agent".into(), replacement);
+    drop(boundary);
+    retry.await;
+    let live = manager.live.read().await;
+    assert_eq!(live["agent"].cfg.state_id, identity);
+    assert!(live["agent"].capture.retry_at.is_none());
+    assert!(live["agent"].capture.reader_token.is_none());
 }
 
 #[tokio::test]
@@ -68,11 +201,21 @@ async fn failed_existing_attachment_releases_capture_and_allows_retry() {
         )
         .await
         .unwrap();
+    manager
+        .live
+        .write()
+        .await
+        .get_mut("worker")
+        .unwrap()
+        .capture
+        .retry_at = Some(Instant::now());
+    manager.retick().await;
+    assert!(manager.live.read().await["worker"].capture.emu.is_some());
     assert!(
-        manager
-            .session_operation(manager.spawn_reader("worker"))
-            .await
-            .unwrap()
+        manager.live.read().await["worker"]
+            .capture
+            .retry_at
+            .is_none()
     );
     assert_eq!(manager.live.read().await["worker"].run_id, run);
     assert_eq!(

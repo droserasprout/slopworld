@@ -22,6 +22,11 @@ absence. Confirmed exit records evidence before removing the pane. Screen captur
 can fall back to the last in-memory frame, and failed evidence writes preserve the
 dead pane for inspection.
 
+Failed status inspection or reader attachment schedules a bounded monotonic retry
+on the maintenance loop, independently of config reconciliation. Capture owns the
+retry; lifecycle reset and successful attachment retire it. Retrying rechecks the
+pending work under the session boundary before inspecting or attaching a pane.
+
 Startup seeding/repaint belongs to [redeploy](daemon-redeploy.md), process transitions
 to [lifecycle](daemon-session-lifecycle.md), activity to [state](daemon-session-state.md),
 and client input/history to [terminal](mod-terminal.md).

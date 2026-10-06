@@ -5,8 +5,53 @@ use super::super::lifecycle::stop::reader_owned_by;
 use super::*;
 use std::future::Future;
 use std::pin::Pin;
+use tokio::time::Instant;
+
+pub(super) const CAPTURE_RETRY_DELAY: Duration = Duration::from_secs(2);
+
+fn retry_due(live: &Live, now: Instant) -> bool {
+    live.capture.emu.is_none()
+        && live.capture.reader_token.is_none()
+        && live.capture.retry_at.is_some_and(|due| due <= now)
+}
 
 impl Manager {
+    /// Maintenance owns retry scheduling; inspection and attachment retain the
+    /// lifecycle boundary so stopped or replaced runs cannot be revived.
+    pub(in crate::session::manager) async fn retry_capture_if_due(self: &Arc<Self>) {
+        if !self
+            .live
+            .read()
+            .await
+            .values()
+            .any(|live| retry_due(live, Instant::now()))
+        {
+            return;
+        }
+        let manager = self.clone();
+        self.owned_session_operation(async move {
+            // Recheck after acquiring the boundary, then claim due retries under
+            // one live lock. Fresh tokens exclude old reader completions.
+            let retries = {
+                let mut live = manager.live.write().await;
+                let now = Instant::now();
+                live.iter_mut()
+                    .filter(|(_, current)| retry_due(current, now))
+                    .map(|(name, current)| {
+                        let token = Arc::new(());
+                        current.capture.reader_token = Some(token.clone());
+                        current.capture.retry_at = None;
+                        (name.clone(), token)
+                    })
+                    .collect::<Vec<_>>()
+            };
+            for (name, token) in retries {
+                manager.reader_ended_inner(&name, &token).await;
+            }
+        })
+        .await;
+    }
+
     // Boxing breaks the reader -> recovery -> reader asynchronous type cycle.
     pub(super) fn reader_ended(
         self: &Arc<Self>,

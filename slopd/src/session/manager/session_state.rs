@@ -124,6 +124,7 @@ impl Manager {
         let _perf = crate::perf::timer("retick");
         let started = crate::perf::enabled().then(std::time::Instant::now);
         self.reload_if_due().await;
+        self.retry_capture_if_due().await;
 
         let now = unix_ms();
         let has_hosts = self

@@ -170,6 +170,8 @@ struct LiveCapture {
     reader: Option<JoinHandle<()>>,
     // Prevent a replaced reader from clearing its successor’s emulator.
     reader_token: Option<Arc<()>>,
+    // Maintenance retries failed attachment/status inspection without config edits.
+    retry_at: Option<tokio::time::Instant>,
 }
 
 /// Queued input and startup sequencing for the current process.
