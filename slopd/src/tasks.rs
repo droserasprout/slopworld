@@ -357,6 +357,18 @@ impl Tasks {
             .collect()
     }
 
+    /// Identity allocation must not reuse an established mailbox participant,
+    /// even after its configured agent has been removed.
+    pub(crate) fn participant_identities(&self) -> HashSet<String> {
+        self.file
+            .tasks
+            .iter()
+            .flat_map(|task| [&task.from_id, &task.to_id])
+            .filter(|id| !id.is_empty())
+            .cloned()
+            .collect()
+    }
+
     pub fn all(&self) -> Vec<Task> {
         self.file.tasks.clone()
     }

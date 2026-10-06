@@ -23,12 +23,14 @@ use tokio::sync::OwnedMutexGuard;
 
 use super::target::{StorageBinding, Target};
 
+#[derive(Clone)]
 pub(super) enum Mutation {
     Create(String),
     Replace(String),
     Retire,
 }
 
+#[derive(Clone)]
 pub(super) struct Change {
     pub(super) target: Target,
     pub(super) mutation: Mutation,

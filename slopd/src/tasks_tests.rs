@@ -558,3 +558,31 @@ fn snapshot_keeps_poisoning_until_journal_cleanup_succeeds() {
     assert_eq!(restored.all().len(), 2);
     fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn identity_namespace_retains_task_participants_after_terminal_transition() {
+    let path = std::env::temp_dir().join(format!("slopd-task-identities-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&path).unwrap();
+    let mut tasks = Tasks::load(&path.join("config.toml")).unwrap();
+    let task = tasks
+        .create_owned(
+            Participant {
+                name: "sender".into(),
+                identity: "1111111111111111".into(),
+            },
+            Participant {
+                name: "worker".into(),
+                identity: "2222222222222222".into(),
+            },
+            "body".into(),
+            None,
+        )
+        .unwrap();
+    tasks
+        .update("2222222222222222", &task.id, Status::Done, None)
+        .unwrap();
+    let ids = tasks.participant_identities();
+    assert!(ids.contains("1111111111111111"));
+    assert!(ids.contains("2222222222222222"));
+    std::fs::remove_dir_all(&path).unwrap();
+}

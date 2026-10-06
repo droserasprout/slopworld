@@ -46,6 +46,10 @@ impl TaskStore {
         self.lock()?.create_owned(from, to, body, worker)
     }
 
+    pub(super) fn participant_identities(&self) -> Result<std::collections::HashSet<String>> {
+        Ok(self.lock()?.participant_identities())
+    }
+
     #[expect(
         clippy::expect_used,
         reason = "a poisoned task store indicates a prior panic; returning an empty mailbox would hide failure"

@@ -3,6 +3,8 @@
 //! This backend remains unselected until the complete offline migration is ready.
 
 mod record;
+mod session_document;
+mod sessions;
 mod target;
 mod transaction;
 

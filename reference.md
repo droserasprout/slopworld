@@ -24,12 +24,12 @@ It does not read or write environment values.
 | `JAVA_HOME` | [`slopd/presets/android-dev.toml:13`](./slopd/presets/android-dev.toml#L13) |
 | `LANG` | [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16) |
 | `LC_ALL` | [`slopd/src/api/handlers/files.rs:146`](./slopd/src/api/handlers/files.rs#L146), [`slopd/src/git/mod.rs:91`](./slopd/src/git/mod.rs#L91), [`slopd/src/worktrees/mod.rs:291`](./slopd/src/worktrees/mod.rs#L291) |
-| `LESSUTFCHARDEF` | [`slopd/src/sandbox/bind/mounts.rs:177`](./slopd/src/sandbox/bind/mounts.rs#L177), [`slopd/src/sandbox/mod.rs:46`](./slopd/src/sandbox/mod.rs#L46) |
+| `LESSUTFCHARDEF` | [`slopd/src/sandbox/bind/mounts.rs:177`](./slopd/src/sandbox/bind/mounts.rs#L177), [`slopd/src/sandbox/mod.rs:47`](./slopd/src/sandbox/mod.rs#L47) |
 | `LOGNAME` | [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16) |
 | `NO_PROXY` | [`slopd/src/test_support.rs:56`](./slopd/src/test_support.rs#L56) |
 | `OPENROUTER_API_KEY` | [`slopd/src/title/mod.rs:81`](./slopd/src/title/mod.rs#L81), [`slopd/src/usage/providers.rs:261`](./slopd/src/usage/providers.rs#L261) |
 | `OUT_DIR` | [`slopd/src/shared/mod.rs:10`](./slopd/src/shared/mod.rs#L10) |
-| `PATH` | [`mod/Source/SlopWorld/UI/Settings/BinariesPage.cs:427`](./mod/Source/SlopWorld/UI/Settings/BinariesPage.cs#L427), [`slopd/src/runtime.rs:71`](./slopd/src/runtime.rs#L71), [`slopd/src/runtime.rs:136`](./slopd/src/runtime.rs#L136), [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16), [`slopd/src/sandbox/mod.rs:230`](./slopd/src/sandbox/mod.rs#L230), [`slopd/src/tmux/server_tests.rs:7`](./slopd/src/tmux/server_tests.rs#L7), [`slopd/src/worktrees/mod.rs:276`](./slopd/src/worktrees/mod.rs#L276), [`slopd/tests/slopctl_logs.rs:30`](./slopd/tests/slopctl_logs.rs#L30) |
+| `PATH` | [`mod/Source/SlopWorld/UI/Settings/BinariesPage.cs:427`](./mod/Source/SlopWorld/UI/Settings/BinariesPage.cs#L427), [`slopd/src/runtime.rs:71`](./slopd/src/runtime.rs#L71), [`slopd/src/runtime.rs:136`](./slopd/src/runtime.rs#L136), [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16), [`slopd/src/sandbox/mod.rs:231`](./slopd/src/sandbox/mod.rs#L231), [`slopd/src/tmux/server_tests.rs:7`](./slopd/src/tmux/server_tests.rs#L7), [`slopd/src/worktrees/mod.rs:276`](./slopd/src/worktrees/mod.rs#L276), [`slopd/tests/slopctl_logs.rs:30`](./slopd/tests/slopctl_logs.rs#L30) |
 | `PULSE_SERVER` | [`slopd/src/session/manager/music/ncspot.rs:28`](./slopd/src/session/manager/music/ncspot.rs#L28) |
 | `SHELL` | [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16), [`slopd/src/sandbox/bind/mounts.rs:215`](./slopd/src/sandbox/bind/mounts.rs#L215), [`slopd/src/sandbox/host.rs:28`](./slopd/src/sandbox/host.rs#L28) |
 | `SLOPCAR_PROFILE` | [`slopd/src/bin/slopworld.rs:332`](./slopd/src/bin/slopworld.rs#L332), [`slopd/src/bin/slopworld.rs:370`](./slopd/src/bin/slopworld.rs#L370) |

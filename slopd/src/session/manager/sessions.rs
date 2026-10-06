@@ -289,6 +289,7 @@ impl Manager {
         if let Some(p) = self.config().await.project(&s.project) {
             self.resolve_worktree(p, &s.worktree).await?;
         }
+        let state_id = self.allocate_agent_identity().await?;
         let (autostart, name) = self
             .update_cfg(ConfigMutation::Agents, |cfg| {
                 if cfg.session(&s.name).is_some() {
@@ -309,7 +310,7 @@ impl Manager {
                 s.task_id.clear();
                 // Clients cannot select an agent's persistent state identity.
                 // Generate a new key even if the request supplies an old one.
-                s.state_id = uuid::Uuid::new_v4().to_string();
+                s.state_id = state_id;
                 let autostart = s.autostart;
                 let name = s.name.clone();
                 cfg.sessions.push(s.clone());

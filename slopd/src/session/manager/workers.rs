@@ -85,6 +85,7 @@ impl Manager {
             &caller,
         );
         session.worktree = worktree;
+        session.state_id = self.allocate_agent_identity().await?;
         // A worker must have access to the daemon. Worker metadata supplies its task API capability.
         // The selected template supplies tool and state configuration.
         if cfg.network_of(&session, &p) == NetworkMode::None {
