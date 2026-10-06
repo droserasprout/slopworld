@@ -22,70 +22,40 @@ namespace SlopWorld
             Value = session.Name,
         };
 
+        static List<SubOption> AgentOptions(Func<SessionInfo, bool> include, string emptyLabel)
+        {
+            var list = SessionHub.Instance.Sessions.Where(include).Select(AgentOption).ToList();
+            if (list.Count == 0)
+                list.Add(new SubOption { Label = emptyLabel, Enabled = false });
+            return list;
+        }
+
         static List<SubOption> AgentsSub(params AgentState[] states)
         {
             var set = new HashSet<AgentState>(states);
-            var list = SessionHub.Instance.Sessions
-                .Where(s => set.Contains(s.State) && !s.Ephemeral)
-                .Select(AgentOption)
-                .ToList();
-
-            if (list.Count == 0)
-                list.Add(new SubOption { Label = "(no agents in that state)", Enabled = false });
-            return list;
+            return AgentOptions(s => set.Contains(s.State) && !s.Ephemeral,
+                "(no agents in that state)");
         }
 
-        static List<SubOption> AgentsSubAll()
-        {
-            var list = SessionHub.Instance.Sessions
-                .Where(s => !s.Ephemeral && !s.Host)
-                .Select(AgentOption)
-                .ToList();
+        static List<SubOption> AgentsSubAll() =>
+            AgentOptions(s => !s.Ephemeral && !s.Host, "(no agents)");
 
-            if (list.Count == 0)
-                list.Add(new SubOption { Label = "(no agents)", Enabled = false });
-            return list;
-        }
-
-        static List<SubOption> AgentsSubEditable()
-        {
-            var list = SessionHub.Instance.Sessions
-                .Where(s => !s.Ephemeral && !s.Host && !s.Worker)
-                .Select(AgentOption)
-                .ToList();
-
-            if (list.Count == 0)
-                list.Add(new SubOption { Label = "(no editable agents)", Enabled = false });
-            return list;
-        }
+        static List<SubOption> AgentsSubEditable() =>
+            AgentOptions(s => !s.Ephemeral && !s.Host && !s.Worker, "(no editable agents)");
 
         static List<SubOption> AgentsSubWithPawn()
         {
             var colony = AgentColony.Current;
-            var list = SessionHub.Instance.Sessions
-                .Where(s => !s.Ephemeral && !s.Host && colony?.PawnOf(s.Name) != null)
-                .Select(AgentOption)
-                .ToList();
-
-            if (list.Count == 0)
-                list.Add(new SubOption { Label = "(no agents with a colonist)", Enabled = false });
-            return list;
+            return AgentOptions(s => !s.Ephemeral && !s.Host && colony?.PawnOf(s.Name) != null,
+                "(no agents with a colonist)");
         }
 
         // Duplicate is meaningful for any session with a project, including a temporary errand. The
         // dialog copies that project's command and sandbox context, while a project-less session
         // has nowhere useful to start from.
-        static List<SubOption> AgentsSubWithProject()
-        {
-            var list = SessionHub.Instance.Sessions
-                .Where(s => !s.Host && !s.Worker && !string.IsNullOrEmpty(s.Project))
-                .Select(AgentOption)
-                .ToList();
-
-            if (list.Count == 0)
-                list.Add(new SubOption { Label = "(no agents with a project)", Enabled = false });
-            return list;
-        }
+        static List<SubOption> AgentsSubWithProject() =>
+            AgentOptions(s => !s.Host && !s.Worker && !string.IsNullOrEmpty(s.Project),
+                "(no agents with a project)");
 
         static List<SubOption> ProjectsSub()
         {
@@ -249,76 +219,40 @@ namespace SlopWorld
         static string TaskLabel(TaskInfo task) =>
             $"{task.Summary}  ({TaskInfo.StatusText(task.Status)}, {task.Direction})  -  {task.Id}";
 
-        static List<SubOption> TasksSub()
+        static List<SubOption> TaskOptions(Func<TaskInfo, bool> include, string emptyLabel,
+            Func<TaskInfo, SubOption> option = null)
         {
             var list = SessionHub.Instance.Tasks
-                .Where(task => task != null && !string.IsNullOrEmpty(task.Id))
-                .Select(task => new SubOption
+                .Where(task => task != null && !string.IsNullOrEmpty(task.Id) && include(task))
+                .Select(option ?? (task => new SubOption
                 {
                     Label = TaskLabel(task),
                     Value = task.Id,
-                })
+                }))
                 .ToList();
 
             if (list.Count == 0)
-                list.Add(new SubOption { Label = "(no tasks)", Enabled = false });
+                list.Add(new SubOption { Label = emptyLabel, Enabled = false });
             return list;
         }
 
-        static List<SubOption> CancelableTasksSub()
-        {
-            var list = SessionHub.Instance.Tasks
-                .Where(task => task != null && !string.IsNullOrEmpty(task.Id) &&
-                    (task.Status == DelegatedTaskStatus.Queued ||
-                     task.Status == DelegatedTaskStatus.Accepted))
-                .Select(task => new SubOption
-                {
-                    Label = TaskLabel(task),
-                    Value = task.Id,
-                })
-                .ToList();
+        static List<SubOption> TasksSub() => TaskOptions(task => true, "(no tasks)");
 
-            if (list.Count == 0)
-                list.Add(new SubOption { Label = "(no cancelable tasks)", Enabled = false });
-            return list;
-        }
+        static List<SubOption> CancelableTasksSub() => TaskOptions(
+            task => task.Status == DelegatedTaskStatus.Queued ||
+                task.Status == DelegatedTaskStatus.Accepted,
+            "(no cancelable tasks)");
 
-        static List<SubOption> TerminalTasksSub()
-        {
-            var list = SessionHub.Instance.Tasks
-                .Where(task => task != null && !string.IsNullOrEmpty(task.Id) && task.Terminal)
-                .Select(task => new SubOption
-                {
-                    Label = TaskLabel(task),
-                    Value = task.Id,
-                })
-                .ToList();
+        static List<SubOption> TerminalTasksSub() =>
+            TaskOptions(task => task.Terminal, "(no completed tasks)");
 
-            if (list.Count == 0)
-                list.Add(new SubOption { Label = "(no completed tasks)", Enabled = false });
-            return list;
-        }
-
-        static List<SubOption> TaskStatusSub()
-        {
-            var list = SessionHub.Instance.Tasks
-                .Where(task => task != null && !string.IsNullOrEmpty(task.Id) &&
-                    task.Incoming && !task.Terminal)
-                .Select(task =>
-                {
-                    var selected = task;
-                    return new SubOption
-                    {
-                        Label = TaskLabel(selected),
-                        Children = () => TaskStatusChoices(selected),
-                    };
-                })
-                .ToList();
-
-            if (list.Count == 0)
-                list.Add(new SubOption { Label = "(no incoming tasks to update)", Enabled = false });
-            return list;
-        }
+        static List<SubOption> TaskStatusSub() => TaskOptions(
+            task => task.Incoming && !task.Terminal, "(no incoming tasks to update)",
+            task => new SubOption
+            {
+                Label = TaskLabel(task),
+                Children = () => TaskStatusChoices(task),
+            });
 
         static List<SubOption> TaskStatusChoices(TaskInfo task)
         {
