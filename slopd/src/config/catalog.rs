@@ -108,3 +108,29 @@ pub(super) fn prepare_library(
         })
         .collect()
 }
+
+/// A deliberate whole-catalog replacement selects retirement here, not in the
+/// transaction owner. Incremental callers can prepare their own targeted changes.
+pub(super) async fn replacement_changes(
+    dirs: &[(LibraryItemKind, PathBuf)],
+    prepared: Vec<(PathBuf, String)>,
+) -> Result<std::collections::BTreeMap<PathBuf, Option<String>>> {
+    let mut changes: std::collections::BTreeMap<_, _> = prepared
+        .into_iter()
+        .map(|(path, text)| (path, Some(text)))
+        .collect();
+    for (_, dir) in dirs {
+        let mut entries = match tokio::fs::read_dir(dir).await {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error.into()),
+        };
+        while let Some(entry) = entries.next_entry().await? {
+            let target = entry.path();
+            if target.extension().is_some_and(|ext| ext == "toml") {
+                changes.entry(target).or_insert(None);
+            }
+        }
+    }
+    Ok(changes)
+}

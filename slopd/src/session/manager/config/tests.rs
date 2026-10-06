@@ -177,6 +177,7 @@ async fn config_sync_upserts_agents_and_only_valid_host_terminals() {
                 project: "repo".into(),
                 path: "~/repo".into(),
                 autostart: true,
+                ..Default::default()
             },
         ],
         ..Default::default()

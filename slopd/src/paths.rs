@@ -5,7 +5,8 @@ use crate::test_support as env;
 use anyhow::{Context, Result};
 #[cfg(not(test))]
 use std::env;
-use std::path::{Path, PathBuf};
+use std::ffi::OsString;
+use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
 
 /// Last modification time, or none when metadata or its timestamp is unavailable.
@@ -177,23 +178,27 @@ pub fn root(base: Option<PathBuf>) -> PathBuf {
 
 /// Return the daemon's user configuration directory.
 pub fn config_root() -> PathBuf {
-    root(dirs::config_dir())
+    override_path("SLOPD_CONFIG_ROOT", root(dirs::config_dir()))
+}
+
+/// Select the root settings document without relocating the other roots.
+pub fn config_file() -> PathBuf {
+    override_path("SLOPD_CONFIG", config_root().join("config.toml"))
 }
 
 /// Return the daemon's cache directory. `SLOPD_CACHE` replaces the default path.
 pub fn cache_root() -> PathBuf {
-    if let Ok(dir) = std::env::var("SLOPD_CACHE") {
-        return PathBuf::from(dir);
-    }
-    root(dirs::cache_dir())
+    override_path("SLOPD_CACHE", root(dirs::cache_dir()))
 }
 
-/// Return an application subdirectory, or the path set by `variable`.
-pub fn dir(variable: &str, base: Option<PathBuf>, child: &str) -> PathBuf {
-    if let Ok(dir) = env::var(variable) {
-        return PathBuf::from(dir);
-    }
-    root(base).join(child)
+/// Return the daemon's local data directory, independently of configuration.
+pub fn data_root() -> PathBuf {
+    override_path("SLOPD_DATA", root(dirs::data_local_dir()))
+}
+
+/// Resolve a per-store override before its root-derived default.
+pub fn override_path(variable: &str, default: PathBuf) -> PathBuf {
+    env::var_os(variable).map(PathBuf::from).unwrap_or(default)
 }
 
 /// Return the latest readable modification time from the directory and its entries.
@@ -259,4 +264,65 @@ async fn write_and_finish(file: &mut tokio::fs::File, bytes: &[u8]) -> Result<()
     file.write_all(bytes).await?;
     file.flush().await?;
     Ok(())
+}
+
+/// Resolve existing path components and keep the missing suffix.
+/// Safety checks then account for symlinks in existing parents.
+/// Presets can still specify paths for software that this machine does not have.
+pub(crate) fn normalize(path: &Path) -> Result<PathBuf> {
+    let mut missing: Vec<OsString> = Vec::new();
+    let mut probe = std::path::absolute(path)?;
+    loop {
+        match std::fs::canonicalize(&probe) {
+            Ok(mut resolved) => {
+                for name in missing.iter().rev() {
+                    resolved.push(name);
+                }
+                let normalized = lexical_path(&resolved);
+                // A missing `child/..` can reveal an existing alias after
+                // normalization. Resolve that spelling again instead of
+                // assuming the entire suffix is still missing.
+                if missing.iter().any(|name| name == "..") {
+                    return normalize(&normalized);
+                }
+                return Ok(normalized);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                // An existing dangling symlink is an unresolved alias, not an
+                // optional missing suffix. Permission and other lookup failures
+                // must likewise never fall back to a lexical allow decision.
+                match std::fs::symlink_metadata(&probe) {
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Ok(_) => return Err(error).context("resolving existing safety path"),
+                    Err(error) => return Err(error).context("looking up safety path"),
+                }
+                let name = probe
+                    .components()
+                    .next_back()
+                    .context("safety path has no existing ancestor")?;
+                missing.push(name.as_os_str().to_owned());
+                anyhow::ensure!(probe.pop(), "safety path has no existing ancestor");
+            }
+            Err(error) => {
+                return Err(error).with_context(|| format!("resolving {}", probe.display()));
+            }
+        }
+    }
+}
+
+/// Normalize `.` and `..` without following symlinks.
+/// `normalize` first follows symlinks where possible.
+/// Use this only for suffixes below successfully resolved existing parents.
+fn lexical_path(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                out.pop();
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
 }

@@ -1,6 +1,44 @@
 use super::*;
 
 #[test]
+fn roots_are_independent_and_private_state_override_takes_precedence() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    for (key, child) in [
+        ("SLOPD_CONFIG_ROOT", "config"),
+        ("SLOPD_DATA", "data"),
+        ("SLOPD_CACHE", "cache"),
+    ] {
+        crate::test_support::set_env(key, root.join(child));
+    }
+    crate::test_support::set_env("SLOPD_CONFIG", root.join("elsewhere/custom.toml"));
+    assert_eq!(config_root(), root.join("config"));
+    assert_eq!(config_file(), root.join("elsewhere/custom.toml"));
+    assert_eq!(data_root(), root.join("data"));
+    assert_eq!(cache_root(), root.join("cache"));
+    assert_eq!(crate::sandbox::state_root(), root.join("state"));
+    for child in ["config", "data"] {
+        assert!(crate::sandbox::refused(root.join(child).to_str().unwrap()).is_some());
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn normalized_bindings_follow_aliases_and_keep_missing_suffixes() {
+    let root = std::env::temp_dir().join(format!("slopd-binding-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(root.join("real")).unwrap();
+    std::os::unix::fs::symlink(root.join("real"), root.join("alias")).unwrap();
+    assert_eq!(
+        normalize(&root.join("alias/missing/record.toml")).unwrap(),
+        root.join("real/missing/record.toml")
+    );
+    std::os::unix::fs::symlink(root.join("absent"), root.join("dangling")).unwrap();
+    normalize(&root.join("dangling/record.toml")).unwrap_err();
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn sorted_directory_reads_preserve_order_and_caller_error_policy() {
     let root = std::env::temp_dir().join(format!("slopd-scan-{}", uuid::Uuid::new_v4()));
     assert!(read_sorted_dir(&root, Err).unwrap().is_empty());
@@ -42,22 +80,21 @@ fn dir_uses_its_environment_override() {
         return;
     };
     let variable = format!("SLOPD_PATH_TEST_{}", std::process::id());
-    let override_path = std::env::temp_dir().join("slopd-path-override");
-    crate::test_support::set_env(&variable, &override_path);
+    let selected = std::env::temp_dir().join("slopd-path-override");
+    crate::test_support::set_env(&variable, &selected);
 
     assert_eq!(
-        dir(&variable, Some(PathBuf::from("/ignored")), "sessions"),
-        override_path
+        override_path(&variable, PathBuf::from("/ignored/sessions")),
+        selected
     );
 }
 
 #[test]
 fn dir_appends_the_child_below_the_application_root() {
     assert_eq!(
-        dir(
+        override_path(
             "SLOPD_PATH_TEST_UNSET",
-            Some(PathBuf::from("/var/lib")),
-            "sessions"
+            root(Some(PathBuf::from("/var/lib"))).join("sessions")
         ),
         PathBuf::from("/var/lib/slopworld/sessions")
     );

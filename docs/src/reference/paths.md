@@ -4,6 +4,13 @@ These tables show default paths and supported overrides. Most Linux SlopWorld pa
 `$XDG_DATA_HOME` (fallback `~/.local/share`), and caches use `$XDG_CACHE_HOME`
 (fallback `~/.cache`). On Unix, mode `0600` gives read and write access only to the owner.
 
+Daemon application roots can be overridden independently with `SLOPD_CONFIG_ROOT`,
+`SLOPD_DATA`, and `SLOPD_CACHE`. Per-store overrides take precedence: `SLOPD_STATE`
+selects private sessions instead of `SLOPD_DATA/sessions`, and `SLOPD_CONFIG` selects
+the root document filename. A custom config filename does not relocate data or cache.
+Existing catalogs beside that filename retain their current locations. Endpoint
+discovery and launcher/game paths retain the independent overrides below.
+
 ## Daemon configuration
 
 | Path | Override | Description |

@@ -1,9 +1,9 @@
 //! Resolve host aliases for fail-closed path guards and validate preset dependencies.
 
-use std::ffi::OsString;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use crate::paths::normalize as safety_path;
+use anyhow::Result;
 
 use crate::config::{Config, expand};
 use crate::presets::{SandboxPreset, Table};
@@ -29,6 +29,25 @@ pub fn refused(path: &str) -> Option<String> {
     }
 
     let keep = [
+        ("daemon configuration stores", crate::paths::config_root()),
+        ("agent records", crate::paths::data_root().join("agents")),
+        (
+            "host shell records",
+            crate::paths::data_root().join("host_shells"),
+        ),
+        (
+            "worktree records",
+            crate::paths::data_root().join("worktrees"),
+        ),
+        ("task records", crate::paths::data_root().join("tasks")),
+        (
+            "scoped grants",
+            crate::paths::data_root().join("grants.toml"),
+        ),
+        (
+            "workspace recovery journal",
+            crate::paths::data_root().join("workspace.save-journal"),
+        ),
         ("daemon configuration and token", Config::path_in_use()),
         (
             "configuration recovery journal and token",
@@ -57,67 +76,6 @@ pub(super) fn overlaps(left: &str, right: &str) -> bool {
         return true; // An unresolved alias cannot establish disjointness.
     };
     left.starts_with(&right) || right.starts_with(&left)
-}
-
-/// Resolve existing path components and keep the missing suffix.
-/// Safety checks then account for symlinks in existing parents.
-/// Presets can still specify paths for software that this machine does not have.
-fn safety_path(path: &Path) -> Result<PathBuf> {
-    let mut missing: Vec<OsString> = Vec::new();
-    let mut probe = std::path::absolute(path)?;
-    loop {
-        match std::fs::canonicalize(&probe) {
-            Ok(mut resolved) => {
-                for name in missing.iter().rev() {
-                    resolved.push(name);
-                }
-                let normalized = lexical_path(&resolved);
-                // A missing `child/..` can reveal an existing alias after
-                // normalization. Resolve that spelling again instead of
-                // assuming the entire suffix is still missing.
-                if missing.iter().any(|name| name == "..") {
-                    return safety_path(&normalized);
-                }
-                return Ok(normalized);
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                // An existing dangling symlink is an unresolved alias, not an
-                // optional missing suffix. Permission and other lookup failures
-                // must likewise never fall back to a lexical allow decision.
-                match std::fs::symlink_metadata(&probe) {
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                    Ok(_) => return Err(error).context("resolving existing safety path"),
-                    Err(error) => return Err(error).context("looking up safety path"),
-                }
-                let name = probe
-                    .components()
-                    .next_back()
-                    .context("safety path has no existing ancestor")?;
-                missing.push(name.as_os_str().to_owned());
-                anyhow::ensure!(probe.pop(), "safety path has no existing ancestor");
-            }
-            Err(error) => {
-                return Err(error).with_context(|| format!("resolving {}", probe.display()));
-            }
-        }
-    }
-}
-
-/// Normalize `.` and `..` without following symlinks.
-/// `safety_path` first follows symlinks where possible.
-/// Use this only for suffixes below successfully resolved existing parents.
-fn lexical_path(path: &Path) -> PathBuf {
-    let mut out = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                out.pop();
-            }
-            other => out.push(other.as_os_str()),
-        }
-    }
-    out
 }
 
 /// Validate a sandbox preset before bwrap uses it or the API saves it.

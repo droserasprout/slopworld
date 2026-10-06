@@ -21,6 +21,7 @@ mod runtime;
 mod sandbox;
 mod session;
 mod shared;
+mod storage_id;
 mod tasks;
 #[cfg(test)]
 mod test_http;

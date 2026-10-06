@@ -61,7 +61,9 @@ async fn save_library(
     library: &[LibraryItemCfg],
 ) -> Result<()> {
     let path = dirs[0].1.parent().unwrap().join("config.toml");
-    crate::config::transaction::save(&path, dirs, prepare_library(dirs, library)?, None).await
+    let changes =
+        crate::config::catalog::replacement_changes(dirs, prepare_library(dirs, library)?).await?;
+    crate::config::transaction::save(&path, changes).await
 }
 
 const FIRST_ID: &str = "11111111-1111-4111-8111-111111111111";

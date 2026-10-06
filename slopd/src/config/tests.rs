@@ -642,6 +642,39 @@ fn host_terminal_records_round_trip_and_default_to_autostart() {
     assert_eq!(tab.project, "repo");
     assert_eq!(tab.path, "/home/you/repo/src");
     assert!(tab.autostart);
+    assert!(tab.id.is_empty());
+    assert!(!text.contains("id ="));
+}
+
+#[test]
+fn host_shell_ids_are_valid_unique_and_preserved() {
+    let text = "[[host_terminal]]\nname = 'one'\nid = '0123456789abcdef'\n";
+    let cfg = Config::parse(text).unwrap();
+    let saved = toml::to_string(&cfg).unwrap();
+    assert_eq!(
+        Config::parse(&saved).unwrap().host_terminals[0].id,
+        "0123456789abcdef"
+    );
+    Config::parse(&format!(
+        "{text}[[host_terminal]]\nname = 'two'\nid = '0123456789abcdef'\n"
+    ))
+    .unwrap_err();
+    for bad in ["../escape", "0123456789abcdeF", "short"] {
+        Config::parse(&text.replace("0123456789abcdef", bad)).unwrap_err();
+    }
+}
+
+#[tokio::test]
+async fn loading_legacy_host_shells_does_not_assign_identity_or_rewrite() {
+    let root = std::env::temp_dir().join(format!("slopd-legacy-host-{}", uuid::Uuid::new_v4()));
+    tokio::fs::create_dir_all(&root).await.unwrap();
+    let path = root.join("config.toml");
+    let text = "# retained exactly\n[[host_terminal]]\nname = 'legacy'\n";
+    tokio::fs::write(&path, text).await.unwrap();
+    let config = Config::load(&path).await.unwrap();
+    assert!(config.host_terminals[0].id.is_empty());
+    assert_eq!(tokio::fs::read_to_string(&path).await.unwrap(), text);
+    tokio::fs::remove_dir_all(root).await.unwrap();
 }
 
 #[test]

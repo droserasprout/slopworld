@@ -13,10 +13,21 @@ class EnvironmentInventoryTests(unittest.TestCase):
     def test_generic_lookups_are_dynamic_and_path_overrides_are_named(self) -> None:
         path = ROOT / 'slopd/src/example.rs'
         names, dynamic = env_inventory(
-            {path: 'env::var(name);\nenv::var_os(variable);\ncrate::paths::dir("SLOPD_JUKEBOX", base, "jukebox");'}
+            {path: 'env::var(name);\nenv::var_os(variable);\ncrate::paths::override_path("SLOPD_JUKEBOX", base);'}
         )
         self.assertEqual(set(names), {'SLOPD_JUKEBOX'})
         self.assertEqual([item.line for item in dynamic], [1, 2])
+
+    def test_storage_root_and_store_overrides_are_discovered(self) -> None:
+        names, _ = env_inventory(
+            {
+                ROOT / 'slopd/src/paths.rs': """
+            override_path("SLOPD_CONFIG_ROOT", default);
+            crate::paths::override_path("SLOPD_STATE", default);
+        """
+            }
+        )
+        self.assertEqual(set(names), {'SLOPD_CONFIG_ROOT', 'SLOPD_STATE'})
 
     def test_build_and_tooling_variables_are_excluded(self) -> None:
         names, dynamic = env_inventory(

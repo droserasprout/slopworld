@@ -100,7 +100,11 @@ impl Manager {
                 tab.project = project.to_string();
                 tab.path = path.to_string();
             } else {
+                let id = crate::storage_id::allocate(|id| {
+                    Ok(cfg.host_terminals.iter().any(|tab| tab.id == id))
+                })?;
                 cfg.host_terminals.push(crate::config::HostTerminalCfg {
+                    id,
                     name: name.to_string(),
                     label: None,
                     project: project.to_string(),

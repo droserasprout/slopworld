@@ -77,6 +77,23 @@ pub(crate) fn validate_state_id(state_id: &str) -> Result<()> {
 }
 
 pub(super) fn validate_loaded(cfg: &Config) -> Result<()> {
+    let mut host_ids = HashSet::new();
+    for host in &cfg.host_terminals {
+        if host.id.is_empty() {
+            continue;
+        }
+        anyhow::ensure!(
+            crate::storage_id::valid(&host.id),
+            "Host shell {:?} has invalid storage ID {:?}.",
+            host.name,
+            host.id
+        );
+        anyhow::ensure!(
+            host_ids.insert(&host.id),
+            "Two host shells use the same storage ID {:?}.",
+            host.id
+        );
+    }
     validate_project_names(&cfg.projects)?;
     for project in &cfg.projects {
         validate_mount_paths(project)?;

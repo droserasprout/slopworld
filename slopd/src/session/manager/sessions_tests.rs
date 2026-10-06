@@ -600,8 +600,35 @@ async fn current_host_metadata_persists_path_and_updates_foreground_process() {
 }
 
 #[tokio::test]
+async fn host_creation_serializes_identity_and_failed_save_does_not_publish() {
+    let manager = metadata_fixture().await;
+    let (one, two) = tokio::join!(
+        manager.remember_host_terminal("one", "repo", "/one"),
+        manager.remember_host_terminal("two", "repo", "/two"),
+    );
+    one.unwrap();
+    two.unwrap();
+    let cfg = manager.config().await;
+    let ids: std::collections::HashSet<_> = cfg.host_terminals.iter().map(|tab| &tab.id).collect();
+    assert_eq!(ids.len(), 3);
+    assert!(ids.iter().all(|id| crate::storage_id::valid(id)));
+    let before = std::fs::read(&manager.cfg_path).unwrap();
+    let fault = crate::paths::fail_writes(&manager.cfg_path);
+    manager
+        .remember_host_terminal("failed", "repo", "/failed")
+        .await
+        .unwrap_err();
+    assert_eq!(manager.config().await.host_terminals.len(), 3);
+    assert_eq!(std::fs::read(&manager.cfg_path).unwrap(), before);
+    drop(fault);
+    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+}
+
+#[tokio::test]
 async fn remembered_host_edits_preserve_labels_and_reject_agent_collisions() {
     let manager = metadata_fixture().await;
+    let id = manager.config().await.host_terminals[0].id.clone();
+    assert!(crate::storage_id::valid(&id));
     manager
         .set_label("shell", "  My shell  ".into())
         .await
@@ -612,6 +639,7 @@ async fn remembered_host_edits_preserve_labels_and_reject_agent_collisions() {
         .unwrap();
     let cfg = manager.config().await;
     assert_eq!(cfg.host_terminals.len(), 1);
+    assert_eq!(cfg.host_terminals[0].id, id);
     assert_eq!(cfg.host_terminals[0].label.as_deref(), Some("My shell"));
     assert_eq!(cfg.host_terminals[0].path, "/new");
     assert!(cfg.host_terminals[0].autostart);

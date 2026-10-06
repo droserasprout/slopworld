@@ -22,6 +22,7 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | `session/manager/capture/` | Terminal readers, input, frames, scrollback, and title capture. |
 | `session/manager/init.rs`, `maintenance.rs` | Startup recovery and maintenance scheduling. Configuration transactions stay in `manager/config/mod.rs`; `lifecycle/reconcile.rs` applies them to live sessions. |
 | `clock.rs`, `paths.rs` | Unix-millisecond timestamps, filesystem metadata, and atomic file writes. Latency measurements use their own monotonic clock in `latency.rs`. |
+| `storage_id.rs` | OS-random opaque storage IDs and syntax checks; each store owns reservation and collision exclusion. |
 | `process.rs` | Shared bounded child capture, timeout, kill, and reap mechanics. |
 | `emu/`, `tmux/` | Terminal mirror and tmux transport. `tmux/server.rs` owns server startup and readiness; `emu/serialize.rs` owns cell-to-row encoding; `tmux/control.rs` decodes control-mode output before bytes enter the mirror. |
 | `sandbox/`, `presets.rs`, `presets/edit.rs` | Sandbox construction, preset snapshots, and serialized catalog mutations. |

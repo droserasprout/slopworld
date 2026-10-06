@@ -24,6 +24,9 @@ Existing TOML parse or type-conversion failures reject typed saves rather than
 replacing the document. Config/library saves recover as one transaction; callers
 serialize writes and recovery through the configuration gate. When main config is
 missing, existing library files load before default creation.
+The transaction owner accepts explicit file changes. Catalog replacement discovers
+retirements in `catalog.rs`; committing an explicit root-only change does not scan
+or retire library files. Typed aggregate saves still select the current inline layout.
 
 The redacted-token sentinel retains the stored secret; an empty token clears it.
 Editable patches carry explicit leaf paths so false, zero, and empty lists remain

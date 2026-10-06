@@ -37,10 +37,6 @@ pub fn redact_token_text(text: &str) -> Result<String> {
 }
 
 impl Config {
-    pub fn path() -> PathBuf {
-        crate::paths::config_root().join("config.toml")
-    }
-
     /// Private undo journal, containing the previous configuration token.
     /// Sandbox path guards protect it alongside the main configuration.
     pub(crate) fn recovery_path_for(path: &Path) -> PathBuf {
@@ -74,9 +70,7 @@ impl Config {
     /// `sandbox::refused` prevents bind mounts from exposing it because it contains the root token.
     /// An agent with this token can request a host terminal.
     pub fn path_in_use() -> PathBuf {
-        std::env::var("SLOPD_CONFIG")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| Self::path())
+        crate::paths::config_file()
     }
 
     pub async fn load(path: &Path) -> Result<Self> {
@@ -161,7 +155,9 @@ impl Config {
             table.remove("library");
         }
         let text = toml::to_string_pretty(&document)?;
-        super::transaction::save(path, &dirs, catalog, Some(text)).await
+        let mut changes = super::catalog::replacement_changes(&dirs, catalog).await?;
+        changes.insert(path.to_owned(), Some(text));
+        super::transaction::save(path, changes).await
     }
 
     pub async fn save_text(path: &Path, text: &str) -> Result<()> {

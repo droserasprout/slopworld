@@ -144,6 +144,9 @@ pub struct SessionCfg {
 /// Persistent host shell, restored independently of agent sessions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostTerminalCfg {
+    /// Stable storage identity; legacy inline shells receive one during migration.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub id: String,
     pub name: String,
     /// A fixed sidebar label. Empty means the terminal application's title is shown.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -161,6 +164,7 @@ pub struct HostTerminalCfg {
 impl Default for HostTerminalCfg {
     fn default() -> Self {
         Self {
+            id: String::new(),
             name: String::new(),
             label: None,
             project: String::new(),

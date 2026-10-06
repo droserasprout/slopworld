@@ -13,7 +13,7 @@ mod tests;
 /// The default location is under the user data directory, outside `TEMP_ROOT`, so state remains after a restart.
 /// `SLOPD_STATE` overrides the location for tests.
 pub(crate) fn state_root() -> PathBuf {
-    crate::paths::dir("SLOPD_STATE", dirs::data_dir(), "sessions")
+    crate::paths::override_path("SLOPD_STATE", crate::paths::data_root().join("sessions"))
 }
 
 /// Return the path for this session's private copy of `host`.

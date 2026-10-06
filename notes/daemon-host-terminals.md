@@ -7,6 +7,10 @@ configuration. [Temporary host errands](daemon-library.md) have a different life
 
 The saved record retains terminal identity, project grouping, last observed working
 directory, and autostart policy. A missing `autostart` field means true.
+New shells receive a stable 16-character lowercase hexadecimal `id`, allocated by
+`storage_id.rs` under the configuration mutation guard. Edits and renames retain it.
+Legacy records may omit the ID; loading never allocates one. Nonempty IDs must be
+valid and unique within the host-shell collection.
 Tmux metadata lets the daemon adopt a surviving shell after redeployment. If tmux
 state is lost, configuration restores the tab; a missing pane starts automatically
 only when autostart is enabled. Otherwise, the tab returns as a stopped row.

@@ -1,5 +1,34 @@
 use super::*;
-use crate::config::{LibraryItemCfg, catalog::prepare_library};
+use crate::config::{LibraryItemCfg, LibraryItemKind, catalog::prepare_library};
+
+#[tokio::test]
+async fn explicit_change_leaves_unselected_catalog_bytes_untouched() {
+    let fixture = Fixture::new().await;
+    let path = fixture.path();
+    Config::default().save(&path).await.unwrap();
+    let sibling = fixture.0.join("prompts/unselected.toml");
+    tokio::fs::create_dir_all(sibling.parent().unwrap())
+        .await
+        .unwrap();
+    // Even malformed sibling content is outside this transaction's ownership.
+    tokio::fs::write(&sibling, "unparsed sibling bytes")
+        .await
+        .unwrap();
+    save(
+        &path,
+        BTreeMap::from([(path.clone(), Some("[daemon]\n".into()))]),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        tokio::fs::read_to_string(&sibling).await.unwrap(),
+        "unparsed sibling bytes"
+    );
+    assert_eq!(
+        tokio::fs::read_to_string(&path).await.unwrap(),
+        "[daemon]\n"
+    );
+}
 
 struct Fixture(PathBuf);
 impl Fixture {
@@ -85,18 +114,19 @@ async fn every_partial_commit_restores_catalog_and_main_bytes() {
                 ..Default::default()
             },
         ];
-        let result = save_with_hook(
-            &path,
+        let mut changes = super::super::catalog::replacement_changes(
             &dirs,
             prepare_library(&dirs, &desired).unwrap(),
-            Some("changed main".into()),
-            |index| {
-                if index == fail_at {
-                    bail!("injected commit failure");
-                }
-                Ok(())
-            },
         )
+        .await
+        .unwrap();
+        changes.insert(path.clone(), Some("changed main".into()));
+        let result = save_with_hook(&path, changes, |index| {
+            if index == fail_at {
+                bail!("injected commit failure");
+            }
+            Ok(())
+        })
         .await;
         result.unwrap_err();
         // Check disk immediately, before load has an opportunity to recover it.
@@ -197,19 +227,17 @@ async fn failed_rollback_retains_journal_and_recovers_when_obstruction_is_remove
         }],
     )
     .unwrap();
-    let error = save_with_hook(
-        &path,
-        &dirs,
-        catalog,
-        Some("changed main".into()),
-        |index| {
-            if index == 1 {
-                std::fs::create_dir_all(&blocked)?;
-                bail!("injected obstruction");
-            }
-            Ok(())
-        },
-    )
+    let mut changes = super::super::catalog::replacement_changes(&dirs, catalog)
+        .await
+        .unwrap();
+    changes.insert(path.clone(), Some("changed main".into()));
+    let error = save_with_hook(&path, changes, |index| {
+        if index == 1 {
+            std::fs::create_dir_all(&blocked)?;
+            bail!("injected obstruction");
+        }
+        Ok(())
+    })
     .await
     .unwrap_err();
     assert!(format!("{error:#}").contains("recovery journal retained"));

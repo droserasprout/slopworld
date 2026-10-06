@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 
-use super::{Config, LibraryItemKind};
+use super::Config;
 
 #[derive(Serialize, Deserialize)]
 struct Undo {
@@ -96,42 +96,18 @@ pub(super) async fn recover(path: &Path) -> Result<()> {
         .context("restoring interrupted configuration save")
 }
 
-pub(super) async fn save(
-    path: &Path,
-    dirs: &[(LibraryItemKind, PathBuf)],
-    catalog: Vec<(PathBuf, String)>,
-    main: Option<String>,
-) -> Result<()> {
-    save_with_hook(path, dirs, catalog, main, |_| Ok(())).await
+/// Commit only the files selected by their owners. Catalog discovery is deliberately
+/// outside this boundary: a root-only change must not retire catalog siblings.
+pub(super) async fn save(path: &Path, changes: BTreeMap<PathBuf, Option<String>>) -> Result<()> {
+    save_with_hook(path, changes, |_| Ok(())).await
 }
 
 async fn save_with_hook(
     path: &Path,
-    dirs: &[(LibraryItemKind, PathBuf)],
-    catalog: Vec<(PathBuf, String)>,
-    main: Option<String>,
+    changes: BTreeMap<PathBuf, Option<String>>,
     before_write: impl Fn(usize) -> Result<()>,
 ) -> Result<()> {
     recover(path).await?;
-    let mut changes: BTreeMap<PathBuf, Option<String>> =
-        catalog.into_iter().map(|(p, s)| (p, Some(s))).collect();
-    // Discover retired files and read all originals before touching the store.
-    for (_, dir) in dirs {
-        let mut entries = match tokio::fs::read_dir(dir).await {
-            Ok(entries) => entries,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
-            Err(error) => return Err(error.into()),
-        };
-        while let Some(entry) = entries.next_entry().await? {
-            let target = entry.path();
-            if target.extension().is_some_and(|ext| ext == "toml") {
-                changes.entry(target).or_insert(None);
-            }
-        }
-    }
-    if let Some(text) = main {
-        changes.insert(path.to_owned(), Some(text));
-    }
     let mut undo = Undo {
         files: BTreeMap::new(),
     };

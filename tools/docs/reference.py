@@ -120,7 +120,7 @@ def env_inventory(files: dict[Path, str]) -> tuple[dict[str, list[Hit]], list[Hi
             constants[match.group(1)] = match.group(2)
 
     direct_patterns = [
-        rf'\b(?:crate::)?paths::dir\(\s*"({ENV_NAME})"',
+        rf'\b(?:(?:crate::)?paths::)?override_path\(\s*"({ENV_NAME})"',
         rf"(?:std::)?env::(?:var|var_os)\(\s*['\"]({ENV_NAME})['\"]",
         rf"\boption_env_nonempty\(\s*['\"]({ENV_NAME})['\"]",
         rf"\bEnvironment\.GetEnvironmentVariable\(\s*['\"]({ENV_NAME})['\"]",
