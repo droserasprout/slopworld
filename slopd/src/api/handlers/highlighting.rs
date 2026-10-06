@@ -75,7 +75,9 @@ pub(crate) async fn highlight_themes(
     Query(q): Query<HighlightThemesQuery>,
 ) -> ApiResult<wire::HighlightThemes> {
     // The draft command is request-local, including an explicit empty (Off) choice.
-    let command = q.command.unwrap_or(m.config().await.commands.highlighter);
+    let command = q
+        .command
+        .unwrap_or(m.config().await.settings.commands.highlighter);
     let command = crate::config::resolve_highlighter(&command);
     let argv = crate::sandbox::shell_split(&command);
     let kind = engine(&argv);

@@ -1,6 +1,7 @@
 //! Worktree operations do not depend on task outcomes or worker lifetimes.
 use super::super::*;
 use super::directories::CreatedDirectories;
+use crate::session::manager::config::ConfigMutation;
 use crate::worktrees::{Store, Worktree, git};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
@@ -510,7 +511,7 @@ impl Manager {
 
     async fn prepare_worktree(&self, q: &WorktreeRequest) -> Result<PreparedWorktree> {
         let project = self
-            .update_cfg_if_changed_inner(|cfg| {
+            .update_cfg_if_changed_inner(ConfigMutation::Projects, |cfg| {
                 let project = cfg
                     .projects
                     .iter_mut()

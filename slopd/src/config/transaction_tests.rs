@@ -5,7 +5,9 @@ use crate::config::{LibraryItemCfg, LibraryItemKind, catalog::prepare_library};
 async fn explicit_change_leaves_unselected_catalog_bytes_untouched() {
     let fixture = Fixture::new().await;
     let path = fixture.path();
-    Config::default().save(&path).await.unwrap();
+    crate::config::legacy::save(&Config::default(), &path)
+        .await
+        .unwrap();
     let sibling = fixture.0.join("prompts/unselected.toml");
     tokio::fs::create_dir_all(sibling.parent().unwrap())
         .await
@@ -52,7 +54,9 @@ impl Drop for Fixture {
 async fn rejected_catalog_does_not_change_main_document() {
     let fixture = Fixture::new().await;
     let path = fixture.path();
-    Config::default().save(&path).await.unwrap();
+    crate::config::legacy::save(&Config::default(), &path)
+        .await
+        .unwrap();
     let original = tokio::fs::read_to_string(&path).await.unwrap();
     let mut config = Config::default();
     config.daemon.bind = "127.0.0.1:1234".into();
@@ -60,7 +64,9 @@ async fn rejected_catalog_does_not_change_main_document() {
         name: "../escape".into(),
         ..Default::default()
     });
-    config.save(&path).await.unwrap_err();
+    crate::config::legacy::save(&config, &path)
+        .await
+        .unwrap_err();
     assert_eq!(tokio::fs::read_to_string(&path).await.unwrap(), original);
     assert!(!journal_path(&path).exists());
 }
@@ -90,7 +96,7 @@ async fn every_partial_commit_restores_catalog_and_main_bytes() {
             ],
             ..Default::default()
         };
-        original.save(&path).await.unwrap();
+        crate::config::legacy::save(&original, &path).await.unwrap();
         let dirs = Config::library_dirs_for(&path);
         let mut before = BTreeMap::new();
         for file in [
@@ -154,7 +160,7 @@ async fn interrupted_commit_recovers_on_load_and_repeated_recovery_is_safe() {
         text: "original".into(),
         ..Default::default()
     });
-    config.save(&path).await.unwrap();
+    crate::config::legacy::save(&config, &path).await.unwrap();
     let old = fixture.0.join("prompts/moved.toml");
     let new = fixture.0.join("breadcrumbs/moved.toml");
     let undo = Undo {
@@ -215,7 +221,7 @@ async fn failed_rollback_retains_journal_and_recovers_when_obstruction_is_remove
     let fixture = Fixture::new().await;
     let path = fixture.path();
     let original = Config::default();
-    original.save(&path).await.unwrap();
+    crate::config::legacy::save(&original, &path).await.unwrap();
     let bytes = tokio::fs::read_to_string(&path).await.unwrap();
     let dirs = Config::library_dirs_for(&path);
     let blocked = fixture.0.join("prompts/new.toml");

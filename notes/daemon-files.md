@@ -26,7 +26,7 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | `process.rs` | Shared bounded child capture, timeout, kill, and reap mechanics. |
 | `emu/`, `tmux/` | Terminal mirror and tmux transport. `tmux/server.rs` owns server startup and readiness; `emu/serialize.rs` owns cell-to-row encoding; `tmux/control.rs` decodes control-mode output before bytes enter the mirror. |
 | `sandbox/`, `presets.rs`, `presets/edit.rs` | Sandbox construction, preset snapshots, and serialized catalog mutations. |
-| `config/` | Configuration model, persistence, validation, ownership and resolution. |
+| `config/` | Machine settings, assembled configuration view, validation and resolution. `legacy.rs` prepares the selected inline persistence layout. |
 | `git/` | Git inspection and restricted command execution; see [Git boundary](daemon-git.md). |
 | `worktrees/` | Independent worktree records and bounded Git operations. See [worktree ownership](daemon-worktrees.md). |
 | `tasks.rs`, `grant.rs` | Durable mailboxes and scoped authority. |

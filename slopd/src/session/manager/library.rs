@@ -1,6 +1,7 @@
 //! Projects, library, file actions and errands.
 
 use super::super::*;
+use crate::session::manager::config::ConfigMutation;
 
 use crate::process::{self, CaptureLimits};
 use crate::session::input::ENTER_GAP;
@@ -90,7 +91,7 @@ impl Manager {
 
     pub async fn add_library_item(self: &Arc<Self>, mut sc: LibraryItemCfg) -> Result<()> {
         self.reload_if_changed().await;
-        self.update_cfg(|cfg| {
+        self.update_cfg(ConfigMutation::Library, |cfg| {
             sc.builtin = false;
             check_library_item(cfg, &sc)?;
             if cfg.library.iter().any(|existing| existing.name == sc.name) {
@@ -110,7 +111,7 @@ impl Manager {
         mut sc: LibraryItemCfg,
     ) -> Result<()> {
         self.reload_if_changed().await;
-        self.update_cfg(|cfg| {
+        self.update_cfg(ConfigMutation::Library, |cfg| {
             sc.builtin = false;
             if cfg.is_builtin_library_item(name) {
                 bail!("The daemon cannot edit built-in library item {name}.");
@@ -139,7 +140,7 @@ impl Manager {
 
     pub async fn remove_library_item(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
-        self.update_cfg(|cfg| {
+        self.update_cfg(ConfigMutation::Library, |cfg| {
             if cfg.is_builtin_library_item(name) {
                 bail!("The daemon cannot delete built-in library item {name}.");
             }

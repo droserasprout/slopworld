@@ -25,7 +25,7 @@ async fn removing_and_replacing_sessions_revokes_only_changed_identities() {
         caps.push(manager.resolve_cap(Some(&token)).await.unwrap());
     }
     manager
-        .update_cfg(|cfg| {
+        .update_cfg(ConfigMutation::Fixture, |cfg| {
             cfg.sessions.retain(|session| session.name != "removed");
             cfg.sessions
                 .iter_mut()
@@ -49,7 +49,7 @@ async fn persisted_root_token_changes_invalidate_existing_auth() {
     let mut changes = manager.auth_changes();
 
     manager
-        .update_cfg(|cfg| {
+        .update_cfg(ConfigMutation::Fixture, |cfg| {
             cfg.daemon.token = "rotated-root".into();
             Ok(())
         })
@@ -86,11 +86,11 @@ async fn concurrent_structured_writes_keep_both_changes() {
     let left = manager.clone();
     let right = manager.clone();
     let (left, right) = tokio::join!(
-        left.update_cfg(|cfg| {
+        left.update_cfg(ConfigMutation::Fixture, |cfg| {
             cfg.daemon.title_model = "left-model".into();
             Ok(())
         }),
-        right.update_cfg(|cfg| {
+        right.update_cfg(ConfigMutation::Fixture, |cfg| {
             cfg.daemon.summary_prompt = "right-prompt".into();
             Ok(())
         }),
@@ -130,7 +130,9 @@ async fn json_patch_preserves_omitted_fields_and_redacted_token() {
     cfg.daemon.token = "real-root-token".into();
     cfg.daemon.summary_prompt = "keep this prompt".into();
     let manager = test_manager(cfg.clone());
-    cfg.save(&manager.cfg_path).await.unwrap();
+    crate::config::legacy::save(&cfg, &manager.cfg_path)
+        .await
+        .unwrap();
     *manager.config_state.cfg_mtime.lock().unwrap() = tokio::fs::metadata(&manager.cfg_path)
         .await
         .unwrap()
@@ -237,7 +239,7 @@ async fn configuration_entry_points_preserve_notification_scope() {
 
     // Structured edits leave announcements to the operation that requested the edit.
     manager
-        .update_cfg(|cfg| {
+        .update_cfg(ConfigMutation::Fixture, |cfg| {
             cfg.daemon.title_model = "new model".into();
             Ok(())
         })
@@ -284,7 +286,9 @@ async fn save_acknowledgement_leaves_an_external_replacement_unseen() {
     let expected = toml::to_string(&manager.config().await).unwrap();
     let mut external = manager.config().await;
     external.daemon.title_model = "external model".into();
-    external.save(&manager.cfg_path).await.unwrap();
+    crate::config::legacy::save(&external, &manager.cfg_path)
+        .await
+        .unwrap();
     manager.mark_saved_document(&expected).await;
     assert!(manager.config_state.cfg_mtime.lock().unwrap().is_none());
     assert!(manager.reload_if_changed().await);
@@ -304,5 +308,155 @@ async fn document_save_does_not_acknowledge_an_external_library_revision() {
     assert_eq!(
         *manager.config_state.library_mtime.lock().unwrap(),
         accepted
+    );
+}
+
+#[tokio::test]
+async fn agent_edit_does_not_read_or_retire_unselected_library_files() {
+    let manager = test_manager(Config {
+        sessions: vec![SessionCfg {
+            name: "agent".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    manager
+        .update_cfg(ConfigMutation::Fixture, |_| Ok(()))
+        .await
+        .unwrap();
+    let dir = manager.cfg_path.parent().unwrap().join("prompts");
+    tokio::fs::create_dir_all(&dir).await.unwrap();
+    let sibling = dir.join("external.toml");
+    let bytes = "unaccepted external edit [";
+    tokio::fs::write(&sibling, bytes).await.unwrap();
+    let stamp = *manager.config_state.library_mtime.lock().unwrap();
+    manager
+        .update_cfg(ConfigMutation::Agents, |cfg| {
+            cfg.sessions[0].label = Some("accepted".into());
+            Ok(())
+        })
+        .await
+        .unwrap();
+    assert_eq!(tokio::fs::read_to_string(sibling).await.unwrap(), bytes);
+    assert_eq!(*manager.config_state.library_mtime.lock().unwrap(), stamp);
+    assert_eq!(
+        manager.config().await.sessions[0].label.as_deref(),
+        Some("accepted")
+    );
+}
+
+#[tokio::test]
+async fn library_edit_does_not_write_or_accept_an_external_root_revision() {
+    let manager = test_manager(Config::default());
+    manager
+        .update_cfg(ConfigMutation::Fixture, |_| Ok(()))
+        .await
+        .unwrap();
+    let stamp = *manager.config_state.cfg_mtime.lock().unwrap();
+    let bytes = "invalid pending root edit [";
+    tokio::fs::write(&manager.cfg_path, bytes).await.unwrap();
+    manager
+        .update_cfg(ConfigMutation::Library, |cfg| {
+            for name in ["new-prompt", "another-prompt"] {
+                cfg.library.push(LibraryItemCfg {
+                    name: name.into(),
+                    ..Default::default()
+                });
+            }
+            Ok(())
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        tokio::fs::read_to_string(&manager.cfg_path).await.unwrap(),
+        bytes
+    );
+    assert_eq!(*manager.config_state.cfg_mtime.lock().unwrap(), stamp);
+    assert_eq!(manager.config().await.library[0].name, "new-prompt");
+    assert_eq!(
+        *manager.config_state.library_mtime.lock().unwrap(),
+        Config::library_stamp_for(&manager.cfg_path)
+    );
+    assert_eq!(
+        Config::load_library_for(&manager.cfg_path).await.unwrap()[0].name,
+        "another-prompt"
+    );
+}
+
+#[tokio::test]
+async fn mutation_cannot_change_an_unowned_store_or_publish_its_candidate() {
+    let manager = test_manager(Config::default());
+    manager
+        .update_cfg(ConfigMutation::Fixture, |_| Ok(()))
+        .await
+        .unwrap();
+    let before = tokio::fs::read(&manager.cfg_path).await.unwrap();
+    let error = manager
+        .update_cfg(ConfigMutation::Agents, |cfg| {
+            cfg.daemon.token = "not-owned".into();
+            Ok(())
+        })
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("does not own daemon"));
+    assert_eq!(tokio::fs::read(&manager.cfg_path).await.unwrap(), before);
+    assert_ne!(manager.config().await.daemon.token, "not-owned");
+    let error = manager
+        .update_cfg(ConfigMutation::HostShells, |cfg| {
+            cfg.library.push(LibraryItemCfg {
+                name: "wrong-store".into(),
+                ..Default::default()
+            });
+            Ok(())
+        })
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("does not own library"));
+    assert!(manager.config().await.library.is_empty());
+}
+
+#[tokio::test]
+async fn failed_prepared_commit_keeps_accepted_snapshot_and_allows_retry() {
+    let manager = test_manager(Config {
+        sessions: vec![SessionCfg {
+            name: "agent".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    manager
+        .update_cfg(ConfigMutation::Fixture, |_| Ok(()))
+        .await
+        .unwrap();
+    let ((), prepared) = manager
+        .prepare_cfg_change(ConfigMutation::Agents, |cfg| {
+            cfg.sessions[0].label = Some("new label".into());
+            Ok(((), true))
+        })
+        .await
+        .unwrap();
+    assert_eq!(manager.config().await.sessions[0].label, None);
+    let original = tokio::fs::read(&manager.cfg_path).await.unwrap();
+    tokio::fs::remove_file(&manager.cfg_path).await.unwrap();
+    tokio::fs::create_dir(&manager.cfg_path).await.unwrap();
+    assert!(
+        manager
+            .commit_prepared_cfg(prepared.unwrap())
+            .await
+            .is_err()
+    );
+    assert_eq!(manager.config().await.sessions[0].label, None);
+    tokio::fs::remove_dir(&manager.cfg_path).await.unwrap();
+    tokio::fs::write(&manager.cfg_path, original).await.unwrap();
+    manager
+        .update_cfg(ConfigMutation::Agents, |cfg| {
+            cfg.sessions[0].label = Some("retry".into());
+            Ok(())
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        manager.config().await.sessions[0].label.as_deref(),
+        Some("retry")
     );
 }

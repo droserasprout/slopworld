@@ -46,7 +46,7 @@ It does not read or write environment values.
 | `SLOPD_OPENAI_USAGE_URL` | [`slopd/src/usage/providers.rs:37`](./slopd/src/usage/providers.rs#L37) |
 | `SLOPD_PATH_TEST_UNSET` | [`slopd/src/paths_tests.rs:95`](./slopd/src/paths_tests.rs#L95) |
 | `SLOPD_PRESETS` | [`slopd/src/api/handlers/presets.rs:172`](./slopd/src/api/handlers/presets.rs#L172), [`slopd/src/presets/edit_tests.rs:22`](./slopd/src/presets/edit_tests.rs#L22), [`slopd/src/presets/edit_tests.rs:44`](./slopd/src/presets/edit_tests.rs#L44), [`slopd/src/presets.rs:270`](./slopd/src/presets.rs#L270) |
-| `SLOPD_RUNTIME` | [`slopd/src/runtime.rs:40`](./slopd/src/runtime.rs#L40), [`slopd/src/runtime.rs:168`](./slopd/src/runtime.rs#L168), [`slopd/src/runtime_tests.rs:78`](./slopd/src/runtime_tests.rs#L78) |
+| `SLOPD_RUNTIME` | [`slopd/src/runtime.rs:40`](./slopd/src/runtime.rs#L40), [`slopd/src/runtime.rs:168`](./slopd/src/runtime.rs#L168), [`slopd/src/runtime_tests.rs:81`](./slopd/src/runtime_tests.rs#L81) |
 | `SLOPD_STATE` | [`slopd/src/sandbox/state/mod.rs:16`](./slopd/src/sandbox/state/mod.rs#L16), [`slopd/src/test_support.rs:53`](./slopd/src/test_support.rs#L53) |
 | `SLOPD_STORAGE_CRASH_ROOT` | [`slopd/src/storage/transaction_tests.rs:496`](./slopd/src/storage/transaction_tests.rs#L496), [`slopd/src/storage/transaction_tests.rs:522`](./slopd/src/storage/transaction_tests.rs#L522) |
 | `SLOPD_STORAGE_CRASH_STAGE` | [`slopd/src/storage/transaction_tests.rs:494`](./slopd/src/storage/transaction_tests.rs#L494), [`slopd/src/storage/transaction_tests.rs:521`](./slopd/src/storage/transaction_tests.rs#L521) |
@@ -86,7 +86,7 @@ It does not read or write environment values.
 These are patterns rather than single variable names:
 
 - inherited or computed environment name at [`slopd/src/bin/slopworld.rs:474`](./slopd/src/bin/slopworld.rs#L474): `std::env::var(key).ok().filter(\|v\| !v.trim().is_empty())`
-- inherited or computed environment name at [`slopd/src/config/mod.rs:89`](./slopd/src/config/mod.rs#L89): `match std::env::var(name) {`
+- inherited or computed environment name at [`slopd/src/config/mod.rs:92`](./slopd/src/config/mod.rs#L92): `match std::env::var(name) {`
 - inherited or computed environment name at [`slopd/src/paths.rs:228`](./slopd/src/paths.rs#L228): `env::var_os(variable).map(PathBuf::from).unwrap_or(default)`
 - inherited or computed environment name at [`slopd/src/sandbox/bind/mounts.rs:182`](./slopd/src/sandbox/bind/mounts.rs#L182): `for (k, v) in std::env::vars() {`
 - inherited or computed environment name at [`slopd/src/sandbox/bind/mounts.rs:184`](./slopd/src/sandbox/bind/mounts.rs#L184): `push_args(a, &["--setenv", k.as_str(), v.as_str()]);`

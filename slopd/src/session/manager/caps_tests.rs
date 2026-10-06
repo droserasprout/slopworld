@@ -4,8 +4,11 @@ use crate::session::test_manager;
 
 fn config() -> Config {
     Config {
-        daemon: Daemon {
-            token: "root".into(),
+        settings: crate::config::Settings {
+            daemon: Daemon {
+                token: "root".into(),
+                ..Default::default()
+            },
             ..Default::default()
         },
         sessions: vec![

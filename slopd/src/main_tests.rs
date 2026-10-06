@@ -12,8 +12,11 @@ use tower::ServiceExt;
 
 fn manager() -> Arc<Manager> {
     crate::session::test_manager(Config {
-        daemon: Daemon {
-            token: "root-secret".into(),
+        settings: crate::config::Settings {
+            daemon: Daemon {
+                token: "root-secret".into(),
+                ..Default::default()
+            },
             ..Default::default()
         },
         sessions: vec![
@@ -292,9 +295,12 @@ async fn scoped_tokens_reach_shared_routes_but_not_root_routes() {
 #[tokio::test]
 async fn scoped_worker_catalog_is_allowlisted_and_project_scoped() {
     let manager = crate::session::test_manager(Config {
-        daemon: Daemon {
-            token: "root-secret".into(),
-            worker_templates: BTreeSet::from(["review".to_string()]),
+        settings: crate::config::Settings {
+            daemon: Daemon {
+                token: "root-secret".into(),
+                worker_templates: BTreeSet::from(["review".to_string()]),
+                ..Default::default()
+            },
             ..Default::default()
         },
         projects: vec![ProjectCfg {

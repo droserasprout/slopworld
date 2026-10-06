@@ -1,4 +1,5 @@
 //! Commit one configured session deletion without rewriting unrelated catalogs.
+//! TODO(storage cutover): retire this inline-document shortcut with the legacy adapter.
 //! Persistence owns document editing; the session caller owns stop, trash, and publication.
 
 use super::*;
@@ -32,7 +33,7 @@ impl Manager {
             // The fallback acquires its own persistence guard. Keep the session
             // boundary across the handoff so another mutation cannot interleave.
             drop(persist);
-            self.update_cfg(|cfg| {
+            self.update_cfg(ConfigMutation::Agents, |cfg| {
                 cfg.sessions.retain(|session| session.name != name);
                 Ok(())
             })

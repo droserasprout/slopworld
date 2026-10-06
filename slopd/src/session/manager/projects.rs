@@ -2,6 +2,7 @@
 //! Library execution and delayed input belong to library.rs.
 use super::super::*;
 use super::directories::CreatedDirectories;
+use crate::session::manager::config::ConfigMutation;
 use crate::session::validation::check_project_mounts;
 use anyhow::anyhow;
 
@@ -28,7 +29,7 @@ impl Manager {
         settle(&mut p);
         p.id = uuid::Uuid::new_v4().to_string();
         check_project(&p)?;
-        self.update_cfg(|cfg| {
+        self.update_cfg(ConfigMutation::ProjectReferences, |cfg| {
             check_project_mounts(cfg, &p)?;
             if cfg.project(&p.name).is_some() {
                 bail!("project {} already exists", p.name);
@@ -84,7 +85,7 @@ impl Manager {
             }
         }
         let result = self
-            .update_cfg_if_changed_inner(|cfg| {
+            .update_cfg_if_changed_inner(ConfigMutation::ProjectReferences, |cfg| {
                 let idx = cfg
                     .projects
                     .iter()
@@ -212,7 +213,7 @@ impl Manager {
         {
             bail!("remove project worktrees explicitly first");
         }
-        self.update_cfg(|cfg| {
+        self.update_cfg(ConfigMutation::ProjectReferences, |cfg| {
             if cfg.project(name).is_none() {
                 bail!("Project {name:?} does not exist.");
             }

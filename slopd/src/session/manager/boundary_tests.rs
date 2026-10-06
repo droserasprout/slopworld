@@ -29,8 +29,11 @@ async fn shared_worktree_guard_allows_input_but_blocks_identity_changes() {
 #[tokio::test]
 async fn shared_request_keeps_scoped_capability_valid_until_it_finishes() {
     let manager = crate::session::test_manager(Config {
-        daemon: Daemon {
-            token: "root".into(),
+        settings: crate::config::Settings {
+            daemon: Daemon {
+                token: "root".into(),
+                ..Default::default()
+            },
             ..Default::default()
         },
         sessions: vec![SessionCfg {
@@ -73,8 +76,11 @@ async fn shared_request_keeps_scoped_capability_valid_until_it_finishes() {
 async fn replacement_waits_for_authorized_use_and_then_rejects_the_old_capability() {
     for level in [Level::Ro, Level::Rw] {
         let manager = crate::session::test_manager(Config {
-            daemon: Daemon {
-                token: "root".into(),
+            settings: crate::config::Settings {
+                daemon: Daemon {
+                    token: "root".into(),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
             sessions: ["grantor", "target"]

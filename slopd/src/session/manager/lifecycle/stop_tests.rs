@@ -151,14 +151,10 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
     let Some(root) = crate::test_support::isolated() else {
         return;
     };
+    let mut cfg = Config::default();
+    cfg.daemon.token = "root-secret".into();
     let manager = crate::session::test_manager_with_socket(
-        Config {
-            daemon: crate::config::Daemon {
-                token: "root-secret".into(),
-                ..Default::default()
-            },
-            ..Default::default()
-        },
+        cfg,
         format!("lifecycle-{}", uuid::Uuid::new_v4()),
     );
     let task = manager

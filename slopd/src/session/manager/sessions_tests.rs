@@ -1,5 +1,6 @@
 use super::super::lifecycle::start::prepare_project_dir;
 use super::*;
+use crate::session::manager::config::ConfigMutation;
 
 #[tokio::test]
 async fn removal_save_failure_restores_private_state_before_retry() {
@@ -57,7 +58,10 @@ async fn rename_fixture(running: bool) -> (Arc<Manager>, std::path::PathBuf, Str
         },
         socket.clone(),
     );
-    manager.update_cfg(|_| Ok(())).await.unwrap();
+    manager
+        .update_cfg(ConfigMutation::Fixture, |_| Ok(()))
+        .await
+        .unwrap();
     if running {
         manager
             .tmux
@@ -177,7 +181,7 @@ fn project_directory_rejects_a_protected_ancestor() {
 async fn invalid_or_conflicting_renames_do_not_touch_tmux_or_config() {
     let (manager, root, socket) = rename_fixture(true).await;
     manager
-        .update_cfg(|cfg| {
+        .update_cfg(ConfigMutation::Fixture, |cfg| {
             cfg.sessions.push(replacement("occupied"));
             Ok(())
         })
@@ -482,7 +486,7 @@ async fn metadata_fixture() -> Arc<Manager> {
         .to_string_lossy()
         .into_owned();
     manager
-        .update_cfg(|cfg| {
+        .update_cfg(ConfigMutation::Fixture, |cfg| {
             cfg.projects.push(ProjectCfg {
                 name: "repo".into(),
                 dir,
@@ -932,7 +936,7 @@ async fn removing_one_durable_session_does_not_autostart_an_unrelated_host_tab()
     };
     let (manager, root, socket) = rename_fixture(false).await;
     manager
-        .update_cfg(|cfg| {
+        .update_cfg(ConfigMutation::Fixture, |cfg| {
             cfg.host_terminals.push(crate::config::HostTerminalCfg {
                 name: "unrelated".into(),
                 project: "repo".into(),

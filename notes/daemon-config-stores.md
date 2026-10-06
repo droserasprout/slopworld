@@ -11,7 +11,7 @@ overrides belong to [paths](ops-paths.md).
 
 | Store | Owner and related contract |
 | --- | --- |
-| `config.toml` | `config/model.rs`, `persistence.rs`, and `transaction.rs`; [projects](daemon-projects.md) and [host tabs](daemon-host-terminals.md). |
+| `config.toml` | `config/settings.rs` owns machine settings, `model.rs` assembles the read model, and `legacy.rs` prepares the current inline layout; [projects](daemon-projects.md) and [host tabs](daemon-host-terminals.md). |
 | `prompts/`, `breadcrumbs/`, `file_actions/`, `shell_scripts/` | `config/library.rs`, `catalog.rs`, and `persistence.rs`; [library](daemon-library.md). |
 | `agent_templates/` | `session/agent_templates/`; [templates](daemon-agent-templates.md). |
 | `sandbox_presets/`, `app_presets/` | `presets.rs` and `presets/edit.rs`; [presets](daemon-presets.md). |
@@ -26,7 +26,11 @@ serialize writes and recovery through the configuration gate. When main config i
 missing, existing library files load before default creation.
 The transaction owner accepts explicit file changes. Catalog replacement discovers
 retirements in `catalog.rs`; committing an explicit root-only change does not scan
-or retire library files. Typed aggregate saves still select the current inline layout.
+or retire library files. `Config` has no aggregate save method. Structured mutation callers declare their
+store ownership, and the manager rejects changes outside that scope before preparing
+explicit file changes. Workspace mutations currently select the inline root only;
+library mutations select catalogs only. Each updates only its own accepted revision.
+`legacy.rs` remains the selected disk adapter until the record-layout cutover.
 
 The redacted-token sentinel retains the stored secret; an empty token clears it.
 Editable patches carry explicit leaf paths so false, zero, and empty lists remain

@@ -3,6 +3,7 @@
 //! Do not infer ownership from its name.
 
 use super::super::*;
+use crate::session::manager::config::ConfigMutation;
 
 use anyhow::anyhow;
 
@@ -117,7 +118,7 @@ impl Manager {
 
         if durable {
             let persisted = self
-                .update_cfg(|cfg| {
+                .update_cfg(ConfigMutation::Agents, |cfg| {
                     if cfg.session(&session.name).is_some()
                         || cfg
                             .host_terminals

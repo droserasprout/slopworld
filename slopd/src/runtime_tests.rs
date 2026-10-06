@@ -3,9 +3,12 @@ use crate::config::{Daemon, Limits, SessionCfg};
 
 fn sidecar_config() -> Config {
     Config {
-        daemon: Daemon {
-            bind: "0.0.0.0:7717".into(),
-            token: "secret".into(),
+        settings: crate::config::Settings {
+            daemon: Daemon {
+                bind: "0.0.0.0:7717".into(),
+                token: "secret".into(),
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()

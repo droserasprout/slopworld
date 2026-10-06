@@ -238,7 +238,11 @@ async fn malformed_existing_config_is_never_replaced_by_typed_save() {
     let fixture = LibraryFixture::new();
     let path = fixture.0.join("config.toml");
     fixture.write("config.toml", "[daemon\nrecover me").await;
-    assert!(Config::default().save(&path).await.is_err());
+    assert!(
+        crate::config::legacy::save(&Config::default(), &path)
+            .await
+            .is_err()
+    );
     assert_eq!(
         tokio::fs::read_to_string(&path).await.unwrap(),
         "[daemon\nrecover me"
@@ -325,7 +329,7 @@ async fn clearing_modeled_settings_preserves_only_unknown_fields() {
     agent.cmd = None;
     agent.label = None;
     agent.limits.memory_mb = None;
-    config.save(&path).await.unwrap();
+    crate::config::legacy::save(&config, &path).await.unwrap();
     let mut reloaded = Config::load(&path).await.unwrap();
     let agent = &reloaded.sessions[0];
     assert!(agent.sandbox.is_empty());
@@ -334,7 +338,7 @@ async fn clearing_modeled_settings_preserves_only_unknown_fields() {
     assert_eq!(agent.limits.memory_mb, None);
     assert_eq!(agent.limits.pids, Some(100));
     reloaded.sessions[0].limits = Limits::default();
-    reloaded.save(&path).await.unwrap();
+    crate::config::legacy::save(&reloaded, &path).await.unwrap();
     assert!(
         Config::load(&path).await.unwrap().sessions[0]
             .limits
@@ -380,7 +384,7 @@ async fn library_items_round_trip_as_one_file_each() {
         ..Default::default()
     });
 
-    cfg.save(&path).await.unwrap();
+    crate::config::legacy::save(&cfg, &path).await.unwrap();
     let document = tokio::fs::read_to_string(&path).await.unwrap();
     assert!(!document.contains("[[library]]"));
     let item_path = root.join("prompts/review diff.toml");
@@ -426,7 +430,7 @@ state_id = "11111111-1111-4111-8111-111111111111"
     assert_eq!(tokio::fs::read_to_string(&path).await.unwrap(), text);
     let cfg = Config::default();
     assert!(
-        cfg.save(&path)
+        crate::config::legacy::save(&cfg, &path)
             .await
             .unwrap_err()
             .to_string()
@@ -450,7 +454,7 @@ state_id = "11111111-1111-4111-8111-111111111111"
     let loaded = Config::load(&path).await.unwrap();
     assert_eq!(loaded.projects[0].worktree_root, "/tmp/trees");
     assert_eq!(loaded.sessions[0].worktree, "tree-id");
-    loaded.save(&path).await.unwrap();
+    crate::config::legacy::save(&loaded, &path).await.unwrap();
     assert!(
         tokio::fs::read_to_string(&path)
             .await

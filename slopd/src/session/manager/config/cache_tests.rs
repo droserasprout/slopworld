@@ -1,5 +1,6 @@
 use super::*;
 use crate::config::MountMode;
+use crate::session::manager::config::ConfigMutation;
 
 #[tokio::test]
 async fn cache_configuration_removes_only_owned_links() {
@@ -153,13 +154,15 @@ async fn config_save_failure_rolls_back_added_and_removed_links() {
         ..Default::default()
     };
     let manager = crate::session::test_manager(old.clone());
-    old.save(&manager.cfg_path).await.unwrap();
+    crate::config::legacy::save(&old, &manager.cfg_path)
+        .await
+        .unwrap();
     reconcile_cache_links(&manager.cfg_path, &Config::default(), &old)
         .await
         .unwrap();
     let _fault = crate::paths::fail_writes(&manager.cfg_path);
     manager
-        .update_cfg(|cfg| {
+        .update_cfg(ConfigMutation::Fixture, |cfg| {
             cfg.projects[0].mounts[0].to = "new".into();
             Ok(())
         })

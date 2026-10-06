@@ -1,6 +1,7 @@
 //! Opt-in removal timings use isolated state and never connect to the user's daemon.
 
 use super::*;
+use crate::session::manager::config::ConfigMutation;
 
 #[tokio::test]
 #[ignore = "isolated worker-removal scaling diagnostic"]
@@ -54,7 +55,10 @@ async fn removal_fixture(count: usize) -> Arc<Manager> {
         sessions: sessions.clone(),
         ..Default::default()
     });
-    manager.update_cfg(|_| Ok(())).await.unwrap();
+    manager
+        .update_cfg(ConfigMutation::Fixture, |_| Ok(()))
+        .await
+        .unwrap();
     for session in sessions {
         let state = crate::sandbox::state_dir(&session).unwrap();
         std::fs::create_dir_all(&state).unwrap();

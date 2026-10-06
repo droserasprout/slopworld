@@ -14,7 +14,10 @@ async fn fixture() -> Arc<Manager> {
     };
     cfg.daemon.token = "root".into();
     let manager = crate::session::test_manager(cfg);
-    manager.update_cfg(|_| Ok(())).await.unwrap();
+    manager
+        .update_cfg(ConfigMutation::Fixture, |_| Ok(()))
+        .await
+        .unwrap();
     manager
 }
 

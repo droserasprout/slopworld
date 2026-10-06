@@ -35,8 +35,11 @@ fn worker_policy_round_trips_exact_template_names() {
 #[tokio::test]
 async fn worker_policy_keeps_template_names_distinct() {
     let manager = crate::session::test_manager(Config {
-        daemon: Daemon {
-            worker_templates: BTreeSet::from(["team-review".to_string()]),
+        settings: crate::config::Settings {
+            daemon: Daemon {
+                worker_templates: BTreeSet::from(["team-review".to_string()]),
+                ..Default::default()
+            },
             ..Default::default()
         },
         projects: vec![ProjectCfg {
@@ -139,7 +142,10 @@ async fn scoped_worker_callers_cannot_cross_project_contexts() {
 #[tokio::test]
 async fn worker_names_are_explicitly_coined_without_name_inference() {
     let manager = crate::session::test_manager(Config {
-        daemon: Daemon::default(),
+        settings: crate::config::Settings {
+            daemon: Daemon::default(),
+            ..Default::default()
+        },
         projects: vec![ProjectCfg {
             name: "repo".into(),
             dir: "/tmp".into(),
@@ -168,7 +174,10 @@ async fn invalid_worker_template_is_rejected_before_task_creation() {
     let mut daemon = Daemon::default();
     daemon.worker_templates.insert("missing".into());
     let manager = crate::session::test_manager(Config {
-        daemon,
+        settings: crate::config::Settings {
+            daemon,
+            ..Default::default()
+        },
         projects: vec![ProjectCfg {
             name: "repo".into(),
             dir: "/tmp".into(),
@@ -280,7 +289,9 @@ async fn durable_worker_parent_survives_a_daemon_restart() {
         ..Default::default()
     };
     let config_path = dir.join("config.toml");
-    config.save(&config_path).await.unwrap();
+    crate::config::legacy::save(&config, &config_path)
+        .await
+        .unwrap();
 
     // A new daemon reads the durable config before it repopulates its live session table.
     let reloaded = Config::load(&config_path).await.unwrap();

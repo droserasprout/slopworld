@@ -2,8 +2,11 @@
 //! crate::config owns data types and persistence; this module coordinates runtime changes.
 
 mod cache;
+mod mutation;
 mod removal;
 mod state;
+
+pub(super) use mutation::ConfigMutation;
 
 pub(crate) use state::ConfigState;
 
@@ -25,6 +28,8 @@ struct ConfigChange {
 
 pub(super) struct PreparedConfigChange {
     change: ConfigChange,
+    disk: crate::config::legacy::PreparedWrite,
+    mutation: ConfigMutation,
     // Prevent stale candidates, including across a tmux rename before commit.
     _persist: tokio::sync::OwnedMutexGuard<()>,
 }
@@ -45,25 +50,28 @@ impl Manager {
     /// Serialize snapshot edits, saving before publication without holding the cfg lock.
     pub(super) async fn update_cfg<T>(
         &self,
+        mutation: ConfigMutation,
         update: impl FnOnce(&mut Config) -> Result<T>,
     ) -> Result<T> {
-        self.update_cfg_if_changed(|cfg| update(cfg).map(|result| (result, true)))
+        self.update_cfg_if_changed(mutation, |cfg| update(cfg).map(|result| (result, true)))
             .await
     }
 
     pub(super) async fn update_cfg_if_changed<T>(
         &self,
+        mutation: ConfigMutation,
         update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
     ) -> Result<T> {
-        self.session_operation(self.update_cfg_if_changed_inner(update))
+        self.session_operation(self.update_cfg_if_changed_inner(mutation, update))
             .await
     }
 
     pub(super) async fn update_cfg_if_changed_inner<T>(
         &self,
+        mutation: ConfigMutation,
         update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
     ) -> Result<T> {
-        let (result, change) = self.prepare_cfg_change(update).await?;
+        let (result, change) = self.prepare_cfg_change(mutation, update).await?;
         let Some(change) = change else {
             return Ok(result);
         };
@@ -74,9 +82,11 @@ impl Manager {
     /// Validate a private snapshot and retain the persistence lock until commit or drop.
     pub(super) async fn prepare_cfg_change<T>(
         &self,
+        mutation: ConfigMutation,
         update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
     ) -> Result<(T, Option<PreparedConfigChange>)> {
         let persist = self.config_state.persist.clone().lock_owned().await;
+        crate::config::legacy::recover(&self.cfg_path).await?;
         let old = self.cfg.read().await.clone();
         let mut candidate = old.clone();
         let (result, changed) = update(&mut candidate)?;
@@ -84,23 +94,44 @@ impl Manager {
             return Ok((result, None));
         }
 
+        mutation.validate(&old, &candidate)?;
         self.validate_worktree_config(&old, &candidate).await?;
         let change = prepare_candidate(&old, candidate)?;
+        let disk = crate::config::legacy::prepare(
+            &change.new,
+            &self.cfg_path,
+            mutation.writes_root(),
+            mutation.writes_library(),
+        )
+        .await?;
         Ok((
             result,
             Some(PreparedConfigChange {
                 change,
+                disk,
+                mutation,
                 _persist: persist,
             }),
         ))
     }
 
     pub(super) async fn commit_prepared_cfg(&self, prepared: PreparedConfigChange) -> Result<()> {
-        let PreparedConfigChange { change, _persist } = prepared;
+        let PreparedConfigChange {
+            change,
+            disk,
+            mutation,
+            _persist,
+        } = prepared;
         let old = self.cfg.read().await.clone();
         let links = reconcile_cache_links(&self.cfg_path, &old, &change.new).await?;
-        if let Err(error) = self.persist_cfg(&change.new).await {
+        if let Err(error) = disk.commit(&self.cfg_path).await {
             return Err(links.rollback_error(error));
+        }
+        if mutation.writes_library() {
+            self.mark_saved_library(&change.new).await;
+        }
+        if let Some(text) = disk.root_text(&self.cfg_path) {
+            self.mark_saved_document(text).await;
         }
         let endpoint_token = self.publish_config(change).await;
         // Keep endpoint token writes ordered with configuration commits.
@@ -121,6 +152,7 @@ impl Manager {
         self.reload_if_changed().await;
 
         let persist = self.config_state.persist.lock().await;
+        crate::config::legacy::recover(&self.cfg_path).await?;
         let text = tokio::fs::read_to_string(&self.cfg_path)
             .await
             .with_context(|| format!("reading {}", self.cfg_path.display()))?;
@@ -149,6 +181,7 @@ impl Manager {
 
     async fn replace_config_inner(self: &Arc<Self>, text: &str) -> Result<()> {
         let persist = self.config_state.persist.lock().await;
+        crate::config::legacy::recover(&self.cfg_path).await?;
         let old = self.cfg.read().await.clone();
         let prepared = self.prepare_document_change(&old, text).await?;
         self.commit_document_change(&old, prepared).await?;
@@ -280,12 +313,6 @@ impl Manager {
 
     // Shared commit steps: persist, publish, then reconcile and notify.
 
-    async fn persist_cfg(&self, cfg: &Config) -> Result<()> {
-        cfg.save(&self.cfg_path).await?;
-        self.mark_saved_config(cfg).await;
-        Ok(())
-    }
-
     async fn persist_cfg_text(&self, text: &str) -> Result<()> {
         Config::save_text(&self.cfg_path, text).await?;
         self.mark_saved_document(text).await;
@@ -307,15 +334,16 @@ impl Manager {
         // Document edits never accept a new library catalog revision.
     }
 
-    async fn mark_saved_config(&self, expected: &Config) {
-        let stamp = disk_mtime(&self.cfg_path).await;
-        let library_stamp = Config::library_stamp_for(&self.cfg_path);
-        let matches = match Config::load(&self.cfg_path).await {
-            Ok(actual) => {
-                match (
-                    toml::Value::try_from(actual),
-                    toml::Value::try_from(expected),
-                ) {
+    async fn mark_saved_library(&self, expected: &Config) {
+        let stamp = Config::library_stamp_for(&self.cfg_path);
+        let matches = match Config::load_library_for(&self.cfg_path).await {
+            Ok(mut actual) => {
+                let mut expected = expected.library.clone();
+                // File discovery orders by path; accepted API insertion order
+                // is not an external edit. Names are unique across the catalog.
+                actual.sort_by(|a, b| a.name.cmp(&b.name));
+                expected.sort_by(|a, b| a.name.cmp(&b.name));
+                match (serde_json::to_value(actual), serde_json::to_value(expected)) {
                     (Ok(actual), Ok(expected)) => actual == expected,
                     _ => false,
                 }
@@ -324,15 +352,10 @@ impl Manager {
         };
         *self
             .config_state
-            .cfg_mtime
-            .lock()
-            .unwrap_or_else(|error| error.into_inner()) = matches.then_some(stamp).flatten();
-        *self
-            .config_state
             .library_mtime
             .lock()
-            .unwrap_or_else(|error| error.into_inner()) =
-            matches.then_some(library_stamp).flatten();
+            .unwrap_or_else(|error| error.into_inner()) = matches.then_some(stamp).flatten();
+        // Library edits cannot accept an unseen root document revision.
     }
 
     async fn publish_config(&self, change: ConfigChange) -> String {

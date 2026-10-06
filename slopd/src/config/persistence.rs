@@ -1,6 +1,6 @@
 //! Config file loading, serialization, and redacted persistence.
 
-use super::catalog::{load_library, prepare_library};
+use super::catalog::load_library;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -59,6 +59,10 @@ impl Config {
         .collect()
     }
 
+    pub(crate) async fn load_library_for(path: &Path) -> Result<Vec<LibraryItemCfg>> {
+        load_library(&Self::library_dirs_for(path)).await
+    }
+
     pub fn library_stamp_for(config_path: &Path) -> Option<SystemTime> {
         Self::library_dirs_for(config_path)
             .into_iter()
@@ -77,17 +81,17 @@ impl Config {
         super::transaction::recover(path).await?;
         if !tokio::fs::try_exists(path).await? {
             let cfg = Config {
-                library: load_library(&Self::library_dirs_for(path)).await?,
+                library: Self::load_library_for(path).await?,
                 ..Default::default()
             };
-            cfg.save(path).await?;
+            super::legacy::save(&cfg, path).await?;
             return Ok(cfg);
         }
         let text = tokio::fs::read_to_string(path)
             .await
             .with_context(|| format!("reading {}", path.display()))?;
         let (mut cfg, _) = Self::parse_document(&text)?;
-        cfg.library = load_library(&Self::library_dirs_for(path)).await?;
+        cfg.library = Self::load_library_for(path).await?;
         Ok(cfg)
     }
 
@@ -127,37 +131,6 @@ impl Config {
         let cfg: Self = document.clone().try_into().context("parsing config.toml")?;
         super::validation::validate_loaded(&cfg)?;
         Ok((cfg, document))
-    }
-
-    pub async fn save(&self, path: &Path) -> Result<()> {
-        super::validation::validate_loaded(self)?;
-        let dirs = Self::library_dirs_for(path);
-        let catalog = prepare_library(&dirs, &self.library)?;
-        super::transaction::recover(path).await?;
-        let mut document = toml::Value::try_from(self)?;
-        if tokio::fs::try_exists(path).await? {
-            let text = tokio::fs::read_to_string(path)
-                .await
-                .with_context(|| format!("reading existing configuration {}", path.display()))?;
-            let previous: toml::Value = toml::from_str(&text)
-                .with_context(|| format!("parsing existing configuration {}", path.display()))?;
-            reject_removed_worktree_fields(&previous)?;
-            let previous_config: Self = previous
-                .clone()
-                .try_into()
-                .context("reading modeled fields before preserving unknown configuration")?;
-            let previous_modeled = toml::Value::try_from(previous_config)?;
-            preserve_unknown_fields(&mut document, &previous, Some(&previous_modeled));
-        }
-        if let Some(table) = document.as_table_mut() {
-            // Library entries have a separate catalog.
-            // Do not serialize the in-memory catalog into the main configuration document.
-            table.remove("library");
-        }
-        let text = toml::to_string_pretty(&document)?;
-        let mut changes = super::catalog::replacement_changes(&dirs, catalog).await?;
-        changes.insert(path.to_owned(), Some(text));
-        super::transaction::save(path, changes).await
     }
 
     pub async fn save_text(path: &Path, text: &str) -> Result<()> {
@@ -211,7 +184,7 @@ impl Config {
 }
 
 // Reject retired names before unknown-field preservation can retain them as extensions.
-fn reject_removed_worktree_fields(document: &toml::Value) -> Result<()> {
+pub(super) fn reject_removed_worktree_fields(document: &toml::Value) -> Result<()> {
     for (section, old, replacement) in [
         ("project", "workspace_root", "worktree_root"),
         ("session", "workspace", "worktree"),
@@ -227,7 +200,7 @@ fn reject_removed_worktree_fields(document: &toml::Value) -> Result<()> {
     Ok(())
 }
 
-fn preserve_unknown_fields(
+pub(super) fn preserve_unknown_fields(
     modeled: &mut toml::Value,
     previous: &toml::Value,
     previous_modeled: Option<&toml::Value>,

@@ -2,6 +2,7 @@
 
 use super::super::*;
 use super::lifecycle::stop::{finish_reader, take_reader_for_abort};
+use crate::session::manager::config::ConfigMutation;
 use anyhow::anyhow;
 // Bound user labels shown in session lists.
 const MAX_MANUAL_LABEL_CHARS: usize = 60;
@@ -92,7 +93,7 @@ impl Manager {
         project: &str,
         path: &str,
     ) -> Result<()> {
-        self.update_cfg(|cfg| {
+        self.update_cfg(ConfigMutation::HostShells, |cfg| {
             if cfg.session(name).is_some() {
                 bail!("host terminal {name} conflicts with an agent session");
             }
@@ -160,7 +161,7 @@ impl Manager {
         };
 
         let (project, cfg_changed) = match self
-            .update_cfg_if_changed(|cfg| {
+            .update_cfg_if_changed(ConfigMutation::HostShells, |cfg| {
                 let mut changed = false;
                 let mut project = None;
                 if let Some(tab) = cfg.host_terminals.iter_mut().find(|tab| tab.name == name) {
@@ -289,7 +290,7 @@ impl Manager {
             self.resolve_worktree(p, &s.worktree).await?;
         }
         let (autostart, name) = self
-            .update_cfg(|cfg| {
+            .update_cfg(ConfigMutation::Agents, |cfg| {
                 if cfg.session(&s.name).is_some() {
                     bail!("session {} already exists", s.name);
                 }
@@ -367,7 +368,7 @@ impl Manager {
         }
 
         let ((), prepared) = self
-            .prepare_cfg_change(|cfg| {
+            .prepare_cfg_change(ConfigMutation::Agents, |cfg| {
                 let idx = cfg
                     .sessions
                     .iter()
@@ -512,23 +513,32 @@ impl Manager {
         };
         let host = self.is_host(name).await;
         if host || !self.is_ephemeral(name).await {
-            self.update_cfg(|cfg| {
+            self.update_cfg(
                 if host {
-                    // Runtime-only host errands have no host_terminal record. Their label is
-                    // still useful for the current pane, but there is nothing to persist.
-                    if let Some(tab) = cfg.host_terminals.iter_mut().find(|tab| tab.name == name) {
-                        tab.label = saved.clone();
-                    }
+                    ConfigMutation::HostShells
                 } else {
-                    let session = cfg
-                        .sessions
-                        .iter_mut()
-                        .find(|session| session.name == name)
-                        .ok_or_else(|| anyhow!("no such session: {name}"))?;
-                    session.label = saved.clone();
-                }
-                Ok(())
-            })
+                    ConfigMutation::Agents
+                },
+                |cfg| {
+                    if host {
+                        // Runtime-only host errands have no host_terminal record. Their label is
+                        // still useful for the current pane, but there is nothing to persist.
+                        if let Some(tab) =
+                            cfg.host_terminals.iter_mut().find(|tab| tab.name == name)
+                        {
+                            tab.label = saved.clone();
+                        }
+                    } else {
+                        let session = cfg
+                            .sessions
+                            .iter_mut()
+                            .find(|session| session.name == name)
+                            .ok_or_else(|| anyhow!("no such session: {name}"))?;
+                        session.label = saved.clone();
+                    }
+                    Ok(())
+                },
+            )
             .await?;
         }
 
@@ -655,7 +665,7 @@ impl Manager {
                 .iter()
                 .any(|tab| tab.name == name);
             if saved {
-                self.update_cfg(|cfg| {
+                self.update_cfg(ConfigMutation::HostShells, |cfg| {
                     cfg.host_terminals.retain(|tab| tab.name != name);
                     Ok(())
                 })
@@ -787,7 +797,7 @@ impl Manager {
         crate::sandbox::restore_stored_state(key, &cfg.sessions)?;
         if add
             && let Err(e) = self
-                .update_cfg(|cfg| {
+                .update_cfg(ConfigMutation::Agents, |cfg| {
                     if cfg.session(&session.name).is_some() {
                         bail!(
                             "session {:?} already exists with different private state",
