@@ -2,7 +2,9 @@
 
 The mdBook in `docs/` owns public user procedures; developer notes own implementation
 constraints. Verify behavior claims against source and tests when resolving a
-conflict. The README keeps a short Linux quickstart and links to platform guides.
+conflict. The README and book introduction share the project overview, Linux
+quickstart, and platform guide links. Keep their content in sync, adjusting relative
+links for each location. Shared presentation images live in `docs/src/images/`.
 
 Put each fact on one main page. Tours introduce workflows and the FAQ answers
 recurring questions; both link to detailed guides and references. Do not duplicate
