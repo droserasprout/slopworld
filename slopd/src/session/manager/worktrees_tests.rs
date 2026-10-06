@@ -426,11 +426,11 @@ async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
         },
         index: 1,
     };
-    removal.record_intent(&manager.cfg_path).await.unwrap();
+    removal.record_intent(&manager).await.unwrap();
     // Simulate Git deleting the checkout before the final catalog write fails.
     std::fs::remove_dir(&checkout).unwrap();
     let fault = crate::paths::fail_writes(&manager.cfg_path.with_file_name("worktrees.toml"));
-    removal.finish(&manager.cfg_path, Ok(())).await.unwrap_err();
+    removal.finish(&manager, Ok(())).await.unwrap_err();
     let retained = Store::load(&manager.cfg_path).await.unwrap();
     assert_eq!(retained.worktrees[0].id, "sibling");
     assert_eq!(retained.worktrees[0].phase, "ready");
@@ -446,8 +446,8 @@ async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
         store: recovered,
         index: 1,
     };
-    retry.record_intent(&manager.cfg_path).await.unwrap();
-    retry.finish(&manager.cfg_path, Ok(())).await.unwrap();
+    retry.record_intent(&manager).await.unwrap();
+    retry.finish(&manager, Ok(())).await.unwrap();
     let remaining = Store::load(&manager.cfg_path).await.unwrap();
     assert_eq!(remaining.worktrees.len(), 1);
     assert_eq!(remaining.worktrees[0].id, "sibling");

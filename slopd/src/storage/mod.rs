@@ -10,3 +10,6 @@ pub(crate) mod transaction;
 
 #[cfg(test)]
 mod tests;
+
+pub(crate) mod workspace;
+mod workspace_document;

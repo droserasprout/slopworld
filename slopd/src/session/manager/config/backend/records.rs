@@ -5,23 +5,27 @@ use super::*;
 use crate::storage::{
     sessions::{Definition, Kind, Prepared, Store},
     target::StorageBinding,
-    transaction,
+    transaction, workspace,
 };
 
-pub(in crate::session::manager::config) struct Records {
-    pub(in crate::session::manager::config) binding: StorageBinding,
+pub(in crate::session::manager) struct Records {
+    pub(in crate::session::manager) binding: StorageBinding,
     stores: Mutex<Stores>,
 }
 
 struct Stores {
     agents: Store,
     hosts: Store,
+    projects: workspace::Store<ProjectCfg>,
+    worktrees: workspace::Store<crate::worktrees::Worktree>,
 }
 
 pub(in crate::session::manager::config) struct PreparedRecords {
     owner: Arc<Records>,
-    kind: Kind,
-    edits: Vec<Prepared>,
+    agents: Vec<Prepared>,
+    hosts: Vec<Prepared>,
+    projects: Option<workspace::Prepared<ProjectCfg>>,
+    worktrees: Option<workspace::Prepared<crate::worktrees::Worktree>>,
 }
 
 impl Records {
@@ -37,39 +41,51 @@ impl Records {
         mutation: ConfigMutation,
         next: &Config,
     ) -> Result<PreparedRecords> {
-        let (kind, values) = match mutation {
-            ConfigMutation::Agents => (
-                Kind::Agent,
-                next.sessions
-                    .iter()
-                    .cloned()
-                    .map(|row| Definition::Agent(Box::new(row)))
-                    .collect(),
-            ),
-            ConfigMutation::HostShells => (
-                Kind::HostShell,
+        let stores = self
+            .stores
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        let mut plan = PreparedRecords {
+            owner: self.clone(),
+            agents: Vec::new(),
+            hosts: Vec::new(),
+            projects: None,
+            worktrees: None,
+        };
+        match mutation {
+            ConfigMutation::Agents | ConfigMutation::ProjectReferences => {
+                plan.agents = prepare_selected(
+                    &stores.agents,
+                    next.sessions
+                        .iter()
+                        .cloned()
+                        .map(|row| Definition::Agent(Box::new(row)))
+                        .collect(),
+                )?;
+            }
+            ConfigMutation::HostShells | ConfigMutation::Projects => {}
+            _ => bail!("record backend does not yet support this mutation owner"),
+        }
+        if matches!(
+            mutation,
+            ConfigMutation::HostShells | ConfigMutation::ProjectReferences
+        ) {
+            plan.hosts = prepare_selected(
+                &stores.hosts,
                 next.host_terminals
                     .iter()
                     .cloned()
                     .map(Definition::HostShell)
                     .collect(),
-            ),
-            _ => bail!("record backend does not yet support this mutation owner"),
-        };
-        let stores = self
-            .stores
-            .lock()
-            .unwrap_or_else(|error| error.into_inner());
-        let store = match kind {
-            Kind::Agent => &stores.agents,
-            Kind::HostShell => &stores.hosts,
-        };
-        let edits = prepare_selected(store, values)?;
-        Ok(PreparedRecords {
-            owner: self.clone(),
-            kind,
-            edits,
-        })
+            )?;
+        }
+        if matches!(
+            mutation,
+            ConfigMutation::Projects | ConfigMutation::ProjectReferences
+        ) {
+            plan.projects = Some(stores.projects.prepare(next.projects.clone())?);
+        }
+        Ok(plan)
     }
 }
 
@@ -78,26 +94,53 @@ impl PreparedRecords {
         &self,
         gate: &OwnedMutexGuard<()>,
     ) -> Result<()> {
-        transaction::commit_in_operation(
-            &self.owner.binding,
-            self.edits.iter().map(|edit| edit.change.clone()).collect(),
-            gate,
-        )
-        .await
+        transaction::commit_in_operation(&self.owner.binding, self.changes(), gate).await
     }
 
+    fn changes(&self) -> Vec<transaction::Change> {
+        let mut changes: Vec<_> = self
+            .agents
+            .iter()
+            .chain(&self.hosts)
+            .map(|edit| edit.change.clone())
+            .collect();
+        if let Some(plan) = &self.projects {
+            changes.extend(plan.changes.clone());
+        }
+        if let Some(plan) = &self.worktrees {
+            changes.extend(plan.changes.clone());
+        }
+        changes
+    }
+    pub(in crate::session::manager::config) fn attach_worktrees(
+        &mut self,
+        values: Vec<crate::worktrees::Worktree>,
+    ) -> Result<()> {
+        let stores = self
+            .owner
+            .stores
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        self.worktrees = Some(stores.worktrees.prepare(values)?);
+        Ok(())
+    }
     pub(in crate::session::manager::config) fn publish(self) {
         let mut stores = self
             .owner
             .stores
             .lock()
             .unwrap_or_else(|error| error.into_inner());
-        let store = match self.kind {
-            Kind::Agent => &mut stores.agents,
-            Kind::HostShell => &mut stores.hosts,
-        };
-        for edit in self.edits {
-            store.publish(edit);
+        for edit in self.agents {
+            stores.agents.publish(edit);
+        }
+        for edit in self.hosts {
+            stores.hosts.publish(edit);
+        }
+        if let Some(plan) = self.projects {
+            stores.projects.publish(plan);
+        }
+        if let Some(plan) = self.worktrees {
+            stores.worktrees.publish(plan);
         }
     }
 }
@@ -151,7 +194,7 @@ fn serialized(value: &Definition) -> Result<toml::Value> {
 }
 
 impl Manager {
-    pub(in crate::session::manager::config) fn record_backend(&self) -> Option<Arc<Records>> {
+    pub(in crate::session::manager) fn record_backend(&self) -> Option<Arc<Records>> {
         self.config_state
             .records
             .lock()
@@ -169,7 +212,10 @@ impl Manager {
             transaction::recover(&binding, &gate).await?;
             let agents = Store::load(&binding, Kind::Agent).await?;
             let hosts = Store::load(&binding, Kind::HostShell).await?;
+            let projects = workspace::Store::<ProjectCfg>::load(&binding).await?;
+            let worktrees = workspace::Store::<crate::worktrees::Worktree>::load(&binding).await?;
             let mut candidate = self.config().await;
+            candidate.projects = projects.ordered();
             candidate.sessions = agents
                 .ordered()
                 .into_iter()
@@ -187,7 +233,20 @@ impl Manager {
                 })
                 .collect();
             let old = self.config().await;
-            self.validate_worktree_config(&old, &candidate).await?;
+            let snapshot = crate::worktrees::Store {
+                worktrees: worktrees.ordered(),
+            };
+            let project_ids: std::collections::HashSet<_> =
+                candidate.projects.iter().map(|p| p.id.as_str()).collect();
+            anyhow::ensure!(
+                snapshot
+                    .worktrees
+                    .iter()
+                    .all(|w| project_ids.contains(w.project_id.as_str())),
+                "worktree refers to an unknown project identity"
+            );
+            self.validate_worktree_snapshot(&old, &candidate, &snapshot)
+                .await?;
             let change = prepare_candidate(&old, candidate)?;
             *self
                 .config_state
@@ -195,7 +254,12 @@ impl Manager {
                 .lock()
                 .unwrap_or_else(|error| error.into_inner()) = Some(Arc::new(Records {
                 binding,
-                stores: Mutex::new(Stores { agents, hosts }),
+                stores: Mutex::new(Stores {
+                    agents,
+                    hosts,
+                    projects,
+                    worktrees,
+                }),
             }));
             self.publish_config(change).await;
             Ok(())
@@ -248,5 +312,37 @@ impl Manager {
         drop(_gate);
         self.announce_library().await;
         true
+    }
+}
+
+impl Records {
+    pub(in crate::session::manager) fn worktrees(&self) -> crate::worktrees::Store {
+        let stores = self
+            .stores
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        crate::worktrees::Store {
+            worktrees: stores.worktrees.ordered(),
+        }
+    }
+    pub(in crate::session::manager) async fn save_worktrees(
+        &self,
+        values: Vec<crate::worktrees::Worktree>,
+        gate: &OwnedMutexGuard<()>,
+    ) -> Result<()> {
+        self.recover(gate).await?;
+        let plan = self
+            .stores
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .worktrees
+            .prepare(values)?;
+        transaction::commit_in_operation(&self.binding, plan.changes.clone(), gate).await?;
+        self.stores
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .worktrees
+            .publish(plan);
+        Ok(())
     }
 }

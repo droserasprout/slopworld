@@ -37,7 +37,7 @@ impl ConfigMutation {
             Self::Agents => &["session"],
             Self::HostShells => &["host_terminal"],
             Self::Projects => &["project"],
-            Self::ProjectReferences => &["project", "session"],
+            Self::ProjectReferences => &["project", "session", "host_terminal"],
             Self::Library => &[],
             #[cfg(test)]
             Self::Fixture => return Ok(()),

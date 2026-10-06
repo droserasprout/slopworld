@@ -31,6 +31,7 @@ pub(super) struct PreparedConfigChange {
     change: ConfigChange,
     disk: backend::PreparedDisk,
     mutation: ConfigMutation,
+    worktrees: Option<crate::worktrees::Store>,
     // Prevent stale candidates, including across a tmux rename before commit.
     _persist: tokio::sync::OwnedMutexGuard<()>,
 }
@@ -105,9 +106,29 @@ impl Manager {
                 change,
                 disk,
                 mutation,
+                worktrees: None,
                 _persist: persist,
             }),
         ))
+    }
+
+    /// Intent is already durable and Git has moved. The record undo baseline is
+    /// the relocating state, never a ready record pointing at the old checkout.
+    pub(super) async fn commit_project_relocation(
+        self: &Arc<Self>,
+        mut prepared: PreparedConfigChange,
+        store: &crate::worktrees::Store,
+    ) -> Result<()> {
+        #[cfg(test)]
+        if let backend::PreparedDisk::Records(plan) = &mut prepared.disk {
+            plan.attach_worktrees(store.worktrees.clone())?;
+        } else {
+            store.save(&self.cfg_path).await?;
+        }
+        #[cfg(not(test))]
+        store.save(&self.cfg_path).await?;
+        prepared.worktrees = Some(store.clone());
+        self.commit_prepared_cfg(prepared).await
     }
 
     pub(super) async fn commit_prepared_cfg(
@@ -127,10 +148,15 @@ impl Manager {
             change,
             disk,
             mutation,
+            worktrees,
             _persist,
         } = prepared;
         let old = self.cfg.read().await.clone();
-        let links = reconcile_cache_links(&self.cfg_path, &old, &change.new).await?;
+        let store = match worktrees {
+            Some(store) => store,
+            None => self.load_worktrees().await?,
+        };
+        let links = cache::reconcile_store_links(&store, &old, &change.new)?;
         if let Err(error) = disk.commit(&self.cfg_path, &_persist).await {
             return Err(links.rollback_error(error));
         }
@@ -476,3 +502,6 @@ mod tests;
 
 #[cfg(test)]
 pub(super) mod record_tests;
+
+#[cfg(test)]
+mod workspace_tests;

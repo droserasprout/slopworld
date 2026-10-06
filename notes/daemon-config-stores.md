@@ -31,6 +31,8 @@ store ownership, and the manager rejects changes outside that scope before prepa
 explicit file changes. Workspace mutations currently select the inline root only;
 library mutations select catalogs only. Each updates only its own accepted revision.
 `legacy.rs` remains the selected disk adapter until the record-layout cutover.
+The fixture-selected backend also exercises project/reference transactions and
+registered-checkout records; its accepted indexes do not poll workspace files.
 
 Structured commits transfer their prepared candidate and persistence gate to owned
 work. Session protection remains held through disk commit, rollback, and accepted-state

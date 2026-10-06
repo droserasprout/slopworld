@@ -138,7 +138,32 @@ pub struct Grants {
 
 impl Grants {
     pub fn load(config: &Path) -> Result<Self> {
-        let path = config.with_file_name("grants.toml");
+        Self::load_path(config.with_file_name("grants.toml"))
+    }
+
+    /// Selected only after offline migration. Never merge independent authority
+    /// sources or silently ignore a remaining legacy grants file.
+    #[cfg(test)]
+    pub(crate) fn load_data(config: &Path, data: &Path) -> Result<Self> {
+        let path = crate::paths::normalize(data)?.join("grants.toml");
+        anyhow::ensure!(
+            crate::paths::normalize(&path)? == path,
+            "grant store aliases another path"
+        );
+        let legacy = config.with_file_name("grants.toml");
+        if crate::paths::normalize(&legacy)? != path {
+            match fs::symlink_metadata(&legacy) {
+                Ok(_) => bail!(
+                    "legacy grants remain; finish offline migration before selecting the data store"
+                ),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error).context("checking legacy grant authority"),
+            }
+        }
+        Self::load_path(path)
+    }
+
+    fn load_path(path: PathBuf) -> Result<Self> {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;

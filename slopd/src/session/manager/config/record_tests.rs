@@ -11,7 +11,12 @@ use crate::storage::{
 pub(in crate::session::manager) async fn select_records(manager: &Arc<Manager>) -> StorageBinding {
     let root = manager.cfg_path.parent().unwrap();
     let binding = StorageBinding::new(root, &root.join("data"), &manager.cfg_path).unwrap();
-    let cfg = manager.config().await;
+    let mut cfg = manager.config().await;
+    for project in &mut cfg.projects {
+        if project.id.is_empty() {
+            project.id = crate::storage_id::allocate(|_| Ok(false)).unwrap();
+        }
+    }
     let gate = manager.config_state.persist.clone().lock_owned().await;
     let mut changes = Vec::new();
     for (kind, values) in [
@@ -37,6 +42,19 @@ pub(in crate::session::manager) async fn select_records(manager: &Arc<Manager>) 
             store.publish(prepared);
         }
     }
+    let projects = crate::storage::workspace::Store::<ProjectCfg>::empty()
+        .prepare(cfg.projects)
+        .unwrap();
+    changes.extend(projects.changes);
+    let worktrees = crate::storage::workspace::Store::<crate::worktrees::Worktree>::empty()
+        .prepare(
+            crate::worktrees::Store::load(&manager.cfg_path)
+                .await
+                .unwrap()
+                .worktrees,
+        )
+        .unwrap();
+    changes.extend(worktrees.changes);
     transaction::commit_in_operation(&binding, changes, &gate)
         .await
         .unwrap();

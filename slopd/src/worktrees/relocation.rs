@@ -5,6 +5,19 @@ use super::{Store, Worktree, relocate_tree};
 use anyhow::{Result, anyhow};
 use std::path::Path;
 
+/// Persistence is selected by the manager; Git relocation never chooses a layout.
+pub(crate) trait Persistence {
+    fn save_worktree_records(
+        &self,
+        store: &Store,
+    ) -> impl std::future::Future<Output = Result<()>> + Send;
+}
+impl Persistence for Path {
+    async fn save_worktree_records(&self, store: &Store) -> Result<()> {
+        store.save(self).await
+    }
+}
+
 pub(crate) struct Relocations {
     original: Store,
     candidate: Store,
@@ -30,7 +43,7 @@ impl Relocations {
         })
     }
 
-    async fn record_intent(&self, config: &Path) -> Result<()> {
+    async fn record_intent(&self, owner: &(impl Persistence + Sync + ?Sized)) -> Result<()> {
         if self.moves.is_empty() {
             return Ok(());
         }
@@ -46,11 +59,14 @@ impl Relocations {
                 source.path, destination.path
             );
         }
-        pending.save(config).await
+        owner.save_worktree_records(&pending).await
     }
 
-    pub(crate) async fn execute(&mut self, config: &Path) -> Result<()> {
-        self.record_intent(config).await?;
+    pub(crate) async fn execute_pending(
+        &mut self,
+        owner: &(impl Persistence + Sync + ?Sized),
+    ) -> Result<()> {
+        self.record_intent(owner).await?;
         for (index, destination) in &self.moves {
             let source = self
                 .original
@@ -67,10 +83,26 @@ impl Relocations {
             }
             self.completed += 1;
         }
+        Ok(())
+    }
+
+    pub(crate) fn has_moves(&self) -> bool {
+        !self.moves.is_empty()
+    }
+
+    pub(crate) fn candidate(&self) -> &Store {
+        &self.candidate
+    }
+
+    pub(crate) async fn execute(
+        &mut self,
+        owner: &(impl Persistence + Sync + ?Sized),
+    ) -> Result<()> {
+        self.execute_pending(owner).await?;
         if !self.moves.is_empty()
-            && let Err(error) = self.candidate.save(config).await
+            && let Err(error) = owner.save_worktree_records(&self.candidate).await
         {
-            return match self.rollback(config).await {
+            return match self.rollback(owner).await {
                 Ok(()) => Err(error),
                 Err(rollback) => Err(anyhow!("{error:#}; rollback also failed: {rollback:#}")),
             };
@@ -94,14 +126,17 @@ impl Relocations {
         Ok(())
     }
 
-    pub(crate) async fn rollback(&mut self, config: &Path) -> Result<()> {
+    pub(crate) async fn rollback(
+        &mut self,
+        owner: &(impl Persistence + Sync + ?Sized),
+    ) -> Result<()> {
         if self.moves.is_empty() {
             return Ok(());
         }
         // A committed candidate may already be on disk. Record reverse recovery intent
         // before moving anything back, so a failed rollback never leaves a ready stale path.
-        self.record_intent(config).await?;
+        self.record_intent(owner).await?;
         self.restore_completed().await?;
-        self.original.save(config).await
+        owner.save_worktree_records(&self.original).await
     }
 }

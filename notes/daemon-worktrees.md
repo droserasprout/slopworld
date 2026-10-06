@@ -9,6 +9,9 @@ Worktree creation retains its shared session boundary and worktree mutation guar
 in owned work through completion or rollback. Project-ID persistence inherits that
 shared boundary; it must not upgrade to an exclusive session lock while holding the
 worktree guard. Identity and authorization changes still require exclusive access.
+Project create/edit/remove and checkout rename/removal use the exclusive session
+boundary before the worktree mutation guard; configuration persistence comes last.
+Removal checks and effects remain in owned work after requester cancellation.
 
 Projects have durable IDs; sessions select a worktree by ID, with empty or `main`
 selecting the original checkout. Branch names and HEAD describe state rather than
@@ -33,3 +36,10 @@ a checkout never deletes cache data. Config reconciliation belongs to
 `session/manager/config/cache.rs`; `sandbox/cache.rs` validates sources and returns
 each newly created link to the coordinator for rollback.
 Host inspection hardening belongs to [Git](daemon-git.md).
+
+Relocation persists intent before Git effects, retaining both paths for interrupted
+recovery. The coordinator owns the final project/reference and checkout publication
+or reverse movement. Failed reverse movement must leave relocation intent, never a
+ready record for an unverified path. Cache-link reconciliation uses the prepared
+checkout paths during the final commit. The production layout still uses the legacy
+catalog adapter until the storage cutover.

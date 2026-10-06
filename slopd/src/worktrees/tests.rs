@@ -779,12 +779,12 @@ async fn relocation_rollback_restores_checkout_registration_and_catalog() {
     moved.path = destination.to_string_lossy().into_owned();
     let mut relocation = relocation::Relocations::new(store, vec![(0, moved.clone())])
         .expect("test relocation uses a catalog entry that exists");
-    relocation.execute(&config).await.unwrap();
+    relocation.execute(config.as_path()).await.unwrap();
     assert_eq!(
         Store::load(&config).await.unwrap().worktrees[0].path,
         moved.path
     );
-    relocation.rollback(&config).await.unwrap();
+    relocation.rollback(config.as_path()).await.unwrap();
     assert!(!destination.exists());
     assert_eq!(
         Store::load(&config).await.unwrap().worktrees[0].path,
@@ -797,6 +797,6 @@ async fn relocation_rollback_restores_checkout_registration_and_catalog() {
         original.path
     );
     // Repeated cleanup remains safe after all moves have been restored.
-    relocation.rollback(&config).await.unwrap();
+    relocation.rollback(config.as_path()).await.unwrap();
     std::fs::remove_dir_all(root).unwrap();
 }
