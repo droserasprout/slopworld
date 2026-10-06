@@ -95,6 +95,7 @@ pub(crate) fn reset_process_state(live: &mut Live) {
     live.capture.emu = None;
     live.title.reset();
     live.capture.reader_token = None;
+    live.activity_at = None;
     live.input.sender = None;
 }
 

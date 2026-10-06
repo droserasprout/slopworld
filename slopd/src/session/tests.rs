@@ -160,6 +160,7 @@ fn placeholder() -> Live {
         hash: 0,
         activity_hash: 0,
         last_change: 0,
+        activity_at: None,
         state_since: 0,
         bell: false,
         cols: Live::BOOT_COLS,

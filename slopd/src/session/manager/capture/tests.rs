@@ -342,7 +342,9 @@ async fn cursor_only_frame_does_not_keep_a_quiet_session_working() {
     manager.apply_frame("agent", emu.render()).await;
     {
         let mut live = manager.live.write().await;
-        live.get_mut("agent").unwrap().last_change = 0;
+        let live = live.get_mut("agent").unwrap();
+        live.last_change = 0;
+        live.activity_at = None;
     }
     // TUIs change cursor visibility and style without changing their screen text.
     emu.feed(b"\x1b[?25l\x1b[6 q");
@@ -380,13 +382,12 @@ async fn faint_prompt_particles_do_not_keep_a_quiet_session_working() {
     // foreground RGB 13..28. Include a stale working match above the prompt.
     emu.feed(b"old output (esc to interrupt)\r\n\x1b[48;2;30;30;30m  Ask Codex to do anything");
     manager.apply_frame("agent", emu.render()).await;
-    manager
-        .live
-        .write()
-        .await
-        .get_mut("agent")
-        .unwrap()
-        .last_change = 0;
+    {
+        let mut live = manager.live.write().await;
+        let live = live.get_mut("agent").unwrap();
+        live.last_change = 0;
+        live.activity_at = None;
+    }
     let mut events = manager.events.subscribe();
     for (dot, gray) in [('⠁', 13), ('⠈', 28), ('⢀', 20), (' ', 20)] {
         emu.feed(format!("\x1b[2;1H\x1b[38;2;{gray};{gray};{gray}m{dot}").as_bytes());
@@ -600,13 +601,12 @@ async fn prompt_wording_does_not_override_activity() {
     let frame = test_frame("Do you want to continue? ❯ 1. Yes (esc to interrupt)", 1);
     manager.apply_frame("agent", frame.clone()).await;
     assert_eq!(manager.live.read().await["agent"].state, State::Working);
-    manager
-        .live
-        .write()
-        .await
-        .get_mut("agent")
-        .unwrap()
-        .last_change = 0;
+    {
+        let mut live = manager.live.write().await;
+        let live = live.get_mut("agent").unwrap();
+        live.last_change = 0;
+        live.activity_at = None;
+    }
     manager.apply_frame("agent", frame).await;
     assert_eq!(manager.live.read().await["agent"].state, State::Idle);
 }

@@ -47,7 +47,7 @@ impl Manager {
     }
 
     /// Delay until the next poll or activity transition; zero when work is already due.
-    /// Convert epoch timestamps to a duration for the maintenance timer.
+    /// Convert catalog epochs and monotonic runtime deadlines separately.
     pub(crate) async fn maintenance_delay(&self) -> Duration {
         let now = unix_ms();
         let mut deadline = next_periodic_deadline(
@@ -74,12 +74,14 @@ impl Manager {
                 now,
             ));
         }
+        let mut delay = Duration::from_millis(deadline.saturating_sub(now));
+        let activity_now = tokio::time::Instant::now();
         for l in live.values() {
-            if let Some(classification) = classification_deadline(l) {
-                deadline = deadline.min(classification);
+            if let Some(due) = classification_deadline(l, activity_now) {
+                delay = delay.min(due.saturating_duration_since(activity_now));
             }
         }
-        Duration::from_millis(deadline.saturating_sub(now))
+        delay
     }
 
     pub(crate) fn maintenance_wake(&self) -> Arc<tokio::sync::Notify> {

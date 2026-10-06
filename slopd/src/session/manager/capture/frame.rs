@@ -141,7 +141,11 @@ impl Manager {
                 previous.state
             }
         } else {
-            classify_activity(activity_changed, previous.last_change, unix_ms())
+            classify_activity(
+                activity_changed,
+                previous.activity_at,
+                tokio::time::Instant::now(),
+            )
         };
 
         FrameDelta {
@@ -317,6 +321,7 @@ fn commit_screen(
     live.seq += 1;
     if delta.activity_changed && !previous.initial {
         live.last_change = unix_ms();
+        live.activity_at = Some(tokio::time::Instant::now());
     } else if previous.initial {
         // Start a fresh activity timeout without changing the restored state_since.
         live.last_change = if delta.next_state == State::Idle {
@@ -324,6 +329,7 @@ fn commit_screen(
         } else {
             unix_ms()
         };
+        live.activity_at = (delta.next_state != State::Idle).then(tokio::time::Instant::now);
     }
     let mut view = ScreenView::from_frame(
         FrameViewArgs {

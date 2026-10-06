@@ -230,6 +230,7 @@ impl Manager {
         l.host_path = decision.host_path.clone();
         l.state = State::Working;
         l.last_change = now;
+        l.activity_at = Some(tokio::time::Instant::now());
         l.state_since = now;
         if !l.ephemeral
             && let Some(activity) = decision.activity
@@ -242,6 +243,7 @@ impl Manager {
             } else {
                 0
             };
+            l.activity_at = (activity.state == State::Working).then(tokio::time::Instant::now);
         }
         l
     }
@@ -303,6 +305,7 @@ impl Manager {
         } else {
             0
         };
+        l.activity_at = (activity.state == State::Working).then(tokio::time::Instant::now);
     }
 
     /// Sample tmux dimensions; apply only if a reader has not appeared while awaiting.

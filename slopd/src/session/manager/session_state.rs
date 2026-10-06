@@ -3,20 +3,23 @@
 
 use super::super::*;
 use crate::clock::unix_ms;
+use tokio::time::Instant;
 
 pub(super) const IDLE_MS: u64 = 10_000;
 pub(super) const HOST_METADATA_POLL_MS: u64 = 2_000;
 
 /// Down and uncaptured sessions need no timer. New frames need one bookkeeping pass.
-pub(super) fn classification_deadline(live: &Live) -> Option<u64> {
+pub(super) fn classification_deadline(live: &Live, now: Instant) -> Option<Instant> {
     if live.state == State::Down || live.screen.is_none() {
         return None;
     }
     if live.seq != live.retick_seq {
-        return Some(0);
+        return Some(now);
     }
-    matches!(live.state, State::Working | State::Waiting)
-        .then(|| live.last_change.saturating_add(IDLE_MS))
+    matches!(live.state, State::Working | State::Waiting).then(|| {
+        live.activity_at
+            .map_or(now, |at| at + Duration::from_millis(IDLE_MS))
+    })
 }
 
 /// Recovery metadata carries the process identity which produced it.
@@ -50,12 +53,19 @@ struct RetickSnapshot {
     run_id: u64,
     seq: u64,
     state: State,
-    last_change: u64,
+    activity_at: Option<Instant>,
 }
 
 /// Meaningful terminal activity starts a ten-second Working interval.
-pub(super) fn classify_activity(changed: bool, last_change: u64, now: u64) -> State {
-    if changed || now.saturating_sub(last_change) < IDLE_MS {
+pub(super) fn classify_activity(
+    changed: bool,
+    activity_at: Option<Instant>,
+    now: Instant,
+) -> State {
+    if changed
+        || activity_at
+            .is_some_and(|at| now.saturating_duration_since(at) < Duration::from_millis(IDLE_MS))
+    {
         State::Working
     } else {
         State::Idle
@@ -64,11 +74,11 @@ pub(super) fn classify_activity(changed: bool, last_change: u64, now: u64) -> St
 
 impl Manager {
     /// Copy due inputs under the live lock; commit later rechecks their identity.
-    async fn retick_snapshots(&self, now: u64) -> Vec<RetickSnapshot> {
+    async fn retick_snapshots(&self, now: Instant) -> Vec<RetickSnapshot> {
         let live = self.live.read().await;
         live.iter()
             .filter_map(|(n, l)| {
-                if !classification_deadline(l).is_some_and(|due| due <= now) {
+                if !classification_deadline(l, now).is_some_and(|due| due <= now) {
                     return None;
                 }
                 Some(RetickSnapshot {
@@ -77,7 +87,7 @@ impl Manager {
                     run_id: l.run_id,
                     seq: l.seq,
                     state: l.state,
-                    last_change: l.last_change,
+                    activity_at: l.activity_at,
                 })
             })
             .collect()
@@ -135,12 +145,13 @@ impl Manager {
             self.start_host_metadata_poll().await;
         }
 
-        let snapshot = self.retick_snapshots(now).await;
+        let activity_now = Instant::now();
+        let snapshot = self.retick_snapshots(activity_now).await;
 
         let classified = snapshot.len();
         let mut dirty_list = false;
         for previous in snapshot {
-            let state = classify_activity(false, previous.last_change, now);
+            let state = classify_activity(false, previous.activity_at, activity_now);
             let (changed, activity) = self.commit_retick(&previous, state).await;
             dirty_list |= changed;
             if let Some(activity) = activity {

@@ -144,6 +144,8 @@ struct Live {
     hash: u64,
     activity_hash: u64,
     last_change: u64,
+    // Runtime decay uses monotonic time; last_change remains an epoch wire timestamp.
+    activity_at: Option<tokio::time::Instant>,
     // State time is independent of pane redraws, which can continue several times a second.
     state_since: u64,
     // Preserve the bell notification until a client subscribes. Its original frame is temporary.
@@ -195,6 +197,7 @@ impl Live {
             hash: 0,
             activity_hash: 0,
             last_change: 0,
+            activity_at: None,
             state_since: 0,
             bell: false,
             cols: Live::BOOT_COLS,
