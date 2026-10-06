@@ -46,19 +46,14 @@ impl Manager {
         let manager = self.clone();
         let name = name.to_string();
         // The detached owner retains the boundary and rollback plan after caller cancellation.
-        tokio::spawn(async move {
-            manager
-                .session_operation(async {
-                    manager.reload_if_changed().await;
-                    manager.update_project_inner(&name, p).await?;
-                    manager.announce_projects().await;
-                    manager.announce_sessions().await;
-                    Ok::<_, anyhow::Error>(())
-                })
-                .await
-        })
+        self.owned_session_operation(Box::pin(async move {
+            manager.reload_if_changed().await;
+            manager.update_project_inner(&name, p).await?;
+            manager.announce_projects().await;
+            manager.announce_sessions().await;
+            Ok(())
+        }))
         .await
-        .map_err(|error| anyhow!("project update task failed: {error}"))?
     }
 
     async fn update_project_inner(&self, name: &str, mut p: ProjectCfg) -> Result<()> {
