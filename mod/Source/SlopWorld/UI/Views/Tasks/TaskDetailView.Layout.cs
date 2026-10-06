@@ -23,9 +23,7 @@ namespace SlopWorld
             _layoutFontName = fontName;
             _layoutRevision = layoutRevision;
 
-            int sourceLength = body.Length + (note.Length == 0 ? 0 : note.Length + 2);
-            if (_selectionStart > sourceLength || _selectionEnd > sourceLength)
-                ClearSelection();
+            int anchor = _selection.AnchorOffset, focus = _selection.FocusOffset;
 
             _bodyRanges.Clear();
             _bodyRanges.AddRange(WrappedRanges(body, TextWidth(width)));
@@ -52,6 +50,7 @@ namespace SlopWorld
                 CollectSelectableText(note, MessageTextX, textY, _noteRanges,
                     body.Length + 2);
             }
+            _selection.Rebuilt(body + (note.Length == 0 ? "" : "\n\n" + note), anchor, focus);
         }
 
         static float TextWidth(float width)
@@ -119,7 +118,7 @@ namespace SlopWorld
                         edges[end] = edges[start] + SmallElementWidth(lineText.Substring(start, end - start));
                     }
 
-                    _selectionLines.Add(new DialogueLine
+                    var line = new TaskTextSelection.Line
                     {
                         Start = sourceOffset + range.Start,
                         End = sourceOffset + range.End,
@@ -128,9 +127,10 @@ namespace SlopWorld
                         Width = edges[edges.Length - 1],
                         Height = lineH,
                         Text = lineText,
-                        Edges = edges,
                         Boundaries = boundaries,
-                    });
+                    };
+                    line.Edges.AddRange(edges);
+                    _selectionLines.Add(line);
                     lineY += lineH;
                 }
             }

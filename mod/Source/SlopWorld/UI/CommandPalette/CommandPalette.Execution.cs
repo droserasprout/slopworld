@@ -137,26 +137,6 @@ namespace SlopWorld
             Resize();
         }
 
-        static void AskWhere(LibraryItemInfo info)
-        {
-            var name = info.Name;
-            var options = SessionHub.Instance.Projects
-                .Select(p => new FloatMenuOption($"{p.Name}  -  {p.Dir}",
-                    () => RunLibraryItemWith(name, p.Name)))
-                .ToList();
-            options.Add(new FloatMenuOption(
-                $"A temporary project under {ProjectInfo.TempRoot}",
-                () => RunLibraryItemWith(name, null, true)));
-            Find.WindowStack.Add(new UiMenu(options));
-        }
-
-        static void RunLibraryItemWith(string name, string project = null, bool temp = false)
-        {
-            SessionHub.Instance.SessionStore.RunLibraryItem(name,
-                session => { TerminalWindow.Open(session); }, UiLayout.Fail, project, temp,
-                Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch));
-        }
-
         // --------------------------------------------------------------- filtering
 
         void RebuildMatches()

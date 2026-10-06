@@ -49,32 +49,20 @@ namespace SlopWorld
                 s => StoragePage.FocusAgent(s.Name)),
             CommandDef.ForAgent("agent.delete", "Agent: Delete", AgentsSubAll, s =>
                 Find.WindowStack.Add(CatalogActions.RemoveSession(s.Name))),
-            CommandDef.ForAgent("agent.duplicate", "Agent: Duplicate", AgentsSubWithProject,
-                s =>
-                {
-                    if (!string.IsNullOrEmpty(s.Project))
-                        TerminalWindow.OpenOverPane(EditSessionDialog.Copy(s));
-                }),
-            CommandDef.ForAgent("agent.shell", "Agent: Shell", AgentsSubWithProject,
-                s =>
-                {
-                    if (!string.IsNullOrEmpty(s.Project))
-                        SessionHub.Instance.SessionStore.Run(s.Project, "", "", session => TerminalWindow.Open(session),
-                            UiLayout.Fail, options: new SessionRunOptions { Like = s.Name });
-                }),
+            CommandDef.ForAgent("agent.duplicate", "Agent: Duplicate", AgentsSubWithProject, CatalogActions.DuplicateAgent),
+            CommandDef.ForAgent("agent.shell", "Agent: Shell", AgentsSubWithProject, CatalogActions.AgentShell),
 
             new CommandDef("project.new", "Project: New", "Project",
                 _ => TerminalWindow.OpenOverPane(new EditProjectDialog(null))),
             CommandDef.ForProject("project.edit", "Project: Edit", ProjectsSub,
-                p => TerminalWindow.OpenOverPane(new EditProjectDialog(p))),
+                CatalogActions.EditProject),
             CommandDef.ForProject("project.delete", "Project: Delete", DeletableProjectsSub, p =>
                 Find.WindowStack.Add(CatalogActions.RemoveProject(p.Name))),
             CommandDef.ForProject("project.duplicate", "Project: Duplicate", ProjectsSub,
-                p => TerminalWindow.OpenOverPane(EditProjectDialog.Copy(p))),
+                CatalogActions.DuplicateProject),
             CommandDef.ForProject("project.host-terminal", "Project: Open Host Terminal",
                 ProjectsSub,
-                p => SessionHub.Instance.SessionStore.RunHostShell(p.Name,
-                    session => TerminalWindow.Open(session), UiLayout.Fail)),
+                CatalogActions.ProjectTerminal),
 
             new CommandDef("task.new", "Task: New", "Task",
                 _ => TerminalWindow.OpenOverPane(new DelegateTaskDialog(null)),
@@ -90,31 +78,12 @@ namespace SlopWorld
             new CommandDef("task.filter", "Task: Filter", "Task",
                 _ => TasksView.OpenFilterMenu()),
 
-            CommandDef.ForLibraryItem("library.run", "Library: Run", LibraryItemsSub, s =>
-            {
-                if (s.Kind == LibraryItemKind.Breadcrumb || s.Kind == LibraryItemKind.FileAction) return;
-                if (s.Link == LibraryItemLink.Ask) AskWhere(s);
-                else RunLibraryItemWith(s.Name);
-            }),
+            CommandDef.ForLibraryItem("library.run", "Library: Run", LibraryItemsSub, s => LibraryActions.Run(s)),
             new CommandDef("library.new", "Library: New", "Library",
                 _ => { }, subAction: NewLibraryItemSub),
-            CommandDef.ForLibraryItem("library.edit", "Library: Edit", LibraryManageSub,
-                s =>
-                {
-                    TerminalWindow.OpenOverPane(EditLibraryItemDialog.ForEdit(s));
-                }),
-            CommandDef.ForLibraryItem("library.delete", "Library: Delete", LibraryManageSub, s =>
-            {
-                var name = s.Name;
-                TerminalWindow.OpenOverPane(ConfirmDialog.Create(
-                    $"Remove library entry '{name}'? Anything it already started keeps running.",
-                    () => SessionHub.Instance.Catalog.RemoveLibraryItem(name, UiLayout.Fail), destructive: true));
-            }),
-            CommandDef.ForLibraryItem("library.duplicate", "Library: Duplicate", LibraryManageSub,
-                s =>
-                {
-                    TerminalWindow.OpenOverPane(EditLibraryItemDialog.Copy(s));
-                }),
+            CommandDef.ForLibraryItem("library.edit", "Library: Edit", LibraryManageSub, LibraryActions.Edit),
+            CommandDef.ForLibraryItem("library.delete", "Library: Delete", LibraryManageSub, LibraryActions.Remove),
+            CommandDef.ForLibraryItem("library.duplicate", "Library: Duplicate", LibraryManageSub, LibraryActions.Duplicate),
 
             new CommandDef("host.open-shell", "Host: Open Shell", "Host",
                 _ => { }, subAction: HostShellSub),

@@ -101,69 +101,28 @@ namespace SlopWorld
                 opts.Add(new FloatMenuOption("Run", () => Run(s)));
 
             if (Runnable(s) && s.Link == LibraryItemLink.Ask)
-                opts.Add(new UiSubmenu("Choose a project", () => WhereOptions(s)));
+                opts.Add(new UiSubmenu("Choose a project", () => LibraryActions.WhereOptions(s)));
 
             var edit = new FloatMenuOption("Edit", () =>
-                TerminalWindow.OpenOverPane(EditLibraryItemDialog.ForEdit(s)));
+                LibraryActions.Edit(s));
             opts.Add(edit);
 
             var duplicate = new FloatMenuOption("Duplicate", () =>
-                TerminalWindow.OpenOverPane(EditLibraryItemDialog.Copy(s)));
+                LibraryActions.Duplicate(s));
             opts.Add(duplicate);
 
-            var name = s.Name;
-            opts.Add(new FloatMenuOption("Delete", () =>
-                TerminalWindow.OpenOverPane(ConfirmDialog.Create(
-                    $"Remove library entry '{name}'? Anything it already started keeps running.",
-                    () => SessionHub.Instance.Catalog.RemoveLibraryItem(name, UiLayout.Fail),
-                    destructive: true))));
+            opts.Add(new FloatMenuOption("Delete", () => LibraryActions.Remove(s)));
 
             TerminalWindow.OpenOverPane(new UiMenu(opts));
         }
 
         // ------------------------------------------------------------------ actions
 
-        // Do not reopen AskWhere after resolving a temporary project: `temp` marks the return
-        // path where `project == null` is intentional.
-        static void Run(LibraryItemInfo s, string project = null, bool temp = false)
+        static void Run(LibraryItemInfo item)
         {
-            AgentSidebar.RememberLibrary(s?.Name);
-            // An entry that never said where goes through a menu first.
-            if (s.Link == LibraryItemLink.Ask && project == null && !temp)
-            {
-                AskWhere(s);
-                return;
-            }
-
-            bool scratch = temp || s.Link == LibraryItemLink.Temp;
-            SessionHub.Instance.SessionStore.RunLibraryItem(s.Name,
-                session => TerminalWindow.Open(session),
-                UiLayout.Fail,
-                // A project named outright wins. A temporary run has none, whichever of
-                // the two said so. Otherwise the entry's own.
-                project ?? (scratch ? null : s.Project),
-                scratch, Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch));
+            AgentSidebar.RememberLibrary(item?.Name);
+            LibraryActions.Run(item);
         }
-
-        // Every project, plus a temporary one - last, being the answer for the run that
-        // belongs nowhere in particular. Hung off the row's own menu where there is one, and
-        // opened as a menu of its own where the run was asked for from somewhere else.
-        static List<FloatMenuOption> WhereOptions(LibraryItemInfo s)
-        {
-            var options = SessionHub.Instance.Projects
-                .Select(p => new FloatMenuOption($"{p.Name}  -  {p.Dir}",
-                    () => Run(s, p.Name)))
-                .ToList();
-
-            options.Add(new FloatMenuOption(
-                $"A temporary project under {ProjectInfo.TempRoot}",
-                () => Run(s, null, true)));
-
-            return options;
-        }
-
-        static void AskWhere(LibraryItemInfo s) =>
-            TerminalWindow.OpenOverPane(new UiMenu(WhereOptions(s)));
 
         // Where an errand runs, in the few words a row and a tooltip have.
         static string Where(LibraryItemInfo s)
@@ -198,13 +157,12 @@ namespace SlopWorld
             var options = new List<FloatMenuOption>
             {
                 new FloatMenuOption("Edit", () =>
-                    TerminalWindow.OpenOverPane(new EditProjectDialog(project))),
+                    CatalogActions.EditProject(project)),
                 new FloatMenuOption("Duplicate", () =>
-                    TerminalWindow.OpenOverPane(EditProjectDialog.Copy(project))),
+                    CatalogActions.DuplicateProject(project)),
                 new FloatMenuOption("Manage worktrees", () => OpenProjectWorktrees(project.Name)),
                 new FloatMenuOption("Terminal (host)", () =>
-                    SessionHub.Instance.SessionStore.RunHostShell(project.Name,
-                        name => TerminalWindow.Open(name), UiLayout.Fail)),
+                    CatalogActions.ProjectTerminal(project)),
                 new FloatMenuOption("Delete", () => TerminalWindow.OpenOverPane(
                     CatalogActions.RemoveProject(project.Name))),
             };
@@ -271,7 +229,7 @@ namespace SlopWorld
             if (Templates.TryGetValue(item, out var template))
                 TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template));
             else
-                TerminalWindow.OpenOverPane(EditLibraryItemDialog.ForEdit(item));
+                LibraryActions.Edit(item);
         }
 
         static void Menu(LibraryItemInfo item)

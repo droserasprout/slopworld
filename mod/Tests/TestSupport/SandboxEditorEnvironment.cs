@@ -145,7 +145,7 @@ namespace SlopWorld
     {
         public static void Hover(Rect r, bool selected, bool on, RowHoverPolicy policy) { }
     }
-    static class Slab
+    static partial class Slab
     {
         public static void Hairline(Rect r, Color color) => EditorTrace.Record("rule", r);
     }

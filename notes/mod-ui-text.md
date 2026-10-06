@@ -21,3 +21,10 @@ assets. `just test-text-sprites` checks generated metadata and loading-tip liter
 `licenses/noto-emoji/` owns its license. `tools/assets/emoji_font.py` selects it through a process-local Fontconfig
 configuration shared by emoji, atlas, and application-icon bakers. Character
 enumeration and rendering use the same file; no installed emoji font is required.
+
+`DocumentSelection` owns gestures, mouse capture, hit testing, and highlights for
+Markdown and task readers. Markdown supplies styled logical lines and table copy
+ordering; tasks supply Unicode boundaries and source offsets that survive reflow.
+Each adapter retains its clipboard policy: Markdown publishes PRIMARY on mouse
+selection and copies on Select all; tasks copy only on an explicit Copy command.
+Terminal cell selection remains a separate owner.

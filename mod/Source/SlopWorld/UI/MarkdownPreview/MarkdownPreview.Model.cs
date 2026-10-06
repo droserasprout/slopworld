@@ -121,17 +121,10 @@ namespace SlopWorld
         public int Sequence;
     }
 
-    sealed class SelectionLine
+    sealed class SelectionLine : DocumentSelectionLine
     {
-        public int LogicalIndex;
-        public float X;
-        public float Y;
-        public float Height;
-        public float Width;
-        public string Text;
         public TextLine Source;
         public bool CopyBreakAfter;
-        public readonly List<float> Edges = new List<float>();
     }
 
     struct LinkHit

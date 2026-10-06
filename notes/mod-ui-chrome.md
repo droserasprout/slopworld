@@ -56,3 +56,7 @@ vanilla listing rectangle. Runtime assets needing survival across map changes us
 Menu levels need separate instances because vanilla same-type replacement can remove
 a standing menu before opening another. Submenu openers need a non-null action,
 since vanilla infers Disabled from a null action.
+
+`CatalogActions` shares agent/project actions across the palette and sidebar menus.
+`LibraryActions` owns library execution, project selection, and management actions;
+calling surfaces retain availability rules and navigation history.

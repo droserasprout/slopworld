@@ -60,7 +60,7 @@ namespace SlopWorld
         public void SetReaderPinned(string name, bool pinned) => Pins.Add((name, pinned));
     }
 
-    static class TerminalWindow
+    static partial class TerminalWindow
     {
         public static string Current;
         public static void Open(string name) { Current = name; }

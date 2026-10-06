@@ -18,6 +18,11 @@
     <Compile Include="../Source/SlopWorld/Patches/Chrome/LinuxGameWindow.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/UiAreaResize.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/FieldLifetime.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/SelectionCommands.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/DocumentSelectionLine.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/DocumentSelection.cs" />
+    <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Selection.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Tasks/TaskTextSelection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TextElementLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Git/GitCommands.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Files/NativeAppPicker.cs" />

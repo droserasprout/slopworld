@@ -19,7 +19,8 @@ namespace SlopWorld
         readonly string _taskId;
         TaskInfo _task;
         readonly SmoothScroll _scroll = new SmoothScroll();
-        readonly List<DialogueLine> _selectionLines = new List<DialogueLine>();
+        readonly TaskTextSelection _selection = new TaskTextSelection();
+        List<TaskTextSelection.Line> _selectionLines => _selection.Lines;
         readonly List<SenderHit> _senderHits = new List<SenderHit>();
         readonly List<TextRange> _bodyRanges = new List<TextRange>();
         readonly List<TextRange> _noteRanges = new List<TextRange>();
@@ -36,19 +37,6 @@ namespace SlopWorld
         float _metricsScale = -1f;
         int _metricsFontSize = -1;
         string _metricsFontName = "";
-        int _selectionStart, _selectionEnd;
-        int _selectionControl;
-        bool _draggingSelection;
-
-        struct DialogueLine
-        {
-            public int Start, End;
-            public float X, Y, Width, Height;
-            public string Text;
-            public float[] Edges;
-            public int[] Boundaries;
-        }
-
         struct SenderHit
         {
             public string Sender;

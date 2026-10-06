@@ -141,6 +141,11 @@ namespace UnityEngine
     {
         public int x, y;
         public Vector2Int(int x, int y) { this.x = x; this.y = y; }
+        public static Vector2Int zero => new Vector2Int(0, 0);
+        public static bool operator ==(Vector2Int a, Vector2Int b) => a.x == b.x && a.y == b.y;
+        public static bool operator !=(Vector2Int a, Vector2Int b) => !(a == b);
+        public override bool Equals(object other) => other is Vector2Int point && this == point;
+        public override int GetHashCode() => x * 397 ^ y;
     }
 
     public struct Color
@@ -200,6 +205,7 @@ namespace UnityEngine
     {
         public static int hotControl;
         public static int GetControlID(int hint, FocusType focus) => hint == 0 ? 1 : hint;
+        public static int GetControlID(FocusType focus, Rect rect) => 17;
         public static string systemCopyBuffer;
         public static Vector2 Origin;
         public static Vector2 GUIToScreenPoint(Vector2 p) => new Vector2(p.x + Origin.x, p.y + Origin.y);

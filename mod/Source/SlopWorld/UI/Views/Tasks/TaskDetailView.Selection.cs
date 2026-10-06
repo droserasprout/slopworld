@@ -16,9 +16,9 @@ namespace SlopWorld
                 Text.Font = GameFont.Small;
                 Text.WordWrap = false;
                 Text.Anchor = TextAnchor.UpperLeft;
-                DrawSelectionHighlights(viewportHeight);
+                _selection.DrawHighlights(_scroll.Position.y, _scroll.Position.y + viewportHeight);
                 GUI.color = UiTheme.Lead;
-                int first = FirstVisibleSelectionLine(_scroll.Position.y);
+                int first = _selection.FirstVisibleLine(_scroll.Position.y);
                 float bottom = _scroll.Position.y + viewportHeight;
                 for (int i = first; i < _selectionLines.Count; i++)
                 {
@@ -33,43 +33,6 @@ namespace SlopWorld
                 Text.Anchor = wasAnchor;
                 Text.WordWrap = wasWrap;
                 Text.Font = wasFont;
-            }
-        }
-
-        int FirstVisibleSelectionLine(float top)
-        {
-            int low = 0;
-            int high = _selectionLines.Count;
-            while (low < high)
-            {
-                int middle = low + (high - low) / 2;
-                var line = _selectionLines[middle];
-                if (line.Y + line.Height <= top) low = middle + 1;
-                else high = middle;
-            }
-            return low;
-        }
-
-        void DrawSelectionHighlights(float viewportHeight)
-        {
-            if (_selectionStart == _selectionEnd) return;
-            int first = Mathf.Min(_selectionStart, _selectionEnd);
-            int last = Mathf.Max(_selectionStart, _selectionEnd);
-            int firstLine = FirstVisibleSelectionLine(_scroll.Position.y);
-            float bottom = _scroll.Position.y + viewportHeight;
-            for (int i = firstLine; i < _selectionLines.Count; i++)
-            {
-                var line = _selectionLines[i];
-                if (line.Y >= bottom) break;
-                int start = Mathf.Max(first, line.Start);
-                int end = Mathf.Min(last, line.End);
-                if (end <= start) continue;
-
-                int from = Mathf.Clamp(start - line.Start, 0, line.Edges.Length - 1);
-                int to = Mathf.Clamp(end - line.Start, from, line.Edges.Length - 1);
-                Slab.Fill(new Rect(line.X + line.Edges[from], line.Y,
-                    Mathf.Max(1f, line.Edges[to] - line.Edges[from]), line.Height),
-                    UiTheme.Sel);
             }
         }
 
@@ -102,166 +65,20 @@ namespace SlopWorld
         {
             var e = Event.current;
             if (e == null) return;
-
-            if (UiEvent.RawType(e) == EventType.KeyDown)
+            var type = UiEvent.RawType(e);
+            if (type == EventType.KeyDown) { _selection.HandleKey(e); return; }
+            if (e.button == 1 && type == EventType.MouseDown && viewport.Contains(e.mousePosition))
             {
-                if (e.control && !e.alt)
-                {
-                    if (e.keyCode == KeyCode.C)
-                    {
-                        CopySelection();
-                        e.Use();
-                        return;
-                    }
-                    if (e.keyCode == KeyCode.A)
-                    {
-                        SelectAll();
-                        e.Use();
-                        return;
-                    }
-                }
-                return;
-            }
-
-            EventType type = UiEvent.RawType(e);
-            if (e.button == 1 && type == EventType.MouseDown &&
-                viewport.Contains(e.mousePosition))
-            {
-                OpenSelectionMenu();
+                _selection.OpenMenu();
                 e.Use();
-                return;
             }
-
             if (e.button != 0) return;
-            if (type == EventType.MouseDown && viewport.Contains(e.mousePosition))
-            {
-                int point = SelectionPointAt(viewport, e.mousePosition);
-                if (!e.shift) _selectionStart = point;
-                _selectionEnd = point;
-                _draggingSelection = true;
-                CaptureSelection(viewport);
-                e.Use();
-            }
-            else if (type == EventType.MouseDrag && _draggingSelection)
-            {
-                _selectionEnd = SelectionPointAt(viewport, e.mousePosition);
-                e.Use();
-            }
-            else if (type == EventType.MouseUp && _draggingSelection)
-            {
-                _selectionEnd = SelectionPointAt(viewport, e.mousePosition);
-                _draggingSelection = false;
-                ReleaseSelection();
-                e.Use();
-            }
+            if (type == EventType.MouseDown) _selection.BeginMouse(viewport, e, 1, _scroll.Position);
+            else if (type == EventType.MouseDrag) _selection.DragMouse(viewport, e, _scroll.Position);
+            else if (type == EventType.MouseUp) _selection.EndMouse(viewport, e, _scroll.Position);
         }
 
-        int SelectionPointAt(Rect viewport, Vector2 mouse)
-        {
-            if (_selectionLines.Count == 0) return 0;
-
-            float y = mouse.y - viewport.y + _scroll.Position.y;
-            float x = mouse.x - viewport.x + _scroll.Position.x;
-            int insertion = FirstVisibleSelectionLine(y);
-            int first = Mathf.Max(0, insertion - 1);
-            int last = Mathf.Min(_selectionLines.Count - 1, insertion);
-            int lineIndex = first;
-            float bestVertical = float.MaxValue, bestHorizontal = float.MaxValue;
-            for (int i = first; i <= last; i++)
-            {
-                var line = _selectionLines[i];
-                float vertical = y < line.Y ? line.Y - y :
-                    y > line.Y + line.Height ? y - (line.Y + line.Height) : 0f;
-                float left = line.X;
-                float right = line.X + line.Width;
-                float horizontal = x < left ? left - x : x > right ? x - right : 0f;
-                if (vertical < bestVertical || (vertical == bestVertical && horizontal < bestHorizontal))
-                {
-                    bestVertical = vertical;
-                    bestHorizontal = horizontal;
-                    lineIndex = i;
-                }
-            }
-
-            var selected = _selectionLines[lineIndex];
-            if (x <= selected.X) return selected.Start;
-            if (x >= selected.X + selected.Width) return selected.End;
-
-            for (int i = 0; i < selected.Boundaries.Length - 1; i++)
-            {
-                float left = selected.X + selected.Edges[selected.Boundaries[i]];
-                float right = selected.X + selected.Edges[selected.Boundaries[i + 1]];
-                if (x < (left + right) * 0.5f)
-                    return selected.Start + selected.Boundaries[i];
-            }
-            return selected.End;
-        }
-
-        void CaptureSelection(Rect viewport)
-        {
-            if (_selectionControl != 0 && GUIUtility.hotControl == _selectionControl)
-                GUIUtility.hotControl = 0;
-            _selectionControl = GUIUtility.GetControlID(FocusType.Passive, viewport);
-            GUIUtility.hotControl = _selectionControl;
-        }
-
-        void ReleaseSelection()
-        {
-            if (_selectionControl != 0 && GUIUtility.hotControl == _selectionControl)
-                GUIUtility.hotControl = 0;
-            _selectionControl = 0;
-        }
-
-        void ClearSelection()
-        {
-            _selectionStart = 0;
-            _selectionEnd = 0;
-            _draggingSelection = false;
-            ReleaseSelection();
-        }
-
-        void SelectAll()
-        {
-            _selectionStart = 0;
-            _selectionEnd = SelectionLength();
-            _draggingSelection = false;
-            ReleaseSelection();
-        }
-
-        bool HasSelection => _selectionStart != _selectionEnd;
-
-        void CopySelection()
-        {
-            if (!HasSelection) return;
-            int start = Mathf.Min(_selectionStart, _selectionEnd);
-            int end = Mathf.Max(_selectionStart, _selectionEnd);
-            string source = SelectionSource();
-            if (start < 0 || end > source.Length || end <= start) return;
-            DaemonClipboard.Copy(source.Substring(start, end - start));
-        }
-
-        void OpenSelectionMenu()
-        {
-            var options = new List<FloatMenuOption>();
-            SelectionCommands.Add(options,
-                new SelectionCommandAvailability(canCopy: HasSelection, canPaste: false, canSelectAll: true, canCut: false),
-                CopySelection, null, SelectAll);
-            TerminalWindow.OpenOverPane(new UiMenu(options));
-        }
-
-        string SelectionSource()
-        {
-            string body = _task.Body ?? "";
-            if (string.IsNullOrEmpty(_task.Note)) return body;
-            return body + "\n\n" + _task.Note;
-        }
-
-        int SelectionLength()
-        {
-            int body = (_task?.Body ?? "").Length;
-            string note = _task?.Note;
-            return body + (string.IsNullOrEmpty(note) ? 0 : note.Length + 2);
-        }
+        void ClearSelection() => _selection.Clear();
 
         string DialogueText()
         {

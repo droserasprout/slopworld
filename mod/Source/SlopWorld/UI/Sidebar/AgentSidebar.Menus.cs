@@ -153,12 +153,11 @@ namespace SlopWorld
 
             if (info != null && !info.Host && !info.Worker && !string.IsNullOrEmpty(info.Project))
                 opts.Add(new FloatMenuOption("Duplicate", () =>
-                    TerminalWindow.OpenOverPane(EditSessionDialog.Copy(info))));
+                    CatalogActions.DuplicateAgent(info)));
 
             if (info != null && !info.Host && !info.Worker && !string.IsNullOrEmpty(info.Project))
                 opts.Add(new FloatMenuOption("Shell", () =>
-                    hub.SessionStore.Run(info.Project, "", "", session => TerminalWindow.Open(session),
-                        UiLayout.Fail, options: new SessionRunOptions { Like = name })));
+                    CatalogActions.AgentShell(info)));
 
             if (info != null && !info.Ephemeral && !info.Host)
                 opts.Add(new FloatMenuOption("Storage", () => StoragePage.FocusAgent(name)));
@@ -193,12 +192,11 @@ namespace SlopWorld
             var opts = new List<FloatMenuOption>
             {
                 new FloatMenuOption("Edit", () =>
-                    TerminalWindow.OpenOverPane(new EditProjectDialog(p))),
+                    CatalogActions.EditProject(p)),
                 new FloatMenuOption("Duplicate", () =>
-                    TerminalWindow.OpenOverPane(EditProjectDialog.Copy(p))),
+                    CatalogActions.DuplicateProject(p)),
                 new FloatMenuOption("Terminal (host)", () =>
-                    hub.SessionStore.RunHostShell(name, session => TerminalWindow.Open(session),
-                        UiLayout.Fail)),
+                    CatalogActions.ProjectTerminal(p)),
                 new FloatMenuOption("Spawn worker",
                     () => TerminalWindow.OpenOverPane(new SpawnWorkerDialog(null, name))),
             };
