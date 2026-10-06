@@ -57,7 +57,7 @@ impl Manager {
         .await
     }
 
-    async fn update_project_inner(&self, name: &str, mut p: ProjectCfg) -> Result<()> {
+    async fn update_project_inner(self: &Arc<Self>, name: &str, mut p: ProjectCfg) -> Result<()> {
         let _lock = self.worktrees.mutation.lock().await;
         let old_project = self
             .config()

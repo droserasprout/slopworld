@@ -968,3 +968,110 @@ async fn removing_one_durable_session_does_not_autostart_an_unrelated_host_tab()
     );
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[tokio::test]
+async fn record_backend_rename_rolls_back_tmux_after_request_cancellation_and_retries() {
+    let (manager, root, socket) = rename_fixture(true).await;
+    let binding = crate::session::manager::config::record_tests::select_records(&manager).await;
+    let id = manager.config().await.sessions[0].state_id.clone();
+    let path = binding.data.join("agents").join(format!("{id}.toml"));
+    let before = std::fs::read(&path).unwrap();
+    let root_before = std::fs::read(&manager.cfg_path).unwrap();
+    let fault = crate::paths::fail_writes(&path);
+    let (renamed, release) = manager.tmux.pause_after_rename_for_test();
+    let request = tokio::spawn({
+        let manager = manager.clone();
+        async move { manager.update("old", replacement("renamed")).await }
+    });
+    tokio::time::timeout(Duration::from_secs(5), renamed.notified())
+        .await
+        .unwrap();
+    request.abort();
+    drop(request.await);
+    release.notify_one();
+    let boundary = tokio::time::timeout(Duration::from_secs(5), manager.session_boundary.write())
+        .await
+        .unwrap();
+    assert!(manager.tmux.exists("old").await);
+    assert!(!manager.tmux.exists("renamed").await);
+    assert_eq!(manager.config().await.sessions[0].name, "old");
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+    drop(boundary);
+    drop(fault);
+    manager.update("old", replacement("renamed")).await.unwrap();
+    assert_eq!(manager.config().await.sessions[0].state_id, id);
+    assert!(manager.tmux.exists("renamed").await);
+    assert_eq!(std::fs::read(&manager.cfg_path).unwrap(), root_before);
+    cleanup_rename_fixture(&manager, root, &socket, &["old", "renamed"]).await;
+}
+
+#[tokio::test]
+async fn record_backend_host_metadata_keeps_run_checks_and_targets_one_shell() {
+    let manager = metadata_fixture().await;
+    let binding = crate::session::manager::config::record_tests::select_records(&manager).await;
+    let cfg = manager.config().await;
+    let agent = binding
+        .data
+        .join("agents")
+        .join(format!("{}.toml", cfg.sessions[0].state_id));
+    let shell = binding
+        .data
+        .join("host_shells")
+        .join(format!("{}.toml", cfg.host_terminals[0].id));
+    let before = std::fs::read(&agent).unwrap();
+    let shell_before = std::fs::read(&shell).unwrap();
+    assert!(
+        !manager
+            .remember_host_path_for_run("shell", 16, "/stale")
+            .await
+    );
+    assert_eq!(std::fs::read(&shell).unwrap(), shell_before);
+    assert!(
+        manager
+            .remember_host_path_for_run("shell", 17, "/new")
+            .await
+    );
+    assert_eq!(manager.config().await.host_terminals[0].path, "/new");
+    assert_eq!(std::fs::read(&agent).unwrap(), before);
+    manager.live.write().await.get_mut("shell").unwrap().run_id = 18;
+    assert!(
+        !manager
+            .remember_host_path_for_run("shell", 17, "/late")
+            .await
+    );
+    assert_eq!(manager.config().await.host_terminals[0].path, "/new");
+    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+}
+
+#[tokio::test]
+async fn record_retirement_failure_restores_private_state_and_preserves_accepted_agent() {
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
+    let (manager, root, socket) = rename_fixture(false).await;
+    let binding = crate::session::manager::config::record_tests::select_records(&manager).await;
+    let session = manager.config().await.sessions[0].clone();
+    let state = crate::sandbox::state_dir(&session).unwrap();
+    std::fs::create_dir_all(&state).unwrap();
+    std::fs::write(state.join("retained"), "private").unwrap();
+    let path = binding
+        .data
+        .join("agents")
+        .join(format!("{}.toml", session.state_id));
+    let before = std::fs::read(&path).unwrap();
+    std::fs::remove_file(&path).unwrap();
+    std::fs::create_dir(&path).unwrap();
+    manager.remove("old").await.unwrap_err();
+    assert!(manager.config().await.session("old").is_some());
+    assert_eq!(
+        std::fs::read_to_string(state.join("retained")).unwrap(),
+        "private"
+    );
+    std::fs::remove_dir(&path).unwrap();
+    std::fs::write(&path, before).unwrap();
+    manager.remove("old").await.unwrap();
+    assert!(!state.exists());
+    assert!(!path.exists());
+    assert!(manager.config().await.session("old").is_none());
+    cleanup_rename_fixture(&manager, root, &socket, &["old"]).await;
+}

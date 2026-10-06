@@ -88,7 +88,7 @@ impl Manager {
     }
 
     pub(super) async fn remember_host_terminal(
-        &self,
+        self: &Arc<Self>,
         name: &str,
         project: &str,
         path: &str,
@@ -119,17 +119,22 @@ impl Manager {
         Ok(())
     }
 
-    pub(super) async fn remember_host_path(&self, name: &str, path: &str) -> bool {
+    pub(super) async fn remember_host_path(self: &Arc<Self>, name: &str, path: &str) -> bool {
         self.remember_host_path_inner(name, None, path, true).await
     }
 
-    async fn remember_host_path_for_run(&self, name: &str, run_id: u64, path: &str) -> bool {
+    async fn remember_host_path_for_run(
+        self: &Arc<Self>,
+        name: &str,
+        run_id: u64,
+        path: &str,
+    ) -> bool {
         self.remember_host_path_inner(name, Some(run_id), path, false)
             .await
     }
 
     async fn remember_host_path_inner(
-        &self,
+        self: &Arc<Self>,
         name: &str,
         run_id: Option<u64>,
         path: &str,
@@ -203,7 +208,7 @@ impl Manager {
     }
 
     async fn apply_host_metadata(
-        &self,
+        self: &Arc<Self>,
         targets: Vec<(String, u64)>,
         metadata: std::collections::HashMap<String, crate::tmux::HostMetadata>,
     ) {
@@ -273,11 +278,15 @@ impl Manager {
     }
 
     pub async fn add(self: &Arc<Self>, s: SessionCfg) -> Result<()> {
-        self.session_operation(self.add_inner(s, false)).await
+        let manager = self.clone();
+        self.owned_session_operation(async move { Box::pin(manager.add_inner(s, false)).await })
+            .await
     }
 
     pub(super) async fn add_template_session(self: &Arc<Self>, s: SessionCfg) -> Result<()> {
-        self.session_operation(self.add_inner(s, true)).await
+        let manager = self.clone();
+        self.owned_session_operation(async move { Box::pin(manager.add_inner(s, true)).await })
+            .await
     }
 
     async fn add_inner(
@@ -496,6 +505,13 @@ impl Manager {
     /// Set the optional sidebar label without requiring the edit dialog to send read-only session fields.
     /// Store host labels in persistent host-terminal records, although host rows use the temporary-session presentation.
     pub async fn set_label(self: &Arc<Self>, name: &str, label: String) -> Result<()> {
+        let manager = self.clone();
+        let name = name.to_owned();
+        self.owned_session_operation(async move { manager.set_label_inner(&name, label).await })
+            .await
+    }
+
+    async fn set_label_inner(self: &Arc<Self>, name: &str, label: String) -> Result<()> {
         self.reload_if_changed().await;
         let label = label.trim().to_string();
         if label.chars().count() > MAX_MANUAL_LABEL_CHARS {
@@ -650,7 +666,10 @@ impl Manager {
     }
 
     pub async fn remove(self: &Arc<Self>, name: &str) -> Result<()> {
-        self.session_operation(self.remove_inner(name)).await
+        let manager = self.clone();
+        let name = name.to_owned();
+        self.owned_session_operation(async move { manager.remove_inner(&name).await })
+            .await
     }
 
     async fn remove_inner(self: &Arc<Self>, name: &str) -> Result<()> {
@@ -776,7 +795,9 @@ impl Manager {
     }
 
     pub async fn restore_stored_state(self: &Arc<Self>, key: &str) -> Result<String> {
-        self.session_operation(self.restore_stored_state_inner(key))
+        let manager = self.clone();
+        let key = key.to_owned();
+        self.owned_session_operation(async move { manager.restore_stored_state_inner(&key).await })
             .await
     }
 

@@ -32,6 +32,11 @@ explicit file changes. Workspace mutations currently select the inline root only
 library mutations select catalogs only. Each updates only its own accepted revision.
 `legacy.rs` remains the selected disk adapter until the record-layout cutover.
 
+Structured commits transfer their prepared candidate and persistence gate to owned
+work. Session protection remains held through disk commit, rollback, and accepted-state
+publication even if the requester disconnects. Owned work inherits the request
+context, so it cannot reload disk state after authorization.
+
 The redacted-token sentinel retains the stored secret; an empty token clears it.
 Editable patches carry explicit leaf paths so false, zero, and empty lists remain
 distinct from omission. Secrets and response metadata stay outside editable projections.

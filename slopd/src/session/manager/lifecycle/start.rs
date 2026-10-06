@@ -141,7 +141,7 @@ impl Manager {
     }
 
     /// Create the placeholder pane and persist metadata needed for adoption.
-    async fn launch_tmux(&self, name: &str, plan: &StartPlan) -> Result<()> {
+    async fn launch_tmux(self: &Arc<Self>, name: &str, plan: &StartPlan) -> Result<()> {
         // Keep the pane silent until reader attachment to avoid losing early output.
         if let Err(error) = self
             .tmux

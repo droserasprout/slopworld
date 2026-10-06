@@ -501,7 +501,7 @@ impl Manager {
     pub(crate) async fn create_worktree(self: &Arc<Self>, q: WorktreeRequest) -> Result<Worktree> {
         self.reload_if_changed().await;
         let manager = self.clone();
-        Box::pin(manager.session_read_operation(async {
+        Box::pin(self.owned_session_read_operation(async move {
             let _lock = manager.worktrees.mutation.lock().await;
             let prepared = manager.prepare_worktree(&q).await?;
             manager.finish_worktree_creation(prepared).await
@@ -509,7 +509,7 @@ impl Manager {
         .await
     }
 
-    async fn prepare_worktree(&self, q: &WorktreeRequest) -> Result<PreparedWorktree> {
+    async fn prepare_worktree(self: &Arc<Self>, q: &WorktreeRequest) -> Result<PreparedWorktree> {
         let project = self
             .update_cfg_if_changed_inner(ConfigMutation::Projects, |cfg| {
                 let project = cfg

@@ -4,9 +4,9 @@
 
 mod record;
 mod session_document;
-mod sessions;
-mod target;
-mod transaction;
+pub(crate) mod sessions;
+pub(crate) mod target;
+pub(crate) mod transaction;
 
 #[cfg(test)]
 mod tests;

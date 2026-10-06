@@ -12,14 +12,14 @@ use crate::paths::normalize;
 /// of the original mapping, not permission to select recovery destinations.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct StorageBinding {
-    pub(super) config: PathBuf,
-    pub(super) data: PathBuf,
-    pub(super) settings: PathBuf,
+pub(crate) struct StorageBinding {
+    pub(crate) config: PathBuf,
+    pub(crate) data: PathBuf,
+    pub(crate) settings: PathBuf,
 }
 
 impl StorageBinding {
-    pub(super) fn resolved(settings: &Path) -> Result<Self> {
+    pub(crate) fn resolved(settings: &Path) -> Result<Self> {
         Self::new(
             &crate::paths::config_root(),
             &crate::paths::data_root(),
@@ -27,7 +27,7 @@ impl StorageBinding {
         )
     }
 
-    pub(super) fn new(config: &Path, data: &Path, settings: &Path) -> Result<Self> {
+    pub(crate) fn new(config: &Path, data: &Path, settings: &Path) -> Result<Self> {
         Ok(Self {
             config: normalize(config)?,
             data: normalize(data)?,
@@ -35,7 +35,7 @@ impl StorageBinding {
         })
     }
 
-    pub(super) fn journal(&self) -> Result<PathBuf> {
+    pub(crate) fn journal(&self) -> Result<PathBuf> {
         let path = self.data.join("workspace.save-journal");
         ensure!(
             normalize(&path)? == path,
@@ -47,7 +47,7 @@ impl StorageBinding {
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(tag = "root", content = "path", rename_all = "snake_case")]
-pub(super) enum Target {
+pub(crate) enum Target {
     Settings,
     Config(PathBuf),
     Data(PathBuf),
@@ -57,7 +57,7 @@ pub(super) enum Target {
 }
 
 impl Target {
-    pub(super) fn resolve(&self, binding: &StorageBinding) -> Result<PathBuf> {
+    pub(crate) fn resolve(&self, binding: &StorageBinding) -> Result<PathBuf> {
         let (root, relative): (&Path, &Path) = match self {
             Self::Settings => return Ok(binding.settings.clone()),
             Self::Config(path) => (&binding.config, path),

@@ -13,7 +13,7 @@ use anyhow::{Context, Result, ensure};
 use std::collections::{BTreeMap, HashSet};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum Kind {
+pub(crate) enum Kind {
     Agent,
     HostShell,
 }
@@ -31,25 +31,25 @@ impl Kind {
 }
 
 #[derive(Clone)]
-pub(super) enum Definition {
+pub(crate) enum Definition {
     Agent(Box<SessionCfg>),
     HostShell(HostTerminalCfg),
 }
 
 impl Definition {
-    pub(super) fn kind(&self) -> Kind {
+    pub(crate) fn kind(&self) -> Kind {
         match self {
             Self::Agent(_) => Kind::Agent,
             Self::HostShell(_) => Kind::HostShell,
         }
     }
-    pub(super) fn id(&self) -> &str {
+    pub(crate) fn id(&self) -> &str {
         match self {
             Self::Agent(row) => &row.state_id,
             Self::HostShell(row) => &row.id,
         }
     }
-    pub(super) fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         match self {
             Self::Agent(row) => &row.name,
             Self::HostShell(row) => &row.name,
@@ -90,7 +90,8 @@ struct Entry {
     document: Document,
 }
 
-pub(super) struct Store {
+#[derive(Clone)]
+pub(crate) struct Store {
     kind: Kind,
     records: BTreeMap<String, Entry>,
     names: BTreeMap<String, String>,
@@ -100,14 +101,15 @@ pub(super) struct Store {
 
 /// Contains one explicit file mutation and its already validated memory change.
 /// Publish only after the shared transaction succeeds, under the same gate.
-pub(super) struct Prepared {
-    pub(super) change: Change,
+#[derive(Clone)]
+pub(crate) struct Prepared {
+    pub(crate) change: Change,
     id: String,
     next: Option<Entry>,
 }
 
 impl Store {
-    pub(super) fn empty(kind: Kind) -> Self {
+    pub(crate) fn empty(kind: Kind) -> Self {
         Self {
             kind,
             records: BTreeMap::new(),
@@ -119,7 +121,7 @@ impl Store {
 
     /// Recover the shared journal before calling this at startup. Missing stores
     /// are empty; malformed entries, aliases and duplicate orders are errors.
-    pub(super) async fn load(binding: &StorageBinding, kind: Kind) -> Result<Self> {
+    pub(crate) async fn load(binding: &StorageBinding, kind: Kind) -> Result<Self> {
         let mut store = Self::empty(kind);
         let directory = binding.data.join(kind.directory());
         ensure!(
@@ -179,14 +181,14 @@ impl Store {
         Ok(store)
     }
 
-    pub(super) fn ordered(&self) -> Vec<Definition> {
+    pub(crate) fn ordered(&self) -> Vec<Definition> {
         self.order
             .values()
             .map(|id| self.records[id].value.clone())
             .collect()
     }
 
-    pub(super) fn get(&self, id: &str) -> Option<&Definition> {
+    pub(crate) fn get(&self, id: &str) -> Option<&Definition> {
         self.records.get(id).map(|entry| &entry.value)
     }
 
@@ -206,7 +208,7 @@ impl Store {
 
     /// The allocator checks the full identity namespace under the manager's gate.
     /// Create still uses exclusive publication to reject an occupied file.
-    pub(super) fn create(&self, value: Definition) -> Result<Prepared> {
+    pub(crate) fn create(&self, value: Definition) -> Result<Prepared> {
         self.check_new(&value)?;
         ensure!(
             self.next_order < i64::MAX,
@@ -230,7 +232,7 @@ impl Store {
 
     /// ID, not name, selects accepted ownership. A delayed edit of a retired ID
     /// fails rather than creating a new file or touching a reused display name.
-    pub(super) fn update(&self, id: &str, value: Definition) -> Result<Prepared> {
+    pub(crate) fn update(&self, id: &str, value: Definition) -> Result<Prepared> {
         let old = self.records.get(id).context("session record was removed")?;
         value.validate()?;
         ensure!(
@@ -258,7 +260,7 @@ impl Store {
         })
     }
 
-    pub(super) fn retire(&self, id: &str) -> Option<Prepared> {
+    pub(crate) fn retire(&self, id: &str) -> Option<Prepared> {
         self.records.contains_key(id).then(|| Prepared {
             change: Change {
                 target: self.kind.target(id),
@@ -271,7 +273,7 @@ impl Store {
 
     /// Infallible publication of a prepared change. The caller retains the same
     /// mutation gate across preparation, disk commit and this index update.
-    pub(super) fn publish(&mut self, prepared: Prepared) {
+    pub(crate) fn publish(&mut self, prepared: Prepared) {
         if let Some(old) = self.records.remove(&prepared.id) {
             self.names.remove(old.value.name());
             self.order.remove(&old.order);

@@ -61,7 +61,7 @@ impl Manager {
     /// Manage name allocation, temporary project creation, host-tab storage, and optional copying of agent settings here.
     /// Callers control launch and input delivery.
     pub(super) async fn create_errand_session(
-        &self,
+        self: &Arc<Self>,
         cfg: &Config,
         sc: &LibraryItemCfg,
         want: &RunWhere,
@@ -81,7 +81,7 @@ impl Manager {
     }
 
     async fn create_errand_session_inner(
-        &self,
+        self: &Arc<Self>,
         cfg: &Config,
         sc: &LibraryItemCfg,
         want: &RunWhere,
@@ -168,7 +168,7 @@ impl Manager {
     }
 
     async fn remember_errand_host_terminal(
-        &self,
+        self: &Arc<Self>,
         name: &str,
         preparation: &ErrandSessionPreparation,
     ) -> Result<()> {

@@ -24,16 +24,16 @@ use tokio::sync::OwnedMutexGuard;
 use super::target::{StorageBinding, Target};
 
 #[derive(Clone)]
-pub(super) enum Mutation {
+pub(crate) enum Mutation {
     Create(String),
     Replace(String),
     Retire,
 }
 
 #[derive(Clone)]
-pub(super) struct Change {
-    pub(super) target: Target,
-    pub(super) mutation: Mutation,
+pub(crate) struct Change {
+    pub(crate) target: Target,
+    pub(crate) mutation: Mutation,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -51,7 +51,7 @@ struct Original {
     text: Option<String>,
 }
 
-pub(super) async fn recover(binding: &StorageBinding, _gate: &OwnedMutexGuard<()>) -> Result<()> {
+pub(crate) async fn recover(binding: &StorageBinding, _gate: &OwnedMutexGuard<()>) -> Result<()> {
     let journal = binding.journal()?;
     let Some(text) = read_optional(&journal).await? else {
         return Ok(());
@@ -87,21 +87,32 @@ impl Undo {
 
 /// Transfer disk commit and publication to an owner that outlives its requester.
 /// Publication must apply already prepared state without additional fallible I/O.
-pub(super) async fn commit<T: Send + 'static, P: Future<Output = T> + Send + 'static>(
+pub(crate) async fn commit<T: Send + 'static, P: Future<Output = T> + Send + 'static>(
     binding: StorageBinding,
     changes: Vec<Change>,
     gate: OwnedMutexGuard<()>,
     publish: impl FnOnce() -> P + Send + 'static,
 ) -> Result<T> {
     tokio::spawn(async move {
-        recover(&binding, &gate).await?;
-        commit_files(&binding, changes, |_| Ok(())).await?;
+        commit_in_operation(&binding, changes, &gate).await?;
         let accepted = publish().await;
         drop(gate);
         Ok(accepted)
     })
     .await
     .context("workspace commit owner failed")?
+}
+
+/// For managers whose owned operation also encloses runtime rollback and
+/// publication. The caller must retain its owned session/worktree guards and
+/// this persistence gate until publication or rollback has finished.
+pub(crate) async fn commit_in_operation(
+    binding: &StorageBinding,
+    changes: Vec<Change>,
+    gate: &OwnedMutexGuard<()>,
+) -> Result<()> {
+    recover(binding, gate).await?;
+    commit_files(binding, changes, |_| Ok(())).await
 }
 
 async fn commit_files(

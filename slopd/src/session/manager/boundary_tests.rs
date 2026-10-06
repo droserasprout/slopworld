@@ -1,5 +1,7 @@
 use crate::config::{Config, Daemon, SessionCfg};
 use crate::grant::Level;
+use std::sync::Arc;
+use std::time::Duration;
 
 #[tokio::test]
 async fn shared_worktree_guard_allows_input_but_blocks_identity_changes() {
@@ -188,4 +190,67 @@ fn named_locks_reuse_live_entries_and_prune_expired_names() {
     }
     check::<tokio::sync::RwLock<()>>();
     check::<tokio::sync::Mutex<()>>();
+}
+
+#[tokio::test]
+async fn owned_operations_keep_the_authorized_request_context() {
+    let manager = crate::session::test_manager(Config::default());
+    manager
+        .session_request(async {
+            let current = manager.clone();
+            manager
+                .owned_session_operation(async move {
+                    assert!(current.session_request_active());
+                    assert!(current.session_write_operation_active());
+                })
+                .await;
+        })
+        .await;
+    manager
+        .session_read_request(async {
+            let current = manager.clone();
+            manager
+                .owned_session_read_operation(async move {
+                    assert!(current.session_request_active());
+                    assert!(!current.session_write_operation_active());
+                })
+                .await;
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn cancelled_owned_shared_operation_retains_session_and_worktree_guards() {
+    let manager = crate::session::test_manager(Config::default());
+    let entered = Arc::new(tokio::sync::Barrier::new(2));
+    let release = Arc::new(tokio::sync::Notify::new());
+    let request = tokio::spawn({
+        let current = manager.clone();
+        let entered = entered.clone();
+        let release = release.clone();
+        async move {
+            let operation = current.clone();
+            current
+                .owned_session_read_operation(async move {
+                    let _worktrees = operation.worktrees.mutation.lock().await;
+                    entered.wait().await;
+                    release.notified().await;
+                })
+                .await;
+        }
+    });
+    tokio::time::timeout(Duration::from_secs(5), entered.wait())
+        .await
+        .unwrap();
+    request.abort();
+    drop(request.await);
+    manager.session_boundary.try_write().unwrap_err();
+    drop(manager.session_boundary.try_read().unwrap());
+    manager.worktrees.mutation.try_lock().unwrap_err();
+    release.notify_one();
+    let guard = tokio::time::timeout(Duration::from_secs(5), manager.session_boundary.write())
+        .await
+        .unwrap();
+    drop(guard);
+    drop(manager.worktrees.mutation.try_lock().unwrap());
 }

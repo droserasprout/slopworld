@@ -5,6 +5,11 @@
 `session/manager/projects.rs` owns project edits and relocation.
 `session/manager/directories.rs` owns uncommitted directory creation.
 
+Worktree creation retains its shared session boundary and worktree mutation guard
+in owned work through completion or rollback. Project-ID persistence inherits that
+shared boundary; it must not upgrade to an exclusive session lock while holding the
+worktree guard. Identity and authorization changes still require exclusive access.
+
 Projects have durable IDs; sessions select a worktree by ID, with empty or `main`
 selecting the original checkout. Branch names and HEAD describe state rather than
 checkout identity. Task results, worker exits, one-shot cleanup, and final detachment

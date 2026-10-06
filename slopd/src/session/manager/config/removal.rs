@@ -6,10 +6,28 @@ use super::*;
 
 impl Manager {
     pub(in crate::session::manager) async fn remove_configured_session(
-        &self,
+        self: &Arc<Self>,
         name: &str,
     ) -> Result<()> {
+        let manager = self.clone();
+        let name = name.to_owned();
+        self.owned_session_operation(
+            async move { manager.remove_configured_session_inner(&name).await },
+        )
+        .await
+    }
+
+    async fn remove_configured_session_inner(self: &Arc<Self>, name: &str) -> Result<()> {
         self.session_operation(async {
+            #[cfg(test)]
+            if self.record_backend().is_some() {
+                return self
+                    .update_cfg(ConfigMutation::Agents, |cfg| {
+                        cfg.sessions.retain(|session| session.name != name);
+                        Ok(())
+                    })
+                    .await;
+            }
             let persist = self.config_state.persist.lock().await;
             let accepted = *self
                 .config_state

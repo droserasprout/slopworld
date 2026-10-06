@@ -1,6 +1,7 @@
 //! Serialized configuration edits, disk reloads, and runtime publication.
 //! crate::config owns data types and persistence; this module coordinates runtime changes.
 
+mod backend;
 mod cache;
 mod mutation;
 mod removal;
@@ -28,7 +29,7 @@ struct ConfigChange {
 
 pub(super) struct PreparedConfigChange {
     change: ConfigChange,
-    disk: crate::config::legacy::PreparedWrite,
+    disk: backend::PreparedDisk,
     mutation: ConfigMutation,
     // Prevent stale candidates, including across a tmux rename before commit.
     _persist: tokio::sync::OwnedMutexGuard<()>,
@@ -49,7 +50,7 @@ impl Manager {
 
     /// Serialize snapshot edits, saving before publication without holding the cfg lock.
     pub(super) async fn update_cfg<T>(
-        &self,
+        self: &Arc<Self>,
         mutation: ConfigMutation,
         update: impl FnOnce(&mut Config) -> Result<T>,
     ) -> Result<T> {
@@ -58,7 +59,7 @@ impl Manager {
     }
 
     pub(super) async fn update_cfg_if_changed<T>(
-        &self,
+        self: &Arc<Self>,
         mutation: ConfigMutation,
         update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
     ) -> Result<T> {
@@ -67,7 +68,7 @@ impl Manager {
     }
 
     pub(super) async fn update_cfg_if_changed_inner<T>(
-        &self,
+        self: &Arc<Self>,
         mutation: ConfigMutation,
         update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
     ) -> Result<T> {
@@ -86,7 +87,7 @@ impl Manager {
         update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
     ) -> Result<(T, Option<PreparedConfigChange>)> {
         let persist = self.config_state.persist.clone().lock_owned().await;
-        crate::config::legacy::recover(&self.cfg_path).await?;
+        self.recover_config_backend(&persist).await?;
         let old = self.cfg.read().await.clone();
         let mut candidate = old.clone();
         let (result, changed) = update(&mut candidate)?;
@@ -97,13 +98,7 @@ impl Manager {
         mutation.validate(&old, &candidate)?;
         self.validate_worktree_config(&old, &candidate).await?;
         let change = prepare_candidate(&old, candidate)?;
-        let disk = crate::config::legacy::prepare(
-            &change.new,
-            &self.cfg_path,
-            mutation.writes_root(),
-            mutation.writes_library(),
-        )
-        .await?;
+        let disk = self.prepare_config_disk(mutation, &change.new).await?;
         Ok((
             result,
             Some(PreparedConfigChange {
@@ -115,7 +110,19 @@ impl Manager {
         ))
     }
 
-    pub(super) async fn commit_prepared_cfg(&self, prepared: PreparedConfigChange) -> Result<()> {
+    pub(super) async fn commit_prepared_cfg(
+        self: &Arc<Self>,
+        prepared: PreparedConfigChange,
+    ) -> Result<()> {
+        let manager = self.clone();
+        self.owned_config_operation(
+            matches!(prepared.mutation, ConfigMutation::Projects),
+            Box::pin(async move { manager.commit_prepared_cfg_inner(prepared).await }),
+        )
+        .await
+    }
+
+    async fn commit_prepared_cfg_inner(&self, prepared: PreparedConfigChange) -> Result<()> {
         let PreparedConfigChange {
             change,
             disk,
@@ -124,8 +131,21 @@ impl Manager {
         } = prepared;
         let old = self.cfg.read().await.clone();
         let links = reconcile_cache_links(&self.cfg_path, &old, &change.new).await?;
-        if let Err(error) = disk.commit(&self.cfg_path).await {
+        if let Err(error) = disk.commit(&self.cfg_path, &_persist).await {
             return Err(links.rollback_error(error));
+        }
+        #[cfg(test)]
+        {
+            let pause = self
+                .config_state
+                .commit_pause
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .take();
+            if let Some((committed, release)) = pause {
+                committed.wait().await;
+                release.notified().await;
+            }
         }
         if mutation.writes_library() {
             self.mark_saved_library(&change.new).await;
@@ -133,6 +153,7 @@ impl Manager {
         if let Some(text) = disk.root_text(&self.cfg_path) {
             self.mark_saved_document(text).await;
         }
+        disk.publish();
         let endpoint_token = self.publish_config(change).await;
         // Keep endpoint token writes ordered with configuration commits.
         self.update_endpoint(&endpoint_token).await;
@@ -149,6 +170,11 @@ impl Manager {
     }
 
     async fn patch_config_inner(self: &Arc<Self>, patch: Value) -> Result<()> {
+        #[cfg(test)]
+        anyhow::ensure!(
+            self.record_backend().is_none(),
+            "record fixture does not yet support settings edits"
+        );
         self.reload_if_changed().await;
 
         let persist = self.config_state.persist.lock().await;
@@ -180,6 +206,11 @@ impl Manager {
     }
 
     async fn replace_config_inner(self: &Arc<Self>, text: &str) -> Result<()> {
+        #[cfg(test)]
+        anyhow::ensure!(
+            self.record_backend().is_none(),
+            "record fixture does not yet support settings edits"
+        );
         let persist = self.config_state.persist.lock().await;
         crate::config::legacy::recover(&self.cfg_path).await?;
         let old = self.cfg.read().await.clone();
@@ -229,6 +260,11 @@ impl Manager {
     }
 
     pub(super) async fn reload_if_stale(self: &Arc<Self>) {
+        #[cfg(test)]
+        if self.record_backend().is_some() {
+            self.reload_if_changed().await;
+            return;
+        }
         let disk = disk_mtime(&self.cfg_path).await;
         let library = Config::library_stamp_for(&self.cfg_path);
         let stale = *self
@@ -249,6 +285,10 @@ impl Manager {
     }
 
     async fn reload_if_changed_inner(self: &Arc<Self>) -> bool {
+        #[cfg(test)]
+        if let Some(records) = self.record_backend() {
+            return self.reload_record_libraries(&records).await;
+        }
         // Serialize disk reads and publication with saves; release before reconciliation.
         let persist = self.config_state.persist.lock().await;
         let disk = disk_mtime(&self.cfg_path).await;
@@ -433,3 +473,6 @@ fn restore_redacted_document_token(old: &Config, document: &mut toml::Value) {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+pub(super) mod record_tests;

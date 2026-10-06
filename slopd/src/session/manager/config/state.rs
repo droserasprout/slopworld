@@ -10,6 +10,10 @@ use std::time::SystemTime;
 pub(crate) struct ConfigState {
     pub(crate) cfg_mtime: Mutex<Option<SystemTime>>,
     pub(crate) library_mtime: Mutex<Option<SystemTime>>,
+    #[cfg(test)]
+    pub(super) records: Mutex<Option<Arc<super::backend::records::Records>>>,
+    #[cfg(test)]
+    pub(super) commit_pause: Mutex<Option<(Arc<tokio::sync::Barrier>, Arc<tokio::sync::Notify>)>>,
     pub(crate) persist: Arc<tokio::sync::Mutex<()>>,
     pub(crate) presets_mtime: Mutex<Option<SystemTime>>,
     pub(crate) jukebox_mtime: Mutex<Option<SystemTime>>,
@@ -28,6 +32,10 @@ impl ConfigState {
         Self {
             cfg_mtime: Mutex::new(cfg_mtime),
             library_mtime: Mutex::new(library_mtime),
+            #[cfg(test)]
+            records: Mutex::new(None),
+            #[cfg(test)]
+            commit_pause: Mutex::new(None),
             persist: Arc::new(tokio::sync::Mutex::new(())),
             presets_mtime: Mutex::new(presets_mtime),
             jukebox_mtime: Mutex::new(jukebox_mtime),
