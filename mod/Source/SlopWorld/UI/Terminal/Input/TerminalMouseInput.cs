@@ -124,7 +124,11 @@ namespace SlopWorld
                     return;
                 }
 
-                // Handle multi-click selection even when the app reports mouse input.
+                var live = SessionHub.Instance.Screen(_panel.SessionName);
+                // Let mouse-reporting apps own every click in a sequence. Shift and
+                // history clicks retain local selection, including word and line gestures.
+                if (ShouldForwardMouse(live, e) && _panel.HandleMouseForward(body, e)) return;
+
                 observedClick = MouseType(e) == EventType.MouseDown && e.button == 0 &&
                     body.Contains(e.mousePosition);
                 if (_panel.SelectionInput.TryHandleMultiClick(body, e))
@@ -132,9 +136,6 @@ namespace SlopWorld
                     return;
                 }
 
-                var live = SessionHub.Instance.Screen(_panel.SessionName);
-                // Shift selects text instead of sending the click to the app.
-                if (ShouldForwardMouse(live, e) && _panel.HandleMouseForward(body, e)) return;
                 if (!IsPrimaryMouse(e)) return;
 
                 _panel.SelectionInput.Handle(body, e);

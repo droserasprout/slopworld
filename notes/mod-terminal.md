@@ -20,6 +20,8 @@ Advertised capabilities are checked against independent client allocation limits
 Split placement is not saved.
 
 Focus loss flushes pending literal input and releases forwarded mouse presses.
+Mouse-reporting apps own single, double, and triple clicks at the live screen;
+Shift or terminal history keeps those gestures in local text selection.
 Flush buffered text before clipboard/PRIMARY paste, including fallback. Rejected
 input is discarded rather than replayed on reconnect. Codex paste checks for text
 before forwarding its image shortcut. Host panes accept text only; CLIPBOARD,
