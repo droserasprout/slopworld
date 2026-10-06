@@ -1,7 +1,7 @@
 # Host terminal tabs
 
 Host shells from project headings are persistent sidebar tabs. The daemon writes one
-`[[host_terminal]]` record per project/shell tab in `config.toml`.
+`host_shells/<id>.toml` record per project/shell tab under the data root.
 These tabs are separate from agent sessions and have no colonist or sandboxed agent
 configuration. [Temporary host errands](daemon-library.md) have a different lifecycle.
 

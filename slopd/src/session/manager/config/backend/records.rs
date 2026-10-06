@@ -1,4 +1,4 @@
-//! Fixture-selected session record backend. No production format toggle exists.
+//! Accepted record backend shared by startup and manager mutations.
 //! Selection loads and validates once; ordinary edits use accepted indexes only.
 
 use super::*;
@@ -202,8 +202,16 @@ impl Manager {
             .clone()
     }
 
-    /// Fixtures seed records explicitly. This is not a migration or runtime toggle.
-    pub(in crate::session::manager::config) async fn select_record_fixture(
+    #[cfg(test)]
+    pub(in crate::session::manager) async fn select_record_fixture(
+        self: &Arc<Self>,
+        binding: StorageBinding,
+    ) -> Result<()> {
+        self.load_record_backend(binding).await
+    }
+
+    /// Load and validate the complete workspace before any runtime reconciliation.
+    pub(in crate::session::manager) async fn load_record_backend(
         self: &Arc<Self>,
         binding: StorageBinding,
     ) -> Result<()> {
@@ -261,6 +269,19 @@ impl Manager {
                     worktrees,
                 }),
             }));
+            *self
+                .config_state
+                .library_revision
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()) = crate::config::catalog::revision(
+                &self
+                    .record_backend()
+                    .context("records missing")?
+                    .binding
+                    .config
+                    .join("config.toml"),
+            )
+            .ok();
             self.publish_config(change).await;
             Ok(())
         })
@@ -277,13 +298,16 @@ impl Manager {
     ) -> bool {
         let _gate = self.config_state.persist.lock().await;
         let anchor = records.binding.config.join("config.toml");
-        let stamp = Config::library_stamp_for(&anchor);
-        if *self
+        let Ok(stamp) = crate::config::catalog::revision(&anchor) else {
+            return false;
+        };
+        if self
             .config_state
-            .library_mtime
+            .library_revision
             .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            == stamp
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            == Some(&stamp)
         {
             return false;
         }
@@ -303,12 +327,15 @@ impl Manager {
                 return false;
             }
         };
+        if crate::config::catalog::revision(&anchor).ok().as_ref() != Some(&stamp) {
+            return false;
+        }
         self.publish_config(change).await;
         *self
             .config_state
-            .library_mtime
+            .library_revision
             .lock()
-            .unwrap_or_else(|error| error.into_inner()) = stamp;
+            .unwrap_or_else(|e| e.into_inner()) = Some(stamp);
         drop(_gate);
         self.announce_library().await;
         true

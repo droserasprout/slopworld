@@ -11,7 +11,7 @@ for overrides, XDG locations, and sidecar/macOS paths.
 
 | Data | Linux default location | Include |
 | --- | --- | --- |
-| Configuration and catalogs | `~/.config/slopworld/` | `config.toml`, grants, worktree records, task mailbox and journal, user libraries, presets, and the entire `agent_templates/` directory including its index and generations. |
+| Configuration and catalogs | `~/.config/slopworld/` | `config.toml`, project records, user libraries, presets, and the entire `agent_templates/` directory including its index and generations. |
 | Agent private state | `~/.local/share/slopworld/sessions/` | Tool state, history, configuration copies, and recoverable trash. |
 | Game profile | `~/.local/share/slopworld/profile/` | Saves and mod settings. |
 | Jukebox | `~/.config/slopworld/jukebox/` and `~/.local/share/slopworld/jukebox.toml` | Stations and liked songs. |
@@ -55,3 +55,8 @@ A deleted agent can be restored when its name is available and its saved project
 and mounts remain valid. Restore the project configuration first if needed.
 Configured agents retain their private state while Down. Remove unwanted orphaned
 entries through **Settings > Storage**.
+
+Include the data root (`SLOPD_DATA`, normally `~/.local/share/slopworld`) in the
+backup: it contains agent and host-shell definitions, worktree and task records,
+grants, and any pending workspace recovery journal. Stop the daemon before copying
+these files together. See [Storage migration](storage-migration.md).

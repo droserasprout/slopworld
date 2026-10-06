@@ -87,10 +87,20 @@ impl<T: Record> Store<T> {
         T::validate_collection(&result.ordered())?;
         Ok(result)
     }
+    #[expect(
+        clippy::expect_used,
+        reason = "record and order indexes publish together"
+    )]
     pub(crate) fn ordered(&self) -> Vec<T> {
         self.order
             .values()
-            .map(|id| self.entries[id].value.clone())
+            .map(|id| {
+                self.entries
+                    .get(id)
+                    .expect("ordered identity belongs to accepted records")
+                    .value
+                    .clone()
+            })
             .collect()
     }
     /// Compare only the owning collection. Retained IDs keep their ordinal and

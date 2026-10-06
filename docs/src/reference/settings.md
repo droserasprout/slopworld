@@ -47,8 +47,10 @@ disable VSync. Unfocused windows use 15 FPS and restore foreground pacing on foc
 
 ## Configuration file
 
-The palette's **Configuration: Edit config.toml** action opens the full daemon
-configuration, including fields without a Settings page. The editor hides the daemon token.
+The palette's **Configuration: Edit config.toml** action opens machine settings,
+including fields without a Settings page. Projects, agents and host shells use
+their own editors and are preserved when settings are replaced. Inline workspace
+sections are rejected. The editor hides the daemon token.
 Before it saves, it parses and checks the replacement. Invalid replacements are rejected.
 
 Worker configuration uses `[daemon.instructions].worker_prompt` and

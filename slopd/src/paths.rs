@@ -99,7 +99,6 @@ pub fn write_atomic(path: &Path, text: &str, mode: Option<u32>) -> Result<()> {
     publish_atomic(path, text, mode, false)
 }
 
-#[cfg(test)]
 pub(crate) fn create_atomic(path: &Path, text: &str, mode: Option<u32>) -> Result<()> {
     publish_atomic(path, text, mode, true)
 }
@@ -154,7 +153,6 @@ pub async fn write_atomic_async(path: &Path, text: &str, mode: Option<u32>) -> R
 /// Publish a complete file only if its identity is still unoccupied. Hard-linking
 /// a fully written sibling reserves atomically without exposing an empty record.
 /// Selected by the new record owners at storage cutover.
-#[cfg(test)]
 pub(crate) async fn create_atomic_async(path: &Path, text: &str, mode: Option<u32>) -> Result<()> {
     publish_atomic_async(path, text, mode, true).await
 }

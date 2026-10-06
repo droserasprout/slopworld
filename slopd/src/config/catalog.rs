@@ -84,7 +84,7 @@ pub(super) async fn load_library(
     Ok(library)
 }
 
-pub(super) fn prepare_library(
+pub(crate) fn prepare_library(
     dirs: &[(LibraryItemKind, PathBuf)],
     library: &[LibraryItemCfg],
 ) -> Result<Vec<(PathBuf, String)>> {
@@ -111,7 +111,7 @@ pub(super) fn prepare_library(
 
 /// A deliberate whole-catalog replacement selects retirement here, not in the
 /// transaction owner. Incremental callers can prepare their own targeted changes.
-pub(super) async fn replacement_changes(
+pub(crate) async fn replacement_changes(
     dirs: &[(LibraryItemKind, PathBuf)],
     prepared: Vec<(PathBuf, String)>,
 ) -> Result<std::collections::BTreeMap<PathBuf, Option<String>>> {
@@ -133,4 +133,28 @@ pub(super) async fn replacement_changes(
         }
     }
     Ok(changes)
+}
+
+/// Membership and every file revision participate; a newer sibling cannot mask
+/// an edit or deletion. Failure leaves the accepted catalog/revision unchanged.
+pub(crate) type Revision = Vec<(PathBuf, u64, std::time::SystemTime)>;
+
+pub(crate) fn revision(config: &Path) -> Result<Revision> {
+    let mut result = Vec::new();
+    for (_, directory) in super::Config::library_dirs_for(config) {
+        let entries = match std::fs::read_dir(directory) {
+            Ok(entries) => entries,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(e) => return Err(e.into()),
+        };
+        for entry in entries {
+            let path = entry?.path();
+            if path.extension().is_some_and(|ext| ext == "toml") {
+                let metadata = std::fs::metadata(&path)?;
+                result.push((path, metadata.len(), metadata.modified()?));
+            }
+        }
+    }
+    result.sort();
+    Ok(result)
 }

@@ -136,3 +136,34 @@ async fn reconciliation_keeps_attached_worker_identity_without_reprobing_tmux_me
         assert_eq!(live["worker"].cfg.worktree, session.worktree);
     }
 }
+
+#[tokio::test]
+async fn recovering_worker_without_an_identity_uses_the_guarded_allocator() {
+    use super::*;
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
+    let socket = crate::test_support::TmuxSocket::new();
+    let cfg = Config::default();
+    let manager = crate::session::test_manager_with_socket(cfg.clone(), socket.path.clone());
+    manager
+        .tmux
+        .spawn(
+            "worker",
+            "/tmp",
+            120,
+            34,
+            &["sleep".into(), "60".into()],
+            false,
+        )
+        .await
+        .unwrap();
+    manager
+        .tmux
+        .set_worker_metadata("worker", "parent", "task", false, "invalid-state")
+        .await
+        .unwrap();
+    assert!(manager.session_operation(manager.adopt_orphans(&cfg)).await);
+    let live = manager.live.read().await;
+    assert!(crate::storage_id::valid(&live["worker"].cfg.state_id));
+}

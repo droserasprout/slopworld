@@ -305,6 +305,7 @@ pub(super) fn json_to_toml(value: Value) -> Result<toml::Value> {
     })
 }
 
+#[cfg(test)]
 pub(super) fn merge_toml(base: &mut toml::Value, patch: toml::Value) {
     match patch {
         toml::Value::Table(patch) => {

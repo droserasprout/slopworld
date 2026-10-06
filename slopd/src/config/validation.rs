@@ -75,7 +75,7 @@ pub(crate) fn validate_state_id(state_id: &str) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn validate_loaded(cfg: &Config) -> Result<()> {
+pub(crate) fn validate_loaded(cfg: &Config) -> Result<()> {
     let mut host_ids = HashSet::new();
     for host in &cfg.host_terminals {
         if host.id.is_empty() {

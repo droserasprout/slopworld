@@ -198,7 +198,7 @@ impl Default for SessionCfg {
             reader_scope: String::new(),
             reader_pinned: false,
             reader_line: 0,
-            state_id: uuid::Uuid::new_v4().to_string(),
+            state_id: crate::storage_id::draft_identity(),
             project: String::new(),
             command: String::new(),
             cmd: None,

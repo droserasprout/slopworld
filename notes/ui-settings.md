@@ -52,3 +52,7 @@ See `CodeAppearanceDraftTests` and `PagerCommandsTests` for local draft/command 
 
 `UnlockUIScale` exempts the vanilla low-resolution scale reset, while the slider
 continues applying its value only on release.
+
+Raw daemon configuration editing owns settings only. Replacement preserves accepted
+project, agent and host-shell records and rejects inline workspace sections.
+Workspace edits use their owning APIs; manual record edits require a stopped daemon.

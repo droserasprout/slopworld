@@ -1,6 +1,6 @@
 //! Scoped credentials let an agent monitor or control another agent, but not a host session.
 //! See [notes/agent-grants.md]. The mod uses `[daemon] token` as the root credential.
-//! The daemon stores each other live credential as a `Grant` beside its configuration.
+//! The daemon stores each other live credential in the data-root grant store.
 //! It revokes the grant when the grantor or a target session no longer exists.
 
 use anyhow::{Context, Result, bail};
@@ -137,13 +137,13 @@ pub struct Grants {
 }
 
 impl Grants {
+    #[cfg(test)]
     pub fn load(config: &Path) -> Result<Self> {
         Self::load_path(config.with_file_name("grants.toml"))
     }
 
-    /// Selected only after offline migration. Never merge independent authority
+    /// Never merge independent authority
     /// sources or silently ignore a remaining legacy grants file.
-    #[cfg(test)]
     pub(crate) fn load_data(config: &Path, data: &Path) -> Result<Self> {
         let path = crate::paths::normalize(data)?.join("grants.toml");
         anyhow::ensure!(
@@ -195,8 +195,16 @@ impl Grants {
             }
             Err(error) => return Err(error).with_context(|| format!("reading {}", path.display())),
         };
+        Self::decode(&text, &path)
+    }
+
+    pub(crate) fn validate_document(text: &str) -> Result<()> {
+        Self::decode(text, Path::new("grants.toml")).map(|_| ())
+    }
+
+    fn decode(text: &str, path: &Path) -> Result<Self> {
         let file: File =
-            toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+            toml::from_str(text).with_context(|| format!("parsing {}", path.display()))?;
         let mut by_token = HashMap::new();
         for stored in file.grants {
             if !valid_token(&stored.token)
@@ -234,7 +242,7 @@ impl Grants {
         }
 
         Ok(Self {
-            path: Some(path),
+            path: Some(path.to_owned()),
             by_token,
         })
     }

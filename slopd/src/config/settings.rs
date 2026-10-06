@@ -15,9 +15,7 @@ pub struct Settings {
     pub commands: CommandDefaults,
 }
 
-// Prepared and tested before migration; select this document owner at cutover.
-// The selected legacy adapter still accepts inline workspace sections.
-#[cfg(test)]
+// Root document edits never own workspace membership.
 #[path = "settings_document.rs"]
 pub(crate) mod document;
 

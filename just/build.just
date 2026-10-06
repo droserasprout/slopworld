@@ -41,3 +41,9 @@ clean:
     rm -f "{{ MOD_DLL }}"
     rm -rf mod/Source/SlopWorld/obj
     rm -rf "{{ COVERAGE_DIR }}"
+
+# TODO(remove after user tests and approves workspace store migration): priv/notes/plan-storage-main.md
+# Migrate legacy storage offline using the selected SLOPD_CONFIG_ROOT, SLOPD_DATA and SLOPD_CONFIG
+[group('Build')]
+migrate-storage:
+    cd slopd && {{ CARGO }} run {{ CARGOFLAGS }} --bin slopd -- --migrate-storage

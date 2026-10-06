@@ -92,8 +92,8 @@ pub struct WorkerTask {
     pub durable: bool,
 }
 
-mod legacy;
 #[cfg(test)]
+mod legacy;
 mod records;
 mod service;
 pub(crate) use service::{BatchResult, TaskStamp, Tasks};

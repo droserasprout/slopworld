@@ -6,24 +6,13 @@
     reason = "benchmark fixture validation aborts measurements on unexpected storage or serialization failure"
 )]
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::Result;
-use serde::Serialize;
 
 use super::measure;
 use crate::session::State;
 use crate::tasks::{Status, Task, Tasks};
-
-#[derive(Serialize)]
-struct TaskFixture {
-    tasks: Vec<Task>,
-}
-
-#[derive(Serialize)]
-struct TaskFixtureRef<'a> {
-    tasks: &'a [Task],
-}
 
 struct Scratch(PathBuf);
 
@@ -46,172 +35,53 @@ pub(super) fn run() -> Result<()> {
 }
 
 fn benchmark_tasks(scratch: &Scratch) -> Result<()> {
-    let config = scratch.0.join("config.toml");
-    for count in [10, 100, 1_000] {
-        benchmark_task_size(&config, count)?;
-    }
-    benchmark_task_restart(&config)
-}
-
-fn benchmark_task_size(config: &Path, count: usize) -> Result<()> {
-    // Seed in one write, outside measurement, so setup is not itself quadratic.
-    let fixture = TaskFixture {
-        tasks: (0..count)
-            .map(|index| Task {
-                from_id: crate::tasks::HOST.into(),
-                to_id: if index % 10 == 0 { "worker" } else { "other" }.into(),
-                id: format!("bench-{index:x}"),
-                from: crate::tasks::HOST.into(),
-                to: if index % 10 == 0 { "worker" } else { "other" }.into(),
-                body: "x".repeat(1_024),
+    for count in [10, 100, 1_000, 10_000] {
+        let data = scratch.0.join(format!("tasks-{count}"));
+        std::fs::create_dir_all(data.join("tasks"))?;
+        for index in 0..count {
+            let task = Task {
+                id: format!("{index:016x}"),
+                from: "host".into(),
+                to: "worker".into(),
+                from_id: "host".into(),
+                to_id: "worker".into(),
+                body: "x".repeat(1024),
                 status: Status::Working,
                 note: None,
                 summary: None,
                 created_ms: 1,
                 updated_ms: 1,
                 worker: None,
-            })
-            .collect(),
-    };
-    std::fs::write(
-        config.with_file_name("tasks.toml"),
-        toml::to_string_pretty(&fixture)?,
-    )?;
-    drop(std::fs::remove_file(config.with_file_name("tasks.journal")));
-    let snapshot = std::fs::read(config.with_file_name("tasks.toml"))?;
-    let mut tasks = Tasks::load(config)?;
-    anyhow::ensure!(
-        tasks.all().len() == count,
-        "seeded {} tasks, expected {count}",
-        tasks.all().len()
-    );
-    measure(&format!("task list clone {count} records"), |_| {
-        std::hint::black_box(tasks.all()).len()
-    });
-    measure(&format!("task visible 10 percent {count} records"), |_| {
-        std::hint::black_box(tasks.visible("worker")).len()
-    });
-    measure_prepared(
-        &format!("task create journal {count} records"),
-        || {
-            std::fs::write(config.with_file_name("tasks.toml"), &snapshot)?;
-            drop(std::fs::remove_file(config.with_file_name("tasks.journal")));
-            Tasks::load(config)
-        },
-        |tasks| {
-            tasks.create_owned(
-                crate::tasks::Participant {
-                    name: "host".into(),
-                    identity: "host".into(),
-                },
-                crate::tasks::Participant {
-                    name: "worker".into(),
-                    identity: "worker".into(),
-                },
-                "x".repeat(1024),
-                None,
-            )?;
-            Ok(())
-        },
-    )?;
-    measure_prepared(
-        &format!("task create snapshot reference {count} records"),
-        || Ok(fixture.tasks.clone()),
-        |tasks| {
-            let mut task = tasks
-                .first()
-                .cloned()
-                .ok_or_else(|| anyhow::anyhow!("task fixture is empty"))?;
-            task.id = "new-task".into();
-            tasks.push(task);
+            };
+            let mut raw = toml::Value::try_from(&task)?;
+            raw.as_table_mut()
+                .expect("task table")
+                .insert("storage_order".into(), toml::Value::Integer(index));
             crate::paths::write_private_toml(
-                &config.with_file_name("reference.toml"),
-                &toml::to_string_pretty(&TaskFixtureRef { tasks })?,
+                &data.join("tasks").join(format!("{}.toml", task.id)),
+                &toml::to_string(&raw)?,
             )?;
-            Ok(())
-        },
-    )?;
-    // Restore the fixture after the independent creation probes.
-    std::fs::write(config.with_file_name("tasks.toml"), &snapshot)?;
-    drop(std::fs::remove_file(config.with_file_name("tasks.journal")));
-    measure(&format!("task update+save {count} records"), |sample| {
-        // Update the first record: history serialization dominates without a long lookup.
-        tasks
-            .update(
-                "worker",
-                "bench-0",
-                Status::Working,
-                Some(format!("progress {sample}")),
-            )
-            .expect("benchmark task update")
-            .body
-            .len()
-    });
-    Ok(())
-}
-
-fn benchmark_task_restart(config: &Path) -> Result<()> {
-    let initial = Tasks::load(config)?;
-    std::fs::write(
-        config.with_file_name("tasks.toml"),
-        toml::to_string(&TaskFixture {
-            tasks: initial.all(),
-        })?,
-    )?;
-    drop(std::fs::remove_file(config.with_file_name("tasks.journal")));
-    let mut tasks = Tasks::load(config)?;
-    for sample in 0..10_000 {
-        tasks.update(
-            "worker",
-            "bench-0",
-            Status::Working,
-            Some(format!("restart {sample}")),
-        )?;
-    }
-    let expected_count = tasks.all().len();
-    let restarted = Tasks::load(config)?;
-    anyhow::ensure!(
-        restarted.all().len() == expected_count,
-        "restart lost task records"
-    );
-    anyhow::ensure!(
-        restarted
-            .get("worker", "bench-0")
-            .and_then(|task| task.note)
-            == Some("restart 9999".into()),
-        "restart lost the final task update"
-    );
-    measure("task restart 10000 updates", |_| {
-        Tasks::load(config)
-            .expect("persisted benchmark task fixture loads")
-            .all()
-            .len()
-    });
-    Ok(())
-}
-
-// Fixed single-operation samples allow seeding outside the timer without growing the catalog
-// throughout calibration. These creation percentiles are per operation, unlike batch probes.
-fn measure_prepared<T>(
-    name: &str,
-    mut prepare: impl FnMut() -> Result<T>,
-    mut action: impl FnMut(&mut T) -> Result<()>,
-) -> Result<()> {
-    let mut timings = Vec::new();
-    for sample in 0..60 {
-        let mut value = prepare()?;
-        let start = std::time::Instant::now();
-        action(&mut value)?;
-        if sample >= 10 {
-            timings.push(start.elapsed().as_secs_f64() * 1e6);
         }
+        measure(&format!("task startup {count} records"), |_| {
+            Tasks::load_records(&data)
+                .expect("task records load")
+                .all()
+                .len()
+        });
+        let mut tasks = Tasks::load_records(&data)?;
+        measure(&format!("task record update {count} records"), |sample| {
+            tasks
+                .update(
+                    "worker",
+                    "0000000000000000",
+                    Status::Working,
+                    Some(format!("progress {sample}")),
+                )
+                .expect("task update")
+                .body
+                .len()
+        });
     }
-    timings.sort_by(f64::total_cmp);
-    println!(
-        "{name:<44} p50={:.3} p95={:.3}",
-        timings.get(24).copied().expect("50 measured samples"),
-        timings.get(46).copied().expect("50 measured samples")
-    );
     Ok(())
 }
 

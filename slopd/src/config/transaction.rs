@@ -55,6 +55,10 @@ impl Undo {
         let dirs = Config::library_dirs_for(path);
         for relative in self.files.keys() {
             let target = root(path).join(relative);
+            anyhow::ensure!(
+                crate::paths::normalize(&target)? == target,
+                "legacy recovery target aliases another path"
+            );
             let is_main = relative.components().count() == 1
                 && relative == Path::new(path.file_name().unwrap_or_default());
             let is_catalog = relative.components().count() == 2
@@ -100,10 +104,12 @@ pub(super) async fn recover(path: &Path) -> Result<()> {
 
 /// Commit only the files selected by their owners. Catalog discovery is deliberately
 /// outside this boundary: a root-only change must not retire catalog siblings.
+#[cfg(test)]
 pub(super) async fn save(path: &Path, changes: BTreeMap<PathBuf, Option<String>>) -> Result<()> {
     save_with_hook(path, changes, |_| Ok(())).await
 }
 
+#[cfg(test)]
 async fn save_with_hook(
     path: &Path,
     changes: BTreeMap<PathBuf, Option<String>>,
@@ -151,3 +157,15 @@ async fn save_with_hook(
 #[cfg(test)]
 #[path = "transaction_tests.rs"]
 mod tests;
+
+pub(super) async fn recovery_settings(path: &Path) -> Result<Option<String>> {
+    let Some(text) = read_optional(&journal_path(path)).await? else {
+        return Ok(None);
+    };
+    let undo: Undo = serde_json::from_str(&text).context("parsing legacy recovery journal")?;
+    undo.validate_paths(path)?;
+    Ok(undo
+        .files
+        .get(Path::new(path.file_name().unwrap_or_default()))
+        .map(|text| text.clone().unwrap_or_default()))
+}

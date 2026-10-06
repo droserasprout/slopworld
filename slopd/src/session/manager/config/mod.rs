@@ -13,11 +13,13 @@ pub(crate) use state::ConfigState;
 
 use super::super::*;
 use crate::paths::disk_mtime;
+#[cfg(test)]
 use cache::reconcile_cache_links;
 
 /// Changes whose callers need automatic reconciliation after publication.
 enum ConfigRefresh {
     DocumentEdit,
+    #[cfg(test)]
     DiskReload,
 }
 
@@ -37,6 +39,7 @@ pub(super) struct PreparedConfigChange {
 }
 
 /// Validated configuration paired with the TOML document that preserves unknown fields.
+#[cfg(test)]
 struct DocumentChange {
     change: ConfigChange,
     document: toml::Value,
@@ -119,14 +122,14 @@ impl Manager {
         mut prepared: PreparedConfigChange,
         store: &crate::worktrees::Store,
     ) -> Result<()> {
-        #[cfg(test)]
         if let backend::PreparedDisk::Records(plan) = &mut prepared.disk {
             plan.attach_worktrees(store.worktrees.clone())?;
         } else {
+            #[cfg(test)]
             store.save(&self.cfg_path).await?;
+            #[cfg(not(test))]
+            bail!("relocation requires workspace record owner");
         }
-        #[cfg(not(test))]
-        store.save(&self.cfg_path).await?;
         prepared.worktrees = Some(store.clone());
         self.commit_prepared_cfg(prepared).await
     }
@@ -196,33 +199,38 @@ impl Manager {
     }
 
     async fn patch_config_inner(self: &Arc<Self>, patch: Value) -> Result<()> {
-        #[cfg(test)]
-        anyhow::ensure!(
-            self.record_backend().is_none(),
-            "record fixture does not yet support settings edits"
-        );
-        self.reload_if_changed().await;
-
-        let persist = self.config_state.persist.lock().await;
-        crate::config::legacy::recover(&self.cfg_path).await?;
-        let text = tokio::fs::read_to_string(&self.cfg_path)
-            .await
-            .with_context(|| format!("reading {}", self.cfg_path.display()))?;
-        let mut document: toml::Value = toml::from_str(&text).context("parsing config.toml")?;
-        let patch = json_to_toml(patch)?;
-        if !patch.is_table() {
-            bail!("config patch must be a JSON object");
+        if self.record_backend().is_some() {
+            return self.edit_record_settings(Some(patch), None).await;
         }
-        merge_toml(&mut document, patch);
+        #[cfg(not(test))]
+        {
+            bail!("record backend missing")
+        }
+        #[cfg(test)]
+        {
+            self.reload_if_changed().await;
 
-        let old = self.cfg.read().await.clone();
-        let prepared = self
-            .prepare_document_change(&old, &toml::to_string_pretty(&document)?)
-            .await?;
-        self.commit_document_change(&old, prepared).await?;
-        drop(persist);
-        self.finish_config_change(ConfigRefresh::DocumentEdit).await;
-        Ok(())
+            let persist = self.config_state.persist.lock().await;
+            crate::config::legacy::recover(&self.cfg_path).await?;
+            let text = tokio::fs::read_to_string(&self.cfg_path)
+                .await
+                .with_context(|| format!("reading {}", self.cfg_path.display()))?;
+            let mut document: toml::Value = toml::from_str(&text).context("parsing config.toml")?;
+            let patch = json_to_toml(patch)?;
+            if !patch.is_table() {
+                bail!("config patch must be a JSON object");
+            }
+            merge_toml(&mut document, patch);
+
+            let old = self.cfg.read().await.clone();
+            let prepared = self
+                .prepare_document_change(&old, &toml::to_string_pretty(&document)?)
+                .await?;
+            self.commit_document_change(&old, prepared).await?;
+            drop(persist);
+            self.finish_config_change(ConfigRefresh::DocumentEdit).await;
+            Ok(())
+        }
     }
 
     /// Validate and replace the TOML document, then reconcile sessions.
@@ -232,23 +240,75 @@ impl Manager {
     }
 
     async fn replace_config_inner(self: &Arc<Self>, text: &str) -> Result<()> {
+        if self.record_backend().is_some() {
+            return self.edit_record_settings(None, Some(text.to_owned())).await;
+        }
+
+        #[cfg(not(test))]
+        {
+            bail!("record backend missing")
+        }
         #[cfg(test)]
-        anyhow::ensure!(
-            self.record_backend().is_none(),
-            "record fixture does not yet support settings edits"
-        );
-        let persist = self.config_state.persist.lock().await;
-        crate::config::legacy::recover(&self.cfg_path).await?;
-        let old = self.cfg.read().await.clone();
-        let prepared = self.prepare_document_change(&old, text).await?;
-        self.commit_document_change(&old, prepared).await?;
-        drop(persist);
-        self.finish_config_change(ConfigRefresh::DocumentEdit).await;
-        Ok(())
+        {
+            let persist = self.config_state.persist.lock().await;
+            crate::config::legacy::recover(&self.cfg_path).await?;
+            let old = self.cfg.read().await.clone();
+            let prepared = self.prepare_document_change(&old, text).await?;
+            self.commit_document_change(&old, prepared).await?;
+            drop(persist);
+            self.finish_config_change(ConfigRefresh::DocumentEdit).await;
+            Ok(())
+        }
+    }
+
+    async fn edit_record_settings(
+        self: &Arc<Self>,
+        patch: Option<Value>,
+        text: Option<String>,
+    ) -> Result<()> {
+        let manager = self.clone();
+        self.owned_session_operation(async move {
+            let gate = manager.config_state.persist.clone().lock_owned().await;
+            let records = manager.record_backend().context("record backend missing")?;
+            records.recover(&gate).await?;
+            let old = manager.config().await;
+            let prepared = if let Some(patch) = patch {
+                let current = tokio::fs::read_to_string(&manager.cfg_path).await?;
+                crate::config::settings::document::patch(&old, &current, json_to_toml(patch)?)?
+            } else {
+                crate::config::settings::document::replace(
+                    &old,
+                    text.as_deref().context("missing replacement")?,
+                )?
+            };
+            manager
+                .validate_worktree_config(&old, &prepared.candidate)
+                .await?;
+            let change = prepare_candidate(&old, prepared.candidate)?;
+            crate::storage::transaction::commit_in_operation(
+                &records.binding,
+                vec![crate::storage::transaction::Change {
+                    target: crate::storage::target::Target::Settings,
+                    mutation: crate::storage::transaction::Mutation::Replace(prepared.text.clone()),
+                }],
+                &gate,
+            )
+            .await?;
+            manager.mark_saved_document(&prepared.text).await;
+            let token = manager.publish_config(change).await;
+            manager.update_endpoint(&token).await;
+            drop(gate);
+            manager
+                .finish_config_change(ConfigRefresh::DocumentEdit)
+                .await;
+            Ok(())
+        })
+        .await
     }
 
     /// Prepare typed and TOML views together, preserving the library and redacted secret.
     /// The caller holds the persistence gate through preparation and commit.
+    #[cfg(test)]
     async fn prepare_document_change(&self, old: &Config, text: &str) -> Result<DocumentChange> {
         let (mut parsed, mut document) = Config::parse_document(text)?;
         parsed.library = old.library.clone();
@@ -264,6 +324,7 @@ impl Manager {
     }
 
     /// Save and publish under the caller's persistence gate; reconcile sessions after release.
+    #[cfg(test)]
     async fn commit_document_change(&self, old: &Config, prepared: DocumentChange) -> Result<()> {
         let DocumentChange { change, document } = prepared;
         let links = reconcile_cache_links(&self.cfg_path, old, &change.new).await?;
@@ -286,99 +347,114 @@ impl Manager {
     }
 
     pub(super) async fn reload_if_stale(self: &Arc<Self>) {
-        #[cfg(test)]
         if self.record_backend().is_some() {
             self.reload_if_changed().await;
+            #[cfg(test)]
             return;
         }
-        let disk = disk_mtime(&self.cfg_path).await;
-        let library = Config::library_stamp_for(&self.cfg_path);
-        let stale = *self
-            .config_state
-            .cfg_mtime
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            != disk
-            || *self
+
+        #[cfg(test)]
+        {
+            let disk = disk_mtime(&self.cfg_path).await;
+            let library = Config::library_stamp_for(&self.cfg_path);
+            let stale = *self
                 .config_state
-                .library_mtime
+                .cfg_mtime
                 .lock()
                 .unwrap_or_else(|error| error.into_inner())
-                != library;
-        if stale {
-            self.reload_if_changed().await;
+                != disk
+                || *self
+                    .config_state
+                    .library_mtime
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    != library;
+            if stale {
+                self.reload_if_changed().await;
+            }
         }
     }
 
     async fn reload_if_changed_inner(self: &Arc<Self>) -> bool {
-        #[cfg(test)]
         if let Some(records) = self.record_backend() {
             return self.reload_record_libraries(&records).await;
         }
-        // Serialize disk reads and publication with saves; release before reconciliation.
-        let persist = self.config_state.persist.lock().await;
-        let disk = disk_mtime(&self.cfg_path).await;
-        let library_disk = Config::library_stamp_for(&self.cfg_path);
+        #[cfg(not(test))]
         {
-            let cfg_seen = self
+            false
+        }
+        #[cfg(test)]
+        {
+            // Serialize disk reads and publication with saves; release before reconciliation.
+            let persist = self.config_state.persist.lock().await;
+            let disk = disk_mtime(&self.cfg_path).await;
+            let library_disk = Config::library_stamp_for(&self.cfg_path);
+            {
+                let cfg_seen = self
+                    .config_state
+                    .cfg_mtime
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner());
+                let library_seen = self
+                    .config_state
+                    .library_mtime
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner());
+                if *cfg_seen == disk && *library_seen == library_disk {
+                    return false;
+                }
+            }
+
+            let parsed = match Config::load(&self.cfg_path).await {
+                Ok(cfg) => cfg,
+                Err(e) => {
+                    tracing::warn!(
+                        "config changed on disk but is invalid, keeping the old one: {e:#}"
+                    );
+                    return false;
+                }
+            };
+            let old = self.cfg.read().await.clone();
+            if let Err(error) = self.validate_worktree_config(&old, &parsed).await {
+                tracing::warn!("config worktree validation failed: {error:#}");
+                return false;
+            }
+            let change = match prepare_candidate(&old, parsed) {
+                Ok(change) => change,
+                Err(e) => {
+                    tracing::warn!(
+                        "config changed on disk but is invalid, keeping the old one: {e:#}"
+                    );
+                    return false;
+                }
+            };
+            if let Err(error) = reconcile_cache_links(&self.cfg_path, &old, &change.new).await {
+                tracing::warn!("config cache links could not be reconciled: {error:#}");
+                return false;
+            }
+            tracing::info!("config changed on disk, reloading");
+            let endpoint_token = self.publish_config(change).await;
+            // Record disk stamps only after accepted contents are visible in memory.
+            *self
                 .config_state
                 .cfg_mtime
                 .lock()
-                .unwrap_or_else(|error| error.into_inner());
-            let library_seen = self
+                .unwrap_or_else(|error| error.into_inner()) = disk;
+            *self
                 .config_state
                 .library_mtime
                 .lock()
-                .unwrap_or_else(|error| error.into_inner());
-            if *cfg_seen == disk && *library_seen == library_disk {
-                return false;
-            }
+                .unwrap_or_else(|error| error.into_inner()) = library_disk;
+            self.update_endpoint(&endpoint_token).await;
+            drop(persist);
+            self.finish_config_change(ConfigRefresh::DiskReload).await;
+            true
         }
-
-        let parsed = match Config::load(&self.cfg_path).await {
-            Ok(cfg) => cfg,
-            Err(e) => {
-                tracing::warn!("config changed on disk but is invalid, keeping the old one: {e:#}");
-                return false;
-            }
-        };
-        let old = self.cfg.read().await.clone();
-        if let Err(error) = self.validate_worktree_config(&old, &parsed).await {
-            tracing::warn!("config worktree validation failed: {error:#}");
-            return false;
-        }
-        let change = match prepare_candidate(&old, parsed) {
-            Ok(change) => change,
-            Err(e) => {
-                tracing::warn!("config changed on disk but is invalid, keeping the old one: {e:#}");
-                return false;
-            }
-        };
-        if let Err(error) = reconcile_cache_links(&self.cfg_path, &old, &change.new).await {
-            tracing::warn!("config cache links could not be reconciled: {error:#}");
-            return false;
-        }
-        tracing::info!("config changed on disk, reloading");
-        let endpoint_token = self.publish_config(change).await;
-        // Record disk stamps only after accepted contents are visible in memory.
-        *self
-            .config_state
-            .cfg_mtime
-            .lock()
-            .unwrap_or_else(|error| error.into_inner()) = disk;
-        *self
-            .config_state
-            .library_mtime
-            .lock()
-            .unwrap_or_else(|error| error.into_inner()) = library_disk;
-        self.update_endpoint(&endpoint_token).await;
-        drop(persist);
-        self.finish_config_change(ConfigRefresh::DiskReload).await;
-        true
     }
 
     // Shared commit steps: persist, publish, then reconcile and notify.
 
+    #[cfg(test)]
     async fn persist_cfg_text(&self, text: &str) -> Result<()> {
         Config::save_text(&self.cfg_path, text).await?;
         self.mark_saved_document(text).await;
@@ -401,8 +477,13 @@ impl Manager {
     }
 
     async fn mark_saved_library(&self, expected: &Config) {
-        let stamp = Config::library_stamp_for(&self.cfg_path);
-        let matches = match Config::load_library_for(&self.cfg_path).await {
+        let anchor = self.record_backend().map_or_else(
+            || self.cfg_path.clone(),
+            |records| records.binding.config.join("config.toml"),
+        );
+        let revision = crate::config::catalog::revision(&anchor).ok();
+        let stamp = Config::library_stamp_for(&anchor);
+        let matches = match Config::load_library_for(&anchor).await {
             Ok(mut actual) => {
                 let mut expected = expected.library.clone();
                 // File discovery orders by path; accepted API insertion order
@@ -421,6 +502,13 @@ impl Manager {
             .library_mtime
             .lock()
             .unwrap_or_else(|error| error.into_inner()) = matches.then_some(stamp).flatten();
+        if matches && crate::config::catalog::revision(&anchor).ok() == revision {
+            *self
+                .config_state
+                .library_revision
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()) = revision;
+        }
         // Library edits cannot accept an unseen root document revision.
     }
 
@@ -463,6 +551,7 @@ impl Manager {
                 self.announce_projects().await;
                 self.announce_library().await;
             }
+            #[cfg(test)]
             ConfigRefresh::DiskReload => {
                 self.sync_from_config().await;
                 self.announce_sessions().await;
@@ -485,6 +574,7 @@ fn prepare_candidate(old: &Config, mut new: Config) -> Result<ConfigChange> {
     })
 }
 
+#[cfg(test)]
 fn restore_redacted_document_token(old: &Config, document: &mut toml::Value) {
     if let Some(daemon) = document
         .get_mut("daemon")

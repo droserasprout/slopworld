@@ -21,8 +21,12 @@ pub(crate) fn replace(old: &Config, text: &str) -> Result<PreparedSettings> {
 /// empty strings and arrays are values; only absent keys mean unchanged.
 pub(crate) fn patch(old: &Config, text: &str, patch: toml::Value) -> Result<PreparedSettings> {
     reject_workspace(&patch)?;
-    let mut document = toml::from_str(text).context("parsing root settings")?;
-    reject_workspace(&document)?;
+    let previous = toml::from_str(text).context("parsing root settings")?;
+    reject_workspace(&previous)?;
+    // A valid sparse root can omit entire defaulted sections. Materialize the
+    // accepted defaults before adding a leaf to such a section.
+    let mut document = toml::Value::try_from(&old.settings)?;
+    merge(&mut document, previous);
     merge(&mut document, patch);
     prepare(old, document)
 }
@@ -42,7 +46,14 @@ fn prepare(old: &Config, mut document: toml::Value) -> Result<PreparedSettings> 
         .context("decoding root settings")?;
     if settings.daemon.token == TOKEN_REDACTED {
         settings.daemon.token = old.daemon.token.clone();
-        document["daemon"]["token"] = toml::Value::String(settings.daemon.token.clone());
+        document
+            .get_mut("daemon")
+            .and_then(toml::Value::as_table_mut)
+            .context("missing daemon table")?
+            .insert(
+                "token".into(),
+                toml::Value::String(settings.daemon.token.clone()),
+            );
     }
     let mut candidate = old.clone();
     candidate.settings = settings;

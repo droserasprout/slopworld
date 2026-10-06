@@ -18,7 +18,10 @@ pub(in crate::session::manager) async fn select_records(manager: &Arc<Manager>) 
         }
     }
     let gate = manager.config_state.persist.clone().lock_owned().await;
-    let mut changes = Vec::new();
+    let mut changes = vec![transaction::Change {
+        target: crate::storage::target::Target::Settings,
+        mutation: transaction::Mutation::Replace(toml::to_string_pretty(&cfg.settings).unwrap()),
+    }];
     for (kind, values) in [
         (
             Kind::Agent,
@@ -357,7 +360,8 @@ async fn record_mode_does_not_poll_or_accept_external_workspace_changes() {
     let raw: toml::Value =
         toml::from_str(&tokio::fs::read_to_string(f.shell_path()).await.unwrap()).unwrap();
     assert_eq!(raw["path"].as_str(), Some("/accepted"));
-    f.manager.replace_config("").await.unwrap_err();
+    f.manager.replace_config("").await.unwrap();
+    assert_eq!(f.manager.config().await.sessions[0].name, "agent");
 }
 
 #[tokio::test]
@@ -394,5 +398,123 @@ async fn independent_library_reload_preserves_workspace_and_rejects_invalid_revi
             .await
             .unwrap(),
         "unaccepted root ["
+    );
+}
+
+#[tokio::test]
+async fn root_settings_edits_preserve_records_and_reject_inline_workspace() {
+    let f = Fixture::new().await;
+    let agent = tokio::fs::read(f.agent_path("agent").await).await.unwrap();
+    let shell = tokio::fs::read(f.shell_path()).await.unwrap();
+    f.manager
+        .patch_config(serde_json::json!({"daemon":{"token":"secret"}}))
+        .await
+        .unwrap();
+    f.manager
+        .replace_config("[daemon]\nbind = '127.0.0.1:7717'\ntoken = '<redacted>'\n")
+        .await
+        .unwrap();
+    assert_eq!(f.manager.config().await.daemon.token, "secret");
+    assert_eq!(f.manager.config().await.sessions.len(), 2);
+    for key in ["session", "project", "host_terminal"] {
+        assert!(
+            f.manager
+                .replace_config(&format!("{key} = []"))
+                .await
+                .is_err()
+        );
+        assert!(
+            f.manager
+                .patch_config(serde_json::json!({key:[]}))
+                .await
+                .is_err()
+        );
+    }
+    assert_eq!(
+        tokio::fs::read(f.agent_path("agent").await).await.unwrap(),
+        agent
+    );
+    assert_eq!(tokio::fs::read(f.shell_path()).await.unwrap(), shell);
+}
+
+#[tokio::test]
+async fn library_deletion_is_not_hidden_by_a_newer_sibling_timestamp() {
+    let f = Fixture::new().await;
+    let directory = f.binding.config.join("prompts");
+    tokio::fs::create_dir_all(&directory).await.unwrap();
+    for name in ["older", "newer"] {
+        let item = LibraryItemCfg {
+            name: name.into(),
+            text: name.into(),
+            ..Default::default()
+        };
+        tokio::fs::write(
+            directory.join(format!("{name}.toml")),
+            toml::to_string(&item).unwrap(),
+        )
+        .await
+        .unwrap();
+    }
+    std::fs::File::open(directory.join("newer.toml"))
+        .unwrap()
+        .set_modified(std::time::SystemTime::now() + Duration::from_secs(3600))
+        .unwrap();
+    assert!(f.manager.reload_if_changed().await);
+    assert_eq!(f.manager.config().await.library.len(), 2);
+    tokio::fs::remove_file(directory.join("older.toml"))
+        .await
+        .unwrap();
+    assert!(f.manager.reload_if_changed().await);
+    assert_eq!(f.manager.config().await.library.len(), 1);
+    f.manager
+        .update_cfg(ConfigMutation::Library, |cfg| {
+            cfg.library[0].text = "api update".into();
+            Ok(())
+        })
+        .await
+        .unwrap();
+    assert!(!f.manager.reload_if_changed().await);
+}
+
+#[tokio::test]
+async fn delayed_library_commit_rejects_external_changes_without_overwriting_them() {
+    let f = Fixture::new().await;
+    f.manager
+        .update_cfg(ConfigMutation::Library, |cfg| {
+            cfg.library.push(LibraryItemCfg {
+                name: "prompt".into(),
+                text: "accepted".into(),
+                ..Default::default()
+            });
+            Ok(())
+        })
+        .await
+        .unwrap();
+    let ((), prepared) = f
+        .manager
+        .prepare_cfg_change(ConfigMutation::Library, |cfg| {
+            cfg.library[0].text = "api".into();
+            Ok(((), true))
+        })
+        .await
+        .unwrap();
+    let path = f.binding.config.join("prompts/prompt.toml");
+    let external = toml::to_string(&LibraryItemCfg {
+        name: "prompt".into(),
+        text: "external edit with distinct length".into(),
+        ..Default::default()
+    })
+    .unwrap();
+    tokio::fs::write(&path, &external).await.unwrap();
+    f.manager
+        .commit_prepared_cfg(prepared.unwrap())
+        .await
+        .unwrap_err();
+    assert_eq!(tokio::fs::read_to_string(&path).await.unwrap(), external);
+    assert_eq!(f.manager.config().await.library[0].text, "accepted");
+    assert!(f.manager.reload_if_changed().await);
+    assert_eq!(
+        f.manager.config().await.library[0].text,
+        "external edit with distinct length"
     );
 }

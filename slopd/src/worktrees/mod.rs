@@ -26,6 +26,7 @@ pub(crate) struct Store {
     #[serde(default)]
     pub worktrees: Vec<Worktree>,
 }
+#[cfg(test)]
 impl Store {
     pub async fn load(config: &Path) -> Result<Self> {
         match tokio::fs::read_to_string(config.with_file_name("worktrees.toml")).await {

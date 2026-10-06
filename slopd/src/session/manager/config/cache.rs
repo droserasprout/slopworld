@@ -44,6 +44,7 @@ impl LinkChanges {
     }
 }
 
+#[cfg(test)]
 pub(super) async fn reconcile_cache_links(
     config_path: &Path,
     old: &Config,

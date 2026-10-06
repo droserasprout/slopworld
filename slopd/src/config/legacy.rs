@@ -1,25 +1,31 @@
-//! Temporary persistence adapter for the selected inline workspace layout.
-//! Remove at storage cutover (priv/notes/plan-storage-main.md). Runtime Config is
-//! an assembled view; only this adapter may persist its legacy representation.
+//! Historical fixture writer and temporary old-journal recovery entry point.
+//! TODO(remove after user tests and approves workspace store migration):
+//! priv/notes/plan-storage-main.md. No production inline writer remains.
 
+#[cfg(test)]
 use super::{
     Config,
     catalog::prepare_library,
     persistence::{preserve_unknown_fields, reject_removed_worktree_fields},
 };
-use anyhow::{Context, Result};
+#[cfg(test)]
+use anyhow::Context;
+use anyhow::Result;
 use std::path::Path;
 
 // Only initial creation and test fixtures select both stores. Mutation callers
 // choose destinations before preparation; committing never discovers more files.
+#[cfg(test)]
 pub(crate) async fn save(cfg: &Config, path: &Path) -> Result<()> {
     prepare(cfg, path, true, true).await?.commit(path).await
 }
 
+#[cfg(test)]
 pub(crate) struct PreparedWrite {
     changes: std::collections::BTreeMap<std::path::PathBuf, Option<String>>,
 }
 
+#[cfg(test)]
 impl PreparedWrite {
     pub(crate) fn root_text(&self, path: &Path) -> Option<&str> {
         self.changes.get(path).and_then(|text| text.as_deref())
@@ -34,6 +40,7 @@ pub(crate) async fn recover(path: &Path) -> Result<()> {
     super::transaction::recover(path).await
 }
 
+#[cfg(test)]
 pub(crate) async fn prepare(
     cfg: &Config,
     path: &Path,
@@ -73,4 +80,8 @@ pub(crate) async fn prepare(
         changes.insert(path.to_owned(), Some(text));
     }
     Ok(PreparedWrite { changes })
+}
+
+pub(crate) async fn recovery_settings(path: &Path) -> Result<Option<String>> {
+    super::transaction::recovery_settings(path).await
 }

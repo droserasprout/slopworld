@@ -55,7 +55,7 @@ impl Definition {
             Self::HostShell(row) => &row.name,
         }
     }
-    fn validate(&self) -> Result<()> {
+    pub(super) fn validate(&self) -> Result<()> {
         ensure!(
             crate::storage_id::valid_persistent(self.id()),
             "invalid session record identity"
@@ -181,10 +181,20 @@ impl Store {
         Ok(store)
     }
 
+    #[expect(
+        clippy::expect_used,
+        reason = "record and order indexes publish together"
+    )]
     pub(crate) fn ordered(&self) -> Vec<Definition> {
         self.order
             .values()
-            .map(|id| self.records[id].value.clone())
+            .map(|id| {
+                self.records
+                    .get(id)
+                    .expect("ordered identity belongs to accepted records")
+                    .value
+                    .clone()
+            })
             .collect()
     }
 

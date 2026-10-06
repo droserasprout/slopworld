@@ -6,27 +6,33 @@ use crate::worktrees::{Store, Worktree, git};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+#[cfg(test)]
 use std::os::unix::fs::MetadataExt;
+#[cfg(test)]
 use std::time::SystemTime;
 
 /// Worktree mutation serialization and cached disk records.
 #[derive(Default)]
 pub(crate) struct WorktreeState {
     pub(super) mutation: tokio::sync::Mutex<()>,
+    #[cfg(test)]
     views: tokio::sync::Mutex<WorktreeViewCache>,
     #[cfg(test)]
     pub(super) relocation_pause:
         std::sync::Mutex<Option<(Arc<tokio::sync::Notify>, Arc<tokio::sync::Notify>)>>,
 }
 
+#[cfg(test)]
 type FileStamp = (SystemTime, u64, u64, u64);
 
+#[cfg(test)]
 #[derive(Default)]
 struct WorktreeViewCache {
     stamp: Option<Option<FileStamp>>,
     by_id: Arc<HashMap<String, Worktree>>,
 }
 
+#[cfg(test)]
 async fn file_stamp(path: &Path) -> Option<FileStamp> {
     let metadata = tokio::fs::metadata(path).await.ok()?;
     Some((
@@ -70,20 +76,32 @@ impl Manager {
     /// The legacy adapter polls the catalog until cutover. Record mode reads only
     /// the accepted index; callers acquire session, worktree, then persistence guards.
     pub(super) async fn load_worktrees(&self) -> Result<Store> {
-        #[cfg(test)]
         if let Some(records) = self.record_backend() {
             return Ok(records.worktrees());
         }
-        Store::load(&self.cfg_path).await
+        #[cfg(test)]
+        {
+            Store::load(&self.cfg_path).await
+        }
+        #[cfg(not(test))]
+        {
+            bail!("record backend missing")
+        }
     }
 
     pub(crate) async fn save_worktrees(&self, store: &Store) -> Result<()> {
-        #[cfg(test)]
         if let Some(records) = self.record_backend() {
             let gate = self.config_state.persist.clone().lock_owned().await;
             return records.save_worktrees(store.worktrees.clone(), &gate).await;
         }
-        store.save(&self.cfg_path).await
+        #[cfg(test)]
+        {
+            store.save(&self.cfg_path).await
+        }
+        #[cfg(not(test))]
+        {
+            bail!("record backend missing")
+        }
     }
 
     pub(crate) async fn rename_worktree(
@@ -147,7 +165,6 @@ impl Manager {
     }
     /// Reload the index when the catalog is replaced or edited externally.
     pub(super) async fn worktree_view_index(&self) -> Arc<HashMap<String, Worktree>> {
-        #[cfg(test)]
         if let Some(records) = self.record_backend() {
             return Arc::new(
                 records
@@ -158,28 +175,35 @@ impl Manager {
                     .collect(),
             );
         }
-        let mut cache = self.worktrees.views.lock().await;
-        let stamp = file_stamp(&self.cfg_path.with_file_name("worktrees.toml")).await;
-        if cache.stamp.as_ref() != Some(&stamp) {
-            let store = match Store::load(&self.cfg_path).await {
-                Ok(store) => store,
-                Err(error) => {
-                    tracing::warn!(
-                        "could not reload worktree index; keeping the last valid index: {error:#}"
-                    );
-                    return cache.by_id.clone();
-                }
-            };
-            cache.by_id = Arc::new(
-                store
-                    .worktrees
-                    .into_iter()
-                    .map(|w| (w.id.clone(), w))
-                    .collect(),
-            );
-            cache.stamp = Some(stamp);
+        #[cfg(not(test))]
+        {
+            Arc::new(HashMap::new())
         }
-        cache.by_id.clone()
+        #[cfg(test)]
+        {
+            let mut cache = self.worktrees.views.lock().await;
+            let stamp = file_stamp(&self.cfg_path.with_file_name("worktrees.toml")).await;
+            if cache.stamp.as_ref() != Some(&stamp) {
+                let store = match Store::load(&self.cfg_path).await {
+                    Ok(store) => store,
+                    Err(error) => {
+                        tracing::warn!(
+                            "could not reload worktree index; keeping the last valid index: {error:#}"
+                        );
+                        return cache.by_id.clone();
+                    }
+                };
+                cache.by_id = Arc::new(
+                    store
+                        .worktrees
+                        .into_iter()
+                        .map(|w| (w.id.clone(), w))
+                        .collect(),
+                );
+                cache.stamp = Some(stamp);
+            }
+            cache.by_id.clone()
+        }
     }
     pub(crate) async fn worktree_for_path(&self, project: &str, raw_path: &str) -> Result<String> {
         let cfg = self.config().await;

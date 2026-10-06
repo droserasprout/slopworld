@@ -12,6 +12,7 @@ pub(crate) trait Persistence {
         store: &Store,
     ) -> impl std::future::Future<Output = Result<()>> + Send;
 }
+#[cfg(test)]
 impl Persistence for Path {
     async fn save_worktree_records(&self, store: &Store) -> Result<()> {
         store.save(self).await

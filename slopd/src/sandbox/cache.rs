@@ -315,7 +315,7 @@ pub(crate) fn inventory(projects: &[ProjectCfg], measure_sizes: bool) -> Vec<Sto
         for entry in entries.flatten() {
             let path = entry.path();
             let key = entry.file_name().to_string_lossy().into_owned();
-            if uuid::Uuid::parse_str(&key).is_err()
+            if !crate::storage_id::valid_persistent(&key)
                 || !seen.insert(path.canonicalize().unwrap_or(path.clone()))
             {
                 continue;

@@ -1,5 +1,5 @@
 //! Mutation destinations selected by feature owners, before disk preparation.
-//! The legacy adapter maps workspace records to the inline root until cutover.
+//! Each mutation changes only its accepted collection and owning record files.
 
 use super::*;
 
@@ -15,6 +15,7 @@ pub(in crate::session::manager) enum ConfigMutation {
 }
 
 impl ConfigMutation {
+    #[cfg(test)]
     pub(super) fn writes_root(self) -> bool {
         !matches!(self, Self::Library)
     }

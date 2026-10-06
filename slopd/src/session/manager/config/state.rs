@@ -8,9 +8,9 @@ use std::time::SystemTime;
 /// Keep timestamps and the serialization lock together to prevent timestamp publication before acceptance of the corresponding contents.
 /// Configuration catalogs, presets, and jukebox definitions have separate maintenance timestamps because their reload deadlines differ.
 pub(crate) struct ConfigState {
+    pub(super) library_revision: Mutex<Option<crate::config::catalog::Revision>>,
     pub(crate) cfg_mtime: Mutex<Option<SystemTime>>,
     pub(crate) library_mtime: Mutex<Option<SystemTime>>,
-    #[cfg(test)]
     pub(super) records: Mutex<Option<Arc<super::backend::records::Records>>>,
     #[cfg(test)]
     pub(super) commit_pause: Mutex<Option<(Arc<tokio::sync::Barrier>, Arc<tokio::sync::Notify>)>>,
@@ -31,8 +31,8 @@ impl ConfigState {
     ) -> Self {
         Self {
             cfg_mtime: Mutex::new(cfg_mtime),
+            library_revision: Mutex::new(None),
             library_mtime: Mutex::new(library_mtime),
-            #[cfg(test)]
             records: Mutex::new(None),
             #[cfg(test)]
             commit_pause: Mutex::new(None),

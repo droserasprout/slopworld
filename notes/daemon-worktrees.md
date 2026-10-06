@@ -41,5 +41,5 @@ Relocation persists intent before Git effects, retaining both paths for interrup
 recovery. The coordinator owns the final project/reference and checkout publication
 or reverse movement. Failed reverse movement must leave relocation intent, never a
 ready record for an unverified path. Cache-link reconciliation uses the prepared
-checkout paths during the final commit. The production layout still uses the legacy
-catalog adapter until the storage cutover.
+checkout paths during the final commit. The accepted record owner commits affected
+`worktrees/<id>.toml` files with project/reference changes in the shared transaction.

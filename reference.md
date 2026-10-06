@@ -15,34 +15,35 @@ It does not read or write environment values.
 | `DEVELOPER_DIR` | [`slopd/presets/ios-dev.toml:8`](./slopd/presets/ios-dev.toml#L8) |
 | `DISPLAY` | [`slopd/src/clipboard.rs:128`](./slopd/src/clipboard.rs#L128) |
 | `EMPTY` | [`slopd/src/sandbox/plan/tests.rs:27`](./slopd/src/sandbox/plan/tests.rs#L27) |
-| `GIT_CONFIG_GLOBAL` | [`slopd/src/worktrees/mod.rs:285`](./slopd/src/worktrees/mod.rs#L285) |
-| `GIT_CONFIG_NOSYSTEM` | [`slopd/src/worktrees/mod.rs:282`](./slopd/src/worktrees/mod.rs#L282) |
-| `GIT_OPTIONAL_LOCKS` | [`slopd/src/api/handlers/files.rs:143`](./slopd/src/api/handlers/files.rs#L143), [`slopd/src/git/mod.rs:243`](./slopd/src/git/mod.rs#L243), [`slopd/src/git/mod.rs:472`](./slopd/src/git/mod.rs#L472), [`slopd/src/git/mod.rs:509`](./slopd/src/git/mod.rs#L509), [`slopd/src/git/mod.rs:529`](./slopd/src/git/mod.rs#L529), [`slopd/src/git/mod.rs:552`](./slopd/src/git/mod.rs#L552), [`slopd/src/worktrees/mod.rs:88`](./slopd/src/worktrees/mod.rs#L88) |
+| `GIT_CONFIG_GLOBAL` | [`slopd/src/worktrees/mod.rs:286`](./slopd/src/worktrees/mod.rs#L286) |
+| `GIT_CONFIG_NOSYSTEM` | [`slopd/src/worktrees/mod.rs:283`](./slopd/src/worktrees/mod.rs#L283) |
+| `GIT_OPTIONAL_LOCKS` | [`slopd/src/api/handlers/files.rs:143`](./slopd/src/api/handlers/files.rs#L143), [`slopd/src/git/mod.rs:243`](./slopd/src/git/mod.rs#L243), [`slopd/src/git/mod.rs:472`](./slopd/src/git/mod.rs#L472), [`slopd/src/git/mod.rs:509`](./slopd/src/git/mod.rs#L509), [`slopd/src/git/mod.rs:529`](./slopd/src/git/mod.rs#L529), [`slopd/src/git/mod.rs:552`](./slopd/src/git/mod.rs#L552), [`slopd/src/worktrees/mod.rs:89`](./slopd/src/worktrees/mod.rs#L89) |
 | `GIT_PAGER` | [`slopd/src/api/handlers/files.rs:144`](./slopd/src/api/handlers/files.rs#L144), [`slopd/src/git/mod.rs:89`](./slopd/src/git/mod.rs#L89) |
-| `GIT_TERMINAL_PROMPT` | [`slopd/src/api/handlers/files.rs:145`](./slopd/src/api/handlers/files.rs#L145), [`slopd/src/git/mod.rs:90`](./slopd/src/git/mod.rs#L90), [`slopd/src/worktrees/mod.rs:288`](./slopd/src/worktrees/mod.rs#L288) |
-| `HOME` | [`slopd/presets/1password.toml:3`](./slopd/presets/1password.toml#L3), [`slopd/src/sandbox/bind/mounts.rs:165`](./slopd/src/sandbox/bind/mounts.rs#L165), [`slopd/src/worktrees/mod.rs:279`](./slopd/src/worktrees/mod.rs#L279) |
+| `GIT_TERMINAL_PROMPT` | [`slopd/src/api/handlers/files.rs:145`](./slopd/src/api/handlers/files.rs#L145), [`slopd/src/git/mod.rs:90`](./slopd/src/git/mod.rs#L90), [`slopd/src/worktrees/mod.rs:289`](./slopd/src/worktrees/mod.rs#L289) |
+| `HOME` | [`slopd/presets/1password.toml:3`](./slopd/presets/1password.toml#L3), [`slopd/src/sandbox/bind/mounts.rs:165`](./slopd/src/sandbox/bind/mounts.rs#L165), [`slopd/src/worktrees/mod.rs:280`](./slopd/src/worktrees/mod.rs#L280) |
 | `JAVA_HOME` | [`slopd/presets/android-dev.toml:13`](./slopd/presets/android-dev.toml#L13) |
 | `LANG` | [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16) |
-| `LC_ALL` | [`slopd/src/api/handlers/files.rs:146`](./slopd/src/api/handlers/files.rs#L146), [`slopd/src/git/mod.rs:91`](./slopd/src/git/mod.rs#L91), [`slopd/src/worktrees/mod.rs:291`](./slopd/src/worktrees/mod.rs#L291) |
+| `LC_ALL` | [`slopd/src/api/handlers/files.rs:146`](./slopd/src/api/handlers/files.rs#L146), [`slopd/src/git/mod.rs:91`](./slopd/src/git/mod.rs#L91), [`slopd/src/worktrees/mod.rs:292`](./slopd/src/worktrees/mod.rs#L292) |
 | `LESSUTFCHARDEF` | [`slopd/src/sandbox/bind/mounts.rs:177`](./slopd/src/sandbox/bind/mounts.rs#L177), [`slopd/src/sandbox/mod.rs:47`](./slopd/src/sandbox/mod.rs#L47) |
 | `LOGNAME` | [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16) |
 | `NO_PROXY` | [`slopd/src/test_support.rs:56`](./slopd/src/test_support.rs#L56) |
 | `OPENROUTER_API_KEY` | [`slopd/src/title/mod.rs:81`](./slopd/src/title/mod.rs#L81), [`slopd/src/usage/providers.rs:261`](./slopd/src/usage/providers.rs#L261) |
 | `OUT_DIR` | [`slopd/src/shared/mod.rs:10`](./slopd/src/shared/mod.rs#L10) |
-| `PATH` | [`mod/Source/SlopWorld/UI/Settings/BinariesPage.cs:427`](./mod/Source/SlopWorld/UI/Settings/BinariesPage.cs#L427), [`slopd/src/runtime.rs:71`](./slopd/src/runtime.rs#L71), [`slopd/src/runtime.rs:136`](./slopd/src/runtime.rs#L136), [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16), [`slopd/src/sandbox/mod.rs:231`](./slopd/src/sandbox/mod.rs#L231), [`slopd/src/tmux/server_tests.rs:7`](./slopd/src/tmux/server_tests.rs#L7), [`slopd/src/worktrees/mod.rs:276`](./slopd/src/worktrees/mod.rs#L276), [`slopd/tests/slopctl_logs.rs:30`](./slopd/tests/slopctl_logs.rs#L30) |
+| `PATH` | [`mod/Source/SlopWorld/UI/Settings/BinariesPage.cs:427`](./mod/Source/SlopWorld/UI/Settings/BinariesPage.cs#L427), [`slopd/src/runtime.rs:71`](./slopd/src/runtime.rs#L71), [`slopd/src/runtime.rs:136`](./slopd/src/runtime.rs#L136), [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16), [`slopd/src/sandbox/mod.rs:231`](./slopd/src/sandbox/mod.rs#L231), [`slopd/src/tmux/server_tests.rs:7`](./slopd/src/tmux/server_tests.rs#L7), [`slopd/src/worktrees/mod.rs:277`](./slopd/src/worktrees/mod.rs#L277), [`slopd/tests/slopctl_logs.rs:30`](./slopd/tests/slopctl_logs.rs#L30) |
 | `PULSE_SERVER` | [`slopd/src/session/manager/music/ncspot.rs:28`](./slopd/src/session/manager/music/ncspot.rs#L28) |
 | `SHELL` | [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16), [`slopd/src/sandbox/bind/mounts.rs:215`](./slopd/src/sandbox/bind/mounts.rs#L215), [`slopd/src/sandbox/host.rs:28`](./slopd/src/sandbox/host.rs#L28) |
 | `SLOPCAR_PROFILE` | [`slopd/src/bin/slopworld.rs:332`](./slopd/src/bin/slopworld.rs#L332), [`slopd/src/bin/slopworld.rs:370`](./slopd/src/bin/slopworld.rs#L370) |
-| `SLOPD_CACHE` | [`slopd/src/paths.rs:234`](./slopd/src/paths.rs#L234), [`slopd/src/test_support.rs:54`](./slopd/src/test_support.rs#L54) |
-| `SLOPD_CONFIG` | [`slopd/src/paths.rs:229`](./slopd/src/paths.rs#L229) |
-| `SLOPD_CONFIG_ROOT` | [`slopd/src/paths.rs:224`](./slopd/src/paths.rs#L224) |
+| `SLOPD_CACHE` | [`slopd/src/paths.rs:232`](./slopd/src/paths.rs#L232), [`slopd/src/test_support.rs:54`](./slopd/src/test_support.rs#L54) |
+| `SLOPD_CONFIG` | [`slopd/src/paths.rs:227`](./slopd/src/paths.rs#L227) |
+| `SLOPD_CONFIG_ROOT` | [`slopd/src/paths.rs:222`](./slopd/src/paths.rs#L222) |
 | `SLOPD_CREDITS_URL` | [`slopd/src/usage/providers.rs:33`](./slopd/src/usage/providers.rs#L33) |
-| `SLOPD_DATA` | [`slopd/src/paths.rs:239`](./slopd/src/paths.rs#L239) |
+| `SLOPD_DATA` | [`slopd/src/paths.rs:237`](./slopd/src/paths.rs#L237) |
 | `SLOPD_ENDPOINT` | [`mod/Source/SlopWorld/Client/Daemon/Endpoint.cs:53`](./mod/Source/SlopWorld/Client/Daemon/Endpoint.cs#L53), [`mod/Tests/EndpointTests.cs:22`](./mod/Tests/EndpointTests.cs#L22), [`mod/Tests/EndpointTests.cs:46`](./mod/Tests/EndpointTests.cs#L46), [`mod/Tests/EndpointTests.cs:80`](./mod/Tests/EndpointTests.cs#L80), [`slopd/src/bin/slopctl/http.rs:27`](./slopd/src/bin/slopctl/http.rs#L27), [`slopd/src/bin/slopworld.rs:371`](./slopd/src/bin/slopworld.rs#L371), [`slopd/src/bin/slopworld.rs:174`](./slopd/src/bin/slopworld.rs#L174), [`slopd/src/endpoint.rs:25`](./slopd/src/endpoint.rs#L25) (+1 more) |
 | `SLOPD_GIT_EXEC_TEST_CHILD` | [`slopd/src/api/ws/tests.rs:18`](./slopd/src/api/ws/tests.rs#L18), [`slopd/src/bin/slopctl/format_tests.rs:23`](./slopd/src/bin/slopctl/format_tests.rs#L23), [`slopd/src/git/exec_tests.rs:6`](./slopd/src/git/exec_tests.rs#L6) |
 | `SLOPD_ISOLATED_TEST` | [`slopd/src/test_support.rs:43`](./slopd/src/test_support.rs#L43), [`slopd/src/test_support.rs:89`](./slopd/src/test_support.rs#L89), [`slopd/src/test_support.rs:51`](./slopd/src/test_support.rs#L51) |
 | `SLOPD_JUKEBOX` | [`slopd/src/jukebox.rs:118`](./slopd/src/jukebox.rs#L118) |
 | `SLOPD_LOG` | [`slopd/slopd.service:12`](./slopd/slopd.service#L12) |
+| `SLOPD_MIGRATION_TEST_CHILD` | [`slopd/src/storage/migration/tests.rs:188`](./slopd/src/storage/migration/tests.rs#L188), [`slopd/src/storage/migration/tests.rs:215`](./slopd/src/storage/migration/tests.rs#L215) |
 | `SLOPD_OPENAI_USAGE_URL` | [`slopd/src/usage/providers.rs:37`](./slopd/src/usage/providers.rs#L37) |
 | `SLOPD_PATH_TEST_UNSET` | [`slopd/src/paths_tests.rs:95`](./slopd/src/paths_tests.rs#L95) |
 | `SLOPD_PRESETS` | [`slopd/src/api/handlers/presets.rs:172`](./slopd/src/api/handlers/presets.rs#L172), [`slopd/src/presets/edit_tests.rs:22`](./slopd/src/presets/edit_tests.rs#L22), [`slopd/src/presets/edit_tests.rs:44`](./slopd/src/presets/edit_tests.rs#L44), [`slopd/src/presets.rs:270`](./slopd/src/presets.rs#L270) |
@@ -87,7 +88,7 @@ These are patterns rather than single variable names:
 
 - inherited or computed environment name at [`slopd/src/bin/slopworld.rs:474`](./slopd/src/bin/slopworld.rs#L474): `std::env::var(key).ok().filter(\|v\| !v.trim().is_empty())`
 - inherited or computed environment name at [`slopd/src/config/mod.rs:92`](./slopd/src/config/mod.rs#L92): `match std::env::var(name) {`
-- inherited or computed environment name at [`slopd/src/paths.rs:244`](./slopd/src/paths.rs#L244): `env::var_os(variable).map(PathBuf::from).unwrap_or(default)`
+- inherited or computed environment name at [`slopd/src/paths.rs:242`](./slopd/src/paths.rs#L242): `env::var_os(variable).map(PathBuf::from).unwrap_or(default)`
 - inherited or computed environment name at [`slopd/src/sandbox/bind/mounts.rs:182`](./slopd/src/sandbox/bind/mounts.rs#L182): `for (k, v) in std::env::vars() {`
 - inherited or computed environment name at [`slopd/src/sandbox/bind/mounts.rs:184`](./slopd/src/sandbox/bind/mounts.rs#L184): `push_args(a, &["--setenv", k.as_str(), v.as_str()]);`
 - inherited or computed environment name at [`slopd/src/sandbox/bind/mounts.rs:199`](./slopd/src/sandbox/bind/mounts.rs#L199): `if let Ok(v) = std::env::var(k) {`
@@ -259,6 +260,7 @@ The daemon's Axum router declares these routes. Scoped routes appear in the rout
 | `just` | `just lint-tools` | [`just/quality.just:40`](./just/quality.just#L40) |
 | `just` | `just lock-tools` | [`just/generate.just:47`](./just/generate.just#L47) |
 | `just` | `just logs` | [`just/misc.just:3`](./just/misc.just#L3) |
+| `just` | `just migrate-storage` | [`just/build.just:46`](./just/build.just#L46) |
 | `just` | `just mod` | [`just/build.just:8`](./just/build.just#L8) |
 | `just` | `just pkg-arch` | [`just/misc.just:27`](./just/misc.just#L27) |
 | `just` | `just pkg-debian` | [`just/release.just:18`](./just/release.just#L18) |

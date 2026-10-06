@@ -43,7 +43,7 @@ CLI prune prints the result and exits unsuccessfully when work failed or was una
 
 New task IDs use the shared 16-character allocator. Accepted IDs and configured/live
 worker references reserve identities; deletion retains an in-memory reservation for
-this daemon lifetime. Timestamp/sequence IDs remain readable. The production adapter
-still uses the legacy snapshot/journal until record-layout migration; the new full-record
-adapter is selected only in fixtures. That adapter has no journal or polling and keeps
-persisted `storage_order` separate from timestamps and random identity.
+this daemon lifetime. Timestamp/sequence IDs remain readable. Full records live in
+`SLOPD_DATA/tasks/`; updates replace one record and removals unlink selected records.
+There is no runtime journal or polling. Persisted `storage_order` remains separate
+from timestamps and random identity. Migration replays legacy history read-only.

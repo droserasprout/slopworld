@@ -31,6 +31,7 @@
 - [Attaching from a terminal](./guides/terminal.md)
 - [Game profiles](./guides/game-profiles.md)
 - [Backup and recovery](./guides/backup-and-recovery.md)
+- [Storage migration](guides/storage-migration.md)
 
 # Reference
 

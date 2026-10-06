@@ -1,5 +1,6 @@
-//! Temporary inline task adapter and legacy replay. Remove runtime selection at cutover;
-//! retain decoding until migration is tested and approved. Policy lives in service.rs.
+//! Historical task-journal fixtures, compiled only in tests.
+//! TODO(remove after user tests and approves workspace store migration):
+//! priv/notes/plan-storage-main.md. Migration uses the separate strict read-only decoder.
 use super::*;
 #[cfg(test)]
 use crate::clock::unix_ms;

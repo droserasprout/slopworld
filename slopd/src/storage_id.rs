@@ -16,8 +16,6 @@ pub(crate) fn valid_persistent(id: &str) -> bool {
     valid(id) || uuid::Uuid::parse_str(id).is_ok_and(|uuid| uuid.to_string() == id)
 }
 
-// Selected with the new task-record owner at cutover.
-#[cfg(test)]
 pub(crate) fn valid_task(id: &str) -> bool {
     valid(id)
         || id.split_once('-').is_some_and(|(time, sequence)| {
@@ -60,3 +58,14 @@ fn allocate_with(
 #[cfg(test)]
 #[path = "storage_id_tests.rs"]
 mod tests;
+
+/// Infallible Default construction for transient session drafts retains its
+/// existing entropy-failure contract. Persistent creation replaces this draft ID
+/// through the owning store's fallible, collision-aware allocator.
+#[expect(
+    clippy::expect_used,
+    reason = "Default cannot report OS entropy failure; never fall back to a predictable identity"
+)]
+pub(crate) fn draft_identity() -> String {
+    generate().expect("OS entropy unavailable for session draft identity")
+}

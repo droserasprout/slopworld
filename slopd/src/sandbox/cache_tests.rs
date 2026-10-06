@@ -11,7 +11,7 @@ fn caches_share_sources_across_worktrees_and_inventory_survives_removal() {
     std::fs::create_dir_all(&main).unwrap();
     std::fs::create_dir_all(&linked).unwrap();
     let p = ProjectCfg {
-        id: uuid::Uuid::new_v4().to_string(),
+        id: "0123456789abcdef".into(),
         name: "repo".into(),
         dir: main.to_string_lossy().into_owned(),
         mounts: vec![

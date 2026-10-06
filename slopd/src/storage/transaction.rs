@@ -14,6 +14,7 @@
 //! flushed writes are used, without an fsync barrier. Journal removal is commit.
 
 use std::collections::HashSet;
+#[cfg(test)]
 use std::future::Future;
 use std::path::{Path, PathBuf};
 
@@ -87,6 +88,7 @@ impl Undo {
 
 /// Transfer disk commit and publication to an owner that outlives its requester.
 /// Publication must apply already prepared state without additional fallible I/O.
+#[cfg(test)]
 pub(crate) async fn commit<T: Send + 'static, P: Future<Output = T> + Send + 'static>(
     binding: StorageBinding,
     changes: Vec<Change>,
@@ -115,7 +117,7 @@ pub(crate) async fn commit_in_operation(
     commit_files(binding, changes, |_| Ok(())).await
 }
 
-async fn commit_files(
+pub(super) async fn commit_files(
     binding: &StorageBinding,
     changes: Vec<Change>,
     before_write: impl Fn(usize) -> Result<()>,
@@ -220,3 +222,22 @@ async fn restore_file(path: &Path, text: Option<&str>) -> Result<()> {
 #[cfg(test)]
 #[path = "transaction_tests.rs"]
 mod tests;
+
+/// Inspect the recovery settings without writing. Startup reserves every relevant
+/// endpoint before recovery, including the old address of an interrupted bind edit.
+pub(crate) async fn recovery_settings(binding: &StorageBinding) -> Result<Option<String>> {
+    let Some(text) = read_optional(&binding.journal()?).await? else {
+        return Ok(None);
+    };
+    let undo: Undo = serde_json::from_str(&text).context("parsing workspace recovery journal")?;
+    ensure!(
+        undo.version == 1 && undo.binding == *binding,
+        "workspace journal belongs to different storage roots or settings filename; restore the original mapping before recovery"
+    );
+    validate_targets(binding, undo.files.iter().map(|file| &file.target))?;
+    Ok(undo
+        .files
+        .into_iter()
+        .find(|file| file.target == Target::Settings)
+        .map(|file| file.text.unwrap_or_default()))
+}

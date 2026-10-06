@@ -4,7 +4,9 @@ use super::catalog::load_library;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use anyhow::{Context, Result, bail};
+#[cfg(test)]
+use anyhow::bail;
+use anyhow::{Context, Result};
 
 use super::*;
 
@@ -77,6 +79,25 @@ impl Config {
         crate::paths::config_file()
     }
 
+    pub(crate) async fn load_records(path: &Path) -> Result<Self> {
+        let binding = crate::storage::target::StorageBinding::resolved(path)?;
+        let gate = std::sync::Arc::new(tokio::sync::Mutex::new(()))
+            .lock_owned()
+            .await;
+        crate::storage::transaction::recover(&binding, &gate).await?;
+        let cfg = crate::storage::layout::load(&binding).await?;
+        if !tokio::fs::try_exists(path).await? {
+            crate::paths::create_atomic_async(
+                path,
+                &toml::to_string_pretty(&cfg.settings)?,
+                Some(0o600),
+            )
+            .await?;
+        }
+        Ok(cfg)
+    }
+
+    #[cfg(test)]
     pub async fn load(path: &Path) -> Result<Self> {
         super::transaction::recover(path).await?;
         if !tokio::fs::try_exists(path).await? {
@@ -113,6 +134,7 @@ impl Config {
 
     /// Validate the current schema. Keep the original document to preserve unrelated fields and secrets during edits.
     /// Loading does not rewrite the configuration file.
+    #[cfg(test)]
     pub(crate) fn parse_document(text: &str) -> Result<(Self, toml::Value)> {
         let document: toml::Value = toml::from_str(text).context("parsing config.toml")?;
         reject_removed_worktree_fields(&document)?;
@@ -133,42 +155,10 @@ impl Config {
         Ok((cfg, document))
     }
 
+    #[cfg(test)]
     pub async fn save_text(path: &Path, text: &str) -> Result<()> {
         super::transaction::recover(path).await?;
         crate::paths::write_atomic_async(path, text, Some(0o600)).await
-    }
-
-    /// Prepare a deletion only from the accepted disk revision. Recover first,
-    /// then sample on both sides of the read so unseen edits use the normal path.
-    pub(crate) async fn session_removal_text(
-        path: &Path,
-        name: &str,
-        accepted: Option<SystemTime>,
-    ) -> Result<Option<String>> {
-        super::transaction::recover(path).await?;
-        if accepted.is_none() || crate::paths::disk_mtime(path).await != accepted {
-            return Ok(None);
-        }
-        let text = tokio::fs::read_to_string(path).await?;
-        if crate::paths::disk_mtime(path).await != accepted {
-            return Ok(None);
-        }
-        let mut document: toml_edit::DocumentMut = text.parse()?;
-        // Typed saves emit arrays of tables. Alternate valid encodings retain
-        // the generic save path rather than gaining another mutation policy.
-        let Some(sessions) = document
-            .get_mut("session")
-            .and_then(toml_edit::Item::as_array_of_tables_mut)
-        else {
-            return Ok(None);
-        };
-        let before = sessions.len();
-        sessions
-            .retain(|session| session.get("name").and_then(toml_edit::Item::as_str) != Some(name));
-        if sessions.len() == before {
-            return Ok(None);
-        }
-        Ok(Some(document.to_string()))
     }
 
     /// Create a copy for clients. Replace a nonempty token with the redaction sentinel.
@@ -184,6 +174,7 @@ impl Config {
 }
 
 // Reject retired names before unknown-field preservation can retain them as extensions.
+#[cfg(test)]
 pub(super) fn reject_removed_worktree_fields(document: &toml::Value) -> Result<()> {
     for (section, old, replacement) in [
         ("project", "workspace_root", "worktree_root"),
@@ -200,6 +191,7 @@ pub(super) fn reject_removed_worktree_fields(document: &toml::Value) -> Result<(
     Ok(())
 }
 
+#[cfg(test)]
 pub(super) fn preserve_unknown_fields(
     modeled: &mut toml::Value,
     previous: &toml::Value,
@@ -248,6 +240,7 @@ pub(super) fn preserve_unknown_fields(
     }
 }
 
+#[cfg(test)]
 fn named_entries(entries: &[toml::Value]) -> std::collections::HashMap<&str, &toml::Value> {
     let mut index = std::collections::HashMap::with_capacity(entries.len());
     for entry in entries {

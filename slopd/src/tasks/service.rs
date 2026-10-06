@@ -36,8 +36,8 @@ struct Entry {
     incarnation: u64,
 }
 enum Disk {
-    Legacy(legacy::Tasks),
     #[cfg(test)]
+    Legacy(legacy::Tasks),
     Records(super::records::Records),
 }
 
@@ -50,6 +50,7 @@ pub(crate) struct Tasks {
     reserved: HashSet<String>,
 }
 impl Tasks {
+    #[cfg(test)]
     pub(crate) fn load(config: &Path) -> Result<Self> {
         let disk = legacy::Tasks::load(config)?;
         let values = disk
@@ -60,7 +61,6 @@ impl Tasks {
             .collect();
         Self::loaded(Disk::Legacy(disk), values)
     }
-    #[cfg(test)]
     pub(crate) fn load_records(data: &Path) -> Result<Self> {
         let (disk, values) = super::records::Records::load(data)?;
         Self::loaded(Disk::Records(disk), values)
@@ -120,8 +120,8 @@ impl Tasks {
             "task metadata exhausted"
         );
         match &mut self.disk {
-            Disk::Legacy(disk) => disk.put(&task)?,
             #[cfg(test)]
+            Disk::Legacy(disk) => disk.put(&task)?,
             Disk::Records(disk) => disk.put(&task, order, self.by_id.contains_key(&task.id))?,
         }
         self.publish(task.clone(), order)?;
@@ -129,8 +129,8 @@ impl Tasks {
     }
     fn retire(&mut self, id: &str) -> Result<()> {
         match &mut self.disk {
-            Disk::Legacy(disk) => disk.retire(id)?,
             #[cfg(test)]
+            Disk::Legacy(disk) => disk.retire(id)?,
             Disk::Records(disk) => disk.retire(id)?,
         }
         if let Some(old) = self.by_id.remove(id) {
@@ -156,8 +156,8 @@ impl Tasks {
                 return Ok(true);
             }
             match &self.disk {
-                Disk::Legacy(_) => Ok(false),
                 #[cfg(test)]
+                Disk::Legacy(_) => Ok(false),
                 Disk::Records(disk) => disk.occupied(id),
             }
         })?;

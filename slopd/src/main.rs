@@ -21,11 +21,8 @@ mod runtime;
 mod sandbox;
 mod session;
 mod shared;
-mod storage_id;
-// The new layout is exercised with fixtures until all owners and migration are ready.
-// Remove this test-only selection at the storage cutover (priv/notes/plan-storage-main.md).
-#[cfg(test)]
 mod storage;
+mod storage_id;
 mod tasks;
 #[cfg(test)]
 mod test_http;
@@ -64,7 +61,14 @@ async fn main() -> Result<()> {
 
     // Load and validate configuration before starting services.
     let cfg_path = Config::path_in_use();
-    let cfg = Config::load(&cfg_path).await?;
+    let binding = storage::target::StorageBinding::resolved(&cfg_path)?;
+    let reservations = storage::startup::reserve(&binding).await?;
+    // TODO(remove after user tests and approves workspace store migration):
+    // priv/notes/plan-storage-main.md. Reserve the normal endpoint while offline.
+    if std::env::args().any(|arg| arg == "--migrate-storage") {
+        return storage::migration::run(&binding).await;
+    }
+    let cfg = Config::load_records(&cfg_path).await?;
     runtime::validate_runtime_name()?;
     session::validate_config(&cfg)?;
     tracing::info!("config: {}", cfg_path.display());
@@ -94,6 +98,7 @@ async fn main() -> Result<()> {
         .map(|project| std::path::PathBuf::from(crate::config::expand(&project.dir)))
         .collect();
     let bind = cfg.daemon.bind.clone();
+    let listener = storage::startup::serving_listener(reservations, &bind).await?;
     let m = Manager::new(cfg, cfg_path).await?;
 
     // Warm Git caches before publishing the endpoint so initial status reads are incremental.
@@ -125,7 +130,6 @@ async fn main() -> Result<()> {
         .layer(middleware::from_fn_with_state(m.clone(), auth))
         .layer(middleware::from_fn(api::protobuf::normalize_errors));
 
-    let listener = tokio::net::TcpListener::bind(&bind).await?;
     tracing::info!("listening on http://{bind}");
     endpoint::write(&bind, &m.config().await.daemon.token).await?;
 

@@ -50,7 +50,7 @@ pub use text::strip_sgr;
 use title::{TitleAction, TitleCapture, TitleRequest, TitleSettings};
 use validation::{
     absolute_path, check_belongs, check_name, check_project, free_name, free_project_name,
-    json_to_toml, merge_toml, normalize_action_command, project_action_path, settle, slug,
+    json_to_toml, normalize_action_command, project_action_path, settle, slug,
 };
 pub(crate) use validation::{check_library_item, hold_action_command, name_slug, validate_config};
 
@@ -229,3 +229,6 @@ impl Live {
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
+
+#[cfg(test)]
+use validation::merge_toml;

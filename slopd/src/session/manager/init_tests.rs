@@ -7,6 +7,8 @@ async fn initialization_reconciles_sessions_before_pruning_persisted_credentials
         for (key, value) in [
             ("SLOPD_TMUX_SOCKET", root.join("tmux")),
             ("SLOPD_PRESETS", root.join("presets")),
+            ("SLOPD_CONFIG_ROOT", root.join("config")),
+            ("SLOPD_DATA", root.join("data")),
             ("SLOPD_JUKEBOX", root.join("jukebox")),
             ("XDG_RUNTIME_DIR", root.join("runtime")),
         ] {
@@ -47,6 +49,9 @@ async fn initialization_reconciles_sessions_before_pruning_persisted_credentials
     let path = seed.cfg_path.clone();
     cfg.sessions[1].state_id = uuid::Uuid::new_v4().to_string();
 
+    crate::config::legacy::save(&cfg, &path).await.unwrap();
+    let binding = crate::storage::target::StorageBinding::resolved(&path).unwrap();
+    crate::storage::migration::run(&binding).await.unwrap();
     let manager = Manager::new(cfg.clone(), path.clone()).await.unwrap();
 
     let live = manager.live.read().await;
@@ -62,7 +67,12 @@ async fn initialization_reconciles_sessions_before_pruning_persisted_credentials
     assert!(manager.resolve_cap(Some(&stale)).await.is_none());
     assert_eq!(manager.grant_count().await, 1);
     // Pruning must survive another daemon restart.
-    assert_eq!(crate::grant::Grants::load(&path).unwrap().count(), 1);
+    assert_eq!(
+        crate::grant::Grants::load_data(&path, &crate::paths::data_root())
+            .unwrap()
+            .count(),
+        1
+    );
 
     drop(manager);
     drop(seed);
