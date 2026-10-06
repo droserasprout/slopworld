@@ -34,16 +34,12 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
             var inner = SettingsPageLayout.BodyWithoutFooter(rect);
 
-            float viewWidth = Mathf.Max(1f, inner.width - UiTheme.ScrollbarW);
-            float viewHeight = Mathf.Max(inner.height,
-                _rimWorldHeight.BeginFrame(Time.frameCount));
-            var view = new Rect(0f, 0f, viewWidth, viewHeight);
+            var view = SettingsPageLayout.ScrollView(inner,
+                _rimWorldHeight.BeginFrame(Time.frameCount),
+                ContentPaddingX, ContentPaddingY, out var content);
 
             using (_rimWorldScroll.Scope(inner, view))
             {
-                var content = new Rect(ContentPaddingX, ContentPaddingY,
-                    Mathf.Max(1f, view.width - ContentPaddingX * 2f),
-                    Mathf.Max(1f, view.height - ContentPaddingY * 2f));
                 float y = DrawEulaDisclaimer(content, content.y);
                 y = DrawRimWorldHeader(content, y);
                 y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Graphics,

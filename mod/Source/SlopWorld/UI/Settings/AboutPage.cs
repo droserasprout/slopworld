@@ -189,16 +189,11 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
             var inner = SettingsPageLayout.BodyWithoutFooter(rect);
 
-            float viewWidth = Mathf.Max(1f, inner.width - UiTheme.ScrollbarW);
-            float viewHeight = Mathf.Max(inner.height,
-                _height.BeginFrame(Time.frameCount));
-            var view = new Rect(0f, 0f, viewWidth, viewHeight);
+            var view = SettingsPageLayout.ScrollView(inner, _height.BeginFrame(Time.frameCount),
+                ContentPaddingX, ContentPaddingY, out var content);
 
             using (_scroll.Scope(inner, view))
             {
-                var content = new Rect(ContentPaddingX, ContentPaddingY,
-                    Mathf.Max(1f, view.width - ContentPaddingX * 2f),
-                    Mathf.Max(1f, view.height - ContentPaddingY * 2f));
                 if (_robots.Visible)
                 {
                     _contentHeight = _robots.Draw(content, inner.height - ContentPaddingY * 2f);

@@ -35,6 +35,8 @@ pins and pane bindings; failed starts retain old readers. User choices belong to
 Page geometry belongs to `SettingsLayout`. `SettingsPreviewForm` owns retained
 scrolling and frame-stable form measurement for Interface, Terminal, and Code;
 `SettingsPreviewLayout` owns their pinned/stacked preview geometry.
+`SettingsPageLayout.ScrollView` shares padded scroll geometry for About and RimWorld;
+each page retains its scroll state and frame-stable content height.
 Responsive forms belong to [chrome](mod-ui-chrome.md),
 scrolling to [scrolling](mod-ui-scrolling.md), registration/dialogs to
 [windows](mod-ui-windows.md), and worker delivery to [workers](daemon-workers.md).
