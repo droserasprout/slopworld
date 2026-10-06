@@ -1,5 +1,8 @@
 # Reporting a vulnerability
 
-Email [slopworld@drsr.io](mailto:slopworld@drsr.io) with a description of the
-vulnerability, the affected version, and steps to reproduce it.
-Please report vulnerabilities privately before opening a public issue.
+Don't expect much security from this software lol.
+
+If you do for some reason, and want to report a vulnerability - email [slopworld@drsr.io](mailto:slopworld@drsr.io)
+with a description, affected builds, and steps to reproduce it.
+
+Consider reporting privately before opening a public issue.

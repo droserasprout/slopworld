@@ -1,12 +1,10 @@
 <p align="center">
-  <img src="images/slopworld.png" alt="SlopWorld logo" width="128" height="128">
+  <img src="images/slopworld.png" alt="SlopWorld logo" width="32" height="32">
 </p>
 
 <h1 align="center">SlopWorld</h1>
 
-<p align="center">
-  <img src="images/screenshot.png" alt="SlopWorld workspace in RimWorld" width="960">
-</p>
+<img src="images/screenshot.png" alt="SlopWorld workspace in RimWorld" width="320" align="right">
 
 SlopWorld is a fun terminal-focused IDE for agentic coding, built on RimWorld.
 Your agents' sessions appear as colonists. Select one to open its terminal and give
