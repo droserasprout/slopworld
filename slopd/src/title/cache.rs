@@ -54,7 +54,7 @@ struct CacheState {
 struct Pending {
     cache: CacheState,
     revision: u64,
-    persisted: u64,
+    attempted: u64,
     stopping: bool,
     error: Option<String>,
 }
@@ -105,7 +105,7 @@ impl SummaryCache {
             Mutex::new(Pending {
                 cache: CacheState { entries, latest },
                 revision: 0,
-                persisted: 0,
+                attempted: 0,
                 stopping: false,
                 error: None,
             }),
@@ -116,10 +116,10 @@ impl SummaryCache {
             let (mutex, wake) = &*pending;
             loop {
                 let mut state = mutex.lock().unwrap_or_else(|e| e.into_inner());
-                while state.revision == state.persisted && !state.stopping {
+                while state.revision == state.attempted && !state.stopping {
                     state = wake.wait(state).unwrap_or_else(|e| e.into_inner());
                 }
-                if state.revision == state.persisted && state.stopping {
+                if state.revision == state.attempted && state.stopping {
                     break;
                 }
                 let revision = state.revision;
@@ -130,7 +130,7 @@ impl SummaryCache {
                     tracing::warn!(target: "slopd::titles", %error, "could not persist summary cache");
                 }
                 let mut state = mutex.lock().unwrap_or_else(|e| e.into_inner());
-                state.persisted = revision;
+                state.attempted = revision;
                 state.error = error;
                 wake.notify_all();
             }
@@ -156,7 +156,7 @@ impl SummaryCache {
         let (mutex, wake) = &*self.shared;
         let mut state = mutex.lock().unwrap_or_else(|e| e.into_inner());
         let revision = state.revision;
-        while state.persisted < revision {
+        while state.attempted < revision {
             state = wake.wait(state).unwrap_or_else(|e| e.into_inner());
         }
         if let Some(error) = &state.error {

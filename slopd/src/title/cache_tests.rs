@@ -196,6 +196,28 @@ fn failed_writes_keep_memory_and_recover_on_the_next_mutation() {
 }
 
 #[test]
+fn failed_summary_writes_do_not_retry_on_flush_or_drop() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let attempts = std::sync::Arc::new(AtomicUsize::new(0));
+    let writer_attempts = attempts.clone();
+    let cache = SummaryCache::load_with_writer(cache_test_path(), move |_, _| {
+        writer_attempts.fetch_add(1, Ordering::SeqCst);
+        anyhow::bail!("controlled write failure")
+    });
+    cache.remember("agent", "In memory");
+    cache.flush().unwrap_err();
+    cache.flush().unwrap_err();
+    assert_eq!(attempts.load(Ordering::SeqCst), 1);
+    assert_eq!(cache.latest("agent").as_deref(), Some("In memory"));
+
+    cache.remember("agent", "New mutation");
+    cache.flush().unwrap_err();
+    assert_eq!(attempts.load(Ordering::SeqCst), 2);
+    drop(cache);
+    assert_eq!(attempts.load(Ordering::SeqCst), 2);
+}
+
+#[test]
 fn dropping_cache_drains_pending_rename_and_clear() {
     use std::sync::mpsc;
     use std::time::Duration;
