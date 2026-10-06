@@ -2,7 +2,7 @@
 
 # Refresh generated files after source changes, then stage distribution notices
 [group('Generated files')]
-refresh: refresh-protocol refresh-api-docs refresh-reference refresh-loading-font refresh-icons refresh-daemon-licenses refresh-licenses
+refresh: refresh-protocol refresh-api-docs refresh-reference refresh-loading-font refresh-icons refresh-appicon refresh-daemon-licenses refresh-licenses
 
 # Generate the locked Rust dependency license table
 [group('Generated files')]
@@ -38,6 +38,11 @@ check-generated:
 [group('Generated files')]
 refresh-icons:
     {{ UV }} run --locked --extra assets python -m tools.assets.icons
+
+# Bake the desktop application icon from the robot face and bundled rose emoji
+[group('Generated files')]
+refresh-appicon:
+    {{ UV }} run --locked --extra assets python -m tools.assets.appicon
 
 # Resolve and update the Python dependency lockfile
 [group('Generated files')]

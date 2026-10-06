@@ -116,6 +116,7 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
                 'tools.docs.reference',
                 'tools.assets.loading_font_atlas',
                 'tools.assets.icons',
+                'tools.assets.appicon',
                 'tools.licenses.rust_licenses',
                 'tools.licenses.stage_licenses',
             ],

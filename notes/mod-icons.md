@@ -1,5 +1,12 @@
 # UI icon ownership
 
+`tools/assets/appicon.py` owns the shared application artwork in
+`mod/Textures/SlopWorld/SlopWorld_icon.png`. Desktop packages install it as the
+128 px hicolor application icon. The generator enlarges the composed robot and
+rose halfway from its original ink size toward filling the canvas with a 4 px
+margin, balancing desktop visibility and facial detail. Run `just refresh-appicon`
+to regenerate it.
+
 `UI/Theme/Icons.cs` exposes semantic slots; `assets/icons/manifest.toml` maps them to
 Codicons glyph names and codepoints. Generated PNGs live in
 `mod/Textures/SlopWorld/Icons/`. Update the manifest and slot table together.

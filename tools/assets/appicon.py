@@ -9,7 +9,7 @@ Process:
   2. Put the faceplate over the rose.
   3. Move the stem tip slightly into the top of the skull.
 
-Usage: uv run --locked --extra assets python -m tools.assets.appicon
+Usage: just refresh-appicon
 
 Output: mod/Textures/SlopWorld/SlopWorld_icon.png (128x128 RGBA).
 
@@ -232,7 +232,23 @@ def main():
     icon = make_icon(rose_path)
     img = np.clip(icon * 255, 0, 255).astype(np.uint8)
     out_path = os.path.join(tex_dir, 'SlopWorld_icon.png')
-    Image.fromarray(img).save(out_path)
+    # The face geometry uses pawn proportions with generous surrounding space.
+    # Desktop launchers display the entire PNG, so fit the composite's ink bounds
+    # halfway toward filling the canvas, retaining its aspect ratio. Limiting
+    # enlargement keeps the small facial details from becoming overly soft.
+    artwork = Image.fromarray(img)
+    bounds = artwork.getchannel('A').getbbox()
+    if bounds is None:
+        raise RuntimeError('application icon rendered no visible artwork')
+    artwork = artwork.crop(bounds)
+    margin = 4
+    original_edge = max(artwork.size)
+    target_edge = (original_edge + N - 2 * margin) / 2
+    scale = target_edge / original_edge
+    fitted = artwork.resize(tuple(round(edge * scale) for edge in artwork.size), Image.Resampling.LANCZOS)
+    canvas = Image.new('RGBA', (N, N))
+    canvas.paste(fitted, ((N - fitted.width) // 2, (N - fitted.height) // 2))
+    canvas.save(out_path)
     print('wrote', os.path.normpath(out_path))
 
     return 0
