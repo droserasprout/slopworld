@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,6 +8,23 @@ namespace SlopWorld
     // only has to deal with document flow, indentation, images, quotes, lists, and tables.
     sealed class MarkdownLayoutEngine
     {
+        // A float belongs to one sibling flow. Nested containers cannot leak it outward.
+        sealed class ImageFloat
+        {
+            public float X;
+            public float Width;
+            public float Bottom;
+            public bool Right;
+
+            public Vector2 Bounds(float x, float y, float width)
+            {
+                if (y >= Bottom) return new Vector2(0f, width);
+                float left = Right ? x : Mathf.Max(x, X + Width + UiTheme.GapS);
+                float right = Right ? Mathf.Min(x + width, X - UiTheme.GapS) : x + width;
+                return new Vector2(left - x, Mathf.Max(1f, right - left));
+            }
+        }
+
         readonly MarkdownResourceStore _resources;
         readonly List<Placement> _placements = new List<Placement>();
         StyleSet _styles;
@@ -72,11 +90,7 @@ namespace SlopWorld
             _placements.Clear();
             float y = UiTheme.GapM;
             float contentWidth = Mathf.Max(1f, width - UiTheme.GapM * 2f);
-            foreach (var block in blocks ?? new List<MarkdownBlock>())
-            {
-                y = Place(block, UiTheme.GapM, y, contentWidth);
-                y += BlockGap(block);
-            }
+            y = PlaceBlocks(blocks, UiTheme.GapM, y, contentWidth);
             Height = Mathf.Max(1f, y + UiTheme.GapM);
             for (int i = 0; i < _placements.Count; i++)
                 _placements[i].Sequence = i;
@@ -112,25 +126,45 @@ namespace SlopWorld
             return new ImageMetrics(width, Mathf.Max(1f, height));
         }
 
-        float Place(MarkdownBlock block, float x, float y, float width)
+        float PlaceBlocks(List<MarkdownBlock> blocks, float x, float y, float width)
         {
+            var flow = new ImageFloat();
+            foreach (var block in blocks ?? new List<MarkdownBlock>())
+            {
+                float end = Place(block, x, y, width, flow);
+                if (end > y) y = end + BlockGap(block);
+            }
+            return Mathf.Max(y, flow.Bottom);
+        }
+
+        float Place(MarkdownBlock block, float x, float y, float width, ImageFloat flow)
+        {
+            // Slabs and nested containers clear a float; text and lists can flow beside it.
+            if (block.Kind != BlockKind.Paragraph && block.Kind != BlockKind.Heading &&
+                block.Kind != BlockKind.List && block.Kind != BlockKind.Item && block.Kind != BlockKind.Raw)
+                y = Mathf.Max(y, flow.Bottom);
             switch (block.Kind)
             {
                 case BlockKind.Paragraph:
                     if (TrySingleImage(block.Runs, out var image))
-                        return PlaceImage(image, x, y, width, 0f);
+                    {
+                        if (string.IsNullOrEmpty(block.Alignment) && IsFloat(image))
+                            return StartFloat(image, x, y, width, flow);
+                        y = Mathf.Max(y, flow.Bottom);
+                        return PlaceImage(image, x, y, width, 0f, block.Alignment);
+                    }
                     if (TryAlignedImage(block.Runs, out image))
-                        return PlaceParagraphWithImage(block.Runs, image, x, y, width);
-                    return PlaceText(block.Runs, x, y, width, 0, false, 0f);
+                        return PlaceParagraphWithImage(block.Runs, image, x, y, width, flow);
+                    return PlaceText(block.Runs, x, y, width, 0, false, 0f, flow, block.Alignment);
 
                 case BlockKind.Heading:
-                    return PlaceHeading(block.Runs, x, y, width, block.Level);
+                    return PlaceHeading(block, x, y, width, flow);
 
                 case BlockKind.Code:
                     return PlaceCode(block, x, y, width);
 
                 case BlockKind.Raw:
-                    return PlaceText(block.Runs, x, y, width, 0, false, 0f);
+                    return PlaceText(block.Runs, x, y, width, 0, false, 0f, flow, block.Alignment);
 
                 case BlockKind.Rule:
                     _placements.Add(new Placement
@@ -147,72 +181,53 @@ namespace SlopWorld
                     return PlaceQuote(block, x, y, width);
 
                 case BlockKind.List:
-                    return PlaceList(block, x, y, width);
+                    return PlaceList(block, x, y, width, flow);
 
                 case BlockKind.Table:
                     return PlaceTable(block, x, y, width);
 
                 case BlockKind.Item:
-                    foreach (var child in block.Children ?? new List<MarkdownBlock>())
-                    {
-                        y = Place(child, x, y, width);
-                        y += BlockGap(child);
-                    }
-                    return y;
+                    return PlaceBlocks(block.Children, x, y, width);
 
                 default:
                     return y;
             }
         }
 
-        float PlaceParagraphWithImage(List<InlineRun> runs, InlineRun image,
-                                      float x, float y, float width)
+        static bool IsFloat(InlineRun image) =>
+            image.ImageAlign == "left" || image.ImageAlign == "right";
+
+        float StartFloat(InlineRun image, float x, float y, float width, ImageFloat flow)
         {
-            ImageMetrics metrics = ImageMetrics(image, width);
+            y = Mathf.Max(y, flow.Bottom);
+            float bottom = PlaceImage(image, x, y, width, 0f);
+            var placement = _placements[_placements.Count - 1];
+            flow.X = placement.X;
+            flow.Width = placement.Width;
+            flow.Bottom = bottom;
+            flow.Right = image.ImageAlign == "right";
+            return placement.Width + UiTheme.GapS >= width ? bottom : y;
+        }
+
+        float PlaceParagraphWithImage(List<InlineRun> runs, InlineRun image,
+                                      float x, float y, float width, ImageFloat flow)
+        {
+            float textY = StartFloat(image, x, y, width, flow);
+            if (textY > y) textY += UiTheme.GapS;
             var textRuns = new List<InlineRun>();
             foreach (var run in runs)
                 if (run != image) textRuns.Add(run);
-
-            bool hasText = false;
-            foreach (var run in textRuns)
-                if (!string.IsNullOrWhiteSpace(run.Text)) { hasText = true; break; }
-            if (hasText && metrics.Width + UiTheme.GapS >= width)
-            {
-                PlaceImage(image, x, y, width, 0f);
-                return PlaceText(textRuns, x, y + metrics.Height + UiTheme.GapS,
-                    width, 0, false, 0f);
-            }
-
-            float textWidth = Mathf.Max(1f, width - metrics.Width - UiTheme.GapS);
-            var text = _textLayout.Wrap(textRuns, textWidth, 0);
-            bool right = image.ImageAlign == "right";
-            _placements.Add(new Placement
-            {
-                Kind = PlacementKind.Text,
-                X = right ? x : x + metrics.Width + UiTheme.GapS,
-                Y = y,
-                Width = textWidth,
-                Height = text.Height,
-                Text = text,
-            });
-            _placements.Add(new Placement
-            {
-                Kind = PlacementKind.Image,
-                X = right ? x + width - metrics.Width : x,
-                Y = y,
-                Width = metrics.Width,
-                Height = metrics.Height,
-                Image = image,
-            });
-            return y + Mathf.Max(text.Height, metrics.Height);
+            return PlaceText(textRuns, x, textY, width, 0, false, 0f, flow);
         }
 
-        float PlaceImage(InlineRun image, float x, float y, float width, float gap)
+        float PlaceImage(InlineRun image, float x, float y, float width, float gap,
+                         string alignment = null)
         {
             ImageMetrics metrics = ImageMetrics(image, width);
-            float imageX = image.ImageAlign == "right"
+            alignment = alignment ?? image.ImageAlign;
+            float imageX = alignment == "right"
                 ? x + width - metrics.Width
-                : image.ImageAlign == "center"
+                : alignment == "center"
                     ? x + (width - metrics.Width) / 2f
                     : x;
             _placements.Add(new Placement
@@ -256,9 +271,20 @@ namespace SlopWorld
         }
 
         float PlaceText(List<InlineRun> runs, float x, float y, float width,
-                        int heading, bool headingColor, float gap)
+                        int heading, bool headingColor, float gap, ImageFloat flow = null,
+                        string alignment = null)
         {
-            var text = _textLayout.Wrap(runs, width, heading);
+            if (flow != null && y < flow.Bottom && flow.Bounds(x, y, width).y <= 1f)
+                y = flow.Bottom;
+            float textY = y;
+            var text = _textLayout.Wrap(runs, width, heading,
+                flow == null ? (Func<float, Vector2>)null : offset => flow.Bounds(x, textY + offset, width));
+            foreach (var line in text.Lines)
+            {
+                Vector2 bounds = flow == null ? new Vector2(0f, width) : flow.Bounds(x, y + line.Offset, width);
+                if (alignment == "center") line.OffsetX += Mathf.Max(0f, bounds.y - line.Width) / 2f;
+                else if (alignment == "right") line.OffsetX += Mathf.Max(0f, bounds.y - line.Width);
+            }
             _placements.Add(new Placement
             {
                 Kind = PlacementKind.Text,
@@ -272,12 +298,12 @@ namespace SlopWorld
             return y + text.Height + gap;
         }
 
-        float PlaceHeading(List<InlineRun> runs, float x, float y, float width, int level)
+        float PlaceHeading(MarkdownBlock block, float x, float y, float width, ImageFloat flow)
         {
             // The initial document inset already provides top breathing room. Later headings
             // get a larger leading margin than the body gap that follows them.
             if (y > UiTheme.GapM + .01f) y += UiTheme.GapM;
-            return PlaceText(runs, x, y, width, level, true, 0f);
+            return PlaceText(block.Runs, x, y, width, block.Level, true, 0f, flow, block.Alignment);
         }
 
         static float BlockGap(MarkdownBlock block)
@@ -348,11 +374,7 @@ namespace SlopWorld
             float start = y;
             float innerX = x + UiTheme.GapM;
             float innerWidth = Mathf.Max(1f, width - UiTheme.GapM);
-            foreach (var child in block.Children ?? new List<MarkdownBlock>())
-            {
-                y = Place(child, innerX, y, innerWidth);
-                y += BlockGap(child);
-            }
+            y = PlaceBlocks(block.Children, innerX, y, innerWidth);
 
             _placements.Add(new Placement
             {
@@ -365,7 +387,7 @@ namespace SlopWorld
             return y;
         }
 
-        float PlaceList(MarkdownBlock block, float x, float y, float width)
+        float PlaceList(MarkdownBlock block, float x, float y, float width, ImageFloat flow)
         {
             int number = block.Start;
             var markers = new List<List<InlineRun>>();
@@ -384,25 +406,34 @@ namespace SlopWorld
             int itemIndex = 0;
             foreach (var item in block.Children ?? new List<MarkdownBlock>())
             {
+                Vector2 bounds = flow.Bounds(x, y, width);
+                if (bounds.y <= gutter + 1f) y = Mathf.Max(y, flow.Bottom);
+                bounds = flow.Bounds(x, y, width);
+                float itemX = x + bounds.x;
                 var bulletText = _textLayout.Wrap(markers[itemIndex++], gutter, 0);
                 _placements.Add(new Placement
                 {
                     Kind = PlacementKind.Bullet,
-                    X = x,
+                    X = itemX,
                     Y = y,
                     Width = gutter,
                     Height = bulletText.Height,
                     Text = bulletText,
                 });
 
+                // Inherit the outer obstacle, but keep images created inside an item local.
+                var itemFlow = new ImageFloat
+                {
+                    X = flow.X, Width = flow.Width, Bottom = flow.Bottom, Right = flow.Right,
+                };
                 float itemY = y;
-                float innerX = x + gutter;
-                float innerWidth = Mathf.Max(1f, width - gutter);
+                float innerX = itemX + gutter;
+                float innerWidth = Mathf.Max(1f, width - (innerX - x));
                 var children = item?.Children ?? new List<MarkdownBlock>();
                 for (int childIndex = 0; childIndex < children.Count; childIndex++)
                 {
                     var child = children[childIndex];
-                    itemY = Place(child, innerX, itemY, innerWidth);
+                    itemY = Place(child, innerX, itemY, innerWidth, itemFlow);
                     bool last = childIndex + 1 == children.Count;
                     if (!last)
                     {
@@ -410,6 +441,7 @@ namespace SlopWorld
                         itemY += GapBetweenListChildren(block.Tight, child, next);
                     }
                 }
+                if (itemFlow.Bottom > flow.Bottom) itemY = Mathf.Max(itemY, itemFlow.Bottom);
                 float itemGap = block.Tight ? UiTheme.GapXS : UiTheme.GapM;
                 y = Mathf.Max(itemY, y + bulletText.Height) + itemGap;
             }

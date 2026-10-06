@@ -55,7 +55,7 @@ namespace SlopWorld
             var output = new SelectionLine
             {
                 LogicalIndex = target.Count,
-                X = x,
+                X = x + line.OffsetX,
                 Y = y + line.Offset,
                 Height = line.Height,
                 Width = line.Width,

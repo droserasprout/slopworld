@@ -72,10 +72,99 @@ namespace SlopWorld.Tests
             var text = engine.Placements.Single(p => p.Kind == PlacementKind.Text);
             AssertEx.Equal(picture.Y, text.Y, "text and image share top edge");
             AssertEx.True(alignment == "left"
-                ? picture.X + picture.Width + UiTheme.GapS <= text.X
-                : text.X + text.Width + UiTheme.GapS <= picture.X, "text and image do not overlap");
+                ? picture.X + picture.Width + UiTheme.GapS <= text.X + text.Text.Lines[0].OffsetX
+                : text.X + text.Text.Lines[0].Width + UiTheme.GapS <= picture.X, "text and image do not overlap");
             AssertEx.Equal("caption", Copy(text.Text), "caption remains selectable");
             AssertEx.True(engine.Height >= Math.Max(text.Y + text.Height, picture.Y + picture.Height), "document contains taller sibling");
+        }
+
+        public static void StandaloneFloatAllowsFollowingParagraphsAndListsBesideIt()
+        {
+            foreach (string alignment in new[] { "left", "right" })
+            {
+                var engine = PreviewFlow("<img src='shot.png' width='80' height='200' align='" + alignment + "'>\n\nFirst paragraph.\n\nSecond paragraph.\n\n- item one\n- item two", 400);
+                var picture = engine.Placements.Single(p => p.Kind == PlacementKind.Image);
+                var texts = engine.Placements.Where(p => p.Kind == PlacementKind.Text).ToArray();
+                AssertEx.Equal(picture.Y, texts[0].Y, "first paragraph starts beside standalone float");
+                AssertEx.True(texts[1].Y < picture.Y + picture.Height, "next paragraph continues beside float");
+                foreach (var text in texts)
+                    foreach (var line in text.Text.Lines)
+                        if (text.Y + line.Offset < picture.Y + picture.Height)
+                            AssertEx.True(alignment == "right"
+                                ? text.X + line.OffsetX + line.Width + UiTheme.GapS <= picture.X
+                                : text.X + line.OffsetX >= picture.X + picture.Width + UiTheme.GapS,
+                                "paragraph and list text clears image");
+                AssertEx.True(engine.Height >= picture.Y + picture.Height, "float contributes to document height");
+            }
+        }
+
+        public static void TextRestoresFullWidthBelowFloatWithoutChangingCopy()
+        {
+            string prose = string.Join(" ", Enumerable.Repeat("word", 60));
+            foreach (string alignment in new[] { "left", "right" })
+            {
+                var engine = PreviewFlow("<img src='shot.png' width='100' height='50' align='" + alignment + "'>\n\n" + prose, 300);
+                var text = engine.Placements.Single(p => p.Kind == PlacementKind.Text);
+                var picture = engine.Placements.Single(p => p.Kind == PlacementKind.Image);
+                var beside = text.Text.Lines.Where(l => text.Y + l.Offset < picture.Y + picture.Height).ToArray();
+                var below = text.Text.Lines.Where(l => text.Y + l.Offset >= picture.Y + picture.Height).ToArray();
+                AssertEx.True(beside.Length > 0 && below.Length > 0, "paragraph crosses float bottom");
+                AssertEx.True(below.Any(l => l.Width > beside.Max(b => b.Width)), "lines regain full available width");
+                AssertEx.True(below.All(l => l.OffsetX == 0f), "left float inset ends at bottom");
+                AssertEx.Equal(prose, Copy(text.Text), "copy does not introduce newlines at width changes");
+                var selected = new List<SelectionLine>();
+                MarkdownSelectionText.CollectText(selected, text.Text, text.X, text.Y);
+                AssertEx.Equal(text.X + beside[0].OffsetX, selected[0].X, "selection follows line inset");
+            }
+        }
+
+        public static void HtmlAlignmentUsesSharedTextAndSelectionGeometry()
+        {
+            var engine = PreviewFlow("<p align='center'><img src='logo.png' width='32' height='32'></p>\n\n<h1 align='center'>SlopWorld</h1>\n\n<p align='right'>Body</p>", 400);
+            var logo = engine.Placements.Single(p => p.Kind == PlacementKind.Image);
+            AssertEx.Equal((400f - 32f) / 2f, logo.X, "paragraph centers its image");
+            var texts = engine.Placements.Where(p => p.Kind == PlacementKind.Text).ToArray();
+            AssertEx.True(texts[0].Y >= logo.Y + logo.Height, "centered image reserves block height");
+            AssertEx.True(texts[0].Heading, "HTML heading uses heading style");
+            AssertEx.Equal((texts[0].Width - texts[0].Text.Lines[0].Width) / 2f,
+                texts[0].Text.Lines[0].OffsetX, "heading centers within block");
+            AssertEx.Equal(texts[1].Width - texts[1].Text.Lines[0].Width,
+                texts[1].Text.Lines[0].OffsetX, "paragraph aligns right");
+        }
+
+        public static void FloatClearsSlabsAndDoesNotEscapeNestedContainers()
+        {
+            var engine = PreviewFlow("<img src='shot.png' width='80' height='200' align='right'>\n\n```\ncode\n```", 400);
+            var image = engine.Placements.Single(p => p.Kind == PlacementKind.Image);
+            var code = engine.Placements.Single(p => p.Kind == PlacementKind.Code);
+            AssertEx.True(code.Y >= image.Y + image.Height, "code slab clears float");
+            engine = PreviewFlow("> <img src='shot.png' width='80' height='200' align='right'>\n>\n> quoted\n\nafter", 400);
+            image = engine.Placements.Single(p => p.Kind == PlacementKind.Image);
+            var after = engine.Placements.Last(p => p.Kind == PlacementKind.Text);
+            AssertEx.True(after.Y >= image.Y + image.Height, "quote contains its float");
+            AssertEx.Equal(0f, after.Text.Lines[0].OffsetX, "float does not leak into following paragraph");
+            var localImage = new InlineRun { IsImage = true, ImageWidth = 80, ImageHeight = 200, ImageAlign = "right" };
+            engine = Flow(400, new MarkdownBlock
+            {
+                Kind = BlockKind.List,
+                Children = new List<MarkdownBlock>
+                {
+                    new MarkdownBlock { Kind = BlockKind.Item, Children = new List<MarkdownBlock>
+                    {
+                        Paragraph(localImage), Paragraph(new InlineRun { Text = "caption" }),
+                    } },
+                    new MarkdownBlock { Kind = BlockKind.Item, Children = new List<MarkdownBlock>
+                    {
+                        Paragraph(new InlineRun { Text = "next item" }),
+                    } },
+                },
+            });
+            image = engine.Placements.Single(p => p.Kind == PlacementKind.Image);
+            var caption = engine.Placements.First(p => p.Kind == PlacementKind.Text);
+            after = engine.Placements.Last(p => p.Kind == PlacementKind.Text);
+            AssertEx.Equal(image.Y, caption.Y, "caption flows beside item image");
+            AssertEx.True(after.Y >= image.Y + image.Height, "list item contains its float");
+            AssertEx.Equal(0f, after.Text.Lines[0].OffsetX, "float does not leak into next list item");
         }
 
         public static void ImageSizingPreservesAspectAndFitsAvailableWidth()

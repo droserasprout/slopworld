@@ -151,6 +151,7 @@ namespace SlopWorld
                 float at = availableWidth > 0f
                     ? MarkdownTableGeometry.AlignX(x, availableWidth, line.Width, alignment)
                     : x;
+                at += line.OffsetX;
                 foreach (var piece in line.Pieces)
                 {
                     if (piece.Run.InlineCode)
@@ -215,6 +216,7 @@ namespace SlopWorld
                 float lineX = availableWidth > 0f
                     ? MarkdownTableGeometry.AlignX(x, availableWidth, line.Width, alignment)
                     : x;
+                lineX += line.OffsetX;
                 if (codeBlock && line.Continuation)
                     Slab.VHairline(new Rect(lineX - UiTheme.GapXS * .5f, lineY + 2f,
                         1f, Mathf.Max(1f, line.Height - 4f)), UiTheme.Edge);

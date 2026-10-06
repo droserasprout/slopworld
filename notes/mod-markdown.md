@@ -8,7 +8,14 @@ Local resources stay within the captured project scope. The daemon enforces scop
 text/image containment and bounds resource/highlighter access. Asynchronous replies
 must not update a replaced document. Limited HTML is interpreted without browser
 behavior; comments are suppressed and unrecognized tags/blocks remain faint text.
-Remote/data images are not fetched.
+Remote/data images are not fetched. Paragraph and heading HTML uses the same inline
+style/link/image policy as Markdown. Ordinary source newlines are spaces; explicit
+Markdown breaks and `<br>` retain line boundaries.
+
+Block flow owns left/right image floats across following paragraphs and lists.
+Quotes and list items contain their own floats; code, tables, and other slabs clear
+outer floats. Text layout records each line's horizontal inset so wrapping, HTML
+alignment, drawing, copying, and hit testing share geometry.
 
 Drawing, selection, and link hit testing use the same reflowed geometry. Reader
 routing belongs to [Files](mod-ui-files.md), input/clipboard boundaries to

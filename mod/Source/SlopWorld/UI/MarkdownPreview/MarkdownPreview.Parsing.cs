@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    sealed class MarkdownDocumentParser
+    sealed partial class MarkdownDocumentParser
     {
         readonly MarkdownPathResolver _paths;
 
@@ -118,6 +118,7 @@ namespace SlopWorld
         {
             foreach (Block block in container)
             {
+                if (block is HtmlBlock html && TryAddHtmlBlocks(html.Lines.ToString(), target)) continue;
                 var converted = ConvertBlock(block);
                 if (converted != null) target.Add(converted);
             }
@@ -398,9 +399,9 @@ namespace SlopWorld
                         TaskChecked = task.Checked,
                     }));
                 }
-                else if (inline is LineBreakInline)
+                else if (inline is LineBreakInline lineBreak)
                 {
-                    AddRun(target, "\n", currentStyle);
+                    AddRun(target, lineBreak.IsHard ? "\n" : " ", currentStyle);
                 }
                 else if (inline is HtmlInline html)
                 {
@@ -573,9 +574,9 @@ namespace SlopWorld
                 target.Append(code.Content);
                 return;
             }
-            if (inline is LineBreakInline)
+            if (inline is LineBreakInline lineBreak)
             {
-                target.Append('\n');
+                target.Append(lineBreak.IsHard ? '\n' : ' ');
                 return;
             }
             if (inline is ContainerInline container)

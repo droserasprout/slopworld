@@ -75,10 +75,12 @@ namespace SlopWorld
                 Mathf.Max(minimum, unwrapped.Width));
         }
 
-        public TextLayout Wrap(List<InlineRun> runs, float width, int heading)
+        public TextLayout Wrap(List<InlineRun> runs, float width, int heading,
+                               Func<float, Vector2> flow = null)
         {
             var layout = new TextLayout();
             var line = NewLine(_styles.Normal);
+            SetFlow(line, layout, ref width, flow);
 
             foreach (var run in runs ?? new List<InlineRun>())
             {
@@ -89,9 +91,7 @@ namespace SlopWorld
                     if (line.Pieces.Count > 0 &&
                         (line.Width + image.Width > width || !string.IsNullOrEmpty(line.CopySuffix)))
                     {
-                        line.BreakAfter = TextBreakKind.SoftWrap;
-                        layout.Lines.Add(line);
-                        line = NewLine(_styles.Normal);
+                        CommitLine(ref line, layout, _styles.Normal, ref width, flow);
                     }
                     AddPiece(line, run, "", _styles.Normal, image.Width, image.Height);
                     continue;
@@ -105,9 +105,7 @@ namespace SlopWorld
                     if (line.Pieces.Count > 0 &&
                         (line.Width + taskWidth > width || !string.IsNullOrEmpty(line.CopySuffix)))
                     {
-                        line.BreakAfter = TextBreakKind.SoftWrap;
-                        layout.Lines.Add(line);
-                        line = NewLine(style);
+                        CommitLine(ref line, layout, style, ref width, flow);
                     }
                     AddPiece(line, run, text, style, taskWidth);
                     continue;
@@ -119,12 +117,10 @@ namespace SlopWorld
                     int newline = text.IndexOf('\n', start);
                     int end = newline < 0 ? text.Length : newline;
                     AppendWrapped(ref line, layout, run, text.Substring(start, end - start),
-                        style, width, run.Code);
+                        style, ref width, run.Code, flow);
                     if (newline < 0) break;
-                    line.BreakAfter = TextBreakKind.Source;
                     line.Forced = true;
-                    layout.Lines.Add(line);
-                    line = NewLine(style);
+                    CommitLine(ref line, layout, style, ref width, flow, sourceBreak: true);
                     line.Forced = true;
                     start = newline + 1;
                 }
@@ -154,9 +150,30 @@ namespace SlopWorld
                 AlignLine(item);
                 item.Offset = layout.Height;
                 layout.Height += item.Height;
-                layout.Width = Mathf.Max(layout.Width, item.Width);
+                layout.Width = Mathf.Max(layout.Width, item.OffsetX + item.Width);
             }
             return layout;
+        }
+
+        void CommitLine(ref TextLine line, TextLayout layout, GUIStyle style,
+                        ref float width, Func<float, Vector2> flow,
+                        bool continuation = false, bool sourceBreak = false)
+        {
+            AlignLine(line);
+            line.BreakAfter = sourceBreak ? TextBreakKind.Source : TextBreakKind.SoftWrap;
+            layout.Lines.Add(line);
+            layout.Height += line.Height;
+            line = NewLine(style, continuation);
+            SetFlow(line, layout, ref width, flow);
+        }
+
+        static void SetFlow(TextLine line, TextLayout layout, ref float width,
+                            Func<float, Vector2> flow)
+        {
+            if (flow == null) return;
+            Vector2 bounds = flow(layout.Height);
+            line.OffsetX = bounds.x;
+            width = Mathf.Max(1f, bounds.y);
         }
 
         TextLine NewLine(GUIStyle style, bool continuation = false) => new TextLine
@@ -166,11 +183,12 @@ namespace SlopWorld
         };
 
         void AppendWrapped(ref TextLine line, TextLayout layout, InlineRun run, string text,
-                           GUIStyle style, float width, bool preserveWhitespace)
+                           GUIStyle style, ref float width, bool preserveWhitespace,
+                           Func<float, Vector2> flow)
         {
             if (preserveWhitespace)
             {
-                AppendPreserved(ref line, layout, run, text, style, width);
+                AppendPreserved(ref line, layout, run, text, style, ref width, flow);
                 return;
             }
 
@@ -196,14 +214,12 @@ namespace SlopWorld
                 else if (line.Pieces.Count > 0 &&
                     (line.Width + addedWidth > width || !string.IsNullOrEmpty(line.CopySuffix)))
                 {
-                    line.BreakAfter = TextBreakKind.SoftWrap;
-                    layout.Lines.Add(line);
-                    line = NewLine(style, run.Code);
-                    AddWord(ref line, layout, run, chunk, style, width, chunkWidth);
+                    CommitLine(ref line, layout, style, ref width, flow, run.Code);
+                    AddWord(ref line, layout, run, chunk, style, ref width, chunkWidth, flow);
                 }
                 else
                 {
-                    AddWord(ref line, layout, run, chunk, style, width, chunkWidth);
+                    AddWord(ref line, layout, run, chunk, style, ref width, chunkWidth, flow);
                 }
 
                 start = end;
@@ -211,7 +227,7 @@ namespace SlopWorld
         }
 
         void AppendPreserved(ref TextLine line, TextLayout layout, InlineRun run,
-                             string text, GUIStyle style, float width)
+                             string text, GUIStyle style, ref float width, Func<float, Vector2> flow)
         {
             var elements = StringInfo.GetTextElementEnumerator(text);
             while (elements.MoveNext())
@@ -222,16 +238,14 @@ namespace SlopWorld
                 if (line.Pieces.Count > 0 &&
                     (line.Width + addedWidth > width || !string.IsNullOrEmpty(line.CopySuffix)))
                 {
-                    line.BreakAfter = TextBreakKind.SoftWrap;
-                    layout.Lines.Add(line);
-                    line = NewLine(style, run.Code);
+                    CommitLine(ref line, layout, style, ref width, flow, run.Code);
                 }
                 AddPiece(line, run, value, style, charWidth);
             }
         }
 
         void AddWord(ref TextLine line, TextLayout layout, InlineRun run, string word,
-                     GUIStyle style, float width, float wordWidth)
+                     GUIStyle style, ref float width, float wordWidth, Func<float, Vector2> flow)
         {
             if (wordWidth + CodePadding(run) * 2f <= width)
             {
@@ -239,7 +253,7 @@ namespace SlopWorld
                 return;
             }
 
-            AppendPreserved(ref line, layout, run, word, style, width);
+            AppendPreserved(ref line, layout, run, word, style, ref width, flow);
         }
 
         static float Measure(GUIStyle style, string text) =>
