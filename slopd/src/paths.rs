@@ -132,6 +132,23 @@ pub fn write_atomic(path: &Path, text: &str, mode: Option<u32>) -> Result<()> {
 /// All filesystem operations use Tokio's fs API.
 /// Callers do not need to move an async store to a blocking executor to replace a file.
 pub async fn write_atomic_async(path: &Path, text: &str, mode: Option<u32>) -> Result<()> {
+    publish_atomic_async(path, text, mode, false).await
+}
+
+/// Publish a complete file only if its identity is still unoccupied. Hard-linking
+/// a fully written sibling reserves atomically without exposing an empty record.
+/// Selected by the new record owners at storage cutover.
+#[cfg(test)]
+pub(crate) async fn create_atomic_async(path: &Path, text: &str, mode: Option<u32>) -> Result<()> {
+    publish_atomic_async(path, text, mode, true).await
+}
+
+async fn publish_atomic_async(
+    path: &Path,
+    text: &str,
+    mode: Option<u32>,
+    exclusive: bool,
+) -> Result<()> {
     if let Some(parent) = path.parent() {
         tokio::fs::create_dir_all(parent).await?;
     }
@@ -160,9 +177,19 @@ pub async fn write_atomic_async(path: &Path, text: &str, mode: Option<u32>) -> R
             tokio::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(mode)).await?;
         }
         drop(file);
-        tokio::fs::rename(&tmp, path)
-            .await
-            .with_context(|| format!("installing {}", path.display()))
+        if exclusive {
+            tokio::fs::hard_link(&tmp, path)
+                .await
+                .with_context(|| format!("reserving {}", path.display()))?;
+            // Publication has committed. A leftover temporary sibling must not
+            // turn a successful creation into a reported failure.
+            drop(tokio::fs::remove_file(&tmp).await);
+            Ok(())
+        } else {
+            tokio::fs::rename(&tmp, path)
+                .await
+                .with_context(|| format!("installing {}", path.display()))
+        }
     }
     .await;
     if result.is_err() && created {

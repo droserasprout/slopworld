@@ -33,11 +33,11 @@ It does not read or write environment values.
 | `PULSE_SERVER` | [`slopd/src/session/manager/music/ncspot.rs:28`](./slopd/src/session/manager/music/ncspot.rs#L28) |
 | `SHELL` | [`slopd/src/sandbox/bind/mod.rs:16`](./slopd/src/sandbox/bind/mod.rs#L16), [`slopd/src/sandbox/bind/mounts.rs:215`](./slopd/src/sandbox/bind/mounts.rs#L215), [`slopd/src/sandbox/host.rs:28`](./slopd/src/sandbox/host.rs#L28) |
 | `SLOPCAR_PROFILE` | [`slopd/src/bin/slopworld.rs:332`](./slopd/src/bin/slopworld.rs#L332), [`slopd/src/bin/slopworld.rs:370`](./slopd/src/bin/slopworld.rs#L370) |
-| `SLOPD_CACHE` | [`slopd/src/paths.rs:191`](./slopd/src/paths.rs#L191), [`slopd/src/test_support.rs:54`](./slopd/src/test_support.rs#L54) |
-| `SLOPD_CONFIG` | [`slopd/src/paths.rs:186`](./slopd/src/paths.rs#L186) |
-| `SLOPD_CONFIG_ROOT` | [`slopd/src/paths.rs:181`](./slopd/src/paths.rs#L181) |
+| `SLOPD_CACHE` | [`slopd/src/paths.rs:218`](./slopd/src/paths.rs#L218), [`slopd/src/test_support.rs:54`](./slopd/src/test_support.rs#L54) |
+| `SLOPD_CONFIG` | [`slopd/src/paths.rs:213`](./slopd/src/paths.rs#L213) |
+| `SLOPD_CONFIG_ROOT` | [`slopd/src/paths.rs:208`](./slopd/src/paths.rs#L208) |
 | `SLOPD_CREDITS_URL` | [`slopd/src/usage/providers.rs:33`](./slopd/src/usage/providers.rs#L33) |
-| `SLOPD_DATA` | [`slopd/src/paths.rs:196`](./slopd/src/paths.rs#L196) |
+| `SLOPD_DATA` | [`slopd/src/paths.rs:223`](./slopd/src/paths.rs#L223) |
 | `SLOPD_ENDPOINT` | [`mod/Source/SlopWorld/Client/Daemon/Endpoint.cs:53`](./mod/Source/SlopWorld/Client/Daemon/Endpoint.cs#L53), [`mod/Tests/EndpointTests.cs:22`](./mod/Tests/EndpointTests.cs#L22), [`mod/Tests/EndpointTests.cs:46`](./mod/Tests/EndpointTests.cs#L46), [`mod/Tests/EndpointTests.cs:80`](./mod/Tests/EndpointTests.cs#L80), [`slopd/src/bin/slopctl/http.rs:27`](./slopd/src/bin/slopctl/http.rs#L27), [`slopd/src/bin/slopworld.rs:371`](./slopd/src/bin/slopworld.rs#L371), [`slopd/src/bin/slopworld.rs:174`](./slopd/src/bin/slopworld.rs#L174), [`slopd/src/endpoint.rs:25`](./slopd/src/endpoint.rs#L25) (+1 more) |
 | `SLOPD_GIT_EXEC_TEST_CHILD` | [`slopd/src/api/ws/tests.rs:18`](./slopd/src/api/ws/tests.rs#L18), [`slopd/src/bin/slopctl/format_tests.rs:23`](./slopd/src/bin/slopctl/format_tests.rs#L23), [`slopd/src/git/exec_tests.rs:6`](./slopd/src/git/exec_tests.rs#L6) |
 | `SLOPD_ISOLATED_TEST` | [`slopd/src/test_support.rs:43`](./slopd/src/test_support.rs#L43), [`slopd/src/test_support.rs:89`](./slopd/src/test_support.rs#L89), [`slopd/src/test_support.rs:51`](./slopd/src/test_support.rs#L51) |
@@ -48,6 +48,8 @@ It does not read or write environment values.
 | `SLOPD_PRESETS` | [`slopd/src/api/handlers/presets.rs:172`](./slopd/src/api/handlers/presets.rs#L172), [`slopd/src/presets/edit_tests.rs:22`](./slopd/src/presets/edit_tests.rs#L22), [`slopd/src/presets/edit_tests.rs:44`](./slopd/src/presets/edit_tests.rs#L44), [`slopd/src/presets.rs:270`](./slopd/src/presets.rs#L270) |
 | `SLOPD_RUNTIME` | [`slopd/src/runtime.rs:40`](./slopd/src/runtime.rs#L40), [`slopd/src/runtime.rs:168`](./slopd/src/runtime.rs#L168), [`slopd/src/runtime_tests.rs:78`](./slopd/src/runtime_tests.rs#L78) |
 | `SLOPD_STATE` | [`slopd/src/sandbox/state/mod.rs:16`](./slopd/src/sandbox/state/mod.rs#L16), [`slopd/src/test_support.rs:53`](./slopd/src/test_support.rs#L53) |
+| `SLOPD_STORAGE_CRASH_ROOT` | [`slopd/src/storage/transaction_tests.rs:496`](./slopd/src/storage/transaction_tests.rs#L496), [`slopd/src/storage/transaction_tests.rs:522`](./slopd/src/storage/transaction_tests.rs#L522) |
+| `SLOPD_STORAGE_CRASH_STAGE` | [`slopd/src/storage/transaction_tests.rs:494`](./slopd/src/storage/transaction_tests.rs#L494), [`slopd/src/storage/transaction_tests.rs:521`](./slopd/src/storage/transaction_tests.rs#L521) |
 | `SLOPD_TEST_ROOT` | [`slopd/src/test_support.rs:44`](./slopd/src/test_support.rs#L44), [`slopd/src/test_support.rs:52`](./slopd/src/test_support.rs#L52) |
 | `SLOPD_TITLE_URL` | [`slopd/src/title/mod.rs:76`](./slopd/src/title/mod.rs#L76) |
 | `SLOPD_TMUX_SOCKET` | [`slopd/src/tmux/mod.rs:25`](./slopd/src/tmux/mod.rs#L25) |
@@ -85,7 +87,7 @@ These are patterns rather than single variable names:
 
 - inherited or computed environment name at [`slopd/src/bin/slopworld.rs:474`](./slopd/src/bin/slopworld.rs#L474): `std::env::var(key).ok().filter(\|v\| !v.trim().is_empty())`
 - inherited or computed environment name at [`slopd/src/config/mod.rs:89`](./slopd/src/config/mod.rs#L89): `match std::env::var(name) {`
-- inherited or computed environment name at [`slopd/src/paths.rs:201`](./slopd/src/paths.rs#L201): `env::var_os(variable).map(PathBuf::from).unwrap_or(default)`
+- inherited or computed environment name at [`slopd/src/paths.rs:228`](./slopd/src/paths.rs#L228): `env::var_os(variable).map(PathBuf::from).unwrap_or(default)`
 - inherited or computed environment name at [`slopd/src/sandbox/bind/mounts.rs:182`](./slopd/src/sandbox/bind/mounts.rs#L182): `for (k, v) in std::env::vars() {`
 - inherited or computed environment name at [`slopd/src/sandbox/bind/mounts.rs:184`](./slopd/src/sandbox/bind/mounts.rs#L184): `push_args(a, &["--setenv", k.as_str(), v.as_str()]);`
 - inherited or computed environment name at [`slopd/src/sandbox/bind/mounts.rs:199`](./slopd/src/sandbox/bind/mounts.rs#L199): `if let Ok(v) = std::env::var(k) {`

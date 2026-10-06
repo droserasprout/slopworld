@@ -80,7 +80,7 @@ pub struct SessionCfg {
     pub reader_pinned: bool,
     #[serde(skip)]
     pub reader_line: u32,
-    /// Stable private-state UUID, independent of renames or reused session names.
+    /// Stable private-state identity, independent of renames or reused session names.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub state_id: String,
     /// The project supplies the workspace and shared mounts.

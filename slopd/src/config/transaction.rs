@@ -1,5 +1,7 @@
 //! Recoverable multi-file configuration saves. Catalog preparation belongs to catalog.rs.
 //! Callers serialize writers; the private undo journal survives cancellation or interruption.
+//! TODO(remove after user tests and approves workspace store migration): retain
+//! legacy journal recovery until priv/notes/plan-storage-main.md permits cleanup.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

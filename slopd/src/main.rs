@@ -22,6 +22,10 @@ mod sandbox;
 mod session;
 mod shared;
 mod storage_id;
+// The new layout is exercised with fixtures until all owners and migration are ready.
+// Remove this test-only selection at the storage cutover (priv/notes/plan-storage-main.md).
+#[cfg(test)]
+mod storage;
 mod tasks;
 #[cfg(test)]
 mod test_http;
