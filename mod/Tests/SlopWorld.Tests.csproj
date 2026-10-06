@@ -90,6 +90,7 @@
     <Compile Include="../Source/SlopWorld/UI/Scrolling/ScrollSampleDelta.cs" Link="Source/ScrollSampleDelta.cs" />
     <Compile Include="../Source/SlopWorld/UI/Scrolling/ScrollSampleBudget.cs" Link="Source/ScrollSampleBudget.cs" />
     <Compile Include="../Source/SlopWorld/Client/Catalog/HubCatalog.cs" Link="Source/Client/Catalog/HubCatalog.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Daemon/SnapshotRequest.cs" Link="Source/Client/Daemon/SnapshotRequest.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubWire.cs" Link="Source/Client/SessionHub/HubWire.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Projects/MountPresentation.cs" Link="Source/MountPresentation.cs" />
     <Compile Include="../Source/SlopWorld/Client/Audio/JukeboxPresetInfo.cs" Link="Source/JukeboxPresetInfo.cs" />

@@ -25,32 +25,7 @@ namespace SlopWorld
         // Track the old name until the response arrives so the terminal does not treat the rename as session termination.
         readonly Dictionary<string, string> _pendingRenames = new Dictionary<string, string>();
         long _sessionsVersion;
-        int _refreshSerial;
-        readonly List<RefreshWaiter> _refreshWaiters = new List<RefreshWaiter>();
-
-        sealed class RefreshWaiter
-        {
-            public Action Done;
-            public Action<string> Fail;
-        }
-
-        void SettleRefresh(Wire.SessionsReply value, string error = null)
-        {
-            // Detach first: callbacks may start a new refresh belonging to the next outcome.
-            var waiters = _refreshWaiters.ToArray();
-            _refreshWaiters.Clear();
-            try { if (value != null) ReplaceSessions(value); }
-            catch (Exception e) { error = e.Message; }
-            foreach (var waiter in waiters)
-            {
-                try
-                {
-                    if (error == null) waiter.Done?.Invoke();
-                    else waiter.Fail?.Invoke(error);
-                }
-                catch (Exception e) { Verse.Log.Warning("[SlopWorld] session refresh callback: " + e); }
-            }
-        }
+        readonly SnapshotRequest _refresh = new SnapshotRequest();
 
         public long Version => _sessionsVersion;
 
@@ -151,14 +126,11 @@ namespace SlopWorld
 
         // Replace the list when the socket sends a "sessions" event.
         // Then discard screens for sessions that no longer exist.
-        public void ApplySessions(Wire.SessionsReply ev)
-        {
-            _refreshSerial++;
-            SettleRefresh(ev);
-        }
+        public void ApplySessions(Wire.SessionsReply ev) => _refresh.Apply(ev, ReplaceSessions);
 
         void ReplaceSessions(Wire.SessionsReply ev)
         {
+            if (ev == null) return;
             _sessionsVersion++;
             var next = ev.Sessions.Select(SessionInfo.FromWire).ToList();
             foreach (var session in next)
@@ -239,14 +211,8 @@ namespace SlopWorld
             foreach (var name in gone) store.Remove(name);
         }
 
-        public void Refresh(Action done = null, Action<string> fail = null)
-        {
-            int serial = ++_refreshSerial;
-            _refreshWaiters.Add(new RefreshWaiter { Done = done, Fail = fail });
-            DaemonClient.Get<Wire.SessionsReply>(SessionsPath,
-                j => { if (serial == _refreshSerial) SettleRefresh(j); },
-                error => { if (serial == _refreshSerial) SettleRefresh(null, error); });
-        }
+        public void Refresh(Action done = null, Action<string> fail = null) =>
+            _refresh.Refresh<Wire.SessionsReply>(SessionsPath, ReplaceSessions, fail, done);
 
         // A terminal path is relative to the shell's current directory, not necessarily the
         // project's configured root. Ask tmux at action time so a recent `cd` is respected.
@@ -262,13 +228,7 @@ namespace SlopWorld
         {
             options = options ?? new SessionRunOptions();
             string worktree = options.Worktree;
-            if (BrowseScope.IsKey(project))
-            {
-                var selected = BrowseScope.ProjectOf(project, SessionHub.Instance.Projects);
-                if (selected == null) { fail?.Invoke("The reader's project has gone."); return; }
-                worktree = BrowseScope.WorktreeOf(project);
-                project = selected.Name;
-            }
+            if (!ResolveRunScope(ref project, ref worktree, fail)) return;
             var request = options.ToWire();
             request.Worktree = worktree ?? "";
             request.Project = project ?? "";
@@ -283,15 +243,19 @@ namespace SlopWorld
         public void RunHostShell(string project, Action<string> started,
                                  Action<string> fail = null, string worktree = "")
         {
-            if (BrowseScope.IsKey(project))
-            {
-                var selected = BrowseScope.ProjectOf(project, SessionHub.Instance.Projects);
-                if (selected == null) { fail?.Invoke("The reader's project has gone."); return; }
-                worktree = BrowseScope.WorktreeOf(project);
-                project = selected.Name;
-            }
+            if (!ResolveRunScope(ref project, ref worktree, fail)) return;
             DaemonClient.Post<Wire.SessionResult>(RunPath, new Wire.RunReq { Project = project ?? "", Worktree = worktree ?? "", Kind = "shell", Host = true },
                 j => Started(j, started, fail), fail);
+        }
+
+        static bool ResolveRunScope(ref string project, ref string worktree, Action<string> fail)
+        {
+            if (!BrowseScope.IsKey(project)) return true;
+            var selected = BrowseScope.ProjectOf(project, SessionHub.Instance.Projects);
+            if (selected == null) { fail?.Invoke("The reader's project has gone."); return false; }
+            worktree = BrowseScope.WorktreeOf(project);
+            project = selected.Name;
+            return true;
         }
 
         // Refresh the session list before returning the result.

@@ -10,9 +10,10 @@ capabilities to unknown until the new announcement. Local socket-queue acceptanc
 is not daemon acknowledgement. Old callback batches cannot spill into a reconnected
 transport.
 
-HTTP writes and pushed snapshots can race. Catalog/session revisions reject stale
-reads. Session refresh callers wait for the winning HTTP or pushed snapshot, sharing
-its failure. Run callbacks open panes only after that refresh settles. Rename keeps
+HTTP writes and pushed snapshots can race. `Client/Daemon/SnapshotRequest.cs` owns
+revision checks and waiter settlement for catalog and session refreshes; each service
+owns snapshot publication. Session refresh callers wait for the winning HTTP or
+pushed snapshot, sharing its failure. Run callbacks open panes only after that refresh settles. Rename keeps
 a temporary name mapping until its HTTP result settles, preserving pawn, terminal,
 and selection without retaining genuinely removed sessions.
 
