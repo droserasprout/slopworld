@@ -25,133 +25,90 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from tools import ROOT
+from tools.assets import robot_geometry as geometry
 
-type FloatArray = NDArray[np.float64]
-type ColorBuffer = NDArray[np.float32] | FloatArray
-
-# ── robot face geometry (lifted from roboface.py) ──────────────────────────
-
-N = 128
-SS = 4
-S = N * SS
-
-CX, CY, RX, RY, EXP = 64.0, 64.5, 23.5, 24.5, 3.0
+# Icon-specific cut and eye palette; shared geometry lives in robot_geometry.
 HAIRLINE = 54.0
-SKIN_INSET = 2.0
-SEAM_W = 1.6
-EYE_Y, EYE_R, IRIS_R = 64.0, 5.8, 3.5
-EYES_X = (57.0, 71.0)
-MOUTH = (53.5, 74.0, 74.5, 80.5)
-MOUTH_R = 2.8
-BARS_X = (56.5, 60.5, 64.5, 68.5, 72.5)
-BAR_W = 0.8
-BOLTS = ((52.0, 58.0), (76.0, 58.0), (52.5, 84.0), (75.5, 84.0))
-BOLT_R = 1.2
 
-C_PLATE_TOP = np.array([0.42, 0.435, 0.46])
-C_PLATE_BOT = np.array([0.25, 0.265, 0.29])
-C_SEAM = np.array([0.16, 0.175, 0.195])
 C_LENS = np.array([0.085, 0.095, 0.115])
-C_BOLT = np.array([0.52, 0.535, 0.56])
 C_GLOW = np.array([0.45, 0.75, 0.95])
-
-_y, _x = np.mgrid[0:S, 0:S]
-X: FloatArray = (_x + 0.5) / SS
-Y: FloatArray = (_y + 0.5) / SS
-
-
-def cover(sd: FloatArray) -> FloatArray:
-    return np.clip(0.5 - sd * SS, 0.0, 1.0)
-
-
-def rrect(x0: float, y0: float, x1: float, y1: float, r: float) -> FloatArray:
-    hx, hy = (x1 - x0) / 2 - r, (y1 - y0) / 2 - r
-    dx = np.abs(X - (x0 + x1) / 2) - hx
-    dy = np.abs(Y - (y0 + y1) / 2) - hy
-    outside = np.sqrt(np.maximum(dx, 0) ** 2 + np.maximum(dy, 0) ** 2)
-    return cast(FloatArray, outside + np.minimum(np.maximum(dx, dy), 0) - r)
-
-
-def disc(cx: float, cy: float, r: float) -> FloatArray:
-    return np.sqrt((X - cx) ** 2 + (Y - cy) ** 2) - r
-
-
-def skull(inset: float = 0.0) -> FloatArray:
-    dx, dy = (X - CX) / RX, (Y - CY) / RY
-    f = np.abs(dx) ** EXP + np.abs(dy) ** EXP
-    return (f ** (1.0 / EXP) - 1.0) * min(RX, RY) + inset
 
 
 class Face:
     def __init__(self) -> None:
-        self.rgb: ColorBuffer = np.zeros((S, S, 3), np.float32)
-        self.a: ColorBuffer = np.zeros((S, S), np.float32)
+        self.rgb: geometry.ColorBuffer = np.zeros((geometry.S, geometry.S, 3), np.float32)
+        self.a: geometry.ColorBuffer = np.zeros((geometry.S, geometry.S), np.float32)
 
-    def paint(self, mask: FloatArray, color: FloatArray) -> None:
+    def paint(self, mask: geometry.FloatArray, color: geometry.FloatArray) -> None:
         m = mask[..., None]
         self.rgb = self.rgb * (1 - m) + np.asarray(color, np.float32) * m
         self.a = mask + self.a * (1 - mask)
 
 
-def steel(x0: float, y0: float, x1: float, y1: float) -> FloatArray:
-    t = np.clip((Y - y0) / (y1 - y0), 0, 1)[..., None]
-    lit = np.clip(1.0 - (((X - (x0 + (x1 - x0) * 0.3)) ** 2 + (Y - (y0 + (y1 - y0) * 0.25)) ** 2) / 900.0), 0, 1)
-    return np.clip(C_PLATE_TOP * (1 - t) + C_PLATE_BOT * t + lit[..., None] * 0.09, 0, 1)
-
-
-def front(f: Face, *cuts: FloatArray) -> FloatArray:
-    region = skull(SKIN_INSET)
+def front(f: Face, *cuts: geometry.FloatArray) -> geometry.FloatArray:
+    region = geometry.skull(geometry.SKIN_INSET)
     for c in cuts:
         region = np.maximum(region, c)
-    f.paint(cover(region), C_SEAM)
-    inner = skull(SKIN_INSET)
+    f.paint(geometry.cover(region), geometry.C_SEAM)
+    inner = geometry.skull(geometry.SKIN_INSET)
     for c in cuts:
-        inner = np.maximum(inner, c + SEAM_W)
-    m = cover(inner)[..., None]
-    f.rgb = f.rgb * (1 - m) + steel(CX - RX, HAIRLINE, CX + RX, CY + RY) * m
+        inner = np.maximum(inner, c + geometry.SEAM_W)
+    m = geometry.cover(inner)[..., None]
+    f.rgb = (
+        f.rgb * (1 - m)
+        + geometry.steel(geometry.CX - geometry.RX, HAIRLINE, geometry.CX + geometry.RX, geometry.CY + geometry.RY) * m
+    )
     return region
 
 
-def below(y: float) -> FloatArray:
-    return y - Y
+def below(y: float) -> geometry.FloatArray:
+    return y - geometry.Y
 
 
-def clipped(mask: FloatArray, region: FloatArray) -> FloatArray:
-    return mask * cover(region + SEAM_W)
+def clipped(mask: geometry.FloatArray, region: geometry.FloatArray) -> geometry.FloatArray:
+    return mask * geometry.cover(region + geometry.SEAM_W)
 
 
 def eye(f: Face, cx: float, cy: float) -> None:
-    f.paint(cover(disc(cx, cy, EYE_R)), C_LENS)
-    iris = cover(disc(cx, cy, IRIS_R))
-    g = np.clip(1.25 - ((X - (cx - IRIS_R)) + (Y - (cy - IRIS_R))) / (IRIS_R * 4), 0.35, 1.0)
+    f.paint(geometry.cover(geometry.disc(cx, cy, geometry.EYE_R)), C_LENS)
+    iris = geometry.cover(geometry.disc(cx, cy, geometry.IRIS_R))
+    g = np.clip(
+        1.25 - ((geometry.X - (cx - geometry.IRIS_R)) + (geometry.Y - (cy - geometry.IRIS_R))) / (geometry.IRIS_R * 4),
+        0.35,
+        1.0,
+    )
     f.rgb = f.rgb * (1 - iris[..., None]) + C_GLOW * (g * 0.95)[..., None] * iris[..., None]
     f.a = iris + f.a * (1 - iris)
 
 
 def mouth(f: Face, x0: float, y0: float, x1: float, y1: float, bars: tuple[float, ...]) -> None:
-    f.paint(cover(rrect(x0, y0, x1, y1, MOUTH_R)), C_LENS)
-    inside = cover(rrect(x0 + 0.9, y0 + 0.9, x1 - 0.9, y1 - 0.9, MOUTH_R * 0.6))
+    f.paint(geometry.cover(geometry.rrect(x0, y0, x1, y1, geometry.MOUTH_R)), C_LENS)
+    inside = geometry.cover(geometry.rrect(x0 + 0.9, y0 + 0.9, x1 - 0.9, y1 - 0.9, geometry.MOUTH_R * 0.6))
     for x in bars:
-        f.paint(cover(rrect(x - BAR_W, y0, x + BAR_W, y1, BAR_W * 0.8)) * inside, C_PLATE_BOT)
+        f.paint(
+            geometry.cover(geometry.rrect(x - geometry.BAR_W, y0, x + geometry.BAR_W, y1, geometry.BAR_W * 0.8))
+            * inside,
+            geometry.C_PLATE_BOT,
+        )
 
 
-def bolt(f: Face, cx: float, cy: float, region: FloatArray) -> None:
-    f.paint(clipped(cover(disc(cx, cy, BOLT_R)), region), C_BOLT)
-    f.paint(clipped(cover(disc(cx, cy, BOLT_R * 0.45)), region), C_SEAM)
+def bolt(f: Face, cx: float, cy: float, region: geometry.FloatArray) -> None:
+    f.paint(clipped(geometry.cover(geometry.disc(cx, cy, geometry.BOLT_R)), region), geometry.C_BOLT)
+    f.paint(clipped(geometry.cover(geometry.disc(cx, cy, geometry.BOLT_R * 0.45)), region), geometry.C_SEAM)
 
 
-def draw_robot() -> FloatArray:
+def draw_robot() -> geometry.FloatArray:
     f = Face()
     region = front(f, below(HAIRLINE))
-    for x in EYES_X:
-        eye(f, x, EYE_Y)
-    mouth(f, *MOUTH, BARS_X)
-    for cx, cy in BOLTS:
+    for x in geometry.EYES_X:
+        eye(f, x, geometry.EYE_Y)
+    mouth(f, *geometry.MOUTH, geometry.BARS_X)
+    for cx, cy in geometry.BOLTS:
         bolt(f, cx, cy, region)
-    px = np.dstack([f.rgb, f.a]).reshape(N, SS, N, SS, 4).mean(axis=(1, 3))
+    px = np.dstack([f.rgb, f.a]).reshape(geometry.N, geometry.SS, geometry.N, geometry.SS, 4).mean(axis=(1, 3))
     rgb, a = px[..., :3], px[..., 3:]
     rgb = np.where(a > 1e-4, rgb / np.maximum(a, 1e-4), 0.0)
-    return cast(FloatArray, np.clip(np.concatenate([rgb, a], -1), 0, 1))
+    return cast(geometry.FloatArray, np.clip(np.concatenate([rgb, a], -1), 0, 1))
 
 
 # ── step 1: render rose as a separate PNG ─────────────────────────────────
@@ -197,16 +154,16 @@ def make_icon(rose_path: str) -> NDArray[np.float32]:
     # head.
     stem_tip_y = 56  # hairline + 2, rose scaled down so needs lowering
     rose_top = stem_tip_y - rh + 1  # stem_tip_y = rose_top + rh - 1
-    rose_left = int(round(CX - rw / 2))  # centred on the faceplate
+    rose_left = int(round(geometry.CX - rw / 2))  # centred on the faceplate
 
     # Composite: rose behind, robot on top.
-    icon = np.zeros((N, N, 4), dtype=np.float32)
+    icon = np.zeros((geometry.N, geometry.N, 4), dtype=np.float32)
 
     # Paste the rose first.
     y0 = max(0, rose_top)
-    y1 = min(N, rose_top + rh)
+    y1 = min(geometry.N, rose_top + rh)
     x0 = max(0, rose_left)
-    x1 = min(N, rose_left + rw)
+    x1 = min(geometry.N, rose_left + rw)
     ry0 = y0 - rose_top
     rx0 = x0 - rose_left
     if y1 > y0 and x1 > x0:
@@ -249,11 +206,11 @@ def main() -> int:
     artwork = artwork.crop(bounds)
     margin = 4
     original_edge = max(artwork.size)
-    target_edge = (original_edge + N - 2 * margin) / 2
+    target_edge = (original_edge + geometry.N - 2 * margin) / 2
     scale = target_edge / original_edge
     fitted = artwork.resize((round(artwork.width * scale), round(artwork.height * scale)), Image.Resampling.LANCZOS)
-    canvas = Image.new('RGBA', (N, N))
-    canvas.paste(fitted, ((N - fitted.width) // 2, (N - fitted.height) // 2))
+    canvas = Image.new('RGBA', (geometry.N, geometry.N))
+    canvas.paste(fitted, ((geometry.N - fitted.width) // 2, (geometry.N - fitted.height) // 2))
     canvas.save(out_path)
     print('wrote', os.path.normpath(out_path))
 

@@ -7,6 +7,8 @@ preserves caller opacity without inheriting text tint.
 
 Plain labels use the native text path. `PlainStatusLabel` and its height helper
 share native wrapping; catalog keys remain literal text in these APIs.
+`UiText.Paragraph` owns plain paragraph drawing and spacing; `SizedStyle` owns
+explicit-size native font styles, falling back to the native size when unspecified.
 Editable field ownership belongs to [focus](ui-focus.md), and control composition
 to [shared chrome](mod-ui-chrome.md).
 

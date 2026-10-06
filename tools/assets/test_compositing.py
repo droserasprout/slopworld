@@ -12,9 +12,10 @@ pytest.importorskip('PIL')
 
 def test_icon_overlap_uses_source_over_and_returns_straight_alpha(monkeypatch: pytest.MonkeyPatch) -> None:
     from tools.assets import appicon
+    from tools.assets.robot_geometry import N
 
     rose = np.array([[[0, 255, 0, 127.5]]], dtype=np.float32)
-    robot = np.zeros((appicon.N, appicon.N, 4), dtype=np.float32)
+    robot = np.zeros((N, N, 4), dtype=np.float32)
     robot[..., 0] = 1
     robot[..., 3] = 0.5
     monkeypatch.setattr(Image, 'open', lambda _path: rose)

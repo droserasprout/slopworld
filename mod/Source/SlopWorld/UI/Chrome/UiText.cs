@@ -6,6 +6,54 @@ namespace SlopWorld
 {
     public abstract class UiText : UiTheme
     {
+        public static float Paragraph(Rect r, float y, string text, GameFont font, Color color,
+            TextAnchor anchor, int textSize = 0)
+        {
+            if (textSize > 0)
+            {
+                var style = SizedStyle(font, textSize, anchor, true);
+                float largeH = Mathf.Max(1f,
+                    style.CalcHeight(new GUIContent(text ?? ""), r.width)) +
+                    GapXS;
+                var largeColor = GUI.color;
+                GUI.color = color;
+                GUI.Label(new Rect(r.x, y, r.width, largeH), text ?? "", style);
+                GUI.color = largeColor;
+                return y + largeH;
+            }
+
+            var wasFont = Verse.Text.Font;
+            var wasColor = GUI.color;
+            var wasWrap = Verse.Text.WordWrap;
+            var wasAnchor = Verse.Text.Anchor;
+            Verse.Text.Font = font;
+            Verse.Text.WordWrap = true;
+            Verse.Text.Anchor = anchor;
+            float h = UiText.PlainStatusLabelHeight(text, r.width, font);
+            UiText.PlainStatusLabel(new Rect(r.x, y, r.width, h), text, color, font, anchor);
+            Verse.Text.Anchor = wasAnchor;
+            Verse.Text.WordWrap = wasWrap;
+            GUI.color = wasColor;
+            Verse.Text.Font = wasFont;
+            return y + h + GapXS;
+        }
+
+        // Retain the native font size when no explicit size is requested.
+        public static GUIStyle SizedStyle(GameFont font, int textSize, TextAnchor anchor, bool wrap)
+        {
+            var wasFont = Verse.Text.Font;
+            Verse.Text.Font = font;
+            var style = new GUIStyle(Verse.Text.CurFontStyle)
+            {
+                alignment = anchor,
+                clipping = TextClipping.Overflow,
+                fontSize = textSize > 0 ? textSize : Verse.Text.CurFontStyle.fontSize,
+                wordWrap = wrap,
+            };
+            Verse.Text.Font = wasFont;
+            return style;
+        }
+
         // Plain-text-only wrapped status/empty-state labels: catalog sprite keys remain
         // literal text. Measurement and drawing both use Verse's native wrapping; sprite
         // labels belong to RowLabel or a renderer with an explicit sprite-aware layout.

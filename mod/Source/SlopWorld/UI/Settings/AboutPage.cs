@@ -246,7 +246,7 @@ namespace SlopWorld
         float DrawEulaDisclaimer(Rect r, float y)
         {
             y += HeroMargin;
-            y = Paragraph(r, y, EulaDisclaimer, RegularFont, UiTheme.Dim,
+            y = UiText.Paragraph(r, y, EulaDisclaimer, RegularFont, UiTheme.Dim,
                 TextAnchor.UpperCenter, BodyTextSize);
             return y + HeroMargin;
         }
@@ -351,8 +351,8 @@ namespace SlopWorld
 
         float CreditGrid(Rect rect, float y, Credit[] credits, int columns)
         {
-            var detailStyle = SizedStyle(GameFont.Small, MetaTextSize, TextAnchor.MiddleRight, false);
-            var nameStyle = SizedStyle(RegularFont, 0, TextAnchor.MiddleLeft, false);
+            var detailStyle = UiText.SizedStyle(GameFont.Small, MetaTextSize, TextAnchor.MiddleRight, false);
+            var nameStyle = UiText.SizedStyle(RegularFont, 0, TextAnchor.MiddleLeft, false);
             // Keep vertical glyph overflow; labels apply their own horizontal column clip.
             float line = Mathf.Max(UiFont.LineHeight(detailStyle), UiFont.LineHeight(nameStyle));
             float gap = ColumnGap;
@@ -476,7 +476,7 @@ namespace SlopWorld
             string url, GameFont font)
         {
             Text.Font = font;
-            var style = SizedStyle(font, 0, TextAnchor.UpperLeft, false);
+            var style = UiText.SizedStyle(font, 0, TextAnchor.UpperLeft, false);
             float h = UiFont.LineHeight(style);
             float beforeWidth = style.CalcSize(new GUIContent(before)).x;
             float linkedWidth = style.CalcSize(new GUIContent(linked)).x;
@@ -544,7 +544,7 @@ namespace SlopWorld
             if (textSize <= 0)
                 return NativeLine(r, y, text, font, color, anchor);
 
-            var style = SizedStyle(font, textSize, anchor, false);
+            var style = UiText.SizedStyle(font, textSize, anchor, false);
             float h = Mathf.Max(1f, style.CalcHeight(new GUIContent(text ?? ""), r.width));
             var wasFont = Text.Font;
             var wasColor = GUI.color;
@@ -569,37 +569,6 @@ namespace SlopWorld
             return y + h;
         }
 
-        float Paragraph(Rect r, float y, string text, GameFont font, Color color,
-            TextAnchor anchor, int textSize = 0)
-        {
-            if (textSize > 0)
-            {
-                var style = SizedStyle(font, textSize, anchor, true);
-                float largeH = Mathf.Max(1f,
-                    style.CalcHeight(new GUIContent(text ?? ""), r.width)) +
-                    RowGap;
-                var largeColor = GUI.color;
-                GUI.color = color;
-                GUI.Label(new Rect(r.x, y, r.width, largeH), text ?? "", style);
-                GUI.color = largeColor;
-                return y + largeH;
-            }
-
-            var wasFont = Text.Font;
-            var wasColor = GUI.color;
-            var wasWrap = Text.WordWrap;
-            var wasAnchor = Text.Anchor;
-            Text.Font = font;
-            Text.WordWrap = true;
-            Text.Anchor = anchor;
-            float h = UiText.PlainStatusLabelHeight(text, r.width, font);
-            UiText.PlainStatusLabel(new Rect(r.x, y, r.width, h), text, color, font, anchor);
-            Text.Anchor = wasAnchor;
-            Text.WordWrap = wasWrap;
-            GUI.color = wasColor;
-            Text.Font = wasFont;
-            return y + h + RowGap;
-        }
 
         float Link(Rect r, float y, string label, string url, GameFont font,
             TextAnchor anchor, int textSize = 0, Action onClick = null, float spriteScale = 1f)
@@ -608,7 +577,7 @@ namespace SlopWorld
             var wasColor = GUI.color;
             Text.Font = font;
             float h = UiTheme.LineHOf(font);
-            GUIStyle style = textSize > 0 ? SizedStyle(font, textSize, TextAnchor.UpperLeft,
+            GUIStyle style = textSize > 0 ? UiText.SizedStyle(font, textSize, TextAnchor.UpperLeft,
                 false) : null;
             InlineTextLayout layout = null;
             if (spriteScale != 1f)
@@ -649,19 +618,5 @@ namespace SlopWorld
             return y + h + RowGap;
         }
 
-        static GUIStyle SizedStyle(GameFont font, int textSize, TextAnchor anchor, bool wrap)
-        {
-            var wasFont = Text.Font;
-            Text.Font = font;
-            var style = new GUIStyle(Text.CurFontStyle)
-            {
-                alignment = anchor,
-                clipping = TextClipping.Overflow,
-                fontSize = textSize > 0 ? textSize : Text.CurFontStyle.fontSize,
-                wordWrap = wrap,
-            };
-            Text.Font = wasFont;
-            return style;
-        }
     }
 }

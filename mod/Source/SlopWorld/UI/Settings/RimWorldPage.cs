@@ -18,7 +18,6 @@ namespace SlopWorld
         static float HeroMargin => UiTheme.GapS;
         static float HeadingGap => UiTheme.GapM;
         static float ColumnGap => UiTheme.GapL;
-        static float RowGap => UiTheme.GapXS;
         readonly SmoothScroll _rimWorldScroll = new SmoothScroll();
         readonly Dialog_Options _rimWorldOptions = new Dialog_Options();
         readonly ContentHeight _rimWorldHeight = new ContentHeight(1800f);
@@ -210,56 +209,11 @@ namespace SlopWorld
         float DrawEulaDisclaimer(Rect r, float y)
         {
             y += HeroMargin;
-            y = Paragraph(r, y, EulaDisclaimer, RegularFont, UiTheme.Dim,
+            y = UiText.Paragraph(r, y, EulaDisclaimer, RegularFont, UiTheme.Dim,
                 TextAnchor.UpperCenter, BodyTextSize);
             return y + HeroMargin;
         }
 
-        float Paragraph(Rect r, float y, string text, GameFont font, Color color,
-            TextAnchor anchor, int textSize = 0)
-        {
-            if (textSize > 0)
-            {
-                var style = SizedStyle(font, textSize, anchor, true);
-                float largeH = Mathf.Max(1f,
-                    style.CalcHeight(new GUIContent(text ?? ""), r.width)) +
-                    RowGap;
-                var largeColor = GUI.color;
-                GUI.color = color;
-                GUI.Label(new Rect(r.x, y, r.width, largeH), text ?? "", style);
-                GUI.color = largeColor;
-                return y + largeH;
-            }
 
-            var wasFont = Text.Font;
-            var wasColor = GUI.color;
-            var wasWrap = Text.WordWrap;
-            var wasAnchor = Text.Anchor;
-            Text.Font = font;
-            Text.WordWrap = true;
-            Text.Anchor = anchor;
-            float h = UiText.PlainStatusLabelHeight(text, r.width, font);
-            UiText.PlainStatusLabel(new Rect(r.x, y, r.width, h), text, color, font, anchor);
-            Text.Anchor = wasAnchor;
-            Text.WordWrap = wasWrap;
-            GUI.color = wasColor;
-            Text.Font = wasFont;
-            return y + h + RowGap;
-        }
-
-        static GUIStyle SizedStyle(GameFont font, int textSize, TextAnchor anchor, bool wrap)
-        {
-            var wasFont = Text.Font;
-            Text.Font = font;
-            var style = new GUIStyle(Text.CurFontStyle)
-            {
-                alignment = anchor,
-                clipping = TextClipping.Overflow,
-                fontSize = Mathf.Max(1, textSize),
-                wordWrap = wrap,
-            };
-            Text.Font = wasFont;
-            return style;
-        }
     }
 }

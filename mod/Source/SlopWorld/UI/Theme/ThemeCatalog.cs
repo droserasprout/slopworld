@@ -332,51 +332,34 @@ namespace SlopWorld
                 Required(table, "link", path, true), colors);
         }
 
-        static List<UiRecord> OrderUi(List<UiRecord> records)
-        {
-            records.Sort((a, b) =>
-            {
-                if (a.Order.HasValue != b.Order.HasValue) return a.Order.HasValue ? -1 : 1;
-                if (a.Order.HasValue) return a.Order.Value.CompareTo(b.Order.Value);
-                return string.CompareOrdinal(a.Id, b.Id);
-            });
-            var ids = new HashSet<string>(StringComparer.Ordinal);
-            int pinned = 0;
-            for (int i = 0; i < records.Count; i++)
-            {
-                bool isPinned = records[i].Id.StartsWith("slopworld-", StringComparison.Ordinal);
-                if (records[i].Order.HasValue != isPinned)
-                    throw new FormatException("only SlopWorld UI themes may set order");
-                if (isPinned && records[i].Order.Value != pinned++)
-                    throw new FormatException("SlopWorld UI theme order must be contiguous from 0");
-                if (!ids.Add(records[i].Id))
-                    throw new FormatException("UI theme id is duplicated: " + records[i].Id);
-            }
-            if (records.Count == 0) throw new FormatException("UI theme catalog has no files");
-            return records;
-        }
+        static List<UiRecord> OrderUi(List<UiRecord> records) =>
+            OrderRecords(records, record => record.Order, record => record.Id, "UI");
 
-        static List<TerminalRecord> OrderTerminal(List<TerminalRecord> records)
+        static List<TerminalRecord> OrderTerminal(List<TerminalRecord> records) =>
+            OrderRecords(records, record => record.Order, record => record.Id, "terminal");
+
+        static List<T> OrderRecords<T>(List<T> records, Func<T, int?> order,
+            Func<T, string> id, string kind)
         {
             records.Sort((a, b) =>
             {
-                if (a.Order.HasValue != b.Order.HasValue) return a.Order.HasValue ? -1 : 1;
-                if (a.Order.HasValue) return a.Order.Value.CompareTo(b.Order.Value);
-                return string.CompareOrdinal(a.Id, b.Id);
+                if (order(a).HasValue != order(b).HasValue) return order(a).HasValue ? -1 : 1;
+                if (order(a).HasValue) return order(a).Value.CompareTo(order(b).Value);
+                return string.CompareOrdinal(id(a), id(b));
             });
             var ids = new HashSet<string>(StringComparer.Ordinal);
             int pinned = 0;
             for (int i = 0; i < records.Count; i++)
             {
-                bool isPinned = records[i].Id.StartsWith("slopworld-", StringComparison.Ordinal);
-                if (records[i].Order.HasValue != isPinned)
-                    throw new FormatException("only SlopWorld terminal themes may set order");
-                if (isPinned && records[i].Order.Value != pinned++)
-                    throw new FormatException("SlopWorld terminal theme order must be contiguous from 0");
-                if (!ids.Add(records[i].Id))
-                    throw new FormatException("terminal theme id is duplicated: " + records[i].Id);
+                bool isPinned = id(records[i]).StartsWith("slopworld-", StringComparison.Ordinal);
+                if (order(records[i]).HasValue != isPinned)
+                    throw new FormatException("only SlopWorld " + kind + " themes may set order");
+                if (isPinned && order(records[i]).Value != pinned++)
+                    throw new FormatException("SlopWorld " + kind + " theme order must be contiguous from 0");
+                if (!ids.Add(id(records[i])))
+                    throw new FormatException(kind + " theme id is duplicated: " + id(records[i]));
             }
-            if (records.Count == 0) throw new FormatException("terminal theme catalog has no files");
+            if (records.Count == 0) throw new FormatException(kind + " theme catalog has no files");
             return records;
         }
 

@@ -48,12 +48,12 @@ namespace SlopWorld
             r = new Rect(r.center.x - width / 2f, r.y, width, r.height);
             float offset = r.width < 480f ? 0f : HeaderTextOffset * scale;
             var body = new Rect(r.x + offset, r.y, Mathf.Max(1f, r.width - offset), r.height);
-            var title = SizedStyle(RegularFont, Mathf.RoundToInt(TitleTextSize * scale),
+            var title = UiText.SizedStyle(RegularFont, Mathf.RoundToInt(TitleTextSize * scale),
                 TextAnchor.MiddleLeft, true);
             title.fontStyle = FontStyle.Bold;
-            var text = SizedStyle(RegularFont, Mathf.RoundToInt(BodyTextSize * scale),
+            var text = UiText.SizedStyle(RegularFont, Mathf.RoundToInt(BodyTextSize * scale),
                 TextAnchor.UpperLeft, true);
-            var outro = SizedStyle(RegularFont, Mathf.RoundToInt(22f * scale),
+            var outro = UiText.SizedStyle(RegularFont, Mathf.RoundToInt(22f * scale),
                 TextAnchor.UpperLeft, true);
             float iconSize = RobotImageSize * scale;
             float headerHeight = Mathf.Max(iconSize,
@@ -151,19 +151,5 @@ namespace SlopWorld
             }
         }
 
-        static GUIStyle SizedStyle(GameFont font, int textSize, TextAnchor anchor, bool wrap)
-        {
-            var wasFont = Text.Font;
-            Text.Font = font;
-            var style = new GUIStyle(Text.CurFontStyle)
-            {
-                alignment = anchor,
-                clipping = TextClipping.Overflow,
-                fontSize = textSize > 0 ? textSize : Text.CurFontStyle.fontSize,
-                wordWrap = wrap,
-            };
-            Text.Font = wasFont;
-            return style;
-        }
     }
 }
