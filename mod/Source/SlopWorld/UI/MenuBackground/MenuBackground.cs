@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Reflection;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -27,6 +29,8 @@ namespace SlopWorld
         // a preset reload from accidentally preserving half of the old animation.
         struct AnimationState
         {
+            public Texture2D Current;
+            public Texture2D Previous;
             public float Began;
             public float Depth;
             public int Phase;
@@ -86,14 +90,28 @@ namespace SlopWorld
             if (t < OnsetSecs)
             {
                 float u = Mathf.SmoothStep(0f, 1f, t / OnsetSecs);
-                return _frames[Mathf.Clamp(Mathf.FloorToInt(u * Onset), 0, Onset - 1)];
+                return Remember(_frames[Mathf.Clamp(Mathf.FloorToInt(u * Onset), 0, Onset - 1)]);
             }
 
             Walk(t - OnsetSecs);
             int depth = Mathf.Clamp(
                 Mathf.RoundToInt(_depth * (_preset.Depths - 1)), 0, _preset.Depths - 1);
-            return _frames[Onset + depth * _preset.Phases + _phase];
+            return Remember(_frames[Onset + depth * _preset.Phases + _phase]);
         }
+
+        // Retain the previous distinct animation frame, not the previous GUI invocation.
+        // Loading and menu drawing can ask for the same frame several times.
+        static Texture2D Remember(Texture2D frame)
+        {
+            if (_animation.Current != frame)
+            {
+                _animation.Previous = _animation.Current ?? frame;
+                _animation.Current = frame;
+            }
+            return frame;
+        }
+
+        internal static Texture2D Previous => _animation.Previous;
 
         // Stepped off absolute times rather than a delta, so a frame that asks twice gets one
         // answer - the menu patch and eco both call Current.
@@ -204,6 +222,8 @@ namespace SlopWorld
             _srcKey = key;
             _preset = preset;
             _began = -1f;
+            _animation.Current = null;
+            _animation.Previous = null;
             MenuBackgroundBake.DestroyFrames(retired);
             loadTimer.Stop();
             MenuBackgroundMemory.Report(replacement, baked, loadTimer.ElapsedMilliseconds,
@@ -227,6 +247,24 @@ namespace SlopWorld
     [HarmonyPatch(typeof(UI_BackgroundMain), nameof(UI_BackgroundMain.BackgroundOnGUI))]
     public static class Patch_MenuBackgroundDraw
     {
+        // Replace only this background's texture calls, leaving vanilla geometry and fades intact.
+        [HarmonyTranspiler]
+        static IEnumerable<CodeInstruction> LayerFrames(IEnumerable<CodeInstruction> instructions)
+        {
+            foreach (CodeInstruction instruction in instructions)
+            {
+                if (instruction.operand is MethodInfo method &&
+                    method.DeclaringType == typeof(GUI) && method.Name == nameof(GUI.DrawTexture))
+                {
+                    Type[] parameters = Array.ConvertAll(method.GetParameters(), p => p.ParameterType);
+                    MethodInfo replacement = AccessTools.Method(typeof(MenuBackgroundLayers),
+                        nameof(MenuBackgroundLayers.DrawLayers), parameters);
+                    if (replacement != null) instruction.operand = replacement;
+                }
+                yield return instruction;
+            }
+        }
+
         static void Prefix(UI_BackgroundMain __instance)
         {
             Texture2D src = __instance.overrideBGImage;

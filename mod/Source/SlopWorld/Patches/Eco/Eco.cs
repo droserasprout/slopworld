@@ -35,11 +35,10 @@ namespace SlopWorld
         const int Underneath = 1000;
 
         // MapUpdate continues during Eco rest to draw the background.
-        // MenuBackground selects the animated texture. This cache owns its material and projection dimensions.
+        // MenuBackground selects the animated texture. This cache owns its materials and projection dimensions.
         // Recalculate dimensions when the map, camera, or screen changes.
         static Texture2D _backdropTexture;
-        static Material _backdropMaterial;
-        static float _backdropDim = float.NaN;
+        static readonly Material[] BackdropMaterials = new Material[MenuBackgroundLayers.Count];
         static bool _backdropGeometryReady;
         static Map _backdropMap;
         static BackdropView _backdropView;
@@ -84,29 +83,31 @@ namespace SlopWorld
             var tex = Frame() ?? BaseContent.BlackTex;
             if (tex == null) return;
 
-            float dim = Mathf.Clamp01(Settings.EcoDim);
-            if (_backdropTexture != tex || _backdropMaterial == null || _backdropDim != dim)
-            {
-                _backdropTexture = tex;
-                _backdropDim = dim;
-                // Reuse one material. Pooling each texture and dimming combination would retain materials from previous slider values.
-                if (_backdropMaterial == null)
-                    _backdropMaterial = new Material(ShaderDatabase.Cutout)
-                    {
-                        name = "SlopWorld Eco backdrop",
-                        renderQueue = Underneath
-                    };
-                _backdropMaterial.mainTexture = tex;
-                _backdropMaterial.color = new Color(1f - dim, 1f - dim, 1f - dim, 1f);
-                _backdropGeometryReady = false;
-            }
-
             Map map = Find.CurrentMap;
             if (!FitBackdrop(map, tex)) return;
+            _backdropTexture = tex;
 
-            Graphics.DrawMesh(MeshPool.plane10,
-                Matrix4x4.TRS(_backdropCenter, Quaternion.identity,
-                    new Vector3(_backdropW, 1f, _backdropH)), _backdropMaterial, 0);
+            float brightness = 1f - Mathf.Clamp01(Settings.EcoDim);
+            Vector3 origin = UI.UIToMapPosition(0f, 0f);
+            for (int i = 0; i < MenuBackgroundLayers.Count; i++)
+            {
+                MenuBackgroundLayers.Layer layer = MenuBackgroundLayers.Get(tex, i);
+                // Distinct reusable materials keep queued draws independent. Ordered transparent
+                // passes preserve the same previous-then-current blend as the GUI renderer.
+                Material material = BackdropMaterials[i];
+                if (material == null)
+                    BackdropMaterials[i] = material = new Material(ShaderDatabase.Transparent)
+                    {
+                        name = $"SlopWorld Eco backdrop {i}",
+                        renderQueue = Underneath + i
+                    };
+                material.mainTexture = layer.Texture;
+                material.color = new Color(brightness, brightness, brightness, layer.Opacity);
+                Vector3 offset = UI.UIToMapPosition(layer.Offset.x, layer.Offset.y) - origin;
+                Graphics.DrawMesh(MeshPool.plane10,
+                    Matrix4x4.TRS(_backdropCenter + offset, Quaternion.identity,
+                        new Vector3(_backdropW, 1f, _backdropH)), material, 0);
+            }
         }
 
         static bool FitBackdrop(Map map, Texture2D tex)

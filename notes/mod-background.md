@@ -15,3 +15,10 @@ phase variation remain independent; closed-loop presets preserve last-to-first
 phase continuity. Background memory logs describe replacement work, not texture
 savings; process deltas include unrelated allocation/deferred destruction. General
 memory interpretation belongs to [diagnostics](terminal-latency.md).
+
+Menu and loading draws retain vanilla fitting and fades, but draw the current and
+previous distinct animation frames at half opacity with opposing three-pixel GUI
+offsets. History resets with the resident set; repeated GUI calls do not advance it.
+MenuBackgroundLayers owns the shared layer selection, opacity, and offsets. Eco
+projects those GUI offsets into world space and draws the same layers with two
+reused transparent materials, preserving its dimming and camera fitting.
