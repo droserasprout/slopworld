@@ -1,5 +1,34 @@
 use super::*;
 
+#[tokio::test]
+async fn host_refresh_preserves_queued_input() {
+    let cfg = Config {
+        host_terminals: vec![crate::config::HostTerminalCfg {
+            name: "shell".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let manager = crate::session::test_manager(cfg.clone());
+    manager.upsert_host_terminals(&cfg).await;
+    let (sink, mut delivered) = mpsc::unbounded_channel();
+    *manager.input_sink.lock().unwrap() = Some(sink);
+    let (tx, rx) = mpsc::unbounded_channel();
+    let (identity, run) = {
+        let mut rows = manager.live.write().await;
+        let row = rows.get_mut("shell").unwrap();
+        row.input.sender = Some(tx.clone());
+        (row.cfg.state_id.clone(), row.run_id)
+    };
+    manager.upsert_host_terminals(&cfg).await;
+    tx.send(Input::Bytes(b"must arrive".to_vec())).unwrap();
+    let consumer = Manager::run_input(Arc::downgrade(&manager), "shell".into(), identity, run, rx);
+    tokio::pin!(consumer);
+    // A valid queue dispatches the bytes and then waits for more input.
+    assert!(futures::poll!(consumer.as_mut()).is_pending());
+    assert!(matches!(delivered.try_recv(), Ok(Input::Bytes(bytes)) if bytes == b"must arrive"));
+}
+
 async fn queued_manager() -> (Arc<Manager>, mpsc::UnboundedReceiver<Input>) {
     let manager = crate::session::test_manager_with_socket(
         Config::default(),

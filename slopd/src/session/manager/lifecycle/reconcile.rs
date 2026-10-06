@@ -109,7 +109,7 @@ impl Manager {
                 );
                 continue;
             }
-            let session = SessionCfg {
+            let mut session = SessionCfg {
                 name: tab.name.clone(),
                 label: tab.label.clone(),
                 project: tab.project.clone(),
@@ -128,6 +128,8 @@ impl Manager {
                 if !l.host {
                     continue;
                 }
+                // Catalog edits do not replace the shell or its queued input owner.
+                session.state_id.clone_from(&l.cfg.state_id);
                 l.cfg = session;
                 l.persistent_host = true;
                 l.host_path = path;
