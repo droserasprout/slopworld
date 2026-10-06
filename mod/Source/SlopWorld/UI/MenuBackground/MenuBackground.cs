@@ -15,18 +15,17 @@ namespace SlopWorld
     {
         static MenuBackgroundPreset Chosen => MenuBackgroundPresets.Chosen;
 
-        // The resident frame set and its source are runtime layout state. Animation never needs
+        // The resident frame set and its identity are runtime layout state. Animation never needs
         // to know how the set was loaded or which cache directory produced it.
         struct LayoutState
         {
             public Texture2D[] Frames;
-            public Texture2D Source;
             public string SourceKey;
             public MenuBackgroundPreset Preset;
         }
 
         // The ramp and phase walk are one small state machine. Keeping them together prevents
-        // a preset reload from accidentally preserving half of the old animation.
+        // a source reload from accidentally preserving half of the old animation.
         struct AnimationState
         {
             public Texture2D Current;
@@ -52,7 +51,6 @@ namespace SlopWorld
         // These aliases keep the animation readable while making ownership explicit in the two
         // state structs above.
         static Texture2D[] _frames { get => _layout.Frames; set => _layout.Frames = value; }
-        static Texture2D _src { get => _layout.Source; set => _layout.Source = value; }
         static string _srcKey { get => _layout.SourceKey; set => _layout.SourceKey = value; }
         static MenuBackgroundPreset _preset
         {
@@ -67,9 +65,6 @@ namespace SlopWorld
         // nothing to bake from and the caller should leave the field alone.
         public static Texture2D Current(Texture2D source)
         {
-            // Keep using the baked source during a preset switch so Ready can observe the change.
-            if (_frames != null && _preset != Chosen) source = _src;
-
             if (source != null && !Ready(source)) return null;
             if (_frames == null) return null;
 
@@ -142,13 +137,6 @@ namespace SlopWorld
 
             if (_preset.Phases < 2) return;
 
-            // A closed preset's phases are the loop itself and must arrive in order.
-            if (_preset.Closed)
-            {
-                _phase = Mathf.FloorToInt(t / LoopSecs * _preset.Phases) % _preset.Phases;
-                return;
-            }
-
             if (t - _phaseAt < PhaseSecs) return;
             _phaseAt = t;
 
@@ -215,10 +203,9 @@ namespace SlopWorld
             _failedPreset = null;
 
             // Transfer ownership on the main thread, then release only the retired set. The
-            // source is never ours to destroy. It remains the bake input across preset changes.
+            // source is never ours to destroy.
             Texture2D[] retired = _frames;
             _frames = replacement;
-            _src = source;
             _srcKey = key;
             _preset = preset;
             _began = -1f;

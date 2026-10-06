@@ -5,36 +5,18 @@ using static SlopWorld.MenuBackgroundTuning;
 
 namespace SlopWorld
 {
-    // Shared deterministic lookup tables, noise and grading for both background effects.
+    // Deterministic noise and grading for the background effect.
     internal static partial class MenuBackgroundBake
     {
         // Reproducible 256x256 float value-noise LUT. Cheaper to sample than Unity Perlin.
         static readonly float[] _noiseLut = new float[LutSide * LutSide];
-
-        // Tabulated cosine hue palette: branch-free full-circle hues at lower per-pixel cost.
-        static readonly Color[] _hueLut = new Color[HueSide];
 
         static MenuBackgroundBake()
         {
             var bytes = new byte[_noiseLut.Length];
             new System.Random(42).NextBytes(bytes);
             for (int i = 0; i < bytes.Length; i++) _noiseLut[i] = bytes[i] * (1f / 255f);
-
-            const float Turn = 2f * Mathf.PI;
-            for (int i = 0; i < HueSide; i++)
-            {
-                float t = i / (float)HueSide;
-                _hueLut[i] = new Color(
-                    0.5f + 0.5f * Mathf.Cos(Turn * t),
-                    0.5f + 0.5f * Mathf.Cos(Turn * (t + 1f / 3f)),
-                    0.5f + 0.5f * Mathf.Cos(Turn * (t + 2f / 3f)),
-                    1f);
-            }
         }
-
-        // Wrap hue indices because hue is circular. The mask also handles negative values.
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static Color Hue(float t) => _hueLut[Mathf.FloorToInt(t * HueSide) & HueMask];
 
         // Combine drain, contrast, and tint into one affine transform per stage.
         struct Grade
@@ -49,11 +31,6 @@ namespace SlopWorld
             Mathf.Lerp(0f, 0.06f, k),       // blacks off the floor: video, not ink
             Mathf.Lerp(0f, 0.75f, k),       // drain toward luminance
             Sick, Mathf.Lerp(0f, 0.42f, k));
-
-        // Cheer raises contrast/blacks and boosts saturation without tint. At k=0 it is identity.
-        static Grade Cheer(float k) => Affine(
-            Mathf.Lerp(1f, 1.06f, k), Mathf.Lerp(0f, 0.05f, k), Mathf.Lerp(0f, -0.35f, k),
-            Color.white, 0f);
 
         static Grade Affine(float contrast, float lift, float drain, Color toward, float tint)
         {

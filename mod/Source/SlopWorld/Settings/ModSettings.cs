@@ -183,7 +183,7 @@ namespace SlopWorld
 
         // Grandma's visiting hides gore and harmful tips.
         // It also disables destructive and Easter egg effects.
-        // The background uses sparkles and rainbows. Plague arrivals use flowers.
+        // Plague arrivals use flowers.
         public bool grandmaMode;
 
         // Blank follows RimWorld's standard temperature preference. The custom unit is an

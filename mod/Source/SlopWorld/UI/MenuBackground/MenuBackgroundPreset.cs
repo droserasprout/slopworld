@@ -9,12 +9,10 @@ namespace SlopWorld
         // A single depth has no moving layer.
         public readonly int Depths;
         public readonly int Phases;
-        // Closed motion must be played in phase order. Independent noise does not.
-        public readonly bool Closed;
 
-        public MenuBackgroundPreset(string name, int depths, int phases, bool closed)
+        public MenuBackgroundPreset(string name, int depths, int phases)
         {
-            Name = name; Depths = depths; Phases = phases; Closed = closed;
+            Name = name; Depths = depths; Phases = phases;
         }
 
         public int Total => Onset + Depths * Phases;
@@ -23,12 +21,8 @@ namespace SlopWorld
     internal static class MenuBackgroundPresets
     {
         static readonly MenuBackgroundPreset Rotting =
-            new MenuBackgroundPreset("rot", 5, 8, false);
+            new MenuBackgroundPreset("rot", 5, 8);
 
-        internal static readonly MenuBackgroundPreset Sparkling =
-            new MenuBackgroundPreset("glow", 1, 24, true);
-
-        internal static MenuBackgroundPreset Chosen =>
-            Settings.GrandmaMode ? Sparkling : Rotting;
+        internal static MenuBackgroundPreset Chosen => Rotting;
     }
 }

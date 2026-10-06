@@ -30,9 +30,6 @@ namespace SlopWorld
         // Duration of one moving frame.
         internal const float PhaseSecs = 0.11f;
 
-        // Loop duration for closed presets and star blink rates.
-        internal const float LoopSecs = 3.6f;
-
         // ---- Rot ----
 
         // SlopPlagueGas's violet, matched by eye rather than by reference.
@@ -62,37 +59,9 @@ namespace SlopWorld
         internal static readonly Color Ember = new Color(1f, 0.24f, 0.05f, 1f);
         internal static readonly Color Flame = new Color(1f, 0.76f, 0.28f, 1f);
 
-        // ---- Grandma's visiting ----
-
-        // Non-integer diagonal hue period avoids a spatial seam while closing in time.
-        internal const float SheenCycles = 1.6f;
-        // Palette swing around grey. This is chroma at full mask.
-        internal const float SheenGain = 0.85f;
-        // Band the still fBm field so the sheen has a body and gap rather than an even wash.
-        internal const float HazeLow = 0.40f;
-        internal const float HazeHigh = 0.66f;
-        // Keep sheen phases distinct from fire phases.
-        internal const float HazePhase = 11.3f;
-
-        // The constellation is rolled once from this, so the bake stays reproducible.
-        internal const int SparkSeed = 1971;
-        internal const int SparkCount = 140;
-        // Star arm lengths at MaxSide, scaled with the frame.
-        internal const float SparkArmMin = 7f;
-        internal const float SparkArmMax = 22f;
-        internal const float SparkThick = 7f;
-        internal const float SparkGain = 1.1f;
-        // Integer blink rates ensure closed-loop alignment.
-        internal const int SparkRateMin = 1;
-        internal const int SparkRateMax = 4;
-
         // Reproducible 256x256 float value-noise LUT. Cheaper to sample than Unity Perlin.
         internal const int LutSide = 256;
         internal const int LutMask = LutSide - 1;
-
-        // Tabulated cosine hue palette: branch-free full-circle hues at lower per-pixel cost.
-        internal const int HueSide = 256;
-        internal const int HueMask = HueSide - 1;
 
         // Low JPEG quality supplies the intended block/chroma artifacts and keeps the cache small.
         internal const int JpegQuality = 10;

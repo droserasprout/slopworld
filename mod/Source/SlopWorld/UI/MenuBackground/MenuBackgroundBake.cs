@@ -30,16 +30,13 @@ namespace SlopWorld
                 BreatheLow, BreatheHigh, OnsetSecs,
                 FireFrom, FuelFloor, FuelFull, FuelDecay, NoiseLow, NoiseHigh, FireGain,
                 NoiseFreq, StagePhase,
-                SheenCycles, SheenGain, HazeLow, HazeHigh, HazePhase,
-                SparkArmMin, SparkArmMax, SparkThick, SparkGain,
                 Sick.r, Sick.g, Sick.b, Ember.r, Ember.g, Ember.b, Flame.r, Flame.g, Flame.b,
             })
                 sb.Append(f.ToString("R", CultureInfo.InvariantCulture)).Append(';');
 
             foreach (int i in new[]
             {
-                Onset, MaxSide, JpegQuality, FuelErode, NoiseDiv, Octaves, LutSide, HueSide,
-                SparkSeed, SparkCount, SparkRateMin, SparkRateMax,
+                Onset, MaxSide, JpegQuality, FuelErode, NoiseDiv, Octaves, LutSide,
             })
                 sb.Append(i).Append(';');
 
@@ -67,8 +64,7 @@ namespace SlopWorld
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache");
         }
 
-        // Recency is the write time, which Load touches: two sets a player toggles between are
-        // both in use however long ago they were baked.
+        // Load touches the write time so regularly used source caches stay resident.
         internal static void Sweep(string keep)
         {
             try
@@ -172,19 +168,6 @@ namespace SlopWorld
             return true;
         }
 
-        // The still inputs every stage of a preset shares, worked out once rather than per stage.
-        sealed class Shared
-        {
-            public float[] Fuel;        // rot: where fire is allowed
-            public float[] Haze;        // glow: where the sheen is bright
-            public Spark[] Sparks;      // glow: where the stars are
-        }
-
-        static Shared Prep(MenuBackgroundPreset preset, Color[] clean, int w, int h) =>
-            preset == MenuBackgroundPresets.Sparkling
-                ? new Shared { Haze = Haze(w, h), Sparks = Constellation(w, h) }
-                : new Shared { Fuel = Fuel(clean, w, h) };
-
         // How far into the preset a stage has arrived, and which draw of the moving part it
         // holds. The ramp's phase keeps moving, so the fire is alive while the picture arrives.
         static void Where(MenuBackgroundPreset preset, int stage, out float k, out int phase)
@@ -206,14 +189,11 @@ namespace SlopWorld
                 : 1f;
         }
 
-        static void Stage(MenuBackgroundPreset preset, Color[] clean, Color[] dst, Shared shared,
+        static void Stage(MenuBackgroundPreset preset, Color[] clean, Color[] dst, float[] fuel,
                           int w, int h, int stage)
         {
             Where(preset, stage, out float k, out int phase);
-            if (preset == MenuBackgroundPresets.Sparkling)
-                Sparkle(clean, dst, shared.Haze, shared.Sparks, w, h, phase / (float)preset.Phases, k);
-            else
-                Rot(clean, dst, shared.Fuel, w, h, k, phase);
+            Rot(clean, dst, fuel, w, h, k, phase);
         }
 
         internal static Texture2D[] Bake(Texture2D src, string key, MenuBackgroundPreset preset)
@@ -224,7 +204,7 @@ namespace SlopWorld
             int bh = Mathf.Max(1, Mathf.RoundToInt(h * scale));
 
             Color[] clean = Downsample(TextureReadback.ReadBack(src), w, h, bw, bh);
-            Shared shared = Prep(preset, clean, bw, bh);
+            float[] fuel = Fuel(clean, bw, bh);
 
             string dir = Dir(key);
             Directory.CreateDirectory(dir);
@@ -246,7 +226,7 @@ namespace SlopWorld
                     int end = Math.Min(total, start + batch);
 
                     Parallel.For(start, end, opts,
-                        i => Stage(preset, clean, scratch[i - start], shared, bw, bh, i));
+                        i => Stage(preset, clean, scratch[i - start], fuel, bw, bh, i));
 
                     for (int i = start; i < end; i++)
                     {
