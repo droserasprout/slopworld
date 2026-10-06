@@ -64,6 +64,14 @@
       <HintPath>../Assemblies/Newtonsoft.Json.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <Reference Include="AngleSharp">
+      <HintPath>../Assemblies/AngleSharp.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Text.Encoding.CodePages">
+      <HintPath>../Assemblies/System.Text.Encoding.CodePages.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
     <Reference Include="Markdig">
       <HintPath>../Assemblies/Markdig.dll</HintPath>
       <Private>true</Private>

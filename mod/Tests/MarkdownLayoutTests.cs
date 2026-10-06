@@ -118,6 +118,29 @@ namespace SlopWorld.Tests
             }
         }
 
+        public static void ListRestoresFullWidthBelowFloatWithoutChangingCopy()
+        {
+            string prose = string.Join(" ", Enumerable.Repeat("word", 100));
+            foreach (string alignment in new[] { "left", "right" })
+            {
+                var engine = PreviewFlow("<img src='shot.png' width='100' height='50' align='" + alignment + "'>\n\n- " + prose, 300);
+                var text = engine.Placements.Single(p => p.Kind == PlacementKind.Text);
+                var picture = engine.Placements.Single(p => p.Kind == PlacementKind.Image);
+                var bullet = engine.Placements.Single(p => p.Kind == PlacementKind.Bullet);
+                var beside = text.Text.Lines.Where(l => text.Y + l.Offset < picture.Y + picture.Height).ToArray();
+                var below = text.Text.Lines.Where(l => text.Y + l.Offset >= picture.Y + picture.Height).ToArray();
+                AssertEx.True(beside.Length > 0 && below.Length > 0, "list item crosses float bottom");
+                AssertEx.Equal(bullet.X + bullet.Width, text.X + beside[0].OffsetX,
+                    "first line reserves marker gutter beside float");
+                AssertEx.Equal(UiTheme.GapM + bullet.Width, text.X,
+                    "base item bounds retain only marker gutter");
+                AssertEx.True(below.Any(l => l.Width > beside.Max(b => b.Width)),
+                    "list lines regain full available width");
+                AssertEx.True(below.All(l => l.OffsetX == 0f), "float inset ends at bottom");
+                AssertEx.Equal(prose, Copy(text.Text), "copy retains complete item text across width changes");
+            }
+        }
+
         public static void HtmlAlignmentUsesSharedTextAndSelectionGeometry()
         {
             var engine = PreviewFlow("<p align='center'><img src='logo.png' width='32' height='32'></p>\n\n<h1 align='center'>SlopWorld</h1>\n\n<p align='right'>Body</p>", 400);

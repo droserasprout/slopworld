@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using AngleSharp.Html;
+using AngleSharp.Html.Parser;
+using AngleSharp.Html.Parser.Tokens;
+using AngleSharp.Text;
 using Markdig;
 using Markdig.Extensions.Tables;
 using Markdig.Extensions.TaskLists;
@@ -93,9 +97,8 @@ namespace SlopWorld
         sealed class HtmlTagInfo
         {
             public string Name;
-            public string Attributes;
+            public Func<string, string> Attribute;
             public bool Closing;
-            public bool SelfClosing;
             public bool Comment;
         }
 
@@ -290,14 +293,6 @@ namespace SlopWorld
         MarkdownBlock ConvertHtml(HtmlBlock html)
         {
             string source = html.Lines.ToString();
-            var image = ParseImage(source);
-            if (image != null)
-                return new MarkdownBlock
-                {
-                    Kind = BlockKind.Paragraph,
-                    Runs = new List<InlineRun> { image },
-                };
-
             if (IsHtmlComment(source)) return null;
             if (IsHtmlRule(source)) return new MarkdownBlock { Kind = BlockKind.Rule };
 
@@ -419,47 +414,31 @@ namespace SlopWorld
             }
         }
 
+        // Markdig supplies individual inline tags, so tokenize those without building
+        // a DOM that would discard unmatched closing tags. HTML blocks use tree parsing.
         static bool TryParseHtmlTag(string source, out HtmlTagInfo tag)
         {
             tag = null;
-            source = (source ?? "").Trim();
-            if (source.Length < 3 || source[0] != '<' || source[source.Length - 1] != '>')
-                return false;
-            if (source.StartsWith("<!--", StringComparison.Ordinal) &&
-                source.EndsWith("-->", StringComparison.Ordinal))
+            using (var input = new TextSource((source ?? "").Trim()))
+            using (var tokenizer = new HtmlTokenizer(input, HtmlEntityProvider.Resolver))
             {
-                tag = new HtmlTagInfo { Comment = true };
+                var token = tokenizer.Get();
+                if (tokenizer.Get().Type != HtmlTokenType.EndOfFile) return false;
+                if (token.Type == HtmlTokenType.Comment)
+                {
+                    tag = new HtmlTagInfo { Comment = true };
+                    return true;
+                }
+                if (!(token is HtmlTagToken htmlTag)) return false;
+                tag = new HtmlTagInfo
+                {
+                    Name = htmlTag.Name,
+                    Attribute = htmlTag.GetAttribute,
+                    Closing = token.Type == HtmlTokenType.EndTag,
+                };
                 return true;
             }
-
-            int end = source.Length - 1;
-            int at = 1;
-            while (at < end && char.IsWhiteSpace(source[at])) at++;
-            bool closing = at < end && source[at] == '/';
-            if (closing) at++;
-            while (at < end && char.IsWhiteSpace(source[at])) at++;
-            int nameStart = at;
-            while (at < end && IsHtmlNameChar(source[at])) at++;
-            if (at == nameStart) return false;
-
-            int attrEnd = end;
-            while (attrEnd > at && char.IsWhiteSpace(source[attrEnd - 1])) attrEnd--;
-            bool selfClosing = attrEnd > at && source[attrEnd - 1] == '/';
-            if (selfClosing) attrEnd--;
-            while (attrEnd > at && char.IsWhiteSpace(source[attrEnd - 1])) attrEnd--;
-
-            tag = new HtmlTagInfo
-            {
-                Name = source.Substring(nameStart, at - nameStart).ToLowerInvariant(),
-                Attributes = source.Substring(at, Mathf.Max(0, attrEnd - at)).Trim(),
-                Closing = closing,
-                SelfClosing = selfClosing,
-            };
-            return true;
         }
-
-        static bool IsHtmlNameChar(char c) =>
-            char.IsLetterOrDigit(c) || c == ':' || c == '-';
 
         static bool IsHtmlRule(string source)
         {
@@ -481,7 +460,7 @@ namespace SlopWorld
             string name = tag.Name;
             if (name == "img")
             {
-                var image = ParseImage(source);
+                var image = ParseImage(tag.Attribute);
                 if (image == null || tag.Closing) return false;
                 style.Apply(image);
                 target.Add(image);
@@ -525,7 +504,7 @@ namespace SlopWorld
                 }
                 else
                 {
-                    _paths.TryResolveLink(MarkdownMarkup.Decode(HtmlAttribute(tag.Attributes, "href")),
+                    _paths.TryResolveLink(tag.Attribute("href"),
                         out state.Link, out state.LocalLink);
                 }
                 return true;
@@ -584,31 +563,27 @@ namespace SlopWorld
                     AppendInlineText(child, target);
         }
 
-        static InlineRun ParseImage(string html)
+        // Both AngleSharp DOM attributes and token attributes are already decoded.
+        static InlineRun ParseImage(Func<string, string> attribute)
         {
-            if (!TryParseHtmlTag(html, out var tag) || tag.Comment || tag.Closing ||
-                tag.Name != "img") return null;
-
-            string source = HtmlAttribute(tag.Attributes, "src");
+            string source = attribute("src");
             if (string.IsNullOrWhiteSpace(source)) return null;
-
             return new InlineRun
             {
                 IsImage = true,
-                ImagePath = MarkdownMarkup.Decode(source),
-                ImageAlt = MarkdownMarkup.Decode(HtmlAttribute(tag.Attributes, "alt") ?? ""),
-                ImageWidth = HtmlDimension(HtmlAttribute(tag.Attributes, "width")),
-                ImageHeight = HtmlDimension(HtmlAttribute(tag.Attributes, "height")),
-                ImageAlign = ImageAlignment(tag.Attributes),
+                ImagePath = source,
+                ImageAlt = attribute("alt") ?? "",
+                ImageWidth = HtmlDimension(attribute("width")),
+                ImageHeight = HtmlDimension(attribute("height")),
+                ImageAlign = ImageAlignment(attribute),
             };
         }
 
-        static string ImageAlignment(string attrs)
+        static string ImageAlignment(Func<string, string> attribute)
         {
-            string align = (HtmlAttribute(attrs, "align") ?? "").Trim().ToLowerInvariant();
+            string align = (attribute("align") ?? "").Trim().ToLowerInvariant();
             if (align.Length == 0)
-                align = (CssProperty(HtmlAttribute(attrs, "style"), "float") ?? "")
-                    .Trim().ToLowerInvariant();
+                align = (CssProperty(attribute("style"), "float") ?? "").Trim().ToLowerInvariant();
             if (align == "middle") align = "center";
             return align == "left" || align == "right" || align == "center" ? align : "";
         }
@@ -622,45 +597,6 @@ namespace SlopWorld
                 string name = declaration.Substring(0, colon).Trim();
                 if (!string.Equals(name, property, StringComparison.OrdinalIgnoreCase)) continue;
                 return declaration.Substring(colon + 1).Trim();
-            }
-            return null;
-        }
-
-        static string HtmlAttribute(string attrs, string name)
-        {
-            attrs = attrs ?? "";
-            for (int at = 0; at < attrs.Length;)
-            {
-                while (at < attrs.Length && (char.IsWhiteSpace(attrs[at]) || attrs[at] == '/')) at++;
-                int keyStart = at;
-                while (at < attrs.Length && !char.IsWhiteSpace(attrs[at]) &&
-                    attrs[at] != '=' && attrs[at] != '>') at++;
-                if (at == keyStart)
-                {
-                    at++;
-                    continue;
-                }
-
-                string key = attrs.Substring(keyStart, at - keyStart);
-                while (at < attrs.Length && char.IsWhiteSpace(attrs[at])) at++;
-                if (at >= attrs.Length || attrs[at] != '=') continue;
-                at++;
-                while (at < attrs.Length && char.IsWhiteSpace(attrs[at])) at++;
-                if (at >= attrs.Length) return null;
-
-                char quote = attrs[at] == '\"' || attrs[at] == '\'' ? attrs[at++] : '\0';
-                int valueStart = at;
-                if (quote != '\0')
-                {
-                    while (at < attrs.Length && attrs[at] != quote) at++;
-                }
-                else
-                {
-                    while (at < attrs.Length && !char.IsWhiteSpace(attrs[at]) && attrs[at] != '>') at++;
-                }
-                string value = attrs.Substring(valueStart, at - valueStart);
-                if (quote != '\0' && at < attrs.Length) at++;
-                if (string.Equals(key, name, StringComparison.OrdinalIgnoreCase)) return value;
             }
             return null;
         }
@@ -686,10 +622,5 @@ namespace SlopWorld
                 Faint = faint,
             }));
         }
-    }
-    // Only raw HTML attributes need normalization; Markdig has already decoded its AST.
-    static class MarkdownMarkup
-    {
-        public static string Decode(string value) => System.Net.WebUtility.HtmlDecode(value ?? "");
     }
 }

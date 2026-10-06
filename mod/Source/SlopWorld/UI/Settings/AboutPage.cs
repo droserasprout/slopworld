@@ -126,6 +126,8 @@ namespace SlopWorld
             new Credit("Mono", "runtime", "https://www.mono-project.com/"),
             new Credit("Harmony", "RimWorld patching",
                 "https://github.com/pardeike/HarmonyRimWorld"),
+            new Credit("AngleSharp", "HTML",
+                "https://github.com/AngleSharp/AngleSharp"),
             new Credit("Markdig", "markdown",
                 "https://github.com/xoofx/markdig"),
             new Credit("Tomlyn", "TOML configs",

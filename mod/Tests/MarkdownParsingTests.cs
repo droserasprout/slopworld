@@ -54,6 +54,23 @@ namespace SlopWorld.Tests
             AssertEx.Equal(2, Parse("one\n\ntwo").Count, "blank line still separates paragraphs");
         }
 
+        public static void HtmlCodePreservesLiteralWhitespaceWithinBlocks()
+        {
+            foreach (string tag in new[] { "code", "kbd", "samp" })
+            {
+                string markup = "<" + tag + ">a  b</" + tag + ">";
+                var inline = Parse("prefix " + markup)[0].Runs.Single(r => r.Code);
+                var block = Parse("<p>prefix " + markup + "</p>")[0].Runs.Single(r => r.Code);
+                AssertEx.Equal(inline.Text, block.Text, "block and inline HTML code retain the same spaces");
+                block = Parse("<p><" + tag + "> a\t b\n c </" + tag + "></p>")[0].Runs.Single();
+                AssertEx.Equal(" a\t b\n c ", block.Text, "code retains tabs, newlines, and edge spaces");
+                block = Parse("<p><" + tag + ">  </" + tag + "></p>")[0].Runs.Single();
+                AssertEx.Equal("  ", block.Text, "whitespace-only code is visible content");
+                AssertEx.True(block.Code && block.InlineCode, "literal text keeps code styling");
+            }
+            AssertEx.Equal("a b", Text(Parse("<p>a  b</p>")[0].Runs), "ordinary HTML still collapses whitespace");
+        }
+
         public static void HtmlParagraphsAndAllHeadingLevelsBecomeStyledBlocks()
         {
             var blocks = Parse("<p align='center'>\n<img src='logo.png' width='32' height='32'>\n</p>\n\n<h1 align='center'>SlopWorld</h1>");
@@ -95,6 +112,45 @@ namespace SlopWorld.Tests
                 "quoted angle does not terminate a tag");
             AssertEx.Equal("<unknown>x</unknown>", Text(blocks[0].Runs), "unknown markup stays visible");
             AssertEx.True(blocks[0].Runs.Any(r => r.Faint), "unknown markup stays faint");
+        }
+
+        public static void HtmlLiteralAnglesAndEntitiesRetainText()
+        {
+            var blocks = Parse("<p>a < b &amp; c &amp;lt; &CounterClockwiseContourIntegral;</p>");
+            AssertEx.Equal("a < b & c &lt; ∳", Text(blocks.Single().Runs),
+                "HTML text uses standard tokenization and decodes entities once");
+            var image = Parse("<p><img src='a&amp;lt;>b.png' alt='&amp;lt;'></p>")[0].Runs.Single();
+            AssertEx.Equal("a&lt;>b.png", image.ImagePath, "DOM image URL decodes once");
+            AssertEx.Equal("&lt;", image.ImageAlt, "DOM image alt decodes once");
+            var runs = Parse("prefix <a href='https://example.test/a>b?x=&amp;lt;' title='x > y'>link</a>")[0].Runs;
+            AssertEx.Equal("https://example.test/a>b?x=&lt;", runs.Single(r => r.Text == "link").Link,
+                "inline tokenizer shares quoted-attribute and entity handling");
+        }
+
+        public static void HtmlTreeRepairKeepsParagraphsAndStyleBoundaries()
+        {
+            var blocks = Parse("<p>first<p>second</p><h2>third</h2>");
+            AssertEx.Sequence(new[] { "first", "second", "third" }, blocks.Select(b => Text(b.Runs)),
+                "omitted paragraph closing tag is repaired");
+            blocks = Parse("<p><b>bold<i>both</b>italic</i> plain</p>");
+            var runs = blocks.Single().Runs;
+            AssertEx.True(runs.Single(r => r.Text == "both").Bold && runs.Single(r => r.Text == "both").Italic,
+                "misnested formatting keeps combined style");
+            AssertEx.False(runs.Single(r => r.Text == "italic").Bold, "repaired italic does not inherit closed bold");
+            AssertEx.True(runs.Single(r => r.Text == "italic").Italic, "repaired italic remains active");
+            AssertEx.False(runs.Single(r => r.Text == " plain").Italic, "style ends at repaired DOM boundary");
+            AssertEx.Equal("\nbody\n", Text(Parse("<p><br>body<br></p>").Single().Runs),
+                "explicit breaks survive wrapper whitespace trimming");
+        }
+
+        public static void HtmlParsingRetainsPassiveContentAndScopedLinks()
+        {
+            var runs = Parse("<p onclick='alert(1)'><a href='../../escape.md'>escape</a><img src='https://example.test/remote.png'><script>alert(1)</script><!-- hidden --></p>")[0].Runs;
+            AssertEx.Equal(null, runs.Single(r => r.Text == "escape").LocalLink, "HTML links cannot escape project scope");
+            AssertEx.Equal("https://example.test/remote.png", runs.Single(r => r.IsImage).ImagePath,
+                "parser records image source for resource owner's policy");
+            AssertEx.True(runs.Any(r => r.Faint && r.Text.Contains("<script>")), "unsupported script remains passive source");
+            AssertEx.False(Text(runs).Contains("hidden") || Text(runs).Contains("onclick"), "comments and unsupported attributes are hidden");
         }
 
         public static void EntitiesDecodeOnceWithoutFallbackStyling()

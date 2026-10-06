@@ -422,12 +422,15 @@ namespace SlopWorld
                 });
 
                 // Inherit the outer obstacle, but keep images created inside an item local.
+                // A left obstacle also reserves the marker gutter until the float ends.
+                // Keep the base item bounds independent so later lines regain their width.
                 var itemFlow = new ImageFloat
                 {
-                    X = flow.X, Width = flow.Width, Bottom = flow.Bottom, Right = flow.Right,
+                    X = flow.X + (flow.Right ? 0f : gutter),
+                    Width = flow.Width, Bottom = flow.Bottom, Right = flow.Right,
                 };
                 float itemY = y;
-                float innerX = itemX + gutter;
+                float innerX = x + gutter;
                 float innerWidth = Mathf.Max(1f, width - (innerX - x));
                 var children = item?.Children ?? new List<MarkdownBlock>();
                 for (int childIndex = 0; childIndex < children.Count; childIndex++)
