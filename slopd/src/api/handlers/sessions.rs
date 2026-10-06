@@ -1,7 +1,7 @@
 use crate::api::protobuf::{Proto, domain, reply};
 use crate::shared::wire;
 use axum::Extension;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use serde_json::json;
 
@@ -123,8 +123,21 @@ macro_rules! session_action {
 
 session_action!(start, stop, reset_state, restart);
 
-pub(crate) async fn stored_states(State(m): State<Mgr>) -> ApiResult<wire::StoredStates> {
-    m.stored_states()
+#[derive(serde::Deserialize)]
+pub(crate) struct StorageQuery {
+    #[serde(default = "storage_sizes_default")]
+    sizes: bool,
+}
+
+fn storage_sizes_default() -> bool {
+    true
+}
+
+pub(crate) async fn stored_states(
+    State(m): State<Mgr>,
+    Query(query): Query<StorageQuery>,
+) -> ApiResult<wire::StoredStates> {
+    m.stored_states(query.sizes)
         .await
         .map(|entries| reply(json!({ "entries": entries })))
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?

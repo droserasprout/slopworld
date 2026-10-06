@@ -9,7 +9,7 @@ namespace SlopWorld
     // The inventory and destructive half of private-state retention. The daemon owns both
     // the paths and the classification. The game draws opaque entries and hands a selected
     // path to Files, so the game never needs to read the host data directory itself.
-    public class StoragePage : IOptionPage
+    public class StoragePage : IOptionPage, IDisposable
     {
         class Entry
         {
@@ -35,9 +35,10 @@ namespace SlopWorld
         }
 
         readonly SmoothScroll _scroll = new SmoothScroll();
-        readonly AsyncLoadState<List<Entry>> _load =
-            new AsyncLoadState<List<Entry>>();
+        readonly StorageLoadState<List<Entry>> _load =
+            new StorageLoadState<List<Entry>>();
         static readonly List<Entry> EmptyEntries = new List<Entry>();
+        bool _disposed;
 
         List<Entry> _entries => _load.Value ?? EmptyEntries;
         string _actionError;
@@ -47,15 +48,29 @@ namespace SlopWorld
 
         public void Load()
         {
+            if (_disposed) return;
             _actionError = null;
-            _load.Load((ok, fail) => DaemonClient.Get<Wire.StoredStates>(WireProtocol.Routes.State, j => ok(
-                j.Entries.Select(Entry.FromWire)
-                    .OrderBy(e => KindRank(e.Kind))
-                    .ThenByDescending(e => e.Modified)
-                    .ThenBy(e => e.Session ?? e.Key, StringComparer.OrdinalIgnoreCase)
-                    .ThenBy(e => e.Key, StringComparer.Ordinal)
-                    .ToList()), fail));
+            _load.Load(RequestInventory);
         }
+
+        static void RequestInventory(bool measureSizes, Action<List<Entry>> loaded,
+            Action<string> failed)
+        {
+            // Large shared caches can take longer than the normal HTTP deadline. The
+            // shallow list stays usable while the measured request runs in the background.
+            string route = WireProtocol.Routes.State + (measureSizes ? "" : "?sizes=false");
+            int timeoutMs = measureSizes ? 60_000 : 5_000;
+            DaemonClient.Get<Wire.StoredStates>(route, inventory => loaded(SortedEntries(inventory)),
+                failed, timeoutMs: timeoutMs);
+        }
+
+        static List<Entry> SortedEntries(Wire.StoredStates inventory) =>
+            inventory.Entries.Select(Entry.FromWire)
+                .OrderBy(e => KindRank(e.Kind))
+                .ThenByDescending(e => e.Modified)
+                .ThenBy(e => e.Session ?? e.Key, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(e => e.Key, StringComparer.Ordinal)
+                .ToList();
 
         public void Draw(Rect rect)
         {
@@ -66,7 +81,9 @@ namespace SlopWorld
         {
             var inner = SettingsPageLayout.Body(rect);
 
-            string caption = $"{Human(_entries.Sum(e => e.Bytes))} total. Configured agents remain. " +
+            string total = _load.SizesAvailable ? Human(_entries.Sum(e => e.Bytes)) + " total." :
+                _loading ? "Calculating storage sizes…" : "Storage sizes unavailable.";
+            string caption = total + " Configured agents remain. " +
                 "State from deleted or reset agents expires after 14 days. Shared caches remain.";
             float width = UiScrollBody.Measure(inner, 0f,
                 UiScrollbarReservation.Always).ContentWidth;
@@ -90,7 +107,7 @@ namespace SlopWorld
             {
                 UiText.PlainStatusLabel(new Rect(list.x, list.y + captionH + UiTheme.GapS,
                         list.width, Mathf.Max(0f, list.height - captionH - UiTheme.GapS)),
-                    _error ?? (_loading ? "Scanning" : "No storage entries."),
+                    _error ?? (_loading ? "Loading storage…" : "No storage entries."),
                     _error != null ? UiTheme.Bad : UiTheme.Dim);
             }
 
@@ -144,7 +161,7 @@ namespace SlopWorld
                 e.Kind == "orphan" ? "unclaimed orphan state" :
                 e.Session != null ? $"trash for {e.Session}" : "trash (agent removed)";
             UiText.RowLabel(new Rect(r.x + UiTheme.GapS, line2, labelW, UiTheme.LineH),
-                $"{note}  -  {Human(e.Bytes)}  -  {When(e.Modified)}");
+                $"{note}  -  {Size(e)}  -  {When(e.Modified)}");
             GUI.color = Color.white;
 
             if (e.Cache) return;
@@ -180,7 +197,7 @@ namespace SlopWorld
 
         public static void FocusAgent(string name)
         {
-            DaemonClient.Get<Wire.StoredStates>(WireProtocol.Routes.State, j =>
+            DaemonClient.Get<Wire.StoredStates>(WireProtocol.Routes.State + "?sizes=false", j =>
             {
                 var entry = j.Entries
                     .Select(Entry.FromWire)
@@ -198,7 +215,7 @@ namespace SlopWorld
         {
             Find.WindowStack.Add(ConfirmDialog.Create(
                 $"Reset private state for '{e.Session}'? The daemon stops the agent and moves " +
-                $"{Human(e.Bytes)} of its state to recoverable trash for 14 days.",
+                $"{SizeForConfirmation(e)} of its state to recoverable trash for 14 days.",
                 () => DaemonClient.Post($"{WireProtocol.Routes.Sessions}/{Uri.EscapeDataString(e.Session)}/state/reset",
                     null, _ => { SessionHub.Instance.SessionStore.Refresh(); Load(); }, msg => _error = msg),
                 destructive: true));
@@ -207,7 +224,7 @@ namespace SlopWorld
         void ConfirmDelete(Entry e)
         {
             Find.WindowStack.Add(ConfirmDialog.Create(
-                $"Permanently delete {Human(e.Bytes)} of {e.Kind} private state? This cannot be undone.",
+                $"Permanently delete {SizeForConfirmation(e)} of {e.Kind} private state? This cannot be undone.",
                 () => DaemonClient.Delete($"{WireProtocol.Routes.State}/{Uri.EscapeDataString(e.Kind)}/" +
                         Uri.EscapeDataString(e.Key), _ => Load(), msg => _error = msg),
                 destructive: true));
@@ -225,6 +242,19 @@ namespace SlopWorld
         {
             DaemonClient.Post($"{WireProtocol.Routes.StateTrash}/{Uri.EscapeDataString(e.Key)}/restore", null,
                 _ => { SessionHub.Instance.SessionStore.Refresh(); Load(); }, msg => _error = msg);
+        }
+
+        string Size(Entry entry) => _load.SizesAvailable ? Human(entry.Bytes) :
+            _loading ? "Calculating…" : "Size unavailable";
+
+        string SizeForConfirmation(Entry entry) =>
+            _load.SizesAvailable ? Human(entry.Bytes) : "an unknown amount";
+
+        public void Dispose()
+        {
+            _disposed = true;
+            _load.Invalidate();
+            GC.SuppressFinalize(this);
         }
 
         static string Human(long bytes)

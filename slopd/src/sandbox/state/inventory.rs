@@ -1,6 +1,6 @@
 //! State inventory and non-following size accounting; trash lifecycle stays in state.
 
-use super::{purge_trash, read_trashed_session, state_dir, state_root, trash_entries};
+use super::{read_trashed_session, state_dir, state_root, trash_entries};
 use crate::config::SessionCfg;
 use serde::Serialize;
 use std::path::Path;
@@ -36,6 +36,7 @@ pub(crate) fn stored_entry(
     key: String,
     session: Option<String>,
     path: &Path,
+    measure_sizes: bool,
 ) -> StoredState {
     let modified = std::fs::symlink_metadata(path)
         .and_then(|m| m.modified())
@@ -49,17 +50,15 @@ pub(crate) fn stored_entry(
         session,
         project: None,
         path: path.to_string_lossy().into_owned(),
-        bytes: tree_size(path),
+        bytes: if measure_sizes { tree_size(path) } else { 0 },
         modified,
     }
 }
 
 /// Return the state inventory for the settings UI.
-/// State without a configured state ID is orphaned state. Deletion requires an explicit request.
-pub(crate) fn stored_states(sessions: &[SessionCfg]) -> Vec<StoredState> {
-    if let Err(e) = purge_trash() {
-        tracing::warn!("purging private-state trash before inventory: {e:#}");
-    }
+/// State without a configured state ID is orphaned state. Listing never removes storage;
+/// the manager coordinates expired-trash cleanup before a measured inventory.
+pub(crate) fn stored_states(sessions: &[SessionCfg], measure_sizes: bool) -> Vec<StoredState> {
     let root = state_root();
     let mut out = Vec::new();
     let Ok(entries) = std::fs::read_dir(&root) else {
@@ -77,7 +76,13 @@ pub(crate) fn stored_states(sessions: &[SessionCfg]) -> Vec<StoredState> {
                         .find(|s| item_key.ends_with(&format!("-{}", s.state_id)))
                         .map(|s| s.name.clone())
                         .or_else(|| read_trashed_session(&item.path()).ok().map(|s| s.name));
-                    out.push(stored_entry("trash", item_key, owner, &item.path()));
+                    out.push(stored_entry(
+                        "trash",
+                        item_key,
+                        owner,
+                        &item.path(),
+                        measure_sizes,
+                    ));
                 }
             }
             continue;
@@ -93,6 +98,7 @@ pub(crate) fn stored_states(sessions: &[SessionCfg]) -> Vec<StoredState> {
             key,
             owner,
             &entry.path(),
+            measure_sizes,
         ));
     }
     out.sort_by(|a, b| a.kind.cmp(&b.kind).then_with(|| a.key.cmp(&b.key)));

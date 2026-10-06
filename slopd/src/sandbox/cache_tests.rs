@@ -71,8 +71,16 @@ fn caches_share_sources_across_worktrees_and_inventory_survives_removal() {
         source(&p, &p.mounts[0]).unwrap(),
         source(&renamed, &p.mounts[0]).unwrap()
     );
-    let entries = inventory(&[renamed]);
-    assert_eq!(entries.len(), 2);
+    let quick = inventory(&[renamed.clone()], false);
+    let entries = inventory(&[renamed], true);
+    assert_eq!((quick.len(), entries.len()), (2, 2));
+    for (quick, measured) in quick.iter().zip(&entries) {
+        assert_eq!(quick.path, measured.path);
+        assert_eq!(quick.project, measured.project);
+        assert_eq!(quick.kind, measured.kind);
+        assert_eq!(quick.bytes, 0);
+        assert_eq!(measured.bytes, 6);
+    }
     assert!(entries.iter().any(|e| e.kind == "cache-managed"
         && e.project.as_deref() == Some("renamed")
         && e.bytes == 6));
@@ -88,7 +96,7 @@ fn caches_share_sources_across_worktrees_and_inventory_survives_removal() {
             .join("build-output")
             .exists()
     );
-    let orphans = inventory(&[]);
+    let orphans = inventory(&[], true);
     assert!(
         orphans
             .iter()

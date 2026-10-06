@@ -731,6 +731,62 @@ async fn failed_label_persistence_keeps_live_and_config_labels_unchanged() {
     std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
 }
 #[tokio::test]
+async fn measured_inventory_purges_expired_trash_while_quick_inventory_retains_it() {
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
+    let (manager, root, _socket) = rename_fixture(false).await;
+    let session = manager.config().await.sessions[0].clone();
+    let private = crate::sandbox::state_dir(&session).unwrap();
+    std::fs::create_dir_all(&private).unwrap();
+    std::fs::write(private.join("memory"), "remember me").unwrap();
+    let expired = crate::sandbox::trash_state(&session, "reset")
+        .unwrap()
+        .unwrap();
+    std::fs::File::open(&expired)
+        .unwrap()
+        .set_modified(
+            std::time::SystemTime::now() - std::time::Duration::from_secs(15 * 24 * 60 * 60),
+        )
+        .unwrap();
+    std::fs::create_dir_all(&private).unwrap();
+    std::fs::write(private.join("memory"), "fresh state").unwrap();
+    let recent = crate::sandbox::trash_state(&session, "recent")
+        .unwrap()
+        .unwrap();
+    std::fs::create_dir_all(&private).unwrap();
+    std::fs::write(private.join("memory"), "current state").unwrap();
+
+    let quick = manager.stored_states(false).await.unwrap();
+    assert_eq!(
+        quick.iter().filter(|entry| entry.kind == "trash").count(),
+        2
+    );
+    assert!(quick.iter().all(|entry| entry.bytes == 0));
+    assert!(expired.exists());
+
+    // Repeated measured scans clean up only expired trash and retain usable inventory.
+    for _ in 0..2 {
+        let measured = manager.stored_states(true).await.unwrap();
+        assert_eq!(
+            measured
+                .iter()
+                .filter(|entry| entry.kind == "trash")
+                .count(),
+            1
+        );
+        assert!(
+            measured
+                .iter()
+                .any(|entry| entry.kind == "active" && entry.bytes > 0)
+        );
+        assert!(!expired.exists());
+        assert!(recent.exists() && private.exists());
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
 async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved() {
     let Some(_) = crate::test_support::isolated() else {
         return;
@@ -752,7 +808,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
     assert!(manager.live.read().await.contains_key("old"));
     assert!(
         !manager
-            .stored_states()
+            .stored_states(true)
             .await
             .unwrap()
             .iter()
@@ -764,7 +820,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
     assert!(!private.exists());
     assert!(manager.config().await.session("old").is_none());
     assert!(!manager.live.read().await.contains_key("old"));
-    let entries = manager.stored_states().await.unwrap();
+    let entries = manager.stored_states(true).await.unwrap();
     let archived = entries.iter().find(|s| s.kind == "trash").unwrap();
     assert_eq!(archived.session.as_deref(), Some("old"));
     let fault = crate::paths::fail_writes(&manager.cfg_path);
@@ -809,7 +865,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
         manager.config().await.session("old").unwrap().state_id,
         session.state_id
     );
-    let entries = manager.stored_states().await.unwrap();
+    let entries = manager.stored_states(true).await.unwrap();
     let archived = entries.iter().find(|s| s.kind == "trash").unwrap();
     assert_eq!(
         manager.restore_stored_state(&archived.key).await.unwrap(),

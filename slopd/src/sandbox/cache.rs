@@ -269,7 +269,7 @@ pub(crate) fn validate(project: &ProjectCfg, mount: &Mount) -> Result<PathBuf> {
 /// Keep managed caches in the inventory after removal of their mounts or projects.
 /// Include explicit host directories only while the configuration lists them.
 /// Private-state controls never delete these host directories.
-pub(crate) fn inventory(projects: &[ProjectCfg]) -> Vec<StoredState> {
+pub(crate) fn inventory(projects: &[ProjectCfg], measure_sizes: bool) -> Vec<StoredState> {
     let mut out = Vec::new();
     let mut seen = std::collections::BTreeSet::new();
     for project in projects {
@@ -302,6 +302,7 @@ pub(crate) fn inventory(projects: &[ProjectCfg]) -> Vec<StoredState> {
                 },
                 None,
                 &path,
+                measure_sizes,
             );
             entry.project = Some(project.name.clone());
             out.push(entry);
@@ -316,7 +317,7 @@ pub(crate) fn inventory(projects: &[ProjectCfg]) -> Vec<StoredState> {
             {
                 continue;
             }
-            let mut row = stored_entry("cache-managed", key.clone(), None, &path);
+            let mut row = stored_entry("cache-managed", key.clone(), None, &path, measure_sizes);
             row.project = projects
                 .iter()
                 .find(|p| p.id == key)

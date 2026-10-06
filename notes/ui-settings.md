@@ -32,6 +32,14 @@ pins and pane bindings; failed starts retain old readers. User choices belong to
 [Settings reference](../docs/src/reference/settings.md), reader lifetime to
 [file readers](mod-file-readers.md), and command construction to `PagerCommands`.
 
+Storage publishes a shallow daemon inventory before requesting recursive sizes. Pending or
+failed size scans leave names and Files navigation available; unknown sizes must not be
+shown as zero. `StorageLoadState` owns both request stages and rejects callbacks after
+refresh or page disposal. The daemon's `sizes=false` inventory skips recursive accounting
+and trash purging; the default inventory still measures sizes and purges expired trash.
+The manager coordinates purging before a measured scan; sandbox inventory only lists
+and optionally measures entries, without deleting storage.
+
 Page geometry belongs to `SettingsLayout`. `SettingsPreviewForm` owns retained
 scrolling and frame-stable form measurement for Interface, Terminal, and Code;
 `SettingsPreviewLayout` owns their pinned/stacked preview geometry.

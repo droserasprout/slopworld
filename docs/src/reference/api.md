@@ -121,7 +121,10 @@ orphan, and trash entries with sizes. The API permanently deletes only orphan an
 entries. Restore requires no replacement state tree; a deleted agent may be recreated if
 its saved name, project, and mounts remain valid.
 
-`GET /api/state` returns the list. Reset uses the session state route.
+`GET /api/state` returns the list with measured sizes. Pass `?sizes=false` for a
+quick list of names, ownership, paths, and modification times without walking storage
+trees or purging expired trash. In that response, `bytes` is an unmeasured zero
+placeholder. Reset uses the session state route.
 Deletion and restore use the `/api/state` routes in the generated inventory.
 `DELETE /api/state/trash` permanently deletes all retained trash entries.
 

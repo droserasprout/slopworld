@@ -192,6 +192,7 @@
     <Compile Include="../Source/SlopWorld/UI/Text/TextSelectionRules.cs" Link="Source/UI/Text/TextSelectionRules.cs" />
     <Compile Include="../Source/SlopWorld/UI/Readers/PagerCommands.cs" Link="Source/UI/Readers/PagerCommands.cs" />
     <Compile Include="../Source/SlopWorld/UI/Async/OperationGate.cs" Link="Source/UI/Async/OperationGate.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Settings/StorageLoadState.cs" />
     <Compile Include="../Source/SlopWorld/UI/Async/AsyncLoadState.cs" Link="Source/UI/Async/AsyncLoadState.cs" />
     <Compile Include="../Source/SlopWorld/UI/Utilities/NameTools.cs" Link="Source/UI/Utilities/NameTools.cs" />
     <Compile Include="../Source/SlopWorld/UI/Jukebox/AudioSourceDraft.cs" Link="Source/UI/Jukebox/AudioSourceDraft.cs" />

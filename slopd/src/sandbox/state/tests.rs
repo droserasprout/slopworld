@@ -131,11 +131,40 @@ fn failed_trash_metadata_write_restores_the_original_tree() {
 }
 
 #[test]
+fn quick_inventory_keeps_paths_and_ownership_without_tree_sizes() {
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
+    let active = session("active");
+    seed(&active);
+    let orphan = session("orphan");
+    seed(&orphan);
+    let deleted = session("deleted");
+    seed(&deleted);
+    let expired = trash_state(&deleted, "delete").unwrap().unwrap();
+    age(&expired, 15);
+    let quick = stored_states(std::slice::from_ref(&active), false);
+    let measured = stored_states(&[active], true);
+    assert!(expired.exists(), "inventory must not purge expired trash");
+    assert_eq!(quick.len(), 3);
+    assert_eq!(quick.len(), measured.len());
+    for (quick, measured) in quick.iter().zip(&measured) {
+        assert_eq!(quick.kind, measured.kind);
+        assert_eq!(quick.key, measured.key);
+        assert_eq!(quick.path, measured.path);
+        assert_eq!(quick.session, measured.session);
+        assert_eq!(quick.modified, measured.modified);
+        assert_eq!(quick.bytes, 0);
+        assert!(measured.bytes > 0);
+    }
+}
+
+#[test]
 fn inventory_distinguishes_owners_orphans_and_archived_sessions() {
     let Some(_) = crate::test_support::isolated() else {
         return;
     };
-    assert!(stored_states(&[]).is_empty());
+    assert!(stored_states(&[], true).is_empty());
     let active = session("active");
     seed(&active);
     let orphan = session("orphan");
@@ -147,7 +176,7 @@ fn inventory_distinguishes_owners_orphans_and_archived_sessions() {
     seed(&renamed);
     let renamed_trash = trash_state(&renamed, "reset").unwrap().unwrap();
     renamed.name = "after".into();
-    let entries = stored_states(&[active.clone(), renamed]);
+    let entries = stored_states(&[active.clone(), renamed], true);
     assert_eq!(entries.len(), 4);
     assert_eq!(
         entries.iter().map(|e| e.kind.as_str()).collect::<Vec<_>>(),
@@ -261,7 +290,7 @@ fn inventory_and_deletion_do_not_follow_symlinks() {
             let path = base.join(name);
             std::os::unix::fs::symlink(&target, &path).unwrap();
             assert_eq!(tree_size(&path), fs::symlink_metadata(&path).unwrap().len());
-            let entries = stored_states(&[]);
+            let entries = stored_states(&[], true);
             let row = entries
                 .iter()
                 .find(|row| row.kind == kind && row.key == name)
@@ -306,7 +335,7 @@ fn trash_inventory_ignores_linked_metadata_and_refuses_linked_root() {
     fs::create_dir_all(trash_root().join("item")).unwrap();
     std::os::unix::fs::symlink(&metadata, trash_root().join("item").join(TRASH_SESSION)).unwrap();
     std::os::unix::fs::symlink(&external, trash_root().join("link")).unwrap();
-    let entries = stored_states(&[]);
+    let entries = stored_states(&[], true);
     assert_eq!(entries.len(), 2);
     assert!(entries.iter().all(|row| row.session.is_none()));
     assert_eq!(
@@ -319,7 +348,7 @@ fn trash_inventory_ignores_linked_metadata_and_refuses_linked_root() {
     std::os::unix::fs::symlink(&external, trash_root()).unwrap();
     purge_trash().unwrap_err();
     empty_trash().unwrap_err();
-    assert!(stored_states(&[]).is_empty());
+    assert!(stored_states(&[], true).is_empty());
     assert!(metadata.is_file());
 }
 
