@@ -30,6 +30,7 @@ MOD_ASSEMBLIES = (
     'SlopWorld',
     '0Harmony',
     'Google.Protobuf',
+    'AngleSharp',
     'Markdig',
     'Newtonsoft.Json',
     'Tomlyn',
@@ -37,6 +38,7 @@ MOD_ASSEMBLIES = (
     'System.Memory',
     'System.Numerics.Vectors',
     'System.Runtime.CompilerServices.Unsafe',
+    'System.Text.Encoding.CodePages',
 )
 DAEMON_NAME = 'slopworld-latest-x86_64-linux'
 ASSET_NAMES = (f'{DAEMON_NAME}.tar.gz', 'slopworld-latest-mod.zip', 'SHA256SUMS')

@@ -6,6 +6,8 @@ mod/Source/SlopWorld/obj/
 mod/Source/SlopWorld/bin/
 mod/Assemblies/SlopWorld.dll
 # Runtime libraries restored by just sync-mod.
+mod/Assemblies/AngleSharp.dll
+mod/Assemblies/System.Text.Encoding.CodePages.dll
 mod/Assemblies/Markdig.dll
 mod/Assemblies/Newtonsoft.Json.dll
 mod/Assemblies/Tomlyn.dll

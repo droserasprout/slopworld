@@ -37,6 +37,7 @@ namespace SlopWorld
     {
         public BlockKind Kind;
         public int Level;
+        public string Alignment;
         public bool Ordered;
         public bool Tight = true;
         public int Start;
@@ -73,6 +74,7 @@ namespace SlopWorld
     {
         public readonly List<TextPiece> Pieces = new List<TextPiece>();
         public float Offset;
+        public float OffsetX;
         public float Width;
         public float Height;
         public TextBreakKind BreakAfter;

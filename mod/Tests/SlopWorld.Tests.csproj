@@ -64,6 +64,14 @@
       <HintPath>../Assemblies/Newtonsoft.Json.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <Reference Include="AngleSharp">
+      <HintPath>../Assemblies/AngleSharp.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Text.Encoding.CodePages">
+      <HintPath>../Assemblies/System.Text.Encoding.CodePages.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
     <Reference Include="Markdig">
       <HintPath>../Assemblies/Markdig.dll</HintPath>
       <Private>true</Private>
@@ -82,6 +90,7 @@
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.SelectionText.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.SelectionText.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Model.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.Model.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Paths.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.Paths.cs" />
+    <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.HtmlParsing.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.HtmlParsing.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Parsing.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.Parsing.cs" />
     <Compile Include="../Source/SlopWorld/UI/Async/RefreshQueue.cs" Link="Source/RefreshQueue.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/CodeAppearanceDraft.cs" Link="Source/CodeAppearanceDraft.cs" />

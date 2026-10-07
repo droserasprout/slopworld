@@ -25,9 +25,11 @@ metadata; it does not include their full license texts or notices.
 | [Unicode emoji data 17.0](https://www.unicode.org/emoji/17.0/) | Unicode License v3 | [License](unicode/LICENSE.txt) | Unicode, Inc.; emoji sequence catalog generated from `emoji-test.txt`. |
 | [Harmony](https://github.com/pardeike/HarmonyRimWorld) | MIT | [License](runtime/0Harmony.LICENSE.txt) | Andreas Pardeike; mod runtime library. |
 | Google.Protobuf | BSD 3-Clause | [License](runtime/Google.Protobuf.LICENSE.txt) | Mod runtime library. |
+| AngleSharp | MIT | [License](runtime/AngleSharp.LICENSE.txt) | Mod HTML parser. |
 | Markdig | BSD 2-Clause | [License](runtime/Markdig.LICENSE.txt) | Mod runtime library. |
 | Newtonsoft.Json | MIT | [License](runtime/Newtonsoft.Json.LICENSE.txt) | Mod runtime library. |
 | Tomlyn | BSD 2-Clause | [License](runtime/Tomlyn.LICENSE.txt) | Mod runtime library. |
+| System.Text.Encoding.CodePages | MIT | [License](runtime/System.Text.Encoding.CodePages.LICENSE.txt) | Mod runtime library; includes [third-party notices](runtime/System.Text.Encoding.CodePages.NOTICES.txt). |
 | System.Buffers | MIT | [License](runtime/System.Buffers.LICENSE.txt) | Mod runtime library. |
 | System.Memory | MIT | [License](runtime/System.Memory.LICENSE.txt) | Mod runtime library; includes additional [third-party notices](runtime/System.Memory.NOTICES.txt). |
 | System.Numerics.Vectors | MIT | [License](runtime/System.Numerics.Vectors.LICENSE.txt) | Mod runtime library. |
