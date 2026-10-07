@@ -518,3 +518,119 @@ async fn delayed_library_commit_rejects_external_changes_without_overwriting_the
         "external edit with distinct length"
     );
 }
+
+#[tokio::test]
+async fn library_reload_retries_recovery_without_accepting_pending_files() {
+    let f = Fixture::new().await;
+    let path = f.binding.config.join("prompts/prompt.toml");
+    let mut item = LibraryItemCfg {
+        name: "prompt".into(),
+        text: "accepted".into(),
+        project: "repo".into(),
+        ..Default::default()
+    };
+    f.manager.add_library_item(item.clone()).await.unwrap();
+    let original = std::fs::read_to_string(&path).unwrap();
+    let revision = f
+        .manager
+        .config_state
+        .library_revision
+        .lock()
+        .unwrap()
+        .clone();
+    // A failed rollback leaves a valid candidate file and its undo journal.
+    item.text = "uncommitted candidate".into();
+    let pending = toml::to_string(&item).unwrap();
+    std::fs::write(&path, &pending).unwrap();
+    let undo = serde_json::json!({
+        "version": 1,
+        "binding": f.binding,
+        "files": [{
+            "target": crate::storage::target::Target::Config("prompts/prompt.toml".into()),
+            "text": original
+        }]
+    });
+    let journal = f.binding.journal().unwrap();
+    std::fs::write(&journal, undo.to_string()).unwrap();
+    let fault = crate::paths::fail_writes(&path);
+    for _ in 0..2 {
+        assert!(!f.manager.reload_if_changed().await);
+        assert_eq!(f.manager.config().await.library[0].text, "accepted");
+        assert_eq!(
+            *f.manager.config_state.library_revision.lock().unwrap(),
+            revision
+        );
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), pending);
+        assert!(journal.exists());
+    }
+    drop(fault);
+    f.manager.reload_if_changed().await;
+    assert_eq!(f.manager.config().await.library[0].text, "accepted");
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
+    assert!(!journal.exists());
+    assert!(!f.manager.reload_if_changed().await);
+}
+
+#[tokio::test]
+async fn library_reload_recovers_before_the_unchanged_revision_shortcut() {
+    let f = Fixture::new().await;
+    let path = f.shell_path();
+    let original = std::fs::read_to_string(&path).unwrap();
+    std::fs::write(&path, "interrupted host record").unwrap();
+    let undo = serde_json::json!({
+        "version": 1,
+        "binding": f.binding,
+        "files": [{
+            "target": crate::storage::target::Target::Data("host_shells/1111111111111111.toml".into()),
+            "text": original
+        }]
+    });
+    let journal = f.binding.journal().unwrap();
+    std::fs::write(&journal, undo.to_string()).unwrap();
+    assert!(!f.manager.reload_if_changed().await);
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
+    assert!(!journal.exists());
+}
+
+#[tokio::test]
+async fn canceled_library_reload_retains_its_boundary_through_recovery() {
+    let f = Fixture::new().await;
+    let path = f.shell_path();
+    let original = std::fs::read_to_string(&path).unwrap();
+    std::fs::write(&path, "interrupted host record").unwrap();
+    let undo = serde_json::json!({
+        "version": 1,
+        "binding": f.binding,
+        "files": [{
+            "target": crate::storage::target::Target::Data("host_shells/1111111111111111.toml".into()),
+            "text": original
+        }]
+    });
+    let journal = f.binding.journal().unwrap();
+    std::fs::write(&journal, undo.to_string()).unwrap();
+    let gate = f.manager.config_state.persist.lock().await;
+    let reached = Arc::new(tokio::sync::Notify::new());
+    let request = tokio::spawn({
+        let manager = f.manager.clone();
+        let reached = reached.clone();
+        async move {
+            manager
+                .session_operation(async {
+                    reached.notify_one();
+                    manager.reload_if_changed().await
+                })
+                .await
+        }
+    });
+    reached.notified().await;
+    request.abort();
+    assert!(request.await.unwrap_err().is_cancelled());
+    f.manager.session_boundary.try_write().unwrap_err();
+    drop(gate);
+    let _boundary =
+        tokio::time::timeout(Duration::from_secs(5), f.manager.session_boundary.write())
+            .await
+            .unwrap();
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
+    assert!(!journal.exists());
+}

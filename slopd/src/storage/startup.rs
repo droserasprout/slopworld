@@ -3,9 +3,18 @@
 use super::target::StorageBinding;
 use anyhow::{Context, Result};
 use std::collections::BTreeMap;
+use std::net::SocketAddr;
 use tokio::net::TcpListener;
 
-pub(crate) async fn reserve(binding: &StorageBinding) -> Result<BTreeMap<String, TcpListener>> {
+/// Pin hostname resolution through recovery and retain all usable addresses for
+/// exclusion. Aliases and narrower endpoints can share a reserved listener.
+#[derive(Debug)]
+pub(crate) struct Reservations {
+    endpoints: BTreeMap<String, Vec<SocketAddr>>,
+    listeners: BTreeMap<SocketAddr, TcpListener>,
+}
+
+pub(crate) async fn reserve(binding: &StorageBinding) -> Result<Reservations> {
     let mut recovered = Vec::new();
     if let Some(text) = super::transaction::recovery_settings(binding).await? {
         recovered.push(text);
@@ -26,61 +35,102 @@ pub(crate) async fn reserve(binding: &StorageBinding) -> Result<BTreeMap<String,
         Err(error) if recovered.is_empty() => return Err(error.into()),
         Err(_) => {} // An undo document will replace the malformed current root.
     }
-    let mut addresses = addresses
-        .into_iter()
-        .map(|text| {
-            Ok((
-                text.parse::<std::net::SocketAddr>()
-                    .context("invalid daemon bind address")?,
-                text,
-            ))
-        })
-        .collect::<Result<Vec<_>>>()?;
+    let mut resolved = Vec::new();
+    for text in addresses {
+        let addresses: Vec<_> = tokio::net::lookup_host(text.as_str())
+            .await
+            .with_context(|| format!("resolving daemon endpoint {text}"))?
+            .collect();
+        anyhow::ensure!(
+            !addresses.is_empty(),
+            "daemon endpoint {text} has no addresses"
+        );
+        resolved.push((text, addresses));
+    }
     // A wildcard reserves its narrower addresses too. Bind it first so an undo
     // from a wildcard to a specific address does not conflict with our own socket.
-    addresses.sort_by_key(|(address, _)| (address.port(), !address.ip().is_unspecified()));
-    let mut listeners = BTreeMap::new();
-    for (_, address) in addresses {
-        if covers(&listeners, &address)? {
-            continue;
+    resolved.sort_by_key(|(_, addresses)| {
+        !addresses
+            .iter()
+            .any(|address| address.ip().is_unspecified())
+    });
+    let mut reservations = Reservations {
+        endpoints: BTreeMap::new(),
+        listeners: BTreeMap::new(),
+    };
+    for (text, addresses) in resolved {
+        let mut usable = Vec::new();
+        let mut last_error = None;
+        for address in addresses {
+            if covering_listener(&reservations.listeners, address)?.is_some() {
+                usable.push(address);
+                continue;
+            }
+            match TcpListener::bind(address).await {
+                Ok(listener) => {
+                    reservations.listeners.insert(address, listener);
+                    usable.push(address);
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
+                    // Do not use a second DNS answer to bypass another daemon.
+                    return Err(error).with_context(|| {
+                        format!("reserving daemon endpoint {text} ({address}); another daemon may already be running")
+                    });
+                }
+                Err(error) => last_error = Some(error),
+            }
         }
-        let listener = TcpListener::bind(&address).await.with_context(|| {
-            format!("reserving daemon endpoint {address}; another daemon may already be running")
-        })?;
-        listeners.insert(address, listener);
+        if usable.is_empty() {
+            return Err(last_error.context("daemon endpoint has no usable addresses")?)
+                .with_context(|| format!("reserving daemon endpoint {text}"));
+        }
+        reservations.endpoints.insert(text, usable);
     }
-    Ok(listeners)
+    Ok(reservations)
 }
 
-fn covers(listeners: &BTreeMap<String, TcpListener>, requested: &str) -> Result<bool> {
-    let requested: std::net::SocketAddr = requested.parse()?;
-    for listener in listeners.values() {
+fn covering_listener(
+    listeners: &BTreeMap<SocketAddr, TcpListener>,
+    requested: SocketAddr,
+) -> Result<Option<SocketAddr>> {
+    for (address, listener) in listeners {
         let bound = listener.local_addr()?;
-        if bound.port() == requested.port()
-            && (bound.ip() == requested.ip()
-                || (bound.ip().is_unspecified() && bound.is_ipv4() == requested.is_ipv4()))
+        // The map key also identifies ephemeral-port requests after binding.
+        if *address == requested
+            || (bound.port() == requested.port()
+                && (bound.ip() == requested.ip()
+                    || (bound.ip().is_unspecified() && bound.is_ipv4() == requested.is_ipv4())))
         {
-            return Ok(true);
+            return Ok(Some(*address));
         }
     }
-    Ok(false)
+    Ok(None)
 }
 
 pub(crate) async fn serving_listener(
-    mut listeners: BTreeMap<String, TcpListener>,
+    mut reservations: Reservations,
     address: &str,
 ) -> Result<TcpListener> {
-    if let Some(listener) = listeners.remove(address) {
+    let requested = *reservations
+        .endpoints
+        .get(address)
+        .and_then(|addresses| addresses.first())
+        .context("recovered daemon endpoint was not reserved")?;
+    let covered = covering_listener(&reservations.listeners, requested)?
+        .context("recovered daemon endpoint was not reserved")?;
+    let listener = reservations
+        .listeners
+        .remove(&covered)
+        .context("reserved listener disappeared")?;
+    if listener.local_addr()?.ip() == requested.ip() {
         return Ok(listener);
     }
-    anyhow::ensure!(
-        covers(&listeners, address)?,
-        "recovered daemon endpoint was not reserved"
-    );
     // Recovery may narrow a wildcard address. Rebind before starting any runtime
     // services; never serve on a broader address than the recovered settings.
-    drop(listeners);
-    Ok(TcpListener::bind(address).await?)
+    // Use the pinned address rather than resolving the hostname again.
+    drop(reservations);
+    drop(listener);
+    Ok(TcpListener::bind(requested).await?)
 }
 
 #[cfg(test)]

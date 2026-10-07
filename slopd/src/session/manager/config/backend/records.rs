@@ -294,9 +294,27 @@ impl Manager {
     /// supported live reload; a root or record edit cannot replace accepted state.
     pub(in crate::session::manager::config) async fn reload_record_libraries(
         self: &Arc<Self>,
-        records: &Records,
+        records: Arc<Records>,
     ) -> bool {
-        let _gate = self.config_state.persist.lock().await;
+        let manager = self.clone();
+        // Recovery writes files, so a canceled request must not release the
+        // session or persistence guards while restoration is still in flight.
+        self.owned_session_operation(async move {
+            manager.reload_record_libraries_inner(&records).await
+        })
+        .await
+    }
+
+    async fn reload_record_libraries_inner(self: &Arc<Self>, records: &Records) -> bool {
+        let gate = self.config_state.persist.clone().lock_owned().await;
+        // A failed rollback can leave valid-looking but uncommitted catalog files.
+        // Recover before sampling revisions, including the unchanged fast path.
+        if let Err(error) = records.recover(&gate).await {
+            tracing::warn!(
+                "workspace recovery failed; keeping accepted library catalog: {error:#}"
+            );
+            return false;
+        }
         let anchor = records.binding.config.join("config.toml");
         let Ok(stamp) = crate::config::catalog::revision(&anchor) else {
             return false;
@@ -336,7 +354,7 @@ impl Manager {
             .library_revision
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = Some(stamp);
-        drop(_gate);
+        drop(gate);
         self.announce_library().await;
         true
     }

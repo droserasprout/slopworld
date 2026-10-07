@@ -377,7 +377,7 @@ impl Manager {
 
     async fn reload_if_changed_inner(self: &Arc<Self>) -> bool {
         if let Some(records) = self.record_backend() {
-            return self.reload_record_libraries(&records).await;
+            return self.reload_record_libraries(records).await;
         }
         #[cfg(not(test))]
         {

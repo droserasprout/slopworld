@@ -25,6 +25,8 @@ Settings and workspace records are API-owned while running. Offline edits load a
 startup; ordinary mutations use accepted indexes and touch only their declared
 owners. Independent library items retain live reload, with membership and every
 file revision checked before publication. A newer sibling cannot hide deletion.
+Library reload recovers the shared journal before checking revisions; failed
+recovery retains the accepted catalog and revision for retry.
 
 Record updates retain unknown extensions without resurrecting known cleared fields.
 Settings patches preserve omitted values; replacements preserve accepted workspace
@@ -36,6 +38,8 @@ host-shell storage IDs stay internal and are omitted only from the response copy
 Workspace transactions carry explicit targets bound to normalized config/data roots
 and the settings filename. Recovery rejects a changed mapping before any write. Startup reserves the configured and undo-document endpoints
 before recovery, using the existing listener exclusion.
+Hostname resolution is retained through recovery. Usable resolved addresses are
+reserved together; an occupied address cannot be bypassed with another DNS answer.
 The data-root undo journal covers multi-record configuration changes, including
 project/reference edits; ordinary task batches commit independently. Atomic writes
 and journal recovery cover process interruption, without fsync power-loss guarantees.
