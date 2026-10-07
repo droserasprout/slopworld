@@ -9,11 +9,6 @@ use std::ffi::OsString;
 use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
 
-/// Last modification time, or none when metadata or its timestamp is unavailable.
-pub(crate) async fn disk_mtime(path: &Path) -> Option<SystemTime> {
-    tokio::fs::metadata(path).await.ok()?.modified().ok()
-}
-
 /// Discover entries in filename order. Missing directories are empty; callers
 /// decide whether other read failures abort a reload or are skipped at startup.
 /// Catalog owners retain extension, parsing, and duplicate-resolution policy.
@@ -287,7 +282,7 @@ impl Drop for WriteFault {
 }
 
 #[cfg(test)]
-fn check_write_fault(path: &Path) -> Result<()> {
+pub(crate) fn check_write_fault(path: &Path) -> Result<()> {
     anyhow::ensure!(
         !WRITE_FAULTS
             .lock()

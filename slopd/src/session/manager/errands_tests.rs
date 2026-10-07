@@ -167,7 +167,13 @@ async fn host_with_clone_source_fails_before_persistence_or_allocation() {
     assert!(manager.live.read().await.is_empty());
     assert!(manager.temp.read().await.is_empty());
     assert!(manager.config().await.host_terminals.is_empty());
-    assert!(!manager.cfg_path.exists());
+    assert!(
+        Config::load(&manager.cfg_path)
+            .await
+            .unwrap()
+            .sessions
+            .is_empty()
+    );
     std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
 }
 
@@ -308,8 +314,7 @@ async fn persistent_host_errand_saves_tab_and_live_metadata() {
         .create_errand_session(&cfg, &item, &RunWhere::default(), true, true, "")
         .await
         .unwrap();
-    let saved: Config =
-        toml::from_str(&std::fs::read_to_string(&manager.cfg_path).unwrap()).unwrap();
+    let saved = Config::load(&manager.cfg_path).await.unwrap();
     assert_eq!(saved.host_terminals.len(), 1);
     assert_eq!(saved.host_terminals[0].name, name);
     assert_eq!(saved.host_terminals[0].project, "repo");

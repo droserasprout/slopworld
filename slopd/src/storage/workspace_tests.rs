@@ -144,7 +144,7 @@ future = "mount"
 "#,
     )
     .unwrap();
-    let mut project = ProjectCfg::decode(&raw).unwrap();
+    let mut project = ProjectCfg::decode(&raw, ()).unwrap();
     project.mounts[0].from = "/tmp/changed".into();
     let edited = project.document(0, Some(&raw)).unwrap();
     assert_eq!(edited["mounts"][0]["future"].as_str(), Some("mount"));

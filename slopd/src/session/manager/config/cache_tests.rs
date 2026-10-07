@@ -24,24 +24,17 @@ async fn cache_configuration_removes_only_owned_links() {
         projects: vec![project.clone()],
         ..Default::default()
     };
-    let path = temp.join("config.toml");
-    reconcile_cache_links(&path, &Config::default(), &configured)
-        .await
-        .unwrap();
+    reconcile_store_links(&Store::default(), &Config::default(), &configured).unwrap();
     let link = checkout.join("target");
     let source = temp.join("shared");
     assert_eq!(std::fs::read_link(&link).unwrap(), source);
     let mut changed = configured.clone();
     changed.projects[0].mounts.clear();
-    reconcile_cache_links(&path, &configured, &changed)
-        .await
-        .unwrap();
+    reconcile_store_links(&Store::default(), &configured, &changed).unwrap();
     std::fs::symlink_metadata(&link).unwrap_err();
     assert!(source.is_dir());
     std::os::unix::fs::symlink(temp.join("different"), &link).unwrap();
-    reconcile_cache_links(&path, &configured, &changed)
-        .await
-        .unwrap_err();
+    reconcile_store_links(&Store::default(), &configured, &changed).unwrap_err();
     assert_eq!(std::fs::read_link(&link).unwrap(), temp.join("different"));
 }
 
@@ -67,17 +60,12 @@ async fn failed_reconciliation_restores_removed_links() {
         }],
         ..Default::default()
     };
-    let path = temp.join("config.toml");
-    reconcile_cache_links(&path, &Config::default(), &configured)
-        .await
-        .unwrap();
+    reconcile_store_links(&Store::default(), &Config::default(), &configured).unwrap();
 
     let mut changed = configured.clone();
     changed.projects[0].mounts[0].to = "occupied".into();
     std::fs::write(checkout.join("occupied"), "keep this file").unwrap();
-    reconcile_cache_links(&path, &configured, &changed)
-        .await
-        .unwrap_err();
+    reconcile_store_links(&Store::default(), &configured, &changed).unwrap_err();
 
     assert_eq!(
         std::fs::read_link(checkout.join("old-target")).unwrap(),
@@ -110,17 +98,14 @@ async fn later_mount_failure_removes_earlier_additions_and_restores_removals() {
         }],
         ..Default::default()
     };
-    let path = temp.join("config.toml");
-    reconcile_cache_links(&path, &Config::default(), &old)
-        .await
-        .unwrap();
+    reconcile_store_links(&Store::default(), &Config::default(), &old).unwrap();
     let mut next = old.clone();
     next.projects[0].mounts[0].to = "new".into();
     let mut conflict = next.projects[0].mounts[0].clone();
     conflict.to = "occupied".into();
     next.projects[0].mounts.push(conflict);
     std::fs::write(checkout.join("occupied"), "preserve").unwrap();
-    reconcile_cache_links(&path, &old, &next).await.unwrap_err();
+    reconcile_store_links(&Store::default(), &old, &next).unwrap_err();
     assert_eq!(
         std::fs::read_link(checkout.join("old")).unwrap(),
         temp.join("source")
@@ -154,15 +139,18 @@ async fn config_save_failure_rolls_back_added_and_removed_links() {
         ..Default::default()
     };
     let manager = crate::session::test_manager(old.clone());
-    crate::config::fixtures::save(&old, &manager.cfg_path)
-        .await
-        .unwrap();
-    reconcile_cache_links(&manager.cfg_path, &Config::default(), &old)
-        .await
-        .unwrap();
-    let _fault = crate::paths::fail_writes(&manager.cfg_path);
+    let old = manager.config().await;
+    reconcile_store_links(&Store::default(), &Config::default(), &old).unwrap();
+    let _fault = crate::paths::fail_writes(
+        &manager
+            .cfg_path
+            .parent()
+            .unwrap()
+            .join("projects")
+            .join(format!("{}.toml", old.projects[0].id)),
+    );
     manager
-        .update_cfg(ConfigMutation::Fixture, |cfg| {
+        .update_cfg(ConfigMutation::Projects, |cfg| {
             cfg.projects[0].mounts[0].to = "new".into();
             Ok(())
         })

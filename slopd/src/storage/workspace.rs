@@ -1,5 +1,6 @@
-//! Ordered project and registered-checkout records. Schema policy belongs to
-//! workspace_document; the manager owns cross-record references and Git effects.
+//! Ordered workspace records: discovery, diff preparation, and accepted indexes.
+//! Session/project/checkout owners supply schema policy; the manager owns
+//! cross-record references, operation guards, and Git effects.
 //! Accepted documents are loaded once, then explicit plans publish under the gate.
 
 use super::{
@@ -18,32 +19,42 @@ struct Entry<T> {
 }
 
 #[derive(Clone)]
-pub(crate) struct Store<T> {
+pub(crate) struct Store<T: Record> {
+    scope: T::Scope,
     entries: BTreeMap<String, Entry<T>>,
     order: BTreeMap<i64, String>,
     next_order: i64,
 }
 
-pub(crate) struct Prepared<T> {
+#[derive(Clone)]
+pub(crate) struct Prepared<T: Record> {
     pub(crate) changes: Vec<Change>,
     next: Store<T>,
 }
 
 impl<T: Record> Store<T> {
+    #[cfg(test)]
     pub(crate) fn empty() -> Self {
+        Self::empty_scoped(T::Scope::default())
+    }
+    pub(crate) fn empty_scoped(scope: T::Scope) -> Self {
         Self {
+            scope,
             entries: BTreeMap::new(),
             order: BTreeMap::new(),
             next_order: 0,
         }
     }
     pub(crate) async fn load(binding: &StorageBinding) -> Result<Self> {
-        let directory = T::directory(binding);
+        Self::load_scoped(binding, T::Scope::default()).await
+    }
+    pub(crate) async fn load_scoped(binding: &StorageBinding, scope: T::Scope) -> Result<Self> {
+        let directory = T::directory(binding, scope);
         ensure!(
             crate::paths::normalize(&directory)? == directory,
             "workspace store aliases another path"
         );
-        let mut result = Self::empty();
+        let mut result = Self::empty_scoped(scope);
         let mut entries = match tokio::fs::read_dir(&directory).await {
             Ok(entries) => entries,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(result),
@@ -62,12 +73,12 @@ impl<T: Record> Store<T> {
                 .and_then(|s| s.to_str())
                 .context("invalid record filename")?;
             ensure!(
-                T::target(id).resolve(binding)? == path,
+                T::target(id, scope).resolve(binding)? == path,
                 "invalid record target"
             );
             let raw: toml::Value = toml::from_str(&tokio::fs::read_to_string(&path).await?)
                 .with_context(|| format!("decoding {}", path.display()))?;
-            let value = T::decode(&raw)?;
+            let value = T::decode(&raw, scope)?;
             value.validate()?;
             ensure!(
                 value.id() == id,
@@ -103,6 +114,11 @@ impl<T: Record> Store<T> {
             })
             .collect()
     }
+    #[cfg(test)]
+    pub(crate) fn get(&self, id: &str) -> Option<&T> {
+        self.entries.get(id).map(|entry| &entry.value)
+    }
+
     /// Compare only the owning collection. Retained IDs keep their ordinal and
     /// extensions; absent IDs retire, new IDs require exclusive file creation.
     pub(crate) fn prepare(&self, values: Vec<T>) -> Result<Prepared<T>> {
@@ -114,7 +130,7 @@ impl<T: Record> Store<T> {
         for (id, old) in &self.entries {
             if !ids.contains(id.as_str()) {
                 changes.push(Change {
-                    target: T::target(id),
+                    target: T::target(id, self.scope),
                     mutation: Mutation::Retire,
                 });
                 next.entries.remove(id);
@@ -134,7 +150,7 @@ impl<T: Record> Store<T> {
             let raw = value.document(order, old.map(|old| &old.raw))?;
             let text = toml::to_string_pretty(&raw)?;
             changes.push(Change {
-                target: T::target(value.id()),
+                target: T::target(value.id(), self.scope),
                 mutation: if old.is_some() {
                     Mutation::Replace(text)
                 } else {

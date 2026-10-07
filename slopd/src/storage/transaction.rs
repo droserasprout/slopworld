@@ -201,6 +201,8 @@ async fn read_optional(path: &Path) -> Result<Option<String>> {
 }
 
 async fn apply(path: &Path, mutation: &Mutation) -> Result<()> {
+    #[cfg(test)]
+    crate::paths::check_write_fault(path)?;
     match mutation {
         Mutation::Create(text) => crate::paths::create_atomic_async(path, text, Some(0o600)).await,
         Mutation::Replace(text) => crate::paths::write_atomic_async(path, text, Some(0o600)).await,

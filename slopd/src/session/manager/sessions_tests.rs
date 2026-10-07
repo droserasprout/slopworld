@@ -12,7 +12,16 @@ async fn removal_save_failure_restores_private_state_before_retry() {
     let state = crate::sandbox::state_dir(&session).unwrap();
     std::fs::create_dir_all(&state).unwrap();
     std::fs::write(state.join("retained"), "private state").unwrap();
-    let fault = crate::paths::fail_writes(&manager.cfg_path);
+    let record = manager
+        .cfg_path
+        .parent()
+        .unwrap()
+        .join("data/agents")
+        .join(format!(
+            "{}.toml",
+            manager.config().await.sessions[0].state_id
+        ));
+    let fault = crate::paths::fail_writes(&record);
     manager.remove("old").await.unwrap_err();
     assert_eq!(
         std::fs::read_to_string(state.join("retained")).unwrap(),
@@ -58,10 +67,6 @@ async fn rename_fixture(running: bool) -> (Arc<Manager>, std::path::PathBuf, Str
         },
         socket.clone(),
     );
-    manager
-        .update_cfg(ConfigMutation::Fixture, |_| Ok(()))
-        .await
-        .unwrap();
     if running {
         manager
             .tmux
@@ -181,7 +186,7 @@ fn project_directory_rejects_a_protected_ancestor() {
 async fn invalid_or_conflicting_renames_do_not_touch_tmux_or_config() {
     let (manager, root, socket) = rename_fixture(true).await;
     manager
-        .update_cfg(ConfigMutation::Fixture, |cfg| {
+        .update_cfg(ConfigMutation::Agents, |cfg| {
             cfg.sessions.push(replacement("occupied"));
             Ok(())
         })
@@ -251,7 +256,16 @@ async fn persistence_failure_restores_tmux_or_reports_failed_rollback() {
     for rollback_fails in [false, true] {
         let (manager, root, socket) = rename_fixture(true).await;
         let persisted = std::fs::read(&manager.cfg_path).unwrap();
-        let _fault = crate::paths::fail_writes(&manager.cfg_path);
+        let record = manager
+            .cfg_path
+            .parent()
+            .unwrap()
+            .join("data/agents")
+            .join(format!(
+                "{}.toml",
+                manager.config().await.sessions[0].state_id
+            ));
+        let _fault = crate::paths::fail_writes(&record);
         if rollback_fails {
             manager.tmux.fail_rename_call_for_test(2);
         }
@@ -288,7 +302,16 @@ async fn persistence_failure_restores_tmux_or_reports_failed_rollback() {
 #[tokio::test]
 async fn abandoning_update_cannot_skip_commit_or_rollback() {
     let (manager, root, socket) = rename_fixture(true).await;
-    let _fault = crate::paths::fail_writes(&manager.cfg_path);
+    let record = manager
+        .cfg_path
+        .parent()
+        .unwrap()
+        .join("data/agents")
+        .join(format!(
+            "{}.toml",
+            manager.config().await.sessions[0].state_id
+        ));
+    let _fault = crate::paths::fail_writes(&record);
     let (renamed, release) = manager.tmux.pause_after_rename_for_test();
     let update = tokio::spawn({
         let manager = manager.clone();
@@ -486,8 +509,9 @@ async fn metadata_fixture() -> Arc<Manager> {
         .to_string_lossy()
         .into_owned();
     manager
-        .update_cfg(ConfigMutation::Fixture, |cfg| {
+        .update_cfg(ConfigMutation::ProjectReferences, |cfg| {
             cfg.projects.push(ProjectCfg {
+                id: crate::storage_id::draft_identity(),
                 name: "repo".into(),
                 dir,
                 ..Default::default()
@@ -585,8 +609,7 @@ async fn current_host_metadata_persists_path_and_updates_foreground_process() {
         .await;
     assert_eq!(manager.live.read().await["shell"].host_path, "/current");
     assert!(manager.live.read().await["shell"].process_running);
-    let saved: Config =
-        toml::from_str(&std::fs::read_to_string(&manager.cfg_path).unwrap()).unwrap();
+    let saved = Config::load(&manager.cfg_path).await.unwrap();
     assert_eq!(saved.host_terminals[0].path, "/current");
     assert!(
         !manager
@@ -617,14 +640,18 @@ async fn host_creation_serializes_identity_and_failed_save_does_not_publish() {
     assert_eq!(ids.len(), 3);
     assert!(ids.iter().all(|id| crate::storage_id::valid(id)));
     let before = std::fs::read(&manager.cfg_path).unwrap();
-    let fault = crate::paths::fail_writes(&manager.cfg_path);
+    let directory = manager.cfg_path.parent().unwrap().join("data/host_shells");
+    let backup = directory.with_extension("saved");
+    std::fs::rename(&directory, &backup).unwrap();
+    std::fs::write(&directory, "blocked").unwrap();
     manager
         .remember_host_terminal("failed", "repo", "/failed")
         .await
         .unwrap_err();
     assert_eq!(manager.config().await.host_terminals.len(), 3);
     assert_eq!(std::fs::read(&manager.cfg_path).unwrap(), before);
-    drop(fault);
+    std::fs::remove_file(&directory).unwrap();
+    std::fs::rename(&backup, &directory).unwrap();
     std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
 }
 
@@ -695,8 +722,7 @@ async fn manual_labels_count_unicode_characters_clear_and_invalidate_pending_tit
         manager.set_label(name, "  ".into()).await.unwrap();
         assert!(manager.live.read().await[name].cfg.label.is_none());
     }
-    let saved: Config =
-        toml::from_str(&std::fs::read_to_string(&manager.cfg_path).unwrap()).unwrap();
+    let saved = Config::load(&manager.cfg_path).await.unwrap();
     assert!(saved.sessions[0].label.is_none());
     assert!(saved.host_terminals[0].label.is_none());
     assert!(
@@ -742,8 +768,16 @@ async fn failed_label_persistence_keeps_live_and_config_labels_unchanged() {
     let manager = metadata_fixture().await;
     manager.set_label("agent", "Original".into()).await.unwrap();
     let request = pending_title(&mut manager.live.write().await.get_mut("agent").unwrap().title);
-    std::fs::remove_file(&manager.cfg_path).unwrap();
-    std::fs::create_dir(&manager.cfg_path).unwrap();
+    let record = manager
+        .cfg_path
+        .parent()
+        .unwrap()
+        .join("data/agents")
+        .join(format!(
+            "{}.toml",
+            manager.config().await.sessions[0].state_id
+        ));
+    let _fault = crate::paths::fail_writes(&record);
     assert!(manager.set_label("agent", "Unsaved".into()).await.is_err());
     assert_eq!(
         manager.live.read().await["agent"].cfg.label.as_deref(),
@@ -829,7 +863,16 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
     std::fs::create_dir_all(&private).unwrap();
     std::fs::write(private.join("memory"), "remember me").unwrap();
     let saved = std::fs::read(&manager.cfg_path).unwrap();
-    let fault = crate::paths::fail_writes(&manager.cfg_path);
+    let record = manager
+        .cfg_path
+        .parent()
+        .unwrap()
+        .join("data/agents")
+        .join(format!(
+            "{}.toml",
+            manager.config().await.sessions[0].state_id
+        ));
+    let fault = crate::paths::fail_writes(&record);
     assert!(manager.remove("old").await.is_err());
     assert_eq!(std::fs::read(&manager.cfg_path).unwrap(), saved);
     assert_eq!(
@@ -855,7 +898,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
     let entries = manager.stored_states(true).await.unwrap();
     let archived = entries.iter().find(|s| s.kind == "trash").unwrap();
     assert_eq!(archived.session.as_deref(), Some("old"));
-    let fault = crate::paths::fail_writes(&manager.cfg_path);
+    let fault = crate::paths::fail_writes(&record);
     manager
         .restore_stored_state(&archived.key)
         .await
@@ -936,8 +979,9 @@ async fn removing_one_durable_session_does_not_autostart_an_unrelated_host_tab()
     };
     let (manager, root, socket) = rename_fixture(false).await;
     manager
-        .update_cfg(ConfigMutation::Fixture, |cfg| {
+        .update_cfg(ConfigMutation::HostShells, |cfg| {
             cfg.host_terminals.push(crate::config::HostTerminalCfg {
+                id: crate::storage_id::draft_identity(),
                 name: "unrelated".into(),
                 project: "repo".into(),
                 path: root.to_string_lossy().into_owned(),

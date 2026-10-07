@@ -1,24 +1,24 @@
 //! Project and checkout schemas and retained extensions. Mount extensions follow
 //! their destination, which is the unique ownership key of a project mount.
 use super::{
+    document::{preserve, retain_known},
     target::{StorageBinding, Target},
     workspace::{project_target, worktree_target},
 };
 use crate::{config::ProjectCfg, worktrees::Worktree};
 use anyhow::{Context, Result, ensure};
-use serde::{Serialize, de::DeserializeOwned};
+use serde::Serialize;
 use std::{collections::HashSet, path::PathBuf};
 
-pub(crate) trait Record: Clone + Serialize + DeserializeOwned {
+pub(crate) trait Record: Clone + Serialize {
+    type Scope: Copy + Default;
     fn id(&self) -> &str;
-    fn directory(binding: &StorageBinding) -> PathBuf;
-    fn target(id: &str) -> Target;
+    fn directory(binding: &StorageBinding, _: Self::Scope) -> PathBuf;
+    fn target(id: &str, _: Self::Scope) -> Target;
     fn fields() -> &'static [&'static str];
     fn validate(&self) -> Result<()>;
     fn validate_collection(values: &[Self]) -> Result<()>;
-    fn decode(raw: &toml::Value) -> Result<Self> {
-        Ok(raw.clone().try_into()?)
-    }
+    fn decode(raw: &toml::Value, scope: Self::Scope) -> Result<Self>;
     fn document(&self, order: i64, old: Option<&toml::Value>) -> Result<toml::Value> {
         let mut next = toml::Value::try_from(self)?;
         next.as_table_mut()
@@ -29,28 +29,27 @@ pub(crate) trait Record: Clone + Serialize + DeserializeOwned {
     }
 }
 
-fn preserve(next: &mut toml::Value, old: Option<&toml::Value>, fields: &[&str]) {
-    if let (Some(next), Some(old)) = (next.as_table_mut(), old.and_then(toml::Value::as_table)) {
-        for (key, value) in old {
-            if key != "storage_order" && !fields.contains(&key.as_str()) {
-                next.insert(key.clone(), value.clone());
-            }
-        }
-    }
-}
-
 impl Record for ProjectCfg {
+    type Scope = ();
     fn id(&self) -> &str {
         &self.id
     }
-    fn directory(binding: &StorageBinding) -> PathBuf {
+    fn directory(binding: &StorageBinding, (): Self::Scope) -> PathBuf {
         binding.config.join("projects")
     }
-    fn target(id: &str) -> Target {
+    fn target(id: &str, (): Self::Scope) -> Target {
         project_target(id)
     }
     fn fields() -> &'static [&'static str] {
-        &["id", "name", "dir", "temp", "worktree_root", "mounts"]
+        &[
+            "storage_order",
+            "id",
+            "name",
+            "dir",
+            "temp",
+            "worktree_root",
+            "mounts",
+        ]
     }
     fn validate(&self) -> Result<()> {
         ensure!(
@@ -63,16 +62,14 @@ impl Record for ProjectCfg {
     fn validate_collection(values: &[Self]) -> Result<()> {
         crate::config::validate_project_names(values)
     }
-    fn decode(raw: &toml::Value) -> Result<Self> {
+    fn decode(raw: &toml::Value, (): ()) -> Result<Self> {
         let mut modeled = raw.clone();
         if let Some(mounts) = modeled
             .get_mut("mounts")
             .and_then(toml::Value::as_array_mut)
         {
             for mount in mounts {
-                if let Some(table) = mount.as_table_mut() {
-                    table.retain(|key, _| ["from", "to", "mode"].contains(&key));
-                }
+                retain_known(mount, &["from", "to", "mode"]);
             }
         }
         Ok(modeled.try_into()?)
@@ -97,17 +94,22 @@ impl Record for ProjectCfg {
 }
 
 impl Record for Worktree {
+    type Scope = ();
+    fn decode(raw: &toml::Value, (): ()) -> Result<Self> {
+        Ok(raw.clone().try_into()?)
+    }
     fn id(&self) -> &str {
         &self.id
     }
-    fn directory(binding: &StorageBinding) -> PathBuf {
+    fn directory(binding: &StorageBinding, (): Self::Scope) -> PathBuf {
         binding.data.join("worktrees")
     }
-    fn target(id: &str) -> Target {
+    fn target(id: &str, (): Self::Scope) -> Target {
         worktree_target(id)
     }
     fn fields() -> &'static [&'static str] {
         &[
+            "storage_order",
             "id",
             "project_id",
             "name",

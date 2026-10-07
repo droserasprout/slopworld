@@ -112,7 +112,10 @@ async fn saving_a_template_persists_it_separately_from_config() {
         toml::to_string(saved).unwrap(),
         toml::to_string(&manager.agent_templates().await[0]).unwrap()
     );
-    assert!(!manager.cfg_path.is_file());
+    assert_eq!(
+        std::fs::read_to_string(&manager.cfg_path).unwrap(),
+        toml::to_string_pretty(&manager.config().await.settings).unwrap()
+    );
     drop(std::fs::remove_dir_all(root));
 }
 

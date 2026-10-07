@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::storage::{
-    sessions::{Definition, Kind, Prepared, Store},
+    sessions::{Definition, Kind, Store},
     target::StorageBinding,
     transaction, workspace,
 };
@@ -22,13 +22,80 @@ struct Stores {
 
 pub(in crate::session::manager::config) struct PreparedRecords {
     owner: Arc<Records>,
-    agents: Vec<Prepared>,
-    hosts: Vec<Prepared>,
+    agents: Option<workspace::Prepared<Definition>>,
+    hosts: Option<workspace::Prepared<Definition>>,
     projects: Option<workspace::Prepared<ProjectCfg>>,
     worktrees: Option<workspace::Prepared<crate::worktrees::Worktree>>,
 }
 
 impl Records {
+    #[cfg(test)]
+    pub(in crate::session::manager) fn fixture(cfg: &mut Config, path: &Path) -> Result<Arc<Self>> {
+        let root = path.parent().context("fixture root")?;
+        for id in cfg
+            .projects
+            .iter_mut()
+            .map(|row| &mut row.id)
+            .chain(cfg.host_terminals.iter_mut().map(|row| &mut row.id))
+        {
+            if id.is_empty() {
+                *id = crate::storage_id::draft_identity();
+            }
+        }
+        let binding = StorageBinding::new(root, &root.join("data"), path)?;
+        let mut agents = Store::empty(Kind::Agent);
+        let mut hosts = Store::empty(Kind::HostShell);
+        let mut projects = workspace::Store::empty();
+        let mut changes = Vec::new();
+        for (store, values) in [
+            (
+                &mut agents,
+                cfg.sessions
+                    .iter()
+                    .cloned()
+                    .map(|row| Definition::Agent(Box::new(row)))
+                    .collect::<Vec<_>>(),
+            ),
+            (
+                &mut hosts,
+                cfg.host_terminals
+                    .iter()
+                    .cloned()
+                    .map(Definition::HostShell)
+                    .collect(),
+            ),
+        ] {
+            let plan = store.prepare(values)?;
+            changes.extend(plan.changes.clone());
+            store.publish_all(plan);
+        }
+        let plan = projects.prepare(cfg.projects.clone())?;
+        changes.extend(plan.changes.clone());
+        projects.publish(plan);
+        for change in changes {
+            let text = match change.mutation {
+                transaction::Mutation::Create(text) | transaction::Mutation::Replace(text) => text,
+                transaction::Mutation::Retire => bail!("initial fixture cannot retire records"),
+            };
+            crate::paths::write_private_toml(&change.target.resolve(&binding)?, &text)?;
+        }
+        crate::paths::write_private_toml(path, &toml::to_string_pretty(&cfg.settings)?)?;
+        for (path, text) in
+            crate::config::catalog::prepare_library(&Config::library_dirs_for(path), &cfg.library)?
+        {
+            crate::paths::write_private_toml(&path, &text)?;
+        }
+        Ok(Arc::new(Self {
+            binding,
+            stores: Mutex::new(Stores {
+                agents,
+                hosts,
+                projects,
+                worktrees: workspace::Store::empty(),
+            }),
+        }))
+    }
+
     pub(in crate::session::manager::config) async fn recover(
         &self,
         gate: &OwnedMutexGuard<()>,
@@ -47,21 +114,22 @@ impl Records {
             .unwrap_or_else(|error| error.into_inner());
         let mut plan = PreparedRecords {
             owner: self.clone(),
-            agents: Vec::new(),
-            hosts: Vec::new(),
+            agents: None,
+            hosts: None,
             projects: None,
             worktrees: None,
         };
         match mutation {
             ConfigMutation::Agents | ConfigMutation::ProjectReferences => {
-                plan.agents = prepare_selected(
-                    &stores.agents,
-                    next.sessions
-                        .iter()
-                        .cloned()
-                        .map(|row| Definition::Agent(Box::new(row)))
-                        .collect(),
-                )?;
+                plan.agents = Some(
+                    stores.agents.prepare(
+                        next.sessions
+                            .iter()
+                            .cloned()
+                            .map(|row| Definition::Agent(Box::new(row)))
+                            .collect(),
+                    )?,
+                );
             }
             ConfigMutation::HostShells | ConfigMutation::Projects => {}
             _ => bail!("record backend does not yet support this mutation owner"),
@@ -70,14 +138,15 @@ impl Records {
             mutation,
             ConfigMutation::HostShells | ConfigMutation::ProjectReferences
         ) {
-            plan.hosts = prepare_selected(
-                &stores.hosts,
-                next.host_terminals
-                    .iter()
-                    .cloned()
-                    .map(Definition::HostShell)
-                    .collect(),
-            )?;
+            plan.hosts = Some(
+                stores.hosts.prepare(
+                    next.host_terminals
+                        .iter()
+                        .cloned()
+                        .map(Definition::HostShell)
+                        .collect(),
+                )?,
+            );
         }
         if matches!(
             mutation,
@@ -102,7 +171,7 @@ impl PreparedRecords {
             .agents
             .iter()
             .chain(&self.hosts)
-            .map(|edit| edit.change.clone())
+            .flat_map(|plan| plan.changes.clone())
             .collect();
         if let Some(plan) = &self.projects {
             changes.extend(plan.changes.clone());
@@ -130,11 +199,11 @@ impl PreparedRecords {
             .stores
             .lock()
             .unwrap_or_else(|error| error.into_inner());
-        for edit in self.agents {
-            stores.agents.publish(edit);
+        if let Some(plan) = self.agents {
+            stores.agents.publish_all(plan);
         }
-        for edit in self.hosts {
-            stores.hosts.publish(edit);
+        if let Some(plan) = self.hosts {
+            stores.hosts.publish_all(plan);
         }
         if let Some(plan) = self.projects {
             stores.projects.publish(plan);
@@ -145,54 +214,6 @@ impl PreparedRecords {
     }
 }
 
-/// Only the declared collection participates. Preview index changes privately so
-/// names retired by this plan can be reused and each creation gets its own order.
-fn prepare_selected(store: &Store, values: Vec<Definition>) -> Result<Vec<Prepared>> {
-    let mut preview = store.clone();
-    let mut edits = Vec::new();
-    let ids: std::collections::HashSet<_> = values.iter().map(Definition::id).collect();
-    anyhow::ensure!(ids.len() == values.len(), "duplicate session identity");
-    for old in store.ordered() {
-        if !ids.contains(old.id()) {
-            let edit = preview
-                .retire(old.id())
-                .context("accepted session record disappeared")?;
-            preview.publish(edit.clone());
-            edits.push(edit);
-        }
-    }
-    for value in &values {
-        if let Some(old) = preview.get(value.id()) {
-            if serialized(old)? == serialized(value)? {
-                continue;
-            }
-            let edit = preview.update(value.id(), value.clone())?;
-            preview.publish(edit.clone());
-            edits.push(edit);
-        } else {
-            let edit = preview.create(value.clone())?;
-            preview.publish(edit.clone());
-            edits.push(edit);
-        }
-    }
-    anyhow::ensure!(
-        preview
-            .ordered()
-            .iter()
-            .map(Definition::id)
-            .eq(values.iter().map(Definition::id)),
-        "record edits cannot reorder retained sessions"
-    );
-    Ok(edits)
-}
-
-fn serialized(value: &Definition) -> Result<toml::Value> {
-    Ok(match value {
-        Definition::Agent(row) => toml::Value::try_from(row)?,
-        Definition::HostShell(row) => toml::Value::try_from(row)?,
-    })
-}
-
 impl Manager {
     pub(in crate::session::manager) fn record_backend(&self) -> Option<Arc<Records>> {
         self.config_state
@@ -200,14 +221,6 @@ impl Manager {
             .lock()
             .unwrap_or_else(|error| error.into_inner())
             .clone()
-    }
-
-    #[cfg(test)]
-    pub(in crate::session::manager) async fn select_record_fixture(
-        self: &Arc<Self>,
-        binding: StorageBinding,
-    ) -> Result<()> {
-        self.load_record_backend(binding).await
     }
 
     /// Load and validate the complete workspace before any runtime reconciliation.

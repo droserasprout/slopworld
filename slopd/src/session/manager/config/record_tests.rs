@@ -1,71 +1,19 @@
-//! Manager integration fixtures for the unselected record layout.
+//! Manager integration tests for production record storage.
 
 use super::*;
 use crate::config::HostTerminalCfg;
 use crate::storage::{
     sessions::{Definition, Kind, Store},
     target::StorageBinding,
-    transaction,
 };
 
 pub(in crate::session::manager) async fn select_records(manager: &Arc<Manager>) -> StorageBinding {
     let root = manager.cfg_path.parent().unwrap();
     let binding = StorageBinding::new(root, &root.join("data"), &manager.cfg_path).unwrap();
-    let mut cfg = manager.config().await;
-    for project in &mut cfg.projects {
-        if project.id.is_empty() {
-            project.id = crate::storage_id::allocate(|_| Ok(false)).unwrap();
-        }
-    }
-    let gate = manager.config_state.persist.clone().lock_owned().await;
-    let mut changes = vec![transaction::Change {
-        target: crate::storage::target::Target::Settings,
-        mutation: transaction::Mutation::Replace(toml::to_string_pretty(&cfg.settings).unwrap()),
-    }];
-    for (kind, values) in [
-        (
-            Kind::Agent,
-            cfg.sessions
-                .into_iter()
-                .map(|row| Definition::Agent(Box::new(row)))
-                .collect::<Vec<_>>(),
-        ),
-        (
-            Kind::HostShell,
-            cfg.host_terminals
-                .into_iter()
-                .map(Definition::HostShell)
-                .collect(),
-        ),
-    ] {
-        let mut store = Store::empty(kind);
-        for value in values {
-            let prepared = store.create(value).unwrap();
-            changes.push(prepared.change.clone());
-            store.publish(prepared);
-        }
-    }
-    let projects = crate::storage::workspace::Store::<ProjectCfg>::empty()
-        .prepare(cfg.projects)
-        .unwrap();
-    changes.extend(projects.changes);
-    let worktrees = crate::storage::workspace::Store::<crate::worktrees::Worktree>::empty()
-        .prepare(
-            crate::worktrees::Store::load(&manager.cfg_path)
-                .await
-                .unwrap()
-                .worktrees,
-        )
-        .unwrap();
-    changes.extend(worktrees.changes);
-    transaction::commit_in_operation(&binding, changes, &gate)
+    crate::config::fixtures::save(&manager.config().await, &manager.cfg_path)
         .await
         .unwrap();
-    drop(gate);
-    manager
-        .select_record_fixture(binding.clone())
-        .await
-        .unwrap();
+    manager.load_record_backend(binding.clone()).await.unwrap();
     binding
 }
 
@@ -383,14 +331,23 @@ async fn independent_library_reload_preserves_workspace_and_rejects_invalid_revi
         .unwrap();
     assert!(f.manager.reload_if_changed().await);
     assert_eq!(f.manager.config().await.library[0].text, "prompt");
-    let stamp = *f.manager.config_state.library_mtime.lock().unwrap();
+    let stamp = f
+        .manager
+        .config_state
+        .library_revision
+        .lock()
+        .unwrap()
+        .clone();
     tokio::fs::write(&path, "invalid library [").await.unwrap();
     std::fs::File::open(&path)
         .unwrap()
         .set_modified(std::time::SystemTime::now() + Duration::from_secs(60))
         .unwrap();
     assert!(!f.manager.reload_if_changed().await);
-    assert_eq!(*f.manager.config_state.library_mtime.lock().unwrap(), stamp);
+    assert_eq!(
+        *f.manager.config_state.library_revision.lock().unwrap(),
+        stamp
+    );
     assert_eq!(f.manager.config().await.library[0].text, "prompt");
     assert_eq!(f.manager.config().await.sessions[0].name, "agent");
     assert_eq!(
@@ -587,7 +544,7 @@ async fn library_reload_recovers_before_the_unchanged_revision_shortcut() {
     });
     let journal = f.binding.journal().unwrap();
     std::fs::write(&journal, undo.to_string()).unwrap();
-    assert!(!f.manager.reload_if_changed().await);
+    f.manager.reload_if_stale().await;
     assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
     assert!(!journal.exists());
 }

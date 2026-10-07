@@ -4,7 +4,6 @@ use super::super::*;
 use super::{
     Authorization, ConfigState, HostMetadataPoll, MusicState, Signals, TemplateStore, WorktreeState,
 };
-use crate::paths::disk_mtime;
 
 impl Manager {
     /// Load stores, recover worktrees, and reconcile configured sessions.
@@ -12,8 +11,6 @@ impl Manager {
         let (events, _) = broadcast::channel(256);
 
         // Catalog stamps seed the maintenance reload checks.
-        let mtime = disk_mtime(&cfg_path).await;
-        let library_mtime = Config::library_stamp_for(&cfg_path);
         let presets_mtime = crate::presets::Table::stamp();
         let presets_loaded = crate::presets::reload();
         let jukebox_mtime = crate::paths::dir_stamp(&crate::jukebox::Catalog::dir());
@@ -58,8 +55,6 @@ impl Manager {
             cfg: RwLock::new(cfg),
             templates: TemplateStore::new(templates),
             config_state: ConfigState::new(
-                mtime,
-                library_mtime,
                 presets_loaded.then_some(presets_mtime).flatten(),
                 jukebox_loaded.then_some(jukebox_mtime).flatten(),
             ),

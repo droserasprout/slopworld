@@ -797,8 +797,10 @@ impl Manager {
     pub async fn restore_stored_state(self: &Arc<Self>, key: &str) -> Result<String> {
         let manager = self.clone();
         let key = key.to_owned();
-        self.owned_session_operation(async move { manager.restore_stored_state_inner(&key).await })
-            .await
+        self.owned_session_operation(async move {
+            Box::pin(manager.restore_stored_state_inner(&key)).await
+        })
+        .await
     }
 
     async fn restore_stored_state_inner(self: &Arc<Self>, key: &str) -> Result<String> {

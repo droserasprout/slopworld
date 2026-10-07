@@ -140,6 +140,7 @@ async fn add_unrelated_sessions(manager: &Arc<Manager>) -> crate::config::Config
             ..Default::default()
         }));
     cfg.projects.push(crate::config::ProjectCfg {
+        id: crate::storage_id::draft_identity(),
         name: "repo".into(),
         dir: "/tmp".into(),
         ..Default::default()
@@ -147,10 +148,8 @@ async fn add_unrelated_sessions(manager: &Arc<Manager>) -> crate::config::Config
     for session in &mut cfg.sessions {
         session.project = "repo".into();
     }
-    manager
-        .replace_config(&toml::to_string(&cfg).unwrap())
-        .await
-        .unwrap();
+    manager.replace_workspace_fixture(&cfg).await.unwrap();
+    manager.sync_from_config().await;
     cfg
 }
 
@@ -304,6 +303,7 @@ async fn scoped_worker_catalog_is_allowlisted_and_project_scoped() {
             ..Default::default()
         },
         projects: vec![ProjectCfg {
+            id: crate::storage_id::draft_identity(),
             name: "repo".into(),
             dir: "/tmp".into(),
             ..Default::default()
@@ -526,19 +526,13 @@ async fn disappearing_identities_close_sockets_and_do_not_follow_reused_names() 
                     cfg = manager.config().await;
                 } else {
                     cfg.sessions.retain(|s| s.name != subject);
-                    tokio::fs::write(&manager.cfg_path, toml::to_string(&cfg).unwrap())
-                        .await
-                        .unwrap();
-                    assert!(manager.reload_if_changed().await);
+                    manager.replace_workspace_fixture(&cfg).await.unwrap();
                 }
                 cfg.sessions.push(SessionCfg {
                     name: subject.into(),
                     ..Default::default()
                 });
-                manager
-                    .replace_config(&toml::to_string(&cfg).unwrap())
-                    .await
-                    .unwrap();
+                manager.replace_workspace_fixture(&cfg).await.unwrap();
                 tokio::time::timeout(
                     std::time::Duration::from_secs(2),
                     await_socket_close(&mut socket),

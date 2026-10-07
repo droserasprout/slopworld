@@ -25,8 +25,9 @@ Settings and workspace records are API-owned while running. Offline edits load a
 startup; ordinary mutations use accepted indexes and touch only their declared
 owners. Independent library items retain live reload, with membership and every
 file revision checked before publication. A newer sibling cannot hide deletion.
-Library reload recovers the shared journal before checking revisions; failed
-recovery retains the accepted catalog and revision for retry.
+Library reload recovers the shared journal before accepting revisions. Shared
+read requests can skip reload when the accepted revision matches and no journal
+is present. Failed recovery retains the accepted catalog and revision for retry.
 
 Record updates retain unknown extensions without resurrecting known cleared fields.
 Settings patches preserve omitted values; replacements preserve accepted workspace
@@ -50,8 +51,8 @@ Root and library operations cannot accept revisions belonging to another owner.
 
 Startup rejects retired inline sections, aggregate task/worktree files, old grants
 locations and config recovery journals. Only the bound data-root workspace journal
-is recoverable. Inline adapters retained for historical manager/domain fixtures
-are test-only and use the permanent transaction owner.
+is recoverable. Manager/domain fixtures use the production record stores and
+transaction owner; there is no alternate inline or aggregate persistence lifecycle.
 
 Public read-model contracts belong to [the API](../docs/src/reference/api.md);
 draft/save behavior to [Settings](ui-settings.md); protected filesystem boundaries

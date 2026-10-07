@@ -51,7 +51,6 @@ async fn shared_request_keeps_scoped_capability_valid_until_it_finishes() {
     let cap = manager.resolve_cap(Some(&token)).await.unwrap();
     let mut replacement = manager.config().await;
     replacement.sessions[0].state_id = crate::storage_id::draft_identity();
-    let text = toml::to_string(&replacement).unwrap();
     let (release, wait) = tokio::sync::oneshot::channel::<()>();
     let (started, started_wait) = tokio::sync::oneshot::channel();
     let request = manager.session_read_request(async {
@@ -65,7 +64,7 @@ async fn shared_request_keeps_scoped_capability_valid_until_it_finishes() {
         () = request.as_mut() => panic!("shared request ended early"),
         _ = started_wait => {},
     }
-    let replace = manager.replace_config(&text);
+    let replace = manager.replace_workspace_fixture(&replacement);
     tokio::pin!(replace);
     assert!(futures::poll!(replace.as_mut()).is_pending());
     release.send(()).unwrap();
@@ -102,7 +101,6 @@ async fn replacement_waits_for_authorized_use_and_then_rejects_the_old_capabilit
         let original = manager.config().await;
         let mut replacement = original.clone();
         replacement.sessions[1].state_id = crate::storage_id::draft_identity();
-        let text = toml::to_string(&replacement).unwrap();
         let (release, wait) = tokio::sync::oneshot::channel();
         let (checked, check_done) = tokio::sync::oneshot::channel();
         let request = manager.session_request(async {
@@ -119,7 +117,7 @@ async fn replacement_waits_for_authorized_use_and_then_rejects_the_old_capabilit
             () = request.as_mut() => panic!("request finished before release"),
             _ = check_done => {},
         }
-        let replace = manager.replace_config(&text);
+        let replace = manager.replace_workspace_fixture(&replacement);
         tokio::pin!(replace);
         assert!(futures::poll!(replace.as_mut()).is_pending());
         assert!(manager.cap_ok(&cap, "target", level).await);

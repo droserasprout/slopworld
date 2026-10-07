@@ -2,8 +2,7 @@
 //! validation, operation guards, recovery ordering, and accepted-state publication.
 //! Startup selects these owners after layout validation.
 
-#[cfg(test)]
-mod record;
+pub(crate) mod document;
 mod session_document;
 pub(crate) mod sessions;
 pub(crate) mod target;

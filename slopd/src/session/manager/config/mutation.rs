@@ -10,23 +10,11 @@ pub(in crate::session::manager) enum ConfigMutation {
     Projects,
     ProjectReferences,
     Library,
-    #[cfg(test)]
-    Fixture,
 }
 
 impl ConfigMutation {
-    #[cfg(test)]
-    pub(super) fn writes_root(self) -> bool {
-        !matches!(self, Self::Library)
-    }
-
     pub(super) fn writes_library(self) -> bool {
-        match self {
-            Self::Library => true,
-            #[cfg(test)]
-            Self::Fixture => true,
-            _ => false,
-        }
+        matches!(self, Self::Library)
     }
 
     /// Reject an ownership mistake before cache, tmux, or disk effects. Full
@@ -40,8 +28,6 @@ impl ConfigMutation {
             Self::Projects => &["project"],
             Self::ProjectReferences => &["project", "session", "host_terminal"],
             Self::Library => &[],
-            #[cfg(test)]
-            Self::Fixture => return Ok(()),
         };
         for key in [
             "daemon",
