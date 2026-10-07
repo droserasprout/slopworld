@@ -1,70 +1,20 @@
 use super::*;
-use crate::config::catalog::{load_library, prepare_library, validate_library_name};
-
-#[test]
-fn named_array_preservation_handles_reordering_removal_and_duplicate_names() {
-    let parse = |text: &str| toml::from_str::<toml::Value>(text).unwrap();
-    let previous = parse(
-        r#"
-        [[session]]
-        name = "removed"
-        extension = "discard"
-        [[session]]
-        name = "kept"
-        label = "clear this modeled field"
-        extension = "first"
-        [session.nested]
-        extension = "nested"
-        [[session]]
-        name = "kept"
-        extension = "duplicate"
-        [[session]]
-        name = "other"
-        extension = "other"
-    "#,
-    );
-    let old_model = parse(
-        r#"
-        [[session]]
-        name = "kept"
-        label = "clear this modeled field"
-        [session.nested]
-        [[session]]
-        name = "kept"
-        [[session]]
-        name = "other"
-    "#,
-    );
-    let mut next = parse(
-        r#"
-        [[session]]
-        name = "other"
-        [[session]]
-        name = "new"
-        [[session]]
-        name = "kept"
-        [session.nested]
-    "#,
-    );
-    preserve_unknown_fields(&mut next, &previous, Some(&old_model));
-    let sessions = next["session"].as_array().unwrap();
-    assert_eq!(sessions.len(), 3);
-    assert_eq!(sessions[0]["extension"].as_str(), Some("other"));
-    assert!(sessions[1].get("extension").is_none());
-    assert_eq!(sessions[2]["extension"].as_str(), Some("first"));
-    assert!(sessions[2].get("label").is_none());
-    assert_eq!(sessions[2]["nested"]["extension"].as_str(), Some("nested"));
-}
+use crate::config::catalog::{load_library, validate_library_name};
 
 async fn save_library(
     dirs: &[(LibraryItemKind, PathBuf)],
     library: &[LibraryItemCfg],
 ) -> Result<()> {
     let path = dirs[0].1.parent().unwrap().join("config.toml");
-    crate::config::transaction::save(&path, dirs, prepare_library(dirs, library)?, None).await
+    let binding = crate::config::fixtures::binding(&path)?;
+    let changes = crate::config::catalog::replacement_changes(&binding, library).await?;
+    let gate = std::sync::Arc::new(tokio::sync::Mutex::new(()))
+        .lock_owned()
+        .await;
+    crate::storage::transaction::commit_in_operation(&binding, changes, &gate).await
 }
 
-const FIRST_ID: &str = "11111111-1111-4111-8111-111111111111";
+const FIRST_ID: &str = "1111111111114111";
 
 struct LibraryFixture(PathBuf);
 
@@ -236,7 +186,11 @@ async fn malformed_existing_config_is_never_replaced_by_typed_save() {
     let fixture = LibraryFixture::new();
     let path = fixture.0.join("config.toml");
     fixture.write("config.toml", "[daemon\nrecover me").await;
-    assert!(Config::default().save(&path).await.is_err());
+    assert!(
+        crate::config::fixtures::save(&Config::default(), &path)
+            .await
+            .is_err()
+    );
     assert_eq!(
         tokio::fs::read_to_string(&path).await.unwrap(),
         "[daemon\nrecover me"
@@ -286,18 +240,15 @@ async fn clearing_modeled_settings_preserves_only_unknown_fields() {
     let root = std::env::temp_dir().join(format!("slopd-clear-settings-{}", uuid::Uuid::new_v4()));
     tokio::fs::create_dir_all(&root).await.unwrap();
     let path = root.join("config.toml");
-    tokio::fs::write(
-        &path,
-        format!(
-            r#"
-            [daemon]
-            bind = "127.0.0.1:7777"
-            token = "secret"
-            future_policy = "keep"
-            [[project]]
-            name = "repo"
-            dir = "/tmp"
-            [[session]]
+    let mut cfg = Config {
+        projects: vec![ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        }],
+        sessions: vec![
+            toml::from_str(&format!(
+                r#"
             name = "agent"
             project = "repo"
             state_id = "{FIRST_ID}"
@@ -305,15 +256,28 @@ async fn clearing_modeled_settings_preserves_only_unknown_fields() {
             persistent_tmp = true
             cmd = "old command"
             label = "old label"
-            future_agent = "keep"
-            [session.limits]
+            [limits]
             memory_mb = 512
             pids = 100
         "#
-        ),
-    )
-    .await
-    .unwrap();
+            ))
+            .unwrap(),
+        ],
+        ..Default::default()
+    };
+    cfg.daemon.bind = "127.0.0.1:7777".into();
+    cfg.daemon.token = "secret".into();
+    crate::config::fixtures::save(&cfg, &path).await.unwrap();
+    let agent_path = root.join(format!("data/agents/{FIRST_ID}.toml"));
+    let text = tokio::fs::read_to_string(&agent_path).await.unwrap();
+    tokio::fs::write(&agent_path, format!("future_agent = 'keep'\n{text}"))
+        .await
+        .unwrap();
+    let text = tokio::fs::read_to_string(&path)
+        .await
+        .unwrap()
+        .replace("[daemon]", "[daemon]\nfuture_policy = 'keep'");
+    tokio::fs::write(&path, text).await.unwrap();
     let original = tokio::fs::read_to_string(&path).await.unwrap();
     let mut config = Config::load(&path).await.unwrap();
     assert_eq!(tokio::fs::read_to_string(&path).await.unwrap(), original);
@@ -323,7 +287,7 @@ async fn clearing_modeled_settings_preserves_only_unknown_fields() {
     agent.cmd = None;
     agent.label = None;
     agent.limits.memory_mb = None;
-    config.save(&path).await.unwrap();
+    crate::config::fixtures::save(&config, &path).await.unwrap();
     let mut reloaded = Config::load(&path).await.unwrap();
     let agent = &reloaded.sessions[0];
     assert!(agent.sandbox.is_empty());
@@ -332,7 +296,9 @@ async fn clearing_modeled_settings_preserves_only_unknown_fields() {
     assert_eq!(agent.limits.memory_mb, None);
     assert_eq!(agent.limits.pids, Some(100));
     reloaded.sessions[0].limits = Limits::default();
-    reloaded.save(&path).await.unwrap();
+    crate::config::fixtures::save(&reloaded, &path)
+        .await
+        .unwrap();
     assert!(
         Config::load(&path).await.unwrap().sessions[0]
             .limits
@@ -340,7 +306,12 @@ async fn clearing_modeled_settings_preserves_only_unknown_fields() {
     );
     let text = tokio::fs::read_to_string(&path).await.unwrap();
     assert!(text.contains("future_policy = \"keep\""));
-    assert!(text.contains("future_agent = \"keep\""));
+    assert!(
+        tokio::fs::read_to_string(&agent_path)
+            .await
+            .unwrap()
+            .contains("future_agent")
+    );
     assert_eq!(reloaded.daemon.token, "secret");
     tokio::fs::remove_dir_all(root).await.unwrap();
 }
@@ -378,7 +349,7 @@ async fn library_items_round_trip_as_one_file_each() {
         ..Default::default()
     });
 
-    cfg.save(&path).await.unwrap();
+    crate::config::fixtures::save(&cfg, &path).await.unwrap();
     let document = tokio::fs::read_to_string(&path).await.unwrap();
     assert!(!document.contains("[[library]]"));
     let item_path = root.join("prompts/review diff.toml");
@@ -398,76 +369,35 @@ async fn library_items_round_trip_as_one_file_each() {
 }
 
 #[tokio::test]
-async fn removed_worktree_aliases_fail_load_and_save() {
-    let root =
-        std::env::temp_dir().join(format!("slopd-worktree-aliases-{}", uuid::Uuid::new_v4()));
-    tokio::fs::create_dir_all(&root).await.unwrap();
-    let path = root.join("config.toml");
-    let text = r#"
-[[project]]
-name = "repo"
-dir = "/tmp/repo"
-workspace_root = "/tmp/trees"
-future_project = "keep"
-[[session]]
-name = "agent"
-project = "repo"
-workspace = "tree-id"
-state_id = "11111111-1111-4111-8111-111111111111"
-"#;
-    tokio::fs::write(&path, text).await.unwrap();
-    let err = Config::load(&path).await.unwrap_err();
-    assert!(
-        err.to_string()
-            .contains("project.workspace_root was removed")
-    );
-    assert_eq!(tokio::fs::read_to_string(&path).await.unwrap(), text);
-    let cfg = Config::default();
-    assert!(
-        cfg.save(&path)
-            .await
-            .unwrap_err()
-            .to_string()
-            .contains("project.workspace_root was removed")
-    );
-    assert_eq!(tokio::fs::read_to_string(&path).await.unwrap(), text);
-    let text = text.replace(
-        "workspace_root = \"/tmp/trees\"",
-        "worktree_root = \"/tmp/trees\"",
-    );
-    tokio::fs::write(&path, &text).await.unwrap();
-    assert!(
-        Config::load(&path)
-            .await
-            .unwrap_err()
-            .to_string()
-            .contains("session.workspace was removed")
-    );
-    let text = text.replace("workspace = \"tree-id\"", "worktree = \"tree-id\"");
-    tokio::fs::write(&path, &text).await.unwrap();
-    let loaded = Config::load(&path).await.unwrap();
-    assert_eq!(loaded.projects[0].worktree_root, "/tmp/trees");
-    assert_eq!(loaded.sessions[0].worktree, "tree-id");
-    loaded.save(&path).await.unwrap();
-    assert!(
-        tokio::fs::read_to_string(&path)
-            .await
-            .unwrap()
-            .contains("future_project")
-    );
-    tokio::fs::remove_dir_all(root).await.unwrap();
+async fn inline_workspace_is_rejected_without_rewriting_it() {
+    let fixture = LibraryFixture::new();
+    let path = fixture.0.join("config.toml");
+    std::fs::create_dir_all(&fixture.0).unwrap();
+    for section in ["project", "session", "host_terminal", "library"] {
+        let text = format!("[[{section}]]\nname = 'retired'\n");
+        tokio::fs::write(&path, &text).await.unwrap();
+        Config::load(&path).await.unwrap_err();
+        assert!(
+            crate::config::fixtures::save(&Config::default(), &path)
+                .await
+                .is_err()
+        );
+        assert_eq!(tokio::fs::read_to_string(&path).await.unwrap(), text);
+    }
 }
 
 #[test]
 fn legacy_state_rules_are_ignored_and_not_exposed_in_modeled_config() {
-    let cfg = Config::parse(
+    let cfg = super::super::settings::document::replace(
+        &Config::default(),
         r#"
 [[state_rule]]
 state = "waiting"
 pattern = '['
 "#,
     )
-    .expect("obsolete rules must not prevent startup");
+    .expect("obsolete rules must not prevent startup")
+    .candidate;
     let value = serde_json::to_value(&cfg).unwrap();
     assert!(value.get("state_rule").is_none());
     assert!(!toml::to_string(&cfg).unwrap().contains("state_rule"));

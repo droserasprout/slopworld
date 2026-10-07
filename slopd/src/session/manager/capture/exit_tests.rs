@@ -4,7 +4,7 @@ use super::*;
 async fn maintenance_recovers_reader_after_unavailable_status_without_config_change() {
     let socket = crate::test_support::TmuxSocket::new();
     let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
-    let (session, task) = task_owned_session(&manager);
+    let (session, task) = task_owned_session(&manager).await;
     let token = Arc::new(());
     let mut live = Live::new(session, TitleCapture::default());
     live.set_state(State::Working);
@@ -38,7 +38,9 @@ async fn maintenance_recovers_reader_after_unavailable_status_without_config_cha
     .await;
     let status = manager
         .tasks
-        .task_for(crate::tasks::HOST, &task.id)
+        .task_for_async(crate::tasks::HOST, &task.id)
+        .await
+        .unwrap()
         .unwrap()
         .status;
     manager.stop("worker").await.unwrap();
@@ -49,18 +51,17 @@ async fn maintenance_recovers_reader_after_unavailable_status_without_config_cha
     assert_eq!(status, crate::tasks::Status::Queued);
 }
 
-fn task_owned_session(manager: &Manager) -> (SessionCfg, crate::tasks::Task) {
+async fn task_owned_session(manager: &Manager) -> (SessionCfg, crate::tasks::Task) {
     let mut session = SessionCfg {
         name: "worker".into(),
         worker: true,
         ..Default::default()
     };
     let task = manager
-        .tasks
-        .create_owned(
+        .create_task_owned(
             crate::tasks::Participant {
                 name: crate::tasks::HOST.into(),
-                identity: String::new(),
+                identity: crate::tasks::HOST.into(),
             },
             crate::tasks::Participant {
                 name: session.name.clone(),
@@ -73,6 +74,7 @@ fn task_owned_session(manager: &Manager) -> (SessionCfg, crate::tasks::Task) {
                 durable: true,
             }),
         )
+        .await
         .unwrap();
     session.task_id = task.id.clone();
     (session, task)
@@ -82,7 +84,7 @@ fn task_owned_session(manager: &Manager) -> (SessionCfg, crate::tasks::Task) {
 async fn repeated_unavailable_status_schedules_a_bounded_retry_and_stop_cancels_it() {
     let socket = crate::test_support::TmuxSocket::new();
     let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
-    let (session, task) = task_owned_session(&manager);
+    let (session, task) = task_owned_session(&manager).await;
     let mut live = Live::new(session, TitleCapture::default());
     live.state = State::Working;
     live.capture.retry_at = Some(Instant::now());
@@ -102,7 +104,9 @@ async fn repeated_unavailable_status_schedules_a_bounded_retry_and_stop_cancels_
         assert_eq!(
             manager
                 .tasks
-                .task_for(crate::tasks::HOST, &task.id)
+                .task_for_async(crate::tasks::HOST, &task.id)
+                .await
+                .unwrap()
                 .unwrap()
                 .status,
             crate::tasks::Status::Queued
@@ -166,7 +170,7 @@ async fn retry_waiting_for_lifecycle_cannot_attach_to_a_replacement() {
 async fn failed_existing_attachment_releases_capture_and_allows_retry() {
     let socket = crate::test_support::TmuxSocket::new();
     let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
-    let (session, task) = task_owned_session(&manager);
+    let (session, task) = task_owned_session(&manager).await;
     let mut live = Live::new(session, TitleCapture::default());
     live.set_state(State::Working);
     live.process_running = true;
@@ -221,7 +225,9 @@ async fn failed_existing_attachment_releases_capture_and_allows_retry() {
     assert_eq!(
         manager
             .tasks
-            .task_for(crate::tasks::HOST, &task.id)
+            .task_for_async(crate::tasks::HOST, &task.id)
+            .await
+            .unwrap()
             .unwrap()
             .status,
         crate::tasks::Status::Queued
@@ -233,7 +239,7 @@ async fn failed_existing_attachment_releases_capture_and_allows_retry() {
 async fn unavailable_pane_status_releases_reader_without_failing_task_or_replacement() {
     let socket = crate::test_support::TmuxSocket::new();
     let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
-    let (session, task) = task_owned_session(&manager);
+    let (session, task) = task_owned_session(&manager).await;
     let token = Arc::new(());
     let mut live = Live::new(session, TitleCapture::default());
     live.set_state(State::Working);
@@ -285,7 +291,9 @@ async fn unavailable_pane_status_releases_reader_without_failing_task_or_replace
     assert_eq!(
         manager
             .tasks
-            .task_for(crate::tasks::HOST, &task.id)
+            .task_for_async(crate::tasks::HOST, &task.id)
+            .await
+            .unwrap()
             .unwrap()
             .status,
         crate::tasks::Status::Queued
@@ -317,7 +325,7 @@ async fn disconnected_reader_reattaches_without_failing_live_worker_task() {
         )
         .await
         .unwrap();
-    let (session, task) = task_owned_session(&manager);
+    let (session, task) = task_owned_session(&manager).await;
     let token = Arc::new(());
     let mut live = Live::new(session, TitleCapture::default());
     live.set_state(State::Working);
@@ -330,7 +338,9 @@ async fn disconnected_reader_reattaches_without_failing_live_worker_task() {
     assert_eq!(
         manager
             .tasks
-            .task_for(crate::tasks::HOST, &task.id)
+            .task_for_async(crate::tasks::HOST, &task.id)
+            .await
+            .unwrap()
             .unwrap()
             .status,
         crate::tasks::Status::Queued
@@ -376,7 +386,7 @@ async fn confirmed_worker_exit_preserves_private_evidence_and_task_exit_status()
         .await
         .unwrap();
     manager.tmux.retain_exit("worker").await.unwrap();
-    let (session, task) = task_owned_session(&manager);
+    let (session, task) = task_owned_session(&manager).await;
     let exit_path = crate::sandbox::state_dir(&session)
         .unwrap()
         .join("exit.json");
@@ -427,7 +437,9 @@ async fn confirmed_worker_exit_preserves_private_evidence_and_task_exit_status()
     );
     let task = manager
         .tasks
-        .task_for(crate::tasks::HOST, &task.id)
+        .task_for_async(crate::tasks::HOST, &task.id)
+        .await
+        .unwrap()
         .unwrap();
     assert_eq!(task.status, crate::tasks::Status::Failed);
     assert!(task.note.unwrap().contains("exit status 7"));
@@ -451,7 +463,7 @@ async fn adoption_finalizes_a_pane_that_exited_without_a_reader() {
     };
     let socket = crate::test_support::TmuxSocket::new();
     let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
-    let (session, task) = task_owned_session(&manager);
+    let (session, task) = task_owned_session(&manager).await;
     let exit_path = crate::sandbox::state_dir(&session)
         .unwrap()
         .join("exit.json");
@@ -519,7 +531,9 @@ async fn adoption_finalizes_a_pane_that_exited_without_a_reader() {
     assert_eq!(
         manager
             .tasks
-            .task_for(crate::tasks::HOST, &task.id)
+            .task_for_async(crate::tasks::HOST, &task.id)
+            .await
+            .unwrap()
             .unwrap()
             .status,
         crate::tasks::Status::Failed

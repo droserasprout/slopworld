@@ -5,6 +5,15 @@
 `session/manager/projects.rs` owns project edits and relocation.
 `session/manager/directories.rs` owns uncommitted directory creation.
 
+Worktree creation retains its shared session boundary and worktree mutation guard
+in owned work through completion or rollback. Accepted projects already have durable
+IDs; worktree creation reads them without a configuration transaction. Configuration
+commits require the exclusive session boundary; shared worktree operations must not
+upgrade it while holding the worktree guard.
+Project create/edit/remove and checkout rename/removal use the exclusive session
+boundary before the worktree mutation guard; configuration persistence comes last.
+Removal checks and effects remain in owned work after requester cancellation.
+
 Projects have durable IDs; sessions select a worktree by ID, with empty or `main`
 selecting the original checkout. Branch names and HEAD describe state rather than
 checkout identity. Task results, worker exits, one-shot cleanup, and final detachment
@@ -28,3 +37,10 @@ a checkout never deletes cache data. Config reconciliation belongs to
 `session/manager/config/cache.rs`; `sandbox/cache.rs` validates sources and returns
 each newly created link to the coordinator for rollback.
 Host inspection hardening belongs to [Git](daemon-git.md).
+
+Relocation persists intent before Git effects, retaining both paths for interrupted
+recovery. The coordinator owns the final project/reference and checkout publication
+or reverse movement. Failed reverse movement must leave relocation intent, never a
+ready record for an unverified path. Cache-link reconciliation uses the prepared
+checkout paths during the final commit. The accepted record owner commits affected
+`worktrees/<id>.toml` files with project/reference changes in the shared transaction.

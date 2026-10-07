@@ -74,7 +74,6 @@ enum ResponseKind {
     Project,
     ProjectPreviewResult,
     ProjectsReply,
-    Removed,
     SandboxReport,
     SearchResult,
     SessionResult,
@@ -82,6 +81,7 @@ enum ResponseKind {
     SessionsReply,
     SettingsPreview,
     StoredStates,
+    TaskBatchResult,
     TaskResult,
     TasksReply,
     TemplateResult,
@@ -119,13 +119,17 @@ const ROUTES: &[Route] = &[
     ),
     ("GET /api/tasks", Req::Empty, Resp::TasksReply),
     ("POST /api/tasks", Req::CreateTaskReq, Resp::TaskResult),
-    ("DELETE /api/tasks", Req::Empty, Resp::Removed),
+    ("DELETE /api/tasks", Req::Empty, Resp::TaskBatchResult),
     (
         "POST /api/tasks/cancel",
         Req::RemoveTasksReq,
-        Resp::TasksReply,
+        Resp::TaskBatchResult,
     ),
-    ("POST /api/tasks/remove", Req::RemoveTasksReq, Resp::Removed),
+    (
+        "POST /api/tasks/remove",
+        Req::RemoveTasksReq,
+        Resp::TaskBatchResult,
+    ),
     ("GET /api/capabilities", Req::Empty, Resp::Capabilities),
     ("GET /api/whereis", Req::Empty, Resp::WhereIsReply),
     ("GET /api/projects", Req::Empty, Resp::ProjectsReply),
@@ -346,7 +350,6 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
         ResponseKind::ProjectsReply => {
             Ok(serde_json::to_value(wire::ProjectsReply::decode(value)?)?)
         }
-        ResponseKind::Removed => Ok(serde_json::to_value(wire::Removed::decode(value)?)?),
         ResponseKind::SandboxReport => {
             Ok(serde_json::to_value(wire::SandboxReport::decode(value)?)?)
         }
@@ -362,6 +365,9 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
             Ok(serde_json::to_value(wire::SettingsPreview::decode(value)?)?)
         }
         ResponseKind::StoredStates => Ok(serde_json::to_value(wire::StoredStates::decode(value)?)?),
+        ResponseKind::TaskBatchResult => {
+            Ok(serde_json::to_value(wire::TaskBatchResult::decode(value)?)?)
+        }
         ResponseKind::TaskResult => Ok(serde_json::to_value(wire::TaskResult::decode(value)?)?),
         ResponseKind::TasksReply => Ok(serde_json::to_value(wire::TasksReply::decode(value)?)?),
         ResponseKind::TemplateResult => {
@@ -475,7 +481,6 @@ pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow:
         ResponseKind::Project => encode_wire::<wire::Project>(value),
         ResponseKind::ProjectPreviewResult => encode_wire::<wire::ProjectPreviewResult>(value),
         ResponseKind::ProjectsReply => encode_wire::<wire::ProjectsReply>(value),
-        ResponseKind::Removed => encode_wire::<wire::Removed>(value),
         ResponseKind::SandboxReport => encode_wire::<wire::SandboxReport>(value),
         ResponseKind::SearchResult => encode_wire::<wire::SearchResult>(value),
         ResponseKind::SessionResult => encode_wire::<wire::SessionResult>(value),
@@ -483,6 +488,7 @@ pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow:
         ResponseKind::SessionsReply => encode_wire::<wire::SessionsReply>(value),
         ResponseKind::SettingsPreview => encode_wire::<wire::SettingsPreview>(value),
         ResponseKind::StoredStates => encode_wire::<wire::StoredStates>(value),
+        ResponseKind::TaskBatchResult => encode_wire::<wire::TaskBatchResult>(value),
         ResponseKind::TaskResult => encode_wire::<wire::TaskResult>(value),
         ResponseKind::TasksReply => encode_wire::<wire::TasksReply>(value),
         ResponseKind::TemplateResult => encode_wire::<wire::TemplateResult>(value),

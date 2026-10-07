@@ -4,7 +4,10 @@ pub(crate) fn test_manager(config: Config) -> Arc<Manager> {
     test_manager_with_socket(config, "slopworld-unit-test")
 }
 
-pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>) -> Arc<Manager> {
+pub(crate) fn test_manager_with_socket(
+    mut config: Config,
+    socket: impl Into<String>,
+) -> Arc<Manager> {
     let directory = std::env::temp_dir().join(format!(
         "slopd-manager-test-{}-{}",
         std::process::id(),
@@ -20,6 +23,14 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
         directory.join("tmux").to_str().unwrap().to_owned()
     };
     let cfg_path = directory.join("config.toml");
+    let records = super::config::backend::records::Records::fixture(&mut config, &cfg_path)
+        .expect("record fixture");
+    let config_state = super::ConfigState::new(
+        records,
+        crate::config::catalog::revision(&cfg_path).ok(),
+        None,
+        None,
+    );
     let (events, _) = broadcast::channel(16);
     Arc::new(Manager {
         frame_commit_pause: Mutex::new(None),
@@ -35,7 +46,7 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
         templates: TemplateStore::new(AgentTemplateStore::default()),
         live: RwLock::new(HashMap::new()),
         temp: RwLock::new(HashMap::new()),
-        config_state: super::ConfigState::new(None, None, None, None),
+        config_state,
         host_metadata: HostMetadataPoll::default(),
         signals: super::Signals::new(),
         scroll_cache: Mutex::new(HashMap::new()),
@@ -69,5 +80,18 @@ impl Drop for TestDirectory {
                 .output(),
         );
         drop(std::fs::remove_dir_all(&self.0));
+    }
+}
+
+impl Manager {
+    /// Exercise production ownership and commit while replacing fixture membership.
+    pub(crate) async fn replace_workspace_fixture(self: &Arc<Self>, cfg: &Config) -> Result<()> {
+        self.update_cfg(super::config::ConfigMutation::ProjectReferences, |next| {
+            next.projects = cfg.projects.clone();
+            next.sessions = cfg.sessions.clone();
+            next.host_terminals = cfg.host_terminals.clone();
+            Ok(())
+        })
+        .await
     }
 }

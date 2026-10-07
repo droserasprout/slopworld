@@ -922,3 +922,19 @@ message CreateWorktreeReq {
 }
 
 message WorktreeBase { string commit = 1; }
+
+// A task batch is prevalidated, then commits independent records in stored order.
+// HTTP success includes partial completion; retry all IDs safely after a disconnect.
+message TaskBatchFailure {
+  string id = 1;
+  string error = 2;
+}
+message TaskBatchResult {
+  repeated string committed = 1;
+  repeated string unchanged = 2;
+  repeated string absent = 3;
+  repeated TaskBatchFailure failed = 4;
+  repeated string unattempted = 5;
+  repeated Task tasks = 6;
+  uint64 removed = 7;
+}

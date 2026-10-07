@@ -13,6 +13,9 @@ impl Manager {
     }
 
     async fn run_task_summary(self: Arc<Self>, task: crate::tasks::Task) {
+        let Ok(Some(stamp)) = self.tasks.summary_stamp(task.clone()).await else {
+            return;
+        };
         let cfg = self.config().await;
         if cfg.daemon.task_summaries == TitlePolicy::Never
             || task.body.chars().count() < cfg.daemon.title_min_chars
@@ -39,7 +42,7 @@ impl Manager {
 
         self.title_cache.store(&input, &summary, None);
 
-        match self.tasks.set_task_summary(&task.id, summary.text) {
+        match self.tasks.set_summary_checked(stamp, summary.text).await {
             Ok(Some(_)) => tracing::debug!(
                 target: "slopd::task_summaries",
                 task = %task.id,

@@ -4,8 +4,11 @@ use crate::session::test_manager;
 
 fn config() -> Config {
     Config {
-        daemon: Daemon {
-            token: "root".into(),
+        settings: crate::config::Settings {
+            daemon: Daemon {
+                token: "root".into(),
+                ..Default::default()
+            },
             ..Default::default()
         },
         sessions: vec![
@@ -84,11 +87,9 @@ async fn config_replacement_invalidates_grants_without_a_live_row() {
                 .iter_mut()
                 .find(|s| s.name == name)
                 .unwrap()
-                .state_id = uuid::Uuid::new_v4().to_string();
-            manager
-                .replace_config(&toml::to_string(&cfg).unwrap())
-                .await
-                .unwrap();
+                .state_id = crate::storage_id::draft_identity();
+            cfg.sessions.sort_by_key(|session| session.name == name);
+            manager.replace_workspace_fixture(&cfg).await.unwrap();
             assert!(!manager.cap_ok(&cap, "target", level).await);
         }
     }

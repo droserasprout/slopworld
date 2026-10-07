@@ -2,6 +2,7 @@
 //! Library execution and delayed input belong to library.rs.
 use super::super::*;
 use super::directories::CreatedDirectories;
+use crate::session::manager::config::ConfigMutation;
 use crate::session::validation::check_project_mounts;
 use anyhow::anyhow;
 
@@ -23,12 +24,19 @@ impl Manager {
         });
     }
 
-    pub async fn add_project(self: &Arc<Self>, mut p: ProjectCfg) -> Result<()> {
+    pub async fn add_project(self: &Arc<Self>, p: ProjectCfg) -> Result<()> {
+        let manager = self.clone();
+        self.owned_session_operation(async move { manager.add_project_inner(p).await })
+            .await
+    }
+
+    async fn add_project_inner(self: &Arc<Self>, mut p: ProjectCfg) -> Result<()> {
+        let _worktrees = self.worktrees.mutation.lock().await;
         self.reload_if_changed().await;
         settle(&mut p);
-        p.id = uuid::Uuid::new_v4().to_string();
+        p.id = self.allocate_project_identity().await?;
         check_project(&p)?;
-        self.update_cfg(|cfg| {
+        self.update_cfg(ConfigMutation::Projects, |cfg| {
             check_project_mounts(cfg, &p)?;
             if cfg.project(&p.name).is_some() {
                 bail!("project {} already exists", p.name);
@@ -56,7 +64,7 @@ impl Manager {
         .await
     }
 
-    async fn update_project_inner(&self, name: &str, mut p: ProjectCfg) -> Result<()> {
+    async fn update_project_inner(self: &Arc<Self>, name: &str, mut p: ProjectCfg) -> Result<()> {
         let _lock = self.worktrees.mutation.lock().await;
         let old_project = self
             .config()
@@ -74,7 +82,7 @@ impl Manager {
             .plan_project_worktree_relocations(name, &old_project, &p)
             .await?;
         let mut relocations = crate::worktrees::relocation::Relocations::new(store, planned)?;
-        relocations.execute(&self.cfg_path).await?;
+        relocations.execute_pending(self.as_ref()).await?;
         #[cfg(test)]
         {
             let pause = self.worktrees.relocation_pause.lock().unwrap().take();
@@ -84,7 +92,7 @@ impl Manager {
             }
         }
         let result = self
-            .update_cfg_if_changed_inner(|cfg| {
+            .prepare_cfg_change(ConfigMutation::ProjectReferences, |cfg| {
                 let idx = cfg
                     .projects
                     .iter()
@@ -98,9 +106,6 @@ impl Manager {
                     bail!("The daemon cannot change project temporary mode after creation.");
                 }
                 p.id = old_project.id.clone();
-                if p.id.is_empty() {
-                    p.id = uuid::Uuid::new_v4().to_string();
-                }
                 check_project(&p)?;
                 check_project_mounts(cfg, &p)?;
                 if p.name != name && cfg.project(&p.name).is_some() {
@@ -116,12 +121,27 @@ impl Manager {
                     for s in cfg.sessions.iter_mut().filter(|s| s.project == name) {
                         s.project = renamed.clone();
                     }
+                    for shell in cfg.host_terminals.iter_mut().filter(|s| s.project == name) {
+                        shell.project = renamed.clone();
+                    }
                 }
                 Ok(((), true))
             })
             .await;
+        let result = match result {
+            Ok(((), Some(prepared))) => {
+                if relocations.has_moves() {
+                    self.commit_project_relocation(prepared, relocations.candidate())
+                        .await
+                } else {
+                    self.commit_prepared_cfg(prepared).await
+                }
+            }
+            Ok(((), None)) => Ok(()),
+            Err(error) => Err(error),
+        };
         if let Err(error) = result {
-            return match relocations.rollback(&self.cfg_path).await {
+            return match relocations.rollback(self.as_ref()).await {
                 Ok(()) => Err(error),
                 Err(rollback) => Err(anyhow!(
                     "{error:#}; restoring project worktrees also failed: {rollback:#}"
@@ -142,7 +162,7 @@ impl Manager {
         Vec<(usize, crate::worktrees::Worktree)>,
         CreatedDirectories,
     )> {
-        let store = crate::worktrees::Store::load(&self.cfg_path).await?;
+        let store = self.worktree_records();
         let mut planned = Vec::new();
         let mut directories = CreatedDirectories::default();
         if p.name != name {
@@ -200,19 +220,27 @@ impl Manager {
     }
 
     pub async fn remove_project(self: &Arc<Self>, name: &str) -> Result<()> {
+        let manager = self.clone();
+        let name = name.to_owned();
+        self.owned_session_operation(async move { manager.remove_project_inner(&name).await })
+            .await
+    }
+
+    async fn remove_project_inner(self: &Arc<Self>, name: &str) -> Result<()> {
+        let _worktrees = self.worktrees.mutation.lock().await;
         self.reload_if_changed().await;
         let cfg = self.config().await;
         if let Some(p) = cfg.project(name)
             && !p.id.is_empty()
-            && crate::worktrees::Store::load(&self.cfg_path)
-                .await?
+            && self
+                .worktree_records()
                 .worktrees
                 .iter()
                 .any(|w| w.project_id == p.id)
         {
             bail!("remove project worktrees explicitly first");
         }
-        self.update_cfg(|cfg| {
+        self.update_cfg(ConfigMutation::ProjectReferences, |cfg| {
             if cfg.project(name).is_none() {
                 bail!("Project {name:?} does not exist.");
             }
@@ -221,6 +249,12 @@ impl Manager {
                 .iter()
                 .filter(|s| s.project == name)
                 .map(|s| s.name.as_str())
+                .chain(
+                    cfg.host_terminals
+                        .iter()
+                        .filter(|s| s.project == name)
+                        .map(|s| s.name.as_str()),
+                )
                 .collect();
             if !users.is_empty() {
                 bail!(

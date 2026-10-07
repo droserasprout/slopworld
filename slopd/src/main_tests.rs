@@ -12,8 +12,11 @@ use tower::ServiceExt;
 
 fn manager() -> Arc<Manager> {
     crate::session::test_manager(Config {
-        daemon: Daemon {
-            token: "root-secret".into(),
+        settings: crate::config::Settings {
+            daemon: Daemon {
+                token: "root-secret".into(),
+                ..Default::default()
+            },
             ..Default::default()
         },
         sessions: vec![
@@ -137,6 +140,7 @@ async fn add_unrelated_sessions(manager: &Arc<Manager>) -> crate::config::Config
             ..Default::default()
         }));
     cfg.projects.push(crate::config::ProjectCfg {
+        id: crate::storage_id::draft_identity(),
         name: "repo".into(),
         dir: "/tmp".into(),
         ..Default::default()
@@ -144,10 +148,8 @@ async fn add_unrelated_sessions(manager: &Arc<Manager>) -> crate::config::Config
     for session in &mut cfg.sessions {
         session.project = "repo".into();
     }
-    manager
-        .replace_config(&toml::to_string(&cfg).unwrap())
-        .await
-        .unwrap();
+    manager.replace_workspace_fixture(&cfg).await.unwrap();
+    manager.sync_from_config().await;
     cfg
 }
 
@@ -206,7 +208,7 @@ async fn stalled_scoped_uploads_allow_revocation_and_recheck_authority_on_comple
             .unwrap()
             .unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-        assert!(manager.tasks.all_tasks().is_empty());
+        assert!(manager.tasks.all_tasks_async().await.unwrap().is_empty());
     }
 }
 
@@ -245,7 +247,7 @@ async fn scoped_uploads_preserve_body_limits_and_accept_valid_json() {
             expected
         );
     }
-    assert_eq!(manager.tasks.all_tasks().len(), 1);
+    assert_eq!(manager.tasks.all_tasks_async().await.unwrap().len(), 1);
 }
 
 #[tokio::test]
@@ -292,12 +294,16 @@ async fn scoped_tokens_reach_shared_routes_but_not_root_routes() {
 #[tokio::test]
 async fn scoped_worker_catalog_is_allowlisted_and_project_scoped() {
     let manager = crate::session::test_manager(Config {
-        daemon: Daemon {
-            token: "root-secret".into(),
-            worker_templates: BTreeSet::from(["review".to_string()]),
+        settings: crate::config::Settings {
+            daemon: Daemon {
+                token: "root-secret".into(),
+                worker_templates: BTreeSet::from(["review".to_string()]),
+                ..Default::default()
+            },
             ..Default::default()
         },
         projects: vec![ProjectCfg {
+            id: crate::storage_id::draft_identity(),
             name: "repo".into(),
             dir: "/tmp".into(),
             ..Default::default()
@@ -520,19 +526,13 @@ async fn disappearing_identities_close_sockets_and_do_not_follow_reused_names() 
                     cfg = manager.config().await;
                 } else {
                     cfg.sessions.retain(|s| s.name != subject);
-                    tokio::fs::write(&manager.cfg_path, toml::to_string(&cfg).unwrap())
-                        .await
-                        .unwrap();
-                    assert!(manager.reload_if_changed().await);
+                    manager.replace_workspace_fixture(&cfg).await.unwrap();
                 }
                 cfg.sessions.push(SessionCfg {
                     name: subject.into(),
                     ..Default::default()
                 });
-                manager
-                    .replace_config(&toml::to_string(&cfg).unwrap())
-                    .await
-                    .unwrap();
+                manager.replace_workspace_fixture(&cfg).await.unwrap();
                 tokio::time::timeout(
                     std::time::Duration::from_secs(2),
                     await_socket_close(&mut socket),

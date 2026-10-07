@@ -1,14 +1,16 @@
 //! Configuration module, project/session lookups, and configured-path resolution.
 
-mod catalog;
+pub(crate) mod catalog;
 mod commands;
 mod daemon;
+#[cfg(test)]
+pub(crate) mod fixtures;
 mod library;
 mod model;
 mod persistence;
 mod resolution;
 mod sandbox;
-mod transaction;
+pub(crate) mod settings;
 mod validation;
 
 pub(crate) use commands::resolve_highlighter;
@@ -17,9 +19,10 @@ pub use library::*;
 pub use model::*;
 pub use persistence::{TOKEN_REDACTED, redact_token_text};
 pub use sandbox::*;
+pub use settings::Settings;
 pub(crate) use validation::{
-    project_name_component, state_id_component, validate_mount_paths, validate_project_names,
-    validate_state_id,
+    project_name_component, state_id_component, validate_loaded, validate_mount_paths,
+    validate_project_names, validate_state_id,
 };
 
 impl Config {

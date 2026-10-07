@@ -11,7 +11,13 @@ host originals from earlier binds, and the PID namespace's `/proc` is restored a
 all overlays. Invalid selected presets reject launch and settings preview.
 
 Private state uses daemon-assigned opaque IDs preserved through rename. Configured
-stopped agents retain it; reset/delete move it to trash, while temporary errands own
+identities require the shared 16-character lowercase hexadecimal format; validation
+belongs to `storage_id.rs`. New configured agents and workers
+allocate through `session/manager/identity.rs` under the session boundary. Allocation
+checks configured/live identities, task participants, record destinations, and retained
+private state; unreadable trash metadata rejects allocation rather than making an
+identity available. Edits and restores retain their existing identity. Stopped agents retain their state;
+reset/delete move it to trash, while temporary errands own
 cleanup. Persistent `/tmp` follows that state lifetime. Seeding must not follow source
 symlinks, and trash inventory measures links without following them. Shared-file
 mounts permit in-place host writes but block unlinking the mountpoint. Recursive

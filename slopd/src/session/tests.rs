@@ -375,22 +375,15 @@ fn check_project_rejects_unsafe_names() {
 
 #[test]
 fn project_mounts_round_trip_through_toml() {
-    let cfg = Config::parse(
+    let project: ProjectCfg = toml::from_str(
         r#"
-            [[project]]
-            name = "main"
-            dir = "/tmp"
-            mounts = [{ from = "/tmp", to = "/mnt/lib", mode = "ro" }]
-
-            [[project]]
-            name = "lib"
-            dir = "/tmp"
-            "#,
+        name = "main"
+        dir = "/tmp"
+        mounts = [{ from = "/tmp", to = "/mnt/lib", mode = "ro" }]
+    "#,
     )
     .unwrap();
-
-    let cfg = Config::parse(&toml::to_string(&cfg).unwrap()).unwrap();
-    let project = cfg.project("main").unwrap();
+    let project: ProjectCfg = toml::from_str(&toml::to_string(&project).unwrap()).unwrap();
     assert_eq!(project.mounts.len(), 1);
     assert_eq!(project.mounts[0].from, "/tmp");
     assert_eq!(project.mounts[0].to, "/mnt/lib");

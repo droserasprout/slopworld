@@ -4,23 +4,27 @@ These tables show default paths and supported overrides. Most Linux SlopWorld pa
 `$XDG_DATA_HOME` (fallback `~/.local/share`), and caches use `$XDG_CACHE_HOME`
 (fallback `~/.cache`). On Unix, mode `0600` gives read and write access only to the owner.
 
+Daemon application roots can be overridden independently with `SLOPD_CONFIG_ROOT`,
+`SLOPD_DATA`, and `SLOPD_CACHE`. Per-store overrides take precedence: `SLOPD_STATE`
+selects private sessions instead of `SLOPD_DATA/sessions`, and `SLOPD_CONFIG` selects
+the root document filename. A custom config filename does not relocate data or cache.
+Catalogs use the configuration root; a custom settings filename does not relocate them. Endpoint
+discovery and launcher/game paths retain the independent overrides below.
+
 ## Daemon configuration
 
 | Path | Override | Description |
 | --- | --- | --- |
-| `$XDG_CONFIG_HOME/slopworld/config.toml` | `SLOPD_CONFIG` | Main daemon configuration, seeded on first run. |
+| `$XDG_CONFIG_HOME/slopworld/config.toml` | `SLOPD_CONFIG` | Machine settings, seeded on first run. |
 | `$XDG_CONFIG_HOME/slopworld/endpoint.toml` | `SLOPD_ENDPOINT` | Effective URL and token while the daemon is running. Mode `0600`. |
-| `$XDG_CONFIG_HOME/slopworld/grants.toml` | beside `SLOPD_CONFIG` | Active scoped bearer grants. Mode `0600`. |
-| `$XDG_CONFIG_HOME/slopworld/prompts/<name>.toml` | beside `SLOPD_CONFIG` | Personal prompt library items, one definition per file. |
-| `$XDG_CONFIG_HOME/slopworld/breadcrumbs/<name>.toml` | beside `SLOPD_CONFIG` | Personal breadcrumb library items, one definition per file. |
-| `$XDG_CONFIG_HOME/slopworld/file_actions/<name>.toml` | beside `SLOPD_CONFIG` | Personal file-action library items, one definition per file. |
-| `$XDG_CONFIG_HOME/slopworld/shell_scripts/<name>.toml` | beside `SLOPD_CONFIG` | Personal shell-script library items, one definition per file. |
-| `$XDG_CONFIG_HOME/slopworld/agent_templates/` | beside `SLOPD_CONFIG` | Personal agent templates; copy the entire directory for backup. |
+| `$XDG_CONFIG_HOME/slopworld/projects/<id>.toml` | under `SLOPD_CONFIG_ROOT` | Project definitions. |
+| `$XDG_CONFIG_HOME/slopworld/prompts/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal prompt library items, one definition per file. |
+| `$XDG_CONFIG_HOME/slopworld/breadcrumbs/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal breadcrumb library items, one definition per file. |
+| `$XDG_CONFIG_HOME/slopworld/file_actions/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal file-action library items, one definition per file. |
+| `$XDG_CONFIG_HOME/slopworld/shell_scripts/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal shell-script library items, one definition per file. |
+| `$XDG_CONFIG_HOME/slopworld/agent_templates/` | under `SLOPD_CONFIG_ROOT` | Personal agent templates; copy the entire directory for backup. |
 | `$XDG_CONFIG_HOME/slopworld/sandbox_presets/<name>.toml` | `SLOPD_PRESETS` root | User sandbox definitions, one definition per file. |
 | `$XDG_CONFIG_HOME/slopworld/app_presets/<name>.toml` | `SLOPD_PRESETS` root | User app definitions, one definition per file. |
-| `$XDG_CONFIG_HOME/slopworld/tasks.toml` | beside `SLOPD_CONFIG` | Task mailbox snapshot. |
-| `$XDG_CONFIG_HOME/slopworld/tasks.journal` | beside `SLOPD_CONFIG` | Task mailbox updates. |
-| `$XDG_CONFIG_HOME/slopworld/worktrees.toml` | beside `SLOPD_CONFIG` | Registered worktrees. |
 | `$XDG_CACHE_HOME/slopworld/mounts/<project-id>/` | under `SLOPD_CACHE` | Shared managed cache data. |
 
 ## Launcher configuration
@@ -37,6 +41,12 @@ directory stores the canonical game directory path.
 
 | Path | Override | Description |
 | --- | --- | --- |
+| `$XDG_DATA_HOME/slopworld/agents/<state-id>.toml` | under `SLOPD_DATA` | Durable agent definitions. |
+| `$XDG_DATA_HOME/slopworld/host_shells/<id>.toml` | under `SLOPD_DATA` | Host-shell definitions and remembered directories. |
+| `$XDG_DATA_HOME/slopworld/worktrees/<id>.toml` | under `SLOPD_DATA` | Registered checkout records and phases. |
+| `$XDG_DATA_HOME/slopworld/tasks/<id>.toml` | under `SLOPD_DATA` | Complete task records; no runtime task journal. |
+| `$XDG_DATA_HOME/slopworld/grants.toml` | under `SLOPD_DATA` | Scoped credentials, mode `0600`. |
+| `$XDG_DATA_HOME/slopworld/workspace.save-journal` | under `SLOPD_DATA` | Pending transaction recovery; do not delete. |
 | `$XDG_DATA_HOME/slopworld/sessions/<state-id>/` | `SLOPD_STATE` | Per-agent private state. The daemon assigns the opaque state ID at creation. |
 | `$XDG_DATA_HOME/slopworld/sessions/.trash/` | under `SLOPD_STATE` | Recoverable private-state trash. |
 | `<project_path>/.worktrees/<worktree-name>/` | `project.worktree_root` | Default managed checkout path. An explicit root uses `<root>/<project-name>/<worktree-name>/`. |

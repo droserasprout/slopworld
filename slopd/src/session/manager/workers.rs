@@ -3,6 +3,7 @@
 //! Do not infer ownership from its name.
 
 use super::super::*;
+use crate::session::manager::config::ConfigMutation;
 
 use anyhow::anyhow;
 
@@ -38,9 +39,11 @@ impl Manager {
         durable: bool,
         worktree: String,
     ) -> Result<WorkerSpawn> {
-        self.session_operation(
-            self.spawn_worker_inner(caller, project, template, body, durable, worktree),
-        )
+        let manager = self.clone();
+        self.owned_session_operation(Box::pin(async move {
+            Box::pin(manager.spawn_worker_inner(caller, project, template, body, durable, worktree))
+                .await
+        }))
         .await
     }
 
@@ -84,6 +87,7 @@ impl Manager {
             &caller,
         );
         session.worktree = worktree;
+        session.state_id = self.allocate_agent_identity().await?;
         // A worker must have access to the daemon. Worker metadata supplies its task API capability.
         // The selected template supplies tool and state configuration.
         if cfg.network_of(&session, &p) == NetworkMode::None {
@@ -99,53 +103,33 @@ impl Manager {
             );
         }
 
-        let task = self.tasks.create_owned(
-            self.task_participant(&caller).await?,
-            crate::tasks::Participant {
-                name: session.name.clone(),
-                identity: session.state_id.clone(),
-            },
-            body,
-            Some(crate::tasks::WorkerTask {
-                session: session.name.clone(),
-                parent: caller,
-                durable,
-            }),
-        )?;
+        let task = self
+            .create_task_owned(
+                self.task_participant(&caller).await?,
+                crate::tasks::Participant {
+                    name: session.name.clone(),
+                    identity: session.state_id.clone(),
+                },
+                body,
+                Some(crate::tasks::WorkerTask {
+                    session: session.name.clone(),
+                    parent: caller,
+                    durable,
+                }),
+            )
+            .await?;
         self.spawn_task_summary_request(task.clone());
         session.task_id = task.id.clone();
 
-        if durable {
-            let persisted = self
-                .update_cfg(|cfg| {
-                    if cfg.session(&session.name).is_some()
-                        || cfg
-                            .host_terminals
-                            .iter()
-                            .any(|tab| tab.name == session.name)
-                    {
-                        bail!("worker name became unavailable: {}", session.name);
-                    }
-                    cfg.sessions.push(session.clone());
-                    Ok(())
-                })
-                .await;
-            if let Err(error) = persisted {
-                self.fail_worker_task(
-                    &task.id,
-                    format!("could not persist worker session: {error:#}"),
-                );
-                return Err(error);
-            }
-            self.sync_from_config().await;
-        } else {
-            let mut live = Live::new(session.clone(), TitleCapture::default());
-            live.ephemeral = true;
-            self.live.write().await.insert(session.name.clone(), live);
-        }
+        self.register_task_worker(&session, durable).await?;
 
         if let Err(error) = self.start(&session.name).await {
-            self.fail_worker_task(&task.id, format!("worker failed to start: {error:#}"));
+            self.fail_worker_task_checked(
+                &task.id,
+                &session.state_id,
+                format!("worker failed to start: {error:#}"),
+            )
+            .await;
             if !durable {
                 self.forget(&session.name).await;
             }
@@ -159,6 +143,47 @@ impl Manager {
             task,
             session: session.name,
         })
+    }
+
+    /// Register the task-owned session before startup; record a failed task if
+    /// durable configuration cannot commit, while the spawn guard remains held.
+    async fn register_task_worker(
+        self: &Arc<Self>,
+        session: &SessionCfg,
+        durable: bool,
+    ) -> Result<()> {
+        if durable {
+            let persisted = self
+                .update_cfg(ConfigMutation::Agents, |cfg| {
+                    if cfg.session(&session.name).is_some()
+                        || cfg
+                            .host_terminals
+                            .iter()
+                            .any(|tab| tab.name == session.name)
+                    {
+                        bail!("worker name became unavailable: {}", session.name);
+                    }
+                    cfg.sessions.push(session.clone());
+                    Ok(())
+                })
+                .await;
+            if let Err(error) = persisted {
+                self.fail_worker_task_checked(
+                    &session.task_id,
+                    &session.state_id,
+                    format!("could not persist worker session: {error:#}"),
+                )
+                .await;
+                return Err(error);
+            }
+            self.sync_from_config().await;
+        } else {
+            let mut live = Live::new(session.clone(), TitleCapture::default());
+            live.ephemeral = true;
+            self.live.write().await.insert(session.name.clone(), live);
+        }
+
+        Ok(())
     }
 
     async fn fresh_worker_name(&self, owner: &str) -> String {

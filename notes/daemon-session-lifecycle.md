@@ -3,7 +3,8 @@
 `session/manager/lifecycle/` owns start, stop, adoption, and reconciliation.
 `session/manager/sessions.rs` owns configured session edits. Operations validate a
 complete candidate before changing tmux identity and protect commit/rollback from
-caller cancellation.
+caller cancellation. Creation, label edits, deletion, and private-state restoration
+also retain their session boundary in owned work through publication or cleanup.
 
 Rename preserves durable session identity. Reconciliation cannot reinterpret a
 retained host or different durable row as a configured agent with the same name;

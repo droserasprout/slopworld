@@ -44,15 +44,14 @@ impl LinkChanges {
     }
 }
 
-pub(super) async fn reconcile_cache_links(
-    config_path: &Path,
+pub(super) fn reconcile_store_links(
+    store: &Store,
     old: &Config,
     cfg: &Config,
 ) -> Result<LinkChanges> {
-    let store = Store::load(config_path).await?;
     let mut changes = LinkChanges::default();
-    let result = remove_obsolete_links(old, cfg, &store, &mut changes.removed)
-        .and_then(|()| reconcile_project_links(cfg, &store, &mut changes.added));
+    let result = remove_obsolete_links(old, cfg, store, &mut changes.removed)
+        .and_then(|()| reconcile_project_links(cfg, store, &mut changes.added));
     if let Err(error) = result {
         return Err(changes.rollback_error(error));
     }

@@ -21,6 +21,8 @@ mod runtime;
 mod sandbox;
 mod session;
 mod shared;
+mod storage;
+mod storage_id;
 mod tasks;
 #[cfg(test)]
 mod test_http;
@@ -46,7 +48,12 @@ use crate::session::Manager;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    if std::env::args().any(|arg| arg == "--perf-bench") {
+    let args: Vec<_> = std::env::args().skip(1).collect();
+    anyhow::ensure!(
+        args.is_empty() || args == ["--perf-bench"],
+        "unsupported daemon arguments; run slopd without arguments"
+    );
+    if args == ["--perf-bench"] {
         return benchmark::run();
     }
 
@@ -59,9 +66,11 @@ async fn main() -> Result<()> {
 
     // Load and validate configuration before starting services.
     let cfg_path = Config::path_in_use();
-    let cfg = Config::load(&cfg_path).await?;
+    let binding = storage::target::StorageBinding::resolved(&cfg_path)?;
+    let reservations = storage::startup::reserve(&binding).await?;
+    let loaded = storage::layout::load(&binding).await?;
+    let cfg = &loaded.config;
     runtime::validate_runtime_name()?;
-    session::validate_config(&cfg)?;
     tracing::info!("config: {}", cfg_path.display());
     tracing::info!("runtime: {}", runtime::capabilities().runtime);
 
@@ -89,7 +98,8 @@ async fn main() -> Result<()> {
         .map(|project| std::path::PathBuf::from(crate::config::expand(&project.dir)))
         .collect();
     let bind = cfg.daemon.bind.clone();
-    let m = Manager::new(cfg, cfg_path).await?;
+    let listener = storage::startup::serving_listener(reservations, &bind).await?;
+    let m = Manager::new(loaded).await?;
 
     // Warm Git caches before publishing the endpoint so initial status reads are incremental.
     git::warm_projects(git_dirs).await;
@@ -120,7 +130,6 @@ async fn main() -> Result<()> {
         .layer(middleware::from_fn_with_state(m.clone(), auth))
         .layer(middleware::from_fn(api::protobuf::normalize_errors));
 
-    let listener = tokio::net::TcpListener::bind(&bind).await?;
     tracing::info!("listening on http://{bind}");
     endpoint::write(&bind, &m.config().await.daemon.token).await?;
 

@@ -1,6 +1,6 @@
 //! Scoped credentials let an agent monitor or control another agent, but not a host session.
 //! See [notes/agent-grants.md]. The mod uses `[daemon] token` as the root credential.
-//! The daemon stores each other live credential as a `Grant` beside its configuration.
+//! The daemon stores each other live credential in the data-root grant store.
 //! It revokes the grant when the grantor or a target session no longer exists.
 
 use anyhow::{Context, Result, bail};
@@ -137,8 +137,33 @@ pub struct Grants {
 }
 
 impl Grants {
+    #[cfg(test)]
     pub fn load(config: &Path) -> Result<Self> {
-        let path = config.with_file_name("grants.toml");
+        Self::load_path(config.with_file_name("grants.toml"))
+    }
+
+    /// Never merge independent authority
+    /// sources or silently ignore a remaining legacy grants file.
+    pub(crate) fn load_data(config: &Path, data: &Path) -> Result<Self> {
+        let path = crate::paths::normalize(data)?.join("grants.toml");
+        anyhow::ensure!(
+            crate::paths::normalize(&path)? == path,
+            "grant store aliases another path"
+        );
+        let legacy = config.with_file_name("grants.toml");
+        if crate::paths::normalize(&legacy)? != path {
+            match fs::symlink_metadata(&legacy) {
+                Ok(_) => bail!(
+                    "retired grants location remains; this version requires grants in the data store"
+                ),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error).context("checking legacy grant authority"),
+            }
+        }
+        Self::load_path(path)
+    }
+
+    fn load_path(path: PathBuf) -> Result<Self> {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -170,8 +195,12 @@ impl Grants {
             }
             Err(error) => return Err(error).with_context(|| format!("reading {}", path.display())),
         };
+        Self::decode(&text, &path)
+    }
+
+    fn decode(text: &str, path: &Path) -> Result<Self> {
         let file: File =
-            toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+            toml::from_str(text).with_context(|| format!("parsing {}", path.display()))?;
         let mut by_token = HashMap::new();
         for stored in file.grants {
             if !valid_token(&stored.token)
@@ -209,7 +238,7 @@ impl Grants {
         }
 
         Ok(Self {
-            path: Some(path),
+            path: Some(path.to_owned()),
             by_token,
         })
     }

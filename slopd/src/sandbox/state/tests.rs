@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime};
 fn session(name: &str) -> SessionCfg {
     SessionCfg {
         name: name.into(),
-        state_id: uuid::Uuid::new_v4().to_string(),
+        state_id: crate::storage_id::draft_identity(),
         ..Default::default()
     }
 }
@@ -360,4 +360,29 @@ fn trash_cleanup_propagates_non_missing_root_errors() {
     fs::create_dir_all(state_root()).unwrap();
     fs::write(trash_root(), "not a directory").unwrap();
     purge_trash().unwrap_err();
+}
+
+#[test]
+fn identity_inventory_includes_retained_metadata_without_walking_private_contents() {
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
+    let active = session("active");
+    let archived = session("archived");
+    seed(&active);
+    seed(&archived);
+    let trash = trash_state(&archived, "archived").unwrap().unwrap();
+    // The metadata is authoritative even after an offline operator renames its key.
+    let renamed = trash.with_file_name("operator-renamed-entry");
+    fs::rename(trash, &renamed).unwrap();
+    std::os::unix::fs::symlink(
+        "/unreadable-private-target",
+        state_dir(&active).unwrap().join("private-link"),
+    )
+    .unwrap();
+    let ids = retained_state_identities().unwrap();
+    assert!(ids.contains(&active.state_id));
+    assert!(ids.contains(&archived.state_id));
+    fs::write(renamed.join(TRASH_SESSION), "invalid [").unwrap();
+    retained_state_identities().unwrap_err();
 }

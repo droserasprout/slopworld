@@ -4,41 +4,28 @@ use super::{
     ProjectCfg, SessionCfg, TOKEN_REDACTED, TitlePolicy, expand, mount_target, redact_token_text,
 };
 use crate::paths::temp_dir;
+use crate::storage::workspace::{Record, Store};
 
 #[test]
 fn dns_defaults_to_resolved_and_round_trips_on_the_agent() {
-    let cfg = Config::parse(
-        r#"
-            [[project]]
-            name = "repo"
-            dir = "/tmp"
-
-            [[session]]
-            name = "agent"
-            project = "repo"
-            state_id = "11111111-1111-4111-8111-111111111111"
-
-            [session.dns]
-            mode = "servers"
-            servers = ["10.0.0.53", "10.0.0.54"]
-            "#,
+    let session: SessionCfg = toml::from_str(
+        "name = 'agent'\n[dns]\nmode = 'servers'\nservers = ['10.0.0.53', '10.0.0.54']",
     )
-    .expect("DNS config should parse");
-    let default_text = toml::to_string_pretty(&cfg).unwrap();
-    let default_text = default_text.split("[session.dns]").next().unwrap();
-    let default_cfg = Config::parse(default_text).unwrap();
-    assert_eq!(default_cfg.sessions[0].dns, DnsConfig::Resolved);
-    let project = cfg.project("repo").unwrap();
-    let session = cfg.session("agent").unwrap();
-    assert_eq!(cfg.dns_of(session, project), session.dns);
+    .unwrap();
+    assert_eq!(
+        toml::from_str::<SessionCfg>("name = 'agent'").unwrap().dns,
+        DnsConfig::Resolved
+    );
+    assert_eq!(
+        Config::default().dns_of(&session, &ProjectCfg::default()),
+        session.dns
+    );
     assert_eq!(
         crate::sandbox::dns_servers(&session.dns),
         vec!["10.0.0.53", "10.0.0.54"]
     );
-
-    let text = toml::to_string_pretty(&cfg).unwrap();
-    let back = Config::parse(&text).unwrap();
-    assert_eq!(back.session("agent").unwrap().dns, session.dns);
+    let back: SessionCfg = toml::from_str(&toml::to_string_pretty(&session).unwrap()).unwrap();
+    assert_eq!(back.dns, session.dns);
 }
 
 #[test]
@@ -120,7 +107,12 @@ fn automatic_titles_are_opt_in_and_once_parses() {
     cfg.daemon.pi_titles = TitlePolicy::Never;
     cfg.daemon.task_summaries = TitlePolicy::Once;
     cfg.daemon.title_min_chars = 42;
-    let back = Config::parse(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
+    let back = super::settings::document::replace(
+        &Config::default(),
+        &toml::to_string_pretty(&cfg.settings).unwrap(),
+    )
+    .unwrap()
+    .candidate;
     assert_eq!(back.daemon.agent_titles, TitlePolicy::Once);
     assert_eq!(back.daemon.pi_titles, TitlePolicy::Never);
     assert_eq!(back.daemon.task_summaries, TitlePolicy::Once);
@@ -203,7 +195,7 @@ fn redacting_quoted_and_multiline_tokens_preserves_parseable_text() {
 /// The manager uses this sentinel to restore the saved token.
 #[test]
 fn the_sentinel_round_trips_as_itself() {
-    let cfg = Config::parse(&format!(
+    let cfg = toml::from_str::<super::Settings>(&format!(
         "[daemon]\nbind = \"127.0.0.1:7717\"\ntoken = \"{TOKEN_REDACTED}\"\n"
     ))
     .expect("config with the sentinel should parse");
@@ -228,35 +220,43 @@ fn a_path_naming_a_variable_this_machine_lacks_is_nothing() {
 
 #[test]
 fn library_become_sessions() {
-    let cfg = Config::parse(
-        r#"
-            [defaults]
-            agent = "pi"
-            shell = "bash"
+    let mut cfg = Config {
+        library: vec![
+            toml::from_str(
+                r#"
+                name = "review diff"
+                link = "project"
+                project = "slopworld"
+                text = "review the working diff"
+                "#,
+            )
+            .unwrap(),
+            toml::from_str(
+                r#"
+                name = "tests"
+                link = "project"
+                kind = "shell"
+                project = "slopworld"
+                text = "make test"
+                "#,
+            )
+            .unwrap(),
+            toml::from_str(
+                r#"
+                name = "codex"
+                link = "project"
+                project = "slopworld"
+                text = "have a look"
+                command = "codex --yolo"
+                "#,
+            )
+            .unwrap(),
+        ],
+        ..Default::default()
+    };
 
-            [[library]]
-            name = "review diff"
-            link = "project"
-            project = "slopworld"
-            text = "review the working diff"
-
-            [[library]]
-            name = "tests"
-            link = "project"
-            kind = "shell"
-            project = "slopworld"
-            text = "make test"
-
-            [[library]]
-            name = "codex"
-            link = "project"
-            project = "slopworld"
-            text = "have a look"
-            command = "codex --yolo"
-            "#,
-    )
-    .expect("library should parse");
-
+    cfg.defaults.agent = "pi".into();
+    cfg.defaults.shell = "bash".into();
     let sc = cfg.library_item("review diff").unwrap();
     let prompt = cfg.session_for(&sc, "review-diff".into(), sc.project.clone());
     // Store the default preset name instead of its command line.
@@ -309,182 +309,65 @@ fn preset_dependencies_arrive_before_the_preset_that_needs_them() {
 
 #[test]
 fn library_item_links_round_trip() {
-    let cfg = Config::parse(
-        r#"
-            [[library]]
-            name = "project"
-            link = "project"
-            project = "slopworld"
-            text = "carry on"
-
-            [[library]]
-            name = "scratch"
-            link = "temp"
-            text = "have a go"
-
-            [[library]]
-            name = "wherever"
-            link = "ask"
-            text = "you decide"
-            "#,
-    )
-    .expect("links should parse");
-
-    assert_eq!(
-        cfg.library_item("project").unwrap().link,
-        LibraryItemLink::Project
-    );
-    assert_eq!(
-        cfg.library_item("scratch").unwrap().link,
-        LibraryItemLink::Temp
-    );
-    assert_eq!(
-        cfg.library_item("wherever").unwrap().link,
-        LibraryItemLink::Ask
-    );
-
-    let back: LibraryItemCfg =
-        toml::from_str(&toml::to_string_pretty(&cfg.library[1]).unwrap()).unwrap();
-    assert_eq!(back.link, LibraryItemLink::Temp);
-    assert_eq!(
-        toml::from_str::<LibraryItemCfg>(&toml::to_string_pretty(&cfg.library[2]).unwrap(),)
-            .unwrap()
-            .link,
-        LibraryItemLink::Ask
-    );
+    for (link, expected) in [
+        ("project", LibraryItemLink::Project),
+        ("temp", LibraryItemLink::Temp),
+        ("ask", LibraryItemLink::Ask),
+    ] {
+        let item: LibraryItemCfg = toml::from_str(&format!(
+            "name = 'entry'\nlink = '{link}'\nproject = 'slopworld'\ntext = 'carry on'"
+        ))
+        .unwrap();
+        assert_eq!(item.link, expected);
+        let back: LibraryItemCfg = toml::from_str(&toml::to_string_pretty(&item).unwrap()).unwrap();
+        assert_eq!(back.link, expected);
+    }
 }
 
 #[test]
 fn file_action_modes_round_trip_and_default_to_the_menu() {
-    let cfg = Config::parse(
-        r#"
-            [[library]]
-            name = "old"
-            link = "project"
-            kind = "fa"
-            command = "du -sh"
-
-            [[library]]
-            name = "report"
-            link = "project"
-            kind = "fa"
-            command = "file"
-            mode = "show_result"
-
-            [[library]]
-            name = "shell"
-            link = "project"
-            kind = "fa"
-            command = "bash"
-            mode = "open_terminal"
-
-            [[library]]
-            name = "quiet"
-            link = "project"
-            kind = "fa"
-            command = "touch"
-            mode = "nothing"
-            "#,
-    )
-    .expect("file action modes should parse");
-
-    assert_eq!(cfg.library_item("old").unwrap().mode, FileActionMode::Ask);
-    assert_eq!(
-        cfg.library_item("report").unwrap().mode,
-        FileActionMode::ShowResult
-    );
-    assert_eq!(
-        cfg.library_item("shell").unwrap().mode,
-        FileActionMode::OpenTerminal
-    );
-    assert_eq!(
-        cfg.library_item("quiet").unwrap().mode,
-        FileActionMode::Nothing
-    );
-
-    let text = toml::to_string_pretty(&cfg.library[1]).unwrap();
-    assert!(text.contains("mode = \"show_result\""));
-    assert!(!text.contains("name = \"old\""));
-
-    let back: LibraryItemCfg = toml::from_str(&text).unwrap();
-    assert_eq!(back.mode, FileActionMode::ShowResult);
-    assert_eq!(
-        toml::from_str::<LibraryItemCfg>(&toml::to_string_pretty(&cfg.library[2]).unwrap(),)
-            .unwrap()
-            .mode,
-        FileActionMode::OpenTerminal
-    );
-    assert_eq!(
-        toml::from_str::<LibraryItemCfg>(&toml::to_string_pretty(&cfg.library[3]).unwrap(),)
-            .unwrap()
-            .mode,
-        FileActionMode::Nothing
-    );
+    for (mode, expected) in [
+        ("", FileActionMode::Ask),
+        ("show_result", FileActionMode::ShowResult),
+        ("open_terminal", FileActionMode::OpenTerminal),
+        ("nothing", FileActionMode::Nothing),
+    ] {
+        let mut text =
+            "name = 'report'\nlink = 'project'\nkind = 'fa'\ncommand = 'file'\n".to_owned();
+        if !mode.is_empty() {
+            text.push_str(&format!("mode = '{mode}'"));
+        }
+        let item: LibraryItemCfg = toml::from_str(&text).unwrap();
+        assert_eq!(item.mode, expected);
+        let saved = toml::to_string_pretty(&item).unwrap();
+        if !mode.is_empty() {
+            assert!(saved.contains(&format!("mode = \"{mode}\"")));
+        }
+        let back: LibraryItemCfg = toml::from_str(&saved).unwrap();
+        assert_eq!(back.mode, expected);
+    }
 }
 
 /// Generate a temporary project's directory from its name.
 #[test]
 fn temp_projects_name_their_own_directory() {
     assert_eq!(temp_dir("scratch"), "/tmp/slopworld/scratch");
-
-    let cfg = Config::parse(
-        r#"
-            [[project]]
-            name = "scratch"
-            dir = "/tmp/slopworld/scratch"
-            temp = true
-            "#,
-    )
-    .expect("a temp project should parse");
-
-    assert!(cfg.project("scratch").unwrap().temp);
-    // Projects are not temporary by default.
-    let plain = Config::parse(
-        r#"
-            [[project]]
-            name = "repo"
-            dir = "/home/you/git/repo"
-            "#,
-    )
-    .unwrap();
-    assert!(!plain.project("repo").unwrap().temp);
+    let project: ProjectCfg =
+        toml::from_str("name = 'scratch'\ndir = '/tmp/slopworld/scratch'\ntemp = true").unwrap();
+    assert!(project.temp);
+    let plain: ProjectCfg = toml::from_str("name = 'repo'\ndir = '/home/you/git/repo'").unwrap();
+    assert!(!plain.temp);
 }
 
 #[test]
 fn agent_network_is_independent_of_project() {
-    let cfg = Config::parse(
-        r#"
-            [[project]]
-            name = "repo"
-            dir = "/home/you/git/repo"
-            [[session]]
-            name = "safe"
-            project = "repo"
-            network = "none"
-            state_id = "22222222-2222-4222-8222-222222222222"
-
-            [[session]]
-            name = "too-wide"
-            project = "repo"
-            network = "host"
-            state_id = "33333333-3333-4333-8333-333333333333"
-            "#,
-    )
-    .expect("network modes should parse");
-
-    let project = cfg.project("repo").unwrap();
-    assert_eq!(
-        cfg.network_of(cfg.session("safe").unwrap(), project),
-        NetworkMode::None
-    );
-    assert_eq!(
-        cfg.network_of(cfg.session("too-wide").unwrap(), project),
-        NetworkMode::Host
-    );
-    assert_eq!(
-        cfg.network_of(cfg.session("safe").unwrap(), project),
-        NetworkMode::None
-    );
+    let cfg = Config::default();
+    let project = ProjectCfg::default();
+    for (mode, expected) in [("none", NetworkMode::None), ("host", NetworkMode::Host)] {
+        let session: SessionCfg =
+            toml::from_str(&format!("name = 'agent'\nnetwork = '{mode}'")).unwrap();
+        assert_eq!(cfg.network_of(&session, &project), expected);
+    }
 }
 
 /// Preserve the library item's type during TOML serialization and parsing.
@@ -562,9 +445,11 @@ fn the_shipped_breadcrumb_is_offered_but_never_written_down() {
     );
 
     // Omit the built-in entry from saved configuration. Loading must not duplicate it.
-    let text = toml::to_string_pretty(&cfg).unwrap();
+    let text = toml::to_string_pretty(&cfg.settings).unwrap();
     assert!(!text.contains("Useful tips"));
-    let back = Config::parse(&text).unwrap();
+    let back = super::settings::document::replace(&cfg, &text)
+        .unwrap()
+        .candidate;
     assert_eq!(
         back.library_items_all()
             .iter()
@@ -592,7 +477,7 @@ fn a_written_entry_shadows_the_builtin_it_is_named_after() {
 }
 
 #[test]
-fn config_round_trips_through_toml() {
+fn assembled_config_view_round_trips_through_toml() {
     let mut cfg = Config::default();
     cfg.projects.push(ProjectCfg {
         name: "repo".into(),
@@ -608,7 +493,7 @@ fn config_round_trips_through_toml() {
     });
 
     let text = toml::to_string_pretty(&cfg).unwrap();
-    let back = Config::parse(&text).unwrap();
+    let back: Config = toml::from_str(&text).unwrap();
 
     assert_eq!(back.session("quiet").unwrap().network, NetworkMode::None);
     assert_eq!(
@@ -621,107 +506,130 @@ fn config_round_trips_through_toml() {
 
 #[test]
 fn host_terminal_records_round_trip_and_default_to_autostart() {
-    let cfg = Config {
-        host_terminals: vec![HostTerminalCfg {
-            name: "repo-bash".into(),
-            label: Some("Repository shell".into()),
-            project: "repo".into(),
-            path: "/home/you/repo/src".into(),
-            ..Default::default()
-        }],
+    let tab = HostTerminalCfg {
+        name: "repo-bash".into(),
+        label: Some("Repository shell".into()),
+        project: "repo".into(),
+        path: "/home/you/repo/src".into(),
         ..Default::default()
     };
-    let text = toml::to_string_pretty(&cfg).unwrap();
-    assert!(text.contains("[[host_terminal]]"));
+    let text = toml::to_string_pretty(&tab).unwrap();
     assert!(!text.contains("autostart"));
+    let back: HostTerminalCfg = toml::from_str(&text).unwrap();
+    assert_eq!(back.name, tab.name);
+    assert_eq!(back.label, tab.label);
+    assert_eq!(back.project, tab.project);
+    assert_eq!(back.path, tab.path);
+    assert!(back.autostart);
+    assert!(back.id.is_empty());
+    assert!(!text.contains("id ="));
+}
 
-    let back = Config::parse(&text).unwrap();
-    let tab = &back.host_terminals[0];
-    assert_eq!(tab.name, "repo-bash");
-    assert_eq!(tab.label.as_deref(), Some("Repository shell"));
-    assert_eq!(tab.project, "repo");
-    assert_eq!(tab.path, "/home/you/repo/src");
-    assert!(tab.autostart);
+#[test]
+fn host_shell_ids_are_valid_unique_and_preserved() {
+    let tab: HostTerminalCfg = toml::from_str("name = 'one'\nid = '0123456789abcdef'").unwrap();
+    let saved = tab.document(0, None).unwrap();
+    assert_eq!(HostTerminalCfg::decode(&saved).unwrap().id, tab.id);
+    let store = Store::<HostTerminalCfg>::empty();
+    let mut duplicate = tab.clone();
+    duplicate.name = "two".into();
+    assert!(store.prepare(vec![tab.clone(), duplicate]).is_err());
+    for bad in ["../escape", "0123456789abcdeF", "short"] {
+        let invalid = HostTerminalCfg {
+            id: bad.into(),
+            ..tab.clone()
+        };
+        assert!(store.prepare(vec![invalid]).is_err());
+    }
 }
 
 #[test]
 fn config_rejects_sessions_without_a_valid_state_identity() {
-    let result = Config::parse(
-        r#"
-                [[project]]
-                name = "repo"
-                dir = "/tmp"
-
-                [[session]]
-                name = "agent"
-                project = "repo"
-            "#,
-    );
-    result.unwrap_err();
-
+    let session: SessionCfg = toml::from_str("name = 'agent'\nproject = 'repo'").unwrap();
+    assert!(Store::<SessionCfg>::empty().prepare(vec![session]).is_err());
     // New in-memory sessions, including short-lived errands, always have an identity.
     assert!(!SessionCfg::default().state_id.is_empty());
 }
 
 #[test]
-fn config_rejects_state_id_path_traversal_absolute_paths_and_non_uuids() {
+fn records_reject_state_id_path_traversal_absolute_paths_and_invalid_ids() {
     for state_id in ["../escape", "one/two", "/tmp/escape", ".", "safe-state"] {
-        let text = format!("[[session]]\nname = \"agent\"\nstate_id = \"{state_id}\"\n");
+        let session = SessionCfg {
+            name: "agent".into(),
+            state_id: state_id.into(),
+            ..Default::default()
+        };
         assert!(
-            Config::parse(&text).is_err(),
-            "unsafe state id {state_id:?} should fail"
+            Store::<SessionCfg>::empty().prepare(vec![session]).is_err(),
+            "{state_id}"
         );
     }
 }
 
 #[test]
 fn config_rejects_unsafe_or_duplicate_project_names() {
+    let project = ProjectCfg {
+        id: crate::storage_id::draft_identity(),
+        name: "repo.v2".into(),
+        dir: "/tmp".into(),
+        ..Default::default()
+    };
+    let store = Store::<ProjectCfg>::empty();
     for name in ["../escape", "one/two", "/tmp/escape", ".", "..", r"one\two"] {
-        let text = format!("[[project]]\nname = {:?}\ndir = \"/tmp\"\n", name);
         assert!(
-            Config::parse(&text).is_err(),
-            "unsafe project name {name:?} should fail"
+            store
+                .prepare(vec![ProjectCfg {
+                    name: name.into(),
+                    ..project.clone()
+                }])
+                .is_err(),
+            "{name}"
         );
     }
-
-    let duplicate = r#"
-            [[project]]
-            name = "repo"
-            dir = "/tmp/one"
-
-            [[project]]
-            name = "repo"
-            dir = "/tmp/two"
-        "#;
-    let error = Config::parse(duplicate).unwrap_err().to_string();
+    let duplicate = ProjectCfg {
+        id: crate::storage_id::draft_identity(),
+        dir: "/tmp/two".into(),
+        ..project.clone()
+    };
+    let error = store
+        .prepare(vec![project.clone(), duplicate])
+        .err()
+        .unwrap()
+        .to_string();
     assert!(error.contains("already exists"), "{error}");
-
-    Config::parse("[[project]]\nname = \"repo.v2\"\ndir = \"/tmp\"\n").unwrap();
+    store.prepare(vec![project]).unwrap();
 }
 
 #[test]
 fn config_rejects_duplicate_state_ids() {
-    let text = r#"
-            [[session]]
-            name = "one"
-            state_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
-
-            [[session]]
-            name = "two"
-            state_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
-        "#;
-    let error = Config::parse(text).unwrap_err().to_string();
+    let first = SessionCfg {
+        name: "one".into(),
+        ..Default::default()
+    };
+    let second = SessionCfg {
+        name: "two".into(),
+        ..first.clone()
+    };
+    let cfg = Config {
+        sessions: vec![first, second],
+        ..Default::default()
+    };
+    let error = super::validate_loaded(&cfg).unwrap_err().to_string();
     assert!(
         error.contains("Two sessions use the same private-state ID"),
         "{error}"
     );
+    assert!(Store::<SessionCfg>::empty().prepare(cfg.sessions).is_err());
 }
 
 #[test]
 fn config_rejects_removed_usage_switches() {
     for key in ["usage", "openrouter", "openai"] {
-        let text = format!("[daemon]\nbind = \"127.0.0.1:7717\"\n{key} = true\n");
-        assert!(Config::parse(&text).is_err(), "removed {key} should fail");
+        let text = format!("[daemon]\nbind = '127.0.0.1:7717'\n{key} = true\n");
+        assert!(
+            super::settings::document::replace(&Config::default(), &text).is_err(),
+            "{key}"
+        );
     }
 }
 

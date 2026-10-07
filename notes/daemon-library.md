@@ -5,8 +5,9 @@ Runnable items can reference [agent templates](daemon-agent-templates.md), which
 have their own catalog and API.
 
 `config/library.rs` owns item definitions, supplied entries, and lookups.
-`config/catalog.rs` owns per-kind validation and preparation; `config/persistence.rs`
-owns disk load/save. `session/manager/library.rs` owns catalog operations and
+`config/catalog.rs` owns per-kind validation, loading and preparation of bound
+transaction changes. The manager checks catalog revisions and commits those changes
+through `storage/transaction.rs`. `session/manager/library.rs` owns catalog operations and
 `api/handlers/library.rs` owns the HTTP boundary. `session/manager/errands.rs`
 owns launches.
 
@@ -27,3 +28,7 @@ Input and breadcrumb delivery belong to [session state](daemon-session-state.md)
 Storage belongs to [configuration stores](daemon-config-stores.md); directory
 locations are in the [path reference](../docs/src/reference/paths.md).
 User instructions belong in [Library items and errands](../docs/src/guides/library.md).
+
+Library reload revisions include membership and each file’s metadata. Reloads recheck
+the revision before publication; API commits reject an externally changed revision.
+Workspace records and root settings do not participate in library reloads or writes.

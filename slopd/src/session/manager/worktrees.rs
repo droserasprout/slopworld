@@ -5,35 +5,14 @@ use crate::worktrees::{Store, Worktree, git};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::os::unix::fs::MetadataExt;
-use std::time::SystemTime;
 
-/// Worktree mutation serialization and cached disk records.
+/// Worktree mutation serialization and relocation test coordination.
 #[derive(Default)]
 pub(crate) struct WorktreeState {
     pub(super) mutation: tokio::sync::Mutex<()>,
-    views: tokio::sync::Mutex<WorktreeViewCache>,
     #[cfg(test)]
     pub(super) relocation_pause:
         std::sync::Mutex<Option<(Arc<tokio::sync::Notify>, Arc<tokio::sync::Notify>)>>,
-}
-
-type FileStamp = (SystemTime, u64, u64, u64);
-
-#[derive(Default)]
-struct WorktreeViewCache {
-    stamp: Option<Option<FileStamp>>,
-    by_id: Arc<HashMap<String, Worktree>>,
-}
-
-async fn file_stamp(path: &Path) -> Option<FileStamp> {
-    let metadata = tokio::fs::metadata(path).await.ok()?;
-    Some((
-        metadata.modified().ok()?,
-        metadata.len(),
-        metadata.dev(),
-        metadata.ino(),
-    ))
 }
 
 #[derive(Clone, Default, Deserialize)]
@@ -66,6 +45,17 @@ struct PreparedWorktree {
 }
 
 impl Manager {
+    /// Read the accepted index under session/worktree operation guards.
+    pub(crate) fn worktree_records(&self) -> Store {
+        self.config_state.records.worktrees()
+    }
+
+    pub(crate) async fn save_worktrees(&self, store: &Store) -> Result<()> {
+        let records = &self.config_state.records;
+        let gate = self.config_state.persist.clone().lock_owned().await;
+        records.save_worktrees(store.worktrees.clone(), &gate).await
+    }
+
     pub(crate) async fn rename_worktree(
         self: &Arc<Self>,
         project: String,
@@ -80,7 +70,7 @@ impl Manager {
             let p = cfg
                 .project(&project)
                 .ok_or_else(|| anyhow!("no project {project}"))?;
-            let store = Store::load(&manager.cfg_path).await?;
+            let store = manager.worktree_records();
             let index = store
                 .worktrees
                 .iter()
@@ -119,36 +109,21 @@ impl Manager {
                     store,
                     vec![(index, updated.clone())],
                 )?;
-                relocations.execute(&manager.cfg_path).await?;
+                relocations.execute(manager.as_ref()).await?;
             }
             Ok(updated)
         }))
         .await
     }
-    /// Reload the index when the catalog is replaced or edited externally.
+    /// Build the view from accepted records; offline changes load at startup.
     pub(super) async fn worktree_view_index(&self) -> Arc<HashMap<String, Worktree>> {
-        let mut cache = self.worktrees.views.lock().await;
-        let stamp = file_stamp(&self.cfg_path.with_file_name("worktrees.toml")).await;
-        if cache.stamp.as_ref() != Some(&stamp) {
-            let store = match Store::load(&self.cfg_path).await {
-                Ok(store) => store,
-                Err(error) => {
-                    tracing::warn!(
-                        "could not reload worktree index; keeping the last valid index: {error:#}"
-                    );
-                    return cache.by_id.clone();
-                }
-            };
-            cache.by_id = Arc::new(
-                store
-                    .worktrees
-                    .into_iter()
-                    .map(|w| (w.id.clone(), w))
-                    .collect(),
-            );
-            cache.stamp = Some(stamp);
-        }
-        cache.by_id.clone()
+        Arc::new(
+            self.worktree_records()
+                .worktrees
+                .into_iter()
+                .map(|row| (row.id.clone(), row))
+                .collect(),
+        )
     }
     pub(crate) async fn worktree_for_path(&self, project: &str, raw_path: &str) -> Result<String> {
         let cfg = self.config().await;
@@ -157,7 +132,7 @@ impl Manager {
         };
         let path = absolute_path(raw_path)?;
         let path = path.canonicalize().unwrap_or(path);
-        let store = Store::load(&self.cfg_path).await?;
+        let store = self.worktree_records();
         Ok(store
             .worktrees
             .iter()
@@ -247,7 +222,7 @@ impl Manager {
 
     pub(crate) async fn recover_worktrees(&self) -> Result<()> {
         let _lock = self.worktrees.mutation.lock().await;
-        let mut store = Store::load(&self.cfg_path).await?;
+        let mut store = self.worktree_records();
         let mut changed = false;
         for w in &mut store.worktrees {
             if !["allocating", "removing"].contains(&w.phase.as_str()) {
@@ -277,13 +252,13 @@ impl Manager {
             }
         }
         if changed {
-            store.save(&self.cfg_path).await?;
+            self.save_worktrees(&store).await?;
         }
         Ok(())
     }
 
     pub(super) async fn validate_worktree_config(&self, old: &Config, new: &Config) -> Result<()> {
-        let store = Store::load(&self.cfg_path).await?;
+        let store = self.worktree_records();
         // Worker removal validates the whole candidate. Index cross-references
         // once so sessions and worker-owned worktrees do not multiply scans.
         let old_sessions = old.session_index();
@@ -308,7 +283,7 @@ impl Manager {
         let mut ids = std::collections::HashSet::new();
         for p in &new.projects {
             if !p.id.is_empty() {
-                uuid::Uuid::parse_str(&p.id).context("invalid project identity")?;
+                anyhow::ensure!(crate::storage_id::valid(&p.id), "invalid project identity");
                 if !ids.insert(&p.id) {
                     bail!("duplicate project identity {}", p.id);
                 }
@@ -354,7 +329,7 @@ impl Manager {
         if id.is_empty() || id == "main" {
             return Ok(p.clone());
         }
-        let store = Store::load(&self.cfg_path).await?;
+        let store = self.worktree_records();
         let w = store
             .worktrees
             .iter()
@@ -446,8 +421,7 @@ impl Manager {
             ..Default::default()
         }];
         rows.extend(
-            Store::load(&self.cfg_path)
-                .await?
+            self.worktree_records()
                 .worktrees
                 .into_iter()
                 .filter(|w| !p.id.is_empty() && w.project_id == p.id),
@@ -500,7 +474,7 @@ impl Manager {
     pub(crate) async fn create_worktree(self: &Arc<Self>, q: WorktreeRequest) -> Result<Worktree> {
         self.reload_if_changed().await;
         let manager = self.clone();
-        Box::pin(manager.session_read_operation(async {
+        Box::pin(self.owned_session_read_operation(async move {
             let _lock = manager.worktrees.mutation.lock().await;
             let prepared = manager.prepare_worktree(&q).await?;
             manager.finish_worktree_creation(prepared).await
@@ -508,28 +482,22 @@ impl Manager {
         .await
     }
 
-    async fn prepare_worktree(&self, q: &WorktreeRequest) -> Result<PreparedWorktree> {
+    async fn prepare_worktree(self: &Arc<Self>, q: &WorktreeRequest) -> Result<PreparedWorktree> {
+        // Accepted projects already own a durable identity. Worktree creation
+        // only reads it while holding the shared session and worktree guards.
         let project = self
-            .update_cfg_if_changed_inner(|cfg| {
-                let project = cfg
-                    .projects
-                    .iter_mut()
-                    .find(|project| project.name == q.project)
-                    .ok_or_else(|| anyhow!("no project {}", q.project))?;
-                if project.id.is_empty() {
-                    project.id = uuid::Uuid::new_v4().to_string();
-                }
-                uuid::Uuid::parse_str(&project.id).context("invalid project identity")?;
-                Ok((project.clone(), true))
-            })
-            .await?;
+            .config()
+            .await
+            .project(&q.project)
+            .cloned()
+            .ok_or_else(|| anyhow!("no project {}", q.project))?;
         let root = PathBuf::from(expand(&project.dir)).canonicalize()?;
         let repository = git(
             &root,
             &["rev-parse", "--path-format=absolute", "--git-common-dir"],
         )
         .await?;
-        let id = uuid::Uuid::new_v4().to_string();
+        let id = self.allocate_worktree_identity().await?;
         let name = if q.name.is_empty() {
             id.get(..8).unwrap_or(&id).to_string()
         } else {
@@ -599,7 +567,7 @@ impl Manager {
             mut worktree,
         } = prepared;
         let mut directories = CreatedDirectories::default();
-        let mut store = Store::load(&self.cfg_path).await?;
+        let mut store = self.worktree_records();
         if store
             .worktrees
             .iter()
@@ -625,7 +593,7 @@ impl Manager {
         }
         let path = Path::new(&worktree.path);
         store.worktrees.push(worktree.clone());
-        store.save(&self.cfg_path).await?;
+        self.save_worktrees(&store).await?;
         // The allocating record now owns crash recovery for this directory.
         directories.commit();
 
@@ -645,7 +613,7 @@ impl Manager {
             .last_mut()
             .ok_or_else(|| anyhow!("created worktree disappeared before publication"))? =
             worktree.clone();
-        store.save(&self.cfg_path).await?;
+        self.save_worktrees(&store).await?;
         self.announce_projects().await;
         if !worktree.error.is_empty() {
             bail!(
@@ -662,17 +630,20 @@ impl Manager {
         project: String,
         id: String,
     ) -> Result<()> {
-        self.session_operation(self.remove_worktree_inner(&project, &id))
-            .await
+        let manager = self.clone();
+        self.owned_session_operation(Box::pin(async move {
+            manager.remove_worktree_inner(&project, &id).await
+        }))
+        .await
     }
 
     async fn remove_worktree_inner(&self, project: &str, id: &str) -> Result<()> {
         // Keep project identity and catalog writes serialized through deletion or recovery.
         let _mutation = self.worktrees.mutation.lock().await;
         let mut removal = self.prepare_worktree_removal(project, id).await?;
-        removal.record_intent(&self.cfg_path).await?;
+        removal.record_intent(self).await?;
         let result = remove_worktree_checkout(&removal.project, &removal.worktree).await;
-        removal.finish(&self.cfg_path, result).await
+        removal.finish(self, result).await
     }
 
     async fn prepare_worktree_removal(&self, project: &str, id: &str) -> Result<WorktreeRemoval> {
@@ -681,7 +652,7 @@ impl Manager {
             .project(project)
             .ok_or_else(|| anyhow!("no project {project}"))?
             .clone();
-        let store = Store::load(&self.cfg_path).await?;
+        let store = self.worktree_records();
         let index = store
             .worktrees
             .iter()
@@ -731,16 +702,16 @@ impl WorktreeRemoval {
             .ok_or_else(|| anyhow!("no removable worktree {}", self.worktree.id))
     }
 
-    async fn record_intent(&mut self, config: &Path) -> Result<()> {
+    async fn record_intent(&mut self, manager: &Manager) -> Result<()> {
         self.record_mut()?.phase = "removing".into();
-        self.store.save(config).await
+        manager.save_worktrees(&self.store).await
     }
 
-    async fn finish(mut self, config: &Path, result: Result<()>) -> Result<()> {
+    async fn finish(mut self, manager: &Manager, result: Result<()>) -> Result<()> {
         match result {
             Ok(()) => {
                 self.store.worktrees.remove(self.index);
-                self.store.save(config).await
+                manager.save_worktrees(&self.store).await
             }
             Err(error) => {
                 // A failed deletion remains inspectable and retryable. A failed catalog
@@ -753,7 +724,7 @@ impl WorktreeRemoval {
                 let record = self.record_mut()?;
                 record.phase = phase.into();
                 record.error = format!("{error:#}");
-                self.store.save(config).await?;
+                manager.save_worktrees(&self.store).await?;
                 Err(error)
             }
         }
@@ -907,3 +878,9 @@ async fn create_managed_worktree_path(
 #[cfg(test)]
 #[path = "worktrees_tests.rs"]
 mod tests;
+
+impl crate::worktrees::relocation::Persistence for Manager {
+    async fn save_worktree_records(&self, store: &Store) -> Result<()> {
+        self.save_worktrees(store).await
+    }
+}

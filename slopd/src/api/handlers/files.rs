@@ -383,7 +383,9 @@ pub(crate) async fn highlight(
             "The code is larger than the preview limit.",
         ));
     }
-    let command = q.command.unwrap_or(m.config().await.commands.highlighter);
+    let command = q
+        .command
+        .unwrap_or(m.config().await.settings.commands.highlighter);
     let command = super::highlighting::themed_command(&command, &q.engine, &q.theme)
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     if command.trim().is_empty() {

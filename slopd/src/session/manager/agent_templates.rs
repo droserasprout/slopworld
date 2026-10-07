@@ -183,7 +183,8 @@ impl Manager {
         let result = mutation(&mut store)?;
         store.validate()?;
         let published = self.templates.store.clone();
-        let path = AgentTemplateStore::path_for(&self.cfg_path);
+        let anchor = self.config_state.records.binding.config.join("config.toml");
+        let path = AgentTemplateStore::path_for(&anchor);
         #[cfg(test)]
         let publish_pause = self.templates.publish_pause.lock().unwrap().take();
         // Once prepared, cancellation cannot separate disk commit from publication.

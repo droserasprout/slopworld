@@ -27,3 +27,7 @@ The seccomp allowlist is the containers/common profile, extended only for hostna
 Bubblewrap's private UTS namespace. It is included here because Docker's builtin profile blocks the
 namespace syscalls Bubblewrap and pasta require. The container is not privileged and receives no
 `CAP_SYS_ADMIN`.
+
+Daemon storage upgrades can require an offline migration. Preserve both config and
+data volumes, stop the daemon, and follow [Storage migration](../docs/src/guides/storage-migration.md)
+using the same mounts and container user. Container startup does not migrate data.

@@ -159,8 +159,8 @@ pub(crate) async fn create_task(
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let task = m
-        .tasks
-        .create_owned(from, to, q.body, None)
+        .create_task_owned(from, to, q.body, None)
+        .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     m.spawn_task_summary_request(task.clone());
     Ok(Proto(wire::TaskResult {
@@ -322,9 +322,15 @@ pub(crate) async fn list_tasks(
         ));
     }
     let tasks = if q.all {
-        m.tasks.all_tasks()
+        m.tasks
+            .all_tasks_async()
+            .await
+            .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
     } else {
-        m.tasks.tasks_for(&who)
+        m.tasks
+            .tasks_for_async(&who)
+            .await
+            .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
     };
     Ok(Proto(wire::TasksReply {
         tasks: tasks.into_iter().map(task_view).collect(),
@@ -339,7 +345,9 @@ pub(crate) async fn one_task(
 ) -> ApiResult<wire::TaskResult> {
     let who = task_identity(&m, &cap, &headers).await?;
     m.tasks
-        .task_for(&who, &id)
+        .task_for_async(&who, &id)
+        .await
+        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
         .map(|task| {
             Proto(wire::TaskResult {
                 task: Some(task_view(task)),
@@ -364,7 +372,8 @@ pub(crate) async fn update_task(
     let who = task_identity(&m, &cap, &headers).await?;
     let task = m
         .tasks
-        .update_task(&who, &id, q.status, q.note)
+        .update_task_async(&who, &id, q.status, q.note)
+        .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Proto(wire::TaskResult {
         task: Some(task_view(task)),
@@ -376,7 +385,7 @@ pub(crate) async fn prune_tasks(
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Query(q): Query<PruneTasksQuery>,
-) -> ApiResult<wire::Removed> {
+) -> ApiResult<wire::TaskBatchResult> {
     let who = task_identity(&m, &cap, &headers).await?;
     if q.all && !cap.may_create() {
         return Err(err(
@@ -386,11 +395,10 @@ pub(crate) async fn prune_tasks(
     }
     let removed = m
         .tasks
-        .prune_tasks(&who, q.all)
+        .prune_tasks_async(&who, q.all)
+        .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Proto(wire::Removed {
-        removed: removed as u64,
-    }))
+    Ok(Proto(batch_view(removed, true)))
 }
 
 pub(crate) async fn cancel_tasks(
@@ -398,16 +406,15 @@ pub(crate) async fn cancel_tasks(
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Proto(q): Proto<wire::RemoveTasksReq>,
-) -> ApiResult<wire::TasksReply> {
+) -> ApiResult<wire::TaskBatchResult> {
     let q: RemoveTasksReq = domain(q)?;
     let who = task_identity(&m, &cap, &headers).await?;
     let tasks = m
         .tasks
-        .cancel_tasks(&who, &q.ids, cap.may_create())
+        .cancel_tasks_async(&who, &q.ids, cap.may_create())
+        .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Proto(wire::TasksReply {
-        tasks: tasks.into_iter().map(task_view).collect(),
-    }))
+    Ok(Proto(batch_view(tasks, false)))
 }
 
 pub(crate) async fn remove_task(
@@ -419,7 +426,8 @@ pub(crate) async fn remove_task(
     let who = task_identity(&m, &cap, &headers).await?;
     let task = m
         .tasks
-        .remove_task(&who, &id, cap.may_create())
+        .remove_task_async(&who, &id, cap.may_create())
+        .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Proto(wire::TaskResult {
         task: Some(task_view(task)),
@@ -431,18 +439,40 @@ pub(crate) async fn remove_tasks(
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Proto(q): Proto<wire::RemoveTasksReq>,
-) -> ApiResult<wire::Removed> {
+) -> ApiResult<wire::TaskBatchResult> {
     let q: RemoveTasksReq = domain(q)?;
     let who = task_identity(&m, &cap, &headers).await?;
     let removed = m
         .tasks
-        .remove_tasks(&who, &q.ids, cap.may_create())
+        .remove_tasks_async(&who, &q.ids, cap.may_create())
+        .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Proto(wire::Removed {
-        removed: removed as u64,
-    }))
+    Ok(Proto(batch_view(removed, true)))
 }
 
 #[cfg(test)]
 #[path = "tasks_tests.rs"]
 mod tests;
+
+fn batch_view(result: crate::tasks::BatchResult, removal: bool) -> wire::TaskBatchResult {
+    wire::TaskBatchResult {
+        removed: if removal {
+            result.committed.len() as u64
+        } else {
+            0
+        },
+        committed: result.committed,
+        unchanged: result.unchanged,
+        absent: result.absent,
+        failed: result
+            .failed
+            .into_iter()
+            .map(|failure| wire::TaskBatchFailure {
+                id: failure.id,
+                error: failure.error,
+            })
+            .collect(),
+        unattempted: result.unattempted,
+        tasks: result.tasks.into_iter().map(task_view).collect(),
+    }
+}

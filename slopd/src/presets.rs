@@ -267,7 +267,7 @@ impl Table {
     /// The root directory for user presets. Built-in presets remain compiled into the daemon.
     /// Each file under `sandbox_presets/` or `app_presets/` contains one user definition.
     pub fn dir() -> PathBuf {
-        crate::paths::dir("SLOPD_PRESETS", dirs::config_dir(), "")
+        crate::paths::override_path("SLOPD_PRESETS", crate::paths::config_root())
     }
 
     pub fn dir_for(kind: PresetKind) -> PathBuf {

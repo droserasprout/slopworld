@@ -6,7 +6,6 @@ use std::{
 };
 
 use anyhow::{Result, bail};
-use uuid::Uuid;
 
 use super::{Config, ProjectCfg, mount_target};
 
@@ -45,7 +44,7 @@ pub(crate) fn validate_project_names(projects: &[ProjectCfg]) -> Result<()> {
 }
 
 /// Check whether a session identity can be a path component.
-/// Stored identities must also pass the UUID check below.
+/// Stored identities must also pass the opaque-ID check below.
 /// This shared check also protects session records that exist only in daemon memory.
 pub(crate) fn state_id_component(state_id: &str) -> Result<&str> {
     if state_id.is_empty()
@@ -63,20 +62,35 @@ pub(crate) fn state_id_component(state_id: &str) -> Result<&str> {
     }
 }
 
-/// The daemon creates canonical UUIDs for stored identities.
+/// Stored identities use the shared opaque format.
 /// This check is stricter than the path component check.
 /// It prevents manually edited names from becoming persistent state namespaces.
 pub(crate) fn validate_state_id(state_id: &str) -> Result<()> {
     state_id_component(state_id)?;
-    let uuid = Uuid::parse_str(state_id)
-        .map_err(|_error| anyhow::anyhow!("Use a canonical UUID for the private-state ID."))?;
-    if uuid.to_string() != state_id {
-        bail!("Use a canonical UUID for the private-state ID.");
+    if !crate::storage_id::valid(state_id) {
+        bail!("Use a 16-character lowercase hexadecimal private-state ID.");
     }
     Ok(())
 }
 
-pub(super) fn validate_loaded(cfg: &Config) -> Result<()> {
+pub(crate) fn validate_loaded(cfg: &Config) -> Result<()> {
+    let mut host_ids = HashSet::new();
+    for host in &cfg.host_terminals {
+        if host.id.is_empty() {
+            continue;
+        }
+        anyhow::ensure!(
+            crate::storage_id::valid(&host.id),
+            "Host shell {:?} has invalid storage ID {:?}.",
+            host.name,
+            host.id
+        );
+        anyhow::ensure!(
+            host_ids.insert(&host.id),
+            "Two host shells use the same storage ID {:?}.",
+            host.id
+        );
+    }
     validate_project_names(&cfg.projects)?;
     for project in &cfg.projects {
         validate_mount_paths(project)?;

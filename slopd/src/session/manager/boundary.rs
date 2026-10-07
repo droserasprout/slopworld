@@ -9,8 +9,32 @@ use std::sync::{Arc, Mutex, Weak};
 
 tokio::task_local! {
     static OWNER: (usize, Arc<tokio::sync::OwnedRwLockWriteGuard<()>>);
-    static READ_OWNER: usize;
+    static READ_OWNER: (usize, Arc<tokio::sync::OwnedRwLockReadGuard<()>>);
     static REQUEST: usize;
+}
+
+/// A synchronous task-file owner inherits the active request's session guard.
+/// It performs no manager callbacks while holding these leases.
+pub(super) fn task_io_guards() -> impl Send + 'static {
+    (
+        OWNER.try_with(|(_, guard)| guard.clone()).ok(),
+        READ_OWNER.try_with(|(_, guard)| guard.clone()).ok(),
+    )
+}
+
+/// Capture before spawning: a request already reloaded and authorized against
+/// accepted state must not trigger another disk reload inside its owned work.
+fn carry_request_context<F: Future>(owner: usize, operation: F) -> impl Future<Output = F::Output> {
+    let active = REQUEST
+        .try_with(|current| *current == owner)
+        .unwrap_or(false);
+    async move {
+        if active {
+            REQUEST.scope(owner, operation).await
+        } else {
+            operation.await
+        }
+    }
 }
 
 /// Reuse live per-name locks and discard expired names as temporary terminals disappear.
@@ -77,13 +101,41 @@ impl Manager {
             .try_with(|current| current.0 == owner)
             .unwrap_or(false)
             || READ_OWNER
-                .try_with(|current| *current == owner)
+                .try_with(|current| current.0 == owner)
                 .unwrap_or(false)
         {
             return operation.await;
         }
-        let _guard = self.session_boundary.read().await;
-        READ_OWNER.scope(owner, operation).await
+        let guard = Arc::new(self.session_boundary.clone().read_owned().await);
+        READ_OWNER.scope((owner, guard), operation).await
+    }
+
+    /// Keep a shared operation and its resource guards alive across requester
+    /// cancellation. Nested exclusive callers retain their stronger boundary.
+    #[expect(
+        clippy::expect_used,
+        reason = "propagate a panic from the owned operation"
+    )]
+    pub(super) async fn owned_session_read_operation<F>(self: &Arc<Self>, operation: F) -> F::Output
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        if self.session_write_operation_active() {
+            return self.owned_session_operation(operation).await;
+        }
+        let owner = Arc::as_ptr(self) as usize;
+        let inherited = READ_OWNER
+            .try_with(|current| (current.0 == owner).then(|| current.1.clone()))
+            .ok()
+            .flatten();
+        let guard = match inherited {
+            Some(guard) => guard,
+            None => Arc::new(self.session_boundary.clone().read_owned().await),
+        };
+        tokio::spawn(READ_OWNER.scope((owner, guard), carry_request_context(owner, operation)))
+            .await
+            .expect("owned shared operation panicked")
     }
 
     /// Transfer a prepared operation and its exclusive guard to an owned task.
@@ -108,14 +160,14 @@ impl Manager {
             None => {
                 assert!(
                     !READ_OWNER
-                        .try_with(|current| *current == owner)
+                        .try_with(|current| current.0 == owner)
                         .unwrap_or(false),
                     "exclusive session operation inside a shared boundary"
                 );
                 Arc::new(self.session_boundary.clone().write_owned().await)
             }
         };
-        tokio::spawn(OWNER.scope((owner, guard), operation))
+        tokio::spawn(OWNER.scope((owner, guard), carry_request_context(owner, operation)))
             .await
             .expect("owned session operation panicked")
     }
@@ -136,7 +188,7 @@ impl Manager {
             }
             assert!(
                 !READ_OWNER
-                    .try_with(|current| *current == owner)
+                    .try_with(|current| current.0 == owner)
                     .unwrap_or(false),
                 "exclusive session operation inside a shared boundary"
             );

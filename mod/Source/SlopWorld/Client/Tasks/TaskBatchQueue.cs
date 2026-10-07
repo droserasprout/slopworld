@@ -10,8 +10,19 @@ namespace SlopWorld
         internal readonly struct Outcome
         {
             public readonly string Error;
+            readonly HashSet<string> _failedIds;
             public bool Succeeded => Error == null;
-            public Outcome(string error) { Error = error; }
+            public Outcome(string error, IEnumerable<string> failedIds = null)
+            {
+                Error = error;
+                _failedIds = failedIds == null ? null : new HashSet<string>(failedIds);
+            }
+            public Outcome For(IEnumerable<string> ids)
+            {
+                var failedIds = _failedIds;
+                return failedIds != null && !ids.Any(id => failedIds.Contains(id))
+                    ? new Outcome(null) : this;
+            }
         }
 
         sealed class Batch
@@ -50,7 +61,7 @@ namespace SlopWorld
 
         public void Enqueue(IEnumerable<string> ids, Action ok, Action<string> fail)
         {
-            var dependencies = new HashSet<Batch>();
+            var dependencies = new Dictionary<Batch, List<string>>();
             var fresh = new Batch();
             foreach (string id in (ids ?? Enumerable.Empty<string>())
                 .Where(id => !string.IsNullOrEmpty(id)).Distinct())
@@ -61,11 +72,17 @@ namespace SlopWorld
                     fresh.Ids.Add(id);
                     _reserved.Add(id, batch);
                 }
-                dependencies.Add(batch);
+                if (!dependencies.TryGetValue(batch, out var selected))
+                    dependencies.Add(batch, selected = new List<string>());
+                selected.Add(id);
             }
             if (dependencies.Count == 0) { ok?.Invoke(); return; }
             var caller = new Caller { Remaining = dependencies.Count, Ok = ok, Fail = fail };
-            foreach (var dependency in dependencies) dependency.Waiters.Add(caller.Complete);
+            foreach (var dependency in dependencies)
+            {
+                var selected = dependency.Value;
+                dependency.Key.Waiters.Add(outcome => caller.Complete(outcome.For(selected)));
+            }
             if (fresh.Ids.Count > 0) _pending.Enqueue(fresh);
             Pump();
         }

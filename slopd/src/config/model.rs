@@ -1,19 +1,15 @@
-//! Root configuration and persistent project, agent, and host-terminal records.
+//! Assembled configuration read model and workspace record types.
+//! settings owns machine settings; storage owns persisted workspace records.
 
-use super::{daemon::*, is_false, is_true, library::LibraryItemCfg, sandbox::*, yes};
+use super::{Settings, is_false, is_true, library::LibraryItemCfg, sandbox::*, yes};
 use crate::presets::{CommandPreset, SandboxPreset};
 use serde::{Deserialize, Serialize};
 
 /// Loaded configuration, including the separately stored library catalog.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Config {
-    #[serde(default)]
-    pub daemon: Daemon,
-    #[serde(default)]
-    pub defaults: Defaults,
-    /// Host applications used by file actions.
-    #[serde(default)]
-    pub commands: CommandDefaults,
+    #[serde(flatten)]
+    pub settings: Settings,
     // Persistent workspace and process records.
     #[serde(default, rename = "project")]
     pub projects: Vec<ProjectCfg>,
@@ -29,6 +25,21 @@ pub struct Config {
         skip_serializing_if = "Vec::is_empty"
     )]
     pub host_terminals: Vec<HostTerminalCfg>,
+}
+
+// Field access remains convenient for effective configuration consumers. Persistence
+// chooses Settings explicitly; the assembled view does not own a root document.
+impl std::ops::Deref for Config {
+    type Target = Settings;
+    fn deref(&self) -> &Settings {
+        &self.settings
+    }
+}
+
+impl std::ops::DerefMut for Config {
+    fn deref_mut(&mut self) -> &mut Settings {
+        &mut self.settings
+    }
 }
 
 /// A project owns the paths it exposes to its agents. It includes the primary directory implicitly.
@@ -80,7 +91,7 @@ pub struct SessionCfg {
     pub reader_pinned: bool,
     #[serde(skip)]
     pub reader_line: u32,
-    /// Stable private-state UUID, independent of renames or reused session names.
+    /// Stable private-state identity, independent of renames or reused session names.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub state_id: String,
     /// The project supplies the workspace and shared mounts.
@@ -144,6 +155,9 @@ pub struct SessionCfg {
 /// Persistent host shell, restored independently of agent sessions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostTerminalCfg {
+    /// Stable identity for the host-shell record; omitted from the client wire view.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub id: String,
     pub name: String,
     /// A fixed sidebar label. Empty means the terminal application's title is shown.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -161,6 +175,7 @@ pub struct HostTerminalCfg {
 impl Default for HostTerminalCfg {
     fn default() -> Self {
         Self {
+            id: String::new(),
             name: String::new(),
             label: None,
             project: String::new(),
@@ -183,7 +198,7 @@ impl Default for SessionCfg {
             reader_scope: String::new(),
             reader_pinned: false,
             reader_line: 0,
-            state_id: uuid::Uuid::new_v4().to_string(),
+            state_id: crate::storage_id::draft_identity(),
             project: String::new(),
             command: String::new(),
             cmd: None,

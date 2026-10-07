@@ -13,7 +13,7 @@ mod tests;
 /// The default location is under the user data directory, outside `TEMP_ROOT`, so state remains after a restart.
 /// `SLOPD_STATE` overrides the location for tests.
 pub(crate) fn state_root() -> PathBuf {
-    crate::paths::dir("SLOPD_STATE", dirs::data_dir(), "sessions")
+    crate::paths::override_path("SLOPD_STATE", crate::paths::data_root().join("sessions"))
 }
 
 /// Return the path for this session's private copy of `host`.
@@ -117,6 +117,43 @@ fn remove_stored_path(path: &Path) -> Result<()> {
         std::fs::remove_file(path)
     }
     .with_context(|| format!("removing {}", path.display()))
+}
+
+/// Reserve identities in current or retained private state during creation only.
+/// Do not follow links or recursively scan state contents. Invalid trash metadata
+/// is an error: treating unreadable authority as vacant could reuse its identity.
+pub(crate) fn retained_state_identities() -> Result<std::collections::HashSet<String>> {
+    let mut ids = std::collections::HashSet::new();
+    let root = state_root();
+    let entries = match std::fs::read_dir(&root) {
+        Ok(entries) => Some(entries),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => return Err(error).context("reading private-state identities"),
+    };
+    if let Some(entries) = entries {
+        for entry in entries {
+            let entry = entry.context("reading private-state identity entry")?;
+            if let Some(id) = entry.file_name().to_str()
+                && crate::storage_id::valid(id)
+            {
+                ids.insert(id.to_owned());
+            }
+        }
+    }
+    if let Some(entries) = trash_entries()? {
+        for entry in entries {
+            let entry = entry.context("reading retained identity entry")?;
+            let session = read_trashed_session(&entry.path()).with_context(|| {
+                format!(
+                    "reading retained identity metadata in {}",
+                    entry.path().display()
+                )
+            })?;
+            crate::config::validate_state_id(&session.state_id)?;
+            ids.insert(session.state_id);
+        }
+    }
+    Ok(ids)
 }
 
 /// Permanently remove every entry in the daemon's trash directory.

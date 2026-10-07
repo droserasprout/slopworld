@@ -104,10 +104,11 @@ namespace SlopWorld
         void SendCancellation(List<string> ids, Action<TaskBatchQueue.Outcome> done)
         {
             var body = new Wire.RemoveTasksReq { Ids = { ids } };
-            DaemonClient.Post<Wire.TasksReply>(WireProtocol.Routes.TasksCancel, body, j =>
+            DaemonClient.Post<Wire.TaskBatchResult>(WireProtocol.Routes.TasksCancel, body, j =>
             {
+                InvalidateRefresh();
                 foreach (var task in j.Tasks.Select(TaskInfo.FromWire)) Upsert(task);
-                done(new TaskBatchQueue.Outcome(null));
+                done(BatchOutcome(j));
             }, error => done(new TaskBatchQueue.Outcome(error)), TaskInfo.Host);
         }
 
@@ -121,22 +122,41 @@ namespace SlopWorld
         void SendRemoval(List<string> ids, Action<TaskBatchQueue.Outcome> done)
         {
             var body = new Wire.RemoveTasksReq { Ids = { ids } };
-            DaemonClient.Post<Wire.Removed>(WireProtocol.Routes.TasksRemove, body, _ =>
+            DaemonClient.Post<Wire.TaskBatchResult>(WireProtocol.Routes.TasksRemove, body, j =>
             {
-                var removed = new HashSet<string>(ids);
-                Tasks = Tasks.Where(t => !removed.Contains(t.Id)).ToList();
-                done(new TaskBatchQueue.Outcome(null));
+                ApplyRemoval(j);
+                done(BatchOutcome(j));
             }, error => done(new TaskBatchQueue.Outcome(error)), TaskInfo.Host);
         }
 
         public void Prune(Action ok = null, Action<string> fail = null)
         {
             InvalidateRefresh();
-            DaemonClient.Delete<Wire.Removed>(WireProtocol.Routes.Tasks + "?all=true", j =>
+            DaemonClient.Delete<Wire.TaskBatchResult>(WireProtocol.Routes.Tasks + "?all=true", j =>
             {
-                Tasks = Tasks.Where(t => !t.Terminal).ToList();
-                ok?.Invoke();
-            }, fail, TaskInfo.Host);
+                ApplyRemoval(j);
+                var outcome = BatchOutcome(j);
+                if (outcome.Succeeded) ok?.Invoke();
+                else fail?.Invoke(outcome.Error);
+                Refresh();
+            }, error => { fail?.Invoke(error); Refresh(); }, TaskInfo.Host);
+        }
+
+        void ApplyRemoval(Wire.TaskBatchResult result)
+        {
+            InvalidateRefresh();
+            var removed = new HashSet<string>(result.Committed.Concat(result.Absent));
+            Tasks = Tasks.Where(t => !removed.Contains(t.Id)).ToList();
+        }
+
+        static TaskBatchQueue.Outcome BatchOutcome(Wire.TaskBatchResult result)
+        {
+            if (result.Failed.Count == 0 && result.Unattempted.Count == 0)
+                return new TaskBatchQueue.Outcome(null);
+            string details = string.Join("; ", result.Failed.Select(f => f.Id + ": " + f.Error));
+            string error = $"Changed {result.Committed.Count} tasks; failed {result.Failed.Count}; not attempted {result.Unattempted.Count}. {details}";
+            return new TaskBatchQueue.Outcome(error,
+                result.Failed.Select(f => f.Id).Concat(result.Unattempted));
         }
 
         void InvalidateRefresh() => _refreshSerial++;

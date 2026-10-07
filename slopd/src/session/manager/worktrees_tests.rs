@@ -1,12 +1,16 @@
 use super::*;
 
+const TREE: &str = "1111111111111111";
+const PROJECT: &str = "2222222222222222";
+const SIBLING: &str = "3333333333333333";
+
 #[tokio::test]
 async fn indexed_config_validation_keeps_worktree_ownership_and_running_move_checks() {
     let socket = crate::test_support::TmuxSocket::new();
     let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
     let project = ProjectCfg {
         name: "repo".into(),
-        id: uuid::Uuid::new_v4().to_string(),
+        id: crate::storage_id::draft_identity(),
         dir: "/tmp".into(),
         ..Default::default()
     };
@@ -22,14 +26,18 @@ async fn indexed_config_validation_keeps_worktree_ownership_and_running_move_che
     };
     let mut store = Store {
         worktrees: vec![Worktree {
-            id: "checkout".into(),
+            id: TREE.into(),
+            name: "checkout".into(),
+            path: "/tmp/checkout".into(),
+            repository: "/tmp/.git".into(),
+            phase: "ready".into(),
             project_id: project.id.clone(),
             ..Default::default()
         }],
     };
-    store.save(&manager.cfg_path).await.unwrap();
+    manager.save_worktrees(&store).await.unwrap();
     let mut new = old.clone();
-    new.sessions[0].worktree = "checkout".into();
+    new.sessions[0].worktree = TREE.into();
     manager.validate_worktree_config(&old, &new).await.unwrap();
 
     manager
@@ -51,8 +59,8 @@ async fn indexed_config_validation_keeps_worktree_ownership_and_running_move_che
     assert!(error.to_string().contains("stop session worker"));
     manager.tmux.kill("worker").await.unwrap();
 
-    store.worktrees[0].project_id = uuid::Uuid::new_v4().to_string();
-    store.save(&manager.cfg_path).await.unwrap();
+    store.worktrees[0].project_id = crate::storage_id::draft_identity();
+    manager.save_worktrees(&store).await.unwrap();
     let error = manager
         .validate_worktree_config(&old, &new)
         .await
@@ -60,7 +68,7 @@ async fn indexed_config_validation_keeps_worktree_ownership_and_running_move_che
     assert!(error.to_string().contains("unknown worktree"));
 
     store.worktrees[0].project_id = project.id;
-    store.save(&manager.cfg_path).await.unwrap();
+    manager.save_worktrees(&store).await.unwrap();
     new.sessions.clear();
     manager.validate_worktree_config(&old, &new).await.unwrap();
     new.projects[0].dir = "/changed".into();
@@ -78,32 +86,31 @@ async fn indexed_config_validation_keeps_worktree_ownership_and_running_move_che
 }
 
 #[tokio::test]
-async fn view_index_reloads_external_catalog_edits() {
+async fn view_index_ignores_external_record_edits() {
     let manager = crate::session::test_manager(Config::default());
-    assert!(manager.worktree_view_index().await.is_empty());
-    let catalog = |id: &str, name: &str| {
-        toml::to_string(&Store {
-            worktrees: vec![Worktree {
-                id: id.into(),
-                name: name.into(),
-                ..Default::default()
-            }],
-        })
-        .unwrap()
+    let store = Store {
+        worktrees: vec![Worktree {
+            id: TREE.into(),
+            project_id: PROJECT.into(),
+            name: "accepted".into(),
+            path: "/tmp/checkout".into(),
+            repository: "/tmp/.git".into(),
+            phase: "ready".into(),
+            ..Default::default()
+        }],
     };
-    let current = manager.cfg_path.with_file_name("worktrees.toml");
-    tokio::fs::write(&current, catalog("new", "current"))
-        .await
-        .unwrap();
-    let index = manager.worktree_view_index().await;
-    assert_eq!(index["new"].name, "current");
-    tokio::fs::write(&current, catalog("new", "external edit"))
-        .await
-        .unwrap();
-    assert_eq!(
-        manager.worktree_view_index().await["new"].name,
-        "external edit"
-    );
+    manager.save_worktrees(&store).await.unwrap();
+    let path = manager
+        .cfg_path
+        .parent()
+        .unwrap()
+        .join(format!("data/worktrees/{TREE}.toml"));
+    for text in ["invalid [", "name = 'external'", ""] {
+        std::fs::write(&path, text).unwrap();
+        assert_eq!(manager.worktree_view_index().await[TREE].name, "accepted");
+    }
+    std::fs::remove_file(&path).unwrap();
+    assert_eq!(manager.worktree_view_index().await[TREE].name, "accepted");
 }
 
 #[tokio::test]
@@ -155,7 +162,7 @@ async fn explicit_action_scope_checks_registration_readiness_and_checkout_path()
     );
     let manager = crate::session::test_manager(Config {
         projects: vec![ProjectCfg {
-            id: "p-id".into(),
+            id: PROJECT.into(),
             name: "p".into(),
             dir: main.to_string_lossy().into(),
             ..Default::default()
@@ -164,8 +171,8 @@ async fn explicit_action_scope_checks_registration_readiness_and_checkout_path()
     });
     let store = Store {
         worktrees: vec![Worktree {
-            id: "one".into(),
-            project_id: "p-id".into(),
+            id: TREE.into(),
+            project_id: PROJECT.into(),
             name: "one".into(),
             path: tree.to_string_lossy().into(),
             repository: main.join(".git").to_string_lossy().into(),
@@ -173,7 +180,7 @@ async fn explicit_action_scope_checks_registration_readiness_and_checkout_path()
             ..Default::default()
         }],
     };
-    store.save(&manager.cfg_path).await.unwrap();
+    manager.save_worktrees(&store).await.unwrap();
     let file = tree.join("file").to_string_lossy().into_owned();
     assert_action_scope_rules(&manager, &root, &main, &tree, &file, store).await;
     std::fs::remove_dir_all(root).unwrap();
@@ -188,12 +195,12 @@ async fn assert_action_scope_rules(
     mut store: Store,
 ) {
     let cfg = manager
-        .config_for_action_scope("p", "one", file)
+        .config_for_action_scope("p", TREE, file)
         .await
         .unwrap();
     assert_eq!(Path::new(&cfg.projects[0].dir), tree);
     manager
-        .file_action_command("p", "one", file, "cat {{ absolute_path }}", true)
+        .file_action_command("p", TREE, file, "cat {{ absolute_path }}", true)
         .await
         .unwrap();
     manager
@@ -201,13 +208,7 @@ async fn assert_action_scope_rules(
         .await
         .unwrap_err();
     manager
-        .file_action_command(
-            "p",
-            "one",
-            &main.join("file").to_string_lossy(),
-            "pwd",
-            true,
-        )
+        .file_action_command("p", TREE, &main.join("file").to_string_lossy(), "pwd", true)
         .await
         .unwrap_err();
     manager
@@ -215,11 +216,11 @@ async fn assert_action_scope_rules(
         .await
         .unwrap_err();
     manager
-        .file_action_command("wrong-project", "one", file, "pwd", true)
+        .file_action_command("wrong-project", TREE, file, "pwd", true)
         .await
         .unwrap_err();
     let output = manager
-        .file_action("p", "one", file, "pwd", false)
+        .file_action("p", TREE, file, "pwd", false)
         .await
         .unwrap();
     assert_eq!(Path::new(output.trim()), tree);
@@ -230,7 +231,7 @@ async fn assert_action_scope_rules(
     manager
         .file_action_command(
             "p",
-            "one",
+            TREE,
             &tree.join("escape/new").to_string_lossy(),
             "pwd",
             true,
@@ -238,68 +239,48 @@ async fn assert_action_scope_rules(
         .await
         .unwrap_err();
     store.worktrees[0].phase = "removing".into();
-    store.save(&manager.cfg_path).await.unwrap();
+    manager.save_worktrees(&store).await.unwrap();
     manager
-        .file_action_command("p", "one", file, "pwd", true)
+        .file_action_command("p", TREE, file, "pwd", true)
         .await
         .unwrap_err();
     store.worktrees[0].phase = "ready".into();
-    store.save(&manager.cfg_path).await.unwrap();
+    manager.save_worktrees(&store).await.unwrap();
     assert_eq!(
         manager
-            .file_action_command("p", "one", file, "pwd", true)
+            .file_action_command("p", TREE, file, "pwd", true)
             .await
             .unwrap(),
         "pwd"
     );
     std::fs::remove_dir_all(tree).unwrap();
     manager
-        .file_action_command("p", "one", file, "pwd", true)
+        .file_action_command("p", TREE, file, "pwd", true)
         .await
         .unwrap_err();
-}
-
-#[tokio::test]
-async fn failed_view_load_keeps_valid_rows_and_retries_the_same_file_stamp() {
-    let manager = crate::session::test_manager(Config::default());
-    let path = manager.cfg_path.with_file_name("worktrees.toml");
-    let good = toml::to_string(&Store {
-        worktrees: vec![Worktree {
-            id: "kept".into(),
-            name: "kept".into(),
-            ..Default::default()
-        }],
-    })
-    .unwrap();
-    std::fs::write(&path, &good).unwrap();
-    assert!(manager.worktree_view_index().await.contains_key("kept"));
-    // Keep both length and timestamp identical between the failed read and repair.
-    std::fs::write(&path, "!".repeat(good.len())).unwrap();
-    let stamp = std::fs::metadata(&path).unwrap().modified().unwrap();
-    assert!(manager.worktree_view_index().await.contains_key("kept"));
-    std::fs::write(&path, &good).unwrap();
-    std::fs::File::open(&path)
-        .unwrap()
-        .set_modified(stamp)
-        .unwrap();
-    assert!(manager.worktree_view_index().await.contains_key("kept"));
-    assert_eq!(
-        manager.worktrees.views.lock().await.stamp,
-        Some(file_stamp(&path).await)
-    );
 }
 
 #[tokio::test]
 async fn allocation_record_failure_removes_only_newly_created_directories() {
     let manager = crate::session::test_manager(Config::default());
     let parent = manager.cfg_path.parent().unwrap().join("checkouts");
-    let _fault = crate::paths::fail_writes(&manager.cfg_path.with_file_name("worktrees.toml"));
+    let _fault = crate::paths::fail_writes(
+        &manager
+            .cfg_path
+            .parent()
+            .unwrap()
+            .join(format!("data/worktrees/{TREE}.toml")),
+    );
     let prepared = PreparedWorktree {
         root: PathBuf::from("/tmp"),
         project: ProjectCfg::default(),
         branch: "new".into(),
         base: "base".into(),
         worktree: Worktree {
+            id: TREE.into(),
+            project_id: PROJECT.into(),
+            repository: "/tmp/.git".into(),
+            phase: "allocating".into(),
             name: "new".into(),
             path: parent.join("new").to_string_lossy().into_owned(),
             managed: true,
@@ -348,7 +329,7 @@ async fn managed_destination_rejects_symlink_parents_and_protected_paths() {
 async fn failed_removal_intent_preserves_external_checkout_and_catalog() {
     let project = ProjectCfg {
         name: "repo".into(),
-        id: uuid::Uuid::new_v4().to_string(),
+        id: crate::storage_id::draft_identity(),
         dir: "/tmp".into(),
         ..Default::default()
     };
@@ -361,41 +342,41 @@ async fn failed_removal_intent_preserves_external_checkout_and_catalog() {
     std::fs::write(checkout.join("keep"), "external data").unwrap();
     let store = Store {
         worktrees: vec![Worktree {
-            id: "external".into(),
+            id: TREE.into(),
+            name: "external".into(),
+            repository: "/tmp/.git".into(),
             project_id: project.id,
             path: checkout.to_string_lossy().into_owned(),
             phase: "ready".into(),
             ..Default::default()
         }],
     };
-    store.save(&manager.cfg_path).await.unwrap();
-    let catalog = manager.cfg_path.with_file_name("worktrees.toml");
+    manager.save_worktrees(&store).await.unwrap();
+    let catalog = manager
+        .cfg_path
+        .parent()
+        .unwrap()
+        .join(format!("data/worktrees/{TREE}.toml"));
     let before = std::fs::read(&catalog).unwrap();
     let fault = crate::paths::fail_writes(&catalog);
     manager
-        .remove_worktree("repo".into(), "external".into())
+        .remove_worktree("repo".into(), TREE.into())
         .await
         .unwrap_err();
     assert_eq!(std::fs::read(&catalog).unwrap(), before);
     drop(fault);
 
     manager
-        .remove_worktree("repo".into(), "external".into())
+        .remove_worktree("repo".into(), TREE.into())
         .await
         .unwrap();
-    assert!(
-        Store::load(&manager.cfg_path)
-            .await
-            .unwrap()
-            .worktrees
-            .is_empty()
-    );
+    assert!(manager.worktree_records().worktrees.is_empty());
     assert_eq!(
         std::fs::read_to_string(checkout.join("keep")).unwrap(),
         "external data"
     );
     manager
-        .remove_worktree("repo".into(), "external".into())
+        .remove_worktree("repo".into(), TREE.into())
         .await
         .unwrap_err();
     assert!(checkout.join("keep").exists());
@@ -407,14 +388,21 @@ async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
     let checkout = manager.cfg_path.parent().unwrap().join("deleted");
     std::fs::create_dir(&checkout).unwrap();
     let worktree = Worktree {
-        id: "deleted".into(),
+        id: TREE.into(),
+        project_id: PROJECT.into(),
+        name: "deleted".into(),
+        repository: "/tmp/.git".into(),
         path: checkout.to_string_lossy().into_owned(),
         phase: "ready".into(),
         managed: true,
         ..Default::default()
     };
     let sibling = Worktree {
-        id: "sibling".into(),
+        id: SIBLING.into(),
+        project_id: PROJECT.into(),
+        name: "sibling".into(),
+        path: "/tmp/sibling".into(),
+        repository: "/tmp/.git".into(),
         phase: "ready".into(),
         ..Default::default()
     };
@@ -426,19 +414,25 @@ async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
         },
         index: 1,
     };
-    removal.record_intent(&manager.cfg_path).await.unwrap();
+    removal.record_intent(&manager).await.unwrap();
     // Simulate Git deleting the checkout before the final catalog write fails.
     std::fs::remove_dir(&checkout).unwrap();
-    let fault = crate::paths::fail_writes(&manager.cfg_path.with_file_name("worktrees.toml"));
-    removal.finish(&manager.cfg_path, Ok(())).await.unwrap_err();
-    let retained = Store::load(&manager.cfg_path).await.unwrap();
-    assert_eq!(retained.worktrees[0].id, "sibling");
+    let fault = crate::paths::fail_writes(
+        &manager
+            .cfg_path
+            .parent()
+            .unwrap()
+            .join(format!("data/worktrees/{TREE}.toml")),
+    );
+    removal.finish(&manager, Ok(())).await.unwrap_err();
+    let retained = manager.worktree_records();
+    assert_eq!(retained.worktrees[0].id, SIBLING);
     assert_eq!(retained.worktrees[0].phase, "ready");
     assert_eq!(retained.worktrees[1].phase, "removing");
     drop(fault);
 
     manager.recover_worktrees().await.unwrap();
-    let recovered = Store::load(&manager.cfg_path).await.unwrap();
+    let recovered = manager.worktree_records();
     assert_eq!(recovered.worktrees[1].phase, "error");
     let mut retry = WorktreeRemoval {
         project: ProjectCfg::default(),
@@ -446,9 +440,9 @@ async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
         store: recovered,
         index: 1,
     };
-    retry.record_intent(&manager.cfg_path).await.unwrap();
-    retry.finish(&manager.cfg_path, Ok(())).await.unwrap();
-    let remaining = Store::load(&manager.cfg_path).await.unwrap();
+    retry.record_intent(&manager).await.unwrap();
+    retry.finish(&manager, Ok(())).await.unwrap();
+    let remaining = manager.worktree_records();
     assert_eq!(remaining.worktrees.len(), 1);
-    assert_eq!(remaining.worktrees[0].id, "sibling");
+    assert_eq!(remaining.worktrees[0].id, SIBLING);
 }

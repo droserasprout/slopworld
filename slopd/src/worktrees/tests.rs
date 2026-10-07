@@ -155,7 +155,7 @@ async fn lifecycle_fixture() -> LifecycleFixture {
         std::fs::read_to_string(root.join("file")).unwrap(),
         "caller dirty\n"
     );
-    assert!(manager.tasks.all_tasks().is_empty());
+    assert!(manager.tasks.all_tasks_async().await.unwrap().is_empty());
     assert!(manager.config().await.sessions.is_empty());
     assert!(manager.remove_project("repo").await.is_err());
     LifecycleFixture {
@@ -320,11 +320,11 @@ async fn ignored_data_detached_head_and_crash_records_are_preserved() {
     );
     assert_eq!(manager.worktree_list("repo").await.unwrap()[1].branch, "");
     // Restart recovery reports an interrupted operation without committing, deleting or relaunching.
-    let mut store = Store::load(&manager.cfg_path).await.unwrap();
+    let mut store = manager.worktree_records();
     store.worktrees[0].phase = "removing".into();
-    store.save(&manager.cfg_path).await.unwrap();
+    manager.save_worktrees(&store).await.unwrap();
     manager.recover_worktrees().await.unwrap();
-    let recovered = Store::load(&manager.cfg_path).await.unwrap();
+    let recovered = manager.worktree_records();
     assert_eq!(recovered.worktrees[0].phase, "error");
     assert!(path.join("file").exists());
     assert!(manager.config().await.sessions.is_empty());
@@ -395,13 +395,7 @@ async fn assert_rejected_managed_worktree_names(
     .unwrap_err();
     assert!(collision.to_string().contains("already exists"));
     assert!(!root.join(".worktrees").exists());
-    assert!(
-        Store::load(&manager.cfg_path)
-            .await
-            .unwrap()
-            .worktrees
-            .is_empty()
-    );
+    assert!(manager.worktree_records().worktrees.is_empty());
 }
 
 async fn create_managed_worktrees(
@@ -511,14 +505,11 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
     }))
     .await
     .unwrap();
-    let mut store = Store::load(&manager.cfg_path).await.unwrap();
+    let mut store = manager.worktree_records();
     store.worktrees[0].phase = "allocating".into();
-    store.save(&manager.cfg_path).await.unwrap();
+    manager.save_worktrees(&store).await.unwrap();
     manager.recover_worktrees().await.unwrap();
-    assert_eq!(
-        Store::load(&manager.cfg_path).await.unwrap().worktrees[0].phase,
-        "ready"
-    );
+    assert_eq!(manager.worktree_records().worktrees[0].phase, "ready");
     let mut project = manager.config().await.projects[0].clone();
     project.name = "renamed".into();
     manager.update_project("repo", project).await.unwrap();
@@ -726,31 +717,6 @@ async fn worktree_resolution_mounts_metadata_and_keeps_project_scope() {
 }
 
 #[tokio::test]
-async fn store_reads_only_worktree_catalog_and_fields() {
-    let root = std::env::temp_dir().join(format!("slopd-worktree-store-{}", uuid::Uuid::new_v4()));
-    std::fs::create_dir_all(&root).unwrap();
-    let config = root.join("config.toml");
-    let record = Worktree {
-        id: "retained".into(),
-        path: "/tmp/retained".into(),
-        ..Default::default()
-    };
-    let legacy = toml::to_string(&Store {
-        worktrees: vec![record],
-    })
-    .unwrap()
-    .replace("[[worktrees]]", "[[workspaces]]");
-    std::fs::write(root.join("workspaces.toml"), legacy).unwrap();
-    assert!(Store::load(&config).await.unwrap().worktrees.is_empty());
-    std::fs::write(root.join("worktrees.toml"), "[[workspaces]]\nid = 'old'\n").unwrap();
-    assert!(Store::load(&config).await.is_err());
-    Store::default().save(&config).await.unwrap();
-    assert!(Store::load(&config).await.unwrap().worktrees.is_empty());
-    assert!(root.join("workspaces.toml").exists());
-    std::fs::remove_dir_all(root).unwrap();
-}
-
-#[tokio::test]
 async fn relocation_rollback_restores_checkout_registration_and_catalog() {
     use std::os::unix::ffi::OsStringExt;
     let root = repo();
@@ -758,7 +724,8 @@ async fn relocation_rollback_restores_checkout_registration_and_catalog() {
     std::fs::create_dir(&source).unwrap();
     allocate(&root, &source, "source", "HEAD").await.unwrap();
     let original = Worktree {
-        id: "tree".into(),
+        id: "1111111111111111".into(),
+        project_id: "2222222222222222".into(),
         name: "source".into(),
         path: source.to_string_lossy().into_owned(),
         repository: root.join(".git").to_string_lossy().into_owned(),
@@ -769,27 +736,21 @@ async fn relocation_rollback_restores_checkout_registration_and_catalog() {
     let invalid = root.join(std::ffi::OsString::from_vec(vec![b'x', 0xff]));
     assert!(relocate_tree(&original, &invalid).await.is_err());
     assert!(source.exists());
-    let config = root.join("config.toml");
+    let manager = crate::session::test_manager(crate::config::Config::default());
     let mut store = Store::default();
     store.worktrees.push(original.clone());
-    store.save(&config).await.unwrap();
+    manager.save_worktrees(&store).await.unwrap();
     let destination = root.join("destination");
     let mut moved = original.clone();
     moved.name = "destination".into();
     moved.path = destination.to_string_lossy().into_owned();
     let mut relocation = relocation::Relocations::new(store, vec![(0, moved.clone())])
         .expect("test relocation uses a catalog entry that exists");
-    relocation.execute(&config).await.unwrap();
-    assert_eq!(
-        Store::load(&config).await.unwrap().worktrees[0].path,
-        moved.path
-    );
-    relocation.rollback(&config).await.unwrap();
+    relocation.execute(manager.as_ref()).await.unwrap();
+    assert_eq!(manager.worktree_records().worktrees[0].path, moved.path);
+    relocation.rollback(manager.as_ref()).await.unwrap();
     assert!(!destination.exists());
-    assert_eq!(
-        Store::load(&config).await.unwrap().worktrees[0].path,
-        original.path
-    );
+    assert_eq!(manager.worktree_records().worktrees[0].path, original.path);
     assert_eq!(
         git(&source, &["rev-parse", "--show-toplevel"])
             .await
@@ -797,6 +758,6 @@ async fn relocation_rollback_restores_checkout_registration_and_catalog() {
         original.path
     );
     // Repeated cleanup remains safe after all moves have been restored.
-    relocation.rollback(&config).await.unwrap();
+    relocation.rollback(manager.as_ref()).await.unwrap();
     std::fs::remove_dir_all(root).unwrap();
 }

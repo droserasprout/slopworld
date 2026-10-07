@@ -1,40 +1,66 @@
 # Configuration ownership
 
-The daemon owns machine configuration. `config/` owns its model, resolution,
-validation, and persistence; `session/manager/config/` serializes accepted changes
-and publication. Lifecycle reconciliation applies accepted configuration to live
-sessions. Startup and polling belong to manager init and maintenance.
+The daemon owns machine settings and workspace records. `config/settings.rs` owns
+root settings; `config/model.rs` assembles client views. `storage/` owns record
+schemas, accepted indexes, targeted persistence and bound transaction recovery.
+`session/manager/config/` serializes validation, runtime effects and publication.
+`storage/layout.rs` recovers and loads the workspace once, then hands the validated
+configuration, typed record indexes and sampled library revision to the manager.
+The manager requires that backend from construction; it never reloads workspace
+records during initialization or ordinary mutations.
 
 The mod owns offline profile preferences. It reads `endpoint.toml` for credentials
-and uses daemon APIs; it must not read or rewrite daemon TOML. Locations and
-overrides belong to [paths](ops-paths.md).
+and uses daemon APIs; it must not read or rewrite daemon TOML. Locations and overrides
+belong to [paths](ops-paths.md).
 
-| Store | Owner and related contract |
+| Store | Owner and contract |
 | --- | --- |
-| `config.toml` | `config/model.rs`, `persistence.rs`, and `transaction.rs`; [projects](daemon-projects.md) and [host tabs](daemon-host-terminals.md). |
-| `prompts/`, `breadcrumbs/`, `file_actions/`, `shell_scripts/` | `config/library.rs`, `catalog.rs`, and `persistence.rs`; [library](daemon-library.md). |
+| `config.toml` | `config/settings_document.rs`; settings and extensions only, never workspace membership. |
+| Config `projects/` | `storage/workspace.rs`; [projects](daemon-projects.md). |
+| Data `agents/`, `host_shells/` | `storage/sessions.rs`; [host tabs](daemon-host-terminals.md). |
+| Data `worktrees/` | `storage/workspace.rs`; [worktree ownership](daemon-worktrees.md). |
+| Data `tasks/`, `grants.toml` | [Tasks](agent-tasks.md), [grants](agent-grants.md). |
+| `prompts/`, `breadcrumbs/`, `file_actions/`, `shell_scripts/` | `config/catalog.rs`; [library](daemon-library.md). |
 | `agent_templates/` | `session/agent_templates/`; [templates](daemon-agent-templates.md). |
-| `sandbox_presets/`, `app_presets/` | `presets.rs` and `presets/edit.rs`; [presets](daemon-presets.md). |
+| `sandbox_presets/`, `app_presets/` | `presets.rs`, `presets/edit.rs`; [presets](daemon-presets.md). |
 | `jukebox/` | `jukebox.rs`; [jukebox](mod-jukebox.md). |
-| `worktrees.toml` | `worktrees/`; [worktree ownership](daemon-worktrees.md). |
 
-Patches preserve omitted and unknown document fields. Typed saves preserve unrelated
-fields but must not resurrect known fields intentionally cleared by serialization.
-Existing TOML parse or type-conversion failures reject typed saves rather than
-replacing the document. Config/library saves recover as one transaction; callers
-serialize writes and recovery through the configuration gate. When main config is
-missing, existing library files load before default creation.
+Settings and workspace records are API-owned while running. Offline edits load at
+startup; ordinary mutations use accepted indexes and touch only their declared
+owners. Independent library items retain live reload, with membership and every
+file revision checked before publication. A newer sibling cannot hide deletion.
+Library reload recovers the shared journal before accepting revisions. Shared
+read requests can skip reload when the accepted revision matches and no journal
+is present. Failed recovery retains the accepted catalog and revision for retry.
 
+Record updates retain unknown extensions without resurrecting known cleared fields.
+Settings patches preserve omitted values; replacements preserve accepted workspace
+records. Both reject inline `project`, `session`, `host_terminal`, and `library`.
 The redacted-token sentinel retains the stored secret; an empty token clears it.
-Editable patches carry explicit leaf paths so false, zero, and empty lists remain
-distinct from omission. Secrets and response metadata stay outside editable projections.
-`GET /api/config` supplies factory defaults and policy metadata; clients must not
-invent missing daemon defaults. Public read-model contracts belong to
-[the API](../docs/src/reference/api.md);
+The config HTTP response projects the assembled view into the existing wire schema;
+host-shell storage IDs stay internal and are omitted only from the response copy.
+
+Workspace transactions carry explicit targets bound to normalized config/data roots
+and the settings filename. Recovery rejects a changed mapping before any write. Startup reserves the configured and undo-document endpoints
+before recovery, using the existing listener exclusion.
+Hostname resolution is retained through recovery. Usable resolved addresses are
+reserved together; an occupied address cannot be bypassed with another DNS answer.
+The data-root undo journal covers multi-record configuration changes, including
+project/reference edits; ordinary task batches commit independently. Atomic writes
+and journal recovery cover process interruption, without fsync power-loss guarantees.
+
+Structured commits retain session/worktree guards and the persistence gate through
+commit, rollback and accepted-state publication, even after requester cancellation.
+Root and library operations cannot accept revisions belonging to another owner.
+
+Startup rejects retired inline sections, aggregate task/worktree files, old grants
+locations and config recovery journals. Only the bound data-root workspace journal
+is recoverable. Manager/domain fixtures use the production record stores and
+transaction owner; there is no alternate inline or aggregate persistence lifecycle.
+Schema tests deserialize individual documents; manager task tests use the production
+async I/O owner for mutations and reads.
+
+Public read-model contracts belong to [the API](../docs/src/reference/api.md);
 draft/save behavior to [Settings](ui-settings.md); protected filesystem boundaries
 to [sandbox isolation](sandbox-isolation.md).
-
-`config/commands.rs` resolves Auto reader tools using the daemon's PATH. Config API
-metadata carries `auto_commands` even when the saved choices are explicit; reader
-launches use those commands while drafts and saves retain `auto`. Highlight theme
-discovery and previews resolve request-local Auto choices through the same owner.
+`config/commands.rs` resolves Auto reader tools using the daemon's PATH.

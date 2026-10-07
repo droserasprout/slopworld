@@ -87,7 +87,12 @@ impl Manager {
         };
         let saved = self.save_pane_exit(name, &session, &reason).await;
         if session.worker {
-            self.fail_worker_task(&session.task_id, format!("worker session {name}: {reason}"));
+            self.fail_worker_task_checked(
+                &session.task_id,
+                &session.state_id,
+                format!("worker session {name}: {reason}"),
+            )
+            .await;
         }
         // Keep the dead pane if recording failed; it still holds evidence.
         let terminal = self.terminal_boundary(name).write_owned().await;

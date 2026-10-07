@@ -2,6 +2,7 @@
 
 use super::super::*;
 use super::lifecycle::stop::{finish_reader, take_reader_for_abort};
+use crate::session::manager::config::ConfigMutation;
 use anyhow::anyhow;
 // Bound user labels shown in session lists.
 const MAX_MANUAL_LABEL_CHARS: usize = 60;
@@ -87,12 +88,12 @@ impl Manager {
     }
 
     pub(super) async fn remember_host_terminal(
-        &self,
+        self: &Arc<Self>,
         name: &str,
         project: &str,
         path: &str,
     ) -> Result<()> {
-        self.update_cfg(|cfg| {
+        self.update_cfg(ConfigMutation::HostShells, |cfg| {
             if cfg.session(name).is_some() {
                 bail!("host terminal {name} conflicts with an agent session");
             }
@@ -100,7 +101,11 @@ impl Manager {
                 tab.project = project.to_string();
                 tab.path = path.to_string();
             } else {
+                let id = crate::storage_id::allocate(|id| {
+                    Ok(cfg.host_terminals.iter().any(|tab| tab.id == id))
+                })?;
                 cfg.host_terminals.push(crate::config::HostTerminalCfg {
+                    id,
                     name: name.to_string(),
                     label: None,
                     project: project.to_string(),
@@ -114,17 +119,22 @@ impl Manager {
         Ok(())
     }
 
-    pub(super) async fn remember_host_path(&self, name: &str, path: &str) -> bool {
+    pub(super) async fn remember_host_path(self: &Arc<Self>, name: &str, path: &str) -> bool {
         self.remember_host_path_inner(name, None, path, true).await
     }
 
-    async fn remember_host_path_for_run(&self, name: &str, run_id: u64, path: &str) -> bool {
+    async fn remember_host_path_for_run(
+        self: &Arc<Self>,
+        name: &str,
+        run_id: u64,
+        path: &str,
+    ) -> bool {
         self.remember_host_path_inner(name, Some(run_id), path, false)
             .await
     }
 
     async fn remember_host_path_inner(
-        &self,
+        self: &Arc<Self>,
         name: &str,
         run_id: Option<u64>,
         path: &str,
@@ -156,7 +166,7 @@ impl Manager {
         };
 
         let (project, cfg_changed) = match self
-            .update_cfg_if_changed(|cfg| {
+            .update_cfg_if_changed(ConfigMutation::HostShells, |cfg| {
                 let mut changed = false;
                 let mut project = None;
                 if let Some(tab) = cfg.host_terminals.iter_mut().find(|tab| tab.name == name) {
@@ -198,7 +208,7 @@ impl Manager {
     }
 
     async fn apply_host_metadata(
-        &self,
+        self: &Arc<Self>,
         targets: Vec<(String, u64)>,
         metadata: std::collections::HashMap<String, crate::tmux::HostMetadata>,
     ) {
@@ -268,11 +278,15 @@ impl Manager {
     }
 
     pub async fn add(self: &Arc<Self>, s: SessionCfg) -> Result<()> {
-        self.session_operation(self.add_inner(s, false)).await
+        let manager = self.clone();
+        self.owned_session_operation(async move { Box::pin(manager.add_inner(s, false)).await })
+            .await
     }
 
     pub(super) async fn add_template_session(self: &Arc<Self>, s: SessionCfg) -> Result<()> {
-        self.session_operation(self.add_inner(s, true)).await
+        let manager = self.clone();
+        self.owned_session_operation(async move { Box::pin(manager.add_inner(s, true)).await })
+            .await
     }
 
     async fn add_inner(
@@ -284,8 +298,9 @@ impl Manager {
         if let Some(p) = self.config().await.project(&s.project) {
             self.resolve_worktree(p, &s.worktree).await?;
         }
+        let state_id = self.allocate_agent_identity().await?;
         let (autostart, name) = self
-            .update_cfg(|cfg| {
+            .update_cfg(ConfigMutation::Agents, |cfg| {
                 if cfg.session(&s.name).is_some() {
                     bail!("session {} already exists", s.name);
                 }
@@ -304,7 +319,7 @@ impl Manager {
                 s.task_id.clear();
                 // Clients cannot select an agent's persistent state identity.
                 // Generate a new key even if the request supplies an old one.
-                s.state_id = uuid::Uuid::new_v4().to_string();
+                s.state_id = state_id;
                 let autostart = s.autostart;
                 let name = s.name.clone();
                 cfg.sessions.push(s.clone());
@@ -363,7 +378,7 @@ impl Manager {
         }
 
         let ((), prepared) = self
-            .prepare_cfg_change(|cfg| {
+            .prepare_cfg_change(ConfigMutation::Agents, |cfg| {
                 let idx = cfg
                     .sessions
                     .iter()
@@ -490,6 +505,13 @@ impl Manager {
     /// Set the optional sidebar label without requiring the edit dialog to send read-only session fields.
     /// Store host labels in persistent host-terminal records, although host rows use the temporary-session presentation.
     pub async fn set_label(self: &Arc<Self>, name: &str, label: String) -> Result<()> {
+        let manager = self.clone();
+        let name = name.to_owned();
+        self.owned_session_operation(async move { manager.set_label_inner(&name, label).await })
+            .await
+    }
+
+    async fn set_label_inner(self: &Arc<Self>, name: &str, label: String) -> Result<()> {
         self.reload_if_changed().await;
         let label = label.trim().to_string();
         if label.chars().count() > MAX_MANUAL_LABEL_CHARS {
@@ -508,23 +530,32 @@ impl Manager {
         };
         let host = self.is_host(name).await;
         if host || !self.is_ephemeral(name).await {
-            self.update_cfg(|cfg| {
+            self.update_cfg(
                 if host {
-                    // Runtime-only host errands have no host_terminal record. Their label is
-                    // still useful for the current pane, but there is nothing to persist.
-                    if let Some(tab) = cfg.host_terminals.iter_mut().find(|tab| tab.name == name) {
-                        tab.label = saved.clone();
-                    }
+                    ConfigMutation::HostShells
                 } else {
-                    let session = cfg
-                        .sessions
-                        .iter_mut()
-                        .find(|session| session.name == name)
-                        .ok_or_else(|| anyhow!("no such session: {name}"))?;
-                    session.label = saved.clone();
-                }
-                Ok(())
-            })
+                    ConfigMutation::Agents
+                },
+                |cfg| {
+                    if host {
+                        // Runtime-only host errands have no host_terminal record. Their label is
+                        // still useful for the current pane, but there is nothing to persist.
+                        if let Some(tab) =
+                            cfg.host_terminals.iter_mut().find(|tab| tab.name == name)
+                        {
+                            tab.label = saved.clone();
+                        }
+                    } else {
+                        let session = cfg
+                            .sessions
+                            .iter_mut()
+                            .find(|session| session.name == name)
+                            .ok_or_else(|| anyhow!("no such session: {name}"))?;
+                        session.label = saved.clone();
+                    }
+                    Ok(())
+                },
+            )
             .await?;
         }
 
@@ -635,7 +666,10 @@ impl Manager {
     }
 
     pub async fn remove(self: &Arc<Self>, name: &str) -> Result<()> {
-        self.session_operation(self.remove_inner(name)).await
+        let manager = self.clone();
+        let name = name.to_owned();
+        self.owned_session_operation(async move { manager.remove_inner(&name).await })
+            .await
     }
 
     async fn remove_inner(self: &Arc<Self>, name: &str) -> Result<()> {
@@ -651,7 +685,7 @@ impl Manager {
                 .iter()
                 .any(|tab| tab.name == name);
             if saved {
-                self.update_cfg(|cfg| {
+                self.update_cfg(ConfigMutation::HostShells, |cfg| {
                     cfg.host_terminals.retain(|tab| tab.name != name);
                     Ok(())
                 })
@@ -761,8 +795,12 @@ impl Manager {
     }
 
     pub async fn restore_stored_state(self: &Arc<Self>, key: &str) -> Result<String> {
-        self.session_operation(self.restore_stored_state_inner(key))
-            .await
+        let manager = self.clone();
+        let key = key.to_owned();
+        self.owned_session_operation(async move {
+            Box::pin(manager.restore_stored_state_inner(&key)).await
+        })
+        .await
     }
 
     async fn restore_stored_state_inner(self: &Arc<Self>, key: &str) -> Result<String> {
@@ -783,7 +821,7 @@ impl Manager {
         crate::sandbox::restore_stored_state(key, &cfg.sessions)?;
         if add
             && let Err(e) = self
-                .update_cfg(|cfg| {
+                .update_cfg(ConfigMutation::Agents, |cfg| {
                     if cfg.session(&session.name).is_some() {
                         bail!(
                             "session {:?} already exists with different private state",

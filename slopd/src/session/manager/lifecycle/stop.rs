@@ -35,7 +35,7 @@ pub(crate) struct CleanupPlan {
     revoke_grants: bool,
 
     // Task outcome and client publication.
-    worker_failure: Option<(String, String)>,
+    worker_failure: Option<(String, String, String)>,
     announce_sessions: bool,
 }
 
@@ -146,7 +146,7 @@ impl Manager {
                     format!("Worker session {name} exited, or the daemon stopped it.")
                 }
             };
-            (session.task_id.clone(), note)
+            (session.task_id.clone(), session.state_id.clone(), note)
         });
 
         let plan = CleanupPlan {
@@ -190,8 +190,9 @@ impl Manager {
 
         self.clear_activity(&plan.name).await;
         self.clear_latest_title(&plan.name);
-        if let Some((task_id, note)) = plan.worker_failure {
-            self.fail_worker_task(&task_id, note);
+        if let Some((task_id, identity, note)) = plan.worker_failure {
+            self.fail_worker_task_checked(&task_id, &identity, note)
+                .await;
         }
 
         // Only disposable sandbox state is deleted; durable private state survives.

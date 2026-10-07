@@ -10,6 +10,7 @@ mod config;
 mod desktop;
 mod directories;
 mod errands;
+mod identity;
 mod init;
 mod library;
 mod lifecycle;

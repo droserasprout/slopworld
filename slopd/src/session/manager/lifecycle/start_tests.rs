@@ -299,7 +299,7 @@ async fn failed_worker_start_removes_owned_state_and_revokes_credentials() {
     };
     let manager = manager_for_start();
     let mut session = manager.config().await.sessions[0].clone();
-    session.state_id = uuid::Uuid::new_v4().to_string();
+    session.state_id = crate::storage_id::draft_identity();
     let private = root.join("state").join(&session.state_id);
     std::fs::create_dir_all(&private).unwrap();
     let unrelated = root.join("state/unrelated");
@@ -337,7 +337,7 @@ async fn start_rejects_retained_incompatible_identities_before_launch() {
         let mut live = Live::new(cfg.sessions[0].clone(), TitleCapture::default());
         live.host = host;
         if !host {
-            live.cfg.state_id = uuid::Uuid::new_v4().to_string();
+            live.cfg.state_id = crate::storage_id::draft_identity();
         }
         manager.live.write().await.insert("agent".into(), live);
         let error = manager.prepare_start("agent").await.err().unwrap();

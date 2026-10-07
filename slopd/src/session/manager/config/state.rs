@@ -5,11 +5,15 @@ use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
 /// Configuration I/O state has a different lifetime from the live session table.
-/// Keep timestamps and the serialization lock together to prevent timestamp publication before acceptance of the corresponding contents.
+/// Publish catalog revisions only after accepting the corresponding contents.
 /// Configuration catalogs, presets, and jukebox definitions have separate maintenance timestamps because their reload deadlines differ.
 pub(crate) struct ConfigState {
-    pub(crate) cfg_mtime: Mutex<Option<SystemTime>>,
-    pub(crate) library_mtime: Mutex<Option<SystemTime>>,
+    pub(in crate::session::manager) library_revision:
+        Mutex<Option<crate::config::catalog::Revision>>,
+    pub(in crate::session::manager) records: Arc<super::backend::records::Records>,
+    #[cfg(test)]
+    pub(in crate::session::manager) commit_pause:
+        Mutex<Option<(Arc<tokio::sync::Barrier>, Arc<tokio::sync::Notify>)>>,
     pub(crate) persist: Arc<tokio::sync::Mutex<()>>,
     pub(crate) presets_mtime: Mutex<Option<SystemTime>>,
     pub(crate) jukebox_mtime: Mutex<Option<SystemTime>>,
@@ -19,15 +23,17 @@ pub(crate) struct ConfigState {
 }
 
 impl ConfigState {
-    pub(crate) fn new(
-        cfg_mtime: Option<SystemTime>,
-        library_mtime: Option<SystemTime>,
+    pub(in crate::session::manager) fn new(
+        records: Arc<super::backend::records::Records>,
+        library_revision: Option<crate::config::catalog::Revision>,
         presets_mtime: Option<SystemTime>,
         jukebox_mtime: Option<SystemTime>,
     ) -> Self {
         Self {
-            cfg_mtime: Mutex::new(cfg_mtime),
-            library_mtime: Mutex::new(library_mtime),
+            library_revision: Mutex::new(library_revision),
+            records,
+            #[cfg(test)]
+            commit_pause: Mutex::new(None),
             persist: Arc::new(tokio::sync::Mutex::new(())),
             presets_mtime: Mutex::new(presets_mtime),
             jukebox_mtime: Mutex::new(jukebox_mtime),

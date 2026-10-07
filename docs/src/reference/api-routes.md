@@ -117,14 +117,14 @@ session creation requires root. See [Authorization](api.md#authorization).
 
 | Method | Path | Route access group | Request body | Response |
 | --- | --- | --- | --- | --- |
-| `DELETE` | `/api/tasks` | `scoped` | `Empty` | `Removed` |
+| `DELETE` | `/api/tasks` | `scoped` | `Empty` | `TaskBatchResult` |
 | `GET` | `/api/tasks` | `scoped` | `Empty` | `TasksReply` |
 | `POST` | `/api/tasks` | `scoped` | `CreateTaskReq` | `TaskResult` |
 | `DELETE` | `/api/tasks/:id` | `scoped` | `Empty` | `TaskResult` |
 | `GET` | `/api/tasks/:id` | `scoped` | `Empty` | `TaskResult` |
 | `POST` | `/api/tasks/:id` | `scoped` | `UpdateTaskReq` | `TaskResult` |
-| `POST` | `/api/tasks/cancel` | `scoped` | `RemoveTasksReq` | `TasksReply` |
-| `POST` | `/api/tasks/remove` | `scoped` | `RemoveTasksReq` | `Removed` |
+| `POST` | `/api/tasks/cancel` | `scoped` | `RemoveTasksReq` | `TaskBatchResult` |
+| `POST` | `/api/tasks/remove` | `scoped` | `RemoveTasksReq` | `TaskBatchResult` |
 | `POST` | `/api/workers` | `scoped` | `SpawnWorkerReq` | `WorkerResult` |
 
 ## Agent templates

@@ -122,7 +122,18 @@ impl Manager {
             .map(|probe| Self::decide_orphan(cfg, probe, &self.activity_cache));
 
         let mut adopted = false;
-        for decision in decisions {
+        for mut decision in decisions {
+            if let Some(session) = &mut decision.worker_session
+                && session.state_id.is_empty()
+            {
+                match self.allocate_agent_identity().await {
+                    Ok(id) => session.state_id = id,
+                    Err(error) => {
+                        tracing::warn!("cannot recover worker identity: {error:#}");
+                        continue;
+                    }
+                }
+            }
             adopted |= self.commit_adoption(cfg, decision).await;
         }
         adopted
@@ -337,7 +348,7 @@ pub(in crate::session::manager) fn recovered_worker_cfg(
         .state_id
         .clone()
         .filter(|state_id| crate::config::validate_state_id(state_id).is_ok())
-        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        .unwrap_or_default();
     session.worker = true;
     session.parent = metadata.parent.clone();
     session.task_id = metadata.task_id.clone();

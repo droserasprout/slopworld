@@ -390,7 +390,50 @@ pub(super) fn run_prune(
             v.get("removed").and_then(Value::as_u64).unwrap_or(0)
         );
     }
-    Ok(())
+    batch_succeeded(&v)
+}
+
+pub(crate) fn batch_succeeded(value: &Value) -> Result<(), String> {
+    let failed = value
+        .get("failed")
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
+    let unattempted = value
+        .get("unattempted")
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
+    if failed == 0 && unattempted == 0 {
+        return Ok(());
+    }
+    let committed = value
+        .get("committed")
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
+    let failures = value
+        .get("failed")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .map(|item| {
+            format!(
+                "{}: {}",
+                item["id"].as_str().unwrap_or("unknown"),
+                item["error"].as_str().unwrap_or("write failed")
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("; ");
+    let pending = value
+        .get("unattempted")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect::<Vec<_>>()
+        .join(", ");
+    Err(format!(
+        "Task batch partially completed: {committed} committed, {failed} failed, {unattempted} unattempted. Failed: {failures}. Not attempted: {pending}. Retry the request to continue."
+    ))
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]

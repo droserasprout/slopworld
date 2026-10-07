@@ -4,27 +4,35 @@ use super::super::*;
 use super::{
     Authorization, ConfigState, HostMetadataPoll, MusicState, Signals, TemplateStore, WorktreeState,
 };
-use crate::paths::disk_mtime;
 
 impl Manager {
     /// Load stores, recover worktrees, and reconcile configured sessions.
-    pub async fn new(cfg: Config, cfg_path: PathBuf) -> Result<Arc<Self>> {
+    pub(crate) async fn new(loaded: crate::storage::layout::Loaded) -> Result<Arc<Self>> {
+        let crate::storage::layout::Loaded {
+            config: cfg,
+            binding,
+            stores,
+            library_revision,
+        } = loaded;
+        let cfg_path = binding.settings.clone();
         let (events, _) = broadcast::channel(256);
 
         // Catalog stamps seed the maintenance reload checks.
-        let mtime = disk_mtime(&cfg_path).await;
-        let library_mtime = Config::library_stamp_for(&cfg_path);
         let presets_mtime = crate::presets::Table::stamp();
         let presets_loaded = crate::presets::reload();
         let jukebox_mtime = crate::paths::dir_stamp(&crate::jukebox::Catalog::dir());
 
         // Load persisted stores before constructing shared state.
-        let grants = crate::grant::Grants::load(&cfg_path)
+        let grants = crate::grant::Grants::load_data(&cfg_path, &binding.data)
             .with_context(|| format!("loading grant store for {}", cfg_path.display()))?;
-        let tasks = crate::tasks::Tasks::load(&cfg_path)
-            .with_context(|| format!("loading task store for {}", cfg_path.display()))?;
+        let task_path = binding.data.clone();
+        let tasks =
+            tokio::task::spawn_blocking(move || crate::tasks::Tasks::load_records(&task_path))
+                .await
+                .context("task startup owner panicked")?
+                .with_context(|| format!("loading task store for {}", cfg_path.display()))?;
         let title_cache = crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path));
-        let template_path = crate::session::AgentTemplateStore::path_for(&cfg_path);
+        let template_path = binding.config.join("agent_templates");
         let templates = crate::session::AgentTemplateStore::load(&template_path)
             .await
             .with_context(|| format!("loading agent template store {}", template_path.display()))?;
@@ -54,8 +62,8 @@ impl Manager {
             cfg: RwLock::new(cfg),
             templates: TemplateStore::new(templates),
             config_state: ConfigState::new(
-                mtime,
-                library_mtime,
+                super::config::backend::records::Records::new(binding, stores),
+                library_revision,
                 presets_loaded.then_some(presets_mtime).flatten(),
                 jukebox_loaded.then_some(jukebox_mtime).flatten(),
             ),
@@ -76,20 +84,7 @@ impl Manager {
             title_cache,
         });
 
-        // Recover filesystem state before reconciling sessions.
-        match crate::sandbox::purge_trash() {
-            Ok(n) if n > 0 => tracing::info!("purged {n} expired private-state trash entries"),
-            Ok(_) => {}
-            Err(error) => tracing::warn!("could not purge private-state trash: {error:#}"),
-        }
-        if let Err(error) = m.recover_worktrees().await {
-            tracing::error!("Worktree recovery failed. Records remain: {error:#}");
-        }
-
-        if let Err(error) = m.tmux.ensure_server().await {
-            tracing::error!("could not prepare tmux server: {error:#}");
-        }
-        m.sync_from_config().await;
+        m.recover_runtime().await;
 
         // Prune credentials against the reconciled session identities.
         let (state_ids, host_sessions) = {
@@ -118,6 +113,22 @@ impl Manager {
         m.recover_music().await;
 
         Ok(m)
+    }
+    async fn recover_runtime(self: &Arc<Self>) {
+        // Recover filesystem state before reconciling sessions.
+        match crate::sandbox::purge_trash() {
+            Ok(n) if n > 0 => tracing::info!("purged {n} expired private-state trash entries"),
+            Ok(_) => {}
+            Err(error) => tracing::warn!("could not purge private-state trash: {error:#}"),
+        }
+        if let Err(error) = self.recover_worktrees().await {
+            tracing::error!("Worktree recovery failed. Records remain: {error:#}");
+        }
+
+        if let Err(error) = self.tmux.ensure_server().await {
+            tracing::error!("could not prepare tmux server: {error:#}");
+        }
+        self.sync_from_config().await;
     }
 }
 

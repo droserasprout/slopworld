@@ -151,34 +151,14 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
     let Some(root) = crate::test_support::isolated() else {
         return;
     };
+    let mut cfg = Config::default();
+    cfg.daemon.token = "root-secret".into();
     let manager = crate::session::test_manager_with_socket(
-        Config {
-            daemon: crate::config::Daemon {
-                token: "root-secret".into(),
-                ..Default::default()
-            },
-            ..Default::default()
-        },
+        cfg,
         format!("lifecycle-{}", uuid::Uuid::new_v4()),
     );
-    let task = manager
-        .tasks
-        .create_worker(
-            "host".into(),
-            "child".into(),
-            "work".into(),
-            "parent".into(),
-            false,
-        )
-        .unwrap();
-    let session = SessionCfg {
-        name: "child".into(),
-        project: "scratch".into(),
-        worker: true,
-        task_id: task.id.clone(),
-        state_id: uuid::Uuid::new_v4().to_string(),
-        ..Default::default()
-    };
+    let session = temporary_worker_task_session(&manager).await;
+    let task_id = session.task_id.clone();
     let private = root.join("state").join(&session.state_id);
     std::fs::create_dir_all(&private).unwrap();
     std::fs::write(private.join("memory"), "worker state").unwrap();
@@ -239,7 +219,7 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
 
     let saved = crate::tasks::Tasks::load(&manager.cfg_path)
         .unwrap()
-        .get("host", &task.id)
+        .get("host", &task_id)
         .unwrap();
     assert_eq!(saved.status, crate::tasks::Status::Failed);
     assert_eq!(
@@ -251,8 +231,45 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
     manager.stop("child").await.unwrap();
     manager.forget("child").await;
     assert_eq!(
-        manager.tasks.task_for("host", &task.id).unwrap().note,
+        manager
+            .tasks
+            .task_for_async("host", &task_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .note,
         saved.note
     );
     std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+}
+
+async fn temporary_worker_task_session(manager: &Manager) -> SessionCfg {
+    let identity = crate::storage_id::draft_identity();
+    let task = manager
+        .create_task_owned(
+            crate::tasks::Participant {
+                name: "host".into(),
+                identity: "host".into(),
+            },
+            crate::tasks::Participant {
+                name: "child".into(),
+                identity: identity.clone(),
+            },
+            "work".into(),
+            Some(crate::tasks::WorkerTask {
+                session: "child".into(),
+                parent: "parent".into(),
+                durable: false,
+            }),
+        )
+        .await
+        .unwrap();
+    SessionCfg {
+        name: "child".into(),
+        project: "scratch".into(),
+        worker: true,
+        task_id: task.id.clone(),
+        state_id: identity,
+        ..Default::default()
+    }
 }

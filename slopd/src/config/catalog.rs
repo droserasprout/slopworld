@@ -1,6 +1,10 @@
 //! Per-kind library file validation, loading, and save preparation.
 //! The transaction owner commits prepared files with the main document.
 use super::{LibraryItemCfg, LibraryItemKind};
+use crate::storage::{
+    target::{StorageBinding, Target},
+    transaction::{Change, Mutation},
+};
 use anyhow::{Context, Result, bail};
 use std::collections::HashSet;
 use std::path::{Component, Path, PathBuf};
@@ -84,7 +88,7 @@ pub(super) async fn load_library(
     Ok(library)
 }
 
-pub(super) fn prepare_library(
+pub(crate) fn prepare_library(
     dirs: &[(LibraryItemKind, PathBuf)],
     library: &[LibraryItemCfg],
 ) -> Result<Vec<(PathBuf, String)>> {
@@ -107,4 +111,58 @@ pub(super) fn prepare_library(
             ))
         })
         .collect()
+}
+
+/// A deliberate whole-catalog replacement selects retirement here, not in the
+/// transaction owner. Incremental callers can prepare their own targeted changes.
+pub(crate) async fn replacement_changes(
+    binding: &StorageBinding,
+    library: &[LibraryItemCfg],
+) -> Result<Vec<Change>> {
+    let dirs = super::Config::library_dirs_for(&binding.config.join("config.toml"));
+    let prepared = prepare_library(&dirs, library)?;
+    let mut changes: std::collections::BTreeMap<_, _> = prepared
+        .into_iter()
+        .map(|(path, text)| (path, Some(text)))
+        .collect();
+    for (_, dir) in dirs {
+        let mut entries = match tokio::fs::read_dir(dir).await {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error.into()),
+        };
+        while let Some(entry) = entries.next_entry().await? {
+            let target = entry.path();
+            if target.extension().is_some_and(|ext| ext == "toml") {
+                changes.entry(target).or_insert(None);
+            }
+        }
+    }
+    changes
+        .into_iter()
+        .map(|(path, text)| {
+            Ok(Change {
+                target: Target::Config(path.strip_prefix(&binding.config)?.to_owned()),
+                mutation: text.map_or(Mutation::Retire, Mutation::Replace),
+            })
+        })
+        .collect()
+}
+
+/// Membership and every file revision participate; a newer sibling cannot mask
+/// an edit or deletion. Failure leaves the accepted catalog/revision unchanged.
+pub(crate) type Revision = Vec<(PathBuf, u64, std::time::SystemTime)>;
+
+pub(crate) fn revision(config: &Path) -> Result<Revision> {
+    let mut result = Vec::new();
+    for (_, directory) in super::Config::library_dirs_for(config) {
+        for path in crate::paths::read_sorted_dir(&directory, Err)? {
+            if path.extension().is_some_and(|ext| ext == "toml") {
+                let metadata = std::fs::metadata(&path)?;
+                result.push((path, metadata.len(), metadata.modified()?));
+            }
+        }
+    }
+    result.sort();
+    Ok(result)
 }

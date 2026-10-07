@@ -17,8 +17,11 @@ pub(crate) fn source(project: &ProjectCfg, mount: &Mount) -> Result<PathBuf> {
     if !mount.from.trim().is_empty() {
         return Ok(PathBuf::from(expand(&mount.from)));
     }
-    let id = uuid::Uuid::parse_str(&project.id)
-        .context("save the project before using automatically managed cache mounts")?;
+    anyhow::ensure!(
+        crate::storage_id::valid(&project.id),
+        "save the project before using automatically managed cache mounts"
+    );
+    let id = &project.id;
     let target = expand(&mount.to);
     let target = Path::new(&target);
     if mount.to.trim().is_empty()
@@ -30,7 +33,7 @@ pub(crate) fn source(project: &ProjectCfg, mount: &Mount) -> Result<PathBuf> {
     }
     if target.is_absolute() {
         return Ok(root()
-            .join(id.to_string())
+            .join(id)
             .join("absolute")
             .join(target.strip_prefix("/")?));
     }
@@ -43,7 +46,7 @@ pub(crate) fn source(project: &ProjectCfg, mount: &Mount) -> Result<PathBuf> {
             _ => (byte as char).to_string(),
         })
         .collect::<String>();
-    Ok(root().join(id.to_string()).join(format!("link-{key}")))
+    Ok(root().join(id).join(format!("link-{key}")))
 }
 
 pub(crate) fn relative(mount: &Mount) -> bool {
@@ -312,7 +315,7 @@ pub(crate) fn inventory(projects: &[ProjectCfg], measure_sizes: bool) -> Vec<Sto
         for entry in entries.flatten() {
             let path = entry.path();
             let key = entry.file_name().to_string_lossy().into_owned();
-            if uuid::Uuid::parse_str(&key).is_err()
+            if !crate::storage_id::valid(&key)
                 || !seen.insert(path.canonicalize().unwrap_or(path.clone()))
             {
                 continue;

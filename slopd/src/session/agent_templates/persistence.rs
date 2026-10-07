@@ -42,7 +42,10 @@ impl AgentTemplateStore {
         let directory = match &index.generation {
             Some(generation) => {
                 // An index cannot redirect loading outside the catalog.
-                if !generation.starts_with("generation-") || generation.contains(['/', '\\']) {
+                if !generation
+                    .strip_prefix("generation-")
+                    .is_some_and(crate::storage_id::valid)
+                {
                     bail!("invalid agent template generation {generation:?}");
                 }
                 path.join(generation)
@@ -96,7 +99,14 @@ impl AgentTemplateStore {
     pub(crate) async fn save(&self, path: &Path) -> Result<()> {
         self.validate()?;
         tokio::fs::create_dir_all(path).await?;
-        let generation = format!("generation-{}", uuid::Uuid::new_v4());
+        let id = crate::storage_id::allocate(|id| {
+            match path.join(format!("generation-{id}")).symlink_metadata() {
+                Ok(_) => Ok(true),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+                Err(e) => Err(e.into()),
+            }
+        })?;
+        let generation = format!("generation-{id}");
         let directory = path.join(&generation);
         tokio::fs::create_dir(&directory).await?;
         let staged = async {
