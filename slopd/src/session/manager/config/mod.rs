@@ -211,7 +211,7 @@ impl Manager {
             self.reload_if_changed().await;
 
             let persist = self.config_state.persist.lock().await;
-            crate::config::legacy::recover(&self.cfg_path).await?;
+            crate::config::fixtures::recover(&self.cfg_path).await?;
             let text = tokio::fs::read_to_string(&self.cfg_path)
                 .await
                 .with_context(|| format!("reading {}", self.cfg_path.display()))?;
@@ -251,7 +251,7 @@ impl Manager {
         #[cfg(test)]
         {
             let persist = self.config_state.persist.lock().await;
-            crate::config::legacy::recover(&self.cfg_path).await?;
+            crate::config::fixtures::recover(&self.cfg_path).await?;
             let old = self.cfg.read().await.clone();
             let prepared = self.prepare_document_change(&old, text).await?;
             self.commit_document_change(&old, prepared).await?;

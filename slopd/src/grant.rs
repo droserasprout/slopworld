@@ -154,7 +154,7 @@ impl Grants {
         if crate::paths::normalize(&legacy)? != path {
             match fs::symlink_metadata(&legacy) {
                 Ok(_) => bail!(
-                    "legacy grants remain; finish offline migration before selecting the data store"
+                    "retired grants location remains; this version requires grants in the data store"
                 ),
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
                 Err(error) => return Err(error).context("checking legacy grant authority"),
@@ -196,10 +196,6 @@ impl Grants {
             Err(error) => return Err(error).with_context(|| format!("reading {}", path.display())),
         };
         Self::decode(&text, &path)
-    }
-
-    pub(crate) fn validate_document(text: &str) -> Result<()> {
-        Self::decode(text, Path::new("grants.toml")).map(|_| ())
     }
 
     fn decode(text: &str, path: &Path) -> Result<Self> {

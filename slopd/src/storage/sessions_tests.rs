@@ -344,9 +344,9 @@ async fn startup_rejects_bad_identity_duplicate_names_orders_and_malformed_recor
 }
 
 #[tokio::test]
-async fn legacy_uuid_identity_is_retained_and_readers_are_not_records() {
+async fn opaque_identity_is_retained_and_readers_are_not_records() {
     let f = Fixture::new(Kind::Agent);
-    let id = uuid::Uuid::new_v4().to_string();
+    let id = crate::storage_id::draft_identity();
     f.change(|s| s.create(agent(&id, "legacy"))).await.unwrap();
     f.reload(Kind::Agent).await.unwrap();
     assert_eq!(f.value(&id).id(), id);

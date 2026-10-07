@@ -12,6 +12,7 @@ for overrides, XDG locations, and sidecar/macOS paths.
 | Data | Linux default location | Include |
 | --- | --- | --- |
 | Configuration and catalogs | `~/.config/slopworld/` | `config.toml`, project records, user libraries, presets, and the entire `agent_templates/` directory including its index and generations. |
+| Workspace records and authority | `~/.local/share/slopworld/` | Agent and host-shell definitions, worktree/task records, grants, and any pending workspace recovery journal. |
 | Agent private state | `~/.local/share/slopworld/sessions/` | Tool state, history, configuration copies, and recoverable trash. |
 | Game profile | `~/.local/share/slopworld/profile/` | Saves and mod settings. |
 | Jukebox | `~/.config/slopworld/jukebox/` and `~/.local/share/slopworld/jukebox.toml` | Stations and liked songs. |
@@ -59,4 +60,14 @@ entries through **Settings > Storage**.
 Include the data root (`SLOPD_DATA`, normally `~/.local/share/slopworld`) in the
 backup: it contains agent and host-shell definitions, worktree and task records,
 grants, and any pending workspace recovery journal. Stop the daemon before copying
-these files together. See [Storage migration](storage-migration.md).
+these files together.
+
+Startup recovers interrupted workspace transactions before loading records. If a
+`workspace.save-journal` remains, retain it and restore the original
+`SLOPD_CONFIG_ROOT`, `SLOPD_DATA`, and `SLOPD_CONFIG` mapping before restarting.
+Do not delete the journal or combine files from different backup revisions.
+Recovery covers process interruption, not power-loss durability.
+
+Retired inline workspace sections, aggregate task/worktree files, config-root
+grants, and old config recovery journals are rejected. This version does not
+convert or recover the retired layout.

@@ -85,7 +85,7 @@ async fn host_catalog_refresh_preserves_existing_non_host_identity() {
 async fn configured_agent_never_inherits_a_former_host_row() {
     let session = SessionCfg {
         name: "shell".into(),
-        state_id: uuid::Uuid::new_v4().to_string(),
+        state_id: crate::storage_id::draft_identity(),
         ..Default::default()
     };
     let cfg = Config {

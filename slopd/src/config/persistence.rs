@@ -39,10 +39,12 @@ pub fn redact_token_text(text: &str) -> Result<String> {
 }
 
 impl Config {
-    /// Private undo journal, containing the previous configuration token.
+    /// Retired undo journal path, retained for layout rejection and sandbox protection.
     /// Sandbox path guards protect it alongside the main configuration.
     pub(crate) fn recovery_path_for(path: &Path) -> PathBuf {
-        super::transaction::journal_path(path)
+        let mut name = path.file_name().unwrap_or_default().to_os_string();
+        name.push(".save-journal");
+        path.with_file_name(name)
     }
 
     pub fn library_dirs_for(config_path: &Path) -> Vec<(LibraryItemKind, PathBuf)> {
@@ -105,7 +107,7 @@ impl Config {
                 library: Self::load_library_for(path).await?,
                 ..Default::default()
             };
-            super::legacy::save(&cfg, path).await?;
+            super::fixtures::save(&cfg, path).await?;
             return Ok(cfg);
         }
         let text = tokio::fs::read_to_string(path)

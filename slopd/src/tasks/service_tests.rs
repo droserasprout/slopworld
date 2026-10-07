@@ -266,9 +266,7 @@ fn retired_references_and_occupied_entries_reserve_identity_without_overwrite() 
     let mut f = Fixture::new();
     let task = f.create("retained identity");
     let bytes = fs::read(f.path(&task.id)).unwrap();
-    let Disk::Records(records) = &mut f.tasks.disk else {
-        panic!("record fixture")
-    };
+    let records = &mut f.tasks.disk;
     records.put(&task, 1, false).unwrap_err();
     assert_eq!(fs::read(f.path(&task.id)).unwrap(), bytes);
     f.tasks.remove("host", &task.id, true).unwrap();
@@ -277,8 +275,44 @@ fn retired_references_and_occupied_entries_reserve_identity_without_overwrite() 
     assert!(f.tasks.reserved.contains("1111111111111111"));
     let path = f.path("2222222222222222");
     std::os::unix::fs::symlink(f.root.join("missing"), &path).unwrap();
-    let Disk::Records(records) = &mut f.tasks.disk else {
-        panic!("record fixture")
-    };
+    let records = &mut f.tasks.disk;
     assert!(records.occupied("2222222222222222").unwrap());
+}
+
+#[test]
+fn failed_record_update_keeps_accepted_task_and_allows_retry() {
+    let mut f = Fixture::new();
+    let task = f.create("retry progress");
+    let path = f.path(&task.id);
+    let bytes = fs::read(&path).unwrap();
+    fs::remove_file(&path).unwrap();
+    fs::create_dir(&path).unwrap();
+    f.tasks
+        .update(
+            &task.to_id,
+            &task.id,
+            Status::Working,
+            Some("progress".into()),
+        )
+        .unwrap_err();
+    let accepted = f.tasks.get(&task.from_id, &task.id).unwrap();
+    assert_eq!(accepted.status, task.status);
+    assert_eq!(accepted.note, task.note);
+    assert_eq!(accepted.updated_ms, task.updated_ms);
+    fs::remove_dir(&path).unwrap();
+    fs::write(&path, bytes).unwrap();
+    f.tasks
+        .update(
+            &task.to_id,
+            &task.id,
+            Status::Working,
+            Some("progress".into()),
+        )
+        .unwrap();
+    let restored = Tasks::load_records(&f.root)
+        .unwrap()
+        .get(&task.from_id, &task.id)
+        .unwrap();
+    assert_eq!(restored.status, Status::Working);
+    assert_eq!(restored.note.as_deref(), Some("progress"));
 }

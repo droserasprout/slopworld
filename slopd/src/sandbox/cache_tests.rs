@@ -36,7 +36,7 @@ fn caches_share_sources_across_worktrees_and_inventory_survives_removal() {
         name: "agent".into(),
         project: p.name.clone(),
         network: NetworkMode::Host,
-        state_id: uuid::Uuid::new_v4().to_string(),
+        state_id: crate::storage_id::draft_identity(),
         cmd: Some("/usr/bin/true".into()),
         ..Default::default()
     };
@@ -111,7 +111,7 @@ fn cache_paths_reject_checkout_sources_traversal_and_metadata_destinations() {
         return;
     };
     let mut p = ProjectCfg {
-        id: uuid::Uuid::new_v4().to_string(),
+        id: crate::storage_id::draft_identity(),
         name: "p".into(),
         dir: temp.join("repo").to_string_lossy().into_owned(),
         ..Default::default()
@@ -177,7 +177,7 @@ fn cache_links_preserve_output_and_reject_changed_targets() {
     let checkout = temp.join("repo");
     std::fs::create_dir_all(&checkout).unwrap();
     let mut p = ProjectCfg {
-        id: uuid::Uuid::new_v4().to_string(),
+        id: crate::storage_id::draft_identity(),
         name: "repo".into(),
         dir: checkout.to_string_lossy().into_owned(),
         mounts: vec![Mount {
@@ -240,7 +240,7 @@ fn absolute_cache_destinations_keep_direct_mounts() {
     std::fs::create_dir_all(&checkout).unwrap();
     let destination = temp.join("absolute-target");
     let p = ProjectCfg {
-        id: uuid::Uuid::new_v4().to_string(),
+        id: crate::storage_id::draft_identity(),
         name: "repo".into(),
         dir: checkout.to_string_lossy().into_owned(),
         mounts: vec![Mount {
@@ -255,7 +255,7 @@ fn absolute_cache_destinations_keep_direct_mounts() {
         name: "agent".into(),
         project: p.name.clone(),
         network: NetworkMode::Host,
-        state_id: uuid::Uuid::new_v4().to_string(),
+        state_id: crate::storage_id::draft_identity(),
         cmd: Some("/usr/bin/true".into()),
         ..Default::default()
     };

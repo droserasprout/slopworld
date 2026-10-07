@@ -47,11 +47,26 @@ async fn initialization_reconciles_sessions_before_pruning_persisted_credentials
         .await
         .unwrap();
     let path = seed.cfg_path.clone();
-    cfg.sessions[1].state_id = uuid::Uuid::new_v4().to_string();
+    cfg.sessions[1].state_id = crate::storage_id::draft_identity();
 
-    crate::config::legacy::save(&cfg, &path).await.unwrap();
-    let binding = crate::storage::target::StorageBinding::resolved(&path).unwrap();
-    crate::storage::migration::run(&binding).await.unwrap();
+    // Seed current stores directly; initialization must not depend on a converter.
+    let data = crate::paths::data_root();
+    std::fs::create_dir_all(data.join("agents")).unwrap();
+    std::fs::write(&path, toml::to_string(&cfg.settings).unwrap()).unwrap();
+    for (order, session) in cfg.sessions.iter().enumerate() {
+        let mut record = toml::Value::try_from(session).unwrap();
+        record
+            .as_table_mut()
+            .unwrap()
+            .insert("storage_order".into(), i64::try_from(order).unwrap().into());
+        std::fs::write(
+            data.join("agents")
+                .join(format!("{}.toml", session.state_id)),
+            toml::to_string(&record).unwrap(),
+        )
+        .unwrap();
+    }
+    std::fs::rename(path.with_file_name("grants.toml"), data.join("grants.toml")).unwrap();
     let manager = Manager::new(cfg.clone(), path.clone()).await.unwrap();
 
     let live = manager.live.read().await;

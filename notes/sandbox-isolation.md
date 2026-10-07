@@ -11,8 +11,8 @@ host originals from earlier binds, and the PID namespace's `/proc` is restored a
 all overlays. Invalid selected presets reject launch and settings preview.
 
 Private state uses daemon-assigned opaque IDs preserved through rename. Configured
-identities accept the shared 16-character lowercase hexadecimal format and canonical
-legacy UUIDs; validation belongs to `storage_id.rs`. New configured agents and workers
+identities require the shared 16-character lowercase hexadecimal format; validation
+belongs to `storage_id.rs`. New configured agents and workers
 allocate through `session/manager/identity.rs` under the session boundary. Allocation
 checks configured/live identities, task participants, record destinations, and retained
 private state; unreadable trash metadata rejects allocation rather than making an

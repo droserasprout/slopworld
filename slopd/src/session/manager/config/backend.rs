@@ -6,7 +6,7 @@ use tokio::sync::OwnedMutexGuard;
 
 pub(super) enum PreparedDisk {
     #[cfg(test)]
-    Inline(crate::config::legacy::PreparedWrite),
+    Inline(crate::config::fixtures::PreparedWrite),
     Records(records::PreparedRecords),
     Library(
         crate::storage::target::StorageBinding,
@@ -58,7 +58,7 @@ impl Manager {
         }
         #[cfg(test)]
         {
-            crate::config::legacy::recover(&self.cfg_path).await
+            crate::config::fixtures::recover(&self.cfg_path).await
         }
         #[cfg(not(test))]
         {
@@ -111,7 +111,7 @@ impl Manager {
         }
         #[cfg(test)]
         {
-            crate::config::legacy::prepare(
+            crate::config::fixtures::prepare(
                 next,
                 &self.cfg_path,
                 mutation.writes_root(),

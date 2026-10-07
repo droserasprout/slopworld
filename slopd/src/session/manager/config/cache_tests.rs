@@ -10,7 +10,7 @@ async fn cache_configuration_removes_only_owned_links() {
     let checkout = temp.join("repo");
     std::fs::create_dir_all(&checkout).unwrap();
     let project = ProjectCfg {
-        id: uuid::Uuid::new_v4().to_string(),
+        id: crate::storage_id::draft_identity(),
         name: "repo".into(),
         dir: checkout.to_string_lossy().into_owned(),
         mounts: vec![crate::config::Mount {
@@ -55,7 +55,7 @@ async fn failed_reconciliation_restores_removed_links() {
     let source = temp.join("shared");
     let configured = Config {
         projects: vec![ProjectCfg {
-            id: uuid::Uuid::new_v4().to_string(),
+            id: crate::storage_id::draft_identity(),
             name: "repo".into(),
             dir: checkout.to_string_lossy().into_owned(),
             mounts: vec![Mount {
@@ -98,7 +98,7 @@ async fn later_mount_failure_removes_earlier_additions_and_restores_removals() {
     std::fs::create_dir_all(&checkout).unwrap();
     let old = Config {
         projects: vec![ProjectCfg {
-            id: uuid::Uuid::new_v4().to_string(),
+            id: crate::storage_id::draft_identity(),
             name: "repo".into(),
             dir: checkout.to_string_lossy().into_owned(),
             mounts: vec![Mount {
@@ -141,7 +141,7 @@ async fn config_save_failure_rolls_back_added_and_removed_links() {
     std::fs::create_dir_all(&checkout).unwrap();
     let old = Config {
         projects: vec![ProjectCfg {
-            id: uuid::Uuid::new_v4().to_string(),
+            id: crate::storage_id::draft_identity(),
             name: "repo".into(),
             dir: checkout.to_string_lossy().into_owned(),
             mounts: vec![Mount {
@@ -154,7 +154,7 @@ async fn config_save_failure_rolls_back_added_and_removed_links() {
         ..Default::default()
     };
     let manager = crate::session::test_manager(old.clone());
-    crate::config::legacy::save(&old, &manager.cfg_path)
+    crate::config::fixtures::save(&old, &manager.cfg_path)
         .await
         .unwrap();
     reconcile_cache_links(&manager.cfg_path, &Config::default(), &old)

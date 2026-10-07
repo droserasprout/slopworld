@@ -1,5 +1,5 @@
 //! Assembled configuration read model and workspace record types.
-//! settings owns machine settings; legacy owns temporary inline persistence.
+//! settings owns machine settings; storage owns persisted workspace records.
 
 use super::{Settings, is_false, is_true, library::LibraryItemCfg, sandbox::*, yes};
 use crate::presets::{CommandPreset, SandboxPreset};
@@ -155,7 +155,7 @@ pub struct SessionCfg {
 /// Persistent host shell, restored independently of agent sessions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostTerminalCfg {
-    /// Stable storage identity; legacy inline shells receive one during migration.
+    /// Stable identity for the host-shell record; omitted from the client wire view.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub id: String,
     pub name: String,

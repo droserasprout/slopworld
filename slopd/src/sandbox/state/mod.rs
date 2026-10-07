@@ -134,7 +134,7 @@ pub(crate) fn retained_state_identities() -> Result<std::collections::HashSet<St
         for entry in entries {
             let entry = entry.context("reading private-state identity entry")?;
             if let Some(id) = entry.file_name().to_str()
-                && crate::storage_id::valid_persistent(id)
+                && crate::storage_id::valid(id)
             {
                 ids.insert(id.to_owned());
             }

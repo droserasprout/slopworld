@@ -6,7 +6,7 @@ async fn indexed_config_validation_keeps_worktree_ownership_and_running_move_che
     let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
     let project = ProjectCfg {
         name: "repo".into(),
-        id: uuid::Uuid::new_v4().to_string(),
+        id: crate::storage_id::draft_identity(),
         dir: "/tmp".into(),
         ..Default::default()
     };
@@ -51,7 +51,7 @@ async fn indexed_config_validation_keeps_worktree_ownership_and_running_move_che
     assert!(error.to_string().contains("stop session worker"));
     manager.tmux.kill("worker").await.unwrap();
 
-    store.worktrees[0].project_id = uuid::Uuid::new_v4().to_string();
+    store.worktrees[0].project_id = crate::storage_id::draft_identity();
     store.save(&manager.cfg_path).await.unwrap();
     let error = manager
         .validate_worktree_config(&old, &new)
@@ -348,7 +348,7 @@ async fn managed_destination_rejects_symlink_parents_and_protected_paths() {
 async fn failed_removal_intent_preserves_external_checkout_and_catalog() {
     let project = ProjectCfg {
         name: "repo".into(),
-        id: uuid::Uuid::new_v4().to_string(),
+        id: crate::storage_id::draft_identity(),
         dir: "/tmp".into(),
         ..Default::default()
     };

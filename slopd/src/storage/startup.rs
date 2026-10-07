@@ -1,4 +1,4 @@
-//! Reuse endpoint exclusion before recovery or offline migration can mutate stores.
+//! Reuse endpoint exclusion before recovery can mutate stores.
 //! Pending settings edits may change bind; reserve both the current and undo addresses.
 use super::target::StorageBinding;
 use anyhow::{Context, Result};
@@ -8,11 +8,6 @@ use tokio::net::TcpListener;
 pub(crate) async fn reserve(binding: &StorageBinding) -> Result<BTreeMap<String, TcpListener>> {
     let mut recovered = Vec::new();
     if let Some(text) = super::transaction::recovery_settings(binding).await? {
-        recovered.push(text);
-    }
-    // TODO(remove after user tests and approves workspace store migration):
-    // priv/notes/plan-storage-main.md. Old transactions can also change the bind.
-    if let Some(text) = crate::config::legacy::recovery_settings(&binding.settings).await? {
         recovered.push(text);
     }
     let current = match tokio::fs::read_to_string(&binding.settings).await {
@@ -50,7 +45,7 @@ pub(crate) async fn reserve(binding: &StorageBinding) -> Result<BTreeMap<String,
             continue;
         }
         let listener = TcpListener::bind(&address).await.with_context(|| {
-            format!("reserving daemon endpoint {address}; stop the daemon before migration")
+            format!("reserving daemon endpoint {address}; another daemon may already be running")
         })?;
         listeners.insert(address, listener);
     }
@@ -87,3 +82,7 @@ pub(crate) async fn serving_listener(
     drop(listeners);
     Ok(TcpListener::bind(address).await?)
 }
+
+#[cfg(test)]
+#[path = "startup_tests.rs"]
+mod tests;

@@ -11,23 +11,6 @@ pub(crate) fn valid(id: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
-/// Established canonical UUIDs remain valid; allocation always uses the new format.
-pub(crate) fn valid_persistent(id: &str) -> bool {
-    valid(id) || uuid::Uuid::parse_str(id).is_ok_and(|uuid| uuid.to_string() == id)
-}
-
-pub(crate) fn valid_task(id: &str) -> bool {
-    valid(id)
-        || id.split_once('-').is_some_and(|(time, sequence)| {
-            (13..=16).contains(&time.len())
-                && (4..=16).contains(&sequence.len())
-                && time
-                    .bytes()
-                    .chain(sequence.bytes())
-                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-        })
-}
-
 fn generate() -> Result<String> {
     let mut bytes = [0; 8];
     OsRng

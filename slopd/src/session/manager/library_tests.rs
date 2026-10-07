@@ -364,7 +364,7 @@ async fn delayed_prompts_reject_restart_and_replacement_during_readiness() {
             let mut live = manager.live.write().await;
             let current = live.get_mut("worker").unwrap();
             if replace_identity {
-                current.cfg.state_id = uuid::Uuid::new_v4().to_string();
+                current.cfg.state_id = crate::storage_id::draft_identity();
             } else {
                 current.run_id += 1;
             }
@@ -544,7 +544,7 @@ async fn readiness_timeout_fails_only_the_undelivered_workers_current_task() {
         .create_owned(
             crate::tasks::Participant {
                 name: crate::tasks::HOST.into(),
-                identity: String::new(),
+                identity: crate::tasks::HOST.into(),
             },
             crate::tasks::Participant {
                 name: "worker".into(),

@@ -330,3 +330,23 @@ fn arguments_survive_capture_persistence_and_instance_overrides() {
     assert_eq!(Config::default().command_of(&instance), "agent --safe");
     assert!(instance.command_snapshot.is_some());
 }
+
+#[tokio::test]
+async fn generation_index_rejects_retired_uuid_identity() {
+    let root = std::env::temp_dir().join(format!("slopd-template-id-{}", uuid::Uuid::new_v4()));
+    let generation = "generation-11111111-1111-4111-8111-111111111111";
+    std::fs::create_dir_all(root.join(generation)).unwrap();
+    std::fs::write(
+        root.join(".index.toml"),
+        format!("next_version=1\ngeneration='{generation}'\n"),
+    )
+    .unwrap();
+    assert!(
+        AgentTemplateStore::load(&root)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("invalid agent template generation")
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}

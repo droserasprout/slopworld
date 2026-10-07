@@ -18,7 +18,7 @@ pub(crate) fn source(project: &ProjectCfg, mount: &Mount) -> Result<PathBuf> {
         return Ok(PathBuf::from(expand(&mount.from)));
     }
     anyhow::ensure!(
-        crate::storage_id::valid_persistent(&project.id),
+        crate::storage_id::valid(&project.id),
         "save the project before using automatically managed cache mounts"
     );
     let id = &project.id;
@@ -315,7 +315,7 @@ pub(crate) fn inventory(projects: &[ProjectCfg], measure_sizes: bool) -> Vec<Sto
         for entry in entries.flatten() {
             let path = entry.path();
             let key = entry.file_name().to_string_lossy().into_owned();
-            if !crate::storage_id::valid_persistent(&key)
+            if !crate::storage_id::valid(&key)
                 || !seen.insert(path.canonicalize().unwrap_or(path.clone()))
             {
                 continue;

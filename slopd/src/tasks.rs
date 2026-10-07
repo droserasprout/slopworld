@@ -1,5 +1,5 @@
 //! Task data and participant identity rules. service owns policy and accepted indexes;
-//! records and the temporary legacy adapter own persistence formats.
+//! records owns the persisted per-task format.
 
 use serde::{Deserialize, Serialize};
 
@@ -46,10 +46,8 @@ pub struct Task {
     pub id: String,
     pub from: String,
     pub to: String,
-    /// Absent in legacy records. Never infer authority from a reused display name.
-    #[serde(default)]
+    /// Authority is explicit and never inferred from a display name.
     pub(crate) from_id: String,
-    #[serde(default)]
     pub(crate) to_id: String,
     pub body: String,
     pub status: Status,
@@ -70,16 +68,15 @@ pub struct Task {
 
 impl Task {
     fn visible_to(&self, identity: &str) -> bool {
-        Self::owns(&self.from_id, &self.from, identity) || self.recipient_is(identity)
+        Self::owns(&self.from_id, identity) || self.recipient_is(identity)
     }
 
     fn recipient_is(&self, identity: &str) -> bool {
-        Self::owns(&self.to_id, &self.to, identity)
+        Self::owns(&self.to_id, identity)
     }
 
-    fn owns(recorded: &str, name: &str, identity: &str) -> bool {
-        (!recorded.is_empty() && recorded == identity)
-            || (recorded.is_empty() && name == HOST && identity == HOST)
+    fn owns(recorded: &str, identity: &str) -> bool {
+        !recorded.is_empty() && recorded == identity
     }
 }
 
@@ -92,8 +89,9 @@ pub struct WorkerTask {
     pub durable: bool,
 }
 
-#[cfg(test)]
-mod legacy;
 mod records;
 mod service;
+#[cfg(test)]
+#[path = "tasks_tests.rs"]
+mod tests;
 pub(crate) use service::{BatchResult, TaskStamp, Tasks};

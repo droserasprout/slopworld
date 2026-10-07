@@ -34,7 +34,7 @@ async fn configured_creation_ignores_client_identity_and_preserves_id_on_label_e
         }],
         ..Default::default()
     });
-    let supplied = uuid::Uuid::new_v4().to_string();
+    let supplied = crate::storage_id::draft_identity();
     manager
         .add(SessionCfg {
             name: "created".into(),

@@ -372,10 +372,7 @@ impl Manager {
         let mut ids = std::collections::HashSet::new();
         for p in &new.projects {
             if !p.id.is_empty() {
-                anyhow::ensure!(
-                    crate::storage_id::valid_persistent(&p.id),
-                    "invalid project identity"
-                );
+                anyhow::ensure!(crate::storage_id::valid(&p.id), "invalid project identity");
                 if !ids.insert(&p.id) {
                     bail!("duplicate project identity {}", p.id);
                 }
@@ -599,7 +596,7 @@ impl Manager {
                         .context("missing allocated project identity")?;
                 }
                 anyhow::ensure!(
-                    crate::storage_id::valid_persistent(&project.id),
+                    crate::storage_id::valid(&project.id),
                     "invalid project identity"
                 );
                 Ok((project.clone(), needs_id))

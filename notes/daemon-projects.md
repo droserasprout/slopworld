@@ -19,7 +19,8 @@ Mount rules belong to [sandbox isolation](sandbox-isolation.md). Project editing
 and next-start behavior are described in [Configuring agents](../docs/src/guides/configuring-agents.md).
 
 New projects and registered worktrees allocate 16-character opaque IDs while holding
-the session boundary and worktree mutation guard. Existing UUID identities remain
-valid. Project allocation checks retained managed-cache directories and worktree
+the session boundary and worktree mutation guard. Persisted identities must use
+16 lowercase hexadecimal characters. Project allocation checks retained managed-cache
+directories and worktree
 project references; worktree allocation checks configured/live attachments and record
 destinations. Edits retain identity.

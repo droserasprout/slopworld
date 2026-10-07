@@ -1,11 +1,10 @@
 use super::*;
 
 #[test]
-fn established_ids_remain_valid_without_accepting_unsafe_components() {
-    assert!(valid_persistent("0123456789abcdef"));
-    assert!(valid_persistent("11111111-1111-4111-8111-111111111111"));
-    assert!(valid_task("00192abcdef01-0001"));
-    assert!(valid_task("0123456789abcdef"));
+fn only_current_ids_are_accepted() {
+    assert!(valid("0123456789abcdef"));
+    assert!(!valid("11111111-1111-4111-8111-111111111111"));
+    assert!(!valid("00192abcdef01-0001"));
     for id in [
         "../escape",
         "00192abcdef01-0001/child",
@@ -13,8 +12,7 @@ fn established_ids_remain_valid_without_accepting_unsafe_components() {
         "00192abcdeF01-0001",
         "001-0001",
     ] {
-        assert!(!valid_persistent(id));
-        assert!(!valid_task(id));
+        assert!(!valid(id));
     }
 }
 

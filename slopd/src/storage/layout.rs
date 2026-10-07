@@ -1,16 +1,16 @@
 //! Startup assembly of independently owned stores. No legacy conversion or live polling.
 use super::{
     sessions::{Definition, Kind, Store},
-    target::{StorageBinding, Target},
+    target::StorageBinding,
     workspace,
 };
 use crate::config::Config;
 use anyhow::{Context, Result, ensure};
 
-pub(crate) async fn reject_legacy(binding: &StorageBinding) -> Result<()> {
+async fn reject_retired(binding: &StorageBinding) -> Result<()> {
     ensure!(
-        !tokio::fs::try_exists(crate::config::Config::recovery_path_for(&binding.settings)).await?,
-        "legacy config recovery journal remains; stop slopd and run just migrate-storage"
+        !occupied(&crate::config::Config::recovery_path_for(&binding.settings)).await?,
+        "retired configuration recovery journal remains; this version cannot recover the old storage layout"
     );
     for name in [
         "worktrees.toml",
@@ -18,28 +18,43 @@ pub(crate) async fn reject_legacy(binding: &StorageBinding) -> Result<()> {
         "tasks.journal",
         "grants.toml",
     ] {
-        let path = Target::Legacy(name.into()).resolve(binding)?;
+        let path = binding
+            .settings
+            .parent()
+            .context("settings has no parent")?
+            .join(name);
         if name == "grants.toml" && path == binding.data.join(name) {
             continue;
         }
         ensure!(
-            !tokio::fs::try_exists(&path).await?,
-            "legacy store {} remains; stop slopd and run just migrate-storage",
+            !occupied(&path).await?,
+            "retired storage file {} remains; this version requires per-record workspace storage",
             path.display()
         );
     }
     Ok(())
 }
 
+// Even a dangling alias is a retired input, not evidence of an empty store.
+async fn occupied(path: &std::path::Path) -> Result<bool> {
+    match tokio::fs::symlink_metadata(path).await {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => {
+            Err(error).with_context(|| format!("checking retired store {}", path.display()))
+        }
+    }
+}
+
 pub(crate) async fn load(binding: &StorageBinding) -> Result<Config> {
-    reject_legacy(binding).await?;
+    reject_retired(binding).await?;
     let text = match tokio::fs::read_to_string(&binding.settings).await {
         Ok(text) => text,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
         Err(error) => return Err(error).context("reading root settings"),
     };
     let mut cfg = crate::config::settings::document::replace(&Config::default(), &text)
-        .context("loading settings; legacy inline workspace requires just migrate-storage")?
+        .context("loading settings; inline workspace sections are no longer supported")?
         .candidate;
     cfg.projects = workspace::Store::<crate::config::ProjectCfg>::load(binding)
         .await?
@@ -105,3 +120,7 @@ pub(crate) fn validate(cfg: &Config, worktrees: &[crate::worktrees::Worktree]) -
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "layout_tests.rs"]
+mod tests;

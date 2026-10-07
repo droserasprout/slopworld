@@ -44,7 +44,7 @@ pub(crate) fn validate_project_names(projects: &[ProjectCfg]) -> Result<()> {
 }
 
 /// Check whether a session identity can be a path component.
-/// Stored identities must also pass the opaque-ID/legacy-UUID check below.
+/// Stored identities must also pass the opaque-ID check below.
 /// This shared check also protects session records that exist only in daemon memory.
 pub(crate) fn state_id_component(state_id: &str) -> Result<&str> {
     if state_id.is_empty()
@@ -62,15 +62,13 @@ pub(crate) fn state_id_component(state_id: &str) -> Result<&str> {
     }
 }
 
-/// Stored identities accept the shared opaque format and established canonical UUIDs.
+/// Stored identities use the shared opaque format.
 /// This check is stricter than the path component check.
 /// It prevents manually edited names from becoming persistent state namespaces.
 pub(crate) fn validate_state_id(state_id: &str) -> Result<()> {
     state_id_component(state_id)?;
-    if !crate::storage_id::valid_persistent(state_id) {
-        bail!(
-            "Use a 16-character lowercase hexadecimal ID or canonical UUID for the private-state ID."
-        );
+    if !crate::storage_id::valid(state_id) {
+        bail!("Use a 16-character lowercase hexadecimal private-state ID.");
     }
     Ok(())
 }

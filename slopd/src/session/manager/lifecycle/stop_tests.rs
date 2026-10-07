@@ -238,7 +238,7 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
 }
 
 fn temporary_worker_task_session(manager: &Manager) -> SessionCfg {
-    let identity = uuid::Uuid::new_v4().to_string();
+    let identity = crate::storage_id::draft_identity();
     let task = manager
         .tasks
         .create_owned(

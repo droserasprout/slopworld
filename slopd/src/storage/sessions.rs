@@ -57,7 +57,7 @@ impl Definition {
     }
     pub(super) fn validate(&self) -> Result<()> {
         ensure!(
-            crate::storage_id::valid_persistent(self.id()),
+            crate::storage_id::valid(self.id()),
             "invalid session record identity"
         );
         ensure!(

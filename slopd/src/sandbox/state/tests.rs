@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime};
 fn session(name: &str) -> SessionCfg {
     SessionCfg {
         name: name.into(),
-        state_id: uuid::Uuid::new_v4().to_string(),
+        state_id: crate::storage_id::draft_identity(),
         ..Default::default()
     }
 }

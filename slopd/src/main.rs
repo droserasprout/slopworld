@@ -48,7 +48,12 @@ use crate::session::Manager;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    if std::env::args().any(|arg| arg == "--perf-bench") {
+    let args: Vec<_> = std::env::args().skip(1).collect();
+    anyhow::ensure!(
+        args.is_empty() || args == ["--perf-bench"],
+        "unsupported daemon arguments; run slopd without arguments"
+    );
+    if args == ["--perf-bench"] {
         return benchmark::run();
     }
 
@@ -63,11 +68,6 @@ async fn main() -> Result<()> {
     let cfg_path = Config::path_in_use();
     let binding = storage::target::StorageBinding::resolved(&cfg_path)?;
     let reservations = storage::startup::reserve(&binding).await?;
-    // TODO(remove after user tests and approves workspace store migration):
-    // priv/notes/plan-storage-main.md. Reserve the normal endpoint while offline.
-    if std::env::args().any(|arg| arg == "--migrate-storage") {
-        return storage::migration::run(&binding).await;
-    }
     let cfg = Config::load_records(&cfg_path).await?;
     runtime::validate_runtime_name()?;
     session::validate_config(&cfg)?;

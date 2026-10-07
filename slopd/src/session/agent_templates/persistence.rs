@@ -42,7 +42,10 @@ impl AgentTemplateStore {
         let directory = match &index.generation {
             Some(generation) => {
                 // An index cannot redirect loading outside the catalog.
-                if !generation.starts_with("generation-") || generation.contains(['/', '\\']) {
+                if !generation
+                    .strip_prefix("generation-")
+                    .is_some_and(crate::storage_id::valid)
+                {
                     bail!("invalid agent template generation {generation:?}");
                 }
                 path.join(generation)

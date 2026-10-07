@@ -35,14 +35,9 @@ struct Entry {
     order: u64,
     incarnation: u64,
 }
-enum Disk {
-    #[cfg(test)]
-    Legacy(legacy::Tasks),
-    Records(super::records::Records),
-}
 
 pub(crate) struct Tasks {
-    disk: Disk,
+    disk: super::records::Records,
     by_id: HashMap<String, Entry>,
     order: BTreeMap<u64, String>,
     next_order: u64,
@@ -52,20 +47,13 @@ pub(crate) struct Tasks {
 impl Tasks {
     #[cfg(test)]
     pub(crate) fn load(config: &Path) -> Result<Self> {
-        let disk = legacy::Tasks::load(config)?;
-        let values = disk
-            .all()
-            .into_iter()
-            .enumerate()
-            .map(|(i, task)| (i as u64, task))
-            .collect();
-        Self::loaded(Disk::Legacy(disk), values)
+        Self::load_records(&config.parent().unwrap_or(Path::new(".")).join("data"))
     }
     pub(crate) fn load_records(data: &Path) -> Result<Self> {
         let (disk, values) = super::records::Records::load(data)?;
-        Self::loaded(Disk::Records(disk), values)
+        Self::loaded(disk, values)
     }
-    fn loaded(disk: Disk, values: Vec<(u64, Task)>) -> Result<Self> {
+    fn loaded(disk: super::records::Records, values: Vec<(u64, Task)>) -> Result<Self> {
         let mut store = Self {
             disk,
             by_id: HashMap::new(),
@@ -119,20 +107,13 @@ impl Tasks {
             order < i64::MAX as u64 && self.incarnation < u64::MAX,
             "task metadata exhausted"
         );
-        match &mut self.disk {
-            #[cfg(test)]
-            Disk::Legacy(disk) => disk.put(&task)?,
-            Disk::Records(disk) => disk.put(&task, order, self.by_id.contains_key(&task.id))?,
-        }
+        self.disk
+            .put(&task, order, self.by_id.contains_key(&task.id))?;
         self.publish(task.clone(), order)?;
         Ok(task)
     }
     fn retire(&mut self, id: &str) -> Result<()> {
-        match &mut self.disk {
-            #[cfg(test)]
-            Disk::Legacy(disk) => disk.retire(id)?,
-            Disk::Records(disk) => disk.retire(id)?,
-        }
+        self.disk.retire(id)?;
         if let Some(old) = self.by_id.remove(id) {
             self.order.remove(&old.order);
         }
@@ -151,15 +132,15 @@ impl Tasks {
         worker: Option<WorkerTask>,
     ) -> Result<Task> {
         ensure!(!body.trim().is_empty(), "Provide a task body.");
+        ensure!(
+            !from.identity.is_empty() && !to.identity.is_empty(),
+            "Task participants require explicit identities."
+        );
         let id = crate::storage_id::allocate(|id| {
             if self.reserved.contains(id) {
                 return Ok(true);
             }
-            match &self.disk {
-                #[cfg(test)]
-                Disk::Legacy(_) => Ok(false),
-                Disk::Records(disk) => disk.occupied(id),
-            }
+            self.disk.occupied(id)
         })?;
         let now = unix_ms();
         self.persist(

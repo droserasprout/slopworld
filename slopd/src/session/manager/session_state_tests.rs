@@ -264,7 +264,7 @@ async fn retick_does_not_classify_a_replacement_identity_with_matching_counters(
         .get_mut("agent")
         .unwrap()
         .cfg
-        .state_id = uuid::Uuid::new_v4().to_string();
+        .state_id = crate::storage_id::draft_identity();
     assert_eq!(
         manager.commit_retick(&previous, State::Idle).await,
         (false, None)

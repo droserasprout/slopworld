@@ -289,7 +289,7 @@ async fn durable_worker_parent_survives_a_daemon_restart() {
         ..Default::default()
     };
     let config_path = dir.join("config.toml");
-    crate::config::legacy::save(&config, &config_path)
+    crate::config::fixtures::save(&config, &config_path)
         .await
         .unwrap();
 

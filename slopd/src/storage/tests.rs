@@ -59,16 +59,16 @@ fn resolved_bindings_follow_independent_overrides() {
         Target::Config("../escape.toml".into()),
         Target::Data("tasks/../escape.toml".into()),
         Target::Data("agents/not-an-id.toml".into()),
-        Target::Legacy("other.toml".into()),
+        Target::Config("tasks.toml".into()),
+        Target::Data("tasks.journal".into()),
     ] {
         target.resolve(&binding).unwrap_err();
     }
     for target in [
         Target::Config("projects/0123456789abcdef.toml".into()),
         Target::Config("prompts/a prompt.toml".into()),
-        Target::Data("agents/11111111-1111-4111-8111-111111111111.toml".into()),
-        Target::Data("tasks/00192abcdef01-0001.toml".into()),
-        Target::Legacy("tasks.journal".into()),
+        Target::Data("agents/1111111111114111.toml".into()),
+        Target::Data("tasks/0123456789abcdef.toml".into()),
     ] {
         target.resolve(&binding).unwrap();
     }

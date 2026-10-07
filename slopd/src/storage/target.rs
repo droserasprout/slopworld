@@ -3,7 +3,7 @@
 
 use std::path::{Component, Path, PathBuf};
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
 
 use crate::paths::normalize;
@@ -51,9 +51,6 @@ pub(crate) enum Target {
     Settings,
     Config(PathBuf),
     Data(PathBuf),
-    // TODO(remove after user tests and approves workspace store migration):
-    // priv/notes/plan-storage-main.md. Retire only these known legacy inputs.
-    Legacy(PathBuf),
 }
 
 impl Target {
@@ -62,13 +59,6 @@ impl Target {
             Self::Settings => return Ok(binding.settings.clone()),
             Self::Config(path) => (&binding.config, path),
             Self::Data(path) => (&binding.data, path),
-            Self::Legacy(path) => (
-                binding
-                    .settings
-                    .parent()
-                    .context("settings has no parent")?,
-                path,
-            ),
         };
         ensure!(
             relative
@@ -109,12 +99,8 @@ impl Target {
             }
             (Self::Data(_), [Some("tasks"), Some(name)]) => name
                 .strip_suffix(".toml")
-                .is_some_and(crate::storage_id::valid_task),
-            (Self::Data(_), [Some("grants.toml")])
-            | (
-                Self::Legacy(_),
-                [Some("worktrees.toml" | "tasks.toml" | "tasks.journal" | "grants.toml")],
-            ) => true,
+                .is_some_and(crate::storage_id::valid),
+            (Self::Data(_), [Some("grants.toml")]) => true,
             _ => false,
         }
     }
@@ -122,7 +108,7 @@ impl Target {
 
 fn opaque_file(name: &str) -> bool {
     name.strip_suffix(".toml")
-        .is_some_and(crate::storage_id::valid_persistent)
+        .is_some_and(crate::storage_id::valid)
 }
 
 fn catalog_file(name: &str) -> bool {

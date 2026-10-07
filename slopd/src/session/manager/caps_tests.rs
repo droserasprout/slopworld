@@ -87,7 +87,7 @@ async fn config_replacement_invalidates_grants_without_a_live_row() {
                 .iter_mut()
                 .find(|s| s.name == name)
                 .unwrap()
-                .state_id = uuid::Uuid::new_v4().to_string();
+                .state_id = crate::storage_id::draft_identity();
             manager
                 .replace_config(&toml::to_string(&cfg).unwrap())
                 .await

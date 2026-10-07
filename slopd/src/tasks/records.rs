@@ -49,6 +49,8 @@ impl Records {
             ensure!(
                 !task.from.trim().is_empty()
                     && !task.to.trim().is_empty()
+                    && !task.from_id.is_empty()
+                    && !task.to_id.is_empty()
                     && !task.body.trim().is_empty(),
                 "invalid task participants or body"
             );
@@ -63,7 +65,7 @@ impl Records {
         Ok((store, values))
     }
     fn path(&self, id: &str) -> Result<PathBuf> {
-        ensure!(crate::storage_id::valid_task(id), "invalid task identity");
+        ensure!(crate::storage_id::valid(id), "invalid task identity");
         let path = self.directory.join(format!("{id}.toml"));
         ensure!(
             crate::paths::normalize(&path)? == path,
@@ -72,7 +74,7 @@ impl Records {
         Ok(path)
     }
     pub(super) fn occupied(&self, id: &str) -> Result<bool> {
-        ensure!(crate::storage_id::valid_task(id), "invalid task identity");
+        ensure!(crate::storage_id::valid(id), "invalid task identity");
         ensure!(
             crate::paths::normalize(&self.directory)? == self.directory,
             "task directory aliases another path"

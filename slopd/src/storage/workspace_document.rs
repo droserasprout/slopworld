@@ -54,7 +54,7 @@ impl Record for ProjectCfg {
     }
     fn validate(&self) -> Result<()> {
         ensure!(
-            crate::storage_id::valid_persistent(&self.id),
+            crate::storage_id::valid(&self.id),
             "invalid project identity"
         );
         crate::config::validate_project_names(std::slice::from_ref(self))?;
@@ -122,11 +122,11 @@ impl Record for Worktree {
     }
     fn validate(&self) -> Result<()> {
         ensure!(
-            crate::storage_id::valid_persistent(&self.id),
+            crate::storage_id::valid(&self.id),
             "invalid worktree identity (Main is derived)"
         );
         ensure!(
-            crate::storage_id::valid_persistent(&self.project_id),
+            crate::storage_id::valid(&self.project_id),
             "invalid worktree project identity"
         );
         crate::config::project_name_component(&self.name)?;

@@ -44,10 +44,10 @@ Structured commits retain session/worktree guards and the persistence gate throu
 commit, rollback and accepted-state publication, even after requester cancellation.
 Root and library operations cannot accept revisions belonging to another owner.
 
-Startup refuses legacy layouts and directs the operator to the explicit offline
-[migration command](../docs/src/guides/storage-migration.md). Migration-only decoding
-and old-journal recovery are isolated under `storage/migration` and `config/transaction`.
-Legacy writable adapters remain compiled only for historical test fixtures.
+Startup rejects retired inline sections, aggregate task/worktree files, old grants
+locations and config recovery journals. Only the bound data-root workspace journal
+is recoverable. Inline adapters retained for historical manager/domain fixtures
+are test-only and use the permanent transaction owner.
 
 Public read-model contracts belong to [the API](../docs/src/reference/api.md);
 draft/save behavior to [Settings](ui-settings.md); protected filesystem boundaries

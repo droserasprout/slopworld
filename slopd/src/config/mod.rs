@@ -3,13 +3,15 @@
 pub(crate) mod catalog;
 mod commands;
 mod daemon;
-pub(crate) mod legacy;
+#[cfg(test)]
+pub(crate) mod fixtures;
 mod library;
 mod model;
 mod persistence;
 mod resolution;
 mod sandbox;
 pub(crate) mod settings;
+#[cfg(test)]
 mod transaction;
 mod validation;
 

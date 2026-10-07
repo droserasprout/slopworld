@@ -31,7 +31,7 @@ async fn removing_and_replacing_sessions_revokes_only_changed_identities() {
                 .iter_mut()
                 .find(|session| session.name == "replaced")
                 .unwrap()
-                .state_id = uuid::Uuid::new_v4().to_string();
+                .state_id = crate::storage_id::draft_identity();
             cfg.sessions.reverse();
             Ok(())
         })
@@ -130,7 +130,7 @@ async fn json_patch_preserves_omitted_fields_and_redacted_token() {
     cfg.daemon.token = "real-root-token".into();
     cfg.daemon.summary_prompt = "keep this prompt".into();
     let manager = test_manager(cfg.clone());
-    crate::config::legacy::save(&cfg, &manager.cfg_path)
+    crate::config::fixtures::save(&cfg, &manager.cfg_path)
         .await
         .unwrap();
     *manager.config_state.cfg_mtime.lock().unwrap() = tokio::fs::metadata(&manager.cfg_path)
@@ -286,7 +286,7 @@ async fn save_acknowledgement_leaves_an_external_replacement_unseen() {
     let expected = toml::to_string(&manager.config().await).unwrap();
     let mut external = manager.config().await;
     external.daemon.title_model = "external model".into();
-    crate::config::legacy::save(&external, &manager.cfg_path)
+    crate::config::fixtures::save(&external, &manager.cfg_path)
         .await
         .unwrap();
     manager.mark_saved_document(&expected).await;

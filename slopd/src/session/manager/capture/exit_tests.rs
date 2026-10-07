@@ -60,7 +60,7 @@ fn task_owned_session(manager: &Manager) -> (SessionCfg, crate::tasks::Task) {
         .create_owned(
             crate::tasks::Participant {
                 name: crate::tasks::HOST.into(),
-                identity: String::new(),
+                identity: crate::tasks::HOST.into(),
             },
             crate::tasks::Participant {
                 name: session.name.clone(),

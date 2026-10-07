@@ -52,7 +52,7 @@ fn worktree_validation_rejects_synthetic_main_and_duplicate_checkout_paths() {
         ..Default::default()
     };
     assert!(store.prepare(vec![row.clone()]).is_err());
-    row.id = uuid::Uuid::new_v4().to_string();
+    row.id = crate::storage_id::draft_identity();
     store.prepare(vec![row.clone()]).unwrap();
     let mut other = row.clone();
     other.id = "2222222222222222".into();

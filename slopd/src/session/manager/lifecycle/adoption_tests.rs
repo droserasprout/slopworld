@@ -22,14 +22,14 @@ fn recovered_worker_uses_parent_settings_and_task_identity() {
             parent: "parent".into(),
             task_id: "task-7".into(),
             durable: false,
-            state_id: Some("11111111-1111-4111-8111-111111111111".into()),
+            state_id: Some("1111111111114111".into()),
         },
     );
 
     assert!(worker.worker);
     assert_eq!(worker.parent, "parent");
     assert_eq!(worker.task_id, "task-7");
-    assert_eq!(worker.state_id, "11111111-1111-4111-8111-111111111111");
+    assert_eq!(worker.state_id, "1111111111114111");
     assert_eq!(worker.project, "repo");
     assert_eq!(worker.worktree, "worker-worktree");
     assert_eq!(worker.command, "codex");
@@ -50,7 +50,7 @@ fn recovered_activity_is_kept_only_for_durable_workers() {
             parent: "parent".into(),
             task_id: "task-7".into(),
             durable,
-            state_id: Some("11111111-1111-4111-8111-111111111111".into()),
+            state_id: Some("1111111111114111".into()),
         };
         let decision = AdoptionDecision {
             worker_session: Some(recovered_worker_cfg(&cfg, "worker", &metadata)),
@@ -114,7 +114,7 @@ async fn reconciliation_keeps_attached_worker_identity_without_reprobing_tmux_me
         .await
         .unwrap();
     // Metadata is a recovery source; an attached reader already owns live identity.
-    let stale_identity = uuid::Uuid::new_v4().to_string();
+    let stale_identity = crate::storage_id::draft_identity();
     manager
         .tmux
         .set_worker_metadata("worker", "parent", "task", true, &stale_identity)

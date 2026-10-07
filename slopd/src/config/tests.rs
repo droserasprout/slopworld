@@ -16,7 +16,7 @@ fn dns_defaults_to_resolved_and_round_trips_on_the_agent() {
             [[session]]
             name = "agent"
             project = "repo"
-            state_id = "11111111-1111-4111-8111-111111111111"
+            state_id = "1111111111114111"
 
             [session.dns]
             mode = "servers"
@@ -461,13 +461,13 @@ fn agent_network_is_independent_of_project() {
             name = "safe"
             project = "repo"
             network = "none"
-            state_id = "22222222-2222-4222-8222-222222222222"
+            state_id = "2222222222224222"
 
             [[session]]
             name = "too-wide"
             project = "repo"
             network = "host"
-            state_id = "33333333-3333-4333-8333-333333333333"
+            state_id = "3333333333334333"
             "#,
     )
     .expect("network modes should parse");
@@ -664,19 +664,6 @@ fn host_shell_ids_are_valid_unique_and_preserved() {
     }
 }
 
-#[tokio::test]
-async fn loading_legacy_host_shells_does_not_assign_identity_or_rewrite() {
-    let root = std::env::temp_dir().join(format!("slopd-legacy-host-{}", uuid::Uuid::new_v4()));
-    tokio::fs::create_dir_all(&root).await.unwrap();
-    let path = root.join("config.toml");
-    let text = "# retained exactly\n[[host_terminal]]\nname = 'legacy'\n";
-    tokio::fs::write(&path, text).await.unwrap();
-    let config = Config::load(&path).await.unwrap();
-    assert!(config.host_terminals[0].id.is_empty());
-    assert_eq!(tokio::fs::read_to_string(&path).await.unwrap(), text);
-    tokio::fs::remove_dir_all(root).await.unwrap();
-}
-
 #[test]
 fn config_rejects_sessions_without_a_valid_state_identity() {
     let result = Config::parse(
@@ -737,11 +724,11 @@ fn config_rejects_duplicate_state_ids() {
     let text = r#"
             [[session]]
             name = "one"
-            state_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            state_id = "aaaaaaaaaaaa4aaa"
 
             [[session]]
             name = "two"
-            state_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            state_id = "aaaaaaaaaaaa4aaa"
         "#;
     let error = Config::parse(text).unwrap_err().to_string();
     assert!(

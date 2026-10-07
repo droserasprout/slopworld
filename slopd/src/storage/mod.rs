@@ -1,6 +1,6 @@
 //! Targeted workspace persistence. Record owners prepare changes; the manager owns
 //! validation, operation guards, recovery ordering, and accepted-state publication.
-//! Startup selects these owners after explicit legacy migration and validation.
+//! Startup selects these owners after layout validation.
 
 #[cfg(test)]
 mod record;
@@ -16,6 +16,5 @@ pub(crate) mod workspace;
 mod workspace_document;
 
 pub(crate) mod layout;
-pub(crate) mod migration;
 
 pub(crate) mod startup;

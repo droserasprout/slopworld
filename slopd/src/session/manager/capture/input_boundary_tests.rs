@@ -181,7 +181,7 @@ async fn stale_input_queues_exit_without_draining_into_replacements() {
         );
         let old_identity = live.cfg.state_id.clone();
         if replaced_identity {
-            live.cfg.state_id = uuid::Uuid::new_v4().to_string();
+            live.cfg.state_id = crate::storage_id::draft_identity();
         } else {
             live.run_id = 1;
         }
