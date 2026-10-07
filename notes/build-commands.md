@@ -32,6 +32,8 @@ bytes to preserve compiler input timestamps.
 `devloop` runs `just install run` together, sharing build dependencies once per
 iteration and retaining each worktree's Rust target and C# obj directories.
 Only an explicit `just clean` removes build output.
+Rust version metadata watches Git HEAD and tag/ref storage, not the index:
+staging and index refreshes must not invalidate daemon builds.
 
 `just ci` checks generated files, formatting and tool/pager behavior before lint
 and coverage. The test workflow exposes those stages separately for timings.

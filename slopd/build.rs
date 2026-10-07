@@ -22,14 +22,11 @@ fn main() -> std::io::Result<()> {
 }
 
 // rev-parse resolves both ordinary repositories and linked-worktree metadata.
+// Version resolution uses commits and tags, not the index. Watching the index
+// would rebuild the binaries after staging or a Git status refresh.
 fn watch_git() {
     let repo = env!("CARGO_MANIFEST_DIR").to_string() + "/..";
-    let mut paths = vec![
-        "HEAD".to_string(),
-        "index".into(),
-        "packed-refs".into(),
-        "refs/tags".into(),
-    ];
+    let mut paths = vec!["HEAD".to_string(), "packed-refs".into(), "refs/tags".into()];
     if let Some(active_ref) = git(&repo, &["symbolic-ref", "-q", "HEAD"]) {
         paths.push(active_ref);
     }
