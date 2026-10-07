@@ -155,7 +155,7 @@ async fn lifecycle_fixture() -> LifecycleFixture {
         std::fs::read_to_string(root.join("file")).unwrap(),
         "caller dirty\n"
     );
-    assert!(manager.tasks.all_tasks().is_empty());
+    assert!(manager.tasks.all_tasks_async().await.unwrap().is_empty());
     assert!(manager.config().await.sessions.is_empty());
     assert!(manager.remove_project("repo").await.is_err());
     LifecycleFixture {

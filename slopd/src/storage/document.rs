@@ -18,7 +18,7 @@ pub(crate) fn retain_known(value: &mut toml::Value, keys: &[&str]) {
 }
 
 /// Serialize modeled fields and retain only extensions from the old document.
-pub(super) fn prepare(
+pub(crate) fn prepare(
     value: &impl serde::Serialize,
     order: i64,
     old: Option<&toml::Value>,
@@ -31,4 +31,27 @@ pub(super) fn prepare(
         .insert("storage_order".into(), order.into());
     preserve(&mut next, old, known);
     Ok(next)
+}
+
+/// Extensions follow the schema owner's stable key within an array of tables.
+pub(super) fn preserve_rows(
+    next: &mut toml::Value,
+    old: Option<&toml::Value>,
+    field: &str,
+    key: &str,
+    known: &[&str],
+) {
+    if let (Some(next), Some(old)) = (
+        next.get_mut(field).and_then(toml::Value::as_array_mut),
+        old.and_then(|old| old.get(field))
+            .and_then(toml::Value::as_array),
+    ) {
+        for row in next {
+            preserve(
+                row,
+                old.iter().find(|old| old.get(key) == row.get(key)),
+                known,
+            );
+        }
+    }
 }

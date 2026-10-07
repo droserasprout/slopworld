@@ -5,8 +5,9 @@ Runnable items can reference [agent templates](daemon-agent-templates.md), which
 have their own catalog and API.
 
 `config/library.rs` owns item definitions, supplied entries, and lookups.
-`config/catalog.rs` owns per-kind validation and preparation; `config/persistence.rs`
-owns disk loading; the manager commits explicit catalog changes through `storage/transaction.rs`. `session/manager/library.rs` owns catalog operations and
+`config/catalog.rs` owns per-kind validation, loading and preparation of bound
+transaction changes. The manager checks catalog revisions and commits those changes
+through `storage/transaction.rs`. `session/manager/library.rs` owns catalog operations and
 `api/handlers/library.rs` owns the HTTP boundary. `session/manager/errands.rs`
 owns launches.
 

@@ -108,18 +108,7 @@ pub(super) fn prepare(
             preserve(next, Some(previous), keys);
         }
     }
-    if let (Some(next), Some(old)) = (
-        new.get_mut("sandbox_snapshots")
-            .and_then(toml::Value::as_array_mut),
-        old.and_then(|old| old.get("sandbox_snapshots"))
-            .and_then(toml::Value::as_array),
-    ) {
-        for row in next {
-            if let Some(previous) = old.iter().find(|old| old.get("name") == row.get("name")) {
-                preserve(row, Some(previous), SANDBOX);
-            }
-        }
-    }
+    super::document::preserve_rows(&mut new, old, "sandbox_snapshots", "name", SANDBOX);
     // Limits may serialize to nothing after the last cap is cleared. Keep
     // extensions in that optional table without reviving any known cap.
     if new.get("limits").is_none()

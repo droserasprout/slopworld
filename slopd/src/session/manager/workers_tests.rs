@@ -199,7 +199,7 @@ async fn invalid_worker_template_is_rejected_before_task_creation() {
         .to_string();
 
     assert!(error.contains("no such agent template: missing"), "{error}");
-    assert!(manager.tasks.all_tasks().is_empty());
+    assert!(manager.tasks.all_tasks_async().await.unwrap().is_empty());
 }
 
 #[test]

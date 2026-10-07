@@ -5,120 +5,19 @@ use crate::tasks::{Participant, Status, Task, WorkerTask};
 use anyhow::anyhow;
 
 /// Blocking workers own task-file access and retain this mutex through accepted
-/// publication. Synchronous helpers below are only for test fixture construction.
+/// publication. Test seeding uses the same blocking owner.
 pub(crate) struct TaskStore(Arc<std::sync::Mutex<crate::tasks::Tasks>>);
 
 impl TaskStore {
-    #[cfg(test)]
-    fn lock(&self) -> Result<std::sync::MutexGuard<'_, crate::tasks::Tasks>> {
-        self.0
-            .lock()
-            .map_err(|error| anyhow!("task store lock poisoned: {error}"))
-    }
-
     pub(crate) fn new(tasks: crate::tasks::Tasks) -> Self {
         Self(Arc::new(std::sync::Mutex::new(tasks)))
     }
 
     #[cfg(test)]
-    pub(crate) fn select_record_fixture(&self, data: &Path) -> Result<()> {
-        *self.lock()? = crate::tasks::Tasks::load_records(data)?;
-        Ok(())
+    pub(crate) async fn create_task(&self, from: String, to: String, body: String) -> Result<Task> {
+        self.run(move |tasks| tasks.create(from, to, body)).await
     }
 
-    #[cfg(test)]
-    pub(crate) fn create_task(&self, from: String, to: String, body: String) -> Result<Task> {
-        self.lock()?.create(from, to, body)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn create_worker(
-        &self,
-        from: String,
-        to: String,
-        body: String,
-        parent: String,
-        durable: bool,
-    ) -> Result<Task> {
-        self.lock()?.create_worker(from, to, body, parent, durable)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn create_owned(
-        &self,
-        from: Participant,
-        to: Participant,
-        body: String,
-        worker: Option<WorkerTask>,
-    ) -> Result<Task> {
-        self.lock()?.create_owned(from, to, body, worker)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn tasks_for(&self, who: &str) -> Vec<Task> {
-        self.0
-            .lock()
-            .expect("task store lock poisoned")
-            .visible(who)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn all_tasks(&self) -> Vec<Task> {
-        self.0.lock().expect("task store lock poisoned").all()
-    }
-
-    #[cfg(test)]
-    pub(crate) fn task_for(&self, who: &str, id: &str) -> Option<Task> {
-        self.0
-            .lock()
-            .expect("task store lock poisoned")
-            .get(who, id)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn update_task(
-        &self,
-        who: &str,
-        id: &str,
-        status: Status,
-        note: Option<String>,
-    ) -> Result<Task> {
-        self.lock()?.update(who, id, status, note)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn cancel_tasks(&self, who: &str, ids: &[String], force: bool) -> Result<Vec<Task>> {
-        Ok(self.lock()?.cancel_many(who, ids, force)?.tasks)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn remove_task(&self, who: &str, id: &str, force: bool) -> Result<Task> {
-        self.lock()?.remove(who, id, force)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn remove_tasks(&self, who: &str, ids: &[String], force: bool) -> Result<usize> {
-        Ok(self.lock()?.remove_many(who, ids, force)?.committed.len())
-    }
-
-    #[cfg(test)]
-    pub(crate) fn prune_tasks(&self, who: &str, all: bool) -> Result<usize> {
-        Ok(self.lock()?.prune(who, all)?.committed.len())
-    }
-
-    #[cfg(test)]
-    fn fail_worker(&self, task_id: &str, note: String) -> Result<Option<Task>> {
-        {
-            let mut tasks = self.lock()?;
-            let expected = tasks
-                .all()
-                .into_iter()
-                .find(|task| task.id == task_id)
-                .map(|task| task.to_id)
-                .unwrap_or_default();
-            tasks.fail_worker(task_id, &expected, note)
-        }
-    }
     /// Capture the caller's authorization boundary before entering the blocking
     /// pool. A dropped requester cannot release it before disk and memory commit.
     async fn run<T: Send + 'static>(
@@ -301,22 +200,6 @@ impl Manager {
             name: name.to_string(),
             identity,
         })
-    }
-
-    #[cfg(test)]
-    pub(crate) fn fail_worker_task(&self, task_id: &str, note: impl Into<String>) {
-        if task_id.trim().is_empty() {
-            return;
-        }
-        match self.tasks.fail_worker(task_id, note.into()) {
-            Ok(Some(task)) if task.status == Status::Failed => {
-                tracing::info!(task = %task.id, "task-owned worker task marked failed")
-            }
-            Ok(_) => {}
-            Err(error) => {
-                tracing::error!(task = %task_id, "could not persist worker task failure: {error:#}")
-            }
-        }
     }
 }
 

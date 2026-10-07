@@ -208,7 +208,7 @@ async fn stalled_scoped_uploads_allow_revocation_and_recheck_authority_on_comple
             .unwrap()
             .unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-        assert!(manager.tasks.all_tasks().is_empty());
+        assert!(manager.tasks.all_tasks_async().await.unwrap().is_empty());
     }
 }
 
@@ -247,7 +247,7 @@ async fn scoped_uploads_preserve_body_limits_and_accept_valid_json() {
             expected
         );
     }
-    assert_eq!(manager.tasks.all_tasks().len(), 1);
+    assert_eq!(manager.tasks.all_tasks_async().await.unwrap().len(), 1);
 }
 
 #[tokio::test]

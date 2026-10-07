@@ -1,7 +1,7 @@
 //! Project and checkout schemas and retained extensions. Mount extensions follow
 //! their destination, which is the unique ownership key of a project mount.
 use super::{
-    document::{prepare, preserve, retain_known},
+    document::{prepare, preserve_rows, retain_known},
     target::{StorageBinding, Target},
     workspace::{project_target, worktree_target},
 };
@@ -71,15 +71,7 @@ impl Record for ProjectCfg {
     }
     fn document(&self, order: i64, old: Option<&toml::Value>) -> Result<toml::Value> {
         let mut next = prepare(self, order, old, Self::fields())?;
-        if let Some(mounts) = next.get_mut("mounts").and_then(toml::Value::as_array_mut) {
-            for mount in mounts {
-                let previous = old
-                    .and_then(|old| old.get("mounts"))
-                    .and_then(toml::Value::as_array)
-                    .and_then(|rows| rows.iter().find(|row| row.get("to") == mount.get("to")));
-                preserve(mount, previous, &["from", "to", "mode"]);
-            }
-        }
+        preserve_rows(&mut next, old, "mounts", "to", &["from", "to", "mode"]);
         Ok(next)
     }
 }

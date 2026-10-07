@@ -3,8 +3,6 @@
 use super::catalog::load_library;
 use std::path::{Path, PathBuf};
 
-#[cfg(test)]
-use anyhow::bail;
 use anyhow::{Context, Result};
 
 use super::*;
@@ -79,22 +77,6 @@ impl Config {
         Ok(crate::storage::layout::load(&binding).await?.config)
     }
 
-    #[cfg(test)]
-    pub fn parse(text: &str) -> Result<Self> {
-        let document: toml::Value = toml::from_str(text).context("parsing config.toml")?;
-        reject_removed_worktree_fields(&document)?;
-        if let Some(daemon) = document.get("daemon").and_then(toml::Value::as_table) {
-            for key in ["usage", "openrouter", "openai"] {
-                if daemon.contains_key(key) {
-                    bail!("[daemon] {key} was removed");
-                }
-            }
-        }
-        let cfg: Self = document.try_into().context("parsing config.toml")?;
-        super::validation::validate_loaded(&cfg)?;
-        Ok(cfg)
-    }
-
     /// Create a copy for clients. Replace a nonempty token with the redaction sentinel.
     /// This prevents `GET /api/config` from exposing the secret.
     /// Keep an empty token to indicate that authentication is disabled.
@@ -105,24 +87,6 @@ impl Config {
         }
         c
     }
-}
-
-// Reject retired names before unknown-field preservation can retain them as extensions.
-#[cfg(test)]
-pub(super) fn reject_removed_worktree_fields(document: &toml::Value) -> Result<()> {
-    for (section, old, replacement) in [
-        ("project", "workspace_root", "worktree_root"),
-        ("session", "workspace", "worktree"),
-    ] {
-        if document
-            .get(section)
-            .and_then(toml::Value::as_array)
-            .is_some_and(|rows| rows.iter().any(|row| row.get(old).is_some()))
-        {
-            bail!("{section}.{old} was removed; use {replacement}");
-        }
-    }
-    Ok(())
 }
 
 #[cfg(test)]

@@ -157,7 +157,7 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
         cfg,
         format!("lifecycle-{}", uuid::Uuid::new_v4()),
     );
-    let session = temporary_worker_task_session(&manager);
+    let session = temporary_worker_task_session(&manager).await;
     let task_id = session.task_id.clone();
     let private = root.join("state").join(&session.state_id);
     std::fs::create_dir_all(&private).unwrap();
@@ -231,17 +231,22 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
     manager.stop("child").await.unwrap();
     manager.forget("child").await;
     assert_eq!(
-        manager.tasks.task_for("host", &task_id).unwrap().note,
+        manager
+            .tasks
+            .task_for_async("host", &task_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .note,
         saved.note
     );
     std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
 }
 
-fn temporary_worker_task_session(manager: &Manager) -> SessionCfg {
+async fn temporary_worker_task_session(manager: &Manager) -> SessionCfg {
     let identity = crate::storage_id::draft_identity();
     let task = manager
-        .tasks
-        .create_owned(
+        .create_task_owned(
             crate::tasks::Participant {
                 name: "host".into(),
                 identity: "host".into(),
@@ -257,6 +262,7 @@ fn temporary_worker_task_session(manager: &Manager) -> SessionCfg {
                 durable: false,
             }),
         )
+        .await
         .unwrap();
     SessionCfg {
         name: "child".into(),

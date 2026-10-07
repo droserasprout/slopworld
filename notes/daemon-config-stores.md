@@ -57,6 +57,8 @@ Startup rejects retired inline sections, aggregate task/worktree files, old gran
 locations and config recovery journals. Only the bound data-root workspace journal
 is recoverable. Manager/domain fixtures use the production record stores and
 transaction owner; there is no alternate inline or aggregate persistence lifecycle.
+Schema tests deserialize individual documents; manager task tests use the production
+async I/O owner for mutations and reads.
 
 Public read-model contracts belong to [the API](../docs/src/reference/api.md);
 draft/save behavior to [Settings](ui-settings.md); protected filesystem boundaries

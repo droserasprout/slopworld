@@ -72,7 +72,7 @@ async fn missing_template_worker_requests_are_rejected_before_task_creation() {
     };
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert!(body.error.contains("template"));
-    assert!(manager.tasks.all_tasks().is_empty());
+    assert!(manager.tasks.all_tasks_async().await.unwrap().is_empty());
 }
 fn caller(name: &str) -> HeaderMap {
     let mut headers = HeaderMap::new();
@@ -118,8 +118,8 @@ fn task_identity_rejects_missing_headers_and_host_impersonation() {
 #[tokio::test]
 async fn mailbox_visibility_and_global_operations_respect_principal() {
     let m = mailbox_manager();
-    let visible = mailbox_task(&m, "alice", "bob", "visible").unwrap();
-    let hidden = mailbox_task(&m, "carol", "dave", "private").unwrap();
+    let visible = mailbox_task(&m, "alice", "bob", "visible").await.unwrap();
+    let hidden = mailbox_task(&m, "carol", "dave", "private").await.unwrap();
     let Proto(reply) = list_tasks(
         State(m.clone()),
         Extension(scoped("alice")),
@@ -189,7 +189,7 @@ async fn mailbox_visibility_and_global_operations_respect_principal() {
 #[tokio::test]
 async fn recipient_updates_and_removal_preserve_task_lifecycle() {
     let m = mailbox_manager();
-    let task = mailbox_task(&m, "alice", "bob", "work").unwrap();
+    let task = mailbox_task(&m, "alice", "bob", "work").await.unwrap();
     let update = || {
         Proto(wire::UpdateTaskReq {
             status: Some("done".into()),
@@ -254,14 +254,14 @@ async fn recipient_updates_and_removal_preserve_task_lifecycle() {
     .await
     .unwrap();
     assert_eq!(reply.task.unwrap().id, task.id);
-    assert!(m.tasks.all_tasks().is_empty());
+    assert!(m.tasks.all_tasks_async().await.unwrap().is_empty());
 }
 
 #[tokio::test]
 async fn bulk_cancel_remove_and_prune_enforce_scope() {
     let m = mailbox_manager();
-    let a = mailbox_task(&m, "alice", "bob", "first").unwrap();
-    let b = mailbox_task(&m, "carol", "dave", "second").unwrap();
+    let a = mailbox_task(&m, "alice", "bob", "first").await.unwrap();
+    let b = mailbox_task(&m, "carol", "dave", "second").await.unwrap();
     let ids = || {
         Proto(wire::RemoveTasksReq {
             ids: vec![a.id.clone(), b.id.clone()],
@@ -281,7 +281,9 @@ async fn bulk_cancel_remove_and_prune_enforce_scope() {
     );
     assert!(
         m.tasks
-            .all_tasks()
+            .all_tasks_async()
+            .await
+            .unwrap()
             .iter()
             .all(|t| t.status == crate::tasks::Status::Queued)
     );
@@ -307,7 +309,7 @@ async fn bulk_cancel_remove_and_prune_enforce_scope() {
         .0,
         StatusCode::BAD_REQUEST
     );
-    assert_eq!(m.tasks.all_tasks().len(), 2);
+    assert_eq!(m.tasks.all_tasks_async().await.unwrap().len(), 2);
     assert_eq!(
         remove_tasks(
             State(m.clone()),
@@ -329,7 +331,7 @@ async fn bulk_cancel_remove_and_prune_enforce_scope() {
     .await
     .unwrap();
     assert_eq!(reply.removed, 1);
-    assert_eq!(m.tasks.all_tasks()[0].id, b.id);
+    assert_eq!(m.tasks.all_tasks_async().await.unwrap()[0].id, b.id);
     let Proto(reply) = remove_tasks(
         State(m.clone()),
         Extension(Cap::Root),
@@ -348,7 +350,7 @@ async fn bulk_cancel_remove_and_prune_enforce_scope() {
     .await
     .unwrap();
     assert_eq!(reply.removed, 0);
-    assert!(m.tasks.all_tasks().is_empty());
+    assert!(m.tasks.all_tasks_async().await.unwrap().is_empty());
 }
 #[tokio::test]
 async fn unknown_task_endpoints_fail_before_persistence() {
@@ -367,7 +369,7 @@ async fn unknown_task_endpoints_fail_before_persistence() {
         let (status, Proto(error)) = result.unwrap_err();
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert!(error.error.contains("Session missing does not exist."));
-        assert!(m.tasks.all_tasks().is_empty());
+        assert!(m.tasks.all_tasks_async().await.unwrap().is_empty());
     }
 }
 
@@ -389,10 +391,9 @@ fn mailbox_manager() -> Mgr {
 async fn batch_response_reports_partial_record_commits_and_idempotent_retry() {
     let m = mailbox_manager();
     let data = m.cfg_path.parent().unwrap().join("data");
-    m.tasks.select_record_fixture(&data).unwrap();
-    let a = mailbox_task(&m, "alice", "bob", "first").unwrap();
-    let b = mailbox_task(&m, "alice", "bob", "second").unwrap();
-    let c = mailbox_task(&m, "alice", "bob", "third").unwrap();
+    let a = mailbox_task(&m, "alice", "bob", "first").await.unwrap();
+    let b = mailbox_task(&m, "alice", "bob", "second").await.unwrap();
+    let c = mailbox_task(&m, "alice", "bob", "third").await.unwrap();
     let request = || {
         Proto(wire::RemoveTasksReq {
             ids: vec![c.id.clone(), b.id.clone(), a.id.clone()],
@@ -446,8 +447,13 @@ fn mailbox_identity(name: &str) -> String {
     format!("{at:016x}")
 }
 
-fn mailbox_task(m: &Mgr, from: &str, to: &str, body: &str) -> anyhow::Result<crate::tasks::Task> {
-    m.tasks.create_owned(
+async fn mailbox_task(
+    m: &Mgr,
+    from: &str,
+    to: &str,
+    body: &str,
+) -> anyhow::Result<crate::tasks::Task> {
+    m.create_task_owned(
         crate::tasks::Participant {
             name: from.into(),
             identity: mailbox_identity(from),
@@ -459,4 +465,5 @@ fn mailbox_task(m: &Mgr, from: &str, to: &str, body: &str) -> anyhow::Result<cra
         body.into(),
         None,
     )
+    .await
 }

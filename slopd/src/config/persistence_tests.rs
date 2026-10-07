@@ -1,28 +1,13 @@
 use super::*;
-use crate::config::catalog::{load_library, prepare_library, validate_library_name};
+use crate::config::catalog::{load_library, validate_library_name};
 
 async fn save_library(
     dirs: &[(LibraryItemKind, PathBuf)],
     library: &[LibraryItemCfg],
 ) -> Result<()> {
     let path = dirs[0].1.parent().unwrap().join("config.toml");
-    let changes =
-        crate::config::catalog::replacement_changes(dirs, prepare_library(dirs, library)?).await?;
     let binding = crate::config::fixtures::binding(&path)?;
-    let changes = changes
-        .into_iter()
-        .map(|(path, text)| {
-            Ok(crate::storage::transaction::Change {
-                target: crate::storage::target::Target::Config(
-                    path.strip_prefix(&binding.config)?.into(),
-                ),
-                mutation: text.map_or(
-                    crate::storage::transaction::Mutation::Retire,
-                    crate::storage::transaction::Mutation::Replace,
-                ),
-            })
-        })
-        .collect::<Result<Vec<_>>>()?;
+    let changes = crate::config::catalog::replacement_changes(&binding, library).await?;
     let gate = std::sync::Arc::new(tokio::sync::Mutex::new(()))
         .lock_owned()
         .await;
@@ -255,28 +240,33 @@ async fn clearing_modeled_settings_preserves_only_unknown_fields() {
     let root = std::env::temp_dir().join(format!("slopd-clear-settings-{}", uuid::Uuid::new_v4()));
     tokio::fs::create_dir_all(&root).await.unwrap();
     let path = root.join("config.toml");
-    let cfg = Config::parse(&format!(
-        r#"
-        [daemon]
-        bind = "127.0.0.1:7777"
-        token = "secret"
-        [[project]]
-        name = "repo"
-        dir = "/tmp"
-        [[session]]
-        name = "agent"
-        project = "repo"
-        state_id = "{FIRST_ID}"
-        sandbox = ["git"]
-        persistent_tmp = true
-        cmd = "old command"
-        label = "old label"
-        [session.limits]
-        memory_mb = 512
-        pids = 100
-    "#
-    ))
-    .unwrap();
+    let mut cfg = Config {
+        projects: vec![ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        }],
+        sessions: vec![
+            toml::from_str(&format!(
+                r#"
+            name = "agent"
+            project = "repo"
+            state_id = "{FIRST_ID}"
+            sandbox = ["git"]
+            persistent_tmp = true
+            cmd = "old command"
+            label = "old label"
+            [limits]
+            memory_mb = 512
+            pids = 100
+        "#
+            ))
+            .unwrap(),
+        ],
+        ..Default::default()
+    };
+    cfg.daemon.bind = "127.0.0.1:7777".into();
+    cfg.daemon.token = "secret".into();
     crate::config::fixtures::save(&cfg, &path).await.unwrap();
     let agent_path = root.join(format!("data/agents/{FIRST_ID}.toml"));
     let text = tokio::fs::read_to_string(&agent_path).await.unwrap();
@@ -398,14 +388,16 @@ async fn inline_workspace_is_rejected_without_rewriting_it() {
 
 #[test]
 fn legacy_state_rules_are_ignored_and_not_exposed_in_modeled_config() {
-    let cfg = Config::parse(
+    let cfg = super::super::settings::document::replace(
+        &Config::default(),
         r#"
 [[state_rule]]
 state = "waiting"
 pattern = '['
 "#,
     )
-    .expect("obsolete rules must not prevent startup");
+    .expect("obsolete rules must not prevent startup")
+    .candidate;
     let value = serde_json::to_value(&cfg).unwrap();
     assert!(value.get("state_rule").is_none());
     assert!(!toml::to_string(&cfg).unwrap().contains("state_rule"));

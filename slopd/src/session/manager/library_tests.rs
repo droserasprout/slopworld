@@ -540,8 +540,7 @@ async fn readiness_timeout_fails_only_the_undelivered_workers_current_task() {
     let (manager, mut rx) = delivery_fixture().await;
     let identity = manager.live.read().await["worker"].cfg.state_id.clone();
     let task = manager
-        .tasks
-        .create_owned(
+        .create_task_owned(
             crate::tasks::Participant {
                 name: crate::tasks::HOST.into(),
                 identity: crate::tasks::HOST.into(),
@@ -557,6 +556,7 @@ async fn readiness_timeout_fails_only_the_undelivered_workers_current_task() {
                 durable: true,
             }),
         )
+        .await
         .unwrap();
     {
         let mut live = manager.live.write().await;
@@ -572,7 +572,9 @@ async fn readiness_timeout_fails_only_the_undelivered_workers_current_task() {
     assert_eq!(
         manager
             .tasks
-            .task_for(crate::tasks::HOST, &task.id)
+            .task_for_async(crate::tasks::HOST, &task.id)
+            .await
+            .unwrap()
             .unwrap()
             .status,
         crate::tasks::Status::Failed

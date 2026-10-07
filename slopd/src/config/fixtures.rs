@@ -57,18 +57,7 @@ pub(crate) async fn save(cfg: &Config, path: &Path) -> Result<()> {
             .changes,
     );
 
-    let dirs = Config::library_dirs_for(path);
-    for (path, text) in super::catalog::replacement_changes(
-        &dirs,
-        super::catalog::prepare_library(&dirs, &cfg.library)?,
-    )
-    .await?
-    {
-        changes.push(Change {
-            target: Target::Config(path.strip_prefix(&binding.config)?.into()),
-            mutation: text.map_or(Mutation::Retire, Mutation::Replace),
-        });
-    }
+    changes.extend(super::catalog::replacement_changes(&binding, &cfg.library).await?);
     transaction::commit_in_operation(&binding, changes, &gate).await
 }
 

@@ -56,23 +56,9 @@ impl Manager {
                     == Some(&revision),
                 "library changed since acceptance; retry after reload"
             );
-            let dirs = Config::library_dirs_for(&records.binding.config.join("config.toml"));
-            let library = crate::config::catalog::prepare_library(&dirs, &next.library)?;
-            let files = crate::config::catalog::replacement_changes(&dirs, library).await?;
-            let changes = files
-                .into_iter()
-                .map(|(path, text)| {
-                    Ok(crate::storage::transaction::Change {
-                        target: crate::storage::target::Target::Config(
-                            path.strip_prefix(&records.binding.config)?.to_owned(),
-                        ),
-                        mutation: match text {
-                            Some(text) => crate::storage::transaction::Mutation::Replace(text),
-                            None => crate::storage::transaction::Mutation::Retire,
-                        },
-                    })
-                })
-                .collect::<Result<Vec<_>>>()?;
+            let changes =
+                crate::config::catalog::replacement_changes(&records.binding, &next.library)
+                    .await?;
             return Ok(PreparedDisk::Library(
                 records.binding.clone(),
                 changes,

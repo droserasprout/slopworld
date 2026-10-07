@@ -80,32 +80,32 @@ impl Records {
         }
     }
     pub(super) fn put(&mut self, task: &Task, order: u64, exists: bool) -> Result<()> {
-        let mut raw = toml::Value::try_from(task)?;
-        raw.as_table_mut()
-            .context("task must be a table")?
-            .insert("storage_order".into(), i64::try_from(order)?.into());
-        if let Some(old) = self.documents.get(&task.id) {
-            if let Some(worker) = raw.get_mut("worker") {
-                preserve(worker, old.get("worker"), &["session", "parent", "durable"]);
-            }
+        let old = self.documents.get(&task.id);
+        let mut raw = crate::storage::document::prepare(
+            task,
+            i64::try_from(order)?,
+            old,
+            &[
+                "id",
+                "from",
+                "to",
+                "from_id",
+                "to_id",
+                "body",
+                "status",
+                "note",
+                "summary",
+                "created_ms",
+                "updated_ms",
+                "worker",
+                "storage_order",
+            ],
+        )?;
+        if let Some(worker) = raw.get_mut("worker") {
             preserve(
-                &mut raw,
-                Some(old),
-                &[
-                    "id",
-                    "from",
-                    "to",
-                    "from_id",
-                    "to_id",
-                    "body",
-                    "status",
-                    "note",
-                    "summary",
-                    "created_ms",
-                    "updated_ms",
-                    "worker",
-                    "storage_order",
-                ],
+                worker,
+                old.and_then(|old| old.get("worker")),
+                &["session", "parent", "durable"],
             );
         }
         let text = toml::to_string_pretty(&raw)?;

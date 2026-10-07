@@ -1,6 +1,10 @@
 //! Per-kind library file validation, loading, and save preparation.
 //! The transaction owner commits prepared files with the main document.
 use super::{LibraryItemCfg, LibraryItemKind};
+use crate::storage::{
+    target::{StorageBinding, Target},
+    transaction::{Change, Mutation},
+};
 use anyhow::{Context, Result, bail};
 use std::collections::HashSet;
 use std::path::{Component, Path, PathBuf};
@@ -112,9 +116,11 @@ pub(crate) fn prepare_library(
 /// A deliberate whole-catalog replacement selects retirement here, not in the
 /// transaction owner. Incremental callers can prepare their own targeted changes.
 pub(crate) async fn replacement_changes(
-    dirs: &[(LibraryItemKind, PathBuf)],
-    prepared: Vec<(PathBuf, String)>,
-) -> Result<std::collections::BTreeMap<PathBuf, Option<String>>> {
+    binding: &StorageBinding,
+    library: &[LibraryItemCfg],
+) -> Result<Vec<Change>> {
+    let dirs = super::Config::library_dirs_for(&binding.config.join("config.toml"));
+    let prepared = prepare_library(&dirs, library)?;
     let mut changes: std::collections::BTreeMap<_, _> = prepared
         .into_iter()
         .map(|(path, text)| (path, Some(text)))
@@ -132,7 +138,15 @@ pub(crate) async fn replacement_changes(
             }
         }
     }
-    Ok(changes)
+    changes
+        .into_iter()
+        .map(|(path, text)| {
+            Ok(Change {
+                target: Target::Config(path.strip_prefix(&binding.config)?.to_owned()),
+                mutation: text.map_or(Mutation::Retire, Mutation::Replace),
+            })
+        })
+        .collect()
 }
 
 /// Membership and every file revision participate; a newer sibling cannot mask
