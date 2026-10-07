@@ -45,7 +45,7 @@ async fn retired_files_and_old_journals_are_rejected_without_mutation() {
         assert!(!f.binding.settings.exists());
         std::fs::remove_file(path).unwrap();
     }
-    assert!(load(&f.binding).await.unwrap().sessions.is_empty());
+    assert!(load(&f.binding).await.unwrap().config.sessions.is_empty());
 }
 
 #[tokio::test]

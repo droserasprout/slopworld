@@ -2,8 +2,8 @@
 //!
 //! The manager acquires session boundary -> worktree mutation (when needed) ->
 //! configuration persistence gate. It recovers before reading/preparing store state.
-//! Commit takes that gate and an owned publication callback; caller cancellation
-//! cannot release it between a disk commit and accepted-memory publication.
+//! The manager retains that gate in an owned operation through disk commit and
+//! accepted-memory publication, even after caller cancellation.
 //! Additional lifecycle/checkout guards belong to the manager's owned operation;
 //! this disk owner does not replace that outer cancellation boundary.
 //! Tasks do not join this journal. Checkout owners commit relocation intent before
@@ -14,8 +14,6 @@
 //! flushed writes are used, without an fsync barrier. Journal removal is commit.
 
 use std::collections::HashSet;
-#[cfg(test)]
-use std::future::Future;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, ensure};
@@ -84,25 +82,6 @@ impl Undo {
             .await
             .context("retiring workspace journal")
     }
-}
-
-/// Transfer disk commit and publication to an owner that outlives its requester.
-/// Publication must apply already prepared state without additional fallible I/O.
-#[cfg(test)]
-pub(crate) async fn commit<T: Send + 'static, P: Future<Output = T> + Send + 'static>(
-    binding: StorageBinding,
-    changes: Vec<Change>,
-    gate: OwnedMutexGuard<()>,
-    publish: impl FnOnce() -> P + Send + 'static,
-) -> Result<T> {
-    tokio::spawn(async move {
-        commit_in_operation(&binding, changes, &gate).await?;
-        let accepted = publish().await;
-        drop(gate);
-        Ok(accepted)
-    })
-    .await
-    .context("workspace commit owner failed")?
 }
 
 /// For managers whose owned operation also encloses runtime rollback and

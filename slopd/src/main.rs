@@ -68,9 +68,9 @@ async fn main() -> Result<()> {
     let cfg_path = Config::path_in_use();
     let binding = storage::target::StorageBinding::resolved(&cfg_path)?;
     let reservations = storage::startup::reserve(&binding).await?;
-    let cfg = Config::load_records(&cfg_path).await?;
+    let loaded = storage::layout::load(&binding).await?;
+    let cfg = &loaded.config;
     runtime::validate_runtime_name()?;
-    session::validate_config(&cfg)?;
     tracing::info!("config: {}", cfg_path.display());
     tracing::info!("runtime: {}", runtime::capabilities().runtime);
 
@@ -99,7 +99,7 @@ async fn main() -> Result<()> {
         .collect();
     let bind = cfg.daemon.bind.clone();
     let listener = storage::startup::serving_listener(reservations, &bind).await?;
-    let m = Manager::new(cfg, cfg_path).await?;
+    let m = Manager::new(loaded).await?;
 
     // Warm Git caches before publishing the endpoint so initial status reads are incremental.
     git::warm_projects(git_dirs).await;

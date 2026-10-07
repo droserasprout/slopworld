@@ -33,7 +33,7 @@ impl Manager {
                 .await
                 .context("private-state identity inventory failed")??,
         );
-        let records = crate::paths::data_root().join("agents");
+        let records = self.config_state.records.binding.data.join("agents");
         crate::storage_id::allocate(|id| {
             if occupied.contains(id) {
                 return Ok(true);
@@ -63,17 +63,12 @@ impl Manager {
             .map(|p| p.id)
             .collect();
         occupied.extend(
-            self.load_worktrees()
-                .await?
+            self.worktree_records()
                 .worktrees
                 .into_iter()
                 .map(|w| w.project_id),
         );
-        let root = crate::paths::config_root();
-        #[cfg(test)]
-        let root = self
-            .record_backend()
-            .map_or(root, |records| records.binding.config.clone());
+        let root = &self.config_state.records.binding.config;
         let records = root.join("projects");
         let caches = crate::sandbox::cache::root();
         crate::storage_id::allocate(|id| {
@@ -87,8 +82,7 @@ impl Manager {
     /// catalog; a new checkout must never inherit those attachments.
     pub(super) async fn allocate_worktree_identity(&self) -> Result<String> {
         let mut occupied: HashSet<String> = self
-            .load_worktrees()
-            .await?
+            .worktree_records()
             .worktrees
             .into_iter()
             .map(|w| w.id)
@@ -101,11 +95,7 @@ impl Manager {
                 .values()
                 .map(|live| live.cfg.worktree.clone()),
         );
-        let root = crate::paths::data_root();
-        #[cfg(test)]
-        let root = self
-            .record_backend()
-            .map_or(root, |records| records.binding.data.clone());
+        let root = &self.config_state.records.binding.data;
         let records = root.join("worktrees");
         crate::storage_id::allocate(|id| {
             Ok(occupied.contains(id) || occupied_path(&records.join(format!("{id}.toml")))?)

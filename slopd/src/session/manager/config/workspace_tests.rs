@@ -39,14 +39,16 @@ impl Fixture {
                     .success()
             );
         }
-        manager.cfg.write().await.projects.push(ProjectCfg {
+        let mut cfg = manager.config().await;
+        cfg.projects.push(ProjectCfg {
             id: "1111111111111111".into(),
             name: "repo".into(),
             dir: repo.to_string_lossy().into_owned(),
             worktree_root: root.join("trees").to_string_lossy().into_owned(),
             ..Default::default()
         });
-        let binding = super::record_tests::select_records(&manager).await;
+        manager.replace_workspace_fixture(&cfg).await.unwrap();
+        let binding = manager.config_state.records.binding.clone();
         std::fs::write(&manager.cfg_path, "# root stays unchanged\n").unwrap();
         Self {
             manager,
@@ -128,10 +130,7 @@ async fn worktree_records_keep_main_derived_siblings_unchanged_and_ignore_extern
         f.manager.worktree_view_index().await[&first.id].path,
         renamed.path
     );
-    assert_eq!(
-        f.manager.load_worktrees().await.unwrap().worktrees[0].path,
-        renamed.path
-    );
+    assert_eq!(f.manager.worktree_records().worktrees[0].path, renamed.path);
     assert_eq!(
         std::fs::read_to_string(&f.manager.cfg_path).unwrap(),
         "# root stays unchanged\n"
@@ -248,10 +247,7 @@ async fn canceled_project_move_rolls_back_git_and_records_after_final_write_fail
         .ordered();
     assert_eq!(stored[0].phase, "ready");
     assert_eq!(stored[0].path, tree.path);
-    assert_eq!(
-        f.manager.load_worktrees().await.unwrap().worktrees[0].path,
-        tree.path
-    );
+    assert_eq!(f.manager.worktree_records().worktrees[0].path, tree.path);
     assert!(!f.binding.journal().unwrap().exists());
     drop(fault);
 }
@@ -289,7 +285,7 @@ async fn failed_git_rollback_retains_relocation_intent_instead_of_ready_stale_pa
     assert!(f.root.join("trees/renamed/checkout").exists());
     f.manager.recover_worktrees().await.unwrap();
     assert_eq!(
-        f.manager.load_worktrees().await.unwrap().worktrees[0].phase,
+        f.manager.worktree_records().worktrees[0].phase,
         "relocating"
     );
     assert!(
@@ -337,7 +333,7 @@ async fn removing_external_record_leaves_checkout_and_siblings_untouched() {
     f.manager
         .session_operation(async {
             let _worktrees = f.manager.worktrees.mutation.lock().await;
-            let mut store = f.manager.load_worktrees().await.unwrap();
+            let mut store = f.manager.worktree_records();
             store.worktrees[0].managed = false;
             f.manager.save_worktrees(&store).await.unwrap();
         })
@@ -396,10 +392,7 @@ async fn record_removal_refuses_dirty_or_attached_checkouts_and_retains_files() 
     assert!(format!("{error:#}").contains("untracked"));
     assert!(f.tree_path(&tree.id).exists());
     assert!(Path::new(&tree.path).join("untracked").exists());
-    assert_eq!(
-        f.manager.load_worktrees().await.unwrap().worktrees[0].phase,
-        "ready"
-    );
+    assert_eq!(f.manager.worktree_records().worktrees[0].phase, "ready");
     f.manager
         .update_cfg(ConfigMutation::HostShells, |cfg| {
             cfg.host_terminals.push(HostTerminalCfg {

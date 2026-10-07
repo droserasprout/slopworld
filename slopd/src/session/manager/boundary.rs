@@ -138,33 +138,6 @@ impl Manager {
             .expect("owned shared operation panicked")
     }
 
-    /// Only project metadata commits may inherit a shared session boundary.
-    /// Identity/auth mutations require an exclusive boundary. The persistence
-    /// gate still serializes candidates and publication in both cases.
-    pub(super) async fn owned_config_operation<F>(
-        self: &Arc<Self>,
-        project_only: bool,
-        operation: F,
-    ) -> F::Output
-    where
-        F: Future + Send + 'static,
-        F::Output: Send + 'static,
-    {
-        let owner = Arc::as_ptr(self) as usize;
-        if READ_OWNER
-            .try_with(|current| current.0 == owner)
-            .unwrap_or(false)
-            && !self.session_write_operation_active()
-        {
-            assert!(
-                project_only,
-                "identity configuration commit inside shared boundary"
-            );
-            return self.owned_session_read_operation(operation).await;
-        }
-        self.owned_session_operation(operation).await
-    }
-
     /// Transfer a prepared operation and its exclusive guard to an owned task.
     /// Nested callers share the guard, so cancellation cannot release identity
     /// protection before resource commit or cleanup finishes.

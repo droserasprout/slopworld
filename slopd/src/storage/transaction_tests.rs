@@ -94,31 +94,23 @@ fn changes() -> Vec<Change> {
 }
 
 #[tokio::test]
-async fn cross_root_commit_publishes_once_after_disk_and_keeps_siblings() {
+async fn cross_root_commit_keeps_siblings_and_retires_journal() {
     let f = Fixture::new();
     f.seed().await;
-    let binding = f.binding.clone();
-    let value = commit(
-        f.binding.clone(),
-        changes(),
-        f.gate.clone().lock_owned().await,
-        move || async move {
-            assert_eq!(
-                std::fs::read_to_string(&binding.settings).unwrap(),
-                "new settings"
-            );
-            assert!(!agent().resolve(&binding).unwrap().exists());
-            assert_eq!(
-                std::fs::read_to_string(created().resolve(&binding).unwrap()).unwrap(),
-                "new project"
-            );
-            assert!(!binding.journal().unwrap().exists());
-            7
-        },
-    )
-    .await
-    .unwrap();
-    assert_eq!(value, 7);
+    let gate = f.gate.clone().lock_owned().await;
+    commit_in_operation(&f.binding, changes(), &gate)
+        .await
+        .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&f.binding.settings).unwrap(),
+        "new settings"
+    );
+    assert!(!agent().resolve(&f.binding).unwrap().exists());
+    assert_eq!(
+        std::fs::read_to_string(created().resolve(&f.binding).unwrap()).unwrap(),
+        "new project"
+    );
+    assert!(!f.binding.journal().unwrap().exists());
     assert_eq!(
         read_optional(&sibling().resolve(&f.binding).unwrap())
             .await
@@ -141,7 +133,7 @@ async fn cross_root_commit_publishes_once_after_disk_and_keeps_siblings() {
 }
 
 #[tokio::test]
-async fn each_failed_mutation_restores_originals_and_does_not_publish() {
+async fn each_failed_mutation_restores_originals() {
     for index in 0..=3 {
         let f = Fixture::new();
         f.seed().await;
@@ -157,19 +149,10 @@ async fn each_failed_mutation_restores_originals_and_does_not_publish() {
     let f = Fixture::new();
     f.seed().await;
     let fault = crate::paths::fail_writes(&f.binding.settings);
-    let published = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let marker = published.clone();
-    commit(
-        f.binding.clone(),
-        changes(),
-        f.gate.clone().lock_owned().await,
-        move || async move {
-            marker.store(true, std::sync::atomic::Ordering::SeqCst);
-        },
-    )
-    .await
-    .unwrap_err();
-    assert!(!published.load(std::sync::atomic::Ordering::SeqCst));
+    let gate = f.gate.clone().lock_owned().await;
+    commit_in_operation(&f.binding, changes(), &gate)
+        .await
+        .unwrap_err();
     drop(fault);
     f.old_bytes().await;
 }
@@ -400,42 +383,6 @@ async fn configuration_and_data_on_different_filesystems_commit_and_recover() {
     let guard = f.gate.clone().lock_owned().await;
     recover(&f.binding, &guard).await.unwrap();
     f.old_bytes().await;
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn canceled_request_keeps_gate_until_committed_state_is_published() {
-    let f = Fixture::new();
-    f.seed().await;
-    let reached = Arc::new(tokio::sync::Notify::new());
-    let published = Arc::new(tokio::sync::Notify::new());
-    let release = Arc::new(std::sync::Barrier::new(2));
-    let binding = f.binding.clone();
-    let gate = f.gate.clone().lock_owned().await;
-    let request = tokio::spawn({
-        let reached = reached.clone();
-        let published = published.clone();
-        let release = release.clone();
-        async move {
-            commit(binding, changes(), gate, move || async move {
-                reached.notify_one();
-                release.wait();
-                published.notify_one();
-            })
-            .await
-        }
-    });
-    reached.notified().await;
-    assert_eq!(
-        read_optional(&f.binding.settings).await.unwrap().as_deref(),
-        Some("new settings")
-    );
-    request.abort();
-    assert!(request.await.unwrap_err().is_cancelled());
-    f.gate.try_lock().unwrap_err();
-    release.wait();
-    published.notified().await;
-    let _finished = f.gate.lock().await;
-    assert!(!f.binding.journal().unwrap().exists());
 }
 
 #[tokio::test]

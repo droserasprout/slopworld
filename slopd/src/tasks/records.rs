@@ -24,18 +24,9 @@ impl Records {
             directory,
             documents: HashMap::new(),
         };
-        let entries = match fs::read_dir(&store.directory) {
-            Ok(entries) => entries,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                return Ok((store, Vec::new()));
-            }
-            Err(error) => return Err(error).context("reading task records"),
-        };
-        let mut paths = entries
-            .map(|entry| entry.map(|entry| entry.path()))
-            .collect::<std::io::Result<Vec<_>>>()?;
+        let mut paths =
+            crate::paths::read_sorted_dir(&store.directory, Err).context("reading task records")?;
         paths.retain(|path| path.extension().is_some_and(|ext| ext == "toml"));
-        paths.sort();
         let mut values = Vec::new();
         for path in paths {
             let id = path

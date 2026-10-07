@@ -4,6 +4,10 @@ The daemon owns machine settings and workspace records. `config/settings.rs` own
 root settings; `config/model.rs` assembles client views. `storage/` owns record
 schemas, accepted indexes, targeted persistence and bound transaction recovery.
 `session/manager/config/` serializes validation, runtime effects and publication.
+`storage/layout.rs` recovers and loads the workspace once, then hands the validated
+configuration, typed record indexes and sampled library revision to the manager.
+The manager requires that backend from construction; it never reloads workspace
+records during initialization or ordinary mutations.
 
 The mod owns offline profile preferences. It reads `endpoint.toml` for credentials
 and uses daemon APIs; it must not read or rewrite daemon TOML. Locations and overrides

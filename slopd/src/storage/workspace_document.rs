@@ -1,43 +1,38 @@
 //! Project and checkout schemas and retained extensions. Mount extensions follow
 //! their destination, which is the unique ownership key of a project mount.
 use super::{
-    document::{preserve, retain_known},
+    document::{prepare, preserve, retain_known},
     target::{StorageBinding, Target},
     workspace::{project_target, worktree_target},
 };
 use crate::{config::ProjectCfg, worktrees::Worktree};
-use anyhow::{Context, Result, ensure};
-use serde::Serialize;
+use anyhow::{Result, ensure};
+use serde::{Serialize, de::DeserializeOwned};
 use std::{collections::HashSet, path::PathBuf};
 
-pub(crate) trait Record: Clone + Serialize {
-    type Scope: Copy + Default;
+pub(crate) trait Record: Clone + Serialize + DeserializeOwned {
     fn id(&self) -> &str;
-    fn directory(binding: &StorageBinding, _: Self::Scope) -> PathBuf;
-    fn target(id: &str, _: Self::Scope) -> Target;
+    fn directory(binding: &StorageBinding) -> PathBuf;
+    fn target(id: &str) -> Target;
     fn fields() -> &'static [&'static str];
     fn validate(&self) -> Result<()>;
     fn validate_collection(values: &[Self]) -> Result<()>;
-    fn decode(raw: &toml::Value, scope: Self::Scope) -> Result<Self>;
+    fn decode(raw: &toml::Value) -> Result<Self> {
+        Ok(raw.clone().try_into()?)
+    }
     fn document(&self, order: i64, old: Option<&toml::Value>) -> Result<toml::Value> {
-        let mut next = toml::Value::try_from(self)?;
-        next.as_table_mut()
-            .context("record must be a table")?
-            .insert("storage_order".into(), order.into());
-        preserve(&mut next, old, Self::fields());
-        Ok(next)
+        prepare(self, order, old, Self::fields())
     }
 }
 
 impl Record for ProjectCfg {
-    type Scope = ();
     fn id(&self) -> &str {
         &self.id
     }
-    fn directory(binding: &StorageBinding, (): Self::Scope) -> PathBuf {
+    fn directory(binding: &StorageBinding) -> PathBuf {
         binding.config.join("projects")
     }
-    fn target(id: &str, (): Self::Scope) -> Target {
+    fn target(id: &str) -> Target {
         project_target(id)
     }
     fn fields() -> &'static [&'static str] {
@@ -62,7 +57,7 @@ impl Record for ProjectCfg {
     fn validate_collection(values: &[Self]) -> Result<()> {
         crate::config::validate_project_names(values)
     }
-    fn decode(raw: &toml::Value, (): ()) -> Result<Self> {
+    fn decode(raw: &toml::Value) -> Result<Self> {
         let mut modeled = raw.clone();
         if let Some(mounts) = modeled
             .get_mut("mounts")
@@ -75,10 +70,7 @@ impl Record for ProjectCfg {
         Ok(modeled.try_into()?)
     }
     fn document(&self, order: i64, old: Option<&toml::Value>) -> Result<toml::Value> {
-        let mut next = toml::Value::try_from(self)?;
-        next.as_table_mut()
-            .context("record must be a table")?
-            .insert("storage_order".into(), order.into());
+        let mut next = prepare(self, order, old, Self::fields())?;
         if let Some(mounts) = next.get_mut("mounts").and_then(toml::Value::as_array_mut) {
             for mount in mounts {
                 let previous = old
@@ -88,23 +80,18 @@ impl Record for ProjectCfg {
                 preserve(mount, previous, &["from", "to", "mode"]);
             }
         }
-        preserve(&mut next, old, Self::fields());
         Ok(next)
     }
 }
 
 impl Record for Worktree {
-    type Scope = ();
-    fn decode(raw: &toml::Value, (): ()) -> Result<Self> {
-        Ok(raw.clone().try_into()?)
-    }
     fn id(&self) -> &str {
         &self.id
     }
-    fn directory(binding: &StorageBinding, (): Self::Scope) -> PathBuf {
+    fn directory(binding: &StorageBinding) -> PathBuf {
         binding.data.join("worktrees")
     }
-    fn target(id: &str, (): Self::Scope) -> Target {
+    fn target(id: &str) -> Target {
         worktree_target(id)
     }
     fn fields() -> &'static [&'static str] {

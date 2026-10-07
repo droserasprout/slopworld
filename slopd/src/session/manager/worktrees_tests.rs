@@ -370,7 +370,7 @@ async fn failed_removal_intent_preserves_external_checkout_and_catalog() {
         .remove_worktree("repo".into(), TREE.into())
         .await
         .unwrap();
-    assert!(manager.load_worktrees().await.unwrap().worktrees.is_empty());
+    assert!(manager.worktree_records().worktrees.is_empty());
     assert_eq!(
         std::fs::read_to_string(checkout.join("keep")).unwrap(),
         "external data"
@@ -425,14 +425,14 @@ async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
             .join(format!("data/worktrees/{TREE}.toml")),
     );
     removal.finish(&manager, Ok(())).await.unwrap_err();
-    let retained = manager.load_worktrees().await.unwrap();
+    let retained = manager.worktree_records();
     assert_eq!(retained.worktrees[0].id, SIBLING);
     assert_eq!(retained.worktrees[0].phase, "ready");
     assert_eq!(retained.worktrees[1].phase, "removing");
     drop(fault);
 
     manager.recover_worktrees().await.unwrap();
-    let recovered = manager.load_worktrees().await.unwrap();
+    let recovered = manager.worktree_records();
     assert_eq!(recovered.worktrees[1].phase, "error");
     let mut retry = WorktreeRemoval {
         project: ProjectCfg::default(),
@@ -442,7 +442,7 @@ async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
     };
     retry.record_intent(&manager).await.unwrap();
     retry.finish(&manager, Ok(())).await.unwrap();
-    let remaining = manager.load_worktrees().await.unwrap();
+    let remaining = manager.worktree_records();
     assert_eq!(remaining.worktrees.len(), 1);
     assert_eq!(remaining.worktrees[0].id, SIBLING);
 }

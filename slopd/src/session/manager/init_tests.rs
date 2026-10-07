@@ -1,7 +1,7 @@
 use super::*;
 
 #[tokio::test]
-async fn initialization_reconciles_sessions_before_pruning_persisted_credentials() {
+async fn initialization_retains_loaded_records_and_prunes_credentials_after_reconciliation() {
     let Some(root) = crate::test_support::isolated_with_env(|command, root| {
         // This test runs alone in a child process; never load the user's catalogs or tmux.
         for (key, value) in [
@@ -51,23 +51,17 @@ async fn initialization_reconciles_sessions_before_pruning_persisted_credentials
 
     // Seed current stores directly; initialization must not depend on a converter.
     let data = crate::paths::data_root();
-    std::fs::create_dir_all(data.join("agents")).unwrap();
-    std::fs::write(&path, toml::to_string(&cfg.settings).unwrap()).unwrap();
-    for (order, session) in cfg.sessions.iter().enumerate() {
-        let mut record = toml::Value::try_from(session).unwrap();
-        record
-            .as_table_mut()
-            .unwrap()
-            .insert("storage_order".into(), i64::try_from(order).unwrap().into());
-        std::fs::write(
-            data.join("agents")
-                .join(format!("{}.toml", session.state_id)),
-            toml::to_string(&record).unwrap(),
-        )
-        .unwrap();
-    }
+    seed_startup_records(&cfg, &path, &data);
     std::fs::rename(path.with_file_name("grants.toml"), data.join("grants.toml")).unwrap();
-    let manager = Manager::new(cfg.clone(), path.clone()).await.unwrap();
+    let binding = crate::storage::target::StorageBinding::resolved(&path).unwrap();
+    let loaded = crate::storage::layout::load(&binding).await.unwrap();
+    let kept_path = data
+        .join("agents")
+        .join(format!("{}.toml", cfg.sessions[0].state_id));
+    // Manager construction must adopt the validated indexes, not reload a second
+    // workspace snapshot after startup has already selected its configuration.
+    std::fs::write(&kept_path, "broken external edit after load").unwrap();
+    let manager = Manager::new(loaded).await.unwrap();
 
     let live = manager.live.read().await;
     assert_eq!(live.len(), 2);
@@ -89,6 +83,14 @@ async fn initialization_reconciles_sessions_before_pruning_persisted_credentials
         1
     );
 
+    manager
+        .set_label("kept", "after startup".into())
+        .await
+        .unwrap();
+    let saved: toml::Value = toml::from_str(&std::fs::read_to_string(kept_path).unwrap()).unwrap();
+    assert_eq!(saved["future"].as_str(), Some("retained extension"));
+    assert_eq!(saved["label"].as_str(), Some("after startup"));
+
     drop(manager);
     drop(seed);
     drop(
@@ -101,4 +103,26 @@ async fn initialization_reconciles_sessions_before_pruning_persisted_credentials
         !path.parent().unwrap().exists(),
         "fixture directory survived its owner"
     );
+}
+
+fn seed_startup_records(cfg: &Config, path: &Path, data: &Path) {
+    std::fs::create_dir_all(data.join("agents")).unwrap();
+    std::fs::write(path, toml::to_string(&cfg.settings).unwrap()).unwrap();
+    for (order, session) in cfg.sessions.iter().enumerate() {
+        let mut record = toml::Value::try_from(session).unwrap();
+        record
+            .as_table_mut()
+            .unwrap()
+            .insert("future".into(), "retained extension".into());
+        record
+            .as_table_mut()
+            .unwrap()
+            .insert("storage_order".into(), i64::try_from(order).unwrap().into());
+        std::fs::write(
+            data.join("agents")
+                .join(format!("{}.toml", session.state_id)),
+            toml::to_string(&record).unwrap(),
+        )
+        .unwrap();
+    }
 }

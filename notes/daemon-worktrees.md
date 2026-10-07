@@ -6,9 +6,10 @@
 `session/manager/directories.rs` owns uncommitted directory creation.
 
 Worktree creation retains its shared session boundary and worktree mutation guard
-in owned work through completion or rollback. Project-ID persistence inherits that
-shared boundary; it must not upgrade to an exclusive session lock while holding the
-worktree guard. Identity and authorization changes still require exclusive access.
+in owned work through completion or rollback. Accepted projects already have durable
+IDs; worktree creation reads them without a configuration transaction. Configuration
+commits require the exclusive session boundary; shared worktree operations must not
+upgrade it while holding the worktree guard.
 Project create/edit/remove and checkout rename/removal use the exclusive session
 boundary before the worktree mutation guard; configuration persistence comes last.
 Removal checks and effects remain in owned work after requester cancellation.

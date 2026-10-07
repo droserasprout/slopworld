@@ -25,10 +25,12 @@ pub(crate) fn test_manager_with_socket(
     let cfg_path = directory.join("config.toml");
     let records = super::config::backend::records::Records::fixture(&mut config, &cfg_path)
         .expect("record fixture");
-    let config_state = super::ConfigState::new(None, None);
-    *config_state.library_revision.lock().unwrap() =
-        crate::config::catalog::revision(&cfg_path).ok();
-    *config_state.records.lock().unwrap() = Some(records);
+    let config_state = super::ConfigState::new(
+        records,
+        crate::config::catalog::revision(&cfg_path).ok(),
+        None,
+        None,
+    );
     let (events, _) = broadcast::channel(16);
     Arc::new(Manager {
         frame_commit_pause: Mutex::new(None),

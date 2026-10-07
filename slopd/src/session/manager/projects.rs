@@ -36,7 +36,7 @@ impl Manager {
         settle(&mut p);
         p.id = self.allocate_project_identity().await?;
         check_project(&p)?;
-        self.update_cfg(ConfigMutation::ProjectReferences, |cfg| {
+        self.update_cfg(ConfigMutation::Projects, |cfg| {
             check_project_mounts(cfg, &p)?;
             if cfg.project(&p.name).is_some() {
                 bail!("project {} already exists", p.name);
@@ -75,11 +75,7 @@ impl Manager {
         if old_project.temp != p.temp {
             bail!("The daemon cannot change project temporary mode after creation.");
         }
-        p.id = if old_project.id.is_empty() {
-            self.allocate_project_identity().await?
-        } else {
-            old_project.id.clone()
-        };
+        p.id = old_project.id.clone();
         check_project(&p)?;
         check_project_mounts(&self.config().await, &p)?;
         let (store, planned, mut directories) = self
@@ -109,9 +105,7 @@ impl Manager {
                 if old_project.temp != p.temp {
                     bail!("The daemon cannot change project temporary mode after creation.");
                 }
-                if !old_project.id.is_empty() {
-                    p.id = old_project.id.clone();
-                }
+                p.id = old_project.id.clone();
                 check_project(&p)?;
                 check_project_mounts(cfg, &p)?;
                 if p.name != name && cfg.project(&p.name).is_some() {
@@ -168,7 +162,7 @@ impl Manager {
         Vec<(usize, crate::worktrees::Worktree)>,
         CreatedDirectories,
     )> {
-        let store = self.load_worktrees().await?;
+        let store = self.worktree_records();
         let mut planned = Vec::new();
         let mut directories = CreatedDirectories::default();
         if p.name != name {
@@ -239,8 +233,7 @@ impl Manager {
         if let Some(p) = cfg.project(name)
             && !p.id.is_empty()
             && self
-                .load_worktrees()
-                .await?
+                .worktree_records()
                 .worktrees
                 .iter()
                 .any(|w| w.project_id == p.id)

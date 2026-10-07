@@ -16,3 +16,19 @@ pub(crate) fn retain_known(value: &mut toml::Value, keys: &[&str]) {
         table.retain(|key, _| keys.contains(&key));
     }
 }
+
+/// Serialize modeled fields and retain only extensions from the old document.
+pub(super) fn prepare(
+    value: &impl serde::Serialize,
+    order: i64,
+    old: Option<&toml::Value>,
+    known: &[&str],
+) -> anyhow::Result<toml::Value> {
+    use anyhow::Context;
+    let mut next = toml::Value::try_from(value)?;
+    next.as_table_mut()
+        .context("record must be a table")?
+        .insert("storage_order".into(), order.into());
+    preserve(&mut next, old, known);
+    Ok(next)
+}

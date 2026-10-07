@@ -1016,7 +1016,7 @@ async fn removing_one_durable_session_does_not_autostart_an_unrelated_host_tab()
 #[tokio::test]
 async fn record_backend_rename_rolls_back_tmux_after_request_cancellation_and_retries() {
     let (manager, root, socket) = rename_fixture(true).await;
-    let binding = crate::session::manager::config::record_tests::select_records(&manager).await;
+    let binding = manager.config_state.records.binding.clone();
     let id = manager.config().await.sessions[0].state_id.clone();
     let path = binding.data.join("agents").join(format!("{id}.toml"));
     let before = std::fs::read(&path).unwrap();
@@ -1052,7 +1052,7 @@ async fn record_backend_rename_rolls_back_tmux_after_request_cancellation_and_re
 #[tokio::test]
 async fn record_backend_host_metadata_keeps_run_checks_and_targets_one_shell() {
     let manager = metadata_fixture().await;
-    let binding = crate::session::manager::config::record_tests::select_records(&manager).await;
+    let binding = manager.config_state.records.binding.clone();
     let cfg = manager.config().await;
     let agent = binding
         .data
@@ -1093,7 +1093,7 @@ async fn record_retirement_failure_restores_private_state_and_preserves_accepted
         return;
     };
     let (manager, root, socket) = rename_fixture(false).await;
-    let binding = crate::session::manager::config::record_tests::select_records(&manager).await;
+    let binding = manager.config_state.records.binding.clone();
     let session = manager.config().await.sessions[0].clone();
     let state = crate::sandbox::state_dir(&session).unwrap();
     std::fs::create_dir_all(&state).unwrap();

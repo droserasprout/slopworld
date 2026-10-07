@@ -1,11 +1,25 @@
 //! Startup assembly of independently owned stores. No legacy conversion or live polling.
-use super::{
-    sessions::{Definition, Kind, Store},
-    target::StorageBinding,
-    workspace,
-};
-use crate::config::Config;
+use super::{target::StorageBinding, transaction, workspace::Store};
+use crate::config::{Config, HostTerminalCfg, ProjectCfg, SessionCfg, catalog};
+use crate::worktrees::Worktree;
 use anyhow::{Context, Result, ensure};
+
+/// Validated startup state transfers its accepted indexes into the manager.
+#[derive(Debug)]
+pub(crate) struct Loaded {
+    pub(crate) config: Config,
+    pub(crate) binding: StorageBinding,
+    pub(crate) stores: Stores,
+    pub(crate) library_revision: Option<catalog::Revision>,
+}
+
+#[derive(Debug)]
+pub(crate) struct Stores {
+    pub(crate) agents: Store<SessionCfg>,
+    pub(crate) hosts: Store<HostTerminalCfg>,
+    pub(crate) projects: Store<ProjectCfg>,
+    pub(crate) worktrees: Store<Worktree>,
+}
 
 async fn reject_retired(binding: &StorageBinding) -> Result<()> {
     ensure!(
@@ -46,7 +60,12 @@ async fn occupied(path: &std::path::Path) -> Result<bool> {
     }
 }
 
-pub(crate) async fn load(binding: &StorageBinding) -> Result<Config> {
+/// The daemon reserves its endpoints before calling this recovery/loading stage.
+pub(crate) async fn load(binding: &StorageBinding) -> Result<Loaded> {
+    let gate = std::sync::Arc::new(tokio::sync::Mutex::new(()))
+        .lock_owned()
+        .await;
+    transaction::recover(binding, &gate).await?;
     reject_retired(binding).await?;
     let text = match tokio::fs::read_to_string(&binding.settings).await {
         Ok(text) => text,
@@ -56,35 +75,36 @@ pub(crate) async fn load(binding: &StorageBinding) -> Result<Config> {
     let mut cfg = crate::config::settings::document::replace(&Config::default(), &text)
         .context("loading settings; inline workspace sections are no longer supported")?
         .candidate;
-    cfg.projects = workspace::Store::<crate::config::ProjectCfg>::load(binding)
-        .await?
-        .ordered();
-    cfg.sessions = Store::load(binding, Kind::Agent)
-        .await?
-        .ordered()
-        .into_iter()
-        .filter_map(|row| match row {
-            Definition::Agent(row) => Some(*row),
-            _ => None,
-        })
-        .collect();
-    cfg.host_terminals = Store::load(binding, Kind::HostShell)
-        .await?
-        .ordered()
-        .into_iter()
-        .filter_map(|row| match row {
-            Definition::HostShell(row) => Some(row),
-            _ => None,
-        })
-        .collect();
-    cfg.library = Config::load_library_for(&binding.config.join("config.toml")).await?;
-    validate(
-        &cfg,
-        &workspace::Store::<crate::worktrees::Worktree>::load(binding)
-            .await?
-            .ordered(),
-    )?;
-    Ok(cfg)
+    let stores = Stores {
+        projects: Store::load(binding).await?,
+        agents: Store::load(binding).await?,
+        hosts: Store::load(binding).await?,
+        worktrees: Store::load(binding).await?,
+    };
+    cfg.projects = stores.projects.ordered();
+    cfg.sessions = stores.agents.ordered();
+    cfg.host_terminals = stores.hosts.ordered();
+    let anchor = binding.config.join("config.toml");
+    let revision = catalog::revision(&anchor).ok();
+    cfg.library = Config::load_library_for(&anchor).await?;
+    // Never accept a revision sampled after loading different catalog contents.
+    let library_revision =
+        revision.filter(|stamp| catalog::revision(&anchor).ok().as_ref() == Some(stamp));
+    validate(&cfg, &stores.worktrees.ordered())?;
+    if !tokio::fs::try_exists(&binding.settings).await? {
+        crate::paths::create_atomic_async(
+            &binding.settings,
+            &toml::to_string_pretty(&cfg.settings)?,
+            Some(0o600),
+        )
+        .await?;
+    }
+    Ok(Loaded {
+        config: cfg,
+        binding: binding.clone(),
+        stores,
+        library_revision,
+    })
 }
 
 pub(crate) fn validate(cfg: &Config, worktrees: &[crate::worktrees::Worktree]) -> Result<()> {

@@ -3,7 +3,6 @@
 
 use super::Config;
 use crate::storage::{
-    sessions::{Definition, Kind, Store},
     target::{StorageBinding, Target},
     transaction::{self, Change, Mutation},
     workspace,
@@ -45,26 +44,18 @@ pub(crate) async fn save(cfg: &Config, path: &Path) -> Result<()> {
             .prepare(projects)?
             .changes,
     );
-    for (kind, values) in [
-        (
-            Kind::Agent,
-            cfg.sessions
-                .iter()
-                .cloned()
-                .map(|row| Definition::Agent(Box::new(row)))
-                .collect::<Vec<_>>(),
-        ),
-        (
-            Kind::HostShell,
-            cfg.host_terminals
-                .iter()
-                .cloned()
-                .map(Definition::HostShell)
-                .collect(),
-        ),
-    ] {
-        changes.extend(Store::load(&binding, kind).await?.prepare(values)?.changes);
-    }
+    changes.extend(
+        workspace::Store::load(&binding)
+            .await?
+            .prepare(cfg.sessions.clone())?
+            .changes,
+    );
+    changes.extend(
+        workspace::Store::load(&binding)
+            .await?
+            .prepare(cfg.host_terminals.clone())?
+            .changes,
+    );
 
     let dirs = Config::library_dirs_for(path);
     for (path, text) in super::catalog::replacement_changes(
@@ -79,4 +70,22 @@ pub(crate) async fn save(cfg: &Config, path: &Path) -> Result<()> {
         });
     }
     transaction::commit_in_operation(&binding, changes, &gate).await
+}
+
+/// Build an initial accepted index using production record preparation. This is
+/// offline fixture seeding, before a manager or recovery journal can exist.
+pub(crate) fn seed<T: workspace::Record>(
+    binding: &StorageBinding,
+    values: Vec<T>,
+) -> Result<workspace::Store<T>> {
+    let mut store = workspace::Store::empty();
+    let plan = store.prepare(values)?;
+    for change in &plan.changes {
+        let Mutation::Create(text) = &change.mutation else {
+            anyhow::bail!("initial fixture must create records");
+        };
+        crate::paths::write_private_toml(&change.target.resolve(binding)?, text)?;
+    }
+    store.publish(plan);
+    Ok(store)
 }

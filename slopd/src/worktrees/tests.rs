@@ -320,11 +320,11 @@ async fn ignored_data_detached_head_and_crash_records_are_preserved() {
     );
     assert_eq!(manager.worktree_list("repo").await.unwrap()[1].branch, "");
     // Restart recovery reports an interrupted operation without committing, deleting or relaunching.
-    let mut store = manager.load_worktrees().await.unwrap();
+    let mut store = manager.worktree_records();
     store.worktrees[0].phase = "removing".into();
     manager.save_worktrees(&store).await.unwrap();
     manager.recover_worktrees().await.unwrap();
-    let recovered = manager.load_worktrees().await.unwrap();
+    let recovered = manager.worktree_records();
     assert_eq!(recovered.worktrees[0].phase, "error");
     assert!(path.join("file").exists());
     assert!(manager.config().await.sessions.is_empty());
@@ -395,7 +395,7 @@ async fn assert_rejected_managed_worktree_names(
     .unwrap_err();
     assert!(collision.to_string().contains("already exists"));
     assert!(!root.join(".worktrees").exists());
-    assert!(manager.load_worktrees().await.unwrap().worktrees.is_empty());
+    assert!(manager.worktree_records().worktrees.is_empty());
 }
 
 async fn create_managed_worktrees(
@@ -505,14 +505,11 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
     }))
     .await
     .unwrap();
-    let mut store = manager.load_worktrees().await.unwrap();
+    let mut store = manager.worktree_records();
     store.worktrees[0].phase = "allocating".into();
     manager.save_worktrees(&store).await.unwrap();
     manager.recover_worktrees().await.unwrap();
-    assert_eq!(
-        manager.load_worktrees().await.unwrap().worktrees[0].phase,
-        "ready"
-    );
+    assert_eq!(manager.worktree_records().worktrees[0].phase, "ready");
     let mut project = manager.config().await.projects[0].clone();
     project.name = "renamed".into();
     manager.update_project("repo", project).await.unwrap();
@@ -750,16 +747,10 @@ async fn relocation_rollback_restores_checkout_registration_and_catalog() {
     let mut relocation = relocation::Relocations::new(store, vec![(0, moved.clone())])
         .expect("test relocation uses a catalog entry that exists");
     relocation.execute(manager.as_ref()).await.unwrap();
-    assert_eq!(
-        manager.load_worktrees().await.unwrap().worktrees[0].path,
-        moved.path
-    );
+    assert_eq!(manager.worktree_records().worktrees[0].path, moved.path);
     relocation.rollback(manager.as_ref()).await.unwrap();
     assert!(!destination.exists());
-    assert_eq!(
-        manager.load_worktrees().await.unwrap().worktrees[0].path,
-        original.path
-    );
+    assert_eq!(manager.worktree_records().worktrees[0].path, original.path);
     assert_eq!(
         git(&source, &["rev-parse", "--show-toplevel"])
             .await

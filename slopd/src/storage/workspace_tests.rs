@@ -112,18 +112,18 @@ async fn discovery_preserves_array_order_and_rejects_bad_identity_order_and_alia
         original.replace("storage_order = 0", "storage_order = 1"),
     )
     .unwrap();
-    assert!(Store::<ProjectCfg>::load(&binding).await.is_err());
+    Store::<ProjectCfg>::load(&binding).await.unwrap_err();
     std::fs::write(
         &first,
         original.replace("ffffffffffffffff", "2222222222222222"),
     )
     .unwrap();
-    assert!(Store::<ProjectCfg>::load(&binding).await.is_err());
+    Store::<ProjectCfg>::load(&binding).await.unwrap_err();
     std::fs::remove_file(&first).unwrap();
     let outside = root.join("outside.toml");
     std::fs::write(&outside, original).unwrap();
     std::os::unix::fs::symlink(&outside, &first).unwrap();
-    assert!(Store::<ProjectCfg>::load(&binding).await.is_err());
+    Store::<ProjectCfg>::load(&binding).await.unwrap_err();
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -144,7 +144,7 @@ future = "mount"
 "#,
     )
     .unwrap();
-    let mut project = ProjectCfg::decode(&raw, ()).unwrap();
+    let mut project = ProjectCfg::decode(&raw).unwrap();
     project.mounts[0].from = "/tmp/changed".into();
     let edited = project.document(0, Some(&raw)).unwrap();
     assert_eq!(edited["mounts"][0]["future"].as_str(), Some("mount"));

@@ -7,7 +7,14 @@ use super::{
 
 impl Manager {
     /// Load stores, recover worktrees, and reconcile configured sessions.
-    pub async fn new(cfg: Config, cfg_path: PathBuf) -> Result<Arc<Self>> {
+    pub(crate) async fn new(loaded: crate::storage::layout::Loaded) -> Result<Arc<Self>> {
+        let crate::storage::layout::Loaded {
+            config: cfg,
+            binding,
+            stores,
+            library_revision,
+        } = loaded;
+        let cfg_path = binding.settings.clone();
         let (events, _) = broadcast::channel(256);
 
         // Catalog stamps seed the maintenance reload checks.
@@ -16,16 +23,16 @@ impl Manager {
         let jukebox_mtime = crate::paths::dir_stamp(&crate::jukebox::Catalog::dir());
 
         // Load persisted stores before constructing shared state.
-        let grants = crate::grant::Grants::load_data(&cfg_path, &crate::paths::data_root())
+        let grants = crate::grant::Grants::load_data(&cfg_path, &binding.data)
             .with_context(|| format!("loading grant store for {}", cfg_path.display()))?;
-        let task_path = crate::paths::data_root();
+        let task_path = binding.data.clone();
         let tasks =
             tokio::task::spawn_blocking(move || crate::tasks::Tasks::load_records(&task_path))
                 .await
                 .context("task startup owner panicked")?
                 .with_context(|| format!("loading task store for {}", cfg_path.display()))?;
         let title_cache = crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path));
-        let template_path = crate::paths::config_root().join("agent_templates");
+        let template_path = binding.config.join("agent_templates");
         let templates = crate::session::AgentTemplateStore::load(&template_path)
             .await
             .with_context(|| format!("loading agent template store {}", template_path.display()))?;
@@ -55,6 +62,8 @@ impl Manager {
             cfg: RwLock::new(cfg),
             templates: TemplateStore::new(templates),
             config_state: ConfigState::new(
+                super::config::backend::records::Records::new(binding, stores),
+                library_revision,
                 presets_loaded.then_some(presets_mtime).flatten(),
                 jukebox_loaded.then_some(jukebox_mtime).flatten(),
             ),
@@ -74,11 +83,6 @@ impl Manager {
             worktrees: WorktreeState::default(),
             title_cache,
         });
-
-        m.load_record_backend(crate::storage::target::StorageBinding::resolved(
-            &m.cfg_path,
-        )?)
-        .await?;
 
         m.recover_runtime().await;
 

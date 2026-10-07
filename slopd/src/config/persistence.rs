@@ -73,32 +73,10 @@ impl Config {
         crate::paths::config_file()
     }
 
-    pub(crate) async fn load_records(path: &Path) -> Result<Self> {
-        let binding = crate::storage::target::StorageBinding::resolved(path)?;
-        let gate = std::sync::Arc::new(tokio::sync::Mutex::new(()))
-            .lock_owned()
-            .await;
-        crate::storage::transaction::recover(&binding, &gate).await?;
-        let cfg = crate::storage::layout::load(&binding).await?;
-        if !tokio::fs::try_exists(path).await? {
-            crate::paths::create_atomic_async(
-                path,
-                &toml::to_string_pretty(&cfg.settings)?,
-                Some(0o600),
-            )
-            .await?;
-        }
-        Ok(cfg)
-    }
-
     #[cfg(test)]
     pub async fn load(path: &Path) -> Result<Self> {
         let binding = super::fixtures::binding(path)?;
-        let gate = std::sync::Arc::new(tokio::sync::Mutex::new(()))
-            .lock_owned()
-            .await;
-        crate::storage::transaction::recover(&binding, &gate).await?;
-        crate::storage::layout::load(&binding).await
+        Ok(crate::storage::layout::load(&binding).await?.config)
     }
 
     #[cfg(test)]

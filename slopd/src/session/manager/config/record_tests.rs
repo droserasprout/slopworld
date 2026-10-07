@@ -2,20 +2,7 @@
 
 use super::*;
 use crate::config::HostTerminalCfg;
-use crate::storage::{
-    sessions::{Definition, Kind, Store},
-    target::StorageBinding,
-};
-
-pub(in crate::session::manager) async fn select_records(manager: &Arc<Manager>) -> StorageBinding {
-    let root = manager.cfg_path.parent().unwrap();
-    let binding = StorageBinding::new(root, &root.join("data"), &manager.cfg_path).unwrap();
-    crate::config::fixtures::save(&manager.config().await, &manager.cfg_path)
-        .await
-        .unwrap();
-    manager.load_record_backend(binding.clone()).await.unwrap();
-    binding
-}
+use crate::storage::{target::StorageBinding, workspace::Store};
 
 struct Fixture {
     manager: Arc<Manager>,
@@ -49,7 +36,7 @@ impl Fixture {
             }],
             ..Default::default()
         });
-        let binding = select_records(&manager).await;
+        let binding = manager.config_state.records.binding.clone();
         crate::paths::write_atomic_async(&manager.cfg_path, "# untouched root\n", Some(0o600))
             .await
             .unwrap();
@@ -96,10 +83,9 @@ async fn manager_routes_rename_label_and_directory_updates_without_touching_othe
         .await
         .unwrap();
     assert_eq!(f.agent_path("renamed").await, agent);
-    let stored = Store::load(&f.binding, Kind::Agent).await.unwrap();
-    let Definition::Agent(row) = &stored.ordered()[0] else {
-        panic!()
-    };
+    let stored = Store::<SessionCfg>::load(&f.binding).await.unwrap();
+    let rows = stored.ordered();
+    let row = &rows[0];
     assert_eq!(row.name, "renamed");
     assert_eq!(row.label.as_deref(), Some("new label"));
     let agent_bytes = tokio::fs::read(&agent).await.unwrap();
@@ -275,10 +261,9 @@ async fn cancellation_after_disk_commit_still_publishes_config_and_record_indexe
         })
         .await
         .unwrap();
-    let loaded = Store::load(&f.binding, Kind::Agent).await.unwrap();
-    let Definition::Agent(row) = &loaded.ordered()[0] else {
-        panic!()
-    };
+    let loaded = Store::<SessionCfg>::load(&f.binding).await.unwrap();
+    let rows = loaded.ordered();
+    let row = &rows[0];
     assert_eq!(row.label.as_deref(), Some("committed"));
     assert_eq!(row.args.as_deref(), Some("--next"));
 }

@@ -1,7 +1,6 @@
 //! Worktree operations do not depend on task outcomes or worker lifetimes.
 use super::super::*;
 use super::directories::CreatedDirectories;
-use crate::session::manager::config::ConfigMutation;
 use crate::worktrees::{Store, Worktree, git};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
@@ -47,15 +46,12 @@ struct PreparedWorktree {
 
 impl Manager {
     /// Read the accepted index under session/worktree operation guards.
-    pub(crate) async fn load_worktrees(&self) -> Result<Store> {
-        Ok(self
-            .record_backend()
-            .context("record backend missing")?
-            .worktrees())
+    pub(crate) fn worktree_records(&self) -> Store {
+        self.config_state.records.worktrees()
     }
 
     pub(crate) async fn save_worktrees(&self, store: &Store) -> Result<()> {
-        let records = self.record_backend().context("record backend missing")?;
+        let records = &self.config_state.records;
         let gate = self.config_state.persist.clone().lock_owned().await;
         records.save_worktrees(store.worktrees.clone(), &gate).await
     }
@@ -74,7 +70,7 @@ impl Manager {
             let p = cfg
                 .project(&project)
                 .ok_or_else(|| anyhow!("no project {project}"))?;
-            let store = manager.load_worktrees().await?;
+            let store = manager.worktree_records();
             let index = store
                 .worktrees
                 .iter()
@@ -122,9 +118,8 @@ impl Manager {
     /// Build the view from accepted records; offline changes load at startup.
     pub(super) async fn worktree_view_index(&self) -> Arc<HashMap<String, Worktree>> {
         Arc::new(
-            self.record_backend()
-                .map(|records| records.worktrees().worktrees)
-                .unwrap_or_default()
+            self.worktree_records()
+                .worktrees
                 .into_iter()
                 .map(|row| (row.id.clone(), row))
                 .collect(),
@@ -137,7 +132,7 @@ impl Manager {
         };
         let path = absolute_path(raw_path)?;
         let path = path.canonicalize().unwrap_or(path);
-        let store = self.load_worktrees().await?;
+        let store = self.worktree_records();
         Ok(store
             .worktrees
             .iter()
@@ -227,7 +222,7 @@ impl Manager {
 
     pub(crate) async fn recover_worktrees(&self) -> Result<()> {
         let _lock = self.worktrees.mutation.lock().await;
-        let mut store = self.load_worktrees().await?;
+        let mut store = self.worktree_records();
         let mut changed = false;
         for w in &mut store.worktrees {
             if !["allocating", "removing"].contains(&w.phase.as_str()) {
@@ -263,16 +258,7 @@ impl Manager {
     }
 
     pub(super) async fn validate_worktree_config(&self, old: &Config, new: &Config) -> Result<()> {
-        let store = self.load_worktrees().await?;
-        self.validate_worktree_snapshot(old, new, &store).await
-    }
-
-    pub(super) async fn validate_worktree_snapshot(
-        &self,
-        old: &Config,
-        new: &Config,
-        store: &Store,
-    ) -> Result<()> {
+        let store = self.worktree_records();
         // Worker removal validates the whole candidate. Index cross-references
         // once so sessions and worker-owned worktrees do not multiply scans.
         let old_sessions = old.session_index();
@@ -343,7 +329,7 @@ impl Manager {
         if id.is_empty() || id == "main" {
             return Ok(p.clone());
         }
-        let store = self.load_worktrees().await?;
+        let store = self.worktree_records();
         let w = store
             .worktrees
             .iter()
@@ -435,8 +421,7 @@ impl Manager {
             ..Default::default()
         }];
         rows.extend(
-            self.load_worktrees()
-                .await?
+            self.worktree_records()
                 .worktrees
                 .into_iter()
                 .filter(|w| !p.id.is_empty() && w.project_id == p.id),
@@ -498,35 +483,14 @@ impl Manager {
     }
 
     async fn prepare_worktree(self: &Arc<Self>, q: &WorktreeRequest) -> Result<PreparedWorktree> {
-        let needs_id = self
+        // Accepted projects already own a durable identity. Worktree creation
+        // only reads it while holding the shared session and worktree guards.
+        let project = self
             .config()
             .await
             .project(&q.project)
-            .is_some_and(|p| p.id.is_empty());
-        let new_id = if needs_id {
-            Some(self.allocate_project_identity().await?)
-        } else {
-            None
-        };
-        let project = self
-            .update_cfg_if_changed_inner(ConfigMutation::Projects, |cfg| {
-                let project = cfg
-                    .projects
-                    .iter_mut()
-                    .find(|project| project.name == q.project)
-                    .ok_or_else(|| anyhow!("no project {}", q.project))?;
-                if project.id.is_empty() {
-                    project.id = new_id
-                        .clone()
-                        .context("missing allocated project identity")?;
-                }
-                anyhow::ensure!(
-                    crate::storage_id::valid(&project.id),
-                    "invalid project identity"
-                );
-                Ok((project.clone(), needs_id))
-            })
-            .await?;
+            .cloned()
+            .ok_or_else(|| anyhow!("no project {}", q.project))?;
         let root = PathBuf::from(expand(&project.dir)).canonicalize()?;
         let repository = git(
             &root,
@@ -603,7 +567,7 @@ impl Manager {
             mut worktree,
         } = prepared;
         let mut directories = CreatedDirectories::default();
-        let mut store = self.load_worktrees().await?;
+        let mut store = self.worktree_records();
         if store
             .worktrees
             .iter()
@@ -688,7 +652,7 @@ impl Manager {
             .project(project)
             .ok_or_else(|| anyhow!("no project {project}"))?
             .clone();
-        let store = self.load_worktrees().await?;
+        let store = self.worktree_records();
         let index = store
             .worktrees
             .iter()

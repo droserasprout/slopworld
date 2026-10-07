@@ -53,7 +53,7 @@ impl Manager {
             .await
     }
 
-    pub(super) async fn update_cfg_if_changed_inner<T>(
+    async fn update_cfg_if_changed_inner<T>(
         self: &Arc<Self>,
         mutation: ConfigMutation,
         update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
@@ -73,7 +73,7 @@ impl Manager {
         update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
     ) -> Result<(T, Option<PreparedConfigChange>)> {
         let persist = self.config_state.persist.clone().lock_owned().await;
-        self.recover_config_backend(&persist).await?;
+        self.config_state.records.recover(&persist).await?;
         let old = self.cfg.read().await.clone();
         let mut candidate = old.clone();
         let (result, changed) = update(&mut candidate)?;
@@ -118,10 +118,9 @@ impl Manager {
         prepared: PreparedConfigChange,
     ) -> Result<()> {
         let manager = self.clone();
-        self.owned_config_operation(
-            matches!(prepared.mutation, ConfigMutation::Projects),
-            Box::pin(async move { manager.commit_prepared_cfg_inner(prepared).await }),
-        )
+        self.owned_session_operation(Box::pin(async move {
+            manager.commit_prepared_cfg_inner(prepared).await
+        }))
         .await
     }
 
@@ -136,7 +135,7 @@ impl Manager {
         let old = self.cfg.read().await.clone();
         let store = match worktrees {
             Some(store) => store,
-            None => self.load_worktrees().await?,
+            None => self.worktree_records(),
         };
         let links = cache::reconcile_store_links(&store, &old, &change.new)?;
         if let Err(error) = disk.commit(&_persist).await {
@@ -186,7 +185,7 @@ impl Manager {
         let manager = self.clone();
         self.owned_session_operation(async move {
             let gate = manager.config_state.persist.clone().lock_owned().await;
-            let records = manager.record_backend().context("record backend missing")?;
+            let records = &manager.config_state.records;
             records.recover(&gate).await?;
             let old = manager.config().await;
             let prepared = if let Some(patch) = patch {
@@ -224,41 +223,34 @@ impl Manager {
         if self.session_request_active() {
             return false;
         }
-        let Some(records) = self.record_backend() else {
-            return false;
-        };
-        self.reload_record_libraries(records).await
+        self.reload_record_libraries().await
     }
 
     pub(super) async fn reload_if_stale(self: &Arc<Self>) {
-        if let Some(records) = self.record_backend() {
-            let revision =
-                crate::config::catalog::revision(&records.binding.config.join("config.toml")).ok();
-            // This is only a read-request shortcut, never publication. A pending
-            // undo journal always goes through recovery before revision acceptance.
-            if records
-                .binding
-                .journal()
-                .is_ok_and(|path| matches!(path.try_exists(), Ok(false)))
-                && revision.is_some()
-                && *self
-                    .config_state
-                    .library_revision
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    == revision
-            {
-                return;
-            }
+        let records = &self.config_state.records;
+        let revision =
+            crate::config::catalog::revision(&records.binding.config.join("config.toml")).ok();
+        // This is only a read-request shortcut, never publication. A pending
+        // undo journal always goes through recovery before revision acceptance.
+        if records
+            .binding
+            .journal()
+            .is_ok_and(|path| matches!(path.try_exists(), Ok(false)))
+            && revision.is_some()
+            && *self
+                .config_state
+                .library_revision
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                == revision
+        {
+            return;
         }
         self.reload_if_changed().await;
     }
 
     async fn mark_saved_library(&self, expected: &Config) {
-        let anchor = self.record_backend().map_or_else(
-            || self.cfg_path.clone(),
-            |records| records.binding.config.join("config.toml"),
-        );
+        let anchor = self.config_state.records.binding.config.join("config.toml");
         let revision = crate::config::catalog::revision(&anchor).ok();
         let matches = match Config::load_library_for(&anchor).await {
             Ok(mut actual) => {

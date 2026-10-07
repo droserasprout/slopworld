@@ -33,7 +33,7 @@ async fn cancelled_worker_request_cleans_up_its_unattached_new_worktree() {
     });
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            if manager.load_worktrees().await.unwrap().worktrees.is_empty() {
+            if manager.worktree_records().worktrees.is_empty() {
                 break;
             }
             tokio::task::yield_now().await;

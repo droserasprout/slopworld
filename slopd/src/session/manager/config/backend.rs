@@ -38,19 +38,12 @@ impl PreparedDisk {
 }
 
 impl Manager {
-    pub(super) async fn recover_config_backend(&self, gate: &OwnedMutexGuard<()>) -> Result<()> {
-        self.record_backend()
-            .context("record backend missing")?
-            .recover(gate)
-            .await
-    }
-
     pub(super) async fn prepare_config_disk(
         &self,
         mutation: ConfigMutation,
         next: &Config,
     ) -> Result<PreparedDisk> {
-        let records = self.record_backend().context("record backend missing")?;
+        let records = &self.config_state.records;
         if matches!(mutation, ConfigMutation::Library) {
             let revision =
                 crate::config::catalog::revision(&records.binding.config.join("config.toml"))?;

@@ -142,13 +142,7 @@ pub(crate) type Revision = Vec<(PathBuf, u64, std::time::SystemTime)>;
 pub(crate) fn revision(config: &Path) -> Result<Revision> {
     let mut result = Vec::new();
     for (_, directory) in super::Config::library_dirs_for(config) {
-        let entries = match std::fs::read_dir(directory) {
-            Ok(entries) => entries,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
-            Err(e) => return Err(e.into()),
-        };
-        for entry in entries {
-            let path = entry?.path();
+        for path in crate::paths::read_sorted_dir(&directory, Err)? {
             if path.extension().is_some_and(|ext| ext == "toml") {
                 let metadata = std::fs::metadata(&path)?;
                 result.push((path, metadata.len(), metadata.modified()?));
