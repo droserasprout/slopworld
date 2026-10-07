@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/src/images/slopworld.png" alt="SlopWorld logo" width="32" height="32">
+  <img src="docs/src/images/slopworld.png" alt="SlopWorld logo" width="64" height="64">
 </p>
 
 <h1 align="center">SlopWorld</h1>
@@ -10,20 +10,23 @@ SlopWorld is a fun terminal-focused IDE for agentic coding, built on RimWorld.
 Your agents' sessions appear as colonists. Select one to open its terminal and give
 it work.
 
-- Run agent CLIs and shells, group them by project, and switch between terminals.
+- Run agent CLIs, shells, and tools in persistent terminal sessions.
 - Manage projects, mounts, and Git worktrees for parallel work.
+- Configure sandboxing and network access per agent.
 - Browse files, search code, review diffs, and commit changes.
-- Hand off tasks between agents.
+- Hand off tasks between agents and track completion.
 - Customize fonts, colors, and the UI layout.
+- Enjoy the original soundtrack or tune to internet radio.
 
 ## What's inside
 
 Your favorite Linux tooling, well-integrated:
 
-- **tmux** for terminal multiplexing and persistent sessions.
+- **Alacritty** for terminal emulation.
+- **tmux** for multiplexing and persistent sessions.
 - **Bubblewrap** for sandboxing and controlling filesystem access.
-- **passt**, via **pasta**, for networking in private sandboxes.
-- **Git** for version control and worktrees.
+- **pasta** for networking in private sandboxes.
+- **git** for version control and worktrees.
 - Small UNIX friends: pagers, highlighters, ripgrep, git-delta.
 
 SlopWorld consists of three components:
@@ -39,13 +42,17 @@ on [Steam](https://store.steampowered.com/app/294100/RimWorld/),
 [GOG](https://www.gog.com/en/game/rimworld), or
 [directly from Ludeon Studios](https://rimworldgame.com/).
 
-See the [requirements](docs/src/requirements.md) and
-[installation guide](docs/src/install.md), or follow the [macOS](docs/src/guides/macos.md)
+For Linux host, see the [requirements](docs/src/requirements.md) and
+[installation guide](docs/src/install.md).
+
+For experimental sidecar mode (`slopd` in Docker) follow the [macOS](docs/src/guides/macos.md)
 and [sidecar worker](docs/src/guides/sidecar.md) guides.
 
 ### From binaries
 
-See the [Debian and Ubuntu instructions](docs/src/install.md#debian-and-ubuntu)
+Binary packages for Arch and deb-based distros are published to [GitHub Releases](https://github.com/droserasprout/slopworld/releases).
+
+See the [instructions](docs/src/install.md#debian-and-ubuntu)
 for installing a package, attaching the mod, and starting the daemon.
 
 ### From source
@@ -60,10 +67,9 @@ RIMWORLD=/path/to/RimWorld/game just install
 slopworld
 ```
 
-`RIMWORLD` defaults to `~/GOG Games/RimWorld/game`. If you bought the game from
-GOG, run `just gogdl-login gogdl-install` to install it automatically.
+`RIMWORLD` defaults to `~/GOG Games/RimWorld/game`.
 
-Always start the game with `slopworld`. The mod requires a SlopWorld game profile.
+Always start the "game" with `slopworld`. The mod only activates in a separate profile and should stay disabled in vanilla installation.
 
 ## License
 
