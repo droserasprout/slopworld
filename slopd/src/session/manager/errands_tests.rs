@@ -1,5 +1,101 @@
 use super::*;
 
+fn editor_request() -> (Config, LibraryItemCfg, RunWhere) {
+    let cfg = Config {
+        projects: vec![ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let item = LibraryItemCfg {
+        name: "edit-file.rs".into(),
+        project: "repo".into(),
+        host: true,
+        kind: LibraryItemKind::Shell,
+        command: Some("micro /tmp/file.rs".into()),
+        ..Default::default()
+    };
+    let want = RunWhere {
+        intent: "edit".into(),
+        reader_path: "/tmp/file.rs".into(),
+        reader_scope: "scope/id/main".into(),
+        ..Default::default()
+    };
+    (cfg, item, want)
+}
+
+#[tokio::test]
+async fn editor_reopens_share_running_session_but_not_other_readers_or_stopped_runs() {
+    let (cfg, item, mut want) = editor_request();
+    let manager = crate::session::test_manager(cfg.clone());
+    let name = manager
+        .create_errand_session(&cfg, &item, &want, true, false, "")
+        .await
+        .unwrap();
+    manager.live.write().await.get_mut(&name).unwrap().state = State::Working;
+    want.reader_line = 12;
+    let (first, second) = tokio::join!(
+        manager.create_errand_session(&cfg, &item, &want, true, false, ""),
+        manager.create_errand_session(&cfg, &item, &want, true, false, ""),
+    );
+    assert_eq!(first.unwrap(), name);
+    assert_eq!(second.unwrap(), name);
+    assert_eq!(manager.live.read().await.len(), 1);
+    assert_eq!(manager.live.read().await[&name].cfg.reader_line, 0);
+
+    let mut different = want.clone();
+    different.reader_path = "/tmp/other.rs".into();
+    let other = manager
+        .create_errand_session(&cfg, &item, &different, true, false, "")
+        .await
+        .unwrap();
+    assert_ne!(other, name);
+    different = want.clone();
+    different.reader_scope = "scope/other/main".into();
+    let other = manager
+        .create_errand_session(&cfg, &item, &different, true, false, "")
+        .await
+        .unwrap();
+    assert_ne!(other, name);
+
+    for intent in ["view", "diff"] {
+        different = want.clone();
+        different.intent = intent.into();
+        let other = manager
+            .create_errand_session(&cfg, &item, &different, true, false, "")
+            .await
+            .unwrap();
+        assert_ne!(other, name);
+    }
+    manager.live.write().await.get_mut(&name).unwrap().state = State::Down;
+    let replacement = manager
+        .create_errand_session(&cfg, &item, &want, true, false, "")
+        .await
+        .unwrap();
+    assert_ne!(replacement, name);
+}
+
+#[tokio::test]
+async fn unscoped_editor_reopen_does_not_allocate_another_temporary_project() {
+    let (cfg, item, mut want) = editor_request();
+    want.temp = true;
+    want.reader_scope.clear();
+    let manager = crate::session::test_manager(cfg.clone());
+    let name = manager
+        .create_errand_session(&cfg, &item, &want, true, false, "")
+        .await
+        .unwrap();
+    manager.live.write().await.get_mut(&name).unwrap().state = State::Working;
+    let reopened = manager
+        .create_errand_session(&cfg, &item, &want, true, false, "")
+        .await
+        .unwrap();
+    assert_eq!(reopened, name);
+    assert_eq!(manager.temp.read().await.len(), 1);
+}
+
 #[tokio::test]
 async fn reader_intent_keeps_display_and_scope_without_encoding_them_in_name() {
     let cfg = Config {
@@ -32,8 +128,13 @@ async fn reader_intent_keeps_display_and_scope_without_encoding_them_in_name() {
         .create_errand_session(&cfg, &item, &want, true, false, "")
         .await
         .unwrap();
-    assert!(name.starts_with("tab-"));
-    assert!(!name.contains("link"));
+    assert!(crate::storage_id::valid(&name));
+    let second_name = manager
+        .create_errand_session(&cfg, &item, &want, true, false, "")
+        .await
+        .unwrap();
+    assert!(crate::storage_id::valid(&second_name));
+    assert_ne!(name, second_name);
     let live = manager.live.read().await;
     let row = &live[&name].cfg;
     assert_eq!(row.label.as_deref(), Some("file.rs [repo / Main checkout]"));

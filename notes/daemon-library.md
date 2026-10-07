@@ -20,6 +20,9 @@ including client-selected tips. Replacement text is literal and is not scanned a
 Library breadcrumbs are inserted manually, never automatically at agent startup.
 
 Temporary errands disappear on stop or exit and clean up their private state.
+Reader tabs use opaque 16-character lowercase hexadecimal handles from
+`storage_id.rs`, reserved against live and configured session names under the session
+boundary. Display labels and reader intent remain separate metadata.
 `session/manager/library.rs` owns readiness and ordered paste, delay, and Enter for
 composed worker/errand prompts. Creation can return before delivery finishes;
 readiness timeout withholds input. Callers compose prompts before delivery.

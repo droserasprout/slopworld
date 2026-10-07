@@ -43,8 +43,29 @@ namespace SlopWorld
             foreach (var session in sessions)
                 if (include(session)) rows.Add(session);
             append?.Invoke(rows);
-            rows.Sort((a, b) => string.CompareOrdinal(a?.Name ?? "", b?.Name ?? ""));
+            rows.Sort(CompareReaders);
             return rows.Count * rowHeight;
         }
+
+        // Session handles change when a diff refresh replaces its process. Order by
+        // display/source metadata so that replacement keeps the same sidebar position.
+        static int CompareReaders(SessionInfo a, SessionInfo b)
+        {
+            int order = string.CompareOrdinal(SortLabel(a), SortLabel(b));
+            if (order != 0) return order;
+            order = string.CompareOrdinal(a?.ReaderPath ?? "", b?.ReaderPath ?? "");
+            if (order != 0) return order;
+            order = string.CompareOrdinal(a?.ReaderKey ?? "", b?.ReaderKey ?? "");
+            if (order != 0) return order;
+            order = string.CompareOrdinal(a?.ReaderScope ?? "", b?.ReaderScope ?? "");
+            if (order != 0) return order;
+            order = string.CompareOrdinal(a?.Intent ?? "", b?.Intent ?? "");
+            return order != 0 ? order : string.CompareOrdinal(a?.Name ?? "", b?.Name ?? "");
+        }
+
+        static string SortLabel(SessionInfo info) =>
+            !string.IsNullOrEmpty(info?.Label) ? info.Label :
+            !string.IsNullOrEmpty(info?.ReaderPath) ? info.ReaderPath :
+            !string.IsNullOrEmpty(info?.ReaderKey) ? info.ReaderKey : info?.Name ?? "";
     }
 }

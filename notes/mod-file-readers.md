@@ -9,6 +9,10 @@ including a line target, reuses its reader; concurrent opens share the pending r
 Tab/focus changes preserve readers. Explicit dismissal or validated removal can close
 a pinned reader. Native preview acquisition and pager preview acquisition release the
 other unpinned preview. Source and diff identity remain distinct.
+Repeated editor launches for the same path and checkout reuse the live host editor;
+the daemon serializes that decision so concurrent requests share one session.
+Routed sidebar rows sort by display label and source metadata rather than opaque
+session handles, preserving order when a diff process is replaced.
 
 Source-file probes reconcile readers independently of tree filters/folds. Failed
 probes preserve readers, and stale replies cannot replace another reader. Refresh
