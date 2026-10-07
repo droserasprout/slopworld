@@ -24,10 +24,16 @@ pub(crate) async fn get_config(State(m): State<Mgr>) -> ApiResult<wire::ConfigRe
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
     let factory = crate::config::Config::default();
     let caps = crate::runtime::capabilities();
+    let mut values = cfg.redacted();
+    // Host IDs belong to persistence, not the existing host-terminal wire view.
+    // Clear only the response copy; storage and accepted configuration keep them.
+    for host in &mut values.host_terminals {
+        host.id.clear();
+    }
     reply(json!({
         "path": m.cfg_path,
         "text": redacted_text,
-        "values": cfg.redacted(),
+        "values": values,
         "metadata": {
             // Factory defaults are deliberately a response-only read model. They are not
             // accepted as a client patch and contain no secrets.

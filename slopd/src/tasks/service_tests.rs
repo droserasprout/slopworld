@@ -228,6 +228,18 @@ fn benchmark_ten_thousand_records_and_one_hundred_targeted_deletions() {
         .map(|t| t.id.clone())
         .collect::<Vec<_>>();
     let start = std::time::Instant::now();
+    for (index, id) in ids.iter().enumerate() {
+        f.tasks
+            .update(
+                &rows[index].to_id,
+                id,
+                Status::Working,
+                Some(format!("progress {index}")),
+            )
+            .unwrap();
+    }
+    let update = start.elapsed();
+    let start = std::time::Instant::now();
     let result = f.tasks.remove_many("host", &ids, true).unwrap();
     let remove = start.elapsed();
     assert_eq!(result.committed.len(), 100);
@@ -242,8 +254,9 @@ fn benchmark_ten_thousand_records_and_one_hundred_targeted_deletions() {
         stamp
     );
     println!(
-        "TASK_RECORD_BENCH records=10000 body_bytes=3072 load_ms={:.2} delete_100_ms={:.2} remaining=9900 sibling_unchanged=true",
+        "TASK_RECORD_BENCH records=10000 body_bytes=3072 load_ms={:.2} update_100_ms={:.2} delete_100_ms={:.2} remaining=9900 sibling_unchanged=true",
         load.as_secs_f64() * 1000.0,
+        update.as_secs_f64() * 1000.0,
         remove.as_secs_f64() * 1000.0
     );
 }

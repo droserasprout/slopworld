@@ -104,6 +104,55 @@ async fn read_routes_emit_the_declared_binary_payloads() {
 }
 
 #[tokio::test]
+async fn config_read_preserves_stored_host_identity_without_exposing_it_on_the_wire() {
+    let mut cfg = crate::config::Config::default();
+    cfg.daemon.token = "private-token".into();
+    cfg.host_terminals.push(crate::config::HostTerminalCfg {
+        id: "0123456789abcdef".into(),
+        name: "shell".into(),
+        label: Some("Terminal".into()),
+        path: "/tmp".into(),
+        autostart: false,
+        ..Default::default()
+    });
+    let manager = crate::session::test_manager(cfg.clone());
+    // test_manager uses the legacy fixture loader when reloading configuration.
+    let settings = toml::to_string(&cfg).unwrap();
+    std::fs::write(&manager.cfg_path, &settings).unwrap();
+    let app = crate::api::router(manager.clone()).layer(Extension(crate::grant::Cap::Root));
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/config")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let result = wire::ConfigResult::decode(bytes).unwrap();
+    assert!(!result.text.contains("private-token"));
+    let values = result.values.unwrap();
+    let host = &values.host_terminal[0];
+    assert_eq!(host.name, "shell");
+    assert_eq!(host.label.as_deref(), Some("Terminal"));
+    assert_eq!(host.path, "/tmp");
+    assert!(!host.autostart);
+    assert_eq!(values.daemon.unwrap().token, crate::config::TOKEN_REDACTED);
+    assert_eq!(
+        manager.config().await.host_terminals[0].id,
+        cfg.host_terminals[0].id
+    );
+    assert_eq!(
+        std::fs::read_to_string(&manager.cfg_path).unwrap(),
+        settings
+    );
+}
+
+#[tokio::test]
 async fn binary_requests_preserve_defaults_and_reject_wrong_media_and_malformed_bytes() {
     let manager = crate::session::test_manager(crate::config::Config::default());
     let app = crate::api::router(manager).layer(Extension(crate::grant::Cap::Root));

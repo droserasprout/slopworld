@@ -30,6 +30,8 @@ Record updates retain unknown extensions without resurrecting known cleared fiel
 Settings patches preserve omitted values; replacements preserve accepted workspace
 records. Both reject inline `project`, `session`, `host_terminal`, and `library`.
 The redacted-token sentinel retains the stored secret; an empty token clears it.
+The config HTTP response projects the assembled view into the existing wire schema;
+host-shell storage IDs stay internal and are omitted only from the response copy.
 
 Workspace transactions carry explicit targets bound to normalized config/data roots
 and the settings filename. Recovery rejects a changed mapping before any write. Startup reserves the configured and undo-document endpoints
