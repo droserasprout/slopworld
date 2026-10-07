@@ -17,8 +17,14 @@ savings; process deltas include unrelated allocation/deferred destruction. Gener
 memory interpretation belongs to [diagnostics](terminal-latency.md).
 
 Menu and loading draws retain vanilla fitting and fades, but draw the current and
-previous distinct animation frames at half opacity with opposing three-pixel GUI
-offsets. History resets with the resident set; repeated GUI calls do not advance it.
-MenuBackgroundLayers owns the shared layer selection, opacity, and offsets. Eco
-projects those GUI offsets into world space and draws the same layers with two
-reused transparent materials, preserving its dimming and camera fitting.
+previous distinct animation frames at half opacity with opposing GUI offsets whose
+axes use unequal fractional displacements to reduce block-grid lines. History resets
+with the resident set; repeated GUI calls do not advance it.
+MenuBackgroundLayers owns the shared layer selection, opacity, and offsets. EcoBackdrop
+projects those GUI offsets into world space and owns the reusable materials and
+draw matrices, preserving Eco dimming and camera fitting. Its geometry cache follows
+map, view, and texture dimensions rather than animation-frame identity.
+Map identity is held weakly so an idle backdrop cannot retain a discarded colony.
+Eco draws an opaque black base before both half-alpha layers so their blend cannot
+retain camera contents from a covered frame. It keeps drawing beneath the terminal
+because GUI input can close the window after world draws have been queued.

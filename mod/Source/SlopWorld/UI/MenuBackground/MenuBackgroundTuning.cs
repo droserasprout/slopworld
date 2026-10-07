@@ -24,11 +24,11 @@ namespace SlopWorld
         // Gaps larger than this are treated as an alt-tab rather than a new frame.
         internal const float WalkGapMax = 8f;
 
-        // Opposing GUI-space offsets for the current and one-frame-delayed layers.
-        internal const float LayerOffset = 3f;
+        // Unequal fractional GUI offsets avoid reinforcing the same block-grid lines on both axes.
+        internal static readonly Vector2 LayerOffset = new Vector2(2.7f, 1.3f);
 
         // Duration of one moving frame.
-        internal const float PhaseSecs = 0.11f;
+        internal const float PhaseSecs = 0.14f;
 
         // ---- Rot ----
 

@@ -14,10 +14,10 @@ namespace SlopWorld
             internal readonly Vector2 Offset;
             internal readonly float Opacity;
 
-            internal Layer(Texture2D texture, float offset)
+            internal Layer(Texture2D texture, Vector2 offset)
             {
                 Texture = texture;
-                Offset = new Vector2(offset, offset);
+                Offset = offset;
                 Opacity = 0.5f;
             }
         }
