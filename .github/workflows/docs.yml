@@ -38,8 +38,8 @@ jobs:
         with:
           tool: mdbook@0.5.4
 
-      - name: Build book
-        run: just docs
+      - name: Test checks and build book
+        run: just test-docs docs
 
       - name: Upload book
         uses: actions/upload-artifact@v4

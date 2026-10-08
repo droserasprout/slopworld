@@ -1,5 +1,10 @@
 # Tests and coverage
 
+# Test documentation link and navigation checks
+[group('Tests and coverage')]
+test-docs:
+    {{ PYTHON }} -m unittest tools.docs.test_check_book
+
 # Test supporting tools and generated data
 [group('Tests and coverage')]
 test-tools: validate-themes test-licenses test-bench-report
