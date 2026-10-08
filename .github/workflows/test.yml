@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - '**'
+    # Documentation has its own workflow; mixed code/docs pushes still run tests.
+    paths-ignore:
+      - 'docs/**'
+      - 'notes/**'
+      - '**/*.md'
   workflow_dispatch:
   workflow_call:
     inputs:

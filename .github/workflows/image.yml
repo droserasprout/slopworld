@@ -4,6 +4,21 @@ on:
   push:
     # Temporary branch trigger for validating image publication before merge.
     branches: [main, packaging-fixes]
+    # Keep aligned with the Dockerfile COPY inputs and root build context.
+    paths:
+      - 'slopd/Cargo.toml'
+      - 'slopd/Cargo.lock'
+      - 'slopd/build.rs'
+      - 'slopd/src/**'
+      - 'slopd/presets/**'
+      - 'shared/slopworld.proto'
+      - 'slopcar/Dockerfile'
+      - 'slopcar/entrypoint.sh'
+      - 'slopcar/doctor.sh'
+      - '.dockerignore'
+      - 'LICENSE'
+      - 'licenses/**'
+      - '.github/workflows/image.yml'
   workflow_dispatch:
 
 permissions:

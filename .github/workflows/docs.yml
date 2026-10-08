@@ -10,6 +10,7 @@ on:
       - 'notes/**'
       - 'docs/**'
       - 'tools/__init__.py'
+      - 'tools/utils.py'
       - 'tools/docs/**'
       - 'justfile'
       - 'just/**'
