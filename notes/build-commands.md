@@ -40,6 +40,9 @@ and coverage. The test workflow exposes those stages separately for timings.
 CI installs pinned tools, including uv, through
 `.github/actions/setup-build-tools/`. It owns archive caching, tool versions,
 and the protoc checksum for generated bindings.
+The C# formatter opens only its source directories: folder discovery scans for
+editor configs before applying file exclusions, so opening the checkout root can
+walk unrelated container storage under `dist/`.
 `.github/workflows/image.yml` owns sidecar publication to
 `ghcr.io/<repository-owner>/slopcar` for amd64 and arm64. Main pushes and manual
 runs publish full commit SHA tags; only runs on `main` update `latest`.
@@ -65,8 +68,11 @@ defaults to micro; optional package metadata does not imply an editor fallback.
 `tools/release/latest.py` shares the mod asset/runtime DLL allowlist with it.
 Rolling releases include both native package formats. `tools/release/arch.py`
 uses the existing Arch PKGBUILD metadata with a staged release payload and lets
-makepkg own package metadata/mtree generation. `tools/release/container_debian.py`
-rebuilds Rust in the pinned Debian toolchain from `packaging/debian/Dockerfile`;
+makepkg own package metadata/mtree generation.
+Arch archive validation uses an empty staging pacman database, so file queries do
+not depend on the host's installed package database.
+`tools/release/container_debian.py` rebuilds Rust in the pinned Debian toolchain
+from `packaging/debian/Dockerfile`;
 Debian packaging and its real archive tests run there before publication.
 The container trusts only the mounted checkout via Git's process environment;
 this allows Git reads when Docker preserves a different host owner.

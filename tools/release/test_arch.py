@@ -40,7 +40,9 @@ def test_real_arch_package_metadata_and_safe_payload(tmp_path: Path, monkeypatch
     output = root / 'dist/output'
     output.mkdir(parents=True)
     archive = arch.package(output, 'revision', '1.0.0', mod)
-    result = execute(['pacman', '-Qip', str(archive)], capture_output=True, text=True)
+    database = tmp_path / 'pacman-db'
+    database.mkdir()
+    result = execute(['pacman', '--dbpath', str(database), '-Qip', str(archive)], capture_output=True, text=True)
     assert '1.0.0-1' in result.stdout
     result = execute(['bsdtar', '-tf', str(archive)], capture_output=True, text=True)
     assert '.BUILDINFO' in result.stdout and '.MTREE' in result.stdout

@@ -1,6 +1,5 @@
-CSHARP_FORMAT_INCLUDE := 'mod/Source/SlopWorld mod/Tests bench/ipc/csharp bench/terminal-input/tests/http_transport/Probe.cs'
-CSHARP_FORMAT_EXCLUDE := 'mod/Source/SlopWorld/obj mod/Tests/obj bench/ipc/csharp/obj mod/Source/SlopWorld/Client/Generated'
-CSHARP_FORMAT_COMMAND := DOTNET + ' format whitespace . --folder --include ' + CSHARP_FORMAT_INCLUDE + ' --exclude ' + CSHARP_FORMAT_EXCLUDE
+CSHARP_FORMAT_FOLDERS := 'mod/Source/SlopWorld mod/Tests bench/ipc/csharp bench/terminal-input/tests/http_transport'
+CSHARP_FORMAT_COMMAND := DOTNET + ' format whitespace . --folder --exclude obj Client/Generated'
 PYTHON_TOOLS := 'tools bench/runner.py bench/test_runner.py mac slopcar/*.py'
 
 # Formatting
@@ -13,12 +12,12 @@ format-daemon:
 # Format C# production, test and benchmark sources
 [group('Formatting')]
 format-mod:
-    {{ CSHARP_FORMAT_COMMAND }}
+    for source in {{ CSHARP_FORMAT_FOLDERS }}; do (cd "$source" && {{ CSHARP_FORMAT_COMMAND }}) || exit "$?"; done
 
 # Check formatting across C# production, tests and benchmarks
 [group('Formatting')]
 check-format-mod:
-    {{ CSHARP_FORMAT_COMMAND }} --verify-no-changes
+    for source in {{ CSHARP_FORMAT_FOLDERS }}; do (cd "$source" && {{ CSHARP_FORMAT_COMMAND }} --verify-no-changes) || exit "$?"; done
 
 # Check Rust source formatting without compiling
 [group('Formatting')]

@@ -95,5 +95,9 @@ def package(output: Path, revision: str, version: str, mod: Path) -> Path:
     archive_path = output / ASSET_NAME
     archives[0].replace(archive_path)
     # Reading package metadata catches malformed archives before publication.
-    run(['pacman', '-Qip', str(archive_path)], capture_output=True, text=True)
+    # Even file queries initialize libalpm; use an empty staging database so
+    # validation also works on hosts without an installed pacman database.
+    database = workspace / 'pacman-db'
+    database.mkdir()
+    run(['pacman', '--dbpath', str(database), '-Qip', str(archive_path)], capture_output=True, text=True)
     return archive_path

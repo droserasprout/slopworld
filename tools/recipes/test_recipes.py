@@ -133,6 +133,34 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertIn('Release', mod['args'])
         self.assertIn('-p:TreatWarningsAsErrors=true', mod['args'])
 
+    def test_csharp_formatting_scopes_discovery_to_source_folders(self) -> None:
+        folders = [
+            'mod/Source/SlopWorld',
+            'mod/Tests',
+            'bench/ipc/csharp',
+            'bench/terminal-input/tests/http_transport',
+        ]
+        for recipe in ('format-mod', 'check-format-mod'):
+            with self.subTest(recipe=recipe):
+                self.log.unlink(missing_ok=True)
+                self.run_recipe(recipe)
+                calls = self.calls('dotnet')
+                self.assertEqual([call['cwd'] for call in calls], [str(ROOT / folder) for folder in folders])
+                for call in calls:
+                    self.assertEqual(call['args'][:2], ['format', 'whitespace'])
+                    self.assertEqual(call['args'][2], '.')
+                    self.assertIn('--folder', call['args'])
+                    self.assertIn('Client/Generated', call['args'])
+                    self.assertEqual('--verify-no-changes' in call['args'], recipe == 'check-format-mod')
+
+    def test_csharp_formatting_stops_after_a_folder_fails(self) -> None:
+        self.env['RECIPE_TEST_FAIL'] = 'dotnet'
+        for recipe in ('format-mod', 'check-format-mod'):
+            with self.subTest(recipe=recipe):
+                self.log.unlink(missing_ok=True)
+                self.run_recipe(recipe, success=False)
+                self.assertEqual(len(self.calls('dotnet')), 1)
+
     def test_mac_mod_passes_native_assemblies_and_release_selection(self) -> None:
         app = self.directory / 'RimWorld.app'
         game = app / 'Contents/MacOS/RimWorld by Ludeon Studios'
