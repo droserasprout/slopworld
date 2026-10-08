@@ -114,11 +114,13 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
             modules,
             [
                 'tools.protocol.api_contract',
+                'tools.docs.introduction',
                 'tools.docs.api_docs',
                 'tools.docs.reference',
                 'tools.assets.loading_font_atlas',
                 'tools.assets.icons',
                 'tools.assets.appicon',
+                'tools.assets.favicon',
                 'tools.licenses.rust_licenses',
                 'tools.licenses.stage_licenses',
             ],
