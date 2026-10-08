@@ -99,17 +99,17 @@ fn command_dispatch_is_opt_in() {
 #[test]
 fn parser_accepts_install_and_uninstall_shapes() {
     assert_eq!(
-        parse(&args(&["--source", "/src", "--mods=/mods"]), true),
+        parse(&args(&["--source", "/src", "--game=/game"]), true),
         Ok(Args {
             source: Some(PathBuf::from("/src")),
-            mods: Some(PathBuf::from("/mods")),
+            game: Some(PathBuf::from("/game")),
             ..Default::default()
         })
     );
     assert_eq!(
-        parse(&args(&["--mods", "/mods"]), false),
+        parse(&args(&["--game", "/game"]), false),
         Ok(Args {
-            mods: Some(PathBuf::from("/mods")),
+            game: Some(PathBuf::from("/game")),
             ..Default::default()
         })
     );
@@ -140,8 +140,8 @@ fn install_replaces_only_the_named_mod_and_uninstall_removes_it() {
         "install",
         "--source",
         source.to_str().unwrap(),
-        "--mods",
-        mods.to_str().unwrap(),
+        "--game",
+        root.to_str().unwrap(),
     ]))
     .unwrap();
     assert_eq!(
@@ -155,8 +155,8 @@ fn install_replaces_only_the_named_mod_and_uninstall_removes_it() {
     try_run(&args(&[
         "mod",
         "uninstall",
-        "--mods",
-        mods.to_str().unwrap(),
+        "--game",
+        root.to_str().unwrap(),
     ]))
     .unwrap();
     assert_eq!(fs::read_to_string(&neighbor).unwrap(), "neighbor");
@@ -200,4 +200,101 @@ fn failed_final_install_restores_the_previous_mod() {
     );
     assert!(!backup.exists());
     fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn install_game_selection_uses_explicit_then_environment_then_saved_path() {
+    let root = scratch("game-selection");
+    let config = root.join("game.toml");
+    let saved = root.join("saved");
+    let environment = root.join("environment");
+    let explicit = root.join("explicit");
+    for game in [&saved, &environment, &explicit] {
+        fs::create_dir_all(game.join("Mods")).unwrap();
+        fs::write(game.join(crate::EXE), "fixture").unwrap();
+    }
+    crate::game_config::save(&saved, &config).unwrap();
+    let default_game = || crate::game_config::resolve(None, None, || Ok(config.clone()), &[]);
+    for (options, env, expected) in [
+        (Args::default(), None, &saved),
+        (Args::default(), environment.to_str(), &environment),
+        (
+            Args {
+                game: Some(explicit.clone()),
+                ..Default::default()
+            },
+            environment.to_str(),
+            &explicit,
+        ),
+    ] {
+        assert_eq!(
+            super::resolve_mods(&options, env, default_game).unwrap(),
+            expected.join("Mods")
+        );
+    }
+    let invalid = Args {
+        game: Some(root.join("missing")),
+        ..Default::default()
+    };
+    assert!(super::resolve_mods(&invalid, environment.to_str(), default_game).is_err());
+    assert!(super::resolve_mods(&Args::default(), Some(""), default_game).is_err());
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn install_options_are_optional_and_game_accepts_both_value_forms() {
+    assert_eq!(parse(&[], true).unwrap(), Args::default());
+    for parts in [vec!["--game", "/game"], vec!["--game=/game"]] {
+        assert_eq!(
+            parse(&args(&parts), true).unwrap(),
+            Args {
+                game: Some(PathBuf::from("/game")),
+                ..Default::default()
+            }
+        );
+    }
+    assert!(parse(&args(&["--game"]), true).is_err());
+}
+
+#[test]
+fn install_rejects_the_removed_mods_option() {
+    for options in [vec!["--mods", "/mods"], vec!["--mods=/mods"]] {
+        let error = parse(&args(&options), true).unwrap_err();
+        assert!(error.contains("unknown option --mods"), "{error}");
+    }
+}
+
+#[test]
+fn mac_default_uses_the_app_bundle_and_allows_a_configured_location() {
+    assert_eq!(
+        super::default_mod_game(true, None).unwrap(),
+        PathBuf::from(crate::expand("~/Documents/RimWorld.app"))
+    );
+    let root = scratch("mac-default");
+    let game = root.join("RimWorld.app");
+    fs::create_dir_all(game.join("Mods")).unwrap();
+    let mods = super::resolve_mods(&Args::default(), None, || {
+        super::default_mod_game(true, game.to_str())
+    })
+    .unwrap();
+    assert_eq!(mods, game.join("Mods"));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn uninstall_accepts_defaults_and_rejects_source_and_legacy_mods() {
+    assert_eq!(parse(&[], false).unwrap(), Args::default());
+    assert_eq!(
+        parse(&args(&["--game=/game"]), false).unwrap().game,
+        Some(PathBuf::from("/game"))
+    );
+    for options in [
+        vec!["--mods", "/mods"],
+        vec!["--mods=/mods"],
+        vec!["--source", "/source"],
+        vec!["--source=/source"],
+        vec!["--game"],
+    ] {
+        assert!(parse(&args(&options), false).is_err());
+    }
 }

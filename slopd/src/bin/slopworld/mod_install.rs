@@ -4,6 +4,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+const DEFAULT_SOURCE: &str = "/usr/share/slopworld/SlopWorld";
 const MOD_NAME: &str = "SlopWorld";
 const MOD_DIRS: &[&str] = &[
     "About",
@@ -18,24 +19,35 @@ const MOD_DIRS: &[&str] = &[
 const USAGE: &str = "slopworld mod - install or remove the SlopWorld mod
 
 usage:
-  slopworld mod install --source MOD_SOURCE --mods GAME_MODS
-  slopworld mod uninstall --mods GAME_MODS
+  slopworld mod install [--source MOD_SOURCE] [--game GAME]
+  slopworld mod uninstall [--game GAME]
 
-The installer always writes to GAME_MODS/SlopWorld. It replaces existing content only
+Installation defaults to /usr/share/slopworld/SlopWorld as the source.
+The game defaults to $RIMWORLD, then on macOS $MAC_RIMWORLD or
+~/Documents/RimWorld.app; on Linux it uses the launcher defaults ($SLOPWORLD_GAME,
+game.toml, usual locations). --game selects the directory containing Mods.
+The installer writes to GAME/Mods/SlopWorld. It replaces existing content only
 after it completes a new copy in a temporary sibling directory.
 ";
 
 const INSTALL_USAGE: &str = "usage:
-  slopworld mod install --source MOD_SOURCE --mods GAME_MODS
+  slopworld mod install [--source MOD_SOURCE] [--game GAME]
 
-The installer always writes to GAME_MODS/SlopWorld. It replaces existing content only
+Installation defaults to /usr/share/slopworld/SlopWorld as the source.
+The game defaults to $RIMWORLD, then on macOS $MAC_RIMWORLD or
+~/Documents/RimWorld.app; on Linux it uses the launcher defaults ($SLOPWORLD_GAME,
+game.toml, usual locations). --game selects the directory containing Mods.
+The installer writes to GAME/Mods/SlopWorld. It replaces existing content only
 after it completes a new copy in a temporary sibling directory.
 ";
 
 const UNINSTALL_USAGE: &str = "usage:
-  slopworld mod uninstall --mods GAME_MODS
+  slopworld mod uninstall [--game GAME]
 
-The installer always writes to GAME_MODS/SlopWorld.
+Removes only GAME/Mods/SlopWorld.
+The game defaults to $RIMWORLD, then on macOS $MAC_RIMWORLD or
+~/Documents/RimWorld.app; on Linux it uses the launcher defaults ($SLOPWORLD_GAME,
+game.toml, usual locations).
 ";
 
 pub(crate) fn try_run(args: &[String]) -> Result<Option<String>, String> {
@@ -57,17 +69,59 @@ fn run_install(args: &[String]) -> Result<Option<String>, String> {
         return Ok(Some(INSTALL_USAGE.to_string()));
     }
 
-    let mods = args.mods.ok_or_else(|| "--mods is required".to_string())?;
-    let mods = safe_directory(&mods, "game Mods directory")?;
-    let source = args
-        .source
-        .ok_or_else(|| "--source is required".to_string())?;
-    let source = safe_directory(&source, "mod source directory")?;
+    let mods = game_mods(&args)?;
+    let source = safe_directory(
+        args.source
+            .as_deref()
+            .unwrap_or_else(|| Path::new(DEFAULT_SOURCE)),
+        "mod source directory",
+    )?;
     Ok(Some(install_and_remember(
         &source,
         &mods,
         super::game_config::config_path,
     )?))
+}
+
+fn game_mods(args: &Args) -> Result<PathBuf, String> {
+    resolve_mods(
+        args,
+        super::option_env_nonempty("RIMWORLD").as_deref(),
+        || {
+            default_mod_game(
+                cfg!(target_os = "macos"),
+                super::option_env_nonempty("MAC_RIMWORLD").as_deref(),
+            )
+        },
+    )
+}
+
+// Keep the native macOS destination aligned with mac/config.just.
+fn default_mod_game(is_macos: bool, mac_rimworld: Option<&str>) -> Result<PathBuf, String> {
+    if is_macos {
+        Ok(PathBuf::from(super::expand(
+            mac_rimworld.unwrap_or("~/Documents/RimWorld.app"),
+        )))
+    } else {
+        super::game_dir(None)
+    }
+}
+
+/// Explicit destinations bypass saved defaults, including native macOS layouts.
+fn resolve_mods(
+    args: &Args,
+    rimworld: Option<&str>,
+    default_game: impl FnOnce() -> Result<PathBuf, String>,
+) -> Result<PathBuf, String> {
+    let game = match args.game.as_deref() {
+        Some(game) => game.to_path_buf(),
+        None => match rimworld {
+            Some(game) => PathBuf::from(super::expand(game)),
+            None => default_game()?,
+        },
+    };
+    let game = safe_directory(&game, "game directory")?;
+    safe_directory(&game.join("Mods"), "game Mods directory")
 }
 
 fn install_and_remember(
@@ -96,8 +150,7 @@ fn run_uninstall(args: &[String]) -> Result<Option<String>, String> {
         return Ok(Some(UNINSTALL_USAGE.to_string()));
     }
 
-    let mods = args.mods.ok_or_else(|| "--mods is required".to_string())?;
-    let mods = safe_directory(&mods, "game Mods directory")?;
+    let mods = game_mods(&args)?;
     let destination = mods.join(MOD_NAME);
     remove_existing(&destination)?;
     Ok(Some(format!("removed {}\n", destination.display())))
@@ -106,7 +159,7 @@ fn run_uninstall(args: &[String]) -> Result<Option<String>, String> {
 #[derive(Debug, Default, PartialEq, Eq)]
 struct Args {
     source: Option<PathBuf>,
-    mods: Option<PathBuf>,
+    game: Option<PathBuf>,
     help: bool,
 }
 
@@ -117,15 +170,15 @@ fn parse(args: &[String], allow_source: bool) -> Result<Args, String> {
         match arg.as_str() {
             "-h" | "--help" => out.help = true,
             "--source" if allow_source => out.source = Some(next_path(&mut it, "--source")?),
-            "--mods" => out.mods = Some(next_path(&mut it, "--mods")?),
+            "--game" => out.game = Some(next_path(&mut it, "--game")?),
             value if allow_source && value.starts_with("--source=") => {
                 out.source = Some(PathBuf::from(
                     value.strip_prefix("--source=").unwrap_or_default(),
                 ));
             }
-            value if value.starts_with("--mods=") => {
-                out.mods = Some(PathBuf::from(
-                    value.strip_prefix("--mods=").unwrap_or_default(),
+            value if value.starts_with("--game=") => {
+                out.game = Some(PathBuf::from(
+                    value.strip_prefix("--game=").unwrap_or_default(),
                 ));
             }
             value if value.starts_with('-') => return Err(format!("unknown option {value}")),

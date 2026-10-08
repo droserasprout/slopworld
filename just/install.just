@@ -15,7 +15,7 @@ install-runner: daemon
 # Install the mod into the game's Mods folder
 [group('Installation')]
 install-mod: daemon mod check-licenses
-    "{{ RUNNER }}" mod install --source mod --mods "{{ MODS }}"
+    "{{ RUNNER }}" mod install --source mod --game "{{ parent_directory(MODS) }}"
 
 # Remove installed files, keeping config and saves
 [group('Installation')]
@@ -42,7 +42,7 @@ uninstall-runner:
 # Remove the installed mod folder
 [group('Installation')]
 uninstall-mod: daemon
-    "{{ RUNNER }}" mod uninstall --mods "{{ MODS }}"
+    "{{ RUNNER }}" mod uninstall --game "{{ parent_directory(MODS) }}"
 
 # Remove a legacy per-user copy of the loading font
 [group('Installation')]
