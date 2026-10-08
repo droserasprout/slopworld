@@ -219,7 +219,7 @@ pub fn config_root() -> PathBuf {
 
 /// Select the root settings document without relocating the other roots.
 pub fn config_file() -> PathBuf {
-    override_path("SLOPD_CONFIG", config_root().join("config.toml"))
+    config_root().join("config.toml")
 }
 
 /// Return the daemon's cache directory. `SLOPD_CACHE` replaces the default path.
@@ -232,7 +232,7 @@ pub fn data_root() -> PathBuf {
     override_path("SLOPD_DATA", root(dirs::data_local_dir()))
 }
 
-/// Resolve a per-store override before its root-derived default.
+/// Resolve an application-root override before its platform-derived default.
 pub fn override_path(variable: &str, default: PathBuf) -> PathBuf {
     env::var_os(variable).map(PathBuf::from).unwrap_or(default)
 }

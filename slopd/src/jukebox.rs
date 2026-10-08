@@ -112,10 +112,9 @@ impl Catalog {
         Ok(catalog)
     }
 
-    /// User-owned station definitions are configuration, not application data. `SLOPD_JUKEBOX`
-    /// remains useful for tests and an alternate daemon instance.
+    /// User-owned station definitions live under the daemon configuration root.
     pub fn dir() -> PathBuf {
-        crate::paths::override_path("SLOPD_JUKEBOX", crate::paths::config_root().join("jukebox"))
+        crate::paths::config_root().join("jukebox")
     }
 
     /// The editor sees the effective user catalog, with stream URLs restored. The normal

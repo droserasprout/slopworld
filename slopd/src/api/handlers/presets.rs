@@ -169,7 +169,7 @@ mod tests {
     #[tokio::test]
     async fn update_distinguishes_validation_from_storage_failure() {
         let Some(root) = crate::test_support::isolated_with_env(|command, root| {
-            command.env("SLOPD_PRESETS", root.join("blocked-presets"));
+            command.env("SLOPD_CONFIG_ROOT", root.join("blocked-presets"));
         }) else {
             return;
         };

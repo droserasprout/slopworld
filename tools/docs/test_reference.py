@@ -13,21 +13,21 @@ class EnvironmentInventoryTests(unittest.TestCase):
     def test_generic_lookups_are_dynamic_and_path_overrides_are_named(self) -> None:
         path = ROOT / 'slopd/src/example.rs'
         names, dynamic = env_inventory(
-            {path: 'env::var(name);\nenv::var_os(variable);\ncrate::paths::override_path("SLOPD_JUKEBOX", base);'}
+            {path: 'env::var(name);\nenv::var_os(variable);\ncrate::paths::override_path("SLOPD_CONFIG_ROOT", base);'}
         )
-        self.assertEqual(set(names), {'SLOPD_JUKEBOX'})
+        self.assertEqual(set(names), {'SLOPD_CONFIG_ROOT'})
         self.assertEqual([item.line for item in dynamic], [1, 2])
 
-    def test_storage_root_and_store_overrides_are_discovered(self) -> None:
+    def test_storage_root_overrides_are_discovered(self) -> None:
         names, _ = env_inventory(
             {
                 ROOT / 'slopd/src/paths.rs': """
             override_path("SLOPD_CONFIG_ROOT", default);
-            crate::paths::override_path("SLOPD_STATE", default);
+            crate::paths::override_path("SLOPD_DATA", default);
         """
             }
         )
-        self.assertEqual(set(names), {'SLOPD_CONFIG_ROOT', 'SLOPD_STATE'})
+        self.assertEqual(set(names), {'SLOPD_CONFIG_ROOT', 'SLOPD_DATA'})
 
     def test_build_and_tooling_variables_are_excluded(self) -> None:
         names, dynamic = env_inventory(
@@ -46,12 +46,12 @@ class EnvironmentInventoryTests(unittest.TestCase):
         names, _ = env_inventory(
             {
                 ROOT / 'mod/Source/Endpoint.cs': 'Environment.GetEnvironmentVariable("SLOPD_ENDPOINT");',
-                ROOT / 'slopd/src/config.rs': 'std::env::var_os("SLOPD_CONFIG");',
+                ROOT / 'slopd/src/config.rs': 'std::env::var_os("SLOPD_CONFIG_ROOT");',
                 ROOT / 'slopd/src/bin/slopworld.rs': 'option_env_nonempty("SLOPCAR_PROFILE");',
                 ROOT / 'slopd/presets/example.toml': 'path = "${XDG_DATA_HOME}/slopworld"',
             }
         )
-        self.assertEqual(set(names), {'SLOPD_ENDPOINT', 'SLOPD_CONFIG', 'SLOPCAR_PROFILE', 'XDG_DATA_HOME'})
+        self.assertEqual(set(names), {'SLOPD_ENDPOINT', 'SLOPD_CONFIG_ROOT', 'SLOPCAR_PROFILE', 'XDG_DATA_HOME'})
 
     def test_shared_variable_has_only_mod_and_daemon_sources(self) -> None:
         names, _ = env_inventory(

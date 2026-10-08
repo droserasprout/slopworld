@@ -68,7 +68,7 @@ impl Undo {
         );
         ensure!(
             self.binding == *current,
-            "workspace journal belongs to different storage roots or settings filename; restore the original SLOPD_CONFIG_ROOT, SLOPD_DATA, and SLOPD_CONFIG mapping before recovery"
+            "workspace journal belongs to different storage roots or settings filename; restore the original SLOPD_CONFIG_ROOT and SLOPD_DATA mapping before recovery"
         );
         // Validate every target before the first write. Journal metadata is never
         // passed to resolve; only the current, independently resolved mapping is.

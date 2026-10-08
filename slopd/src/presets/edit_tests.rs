@@ -19,7 +19,7 @@ fn command() -> PresetDefinition {
 #[test]
 fn mutations_validate_committed_files_without_waiting_for_catalog_reload() {
     let Some(_) = crate::test_support::isolated_with_env(|command, root| {
-        command.env("SLOPD_PRESETS", root.join("presets"));
+        command.env("SLOPD_CONFIG_ROOT", root.join("presets"));
     }) else {
         return;
     };
@@ -41,7 +41,7 @@ fn mutations_validate_committed_files_without_waiting_for_catalog_reload() {
 #[test]
 fn concurrent_delete_and_dependency_creation_cannot_commit_an_unresolved_reference() {
     let Some(_) = crate::test_support::isolated_with_env(|command, root| {
-        command.env("SLOPD_PRESETS", root.join("presets"));
+        command.env("SLOPD_CONFIG_ROOT", root.join("presets"));
     }) else {
         return;
     };

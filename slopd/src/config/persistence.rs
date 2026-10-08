@@ -64,7 +64,7 @@ impl Config {
         load_library(&Self::library_dirs_for(path)).await
     }
 
-    /// The configuration path, including any `SLOPD_CONFIG` override. `main` loads this file.
+    /// The settings file under the daemon configuration root. `main` loads this file.
     /// `sandbox::refused` prevents bind mounts from exposing it because it contains the root token.
     /// An agent with this token can request a host terminal.
     pub fn path_in_use() -> PathBuf {

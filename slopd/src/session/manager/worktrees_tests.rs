@@ -316,8 +316,9 @@ async fn managed_destination_rejects_symlink_parents_and_protected_paths() {
         .unwrap();
     assert_eq!(accepted, project.canonicalize().unwrap().join("tree"));
     assert!(!accepted.exists(), "validation must not create directories");
+    std::fs::create_dir_all(root.join("data")).unwrap();
     assert!(
-        checked_worktree_destination(&root, "state")
+        checked_worktree_destination(&root.join("data"), "sessions")
             .await
             .unwrap_err()
             .to_string()

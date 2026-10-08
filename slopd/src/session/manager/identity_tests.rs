@@ -11,7 +11,7 @@ async fn new_agent_id_is_opaque_and_retained_state_errors_are_not_vacancy() {
         .await
         .unwrap();
     assert!(crate::storage_id::valid(&id));
-    let trash = root.join("state/.trash/broken");
+    let trash = root.join("data/sessions/.trash/broken");
     std::fs::create_dir_all(&trash).unwrap();
     let error = manager
         .session_operation(manager.allocate_agent_identity())

@@ -50,7 +50,7 @@ pub(crate) fn isolated_with_env(
         .args(["--exact", name, "--nocapture"])
         .env("SLOPD_ISOLATED_TEST", name)
         .env("SLOPD_TEST_ROOT", &root)
-        .env("SLOPD_STATE", root.join("state"))
+        .env("SLOPD_DATA", root.join("data"))
         .env("SLOPD_CACHE", root.join("cache"))
         .env_remove("OPENROUTER_API_KEY")
         .env("NO_PROXY", "*")

@@ -159,11 +159,11 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
     );
     let session = temporary_worker_task_session(&manager).await;
     let task_id = session.task_id.clone();
-    let private = root.join("state").join(&session.state_id);
+    let private = root.join("data/sessions").join(&session.state_id);
     std::fs::create_dir_all(&private).unwrap();
     std::fs::write(private.join("memory"), "worker state").unwrap();
 
-    let unrelated = root.join("state/unrelated");
+    let unrelated = root.join("data/sessions/unrelated");
     std::fs::create_dir_all(&unrelated).unwrap();
 
     let mut row = Live::new(session, TitleCapture::default());

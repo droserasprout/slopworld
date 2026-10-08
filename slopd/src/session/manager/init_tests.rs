@@ -6,10 +6,8 @@ async fn initialization_retains_loaded_records_and_prunes_credentials_after_reco
         // This test runs alone in a child process; never load the user's catalogs or tmux.
         for (key, value) in [
             ("SLOPD_TMUX_SOCKET", root.join("tmux")),
-            ("SLOPD_PRESETS", root.join("presets")),
             ("SLOPD_CONFIG_ROOT", root.join("config")),
             ("SLOPD_DATA", root.join("data")),
-            ("SLOPD_JUKEBOX", root.join("jukebox")),
             ("XDG_RUNTIME_DIR", root.join("runtime")),
         ] {
             command.env(key, value);

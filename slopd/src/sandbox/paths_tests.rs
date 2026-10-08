@@ -50,8 +50,7 @@ fn isolated_preset_environment() -> Option<std::path::PathBuf> {
             ("XDG_DATA_HOME", home.join(".local/share")),
             ("XDG_CACHE_HOME", home.join(".cache")),
             ("XDG_RUNTIME_DIR", root.join("runtime")),
-            ("SLOPD_CONFIG", home.join(".config/slopworld/config.toml")),
-            ("SLOPD_PRESETS", home.join(".config/slopworld")),
+            ("SLOPD_CONFIG_ROOT", home.join(".config/slopworld")),
         ] {
             command.env(variable, path);
         }

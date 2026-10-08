@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn roots_are_independent_and_private_state_override_takes_precedence() {
+fn stores_follow_their_independent_application_roots() {
     let Some(root) = crate::test_support::isolated() else {
         return;
     };
@@ -12,12 +12,11 @@ fn roots_are_independent_and_private_state_override_takes_precedence() {
     ] {
         crate::test_support::set_env(key, root.join(child));
     }
-    crate::test_support::set_env("SLOPD_CONFIG", root.join("elsewhere/custom.toml"));
     assert_eq!(config_root(), root.join("config"));
-    assert_eq!(config_file(), root.join("elsewhere/custom.toml"));
+    assert_eq!(config_file(), root.join("config/config.toml"));
     assert_eq!(data_root(), root.join("data"));
     assert_eq!(cache_root(), root.join("cache"));
-    assert_eq!(crate::sandbox::state_root(), root.join("state"));
+    assert_eq!(crate::sandbox::state_root(), root.join("data/sessions"));
     for child in ["config", "data"] {
         assert!(crate::sandbox::refused(root.join(child).to_str().unwrap()).is_some());
     }

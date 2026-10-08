@@ -52,7 +52,7 @@ async fn preset_routes_persist_reload_validate_and_protect_stream_urls() {
     let Some(root) = crate::test_support::isolated() else {
         return;
     };
-    crate::test_support::set_env("SLOPD_JUKEBOX", root.join("jukebox"));
+    crate::test_support::set_env("SLOPD_CONFIG_ROOT", &root);
     let manager = crate::session::test_manager_with_socket(
         crate::config::Config::default(),
         format!("jukebox-{}", uuid::Uuid::new_v4()),
@@ -302,9 +302,9 @@ async fn assert_storage_errors(
     path: &str,
     root: &std::path::Path,
 ) {
-    let blocked_dir = root.join("not-a-directory");
+    let blocked_dir = root.join("jukebox");
+    std::fs::remove_dir_all(&blocked_dir).unwrap();
     std::fs::write(&blocked_dir, "not a directory").unwrap();
-    crate::test_support::set_env("SLOPD_JUKEBOX", &blocked_dir);
     assert_error(
         app,
         "POST",

@@ -10,10 +10,9 @@ use crate::config::SessionCfg;
 mod tests;
 
 /// Return the root directory for persistent session state.
-/// The default location is under the user data directory, outside `TEMP_ROOT`, so state remains after a restart.
-/// `SLOPD_STATE` overrides the location for tests.
+/// Lives under the daemon data root, outside `TEMP_ROOT`, so state remains after a restart.
 pub(crate) fn state_root() -> PathBuf {
-    crate::paths::override_path("SLOPD_STATE", crate::paths::data_root().join("sessions"))
+    crate::paths::data_root().join("sessions")
 }
 
 /// Return the path for this session's private copy of `host`.

@@ -300,9 +300,9 @@ async fn failed_worker_start_removes_owned_state_and_revokes_credentials() {
     let manager = manager_for_start();
     let mut session = manager.config().await.sessions[0].clone();
     session.state_id = crate::storage_id::draft_identity();
-    let private = root.join("state").join(&session.state_id);
+    let private = root.join("data/sessions").join(&session.state_id);
     std::fs::create_dir_all(&private).unwrap();
-    let unrelated = root.join("state/unrelated");
+    let unrelated = root.join("data/sessions/unrelated");
     std::fs::create_dir_all(&unrelated).unwrap();
     let mut row = Live::new(session, TitleCapture::default());
     row.ephemeral = true;
