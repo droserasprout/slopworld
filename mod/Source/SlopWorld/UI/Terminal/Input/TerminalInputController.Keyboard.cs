@@ -8,11 +8,12 @@ namespace SlopWorld
         internal static string MapKey(Event e, bool altScreen)
         {
             // Use tmux modifier names. Shifted navigation belongs to alternate-screen apps;
-            // function keys retain Shift on either screen. Tab uses its dedicated BTab name.
+            // Shift on function keys only bypasses workspace shortcuts. Tab uses its dedicated BTab name.
             string mod = "";
             if (e.control) mod += "C-";
             if (e.alt) mod += "M-";
-            if (e.shift && (altScreen || (e.keyCode >= KeyCode.F1 && e.keyCode <= KeyCode.F12))) mod += "S-";
+            bool functionKey = e.keyCode >= KeyCode.F1 && e.keyCode <= KeyCode.F12;
+            if (e.shift && altScreen && !functionKey) mod += "S-";
 
             switch (e.keyCode)
             {

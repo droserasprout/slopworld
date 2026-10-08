@@ -5,7 +5,7 @@ namespace SlopWorld.Tests
 {
     static class TerminalKeyboardTests
     {
-        public static void PreservesTabAndFunctionModifiers()
+        public static void PreservesTabModifiersAndStripsOnlyShiftFromFunctionKeys()
         {
             foreach (bool altScreen in new[] { false, true })
                 foreach (bool control in new[] { false, true })
@@ -18,7 +18,7 @@ namespace SlopWorld.Tests
                             for (int f = 1; f <= 12; f++)
                             {
                                 e.keyCode = (KeyCode)((int)KeyCode.F1 + f - 1);
-                                Assert.That(TerminalInputController.MapKey(e, altScreen), Is.EqualTo(prefix + (shift ? "S-" : "") + "F" + f));
+                                Assert.That(TerminalInputController.MapKey(e, altScreen), Is.EqualTo(prefix + "F" + f));
                             }
                         }
         }
