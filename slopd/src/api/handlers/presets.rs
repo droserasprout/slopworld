@@ -49,6 +49,7 @@ pub(crate) fn sandbox_json(
         "requires": p.requires,
         "ro": p.ro,
         "rw": p.rw,
+        "cache": p.cache,
         "dev": p.dev,
         "private": p.private,
         "seed": p.seed,

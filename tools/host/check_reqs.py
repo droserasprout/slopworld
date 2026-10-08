@@ -70,6 +70,7 @@ def main() -> int:
     missing += commands('agent CLI (one of)', 'claude', 'codex', 'opencode', 'pi')
 
     print('Optional: integrations')
+    commands('Rust compiler cache', 'sccache', required=False)
     commands('Wayland clipboard copy', 'wl-copy', required=False)
     commands('Wayland clipboard paste', 'wl-paste', required=False)
     commands('X11 clipboard', 'xclip', 'xsel', required=False)

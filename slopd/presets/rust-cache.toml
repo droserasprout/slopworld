@@ -2,9 +2,9 @@
 name = "rust-cache"
 description = "writable Cargo and rustup caches (requires rust)"
 requires = ["rust"]
+cache = ["~/.cargo/registry", "~/.cargo/git"]
+# Installed toolchains and update metadata retain existing-only access.
 rw = [
-    "~/.cargo/registry",
-    "~/.cargo/git",
     "~/.rustup/toolchains",
     "~/.rustup/update-hashes",
 ]

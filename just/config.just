@@ -51,6 +51,10 @@ TARGET := 'slopd/target/' + build_mode
 RUNNER := TARGET + '/slopworld'
 SLOPCTL := TARGET + '/slopctl'
 export CARGO := env("CARGO", 'cargo')
+# Share eligible compiler results while retaining per-checkout Cargo build state.
+# An explicit wrapper (including an empty value) takes precedence.
+export RUSTC_WRAPPER := env("RUSTC_WRAPPER", `command -v sccache || true`)
+export SCCACHE_DIR := env("SCCACHE_DIR", env("HOME") + '/.cache/sccache')
 export DOTNET := env("DOTNET", 'dotnet')
 export UV := env("UV", 'uv')
 export PYTHON := env("PYTHON", UV + ' run --locked python')

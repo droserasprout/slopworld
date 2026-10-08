@@ -57,6 +57,9 @@ pub struct SandboxPreset {
     /// Read-write paths. Include sockets here because bus communication requires write access.
     #[serde(default)]
     pub rw: Vec<String>,
+    /// Shared host cache directories, created at launch before read-write binding.
+    #[serde(default)]
+    pub cache: Vec<String>,
     /// Device nodes that need `--dev-bind` to remain accessible with the `--dev` tmpfs.
     #[serde(default)]
     pub dev: Vec<String>,
@@ -207,6 +210,7 @@ const BUILTIN: &[(&str, &str)] = &[
     ("kube", include_str!("../presets/kube.toml")),
     ("ollama", include_str!("../presets/ollama.toml")),
     ("rust-cache", include_str!("../presets/rust-cache.toml")),
+    ("rust-sccache", include_str!("../presets/rust-sccache.toml")),
     ("node-cache", include_str!("../presets/node-cache.toml")),
     ("python-cache", include_str!("../presets/python-cache.toml")),
     ("go-cache", include_str!("../presets/go-cache.toml")),

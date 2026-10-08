@@ -8,7 +8,9 @@ fn every_preset_path_field_rejects_relative_paths_after_expansion() {
     }) else {
         return;
     };
-    for kind in ["ro", "rw", "dev", "private", "seed", "skip", "shared"] {
+    for kind in [
+        "ro", "rw", "cache", "dev", "private", "seed", "skip", "shared",
+    ] {
         for raw in [".", "../outside", "relative", "$SLOPD_TEST_PRESET_PATH"] {
             let mut preset = SandboxPreset {
                 name: "relative-path".into(),
@@ -17,6 +19,7 @@ fn every_preset_path_field_rejects_relative_paths_after_expansion() {
             let (_, paths) = [
                 ("ro", &mut preset.ro),
                 ("rw", &mut preset.rw),
+                ("cache", &mut preset.cache),
                 ("dev", &mut preset.dev),
                 ("private", &mut preset.private),
                 ("seed", &mut preset.seed),
@@ -125,6 +128,7 @@ fn no_shipped_preset_asks_for_something_refused() {
             .ro
             .iter()
             .chain(&pr.rw)
+            .chain(&pr.cache)
             .chain(&pr.dev)
             .chain(&pr.private)
             .chain(&pr.seed)

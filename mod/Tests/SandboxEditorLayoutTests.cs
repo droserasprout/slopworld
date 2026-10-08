@@ -94,11 +94,11 @@ namespace SlopWorld.Tests
             preset.Source = "user";
             EditorTrace.Draws.Clear();
             bottom = page.TestPreset(preset, 240f, true);
-            AssertEx.Equal("238,473,781", string.Join(",",
+            AssertEx.Equal("238,546,854", string.Join(",",
                 EditorTrace.Draws.Where(d => d.Name == "rule").Select(d => d.Rect.y)),
-                "editable preset separators retain the original positions");
-            AssertEx.Equal(943f, bottom, "editable action position does not accumulate hairline heights");
-            AssertEx.Equal(12, EditorTrace.Draws.Count(d => d.Name.StartsWith("preset.", StringComparison.Ordinal)),
+                "editable preset separators include the cache directory editor");
+            AssertEx.Equal(1016f, bottom, "editable action position includes the cache directory editor");
+            AssertEx.Equal(13, EditorTrace.Draws.Count(d => d.Name.StartsWith("preset.", StringComparison.Ordinal)),
                 "editable empty fields remain visible");
         }
 

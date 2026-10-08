@@ -33,6 +33,8 @@ pub(crate) struct LaunchPlan {
     pub(crate) mounts: Vec<String>,
     pub(crate) command: Vec<String>,
     pub(crate) known_secrets: Vec<String>,
+    /// Host directories resolved with the mounts; launch must not reread the catalog.
+    pub(crate) cache_dirs: Vec<String>,
 }
 
 /// Define the fields for saved plans and API responses.

@@ -3,7 +3,7 @@
 name = "nuget-cache"
 description = "writable NuGet package and download caches (requires dotnet)"
 requires = ["dotnet"]
-rw = [
+cache = [
     "~/.nuget/packages",
     "~/.local/share/NuGet/http-cache",
     "~/.local/share/NuGet/plugins-cache",

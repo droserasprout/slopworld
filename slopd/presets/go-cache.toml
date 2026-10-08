@@ -2,4 +2,4 @@
 name = "go-cache"
 description = "writable Go module and build caches (requires go)"
 requires = ["go"]
-rw = ["~/go/pkg/mod", "~/.cache/go-build"]
+cache = ["~/go/pkg/mod", "~/.cache/go-build"]

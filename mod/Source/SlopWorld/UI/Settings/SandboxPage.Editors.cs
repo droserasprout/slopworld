@@ -12,12 +12,10 @@ namespace SlopWorld
         void DrawPresetList(Rect r)
         {
             var all = SessionHub.Instance.Presets;
-            var system = all.Where(p => p.Source == "system")
-                .OrderBy(p => p.Name == "global" ? 0 : 1)
-                .ThenBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase).ToList();
-            var user = all.Where(p => p.Source != "system")
-                .OrderBy(p => p.Name == "global" ? 0 : 1)
-                .ThenBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase).ToList();
+            var systemTree = new PresetHierarchy(all.Where(p => p.Source == "system"));
+            var userTree = new PresetHierarchy(all.Where(p => p.Source != "system"));
+            var system = systemTree.Items;
+            var user = userTree.Items;
             float h = (system.Count + user.Count + 2 +
                 (system.Count == 0 ? 1 : 0) + (user.Count == 0 ? 1 : 0)) * UiTheme.RowH
                 + UiTheme.GapS * 2f;
@@ -28,9 +26,9 @@ namespace SlopWorld
                 float y = 0f;
                 y = DrawLibraryGroup(view, y, "User", user,
                     p => p.Name + (p.Source == "override" ? "  (override)" : ""),
-                    p => { _preset = p; _newEntry = false; });
+                    p => { _preset = p; _newEntry = false; }, userTree.Depth);
                 DrawLibraryGroup(view, y, "System", system, p => p.Name,
-                    p => { _preset = p; _newEntry = false; });
+                    p => { _preset = p; _newEntry = false; }, systemTree.Depth);
             }
         }
 
@@ -38,14 +36,13 @@ namespace SlopWorld
             (1 + Mathf.Max(1, count)) * UiTheme.RowH + UiTheme.GapS;
 
         float DrawLibraryGroup<T>(Rect view, float y, string heading, List<T> items,
-                                  Func<T, string> label, Action<T> pick)
+                                  Func<T, string> label, Action<T> pick, Func<T, int> depth = null)
         {
             UiLayout.SectionHeading(new Rect(0f, y, view.width, UiTheme.RowH), heading);
             y += UiTheme.RowH;
             foreach (var item in items)
             {
-                bool child = item is PresetInfo preset && IsOptionalChild(preset);
-                float inset = child ? UiTheme.GapM : UiTheme.GapS;
+                float inset = UiTheme.GapS + (depth?.Invoke(item) ?? 0) * (UiTheme.GapM - UiTheme.GapS);
                 var cell = new Rect(inset, y, view.width - inset, UiTheme.RowH);
                 string name = label(item);
                 bool selected = (item is PresetInfo p && p == _preset) ||
@@ -76,13 +73,6 @@ namespace SlopWorld
             }
             return y + UiTheme.GapS;
         }
-
-        // The optional half of one integration follows its read-only essential by name and
-        // requires it. It is indented rather than separated, so `python` and
-        // `python-cache` read as one small tree.
-        static bool IsOptionalChild(PresetInfo p) =>
-            p.Name.EndsWith("-cache", StringComparison.OrdinalIgnoreCase) &&
-            p.Requires.Any(required => required == p.Name.Substring(0, p.Name.Length - "-cache".Length));
 
         void DrawCommandList(Rect r)
         {
@@ -158,6 +148,7 @@ namespace SlopWorld
         {
             y = EditorList(view, y, "Read-only binds", "preset.ro", p.Ro, editable, draw);
             y = EditorList(view, y, "Read-write binds", "preset.rw", p.Rw, editable, draw);
+            y = EditorList(view, y, "Shared cache directories (created at launch)", "preset.cache", p.Cache, editable, draw);
             y = EditorList(view, y, "Device binds", "preset.dev", p.Dev, editable, draw);
             return Rule(view.width, y, draw);
         }

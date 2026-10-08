@@ -19,6 +19,7 @@ namespace SlopWorld
         // by access mode. Dev is a separate device-bind category; the daemon owns bind flags.
         public List<string> Ro = new List<string>();
         public List<string> Rw = new List<string>();
+        public List<string> Cache = new List<string>();
         public List<string> Dev = new List<string>();
         public List<string> Env = new List<string>();
         public List<string> Seed = new List<string>();
@@ -50,7 +51,7 @@ namespace SlopWorld
                 .Concat(DaemonConfig
                     ? new[] { "SlopWorld daemon config (read-only)" }
                     : Enumerable.Empty<string>())
-                .Concat(Ro).Concat(Rw).Concat(Dev).Concat(Shared).Concat(Private).Concat(Env)
+                .Concat(Ro).Concat(Rw).Concat(Cache).Concat(Dev).Concat(Shared).Concat(Private).Concat(Env)
                 .Concat(Setenv.Select(x => $"{x.Key}={x.Value}")).ToList();
 
         public PresetInfo Copy() => new PresetInfo
@@ -61,6 +62,7 @@ namespace SlopWorld
             Source = Source,
             Ro = new List<string>(Ro),
             Rw = new List<string>(Rw),
+            Cache = new List<string>(Cache),
             Dev = new List<string>(Dev),
             Env = new List<string>(Env),
             Private = new List<string>(Private),
@@ -80,6 +82,7 @@ namespace SlopWorld
             Requires = { Requires },
             Ro = { Ro },
             Rw = { Rw },
+            Cache = { Cache },
             Dev = { Dev },
             Private = { Private },
             Seed = { Seed },
@@ -106,6 +109,7 @@ namespace SlopWorld
             p.Ro.AddRange(j.Ro);
             p.Requires.AddRange(j.Requires);
             p.Rw.AddRange(j.Rw);
+            p.Cache.AddRange(j.Cache);
             p.Dev.AddRange(j.Dev);
             p.Private.AddRange(j.Private);
             p.Seed.AddRange(j.Seed);

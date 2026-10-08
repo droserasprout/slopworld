@@ -66,7 +66,9 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
     // Apply global mounts before resolved presets.
     // bwrap then receives the most specific definition for each path last.
     let ro = policy::paths(presets, |pr| &pr.ro);
-    let rw = policy::paths(presets, |pr| &pr.rw);
+    let mut rw = policy::paths(presets, |pr| &pr.rw);
+    let cache_dirs = super::preset_cache::paths(presets)?;
+    rw.extend(cache_dirs.iter().cloned());
     let dev = policy::paths(presets, |pr| &pr.dev);
     let tmux = presets.iter().any(|pr| pr.tmux);
     // A worker can use a broad preset such as slopworld-debug.
@@ -119,6 +121,7 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
     let pasta = mounts::pasta_prefix(dns, &cfg.daemon.bind, network);
     let limits = mounts::scope_prefix(&limits);
     Ok(LaunchPlan {
+        cache_dirs,
         session: s.name.clone(),
         limits,
         pasta,

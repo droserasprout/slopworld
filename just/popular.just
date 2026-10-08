@@ -32,4 +32,4 @@ install: install-daemon install-runner install-mod
 # Launch the game through the runner
 [group('Common commands')]
 run: daemon
-    {{ RUNNER }} --game "{{ RIMWORLD }}" {{ if PROFILE != '' { '--profile "' + PROFILE + '"' } else { '' } }}
+    SLOPWORLD_GAME="{{ RIMWORLD }}" {{ RUNNER }} {{ if PROFILE != '' { '--profile "' + PROFILE + '"' } else { '' } }}

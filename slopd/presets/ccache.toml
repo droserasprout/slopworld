@@ -4,5 +4,7 @@
 name = "ccache"
 description = "writable ccache compiler cache"
 ro = ["~/.config/ccache/ccache.conf"]
-# ccache versions before 4.0 use ~/.ccache by default. Later versions use ~/.cache/ccache.
-rw = ["~/.ccache", "~/.cache/ccache"]
+# Existing legacy caches remain usable. Creating ~/.ccache would make modern
+# ccache prefer it over ~/.cache/ccache, so only create the modern directory.
+rw = ["~/.ccache"]
+cache = ["~/.cache/ccache"]

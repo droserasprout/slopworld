@@ -140,6 +140,7 @@ fn validate_preset_paths(p: &SandboxPreset) -> Result<()> {
     for (kind, paths) in [
         ("read-only", p.ro.as_slice()),
         ("read-write", p.rw.as_slice()),
+        ("cache", p.cache.as_slice()),
         ("device", p.dev.as_slice()),
         ("private", p.private.as_slice()),
         ("seed", p.seed.as_slice()),

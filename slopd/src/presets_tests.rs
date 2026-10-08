@@ -137,7 +137,7 @@ fn assert_debug_preset(table: &Table) {
             "git",
             "nuget-cache",
             "python",
-            "rust-cache",
+            "rust-sccache",
             "systemd",
             "wayland",
             "x11",
@@ -186,17 +186,52 @@ fn assert_builtin_cache_presets(table: &Table) {
     );
     assert!(table.sandbox("global").unwrap().rw.is_empty());
     assert_eq!(
-        table.sandbox("go-cache").unwrap().rw,
+        table.sandbox("go-cache").unwrap().cache,
         vec!["~/go/pkg/mod", "~/.cache/go-build"]
     );
     assert_eq!(
         table.sandbox("rust-cache").unwrap().rw,
-        vec![
-            "~/.cargo/registry",
-            "~/.cargo/git",
-            "~/.rustup/toolchains",
-            "~/.rustup/update-hashes"
-        ]
+        vec!["~/.rustup/toolchains", "~/.rustup/update-hashes"]
+    );
+    assert_eq!(
+        table
+            .sandbox("rust-sccache")
+            .unwrap()
+            .setenv
+            .get("RUSTC_WRAPPER")
+            .map(String::as_str),
+        Some("sccache")
+    );
+    assert_eq!(
+        table.sandbox("rust-cache").unwrap().cache,
+        vec!["~/.cargo/registry", "~/.cargo/git"]
+    );
+    for name in ["go-cache", "node-cache", "nuget-cache", "ruby-cache"] {
+        let preset = table.sandbox(name).unwrap();
+        assert!(!preset.cache.is_empty(), "{name} must create its caches");
+        assert!(preset.rw.is_empty(), "{name} has only cache directories");
+    }
+    assert_eq!(
+        table.sandbox("python-cache").unwrap().cache,
+        vec!["~/.cache/pip", "~/.cache/uv"]
+    );
+    assert_eq!(
+        table.sandbox("python-cache").unwrap().rw,
+        vec!["~/.local/share/uv"]
+    );
+    assert_eq!(
+        table.sandbox("ccache").unwrap().cache,
+        vec!["~/.cache/ccache"]
+    );
+    assert_eq!(table.sandbox("ccache").unwrap().rw, vec!["~/.ccache"]);
+    assert!(table.sandbox("rust-cache").unwrap().setenv.is_empty());
+    assert_eq!(
+        table.sandbox("rust-sccache").unwrap().cache,
+        vec!["~/.cache/sccache"]
+    );
+    assert_eq!(
+        table.sandbox("rust-sccache").unwrap().requires,
+        vec!["rust-cache"]
     );
     assert_eq!(table.sandbox("kube").unwrap().ro, vec!["~/.kube"]);
     for (cache, tool) in [

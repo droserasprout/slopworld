@@ -228,6 +228,7 @@ message SandboxPreset {
   optional bool tmux = 14;
   optional bool daemon_config = 15;
   optional string source = 16;
+  repeated string cache = 17;
 }
 
 message CommandPreset {

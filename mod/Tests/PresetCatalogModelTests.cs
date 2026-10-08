@@ -12,6 +12,7 @@ namespace SlopWorld.Tests
             Requires = new List<string> { "base" },
             Ro = new List<string> { "/ro" },
             Rw = new List<string> { "/rw" },
+            Cache = new List<string> { "/cache" },
             Dev = new List<string> { "/dev/dri" },
             Env = new List<string> { "DISPLAY" },
             Private = new List<string> { "~/.config" },
@@ -81,10 +82,10 @@ namespace SlopWorld.Tests
             var preset = Preset();
             AssertEx.True(preset.IsEscape, "host access is flagged");
             AssertEx.Sequence(new[] { "SlopWorld tmux socket", "SlopWorld daemon config (read-only)",
-                "/ro", "/rw", "/dev/dri", "~/.config/token", "~/.config", "DISPLAY", "MODE=desktop" },
+                "/ro", "/rw", "/cache", "/dev/dri", "~/.config/token", "~/.config", "DISPLAY", "MODE=desktop" },
                 preset.Gives, "tooltip groups access and omits seed/skip rules");
             preset.Gives.Clear();
-            AssertEx.Equal(9, preset.Gives.Count, "tooltip results do not mutate the preset");
+            AssertEx.Equal(10, preset.Gives.Count, "tooltip results do not mutate the preset");
             var empty = new PresetInfo();
             AssertEx.False(empty.IsEscape, "default has no escape");
             empty.Escapes = null;

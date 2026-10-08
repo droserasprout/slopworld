@@ -30,7 +30,7 @@ class RecipeTests(unittest.TestCase):
             + """
 import json, os, pathlib, sys
 tool = pathlib.Path(sys.argv[0]).name
-keys = ("BUILD", "CARGOFLAGS", "MOD_DEPS_LOCKED", "SLOPCAR_PROFILE", "JUST_CMD")
+keys = ("BUILD", "CARGOFLAGS", "MOD_DEPS_LOCKED", "SLOPCAR_PROFILE", "JUST_CMD", "RUSTC_WRAPPER", "SCCACHE_DIR")
 with open(os.environ["RECIPE_TEST_LOG"], "a") as log:
     log.write(json.dumps({"tool": tool, "args": sys.argv[1:], "cwd": os.getcwd(),
         "env": {key: os.environ.get(key) for key in keys}}) + "\\n")
@@ -71,6 +71,20 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual(call['args'], ['build', '--release'])
         self.assertEqual(call['env']['BUILD'], 'release')
         self.assertEqual(call['cwd'], str(ROOT / 'slopd'))
+
+    def test_rust_cache_wrapper_discovery_and_explicit_overrides(self) -> None:
+        (self.directory / 'sccache').symlink_to(self.directory / 'stub')
+        self.run_recipe('daemon')
+        (call,) = self.calls('cargo')
+        self.assertEqual(call['env']['RUSTC_WRAPPER'], str(self.directory / 'sccache'))
+        self.assertEqual(call['env']['SCCACHE_DIR'], str(Path.home() / '.cache/sccache'))
+        for wrapper in ('', '/custom/wrapper'):
+            with self.subTest(wrapper=wrapper):
+                self.log.unlink()
+                self.run_recipe(f'RUSTC_WRAPPER={wrapper}', 'SCCACHE_DIR=/custom/cache', 'daemon')
+                (call,) = self.calls('cargo')
+                self.assertEqual(call['env']['RUSTC_WRAPPER'], wrapper)
+                self.assertEqual(call['env']['SCCACHE_DIR'], '/custom/cache')
 
     def test_invalid_build_fails_before_running_commands(self) -> None:
         result = self.run_recipe('BUILD=fast', 'daemon', success=False)

@@ -1,0 +1,9 @@
+[[sandbox]]
+name = "rust-sccache"
+description = "shared Rust compiler results (requires sccache installed on the host)"
+requires = ["rust-cache"]
+# Cargo target directories must remain local to each checkout.
+cache = ["~/.cache/sccache"]
+
+[sandbox.setenv]
+RUSTC_WRAPPER = "sccache"

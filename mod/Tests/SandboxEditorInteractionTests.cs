@@ -189,6 +189,7 @@ namespace SlopWorld.Tests
             presets.Add(new PresetInfo { Name = "zebra", Source = "user" });
             presets.Add(new PresetInfo { Name = "python-cache", Source = "system", Requires = new List<string> { "python" } });
             presets.Add(new PresetInfo { Name = "python", Source = "system", Description = "Interpreter" });
+            presets.Add(new PresetInfo { Name = "python-extra", Source = "system", Requires = new List<string> { "python-cache" } });
             presets.Add(new PresetInfo { Name = "global", Source = "system" });
             presets.Add(new PresetInfo { Name = "Alpha", Source = "override", Escapes = "host access" });
             presets.Add(new PresetInfo { Name = "global", Source = "user" });
@@ -196,11 +197,12 @@ namespace SlopWorld.Tests
             var page = new SandboxPage { TestNewEntry = true };
             EditorTrace.PickRow = "Alpha  (override)";
             page.TestPresetList(300);
-            AssertEx.Sequence(new[] { "User", "global", "Alpha  (override)", "unrelated-cache", "zebra", "System", "global", "python", "python-cache" },
+            AssertEx.Sequence(new[] { "User", "global", "Alpha  (override)", "unrelated-cache", "zebra", "System", "global", "python", "python-cache", "python-extra" },
                 EditorTrace.Draws.Where(d => d.Name != "scroll").Select(d => d.Name), "groups sort global first then names ignoring case");
             AssertEx.Equal("Alpha", page.TestSelectedPreset.Name, "clicked row becomes editor selection");
             AssertEx.False(page.TestNewEntry, "selection exits new-entry mode");
             AssertEx.Equal(UiTheme.GapM, EditorTrace.Draws.Single(d => d.Name == "python-cache").Rect.x, "dependent cache indented");
+            AssertEx.Equal(2 * UiTheme.GapM - UiTheme.GapS, EditorTrace.Draws.Single(d => d.Name == "python-extra").Rect.x, "nested dependency indented twice");
             AssertEx.Equal(UiTheme.GapS, EditorTrace.Draws.Single(d => d.Name == "unrelated-cache").Rect.x, "suffix alone does not imply dependency");
         });
 

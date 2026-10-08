@@ -1,6 +1,6 @@
 # Troubleshooting
 
-## The mod disables itself at startup
+## The mod disables itself at startup {#the-mod-refuses-to-patch}
 
 The refusal dialog means the current save-data folder lacks `slopworld.profile`.
 SlopWorld disables itself in that profile's mod list and asks you to quit. Restart

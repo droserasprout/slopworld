@@ -3,6 +3,7 @@ use super::*;
 #[test]
 fn lowering_preserves_wrappers_and_section_order() {
     let plan = LaunchPlan {
+        cache_dirs: Vec::new(),
         session: "a".into(),
         limits: vec!["systemd-run".into(), "--".into()],
         pasta: vec!["pasta".into(), "--".into()],
@@ -37,6 +38,7 @@ fn lowering_preserves_wrappers_and_section_order() {
 #[test]
 fn environment_and_sensitive_command_values_are_redacted_structurally() {
     let plan = LaunchPlan {
+        cache_dirs: Vec::new(),
         session: "a".into(),
         limits: Vec::new(),
         pasta: Vec::new(),
@@ -148,6 +150,7 @@ fn saved_projection_is_private_and_replaces_atomically() {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("launch-plan.json");
     let plan = LaunchPlan {
+        cache_dirs: Vec::new(),
         session: "worker".into(),
         limits: Vec::new(),
         pasta: Vec::new(),
@@ -204,6 +207,7 @@ fn overlapping_secrets_are_redacted_independent_of_order() {
 #[test]
 fn known_secrets_in_session_and_assignment_keys_are_redacted() {
     let plan = LaunchPlan {
+        cache_dirs: Vec::new(),
         session: "SECRET-worker".into(),
         limits: vec![],
         pasta: vec![],

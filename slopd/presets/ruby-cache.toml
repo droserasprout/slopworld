@@ -4,4 +4,4 @@
 name = "ruby-cache"
 description = "writable Bundler and gem download caches (requires ruby)"
 requires = ["ruby"]
-rw = ["~/.bundle/cache", "~/.gem/specs"]
+cache = ["~/.bundle/cache", "~/.gem/specs"]

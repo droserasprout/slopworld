@@ -39,6 +39,6 @@ This discards the existing mod list; it does not reset saves or the whole profil
 
 ## Troubleshooting
 
-Use the launcher for normal play. See [The mod refuses to patch](../help/troubleshooting.md#the-mod-refuses-to-patch)
+Use the launcher for normal play. See [The mod disables itself at startup](../help/troubleshooting.md#the-mod-refuses-to-patch)
 for marker repair and [Multiple instances](../help/troubleshooting.md#multiple-instances)
 for launch conflicts.

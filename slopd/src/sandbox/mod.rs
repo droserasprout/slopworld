@@ -8,6 +8,7 @@ mod network;
 mod observe;
 mod paths;
 mod plan;
+mod preset_cache;
 mod seed;
 mod state;
 
@@ -27,6 +28,7 @@ pub(crate) use observe::inspect_session;
 pub use paths::{refused, validate_preset, validate_preset_name};
 pub(crate) use plan::{LaunchPlan, PlanView, read as read_launch_plan};
 pub(crate) use plan::{sanitize_diagnostic, sanitize_process_argv};
+pub(crate) use preset_cache::prepare as prepare_preset_caches;
 pub use state::StoredState;
 #[cfg(test)]
 use state::direct_child;

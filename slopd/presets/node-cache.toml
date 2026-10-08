@@ -2,4 +2,4 @@
 name = "node-cache"
 description = "writable npm and node-gyp caches (requires node)"
 requires = ["node"]
-rw = ["~/.npm", "~/.cache/node-gyp"]
+cache = ["~/.npm", "~/.cache/node-gyp"]

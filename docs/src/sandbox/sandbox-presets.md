@@ -28,7 +28,7 @@ MY_TOOL_MODE = "local"
 
 Paths expand `~` and environment variables. An unset variable omits the whole path.
 Nonempty paths must be absolute after expansion; relative preset paths are rejected.
-Missing preset sources are skipped; an invalid project directory prevents launch.
+Missing ordinary bind sources are skipped; an invalid project directory prevents launch.
 Protected paths, including the daemon's configuration and private state, cannot
 be mounted through ordinary path fields.
 
@@ -38,13 +38,15 @@ be mounted through ordinary path fields.
 | --- | --- |
 | `ro` | Mount an existing host path read-only. |
 | `rw` | Mount an existing host path read-write. |
+| `cache` | Create a shared host directory at launch, then mount it read-write. Creation failures prevent launch. |
 | `dev` | Bind an existing host device node with `--dev-bind`. |
 | `private` | The daemon stores one copy per session under the state root. It mounts the copy at the configured path. |
 | `seed` | Copy selected files or directories into private state on first start. |
 | `shared` | Mount a host-owned file read-write inside private state without copying it. Use this mode for rotating credentials. |
 | `skip` | Exclude listed paths from the initial copy into private state. |
 
-The daemon omits a preset bind when its host path does not exist. A `private` bind can use
+The daemon omits ordinary preset binds when their host paths do not exist.
+`cache` directories are created at launch; previewing a preset does not create them. A `private` bind can use
 an existing session copy when its host path is missing.
 If a path contains an unset environment variable, the daemon omits the whole path.
 
@@ -76,6 +78,18 @@ Host updates reach the sandboxes, and agents can overwrite those files in place.
 Treat them as writable host data; see the [Security model](security.md).
 
 A non-empty `escapes` field warns about host capabilities outside the sandbox.
+
+## SSH agents {#ssh-agents}
+
+Select `ssh` for SSH configuration and known hosts. Add `ssh-agent` to expose the
+socket named by the daemon's `SSH_AUTH_SOCK`, or `1password` when your SSH config
+selects `~/.1password/agent.sock`.
+
+An explicit `IdentityAgent` in `~/.ssh/config` overrides `SSH_AUTH_SOCK`.
+Selecting `ssh-agent` does not change that configuration or make the 1Password
+socket available when `SSH_AUTH_SOCK` points to another agent. Use `ssh -G HOST`
+to check the effective `identityagent` setting. `ssh-add -l` queries the agent
+named by `SSH_AUTH_SOCK`, so its success alone does not prove SSH uses that agent.
 
 ## Network and DNS {#network}
 

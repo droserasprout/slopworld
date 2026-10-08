@@ -29,3 +29,7 @@ Over-pane UI draws after the fullscreen fill in window contents. Screenshot visi
 checks cover map components/extras/overlays separately from the pane. Absorbing windows
 can consume input before lower owners; `Use()` alone does not arbitrate overlapping
 targets. Gesture owners retain release even outside bounds.
+
+The Sandbox preset list orders single-dependency chains as nested groups within
+each User/System section. Multi-dependency bundles stay at the root; missing or
+cyclic parents must leave entries visible. `PresetHierarchy` owns this ordering.

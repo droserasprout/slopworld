@@ -7,7 +7,7 @@ requires = [
     "git",
     "nuget-cache",
     "python",
-    "rust-cache",
+    "rust-sccache",
     "systemd",
     "wayland",
     "x11",

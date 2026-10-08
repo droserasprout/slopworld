@@ -25,7 +25,12 @@ Use the agent editor's **Preview** tab to check access.
 ## Shared cache mounts
 
 A **Cache** mount shares build files across [worktrees](project-worktrees.md).
-For parallel builds, the build tool must support concurrent cache access.
+The tool must support sharing that cache across different source checkouts and
+concurrent builds. For Rust, keep `target` directories separate per worktree.
+Use **rust-cache** for shared downloads, and opt into **rust-sccache** for shared
+compiler results. Install `sccache` on the host before starting sessions with
+**rust-sccache**. SlopWorld creates and mounts `~/.cache/sccache` automatically. It sets `RUSTC_WRAPPER=sccache`; builds fail
+if the executable is missing.
 
 <a id="set-up-a-cache"></a>
 
@@ -34,7 +39,7 @@ For parallel builds, the build tool must support concurrent cache access.
 1. Select **Add path** and choose **Cache**.
 2. Leave **From** blank for managed storage, or enter an absolute cache directory
    outside the project and its worktrees. SlopWorld creates it if needed.
-3. Set **To** to a directory name such as `target`.
+3. Set **To** to the cache directory required by the tool.
 4. Select **Save** and restart running agents.
 
 Saving links the cache into every checkout, including **main** and future

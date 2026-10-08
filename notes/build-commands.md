@@ -32,6 +32,14 @@ bytes to preserve compiler input timestamps.
 `devloop` runs `just install run` together, sharing build dependencies once per
 iteration and retaining each worktree's Rust target and C# obj directories.
 Only an explicit `just clean` removes build output.
+Host recipes use sccache when installed, respecting an explicit `RUSTC_WRAPPER`
+(including empty to disable it). `SCCACHE_DIR` defaults to `~/.cache/sccache`, also
+shared by the opt-in `rust-sccache` sandbox preset. `rust-cache` only grants access
+to Cargo/rustup downloads; `slopworld-debug` selects `rust-sccache`. The daemon
+creates preset cache directories at launch; host sccache creates its cache itself.
+Keep Cargo target directories separate per checkout; sharing
+fingerprints and build-script outputs can reuse another checkout's artifacts.
+Incremental compilation remains enabled; sccache reuses eligible dependencies.
 Rust version metadata watches Git HEAD and tag/ref storage, not the index:
 staging and index refreshes must not invalidate daemon builds.
 

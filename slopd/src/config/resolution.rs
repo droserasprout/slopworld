@@ -383,6 +383,10 @@ impl Config {
                 |v: &crate::presets::SandboxPreset| &v.rw,
             ),
             (
+                "Shared cache directories (created at launch)",
+                |v: &crate::presets::SandboxPreset| &v.cache,
+            ),
+            (
                 "Requested device binds",
                 |v: &crate::presets::SandboxPreset| &v.dev,
             ),

@@ -353,7 +353,9 @@ fn build_start_plan(
     }
 
     crate::sandbox::prepare_network(cfg, session, project)?;
-    build_plan(cfg, session, project).map(Some)
+    let plan = build_plan(cfg, session, project)?;
+    crate::sandbox::prepare_preset_caches(&plan.cache_dirs)?;
+    Ok(Some(plan))
 }
 
 #[cfg(test)]
