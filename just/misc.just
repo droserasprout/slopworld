@@ -31,12 +31,12 @@ pkg-arch:
 
 # Build user documentation
 [group('Development tools')]
-docs:
+docs: refresh-introduction
     cd docs && mdbook build
 
 # Serve user documentation
 [group('Development tools')]
-docs-serve:
+docs-serve: refresh-introduction
     cd docs && mdbook serve
 
 # Reinstall and relaunch after every game exit
