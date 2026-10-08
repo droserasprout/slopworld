@@ -204,6 +204,33 @@ fn approval_answers_never_consume_the_once_attempt_even_with_zero_minimum() {
 }
 
 #[test]
+fn double_escape_skips_recalled_prompt_without_consuming_once_attempt() {
+    for policy in [TitlePolicy::Once, TitlePolicy::Always] {
+        let settings = settings(policy);
+        let mut capture = TitleCapture::default();
+        capture.paste("unfinished input");
+        for _ in 0..2 {
+            assert!(
+                capture
+                    .capture_keys(&settings, &["Escape".into()], false)
+                    .is_none()
+            );
+        }
+        // The agent restores the earlier prompt without sending its text to capture.
+        capture.paste(" pasted edit");
+        capture.capture_keys(&settings, &[" appended edit".into()], true);
+        assert!(
+            capture
+                .capture_keys(&settings, &["Enter".into()], false)
+                .is_none()
+        );
+        assert!(!capture.has_pending());
+        let next = request(&mut capture, &settings, "Fresh prompt");
+        assert!(capture.accepts(&next));
+    }
+}
+
+#[test]
 fn stale_and_repeated_results_cannot_replace_a_title_or_clear_new_work() {
     let settings = settings(TitlePolicy::Always);
     let mut capture = TitleCapture::default();
