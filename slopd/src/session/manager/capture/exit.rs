@@ -66,12 +66,12 @@ impl Manager {
 
     /// The caller holds the session boundary through inspection and reader handoff.
     async fn reader_ended_inner(self: &Arc<Self>, name: &str, token: &Arc<()>) {
-        let session = {
+        let (session, host) = {
             let live = self.live.read().await;
             let Some(current) = live.get(name).filter(|l| reader_owned_by(l, token)) else {
                 return;
             };
-            current.cfg.clone()
+            (current.cfg.clone(), current.host)
         };
         let outcome = match self.confirm_pane_exit(name).await {
             Ok(outcome) => outcome,
@@ -85,7 +85,14 @@ impl Manager {
             self.recover_capture(name, token).await;
             return;
         };
-        let saved = self.save_pane_exit(name, &session, &reason).await;
+        // Host terminals have no private storage owner. Keep their exit reason in
+        // the journal instead of creating an orphaned sandbox directory.
+        let saved = if host {
+            tracing::info!(session = %name, %reason, "host pane exited");
+            true
+        } else {
+            self.save_pane_exit(name, &session, &reason).await
+        };
         if session.worker {
             self.fail_worker_task_checked(
                 &session.task_id,

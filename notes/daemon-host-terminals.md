@@ -3,7 +3,9 @@
 Host shells from project headings are persistent sidebar tabs. The daemon writes one
 `host_shells/<id>.toml` record per project/shell tab under the data root.
 These tabs are separate from agent sessions and have no colonist or sandboxed agent
-configuration. [Temporary host errands](daemon-library.md) have a different lifecycle.
+configuration. Confirmed host-pane exits are logged to the daemon journal; they
+do not allocate private sandbox storage for exit evidence.
+[Temporary host errands](daemon-library.md) have a different lifecycle.
 
 The saved record retains terminal identity, project grouping, last observed working
 directory, and autostart policy. A missing `autostart` field means true.

@@ -552,11 +552,16 @@ async fn adoption_finalizes_a_pane_that_exited_without_a_reader() {
 
 #[tokio::test]
 async fn host_reader_exit_removes_tab_without_explicit_stop() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    let project_dir = root.join("project");
+    std::fs::create_dir_all(&project_dir).unwrap();
     let socket = crate::test_support::TmuxSocket::new();
     let cfg = Config {
         projects: vec![ProjectCfg {
             name: "repo".into(),
-            dir: "/tmp".into(),
+            dir: project_dir.to_string_lossy().into_owned(),
             ..Default::default()
         }],
         ..Default::default()
@@ -599,6 +604,8 @@ async fn host_reader_exit_removes_tab_without_explicit_stop() {
     })
     .await
     .unwrap();
+    let state_dir = crate::sandbox::state_dir(&manager.live.read().await[&name].cfg).unwrap();
+    assert!(!state_dir.exists());
     manager
         .tmux
         .send_keys(&name, &["Enter".into()], false)
@@ -611,5 +618,54 @@ async fn host_reader_exit_removes_tab_without_explicit_stop() {
     })
     .await
     .expect("exited host reader tab must disappear");
+    assert!(!state_dir.exists(), "host exit created private storage");
     assert!(!manager.tmux.exists(&name).await);
+}
+
+#[tokio::test]
+async fn disappeared_host_panes_do_not_allocate_private_storage() {
+    let Some(_root) = crate::test_support::isolated() else {
+        return;
+    };
+    let socket = crate::test_support::TmuxSocket::new();
+    let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+    // Keep the server alive so a checked listing proves the host pane is absent.
+    manager
+        .tmux
+        .spawn(
+            "keeper",
+            "/tmp",
+            80,
+            24,
+            &["sleep".into(), "2147483647".into()],
+            false,
+        )
+        .await
+        .unwrap();
+    for persistent in [false, true] {
+        let session = SessionCfg {
+            name: "host-tab".into(),
+            ..Default::default()
+        };
+        let state_dir = crate::sandbox::state_dir(&session).unwrap();
+        let token = Arc::new(());
+        let mut live = Live::new(session, TitleCapture::default());
+        live.host = true;
+        live.ephemeral = true;
+        live.persistent_host = persistent;
+        live.process_running = true;
+        live.set_state(State::Working);
+        live.capture.reader_token = Some(token.clone());
+        manager.live.write().await.insert("host-tab".into(), live);
+        manager.reader_ended("host-tab".into(), token.clone()).await;
+        manager.reader_ended("host-tab".into(), token).await;
+        assert!(!state_dir.exists(), "host exit created private storage");
+        let live = manager.live.read().await;
+        if persistent {
+            assert_eq!(live["host-tab"].state, State::Down);
+            assert!(!live["host-tab"].process_running);
+        } else {
+            assert!(!live.contains_key("host-tab"));
+        }
+    }
 }
