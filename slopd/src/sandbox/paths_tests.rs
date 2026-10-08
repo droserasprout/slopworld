@@ -14,16 +14,18 @@ fn every_preset_path_field_rejects_relative_paths_after_expansion() {
                 name: "relative-path".into(),
                 ..Default::default()
             };
-            let paths = match kind {
-                "ro" => &mut preset.ro,
-                "rw" => &mut preset.rw,
-                "dev" => &mut preset.dev,
-                "private" => &mut preset.private,
-                "seed" => &mut preset.seed,
-                "skip" => &mut preset.skip,
-                "shared" => &mut preset.shared,
-                _ => unreachable!(),
-            };
+            let (_, paths) = [
+                ("ro", &mut preset.ro),
+                ("rw", &mut preset.rw),
+                ("dev", &mut preset.dev),
+                ("private", &mut preset.private),
+                ("seed", &mut preset.seed),
+                ("skip", &mut preset.skip),
+                ("shared", &mut preset.shared),
+            ]
+            .into_iter()
+            .find(|(name, _)| *name == kind)
+            .expect("known preset path field");
             paths.push(raw.into());
             let error = validate_preset(&preset, &Table::builtins())
                 .unwrap_err()
