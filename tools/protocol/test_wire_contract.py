@@ -106,7 +106,6 @@ class WireContractTests(unittest.TestCase):
 
     def test_protobuf_route_types_match_handler_signatures(self) -> None:
         from tools.docs.reference import api_routes
-        from tools.docs.reference import read_files
 
         root = ROOT
         source = '\n'.join(
@@ -130,7 +129,7 @@ class WireContractTests(unittest.TestCase):
             for route in self.data['http']['routes'].values()
             for method, types in route['protobuf'].items()
         }
-        for route in api_routes(read_files()):
+        for route in api_routes():
             if route.path == '/ws':
                 continue
             self.assertIn(route.handler, signatures, f'missing handler signature: {route.handler}')
@@ -142,9 +141,8 @@ class WireContractTests(unittest.TestCase):
 
     def test_route_access_groups_preserve_root_boundaries(self) -> None:
         from tools.docs.reference import api_routes
-        from tools.docs.reference import read_files
 
-        routes = {(route.method, route.path): route.scope for route in api_routes(read_files())}
+        routes = {(route.method, route.path): route.scope for route in api_routes()}
         expected = {
             (method, route['path']): 'root-only' if route['scope'] == 'root' else 'scoped'
             for route in self.data['http']['routes'].values()

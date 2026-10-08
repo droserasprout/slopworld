@@ -4,19 +4,19 @@ from pathlib import Path
 
 import pytest
 
-from tools.release import latest
 from tools.release import source_mod
+from tools.release import staging
 
 
 @pytest.fixture
 def inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / 'source snapshot'
     monkeypatch.setattr(source_mod, 'ROOT', root)
-    for directory in latest.MOD_DIRECTORIES:
+    for directory in staging.MOD_DIRECTORIES:
         asset = root / 'mod' / directory / 'asset'
         asset.parent.mkdir(parents=True, exist_ok=True)
         asset.write_text(directory)
-    for assembly in latest.MOD_ASSEMBLIES:
+    for assembly in staging.MOD_ASSEMBLIES:
         target = root / 'mod/Assemblies' / f'{assembly}.dll'
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(assembly)
@@ -41,7 +41,7 @@ def test_source_mod_includes_themes_and_canonical_notices_and_excludes_stray_ass
     source_mod.stage(destination)
     assert (destination / 'Themes/asset').read_text() == 'Themes'
     assert {path.name for path in (destination / 'Assemblies').iterdir()} == {
-        f'{assembly}.dll' for assembly in latest.MOD_ASSEMBLIES
+        f'{assembly}.dll' for assembly in staging.MOD_ASSEMBLIES
     }
     assert (destination / 'About/LICENSE').read_text() == 'canonical license'
     assert [path.name for path in (destination / 'About/ThirdPartyNotices').iterdir()] == ['NOTICE.txt']

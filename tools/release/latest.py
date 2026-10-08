@@ -20,26 +20,14 @@ from pathlib import Path
 from typing import Any
 
 from tools import ROOT
+from tools.release import arch
+from tools.release import container_debian
+from tools.release import staging
 from tools.utils import command
 from tools.utils import log
 from tools.utils import run
 from tools.utils import run_main
 
-MOD_DIRECTORIES = ('About', 'Defs', 'Patches', 'Sounds', 'Textures', 'Themes')
-MOD_ASSEMBLIES = (
-    'SlopWorld',
-    '0Harmony',
-    'Google.Protobuf',
-    'AngleSharp',
-    'Markdig',
-    'Newtonsoft.Json',
-    'Tomlyn',
-    'System.Buffers',
-    'System.Memory',
-    'System.Numerics.Vectors',
-    'System.Runtime.CompilerServices.Unsafe',
-    'System.Text.Encoding.CodePages',
-)
 DAEMON_NAME = 'slopworld-latest-x86_64-linux'
 ASSET_NAMES = (f'{DAEMON_NAME}.tar.gz', 'slopworld-latest-mod.zip', 'SHA256SUMS')
 
@@ -65,76 +53,45 @@ def build(revision: str) -> str:
     return version
 
 
-def copy_file(source: Path, destination: Path) -> None:
-    if not source.is_file() or source.stat().st_size == 0:
-        raise ValueError(f'Missing or empty release input: {source}')
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, destination)
-
-
-def metadata(directory: Path, revision: str, version: str) -> None:
-    (directory / 'REVISION').write_text(revision + '\n')
-    (directory / 'VERSION').write_text(version + '\n')
-
-
-def stage_mod(mod: Path, revision: str, version: str) -> None:
-    """Stage only distributable mod assets and runtime assemblies for all packagers."""
-    tracked = git('ls-files', '-z', '--', 'mod').split('\0')
-    for name in filter(None, tracked):
-        relative = Path(name).relative_to('mod')
-        if relative.parts[0] in MOD_DIRECTORIES:
-            copy_file(ROOT / name, mod / relative)
-    for assembly in MOD_ASSEMBLIES:
-        copy_file(ROOT / 'mod/Assemblies' / f'{assembly}.dll', mod / 'Assemblies' / f'{assembly}.dll')
-    copy_file(ROOT / 'LICENSE', mod / 'About/LICENSE')
-    shutil.copytree(ROOT / 'licenses', mod / 'About/ThirdPartyNotices')
-    metadata(mod, revision, version)
-
-
 def package(output: Path, revision: str, version: str, *, native_packages: bool = False) -> list[Path]:
     output.mkdir(parents=True, exist_ok=True)
     # Finish every archive and native package before replacing prepared outputs.
     with tempfile.TemporaryDirectory(prefix='.release-', dir=output) as temporary:
-        staging = Path(temporary)
-        daemon = staging / DAEMON_NAME
+        workspace = Path(temporary)
+        daemon = workspace / DAEMON_NAME
         for binary in ('slopd', 'slopctl', 'slopworld'):
-            copy_file(ROOT / 'slopd/target/release' / binary, daemon / 'bin' / binary)
+            staging.copy_file(ROOT / 'slopd/target/release' / binary, daemon / 'bin' / binary)
         for source_name in ('slopd/slopd.service', 'packaging/slopworld.desktop', 'LICENSE'):
-            copy_file(ROOT / source_name, daemon / Path(source_name).name)
+            staging.copy_file(ROOT / source_name, daemon / Path(source_name).name)
         shutil.copytree(ROOT / 'licenses', daemon / 'licenses')
-        metadata(daemon, revision, version)
+        staging.metadata(daemon, revision, version)
 
-        mod = staging / 'SlopWorld'
-        stage_mod(mod, revision, version)
+        mod = workspace / 'SlopWorld'
+        staging.stage_mod(mod, revision, version)
 
-        with tarfile.open(staging / ASSET_NAMES[0], 'w:gz') as archive:
+        with tarfile.open(workspace / ASSET_NAMES[0], 'w:gz') as archive:
             archive.add(daemon, arcname=daemon.name)
-        with zipfile.ZipFile(staging / ASSET_NAMES[1], 'w', zipfile.ZIP_DEFLATED) as archive:
+        with zipfile.ZipFile(workspace / ASSET_NAMES[1], 'w', zipfile.ZIP_DEFLATED) as archive:
             for source in sorted(mod.rglob('*')):
                 if source.is_file():
-                    archive.write(source, source.relative_to(staging))
+                    archive.write(source, source.relative_to(workspace))
         names = list(ASSET_NAMES[:2])
         if native_packages:
-            # Imports are delayed to keep shared staging independent of native
-            # package tooling and avoid a module cycle with the package owners.
-            from tools.release import arch
-            from tools.release import container_debian
-
-            names.append(arch.package(staging, revision, version, mod).name)
-            names.append(container_debian.package(staging, revision, version).name)
+            names.append(arch.package(workspace, revision, version, mod).name)
+            names.append(container_debian.package(workspace, revision, version).name)
         checksums = []
         for name in names:
-            with (staging / name).open('rb') as stream:
+            with (workspace / name).open('rb') as stream:
                 checksums.append(f'{hashlib.file_digest(stream, "sha256").hexdigest()}  {name}\n')
-        (staging / 'SHA256SUMS').write_text(''.join(checksums))
-        (staging / 'release-notes.md').write_text(
+        (workspace / 'SHA256SUMS').write_text(''.join(checksums))
+        (workspace / 'release-notes.md').write_text(
             f'Rolling local build for RimWorld 1.6.\n\nVersion: `{version}`\n\nCommit: `{revision}`\n\n'
             'Install the Arch or Debian package, or download the Linux daemon archive and mod ZIP. '
             'Verify downloads with `sha256sum -c SHA256SUMS`.\n'
         )
         names.append('SHA256SUMS')
         for name in (*names, 'release-notes.md'):
-            (staging / name).replace(output / name)
+            (workspace / name).replace(output / name)
     return [output / name for name in names]
 
 

@@ -44,25 +44,32 @@ class Route:
 def tracked_files() -> list[Path]:
     """Return source/config/document files, excluding generated build output."""
 
-    try:
-        names = subprocess.check_output(
-            ['git', 'ls-files', '--cached', '--others', '--exclude-standard'],
-            cwd=ROOT,
-            text=True,
-        ).splitlines()
-    except (OSError, subprocess.CalledProcessError):
-        names = []
-        for directory in (ROOT / 'slopd', ROOT / 'mod', ROOT / 'notes', ROOT / 'docs', ROOT / 'just', ROOT / 'mac'):
-            names.extend(str(p.relative_to(ROOT)) for p in directory.rglob('*'))
-        names.extend(['justfile', 'README.md'])
+    names = subprocess.check_output(
+        [
+            'git',
+            'ls-files',
+            '-z',
+            '--cached',
+            '--others',
+            '--exclude-standard',
+            '--',
+            'mod',
+            'slopd',
+            'just',
+            'mac',
+            'justfile',
+        ],
+        cwd=ROOT,
+        text=True,
+    ).split('\0')
 
     files = []
     for name in names:
         path = ROOT / name
-        if not path.is_file() or name == 'reference.md':
+        if not path.is_file():
             continue
         generated_bin = 'bin' in path.parts and 'src' not in path.parts
-        if any(part in SKIP_PARTS for part in path.parts) or generated_bin or 'docs/book' in path.as_posix():
+        if any(part in SKIP_PARTS for part in path.parts) or generated_bin:
             continue
         if path.name != 'justfile' and path.suffix not in TEXT_SUFFIXES:
             continue
@@ -200,7 +207,12 @@ def matching_close(text: str, open_at: int) -> int:
     return len(text)
 
 
-def api_routes(files: dict[Path, str]) -> list[Route]:
+def api_routes(files: dict[Path, str] | None = None) -> list[Route]:
+    if files is None:
+        files = {
+            ROOT / name: (ROOT / name).read_text(encoding='utf-8')
+            for name in ('slopd/src/shared/protocol.rs', 'slopd/src/api/router.rs')
+        }
     routes: list[Route] = []
     wire_paths: dict[str, str] = {}
     route_paths: dict[str, str] = {}
@@ -398,7 +410,7 @@ def render(files: dict[Path, str]) -> str:
             '',
             '## Scanner scope',
             '',
-            'The scanner reads tracked and untracked, non-ignored files with supported suffixes (.cs, .just, .md, .rs, .service, .sh, .toml) and justfiles under the project, excluding generated build output and this generated file. Environment variables come only from mod and daemon files, including launchers, services and presets; just settings and development tooling are excluded. It recognizes explicit Rust/C#/service environment access, `$VAR` expansion, Axum `.route(...)` declarations, Rust CLI usage text and documented just recipes.',
+            'The scanner reads tracked and untracked, non-ignored files with supported suffixes (.cs, .just, .md, .rs, .service, .sh, .toml) and justfiles under mod/, slopd/, just/, and mac/, plus the root justfile, excluding generated build output. Git is required for file discovery. Environment variables come only from mod and daemon files, including launchers, services and presets; just settings and development tooling are excluded. It recognizes explicit Rust/C#/service environment access, `$VAR` expansion, Axum `.route(...)` declarations, Rust CLI usage text and documented just recipes.',
             '',
         ]
     )

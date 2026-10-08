@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from tools.release import debian
-from tools.release import latest
+from tools.release import staging as release_staging
 from tools.utils import run as execute
 
 
@@ -15,7 +15,7 @@ from tools.utils import run as execute
 def package_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / 'checkout'
     monkeypatch.setattr(debian, 'ROOT', root)
-    monkeypatch.setattr(latest, 'ROOT', root)
+    monkeypatch.setattr(release_staging, 'ROOT', root)
     for source in ('control', 'README.Debian'):
         target = root / 'packaging/debian' / source
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -29,13 +29,17 @@ def package_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     }
     for binary in debian.BINARIES:
         files[f'slopd/target/release/{binary}'] = 'binary fixture'
-    for assembly in latest.MOD_ASSEMBLIES:
+    for assembly in release_staging.MOD_ASSEMBLIES:
         files[f'mod/Assemblies/{assembly}.dll'] = 'assembly fixture'
     for name, content in files.items():
         target = root / name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content)
-    monkeypatch.setattr(latest, 'git', lambda *args: 'mod/Textures/SlopWorld/SlopWorld_icon.png\0')
+    monkeypatch.setattr(
+        release_staging,
+        'run',
+        lambda *args, **kwargs: subprocess.CompletedProcess([], 0, 'mod/Textures/SlopWorld/SlopWorld_icon.png\0'),
+    )
     return root
 
 
@@ -63,7 +67,7 @@ def test_package_system_paths_permissions_dependencies_and_metadata(
         assert (mod / 'VERSION').read_text() == '0.1.0-20261005-abcdef\n'
         assert (mod / 'REVISION').read_text() == 'revision\n'
         assert (mod / 'About/ThirdPartyNotices/NOTICE.txt').is_file()
-        assert {p.stem for p in (mod / 'Assemblies').iterdir()} == set(latest.MOD_ASSEMBLIES)
+        assert {p.stem for p in (mod / 'Assemblies').iterdir()} == set(release_staging.MOD_ASSEMBLIES)
         assert (staging / 'usr/share/doc/slopworld/copyright').is_file()
         assert (staging / 'usr/share/doc/slopworld/third-party/NOTICE.txt').is_file()
         assert (staging / 'usr/share/applications/slopworld.desktop').is_file()
@@ -116,7 +120,6 @@ def test_tool_or_build_failure_stops_before_packaging(monkeypatch: pytest.Monkey
     monkeypatch.setattr('sys.argv', ['debian'])
     monkeypatch.setenv('JUST_CMD', 'just')
     monkeypatch.setenv('VERSION', '1.0.0')
-    monkeypatch.setattr(latest, 'git', lambda *args: 'revision')
 
     def run(arguments: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str] | None:
         if arguments[0] == failing_tool:

@@ -2,10 +2,12 @@
 
 `shared/slopworld.proto` defines binary messages; `shared/protocol.yaml` owns routes,
 type mappings, enums, and limits. `just refresh-protocol` generates C# bindings and the
-Rust HTTP dispatcher; `slopd/build.rs` generates Rust messages. `just api-docs`
+Rust HTTP dispatcher; `slopd/build.rs` generates Rust messages. `just refresh-api-docs`
 generates the route inventory from the router and shared HTTP type mappings.
 `tools/docs/reference.py` reads middleware access from the named route-family functions
 and rejects unknown families; handler-level checks still determine effective access.
+Route inventory reads only the router and generated protocol constants; the full
+reference discovers mod, daemon, and recipe inputs through Git.
 Unresolved route paths and HTTP inventory differences fail generation. The shared
 loader validates payload pairs, generated identifiers, and integer ranges; HTTP
 adapters reject overlapping patterns without a strictly more specific route.

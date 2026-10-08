@@ -7,18 +7,18 @@ from unittest.mock import patch
 import pytest
 
 from tools.host import install_mod
-from tools.release import latest
 from tools.release import source_mod
+from tools.release import staging
 
 
 @pytest.fixture
 def checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / 'checkout'
     monkeypatch.setattr(source_mod, 'ROOT', root)
-    for directory in latest.MOD_DIRECTORIES:
+    for directory in staging.MOD_DIRECTORIES:
         (root / 'mod' / directory).mkdir(parents=True)
     (root / 'mod/Assemblies').mkdir()
-    for assembly in latest.MOD_ASSEMBLIES:
+    for assembly in staging.MOD_ASSEMBLIES:
         (root / 'mod/Assemblies' / f'{assembly}.dll').write_text(assembly)
     (root / 'LICENSE').write_text('canonical license')
     (root / 'licenses').mkdir()

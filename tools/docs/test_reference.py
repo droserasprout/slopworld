@@ -2,6 +2,7 @@
 """Protect the mod/daemon ownership boundary of the environment reference."""
 
 import unittest
+from unittest.mock import patch
 
 from tools import ROOT
 from tools.docs.reference import api_routes
@@ -76,6 +77,10 @@ class CommandInventoryTests(unittest.TestCase):
 
 
 class RouteInventoryTests(unittest.TestCase):
+    def test_route_inventory_does_not_discover_repository_files(self) -> None:
+        with patch('tools.docs.reference.tracked_files', side_effect=AssertionError('unexpected discovery')):
+            self.assertTrue(api_routes())
+
     def test_unresolved_path_fails_instead_of_omitting_route(self) -> None:
         with self.assertRaisesRegex(ValueError, 'unresolved API route path'):
             api_routes({ROOT / 'slopd/src/api/router.rs': 'fn root_routes() { router.route(UNKNOWN, get(handler)) }'})

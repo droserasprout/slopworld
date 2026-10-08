@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from tools.release import arch
-from tools.release import latest
+from tools.release import staging
 from tools.utils import run as execute
 
 
@@ -24,9 +24,9 @@ def test_real_arch_package_metadata_and_safe_payload(tmp_path: Path, monkeypatch
         'README.md',
         'LICENSE',
     ):
-        latest.copy_file(Path(__file__).parents[2] / relative, root / relative)
+        staging.copy_file(Path(__file__).parents[2] / relative, root / relative)
     for name in ('slopd', 'slopctl', 'slopworld'):
-        latest.copy_file(Path('/bin/true'), root / 'slopd/target/release' / name)
+        staging.copy_file(Path('/bin/true'), root / 'slopd/target/release' / name)
     (root / 'slopd/slopd.service').write_text('ExecStart=%h/.local/bin/slopd\nKillMode=process\n')
     notices = root / 'licenses'
     notices.mkdir()

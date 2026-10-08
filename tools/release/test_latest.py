@@ -4,7 +4,6 @@ import hashlib
 import platform
 import subprocess
 import tarfile
-import xml.etree.ElementTree as ET
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -12,18 +11,8 @@ from unittest.mock import patch
 
 import pytest
 
-from tools import ROOT
 from tools.release import latest
-
-
-def test_runtime_allowlist_matches_mod_project_references() -> None:
-    project = ET.parse(ROOT / 'mod/Source/SlopWorld/SlopWorld.csproj')
-    runtime = {
-        reference.attrib['Include']
-        for reference in project.findall('.//Reference')
-        if (reference.findtext('HintPath') or '').startswith('../../Assemblies/')
-    }
-    assert set(latest.MOD_ASSEMBLIES) == runtime | {'SlopWorld'}
+from tools.release import staging
 
 
 @pytest.fixture
@@ -31,6 +20,7 @@ def inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / 'checkout'
     root.mkdir()
     monkeypatch.setattr(latest, 'ROOT', root)
+    monkeypatch.setattr(staging, 'ROOT', root)
 
     def write(name: str, content: bytes = b'release input') -> Path:
         path = root / name
@@ -47,7 +37,7 @@ def inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         'licenses/dependency.txt',
     ):
         write(name)
-    for assembly in latest.MOD_ASSEMBLIES:
+    for assembly in staging.MOD_ASSEMBLIES:
         write(f'mod/Assemblies/{assembly}.dll')
     tracked = [
         'mod/About/About.xml',
@@ -59,7 +49,9 @@ def inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for name in tracked:
         write(name)
     write('mod/Textures/untracked.png')
-    monkeypatch.setattr(latest, 'git', lambda *args: '\0'.join(tracked) + '\0')
+    monkeypatch.setattr(
+        staging, 'run', lambda *args, **kwargs: subprocess.CompletedProcess([], 0, '\0'.join(tracked) + '\0')
+    )
     return root
 
 
@@ -91,7 +83,7 @@ def test_archives_include_runtime_licenses_metadata_and_exclude_game_and_local_f
         assert 'SlopWorld/About/ThirdPartyNotices/stale.txt' not in names
         assert 'SlopWorld/Themes/example.toml' in names
         assert archive.read('SlopWorld/VERSION') == b'0.1.0-snapshot\n'
-        assert {Path(name).stem for name in names if name.endswith('.dll')} == set(latest.MOD_ASSEMBLIES)
+        assert {Path(name).stem for name in names if name.endswith('.dll')} == set(staging.MOD_ASSEMBLIES)
         assert not any('Source/' in name or 'untracked' in name for name in names)
     for line in assets[2].read_text().splitlines():
         digest, name = line.split('  ')

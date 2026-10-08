@@ -1,6 +1,6 @@
 """Build a local Debian binary package; Debian owns shared-library dependency discovery.
 
-The release module owns the mod distribution allowlist. This module owns system
+staging owns the mod distribution allowlist. This module owns system
 paths and Debian metadata, and never changes game directories or user services.
 """
 
@@ -13,7 +13,8 @@ import tomllib
 from pathlib import Path
 
 from tools import ROOT
-from tools.release import latest
+from tools.release.staging import copy_file
+from tools.release.staging import stage_mod
 from tools.utils import log
 from tools.utils import run
 from tools.utils import run_main
@@ -43,19 +44,19 @@ def package(output: Path, revision: str, version: str, architecture: str, binary
         staging = workspace / 'slopworld'
         for binary in BINARIES:
             target = staging / 'usr/bin' / binary
-            latest.copy_file((binary_dir or ROOT / 'slopd/target/release') / binary, target)
+            copy_file((binary_dir or ROOT / 'slopd/target/release') / binary, target)
             target.chmod(0o755)
         unit = staging / 'usr/lib/systemd/user/slopd.service'
-        latest.copy_file(ROOT / 'slopd/slopd.service', unit)
+        copy_file(ROOT / 'slopd/slopd.service', unit)
         unit.write_text(unit.read_text().replace('%h/.local/bin/slopd', '/usr/bin/slopd'))
-        latest.stage_mod(staging / 'usr/share/slopworld/SlopWorld', revision, version)
+        stage_mod(staging / 'usr/share/slopworld/SlopWorld', revision, version)
         for source, relative_target in (
             ('packaging/slopworld.desktop', 'usr/share/applications/slopworld.desktop'),
             ('mod/Textures/SlopWorld/SlopWorld_icon.png', 'usr/share/icons/hicolor/128x128/apps/slopworld.png'),
             ('packaging/debian/README.Debian', 'usr/share/doc/slopworld/README.Debian'),
             ('LICENSE', 'usr/share/doc/slopworld/copyright'),
         ):
-            latest.copy_file(ROOT / source, staging / relative_target)
+            copy_file(ROOT / source, staging / relative_target)
         shutil.copytree(ROOT / 'licenses', staging / 'usr/share/doc/slopworld/third-party')
         # dpkg-shlibdeps requires a source control file even for binary-only staging.
         source_control = workspace / 'debian/control'
@@ -119,7 +120,7 @@ def main() -> None:
         fallback = tomllib.load(source)['package']['version']
     version = os.environ.get('VERSION') or from_git(fallback)
     debian_version(version)
-    revision = latest.git('rev-parse', 'HEAD')
+    revision = run(['git', 'rev-parse', 'HEAD'], capture_output=True, text=True).stdout.strip()
     run([os.environ['JUST_CMD'], 'BUILD=release', f'VERSION={version}', 'all'])
     output = Path(os.environ.get('DEB_DIR', 'dist/debian'))
     if not output.is_absolute():

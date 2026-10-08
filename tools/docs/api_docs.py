@@ -6,7 +6,6 @@ from __future__ import annotations
 from tools import ROOT
 from tools.docs.reference import Route
 from tools.docs.reference import api_routes
-from tools.docs.reference import read_files
 from tools.protocol import wire_contract
 
 OUTPUT = ROOT / 'docs/src/reference/api-routes.md'
@@ -30,7 +29,7 @@ def render() -> str:
         'session creation requires root. See [Authorization](api.md#authorization).',
         '',
     ]
-    routes = api_routes(read_files())
+    routes = api_routes()
     discovered = {(route.method, route.path) for route in routes if route.path != '/ws'}
     if discovered != payloads.keys():
         raise ValueError(f'HTTP route inventory differs from wire contract: {discovered ^ payloads.keys()}')

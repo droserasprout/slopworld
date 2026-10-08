@@ -9,7 +9,7 @@ import shutil
 from pathlib import Path
 
 from tools import ROOT
-from tools.release import latest
+from tools.release import staging
 from tools.utils import run
 
 ASSET_NAME = 'slopworld-latest-x86_64.pkg.tar.zst'
@@ -20,9 +20,9 @@ def package(output: Path, revision: str, version: str, mod: Path) -> Path:
     workspace.mkdir(mode=0o755)
     payload = workspace / 'payload'
     for binary in ('slopd', 'slopctl', 'slopworld'):
-        latest.copy_file(ROOT / 'slopd/target/release' / binary, payload / 'usr/bin' / binary)
+        staging.copy_file(ROOT / 'slopd/target/release' / binary, payload / 'usr/bin' / binary)
     unit = payload / 'usr/lib/systemd/user/slopd.service'
-    latest.copy_file(ROOT / 'slopd/slopd.service', unit)
+    staging.copy_file(ROOT / 'slopd/slopd.service', unit)
     unit.write_text(unit.read_text().replace('%h/.local/bin/slopd', '/usr/bin/slopd'))
     shutil.copytree(mod, payload / 'usr/share/slopworld/SlopWorld')
     for source, destination in (
@@ -32,9 +32,9 @@ def package(output: Path, revision: str, version: str, mod: Path) -> Path:
         ('README.md', 'usr/share/doc/slopworld/README.md'),
         ('LICENSE', 'usr/share/licenses/slopworld/LICENSE'),
     ):
-        latest.copy_file(ROOT / source, payload / destination)
+        staging.copy_file(ROOT / source, payload / destination)
     shutil.copytree(ROOT / 'licenses', payload / 'usr/share/licenses/slopworld/third-party')
-    latest.copy_file(ROOT / 'packaging/arch/slopworld.install', workspace / 'slopworld.install')
+    staging.copy_file(ROOT / 'packaging/arch/slopworld.install', workspace / 'slopworld.install')
     # The metadata and install hook stay owned by PKGBUILD.local. The trusted
     # repository file is sourced by Bash, as it is for ordinary makepkg builds.
     (workspace / 'PKGBUILD').write_text(

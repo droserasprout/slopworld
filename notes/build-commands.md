@@ -71,7 +71,9 @@ defaults to micro; optional package metadata does not imply an editor fallback.
 
 `packaging/debian/` owns Debian binary metadata and installed user setup instructions.
 `tools/release/debian.py` builds native Debian/Ubuntu packages through `pkg-debian`;
-`tools/release/latest.py` shares the mod asset/runtime DLL allowlist with it.
+`tools/release/staging.py` owns the shared mod asset/runtime DLL allowlists and
+tracked-release staging used by the package builders. `tools/release/source_mod.py`
+selects whole asset directories for source snapshots without Git metadata.
 Rolling releases include both native package formats. `tools/release/arch.py`
 uses the existing Arch PKGBUILD metadata with a staged release payload and lets
 makepkg own package metadata/mtree generation.
@@ -115,8 +117,6 @@ accepting saved credentials.
 
 `bench/runner.py` owns benchmark build/run subprocesses; `bench/report.py` owns
 collection and reporting. `bench/` also owns shared result handling and its tests.
-`tools/analysis/loc_report.py` writes working-tree snapshots under ignored `dist/`
-by default, marks tracked modifications, and refuses to overwrite reports.
 `slopcar/` owns the shared container devloop; platform workflows call it through `just`.
 `tools/assets/` owns asset generators and text-sprite checks; `assets/` owns bundled
 source data and icon manifests. Generated runtime assets stay in `mod/`.
