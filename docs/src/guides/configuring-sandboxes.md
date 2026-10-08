@@ -26,6 +26,7 @@ MY_TOOL_MODE = "local"
 ```
 
 Paths expand `~` and environment variables. An unset variable omits the whole path.
+Nonempty paths must be absolute after expansion; relative preset paths are rejected.
 Missing preset sources are skipped; an invalid project directory prevents launch.
 Protected paths, including the daemon's configuration and private state, cannot
 be mounted through ordinary path fields.

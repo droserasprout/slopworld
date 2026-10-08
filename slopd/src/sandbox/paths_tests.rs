@@ -1,6 +1,41 @@
 use super::*;
 use crate::sandbox::state_root;
 
+#[test]
+fn every_preset_path_field_rejects_relative_paths_after_expansion() {
+    let Some(_) = crate::test_support::isolated_with_env(|command, _| {
+        command.env("SLOPD_TEST_PRESET_PATH", "relative");
+    }) else {
+        return;
+    };
+    for kind in ["ro", "rw", "dev", "private", "seed", "skip", "shared"] {
+        for raw in [".", "../outside", "relative", "$SLOPD_TEST_PRESET_PATH"] {
+            let mut preset = SandboxPreset {
+                name: "relative-path".into(),
+                ..Default::default()
+            };
+            let paths = match kind {
+                "ro" => &mut preset.ro,
+                "rw" => &mut preset.rw,
+                "dev" => &mut preset.dev,
+                "private" => &mut preset.private,
+                "seed" => &mut preset.seed,
+                "skip" => &mut preset.skip,
+                "shared" => &mut preset.shared,
+                _ => unreachable!(),
+            };
+            paths.push(raw.into());
+            let error = validate_preset(&preset, &Table::builtins())
+                .unwrap_err()
+                .to_string();
+            assert!(
+                error.contains("must be absolute after expansion"),
+                "{kind}: {error}"
+            );
+        }
+    }
+}
+
 // Shipped definitions must be valid independently of installed tools, dangling
 // host aliases, and user preset overrides. Environment changes stay in a child.
 fn isolated_preset_environment() -> Option<std::path::PathBuf> {

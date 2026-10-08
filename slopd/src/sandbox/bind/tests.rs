@@ -480,6 +480,49 @@ fn a_preset_asking_for_the_world_does_not_get_it() {
     let out = paths(&[&preset], |pr| &pr.ro);
     assert_eq!(out, vec!["/usr".to_string()], "got {out:?}");
 }
+
+#[cfg(unix)]
+#[test]
+fn relative_preset_sources_cannot_change_meaning_in_the_project_directory() {
+    let Some(root) = crate::test_support::isolated_with_env(|command, root| {
+        let daemon = root.join("daemon");
+        std::fs::create_dir_all(daemon.join("exposed")).unwrap();
+        command.current_dir(daemon);
+    }) else {
+        return;
+    };
+    let project = root.join("project");
+    std::fs::create_dir_all(&project).unwrap();
+    std::os::unix::fs::symlink(dirs::home_dir().unwrap(), project.join("exposed")).unwrap();
+    // The daemon sees a harmless directory, but the launch cwd would expose home.
+    assert!(crate::sandbox::refused("exposed").is_none());
+    assert!(crate::sandbox::refused(&project.join("exposed").to_string_lossy()).is_some());
+    let preset = SandboxPreset {
+        name: "relative-source".into(),
+        ro: vec!["exposed".into()],
+        rw: vec!["exposed".into()],
+        dev: vec!["exposed".into()],
+        ..Default::default()
+    };
+    assert!(paths(&[&preset], |pr| &pr.ro).is_empty());
+    assert!(paths(&[&preset], |pr| &pr.rw).is_empty());
+    assert!(paths(&[&preset], |pr| &pr.dev).is_empty());
+    let session = SessionCfg {
+        name: "agent".into(),
+        project: "repo".into(),
+        cmd: Some("true".into()),
+        sandbox: vec![preset.name.clone()],
+        sandbox_snapshots: vec![preset],
+        ..Default::default()
+    };
+    let project = ProjectCfg {
+        name: "repo".into(),
+        dir: project.to_string_lossy().into_owned(),
+        ..Default::default()
+    };
+    let error = build_argv(&Config::default(), &session, &project).unwrap_err();
+    assert!(format!("{error:#}").contains("must be absolute after expansion"));
+}
 /// Mount the private copy after ordinary preset mounts at the same target.
 /// bwrap applies mounts in order, so the sandbox uses the private copy.
 #[test]

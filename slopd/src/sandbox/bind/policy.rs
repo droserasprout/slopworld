@@ -139,6 +139,11 @@ pub(super) fn paths(
         if path.is_empty() || out.contains(&path) {
             continue;
         }
+        // Do not let the launch cwd reinterpret a source checked in the daemon cwd.
+        if !Path::new(&path).is_absolute() {
+            tracing::warn!("not binding {path}: preset paths must be absolute after expansion");
+            continue;
+        }
         // Never mount paths that fail validation.
         if let Some(what) = refused(&path) {
             tracing::warn!("not binding {path}: it reaches {what}");

@@ -151,6 +151,14 @@ fn validate_preset_paths(p: &SandboxPreset) -> Result<()> {
             if expanded.is_empty() {
                 continue;
             }
+            // Launch runs from the project directory, not the daemon's cwd.
+            // A relative spelling could therefore mount a different host source.
+            if !Path::new(&expanded).is_absolute() {
+                anyhow::bail!(
+                    "Sandbox preset {:?} {kind} path {raw:?} must be absolute after expansion.",
+                    p.name
+                );
+            }
             if let Some(what) = refused(&expanded) {
                 anyhow::bail!(
                     "Sandbox preset {:?} {kind} path {raw:?} exposes {what}.",
