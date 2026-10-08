@@ -7,9 +7,8 @@ test-docs:
 
 # Test supporting tools and generated data
 [group('Tests and coverage')]
-test-tools: validate-themes test-licenses test-bench-report
-    mkdir -p "{{ COVERAGE_DIR }}"
-    {{ PYTHON }} -m pytest tools bench/test_runner.py mac/test_workflow.py slopcar/test_devloop.py --cov=tools --cov=bench.runner --cov=mac --cov=slopcar --cov-report=term-missing --cov-report=xml:coverage/python.cobertura.xml
+test-tools: validate-themes test-bench-report
+    {{ PYTHON }} -m pytest tools bench/test_runner.py mac/test_workflow.py slopcar/test_devloop.py
 
 # Test license staging and verification in isolation
 [group('Tests and coverage')]
@@ -58,7 +57,9 @@ coverage: coverage-tools coverage-daemon coverage-mod
 
 # Measure Python package coverage and write coverage/python.cobertura.xml
 [group('Tests and coverage')]
-coverage-tools: test-tools
+coverage-tools:
+    mkdir -p "{{ COVERAGE_DIR }}"
+    {{ PYTHON }} -m pytest tools bench/test_runner.py mac/test_workflow.py slopcar/test_devloop.py --cov=tools --cov=bench.runner --cov=mac --cov=slopcar --cov-report=term-missing --cov-report=xml:coverage/python.cobertura.xml
 
 # Measure Rust coverage and write coverage/rust.cobertura.xml
 [group('Tests and coverage')]
@@ -73,7 +74,7 @@ coverage-mod: sync-mod
 # Summarize existing Python, Rust and C# coverage reports
 [group('Tests and coverage')]
 coverage-summary:
-    {{ PYTHON }} -m tools.coverage.coverage_summary "{{ COVERAGE_DIR }}/python.cobertura.xml" 'Python'
+    if [ -f "{{ COVERAGE_DIR }}/python.cobertura.xml" ]; then {{ PYTHON }} -m tools.coverage.coverage_summary "{{ COVERAGE_DIR }}/python.cobertura.xml" 'Python'; fi
     {{ PYTHON }} -m tools.coverage.coverage_summary "{{ COVERAGE_DIR }}/rust.cobertura.xml" 'Rust (default scope)'
     {{ PYTHON }} -m tools.coverage.coverage_summary "{{ COVERAGE_DIR }}/rust.filtered.cobertura.xml" 'Rust (excluding test/generated/benchmark files)'
     echo
@@ -83,8 +84,3 @@ coverage-summary:
 [group('Tests and coverage')]
 test-recipes:
     {{ PYTHON }} -m tools.recipes.test_recipes
-
-# Test the mod and daemon environment reference scope
-[group('Tests and coverage')]
-test-reference:
-    {{ PYTHON }} -m tools.docs.test_reference

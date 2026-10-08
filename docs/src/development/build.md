@@ -77,13 +77,14 @@ standard GOG and Steam paths. It uses a separate [game profile](../maintenance/g
 
 Use `test-daemon`, `test-mod`, `test-tools`, or `test-pager` to run a subset.
 `just test-tools` runs benchmark helper tests and the Python package tests through pytest,
-writing branch coverage to `coverage/python.cobertura.xml`. Existing unittest tests run under pytest.
+without collecting coverage. Existing unittest tests run under pytest.
+Use `just coverage-tools` when you want a Python branch coverage report.
 `just lint-tools` formats the package and sorts imports before checking it with Ruff
 and running strict mypy across `tools/`, including its tests.
 `just format-tools` applies the 120-column, single-quote style and sorts imports.
 Ruff, mypy, and pytest-cov belong to the uv `dev` dependency group.
 Tools run as modules from the repository root through uv;
-for example, `uv run --locked python -m tools.docs.reference`.
+for example, `uv run --locked python -m tools.docs.api_docs`.
 Use `just lock-tools` after changing Python dependencies and commit `uv.lock`.
 For an asset tool, use `uv run --locked --extra assets python -m tools.assets.emoji --help`.
 `just check-format-mod` checks C# formatting without game assemblies.

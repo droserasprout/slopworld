@@ -3,12 +3,122 @@
 
 from __future__ import annotations
 
+import re
+from dataclasses import dataclass
+from pathlib import Path
+
 from tools import ROOT
-from tools.docs.reference import Route
-from tools.docs.reference import api_routes
 from tools.protocol import wire_contract
 
 OUTPUT = ROOT / 'docs/src/reference/api-routes.md'
+
+
+@dataclass(frozen=True)
+class Route:
+    method: str
+    path: str
+    handler: str
+    scope: str
+
+
+def matching_close(text: str, open_at: int) -> int:
+    """Find a call's closing parenthesis while ignoring strings and comments."""
+
+    depth = 0
+    quote: str | None = None
+    escaped = False
+    comment = False
+    i = open_at
+    while i < len(text):
+        char = text[i]
+        nxt = text[i + 1] if i + 1 < len(text) else ''
+        if comment:
+            if char == '\n':
+                comment = False
+        elif quote:
+            if escaped:
+                escaped = False
+            elif char == '\\':
+                escaped = True
+            elif char == quote:
+                quote = None
+        elif char == '/' and nxt == '/':
+            comment = True
+            i += 1
+        elif char in '\'"':
+            quote = char
+        elif char == '(':
+            depth += 1
+        elif char == ')':
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return len(text)
+
+
+def api_routes(files: dict[Path, str] | None = None) -> list[Route]:
+    if files is None:
+        files = {
+            ROOT / name: (ROOT / name).read_text(encoding='utf-8')
+            for name in ('slopd/src/shared/protocol.rs', 'slopd/src/api/router.rs')
+        }
+    routes: list[Route] = []
+    wire_paths: dict[str, str] = {}
+    route_paths: dict[str, str] = {}
+    for path, text in files.items():
+        if path != ROOT / 'slopd/src/shared/protocol.rs':
+            continue
+        for match in re.finditer(
+            r"\bconst\s+([A-Z][A-Z0-9_]*)\s*:\s*&str\s*=\s*['\"]([^'\"]+)['\"]",
+            text,
+        ):
+            wire_paths[match.group(1)] = match.group(2)
+        routes_block = re.search(r'pub\(crate\)\s+mod\s+routes\s*\{(.*?)\n\}', text, re.DOTALL)
+        if routes_block:
+            for match in re.finditer(
+                r"\bconst\s+([A-Z][A-Z0-9_]*)\s*:\s*&str\s*=\s*['\"]([^'\"]+)['\"]",
+                routes_block.group(1),
+            ):
+                route_paths[match.group(1)] = match.group(2)
+    method_pattern = re.compile(r'\b(get|post|put|delete|patch|head|options|trace)\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)')
+    for path, text in files.items():
+        if path != ROOT / 'slopd/src/api/router.rs':
+            continue
+        for match in re.finditer(r'\.route\s*\(', text):
+            end = matching_close(text, text.find('(', match.start()))
+            body = text[match.end() : end]
+            path_match = re.search(r"['\"]([^'\"]+)['\"]", body)
+            path_value = path_match.group(1) if path_match else None
+            if path_value is None:
+                route_const = re.search(r'routes::([A-Z][A-Z0-9_]*)', body)
+                if route_const:
+                    path_value = route_paths.get(route_const.group(1))
+                else:
+                    const_match = re.search(r'shared::protocol::([A-Z][A-Z0-9_]*)', body)
+                    path_value = wire_paths.get(const_match.group(1)) if const_match else None
+            if path_value is None:
+                raise ValueError(
+                    f'unresolved API route path at {path.relative_to(ROOT)}:{text.count(chr(10), 0, match.start()) + 1}'
+                )
+            before = text[: match.start()]
+            # Route families own middleware access; fail rather than silently label
+            # a new family as accessible to scoped grants.
+            functions = list(re.finditer(r'\bfn\s+(\w+)\s*\(', before))
+            family = functions[-1].group(1) if functions else None
+            if family not in {'root_routes', 'scoped_routes', 'shared_routes', 'snapshot_routes'}:
+                raise ValueError(f'unknown API route family: {family}')
+            scope = 'root-only' if family == 'root_routes' else 'scoped'
+            for method_match in method_pattern.finditer(body):
+                routes.append(
+                    Route(
+                        method=method_match.group(1).upper(),
+                        path=path_value,
+                        handler=method_match.group(2),
+                        scope=scope,
+                    )
+                )
+    return sorted(routes, key=lambda r: (r.path, r.method))
 
 
 def render() -> str:

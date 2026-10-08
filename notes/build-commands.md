@@ -22,7 +22,7 @@ Cargo package fallback and uses `tools/version/resolve.py` for the same tag/date
 rules as Rust; `VERSION` overrides either build. Installer and launch recipes
 own their launcher build dependency. Regeneration is an explicit, isolated step
 after the main source changes: run `just refresh` for all outputs, or the relevant
-`refresh-protocol`, `refresh-api-docs`, `refresh-daemon-licenses`, `refresh-reference`,
+`refresh-protocol`, `refresh-api-docs`, `refresh-daemon-licenses`,
 or asset recipe,
 then review its diff and validate. The aggregate refresh stages licenses last;
 dependency lock updates remain separate. Builds, tests, lint, benchmarks, and docs builds
@@ -102,8 +102,9 @@ pytest-cov, and the dependencies needed to type-check asset generators.
 `just lint-tools` formats sources and sorts imports before checking core correctness
 rules and running strict mypy across `tools/`, including its tests. Optional rendering
 backends without stubs have scoped missing-import overrides; package code remains strict.
-`just test-tools` validates shared inputs and runs package tests with branch coverage, excluding test
-files and package markers. `just lock-tools` updates dependency resolution.
+`just test-tools` validates shared inputs and runs the supporting script tests once.
+`just coverage-tools` explicitly collects Python branch coverage; normal tests and CI
+do not collect it. `just lock-tools` updates dependency resolution.
 
 `tools/utils.py` owns shared command parsing, subprocess execution, logging, and CLI
 failure handling. Command settings use shell-style argument quoting without executing

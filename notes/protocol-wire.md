@@ -4,15 +4,12 @@
 type mappings, enums, and limits. `just refresh-protocol` generates C# bindings and the
 Rust HTTP dispatcher; `slopd/build.rs` generates Rust messages. `just refresh-api-docs`
 generates the route inventory from the router and shared HTTP type mappings.
-`tools/docs/reference.py` reads middleware access from the named route-family functions
+`tools/docs/api_docs.py` reads middleware access from the named route-family functions
 and rejects unknown families; handler-level checks still determine effective access.
-Route inventory reads only the router and generated protocol constants; the full
-reference discovers mod, daemon, and recipe inputs through Git.
+Route inventory reads only the router and generated protocol constants.
 Unresolved route paths and HTTP inventory differences fail generation. The shared
 loader validates payload pairs, generated identifiers, and integer ranges; HTTP
 adapters reject overlapping patterns without a strictly more specific route.
-Its environment inventory covers mod and daemon files, including launchers, services
-and presets; build recipe and development tooling settings stay outside that inventory.
 Never reuse field numbers; preserve optional presence
 where omission selects a daemon default.
 

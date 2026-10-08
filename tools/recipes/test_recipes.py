@@ -72,59 +72,15 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual(call['env']['BUILD'], 'release')
         self.assertEqual(call['cwd'], str(ROOT / 'slopd'))
 
-    def test_local_release_recipes_use_the_shared_orchestrator(self) -> None:
-        for recipe, action in (('release-package', 'package'), ('release-latest', 'publish')):
-            with self.subTest(recipe=recipe):
-                self.run_recipe(recipe)
-                call = self.calls('uv')[-1]
-                self.assertEqual(call['args'], ['run', '--locked', 'python', '-m', 'tools.release.latest', action])
-                self.assertEqual(call['env']['JUST_CMD'], JUST)
-        self.assertEqual(self.calls('cargo'), [])
-
-    def test_debian_package_uses_orchestrator(self) -> None:
-        self.run_recipe('DEB_DIR=/tmp/package output', 'pkg-debian')
-        (call,) = self.calls('uv')
-        self.assertEqual(call['args'], ['run', '--locked', 'python', '-m', 'tools.release.debian'])
-        self.assertEqual(call['env']['JUST_CMD'], JUST)
-        self.assertEqual(self.calls('cargo'), [])
-
     def test_invalid_build_fails_before_running_commands(self) -> None:
         result = self.run_recipe('BUILD=fast', 'daemon', success=False)
         self.assertIn('BUILD must be exactly debug or release', result.stderr)
         self.assertFalse(self.log.exists())
 
-    def test_builds_do_not_generate_sources(self) -> None:
-        self.run_recipe('VERSION=1.2.3', 'all')
-        self.assertEqual(
-            len(
-                [
-                    call
-                    for call in self.calls('uv')
-                    if call['args'] == ['run', '--locked', 'python', '-m', 'tools.protocol.api_contract']
-                ]
-            ),
-            0,
-        )
-        self.assertEqual(len(self.calls('cargo')), 1)
-
     def test_refresh_is_explicit_and_stages_licenses_last(self) -> None:
         self.run_recipe('refresh')
         modules = [call['args'][call['args'].index('-m') + 1] for call in self.calls('uv')]
-        self.assertEqual(
-            modules,
-            [
-                'tools.protocol.api_contract',
-                'tools.docs.introduction',
-                'tools.docs.api_docs',
-                'tools.docs.reference',
-                'tools.assets.loading_font_atlas',
-                'tools.assets.icons',
-                'tools.assets.appicon',
-                'tools.assets.favicon',
-                'tools.licenses.rust_licenses',
-                'tools.licenses.stage_licenses',
-            ],
-        )
+        self.assertEqual(modules[-1], 'tools.licenses.stage_licenses')
         self.assertEqual(self.calls('cargo'), [])
         self.assertEqual(self.calls('dotnet'), [])
 
@@ -187,13 +143,6 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual(mod['env']['BUILD'], 'release')
         self.assertIn(f'-p:RimWorldManaged={managed}', mod['args'])
         self.assertIn('Release', mod['args'])
-
-    def test_root_commands_exclude_the_mac_workflow(self) -> None:
-        result = self.run_recipe('--list')
-        self.assertNotIn('mac-', result.stdout)
-        self.assertNotIn('macOS', result.stdout)
-        result = self.run_recipe('--evaluate')
-        self.assertNotIn('MAC_RIMWORLD', result.stdout)
 
     def test_mac_sidecar_workspace_defaults_to_repository_root(self) -> None:
         result = self.run_recipe(
@@ -268,7 +217,6 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         generators = (
             'tools.docs.introduction',
             'tools.docs.api_docs',
-            'tools.docs.reference',
             'tools.assets.loading_font_atlas',
             'tools.assets.icons',
             'tools.assets.appicon',

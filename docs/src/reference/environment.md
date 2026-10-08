@@ -115,7 +115,3 @@ preset `env`, setting values with `setenv`, and precedence, see
 The daemon supplies terminal settings and the configured agent `SHELL`.
 It sets `SLOPWORLD_PI_TITLES=never` for managed Pi commands so prompt titles have
 one owner.
-
-For a source-oriented inventory, including build-time and test-only
-names, run `just refresh-reference` and read the generated repository-root
-`reference.md`. That inventory is separate from this runtime guide.

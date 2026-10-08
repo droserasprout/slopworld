@@ -105,7 +105,7 @@ class WireContractTests(unittest.TestCase):
                 self.assertEqual(names, self.data['websocket'][section])
 
     def test_protobuf_route_types_match_handler_signatures(self) -> None:
-        from tools.docs.reference import api_routes
+        from tools.docs.api_docs import api_routes
 
         root = ROOT
         source = '\n'.join(
@@ -140,7 +140,7 @@ class WireContractTests(unittest.TestCase):
             )
 
     def test_route_access_groups_preserve_root_boundaries(self) -> None:
-        from tools.docs.reference import api_routes
+        from tools.docs.api_docs import api_routes
 
         routes = {(route.method, route.path): route.scope for route in api_routes()}
         expected = {

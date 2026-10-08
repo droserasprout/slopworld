@@ -2,7 +2,7 @@
 
 # Refresh generated files after source changes, then stage distribution notices
 [group('Generated files')]
-refresh: refresh-protocol refresh-introduction refresh-api-docs refresh-reference refresh-loading-font refresh-icons refresh-appicon refresh-favicon refresh-daemon-licenses refresh-licenses
+refresh: refresh-protocol refresh-introduction refresh-api-docs refresh-loading-font refresh-icons refresh-appicon refresh-favicon refresh-daemon-licenses refresh-licenses
 
 # Generate the book introduction from README
 [group('Generated files')]
@@ -23,11 +23,6 @@ refresh-protocol:
 [group('Generated files')]
 refresh-api-docs:
     {{ PYTHON }} -m tools.docs.api_docs
-
-# Generate the environment/API/CLI reference
-[group('Generated files')]
-refresh-reference:
-    {{ PYTHON }} -m tools.docs.reference
 
 # Bake the loading screen font atlas from the bundled source font
 [group('Generated files')]
