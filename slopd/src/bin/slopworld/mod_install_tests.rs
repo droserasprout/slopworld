@@ -236,8 +236,8 @@ fn install_game_selection_uses_explicit_then_environment_then_saved_path() {
         game: Some(root.join("missing")),
         ..Default::default()
     };
-    assert!(super::resolve_mods(&invalid, environment.to_str(), default_game).is_err());
-    assert!(super::resolve_mods(&Args::default(), Some(""), default_game).is_err());
+    super::resolve_mods(&invalid, environment.to_str(), default_game).unwrap_err();
+    super::resolve_mods(&Args::default(), Some(""), default_game).unwrap_err();
     fs::remove_dir_all(root).unwrap();
 }
 
@@ -253,7 +253,7 @@ fn install_options_are_optional_and_game_accepts_both_value_forms() {
             }
         );
     }
-    assert!(parse(&args(&["--game"]), true).is_err());
+    parse(&args(&["--game"]), true).unwrap_err();
 }
 
 #[test]
@@ -295,6 +295,6 @@ fn uninstall_accepts_defaults_and_rejects_source_and_legacy_mods() {
         vec!["--source=/source"],
         vec!["--game"],
     ] {
-        assert!(parse(&args(&options), false).is_err());
+        parse(&args(&options), false).unwrap_err();
     }
 }
