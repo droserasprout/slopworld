@@ -6,6 +6,8 @@ on:
     branches: [main, human-docs]
     paths:
       - 'README.md'
+      - '**/README.md'
+      - 'notes/**'
       - 'docs/**'
       - 'tools/__init__.py'
       - 'tools/docs/**'

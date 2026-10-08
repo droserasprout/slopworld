@@ -3,7 +3,7 @@ name = "slopworld-tools"
 version = "0.0.0"
 description = "Development tools for the SlopWorld repository"
 requires-python = ">=3.12"
-dependencies = ["PyYAML"]
+dependencies = ["PyYAML", "markdown-it-py"]
 
 [project.optional-dependencies]
 assets = [

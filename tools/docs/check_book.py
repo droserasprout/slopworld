@@ -1,8 +1,10 @@
-"""Check book navigation and local links against mdBook's rendered IDs.
+"""Check book navigation, rendered anchors, and repository documentation targets.
 
 mdBook owns Markdown parsing and anchor generation. This check reads its HTML so
 explicit anchors, generated heading suffixes, and theme links use the same rules.
 External URLs are left to their owners; no network or game access is needed.
+Repository Markdown uses CommonMark parsing for links, but only target existence
+is checked there: GitHub's heading anchors are separate from mdBook's IDs.
 """
 
 import re
@@ -11,7 +13,10 @@ from pathlib import Path
 from urllib.parse import unquote
 from urllib.parse import urlsplit
 
+from markdown_it import MarkdownIt
+
 from tools import ROOT
+from tools.utils import run
 
 
 class Page(HTMLParser):
@@ -76,11 +81,51 @@ def check_links(book: Path) -> list[str]:
     return errors
 
 
+def repository_documents(root: Path) -> list[Path]:
+    """Include tracked and new docs without walking ignored build/vendor trees."""
+    result = run(
+        [
+            'git',
+            'ls-files',
+            '-z',
+            '--cached',
+            '--others',
+            '--exclude-standard',
+            '--',
+            'README.md',
+            '**/README.md',
+            'notes/*.md',
+        ],
+        cwd=root,
+        text=True,
+        capture_output=True,
+    )
+    return sorted({root / name for name in result.stdout.split('\0') if name and (root / name).is_file()})
+
+
+def check_repository_links(root: Path) -> list[str]:
+    root = root.resolve()
+    markdown = MarkdownIt('commonmark')
+    errors: list[str] = []
+    for path in repository_documents(root):
+        page = Page(markdown.render(path.read_text(encoding='utf-8')))
+        for link in sorted(set(page.links)):
+            url = urlsplit(link)
+            if url.scheme or url.netloc or not url.path:
+                continue
+            decoded = unquote(url.path)
+            target = (root / decoded.lstrip('/')) if decoded.startswith('/') else path.parent / decoded
+            target = target.resolve()
+            if not target.is_relative_to(root) or not target.exists():
+                errors.append(f'{path.relative_to(root)}: {link}: missing or out-of-repository target')
+    return errors
+
+
 def main() -> None:
-    errors = check_navigation(ROOT / 'docs/src') + check_links(ROOT / 'docs/book')
+    errors = check_navigation(ROOT / 'docs/src') + check_links(ROOT / 'docs/book') + check_repository_links(ROOT)
     if errors:
         raise SystemExit('\n'.join(errors))
-    print('Book navigation, local links, and anchors passed.')
+    print('Book navigation, local links, anchors, and repository documentation targets passed.')
 
 
 if __name__ == '__main__':
