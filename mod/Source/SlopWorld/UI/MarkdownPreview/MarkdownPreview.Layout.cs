@@ -21,7 +21,9 @@ namespace SlopWorld
                 // The inherited left obstacle reserves the marker gutter until it ends.
                 // This copy keeps floats created by an item local to that item.
                 X = X + (Right ? 0f : gutter),
-                Width = Width, Bottom = Bottom, Right = Right,
+                Width = Width,
+                Bottom = Bottom,
+                Right = Right,
             };
 
             public Vector2 Bounds(float x, float y, float width)

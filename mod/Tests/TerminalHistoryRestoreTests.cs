@@ -8,9 +8,15 @@ namespace SlopWorld.Tests
     {
         public static void RestoredHistoryRejectsIncompatibleIdentityAndExtent()
         {
-            var saved = new TerminalHistoryRestore {
-                RunId = 10, ConnectionGeneration = 2, Cols = 80, Rows = 24,
-                History = 100, Sequence = 5, AltScreen = false
+            var saved = new TerminalHistoryRestore
+            {
+                RunId = 10,
+                ConnectionGeneration = 2,
+                Cols = 80,
+                Rows = 24,
+                History = 100,
+                Sequence = 5,
+                AltScreen = false
             };
             var live = new ScreenBuf { Cols = 80, Rows = 24, History = 100, Seq = 5 };
             Assert.That(saved.Evaluate(10, 2, live).Compatible, Is.True);

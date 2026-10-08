@@ -241,14 +241,14 @@ namespace SlopWorld.Tests
         });
         public static void MemeModeKeepsItsEmojiLabel()
         {
-                AssertEx.Equal(TemperatureUnit.MemeMode,
-                    TemperatureUnit.Normalize(TemperatureUnit.MemeMode),
-                    "custom temperature unit normalization");
-                AssertEx.Equal(TemperatureUnit.MemeLabel,
-                    TemperatureUnit.Label(TemperatureUnit.MemeMode, "Fahrenheit"),
-                    "custom temperature unit label");
-                AssertEx.Equal("glazed🍩/bald🦅", TemperatureUnit.MemeLabel,
-                    "custom temperature unit keeps the real emoji label");
+            AssertEx.Equal(TemperatureUnit.MemeMode,
+                TemperatureUnit.Normalize(TemperatureUnit.MemeMode),
+                "custom temperature unit normalization");
+            AssertEx.Equal(TemperatureUnit.MemeLabel,
+                TemperatureUnit.Label(TemperatureUnit.MemeMode, "Fahrenheit"),
+                "custom temperature unit label");
+            AssertEx.Equal("glazed🍩/bald🦅", TemperatureUnit.MemeLabel,
+                "custom temperature unit keeps the real emoji label");
         }
 
     }

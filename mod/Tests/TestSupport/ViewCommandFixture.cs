@@ -9,7 +9,9 @@ namespace SlopWorld.Tests
         {
             var start = new ProcessStartInfo("bash")
             {
-                UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
             };
             start.ArgumentList.Add("-c");
             start.ArgumentList.Add(command);

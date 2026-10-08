@@ -251,7 +251,7 @@ namespace SlopWorld
             if (!Controller.ToggleGroup(group)) return;
             if (group.Root != null) RefreshLoaded((FileNode)group.Root);
             else foreach (var scope in SidebarScopes.EnabledScopes().Where(s => s.ProjectKey == group.Key))
-                if (!Controller.IsGroupCollapsed(scope.Key)) RefreshLoaded(Root(scope.Key));
+                    if (!Controller.IsGroupCollapsed(scope.Key)) RefreshLoaded(Root(scope.Key));
         }
 
         public void EnsureLoaded(FileNode node)

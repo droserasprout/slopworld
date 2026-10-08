@@ -10,8 +10,13 @@ namespace SlopWorld.Tests
     {
         static byte[] Screen(string name, ulong seq, uint off = 0, ulong request = 0) =>
             new Wire.Event { Screen = new Wire.ScreenView { Name = name, Seq = seq, Off = off, RequestId = request } }.ToByteArray();
-        static byte[] Control(ulong seq) => new Wire.Event { Sessions = new Wire.SessionsReply {
-            Sessions = { new Wire.SessionView { Runtime = new Wire.SessionRuntimeView { Seq = seq } } } } }.ToByteArray();
+        static byte[] Control(ulong seq) => new Wire.Event
+        {
+            Sessions = new Wire.SessionsReply
+            {
+                Sessions = { new Wire.SessionView { Runtime = new Wire.SessionRuntimeView { Seq = seq } } }
+            }
+        }.ToByteArray();
         static ulong Identity(Wire.Event value) => value.Screen?.Seq ?? value.Sessions.Sessions[0].Runtime.Seq;
         public static void Messages()
         {
@@ -74,9 +79,18 @@ namespace SlopWorld.Tests
 
         public static void DeferredScreensValidateBeforeReplacement()
         {
-            var frame = new Wire.Event { Screen = new Wire.ScreenView {
-                Name = "agent", Seq = ulong.MaxValue, Cols = 120, Rows = 34,
-                Title = "title 🦀", Lines = { "hello", "世界", "\x1b[31mred" } } };
+            var frame = new Wire.Event
+            {
+                Screen = new Wire.ScreenView
+                {
+                    Name = "agent",
+                    Seq = ulong.MaxValue,
+                    Cols = 120,
+                    Rows = 34,
+                    Title = "title 🦀",
+                    Lines = { "hello", "世界", "\x1b[31mred" }
+                }
+            };
             var binary = frame.ToByteArray();
             AssertEx.True(ValidatedLiveScreen.TryName(binary, out var name), "ordinary screen uses deferred decode");
             AssertEx.Equal("agent", name, "validated identity");

@@ -23,8 +23,12 @@ namespace SlopWorld.Tests
             public readonly List<LoadRequest> Requests = new List<LoadRequest>();
             public readonly BrowseScopeCatalog Catalog;
             public Fixture() => Catalog = new BrowseScopeCatalog(p => Filter.Length == 0 || Filter == p,
-                () => Now, (p, done) => Requests.Add(new LoadRequest { Project = p,
-                    Attempt = Requests.Count(request => request.Project == p) + 1, Reply = done }));
+                () => Now, (p, done) => Requests.Add(new LoadRequest
+                {
+                    Project = p,
+                    Attempt = Requests.Count(request => request.Project == p) + 1,
+                    Reply = done
+                }));
             public void Update(bool menu = false) => Catalog.Update(Projects, ProjectsRevision, Filter, Saved, true, menu);
             public void Toggle(BrowseScope scope) => Catalog.Toggle(scope, saved => Saved = saved);
             public LoadRequest Request(string project, int attempt) => Requests.Single(request => request.Project == project && request.Attempt == attempt);
@@ -32,8 +36,15 @@ namespace SlopWorld.Tests
             public void Refresh() { Now += 6; Update(); }
         }
         static BrowseScope Scope(string worktree = "main", string phase = "ready", string path = null) =>
-            new BrowseScope { ProjectId = "p-id", Project = "p", Worktree = worktree, Name = worktree,
-                Phase = phase, Path = path ?? "/p/" + worktree };
+            new BrowseScope
+            {
+                ProjectId = "p-id",
+                Project = "p",
+                Worktree = worktree,
+                Name = worktree,
+                Phase = phase,
+                Path = path ?? "/p/" + worktree
+            };
 
         public static void CatalogSnapshotsDoNotExposeRetainedState()
         {

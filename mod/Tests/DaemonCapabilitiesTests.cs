@@ -84,8 +84,17 @@ namespace SlopWorld.Tests
             var previous = DaemonCapabilities.Current;
             try
             {
-                var caps = DaemonCapabilities.FromWire(new Wire.Capabilities { Terminal = new Wire.TerminalCapabilities {
-                    ScrollbackLines = 999999, MinCols = 22, MaxCols = 999999, MinRows = 7, MaxRows = 999999 } });
+                var caps = DaemonCapabilities.FromWire(new Wire.Capabilities
+                {
+                    Terminal = new Wire.TerminalCapabilities
+                    {
+                        ScrollbackLines = 999999,
+                        MinCols = 22,
+                        MaxCols = 999999,
+                        MinRows = 7,
+                        MaxRows = 999999
+                    }
+                });
                 AssertEx.Equal(22, caps.Terminal.MinCols, "valid minimum columns retained");
                 AssertEx.Equal(7, caps.Terminal.MinRows, "valid minimum rows retained");
                 AssertEx.Equal(TerminalLimits.ClientMaxCols, caps.Terminal.MaxCols, "oversized maximum columns clamped");

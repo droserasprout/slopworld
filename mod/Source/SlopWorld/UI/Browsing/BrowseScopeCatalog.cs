@@ -116,8 +116,17 @@ namespace SlopWorld
                 if (c.Name == p.Name && c.Path == p.ExpandedDir) continue;
                 c.Name = p.Name; c.Path = p.ExpandedDir; c.Error = null; c.Token++; c.Next = 0;
                 // Replace descriptors, never mutate a scope captured by a Search request.
-                c.Scopes = c.Scopes.Select(s => new BrowseScope { ProjectId = id, Project = p.Name,
-                    Worktree = s.Worktree, Name = s.Name, Path = s.Path, Phase = s.Phase, Branch = s.Branch, Error = s.Error }).ToList();
+                c.Scopes = c.Scopes.Select(s => new BrowseScope
+                {
+                    ProjectId = id,
+                    Project = p.Name,
+                    Worktree = s.Worktree,
+                    Name = s.Name,
+                    Path = s.Path,
+                    Phase = s.Phase,
+                    Branch = s.Branch,
+                    Error = s.Error
+                }).ToList();
                 var main = c.Scopes.FirstOrDefault(s => s.Worktree == "main");
                 if (main == null) c.Scopes.Insert(0, main = new BrowseScope { ProjectId = id, Worktree = "main", Name = "Main checkout", Phase = "loading" });
                 if (main.Path != p.ExpandedDir) main.Phase = "loading";

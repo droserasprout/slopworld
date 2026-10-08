@@ -76,8 +76,14 @@ namespace SlopWorld.Tests
         {
             var styles = new StyleSet();
             float textWidth = styles.Normal.CalcSize(new GUIContent("a")).x;
-            var item = new InlineRun { IsTask = task, IsImage = !task, Text = task ? "[x]" : "",
-                ImageWidth = 40, ImageHeight = 35 };
+            var item = new InlineRun
+            {
+                IsTask = task,
+                IsImage = !task,
+                Text = task ? "[x]" : "",
+                ImageWidth = 40,
+                ImageHeight = 35
+            };
             var runs = new List<InlineRun>
             {
                 new InlineRun { Text = clippedSpace ? "a   " : "a" }, item,

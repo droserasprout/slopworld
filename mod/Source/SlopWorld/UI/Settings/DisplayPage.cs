@@ -53,7 +53,7 @@ namespace SlopWorld
                     })));
                 Find.WindowStack.Add(new UiMenu(options));
             }
- 
+
             UiLayout.SectionHeading(l, "Scrolling");
             bool smooth = UiControls.Checkbox(l, "Smooth scrolling", S.smoothScrolling,
                 "Use precise touchpad scrolling in terminals, panels, and Markdown. "

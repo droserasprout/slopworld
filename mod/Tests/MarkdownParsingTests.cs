@@ -21,7 +21,8 @@ namespace SlopWorld.Tests
                     var image = Parse("before <img src='figure.png' width='" + dimension.Input + "' height='16PX'>")[0].Runs.Single(r => r.IsImage);
                     AssertEx.Equal(dimension.ExpectedWidth, image.ImageWidth, "absolute positive dimensions only");
                     AssertEx.Equal(16f, image.ImageHeight, "pixel suffix is case insensitive");
-                });
+                }
+                );
         }
 
         static void HtmlStyleScope(string tag)

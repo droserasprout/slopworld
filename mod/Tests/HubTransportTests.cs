@@ -33,7 +33,8 @@ namespace SlopWorld.Tests
                 return true;
             }
             public void Dispose() { Disposals++; Connected = false; Incoming.Close(); }
-            public void Enqueue(ulong id) => Incoming.Enqueue(new Wire.Event {
+            public void Enqueue(ulong id) => Incoming.Enqueue(new Wire.Event
+            {
                 Sessions = new Wire.SessionsReply { Sessions = { new Wire.SessionView { Runtime = new Wire.SessionRuntimeView { Seq = id } } } }
             }.ToByteArray());
         }

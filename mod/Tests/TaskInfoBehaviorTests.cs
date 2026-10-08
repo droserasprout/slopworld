@@ -23,7 +23,8 @@ namespace SlopWorld.Tests
                     Assert.That(task.Status, Is.EqualTo(item.Parsed));
                     Assert.That(task.Terminal, Is.EqualTo(item.Terminal));
                     Assert.That(TaskInfo.StatusText(task.Status), Is.EqualTo(item.Wire));
-                });
+                }
+                );
             foreach (var item in new[] { (Elapsed: -120, Expected: "now"), (Elapsed: 0, Expected: "now"), (Elapsed: 15, Expected: "15s"), (Elapsed: 150, Expected: "2m"), (Elapsed: 9000, Expected: "2h"), (Elapsed: 216000, Expected: "2d") })
                 yield return ($"task age formats {item.Elapsed} seconds", () => Age(item.Elapsed, item.Expected));
         }

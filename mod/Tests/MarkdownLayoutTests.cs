@@ -9,7 +9,8 @@ namespace SlopWorld.Tests
     {
         static MarkdownBlock Paragraph(params InlineRun[] runs) => new MarkdownBlock
         {
-            Kind = BlockKind.Paragraph, Runs = runs.ToList(),
+            Kind = BlockKind.Paragraph,
+            Runs = runs.ToList(),
         };
 
         static MarkdownLayoutEngine Flow(float width, params MarkdownBlock[] blocks)
@@ -283,14 +284,22 @@ namespace SlopWorld.Tests
         public static void QuoteRuleAndItemGeometryPreservesDocumentOrder()
         {
             var engine = Flow(240,
-                new MarkdownBlock { Kind = BlockKind.Quote, Children = new List<MarkdownBlock>
+                new MarkdownBlock
+                {
+                    Kind = BlockKind.Quote,
+                    Children = new List<MarkdownBlock>
                 {
                     Paragraph(new InlineRun { Text = "quoted" }), new MarkdownBlock { Kind = BlockKind.Rule },
-                } },
-                new MarkdownBlock { Kind = BlockKind.Item, Children = new List<MarkdownBlock>
+                }
+                },
+                new MarkdownBlock
+                {
+                    Kind = BlockKind.Item,
+                    Children = new List<MarkdownBlock>
                 {
                     Paragraph(new InlineRun { Text = "after" }),
-                } });
+                }
+                });
             var quote = engine.Placements.Single(p => p.Kind == PlacementKind.Quote);
             var texts = engine.Placements.Where(p => p.Kind == PlacementKind.Text).ToArray();
             var rule = engine.Placements.Single(p => p.Kind == PlacementKind.Rule);
@@ -345,10 +354,17 @@ namespace SlopWorld.Tests
 
         public static void HeadingsReserveLeadingSpaceOnlyAfterContent()
         {
-            var heading = new MarkdownBlock { Kind = BlockKind.Heading, Level = 1,
-                Runs = new List<InlineRun> { new InlineRun { Text = "Title" } } };
-            var engine = Flow(300, heading, new MarkdownBlock { Kind = BlockKind.Raw,
-                Runs = new List<InlineRun> { new InlineRun { Text = "<unsupported>", Faint = true } } }, heading);
+            var heading = new MarkdownBlock
+            {
+                Kind = BlockKind.Heading,
+                Level = 1,
+                Runs = new List<InlineRun> { new InlineRun { Text = "Title" } }
+            };
+            var engine = Flow(300, heading, new MarkdownBlock
+            {
+                Kind = BlockKind.Raw,
+                Runs = new List<InlineRun> { new InlineRun { Text = "<unsupported>", Faint = true } }
+            }, heading);
             var placements = engine.Placements;
             AssertEx.Equal(UiTheme.GapM, placements[0].Y, "first heading uses document inset");
             AssertEx.True(placements[0].Heading && placements[2].Heading, "headings retain heading color");

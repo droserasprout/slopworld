@@ -9,31 +9,31 @@ namespace SlopWorld.Tests
         public static void OverlappingCallersReceiveEveryDependencyOutcome()
         {
             foreach (bool cancel in new[] { false, true })
-            foreach (bool failure in new[] { false, true })
-            {
-                DaemonClient.Requests.Clear();
-                var store = new TaskStore();
-                Action<string[], Action, Action<string>> run = (ids, ok, fail) =>
+                foreach (bool failure in new[] { false, true })
                 {
-                    if (cancel) store.CancelMany(ids, ok, fail);
-                    else store.RemoveMany(ids, ok, fail);
-                };
-                int first = 0, duplicate = 0, overlap = 0, failed = 0;
-                run(new[] { "a", "b" }, () => first++, _ => failed++);
-                run(new[] { "b" }, () => duplicate++, _ => failed++);
-                run(new[] { "b", "c" }, () => overlap++, _ => failed++);
-                Assert.That(DaemonClient.Requests.Count, Is.EqualTo(1));
-                if (failure) DaemonClient.Requests[0].Fail("denied");
-                else DaemonClient.Requests[0].Ok(Batch("a", "b"));
-                Assert.That(overlap, Is.Zero, "waits for its remaining IDs");
-                Assert.That(duplicate, Is.EqualTo(failure ? 0 : 1));
-                DaemonClient.Requests[1].Ok(Batch("c"));
-                Assert.That(first + duplicate + overlap, Is.EqualTo(failure ? 0 : 3));
-                Assert.That(failed, Is.EqualTo(failure ? 3 : 0));
-                DaemonClient.Requests[2].Ok(Tasks());
-                run(new[] { "b" }, () => first++, _ => failed++);
-                Assert.That(DaemonClient.Requests[3].Method, Is.EqualTo("POST"), "reservation released for retry");
-            }
+                    DaemonClient.Requests.Clear();
+                    var store = new TaskStore();
+                    Action<string[], Action, Action<string>> run = (ids, ok, fail) =>
+                    {
+                        if (cancel) store.CancelMany(ids, ok, fail);
+                        else store.RemoveMany(ids, ok, fail);
+                    };
+                    int first = 0, duplicate = 0, overlap = 0, failed = 0;
+                    run(new[] { "a", "b" }, () => first++, _ => failed++);
+                    run(new[] { "b" }, () => duplicate++, _ => failed++);
+                    run(new[] { "b", "c" }, () => overlap++, _ => failed++);
+                    Assert.That(DaemonClient.Requests.Count, Is.EqualTo(1));
+                    if (failure) DaemonClient.Requests[0].Fail("denied");
+                    else DaemonClient.Requests[0].Ok(Batch("a", "b"));
+                    Assert.That(overlap, Is.Zero, "waits for its remaining IDs");
+                    Assert.That(duplicate, Is.EqualTo(failure ? 0 : 1));
+                    DaemonClient.Requests[1].Ok(Batch("c"));
+                    Assert.That(first + duplicate + overlap, Is.EqualTo(failure ? 0 : 3));
+                    Assert.That(failed, Is.EqualTo(failure ? 3 : 0));
+                    DaemonClient.Requests[2].Ok(Tasks());
+                    run(new[] { "b" }, () => first++, _ => failed++);
+                    Assert.That(DaemonClient.Requests[3].Method, Is.EqualTo("POST"), "reservation released for retry");
+                }
         }
 
         public static void AddedWorkerTaskSurvivesOlderRefresh()
@@ -211,7 +211,8 @@ namespace SlopWorld.Tests
                 run(new[] { "a", "b", "c" }, () => success++, _ => failure++);
                 run(new[] { "a" }, () => success++, _ => failure++);
                 run(new[] { "b" }, () => success++, _ => failure++);
-                var result = new Wire.TaskBatchResult {
+                var result = new Wire.TaskBatchResult
+                {
                     Committed = { "a" },
                     Failed = { new Wire.TaskBatchFailure { Id = "b", Error = "disk full" } },
                     Unattempted = { "c" }

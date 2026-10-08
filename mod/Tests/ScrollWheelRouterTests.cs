@@ -32,7 +32,7 @@ namespace SlopWorld.Tests
             {
                 draws++;
                 using (outer.Scope(bounds, view))
-                    using (inner.Scope(new Rect(0, 50, 100, 100), view)) { }
+                using (inner.Scope(new Rect(0, 50, 100, 100), view)) { }
                 using (sibling.Scope(new Rect(400, 0, 100, 100), view)) { }
             };
             router.Draw(bounds, draw);

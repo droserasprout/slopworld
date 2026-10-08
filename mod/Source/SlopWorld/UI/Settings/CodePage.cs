@@ -122,8 +122,14 @@ namespace SlopWorld
             int request = ++_previewRequest;
             if (!_previewLoading) return;
             DaemonClient.Post<Wire.TextResult>(WireProtocol.Routes.Highlight,
-                new Wire.HighlightReq { Text = Sample, Language = "rs", Engine = _engine,
-                    Theme = Appearance.Theme(_engine), Command = _command }, result =>
+                new Wire.HighlightReq
+                {
+                    Text = Sample,
+                    Language = "rs",
+                    Engine = _engine,
+                    Theme = Appearance.Theme(_engine),
+                    Command = _command
+                }, result =>
                 {
                     if (_disposed || request != _previewRequest) return;
                     _previewLoading = false;

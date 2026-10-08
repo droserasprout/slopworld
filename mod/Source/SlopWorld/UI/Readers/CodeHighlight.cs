@@ -44,7 +44,9 @@ namespace SlopWorld
             string engine = Engine(SessionHub.Instance.Config.EffectiveHighlighter);
             return new Wire.HighlightReq
             {
-                Text = text, Language = language, Engine = engine,
+                Text = text,
+                Language = language,
+                Engine = engine,
                 Theme = Theme(ModEntry.Instance.settings, engine)
             };
         }

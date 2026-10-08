@@ -33,12 +33,16 @@ namespace SlopWorld.Tests
         public static void LinksUseOccupiedColumnsAcrossRunsAndRows()
         {
             const string url = "https://example.org";
-            var buf = new ScreenBuf { Cols = 4, Runs = new[] {
+            var buf = new ScreenBuf
+            {
+                Cols = 4,
+                Runs = new[] {
                 new List<SgrRun> {
                     new SgrRun { Col = 0, Text = "好", CellWidth = 2, Url = url },
                     new SgrRun { Col = 2, Text = "ab", Url = url } },
                 new List<SgrRun> { new SgrRun { Col = 0, Text = "😀", CellWidth = 1, Url = url } }
-            } };
+            }
+            };
             var links = new TerminalLinkService();
             links.Track(buf, new Vector2Int(1, 0));
             Assert.That(links.HoverUrl, Is.EqualTo(url));

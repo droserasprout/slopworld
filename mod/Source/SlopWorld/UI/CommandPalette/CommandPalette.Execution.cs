@@ -182,8 +182,8 @@ namespace SlopWorld
                 }
                 else if (Fuzzy.Match(e.Id, _filter, out score))
                 {
-            // The ID is not visible, so display the label without highlighting it.
-            // Rank this result below commands whose labels match the filter.
+                    // The ID is not visible, so display the label without highlighting it.
+                    // Rank this result below commands whose labels match the filter.
                     scored.Add(new Hit
                     {
                         Command = e,

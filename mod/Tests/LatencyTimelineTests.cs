@@ -9,7 +9,8 @@ namespace SlopWorld.Tests
     {
         static Wire.ScreenView Screen(string id, ulong seq = 4) => new Wire.ScreenView
         {
-            Name = "pane", Seq = seq,
+            Name = "pane",
+            Seq = seq,
             InputTimings = { new Wire.InputTiming {
                 Id = id, RunId = 7, ReceivedUs = 1000, TmuxUs = 1010,
                 FirstCaptureUs = 1020, FirstSeq = 2, CaptureUs = 1030, SendUs = 1040 } }

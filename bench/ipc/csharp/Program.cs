@@ -55,16 +55,19 @@ class Program
             var parsed = Event.Parser.ParseFrom(binary);
             if (!parsed.Equals(ev) || parsed.PayloadCase != Event.PayloadOneofCase.Screen)
                 throw new InvalidDataException("fixture mismatch");
-            Measure(kind, "protobuf-receive", binary.Length, 500, () => {
+            Measure(kind, "protobuf-receive", binary.Length, 500, () =>
+            {
                 var value = new ReceivedEvent(binary); if (value.Error != null) throw value.Error;
                 foreach (var line in value.Value.Screen.Lines) sink += line.Length;
             });
             var queue = new IncomingMessageQueue(); var batch = new HubEventBatch();
-            Measure(kind, "protobuf-queue1", binary.Length, 500, () => {
+            Measure(kind, "protobuf-queue1", binary.Length, 500, () =>
+            {
                 queue.Enqueue(binary);
                 batch.Read(queue, e => { throw e; }); sink += batch.Count; batch.Clear();
             });
-            Measure(kind, "protobuf-burst8", binary.Length * 8, 150, () => {
+            Measure(kind, "protobuf-burst8", binary.Length * 8, 150, () =>
+            {
                 for (int i = 0; i < 8; i++) queue.Enqueue(binary);
                 batch.Read(queue, e => { throw e; }); sink += batch.Count; batch.Clear();
             });

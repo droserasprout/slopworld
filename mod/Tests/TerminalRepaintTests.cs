@@ -21,7 +21,9 @@ namespace SlopWorld.Tests
 
         static ScreenBuf Screen(int[] changed) => new ScreenBuf
         {
-            ContentRevision = 2, Lines = new[] { "a", "b", "c", "d" }, ChangedRows = changed,
+            ContentRevision = 2,
+            Lines = new[] { "a", "b", "c", "d" },
+            ChangedRows = changed,
         };
 
         static void TerminalDamage()
@@ -109,7 +111,10 @@ namespace SlopWorld.Tests
                 new TerminalCacheKey
                 {
                     Buffer = new ScreenBuf { Off = offset, Lines = lines, LinksKnown = true },
-                    Session = "reader", Offset = offset, CellH = 19f, Width = 100f,
+                    Session = "reader",
+                    Offset = offset,
+                    CellH = 19f,
+                    Width = 100f,
                 };
 
             var before = Key(10, "a", "b", "c", "d");

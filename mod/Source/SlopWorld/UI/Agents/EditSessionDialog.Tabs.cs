@@ -25,10 +25,16 @@ namespace SlopWorld
             _worktreeError = null;
             if (string.IsNullOrEmpty(project)) return;
             DaemonClient.Get<Wire.WorktreesReply>(WireProtocol.Routes.Worktrees + "?project=" + System.Uri.EscapeDataString(project),
-                reply => { if (_worktreeRequests.IsCurrent(request) && _s.Project == project &&
-                    endpoint == DaemonClient.BaseUrl && connection == SessionHub.Instance.ConnectionGeneration) _worktreeChoices = reply.Worktrees.ToList(); },
-                error => { if (_worktreeRequests.IsCurrent(request) && _s.Project == project &&
-                    endpoint == DaemonClient.BaseUrl && connection == SessionHub.Instance.ConnectionGeneration) _worktreeError = error; }, TaskInfo.Host, 60000);
+                reply =>
+                {
+                    if (_worktreeRequests.IsCurrent(request) && _s.Project == project &&
+                    endpoint == DaemonClient.BaseUrl && connection == SessionHub.Instance.ConnectionGeneration) _worktreeChoices = reply.Worktrees.ToList();
+                },
+                error =>
+                {
+                    if (_worktreeRequests.IsCurrent(request) && _s.Project == project &&
+                    endpoint == DaemonClient.BaseUrl && connection == SessionHub.Instance.ConnectionGeneration) _worktreeError = error;
+                }, TaskInfo.Host, 60000);
         }
         // This tab sets the agent name, workspace, and command required for startup.
         // The other tabs provide additional settings.

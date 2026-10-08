@@ -49,9 +49,13 @@ namespace SlopWorld
             {
                 return WithHtmlStyle(new InlineStyle
                 {
-                    Bold = state.Bold > 0, Italic = state.Italic > 0,
-                    Code = state.Code > 0, InlineCode = state.InlineCode > 0,
-                    Strike = state.Strike > 0, Link = state.Link, LocalLink = state.LocalLink,
+                    Bold = state.Bold > 0,
+                    Italic = state.Italic > 0,
+                    Code = state.Code > 0,
+                    InlineCode = state.InlineCode > 0,
+                    Strike = state.Strike > 0,
+                    Link = state.Link,
+                    LocalLink = state.LocalLink,
                 });
             }
 

@@ -6,13 +6,21 @@ namespace SlopWorld.Tests
     {
         static PresetInfo Preset() => new PresetInfo
         {
-            Name = "desktop", Description = "Desktop access", Source = "override",
-            Requires = new List<string> { "base" }, Ro = new List<string> { "/ro" },
-            Rw = new List<string> { "/rw" }, Dev = new List<string> { "/dev/dri" },
-            Env = new List<string> { "DISPLAY" }, Private = new List<string> { "~/.config" },
-            Shared = new List<string> { "~/.config/token" }, Seed = new List<string> { "/seed" },
-            Skip = new List<string> { "/skip" }, Escapes = "Host display",
-            Tmux = true, DaemonConfig = true,
+            Name = "desktop",
+            Description = "Desktop access",
+            Source = "override",
+            Requires = new List<string> { "base" },
+            Ro = new List<string> { "/ro" },
+            Rw = new List<string> { "/rw" },
+            Dev = new List<string> { "/dev/dri" },
+            Env = new List<string> { "DISPLAY" },
+            Private = new List<string> { "~/.config" },
+            Shared = new List<string> { "~/.config/token" },
+            Seed = new List<string> { "/seed" },
+            Skip = new List<string> { "/skip" },
+            Escapes = "Host display",
+            Tmux = true,
+            DaemonConfig = true,
             Setenv = new Dictionary<string, string> { { "MODE", "desktop" } },
         };
 
@@ -88,8 +96,12 @@ namespace SlopWorld.Tests
         {
             var original = new CommandInfo
             {
-                Name = "shell", Kind = CommandInfo.ShellKind, Description = "Interactive shell",
-                Source = "user", Cmd = "bash -l", Sandbox = new List<string> { "base", "desktop" },
+                Name = "shell",
+                Kind = CommandInfo.ShellKind,
+                Description = "Interactive shell",
+                Source = "user",
+                Cmd = "bash -l",
+                Sandbox = new List<string> { "base", "desktop" },
             };
             var copy = original.Copy();
             AssertEx.Equal(original.ToWire(), copy.ToWire(), "command settings survive copying");

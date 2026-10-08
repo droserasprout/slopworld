@@ -11,7 +11,9 @@ namespace SlopWorld.Tests
         {
             Event.current = new Event
             {
-                type = type, rawType = type, button = button,
+                type = type,
+                rawType = type,
+                button = button,
                 mousePosition = new Vector2(Area.xMax - 1f, Area.yMax - 1f),
             };
             resize.Input(Area, "prompt", enabled);
@@ -119,7 +121,9 @@ namespace SlopWorld.Tests
                 // also clear their button; the original gesture kind survives in rawType.
                 Event.current = new Event
                 {
-                    type = EventType.Used, rawType = EventType.MouseDown, button = -1,
+                    type = EventType.Used,
+                    rawType = EventType.MouseDown,
+                    button = -1,
                     mousePosition = new Vector2(Area.xMax - 1f, Area.yMax - 1f),
                 };
                 resize.Input(Area, "prompt", true);
@@ -129,7 +133,9 @@ namespace SlopWorld.Tests
                 Input.Held = true;
                 Event.current = new Event
                 {
-                    type = EventType.Used, rawType = EventType.MouseDrag, button = -1,
+                    type = EventType.Used,
+                    rawType = EventType.MouseDrag,
+                    button = -1,
                     mousePosition = new Vector2(Area.xMax + 30f, Area.yMax + 64f),
                 };
                 WindowResizer.Result = new Rect(0f, 0f, 330f, 244f);
@@ -141,7 +147,9 @@ namespace SlopWorld.Tests
                 Input.Held = false;
                 Event.current = new Event
                 {
-                    type = EventType.Used, rawType = EventType.MouseUp, button = -1,
+                    type = EventType.Used,
+                    rawType = EventType.MouseUp,
+                    button = -1,
                     mousePosition = new Vector2(Area.xMax + 30f, Area.yMax + 80f),
                 };
                 WindowResizer.Result = new Rect(0f, 0f, 330f, 260f);

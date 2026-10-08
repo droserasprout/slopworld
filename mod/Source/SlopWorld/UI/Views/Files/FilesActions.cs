@@ -131,8 +131,14 @@ namespace SlopWorld
         }
 
         internal static Wire.FileActionReq ScopeAction(string scope, string path, string command, bool host = false) =>
-            new Wire.FileActionReq { Project = SidebarScopes.ProjectName(scope) ?? "", Worktree = SidebarScopes.Worktree(scope),
-                Path = path, Command = command, Host = host };
+            new Wire.FileActionReq
+            {
+                Project = SidebarScopes.ProjectName(scope) ?? "",
+                Worktree = SidebarScopes.Worktree(scope),
+                Path = path,
+                Command = command,
+                Host = host
+            };
 
         void HostFileAction(string path, string command, string project)
         {

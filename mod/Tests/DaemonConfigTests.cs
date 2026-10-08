@@ -27,8 +27,11 @@ namespace SlopWorld.Tests
         {
             var limits = TerminalLimits.FromWire(new Wire.TerminalCapabilities
             {
-                ScrollbackLines = uint.MaxValue, MinCols = uint.MaxValue, MaxCols = uint.MaxValue,
-                MinRows = uint.MaxValue, MaxRows = uint.MaxValue
+                ScrollbackLines = uint.MaxValue,
+                MinCols = uint.MaxValue,
+                MaxCols = uint.MaxValue,
+                MinRows = uint.MaxValue,
+                MaxRows = uint.MaxValue
             });
             AssertEx.Equal(TerminalLimits.ClientMaxScrollbackLines, limits.ScrollbackLines, "scrollback saturates");
             AssertEx.Equal(TerminalLimits.ClientMaxCols, limits.MinCols, "minimum columns saturate");

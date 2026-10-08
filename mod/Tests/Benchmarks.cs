@@ -355,12 +355,19 @@ namespace SlopWorld.Tests
 
             var live = new ScreenBuf
             {
-                Seq = 1, Cols = 120, Rows = 34, History = 1000,
+                Seq = 1,
+                Cols = 120,
+                Rows = 34,
+                History = 1000,
                 Lines = Enumerable.Range(0, 34).Select(i => "row " + i).ToArray(),
             };
             var reply = new ScreenBuf
             {
-                Seq = 1, Cols = 120, Rows = 34, Off = 17, History = 1000,
+                Seq = 1,
+                Cols = 120,
+                Rows = 34,
+                Off = 17,
+                History = 1000,
                 Lines = Enumerable.Range(-17, 34).Select(i => "row " + i).ToArray(),
             };
             var history = new TerminalHistory();
@@ -387,7 +394,11 @@ namespace SlopWorld.Tests
                  offset = history.WarmupOffset(live))
                 history.Add(new ScreenBuf
                 {
-                    Seq = 1, Cols = 120, Rows = 34, Off = offset, History = 1000,
+                    Seq = 1,
+                    Cols = 120,
+                    Rows = 34,
+                    Off = offset,
+                    History = 1000,
                     Lines = Enumerable.Range(-offset, 34).Select(i => "row " + i).ToArray(),
                 }, live);
             Measure("history eight-screen coverage check", () => history.WarmupOffset(live));

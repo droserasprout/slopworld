@@ -42,7 +42,8 @@ namespace SlopWorld.Tests
                           "configured primary mount");
             AssertEx.True(project.IsPrimaryMount(new MountEntry
             {
-                From = "/home/test/repo", To = "/home/test/repo"
+                From = "/home/test/repo",
+                To = "/home/test/repo"
             }), "expanded primary mount");
             AssertEx.False(project.IsPrimaryMount(new MountEntry { From = "/mnt", To = "/mnt" }),
                            "extra mount is not primary");

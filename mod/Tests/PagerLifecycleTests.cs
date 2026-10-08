@@ -36,8 +36,15 @@ namespace SlopWorld
         public void Run(string project, string command, string label, Action<string> started,
                         Action<string> fail, SessionRunOptions options = null)
         {
-            Requests.Add(new LaunchRequest { Project = project, Command = command, Label = label,
-                Options = (options ?? new SessionRunOptions()).ToWire(), Started = started, Failed = fail });
+            Requests.Add(new LaunchRequest
+            {
+                Project = project,
+                Command = command,
+                Label = label,
+                Options = (options ?? new SessionRunOptions()).ToWire(),
+                Started = started,
+                Failed = fail
+            });
         }
         public void Complete(LaunchRequest request, string name, bool listed = true)
         {
@@ -92,9 +99,17 @@ namespace SlopWorld.Tests
             {
                 SessionHub.Instance = new SessionHub();
                 var hub = SessionHub.Instance;
-                var info = new SessionInfo { Name = "search-restored", Alive = true, Intent = "search",
-                    ReaderPath = "/p/file", ReaderKey = "/p/file", ReaderLine = 12, Project = "p",
-                    ReaderPinned = true };
+                var info = new SessionInfo
+                {
+                    Name = "search-restored",
+                    Alive = true,
+                    Intent = "search",
+                    ReaderPath = "/p/file",
+                    ReaderKey = "/p/file",
+                    ReaderLine = 12,
+                    Project = "p",
+                    ReaderPinned = true
+                };
                 hub.Sessions[info.Name] = info;
                 var pager = new Pager();
                 pager.AttachRestored(info);
@@ -206,9 +221,16 @@ namespace SlopWorld.Tests
             try
             {
                 SessionHub.Instance = new SessionHub();
-                var info = new SessionInfo { Name = "diff", Alive = true, Intent = "diff",
-                    ReaderScope = "p", ReaderKey = "diff:file", ReaderPinned = true,
-                    Cmd = PagerCommands.DiffCommand("git diff HEAD", "less") };
+                var info = new SessionInfo
+                {
+                    Name = "diff",
+                    Alive = true,
+                    Intent = "diff",
+                    ReaderScope = "p",
+                    ReaderKey = "diff:file",
+                    ReaderPinned = true,
+                    Cmd = PagerCommands.DiffCommand("git diff HEAD", "less")
+                };
                 SessionHub.Instance.Sessions[info.Name] = info;
                 var pager = new Pager();
                 pager.AttachRestored(info);
@@ -257,9 +279,14 @@ namespace SlopWorld.Tests
             SessionHub.Instance = new SessionHub();
             var info = new SessionInfo
             {
-                Name = "tab-recovered", Alive = true, Intent = "view", Label = "file.rs",
-                ReaderPath = "/repo/file.rs", ReaderKey = "/repo/file.rs",
-                ReaderScope = "p", ReaderPinned = true
+                Name = "tab-recovered",
+                Alive = true,
+                Intent = "view",
+                Label = "file.rs",
+                ReaderPath = "/repo/file.rs",
+                ReaderKey = "/repo/file.rs",
+                ReaderScope = "p",
+                ReaderPinned = true
             };
             SessionHub.Instance.Sessions[info.Name] = info;
             var tabs = new PagerTabs();

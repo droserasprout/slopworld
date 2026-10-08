@@ -15,13 +15,15 @@ namespace SlopWorld.Tests
                     var scalar = Toml.ParseFlatScalars("value = " + value)["value"];
                     Assert.That(scalar.TryGetInteger(out int number), Is.False);
                     Assert.That(number, Is.Zero);
-                });
+                }
+                );
             foreach (string value in new[] { "nan", "inf", "-inf", "1e100", "true", "\"1.5\"" })
                 yield return ($"TOML float reader rejects {value}", () =>
                 {
                     var scalar = Toml.ParseFlatScalars("value = " + value)["value"];
                     Assert.That(scalar.TryGetFloat(out _), Is.False);
-                });
+                }
+                );
         }
 
         public static void TypedReadersDoNotCoerceStringsOrBooleans()

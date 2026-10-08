@@ -27,8 +27,14 @@ namespace SlopWorld.Tests
 
             public FileNode Root(string name = "p")
             {
-                var scope = new BrowseScope { ProjectId = name, Project = name, Worktree = "main",
-                    Path = "/" + name, Phase = "ready" };
+                var scope = new BrowseScope
+                {
+                    ProjectId = name,
+                    Project = name,
+                    Worktree = "main",
+                    Path = "/" + name,
+                    Phase = "ready"
+                };
                 SidebarScopes.TestScopes.Add(scope);
                 return Store.Root(scope.Key);
             }
@@ -54,9 +60,14 @@ namespace SlopWorld.Tests
 
         static FileNode Child(FileNode parent, string name, bool directory = false) => new FileNode
         {
-            Name = name, Path = parent.Path + "/" + name, Root = parent.Root,
-            Project = parent.Project, Depth = parent.Depth + 1, IsDir = directory,
-            Expanded = directory, HasChildren = directory,
+            Name = name,
+            Path = parent.Path + "/" + name,
+            Root = parent.Root,
+            Project = parent.Project,
+            Depth = parent.Depth + 1,
+            IsDir = directory,
+            Expanded = directory,
+            HasChildren = directory,
         };
 
         public static void ReloadRejectsLateRepliesAndPreservesExpandedNodes()

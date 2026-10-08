@@ -13,8 +13,17 @@ namespace SlopWorld.Tests
         static TaskTextSelection.Line Line(string text, int start, float y)
         {
             var boundaries = TextElementLayout.Boundaries(text);
-            var line = new TaskTextSelection.Line { Text = text, Start = start, End = start + text.Length,
-                X = 0, Y = y, Height = 10, Width = boundaries.Length - 1, Boundaries = boundaries };
+            var line = new TaskTextSelection.Line
+            {
+                Text = text,
+                Start = start,
+                End = start + text.Length,
+                X = 0,
+                Y = y,
+                Height = 10,
+                Width = boundaries.Length - 1,
+                Boundaries = boundaries
+            };
             for (int i = 0; i <= text.Length; i++)
             {
                 int at = System.Array.BinarySearch(boundaries, i);

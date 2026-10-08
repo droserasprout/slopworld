@@ -64,8 +64,11 @@ namespace SlopWorld
             var method = typeof(Event).GetMethod("QueueEvent",
                 BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
             if (method == null) return null;
-            try { return (System.Action<Event>)System.Delegate.CreateDelegate(
-                typeof(System.Action<Event>), method); }
+            try
+            {
+                return (System.Action<Event>)System.Delegate.CreateDelegate(
+                typeof(System.Action<Event>), method);
+            }
             catch { return e => method.Invoke(null, new object[] { e }); }
         }
     }

@@ -8,8 +8,11 @@ namespace SlopWorld.Tests
             ? ProtobufFixtures.Json(new Wire.ProjectsReply { Projects = { new Wire.Project { Name = name } } })
             : catalog == 1
                 ? ProtobufFixtures.Json(new Wire.LibraryReply { Library = { new Wire.LibraryItem { Name = name } } })
-                : ProtobufFixtures.Json(new Wire.PresetsReply {
-                    Presets = { new Wire.SandboxPreset { Name = name } }, Commands = { new Wire.CommandPreset { Name = name } } });
+                : ProtobufFixtures.Json(new Wire.PresetsReply
+                {
+                    Presets = { new Wire.SandboxPreset { Name = name } },
+                    Commands = { new Wire.CommandPreset { Name = name } }
+                });
 
         public static void SupersededRefreshesWaitForWinningSuccessOrFailure()
         {

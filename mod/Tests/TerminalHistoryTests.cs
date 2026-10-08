@@ -303,7 +303,10 @@ namespace SlopWorld.Tests
         {
             var live = new ScreenBuf
             {
-                Seq = 1, Cols = 80, Rows = 24, History = 1000,
+                Seq = 1,
+                Cols = 80,
+                Rows = 24,
+                History = 1000,
                 Lines = System.Linq.Enumerable.Range(0, 24).Select(i => "row " + i).ToArray(),
             };
             var history = new TerminalHistory();
@@ -317,7 +320,10 @@ namespace SlopWorld.Tests
                 AssertEx.Equal(requests * 12, offset, "nearest missing window first");
                 history.Add(new ScreenBuf
                 {
-                    Seq = 1, Cols = 80, Rows = 24, Off = offset,
+                    Seq = 1,
+                    Cols = 80,
+                    Rows = 24,
+                    Off = offset,
                     Lines = System.Linq.Enumerable.Range(-offset, 24).Select(i => "row " + i).ToArray(),
                 }, live);
             }
@@ -595,7 +601,11 @@ namespace SlopWorld.Tests
                 "rows entering history need a daemon capture");
             var capture = new ScreenBuf
             {
-                Seq = 2, Cols = 20, Rows = 4, Off = 3, History = 6,
+                Seq = 2,
+                Cols = 20,
+                Rows = 4,
+                Off = 3,
+                History = 6,
                 Lines = new[] { "old-2", "old-1", "same", "same" },
             };
             history.Add(capture, next);

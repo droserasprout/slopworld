@@ -56,7 +56,7 @@ namespace SlopWorld
         }
     }
 
-        // Patch before map ticks to prevent forbidden overlay handles from enabling.
+    // Patch before map ticks to prevent forbidden overlay handles from enabling.
     [HarmonyPatch(typeof(CompForbiddable), "UpdateOverlayHandle")]
     public static class Patch_Hide_ForbiddenOverlay
     {

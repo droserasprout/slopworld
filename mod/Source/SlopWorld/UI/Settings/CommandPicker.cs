@@ -6,17 +6,17 @@ using Verse;
 
 namespace SlopWorld
 {
-        sealed class CommandChoice
-        {
-            public readonly string Label;
-            public readonly string Value;
+    sealed class CommandChoice
+    {
+        public readonly string Label;
+        public readonly string Value;
 
-            public CommandChoice(string label, string value)
-            {
-                Label = label;
-                Value = value;
-            }
+        public CommandChoice(string label, string value)
+        {
+            Label = label;
+            Value = value;
         }
+    }
 
     static class CommandPicker
     {

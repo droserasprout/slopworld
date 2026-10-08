@@ -74,7 +74,8 @@ namespace SlopWorld.Tests
         {
             var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
             int port = ((IPEndPoint)listener.LocalEndpoint).Port;
-            var server = Task.Run(() => {
+            var server = Task.Run(() =>
+            {
                 using (var client = listener.AcceptTcpClient())
                 {
                     client.ReceiveTimeout = 3000; client.SendTimeout = 3000;

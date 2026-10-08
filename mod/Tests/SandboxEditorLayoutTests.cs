@@ -21,7 +21,8 @@ namespace SlopWorld.Tests
                     {
                         var preset = new PresetInfo
                         {
-                            Name = "sample", Source = source,
+                            Name = "sample",
+                            Source = source,
                             Description = new string('x', 100),
                             Escapes = "host access",
                         };

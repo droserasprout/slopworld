@@ -183,8 +183,8 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(_selection)) return null;
             foreach (var section in Sections)
-            foreach (var row in section.Rows)
-                if (row.Key == _selection) return row;
+                foreach (var row in section.Rows)
+                    if (row.Key == _selection) return row;
 
             // Action selections are valid only while their category row remains visible.
             // Item identities survive filtering so the selection can return with its row.
@@ -338,7 +338,9 @@ namespace SlopWorld
                                 Project = captured.Name,
                                 Tree = new Wire.Worktree
                                 {
-                                    Id = "main", Name = "main", Path = captured.ExpandedDir,
+                                    Id = "main",
+                                    Name = "main",
+                                    Path = captured.ExpandedDir,
                                     Phase = "ready"
                                 }
                             });

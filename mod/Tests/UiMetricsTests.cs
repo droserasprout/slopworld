@@ -34,37 +34,37 @@ namespace SlopWorld.Tests
             int font = UiFont.RevisionValue, atlas = UiTheme.AtlasRevisionValue;
             try
             {
-            ModEntry.Instance.settings.uiDensity = UiDensityPreset.Default;
-            Verse.Prefs.UIScale = 1f;
-            UiFont.RevisionValue = 0;
-            UiTheme.AtlasRevisionValue = 0;
-            UnityEngine.Time.frameCount = 100;
+                ModEntry.Instance.settings.uiDensity = UiDensityPreset.Default;
+                Verse.Prefs.UIScale = 1f;
+                UiFont.RevisionValue = 0;
+                UiTheme.AtlasRevisionValue = 0;
+                UnityEngine.Time.frameCount = 100;
 
-            int baseRevision = UiMetrics.Revision;
-            int baseDensity = UiMetrics.DensityRevision;
-            int baseTypography = UiMetrics.TypographyRevision;
-            int baseScale = UiMetrics.ScaleRevision;
+                int baseRevision = UiMetrics.Revision;
+                int baseDensity = UiMetrics.DensityRevision;
+                int baseTypography = UiMetrics.TypographyRevision;
+                int baseScale = UiMetrics.ScaleRevision;
 
-            ModEntry.Instance.settings.uiDensity = UiDensityPreset.Compact;
-            UnityEngine.Time.frameCount++;
-            AssertEx.True(UiMetrics.Revision != baseRevision &&
-                UiMetrics.DensityRevision != baseDensity,
-                "density transition invalidates layout");
-            AssertEx.Equal(baseTypography, UiMetrics.TypographyRevision,
-                "density transition does not report typography change");
-            AssertEx.Equal(baseScale, UiMetrics.ScaleRevision,
-                "density transition does not report scale change");
+                ModEntry.Instance.settings.uiDensity = UiDensityPreset.Compact;
+                UnityEngine.Time.frameCount++;
+                AssertEx.True(UiMetrics.Revision != baseRevision &&
+                    UiMetrics.DensityRevision != baseDensity,
+                    "density transition invalidates layout");
+                AssertEx.Equal(baseTypography, UiMetrics.TypographyRevision,
+                    "density transition does not report typography change");
+                AssertEx.Equal(baseScale, UiMetrics.ScaleRevision,
+                    "density transition does not report scale change");
 
-            Verse.Prefs.UIScale = 1.25f;
-            UnityEngine.Time.frameCount++;
-            AssertEx.True(UiMetrics.ScaleRevision != baseScale,
-                "scale transition has its own revision");
+                Verse.Prefs.UIScale = 1.25f;
+                UnityEngine.Time.frameCount++;
+                AssertEx.True(UiMetrics.ScaleRevision != baseScale,
+                    "scale transition has its own revision");
 
-            UiFont.RevisionValue++;
-            UiTheme.AtlasRevisionValue++;
-            UnityEngine.Time.frameCount++;
-            AssertEx.True(UiMetrics.TypographyRevision != baseTypography,
-                "font and atlas transitions invalidate typography");
+                UiFont.RevisionValue++;
+                UiTheme.AtlasRevisionValue++;
+                UnityEngine.Time.frameCount++;
+                AssertEx.True(UiMetrics.TypographyRevision != baseTypography,
+                    "font and atlas transitions invalidate typography");
             }
             finally
             {

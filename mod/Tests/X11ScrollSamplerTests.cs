@@ -29,12 +29,19 @@ namespace SlopWorld.Tests
                 {
                     var scroll = Allocate(new X11ScrollSampler.XIScrollClassInfo
                     {
-                        type = 3, sourceid = Source, number = Number,
-                        scrollType = 1, increment = Increment, flags = 2
+                        type = 3,
+                        sourceid = Source,
+                        number = Number,
+                        scrollType = 1,
+                        increment = Increment,
+                        flags = 2
                     });
                     var valuator = Allocate(new X11ScrollSampler.XIValuatorClassInfo
                     {
-                        type = 2, sourceid = Source, number = Number, value = Value
+                        type = 2,
+                        sourceid = Source,
+                        number = Number,
+                        value = Value
                     });
                     classes = Marshal.AllocHGlobal(2 * IntPtr.Size);
                     _allocations.Add(classes);
@@ -43,8 +50,11 @@ namespace SlopWorld.Tests
                 }
                 return Allocate(new X11ScrollSampler.XIDeviceInfo
                 {
-                    deviceid = Device, use = 1, enabled = 1,
-                    numClasses = Axes ? 2 : 0, classes = classes
+                    deviceid = Device,
+                    use = 1,
+                    enabled = 1,
+                    numClasses = Axes ? 2 : 0,
+                    classes = classes
                 });
             }
 

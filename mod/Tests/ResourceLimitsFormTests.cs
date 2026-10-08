@@ -21,8 +21,10 @@ namespace SlopWorld.Tests
         {
             var wire = new Wire.Limits
             {
-                MemoryMb = 2147483648U, Pids = uint.MaxValue,
-                Nofile = uint.MaxValue, CpuPct = 2147483648U,
+                MemoryMb = 2147483648U,
+                Pids = uint.MaxValue,
+                Nofile = uint.MaxValue,
+                CpuPct = 2147483648U,
             };
             var form = new ResourceLimitsForm(SessionLimits.FromWire(wire));
             form.Draw(_listing);

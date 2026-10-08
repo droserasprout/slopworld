@@ -44,7 +44,8 @@ namespace SlopWorld.Tests
             var run = new SystemProcessRunner().Run(new ProcessSpec
             {
                 FileName = Path.Combine(Path.GetTempPath(), "slopworld-missing-" + Guid.NewGuid().ToString("N")),
-                Arguments = "", TimeoutMs = 1000,
+                Arguments = "",
+                TimeoutMs = 1000,
             }, CancellationToken.None);
             Assert.That(run.Started, Is.False);
             Assert.That(run.TimedOut || run.Canceled, Is.False);
@@ -68,7 +69,9 @@ namespace SlopWorld.Tests
             cancel.CancelAfter(200);
             var run = new SystemProcessRunner().Run(new ProcessSpec
             {
-                FileName = "/bin/sleep", Arguments = "5", TimeoutMs = 3000,
+                FileName = "/bin/sleep",
+                Arguments = "5",
+                TimeoutMs = 3000,
             }, cancel.Token);
             Assert.That(run.Started, Is.True);
             Assert.That(run.Canceled, Is.True);
@@ -82,7 +85,9 @@ namespace SlopWorld.Tests
             cancel.Cancel();
             var run = new SystemProcessRunner().Run(new ProcessSpec
             {
-                FileName = "/bin/sleep", Arguments = "5", TimeoutMs = 3000,
+                FileName = "/bin/sleep",
+                Arguments = "5",
+                TimeoutMs = 3000,
             }, cancel.Token);
             Assert.That(run.Started && run.Canceled, Is.True);
             Assert.That(run.TimedOut, Is.False);

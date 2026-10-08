@@ -22,13 +22,16 @@ namespace SlopWorld.Tests
         }
 
         static Wire.SessionsReply Sessions(string name) =>
-            new Wire.SessionsReply { Sessions = { new Wire.SessionView {
+            new Wire.SessionsReply
+            {
+                Sessions = { new Wire.SessionView {
                 Name = name,
                 Launch = new Wire.SessionLaunchView(),
                 Worker = new Wire.SessionWorkerView(),
                 Reader = new Wire.SessionReaderView(),
                 Runtime = new Wire.SessionRuntimeView()
-            } } };
+            } }
+            };
 
         public static void RefreshRejectsSupersededSnapshots()
         {
@@ -118,7 +121,8 @@ namespace SlopWorld.Tests
             DaemonClient.Requests.Clear();
             var store = new SessionStore();
             string started = null;
-            store.Run("project", "echo hello", "label", name => {
+            store.Run("project", "echo hello", "label", name =>
+            {
                 Assert.That(store.Get(name), Is.Not.Null, "session exists before opening its terminal");
                 started = name;
             }, options: new SessionRunOptions

@@ -8,7 +8,9 @@ namespace SlopWorld.Tests
         {
             var options = new WorkerWorktreeOptions
             {
-                Worktree = "existing", BaseRevision = "old-base", WorktreeName = "old-name",
+                Worktree = "existing",
+                BaseRevision = "old-base",
+                WorktreeName = "old-name",
             };
             var request = new Wire.SpawnWorkerReq { Base = "stale", WorktreeName = "stale" };
             options.ApplyTo(request);

@@ -113,7 +113,7 @@ namespace SlopWorld
             }
             target[parts.Last()] = source[parts.Last()].DeepClone();
         }
-        public static void Acknowledge(this DaemonConfigDraft draft, string submitted, Dictionary<string,string> texts) =>
+        public static void Acknowledge(this DaemonConfigDraft draft, string submitted, Dictionary<string, string> texts) =>
             draft.Acknowledge(Read<Wire.EditableConfig>(JVal.Parse(submitted)), texts);
     }
 }

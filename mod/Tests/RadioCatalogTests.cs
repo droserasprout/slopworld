@@ -30,7 +30,9 @@ namespace SlopWorld.Tests
             catalog.Stations.Add(new Wire.Station { Id = "invalid" });
             var valid = new Wire.Station
             {
-                Id = "valid", Metadata = new Wire.StationMetadata { Name = "Valid station" }, DefaultRate = 128,
+                Id = "valid",
+                Metadata = new Wire.StationMetadata { Name = "Valid station" },
+                DefaultRate = 128,
             };
             valid.Streams.Add(new Wire.StationStream { Rate = 128, Key = "main" });
             catalog.Stations.Add(valid);

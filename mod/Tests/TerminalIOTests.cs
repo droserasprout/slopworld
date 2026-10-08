@@ -84,11 +84,22 @@ namespace SlopWorld.Tests
             var sent = new List<Wire.ClientMessage>();
             var terminal = new TerminalIO(sent.Add);
             terminal.RequestScroll("agent", 0, ulong.MaxValue);
-            Assert.That(sent.Last().Scroll, Is.EqualTo(new Wire.ScrollReq {
-                Name = "agent", Off = 0, RequestId = ulong.MaxValue }));
+            Assert.That(sent.Last().Scroll, Is.EqualTo(new Wire.ScrollReq
+            {
+                Name = "agent",
+                Off = 0,
+                RequestId = ulong.MaxValue
+            }));
             terminal.SendMouse("agent", "press", 2, 79, 23, 3);
-            Assert.That(sent.Last().Mouse, Is.EqualTo(new Wire.MouseReq {
-                Name = "agent", Action = "press", Button = 2, Col = 79, Row = 23, Count = 3 }));
+            Assert.That(sent.Last().Mouse, Is.EqualTo(new Wire.MouseReq
+            {
+                Name = "agent",
+                Action = "press",
+                Button = 2,
+                Col = 79,
+                Row = 23,
+                Count = 3
+            }));
             terminal.SendMouse("agent", "release", 0, 0, 0);
             Assert.That(sent.Last().Mouse.Count, Is.EqualTo(1));
             terminal.Resize("agent", 80, 24);

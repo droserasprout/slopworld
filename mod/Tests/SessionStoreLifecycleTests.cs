@@ -238,7 +238,8 @@ namespace SlopWorld.Tests
         static Wire.SessionsReply RenameSnapshot(string name = null)
         {
             var reply = new Wire.SessionsReply();
-            if (name != null) reply.Sessions.Add(new Wire.SessionView {
+            if (name != null) reply.Sessions.Add(new Wire.SessionView
+            {
                 Name = name,
                 Launch = new Wire.SessionLaunchView(),
                 Worker = new Wire.SessionWorkerView(),

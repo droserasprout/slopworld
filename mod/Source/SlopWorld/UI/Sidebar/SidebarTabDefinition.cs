@@ -99,22 +99,28 @@ namespace SlopWorld
         {
             switch (tab)
             {
-                case SidebarTab.Agents: return new SidebarTabDefinition(tab, "agents", "agents",
+                case SidebarTab.Agents:
+                    return new SidebarTabDefinition(tab, "agents", "agents",
                     "Agents: view all sessions, grouped by project.",
                     hasActions: true, canFold: true, canToggleDotfiles: false, handlers: handlers);
-                case SidebarTab.Files: return new SidebarTabDefinition(tab, "files", "files",
+                case SidebarTab.Files:
+                    return new SidebarTabDefinition(tab, "files", "files",
                     "Files: browse each project's files in a tree.",
                     hasActions: true, canFold: true, canToggleDotfiles: true, handlers: handlers);
-                case SidebarTab.Git: return new SidebarTabDefinition(tab, "git", "git",
+                case SidebarTab.Git:
+                    return new SidebarTabDefinition(tab, "git", "git",
                     "Git: view changes since the last commit in each working tree.",
                     hasActions: true, canFold: true, canToggleDotfiles: false, handlers: handlers);
-                case SidebarTab.Search: return new SidebarTabDefinition(tab, "search", "search",
+                case SidebarTab.Search:
+                    return new SidebarTabDefinition(tab, "search", "search",
                     "Search: find text in any project.",
                     hasActions: true, canFold: false, canToggleDotfiles: true, handlers: handlers);
-                case SidebarTab.Tasks: return new SidebarTabDefinition(tab, "tasks", "tasks",
+                case SidebarTab.Tasks:
+                    return new SidebarTabDefinition(tab, "tasks", "tasks",
                     "Tasks: view and manage delegated tasks.",
                     hasActions: true, canFold: false, canToggleDotfiles: false, handlers: handlers);
-                case SidebarTab.Library: return new SidebarTabDefinition(tab, "library", "library",
+                case SidebarTab.Library:
+                    return new SidebarTabDefinition(tab, "library", "library",
                     "Library: manage saved items, projects, worktrees, and presets. " +
                     "Saved items include templates, prompts, commands, breadcrumbs, and file actions.",
                     hasActions: true, canFold: true, canToggleDotfiles: false, handlers: handlers);

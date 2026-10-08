@@ -97,11 +97,16 @@ namespace SlopWorld.Tests
             bool folded = false;
             var tab = Definition(SidebarTab.Files, "files", new SidebarTabHandlers
             {
-                Draw = () => calls.Add("draw"), Click = () => calls.Add("click"),
-                DrawActions = _ => calls.Add("actions"), Refresh = () => calls.Add("refresh"),
-                FilterChanged = () => calls.Add("filter"), SetAllFolds = value => folded = value,
-                AllFolded = () => folded, Close = () => calls.Add("close"),
-                Entered = () => calls.Add("enter"), Reselected = () => calls.Add("reselect"),
+                Draw = () => calls.Add("draw"),
+                Click = () => calls.Add("click"),
+                DrawActions = _ => calls.Add("actions"),
+                Refresh = () => calls.Add("refresh"),
+                FilterChanged = () => calls.Add("filter"),
+                SetAllFolds = value => folded = value,
+                AllFolded = () => folded,
+                Close = () => calls.Add("close"),
+                Entered = () => calls.Add("enter"),
+                Reselected = () => calls.Add("reselect"),
             });
             tab.Draw(); tab.Click(); tab.DrawActions(default); tab.Refresh(); tab.FilterChanged();
             tab.SetAllFolds(true);

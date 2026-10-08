@@ -19,7 +19,8 @@ namespace SlopWorld.Tests
                     AssertEx.Equal<string>(null, external, "no external destination");
                     AssertEx.Equal<string>(null, local, "no local destination");
                     AssertEx.Equal<string>(null, resolver.ResolveImagePath(source), "image cannot escape project");
-                });
+                }
+                );
             foreach (string source in new[] { "http://example.test", "https://example.test?a=1&b=2", "mailto:reader@example.test" })
                 yield return ("external link allowed but not image: " + source, () =>
                 {
@@ -28,7 +29,8 @@ namespace SlopWorld.Tests
                     AssertEx.Equal(source, external, "normalized external destination preserved");
                     AssertEx.Equal<string>(null, local, "external link is not a local file");
                     AssertEx.Equal<string>(null, resolver.ResolveImagePath(source), "external image loads remain disabled");
-                });
+                }
+                );
         }
 
         public static void LocalResourcesDecodeOnceAndStayWithinProject()
