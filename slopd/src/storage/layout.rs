@@ -1,4 +1,4 @@
-//! Startup assembly of independently owned stores. No legacy conversion or live polling.
+//! Startup validation and assembly of independently owned workspace stores.
 use super::{target::StorageBinding, transaction, workspace::Store};
 use crate::config::{Config, HostTerminalCfg, ProjectCfg, SessionCfg, catalog};
 use crate::worktrees::Worktree;
@@ -21,10 +21,10 @@ pub(crate) struct Stores {
     pub(crate) worktrees: Store<Worktree>,
 }
 
-async fn reject_retired(binding: &StorageBinding) -> Result<()> {
+async fn validate_storage_locations(binding: &StorageBinding) -> Result<()> {
     ensure!(
         !occupied(&crate::config::Config::recovery_path_for(&binding.settings)).await?,
-        "retired configuration recovery journal remains; this version cannot recover the old storage layout"
+        "unsupported recovery journal beside settings; workspace recovery uses the data-root workspace.save-journal"
     );
     for name in [
         "worktrees.toml",
@@ -42,21 +42,20 @@ async fn reject_retired(binding: &StorageBinding) -> Result<()> {
         }
         ensure!(
             !occupied(&path).await?,
-            "retired storage file {} remains; this version requires per-record workspace storage",
+            "unsupported workspace store location: {}",
             path.display()
         );
     }
     Ok(())
 }
 
-// Even a dangling alias is a retired input, not evidence of an empty store.
+// A dangling symlink still occupies a store path.
 async fn occupied(path: &std::path::Path) -> Result<bool> {
     match tokio::fs::symlink_metadata(path).await {
         Ok(_) => Ok(true),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
-        Err(error) => {
-            Err(error).with_context(|| format!("checking retired store {}", path.display()))
-        }
+        Err(error) => Err(error)
+            .with_context(|| format!("checking workspace store location {}", path.display())),
     }
 }
 
@@ -66,14 +65,14 @@ pub(crate) async fn load(binding: &StorageBinding) -> Result<Loaded> {
         .lock_owned()
         .await;
     transaction::recover(binding, &gate).await?;
-    reject_retired(binding).await?;
+    validate_storage_locations(binding).await?;
     let text = match tokio::fs::read_to_string(&binding.settings).await {
         Ok(text) => text,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
         Err(error) => return Err(error).context("reading root settings"),
     };
     let mut cfg = crate::config::settings::document::replace(&Config::default(), &text)
-        .context("loading settings; inline workspace sections are no longer supported")?
+        .context("loading machine settings; workspace records belong in separate stores")?
         .candidate;
     let stores = Stores {
         projects: Store::load(binding).await?,

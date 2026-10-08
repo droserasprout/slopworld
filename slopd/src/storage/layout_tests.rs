@@ -1,4 +1,4 @@
-//! Retired layouts fail without conversion; current records and recovery stay supported.
+//! Startup store validation and recovery authority preserve rejected input bytes.
 use super::*;
 
 struct Fixture {
@@ -24,7 +24,7 @@ impl Drop for Fixture {
 }
 
 #[tokio::test]
-async fn retired_files_and_old_journals_are_rejected_without_mutation() {
+async fn unsupported_store_locations_are_rejected_without_mutation() {
     let f = Fixture::new();
     let parent = f.binding.settings.parent().unwrap();
     for name in [
@@ -35,12 +35,12 @@ async fn retired_files_and_old_journals_are_rejected_without_mutation() {
         "settings.toml.save-journal",
     ] {
         let path = parent.join(name);
-        crate::paths::write_private_toml(&path, "unreadable legacy format").unwrap();
+        crate::paths::write_private_toml(&path, "unreadable store contents").unwrap();
         let error = load(&f.binding).await.unwrap_err();
-        assert!(error.to_string().contains("retired"), "{error:#}");
+        assert!(error.to_string().contains("unsupported"), "{error:#}");
         assert_eq!(
             std::fs::read_to_string(&path).unwrap(),
-            "unreadable legacy format"
+            "unreadable store contents"
         );
         assert!(!f.binding.settings.exists());
         std::fs::remove_file(path).unwrap();
@@ -52,7 +52,7 @@ async fn retired_files_and_old_journals_are_rejected_without_mutation() {
 async fn inline_workspace_is_rejected_and_settings_bytes_are_retained() {
     let f = Fixture::new();
     for section in ["project", "session", "host_terminal", "library"] {
-        let text = format!("# retain\n[[{section}]]\nname='retired'\n");
+        let text = format!("# retain\n[[{section}]]\nname='inline-record'\n");
         crate::paths::write_private_toml(&f.binding.settings, &text).unwrap();
         let error = load(&f.binding).await.unwrap_err();
         assert!(format!("{error:#}").contains("inline"));
@@ -61,7 +61,7 @@ async fn inline_workspace_is_rejected_and_settings_bytes_are_retained() {
 }
 
 #[tokio::test]
-async fn colocated_config_and_data_grants_are_current_not_retired() {
+async fn colocated_config_and_data_roots_accept_grants() {
     let f = Fixture::new();
     let binding = StorageBinding::new(&f.root, &f.root, &f.root.join("settings.toml")).unwrap();
     crate::paths::write_private_toml(&binding.data.join("grants.toml"), "grants=[]\n").unwrap();
@@ -69,10 +69,10 @@ async fn colocated_config_and_data_grants_are_current_not_retired() {
 }
 
 #[tokio::test]
-async fn retired_migration_targets_are_not_valid_workspace_recovery_authority() {
+async fn unknown_recovery_roots_are_rejected_without_mutation() {
     let f = Fixture::new();
     let journal = serde_json::json!({"version":1,"binding": f.binding,
-        "files":[{"target":{"root":"legacy","path":"tasks.toml"},"text":"old"}]});
+        "files":[{"target":{"root":"unknown","path":"tasks.toml"},"text":"unchanged"}]});
     let path = f.binding.journal().unwrap();
     crate::paths::write_private_toml(&path, &journal.to_string()).unwrap();
     let gate = std::sync::Arc::new(tokio::sync::Mutex::new(()))
@@ -88,7 +88,7 @@ async fn retired_migration_targets_are_not_valid_workspace_recovery_authority() 
 
 #[cfg(unix)]
 #[tokio::test]
-async fn dangling_retired_store_alias_is_rejected() {
+async fn dangling_alias_at_unsupported_store_location_is_rejected() {
     let f = Fixture::new();
     std::fs::create_dir_all(f.binding.settings.parent().unwrap()).unwrap();
     let path = f.binding.settings.with_file_name("tasks.toml");
@@ -98,7 +98,7 @@ async fn dangling_retired_store_alias_is_rejected() {
             .await
             .unwrap_err()
             .to_string()
-            .contains("retired")
+            .contains("unsupported")
     );
     assert!(
         std::fs::symlink_metadata(path)
