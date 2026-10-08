@@ -41,7 +41,6 @@ namespace SlopWorld
 
         public override void FinalizeInit()
         {
-            if (!ModProfile.Ok) return;
             // Saved pawn identity survives, but its name follows the user running this game.
             if (_pawn != null) _pawn.Name = new NameSingle(PlayerName);
         }

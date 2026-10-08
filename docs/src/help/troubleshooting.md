@@ -1,8 +1,11 @@
 # Troubleshooting
 
-## The mod refuses to patch
+## The mod disables itself at startup
 
 The refusal dialog means the current save-data folder lacks `slopworld.profile`.
+SlopWorld disables itself in that profile's mod list and asks you to quit. Restart
+RimWorld to play without it, or use the `slopworld` launcher to start SlopWorld.
+If saving the mod list fails, the dialog reports that automatic disabling failed.
 Launching directly, selecting the wrong profile, or losing the marker can cause it.
 Use [Game profiles](../maintenance/game-profiles.md) to select and initialize the profile.
 

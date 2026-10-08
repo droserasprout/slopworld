@@ -43,7 +43,7 @@ namespace SlopWorld
 
         public override string Title => "Keyboard shortcuts";
 
-        public static bool CanOpen => ModProfile.Ok && !Cutscene.Playing &&
+        public static bool CanOpen => !Cutscene.Playing &&
             Current.ProgramState == ProgramState.Playing && Find.CurrentMap != null &&
             Find.WindowStack != null;
 

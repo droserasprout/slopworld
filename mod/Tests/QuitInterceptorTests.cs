@@ -53,6 +53,7 @@ namespace Verse
     public static class Root
     {
         public static int Shutdowns;
+        public static void Update() { }
         public static void Shutdown()
         {
             Shutdowns++;

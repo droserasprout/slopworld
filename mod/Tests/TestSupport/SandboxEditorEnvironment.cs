@@ -21,7 +21,7 @@ namespace Verse
                 13f * (float)Math.Ceiling(Math.Max(1, line.Length) * 7f / Math.Max(1f, width)));
     }
     static class TooltipHandler { public static void TipRegion(Rect r, string text) { } }
-    static class Find { public static readonly List<object> WindowStack = new List<object>(); }
+    static class Find { public static WindowStack WindowStack = new WindowStack(); }
 }
 
 namespace SlopWorld

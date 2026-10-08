@@ -15,6 +15,9 @@ namespace SlopWorld
 
         static bool? _ok;
         static bool _complained;
+        static bool _noticePending;
+        static Window _notice;
+        static bool _disabled;
 
         /// The current game save data folder.
         public static string Folder
@@ -42,7 +45,7 @@ namespace SlopWorld
             try
             {
                 var folder = GenFilePaths.SaveDataFolderPath;
-                return !folder.NullOrEmpty() && File.Exists(Path.Combine(folder, Marker));
+                return !string.IsNullOrEmpty(folder) && File.Exists(Path.Combine(folder, Marker));
             }
             catch (Exception e)
             {
@@ -52,37 +55,56 @@ namespace SlopWorld
             }
         }
 
-        // Log the error once and show a dialog for each rejected activation attempt.
-        // Queue the dialog because the first caller can be a static constructor before the window stack exists.
+        // Root.Update retries delivery until the menu's window stack exists. Finishing
+        // XML/static initialization does not imply that the root UI is ready.
         public static void Complain()
         {
             if (!_complained)
             {
                 _complained = true;
+                try
+                {
+                    ModsConfig.SetActive("io.drsr.slopworld", false);
+                    ModsConfig.Save();
+                    _disabled = true;
+                }
+                catch (Exception e)
+                {
+                    Log.Error("[SlopWorld] could not save automatic mod disabling: " + e);
+                }
                 Log.Error(
-                    "[SlopWorld] skipped profile-specific changes. " +
+                    "[SlopWorld] refused colony access. " +
                     "The save data folder " + Folder + " does not contain " + Marker + ". " +
                     "Start the game with the `slopworld` launcher.");
             }
-
-            LongEventHandler.ExecuteWhenFinished(() =>
-            {
-                var text =
-                    "The game loaded SlopWorld, but this profile lacks the required marker file. " +
-                    "SlopWorld skipped its profile-specific changes because the marker is missing.\n\n" +
-                    "SlopWorld uses a separate save folder. It removes the colony simulation, " +
-                    "the base game music, and the world's mountains. Its saves require SlopWorld.\n\n" +
-                    "Start the game with this command:\n\n    slopworld\n\n" +
-                    "The launcher creates the separate save folder and enables only Core and SlopWorld. " +
-                    "It then starts the game with that folder. " +
-                    "Run `just install` to add the launcher to your PATH.\n\n" +
-                    "Current save folder: " + Folder;
-
-                Find.WindowStack.Add(AlertDialog.Create(
-                    "SlopWorld", text, "Quit", Root.Shutdown, "Close", null,
-                    UiTheme.Btn.Danger));
-            });
+            _noticePending = true;
         }
+
+        internal static void ShowPendingNotice()
+        {
+            if (!_noticePending) return;
+            var stack = Find.WindowStack;
+            if (stack == null) return;
+            if (_notice != null && stack.IsOpen(_notice)) return;
+
+            var text =
+                "SlopWorld cannot run in this RimWorld profile. " +
+                "This save folder lacks the required slopworld.profile marker.\n\n" +
+                (_disabled
+                    ? "SlopWorld has been disabled in this profile's mod list. Quit and restart RimWorld to apply the change.\n\n"
+                    : "SlopWorld could not save the change to this profile's mod list. Quit and disable SlopWorld before playing.\n\n") +
+                "To use SlopWorld, quit and start it with the slopworld launcher. " +
+                "It creates a separate save folder and enables Core and SlopWorld.\n\n" +
+                "Current save folder: " + Folder;
+            _notice = AlertDialog.Create(
+                "SlopWorld", text, "Quit RimWorld", Root.Shutdown,
+                primaryKind: UiTheme.Btn.Danger);
+            // Disabling changes the next launch only. Loaded definitions cannot be
+            // unloaded safely, so this session must end before ordinary play resumes.
+            _notice.closeOnCancel = false;
+            stack.Add(_notice);
+        }
+
     }
 
     // Apply XML changes to base-game definitions only in a valid profile.

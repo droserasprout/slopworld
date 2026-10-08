@@ -16,6 +16,7 @@ namespace SlopWorld
             // Activate the mod only in its marked save data folder.
             if (!ModProfile.Ok)
             {
+                ProfileRefusal.Install();
                 ModProfile.Complain();
                 return;
             }

@@ -124,7 +124,6 @@ namespace SlopWorld
         // running instead of briefly putting the resting cursor back on screen.
         public static void Apply()
         {
-            if (!ModProfile.Ok) return;
             var choice = ChoiceFor(Settings.Cursor) ?? _choices[0];
             if (_tex == null || _builtKey != choice.Key ||
                 _builtGrayscale != Settings.CursorGrayscale)
@@ -137,7 +136,6 @@ namespace SlopWorld
         // rather than snapping the swing back to straight.
         public static void Pat()
         {
-            if (!ModProfile.Ok) return;
             if (_spinUntil >= 0f) return;
             if (_tex == null) Apply();
             if (_tex == null) return;
@@ -149,7 +147,6 @@ namespace SlopWorld
         // tell a click on dead ground from one on a portrait.
         public static void Click()
         {
-            if (!ModProfile.Ok) return;
             if (_spinUntil >= 0f) return; // a pat is the bigger answer
             if (_tex == null) Apply();
             if (_tex == null) return;
@@ -159,7 +156,6 @@ namespace SlopWorld
         // A hardware cursor is one still image, so an animation is a texture per frame.
         public static void Tick()
         {
-            if (!ModProfile.Ok) return;
             Show(AnimationStep(Time.realtimeSinceStartup));
         }
 
