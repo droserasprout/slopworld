@@ -11,4 +11,4 @@ Terminal input and resource lifetime belong to [terminal](mod-terminal.md) and
 [daemon capture](daemon-terminal-capture.md); schema coordination to
 [wire protocol](protocol-wire.md); path safety to [sandbox](sandbox-isolation.md).
 Runtime diagnosis and save compatibility belong to
-[troubleshooting](../docs/src/reference/troubleshooting.md).
+[troubleshooting](../docs/src/help/troubleshooting.md).

@@ -26,7 +26,7 @@ symlinks, and trash inventory measures links without following them. Shared-file
 mounts permit in-place host writes but block unlinking the mountpoint. Recursive
 removal can delete private siblings before failing on a shared credential; restart
 does not reseed an existing copy. Repair or reset is required. User-facing guidance
-belongs to the [security model](../docs/src/reference/security.md).
+belongs to the [security model](../docs/src/sandbox/security.md).
 
 Network/DNS and optional resource limits apply at launch. Requested limits cover the
 process tree and must be enforced or fail launch. Agent launches have no general
@@ -36,7 +36,7 @@ IPv4 loopback/unspecified listener, not other host loopback services.
 
 Mount configuration belongs to [projects](daemon-projects.md), cache/checkouts to
 [worktrees](daemon-worktrees.md), selection/host escapes to [presets](daemon-presets.md),
-and inspection operations to [Using slopctl](../docs/src/guides/slopctl.md).
+and inspection operations to [Using slopctl](../docs/src/reference/slopctl.md).
 The debug preset deliberately exposes host control, including a readable daemon root
 token; read-only credential mounts do not restrict credential use.
 
@@ -48,7 +48,3 @@ private and shared overlays must preserve their intended precedence.
 Live inspection compares the saved command executable with an observable pane
 process tree, not every saved-plan field. Without a usable PID/tree or executable,
 comparison is unavailable. Saved sanitized plans survive process exit and restart.
-
-A personal debug-preset override that binds host `/proc` can break PID-namespace
-self lookup and hang nested Bubblewrap. Keep `/proc` private and remove such binds
-before relaunching.

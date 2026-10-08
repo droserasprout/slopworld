@@ -5,13 +5,18 @@ The package stages the mod at /usr/share/slopworld/SlopWorld. As your normal
 user, attach it to a separately installed native Linux RimWorld 1.6 game:
 
   RIMWORLD=/path/to/RimWorld/game
-  ln -sT /usr/share/slopworld/SlopWorld "$RIMWORLD/Mods/SlopWorld"
+  slopworld mod install --game "$RIMWORLD"
   systemctl --user daemon-reload
   systemctl --user enable --now slopd.service
-  slopworld --game "$RIMWORLD"
+  slopworld
 
-Enable SlopWorld in RimWorld's mod list. After package upgrades, reload the
-user unit and restart the daemon as your normal user:
+The installer saves the game directory as the launcher default. The source defaults to
+`/usr/share/slopworld/SlopWorld`; use `--source DIR` for another mod tree.
+You can omit --game when RIMWORLD is exported or the game path is already saved.
+Enable SlopWorld in the launched game's mod list. After package upgrades, refresh
+the mod, reload the user unit, and restart the daemon as your normal user:
+
+  slopworld mod install
 
   systemctl --user daemon-reload
   systemctl --user try-restart slopd.service
@@ -19,8 +24,9 @@ user unit and restart the daemon as your normal user:
 Before removal, stop and disable the daemon as your normal user:
 
   systemctl --user disable --now slopd.service
+  slopworld mod uninstall
 
-Remove the mod symlink after removal and run systemctl --user daemon-reload.
+After package removal, run systemctl --user daemon-reload.
 The package leaves per-user configuration, sessions, and game saves intact.
 A user unit under ~/.config/systemd/user takes precedence over the packaged
 unit; remove a previous source installation's unit before enabling this one.

@@ -1,6 +1,6 @@
 # Build entry points
 
-Use `just` to list recipes. [Build from source](../docs/src/build.md)
+Use `just` to list recipes. [Build from source](../docs/src/development/build.md)
 owns toolchains, command usage, tests, coverage, and benchmark workflow.
 Common entry points live in `just/popular.just`; imported `.just` files own recipes,
 and `just/config.just` owns shared settings and coverage scope.
@@ -40,6 +40,11 @@ and coverage. The test workflow exposes those stages separately for timings.
 CI installs pinned tools, including uv, through
 `.github/actions/setup-build-tools/`. It owns archive caching, tool versions,
 and the protoc checksum for generated bindings.
+Push triggers skip the test workflow for changes confined to Markdown, `docs/`,
+and `notes/`. Documentation publication filters its book, repository README/note,
+and tooling inputs; sidecar publication filters Docker build inputs, canonical
+licenses, and its workflow. Manual runs and reusable test calls bypass push path
+filters. Keep the image path list aligned with Dockerfile inputs and `.dockerignore`.
 The C# formatter opens only its source directories: folder discovery scans for
 editor configs before applying file exclusions, so opening the checkout root can
 walk unrelated container storage under `dist/`.

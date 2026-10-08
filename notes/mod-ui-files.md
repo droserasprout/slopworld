@@ -1,5 +1,7 @@
 # Files browser and previews
 
+User procedures belong to [Files and search](../docs/src/workspace/files-and-search.md).
+
 `FilesView` is the facade; `FilesBrowser` coordinates navigation and tree draw/input.
 `FilesStore` owns roots, directory focus, browse requests, and refresh.
 `FilesViewerController` owns native reader tabs, preview handoffs, and probes.

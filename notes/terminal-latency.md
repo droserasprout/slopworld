@@ -23,10 +23,9 @@ layer disposal, not retained memory or an RSS delta. `atlasColorBytes` estimates
 RGBA storage only. Destruction and GC may occur later.
 
 The runner in `bench/terminal-input/` owns desktop injection and report validity.
-Operating procedures and trace-path overrides belong to the
-[latency guide](../docs/src/guides/terminal-latency.md). Local history-scroll
-observations begin at consumed movement and complete only on ready-target repaint
-and frame end. Replaced targets are superseded; clamped movement is not motion.
+Local history-scroll observations begin at consumed movement and complete only on
+ready-target repaint and frame end. Replaced targets are superseded; clamped movement
+is not motion.
 Precise X11 movement is aggregated per frame rather than per physical notch. Input
 ownership belongs to [terminal](mod-terminal.md); broader ownership is
 indexed in [diagnostics](ops-diagnostics.md).

@@ -13,7 +13,7 @@ changes. Failed saves retain drafts, and workers cannot be captured.
 Daemon contracts belong to [templates](daemon-agent-templates.md); catalog and
 preview lifetimes belong to [the client](mod-client.md). Menu/editor workflows and
 blank-as-unlimited resource fields belong to
-[Configuring agents](../docs/src/guides/configuring-agents.md).
+[Configuring agents](../docs/src/agents/configuring-agents.md).
 
 The `+ > Agent` menu chooses a template or Custom before opening the editor.
 `SessionHub.CreateFromTemplate` submits the selected template and overrides.

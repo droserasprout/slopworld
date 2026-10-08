@@ -12,8 +12,7 @@ all sources.
 Weak bands stunt existing non-tree plants while allowing vanilla wild spawning.
 Full bands strip vegetation and suppress wild spawning except in aura-covered
 cells. Grandma mode skips plague pawn/plant damage while field progression and
-flower sowing continue; fire containment still applies. Player-facing behavior is
-in [Fun](../docs/src/tour/fun.md).
+flower sowing continue; fire containment still applies.
 
 Blast safety covers all player-faction pawns, including untracked colonists. Fire
 spread checks both source and destination, and sparks recheck containment on impact.

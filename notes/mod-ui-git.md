@@ -1,5 +1,7 @@
 # Git view
 
+User procedures belong to [Git](../docs/src/workspace/review-changes.md).
+
 `GitView` owns the changed-path tree and Git actions; `GitStore` owns repository
 snapshots keyed by the shared project/worktree scope identity. `GitCommitDialog`
 owns the commit UI. Git inspection, stage/unstage/commit actions, and diff processes

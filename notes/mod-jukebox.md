@@ -17,4 +17,4 @@ Slopcar supplies neither. A saved unavailable Spotify selection falls back to OS
 
 `Radio` also owns mod track metadata; [likes and recognition](mod-jukebox-library.md)
 own its identity rules. User setup and operational limits belong to the
-[jukebox tour](../docs/src/tour/fun.md#jukebox).
+[Jukebox guide](../docs/src/customization/jukebox.md).

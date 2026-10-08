@@ -1,0 +1,238 @@
+/* Stop viewport bounce and sidebar scroll chaining at their boundaries. */
+html, .sidebar-scrollbox {
+    overscroll-behavior: none;
+}
+
+/* Keep mdBook's menu nodes for its scripts, without reserving header space. */
+#mdbook-menu-bar, #mdbook-menu-bar-hover-placeholder {
+    display: none;
+}
+
+.page {
+    margin-block-start: 0;
+}
+
+.floating-book-controls {
+    position: fixed;
+    top: max(8px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    z-index: 102;
+    display: flex;
+    gap: 4px;
+}
+
+#mdbook-sidebar-toggle,
+#mdbook-search-toggle,
+pre > .buttons button {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    font-size: 1.3rem;
+    line-height: 1;
+    border: 1px solid var(--table-border-color);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--icons);
+    cursor: pointer;
+}
+
+#mdbook-sidebar-toggle:hover,
+#mdbook-search-toggle:hover,
+#mdbook-search-toggle[aria-expanded="true"],
+pre > .buttons button:hover {
+    color: var(--icons-hover);
+}
+
+pre > .buttons {
+    display: flex;
+    gap: 4px;
+    top: 4px;
+    right: 4px;
+    padding: 0;
+}
+
+pre > .buttons button {
+    margin: 0;
+}
+
+pre > .buttons button.clip-button {
+    padding: 0;
+}
+
+/* mdBook's clipboard SVG has fixed dimensions independent of font-size. */
+pre > .buttons button.clip-button::before {
+    display: block;
+    width: 21px;
+    height: 20px;
+    transform: scale(0.65);
+}
+
+pre:focus-within > .buttons {
+    visibility: visible;
+    opacity: 1;
+}
+
+#mdbook-sidebar-toggle:focus-visible,
+#mdbook-search-toggle:focus-visible,
+pre > .buttons button:focus-visible {
+    outline: 2px solid var(--links);
+    outline-offset: 2px;
+}
+
+/* Keep the chapter navigation hit areas while scaling their arrow icons. */
+.nav-chapters {
+    font-size: 1.3rem;
+}
+
+#mdbook-search-wrapper {
+    --searchbar-margin-block-start: 0px;
+    padding-block-start: 8px;
+    padding-right: 72px;
+}
+
+#mdbook-searchbar {
+    box-sizing: border-box;
+    height: 30px;
+    padding: 4px 8px;
+    font-size: 1.4rem;
+    line-height: 20px;
+}
+
+#mdbook-searchbar-outer .spinner-wrapper {
+    padding: 3px;
+}
+
+html:not(.js) #mdbook-search-toggle {
+    display: none;
+}
+
+@media print {
+    .floating-book-controls {
+        display: none;
+    }
+}
+
+/* Compact book layout applies to every color theme. */
+.content {
+    font-size: 1.5rem;
+}
+
+.content :is(p, ul, ol) {
+    line-height: 1.4;
+    margin-block: 0.7em;
+}
+
+.content :is(ul, ol) {
+    padding-inline-start: 1.6em;
+}
+
+.content li > :is(p, ul, ol) {
+    margin-block: 0.3em;
+}
+
+.content :is(h1, h2, h3, h4, h5, h6) {
+    line-height: 1.25;
+    margin-block: 1.4em 0.5em;
+}
+
+.content h1 {
+    font-size: 1.8em;
+    margin-block-start: 0.7em;
+}
+
+.content h2 { font-size: 1.4em; }
+.content h3 { font-size: 1.15em; }
+
+.content pre {
+    line-height: 1.35;
+    margin-block: 0.8em;
+}
+
+.content pre > code {
+    padding: 0.8rem;
+}
+
+.content :is(td, th) {
+    padding: 3px 10px;
+    line-height: 1.35;
+}
+
+.content blockquote {
+    margin-block: 0.8em;
+    padding-inline: 12px;
+}
+
+.chapter li.chapter-item {
+    line-height: 1.35;
+    margin-block-start: 0.35em;
+}
+
+/* mdBook adds current-page headings separately from SUMMARY.md chapters. */
+.chapter .on-this-page {
+    display: none;
+}
+
+/* SlopWorld Warm: mod/Themes/UI and mod/Themes/Terminal own the palette. */
+.slopworld, html:not(.js) {
+    --bg: #221b11;
+    --fg: #d3cbb8;
+    --sidebar-bg: #2b2014;
+    --sidebar-fg: #d3cbb8;
+    --sidebar-non-existant: #a79c87;
+    --sidebar-active: #e0b64a;
+    --sidebar-spacer: #ffffff24;
+    --sidebar-header-border-color: #a97c39;
+    --scrollbar: #ffffff47;
+    --icons: #a79c87;
+    --icons-hover: #efe7d4;
+    --links: #86a9c4;
+    --inline-code-color: #e0b64a;
+    --theme-popup-bg: #312722;
+    --theme-popup-border: #ba8f5be6;
+    --theme-hover: #ffffff0f;
+    --quote-bg: #2b2014;
+    --quote-border: #a97c39;
+    --warning-border: #f8c65a;
+    --table-border-color: #ffffff24;
+    --table-header-bg: #312722;
+    --table-alternate-bg: #ffffff08;
+    --searchbar-border-color: #a97c39;
+    --searchbar-bg: #14120e;
+    --searchbar-fg: #d3cbb8;
+    --searchbar-shadow-color: #17120a;
+    --searchresults-header-fg: #a79c87;
+    --searchresults-border-color: #ffffff24;
+    --searchresults-li-bg: #2b2014;
+    --search-mark-bg: #3d4c64;
+    --color-scheme: dark;
+    --copy-button-filter: invert(70%);
+    --copy-button-filter-hover: invert(100%);
+    --footnote-highlight: #3d4c64;
+    --overlay-bg: #0000008c;
+    --blockquote-note-color: #91bdd8;
+    --blockquote-tip-color: #7bbd67;
+    --blockquote-important-color: #dcb5cf;
+    --blockquote-warning-color: #f8c65a;
+    --blockquote-caution-color: #ff7b63;
+}
+
+/* Custom themes use mdBook's light highlighter; override it within this theme. */
+.slopworld .hljs, html:not(.js) .hljs {
+    background: #14120e;
+    color: #d3cbb8;
+}
+.slopworld :is(.hljs-comment, .hljs-quote) { color: #a79c87; }
+.slopworld :is(.hljs-variable, .hljs-template-variable, .hljs-attribute,
+    .hljs-attr, .hljs-tag, .hljs-name, .hljs-regexp, .hljs-link,
+    .hljs-selector-id, .hljs-selector-class) { color: #c86a50; }
+.slopworld :is(.hljs-number, .hljs-meta, .hljs-built_in, .hljs-builtin-name,
+    .hljs-literal, .hljs-type, .hljs-params) { color: #e0b64a; }
+.slopworld :is(.hljs-string, .hljs-symbol, .hljs-bullet) { color: #9bb066; }
+.slopworld :is(.hljs-title, .hljs-section) { color: #7b9ebd; }
+.slopworld :is(.hljs-keyword, .hljs-selector-tag) { color: #ae87b3; }
+.slopworld .hljs-addition { color: #9bb066; background: #2b2014; }
+.slopworld .hljs-deletion { color: #ff7b63; background: #6b1f1aeb; }

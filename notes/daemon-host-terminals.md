@@ -22,4 +22,4 @@ the last observed path.
 Persistence belongs to [daemon configuration](daemon-config-stores.md); recovery
 belongs to `session/manager/lifecycle/`, mapped in [daemon sources](daemon-files.md).
 Title rendering belongs to the [sidebar](mod-sidebar.md). User actions are described
-in [Host terminals](../docs/src/guides/host-terminals.md).
+in [Host shells](../docs/src/terminals/host-shells.md).

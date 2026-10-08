@@ -2,3 +2,10 @@
 title = "SlopWorld"
 authors = ["Lev Gorodetskii"]
 language = "en"
+
+[output.html]
+site-url = "https://slopworld.space/"
+no-section-label = true
+default-theme = "slopworld"
+preferred-dark-theme = "slopworld"
+additional-css = ["theme/slopworld.css"]

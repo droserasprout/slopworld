@@ -8,7 +8,7 @@ The mod is staged at /usr/share/slopworld/SlopWorld. RimWorld loads mods from
 inside its own install, so attach it as your normal user (not root):
 
   RIMWORLD=/path/to/RimWorld/game
-  ln -sT /usr/share/slopworld/SlopWorld "$RIMWORLD/Mods/SlopWorld"
+  slopworld mod install --game "$RIMWORLD"
 
 Then start the daemon for your user:
 
@@ -21,7 +21,10 @@ EOF
 
 post_upgrade() {
   cat <<'EOF'
-SlopWorld was upgraded. Reload the unit and restart the daemon as your normal user:
+SlopWorld was upgraded. Refresh the mod, reload the unit, and restart the daemon
+as your normal user:
+
+  slopworld mod install
 
   systemctl --user daemon-reload
   systemctl --user try-restart slopd.service

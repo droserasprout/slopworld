@@ -49,12 +49,12 @@ These shortcuts are active inside the terminal pane and cannot be rebound.
 | Key | Action |
 | --- | --- |
 | Escape | Forwarded to the agent; in help content, return to the backing pane or map. |
-| Shift+Escape | Close the terminal. |
+| Shift+Escape | Close the focused pane; closing the last pane closes the terminal window. |
 | Shift+Enter | Send a newline-without-submit sequence to compatible applications. |
 | Ctrl+C | Copy selected text. Without a selection, send SIGINT. |
 | Ctrl+V | Paste from clipboard. Codex panes paste text normally and forward image data to Codex for attachments. |
 | Shift+PgUp / Shift+PgDn | Scroll the mod's own scrollback (primary screen only). |
-| Shift+F1..F12 | Forward the F-key to the agent from the terminal pane. |
+| Shift+F1..F12 | Forward F1..F12 to the application without Shift. Ctrl and Alt are preserved. |
 
 ## Terminal mouse controls
 
@@ -65,6 +65,10 @@ These shortcuts are active inside the terminal pane and cannot be rebound.
 | Right-click | Terminal context menu. |
 | Double-click | Select a word and publish it to the host's PRIMARY selection. |
 | Triple-click | Select a line and publish it to the host's PRIMARY selection. |
+
+When an application requests mouse reporting, left-click selection gestures on the
+live screen go to the application. Hold Shift to select text locally, including word
+and line selection. Selection gestures in scrollback history remain local.
 
 On the primary screen, the mouse wheel scrolls the mod's scrollback history. On the
 alternate screen, the wheel sends arrow keys (Up/Down) to the application. When the

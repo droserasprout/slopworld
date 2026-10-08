@@ -14,7 +14,7 @@ Results retain their captured root for reader actions. Project and checkout grou
 keep identical relative paths distinct. Scope and history identity belong to
 [sidebar navigation](mod-sidebar-navigation.md), daemon execution to the
 [daemon file API](daemon-files.md), and user workflow to the
-[interface guide](../docs/src/tour/interface.md).
+[Files and search guide](../docs/src/workspace/files-and-search.md).
 
 Search reattaches its reader on entry and before appearance-restart discovery;
 appearance restarts preserve Search intent.

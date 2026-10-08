@@ -42,23 +42,23 @@ on [Steam](https://store.steampowered.com/app/294100/RimWorld/),
 [GOG](https://www.gog.com/en/game/rimworld), or
 [directly from Ludeon Studios](https://rimworldgame.com/).
 
-For Linux host, see the [requirements](docs/src/requirements.md) and
-[installation guide](docs/src/install.md).
+For Linux host, see the [requirements](docs/src/getting-started/install.md#requirements) and
+[installation guide](docs/src/getting-started/install.md).
 
-For experimental sidecar mode (`slopd` in Docker) follow the [macOS](docs/src/guides/macos.md)
-and [sidecar worker](docs/src/guides/sidecar.md) guides.
+For experimental sidecar mode (`slopd` in Docker) follow the [macOS](docs/src/deployment/macos.md)
+and [sidecar worker](docs/src/deployment/sidecar.md) guides.
 
 ### From binaries
 
 Binary packages for Arch and deb-based distros are published to [GitHub Releases](https://github.com/droserasprout/slopworld/releases).
 
-See the [instructions](docs/src/install.md#debian-and-ubuntu)
+See the [installation instructions](docs/src/getting-started/install.md)
 for installing a package, attaching the mod, and starting the daemon.
 
 ### From source
 
 Install the [`just`](https://github.com/casey/just#installation) command runner
-and the other [build prerequisites](docs/src/build.md#prerequisites).
+and the other [build prerequisites](docs/src/development/build.md#prerequisites).
 
 ```sh
 git clone https://github.com/droserasprout/slopworld.git

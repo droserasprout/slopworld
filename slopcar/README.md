@@ -6,8 +6,8 @@ The base supports amd64 and arm64.
 Sandbox construction uses the container's usr-merge layout at runtime.
 
 For setup, workspace and credential mounts, client connection, and lifecycle, see
-the [sidecar guide](../docs/src/guides/sidecar.md). Native macOS game setup is in
-the [macOS guide](../docs/src/guides/macos.md).
+the [sidecar guide](../docs/src/deployment/sidecar.md). Native macOS game setup is in
+the [macOS guide](../docs/src/deployment/macos.md).
 
 ## Outer isolation
 
@@ -27,7 +27,3 @@ The seccomp allowlist is the containers/common profile, extended only for hostna
 Bubblewrap's private UTS namespace. It is included here because Docker's builtin profile blocks the
 namespace syscalls Bubblewrap and pasta require. The container is not privileged and receives no
 `CAP_SYS_ADMIN`.
-
-Daemon storage upgrades can require an offline migration. Preserve both config and
-data volumes, stop the daemon, and follow [Storage migration](../docs/src/guides/storage-migration.md)
-using the same mounts and container user. Container startup does not migrate data.

@@ -13,15 +13,15 @@ retains authority. Failed persistence leaves memory unchanged for retry.
 
 Participant removal affects both sides and requires a terminal task state. Root can
 remove unfinished work. Task authority is separate from terminal-input authority;
-[grants](agent-grants.md) and [Agent collaboration](../docs/src/guides/agent-collaboration.md)
+[grants](agent-grants.md) and [Agent collaboration](../docs/src/agents/agent-collaboration.md)
 own access rules.
 
 Task summaries reuse the title provider/cache without session title policy; see
 [title ownership](agent-titles.md). The mod host task board is integrated by
 [the sidebar](mod-sidebar.md). Worker lifecycle belongs to [workers](daemon-workers.md),
 notification limits to [discovery](agent-task-discovery.md), commands to
-[Using slopctl](../docs/src/guides/slopctl.md), and backup requirements to
-[Backup and recovery](../docs/src/guides/backup-and-recovery.md).
+[Using slopctl](../docs/src/reference/slopctl.md), and backup requirements to
+[Backup and recovery](../docs/src/maintenance/backup-and-recovery.md).
 
 Task disk operations run on blocking workers under the task-store mutex, including
 startup reads. An active session authorization guard transfers with the I/O operation,

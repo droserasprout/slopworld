@@ -27,7 +27,7 @@ readiness timeout withholds input. Callers compose prompts before delivery.
 Input and breadcrumb delivery belong to [session state](daemon-session-state.md).
 Storage belongs to [configuration stores](daemon-config-stores.md); directory
 locations are in the [path reference](../docs/src/reference/paths.md).
-User instructions belong in [Library items and errands](../docs/src/guides/library.md).
+User instructions belong in [Library items and errands](../docs/src/workspace/library.md).
 
 Library reload revisions include membership and each file’s metadata. Reloads recheck
 the revision before publication; API commits reject an externally changed revision.

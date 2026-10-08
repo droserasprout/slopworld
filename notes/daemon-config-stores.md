@@ -22,8 +22,8 @@ belong to [paths](ops-paths.md).
 | Data `tasks/`, `grants.toml` | [Tasks](agent-tasks.md), [grants](agent-grants.md). |
 | `prompts/`, `breadcrumbs/`, `file_actions/`, `shell_scripts/` | `config/catalog.rs`; [library](daemon-library.md). |
 | `agent_templates/` | `session/agent_templates/`; [templates](daemon-agent-templates.md). |
-| `sandbox_presets/`, `app_presets/` | `presets.rs`, `presets/edit.rs`; [presets](daemon-presets.md). |
-| `jukebox/` | `jukebox.rs`; [jukebox](mod-jukebox.md). |
+| Config `sandbox_presets/`, `app_presets/` | `presets.rs`, `presets/edit.rs`; [presets](daemon-presets.md). |
+| Config `jukebox/` | `jukebox.rs`; [jukebox](mod-jukebox.md). |
 
 Settings and workspace records are API-owned while running. Offline edits load at
 startup; ordinary mutations use accepted indexes and touch only their declared
@@ -53,10 +53,9 @@ Structured commits retain session/worktree guards and the persistence gate throu
 commit, rollback and accepted-state publication, even after requester cancellation.
 Root and library operations cannot accept revisions belonging to another owner.
 
-Startup rejects retired inline sections, aggregate task/worktree files, old grants
-locations and config recovery journals. Only the bound data-root workspace journal
-is recoverable. Manager/domain fixtures use the production record stores and
-transaction owner; there is no alternate inline or aggregate persistence lifecycle.
+`storage/layout.rs` validates store locations at startup. Recovery uses the bound
+data-root workspace journal. Manager/domain fixtures use the production record
+stores and transaction owner.
 Schema tests deserialize individual documents; manager task tests use the production
 async I/O owner for mutations and reads.
 

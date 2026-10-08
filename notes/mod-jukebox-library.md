@@ -13,5 +13,5 @@ History and likes share one game-local file. The history table is read-only; Edi
 file opens the shared path through the game host's file association. This ownership
 boundary also applies to sidecars, while platform opening behavior needs its own
 validation. File locations belong to [paths](../docs/src/reference/paths.md), playback
-modes to [jukebox](mod-jukebox.md), and user workflow to [Fun](../docs/src/tour/fun.md#jukebox).
+modes to [jukebox](mod-jukebox.md), and user workflow to the [Jukebox guide](../docs/src/customization/jukebox.md).
 OST export and installation tooling own filenames and SongDef updates.

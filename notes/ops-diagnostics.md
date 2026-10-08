@@ -1,7 +1,7 @@
 # Diagnostics
 
-[Using slopctl](../docs/src/guides/slopctl.md) owns log and status operations;
-[troubleshooting](../docs/src/reference/troubleshooting.md) owns connection diagnosis.
+[Using slopctl](../docs/src/reference/slopctl.md) owns log and status operations;
+[troubleshooting](../docs/src/help/troubleshooting.md) owns connection diagnosis.
 Service active status does not establish listener readiness.
 
 [Terminal latency](terminal-latency.md) owns diagnostic data boundaries and links

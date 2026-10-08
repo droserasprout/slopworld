@@ -17,6 +17,6 @@ than missing-data placeholders. One request can provide several windows; polling
 uses the fastest effective enabled interval within provider cache/rate limits.
 
 Client ages and discovered-row editing belong to [mod usage](mod-usage.md).
-Setup belongs to [Usage polling](../docs/src/reference/integrations.md#usage-polling),
+Setup belongs to [Usage polling](../docs/src/agents/usage-and-summaries.md#usage-polling),
 and shared credential behavior to [sandbox isolation](sandbox-isolation.md) and
-[Configuring sandboxes](../docs/src/guides/configuring-sandboxes.md#credentials).
+[Sandbox presets](../docs/src/sandbox/sandbox-presets.md#credentials).

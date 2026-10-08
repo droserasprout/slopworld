@@ -8,6 +8,10 @@ remembers the canonical parent of the destination Mods directory atomically afte
 installation succeeds, when that parent contains `RimWorldLinux`. Other layouts
 leave the Linux default unchanged. Explicit arguments and environment override the
 saved path; invalid saved configuration blocks fallback to a different game.
+Mod installation and removal resolve --game, then RIMWORLD, then platform defaults.
+Linux uses the launcher defaults; macOS uses MAC_RIMWORLD or the app bundle
+location shared with mac/config.just.
+An explicit game directory also supports non-Linux layouts containing Mods.
 
 Seeding preserves an existing mod list unless reset is explicit. Seeded lists omit
 `<version>` so RimWorld cannot discard a mismatched list and re-enable expansions.
@@ -19,7 +23,7 @@ Direct-game process detection is Linux-only. Native and sidecar profiles have se
 defaults; explicit profile paths can select the same folder. The endpoint does not
 choose lock identity.
 
-User setup belongs to [game profiles](../docs/src/guides/game-profiles.md), paths to
+User setup belongs to [game profiles](../docs/src/maintenance/game-profiles.md), paths to
 [the path reference](../docs/src/reference/paths.md), and window behavior to
 [Linux windowing](ui-window-fullscreen.md).
 

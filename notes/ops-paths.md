@@ -3,8 +3,9 @@
 The [paths reference](../docs/src/reference/paths.md) owns locations, overrides,
 permissions, and the private tmux socket name.
 
-`paths.rs` resolves independent daemon config/data/cache roots and per-store override
-precedence. It also owns canonical comparison of paths with missing suffixes;
+`paths.rs` resolves independent daemon config/data/cache roots. Settings and catalogs
+follow the config root; private session state follows the data root. It also owns
+canonical comparison of paths with missing suffixes;
 sandbox guards reuse it so existing symlink aliases fail closed. Endpoint discovery
 and launcher/game paths retain their separate contracts.
 

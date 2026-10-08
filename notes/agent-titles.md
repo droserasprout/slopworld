@@ -18,6 +18,6 @@ digests and summaries rather than submitted prompt text.
 
 The provider reads its configured OpenRouter key in the daemon. This is not a
 sandbox isolation guarantee: the Pi preset can separately forward
-`OPENROUTER_API_KEY`. See [Summaries](../docs/src/reference/integrations.md#prompt-summaries)
-for settings and key handling, [Titles](../docs/src/reference/integrations.md#prompt-summaries)
+`OPENROUTER_API_KEY`. See [Summaries](../docs/src/agents/usage-and-summaries.md#prompt-summaries)
+for settings and key handling, [Titles](../docs/src/agents/usage-and-summaries.md#prompt-summaries)
 for user behavior, and [task mailboxes](agent-tasks.md) for delegated-task summaries.

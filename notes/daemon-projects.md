@@ -16,7 +16,7 @@ Both use directories under `/tmp/slopworld`; directory cleanup follows the host'
 `/tmp` policy.
 
 Mount rules belong to [sandbox isolation](sandbox-isolation.md). Project editing
-and next-start behavior are described in [Configuring agents](../docs/src/guides/configuring-agents.md).
+and next-start behavior are described in [Configuring agents](../docs/src/agents/configuring-agents.md).
 
 New projects and registered worktrees allocate 16-character opaque IDs while holding
 the session boundary and worktree mutation guard. Persisted identities must use

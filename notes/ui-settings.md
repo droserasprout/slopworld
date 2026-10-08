@@ -29,7 +29,7 @@ Code appearance keeps a local draft until Save/Discard. Profile-only theme edits
 not write daemon commands. When commands also change, local preferences commit only
 after daemon acceptance. Applied changes can restart active readers while preserving
 pins and pane bindings; failed starts retain old readers. User choices belong to
-[Settings reference](../docs/src/reference/settings.md), reader lifetime to
+[Settings reference](../docs/src/customization/settings.md), reader lifetime to
 [file readers](mod-file-readers.md), and command construction to `PagerCommands`.
 
 Storage publishes a shallow daemon inventory before requesting recursive sizes. Pending or

@@ -22,4 +22,4 @@ The daemon queues the configured worker prompt after startup; asynchronous deliv
 can time out without sending it. Delivery belongs to [library](daemon-library.md),
 hierarchy presentation to [sidebar](mod-sidebar.md), independent checkout lifetime
 to [worktrees](daemon-worktrees.md), and adoption to [redeploy](daemon-redeploy.md).
-Commands and operational behavior belong to [Using slopctl](../docs/src/guides/slopctl.md).
+Commands and operational behavior belong to [Using slopctl](../docs/src/reference/slopctl.md).

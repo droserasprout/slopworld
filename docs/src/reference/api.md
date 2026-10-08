@@ -1,161 +1,50 @@
-# API
+# API overview
 
-Requests authenticate with a daemon token. See [Paths and files](paths.md) for
-endpoint locations and the [Security model](security.md) for credential handling.
+SlopWorld clients use HTTP for requests and WebSocket for live updates and terminal
+input. Both transports use binary Protobuf. This page explains the shared protocol
+and endpoint behavior; [API routes](api-routes.md) lists methods, paths, access
+groups, and request and response types.
 
-## HTTP
+## Connect to the daemon
 
-Protocol version 2 uses binary Protobuf with `Content-Type: application/x-protobuf` for
-request and response bodies, including errors (`Error`). Routes without a request message
-send no body. Existing URL query parameters remain text. The schema is
-[`shared/slopworld.proto`](../../../shared/slopworld.proto).
-The route inventory lists each request and response type. Object examples below illustrate field values, not JSON payloads.
-Upgrade the daemon, mod, and CLI together. JSON clients are incompatible.
+Find the daemon URL and token in its endpoint file; see
+[Paths and files](paths.md#daemon-configuration) for locations and overrides.
+Send the token in the `x-slop-token` header on HTTP requests and the WebSocket
+upgrade request. See the [Security model](../sandbox/security.md) for credential handling.
 
-HTTP mutations return daemon error bodies. Live terminal input and controls also
-use WebSocket. The [API route inventory](api-routes.md) lists methods, paths,
-route access groups, and message types. Handler checks determine effective permissions.
+Use clients built for protocol version 2, and upgrade the daemon, mod, and CLI
+together. HTTP has no version negotiation. WebSocket requires the
+`slopworld.protobuf.v2` subprotocol.
 
 ### Authorization {#authorization}
 
-Session and task routes support appropriately scoped grants. Creating a session and replacing
-its configuration (`PUT /api/sessions/:name`) require root authority. Scoped `rw` grants retain
-input, label, and permitted lifecycle operations. Removing or renaming a session invalidates its target memberships and owned grants.
-It also closes affected WebSockets.
-Reusing the name requires a new grant.
-`POST /api/workers` creates a task-owned child from the Protobuf fields `project`, `template`, `body`, `durable`, `worktree`, `new_worktree`, `base`,
-and `worktree_name`. Root callers may choose any template in the catalog.
-Scoped callers must choose a template enabled in the daemon worker policy.
-Scoped callers can use only their own project. The response
-contains the new task and worker identity.
-It uses the template's captured settings, fresh private identity, and the caller only for
-task/sidebar parentage.
-`GET /api/sessions/:name/sandbox` returns the sanitized saved launch plan and a best-effort live
-process tree. It follows the same read grant as the session route.
-The saved plan remains available for a stopped pane.
-This does not imply that the launch succeeded. Host
-terminals have no sandbox plan.
-Configuration, catalogs, filesystem operations, usage, audio, and private-state operations
-require the daemon's own token.
+The daemon's own token grants root authority. Session and task routes also accept
+appropriately scoped grants. The access groups in [API routes](api-routes.md)
+describe middleware placement; handlers enforce the permissions for each operation.
 
-Clipboard routes use `/api/clipboard` for CLIPBOARD and `/api/clipboard/primary` for the
-Wayland/X11 PRIMARY selection. Their `/text` variants read text without image data.
+- Creating a session or replacing its configuration with
+  `PUT /api/sessions/:name` requires root authority.
+- Scoped `rw` grants allow input, labels, and permitted lifecycle operations.
+- Configuration, catalogs, filesystem operations, usage, audio, and private-state
+  operations require root authority, except for the template discovery described below.
 
-Workspace reads use the browse, read, image, search, and Git routes. Browse returns directory
-entries, accepts file, hidden, gitignore, and limit flags, and caps the limit at 500.
-The optional `filter` query matches a case-sensitive substring of each entry name before
-the cap is applied. Narrow the filter when `truncated` is true to reach omitted entries.
-Read returns bounded UTF-8 text. Image returns bounded image bytes. Search requires a project path
-and query, supports regex, case, word, hidden, and gitignore flags, and caps results at 200.
-Git returns repository status or `repo: false` when the path is not a repository.
-Use `counts=false` to skip line counting.
-The default includes counts with a two-second time limit. `counts_complete` is false when counting was skipped or exceeded its budget.
+Removing or renaming a session invalidates its target memberships and owned grants,
+and closes affected WebSockets. Reusing the name requires a new grant.
 
-### Files mutations
+## HTTP
 
-Root-only: create, single-component rename, and recursive delete. Names must be a single non-empty path component.
-The daemon rejects `.`, `..`, slash, backslash, and NUL. Names may contain dots.
-The daemon preserves existing targets.
+Encode request bodies as Protobuf and set `Content-Type: application/x-protobuf`.
+Responses, including daemon errors (`Error`), also use Protobuf. Routes without a
+request message send no body. URL query parameters remain text.
 
-### Ephemeral errands
-
-`POST /api/run` creates an unnamed errand. Choose `host: true`, `agent_template: "name"`, or `like: "existing-agent"`.
-The daemon rejects conflicting choices and missing sandbox settings.
-`host` errands run outside bwrap with the
-tmux environment plus `TERM`, `COLORTERM`, and `SLOPWORLD_*`. `like` names an existing session.
-The new errand copies that session's agent process settings (presets, network, DNS, limits).
-Its selected project supplies mounts. An empty shell command uses the daemon's `$SHELL`. Only an empty host shell command attached to a project without `temp` becomes a saved host-terminal tab.
-Explicit host commands and file actions are temporary.
-
-`POST /api/file-action` and `/api/run` requests with `path` execute file actions on the
-daemon host without private agent state. A named project scopes the path and working
-directory. The optional `worktree` ID selects a registered, ready checkout. An explicit ID
-rejects paths in other checkouts, including checkouts nested under Main. Symlink escapes
-are rejected. An empty worktree ID selects Main; requests must name another registered checkout explicitly.
-`host: true` with no project accepts an absolute host path.
-
-`GET /api/config` returns editable `values` plus response-only
-`metadata` containing factory defaults, usage catalog entries, temporary-root policy,
-terminal limits and `auto_commands`. Reader commands resolved from Auto use the
-daemon's PATH; editable values retain `auto`. Clients retain independent allocation limits.
-
-`POST /api/projects/preview` accepts `{ "name": "...", "temp": true }` and returns the
-daemon-normalized prospective temporary directory. It does not create a project.
-Project creation and updates apply the same normalization before saving.
-
-### Agent templates
-
-Agent-template routes are root-only except `GET /api/templates/spawnable`.
-Scoped callers receive worker-enabled templates in their own project. Root callers
-may choose a project, or omit it to receive the enabled catalog without project context. `GET /api/templates`
-returns the user-level definitions.
-Its optional project query checks and returns a root project context without filtering the catalog.
-`POST /api/templates` accepts `{ "name": "...", "description": "...", "source": "..." }`
-and captures the configured source agent's explicit choices and dependencies. Project settings
-are never template fields. It also accepts `{ "name": "...", "description":
-"...", "duplicate": "existing-template" }` for an independent copy, or a complete template
-definition with `version` omitted to create a definition from the template editor. Every
-definition includes a daemon-owned monotonic `version`. `POST /api/templates/:name/create` accepts a new
-`name`, a registered `project`, an optional `overrides` session form, and optional `start`
-boolean.
-The daemon copies the template's portable fields and allocates new private state.
-The selected project supplies mounts. `PUT /api/templates/:name` accepts the complete definition with its expected `version`
-and atomically replaces it.
-The path may name the old definition when the editor also renames it. `DELETE /api/templates/:name?version=N` requires the expected version. Stale edit/delete requests return `409 Conflict`.
-Missing edit/delete targets return `404`.
-The daemon rejects duplicate destinations. The daemon never retries a conflict automatically.
-See [Configuring agents](../guides/configuring-agents.md) for template defaults.
-
-`POST /api/settings/preview` is root-only and does not persist or launch anything. It accepts
-an optional complete `session` draft, an `existing` agent name to retain saved snapshots,
-a `project` draft, and/or a `template` definition. Set `recipe: true` when you inspect a recipe without a destination project.
-Leave `session` absent in that case. The response has
-`title`, `subtitle`, `notes`, and `fields` (`label`, `values`) for display, plus `definitions`
-containing the captured command and sandbox definitions in the response. Effective values and contribution sources use the launch configuration resolvers.
-The daemon still checks requested paths before execution. This configuration applies to the next launch, not to the running process.
-
-### Private state
-
-Reset moves configured agent private state to trash for at least 14 days. Root-only inventory reports active,
-orphan, and trash entries with sizes. The API permanently deletes only orphan and trash
-entries. Restore requires no replacement state tree; a deleted agent may be recreated if
-its saved name, project, and mounts remain valid.
-
-`GET /api/state` returns the list with measured sizes. Pass `?sizes=false` for a
-quick list of names, ownership, paths, and modification times without walking storage
-trees or purging expired trash. In that response, `bytes` is an unmeasured zero
-placeholder. Reset uses the session state route.
-Deletion and restore use the `/api/state` routes in the generated inventory.
-`DELETE /api/state/trash` permanently deletes all retained trash entries.
-
-See [Library items and errands](../guides/library.md) for execution workflows.
-
-### Configuration patching
-
-The patch route accepts `ConfigPatch`: editable `values` plus repeated leaf `paths`.
-The daemon merges and checks only listed paths. Omitted paths preserve existing fields. Explicit
-paths permit false, zero and empty lists. Map keys escape tilde as `~0` and dot as `~1`.
-The daemon rejects root, secret, unknown, and overlapping paths. Project responses include `expanded_dir`, resolved using the daemon home and environment.
-`dir` retains the editable configuration value.
-Project messages contain the directory, temporary flag, and shared `mounts`, for example
-`[{"from":"/work/shared","to":"/mnt/shared","mode":"ro"}]`. Mounts store literal paths,
-not project references. Both TOML and API writes use `from` and `to`. Session messages contain direct agent network, DNS, limits, and startup settings. DNS has an explicit mode and server list, shown schematically as:
-`{"mode":"resolved"}` or `{"mode":"servers","servers":["IPv4", ...]}`.
-
-### Settings discovery and highlighting
-
-Root-only `GET /api/whereis` resolves executables from the daemon's effective `PATH`,
-not the game's environment. `GET /api/highlight/themes` accepts an optional unsaved
-`command` query; `POST /api/highlight` accepts the same optional command in its body.
-Omission uses the daemon default and an empty command means Off; neither changes
-configuration. Profile-local `engine`/`theme` overrides apply only to the matching
-highlighter engine, and mismatched themed requests are rejected.
-The `auto` command selects an installed highlighter; if none is available, highlighting
-returns the input text unchanged. Off also returns plain text.
+Use [API routes](api-routes.md) to find each message type and
+[`shared/slopworld.proto`](https://github.com/droserasprout/slopworld/blob/main/shared/slopworld.proto)
+for its fields. JSON clients are incompatible. Object notation in the sections
+below illustrates field values; it is not a JSON request format.
 
 ## WebSocket
 
-The handshake requires subprotocol `slopworld.protobuf.v2`. Each binary message is one
+Connect to `/ws`. The handshake requires subprotocol `slopworld.protobuf.v2`. Each binary message is one
 `Event` (server) or `ClientMessage` (client), with an explicit payload oneof. Text frames are
 not accepted.
 
@@ -166,7 +55,7 @@ not accepted.
 | `capabilities` | Runtime integration flags and terminal limits (`scrollback_lines`, dimension bounds). Sent on connect. |
 | `sessions` | Session state, title, and bell. |
 | `screen` | Terminal content. Scrolled replies include `off`, `request_id`, and `history` (total scrollback rows). |
-| `usage` | Quota updates, including daemon-owned `catalog` metadata and resolved `rows`. `window` is optional; see [Usage polling](integrations.md#usage-polling). |
+| `usage` | Quota updates, including daemon-owned `catalog` metadata and resolved `rows`. `window` is optional; see [Usage polling](../agents/usage-and-summaries.md#usage-polling). |
 | `projects` | Project catalog. |
 | `library` | Library catalog. |
 | `jukebox` | Jukebox state. |
@@ -192,3 +81,209 @@ Catalogs arrive on connect and are resent when changed.
 
 Audio state is `{playing, source, volume, error, title, session?}`. Station titles come from ICY
 metadata. Stream URLs are not forwarded to the mod.
+
+## Sessions and tasks
+
+### Workers
+
+`POST /api/workers` creates a task-owned child and returns its task and worker
+identity. Its fields are `project`, `template`, `body`, `durable`, `worktree`,
+`new_worktree`, `base`, and `worktree_name`.
+
+Root callers may choose any catalog template. Scoped callers must use their own
+project and a template enabled by the daemon worker policy. The worker uses the
+template's captured settings and a fresh private identity. The caller determines
+only task and sidebar parentage.
+
+### Sandbox inspection
+
+`GET /api/sessions/:name/sandbox` returns the sanitized saved launch plan and a
+best-effort live process tree. It requires the same read grant as the session route.
+The saved plan remains available after the pane stops; its presence does not mean
+the launch succeeded. Host terminals have no sandbox plan.
+
+### Ephemeral errands
+
+`POST /api/run` creates an unnamed errand. Choose one execution context:
+
+| Choice | Behavior |
+| --- | --- |
+| `host: true` | Run outside bwrap with the tmux environment plus `TERM`, `COLORTERM`, and `SLOPWORLD_*`. |
+| `agent_template: "name"` | Use an agent template. |
+| `like: "existing-agent"` | Copy an existing session's agent process settings: presets, network, DNS, and limits. |
+
+The daemon rejects conflicting choices and missing sandbox settings. The selected
+project supplies mounts. An empty shell command uses the daemon's `$SHELL`.
+Only an empty host shell command attached to a project without `temp` becomes a
+saved host-terminal tab. Explicit host commands and file actions are temporary.
+See [Library items and errands](../workspace/library.md) for user workflows.
+
+### Task batch operations
+
+Bulk task cancellation and removal validate the entire selection before changing
+anything. A later disk failure can leave partial completion. Replies distinguish
+committed, unchanged or absent, failed, and unattempted IDs.
+
+The task board applies completed changes and refreshes even when it reports a
+failure. Retrying is safe: canceled tasks stay canceled and removed tasks stay
+absent. Requests already handed to storage may finish after a client disconnects.
+
+## Workspace and files
+
+### Browse, read, search, and Git
+
+| Operation | Behavior and limits |
+| --- | --- |
+| Browse | Returns directory entries with file, hidden, gitignore, and limit flags. The maximum limit is 500. |
+| Read | Returns bounded UTF-8 text. |
+| Image | Returns bounded image bytes. |
+| Search | Requires a project path and query. Supports regex, case, word, hidden, and gitignore flags; caps results at 200. |
+| Git | Returns repository status, or `repo: false` when the path is not a repository. |
+
+Browse's optional `filter` matches a case-sensitive substring of each entry name
+before applying the cap. Narrow it when `truncated` is true to reach omitted entries.
+
+Git includes line counts by default, with a two-second time limit. Use
+`counts=false` to skip counting. `counts_complete` is false if counting was skipped
+or exceeded its budget.
+
+### Files mutations
+
+Create, single-component rename, and recursive delete require root authority.
+Names must be a single non-empty path component. Dots within names are allowed;
+`.`, `..`, slash, backslash, and NUL are rejected. Existing targets are preserved.
+
+### File actions
+
+`POST /api/file-action` and `/api/run` requests with `path` execute file actions
+on the daemon host without private agent state.
+
+A named project scopes the path and working directory. The optional `worktree` ID
+selects a registered, ready checkout; an empty ID selects Main. Requests must name
+another registered checkout explicitly. An explicit ID rejects paths in other
+checkouts, including those nested under Main. Symlink escapes are rejected.
+
+With `host: true` and no project, the request accepts an absolute host path.
+
+### Clipboard
+
+`/api/clipboard` accesses CLIPBOARD; `/api/clipboard/primary` accesses the
+Wayland/X11 PRIMARY selection. Their `/text` variants read text without image data.
+
+## Configuration and templates
+
+### Read configuration
+
+`GET /api/config` separates editable `values` from response-only `metadata`.
+Metadata includes factory defaults, usage catalog entries, temporary-root policy,
+terminal limits, and `auto_commands`.
+
+Reader commands resolved from Auto use the daemon's PATH; editable values retain
+`auto`. Clients keep independent allocation limits.
+
+### Configuration patching
+
+The patch route accepts `ConfigPatch`: editable `values` and repeated leaf `paths`.
+Only listed paths are merged and checked; omitted paths preserve existing fields.
+Explicit paths allow false, zero, and empty-list values.
+
+Map keys escape tilde as `~0` and dot as `~1`. Root, secret, unknown, and overlapping
+paths are rejected.
+
+Project responses include both editable `dir` and `expanded_dir`, resolved using
+the daemon's home and environment. Project messages contain the directory,
+temporary flag, and shared `mounts`. For example, a mount has
+`{"from":"/work/shared","to":"/mnt/shared","mode":"ro"}`. Mounts store literal
+paths, not project references; both TOML and API writes use `from` and `to`.
+
+Session messages contain direct agent network, DNS, limits, and startup settings.
+DNS has an explicit mode and server list, such as `{"mode":"resolved"}` or
+`{"mode":"servers","servers":["IPv4", ...]}`.
+
+### Agent templates
+
+Template routes require root authority except `GET /api/templates/spawnable`:
+
+- Scoped callers receive worker-enabled templates in their own project.
+- Root callers may choose a project, or omit it for the enabled catalog without
+  project context.
+
+`GET /api/templates` returns user-level definitions. Its optional project query
+checks and returns a root project context without filtering the catalog.
+
+**Create a template.** `POST /api/templates` accepts one of three forms:
+
+- `name`, `description`, and `source`: capture the configured source agent's
+  explicit choices and dependencies.
+- `name`, `description`, and `duplicate`: make an independent copy of an existing template.
+- A complete definition with `version` omitted: create a definition from the template editor.
+
+Project settings are never template fields. Each definition has a daemon-owned,
+monotonically increasing `version`.
+
+**Create an agent.** `POST /api/templates/:name/create` accepts a new `name`, a
+registered `project`, optional `overrides` session form, and optional `start`
+boolean. It copies the template's portable fields and allocates fresh private
+state. The project supplies mounts.
+
+**Edit or delete a template.** `PUT /api/templates/:name` atomically replaces the
+complete definition and requires its expected `version`. The path may name the
+old definition when renaming. `DELETE /api/templates/:name?version=N` also requires
+the expected version.
+
+Stale edits and deletes return `409 Conflict`; missing targets return `404`.
+Duplicate destinations are rejected. The daemon never retries conflicts
+automatically. See [Configuring agents](../agents/configuring-agents.md) for template defaults.
+
+### Preview settings and projects
+
+`POST /api/settings/preview` requires root authority and neither saves nor launches
+anything. It accepts an optional complete `session` draft, an `existing` agent name
+to retain saved snapshots, a `project` draft, and/or a `template` definition.
+To inspect a recipe without a destination project, set `recipe: true` and leave
+`session` absent.
+
+The response provides `title`, `subtitle`, `notes`, and `fields` (`label`, `values`)
+for display. Its `definitions` contain captured command and sandbox definitions.
+Effective values and contribution sources use the launch configuration resolvers.
+The preview describes the next launch, not the running process. The daemon still
+checks requested paths before execution.
+
+`POST /api/projects/preview` accepts `name` and `temp: true` and returns the
+normalized prospective temporary directory without creating a project. Project
+creation and updates use the same normalization before saving.
+
+### Settings discovery and highlighting
+
+Root-only `GET /api/whereis` resolves executables from the daemon's effective PATH,
+not the game's environment.
+
+`GET /api/highlight/themes` accepts an optional unsaved `command` query;
+`POST /api/highlight` accepts the same optional command in its body:
+
+| Command | Result |
+| --- | --- |
+| Omitted | Use the daemon default. |
+| Empty (Off) | Return plain text. |
+| `auto` | Select an installed highlighter, or return the input unchanged if none is available. |
+
+These overrides do not change configuration. Profile-local `engine` and `theme`
+overrides apply only to the matching highlighter engine. Mismatched themed requests
+are rejected.
+
+## Private state
+
+Reset moves configured agent private state to trash for at least 14 days.
+Root-only inventory reports active, orphan, and trash entries. The API permanently
+deletes only orphan and trash entries.
+
+`GET /api/state` measures entry sizes. Use `?sizes=false` for a quick list of names,
+ownership, paths, and modification times without walking storage trees or purging
+expired trash. In this response, `bytes: 0` means unmeasured.
+
+Reset uses the session state route. Deletion and restore use the `/api/state`
+routes in [API routes](api-routes.md). `DELETE /api/state/trash` permanently deletes
+all retained trash entries.
+
+Restore requires no replacement state tree. A deleted agent may be recreated if
+its saved name, project, and mounts remain valid.

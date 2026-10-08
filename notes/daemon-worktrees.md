@@ -22,7 +22,7 @@ never commit or delete worktrees. Project removal cannot discard worktree record
 Removing an external checkout removes only its SlopWorld record. It leaves checkout
 files and Git's linked-worktree registration untouched. Operational creation,
 rename, removal, and recovery rules belong to
-[Project worktrees](../docs/src/guides/project-worktrees.md).
+[Project worktrees](../docs/src/workspace/project-worktrees.md).
 
 Mount/cache boundaries belong to [sandbox isolation](sandbox-isolation.md), storage
 to [configuration stores](daemon-config-stores.md), project lifecycle to

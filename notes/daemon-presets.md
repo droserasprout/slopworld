@@ -13,4 +13,4 @@ dependency graphs are rejected.
 Mount policy and host-escape boundaries belong to [sandbox isolation](sandbox-isolation.md).
 The debug preset's read-only endpoint bind exposes the daemon root credential;
 read-only file access does not restrict credential use. Public configuration
-instructions belong to [Configuring sandboxes](../docs/src/guides/configuring-sandboxes.md).
+instructions belong to [Sandbox presets](../docs/src/sandbox/sandbox-presets.md).

@@ -9,4 +9,4 @@ The daemon resolves temporary paths. Preview requests share unchanged-name work,
 while disabling temporary mode invalidates pending replies. Project summary text
 is shared by sidebar/Library rows and project pickers, not the project editor.
 Daemon lifecycle belongs to [projects](daemon-projects.md), and user controls to
-[Configuring agents](../docs/src/guides/configuring-agents.md).
+[Configuring agents](../docs/src/agents/configuring-agents.md).
