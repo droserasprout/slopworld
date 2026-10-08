@@ -24,8 +24,6 @@ def package_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         'slopd/slopd.service': 'ExecStart=%h/.local/bin/slopd\nKillMode=process\n',
         'packaging/slopworld.desktop': '[Desktop Entry]\nExec=slopworld\n',
         'mod/Textures/SlopWorld/SlopWorld_icon.png': 'icon fixture',
-        'mod/About/LICENSE': 'license',
-        'mod/About/ThirdPartyNotices/NOTICE.txt': 'notice',
         'LICENSE': 'license',
         'licenses/NOTICE.txt': 'notice',
     }

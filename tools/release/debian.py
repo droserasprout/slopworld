@@ -120,7 +120,7 @@ def main() -> None:
     version = os.environ.get('VERSION') or from_git(fallback)
     debian_version(version)
     revision = latest.git('rev-parse', 'HEAD')
-    run([os.environ['JUST_CMD'], 'BUILD=release', f'VERSION={version}', 'all', 'check-licenses'])
+    run([os.environ['JUST_CMD'], 'BUILD=release', f'VERSION={version}', 'all'])
     output = Path(os.environ.get('DEB_DIR', 'dist/debian'))
     if not output.is_absolute():
         output = ROOT / output

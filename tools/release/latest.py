@@ -60,7 +60,7 @@ def build(revision: str) -> str:
         fallback = tomllib.load(source)['package']['version']
     version = os.environ.get('VERSION') or f'{fallback}-{dt.datetime.now(dt.timezone.utc):%Y%m%d}-{revision[:12]}'
     # Resolve once so daemon and mod agree even across midnight or numeric tags.
-    run([os.environ['JUST_CMD'], 'BUILD=release', f'VERSION={version}', 'all', 'check-licenses'])
+    run([os.environ['JUST_CMD'], 'BUILD=release', f'VERSION={version}', 'all'])
     validate_checkout(revision)
     return version
 
@@ -86,8 +86,8 @@ def stage_mod(mod: Path, revision: str, version: str) -> None:
             copy_file(ROOT / name, mod / relative)
     for assembly in MOD_ASSEMBLIES:
         copy_file(ROOT / 'mod/Assemblies' / f'{assembly}.dll', mod / 'Assemblies' / f'{assembly}.dll')
-    copy_file(ROOT / 'mod/About/LICENSE', mod / 'About/LICENSE')
-    shutil.copytree(ROOT / 'mod/About/ThirdPartyNotices', mod / 'About/ThirdPartyNotices')
+    copy_file(ROOT / 'LICENSE', mod / 'About/LICENSE')
+    shutil.copytree(ROOT / 'licenses', mod / 'About/ThirdPartyNotices')
     metadata(mod, revision, version)
 
 

@@ -59,8 +59,9 @@ runtime/test dependency graphs and the coverage tool manifest.
 builds a snapshot without private files or build caches; preparation records the
 binary version for package metadata, build and check. Both source PKGBUILDs build
 the daemon and mod before optional checks. `tools/release/source_mod.py` stages
-their mods using the release asset-directory and runtime DLL allowlists, including
-themes, and copies notices from canonical sources. Cargo and uv fetch locked dependencies
+their mods and local source installs using the release asset-directory and runtime
+DLL allowlists, including themes, and copies notices from canonical sources.
+Cargo and uv fetch locked dependencies
 in preparation; later builds use frozen Cargo dependencies and offline uv execution.
 Arch runtime requirements cover the audio library, default shell, core session
 infrastructure, Git/worktrees and workspace search. Pager/editor/highlighter tools,
@@ -126,11 +127,13 @@ The [attribution policy](core-attribution.md) applies to used libraries and asse
 `licenses/` owns canonical third-party texts and attribution; the root `LICENSE`
 owns SlopWorld terms. `just refresh-licenses` stages ignored copies into
 `mod/About/ThirdPartyNotices/` and `mod/About/LICENSE`; `just check-licenses`
-verifies their contents and rejects stale extra files. Run staging explicitly after
-changing canonical notices and before distribution.
-Mod installation and release packaging check staged notices; license tests use
-temporary directories. Mod installers copy `About/` recursively; Arch packaging
-copies canonical notices directly into its distribution.
+verifies their contents and rejects stale extra files. Both are manual maintainer
+commands; builds, installation, and packaging do not invoke them.
+Source installation stages a temporary mod through `tools/host/install_mod.py`
+before invoking the launcher's atomic installer. Source installation and release
+packaging copy canonical notices directly into their staging directories, ignoring
+local refreshed copies. License tests use temporary directories. The launcher
+copies its supplied mod tree's `About/` recursively.
 Release archives, Arch packages, and sidecar images also include readable copies
 from the canonical sources. Update only the canonical files.
 `just refresh-daemon-licenses` refreshes the Rust inventory from the locked Cargo graph,

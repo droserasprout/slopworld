@@ -265,11 +265,22 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual(self.calls('uv'), [])
 
     def test_checks_and_builds_have_no_generation_dependencies(self) -> None:
-        for recipe in ('all', 'test', 'ci', 'bench-build', 'docs'):
+        generators = (
+            'tools.docs.introduction',
+            'tools.docs.api_docs',
+            'tools.docs.reference',
+            'tools.assets.loading_font_atlas',
+            'tools.assets.icons',
+            'tools.assets.appicon',
+            'tools.assets.favicon',
+            'tools.licenses.rust_licenses',
+            'tools.licenses.stage_licenses',
+        )
+        for recipe in ('all', 'test', 'ci', 'bench-build', 'docs', 'docs-serve', 'install', 'install-mod'):
             with self.subTest(recipe=recipe):
                 result = self.run_recipe('--dry-run', recipe)
-                self.assertNotIn('tools.docs.api_docs', result.stderr)
-                self.assertNotIn('tools.licenses.stage_licenses', result.stderr)
+                for generator in generators:
+                    self.assertNotIn(generator, result.stderr)
                 for line in result.stderr.splitlines():
                     if 'tools.protocol.api_contract' in line:
                         self.assertTrue(line.endswith('--check'), line)

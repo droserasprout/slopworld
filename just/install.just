@@ -14,8 +14,8 @@ install-runner: daemon
 
 # Install the mod into the game's Mods folder
 [group('Installation')]
-install-mod: daemon mod check-licenses
-    "{{ RUNNER }}" mod install --source mod --game "{{ parent_directory(MODS) }}"
+install-mod: daemon mod
+    {{ PYTHON }} -m tools.host.install_mod --runner "{{ RUNNER }}" --game "{{ parent_directory(MODS) }}"
 
 # Remove installed files, keeping config and saves
 [group('Installation')]

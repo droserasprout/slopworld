@@ -45,8 +45,6 @@ def inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         'packaging/slopworld.desktop',
         'LICENSE',
         'licenses/dependency.txt',
-        'mod/About/LICENSE',
-        'mod/About/ThirdPartyNotices/NOTICE.txt',
     ):
         write(name)
     for assembly in latest.MOD_ASSEMBLIES:
@@ -65,9 +63,15 @@ def inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return root
 
 
+@pytest.mark.parametrize('staged_notices', [False, True])
 def test_archives_include_runtime_licenses_metadata_and_exclude_game_and_local_files(
-    inputs: Path, tmp_path: Path
+    inputs: Path, tmp_path: Path, staged_notices: bool
 ) -> None:
+    if staged_notices:
+        (inputs / 'mod/About/LICENSE').write_text('stale license')
+        notices = inputs / 'mod/About/ThirdPartyNotices'
+        notices.mkdir()
+        (notices / 'stale.txt').write_text('stale notice')
     output = tmp_path / 'release output'
     assets = latest.package(output, 'a' * 40, '0.1.0-snapshot')
     with tarfile.open(assets[0]) as archive:
@@ -79,8 +83,12 @@ def test_archives_include_runtime_licenses_metadata_and_exclude_game_and_local_f
         assert f'{prefix}/licenses/dependency.txt' in archive.getnames()
     with zipfile.ZipFile(assets[1]) as archive:
         names = archive.namelist()
-        assert 'SlopWorld/About/LICENSE' in names
-        assert 'SlopWorld/About/ThirdPartyNotices/NOTICE.txt' in names
+        assert archive.read('SlopWorld/About/LICENSE') == (inputs / 'LICENSE').read_bytes()
+        assert (
+            archive.read('SlopWorld/About/ThirdPartyNotices/dependency.txt')
+            == (inputs / 'licenses/dependency.txt').read_bytes()
+        )
+        assert 'SlopWorld/About/ThirdPartyNotices/stale.txt' not in names
         assert 'SlopWorld/Themes/example.toml' in names
         assert archive.read('SlopWorld/VERSION') == b'0.1.0-snapshot\n'
         assert {Path(name).stem for name in names if name.endswith('.dll')} == set(latest.MOD_ASSEMBLIES)
@@ -119,7 +127,6 @@ def test_build_forces_release_and_one_version_and_stops_on_failure(monkeypatch: 
             'BUILD=release',
             'VERSION=explicit-version',
             'all',
-            'check-licenses',
         ]
         validate.assert_called_once_with('revision')
     with patch.object(latest, 'run', side_effect=subprocess.CalledProcessError(1, ['just'])):

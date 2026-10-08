@@ -1,4 +1,4 @@
-"""Stage source Arch package mods, including snapshots without Git metadata.
+"""Stage source installs and Arch package mods, including snapshots without Git metadata.
 
 Release staging owns the asset directory and runtime DLL allowlists. This owner
 copies source assets and canonical notices without relying on local license refreshes.

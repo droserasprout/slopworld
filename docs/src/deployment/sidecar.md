@@ -54,7 +54,6 @@ Build and install the mod into your Linux game before launching. Run these comma
 from the repository root, using the same game directory for installation and launch:
 
 ```sh
-just refresh-licenses
 RIMWORLD=/path/to/RimWorld/game just install-mod
 ```
 

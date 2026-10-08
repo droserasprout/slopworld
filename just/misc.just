@@ -31,13 +31,13 @@ pkg-arch:
 
 # Build user documentation and check navigation, local links, and anchors
 [group('Development tools')]
-docs: refresh-introduction
+docs:
     cd docs && mdbook build
     {{ PYTHON }} -m tools.docs.check_book
 
 # Serve user documentation
 [group('Development tools')]
-docs-serve: refresh-introduction
+docs-serve:
     cd docs && mdbook serve
 
 # Reinstall and relaunch after every game exit
