@@ -3,12 +3,12 @@
 # Build release archives, Arch/Debian packages, and checksums locally
 [group('Release')]
 release-package:
-    JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m tools.release.latest package
+    JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m tools.release.publish package
 
-# Rebuild locally and publish or update the rolling latest GitHub release
+# Rebuild locally and publish a versioned GitHub release
 [group('Release')]
-release-latest:
-    JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m tools.release.latest publish
+release-publish:
+    JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m tools.release.publish publish
 
 # Stage a source Arch package mod with the shared runtime allowlist and canonical notices
 [group('Release')]

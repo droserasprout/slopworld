@@ -8,8 +8,6 @@ from tools import ROOT
 from tools.utils import command
 from tools.utils import run
 
-ASSET_NAME = 'slopworld-latest-amd64.deb'
-
 
 def package(output: Path, revision: str, version: str) -> Path:
     container = command('CONTAINER', 'podman')
@@ -77,9 +75,7 @@ def package(output: Path, revision: str, version: str) -> Path:
             version,
         ]
     )
-    # Stable asset names replace the previous rolling package rather than leaving
-    # stale versioned downloads on GitHub. Full versions stay in package metadata.
     generated = output / f'slopworld_{version}-1_amd64.deb'
-    archive_path = output / ASSET_NAME
+    archive_path = output / f'slopworld-{version}-amd64.deb'
     generated.replace(archive_path)
     return archive_path

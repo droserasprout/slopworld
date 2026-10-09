@@ -19,6 +19,7 @@ COPY shared/slopworld.proto /build/shared/slopworld.proto
 COPY slopd/build.rs ./build.rs
 COPY slopd/src ./src
 COPY slopd/presets ./presets
+ARG SLOPWORLD_BUILD_VERSION
 RUN touch src/main.rs src/bin/slopctl.rs \
     && cargo build --release --locked --bin slopd --bin slopctl
 

@@ -1,15 +1,15 @@
-"""Build local Linux release archives and publish the rolling GitHub latest tag.
+"""Build local Linux release archives and publish versioned GitHub releases.
 
 Recipes own compiler settings; this module owns staging and publication ordering.
 Only tracked mod assets and explicitly named runtime DLLs enter the mod archive.
 """
 
 import argparse
-import datetime as dt
 import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import tarfile
@@ -27,9 +27,7 @@ from tools.utils import command
 from tools.utils import log
 from tools.utils import run
 from tools.utils import run_main
-
-DAEMON_NAME = 'slopworld-latest-x86_64-linux'
-ASSET_NAMES = (f'{DAEMON_NAME}.tar.gz', 'slopworld-latest-mod.zip', 'SHA256SUMS')
+from tools.version.resolve import from_git
 
 
 def git(*arguments: str) -> str:
@@ -43,10 +41,12 @@ def validate_checkout(revision: str) -> None:
         raise ValueError('HEAD changed during the release build; rerun the recipe.')
 
 
-def build(revision: str) -> str:
+def build(revision: str, *, release: bool = False) -> str:
     with (ROOT / 'slopd/Cargo.toml').open('rb') as source:
         fallback = tomllib.load(source)['package']['version']
-    version = os.environ.get('VERSION') or f'{fallback}-{dt.datetime.now(dt.timezone.utc):%Y%m%d}-{revision[:12]}'
+    version = os.environ.get('VERSION') or from_git(fallback, ROOT)
+    if release and not re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', version):
+        raise ValueError('Publishing requires a numeric release tag or VERSION=MAJOR.MINOR.PATCH.')
     # Resolve once so daemon and mod agree even across midnight or numeric tags.
     run([os.environ['JUST_CMD'], 'BUILD=release', f'VERSION={version}', 'all'])
     validate_checkout(revision)
@@ -54,11 +54,13 @@ def build(revision: str) -> str:
 
 
 def package(output: Path, revision: str, version: str, *, native_packages: bool = False) -> list[Path]:
+    daemon_name = f'slopworld-{version}-x86_64-linux'
+    asset_names = (f'{daemon_name}.tar.gz', f'slopworld-{version}-mod.zip')
     output.mkdir(parents=True, exist_ok=True)
     # Finish every archive and native package before replacing prepared outputs.
     with tempfile.TemporaryDirectory(prefix='.release-', dir=output) as temporary:
         workspace = Path(temporary)
-        daemon = workspace / DAEMON_NAME
+        daemon = workspace / daemon_name
         for binary in ('slopd', 'slopctl', 'slopworld'):
             staging.copy_file(ROOT / 'slopd/target/release' / binary, daemon / 'bin' / binary)
         for source_name in ('slopd/slopd.service', 'packaging/slopworld.desktop', 'LICENSE'):
@@ -69,13 +71,13 @@ def package(output: Path, revision: str, version: str, *, native_packages: bool 
         mod = workspace / 'SlopWorld'
         staging.stage_mod(mod, revision, version)
 
-        with tarfile.open(workspace / ASSET_NAMES[0], 'w:gz') as archive:
+        with tarfile.open(workspace / asset_names[0], 'w:gz') as archive:
             archive.add(daemon, arcname=daemon.name)
-        with zipfile.ZipFile(workspace / ASSET_NAMES[1], 'w', zipfile.ZIP_DEFLATED) as archive:
+        with zipfile.ZipFile(workspace / asset_names[1], 'w', zipfile.ZIP_DEFLATED) as archive:
             for source in sorted(mod.rglob('*')):
                 if source.is_file():
                     archive.write(source, source.relative_to(workspace))
-        names = list(ASSET_NAMES[:2])
+        names = list(asset_names[:2])
         if native_packages:
             names.append(arch.package(workspace, revision, version, mod).name)
             names.append(container_debian.package(workspace, revision, version).name)
@@ -85,7 +87,7 @@ def package(output: Path, revision: str, version: str, *, native_packages: bool 
                 checksums.append(f'{hashlib.file_digest(stream, "sha256").hexdigest()}  {name}\n')
         (workspace / 'SHA256SUMS').write_text(''.join(checksums))
         (workspace / 'release-notes.md').write_text(
-            f'Rolling local build for RimWorld 1.6.\n\nVersion: `{version}`\n\nCommit: `{revision}`\n\n'
+            f'SlopWorld release for RimWorld 1.6.\n\nVersion: `{version}`\n\nCommit: `{revision}`\n\n'
             'Install the Arch or Debian package, or download the Linux daemon archive and mod ZIP. '
             'Verify downloads with `sha256sum -c SHA256SUMS`.\n'
         )
@@ -106,27 +108,15 @@ def github_json(gh: list[str], endpoint: str) -> dict[str, Any] | None:
     return document
 
 
-def publish(gh: list[str], repository: str, output: Path, revision: str, assets: list[Path]) -> None:
-    release = github_json(gh, f'repos/{repository}/releases/tags/latest')
-    if release and release.get('immutable'):
-        raise ValueError('The latest release is immutable; rolling releases require mutable GitHub releases.')
-    tag = github_json(gh, f'repos/{repository}/git/ref/tags/latest')
-    # Move the remote tag directly, avoiding local tags and Git/gh remote disagreement.
-    if tag:
-        run(
-            [
-                *gh,
-                'api',
-                f'repos/{repository}/git/refs/tags/latest',
-                '-X',
-                'PATCH',
-                '-f',
-                f'sha={revision}',
-                '-F',
-                'force=true',
-            ]
-        )
-    else:
+def publish(gh: list[str], repository: str, output: Path, revision: str, version: str, assets: list[Path]) -> None:
+    tag = f'v{version}'
+    if github_json(gh, f'repos/{repository}/releases/tags/{tag}'):
+        raise ValueError(f'Release {tag} already exists; published versions are not replaced.')
+    # The commits endpoint dereferences both lightweight and annotated tags.
+    remote = github_json(gh, f'repos/{repository}/commits/{tag}')
+    if remote and remote.get('sha') != revision:
+        raise ValueError(f'Remote tag {tag} does not point to the built commit.')
+    if not remote:
         run(
             [
                 *gh,
@@ -135,17 +125,27 @@ def publish(gh: list[str], repository: str, output: Path, revision: str, assets:
                 '-X',
                 'POST',
                 '-f',
-                'ref=refs/tags/latest',
+                f'ref=refs/tags/{tag}',
                 '-f',
                 f'sha={revision}',
             ]
         )
-    common = ['--repo', repository, '--title', 'Latest', '--notes-file', str(output / 'release-notes.md')]
-    if release:
-        run([*gh, 'release', 'upload', 'latest', *map(str, assets), '--repo', repository, '--clobber'])
-        run([*gh, 'release', 'edit', 'latest', *common, '--draft=false', '--prerelease=false', '--latest'])
-    else:
-        run([*gh, 'release', 'create', 'latest', *map(str, assets), *common, '--verify-tag', '--latest'])
+    run(
+        [
+            *gh,
+            'release',
+            'create',
+            tag,
+            *map(str, assets),
+            '--repo',
+            repository,
+            '--title',
+            tag,
+            '--notes-file',
+            str(output / 'release-notes.md'),
+            '--verify-tag',
+        ]
+    )
 
 
 def main() -> None:
@@ -162,15 +162,15 @@ def main() -> None:
         repository = run(
             [*gh, 'repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner'], capture_output=True, text=True
         ).stdout.strip()
-    version = build(revision)
-    output = Path(os.environ.get('RELEASE_DIR', 'dist/latest'))
+    version = build(revision, release=args.action == 'publish')
+    output = Path(os.environ.get('RELEASE_DIR') or f'dist/{version}')
     if not output.is_absolute():
         output = ROOT / output
     assets = package(output, revision, version, native_packages=True)
     log(f'Release archives: {output}')
     if args.action == 'publish':
         validate_checkout(revision)
-        publish(gh, repository, output, revision, assets)
+        publish(gh, repository, output, revision, version, assets)
 
 
 if __name__ == '__main__':

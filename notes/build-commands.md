@@ -57,8 +57,9 @@ The C# formatter opens only its source directories: folder discovery scans for
 editor configs before applying file exclusions, so opening the checkout root can
 walk unrelated container storage under `dist/`.
 `.github/workflows/image.yml` owns sidecar publication to
-`ghcr.io/<repository-owner>/slopcar` for amd64 and arm64. Main pushes and manual
-runs publish full commit SHA tags; only runs on `main` update `latest`.
+`ghcr.io/<repository-owner>/slopcar` for amd64 and arm64. Main pushes, numeric
+release-tag pushes, and manual runs publish full commit SHA and resolved-version tags. CI passes the same version into the Docker build and
+OCI label; untagged builds use dated snapshot versions.
 Only superseded branch-push test runs are cancelled; called tests and
 manual runs have isolated concurrency groups. NuGet caching includes the locked
 runtime/test dependency graphs and the coverage tool manifest.
@@ -82,7 +83,7 @@ defaults to micro; optional package metadata does not imply an editor fallback.
 `tools/release/staging.py` owns the shared mod asset/runtime DLL allowlists and
 tracked-release staging used by the package builders. `tools/release/source_mod.py`
 selects whole asset directories for source snapshots without Git metadata.
-Rolling releases include both native package formats. `tools/release/arch.py`
+Versioned releases include both native package formats. `tools/release/arch.py`
 uses the existing Arch PKGBUILD metadata with a staged release payload and lets
 makepkg own package metadata/mtree generation.
 Arch archive validation uses an empty staging pacman database, so file queries do
@@ -92,7 +93,7 @@ from `packaging/debian/Dockerfile`;
 Debian packaging and its real archive tests run there before publication.
 The container trusts only the mounted checkout via Git's process environment;
 this allows Git reads when Docker preserves a different host owner.
-Native rolling asset names stay stable, while package metadata carries full versions.
+Release asset names and package metadata carry the resolved version.
 The aggregate release computes checksums only after all four artifacts succeed.
 Debian shared-library dependencies come from the build host's `dpkg-shlibdeps`,
 so packages must be built on the target distribution rather than from Arch binaries.
@@ -159,9 +160,10 @@ build mode. Runtime package maintenance belongs to
 
 Daemon lint policy belongs to `slopd/Cargo.toml` and `slopd/clippy.toml`; CI
 checks belong to `.github/workflows/`. Local release recipes belong to
-`just/release.just`; `tools/release/latest.py` owns release-mode builds, archive staging,
-and rolling remote tag/publication ordering. Release inputs must come from a clean
-checkout; mod packaging selects tracked runtime assets and an explicit DLL allowlist
+`just/release.just`; `tools/release/publish.py` owns release-mode builds, archive staging,
+and versioned remote tag/publication ordering. Existing release tags must match the
+built commit, and existing releases are never overwritten. Publication requires a numeric
+release version. Release inputs must come from a clean checkout; mod packaging selects tracked runtime assets and an explicit DLL allowlist
 to exclude game assemblies and local files. Installer behavior belongs to
 `slopd/src/bin/slopworld/mod_install.rs` and its tests. Profile/window lifetime is
 separate; see [profiles](ops-profile.md) and [daemon replacement](daemon-redeploy.md).

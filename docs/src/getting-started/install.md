@@ -12,27 +12,29 @@ For other setups, see [macOS](../deployment/macos.md) or [Sidecar worker](../dep
 ## Get binaries
 
 Install a Linux binary package from the
-[latest release](https://github.com/droserasprout/slopworld/releases/tag/latest).
+[release downloads](https://github.com/droserasprout/slopworld/releases).
 Each package includes the daemon, CLI, launcher, and RimWorld mod.
 
 ### Arch Linux
 
-Download `slopworld-latest-x86_64.pkg.tar.zst` from the release, then run
+The examples below use version 0.0.1; substitute the version you downloaded.
+
+Download `slopworld-0.0.1-x86_64.pkg.tar.zst` from the release, then run
 this command in your download directory:
 
 ```sh
-sudo pacman -U ./slopworld-latest-x86_64.pkg.tar.zst
+sudo pacman -U ./slopworld-0.0.1-x86_64.pkg.tar.zst
 ```
 
 <a id="debian--ubuntu"></a>
 
 ### Debian and Ubuntu
 
-Download `slopworld-latest-amd64.deb` from the release, then run
+Download `slopworld-0.0.1-amd64.deb` from the release, then run
 this command in your download directory:
 
 ```sh
-sudo apt install ./slopworld-latest-amd64.deb
+sudo apt install ./slopworld-0.0.1-amd64.deb
 ```
 
 The release package is built on Debian 13 (trixie). Your distribution must provide

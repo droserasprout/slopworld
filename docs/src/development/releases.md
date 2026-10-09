@@ -1,15 +1,15 @@
 # Packaging and releases
 
-Build distributable packages or publish the rolling GitHub release. Start with
+Build distributable packages or publish a versioned GitHub release. Start with
 [Build from source](build.md) for the toolchain and development checks.
 
-## Rolling GitHub release
+## Versioned GitHub releases
 
 ### Requirements
 
 Publish from a clean checkout on an Arch Linux x86_64 host with RimWorld installed,
 `makepkg`, `fakeroot`, and `pacman`, plus Podman (default) or Docker
-(`just CONTAINER=docker release-latest`). Root builds also require Bubblewrap
+(`just CONTAINER=docker release-publish`). Root builds also require Bubblewrap
 to run `makepkg` as an ordinary UID.
 
 Release builds run locally because the mod needs the game's assemblies.
@@ -19,15 +19,15 @@ GitHub Actions runs game-free checks.
 
 ```sh
 just release-package  # build Release daemon and mod; prepare local archives
-just release-latest   # rebuild, then create or update the public latest release
+just release-publish  # rebuild, then create a versioned GitHub release
 ```
 
-Both recipes write these assets into `dist/latest/`:
+Both recipes write these assets into `dist/<version>/`:
 
-- `slopworld-latest-x86_64-linux.tar.gz`
-- `slopworld-latest-mod.zip`
-- `slopworld-latest-x86_64.pkg.tar.zst`
-- `slopworld-latest-amd64.deb`
+- `slopworld-<version>-x86_64-linux.tar.gz`
+- `slopworld-<version>-mod.zip`
+- `slopworld-<version>-x86_64.pkg.tar.zst`
+- `slopworld-<version>-amd64.deb`
 - `SHA256SUMS` and `release-notes.md`
 
 Use `RELEASE_DIR` to change the output directory.
@@ -50,7 +50,7 @@ prefixed by `v`, set the release version. Untagged checkouts append the UTC buil
 date and short hash to the package version. Without Git data, builds use the
 package version alone. `VERSION` overrides it for both components.
 
-Native package filenames stay stable for rolling replacement; package metadata contains the full version. `SHA256SUMS`
+Archive and native package filenames include the resolved version; package metadata carries the same version. `SHA256SUMS`
 covers both archives and both packages.
 
 ### Publish
@@ -58,10 +58,19 @@ covers both archives and both packages.
 Before publishing, run the [checks](build.md#checks) and push the commit to GitHub. Authenticate
 the GitHub CLI with `gh auth login`; its selected repository is the destination.
 Use `GH_REPO=owner/repo` to select another repository, or `GH` to override the CLI
-command. Publishing moves the remote `latest` tag to the built commit, replaces
-assets with matching names, and marks the release as Latest. Local tags stay unchanged.
-The repository must allow mutable releases. A failed upload can leave the tag moved
-and some assets replaced; rerun `just release-latest` from the same commit to finish.
+command. Publishing creates a release named `v<version>` and creates its remote tag
+at the built commit if it does not exist. An existing tag must point to that commit;
+existing releases are never replaced. Local tags stay unchanged.
+
+Publication requires a numeric release version. For 0.0.1, tag the release commit `v0.0.1` before building, or use
+`just VERSION=0.0.1 release-publish`. Push the commit before publishing. If publication
+fails after creating the tag, rerun from the same commit. If a release was created
+with incomplete assets, inspect and repair that release explicitly; the publisher
+refuses to overwrite it.
+
+Sidecar CI publishes commit SHA and resolved-version image tags, including on
+numeric release-tag pushes. The image label and embedded daemon version use that
+same version. Untagged builds receive dated snapshot versions.
 
 Use `just test-release` for game-free packaging and publication tests.
 

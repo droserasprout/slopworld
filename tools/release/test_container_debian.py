@@ -42,5 +42,5 @@ def test_container_trusts_only_mounted_checkout_and_mounts_external_git_metadata
     assert f'GIT_CONFIG_VALUE_0={root}' in environments
     assert f'{root}:{root}:ro' in invocation
     assert (f'{common}:{common}:ro' in invocation) == linked_worktree
-    assert archive.name == container_debian.ASSET_NAME
+    assert archive.name == 'slopworld-1.0.0-amd64.deb'
     assert archive.read_bytes() == b'fixture archive'

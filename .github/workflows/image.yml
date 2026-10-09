@@ -2,10 +2,13 @@ name: Sidecar image
 
 on:
   push:
-    # Temporary branch trigger for validating image publication before merge.
-    branches: [main, packaging-fixes]
+    branches: [main]
+    tags: ['v*', '[0-9]*']
     # Keep aligned with the Dockerfile COPY inputs and root build context.
     paths:
+      - 'tools/version/**'
+      - 'tools/utils.py'
+      - 'tools/__init__.py'
       - 'slopd/Cargo.toml'
       - 'slopd/Cargo.lock'
       - 'slopd/build.rs'
@@ -36,6 +39,8 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set image tags
         id: image
@@ -43,12 +48,16 @@ jobs:
           OWNER: ${{ github.repository_owner }}
         run: |
           image="ghcr.io/${OWNER,,}/slopcar"
+          version="$(python3 -m tools.version.mod_version)"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
           {
             echo 'tags<<EOF'
             echo "$image:sha-$GITHUB_SHA"
-            if [[ "$GITHUB_REF" == refs/heads/main ]]; then
-              echo "$image:latest"
-            fi
+            echo "$image:$version"
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
@@ -74,9 +83,12 @@ jobs:
           file: slopcar/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
+          build-args: |
+            SLOPWORLD_BUILD_VERSION=${{ steps.image.outputs.version }}
           tags: ${{ steps.image.outputs.tags }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.image.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=slopcar
           cache-to: type=gha,scope=slopcar,mode=max

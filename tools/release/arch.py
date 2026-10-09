@@ -12,8 +12,6 @@ from tools import ROOT
 from tools.release import staging
 from tools.utils import run
 
-ASSET_NAME = 'slopworld-latest-x86_64.pkg.tar.zst'
-
 
 def package(output: Path, revision: str, version: str, mod: Path) -> Path:
     workspace = output / 'arch-package'
@@ -92,7 +90,7 @@ def package(output: Path, revision: str, version: str, mod: Path) -> Path:
     archives = list(workspace.glob('slopworld-*.pkg.tar.zst'))
     if len(archives) != 1:
         raise ValueError('makepkg did not produce exactly one release package')
-    archive_path = output / ASSET_NAME
+    archive_path = output / f'slopworld-{version}-x86_64.pkg.tar.zst'
     archives[0].replace(archive_path)
     # Reading package metadata catches malformed archives before publication.
     # Even file queries initialize libalpm; use an empty staging database so
