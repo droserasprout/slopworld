@@ -2,27 +2,7 @@ name: Sidecar image
 
 on:
   push:
-    branches: [main]
-    tags: ['v*', '[0-9]*']
-    # Keep aligned with the Dockerfile COPY inputs and root build context.
-    paths:
-      - 'tools/version/**'
-      - 'tools/utils.py'
-      - 'tools/__init__.py'
-      - 'slopd/Cargo.toml'
-      - 'slopd/Cargo.lock'
-      - 'slopd/build.rs'
-      - 'slopd/src/**'
-      - 'slopd/presets/**'
-      - 'shared/slopworld.proto'
-      - 'slopcar/Dockerfile'
-      - 'slopcar/entrypoint.sh'
-      - 'slopcar/doctor.sh'
-      - '.dockerignore'
-      - 'LICENSE'
-      - 'licenses/**'
-      - '.github/workflows/image.yml'
-  workflow_dispatch:
+    tags: ['v[0-9]*.[0-9]*.[0-9]*']
 
 permissions:
   contents: read
@@ -48,11 +28,8 @@ jobs:
           OWNER: ${{ github.repository_owner }}
         run: |
           image="ghcr.io/${OWNER,,}/slopcar"
-          version="$(python3 -m tools.version.mod_version)"
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            version="${GITHUB_REF_NAME#v}"
-            [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || exit 1
-          fi
+          [[ "$GITHUB_REF" == refs/tags/* ]] || exit 1
+          version="$(python3 -m tools.version.metadata "$GITHUB_REF_NAME")"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           {
             echo 'tags<<EOF'

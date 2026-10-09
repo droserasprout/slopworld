@@ -2,16 +2,17 @@
 
 import argparse
 import datetime as dt
-import re
 from pathlib import Path
 
 from tools import ROOT
 from tools.utils import run
+from tools.version.metadata import TAG_GLOB
+from tools.version.metadata import release_version
 
 
 def resolve(fallback: str, tag: str | None, commit: str | None, date: str) -> str:
-    if tag and re.fullmatch(r'v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', tag):
-        return tag.removeprefix('v')
+    if tag and (version := release_version(tag)) is not None:
+        return version
     if commit and commit.strip():
         return f'{fallback}-{date}-{commit}'
     return fallback
@@ -29,7 +30,7 @@ def from_git(fallback: str, repository: Path = ROOT) -> str:
 
     return resolve(
         fallback,
-        git('describe', '--tags', '--exact-match', 'HEAD'),
+        git('describe', '--tags', '--exact-match', '--match', TAG_GLOB, 'HEAD'),
         git('rev-parse', '--short', 'HEAD'),
         dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d'),
     )

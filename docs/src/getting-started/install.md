@@ -17,24 +17,24 @@ Each package includes the daemon, CLI, launcher, and RimWorld mod.
 
 ### Arch Linux
 
-The examples below use version 0.0.1; substitute the version you downloaded.
+The examples below use version {{#constant release_version}}; substitute the version you downloaded.
 
-Download `slopworld-0.0.1-x86_64.pkg.tar.zst` from the release, then run
+Download `slopworld-{{#constant release_version}}-x86_64.pkg.tar.zst` from the release, then run
 this command in your download directory:
 
 ```sh
-sudo pacman -U ./slopworld-0.0.1-x86_64.pkg.tar.zst
+sudo pacman -U ./slopworld-{{#constant release_version}}-x86_64.pkg.tar.zst
 ```
 
 <a id="debian--ubuntu"></a>
 
 ### Debian and Ubuntu
 
-Download `slopworld-0.0.1-amd64.deb` from the release, then run
+Download `slopworld-{{#constant release_version}}-amd64.deb` from the release, then run
 this command in your download directory:
 
 ```sh
-sudo apt install ./slopworld-0.0.1-amd64.deb
+sudo apt install ./slopworld-{{#constant release_version}}-amd64.deb
 ```
 
 The release package is built on Debian 13 (trixie). Your distribution must provide

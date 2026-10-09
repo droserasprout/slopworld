@@ -14,9 +14,13 @@ fn release_tags_preserve_their_semver() {
         resolve("0.0.1", Some("v0.0.1"), Some("abc123"), "20260827"),
         "0.0.1"
     );
+}
+
+#[test]
+fn bare_versions_are_not_release_tags() {
     assert_eq!(
         resolve("0.0.1", Some("0.0.1"), Some("abc123"), "20260827"),
-        "0.0.1"
+        "0.0.1-20260827-abc123"
     );
 }
 

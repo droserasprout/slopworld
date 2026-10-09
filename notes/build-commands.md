@@ -19,14 +19,18 @@ not select the sidecar profile; sidecar launch recipes set it explicitly.
 
 Mod compilation does not build Rust binaries. `tools/version/mod_version.py` reads the
 Cargo package fallback and uses `tools/version/resolve.py` for the same tag/date/commit
-rules as Rust; `VERSION` overrides either build. Installer and launch recipes
+rules as Rust; `VERSION` overrides either build. `tools/version/metadata.py` owns
+the shared Python release-tag syntax and Cargo version reader; release tags always
+use `vMAJOR.MINOR.PATCH`, while artifact versions omit `v`. CI validates tags with
+that module before container setup. Installer and launch recipes
 own their launcher build dependency. Regeneration is an explicit, isolated step
 after the main source changes: run `just refresh` for all outputs, or the relevant
 `refresh-protocol`, `refresh-api-docs`, `refresh-daemon-licenses`,
 or asset recipe,
 then review its diff and validate. The aggregate refresh stages licenses last;
 dependency lock updates remain separate. Builds, tests, lint, benchmarks, and docs builds
-consume existing generated files. `check-generated` compares temporary protocol
+consume existing generated files. Release targets explicitly run the full refresh
+aggregate before lint and tests, rejecting any resulting tracked changes. `check-generated` compares temporary protocol
 outputs without modifying the checkout. Explicit generators publish only changed
 bytes to preserve compiler input timestamps.
 `devloop` runs `just install run` together, sharing build dependencies once per
@@ -50,16 +54,16 @@ CI installs pinned tools, including uv, through
 and the protoc checksum for generated bindings.
 Push triggers skip the test workflow for changes confined to Markdown, `docs/`,
 and `notes/`. Documentation publication filters its book, repository README/note,
-and tooling inputs; sidecar publication filters Docker build inputs, canonical
-licenses, and its workflow. Manual runs and reusable test calls bypass push path
-filters. Keep the image path list aligned with Dockerfile inputs and `.dockerignore`.
+and tooling inputs; sidecar publication runs only on `vMAJOR.MINOR.PATCH` tag pushes. Manual test runs and reusable test calls bypass push path
+filters.
 The C# formatter opens only its source directories: folder discovery scans for
 editor configs before applying file exclusions, so opening the checkout root can
 walk unrelated container storage under `dist/`.
 `.github/workflows/image.yml` owns sidecar publication to
-`ghcr.io/<repository-owner>/slopcar` for amd64 and arm64. Main pushes, numeric
-release-tag pushes, and manual runs publish full commit SHA and resolved-version tags. CI passes the same version into the Docker build and
-OCI label; untagged builds use dated snapshot versions.
+`ghcr.io/<repository-owner>/slopcar` for amd64 and arm64. Only `vMAJOR.MINOR.PATCH` tag
+pushes build and publish images, using full commit SHA and release-version tags.
+There are no branch or manual triggers. Tag validation runs before container setup.
+CI passes the same version into the Docker build and OCI label.
 Only superseded branch-push test runs are cancelled; called tests and
 manual runs have isolated concurrency groups. NuGet caching includes the locked
 runtime/test dependency graphs and the coverage tool manifest.
@@ -137,8 +141,8 @@ The [attribution policy](core-attribution.md) applies to used libraries and asse
 `licenses/` owns canonical third-party texts and attribution; the root `LICENSE`
 owns SlopWorld terms. `just refresh-licenses` stages ignored copies into
 `mod/About/ThirdPartyNotices/` and `mod/About/LICENSE`; `just check-licenses`
-verifies their contents and rejects stale extra files. Both are manual maintainer
-commands; builds, installation, and packaging do not invoke them.
+verifies their contents and rejects stale extra files. Both are maintainer commands; release targets run them through their validation
+stages. Ordinary builds and installation do not invoke them.
 Source installation stages a temporary mod through `tools/host/install_mod.py`
 before invoking the launcher's atomic installer. Source installation and release
 packaging copy canonical notices directly into their staging directories, ignoring
@@ -162,8 +166,13 @@ Daemon lint policy belongs to `slopd/Cargo.toml` and `slopd/clippy.toml`; CI
 checks belong to `.github/workflows/`. Local release recipes belong to
 `just/release.just`; `tools/release/publish.py` owns release-mode builds, archive staging,
 and versioned remote tag/publication ordering. Existing release tags must match the
-built commit, and existing releases are never overwritten. Publication requires a numeric
-release version. Release inputs must come from a clean checkout; mod packaging selects tracked runtime assets and an explicit DLL allowlist
+built commit, and existing releases are never overwritten. `tools/release/gates.py`
+requires a clean `main` checkout with one `vMAJOR.MINOR.PATCH` tag at HEAD for both release
+targets. It runs all refreshes, lints, and tests, generated/license/text-sprite checks,
+and docs before building. Every stage rechecks checkout identity and cleanliness;
+`VERSION` cannot override the tag. `tools/release/changelog.py` reads the matching
+dated human-maintained changelog entry for the release description and rejects
+missing or ambiguous entries. Release inputs must come from a clean checkout; mod packaging selects tracked runtime assets and an explicit DLL allowlist
 to exclude game assemblies and local files. Installer behavior belongs to
 `slopd/src/bin/slopworld/mod_install.rs` and its tests. Profile/window lifetime is
 separate; see [profiles](ops-profile.md) and [daemon replacement](daemon-redeploy.md).

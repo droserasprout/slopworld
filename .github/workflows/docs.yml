@@ -12,6 +12,8 @@ on:
       - 'tools/__init__.py'
       - 'tools/utils.py'
       - 'tools/docs/**'
+      - 'tools/version/**'
+      - 'slopd/Cargo.toml'
       - 'justfile'
       - 'just/**'
       - 'pyproject.toml'

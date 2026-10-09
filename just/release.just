@@ -1,11 +1,11 @@
 # Local releases require the game's assemblies; GitHub Actions only runs game-free checks.
 
-# Build release archives, Arch/Debian packages, and checksums locally
+# Validate tagged main, refresh, lint, test, and build release packages locally
 [group('Release')]
 release-package:
     JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m tools.release.publish package
 
-# Rebuild locally and publish a versioned GitHub release
+# Validate tagged main, refresh, lint, test, build, and publish a versioned release
 [group('Release')]
 release-publish:
     JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m tools.release.publish publish

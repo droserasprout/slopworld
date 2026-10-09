@@ -26,5 +26,11 @@ Keep related short topics as page sections rather than creating a page per contr
 
 Build and navigation maintenance belong to [Contributing](../docs/src/development/contributing.md#documentation).
 `tools/docs/check_book.py` owns book validation and repository documentation link checks.
+`tools/docs/constants.py` is the mdBook preprocessor for `{{#constant release_version}}`,
+`{{#constant release_tag}}`, and `{{#constant release_tag_format}}`. It reads the
+Cargo package version and shared tag conventions from `tools/version/metadata.py`;
+unknown names fail the build. Use these in release examples instead of duplicating
+version numbers. Build-time expansion leaves Markdown sources and the human-managed
+changelog untouched. Documentation CI watches both sources of these values.
 Public API contracts belong to the [API reference](../docs/src/reference/api.md);
 wire formats and generator ownership belong to [wire protocol](protocol-wire.md).

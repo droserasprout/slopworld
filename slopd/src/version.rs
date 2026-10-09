@@ -1,6 +1,6 @@
 /// Resolve the version embedded in every SlopWorld binary.
 ///
-/// A release tag is a `vMAJOR.MINOR.PATCH` (or unprefixed SemVer) tag. An ordinary checkout keeps
+/// A release tag is a `vMAJOR.MINOR.PATCH` tag. An ordinary checkout keeps
 /// the package version as its base and appends the UTC build date and short commit so builds remain
 /// distinguishable. A source tree without Git falls back to Cargo's package version.
 pub fn resolve(fallback: &str, tag: Option<&str>, hash: Option<&str>, date: &str) -> String {
@@ -16,7 +16,7 @@ pub fn resolve(fallback: &str, tag: Option<&str>, hash: Option<&str>, date: &str
 }
 
 fn release_version(tag: &str) -> Option<&str> {
-    let version = tag.strip_prefix('v').unwrap_or(tag);
+    let version = tag.strip_prefix('v')?;
     let mut components = version.split('.');
     let valid = components.clone().count() == 3
         && components.all(|component| {

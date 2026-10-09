@@ -42,7 +42,17 @@ fn watch_git() {
 
 fn version_from_git(fallback: &str) -> String {
     let repo = env!("CARGO_MANIFEST_DIR").to_string() + "/..";
-    let tag = git(&repo, &["describe", "--tags", "--exact-match", "HEAD"]);
+    let tag = git(
+        &repo,
+        &[
+            "describe",
+            "--tags",
+            "--exact-match",
+            "--match",
+            "v[0-9]*.[0-9]*.[0-9]*",
+            "HEAD",
+        ],
+    );
     let hash = git(&repo, &["rev-parse", "--short", "HEAD"]);
     let date = Command::new("date")
         .args(["-u", "+%Y%m%d"])

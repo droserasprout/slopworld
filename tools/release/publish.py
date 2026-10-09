@@ -9,51 +9,27 @@ import hashlib
 import json
 import os
 import platform
-import re
 import shutil
 import subprocess
 import tarfile
 import tempfile
-import tomllib
 import zipfile
 from pathlib import Path
 from typing import Any
 
 from tools import ROOT
 from tools.release import arch
+from tools.release import changelog
 from tools.release import container_debian
+from tools.release import gates
 from tools.release import staging
 from tools.utils import command
 from tools.utils import log
 from tools.utils import run
 from tools.utils import run_main
-from tools.version.resolve import from_git
 
 
-def git(*arguments: str) -> str:
-    return run(['git', *arguments], capture_output=True, text=True).stdout.strip()
-
-
-def validate_checkout(revision: str) -> None:
-    if git('status', '--porcelain', '--untracked-files=normal'):
-        raise ValueError('Release requires a clean checkout; commit or stash local changes first.')
-    if git('rev-parse', 'HEAD') != revision:
-        raise ValueError('HEAD changed during the release build; rerun the recipe.')
-
-
-def build(revision: str, *, release: bool = False) -> str:
-    with (ROOT / 'slopd/Cargo.toml').open('rb') as source:
-        fallback = tomllib.load(source)['package']['version']
-    version = os.environ.get('VERSION') or from_git(fallback, ROOT)
-    if release and not re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', version):
-        raise ValueError('Publishing requires a numeric release tag or VERSION=MAJOR.MINOR.PATCH.')
-    # Resolve once so daemon and mod agree even across midnight or numeric tags.
-    run([os.environ['JUST_CMD'], 'BUILD=release', f'VERSION={version}', 'all'])
-    validate_checkout(revision)
-    return version
-
-
-def package(output: Path, revision: str, version: str, *, native_packages: bool = False) -> list[Path]:
+def package(output: Path, revision: str, version: str, *, notes: str, native_packages: bool = False) -> list[Path]:
     daemon_name = f'slopworld-{version}-x86_64-linux'
     asset_names = (f'{daemon_name}.tar.gz', f'slopworld-{version}-mod.zip')
     output.mkdir(parents=True, exist_ok=True)
@@ -86,11 +62,7 @@ def package(output: Path, revision: str, version: str, *, native_packages: bool 
             with (workspace / name).open('rb') as stream:
                 checksums.append(f'{hashlib.file_digest(stream, "sha256").hexdigest()}  {name}\n')
         (workspace / 'SHA256SUMS').write_text(''.join(checksums))
-        (workspace / 'release-notes.md').write_text(
-            f'SlopWorld release for RimWorld 1.6.\n\nVersion: `{version}`\n\nCommit: `{revision}`\n\n'
-            'Install the Arch or Debian package, or download the Linux daemon archive and mod ZIP. '
-            'Verify downloads with `sha256sum -c SHA256SUMS`.\n'
-        )
+        (workspace / 'release-notes.md').write_text(notes)
         names.append('SHA256SUMS')
         for name in (*names, 'release-notes.md'):
             (workspace / name).replace(output / name)
@@ -108,8 +80,7 @@ def github_json(gh: list[str], endpoint: str) -> dict[str, Any] | None:
     return document
 
 
-def publish(gh: list[str], repository: str, output: Path, revision: str, version: str, assets: list[Path]) -> None:
-    tag = f'v{version}'
+def publish(gh: list[str], repository: str, output: Path, revision: str, tag: str, assets: list[Path]) -> None:
     if github_json(gh, f'repos/{repository}/releases/tags/{tag}'):
         raise ValueError(f'Release {tag} already exists; published versions are not replaced.')
     # The commits endpoint dereferences both lightweight and annotated tags.
@@ -154,23 +125,24 @@ def main() -> None:
     args = parser.parse_args()
     if platform.system() != 'Linux' or platform.machine() != 'x86_64':
         raise ValueError('Release recipes currently require an x86_64 Linux build host.')
-    revision = git('rev-parse', 'HEAD')
-    validate_checkout(revision)
+    release = gates.prepare()
+    notes = changelog.description(ROOT / 'CHANGELOG.md', release.version)
     gh = command('GH', 'gh')
     repository = ''
     if args.action == 'publish':
         repository = run(
             [*gh, 'repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner'], capture_output=True, text=True
         ).stdout.strip()
-    version = build(revision, release=args.action == 'publish')
+    gates.build(release)
+    version = release.version
     output = Path(os.environ.get('RELEASE_DIR') or f'dist/{version}')
     if not output.is_absolute():
         output = ROOT / output
-    assets = package(output, revision, version, native_packages=True)
+    assets = package(output, release.revision, version, notes=notes, native_packages=True)
+    gates.validate(release)
     log(f'Release archives: {output}')
     if args.action == 'publish':
-        validate_checkout(revision)
-        publish(gh, repository, output, revision, version, assets)
+        publish(gh, repository, output, release.revision, release.tag, assets)
 
 
 if __name__ == '__main__':

@@ -3,7 +3,7 @@
 # Test documentation link and navigation checks
 [group('Tests and coverage')]
 test-docs:
-    {{ PYTHON }} -m unittest tools.docs.test_check_book
+    {{ PYTHON }} -m pytest tools/docs
 
 # Test supporting tools and generated data
 [group('Tests and coverage')]
