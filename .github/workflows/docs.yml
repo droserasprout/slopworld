@@ -2,8 +2,8 @@ name: Documentation
 
 on:
   push:
-    # Temporary branch trigger for validating publication before merge.
-    branches: [main, human-docs]
+    # Include development branches that publish documentation previews.
+    branches: [main, human-docs, road-to-release]
     paths:
       - 'README.md'
       - '**/README.md'
@@ -54,7 +54,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish to Cloudflare Pages
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/human-docs'
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/human-docs' || github.ref == 'refs/heads/road-to-release'
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

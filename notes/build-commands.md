@@ -54,7 +54,8 @@ CI installs pinned tools, including uv, through
 and the protoc checksum for generated bindings.
 Push triggers skip the test workflow for changes confined to Markdown, `docs/`,
 and `notes/`. Documentation publication filters its book, repository README/note,
-and tooling inputs; sidecar publication runs only on `vMAJOR.MINOR.PATCH` tag pushes. Manual test runs and reusable test calls bypass push path
+and tooling inputs on `main`, `human-docs`, and `road-to-release`, publishing each
+branch to Cloudflare Pages; sidecar publication runs only on `vMAJOR.MINOR.PATCH` tag pushes. Manual test runs and reusable test calls bypass push path
 filters.
 The C# formatter opens only its source directories: folder discovery scans for
 editor configs before applying file exclusions, so opening the checkout root can
