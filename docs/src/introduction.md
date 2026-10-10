@@ -22,6 +22,8 @@ it work.
 
 ## What's inside
 
+<img src="images/introduction-terminal.png" alt="Codex session in SlopWorld with the terminal context menu open" width="240" align="right">
+
 Your favorite Linux tooling, well-integrated:
 
 - **Alacritty** for terminal emulation.
@@ -38,6 +40,8 @@ SlopWorld consists of three components:
 - `slopctl` provides a command-line interface to the daemon's API.
 
 ## Get started
+
+<img src="images/introduction-work.png" alt="SlopWorld terminal showing a code diff beneath a tooltip about automated work" width="240" align="right">
 
 You need a native build of **RimWorld 1.6**, preferably the latest one. Buy the game
 on [Steam](https://store.steampowered.com/app/294100/RimWorld/),
@@ -59,6 +63,8 @@ for installing a package, attaching the mod, and starting the daemon.
 
 ### From source
 
+<img src="images/introduction-sidebar.png" alt="SlopWorld project and agent sidebar with the session context menu open" width="160" align="right">
+
 Install the [`just`](https://github.com/casey/just#installation) command runner
 and the other [build prerequisites](development/build.md#prerequisites).
 
@@ -74,6 +80,8 @@ slopworld
 Always start the "game" with `slopworld`. The mod only activates in a separate profile and should stay disabled in vanilla installation.
 
 ## License
+
+<img src="images/introduction-footer.png" alt="SlopWorld agents gathered in a RimWorld landscape filled with glowing lights" width="240" align="right">
 
 SlopWorld is licensed under [MIT](https://github.com/droserasprout/slopworld/blob/main/LICENSE). Bundled third-party components
 and assets retain their own [licenses and attribution](https://github.com/droserasprout/slopworld/blob/main/licenses/README.md).
