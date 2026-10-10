@@ -12,7 +12,7 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
 
-[*.{toml,json,yml,yaml,xml,csproj}]
+[*.{toml,json,yml,yaml,xml,csproj,props}]
 indent_size = 2
 
 [*.md]

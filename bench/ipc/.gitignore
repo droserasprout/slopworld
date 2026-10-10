@@ -1,5 +1,8 @@
-csharp/bin/
-csharp/obj/
-rust/target/
-fixtures/*.pb
-results/
+# Build output and generated Protobuf fixtures.
+/csharp/bin/
+/csharp/obj/
+/rust/target/
+/fixtures/*.pb
+
+# Local benchmark results.
+/results/

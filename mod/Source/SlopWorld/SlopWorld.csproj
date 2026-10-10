@@ -79,11 +79,26 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="Google.Protobuf"><HintPath>../../Assemblies/Google.Protobuf.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="System.Memory"><HintPath>../../Assemblies/System.Memory.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="System.Buffers"><HintPath>../../Assemblies/System.Buffers.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="System.Numerics.Vectors"><HintPath>../../Assemblies/System.Numerics.Vectors.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="System.Runtime.CompilerServices.Unsafe"><HintPath>../../Assemblies/System.Runtime.CompilerServices.Unsafe.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Google.Protobuf">
+      <HintPath>../../Assemblies/Google.Protobuf.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Memory">
+      <HintPath>../../Assemblies/System.Memory.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Buffers">
+      <HintPath>../../Assemblies/System.Buffers.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Numerics.Vectors">
+      <HintPath>../../Assemblies/System.Numerics.Vectors.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe">
+      <HintPath>../../Assemblies/System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
   <Target Name="CheckRimWorldReferences" BeforeTargets="ResolveReferences">
     <Error Condition="!Exists('$(RimWorldManaged)/Assembly-CSharp.dll')"

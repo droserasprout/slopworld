@@ -1,49 +1,43 @@
-/slopd/target
+# Local worktrees, private files, and scratch data.
 /.worktrees/
+/priv/
+
+# Build and packaging output.
 /coverage/
 /dist/
-mod/Source/SlopWorld/obj/
-mod/Source/SlopWorld/bin/
-mod/Assemblies/SlopWorld.dll
-# Runtime libraries restored by just sync-mod.
-mod/Assemblies/AngleSharp.dll
-mod/Assemblies/System.Text.Encoding.CodePages.dll
-mod/Assemblies/Markdig.dll
-mod/Assemblies/Newtonsoft.Json.dll
-mod/Assemblies/Tomlyn.dll
+/slopd/target/
+/mod/Source/SlopWorld/bin/
+/mod/Source/SlopWorld/obj/
+/mod/Dependencies/bin/
+/mod/Dependencies/obj/
+/packaging/arch/src/
+/packaging/arch/pkg/
+/packaging/arch/*.pkg.tar.*
 *.pdb
 *.mdb
-.tokensave
-docs/book/
-# Temporary implementation plans and review scratch notes.
-_plans/
-# User-owned jukebox definitions; never include station sources in the project.
-/slopd/jukebox/
-__pycache__/
-tools/bg/
-packaging/arch/src/
-packaging/arch/pkg/
-packaging/arch/*.pkg.tar.*
 
-mod/Dependencies/bin/
-mod/Dependencies/obj/
+# Runtime libraries restored by `just sync-mod`.
+/mod/Assemblies/SlopWorld.dll
+/mod/Assemblies/AngleSharp.dll
+/mod/Assemblies/System.Text.Encoding.CodePages.dll
+/mod/Assemblies/Markdig.dll
+/mod/Assemblies/Newtonsoft.Json.dll
+/mod/Assemblies/Tomlyn.dll
 
 # Benchmark raw artifacts and generated CSV reports remain local.
 /notes/perf-suite*.raw/
 /bench/terminal-input/runs/
 /bench/results/
 
-# Separate local developer repository.
-/priv/
-
 # License copies staged by just refresh-licenses.
 /mod/About/LICENSE
 /mod/About/ThirdPartyNotices/
 
-# Local uv environment.
+# Local Python venv managed my `uv`.
 /.venv/
 
 # Python test and lint caches.
+__pycache__/
 /.pytest_cache/
 /.ruff_cache/
 /.mypy_cache/

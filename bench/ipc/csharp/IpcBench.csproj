@@ -1,5 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>Exe</OutputType><TargetFrameworks>net472;net8.0</TargetFrameworks><LangVersion>latest</LangVersion><EnableDefaultCompileItems>false</EnableDefaultCompileItems><RestorePackagesWithLockFile>true</RestorePackagesWithLockFile></PropertyGroup>
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net472;net8.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Google.Protobuf" Version="3.36.1" />
     <Compile Include="Program.cs" />
@@ -9,5 +15,7 @@
     <Compile Include="../../../mod/Source/SlopWorld/Client/Transport/ReceivedEvent.cs" />
     <Compile Include="../../../mod/Source/SlopWorld/Client/SessionHub/HubEventBatch.cs" />
   </ItemGroup>
-  <ItemGroup><Compile Include="../../../mod/Source/SlopWorld/Client/Diagnostics/TerminalLatency.cs" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../../mod/Source/SlopWorld/Client/Diagnostics/TerminalLatency.cs" />
+  </ItemGroup>
 </Project>

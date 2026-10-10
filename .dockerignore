@@ -1,5 +1,7 @@
+# Only send sidecar build inputs to the container builder.
 *
 !.dockerignore
+
 !slopd/
 slopd/*
 !slopd/Cargo.toml
@@ -9,13 +11,16 @@ slopd/*
 !slopd/src/**
 !slopd/presets/
 !slopd/presets/**
+
 !slopcar/
 slopcar/*
 !slopcar/entrypoint.sh
 !slopcar/doctor.sh
+
 !shared/
 shared/*
 !shared/slopworld.proto
+
 !LICENSE
 !licenses/
 !licenses/**

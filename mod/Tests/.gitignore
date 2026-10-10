@@ -1,2 +1,3 @@
-bin/
-obj/
+# Game-free test build output.
+/bin/
+/obj/
