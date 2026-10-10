@@ -39,12 +39,12 @@ SLOPCAR_PROFILE := env("SLOPCAR_PROFILE", data_home + '/slopworld-car/profile')
 # Resolve from this shared file so the macOS justfile uses the same workspace.
 export SLOPCAR_WORKSPACE := env("SLOPCAR_WORKSPACE", absolute_path(source_directory() / '..'))
 export SLOPCAR_START_ARGS := env("SLOPCAR_START_ARGS", '--workspace "' + SLOPCAR_WORKSPACE + '"')
-export SLOPCAR := env("SLOPCAR", 'slopcar/slopcar')
 
 # Which half of the split every build, install and run target follows.
 export BUILD := env("BUILD", 'debug')
 build_mode := if BUILD =~ '^(debug|release)$' { BUILD } else { error('BUILD must be exactly debug or release; got ' + BUILD) }
 export CARGOFLAGS := if build_mode == 'release' { '--release' } else { '' }
+export SLOPCAR := env("SLOPCAR", 'slopcar/target/' + build_mode + '/slopcar')
 TARGET := 'slopd/target/' + build_mode
 RUNNER := TARGET + '/slopworld'
 SLOPCTL := TARGET + '/slopctl'

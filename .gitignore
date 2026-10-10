@@ -6,6 +6,7 @@
 /coverage/
 /dist/
 /slopd/target/
+/slopcar/target/
 /mod/Source/SlopWorld/bin/
 /mod/Source/SlopWorld/obj/
 /mod/Dependencies/bin/

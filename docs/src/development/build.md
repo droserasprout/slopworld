@@ -35,6 +35,7 @@ or `just --list --group Build` to show only build recipes:
 just all       # daemon, launcher, and mod
 just daemon    # daemon and launcher
 just mod       # mod; requires game assemblies
+just sidecar   # native host-side container launcher; no game or protoc required
 ```
 
 `BUILD` is `debug` by default. Use `just BUILD=release all` for a release build.
@@ -75,7 +76,7 @@ standard GOG and Steam paths. It uses a separate [game profile](../maintenance/g
 | `just test` | All game-free Rust, C#, tool, and pager tests | `tmux`, `less` |
 | `just ci` | Game-free tests with coverage, formatting, Rust lint, and generated-contract checks | `tmux`, `less`, coverage tools |
 
-Use `test-daemon`, `test-mod`, `test-tools`, or `test-pager` to run a subset.
+Use `test-daemon`, `test-sidecar`, `test-mod`, `test-tools`, or `test-pager` to run a subset.
 `just test-tools` runs benchmark helper tests and the Python package tests through pytest,
 without collecting coverage. Existing unittest tests run under pytest.
 Use `just coverage-tools` when you want a Python branch coverage report.

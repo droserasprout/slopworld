@@ -6,6 +6,36 @@ namespace SlopWorld.Tests
 {
     static class UiRowsAndSidebarCacheTests
     {
+        public static void RoutedReaderOrderSurvivesDiffHandleReplacement()
+        {
+            var rows = new List<SessionInfo>();
+            var sessions = new[]
+            {
+                new SessionInfo { Name = "ffffffffffffffff", Label = "diff-a", ReaderKey = "diff:a" },
+                new SessionInfo { Name = "8888888888888888", Label = "diff-z", ReaderKey = "diff:z" },
+                new SessionInfo { Name = "0000000000000000", Label = "edit-file", ReaderPath = "/z/file" },
+                new SessionInfo { Name = "eeeeeeeeeeeeeeee", Label = "edit-file", ReaderPath = "/a/file" },
+            };
+            Action rebuild = () => RoutedSessionRows.Rebuild(rows, sessions, _ => true,
+                list => list.Add(new SessionInfo { Name = "view-native-1", Label = "view-file" }), 12);
+            rebuild();
+            AssertEx.Sequence(new[] { "diff-a", "diff-z", "edit-file", "edit-file", "view-file" },
+                rows.ConvertAll(s => s.Label), "display names order native and daemon readers");
+            AssertEx.Equal("/a/file", rows[2].ReaderPath, "source path orders identical labels");
+            sessions[0] = new SessionInfo { Name = "1111111111111111", Label = "diff-a", ReaderKey = "diff:a" };
+            rebuild();
+            AssertEx.Equal("1111111111111111", rows[0].Name, "replacement retains diff position");
+            AssertEx.Equal("8888888888888888", rows[1].Name, "neighbor does not move");
+
+            sessions = new[]
+            {
+                new SessionInfo { Name = "0000000000000000", ReaderPath = "/z/file" },
+                new SessionInfo { Name = "ffffffffffffffff", ReaderPath = "/a/file" },
+            };
+            rebuild();
+            AssertEx.Equal("/a/file", rows[0].ReaderPath, "unlabelled readers use their source path");
+        }
+
         public static void RoutedCacheTracksCommandSettingsWithoutSessionChanges()
         {
             var cache = new RoutedSessionRows();

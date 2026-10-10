@@ -1,8 +1,20 @@
 # slopcar
 
-`slopcar` packages the Linux daemon, tmux, Bubblewrap, pasta, and bundled agent CLIs
-in a Debian container.
-The base supports amd64 and arm64.
+`slopcar` is a native Rust host launcher for a Debian container containing the
+Linux daemon, tmux, Bubblewrap, pasta, and bundled agent CLIs.
+The container base supports amd64 and arm64.
+The independent `slopcar/Cargo.toml` crate builds on Linux and macOS without
+the daemon's Linux/audio/protobuf dependencies. `just sidecar` builds it;
+`just install-sidecar` installs it. `just test-sidecar` runs game-free tests.
+`just refresh-sidecar-licenses` updates its dependency notices after lock changes;
+`slopcar licenses` prints the notices embedded in the executable.
+
+`src/lifecycle.rs` owns Docker lifecycle and security flags; `src/docker.rs`
+owns subprocess transport. `src/mounts.rs` owns mount validation and
+`src/config.rs` seeds host config without overwriting existing files.
+The host executable embeds `seccomp.json`; the Dockerfile and container-side
+entrypoint/doctor remain image inputs. Only image builds require a checkout,
+selected with `build --source PATH` (default: current directory).
 Sandbox construction uses the container's usr-merge layout at runtime.
 
 For setup, workspace and credential mounts, client connection, and lifecycle, see

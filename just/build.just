@@ -38,6 +38,7 @@ validate-themes:
 [group('Build')]
 clean:
     cd slopd && {{ CARGO }} clean
+    cd slopcar && {{ CARGO }} clean
     rm -f "{{ MOD_DLL }}"
     rm -rf mod/Source/SlopWorld/obj
     rm -rf "{{ COVERAGE_DIR }}"

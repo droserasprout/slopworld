@@ -21,7 +21,7 @@ just --justfile mac/justfile setup
 open -a Docker
 ```
 
-`setup` installs build tools, the .NET SDK, and Docker Desktop. Open Docker
+`setup` installs build tools including Rust, the .NET SDK, and Docker Desktop. Open Docker
 Desktop before continuing.
 
 ## Install and launch

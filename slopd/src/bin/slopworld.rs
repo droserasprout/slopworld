@@ -388,7 +388,7 @@ fn sidecar_paths_from(
         })?;
     if !endpoint.is_file() {
         return Err(format!(
-            "no slopcar endpoint at {} (start the sidecar first, e.g.: slopcar/slopcar start --workspace \"$HOME/git\")",
+            "no slopcar endpoint at {} (start the sidecar first, e.g.: slopcar start --workspace \"$HOME/git\")",
             endpoint.display()
         ));
     }

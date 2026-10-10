@@ -83,7 +83,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: slopd
+          workspaces: |
+            slopd
+            slopcar
 
       - name: Check bubblewrap namespaces in the CI container
         run: |
@@ -104,10 +106,10 @@ jobs:
         run: just test-tools test-pager
 
       - name: Lint Rust
-        run: just lint-daemon
+        run: just lint-daemon lint-sidecar
 
       - name: Test Rust with coverage
-        run: just coverage-daemon
+        run: just coverage-daemon test-sidecar
 
       - name: Test C# with coverage
         run: just coverage-mod

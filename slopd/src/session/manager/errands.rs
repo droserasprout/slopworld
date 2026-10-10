@@ -92,6 +92,23 @@ impl Manager {
         let mut preparation = self
             .prepare_errand_session(cfg, sc, want, host, like)
             .await?;
+        // Serialized launches reuse a running editor even across concurrent requests
+        // or a mod restart. Return its handle so the client focuses the existing pane.
+        if host && !persistent_host && want.intent == "edit" && !want.reader_path.is_empty() {
+            let live = self.live.read().await;
+            if let Some(editor) = live.values().find(|row| {
+                row.host
+                    && row.ephemeral
+                    && row.state != State::Down
+                    && row.cfg.intent == "edit"
+                    && row.cfg.reader_path == want.reader_path
+                    && row.cfg.reader_scope == want.reader_scope
+                    && row.cfg.worktree == preparation.selected_worktree
+                    && (preparation.fresh || row.cfg.project == preparation.project_name)
+            }) {
+                return Ok(editor.cfg.name.clone());
+            }
+        }
         let name = self
             .errand_session_name(cfg, sc, want, persistent_host, &preparation)
             .await?;
@@ -155,10 +172,17 @@ impl Manager {
         preparation: &ErrandSessionPreparation,
     ) -> Result<String> {
         let live = self.live.read().await;
+        if !persistent_host && !want.intent.is_empty() {
+            // The session boundary reserves the handle through live-row publication.
+            // Retry collisions rather than adding a suffix outside the shared ID syntax.
+            return crate::storage_id::allocate(|id| {
+                Ok(live.contains_key(id)
+                    || cfg.sessions.iter().any(|session| session.name == id)
+                    || cfg.host_terminals.iter().any(|tab| tab.name == id))
+            });
+        }
         let preferred = if persistent_host {
             crate::sandbox::host_session_name(&preparation.project_name)
-        } else if !want.intent.is_empty() {
-            format!("tab-{}", uuid::Uuid::new_v4().simple())
         } else {
             slug(&sc.name)
         };

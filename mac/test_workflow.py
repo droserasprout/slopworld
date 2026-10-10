@@ -13,6 +13,7 @@ from mac import workflow
 )
 def test_start_preserves_existing_container_mounts(monkeypatch, running, exists, expected):
     monkeypatch.setenv('SLOPCAR_CONTAINER', 'test-container')
+    monkeypatch.setenv('SLOPCAR', '/tmp/sidecar binary')
     responses = [
         subprocess.CompletedProcess([], 0 if exists else 1, stdout='true' if running else 'false'),
         subprocess.CompletedProcess([], 0 if exists else 1),
@@ -23,7 +24,7 @@ def test_start_preserves_existing_container_mounts(monkeypatch, running, exists,
     if expected is None:
         assert run.call_count == 1
     else:
-        assert run.call_args.args[0][1:] == ['start', *expected]
+        assert run.call_args.args[0] == ['/tmp/sidecar binary', 'start', *expected]
 
 
 def test_game_check_rejects_non_macos_before_external_commands():

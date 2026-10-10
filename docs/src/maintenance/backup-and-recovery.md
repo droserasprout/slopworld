@@ -28,7 +28,7 @@ Daemon caches, including activity and prompt summaries, are disposable.
    Stopping the native daemon alone leaves tmux and its processes running.
 2. Save and close the game so its profile stops changing.
 3. Stop the native daemon with `systemctl --user stop slopd`. For a sidecar, run
-   `./slopcar/slopcar stop` from the checkout; this also ends the container's tmux
+   `slopcar stop`; this also ends the container's tmux
    and agent processes.
 4. Copy the locations listed above, including any path overrides, into one backup.
    Preserve permissions and symlinks. Keep all writers stopped until copying ends,
