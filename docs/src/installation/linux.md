@@ -1,7 +1,7 @@
-# Installation
+# Linux
 
 Install SlopWorld on native Linux using an Arch or Debian/Ubuntu package.
-For other setups, see [macOS](../deployment/macos.md) or [Sidecar worker](../deployment/sidecar.md).
+For other setups, see [macOS](../installation/macos.md) or [Sidecar mode](../installation/sidecar.md).
 
 ## Requirements
 
@@ -66,7 +66,7 @@ use `--source DIR` for another mod tree.
 Always launch with `slopworld`. The mod uses a separate
 [game profile](../maintenance/game-profiles.md); keep it disabled in your vanilla profile.
 
-Continue with [Quickstart](quickstart.md) to prepare your agent CLI, add a project,
+Continue with [Quickstart](../getting-started/quickstart.md) to prepare your agent CLI, add a project,
 and run your first task.
 
 <a id="updating"></a>

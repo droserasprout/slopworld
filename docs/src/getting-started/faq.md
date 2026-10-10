@@ -4,7 +4,7 @@
 
 ### Which builds can I use? {#supported-builds}
 
-See [Requirements](../getting-started/install.md#requirements) for supported platforms and game builds.
+See [Requirements](../installation/linux.md#requirements) for supported platforms and game builds.
 
 ### Can I play normal RimWorld after installing SlopWorld? {#normal-rimworld}
 
@@ -68,4 +68,4 @@ See [Keyboard shortcuts](../reference/keyboard-shortcuts.md).
 
 ### What does Eco mode do? {#eco-mode}
 
-See [Eco mode](../getting-started/gameplay.md#eco-mode) for simulation, terminal, and saving behavior.
+See [Eco mode](../workspace/gameplay.md#eco-mode) for simulation, terminal, and saving behavior.

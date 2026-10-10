@@ -46,7 +46,7 @@ The mod renders terminal cells and sends user input back through the client.
 Session lifecycle, terminal display, and colony simulation are separate concerns.
 For their user-facing behavior, see [Session lifecycle](../agents/session-lifecycle.md),
 [Input and panes](../terminals/terminal-interface.md), and
-["Gameplay"](../getting-started/gameplay.md). Sandbox access boundaries are described
+["Gameplay"](../workspace/gameplay.md). Sandbox access boundaries are described
 in the [Security model](../sandbox/security.md).
 
 ## Native and sidecar deployment
@@ -58,5 +58,5 @@ The native macOS workflow lives in `mac/`; shared container tooling lives in
 `slopcar/`.
 
 Replacing the container ends its tmux processes, while persistent private state
-can remain. See [Sidecar mode](../deployment/sidecar.md) and
-[macOS](../deployment/macos.md) for setup and lifecycle procedures.
+can remain. See [Sidecar mode](../installation/sidecar.md) and
+[macOS](../installation/macos.md) for setup and lifecycle procedures.

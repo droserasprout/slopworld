@@ -12,7 +12,7 @@ Use [Game profiles](../maintenance/game-profiles.md) to select and initialize th
 ## The launcher cannot find the game
 
 Pass `slopworld --game /path/to/game` or set `SLOPWORLD_GAME` for the launcher.
-Set `RIMWORLD` for just build/install/run targets. See [Install](../getting-started/install.md).
+Set `RIMWORLD` for just build/install/run targets. See [Install](../installation/linux.md).
 
 ## Harmony exceptions at startup
 
@@ -33,7 +33,7 @@ journalctl --user -u slopd -n 30 --no-pager
 If no listener appears, check `[daemon].bind` in the configuration and logs for
 startup failures. Service active status alone does not mean the listener is ready.
 If the endpoint descriptor is missing or stale, restarting the daemon recreates it.
-See [Linux sidecar](../deployment/sidecar.md) or [macOS](../deployment/macos.md) for container lifecycle.
+See [Sidecar mode](../installation/sidecar.md) or [macOS](../installation/macos.md) for container lifecycle.
 
 ## An agent cannot reach the network
 
@@ -69,7 +69,7 @@ See [Applying changes](../customization/settings.md#applying-changes) for Save a
 ## CPU usage
 
 See the [Security model](../sandbox/security.md) for sandbox limits and
-[Requirements](../getting-started/install.md#requirements) for supported game versions.
+[Requirements](../installation/linux.md#requirements) for supported game versions.
 
 ## Configuration validation errors {#configuration-errors-after-updating}
 

@@ -2,8 +2,8 @@
 
 A quick tour covering core concepts and usual workflow.
 
-First, finish the [Installation](install.md) guide for native Linux, [macOS](../deployment/macos.md)
-or [Sidecar](../deployment/sidecar.md) for other environments.
+First, finish the [Linux](../installation/linux.md) guide for native Linux, [macOS](../installation/macos.md)
+or [Sidecar mode](../installation/sidecar.md) for other environments.
 
 ## Prepare your tools
 
@@ -37,7 +37,7 @@ Launch with `slopworld`.
 
 
 The sidebar holds your agents, files, and Git changes. Selecting an agent opens
-its terminal. See the [interface tour](interface.md) for the other controls.
+its terminal. See the [interface tour](../workspace/interface.md) for the other controls.
 If the workspace cannot connect to the daemon, follow
 [Troubleshooting](../help/troubleshooting.md).
 
@@ -189,7 +189,7 @@ spawning it, then review and commit its changes there.
 
 ## Continue
 
-- [Interface](interface.md) introduces file browsing, search, and the workspace controls.
+- [Interface](../workspace/interface.md) introduces file browsing, search, and the workspace controls.
 - [Sandboxing](../sandbox/sandboxing.md) explains the agent's access to your system.
 - [Project worktrees](../workspace/project-worktrees.md) adds separate checkouts for parallel work.
 - [Library items and errands](../workspace/library.md) saves reusable prompts and commands.

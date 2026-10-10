@@ -8,7 +8,7 @@ support amd64/arm64, which does not itself establish platform validation.
 `mac/` owns the native macOS workflow through its separate justfile; shared
 container tooling remains in `slopcar/`. Workspace paths match on host/container. Container mount/security policy belongs to
 [slopcar](../slopcar/README.md), and setup/lifecycle to
-[macOS](../docs/src/deployment/macos.md) and [sidecar](../docs/src/deployment/sidecar.md).
+[macOS](../docs/src/installation/macos.md) and [sidecar](../docs/src/installation/sidecar.md).
 Container replacement ends tmux processes while persistent private state remains;
 this differs from daemon-only redeployment.
 

@@ -12,7 +12,7 @@ slopworld --profile /path/to/profile
 ```
 
 See [Paths and files](../reference/paths.md) for defaults and overrides. Standard
-native, [sidecar](../deployment/sidecar.md), and [macOS](../deployment/macos.md) just workflows use separate
+native, [sidecar](../installation/sidecar.md), and [macOS](../installation/macos.md) just workflows use separate
 paths. Explicit paths can select the same folder, so choose separate folders when
 you want separate saves. Profile paths cannot contain `=`.
 

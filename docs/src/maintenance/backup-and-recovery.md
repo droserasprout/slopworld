@@ -55,8 +55,8 @@ For the native Linux service, start the daemon with:
 systemctl --user start slopd
 ```
 
-For containers, follow [Sidecar worker](../deployment/sidecar.md); on macOS, follow the
-[macOS guide](../deployment/macos.md). Agents with autostart enabled start automatically.
+For containers, follow [Sidecar mode](../installation/sidecar.md); on macOS, follow the
+[macOS guide](../installation/macos.md). Agents with autostart enabled start automatically.
 Start other agents from the sidebar. The daemon recreates its endpoint descriptor
 from the saved configuration.
 

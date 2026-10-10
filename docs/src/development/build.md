@@ -1,6 +1,6 @@
 # Build from source
 
-Build and install SlopWorld from a checkout and run development checks. For prebuilt packages, see [Installation](../getting-started/install.md).
+Build and install SlopWorld from a checkout and run development checks. For prebuilt packages, see [Installation](../installation/linux.md).
 
 ## Prerequisites
 
@@ -22,7 +22,7 @@ Build and install SlopWorld from a checkout and run development checks. For preb
 
 Set `RIMWORLD` to the Linux game directory containing `RimWorldLinux`.
 Building the mod requires the game's assemblies in `Managed/`. For native macOS,
-follow the [macOS guide](../deployment/macos.md).
+follow the [macOS guide](../installation/macos.md).
 
 ## Build and install
 

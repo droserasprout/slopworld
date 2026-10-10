@@ -6,8 +6,8 @@ The base supports amd64 and arm64.
 Sandbox construction uses the container's usr-merge layout at runtime.
 
 For setup, workspace and credential mounts, client connection, and lifecycle, see
-the [sidecar guide](../docs/src/deployment/sidecar.md). Native macOS game setup is in
-the [macOS guide](../docs/src/deployment/macos.md).
+the [sidecar guide](../docs/src/installation/sidecar.md). Native macOS game setup is in
+the [macOS guide](../docs/src/installation/macos.md).
 
 ## Outer isolation
 

@@ -58,4 +58,4 @@ not change agents' assigned checkouts.
 
 - [Project mounts](project-mounts.md#shared-cache-mounts) covers shared build caches.
 - [Using slopctl](../reference/slopctl.md) covers worktree and worker commands.
-- [Interface](../getting-started/interface.md) covers browsing and checkout filters.
+- [Interface](../workspace/interface.md) covers browsing and checkout filters.

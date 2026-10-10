@@ -1,13 +1,13 @@
 # Updates and uninstallation
 
 These steps apply to native Linux packages. For other installations, see
-[macOS](../deployment/macos.md), [Sidecar mode](../deployment/sidecar.md), or
+[macOS](../installation/macos.md), [Sidecar mode](../installation/sidecar.md), or
 [Build from source](../development/build.md).
 
 ## Updating
 
 To update, download the replacement package and follow the
-[package installation](../getting-started/install.md#get-binaries) steps. Refresh the installed
+[package installation](../installation/linux.md#get-binaries) steps. Refresh the installed
 mod, then reload and restart the daemon as your
 normal user:
 

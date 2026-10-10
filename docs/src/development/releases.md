@@ -111,6 +111,6 @@ mod, and license notices. Shared-library requirements come from
 [dpkg-shlibdeps](https://manpages.debian.org/bookworm/dpkg-dev/dpkg-shlibdeps.1.en.html)
 on the build host; build on the oldest Debian/Ubuntu release you intend to support.
 Game assemblies and untracked mod assets are excluded. Package installation and
-user setup are covered in [Install](../getting-started/install.md#debian-and-ubuntu).
+user setup are covered in [Install](../installation/linux.md#debian-and-ubuntu).
 `just test-release` covers Debian staging and failure handling without the game.
 

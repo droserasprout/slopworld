@@ -45,4 +45,4 @@ Configured-agent trash remains available for at least 14 days. Follow
   one-shot workers are removed on exit. An unfinished worker task fails when its
   worker exits or is stopped. Worktrees have independent lifetimes.
 
-For a container deployment, also read [Sidecar lifecycle](../deployment/sidecar.md#lifecycle).
+For a container deployment, also read [Sidecar lifecycle](../installation/sidecar.md#lifecycle).

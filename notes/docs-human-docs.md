@@ -21,13 +21,13 @@ Put each fact on one main page; tours and FAQ link to detailed guides and refere
 Give every FAQ question an explicit stable anchor.
 
 The book groups user workflows in `SUMMARY.md`. Page directories mirror its top-level
-sections; Introduction remains at the book root. Deployment follows Getting started
-and owns the macOS and Linux sidecar setup guides. Keyboard and mouse shortcuts belong
+sections; Introduction remains at the book root. Installation follows Getting started
+and owns the Linux, macOS, and Sidecar mode setup guides. Keyboard and mouse shortcuts belong
 in Reference, and the architecture overview belongs in Development. Terminal
-interaction and shell guides belong under Terminals; colony behavior and Eco mode
-belong under Getting started in
-`"Gameplay"` (including the quotation marks).
-Workspace owns command presets alongside project and file workflows. Agents owns
+interaction and shell guides belong under Terminals. Getting started owns Quickstart
+and FAQ, in that order. Workspace begins with Interface and ends with `"Gameplay"`
+(including the quotation marks), which owns colony behavior and Eco mode.
+Workspace also owns command presets alongside project and file workflows. Agents owns
 usage and summaries, keeping shared credentials, usage polling, and prompt summaries
 together. Maintenance owns saves and profiles, storage, recovery, and
 update/removal procedures. Installation links to the maintenance procedure.

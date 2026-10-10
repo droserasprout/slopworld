@@ -48,17 +48,17 @@ on [Steam](https://store.steampowered.com/app/294100/RimWorld/),
 [GOG](https://www.gog.com/en/game/rimworld), or
 [directly from Ludeon Studios](https://rimworldgame.com/).
 
-For Linux host, see the [requirements](getting-started/install.md#requirements) and
-[installation guide](getting-started/install.md).
+For Linux host, see the [requirements](installation/linux.md#requirements) and
+[installation guide](installation/linux.md).
 
-For experimental sidecar mode (`slopd` in Docker) follow the [macOS](deployment/macos.md)
-and [sidecar worker](deployment/sidecar.md) guides.
+For experimental sidecar mode (`slopd` in Docker) follow the [macOS](installation/macos.md)
+and [sidecar worker](installation/sidecar.md) guides.
 
 ### From binaries
 
 Binary packages for Arch and deb-based distros are published to [GitHub Releases](https://github.com/droserasprout/slopworld/releases).
 
-See the [installation instructions](getting-started/install.md)
+See the [installation instructions](installation/linux.md)
 for installing a package, attaching the mod, and starting the daemon.
 
 ### From source

@@ -1,4 +1,4 @@
-# Linux sidecar
+# Sidecar mode
 
 A sidecar runs `slopd`, tmux, and the agent sandboxes in a Docker container. The game
 can remain on the host and connect to the sidecar over a loopback port. This page covers standalone sidecar setup. The native-game

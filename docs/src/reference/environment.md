@@ -6,8 +6,8 @@ does not change an already-running daemon or game. For a systemd-managed daemon,
 configure the service environment and restart the service.
 
 Build recipe settings belong to [Build from source](../development/build.md).
-Container and macOS recipe settings belong to [Linux sidecar](../deployment/sidecar.md)
-and [macOS](../deployment/macos.md).
+Container and macOS recipe settings belong to [Sidecar mode](../installation/sidecar.md)
+and [macOS](../installation/macos.md).
 
 ## Connection and identity
 
