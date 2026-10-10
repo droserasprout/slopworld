@@ -126,6 +126,12 @@ accepting saved credentials.
 
 `bench/runner.py` owns benchmark build/run subprocesses; `bench/report.py` owns
 collection and reporting. `bench/` also owns shared result handling and its tests.
+`slopcar/Cargo.toml` owns the independent native sidecar launcher, built by
+`just sidecar` and installed by `install-sidecar`. `test-sidecar` and
+`lint-sidecar` validate it without Docker or the game. Recipes export `SLOPCAR`
+to both Python callers; runtime commands use the embedded seccomp policy.
+`refresh-sidecar-licenses` owns the launcher's full Linux/macOS dependency notices
+under `licenses/slopcar/`, also embedded in the executable.
 `slopcar/` owns the shared container devloop; platform workflows call it through `just`.
 `tools/assets/` owns asset generators and text-sprite checks; `assets/` owns bundled
 source data and icon manifests. Generated runtime assets stay in `mod/`.

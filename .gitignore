@@ -1,4 +1,5 @@
 /slopd/target
+/slopcar/target
 /.worktrees/
 /coverage/
 /dist/

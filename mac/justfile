@@ -50,23 +50,23 @@ ready: build
 
 # Start the configured macOS sidecar, reusing its container
 [group('macOS')]
-start: docker-check
+start: docker-check sidecar
     {{ SLOPCAR_ENV }} {{ PYTHON }} -m mac.workflow start {{ SLOPCAR_START_ARGS }}
 
 # Stop the macOS sidecar without removing its state
 [group('macOS')]
-stop: docker-check
-    {{ SLOPCAR_ENV }} {{ SLOPCAR }} stop
+stop: docker-check sidecar
+    {{ SLOPCAR_ENV }} "{{ SLOPCAR }}" stop
 
 # Show macOS sidecar status
 [group('macOS')]
-status: docker-check
-    {{ SLOPCAR_ENV }} {{ SLOPCAR }} status
+status: docker-check sidecar
+    {{ SLOPCAR_ENV }} "{{ SLOPCAR }}" status
 
 # Show macOS sidecar logs. Use LOG_ARGS='--tail 100' to limit output.
 [group('macOS')]
-logs: docker-check
-    {{ SLOPCAR_ENV }} {{ SLOPCAR }} logs {{ LOG_ARGS }}
+logs: docker-check sidecar
+    {{ SLOPCAR_ENV }} "{{ SLOPCAR }}" logs {{ LOG_ARGS }}
 
 # Install the macOS build tools and Docker Desktop with Homebrew
 [group('macOS')]
@@ -105,3 +105,7 @@ mod-check:
 [private]
 daemon:
     "{{ just_executable() }}" --justfile "{{ root_justfile }}" daemon
+
+[private]
+sidecar:
+    "{{ just_executable() }}" --justfile "{{ root_justfile }}" sidecar

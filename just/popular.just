@@ -6,19 +6,19 @@ all: daemon mod
 
 # Format Python, Rust and C# sources
 [group('Common commands')]
-format: format-tools format-daemon format-mod
+format: format-tools format-daemon format-sidecar format-mod
 
 # Check Python, Rust and C# sources
 [group('Common commands')]
-lint: lint-tools lint-daemon lint-mod
+lint: lint-tools lint-daemon lint-sidecar lint-mod
 
 # Run all game-free tests (requires tmux and less)
 [group('Common commands')]
-test: test-daemon test-mod test-tools test-pager
+test: test-daemon test-sidecar test-mod test-tools test-pager
 
 # Run game-free CI checks with coverage
 [group('Common commands')]
-ci: check-generated check-format-daemon check-format-mod lint-tools test-tools test-pager lint-daemon coverage-daemon coverage-mod
+ci: check-generated check-format-daemon check-format-mod lint-tools test-tools test-pager lint-daemon lint-sidecar coverage-daemon test-sidecar coverage-mod
 
 # Run the game-free daemon, C# and IPC benchmarks into shared CSV results
 [group('Common commands')]

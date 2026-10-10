@@ -1,0 +1,19 @@
+[package]
+name = "slopcar"
+version = "0.0.1"
+edition = "2024"
+description = "Host-side container launcher for SlopWorld"
+license = "MIT"
+
+[dependencies]
+anyhow = "1"
+rand = "0.8"
+tempfile = "3"
+toml = "0.8"
+
+[dev-dependencies]
+serde_json = "1"
+
+[lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"

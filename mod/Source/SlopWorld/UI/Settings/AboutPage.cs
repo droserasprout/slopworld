@@ -104,6 +104,11 @@ namespace SlopWorld
                 new CreditLink("TOML", "https://github.com/toml-rs/toml"),
                 new CreditLink("JSON", "https://github.com/serde-rs/json"),
             }),
+            new Credit("rand / tempfile", "sidecar token and temporary files", new[]
+            {
+                new CreditLink("rand", "https://github.com/rust-random/rand"),
+                new CreditLink("tempfile", "https://github.com/Stebalien/tempfile"),
+            }),
             new Credit("prost", "Protocol Buffers",
                 "https://github.com/tokio-rs/prost"),
             new Credit("Landlock", "filesystem isolation",

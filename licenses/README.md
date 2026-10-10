@@ -11,6 +11,7 @@ metadata; it does not include their full license texts or notices.
 
 | Component | License | Full text | Attribution and use |
 | --- | --- | --- | --- |
+| Slopcar Rust dependencies | MIT | [Full dependency notices](slopcar/THIRD-PARTY-NOTICES.txt) | Host-side container launcher; generated from its locked Cargo graph by `just refresh-sidecar-licenses`. |
 | [Classic Console Neue](https://webdraft.hu/fonts/classic-console/) | MIT | [License](classic-console-neue/LICENSE.txt) | DeeJayy, 2011–2025; printable ASCII glyphs rendered into the loading-screen atlas. |
 | [Noto Emoji](https://github.com/googlefonts/noto-emoji) | SIL OFL 1.1 | [License](noto-emoji/LICENSE.txt) | Google; glyphs rendered into emoji atlases and application icons. |
 | [Material Icon Theme](https://github.com/material-extensions/vscode-material-icon-theme) | MIT | [License](material-icon-theme/LICENSE.txt) | Material Extensions; selected SVGs rendered into file icons. |

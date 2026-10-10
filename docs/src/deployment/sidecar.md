@@ -6,7 +6,8 @@ can remain on the host and connect to the sidecar over a loopback port. This pag
 
 ## Requirements
 
-You need Docker or Docker Desktop, `just`, and a local repository checkout.
+You need Docker or Docker Desktop. Building the host-side launcher and image
+also requires Rust, `just`, and a local repository checkout.
 The container supplies the daemon runtime dependencies. To build the launcher and
 mod for the Linux game below, also install the host
 [build prerequisites](../development/build.md#prerequisites) and locate your native RimWorld 1.6
@@ -14,9 +15,10 @@ installation.
 
 ## Start the sidecar {#start-a-worker}
 
-Build and check the image:
+Build and install the host-side Rust launcher, then build and check the image:
 
 ```sh
+just install-sidecar
 just sidecar-build
 just sidecar-doctor
 ```
@@ -27,8 +29,13 @@ The container mounts each workspace at the same path. The game and daemon exchan
 ```sh
 SLOPCAR_CONFIG_DIR="$HOME/.config/slopworld-car" \
 SLOPCAR_DATA_DIR="$HOME/.local/share/slopworld-car" \
-  ./slopcar/slopcar start --workspace "/absolute/path/to/project"
+  slopcar start --workspace "/absolute/path/to/project"
 ```
+
+The installed launcher embeds its seccomp profile and runtime commands do not
+require a checkout. `slopcar build --source /path/to/slopworld` builds an image
+from an explicit checkout; without `--source`, it uses the current directory.
+Set `SLOPCAR_IMAGE` to select an image, including one already pulled from a registry.
 
 The worker writes `endpoint.toml` inside its config directory.
 In the example above, that is `~/.config/slopworld-car/endpoint.toml`.
@@ -75,10 +82,10 @@ to the sidecar's `endpoint.toml`.
 ## Lifecycle
 
 ```sh
-./slopcar/slopcar status
-./slopcar/slopcar logs
-./slopcar/slopcar stop
-./slopcar/slopcar restart
+slopcar status
+slopcar logs
+slopcar stop
+slopcar restart
 ```
 
 `stop`, `restart`, and container removal end all running agent and host-shell
@@ -88,7 +95,7 @@ and conversation resume.
 
 `start` with no options reuses an existing stopped container. After you rebuild the
 image or change mounts or resource limits, remove the container with
-`./slopcar/slopcar rm`, then repeat the original `start` command, including its
+`slopcar rm`, then repeat the original `start` command, including its
 directory overrides and mounts. Container removal preserves those directories.
 
 The default port 7718 allows a native daemon on 7717 to run alongside the sidecar.
@@ -99,6 +106,10 @@ The launcher rejects a configuration directory that specifies another port.
 For container security flags and nested-namespace constraints, see the
 [technical README](https://github.com/droserasprout/slopworld/blob/main/slopcar/README.md#outer-isolation).
 
-just recipes use `SLOPCAR_CONFIG` and `SLOPCAR_DATA` with `slopworld-car` defaults.
-The standalone script uses `SLOPCAR_CONFIG_DIR` and `SLOPCAR_DATA_DIR` with
-`slopworld` defaults. Set both pairs consistently when combining these workflows.
+The launcher defaults to the XDG config and data directories under `slopworld-car`.
+Override them with `SLOPCAR_CONFIG_DIR` and `SLOPCAR_DATA_DIR`.
+just recipes use `SLOPCAR_CONFIG` and `SLOPCAR_DATA` with the same defaults,
+and forward those settings to the launcher. Set both pairs consistently when
+combining custom standalone and recipe workflows. Existing installations using
+the previous standalone `slopworld` defaults must set the directory overrides
+to keep using their existing state.

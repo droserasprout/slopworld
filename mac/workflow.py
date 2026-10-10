@@ -50,7 +50,7 @@ def start(arguments: list[str]) -> None:
         log(f'sidecar {container} is already running')
         return
     existing = run(inspect + [container], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
-    run([str(ROOT / 'slopcar/slopcar'), 'start', *(arguments if existing.returncode else [])], cwd=ROOT)
+    run([os.environ['SLOPCAR'], 'start', *(arguments if existing.returncode else [])], cwd=ROOT)
 
 
 def main() -> None:
