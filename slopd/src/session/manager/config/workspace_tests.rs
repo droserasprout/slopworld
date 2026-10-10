@@ -119,13 +119,7 @@ async fn worktree_records_keep_main_derived_siblings_unchanged_and_ignore_extern
         ["main", &first.id, &second.id]
     );
     assert!(!f.tree_path("main").exists());
-    assert!(!f.manager.cfg_path.with_file_name("worktrees.toml").exists());
     std::fs::write(f.tree_path(&first.id), "broken external edit").unwrap();
-    std::fs::write(
-        f.manager.cfg_path.with_file_name("worktrees.toml"),
-        "broken legacy catalog",
-    )
-    .unwrap();
     assert_eq!(
         f.manager.worktree_view_index().await[&first.id].path,
         renamed.path

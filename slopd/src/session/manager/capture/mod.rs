@@ -132,7 +132,6 @@ impl ControlLineReceiver {
     }
 
     // Read chunks from the bounded channel and return tmux control lines separated by newlines.
-    // Previously, read_until and line.clone() held both a temporary line and an unbounded copy in memory.
     // Only the current logical line can grow here.
     // Limit queued transport memory to CONTROL_QUEUE_CHUNKS * CONTROL_QUEUE_CHUNK_BYTES.
     async fn recv(&mut self) -> Option<Vec<u8>> {

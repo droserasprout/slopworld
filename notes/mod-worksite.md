@@ -9,7 +9,7 @@ It does not restore previous priorities. Construction eligibility belongs to
 Worksite supplies frames directly, bypassing hauling and resource costs while
 retaining normal construction jobs and base-game placement checks. Only owned frames
 receive Worksite assignment, custom build work, completion effects, and floor-frame
-hiding. Unmarked frames, including legacy saves, retain vanilla behavior during
+hiding. Unmarked frames retain vanilla behavior during
 normal operation. Simulation and patch ownership are mapped in
 [mod sources](mod-source-layout.md); completion effects belong to [plague](mod-plague.md).
 

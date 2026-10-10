@@ -24,31 +24,6 @@ impl Drop for Fixture {
 }
 
 #[tokio::test]
-async fn unsupported_store_locations_are_rejected_without_mutation() {
-    let f = Fixture::new();
-    let parent = f.binding.settings.parent().unwrap();
-    for name in [
-        "tasks.toml",
-        "tasks.journal",
-        "worktrees.toml",
-        "grants.toml",
-        "settings.toml.save-journal",
-    ] {
-        let path = parent.join(name);
-        crate::paths::write_private_toml(&path, "unreadable store contents").unwrap();
-        let error = load(&f.binding).await.unwrap_err();
-        assert!(error.to_string().contains("unsupported"), "{error:#}");
-        assert_eq!(
-            std::fs::read_to_string(&path).unwrap(),
-            "unreadable store contents"
-        );
-        assert!(!f.binding.settings.exists());
-        std::fs::remove_file(path).unwrap();
-    }
-    assert!(load(&f.binding).await.unwrap().config.sessions.is_empty());
-}
-
-#[tokio::test]
 async fn inline_workspace_is_rejected_and_settings_bytes_are_retained() {
     let f = Fixture::new();
     for section in ["project", "session", "host_terminal", "library"] {
@@ -84,26 +59,4 @@ async fn unknown_recovery_roots_are_rejected_without_mutation() {
     assert!(format!("{error:#}").contains("unknown variant"));
     assert_eq!(std::fs::read_to_string(&path).unwrap(), journal.to_string());
     assert!(!f.binding.settings.exists());
-}
-
-#[cfg(unix)]
-#[tokio::test]
-async fn dangling_alias_at_unsupported_store_location_is_rejected() {
-    let f = Fixture::new();
-    std::fs::create_dir_all(f.binding.settings.parent().unwrap()).unwrap();
-    let path = f.binding.settings.with_file_name("tasks.toml");
-    std::os::unix::fs::symlink(f.root.join("missing"), &path).unwrap();
-    assert!(
-        load(&f.binding)
-            .await
-            .unwrap_err()
-            .to_string()
-            .contains("unsupported")
-    );
-    assert!(
-        std::fs::symlink_metadata(path)
-            .unwrap()
-            .file_type()
-            .is_symlink()
-    );
 }

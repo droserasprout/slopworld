@@ -49,10 +49,6 @@ pub fn refused(path: &str) -> Option<String> {
             crate::paths::data_root().join("workspace.save-journal"),
         ),
         ("daemon configuration and token", Config::path_in_use()),
-        (
-            "configuration recovery journal and token",
-            Config::recovery_path_for(&Config::path_in_use()),
-        ),
         ("daemon endpoint file and token", crate::endpoint::path()),
         ("the preset files", Table::dir()),
         ("session private state", state_root()),

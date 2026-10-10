@@ -9,7 +9,7 @@ namespace SlopWorld
     public partial class Worksite
     {
         // Ownership follows the frame through save/load without changing shared definitions.
-        // Unmarked frames, including old saves, retain vanilla behavior.
+        // Unmarked frames retain vanilla behavior.
         sealed class FrameOwnership
         {
             public FrameOwnership() { }

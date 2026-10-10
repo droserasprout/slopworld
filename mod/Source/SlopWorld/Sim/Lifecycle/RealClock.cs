@@ -32,17 +32,6 @@ namespace SlopWorld
         // Pauses and delayed ticks make this value lower than elapsed wall time.
         public static float Seconds(int ticks) => ticks / TicksPerRealSecond;
 
-        // Legacy log migration only: solar ticks approximate age but can shift with local time or longitude.
-        public static float SecondsSince(int absTick)
-        {
-            if (Verse.Current.ProgramState != ProgramState.Playing) return 0f;
-
-            var ticks = Find.TickManager;
-            if (ticks == null) return 0f;
-
-            return Mathf.Max((ticks.TicksAbs - absTick) * SecondsPerAbsTick, 0f);
-        }
-
         public override void GameComponentUpdate()
         {
             if (Verse.Current.ProgramState != ProgramState.Playing)

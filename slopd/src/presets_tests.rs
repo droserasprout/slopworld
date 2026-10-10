@@ -396,8 +396,8 @@ fn command_kind_is_required() {
     let file = toml::from_str::<PresetFile>(
         r#"
             [[command]]
-            name = "legacy"
-            cmd = "legacy"
+            name = "missing-kind"
+            cmd = "tool"
             "#,
     );
 

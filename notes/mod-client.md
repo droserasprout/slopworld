@@ -24,7 +24,7 @@ Feature boundaries belong to [terminal](mod-terminal.md), [wire](protocol-wire.m
 Transport substitutions and validation limits belong to [C# tests](test-csharp.md).
 
 Reader names are opaque handles; intent and source metadata enable restoration.
-Legacy sessions without intent use classification fallback. Session rename, process
+Configured commands can also identify reader actions. Session rename, process
 replacement (`run_id`), and connection generation invalidate different identities.
 Control/history/replies preserve lossless backpressure while unsolicited live screens
 may coalesce. Panel subscriptions/input do not wait for earlier history capture.

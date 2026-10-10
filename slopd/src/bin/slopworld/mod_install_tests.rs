@@ -282,7 +282,7 @@ fn mac_default_uses_the_app_bundle_and_allows_a_configured_location() {
 }
 
 #[test]
-fn uninstall_accepts_defaults_and_rejects_source_and_legacy_mods() {
+fn uninstall_accepts_defaults_and_rejects_unsupported_options() {
     assert_eq!(parse(&[], false).unwrap(), Args::default());
     assert_eq!(
         parse(&args(&["--game=/game"]), false).unwrap().game,

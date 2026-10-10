@@ -54,7 +54,6 @@ pub struct Task {
     pub note: Option<String>,
     /// Optional OpenRouter summary for the compact sidebar.
     /// The task body remains the source of truth.
-    /// Older task files can omit this field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
     pub created_ms: u64,

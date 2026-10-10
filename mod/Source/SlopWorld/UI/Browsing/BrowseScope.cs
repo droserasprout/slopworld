@@ -18,7 +18,7 @@ namespace SlopWorld
             "scope/" + Uri.EscapeDataString(projectId ?? "") + "/" + Uri.EscapeDataString(worktree ?? "main");
         public static bool IsKey(string value) => value != null && value.StartsWith("scope/", StringComparison.Ordinal);
         public static string WorktreeOf(string value) => IsKey(value) ? Uri.UnescapeDataString(value.Substring(value.LastIndexOf('/') + 1)) : "";
-        public static string ProjectIdOf(ProjectInfo project) => string.IsNullOrEmpty(project.Id) ? "name:" + project.Name : project.Id;
+        public static string ProjectIdOf(ProjectInfo project) => project.Id;
         public static ProjectInfo ProjectOf(string value, IEnumerable<ProjectInfo> projects)
         {
             if (!IsKey(value)) return projects.FirstOrDefault(p => p.Name == value);

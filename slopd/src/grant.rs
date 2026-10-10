@@ -142,24 +142,12 @@ impl Grants {
         Self::load_path(config.with_file_name("grants.toml"))
     }
 
-    /// Never merge independent authority
-    /// sources or silently ignore a remaining legacy grants file.
-    pub(crate) fn load_data(config: &Path, data: &Path) -> Result<Self> {
+    pub(crate) fn load_data(data: &Path) -> Result<Self> {
         let path = crate::paths::normalize(data)?.join("grants.toml");
         anyhow::ensure!(
             crate::paths::normalize(&path)? == path,
             "grant store aliases another path"
         );
-        let legacy = config.with_file_name("grants.toml");
-        if crate::paths::normalize(&legacy)? != path {
-            match fs::symlink_metadata(&legacy) {
-                Ok(_) => bail!(
-                    "retired grants location remains; this version requires grants in the data store"
-                ),
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                Err(error) => return Err(error).context("checking legacy grant authority"),
-            }
-        }
         Self::load_path(path)
     }
 

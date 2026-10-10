@@ -21,51 +21,12 @@ pub(crate) struct Stores {
     pub(crate) worktrees: Store<Worktree>,
 }
 
-async fn validate_storage_locations(binding: &StorageBinding) -> Result<()> {
-    ensure!(
-        !occupied(&crate::config::Config::recovery_path_for(&binding.settings)).await?,
-        "unsupported recovery journal beside settings; workspace recovery uses the data-root workspace.save-journal"
-    );
-    for name in [
-        "worktrees.toml",
-        "tasks.toml",
-        "tasks.journal",
-        "grants.toml",
-    ] {
-        let path = binding
-            .settings
-            .parent()
-            .context("settings has no parent")?
-            .join(name);
-        if name == "grants.toml" && path == binding.data.join(name) {
-            continue;
-        }
-        ensure!(
-            !occupied(&path).await?,
-            "unsupported workspace store location: {}",
-            path.display()
-        );
-    }
-    Ok(())
-}
-
-// A dangling symlink still occupies a store path.
-async fn occupied(path: &std::path::Path) -> Result<bool> {
-    match tokio::fs::symlink_metadata(path).await {
-        Ok(_) => Ok(true),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
-        Err(error) => Err(error)
-            .with_context(|| format!("checking workspace store location {}", path.display())),
-    }
-}
-
 /// The daemon reserves its endpoints before calling this recovery/loading stage.
 pub(crate) async fn load(binding: &StorageBinding) -> Result<Loaded> {
     let gate = std::sync::Arc::new(tokio::sync::Mutex::new(()))
         .lock_owned()
         .await;
     transaction::recover(binding, &gate).await?;
-    validate_storage_locations(binding).await?;
     let text = match tokio::fs::read_to_string(&binding.settings).await {
         Ok(text) => text,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),

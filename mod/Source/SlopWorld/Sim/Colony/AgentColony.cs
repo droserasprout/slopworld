@@ -319,7 +319,7 @@ namespace SlopWorld
         }
 
         // Keep a stopped agent's pawn alive so a process restart can restore the same pawn.
-        // was is absent for new sessions or older saves.
+        // was is absent before the first observed state.
         // Play transition sounds only when the state changes.
         static void Reflect(Pawn pawn, AgentState state, AgentState? was)
         {

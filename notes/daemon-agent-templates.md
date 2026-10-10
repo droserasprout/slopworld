@@ -24,3 +24,6 @@ instantiated agents. Route and request contracts belong to the
 [API reference](../docs/src/reference/api.md#agent-templates), scoped visibility to
 [workers](daemon-workers.md), and editor behavior to [mod templates](mod-agent-templates.md).
 Defaults and user workflow belong to [Configuring agents](../docs/src/agents/configuring-agents.md).
+
+The committed index selects one generation directory. Without an index the catalog
+is empty, including after an interrupted first save. Loading never scans direct files.

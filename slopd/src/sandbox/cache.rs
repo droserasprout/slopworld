@@ -108,37 +108,9 @@ pub(crate) fn reconcile_mount(
     if target.components().any(|c| c.as_os_str() == ".git") {
         bail!("cache link cannot replace Git metadata");
     }
-    // Refuse occupied checkout targets before migration or source creation.
+    // Refuse occupied checkout targets before source creation.
     // An expected existing link still needs its source prepared below.
     link_present(&target, &source)?;
-    // Move the old managed layout only when the new location is still absent.
-    if mount.from.trim().is_empty() {
-        let old = root()
-            .join(&project.id)
-            .join("relative")
-            .join(expand(&mount.to));
-        if old.exists() {
-            if old.is_symlink() || source.is_symlink() || !old.is_dir() {
-                bail!(
-                    "legacy cache {} must be a directory without symlinks",
-                    old.display()
-                );
-            }
-            if source.is_dir() {
-                if std::fs::read_dir(&source)?.next().is_some() {
-                    bail!(
-                        "legacy cache {} and new cache {} both contain data; merge them manually",
-                        old.display(),
-                        source.display()
-                    );
-                }
-                std::fs::remove_dir(&source)?;
-            }
-            std::fs::create_dir_all(source.parent().context("cache parent")?)?;
-            std::fs::rename(&old, &source)
-                .with_context(|| format!("migrating cache {}", old.display()))?;
-        }
-    }
     std::fs::create_dir_all(&source)?;
     validate(project, mount)?;
     if !source.is_dir() {

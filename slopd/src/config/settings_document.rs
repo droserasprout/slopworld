@@ -33,13 +33,6 @@ pub(crate) fn patch(old: &Config, text: &str, patch: toml::Value) -> Result<Prep
 
 fn prepare(old: &Config, mut document: toml::Value) -> Result<PreparedSettings> {
     reject_workspace(&document)?;
-    if let Some(daemon) = document.get("daemon").and_then(toml::Value::as_table) {
-        for key in ["usage", "openrouter", "openai"] {
-            if daemon.contains_key(key) {
-                bail!("[daemon] {key} was removed");
-            }
-        }
-    }
     let mut settings: Settings = document
         .clone()
         .try_into()

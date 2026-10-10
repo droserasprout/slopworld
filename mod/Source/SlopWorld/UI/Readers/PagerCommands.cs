@@ -23,8 +23,8 @@ namespace SlopWorld
         public static string Quote(string s) => "'" + (s ?? "").Replace("'", "'\\''") + "'";
 
         // File actions support both the path as it appears on the host and the path relative
-        // to the project root. Without either placeholder, preserve the historical behavior
-        // of appending the absolute path as the final argument.
+        // to the project root. Without either placeholder, append the absolute path
+        // as the final argument.
         public static string FileActionCommand(string template, string path, string relativePath)
         {
             string command = (template ?? "").Trim();

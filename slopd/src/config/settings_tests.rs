@@ -91,6 +91,5 @@ fn root_edits_reject_inline_sections_even_when_empty_and_malformed_settings() {
         assert!(document::patch(&old, &text, toml::from_str("").unwrap()).is_err());
     }
     assert!(document::replace(&old, "[daemon]\ntoken = false").is_err());
-    assert!(document::replace(&old, "[daemon]\nbind = 'localhost'\nusage = {}").is_err());
     assert!(document::patch(&old, "", toml::Value::Boolean(false)).is_err());
 }

@@ -23,7 +23,7 @@ impl Manager {
         let jukebox_mtime = crate::paths::dir_stamp(&crate::jukebox::Catalog::dir());
 
         // Load persisted stores before constructing shared state.
-        let grants = crate::grant::Grants::load_data(&cfg_path, &binding.data)
+        let grants = crate::grant::Grants::load_data(&binding.data)
             .with_context(|| format!("loading grant store for {}", cfg_path.display()))?;
         let task_path = binding.data.clone();
         let tasks =

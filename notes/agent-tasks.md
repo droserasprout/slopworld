@@ -7,9 +7,8 @@ Sandboxes use the API rather than editing storage.
 Each task has one shared record; reads do not consume it.
 
 Participants persist stable session state IDs separately from display names. Rename
-retains mailbox authority; replacement under the same name does not. Legacy records
-without IDs remain visible to root, while only their reserved host participant
-retains authority. Failed persistence leaves memory unchanged for retry.
+retains mailbox authority; replacement under the same name does not. Records require
+participant IDs. Failed persistence leaves memory unchanged for retry.
 
 Participant removal affects both sides and requires a terminal task state. Root can
 remove unfinished work. Task authority is separate from terminal-input authority;
@@ -43,7 +42,7 @@ CLI prune prints the result and exits unsuccessfully when work failed or was una
 
 New task IDs use the shared 16-character allocator. Accepted IDs and configured/live
 worker references reserve identities; deletion retains an in-memory reservation for
-this daemon lifetime. Timestamp/sequence IDs remain readable. Full records live in
+this daemon lifetime. Full records live in
 `SLOPD_DATA/tasks/`; updates replace one record and removals unlink selected records.
 There is no runtime journal or polling. Persisted `storage_order` remains separate
-from timestamps and random identity. Migration replays legacy history read-only.
+from timestamps and random identity.

@@ -8,50 +8,33 @@ const INDEX_FILE: &str = ".index.toml";
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct TemplateIndex {
-    #[serde(default = "first_version")]
     next_version: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    generation: Option<String>,
-}
-
-impl Default for TemplateIndex {
-    fn default() -> Self {
-        Self {
-            next_version: first_version(),
-            generation: None,
-        }
-    }
+    generation: String,
 }
 
 impl AgentTemplateStore {
     pub(crate) async fn load(path: &Path) -> Result<Self> {
-        if !tokio::fs::try_exists(path).await? {
-            return Ok(Self::default());
-        }
         let index_path = path.join(INDEX_FILE);
-        let index = if tokio::fs::try_exists(&index_path).await? {
-            let text = tokio::fs::read_to_string(&index_path)
-                .await
-                .with_context(|| format!("reading {}", index_path.display()))?;
-            let index: TemplateIndex = toml::from_str(&text)
-                .with_context(|| format!("parsing {}", index_path.display()))?;
-            index
-        } else {
-            TemplateIndex::default()
-        };
-        let directory = match &index.generation {
-            Some(generation) => {
-                // An index cannot redirect loading outside the catalog.
-                if !generation
-                    .strip_prefix("generation-")
-                    .is_some_and(crate::storage_id::valid)
-                {
-                    bail!("invalid agent template generation {generation:?}");
-                }
-                path.join(generation)
+        let text = match tokio::fs::read_to_string(&index_path).await {
+            Ok(text) => text,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(Self::default());
             }
-            None => path.to_path_buf(),
+            Err(error) => {
+                return Err(error).with_context(|| format!("reading {}", index_path.display()));
+            }
         };
+        let index: TemplateIndex =
+            toml::from_str(&text).with_context(|| format!("parsing {}", index_path.display()))?;
+        // An index cannot redirect loading outside the catalog.
+        if !index
+            .generation
+            .strip_prefix("generation-")
+            .is_some_and(crate::storage_id::valid)
+        {
+            bail!("invalid agent template generation {:?}", index.generation);
+        }
+        let directory = path.join(&index.generation);
         let mut store = Self {
             next_version: index.next_version,
             templates: Vec::new(),
@@ -121,10 +104,10 @@ impl AgentTemplateStore {
             }
             let index = TemplateIndex {
                 next_version: self.next_version,
-                generation: Some(generation),
+                generation,
             };
             // This rename is the sole commit point. Until then loading uses the
-            // previous generation (or legacy direct files), even after a crash.
+            // previous generation, or an empty catalog before the first commit.
             crate::paths::write_atomic_async(
                 &path.join(INDEX_FILE),
                 &toml::to_string_pretty(&index)?,

@@ -8,7 +8,7 @@ namespace SlopWorld
         public const string Sync = "sync", Limit = "limit";
         public static readonly int[] Presets = { 15, 30, 60, 120, 144, 240 };
 
-        // Values from older settings files that used "game" now use the VSync policy.
+        // Unknown settings use the VSync policy.
         public static string Normalize(string mode) => mode == Limit ? Limit : Sync;
 
         public static int NearestPreset(int fps)

@@ -23,7 +23,7 @@ class LatencySummaryTests(unittest.TestCase):
         self.assertEqual(result['counts']['superseded'], 1)
         self.assertEqual(result['counts']['no_motion'], 1)
         self.assertNotIn('unacknowledged_at_capture', result['counts'])
-        self.assertEqual(result['scroll_sources']['precise'], 1)
+        self.assertEqual(result['scroll_sources'], {'precise': 1})
 
     def test_individual_tail_and_clock_domains(self):
         result = summary.summarize(record(i, i + 100) for i in range(100))

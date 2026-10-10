@@ -191,27 +191,20 @@ fn cache_links_preserve_output_and_reject_changed_targets() {
     std::fs::create_dir_all(&target).unwrap();
     std::fs::write(target.join("artifact"), "mine").unwrap();
     let cache_source = source(&p, &p.mounts[0]).unwrap();
-    let old = root().join(&p.id).join("relative/build/target");
-    std::fs::create_dir_all(&old).unwrap();
-    std::fs::write(old.join("artifact"), "cached").unwrap();
     assert!(reconcile(&p, &checkout).is_err());
     assert!(!cache_source.exists(), "refusal must not create the source");
-    assert_eq!(std::fs::read(old.join("artifact")).unwrap(), b"cached");
     assert_eq!(
         std::fs::read_to_string(target.join("artifact")).unwrap(),
         "mine"
     );
     std::fs::remove_dir_all(&target).unwrap();
-    let old = root().join(&p.id).join("relative/build/target");
-    std::fs::create_dir_all(&old).unwrap();
-    std::fs::write(old.join("artifact"), "cached").unwrap();
+    std::fs::create_dir_all(&cache_source).unwrap();
+    std::fs::write(cache_source.join("artifact"), "cached").unwrap();
     reconcile(&p, &checkout).unwrap();
-    let cache_source = source(&p, &p.mounts[0]).unwrap();
     assert_eq!(
         std::fs::read_to_string(cache_source.join("artifact")).unwrap(),
         "cached"
     );
-    assert!(!old.exists());
     assert_eq!(std::fs::read_link(&target).unwrap(), cache_source);
     std::fs::remove_file(&target).unwrap();
     std::os::unix::fs::symlink(temp.join("other"), &target).unwrap();

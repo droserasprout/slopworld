@@ -103,8 +103,8 @@ def summarize(lines):
     return {"endpoint": "unity_frame_end_before_presentation", "units": "us",
             "correlation": "next_frame_after_input_not_verified_echo",
             "history_scroll_correlation": "consumed_movement_to_ready_repaint_superseded_events_censored",
-            "scroll_sources": dict(Counter(r.get("scroll_source", "legacy_wheel") for r in finished.values()
-                                           if r.get("kind") == "history_scroll")), "counts": dict(counts), "metrics": metrics}
+            "scroll_sources": dict(Counter(r["scroll_source"] for r in finished.values()
+                                           if r.get("kind") == "history_scroll" and "scroll_source" in r)), "counts": dict(counts), "metrics": metrics}
 
 
 def main():

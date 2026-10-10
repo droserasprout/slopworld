@@ -132,41 +132,31 @@ fn entropy_failure_never_yields_a_grant_token() {
 }
 
 #[test]
-fn data_store_retains_tokens_and_rejects_competing_legacy_authority() {
+fn data_store_retains_tokens_and_persists_revocation() {
     let root = std::env::temp_dir().join(format!("slopd-grant-layout-{}", uuid::Uuid::new_v4()));
-    let config = root.join("config/config.toml");
     let data = root.join("data");
-    fs::create_dir_all(config.parent().unwrap()).unwrap();
     fs::create_dir_all(&data).unwrap();
-    let mut legacy = Grants::load(&config).unwrap();
-    let token = legacy
+    let mut grants = Grants::load_data(&data).unwrap();
+    let token = grants
         .mint_persisted(
             grant(&["a"], Level::Rw),
             "1111111111111111".into(),
             BTreeMap::from([("a".into(), "2222222222222222".into())]),
         )
         .unwrap();
-    let old = config.with_file_name("grants.toml");
-    let bytes = fs::read(&old).unwrap();
-    assert!(Grants::load_data(&config, &data).is_err());
-    fs::write(data.join("grants.toml"), &bytes).unwrap();
-    assert!(Grants::load_data(&config, &data).is_err());
-    fs::remove_file(&old).unwrap();
-    let mut selected = Grants::load_data(&config, &data).unwrap();
+    let mut selected = Grants::load_data(&data).unwrap();
     assert!(
         selected
             .resolve(Some(&token), "root")
             .unwrap()
             .allows("a", false, Level::Rw)
     );
-    assert_eq!(fs::read(data.join("grants.toml")).unwrap(), bytes);
     selected.try_revoke_grantor("g").unwrap();
     assert!(
-        Grants::load_data(&config, &data)
+        Grants::load_data(&data)
             .unwrap()
             .resolve(Some(&token), "root")
             .is_none()
     );
-    assert!(!old.exists());
     fs::remove_dir_all(root).unwrap();
 }

@@ -8,7 +8,7 @@ namespace SlopWorld.Tests
     public class LogEntryClockTests
     {
         [Test]
-        public void SavedUtcAgeSurvivesLoadAndSolarClockChanges()
+        public void SavedUtcAgeSurvivesLoad()
         {
             Scribe.mode = LoadSaveMode.Inactive;
             var entry = new LogEntry();
@@ -21,22 +21,18 @@ namespace SlopWorld.Tests
             var loaded = new LogEntry();
             LogEntryClock.Created(loaded);
             LogEntryClock.Expose(loaded);
-            RealClock.LegacyAge = 90000;
             Assert.That(LogEntryClock.SecondsSince(loaded), Is.InRange(3600f, 3605f));
             Scribe.mode = LoadSaveMode.Inactive;
         }
 
         [Test]
-        public void LegacyAgeIsEstimatedOnlyOnce()
+        public void MissingUtcStampDoesNotInferAgeFromGameTicks()
         {
             Scribe.mode = LoadSaveMode.LoadingVars;
             Scribe_Values.SavedTicks = 0;
-            var entry = new LogEntry();
+            var entry = new LogEntry { Timestamp = 120 };
             LogEntryClock.Expose(entry);
-            RealClock.LegacyAge = 120;
-            Assert.That(LogEntryClock.SecondsSince(entry), Is.InRange(120f, 125f));
-            RealClock.LegacyAge = 3720;
-            Assert.That(LogEntryClock.SecondsSince(entry), Is.InRange(120f, 125f));
+            Assert.That(LogEntryClock.SecondsSince(entry), Is.EqualTo(0f));
             Scribe.mode = LoadSaveMode.Inactive;
         }
     }
@@ -55,14 +51,5 @@ namespace Verse
             if (Scribe.mode == LoadSaveMode.Saving) SavedTicks = value;
             if (Scribe.mode == LoadSaveMode.LoadingVars) value = SavedTicks;
         }
-    }
-}
-
-namespace SlopWorld
-{
-    public partial class RealClock
-    {
-        public static float LegacyAge;
-        public static float SecondsSince(int timestamp) => LegacyAge;
     }
 }

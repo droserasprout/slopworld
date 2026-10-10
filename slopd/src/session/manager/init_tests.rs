@@ -75,7 +75,7 @@ async fn initialization_retains_loaded_records_and_prunes_credentials_after_reco
     assert_eq!(manager.grant_count().await, 1);
     // Pruning must survive another daemon restart.
     assert_eq!(
-        crate::grant::Grants::load_data(&path, &crate::paths::data_root())
+        crate::grant::Grants::load_data(&crate::paths::data_root())
             .unwrap()
             .count(),
         1

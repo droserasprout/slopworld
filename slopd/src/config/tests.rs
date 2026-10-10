@@ -623,17 +623,6 @@ fn config_rejects_duplicate_state_ids() {
 }
 
 #[test]
-fn config_rejects_removed_usage_switches() {
-    for key in ["usage", "openrouter", "openai"] {
-        let text = format!("[daemon]\nbind = '127.0.0.1:7717'\n{key} = true\n");
-        assert!(
-            super::settings::document::replace(&Config::default(), &text).is_err(),
-            "{key}"
-        );
-    }
-}
-
-#[test]
 fn diagnostic_formatting_redacts_credentials_without_changing_serialization() {
     let mut cfg = Config::default();
     cfg.daemon.token = "root-secret".into();

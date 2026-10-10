@@ -199,7 +199,7 @@ async fn classification_deadlines_cover_decay_and_inactive_sessions() {
 }
 
 #[tokio::test]
-async fn legacy_waiting_state_decays_without_new_output() {
+async fn waiting_state_decays_without_new_output() {
     let (manager, _) = quiet_session().await;
     manager
         .live

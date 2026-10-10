@@ -19,7 +19,7 @@ install-mod: daemon mod
 
 # Remove installed files, keeping config and saves
 [group('Installation')]
-uninstall: uninstall-daemon uninstall-runner uninstall-mod uninstall-font
+uninstall: uninstall-daemon uninstall-runner uninstall-mod
     echo "left alone: ~/.config/slopworld, the profile (saves), any tmux server"
     echo "under the slopworld socket; \`tmux -L slopworld kill-server\` ends the agents."
 
@@ -43,10 +43,3 @@ uninstall-runner:
 [group('Installation')]
 uninstall-mod: daemon
     "{{ RUNNER }}" mod uninstall --game "{{ parent_directory(MODS) }}"
-
-# Remove a legacy per-user copy of the loading font
-[group('Installation')]
-uninstall-font:
-    rm -f "{{ FONT_DEST }}"
-    if command -v fc-cache >/dev/null 2>&1; then fc-cache -f "{{ FONT_DIR }}"; fi
-    echo "removed font {{ FONT_DEST }}"

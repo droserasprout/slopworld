@@ -7,17 +7,17 @@ namespace SlopWorld.Tests
             AssertEx.Equal(15, FramePolicy.NearestPreset(-2147483633), "extreme negative FPS does not overflow");
             var policy = new FramePolicy();
             int target = 75, sync = 2;
-            AssertEx.Equal(true, policy.Follow(true, "game", 60, ref target, ref sync),
-                "legacy game mode uses VSync");
-            AssertEx.Equal(-1, target, "legacy game target");
-            AssertEx.Equal(1, sync, "legacy game VSync");
-            Step(policy, false, "game", 60, ref target, ref sync, 15, 0, true);
+            AssertEx.Equal(true, policy.Follow(true, "sync", 60, ref target, ref sync),
+                "focused mode uses VSync");
+            AssertEx.Equal(-1, target, "focused target");
+            AssertEx.Equal(1, sync, "focused VSync");
+            Step(policy, false, "sync", 60, ref target, ref sync, 15, 0, true);
             Step(policy, false, "sync", 60, ref target, ref sync, 15, 0, false);
             Step(policy, true, "sync", 60, ref target, ref sync, -1, 1, true);
             Step(policy, true, "limit", 144, ref target, ref sync, 144, 0, true);
             Step(policy, false, "limit", 144, ref target, ref sync, 15, 0, true);
-            Step(policy, false, "game", 144, ref target, ref sync, 15, 0, false);
-            Step(policy, true, "game", 144, ref target, ref sync, -1, 1, true);
+            Step(policy, false, "sync", 144, ref target, ref sync, 15, 0, false);
+            Step(policy, true, "sync", 144, ref target, ref sync, -1, 1, true);
 
             target = 90;
             sync = 0;
@@ -29,7 +29,7 @@ namespace SlopWorld.Tests
             target = 60;
             sync = 0;
             Step(policy, true, "sync", 60, ref target, ref sync, -1, 1, true);
-            Step(policy, true, "game", 60, ref target, ref sync, -1, 1, false);
+            Step(policy, true, "sync", 60, ref target, ref sync, -1, 1, false);
         }
 
         static void Step(FramePolicy policy, bool focused, string mode, int fps,

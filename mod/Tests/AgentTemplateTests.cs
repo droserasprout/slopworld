@@ -148,7 +148,7 @@ namespace SlopWorld.Tests
             }
         }
 
-        public static void SparseRecipesRoundTripInheritanceAndPreserveExplicitLegacyValues()
+        public static void SparseRecipesRoundTripInheritanceAndPreserveExplicitValues()
         {
             var sparse = new AgentTemplateInfo { Name = "sparse" };
             var form = new SessionInfo();
@@ -157,18 +157,18 @@ namespace SlopWorld.Tests
             AssertEx.True(json["network"].IsNull, "new recipe inherits network");
             AssertEx.True(json["dns"].IsNull, "new recipe inherits DNS");
             AssertEx.True(json["autostart"].IsNull, "new recipe leaves startup unspecified");
-            var legacy = AgentTemplateInfo.FromWire(ProtobufFixtures.Read<Wire.AgentTemplate>(JVal.Parse(@"{
-                ""name"":""legacy"", ""defaults"": { ""network"":""host"",
+            var explicitValues = AgentTemplateInfo.FromWire(ProtobufFixtures.Read<Wire.AgentTemplate>(JVal.Parse(@"{
+                ""name"":""explicitValues"", ""defaults"": { ""network"":""host"",
                     ""dns"": { ""mode"":""resolved"" }, ""autostart"":false }
             }")));
-            legacy.Copy().ApplyTo(form);
-            json = JVal.Parse(legacy.ToJson(form))["defaults"];
+            explicitValues.Copy().ApplyTo(form);
+            json = JVal.Parse(explicitValues.ToJson(form))["defaults"];
             AssertEx.Equal("host", json["network"].AsString(), "existing explicit network remains pinned");
             AssertEx.True(!json["autostart"].IsNull && !json["autostart"].AsBool(), "explicit false stays explicit");
-            legacy.SpecifiedFlags.Remove("autostart");
-            legacy.NetworkSpecified = false;
-            legacy.DnsSpecified = false;
-            json = JVal.Parse(legacy.ToJson(form))["defaults"];
+            explicitValues.SpecifiedFlags.Remove("autostart");
+            explicitValues.NetworkSpecified = false;
+            explicitValues.DnsSpecified = false;
+            json = JVal.Parse(explicitValues.ToJson(form))["defaults"];
             AssertEx.True(json["network"].IsNull && json["dns"].IsNull && json["autostart"].IsNull,
                 "inherit controls clear pinned values");
         }

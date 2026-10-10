@@ -17,8 +17,6 @@ export UNITS := env("UNITS", env("HOME") + '/.config/systemd/user')
 # The source font is only used to regenerate the loading atlas; destination paths support
 # uninstalling a per-user copy installed by an older SlopWorld release.
 export FONT_SOURCE := env("FONT_SOURCE", 'assets/fonts/clacon2.ttf')
-export FONT_DIR := env("FONT_DIR", data_home + '/fonts')
-FONT_DEST := FONT_DIR + '/' + file_name(FONT_SOURCE)
 export LOG := env("LOG", env("HOME") + '/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Player.log')
 # Save data folder, defaults to `$XDG_DATA_HOME/slopworld/profile`.
 export PROFILE := env("PROFILE", '')

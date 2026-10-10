@@ -57,7 +57,7 @@ impl Manager {
                         dns: p.map(|p| cfg.dns_of(&l.cfg, p)).unwrap_or_default(),
                         limits: p.map(|p| cfg.limits_of(&l.cfg, p)).unwrap_or(l.cfg.limits),
                         mounts: p.map(|p| p.mounts.clone()).unwrap_or_default(),
-                        // Tasks own worker lifetimes; older configs may still carry parent launch flags.
+                        // Tasks own worker lifetimes independently of launch flags.
                         autostart: l.cfg.autostart && !l.cfg.worker,
                         auto_resume: l.cfg.auto_resume && !l.cfg.worker,
                     },

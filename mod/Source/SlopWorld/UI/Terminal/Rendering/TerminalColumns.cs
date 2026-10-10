@@ -145,13 +145,6 @@ namespace SlopWorld
                 category == System.Globalization.UnicodeCategory.SpacingCombiningMark;
         }
 
-        // Legacy single-character access; selection and copy use complete glyph strings.
-        public static char Glyph(string[] cells, int col)
-        {
-            string glyph = GlyphText(cells, col);
-            return glyph.Length == 0 ? '\0' : glyph[0];
-        }
-
         public static string Slice(string[] cells, int firstColumn, int lastColumn)
         {
             int end = Math.Min(cells.Length, lastColumn + 1);

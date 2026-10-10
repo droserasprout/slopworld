@@ -178,8 +178,6 @@ fn save_user_in(dir: &Path, station: Station) -> std::result::Result<(), Jukebox
     let path = match find_user_file(dir, &station.id).map_err(JukeboxError::Storage)? {
         Some(path) => path,
         None => {
-            // Legacy IDs remain editable at their existing path; new IDs must be safe filenames.
-            valid_id(&station.id).map_err(|error| JukeboxError::Invalid(error.to_string()))?;
             let path = dir.join(format!("{}.toml", station.id));
             if path.exists() {
                 return Err(JukeboxError::Invalid(format!(
@@ -301,6 +299,7 @@ fn normalize(mut station: Station, path: Option<&Path>) -> Result<Station> {
     if station.id.trim().is_empty() {
         bail!("missing id");
     }
+    valid_id(&station.id)?;
     if station.metadata.name.trim().is_empty() {
         station.metadata.name = station.id.clone();
     }

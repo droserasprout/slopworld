@@ -221,19 +221,42 @@ fn temp_dir(label: &str) -> PathBuf {
 }
 
 #[test]
-fn legacy_ids_remain_editable_and_deletion_removes_shadowed_definitions() {
-    let dir = temp_dir("legacy");
+fn editing_and_deletion_remove_shadowed_definitions() {
+    let dir = temp_dir("shadowed");
     let text = "[[stream]]\nrate = 96\nurl = 'https://example.org/radio'\n";
-    std::fs::write(dir.join("Legacy Radio.toml"), text).unwrap();
+    std::fs::write(dir.join("radio.toml"), text).unwrap();
     let mut station = Catalog::load_from(&dir).stations.remove(0);
-    assert_eq!(station.id, "Legacy Radio");
+    assert_eq!(station.id, "radio");
     station.metadata.name = "Edited".into();
     save_user_in(&dir, station).unwrap();
-    let saved = std::fs::read_to_string(dir.join("Legacy Radio.toml")).unwrap();
+    let saved = std::fs::read_to_string(dir.join("radio.toml")).unwrap();
     std::fs::write(dir.join("z-shadow.toml"), saved).unwrap();
     assert_eq!(Catalog::load_from(&dir).stations.len(), 1);
-    delete_user_in(&dir, "Legacy Radio").unwrap();
+    delete_user_in(&dir, "radio").unwrap();
     assert!(Catalog::load_from(&dir).stations.is_empty());
     assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn station_ids_follow_the_same_rules_on_load_and_save() {
+    let dir = temp_dir("invalid-id");
+    let path = dir.join("Invalid ID.toml");
+    std::fs::write(
+        &path,
+        "[[stream]]\nrate=96\nurl='https://example.org/radio'\n",
+    )
+    .unwrap();
+    assert!(Catalog::load_from(&dir).stations.is_empty());
+    let mut station = parse(
+        "[[stream]]\nrate=96\nurl='https://example.org/radio'\n",
+        Path::new("valid.toml"),
+    )
+    .unwrap();
+    station.id = "Invalid ID".into();
+    assert!(matches!(
+        save_user_in(&dir, station),
+        Err(JukeboxError::Invalid(_))
+    ));
     std::fs::remove_dir_all(dir).unwrap();
 }

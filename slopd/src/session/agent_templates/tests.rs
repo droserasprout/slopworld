@@ -109,24 +109,6 @@ async fn template_store_round_trips_its_snapshots() {
     drop(std::fs::remove_dir_all(root));
 }
 
-#[test]
-fn legacy_origin_is_rejected() {
-    toml::from_str::<AgentTemplate>(
-        r#"
-name = "legacy"
-version = 4
-
-[origin]
-source = "personal"
-project = "old-project"
-agent = "old-agent"
-
-[defaults]
-"#,
-    )
-    .unwrap_err();
-}
-
 #[tokio::test]
 async fn version_cursor_survives_reload_and_delete_recreate() {
     let root = std::env::temp_dir().join(format!(
@@ -348,5 +330,30 @@ async fn generation_index_rejects_retired_uuid_identity() {
             .to_string()
             .contains("invalid agent template generation")
     );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn uncommitted_catalog_files_are_not_loaded() {
+    let root = std::env::temp_dir().join(format!(
+        "slopd-template-uncommitted-{}",
+        uuid::Uuid::new_v4()
+    ));
+    std::fs::create_dir_all(&root).unwrap();
+    let definition = template();
+    std::fs::write(
+        root.join(format!("{}.toml", definition.name)),
+        toml::to_string(&definition).unwrap(),
+    )
+    .unwrap();
+    assert!(
+        AgentTemplateStore::load(&root)
+            .await
+            .unwrap()
+            .templates
+            .is_empty()
+    );
+    std::fs::write(root.join(".index.toml"), "next_version=1\n").unwrap();
+    AgentTemplateStore::load(&root).await.unwrap_err();
     std::fs::remove_dir_all(root).unwrap();
 }

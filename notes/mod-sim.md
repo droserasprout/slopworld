@@ -26,5 +26,5 @@ by [colony scene boundaries](mod-colony-scenes.md).
 Game ticks represent simulation time: 60 per second at normal speed, not a fixed
 wall-clock cadence at every speed. Calendar absolute ticks have different units.
 Game log-entry timestamps use absolute ticks; SlopWorld tooltip ages retain UTC
-timestamps and estimate older entries once. Never pass calendar durations to
+timestamps independently of the calendar. Never pass calendar durations to
 game-tick APIs.

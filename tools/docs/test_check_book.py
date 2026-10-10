@@ -81,7 +81,7 @@ class RepositoryChecks(unittest.TestCase):
         self.write('README.md')
         self.write('notes/owner.md')
         run(['git', 'add', 'README.md', 'notes/owner.md'], cwd=self.root, capture_output=True)
-        self.write('slopcar/README.md', '[Migration](../docs/src/guides/storage-migration.md)')
+        self.write('slopcar/README.md', '[Missing](../docs/src/guides/missing.md)')
         self.write('notes/new.md', '[Missing](missing.md)')
         self.write('.gitignore', 'build/\n')
         self.write('build/README.md', '[Ignored](missing.md)')
@@ -92,7 +92,7 @@ class RepositoryChecks(unittest.TestCase):
         )
         errors = check_repository_links(self.root)
         self.assertEqual(len(errors), 2)
-        self.assertTrue(any('slopcar/README.md: ../docs/src/guides/storage-migration.md:' in e for e in errors))
+        self.assertTrue(any('slopcar/README.md: ../docs/src/guides/missing.md:' in e for e in errors))
         self.assertTrue(any('notes/new.md: missing.md:' in e for e in errors))
 
     def test_parses_references_html_images_and_escaped_destinations_but_not_code(self) -> None:

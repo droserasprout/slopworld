@@ -102,7 +102,7 @@ namespace SlopWorld
         // The Files tab's open-file pane as a normalized share of the space above its tree.
         public float sidebarFilesOpenFraction = 0.25f;
         // Navigation placement and density are workspace preferences. Unknown values are
-        // normalized by Settings so older or hand-edited files remain safe.
+        // normalized by Settings so hand-edited files remain safe.
         public string sidebarSide = NavigationSide.Left;
         public string uiDensity = UiDensityPreset.Default;
         // Store one project name per line. The parser ignores deleted projects.

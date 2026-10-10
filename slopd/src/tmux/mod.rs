@@ -655,7 +655,7 @@ impl Tmux {
 
     /// Include the colon in `name:` to target the session's window.
     /// tmux checks window names before session names. These windows all have the name `bwrap`.
-    /// Previously, a bare `b` matched another session's `bwrap` window and resized it.
+    /// A bare `b` can match another session's `bwrap` window and resize it.
     pub async fn resize(&self, name: &str, cols: u16, rows: u16) -> Result<()> {
         let target = format!("{name}:");
         let cols = cols.to_string();

@@ -7,7 +7,8 @@ default. Failed refreshes retain previous choices and data; accepted removal dro
 obsolete tree nodes. Empty-state reasons come from the catalog, not tree chrome.
 
 Selections/history use relative paths within stable project/worktree identities so
-identical paths remain distinct. Project and checkout folds are independent.
+identical paths remain distinct. Projects use daemon-assigned IDs; names never
+substitute for missing IDs. Project and checkout folds are independent.
 Detached snapshots prevent callers from mutating retained catalog identity.
 Request-boundary translation belongs to `SessionStore`; semantic history belongs to
 [navigation](mod-sidebar-navigation.md).

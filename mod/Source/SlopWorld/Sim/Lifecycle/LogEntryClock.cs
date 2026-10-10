@@ -32,12 +32,7 @@ namespace SlopWorld
         public static float SecondsSince(LogEntry entry)
         {
             var stamp = Stamps.GetOrCreateValue(entry);
-            if (stamp.UtcTicks == 0)
-            {
-                // Old saves have only a solar timestamp. Estimate once, then retain UTC.
-                float age = RealClock.SecondsSince(entry.Timestamp);
-                stamp.UtcTicks = DateTime.UtcNow.Ticks - (long)(age * TimeSpan.TicksPerSecond);
-            }
+            if (stamp.UtcTicks == 0) return 0f;
             return (float)Math.Max(0, (DateTime.UtcNow.Ticks - stamp.UtcTicks) /
                 (double)TimeSpan.TicksPerSecond);
         }

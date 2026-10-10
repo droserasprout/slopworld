@@ -273,7 +273,7 @@ fn task_authority_survives_rename_but_not_name_reuse() {
 fn records_without_explicit_authority_are_rejected() {
     let (dir, mut tasks) = isolated_store();
     let task = tasks
-        .create("host".into(), "worker".into(), "legacy".into())
+        .create("host".into(), "worker".into(), "missing authority".into())
         .unwrap();
     let path = dir.join("data/tasks").join(format!("{}.toml", task.id));
     let mut record: toml::Value = toml::from_str(&fs::read_to_string(&path).unwrap()).unwrap();

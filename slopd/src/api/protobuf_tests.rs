@@ -116,9 +116,7 @@ async fn config_read_preserves_stored_host_identity_without_exposing_it_on_the_w
         ..Default::default()
     });
     let manager = crate::session::test_manager(cfg.clone());
-    // test_manager uses the legacy fixture loader when reloading configuration.
-    let settings = toml::to_string(&cfg).unwrap();
-    std::fs::write(&manager.cfg_path, &settings).unwrap();
+    let settings = std::fs::read_to_string(&manager.cfg_path).unwrap();
     let app = crate::api::router(manager.clone()).layer(Extension(crate::grant::Cap::Root));
     let response = app
         .oneshot(

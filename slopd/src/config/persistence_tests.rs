@@ -387,18 +387,17 @@ async fn inline_workspace_is_rejected_without_rewriting_it() {
 }
 
 #[test]
-fn legacy_state_rules_are_ignored_and_not_exposed_in_modeled_config() {
+fn extensions_are_not_exposed_in_modeled_config() {
     let cfg = super::super::settings::document::replace(
         &Config::default(),
         r#"
-[[state_rule]]
-state = "waiting"
-pattern = '['
+[[extension]]
+value = "custom"
 "#,
     )
-    .expect("obsolete rules must not prevent startup")
+    .expect("extensions must not prevent startup")
     .candidate;
     let value = serde_json::to_value(&cfg).unwrap();
-    assert!(value.get("state_rule").is_none());
-    assert!(!toml::to_string(&cfg).unwrap().contains("state_rule"));
+    assert!(value.get("extension").is_none());
+    assert!(!toml::to_string(&cfg).unwrap().contains("extension"));
 }

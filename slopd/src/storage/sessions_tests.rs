@@ -152,7 +152,7 @@ async fn captured_snapshots_worker_linkage_and_startup_fields_survive_edit() {
     let mut value = agent(FIRST, "worker");
     value.worker = true;
     value.parent = "parent".into();
-    value.task_id = "legacy-task".into();
+    value.task_id = "assigned-task".into();
     value.worktree = "tree".into();
     value.autostart = true;
     value.auto_resume = true;
@@ -192,7 +192,7 @@ async fn captured_snapshots_worker_linkage_and_startup_fields_survive_edit() {
     assert!(value.worker && value.autostart && value.auto_resume);
     assert_eq!(
         (&*value.parent, &*value.task_id, &*value.worktree),
-        ("parent", "legacy-task", "tree")
+        ("parent", "assigned-task", "tree")
     );
     assert_eq!(value.command_snapshot.unwrap().cmd, "tool --fixed");
     assert_eq!(value.sandbox_snapshots[0].ro, ["/fixture"]);
@@ -302,7 +302,7 @@ async fn startup_rejects_bad_identity_duplicate_names_orders_and_malformed_recor
 async fn opaque_identity_is_retained_and_readers_are_not_records() {
     let mut f = Fixture::<SessionCfg>::new();
     let id = crate::storage_id::draft_identity();
-    f.change(|s| s.push(agent(&id, "legacy"))).await.unwrap();
+    f.change(|s| s.push(agent(&id, "worker"))).await.unwrap();
     f.reload().await.unwrap();
     assert_eq!(f.value(&id).id(), id);
     let mut reader = agent(FIRST, "reader");

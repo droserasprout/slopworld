@@ -36,14 +36,6 @@ pub fn redact_token_text(text: &str) -> Result<String> {
 }
 
 impl Config {
-    /// Retired undo journal path, retained for layout rejection and sandbox protection.
-    /// Sandbox path guards protect it alongside the main configuration.
-    pub(crate) fn recovery_path_for(path: &Path) -> PathBuf {
-        let mut name = path.file_name().unwrap_or_default().to_os_string();
-        name.push(".save-journal");
-        path.with_file_name(name)
-    }
-
     pub fn library_dirs_for(config_path: &Path) -> Vec<(LibraryItemKind, PathBuf)> {
         let root = config_path
             .parent()

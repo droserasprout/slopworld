@@ -178,18 +178,6 @@ namespace SlopWorld.Tests
             Assert.That(saved.Chosen(Scope("new")), Is.False, "new worktrees stay opt-in under All projects");
         }
 
-        public static void UnassignedProjectChoiceExpiresWhenDaemonAssignsId()
-        {
-            var f = new Fixture(); f.Projects[0].Id = ""; f.Update();
-            f.Reply(f.Request("p", 1), Scope());
-            f.Toggle(f.Catalog.All("name:p")[0]);
-            Assert.That(f.Catalog.EnabledScopes(), Is.Empty);
-            f.Projects[0].Id = "p-id"; f.ProjectsRevision++; f.Update();
-            f.Reply(f.Request("p", 2), Scope(), Scope("new"));
-            Assert.That(f.Catalog.EnabledScopes().Select(s => s.Worktree), Is.EqualTo(new[] { "main" }));
-            Assert.That(f.Saved, Does.Not.Contain(BrowseScope.Identity("p-id", "main")));
-        }
-
         public static void RenameReadinessFailureAndRemoval()
         {
             var f = new Fixture(); f.Update();
@@ -232,15 +220,13 @@ namespace SlopWorld.Tests
             Assert.That(f.Requests.Last().Project, Is.EqualTo("r"));
         }
 
-        public static void StableIdsResolveRenamedProjectsAndUnassignedProjects()
+        public static void StableIdsResolveRenamedProjects()
         {
             var p = new ProjectInfo { Id = "stable", Name = "old" };
             string key = BrowseScope.Identity(p.Id, "tree");
             p.Name = "renamed";
             Assert.That(BrowseScope.ProjectOf(key, new[] { p }), Is.SameAs(p));
             Assert.That(BrowseScope.WorktreeOf(key), Is.EqualTo("tree"));
-            var legacy = new ProjectInfo { Name = "legacy", Dir = "/legacy" };
-            Assert.That(BrowseScope.ProjectOf(BrowseScope.Identity(BrowseScope.ProjectIdOf(legacy), "main"), new[] { legacy }), Is.SameAs(legacy));
             Assert.That(new BrowseScopeChoices("").Chosen(Scope()), Is.True);
             var fromWire = ProjectInfo.FromWire(new Wire.Project { Id = "stable", Name = "renamed" });
             Assert.That(fromWire.Copy().ToWire().Id, Is.EqualTo("stable"));

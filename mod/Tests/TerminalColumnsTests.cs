@@ -107,8 +107,8 @@ namespace SlopWorld.Tests
         {
             var cells = TerminalColumns.Cells(Row((0, "hello")));
             AssertEx.Equal(5, TerminalColumns.ContentColumns(cells), "five columns of content");
-            AssertEx.Equal('h', TerminalColumns.Glyph(cells, 0), "column 0 is h");
-            AssertEx.Equal('o', TerminalColumns.Glyph(cells, 4), "column 4 is o");
+            AssertEx.Equal("h", TerminalColumns.GlyphText(cells, 0), "column 0 is h");
+            AssertEx.Equal("o", TerminalColumns.GlyphText(cells, 4), "column 4 is o");
             AssertEx.Equal("hello", TerminalColumns.Slice(cells, 0, 4), "the whole line");
             AssertEx.Equal("ell", TerminalColumns.Slice(cells, 1, 3), "an inner range");
         }
@@ -120,10 +120,10 @@ namespace SlopWorld.Tests
         {
             var cells = TerminalColumns.Cells(Sgr.ParseLine("\x1b[0m好\x1b[3Gabc"));
             AssertEx.Equal(5, TerminalColumns.ContentColumns(cells), "好 + abc spans five columns");
-            AssertEx.Equal('好', TerminalColumns.Glyph(cells, 0), "the wide glyph sits at column 0");
-            AssertEx.Equal('a', TerminalColumns.Glyph(cells, 2), "'a' is at column 2, not column 1");
-            AssertEx.Equal('b', TerminalColumns.Glyph(cells, 3), "'b' is at column 3");
-            AssertEx.Equal('c', TerminalColumns.Glyph(cells, 4), "'c' is at column 4");
+            AssertEx.Equal("好", TerminalColumns.GlyphText(cells, 0), "the wide glyph sits at column 0");
+            AssertEx.Equal("a", TerminalColumns.GlyphText(cells, 2), "'a' is at column 2, not column 1");
+            AssertEx.Equal("b", TerminalColumns.GlyphText(cells, 3), "'b' is at column 3");
+            AssertEx.Equal("c", TerminalColumns.GlyphText(cells, 4), "'c' is at column 4");
             // Selecting the tail by column now lands on the right characters.
             AssertEx.Equal("abc", TerminalColumns.Slice(cells, 2, 4), "the tail copies as abc");
             AssertEx.Equal("好abc", TerminalColumns.Slice(cells, 0, 4), "the whole line copies once");
@@ -133,7 +133,7 @@ namespace SlopWorld.Tests
         {
             var cells = TerminalColumns.Cells(Sgr.ParseLine("\x1b[0m好\x1b[3G"));
             AssertEx.Equal(2, cells.Length, "the trailing spacer remains addressable");
-            AssertEx.Equal('好', TerminalColumns.Glyph(cells, 1),
+            AssertEx.Equal("好", TerminalColumns.GlyphText(cells, 1),
                            "the second cell still belongs to the glyph");
             AssertEx.Equal("好", TerminalColumns.Slice(cells, 0, 1),
                            "a trailing wide glyph copies once");
@@ -143,7 +143,7 @@ namespace SlopWorld.Tests
         {
             var cells = TerminalColumns.Cells(Sgr.ParseLine("\x1b[0m好\x1b[3Gabc"));
             // Column 1 is the wide glyph's reserved half. A click there selects the glyph.
-            AssertEx.Equal('好', TerminalColumns.Glyph(cells, 1), "the reserved column reports 好");
+            AssertEx.Equal("好", TerminalColumns.GlyphText(cells, 1), "the reserved column reports 好");
         }
 
         static void WideRangeExpands()
