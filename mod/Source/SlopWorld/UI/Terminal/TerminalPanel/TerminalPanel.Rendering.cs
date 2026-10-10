@@ -258,9 +258,9 @@ namespace SlopWorld
 
         float SnapY(float v) => (Mathf.Round(v * _snapSy + _snapOy) - _snapOy) / _snapSy;
 
-        // Every char the face cannot advance by exactly one cell is placed alone on its own
-        // column. Claude Code's prompt chevron is in no mono face here, and drawn inline it
-        // took no width and slid the whole input line a cell left.
+        // Place each scalar on its daemon column. Unity rounds scaled font metrics independently
+        // of our cell advance, so even ASCII runs can drift when the UI is zoomed. Keep
+        // daemon clusters intact so combining characters still share their base glyph.
         internal static void DrawRun(string text, float x, float y, float cw, float ch,
                                      GUIStyle style, int columns, bool cluster = false)
         {
@@ -271,7 +271,7 @@ namespace SlopWorld
                 var plainLayout = cluster
                     ? InlineTextLayout.CellCluster(text, columns, cw, TextSpriteCatalog.Shared)
                     : InlineTextLayout.Cells(text, columns, cw,
-                        TextSpriteCatalog.Shared, TerminalFont.FitsCell);
+                        TextSpriteCatalog.Shared, TerminalFont.FitsCell, groupPlain: false);
                 SharedTextRenderer.DrawTerminalRun(plainLayout,
                     new Rect(x, y, plainLayout.Width + cw, ch), ch, style, overhang: cw);
                 return;
@@ -281,7 +281,7 @@ namespace SlopWorld
             var layout = cluster
                 ? InlineTextLayout.CellCluster(text, columns, cw, TextSpriteCatalog.Shared)
                 : InlineTextLayout.Cells(text, columns, cw, TextSpriteCatalog.Shared,
-                    TerminalFont.FitsCell);
+                    TerminalFont.FitsCell, groupPlain: false);
             PerfTrace.End("terminal-text-layout", layoutStarted, 1);
             long drawStarted = PerfTrace.Start();
             SharedTextRenderer.DrawTerminalRun(layout, new Rect(x, y, layout.Width + cw, ch),

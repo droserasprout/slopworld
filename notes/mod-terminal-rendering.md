@@ -10,6 +10,8 @@ revision: skipped predecessors or missing damage require a full repaint. Cursor 
 selection overlays must not repaint text. Theme/font, geometry, history position,
 and screen-mode changes invalidate the appropriate parsed/rendered caches.
 
+Terminal glyphs are positioned individually on the cell grid, including ASCII, so
+scaled native font advances cannot accumulate drift. Daemon clusters remain intact.
 Daemon columns own glyph widths; never reconstruct them from Unicode ranges or font
 metrics. Complete scalars and occupied widths stay intact through parsing, sprite
 joining, selection, and copy. Emoji clusters remain separate from adjacent text so

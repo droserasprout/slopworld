@@ -107,13 +107,14 @@ namespace SlopWorld
         // SgrRun guarantees only its final scalar can have a continuation cell.
         // A sprite sequence consumes the exact scalar cells supplied by the daemon.
         public static InlineTextLayout Cells(string text, int columns, float cellWidth,
-                                      TextSpriteCatalog catalog, Func<char, bool> fitsCell)
+                                      TextSpriteCatalog catalog, Func<char, bool> fitsCell,
+                                      bool groupPlain = true)
         {
             text = text ?? "";
             // Full terminal paints revisit many ordinary rows. A printable ASCII
             // row cannot contain a keycap's combining mark. Keep it as one font
             // span without allocating tokens or probing the sprite trie.
-            if (text.Length > 0 && columns == text.Length &&
+            if (groupPlain && text.Length > 0 && columns == text.Length &&
                 !catalog.HasPrintableAsciiOnlyKey)
             {
                 int i = 0;
@@ -134,7 +135,7 @@ namespace SlopWorld
                 // Only the final scalar may own a continuation cell. Give its token the
                 // remaining daemon columns rather than guessing width from Unicode or artwork.
                 int width = i + length == text.Length ? columns - col : count;
-                if (!sprite && length == 1 && width == 1 && fitsCell(text[i]))
+                if (groupPlain && !sprite && length == 1 && width == 1 && fitsCell(text[i]))
                 { i++; col++; continue; }
 
                 if (i > plainStart)

@@ -66,6 +66,23 @@ namespace SlopWorld.Tests
             AssertEx.Equal(21f, sequence.Spans[1].X, "sequence cannot collapse terminal geometry");
         }
 
+        public static void UngroupedTerminalTextKeepsColumnsAtFractionalZoom()
+        {
+            const float cw = 7f / 0.85f;
+            var layout = InlineTextLayout.Cells("align=\"right\"", 13, cw, Catalog,
+                c => true, groupPlain: false);
+            AssertEx.Equal(13, layout.Spans.Length, "ASCII must not regain native run advances");
+            for (int i = 0; i < layout.Spans.Length; i++)
+            {
+                AssertEx.Equal(i * cw, layout.Spans[i].X, "each glyph anchors to its column");
+                AssertEx.Equal(cw, layout.Spans[i].Width, "each glyph owns one cell");
+            }
+            var wide = InlineTextLayout.Cells("ab\U00020000", 4, cw, Catalog,
+                c => true, groupPlain: false);
+            AssertEx.Equal("\U00020000", wide.Spans[2].Text, "surrogate pair remains whole");
+            AssertEx.Equal(2 * cw, wide.Spans[2].Width, "daemon continuation remains intact");
+        }
+
         public static void UnknownSupplementaryAndWideTextRemainWhole()
         {
             var layout = InlineTextLayout.Cells("\U00020000", 2, 7f, Catalog, c => true);
