@@ -65,41 +65,6 @@ fn sorted_directory_reads_preserve_order_and_caller_error_policy() {
 }
 
 #[test]
-fn root_uses_the_supplied_base_or_the_current_directory() {
-    assert_eq!(
-        root(Some(PathBuf::from("/tmp/config"))),
-        PathBuf::from("/tmp/config/slopworld")
-    );
-    assert_eq!(root(None), PathBuf::from("./slopworld"));
-}
-
-#[test]
-fn dir_uses_its_environment_override() {
-    let Some(_) = crate::test_support::isolated() else {
-        return;
-    };
-    let variable = format!("SLOPD_PATH_TEST_{}", std::process::id());
-    let selected = std::env::temp_dir().join("slopd-path-override");
-    crate::test_support::set_env(&variable, &selected);
-
-    assert_eq!(
-        override_path(&variable, PathBuf::from("/ignored/sessions")),
-        selected
-    );
-}
-
-#[test]
-fn dir_appends_the_child_below_the_application_root() {
-    assert_eq!(
-        override_path(
-            "SLOPD_PATH_TEST_UNSET",
-            root(Some(PathBuf::from("/var/lib"))).join("sessions")
-        ),
-        PathBuf::from("/var/lib/slopworld/sessions")
-    );
-}
-
-#[test]
 fn dir_stamp_returns_none_for_a_missing_directory() {
     let path = std::env::temp_dir().join(format!("slopworld-missing-dir-{}", std::process::id()));
     assert_eq!(dir_stamp(&path), None);

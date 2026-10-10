@@ -20,6 +20,10 @@ mod process;
 mod runtime;
 mod sandbox;
 mod session;
+#[expect(
+    dead_code,
+    reason = "the daemon shares path query helpers with the host launchers"
+)]
 mod shared;
 mod storage;
 mod storage_id;

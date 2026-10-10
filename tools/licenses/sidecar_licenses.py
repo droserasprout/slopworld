@@ -1,4 +1,4 @@
-"""Stage full MIT notices from the sidecar's locked Cargo dependency graph."""
+"""Stage full license notices from the sidecar's locked Cargo dependency graph."""
 
 import json
 import subprocess
@@ -7,6 +7,26 @@ from pathlib import Path
 from tools import ROOT
 from tools.utils import command
 from tools.utils import run_main
+
+
+def find_notice(source: Path, expression: str) -> tuple[str, Path]:
+    alternatives = expression.split(' OR ')
+    if 'MIT' in alternatives:
+        license_name, marker = 'MIT', 'Permission is hereby granted'
+        candidates = [source / name for name in ('LICENSE-MIT', 'LICENSE-MIT.txt', 'LICENSE-MIT.md')]
+    elif expression == 'MPL-2.0':
+        license_name, marker = 'MPL-2.0', 'Mozilla Public License Version 2.0'
+        candidates = [source / name for name in ('LICENSE', 'LICENSE.txt')]
+    else:
+        raise ValueError(f'Review license for {source.name}: {expression}')
+    candidates.extend(source.glob('LICENSE*'))
+    notice = next(
+        (path for path in candidates if path.is_file() and marker in path.read_text(encoding='utf-8')),
+        None,
+    )
+    if notice is None:
+        raise ValueError(f'Missing full {license_name} notice for {source.name}')
+    return license_name, notice
 
 
 def main() -> None:
@@ -53,24 +73,18 @@ def main() -> None:
         'Includes Linux and macOS on x86_64/arm64, including development dependencies.',
     ]
     for package in packages:
-        # Each current dependency offers MIT. Fail rather than silently omit a notice
-        # if a future lock update introduces a different license or layout.
-        if 'MIT' not in package['license'].split(' OR '):
-            raise ValueError(f'Review license for {package["name"]}: {package["license"]}')
+        # Choose MIT when offered. dirs uses the unmodified MPL-2.0 option-ext
+        # dependency; include its full license and a source download location.
+        # Unrecognized licenses and missing texts still fail generation.
         source = Path(package['manifest_path']).parent
-        candidates = [source / name for name in ('LICENSE-MIT', 'LICENSE-MIT.txt', 'LICENSE-MIT.md')]
-        candidates.extend(source.glob('LICENSE*'))
-        notice = next(
-            (
-                path
-                for path in candidates
-                if path.is_file() and 'Permission is hereby granted' in path.read_text(encoding='utf-8')
-            ),
-            None,
-        )
-        if notice is None:
-            raise ValueError(f'Missing full MIT notice for {package["name"]}')
-        sections.append(f'{package["name"]} {package["version"]} — MIT\n\n{notice.read_text(encoding="utf-8").strip()}')
+        license_name, notice = find_notice(source, package['license'])
+        header = f'{package["name"]} {package["version"]} — {license_name}'
+        if license_name == 'MPL-2.0':
+            header += (
+                f'\nUnmodified source: https://crates.io/api/v1/crates/{package["name"]}/{package["version"]}/download'
+            )
+        body = '\n'.join(line.rstrip() for line in notice.read_text(encoding='utf-8').splitlines()).strip()
+        sections.append(f'{header}\n\n{body}')
     destination = ROOT / 'licenses/slopcar/THIRD-PARTY-NOTICES.txt'
     destination.parent.mkdir(parents=True, exist_ok=True)
     content = '\n\n'.join(sections) + '\n'

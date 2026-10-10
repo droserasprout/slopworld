@@ -20,6 +20,13 @@ Search game logs for `patching incomplete:`. Use `slopctl logs game --follow`;
 see [Paths and files](../reference/paths.md#logs) for log locations. These exceptions do not
 appear in the terminal that launched the game.
 
+For a native crash during startup patching, inspect the last `[SlopWorld] patching`
+entry in the game log. It names the patch class being processed when startup stopped.
+The preceding Harmony entry records the loaded library version and location.
+A native Mono signal bypasses the mod's exception handler, so it may leave no
+`patching incomplete:` entry. The last patch marker narrows the investigation;
+it does not establish that the patch caused the crash.
+
 ## The daemon is running but the mod shows no connection
 
 Run `slopctl status` and inspect daemon logs with `slopctl logs daemon`.

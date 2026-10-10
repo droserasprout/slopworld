@@ -54,9 +54,11 @@ usage:
   slopctl sandbox inspect NAME
   slopctl peers
   slopctl status
-  slopctl logs [game|daemon|all] [--lines N] [--follow]
+  slopctl [--sidecar] paths config|data|cache|endpoint|profile|game-log
+  slopctl [--sidecar] logs [game|daemon|all] [--lines N] [--follow]
 
 Use --json anywhere to print JSON instead of human-readable output.
+Use --sidecar to select the sidecar endpoint and log sources.
 
 SLOPWORLD_SESSION identifies the caller. It defaults to `host`, the user at the
 keyboard. The daemon accepts `host` only with the root token. When
@@ -222,7 +224,11 @@ impl Command {
                 print!("{usage}");
                 Ok(())
             }
-            Self::Logs { args } => run_logs(&args, json_output),
+            Self::Logs { args } => run_logs(
+                &args,
+                json_output,
+                crate::shared::application_paths::Mode::Native,
+            ),
             Self::Delegate { to, body } => {
                 task::run_delegate(endpoint, session, json_output, &to, &body)
             }

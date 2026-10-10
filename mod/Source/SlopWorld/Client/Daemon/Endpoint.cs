@@ -53,11 +53,7 @@ namespace SlopWorld
             var explicitPath = Environment.GetEnvironmentVariable("SLOPD_ENDPOINT");
             if (!string.IsNullOrEmpty(explicitPath)) return explicitPath;
 
-            var root = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
-            if (string.IsNullOrEmpty(root))
-                root = System.Environment.GetFolderPath(
-                    Environment.SpecialFolder.UserProfile) + "/.config";
-            return Path.Combine(root, "slopworld", "endpoint.toml");
+            return Path.Combine(ApplicationPaths.ConfigRoot, "endpoint.toml");
         }
     }
 }

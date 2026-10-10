@@ -39,6 +39,9 @@ Mount configuration belongs to [projects](daemon-projects.md), cache/checkouts t
 and inspection operations to [Using slopctl](../docs/src/reference/slopctl.md).
 The debug preset deliberately exposes host control, including a readable daemon root
 token; read-only credential mounts do not restrict credential use.
+Its opt-in `daemon_config` capability selects existing native and sidecar
+`config.toml` and `endpoint.toml` files read-only. It never exposes their parent
+configuration directory or catalogs; worker sessions do not receive this capability.
 
 Preset binds are grouped read-only, read-write, then devices. Project mounts
 precede persistent `/tmp`, capability mounts, private copies, shared files, and

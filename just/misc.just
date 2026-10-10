@@ -2,16 +2,26 @@
 
 # Show new entries in the game's Player.log
 [group('Development tools')]
-logs:
-    tail -f "{{ LOG }}"
+logs *args: daemon
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "$LOG" ]; then export SLOPWORLD_GAME_LOG="$LOG"; fi
+    exec "{{ SLOPCTL }}" {{ args }} logs game --follow
 
 export TRACE_SECONDS := env("TRACE_SECONDS", '30')
 export TRACE_LABEL := env("TRACE_LABEL", 'current')
 export TRACE_OUT := env("TRACE_OUT", 'bench/results/' + (if BENCH_RUN != '' { BENCH_RUN } else { 'current' }) + '/raw/trace/' + TRACE_LABEL + '.log')
 # Capture new performance/latency log entries (requires tracing enabled)
 [group('Development tools')]
-trace-mod:
-    {{ PYTHON }} -m tools.trace.capture --log "{{ TRACE_LOG }}" --seconds "{{ TRACE_SECONDS }}" --label "{{ TRACE_LABEL }}" --output "{{ TRACE_OUT }}"
+trace-mod sidecar='false': daemon
+    #!/usr/bin/env bash
+    set -euo pipefail
+    trace_log="$TRACE_LOG"
+    if [ -z "$trace_log" ]; then
+        profile_path=$(SLOPWORLD_PROFILE="${PROFILE:-${SLOPWORLD_PROFILE:-}}" "{{ RUNNER }}" {{ if sidecar == 'true' { '--sidecar' } else { '' } }} paths profile)
+        trace_log="$profile_path/SlopWorld-trace.log"
+    fi
+    exec {{ PYTHON }} -m tools.trace.capture --log "$trace_log" --seconds "{{ TRACE_SECONDS }}" --label "{{ TRACE_LABEL }}" --output "{{ TRACE_OUT }}"
 
 export TRACE_FILES := env("TRACE_FILES", 'bench/results/*/raw/trace/*.log')
 # Summarize captured windows by observed Eco/terminal/session/size state

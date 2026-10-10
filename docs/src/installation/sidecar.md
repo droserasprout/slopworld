@@ -27,9 +27,7 @@ Pass `--workspace` for each project that agents may access. Use absolute paths.
 The container mounts each workspace at the same path. The game and daemon exchange workspace paths.
 
 ```sh
-SLOPCAR_CONFIG_DIR="$HOME/.config/slopworld-car" \
-SLOPCAR_DATA_DIR="$HOME/.local/share/slopworld-car" \
-  slopcar start --workspace "/absolute/path/to/project"
+slopcar start --workspace "/absolute/path/to/project"
 ```
 
 The installed launcher embeds its seccomp profile and runtime commands do not
@@ -38,7 +36,7 @@ from an explicit checkout; without `--source`, it uses the current directory.
 Set `SLOPCAR_IMAGE` to select an image, including one already pulled from a registry.
 
 The worker writes `endpoint.toml` inside its config directory.
-In the example above, that is `~/.config/slopworld-car/endpoint.toml`.
+The default host location is `<CONFIG>/sidecar/endpoint.toml`.
 It publishes only its configured loopback port (7718 by default).
 Add more `--workspace` options when needed.
 
@@ -68,16 +66,15 @@ RIMWORLD=/path/to/RimWorld/game just install-mod
 Then launch with the sidecar's endpoint and profile:
 
 ```sh
-RIMWORLD=/path/to/RimWorld/game \
-SLOPCAR_CONFIG="$HOME/.config/slopworld-car" just sidecar-run
+RIMWORLD=/path/to/RimWorld/game just sidecar-run
 ```
 
 The sidecar profile is separate from the native profile.
 See [Paths and files](../reference/paths.md) for overrides and
 [Game profiles](../maintenance/game-profiles.md) for profile behavior.
 
-Start the worker before running the game. Other clients can set `SLOPD_ENDPOINT`
-to the sidecar's `endpoint.toml`.
+Start the worker before running the game. Use `slopctl --sidecar status` to connect
+from the CLI. `SLOPD_ENDPOINT` can select an explicit descriptor in either mode.
 
 ## Lifecycle
 
@@ -106,8 +103,10 @@ The launcher rejects a configuration directory that specifies another port.
 For container security flags and nested-namespace constraints, see the
 [technical README](https://github.com/droserasprout/slopworld/blob/main/slopcar/README.md#outer-isolation).
 
-The launcher defaults to the XDG config and data directories under `slopworld-car`.
-Override them with `SLOPCAR_CONFIG_DIR` and `SLOPCAR_DATA_DIR`.
-just recipes use `SLOPCAR_CONFIG` and `SLOPCAR_DATA` with the same defaults,
-and forward those settings to the launcher. Set both pairs consistently when
-combining custom standalone and recipe workflows.
+Host storage uses `SLOPD_CONFIG_ROOT`, `SLOPD_DATA`, and `SLOPD_CACHE` in both
+standalone and recipe workflows. Set the same environment when starting the
+sidecar and launching clients. See [Paths and files](../reference/paths.md#sidecar-host-storage)
+for host layout and fixed container mount targets, and
+[Environment variables](../reference/environment.md#sidecar-container-controls)
+for container controls. `slopcar paths endpoint` prints the resolved descriptor
+path without requiring Docker.

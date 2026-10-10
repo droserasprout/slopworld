@@ -14,11 +14,9 @@ struct GameConfig {
 }
 
 pub(super) fn config_path() -> Result<PathBuf, String> {
-    let root = super::option_env_nonempty("XDG_CONFIG_HOME")
-        .map(|path| PathBuf::from(super::expand(&path)))
-        .or_else(|| dirs::home_dir().map(|home| home.join(".config")))
-        .ok_or_else(|| "cannot find the home directory for game.toml".to_string())?;
-    Ok(root.join("slopworld/game.toml"))
+    Ok(super::application_paths::Root::Config
+        .resolve()
+        .join("game.toml"))
 }
 
 fn validate(directory: PathBuf) -> Result<PathBuf, String> {

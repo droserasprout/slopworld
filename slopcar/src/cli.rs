@@ -5,6 +5,7 @@ use std::{ffi::OsString, path::PathBuf};
 pub(crate) const HELP: &str = "usage: slopcar COMMAND [OPTIONS]
 
 commands:
+  paths NAME            print config, data, cache, endpoint, profile, or game-log path
   licenses              show embedded dependency notices
   build [--source PATH]  build the image from a checkout (default: current directory)
   doctor                check nested Bubblewrap, pasta and tmux
@@ -25,9 +26,9 @@ start options:
   --cpus NUMBER         CPU ceiling (default: 4)
   --pids-limit NUMBER   process/thread ceiling (default: 4096)
 
-Settings use SLOPCAR_IMAGE, SLOPCAR_CONTAINER, SLOPCAR_CONFIG_DIR,
-SLOPCAR_DATA_DIR, SLOPCAR_PORT, SLOPCAR_MEMORY, SLOPCAR_CPUS, SLOPCAR_PIDS_LIMIT.
-Config and data default to the XDG slopworld-car directories.
+Host paths follow SLOPD_CONFIG_ROOT, SLOPD_DATA, and SLOPD_CACHE under sidecar/.
+Container settings use SLOPCAR_IMAGE, SLOPCAR_CONTAINER, SLOPCAR_PORT,
+SLOPCAR_MEMORY, SLOPCAR_CPUS, and SLOPCAR_PIDS_LIMIT.
 ";
 
 #[derive(Default, Debug)]
@@ -53,6 +54,7 @@ impl Start {
 #[derive(Debug)]
 pub(crate) enum Command {
     Help,
+    Paths(String),
     Notices,
     Build(PathBuf),
     Doctor,
@@ -70,6 +72,12 @@ pub(crate) fn parse(arguments: Vec<OsString>) -> Result<Command> {
     let name = args.next().unwrap_or_else(|| "help".into());
     let command = match name.to_str().context("command must be UTF-8")? {
         "help" | "-h" | "--help" => Command::Help,
+        "paths" => Command::Paths(
+            args.next()
+                .context("paths needs a name")?
+                .into_string()
+                .map_err(|_| anyhow::anyhow!("path name must be UTF-8"))?,
+        ),
         "licenses" => Command::Notices,
         "build" => {
             let source = match args.next() {

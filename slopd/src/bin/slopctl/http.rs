@@ -3,7 +3,6 @@ use prost::Message;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::io::Read;
-use std::path::PathBuf;
 
 const TOKEN_HEADER: &str = crate::shared::protocol::TOKEN_HEADER;
 const SESSION_HEADER: &str = crate::shared::protocol::SESSION_HEADER;
@@ -14,7 +13,9 @@ pub(crate) struct Endpoint {
     pub(crate) token: String,
 }
 
-pub(crate) fn load_endpoint() -> Result<Endpoint, String> {
+pub(crate) fn load_endpoint(
+    mode: crate::shared::application_paths::Mode,
+) -> Result<Endpoint, String> {
     if let Ok(url) = std::env::var("SLOPD_URL") {
         // Permit an explicitly empty SLOPD_TOKEN for a daemon without authentication.
         // Reject an absent variable here instead of sending an empty token that could cause an HTTP 401 response.
@@ -24,13 +25,7 @@ pub(crate) fn load_endpoint() -> Result<Endpoint, String> {
         })?;
         return Ok(Endpoint { url, token });
     }
-    let path = std::env::var("SLOPD_ENDPOINT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| {
-            dirs::config_dir()
-                .unwrap_or_else(|| PathBuf::from("."))
-                .join("slopworld/endpoint.toml")
-        });
+    let path = mode.endpoint_path();
     let text =
         std::fs::read_to_string(&path).map_err(|e| format!("reading {}: {e}", path.display()))?;
     toml::from_str(&text).map_err(|e| format!("parsing {}: {e}", path.display()))

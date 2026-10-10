@@ -317,11 +317,7 @@ namespace SlopWorld
 
         public static string LikesPath()
         {
-            string root = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
-            if (string.IsNullOrEmpty(root))
-                root = Path.Combine(Environment.GetFolderPath(
-                    Environment.SpecialFolder.UserProfile), ".local", "share");
-            return Path.Combine(root, "slopworld", "jukebox.toml");
+            return ApplicationPaths.LikesPath;
         }
 
         static bool HasRecognition() => !string.IsNullOrEmpty(_recognizedArtist)

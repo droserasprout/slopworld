@@ -148,8 +148,8 @@ fn assert_debug_preset(table: &Table) {
         "$SLOPWORLD_GAME",
         "~/GOG Games/RimWorld/game",
         "~/.local/share/slopworld/profile",
-        "~/.local/share/slopworld-car",
-        "~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios",
+        "~/.local/share/slopworld/sidecar",
+        "~/.cache/slopworld/Player.log",
         "~/.local/bin",
         "~/.config/systemd/user",
     ] {
@@ -159,8 +159,8 @@ fn assert_debug_preset(table: &Table) {
         );
     }
     assert!(
-        debug.env.iter().any(|seen| seen == "SLOPCAR_PROFILE"),
-        "debug does not forward SLOPCAR_PROFILE"
+        debug.env.iter().any(|seen| seen == "SLOPD_DATA"),
+        "debug does not forward SLOPD_DATA"
     );
     for path in ["/sys", "/run/udev", "~/.local/share/applications"] {
         assert!(

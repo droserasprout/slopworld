@@ -11,9 +11,9 @@ missing profile data automatically:
 slopworld --profile /path/to/profile
 ```
 
-See [Paths and files](../reference/paths.md) for defaults and overrides. Standard
-native, [sidecar](../installation/sidecar.md), and [macOS](../installation/macos.md) just workflows use separate
-paths. Explicit paths can select the same folder, so choose separate folders when
+See [Paths and files](../reference/paths.md) for defaults and overrides. Native mode defaults to `<DATA>/profile`; `--sidecar` defaults to
+`<DATA>/sidecar/profile`. The [sidecar](../installation/sidecar.md) and
+[macOS](../installation/macos.md) recipes select sidecar mode explicitly. Explicit paths can select the same folder, so choose separate folders when
 you want separate saves. Profile paths cannot contain `=`.
 
 ## Profile initialization and repair

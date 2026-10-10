@@ -207,14 +207,9 @@ async fn publish_atomic_async(
     result
 }
 
-/// Return the application directory below `base`, or `./slopworld` if `base` is missing.
-pub fn root(base: Option<PathBuf>) -> PathBuf {
-    base.unwrap_or_else(|| PathBuf::from(".")).join("slopworld")
-}
-
 /// Return the daemon's user configuration directory.
 pub fn config_root() -> PathBuf {
-    override_path("SLOPD_CONFIG_ROOT", root(dirs::config_dir()))
+    crate::shared::application_paths::Root::Config.resolve_with(env::var_os)
 }
 
 /// Select the root settings document without relocating the other roots.
@@ -224,17 +219,12 @@ pub fn config_file() -> PathBuf {
 
 /// Return the daemon's cache directory. `SLOPD_CACHE` replaces the default path.
 pub fn cache_root() -> PathBuf {
-    override_path("SLOPD_CACHE", root(dirs::cache_dir()))
+    crate::shared::application_paths::Root::Cache.resolve_with(env::var_os)
 }
 
 /// Return the daemon's local data directory, independently of configuration.
 pub fn data_root() -> PathBuf {
-    override_path("SLOPD_DATA", root(dirs::data_local_dir()))
-}
-
-/// Resolve an application-root override before its platform-derived default.
-pub fn override_path(variable: &str, default: PathBuf) -> PathBuf {
-    env::var_os(variable).map(PathBuf::from).unwrap_or(default)
+    crate::shared::application_paths::Root::Data.resolve_with(env::var_os)
 }
 
 /// Return the latest readable modification time from the directory and its entries.

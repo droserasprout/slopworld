@@ -10,6 +10,8 @@ elapsed timers from process/thread CPU measurements.
 
 [Session state](daemon-session-state.md) owns confirmed process-exit evidence and
 reader recovery; [daemon sources](daemon-files.md) map CLI stream ownership.
+Sidecar daemon logs capture both Docker output streams through the same formatter,
+so stderr participates in JSON output and source-prefixed combined logs.
 
 The native service uses `Type=simple`; readiness requires a listener, not merely
 active status. Startup logs separate config, Git warmup, recovery, reconciliation,

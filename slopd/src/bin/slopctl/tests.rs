@@ -427,6 +427,7 @@ fn logs_defaults_to_both_and_a_bounded_tail() {
     assert_eq!(
         parse_logs_args(&[]).unwrap(),
         LogsOptions {
+            mode: crate::shared::application_paths::Mode::Native,
             selection: LogSelection::All,
             lines: DEFAULT_LOG_LINES,
             follow: false,
@@ -439,6 +440,7 @@ fn logs_accepts_source_flags_and_follow() {
     assert_eq!(
         parse_logs_args(&words("--daemon -f --lines=37")).unwrap(),
         LogsOptions {
+            mode: crate::shared::application_paths::Mode::Native,
             selection: LogSelection::One(LogSource::Daemon),
             lines: 37,
             follow: true,
@@ -451,6 +453,7 @@ fn logs_accepts_positional_source() {
     assert_eq!(
         parse_logs_args(&words("game -n 9")).unwrap(),
         LogsOptions {
+            mode: crate::shared::application_paths::Mode::Native,
             selection: LogSelection::One(LogSource::Game),
             lines: 9,
             follow: false,
@@ -580,6 +583,7 @@ fn log_lines_are_cleaned_and_rendered_in_all_output_modes() {
 #[test]
 fn log_commands_select_the_expected_local_tools() {
     let options = LogsOptions {
+        mode: crate::shared::application_paths::Mode::Native,
         selection: LogSelection::All,
         lines: 17,
         follow: true,
@@ -1113,4 +1117,27 @@ fn partial_task_prune_reports_failure_after_preserving_response_details() {
             .unwrap_err()
             .contains("1 committed, 1 failed, 1 unattempted")
     );
+}
+
+#[test]
+fn sidecar_log_commands_select_the_sidecar_cache_and_docker_container() {
+    let options = LogsOptions {
+        mode: crate::shared::application_paths::Mode::Sidecar,
+        selection: LogSelection::All,
+        lines: 17,
+        follow: true,
+    };
+    let game = source_command(LogSource::Game, options).unwrap();
+    let expected = crate::shared::application_paths::Mode::Sidecar.game_log_path();
+    assert_eq!(
+        game.get_args().last().unwrap(),
+        expand_home(&expected.to_string_lossy()).unwrap()
+    );
+    let daemon = source_command(LogSource::Daemon, options).unwrap();
+    assert_eq!(daemon.get_program(), "docker");
+    let args = daemon
+        .get_args()
+        .map(|arg| arg.to_string_lossy().into_owned())
+        .collect::<Vec<_>>();
+    assert_eq!(&args[..4], ["logs", "--tail", "17", "--follow"]);
 }

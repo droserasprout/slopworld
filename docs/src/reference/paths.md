@@ -3,57 +3,63 @@
 See [Environment variables](environment.md) for which process reads each override
 and for connection, logging, and runtime controls.
 
-These tables show default paths and supported overrides. Most Linux SlopWorld paths use XDG directories. Unity logs and the macOS profile use the locations shown. Config paths use `$XDG_CONFIG_HOME` (fallback `~/.config`), data paths use
-`$XDG_DATA_HOME` (fallback `~/.local/share`), and caches use `$XDG_CACHE_HOME`
-(fallback `~/.cache`). On Unix, mode `0600` gives read and write access only to the owner.
+The application roots have these environment overrides and Linux defaults:
 
-Daemon application roots can be overridden independently with `SLOPD_CONFIG_ROOT`,
-`SLOPD_DATA`, and `SLOPD_CACHE`. Settings and catalogs live under the configuration
-root; private session state lives under `SLOPD_DATA/sessions`. Endpoint
-discovery and launcher/game paths retain the independent overrides below.
+| Environment variable | Default directory |
+| --- | --- |
+| `SLOPD_DATA` | `~/.local/share/slopworld` |
+| `SLOPD_CONFIG_ROOT` | `~/.config/slopworld` |
+| `SLOPD_CACHE` | `~/.cache/slopworld` |
+
+The defaults follow `XDG_DATA_HOME`, `XDG_CONFIG_HOME`, and `XDG_CACHE_HOME`
+when set to absolute paths on Linux. On macOS, configuration and data default to
+`~/Library/Application Support/slopworld`, and cache defaults to
+`~/Library/Caches/slopworld`. Settings and catalogs live under `<CONFIG>`;
+private session state lives under `<DATA>/sessions`. Endpoint discovery and launcher/game paths
+follow these roots unless their explicit overrides below select another path.
+On Unix, mode `0600` gives read and write access only to the owner.
 
 ## Daemon configuration
 
 | Path | Override | Description |
 | --- | --- | --- |
-| `$XDG_CONFIG_HOME/slopworld/config.toml` | under `SLOPD_CONFIG_ROOT` | Machine settings, seeded on first run. |
-| `$XDG_CONFIG_HOME/slopworld/endpoint.toml` | `SLOPD_ENDPOINT` | Effective URL and token while the daemon is running. Mode `0600`. |
-| `$XDG_CONFIG_HOME/slopworld/projects/<id>.toml` | under `SLOPD_CONFIG_ROOT` | Project definitions. |
-| `$XDG_CONFIG_HOME/slopworld/prompts/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal prompt library items, one definition per file. |
-| `$XDG_CONFIG_HOME/slopworld/breadcrumbs/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal breadcrumb library items, one definition per file. |
-| `$XDG_CONFIG_HOME/slopworld/file_actions/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal file-action library items, one definition per file. |
-| `$XDG_CONFIG_HOME/slopworld/shell_scripts/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal shell-script library items, one definition per file. |
-| `$XDG_CONFIG_HOME/slopworld/agent_templates/` | under `SLOPD_CONFIG_ROOT` | Personal agent templates; copy the entire directory for backup. |
-| `$XDG_CONFIG_HOME/slopworld/sandbox_presets/<name>.toml` | under `SLOPD_CONFIG_ROOT` | User sandbox definitions, one definition per file. |
-| `$XDG_CONFIG_HOME/slopworld/app_presets/<name>.toml` | under `SLOPD_CONFIG_ROOT` | User app definitions, one definition per file. |
-| `$XDG_CONFIG_HOME/slopworld/jukebox/<name>.toml` | under `SLOPD_CONFIG_ROOT` | User-defined radio stations. SlopWorld includes no stations. |
-| `$XDG_CACHE_HOME/slopworld/mounts/<project-id>/` | under `SLOPD_CACHE` | Shared managed cache data. |
+| `<CONFIG>/config.toml` | under `SLOPD_CONFIG_ROOT` | Machine settings, seeded on first run. |
+| `<CONFIG>/endpoint.toml` | `SLOPD_ENDPOINT` | Effective URL and token while the daemon is running. Mode `0600`. |
+| `<CONFIG>/projects/<id>.toml` | under `SLOPD_CONFIG_ROOT` | Project definitions. |
+| `<CONFIG>/prompts/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal prompt library items, one definition per file. |
+| `<CONFIG>/breadcrumbs/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal breadcrumb library items, one definition per file. |
+| `<CONFIG>/file_actions/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal file-action library items, one definition per file. |
+| `<CONFIG>/shell_scripts/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal shell-script library items, one definition per file. |
+| `<CONFIG>/agent_templates/` | under `SLOPD_CONFIG_ROOT` | Personal agent templates; copy the entire directory for backup. |
+| `<CONFIG>/sandbox_presets/<name>.toml` | under `SLOPD_CONFIG_ROOT` | User sandbox definitions, one definition per file. |
+| `<CONFIG>/app_presets/<name>.toml` | under `SLOPD_CONFIG_ROOT` | User app definitions, one definition per file. |
+| `<CONFIG>/jukebox/<name>.toml` | under `SLOPD_CONFIG_ROOT` | User-defined radio stations. SlopWorld includes no stations. |
+| `<CACHE>/mounts/<project-id>/` | under `SLOPD_CACHE` | Shared managed cache data. |
 
 ## Launcher configuration
 
 | Path | Override | Description |
 | --- | --- | --- |
-| `$XDG_CONFIG_HOME/slopworld/game.toml` | `--game`, then `SLOPWORLD_GAME` | Default Linux game directory, remembered after mod installation succeeds. |
+| `<CONFIG>/game.toml` | `--game`, then `SLOPWORLD_GAME` | Default Linux game directory, remembered after mod installation succeeds. |
 
-With no `XDG_CONFIG_HOME`, the file lives at `~/.config/slopworld/game.toml`.
-It contains one `path` string. Installing the mod into a Linux game's `Mods`
+The file contains one `path` string. Installing the mod into a Linux game's `Mods`
 directory stores the canonical game directory path.
 
 ## Data
 
 | Path | Override | Description |
 | --- | --- | --- |
-| `$XDG_DATA_HOME/slopworld/agents/<state-id>.toml` | under `SLOPD_DATA` | Durable agent definitions. |
-| `$XDG_DATA_HOME/slopworld/host_shells/<id>.toml` | under `SLOPD_DATA` | Host-shell definitions and remembered directories. |
-| `$XDG_DATA_HOME/slopworld/worktrees/<id>.toml` | under `SLOPD_DATA` | Registered checkout records and phases. |
-| `$XDG_DATA_HOME/slopworld/tasks/<id>.toml` | under `SLOPD_DATA` | Complete task records; no runtime task journal. |
-| `$XDG_DATA_HOME/slopworld/grants.toml` | under `SLOPD_DATA` | Scoped credentials, mode `0600`. |
-| `$XDG_DATA_HOME/slopworld/workspace.save-journal` | under `SLOPD_DATA` | Pending transaction recovery; do not delete. |
-| `$XDG_DATA_HOME/slopworld/sessions/<state-id>/` | under `SLOPD_DATA` | Per-agent private state. The daemon assigns the opaque state ID at creation. |
-| `$XDG_DATA_HOME/slopworld/sessions/.trash/` | under `SLOPD_DATA` | Recoverable private-state trash. |
+| `<DATA>/agents/<state-id>.toml` | under `SLOPD_DATA` | Durable agent definitions. |
+| `<DATA>/host_shells/<id>.toml` | under `SLOPD_DATA` | Host-shell definitions and remembered directories. |
+| `<DATA>/worktrees/<id>.toml` | under `SLOPD_DATA` | Registered checkout records and phases. |
+| `<DATA>/tasks/<id>.toml` | under `SLOPD_DATA` | Complete task records; no runtime task journal. |
+| `<DATA>/grants.toml` | under `SLOPD_DATA` | Scoped credentials, mode `0600`. |
+| `<DATA>/workspace.save-journal` | under `SLOPD_DATA` | Pending transaction recovery; do not delete. |
+| `<DATA>/sessions/<state-id>/` | under `SLOPD_DATA` | Per-agent private state. The daemon assigns the opaque state ID at creation. |
+| `<DATA>/sessions/.trash/` | under `SLOPD_DATA` | Recoverable private-state trash. |
 | `<project_path>/.worktrees/<worktree-name>/` | `project.worktree_root` | Default managed checkout path. An explicit root uses `<root>/<project-name>/<worktree-name>/`. |
-| `$XDG_DATA_HOME/slopworld/jukebox.toml` | `XDG_DATA_HOME` | Jukebox likes (`[[like]]` tables). |
-| `$XDG_DATA_HOME/slopworld/profile` | `--profile`, then `SLOPCAR_PROFILE`, then `SLOPWORLD_PROFILE` | Game profile: saves, screenshots, and `Config/`. |
+| `<DATA>/jukebox.toml` | under `SLOPD_DATA` | Jukebox likes (`[[like]]` tables). |
+| `<DATA>/profile` | `--profile`, then `SLOPWORLD_PROFILE` | Game profile: saves, screenshots, and `Config/`. |
 
 `just run` passes `PROFILE` as the launcher's `--profile`. See
 [Game profiles](../maintenance/game-profiles.md) for initialization and
@@ -70,8 +76,13 @@ directory stores the canonical game directory path.
 
 | Path | Used by | Override | Description |
 | --- | --- | --- | --- |
-| `~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Player.log` | Linux game | Use `SLOPWORLD_GAME_LOG` for `slopctl logs`. | Unity writes Harmony and mod exceptions here. They do not appear in the terminal that launched the game. |
+| `<CACHE>/Player.log` | Launcher and game | `SLOPWORLD_GAME_LOG` | Unity writes Harmony and mod exceptions here. They do not appear in the terminal that launched the game. |
 | `journalctl --user -u slopd` | Daemon | `SLOPWORLD_DAEMON_UNIT` for `slopctl logs` | Daemon log when it runs as a systemd user service. |
+
+The launcher passes `-logFile` to Unity and creates the log directory before
+launching. `slopctl logs game` and `just logs` use the same default and environment
+override. Passing a game `-logFile` argument takes precedence for that launch; set
+`SLOPWORLD_GAME_LOG` to the same path when reading it.
 
 ## tmux
 
@@ -79,20 +90,28 @@ The default named socket is `slopworld`. `SLOPD_TMUX_SOCKET` overrides the name;
 `TMUX_TMPDIR` changes the socket directory. See
 [Attaching to tmux](../terminals/terminal.md) for native Linux commands.
 
-## Sidecar worker
+## Sidecar host storage
 
-just recipes use the `slopworld-car` paths. The `slopcar` script uses the `slopworld` paths. Both follow XDG variables when set.
+`slopcar`, Linux recipes, and macOS recipes use the same application roots.
+`slopworld --sidecar` and `slopctl --sidecar` select sidecar defaults explicitly.
+Setting a profile or endpoint override does not select sidecar mode.
 
-| Path | Used by | Override | Description |
-| --- | --- | --- | --- |
-| `~/.config/slopworld-car/` | just recipes | `SLOPCAR_CONFIG` | Sidecar configuration and endpoint descriptor. |
-| `~/.local/share/slopworld-car/` | just recipes | `SLOPCAR_DATA` | Sidecar state. |
-| `~/.local/share/slopworld-car/profile` | just recipes | `SLOPCAR_PROFILE` | Sidecar game profile. |
-| `$XDG_CONFIG_HOME/slopworld/` | `slopcar` script | `SLOPCAR_CONFIG_DIR` | Sidecar configuration and endpoint descriptor. |
-| `~/.local/share/slopworld/` | `slopcar` script | `SLOPCAR_DATA_DIR` | Sidecar state. |
+| Path | Override | Description |
+| --- | --- | --- |
+| `<CONFIG>/sidecar/` | under `SLOPD_CONFIG_ROOT` | Sidecar configuration, catalogs, and `endpoint.toml`. |
+| `<DATA>/sidecar/daemon/` | under `SLOPD_DATA` | Persistent container daemon state. |
+| `<DATA>/sidecar/profile/` | `--profile`, then `SLOPWORLD_PROFILE` | Host game's sidecar profile. |
+| `<CACHE>/sidecar/Player.log` | `SLOPWORLD_GAME_LOG` | Host game's sidecar log. |
 
-## macOS game profile
+`SLOPD_ENDPOINT` overrides descriptor discovery for clients in either mode.
+The container writes its descriptor in the mounted sidecar configuration directory.
+`slopcar paths endpoint` prints that host location; `paths config`, `data`, `cache`,
+`profile`, and `game-log` print the other resolved host paths without starting Docker
+or creating directories. The launcher and `slopctl` offer the same `paths` command;
+add `--sidecar` to select these defaults.
 
-| Path | Used by | Override | Description |
-| --- | --- | --- | --- |
-| `~/Library/Application Support/SlopWorld/sidecar-profile` | macOS just recipes | `MAC_PROFILE` | Separate profile used by the native macOS game. |
+The host config and daemon-data directories are mounted at
+`/home/slop/.config/slopworld` and `/home/slop/.local/share/slopworld` inside the
+container. Host root overrides select mount sources; they are not forwarded as
+container paths. Container cache is temporary and disappears with the container.
+The game profile and game log stay on the host.

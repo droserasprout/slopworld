@@ -7,7 +7,7 @@ from slopcar import devloop
 
 
 def test_iteration_preserves_start_arguments_and_recovers_from_failed_commands(monkeypatch):
-    for setting in ('SLOPCAR_CONFIG_DIR', 'SLOPCAR_DATA_DIR', 'SLOPCAR_PORT', 'SLOPCAR_CONTAINER'):
+    for setting in ('SLOPD_CONFIG_ROOT', 'SLOPD_DATA', 'SLOPD_CACHE', 'SLOPCAR_PORT', 'SLOPCAR_CONTAINER'):
         monkeypatch.setenv(setting, 'configured')
     monkeypatch.setenv('JUST_CMD', '/tmp/just tool')
     monkeypatch.setenv('SLOPCAR', '/tmp/sidecar binary')

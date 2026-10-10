@@ -15,6 +15,10 @@ owns subprocess transport. `src/mounts.rs` owns mount validation and
 The host executable embeds `seccomp.json`; the Dockerfile and container-side
 entrypoint/doctor remain image inputs. Only image builds require a checkout,
 selected with `build --source PATH` (default: current directory).
+Host storage resolves through `slopd/src/shared/application_paths.rs`, shared
+with the launcher and CLI. Configuration lives at `<CONFIG>/sidecar`, daemon
+state at `<DATA>/sidecar/daemon`; container mount targets remain fixed.
+`paths NAME` queries host paths without Docker or filesystem writes.
 Sandbox construction uses the container's usr-merge layout at runtime.
 
 For setup, workspace and credential mounts, client connection, and lifecycle, see

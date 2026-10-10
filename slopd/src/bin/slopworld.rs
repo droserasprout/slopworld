@@ -7,8 +7,11 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
+#[path = "../shared/application_paths.rs"]
+mod application_paths;
 #[path = "slopworld/instance.rs"]
 mod instance;
+
 use instance::{InstanceLock, game_process_running, launcher_lock_path};
 
 #[path = "slopworld/mod_install.rs"]
@@ -54,9 +57,9 @@ options:
                    working directory for the game process
   --mods DIR       mod directory to validate (required with a non-Linux game layout)
   --profile DIR    save data folder to use or create
-                   (default $SLOPCAR_PROFILE, $SLOPWORLD_PROFILE, then $XDG_DATA_HOME/slopworld/profile)
+                   (default $SLOPWORLD_PROFILE, then <DATA>/profile or <DATA>/sidecar/profile)
   --init-profile   create or repair the profile, then exit without starting the game
-  --sidecar        use the sidecar UI default while initializing the profile
+  --sidecar        use the sidecar endpoint, profile, game log, and UI defaults
   --reset          rewrite the profile's mod list, discarding what is there
   --version        print the embedded SlopWorld version
   --print          print the argv this would run, and run nothing
@@ -64,6 +67,7 @@ options:
   -h, --help       this
 
 commands:
+  paths NAME       print config, data, cache, endpoint, profile, or game-log path
   mod install      install the SlopWorld mod from a source tree
   mod uninstall    remove the installed SlopWorld mod
 
@@ -83,6 +87,16 @@ fn main() -> ExitCode {
 
 fn run() -> Result<ExitCode, String> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut query_args = args.clone();
+    let mode = if application_paths::take_flag(&mut query_args, "--sidecar") {
+        application_paths::Mode::Sidecar
+    } else {
+        application_paths::Mode::Native
+    };
+    if let Some(path) = application_paths::path_query(&query_args, mode)? {
+        println!("{}", path.display());
+        return Ok(ExitCode::SUCCESS);
+    }
     if let Some(message) = mod_install::try_run(&args)? {
         if !message.is_empty() {
             print!("{message}");
@@ -105,7 +119,12 @@ fn run() -> Result<ExitCode, String> {
 }
 
 fn run_launcher(args: Args) -> Result<ExitCode, String> {
-    let profile = profile_dir(args.profile.as_deref())?;
+    let mode = if args.sidecar {
+        application_paths::Mode::Sidecar
+    } else {
+        application_paths::Mode::Native
+    };
+    let profile = profile_dir(args.profile.as_deref(), mode)?;
 
     // The game expects exactly one `=` in this argument.
     // An additional `=` in the path prevents the game from using the requested profile.
@@ -126,7 +145,7 @@ fn run_launcher(args: Args) -> Result<ExitCode, String> {
         return Ok(ExitCode::SUCCESS);
     }
 
-    let sidecar = sidecar_paths()?;
+    let sidecar = sidecar_paths(mode)?;
     let (executable, mods) = game_target(
         args.game.as_deref(),
         args.game_exe.as_deref(),
@@ -144,7 +163,10 @@ fn run_launcher(args: Args) -> Result<ExitCode, String> {
     }
 
     let working_dir = validate_working_dir(args.working_dir.as_deref())?;
-    let argv = game_argv(&executable, &profile, &args.rest, args.no_window_fix);
+    let log = mode.game_log_path();
+    let log = PathBuf::from(expand(&log.to_string_lossy()));
+    let log = std::path::absolute(&log).map_err(|e| format!("resolving {}: {e}", log.display()))?;
+    let argv = game_argv(&executable, &profile, &log, &args.rest, args.no_window_fix);
     if args.print {
         for arg in &argv {
             println!("{arg}");
@@ -160,11 +182,29 @@ fn run_launcher(args: Args) -> Result<ExitCode, String> {
         ));
     }
     seed(&profile, args.reset, args.sidecar || sidecar.is_some())?;
+    if !has_game_log_arg(&args.rest)
+        && let Some(parent) = log.parent()
+    {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("creating log directory {}: {e}", parent.display()))?;
+    }
     if sidecar.is_some() {
         println!("slopworld: slopcar profile: {}", profile.display());
     }
 
     let mut command = Command::new(&executable);
+    // Pass the same resolved roots to the mod, including platform defaults and
+    // absolute paths so a different game working directory cannot relocate them.
+    for (variable, root) in [
+        ("SLOPD_CONFIG_ROOT", application_paths::Root::Config),
+        ("SLOPD_DATA", application_paths::Root::Data),
+        ("SLOPD_CACHE", application_paths::Root::Cache),
+    ] {
+        let path = root.resolve();
+        let absolute =
+            std::path::absolute(&path).map_err(|e| format!("resolving {}: {e}", path.display()))?;
+        command.env(variable, absolute);
+    }
     if let Some(working_dir) = working_dir {
         command.current_dir(working_dir);
     }
@@ -172,6 +212,11 @@ fn run_launcher(args: Args) -> Result<ExitCode, String> {
         // The justfile can receive a literal `~`. Neither the game nor the mod expands shell paths.
         // Pass the resolved path to the child process.
         command.env("SLOPD_ENDPOINT", &sidecar.endpoint);
+    } else if std::env::var_os("SLOPD_ENDPOINT").is_some() {
+        let endpoint = mode.endpoint_path();
+        let absolute = std::path::absolute(&endpoint)
+            .map_err(|e| format!("resolving {}: {e}", endpoint.display()))?;
+        command.env("SLOPD_ENDPOINT", absolute);
     }
     let status = command
         .args(argv.get(1..).unwrap_or_default())
@@ -324,76 +369,39 @@ fn game_target(
     Ok((executable, mods))
 }
 
-/// Use the XDG data directory by default for profile state.
-/// A profile contains saved games, screenshots, and a mod list.
-fn profile_dir(explicit: Option<&str>) -> Result<PathBuf, String> {
-    profile_dir_from(
-        explicit,
-        option_env_nonempty("SLOPCAR_PROFILE").as_deref(),
-        option_env_nonempty("SLOPWORLD_PROFILE").as_deref(),
-        option_env_nonempty("XDG_DATA_HOME").as_deref(),
-    )
-}
-
-fn profile_dir_from(
-    explicit: Option<&str>,
-    sidecar: Option<&str>,
-    native: Option<&str>,
-    xdg_data: Option<&str>,
-) -> Result<PathBuf, String> {
-    let named = explicit.or(sidecar).or(native);
-    let dir = match named {
-        Some(d) => PathBuf::from(expand(d)),
-        None => match xdg_data {
-            Some(x) => PathBuf::from(expand(x)).join("slopworld/profile"),
-            None => PathBuf::from(expand("~/.local/share/slopworld/profile")),
-        },
-    };
-    // Resolve relative profile paths against the launcher's working directory.
-    // Otherwise, the game would resolve them against its own working directory.
-    if dir.is_relative() {
-        return std::env::current_dir()
-            .map(|cwd| cwd.join(&dir))
-            .map_err(|e| format!("resolving {}: {e}", dir.display()));
-    }
-    Ok(dir)
+/// Explicit profiles change storage without selecting sidecar integration.
+fn profile_dir(explicit: Option<&str>, mode: application_paths::Mode) -> Result<PathBuf, String> {
+    let path = explicit
+        .map(|path| PathBuf::from(expand(path)))
+        .unwrap_or_else(|| mode.profile_path());
+    let path = PathBuf::from(expand(&path.to_string_lossy()));
+    std::path::absolute(&path).map_err(|e| format!("resolving {}: {e}", path.display()))
 }
 
 struct SidecarPaths {
     endpoint: PathBuf,
 }
 
-/// `SLOPCAR_PROFILE` selects sidecar integration for the native game.
-/// Validate the endpoint during profile setup so callers do not need a separate shell check.
-fn sidecar_paths() -> Result<Option<SidecarPaths>, String> {
-    sidecar_paths_from(
-        option_env_nonempty("SLOPCAR_PROFILE").as_deref(),
-        option_env_nonempty("SLOPD_ENDPOINT").as_deref(),
-    )
-}
-
-fn sidecar_paths_from(
-    profile: Option<&str>,
-    endpoint: Option<&str>,
-) -> Result<Option<SidecarPaths>, String> {
-    if profile.is_none() {
+/// Sidecar mode validates its selected descriptor before a game launch.
+/// Profile initialization does not require a running sidecar.
+fn sidecar_paths(mode: application_paths::Mode) -> Result<Option<SidecarPaths>, String> {
+    if mode == application_paths::Mode::Native {
         return Ok(None);
     }
+    sidecar_paths_from(&mode.endpoint_path()).map(Some)
+}
 
-    let endpoint = endpoint
-        .map(|path| PathBuf::from(expand(path)))
-        .ok_or_else(|| {
-            "SLOPCAR_PROFILE is set, but SLOPD_ENDPOINT is missing. Start the sidecar first."
-                .to_string()
-        })?;
+fn sidecar_paths_from(endpoint: &Path) -> Result<SidecarPaths, String> {
+    let endpoint = PathBuf::from(expand(&endpoint.to_string_lossy()));
+    let endpoint = std::path::absolute(&endpoint)
+        .map_err(|e| format!("resolving {}: {e}", endpoint.display()))?;
     if !endpoint.is_file() {
         return Err(format!(
             "no slopcar endpoint at {} (start the sidecar first, e.g.: slopcar start --workspace \"$HOME/git\")",
             endpoint.display()
         ));
     }
-
-    Ok(Some(SidecarPaths { endpoint }))
+    Ok(SidecarPaths { endpoint })
 }
 
 /// Create missing profile files. Preserve existing files unless `--reset` requests replacement of the mod list.
@@ -456,6 +464,7 @@ fn mods_config_xml() -> String {
 fn game_argv(
     executable: &Path,
     profile: &Path,
+    log: &Path,
     rest: &[String],
     no_window_fix: bool,
 ) -> Vec<String> {
@@ -463,11 +472,19 @@ fn game_argv(
         executable.to_string_lossy().into_owned(),
         format!("-savedatafolder={}", profile.display()),
     ];
+    if !has_game_log_arg(rest) {
+        argv.extend(["-logFile".to_string(), log.to_string_lossy().into_owned()]);
+    }
     if !no_window_fix {
         argv.extend(DEFAULT_GAME_ARGS.iter().map(|arg| (*arg).to_string()));
     }
     argv.extend(rest.iter().cloned());
     argv
+}
+
+fn has_game_log_arg(rest: &[String]) -> bool {
+    rest.iter()
+        .any(|arg| arg == "-logFile" || arg.starts_with("-logFile="))
 }
 
 fn option_env_nonempty(key: &str) -> Option<String> {

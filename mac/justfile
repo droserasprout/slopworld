@@ -22,11 +22,8 @@ install: game-check doctor
 # Start the macOS sidecar and launch native RimWorld
 [group('macOS')]
 run: game-check mod-check ready
-    echo "launching native macOS RimWorld against {{ SLOPCAR_ENDPOINT }}"
-    SLOPD_ENDPOINT="{{ SLOPCAR_ENDPOINT }}" \
-        SLOPCAR_PROFILE="{{ MAC_PROFILE }}" \
-        "{{ RUNNER }}" --game-exe "{{ MAC_GAME }}" --working-dir "{{ MAC_RESOURCES }}" \
-            --mods "{{ MAC_MODS }}" --profile "{{ MAC_PROFILE }}" --no-window-fix -- {{ MAC_GAME_ARGS }}
+    "{{ RUNNER }}" --sidecar --game-exe "{{ MAC_GAME }}" --working-dir "{{ MAC_RESOURCES }}" \
+        --mods "{{ MAC_MODS }}" {{ if PROFILE != '' { '--profile "' + PROFILE + '"' } else { '' } }} --no-window-fix -- {{ MAC_GAME_ARGS }}
 
 # Install and run native macOS RimWorld with the sidecar
 [group('macOS')]
@@ -46,27 +43,27 @@ doctor: build
 [group('macOS')]
 [private]
 ready: build
-    {{ SLOPCAR_ENV }} {{ PYTHON }} -m mac.workflow start {{ SLOPCAR_START_ARGS }}
+    {{ PYTHON }} -m mac.workflow start {{ SLOPCAR_START_ARGS }}
 
 # Start the configured macOS sidecar, reusing its container
 [group('macOS')]
 start: docker-check sidecar
-    {{ SLOPCAR_ENV }} {{ PYTHON }} -m mac.workflow start {{ SLOPCAR_START_ARGS }}
+    {{ PYTHON }} -m mac.workflow start {{ SLOPCAR_START_ARGS }}
 
 # Stop the macOS sidecar without removing its state
 [group('macOS')]
 stop: docker-check sidecar
-    {{ SLOPCAR_ENV }} "{{ SLOPCAR }}" stop
+    "{{ SLOPCAR }}" stop
 
 # Show macOS sidecar status
 [group('macOS')]
 status: docker-check sidecar
-    {{ SLOPCAR_ENV }} "{{ SLOPCAR }}" status
+    "{{ SLOPCAR }}" status
 
 # Show macOS sidecar logs. Use LOG_ARGS='--tail 100' to limit output.
 [group('macOS')]
 logs: docker-check sidecar
-    {{ SLOPCAR_ENV }} "{{ SLOPCAR }}" logs {{ LOG_ARGS }}
+    "{{ SLOPCAR }}" logs {{ LOG_ARGS }}
 
 # Install the macOS build tools and Docker Desktop with Homebrew
 [group('macOS')]
@@ -95,7 +92,7 @@ mod: game-check
 # Create the isolated native macOS sidecar profile if it is absent
 [group('macOS')]
 profile: daemon
-    "{{ RUNNER }}" --profile "{{ MAC_PROFILE }}" --init-profile --sidecar
+    "{{ RUNNER }}" --sidecar --init-profile {{ if PROFILE != '' { '--profile "' + PROFILE + '"' } else { '' } }}
 
 [group('macOS')]
 [private]

@@ -20,11 +20,16 @@ Launch validation precedes seeding, and print mode never seeds.
 
 The launcher retains a profile-keyed file lock through game exit on Linux and macOS.
 Direct-game process detection is Linux-only. Native and sidecar profiles have separate
-defaults; explicit profile paths can select the same folder. The endpoint does not
+defaults selected by `--sidecar`; profile and endpoint environment overrides
+do not select a mode. Explicit profile paths can select the same folder. The endpoint does not
 choose lock identity.
 
 User setup belongs to [game profiles](../docs/src/maintenance/game-profiles.md), paths to
 [the path reference](../docs/src/reference/paths.md), and window behavior to
 [Linux windowing](ui-window-fullscreen.md).
 
-Profiles share Unity’s game log; the launcher does not redirect it.
+The launcher redirects Unity’s game log to `<CACHE>/Player.log`, with
+`SLOPWORLD_GAME_LOG` taking precedence. Sidecar mode uses
+`<CACHE>/sidecar/Player.log`. Explicit game `-logFile` arguments are
+forwarded without adding another log argument. Print mode creates no directories;
+normal launch creates the selected log parent before starting Unity.

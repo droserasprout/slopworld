@@ -1045,3 +1045,33 @@ fn image_import_mount_is_private_read_only_and_wins_over_project_overlays() {
     );
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn diagnostic_config_binds_include_sidecar_files_without_exposing_catalogs() {
+    let Some(root) = crate::test_support::isolated_with_env(|command, root| {
+        command
+            .env("SLOPD_CONFIG_ROOT", root.join("config"))
+            .env_remove("SLOPD_ENDPOINT");
+    }) else {
+        return;
+    };
+    let config = root.join("config");
+    let sidecar = config.join("sidecar");
+    std::fs::create_dir_all(sidecar.join("projects")).unwrap();
+    let sidecar_config = sidecar.join("config.toml");
+    let endpoint = sidecar.join("endpoint.toml");
+    let catalog = sidecar.join("projects/private.toml");
+    for path in [&sidecar_config, &endpoint, &catalog] {
+        std::fs::write(path, "fixture").unwrap();
+    }
+    let binds = policy::daemon_config_binds();
+    assert_eq!(
+        binds,
+        [sidecar_config.to_string_lossy(), endpoint.to_string_lossy()]
+    );
+    std::fs::remove_file(&endpoint).unwrap();
+    assert_eq!(
+        policy::daemon_config_binds(),
+        [sidecar_config.to_string_lossy()]
+    );
+}

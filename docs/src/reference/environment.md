@@ -31,10 +31,10 @@ other sessions and [API authorization](api.md#authorization) for token scope.
 For example, inspect a sidecar using its descriptor:
 
 ```sh
-SLOPD_ENDPOINT="$HOME/.config/slopworld-car/endpoint.toml" slopctl status
+slopctl --sidecar status
 ```
 
-## Daemon storage
+## Application storage
 
 Use absolute paths for storage overrides. Unset an override to use its default;
 an empty path value is not treated as an unset variable by the storage helpers.
@@ -42,13 +42,14 @@ The [Paths and files](paths.md) reference owns the default locations and directo
 
 | Variable | Selects |
 | --- | --- |
-| `SLOPD_CONFIG_ROOT` | Application configuration root for catalogs and the default settings file. |
-| `SLOPD_DATA` | Application data root for agent records, tasks, grants, and other durable workspace state. |
+| `SLOPD_CONFIG_ROOT` | Application configuration root for catalogs, settings, endpoint discovery, and the saved game directory. |
+| `SLOPD_DATA` | Application data root for durable workspace state, jukebox likes, and the default game profile. |
 | `SLOPD_CACHE` | Application cache root. |
 
 These roots are independent. Settings and catalogs follow `SLOPD_CONFIG_ROOT`;
-private session state follows `SLOPD_DATA`. `SLOPD_CONFIG_ROOT` does not relocate endpoint discovery; use
-`SLOPD_ENDPOINT` consistently for the daemon and its clients.
+private session state follows `SLOPD_DATA`. Set the same roots for the daemon,
+launcher, mod, `slopctl`, and host `slopcar`. An explicit `SLOPD_ENDPOINT` takes
+precedence over the configuration root.
 
 ## Game and profile selection
 
@@ -57,12 +58,12 @@ private session state follows `SLOPD_DATA`. `SLOPD_CONFIG_ROOT` does not relocat
 | `SLOPWORLD_GAME` | `slopworld` | Game directory when `--game` is absent, before saved and discovered locations. |
 | `RIMWORLD` | `slopworld mod` commands | Game installation for mod management when an explicit destination is absent. Also used by build recipes. |
 | `MAC_RIMWORLD` | `slopworld mod` commands on macOS | Game app location after `RIMWORLD`; defaults to `~/Documents/RimWorld.app`. Also used by macOS recipes. |
-| `SLOPWORLD_PROFILE` | `slopworld` | Game profile when neither `--profile` nor `SLOPCAR_PROFILE` supplies one. |
-| `SLOPCAR_PROFILE` | `slopworld` | Sidecar profile, ahead of `SLOPWORLD_PROFILE`. Also enables sidecar integration and requires `SLOPD_ENDPOINT` to name an existing descriptor. |
+| `SLOPWORLD_PROFILE` | `slopworld` | Game profile when `--profile` is absent. |
 
 The launcher ignores blank values for these game/profile choices. An explicit
-`--profile` wins profile selection, but setting `SLOPCAR_PROFILE` still enables
-the sidecar endpoint check. See [Game profiles](../maintenance/game-profiles.md).
+`--profile` wins profile selection. `--sidecar` selects sidecar defaults and
+requires an existing sidecar endpoint descriptor for a game launch. See
+[Game profiles](../maintenance/game-profiles.md).
 
 ## Logs and diagnostics
 
@@ -70,7 +71,7 @@ the sidecar endpoint check. See [Game profiles](../maintenance/game-profiles.md)
 | --- | --- | --- |
 | `SLOPD_LOG` | Daemon | Tracing filter; defaults to `slopd=info`. For more daemon detail, use `slopd=debug`. |
 | `SLOPWORLD_DEBUG` | Daemon and mod | Enables performance and terminal-latency instrumentation when `1` or `true` (case-insensitive). Disabled otherwise; set it before starting each process you want to trace. |
-| `SLOPWORLD_GAME_LOG` | `slopctl logs` | Selects the game log to read; does not change where Unity writes logs. |
+| `SLOPWORLD_GAME_LOG` | Launcher, `slopctl logs`, `just logs` | Selects the Unity log file; defaults to `<CACHE>/Player.log`, or `<CACHE>/sidecar/Player.log` with `--sidecar`. The launcher passes it with `-logFile`. |
 | `SLOPWORLD_DAEMON_UNIT` | `slopctl logs` | Selects the systemd user unit to read; defaults to `slopd.service`. |
 
 See [Log locations](paths.md#logs) and [Troubleshooting](../help/troubleshooting.md).
@@ -85,6 +86,22 @@ to override that value.
 | `TMUX_TMPDIR` | Daemon and tmux | Changes the tmux socket directory. See [Attaching to tmux](../terminals/terminal.md). |
 | `SLOPD_RUNTIME` | Daemon | Set to `slopcar` by the sidecar entrypoint. Leave unset for native operation; other values are rejected. |
 | `LESSUTFCHARDEF` | Daemon when preparing terminals | Overrides the supplied Unicode handling for `less`. The default preserves emoji components in terminal output. |
+
+## Sidecar container controls
+
+Storage uses the common roots above. `slopcar` reads these container-specific
+variables; explicit command options take precedence where available.
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `SLOPCAR_IMAGE` | `slopcar:local` | Image to build or run. |
+| `SLOPCAR_CONTAINER` | `slopcar` | Container name; also used by `slopctl --sidecar logs daemon`. |
+| `SLOPCAR_PORT` | `7718` | Loopback host port and initial daemon bind port. |
+| `SLOPCAR_MEMORY` | `8g` | Container memory limit. |
+| `SLOPCAR_CPUS` | `4` | Container CPU limit. |
+| `SLOPCAR_PIDS_LIMIT` | `4096` | Container process limit. |
+
+See [Sidecar mode](../installation/sidecar.md) for lifecycle and mount options.
 
 ## Provider integrations
 

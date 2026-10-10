@@ -13,9 +13,6 @@ from tools.utils import run_main
 
 def iteration(arguments: list[str]) -> None:
     just = os.environ['JUST_CMD']
-    for setting in ('SLOPCAR_CONFIG_DIR', 'SLOPCAR_DATA_DIR', 'SLOPCAR_PORT', 'SLOPCAR_CONTAINER'):
-        if not os.environ.get(setting):
-            raise ValueError(f'{setting} is required')
     sidecar = os.environ['SLOPCAR']
     # Like the interactive loop, failed commands return to the next iteration.
     run([just, 'sidecar-build'], cwd=ROOT, check=False)

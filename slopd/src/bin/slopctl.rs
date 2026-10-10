@@ -18,6 +18,7 @@ mod tests;
 use commands::{Command, USAGE, parse_command};
 use http::load_endpoint;
 use logs::{LOGS_USAGE, run_logs};
+use shared::application_paths::{self, Mode};
 use std::process::ExitCode;
 use std::time::Duration;
 
@@ -36,26 +37,28 @@ fn main() -> ExitCode {
 
 fn run() -> Result<(), String> {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
+    let mode = if application_paths::take_flag(&mut args, "--sidecar") {
+        Mode::Sidecar
+    } else {
+        Mode::Native
+    };
+    let json = take_json_flag(&mut args);
+    if let Some(path) = application_paths::path_query(&args, mode)? {
+        if json {
+            println!(
+                "{}",
+                serde_json::to_string(&path).map_err(|error| error.to_string())?
+            );
+        } else {
+            println!("{}", path.display());
+        }
+        return Ok(());
+    }
     let command = args.first().map(String::as_str);
     if matches!(command, None | Some("-h" | "--help" | "help")) {
         print!("{USAGE}");
         return Ok(());
     }
-    // The global JSON flag changes output formatting without changing the request.
-    // Remove it before parsing the command.
-    let json = take_json_flag(&mut args);
-    if args.is_empty() {
-        print!("{USAGE}");
-        return Ok(());
-    }
-    if matches!(
-        args.first().map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        print!("{USAGE}");
-        return Ok(());
-    }
-
     let command = parse_command(&args)?;
     if let Command::Help { usage } = &command {
         print!("{usage}");
@@ -71,10 +74,10 @@ fn run() -> Result<(), String> {
             print!("{LOGS_USAGE}");
             return Ok(());
         }
-        return run_logs(args, json);
+        return run_logs(args, json, mode);
     }
 
-    let endpoint = load_endpoint()?;
+    let endpoint = load_endpoint(mode)?;
     // Use the host identity when SLOPWORLD_SESSION is absent or empty.
     // This lets users read the host inbox without specifying an identity.
     let session = std::env::var("SLOPWORLD_SESSION")
@@ -86,18 +89,5 @@ fn run() -> Result<(), String> {
 }
 
 fn take_json_flag(args: &mut Vec<String>) -> bool {
-    let mut json = false;
-    let mut options = true;
-    args.retain(|arg| {
-        if arg == "--" {
-            options = false;
-        }
-        if options && arg == "--json" {
-            json = true;
-            false
-        } else {
-            true
-        }
-    });
-    json
+    application_paths::take_flag(args, "--json")
 }

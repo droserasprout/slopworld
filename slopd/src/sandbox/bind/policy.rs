@@ -105,11 +105,17 @@ pub(super) fn tmux_socket_bind(socket: &str) -> Option<(String, String)> {
 /// The debug capability selects individual files without mounting their parent directory.
 /// This prevents access to presets and other configuration files.
 pub(super) fn daemon_config_binds() -> Vec<String> {
-    [Config::path_in_use(), crate::endpoint::path()]
-        .into_iter()
-        .filter(|path| path.is_file())
-        .map(|path| path.to_string_lossy().into_owned())
-        .collect()
+    let sidecar = crate::paths::config_root().join("sidecar");
+    [
+        Config::path_in_use(),
+        crate::endpoint::path(),
+        sidecar.join("config.toml"),
+        sidecar.join("endpoint.toml"),
+    ]
+    .into_iter()
+    .filter(|path| path.is_file())
+    .map(|path| path.to_string_lossy().into_owned())
+    .collect()
 }
 
 /// `/etc/resolv.conf` is commonly a symlink into `/run`, which is not mounted in the sandbox.

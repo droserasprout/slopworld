@@ -27,7 +27,7 @@ namespace SlopWorld
             var h = new Harmony("io.drsr.slopworld");
             try
             {
-                h.PatchAll(Assembly.GetExecutingAssembly());
+                ApplyAttributedPatches(h);
                 Patch_HideGui.Apply(h);
                 Patch_MainButtons.Apply(h);
                 StripKeys.Apply(h);
@@ -36,7 +36,7 @@ namespace SlopWorld
             }
             catch (Exception e)
             {
-                // PatchAll stops at the first failure.
+                // Startup patching stops at the first failure.
                 // Log the error and retain patches applied before the exception.
                 Log.Error($"[SlopWorld] patching incomplete: {e}");
             }
@@ -52,6 +52,21 @@ namespace SlopWorld
             Log.Message("[SlopWorld] Patched. Daemon at " + DaemonClient.BaseUrl);
             UiFont.Apply();
             TerminalLatencyFrame.Install();
+        }
+
+        static void ApplyAttributedPatches(Harmony harmony)
+        {
+            var runtime = typeof(Harmony).Assembly;
+            Log.Message($"[SlopWorld] Harmony {runtime.GetName().Version} at {runtime.Location}");
+            // Keep Harmony's PatchAll discovery and ordering. Native Mono failures bypass
+            // the exception handler, so record the class before generating its wrappers.
+            foreach (var type in AccessTools.GetTypesFromAssembly(Assembly.GetExecutingAssembly()))
+            {
+                if (!type.HasHarmonyAttribute()) continue;
+                Log.Message($"[SlopWorld] patching {type.FullName}");
+                harmony.CreateClassProcessor(type).Patch();
+            }
+            Log.Message("[SlopWorld] attributed patches complete");
         }
     }
 

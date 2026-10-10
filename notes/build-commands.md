@@ -14,8 +14,9 @@ exported settings carry across that boundary. Python modules own multi-step
 workflow orchestration rather than duplicating it in recipes. `mac/setup.sh` bootstraps
 uv before Python recipes can run. Settings accept environment values
 or `just NAME=value recipe`; assignments must precede recipe names. Exported settings
-carry into recursive calls. `SLOPCAR_PROFILE` stays unexported so native commands do
-not select the sidecar profile; sidecar launch recipes set it explicitly.
+carry into recursive calls. Sidecar launch recipes pass `--sidecar` explicitly.
+Runtime path defaults belong to the shared Rust resolver; recipes query the
+launcher or CLI rather than reproducing those defaults.
 
 Mod compilation does not build Rust binaries. `tools/version/mod_version.py` reads the
 Cargo package fallback and uses `tools/version/resolve.py` for the same tag/date/commit

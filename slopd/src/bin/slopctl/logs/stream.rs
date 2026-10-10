@@ -33,26 +33,38 @@ fn spawn_log_source(
     options: LogsOptions,
     sender: mpsc::SyncSender<LogEvent>,
 ) -> Result<(SharedChild, thread::JoinHandle<()>), String> {
-    spawn_command(source, source_command(source, options)?, sender)
+    spawn_command(
+        source,
+        source_command(source, options)?,
+        sender,
+        source == LogSource::Daemon && options.mode == super::Mode::Sidecar,
+    )
 }
 
 fn spawn_command(
     source: LogSource,
     mut command: std::process::Command,
     sender: mpsc::SyncSender<LogEvent>,
+    capture_stderr: bool,
 ) -> Result<(SharedChild, thread::JoinHandle<()>), String> {
-    let mut child = command
+    let (output, writer) =
+        io::pipe().map_err(|e| format!("creating {} log pipe: {e}", source.name()))?;
+    if capture_stderr {
+        // Docker preserves the container's stderr stream. Share one pipe so
+        // both streams use the same rendering, backpressure and cancellation.
+        command.stderr(writer.try_clone().map_err(|e| e.to_string())?);
+    }
+    command.stdout(writer);
+    let child = command
         .spawn()
         .map_err(|e| format!("starting {} logs: {e}", source.name()))?;
-    let Some(stdout) = child.stdout.take() else {
-        drop(child.kill());
-        drop(child.wait());
-        return Err(format!("{} logs produced no output pipe", source.name()));
-    };
+    // Command retains its configured writers after spawning; release them so
+    // the reader sees EOF when the child closes its streams.
+    drop(command);
     let child = Arc::new(Mutex::new(child));
     let worker_child = Arc::clone(&child);
     let worker = thread::spawn(move || {
-        let mut reader = BufReader::new(stdout);
+        let mut reader = BufReader::new(output);
         let mut line = String::new();
         loop {
             line.clear();

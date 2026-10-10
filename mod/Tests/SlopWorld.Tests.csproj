@@ -170,6 +170,7 @@
     <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonConfigDraft.cs" Link="Source/Client/Daemon/DaemonConfigDraft.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/DaemonConfigValidation.cs" Link="Source/UI/Settings/DaemonConfigValidation.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/Endpoint.cs" Link="Source/Client/Daemon/Endpoint.cs" />
+    <Compile Include="../Source/SlopWorld/Bootstrap/ApplicationPaths.cs" />
     <Compile Include="../Source/SlopWorld/Client/Catalog/MountEntry.cs" Link="Source/Client/Catalog/MountEntry.cs" />
     <Compile Include="../Source/SlopWorld/Client/Sessions/NetworkMode.cs" Link="Source/Client/Sessions/NetworkMode.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Projects/TempProjectPreviewState.cs" Link="Source/TempProjectPreviewState.cs" />

@@ -14,10 +14,17 @@ The [environment reference](environment.md#connection-and-identity)
 covers connection overrides and their precedence.
 
 `slopctl` reads `endpoint.toml` for the daemon URL and token.
-`SLOPD_ENDPOINT` selects a different endpoint file.
+`--sidecar` selects `<CONFIG>/sidecar/endpoint.toml` instead of the native
+`<CONFIG>/endpoint.toml`. `SLOPD_ENDPOINT` selects a different endpoint file in either mode.
 `SLOPD_URL` and `SLOPD_TOKEN` override it entirely. Use scoped credentials for
 agents; see [Agent collaboration](../agents/agent-collaboration.md) for permissions and
 [Paths and files](paths.md) for endpoint locations.
+
+## Resolved paths
+
+`slopctl paths config|data|cache|endpoint|profile|game-log` prints a resolved local
+path without contacting the daemon or creating directories. Add `--sidecar` for
+sidecar defaults. With `--json`, the result is a JSON string.
 
 ## Task commands
 
@@ -119,7 +126,9 @@ Use `--follow` to show new output.
 
 For game logs, `slopctl` reads `Player.log`. Set `SLOPWORLD_GAME_LOG` to use another file.
 For daemon logs, it reads the `slopd.service` user journal.
-Set `SLOPWORLD_DAEMON_UNIT` to use another unit.
+Set `SLOPWORLD_DAEMON_UNIT` to use another unit. With `--sidecar`, daemon logs
+come from `docker logs` for `SLOPCAR_CONTAINER` (default `slopcar`), and game logs
+default to `<CACHE>/sidecar/Player.log`.
 
 ## Machine-readable output
 

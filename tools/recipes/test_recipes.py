@@ -30,7 +30,7 @@ class RecipeTests(unittest.TestCase):
             + """
 import json, os, pathlib, sys
 tool = pathlib.Path(sys.argv[0]).name
-keys = ("BUILD", "CARGOFLAGS", "MOD_DEPS_LOCKED", "SLOPCAR_PROFILE", "JUST_CMD", "RUSTC_WRAPPER", "SCCACHE_DIR")
+keys = ("BUILD", "CARGOFLAGS", "MOD_DEPS_LOCKED", "JUST_CMD", "RUSTC_WRAPPER", "SCCACHE_DIR")
 with open(os.environ["RECIPE_TEST_LOG"], "a") as log:
     log.write(json.dumps({"tool": tool, "args": sys.argv[1:], "cwd": os.getcwd(),
         "env": {key: os.environ.get(key) for key in keys}}) + "\\n")
@@ -85,6 +85,33 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
                 (call,) = self.calls('cargo')
                 self.assertEqual(call['env']['RUSTC_WRAPPER'], wrapper)
                 self.assertEqual(call['env']['SCCACHE_DIR'], '/custom/cache')
+
+    def test_logs_delegate_path_and_mode_selection_to_slopctl(self) -> None:
+        result = self.run_recipe('--dry-run', 'logs', '--sidecar')
+        self.assertIn('slopctl" --sidecar logs game --follow', result.stderr)
+        self.assertNotIn('Player.log', result.stderr)
+        self.assertEqual(self.run_recipe('--evaluate', 'LOG').stdout.strip(), '')
+
+    def test_sidecar_launch_passes_explicit_mode_and_shared_profile_override(self) -> None:
+        result = self.run_recipe('--dry-run', 'PROFILE=/chosen/profile', 'sidecar-run')
+        self.assertIn('--sidecar --game', result.stderr)
+        self.assertIn('--profile "/chosen/profile"', result.stderr)
+        self.assertNotIn('SLOPD_ENDPOINT=', result.stderr)
+        result = self.run_recipe('--justfile', str(ROOT / 'mac/justfile'), '--dry-run', 'run')
+        self.assertIn('--sidecar --game-exe', result.stderr)
+        self.assertNotIn('--profile', result.stderr)
+
+    def test_trace_recipe_queries_the_launcher_profile(self) -> None:
+        result = self.run_recipe('--dry-run', 'trace-mod', 'true')
+        self.assertIn('--sidecar paths profile', result.stderr)
+        self.assertNotIn('.local/share', result.stderr)
+
+    def test_terminal_benchmark_builds_the_selected_launcher_before_running(self) -> None:
+        self.run_recipe('BUILD=release', 'bench-terminal')
+        calls = [json.loads(line) for line in self.log.read_text().splitlines()]
+        self.assertEqual([call['tool'] for call in calls], ['cargo', 'uv'])
+        self.assertEqual(calls[0]['args'], ['build', '--release'])
+        self.assertIn('bench/terminal-input/terminal-input-bench.py', calls[1]['args'])
 
     def test_invalid_build_fails_before_running_commands(self) -> None:
         result = self.run_recipe('BUILD=fast', 'daemon', success=False)
@@ -191,11 +218,6 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
                 '--fill-history',
             ],
         )
-
-    def test_native_build_does_not_export_sidecar_profile(self) -> None:
-        self.run_recipe('daemon', cwd=ROOT / 'slopd')
-        (call,) = self.calls('cargo')
-        self.assertIsNone(call['env']['SLOPCAR_PROFILE'])
 
     def test_dependency_failure_stops_mod_build(self) -> None:
         self.env['RECIPE_TEST_FAIL'] = 'dotnet'

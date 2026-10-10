@@ -14,6 +14,7 @@ namespace SlopWorld.Tests
                           FallsBackForMissingOrInvalidDescriptors);
             yield return ("normalizes connection info directly", NormalizesConnectionInfoDirectly);
             yield return ("finds the descriptor below XDG config", FindsXdgDescriptor);
+            yield return ("application roots override XDG paths", ApplicationRootsOverrideXdg);
         }
 
         static void ResolvesAndNormalizesIpv6Descriptor()
@@ -79,12 +80,14 @@ namespace SlopWorld.Tests
                 "slopworld-config-" + Guid.NewGuid().ToString("N"));
             string previousEndpoint = Environment.GetEnvironmentVariable("SLOPD_ENDPOINT");
             string previousXdg = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
+            string previousConfig = Environment.GetEnvironmentVariable("SLOPD_CONFIG_ROOT");
             try
             {
                 Directory.CreateDirectory(Path.Combine(root, "slopworld"));
                 File.WriteAllText(Path.Combine(root, "slopworld", "endpoint.toml"),
                                   "url = \"http://example.test:8822\"\ntoken = \"xdg\"\n");
                 Environment.SetEnvironmentVariable("SLOPD_ENDPOINT", null);
+                Environment.SetEnvironmentVariable("SLOPD_CONFIG_ROOT", null);
                 Environment.SetEnvironmentVariable("XDG_CONFIG_HOME", root);
 
                 var connection = Endpoint.Resolve();
@@ -96,6 +99,38 @@ namespace SlopWorld.Tests
             {
                 Environment.SetEnvironmentVariable("SLOPD_ENDPOINT", previousEndpoint);
                 Environment.SetEnvironmentVariable("XDG_CONFIG_HOME", previousXdg);
+                Environment.SetEnvironmentVariable("SLOPD_CONFIG_ROOT", previousConfig);
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        static void ApplicationRootsOverrideXdg()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "slopworld-roots-" + Guid.NewGuid().ToString("N"));
+            string[] variables = { "SLOPD_ENDPOINT", "SLOPD_CONFIG_ROOT", "SLOPD_DATA", "XDG_CONFIG_HOME", "XDG_DATA_HOME" };
+            var previous = new Dictionary<string, string>();
+            foreach (string variable in variables) previous[variable] = Environment.GetEnvironmentVariable(variable);
+            try
+            {
+                string config = Path.Combine(root, "config");
+                string data = Path.Combine(root, "data");
+                Directory.CreateDirectory(config);
+                File.WriteAllText(Path.Combine(config, "endpoint.toml"), "url = \"http://root.test:8823\"\ntoken = \"root\"\n");
+                Environment.SetEnvironmentVariable("SLOPD_ENDPOINT", null);
+                Environment.SetEnvironmentVariable("SLOPD_CONFIG_ROOT", config);
+                Environment.SetEnvironmentVariable("SLOPD_DATA", data);
+                Environment.SetEnvironmentVariable("XDG_CONFIG_HOME", Path.Combine(root, "unused-config"));
+                Environment.SetEnvironmentVariable("XDG_DATA_HOME", Path.Combine(root, "unused-data"));
+                AssertEx.Equal("root.test", Endpoint.Resolve().Host, "descriptor follows config root");
+                AssertEx.Equal(Path.Combine(data, "jukebox.toml"), ApplicationPaths.LikesPath, "likes follow data root");
+                string explicitEndpoint = Path.Combine(root, "explicit.toml");
+                File.WriteAllText(explicitEndpoint, "url = \"http://explicit.test:8824\"\ntoken = \"explicit\"\n");
+                Environment.SetEnvironmentVariable("SLOPD_ENDPOINT", explicitEndpoint);
+                AssertEx.Equal("explicit.test", Endpoint.Resolve().Host, "explicit descriptor wins over config root");
+            }
+            finally
+            {
+                foreach (string variable in variables) Environment.SetEnvironmentVariable(variable, previous[variable]);
                 if (Directory.Exists(root)) Directory.Delete(root, true);
             }
         }

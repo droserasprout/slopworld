@@ -31,12 +31,20 @@ fn the_games_arguments_are_passed_through() {
 
 #[test]
 fn the_window_fix_is_enabled_by_default() {
-    let a = game_argv(Path::new("/g/RimWorldLinux"), Path::new("/p"), &[], false);
+    let a = game_argv(
+        Path::new("/g/RimWorldLinux"),
+        Path::new("/p"),
+        Path::new("/logs/Player.log"),
+        &[],
+        false,
+    );
     assert_eq!(
         a,
         vec![
             "/g/RimWorldLinux",
             "-savedatafolder=/p",
+            "-logFile",
+            "/logs/Player.log",
             "-popupwindow",
             "-screen-fullscreen",
             "0",
@@ -53,10 +61,16 @@ fn the_window_fix_can_be_disabled() {
         game_argv(
             Path::new("/g/RimWorldLinux"),
             Path::new("/p"),
+            Path::new("/logs/Player.log"),
             &[],
             a.no_window_fix
         ),
-        vec!["/g/RimWorldLinux", "-savedatafolder=/p"]
+        vec![
+            "/g/RimWorldLinux",
+            "-savedatafolder=/p",
+            "-logFile",
+            "/logs/Player.log"
+        ]
     );
 }
 
@@ -86,46 +100,31 @@ fn a_missing_value_is_refused() {
 }
 
 #[test]
-fn explicit_profiles_take_precedence_over_sidecar_native_and_xdg_defaults() {
-    assert_eq!(
-        profile_dir_from(
-            Some("/explicit"),
-            Some("/sidecar"),
-            Some("/native"),
-            Some("/data")
-        )
-        .unwrap(),
-        PathBuf::from("/explicit")
-    );
-    assert_eq!(
-        profile_dir_from(None, Some("/sidecar"), Some("/native"), Some("/data")).unwrap(),
-        PathBuf::from("/sidecar")
-    );
-    assert_eq!(
-        profile_dir_from(None, None, Some("/native"), Some("/data")).unwrap(),
-        PathBuf::from("/native")
-    );
-    assert_eq!(
-        profile_dir_from(None, None, None, Some("/data")).unwrap(),
-        PathBuf::from("/data/slopworld/profile")
+fn explicit_profiles_select_storage_without_selecting_a_mode() {
+    for mode in [
+        application_paths::Mode::Native,
+        application_paths::Mode::Sidecar,
+    ] {
+        assert_eq!(
+            profile_dir(Some("/explicit"), mode).unwrap(),
+            PathBuf::from("/explicit")
+        );
+    }
+    assert!(
+        sidecar_paths(application_paths::Mode::Native)
+            .unwrap()
+            .is_none()
     );
 }
 
 #[test]
-fn sidecar_endpoint_is_required_and_must_exist() {
-    assert!(sidecar_paths_from(Some("/profile"), None).is_err());
+fn sidecar_endpoint_must_exist_and_is_resolved_to_an_absolute_path() {
     let root = scratch("endpoint");
     std::fs::create_dir_all(&root).unwrap();
     let endpoint = root.join("endpoint.toml");
-    assert!(sidecar_paths_from(Some("/profile"), endpoint.to_str()).is_err());
+    assert!(sidecar_paths_from(&endpoint).is_err());
     std::fs::write(&endpoint, "url = \"http://127.0.0.1:7718\"\n").unwrap();
-    assert_eq!(
-        sidecar_paths_from(Some("/profile"), endpoint.to_str())
-            .unwrap()
-            .unwrap()
-            .endpoint,
-        endpoint
-    );
+    assert_eq!(sidecar_paths_from(&endpoint).unwrap().endpoint, endpoint);
     drop(std::fs::remove_dir_all(root));
 }
 
@@ -234,6 +233,7 @@ fn the_profile_rides_on_the_games_own_argument() {
     let argv = game_argv(
         Path::new("/g/RimWorldLinux"),
         Path::new("/p"),
+        Path::new("/logs/Player.log"),
         &["-popupwindow".to_string()],
         false,
     );
@@ -242,6 +242,8 @@ fn the_profile_rides_on_the_games_own_argument() {
         vec![
             "/g/RimWorldLinux",
             "-savedatafolder=/p",
+            "-logFile",
+            "/logs/Player.log",
             "-popupwindow",
             "-screen-fullscreen",
             "0",
@@ -258,10 +260,110 @@ fn a_game_directory_without_the_binary_is_named_rather_than_skipped() {
 }
 
 #[test]
+fn explicit_unity_log_arguments_are_forwarded_without_a_second_log_option() {
+    for rest in [
+        vec!["-logFile".into(), "/custom/log".into()],
+        vec!["-logFile=-".into()],
+    ] {
+        let argv = game_argv(
+            Path::new("/game"),
+            Path::new("/profile"),
+            Path::new("/unused/log"),
+            &rest,
+            true,
+        );
+        assert_eq!(&argv[2..], rest.as_slice());
+    }
+}
+
+#[test]
 fn a_relative_profile_is_made_absolute() {
-    let p = profile_dir(Some("some/where")).expect("resolves");
+    let p = profile_dir(Some("some/where"), application_paths::Mode::Native).expect("resolves");
     assert!(p.is_absolute(), "{}", p.display());
     assert!(p.ends_with("some/where"));
+}
+
+#[test]
+fn launcher_defaults_follow_roots_and_print_creates_no_state() {
+    const MARKER_ENV: &str = "SLOPWORLD_ROOT_TEST";
+    if let Some(root) = std::env::var_os(MARKER_ENV) {
+        let root = PathBuf::from(root);
+        assert_eq!(
+            game_config::config_path().unwrap(),
+            root.join("config/game.toml")
+        );
+        assert_eq!(
+            profile_dir(None, application_paths::Mode::Native).unwrap(),
+            root.join("data/profile")
+        );
+        assert_eq!(
+            application_paths::Mode::Native.game_log_path(),
+            root.join("cache/Player.log")
+        );
+        let game = root.join("game");
+        std::fs::create_dir_all(game.join("Mods/SlopWorld/About")).unwrap();
+        std::fs::write(game.join(EXE), "fixture").unwrap();
+        std::fs::write(game.join("Mods/SlopWorld/About/About.xml"), "fixture").unwrap();
+        run_launcher(Args {
+            game: Some(game.to_string_lossy().into_owned()),
+            print: true,
+            ..Args::default()
+        })
+        .unwrap();
+        for name in ["config", "data", "cache", "unused-xdg"] {
+            assert!(!root.join(name).exists(), "print created {name}");
+        }
+        let mode = application_paths::Mode::Sidecar;
+        assert_eq!(
+            mode.query("profile").unwrap(),
+            root.join("data/sidecar/profile")
+        );
+        assert_eq!(
+            mode.query("game-log").unwrap(),
+            root.join("cache/sidecar/Player.log")
+        );
+        assert!(sidecar_paths(mode).is_err());
+        let endpoint = root.join("config/sidecar/endpoint.toml");
+        std::fs::create_dir_all(endpoint.parent().unwrap()).unwrap();
+        std::fs::write(&endpoint, "fixture").unwrap();
+        assert_eq!(sidecar_paths(mode).unwrap().unwrap().endpoint, endpoint);
+        run_launcher(Args {
+            game: Some(game.to_string_lossy().into_owned()),
+            sidecar: true,
+            print: true,
+            ..Args::default()
+        })
+        .unwrap();
+        for name in ["data", "cache", "unused-xdg"] {
+            assert!(!root.join(name).exists(), "sidecar print created {name}");
+        }
+        return;
+    }
+    // Set environment before the child harness starts threads, avoiding global
+    // environment races while exercising the actual launcher entry points.
+    let root = scratch("application-roots");
+    let name = std::thread::current().name().unwrap().to_owned();
+    let output = Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", &name, "--nocapture"])
+        .env(MARKER_ENV, &root)
+        .env("SLOPD_CONFIG_ROOT", root.join("config"))
+        .env("SLOPD_DATA", root.join("data"))
+        .env("SLOPD_CACHE", root.join("cache"))
+        .env("XDG_CONFIG_HOME", root.join("unused-xdg"))
+        .env("XDG_DATA_HOME", root.join("unused-xdg"))
+        .env("XDG_CACHE_HOME", root.join("unused-xdg"))
+        .env_remove("SLOPWORLD_PROFILE")
+        .env_remove("SLOPWORLD_GAME_LOG")
+        .env_remove("SLOPD_ENDPOINT")
+        .output()
+        .unwrap();
+    drop(std::fs::remove_dir_all(root));
+    assert!(
+        output.status.success(),
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]

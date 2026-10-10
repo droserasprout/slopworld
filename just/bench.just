@@ -32,7 +32,7 @@ bench-latest:
 
 # Run focused desktop terminal input into shared CSV results
 [group('Benchmarks')]
-bench-terminal:
+bench-terminal: daemon
     {{ PYTHON }} bench/terminal-input/terminal-input-bench.py {{ if BENCH_RUN != '' { '--run "' + BENCH_RUN + '"' } else { '' } }} {{ if BENCH_PHASE != '' { '--phase "' + BENCH_PHASE + '"' } else { '' } }} {{ if BENCH_FILL_HISTORY =~ '^(1|true)$' { '--fill-history' } else { '' } }} {{ if BENCH_MULTIPLIER != '' { '--multiplier "' + BENCH_MULTIPLIER + '"' } else { '' } }} {{ if BENCH_PREPARE_SECONDS != '' { '--prepare-seconds "' + BENCH_PREPARE_SECONDS + '"' } else { '' } }} {{ if BENCH_BACKEND != '' { '--backend "' + BENCH_BACKEND + '"' } else { '' } }} {{ if BENCH_TRACE_LOG != '' { '--log "' + BENCH_TRACE_LOG + '"' } else { '' } }}
 
 # Fill an empty host tab, then measure typing repaint reasons

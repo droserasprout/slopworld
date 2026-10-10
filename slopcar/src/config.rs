@@ -54,7 +54,7 @@ fn validate(path: &Path, port: u16) -> Result<()> {
             .context("daemon.bind must be an IP socket address")?;
         if bind.port() != port {
             bail!(
-                "{} already binds port {} but requested port is {port}; reuse that port or use a fresh SLOPCAR_CONFIG_DIR",
+                "{} already binds port {} but requested port is {port}; reuse that port or use a fresh SLOPD_CONFIG_ROOT",
                 path.display(),
                 bind.port()
             );

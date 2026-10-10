@@ -1,6 +1,7 @@
 //! Log selection, local source commands, and line rendering.
 //! `stream` owns readers, bounded fan-in, and child cancellation/reaping.
 
+use crate::shared::application_paths::Mode;
 use serde_json::json;
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -11,18 +12,18 @@ use stream::{run_all_logs, run_one_log};
 
 pub(crate) const DEFAULT_LOG_LINES: usize = 200;
 pub(crate) const MAX_LOG_LINES: usize = 100_000;
-const GAME_LOG_ENV: &str = "SLOPWORLD_GAME_LOG";
 const DAEMON_UNIT_ENV: &str = "SLOPWORLD_DAEMON_UNIT";
 
 pub(crate) const LOGS_USAGE: &str = "usage:
-  slopctl logs [game|daemon|all] [--lines N] [--follow]
+  slopctl [--sidecar] logs [game|daemon|all] [--lines N] [--follow]
 
 logs defaults to the last 200 lines from both the game and daemon. Output is
 plain text and can be piped to grep, head or other host tools. --json emits
 newline-delimited objects with source and line fields.
 
   game    tails Player.log (default path, or $SLOPWORLD_GAME_LOG)
-  daemon  reads the slopd user journal (default unit, or $SLOPWORLD_DAEMON_UNIT)
+  daemon  reads the slopd user journal, or Docker logs in sidecar mode
+          ($SLOPWORLD_DAEMON_UNIT or $SLOPCAR_CONTAINER selects the source)
   all     reads both sources and prefixes plain-text lines with their source
 
 options:
@@ -53,13 +54,15 @@ pub(crate) enum LogSelection {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct LogsOptions {
+    pub(crate) mode: Mode,
     pub(crate) selection: LogSelection,
     pub(crate) lines: usize,
     pub(crate) follow: bool,
 }
 
-pub(crate) fn run_logs(args: &[String], json: bool) -> Result<(), String> {
-    let options = parse_logs_args(args)?;
+pub(crate) fn run_logs(args: &[String], json: bool, mode: Mode) -> Result<(), String> {
+    let mut options = parse_logs_args(args)?;
+    options.mode = mode;
     match options.selection {
         LogSelection::One(source) => run_one_log(source, options, json),
         LogSelection::All => run_all_logs(options, json),
@@ -108,6 +111,7 @@ pub(crate) fn parse_logs_args(args: &[String]) -> Result<LogsOptions, String> {
     }
 
     Ok(LogsOptions {
+        mode: Mode::Native,
         selection: selection.unwrap_or(LogSelection::All),
         lines,
         follow,
@@ -137,14 +141,9 @@ fn parse_log_lines(value: &str) -> Result<usize, String> {
     Ok(lines)
 }
 
-fn game_log_path() -> Result<PathBuf, String> {
-    let raw = std::env::var(GAME_LOG_ENV)
-        .ok()
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| {
-            "~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Player.log".to_string()
-        });
-    expand_home(&raw)
+fn game_log_path(mode: Mode) -> Result<PathBuf, String> {
+    let path = mode.game_log_path();
+    expand_home(&path.to_string_lossy())
 }
 
 pub(crate) fn expand_home(value: &str) -> Result<PathBuf, String> {
@@ -178,7 +177,23 @@ pub(crate) fn source_command(
                 // -F follows the file name so output continues after a RimWorld restart or Player.log replacement.
                 command.arg("--follow=name");
             }
-            command.arg("--").arg(game_log_path()?);
+            command.arg("--").arg(game_log_path(options.mode)?);
+            command
+        }
+        LogSource::Daemon if options.mode == Mode::Sidecar => {
+            let mut command = ProcessCommand::new("docker");
+            command
+                .args(["logs", "--tail"])
+                .arg(options.lines.to_string());
+            if options.follow {
+                command.arg("--follow");
+            }
+            command.arg(
+                std::env::var("SLOPCAR_CONTAINER")
+                    .ok()
+                    .filter(|value| !value.is_empty())
+                    .unwrap_or_else(|| "slopcar".into()),
+            );
             command
         }
         LogSource::Daemon => {

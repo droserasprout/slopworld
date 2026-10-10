@@ -8,7 +8,10 @@ support amd64/arm64, which does not itself establish platform validation.
 `mac/` owns the native macOS workflow through its separate justfile; shared
 container tooling remains in `slopcar/`. Its independent Rust crate owns the
 host launcher and embeds the seccomp policy; image builds still need a checkout.
-Workspace paths match on host/container. Container mount/security policy belongs to
+Host storage uses the common application roots and explicit sidecar mode;
+`shared/application_paths.rs` owns selection. Host root overrides select mount
+sources and never become container environment paths. Workspace paths match on
+host/container. Container mount/security policy belongs to
 [slopcar](../slopcar/README.md), and setup/lifecycle to
 [macOS](../docs/src/installation/macos.md) and [sidecar](../docs/src/installation/sidecar.md).
 Container replacement ends tmux processes while persistent private state remains;

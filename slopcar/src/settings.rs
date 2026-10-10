@@ -27,23 +27,11 @@ impl Settings {
                 .filter(|value| !value.is_empty())
                 .unwrap_or_else(|| default.into())
         };
-        let directory = |direct, xdg, fallback| {
-            lookup(direct)
-                .filter(|s| !s.is_empty())
-                .map(PathBuf::from)
-                .unwrap_or_else(|| {
-                    lookup(xdg)
-                        .filter(|s| !s.is_empty())
-                        .map(PathBuf::from)
-                        .unwrap_or_else(|| home.join(fallback))
-                        .join("slopworld-car")
-                })
-        };
         Ok(Self {
             image: value("SLOPCAR_IMAGE", "slopcar:local"),
             container: value("SLOPCAR_CONTAINER", "slopcar"),
-            config: directory("SLOPCAR_CONFIG_DIR", "XDG_CONFIG_HOME", ".config"),
-            data: directory("SLOPCAR_DATA_DIR", "XDG_DATA_HOME", ".local/share"),
+            config: crate::application_paths::Mode::Sidecar.config_dir_with(&lookup),
+            data: crate::application_paths::Mode::Sidecar.daemon_data_dir_with(&lookup),
             home,
             port: parse_port(&value("SLOPCAR_PORT", "7718"))?,
             memory: value("SLOPCAR_MEMORY", "8g"),

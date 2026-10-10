@@ -49,6 +49,13 @@ fn run_with(command: Command, settings: &Settings, docker: &Docker) -> Result<()
     docker.ready()?;
     match command {
         Command::Help => {}
+        Command::Paths(name) => println!(
+            "{}",
+            crate::application_paths::Mode::Sidecar
+                .query(&name)
+                .map_err(anyhow::Error::msg)?
+                .display()
+        ),
         Command::Notices => print!("{}", crate::NOTICES),
         Command::Build(source) => {
             let source = source.canonicalize()?;

@@ -21,15 +21,14 @@ PHASES = (("history", 60, "Big history tab: place the pointer over terminal text
 SECONDS = 60
 
 
-def default_trace_log():
-    profile = (os.environ.get("PROFILE") or os.environ.get("SLOPCAR_PROFILE")
-               or os.environ.get("SLOPWORLD_PROFILE"))
-    if profile:
-        data_dir = Path(profile)
-    else:
-        data_home = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share")
-        data_dir = data_home / "slopworld" / "profile"
-    return data_dir / "SlopWorld-trace.log"
+def default_trace_log(sidecar=False):
+    env = os.environ.copy()
+    if env.get("PROFILE"):
+        env["SLOPWORLD_PROFILE"] = env["PROFILE"]
+    runner = env.get("RUNNER", "slopworld")
+    argv = [runner, *( ["--sidecar"] if sidecar else []), "paths", "profile"]
+    profile = subprocess.check_output(argv, env=env, text=True).strip()
+    return Path(profile) / "SlopWorld-trace.log"
 
 
 def event(phase, index, rate):
@@ -361,12 +360,15 @@ def main():
                         help='with --phase history or typing, fill scrollback in one empty local host shell before measuring')
     parser.add_argument('--prepare-seconds', type=int, default=10)
     parser.add_argument('--multiplier', type=int, choices=(5, 10), default=5)
-    parser.add_argument('--log', type=Path, default=default_trace_log(),
+    parser.add_argument('--sidecar', action='store_true', help='use the sidecar profile by default')
+    parser.add_argument('--log', type=Path,
                         help='SlopWorld-trace.log (defaults to the launcher profile path)')
     parser.add_argument('--run', help='directory name under bench/results (default: UTC timestamp)')
     parser.add_argument('--output', type=Path, help='raw directory override')
     parser.add_argument('--report', type=Path, help='Markdown report path (default: run/report.md)')
     args = parser.parse_args()
+    if args.log is None:
+        args.log = default_trace_log(args.sidecar)
     if args.run and args.output:
         parser.error('--run and --output are alternatives')
     if args.output is None:

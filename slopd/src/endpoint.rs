@@ -22,13 +22,7 @@ impl std::fmt::Debug for Endpoint {
 }
 
 pub fn path() -> PathBuf {
-    std::env::var("SLOPD_ENDPOINT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| {
-            dirs::config_dir()
-                .unwrap_or_else(|| PathBuf::from("."))
-                .join("slopworld/endpoint.toml")
-        })
+    crate::shared::application_paths::Mode::Native.endpoint_path()
 }
 
 pub async fn write(bind: &str, token: &str) -> Result<()> {
