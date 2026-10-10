@@ -1,0 +1,263 @@
+Source: https://rimworldgame.com/eula/
+
+RimWorld End User License Agreement
+
+END-USER LICENCE AGREEMENT FOR RIMWORLD
+
+Last updated: April 7, 2022
+
+In order to protect Ludeon Studios Inc. ("Ludeon") and members of the community, we have to lay down some end-user license terms (this “EULA”) that set out rules for downloading and using RimWorld as well as participating in the community around it, including using our Website, rimworldgame.com (the “Website”).
+
+Since reading licenses is boring, we've tried to keep this EULA short and clear. Boring or not, this is a legal agreement that applies to you if you purchase or use RimWorld or participate in our community. If you mod RimWorld or create content using RimWorld or other related content, please be sure to read the sections that apply to you.
+
+By purchasing, downloading, using, or playing RimWorld, you acknowledge that you have read and accept this EULA in its entirety, and agree to be bound by its terms. If you do not agree to follow the rules set out in this EULA, then you must not buy, download, use, or play RimWorld.
+
+If you have purchased RimWorld through a “Third Party Platform” (such as Steam for instance) then additional terms may apply to your purchase (“Third Party Terms”). We are not in control of, or responsible for, such Third Party Platforms, so we suggest that you make yourself familiar with their Third Party Terms if you choose to purchase RimWorld through a Third Party Platform.
+
+THE LICENCE
+
+When you purchase RimWorld, you purchase a perpetual, revocable, and limited licence to install and use RimWorld and the associated materials, documents, online services, forums, and other ancillaries (we collectively refer to all of these as the “Software") for your own personal use in accordance with this EULA (the “Licence”).
+
+ONE KEY RULE
+
+The one key rule of the Licence is that you can't sell, share, or modify any part of the Software unless we agree to it in advance. This means you're not allowed to do things like:
+
+Make or distribute (that includes giving away) copies of the Software or any part of the Software, to anyone else;
+
+Try to make money from the Software in any way, except as permitted below;
+
+Let others access anything the Software in a way that is unfair or unreasonable;
+
+Give away or sell license keys to the Software (you may, however, give gift codes that have been bought through our Website or an official Third Party Platform gift code system, such as Steam); or
+
+Rip parts of our game out and distribute them (for example, ripping songs and selling them - if you want the soundtrack, buy it!).
+
+THINGS YOU CREATE USING OUR SOFTWARE
+
+Ludeon appreciates that you may want to create modifications, tools, or plugins for our Software (“Mods”) or content that uses or is about our Software (“User Content”, collectively with Mods, “Derivative Works”). If you are one of these folks, please read the following terms carefully as any use of our Software without our permission is both a violation of our rights and unlawful. You may create Derivative Works provided that you comply with the terms of this EULA. If one your Derivative Works violate this EULA, it is prohibited.
+
+In each Derivative Work that you create, you must display the following disclaimer on or reasonably in connection with your Derivative Works, such as on your website or social media profile.
+
+“Portions of the materials used to
+
+create
+
+this
+
+content
+
+/
+
+mod
+
+are
+
+trademarks
+
+and
+
+/
+
+or
+
+copyrighted works
+
+of
+
+Ludeon Studios Inc. All rights reserved
+
+by
+
+Ludeon. This
+
+content
+
+/
+
+mod
+
+is
+
+not
+
+official
+
+and
+
+is
+
+not
+
+endorsed
+
+by
+
+Ludeon.”
+
+If you use our logos, game titles, or other trademarks in your Derivative Works (“Ludeon Marks”), you must:
+
+Not use the Ludeon Marks in a manner that damages the goodwill and reputation associated with them;
+
+Only use the Ludeon Marks in connection with your Derivative Works and not in connection with any other products, services, or business;
+
+Not change or alter any of the Ludeon Marks. (For example, it's “RimWorld” not “rim world”); and
+
+Not use the Ludeon Marks or any confusingly similar name or word in any domain name, website name, or other title.
+
+You own the Derivative Works you create. However, by creating any Derivative Work, you agree to grant Ludeon a licence to use, copy, modify, adapt, distribute, and publicly display all those Derivative Works for any purpose, without any payment or notice to you, anywhere throughout the universe (the “Derivative Licence”). This Derivative Licence is irrevocable and lasts forever. You also agree to let Ludeon sell, assign, or sublicense the Derivative Licence to other people so that they may use, copy, modify, adapt, distribute, and publicly display your Derivative Work. Though we generally like to credit everyone for their work, we're not required to credit or acknowledge you if we use any of your Derivative Works, or if we allow another to do so. If you don't want to give us these permissions, do not make Derivative Works.
+
+You're also allowed to use things we've made if the law expressly allows it, such as under "fair use" or "fair dealing" doctrine - but only to the extent that the law applicable to you expressly says. For example, most "fair use" doctrines would allow you to use game screenshots in a review article but would not let you make a t-shirt using our artwork.
+
+When you create Derivative Works in accordance with this EULA you are doing so with our permission. That being said, we can revoke this permission to create Derivative Works at any time, and for any reason, including but not limited to, any breach by you of this EULA.
+
+REVIEWERS, STREAMERS, AND CONTENT CREATORS
+
+Within reason, you are allowed to make User Content such as videos of the gameplay of the Software and distribute them. While your User Content cannot be sold, you're allowed to monetize this content through advertising. This means that you can make Let's Play's on YouTube or stream yourself on Twitch, but you can't sell any individual pieces of User Content that you make.
+
+We understand that a lot of content creators solicit donations on platforms such as Patreon. You may accept donations in connection with your User Content generally, but they may not be tied to the delivery of a specific piece of User Content. You must not try to push, force or pressure your fans to donate to you in any way. Your request for donations must be unobtrusive.
+
+Your User Content cannot:
+
+State or imply that your User Content is endorsed or created by Ludeon;
+
+Contain links to websites or services that promote piracy or hacks of the Software, or any other software;
+
+Harass, abuse, defame, attack, or bully any individual;
+
+Damage the reputation and goodwill of Ludeon or our Software;
+
+Infringe any third-party intellectual property rights, personality rights, or other third-party rights; or
+
+Otherwise breach any applicable laws.
+
+MODS
+
+You may create and distribute Mods. By "Mods", we mean something original that you or someone else created that doesn't contain a substantial part of our Software, including our code, artwork, lore, or other content. Ludeon has final say on what constitutes a Mod and what doesn't.
+
+With regards to Mods, the following terms apply:
+
+Your Mods must be distributed for free, period. Neither you, nor any other person or party, may sell them to anyone, commercially exploit them in any way, or charge anyone for receiving or using them without getting prior written consent from Ludeon. Commercial exploitation includes but is not limited to in-game advertising, or monetizing your Mod through any other forms of advertising or marketing.
+
+You may however, accept donations in connection with your modding efforts generally, but they may not be tied to the delivery of a specific product or service. You must not try to push or force or pressure users of your Mod to donate to you in any way. Your request for donations must be unobtrusive.
+
+You may not advertise for donations within your Mods themselves.
+
+Your Mods must not contain any ads or other calls to action of any kind. This prohibition includes advertising, marketing, or promotions for charities, political parties or causes, non-profit organizations, or other non-commercial entities.
+
+Your Mods must only work with the full, registered copy of the Software, not independently or with any other software. Your Mod may not be distributed together with the base game or any official expansions, as a "modded version" of the Software.
+
+Your Mods must not contain any illegal material.
+
+Your Mods must not contain any material that violates copyright, trademark, or other intellectual property rights of Ludeon or any other person or parties.
+
+Your Mods must not contain any content that is obscene, offensive, objectionable, or otherwise harmful to others.
+
+Your Mods must clearly be presented as community-created content and not as though they were official or made by Ludeon.
+
+Your Mods must not misrepresent what they are or their purpose, or deceive players in any way they wouldn't reasonably appreciate.
+
+Your Mods may not be used as a vector for spreading malware.
+
+Your Mods may not harass, abuse defame, attack, or bully any individual.
+
+Your Mods must comply with all applicable laws.
+
+We reserve the right to revoke your Licence to create and distribute Mods based on our Software if we determine, in our sole discretion, that your Mod in any way breaches the terms and conditions of this EULA.
+
+You're allowed to 'decompile' our game assets and look through our code, art, sound, and other resources for learning purposes, or to use our resources as a basis or reference for a Mod. However, you're not allowed to rip these resources out and pass them around independently. This educational use must be done in compliance with the “fair dealing” (for Canadians), “fair use” (for Americans), or other similar copyright principles that may be applicable to you in your jurisdiction.
+
+SIMPLY PUT, WE OWN THE SOFTWARE
+
+Ludeon owns the Software and retains all ownership of the Software. The only permissions you have in connection with the Software are the permissions laid out in this EULA. Any use of our Software that is not expressly permitted by this EULA is strictly prohibited.
+
+If you come to us with a suggestion for any one of our websites, games, or other products, that suggestion is made for free and we have no obligation to accept or consider it. When you send us a suggestion, you do so on a non-confidential and non-proprietary basis; and you hereby grant us an irrevocable, worldwide, perpetual, royalty-free, sublicenseable, and transferrable licence to use your suggestion however we want. Also, whenever you provide us with a suggestion, you hereby waive any moral rights or other rights of authorship that you may have in the suggestion, in our favour. This means we can use or not use your suggestion in any way we want and we don't have to pay you for it or give you credit. If you think you have a suggestion that we would be willing to pay you for, please do not submit your suggestion unless you have first told us you expect to be paid and we have responded in writing by asking you to submit the suggestion.
+
+BEHAVIOUR
+
+You may not, in connection with the Software or related forums:
+
+Harass, stalk, harm, intimidate, hurt, abuse, threaten, or deceive others;
+
+Use or attempt to use another user's account;
+
+Encourage any conduct that restricts or inhibits anyone's use or enjoyment of the Software, or which, as determined by us, may harm us or users of the Software or expose us or them to liability;
+
+Impersonate any person or entity, or falsely state or otherwise misrepresent you or your affiliation with any person or entity, including giving the impression that any content you upload, post, transmit, distribute, or otherwise make available comes from us;
+
+Interfere with or attempt to interfere with the proper working of our Software or Website;
+
+Violate the terms of use of any third-party website or service that is linked to the Software, including any Third Party Platforms or payment processors;
+
+Upload, transmit, distribute, store, or otherwise make available in any way any viruses, or other material that is malicious or technologically harmful; any unsolicited or unauthorized advertising, solicitations, promotional materials, “junk mail,” “spam,” “chain letters,” “pyramid schemes,” or any other prohibited form of solicitation; any private information of any third party; or
+
+Violate, or promote the violation of, any applicable federal, provincial, local, foreign, or international law or regulation, including any laws regarding the export of data or software, patent, trademark, trade secret, copyright, or other intellectual property or legal rights (including the rights of publicity and privacy of others).
+
+In addition to the above rules, if you participate in an official Ludeon discussion forum, or one controlled by Ludeon staff, you are required to follow the rules of that forum as they are written at any particular time you participate there.
+
+If you do not abide by this EULA or any applicable forum rules, we may, in our sole discretion, suspend, block, or delete your account as we see fit.
+
+IF YOU BUY A LICENCE TO RIMWORLD DIRECTLY FROM US
+
+If you buy a licence to RimWorld directly from us on our Website, then these additional terms apply to you.
+
+When you provide us with the information necessary to process payment, you must provide us with true, accurate, and current information. By providing us with payment information, you expressly authorize our third party payment processor to charge you the applicable purchase price on the provided payment method, as well as taxes and other charges related thereto. The prices that are listed on our Website are subject to change at any time and we may decide, at any time, to stop offering any product or service on our Website.
+
+Unless prohibited by applicable law, all purchases that you make on our Website are final and non-refundable.
+
+IF YOU BUY A LICENCE TO RIMWORLD FROM A THIRD PARTY PLATFORM
+
+We've already said this above, but if you buy a licence to RimWorld from a Third Party Platform, those Third Party Terms will apply to your purchase. We are not responsible for any purchases you make on or through Third Party Platforms. If you have any issue with your Third Party Platform purchase, please contact them.
+
+TERMINATION
+
+We can terminate this EULA if you breach any of the terms. This means that the License and your permission to use the Software and create Derivative Works can be revoked. This is pretty serious, so please be sure you understand this. It means, for example, that if you distribute the Software to pirates, or break rules on the forum, or break any other rule in this EULA, we can revoke your access to RimWorld with no refund or demand that you take down any User Content or Mods.
+
+You can terminate this EULA at any time by simply uninstalling the Software from all your machines.
+
+If the EULA is terminated, you no longer have any of the rights to the Software given in the License (though you do, of course, retain rights to your Derivative Works). Even if this EULA is terminated, the Derivative Licence (our licence to your content) remains in perpetuity, as do provisions this EULA relating to our ownership of the Software, the disclaimers, limits of liability, indemnities, the laws applicable to this EULA, dispute resolution, and the “General Terms” found at the end of this EULA.
+
+UPDATES
+
+Ludeon might make updates to the Software available from time to time, but isn't obligated to do so. Ludeon also isn't obligated to provide any ongoing support or maintenance for the Software. When you purchase a Licence to the Software, you purchase that Licence to the Software as it is.
+
+We may sell the Software during an 'early access' or 'alpha' or 'beta' release period (or something similar), but this doesn't mean we're obligated to add any particular amount of content or to fix any particular amount of bugs before releasing the game as its final version. We are allowed to declare the Software finished, and cease updates, at any time. Of course, we want to make the game fulfill our vision, and be quite bug-free, but we are not obligated to do any particular amount of additional work.
+
+Ludeon reserves the right to modify the terms of this EULA from time to time and will post notice of material changes on our Website. Each time you download our Software, including an update, or use one of our online services, you agree to the latest version of the EULA that's posted on our Website. That means, if you use the Software only in offline mode and don't use the updates we make available, then the EULA you last agreed to applies. However, if you do download the updates, or use parts of the Software that rely on us providing ongoing online services, then the current EULA will apply to you.
+
+DISCLAIMERS
+
+You are aware and agree that your use of the Software and the media on which it is recorded, if any, is at your sole risk. As mentioned above, the Software is provided “as is” and as it is available. Ludeon expressly disclaims all other warranties, statutory, express or implied, including but not limited to the implied warranties of merchantability and fitness for a particular purpose. Ludeon does not warrant that the Software will meet your requirements or desires. You bear the whole risk as to its quality and performance.
+
+You acknowledge that our Software, or any part of our Software, may be interrupted for maintenance, or reasons beyond our control, and we cannot guarantee that the Software will always be available or that defects in the operation or functionality of the Software will be corrected. You acknowledge that from time to time, Ludeon may, in our sole discretion, release updates to our Software and that such updates may break a  Mod's compatibility with our Software. You further acknowledge that Ludeon is under no obligation to ensure or otherwise provide for any interoperability between our Software and any Mods or other third party software. You also acknowledge that data, messages, and materials sent over the internet may not be completely private, and your anonymity is not guaranteed.
+
+We administer and operate the Software from Canada. Although the Software is accessible in many territories throughout the world, not all of our products and their features, referenced on our Website are available to everyone in all geographic locations or appropriate for use outside Canada. We reserve the right to limit, in our sole discretion, the provision and quantity of any feature, product or Software to any person or geographic area. If you choose to download and use the Services from outside Canada, you do so on your own initiative and you are solely responsible for complying with applicable local laws.
+
+Some jurisdictions do not allow the disclaimer of certain warranties, so if you live in one of those jurisdictions, some of the above exclusions may not apply to you.
+
+INDEMNITIES
+
+To the maximum extent permitted by applicable law, you agree to, at your sole cost, defend, indemnify, and hold harmless Ludeon and our directors, employees, and contractors, from and against any and all claims, liabilities, costs, fines, penalties, and expenses, including legal fees and expenses, arising out of or in any way connected with: (i) a breach by you of any obligation, representation, or warranty you have under this EULA; or (ii) your violation of any applicable laws, rules, regulations, or contracts; (all of the foregoing, “Claims and Losses”). You will cooperate as fully required by us in the defense of any Claims and Losses. At all times, we retain the exclusive right to settle, compromise, and pay any and all Claims and Losses. We reserve the right to assume the exclusive defense and control of any Claims and Losses at our own cost. You will not settle any Claims and Losses without, in each instance, our prior written consent.
+
+LIMIT OF LIABILITY
+
+You hold Ludeon blameless for any harm or damage that you may incur as a result of your use of the Software or our Website, or from any actions or inactions of Ludeon in connection with the Software or our Website. This means that you agree that in no event will Ludeon or our directors, employees, contractors, be liable to you or any other person for any indirect, consequential, special, incidental, punitive, or exemplary damages, under any theory of liability, including without limitation any damages for lost profits, lost revenue, lost goodwill, or lost opportunity, even if we could have foreseen such damages or were made aware of the possibility of such damages. You hereby waive, release, and forever discharge Ludeon from  and against all of the above excluded damages. In no event will Ludeon's total liability to you with respect to the Software, the Website, or any related products and services exceed the total amount paid by you to Ludeon in respect of the Software.
+
+Nothing in this EULA limits our liability for death or bodily injury resulting from our negligence or fraudulent misrepresentations.
+
+Some jurisdictions do not allow for certain limitations or exclusions of liability in agreements like this EULA, so if you live in one of those jurisdictions, certain aspects of the above limit and exclusion of liability may not apply to you. With that said, to the extent that any applicable authority holds any portion of this limit and exclusion of liability will be limited to the fullest possible extent permitted by applicable law.
+
+DISPUTES BETWEEN US
+
+This EULA is governed by the laws of the Province of Ontario and the federal laws of Canada that apply in Ontario. You agree that all disputes regarding this EULA will be brought before the courts located in the City of Toronto that have the appropriate jurisdiction to hear the dispute.
+
+GENERAL TERMS
+
+This EULA constitutes the whole legal agreement between you and Ludeon regarding your use of the Software or our Website, and completely replace any prior agreements between you and Ludeon in relation to the Software or our Website.
+
+We may at any time assign our rights and obligations under this EULA, in whole or in part, without notice to you. You may not assign this EULA or any of your rights and obligations hereunder, without our prior, written consent.
+
+Our failure to insist upon or enforce any provision of this EULA will not be construed as a waiver of any provision or right that we may have.
+
+If any court of law, having jurisdiction to decide on this matter, rules that any provision of this EULA is invalid, then that provision will be removed from this EULA without affecting the rest of this EULA, and the remaining provisions of this EULA will continue to be valid and enforceable.
+
+END OF EULA

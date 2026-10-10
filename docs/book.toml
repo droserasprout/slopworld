@@ -13,3 +13,4 @@ no-section-label = true
 default-theme = "slopworld"
 preferred-dark-theme = "slopworld"
 additional-css = ["theme/slopworld.css"]
+additional-js = ["theme/scrollbars.js"]

@@ -11,6 +11,7 @@ metadata; it does not include their full license texts or notices.
 
 | Component | License | Full text | Attribution and use |
 | --- | --- | --- | --- |
+| RimWorld Tame designator | RimWorld EULA | [License](rimworld/EULA.txt) | Ludeon Studios Inc.; `UI/Designators/Tame` from RimWorld 1.6, mirrored, scaled, and rotated for the documentation cursors. |
 | [Classic Console Neue](https://webdraft.hu/fonts/classic-console/) | MIT | [License](classic-console-neue/LICENSE.txt) | DeeJayy, 2011–2025; printable ASCII glyphs rendered into the loading-screen atlas. |
 | [Noto Emoji](https://github.com/googlefonts/noto-emoji) | SIL OFL 1.1 | [License](noto-emoji/LICENSE.txt) | Google; glyphs rendered into emoji atlases and application icons. |
 | [Material Icon Theme](https://github.com/material-extensions/vscode-material-icon-theme) | MIT | [License](material-icon-theme/LICENSE.txt) | Material Extensions; selected SVGs rendered into file icons. |

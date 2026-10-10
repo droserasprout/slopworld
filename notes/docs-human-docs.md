@@ -5,6 +5,15 @@ constraints. README owns the project overview and generated book introduction;
 edit README, not `docs/src/introduction.md`.
 
 `docs/theme/` owns book presentation and follows the palettes in `mod/Themes/`.
+The book cursor uses `docs/src/images/cursor-tame.png`, extracted from RimWorld's
+`UI/Designators/Tame`, mirrored like the mod's `DeadCursor`, and scaled to 24px.
+Interaction variants rotate that same hand on a 32px transparent canvas to avoid
+clipping. Their CSS hotspots follow the original fingertip through each rotation;
+retain transparency and update all variants together when replacing the asset.
+`docs/theme/scrollbars.js` owns interactive scrollbar rails over native scrolling
+areas. Native scrollbar controls can ignore custom cursors, so hide them only after
+installing the replacement. Rail geometry and warm-theme colors follow `UiScrollbar`
+and `UiTheme`; wheel, touch, and content keyboard scrolling stay browser-owned.
 Rebase `index.hbs` when upgrading mdBook and update the docs workflow's version pin
 together; the override otherwise hides upstream template fixes.
 

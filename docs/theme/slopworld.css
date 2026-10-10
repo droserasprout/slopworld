@@ -1,3 +1,139 @@
+/* RimWorld's UI/Designators/Tame, mirrored like DeadCursor and scaled to 24px.
+   Rotations use a 32px canvas to avoid clipping. Each hotspot follows the same
+   fingertip through the rotation; artwork belongs to Ludeon Studios. */
+html {
+    --game-cursor: url("../images/cursor-tame.png") 3 2, auto;
+    --game-cursor-link: url("../images/cursor-tame-link.png") 16 3, pointer;
+    --game-cursor-text: url("../images/cursor-tame-text.png") 25 7, text;
+    --game-cursor-drag: url("../images/cursor-tame-drag.png") 28 16, grab;
+    --game-cursor-resize: url("../images/cursor-tame-drag.png") 28 16, col-resize;
+    --game-cursor-zoom-in: url("../images/cursor-tame-zoom-in.png") 3 15, zoom-in;
+    --game-cursor-zoom-out: url("../images/cursor-tame-zoom-out.png") 15 28, zoom-out;
+    cursor: var(--game-cursor);
+}
+
+/* Cover mdBook's explicit cursors and native browser interaction cursors. */
+:is(a, button, label, summary, [role="button"], .chapter-fold-toggle, pre > .buttons),
+input:is([type="button"], [type="submit"], [type="reset"], [type="checkbox"], [type="radio"]) {
+    cursor: var(--game-cursor-link) !important;
+}
+
+input:not([type="button"], [type="submit"], [type="reset"], [type="checkbox"], [type="radio"]),
+textarea, [contenteditable="true"] {
+    cursor: var(--game-cursor-text) !important;
+}
+
+[draggable="true"] {
+    cursor: var(--game-cursor-drag) !important;
+}
+
+.content .checkbox-label img {
+    cursor: var(--game-cursor-zoom-in) !important;
+}
+
+.content .checkbox-img:checked ~ .img-wrapper,
+.content .checkbox-img:checked ~ .img-wrapper > img {
+    cursor: var(--game-cursor-zoom-out) !important;
+}
+
+.sidebar .sidebar-resize-handle,
+html.sidebar-resizing, html.sidebar-resizing * {
+    cursor: var(--game-cursor-resize) !important;
+}
+
+/* UiScrollbar uses a 1px trough, a square 3px thumb, and a 16px hit area.
+   Keep browser scrolling; JS replaces only the native scrollbar controls. */
+html {
+    --game-scroll-trough: color-mix(in srgb, var(--fg) 4%, transparent);
+    --game-scroll-thumb: color-mix(in srgb, var(--fg) 28%, transparent);
+    --game-scroll-hover: color-mix(in srgb, var(--fg) 42%, transparent);
+    --game-scroll-held: color-mix(in srgb, var(--fg) 55%, transparent);
+}
+
+.game-scroll-owner {
+    scrollbar-width: none !important;
+}
+
+.game-scroll-owner::-webkit-scrollbar {
+    display: none !important;
+}
+
+.game-scrollbar {
+    position: fixed;
+    z-index: 105;
+    touch-action: none;
+    user-select: none;
+    cursor: var(--game-cursor-drag) !important;
+}
+
+.game-scrollbar[hidden] {
+    display: none;
+}
+
+.game-scrollbar::before,
+.game-scrollbar-thumb {
+    position: absolute;
+    border-radius: 0;
+}
+
+.game-scrollbar::before {
+    content: "";
+    background: var(--game-scroll-trough);
+}
+
+.game-scrollbar.vertical {
+    width: 16px;
+}
+
+.game-scrollbar.vertical::before {
+    top: 0;
+    bottom: 0;
+    right: 3px;
+    width: 1px;
+}
+
+.game-scrollbar.vertical .game-scrollbar-thumb {
+    right: 2px;
+    width: 3px;
+}
+
+.game-scrollbar.horizontal {
+    height: 16px;
+}
+
+.game-scrollbar.horizontal::before {
+    left: 0;
+    right: 0;
+    bottom: 3px;
+    height: 1px;
+}
+
+.game-scrollbar.horizontal .game-scrollbar-thumb {
+    bottom: 2px;
+    height: 3px;
+}
+
+.game-scrollbar-thumb {
+    background: var(--game-scroll-thumb);
+}
+
+.game-scrollbar:hover .game-scrollbar-thumb {
+    background: var(--game-scroll-hover);
+}
+
+.game-scrollbar.held .game-scrollbar-thumb {
+    background: var(--game-scroll-held);
+}
+
+.game-scrollbar:focus-visible {
+    outline: 1px solid var(--links);
+}
+
+html.game-scrollbar-dragging, html.game-scrollbar-dragging * {
+    cursor: var(--game-cursor-drag) !important;
+    user-select: none !important;
+}
+
 /* Stop viewport bounce and sidebar scroll chaining at their boundaries. */
 html, .sidebar-scrollbox {
     overscroll-behavior: none;
@@ -15,7 +151,7 @@ html, .sidebar-scrollbox {
 .floating-book-controls {
     position: fixed;
     top: max(8px, env(safe-area-inset-top));
-    right: max(8px, env(safe-area-inset-right));
+    right: max(20px, env(safe-area-inset-right));
     z-index: 102;
     display: flex;
     gap: 4px;
@@ -37,7 +173,7 @@ pre > .buttons button {
     border-radius: 4px;
     background: var(--bg);
     color: var(--icons);
-    cursor: pointer;
+    cursor: var(--game-cursor-link);
 }
 
 #mdbook-sidebar-toggle:hover,
@@ -111,7 +247,7 @@ html:not(.js) #mdbook-search-toggle {
 }
 
 @media print {
-    .floating-book-controls {
+    .floating-book-controls, .game-scrollbar {
         display: none;
     }
 }
@@ -187,6 +323,10 @@ html:not(.js) #mdbook-search-toggle {
     --sidebar-spacer: #ffffff24;
     --sidebar-header-border-color: #a97c39;
     --scrollbar: #ffffff47;
+    --game-scroll-trough: #ffffff0a;
+    --game-scroll-thumb: #ffffff47;
+    --game-scroll-hover: #ffffff6b;
+    --game-scroll-held: #ffffff8c;
     --icons: #a79c87;
     --icons-hover: #efe7d4;
     --links: #86a9c4;
