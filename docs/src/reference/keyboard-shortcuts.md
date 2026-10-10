@@ -95,4 +95,6 @@ unfiltered.
 Notable commands:
 
 - **View: Toggle Sidebar** — hide or show the left panel.
+- **Screensaver** — hide the interface and show only the background animation until
+  you press any key. Open panels return when you leave the screensaver.
 - **Agent: Shell** — open a shell inside an eligible selected agent's sandbox.

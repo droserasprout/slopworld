@@ -153,6 +153,8 @@ namespace SlopWorld
                 enabled: () => AgentSidebar.CanToggleDotfiles),
             new CommandDef("view.toggle-sidebar", "View: Toggle Sidebar", "View",
                 _ => AgentSidebar.ToggleSidebar()),
+            new CommandDef("view.screensaver", "Screensaver", "View",
+                _ => Screensaver.Enter(), enabled: Playing),
 
             new CommandDef("view.config", "Settings: General", "Settings",
                 _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Config))),

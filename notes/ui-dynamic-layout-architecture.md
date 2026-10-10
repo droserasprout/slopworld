@@ -8,6 +8,11 @@ come from profile settings. Placement policy stays separate from rendering.
 The top bar has map and terminal draw paths, but only one may handle input. Its hit
 rectangles are independent of the active window's bounds.
 
+`Screensaver` temporarily gates the root GUI dispatch while drawing the shared
+background animation. Open windows and panels retain their state. Any key restores
+the interface and consumes that event; mouse input stays suppressed. The mode ends
+when the game changes or a blocking loading event starts.
+
 Shared measurement and stable IMGUI geometry belong to [chrome](mod-ui-chrome.md).
 Panel lifecycle belongs to [workspace panels](mod-workspace-panels.md), terminal
 sizing/input to [terminal ownership](mod-terminal.md), and form focus to
