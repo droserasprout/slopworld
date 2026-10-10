@@ -73,7 +73,7 @@ Catalogs arrive on connect and are resent when changed.
 | `resize` | Negotiate terminal size. |
 | `scroll` | Scroll the terminal. |
 | `mouse` | Send mouse events. |
-| `paste` | Paste text. |
+| `paste` | Paste text; root desktop clients can opt into host image file-link import. |
 | `breadcrumb` | Insert a saved guidance block. |
 | `audio` | Audio control. Always includes `volume`. The selection supports `station`, `stream`, `file`, or `ncspot`, or `stop: true`. An absent oneof changes volume only. |
 
@@ -169,6 +169,13 @@ With `host: true` and no project, the request accepts an absolute host path.
 
 `/api/clipboard` accesses CLIPBOARD; `/api/clipboard/primary` accesses the
 Wayland/X11 PRIMARY selection. Their `/text` variants read text without image data.
+
+WebSocket `paste` normally treats `text` literally. With `host_file_images: true`,
+root clients may import a single local image file URI into the current Codex agent's
+private storage and paste its sandbox-visible attachment path. This intent requires
+`run_id` from the session runtime snapshot; scoped agents cannot import host files.
+The sidecar rejects host imports. Normal `paste` and `keys` may also include `run_id`
+to discard input for a replaced run. Failed imports are recorded in the daemon log.
 
 ## Configuration and templates
 

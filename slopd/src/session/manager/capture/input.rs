@@ -6,6 +6,14 @@ use anyhow::anyhow;
 use futures::StreamExt;
 
 impl Manager {
+    pub(crate) async fn input_run_current(&self, name: &str, run_id: u64) -> bool {
+        self.live
+            .read()
+            .await
+            .get(name)
+            .is_some_and(|row| row.run_id == run_id)
+    }
+
     /// Root socket commands need only protect their target, without waiting for
     /// unrelated lifecycle work. Missing rows must never use direct tmux fallback.
     pub(crate) async fn terminal_input_guard(

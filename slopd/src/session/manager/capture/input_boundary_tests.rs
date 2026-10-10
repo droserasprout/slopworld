@@ -547,3 +547,34 @@ async fn terminal_load_fixture(
     }
     (manager, cfg, socket)
 }
+
+#[tokio::test]
+async fn host_image_intent_rejects_stale_run_and_preserves_host_text() {
+    let (manager, mut rx) = queued_manager().await;
+    {
+        let mut rows = manager.live.write().await;
+        let row = rows.get_mut("target").unwrap();
+        row.state = State::Working;
+        row.host = true;
+        row.run_id = 7;
+    }
+    let text = "file:///tmp/image.png";
+    assert!(
+        manager
+            .paste_host_file_image("target", text, Some(6))
+            .await
+            .is_err()
+    );
+    assert!(
+        manager
+            .paste_host_file_image("target", text, None)
+            .await
+            .is_err()
+    );
+    assert!(rx.try_recv().is_err());
+    manager
+        .paste_host_file_image("target", text, Some(7))
+        .await
+        .unwrap();
+    assert!(matches!(rx.try_recv().unwrap(), Input::Paste { bytes } if bytes == text.as_bytes()));
+}

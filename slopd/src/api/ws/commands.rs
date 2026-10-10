@@ -155,6 +155,11 @@ async fn handle_keys(req: KeysReq, m: &Mgr, cap: &Cap) {
     if !m.cap_ok(cap, &req.name, Level::Rw).await {
         return;
     }
+    if let Some(run_id) = req.run_id
+        && !m.input_run_current(&req.name, run_id).await
+    {
+        return;
+    }
     m.send_keys(&req.name, req.keys, req.literal).await;
 }
 
@@ -188,8 +193,22 @@ async fn handle_paste(req: PasteReq, m: &Mgr, cap: &Cap) {
     if !m.cap_ok(cap, &req.name, Level::Rw).await {
         return;
     }
+    if let Some(run_id) = req.run_id
+        && !m.input_run_current(&req.name, run_id).await
+    {
+        return;
+    }
     // Authorization is already complete. Report delivery errors so failed pastes are visible in the log.
-    if let Err(e) = m.paste(&req.name, &req.text).await {
+    let result = if req.host_file_images {
+        if !cap.may_create() {
+            return;
+        }
+        m.paste_host_file_image(&req.name, &req.text, req.run_id)
+            .await
+    } else {
+        m.paste(&req.name, &req.text).await
+    };
+    if let Err(e) = result {
         tracing::warn!("paste to {}: {e:#}", req.name);
     }
 }

@@ -52,9 +52,25 @@ These shortcuts are active inside the terminal pane and cannot be rebound.
 | Shift+Escape | Close the focused pane; closing the last pane closes the terminal window. |
 | Shift+Enter | Send a newline-without-submit sequence to compatible applications. |
 | Ctrl+C | Copy selected text. Without a selection, send SIGINT. |
-| Ctrl+V | Paste from clipboard. Codex panes paste text normally and forward image data to Codex for attachments. |
+| Ctrl+V | Paste from clipboard. Codex panes attach local image file links and forward image clipboard data to Codex. |
 | Shift+PgUp / Shift+PgDn | Scroll the mod's own scrollback (primary screen only). |
 | Shift+F1..F12 | Forward F1..F12 to the application without Shift. Ctrl and Alt are preserved. |
+
+In native Linux Codex panes, copying a single local link such as
+`file:///home/me/Pictures/example.png` and pasting it into the editable composer
+attaches a private copy of the image. Percent-encoded spaces and Unicode paths are
+supported. PNG, JPEG, GIF and WebP files must be at most 20 MiB, with dimensions
+no greater than 8192 pixels and bounded decode memory. Other text and non-image file
+links paste normally; host shell panes always paste text. Other agent templates
+keep their existing text paste behavior.
+
+Restart agents launched before host image import support to enable the private image
+mount. Failed imports deliver no path or URI; the daemon log records the reason.
+Imported images stay in agent private state until reset/delete; storage is limited to
+128 files and 256 MiB per agent. Pasting again creates another copy. The Linux sidecar
+cannot import desktop-host file links: clipboard paste there remains text from the
+native game buffer. Image-path attachment behavior is verified for Codex 0.162.0's
+editable composer.
 
 ## Terminal mouse controls
 

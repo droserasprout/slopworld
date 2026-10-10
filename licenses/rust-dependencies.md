@@ -11,6 +11,7 @@ and does not identify which crates are included in a particular binary.
 
 | Crate | Version | License |
 | --- | --- | --- |
+| adler2 | 2.0.1 | 0BSD OR MIT OR Apache-2.0 |
 | aho-corasick | 1.1.4 | Unlicense OR MIT |
 | alacritty_terminal | 0.26.0 | Apache-2.0 |
 | alsa | 0.11.0 | Apache-2.0/MIT |
@@ -30,11 +31,13 @@ and does not identify which crates are included in a particular binary.
 | bumpalo | 3.20.3 | MIT OR Apache-2.0 |
 | bytemuck | 1.25.2 | Zlib OR Apache-2.0 OR MIT |
 | byteorder | 1.5.0 | Unlicense OR MIT |
+| byteorder-lite | 0.1.0 | Unlicense OR MIT |
 | bytes | 1.12.1 | MIT |
 | cc | 1.4.0 | MIT OR Apache-2.0 |
 | cesu8 | 1.1.0 | Apache-2.0/MIT |
 | cfg-if | 1.0.4 | MIT OR Apache-2.0 |
 | cfg_aliases | 0.1.1 | MIT |
+| color_quant | 1.1.0 | MIT |
 | combine | 4.6.7 | MIT |
 | concurrent-queue | 2.5.0 | Apache-2.0 OR MIT |
 | cookie | 0.18.1 | MIT OR Apache-2.0 |
@@ -42,6 +45,7 @@ and does not identify which crates are included in a particular binary.
 | coreaudio-rs | 0.14.2 | MIT/Apache-2.0 |
 | cpal | 0.17.3 | Apache-2.0 |
 | cpufeatures | 0.2.17 | MIT OR Apache-2.0 |
+| crc32fast | 1.5.2 | MIT OR Apache-2.0 |
 | crossbeam-utils | 0.8.22 | MIT OR Apache-2.0 |
 | crypto-common | 0.1.7 | MIT OR Apache-2.0 |
 | cursor-icon | 1.2.0 | MIT OR Apache-2.0 OR Zlib |
@@ -61,8 +65,10 @@ and does not identify which crates are included in a particular binary.
 | equivalent | 1.0.2 | Apache-2.0 OR MIT |
 | errno | 0.3.14 | MIT OR Apache-2.0 |
 | fastrand | 2.4.1 | Apache-2.0 OR MIT |
+| fdeflate | 0.3.7 | MIT OR Apache-2.0 |
 | find-msvc-tools | 0.1.9 | MIT OR Apache-2.0 |
 | fixedbitset | 0.5.7 | MIT OR Apache-2.0 |
+| flate2 | 1.1.10 | MIT OR Apache-2.0 |
 | foldhash | 0.1.5 | Zlib |
 | form_urlencoded | 1.2.2 | MIT OR Apache-2.0 |
 | futures | 0.3.32 | MIT OR Apache-2.0 |
@@ -77,6 +83,7 @@ and does not identify which crates are included in a particular binary.
 | generic-array | 0.14.7 | MIT |
 | getrandom | 0.2.17 | MIT OR Apache-2.0 |
 | getrandom | 0.4.3 | MIT OR Apache-2.0 |
+| gif | 0.14.2 | MIT OR Apache-2.0 |
 | hashbrown | 0.15.5 | MIT OR Apache-2.0 |
 | hashbrown | 0.17.1 | MIT OR Apache-2.0 |
 | heck | 0.5.0 | MIT OR Apache-2.0 |
@@ -98,6 +105,8 @@ and does not identify which crates are included in a particular binary.
 | icu_provider | 2.2.0 | Unicode-3.0 |
 | idna | 1.1.0 | MIT OR Apache-2.0 |
 | idna_adapter | 1.2.2 | Apache-2.0 OR MIT |
+| image | 0.25.10 | MIT OR Apache-2.0 |
+| image-webp | 0.2.4 | MIT OR Apache-2.0 |
 | indexmap | 2.14.0 | Apache-2.0 OR MIT |
 | itertools | 0.14.0 | MIT OR Apache-2.0 |
 | itoa | 1.0.18 | MIT OR Apache-2.0 |
@@ -120,8 +129,11 @@ and does not identify which crates are included in a particular binary.
 | matchit | 0.7.3 | MIT AND BSD-3-Clause |
 | memchr | 2.8.3 | Unlicense OR MIT |
 | mime | 0.3.17 | MIT OR Apache-2.0 |
+| miniz_oxide | 0.8.9 | MIT OR Zlib OR Apache-2.0 |
+| miniz_oxide | 0.9.1 | MIT OR Zlib OR Apache-2.0 |
 | mio | 1.2.2 | MIT |
 | miow | 0.6.1 | MIT OR Apache-2.0 |
+| moxcms | 0.8.1 | BSD-3-Clause OR Apache-2.0 |
 | multimap | 0.10.1 | MIT OR Apache-2.0 |
 | ndk | 0.9.0 | MIT OR Apache-2.0 |
 | ndk-context | 0.1.1 | MIT OR Apache-2.0 |
@@ -153,6 +165,7 @@ and does not identify which crates are included in a particular binary.
 | pin-project-lite | 0.2.17 | Apache-2.0 OR MIT |
 | piper | 0.2.5 | MIT OR Apache-2.0 |
 | pkg-config | 0.3.33 | MIT OR Apache-2.0 |
+| png | 0.18.1 | MIT OR Apache-2.0 |
 | polling | 3.11.0 | Apache-2.0 OR MIT |
 | potential_utf | 0.1.5 | Unicode-3.0 |
 | powerfmt | 0.2.0 | MIT OR Apache-2.0 |
@@ -164,6 +177,8 @@ and does not identify which crates are included in a particular binary.
 | prost-build | 0.14.4 | Apache-2.0 |
 | prost-derive | 0.14.4 | Apache-2.0 |
 | prost-types | 0.14.4 | Apache-2.0 |
+| pxfm | 0.1.30 | BSD-3-Clause OR Apache-2.0 |
+| quick-error | 2.0.1 | MIT/Apache-2.0 |
 | quote | 1.0.46 | MIT OR Apache-2.0 |
 | r-efi | 6.0.0 | MIT OR Apache-2.0 OR LGPL-2.1-or-later |
 | rand | 0.8.7 | MIT OR Apache-2.0 |
@@ -197,6 +212,7 @@ and does not identify which crates are included in a particular binary.
 | shlex | 2.0.1 | MIT OR Apache-2.0 |
 | signal-hook | 0.4.4 | MIT OR Apache-2.0 |
 | signal-hook-registry | 1.4.8 | MIT OR Apache-2.0 |
+| simd-adler32 | 0.3.10 | MIT |
 | slab | 0.4.12 | MIT |
 | smallvec | 1.15.2 | MIT OR Apache-2.0 |
 | socket2 | 0.6.5 | MIT OR Apache-2.0 |
@@ -266,6 +282,7 @@ and does not identify which crates are included in a particular binary.
 | wasm-bindgen-shared | 0.2.126 | MIT OR Apache-2.0 |
 | web-sys | 0.3.103 | MIT OR Apache-2.0 |
 | webpki-roots | 1.0.9 | CDLA-Permissive-2.0 |
+| weezl | 0.1.12 | MIT OR Apache-2.0 |
 | winapi-util | 0.1.11 | Unlicense OR MIT |
 | windows | 0.62.2 | MIT OR Apache-2.0 |
 | windows-collections | 0.3.2 | MIT OR Apache-2.0 |
@@ -321,4 +338,7 @@ and does not identify which crates are included in a particular binary.
 | zerotrie | 0.2.4 | Unicode-3.0 |
 | zerovec | 0.11.6 | Unicode-3.0 |
 | zerovec-derive | 0.11.3 | Unicode-3.0 |
+| zlib-rs | 0.6.8 | Zlib |
 | zmij | 1.0.23 | MIT |
+| zune-core | 0.5.3 | MIT OR Apache-2.0 OR Zlib |
+| zune-jpeg | 0.5.15 | MIT OR Apache-2.0 OR Zlib |

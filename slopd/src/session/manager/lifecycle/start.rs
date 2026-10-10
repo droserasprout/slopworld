@@ -267,6 +267,21 @@ impl Manager {
             }
             return Err(error.context(format!("starting session {name} command")));
         }
+        if plan.launch.is_some() {
+            // Publish the import capability only for a successfully launched sandbox.
+            // This tmux session option survives daemon adoption; old panes lack it.
+            if let Err(error) = self
+                .tmux
+                .set_option(
+                    name,
+                    crate::sandbox::images::MOUNT_STATE,
+                    &plan.session.state_id,
+                )
+                .await
+            {
+                tracing::warn!("host image imports unavailable for {name}: {error:#}");
+            }
+        }
         if auto_resume_pending {
             self.queue_auto_resume(name, run_id).await;
         }

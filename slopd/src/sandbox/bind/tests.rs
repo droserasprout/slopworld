@@ -1004,3 +1004,44 @@ fn stale_template_proc_overlay_cannot_replace_the_pid_namespace_proc() {
     assert!(restored > overlay);
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn image_import_mount_is_private_read_only_and_wins_over_project_overlays() {
+    let root = std::env::temp_dir().join(format!("slopd-image-mount-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(&root).unwrap();
+    let session = SessionCfg {
+        name: "image-agent".into(),
+        project: "p".into(),
+        ..Default::default()
+    };
+    let project = ProjectCfg {
+        name: "p".into(),
+        dir: root.to_string_lossy().into_owned(),
+        mounts: vec![crate::config::Mount {
+            from: root.to_string_lossy().into_owned(),
+            to: crate::sandbox::images::GUEST.into(),
+            mode: crate::config::MountMode::Rw,
+        }],
+        ..Default::default()
+    };
+    let plan = crate::sandbox::build_plan(&Config::default(), &session, &project).unwrap();
+    let source = crate::sandbox::images::directory(&session).unwrap();
+    assert_eq!(
+        effective_mount(&plan.mounts, crate::sandbox::images::GUEST),
+        Some((
+            "--ro-bind",
+            source.to_str().unwrap(),
+            crate::sandbox::images::GUEST
+        ))
+    );
+    let other = SessionCfg {
+        name: session.name.clone(),
+        ..Default::default()
+    };
+    assert_ne!(
+        source,
+        crate::sandbox::images::directory(&other).unwrap(),
+        "reused names cannot inherit imports"
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
