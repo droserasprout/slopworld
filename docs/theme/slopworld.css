@@ -253,6 +253,10 @@ html:not(.js) #mdbook-search-toggle {
 }
 
 /* Compact book layout applies to every color theme. */
+:root {
+    --content-max-width: 880px;
+}
+
 .content {
     font-size: 1.5rem;
 }
