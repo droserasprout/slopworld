@@ -66,6 +66,10 @@ walk unrelated container storage under `dist/`.
 pushes build and publish images, using full commit SHA and release-version tags.
 There are no branch or manual triggers. Tag validation runs before container setup.
 CI passes the same version into the Docker build and OCI label.
+Docker's `github-builder` reusable workflow owns native platform runners, separate
+platform caches, and manifest assembly. It publishes the release-version and
+full-commit tags after both builds succeed; the calling workflow owns tag validation
+and the version build argument and labels.
 Only superseded branch-push test runs are cancelled; called tests and
 manual runs have isolated concurrency groups. NuGet caching includes the locked
 runtime/test dependency graphs and the coverage tool manifest.
