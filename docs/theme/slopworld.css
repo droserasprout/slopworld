@@ -302,6 +302,13 @@ html:not(.js) #mdbook-search-toggle {
     padding-inline: 12px;
 }
 
+/* Ordinary quotations use a quiet text rail; tagged callouts keep their colors. */
+.content blockquote:not(.blockquote-tag) {
+    background-color: color-mix(in srgb, var(--fg) 4%, transparent);
+    border-block: none;
+    border-inline-start: 2px solid color-mix(in srgb, var(--fg) 28%, transparent);
+}
+
 .chapter li.chapter-item {
     line-height: 1.35;
     margin-block-start: 0.35em;
