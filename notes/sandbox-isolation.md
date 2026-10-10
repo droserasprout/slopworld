@@ -48,3 +48,9 @@ private and shared overlays must preserve their intended precedence.
 Live inspection compares the saved command executable with an observable pane
 process tree, not every saved-plan field. Without a usable PID/tree or executable,
 comparison is unavailable. Saved sanitized plans survive process exit and restart.
+
+Host image attachments use a dedicated read-only mount from the session's private
+state, after all preset/project overlays. Image import policy belongs to
+[the clipboard boundary](daemon-clipboard.md); it grants one desktop-selected image,
+not general host-directory access. Its storage shares the state identity and cleanup
+lifetime, with no project files or desktop clipboard writes.

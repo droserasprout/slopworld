@@ -36,3 +36,9 @@ one cell; private `CSI <scalar-count>;<cell-width> z` introduces a complete mult
 cell. Counts are bounded by remaining payload rather than a fixed cluster length.
 CHA after a wide glyph supplies its occupied end even at a trimmed tail. Sprite joins
 retain these columns and original copy text.
+
+Desktop paste intent is explicit in `PasteReq.host_file_images` and requires a
+captured `run_id`. It is root-only; ordinary scoped text paste never imports host
+files. Optional run IDs on paste/keys protect clipboard round trips independently
+of the queue's state/run ownership checks. Clipboard channels and image import
+ownership belong to [the clipboard boundary](daemon-clipboard.md).

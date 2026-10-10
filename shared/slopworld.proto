@@ -521,6 +521,8 @@ message PasteReq {
   optional string name = 1;
   optional string text = 2;
   optional string trace_id = 3;
+  bool host_file_images = 4;
+  optional uint64 run_id = 5;
 }
 
 message BreadcrumbReq {
@@ -552,6 +554,7 @@ message KeysReq {
   reserved 4;
   reserved "random_tips";
   optional string trace_id = 5;
+  optional uint64 run_id = 6;
 }
 
 message ResizeReq {

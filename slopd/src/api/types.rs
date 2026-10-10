@@ -319,6 +319,10 @@ pub(crate) use crate::session::AudioSelection;
 #[derive(Deserialize)]
 pub(crate) struct PasteReq {
     #[serde(default)]
+    pub(crate) host_file_images: bool,
+    #[serde(default)]
+    pub(crate) run_id: Option<u64>,
+    #[serde(default)]
     pub(crate) trace_id: String,
     pub(crate) name: String,
     pub(crate) text: String,
@@ -362,6 +366,8 @@ pub(crate) struct ScrollReq {
 
 #[derive(Deserialize)]
 pub(crate) struct KeysReq {
+    #[serde(default)]
+    pub(crate) run_id: Option<u64>,
     #[serde(default)]
     pub(crate) trace_id: String,
     pub(crate) name: String,

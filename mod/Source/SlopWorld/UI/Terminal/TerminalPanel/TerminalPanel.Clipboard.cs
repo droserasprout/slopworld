@@ -9,6 +9,8 @@ namespace SlopWorld
     // Clipboard and context-menu actions for TerminalPanel.
     sealed partial class TerminalPanel
     {
+        int _pasteEpoch;
+
         internal void CopySelection()
         {
             var buf = DisplayedBuf();
@@ -148,15 +150,18 @@ namespace SlopWorld
         bool CodexImagePaste => !HostClipboardTextOnly &&
             SessionHub.Instance.Get(_state.Name)?.CommandPreset == "codex";
 
-        static void ForwardCodexImagePaste(string name)
+        static void ForwardCodexImagePaste(string name, long runId)
         {
-            SessionHub.Instance.Terminal.SendKeys(name, new[] { "C-v" }, false);
+            SessionHub.Instance.Terminal.SendKeysForRun(name, new[] { "C-v" }, false, (ulong)runId);
         }
 
         internal void PasteClipboard()
         {
             Flush();
             string name = _state.Name;
+            var target = SessionHub.Instance.Get(name);
+            long? runId = target?.RunId;
+            int epoch = _pasteEpoch;
             if (CodexImagePaste && SessionHub.Instance.Capabilities.Clipboard)
             {
                 // Codex's image handler claims Ctrl+V even when the clipboard only has text,
@@ -165,24 +170,25 @@ namespace SlopWorld
                 DaemonClient.Get<Wire.TextResult>(WireProtocol.Routes.ClipboardText,
                     j =>
                     {
+                        if (!PasteTargetCurrent(name, runId, epoch)) return;
                         string text = j.Text;
                         if (!string.IsNullOrEmpty(text))
-                            SessionHub.Instance.Terminal.Paste(name, text);
+                            SessionHub.Instance.Terminal.PasteHostClipboard(name, text, (ulong)runId.Value, true);
                         else
-                            ForwardCodexImagePaste(name);
+                            ForwardCodexImagePaste(name, runId.Value);
                     },
-                    _ => ForwardCodexImagePaste(name));
+                    _ => { if (PasteTargetCurrent(name, runId, epoch)) ForwardCodexImagePaste(name, runId.Value); });
                 return;
             }
             if (!SessionHub.Instance.Capabilities.Clipboard)
             {
-                DeliverLocal(name);
+                DeliverLocal(name, runId, epoch);
                 return;
             }
             string path = HostClipboardTextOnly ? WireProtocol.Routes.ClipboardText : WireProtocol.Routes.Clipboard;
             DaemonClient.Get<Wire.TextResult>(path,
-                j => Deliver(name, j.Text),
-                _ => DeliverLocal(name));
+                j => Deliver(name, j.Text, runId, epoch, false),
+                _ => DeliverLocal(name, runId, epoch));
         }
 
         // Middle-click reads Wayland/X11 PRIMARY, not the ordinary CLIPBOARD. There is no
@@ -193,28 +199,28 @@ namespace SlopWorld
             if (!SessionHub.Instance.Capabilities.Clipboard) return;
             Flush();
             string name = _state.Name;
+            long? runId = SessionHub.Instance.Get(name)?.RunId;
+            int epoch = _pasteEpoch;
+            bool images = CodexImagePaste;
             string path = HostClipboardTextOnly
                 ? WireProtocol.Routes.ClipboardPrimaryText
                 : WireProtocol.Routes.ClipboardPrimary;
             DaemonClient.Get<Wire.TextResult>(path,
-                j => DeliverPrimary(name, j.Text),
+                j => Deliver(name, j.Text, runId, epoch, images),
                 _ => { });
         }
 
-        static void Deliver(string name, string text)
+        bool PasteTargetCurrent(string name, long? runId, int epoch) =>
+            _opened && _pasteEpoch == epoch && _state.Name == name && runId.HasValue &&
+            SessionHub.Instance.Get(name)?.RunId == runId;
+
+        void Deliver(string name, string text, long? runId, int epoch, bool images)
         {
-            if (!string.IsNullOrEmpty(text)) SessionHub.Instance.Terminal.Paste(name, text);
+            if (!string.IsNullOrEmpty(text) && PasteTargetCurrent(name, runId, epoch))
+                SessionHub.Instance.Terminal.PasteHostClipboard(name, text, (ulong)runId.Value, images);
         }
 
-        static void DeliverLocal(string name)
-        {
-            string text = GUIUtility.systemCopyBuffer;
-            if (!string.IsNullOrEmpty(text)) SessionHub.Instance.Terminal.Paste(name, text);
-        }
-
-        static void DeliverPrimary(string name, string text)
-        {
-            if (!string.IsNullOrEmpty(text)) SessionHub.Instance.Terminal.Paste(name, text);
-        }
+        void DeliverLocal(string name, long? runId, int epoch) =>
+            Deliver(name, GUIUtility.systemCopyBuffer, runId, epoch, false);
     }
 }

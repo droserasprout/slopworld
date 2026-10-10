@@ -21,6 +21,7 @@ namespace SlopWorld
         {
             if (!_opened) return;
             _opened = false;
+            _pasteEpoch++;
             ReleasePanelInput();
             ScrollDebugEnd();
             Drop();
@@ -32,6 +33,7 @@ namespace SlopWorld
         internal void BindSession(string name)
         {
             if (name == _state.Name) return;
+            _pasteEpoch++;
             ReleasePanelInput();
             ScrollDebugEnd();
             SaveScrollbackState(_state.Name);

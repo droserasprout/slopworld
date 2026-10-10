@@ -14,6 +14,7 @@ use super::{PRIVATE_RESOLVER, persistent_tmp_path, presets_for, private_path, st
 /// Keep existing private copies. Private network mode always uses a generated resolver file.
 /// Host network mode also needs this file when the configuration specifies DNS servers.
 pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<()> {
+    super::images::prepare(s)?;
     if s.persistent_tmp {
         let path = persistent_tmp_path(s)?;
         if path.exists() && !path.is_dir() {

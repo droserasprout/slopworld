@@ -45,6 +45,11 @@ namespace SlopWorld
                     Literal = literal
                 }
             });
+        public bool SendKeysForRun(string name, IEnumerable<string> keys, bool literal, ulong runId) =>
+            _send(new Wire.ClientMessage
+            {
+                Keys = new Wire.KeysReq { Name = name, Keys = { keys }, Literal = literal, RunId = runId }
+            });
         public void RequestScroll(string name, int off, ulong requestId) =>
             _send(new Wire.ClientMessage
             {
@@ -76,6 +81,12 @@ namespace SlopWorld
                     Name = name,
                     Text = text,
                 }
+            });
+        // Desktop clipboard intent is explicit; ordinary agent/API text paste cannot import host files.
+        public void PasteHostClipboard(string name, string text, ulong runId, bool images) =>
+            _send(new Wire.ClientMessage
+            {
+                Paste = new Wire.PasteReq { Name = name, Text = text, RunId = runId, HostFileImages = images }
             });
         public void PasteBreadcrumb(string name, string breadcrumb, List<string> randomTips) =>
             _send(new Wire.ClientMessage

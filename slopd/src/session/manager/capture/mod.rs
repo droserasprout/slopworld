@@ -4,6 +4,7 @@ use super::super::*;
 use anyhow::anyhow;
 
 mod exit;
+mod images;
 
 const CONTROL_ATTACH_TIMEOUT: Duration = Duration::from_secs(5);
 

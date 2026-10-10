@@ -100,6 +100,12 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
     mounts::push_persistent_tmp(&mut mounts_args, &bind)?;
     mounts::push_capability_binds(&mut mounts_args, &bind);
     mounts::push_private_binds(&mut mounts_args, &bind)?;
+    let images = super::images::directory(s)?;
+    mounts_args.extend([
+        "--ro-bind".into(),
+        images.to_string_lossy().into_owned(),
+        super::images::GUEST.into(),
+    ]);
     // PID namespace ownership is a launcher invariant, even for old template
     // snapshots that bind the host's /proc. Restore it after every overlay.
     mounts_args.extend(["--proc".into(), "/proc".into()]);

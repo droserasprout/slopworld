@@ -25,7 +25,10 @@ Mouse-reporting apps own single, double, and triple clicks at the live screen;
 Shift or terminal history keeps those gestures in local text selection.
 Flush buffered text before clipboard/PRIMARY paste, including fallback. Rejected
 input is discarded rather than replayed on reconnect. Codex paste checks for text
-before forwarding its image shortcut. Host panes accept text only; CLIPBOARD,
+before forwarding its image shortcut. Local image file URIs use an explicit desktop
+import intent with the captured run ID; PRIMARY keeps its own channel and never
+forwards the CLIPBOARD image shortcut. Pane close/rebind invalidates pending clipboard
+callbacks, and the daemon rechecks run identity at admission and delivery. Host panes accept text only; CLIPBOARD,
 PRIMARY, and explicit OSC writes remain separate channels. Selection over missing
 rows leaves the clipboard unchanged rather than copying partial text.
 

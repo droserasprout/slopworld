@@ -4,6 +4,7 @@
 mod bind;
 pub(crate) mod cache;
 mod host;
+pub(crate) mod images;
 mod network;
 mod observe;
 mod paths;
