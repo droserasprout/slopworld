@@ -18,6 +18,9 @@ namespace SlopWorld
         [HarmonyPriority(Priority.First)]
         static void Prefix()
         {
+            // Void Harmony prefixes still run when the recovery hook skips menu drawing.
+            if (LoadFailureRecovery.Pending) { _tried = true; return; }
+
             // NextPlanet is creating a new colony through the menu.
             // Do not start a competing resume operation.
             if (NextPlanet.Pending) { _tried = true; return; }
@@ -45,8 +48,9 @@ namespace SlopWorld
             }
             catch (Exception e)
             {
-                // Keep the menu available if loading fails.
-                Log.Error($"[SlopWorld] resume failed: {e}");
+                // Asynchronous failures go through ErrorWhileLoadingGame; failures
+                // before queuing need the same notice and new-colony handoff.
+                LoadFailureRecovery.Begin(e);
             }
         }
     }

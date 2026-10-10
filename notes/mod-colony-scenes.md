@@ -14,6 +14,12 @@ the next auto-resume save. Manual vanilla saves have a separate path. Shutdown
 saving runs from the Root.Shutdown prefix; deferred OS close requests remain
 cancelled until that path runs.
 
+`LoadFailureRecovery` replaces the native load-error dialog with a mandatory
+SlopWorld notice. It stops Scribe and returns to the entry scene, suppressing saves
+of the partially loaded game and hiding main-menu controls during recovery.
+The notice's New colony action queues `QuickStart` directly; it does not retry older
+saves or remove the failed save. Delivery waits for an idle entry-scene window stack.
+
 Departure bypasses plague fire containment. Map discard removes all blueprints and
 frames regardless of Worksite ownership. Feature handoffs are in
 [simulation](mod-sim.md), and normal frame behavior in [Worksite](mod-worksite.md).

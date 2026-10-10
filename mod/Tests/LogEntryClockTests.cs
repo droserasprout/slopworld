@@ -42,7 +42,12 @@ namespace Verse
 {
     public class LogEntry { public int Timestamp; }
     public enum LoadSaveMode { Inactive, Saving, LoadingVars }
-    public static class Scribe { public static LoadSaveMode mode; }
+    public static class Scribe
+    {
+        public static LoadSaveMode mode;
+        public static int Stops;
+        public static void ForceStop() { Stops++; mode = LoadSaveMode.Inactive; }
+    }
     public static class Scribe_Values
     {
         public static long SavedTicks;

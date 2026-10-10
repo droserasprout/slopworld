@@ -35,7 +35,16 @@ namespace SlopWorld
 {
     static class AlertDialog
     {
+        internal sealed class Notice : Verse.Window
+        {
+            internal string Title;
+            internal string Text;
+            internal string Primary;
+            internal Action Action;
+        }
+
         public static Verse.Window Create(string title, string text, string primary,
-            Action action, string secondary = null, Action secondaryAction = null, UiTheme.Btn primaryKind = UiTheme.Btn.Primary) => new Verse.Window();
+            Action action, string secondary = null, Action secondaryAction = null, UiTheme.Btn primaryKind = UiTheme.Btn.Primary) =>
+            new Notice { Title = title, Text = text, Primary = primary, Action = action };
     }
 }

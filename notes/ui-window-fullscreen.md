@@ -4,9 +4,13 @@
 uses its title setter. The launcher supplies default Linux windowed/OpenGL arguments,
 while the mod follows the saved fullscreen preference. This path requires X11/EWMH,
 including under XWayland; it does not categorically bypass Wayland desktops.
-Window checks run only during startup and the Next planet menu/loading transition,
-then stop after a quiet settling period. The transition arms the watch before leaving
-the colony; queued long events keep it active after the pending landing is consumed.
+Window checks run during startup and loading transitions, then stop after a quiet
+settling period. Next planet arms the watch before leaving the colony; pending landing
+and queued long events also restart a retired watch and keep it active through loading.
+This includes new colony generation after a failed load returns to the menu.
+Unsupported native integration remains disabled for the process lifetime; loading
+and explicit scene watches do not restart it. Temporary X11 display unavailability
+remains retryable.
 The watch verifies native fullscreen state and Unity surface dimensions as well as
 decorations. Geometry recovery resizes the surface before reapplying fullscreen,
 without raising or activating the window. Settling waits for confirmed recovery.

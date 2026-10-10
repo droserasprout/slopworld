@@ -29,7 +29,10 @@ namespace SlopWorld
         enum ResizeStage { Retry, Waiting, Ready }
 
         static bool? _applied;
-        // Watch startup and explicitly armed scene transitions, then leave normal play idle.
+        // Unsupported native integration is terminal for this process, unlike a
+        // watch that retires after settling and can resume at the next scene load.
+        static bool _unsupported;
+        // Watch startup and loading transitions, then leave normal play idle.
         static bool _watchWindow = true;
         static float _windowQuietSince = -1f;
         static float _nextTry;
@@ -41,7 +44,7 @@ namespace SlopWorld
 
         public static void Follow()
         {
-            if (Application.platform != RuntimePlatform.LinuxPlayer) return;
+            if (Application.platform != RuntimePlatform.LinuxPlayer || _unsupported) return;
 
             bool want = Settings.Fullscreen;
 
@@ -53,7 +56,11 @@ namespace SlopWorld
 
             var result = TrySet(want);
             if (result == WindowChange.Applied || result == WindowChange.Unsupported) _applied = want;
-            if (result == WindowChange.Unsupported) _watchWindow = false;
+            if (result == WindowChange.Unsupported)
+            {
+                _unsupported = true;
+                _watchWindow = false;
+            }
             // Sending a request does not mean the WM or Unity has finished resizing.
             // Only confirmed recovery may begin the quiet settling period.
             if (result == WindowChange.Retry || result == WindowChange.WaitingForResize)
@@ -67,6 +74,7 @@ namespace SlopWorld
         // long events cover generation after Pending clears. No native work happens here.
         public static void WatchWindow()
         {
+            if (_unsupported) return;
             _watchWindow = true;
             _windowQuietSince = -1f;
             _resyncedAt = -1f;
@@ -75,8 +83,14 @@ namespace SlopWorld
 
         static bool WatchingWindow(float now)
         {
+            if (_unsupported) return false;
+            bool loading = NextPlanet.Pending || LongEventHandler.AnyEventNowOrWaiting;
+            // A failed load can return to an idle menu long enough to retire the startup
+            // watch. Later generation or loading must recover scene-induced resizing too.
+            // Arm only once so active loading cannot erase an in-flight resize deadline.
+            if (!_watchWindow && loading) WatchWindow();
             if (!_watchWindow) return false;
-            if (NextPlanet.Pending || LongEventHandler.AnyEventNowOrWaiting)
+            if (loading)
                 _windowQuietSince = -1f;
             else if (_windowQuietSince < 0f)
                 _windowQuietSince = now;
