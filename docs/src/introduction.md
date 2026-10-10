@@ -12,13 +12,13 @@ SlopWorld is a fun terminal-focused IDE for agentic coding, built on RimWorld.
 Your agents' sessions appear as colonists. Select one to open its terminal and give
 it work.
 
-- Run agent CLIs, shells, and tools in persistent terminal sessions.
-- Manage projects, mounts, and Git worktrees for parallel work.
-- Configure sandboxing and network access per agent.
-- Browse files, search code, review diffs, and commit changes.
-- Hand off tasks between agents and track completion.
-- Customize fonts, colors, and the UI layout.
-- Enjoy the original soundtrack or tune to internet radio.
+- Run [agent CLIs](agents/configuring-agents.md), [shells](terminals/host-shells.md), and tools in [persistent terminal sessions](terminals/terminal.md).
+- Manage [projects](workspace/configuring-projects.md), [mounts](workspace/project-mounts.md), and [Git worktrees](workspace/project-worktrees.md) for parallel work.
+- Configure [sandboxing](sandbox/sandboxing.md) and [network access](agents/configuring-agents.md#network) per agent.
+- [Browse files](workspace/files-and-search.md#browse-and-open-files), [search code](workspace/files-and-search.md#search-workspace-text), [review diffs](workspace/review-changes.md#change-review), and [commit changes](workspace/review-changes.md#staging-and-commits).
+- [Hand off tasks](agents/agent-collaboration.md#worker-delegation) between agents and [track completion](agents/agent-collaboration.md#task-mailboxes).
+- Customize [fonts, colors](customization/settings.md), and the [UI layout](workspace/interface.md).
+- Enjoy the [original soundtrack or tune to internet radio](customization/jukebox.md).
 
 ## What's inside
 
@@ -26,18 +26,18 @@ it work.
 
 Your favorite Linux tooling, well-integrated:
 
-- **Alacritty** for terminal emulation.
-- **tmux** for multiplexing and persistent sessions.
-- **Bubblewrap** for sandboxing and controlling filesystem access.
-- **pasta** for networking in private sandboxes.
-- **git** for version control and worktrees.
-- Small UNIX friends: pagers, highlighters, ripgrep, git-delta.
+- **Alacritty** for [terminal emulation](terminals/terminal-interface.md).
+- **tmux** for [multiplexing and persistent sessions](terminals/terminal.md).
+- **Bubblewrap** for [sandboxing and controlling filesystem access](sandbox/sandboxing.md).
+- **pasta** for [networking in private sandboxes](agents/configuring-agents.md#network).
+- **git** for [version control](workspace/review-changes.md) and [worktrees](workspace/project-worktrees.md).
+- Small UNIX friends: [pagers, highlighters](customization/settings.md#applying-changes), [ripgrep](workspace/files-and-search.md#search-workspace-text), [git-delta](workspace/review-changes.md#change-review).
 
 SlopWorld consists of three components:
 
-- A Rust daemon, `slopd`, manages the sessions and sandboxes.
-- The RimWorld mod, `io.drsr.slopworld`, puts their terminals and status into the game interface.
-- `slopctl` provides a command-line interface to the daemon's API.
+- A Rust daemon, [`slopd`](development/architecture.md), manages the sessions and sandboxes.
+- The RimWorld mod, `io.drsr.slopworld`, puts their terminals and status into the [game interface](workspace/interface.md).
+- [`slopctl`](reference/slopctl.md) provides a command-line interface to the [daemon's API](reference/api.md).
 
 ## Get started
 
