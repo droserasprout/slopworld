@@ -9,6 +9,11 @@ refresh: refresh-protocol refresh-introduction refresh-api-docs refresh-loading-
 refresh-introduction:
     {{ PYTHON }} -m tools.docs.introduction
 
+# Convert book PNGs to low-quality JPEG copies, preserving originals
+[group('Generated files')]
+refresh-docs-images quality='15':
+    {{ PYTHON }} -m tools.docs.compress_images --quality "{{ quality }}"
+
 # Generate the locked Rust dependency license table
 [group('Generated files')]
 refresh-daemon-licenses:

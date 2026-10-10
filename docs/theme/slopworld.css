@@ -236,3 +236,14 @@ html:not(.js) #mdbook-search-toggle {
 .slopworld :is(.hljs-keyword, .hljs-selector-tag) { color: #ae87b3; }
 .slopworld .hljs-addition { color: #9bb066; background: #2b2014; }
 .slopworld .hljs-deletion { color: #ff7b63; background: #6b1f1aeb; }
+
+.screenshot-stack {
+    float: right;
+    width: 280px;
+    max-width: 100%;
+    margin: 0 0 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+

@@ -31,6 +31,12 @@ Both recipes consume the existing generated book introduction.
 After editing `README.md`, run `just refresh-introduction` explicitly and commit
 the updated introduction. The refresh can also run while the documentation server is running.
 Git ignores output under `docs/book/`.
+For manually captured screenshots, run `just refresh-docs-images` to create heavily
+compressed `.jpg` copies of every PNG under `docs/src/`. The default JPEG quality
+is 15; use `just refresh-docs-images 10` for stronger compression. Dimensions stay
+unchanged, transparency becomes white, and original PNGs are preserved. Link the
+desired JPEGs from the book explicitly; the recipe does not rewrite links.
+Conversion is an explicit preparation step, separate from `just docs`.
 Add new or moved book pages to `docs/src/SUMMARY.md`.
 Use repository URLs for files outside the book: relative links to source or notes
 will not exist on the published site. Preserve incoming anchors when moving sections.
