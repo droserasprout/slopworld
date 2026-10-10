@@ -290,11 +290,10 @@ impl Composer {
             }
             // An interrupt cancels the input rather than making the next Enter submit stale text.
             "C-c" => *self = Self::ready(),
-            // Escape twice can restore an earlier prompt inside the agent editor. Its text
-            // never passes through input capture, so skip the next submission even after edits.
-            "Escape" => self.invalidate(),
             // History, completion, and terminal controls can invalidate the mirrored input.
             // Clear the mirror because it can no longer predict the text that Codex receives.
+            // Escape twice can restore an earlier prompt inside the agent editor. Its text
+            // never passes through input capture, so skip the next submission even after edits.
             _ => self.invalidate(),
         }
         None
