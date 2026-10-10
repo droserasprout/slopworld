@@ -49,6 +49,7 @@ namespace SlopWorld
                 var name = ScreenRect(viewport, hit.Name);
                 if (!avatar.Contains(e.mousePosition) && !name.Contains(e.mousePosition)) continue;
 
+                _selectionClicks.Reset();
                 AgentSidebar.FocusAgent(hit.Sender);
                 e.Use();
                 return true;
@@ -69,16 +70,32 @@ namespace SlopWorld
             if (type == EventType.KeyDown) { _selection.HandleKey(e); return; }
             if (e.button == 1 && type == EventType.MouseDown && viewport.Contains(e.mousePosition))
             {
+                _selectionClicks.Reset();
                 _selection.OpenMenu();
                 e.Use();
+                return;
             }
             if (e.button != 0) return;
-            if (type == EventType.MouseDown) _selection.BeginMouse(viewport, e, 1, _scroll.Position);
+            if (type == EventType.MouseDown)
+            {
+                if (!viewport.Contains(e.mousePosition))
+                {
+                    _selectionClicks.Reset();
+                    return;
+                }
+                int clicks = _selectionClicks.Observe(e, Time.realtimeSinceStartup);
+                _selection.BeginMouse(viewport, e, clicks, _scroll.Position);
+                if (clicks >= 3) _selectionClicks.Reset();
+            }
             else if (type == EventType.MouseDrag) _selection.DragMouse(viewport, e, _scroll.Position);
             else if (type == EventType.MouseUp) _selection.EndMouse(viewport, e, _scroll.Position);
         }
 
-        void ClearSelection() => _selection.Clear();
+        void ClearSelection()
+        {
+            _selection.Clear();
+            _selectionClicks.Reset();
+        }
 
         string DialogueText()
         {

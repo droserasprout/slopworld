@@ -8,7 +8,6 @@ namespace SlopWorld
     {
         internal sealed class Line : DocumentSelectionLine { public int Start, End; }
         string _source = "";
-        protected override bool PublishPrimary => false;
         protected override bool CopyOnSelectAll => false;
         protected override bool CanPaste => false;
         protected override bool ExtendRequiresSelection => false;

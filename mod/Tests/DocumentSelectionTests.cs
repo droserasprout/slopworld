@@ -88,12 +88,14 @@ namespace SlopWorld.Tests
                 task.Rebuilt("task", 0, 0);
                 task.BeginMouse(Viewport, Mouse(0, 5), 1, new Vector2());
                 task.EndMouse(Viewport, Mouse(10, 5), new Vector2());
+                AssertEx.Equal(WireProtocol.Routes.ClipboardPrimary, DaemonClient.Requests[0].Path, "task mouse selection uses PRIMARY");
+                AssertEx.Equal("unchanged", GUIUtility.systemCopyBuffer, "task mouse selection preserves CLIPBOARD");
                 task.SelectAll();
-                AssertEx.Equal(0, DaemonClient.Requests.Count, "task drag and select all never copy implicitly");
+                AssertEx.Equal(1, DaemonClient.Requests.Count, "task select all does not copy implicitly");
                 task.OpenMenu();
                 AssertEx.True(!TerminalWindow.SelectionMenu.Options.Any(o => o.Label == "Paste"), "task menu has no paste");
                 task.HandleKey(new Event { control = true, keyCode = KeyCode.C });
-                AssertEx.Equal(WireProtocol.Routes.Clipboard, DaemonClient.Requests[0].Path, "explicit task copy uses CLIPBOARD");
+                AssertEx.Equal(WireProtocol.Routes.Clipboard, DaemonClient.Requests[1].Path, "explicit task copy uses CLIPBOARD");
 
                 DaemonClipboard.Reset();
                 DaemonClient.Requests.Clear();

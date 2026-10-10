@@ -20,6 +20,7 @@ namespace SlopWorld
         TaskInfo _task;
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly TaskTextSelection _selection = new TaskTextSelection();
+        readonly MouseClickSequence _selectionClicks = new MouseClickSequence();
         List<TaskTextSelection.Line> _selectionLines => _selection.Lines;
         readonly List<SenderHit> _senderHits = new List<SenderHit>();
         readonly List<TextRange> _bodyRanges = new List<TextRange>();
@@ -249,8 +250,9 @@ namespace SlopWorld
         {
             if (milliseconds <= 0) return "unknown time";
             var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            return epoch.AddMilliseconds(milliseconds).ToLocalTime()
-                .ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture);
+            var local = epoch.AddMilliseconds(milliseconds).ToLocalTime();
+            return local.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + " " +
+                TimeFormat.Long(local) + " " + local.ToString("zzz", CultureInfo.InvariantCulture);
         }
 
         static void DrawSenderIcon(Rect r, string sender)
