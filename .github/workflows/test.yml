@@ -36,7 +36,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     container:
-      image: debian:forky-slim@sha256:7bb96d9b4ccd7f46f54853c258a56df0c6b628a63e65c2317959da18fd36932c
+      image: debian:forky-slim
       # Sandbox tests need nested user namespaces and mounts.
       options: --privileged
     defaults:

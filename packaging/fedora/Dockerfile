@@ -1,5 +1,5 @@
 # Compile against Fedora 43 libraries.
-FROM registry.fedoraproject.org/fedora:43@sha256:2f8f61ecd95828f339d91706976811625a718cae13eda5cf6fd5f8ab15dff3b4
+FROM registry.fedoraproject.org/fedora:43
 RUN dnf install -y cargo rust gcc alsa-lib-devel lld pkgconf-pkg-config \
         protobuf-compiler git python3 python3-pytest rpm-build redhat-rpm-config cpio \
     && dnf clean all

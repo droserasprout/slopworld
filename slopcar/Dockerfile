@@ -1,9 +1,8 @@
 # syntax=docker/dockerfile:1
-# Debian forky publishes linux/amd64 and linux/arm64 natively, so the launcher no longer pins a
-# platform and Apple Silicon runs the image without emulation. slopd's sandbox skeleton reads the
-# host's own usr-merge layout at runtime, so this multiarch tree works the same as Arch's did.
+# Debian forky supports linux/amd64 and linux/arm64 natively.
+# slopd's sandbox skeleton uses the container's usr-merge layout at runtime.
 
-FROM rust:1-trixie@sha256:620dbcd124499c59e2406d3741574b5c5838cf9eb9656f0c3a03948f79b02959 AS build
+FROM rust:1-trixie AS build
 WORKDIR /build/slopd
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libasound2-dev \
@@ -23,14 +22,8 @@ ARG SLOPWORLD_BUILD_VERSION
 RUN touch src/main.rs src/bin/slopctl.rs \
     && cargo build --release --locked --bin slopd --bin slopctl
 
-# Forky supplies tmux 3.7c and Node 24; npm's script allowlist needs npm 12.
-FROM debian:forky-slim@sha256:7bb96d9b4ccd7f46f54853c258a56df0c6b628a63e65c2317959da18fd36932c
-
-ARG CLAUDE_CODE_VERSION=2.1.245
-ARG CODEX_VERSION=0.149.1
-ARG NPM_VERSION=12.0.2
-ARG OPENCODE_VERSION=1.18.23
-ARG PI_VERSION=0.84.3
+# Forky supplies tmux 3.7c.
+FROM debian:forky-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         bubblewrap \
@@ -40,22 +33,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         less \
         libasound2t64 \
         micro \
-        nodejs \
-        npm \
         openssh-client \
         passt \
         procps \
         python3 \
         ripgrep \
         tmux=3.7c-1 \
-    && npm install --global "npm@${NPM_VERSION}" \
-    && npm install --global \
-        --allow-scripts=@anthropic-ai/claude-code,opencode-ai,@google/genai,protobufjs,koffi \
-        "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
-        "@openai/codex@${CODEX_VERSION}" \
-        "opencode-ai@${OPENCODE_VERSION}" \
-        "@earendil-works/pi-coding-agent@${PI_VERSION}" \
-    && npm cache clean --force \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build --chmod=755 /build/slopd/target/release/slopd /usr/local/bin/slopd

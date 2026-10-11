@@ -35,6 +35,11 @@ require a checkout. `slopcar build --source /path/to/slopworld` builds an image
 from an explicit checkout; without `--source`, it uses the current directory.
 Set `SLOPCAR_IMAGE` to select an image, including one already pulled from a registry.
 
+Before running agents, extend the standard image with your chosen Linux agent
+CLIs and their dependencies, then set `SLOPCAR_IMAGE` to that custom image.
+The container's root filesystem is read-only at runtime, so install those tools
+when building the image.
+
 The worker writes `endpoint.toml` inside its config directory.
 The default host location is `<CONFIG>/sidecar/endpoint.toml`.
 It publishes only its configured loopback port (7718 by default).

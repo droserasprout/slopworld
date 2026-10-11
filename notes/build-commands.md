@@ -103,7 +103,8 @@ Arch archive validation uses an empty staging pacman database, so file queries d
 not depend on the host's installed package database.
 `tools/release/container.py` owns x86_64 container builds, cache mounts, checkout
 access, and atomic artifact handoff. The Debian and Fedora adapters own version
-conversion and filenames; their `packaging/` Dockerfiles pin the toolchains.
+conversion and filenames; their `packaging/` Dockerfiles select distribution and
+toolchain tags without image digest pins.
 Containers test real archives before packaging and write to fresh temporary output,
 so stale or empty packages cannot replace an existing artifact. Git trusts only
 the mounted checkout; SELinux labeling is disabled to avoid relabeling repositories
