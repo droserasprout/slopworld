@@ -260,7 +260,7 @@ namespace SlopWorld
 
         protected string RunExplanation => Explain();
 
-        static string FileActionModeLabel(FileActionMode mode) => mode == FileActionMode.ShowResult
+        internal static string FileActionModeLabel(FileActionMode mode) => mode == FileActionMode.ShowResult
             ? "Show result"
             : mode == FileActionMode.OpenTerminal ? "Open terminal"
             : mode == FileActionMode.Nothing ? "Nothing" : "Ask every time";

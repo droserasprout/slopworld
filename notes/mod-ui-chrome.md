@@ -43,6 +43,13 @@ owners are [workspace layout](ui-dynamic-layout-architecture.md),
 non-menu window is clicked, before the base game raises that window. Window-stack
 and submenu traps belong to [Harmony gotchas](core-gotchas.md).
 
+`TooltipLayout` freezes native line breaks per `ActiveTip` and shares the resulting
+no-wrap style and text between tooltip sizing and drawing. Native wrapping can
+change with the GUI transform even at integer UI scales. Cursor movement must not
+invalidate cached layout; content, font, scale, and atlas changes do. The weak-key
+cache follows native tooltip lifetime. Caller text retains rich tags and explicit
+newlines; callers do not need path-specific wrapping.
+
 Responsive Settings forms pin Interface/Terminal/Code previews below the scrolling
 form when space permits. Short windows scroll form and preview together; Code
 retains a separate save footer. Measurement must not invoke controls/setters.

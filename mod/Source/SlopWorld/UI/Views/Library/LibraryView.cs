@@ -123,7 +123,7 @@ namespace SlopWorld
         enum MainRowKind { Project, Worktree, SandboxPreset, AppPreset }
 
         // Keep list data small. Detail text and actions are built only for the selected row;
-        // row tooltip text is formatted only while a visible row is drawn.
+        // row tooltip text is formatted only while a visible row is hovered during repaint.
         sealed class Row
         {
             public LibraryItemInfo Item;

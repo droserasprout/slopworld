@@ -239,7 +239,9 @@ namespace SlopWorld
             }
             if (hitRect.width > 0f && hitRect.height > 0f)
             {
-                TooltipHandler.TipRegion(r, RowTooltip(row));
+                // Tooltip registration only needs repaint; measure paths only for the hovered row.
+                if (Event.current.type == EventType.Repaint && Mouse.IsOver(r))
+                    TooltipHandler.TipRegion(r, RowTooltip(row));
                 Lines.Add(new Line { Row = row, Rect = hitRect });
             }
             return RowH;
@@ -249,9 +251,17 @@ namespace SlopWorld
         {
             if (row.Item != null)
             {
-                string scope = string.IsNullOrEmpty(row.Item.Project) ? "Global" : row.Item.Project;
-                return row.Item.Name + "\n" + scope + "\n" + OneLine(row.Item.Text);
+                var lines = ItemSummary(row.Item);
+                string content = ItemContent(row.Item);
+                if (!string.IsNullOrEmpty(content)) lines.Add(OneLine(content));
+                return string.Join("\n", lines);
             }
+            if (row.MainKind == MainRowKind.SandboxPreset)
+                return string.Join("\n", SandboxDetails((PresetInfo)row.Model));
+            if (row.MainKind == MainRowKind.AppPreset)
+                return string.Join("\n", AppPresetDetails((CommandInfo)row.Model));
+            if (row.MainKind == MainRowKind.Worktree)
+                return row.Tooltip + "\n" + row.TooltipTail;
             return row.TooltipJoinsPath
                 ? row.Tooltip + "  -  " + row.TooltipTail
                 : row.Tooltip;

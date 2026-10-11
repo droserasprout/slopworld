@@ -29,17 +29,14 @@ namespace SlopWorld
             };
         }
 
-        static RowDetails PrepareItemDetails(LibraryItemInfo item)
+        static List<string> ItemSummary(LibraryItemInfo item)
         {
-            bool template = Templates.TryGetValue(item, out var definition);
+            bool template = Templates.ContainsKey(item);
             bool runnable = Runnable(item);
-            string scope = string.IsNullOrEmpty(item.Project) ? "Global" : item.Project;
-            string label = template ? "Create agent" : runnable
-                ? (item.Link == LibraryItemLink.Ask ? "Choose a project" : "Run") : "Edit";
             var lines = new List<string>
             {
                 item.Name,
-                (template ? "Agent template" : KindName(item.Kind)) + " · " + scope,
+                template ? "Agent template" : KindName(item.Kind),
             };
             if (runnable)
             {
@@ -50,8 +47,31 @@ namespace SlopWorld
                     string.IsNullOrEmpty(item.AgentTemplate) ? "Not configured" : item.AgentTemplate));
             }
             else if (item.Kind == LibraryItemKind.FileAction && !template)
-                lines.Add("Host · " + FileActionModeText.Name(item.Mode));
-            lines.Add(OneLine(item.Text));
+                lines.Add("Host · " + EditLibraryItemDialog.FileActionModeLabel(item.Mode));
+            else if (item.Kind == LibraryItemKind.Breadcrumb && !template &&
+                !string.IsNullOrEmpty(item.Project))
+                lines.Add("Project: " + item.Project);
+            return lines;
+        }
+
+        static string ItemContent(LibraryItemInfo item) =>
+            item.Kind == LibraryItemKind.FileAction && !Templates.ContainsKey(item)
+                ? item.Command : item.Text;
+
+        static RowDetails PrepareItemDetails(LibraryItemInfo item)
+        {
+            bool template = Templates.TryGetValue(item, out var definition);
+            bool runnable = Runnable(item);
+            string label = template ? "Create agent" : runnable
+                ? (item.Link == LibraryItemLink.Ask ? "Choose a project" : "Run") : "Edit";
+            var lines = ItemSummary(item);
+            string content = ItemContent(item);
+            string tooltip = string.Join("\n", lines);
+            if (!string.IsNullOrEmpty(content))
+            {
+                tooltip += "\n\n" + content;
+                lines.Add(OneLine(content));
+            }
 
             Action primary;
             if (template)
@@ -81,7 +101,7 @@ namespace SlopWorld
             {
                 IsItem = true,
                 Lines = lines,
-                Tooltip = string.Join("\n", lines) + "\n\n" + item.Text,
+                Tooltip = tooltip,
                 PrimaryLabel = label,
                 Primary = primary,
                 SecondaryLabel = secondaryLabel,
