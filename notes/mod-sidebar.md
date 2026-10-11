@@ -51,3 +51,5 @@ invisible old hit targets. Shared scopes belong to [browse scopes](mod-ui-browse
 The worker dialog submits caller context, project, template, task body, and durability
 through SessionHub. It adds the returned task and starts task/session refreshes;
 only session refresh is awaited before notifying the dialog to open the terminal.
+The hub supplies a detached worker result with its session name and refreshed
+project/worktree identity so the dialog does not resolve it from mutable session state.

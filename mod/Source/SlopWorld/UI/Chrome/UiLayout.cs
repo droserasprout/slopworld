@@ -220,7 +220,7 @@ namespace SlopWorld
         static bool DrawTick(Rect r, bool on, bool mixed = false)
         {
             var box = TickBox(r, on);
-            if (mixed) Slab.Fill(box.ContractedBy(Mathf.Round(box.width * 0.3f)), Accent);
+            if (mixed) Slab.Fill(box.ContractedBy(Mathf.Round(box.width * 0.3f)), CheckFace);
             // extraPartOnGUI's return means the extra part handled the click. The row does.
             return false;
         }

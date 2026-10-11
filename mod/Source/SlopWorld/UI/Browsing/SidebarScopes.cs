@@ -40,10 +40,10 @@ namespace SlopWorld
             Project(project) is ProjectInfo p ? Catalog.Selection(p.Id) : BrowseScopeSelection.None;
         public static void SelectAll(string project)
         {
+            Update();
             var p = Project(project);
             if (p == null) return;
-            Catalog.SelectAll(p.Id, saved => Settings.S.sidebarWorktrees = saved);
-            Settings.S.Write();
+            Catalog.SelectAll(p.Id, SaveChoices);
             AgentSidebar.IncludeProject(p.Name);
         }
         public static bool HasWorktrees(string project)
@@ -71,22 +71,21 @@ namespace SlopWorld
         public static IEnumerable<string> GroupKeys => Catalog.GroupKeys;
         public static void Toggle(BrowseScope scope)
         {
-            Catalog.Toggle(scope, saved => Settings.S.sidebarWorktrees = saved);
+            Update();
+            Catalog.Toggle(scope, SaveChoices);
+        }
+        static void SaveChoices(string saved)
+        {
+            Settings.S.sidebarWorktrees = saved;
             Settings.S.Write();
         }
         public static void Invalidate() { Catalog.Invalidate(); Update(); }
         public static void IncludeWorktree(string project, string worktree)
         {
+            Update();
             var p = Project(project);
             if (p == null || string.IsNullOrEmpty(worktree)) return;
-            var choices = new BrowseScopeChoices(Settings.S.sidebarWorktrees);
-            choices.Select(new BrowseScope { ProjectId = p.Id, Worktree = worktree });
-            string saved = choices.Save();
-            if (saved != (Settings.S.sidebarWorktrees ?? ""))
-            {
-                Settings.S.sidebarWorktrees = saved;
-                Settings.S.Write();
-            }
+            Catalog.Select(p.Id, worktree, SaveChoices);
             AgentSidebar.IncludeProject(p.Name);
             Invalidate();
         }

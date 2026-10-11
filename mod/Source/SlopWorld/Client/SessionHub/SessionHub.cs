@@ -150,7 +150,7 @@ namespace SlopWorld
         // Start task and session refreshes before opening the worker terminal.
         // Wait for the session refresh to succeed before notifying the UI.
         public void SpawnWorker(string caller, string project, string template, string body,
-                                bool durable, Action<string> started, Action<string> fail, WorkerWorktreeOptions worktree = null)
+                                bool durable, Action<WorkerSpawnResult> started, Action<string> fail, WorkerWorktreeOptions worktree = null)
         {
             var request = new Wire.SpawnWorkerReq
             {
@@ -167,7 +167,7 @@ namespace SlopWorld
                     string worker = j.Worker.Session;
                     _tasks.Add(TaskInfo.FromWire(j.Task));
                     _tasks.Refresh();
-                    _sessions.Refresh(() => started?.Invoke(worker), fail);
+                    _sessions.Refresh(() => started?.Invoke(new WorkerSpawnResult(worker, _sessions.Get(worker))), fail);
                 }, fail, string.IsNullOrEmpty(caller) ? TaskInfo.Host : caller, 60000);
         }
 

@@ -84,16 +84,26 @@ namespace SlopWorld
             scope = Find(scope.Key);
             if (scope == null || !scope.Ready) return _saved;
             _choices.Toggle(scope);
-            _saved = _choices.Save();
-            persist?.Invoke(_saved);
-            Bump();
-            return _saved;
+            return SaveChoices(persist);
         }
         public string SelectAll(string projectId, Action<string> persist = null)
         {
             if (!_catalogs.ContainsKey(projectId)) return _saved;
             _choices.SelectAll(projectId);
-            _saved = _choices.Save();
+            return SaveChoices(persist);
+        }
+        // A committed checkout may not have a descriptor until the next catalog refresh.
+        public string Select(string projectId, string worktreeId, Action<string> persist = null)
+        {
+            if (!_catalogs.ContainsKey(projectId) || string.IsNullOrEmpty(worktreeId)) return _saved;
+            _choices.Select(new BrowseScope { ProjectId = projectId, Worktree = worktreeId });
+            return SaveChoices(persist);
+        }
+        string SaveChoices(Action<string> persist)
+        {
+            string saved = _choices.Save();
+            if (saved == _saved) return _saved;
+            _saved = saved;
             persist?.Invoke(_saved);
             Bump();
             return _saved;

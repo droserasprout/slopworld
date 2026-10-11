@@ -274,18 +274,19 @@ namespace SlopWorld
         public static void ToggleFilter(string key)
         {
             Projects.ToggleFilter(key);
-            SidebarScopes.Update();
-
-            // The agents, files and Library views read the filter as they draw. The other
-            // two hold what they asked the daemon for, and a filter that widened is a
-            // project they never asked about.
-            CurrentDefinition.FilterChanged();
+            NotifyFilterChanged();
         }
 
         public static void IncludeProject(string project)
         {
             Projects.IncludeProject(project);
+            NotifyFilterChanged();
+        }
+
+        static void NotifyFilterChanged()
+        {
             SidebarScopes.Update();
+            // Views holding daemon results must request projects added to the filter.
             CurrentDefinition.FilterChanged();
         }
 

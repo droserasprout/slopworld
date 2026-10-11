@@ -2,6 +2,8 @@
 
 `SidebarScopes` adapts the game-free `BrowseScopeCatalog` into shared catalog and
 selection ownership for Files, Git, Search, and the global filter menu.
+The catalog owns every checkout selection mutation, including committed identities
+received before their descriptors arrive; the runtime adapter persists its choices.
 Checkout choices are independent of the project-name filter; Main is enabled by
 default. All worktrees selects every checkout in a project, including future ones;
 choosing an individual checkout from All narrows to that checkout. Persist this

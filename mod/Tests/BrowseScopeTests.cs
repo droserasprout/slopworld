@@ -196,6 +196,53 @@ namespace SlopWorld.Tests
             Assert.That(new BrowseScopeChoices(saved.Save()).Chosen(main), Is.True);
         }
 
+        public static void CatalogSelectsCommittedCheckoutBeforeDescriptorArrives()
+        {
+            var f = new Fixture(); f.Update();
+            f.Reply(f.Request("p", 1), Scope(), Scope("existing"));
+            f.Toggle(Scope());
+            f.Toggle(Scope("existing"));
+            int writes = 0;
+            Action<string> persist = saved => { f.Saved = saved; writes++; };
+            int revision = f.Catalog.Revision;
+            f.Catalog.Select("p-id", "added", persist);
+            Assert.That(f.Catalog.Revision, Is.GreaterThan(revision));
+            Assert.That(f.Catalog.Find(Scope("added").Key), Is.Null);
+            Assert.That(f.Catalog.Chosen(Scope("added")), Is.True);
+            Assert.That(f.Catalog.Chosen(Scope()), Is.False);
+            Assert.That(f.Catalog.Chosen(Scope("existing")), Is.True);
+            Assert.That(f.Catalog.Chosen(Scope("other")), Is.False);
+            revision = f.Catalog.Revision;
+            f.Catalog.Select("p-id", "added", persist);
+            f.Catalog.Select("unknown", "added", persist);
+            f.Catalog.Select("p-id", "", persist);
+            f.Update();
+            Assert.That(writes, Is.EqualTo(1));
+            Assert.That(f.Catalog.Revision, Is.EqualTo(revision), "no-op selection does not republish");
+            f.Refresh(); f.Request("p", 2).Reply(null, "offline");
+            Assert.That(new BrowseScopeChoices(f.Saved).Chosen(Scope("added")), Is.True);
+            f.Refresh(); f.Reply(f.Request("p", 3), Scope(), Scope("existing"), Scope("added"));
+            Assert.That(f.Catalog.Enabled(Scope("added").Key), Is.True);
+            Assert.That(f.Catalog.Enabled(Scope().Key), Is.False);
+        }
+
+        public static void CatalogCreationSelectionPreservesAllWorktrees()
+        {
+            var f = new Fixture(); f.Update();
+            int writes = 0;
+            Action<string> persist = saved => { f.Saved = saved; writes++; };
+            f.Catalog.SelectAll("p-id", persist);
+            string all = f.Saved;
+            int revision = f.Catalog.Revision;
+            f.Catalog.Select("p-id", "added", persist);
+            f.Catalog.SelectAll("p-id", persist);
+            Assert.That(writes, Is.EqualTo(1));
+            Assert.That(f.Saved, Is.EqualTo(all));
+            Assert.That(f.Catalog.Revision, Is.EqualTo(revision));
+            f.Reply(f.Request("p", 1), Scope(), Scope("added"));
+            Assert.That(f.Catalog.Enabled(Scope("added").Key), Is.True);
+        }
+
         public static void AllWorktreesIncludesFutureCheckoutsAndNarrowsToOneChoice()
         {
             var main = Scope(); var one = Scope("one"); var two = Scope("two");

@@ -228,12 +228,9 @@ namespace SlopWorld
                 worker =>
                 {
                     if (submittedNewWorktree)
-                    {
-                        var session = SessionHub.Instance.Sessions.FirstOrDefault(s => s.Name == worker);
-                        if (session != null) SidebarScopes.IncludeWorktree(session.Project, session.Worktree);
-                    }
+                        SidebarScopes.IncludeWorktree(worker.Project, worker.Worktree);
                     WorktreeChoices[ChoiceKey] = (submittedWorktree, submittedNewWorktree);
-                    TerminalWindow.Open(worker);
+                    TerminalWindow.Open(worker.Session);
                     Close();
                 },
                 error =>
