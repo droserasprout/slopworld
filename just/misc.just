@@ -34,11 +34,6 @@ trace-summary:
 check-reqs:
     RIMWORLD="{{ RIMWORLD }}" {{ PYTHON }} -m tools.host.check_reqs
 
-# Build and install Arch package
-[group('Development tools')]
-pkg-arch:
-    cd packaging/arch && makepkg -p PKGBUILD.local -sif
-
 # Build user documentation and check navigation, local links, and anchors
 [group('Development tools')]
 docs:

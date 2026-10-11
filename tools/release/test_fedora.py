@@ -5,7 +5,6 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
 
 import pytest
 
@@ -30,7 +29,7 @@ def package_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         'LICENSE': 'license',
         'licenses/NOTICE.txt': 'notice',
     }
-    for binary in fedora.BINARIES:
+    for binary in release_staging.BINARIES:
         files[f'slopd/target/release/{binary}'] = 'binary fixture'
     for assembly in release_staging.MOD_ASSEMBLIES:
         files[f'mod/Assemblies/{assembly}.dll'] = 'assembly fixture'
@@ -58,7 +57,7 @@ def test_system_layout_permissions_and_snapshot_version(
         workspace = Path(arguments[5].removeprefix('_topdir '))
         assert arguments[7] == 'slopworld_version 0.1.0.20261005.abcdef'
         payload = workspace / 'SOURCES/payload'
-        for binary in fedora.BINARIES:
+        for binary in release_staging.BINARIES:
             assert (payload / 'usr/bin' / binary).stat().st_mode & 0o777 == 0o755
         unit = (payload / 'usr/lib/systemd/user/slopd.service').read_text()
         assert 'ExecStart=/usr/bin/slopd' in unit and 'KillMode=process' in unit
@@ -128,24 +127,6 @@ def test_unsupported_architecture_is_rejected(tmp_path: Path) -> None:
     assert not list(tmp_path.iterdir())
 
 
-@pytest.mark.parametrize('failing_tool', ['rpmbuild', 'rpm', 'just'])
-def test_tool_or_build_failure_stops_before_packaging(monkeypatch: pytest.MonkeyPatch, failing_tool: str) -> None:
-    monkeypatch.setattr('sys.argv', ['fedora'])
-    monkeypatch.setenv('JUST_CMD', 'just')
-    monkeypatch.setenv('VERSION', '1.0.0')
-    monkeypatch.setattr(platform, 'machine', lambda: 'x86_64')
-
-    def run(arguments: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-        if arguments[0] == failing_tool:
-            raise subprocess.CalledProcessError(1, arguments)
-        return subprocess.CompletedProcess(arguments, 0, 'revision\n')
-
-    with patch.object(fedora, 'run', side_effect=run), patch.object(fedora, 'package') as package:
-        with pytest.raises(subprocess.CalledProcessError):
-            fedora.main()
-        package.assert_not_called()
-
-
 def test_real_rpm_archive_round_trip(package_inputs: Path, tmp_path: Path) -> None:
     if not all(shutil.which(tool) for tool in ('rpm', 'rpmbuild', 'rpm2cpio', 'cpio')):
         pytest.skip('Fedora packaging tools are required for archive integration')
@@ -153,7 +134,7 @@ def test_real_rpm_archive_round_trip(package_inputs: Path, tmp_path: Path) -> No
     if architecture not in ('x86_64', 'aarch64'):
         pytest.skip('Unsupported native Fedora architecture')
     # Native ELF fixtures exercise library discovery without compiling Rust.
-    for binary in fedora.BINARIES:
+    for binary in release_staging.BINARIES:
         shutil.copyfile('/bin/true', package_inputs / 'slopd/target/release' / binary)
     archive = fedora.package(tmp_path / 'output with spaces', 'revision', '1.0.0', architecture)
     metadata = execute(

@@ -27,7 +27,7 @@ def package_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         'LICENSE': 'license',
         'licenses/NOTICE.txt': 'notice',
     }
-    for binary in debian.BINARIES:
+    for binary in release_staging.BINARIES:
         files[f'slopd/target/release/{binary}'] = 'binary fixture'
     for assembly in release_staging.MOD_ASSEMBLIES:
         files[f'mod/Assemblies/{assembly}.dll'] = 'assembly fixture'
@@ -59,7 +59,7 @@ def test_package_system_paths_permissions_dependencies_and_metadata(
         assert 'Version: 0.1.0-20261005-abcdef-1\n' in control
         assert 'libasound2t64 (>= 1.0), libc6 (>= 2.38)' in control
         assert 'passt' in control and 'tmux' in control
-        for binary in debian.BINARIES:
+        for binary in release_staging.BINARIES:
             assert (staging / 'usr/bin' / binary).stat().st_mode & 0o777 == 0o755
         unit = (staging / 'usr/lib/systemd/user/slopd.service').read_text()
         assert 'ExecStart=/usr/bin/slopd' in unit and 'KillMode=process' in unit
@@ -113,25 +113,6 @@ def test_invalid_upstream_versions_are_rejected(version: str) -> None:
         debian.debian_version(version)
 
 
-@pytest.mark.parametrize('failing_tool', ['dpkg', 'dpkg-deb', 'dpkg-shlibdeps', 'just'])
-def test_tool_or_build_failure_stops_before_packaging(monkeypatch: pytest.MonkeyPatch, failing_tool: str) -> None:
-    from unittest.mock import patch
-
-    monkeypatch.setattr('sys.argv', ['debian'])
-    monkeypatch.setenv('JUST_CMD', 'just')
-    monkeypatch.setenv('VERSION', '1.0.0')
-
-    def run(arguments: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str] | None:
-        if arguments[0] == failing_tool:
-            raise subprocess.CalledProcessError(1, arguments)
-        return subprocess.CompletedProcess(arguments, 0, 'amd64\n')
-
-    with patch.object(debian, 'run', side_effect=run), patch.object(debian, 'package') as package:
-        with pytest.raises(subprocess.CalledProcessError):
-            debian.main()
-        package.assert_not_called()
-
-
 def test_real_debian_archive_round_trip(package_inputs: Path, tmp_path: Path) -> None:
     import shutil
 
@@ -142,7 +123,7 @@ def test_real_debian_archive_round_trip(package_inputs: Path, tmp_path: Path) ->
         pytest.skip('Unsupported native Debian architecture')
     # Native ELF fixtures exercise the installed library database and archive tools
     # without compiling Rust or depending on proprietary game assemblies.
-    for binary in debian.BINARIES:
+    for binary in release_staging.BINARIES:
         shutil.copyfile('/bin/true', package_inputs / 'slopd/target/release' / binary)
     archive = debian.package(tmp_path / 'output', 'revision', '1.0.0', architecture)
     result = execute(['dpkg-deb', '--field', str(archive), 'Depends'], capture_output=True, text=True)

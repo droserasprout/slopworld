@@ -14,7 +14,7 @@ root_justfile := absolute_path(source_directory() / '../justfile')
 
 # macOS
 
-# Build the sidecar and install the mod into native macOS RimWorld
+# Check the selected sidecar and install the mod into native macOS RimWorld
 [group('macOS')]
 install: game-check doctor
     "{{ just_executable() }}" --justfile "{{ root_justfile }}" MANAGED="{{ MAC_MANAGED }}" MODS="{{ MAC_MODS }}" install-mod
@@ -37,12 +37,12 @@ build: docker-check
 
 # Verify nested Bubblewrap, pasta and tmux on macOS
 [group('macOS')]
-doctor: build
+doctor: docker-check sidecar
     "{{ just_executable() }}" --justfile "{{ root_justfile }}" sidecar-doctor
 
 [group('macOS')]
 [private]
-ready: build
+ready: docker-check sidecar
     {{ PYTHON }} -m mac.workflow start {{ SLOPCAR_START_ARGS }}
 
 # Start the configured macOS sidecar, reusing its container

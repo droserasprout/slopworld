@@ -48,9 +48,10 @@ Use `RELEASE_DIR` to change the output directory.
 
 Debian and Fedora containers rebuild Rust against Debian 13 (trixie) and Fedora 43
 libraries, then test and package the shared mod payload. Prepare images with
-`just release-debian-image` or `just release-fedora-image`; run archive tests
-without compiling with `just test-release-debian` or `just test-release-fedora`.
-Caches live in `dist/debian-build/` and `dist/fedora-build/`.
+`just release-image DISTRIBUTION`; run archive tests without compiling with
+`just test-release-native DISTRIBUTION`. Both accept `arch`, `debian`, or `fedora`.
+Caches live in `dist/<distribution>-build/`. Arch container tests use privileged
+mode for the nested Bubblewrap namespace required by makepkg.
 `CONTAINER_BUILD_ARGS` and `CONTAINER_RUN_ARGS` accept extra container options.
 
 ### Package contents and versions
@@ -90,6 +91,22 @@ same release version.
 
 Use `just test-release` for game-free packaging and publication tests.
 
+## Arch packages
+
+Build on Arch with the [build prerequisites](build.md#prerequisites), `base-devel`,
+and `bubblewrap` installed. RimWorld's native Linux assemblies are required.
+
+```sh
+RIMWORLD=/path/to/RimWorld/game just pkg-native arch
+```
+
+This builds an x86_64 package in `dist/arch/` without installing it.
+Use `just ARCH_DIR=/path/to/output pkg-native arch` to choose another directory.
+The package uses the shared release payload and existing PKGBUILD metadata.
+`VERSION` overrides the build version; snapshot hyphens become `.r` in Arch metadata.
+Use `just release-image arch` followed by `just test-release-native arch` to test
+real archives in the Arch image without compiling the game or daemon.
+
 ## Debian packages
 
 Build on the Debian or Ubuntu release where the package will run, with the
@@ -97,12 +114,12 @@ Build on the Debian or Ubuntu release where the package will run, with the
 and `dpkg-dev` installed. RimWorld's native Linux assemblies are required.
 
 ```sh
-RIMWORLD=/path/to/RimWorld/game just pkg-debian
+RIMWORLD=/path/to/RimWorld/game just pkg-native debian
 ```
 
 The recipe builds Release binaries and the mod with one version, checks staged
 licenses, and writes `slopworld_{{#constant release_version}}-1_<architecture>.deb` to `dist/debian/`.
-Use `just DEB_DIR=/path/to/output pkg-debian` to change the output directory.
+Use `just DEB_DIR=/path/to/output pkg-native debian` to change the output directory.
 It supports native `amd64` and `arm64` builds; game availability and runtime
 validation are separate requirements. `VERSION` overrides the shared build version.
 The recipe packages the working tree; commit changes first for a reproducible source revision.
@@ -122,12 +139,12 @@ Build on the Fedora release where the package will run, with the
 `redhat-rpm-config` installed. RimWorld's native Linux assemblies are required.
 
 ```sh
-RIMWORLD=/path/to/RimWorld/game just pkg-fedora
+RIMWORLD=/path/to/RimWorld/game just pkg-native fedora
 ```
 
 The recipe builds Release binaries and the mod, then writes
 `slopworld-{{#constant release_version}}-1.<architecture>.rpm` to `dist/fedora/`.
-Use `just RPM_DIR=/path/to/output pkg-fedora` to choose another directory.
+Use `just RPM_DIR=/path/to/output pkg-native fedora` to choose another directory.
 It supports native `x86_64` and `aarch64` builds; verify game availability and runtime
 compatibility separately. `VERSION` overrides the build version. RPM metadata
 replaces snapshot hyphens with dots; the mod keeps the original version.
@@ -139,4 +156,4 @@ mod's private Unity assemblies from system dependencies and providers.
 Game assemblies and untracked mod assets are excluded.
 See [Install](../installation/linux.md#fedora) for mod attachment and service setup.
 `just test-release` tests staging and failures without the game;
-`just test-release-fedora` checks real archives with native ELF fixtures.
+`just test-release-native fedora` checks real archives with native ELF fixtures.

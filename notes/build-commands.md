@@ -92,9 +92,12 @@ Pager and highlighter defaults use Auto to select installed tools. The editor st
 defaults to micro; optional package metadata does not imply an editor fallback.
 
 `packaging/debian/` owns Debian binary metadata and installed user setup instructions.
-`tools/release/debian.py` builds native Debian/Ubuntu packages through `pkg-debian`;
-`tools/release/staging.py` owns the shared mod asset/runtime DLL allowlists and
-tracked-release staging used by the package builders. `tools/release/source_mod.py`
+`tools/release/native.py` owns the Arch/Debian/Fedora packaging CLI and local build workflow;
+`tools/release/arch.py`, `tools/release/debian.py`, and `tools/release/fedora.py`
+own native archive formats. `pkg-native`, `release-image`, and `test-release-native`
+accept a distribution argument. Package builds do not install their output.
+`tools/release/staging.py` owns common system payloads, permissions, notices,
+mod asset/runtime DLL allowlists, and tracked-release staging used by package builders. `tools/release/source_mod.py`
 selects whole asset directories for source snapshots without Git metadata.
 Versioned releases include Arch, Debian, and Fedora native package formats. `tools/release/arch.py`
 uses the existing Arch PKGBUILD metadata with a staged release payload and lets
@@ -102,9 +105,10 @@ makepkg own package metadata/mtree generation.
 Arch archive validation uses an empty staging pacman database, so file queries do
 not depend on the host's installed package database.
 `tools/release/container.py` owns x86_64 container builds, cache mounts, checkout
-access, and atomic artifact handoff. The Debian and Fedora adapters own version
-conversion and filenames; their `packaging/` Dockerfiles select distribution and
-toolchain tags without image digest pins.
+access, and atomic artifact handoff. The native format modules own version
+conversion, and the container runner selects release filenames. The `packaging/`
+Dockerfiles select distribution and toolchain tags without image digest pins.
+Arch containers require privileged mode for makepkg's nested Bubblewrap namespace.
 Containers test real archives before packaging and write to fresh temporary output,
 so stale or empty packages cannot replace an existing artifact. Git trusts only
 the mounted checkout; SELinux labeling is disabled to avoid relabeling repositories

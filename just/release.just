@@ -20,32 +20,17 @@ stage-arch-mod destination:
 test-release:
     {{ PYTHON }} -m pytest tools/release
 
-# Build a Debian package locally (requires Debian/Ubuntu, dpkg-dev, and game assemblies)
+# Build a native package (arch, debian, or fedora; requires packaging tools and game assemblies)
 [group('Release')]
-pkg-debian:
-    JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m tools.release.debian
+pkg-native distribution:
+    JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m tools.release.native {{ quote(distribution) }}
 
-# Prepare the Debian release compiler and packaging image
+# Prepare a release compiler image (arch, debian, or fedora)
 [group('Release')]
-release-debian-image:
-    {{ CONTAINER }} build {{ CONTAINER_BUILD_ARGS }} -t slopworld-debian-release -f packaging/debian/Dockerfile packaging/debian
+release-image distribution:
+    {{ CONTAINER }} build {{ CONTAINER_BUILD_ARGS }} -t "slopworld-{{ distribution }}-release" -f "packaging/{{ distribution }}/Dockerfile" "packaging/{{ distribution }}"
 
-# Test real Debian package archives in the prepared release compiler image
+# Test real native archives in a prepared release image (arch, debian, or fedora)
 [group('Tests and coverage')]
-test-release-debian:
-    {{ CONTAINER }} run {{ CONTAINER_RUN_ARGS }} --rm --volume "{{ justfile_directory() }}:{{ justfile_directory() }}:ro" --workdir "{{ justfile_directory() }}" slopworld-debian-release python3 -m pytest tools/release/test_debian.py -q -p no:cacheprovider
-
-# Build a Fedora RPM (requires rpm-build and game assemblies)
-[group('Release')]
-pkg-fedora:
-    JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m tools.release.fedora
-
-# Build the Fedora release image
-[group('Release')]
-release-fedora-image:
-    {{ CONTAINER }} build {{ CONTAINER_BUILD_ARGS }} -t slopworld-fedora-release -f packaging/fedora/Dockerfile packaging/fedora
-
-# Test RPM archives in the prepared Fedora image
-[group('Tests and coverage')]
-test-release-fedora:
-    {{ CONTAINER }} run {{ CONTAINER_RUN_ARGS }} --rm --security-opt label=disable --volume "{{ justfile_directory() }}:{{ justfile_directory() }}:ro" --workdir "{{ justfile_directory() }}" slopworld-fedora-release python3 -m pytest tools/release/test_fedora.py -q -p no:cacheprovider
+test-release-native distribution:
+    {{ CONTAINER }} run {{ CONTAINER_RUN_ARGS }} {{ if distribution == "arch" { "--privileged" } else { "" } }} --rm --security-opt label=disable --volume "{{ justfile_directory() }}:{{ justfile_directory() }}:ro" --workdir "{{ justfile_directory() }}" "slopworld-{{ distribution }}-release" python3 -m pytest "tools/release/test_{{ distribution }}.py" -q -p no:cacheprovider

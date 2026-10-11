@@ -62,6 +62,7 @@ def test_real_arch_package_metadata_and_safe_payload(tmp_path: Path, monkeypatch
     root = tmp_path / 'checkout'
     root.mkdir()
     monkeypatch.setattr(arch, 'ROOT', root)
+    monkeypatch.setattr(staging, 'ROOT', root)
     for relative in (
         'packaging/arch/PKGBUILD.local',
         'packaging/arch/slopworld.install',
@@ -85,7 +86,7 @@ def test_real_arch_package_metadata_and_safe_payload(tmp_path: Path, monkeypatch
     (mod / 'VERSION').write_text('1.0.0\n')
     output = root / 'dist/output'
     output.mkdir(parents=True)
-    archive = arch.package(output, 'revision', '1.0.0', mod)
+    archive = arch.package(output, 'revision', '1.0.0', 'x86_64', mod=mod)
     database = tmp_path / 'pacman-db'
     database.mkdir()
     result = execute(['pacman', '--dbpath', str(database), '-Qip', str(archive)], capture_output=True, text=True)
@@ -94,3 +95,31 @@ def test_real_arch_package_metadata_and_safe_payload(tmp_path: Path, monkeypatch
     assert '.BUILDINFO' in result.stdout and '.MTREE' in result.stdout
     assert 'usr/share/slopworld/SlopWorld/VERSION' in result.stdout
     assert 'usr/bin/slopd' in result.stdout
+
+
+def test_repeated_builds_and_failed_validation_preserve_published_package(
+    tmp_path: Path,
+) -> None:
+    from unittest.mock import patch
+
+    output = tmp_path / 'output'
+    binary_dir = tmp_path / 'binaries'
+    mod = tmp_path / 'mod'
+    mod.mkdir()
+
+    def build(workspace: Path, version: str, binaries: Path, staged_mod: Path) -> Path:
+        assert binaries == binary_dir and staged_mod == mod
+        archive = workspace / 'slopworld-1.0.0-x86_64.pkg.tar.zst'
+        archive.write_bytes(b'package')
+        return archive
+
+    with patch.object(arch, 'build_archive', side_effect=build):
+        for _ in range(2):
+            result = arch.package(output, 'revision', '1.0.0', 'x86_64', binary_dir, mod=mod)
+            assert result.read_bytes() == b'package'
+            assert list(output.iterdir()) == [result]
+    with patch.object(arch, 'build_archive', side_effect=ValueError('invalid archive')):
+        with pytest.raises(ValueError, match='invalid archive'):
+            arch.package(output, 'revision', '1.0.0', 'x86_64', binary_dir, mod=mod)
+    assert result.read_bytes() == b'package'
+    assert list(output.iterdir()) == [result]

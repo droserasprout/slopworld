@@ -24,13 +24,25 @@ open -a Docker
 `setup` installs build tools including Rust, the .NET SDK, and Docker Desktop. Open Docker
 Desktop before continuing.
 
+## Prepare the sidecar image
+
+Build the base runtime explicitly:
+
+```sh
+just --justfile mac/justfile build
+```
+
+Extend it with your Linux agent CLIs as described in [Sidecar mode](sidecar.md),
+then export `SLOPCAR_IMAGE` with your custom image name. Installation and launch
+use that image without rebuilding it.
+
 ## Install and launch
 
 ```sh
 just --justfile mac/justfile all
 ```
 
-This builds and checks the sidecar image, installs the mod, starts the configured
+This checks the selected sidecar image, installs the mod, starts the configured
 container, and launches native RimWorld.
 
 The default `MAC_RIMWORLD` is `~/Documents/RimWorld.app`. Override it for a game
@@ -55,6 +67,7 @@ The game uses a separate SlopWorld profile. See [Game profiles](../maintenance/g
 for profile behavior and [Paths and files](../reference/paths.md) for locations.
 
 To update, pull the latest source and run `just --justfile mac/justfile all` again.
-This rebuilds the sidecar, reinstalls the mod, and launches the game. Rebuilding
-the image preserves configured data and endpoint directories. Replacing the
+This reinstalls the mod and launches the game. To update the sidecar, explicitly
+rebuild the base with `SLOPCAR_IMAGE=slopcar:local just --justfile mac/justfile build`,
+then rebuild your custom image. Image builds preserve configured data and endpoint directories. Replacing the
 container ends running agents and tmux sessions; see [Sidecar lifecycle](sidecar.md#lifecycle).

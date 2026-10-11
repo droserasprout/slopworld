@@ -1,6 +1,6 @@
 """Own release container execution and atomic artifact handoff.
 
-Adapters own versions and filenames; native packagers own payload staging.
+Native packagers own version conversion, payload staging, and archive formats.
 """
 
 import os
@@ -8,26 +8,32 @@ import shlex
 import tempfile
 from pathlib import Path
 
+from tools import ROOT
+from tools.release.arch import arch_version
+from tools.release.debian import debian_version
+from tools.release.fedora import rpm_version
 from tools.utils import command
 from tools.utils import run
 
 
-def package(
-    root: Path,
-    distribution: str,
-    output: Path,
-    revision: str,
-    version: str,
-    *,
-    generated_name: str,
-    archive_name: str,
-) -> Path:
+def package(distribution: str, output: Path, revision: str, version: str) -> Path:
+    if distribution == 'arch':
+        arch_version(version)
+        generated_name = archive_name = f'slopworld-{version}-x86_64.pkg.tar.zst'
+    elif distribution == 'debian':
+        generated_name = f'slopworld_{debian_version(version)}_amd64.deb'
+        archive_name = f'slopworld-{version}-amd64.deb'
+    elif distribution == 'fedora':
+        generated_name = f'slopworld-{rpm_version(version)}-1.x86_64.rpm'
+        archive_name = f'slopworld-{version}-x86_64.rpm'
+    else:
+        raise ValueError(f'Unsupported distribution: {distribution}')
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     # Fresh output prevents stale package reuse; the same filesystem allows atomic rename.
     with tempfile.TemporaryDirectory(prefix=f'.{distribution}-container-', dir=output) as temporary:
         workspace = Path(temporary)
-        compile_package(root, distribution, workspace, revision, version)
+        compile_package(ROOT, distribution, workspace, revision, version)
         generated = workspace / generated_name
         if not generated.is_file() or generated.stat().st_size == 0:
             raise ValueError(f'Missing or empty container package: {generated_name}')
@@ -77,6 +83,8 @@ def compile_package(root: Path, distribution: str, output: Path, revision: str, 
             'linux/amd64',
             *shlex.split(os.environ.get('CONTAINER_RUN_ARGS', '')),
             '--rm',
+            # Arch's root makepkg wrapper needs nested Bubblewrap namespaces.
+            *(['--privileged'] if distribution == 'arch' else []),
             # Allow SELinux access without relabeling repositories or worktree metadata.
             '--security-opt',
             'label=disable',
@@ -103,7 +111,7 @@ def compile_package(root: Path, distribution: str, output: Path, revision: str, 
             '-euc',
             'cargo build --manifest-path slopd/Cargo.toml --release --locked; '
             f'python3 -m pytest tools/release/test_{distribution}.py -q -p no:cacheprovider; '
-            f'python3 -m tools.release.{distribution} --stage-only --binary-dir /build/target/release '
+            f'python3 -m tools.release.native {distribution} --stage-only --binary-dir /build/target/release '
             '--output /output --revision "$1" --version "$2"',
             f'release-{distribution}',
             revision,

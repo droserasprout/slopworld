@@ -20,8 +20,7 @@ from typing import Any
 from tools import ROOT
 from tools.release import arch
 from tools.release import changelog
-from tools.release import container_debian
-from tools.release import container_fedora
+from tools.release import container
 from tools.release import gates
 from tools.release import staging
 from tools.utils import command
@@ -51,8 +50,7 @@ def package(output: Path, revision: str, version: str, *, notes: str, native_pac
         # Archives must be usable by other users after extraction, regardless of
         # the build umask or source modes. Native packagers normalize their payloads.
         for directory in (daemon, mod):
-            for path in (directory, *directory.rglob('*')):
-                path.chmod(0o755 if path.is_dir() or path.parent == daemon / 'bin' else 0o644)
+            staging.normalize_permissions(directory, daemon / 'bin')
 
         with tarfile.open(workspace / asset_names[0], 'w:gz') as archive:
             archive.add(daemon, arcname=daemon.name)
@@ -62,9 +60,9 @@ def package(output: Path, revision: str, version: str, *, notes: str, native_pac
                     archive.write(source, source.relative_to(workspace))
         names = list(asset_names[:2])
         if native_packages:
-            names.append(arch.package(workspace, revision, version, mod).name)
-            names.append(container_debian.package(workspace, revision, version).name)
-            names.append(container_fedora.package(workspace, revision, version).name)
+            names.append(arch.package(workspace, revision, version, 'x86_64', mod=mod).name)
+            for distribution in ('debian', 'fedora'):
+                names.append(container.package(distribution, workspace, revision, version).name)
         checksums = []
         for name in names:
             with (workspace / name).open('rb') as stream:

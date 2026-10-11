@@ -64,6 +64,23 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
             return []
         return [call for line in self.log.read_text().splitlines() if (call := json.loads(line))['tool'] == tool]
 
+    def test_native_targets_include_all_distributions(self) -> None:
+        for distribution in ('arch', 'debian', 'fedora'):
+            result = self.run_recipe('--dry-run', 'pkg-native', distribution)
+            self.assertIn(f"tools.release.native '{distribution}'", result.stderr)
+            result = self.run_recipe('--dry-run', 'release-image', distribution)
+            self.assertIn(f'packaging/{distribution}/Dockerfile', result.stderr)
+            result = self.run_recipe('--dry-run', 'test-release-native', distribution)
+            self.assertIn(f'tools/release/test_{distribution}.py', result.stderr)
+            self.assertEqual('--privileged' in result.stderr, distribution == 'arch')
+
+    def test_macos_launch_and_install_preserve_selected_image(self) -> None:
+        self.env['SLOPCAR_IMAGE'] = 'custom-agents:local'
+        for recipe in ('install', 'run', 'doctor'):
+            result = self.run_recipe('--dry-run', '--justfile', 'mac/justfile', recipe)
+            self.assertNotIn('sidecar-build', result.stderr)
+            self.assertNotIn('build --source', result.stderr)
+
     def test_release_build_uses_environment_and_command_override(self) -> None:
         self.env['BUILD'] = 'debug'
         self.run_recipe('BUILD=release', 'daemon')
