@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Node = SlopWorld.GitStore.Node;
+using Repo = SlopWorld.GitStore.Repo;
 
 namespace SlopWorld
 {
@@ -337,9 +339,7 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(project)) return null;
             project = SidebarScopes.Key(project);
-            var dir = SidebarScopes.Directory(project);
-            if (!Repos.TryGetValue(project, out var repo)) return null;
-            return repo.Dir == dir && repo.IsRepo && repo.Error == null ? repo : null;
+            return Store.Known(project);
         }
 
         // The path relative to the repository root, or null for anything outside it.

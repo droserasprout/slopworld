@@ -4,6 +4,7 @@ using System.Linq;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using WorktreeEntry = SlopWorld.WorktreeInventory.WorktreeEntry;
 
 namespace SlopWorld
 {
@@ -159,13 +160,13 @@ namespace SlopWorld
             return section;
         }
 
-        static void BuildSections()
+        static void BuildSections(List<ProjectInfo> projects)
         {
             foreach (var section in SectionsByKey.Values) section.Rows.Clear();
             foreach (var item in _items)
                 EnsureSection(GroupKey(item)).Rows.Add(Row.ForItem(item));
 
-            BuildMainCategories();
+            BuildMainCategories(projects);
 
             Sections.Clear();
             foreach (var key in Category.Order)
@@ -192,14 +193,9 @@ namespace SlopWorld
             return null;
         }
 
-        static void BuildMainCategories()
+        static void BuildMainCategories(List<ProjectInfo> projects)
         {
             string query = _query.Trim();
-            var projects = SessionHub.Instance.Projects
-                .Where(project => PassesProject(project.Name))
-                .OrderBy(project => project.Name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
             BuildProjectRows(projects, query);
             BuildWorktreeRows(projects, query);
             BuildSandboxPresetRows(query);
@@ -222,10 +218,9 @@ namespace SlopWorld
         static void BuildWorktreeRows(List<ProjectInfo> projects, string query)
         {
             if (!MainCategoryEnabled(Category.Worktrees)) return;
-            EnsureWorktrees(projects);
             foreach (var project in projects)
             {
-                if (!WorktreesByProject.TryGetValue(project.Name, out var worktrees)) continue;
+                if (!Worktrees.WorktreesByProject.TryGetValue(project.Name, out var worktrees)) continue;
                 foreach (var worktree in worktrees)
                 {
                     var captured = worktree;
@@ -301,60 +296,6 @@ namespace SlopWorld
                 MainKind = kind,
                 Model = model,
             });
-        }
-
-        static void EnsureWorktrees(List<ProjectInfo> projects)
-        {
-            string key = SessionHub.Instance.Catalog.ProjectsRevision + "\n" +
-                string.Join("\n", projects.Select(project =>
-                    project.Name + "\t" + project.ExpandedDir).ToArray());
-            if (_worktreeRequestKey == key) return;
-
-            _worktreeRequestKey = key;
-            // Retain each project's last successful rows while refreshing or after a failure.
-            var live = new HashSet<string>(projects.Select(project => project.Name));
-            foreach (var name in WorktreesByProject.Keys.Where(name => !live.Contains(name)).ToList())
-                WorktreesByProject.Remove(name);
-            foreach (var name in WorktreeErrors.Keys.Where(name => !live.Contains(name)).ToList())
-                WorktreeErrors.Remove(name);
-            int generation = ++_worktreeGeneration;
-            foreach (var project in projects)
-            {
-                var captured = project;
-                DaemonClient.Get<Wire.WorktreesReply>(
-                    WireProtocol.Routes.Worktrees + "?project=" + Uri.EscapeDataString(captured.Name),
-                    reply =>
-                    {
-                        if (generation != _worktreeGeneration) return;
-                        WorktreeErrors.Remove(captured.Name);
-                        var rows = reply.Worktrees.Select(tree => new WorktreeEntry
-                        {
-                            Project = captured.Name,
-                            Tree = tree,
-                        }).ToList();
-                        if (!rows.Any(row => row.Tree.Id == "main"))
-                            rows.Insert(0, new WorktreeEntry
-                            {
-                                Project = captured.Name,
-                                Tree = new Wire.Worktree
-                                {
-                                    Id = "main",
-                                    Name = "main",
-                                    Path = captured.ExpandedDir,
-                                    Phase = "ready"
-                                }
-                            });
-                        WorktreesByProject[captured.Name] = rows
-                            .OrderBy(row => row.Tree.Id == "main" ? 0 : 1)
-                            .ThenBy(row => row.Tree.Name, StringComparer.OrdinalIgnoreCase)
-                            .ToList();
-                    },
-                    error =>
-                    {
-                        if (generation == _worktreeGeneration)
-                            WorktreeErrors[captured.Name] = captured.Name + ": " + error;
-                    }, TaskInfo.Host, 60000);
-            }
         }
 
         static string PresetLabel(string name, string source) =>

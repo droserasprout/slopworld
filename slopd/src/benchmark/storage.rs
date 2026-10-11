@@ -145,8 +145,9 @@ fn benchmark_worktree_parse() -> Result<()> {
                     managed: true,
                     initial_branch: format!("feature-{index}"),
                     base: "main".into(),
-                    phase: "ready".into(),
+                    phase: crate::worktrees::WorktreePhase::Ready,
                     error: String::new(),
+                    relocation: None,
                 })
                 .collect(),
         };

@@ -36,7 +36,7 @@ namespace SlopWorld
             "You're going offline, internet wizard!",
             "Computer, search for teeth and plaque conspiracy.",
             "Kick-ass I-startup, superjazzed about expansion, seeks visionary dot-com expert.",
-            // S1E9: MC Pee Pants
+            // ditto, S1E9: MC Pee Pants
             "Don't care if it's nutritious or FDA approved. (",
             "That fuels a giant drill, bores straight into hell. (",
             "Releasing ancient demons from their sleep-forever spell. (",
@@ -196,11 +196,16 @@ namespace SlopWorld
             "Infiltrate, embed, destroy.",
             "Look around! There is no destruction left to be done here.",
             "In this place purpose is a burden. And you, my friend, must unburden yourself.",
-            // Nujabes
+            // Nujabes, Substantial - Think Different
              "I ain't better than you, I just think different.",
              "You try, I do. I'm wise, you're clueless.",
              "I get the job done, you fail and make excuses.",
-            // Misc
+            // Another Bad Creation - Playground
+            "Suckers on the corner lookin down at their beepers. (",
+            "They couldn't get a job or a nice home. (",
+            "Little do they know that soldier's legit",
+            "This is what I see at the playground, ya know!",
+            // Misc wisdom
             "Your carbon footprint doesn't matter. (",
             "You can only watch. (",
             "Coding is largely solved. (",

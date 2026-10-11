@@ -5,7 +5,10 @@ use super::{
     target::{StorageBinding, Target},
     workspace::{project_target, worktree_target},
 };
-use crate::{config::ProjectCfg, worktrees::Worktree};
+use crate::{
+    config::ProjectCfg,
+    worktrees::{Worktree, WorktreePhase},
+};
 use anyhow::{Result, ensure};
 use serde::{Serialize, de::DeserializeOwned};
 use std::{collections::HashSet, path::PathBuf};
@@ -99,6 +102,7 @@ impl Record for Worktree {
             "base",
             "phase",
             "error",
+            "relocation",
         ]
     }
     fn validate(&self) -> Result<()> {
@@ -116,12 +120,30 @@ impl Record for Worktree {
                 && std::path::Path::new(&self.repository).is_absolute(),
             "worktree paths must be absolute"
         );
-        ensure!(
-            ["allocating", "ready", "removing", "relocating", "error"]
-                .contains(&self.phase.as_str()),
-            "invalid worktree phase"
-        );
+        if let Some(intent) = &self.relocation {
+            ensure!(
+                self.phase == WorktreePhase::Relocating,
+                "relocation intent requires relocating phase"
+            );
+            ensure!(
+                intent.source == self.path
+                    && std::path::Path::new(&intent.destination).is_absolute()
+                    && intent.source != intent.destination,
+                "invalid worktree relocation paths"
+            );
+        }
         Ok(())
+    }
+    fn document(&self, order: i64, old: Option<&toml::Value>) -> Result<toml::Value> {
+        let mut next = prepare(self, order, old, Self::fields())?;
+        if let Some(intent) = next.get_mut("relocation") {
+            super::document::preserve(
+                intent,
+                old.and_then(|old| old.get("relocation")),
+                &["source", "destination"],
+            );
+        }
+        Ok(next)
     }
     fn validate_collection(values: &[Self]) -> Result<()> {
         let mut paths = HashSet::new();

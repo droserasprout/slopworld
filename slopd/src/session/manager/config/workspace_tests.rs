@@ -221,8 +221,17 @@ async fn canceled_project_move_rolls_back_git_and_records_after_final_write_fail
         .await
         .unwrap()
         .ordered();
-    assert_eq!(pending[0].phase, "relocating");
+    assert_eq!(
+        pending[0].phase,
+        crate::worktrees::WorktreePhase::Relocating
+    );
     assert!(pending[0].error.contains(&tree.path));
+    let intent = pending[0].relocation.as_ref().unwrap();
+    assert_eq!(intent.source, tree.path);
+    assert_eq!(
+        intent.destination,
+        f.root.join("trees/renamed/checkout").to_string_lossy()
+    );
     assert!(!Path::new(&tree.path).exists());
     assert!(f.root.join("trees/renamed/checkout").exists());
     let fault = crate::paths::fail_writes(&f.project_path());
@@ -239,7 +248,8 @@ async fn canceled_project_move_rolls_back_git_and_records_after_final_write_fail
         .await
         .unwrap()
         .ordered();
-    assert_eq!(stored[0].phase, "ready");
+    assert_eq!(stored[0].phase, crate::worktrees::WorktreePhase::Ready);
+    assert!(stored[0].relocation.is_none());
     assert_eq!(stored[0].path, tree.path);
     assert_eq!(f.manager.worktree_records().worktrees[0].path, tree.path);
     assert!(!f.binding.journal().unwrap().exists());
@@ -274,13 +284,19 @@ async fn failed_git_rollback_retains_relocation_intent_instead_of_ready_stale_pa
         .await
         .unwrap()
         .ordered();
-    assert_eq!(stored[0].phase, "relocating");
+    assert_eq!(stored[0].phase, crate::worktrees::WorktreePhase::Relocating);
     assert!(stored[0].error.contains("renamed"));
+    let intent = stored[0].relocation.as_ref().unwrap();
+    assert_eq!(intent.source, tree.path);
+    assert_eq!(
+        intent.destination,
+        f.root.join("trees/renamed/checkout").to_string_lossy()
+    );
     assert!(f.root.join("trees/renamed/checkout").exists());
     f.manager.recover_worktrees().await.unwrap();
     assert_eq!(
         f.manager.worktree_records().worktrees[0].phase,
-        "relocating"
+        crate::worktrees::WorktreePhase::Relocating
     );
     assert!(
         f.manager
@@ -301,7 +317,8 @@ async fn project_move_commits_ready_paths_only_with_the_new_project() {
         .await
         .unwrap()
         .ordered();
-    assert_eq!(stored[0].phase, "ready");
+    assert_eq!(stored[0].phase, crate::worktrees::WorktreePhase::Ready);
+    assert!(stored[0].relocation.is_none());
     assert_eq!(stored[0].id, tree.id);
     assert_eq!(
         stored[0].path,
@@ -386,7 +403,10 @@ async fn record_removal_refuses_dirty_or_attached_checkouts_and_retains_files() 
     assert!(format!("{error:#}").contains("untracked"));
     assert!(f.tree_path(&tree.id).exists());
     assert!(Path::new(&tree.path).join("untracked").exists());
-    assert_eq!(f.manager.worktree_records().worktrees[0].phase, "ready");
+    assert_eq!(
+        f.manager.worktree_records().worktrees[0].phase,
+        crate::worktrees::WorktreePhase::Ready
+    );
     f.manager
         .update_cfg(ConfigMutation::HostShells, |cfg| {
             cfg.host_terminals.push(HostTerminalCfg {

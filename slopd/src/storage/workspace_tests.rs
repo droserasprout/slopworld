@@ -48,7 +48,7 @@ fn worktree_validation_rejects_synthetic_main_and_duplicate_checkout_paths() {
         name: "tree".into(),
         path: "/tmp/tree".into(),
         repository: "/tmp/repo/.git".into(),
-        phase: "ready".into(),
+        phase: crate::worktrees::WorktreePhase::Ready,
         ..Default::default()
     };
     assert!(store.prepare(vec![row.clone()]).is_err());
@@ -57,6 +57,88 @@ fn worktree_validation_rejects_synthetic_main_and_duplicate_checkout_paths() {
     let mut other = row.clone();
     other.id = "2222222222222222".into();
     assert!(store.prepare(vec![row, other]).is_err());
+}
+
+#[test]
+fn worktree_phases_keep_saved_names_and_reject_unknown_values() {
+    use crate::worktrees::WorktreePhase;
+    let mut row = Worktree {
+        id: "1111111111111111".into(),
+        project_id: "2222222222222222".into(),
+        name: "tree".into(),
+        path: "/tmp/tree".into(),
+        repository: "/tmp/repo/.git".into(),
+        ..Default::default()
+    };
+    for (phase, name) in [
+        (WorktreePhase::Allocating, "allocating"),
+        (WorktreePhase::Ready, "ready"),
+        (WorktreePhase::Removing, "removing"),
+        (WorktreePhase::Relocating, "relocating"),
+        (WorktreePhase::Error, "error"),
+    ] {
+        row.phase = phase;
+        let mut raw = row.document(0, None).unwrap();
+        assert_eq!(raw["phase"].as_str(), Some(name));
+        assert!(raw.get("relocation").is_none());
+        let loaded = Worktree::decode(&raw).unwrap();
+        assert_eq!(loaded.phase, phase);
+        assert!(loaded.relocation.is_none());
+        raw["phase"] = "unknown".into();
+        Worktree::decode(&raw).unwrap_err();
+    }
+}
+
+#[test]
+fn relocation_evidence_preserves_extensions_and_retires_with_the_intent() {
+    use crate::worktrees::{RelocationIntent, WorktreePhase};
+    let mut row = Worktree {
+        id: "1111111111111111".into(),
+        project_id: "2222222222222222".into(),
+        name: "tree".into(),
+        path: "/tmp/tree".into(),
+        repository: "/tmp/repo/.git".into(),
+        phase: WorktreePhase::Relocating,
+        error: "Existing prose-only recovery evidence".into(),
+        ..Default::default()
+    };
+    let legacy = row.document(0, None).unwrap();
+    let loaded = Worktree::decode(&legacy).unwrap();
+    loaded.validate().unwrap();
+    assert_eq!(loaded.error, row.error);
+    assert!(loaded.relocation.is_none());
+
+    row.relocation = Some(RelocationIntent {
+        source: row.path.clone(),
+        destination: "/tmp/moved".into(),
+    });
+    row.validate().unwrap();
+    let mut raw = row.document(0, Some(&legacy)).unwrap();
+    raw["relocation"]
+        .as_table_mut()
+        .unwrap()
+        .insert("future".into(), "retained".into());
+    let mut loaded = Worktree::decode(&raw).unwrap();
+    assert_eq!(loaded.relocation, row.relocation);
+    loaded.relocation.as_mut().unwrap().destination = "/tmp/changed".into();
+    let edited = loaded.document(0, Some(&raw)).unwrap();
+    assert_eq!(edited["relocation"]["future"].as_str(), Some("retained"));
+    assert_eq!(
+        edited["relocation"]["destination"].as_str(),
+        Some("/tmp/changed")
+    );
+
+    loaded.phase = WorktreePhase::Ready;
+    assert!(loaded.validate().is_err());
+    loaded.relocation = None;
+    loaded.validate().unwrap();
+    assert!(
+        loaded
+            .document(0, Some(&edited))
+            .unwrap()
+            .get("relocation")
+            .is_none()
+    );
 }
 
 #[tokio::test]

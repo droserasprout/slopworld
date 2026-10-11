@@ -1,7 +1,7 @@
 //! Catalog-backed checkout moves. Callers retain their operation guards through commit or rollback.
 //! Pending records retain both paths across daemon termination; recovery never guesses which tree to delete.
 
-use super::{Store, Worktree, relocate_tree};
+use super::{RelocationIntent, Store, Worktree, WorktreePhase, relocate_tree};
 use anyhow::{Result, anyhow};
 use std::path::Path;
 
@@ -47,7 +47,11 @@ impl Relocations {
                 .worktrees
                 .get_mut(*index)
                 .ok_or_else(|| anyhow!("relocation source disappeared from the catalog"))?;
-            source.phase = "relocating".into();
+            source.phase = WorktreePhase::Relocating;
+            source.relocation = Some(RelocationIntent {
+                source: source.path.clone(),
+                destination: destination.path.clone(),
+            });
             source.error = format!(
                 "Interrupted relocation: inspect {} and {} and repair Git registration before editing the catalog.",
                 source.path, destination.path

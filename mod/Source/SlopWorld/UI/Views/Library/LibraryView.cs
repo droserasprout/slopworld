@@ -32,7 +32,7 @@ namespace SlopWorld
             SessionHub.Instance.Catalog.RefreshLibrary(failed);
             SessionHub.Instance.Catalog.RefreshTemplates(failed);
             SessionHub.Instance.Catalog.LoadPresets(fail: failed);
-            _worktreeRequestKey = null;
+            Worktrees.Invalidate();
         }
 
         // Grouped by catalog kind. The Library owns its project scope independently from the
@@ -61,12 +61,9 @@ namespace SlopWorld
             public static readonly string[] Main =
                 { Projects, Worktrees, SandboxPresets, AppPresets };
         }
-        static readonly Dictionary<string, List<WorktreeEntry>> WorktreesByProject =
-            new Dictionary<string, List<WorktreeEntry>>();
-        static readonly Dictionary<string, string> WorktreeErrors = new Dictionary<string, string>();
+        static readonly WorktreeInventory Worktrees = new WorktreeInventory(
+            (project, ok, fail) => WorktreeRequests.Load(project, ok, fail, 60000));
         static string _catalogError;
-        static string _worktreeRequestKey;
-        static int _worktreeGeneration;
         static string _query = "";
         static string _kind = "";
         static readonly HashSet<string> ProjectFilter = new HashSet<string>();
@@ -152,12 +149,6 @@ namespace SlopWorld
             public string SecondaryLabel;
             public Action Secondary;
             public Action More;
-        }
-
-        sealed class WorktreeEntry
-        {
-            public string Project;
-            public Wire.Worktree Tree;
         }
 
         static readonly List<Line> Lines = new List<Line>();
@@ -252,7 +243,7 @@ namespace SlopWorld
 
         static void ProjectFilterChanged()
         {
-            _worktreeRequestKey = null;
+            Worktrees.Invalidate();
             ClearActionSelection();
             _scroll.JumpTo(Vector2.zero);
         }

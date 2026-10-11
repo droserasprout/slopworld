@@ -46,6 +46,16 @@ impl<S: Send + Sync, T: Message + Default> FromRequest<S> for Proto<T> {
             .map_err(|e| super::err(StatusCode::BAD_REQUEST, e))
     }
 }
+/// Keep filesystem path failures explicit when constructing typed wire replies.
+pub(crate) fn path_text(path: &std::path::Path) -> Result<String, ApiError> {
+    path.to_str().map(str::to_owned).ok_or_else(|| {
+        super::err(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "path contains invalid UTF-8 characters",
+        )
+    })
+}
+
 pub(crate) fn reply<T: Message + DeserializeOwned>(value: impl Serialize) -> super::ApiResult<T> {
     serde_json::to_value(value)
         .and_then(serde_json::from_value)

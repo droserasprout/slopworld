@@ -1,13 +1,20 @@
-//! Installed theme discovery and request-local styling; daemon defaults remain unchanged.
-use anyhow::{Result, bail};
+//! Syntax previews, theme discovery, and bounded highlighter execution.
+//! Request-local styling preserves daemon defaults; files::preview owns raw file reads.
+use anyhow::{Context, Result, bail};
 use axum::{
     extract::{Query, State},
     http::StatusCode,
 };
-use serde_json::json;
 
+use super::files::READ_LIMIT;
 use super::{ApiResult, Mgr, err};
-use crate::{api::protobuf::reply, shared::wire};
+use crate::api::types::HighlightReq;
+use crate::{
+    api::protobuf::{Proto, domain},
+    shared::wire,
+};
+use std::{path::PathBuf, time::Duration};
+use tokio::process::Command;
 
 fn engine(argv: &[String]) -> &str {
     match argv
@@ -22,13 +29,46 @@ fn engine(argv: &[String]) -> &str {
     }
 }
 
-pub(super) fn themed_command(command: &str, requested_engine: &str, theme: &str) -> Result<String> {
-    let command = crate::config::resolve_highlighter(command);
+/// Parsed once, then passed through styling, file substitution, and execution.
+struct HighlightCommand {
+    argv: Vec<String>,
+}
+
+impl HighlightCommand {
+    fn parse(command: &str) -> Self {
+        Self {
+            argv: crate::sandbox::shell_split(command),
+        }
+    }
+
+    fn with_file(mut self, path: &std::path::Path) -> Result<Self> {
+        if self.argv.is_empty() {
+            bail!("The syntax highlighter is disabled.");
+        }
+        let path = path
+            .to_str()
+            .ok_or_else(|| anyhow::anyhow!("The temporary file path is not valid UTF-8."))?;
+        let mut replaced = false;
+        for arg in &mut self.argv {
+            if arg.contains("%s") {
+                *arg = arg.replace("%s", path);
+                replaced = true;
+            }
+        }
+        if !replaced {
+            self.argv.push(path.to_owned());
+        }
+        Ok(self)
+    }
+}
+
+fn themed_command(command: &str, requested_engine: &str, theme: &str) -> Result<HighlightCommand> {
+    let mut command = HighlightCommand::parse(&crate::config::resolve_highlighter(command));
     if theme.is_empty() {
         return Ok(command);
     }
-    let mut argv = crate::sandbox::shell_split(&command);
-    let current = engine(&argv);
+    let argv = &mut command.argv;
+    let current = engine(argv);
     if current.is_empty() || current != requested_engine {
         bail!("The highlighter changed. Reload its appearance settings.");
     }
@@ -58,11 +98,7 @@ pub(super) fn themed_command(command: &str, requested_engine: &str, theme: &str)
         vec![option]
     };
     argv.splice(at..at, options);
-    Ok(argv
-        .iter()
-        .map(|arg| format!("'{}'", arg.replace('\'', "'\\''")))
-        .collect::<Vec<_>>()
-        .join(" "))
+    Ok(command)
 }
 
 #[derive(Default, serde::Deserialize)]
@@ -82,7 +118,7 @@ pub(crate) async fn highlight_themes(
     let argv = crate::sandbox::shell_split(&command);
     let kind = engine(&argv);
     if kind.is_empty() {
-        return reply(json!({ "engine": "", "themes": [] }));
+        return Ok(Proto(wire::HighlightThemes::default()));
     }
     let args: &[&str] = match kind {
         "highlight" => &["--list-scripts=themes"],
@@ -103,11 +139,14 @@ pub(crate) async fn highlight_themes(
     };
     let mut command = vec![program.clone()];
     command.extend(args.iter().map(|s| (*s).to_owned()));
-    let output = super::files::run_highlighter_argv(&command)
+    let output = run_highlighter_argv(&command)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let themes = parse_themes(kind, &output).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    reply(json!({ "engine": kind, "themes": themes }))
+    Ok(Proto(wire::HighlightThemes {
+        engine: kind.to_owned(),
+        themes,
+    }))
 }
 
 fn parse_themes(kind: &str, output: &str) -> Result<Vec<String>> {
@@ -138,6 +177,115 @@ fn parse_themes(kind: &str, output: &str) -> Result<Vec<String>> {
     themes.sort();
     themes.dedup();
     Ok(themes)
+}
+
+pub(crate) const HIGHLIGHT_LIMIT: usize = super::files::READ_LIMIT_BYTES * 4;
+pub(crate) const HIGHLIGHT_TIMEOUT: Duration = Duration::from_secs(3);
+
+/// Own the temporary input even when the request future is cancelled during a write or process run.
+struct HighlightTempFile(PathBuf);
+
+impl Drop for HighlightTempFile {
+    fn drop(&mut self) {
+        drop(std::fs::remove_file(&self.0));
+    }
+}
+
+pub(crate) async fn highlight(
+    State(m): State<Mgr>,
+    Proto(q): Proto<wire::HighlightReq>,
+) -> ApiResult<wire::TextResult> {
+    let q: HighlightReq = domain(q)?;
+    if q.text.len() as u64 > READ_LIMIT {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "The code is larger than the preview limit.",
+        ));
+    }
+    let command = q
+        .command
+        .unwrap_or(m.config().await.settings.commands.highlighter);
+    let command = themed_command(&command, &q.engine, &q.theme)
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    let text = if command.argv.is_empty() {
+        q.text
+    } else {
+        highlight_text(command, &q.language, &q.text)
+            .await
+            .map_err(|e| err(StatusCode::BAD_REQUEST, e))?
+    };
+    Ok(Proto(wire::TextResult {
+        bytes: text.len() as u64,
+        text,
+        ..Default::default()
+    }))
+}
+
+async fn highlight_text(
+    command: HighlightCommand,
+    language: &str,
+    text: &str,
+) -> anyhow::Result<String> {
+    if command.argv.is_empty() {
+        bail!("The syntax highlighter is disabled.");
+    }
+
+    let dir = std::path::PathBuf::from(crate::paths::temp_dir("highlight"));
+    tokio::fs::create_dir_all(&dir).await?;
+    let extension: String = language
+        .trim()
+        .trim_start_matches('.')
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '_'))
+        .take(24)
+        .collect();
+    let extension = if extension.is_empty() {
+        "txt"
+    } else {
+        &extension
+    };
+    let path = dir.join(format!("{}.{}", uuid::Uuid::new_v4(), extension));
+    let cleanup = HighlightTempFile(path);
+    tokio::fs::write(&cleanup.0, text).await?;
+
+    let command = command.with_file(&cleanup.0)?;
+    let result = run_highlighter_argv(&command.argv).await;
+    drop(cleanup);
+    result
+}
+
+async fn run_highlighter_argv(argv: &[String]) -> anyhow::Result<String> {
+    let Some((program, args)) = argv.split_first() else {
+        bail!("The syntax highlighter command is empty.");
+    };
+    let mut process = Command::new(program);
+    process.args(args);
+    let output = crate::process::run_bounded(
+        &mut process,
+        HIGHLIGHT_TIMEOUT,
+        crate::process::CaptureLimits {
+            stdout: HIGHLIGHT_LIMIT,
+            stderr: 16 * 1024,
+        },
+    )
+    .await
+    .map_err(|error| {
+        if error.downcast_ref::<crate::process::TimedOut>().is_some() {
+            anyhow::anyhow!("The syntax highlighter timed out.")
+        } else {
+            error.context("The daemon could not start the syntax highlighter.")
+        }
+    })?;
+    if output.stdout_truncated {
+        bail!("The syntax highlighter output exceeds the preview limit.");
+    }
+    if !output.status.success() {
+        bail!(
+            "The syntax highlighter failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    String::from_utf8(output.stdout).context("The syntax highlighter output is not valid UTF-8.")
 }
 
 #[cfg(test)]

@@ -30,7 +30,7 @@ async fn indexed_config_validation_keeps_worktree_ownership_and_running_move_che
             name: "checkout".into(),
             path: "/tmp/checkout".into(),
             repository: "/tmp/.git".into(),
-            phase: "ready".into(),
+            phase: crate::worktrees::WorktreePhase::Ready,
             project_id: project.id.clone(),
             ..Default::default()
         }],
@@ -95,7 +95,7 @@ async fn view_index_ignores_external_record_edits() {
             name: "accepted".into(),
             path: "/tmp/checkout".into(),
             repository: "/tmp/.git".into(),
-            phase: "ready".into(),
+            phase: crate::worktrees::WorktreePhase::Ready,
             ..Default::default()
         }],
     };
@@ -176,7 +176,7 @@ async fn explicit_action_scope_checks_registration_readiness_and_checkout_path()
             name: "one".into(),
             path: tree.to_string_lossy().into(),
             repository: main.join(".git").to_string_lossy().into(),
-            phase: "ready".into(),
+            phase: crate::worktrees::WorktreePhase::Ready,
             ..Default::default()
         }],
     };
@@ -238,13 +238,13 @@ async fn assert_action_scope_rules(
         )
         .await
         .unwrap_err();
-    store.worktrees[0].phase = "removing".into();
+    store.worktrees[0].phase = crate::worktrees::WorktreePhase::Removing;
     manager.save_worktrees(&store).await.unwrap();
     manager
         .file_action_command("p", TREE, file, "pwd", true)
         .await
         .unwrap_err();
-    store.worktrees[0].phase = "ready".into();
+    store.worktrees[0].phase = crate::worktrees::WorktreePhase::Ready;
     manager.save_worktrees(&store).await.unwrap();
     assert_eq!(
         manager
@@ -280,7 +280,7 @@ async fn allocation_record_failure_removes_only_newly_created_directories() {
             id: TREE.into(),
             project_id: PROJECT.into(),
             repository: "/tmp/.git".into(),
-            phase: "allocating".into(),
+            phase: crate::worktrees::WorktreePhase::Allocating,
             name: "new".into(),
             path: parent.join("new").to_string_lossy().into_owned(),
             managed: true,
@@ -348,7 +348,7 @@ async fn failed_removal_intent_preserves_external_checkout_and_catalog() {
             repository: "/tmp/.git".into(),
             project_id: project.id,
             path: checkout.to_string_lossy().into_owned(),
-            phase: "ready".into(),
+            phase: crate::worktrees::WorktreePhase::Ready,
             ..Default::default()
         }],
     };
@@ -394,7 +394,7 @@ async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
         name: "deleted".into(),
         repository: "/tmp/.git".into(),
         path: checkout.to_string_lossy().into_owned(),
-        phase: "ready".into(),
+        phase: crate::worktrees::WorktreePhase::Ready,
         managed: true,
         ..Default::default()
     };
@@ -404,7 +404,7 @@ async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
         name: "sibling".into(),
         path: "/tmp/sibling".into(),
         repository: "/tmp/.git".into(),
-        phase: "ready".into(),
+        phase: crate::worktrees::WorktreePhase::Ready,
         ..Default::default()
     };
     let mut removal = WorktreeRemoval {
@@ -428,13 +428,22 @@ async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
     removal.finish(&manager, Ok(())).await.unwrap_err();
     let retained = manager.worktree_records();
     assert_eq!(retained.worktrees[0].id, SIBLING);
-    assert_eq!(retained.worktrees[0].phase, "ready");
-    assert_eq!(retained.worktrees[1].phase, "removing");
+    assert_eq!(
+        retained.worktrees[0].phase,
+        crate::worktrees::WorktreePhase::Ready
+    );
+    assert_eq!(
+        retained.worktrees[1].phase,
+        crate::worktrees::WorktreePhase::Removing
+    );
     drop(fault);
 
     manager.recover_worktrees().await.unwrap();
     let recovered = manager.worktree_records();
-    assert_eq!(recovered.worktrees[1].phase, "error");
+    assert_eq!(
+        recovered.worktrees[1].phase,
+        crate::worktrees::WorktreePhase::Error
+    );
     let mut retry = WorktreeRemoval {
         project: ProjectCfg::default(),
         worktree: recovered.worktrees[1].clone(),

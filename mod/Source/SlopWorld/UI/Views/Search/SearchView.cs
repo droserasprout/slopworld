@@ -4,6 +4,8 @@ using System.Globalization;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Match = SlopWorld.SearchStore.Match;
+using Group = SlopWorld.SearchStore.Group;
 
 namespace SlopWorld
 {
@@ -16,25 +18,6 @@ namespace SlopWorld
         static float Pad => UiTheme.GapS;
         static float CellX => UiTheme.GapS;
         static float ToolsH => UiTheme.FieldH + UiTheme.GapS + UiTheme.RowH;
-
-        sealed class Match
-        {
-            public string Project;
-            public string Root;
-            public string Path;
-            public int Line;
-            public int Column;
-            public string Text;
-        }
-
-        sealed class Group
-        {
-            public string Project;
-            public string Worktree;
-            public string Error;
-            public bool Truncated;
-            public readonly List<Match> Matches = new List<Match>();
-        }
 
         struct Hit
         {
@@ -60,7 +43,10 @@ namespace SlopWorld
             public Color Color;
         }
 
-        static readonly List<Group> Groups = new List<Group>();
+        static readonly SearchStore Store = new SearchStore(SidebarScopes.Enabled,
+            (url, ok, fail) => DaemonClient.Get<Wire.SearchResult>(url, ok, fail));
+        static List<Group> Groups => Store.Groups;
+        static bool _loading => Store.Loading;
         static readonly List<Hit> Hits = new List<Hit>();
         static readonly List<LayoutRow> Layout = new List<LayoutRow>();
         static readonly SmoothScroll Scroll = new SmoothScroll();
@@ -68,18 +54,17 @@ namespace SlopWorld
         internal static Pager ActivePager { get { RestoreReader(); return Viewer; } }
         static FieldLifetime _fieldLifetime = new FieldLifetime();
 
-        static SearchSubmission _submitted;
-        static readonly BoundedWork Requests = new BoundedWork(4);
-        static SearchView() { SidebarScopes.Changed += FilterChanged; }
-        public static void FilterChanged() { if (_submitted != null) RunSearch(); }
+        static SearchView()
+        {
+            Store.Changed += DirtyLayout;
+            SidebarScopes.Changed += FilterChanged;
+        }
+        public static void FilterChanged() { if (Store.Submitted != null) RunSearch(Store.Submitted); }
         static string _query = "";
         static bool _regex;
         static bool _case;
         static bool _word;
         static bool _includeIgnored;
-        static bool _loading;
-        static readonly OperationGate Operations = new OperationGate();
-        static int _pending;
         static Match _selected;
         static Match _showing;
         static bool _focus;
@@ -193,101 +178,18 @@ namespace SlopWorld
             _fieldLifetime = new FieldLifetime();
         }
 
-        public static void Search()
-        {
-            _submitted = new SearchSubmission(_query, _regex, _case, _word, _includeIgnored);
-            RunSearch();
-        }
+        public static void Search() =>
+            RunSearch(new SearchSubmission(_query, _regex, _case, _word, _includeIgnored));
 
-        static void RunSearch()
+        static void RunSearch(SearchSubmission submitted)
         {
-            var submitted = _submitted;
-            string query = submitted.Query;
-            if (query.Length == 0) { ResetToEmpty(); return; }
-
-            var projects = SidebarScopes.EnabledScopes();
             ReleaseViewer();
-            Groups.Clear();
-            DirtyLayout();
-            _selected = null;
-            _loading = true;
+            if (submitted.Query.Length > 0) _selected = null;
             Scroll.JumpTo(Vector2.zero);
-            long generation = Operations.Begin();
-
-            _pending = projects.Count;
-            if (_pending == 0) { _loading = false; return; }
-
-            foreach (var p in projects)
-            {
-                var group = new Group { Project = p.Project, Worktree = p.Label };
-                Groups.Add(group);
-                string url = WireProtocol.Routes.Search + "?path=" + Uri.EscapeDataString(p.Path) +
-                    "&q=" + Uri.EscapeDataString(query) +
-                    "&regex=" + (submitted.Regex ? "1" : "0") +
-                    "&case=" + (submitted.CaseSensitive ? "1" : "0") +
-                    "&word=" + (submitted.WholeWord ? "1" : "0") +
-                    "&gitignore=" + (submitted.IncludeIgnored ? "0" : "1") +
-                    "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0");
-                Requests.Add(() => Operations.IsCurrent(generation) && SidebarScopes.Enabled(p.Key), done =>
-                    DaemonClient.Get<Wire.SearchResult>(url,
-                        j => { try { OnResults(group, p, generation, j); } finally { done(); } },
-                        msg => { try { OnError(group, generation, msg); } finally { done(); } }));
-            }
-        }
-
-        static void ResetToEmpty()
-        {
-            // Invalidate replies for the previous query before clearing its rows. Otherwise a
-            // slow request can repopulate the result list after the user erased the field.
-            Operations.Invalidate();
-            _pending = 0;
-            _loading = false;
-            Groups.Clear();
-            DirtyLayout();
-            Scroll.JumpTo(Vector2.zero);
-            ReleaseViewer();
-        }
-
-        static void OnResults(Group group, BrowseScope project, long generation, Wire.SearchResult j)
-        {
-            if (!Operations.IsCurrent(generation)) return;
-            foreach (var row in j.Matches)
-                group.Matches.Add(new Match
-                {
-                    Project = project.Key,
-                    Root = project.Path,
-                    Path = row.Path,
-                    Line = (int)row.Line,
-                    Column = (int)row.Column,
-                    Text = row.Text,
-                });
-            group.Matches.Sort((a, b) =>
-            {
-                int path = string.CompareOrdinal(a.Path, b.Path);
-                return path != 0 ? path : a.Line.CompareTo(b.Line);
-            });
-            group.Truncated = j.Truncated;
-            DirtyLayout();
-            Done(generation);
-        }
-
-        static void OnError(Group group, long generation, string msg)
-        {
-            if (!Operations.IsCurrent(generation)) return;
-            group.Error = msg;
-            DirtyLayout();
-            Done(generation);
+            Store.Search(submitted, SidebarScopes.EnabledScopes(), Settings.SidebarShowHidden);
         }
 
         static void DirtyLayout() => _layoutDirty = true;
-
-        static void Done(long generation)
-        {
-            if (!Operations.IsCurrent(generation)) return;
-            _pending--;
-            if (_pending <= 0) _loading = false;
-            DirtyLayout();
-        }
 
         static void DrawResults(Rect body)
         {

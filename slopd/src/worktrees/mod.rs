@@ -6,6 +6,37 @@ use std::time::Duration;
 pub(crate) mod relocation;
 mod write_guard;
 
+/// Lifecycle values retain their existing spelling in storage and client views.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum WorktreePhase {
+    #[default]
+    Allocating,
+    Ready,
+    Removing,
+    Relocating,
+    Error,
+}
+
+impl std::fmt::Display for WorktreePhase {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Allocating => "allocating",
+            Self::Ready => "ready",
+            Self::Removing => "removing",
+            Self::Relocating => "relocating",
+            Self::Error => "error",
+        })
+    }
+}
+
+/// Both paths remain inspectable even when movement or reverse repair fails.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct RelocationIntent {
+    pub source: String,
+    pub destination: String,
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct Worktree {
     pub id: String,
@@ -16,8 +47,11 @@ pub(crate) struct Worktree {
     pub managed: bool,
     pub initial_branch: String,
     pub base: String,
-    pub phase: String,
+    pub phase: WorktreePhase,
     pub error: String,
+    // Optional so pre-existing pending records retain their prose-only recovery evidence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relocation: Option<RelocationIntent>,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]

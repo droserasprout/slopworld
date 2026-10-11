@@ -36,11 +36,15 @@ namespace SlopWorld
                 _items = _items.Where(item => (_kind.Length == 0 || GroupKey(item) == _kind) &&
                     (item.Name.IndexOf(_query, StringComparison.OrdinalIgnoreCase) >= 0 ||
                      (item.Text ?? "").IndexOf(_query, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
-                BuildSections();
+                var projects = SessionHub.Instance.Projects.Where(project => PassesProject(project.Name))
+                    .OrderBy(project => project.Name, StringComparer.OrdinalIgnoreCase).ToList();
+                if (MainCategoryEnabled(Category.Worktrees))
+                    Worktrees.Update(projects, SessionHub.Instance.ProjectsRevision);
+                BuildSections(projects);
                 var selected = FindSelectedRow();
                 float top = body.y + 2f * (UiTheme.FieldH + Pad) + Pad;
                 string error = _catalogError ?? (MainCategoryEnabled(Category.Worktrees)
-                    ? WorktreeErrors.Values.FirstOrDefault() : null);
+                    ? Worktrees.WorktreeErrors.Values.FirstOrDefault() : null);
                 if (error != null)
                 {
                     var notice = new Rect(body.x + CellX, top, Mathf.Max(0f, body.width - CellX * 2f), UiTheme.FieldH);

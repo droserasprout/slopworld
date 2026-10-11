@@ -4,6 +4,7 @@ use super::super::*;
 use super::directories::CreatedDirectories;
 use crate::session::manager::config::ConfigMutation;
 use crate::session::validation::check_project_mounts;
+use crate::worktrees::WorktreePhase;
 use anyhow::anyhow;
 
 impl Manager {
@@ -182,7 +183,7 @@ impl Manager {
                 if Path::new(&w.path).parent() == Some(local_root.as_path()) {
                     continue;
                 }
-                if w.phase != "ready" {
+                if w.phase != WorktreePhase::Ready {
                     bail!(
                         "finish worktree {} recovery before renaming the project",
                         w.id

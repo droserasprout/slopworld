@@ -321,11 +321,14 @@ async fn ignored_data_detached_head_and_crash_records_are_preserved() {
     assert_eq!(manager.worktree_list("repo").await.unwrap()[1].branch, "");
     // Restart recovery reports an interrupted operation without committing, deleting or relaunching.
     let mut store = manager.worktree_records();
-    store.worktrees[0].phase = "removing".into();
+    store.worktrees[0].phase = crate::worktrees::WorktreePhase::Removing;
     manager.save_worktrees(&store).await.unwrap();
     manager.recover_worktrees().await.unwrap();
     let recovered = manager.worktree_records();
-    assert_eq!(recovered.worktrees[0].phase, "error");
+    assert_eq!(
+        recovered.worktrees[0].phase,
+        crate::worktrees::WorktreePhase::Error
+    );
     assert!(path.join("file").exists());
     assert!(manager.config().await.sessions.is_empty());
     std::fs::remove_dir_all(root).unwrap();
@@ -506,10 +509,13 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
     .await
     .unwrap();
     let mut store = manager.worktree_records();
-    store.worktrees[0].phase = "allocating".into();
+    store.worktrees[0].phase = crate::worktrees::WorktreePhase::Allocating;
     manager.save_worktrees(&store).await.unwrap();
     manager.recover_worktrees().await.unwrap();
-    assert_eq!(manager.worktree_records().worktrees[0].phase, "ready");
+    assert_eq!(
+        manager.worktree_records().worktrees[0].phase,
+        crate::worktrees::WorktreePhase::Ready
+    );
     let mut project = manager.config().await.projects[0].clone();
     project.name = "renamed".into();
     manager.update_project("repo", project).await.unwrap();
@@ -729,7 +735,7 @@ async fn relocation_rollback_restores_checkout_registration_and_catalog() {
         name: "source".into(),
         path: source.to_string_lossy().into_owned(),
         repository: root.join(".git").to_string_lossy().into_owned(),
-        phase: "ready".into(),
+        phase: crate::worktrees::WorktreePhase::Ready,
         managed: true,
         ..Default::default()
     };

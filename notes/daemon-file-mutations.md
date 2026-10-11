@@ -1,6 +1,6 @@
 # File mutation boundary
 
-`api/handlers/files.rs` owns create, rename, and removal requests from the Files UI.
+`api/handlers/files/mutations.rs` owns create, rename, and removal requests from the Files UI.
 Mutation paths reject `.` and `..` segments.
 
 - Rename never replaces an existing destination, including one created concurrently.

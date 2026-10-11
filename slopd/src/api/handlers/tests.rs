@@ -6,8 +6,7 @@ use std::{
 use super::super::types::SearchReq;
 use super::{
     IMAGE_LIMIT, READ_LIMIT, SEARCH_TEXT_LIMIT, browse_limit, entry_name, file_path,
-    filter_gitignored, highlighter_argv, list_dir, parse_kind, read_image_bytes, read_preview,
-    search_preview,
+    filter_gitignored, list_dir, parse_kind, read_image_bytes, read_preview, search_preview,
 };
 use crate::presets::PresetSource;
 use axum::http::StatusCode;
@@ -89,24 +88,6 @@ pub(super) async fn preview_reads_utf8_and_rejects_oversized_files() {
     std::fs::write(&large, vec![b'x'; usize::try_from(READ_LIMIT).unwrap() + 1]).unwrap();
     let error = read_preview(&large).await.unwrap_err().to_string();
     assert!(error.contains("preview limit"));
-}
-
-#[test]
-pub(super) fn highlighter_command_appends_or_expands_the_file() {
-    let path = Path::new("/tmp/slopworld/highlight/code file.rs");
-    assert_eq!(
-        highlighter_argv("highlight --out-format=xterm256", path).unwrap(),
-        [
-            "highlight",
-            "--out-format=xterm256",
-            "/tmp/slopworld/highlight/code file.rs"
-        ]
-    );
-    assert_eq!(
-        highlighter_argv("tool --file=%s", path).unwrap(),
-        ["tool", "--file=/tmp/slopworld/highlight/code file.rs"]
-    );
-    highlighter_argv("   ", path).unwrap_err();
 }
 
 #[test]

@@ -1,8 +1,10 @@
 # Search ownership
 
-`SearchView` owns the sidebar search view and submits requests to the daemon file
-API. It consumes the [shared scope catalog](mod-sidebar-navigation.md); each
-submission captures the enabled ready checkouts. Replies for a replaced query or
+`SearchView` owns draft controls, selection, geometry, and reader actions.
+`SearchStore` owns submitted queries, bounded requests, and grouped results through
+an injected daemon transport. It consumes snapshots of the
+[shared scope catalog](mod-sidebar-navigation.md); each submission captures the
+enabled ready checkouts. Replies for a replaced query or
 scope cannot update current results.
 
 Filter changes rerun the last submitted query and options without replacing draft

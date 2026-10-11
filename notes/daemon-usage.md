@@ -1,6 +1,9 @@
 # Daemon usage polling
 
-`usage/mod.rs` owns scheduling/aggregation; `rows.rs` owns catalog and row policy;
+`usage/mod.rs` owns the public model and background entry point; `polling.rs` owns
+provider execution and credential watching; `schedule.rs` owns retry and row cadence
+transitions with caller-supplied monotonic time; `publication.rs` owns aggregation
+and poll diagnostics. `rows.rs` owns catalog and row policy;
 `providers.rs` owns credential reads and HTTP; `parsing.rs` interprets upstream JSON;
 `anthropic_cache.rs` owns shared Anthropic request coordination. Daemon configuration
 owns settings/defaults, and shared protocol owns wire fields and units.

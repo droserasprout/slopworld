@@ -38,8 +38,11 @@ a checkout never deletes cache data. Config reconciliation belongs to
 each newly created link to the coordinator for rollback.
 Host inspection hardening belongs to [Git](daemon-git.md).
 
-Relocation persists intent before Git effects, retaining both paths for interrupted
-recovery. The coordinator owns the final project/reference and checkout publication
+Relocation persists intent before Git effects, retaining structured source and
+destination paths for interrupted recovery. Older pending records can retain only
+their error prose; both forms require manual inspection. Typed lifecycle phases keep
+the same saved and client-facing names; structured relocation fields stay in storage.
+The coordinator owns the final project/reference and checkout publication
 or reverse movement. Failed reverse movement must leave relocation intent, never a
 ready record for an unverified path. Cache-link reconciliation uses the prepared
 checkout paths during the final commit. The accepted record owner commits affected

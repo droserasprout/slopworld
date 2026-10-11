@@ -4,7 +4,6 @@ namespace SlopWorld
     {
         // Spotify selection, capability fallback and terminal opening live here.
         // Radio owns source transitions, persistence and the ordered audio connection.
-        static bool _spotify;
         static bool _openingSpotify;
         public static bool Spotify => _spotify;
         public const string SpotifySourceId = "spotify";
@@ -21,11 +20,7 @@ namespace SlopWorld
             if (_quit) return;
             Read();
             if (SpotifyAvailable || !_spotify) return;
-            _spotify = false;
-            _station = null;
-            _muted = false;
-            Save();
-            Push();
+            SelectSource(clearFailure: false);
         }
 
         public static void OpenSpotify()
@@ -39,12 +34,7 @@ namespace SlopWorld
             if (!hub.Capabilities.AudioPlayback)
             { UiLayout.Fail("ncspot playback requires a native Linux daemon"); return; }
 
-            _spotify = true;
-            _station = null;
-            _muted = false;
-            _blamed = false;
-            Save();
-            Push();
+            SelectSource(spotify: true);
             _openingSpotify = true;
             // Update sends the selection through the same socket that Quit uses to stop playback.
             // The audio reply identifies the terminal session, so no HTTP launch request is necessary.

@@ -1,9 +1,9 @@
 //! Worktree operations do not depend on task outcomes or worker lifetimes.
 use super::super::*;
 use super::directories::CreatedDirectories;
-use crate::worktrees::{Store, Worktree, git};
+use crate::worktrees::{Store, Worktree, WorktreePhase, git};
 use anyhow::anyhow;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::HashMap;
 
 /// Worktree mutation serialization and relocation test coordination.
@@ -27,9 +27,7 @@ pub(crate) struct WorktreeRequest {
     pub path: String,
 }
 
-#[derive(Serialize)]
 pub(crate) struct WorktreeView {
-    #[serde(flatten)]
     pub worktree: Worktree,
     pub branch: String,
     pub head: String,
@@ -81,7 +79,7 @@ impl Manager {
                 .get(index)
                 .ok_or_else(|| anyhow!("no worktree {id}"))?
                 .clone();
-            if !old.managed || old.phase != "ready" {
+            if !old.managed || old.phase != WorktreePhase::Ready {
                 bail!("only ready managed worktrees can be renamed");
             }
             let users = manager.worktree_attachments(&old).await;
@@ -225,11 +223,11 @@ impl Manager {
         let mut store = self.worktree_records();
         let mut changed = false;
         for w in &mut store.worktrees {
-            if !["allocating", "removing"].contains(&w.phase.as_str()) {
+            if !matches!(w.phase, WorktreePhase::Allocating | WorktreePhase::Removing) {
                 continue;
             }
             changed = true;
-            let complete = if w.phase == "allocating" && Path::new(&w.path).is_dir() {
+            let complete = if w.phase == WorktreePhase::Allocating && Path::new(&w.path).is_dir() {
                 let status = git(
                     Path::new(&w.path),
                     &["status", "--porcelain=v1", "--untracked-files=all"],
@@ -241,14 +239,14 @@ impl Manager {
                 false
             };
             if complete {
-                w.phase = "ready".into();
+                w.phase = WorktreePhase::Ready;
                 w.error.clear();
             } else {
                 w.error = format!(
                     "Operation {} was interrupted. Inspect the checkout or try manual removal.",
                     w.phase
                 );
-                w.phase = "error".into();
+                w.phase = WorktreePhase::Error;
             }
         }
         if changed {
@@ -335,7 +333,7 @@ impl Manager {
             .iter()
             .find(|w| w.id == id && w.project_id == p.id && !p.id.is_empty())
             .ok_or_else(|| anyhow!("no worktree {id} in project {}", p.name))?;
-        if w.phase != "ready" {
+        if w.phase != WorktreePhase::Ready {
             bail!("worktree {id} is not ready (phase {})", w.phase);
         }
         let checkout = Path::new(&w.path);
@@ -417,7 +415,7 @@ impl Manager {
             project_id: p.id.clone(),
             name: "main".into(),
             path: expand(&p.dir),
-            phase: "ready".into(),
+            phase: WorktreePhase::Ready,
             ..Default::default()
         }];
         rows.extend(
@@ -437,18 +435,18 @@ impl Manager {
                 .unwrap_or_default();
             // Keep interrupted requests visible for inspection during this daemon run.
             // Startup recovery identifies completed allocations but never restarts workers.
-            if w.phase == "allocating" {
+            if w.phase == WorktreePhase::Allocating {
                 w.error = "Allocation was interrupted. Inspect the worktree before you remove or reuse it.".into();
             }
-            if w.phase == "relocating" {
+            if w.phase == WorktreePhase::Relocating {
                 // The persisted error includes both source and destination; preserve it.
             } else if !path.is_dir() {
-                w.phase = "error".into();
+                w.phase = WorktreePhase::Error;
                 w.error =
                     "The checkout directory is missing. Retry manual removal to reconcile its record."
                         .into();
             } else if w.managed && path.file_name().and_then(|s| s.to_str()) != Some(&w.name) {
-                w.phase = "error".into();
+                w.phase = WorktreePhase::Error;
                 w.error = "The managed checkout path does not match its recorded name.".into();
             }
             let mut attachments = self.worktree_attachments(&w).await;
@@ -552,8 +550,9 @@ impl Manager {
                 managed,
                 initial_branch: if managed { branch } else { String::new() },
                 base,
-                phase: "allocating".into(),
+                phase: WorktreePhase::Allocating,
                 error: String::new(),
+                relocation: None,
             },
         })
     }
@@ -603,7 +602,11 @@ impl Manager {
             Ok(())
         }
         .and_then(|()| crate::sandbox::cache::reconcile(&project, path));
-        worktree.phase = if result.is_ok() { "ready" } else { "error" }.into();
+        worktree.phase = if result.is_ok() {
+            WorktreePhase::Ready
+        } else {
+            WorktreePhase::Error
+        };
         worktree.error = result
             .err()
             .map(|error| format!("{error:#}"))
@@ -663,7 +666,7 @@ impl Manager {
             .get(index)
             .ok_or_else(|| anyhow!("no removable worktree {id}"))?
             .clone();
-        if worktree.phase == "relocating" {
+        if worktree.phase == WorktreePhase::Relocating {
             bail!(
                 "Repair the interrupted relocation before removing this worktree: {}",
                 worktree.error
@@ -703,7 +706,7 @@ impl WorktreeRemoval {
     }
 
     async fn record_intent(&mut self, manager: &Manager) -> Result<()> {
-        self.record_mut()?.phase = "removing".into();
+        self.record_mut()?.phase = WorktreePhase::Removing;
         manager.save_worktrees(&self.store).await
     }
 
@@ -717,12 +720,12 @@ impl WorktreeRemoval {
                 // A failed deletion remains inspectable and retryable. A failed catalog
                 // save after deletion instead leaves the durable removing intent for recovery.
                 let phase = if Path::new(&self.worktree.path).is_dir() {
-                    "ready"
+                    WorktreePhase::Ready
                 } else {
-                    "error"
+                    WorktreePhase::Error
                 };
                 let record = self.record_mut()?;
-                record.phase = phase.into();
+                record.phase = phase;
                 record.error = format!("{error:#}");
                 manager.save_worktrees(&self.store).await?;
                 Err(error)

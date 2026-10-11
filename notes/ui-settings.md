@@ -21,6 +21,11 @@ blank lines; normalized daemon lists are projections of those drafts. Replacing
 the selected definition replaces its raw drafts. Renaming a new definition keeps
 its drafts and retained field geometry.
 
+Binaries uses `BinaryDiscovery` for combined host/daemon request state and
+`HostBinaryProbe` for host lookup. Both completion paths share a request generation;
+drawing consumes published rows. Host lookup uses the game's environment, while
+`/api/whereis` reports the daemon's effective environment.
+
 Endpoint/raw-editor coordination
 belongs to [the client](mod-client.md) and daemon acceptance to
 [configuration stores](daemon-config-stores.md).

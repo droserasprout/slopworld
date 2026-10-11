@@ -17,7 +17,8 @@ Peers must be built for the current v2 schema. HTTP uses `application/x-protobuf
 without version negotiation. WebSockets explicitly negotiate `slopworld.protobuf.v2`
 and carry application messages in binary frames. Unknown Protobuf field numbers
 remain readable; unexpected keys in internal Serde projections instead fail the
-JSON-to-message conversion guard.
+JSON-to-message conversion guard. Simple file and worktree responses construct
+wire messages directly; storage-only recovery fields never enter worktree replies.
 
 Session reader, runtime, launch, and worker groups are nested messages; reader launch
 metadata is nested in `RunReq.reader`. Live screens may coalesce while replies/control

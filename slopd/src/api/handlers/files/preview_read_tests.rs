@@ -5,7 +5,7 @@ use std::os::unix::fs::symlink;
 
 #[tokio::test]
 async fn text_and_image_reads_enforce_optional_scope_and_descriptor_limits() {
-    let fixture = super::super::tests::fixture("scoped-preview-read");
+    let fixture = crate::api::handlers::tests::fixture("scoped-preview-read");
     let root = fixture.join("project");
     std::fs::create_dir(&root).unwrap();
     std::fs::write(root.join("file"), b"data").unwrap();

@@ -10,6 +10,12 @@ filter is independent of the global sidebar filter and applies to Projects/Workt
 Preset categories show user definitions/overrides; system entries remain in Settings.
 Project creation belongs to the shared `+` menu.
 
+`WorktreeInventory` owns Library worktree requests, retained snapshots, and errors;
+row construction only consumes those snapshots. Refresh and project-filter changes
+invalidate delayed replies, while failed loads retain the last successful rows.
+`WorktreeRequests` shares root-only transport with the sidebar catalog; Library
+filtering and sidebar choices retain separate lifetimes.
+
 Daemon item ownership belongs to [library](daemon-library.md), template forms to
 [mod templates](mod-agent-templates.md), and semantic history to
 [navigation](mod-sidebar-navigation.md).

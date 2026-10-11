@@ -1,5 +1,6 @@
+//! Worktree HTTP authorization and wire projection; recovery fields stay in durable records.
 use super::{ApiResult, Mgr, err};
-use crate::api::protobuf::{Proto, domain, reply};
+use crate::api::protobuf::{Proto, domain};
 use crate::grant::Cap;
 use crate::shared::wire;
 use axum::{
@@ -26,9 +27,21 @@ pub(crate) async fn list_worktrees(
         .worker_project(&caller, &q.project)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    reply(
-        serde_json::json!({"worktrees": m.worktree_list(&project).await.map_err(|e| err(StatusCode::BAD_REQUEST, e))?}),
-    )
+    let views = m
+        .worktree_list(&project)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Proto(wire::WorktreesReply {
+        worktrees: views
+            .into_iter()
+            .map(|view| wire::Worktree {
+                branch: view.branch,
+                head: view.head,
+                attachments: view.attachments,
+                ..worktree_reply(view.worktree)
+            })
+            .collect(),
+    }))
 }
 
 pub(crate) async fn create_worktree(
@@ -49,11 +62,10 @@ pub(crate) async fn create_worktree(
         .worker_project(&caller, &q.project)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    reply(
-        Box::pin(m.create_worktree(q))
-            .await
-            .map_err(|e| err(StatusCode::BAD_REQUEST, e))?,
-    )
+    let worktree = Box::pin(m.create_worktree(q))
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Proto(worktree_reply(worktree)))
 }
 
 pub(crate) async fn remove_worktree(
@@ -71,11 +83,11 @@ pub(crate) async fn rename_worktree(
     Proto(req): Proto<wire::CreateWorktreeReq>,
 ) -> ApiResult<wire::Worktree> {
     let req: crate::session::WorktreeRequest = domain(req)?;
-    reply(
-        m.rename_worktree(q.project, id, req.name)
-            .await
-            .map_err(|e| err(StatusCode::BAD_REQUEST, e))?,
-    )
+    let worktree = m
+        .rename_worktree(q.project, id, req.name)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Proto(worktree_reply(worktree)))
 }
 
 pub(crate) async fn preview_worktree(
@@ -93,7 +105,24 @@ pub(crate) async fn preview_worktree(
         .worktree_base(&caller, &project, q.base.as_deref().unwrap_or(""))
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    reply(serde_json::json!({"commit":commit}))
+    Ok(Proto(wire::WorktreeBase { commit }))
+}
+
+/// Public state retains phase/error wording; structured relocation intent is storage-only.
+fn worktree_reply(worktree: crate::worktrees::Worktree) -> wire::Worktree {
+    wire::Worktree {
+        id: worktree.id,
+        project_id: worktree.project_id,
+        name: worktree.name,
+        path: worktree.path,
+        repository: worktree.repository,
+        managed: worktree.managed,
+        initial_branch: worktree.initial_branch,
+        base: worktree.base,
+        phase: worktree.phase.to_string(),
+        error: worktree.error,
+        ..Default::default()
+    }
 }
 
 #[cfg(test)]

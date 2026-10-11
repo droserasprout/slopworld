@@ -4,14 +4,18 @@ namespace SlopWorld
 {
     public static partial class Radio
     {
-        static bool _quit, _muted, _blamed;
-        static Station _station;
+        static bool _quit, _blamed;
         static bool _read;
         static int _selectionRevision;
         // Persistence is intentionally omitted; this harness checks Spotify lifecycle only.
         static void Read() { }
         static void Save() { }
-        static void Push() { _selectionRevision++; _openingSpotify = false; }
+        static void Push() { InvalidatePlayback(); }
+        static string OstPath() => "/test/ost";
+        internal static void SelectPlaybackTest(Station station = null, int rate = 0, bool spotify = false) =>
+            SelectSource(station, rate, spotify);
+        internal static void MutePlaybackTest() { _muted = true; Push(); }
+        internal static void UpdatePlaybackTest(double now, float volume) => UpdatePlayback(now, SessionHub.Instance, volume);
         internal static void ResetSpotifyTest()
         {
             _quit = _openingSpotify = _spotify = _muted = _blamed = false;
@@ -20,6 +24,7 @@ namespace SlopWorld
             _stations = Array.Empty<Station>();
             _catalogReady = false;
             _selectionRevision = 0;
+            Playback.Invalidate();
             SessionHub.Instance = new SessionHub();
             TerminalWindow.Current = null;
         }
@@ -33,6 +38,7 @@ namespace SlopWorld
 
     sealed partial class SessionHub
     {
+        public AudioBus Audio;
         public bool Online = true;
         public DaemonCapabilities Capabilities = new DaemonCapabilities();
     }

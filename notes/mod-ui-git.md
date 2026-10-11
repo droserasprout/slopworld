@@ -2,8 +2,10 @@
 
 User procedures belong to [Git](../docs/src/workspace/review-changes.md).
 
-`GitView` owns the changed-path tree and Git actions; `GitStore` owns repository
-snapshots keyed by the shared project/worktree scope identity. `GitCommitDialog`
+`GitView` owns folding, selection, rendering, and Git actions; `GitStore` owns
+repository identity, changed-path trees, status/count reconciliation, and refresh
+lifetimes keyed by the shared project/worktree scope identity. Its transport and
+clock are injected for game-free lifecycle tests. `GitCommitDialog`
 owns the commit UI. Git inspection, stage/unstage/commit actions, and diff processes
 run host-side through the daemon, without private agent state.
 The [daemon Git boundary](daemon-git.md) owns host inspection; the

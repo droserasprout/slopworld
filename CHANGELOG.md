@@ -1,3 +1,5 @@
+<!--- Agents, do not touch this file! It's by humans for humans ---> 
+
 # Changelog
 
 All notable changes to this project will be documented in this file.

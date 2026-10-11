@@ -4,6 +4,7 @@ using System.Linq;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using WorktreeEntry = SlopWorld.WorktreeInventory.WorktreeEntry;
 
 namespace SlopWorld
 {
@@ -192,7 +193,7 @@ namespace SlopWorld
                 "It unregisters unmanaged files without deleting them.",
                 () =>
                 {
-                    _worktreeRequestKey = null;
+                    Worktrees.Invalidate();
                     DaemonClient.Send<Wire.Ack>("DELETE",
                         WireProtocol.Routes.Worktrees + "/" + Uri.EscapeDataString(entry.Tree.Id) +
                         "?project=" + Uri.EscapeDataString(entry.Project), null,

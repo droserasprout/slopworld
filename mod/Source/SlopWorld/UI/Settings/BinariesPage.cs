@@ -1,233 +1,23 @@
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using UnityEngine;
 using Verse;
+using BinaryResult = SlopWorld.BinaryDiscovery.BinaryResult;
 
 namespace SlopWorld
 {
-    // Inventory for the commands SlopWorld runs, integrates with, or offers as a default. Host
+    // BinaryDiscovery.Inventory for the commands SlopWorld runs, integrates with, or offers as a default. Host
     // The game resolves host rows. Daemon rows come from /api/whereis so native and
     // sidecar deployments report the environment that actually launches the command.
     public class BinariesPage : IOptionPage
     {
-        enum ProbeKind
-        {
-            HostPath,
-            DaemonPath,
-        }
-
-        sealed class BinarySpec
-        {
-            public readonly string Group;
-            public readonly string Name;
-            public readonly string Use;
-            public readonly ProbeKind Probe;
-
-            public BinarySpec(string group, string name, string use)
-                : this(group, name, use, ProbeKind.HostPath)
-            {
-            }
-
-            public BinarySpec(string group, string name, string use, ProbeKind probe)
-            {
-                Group = group;
-                Name = name;
-                Use = use;
-                Probe = probe;
-            }
-        }
-
-        enum ProbeOutcome { Pending, Found, Missing, Unavailable }
-
-        sealed class BinaryResult
-        {
-            public readonly BinarySpec Spec;
-            public string Path { get; private set; }
-            public ProbeOutcome Outcome { get; private set; }
-            public string Status { get; private set; } = "Checking";
-            public bool Resolved => Outcome != ProbeOutcome.Pending;
-            public bool Found => Outcome == ProbeOutcome.Found;
-
-            public BinaryResult(BinarySpec spec) { Spec = spec; }
-
-            public void SetPath(string path)
-            {
-                Path = path;
-                Outcome = string.IsNullOrEmpty(path) ? ProbeOutcome.Missing : ProbeOutcome.Found;
-                Status = Found ? null : "not found";
-            }
-
-            public void SetStatus(ProbeOutcome outcome, string status)
-            {
-                Path = null;
-                Outcome = outcome;
-                Status = status;
-            }
-        }
-
-        // Inventory for player-facing integrations and default applications. Daemon rows use
-        // /api/whereis, because the game process's PATH is not the daemon's PATH in a native
-        // service and is especially unhelpful when the daemon runs in slopcar.
-        static readonly BinarySpec[] Inventory =
-        {
-            new BinarySpec("SlopWorld", "slopd", "daemon service"),
-            new BinarySpec("SlopWorld", "slopctl", "agent coordination CLI"),
-            new BinarySpec("SlopWorld", "slopworld", "game launcher"),
-            new BinarySpec("SlopWorld", "slopcar", "macOS sidecar launcher"),
-
-            new BinarySpec("Runtime", "tmux", "session multiplexer", ProbeKind.DaemonPath),
-            new BinarySpec("Runtime", "bwrap", "sandbox isolation", ProbeKind.DaemonPath),
-            new BinarySpec("Runtime", "pasta", "private networking", ProbeKind.DaemonPath),
-            new BinarySpec("Runtime", "systemctl", "user service control"),
-            new BinarySpec("Runtime", "systemd-run", "per-agent scopes", ProbeKind.DaemonPath),
-            new BinarySpec("Runtime", "ps", "sandbox process inspection", ProbeKind.DaemonPath),
-            new BinarySpec("Runtime", "rg", "workspace search", ProbeKind.DaemonPath),
-            new BinarySpec("Runtime", "git", "Git view and snapshots", ProbeKind.DaemonPath),
-            new BinarySpec("Runtime", "env", "pager environment", ProbeKind.DaemonPath),
-            new BinarySpec("Runtime", "bash", "default shell", ProbeKind.DaemonPath),
-            new BinarySpec("Runtime", "zsh", "alternate shell", ProbeKind.DaemonPath),
-            new BinarySpec("Runtime", "fish", "alternate shell", ProbeKind.DaemonPath),
-            new BinarySpec("Runtime", "nu", "alternate shell", ProbeKind.DaemonPath),
-            new BinarySpec("Runtime", "pwsh", "alternate shell", ProbeKind.DaemonPath),
-            new BinarySpec("Runtime", "sh", "POSIX shell", ProbeKind.DaemonPath),
-            new BinarySpec("Runtime", "tail", "slopctl log following"),
-            new BinarySpec("Runtime", "journalctl", "slopctl daemon logs"),
-
-            new BinarySpec("Agent CLIs", "claude", "Anthropic agent", ProbeKind.DaemonPath),
-            new BinarySpec("Agent CLIs", "codex", "OpenAI agent", ProbeKind.DaemonPath),
-            new BinarySpec("Agent CLIs", "opencode", "OpenCode agent", ProbeKind.DaemonPath),
-            new BinarySpec("Agent CLIs", "pi", "Pi agent", ProbeKind.DaemonPath),
-
-            new BinarySpec("Command tools", "less", "default pager", ProbeKind.DaemonPath),
-            new BinarySpec("Command tools", "delta", "Git diff pager", ProbeKind.DaemonPath),
-            new BinarySpec("Command tools", "more", "alternate pager", ProbeKind.DaemonPath),
-            new BinarySpec("Command tools", "bat", "pager or syntax highlighter", ProbeKind.DaemonPath),
-            new BinarySpec("Command tools", "highlight", "syntax highlighter", ProbeKind.DaemonPath),
-            new BinarySpec("Command tools", "pygmentize", "Pygments syntax highlighter", ProbeKind.DaemonPath),
-            new BinarySpec("Command tools", "micro", "default editor", ProbeKind.DaemonPath),
-            new BinarySpec("Command tools", "vim", "alternate editor", ProbeKind.DaemonPath),
-            new BinarySpec("Command tools", "nvim", "Neovim editor", ProbeKind.DaemonPath),
-            new BinarySpec("Command tools", "nano", "alternate editor", ProbeKind.DaemonPath),
-            new BinarySpec("Command tools", "emacsclient", "Emacs editor", ProbeKind.DaemonPath),
-
-            new BinarySpec("Desktop, audio, and clipboard", "gio", "open host applications", ProbeKind.DaemonPath),
-            new BinarySpec("Desktop, audio, and clipboard", "gdbus", "native application chooser", ProbeKind.DaemonPath),
-            new BinarySpec("Desktop, audio, and clipboard", "wl-copy", "Wayland clipboard copy", ProbeKind.DaemonPath),
-            new BinarySpec("Desktop, audio, and clipboard", "wl-paste", "Wayland clipboard paste", ProbeKind.DaemonPath),
-            new BinarySpec("Desktop, audio, and clipboard", "xclip", "X11 clipboard", ProbeKind.DaemonPath),
-            new BinarySpec("Desktop, audio, and clipboard", "xsel", "X11 clipboard fallback", ProbeKind.DaemonPath),
-            new BinarySpec("Desktop, audio, and clipboard", "pactl", "audio device lookup"),
-            new BinarySpec("Desktop, audio, and clipboard", "songrec", "jukebox recognition"),
-            new BinarySpec("Desktop, audio, and clipboard", "ncspot", "Spotify playback", ProbeKind.DaemonPath),
-        };
-
         readonly SmoothScroll _scroll = new SmoothScroll();
-        readonly OperationGate _operations = new OperationGate();
-        List<BinaryResult> _results;
-        string _error;
-        bool _loading;
-        int _resolved;
-        int _hostCount;
-        bool _daemonLoading;
-        string _daemonError;
-        Dictionary<string, string> _daemonPaths;
+        readonly BinaryDiscovery _discovery = new BinaryDiscovery(
+            (ok, fail) => DaemonClient.Get<Wire.WhereIsReply>(WireProtocol.Routes.Whereis, ok, fail),
+            HostBinaryProbe.Locate, action => ThreadPool.QueueUserWorkItem(_ => action()),
+            DaemonClient.OnMainThread);
 
-        public void Load()
-        {
-            _daemonLoading = true;
-            _daemonError = null;
-            _daemonPaths = null;
-            DaemonClient.Get<Wire.WhereIsReply>(WireProtocol.Routes.Whereis,
-                reply =>
-                {
-                    _daemonPaths = reply.Binaries.ToDictionary(
-                        binary => binary.Name, binary => binary.Path,
-                        StringComparer.OrdinalIgnoreCase);
-                    _daemonLoading = false;
-                },
-                error =>
-                {
-                    _daemonError = error;
-                    _daemonLoading = false;
-                });
-            Scan();
-        }
-
-        void Scan()
-        {
-            long generation = _operations.Begin();
-            _loading = true;
-            _error = null;
-            _resolved = 0;
-            var results = Inventory.Select(spec => new BinaryResult(spec)).ToList();
-            _results = results;
-            _hostCount = results.Count(result => result.Spec.Probe == ProbeKind.HostPath);
-
-            ThreadPool.QueueUserWorkItem(_ =>
-            {
-                try
-                {
-                    foreach (var result in results)
-                    {
-                        if (result.Spec.Probe != ProbeKind.HostPath) continue;
-                        string path = null;
-                        try { path = Locate(result.Spec.Name); }
-                        catch { /* an unavailable host command is just not found */ }
-
-                        BinaryResult completed = result;
-                        DaemonClient.OnMainThread(() => Resolve(generation, completed, path));
-                    }
-                }
-                catch (Exception e)
-                {
-                    DaemonClient.OnMainThread(() => Fail(generation, e.Message));
-                }
-            });
-        }
-
-        void Resolve(long generation, BinaryResult result, string path)
-        {
-            if (!_operations.IsCurrent(generation) || result.Resolved) return;
-            result.SetPath(path);
-            _resolved++;
-            if (_resolved >= _hostCount) _loading = false;
-        }
-
-        void Fail(long generation, string message)
-        {
-            if (!_operations.IsCurrent(generation)) return;
-            _error = message;
-            foreach (var result in _results)
-                if (!result.Resolved && result.Spec.Probe == ProbeKind.HostPath)
-                    result.SetPath(null);
-            _loading = false;
-        }
-
-        void UpdateDaemonResults()
-        {
-            if (_results == null) return;
-            foreach (var result in _results)
-            {
-                if (result.Spec.Probe != ProbeKind.DaemonPath) continue;
-                if (_daemonLoading)
-                {
-                    result.SetStatus(ProbeOutcome.Pending, "Checking daemon");
-                    continue;
-                }
-                if (_daemonError != null)
-                {
-                    result.SetStatus(ProbeOutcome.Unavailable, "daemon unavailable");
-                    continue;
-                }
-                string path = null;
-                if (_daemonPaths != null) _daemonPaths.TryGetValue(result.Spec.Name, out path);
-                result.SetPath(path);
-            }
-        }
+        public void Load() => _discovery.Load();
 
         public void Draw(Rect rect)
         {
@@ -238,7 +28,6 @@ namespace SlopWorld
         {
             var inner = SettingsPageLayout.Body(rect);
             if (_scroll.HandleWheel(inner)) return;
-            UpdateDaemonResults();
             string caption = "Commands used, integrated, or recommended by SlopWorld. " +
                 "Host rows check the game's PATH. Daemon rows use the daemon's effective PATH.";
             float width = UiScrollBody.Measure(inner, 0f,
@@ -255,12 +44,12 @@ namespace SlopWorld
                     UiTheme.Dim);
                 DrawHeader(new Rect(0f, captionH + UiTheme.GapS, geometry.View.width,
                     UiTheme.RowH));
-                if (_results == null)
+                if (_discovery.Results == null)
                 {
                     UiText.PlainStatusLabel(new Rect(0f, top, geometry.View.width,
                         Mathf.Max(UiTheme.LineH, geometry.View.height - top)),
-                        _error ?? (_loading ? "Checking host PATH" : "No scan results."),
-                        _error != null ? UiTheme.Bad : UiTheme.Dim);
+                        _discovery.Error ?? (_discovery.HostLoading ? "Checking host PATH" : "No scan results."),
+                        _discovery.Error != null ? UiTheme.Bad : UiTheme.Dim);
                 }
                 else
                 {
@@ -269,11 +58,11 @@ namespace SlopWorld
             }
 
             var foot = new UiLayout.Bar(SettingsPageLayout.Footer(rect));
-            if (foot.Left("Refresh", UiTheme.Btn.Ghost, !_loading && !_daemonLoading)) Load();
-            string status = _results == null ? (_loading ? "Checking" : "") :
-                $"{_results.Count(result => result.Found)} of {_results.Count} found";
-            GUI.color = _error != null ? UiTheme.Bad : UiTheme.Dim;
-            UiText.RowLabel(foot.Rest(), _error ?? status, TextAnchor.MiddleRight);
+            if (foot.Left("Refresh", UiTheme.Btn.Ghost, !_discovery.HostLoading && !_discovery.DaemonLoading)) Load();
+            string status = _discovery.Results == null ? (_discovery.HostLoading ? "Checking" : "") :
+                $"{_discovery.Results.Count(result => result.Found)} of {_discovery.Results.Count} found";
+            GUI.color = _discovery.Error != null ? UiTheme.Bad : UiTheme.Dim;
+            UiText.RowLabel(foot.Rest(), _discovery.Error ?? status, TextAnchor.MiddleRight);
             GUI.color = Color.white;
         }
 
@@ -302,7 +91,7 @@ namespace SlopWorld
             string group = null;
             // Inventory order is already grouped. Do not allocate GroupBy iterators for
             // every IMGUI pass, and keep offscreen native TextEditors out of the hot path.
-            foreach (var result in _results)
+            foreach (var result in _discovery.Results)
             {
                 if (group != result.Spec.Group)
                 {
@@ -367,9 +156,9 @@ namespace SlopWorld
 
         float ContentHeight(float width)
         {
-            float rows = Inventory.Length * BinaryRowHeight(width);
+            float rows = BinaryDiscovery.Inventory.Length * BinaryRowHeight(width);
             string group = null;
-            foreach (var spec in Inventory)
+            foreach (var spec in BinaryDiscovery.Inventory)
             {
                 if (group == spec.Group) continue;
                 group = spec.Group;
@@ -385,59 +174,6 @@ namespace SlopWorld
             useW = Mathf.Min(235f, width * 0.38f);
             pathW = Mathf.Max(0f, width - nameW - useW);
             useX = nameW + pathW;
-        }
-
-        static string Locate(string command)
-        {
-            string path = LocateWithWhich(command);
-            return !string.IsNullOrEmpty(path) ? path : LocateOnPath(command);
-        }
-
-        static string LocateWithWhich(string command)
-        {
-            try
-            {
-                var start = new ProcessStartInfo
-                {
-                    FileName = "which",
-                    Arguments = command,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true,
-                };
-                using (var process = Process.Start(start))
-                {
-                    if (process == null) return null;
-                    string output = process.StandardOutput.ReadToEnd();
-                    process.WaitForExit();
-                    if (process.ExitCode != 0) return null;
-                    return output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                        .FirstOrDefault()?.Trim();
-                }
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        static string LocateOnPath(string command)
-        {
-            string path = Environment.GetEnvironmentVariable("PATH") ?? "";
-            foreach (string directory in path.Split(Path.PathSeparator))
-            {
-                string root = string.IsNullOrEmpty(directory) ? "." : directory;
-                string candidate;
-                try { candidate = Path.Combine(root, command); }
-                catch { continue; }
-                if (File.Exists(candidate))
-                {
-                    try { return Path.GetFullPath(candidate); }
-                    catch { return candidate; }
-                }
-            }
-            return null;
         }
     }
 }

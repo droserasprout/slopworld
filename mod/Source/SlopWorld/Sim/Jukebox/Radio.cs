@@ -25,22 +25,14 @@ namespace SlopWorld
                 : System.IO.Path.Combine(root, "Sounds", "SlopWorld", "OST");
         }
 
-        // A null station selects the OST unless Spotify is selected.
-        static Station _station;
         static int _selectionRevision;
         public const string OstSourceId = "ost";
 
-        static bool _muted;
         static bool _stopOnExit;
 
         // Read settings once after initialization. They are unavailable when this class first loads.
         static bool _read;
 
-        // Retain the last selection to avoid repeated sends. Resend after reconnection.
-        // Use _told to distinguish a pending selection from one already sent.
-        static string _sent;
-        static bool _told;
-        static float _sentVolume = -1f;
 
         // Report a station failure once per selection, then return to the OST.
         static bool _blamed;
@@ -57,9 +49,6 @@ namespace SlopWorld
         static string _cachedNowPlaying;
         static double _cachedNowPlayingAt = double.NegativeInfinity;
         static int _cachedNowPlayingVersion = -1;
-
-        // Send volume changes only when they meet this minimum difference.
-        const float VolumeStep = 0.01f;
 
         // Use native SlopWorld SongDefs when the daemon cannot play audio.
         // Until capabilities arrive, the default permits daemon playback.
@@ -367,12 +356,7 @@ namespace SlopWorld
         public static void PickOst()
         {
             Read();
-            _station = null;
-            _spotify = false;
-            _muted = false;
-            _blamed = false;
-            Save();
-            Push();
+            SelectSource();
         }
 
         // Select OST or a radio station at random. Select the station rate separately.
@@ -435,21 +419,13 @@ namespace SlopWorld
             // Selecting a source also unmutes playback. Skip only an identical selection that is already unmuted.
             if (!_spotify && _station == s && (s == null || s.Rate == rate) && !_muted) return;
 
-            _spotify = false;
-            _station = s;
-            // Retain the selected rate on each station. Selecting OST does not change station rates.
-            if (s != null) s.Rate = rate;
-            _muted = false;
-            _blamed = false;
-            Save();
-            Push();
+            SelectSource(s, rate);
         }
 
         // Patch_Root_Update calls Update every frame in menus and during play.
         // Send pending selections immediately. Limit regular checks to six per second.
         // Read settings before these checks.
-        static PeriodicWork _steadyUpdate;
-        const double UpdateInterval = 1.0 / 6.0;
+        const double UpdateInterval = RadioPlayback.UpdateInterval;
 
         public static void Update()
         {
@@ -480,79 +456,11 @@ namespace SlopWorld
                 catch { /* Root_Play castclass fails on menu */ }
             }
 
-            // Reset sent state while offline so reconnection sends the selection again.
-            if (!hub.Online) { _told = false; _sentVolume = -1f; return; }
-
-            // Send pending selections before the regular update delay.
-            // This includes a stop request on the first connected frame after a daemon restart.
-            if (!_told)
-            {
-                float pendingVolume = Volume();
-                string pending = Selection();
-                SendSelection(hub, pendingVolume, pending);
-                _sent = pending;
-                _told = true;
-                _sentVolume = pendingVolume;
-                _steadyUpdate.Delay(Time.realtimeSinceStartupAsDouble, UpdateInterval);
-                return;
-            }
-
-            // Limit regular checks because most frames do not change playback.
-            if (!_steadyUpdate.Due(Time.realtimeSinceStartupAsDouble, UpdateInterval)) return;
-
-            string want = Selection();
-            if (want != _sent)
-            {
-                SendSelection(hub, Volume(), want);
-                _sent = want;
-                _sentVolume = Volume();
-                return;
-            }
-
-            float volume = Volume();
-            if (Mathf.Abs(volume - _sentVolume) < VolumeStep) return;
-            hub.Audio.SendVolume(volume);
-            _sentVolume = volume;
+            UpdatePlayback(Time.realtimeSinceStartupAsDouble, hub, Volume());
         }
 
         // Apply both music and master volume because daemon playback bypasses the game AudioListener.
         static float Volume() => Mathf.Clamp01(Prefs.VolumeMusic * Prefs.VolumeMaster);
-
-        static string Selection()
-        {
-            if (_muted) return "stop";
-            if (_spotify) return "ncspot";
-            if (_station != null) return "station:" + _station.SelectionKey(_station.Rate);
-            if (!_catalogReady && IsSavedStation()) return "stop";
-            string path = OstPath();
-            return path == null ? "stop" : "file:" + path;
-        }
-
-        static bool IsSavedStation() => !string.IsNullOrEmpty(Settings.Radio) && Settings.Radio != "ost" && Settings.Radio != "ncspot";
-
-        static void SendSelection(SessionHub hub, float volume, string selection)
-        {
-            if (selection == "stop")
-            {
-                hub.Audio.Stop(volume);
-                return;
-            }
-            if (_spotify)
-            {
-                hub.Audio.SendSpotify(volume);
-                return;
-            }
-            if (_station != null)
-            {
-                string stream = _station.Path(_station.Rate);
-                if (_station.Id == null || stream == null) hub.Audio.Stop(volume);
-                else hub.Audio.PlayStation(_station.Id, stream, volume);
-                return;
-            }
-            string file = OstPath();
-            if (file == null) hub.Audio.Stop(volume);
-            else hub.Audio.PlayFile(file, volume);
-        }
 
         // Read the daemon playback report. Log failures once per selection.
         // If a radio station fails, notify the player and select OST. OST failures have no fallback.
@@ -588,9 +496,7 @@ namespace SlopWorld
 
             Messages.Message($"Jukebox: {_station.Name} {RateLabel(_station.Rate)} would not "
                 + "play. Back to the OST.", MessageTypeDefOf.RejectInput, false);
-            _station = null;
-            Save();
-            Push();
+            SelectSource(clearFailure: false);
         }
 
         // Apply the exit preference before Root.Shutdown closes the socket. Forced process termination bypasses this method.
@@ -612,9 +518,7 @@ namespace SlopWorld
         // Clear old metadata so the new source does not display the previous track title.
         static void Push()
         {
-            _selectionRevision++;
-            _openingSpotify = false;
-            _told = false;
+            InvalidatePlayback();
             _playing = false;
             _rawTitle = null;
             _recognizedArtist = null;

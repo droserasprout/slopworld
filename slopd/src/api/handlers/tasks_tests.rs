@@ -20,7 +20,7 @@ async fn cancelled_worker_request_cleans_up_its_unattached_new_worktree() {
                 path: "/tmp/new-tree".into(),
                 repository: "/tmp/.git".into(),
                 project_id,
-                phase: "ready".into(),
+                phase: crate::worktrees::WorktreePhase::Ready,
                 ..Default::default()
             }],
         })
