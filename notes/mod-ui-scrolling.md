@@ -10,6 +10,10 @@ identical viewport clipping for drawing and hit testing. Drag owners respect
 measurement. `ContentHeight` publishes shared listing measurements on the next
 frame so input and repaint use consistent geometry.
 
+Scroll groups use `Widgets.BeginGroup`/`EndGroup` so RimWorld's Linux/Steam Deck
+pointer repair runs after each coordinate translation. Raw Unity groups bypass
+that repair and can displace hover after keyboard input until the mouse moves.
+
 `ScrollWheelRouter` captures and replays shared scroll regions. Hosts must invalidate
 its retained snapshot on closure. Settings page geometry belongs to
 [Settings](ui-settings.md), and keyboard-focused field reveal to [focus](ui-focus.md).

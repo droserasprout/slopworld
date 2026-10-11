@@ -12,8 +12,9 @@ Expect any imaginable incompabilities until 0.1.0 or better 1.0.0.
 
 ### Fixed
 
+- UI: Fixed hover highlights jumping after keyboard input in scrollable views.
 - UI: Respect the configured time format in task details.
-- UI: Fix double-, triple-click selection, and copying to PRIMARY in task details.
+- UI: Fixed double-, triple-click selection, and copying to PRIMARY in task details.
 
 ## [0.0.1] - 2026-10-10
 

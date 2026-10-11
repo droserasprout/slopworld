@@ -107,8 +107,10 @@ namespace SlopWorld
             // input inside its native implementation, and can write a one-notch position
             // through its ref even after we consumed the event. Keeping it out of this path
             // makes `_pos` the only scroll state and leaves the wheel entirely to our input.
-            GUI.BeginGroup(outer);
-            GUI.BeginGroup(new Rect(view.x - _pos.x, view.y - _pos.y, view.width, view.height));
+            // RimWorld's wrappers refresh the Linux/Steam Deck event pointer after
+            // each translation. Raw GUI groups skip that repair on keyboard passes.
+            Widgets.BeginGroup(outer);
+            Widgets.BeginGroup(new Rect(view.x - _pos.x, view.y - _pos.y, view.width, view.height));
             ScrollWheelRouter.Begin(this, outer, view, preciseInput, origin);
         }
 
@@ -151,8 +153,8 @@ namespace SlopWorld
             _focusRegion?.Dispose();
             _focusRegion = null;
             EndInput();
-            GUI.EndGroup();
-            GUI.EndGroup();
+            Widgets.EndGroup();
+            Widgets.EndGroup();
 
             if (_bar) DrawBar();
         }
