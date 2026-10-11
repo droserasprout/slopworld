@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Bake icon PNG files from emoji glyphs.
 
 Usage: uv run --locked --extra assets python -m tools.assets.emoji --emoji 🏆 --name trophy [--size 32] [--out DIR]
@@ -24,6 +23,7 @@ import argparse
 import os
 import sys
 from functools import lru_cache
+from pathlib import Path
 from types import ModuleType
 
 import numpy as np
@@ -33,7 +33,7 @@ from PIL import Image
 from tools import ROOT
 from tools.assets import emoji_font
 
-DEFAULT_OUT = os.path.join(ROOT, 'mod', 'Textures', 'SlopWorld', 'FileIcons')
+DEFAULT_OUT = ROOT / 'mod' / 'Textures' / 'SlopWorld' / 'FileIcons'
 
 # Set the probe edge and the margin around the glyph bounds.
 PROBE = 256
@@ -84,7 +84,7 @@ def bake(emoji: str, name: str, size: int, out: str, color: bool = False) -> boo
         # Keep premultiplied color during the LANCZOS filter.
         # This prevents transparent black pixels from darkening the glyph edge.
         img = render(emoji, PROBE)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Report backend failures per glyph so the batch can continue.
         print(f'  {name}: could not render {emoji!r}: {e}', file=sys.stderr)
         return False
 
@@ -134,9 +134,9 @@ def bake(emoji: str, name: str, size: int, out: str, color: bool = False) -> boo
         # Mono: RGB is white outright, the alpha is the shape.
         out_arr[..., :3] = 1.0
 
-    os.makedirs(out, exist_ok=True)
+    Path(out).mkdir(parents=True, exist_ok=True)
     Image.fromarray(np.clip(out_arr * 255 + 0.5, 0, 255).astype(np.uint8), 'RGBA').save(
-        os.path.join(out, f'{name}.png'), optimize=True
+        Path(out, f'{name}.png'), optimize=True
     )
     return True
 
@@ -157,7 +157,7 @@ def main() -> int:
         print('--emoji and --name must pair up one-to-one', file=sys.stderr)
         return 2
 
-    done = sum(bake(e, n, args.size, args.out, args.color) for e, n in zip(args.emoji, args.name))
+    done = sum(bake(e, n, args.size, args.out, args.color) for e, n in zip(args.emoji, args.name, strict=True))
     print(
         f'{done}/{len(args.emoji)} {"color" if args.color else "mono"} icons '
         f'at {args.size}px -> {os.path.relpath(args.out, ROOT)}'

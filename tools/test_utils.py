@@ -53,7 +53,7 @@ def test_cli_interrupt_and_missing_setting_are_reported(capsys: pytest.CaptureFi
         (OSError('unavailable'), 1),
     ]:
 
-        def fail() -> None:
+        def fail(exception: BaseException = exception) -> None:
             raise exception
 
         with pytest.raises(SystemExit) as error:

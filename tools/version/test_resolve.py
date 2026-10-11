@@ -15,7 +15,7 @@ def test_release_tag_wins_over_commit(tag: str | None, expected: str) -> None:
 
 
 @pytest.mark.parametrize(
-    'tag', [None, '', '0.0.0', '1.2.3', 'v01.2.3', '1.02.3', '1.2.03', '1.2', 'v1.2.3-rc1', '١.2.3', '1.2.3\n']
+    'tag', [None, '', '0.0.0', '1.2.3', 'v01.2.3', '1.02.3', '1.2.03', '1.2', 'v1.2.3-rc1', '\u0661.2.3', '1.2.3\n']
 )
 def test_other_tags_use_utc_date_and_commit(tag: str | None) -> None:
     assert resolve.resolve('9.9.9', tag, 'abcd', '20261004') == '9.9.9-20261004-abcd'

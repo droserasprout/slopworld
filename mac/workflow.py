@@ -45,11 +45,11 @@ def check(scope: str) -> None:
 def start(arguments: list[str]) -> None:
     container = os.environ['SLOPCAR_CONTAINER']
     inspect = ['docker', 'container', 'inspect']
-    state = run(inspect + ['--format', '{{.State.Running}}', container], capture_output=True, text=True, check=False)
+    state = run([*inspect, '--format', '{{.State.Running}}', container], capture_output=True, text=True, check=False)
     if state.returncode == 0 and state.stdout.strip() == 'true':
         log(f'sidecar {container} is already running')
         return
-    existing = run(inspect + [container], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    existing = run([*inspect, container], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
     run([os.environ['SLOPCAR'], 'start', *(arguments if existing.returncode else [])], cwd=ROOT)
 
 
@@ -64,8 +64,8 @@ def main() -> None:
     elif args.action == 'all':
         just = [os.environ['JUST_CMD'], '--justfile', str(ROOT / 'mac/justfile')]
         # Keep separate invocations: install must finish before run's checks.
-        run(just + ['install'], cwd=ROOT)
-        run(just + ['run'], cwd=ROOT)
+        run([*just, 'install'], cwd=ROOT)
+        run([*just, 'run'], cwd=ROOT)
     else:
         check(args.action)
 

@@ -32,7 +32,7 @@ def from_git(fallback: str, repository: Path = ROOT) -> str:
         fallback,
         git('describe', '--tags', '--exact-match', '--match', TAG_GLOB, 'HEAD'),
         git('rev-parse', '--short', 'HEAD'),
-        dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d'),
+        dt.datetime.now(dt.UTC).strftime('%Y%m%d'),
     )
 
 

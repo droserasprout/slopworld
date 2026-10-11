@@ -30,7 +30,7 @@ def test_login_requires_saved_credentials(tmp_path: Path, monkeypatch: pytest.Mo
     auth = tmp_path / 'auth.json'
     for saved in (False, True):
 
-        def authenticate(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        def authenticate(*args: Any, saved: bool = saved, **kwargs: Any) -> subprocess.CompletedProcess[str]:
             if saved:
                 auth.write_text('{}')
             return subprocess.CompletedProcess(args[0], 0, '{"access_token":"secret", "refresh_token":"secret"}', '')
@@ -105,9 +105,9 @@ def test_failed_login_rejects_existing_credentials_without_printing_response(
         patch.object(shutil, 'which', return_value=None),
         patch.object(sys, 'stdin', io.StringIO('code\n')),
         patch.object(gogdl, 'run', return_value=subprocess.CompletedProcess([], 0, response, 'secret')) as run,
+        pytest.raises(ValueError, match='authentication'),
     ):
-        with pytest.raises(ValueError, match='authentication'):
-            gogdl.login(auth, ['gogdl'])
+        gogdl.login(auth, ['gogdl'])
     assert run.call_args.kwargs['capture_output']
     assert auth.read_text() == 'old credentials'
     output = capsys.readouterr()

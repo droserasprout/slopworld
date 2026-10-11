@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Bake the files view icons from vendored SVG files.
 
 Usage: uv run --locked --extra assets python -m tools.assets.fileicons [--fetch] [--size N]
@@ -32,9 +31,9 @@ from PIL import Image
 
 from tools import ROOT
 
-SRC = os.path.join(ROOT, 'assets', 'fileicons', 'svg')
-MANIFEST = os.path.join(ROOT, 'assets', 'fileicons', 'manifest.toml')
-OUT = os.path.join(ROOT, 'mod', 'Textures', 'SlopWorld', 'FileIcons')
+SRC = ROOT / 'assets' / 'fileicons' / 'svg'
+MANIFEST = ROOT / 'assets' / 'fileicons' / 'manifest.toml'
+OUT = ROOT / 'mod' / 'Textures' / 'SlopWorld' / 'FileIcons'
 
 UPSTREAM = 'https://raw.githubusercontent.com/material-extensions/vscode-material-icon-theme/main/icons/{}.svg'
 
@@ -44,23 +43,23 @@ SUPER = 4
 
 
 def names() -> list[str]:
-    with open(MANIFEST, 'rb') as f:
+    with MANIFEST.open('rb') as f:
         return list(tomllib.load(f).keys())
 
 
 def fetch(icons: list[str]) -> bool:
-    os.makedirs(SRC, exist_ok=True)
+    SRC.mkdir(parents=True, exist_ok=True)
     failed = False
     for name in icons:
         url = UPSTREAM.format(name)
         try:
             with urllib.request.urlopen(url, timeout=30) as r:
                 body = r.read()
-        except Exception as e:
+        except (OSError, ValueError) as e:
             print(f'  {name}: {e}', file=sys.stderr)
             failed = True
             continue
-        with open(os.path.join(SRC, f'{name}.svg'), 'wb') as f:
+        with (SRC / f'{name}.svg').open('wb') as f:
             f.write(body)
         print(f'  {name}')
     return not failed
@@ -82,12 +81,12 @@ def render(path: str, edge: int) -> Image.Image:
 
 
 def bake(name: str, size: int) -> bool:
-    src = os.path.join(SRC, f'{name}.svg')
-    if not os.path.exists(src):
+    src = SRC / f'{name}.svg'
+    if not src.exists():
         print(f'  {name}: no SVG. Run with --fetch.', file=sys.stderr)
         return False
 
-    big = render(src, size * SUPER)
+    big = render(str(src), size * SUPER)
 
     # Premultiply alpha before filtering.
     # Direct RGBA averaging can add black edges from transparent pixels.
@@ -101,7 +100,7 @@ def bake(name: str, size: int) -> bool:
     out = np.concatenate([rgb, alpha], axis=-1)
 
     img = Image.fromarray(np.clip(out * 255.0 + 0.5, 0, 255).astype(np.uint8), 'RGBA')
-    img.save(os.path.join(OUT, f'{name}.png'), optimize=True)
+    img.save(OUT / f'{name}.png', optimize=True)
     return True
 
 
@@ -120,7 +119,7 @@ def main() -> int:
         if not fetch(icons):
             return 1
 
-    os.makedirs(OUT, exist_ok=True)
+    OUT.mkdir(parents=True, exist_ok=True)
     done = sum(bake(n, args.size) for n in icons)
     print(f'{done}/{len(icons)} icons at {args.size}px -> {os.path.relpath(OUT, ROOT)}')
     return 0 if done == len(icons) else 1

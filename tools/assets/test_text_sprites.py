@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Check text asset metadata and loading-tip glyph coverage without image assets."""
 
 import pathlib

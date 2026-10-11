@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Stage the canonical project and third-party notices into the mod distribution."""
 
 import argparse

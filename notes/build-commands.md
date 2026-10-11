@@ -134,8 +134,9 @@ and package imports rather than adding script directories to `sys.path`.
 the ignored `.venv/` without installing the repository package. Asset generators
 opt into the `assets` extra. The uv `dev` group owns Ruff, strict mypy, pytest,
 pytest-cov, and the dependencies needed to type-check asset generators.
-`just lint-tools` formats sources and sorts imports before checking core correctness
-rules and running strict mypy across `tools/`, including its tests. Optional rendering
+`just lint-tools` formats sources and sorts imports before checking Ruff's default
+rules plus the rule groups in `pyproject.toml` and running strict mypy across `tools/`,
+including its tests. Optional rendering
 backends without stubs have scoped missing-import overrides; package code remains strict.
 `just test-tools` validates shared inputs and runs the supporting script tests once.
 `just coverage-tools` explicitly collects Python branch coverage; normal tests and CI

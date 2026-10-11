@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Validate the shipped per-theme TOML files without Unity or the game."""
 
 from __future__ import annotations
@@ -6,9 +5,12 @@ from __future__ import annotations
 import re
 import sys
 import tomllib
-from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import Any
 from typing import Never
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from tools import ROOT
 

@@ -43,9 +43,11 @@ def test_local_source_snapshot_excludes_build_output_and_keeps_sources(tmp_path:
         [
             'bash',
             '-euc',
-            'startdir="$1/packaging/arch"; srcdir="$startdir/src"; pkgdir="$startdir/pkg"; '
-            'RIMWORLD="$2"; source "$startdir/PKGBUILD.local"; '
-            'python() { printf "1.0.0\\n"; }; cargo() { :; }; uv() { :; }; prepare',
+            (
+                'startdir="$1/packaging/arch"; srcdir="$startdir/src"; pkgdir="$startdir/pkg"; '
+                'RIMWORLD="$2"; source "$startdir/PKGBUILD.local"; '
+                'python() { printf "1.0.0\\n"; }; cargo() { :; }; uv() { :; }; prepare'
+            ),
             'snapshot-test',
             str(root),
             str(game),
@@ -118,8 +120,10 @@ def test_repeated_builds_and_failed_validation_preserve_published_package(
             result = arch.package(output, 'revision', '1.0.0', 'x86_64', binary_dir, mod=mod)
             assert result.read_bytes() == b'package'
             assert list(output.iterdir()) == [result]
-    with patch.object(arch, 'build_archive', side_effect=ValueError('invalid archive')):
-        with pytest.raises(ValueError, match='invalid archive'):
-            arch.package(output, 'revision', '1.0.0', 'x86_64', binary_dir, mod=mod)
+    with (
+        patch.object(arch, 'build_archive', side_effect=ValueError('invalid archive')),
+        pytest.raises(ValueError, match='invalid archive'),
+    ):
+        arch.package(output, 'revision', '1.0.0', 'x86_64', binary_dir, mod=mod)
     assert result.read_bytes() == b'package'
     assert list(output.iterdir()) == [result]

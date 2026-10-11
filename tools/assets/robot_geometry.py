@@ -72,7 +72,7 @@ def rrect(x0: float, y0: float, x1: float, y1: float, r: float) -> FloatArray:
     dx = np.abs(X - (x0 + x1) / 2) - hx
     dy = np.abs(Y - (y0 + y1) / 2) - hy
     outside = np.sqrt(np.maximum(dx, 0) ** 2 + np.maximum(dy, 0) ** 2)
-    return cast(FloatArray, outside + np.minimum(np.maximum(dx, dy), 0) - r)
+    return cast('FloatArray', outside + np.minimum(np.maximum(dx, dy), 0) - r)
 
 
 def disc(cx: float, cy: float, r: float) -> FloatArray:

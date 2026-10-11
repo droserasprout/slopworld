@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Bake the loading screen's ASCII font into a texture atlas.
 
 The source font is used only by this build-time tool. The game draws the committed PNG
@@ -6,7 +5,7 @@ directly, so loading-screen text does not depend on an OS font installation.
 """
 
 import argparse
-import os
+from pathlib import Path
 
 from PIL import Image
 from PIL import ImageDraw
@@ -14,8 +13,8 @@ from PIL import ImageFont
 
 from tools import ROOT
 
-DEFAULT_FONT = os.path.join(ROOT, 'assets', 'fonts', 'clacon2.ttf')
-DEFAULT_TEXTURE = os.path.join(ROOT, 'mod', 'Textures', 'SlopWorld', 'LoadingFont.png')
+DEFAULT_FONT = ROOT / 'assets' / 'fonts' / 'clacon2.ttf'
+DEFAULT_TEXTURE = ROOT / 'mod' / 'Textures' / 'SlopWorld' / 'LoadingFont.png'
 
 FIRST = 32
 LAST = 126
@@ -60,7 +59,7 @@ def main() -> None:
         char = chr(codepoint)
         draw.text((origin[0], origin[1] + baseline), char, font=font, fill=(255, 255, 255, 255), anchor='ls')
 
-    os.makedirs(os.path.dirname(args.texture) or '.', exist_ok=True)
+    Path(args.texture).parent.mkdir(parents=True, exist_ok=True)
     atlas.save(args.texture, optimize=True)
     print(
         f'wrote ASCII {FIRST}-{LAST} PNG atlas ({atlas.width}x{atlas.height}, '

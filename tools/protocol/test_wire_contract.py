@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Tests for shared definition loading and generated bindings."""
 
 from __future__ import annotations
@@ -49,9 +48,8 @@ class GeneratedFileTests(unittest.TestCase):
         self.assertEqual(self.path.stat().st_mode & 0o777, 0o640)
 
     def test_failed_publication_keeps_original_and_cleans_temporary_file(self) -> None:
-        with patch('tools.generated_files.os.replace', side_effect=OSError('failure')):
-            with self.assertRaises(OSError):
-                write_if_changed(self.path, b'changed\n')
+        with patch.object(Path, 'replace', side_effect=OSError('failure')), self.assertRaises(OSError):
+            write_if_changed(self.path, b'changed\n')
         self.assertEqual(self.path.read_bytes(), b'original\n')
         self.assertEqual(list(self.directory.iterdir()), [self.path])
 
@@ -98,7 +96,7 @@ class WireContractTests(unittest.TestCase):
                 payload = re.search(
                     rf'message {message}\s*\{{\s*oneof payload\s*\{{(.*?)\}}',
                     schema,
-                    re.S,
+                    re.DOTALL,
                 )
                 assert payload is not None
                 names = re.findall(r'\w+\s+(\w+)\s*=\s*\d+;', payload[1])

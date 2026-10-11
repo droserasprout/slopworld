@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Bake the mod action icons from a Nerd Font Codicons set.
 
 Usage: uv run --locked --extra assets python -m tools.assets.icons [--size N] [--margin N] [--font PATH] [--report]
@@ -33,6 +32,7 @@ import argparse
 import os
 import sys
 import tomllib
+from pathlib import Path
 
 import numpy as np
 from numpy.typing import NDArray
@@ -42,10 +42,10 @@ from PIL import ImageFont
 
 from tools import ROOT
 
-MANIFEST = os.path.join(ROOT, 'assets', 'icons', 'manifest.toml')
-OUT = os.path.join(ROOT, 'mod', 'Textures', 'SlopWorld', 'Icons')
+MANIFEST = ROOT / 'assets' / 'icons' / 'manifest.toml'
+OUT = ROOT / 'mod' / 'Textures' / 'SlopWorld' / 'Icons'
 
-DEFAULT_FONT = os.path.join(ROOT, 'assets', 'fonts', 'nerd-symbols', 'SymbolsNerdFont-Regular.ttf')
+DEFAULT_FONT = ROOT / 'assets' / 'fonts' / 'nerd-symbols' / 'SymbolsNerdFont-Regular.ttf'
 
 # Render each glyph at this size before fitting and downsampling it.
 # This size lets the tool reduce every manifest glyph instead of enlarging it.
@@ -76,7 +76,7 @@ def main() -> int:
     if args.size <= 0 or args.margin < 0 or 2 * args.margin >= args.size:
         ap.error('--size must be positive and --margin must leave a positive drawing area')
 
-    with open(MANIFEST, 'rb') as f:
+    with MANIFEST.open('rb') as f:
         table = tomllib.load(f)
 
     path = args.font
@@ -87,7 +87,7 @@ def main() -> int:
         a = ink(font, int(entry['code'], 16))
         if a is None:
             print(
-                f'  {slot}: {entry["glyph"]} (U+{entry["code"].upper()}) is not in {os.path.basename(path)}',
+                f'  {slot}: {entry["glyph"]} (U+{entry["code"].upper()}) is not in {Path(path).name}',
                 file=sys.stderr,
             )
             continue
@@ -100,7 +100,7 @@ def main() -> int:
     box = args.size - 2 * args.margin
     span = max(max(a.shape) for a in drawn.values())
 
-    os.makedirs(OUT, exist_ok=True)
+    OUT.mkdir(parents=True, exist_ok=True)
     report = {}
     for slot, a in drawn.items():
         h, w = a.shape
@@ -119,12 +119,12 @@ def main() -> int:
         out[y : y + oh, x : x + ow, 3] = np.clip(small, 0.0, 1.0)
 
         Image.fromarray(np.clip(out * 255.0 + 0.5, 0, 255).astype(np.uint8), 'RGBA').save(
-            os.path.join(OUT, f'{slot}.png'), optimize=True
+            OUT / f'{slot}.png', optimize=True
         )
         report[slot] = (ow, oh, float(out[..., 3].sum() / (args.size**2)))
 
     if args.report:
-        print(f'{os.path.basename(path)}, {span}/{EM} em fitted to {box}/{args.size}px')
+        print(f'{Path(path).name}, {span}/{EM} em fitted to {box}/{args.size}px')
         for slot, (w, h, cover) in sorted(report.items(), key=lambda kv: -kv[1][2]):
             print(f'  {slot:<10} {w:>2}x{h:<2}  {cover * 100:5.1f}%  {table[slot]["glyph"]}')
 

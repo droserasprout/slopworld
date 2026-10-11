@@ -29,7 +29,7 @@ def daemon(output: Path) -> None:
     exclusions = ['--ignore-filename-regex', os.environ['RUST_COVERAGE_EXCLUDE']]
     output.mkdir(parents=True, exist_ok=True)
     environment = {**os.environ, 'LLVM_COV': llvm_cov, 'LLVM_PROFDATA': llvm_profdata}
-    cargo = command('CARGO', 'cargo') + ['llvm-cov']
+    cargo = [*command('CARGO', 'cargo'), 'llvm-cov']
 
     def cargo_run(*args: str, stdout: TextIO | None = None) -> None:
         run(cargo + list(args), cwd=ROOT / 'slopd', env=environment, stdout=stdout)
@@ -51,11 +51,11 @@ def daemon(output: Path) -> None:
 
 def mod(output: Path) -> None:
     dotnet = command('DOTNET', 'dotnet')
-    run(dotnet + ['tool', 'restore'], cwd=ROOT)
+    run([*dotnet, 'tool', 'restore'], cwd=ROOT)
     output.mkdir(parents=True, exist_ok=True)
     run(
-        dotnet
-        + [
+        [
+            *dotnet,
             'build',
             os.environ['TEST_PROJECT'],
             '--configuration',
@@ -68,8 +68,8 @@ def mod(output: Path) -> None:
     report = output / 'csharp.cobertura.xml'
     # Measure handwritten behavior, excluding tests and protoc serialization.
     run(
-        dotnet
-        + [
+        [
+            *dotnet,
             'tool',
             'run',
             'coverlet',
@@ -78,7 +78,7 @@ def mod(output: Path) -> None:
             '--target',
             dotnet[0],
             '--targetargs',
-            subprocess.list2cmdline(dotnet[1:] + [os.environ['TEST_DLL'], '--quiet']),
+            subprocess.list2cmdline([*dotnet[1:], os.environ['TEST_DLL'], '--quiet']),
             '--include-test-assembly',
             '--exclude-by-file',
             '**/mod/Tests/**/*.cs',

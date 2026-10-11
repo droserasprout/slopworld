@@ -31,7 +31,7 @@ def login(auth: Path, gogdl: list[str]) -> None:
         raise ValueError('authorization code is empty')
     # gogdl prints tokens on success and can return zero for a rejected code.
     # Capture both streams and never include its response in diagnostics.
-    result = run(gogdl + ['auth', '--code', code], capture_output=True, text=True, check=False)
+    result = run([*gogdl, 'auth', '--code', code], capture_output=True, text=True, check=False)
     if result.returncode:
         raise ValueError(f'gogdl authentication failed with exit status {result.returncode}')
     try:
@@ -54,7 +54,7 @@ def main() -> None:
     parser.add_argument('action', choices=('login', 'install', 'update'))
     args = parser.parse_args()
     auth = Path(os.environ['GOGDL_AUTH'])
-    gogdl = command('GOGDL', 'gogdl') + ['--auth-config-path', str(auth)]
+    gogdl = [*command('GOGDL', 'gogdl'), '--auth-config-path', str(auth)]
     if args.action == 'login':
         login(auth, gogdl)
         return
@@ -66,8 +66,8 @@ def main() -> None:
     if args.action == 'install':
         game.mkdir(parents=True, exist_ok=True)
     run(
-        gogdl
-        + [
+        [
+            *gogdl,
             'download' if args.action == 'install' else 'update',
             os.environ['GOGDL_ID'],
             '--path',

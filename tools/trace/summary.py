@@ -31,7 +31,7 @@ def main() -> None:
         print(f'\nFile: {path} ({len(records)} records; first and transition records excluded)')
         for key, rows in groups.items():
 
-            def total(lane: str, metric: str) -> float:
+            def total(lane: str, metric: str, rows: list[dict[str, dict[str, str]]] = rows) -> float:
                 return sum(float(row.get(lane, {}).get(metric, 0)) for row in rows)
 
             frames = total('root-update', 'calls')

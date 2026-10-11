@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Generate the Rust license inventory from Cargo's locked dependency graph."""
 
 import json

@@ -3,6 +3,7 @@
 import os
 import re
 import signal
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 from types import FrameType
@@ -50,12 +51,12 @@ def main() -> None:
     ).stdout.strip()
     current = Path.cwd()
     signal.signal(signal.SIGTERM, exit_on_signal)
-    try:
-        terminal_input = open('/dev/tty')
-        terminal_output = open('/dev/tty', 'w')
-    except OSError as error:
-        raise ValueError('devloop requires an interactive terminal') from error
-    with terminal_input, terminal_output:
+    with ExitStack() as terminal_streams:
+        try:
+            terminal_input = terminal_streams.enter_context(Path('/dev/tty').open())
+            terminal_output = terminal_streams.enter_context(Path('/dev/tty').open('w'))
+        except OSError as error:
+            raise ValueError('devloop requires an interactive terminal') from error
         while True:
             worktrees = parse_worktrees(
                 run(

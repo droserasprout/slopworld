@@ -15,5 +15,5 @@ def test_notices_choose_mit_and_include_mpl_dependencies(tmp_path: Path) -> None
     with pytest.raises(ValueError, match='Review license'):
         find_notice(tmp_path, 'Unknown')
     mpl.unlink()
-    with pytest.raises(ValueError, match='Missing full MPL-2.0'):
+    with pytest.raises(ValueError, match=r'Missing full MPL-2\.0'):
         find_notice(tmp_path, 'MPL-2.0')

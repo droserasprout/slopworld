@@ -63,7 +63,6 @@ def test_install_uses_canonical_notices_and_cleans_temporary_source(
 
 def test_staging_failure_does_not_invoke_installer(checkout: Path) -> None:
     (checkout / 'mod/Assemblies/Tomlyn.dll').unlink()
-    with patch.object(install_mod, 'run') as run:
-        with pytest.raises(ValueError, match='Tomlyn.dll'):
-            install_mod.install('/runner', '/game')
+    with patch.object(install_mod, 'run') as run, pytest.raises(ValueError, match=r'Tomlyn\.dll'):
+        install_mod.install('/runner', '/game')
     run.assert_not_called()

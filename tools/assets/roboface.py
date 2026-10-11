@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Draw faceplate textures for agent pawns.
 
 Usage: uv run --locked --extra assets python -m tools.assets.roboface [variant ...]
@@ -76,7 +75,7 @@ class Renderer:
         self.a = np.maximum(self.a, mask)
 
     def extract(self) -> tuple[geometry.FloatArray, geometry.FloatArray]:
-        """Box-filter down to N×N, returning straight-alpha RGBA."""
+        """Box-filter down to N x N, returning straight-alpha RGBA."""
         px = (
             np.dstack([self.rgb, self.a]).reshape(geometry.N, geometry.SS, geometry.N, geometry.SS, 4).mean(axis=(1, 3))
         )
@@ -168,7 +167,7 @@ def build_eyes(facing: str, glow_or_none: geometry.FloatArray | None) -> Rendere
 
 
 def composite(base_r: Layer, eye_r: Layer) -> tuple[geometry.FloatArray, geometry.FloatArray]:
-    """Composite eye layer over base at final (N×N) resolution."""
+    """Composite eye layer over base at final (N x N) resolution."""
     base_rgb, base_a = base_r.extract()
     eye_rgb, eye_a = eye_r.extract()
     a = eye_a + base_a * (1 - eye_a)
@@ -179,7 +178,7 @@ def composite(base_r: Layer, eye_r: Layer) -> tuple[geometry.FloatArray, geometr
 
 def save(rgb: geometry.FloatArray, a: geometry.FloatArray, name: str) -> None:
     img = np.clip(np.concatenate([rgb, a[..., None]], -1), 0, 1)
-    path = os.path.join(OUT, f'RobotFace_{name}.png')
+    path = OUT / f'RobotFace_{name}.png'
     Image.fromarray((img * 255).astype(np.uint8)).save(path)
     print('wrote', os.path.normpath(path))
 

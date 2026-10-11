@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Generate CLI and test adapters from the route payload inventory. IPC carries no JSON text."""
 
 import json
@@ -20,10 +19,12 @@ def validate_route_precedence(rows: Sequence[tuple[str, str, *tuple[str, ...]]])
             right = other_path.split('/')
             if method != other_method or len(left) != len(right):
                 continue
-            if any(a != b and not a.startswith(':') and not b.startswith(':') for a, b in zip(left, right)):
+            if any(
+                a != b and not a.startswith(':') and not b.startswith(':') for a, b in zip(left, right, strict=True)
+            ):
                 continue
-            left_specific = any(not a.startswith(':') and b.startswith(':') for a, b in zip(left, right))
-            right_specific = any(a.startswith(':') and not b.startswith(':') for a, b in zip(left, right))
+            left_specific = any(not a.startswith(':') and b.startswith(':') for a, b in zip(left, right, strict=True))
+            right_specific = any(a.startswith(':') and not b.startswith(':') for a, b in zip(left, right, strict=True))
             if left_specific == right_specific:
                 raise ValueError(f'ambiguous {method} routes: {path} and {other_path}')
 

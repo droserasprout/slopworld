@@ -109,10 +109,12 @@ def compile_package(root: Path, distribution: str, output: Path, revision: str, 
             f'slopworld-{distribution}-release',
             'bash',
             '-euc',
-            'cargo build --manifest-path slopd/Cargo.toml --release --locked; '
-            f'python3 -m pytest tools/release/test_{distribution}.py -q -p no:cacheprovider; '
-            f'python3 -m tools.release.native {distribution} --stage-only --binary-dir /build/target/release '
-            '--output /output --revision "$1" --version "$2"',
+            (
+                'cargo build --manifest-path slopd/Cargo.toml --release --locked; '
+                f'python3 -m pytest tools/release/test_{distribution}.py -q -p no:cacheprovider; '
+                f'python3 -m tools.release.native {distribution} --stage-only --binary-dir /build/target/release '
+                '--output /output --revision "$1" --version "$2"'
+            ),
             f'release-{distribution}',
             revision,
             version,

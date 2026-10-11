@@ -3,7 +3,6 @@
 import argparse
 import hashlib
 import json
-import os
 import re
 import shutil
 import tempfile
@@ -58,16 +57,17 @@ def fetch_harmony(destination: Path) -> None:
 
     destination.mkdir(parents=True, exist_ok=True)
     # Stage beside the destination to preserve an existing assembly on failure.
-    output = tempfile.NamedTemporaryFile(dir=destination, prefix='.0Harmony.dll.', delete=False)
-    staged = Path(output.name)
-    target = destination / '0Harmony.dll'
-    try:
-        with output:
+    with tempfile.NamedTemporaryFile(dir=destination, prefix='.0Harmony.dll.', delete=False) as output:
+        staged = Path(output.name)
+        target = destination / '0Harmony.dll'
+        try:
             output.write(assembly)
-        staged.chmod(0o644)
-        os.replace(staged, target)
-    finally:
-        staged.unlink(missing_ok=True)
+            # Flush and close the staged bytes before publication.
+            output.close()
+            staged.chmod(0o644)
+            staged.replace(target)
+        finally:
+            staged.unlink(missing_ok=True)
     log(f'Installed Harmony {version} at {target}')
 
 

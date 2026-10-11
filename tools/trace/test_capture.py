@@ -39,9 +39,9 @@ def test_restart_at_end_of_window_removes_incomplete_output(tmp_path: Path, chan
     with (
         patch.object(time, 'monotonic', side_effect=[0, 0.1, 2]),
         patch.object(time, 'sleep', side_effect=restart),
+        pytest.raises(RuntimeError, match='replaced or truncated'),
     ):
-        with pytest.raises(RuntimeError, match='replaced or truncated'):
-            capture.capture(log, output, 1, 'test')
+        capture.capture(log, output, 1, 'test')
     assert not output.exists()
 
 

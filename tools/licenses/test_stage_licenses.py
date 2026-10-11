@@ -17,9 +17,8 @@ class LicenseTests(unittest.TestCase):
             (root / 'LICENSE').write_text('project')
             (root / 'licenses/example').write_text('third party')
             with patch.object(stage_licenses, 'ROOT', root):
-                with patch('sys.argv', ['stage-licenses', '--check']):
-                    with self.assertRaises(SystemExit):
-                        stage_licenses.main()
+                with patch('sys.argv', ['stage-licenses', '--check']), self.assertRaises(SystemExit):
+                    stage_licenses.main()
                 self.assertFalse((root / 'mod/About/LICENSE').exists())
                 with patch('sys.argv', ['stage-licenses']):
                     stage_licenses.main()

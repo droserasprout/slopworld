@@ -18,7 +18,7 @@ def test_nul_records_preserve_spaces_newlines_and_detached_heads() -> None:
     assert devloop.select('2', worktrees, Path('/current')) == Path('/tmp/line\nbreak')
 
 
-@pytest.mark.parametrize('choice', ['0', '-1', '01', '3', '1;false', '100000', ' 1', '١'])
+@pytest.mark.parametrize('choice', ['0', '-1', '01', '3', '1;false', '100000', ' 1', '\u0661'])
 def test_invalid_choice_does_not_select_a_checkout(choice: str) -> None:
     with pytest.raises(ValueError, match='Choose a listed number'):
         devloop.select(choice, [devloop.Worktree(Path('/tmp/one'))], Path('/current'))

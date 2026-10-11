@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Draw the application icon with a robot faceplate and a wilted rose.
 
 The tool gets the rose from Noto Color Emoji.
@@ -18,6 +17,7 @@ The tool requires NumPy, Pillow, pycairo, Pango, and Fontconfig; Noto Color Emoj
 
 import os
 import sys
+from pathlib import Path
 from typing import cast
 
 import numpy as np
@@ -84,13 +84,13 @@ def draw_robot() -> geometry.FloatArray:
     px = np.dstack([f.rgb, f.a]).reshape(geometry.N, geometry.SS, geometry.N, geometry.SS, 4).mean(axis=(1, 3))
     rgb, a = px[..., :3], px[..., 3:]
     rgb = np.where(a > 1e-4, rgb / np.maximum(a, 1e-4), 0.0)
-    return cast(geometry.FloatArray, np.clip(np.concatenate([rgb, a], -1), 0, 1))
+    return cast('geometry.FloatArray', np.clip(np.concatenate([rgb, a], -1), 0, 1))
 
 
 # ── step 1: render rose as a separate PNG ─────────────────────────────────
 
 
-def render_rose_png(target_h: int, out_path: str) -> tuple[NDArray[np.uint8], int, int]:
+def render_rose_png(target_h: int, out_path: str | Path) -> tuple[NDArray[np.uint8], int, int]:
     """Render 🥀 via PangoCairo, save as a standalone RGBA PNG at target_h high."""
     from tools.assets.emoji import render
 
@@ -106,10 +106,10 @@ def render_rose_png(target_h: int, out_path: str) -> tuple[NDArray[np.uint8], in
     # Scale to target_h
     rh, rw = rose.shape[:2]
     scale = target_h / rh
-    new_w = max(1, int(round(rw * scale)))
+    new_w = max(1, round(rw * scale))
     rose_pil = Image.fromarray((rose * 255).astype(np.uint8))
     rose_scaled = np.array(rose_pil.resize((new_w, target_h), Image.Resampling.LANCZOS), dtype=np.uint8)
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(rose_scaled).save(out_path)
     print('wrote', os.path.normpath(out_path))
     return rose_scaled, new_w, target_h
@@ -118,7 +118,7 @@ def render_rose_png(target_h: int, out_path: str) -> tuple[NDArray[np.uint8], in
 # ── step 2: composite ─────────────────────────────────────────────────────
 
 
-def make_icon(rose_path: str) -> NDArray[np.float32]:
+def make_icon(rose_path: str | Path) -> NDArray[np.float32]:
     # Load the rose PNG first: it is the layer *below* the robot face.
     rose_pil = Image.open(rose_path)
     rose = np.array(rose_pil, dtype=np.float32) / 255.0
@@ -130,7 +130,7 @@ def make_icon(rose_path: str) -> NDArray[np.float32]:
     # head.
     stem_tip_y = 56  # hairline + 2, rose scaled down so needs lowering
     rose_top = stem_tip_y - rh + 1  # stem_tip_y = rose_top + rh - 1
-    rose_left = int(round(geometry.CX - rw / 2))  # centred on the faceplate
+    rose_left = round(geometry.CX - rw / 2)  # centred on the faceplate
 
     # Composite: rose behind, robot on top.
     icon = np.zeros((geometry.N, geometry.N, 4), dtype=np.float32)
@@ -161,16 +161,16 @@ def make_icon(rose_path: str) -> NDArray[np.float32]:
 
 def main() -> int:
     tex_dir = ROOT / 'mod/Textures/SlopWorld'
-    os.makedirs(tex_dir, exist_ok=True)
+    tex_dir.mkdir(parents=True, exist_ok=True)
 
     # Step 1: render the rose as its own PNG
-    rose_path = os.path.join(tex_dir, 'SlopWorld_rose.png')
+    rose_path = tex_dir / 'SlopWorld_rose.png'
     render_rose_png(target_h=32, out_path=rose_path)
 
     # Step 2: composite
     icon = make_icon(rose_path)
     img = np.clip(icon * 255, 0, 255).astype(np.uint8)
-    out_path = os.path.join(tex_dir, 'SlopWorld_icon.png')
+    out_path = tex_dir / 'SlopWorld_icon.png'
     # The face geometry uses pawn proportions with generous surrounding space.
     # Desktop launchers display the entire PNG, so fit the composite's ink bounds
     # halfway toward filling the canvas, retaining its aspect ratio. Limiting

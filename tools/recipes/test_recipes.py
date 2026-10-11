@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Exercise recipe configuration and recursive overrides without building or launching."""
 
 import json
@@ -52,7 +51,7 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
 
     def run_recipe(self, *args: str, cwd: Path = ROOT, success: bool = True) -> subprocess.CompletedProcess[str]:
         assert JUST is not None
-        result = subprocess.run([JUST, *args], cwd=cwd, env=self.env, capture_output=True, text=True)
+        result = subprocess.run([JUST, *args], cwd=cwd, env=self.env, capture_output=True, text=True, check=False)
         if success:
             self.assertEqual(result.returncode, 0, result.stderr)
         else:

@@ -110,7 +110,7 @@ def test_build_stops_at_failed_stage(monkeypatch: pytest.MonkeyPatch, failed_sta
 def test_sources_changed_by_stage_stop_release(monkeypatch: pytest.MonkeyPatch, stage: int) -> None:
     monkeypatch.setenv('JUST_CMD', 'just')
     with (
-        patch.object(gates, 'validate', side_effect=[None] * (stage + 1) + [ValueError('dirty')]),
+        patch.object(gates, 'validate', side_effect=[*[None] * (stage + 1), ValueError('dirty')]),
         patch.object(gates, 'run') as invoke,
     ):
         with pytest.raises(ValueError, match='dirty'):

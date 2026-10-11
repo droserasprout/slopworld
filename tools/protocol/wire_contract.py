@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Generate Rust and C# bindings from the shared wire protocol.
 
 Rust code owns daemon defaults and usage policy.
@@ -9,9 +8,12 @@ Generated client bindings do not include the policy. This prevents older mods fr
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
-from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import Any
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from pathlib import Path
 
 from tools import ROOT
 from tools.generated_files import write_if_changed
@@ -322,7 +324,7 @@ def csharp(data: dict[str, Any]) -> str:
         for value in values:
             lines.append(f'            public const string {pascal(value)} = {cs_string(value)};')
         lines += ['        }', '']
-    return '\n'.join(lines + cs_constants(data['constants']) + ['    }', '}', ''])
+    return '\n'.join([*lines, *cs_constants(data['constants']), '    }', '}', ''])
 
 
 def cs_constants(constants: dict[str, str | bool | int]) -> list[str]:

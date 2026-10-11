@@ -50,5 +50,5 @@ def test_source_mod_includes_themes_and_canonical_notices_and_excludes_stray_ass
 
 def test_missing_required_assembly_fails_staging(inputs: Path, tmp_path: Path) -> None:
     (inputs / 'mod/Assemblies/Tomlyn.dll').unlink()
-    with pytest.raises(ValueError, match='Tomlyn.dll'):
+    with pytest.raises(ValueError, match=r'Tomlyn\.dll'):
         source_mod.stage(tmp_path / 'package/mod')

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Print the headline rates from a Cobertura coverage report."""
 
 import sys

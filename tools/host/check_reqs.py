@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Print required and optional host dependencies; fail only for missing requirements."""
 
 import importlib.util

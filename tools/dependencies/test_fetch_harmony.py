@@ -3,7 +3,6 @@
 import hashlib
 import io
 import json
-import os
 import tempfile
 import unittest
 import urllib.error
@@ -96,9 +95,11 @@ class FetchHarmonyTests(unittest.TestCase):
         self.assert_untouched()
 
     def test_failed_publish_cleans_staging_file_and_next_attempt_recovers(self) -> None:
-        with patch.object(os, 'replace', side_effect=OSError('cannot publish')):
-            with self.assertRaisesRegex(OSError, 'cannot publish'):
-                self.fetch(archive_bytes())
+        with (
+            patch.object(Path, 'replace', side_effect=OSError('cannot publish')),
+            self.assertRaisesRegex(OSError, 'cannot publish'),
+        ):
+            self.fetch(archive_bytes())
         self.assert_untouched()
         self.fetch(archive_bytes())
         self.assertEqual(self.target.read_bytes(), b'new assembly')
