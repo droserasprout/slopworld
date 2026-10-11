@@ -24,7 +24,8 @@ from tools.version.metadata import TAG_GLOB
 )
 def test_image_tags_and_embedded_version_agree(tmp_path: Path, ref: str, expected: str | None) -> None:
     workflow = yaml.safe_load((ROOT / '.github/workflows/image.yml').read_text())
-    steps = workflow['jobs']['publish']['steps']
+    prepare = workflow['jobs']['prepare']
+    steps = prepare['steps']
     script = next(step['run'] for step in steps if step.get('id') == 'image')
     output = tmp_path / 'output'
     environment = os.environ | {
@@ -42,12 +43,23 @@ def test_image_tags_and_embedded_version_agree(tmp_path: Path, ref: str, expecte
     assert result.returncode == 0
     metadata = output.read_text()
     assert f'version={expected}\n' in metadata
-    assert f'ghcr.io/testowner/slopcar:{expected}\n' in metadata
-    assert f'ghcr.io/testowner/slopcar:sha-{"a" * 40}\n' in metadata
-    assert ':latest' not in metadata
-    build = next(step['with'] for step in steps if step.get('name') == 'Build and publish sidecar')
-    assert 'SLOPWORLD_BUILD_VERSION=${{ steps.image.outputs.version }}' in build['build-args']
-    assert 'org.opencontainers.image.version=${{ steps.image.outputs.version }}' in build['labels']
+    assert 'image=ghcr.io/testowner/slopcar\n' in metadata
+    assert prepare['outputs'] == {
+        'image': '${{ steps.image.outputs.image }}',
+        'version': '${{ steps.image.outputs.version }}',
+    }
+    publish = workflow['jobs']['publish']
+    assert publish['needs'] == 'prepare'
+    assert publish['uses'] == 'docker/github-builder/.github/workflows/build.yml@v1'
+    build = publish['with']
+    assert build['meta-images'] == '${{ needs.prepare.outputs.image }}'
+    assert build['meta-tags'].splitlines() == [
+        'type=raw,value=sha-${{ github.sha }}',
+        'type=raw,value=${{ needs.prepare.outputs.version }}',
+    ]
+    assert build['meta-flavor'] == 'latest=false'
+    assert 'SLOPWORLD_BUILD_VERSION=${{ needs.prepare.outputs.version }}' in build['build-args']
+    assert 'org.opencontainers.image.version=${{ needs.prepare.outputs.version }}' in build['labels']
 
 
 def test_sidecar_builds_only_trigger_on_release_tag_pushes() -> None:
