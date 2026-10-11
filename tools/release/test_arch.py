@@ -10,6 +10,52 @@ from tools.release import staging
 from tools.utils import run as execute
 
 
+def test_local_source_snapshot_excludes_build_output_and_keeps_sources(tmp_path: Path) -> None:
+    root = tmp_path / 'checkout'
+    start = root / 'packaging/arch'
+    staging.copy_file(Path(__file__).parents[2] / 'packaging/arch/PKGBUILD.local', start / 'PKGBUILD.local')
+    excluded = (
+        'slopd/target',
+        'slopcar/target',
+        'mod/Source/SlopWorld/bin',
+        'mod/Source/SlopWorld/obj',
+        'mod/Dependencies/bin',
+        'mod/Dependencies/obj',
+        'mod/Tests/bin',
+        'mod/Tests/obj',
+        'bench/ipc/rust/target',
+        'bench/ipc/csharp/bin',
+        'bench/ipc/csharp/obj',
+        'bench/terminal-input/tests/http_transport/bin',
+        'bench/terminal-input/tests/http_transport/obj',
+        'coverage',
+    )
+    kept = ('slopd/src/bin/slopctl.rs', 'slopcar/src/main.rs', 'mod/Tests/Program.cs', 'bench/ipc/rust/src/main.rs')
+    for name in (*[f'{directory}/cached-output' for directory in excluded], *kept):
+        target = root / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text('fixture')
+    game = tmp_path / 'game'
+    managed = game / 'RimWorldLinux_Data/Managed'
+    managed.mkdir(parents=True)
+    (managed / 'Assembly-CSharp.dll').touch()
+    execute(
+        [
+            'bash',
+            '-euc',
+            'startdir="$1/packaging/arch"; srcdir="$startdir/src"; pkgdir="$startdir/pkg"; '
+            'RIMWORLD="$2"; source "$startdir/PKGBUILD.local"; '
+            'python() { printf "1.0.0\\n"; }; cargo() { :; }; uv() { :; }; prepare',
+            'snapshot-test',
+            str(root),
+            str(game),
+        ]
+    )
+    snapshot = start / 'src/slopworld'
+    assert all(not (snapshot / directory).exists() for directory in excluded)
+    assert all((snapshot / name).read_text() == 'fixture' for name in kept)
+
+
 def test_real_arch_package_metadata_and_safe_payload(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     if not all(shutil.which(tool) for tool in ('makepkg', 'pacman', 'fakeroot', 'bwrap')):
         pytest.skip('Arch packaging tools are required')

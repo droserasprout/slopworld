@@ -48,6 +48,12 @@ def package(output: Path, revision: str, version: str, *, notes: str, native_pac
         mod = workspace / 'SlopWorld'
         staging.stage_mod(mod, revision, version)
 
+        # Archives must be usable by other users after extraction, regardless of
+        # the build umask or source modes. Native packagers normalize their payloads.
+        for directory in (daemon, mod):
+            for path in (directory, *directory.rglob('*')):
+                path.chmod(0o755 if path.is_dir() or path.parent == daemon / 'bin' else 0o644)
+
         with tarfile.open(workspace / asset_names[0], 'w:gz') as archive:
             archive.add(daemon, arcname=daemon.name)
         with zipfile.ZipFile(workspace / asset_names[1], 'w', zipfile.ZIP_DEFLATED) as archive:

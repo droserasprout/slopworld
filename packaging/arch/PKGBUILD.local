@@ -59,11 +59,20 @@ prepare() {
     --exclude=./priv
     --exclude=./target
     --exclude=./dist
+    --exclude=./coverage
     --exclude=./slopd/target
+    --exclude=./slopcar/target
     --exclude=./mod/Source/SlopWorld/obj
     --exclude=./mod/Source/SlopWorld/bin
     --exclude=./mod/Dependencies/obj
     --exclude=./mod/Dependencies/bin
+    --exclude=./mod/Tests/obj
+    --exclude=./mod/Tests/bin
+    --exclude=./bench/ipc/rust/target
+    --exclude=./bench/ipc/csharp/obj
+    --exclude=./bench/ipc/csharp/bin
+    --exclude=./bench/terminal-input/tests/http_transport/obj
+    --exclude=./bench/terminal-input/tests/http_transport/bin
     --exclude=./mod/Assemblies/SlopWorld.dll
     '--exclude=./packaging/arch/*.pkg.tar.*'
   )

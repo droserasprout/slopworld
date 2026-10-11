@@ -1,6 +1,7 @@
 """Protect release archive contents and failure ordering without game or GitHub access."""
 
 import hashlib
+import os
 import platform
 import subprocess
 import tarfile
@@ -91,6 +92,22 @@ def test_archives_include_runtime_licenses_metadata_and_exclude_game_and_local_f
     for line in assets[2].read_text().splitlines():
         digest, name = line.split('  ')
         assert digest == hashlib.sha256((output / name).read_bytes()).hexdigest()
+
+
+def test_archive_permissions_are_independent_of_umask_and_source_modes(inputs: Path, tmp_path: Path) -> None:
+    for path in inputs.rglob('*'):
+        path.chmod(0o700 if path.is_dir() else 0o600)
+    previous = os.umask(0o077)
+    try:
+        assets = publish.package(tmp_path / 'output', 'revision', '1.0.0', notes='Release notes\n')
+    finally:
+        os.umask(previous)
+    with tarfile.open(assets[0]) as archive:
+        for member in archive.getmembers():
+            binary = Path(member.name).parent.name == 'bin'
+            assert member.mode == (0o755 if member.isdir() or binary else 0o644)
+    with zipfile.ZipFile(assets[1]) as archive:
+        assert all((entry.external_attr >> 16) & 0o777 == 0o644 for entry in archive.infolist())
 
 
 def test_missing_runtime_input_preserves_previous_archives(inputs: Path, tmp_path: Path) -> None:

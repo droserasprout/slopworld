@@ -77,7 +77,8 @@ manual runs have isolated concurrency groups. NuGet caching includes the locked
 runtime/test dependency graphs and the coverage tool manifest.
 
 `packaging/arch/` owns Arch package staging and user setup hooks. The local package
-builds a snapshot without private files or build caches; preparation records the
+builds a snapshot without private files, daemon/sidecar and benchmark targets,
+C# build output, or coverage output; preparation records the
 binary version for package metadata, build and check. Both source PKGBUILDs build
 the daemon and mod before optional checks. `tools/release/source_mod.py` stages
 their mods and local source installs using the release asset-directory and runtime
@@ -112,6 +113,8 @@ and linked-worktree metadata.
 `tools/release/fedora.py` owns payload staging and publication. RPM discovers ELF
 dependencies but excludes private Unity assemblies from requires/provides.
 Snapshot hyphens become dots in RPM metadata; mod metadata keeps the build version.
+Release archives normalize directories and executables to `0755` and data to
+`0644`, independent of source permissions and the build umask.
 The aggregate release computes checksums only after all five artifacts succeed.
 Debian shared-library dependencies come from the build host's `dpkg-shlibdeps`,
 so packages must be built on the target distribution rather than from Arch binaries.
