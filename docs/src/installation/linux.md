@@ -1,6 +1,6 @@
 # Linux
 
-Install SlopWorld on native Linux using an Arch or Debian/Ubuntu package.
+Install SlopWorld on native Linux using an Arch, Debian/Ubuntu, or Fedora package.
 For other setups, see [macOS](../installation/macos.md) or [Sidecar mode](../installation/sidecar.md).
 
 ## Requirements
@@ -41,9 +41,21 @@ The release package is built on Debian 13 (trixie). Your distribution must provi
 its required library versions. If your release cannot satisfy those dependencies,
 see [Build from source](../development/build.md#debian-packages) to build a package for your system.
 
+### Fedora
+
+Download `slopworld-{{#constant release_version}}-x86_64.rpm` from the release
+and install it:
+
+```sh
+sudo dnf install ./slopworld-{{#constant release_version}}-x86_64.rpm
+```
+
+The RPM requires Fedora 43 library versions. To build for another Fedora release, see
+[Fedora packages](../development/releases.md#fedora-packages).
+
 ## Attach the mod and launch
 
-For either package, run these commands as your normal user. Replace the game path
+Run these commands as your normal user. Replace the game path
 with your native Linux RimWorld installation:
 
 ```sh

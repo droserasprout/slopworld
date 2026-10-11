@@ -54,7 +54,7 @@ and [sidecar worker](docs/src/installation/sidecar.md) guides.
 
 ### From binaries
 
-Binary packages for Arch and deb-based distros are published to [GitHub Releases](https://github.com/droserasprout/slopworld/releases).
+Get Arch, Debian/Ubuntu, and Fedora packages from [GitHub Releases](https://github.com/droserasprout/slopworld/releases).
 
 See the [installation instructions](docs/src/installation/linux.md)
 for installing a package, attaching the mod, and starting the daemon.

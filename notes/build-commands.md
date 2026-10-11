@@ -95,18 +95,24 @@ defaults to micro; optional package metadata does not imply an editor fallback.
 `tools/release/staging.py` owns the shared mod asset/runtime DLL allowlists and
 tracked-release staging used by the package builders. `tools/release/source_mod.py`
 selects whole asset directories for source snapshots without Git metadata.
-Versioned releases include both native package formats. `tools/release/arch.py`
+Versioned releases include Arch, Debian, and Fedora native package formats. `tools/release/arch.py`
 uses the existing Arch PKGBUILD metadata with a staged release payload and lets
 makepkg own package metadata/mtree generation.
 Arch archive validation uses an empty staging pacman database, so file queries do
 not depend on the host's installed package database.
-`tools/release/container_debian.py` rebuilds Rust in the pinned Debian toolchain
-from `packaging/debian/Dockerfile`;
-Debian packaging and its real archive tests run there before publication.
-The container trusts only the mounted checkout via Git's process environment;
-this allows Git reads when Docker preserves a different host owner.
-Release asset names and package metadata carry the resolved version.
-The aggregate release computes checksums only after all four artifacts succeed.
+`tools/release/container.py` owns x86_64 container builds, cache mounts, checkout
+access, and atomic artifact handoff. The Debian and Fedora adapters own version
+conversion and filenames; their `packaging/` Dockerfiles pin the toolchains.
+Containers test real archives before packaging and write to fresh temporary output,
+so stale or empty packages cannot replace an existing artifact. Git trusts only
+the mounted checkout; SELinux labeling is disabled to avoid relabeling repositories
+and linked-worktree metadata.
+
+`packaging/fedora/` owns RPM metadata and installed setup instructions;
+`tools/release/fedora.py` owns payload staging and publication. RPM discovers ELF
+dependencies but excludes private Unity assemblies from requires/provides.
+Snapshot hyphens become dots in RPM metadata; mod metadata keeps the build version.
+The aggregate release computes checksums only after all five artifacts succeed.
 Debian shared-library dependencies come from the build host's `dpkg-shlibdeps`,
 so packages must be built on the target distribution rather than from Arch binaries.
 System packages stage the mod under `/usr/share/slopworld` and leave game attachment
@@ -162,7 +168,7 @@ before invoking the launcher's atomic installer. Source installation and release
 packaging copy canonical notices directly into their staging directories, ignoring
 local refreshed copies. License tests use temporary directories. The launcher
 copies its supplied mod tree's `About/` recursively.
-Release archives, Arch packages, and sidecar images also include readable copies
+Release archives, native packages, and sidecar images also include readable copies
 from the canonical sources. Update only the canonical files.
 `just refresh-daemon-licenses` refreshes the Rust inventory from the locked Cargo graph,
 including build/dev dependencies and all target platforms. Cargo manifests own

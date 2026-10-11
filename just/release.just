@@ -34,3 +34,18 @@ release-debian-image:
 [group('Tests and coverage')]
 test-release-debian:
     {{ CONTAINER }} run {{ CONTAINER_RUN_ARGS }} --rm --volume "{{ justfile_directory() }}:{{ justfile_directory() }}:ro" --workdir "{{ justfile_directory() }}" slopworld-debian-release python3 -m pytest tools/release/test_debian.py -q -p no:cacheprovider
+
+# Build a Fedora RPM (requires rpm-build and game assemblies)
+[group('Release')]
+pkg-fedora:
+    JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m tools.release.fedora
+
+# Build the Fedora release image
+[group('Release')]
+release-fedora-image:
+    {{ CONTAINER }} build {{ CONTAINER_BUILD_ARGS }} -t slopworld-fedora-release -f packaging/fedora/Dockerfile packaging/fedora
+
+# Test RPM archives in the prepared Fedora image
+[group('Tests and coverage')]
+test-release-fedora:
+    {{ CONTAINER }} run {{ CONTAINER_RUN_ARGS }} --rm --security-opt label=disable --volume "{{ justfile_directory() }}:{{ justfile_directory() }}:ro" --workdir "{{ justfile_directory() }}" slopworld-fedora-release python3 -m pytest tools/release/test_fedora.py -q -p no:cacheprovider

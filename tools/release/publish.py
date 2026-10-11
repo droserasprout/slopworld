@@ -21,6 +21,7 @@ from tools import ROOT
 from tools.release import arch
 from tools.release import changelog
 from tools.release import container_debian
+from tools.release import container_fedora
 from tools.release import gates
 from tools.release import staging
 from tools.utils import command
@@ -57,6 +58,7 @@ def package(output: Path, revision: str, version: str, *, notes: str, native_pac
         if native_packages:
             names.append(arch.package(workspace, revision, version, mod).name)
             names.append(container_debian.package(workspace, revision, version).name)
+            names.append(container_fedora.package(workspace, revision, version).name)
         checksums = []
         for name in names:
             with (workspace / name).open('rb') as stream:

@@ -1,4 +1,4 @@
-"""Protect container checkout access without building images or running containers."""
+"""Check Debian container mounts and Git trust without containers."""
 
 import subprocess
 from pathlib import Path
@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+from tools.release import container
 from tools.release import container_debian
 
 
@@ -29,13 +30,16 @@ def test_container_trusts_only_mounted_checkout_and_mounts_external_git_metadata
         if arguments[0] == 'git':
             return subprocess.CompletedProcess(arguments, 0, str(common) + '\n')
         if arguments[:2] == ['docker', 'run']:
-            (output / 'slopworld_1.0.0-1_amd64.deb').write_bytes(b'fixture archive')
+            mounts = [arguments[index + 1] for index, value in enumerate(arguments) if value == '--volume']
+            workspace = Path(next(mount.removesuffix(':/output') for mount in mounts if mount.endswith(':/output')))
+            assert workspace != output
+            (workspace / 'slopworld_1.0.0-1_amd64.deb').write_bytes(b'fixture archive')
         return subprocess.CompletedProcess(arguments, 0, '')
 
-    monkeypatch.setattr(container_debian, 'run', run)
+    monkeypatch.setattr(container, 'run', run)
     archive = container_debian.package(output, 'revision', '1.0.0')
     invocation = calls[-1]
-    assert invocation[:2] == ['docker', 'run']
+    assert invocation[:4] == ['docker', 'run', '--platform', 'linux/amd64']
     environments = [invocation[index + 1] for index, value in enumerate(invocation) if value == '--env']
     assert 'GIT_CONFIG_COUNT=1' in environments
     assert 'GIT_CONFIG_KEY_0=safe.directory' in environments

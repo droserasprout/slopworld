@@ -41,16 +41,17 @@ Both recipes write these assets into `dist/{{#constant release_version}}/`:
 - `slopworld-{{#constant release_version}}-mod.zip`
 - `slopworld-{{#constant release_version}}-x86_64.pkg.tar.zst`
 - `slopworld-{{#constant release_version}}-amd64.deb`
+- `slopworld-{{#constant release_version}}-x86_64.rpm`
 - `SHA256SUMS` and `release-notes.md`
 
 Use `RELEASE_DIR` to change the output directory.
 
-The Debian compiler image uses Debian 13 (trixie) and rebuilds the Rust binaries against its libraries; the mod
-payload is shared with the Arch build. The container also runs the Debian package
-integration tests. `just release-debian-image` prepares that image separately;
-`just test-release-debian` runs its real archive tests without compilation.
-Container compiler caches live under `dist/debian-build/`; `CONTAINER_BUILD_ARGS`
-and `CONTAINER_RUN_ARGS` accept additional build/run options.
+Debian and Fedora containers rebuild Rust against Debian 13 (trixie) and Fedora 43
+libraries, then test and package the shared mod payload. Prepare images with
+`just release-debian-image` or `just release-fedora-image`; run archive tests
+without compiling with `just test-release-debian` or `just test-release-fedora`.
+Caches live in `dist/debian-build/` and `dist/fedora-build/`.
+`CONTAINER_BUILD_ARGS` and `CONTAINER_RUN_ARGS` accept extra container options.
 
 ### Package contents and versions
 
@@ -63,8 +64,8 @@ with the `v` prefix removed from package and image versions. Both release target
 commits and multiple distinct version tags. If `VERSION` is supplied, it must
 match the tag; it cannot bypass the tag requirement.
 
-Archive and native package filenames include the resolved version; package metadata carries the same version. `SHA256SUMS`
-covers both archives and both packages.
+Artifact filenames and package metadata carry the resolved version.
+`SHA256SUMS` covers both archives and all three packages.
 
 ### Publish
 
@@ -114,3 +115,28 @@ Game assemblies and untracked mod assets are excluded. Package installation and
 user setup are covered in [Install](../installation/linux.md#debian-and-ubuntu).
 `just test-release` covers Debian staging and failure handling without the game.
 
+## Fedora packages
+
+Build on the Fedora release where the package will run, with the
+[build prerequisites](build.md#prerequisites), `alsa-lib-devel`, `rpm-build`, and
+`redhat-rpm-config` installed. RimWorld's native Linux assemblies are required.
+
+```sh
+RIMWORLD=/path/to/RimWorld/game just pkg-fedora
+```
+
+The recipe builds Release binaries and the mod, then writes
+`slopworld-{{#constant release_version}}-1.<architecture>.rpm` to `dist/fedora/`.
+Use `just RPM_DIR=/path/to/output pkg-fedora` to choose another directory.
+It supports native `x86_64` and `aarch64` builds; verify game availability and runtime
+compatibility separately. `VERSION` overrides the build version. RPM metadata
+replaces snapshot hyphens with dots; the mod keeps the original version.
+Commit changes before packaging to record a reproducible source revision.
+
+The RPM includes all three binaries, user service, desktop entry, icon, mod,
+and license notices. RPM discovers native library dependencies and excludes the
+mod's private Unity assemblies from system dependencies and providers.
+Game assemblies and untracked mod assets are excluded.
+See [Install](../installation/linux.md#fedora) for mod attachment and service setup.
+`just test-release` tests staging and failures without the game;
+`just test-release-fedora` checks real archives with native ELF fixtures.

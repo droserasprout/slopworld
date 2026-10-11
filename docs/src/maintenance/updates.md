@@ -40,6 +40,9 @@ sudo apt remove slopworld
 
 ## Arch
 sudo pacman -R slopworld
+
+## Fedora
+sudo dnf remove slopworld
 ```
 
 Per-user configuration, sessions, and saves are preserved; see [Paths and files](../reference/paths.md).

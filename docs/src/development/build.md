@@ -131,7 +131,7 @@ terminal-input HTTP regression require Mono.
 - [Troubleshooting](../resources/troubleshooting.md) covers logs and diagnosis.
 - [Contributing](contributing.md) covers repository and documentation workflows.
 
-- [Packaging and releases](releases.md) covers archives, Debian packages, and publication.
+- [Packaging and releases](releases.md) covers native packages, archives, and publication.
 
 <a id="rolling-github-release"></a>
 <a id="requirements"></a>
@@ -140,6 +140,6 @@ terminal-input HTTP regression require Mono.
 <a id="publish"></a>
 <a id="debian-packages"></a>
 
-For release archives and publication, see
-[Packaging and releases](releases.md). For a Debian or Ubuntu build,
-use [Debian packages](releases.md#debian-packages).
+See [Packaging and releases](releases.md) for archives, publication, and local
+[Debian/Ubuntu](releases.md#debian-packages) or
+[Fedora](releases.md#fedora-packages) builds.

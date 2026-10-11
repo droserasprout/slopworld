@@ -3,7 +3,7 @@ Version: {version}
 Architecture: {architecture}
 Section: games
 Priority: optional
-Maintainer: Lev Gorodetskii <aur@drsr.io>
+Maintainer: Lev Gorodetskii <slopworld@drsr.io>
 Homepage: https://github.com/droserasprout/slopworld
 Depends: bash, bubblewrap, git, passt, ripgrep, systemd, tmux, {shared_libraries}
 Suggests: libglib2.0-bin, highlight, less, micro, procps, songrec, wl-clipboard, xclip, xsel

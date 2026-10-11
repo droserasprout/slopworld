@@ -239,21 +239,44 @@ def test_native_packages_are_included_in_checksums_and_outputs(inputs: Path, tmp
     with (
         patch('tools.release.arch.package', side_effect=native('slopworld-1.0.0-x86_64.pkg.tar.zst')),
         patch('tools.release.container_debian.package', side_effect=native('slopworld-1.0.0-amd64.deb')),
+        patch('tools.release.container_fedora.package', side_effect=native('slopworld-1.0.0-x86_64.rpm')),
     ):
         assets = publish.package(output, 'revision', '1.0.0', notes='Release notes\n', native_packages=True)
     names = [path.name for path in assets]
-    assert names[-3:] == ['slopworld-1.0.0-x86_64.pkg.tar.zst', 'slopworld-1.0.0-amd64.deb', 'SHA256SUMS']
-    assert len(assets[-1].read_text().splitlines()) == 4
+    assert names[-4:] == [
+        'slopworld-1.0.0-x86_64.pkg.tar.zst',
+        'slopworld-1.0.0-amd64.deb',
+        'slopworld-1.0.0-x86_64.rpm',
+        'SHA256SUMS',
+    ]
+    assert len(assets[-1].read_text().splitlines()) == 5
     for line in assets[-1].read_text().splitlines():
         digest, name = line.split('  ')
         assert digest == hashlib.sha256((output / name).read_bytes()).hexdigest()
 
 
-def test_native_package_failure_preserves_entire_previous_release(inputs: Path, tmp_path: Path) -> None:
+@pytest.mark.parametrize('failed_package', ['arch', 'container_debian', 'container_fedora'])
+def test_native_package_failure_preserves_entire_previous_release(
+    inputs: Path, tmp_path: Path, failed_package: str
+) -> None:
     output = tmp_path / 'release'
-    assets = publish.package(output, 'revision', '1.0.0', notes='Release notes\n')
-    previous = [path.read_bytes() for path in assets]
-    with patch('tools.release.arch.package', side_effect=ValueError('native build failed')):
-        with pytest.raises(ValueError, match='native build failed'):
-            publish.package(output, 'new revision', '1.0.1', notes='Release notes\n', native_packages=True)
-    assert [path.read_bytes() for path in assets] == previous
+
+    def native(name: str) -> Callable[..., Path]:
+        def build(directory: Path, *args: object) -> Path:
+            path = directory / name
+            path.write_bytes(b'native archive')
+            return path
+
+        return build
+
+    with (
+        patch('tools.release.arch.package', side_effect=native('arch.pkg.tar.zst')),
+        patch('tools.release.container_debian.package', side_effect=native('debian.deb')),
+        patch('tools.release.container_fedora.package', side_effect=native('fedora.rpm')),
+    ):
+        assets = publish.package(output, 'revision', '1.0.0', notes='Previous notes\n', native_packages=True)
+        previous = {path.name: path.read_bytes() for path in (*assets, output / 'release-notes.md')}
+        with patch(f'tools.release.{failed_package}.package', side_effect=ValueError('native build failed')):
+            with pytest.raises(ValueError, match='native build failed'):
+                publish.package(output, 'new revision', '1.0.0', notes='New notes\n', native_packages=True)
+    assert {path.name: path.read_bytes() for path in output.iterdir()} == previous

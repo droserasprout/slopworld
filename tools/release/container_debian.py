@@ -1,81 +1,20 @@
-"""Compile and package Debian releases in an isolated Debian toolchain container."""
+"""Adapt Debian versions and filenames to the shared release container."""
 
-import os
-import shlex
 from pathlib import Path
 
 from tools import ROOT
-from tools.utils import command
-from tools.utils import run
+from tools.release import container
+from tools.release.debian import debian_version
 
 
 def package(output: Path, revision: str, version: str) -> Path:
-    container = command('CONTAINER', 'podman')
-    run(
-        [
-            *container,
-            'build',
-            *shlex.split(os.environ.get('CONTAINER_BUILD_ARGS', '')),
-            '-t',
-            'slopworld-debian-release',
-            '-f',
-            str(ROOT / 'packaging/debian/Dockerfile'),
-            str(ROOT / 'packaging/debian'),
-        ]
+    generated_name = f'slopworld_{debian_version(version)}_amd64.deb'
+    return container.package(
+        ROOT,
+        'debian',
+        output,
+        revision,
+        version,
+        generated_name=generated_name,
+        archive_name=f'slopworld-{version}-amd64.deb',
     )
-    cache = ROOT / 'dist/debian-build'
-    mounts = []
-    for name, destination in (
-        ('target', '/build/target'),
-        ('registry', '/usr/local/cargo/registry'),
-        ('git', '/usr/local/cargo/git'),
-    ):
-        directory = cache / name
-        directory.mkdir(parents=True, exist_ok=True)
-        mounts.extend(['--volume', f'{directory}:{destination}'])
-    common = Path(run(['git', 'rev-parse', '--git-common-dir'], capture_output=True, text=True).stdout.strip())
-    if not common.is_absolute():
-        common = (ROOT / common).resolve()
-    if not common.is_relative_to(ROOT):
-        mounts.extend(['--volume', f'{common}:{common}:ro'])
-    run(
-        [
-            *container,
-            'run',
-            *shlex.split(os.environ.get('CONTAINER_RUN_ARGS', '')),
-            '--rm',
-            '--volume',
-            f'{ROOT}:{ROOT}:ro',
-            '--volume',
-            f'{output}:/output',
-            *mounts,
-            '--workdir',
-            str(ROOT),
-            '--env',
-            f'SLOPWORLD_BUILD_VERSION={version}',
-            '--env',
-            'CARGO_TARGET_DIR=/build/target',
-            # Docker preserves host checkout ownership while this image runs as
-            # root. Trust only the read-only checkout, including linked worktrees.
-            '--env',
-            'GIT_CONFIG_COUNT=1',
-            '--env',
-            'GIT_CONFIG_KEY_0=safe.directory',
-            '--env',
-            f'GIT_CONFIG_VALUE_0={ROOT}',
-            'slopworld-debian-release',
-            'bash',
-            '-euc',
-            'cargo build --manifest-path slopd/Cargo.toml --release --locked; '
-            'python3 -m pytest tools/release/test_debian.py -q -p no:cacheprovider; '
-            'python3 -m tools.release.debian --stage-only --binary-dir /build/target/release '
-            '--output /output --revision "$1" --version "$2"',
-            'release-debian',
-            revision,
-            version,
-        ]
-    )
-    generated = output / f'slopworld_{version}-1_amd64.deb'
-    archive_path = output / f'slopworld-{version}-amd64.deb'
-    generated.replace(archive_path)
-    return archive_path
