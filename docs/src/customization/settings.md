@@ -25,6 +25,11 @@ See [Usage polling](../agents/usage-and-summaries.md#usage-polling) and
 
 **Display**, immediately after General, contains fullscreen, frame pacing, and smooth scrolling.
 
+**General > Locale > Date format** offers `YYYY-MM-DD` (default), `DD/MM/YYYY`,
+and `MM/DD/YYYY`. It applies live to the clock tooltip, task timestamps, jukebox
+history, and game build date, and is saved with the profile. Time format offers
+24-hour and 12-hour display.
+
 On Linux, the launcher supplies `-popupwindow -screen-fullscreen 0 -force-opengl`.
 Use `slopworld --no-window-fix` to omit those default arguments. The mod's Linux
 window-manager hook still follows the saved fullscreen setting.

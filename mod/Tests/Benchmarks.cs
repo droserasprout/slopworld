@@ -183,7 +183,7 @@ namespace SlopWorld.Tests
                 return shortText.Length + tip.Length;
             }, () =>
             {
-                clock.Prepare(now, TimeFormat.TwentyFourHour, CultureInfo.InvariantCulture);
+                clock.Prepare(now, TimeFormat.TwentyFourHour, DateFormat.YearFirst, CultureInfo.InvariantCulture);
                 return clock.Short.Length + clock.Tooltip.Length;
             });
 

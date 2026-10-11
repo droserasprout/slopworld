@@ -10,6 +10,8 @@ omits runtime dirty state; failed timer writes retain pending changes for retry.
 [Settings apply behavior](ui-settings.md) owns application and save timing.
 The alternate temperature label is a profile preference stored separately from
 RimWorld's closed temperature enum.
+Date and time format preferences own displayed wall-clock timestamps; persisted
+machine timestamps keep their wire formats. The clock cache includes both preferences.
 
 Feature owners are [terminal recall](mod-terminal.md), [Eco](mod-eco.md),
 [shared chrome](mod-ui-chrome.md),

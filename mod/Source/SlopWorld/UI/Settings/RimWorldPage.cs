@@ -110,7 +110,7 @@ namespace SlopWorld
             y += step;
             UiText.RowLabel(new Rect(rect.x, y, rect.width, line),
                 "CompiledOn".Translate(
-                    (NamedArgument)VersionControl.CurrentBuildDate.ToString("MMM d yyyy", CultureInfo.CurrentCulture)));
+                    (NamedArgument)DateFormat.Short(VersionControl.CurrentBuildDate)));
             y += step;
 
             if (SteamManager.Initialized)

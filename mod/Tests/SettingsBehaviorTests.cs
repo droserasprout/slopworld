@@ -218,6 +218,27 @@ namespace SlopWorld.Tests
             }
         });
 
+        public static void DateFormatsUseGregorianDatesAndStableSeparators() => WithSettings(settings =>
+        {
+            // This culture's default calendar and separators must not alter explicit formats.
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ar-SA");
+            var date = new DateTime(2024, 2, 29);
+            foreach (var item in new[]
+            {
+                (DateFormat.YearFirst, "2024-02-29", "YYYY-MM-DD"),
+                (DateFormat.DayFirst, "29/02/2024", "DD/MM/YYYY"),
+                (DateFormat.MonthFirst, "02/29/2024", "MM/DD/YYYY"),
+                ("unknown", "2024-02-29", "YYYY-MM-DD"),
+                (null, "2024-02-29", "YYYY-MM-DD"),
+            })
+            {
+                settings.dateFormat = item.Item1;
+                AssertEx.Equal(item.Item2, DateFormat.Short(date), "date preference and fallback");
+                AssertEx.Equal(item.Item3, DateFormat.Label(item.Item1), "date menu label");
+                AssertEx.Equal(item.Item1, settings.dateFormat, "projection preserves stored value");
+            }
+        });
+
         public static void TimeFormatsHandleMidnightNoonAndSeconds() => WithSettings(settings =>
         {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");

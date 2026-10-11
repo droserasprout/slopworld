@@ -66,6 +66,17 @@ namespace SlopWorld
                 Find.WindowStack.Add(new UiMenu(choices));
             }
 
+            if (UiLayout.Button(l, "Date format: " + DateFormat.Label(s.dateFormat)))
+            {
+                var choices = new[] { DateFormat.YearFirst, DateFormat.DayFirst, DateFormat.MonthFirst }
+                    .Select(format => new FloatMenuOption(DateFormat.Label(format),
+                        () => SetDateFormat(format)))
+                    .ToList();
+                if (Settings.DateFormat == DateFormat.DayFirst)
+                    choices.Add(new FloatMenuOption("waves/maggots/oceansrot", () => { }));
+                Find.WindowStack.Add(new UiMenu(choices));
+            }
+
             if (UiLayout.Button(l, "Time format: " + TimeFormat.Label(s.timeFormat)))
             {
                 Find.WindowStack.Add(new UiMenu(new[]
@@ -108,6 +119,13 @@ namespace SlopWorld
 
         static string RuntimeLabel(SessionHub hub) =>
             hub.Capabilities.Runtime == "slopcar" ? "sidecar" : "host";
+
+        static void SetDateFormat(string format)
+        {
+            var settings = ModEntry.Instance.settings;
+            settings.dateFormat = format;
+            settings.MarkDirty();
+        }
 
         static void SetTimeFormat(string format)
         {

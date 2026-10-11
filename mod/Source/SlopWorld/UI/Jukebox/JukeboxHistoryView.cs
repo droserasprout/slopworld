@@ -323,7 +323,10 @@ namespace SlopWorld
             if (string.IsNullOrEmpty(at)) return "-";
             if (DateTime.TryParse(at, CultureInfo.InvariantCulture,
                     DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var utc))
-                return utc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+            {
+                var local = utc.ToLocalTime();
+                return DateFormat.Short(local) + " " + TimeFormat.Short(local);
+            }
             return at.Replace("T", " ").TrimEnd('Z');
         }
 

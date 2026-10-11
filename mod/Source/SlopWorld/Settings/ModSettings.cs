@@ -57,6 +57,24 @@ namespace SlopWorld
             time.ToString(Normalize(Settings.TimeFormat) == TwelveHour ? "h:mm:ss tt" : "HH:mm:ss", CultureInfo.CurrentCulture);
     }
 
+    public static class DateFormat
+    {
+        public const string YearFirst = "yyyy-MM-dd";
+        public const string DayFirst = "dd/MM/yyyy";
+        public const string MonthFirst = "MM/dd/yyyy";
+
+        public static string Normalize(string format) =>
+            format == DayFirst || format == MonthFirst ? format : YearFirst;
+
+        public static string Label(string format) => Normalize(format).ToUpperInvariant();
+
+        // Numeric date choices use Gregorian dates and literal separators regardless of locale.
+        public static string Short(DateTime date, string format) =>
+            date.ToString(Normalize(format), CultureInfo.InvariantCulture);
+
+        public static string Short(DateTime date) => Short(date, Settings.DateFormat);
+    }
+
     // The meme choice changes only the displayed label; temperatures still follow game preferences.
     public static class TemperatureUnit
     {
@@ -172,6 +190,7 @@ namespace SlopWorld
         public string statusbarSummaryPosition = StatusbarSummaryMode.Left;
         public string statusbarClockPosition = StatusbarClockMode.Right;
         public string timeFormat = TimeFormat.TwentyFourHour;
+        public string dateFormat = DateFormat.YearFirst;
         public bool statusbarJukebox = true;
         public bool statusbarGM = true;
         // Whether compact Agents rows show their startup and effective network flags.
@@ -284,6 +303,7 @@ namespace SlopWorld
             Field("statusbarSummaryPosition", (ModSettings s) => ref s.statusbarSummaryPosition, Text, String),
             Field("statusbarClockPosition", (ModSettings s) => ref s.statusbarClockPosition, Text, String),
             Field("timeFormat", (ModSettings s) => ref s.timeFormat, Text, String),
+            Field("dateFormat", (ModSettings s) => ref s.dateFormat, Text, String),
             Field("statusbarJukebox", (ModSettings s) => ref s.statusbarJukebox, Bool, String),
             Field("statusbarGM", (ModSettings s) => ref s.statusbarGM, Bool, String),
             Field("statusbarAgentIndicators", (ModSettings s) => ref s.statusbarAgentIndicators, Bool, String),
@@ -405,6 +425,7 @@ namespace SlopWorld
         public static string StatusbarClockPosition =>
             StatusbarClockMode.Normalize(S.statusbarClockPosition);
         public static string TimeFormat => SlopWorld.TimeFormat.Normalize(S.timeFormat);
+        public static string DateFormat => SlopWorld.DateFormat.Normalize(S.dateFormat);
         public static bool StatusbarClock => StatusbarClockPosition != StatusbarClockMode.Hidden;
         public static bool StatusbarJukebox => S.statusbarJukebox;
         public static bool StatusbarGM => S.statusbarGM;

@@ -32,6 +32,7 @@ namespace SlopWorld.Tests
             var settings = ModSettings.Load();
             AssertEx.Equal(true, settings.smoothScrolling, "smooth scrolling default");
             AssertEx.Equal(true, settings.autoConnect, "missing file default");
+            AssertEx.Equal(DateFormat.YearFirst, settings.dateFormat, "date format default");
             AssertEx.Equal(210f, settings.sidebarWidth, "width default");
             AssertEx.Equal(0.25f, settings.sidebarFilesOpenFraction,
                 "files pane fraction default");
@@ -47,7 +48,7 @@ namespace SlopWorld.Tests
             settings.Write();
             string path = Path.Combine(profile, "Config", "SlopWorld.toml");
             string saved = File.ReadAllText(path);
-            AssertEx.Equal(48, Toml.ParseFlat(saved).Count, "persisted key count excludes runtime state");
+            AssertEx.Equal(49, Toml.ParseFlat(saved).Count, "persisted key count excludes runtime state");
             AssertEx.True(saved.Contains("ecoDim = 0.375"), "invariant float");
             var loaded = ModSettings.Load();
             foreach (var field in typeof(ModSettings).GetFields(BindingFlags.Instance | BindingFlags.Public))

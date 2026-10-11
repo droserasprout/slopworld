@@ -55,7 +55,7 @@ namespace SlopWorld
 
         static void PrepareClock(DateTime now)
         {
-            if (Clock.Prepare(now, Settings.TimeFormat, CultureInfo.CurrentCulture))
+            if (Clock.Prepare(now, Settings.TimeFormat, Settings.DateFormat, CultureInfo.CurrentCulture))
                 PerfTrace.Count("topbar-clock-rebuilds");
         }
 
