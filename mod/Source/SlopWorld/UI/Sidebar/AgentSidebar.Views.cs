@@ -282,6 +282,13 @@ namespace SlopWorld
             CurrentDefinition.FilterChanged();
         }
 
+        public static void IncludeProject(string project)
+        {
+            Projects.IncludeProject(project);
+            SidebarScopes.Update();
+            CurrentDefinition.FilterChanged();
+        }
+
         static void Show(SidebarTab tab)
         {
             ViewHistory.VisitTab(tab);

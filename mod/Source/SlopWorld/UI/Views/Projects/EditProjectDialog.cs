@@ -230,10 +230,16 @@ namespace SlopWorld
             }
 
             _p.EnsurePrimaryMount();
+            // The form remains editable while the request is in flight.
+            string submittedName = _p.Name;
             _saving = true;
             SessionHub.Instance.Catalog.SaveProject(_p, _identity.IsNew,
                 _identity.OriginalName,
-                ok: () => Close(),
+                ok: () =>
+                {
+                    if (_identity.IsNew) AgentSidebar.IncludeProject(submittedName);
+                    Close();
+                },
                 fail: error => { _saving = false; UiLayout.Fail(error); });
         }
 

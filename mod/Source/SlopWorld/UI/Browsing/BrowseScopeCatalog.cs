@@ -44,6 +44,15 @@ namespace SlopWorld
             return s != null && s.Ready && _choices.Chosen(s) && _passes(s.Project);
         }
         public bool Chosen(BrowseScope scope) => _choices.Chosen(scope);
+        public bool AllChosen(string projectId) => _choices.AllChosen(projectId);
+        public BrowseScopeSelection Selection(string projectId)
+        {
+            if (!_catalogs.TryGetValue(projectId, out var c) || !_passes(c.Name) || c.Scopes.Count == 0)
+                return BrowseScopeSelection.None;
+            int selected = c.Scopes.Count(_choices.Chosen);
+            return selected == 0 ? BrowseScopeSelection.None :
+                selected == c.Scopes.Count ? BrowseScopeSelection.All : BrowseScopeSelection.Some;
+        }
         // Never expose retained descriptors or collection storage to callers.
         public IReadOnlyList<BrowseScope> All(string projectId) => _catalogs.TryGetValue(projectId, out var c)
             ? c.Scopes.Select(s => s.Copy()).ToList().AsReadOnly() : new List<BrowseScope>().AsReadOnly();
@@ -75,6 +84,15 @@ namespace SlopWorld
             scope = Find(scope.Key);
             if (scope == null || !scope.Ready) return _saved;
             _choices.Toggle(scope);
+            _saved = _choices.Save();
+            persist?.Invoke(_saved);
+            Bump();
+            return _saved;
+        }
+        public string SelectAll(string projectId, Action<string> persist = null)
+        {
+            if (!_catalogs.ContainsKey(projectId)) return _saved;
+            _choices.SelectAll(projectId);
             _saved = _choices.Save();
             persist?.Invoke(_saved);
             Bump();

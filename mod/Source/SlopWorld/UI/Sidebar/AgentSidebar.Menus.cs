@@ -360,8 +360,10 @@ namespace SlopWorld
             foreach (var name in names)
             {
                 var key = name;
+                var selection = SidebarScopes.Selection(key);
                 FloatMenuOption option = SidebarScopes.HasWorktrees(key)
-                    ? new UiSubmenu(key, () => WorktreeFilterOptions(key))
+                    ? UiLayout.MenuSubmenu(key, () => WorktreeFilterOptions(key),
+                        selection == BrowseScopeSelection.All, selection == BrowseScopeSelection.Some)
                     : UiLayout.MenuToggle(key, Ticked(key), () => Tick(key));
                 string error = SidebarScopes.Error(key);
                 if (!string.IsNullOrEmpty(error))
@@ -380,7 +382,14 @@ namespace SlopWorld
 
         static List<FloatMenuOption> WorktreeFilterOptions(string project)
         {
-            var opts = new List<FloatMenuOption>();
+            var opts = new List<FloatMenuOption>
+            {
+                UiLayout.MenuToggle("All worktrees", Passes(project) && SidebarScopes.AllChosen(project), () =>
+                {
+                    SidebarScopes.SelectAll(project);
+                    OpenFilterMenu();
+                }),
+            };
             foreach (var scope in SidebarScopes.All(project).OrderBy(s => s.Worktree == "main" ? 0 : 1)
                 .ThenBy(s => s.Name, StringComparer.Ordinal))
             {
@@ -392,7 +401,7 @@ namespace SlopWorld
                     // Selecting a hidden project's checkout restores that project and its saved choices.
                     bool hidden = !Passes(project);
                     if (hidden) ToggleFilter(project);
-                    if (!hidden || !SidebarScopes.Chosen(child)) SidebarScopes.Toggle(child);
+                    if (!hidden || SidebarScopes.AllChosen(project) || !SidebarScopes.Chosen(child)) SidebarScopes.Toggle(child);
                     OpenFilterMenu();
                 }) : null);
                 option.tooltip = child.Path + (string.IsNullOrEmpty(child.Branch) ? "" : "\n" + child.Branch) +

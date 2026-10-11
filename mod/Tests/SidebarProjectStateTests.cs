@@ -63,5 +63,24 @@ namespace SlopWorld.Tests
             Assert.That(state.Filtering, Is.False);
             Assert.That(File.Exists(path), Is.False, "reading external preferences does not rewrite them");
         });
+
+        public static void AddedProjectsJoinAnExplicitFilterWithoutNarrowingAllProjects() => WithState((state, path) =>
+        {
+            state.IncludeProject("new");
+            Assert.That(state.Filtering, Is.False);
+            Assert.That(File.Exists(path), Is.False, "All projects already includes the new project");
+
+            Settings.S.sidebarFilter = "existing";
+            state.IncludeProject("new");
+            Assert.That(state.Passes("existing"), Is.True);
+            Assert.That(state.Passes("new"), Is.True);
+            Assert.That(state.Passes("other"), Is.False);
+            Assert.That(ModSettings.Load().sidebarFilter, Is.EqualTo("existing\nnew"));
+
+            File.Delete(path);
+            state.IncludeProject("new");
+            Assert.That(state.Passes("new"), Is.True, "repeated inclusion must not toggle the project off");
+            Assert.That(File.Exists(path), Is.False);
+        });
     }
 }

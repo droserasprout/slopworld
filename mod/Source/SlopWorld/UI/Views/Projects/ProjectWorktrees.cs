@@ -167,7 +167,11 @@ namespace SlopWorld
                     break;
             }
             DaemonClient.Send<Wire.Worktree>(method, route, request,
-                _ => { _busy = false; _changed(); Close(); }, error => { _busy = false; _error = error; }, TaskInfo.Host, 60000);
+                tree =>
+                {
+                    if (_mode != Mode.Rename) SidebarScopes.IncludeWorktree(_project, tree.Id);
+                    _busy = false; _changed(); Close();
+                }, error => { _busy = false; _error = error; }, TaskInfo.Host, 60000);
         }
     }
 }

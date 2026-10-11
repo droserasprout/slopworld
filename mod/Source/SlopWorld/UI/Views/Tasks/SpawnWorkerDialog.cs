@@ -219,12 +219,20 @@ namespace SlopWorld
                 _error = "Choose a template allowed for this caller.";
                 return;
             }
+            // Keep the success handoff tied to the submitted choices while the form is editable.
+            string submittedWorktree = _worktree;
+            bool submittedNewWorktree = _newWorktree;
             _sending = true;
             _error = null;
             SessionHub.Instance.SpawnWorker(_caller, _project, _template, _body.Trim(), _durable,
                 worker =>
                 {
-                    WorktreeChoices[ChoiceKey] = (_worktree, _newWorktree);
+                    if (submittedNewWorktree)
+                    {
+                        var session = SessionHub.Instance.Sessions.FirstOrDefault(s => s.Name == worker);
+                        if (session != null) SidebarScopes.IncludeWorktree(session.Project, session.Worktree);
+                    }
+                    WorktreeChoices[ChoiceKey] = (submittedWorktree, submittedNewWorktree);
                     TerminalWindow.Open(worker);
                     Close();
                 },
@@ -234,8 +242,8 @@ namespace SlopWorld
                     _error = error;
                 }, new WorkerWorktreeOptions
                 {
-                    Worktree = _worktree,
-                    NewWorktree = _newWorktree,
+                    Worktree = submittedWorktree,
+                    NewWorktree = submittedNewWorktree,
                     BaseRevision = _baseCommit,
                     WorktreeName = _worktreeName,
                 });

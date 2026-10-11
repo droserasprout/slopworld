@@ -89,6 +89,14 @@ namespace SlopWorld
         }
 
         public bool Filtering => Filter.Count > 0;
+
+        public void IncludeProject(string key)
+        {
+            // All projects already includes additions; keep the empty-set contract.
+            if (Filtering && Filter.Add(key))
+                Save(Filter, value => Settings.S.sidebarFilter = value);
+        }
+
         public bool Ticked(string key) => Filter.Contains(key);
 
         public bool Passes(string project)

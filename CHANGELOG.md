@@ -25,6 +25,7 @@ Expect any imaginable incompabilities until 0.1.0 or better 1.0.0.
 ### Changed
 
 - UI: Replaced Search checkboxes with compact underlined toggles.
+- UI: Include newly added projects and worktrees in the sidebar filter.
 
 ## [0.0.1] - 2026-10-10
 

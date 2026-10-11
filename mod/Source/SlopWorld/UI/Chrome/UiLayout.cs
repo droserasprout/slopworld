@@ -170,6 +170,17 @@ namespace SlopWorld
             return opt;
         }
 
+        public static UiSubmenu MenuSubmenu(string label, Func<List<FloatMenuOption>> children,
+            bool on, bool mixed)
+        {
+            return new UiSubmenu(label, children)
+            {
+                extraPartWidth = TickColW,
+                extraPartRightJustified = false,
+                extraPartOnGUI = r => DrawTick(r, on, mixed),
+            };
+        }
+
         // OS font lists often expose a whole foundry under one leading word: Noto alone can
         // account for dozens of faces. Keep those families behind one menu while leaving
         // names with no siblings as one-click choices.
@@ -206,9 +217,10 @@ namespace SlopWorld
         static FloatMenuOption FontOption(string name, Action<string> choose) =>
             new FloatMenuOption(name, () => choose(name));
 
-        static bool DrawTick(Rect r, bool on)
+        static bool DrawTick(Rect r, bool on, bool mixed = false)
         {
-            TickBox(r, on);
+            var box = TickBox(r, on);
+            if (mixed) Slab.Fill(box.ContractedBy(Mathf.Round(box.width * 0.3f)), Accent);
             // extraPartOnGUI's return means the extra part handled the click. The row does.
             return false;
         }

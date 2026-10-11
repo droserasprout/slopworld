@@ -178,6 +178,85 @@ namespace SlopWorld.Tests
             Assert.That(saved.Chosen(Scope("new")), Is.False, "new worktrees stay opt-in under All projects");
         }
 
+        public static void AddedCheckoutSelectionPersistsWithoutChangingOtherChoices()
+        {
+            var main = Scope(); var existing = Scope("existing"); var added = Scope("added");
+            var choices = new BrowseScopeChoices("");
+            choices.Toggle(main);
+            choices.Select(existing);
+            choices.Select(added);
+            choices.Select(added);
+            var saved = new BrowseScopeChoices(choices.Save());
+            Assert.That(saved.Chosen(main), Is.False, "adding a worktree preserves disabled Main");
+            Assert.That(saved.Chosen(existing), Is.True);
+            Assert.That(saved.Chosen(added), Is.True, "select before the catalog has a ready descriptor");
+            Assert.That(saved.Chosen(Scope("other")), Is.False);
+            Assert.That(saved.Chosen(new BrowseScope { ProjectId = "other-project", Worktree = "added" }), Is.False);
+            saved.Select(main);
+            Assert.That(new BrowseScopeChoices(saved.Save()).Chosen(main), Is.True);
+        }
+
+        public static void AllWorktreesIncludesFutureCheckoutsAndNarrowsToOneChoice()
+        {
+            var main = Scope(); var one = Scope("one"); var two = Scope("two");
+            var other = new BrowseScope { ProjectId = "p-id-other", Worktree = "one", Phase = "ready", Path = "/other" };
+            var choices = new BrowseScopeChoices("");
+            choices.Toggle(main);
+            choices.Select(one);
+            choices.Select(other);
+            choices.SelectAll("p-id");
+            choices = new BrowseScopeChoices(choices.Save());
+            Assert.That(choices.AllChosen("p-id"), Is.True);
+            Assert.That(choices.Chosen(main), Is.True);
+            Assert.That(choices.Chosen(one), Is.True);
+            Assert.That(choices.Chosen(two), Is.True, "future checkouts belong to All worktrees");
+            Assert.That(choices.Chosen(other), Is.True, "other project choices survive clearing overrides");
+            string all = choices.Save();
+            choices.Select(two);
+            choices.SelectAll("p-id");
+            Assert.That(choices.Save(), Is.EqualTo(all), "repeated All and creation inclusion preserve All mode");
+            choices.Toggle(Scope("unavailable", "error"));
+            Assert.That(choices.Save(), Is.EqualTo(all));
+
+            choices.Toggle(one);
+            choices = new BrowseScopeChoices(choices.Save());
+            Assert.That(choices.AllChosen("p-id"), Is.False);
+            Assert.That(choices.Chosen(main), Is.False);
+            Assert.That(choices.Chosen(one), Is.True);
+            Assert.That(choices.Chosen(two), Is.False);
+            Assert.That(choices.Chosen(other), Is.True);
+            choices.Toggle(one);
+            Assert.That(choices.Chosen(one), Is.False, "explicit selections still toggle off");
+            choices.SelectAll("p-id");
+            choices.Toggle(main);
+            Assert.That(choices.Chosen(main), Is.True);
+            Assert.That(choices.Chosen(one), Is.False, "Main can also narrow All to one checkout");
+        }
+
+        public static void ProjectCheckboxSummarizesCheckoutChoicesAndProjectVisibility()
+        {
+            var f = new Fixture(); f.Update();
+            f.Reply(f.Request("p", 1), Scope(), Scope("one"), Scope("two", "error"));
+            Assert.That(f.Catalog.Selection("absent"), Is.EqualTo(BrowseScopeSelection.None));
+            Assert.That(f.Catalog.Selection("p-id"), Is.EqualTo(BrowseScopeSelection.Some));
+            f.Toggle(f.Catalog.Find(Scope().Key));
+            Assert.That(f.Catalog.Selection("p-id"), Is.EqualTo(BrowseScopeSelection.None));
+            f.Catalog.SelectAll("p-id", saved => f.Saved = saved);
+            Assert.That(f.Catalog.Selection("p-id"), Is.EqualTo(BrowseScopeSelection.All));
+            Assert.That(f.Catalog.EnabledScopes().Count, Is.EqualTo(2), "unready selections remain excluded from browsing");
+            f.Filter = "other"; f.Update();
+            Assert.That(f.Catalog.Selection("p-id"), Is.EqualTo(BrowseScopeSelection.None));
+            Assert.That(f.Catalog.AllChosen("p-id"), Is.True, "hiding a project preserves All worktrees");
+            f.Filter = ""; f.Update();
+            f.Refresh(); f.Reply(f.Request("p", 2), Scope(), Scope("one"), Scope("new"));
+            Assert.That(f.Catalog.Selection("p-id"), Is.EqualTo(BrowseScopeSelection.All));
+            Assert.That(f.Catalog.Enabled(Scope("new").Key), Is.True);
+            f.Toggle(f.Catalog.Find(Scope("one").Key));
+            Assert.That(f.Catalog.Selection("p-id"), Is.EqualTo(BrowseScopeSelection.Some));
+            f.Toggle(f.Catalog.Find(Scope("one").Key));
+            Assert.That(f.Catalog.Selection("p-id"), Is.EqualTo(BrowseScopeSelection.None));
+        }
+
         public static void RenameReadinessFailureAndRemoval()
         {
             var f = new Fixture(); f.Update();

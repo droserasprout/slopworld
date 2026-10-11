@@ -34,6 +34,18 @@ namespace SlopWorld
             All(project).FirstOrDefault(s => s.Worktree == "main")?.Key ?? project;
         public static bool Enabled(string key) => Catalog.Enabled(key);
         public static bool Chosen(BrowseScope scope) => Catalog.Chosen(scope);
+        public static bool AllChosen(string project) =>
+            Project(project) is ProjectInfo p && Catalog.AllChosen(p.Id);
+        public static BrowseScopeSelection Selection(string project) =>
+            Project(project) is ProjectInfo p ? Catalog.Selection(p.Id) : BrowseScopeSelection.None;
+        public static void SelectAll(string project)
+        {
+            var p = Project(project);
+            if (p == null) return;
+            Catalog.SelectAll(p.Id, saved => Settings.S.sidebarWorktrees = saved);
+            Settings.S.Write();
+            AgentSidebar.IncludeProject(p.Name);
+        }
         public static bool HasWorktrees(string project)
         {
             var p = Project(project);
@@ -63,6 +75,21 @@ namespace SlopWorld
             Settings.S.Write();
         }
         public static void Invalidate() { Catalog.Invalidate(); Update(); }
+        public static void IncludeWorktree(string project, string worktree)
+        {
+            var p = Project(project);
+            if (p == null || string.IsNullOrEmpty(worktree)) return;
+            var choices = new BrowseScopeChoices(Settings.S.sidebarWorktrees);
+            choices.Select(new BrowseScope { ProjectId = p.Id, Worktree = worktree });
+            string saved = choices.Save();
+            if (saved != (Settings.S.sidebarWorktrees ?? ""))
+            {
+                Settings.S.sidebarWorktrees = saved;
+                Settings.S.Write();
+            }
+            AgentSidebar.IncludeProject(p.Name);
+            Invalidate();
+        }
         public static void Update() => Update(false);
         static void Update(bool includeHidden) => Catalog.Update(SessionHub.Instance.Projects,
             SessionHub.Instance.ProjectsRevision, Settings.SidebarFilter, Settings.S.sidebarWorktrees ?? "", SessionHub.Instance.Online,
