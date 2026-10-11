@@ -12,11 +12,13 @@ Expect any imaginable incompabilities until 0.1.0 or better 1.0.0.
 
 ### Added
 
+- Packaging: Added Fedora RPM packages.
 - Settings: Added configurable date format (General tab).
 
 ### Fixed
 
 - Files: Fixed workspace viewers showing internal tab names instead of filenames.
+- Packaging: Fixed release archive permissions under restrictive umasks.
 - Tasks: Fixed double-, triple-click selection, and copying to PRIMARY in task details.
 - Tasks: Respect the configured time format in task details.
 - Terminal: Preserve zsh host shell tab titles between restarts.
@@ -27,6 +29,7 @@ Expect any imaginable incompabilities until 0.1.0 or better 1.0.0.
 
 - Search: Replaced checkboxes with compact underlined toggles.
 - Sidebar: Include newly added projects and worktrees in the sidebar filter.
+- Sidecar: Don't install agent CLIs in base image.
 
 ## [0.0.1] - 2026-10-10
 
