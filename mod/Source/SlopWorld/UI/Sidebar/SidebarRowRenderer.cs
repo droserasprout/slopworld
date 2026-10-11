@@ -124,7 +124,7 @@ namespace SlopWorld
                 return;
             }
 
-            float contextW = Mathf.Min(UiTheme.Wide(context), r.width * 0.42f);
+            float contextW = Mathf.Min(UiTheme.Wide(context), Mathf.Max(0f, r.width * 0.42f));
             var quiet = new Rect(r.xMax - contextW, r.y, contextW, r.height);
             var strong = new Rect(r.x, r.y, Mathf.Max(0f, quiet.x - UiTheme.GapS - r.x),
                 r.height);
@@ -132,7 +132,11 @@ namespace SlopWorld
             GUI.color = titleColor;
             UiText.RowLabel(strong, title, TextAnchor.MiddleLeft, italic);
             GUI.color = UiTheme.Dim;
-            UiText.RowLabel(quiet, context);
+            UiText.RowLabel(quiet, context, TextAnchor.MiddleRight);
+            if (UiTheme.Wide(context) > quiet.width)
+                TooltipHandler.TipRegion(quiet, context);
+            if (UiTheme.Wide(title) > strong.width)
+                TooltipHandler.TipRegion(strong, title);
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = oldFont;
         }
@@ -287,14 +291,23 @@ namespace SlopWorld
 
         static string GhostTitle(SessionInfo info, string fallback, RowAct act)
         {
-            if (!string.IsNullOrEmpty(info?.Intent) && !string.IsNullOrEmpty(info.Label))
-                return info.Label;
             if (act != RowAct.None)
             {
                 string name = info?.Name ?? fallback;
                 string label = info?.Label ?? "";
-                if (IsRoutedLabel(label, act)) name = label;
+                if (IsRoutedLabel(label, act) ||
+                    (!string.IsNullOrEmpty(info?.Intent) && label.Length > 0)) name = label;
                 string subject = StripActionPrefix(name, act);
+                // Retained pager labels include their captured origin. Remove only that
+                // known suffix; brackets that belong to filenames remain untouched.
+                var origin = SidebarScopes.Find(info?.ReaderScope);
+                string checkout = origin?.Label ??
+                    (string.IsNullOrEmpty(info?.Worktree) || info.Worktree == "main"
+                        ? "Main checkout" : info.WorktreeName);
+                string suffix = " [" + (origin?.Project ?? info?.Project ?? "") +
+                    " / " + checkout + "]";
+                if (subject.EndsWith(suffix, System.StringComparison.Ordinal))
+                    subject = subject.Substring(0, subject.Length - suffix.Length);
                 // The action icon already says view/edit/diff. Keep the row title to the
                 // filename, with the project retained as the quiet right-hand context.
                 return subject;
@@ -307,8 +320,16 @@ namespace SlopWorld
         static string GhostContext(SessionInfo info, string title, RowAct act)
         {
             string project = info?.Project ?? "";
-            if (!string.IsNullOrEmpty(info?.Intent) && title.Contains(" [")) return "";
-            if (act != RowAct.None) return project;
+            if (act != RowAct.None)
+            {
+                var origin = SidebarScopes.Find(info?.ReaderScope);
+                project = origin?.Project ?? project;
+                string worktree = origin?.Worktree ?? info?.Worktree ?? "";
+                string checkout = origin?.Label ?? info?.WorktreeName ?? "";
+                if (checkout.Length == 0) checkout = worktree;
+                return worktree.Length == 0 || worktree == "main" ? project :
+                    (project.Length > 0 ? project + " / " : "") + checkout;
+            }
 
             string name = info?.Name ?? "";
             if (info != null && (info.Ephemeral || info.Host))

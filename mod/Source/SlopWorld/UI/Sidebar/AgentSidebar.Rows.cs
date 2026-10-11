@@ -74,9 +74,14 @@ namespace SlopWorld
         static void DrawRoutedRow(Row row, SessionInfo info)
         {
             bool current = row.Session == TerminalWindow.CurrentName;
-            RowChrome.Hover(row.Line, current, true, RowHoverPolicy.OverlayAware);
+            var highlight = new Rect(row.Line.x + UiTheme.GapXS, row.Line.y,
+                Mathf.Max(0f, row.Line.width - 2f * UiTheme.GapXS), row.Line.height);
+            RowChrome.Hover(highlight, current, true, RowHoverPolicy.OverlayAware);
 
-            var text = DrawActionMark(row.Text, RoutedAction(info));
+            var text = row.Text;
+            text.x += UiTheme.GapXS;
+            text.width = Mathf.Max(0f, text.width - 2f * UiTheme.GapXS);
+            text = DrawActionMark(text, RoutedAction(info), true);
 
             Text.Font = GameFont.Small;
             bool preview = FileReaders.IsSession(row.Session);
@@ -204,14 +209,15 @@ namespace SlopWorld
             Click(row, info);
         }
 
-        static Rect DrawActionMark(Rect text, RowAct action)
+        static Rect DrawActionMark(Rect text, RowAct action, bool routed = false)
         {
             if (action == RowAct.None) return text;
-            float d = Mathf.Min(GhostMarkW, text.height);
+            float d = Mathf.Min(routed ? RowActions.IconW : GhostMarkW, text.height);
             if (Event.current.type == EventType.Repaint)
             {
                 var was = GUI.color;
-                GUI.color = UiTheme.Off;
+                GUI.color = !routed ? UiTheme.Off : action == RowAct.Edit ? UiTheme.Warn :
+                    action == RowAct.Diff ? UiTheme.Info : UiTheme.Dim;
                 GUI.DrawTexture(new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
                     RowActions.Tex(action));
                 GUI.color = was;

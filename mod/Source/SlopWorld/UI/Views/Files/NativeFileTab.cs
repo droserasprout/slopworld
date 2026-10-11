@@ -79,11 +79,18 @@ namespace SlopWorld
 
         public SessionInfo HeaderInfo()
         {
+            var origin = SidebarScopes.Find(Project);
             return new SessionInfo
             {
                 Name = Header,
                 Project = SidebarScopes.Project(Project)?.Name ?? OriginProject,
                 Label = OriginLabel,
+                Intent = "view",
+                ReaderPath = Path,
+                ReaderKey = Path,
+                ReaderScope = Project,
+                Worktree = origin?.Worktree ?? BrowseScope.WorktreeOf(Project),
+                WorktreeName = origin?.Name ?? "",
                 Ephemeral = true,
                 Alive = true,
             };

@@ -13,6 +13,10 @@ Repeated editor launches for the same path and checkout reuse the live host edit
 the daemon serializes that decision so concurrent requests share one session.
 Routed sidebar rows sort by display label and source metadata rather than opaque
 session handles, preserving order when a diff process is replaced.
+Native reader headers carry the same intent, path and checkout metadata as pagers.
+Routed rows display filenames beside muted checkout context; main checkouts show
+only the project. Italics identify replaceable previews, while pinned readers use
+upright text.
 
 Source-file probes reconcile readers independently of tree filters/folds. Failed
 probes preserve readers, and stale replies cannot replace another reader. Refresh

@@ -19,6 +19,7 @@ Expect any imaginable incompabilities until 0.1.0 or better 1.0.0.
 - Terminal: Preserve zsh host shell tab titles between restarts.
 - UI: Fixed hover highlights jumping after keyboard input in scrollable views.
 - UI: Fixed double-, triple-click selection, and copying to PRIMARY in task details.
+- UI: Fixed workspace viewers showing internal tab names instead of filenames.
 - UI: Respect the configured time format in task details.
 
 ### Changed
