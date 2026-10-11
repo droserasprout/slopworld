@@ -9,6 +9,28 @@ namespace SlopWorld
     // map-overlay hover. In contrast, Map rows can opt into OverlayAware at their call site.
     public static class ToggleCell
     {
+        // Compact options keep the label underlined as an affordance; selection accents
+        // the text and underline while leaving the background clear.
+        public static bool DrawText(Rect rect, string label, bool on, string tip = null)
+        {
+            using (WidgetState.Save())
+            {
+                Text.Font = GameFont.Small;
+                bool over = Mouse.IsOver(rect);
+                if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(rect, tip);
+                var color = on ? UiTheme.Accent : over ? UiTheme.Lead : UiTheme.Dim;
+                GUI.color = color;
+                UiText.RowLabel(rect, label, TextAnchor.MiddleCenter);
+                float width = Mathf.Min(UiTheme.Wide(label), rect.width);
+                Slab.Hairline(new Rect(rect.center.x - width / 2f,
+                    rect.center.y + UiTheme.LineH / 2f - Slab.LineW,
+                    width, Slab.LineW), color);
+                if (!UiButtons.RowButton(rect)) return on;
+                SoundDefOf.Click.PlayOneShotOnCamera();
+                return !on;
+            }
+        }
+
         public static bool Draw(Rect rect, string label, bool on, string tip = null,
                                 bool locked = false, bool warn = false,
                                 RowHoverPolicy hoverPolicy = RowHoverPolicy.Local)

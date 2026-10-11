@@ -1,6 +1,9 @@
 # Search ownership
 
 `SearchView` owns draft controls, selection, geometry, and reader actions.
+Its underlined option labels toggle draft flags, all initially off. Selected
+`gitignored` enables the submission's `IncludeIgnored` flag. Selection accents
+the label and underline without painting a background.
 `SearchStore` owns submitted queries, bounded requests, and grouped results through
 an injected daemon transport. It consumes snapshots of the
 [shared scope catalog](mod-sidebar-navigation.md); each submission captures the

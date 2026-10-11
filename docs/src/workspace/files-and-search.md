@@ -43,9 +43,10 @@ For reusable commands on a selected path, create a
 ## Search workspace text
 
 1. Enable the checkouts you want in the Project filter and open **Search**.
-2. Enter a query. Select **Case** for case-sensitive matching, **Word** for whole
-   words, **Regex** for a regular expression, or **Include ignored** to search
-   files ignored by Git.
+2. Enter a query. Click **case** for case-sensitive matching, **word** for whole
+   words, **regex** for a regular expression, or **gitignored** to include files
+   ignored by Git. All options start off; their text and underline highlight
+   when selected.
 3. Press Enter in the query field or click **›** to submit.
 4. Expand the project, checkout, and file groups, then select a match to read it.
    Use its context menu to edit the file.

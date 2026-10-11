@@ -17,7 +17,19 @@ namespace SlopWorld
         static float RowH => UiTheme.TinyRowH;
         static float Pad => UiTheme.GapS;
         static float CellX => UiTheme.GapS;
-        static float ToolsH => UiTheme.FieldH + UiTheme.GapS + UiTheme.RowH;
+        static readonly string[] OptionLabels = { "case", "word", "regex", "gitignored" };
+
+        static float ToolsH(float width)
+        {
+            using (WidgetState.Save())
+            {
+                Text.Font = GameFont.Small;
+                var row = new Rect(0f, 0f, width, UiTheme.RowH);
+                float x = 0f, y = 0f;
+                foreach (var label in OptionLabels) OptionRect(ref x, ref y, row, label);
+                return UiTheme.FieldH + UiTheme.GapS + y + UiTheme.RowH;
+            }
+        }
 
         struct Hit
         {
@@ -93,7 +105,7 @@ namespace SlopWorld
             using (FieldLifetimeScope.Push(_fieldLifetime))
             {
                 var tools = new Rect(body.x + CellX, body.y + Pad,
-                    body.width - CellX * 2f, ToolsH);
+                    body.width - CellX * 2f, ToolsH(body.width - CellX * 2f));
                 var results = new Rect(body.x, tools.yMax + Pad,
                     body.width, Mathf.Max(0f, body.yMax - tools.yMax - Pad));
                 if (Scroll.HandleWheel(results, _layoutRevision == int.MinValue ? -1f : _contentHeight)) return;
@@ -140,21 +152,39 @@ namespace SlopWorld
             }
 
             float y = field.yMax + UiTheme.GapS;
-            float w = (r.width - UiTheme.GapS * 3f) / 4f;
-            _case = UiControls.Checkbox(new Rect(r.x, y, w, UiTheme.RowH),
-                "Case", _case, "Case-sensitive search");
-            _word = UiControls.Checkbox(new Rect(r.x + w + UiTheme.GapS, y,
-                w, UiTheme.RowH), "Word", _word, "Match whole words");
-            _regex = UiControls.Checkbox(new Rect(r.x + (w + UiTheme.GapS) * 2f, y,
-                w, UiTheme.RowH), "Regex", _regex, "Interpret the query as a regex");
-            _includeIgnored = UiControls.Checkbox(new Rect(r.x + (w + UiTheme.GapS) * 3f, y,
-                w, UiTheme.RowH), "Include ignored", _includeIgnored,
-                "Include files ignored by Git");
+            using (WidgetState.Save())
+            {
+                Text.Font = GameFont.Small;
+                float x = r.x;
+                _case = DrawOption(ref x, ref y, r, "case", _case, "Case-sensitive search");
+                _word = DrawOption(ref x, ref y, r, "word", _word, "Match whole words");
+                _regex = DrawOption(ref x, ref y, r, "regex", _regex, "Interpret the query as a regex");
+                _includeIgnored = DrawOption(ref x, ref y, r, "gitignored", _includeIgnored,
+                    "Include files ignored by Git");
+            }
 
             // Changing text does not search on every frame. Enter is the deliberate boundary
             // between editing a potentially expensive expression and running it.
             if (was != _query) _selected = null;
         }
+
+        // Measurement and drawing share wrapping so result drawing and hit testing
+        // start below the same controls even at the minimum sidebar width.
+        static Rect OptionRect(ref float x, ref float y, Rect row, string label)
+        {
+            float width = Mathf.Min(row.width, UiTheme.Wide(label) + UiTheme.GapXS * 2f);
+            if (x > row.x && x + width > row.xMax)
+            {
+                x = row.x;
+                y += UiTheme.RowH;
+            }
+            var rect = new Rect(x, y, width, UiTheme.RowH);
+            x = rect.xMax + UiTheme.GapS;
+            return rect;
+        }
+
+        static bool DrawOption(ref float x, ref float y, Rect row, string label, bool on, string tip) =>
+            ToggleCell.DrawText(OptionRect(ref x, ref y, row, label), label, on, tip);
 
         static bool Focused => GUI.GetNameOfFocusedControl() == "search.query";
 
@@ -359,7 +389,7 @@ namespace SlopWorld
         static Rect ResultsBody()
         {
             var body = AgentSidebar.Body;
-            float toolsBottom = body.y + Pad + ToolsH;
+            float toolsBottom = body.y + Pad + ToolsH(body.width - CellX * 2f);
             return new Rect(body.x, toolsBottom + Pad, body.width,
                 Mathf.Max(0f, body.yMax - toolsBottom - Pad));
         }

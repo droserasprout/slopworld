@@ -10,11 +10,19 @@ Expect any imaginable incompabilities until 0.1.0 or better 1.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Added configurable date format (Settings > General).
+
 ### Fixed
 
 - UI: Fixed hover highlights jumping after keyboard input in scrollable views.
-- UI: Respect the configured time format in task details.
 - UI: Fixed double-, triple-click selection, and copying to PRIMARY in task details.
+- UI: Respect the configured time format in task details.
+
+### Changed
+
+- UI: Replaced Search checkboxes with compact underlined toggles.
 
 ## [0.0.1] - 2026-10-10
 
