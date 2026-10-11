@@ -6,7 +6,7 @@
 
 <h1 align="center">SlopWorld</h1>
 
-<img src="images/screenshot.png" alt="SlopWorld workspace in RimWorld" width="320" align="right">
+<img src="images/screenshot.jpg" alt="SlopWorld workspace in RimWorld" width="320" align="right">
 
 SlopWorld is a fun terminal-focused IDE for agentic coding, built on RimWorld.
 Your agents' sessions appear as colonists. Select one to open its terminal and give
@@ -22,7 +22,7 @@ it work.
 
 ## What's inside
 
-<img src="images/introduction-terminal.png" alt="Codex session in SlopWorld with the terminal context menu open" width="240" align="right">
+<img src="images/introduction-terminal.jpg" alt="Codex session in SlopWorld with the terminal context menu open" width="240" align="right">
 
 Your favorite Linux tooling, well-integrated:
 
@@ -41,7 +41,7 @@ SlopWorld consists of three components:
 
 ## Get started
 
-<img src="images/introduction-work.png" alt="SlopWorld terminal showing a code diff beneath a tooltip about automated work" width="240" align="right">
+<img src="images/introduction-work.jpg" alt="SlopWorld terminal showing a code diff beneath a tooltip about automated work" width="240" align="right">
 
 You need a native build of **RimWorld 1.6**, preferably the latest one. Buy the game
 on [Steam](https://store.steampowered.com/app/294100/RimWorld/),
@@ -63,7 +63,7 @@ for installing a package, attaching the mod, and starting the daemon.
 
 ### From source
 
-<img src="images/introduction-sidebar.png" alt="SlopWorld project and agent sidebar with the session context menu open" width="160" align="right">
+<img src="images/introduction-sidebar.jpg" alt="SlopWorld project and agent sidebar with the session context menu open" width="160" align="right">
 
 Install the [`just`](https://github.com/casey/just#installation) command runner
 and the other [build prerequisites](development/build.md#prerequisites).
@@ -81,7 +81,7 @@ Always start the "game" with `slopworld`. The mod only activates in a separate p
 
 ## License
 
-<img src="images/introduction-footer.png" alt="SlopWorld agents gathered in a RimWorld landscape filled with glowing lights" width="240" align="right">
+<img src="images/introduction-footer.jpg" alt="SlopWorld agents gathered in a RimWorld landscape filled with glowing lights" width="240" align="right">
 
 SlopWorld is licensed under [MIT](https://github.com/droserasprout/slopworld/blob/main/LICENSE). Bundled third-party components
 and assets retain their own [licenses and attribution](https://github.com/droserasprout/slopworld/blob/main/licenses/README.md).

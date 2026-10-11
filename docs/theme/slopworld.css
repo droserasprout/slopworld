@@ -388,13 +388,37 @@ html:not(.js) #mdbook-search-toggle {
 .slopworld .hljs-addition { color: #9bb066; background: #2b2014; }
 .slopworld .hljs-deletion { color: #ff7b63; background: #6b1f1aeb; }
 
+.content {
+    container-type: inline-size;
+}
+
+/* Contain screenshots within the chapter, including short final sections. */
+.content main {
+    display: flow-root;
+}
+
+.content img[align="right"],
 .screenshot-stack {
-    float: right;
-    width: 280px;
+    float: none;
     max-width: 100%;
-    margin: 0 0 1rem 1rem;
+    margin: 0.7em 0;
+}
+
+.screenshot-stack {
+    width: 280px;
     display: flex;
     flex-direction: column;
     gap: 1rem;
+}
+
+/* Use actual content width so an open sidebar cannot squeeze the text column. */
+@container (min-width: 600px) {
+    .content img[align="right"],
+    .screenshot-stack {
+        float: right;
+        clear: right;
+        max-width: 45%;
+        margin: 0 0 1rem 1.5rem;
+    }
 }
 

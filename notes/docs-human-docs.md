@@ -5,6 +5,12 @@ constraints. README owns the project overview and generated book introduction;
 edit README, not `docs/src/introduction.md`.
 
 `docs/theme/` owns book presentation and follows the palettes in `mod/Themes/`.
+Screenshots use `<img align="right" width="…">` before the text they illustrate;
+use `.screenshot-stack` for a related group. The shared stylesheet floats them
+when the content column has room and stacks them above text on narrow layouts.
+Preserve PNG originals, generate compressed JPEG copies with
+`just refresh-docs-images`, and link screenshots to those JPEGs in README and the book.
+Keep logos and other inline artwork outside this convention.
 The book cursor uses `docs/src/images/cursor-tame.png`, extracted from RimWorld's
 `UI/Designators/Tame`, mirrored like the mod's `DeadCursor`, and scaled to 24px.
 Interaction variants rotate that same hand on a 32px transparent canvas to avoid

@@ -51,6 +51,8 @@ read the failure and create a new task to retry. See
 
 ## Task mailboxes
 
+<img src="../images/task-mailboxes.jpg" alt="Tasks sidebar with completed worker assignments and a selected task's dialogue" align="right" width="320">
+
 The Tasks view is global; the workspace Project filter does not hide its rows.
 For delegation to an existing agent, use `slopctl task delegate AGENT "description"`
 within the permissions below.

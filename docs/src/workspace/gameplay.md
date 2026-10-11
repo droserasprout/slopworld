@@ -1,5 +1,7 @@
 # "Gameplay"
 
+<img src="../images/colony-landing.jpg" alt="Colony landing with gathered agent pawns and the selected agent's controls" align="right" width="320">
+
 The colony reflects sessions managed by the daemon. Configured agents appear as
 pawns; workers and temporary errands remain in the sidebar. Host shells have no
 agent pawn.
@@ -20,6 +22,8 @@ is not a measure of task completion. Review the CLI's result and project changes
 to check the actual work.
 
 ## Player controls
+
+<img src="../images/colony-pawns.jpg" alt="Player and agent pawns in the colony" align="right" width="280">
 
 The player pawn can move, cast Fireball, Rejuvenate, teleport, and use Cat whistle.
 See [Player controls](../reference/keyboard-shortcuts.md#player-pawn-map) for the

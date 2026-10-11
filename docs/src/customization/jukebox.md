@@ -5,6 +5,8 @@ Open the map jukebox or status-bar jukebox control. The OST is a built-in source
 
 ## Native Linux playback
 
+<img src="../images/jukebox-menu.jpg" alt="Jukebox menu with playback controls and radio sources" align="right" width="280">
+
 Add a radio station with **Settings > Audio > Add source**. Edit or remove sources
 in the Sources table. ICY metadata supplies the track display. Volume multiplies
 RimWorld's audio settings; mute stops daemon playback and downloads.
