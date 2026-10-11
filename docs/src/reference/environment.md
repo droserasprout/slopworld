@@ -74,7 +74,7 @@ requires an existing sidecar endpoint descriptor for a game launch. See
 | `SLOPWORLD_GAME_LOG` | Launcher, `slopctl logs`, `just logs` | Selects the Unity log file; defaults to `<CACHE>/Player.log`, or `<CACHE>/sidecar/Player.log` with `--sidecar`. The launcher passes it with `-logFile`. |
 | `SLOPWORLD_DAEMON_UNIT` | `slopctl logs` | Selects the systemd user unit to read; defaults to `slopd.service`. |
 
-See [Log locations](paths.md#logs) and [Troubleshooting](../help/troubleshooting.md).
+See [Log locations](paths.md#logs) and [Troubleshooting](../resources/troubleshooting.md).
 The supplied service sets `SLOPD_LOG=slopd=info`; change its service environment
 to override that value.
 

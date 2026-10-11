@@ -7,6 +7,10 @@ language = "en"
 command = "uv run --directory .. --locked python -m tools.docs.constants"
 before = ["links"]
 
+[preprocessor.introduction]
+command = "uv run --directory .. --locked python -m tools.docs.introduction"
+after = ["links"]
+
 [output.html]
 site-url = "https://slopworld.space/"
 no-section-label = true
@@ -14,3 +18,6 @@ default-theme = "slopworld"
 preferred-dark-theme = "slopworld"
 additional-css = ["theme/slopworld.css"]
 additional-js = ["theme/scrollbars.js"]
+
+[output.html.redirect]
+"help/troubleshooting.html" = "../resources/troubleshooting.html"

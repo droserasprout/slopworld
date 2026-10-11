@@ -18,4 +18,4 @@ the refusal dialog can be displayed.
 Assemblies load before XML, and static constructors run afterward. A single Harmony
 gate cannot protect the other paths. Launcher profile lifetime belongs to
 [profiles](ops-profile.md), simulation integration to [simulation](mod-sim.md),
-and direct-launch refusal guidance to [troubleshooting](../docs/src/help/troubleshooting.md).
+and direct-launch refusal guidance to [troubleshooting](../docs/src/resources/troubleshooting.md).

@@ -2,12 +2,7 @@
 
 # Refresh generated files after source changes, then stage distribution notices
 [group('Generated files')]
-refresh: refresh-protocol refresh-introduction refresh-api-docs refresh-loading-font refresh-icons refresh-appicon refresh-favicon refresh-daemon-licenses refresh-licenses
-
-# Generate the book introduction from README
-[group('Generated files')]
-refresh-introduction:
-    {{ PYTHON }} -m tools.docs.introduction
+refresh: refresh-protocol refresh-api-docs refresh-loading-font refresh-icons refresh-appicon refresh-favicon refresh-daemon-licenses refresh-licenses
 
 # Convert book PNGs to low-quality JPEG copies, preserving originals
 [group('Generated files')]

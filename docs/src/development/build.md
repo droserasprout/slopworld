@@ -125,7 +125,7 @@ terminal-input HTTP regression require Mono.
 
 - [IPC benchmark suite](https://github.com/droserasprout/slopworld/blob/main/bench/ipc/README.md) explains its scope.
 - [Runtime package maintenance](https://github.com/droserasprout/slopworld/blob/main/mod/Dependencies/README.md) covers dependency updates.
-- [Troubleshooting](../help/troubleshooting.md) covers logs and diagnosis.
+- [Troubleshooting](../resources/troubleshooting.md) covers logs and diagnosis.
 - [Contributing](contributing.md) covers repository and documentation workflows.
 
 - [Packaging and releases](releases.md) covers archives, Debian packages, and publication.

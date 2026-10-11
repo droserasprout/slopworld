@@ -1,8 +1,9 @@
 # Human documentation
 
 The mdBook in `docs/` owns public user procedures; developer notes own implementation
-constraints. README owns the project overview and generated book introduction;
-edit README, not `docs/src/introduction.md`.
+constraints. README owns the project overview. `docs/src/introduction.md` includes it
+through mdBook; edit README for introduction content. `tools/docs/introduction.py`
+runs after native includes and adapts README links and image paths for the book.
 
 `docs/theme/` owns book presentation and follows the palettes in `mod/Themes/`.
 Screenshots use `<img align="right" width="…">` before the text they illustrate;
@@ -37,6 +38,9 @@ Workspace also owns command presets alongside project and file workflows. Agents
 usage and summaries, keeping shared credentials, usage polling, and prompt summaries
 together. Maintenance owns saves and profiles, storage, recovery, and
 update/removal procedures. Installation links to the maintenance procedure.
+Resources owns Troubleshooting and Changelog. The book includes the human-maintained
+root `CHANGELOG.md` through mdBook; do not copy its content into the book. Preserve
+the old Help troubleshooting URL with the redirect in `docs/book.toml`.
 Keep related short topics as page sections rather than creating a page per control.
 
 Build and navigation maintenance belong to [Contributing](../docs/src/development/contributing.md#documentation).
@@ -46,6 +50,6 @@ Build and navigation maintenance belong to [Contributing](../docs/src/developmen
 Cargo package version and shared tag conventions from `tools/version/metadata.py`;
 unknown names fail the build. Use these in release examples instead of duplicating
 version numbers. Build-time expansion leaves Markdown sources and the human-managed
-changelog untouched. Documentation CI watches both sources of these values.
+changelog untouched. Documentation CI watches both sources of these values and the root changelog.
 Public API contracts belong to the [API reference](../docs/src/reference/api.md);
 wire formats and generator ownership belong to [wire protocol](protocol-wire.md).

@@ -6,6 +6,8 @@ These steps apply to native Linux packages. For other installations, see
 
 ## Updating
 
+See the [Changelog](../resources/changelog.md) for changes in each release.
+
 To update, download the replacement package and follow the
 [package installation](../installation/linux.md#get-binaries) steps. Refresh the installed
 mod, then reload and restart the daemon as your

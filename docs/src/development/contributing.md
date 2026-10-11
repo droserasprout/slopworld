@@ -27,9 +27,8 @@ READMEs and `notes/` Markdown, including new files that Git does not ignore.
 Repository link checks validate target existence; anchor checks apply to the rendered
 book. `just test-docs` tests the checker without building the book.
 `just docs-serve` serves it locally.
-Both recipes consume the existing generated book introduction.
-After editing `README.md`, run `just refresh-introduction` explicitly and commit
-the updated introduction. The refresh can also run while the documentation server is running.
+The Introduction includes `README.md` during the book build. Edit README directly;
+the book adapts its links and image paths without generating a source copy.
 Git ignores output under `docs/book/`.
 For manually captured screenshots, run `just refresh-docs-images` to create heavily
 compressed `.jpg` copies of every PNG under `docs/src/`. The default JPEG quality

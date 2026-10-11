@@ -6,6 +6,7 @@ on:
     branches: [main, human-docs, road-to-release]
     paths:
       - 'README.md'
+      - 'CHANGELOG.md'
       - '**/README.md'
       - 'notes/**'
       - 'docs/**'

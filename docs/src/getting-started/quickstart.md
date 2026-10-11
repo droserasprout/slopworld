@@ -39,7 +39,7 @@ Launch with `slopworld`.
 The sidebar holds your agents, files, and Git changes. Selecting an agent opens
 its terminal. See the [interface tour](../workspace/interface.md) for the other controls.
 If the workspace cannot connect to the daemon, follow
-[Troubleshooting](../help/troubleshooting.md).
+[Troubleshooting](../resources/troubleshooting.md).
 
 Open **Settings > Commands > Binaries** to check which tools SlopWorld can find.
 Choose your editor and reader tools under **Settings > Appearance > Code**;
@@ -88,7 +88,7 @@ restarting, and removing the terminal tab.
    and choose **Start**. Select the agent to open its terminal.
 
 Complete any setup prompts shown by the CLI. If startup fails, use the error
-message with [Troubleshooting](../help/troubleshooting.md). See
+message with [Troubleshooting](../resources/troubleshooting.md). See
 [Configuring agents](../agents/configuring-agents.md) for the remaining settings.
 
 <!-- Manual screenshot: agent editor with project, Main checkout, and CLI selected.
