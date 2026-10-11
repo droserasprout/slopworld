@@ -1,6 +1,103 @@
 use super::*;
 
 #[tokio::test]
+async fn shell_titles_survive_reader_and_daemon_restarts_without_input() {
+    for (sequence, expected) in [
+        ("\\033]2;OSC shell title\\007", "OSC shell title"),
+        (
+            "\\033]2;localhost\\007\\033k~/git/slopworld\\033\\\\",
+            "~/git/slopworld",
+        ),
+    ] {
+        let socket = crate::test_support::TmuxSocket::new();
+        let manager =
+            crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+        manager
+            .tmux
+            .spawn(
+                "slopworld-zsh-3",
+                "/tmp",
+                80,
+                24,
+                &[
+                    "bash".into(),
+                    "-c".into(),
+                    format!("printf '{sequence}'; read -r unused"),
+                ],
+                true,
+            )
+            .await
+            .unwrap();
+        // Wait for the application title, independently of the recovery code.
+        // The command then blocks on input throughout both reader attachments.
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                let titles = tokio::process::Command::new("tmux")
+                    .args([
+                        "-S",
+                        &socket.path,
+                        "display-message",
+                        "-p",
+                        "-t",
+                        "slopworld-zsh-3:.0",
+                        "#{pane_title} #{window_name}",
+                    ])
+                    .output()
+                    .await
+                    .unwrap();
+                assert!(titles.status.success());
+                if String::from_utf8(titles.stdout).unwrap().contains(expected) {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap();
+
+        for _ in 0..2 {
+            // A fresh manager has neither the prior emulator nor a cached title.
+            let recovered =
+                crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+            let mut row = Live::new(
+                SessionCfg {
+                    name: "slopworld-zsh-3".into(),
+                    ..Default::default()
+                },
+                TitleCapture::default(),
+            );
+            row.host = true;
+            row.ephemeral = true;
+            row.set_state(State::Working);
+            recovered
+                .live
+                .write()
+                .await
+                .insert(row.cfg.name.clone(), row);
+            assert!(recovered.spawn_reader("slopworld-zsh-3").await.unwrap());
+            assert_eq!(recovered.views().await[0].runtime.title, expected);
+            assert_eq!(
+                recovered.screen("slopworld-zsh-3").await.unwrap().title,
+                expected
+            );
+            // Reap each control client while keeping the shell and tmux server alive.
+            let reader = recovered
+                .live
+                .write()
+                .await
+                .get_mut("slopworld-zsh-3")
+                .unwrap()
+                .capture
+                .reader
+                .take()
+                .unwrap();
+            reader.abort();
+            drop(reader.await);
+        }
+    }
+}
+
+#[tokio::test]
 async fn failed_startup_attachment_cleans_up_under_the_existing_terminal_writer() {
     let socket = crate::test_support::TmuxSocket::new();
     let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());

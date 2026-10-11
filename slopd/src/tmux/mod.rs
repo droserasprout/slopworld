@@ -97,7 +97,7 @@ pub struct Screen {
     pub lines: Vec<String>,
     pub cx: u16,
     pub cy: u16,
-    /// The latest application title. tmux parses OSC 0/2 for its status line.
+    /// Application title retained by tmux from OSC 0/2 or ESC k.
     /// The tmux server preserves the title after a daemon restart without another title update from the application.
     pub title: String,
     /// Whether the pane uses the alternate screen.
@@ -592,13 +592,15 @@ impl Tmux {
         let body = self.run(&args).await?;
         // Request the title with the cursor position and alternate-screen flag.
         // Put the title last so parsing preserves spaces within it.
+        // ESC k sets window_name and disables automatic-rename. Otherwise the
+        // window name is only a process-name fallback; use the OSC pane title.
         let pos = self
             .run(&[
                 "display-message",
                 "-p",
                 "-t",
                 &target,
-                "#{bracket_paste_flag} #{cursor_x} #{cursor_y} #{alternate_on} #{pane_title}",
+                "#{bracket_paste_flag} #{cursor_x} #{cursor_y} #{alternate_on} #{?automatic-rename,#{pane_title},#{window_name}}",
             ])
             .await
             .unwrap_or_default();

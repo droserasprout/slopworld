@@ -36,6 +36,7 @@ impl Tmux {
     pub async fn ensure_server(&self) -> Result<()> {
         if self.server_running().await? {
             self.configure_emoji_widths().await;
+            self.configure_application_titles().await?;
             return Ok(());
         }
 
@@ -84,6 +85,16 @@ impl Tmux {
                 .await,
         );
         self.configure_emoji_widths().await;
+        self.configure_application_titles().await?;
+        Ok(())
+    }
+
+    async fn configure_application_titles(&self) -> Result<()> {
+        // zsh uses ESC k to set the window name. The mirror sees that sequence
+        // live, but recovery needs tmux to retain it while readers are absent.
+        self.run(&["set-option", "-g", "-w", "allow-rename", "on"])
+            .await
+            .context("enabling application titles on the private tmux server")?;
         Ok(())
     }
 
