@@ -2,6 +2,7 @@
 
 pub(crate) mod control;
 mod server;
+mod titles;
 
 use std::collections::HashMap;
 use std::process::Stdio;
@@ -590,37 +591,29 @@ impl Tmux {
             args.extend(["-S", start.as_str()]);
         }
         let body = self.run(&args).await?;
-        // Request the title with the cursor position and alternate-screen flag.
-        // Put the title last so parsing preserves spaces within it.
-        // ESC k sets window_name and disables automatic-rename. Otherwise the
-        // window name is only a process-name fallback; use the OSC pane title.
         let pos = self
             .run(&[
                 "display-message",
                 "-p",
                 "-t",
                 &target,
-                "#{bracket_paste_flag} #{cursor_x} #{cursor_y} #{alternate_on} #{?automatic-rename,#{pane_title},#{window_name}}",
+                titles::CAPTURE_FORMAT,
             ])
             .await
             .unwrap_or_default();
 
-        let (paste, pos) = pos.split_once(' ').unwrap_or(("0", ""));
-        let bracketed_paste = paste == "1";
-        let (cx, cy, alt_screen, title) = parse_pos(pos);
+        let metadata = CaptureMetadata::parse(&pos);
 
-        // Remove the final newline from `capture-pane` before splitting rows.
-        // Otherwise, the extra empty row scrolls the restored content upward.
-        // The cursor then appears one row too low because restoration uses an absolute cursor position.
+        // Drop the trailing newline to avoid an extra row shifting content above the cursor.
         let body = body.strip_suffix('\n').unwrap_or(&body);
 
         Ok(Screen {
-            bracketed_paste,
+            bracketed_paste: metadata.bracketed_paste,
             lines: body.split('\n').map(str::to_string).collect(),
-            cx,
-            cy,
-            title,
-            alt_screen,
+            cx: metadata.cx,
+            cy: metadata.cy,
+            title: metadata.title,
+            alt_screen: metadata.alt_screen,
         })
     }
 
@@ -752,23 +745,36 @@ impl Tmux {
     }
 }
 
-/// Parse a `display-message` line with two coordinates, an alternate-screen flag, and a title.
-/// Missing values use startup defaults. A failed pane query supplies an empty line through `unwrap_or_default()`.
-fn parse_pos(pos: &str) -> (u16, u16, bool, String) {
-    let mut it = pos.splitn(4, ' ');
-    let cx = it.next().and_then(|v| v.parse().ok()).unwrap_or(0);
-    let cy = it
-        .next()
-        .and_then(|v| v.trim_end().parse().ok())
-        .unwrap_or(0);
-    // tmux flags use `1` and `0`. bool::from_str accepts only `true` and `false`.
-    // Compare the value directly to avoid treating both flags as false.
-    let alt = it.next().map(|v| v.trim_end() == "1").unwrap_or(false);
-    (cx, cy, alt, clean_title(it.next().unwrap_or("")))
+#[derive(Debug, Default, PartialEq, Eq)]
+struct CaptureMetadata {
+    bracketed_paste: bool,
+    cx: u16,
+    cy: u16,
+    alt_screen: bool,
+    title: String,
 }
 
-/// Remove control characters from the title before sending it to a new emulator as an OSC sequence.
-/// This prevents application titles from inserting escape sequences.
+impl CaptureMetadata {
+    /// Preserve title spaces; missing or malformed fields use startup defaults.
+    fn parse(response: &str) -> Self {
+        let mut fields = response.splitn(5, ' ');
+        Self {
+            bracketed_paste: fields.next().is_some_and(|v| v.trim_end() == "1"),
+            cx: fields
+                .next()
+                .and_then(|v| v.trim_end().parse().ok())
+                .unwrap_or(0),
+            cy: fields
+                .next()
+                .and_then(|v| v.trim_end().parse().ok())
+                .unwrap_or(0),
+            alt_screen: fields.next().is_some_and(|v| v.trim_end() == "1"),
+            title: clean_title(fields.next().unwrap_or("")),
+        }
+    }
+}
+
+/// Strip controls so restored titles cannot inject escape sequences.
 fn clean_title(s: &str) -> String {
     s.chars().filter(|c| !c.is_control()).take(512).collect()
 }

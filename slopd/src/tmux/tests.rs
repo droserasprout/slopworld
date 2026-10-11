@@ -1,6 +1,6 @@
 use super::{
-    HostMetadata, ReaderMetadata, clean_title, parse_host_metadata_rows, parse_length_framed_field,
-    parse_pos,
+    CaptureMetadata, HostMetadata, ReaderMetadata, clean_title, parse_host_metadata_rows,
+    parse_length_framed_field,
 };
 
 #[tokio::test]
@@ -269,16 +269,31 @@ fn a_title_cannot_carry_an_escape() {
 }
 
 #[test]
-fn the_alternate_screen_flag_is_a_digit_and_not_a_word() {
-    assert_eq!(parse_pos("12 3 1 vim\n"), (12, 3, true, "vim".into()));
-    assert_eq!(parse_pos("12 3 0 vim\n"), (12, 3, false, "vim".into()));
-    // Preserve spaces in the title. Read the flag from the preceding field.
+fn capture_metadata_preserves_titles_and_parses_numeric_flags() {
     assert_eq!(
-        parse_pos("0 0 1 fix the thing\n"),
-        (0, 0, true, "fix the thing".into())
+        CaptureMetadata::parse("1 12 3 1 fix the thing\n"),
+        CaptureMetadata {
+            bracketed_paste: true,
+            cx: 12,
+            cy: 3,
+            alt_screen: true,
+            title: "fix the thing".into(),
+        }
     );
-    // Use default values when the pane returns no response.
-    assert_eq!(parse_pos(""), (0, 0, false, String::new()));
+    assert_eq!(
+        CaptureMetadata::parse("0 12 3 0 vim\n"),
+        CaptureMetadata {
+            cx: 12,
+            cy: 3,
+            title: "vim".into(),
+            ..Default::default()
+        }
+    );
+    assert_eq!(CaptureMetadata::parse(""), CaptureMetadata::default());
+    assert_eq!(
+        CaptureMetadata::parse("0 bad bad 0 "),
+        CaptureMetadata::default()
+    );
 }
 
 #[test]

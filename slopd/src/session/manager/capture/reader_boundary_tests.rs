@@ -2,51 +2,53 @@ use super::*;
 
 #[tokio::test]
 async fn shell_titles_survive_reader_and_daemon_restarts_without_input() {
-    for (sequence, expected) in [
-        ("\\033]2;OSC shell title\\007", "OSC shell title"),
+    let socket = crate::test_support::TmuxSocket::new();
+    for (index, (sequence, expected)) in [
+        (
+            "\\033k~/git/slopworld\\033\\\\\\033]2;Current application title\\007",
+            "Current application title",
+        ),
         (
             "\\033]2;localhost\\007\\033k~/git/slopworld\\033\\\\",
             "~/git/slopworld",
         ),
-    ] {
-        let socket = crate::test_support::TmuxSocket::new();
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let name = format!("slopworld-title-{index}");
+        let target = format!("{name}:.0");
         let manager =
             crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
         manager
             .tmux
             .spawn(
-                "slopworld-zsh-3",
+                &name,
                 "/tmp",
                 80,
                 24,
                 &[
                     "bash".into(),
                     "-c".into(),
-                    format!("printf '{sequence}'; read -r unused"),
+                    format!("printf '{sequence}'; printf 'titles-ready'; read -r unused"),
                 ],
                 true,
             )
             .await
             .unwrap();
-        // Wait for the application title, independently of the recovery code.
-        // The command then blocks on input throughout both reader attachments.
+        // Consume both titles before attaching; the shell then waits for input.
         tokio::time::timeout(Duration::from_secs(5), async {
             loop {
                 let titles = tokio::process::Command::new("tmux")
-                    .args([
-                        "-S",
-                        &socket.path,
-                        "display-message",
-                        "-p",
-                        "-t",
-                        "slopworld-zsh-3:.0",
-                        "#{pane_title} #{window_name}",
-                    ])
+                    .args(["-S", &socket.path, "capture-pane", "-p", "-t", &target])
                     .output()
                     .await
                     .unwrap();
                 assert!(titles.status.success());
-                if String::from_utf8(titles.stdout).unwrap().contains(expected) {
+                if String::from_utf8(titles.stdout)
+                    .unwrap()
+                    .contains("titles-ready")
+                {
                     break;
                 }
                 tokio::time::sleep(Duration::from_millis(20)).await;
@@ -55,45 +57,48 @@ async fn shell_titles_survive_reader_and_daemon_restarts_without_input() {
         .await
         .unwrap();
 
-        for _ in 0..2 {
-            // A fresh manager has neither the prior emulator nor a cached title.
-            let recovered =
-                crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
-            let mut row = Live::new(
-                SessionCfg {
-                    name: "slopworld-zsh-3".into(),
-                    ..Default::default()
-                },
-                TitleCapture::default(),
-            );
-            row.host = true;
-            row.ephemeral = true;
-            row.set_state(State::Working);
-            recovered
-                .live
-                .write()
-                .await
-                .insert(row.cfg.name.clone(), row);
-            assert!(recovered.spawn_reader("slopworld-zsh-3").await.unwrap());
-            assert_eq!(recovered.views().await[0].runtime.title, expected);
-            assert_eq!(
-                recovered.screen("slopworld-zsh-3").await.unwrap().title,
-                expected
-            );
-            // Reap each control client while keeping the shell and tmux server alive.
-            let reader = recovered
-                .live
-                .write()
-                .await
-                .get_mut("slopworld-zsh-3")
-                .unwrap()
-                .capture
-                .reader
-                .take()
-                .unwrap();
-            reader.abort();
-            drop(reader.await);
-        }
+        assert_title_after_repeated_attachment(&socket.path, &name, expected).await;
+    }
+}
+
+async fn assert_title_after_repeated_attachment(socket: &str, name: &str, expected: &str) {
+    for _ in 0..2 {
+        // Recover without a cached emulator or title.
+        let recovered =
+            crate::session::test_manager_with_socket(Config::default(), socket.to_owned());
+        // Startup must preserve title order.
+        recovered.tmux.ensure_server().await.unwrap();
+        let mut row = Live::new(
+            SessionCfg {
+                name: name.to_owned(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        row.host = true;
+        row.ephemeral = true;
+        row.set_state(State::Working);
+        recovered
+            .live
+            .write()
+            .await
+            .insert(row.cfg.name.clone(), row);
+        assert!(recovered.spawn_reader(name).await.unwrap());
+        assert_eq!(recovered.views().await[0].runtime.title, expected);
+        assert_eq!(recovered.screen(name).await.unwrap().title, expected);
+        // Reap the reader, leaving the shell and server alive.
+        let reader = recovered
+            .live
+            .write()
+            .await
+            .get_mut(name)
+            .unwrap()
+            .capture
+            .reader
+            .take()
+            .unwrap();
+        reader.abort();
+        drop(reader.await);
     }
 }
 

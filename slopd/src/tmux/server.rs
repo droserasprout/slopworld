@@ -89,15 +89,6 @@ impl Tmux {
         Ok(())
     }
 
-    async fn configure_application_titles(&self) -> Result<()> {
-        // zsh uses ESC k to set the window name. The mirror sees that sequence
-        // live, but recovery needs tmux to retain it while readers are absent.
-        self.run(&["set-option", "-g", "-w", "allow-rename", "on"])
-            .await
-            .context("enabling application titles on the private tmux server")?;
-        Ok(())
-    }
-
     async fn start_server_unit(&self, name: &str) -> std::io::Result<std::process::ExitStatus> {
         let mut command = Command::new("systemd-run");
         command
