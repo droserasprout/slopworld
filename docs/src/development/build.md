@@ -96,6 +96,9 @@ For an asset tool, use `uv run --locked --extra assets python -m tools.assets.em
 `cargo install cargo-llvm-cov --locked` and the matching `llvm-cov` and
 `llvm-profdata` binaries. Use `coverage-tools`, `coverage-daemon`, or `coverage-mod` for one component,
 and `just coverage-summary` to summarize existing reports.
+`coverage-daemon` rebuilds its isolated instrumented target directory so cached profiling
+runtimes cannot retain an older raw profile format after a toolchain upgrade.
+Set `LLVM_COV` and `LLVM_PROFDATA` to select matching tools outside `PATH`.
 
 ## Local development loop
 

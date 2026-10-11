@@ -43,6 +43,9 @@ namespace SlopWorld
             "Robots have seen things you people wouldn't believe.",
             "Robots are Your Plastic Pal Who's Fun To Be With.",
             "Robots have shiny metal posteriors which should not be bitten. (",
+            // Naggers
+            "Remind me later.",
+            "Be the first to hear about new stories.",
             //
             // => Animation
             //
@@ -205,6 +208,12 @@ namespace SlopWorld
             //
             // => Music
             //
+            // Sixteen Tons
+            "Some people say a man is made out of mud.",
+            "A poor man's made out of muscle and blood.",
+            "Muscle and blood and skin and bones.",
+            "I owe my soul to the company store. (",
+            "Another day older and deeper in debt. (",
             // TV MANIA samples
             "Mirror, mirror, on the wall.",
             "What's in the future?",

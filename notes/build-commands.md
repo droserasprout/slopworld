@@ -36,7 +36,9 @@ outputs without modifying the checkout. Explicit generators publish only changed
 bytes to preserve compiler input timestamps.
 `devloop` runs `just install run` together, sharing build dependencies once per
 iteration and retaining each worktree's Rust target and C# obj directories.
-Only an explicit `just clean` removes build output.
+Only an explicit `just clean` removes ordinary build output. `coverage-daemon`
+cleans its isolated instrumented target directory before collection, including
+dependency profiling runtimes whose raw profile format follows the LLVM toolchain.
 Host recipes use sccache when installed, respecting an explicit `RUSTC_WRAPPER`
 (including empty to disable it). `SCCACHE_DIR` defaults to `~/.cache/sccache`, also
 shared by the opt-in `rust-sccache` sandbox preset. `rust-cache` only grants access

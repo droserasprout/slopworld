@@ -22,8 +22,8 @@ def summarize(path: Path, label: str) -> None:
 def daemon(output: Path) -> None:
     if not shutil.which('cargo-llvm-cov'):
         raise ValueError('Missing cargo-llvm-cov. Install it with: cargo install cargo-llvm-cov --locked')
-    llvm_cov = shutil.which('llvm-cov')
-    llvm_profdata = shutil.which('llvm-profdata')
+    llvm_cov = shutil.which(os.environ.get('LLVM_COV', 'llvm-cov'))
+    llvm_profdata = shutil.which(os.environ.get('LLVM_PROFDATA', 'llvm-profdata'))
     if not llvm_cov or not llvm_profdata:
         raise ValueError('Missing LLVM coverage tools.')
     exclusions = ['--ignore-filename-regex', os.environ['RUST_COVERAGE_EXCLUDE']]
@@ -34,7 +34,9 @@ def daemon(output: Path) -> None:
     def cargo_run(*args: str, stdout: TextIO | None = None) -> None:
         run(cargo + list(args), cwd=ROOT / 'slopd', env=environment, stdout=stdout)
 
-    cargo_run('clean', '--profraw-only')
+    # Rebuild instrumented dependencies too: cached profiling runtimes can emit
+    # an older raw profile format after the host LLVM toolchain changes.
+    cargo_run('clean')
     cargo_run('--no-report')
     report = output / 'rust.cobertura.xml'
     filtered = output / 'rust.filtered.cobertura.xml'

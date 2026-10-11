@@ -23,12 +23,27 @@ def test_rust_reports_use_absolute_output_paths_and_tool_environment(
     ):
         collect.daemon(output)
     calls = [call.args[0] for call in run.call_args_list]
-    assert calls[0] == ['/tmp/cargo tool', '--offline', 'llvm-cov', 'clean', '--profraw-only']
+    assert calls[0] == ['/tmp/cargo tool', '--offline', 'llvm-cov', 'clean']
     assert calls[2][-1] == str(output / 'rust.cobertura.xml')
     assert calls[3][-1] == str(output / 'rust.filtered.cobertura.xml')
     assert '--ignore-filename-regex' in calls[4]
     assert run.call_args_list[0].kwargs['env']['LLVM_COV'] == '/bin/llvm-cov'
     assert summarize.call_count == 2
+
+
+def test_rust_coverage_preserves_explicit_llvm_tool_overrides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('LLVM_COV', '/opt/llvm/bin/llvm-cov')
+    monkeypatch.setenv('LLVM_PROFDATA', '/opt/llvm/bin/llvm-profdata')
+    monkeypatch.setenv('RUST_COVERAGE_EXCLUDE', '/tests/')
+    with (
+        patch.object(shutil, 'which', side_effect=lambda tool: tool),
+        patch.object(collect, 'run') as run,
+        patch.object(collect, 'summarize'),
+    ):
+        collect.daemon(tmp_path)
+    for call in run.call_args_list:
+        assert call.kwargs['env']['LLVM_COV'] == '/opt/llvm/bin/llvm-cov'
+        assert call.kwargs['env']['LLVM_PROFDATA'] == '/opt/llvm/bin/llvm-profdata'
 
 
 def test_missing_cargo_llvm_cov_fails_before_creating_output(tmp_path: Path) -> None:
