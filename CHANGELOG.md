@@ -12,20 +12,21 @@ Expect any imaginable incompabilities until 0.1.0 or better 1.0.0.
 
 ### Added
 
-- Added configurable date format (Settings > General).
+- Settings: Added configurable date format (General tab).
 
 ### Fixed
 
+- Files: Fixed workspace viewers showing internal tab names instead of filenames.
+- Tasks: Fixed double-, triple-click selection, and copying to PRIMARY in task details.
+- Tasks: Respect the configured time format in task details.
 - Terminal: Preserve zsh host shell tab titles between restarts.
 - UI: Fixed hover highlights jumping after keyboard input in scrollable views.
-- UI: Fixed double-, triple-click selection, and copying to PRIMARY in task details.
-- UI: Fixed workspace viewers showing internal tab names instead of filenames.
-- UI: Respect the configured time format in task details.
+- UI: Fixed a character jumping between lines in tooltips when moving the pointer.
 
 ### Changed
 
-- UI: Replaced Search checkboxes with compact underlined toggles.
-- UI: Include newly added projects and worktrees in the sidebar filter.
+- Search: Replaced checkboxes with compact underlined toggles.
+- Sidebar: Include newly added projects and worktrees in the sidebar filter.
 
 ## [0.0.1] - 2026-10-10
 
