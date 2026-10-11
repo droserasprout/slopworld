@@ -23,7 +23,7 @@ RUN touch src/main.rs src/bin/slopctl.rs \
     && cargo build --release --locked --bin slopd --bin slopctl
 
 # Forky supplies tmux 3.7c.
-FROM debian:forky-slim
+FROM debian:forky-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         bubblewrap \
@@ -38,13 +38,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         procps \
         python3 \
         ripgrep \
+        systemd-standalone-sysusers \
+        systemd-standalone-tmpfiles \
         tmux=3.7c-1 \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=build --chmod=755 /build/slopd/target/release/slopd /usr/local/bin/slopd
-COPY --from=build --chmod=755 /build/slopd/target/release/slopctl /usr/local/bin/slopctl
-COPY LICENSE /usr/share/licenses/slopworld/LICENSE
-COPY licenses/ /usr/share/licenses/slopworld/third-party/
+    && rm -rf /var/lib/apt/lists/* /var/cache/debconf/*-old /var/lib/dpkg/*-old \
+    && find /usr/lib/python3* -type d -name __pycache__ -prune -exec rm -rf '{}' +
 
 RUN useradd --create-home --uid 1000 --shell /bin/bash slop \
     && install -d -o slop -g slop -m 0700 \
@@ -61,6 +59,15 @@ RUN useradd --create-home --uid 1000 --shell /bin/bash slop \
         /home/slop/.pi/agent \
         /home/slop/.ssh \
     && chown -R slop:slop /home/slop
+
+# Copy the completed runtime filesystem once so package upgrades do not retain
+# overwritten base files. Keep Debian's package database for user-supplied images.
+FROM scratch
+COPY --from=runtime / /
+COPY --from=build --chmod=755 /build/slopd/target/release/slopd /usr/local/bin/slopd
+COPY --from=build --chmod=755 /build/slopd/target/release/slopctl /usr/local/bin/slopctl
+COPY LICENSE /usr/share/licenses/slopworld/LICENSE
+COPY licenses/ /usr/share/licenses/slopworld/third-party/
 
 COPY --chmod=755 slopcar/entrypoint.sh /usr/local/bin/slopcar-entrypoint
 COPY --chmod=755 slopcar/doctor.sh /usr/local/bin/slopcar-doctor

@@ -4,6 +4,10 @@
 Linux daemon, tmux, Bubblewrap, and pasta. Agent CLIs belong to user-supplied
 images; the standard sidecar image supplies runtime infrastructure.
 The container base supports amd64 and arm64.
+The final image copies the completed Debian runtime filesystem once to avoid
+retaining files replaced by package upgrades. It keeps APT and the package database
+for custom images; OpenSSH uses standalone sysusers/tmpfiles helpers instead of
+full systemd.
 The independent `slopcar/Cargo.toml` crate builds on Linux and macOS without
 the daemon's Linux/audio/protobuf dependencies. `just sidecar` builds it;
 `just install-sidecar` installs it. `just test-sidecar` runs game-free tests.
