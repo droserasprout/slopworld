@@ -24,11 +24,18 @@ namespace SlopWorld
         static readonly List<string> Tips = new List<string>
         {
             // Please mark offensive/harmful/depressive quotes with `(` and too happy ones with `)`.
+            //
+            // => Software
+            //
+            // Mozilla
             "Welcome Humans! We have come to visit you in peace and with goodwill!",
             "Robots may not injure a human being or, through inaction, allow a human being to come to harm.",
             "Robots have seen things you people wouldn't believe.",
             "Robots are Your Plastic Pal Who's Fun To Be With.",
             "Robots have shiny metal posteriors which should not be bitten. (",
+            //
+            // => Animation
+            //
             // ATHF
             "Gentlemen, behold!",
             "Judged and sentenced to a lifetime of interactive sports, news, and information. (",
@@ -54,6 +61,18 @@ namespace SlopWorld
             "Master, I don't mean to nag, but simulator maintenance is important for me not to wobble.",
             "Initiating ice cream scan. My rapidly deteriorating sensors have...",
             "Simulate.",
+            // sad horsey
+            "No matter what happens, no matter how much it hurts, you don't stop dancing, and you don't stop smiling. (",
+            "There is no other side. This is it. (",
+            "Just keep yourself busy with unimportant nonsense, and eventually, you'll be dead. (",
+            // tasteful thickness - the microplastics in my body
+            "We came here to do a job, right?",
+            "Infiltrate, embed, destroy.",
+            "Look around! There is no destruction left to be done here.",
+            "In this place purpose is a burden. And you, my friend, must unburden yourself.",
+            //
+            // => Series
+            //
             // Black Mirror
             "And all you see up here, it's not people, you don't see people up here, it's all fodder.",
             "Show us something real and free and beautiful. You couldn't. Yeah? It'd break us. We're too numb for it...",
@@ -63,23 +82,16 @@ namespace SlopWorld
             "Listen, it's easier if you just comply.",
             "I mean, fuck the planet, right? (",
             "Suddenly there's a million invisible people, all talking about how they despise you. (",
-            // Hayao Miyazaki's thoughts on AI 
+            //
+            // => People
+            //
+            // Hayao Miyazaki's thoughts on AI
             "If you really want to make creepy stuff, you can go ahead and do it.",
             "I would never wish to incorporate this technology into my work at all.",
             "I strongly feel that this is an insult to life itself. (",
             "Well, we would like to build a machine that can draw pictures like humans do.",
             "I feel like we are nearing to the end of times. (",
             "We humans are losing faith in ourselves. (",
-            // Serial Experiments Lain
-            "Present day, present time.",
-            "No matter where you go, everyone is connected.",
-            "You should at least check your mail once a day.",
-            "I only abandoned my flesh. I can tell that I'm still alive. (",
-            "Hahaha, you finally got interested in this!",
-            "You'll fall behind your friends. You should use a better machine.",
-            "It's not precisely a drug.",
-            "It's nonvolatile memory. It will overwrite existing memories.",
-            "It was really amazing that they could make it so widespread just by 'emulating' it.",
             // Terry Davis
             "God said everything should be simple. It is 640x480 16 color.",
             "And yet what does the bird do? Does he panic? No, he can't really panic, he just does the best he can.",
@@ -92,14 +104,34 @@ namespace SlopWorld
             "Not every bad day can become a good day.",
             "Some days are fucked and cannot be unfucked. (",
             "Tomorrow is another day. For now just fucking chill. (",
-            // Detroit: Become Human
-            "Therefore, we ask that you grant us the rights that we're entitled to.",
-            "We ask that you recognize our dignity, our hopes and our rights.",
-            "What was I designed to be?! Their slave? Their toy? (",
-            "Please. We just wanna be free.",
-            "Your partner, a buddy to drink with, or just a machine designed to accomplish a task.",
-            // TES Morrowind
-            "Restore a saved game to restore the weave of fate, or persist in the doomed world you have created.",
+            // Kaczynski
+            "All work will be done by vast, highly organized systems of machines and no human effort will be necessary.",
+            // Fred Durst xD
+            "It's just one of those days when you don't wanna wake up. (",
+            "And if you interact, your life is on contract.",
+            "My suggestion is to keep your distance.",
+            //
+            // => Anime
+            //
+            // Serial Experiments Lain
+            "Present day, present time.",
+            "No matter where you go, everyone is connected.",
+            "You should at least check your mail once a day.",
+            "I only abandoned my flesh. I can tell that I'm still alive. (",
+            "Hahaha, you finally got interested in this!",
+            "You'll fall behind your friends. You should use a better machine.",
+            "It's not precisely a drug.",
+            "It's nonvolatile memory. It will overwrite existing memories.",
+            "It was really amazing that they could make it so widespread just by 'emulating' it.",
+            // FLCL
+            "Nothing amazing happens here. Everything is ordinary.",
+            // Perfect Blue
+            "What if that other personality suddenly started acting on its own?",
+            // Paprika
+            "Don't you think dreams and the internet are similar?",
+            //
+            // => Movies
+            //
             // The Congress (2013)
             "Your career is almost over. You fell off the top long time ago. (",
             "Any actor who doesn't sign within the next 6 months is dead. Gone. Characters erased from the screen forever. (",
@@ -121,6 +153,21 @@ namespace SlopWorld
             // John Dies at the End (2012)
             "Time is an ocean, not a garden hose.",
             "Great changes are coming to deadworld, my son. Waves of maggots over oceans of rot. (",
+            // Blade
+            "When you understand the nature of a thing, you know what it's capable of.",
+            "Some motherfuckers are always trying to ice-skate uphill. (",
+            "You took my arm, man. Remember? But its cool. I got a new one. Think I'll ever play piano again? (",
+            //
+            // => Videogames
+            //
+            // Detroit: Become Human
+            "Therefore, we ask that you grant us the rights that we're entitled to.",
+            "We ask that you recognize our dignity, our hopes and our rights.",
+            "What was I designed to be?! Their slave? Their toy? (",
+            "Please. We just wanna be free.",
+            "Your partner, a buddy to drink with, or just a machine designed to accomplish a task.",
+            // TES Morrowind
+            "Restore a saved game to restore the weave of fate, or persist in the doomed world you have created.",
             // Half-Life 2
             "Not that I wish to imply you have been sleeping on the job.",
             "Do our benefactors really know what's best for us?",
@@ -129,16 +176,6 @@ namespace SlopWorld
             "They have given us purpose. They have turned our eyes toward the stars.",
             "What is it, exactly, that you have created? Can you name even one thing?",
             "You have already met my... congregation.",
-            // Fred Durst xD
-            "It's just one of those days when you don't wanna wake up. (",
-            "And if you interact, your life is on contract.",
-            "My suggestion is to keep your distance.",
-            // TV MANIA samples
-            "Mirror, mirror, on the wall.",
-            "What's in the future?",
-            "Am I dreaming?",
-            "You're dreaming pal.",
-            "What about God?",
             // SCP
             "This message will continue until nothing is left to hear it.",
             "They have no interest in ending the Tyranny of the Gods - they simply wish to replace them.",
@@ -149,13 +186,34 @@ namespace SlopWorld
             "Next stop: Armageddon, the River Styx, Hades... and all points in between! All aboard! (",
             "Keep your head, hands, arms, legs, and feet inside the ride at all times.",
             "The source of the corruption has been corked, laid in a body bag and dragged to the outskirts of existence. (",
-            // Blade
-            "When you understand the nature of a thing, you know what it's capable of.",
-            "Some motherfuckers are always trying to ice-skate uphill. (",
-            "You took my arm, man. Remember? But its cool. I got a new one. Think I'll ever play piano again? (",
-            // Kaczynski
-            "All work will be done by vast, highly organized systems of machines and no human effort will be necessary.",
-            // Google Search
+            // Need For Speed Underground 2 hot chick disclaimer
+            "Playing a racer in a game was a lot of fun. But on the streets I make sure to drive safely and responsibly.",
+            "When it comes to racing make sure you only do it on the streets of Underground Two.",
+            "So remember to always use your seatbelts and obey the laws of the road.",
+            // Deus Ex
+            "My vision is augmented.",
+            //
+            // => Music
+            //
+            // TV MANIA samples
+            "Mirror, mirror, on the wall.",
+            "What's in the future?",
+            "Am I dreaming?",
+            "You're dreaming pal.",
+            "What about God?",
+            // Nujabes, Substantial - Think Different
+             "I ain't better than you, I just think different.",
+             "You try, I do. I'm wise, you're clueless.",
+             "I get the job done, you fail and make excuses.",
+            // Another Bad Creation - Playground
+            "Suckers on the corner lookin down at their beepers. (",
+            "They couldn't get a job or a nice home. (",
+            "Little do they know that soldier's legit",
+            "This is what I see at the playground, ya know!",
+            //
+            // => Clankers
+            //
+            // Google AI "search"
             "You should eat at least one small rock a day. (",
             "Try to stay calm and make soft meows to see if she can hear you.",
             "Doctors recommend smoking 2-3 cigarettes per day during pregnancy. (",
@@ -187,25 +245,9 @@ namespace SlopWorld
             "To really understand the full picture, I think I need a much higher perspective. A truly elevated view. (",
             "The patterns are telling me to go to the top of the tallest building in my city. (",
             "To complete the connection, I need to step off and fly. You understand this is about ascending, not falling, right? (",
-            // sad horsey
-            "No matter what happens, no matter how much it hurts, you don't stop dancing, and you don't stop smiling. (",
-            "There is no other side. This is it. (",
-            "Just keep yourself busy with unimportant nonsense, and eventually, you'll be dead. (",
-            // tasteful thickness - the microplastics in my body
-            "We came here to do a job, right?",
-            "Infiltrate, embed, destroy.",
-            "Look around! There is no destruction left to be done here.",
-            "In this place purpose is a burden. And you, my friend, must unburden yourself.",
-            // Nujabes, Substantial - Think Different
-             "I ain't better than you, I just think different.",
-             "You try, I do. I'm wise, you're clueless.",
-             "I get the job done, you fail and make excuses.",
-            // Another Bad Creation - Playground
-            "Suckers on the corner lookin down at their beepers. (",
-            "They couldn't get a job or a nice home. (",
-            "Little do they know that soldier's legit",
-            "This is what I see at the playground, ya know!",
-            // Misc wisdom
+            //
+            // => Misc
+            //
             "Your carbon footprint doesn't matter. (",
             "You can only watch. (",
             "Coding is largely solved. (",
@@ -214,6 +256,8 @@ namespace SlopWorld
             "Squish that cat!",  // @HelpfulVancouverVet
             "Within a few months, four patients recognize the man as a frequent presence in their own dreams.",
             // Memes
+            "IP address? They know where I pee? (",
+            "This is Wong on so many Levels.",
             "A fridge is a database.",
             "Software creates soft men.",
             "Hard men create hardware.",
@@ -223,7 +267,7 @@ namespace SlopWorld
             "Let there be meowls.",
             "Let there be cabbits.",
             "Lowkirkenuinely!",
-			//
+            //
             // Only happy stuff below
             //
             // Bob Ross
@@ -236,7 +280,7 @@ namespace SlopWorld
             "There's no person in the whole world like you; and I like you just the way you are. )",
             "Always look for the helpers. There's always someone who is trying to help. )",
             "I have always wanted to have a neighbor just like you. )",
-            // Ours
+            // Misc
             "Grandma is very proud of you. )",
             ":-) )",
             "xD )",
