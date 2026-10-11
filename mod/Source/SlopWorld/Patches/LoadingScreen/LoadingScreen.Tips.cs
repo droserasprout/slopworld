@@ -11,6 +11,16 @@ namespace SlopWorld
         const string Sad = " (";
         const string Sweet = " )";
 
+        static readonly LoadingTipSelection StreamSelection = new LoadingTipSelection();
+
+        static string NextStreamTip(int columns, int occupied)
+        {
+            var pool = new List<string>();
+            foreach (string tip in Tips)
+                if (Shown(tip, Settings.GrandmaMode)) pool.Add(Strip(tip));
+            return StreamSelection.Pick(pool, columns, occupied, Dice);
+        }
+
         // Which of the two disqualifies is the whole of the difference between the modes.
         static bool Shown(string tip, bool grandma) => !tip.EndsWith(grandma ? Sad : Sweet, StringComparison.Ordinal);
 

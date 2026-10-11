@@ -199,6 +199,7 @@ namespace SlopWorld
 
         static void ResetStream()
         {
+            StreamSelection.Clear();
             Stream.Clear();
             Tokens.Clear();
             _tokenAt = 0;
@@ -222,25 +223,15 @@ namespace SlopWorld
             _newLoadingSession = true;
         }
 
-        static string NextTip()
-        {
-            bool grandma = Settings.GrandmaMode;
-            for (int i = 0; i < Tips.Count; i++)
-            {
-                string tip = Tips[Dice.Next(Tips.Count)];
-                if (Shown(tip, grandma)) return Strip(tip);
-            }
-
-            return "Loading.";
-        }
-
         // Keep the separators deliberately plain: tips are split on spaces, while a null token
         // represents an explicit newline. No parser or word-pool machinery is needed here.
-        static void LoadTip()
+        static void LoadTip(float width)
         {
             Tokens.Clear();
             _tokenAt = 0;
-            string tip = NextTip();
+            int columns = Mathf.Max(1, Mathf.FloorToInt(width / TextWidth(" ", FontSize)));
+            int occupied = Stream.Count == 0 ? 0 : Stream[Stream.Count - 1].Length;
+            string tip = NextStreamTip(columns, occupied);
             string[] paragraphs = tip.Split(new[] { '\n' }, StringSplitOptions.None);
             for (int i = 0; i < paragraphs.Length; i++)
             {
@@ -387,7 +378,7 @@ namespace SlopWorld
 
             for (int i = 0; i < count; i++)
             {
-                if (_tokenAt >= Tokens.Count) LoadTip();
+                if (_tokenAt >= Tokens.Count) LoadTip(width);
                 AppendToken(Tokens[_tokenAt++], width);
             }
             _painted = JoinStream();

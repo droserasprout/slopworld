@@ -73,7 +73,7 @@ namespace SlopWorld
                         () => SetDateFormat(format)))
                     .ToList();
                 if (Settings.DateFormat == DateFormat.DayFirst)
-                    choices.Add(new FloatMenuOption("waves/maggots/oceansrot", () => { }));
+                    choices.Add(new FloatMenuOption("waves/maggots/oceansrot", null));
                 Find.WindowStack.Add(new UiMenu(choices));
             }
 
