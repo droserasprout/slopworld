@@ -78,21 +78,20 @@ namespace SlopWorld
         void DrawTheme(Listing_Standard l, ModSettings s)
         {
             UiLayout.SectionHeading(l, "Colors");
-            if (UiLayout.Button(l,
-                    $"Color scheme: {(s.theme == TerminalTheme.MatchUI ? "Match UI" : TerminalTheme.Current.Label)}"))
-                Find.WindowStack.Add(new UiMenu(new[]
+            string autoLabel = "Auto (" + TerminalTheme.Get(UIScheme.Current.Id).Label + ")";
+            UiControls.Select(l, "Color scheme:",
+                s.theme == TerminalTheme.MatchUI ? autoLabel : TerminalTheme.Current.Label,
+                new[]
+                {
+                    new FloatMenuOption(autoLabel, () =>
                     {
-                        new FloatMenuOption("Match UI", () =>
-                        {
-                            if (UiControls.SetSetting(s, ref s.theme, TerminalTheme.MatchUI))
-                                TerminalTheme.Invalidate();
-                        }),
-                    }.Concat(TerminalTheme.All
-                    .Select(t => new FloatMenuOption(t.Label, () =>
-                    {
-                        if (UiControls.SetSetting(s, ref s.theme, t.Name)) TerminalTheme.Invalidate();
-                    })))
-                    .ToList()));
+                        if (UiControls.SetSetting(s, ref s.theme, TerminalTheme.MatchUI))
+                            TerminalTheme.Invalidate();
+                    }),
+                }.Concat(TerminalTheme.All.Select(t => new FloatMenuOption(t.Label, () =>
+                {
+                    if (UiControls.SetSetting(s, ref s.theme, t.Name)) TerminalTheme.Invalidate();
+                }))), out _);
 
             DrawSwatches(l.GetRect(18f));
             l.Gap(UiTheme.GapM);

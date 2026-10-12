@@ -32,6 +32,9 @@ across IMGUI passes. Measurement must not mutate form data. Cache layout by cont
 and text metrics, not color alone; use shared measurement helpers. `Slab` geometry
 is flat and pixel-snapped. Hover must not alter bounds. Spacing and text metrics
 belong to shared chrome rather than individual themes.
+Selector width must fit the selected text plus its arrow and divider, even when a
+menu supplies a preferred width; the available form width remains the upper bound.
+The opened selector menu uses that final control width so their edges align.
 
 Chrome colors resolve on read. A texture that bakes them must invalidate on theme
 changes. [Theme identity](mod-ui-identity.md) owns catalog contracts. Other focused

@@ -127,7 +127,7 @@ namespace SlopWorld
                     Text = Sample,
                     Language = "rs",
                     Engine = _engine,
-                    Theme = Appearance.Theme(_engine),
+                    Theme = CodeHighlight.ResolveTheme(_engine, Appearance.Theme(_engine)),
                     Command = _command
                 }, result =>
                 {
@@ -186,11 +186,12 @@ namespace SlopWorld
                     : "Choose highlight, Pygments, or bat to select a theme here.");
             else
             {
-                var choices = new List<FloatMenuOption> { new FloatMenuOption("Use command default", () => SelectTheme("")) };
+                string defaultLabel = _engine == "bat" ? "Auto (ansi)" : "Use command default";
+                var choices = new List<FloatMenuOption> { new FloatMenuOption(defaultLabel, () => SelectTheme("")) };
                 choices.AddRange(_themes
                     .Select(t => new FloatMenuOption(t, () => SelectTheme(t))));
                 string theme = Appearance.Theme(_engine);
-                UiControls.Select(l, "Theme (" + (_engine == "pygments" ? "Pygments" : _engine) + ")", theme.Length == 0 ? "Use command default" : theme, choices, out _);
+                UiControls.Select(l, "Theme (" + (_engine == "pygments" ? "Pygments" : _engine) + ")", theme.Length == 0 ? defaultLabel : theme, choices, out _);
             }
             if (_previewError != null) UiLayout.Note(l, _previewError);
         }

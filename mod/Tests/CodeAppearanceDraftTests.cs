@@ -7,6 +7,27 @@ namespace SlopWorld.Tests
 {
     static class CodeAppearanceDraftTests
     {
+        public static void AutoBatTheme()
+        {
+            var settings = new ModSettings();
+            var draft = CodeAppearanceDraft.For(settings);
+            AssertEx.Equal("ansi", CodeHighlight.Theme(settings, "bat"), "new profiles follow terminal colors");
+            AssertEx.Equal("ansi", CodeHighlight.ResolveTheme("bat", draft.Theme("bat")), "preview matches readers");
+            AssertEx.False(draft.Dirty, "auto does not change saved preferences");
+            draft.SelectTheme("bat", "gruvbox-dark");
+            draft.CaptureSave(_ => { })();
+            AssertEx.Equal("gruvbox-dark", CodeHighlight.Theme(settings, "bat"), "explicit theme remains selected");
+            draft.SelectTheme("bat", "");
+            AssertEx.Equal("ansi", CodeHighlight.ResolveTheme("bat", draft.Theme("bat")), "reset preview follows terminal colors");
+            AssertEx.Equal("gruvbox-dark", CodeHighlight.Theme(settings, "bat"), "reset remains unapplied until save");
+            draft.CaptureSave(_ => { })();
+            AssertEx.Equal("ansi", CodeHighlight.Theme(settings, "bat"), "saved reset follows terminal colors");
+            AssertEx.Equal("", settings.codeBatTheme, "auto retains the empty preference");
+            settings.codeBatTheme = null;
+            AssertEx.Equal("ansi", CodeHighlight.Theme(settings, "bat"), "missing legacy preference follows terminal colors");
+            AssertEx.Equal("", CodeHighlight.Theme(settings, "highlight"), "other tools retain their defaults");
+        }
+
         public static void AppearanceDraft()
         {
             var settings = new ModSettings { codeBatTheme = "old", codeLineNumbers = true };

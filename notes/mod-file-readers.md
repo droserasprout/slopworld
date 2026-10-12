@@ -29,3 +29,7 @@ LESSOPEN can strand padding. Keep short output open and preserve alternate-scree
 wheel routing. Commands belong to `PagerCommands` and [Settings](ui-settings.md),
 input to [terminal](mod-terminal.md), and feature dispatch to
 [Files](mod-ui-files.md), [Git](mod-ui-git.md), and [Search](mod-ui-search.md).
+
+`CodeHighlight` resolves profile-local syntax themes for readers and settings previews.
+An empty bat preference is **Auto (ansi)**: source files, Markdown code, and bat-themed
+diffs use the active terminal palette. Explicit themes remain profile preferences.

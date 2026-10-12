@@ -24,10 +24,14 @@ namespace SlopWorld
             {
                 case "highlight": return settings.codeHighlightTheme ?? "";
                 case "pygments": return settings.codePygmentsTheme ?? "";
-                case "bat": return settings.codeBatTheme ?? "";
+                case "bat": return ResolveTheme(engine, settings.codeBatTheme);
                 default: return "";
             }
         }
+
+        // Empty bat preferences follow the terminal palette in every reader and preview.
+        public static string ResolveTheme(string engine, string theme) =>
+            engine == "bat" && string.IsNullOrEmpty(theme) ? "ansi" : theme ?? "";
 
         public static string Command(string command, ModSettings settings)
         {

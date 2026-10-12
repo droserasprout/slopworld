@@ -257,6 +257,8 @@ namespace SlopWorld.Tests
                 string command = Pager.PagerCommand("/sample.rs");
                 AssertEx.True(command.Contains("bat --paging=always --style=numbers --decorations=always --wrap=never --pager 'less -RS --shift=1 --wheel-lines=1' --theme='ansi' -- '/sample.rs'"),
                     "file pager gets the selected bat theme before its file argument");
+                ModEntry.Instance.settings.codeBatTheme = "";
+                AssertEx.Equal(command, Pager.PagerCommand("/sample.rs"), "auto gives file pagers the same ansi colors");
                 SessionHub.Instance.Config.Highlighter = "highlight --out-format=xterm256";
                 AssertEx.False(Pager.PagerCommand("/sample.rs").Contains("--theme='ansi'"),
                     "other highlighters do not apply an old bat theme to files");

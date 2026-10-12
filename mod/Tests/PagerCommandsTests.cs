@@ -90,6 +90,11 @@ namespace SlopWorld.Tests
 
         static void CodeThemes()
         {
+            var auto = new ModSettings();
+            AssertEx.Equal("bat --color=always --theme='ansi' -- %s",
+                CodeHighlight.Command("bat --color=always -- %s", auto), "auto colors precede filename");
+            AssertEx.True(PagerCommands.DiffCommand("git diff", "less", true, CodeHighlight.Theme(auto, "bat"))
+                .StartsWith("env BAT_THEME='ansi' DELTA_PAGER=", StringComparison.Ordinal), "auto colors reach delta");
             var settings = new ModSettings { codeBatTheme = "Monokai Extended", codePygmentsTheme = "friendly" };
             AssertEx.Equal("bat --color=always --theme='Monokai Extended' -- %s",
                 CodeHighlight.Command("bat --color=always -- %s", settings), "theme precedes filename");

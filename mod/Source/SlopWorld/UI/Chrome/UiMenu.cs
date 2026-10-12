@@ -43,6 +43,7 @@ namespace SlopWorld
         // control can show its open state and a click on its source closes the menu without
         // falling through and opening it again.
         readonly bool _selector;
+        readonly float _selectorWidth;
 
         UiMenu _parent;
         UiMenu _child;
@@ -82,11 +83,13 @@ namespace SlopWorld
         // The frame this menu was built on - see `HandleKeyboard`.
         readonly int _born = Time.frameCount;
 
-        public UiMenu(List<FloatMenuOption> options, Vector2? at = null, bool selector = false)
+        public UiMenu(List<FloatMenuOption> options, Vector2? at = null, bool selector = false,
+                      float selectorWidth = 0f)
         {
             _options = options ?? new List<FloatMenuOption>();
             _at = at;
             _selector = selector;
+            _selectorWidth = selectorWidth;
 
             doWindowBackground = false;
             doCloseX = false;
@@ -152,9 +155,8 @@ namespace SlopWorld
         // FloatMenuOption replaces empty labels with "(missing label)". Use a distinct row type.
         public static FloatMenuOption Separator() => new SeparatorOption();
 
-        // The width a plain labelled picker gets when its menu contains the same labels. Keep
-        // this beside InitialSize so the control and the opened list do not disagree about
-        // padding, minimums or the screen's maximum readable width.
+        // Preferred width from menu labels. Selectors also reserve their arrow space and
+        // pass the resulting control width back to the opened menu.
         public static float WidthFor(IEnumerable<string> labels)
         {
             using (WidgetState.Save())
@@ -207,7 +209,9 @@ namespace SlopWorld
         }
 
         public override Vector2 InitialSize =>
-            new Vector2(Mathf.Clamp(WidestLabel() + PadX * 2f, MinW, MaxW),
+            new Vector2(_selector && _selectorWidth > 0f
+                    ? Mathf.Min(_selectorWidth, UI.screenWidth)
+                    : Mathf.Clamp(WidestLabel() + PadX * 2f, MinW, MaxW),
                 Mathf.Min(ContentH, UI.screenHeight * MaxScreen));
 
         public override void PreOpen()
