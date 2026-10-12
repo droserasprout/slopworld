@@ -94,7 +94,8 @@ namespace SlopWorld
             if (block.Kind == BlockKind.Code && !string.IsNullOrWhiteSpace(block.Info))
             {
                 block.Highlighted = null;
-                var body = CodeHighlight.Request(block.Code ?? "", block.Info);
+                var body = CodeHighlight.Request(block.Code ?? "", block.Info,
+                    SessionHub.Instance.Config.EffectiveHighlighter, Settings.S);
                 DaemonClient.Post<Wire.TextResult>(WireProtocol.Routes.Highlight, body,
                     j =>
                     {

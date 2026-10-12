@@ -8,7 +8,7 @@ namespace SlopWorld.Tests
     {
         public static void ScreenSequencesRemainUnsignedAcrossIntegerBoundaries()
         {
-            var store = new SessionStore();
+            var store = new SessionStore(_ => { });
             ulong[] sequences = { 0, int.MaxValue, (ulong)int.MaxValue + 1,
                 uint.MaxValue, (ulong)uint.MaxValue + 1, ulong.MaxValue };
             foreach (ulong seq in sequences)
@@ -33,10 +33,28 @@ namespace SlopWorld.Tests
             } }
             };
 
+        public static void CallbackFailuresAreReportedWithoutBlockingOtherWaiters()
+        {
+            DaemonClient.Requests.Clear();
+            var expected = new InvalidOperationException("callback failed");
+            Exception reported = null;
+            var store = new SessionStore(error => reported = error);
+            int completed = 0;
+            store.Refresh(() => throw expected);
+            store.Refresh(() => completed++);
+            store.ApplySessions(Sessions("winner"));
+            Assert.That(reported, Is.SameAs(expected));
+            Assert.That(completed, Is.EqualTo(1));
+            Assert.That(store.Get("winner"), Is.Not.Null);
+            DaemonClient.Requests[0].Fail("stale");
+            DaemonClient.Requests[1].Fail("stale");
+            Assert.That(completed, Is.EqualTo(1));
+        }
+
         public static void RefreshRejectsSupersededSnapshots()
         {
             DaemonClient.Requests.Clear();
-            var store = new SessionStore();
+            var store = new SessionStore(_ => { });
             int completed = 0;
             store.Refresh(() => completed++);
             store.Refresh(() => completed++);
@@ -54,7 +72,7 @@ namespace SlopWorld.Tests
             foreach (bool fail in new[] { false, true })
             {
                 DaemonClient.Requests.Clear();
-                var store = new SessionStore();
+                var store = new SessionStore(_ => { });
                 int completed = 0, failed = 0;
                 Action done = () => { Assert.That(store.Get("winner"), Is.Not.Null); completed++; };
                 Action<string> error = message => { Assert.That(message, Is.EqualTo("offline")); failed++; };
@@ -74,7 +92,7 @@ namespace SlopWorld.Tests
         public static void PushSettlesWaitersBeforeStaleHttpFailure()
         {
             DaemonClient.Requests.Clear();
-            var store = new SessionStore();
+            var store = new SessionStore(_ => { });
             int completed = 0, failed = 0;
             store.Refresh(() =>
             {
@@ -93,7 +111,7 @@ namespace SlopWorld.Tests
         public static void PushSupersedesPendingRefresh()
         {
             DaemonClient.Requests.Clear();
-            var store = new SessionStore();
+            var store = new SessionStore(_ => { });
             store.Refresh();
             store.ApplySessions(Sessions("pushed"));
             DaemonClient.Requests.Single().Ok(ProtobufFixtures.Json(Sessions("stale")));
@@ -103,7 +121,7 @@ namespace SlopWorld.Tests
         public static void RefreshFailureRetainsSessions()
         {
             DaemonClient.Requests.Clear();
-            var store = new SessionStore();
+            var store = new SessionStore(_ => { });
             store.ApplySessions(Sessions("retained"));
             long version = store.Version;
             string error = null;
@@ -119,7 +137,7 @@ namespace SlopWorld.Tests
         public static void RunWaitsForSessionRefresh()
         {
             DaemonClient.Requests.Clear();
-            var store = new SessionStore();
+            var store = new SessionStore(_ => { });
             string started = null;
             store.Run("project", "echo hello", "label", name =>
             {
@@ -172,7 +190,7 @@ namespace SlopWorld.Tests
         public static void LibraryRunForwardsOverridesAndRefreshFailure()
         {
             DaemonClient.Requests.Clear();
-            var store = new SessionStore();
+            var store = new SessionStore(_ => { });
             string error = null;
             bool started = false;
             store.RunLibraryItem("folder/item name", _ => started = true, e => error = e,
@@ -192,7 +210,7 @@ namespace SlopWorld.Tests
         public static void FailedRenameClearsBothPendingLookups()
         {
             DaemonClient.Requests.Clear();
-            var store = new SessionStore();
+            var store = new SessionStore(_ => { });
             store.ApplySessions(Sessions("old"));
             string error = null;
             store.Save(new SessionInfo { Name = "new" }, false, "old", null, e => error = e);
@@ -211,7 +229,7 @@ namespace SlopWorld.Tests
 
         public static void ReconnectDropsLiveAndQueuedHistoryForAllSessions()
         {
-            var store = new SessionStore();
+            var store = new SessionStore(_ => { });
             store.ApplySessions(Sessions("agent"));
             foreach (string name in new[] { "agent", "other" })
             {
@@ -234,7 +252,7 @@ namespace SlopWorld.Tests
         public static void CurrentPathUsesEscapedSessionAndForwardsFailures()
         {
             DaemonClient.Requests.Clear();
-            var store = new SessionStore();
+            var store = new SessionStore(_ => { });
             string path = null, error = null;
             store.CurrentPath("a/b c", p => path = p, e => error = e);
             var request = DaemonClient.Requests.Single();

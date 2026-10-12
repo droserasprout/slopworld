@@ -10,8 +10,9 @@ namespace SlopWorld
         public static readonly SessionHub Instance = new SessionHub();
 
         readonly HubTransport _transport = new HubTransport();
-        readonly SessionStore _sessions = new SessionStore();
-        readonly TaskStore _tasks = new TaskStore();
+        readonly SessionStore _sessions = new SessionStore(ReportSnapshotCallbackError);
+        readonly TaskStore _tasks = new TaskStore(() => UnityEngine.Time.realtimeSinceStartupAsDouble,
+            e => Verse.Log.Warning("[SlopWorld] task batch callback: " + e));
         readonly HubCatalog _catalog;
         readonly TerminalIO _terminal;
         readonly AudioBus _audio;
@@ -31,9 +32,12 @@ namespace SlopWorld
         public UsageInfo Usage = new UsageInfo();
         public DaemonHealth Health = new DaemonHealth();
 
+        static void ReportSnapshotCallbackError(Exception error) =>
+            Verse.Log.Warning("[SlopWorld] snapshot callback: " + error);
+
         SessionHub()
         {
-            _catalog = new HubCatalog(() => _sessions.Refresh());
+            _catalog = new HubCatalog(() => _sessions.Refresh(), ReportSnapshotCallbackError);
             _terminal = new TerminalIO(_transport);
             _audio = new AudioBus(_transport);
             // A new attempt may target a different runtime. Do not reuse its predecessor's capabilities.

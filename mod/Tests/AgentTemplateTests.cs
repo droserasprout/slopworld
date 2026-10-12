@@ -169,7 +169,7 @@ namespace SlopWorld.Tests
             requests.Clear();
             try
             {
-                var catalog = new HubCatalog(() => { });
+                var catalog = new HubCatalog(() => { }, _ => { });
                 int loaded = 0;
                 catalog.RefreshTemplates(loaded: () => loaded++);
                 var stale = requests[0];

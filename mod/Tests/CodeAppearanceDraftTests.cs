@@ -7,6 +7,22 @@ namespace SlopWorld.Tests
 {
     static class CodeAppearanceDraftTests
     {
+        public static void HighlightRequestsUseSuppliedConfiguration()
+        {
+            var settings = new ModSettings { codeBatTheme = "gruvbox-dark" };
+            var request = CodeHighlight.Request("sample", "rust", "bat --color=always", settings);
+            AssertEx.Equal("sample", request.Text, "text retained");
+            AssertEx.Equal("rust", request.Language, "language retained");
+            AssertEx.Equal("bat", request.Engine, "caller selects tool");
+            AssertEx.Equal("gruvbox-dark", request.Theme, "caller selects profile");
+            settings.codeBatTheme = "";
+            request = CodeHighlight.Request("sample", "rust", "bat", settings);
+            AssertEx.Equal("ansi", request.Theme, "empty bat preference follows palette");
+            request = CodeHighlight.Request("sample", "rust", "wrapper bat", settings);
+            AssertEx.Equal("", request.Engine, "custom wrappers remain unrecognized");
+            AssertEx.Equal("", request.Theme, "custom wrappers retain their own styling");
+        }
+
         public static void AutoBatTheme()
         {
             var settings = new ModSettings();

@@ -25,7 +25,12 @@ namespace SlopWorld
         // Track the old name until the response arrives so the terminal does not treat the rename as session termination.
         readonly Dictionary<string, string> _pendingRenames = new Dictionary<string, string>();
         long _sessionsVersion;
-        readonly SnapshotRequest _refresh = new SnapshotRequest();
+        readonly SnapshotRequest _refresh;
+
+        public SessionStore(Action<Exception> reportCallbackError)
+        {
+            _refresh = new SnapshotRequest(reportCallbackError);
+        }
 
         public long Version => _sessionsVersion;
 

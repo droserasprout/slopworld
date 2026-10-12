@@ -12,7 +12,7 @@ namespace SlopWorld.Tests
                 foreach (bool failure in new[] { false, true })
                 {
                     DaemonClient.Requests.Clear();
-                    var store = new TaskStore();
+                    var store = new TaskStore(() => UnityEngine.Time.realtimeSinceStartupAsDouble, _ => { });
                     Action<string[], Action, Action<string>> run = (ids, ok, fail) =>
                     {
                         if (cancel) store.CancelMany(ids, ok, fail);
@@ -39,7 +39,7 @@ namespace SlopWorld.Tests
         public static void AddedWorkerTaskSurvivesOlderRefresh()
         {
             DaemonClient.Requests.Clear();
-            var store = new TaskStore();
+            var store = new TaskStore(() => UnityEngine.Time.realtimeSinceStartupAsDouble, _ => { });
             store.Refresh();
             store.Add(TaskInfo.FromWire(Task("worker-task", 10)));
             DaemonClient.Requests[0].Ok(Tasks(Task("stale", 1)));
@@ -67,11 +67,30 @@ namespace SlopWorld.Tests
             return ProtobufFixtures.Json(reply);
         }
 
+        public static void CallbackFailuresDoNotBlockSharedBatchOrQueuedWork()
+        {
+            DaemonClient.Requests.Clear();
+            var expected = new System.InvalidOperationException("callback failed");
+            System.Exception reported = null;
+            var store = new TaskStore(() => 100, error => reported = error);
+            int completed = 0;
+            store.RemoveMany(new[] { "a" }, () => throw expected);
+            store.RemoveMany(new[] { "a" }, () => completed++);
+            store.RemoveMany(new[] { "b" }, () => completed++);
+            DaemonClient.Requests[0].Ok(Batch("a"));
+            Assert.That(reported, Is.SameAs(expected));
+            Assert.That(completed, Is.EqualTo(1));
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(2), "next batch still runs");
+            DaemonClient.Requests[1].Ok(Batch("b"));
+            Assert.That(completed, Is.EqualTo(2));
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(3), "idle queue refreshes");
+        }
+
         public static void RefreshUsesOperatorBoardAndPollDeadline()
         {
             DaemonClient.Requests.Clear();
-            UnityEngine.Time.realtimeSinceStartupAsDouble = 100;
-            var store = new TaskStore();
+            double now = 100;
+            var store = new TaskStore(() => now, _ => { });
             store.Update(false);
             Assert.That(DaemonClient.Requests, Is.Empty);
 
@@ -85,10 +104,10 @@ namespace SlopWorld.Tests
             request.Ok(Tasks(Task("old", 3, "done"), Task("new", 8)));
             Assert.That(store.Tasks.Select(t => t.Id), Is.EqualTo(new[] { "new", "old" }));
             Assert.That(store.OpenTasks, Is.EqualTo(1));
-            UnityEngine.Time.realtimeSinceStartupAsDouble = 109;
+            now = 109;
             store.Update(true);
             Assert.That(DaemonClient.Requests.Count, Is.EqualTo(1));
-            UnityEngine.Time.realtimeSinceStartupAsDouble = 110;
+            now = 110;
             store.Update(true);
             Assert.That(DaemonClient.Requests.Count, Is.EqualTo(2));
         }
@@ -96,7 +115,7 @@ namespace SlopWorld.Tests
         public static void MutationInvalidatesPendingRefreshAndPreservesNewerTask()
         {
             DaemonClient.Requests.Clear();
-            var store = new TaskStore();
+            var store = new TaskStore(() => UnityEngine.Time.realtimeSinceStartupAsDouble, _ => { });
             bool refreshCompleted = false;
             store.Refresh(() => refreshCompleted = true);
             TaskInfo created = null;
@@ -126,7 +145,7 @@ namespace SlopWorld.Tests
         public static void CancellationBatchesSerializeAndRefreshAfterLastReply()
         {
             DaemonClient.Requests.Clear();
-            var store = new TaskStore();
+            var store = new TaskStore(() => UnityEngine.Time.realtimeSinceStartupAsDouble, _ => { });
             store.Add(TaskInfo.FromWire(Task("a", 1)));
             int completed = 0;
             string failure = null;
@@ -150,7 +169,7 @@ namespace SlopWorld.Tests
         public static void RemovalBatchesDeduplicateAndReconcileFailures()
         {
             DaemonClient.Requests.Clear();
-            var store = new TaskStore();
+            var store = new TaskStore(() => UnityEngine.Time.realtimeSinceStartupAsDouble, _ => { });
             store.Add(TaskInfo.FromWire(Task("a", 1)));
             store.Add(TaskInfo.FromWire(Task("b", 2)));
             store.Add(TaskInfo.FromWire(Task("c", 3)));
@@ -176,7 +195,7 @@ namespace SlopWorld.Tests
         public static void PruneKeepsOpenTasksAndReportsFailure()
         {
             DaemonClient.Requests.Clear();
-            var store = new TaskStore();
+            var store = new TaskStore(() => UnityEngine.Time.realtimeSinceStartupAsDouble, _ => { });
             store.Add(TaskInfo.FromWire(Task("open", 1)));
             store.Add(TaskInfo.FromWire(Task("done", 2, "done")));
             bool completed = false;
@@ -199,7 +218,7 @@ namespace SlopWorld.Tests
             foreach (bool cancel in new[] { false, true })
             {
                 DaemonClient.Requests.Clear();
-                var store = new TaskStore();
+                var store = new TaskStore(() => UnityEngine.Time.realtimeSinceStartupAsDouble, _ => { });
                 store.Add(TaskInfo.FromWire(Task("a", 1)));
                 store.Add(TaskInfo.FromWire(Task("b", 2)));
                 int success = 0, failure = 0;

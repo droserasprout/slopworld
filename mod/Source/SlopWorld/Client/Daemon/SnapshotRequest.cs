@@ -11,6 +11,13 @@ namespace SlopWorld
             public Action Loaded;
             public Action<string> Failed;
         }
+        readonly Action<Exception> _reportCallbackError;
+
+        public SnapshotRequest(Action<Exception> reportCallbackError)
+        {
+            _reportCallbackError = reportCallbackError ?? throw new ArgumentNullException(nameof(reportCallbackError));
+        }
+
         readonly List<Waiter> _waiters = new List<Waiter>();
         public int Revision { get; private set; }
 
@@ -57,7 +64,7 @@ namespace SlopWorld
                     if (error == null) waiter.Loaded?.Invoke();
                     else waiter.Failed?.Invoke(error);
                 }
-                catch (Exception e) { Verse.Log.Warning("[SlopWorld] snapshot callback: " + e); }
+                catch (Exception e) { _reportCallbackError(e); }
             }
         }
     }

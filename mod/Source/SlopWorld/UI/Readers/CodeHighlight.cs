@@ -43,19 +43,16 @@ namespace SlopWorld
             return PagerCommands.InsertOptions(command, option, "%s");
         }
 
-        public static Wire.HighlightReq Request(string text, string language)
+        public static Wire.HighlightReq Request(string text, string language, string command, ModSettings settings)
         {
-            string engine = Engine(SessionHub.Instance.Config.EffectiveHighlighter);
+            string engine = Engine(command);
             return new Wire.HighlightReq
             {
                 Text = text,
                 Language = language,
                 Engine = engine,
-                Theme = Theme(ModEntry.Instance.settings, engine)
+                Theme = Theme(settings, engine)
             };
         }
-
-        public static string Revision => Command(SessionHub.Instance.Config.EffectiveHighlighter,
-            ModEntry.Instance.settings) ?? "";
     }
 }

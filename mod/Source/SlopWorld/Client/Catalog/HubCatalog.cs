@@ -22,10 +22,10 @@ namespace SlopWorld
 
         // A project list request can finish after a later edit.
         // Use a generation number to prevent an old GET response from replacing successfully saved settings.
-        readonly SnapshotRequest _projects = new SnapshotRequest();
-        readonly SnapshotRequest _library = new SnapshotRequest();
-        readonly SnapshotRequest _presets = new SnapshotRequest();
-        readonly SnapshotRequest _templates = new SnapshotRequest();
+        readonly SnapshotRequest _projects;
+        readonly SnapshotRequest _library;
+        readonly SnapshotRequest _presets;
+        readonly SnapshotRequest _templates;
 
         public int ProjectsRevision => _projects.Revision;
         public int TemplatesRevision => _templates.Revision;
@@ -35,9 +35,13 @@ namespace SlopWorld
         // store to refresh without owning it.
         readonly Action _refreshSessions;
 
-        public HubCatalog(Action refreshSessions)
+        public HubCatalog(Action refreshSessions, Action<Exception> reportCallbackError)
         {
             _refreshSessions = refreshSessions;
+            _projects = new SnapshotRequest(reportCallbackError);
+            _library = new SnapshotRequest(reportCallbackError);
+            _presets = new SnapshotRequest(reportCallbackError);
+            _templates = new SnapshotRequest(reportCallbackError);
         }
 
         // Receive pushed updates through the socket.

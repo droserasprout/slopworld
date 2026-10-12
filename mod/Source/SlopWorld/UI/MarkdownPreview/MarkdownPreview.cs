@@ -158,6 +158,9 @@ namespace SlopWorld
             previous.Closed();
         }
 
+        static string CurrentHighlightRevision =>
+            CodeHighlight.Command(SessionHub.Instance.Config.EffectiveHighlighter, Settings.S) ?? "";
+
         void DrawDocument(Rect body, bool handleInput)
         {
             if (_loading || _blocks == null)
@@ -172,9 +175,9 @@ namespace SlopWorld
                 return;
             }
 
-            if (!_retained && _highlightRevision != CodeHighlight.Revision)
+            if (!_retained && _highlightRevision != CurrentHighlightRevision)
             {
-                _highlightRevision = CodeHighlight.Revision;
+                _highlightRevision = CurrentHighlightRevision;
                 _resources.RefreshHighlight(_blocks, _request, IsCurrent, _layout.Invalidate);
             }
             _layout.EnsureStyles();
@@ -232,7 +235,7 @@ namespace SlopWorld
                 _blocks = _plainText
                     ? new List<MarkdownBlock> { new MarkdownBlock { Kind = BlockKind.Code, Code = text } }
                     : _parser.Parse(text);
-                _highlightRevision = CodeHighlight.Revision;
+                _highlightRevision = CurrentHighlightRevision;
                 _resources.Request(_blocks, request, IsCurrent, _layout.Invalidate);
                 _loading = false;
                 _error = null;

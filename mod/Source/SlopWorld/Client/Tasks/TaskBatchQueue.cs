@@ -51,12 +51,14 @@ namespace SlopWorld
         readonly Dictionary<string, Batch> _reserved = new Dictionary<string, Batch>();
         readonly Action<List<string>, Action<Outcome>> _send;
         readonly Action _idle;
+        readonly Action<Exception> _reportCallbackError;
         Batch _active;
 
-        public TaskBatchQueue(Action<List<string>, Action<Outcome>> send, Action idle)
+        public TaskBatchQueue(Action<List<string>, Action<Outcome>> send, Action idle, Action<Exception> reportCallbackError)
         {
             _send = send;
             _idle = idle;
+            _reportCallbackError = reportCallbackError ?? throw new ArgumentNullException(nameof(reportCallbackError));
         }
 
         public void Enqueue(IEnumerable<string> ids, Action ok, Action<string> fail)
@@ -102,7 +104,7 @@ namespace SlopWorld
             foreach (var waiter in batch.Waiters)
             {
                 try { waiter(outcome); }
-                catch (Exception e) { Verse.Log.Warning("[SlopWorld] task batch callback: " + e); }
+                catch (Exception e) { _reportCallbackError(e); }
             }
             _active = null;
             Pump();

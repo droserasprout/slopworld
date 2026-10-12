@@ -39,7 +39,7 @@ namespace SlopWorld.Tests
             requests.Clear();
             try
             {
-                var catalog = new HubCatalog(() => { });
+                var catalog = new HubCatalog(() => { }, _ => { });
                 var retained = new AgentTemplateInfo { Name = "retained" };
                 catalog.Templates.Add(retained);
                 int completed = 0, settled = 0;
@@ -125,7 +125,7 @@ namespace SlopWorld.Tests
             requests.Clear();
             try
             {
-                var catalog = new HubCatalog(() => { });
+                var catalog = new HubCatalog(() => { }, _ => { });
                 catalog.RefreshTemplates();
                 int revision = catalog.TemplatesRevision;
                 string error = null;

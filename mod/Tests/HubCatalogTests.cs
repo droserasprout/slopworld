@@ -20,7 +20,7 @@ namespace SlopWorld.Tests
             requests.Clear();
             try
             {
-                var hub = new HubCatalog(() => { });
+                var hub = new HubCatalog(() => { }, _ => { });
                 int loaded = 0, failed = 0;
                 Action success = () => { AssertEx.Equal("winner", hub.Templates[0].Name, "publish before callbacks"); loaded++; };
                 Action<string> failure = error => { AssertEx.Equal("unavailable", error, "winning failure"); failed++; };
@@ -48,7 +48,7 @@ namespace SlopWorld.Tests
             requests.Clear();
             try
             {
-                var hub = new HubCatalog(() => { });
+                var hub = new HubCatalog(() => { }, _ => { });
                 int failed = 0, loaded = 0;
                 hub.RefreshTemplates(_ => failed++);
                 hub.RemoveAgentTemplate(new AgentTemplateInfo(), null, null, _ => failed++);
@@ -72,7 +72,7 @@ namespace SlopWorld.Tests
             public Fixture()
             {
                 Requests.Clear();
-                Hub = new HubCatalog(() => Sessions++);
+                Hub = new HubCatalog(() => Sessions++, _ => { });
             }
             public void Refresh(int catalog)
             {

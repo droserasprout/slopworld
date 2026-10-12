@@ -141,7 +141,7 @@ namespace SlopWorld.Tests
         static SessionStore NewStore(string name)
         {
             DaemonClient.Requests.Clear();
-            var store = new SessionStore();
+            var store = new SessionStore(_ => { });
             store.ApplySessions(Snapshot(name));
             return store;
         }

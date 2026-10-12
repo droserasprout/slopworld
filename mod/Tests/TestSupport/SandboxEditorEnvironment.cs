@@ -189,7 +189,7 @@ namespace SlopWorld
     }
     sealed partial class SessionHub
     {
-        public readonly HubCatalog Catalog = new HubCatalog(() => { });
+        public readonly HubCatalog Catalog = new HubCatalog(() => { }, _ => { });
         public List<PresetInfo> Presets => Catalog.Presets;
         public List<CommandInfo> Commands => Catalog.Commands;
     }

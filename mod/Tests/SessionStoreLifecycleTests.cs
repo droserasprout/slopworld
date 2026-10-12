@@ -33,7 +33,7 @@ namespace SlopWorld.Tests
 
         static void Subscription(bool begin)
         {
-            var store = new SessionStore();
+            var store = new SessionStore(_ => { });
             store.ApplySessions(Snapshot(("agent", true), ("other", true)));
             Screens(store, "agent");
             Screens(store, "other");
@@ -59,7 +59,7 @@ namespace SlopWorld.Tests
 
         public static void SessionSnapshotsPruneRemovedScreensAndResetChangedProcesses()
         {
-            var store = new SessionStore();
+            var store = new SessionStore(_ => { });
             store.ApplySessions(Snapshot(("removed", true), ("stopped", true), ("started", false), ("kept", true)));
             foreach (string name in new[] { "removed", "stopped", "started", "kept" }) Screens(store, name);
             var kept = store.Screen("kept");
@@ -78,7 +78,7 @@ namespace SlopWorld.Tests
 
         public static void RenameMovesHistoryWithoutOverwritingDestinationScreens()
         {
-            var store = new SessionStore();
+            var store = new SessionStore(_ => { });
             store.ApplySessions(Snapshot(("unrelated", true), ("old", true)));
             Screens(store, "old");
             long version = store.Version;
@@ -113,7 +113,7 @@ namespace SlopWorld.Tests
             requests.Clear();
             try
             {
-                var store = new SessionStore();
+                var store = new SessionStore(_ => { });
                 store.ApplySessions(Snapshot(("a/b c", true)));
                 long version = store.Version;
                 string error = null;
@@ -172,7 +172,7 @@ namespace SlopWorld.Tests
             DaemonClient.Requests.Clear();
             try
             {
-                var store = new SessionStore();
+                var store = new SessionStore(_ => { });
                 string error = null;
                 store.RunHostShell("project", _ => Assert.Fail("failed run opened a terminal"), e => error = e);
                 var request = DaemonClient.Requests.Single();
@@ -227,7 +227,7 @@ namespace SlopWorld.Tests
         static SessionStore RenameStore(string name)
         {
             DaemonClient.Requests.Clear();
-            var store = new SessionStore();
+            var store = new SessionStore(_ => { });
             store.ApplySessions(RenameSnapshot(name));
             return store;
         }

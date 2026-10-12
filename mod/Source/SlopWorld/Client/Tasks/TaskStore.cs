@@ -14,13 +14,16 @@ namespace SlopWorld
         bool _loading;
         double _nextPoll;
         int _refreshSerial;
+        // The runtime supplies monotonic seconds; polling policy has no game clock.
+        readonly Func<double> _now;
         readonly TaskBatchQueue _cancellations;
         readonly TaskBatchQueue _removals;
 
-        public TaskStore()
+        public TaskStore(Func<double> now, Action<Exception> reportCallbackError)
         {
-            _cancellations = new TaskBatchQueue(SendCancellation, () => Refresh());
-            _removals = new TaskBatchQueue(SendRemoval, () => Refresh());
+            _now = now ?? throw new ArgumentNullException(nameof(now));
+            _cancellations = new TaskBatchQueue(SendCancellation, () => Refresh(), reportCallbackError);
+            _removals = new TaskBatchQueue(SendRemoval, () => Refresh(), reportCallbackError);
         }
 
         public int OpenTasks => Tasks.Count(t => !t.Terminal);
@@ -29,7 +32,7 @@ namespace SlopWorld
         {
             // Poll visible task data during WebSocket reconnection because HTTP is independent.
             // Use monotonic time for this local deadline.
-            if (!needsData || _loading || UnityEngine.Time.realtimeSinceStartupAsDouble < _nextPoll)
+            if (!needsData || _loading || _now() < _nextPoll)
                 return;
             Refresh();
         }
@@ -39,7 +42,7 @@ namespace SlopWorld
             if (_loading) return;
 
             _loading = true;
-            _nextPoll = UnityEngine.Time.realtimeSinceStartupAsDouble + 10.0;
+            _nextPoll = _now() + 10.0;
             int serial = ++_refreshSerial;
             // The host UI is the operator's task board, so it needs agent-to-agent work too.
             // Scoped callers and the CLI keep using the default participant mailbox.
