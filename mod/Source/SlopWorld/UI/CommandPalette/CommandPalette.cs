@@ -20,9 +20,6 @@ namespace SlopWorld
         static float InputH => UiTheme.FieldH;
         static float RowH => UiTheme.PaletteRowH;
         static float GroupH => UiTheme.TinyRowH;
-        const int RecentMax = 8;
-        // Apply a penalty when search matches a hidden command ID.
-        const int IdCost = 80;
 
         string _input = "";
         string _filter = "";
@@ -49,7 +46,7 @@ namespace SlopWorld
         // Visible height of the list area, used by ScrollToSelection.
         float _listH;
 
-        static readonly List<string> _recent = new List<string>();
+        static readonly PaletteHistory History = new PaletteHistory();
         static bool _recentLoaded;
 
         enum Mode { Commands, Sub }
@@ -188,14 +185,12 @@ namespace SlopWorld
         {
             public CommandDef Command;
             public string Label;
-            public int Score;
         }
 
         class SubHit
         {
             public SubOption O;
             public string Label;
-            public int Score;
         }
 
 

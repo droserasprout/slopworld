@@ -1,9 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using RimWorld;
 using UnityEngine;
-using Verse;
 
 namespace SlopWorld
 {
@@ -141,103 +137,22 @@ namespace SlopWorld
 
         void RebuildMatches()
         {
+            var entries = CommandTable.Select((command, index) => new PaletteSearch.Entry(
+                index, command.Label, command.IsEnabled, command.Id, command.Group)).ToList();
+            var result = PaletteSearch.Commands(entries, _filter, History.Entries);
             _matches.Clear();
-            _recentInList = 0;
-
-            if (string.IsNullOrEmpty(_filter))
-            {
-                foreach (var id in _recent)
-                {
-                    var entry = CommandTable.FirstOrDefault(e => e.Id == id && e.IsEnabled);
-                    if (entry != null && !Listed(entry))
-                    {
-                        _matches.Add(new Hit { Command = entry, Label = entry.Label });
-                        _recentInList++;
-                    }
-                }
-                // The catalogue is authored in feature order, not category order. Group the
-                // rows after recent entries so a category such as View does not split around
-                // the settings entries that happen to be registered beside it.
-                foreach (var category in CommandTable.Where(e => e.IsEnabled).GroupBy(e => e.Group))
-                    foreach (var e in category)
-                        if (!Listed(e)) _matches.Add(new Hit { Command = e, Label = e.Label });
-                return;
-            }
-
-            var scored = new List<Hit>();
-            foreach (var e in CommandTable)
-            {
-                if (!e.IsEnabled) continue;
-                int score;
-                List<int> hits;
-
-                if (Fuzzy.Match(e.Label, _filter, out score, out hits))
-                {
-                    scored.Add(new Hit
-                    {
-                        Command = e,
-                        Label = Fuzzy.Highlight(e.Label, hits),
-                        Score = score,
-                    });
-                }
-                else if (Fuzzy.Match(e.Id, _filter, out score))
-                {
-                    // The ID is not visible, so display the label without highlighting it.
-                    // Rank this result below commands whose labels match the filter.
-                    scored.Add(new Hit
-                    {
-                        Command = e,
-                        Label = e.Label,
-                        Score = score - IdCost,
-                    });
-                }
-            }
-
-            // Recency breaks equal-score ties; otherwise preserve catalog order.
-            _matches.AddRange(scored.OrderByDescending(h => h.Score)
-                .ThenByDescending(h => RecentBonus(h.Command.Id)));
-        }
-
-        bool Listed(CommandDef e) => _matches.Any(h => h.Command == e);
-
-        // Used only after the fuzzy score, so recency cannot outrank a better match.
-        static int RecentBonus(string id)
-        {
-            int i = _recent.IndexOf(id);
-            return i < 0 ? 0 : (RecentMax - i) * 4;
+            foreach (var hit in result.Hits)
+                _matches.Add(new Hit { Command = CommandTable[hit.Index], Label = hit.Label });
+            _recentInList = result.RecentCount;
         }
 
         void RebuildSub()
         {
+            var entries = _subOptions.Select((option, index) => new PaletteSearch.Entry(
+                index, option.Label, option.Enabled)).ToList();
             _subShown.Clear();
-
-            if (string.IsNullOrEmpty(_subFilter))
-            {
-                foreach (var o in _subOptions)
-                    _subShown.Add(new SubHit { O = o, Label = o.Label });
-            }
-            else
-            {
-                var f = _subFilter.ToLowerInvariant();
-                var scored = new List<SubHit>();
-                foreach (var o in _subOptions)
-                {
-                    // The placeholder row is not an option, so it is not searched either.
-                    if (!o.Enabled) continue;
-
-                    int score;
-                    List<int> hits;
-                    if (Fuzzy.Match(o.Label, f, out score, out hits))
-                        scored.Add(new SubHit
-                        {
-                            O = o,
-                            Label = Fuzzy.Highlight(o.Label, hits),
-                            Score = score,
-                        });
-                }
-                _subShown.AddRange(scored.OrderByDescending(h => h.Score));
-            }
-
+            foreach (var hit in PaletteSearch.Options(entries, _subFilter))
+                _subShown.Add(new SubHit { O = _subOptions[hit.Index], Label = hit.Label });
             _subIndex = Mathf.Clamp(_subIndex, 0, Mathf.Max(0, _subShown.Count - 1));
         }
 
@@ -247,26 +162,13 @@ namespace SlopWorld
         {
             if (_recentLoaded) return;
             _recentLoaded = true;
-            _recent.Clear();
-
-            foreach (var id in (Settings.CommandPaletteHistory ?? "")
-                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
-            {
-                if (_recent.Count >= RecentMax) break;
-                if (_recent.Contains(id)) continue;
-                if (CommandTable.Any(e => e.Id == id)) _recent.Add(id);
-            }
+            History.Load(Settings.CommandPaletteHistory, CommandTable.Select(command => command.Id));
         }
 
         static void TrackRecent(string id)
         {
-            if (string.IsNullOrEmpty(id)) return;
-            if (_recent.Count > 0 && _recent[0] == id) return;
-            _recent.Remove(id);
-            _recent.Insert(0, id);
-            if (_recent.Count > RecentMax) _recent.RemoveAt(_recent.Count - 1);
-
-            Settings.S.commandPaletteHistory = string.Join("\n", _recent.ToArray());
+            if (!History.Track(id)) return;
+            Settings.S.commandPaletteHistory = History.Text;
             Settings.S.Write();
         }
 

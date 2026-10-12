@@ -14,6 +14,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/UI/CommandPalette/PaletteHistory.cs" />
+    <Compile Include="../Source/SlopWorld/UI/CommandPalette/PaletteSearch.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/MainThreadCompletions.cs" />
     <Compile Include="../Source/SlopWorld/UI/Cursor/CursorAnimation.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Git/GitStore.cs" />

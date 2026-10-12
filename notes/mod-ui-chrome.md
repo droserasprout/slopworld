@@ -68,5 +68,8 @@ a standing menu before opening another. Submenu openers need a non-null action,
 since vanilla infers Disabled from a null action.
 
 `CatalogActions` shares agent/project actions across the palette and sidebar menus.
+`PaletteSearch` owns command/submenu filtering and stable ranking over availability
+snapshots. `PaletteHistory` owns bounded recent-command order and its text format.
+The command palette window retains game actions, settings writes, navigation, and drawing.
 `LibraryActions` owns library execution, project selection, and management actions;
 calling surfaces retain availability rules and navigation history.
