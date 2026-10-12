@@ -36,7 +36,7 @@ namespace SlopWorld
 
             // Hide settings that no active system uses.
 
-            // DeadCursor replaces both cursor activation paths. Appearance controls cursor selection.
+            // GameCursor replaces both cursor activation paths. Appearance controls cursor selection.
             () => "CustomCursor".Translate(),
 
             // Hide clock settings because GlobalControls and the planet view are unavailable.

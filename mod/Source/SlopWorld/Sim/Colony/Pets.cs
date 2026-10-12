@@ -108,7 +108,7 @@ namespace SlopWorld
             _lastPoke[pet.thingIDNumber] = now;
 
             pet.caller?.DoCall();
-            DeadCursor.Pat();
+            GameCursor.Pat();
             Aura.Of(pet.Map)?.Pat(pet);
         }
 

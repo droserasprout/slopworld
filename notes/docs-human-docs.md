@@ -13,7 +13,7 @@ Preserve PNG originals, generate compressed JPEG copies with
 `just refresh-docs-images`, and link screenshots to those JPEGs in README and the book.
 Keep logos and other inline artwork outside this convention.
 The book cursor uses `docs/src/images/cursor-tame.png`, extracted from RimWorld's
-`UI/Designators/Tame`, mirrored like the mod's `DeadCursor`, and scaled to 24px.
+`UI/Designators/Tame`, mirrored like the mod's `GameCursor`, and scaled to 24px.
 Interaction variants rotate that same hand on a 32px transparent canvas to avoid
 clipping. Their CSS hotspots follow the original fingertip through each rotation;
 retain transparency and update all variants together when replacing the asset.

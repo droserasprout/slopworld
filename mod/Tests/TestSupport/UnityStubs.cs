@@ -175,6 +175,10 @@ namespace UnityEngine
 
     public static class Mathf
     {
+        public const float PI = (float)System.Math.PI;
+        public static float Abs(float value) => System.Math.Abs(value);
+        public static float Sin(float value) => (float)System.Math.Sin(value);
+        public static int RoundToInt(float value) => (int)System.Math.Round(value);
         public static bool Approximately(float a, float b) => System.Math.Abs(a - b) < System.Math.Max(0.000001f * System.Math.Max(System.Math.Abs(a), System.Math.Abs(b)), float.Epsilon * 8f);
         public static int Max(int a, int b) => a > b ? a : b;
         public static int Min(int a, int b) => a < b ? a : b;

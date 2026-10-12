@@ -1,4 +1,4 @@
-/* RimWorld's UI/Designators/Tame, mirrored like DeadCursor and scaled to 24px.
+/* RimWorld's UI/Designators/Tame, mirrored like GameCursor and scaled to 24px.
    Rotations use a 32px canvas to avoid clipping. Each hotspot follows the same
    fingertip through the rotation; artwork belongs to Ludeon Studios. */
 html {

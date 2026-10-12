@@ -22,6 +22,9 @@ The main directory groupings are:
   behavior and ownership persistence. See [Worksite invariants](mod-worksite.md).
 - `UI/Chrome/` owns shared controls. `Scrolling/` owns scroll geometry and input,
   with native sampling in `Scrolling/Platform/`; `Theme/` owns styling and icon catalogs.
+- `UI/Cursor/` separates cursor settings and coordination (`GameCursor`), animation timing
+  (`CursorAnimation`), and texture construction/cache lifetime (`CursorTextures`). Vanilla
+  cursor hooks stay in `Patches/Chrome/`.
 - `UI/Workspace/` owns panel contracts, placement and host chrome; `Sidebar/` owns
   sidebar layout, rendering and navigation. Sidebar Harmony hooks stay in `Patches/AgentSidebar/`.
 - `UI/Browsing/` owns shared scope catalogs and content trees; `Readers/` owns reader

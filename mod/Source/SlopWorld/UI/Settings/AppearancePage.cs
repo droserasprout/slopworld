@@ -181,7 +181,7 @@ namespace SlopWorld
             if (grayscale != S.cursorGrayscale)
             {
                 S.cursorGrayscale = grayscale;
-                DeadCursor.Apply();
+                GameCursor.Apply();
                 S.MarkDirty();
             }
             l.Gap(UiTheme.GapM);
@@ -217,9 +217,9 @@ namespace SlopWorld
                 "Cursor");
 
             var box = new Rect(row.x + col, row.y + (row.height - boxW) / 2f, boxW, boxW);
-            var choice = DeadCursor.ChoiceFor(DeadCursor.CurrentKey);
-            var tex = choice != null ? DeadCursor.Preview(choice) : null;
-            var tip = new TipSignal(DeadCursor.LabelFor(DeadCursor.CurrentKey) +
+            var choice = GameCursor.ChoiceFor(GameCursor.CurrentKey);
+            var tex = choice != null ? GameCursor.Preview(choice) : null;
+            var tip = new TipSignal(GameCursor.LabelFor(GameCursor.CurrentKey) +
                 ". Click to choose a cursor.", 0x51_0F_0100);
             if (IconPickerCell.DrawBox(box, r =>
             {
@@ -233,25 +233,25 @@ namespace SlopWorld
         void DrawCursorPicker(Rect pageRect)
         {
             UiPickerWindow.Show(0x51_0F_1100, pageRect, PickerWidth, PickerHeight, "Mouse cursor",
-                () => _pickingCursor = false, DeadCursor.Choices.Length, _pickScroll,
+                () => _pickingCursor = false, GameCursor.Choices.Length, _pickScroll,
                 grid => DrawCursorGrid(grid));
         }
 
         void DrawCursorGrid(UiPickerWindow.Grid grid)
         {
-            int count = DeadCursor.Choices.Length;
+            int count = GameCursor.Choices.Length;
             for (int i = 0; i < count; i++)
             {
                 int col = i % grid.Columns;
                 int row = i / grid.Columns;
                 var slot = new Rect(grid.View.x + col * grid.Cell,
                     grid.View.y + row * grid.Cell, grid.Cell, grid.Cell);
-                var choice = DeadCursor.Choices[i];
+                var choice = GameCursor.Choices[i];
                 string key = choice.Key;
 
-                RowChrome.Hover(slot, DeadCursor.CurrentKey == key, true,
+                RowChrome.Hover(slot, GameCursor.CurrentKey == key, true,
                     RowHoverPolicy.Local);
-                var tex = DeadCursor.Preview(choice);
+                var tex = GameCursor.Preview(choice);
                 if (tex != null)
                     GUI.DrawTexture(new Rect(slot.x + (grid.Cell - grid.IconSize) / 2f,
                         slot.y + (grid.Cell - grid.IconSize) / 2f,
@@ -263,7 +263,7 @@ namespace SlopWorld
                     0x51_0F_0120 ^ key.GetHashCode()));
                 if (UiButtons.RowButton(slot))
                 {
-                    DeadCursor.Choose(key);
+                    GameCursor.Choose(key);
                     _pickingCursor = false;
                 }
             }
