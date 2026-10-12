@@ -9,6 +9,10 @@ including a line target, reuses its reader; concurrent opens share the pending r
 Tab/focus changes preserve readers. Explicit dismissal or validated removal can close
 a pinned reader. Native preview acquisition and pager preview acquisition release the
 other unpinned preview. Source and diff identity remain distinct.
+Markdown preview replacement retains the visible document until the new text is
+read and parsed. Rapid replacements transfer that retained document; completion,
+failure, or dismissal releases it. Retained content does not accept link/selection
+input or resource replies.
 Repeated editor launches for the same path and checkout reuse the live host editor;
 the daemon serializes that decision so concurrent requests share one session.
 Routed sidebar rows sort by display label and source metadata rather than opaque

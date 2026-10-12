@@ -99,6 +99,8 @@
     <Compile Include="../Source/SlopWorld/UI/Chrome/MenuRowGeometry.cs" Link="Source/MenuRowGeometry.cs" />
     <Compile Include="../Source/SlopWorld/UI/Scrolling/WheelEventQueue.cs" Link="Source/WheelEventQueue.cs" />
     <!-- Use the shipped parser and deterministic text metrics. -->
+    <Compile Include="../Source/SlopWorld/UI/Workspace/ContentView.cs" />
+    <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Styles.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.Styles.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Layout.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.Layout.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.TextLayout.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.TextLayout.cs" />

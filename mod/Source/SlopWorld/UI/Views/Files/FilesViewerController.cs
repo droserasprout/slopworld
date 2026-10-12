@@ -106,14 +106,16 @@ namespace SlopWorld
 
         void OpenNative(string project, string path, string name, string previewRoot = null)
         {
+            ContentView view = FileTypes.IsImage(name)
+                ? (ContentView)new ImagePreview(path, name, previewRoot)
+                : new MarkdownPreview(project, path, name, previewRoot, plainText: !FileTypes.IsMarkdown(name));
+            (view as MarkdownPreview)?.RetainVisibleDocument(TerminalWindow.ShowingAs<MarkdownPreview>());
             var tab = _nativeViewers.ForPreview();
             tab.OriginLabel = ReaderLabel(project, "view-" + name);
             tab.OriginProject = SidebarScopes.ProjectName(project);
             tab.Project = project ?? "";
             tab.Path = path;
-            tab.View = FileTypes.IsImage(name)
-                ? (ContentView)new ImagePreview(path, name, previewRoot)
-                : new MarkdownPreview(project, path, name, previewRoot, plainText: !FileTypes.IsMarkdown(name));
+            tab.View = view;
             tab.Header = "view-native-" + (++_nativeHeader);
             TerminalWindow.OpenContent(tab.View);
         }

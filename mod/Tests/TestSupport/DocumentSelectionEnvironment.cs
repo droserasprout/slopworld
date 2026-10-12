@@ -20,7 +20,7 @@ namespace SlopWorld
         public readonly List<Verse.FloatMenuOption> Options;
         public UiMenu(List<Verse.FloatMenuOption> options) { Options = options; }
     }
-    static partial class TerminalWindow
+    partial class TerminalWindow
     {
         public static bool CanPasteClipboardToAgent => true;
         public static int SelectionPastes;

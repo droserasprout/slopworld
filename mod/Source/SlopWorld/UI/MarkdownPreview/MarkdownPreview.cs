@@ -30,6 +30,8 @@ namespace SlopWorld
         float _viewportWidth = -1f;
         float _viewportHeight = -1f;
         int _metricsRevision = int.MinValue;
+        MarkdownPreview _previous;
+        bool _retained;
 
         public MarkdownPreview(string project, string path, string name, string root = null, bool plainText = false)
             : this(project, path,
@@ -99,6 +101,7 @@ namespace SlopWorld
                     if (!IsCurrent(request)) return;
                     _loading = false;
                     _error = msg;
+                    ReleasePrevious();
                 });
         }
 
@@ -112,7 +115,11 @@ namespace SlopWorld
 
         public override void Closed()
         {
+            // A replacement can retain this document's render state after the workspace
+            // closes it. It is read-only and stops accepting asynchronous resource replies.
             ++_request;
+            if (_retained) return;
+            ReleasePrevious();
             _scroll.Reset();
             _selection.Clear();
             _resources.Clear();
@@ -122,14 +129,50 @@ namespace SlopWorld
 
         public override void Draw(Rect body)
         {
+            DrawDocument(body, true);
+        }
+
+        // Transfer the visible document, rather than building a chain of loading previews
+        // when the user selects several files before their reads finish.
+        internal void RetainVisibleDocument(MarkdownPreview previous)
+        {
+            if (previous == null || ReferenceEquals(previous, this)) return;
+            if (previous._previous != null)
+            {
+                _previous = previous._previous;
+                previous._previous = null;
+            }
+            else if (!previous._loading && previous._blocks != null)
+            {
+                _previous = previous;
+                previous._retained = true;
+            }
+        }
+
+        void ReleasePrevious()
+        {
+            var previous = _previous;
+            _previous = null;
+            if (previous == null) return;
+            previous._retained = false;
+            previous.Closed();
+        }
+
+        void DrawDocument(Rect body, bool handleInput)
+        {
             if (_loading || _blocks == null)
             {
+                if (_loading && _previous != null)
+                {
+                    _previous.DrawDocument(body, false);
+                    return;
+                }
                 Status(body, _error ?? "Loading Markdown", _error == null
                     ? UiTheme.Dim : UiTheme.Bad);
                 return;
             }
 
-            if (_highlightRevision != CodeHighlight.Revision)
+            if (!_retained && _highlightRevision != CodeHighlight.Revision)
             {
                 _highlightRevision = CodeHighlight.Revision;
                 _resources.RefreshHighlight(_blocks, _request, IsCurrent, _layout.Invalidate);
@@ -161,12 +204,13 @@ namespace SlopWorld
                 _metricsRevision = metricsRevision;
             }
 
-            _resources.RequestVisible(_layout.Placements, _layout.Generation, _scroll.Position.y, body.height,
-                _request, IsCurrent, _layout.Invalidate);
+            if (!_retained)
+                _resources.RequestVisible(_layout.Placements, _layout.Generation, _scroll.Position.y, body.height,
+                    _request, IsCurrent, _layout.Invalidate);
             _scroll.Draw(body, _layout.Width, _layout.Height,
                 (clipTop, clipBottom) => _renderer.Draw(_layout.Placements, _layout.Generation, _selection,
                     clipTop, clipBottom));
-            if (!_input.HandleLinks(body, _scroll.Position, _renderer.Links))
+            if (handleInput && !_input.HandleLinks(body, _scroll.Position, _renderer.Links))
                 _input.Handle(body, _scroll.Position);
         }
 
@@ -193,11 +237,13 @@ namespace SlopWorld
                 _loading = false;
                 _error = null;
                 _scroll.Reset();
+                ReleasePrevious();
             }
             catch (Exception e)
             {
                 _loading = false;
                 _error = "Could not parse Markdown: " + e.Message;
+                ReleasePrevious();
             }
         }
 
