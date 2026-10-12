@@ -20,6 +20,8 @@
     <Compile Include="../Source/SlopWorld/UI/Settings/BinaryDiscovery.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/HostBinaryProbe.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Library/WorktreeInventory.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowTarget.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowSelection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TooltipLineBreaks.cs" />
     <Compile Include="../Source/SlopWorld/Client/Catalog/WorktreeRequests.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Jukebox/RadioPlayback.cs" />

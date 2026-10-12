@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
-using UnityEngine;
 using Verse;
 using WorktreeEntry = SlopWorld.WorktreeInventory.WorktreeEntry;
 
@@ -13,21 +12,6 @@ namespace SlopWorld
         static bool Runnable(LibraryItemInfo item) =>
             !Templates.ContainsKey(item) &&
             (item.Kind == LibraryItemKind.Prompt || item.Kind == LibraryItemKind.Shell);
-
-        static Row PrepareItemRow(LibraryItemInfo item)
-        {
-            bool template = Templates.ContainsKey(item);
-            return new Row
-            {
-                Item = item,
-                Key = Identity(item),
-                Label = item.Name,
-                Icon = template ? Icons.Agents :
-                    item.Kind == LibraryItemKind.Shell ? Icons.Terminal :
-                    item.Kind == LibraryItemKind.FileAction ? Icons.Files :
-                    item.Kind == LibraryItemKind.Breadcrumb ? Icons.Keyboard : Icons.Library,
-            };
-        }
 
         static List<string> ItemSummary(LibraryItemInfo item)
         {
@@ -58,12 +42,8 @@ namespace SlopWorld
             item.Kind == LibraryItemKind.FileAction && !Templates.ContainsKey(item)
                 ? item.Command : item.Text;
 
-        static RowDetails PrepareItemDetails(LibraryItemInfo item)
+        static RowDetails PrepareItemDetails(LibraryItemInfo item, LibraryRowTarget.Actions actions)
         {
-            bool template = Templates.TryGetValue(item, out var definition);
-            bool runnable = Runnable(item);
-            string label = template ? "Create agent" : runnable
-                ? (item.Link == LibraryItemLink.Ask ? "Choose a project" : "Run") : "Edit";
             var lines = ItemSummary(item);
             string content = ItemContent(item);
             string tooltip = string.Join("\n", lines);
@@ -73,103 +53,31 @@ namespace SlopWorld
                 lines.Add(OneLine(content));
             }
 
-            Action primary;
-            if (template)
-            {
-                var captured = definition;
-                primary = () => TerminalWindow.OpenOverPane(EditSessionDialog.FromTemplate(captured));
-            }
-            else if (runnable)
-                primary = () => Run(item);
-            else
-                primary = () => Edit(item);
-
-            string secondaryLabel = null;
-            Action secondary = null;
-            if (template || runnable)
-            {
-                secondaryLabel = "Edit";
-                secondary = () => Edit(item);
-            }
-            else if (item.Kind == LibraryItemKind.Breadcrumb)
-            {
-                secondaryLabel = "Copy text";
-                secondary = () => GUIUtility.systemCopyBuffer = item.Text ?? "";
-            }
-
             return new RowDetails
             {
                 IsItem = true,
                 Lines = lines,
                 Tooltip = tooltip,
-                PrimaryLabel = label,
-                Primary = primary,
-                SecondaryLabel = secondaryLabel,
-                Secondary = secondary,
-                More = () => Menu(item),
+                PrimaryLabel = actions.PrimaryLabel,
+                Primary = actions.Primary,
+                SecondaryLabel = actions.SecondaryLabel,
+                Secondary = actions.Secondary,
+                More = actions.More,
             };
         }
 
-        static RowDetails PrepareDetails(Row row)
-        {
-            if (row.Item != null) return PrepareItemDetails(row.Item);
-
-            switch (row.MainKind)
-            {
-                case MainRowKind.Project:
-                    return PrepareProjectDetails((ProjectInfo)row.Model);
-                case MainRowKind.Worktree:
-                    return PrepareWorktreeDetails((WorktreeEntry)row.Model);
-                case MainRowKind.SandboxPreset:
-                    return PrepareSandboxPresetDetails((PresetInfo)row.Model);
-                case MainRowKind.AppPreset:
-                    return PrepareAppPresetDetails((CommandInfo)row.Model);
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(row), row.MainKind, "Unknown library row kind.");
-            }
-        }
-
-        static RowDetails PrepareProjectDetails(ProjectInfo project) => ActionDetails(
-            new List<string> { project.Name, "Project", project.Dir, ProjectSummary.Of(project) },
-            "Edit", () => TerminalWindow.OpenOverPane(new EditProjectDialog(project)),
-            "Worktrees", () => TerminalWindow.OpenOverPane(EditProjectDialog.ForWorktrees(project)),
-            () => ProjectMenu(project));
-
-        static RowDetails PrepareWorktreeDetails(WorktreeEntry entry)
-        {
-            var tree = entry.Tree;
-            return ActionDetails(WorktreeDetails(entry), "Terminal",
-                () => SessionHub.Instance.SessionStore.RunHostShell(entry.Project,
-                    name => TerminalWindow.Open(name), UiLayout.Fail, tree.Id),
-                "Project", () => OpenProjectWorktrees(entry.Project),
-                () => WorktreeMenu(entry));
-        }
-
-        static RowDetails PrepareSandboxPresetDetails(PresetInfo preset) => ActionDetails(
-            SandboxDetails(preset), "Edit",
-            () => ModOptions.OpenSandboxPreset(preset.Name),
-            preset.Source == "override" ? "Reset" : "Remove",
-            () => RemovePreset("sandbox_presets", preset), null);
-
-        static RowDetails PrepareAppPresetDetails(CommandInfo command) => ActionDetails(
-            AppPresetDetails(command), "Edit",
-            () => ModOptions.OpenAppPreset(command.Name),
-            command.Source == "override" ? "Reset" : "Remove",
-            () => RemovePreset("app_presets", command), null);
-
-        static RowDetails ActionDetails(List<string> lines, string primaryLabel,
-            Action primary, string secondaryLabel, Action secondary, Action more)
+        static RowDetails ActionDetails(List<string> lines, LibraryRowTarget.Actions actions)
         {
             var visibleLines = lines.Where(line => !string.IsNullOrEmpty(line)).ToList();
             return new RowDetails
             {
                 Lines = visibleLines,
                 Tooltip = string.Join("\n", visibleLines.ToArray()),
-                PrimaryLabel = primaryLabel,
-                Primary = primary,
-                SecondaryLabel = secondaryLabel,
-                Secondary = secondary,
-                More = more,
+                PrimaryLabel = actions.PrimaryLabel,
+                Primary = actions.Primary,
+                SecondaryLabel = actions.SecondaryLabel,
+                Secondary = actions.Secondary,
+                More = actions.More,
             };
         }
 
@@ -184,7 +92,7 @@ namespace SlopWorld
         {
             foreach (var section in SectionsByKey.Values) section.Rows.Clear();
             foreach (var item in _items)
-                EnsureSection(GroupKey(item)).Rows.Add(Row.ForItem(item));
+                EnsureSection(GroupKey(item)).Rows.Add(new ItemRow(item));
 
             BuildMainCategories(projects);
 
@@ -193,23 +101,21 @@ namespace SlopWorld
             {
                 if (!SectionsByKey.TryGetValue(key, out var section) || section.Rows.Count == 0)
                     continue;
-                if (section.Rows[0].Item != null)
+                if (section.Rows[0] is ItemRow)
                     section.Rows.Sort((a, b) => string.CompareOrdinal(
-                        a.Item?.Name ?? "", b.Item?.Name ?? ""));
+                        a.Label, b.Label));
                 Sections.Add(section);
             }
         }
 
         static Row FindSelectedRow()
         {
-            if (string.IsNullOrEmpty(_selection)) return null;
+            if (!Selection.Reconcile(Sections.SelectMany(section => section.Rows).Select(row => row.Key)))
+                return null;
             foreach (var section in Sections)
                 foreach (var row in section.Rows)
-                    if (row.Key == _selection) return row;
+                    if (row.Key == Selection.Key) return row;
 
-            // Action selections are valid only while their category row remains visible.
-            // Item identities survive filtering so the selection can return with its row.
-            if (_selection.StartsWith("action:", StringComparison.Ordinal)) _selection = null;
             return null;
         }
 
@@ -226,13 +132,8 @@ namespace SlopWorld
         {
             if (!MainCategoryEnabled(Category.Projects)) return;
             foreach (var project in projects)
-            {
-                var captured = project;
-                AddMainRow(Category.Projects, "project:" + captured.Name,
-                    captured.Name, Icons.Files, captured.Name, captured.Dir, true,
-                    MainRowKind.Project, captured,
-                    MatchesAny(query, Category.Projects, captured.Name, captured.Dir));
-            }
+                if (MatchesAny(query, Category.Projects, project.Name, project.Dir))
+                    EnsureSection(Category.Projects).Rows.Add(new ProjectRow(project));
         }
 
         static void BuildWorktreeRows(List<ProjectInfo> projects, string query)
@@ -241,19 +142,10 @@ namespace SlopWorld
             foreach (var project in projects)
             {
                 if (!Worktrees.WorktreesByProject.TryGetValue(project.Name, out var worktrees)) continue;
-                foreach (var worktree in worktrees)
-                {
-                    var captured = worktree;
-                    var tree = captured.Tree;
-                    string treeName = tree.Id == "main" ? "main" :
-                        string.IsNullOrEmpty(tree.Name) ? tree.Id : tree.Name;
-                    string label = captured.Project + "  ·  " + treeName;
-                    AddMainRow(Category.Worktrees,
-                        "worktree:" + captured.Project + ":" + tree.Id, label,
-                        Icons.Git, label, tree.Path, true, MainRowKind.Worktree, captured,
-                        MatchesAny(query, Category.Worktrees, captured.Project,
-                            treeName, tree.Path, tree.Branch));
-                }
+                foreach (var entry in worktrees)
+                    if (MatchesAny(query, Category.Worktrees, entry.Project,
+                        WorktreeRow.TreeName(entry), entry.Tree.Path, entry.Tree.Branch))
+                        EnsureSection(Category.Worktrees).Rows.Add(new WorktreeRow(entry));
             }
         }
 
@@ -263,14 +155,8 @@ namespace SlopWorld
             foreach (var preset in SessionHub.Instance.Presets
                 .Where(preset => preset.Source != "system")
                 .OrderBy(preset => preset.Name, StringComparer.OrdinalIgnoreCase))
-            {
-                var captured = preset;
-                string label = PresetLabel(captured.Name, captured.Source);
-                AddMainRow(Category.SandboxPresets,
-                    "sandbox:" + captured.Name, label, Icons.Shield,
-                    captured.Description, null, false, MainRowKind.SandboxPreset, captured,
-                    MatchesAny(query, Category.SandboxPresets, captured.Name, captured.Description));
-            }
+                if (MatchesAny(query, Category.SandboxPresets, preset.Name, preset.Description))
+                    EnsureSection(Category.SandboxPresets).Rows.Add(new SandboxPresetRow(preset));
         }
 
         static void BuildAppPresetRows(string query)
@@ -279,15 +165,8 @@ namespace SlopWorld
             foreach (var command in SessionHub.Instance.Commands
                 .Where(command => command.Source != "system")
                 .OrderBy(command => command.Name, StringComparer.OrdinalIgnoreCase))
-            {
-                var captured = command;
-                string label = PresetLabel(captured.Name, captured.Source);
-                AddMainRow(Category.AppPresets,
-                    "app:" + captured.Name, label, Icons.Terminal,
-                    captured.Description, null, false, MainRowKind.AppPreset, captured,
-                    MatchesAny(query, Category.AppPresets, captured.Name,
-                        captured.Description, captured.Cmd));
-            }
+                if (MatchesAny(query, Category.AppPresets, command.Name, command.Description, command.Cmd))
+                    EnsureSection(Category.AppPresets).Rows.Add(new AppPresetRow(command));
         }
 
         static bool MatchesAny(string query, string first, string second,
@@ -299,24 +178,6 @@ namespace SlopWorld
             (value ?? "").IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
 
         static bool MainCategoryEnabled(string key) => _kind.Length == 0 || _kind == key;
-
-        static void AddMainRow(string sectionKey, string key, string label, Texture2D icon,
-            string tooltip, string tooltipTail, bool tooltipJoinsPath,
-            MainRowKind kind, object model, bool include)
-        {
-            if (!include) return;
-            EnsureSection(sectionKey).Rows.Add(new Row
-            {
-                Key = "action:" + key,
-                Label = label,
-                Tooltip = tooltip,
-                TooltipTail = tooltipTail,
-                TooltipJoinsPath = tooltipJoinsPath,
-                Icon = icon,
-                MainKind = kind,
-                Model = model,
-            });
-        }
 
         static string PresetLabel(string name, string source) =>
             name + (source == "override" ? "  (override)" : "");

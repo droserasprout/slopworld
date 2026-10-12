@@ -61,7 +61,7 @@ namespace SlopWorld
                     Mathf.Min(RowH * 5f + UiTheme.FieldH * 2f + Pad * 4f,
                         Mathf.Max(0f, available - RowH * 2f));
                 var selectedDetails = selected != null && detailHeight > 0f
-                    ? PrepareDetails(selected) : null;
+                    ? selected.Details() : null;
                 _list = new Rect(body.x, top, body.width, Mathf.Max(0f, available - detailHeight));
                 if (selected != null && detailHeight > 0f)
                     DrawDetails(new Rect(body.x + CellX, _list.yMax,
@@ -82,7 +82,7 @@ namespace SlopWorld
                         if (Folded.Contains(section.Key)) continue;
                         foreach (var row in section.Rows)
                         {
-                            if (row.Key == _selection)
+                            if (row.Key == Selection.Key)
                                 _scroll.Reveal(y, RowH, list.height);
                             y += RowH;
                         }
@@ -225,7 +225,7 @@ namespace SlopWorld
         static float DrawRow(Rect view, Rect r, Row row)
         {
             var hitRect = Screen(r);
-            RowChrome.Hover(r, row.Key == _selection, true, RowHoverPolicy.OverlayAware);
+            RowChrome.Hover(r, row.Key == Selection.Key, true, RowHoverPolicy.OverlayAware);
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Tiny;
@@ -241,30 +241,10 @@ namespace SlopWorld
             {
                 // Tooltip registration only needs repaint; measure paths only for the hovered row.
                 if (Event.current.type == EventType.Repaint && Mouse.IsOver(r))
-                    TooltipHandler.TipRegion(r, RowTooltip(row));
+                    TooltipHandler.TipRegion(r, row.Tooltip());
                 Lines.Add(new Line { Row = row, Rect = hitRect });
             }
             return RowH;
-        }
-
-        static string RowTooltip(Row row)
-        {
-            if (row.Item != null)
-            {
-                var lines = ItemSummary(row.Item);
-                string content = ItemContent(row.Item);
-                if (!string.IsNullOrEmpty(content)) lines.Add(OneLine(content));
-                return string.Join("\n", lines);
-            }
-            if (row.MainKind == MainRowKind.SandboxPreset)
-                return string.Join("\n", SandboxDetails((PresetInfo)row.Model));
-            if (row.MainKind == MainRowKind.AppPreset)
-                return string.Join("\n", AppPresetDetails((CommandInfo)row.Model));
-            if (row.MainKind == MainRowKind.Worktree)
-                return row.Tooltip + "\n" + row.TooltipTail;
-            return row.TooltipJoinsPath
-                ? row.Tooltip + "  -  " + row.TooltipTail
-                : row.Tooltip;
         }
 
         // The height the rows want, measured off the same folds the draw reads.

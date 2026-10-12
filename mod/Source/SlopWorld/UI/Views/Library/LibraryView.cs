@@ -67,7 +67,7 @@ namespace SlopWorld
         static string _query = "";
         static string _kind = "";
         static readonly HashSet<string> ProjectFilter = new HashSet<string>();
-        static string _selection;
+        static readonly LibraryRowSelection Selection = new LibraryRowSelection();
         static bool _revealSelection;
         static Rect _list;
         static FieldLifetime _fieldLifetime = new FieldLifetime();
@@ -76,9 +76,6 @@ namespace SlopWorld
             ? Category.Templates : item.Kind == LibraryItemKind.Shell ? Category.Shell
             : item.Kind == LibraryItemKind.Breadcrumb ? Category.Breadcrumbs
             : item.Kind == LibraryItemKind.FileAction ? Category.FileActions : Category.Prompts;
-
-        static string Identity(LibraryItemInfo item) =>
-            (Templates.ContainsKey(item) ? "template:" : "item:") + item.Name;
 
         public static void Closed()
         {
@@ -118,25 +115,6 @@ namespace SlopWorld
         {
             public string Key;
             public readonly List<Row> Rows = new List<Row>();
-        }
-
-        enum MainRowKind { Project, Worktree, SandboxPreset, AppPreset }
-
-        // Keep list data small. Detail text and actions are built only for the selected row;
-        // row tooltip text is formatted only while a visible row is hovered during repaint.
-        sealed class Row
-        {
-            public LibraryItemInfo Item;
-            public MainRowKind MainKind;
-            public object Model;
-            public string Key;
-            public string Label;
-            public Texture2D Icon;
-            public string Tooltip;
-            public string TooltipTail;
-            public bool TooltipJoinsPath;
-
-            public static Row ForItem(LibraryItemInfo item) => PrepareItemRow(item);
         }
 
         sealed class RowDetails
@@ -233,7 +211,7 @@ namespace SlopWorld
                 ? SessionHub.Instance.Templates.Any(candidate => candidate.Name == name)
                 : SessionHub.Instance.Library.Any(candidate => candidate.Name == name && !candidate.Builtin);
             if (!exists) return false;
-            _selection = (template ? "template:" : "item:") + name;
+            Selection.Focus((template ? "template:" : "item:") + name);
             _revealSelection = true;
             _query = "";
             _kind = "";
@@ -250,8 +228,7 @@ namespace SlopWorld
 
         static void ClearActionSelection()
         {
-            if (_selection != null && _selection.StartsWith("action:", StringComparison.Ordinal))
-                _selection = null;
+            Selection.ClearAction();
         }
     }
 }

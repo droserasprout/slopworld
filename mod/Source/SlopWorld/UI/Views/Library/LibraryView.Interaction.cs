@@ -44,33 +44,10 @@ namespace SlopWorld
 
                 var row = line.Row;
                 if (row == null) continue;
-                bool select = row.Item != null || e.button == 0 || HasMainMenu(row);
-                if (select)
-                {
-                    _selection = row.Key;
-                    _revealSelection = true;
-                }
-                if (row.Item != null)
-                {
-                    AgentSidebar.RememberLibrary(row.Item.Name, Templates.ContainsKey(row.Item));
-                    if (e.button == 1) Menu(row.Item);
-                }
-                else if (e.button == 1)
-                    OpenMainMenu(row);
+                if (Selection.Click(row.Target, e.button, RowEffects)) _revealSelection = true;
                 e.Use();
                 return;
             }
-        }
-
-        static bool HasMainMenu(Row row) =>
-            row.MainKind == MainRowKind.Project || row.MainKind == MainRowKind.Worktree;
-
-        static void OpenMainMenu(Row row)
-        {
-            if (row.MainKind == MainRowKind.Project)
-                ProjectMenu((ProjectInfo)row.Model);
-            else if (row.MainKind == MainRowKind.Worktree)
-                WorktreeMenu((WorktreeEntry)row.Model);
         }
 
         // ------------------------------------------------------------------ menus
@@ -223,20 +200,6 @@ namespace SlopWorld
                 {
                     ClearActionSelection();
                 }, UiLayout.Fail), destructive: true));
-        }
-
-        static void Edit(LibraryItemInfo item)
-        {
-            if (Templates.TryGetValue(item, out var template))
-                TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template));
-            else
-                LibraryActions.Edit(item);
-        }
-
-        static void Menu(LibraryItemInfo item)
-        {
-            if (Templates.TryGetValue(item, out var template)) TemplateMenu(template);
-            else RowMenu(item);
         }
 
     }

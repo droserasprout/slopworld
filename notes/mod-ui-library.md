@@ -2,7 +2,12 @@
 
 `UI/Views/Library/` owns catalog rows, details, and actions. Clicking a row selects
 it; the details area controls editing/execution. The list viewport excludes search
-and details for both scrolling and hit testing.
+and details for both scrolling and hit testing. Typed row variants own their catalog
+snapshots and presentation in `LibraryView.Rows.cs`. `LibraryRowTarget` owns identity
+and action availability, retaining typed targets for deferred actions. `LibraryRowSelection`
+owns click decisions and selection lifetime across filtering; `LibraryView.Effects.cs`
+translates typed requests into game effects. Details are built only for the selected
+row; tooltips are built only on hover.
 
 Global definitions remain visible under project filtering. Catalog groups precede
 expandable Projects, Worktrees, Sandbox presets, and App presets. Library's project
