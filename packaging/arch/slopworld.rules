@@ -1,2 +1,2 @@
-# Keep the SlopWorld daemon quiet while the game and agent terminals are active.
-{ "name": "slopd", "type": "BG_CPUIO" }
+# Keep daemon work below interactive tasks without starving jukebox playback.
+{ "name": "slopd", "type": "Service", "sched": "normal" }
