@@ -16,6 +16,20 @@ to run `makepkg` as an ordinary UID.
 Release builds run locally because the mod needs the game's assemblies.
 GitHub Actions runs game-free checks.
 
+### Prepare a version
+
+Finish the human-maintained, dated changelog entry, then run:
+
+```sh
+just bump-version {{#constant release_version}}
+```
+
+The command updates both Cargo manifests and their own lockfile entries, the mod's
+fallback version, and Arch package defaults. It preserves dependency versions and
+reads the changelog without changing it. Repeating the command for the same version
+leaves matching files untouched. Review and commit the changes on `main`, then tag
+the commit with the matching `vMAJOR.MINOR.PATCH` tag.
+
 ### Build packages
 
 ```sh
@@ -64,6 +78,8 @@ build version in `VERSION`. Exact `{{#constant release_tag_format}}` tags at HEA
 with the `v` prefix removed from package and image versions. Both release targets reject untagged
 commits and multiple distinct version tags. If `VERSION` is supplied, it must
 match the tag; it cannot bypass the tag requirement.
+All product version files updated by `bump-version` must also match the tag.
+Stale versions stop the release before any refresh, build, or publication.
 
 Artifact filenames and package metadata carry the resolved version.
 `SHA256SUMS` covers both archives and all three packages.

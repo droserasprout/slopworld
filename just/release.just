@@ -1,5 +1,10 @@
 # Local releases require the game's assemblies; GitHub Actions only runs game-free checks.
 
+# Update product version files for a dated, human-maintained changelog release
+[group('Release')]
+bump-version version:
+    {{ PYTHON }} -m tools.version.bump {{ quote(version) }}
+
 # Validate tagged main, refresh, lint, test, and build release packages locally
 [group('Release')]
 release-package:

@@ -7,8 +7,10 @@ from unittest.mock import patch
 
 import pytest
 
+from tools import ROOT
 from tools.release import gates
 from tools.utils import run
+from tools.version import product
 
 
 @pytest.fixture
@@ -19,8 +21,16 @@ def repository(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Callable[...,
     git('init', '-b', 'main')
     git('config', 'user.name', 'Release test')
     git('config', 'user.email', 'release@example.test')
-    git('commit', '--allow-empty', '-m', 'fixture')
+    for entry in product.FILES:
+        path = tmp_path / entry.path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text((ROOT / entry.path).read_text())
+    for path, (_, updated) in product.changes('0.0.1', tmp_path).items():
+        path.write_text(updated)
+    git('add', '.')
+    git('commit', '-m', 'fixture')
     monkeypatch.setattr(gates, 'git', git)
+    monkeypatch.setattr(gates, 'ROOT', tmp_path)
     monkeypatch.delenv('VERSION', raising=False)
     return git
 
@@ -78,8 +88,22 @@ def test_delayed_checkout_changes_are_rejected(repository: Callable[..., str], c
     else:
         repository('tag', '-d', 'v0.0.1')
         repository('tag', 'v0.0.2')
-    with pytest.raises(ValueError, match='changed'):
+    with pytest.raises(ValueError, match=r'changed|must match'):
         gates.validate(release)
+
+
+@pytest.mark.parametrize('entry', product.FILES, ids=lambda entry: entry.path)
+def test_committed_version_mismatch_is_rejected(
+    repository: Callable[..., str], tmp_path: Path, entry: product.VersionFile
+) -> None:
+    source, match = entry.read(tmp_path)
+    start, end = match.span('version')
+    (tmp_path / entry.path).write_text(source[:start] + '0.0.2' + entry.suffix + source[end:])
+    repository('add', entry.path)
+    repository('commit', '-m', 'mismatched version')
+    repository('tag', 'v0.0.1')
+    with pytest.raises(ValueError, match='must match'):
+        gates.prepare()
 
 
 @pytest.mark.parametrize('failed_stage', [None, 'refresh', 'lint', 'test', 'all'])

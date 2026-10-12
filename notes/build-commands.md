@@ -23,7 +23,11 @@ Cargo package fallback and uses `tools/version/resolve.py` for the same tag/date
 rules as Rust; `VERSION` overrides either build. `tools/version/metadata.py` owns
 the shared Python release-tag syntax and Cargo version reader; release tags always
 use `vMAJOR.MINOR.PATCH`, while artifact versions omit `v`. CI validates tags with
-that module before container setup. Installer and launch recipes
+that module before container setup. `tools/version/product.py` owns the shared
+editable product-version file list;
+`just bump-version VERSION` validates all replacements and a dated changelog entry
+before writing. Both release gates require those product versions to match the tag.
+Installer and launch recipes
 own their launcher build dependency. Regeneration is an explicit, isolated step
 after the main source changes: run `just refresh` for all outputs, or the relevant
 `refresh-protocol`, `refresh-api-docs`, `refresh-daemon-licenses`,

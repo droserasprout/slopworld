@@ -3,7 +3,9 @@
 import os
 from dataclasses import dataclass
 
+from tools import ROOT
 from tools.utils import run
+from tools.version import product
 from tools.version.metadata import TAG_FORMAT
 from tools.version.metadata import release_version
 
@@ -36,6 +38,7 @@ def prepare() -> Release:
     override = os.environ.get('VERSION')
     if override and override != version:
         raise ValueError('VERSION must match the release tag at HEAD.')
+    product.check(version, ROOT)
     return Release(revision, tag, version)
 
 
