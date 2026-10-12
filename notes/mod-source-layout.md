@@ -12,7 +12,8 @@ The main directory groupings are:
   stay in `Daemon/`, `Transport/` and `Generated/`.
   `Diagnostics/` owns opt-in performance, memory and terminal-latency traces and their frame/file lifecycle.
 - `Serialization/` owns shared format adapters; callers own feature-specific schema validation.
-- `Settings/` owns profile preferences and their static projection; `UI/Settings/` owns pages and `IOptionPage`.
+- `Settings/` separates portable preferences/serialization and file persistence from
+  the game profile adapter and static projection; `UI/Settings/` owns pages and `IOptionPage`.
 - `Sim/` is split into `Colony/`, `Content/`, `Jukebox/`, `Lifecycle/`,
   `Plague/`, `Terminal/`, `Worksite/` and `Incidents/`.
 - `Patches/` is grouped by `AgentSidebar/`, `Agents/`, `Chrome/`, `ColonistBar/`, `Colony/`, `Eco/`,

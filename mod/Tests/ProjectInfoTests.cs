@@ -95,7 +95,7 @@ namespace SlopWorld.Tests
 
         static void MissingTemporaryMetadata()
         {
-            AssertEx.Equal("", ProjectInfo.TempRoot, "missing temp metadata is unavailable");
+            AssertEx.Equal("", SessionHub.Instance.Config?.TemporaryRoot ?? "", "missing temp metadata is unavailable");
         }
 
         static void IgnoresStaleTemporaryPreviews()

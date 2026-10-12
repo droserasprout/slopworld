@@ -2,33 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
-using UnityEngine;
-using Verse;
 
 namespace SlopWorld
 {
-    // When enabled, report aggregate profiling data once per second to limit logging work during each frame.
-    // Read the environment flag once. Diagnostics do not need a runtime switch.
+    // Collects process-local timing samples. PerfTraceReport owns game context and publication.
     static class PerfTrace
     {
         internal static readonly bool Enabled = DebugFlag();
-        const int MaxSamples = 512;
-        static readonly Dictionary<string, Sample> Samples =
-            new Dictionary<string, Sample>(StringComparer.Ordinal);
-        static float _nextReport;
-        static float _lastReport;
-        static int _lastFrame;
-        static int _lastGc;
-
-        struct Sample
-        {
-            public int Calls;
-            public int Work;
-            public int PeakBacklog;
-            public long Ticks;
-            public long MaxTicks;
-            public List<long> Durations;
-        }
+        internal static readonly PerfSamples Samples = new PerfSamples();
 
         static bool DebugFlag()
         {
@@ -41,61 +22,59 @@ namespace SlopWorld
         public static void End(string name, long started, int work, int backlog = 0)
         {
             if (!Enabled || started == 0L) return;
-            if (!Samples.TryGetValue(name, out var sample)) sample = new Sample();
-            sample.Calls++;
-            sample.Work += work;
-            sample.PeakBacklog = Math.Max(sample.PeakBacklog, backlog);
-            long elapsed = Stopwatch.GetTimestamp() - started;
-            sample.Ticks += elapsed;
-            sample.MaxTicks = Math.Max(sample.MaxTicks, elapsed);
-            if (sample.Durations == null) sample.Durations = new List<long>();
-            if (sample.Durations.Count < MaxSamples) sample.Durations.Add(elapsed);
-            Samples[name] = sample;
+            Samples.Duration(name, Stopwatch.GetTimestamp() - started, work, backlog);
         }
 
         public static void Count(string name, int work = 1)
         {
-            if (!Enabled) return;
-            if (!Samples.TryGetValue(name, out var sample)) sample = new Sample();
+            if (Enabled) Samples.Count(name, work);
+        }
+    }
+
+    // Bounded duration samples retain full totals and peaks for each reporting window.
+    sealed class PerfSamples
+    {
+        const int MaxSamples = 512;
+        readonly Dictionary<string, Sample> _samples =
+            new Dictionary<string, Sample>(StringComparer.Ordinal);
+
+        struct Sample
+        {
+            public int Calls;
+            public int Work;
+            public int PeakBacklog;
+            public long Ticks;
+            public long MaxTicks;
+            public List<long> Durations;
+        }
+
+        public void Duration(string name, long elapsed, int work, int backlog = 0)
+        {
+            if (!_samples.TryGetValue(name, out var sample)) sample = new Sample();
             sample.Calls++;
             sample.Work += work;
-            Samples[name] = sample;
+            sample.PeakBacklog = Math.Max(sample.PeakBacklog, backlog);
+            sample.Ticks += elapsed;
+            sample.MaxTicks = Math.Max(sample.MaxTicks, elapsed);
+            if (sample.Durations == null) sample.Durations = new List<long>();
+            if (sample.Durations.Count < MaxSamples) sample.Durations.Add(elapsed);
+            _samples[name] = sample;
         }
 
-        public static void Report()
+        public void Count(string name, int work = 1)
         {
-            if (!Enabled) return;
-            float now = Time.realtimeSinceStartup;
-            if (now < _nextReport) return;
-            _nextReport = now + 1f;
-
-            var text = new StringBuilder("[SlopWorld] perf");
-            // Window context lets users compare captures without viewing the screen.
-            // GC collection counts apply to the whole process. They do not measure allocated bytes.
-            float seconds = now - _lastReport;
-            int frame = Time.frameCount;
-            int gc = GC.CollectionCount(0);
-            AppendContext(text, seconds > 0 ? (frame - _lastFrame) / seconds : 0, gc - _lastGc);
-            _lastReport = now;
-            _lastFrame = frame;
-            _lastGc = gc;
-            foreach (var pair in Samples) AppendSample(text, pair.Key, pair.Value);
-            MemoryTrace.Append(text, now);
-            TerminalLatency.Record(text.ToString());
-            Samples.Clear();
+            if (!_samples.TryGetValue(name, out var sample)) sample = new Sample();
+            sample.Calls++;
+            sample.Work += work;
+            _samples[name] = sample;
         }
 
-        static void AppendContext(StringBuilder text, float fps, int collections)
+        public void AppendTo(StringBuilder text)
         {
-            text.Append(" context eco=").Append(Eco.Resting ? 1 : 0)
-                .Append(" terminal=").Append(TerminalWindow.Covering ? 1 : 0)
-                .Append(" sessions=").Append(SessionHub.Instance.Sessions.Count)
-                .Append(" width=").Append(UI.screenWidth)
-                .Append(" height=").Append(UI.screenHeight)
-                .Append(" fps=").Append(fps
-                    .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))
-                .Append(" gc0=").Append(collections).Append(';');
+            foreach (var pair in _samples) AppendSample(text, pair.Key, pair.Value);
         }
+
+        public void Clear() => _samples.Clear();
 
         static void AppendSample(StringBuilder text, string name, Sample sample)
         {

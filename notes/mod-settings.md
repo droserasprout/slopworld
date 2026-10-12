@@ -1,8 +1,12 @@
 # Profile settings ownership
 
-`Settings/ModSettings.cs` owns profile preferences that remain usable offline.
-Only preferences consumed through the static `Settings` projection need shim
-properties. Daemon configuration and endpoint credentials belong to
+`Settings/ModSettings.cs` owns portable profile data, typed TOML serialization,
+normalization, and dirty timing. `ModSettingsStore` owns file loading and replacement
+with caller-supplied paths and error reporting. `ProfileSettings` supplies RimWorld's
+profile path, fallback path, logging, and the runtime write/flush adapters.
+`Settings.cs` projects the active profile through `ModEntry`; only preferences
+consumed through that projection need shim properties. Daemon configuration and
+endpoint credentials belong to
 [the daemon](daemon-config-stores.md).
 
 Every persisted field requires an explicit typed entry in `Fields`. Disk persistence
@@ -10,8 +14,10 @@ omits runtime dirty state; failed timer writes retain pending changes for retry.
 [Settings apply behavior](ui-settings.md) owns application and save timing.
 The alternate temperature label is a profile preference stored separately from
 RimWorld's closed temperature enum.
-Date and time format preferences own displayed wall-clock timestamps; persisted
-machine timestamps keep their wire formats. The clock cache includes both preferences.
+`PreferenceFormats` owns date/time and statusbar preference keys; callers supply
+format choices when formatting timestamps. `WorkspacePreferences` owns navigation
+side and density keys without depending on workspace geometry. Persisted machine
+timestamps keep their wire formats. The clock cache includes both format preferences.
 
 Feature owners are [terminal recall](mod-terminal.md), [Eco](mod-eco.md),
 [shared chrome](mod-ui-chrome.md),

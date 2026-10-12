@@ -164,7 +164,7 @@ namespace SlopWorld
             // growing the content on every layout pass.
             float height = Mathf.Max(PresetsH, rect.y + availableHeight - y - UiTheme.GapS);
             PresetList.Draw(new Rect(rect.x, y, rect.width, height), _s.Sandbox,
-                _presetScroll, inheritedPresets, _templateSnapshot?.SandboxCatalog(),
+                _presetScroll, inheritedPresets, _templateSnapshot?.SandboxCatalog(SessionHub.Instance.Presets),
                 EditingTemplate ? "Added by template" : "Added by this agent");
             return y + height;
         }
@@ -223,7 +223,7 @@ namespace SlopWorld
 
             // The daemon reads command names from the catalog. A new command file appears here after refresh.
             IEnumerable<CommandInfo> commands = SessionHub.Instance.Commands;
-            var captured = _templateSnapshot?.ResolveCommand(_templateSnapshot.Command);
+            var captured = _templateSnapshot?.ResolveCommand(_templateSnapshot.Command, SessionHub.Instance.Commands);
             if (captured != null)
                 commands = new[] { captured }.Concat(commands).GroupBy(c => c.Name).Select(g => g.First());
             foreach (var c in commands)

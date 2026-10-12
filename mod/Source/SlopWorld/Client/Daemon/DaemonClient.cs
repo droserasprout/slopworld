@@ -31,7 +31,7 @@ namespace SlopWorld
         static readonly MainThreadCompletions Completions = new MainThreadCompletions(
             MaxCompletionsPerFrame, CompletionBudgetTicks, System.Diagnostics.Stopwatch.GetTimestamp);
 
-        public static string BaseUrl => Settings.Connection.BaseUrl;
+        public static string BaseUrl => Endpoint.Resolve().BaseUrl;
 
         public static void Get<T>(string path, Action<T> ok, Action<string> fail = null,
             string session = null, int timeoutMs = DefaultTimeoutMs) where T : IMessage<T>, new() =>
@@ -86,7 +86,7 @@ namespace SlopWorld
                     {
                         await Requests.WaitAsync(deadline.Token).ConfigureAwait(false);
                         acquired = true;
-                        var connection = Settings.Connection;
+                        var connection = Endpoint.Resolve();
                         req = (HttpWebRequest)WebRequest.Create(connection.BaseUrl + path);
                         // Sidebar refreshes send requests for multiple projects.
                         // The default connection limit can delay status reads behind two slow workspace requests.

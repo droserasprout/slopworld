@@ -251,8 +251,8 @@ namespace SlopWorld
             if (milliseconds <= 0) return "unknown time";
             var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
             var local = epoch.AddMilliseconds(milliseconds).ToLocalTime();
-            return DateFormat.Short(local) + " " +
-                TimeFormat.Long(local) + " " + local.ToString("zzz", CultureInfo.InvariantCulture);
+            return DateFormat.Short(local, Settings.DateFormat) + " " +
+                TimeFormat.Long(local, Settings.TimeFormat) + " " + local.ToString("zzz", CultureInfo.InvariantCulture);
         }
 
         static void DrawSenderIcon(Rect r, string sender)

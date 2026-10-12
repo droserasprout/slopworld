@@ -28,7 +28,7 @@ namespace SlopWorld
         }
 
         CommandInfo EditorCommand(string name) => _templateSnapshot == null
-            ? SessionHub.Instance.Command(name) : _templateSnapshot.ResolveCommand(name);
+            ? SessionHub.Instance.Command(name) : _templateSnapshot.ResolveCommand(name, SessionHub.Instance.Commands);
 
         bool RecipeFlag(Listing_Standard l, string name, string label, bool value, Action<bool> set,
             string tip = null, bool locked = false)
@@ -71,7 +71,7 @@ namespace SlopWorld
         }
 
         Wire.SettingsPreviewRequest TemplatePreviewRequest() =>
-            new Wire.SettingsPreviewRequest { Recipe = true, Template = _templateDraft.ToWire(_s) };
+            new Wire.SettingsPreviewRequest { Recipe = true, Template = _templateDraft.ToWire(_s, SessionHub.Instance.Commands, SessionHub.Instance.Presets) };
 
         Wire.SettingsPreviewRequest AgentPreviewRequest()
         {
@@ -81,7 +81,7 @@ namespace SlopWorld
             {
                 var baseline = new SessionInfo();
                 _templateSnapshot.ApplyTo(baseline);
-                request.Template = _templateSnapshot.ToWire(baseline);
+                request.Template = _templateSnapshot.ToWire(baseline, SessionHub.Instance.Commands, SessionHub.Instance.Presets);
             }
             return request;
         }

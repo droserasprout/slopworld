@@ -25,7 +25,7 @@ namespace SlopWorld
         public ModEntry(ModContentPack content) : base(content)
         {
             Instance = this;
-            settings = ModSettings.Load();
+            settings = ProfileSettings.Load();
         }
     }
 }

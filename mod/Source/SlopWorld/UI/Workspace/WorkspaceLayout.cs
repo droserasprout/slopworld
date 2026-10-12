@@ -4,30 +4,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    public static class NavigationSide
-    {
-        public const string Left = "left";
-        public const string Right = "right";
-
-        public static string Normalize(string value) =>
-            string.Equals(value, Right, StringComparison.OrdinalIgnoreCase) ? Right : Left;
-
-        public static string Label(string value) => Normalize(value) == Right ? "Right" : "Left";
-    }
-
-    public static class UiDensityPreset
-    {
-        public const string Default = "default";
-        public const string Compact = "compact";
-
-        public static string Normalize(string value) =>
-            string.Equals(value, Compact, StringComparison.OrdinalIgnoreCase)
-                ? Compact : Default;
-
-        public static string Label(string value) =>
-            Normalize(value) == Compact ? "Compact" : "Default";
-    }
-
     // A single immutable geometry result is shared by drawing, hit testing, terminal sizing,
     // and the Harmony chrome patches. It deliberately knows nothing about the content inside
     // a panel: moving the navigation or changing density must not recreate the panel state.

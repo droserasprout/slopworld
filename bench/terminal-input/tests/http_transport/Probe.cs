@@ -21,7 +21,11 @@ namespace Google.Protobuf
 namespace Verse { public static class Log { public static void Error(string text) { throw new Exception(text); } } }
 namespace SlopWorld
 {
-    public static class Settings { public static Connection Connection = new Connection(); }
+    public static class Endpoint
+    {
+        public static readonly Connection Connection = new Connection();
+        public static Connection Resolve() => Connection;
+    }
     public class Connection { public string BaseUrl, Token = ""; }
     public static class PerfTrace
     {
@@ -81,7 +85,7 @@ class HttpTransportProbe
     {
         try
         {
-            Settings.Connection.BaseUrl = args[0];
+            Endpoint.Connection.BaseUrl = args[0];
             bool rejected = false;
             try { DaemonClient.Get<SlopWorld.Wire.Ack>("/ok", r => Complete(false), timeoutMs: -2); }
             catch (ArgumentOutOfRangeException) { rejected = true; }

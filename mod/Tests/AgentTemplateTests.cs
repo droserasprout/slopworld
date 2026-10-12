@@ -6,30 +6,38 @@ namespace SlopWorld.Tests
     {
         public static void CapturedDependenciesKeepBreadthFirstOrderAndDeduplicateCycles()
         {
-            var catalog = SessionHub.Instance.Catalog;
-            var presets = catalog.Presets;
-            try
-            {
-                catalog.Presets = new List<PresetInfo>
+            var presets = new List<PresetInfo>
                 {
                     new PresetInfo { Name = "a", Description = "live" },
                     new PresetInfo { Name = "b", Requires = new List<string> { "c" } },
                 };
-                var template = new AgentTemplateInfo();
-                template.DefaultsSnapshot.Command = new Wire.CommandPreset { Name = "agent", Sandbox = { "b", "a" } };
-                template.DefaultsSnapshot.SandboxPresets.Add(new Wire.SandboxPreset { Name = "a", Description = "captured", Requires = { "c" } });
-                template.DefaultsSnapshot.SandboxPresets.Add(new Wire.SandboxPreset { Name = "c", Requires = { "a" } });
-                var form = new SessionInfo { Command = "agent", Sandbox = new List<string> { "a", "a" } };
-                var saved = template.ToWire(form).Defaults;
-                AssertEx.Equal("a,b,c", string.Join(",", saved.Sandbox), "explicit, command, then dependency order");
-                AssertEx.Equal(3, saved.SandboxPresets.Count, "cycle and duplicates captured once");
-                AssertEx.Equal("captured", saved.SandboxPresets[0].Description, "captured definition wins");
-                saved.SandboxPresets[0].Description = "edited";
-                AssertEx.Equal("captured", template.DefaultsSnapshot.SandboxPresets[0].Description, "captured snapshot is independent");
-                form.Sandbox.Add("missing");
-                AssertEx.Throws<System.InvalidOperationException>(() => template.ToWire(form), "unknown dependency is rejected");
-            }
-            finally { catalog.Presets = presets; }
+            var template = new AgentTemplateInfo();
+            template.DefaultsSnapshot.Command = new Wire.CommandPreset { Name = "agent", Sandbox = { "b", "a" } };
+            template.DefaultsSnapshot.SandboxPresets.Add(new Wire.SandboxPreset { Name = "a", Description = "captured", Requires = { "c" } });
+            template.DefaultsSnapshot.SandboxPresets.Add(new Wire.SandboxPreset { Name = "c", Requires = { "a" } });
+            var form = new SessionInfo { Command = "agent", Sandbox = new List<string> { "a", "a" } };
+            var saved = template.ToWire(form, System.Array.Empty<CommandInfo>(), presets).Defaults;
+            AssertEx.Equal("a,b,c", string.Join(",", saved.Sandbox), "explicit, command, then dependency order");
+            AssertEx.Equal(3, saved.SandboxPresets.Count, "cycle and duplicates captured once");
+            AssertEx.Equal("captured", saved.SandboxPresets[0].Description, "captured definition wins");
+            saved.SandboxPresets[0].Description = "edited";
+            AssertEx.Equal("captured", template.DefaultsSnapshot.SandboxPresets[0].Description, "captured snapshot is independent");
+            form.Sandbox.Add("missing");
+            AssertEx.Throws<System.InvalidOperationException>(() => template.ToWire(form, System.Array.Empty<CommandInfo>(), presets), "unknown dependency is rejected");
+        }
+
+        public static void ExplicitCatalogsResolveLiveFallbacksWithoutChangingCapturedSnapshots()
+        {
+            var template = new AgentTemplateInfo();
+            var commands = new[] { new CommandInfo { Name = "live", Cmd = "run", Sandbox = new List<string> { "base" } } };
+            var presets = new[] { new PresetInfo { Name = "base", Description = "live preset" } };
+            var form = new SessionInfo { Command = "live" };
+            AssertEx.Equal("run", template.ResolveCommand("live", commands).Cmd, "supplied command is used");
+            var saved = template.ToWire(form, commands, presets);
+            AssertEx.Equal("live preset", saved.Defaults.SandboxPresets[0].Description, "supplied dependency is captured");
+            AssertEx.True(template.DefaultsSnapshot.Command == null, "saving does not mutate the template snapshot");
+            AssertEx.Equal(0, template.DefaultsSnapshot.SandboxPresets.Count, "live presets do not enter the draft snapshot");
+            AssertEx.Throws<System.InvalidOperationException>(() => template.ToWire(form, System.Array.Empty<CommandInfo>(), presets), "missing live command is rejected");
         }
 
         public static void VersionTokensRemainExact()
@@ -66,22 +74,16 @@ namespace SlopWorld.Tests
         public static void DescriptionEditsPreserveCapturedSnapshots()
         {
             var template = CapturedTemplate();
-            var catalog = SessionHub.Instance.Catalog;
-            var commands = catalog.Commands;
-            try
-            {
-                catalog.Commands = new List<CommandInfo> { new CommandInfo { Name = "agent", Cmd = "changed" } };
-                var form = new SessionInfo();
-                template.ApplyTo(form);
-                template.Description = "Edited description";
-                var saved = template.ToWire(form);
-                AssertEx.Equal("Edited description", saved.Description, "description edit is submitted");
-                AssertEx.Equal("captured", saved.Defaults.Command.Cmd, "description edit retains command snapshot");
-                AssertEx.Equal("captured sandbox", saved.Defaults.SandboxPresets[0].Description, "description edit retains sandbox snapshot");
-                AssertEx.Equal("--extra", template.Copy().Args, "arguments survive draft copy");
-                AssertEx.Equal("--extra", saved.Defaults.Args, "arguments retained on save");
-            }
-            finally { catalog.Commands = commands; }
+            var commands = new List<CommandInfo> { new CommandInfo { Name = "agent", Cmd = "changed" } };
+            var form = new SessionInfo();
+            template.ApplyTo(form);
+            template.Description = "Edited description";
+            var saved = template.ToWire(form, commands, System.Array.Empty<PresetInfo>());
+            AssertEx.Equal("Edited description", saved.Description, "description edit is submitted");
+            AssertEx.Equal("captured", saved.Defaults.Command.Cmd, "description edit retains command snapshot");
+            AssertEx.Equal("captured sandbox", saved.Defaults.SandboxPresets[0].Description, "description edit retains sandbox snapshot");
+            AssertEx.Equal("--extra", template.Copy().Args, "arguments survive draft copy");
+            AssertEx.Equal("--extra", saved.Defaults.Args, "arguments retained on save");
         }
 
         public static void OptionalTemplateArgumentsAndLimitsCanBeCleared()
@@ -92,7 +94,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("--extra", form.Args, "template arguments initialize form");
             form.Limits = new SessionLimits();
             form.Args = "";
-            var saved = template.ToWire(form).Defaults;
+            var saved = template.ToWire(form, System.Array.Empty<CommandInfo>(), System.Array.Empty<PresetInfo>()).Defaults;
             AssertEx.False(saved.HasArgs, "arguments can be cleared");
             AssertEx.True(saved.Limits == null || SessionLimits.FromWire(saved.Limits).IsEmpty, "cleared caps stay cleared");
         }
@@ -102,12 +104,12 @@ namespace SlopWorld.Tests
             var template = CapturedTemplate();
             var form = new SessionInfo();
             template.ApplyTo(form);
-            var saved = template.ToWire(form).Defaults;
+            var saved = template.ToWire(form, System.Array.Empty<CommandInfo>(), System.Array.Empty<PresetInfo>()).Defaults;
             AssertEx.Equal("dependency", saved.Sandbox[0], "command dependency selected");
             AssertEx.Equal("dependency", saved.SandboxPresets[0].Name, "captured command dependency retained");
             form.Command = form.CommandPreset = "";
             form.Cmd = "custom";
-            saved = template.ToWire(form).Defaults;
+            saved = template.ToWire(form, System.Array.Empty<CommandInfo>(), System.Array.Empty<PresetInfo>()).Defaults;
             AssertEx.True(saved.Command == null, "raw command clears preset snapshot");
             AssertEx.Equal(0, saved.SandboxPresets.Count, "unused dependency removed");
         }
@@ -121,33 +123,21 @@ namespace SlopWorld.Tests
                     ""network"":""private"", ""dns"": { ""mode"":""resolved"" }
                 }
             }")));
-            var catalog = SessionHub.Instance.Catalog;
-            var commands = catalog.Commands;
-            var presets = catalog.Presets;
-            try
-            {
-                catalog.Commands = new List<CommandInfo> { new CommandInfo { Name = "agent", Cmd = "live" } };
-                catalog.Presets = new List<PresetInfo> { new PresetInfo { Name = "sandbox", Description = "live" } };
-                AssertEx.Equal("captured", template.ResolveCommand("agent").Cmd, "editor uses captured command");
-                AssertEx.Equal("captured", template.SandboxCatalog()[0].Description, "picker uses captured sandbox");
-                AssertEx.Equal(1, template.SandboxCatalog().Count, "no duplicate sandbox choices");
-                var form = new SessionInfo();
-                template.ApplyTo(form);
-                form.Network = NetworkMode.None;
-                form.Dns = DnsConfig.Custom();
-                form.Dns.Servers.Add("1.1.1.1");
-                template.Description = "Edited description";
-                var saved = JVal.Parse(template.ToJson(form))["defaults"];
-                AssertEx.Equal("none", saved["network"].AsString(), "shared network override is saved");
-                AssertEx.Equal("1.1.1.1", saved["dns"]["servers"][0].AsString(), "shared DNS override is saved");
-            }
-            finally
-            {
-                catalog.Commands = commands;
-                catalog.Presets = presets;
-            }
+            var commands = new List<CommandInfo> { new CommandInfo { Name = "agent", Cmd = "live" } };
+            var presets = new List<PresetInfo> { new PresetInfo { Name = "sandbox", Description = "live" } };
+            AssertEx.Equal("captured", template.ResolveCommand("agent", commands).Cmd, "editor uses captured command");
+            AssertEx.Equal("captured", template.SandboxCatalog(presets)[0].Description, "picker uses captured sandbox");
+            AssertEx.Equal(1, template.SandboxCatalog(presets).Count, "no duplicate sandbox choices");
+            var form = new SessionInfo();
+            template.ApplyTo(form);
+            form.Network = NetworkMode.None;
+            form.Dns = DnsConfig.Custom();
+            form.Dns.Servers.Add("1.1.1.1");
+            template.Description = "Edited description";
+            var saved = ProtobufFixtures.Json(template.ToWire(form, commands, presets))["defaults"];
+            AssertEx.Equal("none", saved["network"].AsString(), "shared network override is saved");
+            AssertEx.Equal("1.1.1.1", saved["dns"]["servers"][0].AsString(), "shared DNS override is saved");
         }
-
         public static void SparseRecipesRoundTripInheritanceAndPreserveExplicitValues()
         {
             var sparse = new AgentTemplateInfo { Name = "sparse" };

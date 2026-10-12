@@ -89,27 +89,27 @@ namespace SlopWorld
         };
 
         // Editors and previews share the same snapshot-first catalogs used when saving.
-        public CommandInfo ResolveCommand(string name)
+        public CommandInfo ResolveCommand(string name, IEnumerable<CommandInfo> commands)
         {
             var captured = DefaultsSnapshot.Command;
             return !string.IsNullOrEmpty(name) && captured?.Name == name
-                ? CommandInfo.FromWire(captured) : SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == name);
+                ? CommandInfo.FromWire(captured) : commands.FirstOrDefault(c => c.Name == name);
         }
-        public List<PresetInfo> SandboxCatalog() => DefaultsSnapshot.SandboxPresets.Select(PresetInfo.FromWire)
-            .Concat(SessionHub.Instance.Presets).GroupBy(p => p.Name).Select(g => g.First()).ToList();
-        public Wire.AgentTemplate ToWire(SessionInfo form)
+        public List<PresetInfo> SandboxCatalog(IEnumerable<PresetInfo> presets) => DefaultsSnapshot.SandboxPresets.Select(PresetInfo.FromWire)
+            .Concat(presets).GroupBy(p => p.Name).Select(g => g.First()).ToList();
+        public Wire.AgentTemplate ToWire(SessionInfo form, IEnumerable<CommandInfo> commands, IEnumerable<PresetInfo> presets)
         {
             var d = DefaultsSnapshot.Clone();
             d.Command = null;
             if (!string.IsNullOrEmpty(form.Command))
                 d.Command = DefaultsSnapshot.Command?.Name == form.Command ? DefaultsSnapshot.Command.Clone()
-                    : (SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == form.Command)?.ToWire() ?? throw new InvalidOperationException("Unknown command: " + form.Command));
+                    : (commands.FirstOrDefault(c => c.Name == form.Command)?.ToWire() ?? throw new InvalidOperationException("Unknown command: " + form.Command));
             d.ClearCmd();
             if (!string.IsNullOrWhiteSpace(form.Cmd)) d.Cmd = form.Cmd;
             d.ClearArgs();
             if (!string.IsNullOrWhiteSpace(form.Args)) d.Args = form.Args;
             d.Sandbox.Clear(); d.SandboxPresets.Clear();
-            CaptureSandboxPresets(d, form.Sandbox);
+            CaptureSandboxPresets(d, form.Sandbox, presets);
             d.ClearPersistentTmp(); d.ClearAutostart(); d.ClearAutoResume(); d.ClearNetwork();
             if (SpecifiedFlags.Contains("persistent_tmp")) d.PersistentTmp = form.PersistentTmp;
             if (SpecifiedFlags.Contains("autostart")) d.Autostart = form.Autostart;
@@ -128,7 +128,7 @@ namespace SlopWorld
 
         // Breadth-first selection order is stable: explicit presets, command presets,
         // then dependencies. Captured definitions win, and cycles are visited once.
-        void CaptureSandboxPresets(Wire.AgentTemplateDefaults d, IEnumerable<string> selected)
+        void CaptureSandboxPresets(Wire.AgentTemplateDefaults d, IEnumerable<string> selected, IEnumerable<PresetInfo> presets)
         {
             var pending = new Queue<string>(selected.Concat(d.Command == null ? Enumerable.Empty<string>() : d.Command.Sandbox));
             var names = new HashSet<string>();
@@ -137,7 +137,7 @@ namespace SlopWorld
                 string name = pending.Dequeue();
                 if (!names.Add(name)) continue;
                 var preset = DefaultsSnapshot.SandboxPresets.FirstOrDefault(p => p.Name == name)?.Clone()
-                    ?? SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == name)?.ToWire()
+                    ?? presets.FirstOrDefault(p => p.Name == name)?.ToWire()
                     ?? throw new InvalidOperationException("Unknown sandbox preset: " + name);
                 d.Sandbox.Add(name); d.SandboxPresets.Add(preset);
                 foreach (string dependency in preset.Requires) pending.Enqueue(dependency);

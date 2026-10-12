@@ -1,96 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Text;
-using Verse;
-using Exception = System.Exception;
 
 namespace SlopWorld
 {
-    public static class StatusbarClockMode
-    {
-        public const string Right = "right";
-        public const string Center = "center";
-        public const string Hidden = "hidden";
-
-        public static string Normalize(string mode)
-        {
-            if (mode == Center) return Center;
-            if (mode == Hidden) return Hidden;
-            return Right;
-        }
-
-        public static string Label(string mode)
-        {
-            if (mode == Center) return "Center";
-            if (mode == Hidden) return "Hidden";
-            return "Right";
-        }
-    }
-
-    public static class StatusbarSummaryMode
-    {
-        public const string Left = "left";
-        public const string Center = "center";
-
-        public static string Normalize(string mode) => mode == Center ? Center : Left;
-
-        public static string Label(string mode) => Normalize(mode) == Center ? "Center" : "Left";
-    }
-
-    public static class TimeFormat
-    {
-        public const string TwentyFourHour = "24-hour";
-        public const string TwelveHour = "12-hour";
-
-        public static string Normalize(string format) =>
-            format == TwelveHour ? TwelveHour : TwentyFourHour;
-
-        public static string Label(string format) =>
-            Normalize(format) == TwelveHour ? "12-hour" : "24-hour";
-
-        public static string Short(DateTime time) =>
-            time.ToString(Normalize(Settings.TimeFormat) == TwelveHour ? "h:mm tt" : "HH:mm", CultureInfo.CurrentCulture);
-
-        public static string Long(DateTime time) =>
-            time.ToString(Normalize(Settings.TimeFormat) == TwelveHour ? "h:mm:ss tt" : "HH:mm:ss", CultureInfo.CurrentCulture);
-    }
-
-    public static class DateFormat
-    {
-        public const string YearFirst = "yyyy-MM-dd";
-        public const string DayFirst = "dd/MM/yyyy";
-        public const string MonthFirst = "MM/dd/yyyy";
-
-        public static string Normalize(string format) =>
-            format == DayFirst || format == MonthFirst ? format : YearFirst;
-
-        public static string Label(string format) => Normalize(format).ToUpperInvariant();
-
-        // Numeric date choices use Gregorian dates and literal separators regardless of locale.
-        public static string Short(DateTime date, string format) =>
-            date.ToString(Normalize(format), CultureInfo.InvariantCulture);
-
-        public static string Short(DateTime date) => Short(date, Settings.DateFormat);
-    }
-
-    // The meme choice changes only the displayed label; temperatures still follow game preferences.
-    public static class TemperatureUnit
-    {
-        public const string MemeMode = "glazed-bald";
-        public const string MemeLabel = "glazed🍩/bald🦅";
-
-        public static bool IsMemeMode(string unit) => unit == MemeMode;
-
-        public static string Normalize(string unit) => IsMemeMode(unit) ? MemeMode : "";
-
-        public static string Label(string unit, string fallback) =>
-            IsMemeMode(unit) ? MemeLabel : fallback;
-    }
-
-    // Loading enables the mod unconditionally. Settings cover daemon connection and UI
-    // appearance, with terminal values sharing this settings file and endpoint discovery.
+    // Owns profile preference data, typed TOML serialization, and dirty timing.
+    // ProfileSettings supplies persistence; Settings projects the active profile.
     public class ModSettings
     {
         int _dirtyAge = -1;
@@ -101,12 +17,12 @@ namespace SlopWorld
             _dirtyAge = 0;
         }
 
-        public void FlushIfDue()
+        public void FlushIfDue(Action<ModSettings> write)
         {
             if (_dirtyAge < 0) return;
             if (++_dirtyAge < FlushAfter) return;
             // Keep the pending change if persistence fails; the next frame can retry.
-            Write();
+            write(this);
             _dirtyAge = -1;
         }
 
@@ -219,49 +135,20 @@ namespace SlopWorld
         // Backdrop dimming: 0 leaves the menu background unchanged. See Eco.Shade.
         public float ecoDim = 0.45f;
 
-        public static ModSettings Load()
+        public static ModSettings FromToml(string text)
         {
             var settings = new ModSettings();
-            string path = FilePath();
-            try
-            {
-                if (File.Exists(path))
-                {
-                    settings.Apply(Toml.ParseFlatScalars(File.ReadAllText(path)));
-                    settings.Normalize();
-                    return settings;
-                }
-            }
-            catch (Exception e)
-            {
-                Log.Error("[SlopWorld] could not load TOML settings: " + e);
-            }
+            settings.Apply(Toml.ParseFlatScalars(text));
+            settings.Normalize();
             return settings;
         }
 
-        public void Write()
+        public string ToToml()
         {
             Normalize();
-            string path = FilePath();
-            string directory = Path.GetDirectoryName(path);
-            if (string.IsNullOrEmpty(directory)) directory = ".";
-            Directory.CreateDirectory(directory);
-
             var text = new StringBuilder();
             foreach (var field in Fields) field(this, null, text);
-
-            string temporary = path + ".tmp";
-            File.WriteAllText(temporary, text.ToString(), new UTF8Encoding(false));
-            try
-            {
-                if (File.Exists(path)) File.Replace(temporary, path, null);
-                else File.Move(temporary, path);
-            }
-            catch
-            {
-                if (File.Exists(path)) File.Delete(path);
-                File.Move(temporary, path);
-            }
+            return text.ToString();
         }
 
         static readonly Action<ModSettings, Dictionary<string, Toml.Scalar>, StringBuilder>[] Fields =
@@ -344,15 +231,6 @@ namespace SlopWorld
             return Math.Max(0f, Math.Min(1f, value));
         }
 
-        static string FilePath()
-        {
-            string profile;
-            try { profile = GenFilePaths.SaveDataFolderPath; }
-            catch { profile = ""; }
-            if (string.IsNullOrEmpty(profile)) return Path.Combine("Config", "SlopWorld.toml");
-            return Path.Combine(profile, "Config", "SlopWorld.toml");
-        }
-
         static string Text(Dictionary<string, Toml.Scalar> values, string key, string fallback) =>
             values.TryGetValue(key, out Toml.Scalar value) && value.TryGetString(out string result)
                 ? result : fallback;
@@ -384,60 +262,4 @@ namespace SlopWorld
                 .AppendLine();
     }
 
-    public static class Settings
-    {
-        public static ModSettings S => ModEntry.Instance.settings;
-
-        public static ConnectionInfo Connection => Endpoint.Resolve();
-        public static bool AutoConnect => S.autoConnect;
-        public static bool Fullscreen => S.fullscreen;
-        // Unclamped: AgentSidebar owns what a usable column is, and it is the only reader.
-        public static bool SidebarHidden => S.sidebarHidden;
-        public static float SidebarWidth => S.sidebarWidth;
-        public static float SidebarFilesOpenFraction =>
-            ModSettings.NormalizeSidebarFilesOpenFraction(S.sidebarFilesOpenFraction);
-        public static string SidebarSide => NavigationSide.Normalize(S.sidebarSide);
-        public static string UiDensity => UiDensityPreset.Normalize(S.uiDensity);
-        public static string FoldedProjects => S.foldedProjects ?? "";
-        public static string SidebarTab => S.sidebarTab ?? "";
-        public static bool SidebarShowHidden => S.sidebarShowHidden;
-        public static bool SidebarShowGitignored => S.sidebarShowGitignored;
-        public static string SidebarAgentStatus => S.sidebarAgentStatus ?? "all";
-        public static string SidebarFilter => S.sidebarFilter ?? "";
-        public static string CommandPaletteHistory => S.commandPaletteHistory ?? "";
-        public static string UsageIcons => S.usageIcons ?? "";
-        public static bool UsageSpent => S.usageSpent;
-        public static int FontSize => S.fontSize;
-        public static string FontName => S.fontName ?? "";
-        public static int UIFontSize => S.uiFontSize;
-        public static string UIFontName => S.uiFontName ?? "";
-        public static string UIScheme => S.uiScheme ?? "";
-        public static string Theme => S.theme ?? "";
-        public static string CursorColor => S.cursorColor ?? "";
-        public static string Cursor => S.cursor ?? "tame";
-        public static bool CursorGrayscale => S.cursorGrayscale;
-        public static string Radio => S.radio ?? "";
-        public static string RadioHiddenSources => S.radioHiddenSources ?? "";
-        public static bool RadioMute => S.radioMute;
-        public static bool StatusbarUsage => S.statusbarUsage;
-        public static string StatusbarSummaryPosition =>
-            StatusbarSummaryMode.Normalize(S.statusbarSummaryPosition);
-        public static string StatusbarClockPosition =>
-            StatusbarClockMode.Normalize(S.statusbarClockPosition);
-        public static string TimeFormat => SlopWorld.TimeFormat.Normalize(S.timeFormat);
-        public static string DateFormat => SlopWorld.DateFormat.Normalize(S.dateFormat);
-        public static bool StatusbarClock => StatusbarClockPosition != StatusbarClockMode.Hidden;
-        public static bool StatusbarJukebox => S.statusbarJukebox;
-        public static bool StatusbarGM => S.statusbarGM;
-        public static bool StatusbarAgentIndicators => S.statusbarAgentIndicators;
-        public static bool RadioStopOnExit => S.radioStopOnExit;
-        public static bool GrandmaMode => S.grandmaMode;
-        public static string TemperatureUnit =>
-            SlopWorld.TemperatureUnit.Normalize(S.temperatureUnit);
-        public static bool EcoMode => S.ecoMode;
-        public static string DisplayMode => FramePolicy.Normalize(S.displayMode);
-        public static bool SmoothScrolling => S.smoothScrolling;
-        public static int ForegroundFps => FramePolicy.NearestPreset(S.foregroundFps);
-        public static float EcoDim => S.ecoDim;
-    }
 }

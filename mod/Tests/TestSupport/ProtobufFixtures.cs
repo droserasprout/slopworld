@@ -77,7 +77,7 @@ namespace SlopWorld
             if (value is IEnumerable items) return new JArray(items.Cast<object>().Select(ToJsonToken));
             return new JValue(value);
         }
-        public static string ToJson(this AgentTemplateInfo value, SessionInfo form) => JVal.ToJson(Json(value.ToWire(form)));
+        public static string ToJson(this AgentTemplateInfo value, SessionInfo form) => JVal.ToJson(Json(value.ToWire(form, System.Array.Empty<CommandInfo>(), System.Array.Empty<PresetInfo>())));
         public static string ToJson(this PresetInfo value) => ToJsonToken(value.ToWire()).ToString(Newtonsoft.Json.Formatting.None);
         public static string ToJson(this CommandInfo value) => ToJsonToken(value.ToWire()).ToString(Newtonsoft.Json.Formatting.None);
         public static string ToJson(this SessionInfo value) => ToJsonToken(value.ToWire()).ToString(Newtonsoft.Json.Formatting.None);

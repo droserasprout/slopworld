@@ -29,7 +29,7 @@ namespace SlopWorld.Tests
         public static void DefaultsAndRoundTrip() => WithProfile(profile =>
         {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
-            var settings = ModSettings.Load();
+            var settings = ProfileSettings.Load();
             AssertEx.Equal(true, settings.smoothScrolling, "smooth scrolling default");
             AssertEx.Equal(true, settings.autoConnect, "missing file default");
             AssertEx.Equal(DateFormat.YearFirst, settings.dateFormat, "date format default");
@@ -50,7 +50,7 @@ namespace SlopWorld.Tests
             string saved = File.ReadAllText(path);
             AssertEx.Equal(49, Toml.ParseFlat(saved).Count, "persisted key count excludes runtime state");
             AssertEx.True(saved.Contains("ecoDim = 0.375"), "invariant float");
-            var loaded = ModSettings.Load();
+            var loaded = ProfileSettings.Load();
             foreach (var field in typeof(ModSettings).GetFields(BindingFlags.Instance | BindingFlags.Public))
                 AssertEx.Equal(field.GetValue(settings), field.GetValue(loaded), field.Name);
             loaded.Write();
@@ -63,7 +63,7 @@ namespace SlopWorld.Tests
             string path = Path.Combine(profile, "Config", "SlopWorld.toml");
             ModSettings loaded;
             File.WriteAllText(path, "fontSize = nope\nsidebarWidth = nope\nautoConnect = nope\nunknown = 1\n");
-            loaded = ModSettings.Load();
+            loaded = ProfileSettings.Load();
             AssertEx.Equal(14, loaded.fontSize, "malformed integer default");
             AssertEx.Equal(210f, loaded.sidebarWidth, "malformed float default");
             AssertEx.Equal(0.25f, loaded.sidebarFilesOpenFraction,
@@ -72,14 +72,14 @@ namespace SlopWorld.Tests
             AssertEx.Equal(true, loaded.smoothScrolling, "older profile enables smooth scrolling");
             File.WriteAllText(path,
                 "fontSize = \"17\"\nautoConnect = \"false\"\nsidebarWidth = 210\n");
-            loaded = ModSettings.Load();
+            loaded = ProfileSettings.Load();
             AssertEx.Equal(14, loaded.fontSize, "quoted integer does not cross the type boundary");
             AssertEx.Equal(true, loaded.autoConnect,
                 "quoted boolean does not cross the type boundary");
             AssertEx.Equal(210f, loaded.sidebarWidth,
                 "integer scalar is accepted for a float setting");
             File.WriteAllText(path, "theme = \"unterminated");
-            AssertEx.Equal("match-ui", ModSettings.Load().theme, "malformed TOML defaults");
+            AssertEx.Equal("match-ui", ProfileSettings.Load().theme, "malformed TOML defaults");
         });
 
         public static void FractionNormalizationPersists() => WithProfile(profile =>
@@ -91,7 +91,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal(0f, ModSettings.NormalizeSidebarFilesOpenFraction(-1f),
                 "fraction lower clamp");
             File.WriteAllText(path, "sidebarFilesOpenFraction = 2\n");
-            loaded = ModSettings.Load();
+            loaded = ProfileSettings.Load();
             AssertEx.Equal(1f, loaded.sidebarFilesOpenFraction,
                 "persisted fraction is normalized on load");
             loaded.Write();

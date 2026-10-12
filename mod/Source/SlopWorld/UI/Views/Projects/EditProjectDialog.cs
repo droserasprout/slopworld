@@ -106,7 +106,7 @@ namespace SlopWorld
 
             _p.Temp = UiControls.Checkbox(l, "Temporary - scratch space under /tmp", _p.Temp,
                 _identity.IsNew
-                    ? "SlopWorld creates the directory under " + ProjectInfo.TempRoot + ". It uses the project name. " +
+                    ? "SlopWorld creates the directory under " + (SessionHub.Instance.Config?.TemporaryRoot ?? "") + ". It uses the project name. " +
                       "The directory exists when the first agent starts. SlopWorld " +
                       "does not delete it. The machine clears /tmp."
                     : "You cannot change temporary mode after the daemon creates the project.",

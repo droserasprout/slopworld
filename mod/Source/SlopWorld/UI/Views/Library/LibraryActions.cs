@@ -27,7 +27,7 @@ namespace SlopWorld
         {
             var options = SessionHub.Instance.Projects.Select(p =>
                 new FloatMenuOption($"{p.Name}  -  {p.Dir}", () => Run(item, p.Name))).ToList();
-            options.Add(new FloatMenuOption($"A temporary project under {ProjectInfo.TempRoot}",
+            options.Add(new FloatMenuOption($"A temporary project under {(SessionHub.Instance.Config?.TemporaryRoot ?? "")}",
                 () => Run(item, null, true)));
             return options;
         }

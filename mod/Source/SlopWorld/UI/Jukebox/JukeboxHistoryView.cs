@@ -325,7 +325,7 @@ namespace SlopWorld
                     DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var utc))
             {
                 var local = utc.ToLocalTime();
-                return DateFormat.Short(local) + " " + TimeFormat.Short(local);
+                return DateFormat.Short(local, Settings.DateFormat) + " " + TimeFormat.Short(local, Settings.TimeFormat);
             }
             return at.Replace("T", " ").TrimEnd('Z');
         }

@@ -94,7 +94,7 @@ namespace SlopWorld
         {
             _transport.Update();
             _tasks.Update(AgentSidebar.TasksVisible);
-            PerfTrace.Report();
+            PerfTraceReport.Report();
         }
 
         // ---- terminal I/O --------------------------------------------------------------

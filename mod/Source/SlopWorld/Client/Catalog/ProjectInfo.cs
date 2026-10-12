@@ -71,10 +71,6 @@ namespace SlopWorld
             return primary;
         }
 
-        // The daemon supplies the temporary root directory.
-        // Return an empty value when metadata is missing instead of displaying a compiled default path.
-        public static string TempRoot => SessionHub.Instance.Config?.TemporaryRoot ?? "";
-
         public static ProjectInfo FromWire(Wire.Project j) => new ProjectInfo
         {
             Id = j.Id,

@@ -243,7 +243,7 @@ namespace SlopWorld
             switch (_s.Link)
             {
                 case LibraryItemLink.Temp:
-                    return $"Each run gets an empty directory under {ProjectInfo.TempRoot}" +
+                    return $"Each run gets an empty directory under {(SessionHub.Instance.Config?.TemporaryRoot ?? "")}" +
                            (project != null
                                ? $", using '{project.Name}' as its workspace."
                                : ". SlopWorld does not delete it. The machine clears /tmp.");

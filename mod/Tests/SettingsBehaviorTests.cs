@@ -44,7 +44,7 @@ namespace SlopWorld.Tests
                     var settings = new ModSettings { sidebarFilesOpenFraction = value };
                     settings.Write();
                     AssertEx.Equal(.25f, settings.sidebarFilesOpenFraction, "write repairs nonfinite fraction");
-                    AssertEx.Equal(.25f, ModSettings.Load().sidebarFilesOpenFraction, "repaired value survives reload");
+                    AssertEx.Equal(.25f, ProfileSettings.Load().sidebarFilesOpenFraction, "repaired value survives reload");
                 }));
         }
 
@@ -62,14 +62,14 @@ namespace SlopWorld.Tests
             for (int i = 0; i < 119; i++) settings.FlushIfDue();
             AssertEx.False(File.Exists(path), "new interaction restarts quiet period");
             settings.FlushIfDue();
-            AssertEx.Equal("new-theme", ModSettings.Load().theme, "flush writes latest preference");
+            AssertEx.Equal("new-theme", ProfileSettings.Load().theme, "flush writes latest preference");
             string saved = File.ReadAllText(path);
             settings.theme = "not-dirty";
             for (int i = 0; i < 240; i++) settings.FlushIfDue();
             AssertEx.Equal(saved, File.ReadAllText(path), "completed flush does not keep rewriting");
             settings.MarkDirty();
             for (int i = 0; i < 120; i++) settings.FlushIfDue();
-            AssertEx.Equal("not-dirty", ModSettings.Load().theme, "later dirty cycle persists again");
+            AssertEx.Equal("not-dirty", ProfileSettings.Load().theme, "later dirty cycle persists again");
         });
 
         public static void FailedDirtyFlushRetainsPendingSettingsForRetry() => WithProfile(profile =>
@@ -84,7 +84,7 @@ namespace SlopWorld.Tests
             File.Delete(config);
             settings.theme = "latest-pending-theme";
             settings.FlushIfDue();
-            AssertEx.Equal("latest-pending-theme", ModSettings.Load().theme, "next frame retries current settings");
+            AssertEx.Equal("latest-pending-theme", ProfileSettings.Load().theme, "next frame retries current settings");
             string path = Path.Combine(config, "SlopWorld.toml");
             string saved = File.ReadAllText(path);
             settings.theme = "clean-change";
@@ -102,7 +102,7 @@ namespace SlopWorld.Tests
                 Verse.GenFilePaths.SaveDataFolderPath = "";
                 new ModSettings { theme = "relative-profile" }.Write();
                 AssertEx.True(File.Exists(Path.Combine(profile, "Config", "SlopWorld.toml")), "fallback stays under current profile directory");
-                AssertEx.Equal("relative-profile", ModSettings.Load().theme, "load and write use same fallback");
+                AssertEx.Equal("relative-profile", ProfileSettings.Load().theme, "load and write use same fallback");
             }
             finally { Directory.SetCurrentDirectory(oldDirectory); }
         });
@@ -233,7 +233,7 @@ namespace SlopWorld.Tests
             })
             {
                 settings.dateFormat = item.Item1;
-                AssertEx.Equal(item.Item2, DateFormat.Short(date), "date preference and fallback");
+                AssertEx.Equal(item.Item2, DateFormat.Short(date, Settings.DateFormat), "date preference and fallback");
                 AssertEx.Equal(item.Item3, DateFormat.Label(item.Item1), "date menu label");
                 AssertEx.Equal(item.Item1, settings.dateFormat, "projection preserves stored value");
             }
@@ -251,12 +251,12 @@ namespace SlopWorld.Tests
             {
                 var time = new DateTime(2026, 1, 1, item.Item1, 5, 9);
                 settings.timeFormat = TimeFormat.TwelveHour;
-                AssertEx.Equal(item.Item2, TimeFormat.Short(time), "12-hour short time");
-                AssertEx.Equal(item.Item3, TimeFormat.Long(time), "12-hour time with seconds");
+                AssertEx.Equal(item.Item2, TimeFormat.Short(time, Settings.TimeFormat), "12-hour short time");
+                AssertEx.Equal(item.Item3, TimeFormat.Long(time, Settings.TimeFormat), "12-hour time with seconds");
                 AssertEx.Equal("12-hour", TimeFormat.Label(settings.timeFormat), "12-hour label");
                 settings.timeFormat = "unknown";
-                AssertEx.Equal(item.Item4, TimeFormat.Short(time), "unknown format defaults to 24-hour");
-                AssertEx.Equal(item.Item5, TimeFormat.Long(time), "24-hour seconds retained");
+                AssertEx.Equal(item.Item4, TimeFormat.Short(time, Settings.TimeFormat), "unknown format defaults to 24-hour");
+                AssertEx.Equal(item.Item5, TimeFormat.Long(time, Settings.TimeFormat), "24-hour seconds retained");
                 AssertEx.Equal("24-hour", TimeFormat.Label(settings.timeFormat), "fallback label");
             }
         });

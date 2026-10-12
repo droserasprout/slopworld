@@ -111,7 +111,7 @@ namespace SlopWorld
                                           Action ok, Action<string> fail)
         {
             Wire.AgentTemplate body;
-            try { body = template.ToWire(form); }
+            try { body = template.ToWire(form, Commands, Presets); }
             catch (InvalidOperationException error) { fail?.Invoke(error.Message); return; }
             fail = _templates.Invalidate(fail);
             Action done = () => { RefreshTemplates(); ok?.Invoke(); };

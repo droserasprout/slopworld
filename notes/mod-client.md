@@ -5,6 +5,17 @@ and models under Sessions, Catalog, Tasks, Terminal, Usage, and Audio own their 
 and independent operations. Cross-service subscriptions and rename handoffs stay
 on the hub. Connection settings come from `endpoint.toml`.
 
+Catalog models receive command and preset collections from callers; they do not
+read the live hub. Captured template definitions take precedence over those
+collections, including dependencies absent from current catalogs. Temporary project
+root metadata belongs to daemon configuration, not `ProjectInfo`.
+
+`PerfTrace` collects bounded timing samples without game references. `PerfTraceReport`
+owns frame timing, game/UI context, memory sampling, and publication; the hub invokes
+it during its update. Transport instrumentation depends only on the collector.
+HTTP resolves connection metadata directly through `Endpoint`, without the game
+settings projection.
+
 `DaemonClient` queues HTTP callbacks through `MainThreadCompletions`, which owns
 lossless delivery and per-frame count/time budgets. The Root.Update adapter pumps
 callbacks and reports failures before updating the hub. `UsageInfo` owns provider

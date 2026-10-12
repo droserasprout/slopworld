@@ -39,14 +39,14 @@ namespace SlopWorld.Tests
             }
             state.SetFolded(Keys(), true);
             Assert.That(Settings.S.foldedProjects, Is.EqualTo("a\nkeep\nz"));
-            Assert.That(ModSettings.Load().foldedProjects, Is.EqualTo("a\nkeep\nz"));
+            Assert.That(ProfileSettings.Load().foldedProjects, Is.EqualTo("a\nkeep\nz"));
             File.Delete(path);
             state.SetFolded("a", true);
             state.SetFolded("missing", false);
             state.SetFolded(new[] { "z", "a" }, true);
             Assert.That(File.Exists(path), Is.False, "unchanged updates must not write settings");
             state.SetFolded(new[] { "a", "z" }, false);
-            Assert.That(ModSettings.Load().foldedProjects, Is.EqualTo("keep"));
+            Assert.That(ProfileSettings.Load().foldedProjects, Is.EqualTo("keep"));
         });
 
         public static void MirrorsParseNamesConsistentlyAndFollowExternalChanges() => WithState((state, path) =>
@@ -75,7 +75,7 @@ namespace SlopWorld.Tests
             Assert.That(state.Passes("existing"), Is.True);
             Assert.That(state.Passes("new"), Is.True);
             Assert.That(state.Passes("other"), Is.False);
-            Assert.That(ModSettings.Load().sidebarFilter, Is.EqualTo("existing\nnew"));
+            Assert.That(ProfileSettings.Load().sidebarFilter, Is.EqualTo("existing\nnew"));
 
             File.Delete(path);
             state.IncludeProject("new");
