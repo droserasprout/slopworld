@@ -89,18 +89,18 @@ async fn polling_laps_preserve_failure_deadlines_and_publish_placeholder_toggles
     // Keep the normal cadence above the Anthropic floor even with implicit rows.
     config.daemon.usage_poll_secs = 600;
     let mut pollers = UsagePollers::new();
-    pollers.anthropic.interval = Some(600);
-    pollers.anthropic.settle(
+    pollers.providers[0].poller.interval = Some(600);
+    pollers.providers[0].poller.settle(
         Snapshot::failed(&Snapshot::default(), "offline"),
         Some(900),
         600,
         Instant::now(),
     );
-    let due = pollers.anthropic.due;
+    let due = pollers.providers[0].poller.due;
     let first = crate::session::test_manager(config.clone());
     pollers.poll_once(&first).await;
-    assert_eq!(pollers.anthropic.due, due);
-    assert_eq!(pollers.anthropic.fails, 1);
+    assert_eq!(pollers.providers[0].poller.due, due);
+    assert_eq!(pollers.providers[0].poller.fails, 1);
     assert!(
         first
             .usage()
@@ -128,8 +128,8 @@ async fn polling_laps_preserve_failure_deadlines_and_publish_placeholder_toggles
         .interval_secs = Some(300);
     let changed = crate::session::test_manager(config);
     pollers.poll_once(&changed).await;
-    assert_eq!(pollers.anthropic.due, due);
-    assert_eq!(pollers.anthropic.fails, 1);
+    assert_eq!(pollers.providers[0].poller.due, due);
+    assert_eq!(pollers.providers[0].poller.fails, 1);
     let published = changed.usage().await;
     let session = published
         .rows

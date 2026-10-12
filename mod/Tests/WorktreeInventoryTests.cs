@@ -21,10 +21,15 @@ namespace SlopWorld.Tests
         }
         static List<ProjectInfo> Projects(string path = "/p") => new List<ProjectInfo>
         { new ProjectInfo { Name = "p", Dir = path } };
-        static Wire.WorktreesReply Reply() => new Wire.WorktreesReply
-        { Worktrees = { new Wire.Worktree { Id = "branch", Name = "branch", Path = "/branch" } } };
+        static Wire.WorktreesReply Reply(string path = "/p") => new Wire.WorktreesReply
+        {
+            Worktrees = {
+                new Wire.Worktree { Id = "branch", Name = "branch", Path = "/branch" },
+                new Wire.Worktree { Id = "main", Name = "main", Path = path, Phase = "error", Error = "missing checkout" }
+            }
+        };
 
-        public static void MissingMainCheckoutIsInsertedAndUnchangedInventorySharesRequests()
+        public static void DaemonMainCheckoutSortsFirstAndUnchangedInventorySharesRequests()
         {
             var f = new Fixture();
             f.Inventory.Update(Projects(), 1);
@@ -34,7 +39,8 @@ namespace SlopWorld.Tests
             var rows = f.Inventory.WorktreesByProject["p"];
             Assert.That(rows.Select(row => row.Tree.Id), Is.EqualTo(new[] { "main", "branch" }));
             Assert.That(rows[0].Tree.Path, Is.EqualTo("/p"));
-            Assert.That(rows[0].Tree.Phase, Is.EqualTo("ready"));
+            Assert.That(rows[0].Tree.Phase, Is.EqualTo("error"));
+            Assert.That(rows[0].Tree.Error, Is.EqualTo("missing checkout"));
         }
 
         public static void FailureRetainsRowsAndExplicitRetryClearsError()
@@ -69,7 +75,7 @@ namespace SlopWorld.Tests
             Assert.That(f.Inventory.WorktreeErrors, Is.Empty);
         }
 
-        public static void ReplacementCapturesDirectoryAndRejectsPriorGeneration()
+        public static void ReplacementUsesDaemonDirectoryAndRejectsPriorGeneration()
         {
             var f = new Fixture();
             var projects = Projects();
@@ -79,7 +85,7 @@ namespace SlopWorld.Tests
             f.Requests[0].Ok(Reply());
             Assert.That(f.Inventory.WorktreesByProject, Is.Empty);
             projects[0].Dir = "/later";
-            f.Requests[1].Ok(Reply());
+            f.Requests[1].Ok(Reply("/new"));
             Assert.That(f.Inventory.WorktreesByProject["p"][0].Tree.Path, Is.EqualTo("/new"));
         }
     }

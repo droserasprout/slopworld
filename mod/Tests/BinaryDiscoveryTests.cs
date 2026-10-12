@@ -26,6 +26,8 @@ namespace SlopWorld.Tests
         {
             var f = new Fixture();
             f.Discovery.Load();
+            Assert.That(f.Discovery.Results.Single(row => row.Spec.Name == "git").Status, Is.EqualTo("Checking daemon"));
+            Assert.That(f.Discovery.Results.Single(row => row.Spec.Name == "slopctl").Status, Is.EqualTo("Checking"));
             f.Workers[0]();
             int oldCompletions = f.Completions.Count;
             f.Discovery.Load();
@@ -40,6 +42,7 @@ namespace SlopWorld.Tests
             Assert.That(f.Discovery.HostLoading || f.Discovery.DaemonLoading, Is.False);
             Assert.That(f.Discovery.Results.Single(row => row.Spec.Name == "git").Path, Is.EqualTo("/daemon/git"));
             Assert.That(f.Discovery.Results.Single(row => row.Spec.Name == "slopctl").Path, Is.EqualTo("/host/slopctl"));
+            Assert.That(f.Discovery.Results.Single(row => row.Spec.Name == "slopctl").Status, Is.Null);
         }
 
         public static void DaemonFailurePreservesHostResultsAndDistinguishesUnavailable()
@@ -51,6 +54,7 @@ namespace SlopWorld.Tests
             foreach (var complete in f.Completions) complete();
             Assert.That(f.Discovery.Results.Single(row => row.Spec.Name == "git").Outcome,
                 Is.EqualTo(BinaryDiscovery.ProbeOutcome.Unavailable));
+            Assert.That(f.Discovery.Results.Single(row => row.Spec.Name == "git").Status, Is.EqualTo("daemon unavailable"));
             Assert.That(f.Discovery.Results.Single(row => row.Spec.Name == "slopctl").Found, Is.True);
             Assert.That(f.Discovery.HostLoading || f.Discovery.DaemonLoading, Is.False);
         }
@@ -64,6 +68,7 @@ namespace SlopWorld.Tests
             foreach (var complete in f.Completions) complete();
             Assert.That(f.Discovery.Results.Single(row => row.Spec.Name == "slopctl").Outcome,
                 Is.EqualTo(BinaryDiscovery.ProbeOutcome.Missing));
+            Assert.That(f.Discovery.Results.Single(row => row.Spec.Name == "slopctl").Status, Is.EqualTo("not found"));
             Assert.That(f.Discovery.Results.Single(row => row.Spec.Name == "git").Found, Is.True);
             Assert.That(f.Discovery.HostLoading, Is.False);
         }

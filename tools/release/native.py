@@ -25,24 +25,17 @@ def main() -> None:
     parser.add_argument('--revision')
     parser.add_argument('--version')
     args = parser.parse_args()
-    packager = {'arch': arch, 'debian': debian, 'fedora': fedora}[args.distribution]
+    packager, validate_version, supported, tools, output_setting = {
+        'arch': (arch, arch.arch_version, ('x86_64',), ('makepkg', 'pacman', 'fakeroot', 'bwrap'), 'ARCH_DIR'),
+        'debian': (debian, debian.debian_version, ('amd64', 'arm64'), ('dpkg-deb', 'dpkg-shlibdeps'), 'DEB_DIR'),
+        'fedora': (fedora, fedora.rpm_version, ('x86_64', 'aarch64'), ('rpmbuild', 'rpm'), 'RPM_DIR'),
+    }[args.distribution]
     if args.stage_only and not all((args.binary_dir, args.output, args.revision, args.version)):
         parser.error('--stage-only requires --binary-dir, --output, --revision, and --version')
     if args.distribution == 'debian':
         architecture = run(['dpkg', '--print-architecture'], capture_output=True, text=True).stdout.strip()
-        supported: tuple[str, ...] = ('amd64', 'arm64')
-        tools: tuple[str, ...] = ('dpkg-deb', 'dpkg-shlibdeps')
-        output_setting = 'DEB_DIR'
-    elif args.distribution == 'arch':
-        architecture = platform.machine()
-        supported = ('x86_64',)
-        tools = ('makepkg', 'pacman', 'fakeroot', 'bwrap')
-        output_setting = 'ARCH_DIR'
     else:
         architecture = platform.machine()
-        supported = ('x86_64', 'aarch64')
-        tools = ('rpmbuild', 'rpm')
-        output_setting = 'RPM_DIR'
     if architecture not in supported:
         raise ValueError(f'Unsupported {args.distribution} architecture: {architecture}')
     if args.stage_only:
@@ -52,12 +45,7 @@ def main() -> None:
         for tool in tools:
             run([tool, '--version'], capture_output=True, text=True)
         version = os.environ.get('VERSION') or from_git(package_version(ROOT))
-        if args.distribution == 'arch':
-            arch.arch_version(version)
-        elif args.distribution == 'debian':
-            debian.debian_version(version)
-        elif args.distribution == 'fedora':
-            fedora.rpm_version(version)
+        validate_version(version)
         revision = run(['git', 'rev-parse', 'HEAD'], capture_output=True, text=True).stdout.strip()
         run([os.environ['JUST_CMD'], 'BUILD=release', f'VERSION={version}', 'all'])
         output = Path(os.environ.get(output_setting, f'dist/{args.distribution}'))

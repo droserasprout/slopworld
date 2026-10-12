@@ -76,18 +76,6 @@ fn one_source_down_keeps_the_others_rows() {
     assert_eq!(m.failed_sources, vec!["openrouter"]);
     assert!(m.error.unwrap().contains("OpenRouter"));
 
-    // With all sources disabled, return an empty snapshot.
-    assert_eq!(
-        merge(
-            [
-                ("anthropic", &Snapshot::default()),
-                ("openrouter", &Snapshot::default()),
-                ("openai", &Snapshot::default()),
-            ],
-            &crate::config::Daemon::default(),
-        ),
-        Snapshot::default()
-    );
     // Disabled sources do not change values from the remaining source.
     let only = merge(
         [
@@ -99,6 +87,53 @@ fn one_source_down_keeps_the_others_rows() {
     );
     assert!(only.ok);
     assert_eq!(only.windows, a.windows);
+}
+
+#[test]
+fn empty_snapshots_publish_enabled_placeholders_and_disabled_editable_rows() {
+    let empty = Snapshot::default();
+    let parts = [
+        ("anthropic", &empty),
+        ("openrouter", &empty),
+        ("openai", &empty),
+    ];
+    let mut config = crate::config::Daemon::default();
+    let pending = merge(parts, &config);
+    assert!(!pending.ok);
+    assert_eq!(pending.sources, ["anthropic", "openai"]);
+    assert!(
+        pending
+            .rows
+            .iter()
+            .any(|row| row.key == CLAUDE_SESSION && row.poll)
+    );
+    assert!(
+        pending
+            .rows
+            .iter()
+            .any(|row| row.key == OPENAI_SESSION && row.poll)
+    );
+    assert!(pending.rows.iter().all(|row| row.window.is_none()));
+
+    for row in &pending.rows {
+        config.usage_items.insert(
+            row.key.clone(),
+            crate::config::UsageItem {
+                poll: false,
+                interval_secs: None,
+            },
+        );
+    }
+    let disabled = merge(parts, &config);
+    assert!(!disabled.ok);
+    assert!(disabled.sources.is_empty());
+    assert_eq!(disabled.rows.len(), pending.rows.len());
+    assert!(
+        disabled
+            .rows
+            .iter()
+            .all(|row| !row.poll && row.window.is_none())
+    );
 }
 
 #[test]

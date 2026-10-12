@@ -6,7 +6,7 @@ use super::providers::{
     read_anthropic, read_openai, read_openrouter,
 };
 use super::publication::{merge, report_poll};
-use super::rows::{provider_enabled, resolve_rows, resolved_catalog};
+use super::rows::provider_enabled;
 use super::schedule::{Poller, filter_snapshot};
 use crate::session::Manager;
 use std::{
@@ -15,9 +15,9 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
-struct Provider<'a> {
+struct Provider {
     source: &'static str,
-    poller: &'a mut Poller,
+    poller: Poller,
     read: ReadProvider,
     fetch: FetchProvider,
     parse: ParseProvider,
@@ -76,7 +76,7 @@ fn settle_join(
 
 /// Poll one provider and update its state. The descriptor supplies provider-specific functions.
 /// Scheduling accepts the result; publication formats diagnostics after acceptance.
-async fn poll_one(provider: &mut Provider<'_>, d: &crate::config::Daemon, now: Instant, base: u64) {
+async fn poll_one(provider: &mut Provider, d: &crate::config::Daemon, now: Instant, base: u64) {
     if provider.poller.due > now {
         return;
     }
@@ -101,7 +101,7 @@ async fn poll_one(provider: &mut Provider<'_>, d: &crate::config::Daemon, now: I
         .await,
     );
 
-    let next = filter_snapshot(provider.poller, next, d, provider.source, now);
+    let next = filter_snapshot(&mut provider.poller, next, d, provider.source, now);
     let transition = provider.poller.settle(next, asked, base, Instant::now());
     report_poll(provider.poller.who, &mut provider.poller.snap, transition);
 }
@@ -113,9 +113,7 @@ const LOOK: Duration = Duration::from_secs(30);
 /// Provider polling state for the background task started by main.
 /// Log errors without logging each successful poll.
 struct UsagePollers {
-    anthropic: Poller,
-    openrouter: Poller,
-    openai: Poller,
+    providers: [Provider; 3],
     anthropic_creds_stamp: Option<SystemTime>,
 }
 
@@ -123,55 +121,46 @@ impl UsagePollers {
     fn new() -> Self {
         let now = Instant::now();
         Self {
-            anthropic: Poller::new("Anthropic", now),
-            openrouter: Poller::new("OpenRouter", now),
-            openai: Poller::new("OpenAI", now),
+            providers: [
+                Provider {
+                    source: "anthropic",
+                    poller: Poller::new("Anthropic", now),
+                    read: read_anthropic,
+                    fetch: fetch_anthropic,
+                    parse: parse_anthropic,
+                },
+                Provider {
+                    source: "openrouter",
+                    poller: Poller::new("OpenRouter", now),
+                    read: read_openrouter,
+                    fetch: fetch_openrouter,
+                    parse: parse_openrouter,
+                },
+                Provider {
+                    source: "openai",
+                    poller: Poller::new("OpenAI", now),
+                    read: read_openai,
+                    fetch: fetch_openai,
+                    parse: parse_openai_response,
+                },
+            ],
             anthropic_creds_stamp: None,
         }
-    }
-
-    /// Adapter construction is separate from polling policy and publication.
-    fn providers(&mut self) -> [Provider<'_>; 3] {
-        let UsagePollers {
-            anthropic,
-            openrouter,
-            openai,
-            ..
-        } = self;
-
-        [
-            Provider {
-                source: "anthropic",
-                poller: anthropic,
-                read: read_anthropic,
-                fetch: fetch_anthropic,
-                parse: parse_anthropic,
-            },
-            Provider {
-                source: "openrouter",
-                poller: openrouter,
-                read: read_openrouter,
-                fetch: fetch_openrouter,
-                parse: parse_openrouter,
-            },
-            Provider {
-                source: "openai",
-                poller: openai,
-                read: read_openai,
-                fetch: fetch_openai,
-                parse: parse_openai_response,
-            },
-        ]
     }
 
     async fn poll_once(&mut self, m: &Arc<Manager>) -> Duration {
         let cfg = m.config().await;
         let d = &cfg.daemon;
         let now = Instant::now();
-        watch_anthropic_stamp(d, &mut self.anthropic, &mut self.anthropic_creds_stamp, now);
-        let mut providers = self.providers();
-
-        for provider in &mut providers {
+        for provider in &mut self.providers {
+            if provider.source == "anthropic" {
+                watch_anthropic_stamp(
+                    d,
+                    &mut provider.poller,
+                    &mut self.anthropic_creds_stamp,
+                    now,
+                );
+            }
             if let Some(interval) = provider.poller.prepare(d, provider.source, now) {
                 poll_one(provider, d, now, interval).await;
             }
@@ -179,23 +168,16 @@ impl UsagePollers {
 
         // Resolve every lap: config toggles also affect placeholders with no retained windows.
         // Manager suppresses broadcasts when the effective readout has not changed.
-        let mut out = merge(
-            providers
+        let out = merge(
+            self.providers
                 .iter()
                 .map(|provider| (provider.source, &provider.poller.snap)),
             d,
         );
-        out.sources.extend(
-            providers
-                .iter()
-                .filter(|provider| provider_enabled(d, provider.source))
-                .map(|provider| provider.source.into()),
-        );
-        out.catalog = resolved_catalog(&out.windows);
-        out.rows = resolve_rows(&out, d);
         m.set_usage(out).await;
 
-        let due = providers
+        let due = self
+            .providers
             .iter()
             .filter(|provider| provider_enabled(d, provider.source))
             .map(|provider| provider.poller.due)

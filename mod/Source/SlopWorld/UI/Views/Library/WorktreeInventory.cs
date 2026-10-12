@@ -47,30 +47,17 @@ namespace SlopWorld
             long generation = _operations.Begin();
             foreach (var project in projects)
             {
-                string name = project.Name, path = project.ExpandedDir;
+                string name = project.Name;
                 _request(name,
                     reply =>
                     {
                         if (!_operations.IsCurrent(generation)) return;
                         WorktreeErrors.Remove(name);
-                        var rows = reply.Worktrees.Select(tree => new WorktreeEntry
+                        WorktreesByProject[name] = reply.Worktrees.Select(tree => new WorktreeEntry
                         {
                             Project = name,
                             Tree = tree,
-                        }).ToList();
-                        if (!rows.Any(row => row.Tree.Id == "main"))
-                            rows.Insert(0, new WorktreeEntry
-                            {
-                                Project = name,
-                                Tree = new Wire.Worktree
-                                {
-                                    Id = "main",
-                                    Name = "main",
-                                    Path = path,
-                                    Phase = "ready"
-                                }
-                            });
-                        WorktreesByProject[name] = rows
+                        })
                             .OrderBy(row => row.Tree.Id == "main" ? 0 : 1)
                             .ThenBy(row => row.Tree.Name, StringComparer.OrdinalIgnoreCase)
                             .ToList();

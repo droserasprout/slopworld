@@ -13,6 +13,7 @@ Project creation belongs to the shared `+` menu.
 `WorktreeInventory` owns Library worktree requests, retained snapshots, and errors;
 row construction only consumes those snapshots. Refresh and project-filter changes
 invalidate delayed replies, while failed loads retain the last successful rows.
+The daemon supplies every checkout row, including Main and its readiness state.
 `WorktreeRequests` shares root-only transport with the sidebar catalog; Library
 filtering and sidebar choices retain separate lifetimes.
 

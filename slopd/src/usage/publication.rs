@@ -1,5 +1,5 @@
 //! Usage readout aggregation and poll diagnostics; scheduling owns retry decisions.
-use super::rows::{resolve_rows, resolved_catalog};
+use super::rows::{provider_enabled, resolve_rows, resolved_catalog};
 use super::schedule::PollTransition;
 use super::{Snapshot, Unit};
 
@@ -68,6 +68,9 @@ pub(super) fn merge<'a>(
     let mut any = false;
 
     for (source, p) in parts {
+        if provider_enabled(d, source) {
+            out.sources.push(source.to_owned());
+        }
         if p.windows.is_empty() && p.error.is_none() {
             continue;
         }
@@ -88,13 +91,11 @@ pub(super) fn merge<'a>(
         }
     }
 
-    // Nothing on: the default snapshot, which is what the readout draws nothing from.
-    if !any {
-        return Snapshot::default();
-    }
+    out.ok &= any;
     if !errors.is_empty() {
         out.error = Some(errors.join(". "));
     }
+    // Resolve even empty snapshots so settings can edit disabled rows and pending sources.
     out.catalog = resolved_catalog(&out.windows);
     out.rows = resolve_rows(&out, d);
     out

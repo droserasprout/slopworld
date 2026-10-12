@@ -47,7 +47,7 @@ namespace SlopWorld
             {
                 if (!_operations.IsCurrent(generation)) return;
                 foreach (var result in results.Where(result => result.Spec.Probe == ProbeKind.DaemonPath))
-                    result.SetStatus(ProbeOutcome.Unavailable, "daemon unavailable");
+                    result.SetUnavailable();
                 DaemonLoading = false;
             });
             _background(() =>
@@ -99,12 +99,7 @@ namespace SlopWorld
             public readonly string Use;
             public readonly ProbeKind Probe;
 
-            public BinarySpec(string group, string name, string use)
-                : this(group, name, use, ProbeKind.HostPath)
-            {
-            }
-
-            public BinarySpec(string group, string name, string use, ProbeKind probe)
+            public BinarySpec(string group, string name, string use, ProbeKind probe = ProbeKind.HostPath)
             {
                 Group = group;
                 Name = name;
@@ -120,28 +115,28 @@ namespace SlopWorld
             public readonly BinarySpec Spec;
             public string Path { get; private set; }
             public ProbeOutcome Outcome { get; private set; }
-            public string Status { get; private set; } = "Checking";
+            public string Status => Outcome == ProbeOutcome.Found ? null :
+                Outcome == ProbeOutcome.Missing ? "not found" :
+                Outcome == ProbeOutcome.Unavailable ? "daemon unavailable" :
+                Spec.Probe == ProbeKind.DaemonPath ? "Checking daemon" : "Checking";
             public bool Resolved => Outcome != ProbeOutcome.Pending;
             public bool Found => Outcome == ProbeOutcome.Found;
 
             public BinaryResult(BinarySpec spec)
             {
                 Spec = spec;
-                Status = spec.Probe == ProbeKind.DaemonPath ? "Checking daemon" : "Checking";
             }
 
             public void SetPath(string path)
             {
                 Path = path;
                 Outcome = string.IsNullOrEmpty(path) ? ProbeOutcome.Missing : ProbeOutcome.Found;
-                Status = Found ? null : "not found";
             }
 
-            public void SetStatus(ProbeOutcome outcome, string status)
+            public void SetUnavailable()
             {
                 Path = null;
-                Outcome = outcome;
-                Status = status;
+                Outcome = ProbeOutcome.Unavailable;
             }
         }
 
