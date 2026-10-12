@@ -95,8 +95,9 @@ staging mod notices. Container images follow their configured tags, and system
 packages installed inside containers follow their configured repositories.
 
 Review and commit the resulting changes. After NuGet changes, run `just sync-mod`
-and review the shipped runtime DLLs as described in
-[Mod runtime packages](../../../mod/Dependencies/README.md).
+and review the shipped runtime DLL changes under `mod/Assemblies`, including
+checked-in transitive dependencies. Run `just test-mod` after runtime package
+changes.
 Run the relevant tests before releasing. Ordinary `just refresh` regenerates
 outputs from reviewed inputs and does not upgrade dependencies.
 For an asset tool, use `uv run --locked --extra assets python -m tools.assets.emoji --help`.
