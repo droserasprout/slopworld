@@ -81,6 +81,7 @@ namespace SlopWorld
             // The jukebox has no MonoBehaviour of its own.
             // Update it before the client so connection work cannot delay audio updates within this frame.
             Radio.Update();
+            DaemonClient.PumpCompletions(e => Log.Error($"[SlopWorld] completion: {e}"));
             SessionHub.Instance.Update();
             WindowTitle.Follow();
             // Intercepts Alt+F4 / window close: shows the confirmation dialog on the

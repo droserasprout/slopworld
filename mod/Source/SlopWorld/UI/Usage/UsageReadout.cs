@@ -180,7 +180,7 @@ namespace SlopWorld
             {
                 lines.Add(Detail(w));
 
-                long left = usage.Remaining(w);
+                long left = usage.Remaining(w, Time.realtimeSinceStartup);
                 if (left > 0) lines.Add("resets in " + Span(left));
                 else if (left == 0) lines.Add("resets any moment");
             }
@@ -195,7 +195,7 @@ namespace SlopWorld
 
             // Each provider retains its own last-good age across partial failures.
             if (usage.Heard > 0f && w != null)
-                lines.Add("refreshed " + Span((long)usage.AgeFor(key)) + " ago");
+                lines.Add("refreshed " + Span((long)usage.AgeFor(key, Time.realtimeSinceStartup)) + " ago");
 
             var row = usage.Row(key);
             if ((row != null && (row.Stale || usage.SourceFailed(row.Provider))) &&
@@ -239,7 +239,7 @@ namespace SlopWorld
             // A daemon without provider-local status (or a disconnected client) still gets
             // the old age-based warning. Once the daemon identifies a failed seller, age must
             // not dim healthy providers along with it.
-            return usage.FailedSources.Count == 0 && usage.AgeFor(key) > StaleAfter;
+            return usage.FailedSources.Count == 0 && usage.AgeFor(key, Time.realtimeSinceStartup) > StaleAfter;
         }
 
         // Keyed rather than windowed, so the settings page can name a row the daemon is not

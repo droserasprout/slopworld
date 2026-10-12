@@ -9,9 +9,8 @@ namespace SlopWorld.Tests
         {
             var window = UsageWindow.FromWire(new Wire.UsageWindow { ResetsIn = ulong.MaxValue });
             AssertEx.Equal(long.MaxValue, window.ResetsIn, "saturates unsigned duration");
-            UnityEngine.Time.realtimeSinceStartup = 10;
             var usage = new UsageInfo { Heard = 0 };
-            AssertEx.Equal(long.MaxValue - 10, usage.Remaining(window), "large countdown remains known");
+            AssertEx.Equal(long.MaxValue - 10, usage.Remaining(window, 10), "large countdown remains known");
         }
 
         public static IEnumerable<(string Name, Action Body)> Cases()

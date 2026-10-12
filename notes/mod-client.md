@@ -5,8 +5,12 @@ and models under Sessions, Catalog, Tasks, Terminal, Usage, and Audio own their 
 and independent operations. Cross-service subscriptions and rename handoffs stay
 on the hub. Connection settings come from `endpoint.toml`.
 
-`DaemonClient` delivers HTTP callbacks on the main thread. Connection attempts reset
-capabilities to unknown until the new announcement. Local socket-queue acceptance
+`DaemonClient` queues HTTP callbacks through `MainThreadCompletions`, which owns
+lossless delivery and per-frame count/time budgets. The Root.Update adapter pumps
+callbacks and reports failures before updating the hub. `UsageInfo` owns provider
+age anchors; its callers supply monotonic seconds and wall-clock milliseconds.
+Connection attempts reset capabilities to unknown until the new announcement.
+Local socket-queue acceptance
 is not daemon acknowledgement. Old callback batches cannot spill into a reconnected
 transport.
 

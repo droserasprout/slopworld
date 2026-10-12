@@ -1,11 +1,9 @@
 using System;
-using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
 using Google.Protobuf;
 using System.Threading;
 using System.Threading.Tasks;
-using Verse;
 
 namespace SlopWorld
 {
@@ -30,7 +28,8 @@ namespace SlopWorld
         const int MaxRequests = 8;
         static readonly SemaphoreSlim Requests = new SemaphoreSlim(MaxRequests);
 
-        static readonly ConcurrentQueue<Action> Completions = new ConcurrentQueue<Action>();
+        static readonly MainThreadCompletions Completions = new MainThreadCompletions(
+            MaxCompletionsPerFrame, CompletionBudgetTicks, System.Diagnostics.Stopwatch.GetTimestamp);
 
         public static string BaseUrl => Settings.Connection.BaseUrl;
 
@@ -197,21 +196,10 @@ namespace SlopWorld
         // HTTP callbacks cannot replace one another.
         public static int PendingCompletions => Completions.Count;
 
-        public static int PumpCompletions()
+        public static int PumpCompletions(Action<Exception> reportError)
         {
             long started = PerfTrace.Start();
-            long budgetStarted = System.Diagnostics.Stopwatch.GetTimestamp();
-            int count = 0;
-            while (count < MaxCompletionsPerFrame && Completions.TryDequeue(out var a))
-            {
-                count++;
-                try { a(); }
-                catch (Exception e) { Log.Error($"[SlopWorld] completion: {e}"); }
-                // Process at least one callback. Then yield after approximately 2 ms, even before reaching 32 callbacks.
-                // The pump cannot interrupt a callback after it starts.
-                if (System.Diagnostics.Stopwatch.GetTimestamp() - budgetStarted >= CompletionBudgetTicks)
-                    break;
-            }
+            int count = Completions.Pump(reportError);
             PerfTrace.End(CompletionTraceName, started, count, Completions.Count);
             return count;
         }

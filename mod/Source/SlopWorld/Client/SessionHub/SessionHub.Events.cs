@@ -28,7 +28,8 @@ namespace SlopWorld
                     break;
 
                 case Wire.Event.PayloadOneofCase.Usage:
-                    Usage = UsageInfo.FromWire(ev.Usage, Usage);
+                    Usage = UsageInfo.FromWire(ev.Usage, UnityEngine.Time.realtimeSinceStartup,
+                        (ulong)System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), Usage);
                     break;
 
                 case Wire.Event.PayloadOneofCase.Audio:

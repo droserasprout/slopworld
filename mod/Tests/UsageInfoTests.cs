@@ -5,33 +5,68 @@ namespace SlopWorld.Tests
 {
     static class UsageInfoTests
     {
-        public static void PartialFailureKeepsIndependentProviderCountdowns()
+        public static void RepeatedPollKeepsMonotonicAnchorAcrossWallClockChanges()
         {
-            ulong now = (ulong)DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var snapshot = new Wire.UsageSnapshot
+            {
+                Ok = true,
+                SourceFetchedMs = { { "provider", 1_000_000 } },
+                Rows = { new Wire.UsageRow { Key = "quota", Provider = "provider" } },
+            };
+            var previous = UsageInfo.FromWire(snapshot, 100, 1_010_000);
+            AssertEx.Equal(10f, previous.AgeFor("quota", 100), "initial provider timestamp accounts for transit age");
+            var repeated = UsageInfo.FromWire(snapshot, 120, 2_000_000, previous);
+            AssertEx.Equal(30f, repeated.AgeFor("quota", 120), "same poll keeps its original monotonic anchor");
+            AssertEx.Equal(0f, repeated.AgeFor("quota", 80), "clock before the anchor never produces a negative age");
+        }
+
+        public static void LegacySnapshotsRetainFailedProviderAgeAndRefreshHealthyProvider()
+        {
             var snapshot = new Wire.UsageSnapshot
             {
                 Ok = true,
                 Sources = { "a", "b" },
-                SourceFetchedMs = { { "a", now }, { "b", now } },
+                Rows = {
+                    new Wire.UsageRow { Key = "a", Provider = "a" },
+                    new Wire.UsageRow { Key = "b", Provider = "b" },
+                },
+            };
+            var previous = UsageInfo.FromWire(snapshot, 100, 1_000_000);
+            snapshot.Ok = false;
+            snapshot.FailedSources.Add("a");
+            var partial = UsageInfo.FromWire(snapshot, 140, 1_040_000, previous);
+            AssertEx.Equal(40f, partial.AgeFor("a", 140), "legacy failed provider retains its age");
+            AssertEx.Equal(0f, partial.AgeFor("b", 140), "legacy healthy provider gets a new anchor");
+            AssertEx.Equal(40f, partial.AgeFor("unknown", 140), "unknown provider uses aggregate age");
+        }
+
+        public static void PartialFailureKeepsIndependentProviderCountdowns()
+        {
+            const ulong unixMs = 1_000_000;
+            var snapshot = new Wire.UsageSnapshot
+            {
+                Ok = true,
+                Sources = { "a", "b" },
+                SourceFetchedMs = { { "a", unixMs }, { "b", unixMs } },
                 Rows = {
                     new Wire.UsageRow { Key = "a", Provider = "a", Window = new Wire.UsageWindow { Key = "a", ResetsIn = 100 } },
                     new Wire.UsageRow { Key = "b", Provider = "b", Window = new Wire.UsageWindow { Key = "b", ResetsIn = 100 } },
                 },
             };
-            UnityEngine.Time.realtimeSinceStartup = 100;
-            var previous = UsageInfo.FromWire(snapshot);
-            UnityEngine.Time.realtimeSinceStartup = 140;
+            float now = 100;
+            var previous = UsageInfo.FromWire(snapshot, now, unixMs);
+            now = 140;
             snapshot.Ok = false;
             snapshot.FailedSources.Add("a");
-            snapshot.SourceFetchedMs["b"] = now + 40000;
-            var partial = UsageInfo.FromWire(snapshot, previous);
+            snapshot.SourceFetchedMs["b"] = unixMs + 40000;
+            var partial = UsageInfo.FromWire(snapshot, now, unixMs + 40000, previous);
             AssertEx.Equal(previous.Heard, partial.Heard, "aggregate timestamp preserved");
-            AssertEx.Equal(60L, partial.Remaining(partial.Row("a").Window), "failed provider retains anchor");
-            AssertEx.Equal(100L, partial.Remaining(partial.Row("b").Window), "healthy provider gets fresh anchor");
-            UnityEngine.Time.realtimeSinceStartup = 150;
-            var repeated = UsageInfo.FromWire(snapshot, partial);
-            AssertEx.Equal(50L, repeated.Remaining(repeated.Row("a").Window), "retained countdown continues");
-            AssertEx.Equal(90L, repeated.Remaining(repeated.Row("b").Window), "unchanged healthy poll is not refreshed twice");
+            AssertEx.Equal(60L, partial.Remaining(partial.Row("a").Window, now), "failed provider retains anchor");
+            AssertEx.Equal(100L, partial.Remaining(partial.Row("b").Window, now), "healthy provider gets fresh anchor");
+            now = 150;
+            var repeated = UsageInfo.FromWire(snapshot, now, unixMs + 50000, partial);
+            AssertEx.Equal(50L, repeated.Remaining(repeated.Row("a").Window, now), "retained countdown continues");
+            AssertEx.Equal(90L, repeated.Remaining(repeated.Row("b").Window, now), "unchanged healthy poll is not refreshed twice");
         }
 
         public static IEnumerable<(string Name, Action Body)> Cases()
@@ -44,9 +79,10 @@ namespace SlopWorld.Tests
 
         static void KeepsProviderFailureLocal()
         {
+            const float now = 0;
             var usage = UsageInfo.FromWire(ProtobufFixtures.Read<Wire.UsageSnapshot>(JVal.Parse(
                 "{\"ok\":false,\"error\":\"Claude failed\",\"sources\":[\"anthropic\",\"openai\"]," +
-                "\"failed_sources\":[\"anthropic\"],\"windows\":[]}")));
+                "\"failed_sources\":[\"anthropic\"],\"windows\":[]}")), now, 1_000_000);
 
             AssertEx.True(usage.SourceFailed("anthropic"), "failed provider is stale");
             AssertEx.False(usage.SourceFailed("openai"), "healthy provider stays live");
@@ -54,7 +90,7 @@ namespace SlopWorld.Tests
 
         static void ReadsWindowsAndBudgetFields()
         {
-            UnityEngine.Time.realtimeSinceStartup = 100f;
+            float now = 100f;
             var usage = UsageInfo.FromWire(ProtobufFixtures.Read<Wire.UsageSnapshot>(JVal.Parse(
                 "{" +
                 "\"ok\":true,\"error\":null,\"plan\":\"pro\", " +
@@ -64,7 +100,7 @@ namespace SlopWorld.Tests
                 "{\"key\":\"extra\",\"label\":\"Extra\",\"pct\":40," +
                 "\"unit\":\"usd\",\"amount\":2.5,\"limit\":10,\"resets_in\":30}," +
                 "{\"key\":\"daily\",\"label\":\"Daily\",\"pct\":75}" +
-                "]}")));
+                "]}")), now, 1_000_000);
 
             AssertEx.True(usage.Ok, "successful usage snapshot");
             AssertEx.True(usage.Error == null, "successful snapshot has no error");
@@ -87,30 +123,30 @@ namespace SlopWorld.Tests
             AssertEx.Equal(-1L, usage.Windows[1].ResetsIn, "missing reset sentinel");
             AssertEx.False(usage.Windows[1].IsMoney, "percentage window is not money");
 
-            UnityEngine.Time.realtimeSinceStartup = 107f;
-            AssertEx.Equal(7f, usage.Age, "snapshot age");
-            AssertEx.Equal(23L, usage.Remaining(usage.Windows[0]), "countdown ages from heard time");
-            AssertEx.Equal(-1L, usage.Remaining(usage.Windows[1]), "unknown reset stays unknown");
+            now = 107f;
+            AssertEx.Equal(7f, usage.Age(now), "snapshot age");
+            AssertEx.Equal(23L, usage.Remaining(usage.Windows[0], now), "countdown ages from heard time");
+            AssertEx.Equal(-1L, usage.Remaining(usage.Windows[1], now), "unknown reset stays unknown");
             AssertEx.True(usage.SourceFailed("anthropic"), "failed source lookup");
             AssertEx.False(usage.SourceFailed("openai"), "healthy source lookup");
 
-            UnityEngine.Time.realtimeSinceStartup = 200f;
-            AssertEx.Equal(0L, usage.Remaining(new UsageWindow { ResetsIn = 2 }),
+            now = 200f;
+            AssertEx.Equal(0L, usage.Remaining(new UsageWindow { ResetsIn = 2 }, now),
                            "expired countdown is floored at zero");
         }
 
         static void KeepsPreviousTimestamp()
         {
-            UnityEngine.Time.realtimeSinceStartup = 50f;
+            float now = 50f;
             var previous = UsageInfo.FromWire(ProtobufFixtures.Read<Wire.UsageSnapshot>(JVal.Parse(
                 "{\"ok\":true,\"plan\":\"old\",\"sources\":[]," +
-                "\"failed_sources\":[],\"windows\":[]}")));
-            UnityEngine.Time.realtimeSinceStartup = 90f;
+                "\"failed_sources\":[],\"windows\":[]}")), now, 1_000_000);
+            now = 90f;
 
             var failed = UsageInfo.FromWire(ProtobufFixtures.Read<Wire.UsageSnapshot>(JVal.Parse(
                 "{\"ok\":false,\"error\":\"provider down\",\"plan\":\"old\"," +
                 "\"sources\":[\"openai\"],\"failed_sources\":[\"openai\"]," +
-                "\"windows\":[]}")), previous);
+                "\"windows\":[]}")), now, 1_000_000, previous);
 
             AssertEx.False(failed.Ok, "failed snapshot status");
             AssertEx.Equal("provider down", failed.Error, "failure message");
@@ -120,6 +156,7 @@ namespace SlopWorld.Tests
 
         static void KeepsMissingValuesExplicit()
         {
+            const float now = 0;
             var usage = UsageInfo.FromWire(ProtobufFixtures.Read<Wire.UsageSnapshot>(JVal.Parse(
                 "{\"ok\":false,\"sources\":[\"anthropic\"]," +
                 "\"catalog\":[{" +
@@ -138,7 +175,7 @@ namespace SlopWorld.Tests
                 "\"poll\":true," +
                 "\"stale\":true," +
                 "\"window\":null}]," +
-                "\"windows\":[]}")));
+                "\"windows\":[]}")), now, 1_000_000);
             AssertEx.Equal(1, usage.Rows.Count, "daemon row remains visible");
             AssertEx.True(usage.Rows[0].Window == null, "missing value is not fabricated");
             AssertEx.True(usage.Rows[0].Stale, "stale state survives");

@@ -64,7 +64,7 @@ class HttpTransportProbe
         var watch = Stopwatch.StartNew();
         while (done < expected && watch.ElapsedMilliseconds < timeout)
         {
-            DaemonClient.PumpCompletions();
+            DaemonClient.PumpCompletions(e => throw e);
             Thread.Sleep(5);
         }
         if (done != expected || failed != 0) throw new Exception("done=" + done + " expected=" + expected + " failed=" + failed);
@@ -115,7 +115,7 @@ class HttpTransportProbe
             for (int i = 0; i < 100; i++)
             {
                 DaemonClient.Get<SlopWorld.Wire.Ack>("/ok", r => Complete(Encoding.UTF8.GetString(r.Data) == "response"), e => Complete(false));
-                DaemonClient.PumpCompletions();
+                DaemonClient.PumpCompletions(e => throw e);
                 int delay = (i + 1) * 10 - (int)paced.ElapsedMilliseconds;
                 if (delay > 0) Thread.Sleep(delay);
             }

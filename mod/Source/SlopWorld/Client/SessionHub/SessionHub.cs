@@ -92,7 +92,6 @@ namespace SlopWorld
         // Called every frame from the Root.Update patch.
         public void Update()
         {
-            DaemonClient.PumpCompletions();
             _transport.Update();
             _tasks.Update(AgentSidebar.TasksVisible);
             PerfTrace.Report();

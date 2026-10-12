@@ -4,6 +4,8 @@ using System.Linq;
 
 namespace SlopWorld
 {
+    // Owns usage snapshots and provider-local age anchors. Callers supply monotonic seconds
+    // and wall-clock milliseconds; this model does not read a host clock.
     // When the last poll fails, Ok is false and Error explains the failure.
     // The daemon retains provider windows; the client retains aggregate age on partial failure.
     public class UsageInfo
@@ -35,27 +37,26 @@ namespace SlopWorld
 
         public UsageRow Row(string key) => Rows.FirstOrDefault(row => row.Key == key);
 
-        public float Age => Math.Max(0f, UnityEngine.Time.realtimeSinceStartup - Heard);
+        public float Age(float now) => Math.Max(0f, now - Heard);
 
-        public float AgeFor(string key)
+        public float AgeFor(string key, float now)
         {
             string provider = Row(key)?.Provider ?? Catalog.FirstOrDefault(item => item.Key == key)?.Provider;
             return provider != null && _sourceHeard.TryGetValue(provider, out float heard)
-                ? Math.Max(0f, UnityEngine.Time.realtimeSinceStartup - heard) : Age;
+                ? Math.Max(0f, now - heard) : Age(now);
         }
 
         // Clamp remaining time to zero so an expired window shows that its reset is due.
-        public long Remaining(UsageWindow w) =>
-            w.ResetsIn < 0 ? -1 : Math.Max(0L, w.ResetsIn - (long)AgeFor(w.Key));
+        public long Remaining(UsageWindow w, float now) =>
+            w.ResetsIn < 0 ? -1 : Math.Max(0L, w.ResetsIn - (long)AgeFor(w.Key, now));
 
         // prev contains the displayed snapshot.
         // A failed poll returns previous values without making them current again.
-        public static UsageInfo FromWire(Wire.UsageSnapshot j, UsageInfo prev = null)
+        public static UsageInfo FromWire(Wire.UsageSnapshot j, float now, ulong unixMs,
+            UsageInfo prev = null)
         {
             bool ok = j.Ok;
-            float now = UnityEngine.Time.realtimeSinceStartup;
             var value = Read(j, ok || prev == null ? now : prev.Heard);
-            ulong unixMs = (ulong)DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             foreach (string source in j.Sources.Concat(j.Rows.Select(row => row.Provider))
                 .Concat(j.SourceFetchedMs.Keys).Distinct())
             {
