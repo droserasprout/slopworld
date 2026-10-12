@@ -32,8 +32,15 @@ own their launcher build dependency. Regeneration is an explicit, isolated step
 after the main source changes: run `just refresh` for all outputs, or the relevant
 `refresh-protocol`, `refresh-api-docs`, `refresh-daemon-licenses`,
 or asset recipe,
-then review its diff and validate. The aggregate refresh stages licenses last;
-dependency lock updates remain separate. Builds, tests, lint, benchmarks, and docs builds
+then review its diff and validate. The aggregate refresh includes daemon and sidecar
+license generation and stages licenses last. `refresh-dependencies` owns explicit
+dependency upgrades: `refresh-locks` updates all Rust, Python, and NuGet graphs
+and regenerates notices.
+Rust and Python updates stay within manifest constraints; NuGet re-resolves the
+declared package versions without compiling or copying runtime DLLs. Review lock
+changes and synchronize runtime assemblies before validation. Release-time `refresh`
+consumes reviewed dependency locks rather than querying newer versions.
+Builds, tests, lint, benchmarks, and docs builds
 consume existing generated files. Release targets explicitly run the full refresh
 aggregate before lint and tests, rejecting any resulting tracked changes. `check-generated` compares temporary protocol
 outputs without modifying the checkout. Explicit generators publish only changed

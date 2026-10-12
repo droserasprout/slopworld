@@ -16,10 +16,10 @@ install-sidecar: sidecar
 test-sidecar:
     cd slopcar && {{ CARGO }} test --locked {{ TEST_ARGS }}
 
-# Resolve sidecar dependencies after changing its manifest
+# Update the sidecar's Rust dependency lockfile within manifest constraints
 [group('Generated files')]
 lock-sidecar:
-    cd slopcar && {{ CARGO }} generate-lockfile
+    cd slopcar && {{ CARGO }} update
 
 # Format the sidecar launcher
 [group('Formatting')]

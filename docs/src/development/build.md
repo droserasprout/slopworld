@@ -87,6 +87,18 @@ Ruff, mypy, and pytest-cov belong to the uv `dev` dependency group.
 Tools run as modules from the repository root through uv;
 for example, `uv run --locked python -m tools.docs.api_docs`.
 Use `just lock-tools` after changing Python dependencies and commit `uv.lock`.
+Use `just refresh-dependencies` to update dependency locks.
+`refresh-locks` updates all Rust and Python dependencies within
+their manifest constraints, re-resolves all NuGet lockfiles at their declared
+package versions, and regenerates daemon and sidecar license records before
+staging mod notices. Container images follow their configured tags, and system
+packages installed inside containers follow their configured repositories.
+
+Review and commit the resulting changes. After NuGet changes, run `just sync-mod`
+and review the shipped runtime DLLs as described in
+[Mod runtime packages](../../../mod/Dependencies/README.md).
+Run the relevant tests before releasing. Ordinary `just refresh` regenerates
+outputs from reviewed inputs and does not upgrade dependencies.
 For an asset tool, use `uv run --locked --extra assets python -m tools.assets.emoji --help`.
 `just check-format-mod` checks C# formatting without game assemblies.
 

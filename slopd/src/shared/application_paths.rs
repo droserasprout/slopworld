@@ -37,7 +37,7 @@ impl Root {
         let home = lookup("HOME")
             .filter(|value| !value.is_empty())
             .map(PathBuf::from)
-            .or_else(dirs::home_dir);
+            .or_else(std::env::home_dir);
         let base = if cfg!(target_os = "macos") {
             home.map(|home| home.join(mac))
         } else {
@@ -170,7 +170,7 @@ fn expand_home(path: PathBuf, lookup: impl Fn(&'static str) -> Option<OsString>)
     lookup("HOME")
         .filter(|home| !home.is_empty())
         .map(PathBuf::from)
-        .or_else(dirs::home_dir)
+        .or_else(std::env::home_dir)
         .map(|home| home.join(suffix))
         .unwrap_or(path)
 }

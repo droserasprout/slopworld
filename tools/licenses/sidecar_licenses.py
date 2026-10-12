@@ -75,8 +75,8 @@ def main() -> None:
         ),
     ]
     for package in packages:
-        # Choose MIT when offered. dirs uses the unmodified MPL-2.0 option-ext
-        # dependency; include its full license and a source download location.
+        # Choose MIT when offered. For MPL-2.0 dependencies, include the full
+        # license and a source download location.
         # Unrecognized licenses and missing texts still fail generation.
         source = Path(package['manifest_path']).parent
         license_name, notice = find_notice(source, package['license'])

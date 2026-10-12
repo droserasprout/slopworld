@@ -2,7 +2,33 @@
 
 # Refresh generated files after source changes, then stage distribution notices
 [group('Generated files')]
-refresh: refresh-protocol refresh-api-docs refresh-loading-font refresh-icons refresh-appicon refresh-favicon refresh-daemon-licenses refresh-licenses
+refresh: refresh-protocol refresh-api-docs refresh-loading-font refresh-icons refresh-appicon refresh-favicon refresh-daemon-licenses refresh-sidecar-licenses refresh-licenses
+
+# Update dependency locks, then regenerate distribution notices
+[group('Generated files')]
+refresh-dependencies: refresh-locks
+
+# Upgrade dependency graphs within manifest constraints, then regenerate notices
+[group('Generated files')]
+refresh-locks: lock-tools lock-daemon lock-sidecar lock-bench lock-mod refresh-daemon-licenses refresh-sidecar-licenses refresh-licenses
+
+# Update the daemon's Rust dependency lockfile within manifest constraints
+[group('Generated files')]
+lock-daemon:
+    cd slopd && {{ CARGO }} update
+
+# Update the IPC benchmark's Rust dependency lockfile within manifest constraints
+[group('Generated files')]
+lock-bench:
+    cd bench/ipc/rust && {{ CARGO }} update
+
+# Re-resolve every NuGet lockfile without compiling or copying runtime assemblies
+[group('Generated files')]
+lock-mod:
+    {{ DOTNET }} restore mod/Dependencies/Runtime.csproj --force-evaluate -p:RestoreLockedMode=false
+    {{ DOTNET }} restore mod/Source/SlopWorld/SlopWorld.csproj --force-evaluate -p:RestoreLockedMode=false
+    {{ DOTNET }} restore mod/Tests/SlopWorld.Tests.csproj --force-evaluate -p:RestoreLockedMode=false
+    {{ DOTNET }} restore bench/ipc/csharp/IpcBench.csproj --force-evaluate -p:RestoreLockedMode=false
 
 # Convert book PNGs to low-quality JPEG copies, preserving originals
 [group('Generated files')]
@@ -52,7 +78,7 @@ refresh-favicon:
 # Resolve and update the Python dependency lockfile
 [group('Generated files')]
 lock-tools:
-    {{ UV }} lock
+    {{ UV }} lock --upgrade
 
 # Synchronize the Python tooling environment from the lockfile
 [group('Build')]

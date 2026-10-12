@@ -140,6 +140,43 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual(modules[-1], 'tools.licenses.stage_licenses')
         self.assertEqual(self.calls('cargo'), [])
         self.assertEqual(self.calls('dotnet'), [])
+        self.assertIn('tools.licenses.sidecar_licenses', modules)
+        self.assertFalse(any('lock' in call['args'] for call in self.calls('uv')))
+
+    def test_lock_refresh_updates_every_graph_before_staging_notices(self) -> None:
+        self.run_recipe('MOD_DEPS_LOCKED=true', 'refresh-locks')
+        cargo = self.calls('cargo')
+        self.assertEqual(
+            [call['cwd'] for call in cargo],
+            [
+                str(ROOT / 'slopd'),
+                str(ROOT / 'slopcar'),
+                str(ROOT / 'bench/ipc/rust'),
+            ],
+        )
+        self.assertTrue(all(call['args'] == ['update'] for call in cargo))
+        dotnet = self.calls('dotnet')
+        self.assertEqual(
+            [call['args'][1] for call in dotnet],
+            [
+                'mod/Dependencies/Runtime.csproj',
+                'mod/Source/SlopWorld/SlopWorld.csproj',
+                'mod/Tests/SlopWorld.Tests.csproj',
+                'bench/ipc/csharp/IpcBench.csproj',
+            ],
+        )
+        self.assertTrue(all('--force-evaluate' in call['args'] for call in dotnet))
+        self.assertTrue(all('-p:RestoreLockedMode=false' in call['args'] for call in dotnet))
+        uv = self.calls('uv')
+        self.assertEqual(uv[0]['args'], ['lock', '--upgrade'])
+        self.assertEqual(uv[-1]['args'][-1], 'tools.licenses.stage_licenses')
+
+    def test_failed_relock_does_not_publish_new_notices(self) -> None:
+        self.env['RECIPE_TEST_FAIL'] = 'cargo'
+        self.run_recipe('refresh-locks', success=False)
+        self.assertEqual(len(self.calls('cargo')), 1)
+        self.assertEqual(self.calls('dotnet'), [])
+        self.assertEqual([call['args'] for call in self.calls('uv')], [['lock', '--upgrade']])
 
     def test_lint_forces_release_and_warnings_through_recursive_call(self) -> None:
         self.run_recipe('BUILD=debug', 'MOD_WARNINGS_AS_ERRORS=false', 'VERSION=1.2.3', 'lint-mod')
