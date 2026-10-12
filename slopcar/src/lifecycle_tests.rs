@@ -4,7 +4,7 @@
 )]
 #![cfg(unix)]
 use super::*;
-use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf};
+use std::{fs, path::PathBuf};
 
 struct Fixture {
     root: tempfile::TempDir,
@@ -40,13 +40,13 @@ esac
 "##,
         )
         .unwrap();
-        fs::set_permissions(&executable, fs::Permissions::from_mode(0o755)).unwrap();
+        // Read the script through sh instead of executing a freshly written file.
+        // Parallel subprocesses can briefly inherit its writer and cause ETXTBSY.
+        let docker = Docker::script(&executable);
         Self {
             root,
             settings,
-            docker: Docker {
-                executable: executable.into_os_string(),
-            },
+            docker,
             workspace,
         }
     }
@@ -60,6 +60,19 @@ esac
         fs::read_to_string(self.root.path().join("calls")).unwrap()
     }
 }
+#[test]
+fn fake_docker_script_runs_while_a_writer_is_open() {
+    let fixture = Fixture::new();
+    // Model a writer inherited by a parallel subprocess without relying on timing.
+    let _writer = fs::OpenOptions::new()
+        .write(true)
+        .open(fixture.root.path().join("docker"))
+        .unwrap();
+    fixture.docker.ready().unwrap();
+    fixture.docker.run(&["info".into()], true).unwrap();
+    assert_eq!(fixture.calls(), "CALL\ninfo\nCALL\ninfo\n");
+}
+
 #[test]
 fn creation_and_doctor_share_embedded_security_policy() {
     let fixture = Fixture::new();

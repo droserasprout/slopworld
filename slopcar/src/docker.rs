@@ -6,13 +6,36 @@ use std::{
 };
 
 pub(crate) struct Docker {
-    pub executable: OsString,
+    executable: OsString,
+    #[cfg(test)]
+    script: Option<OsString>,
 }
 impl Docker {
     pub fn new() -> Self {
         Self {
             executable: "docker".into(),
+            #[cfg(test)]
+            script: None,
         }
+    }
+
+    #[cfg(test)]
+    pub fn script(path: &std::path::Path) -> Self {
+        Self {
+            executable: "/bin/sh".into(),
+            script: Some(path.as_os_str().into()),
+        }
+    }
+
+    fn command(&self) -> Command {
+        let command = Command::new(&self.executable);
+        #[cfg(test)]
+        if let Some(script) = &self.script {
+            let mut command = command;
+            command.arg(script);
+            return command;
+        }
+        command
     }
 
     pub fn ready(&self) -> Result<()> {
@@ -23,7 +46,8 @@ impl Docker {
     }
 
     pub fn probe(&self, arguments: &[OsString]) -> Result<bool> {
-        Ok(Command::new(&self.executable)
+        Ok(self
+            .command()
             .args(arguments)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -33,7 +57,7 @@ impl Docker {
     }
 
     pub fn run(&self, arguments: &[OsString], quiet: bool) -> Result<()> {
-        let mut command = Command::new(&self.executable);
+        let mut command = self.command();
         command.args(arguments);
         if quiet {
             command.stdout(Stdio::null());
