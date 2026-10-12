@@ -10,6 +10,8 @@ namespace SlopWorld
     public sealed class UiCommandAction : Command_Action
     {
         const float IconBox = 36f;
+        const float HeightReduction = 9f;
+        const float IconOffsetY = 3f;
 
         readonly UiTheme.Btn _kind;
 
@@ -22,8 +24,17 @@ namespace SlopWorld
 
         public override Texture2D BGTextureShrunk => BaseContent.ClearTex;
 
+        internal void DrawCaptionBackground(Rect rect) =>
+            UiButtons.ActionButtonBackground(rect, _kind, !Disabled, false, false);
+
         protected override GizmoResult GizmoOnGUIInt(Rect butRect, GizmoRenderParms parms)
         {
+            // Keep the caption's bottom anchor and the grid's horizontal spacing.
+            if (!parms.shrunk)
+            {
+                butRect.y += HeightReduction;
+                butRect.height -= HeightReduction;
+            }
             SessionGizmoInput.RememberActionRect(butRect);
             var result = base.GizmoOnGUIInt(butRect, parms);
 
@@ -50,8 +61,18 @@ namespace SlopWorld
             // The icon PNGs share a canvas, not a visual ink box: terminal/edit are nearly
             // full-size while close is deliberately a much smaller glyph. Draw into a
             // compact common box, then compensate for each source glyph's ink bounds.
+            float iconY = rect.center.y;
+            if (!parms.shrunk)
+            {
+                // Center in the face above the caption at the original icon size.
+                // Shortcuts occupy the upper-left corner; reserving their full line
+                // across the face needlessly shrinks and lowers the centered glyph.
+                float captionHeight = Text.CalcHeight(LabelCap, rect.width + 0.1f);
+                float captionTop = rect.yMax - captionHeight + 12f;
+                iconY = (rect.y + captionTop) / 2f + IconOffsetY;
+            }
             Rect iconRect = new Rect(rect.center.x - IconBox / 2f,
-                rect.center.y - IconBox / 2f, IconBox, IconBox);
+                iconY - IconBox / 2f, IconBox, IconBox);
             float oldScale = iconDrawScale;
             iconDrawScale *= ActionIconScale(icon);
             try
@@ -76,6 +97,47 @@ namespace SlopWorld
             if (tex == Icons.Add) return 0.97f;
             if (tex == Icons.Cross) return 1.42f;
             return 1f;
+        }
+    }
+
+    [HarmonyPatch(typeof(Command), "GizmoOnGUIInt")]
+    static class Patch_SlopCommandCaptionBackground
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            var code = instructions.ToList();
+            var background = AccessTools.Field(typeof(TexUI), nameof(TexUI.GrayTextBG));
+            var draw = AccessTools.Method(typeof(GUI), nameof(GUI.DrawTexture),
+                new[] { typeof(Rect), typeof(Texture) });
+            var replacement = AccessTools.Method(typeof(Patch_SlopCommandCaptionBackground),
+                nameof(DrawBackground));
+
+            for (int i = 2; i < code.Count; i++)
+            {
+                // The bottom caption duplicates its freshly computed Rect for drawing
+                // the backdrop and then the label. Keep those exact bounds; the top-right
+                // label uses a Rect local and must retain its native background.
+                if (code[i - 2].opcode != OpCodes.Dup
+                    || !code[i - 1].LoadsField(background)
+                    || !code[i].Calls(draw))
+                    continue;
+
+                var command = new CodeInstruction(OpCodes.Ldarg_0);
+                command.labels.AddRange(code[i].labels);
+                code[i].labels.Clear();
+                code[i].operand = replacement;
+                code.Insert(i, command);
+                return code;
+            }
+
+            Log.Error("[SlopWorld] Command.GizmoOnGUIInt changed. Action captions keep their native backdrop.");
+            return code;
+        }
+
+        static void DrawBackground(Rect rect, Texture texture, Command command)
+        {
+            if (command is UiCommandAction action) action.DrawCaptionBackground(rect);
+            else GUI.DrawTexture(rect, texture);
         }
     }
 
