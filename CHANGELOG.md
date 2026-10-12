@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog], and this project adheres to [Semantic Versioning].
 
-Expect any imaginable incompabilities until 0.1.0 or better 1.0.0.
+Expect any imaginable incompatibilities until 0.1.0.
 
 ## [Unreleased]
 
@@ -24,12 +24,13 @@ Expect any imaginable incompabilities until 0.1.0 or better 1.0.0.
 - Terminal: Preserve zsh host shell tab titles between restarts.
 - UI: Fixed hover highlights jumping after keyboard input in scrollable views.
 - UI: Fixed a character jumping between lines in tooltips when moving the pointer.
+- UI: Replaced oversized Search checkboxes with compact text toggles.
 
 ### Changed
 
-- Search: Replaced checkboxes with compact underlined toggles.
-- Sidebar: Include newly added projects and worktrees in the sidebar filter.
+- Code: Default bat highlighting to ansi, following the terminal palette.
 - Sidecar: Don't install agent CLIs in base image.
+- UI: Include newly added projects and worktrees in the sidebar filter.
 
 ## [0.0.1] - 2026-10-10
 
