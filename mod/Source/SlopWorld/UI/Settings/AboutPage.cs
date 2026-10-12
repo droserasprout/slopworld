@@ -33,10 +33,15 @@ namespace SlopWorld
             "copyrighted works of Ludeon Studios Inc. All rights reserved by Ludeon. This " +
             "content/mod is not official and is not endorsed by Ludeon.";
 
-        const float AutoScrollSpeed = 7f;
+        const float AutoScrollSpeed = 10f;
+        const float AutoScrollPause = 3f;
         const float FirstPassHeight = 2000f;
 
-        public void Load() => _thanksText = "you";
+        public void Load()
+        {
+            _thanksText = "you";
+            ResetAutoScroll();
+        }
 
         sealed class Credit
         {
@@ -80,47 +85,58 @@ namespace SlopWorld
             }
         }
 
+        // The three-column grid splits these 13 groups as 5/5/3, with ten library lines each.
         static readonly Credit[] DaemonLibraries =
         {
             new Credit("Rust", "language", "https://www.rust-lang.org/"),
             new Credit("Tokio", "async runtime", "https://tokio.rs/"),
-            new Credit("Alacritty", "terminal", "https://alacritty.org/"),
-            new Credit("Rodio / CPAL / Symphonia", "audio", new[]
+            new Credit("Landlock", "filesystem isolation",
+                "https://github.com/landlock-lsm/rust-landlock"),
+            new Credit("ring", "cryptography", "https://github.com/briansmith/ring"),
+            new Credit("HTTP libraries", "HTTP/WebSockets", new[]
             {
-                new CreditLink("Rodio", "https://github.com/RustAudio/rodio"),
-                new CreditLink("CPAL", "https://github.com/RustAudio/cpal"),
-                new CreditLink("Symphonia", "https://github.com/pdeljanov/Symphonia"),
-            }),
-            new Credit("ureq / rustls", "HTTP and TLS", new[]
-            {
+                new CreditLink("Axum", "https://github.com/tokio-rs/axum"),
+                new CreditLink("Tower HTTP", "https://github.com/tower-rs/tower-http"),
                 new CreditLink("ureq", "https://github.com/algesten/ureq"),
                 new CreditLink("rustls", "https://github.com/rustls/rustls"),
+                new CreditLink("httpdate", "https://github.com/pyfisch/httpdate"),
+                new CreditLink("url", "https://github.com/servo/rust-url"),
             }),
-            new Credit("Axum", "HTTP/WebSockets", "https://github.com/tokio-rs/axum"),
-            new Credit("Tower HTTP", "HTTP middleware", "https://github.com/tower-rs/tower-http"),
+            new Credit("Alacritty / unicode-width", "terminal", new[]
+            {
+                new CreditLink("Alacritty", "https://alacritty.org/"),
+                new CreditLink("unicode-width", "https://github.com/unicode-rs/unicode-width"),
+            }),
+            new Credit("image", "image decoding", "https://github.com/image-rs/image"),
             new Credit("Serde / TOML / JSON", "serde and configs", new[]
             {
                 new CreditLink("Serde", "https://serde.rs/"),
                 new CreditLink("TOML", "https://github.com/toml-rs/toml"),
+                new CreditLink("toml_edit", "https://github.com/toml-rs/toml"),
                 new CreditLink("JSON", "https://github.com/serde-rs/json"),
             }),
-            new Credit("rand / tempfile", "sidecar token and temporary files", new[]
+            new Credit("rand / tempfile", "sidecar support", new[]
             {
                 new CreditLink("rand", "https://github.com/rust-random/rand"),
                 new CreditLink("tempfile", "https://github.com/Stebalien/tempfile"),
             }),
             new Credit("prost", "Protocol Buffers",
                 "https://github.com/tokio-rs/prost"),
-            new Credit("Landlock", "filesystem isolation",
-                "https://github.com/landlock-lsm/rust-landlock"),
+            new Credit("Rodio / CPAL / Symphonia", "audio", new[]
+            {
+                new CreditLink("Rodio", "https://github.com/RustAudio/rodio"),
+                new CreditLink("CPAL", "https://github.com/RustAudio/cpal"),
+                new CreditLink("Symphonia", "https://github.com/pdeljanov/Symphonia"),
+            }),
             new Credit("Tracing", "diagnostics", "https://github.com/tokio-rs/tracing"),
-            new Credit("anyhow / futures / nix / regex / dirs", "support", new[]
+            new Credit("Support libraries", "support", new[]
             {
                 new CreditLink("anyhow", "https://github.com/dtolnay/anyhow"),
                 new CreditLink("futures", "https://github.com/rust-lang/futures-rs"),
                 new CreditLink("nix", "https://github.com/nix-rust/nix"),
-                new CreditLink("regex", "https://github.com/rust-lang/regex"),
                 new CreditLink("dirs", "https://github.com/dirs-dev/dirs-rs"),
+                new CreditLink("base64", "https://github.com/marshallpierce/rust-base64"),
+                new CreditLink("uuid", "https://github.com/uuid-rs/uuid"),
             }),
         };
 
@@ -141,6 +157,8 @@ namespace SlopWorld
                 "https://www.newtonsoft.com/json"),
             new Credit("Google.Protobuf", "Protocol Buffers",
                 "https://github.com/protocolbuffers/protobuf"),
+            new Credit("Microsoft .NET libraries", "runtime support",
+                "https://github.com/dotnet/runtime"),
         };
 
         static readonly Credit[] Tools =
@@ -179,6 +197,8 @@ namespace SlopWorld
                 "https://webdraft.hu/fonts/classic-console/"),
             new Credit("Noto Color Emoji", "emojis",
                 "https://github.com/googlefonts/noto-emoji"),
+            new Credit("Unicode emoji data", "emoji sequences",
+                "https://www.unicode.org/emoji/"),
         };
 
         static readonly Credit Soundtrack = new Credit("Terry Fail", "Music By",
@@ -189,6 +209,8 @@ namespace SlopWorld
         readonly ContentHeight _height = new ContentHeight(FirstPassHeight);
         readonly AboutRobots _robots = new AboutRobots();
         int _autoScrollFrame = -1;
+        bool _autoScrollDown = true;
+        float _autoScrollPauseRemaining;
         string _thanksText = "you";
 
         public void Draw(Rect rect)
@@ -204,7 +226,7 @@ namespace SlopWorld
                 if (_robots.Visible)
                 {
                     _contentHeight = _robots.Draw(content, inner.height - ContentPaddingY * 2f);
-                    if (!_robots.Visible) _scroll.JumpTo(Vector2.zero);
+                    if (!_robots.Visible) ResetAutoScroll();
                 }
                 else
                     _contentHeight = DrawCredits(content);
@@ -215,6 +237,14 @@ namespace SlopWorld
             if (!_robots.Visible) AdvanceAutoScroll(inner, _contentHeight);
         }
 
+        void ResetAutoScroll()
+        {
+            _scroll.JumpTo(Vector2.zero);
+            _autoScrollDown = true;
+            _autoScrollPauseRemaining = 0f;
+            _autoScrollFrame = -1;
+        }
+
         void AdvanceAutoScroll(Rect viewport, float contentHeight)
         {
             if (Event.current.type != EventType.Repaint || _autoScrollFrame == Time.frameCount)
@@ -222,11 +252,26 @@ namespace SlopWorld
             _autoScrollFrame = Time.frameCount;
 
             float max = Mathf.Max(0f, contentHeight - viewport.height);
-            if (max <= 0f || _scroll.Position.y >= max) return;
+            if (max <= 0f) return;
 
-            float next = Mathf.Min(max,
-                _scroll.Position.y + AutoScrollSpeed * Time.unscaledDeltaTime);
+            // Count only visible credit frames, so hiding the page also pauses the countdown.
+            if (_autoScrollPauseRemaining > 0f)
+            {
+                _autoScrollPauseRemaining = Mathf.Max(0f,
+                    _autoScrollPauseRemaining - Time.unscaledDeltaTime);
+                return;
+            }
+
+            float direction = _autoScrollDown ? 1f : -1f;
+            float next = Mathf.Clamp(
+                _scroll.Position.y + direction * AutoScrollSpeed * Time.unscaledDeltaTime,
+                0f, max);
             _scroll.JumpTo(new Vector2(_scroll.Position.x, next));
+            if ((_autoScrollDown && next >= max) || (!_autoScrollDown && next <= 0f))
+            {
+                _autoScrollDown = !_autoScrollDown;
+                _autoScrollPauseRemaining = AutoScrollPause;
+            }
         }
 
         float DrawCredits(Rect r)
