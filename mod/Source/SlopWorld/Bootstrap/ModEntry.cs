@@ -19,7 +19,7 @@ namespace SlopWorld
                     .InformationalVersion;
                 if (!string.IsNullOrEmpty(version)) return version;
             }
-            return "0.0.1";
+            return "0.0.2";
         }
 
         public ModEntry(ModContentPack content) : base(content)

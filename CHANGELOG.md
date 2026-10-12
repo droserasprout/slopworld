@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 Expect any imaginable incompatibilities until 0.1.0.
 
-## [Unreleased]
+## [0.0.2] - 2026-10-12
 
 ### Added
 
@@ -18,6 +18,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 ### Fixed
 
 - Files: Fixed workspace viewers showing internal tab names instead of filenames.
+- Markdown: Keep preview visible while loading replacement.
 - Packaging: Fixed release archive permissions under restrictive umasks.
 - Tasks: Fixed double-, triple-click selection, and copying to PRIMARY in task details.
 - Tasks: Respect the configured time format in task details.
@@ -45,5 +46,6 @@ Initial release 🐈
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
 <!-- Versions -->
-[Unreleased]: https://github.com/droserasprout/slopworld/compare/v0.0.1...HEAD
+[Unreleased]: https://github.com/droserasprout/slopworld/compare/v0.0.2...HEAD
+[0.0.2]: https://github.com/droserasprout/slopworld/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/droserasprout/slopworld/releases/tag/v0.0.1
