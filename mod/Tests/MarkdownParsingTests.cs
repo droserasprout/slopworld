@@ -130,6 +130,39 @@ namespace SlopWorld.Tests
             AssertEx.Equal(null, blocks[1].Alignment, "absent alignment preserves default image policy");
         }
 
+        public static void HtmlDivsKeepNestedBlockBoundariesAndStyles()
+        {
+            var blocks = Parse("<div class='unknown' onclick='ignored'>before<div><b>nested</b><p>paragraph</p></div>after<!-- hidden --></div>\n\nFollowing **Markdown**.");
+            AssertEx.Sequence(new[] { "before", "nested", "paragraph", "after", "Following Markdown." },
+                blocks.Select(b => Text(b.Runs)), "divs retain text in document order with block boundaries");
+            AssertEx.True(blocks[1].Runs.Single().Bold, "nested inline styles survive");
+            AssertEx.True(blocks.Last().Runs.Single(r => r.Text == "Markdown").Bold, "Markdown resumes after the wrapper");
+            AssertEx.False(blocks.SelectMany(b => b.Runs).Any(r => r.Faint), "wrapper markup and comments are invisible");
+        }
+
+        public static void ScreenshotStacksKeepImageRowsDimensionsAndLinks()
+        {
+            var blocks = Parse("<div class='extra screenshot-stack more'>\n<a href='next.md'><b><img src='../images/first.jpg' alt='First &amp; shot' width='280'></b></a>\n<div><img src='../images/second.jpg' alt='Second' width='140' height='70' align='right'></div>\n</div>\n\n1. Continue.");
+            AssertEx.Equal(3, blocks.Count, "two image rows precede the Markdown list");
+            var first = blocks[0].Runs.Single();
+            var second = blocks[1].Runs.Single();
+            AssertEx.True(first.IsImage && second.IsImage, "images remain resource-backed runs");
+            AssertEx.Sequence(new[] { "../images/first.jpg", "../images/second.jpg" },
+                new[] { first.ImagePath, second.ImagePath }, "image order and relative paths survive");
+            AssertEx.Equal("First & shot", first.ImageAlt, "alt text decodes once");
+            AssertEx.Equal(280f, first.ImageWidth, "first requested width survives");
+            AssertEx.Equal(140f, second.ImageWidth, "second requested width survives");
+            AssertEx.Equal(70f, second.ImageHeight, "requested height survives");
+            AssertEx.True(first.Bold, "image inherits enclosing style");
+            AssertEx.Equal("/work/demo/docs/next.md", first.LocalLink, "image retains enclosing scoped link");
+            AssertEx.Equal("left", blocks[1].Alignment, "stack rows override floating image alignment");
+            AssertEx.Equal(BlockKind.List, blocks[2].Kind, "following Markdown keeps its structure");
+
+            blocks = Parse("<div class='screenshot-stack-extra'><img src='a.png'><img src='b.png'></div>");
+            AssertEx.Equal(1, blocks.Count, "other classes retain ordinary inline image flow");
+            AssertEx.Equal(2, blocks[0].Runs.Count(r => r.IsImage), "generic wrapper retains both images");
+        }
+
         public static void HtmlBlockTokenizerPreservesUnknownTagsAndQuotedAngles()
         {
             var blocks = Parse("<p title='a > b'><!-- hidden --><img src='a>b.png'><unknown>x</unknown></p>");
@@ -242,7 +275,7 @@ namespace SlopWorld.Tests
         {
             AssertEx.Equal(0, Parse(null).Count, "null document is empty");
             AssertEx.Equal(0, Parse("<!-- comment -->\n\n[ref]: next.md").Count, "comments and references are not visible blocks");
-            var blocks = Parse("> quoted\n\n---\n\n    indented\n\n```rust\nlet x = 1;\n```\n\n<div>unsupported</div>\n\n<hr />");
+            var blocks = Parse("> quoted\n\n---\n\n    indented\n\n```rust\nlet x = 1;\n```\n\n<section>unsupported</section>\n\n<hr />");
             AssertEx.Sequence(new[] { BlockKind.Quote, BlockKind.Rule, BlockKind.Code, BlockKind.Code, BlockKind.Raw, BlockKind.Rule }, blocks.Select(b => b.Kind), "block kinds");
             AssertEx.Equal("quoted", Text(blocks[0].Children[0].Runs), "quote owns its paragraph");
             AssertEx.Equal("indented", blocks[2].Code, "indented code content");

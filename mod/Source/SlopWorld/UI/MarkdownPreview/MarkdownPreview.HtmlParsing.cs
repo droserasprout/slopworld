@@ -20,7 +20,7 @@ namespace SlopWorld
             {
                 var first = tokenizer.Get();
                 if (first.Type != HtmlTokenType.StartTag ||
-                    (!IsHtmlTextBlock(first.Name) && first.Name != "img" && first.Name != "hr")) return false;
+                    (!IsHtmlTextBlock(first.Name) && first.Name != "div" && first.Name != "img" && first.Name != "hr")) return false;
             }
 
             using (var document = _htmlParser.ParseDocument(""))
@@ -35,7 +35,7 @@ namespace SlopWorld
         }
 
         void AppendHtmlNode(INode node, List<MarkdownBlock> target,
-                            ref MarkdownBlock block, InlineStyle style)
+                            ref MarkdownBlock block, InlineStyle style, bool stackImages = false)
         {
             if (node is IText text)
             {
@@ -54,6 +54,19 @@ namespace SlopWorld
             }
             if (!(node is IElement element)) return; // Comments have no visible content.
             string name = element.LocalName;
+            if (name == "div")
+            {
+                // Divs provide block boundaries without interpreting arbitrary CSS.
+                // The book's screenshot-stack class gives each image its own row.
+                AddHtmlTextBlock(block, target);
+                block = HtmlParagraph();
+                bool childStack = stackImages || element.ClassList.Contains("screenshot-stack");
+                foreach (var child in element.ChildNodes)
+                    AppendHtmlNode(child, target, ref block, style, childStack);
+                AddHtmlTextBlock(block, target);
+                block = HtmlParagraph();
+                return;
+            }
             if (IsHtmlTextBlock(name))
             {
                 AddHtmlTextBlock(block, target);
@@ -63,7 +76,7 @@ namespace SlopWorld
                 string alignment = ImageAlignment(element.GetAttribute);
                 block.Alignment = alignment.Length == 0 ? null : alignment;
                 foreach (var child in element.ChildNodes)
-                    AppendHtmlNode(child, target, ref block, style);
+                    AppendHtmlNode(child, target, ref block, style, stackImages);
                 AddHtmlTextBlock(block, target);
                 block = HtmlParagraph();
                 return;
@@ -78,7 +91,17 @@ namespace SlopWorld
             if (name == "img")
             {
                 var image = ParseImage(element.GetAttribute);
-                if (image != null) block.Runs.Add(style.Apply(image));
+                if (image != null && stackImages)
+                {
+                    AddHtmlTextBlock(block, target);
+                    var row = HtmlParagraph();
+                    // Explicit block alignment keeps image floats inside the stack.
+                    row.Alignment = "left";
+                    row.Runs.Add(style.Apply(image));
+                    target.Add(row);
+                    block = HtmlParagraph();
+                }
+                else if (image != null) block.Runs.Add(style.Apply(image));
                 else AddRun(block.Runs, element.OuterHtml, style, faint: true);
                 return;
             }
@@ -96,7 +119,7 @@ namespace SlopWorld
             }
             // Value styles naturally end at the DOM boundary, including repaired nesting.
             foreach (var child in element.ChildNodes)
-                AppendHtmlNode(child, target, ref block, style);
+                AppendHtmlNode(child, target, ref block, style, stackImages);
         }
 
         enum HtmlStyleKind { Unsupported, Plain, Bold, Italic, Code, Strike, Link }

@@ -43,6 +43,28 @@ namespace SlopWorld.Tests
             AssertEx.True(engine.Generation > generation, "document clear retires old index");
         }
 
+        public static void ScreenshotStacksPlaceSeparateRowsAndFitThePreview()
+        {
+            const string source = "<div class='screenshot-stack'><img src='first.jpg' width='280' height='140' align='right'><img src='second.jpg' width='280' height='70'></div>\n\nFollowing text.";
+            foreach (float width in new[] { 200f, 800f })
+            {
+                var engine = PreviewFlow(source, width);
+                var images = engine.Placements.Where(p => p.Kind == PlacementKind.Image).ToList();
+                var text = engine.Placements.Single(p => p.Kind == PlacementKind.Text);
+                AssertEx.Equal(2, images.Count, "stack has two standalone images");
+                AssertEx.Equal("first.jpg", images[0].Image.ImagePath, "first image stays first");
+                AssertEx.Equal(UiTheme.GapM, images[0].X, "stack begins at content left edge");
+                AssertEx.Equal(images[0].X, images[1].X, "images share the same left edge");
+                AssertEx.Equal(images[0].Y + images[0].Height + UiTheme.GapS, images[1].Y,
+                    "second image has a separate row and shared block spacing");
+                AssertEx.Equal(Math.Min(280f, width - UiTheme.GapM * 2f), images[0].Width, "requested width fits the preview");
+                AssertEx.Equal(images[0].Width / 2f, images[0].Height, "first image keeps its aspect ratio");
+                AssertEx.Equal(images[1].Width / 4f, images[1].Height, "second image keeps its aspect ratio");
+                AssertEx.True(text.Y >= images[1].Y + images[1].Height + UiTheme.GapS, "following text clears the stack");
+                AssertEx.Equal("Following text.", Copy(text.Text), "following text keeps selection geometry");
+            }
+        }
+
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             foreach (string alignment in new[] { "left", "center", "right" })

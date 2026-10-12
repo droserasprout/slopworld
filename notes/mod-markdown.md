@@ -18,6 +18,10 @@ Remote/data images are not fetched. Paragraph and heading HTML uses the same inl
 style/link/image policy as Markdown. Ordinary source newlines are spaces; explicit
 Markdown breaks and `<br>` retain line boundaries. HTML code spans preserve literal
 whitespace, including tabs and newlines, through parsing and copying.
+HTML `div` containers preserve block boundaries and render their children. The book's
+`screenshot-stack` class places images in separate rows using shared block spacing;
+image rows fit the preview width and do not float beside following text. Other classes
+do not apply stylesheet behavior.
 
 Block flow owns left/right image floats across following paragraphs and lists.
 Quotes and list items contain their own floats; code, tables, and other slabs clear

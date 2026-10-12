@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 Expect any imaginable incompatibilities until 0.1.0.
 
+## Unreleased
+
+### Fixed
+
+- Markdown: Render images inside `div` containers and stack grouped screenshots vertically.
+
 ## [0.0.2] - 2026-10-12
 
 ### Added
