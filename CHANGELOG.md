@@ -32,6 +32,10 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Sidecar: Don't install agent CLIs in base image.
 - UI: Include newly added projects and worktrees in the sidebar filter.
 
+### Other
+
+- Music: Updated soundtrack exports.
+
 ## [0.0.1] - 2026-10-10
 
 Initial release 🐈
