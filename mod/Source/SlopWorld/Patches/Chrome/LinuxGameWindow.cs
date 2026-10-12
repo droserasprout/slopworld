@@ -5,6 +5,7 @@ using System.Text;
 using UnityEngine;
 using Verse;
 using Exception = System.Exception;
+using WindowChange = SlopWorld.LinuxWindowRecovery.WindowChange;
 
 namespace SlopWorld
 {
@@ -14,110 +15,44 @@ namespace SlopWorld
     // Keep window decorations disabled because Mutter can restore the title bar after fullscreen ends.
     public static class LinuxGameWindow
     {
-        const float RetrySeconds = 1f;
-        const float StartupSettleSeconds = 1.5f;
-        // Check frequently after resizing so the intermediate window state remains brief.
-        const float ResyncPollSeconds = 0.05f;
-        const float ResyncTimeoutSeconds = 0.5f;
-        const float WindowSettleSeconds = 1f;
         const int ClientMessage = 33;
         const int MotifDecorationsFlag = 2;
         const long SubstructureNotifyMask = 1L << 19;
         const long SubstructureRedirectMask = 1L << 20;
 
-        enum WindowChange { Retry, WaitingForResize, Applied, Unsupported }
         enum ResizeStage { Retry, Waiting, Ready }
 
-        static bool? _applied;
-        // Unsupported native integration is terminal for this process, unlike a
-        // watch that retires after settling and can resume at the next scene load.
-        static bool _unsupported;
-        // Watch startup and loading transitions, then leave normal play idle.
-        static bool _watchWindow = true;
-        static float _windowQuietSince = -1f;
-        static float _nextTry;
-        static float _readySince = -1f;
-        // Store the time of the current surface resize request, or a negative value before that request.
-        // Wait for the resize or its timeout before requesting fullscreen.
-        static float _resyncedAt = -1f;
+        static readonly LinuxWindowRecovery Recovery = new LinuxWindowRecovery();
         static bool _warned;
 
         public static void Follow()
         {
-            if (Application.platform != RuntimePlatform.LinuxPlayer || _unsupported) return;
+            if (Application.platform != RuntimePlatform.LinuxPlayer || Recovery.Unsupported) return;
 
             bool want = Settings.Fullscreen;
-
             float now = Time.realtimeSinceStartup;
-            if (_applied == null && !Ready(now)) return;
-            bool watch = WatchingWindow(now);
-            if (_applied == want && !watch) return;
-            if (now < _nextTry) return;
+            if (!Recovery.TryBeginAttempt(now, want,
+                NextPlanet.Pending || LongEventHandler.AnyEventNowOrWaiting, out bool watch)) return;
 
             var result = TrySet(want);
-            if (result == WindowChange.Applied || result == WindowChange.Unsupported) _applied = want;
-            if (result == WindowChange.Unsupported)
-            {
-                _unsupported = true;
-                _watchWindow = false;
-            }
-            // Sending a request does not mean the WM or Unity has finished resizing.
-            // Only confirmed recovery may begin the quiet settling period.
-            if (result == WindowChange.Retry || result == WindowChange.WaitingForResize)
-                _windowQuietSince = -1f;
-            _nextTry = Time.realtimeSinceStartup
-                + (result == WindowChange.WaitingForResize || (result == WindowChange.Applied && watch)
-                    ? ResyncPollSeconds : RetrySeconds);
+            Recovery.CompleteAttempt(Time.realtimeSinceStartup, want, watch, result);
         }
 
         // Arm before queuing the menu transition. Pending covers the handoff to QuickStart;
         // long events cover generation after Pending clears. No native work happens here.
-        public static void WatchWindow()
-        {
-            if (_unsupported) return;
-            _watchWindow = true;
-            _windowQuietSince = -1f;
-            _resyncedAt = -1f;
-            _nextTry = 0f;
-        }
-
-        static bool WatchingWindow(float now)
-        {
-            if (_unsupported) return false;
-            bool loading = NextPlanet.Pending || LongEventHandler.AnyEventNowOrWaiting;
-            // A failed load can return to an idle menu long enough to retire the startup
-            // watch. Later generation or loading must recover scene-induced resizing too.
-            // Arm only once so active loading cannot erase an in-flight resize deadline.
-            if (!_watchWindow && loading) WatchWindow();
-            if (!_watchWindow) return false;
-            if (loading)
-                _windowQuietSince = -1f;
-            else if (_windowQuietSince < 0f)
-                _windowQuietSince = now;
-            else if (_applied.HasValue && now - _windowQuietSince >= WindowSettleSeconds)
-                _watchWindow = false;
-            return _watchWindow;
-        }
+        public static void WatchWindow() => Recovery.WatchWindow();
 
         public static void Set(bool fullscreen)
         {
-            if (Settings.S.fullscreen == fullscreen && _applied == fullscreen) return;
+            if (Settings.S.fullscreen == fullscreen && Recovery.Applied == fullscreen) return;
 
             Settings.S.fullscreen = fullscreen;
             Settings.S.MarkDirty();
-            _nextTry = 0f;
+            Recovery.RetryNow();
             Follow();
         }
 
         public static void Toggle() => Set(!Settings.Fullscreen);
-
-        // Wait briefly after the first frame for initial window creation and sizing.
-        // FindGameWindow retries if the window is still unavailable. ResyncSurface permits fullscreen setup during loading.
-        static bool Ready(float now)
-        {
-            if (_readySince < 0f) _readySince = now;
-            return now - _readySince >= StartupSettleSeconds;
-        }
 
         // Resize the Unity render surface to the monitor dimensions before requesting EWMH fullscreen.
         // Keep Unity in windowed mode to avoid its fullscreen freeze.
@@ -128,12 +63,6 @@ namespace SlopWorld
             if (w <= 0 || h <= 0) return false;
             Screen.SetResolution(w, h, FullScreenMode.Windowed);
             return true;
-        }
-
-        // Continue when screen dimensions reach the monitor dimensions or the resize timeout expires.
-        static bool ResyncLanded(float now)
-        {
-            return SurfaceSized() || now - _resyncedAt >= ResyncTimeoutSeconds;
         }
 
         static bool SurfaceSized() => Display.main.systemWidth > 0 && Display.main.systemHeight > 0
@@ -160,7 +89,7 @@ namespace SlopWorld
                 // Scene changes can rewrite decorations and reset Unity's windowed size.
                 // The saved preference is not evidence of the current native window state.
                 SetUndecorated(display, window);
-                if (_applied == fullscreen && !fullscreen) return WindowChange.Applied;
+                if (Recovery.Applied == fullscreen && !fullscreen) return WindowChange.Applied;
 
                 IntPtr state = XInternAtom(display, "_NET_WM_STATE", 0);
                 IntPtr fullscreenAtom = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", 0);
@@ -173,10 +102,10 @@ namespace SlopWorld
                     return WindowChange.Unsupported;
                 }
 
-                if (_applied == fullscreen)
+                if (Recovery.Applied == fullscreen)
                     return RecoverFullscreen(display, root, window, state, fullscreenAtom, horizontal, vertical);
 
-                if (fullscreen && !_applied.HasValue)
+                if (fullscreen && !Recovery.Applied.HasValue)
                 {
                     var resize = PrepareFullscreen(display, root, window, state, horizontal, vertical);
                     if (resize == ResizeStage.Retry) return WindowChange.Retry;
@@ -205,7 +134,7 @@ namespace SlopWorld
             bool nativeFullscreen = HasWindowState(display, window, state, fullscreenAtom);
             if (nativeFullscreen && SurfaceSized())
             {
-                _resyncedAt = -1f;
+                Recovery.ClearResize();
                 return WindowChange.Applied;
             }
 
@@ -213,7 +142,7 @@ namespace SlopWorld
             {
                 // An ADD is a no-op while fullscreen is already set. Leave it before
                 // resizing so the final ADD makes the WM establish monitor geometry again.
-                if (_resyncedAt < 0f && nativeFullscreen)
+                if (!Recovery.HasResize && nativeFullscreen)
                 {
                     if (!SendState(display, root, window, state, 0, fullscreenAtom, IntPtr.Zero))
                         return WindowChange.Retry;
@@ -226,18 +155,7 @@ namespace SlopWorld
 
             bool sent = SendState(display, root, window, state, 1, fullscreenAtom, IntPtr.Zero);
             _ = XFlush(display);
-            return AwaitFullscreenRecovery(sent);
-        }
-
-        static WindowChange AwaitFullscreenRecovery(bool sent)
-        {
-            if (!sent) return WindowChange.Retry;
-
-            // The ADD completes this resize attempt, not recovery. If geometry is
-            // still wrong, allow the WM the retry interval to finish before starting
-            // another remove/resize/add cycle with a fresh surface request.
-            _resyncedAt = -1f;
-            return SurfaceSized() ? WindowChange.WaitingForResize : WindowChange.Retry;
+            return Recovery.AwaitFullscreenRecovery(sent, SurfaceSized());
         }
 
         static bool HasWindowState(IntPtr display, IntPtr window, IntPtr state, IntPtr wanted)
@@ -259,14 +177,14 @@ namespace SlopWorld
         static ResizeStage PrepareFullscreen(IntPtr display, IntPtr root, IntPtr window,
             IntPtr state, IntPtr horizontal, IntPtr vertical, bool activate = true)
         {
-            if (_resyncedAt >= 0f)
-                return ResyncLanded(Time.realtimeSinceStartup) ? ResizeStage.Ready : ResizeStage.Waiting;
+            if (Recovery.HasResize)
+                return Recovery.ResyncLanded(Time.realtimeSinceStartup, SurfaceSized()) ? ResizeStage.Ready : ResizeStage.Waiting;
             if (!ResyncSurface()) return ResizeStage.Retry;
             bool maximized = SendState(display, root, window, state, 1, horizontal, vertical);
             if (activate) RaiseAndActivate(display, root, window);
             _ = XFlush(display);
             if (!maximized) return ResizeStage.Retry;
-            _resyncedAt = Time.realtimeSinceStartup;
+            Recovery.BeginResize(Time.realtimeSinceStartup);
             return ResizeStage.Waiting;
         }
 
@@ -275,7 +193,7 @@ namespace SlopWorld
         {
             bool sent = fullscreen
                 ? SendState(display, root, window, state, 1, fullscreenAtom, IntPtr.Zero)
-                : _applied == true
+                : Recovery.Applied == true
                     ? SendState(display, root, window, state, 0, fullscreenAtom, IntPtr.Zero)
                     : SendState(display, root, window, state, 1, horizontal, vertical);
             RaiseAndActivate(display, root, window);

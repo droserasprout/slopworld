@@ -20,6 +20,9 @@ retries the surface resize after allowing the window manager time to apply fulls
 Unity's render surface and the outer window must reach monitor geometry together.
 Initial fullscreen follows window resize/maximize and remains the final geometry
 change. Updating only outer bounds can misalign pixels and input coordinates.
-The [source](../mod/Source/SlopWorld/Patches/Chrome/LinuxGameWindow.cs) owns platform
-calls and retry sequencing. Launch options belong to
+`LinuxWindowRecovery` owns process-lifetime recovery state, watch/retry timing,
+and resize-deadline decisions without game dependencies.
+[LinuxGameWindow](../mod/Source/SlopWorld/Patches/Chrome/LinuxGameWindow.cs) samples
+game state and owns Unity/X11 calls and their ordering. Game-free tests cover the
+policy directly; they do not establish native window-manager behavior. Launch options belong to
 [Display settings](../docs/src/customization/settings.md#display).
