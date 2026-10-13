@@ -6,8 +6,9 @@
 `session/manager/directories.rs` owns uncommitted directory creation.
 
 Worker allocation owns the newly created checkout and its rollback guard together,
-including cancellation before the allocation returns. Worktree creation retains
-its shared session boundary and worktree mutation guard
+including cancellation before the allocation returns. Its owned work inherits the
+worker HTTP request's exclusive session boundary and authorization context.
+Worktree creation retains its shared session boundary and worktree mutation guard
 in owned work through completion or rollback. Accepted projects already have durable
 IDs; worktree creation reads them without a configuration transaction. Configuration
 commits require the exclusive session boundary; shared worktree operations must not

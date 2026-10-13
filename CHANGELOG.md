@@ -12,18 +12,21 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Fixed
 
-- CLI: Fixed `slopworld mod` installation and removal with custom MODS paths.
-- Markdown: Render images inside `div` containers and stack grouped screenshots vertically.
-- Sidebar: Fixed right-side resizing.
-- Terminal: Fixed terminal scrollback corruption when history reaches its limit.
-- Workers: Fixed worker recovery after daemon restarts and cleanup after cancelled stop and restart requests.
-
-- Fixed session recovery, worker cancellation cleanup, and unsafe sandbox path aliases.
-- Fixed sidecar startup for Linux users with non-default user IDs.
-- Fixed stale catalog updates, quiet terminal resizing, and wrapped-link repainting.
-- Fixed unfinished intros stalling under Eco and cleared plague fields returning after reload.
-- Fixed sidebar click handling and right-side Tasks empty messages.
-- Removed obsolete compatibility states, metadata aliases, and historical-format fallbacks.
+- CLI: Honor custom `MODS` paths when installing or removing the mod.
+- Game: Resume unfinished opening scenes under Eco after loading a save.
+- Game: Keep cleared plague fields from returning after loading a save.
+- Markdown: Display images inside `div` containers, stack grouped images vertically.
+- Sandbox: Reject preset path aliases that expose host originals instead of private copies.
+- Sessions: Prevent recovery from attaching surviving host terminals or workers to a different agent.
+- Sessions: Complete stop/restart cleanup even if the requesting client disconnects.
+- Sidecar: Support startup for Linux users with non-default user IDs.
+- Terminal: Prevent scrollback corruption when history reaches its limit.
+- Terminal: Update terminal dimensions after resizing even when the application produces no output.
+- Terminal: Correctly repaint wrapped links when terminal output changes.
+- UI: Prevent stale project and Library settings from reappearing after edits.
+- UI: Correct sidebar click handling and resizing when docked on the right.
+- Workers: Restore workers’ own launch settings after daemon restarts.
+- Workers: Prevent hangs when creating workers in new worktrees and clean up abandoned worktrees after cancelled launches.
 
 ## [0.0.2] - 2026-10-12
 

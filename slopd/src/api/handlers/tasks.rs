@@ -26,21 +26,23 @@ impl NewWorktree {
         manager: Mgr,
         request: crate::session::WorktreeRequest,
     ) -> anyhow::Result<(String, Self)> {
-        // Allocation already survives cancellation internally. Keep its result and
-        // rollback owner in the same owned task, so an abandoned join drops the guard.
-        tokio::spawn(async move {
-            let project = request.project.clone();
-            let created = Box::pin(manager.create_worktree(request)).await?;
-            Ok((
-                created.id.clone(),
-                Self {
-                    manager,
-                    project,
-                    id: Some(created.id),
-                },
-            ))
-        })
-        .await?
+        // Inherit the HTTP request's boundary and reload context before spawning.
+        // Keep allocation and its rollback owner together so cancellation drops the guard.
+        manager
+            .clone()
+            .owned_session_operation(Box::pin(async move {
+                let project = request.project.clone();
+                let created = Box::pin(manager.create_worktree(request)).await?;
+                Ok((
+                    created.id.clone(),
+                    Self {
+                        manager,
+                        project,
+                        id: Some(created.id),
+                    },
+                ))
+            }))
+            .await
     }
 
     async fn rollback(&mut self) {
