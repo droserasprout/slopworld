@@ -49,7 +49,7 @@ pub(crate) struct Worktree {
     pub base: String,
     pub phase: WorktreePhase,
     pub error: String,
-    // Optional so pre-existing pending records retain their prose-only recovery evidence.
+    // Present exactly while a checkout relocation is pending.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub relocation: Option<RelocationIntent>,
 }

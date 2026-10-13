@@ -336,6 +336,8 @@ namespace SlopWorld.Tests
                            "unrelated OSC 8 row is retained");
             AssertEx.True(second[0] != first[0] && second[2] != first[2],
                            "the whole removed URL span is rebuilt");
+            AssertEx.Equal("0,1,2", string.Join(",", screen.ChangedRows),
+                           "texture damage includes changed wrapped-link decoration");
 
             var joined = new[]
             {
@@ -397,7 +399,7 @@ namespace SlopWorld.Tests
                                 "accumulated edits " + round);
                 screen.RunsRev = round / 10;
                 if (retained.Runs != null)
-                    foreach (int row in screen.ChangedRows)
+                    foreach (int row in retained.ChangedRows)
                         AssertEx.True(retained.Runs[row] == null,
                                       "source parsing leaves pending snapshot slots untouched");
                 AssertRunsEqual(expected, cache.Parse(retained, round / 10, 1, out _, out _),

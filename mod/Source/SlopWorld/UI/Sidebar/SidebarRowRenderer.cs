@@ -283,7 +283,6 @@ namespace SlopWorld
             switch (state)
             {
                 case AgentState.Working: return "working";
-                case AgentState.Waiting: return "waiting for input";
                 case AgentState.Idle: return "idle";
                 default: return "down";
             }

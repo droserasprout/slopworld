@@ -40,7 +40,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("ansi", CodeHighlight.Theme(settings, "bat"), "saved reset follows terminal colors");
             AssertEx.Equal("", settings.codeBatTheme, "auto retains the empty preference");
             settings.codeBatTheme = null;
-            AssertEx.Equal("ansi", CodeHighlight.Theme(settings, "bat"), "missing legacy preference follows terminal colors");
+            AssertEx.Equal("ansi", CodeHighlight.Theme(settings, "bat"), "unset preference follows terminal colors");
             AssertEx.Equal("", CodeHighlight.Theme(settings, "highlight"), "other tools retain their defaults");
         }
 

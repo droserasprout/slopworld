@@ -253,10 +253,21 @@ impl Manager {
             l.rows = rows;
             l.capture.emu.clone()
         };
-        if let Some(emu) = emu
-            && let Ok(mut e) = emu.lock()
-        {
-            e.resize(cols, rows);
+        if let Some(emu) = emu {
+            if let Ok(mut e) = emu.lock() {
+                e.resize(cols, rows);
+            }
+            // Quiet applications need no output to acknowledge accepted dimensions.
+            // A retained stopped mirror must not become active merely from resizing.
+            if self
+                .live
+                .read()
+                .await
+                .get(name)
+                .is_some_and(|live| live.state != State::Down)
+            {
+                self.render_and_broadcast(name, &emu).await;
+            }
         }
         Ok(())
     }

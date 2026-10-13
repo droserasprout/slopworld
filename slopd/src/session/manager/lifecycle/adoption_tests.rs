@@ -27,16 +27,7 @@ fn recovered_worker_does_not_invent_settings_from_its_parent() {
         },
     );
 
-    assert!(worker.worker);
-    assert_eq!(worker.parent, "parent");
-    assert_eq!(worker.task_id, "task-7");
-    assert_eq!(worker.state_id, "1111111111114111");
-    assert_eq!(worker.project, "repo");
-    assert_eq!(worker.worktree, "worker-worktree");
-    assert!(worker.command.is_empty());
-    assert!(worker.sandbox.is_empty());
-    assert!(!worker.autostart);
-    assert!(!worker.auto_resume);
+    assert!(worker.is_none());
 }
 
 #[test]
@@ -46,7 +37,7 @@ fn recovered_activity_is_kept_only_for_durable_workers() {
     let cfg = Config::default();
     for durable in [false, true] {
         let metadata = crate::tmux::WorkerMetadata {
-            session: None,
+            session: Some(Box::new(SessionCfg::default())),
             project: None,
             worktree: None,
             parent: "parent".into(),
@@ -55,7 +46,7 @@ fn recovered_activity_is_kept_only_for_durable_workers() {
             state_id: Some("1111111111114111".into()),
         };
         let decision = AdoptionDecision {
-            worker_session: Some(recovered_worker_cfg(&cfg, "worker", &metadata)),
+            worker_session: recovered_worker_cfg(&cfg, "worker", &metadata),
             probe: AdoptionProbe {
                 name: "worker".into(),
                 worker: Some(metadata),
@@ -69,14 +60,14 @@ fn recovered_activity_is_kept_only_for_durable_workers() {
             host_project: String::new(),
             host_path: String::new(),
             activity: Some(crate::activity::Activity {
-                state: State::Waiting,
+                state: State::Idle,
                 state_since: 123,
             }),
         };
         let live = Manager::new_adopted_live(&cfg, &decision);
         assert_eq!(live.ephemeral, !durable);
         if durable {
-            assert_eq!(live.state, State::Waiting);
+            assert_eq!(live.state, State::Idle);
             assert_eq!(live.state_since, 123);
             assert_eq!(live.last_change, 0);
         } else {
@@ -140,7 +131,7 @@ async fn reconciliation_keeps_attached_worker_identity_without_reprobing_tmux_me
 }
 
 #[tokio::test]
-async fn recovering_worker_without_an_identity_uses_the_guarded_allocator() {
+async fn recovering_worker_without_current_metadata_retires_the_pane() {
     use super::*;
     let Some(_) = crate::test_support::isolated() else {
         return;
@@ -165,9 +156,9 @@ async fn recovering_worker_without_an_identity_uses_the_guarded_allocator() {
         .set_worker_metadata("worker", "parent", "task", false, "invalid-state")
         .await
         .unwrap();
-    assert!(manager.session_operation(manager.adopt_orphans(&cfg)).await);
-    let live = manager.live.read().await;
-    assert!(crate::storage_id::valid(&live["worker"].cfg.state_id));
+    assert!(!manager.session_operation(manager.adopt_orphans(&cfg)).await);
+    assert!(!manager.tmux.exists("worker").await);
+    assert!(!manager.live.read().await.contains_key("worker"));
 }
 
 #[test]
@@ -189,14 +180,16 @@ fn recovered_worker_prefers_its_saved_settings_and_oneshot_snapshot() {
         state_id: Some(snapshot.state_id.clone()),
     };
     let mut cfg = Config::default();
-    let recovered = recovered_worker_cfg(&cfg, "worker", &metadata);
+    let recovered = recovered_worker_cfg(&cfg, "worker", &metadata).unwrap();
     assert_eq!(recovered.command, "worker-command");
     assert_eq!(recovered.sandbox, ["worker-preset"]);
     let mut saved = snapshot;
     saved.command = "saved-command".into();
     cfg.sessions.push(saved);
     assert_eq!(
-        recovered_worker_cfg(&cfg, "worker", &metadata).command,
+        recovered_worker_cfg(&cfg, "worker", &metadata)
+            .unwrap()
+            .command,
         "saved-command"
     );
 }
@@ -253,4 +246,38 @@ async fn surviving_worker_cannot_replace_a_different_saved_identity() {
     let live = manager.live.read().await;
     assert_eq!(live["worker"].cfg.state_id, "2222222222222222");
     assert!(live["worker"].capture.emu.is_none());
+}
+
+#[tokio::test]
+async fn surviving_host_cannot_be_adopted_as_a_configured_agent_at_startup() {
+    use super::*;
+    let socket = crate::test_support::TmuxSocket::new();
+    let cfg = Config {
+        sessions: vec![SessionCfg {
+            name: "reused".into(),
+            autostart: false,
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let manager = crate::session::test_manager_with_socket(cfg, socket.path.clone());
+    manager
+        .tmux
+        .spawn(
+            "reused",
+            "/tmp",
+            80,
+            24,
+            &["sleep".into(), "60".into()],
+            true,
+        )
+        .await
+        .unwrap();
+    assert!(manager.live.read().await.is_empty());
+    assert!(manager.tmux.is_host("reused").await);
+    manager.sync_from_config().await;
+    assert!(!manager.tmux.exists("reused").await);
+    let live = manager.live.read().await;
+    assert!(!live["reused"].host);
+    assert!(live["reused"].capture.emu.is_none());
 }

@@ -13,7 +13,26 @@ fn args(values: &[&str]) -> Vec<OsString> {
     values.iter().map(OsString::from).collect()
 }
 
-fn security() -> Result<(tempfile::NamedTempFile, Vec<OsString>)> {
+fn container_identity() -> Result<(u32, u32)> {
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::fs::MetadataExt;
+        // A new private file records the invoking user's credentials without a shell
+        // or a new platform dependency. Docker bind mounts preserve these numeric IDs.
+        let probe = tempfile::tempfile()?;
+        let metadata = probe.metadata()?;
+        if metadata.uid() == 0 {
+            bail!("run slopcar as the non-root user who owns its persistent state");
+        }
+        Ok((metadata.uid(), metadata.gid()))
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Ok((1000, 1000))
+    }
+}
+
+fn security(identity: (u32, u32)) -> Result<(tempfile::NamedTempFile, Vec<OsString>)> {
     // Docker consumes the profile synchronously during create/run. Keep it alive until
     // that command returns; no installed companion file or persistent host copy is needed.
     let mut profile = tempfile::NamedTempFile::new()?;
@@ -27,21 +46,31 @@ fn security() -> Result<(tempfile::NamedTempFile, Vec<OsString>)> {
         "systempaths=unconfined",
         "--device",
         "/dev/net/tun",
-        "--tmpfs",
-        "/tmp:rw,nosuid,nodev,exec,size=1g,uid=1000,gid=1000,mode=1777",
-        "--tmpfs",
-        "/run:rw,nosuid,nodev,noexec,size=16m,uid=1000,gid=1000,mode=0755",
-        "--tmpfs",
-        "/home/slop/.cache:rw,nosuid,nodev,exec,size=1g,uid=1000,gid=1000,mode=0700",
     ]));
+    let (uid, gid) = identity;
+    for (path, options) in [
+        ("/tmp", "exec,size=1g,mode=1777"),
+        ("/run", "noexec,size=16m,mode=0755"),
+        ("/home/slop/.cache", "exec,size=1g,mode=0700"),
+    ] {
+        flags.extend([
+            "--tmpfs".into(),
+            format!("{path}:rw,nosuid,nodev,{options},uid={uid},gid={gid}").into(),
+        ]);
+    }
     Ok((profile, flags))
 }
 
 pub(crate) fn run(command: Command, settings: &Settings) -> Result<()> {
-    run_with(command, settings, &Docker::new())
+    run_with(command, settings, &Docker::new(), container_identity)
 }
 
-fn run_with(command: Command, settings: &Settings, docker: &Docker) -> Result<()> {
+fn run_with(
+    command: Command,
+    settings: &Settings,
+    docker: &Docker,
+    identity: fn() -> Result<(u32, u32)>,
+) -> Result<()> {
     if matches!(command, Command::Help) {
         print!("{HELP}");
         return Ok(());
@@ -70,13 +99,15 @@ fn run_with(command: Command, settings: &Settings, docker: &Docker) -> Result<()
         }
         Command::Doctor => {
             require_image(docker, settings)?;
-            let (_profile, security) = security()?;
-            let mut flags = args(&["run", "--rm", "--user", "1000:1000", "--read-only"]);
+            let identity = identity()?;
+            let user = format!("{}:{}", identity.0, identity.1);
+            let (_profile, security) = security(identity)?;
+            let mut flags = args(&["run", "--rm", "--user", &user, "--read-only"]);
             flags.extend(security);
             flags.extend(args(&[&settings.image, "slopcar-doctor"]));
             docker.run(&flags, false)?;
         }
-        Command::Start(start) => start_container(start, settings, docker)?,
+        Command::Start(start) => start_container(start, settings, docker, identity)?,
         command => {
             if !docker.exists("container", settings.container.as_ref())? {
                 bail!("container {} does not exist", settings.container);
@@ -129,7 +160,12 @@ fn require_image(docker: &Docker, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
-fn start_container(start: Start, settings: &Settings, docker: &Docker) -> Result<()> {
+fn start_container(
+    start: Start,
+    settings: &Settings,
+    docker: &Docker,
+    identity: fn() -> Result<(u32, u32)>,
+) -> Result<()> {
     if docker.exists("container", settings.container.as_ref())? {
         if start.has_options() {
             bail!("the container already exists; remove it before changing mounts or budgets");
@@ -163,7 +199,9 @@ fn start_container(start: Start, settings: &Settings, docker: &Docker) -> Result
         ]);
     }
     let port = start.port.unwrap_or(settings.port);
-    let (_profile, security) = security()?;
+    let identity = identity()?;
+    let user = format!("{}:{}", identity.0, identity.1);
+    let (_profile, security) = security(identity)?;
     config::seed(&settings.config, &settings.data, port)?;
     let mut flags = args(&[
         "run",
@@ -173,7 +211,7 @@ fn start_container(start: Start, settings: &Settings, docker: &Docker) -> Result
         "--hostname",
         "slopcar",
         "--user",
-        "1000:1000",
+        &user,
         "--read-only",
         "--restart",
         "unless-stopped",

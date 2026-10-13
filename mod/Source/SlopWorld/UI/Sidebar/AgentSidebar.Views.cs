@@ -230,7 +230,6 @@ namespace SlopWorld
             switch (state)
             {
                 case AgentState.Working:
-                case AgentState.Waiting:
                     return (filter & AgentStatusFilter.Active) != 0;
                 case AgentState.Idle:
                     return (filter & AgentStatusFilter.Idle) != 0;

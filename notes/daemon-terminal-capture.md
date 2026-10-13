@@ -45,3 +45,7 @@ Reader cleanup owns cancellation and child reaping before tmux/session removal.
 Dropping a task handle detaches work rather than aborting it; keep explicit ownership
 of cancellation through teardown. Paste transport preserves the application's
 bracketed-paste mode rather than inferring it from command names.
+
+Accepted live resizes publish the emulator immediately, even without application
+output. Frame comparison includes dimensions and rejects captures from an older
+size. Resizing a stopped mirror does not activate the session.

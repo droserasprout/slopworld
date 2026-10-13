@@ -16,8 +16,8 @@ fn activity_cache_round_trips_and_clears() {
     assert!(cache_path(&path).ends_with("session-activity.toml"));
 
     let cache = ActivityCache::load(path.clone());
-    cache.remember("agent", State::Waiting, 123).unwrap();
-    assert_eq!(cache.get("agent").unwrap().state, State::Waiting);
+    cache.remember("agent", State::Idle, 123).unwrap();
+    assert_eq!(cache.get("agent").unwrap().state, State::Idle);
     assert_eq!(cache.get("agent").unwrap().state_since, 123);
 
     cache.flush().unwrap();
@@ -43,7 +43,7 @@ fn loaded_entries_filter_invalid_rows_and_keep_last_duplicate() {
         },
         CacheEntry {
             session: " ".into(),
-            state: State::Waiting,
+            state: State::Idle,
             state_since: 2,
         },
         CacheEntry {
@@ -70,7 +70,7 @@ fn loaded_entries_evict_old_overflow() {
         (0..=MAX_CACHE_ENTRIES)
             .map(|n| CacheEntry {
                 session: format!("agent-{n}"),
-                state: State::Waiting,
+                state: State::Idle,
                 state_since: n as u64,
             })
             .collect(),
@@ -88,7 +88,7 @@ fn down_clears_an_entry_and_rename_replaces_the_destination() {
     let path = test_path();
     let cache = ActivityCache::load(path.clone());
     cache.remember("old", State::Working, 10).unwrap();
-    cache.remember("new", State::Waiting, 20).unwrap();
+    cache.remember("new", State::Idle, 20).unwrap();
 
     cache.rename("old", "new").unwrap();
     assert_eq!(cache.get("new").unwrap().state, State::Working);
@@ -124,7 +124,7 @@ fn burst_writer_keeps_latest_rename_clear_and_flushes_on_drop() {
         let cache = ActivityCache::load(path.clone());
         for n in 1..2000 {
             cache.remember("agent", State::Working, n).unwrap();
-            cache.remember("removed", State::Waiting, n).unwrap();
+            cache.remember("removed", State::Idle, n).unwrap();
         }
         cache.rename("agent", "final").unwrap();
         cache.clear("removed").unwrap();

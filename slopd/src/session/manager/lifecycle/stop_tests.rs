@@ -318,3 +318,60 @@ async fn cancelled_stop_keeps_cleanup_and_identity_boundary_until_completion() {
     assert!(!manager.temp.read().await.contains_key("temporary-project"));
     manager.stop("temporary").await.unwrap();
 }
+
+#[tokio::test]
+async fn restart_rejects_runtime_only_viewers_and_workers_without_stopping_them() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+    for worker in [false, true] {
+        let session = if worker {
+            temporary_worker_task_session(&manager).await
+        } else {
+            SessionCfg {
+                name: "viewer".into(),
+                ..Default::default()
+            }
+        };
+        let name = session.name.clone();
+        let task = session.task_id.clone();
+        let mut row = Live::new(session, TitleCapture::default());
+        row.ephemeral = true;
+        row.host = !worker;
+        row.state = State::Working;
+        manager.live.write().await.insert(name.clone(), row);
+        manager
+            .tmux
+            .spawn(
+                &name,
+                "/tmp",
+                80,
+                24,
+                &["sleep".into(), "60".into()],
+                !worker,
+            )
+            .await
+            .unwrap();
+        assert!(
+            manager
+                .restart(&name)
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("cannot be restarted")
+        );
+        assert!(manager.tmux.exists(&name).await);
+        assert_eq!(manager.live.read().await[&name].state, State::Working);
+        if worker {
+            assert_eq!(
+                manager
+                    .tasks
+                    .task_for_async("host", &task)
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .status,
+                crate::tasks::Status::Queued
+            );
+        }
+    }
+}

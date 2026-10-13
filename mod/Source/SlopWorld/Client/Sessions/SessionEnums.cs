@@ -2,7 +2,7 @@ namespace SlopWorld
 {
     // Down is "the process is not running". The colonist is put on the floor rather than killed,
     // the same process being able to get it back up.
-    public enum AgentState { Down, Working, Waiting, Idle }
+    public enum AgentState { Down, Working, Idle }
 
     public enum LibraryItemKind { Prompt, Shell, Breadcrumb, FileAction }
 

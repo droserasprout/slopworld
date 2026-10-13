@@ -25,7 +25,9 @@ Local socket-queue acceptance
 is not daemon acknowledgement. Old callback batches cannot spill into a reconnected
 transport.
 
-HTTP writes and pushed snapshots can race. `Client/Daemon/SnapshotRequest.cs` owns
+Catalog pushes invalidate Projects and Library and trigger authoritative HTTP reads;
+their queued payloads never overwrite settings read after an edit. HTTP writes and
+pushed session snapshots can race. `Client/Daemon/SnapshotRequest.cs` owns
 revision checks and waiter settlement for catalog and session refreshes; each service
 owns snapshot publication. The coordinator supplies snapshot and task callback error
 reporting; these owners do not log through the game. Task polling receives its

@@ -1075,3 +1075,48 @@ fn diagnostic_config_binds_include_sidecar_files_without_exposing_catalogs() {
         [sidecar_config.to_string_lossy()]
     );
 }
+
+#[test]
+fn preset_aliases_cannot_expose_private_originals() {
+    let root = std::env::temp_dir().join(format!("slopd-regression-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&root).unwrap();
+    let private = root.join("private");
+    let alias = root.join("alias");
+    let project = root.join("project");
+    std::fs::create_dir_all(private.join("child")).unwrap();
+    std::fs::create_dir(&project).unwrap();
+    std::os::unix::fs::symlink(&private, &alias).unwrap();
+    for kind in ["ro", "rw", "dev", "cache"] {
+        let mut preset = SandboxPreset {
+            name: "saved".into(),
+            private: vec![private.to_string_lossy().into()],
+            ..Default::default()
+        };
+        let sources = match kind {
+            "ro" => &mut preset.ro,
+            "rw" => &mut preset.rw,
+            "dev" => &mut preset.dev,
+            _ => &mut preset.cache,
+        };
+        sources.push(alias.to_string_lossy().into());
+        let session = SessionCfg {
+            name: "agent".into(),
+            project: "repo".into(),
+            cmd: Some("true".into()),
+            sandbox: vec!["saved".into()],
+            sandbox_snapshots: vec![preset],
+            ..Default::default()
+        };
+        let project = ProjectCfg {
+            name: "repo".into(),
+            dir: project.to_string_lossy().into(),
+            ..Default::default()
+        };
+        let error = build_argv(&Config::default(), &session, &project).unwrap_err();
+        assert!(
+            error.to_string().contains("private preset state"),
+            "{kind}: {error}"
+        );
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}

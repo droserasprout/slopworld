@@ -194,8 +194,12 @@ async fn pump_frames(
                         send(tx, cap, &event).await?;
                     }
                 }
-                // The next capture restores the screen after a missed broadcast.
-                Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                // Catalog events have no periodic replacement. Reconnect for a complete
+                // authoritative snapshot instead of silently retaining stale control state.
+                Err(broadcast::error::RecvError::Lagged(_)) => {
+                    tx.lock().await.send(Message::Close(None)).await?;
+                    return Ok(());
+                },
                 Err(broadcast::error::RecvError::Closed) => return Ok(()),
             },
             () = pending.ready() => pending.flush(tx, cap).await?,

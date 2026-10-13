@@ -23,7 +23,8 @@ wire messages directly; storage-only recovery fields never enter worktree replie
 Session reader, runtime, launch, and worker groups are nested messages; reader launch
 metadata is nested in `RunReq.reader`. Live screens may coalesce while replies/control
 events retain required ordering. Pending history captures must not block panel-switch
-or input command intake.
+or input command intake. Broadcast lag closes the socket so reconnect restores
+authoritative catalogs as well as terminal state.
 
 Public endpoint contracts belong to [the API](../docs/src/reference/api.md), client
 identity/handoffs to [the client](mod-client.md), terminal cells to

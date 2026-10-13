@@ -203,7 +203,7 @@ namespace SlopWorld
         {
             Text.Font = GameFont.Tiny;
             GUI.color = UiTheme.Faint;
-            UiText.RowLabel(new Rect(CellX, body.y + Pad,
+            UiText.RowLabel(new Rect(body.x + CellX, body.y + Pad,
                 body.width - CellX * 2f, RowH * 2f), text);
             GUI.color = Color.white;
             Text.Font = GameFont.Small;

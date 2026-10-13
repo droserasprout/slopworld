@@ -121,7 +121,8 @@ impl Manager {
             || meta.title != previous.meta.title;
         // History can grow or clear without changing the viewport. Publish its
         // extent and advance the sequence so scroll caches cannot reuse old rows.
-        let screen_changed = content_changed
+        let screen_changed = previous.dimensions_changed
+            || content_changed
             || cursor_changed
             || metadata_changed
             || frame.history != previous.history;

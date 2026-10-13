@@ -70,13 +70,7 @@ namespace SlopWorld
                         ? prev._sourceHeard[source]
                         : now - (unixMs > fetched ? (unixMs - fetched) / 1000f : 0f);
                 }
-                else
-                {
-                    // Older daemons lack provider timestamps. Keep failed rows' observed ages.
-                    bool stale = j.FailedSources.Contains(source) ||
-                        j.Rows.Any(row => row.Provider == source && row.Stale);
-                    value._sourceHeard[source] = stale && retained ? prev._sourceHeard[source] : now;
-                }
+
             }
             return value;
         }

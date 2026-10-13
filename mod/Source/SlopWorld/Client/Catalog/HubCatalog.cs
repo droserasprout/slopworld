@@ -44,10 +44,11 @@ namespace SlopWorld
             _templates = new SnapshotRequest(reportCallbackError);
         }
 
-        // Receive pushed updates through the socket.
-        // Also provide HTTP requests for windows opened while the socket is disconnected.
-        public void ApplyProjects(Wire.ProjectsReply ev) => _projects.Apply(ev, SetProjects);
-        public void ApplyLibrary(Wire.LibraryReply ev) => _library.Apply(ev, SetLibrary);
+        // Socket delivery order cannot establish snapshot age relative to HTTP replies.
+        // Treat pushes as invalidations and read after observing them. This also keeps
+        // a queued old push from publishing stale settings after a successful edit.
+        public void ApplyProjects(Wire.ProjectsReply ev) => RefreshProjects();
+        public void ApplyLibrary(Wire.LibraryReply ev) => RefreshLibrary();
 
         void SetProjects(Wire.ProjectsReply j) =>
             Projects = j.Projects.Select(ProjectInfo.FromWire).ToList();

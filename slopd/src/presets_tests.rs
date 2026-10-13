@@ -223,7 +223,7 @@ fn assert_builtin_cache_presets(table: &Table) {
         table.sandbox("ccache").unwrap().cache,
         vec!["~/.cache/ccache"]
     );
-    assert_eq!(table.sandbox("ccache").unwrap().rw, vec!["~/.ccache"]);
+    assert!(table.sandbox("ccache").unwrap().rw.is_empty());
     assert!(table.sandbox("rust-cache").unwrap().setenv.is_empty());
     assert_eq!(
         table.sandbox("rust-sccache").unwrap().cache,

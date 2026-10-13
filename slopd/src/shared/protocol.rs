@@ -106,7 +106,6 @@ pub(crate) mod enums {
     pub(crate) mod agent_state {
         pub(crate) const DOWN: &str = "down";
         pub(crate) const WORKING: &str = "working";
-        pub(crate) const WAITING: &str = "waiting";
         pub(crate) const IDLE: &str = "idle";
     }
     pub(crate) mod network_mode {

@@ -38,10 +38,8 @@ namespace SlopWorld
         // Treat a game beyond this tick count as a loaded colony.
         const int FreshGameTicks = 2000;
 
-        enum Phase { Waiting, Populate, Core, Fume, Seed, Bloom, Done }
-
         // Save the current scene phase.
-        Phase _phase = Phase.Waiting;
+        IntroPhase _phase = IntroPhase.Waiting;
 
         Map _map;
         List<PawnKindDef> _animalKinds;
@@ -52,7 +50,7 @@ namespace SlopWorld
         bool _armed;
         float _at;
 
-        // Keep this state only in memory so loading a save restores the UI.
+        // Restore scene holds from the saved phase before Eco can pause ticking.
         public static bool UiHidden { get; private set; }
 
         // Hold session reconciliation until the scene permits agent arrivals.
@@ -75,10 +73,10 @@ namespace SlopWorld
         {
             switch (_phase)
             {
-                case Phase.Waiting: TryBegin(); break;
-                case Phase.Fume: WaitOnFumes(); break;
-                case Phase.Seed: SeedPlague(); break;
-                case Phase.Bloom: WaitOnBloom(); break;
+                case IntroPhase.Waiting: TryBegin(); break;
+                case IntroPhase.Fume: WaitOnFumes(); break;
+                case IntroPhase.Seed: SeedPlague(); break;
+                case IntroPhase.Bloom: WaitOnBloom(); break;
             }
         }
 
@@ -87,14 +85,14 @@ namespace SlopWorld
         {
             switch (_phase)
             {
-                case Phase.Populate: StepPopulate(); break;
-                case Phase.Core: DropCore(); break;
-                case Phase.Fume: Vent(); break;
+                case IntroPhase.Populate: StepPopulate(); break;
+                case IntroPhase.Core: DropCore(); break;
+                case IntroPhase.Fume: Vent(); break;
             }
         }
 
         // Reset the timer and flag for the new phase.
-        void Go(Phase next, float hold = 0f)
+        void Go(IntroPhase next, float hold = 0f)
         {
             _phase = next;
             _armed = false;
@@ -125,7 +123,7 @@ namespace SlopWorld
             _animalsLeft = Rand.Range(AnimalsMin, AnimalsMax);
             _humansLeft = Rand.Range(HumansMin, HumansMax);
 
-            Go(Phase.Populate);
+            Go(IntroPhase.Populate);
         }
 
         // Generate pawns without a faction as plague targets. They do not join the colonist bar.
@@ -160,7 +158,7 @@ namespace SlopWorld
                 }
             }
 
-            if (_animalsLeft <= 0 && _humansLeft <= 0) Go(Phase.Core);
+            if (_animalsLeft <= 0 && _humansLeft <= 0) Go(IntroPhase.Core);
         }
 
         static void Spawn(Map map, PawnKindDef kind)
@@ -202,7 +200,7 @@ namespace SlopWorld
                 Ground(map);
             }
 
-            Go(Phase.Fume, FumeSeconds);
+            Go(IntroPhase.Fume, FumeSeconds);
         }
 
         // The skyfaller has no graphicData, so it draws the core that it carries.
@@ -247,7 +245,7 @@ namespace SlopWorld
 
         void WaitOnFumes()
         {
-            if (!Held) Go(Phase.Seed);
+            if (!Held) Go(IntroPhase.Seed);
         }
 
         // Start the plague before permitting agent arrivals.
@@ -267,7 +265,7 @@ namespace SlopWorld
             if (Held) return;
 
             AgentsHeld = false; // the reconcile may drop the agents in now
-            Go(Phase.Bloom, BloomSeconds);
+            Go(IntroPhase.Bloom, BloomSeconds);
         }
 
         // Allow time to show arriving pods before restoring the UI.
@@ -279,7 +277,7 @@ namespace SlopWorld
 
         void Finish()
         {
-            _phase = Phase.Done;
+            _phase = IntroPhase.Done;
             _map = null;
             _animalKinds = null;
             UiHidden = false;
@@ -307,11 +305,16 @@ namespace SlopWorld
         public override void ExposeData()
         {
             base.ExposeData();
-            Scribe_Values.Look(ref _phase, "introPhase", Phase.Waiting);
+            Scribe_Values.Look(ref _phase, "introPhase", IntroPhase.Waiting);
             Scribe_Values.Look(ref _animalsLeft, "introAnimalsLeft", 0);
             Scribe_Values.Look(ref _humansLeft, "introHumansLeft", 0);
             // Preserve population setup so loading does not replace the already placed pet.
             Scribe_Values.Look(ref _populationArmed, "introPopulationArmed", false);
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                UiHidden = IntroSceneState.UiHidden(_phase);
+                AgentsHeld = IntroSceneState.AgentsHeld(_phase);
+            }
         }
     }
 }

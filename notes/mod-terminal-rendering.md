@@ -22,3 +22,6 @@ Input/link activation belongs to [terminal](mod-terminal.md), daemon widths and
 capture to [capture](daemon-terminal-capture.md), asset regeneration to
 [shared text](mod-ui-text.md), and profiling
 to [latency diagnostics](terminal-latency.md).
+
+Parsed wrapped-link decoration contributes to texture row damage, including
+unchanged source rows and edits retained across a repeated frame.

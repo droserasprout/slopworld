@@ -8,8 +8,7 @@ activity persistence. `views.rs` owns client projection and publication;
 Activity and rendering use different content hashes. Meaningful output, application
 mouse/drag mode, alternate-screen state, and title changes update activity; cursor
 position, shape, and blink alone do not. Terminal wording does not determine state.
-Waiting survives only for wire/recovery compatibility and falls back to activity
-classification.
+The session states are Down, Working, and Idle.
 
 Last activity time and state-transition time have separate meaning: activity can
 change without a state transition. Persisted ages use epoch time while runtime decay

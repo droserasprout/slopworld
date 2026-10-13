@@ -70,14 +70,12 @@ use crate::tmux::Tmux;
 pub enum State {
     Down,
     Working,
-    Waiting,
     Idle,
 }
 
 crate::wire_enum!(State, {
     State::Down => crate::shared::protocol::enums::agent_state::DOWN,
     State::Working => crate::shared::protocol::enums::agent_state::WORKING,
-    State::Waiting => crate::shared::protocol::enums::agent_state::WAITING,
     State::Idle => crate::shared::protocol::enums::agent_state::IDLE,
 });
 

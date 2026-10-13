@@ -17,7 +17,10 @@ sources and never become container environment paths. Workspace paths match on
 host/container. Container mount/security policy belongs to
 [slopcar](../slopcar/README.md), and setup/lifecycle to
 [macOS](../docs/src/installation/macos.md) and [sidecar](../docs/src/installation/sidecar.md).
-Container replacement ends tmux processes while persistent private state remains;
+Linux launch credentials match the invoking host UID/GID; Docker Desktop uses
+1000:1000. Persistent directories retain mode 0700 and tmpfs ownership matches
+the selected credentials. Container replacement ends tmux processes while
+persistent private state remains;
 this differs from daemon-only redeployment.
 
 Sidecar capabilities disable daemon clipboard, desktop opening, audio playback, and

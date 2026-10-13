@@ -73,7 +73,7 @@ impl Manager {
         let worker_session = probe
             .worker
             .as_ref()
-            .map(|metadata| recovered_worker_cfg(cfg, &probe.name, metadata));
+            .and_then(|metadata| recovered_worker_cfg(cfg, &probe.name, metadata));
         let host_project = probe
             .tmux_host
             .as_ref()
@@ -122,32 +122,39 @@ impl Manager {
             .map(|probe| Self::decide_orphan(cfg, probe, &self.activity_cache));
 
         let mut adopted = false;
-        for mut decision in decisions {
-            if let Some(metadata) = &decision.probe.worker
-                && let Some(saved) = cfg.session(&decision.probe.name)
-                && (!saved.worker || metadata.state_id.as_deref() != Some(saved.state_id.as_str()))
-            {
+        for decision in decisions {
+            let invalid_worker =
+                decision.probe.worker.is_some() && decision.worker_session.is_none();
+            let conflict = cfg.session(&decision.probe.name).is_some_and(|saved| {
+                decision.probe.host
+                    || decision.probe.worker.as_ref().is_some_and(|metadata| {
+                        !saved.worker
+                            || metadata.state_id.as_deref() != Some(saved.state_id.as_str())
+                    })
+            });
+            if conflict || invalid_worker {
                 // Name-based authorization resolves through saved config. Never attach a
                 // surviving process or retain its credentials under a different identity.
+                let _terminal = self
+                    .terminal_boundary(&decision.probe.name)
+                    .write_owned()
+                    .await;
                 self.invalidate_session(&decision.probe.name).await;
                 if let Err(error) = self.tmux.kill(&decision.probe.name).await {
+                    if decision.probe.host {
+                        // Failed retirement must retain the actual host identity. Otherwise
+                        // the configured placeholder would permit a new grant to this shell.
+                        self.live.write().await.insert(
+                            decision.probe.name.clone(),
+                            Self::new_adopted_live(cfg, &decision),
+                        );
+                    }
                     tracing::warn!(
-                        "cannot stop conflicting worker {}: {error:#}",
+                        "cannot stop conflicting pane {}: {error:#}",
                         decision.probe.name
                     );
                 }
                 continue;
-            }
-            if let Some(session) = &mut decision.worker_session
-                && session.state_id.is_empty()
-            {
-                match self.allocate_agent_identity().await {
-                    Ok(id) => session.state_id = id,
-                    Err(error) => {
-                        tracing::warn!("cannot recover worker identity: {error:#}");
-                        continue;
-                    }
-                }
             }
             adopted |= self.commit_adoption(cfg, decision).await;
         }
@@ -221,11 +228,7 @@ impl Manager {
         // Viewer metadata restores its label, source, and pin state.
         if let Some(reader) = &decision.probe.reader {
             session.label = Some(reader.label.clone());
-            session.reader_label = if reader.original_label.is_empty() {
-                reader.label.clone()
-            } else {
-                reader.original_label.clone()
-            };
+            session.reader_label = reader.original_label.clone();
             session.project = reader.project.clone();
             session.worktree = reader.worktree.clone();
             session.intent = reader.intent.clone();
@@ -352,30 +355,29 @@ pub(in crate::session::manager) fn recovered_worker_cfg(
     cfg: &Config,
     name: &str,
     metadata: &crate::tmux::WorkerMetadata,
-) -> SessionCfg {
+) -> Option<SessionCfg> {
+    let state_id = metadata
+        .state_id
+        .as_ref()
+        .filter(|id| crate::config::validate_state_id(id).is_ok())?;
     let mut session = cfg
         .session(name)
         .filter(|saved| metadata.state_id.as_deref() == Some(saved.state_id.as_str()))
         .cloned()
-        .or_else(|| metadata.session.as_deref().cloned())
-        .unwrap_or_default();
+        .or_else(|| metadata.session.as_deref().cloned())?;
     session.name = name.to_string();
     if let Some(project) = &metadata.project {
         session.project = project.clone();
     }
     session.worktree = metadata.worktree.clone().unwrap_or_default();
-    session.state_id = metadata
-        .state_id
-        .clone()
-        .filter(|state_id| crate::config::validate_state_id(state_id).is_ok())
-        .unwrap_or_default();
+    session.state_id = state_id.clone();
     session.worker = true;
     session.parent = metadata.parent.clone();
     session.task_id = metadata.task_id.clone();
     session.autostart = false;
     session.auto_resume = false;
     session.worker_token = None;
-    session
+    Some(session)
 }
 
 #[cfg(test)]

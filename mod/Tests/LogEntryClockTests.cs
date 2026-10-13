@@ -48,7 +48,7 @@ namespace Verse
         public static int Stops;
         public static void ForceStop() { Stops++; mode = LoadSaveMode.Inactive; }
     }
-    public static class Scribe_Values
+    public static partial class Scribe_Values
     {
         public static long SavedTicks;
         public static void Look(ref long value, string key, long defaultValue)

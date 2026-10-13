@@ -54,7 +54,7 @@ namespace Verse
         }
         public void WholeMapChanged(ulong flags) { DirtyFlags |= flags; }
     }
-    public class Map
+    public partial class Map
     {
         public bool Disposed;
         public MapDrawer mapDrawer;

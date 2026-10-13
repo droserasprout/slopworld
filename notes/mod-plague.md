@@ -4,6 +4,7 @@
 regrowth and fire-containment integration. [Worksite](mod-worksite.md) owns
 construction completion, and [simulation](mod-sim.md) owns departure behavior.
 
+Loading preserves an empty active field; only explicit Arm/Bloom calls seed cells.
 The field retains earliest arrival per cell; existing arrival times must never
 increase. Arrival age produces a rising dose, with the saved seed and stable cell
 identity determining None, Weak, or Full bands. Frequent lookups must not rescan

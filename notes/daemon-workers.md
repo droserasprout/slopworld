@@ -27,6 +27,8 @@ Commands and operational behavior belong to [Using slopctl](../docs/src/referenc
 Recovery rejects a surviving worker whose saved name now belongs to a different
 identity and revokes its grants before adoption. Durable workers recover their own
 saved configuration; one-shot workers retain a credential-free configuration snapshot
-in tmux metadata. Missing older snapshots do not justify inheriting parent settings.
-Stop, forget, and restart retain the operation boundary through cleanup even after
-the requesting caller disconnects.
+in tmux metadata. Missing configuration snapshots or invalid identities reject
+adoption and retire the pane.
+Restart requires saved launch configuration and rejects runtime-only viewers and
+one-shot workers before stopping them. Stop, forget, and restart retain the operation
+boundary through cleanup even after the requesting caller disconnects.

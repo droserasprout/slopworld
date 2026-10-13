@@ -16,7 +16,7 @@ pub(super) fn classification_deadline(live: &Live, now: Instant) -> Option<Insta
     if live.seq != live.retick_seq {
         return Some(now);
     }
-    matches!(live.state, State::Working | State::Waiting).then(|| {
+    matches!(live.state, State::Working).then(|| {
         live.activity_at
             .map_or(now, |at| at + Duration::from_millis(IDLE_MS))
     })

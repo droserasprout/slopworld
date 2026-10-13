@@ -116,17 +116,22 @@ namespace SlopWorld.Tests
         public static void SocketSnapshotSupersedesPendingGet()
         {
             for (int catalog = 0; catalog < 2; catalog++)
-            {
-                using var fixture = new Fixture();
-                fixture.Refresh(catalog);
-                var pending = fixture.Requests[0];
-                if (catalog == 0) fixture.Hub.ApplyProjects(ProtobufFixtures.Read<Wire.ProjectsReply>(Snapshot("socket", catalog)));
-                else fixture.Hub.ApplyLibrary(ProtobufFixtures.Read<Wire.LibraryReply>(Snapshot("socket", catalog)));
-                pending.Ok(Snapshot("stale", catalog));
-                pending.Fail("stale");
-                AssertEx.Equal("socket", fixture.Name(catalog), "socket snapshot wins");
-                AssertEx.Equal(0, fixture.Errors, "superseded GET error ignored");
-            }
+                foreach (bool getFirst in new[] { false, true })
+                {
+                    using var fixture = new Fixture();
+                    fixture.Refresh(catalog);
+                    fixture.Requests[0].Ok(Snapshot("initial", catalog));
+                    fixture.Refresh(catalog);
+                    var pending = fixture.Requests[1];
+                    if (getFirst) pending.Ok(Snapshot("new", catalog));
+                    if (catalog == 0) fixture.Hub.ApplyProjects(ProtobufFixtures.Read<Wire.ProjectsReply>(Snapshot("old", catalog)));
+                    else fixture.Hub.ApplyLibrary(ProtobufFixtures.Read<Wire.LibraryReply>(Snapshot("old", catalog)));
+                    if (!getFirst) pending.Ok(Snapshot("new", catalog));
+                    AssertEx.Equal(getFirst ? "new" : "initial", fixture.Name(catalog), "old push never publishes");
+                    fixture.Requests[2].Ok(Snapshot("new", catalog));
+                    AssertEx.Equal("new", fixture.Name(catalog), "read after push restores authoritative catalog");
+                    AssertEx.Equal(0, fixture.Errors, "no stale failures");
+                }
         }
 
         public static void WritesInvalidateReadsAndCompleteDespiteSupersededReload()

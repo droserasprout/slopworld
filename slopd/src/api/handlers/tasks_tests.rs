@@ -467,3 +467,89 @@ async fn mailbox_task(
     )
     .await
 }
+
+#[tokio::test]
+async fn cancellation_during_allocation_rolls_back_checkout_and_registration() {
+    let root = std::env::temp_dir().join(format!("slopd-regression-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&root).unwrap();
+    let main = root.join("repo");
+    std::fs::create_dir(&main).unwrap();
+    for args in [
+        vec!["init", "-q"],
+        vec![
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "initial",
+        ],
+    ] {
+        assert!(
+            std::process::Command::new("git")
+                .arg("-C")
+                .arg(&main)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    let project = crate::config::ProjectCfg {
+        id: crate::storage_id::draft_identity(),
+        name: "repo".into(),
+        dir: main.to_string_lossy().into(),
+        ..Default::default()
+    };
+    let checkout = crate::worktrees::project_root(&project).join("canceled");
+    let manager = crate::session::test_manager(crate::config::Config {
+        projects: vec![project],
+        ..Default::default()
+    });
+    let (release, wait) = tokio::sync::oneshot::channel::<()>();
+    let boundary = manager.session_operation(async {
+        wait.await.unwrap();
+    });
+    tokio::pin!(boundary);
+    assert!(futures::poll!(boundary.as_mut()).is_pending());
+    let mut events = manager.events.subscribe();
+    let allocation = NewWorktree::allocate(
+        manager.clone(),
+        crate::session::WorktreeRequest {
+            project: "repo".into(),
+            name: "canceled".into(),
+            ..Default::default()
+        },
+    );
+    let mut allocation = Box::pin(allocation);
+    assert!(futures::poll!(allocation.as_mut()).is_pending());
+    // Drop the handler while allocation is blocked by the session boundary.
+    drop(allocation);
+    release.send(()).unwrap();
+    boundary.await;
+    tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        // Creation publishes a project snapshot before dropping its abandoned result.
+        loop {
+            if matches!(
+                events.recv().await.unwrap().event(),
+                crate::session::Event::Projects { .. }
+            ) {
+                break;
+            }
+        }
+        while !manager.worktree_records().worktrees.is_empty() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("abandoned allocation must finish rollback");
+    assert!(!checkout.exists());
+    let listed = crate::worktrees::git(&main, &["worktree", "list", "--porcelain"])
+        .await
+        .unwrap();
+    assert!(!listed.contains(checkout.to_str().unwrap()));
+    std::fs::remove_dir_all(root).unwrap();
+}

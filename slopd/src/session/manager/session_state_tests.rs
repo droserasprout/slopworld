@@ -181,8 +181,8 @@ async fn classification_deadlines_cover_decay_and_inactive_sessions() {
     let live = sessions.get_mut("agent").unwrap();
     let now = Instant::now();
     assert_eq!(classification_deadline(live, now), None);
-    for state in [State::Working, State::Waiting] {
-        live.set_state(state);
+    {
+        live.set_state(State::Working);
         live.activity_at = Some(now);
         assert_eq!(
             classification_deadline(live, now),
@@ -199,7 +199,7 @@ async fn classification_deadlines_cover_decay_and_inactive_sessions() {
 }
 
 #[tokio::test]
-async fn waiting_state_decays_without_new_output() {
+async fn working_state_decays_without_new_output() {
     let (manager, _) = quiet_session().await;
     manager
         .live
@@ -207,7 +207,7 @@ async fn waiting_state_decays_without_new_output() {
         .await
         .get_mut("agent")
         .unwrap()
-        .set_state(State::Waiting);
+        .set_state(State::Working);
     manager.retick().await;
     assert_eq!(manager.live.read().await["agent"].state, State::Idle);
 }

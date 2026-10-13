@@ -18,6 +18,13 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Terminal: Fixed terminal scrollback corruption when history reaches its limit.
 - Workers: Fixed worker recovery after daemon restarts and cleanup after cancelled stop and restart requests.
 
+- Fixed session recovery, worker cancellation cleanup, and unsafe sandbox path aliases.
+- Fixed sidecar startup for Linux users with non-default user IDs.
+- Fixed stale catalog updates, quiet terminal resizing, and wrapped-link repainting.
+- Fixed unfinished intros stalling under Eco and cleared plague fields returning after reload.
+- Fixed sidebar click handling and right-side Tasks empty messages.
+- Removed obsolete compatibility states, metadata aliases, and historical-format fallbacks.
+
 ## [0.0.2] - 2026-10-12
 
 ### Added

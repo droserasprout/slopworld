@@ -32,7 +32,10 @@ the [macOS guide](../docs/src/installation/macos.md).
 
 ## Outer isolation
 
-The container runs as UID 1000 with no capabilities and a read-only root filesystem.
+On Linux the container runs with the invoking user’s numeric UID/GID so private
+bind-mounted state remains accessible. Docker Desktop uses UID/GID 1000. Tmpfs
+ownership follows the container credentials. The container has no capabilities
+and a read-only root filesystem.
 One outer set of memory, CPU, and PID limits applies to the container.
 Nested user, mount, and network namespaces require three deliberate exceptions:
 

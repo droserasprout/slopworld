@@ -163,8 +163,7 @@ namespace SlopWorld
             return y;
         }
 
-        static bool IsActive(AgentState state) => state == AgentState.Working
-            || state == AgentState.Waiting;
+        static bool IsActive(AgentState state) => state == AgentState.Working;
 
         static void AgentCounts(string project, out int active, out int total)
         {

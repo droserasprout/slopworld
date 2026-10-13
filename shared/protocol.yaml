@@ -453,7 +453,7 @@ websocket:
     - audio
 
 enums:
-  agent_state: [down, working, waiting, idle]
+  agent_state: [down, working, idle]
   network_mode: [none, private, host]
   mount_mode: [ro, rw, cache]
   dns_mode: [resolved, servers]

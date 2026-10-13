@@ -108,7 +108,6 @@ namespace SlopWorld
         {
             public const string Down = "down";
             public const string Working = "working";
-            public const string Waiting = "waiting";
             public const string Idle = "idle";
         }
 

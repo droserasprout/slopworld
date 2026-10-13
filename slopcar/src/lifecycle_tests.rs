@@ -6,6 +6,11 @@
 use super::*;
 use std::{fs, path::PathBuf};
 
+// Fake Docker tests use an explicit non-root container identity, including in root CI.
+fn run_with(command: Command, settings: &Settings, docker: &Docker) -> Result<()> {
+    super::run_with(command, settings, docker, || Ok((1000, 1000)))
+}
+
 struct Fixture {
     root: tempfile::TempDir,
     settings: Settings,
@@ -83,9 +88,9 @@ fn creation_and_doctor_share_embedded_security_policy() {
     )
     .unwrap();
     let calls = fixture.calls();
+    assert!(calls.contains("--user\n1000:1000"));
     for flag in [
         "--cap-drop\nALL",
-        "--user\n1000:1000",
         "--read-only",
         "systempaths=unconfined",
         "/dev/net/tun",
@@ -218,4 +223,57 @@ fn build_uses_explicit_checkout_and_preserves_source_paths_with_spaces() {
         )
         .is_err()
     );
+}
+
+#[test]
+fn non_default_linux_identity_owns_private_tmpfs_mounts() {
+    let (_profile, flags) = security((1001, 1002)).unwrap();
+    let values: Vec<_> = flags.iter().map(|value| value.to_string_lossy()).collect();
+    for path in ["/tmp:", "/run:", "/home/slop/.cache:"] {
+        let mount = values.iter().find(|value| value.starts_with(path)).unwrap();
+        assert!(mount.ends_with("uid=1001,gid=1002"));
+    }
+    assert!(values.iter().any(|value| value.contains("mode=0700")));
+}
+
+#[test]
+#[cfg(target_os = "linux")]
+fn fresh_linux_state_is_accessible_to_uid_1001() {
+    const CHILD: &str = "SLOPCAR_TEST_UID_1001";
+    if std::env::var_os(CHILD).is_none() {
+        let output = std::process::Command::new("unshare")
+            .args(["--user", "--map-user=1001", "--map-group=1001"])
+            .arg(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "lifecycle::tests::fresh_linux_state_is_accessible_to_uid_1001",
+                "--nocapture",
+            ])
+            .env(CHILD, "1")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return;
+    }
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    assert_eq!(container_identity().unwrap(), (1001, 1001));
+    let fixture = Fixture::new();
+    super::run_with(
+        Command::Start(fixture.start()),
+        &fixture.settings,
+        &fixture.docker,
+        container_identity,
+    )
+    .unwrap();
+    assert!(fixture.calls().contains("--user\n1001:1001"));
+    for path in [&fixture.settings.config, &fixture.settings.data] {
+        let metadata = fs::metadata(path).unwrap();
+        assert_eq!(metadata.uid(), 1001);
+        assert_eq!(metadata.permissions().mode() & 0o777, 0o700);
+        fs::write(path.join("writable"), "yes").unwrap();
+    }
 }

@@ -272,6 +272,11 @@ impl Manager {
     }
 
     async fn restart_inner(self: &Arc<Self>, name: &str) -> Result<()> {
+        // Runtime-only launches lose their configuration and resources when stopped.
+        let cfg = self.config().await;
+        if cfg.session(name).is_none() && !cfg.host_terminals.iter().any(|host| host.name == name) {
+            bail!("session {name} has no saved launch configuration and cannot be restarted");
+        }
         self.stop_inner(name).await?;
         self.start(name).await
     }

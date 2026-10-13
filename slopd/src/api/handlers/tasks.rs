@@ -22,6 +22,27 @@ struct NewWorktree {
 }
 
 impl NewWorktree {
+    async fn allocate(
+        manager: Mgr,
+        request: crate::session::WorktreeRequest,
+    ) -> anyhow::Result<(String, Self)> {
+        // Allocation already survives cancellation internally. Keep its result and
+        // rollback owner in the same owned task, so an abandoned join drops the guard.
+        tokio::spawn(async move {
+            let project = request.project.clone();
+            let created = Box::pin(manager.create_worktree(request)).await?;
+            Ok((
+                created.id.clone(),
+                Self {
+                    manager,
+                    project,
+                    id: Some(created.id),
+                },
+            ))
+        })
+        .await?
+    }
+
     async fn rollback(&mut self) {
         let Some(id) = self.id.take() else { return };
         if let Err(error) = self.manager.remove_worktree(self.project.clone(), id).await {
@@ -287,20 +308,18 @@ async fn worker_worktree(
             .worktree_base(from, project, &q.base)
             .await
             .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-        let created = Box::pin(m.create_worktree(crate::session::WorktreeRequest {
-            project: project.to_string(),
-            name: q.worktree_name.clone(),
-            base,
-            path: String::new(),
-        }))
+        let (id, owned) = NewWorktree::allocate(
+            m.clone(),
+            crate::session::WorktreeRequest {
+                project: project.to_string(),
+                name: q.worktree_name.clone(),
+                base,
+                path: String::new(),
+            },
+        )
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-        let id = created.id;
-        owned_worktree = Some(NewWorktree {
-            manager: std::sync::Arc::clone(m),
-            project: project.to_string(),
-            id: Some(id.clone()),
-        });
+        owned_worktree = Some(owned);
         id
     } else {
         q.worktree.clone()

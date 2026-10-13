@@ -51,6 +51,12 @@ namespace SlopWorld
             misses = 0;
             var lines = screen?.Lines ?? Array.Empty<string>();
             int cols = screen?.Cols ?? 0;
+            // A replay may clear wire damage while parsed rows still hold pending edits.
+            // Retain those source rows before filling their null slots below.
+            var damage = new List<int>(screen?.ChangedRows ?? Array.Empty<int>());
+            if (screen?.Runs != null && screen.Runs.Length == lines.Length)
+                for (int i = 0; i < lines.Length; i++)
+                    if (screen.Runs[i] == null && !damage.Contains(i)) damage.Add(i);
 
             // First retain/parse only the ANSI rows. Link decoration is a separate pass because
             // a URL can connect rows that are otherwise unchanged. Null decorated rows also
@@ -128,6 +134,12 @@ namespace SlopWorld
                 }
                 parsed[i] = TerminalAutolinks.Decorate(baseRows[i], local?[i]);
             }
+            // Texture damage must include unchanged source rows whose wrapped links changed.
+            for (int i = 0; i < lines.Length; i++)
+                if (!SameSpans(screen.AutoLinks?[i], local?[i]) && !damage.Contains(i))
+                    damage.Add(i);
+            damage.Sort();
+            screen.ChangedRows = damage.ToArray();
             screen.Runs = parsed;
             screen.AutoLinks = local;
             screen.HasLinks = local != null;

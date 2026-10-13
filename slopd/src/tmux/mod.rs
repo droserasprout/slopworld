@@ -50,7 +50,6 @@ const EMOJI_MODIFIER_WIDTHS: &str = "U+1F3FB-U+1F3FF=0";
 pub struct ReaderMetadata {
     pub intent: String,
     pub label: String,
-    #[serde(default)]
     pub original_label: String,
     pub project: String,
     pub worktree: String,
@@ -420,10 +419,7 @@ impl Tmux {
                 .await
                 .and_then(|value| serde_json::from_str(&value).ok()),
             project: self.option(name, "@slopworld-worker-project").await,
-            worktree: match self.option(name, "@slopworld-worker-worktree").await {
-                Some(value) => Some(value),
-                None => self.option(name, "@slopworld-worker-workspace").await,
-            },
+            worktree: self.option(name, "@slopworld-worker-worktree").await,
             parent: self.option(name, WORKER_PARENT).await?,
             task_id: self.option(name, WORKER_TASK).await?,
             durable: self
@@ -511,7 +507,6 @@ impl Tmux {
             .to_string();
         let state = match state.as_str() {
             "working" => State::Working,
-            "waiting" => State::Waiting,
             "idle" => State::Idle,
             _ => return None,
         };
@@ -528,7 +523,6 @@ impl Tmux {
     pub async fn set_activity(&self, name: &str, state: State, since: u64) -> Result<()> {
         let state = match state {
             State::Working => "working",
-            State::Waiting => "waiting",
             State::Idle => "idle",
             State::Down => return self.clear_activity(name).await,
         };

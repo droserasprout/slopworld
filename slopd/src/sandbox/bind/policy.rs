@@ -161,3 +161,27 @@ pub(super) fn paths(
     }
     out
 }
+
+/// A later private overlay only hides originals at the literal private path.
+/// Reject aliases and descendants exposed at independent guest destinations.
+pub(super) fn validate_private_sources<'a>(
+    presets: &[&crate::presets::SandboxPreset],
+    sources: impl Iterator<Item = &'a String>,
+) -> anyhow::Result<()> {
+    let private: Vec<_> = presets
+        .iter()
+        .flat_map(|preset| &preset.private)
+        .map(|path| expand(path))
+        .filter(|path| !path.is_empty())
+        .collect();
+    for source in sources {
+        for root in &private {
+            if super::super::paths::overlaps(source, root)
+                && !Path::new(root).starts_with(Path::new(source))
+            {
+                anyhow::bail!("preset bind source {source} exposes private preset state {root}");
+            }
+        }
+    }
+    Ok(())
+}

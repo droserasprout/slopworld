@@ -29,6 +29,7 @@ namespace SlopWorld
             Grip();
             AddClick();
 
+            bool insideBody = Body.Contains(Event.current.mousePosition);
             BeginAgentScroll();
 
             string currentSession = SessionSelectable.Current;
@@ -45,7 +46,7 @@ namespace SlopWorld
             // This must precede vanilla: its portrait handler consumes right-clicks.
             // The scroll group also lets Menus use the content-local row geometry
             // directly, just like portrait and label hit testing.
-            Menus();
+            if (insideBody) Menus();
         }
 
         public static void DrawBack()

@@ -1006,3 +1006,49 @@ async fn panel_switch_and_unsubscribe_overtake_an_unfinished_history_capture() {
         .unwrap();
     server.abort();
 }
+
+#[tokio::test]
+async fn broadcast_lag_closes_socket_for_authoritative_catalog_recovery() {
+    let mut socket = socket_pair().await;
+    let (events, rx) = broadcast::channel(256);
+    let writer = socket.tx.lock().await;
+    let pump = spawn_frame_pump(rx, socket.tx.clone(), WsSubs::default(), Cap::Root);
+    events
+        .send(message(Event::Sessions { sessions: vec![] }))
+        .ok()
+        .unwrap();
+    // The event leaves the ring before its send waits for the held writer.
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while !events.is_empty() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .ok()
+    .unwrap();
+    events
+        .send(message(Event::Projects { projects: vec![] }))
+        .ok()
+        .unwrap();
+    for seq in 0..257 {
+        events
+            .send(message(Event::Screen {
+                screen: screen("unsubscribed", seq),
+            }))
+            .ok()
+            .unwrap();
+    }
+    drop(writer);
+    receive(&mut socket.client).await;
+    let next = tokio::time::timeout(Duration::from_secs(2), socket.client.next())
+        .await
+        .unwrap();
+    assert!(matches!(
+        next,
+        Some(Ok(tokio_tungstenite::tungstenite::Message::Close(_)))
+    ));
+    tokio::time::timeout(Duration::from_secs(2), pump)
+        .await
+        .unwrap()
+        .unwrap();
+}

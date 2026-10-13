@@ -5,7 +5,9 @@
 `session/manager/projects.rs` owns project edits and relocation.
 `session/manager/directories.rs` owns uncommitted directory creation.
 
-Worktree creation retains its shared session boundary and worktree mutation guard
+Worker allocation owns the newly created checkout and its rollback guard together,
+including cancellation before the allocation returns. Worktree creation retains
+its shared session boundary and worktree mutation guard
 in owned work through completion or rollback. Accepted projects already have durable
 IDs; worktree creation reads them without a configuration transaction. Configuration
 commits require the exclusive session boundary; shared worktree operations must not
@@ -41,8 +43,8 @@ each newly created link to the coordinator for rollback.
 Host inspection hardening belongs to [Git](daemon-git.md).
 
 Relocation persists intent before Git effects, retaining structured source and
-destination paths for interrupted recovery. Older pending records can retain only
-their error prose; both forms require manual inspection. Typed lifecycle phases keep
+destination paths for interrupted recovery. Pending relocation records require
+both paths and manual inspection. Typed lifecycle phases keep
 the same saved and client-facing names; structured relocation fields stay in storage.
 The coordinator owns the final project/reference and checkout publication
 or reverse movement. Failed reverse movement must leave relocation intent, never a

@@ -120,6 +120,10 @@ impl Record for Worktree {
                 && std::path::Path::new(&self.repository).is_absolute(),
             "worktree paths must be absolute"
         );
+        ensure!(
+            self.phase != WorktreePhase::Relocating || self.relocation.is_some(),
+            "relocating worktree requires structured relocation intent"
+        );
         if let Some(intent) = &self.relocation {
             ensure!(
                 self.phase == WorktreePhase::Relocating,

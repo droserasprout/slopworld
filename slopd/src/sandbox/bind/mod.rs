@@ -70,6 +70,7 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
     let cache_dirs = super::preset_cache::paths(presets)?;
     rw.extend(cache_dirs.iter().cloned());
     let dev = policy::paths(presets, |pr| &pr.dev);
+    policy::validate_private_sources(presets, ro.iter().chain(&rw).chain(&dev))?;
     let tmux = presets.iter().any(|pr| pr.tmux);
     // A worker can use a broad preset such as slopworld-debug.
     // Its task credential must remain its only daemon access.

@@ -14,6 +14,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/Sim/Plague/Plague.Persistence.cs" />
+    <Compile Include="../Source/SlopWorld/Sim/Colony/IntroSceneState.cs" />
     <Compile Include="../Source/SlopWorld/UI/CommandPalette/PaletteHistory.cs" />
     <Compile Include="../Source/SlopWorld/UI/CommandPalette/PaletteSearch.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/MainThreadCompletions.cs" />

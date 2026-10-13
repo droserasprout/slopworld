@@ -7,8 +7,9 @@ Presets select access, while [grants](agent-grants.md) independently select API 
 
 Protected paths and unresolved safety aliases fail closed. An invalid project root
 stops launch rather than silently changing the workspace. Private overlays must hide
-host originals from earlier binds, and the PID namespace's `/proc` is restored after
-all overlays. Invalid selected presets reject launch and settings preview.
+host originals from earlier binds. Preset ro/rw/device/cache sources are checked
+against effective private roots; independent aliases to originals reject launch.
+The PID namespace's `/proc` is restored after all overlays. Invalid selected presets reject launch and settings preview.
 Preset path fields must be absolute after expansion: validation runs in the daemon's
 working directory while Bubblewrap starts in the project's directory. Mount assembly
 also omits relative preset bind sources as a defensive check.

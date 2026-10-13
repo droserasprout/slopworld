@@ -147,6 +147,8 @@ async fn stopped_session_resize_clamps_dimensions_and_updates_the_mirror() {
         (0, 0, (TERMINAL_MIN_COLS, TERMINAL_MIN_ROWS)),
         (u16::MAX, u16::MAX, (TERMINAL_MAX_COLS, TERMINAL_MAX_ROWS)),
         (80, 24, (80, 24)),
+        (81, 24, (81, 24)),
+        (81, 25, (81, 25)),
     ] {
         manager.resize("target", cols, rows).await.unwrap();
         let live = manager.live.read().await;
@@ -577,4 +579,29 @@ async fn host_image_intent_rejects_stale_run_and_preserves_host_text() {
         .await
         .unwrap();
     assert!(matches!(rx.try_recv().unwrap(), Input::Paste { bytes } if bytes == text.as_bytes()));
+}
+
+#[tokio::test]
+async fn quiet_resize_publishes_width_and_height_without_new_output() {
+    let (manager, _) = queued_manager().await;
+    let emu = Arc::new(std::sync::Mutex::new(crate::emu::SessionEmu::new(80, 24)));
+    {
+        let mut live = manager.live.write().await;
+        let row = live.get_mut("target").unwrap();
+        row.state = State::Idle;
+        row.capture.emu = Some(emu.clone());
+    }
+    manager.render_and_broadcast("target", &emu).await;
+    let mut events = manager.events.subscribe();
+    let initial = manager.screen("target").await.unwrap();
+    for (cols, rows) in [(81, 24), (81, 25)] {
+        manager.resize("target", cols, rows).await.unwrap();
+        let screen = manager.screen("target").await.unwrap();
+        assert_eq!((screen.cols, screen.rows), (cols, rows));
+        assert!(screen.seq > initial.seq);
+        assert!(matches!(
+            events.try_recv().unwrap().event(),
+            Event::Screen { .. }
+        ));
+    }
 }

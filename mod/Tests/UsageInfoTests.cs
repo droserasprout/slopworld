@@ -20,26 +20,6 @@ namespace SlopWorld.Tests
             AssertEx.Equal(0f, repeated.AgeFor("quota", 80), "clock before the anchor never produces a negative age");
         }
 
-        public static void LegacySnapshotsRetainFailedProviderAgeAndRefreshHealthyProvider()
-        {
-            var snapshot = new Wire.UsageSnapshot
-            {
-                Ok = true,
-                Sources = { "a", "b" },
-                Rows = {
-                    new Wire.UsageRow { Key = "a", Provider = "a" },
-                    new Wire.UsageRow { Key = "b", Provider = "b" },
-                },
-            };
-            var previous = UsageInfo.FromWire(snapshot, 100, 1_000_000);
-            snapshot.Ok = false;
-            snapshot.FailedSources.Add("a");
-            var partial = UsageInfo.FromWire(snapshot, 140, 1_040_000, previous);
-            AssertEx.Equal(40f, partial.AgeFor("a", 140), "legacy failed provider retains its age");
-            AssertEx.Equal(0f, partial.AgeFor("b", 140), "legacy healthy provider gets a new anchor");
-            AssertEx.Equal(40f, partial.AgeFor("unknown", 140), "unknown provider uses aggregate age");
-        }
-
         public static void PartialFailureKeepsIndependentProviderCountdowns()
         {
             const ulong unixMs = 1_000_000;

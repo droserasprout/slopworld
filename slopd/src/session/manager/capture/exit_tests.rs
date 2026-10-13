@@ -490,6 +490,11 @@ async fn adoption_finalizes_a_pane_that_exited_without_a_reader() {
         )
         .await
         .unwrap();
+    manager
+        .tmux
+        .set_worker_config("worker", &session)
+        .await
+        .unwrap();
     manager.tmux.retain_exit("worker").await.unwrap();
     manager
         .tmux

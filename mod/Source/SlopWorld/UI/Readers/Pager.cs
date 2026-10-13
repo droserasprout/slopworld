@@ -316,7 +316,7 @@ namespace SlopWorld
                 });
         }
 
-        // The first successful probe establishes a baseline. Missing stamps support older daemons.
+        // The first successful probe establishes a baseline.
         internal void RefreshIfChanged(string stamp)
         {
             if (string.IsNullOrEmpty(stamp) || _sourceCommand == null || _opening ||

@@ -102,18 +102,14 @@ fn relocation_evidence_preserves_extensions_and_retires_with_the_intent() {
         error: "Existing prose-only recovery evidence".into(),
         ..Default::default()
     };
-    let legacy = row.document(0, None).unwrap();
-    let loaded = Worktree::decode(&legacy).unwrap();
-    loaded.validate().unwrap();
-    assert_eq!(loaded.error, row.error);
-    assert!(loaded.relocation.is_none());
+    assert!(row.validate().is_err());
 
     row.relocation = Some(RelocationIntent {
         source: row.path.clone(),
         destination: "/tmp/moved".into(),
     });
     row.validate().unwrap();
-    let mut raw = row.document(0, Some(&legacy)).unwrap();
+    let mut raw = row.document(0, None).unwrap();
     raw["relocation"]
         .as_table_mut()
         .unwrap()

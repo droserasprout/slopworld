@@ -45,6 +45,7 @@ struct FrameSnapshot {
     cols: u16,
     rows: u16,
     initial: bool,
+    dimensions_changed: bool,
 }
 
 impl FrameSnapshot {
@@ -52,6 +53,7 @@ impl FrameSnapshot {
         self.identity == live.cfg.state_id
             && self.run_id == live.run_id
             && self.seq == live.seq
+            && (self.cols, self.rows) == (live.cols, live.rows)
             && match (&self.emu, &live.capture.emu) {
                 (Some(captured), Some(current)) => Arc::ptr_eq(captured, current),
                 (None, None) => true,
@@ -93,6 +95,10 @@ impl FrameSnapshot {
             cols: l.cols,
             rows: l.rows,
             initial: l.screen.is_none(),
+            dimensions_changed: l
+                .screen
+                .as_ref()
+                .is_some_and(|s| (s.cols, s.rows) != (l.cols, l.rows)),
         }
     }
 }

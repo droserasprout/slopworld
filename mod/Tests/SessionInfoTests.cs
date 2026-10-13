@@ -211,8 +211,8 @@ namespace SlopWorld.Tests
 
         static void ParsesActiveStates()
         {
-            AssertEx.Equal(AgentState.Waiting, SessionInfo.ParseState("waiting"),
-                           "waiting state");
+            AssertEx.Equal(AgentState.Down, SessionInfo.ParseState("waiting"),
+                           "retired state is not recognized");
             AssertEx.Equal(AgentState.Idle, SessionInfo.ParseState("idle"), "idle state");
             AssertEx.True(SessionInfo.NowMs > 1_000_000_000_000L,
                           "current time is expressed as Unix milliseconds");
