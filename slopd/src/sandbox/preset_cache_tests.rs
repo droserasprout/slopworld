@@ -20,7 +20,7 @@ fn launch_prepares_planned_cache_after_catalog_replacement() {
         cache: vec![original.clone()],
         ..Default::default()
     };
-    validate_and_save(PresetDefinition::Sandbox(Box::new(preset.clone()))).unwrap();
+    validate_and_save(&PresetDefinition::Sandbox(Box::new(preset.clone()))).unwrap();
     assert!(crate::presets::reload());
     let cfg = Config::default();
     let session = SessionCfg {
@@ -40,7 +40,7 @@ fn launch_prepares_planned_cache_after_catalog_replacement() {
     let plan = crate::sandbox::build_plan(&cfg, &session, &project).unwrap();
     assert!(!Path::new(&original).exists());
     preset.cache = vec![replacement.clone()];
-    validate_and_save(PresetDefinition::Sandbox(Box::new(preset))).unwrap();
+    validate_and_save(&PresetDefinition::Sandbox(Box::new(preset))).unwrap();
     assert!(crate::presets::reload());
     let next = crate::sandbox::build_plan(&cfg, &session, &project).unwrap();
     assert_eq!(next.cache_dirs, vec![replacement.clone()]);

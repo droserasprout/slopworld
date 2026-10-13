@@ -41,19 +41,19 @@ pub(crate) async fn save(cfg: &Config, path: &Path) -> Result<()> {
     changes.extend(
         workspace::Store::load(&binding)
             .await?
-            .prepare(projects)?
+            .prepare(&projects)?
             .changes,
     );
     changes.extend(
         workspace::Store::load(&binding)
             .await?
-            .prepare(cfg.sessions.clone())?
+            .prepare(&cfg.sessions)?
             .changes,
     );
     changes.extend(
         workspace::Store::load(&binding)
             .await?
-            .prepare(cfg.host_terminals.clone())?
+            .prepare(&cfg.host_terminals)?
             .changes,
     );
 
@@ -65,7 +65,7 @@ pub(crate) async fn save(cfg: &Config, path: &Path) -> Result<()> {
 /// offline fixture seeding, before a manager or recovery journal can exist.
 pub(crate) fn seed<T: workspace::Record>(
     binding: &StorageBinding,
-    values: Vec<T>,
+    values: &[T],
 ) -> Result<workspace::Store<T>> {
     let mut store = workspace::Store::empty();
     let plan = store.prepare(values)?;

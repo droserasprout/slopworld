@@ -114,7 +114,7 @@ impl ActivityCache {
             Condvar::new(),
         ));
         let pending = shared.clone();
-        let writer = std::thread::spawn(move || write_pending(pending, path, save));
+        let writer = std::thread::spawn(move || write_pending(&pending, &path, save));
         Self {
             shared,
             writer: Some(writer),
@@ -240,11 +240,11 @@ impl Drop for ActivityCache {
 // Snapshot ownership leaves the lock before disk I/O. Completion tracks attempts separately
 // from durability, so a later failed write cannot invalidate an earlier successful flush.
 fn write_pending(
-    pending: Arc<(Mutex<Pending>, Condvar)>,
-    path: PathBuf,
+    pending: &(Mutex<Pending>, Condvar),
+    path: &Path,
     save: impl Fn(&Path, &[CacheEntry]) -> Result<()>,
 ) {
-    let (mutex, wake) = &*pending;
+    let (mutex, wake) = pending;
     loop {
         let mut state = mutex.lock().unwrap_or_else(|e| e.into_inner());
         while state.requested == state.attempted && !state.stopping {
@@ -257,7 +257,7 @@ fn write_pending(
         let request = state.requested;
         let entries = state.entries.clone();
         drop(state);
-        let error = save(&path, &entries).err().map(|error| error.to_string());
+        let error = save(path, &entries).err().map(|error| error.to_string());
         if let Some(error) = &error {
             tracing::warn!(target: "slopd::activity", %error, "could not persist activity cache");
         }

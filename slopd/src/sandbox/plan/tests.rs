@@ -86,7 +86,7 @@ fn restart_redaction_does_not_need_the_original_secret() {
         command: vec!["agent".into(), "--token=old-secret".into()],
         argv: Vec::new(),
     };
-    let safe = sanitize_view(view);
+    let safe = sanitize_view(&view);
     let text = serde_json::to_string(&safe).unwrap();
     assert!(!text.contains("old-secret"));
     assert!(text.contains(UNKNOWN_ARG));

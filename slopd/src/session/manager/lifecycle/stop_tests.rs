@@ -12,7 +12,7 @@ fn stopping_host_viewers_forgets_them_but_keeps_saved_shells() {
         live.insert("host".into(), row);
 
         let plan = manager
-            .detach_live_locked(&mut live, "host", DetachCause::Stop)
+            .detach_live_locked(&mut live, "host", &DetachCause::Stop)
             .unwrap();
 
         assert_eq!(live.contains_key("host"), persistent);
@@ -36,7 +36,7 @@ fn config_removal_does_not_delete_durable_private_state() {
     );
 
     let plan = manager
-        .detach_live_locked(&mut live, "agent", DetachCause::ConfigRemoval)
+        .detach_live_locked(&mut live, "agent", &DetachCause::ConfigRemoval)
         .expect("durable live row should produce a cleanup plan");
 
     assert!(!plan.remove_ephemeral_state);
@@ -57,7 +57,7 @@ fn config_removal_deletes_ephemeral_private_state() {
     live.insert("agent".into(), ephemeral);
 
     let plan = manager
-        .detach_live_locked(&mut live, "agent", DetachCause::ConfigRemoval)
+        .detach_live_locked(&mut live, "agent", &DetachCause::ConfigRemoval)
         .expect("ephemeral live row should produce a cleanup plan");
 
     assert!(plan.remove_ephemeral_state);
@@ -97,7 +97,7 @@ async fn stale_reader_exit_cannot_detach_a_replacement_and_current_exit_does_not
             .detach_live_locked(
                 &mut live,
                 "agent",
-                DetachCause::ProcessExit {
+                &DetachCause::ProcessExit {
                     reader_token: Arc::new(())
                 }
             )
@@ -113,7 +113,7 @@ async fn stale_reader_exit_cannot_detach_a_replacement_and_current_exit_does_not
         .detach_live_locked(
             &mut live,
             "agent",
-            DetachCause::ProcessExit {
+            &DetachCause::ProcessExit {
                 reader_token: token,
             },
         )

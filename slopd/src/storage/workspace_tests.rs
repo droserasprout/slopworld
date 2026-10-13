@@ -11,7 +11,7 @@ fn projects_preserve_order_extensions_and_clear_known_fields() {
         worktree_root: "/tmp/trees".into(),
         ..Default::default()
     };
-    let plan = store.prepare(vec![project.clone()]).unwrap();
+    let plan = store.prepare(std::slice::from_ref(&project)).unwrap();
     store.publish(plan);
     store
         .entries
@@ -24,7 +24,7 @@ fn projects_preserve_order_extensions_and_clear_known_fields() {
     let mut edited = project.clone();
     edited.name = "renamed".into();
     edited.worktree_root.clear();
-    let plan = store.prepare(vec![edited]).unwrap();
+    let plan = store.prepare(&[edited]).unwrap();
     let Mutation::Replace(text) = &plan.changes[0].mutation else {
         panic!("expected replacement")
     };
@@ -33,9 +33,9 @@ fn projects_preserve_order_extensions_and_clear_known_fields() {
     assert!(raw.get("worktree_root").is_none());
     assert_eq!(raw["storage_order"].as_integer(), Some(0));
     store.publish(plan);
-    let plan = store.prepare(vec![]).unwrap();
+    let plan = store.prepare(&[]).unwrap();
     store.publish(plan);
-    let plan = store.prepare(vec![project]).unwrap();
+    let plan = store.prepare(&[project]).unwrap();
     assert!(matches!(plan.changes[0].mutation, Mutation::Create(_)));
 }
 
@@ -51,12 +51,12 @@ fn worktree_validation_rejects_synthetic_main_and_duplicate_checkout_paths() {
         phase: crate::worktrees::WorktreePhase::Ready,
         ..Default::default()
     };
-    assert!(store.prepare(vec![row.clone()]).is_err());
+    assert!(store.prepare(std::slice::from_ref(&row)).is_err());
     row.id = crate::storage_id::draft_identity();
-    store.prepare(vec![row.clone()]).unwrap();
+    store.prepare(std::slice::from_ref(&row)).unwrap();
     let mut other = row.clone();
     other.id = "2222222222222222".into();
-    assert!(store.prepare(vec![row, other]).is_err());
+    assert!(store.prepare(&[row, other]).is_err());
 }
 
 #[test]
@@ -161,9 +161,7 @@ async fn discovery_preserves_array_order_and_rejects_bad_identity_order_and_alia
             ..Default::default()
         },
     ];
-    let plan = Store::<ProjectCfg>::empty()
-        .prepare(values.clone())
-        .unwrap();
+    let plan = Store::<ProjectCfg>::empty().prepare(&values).unwrap();
     let gate = std::sync::Arc::new(tokio::sync::Mutex::new(()))
         .lock_owned()
         .await;
@@ -180,7 +178,7 @@ async fn discovery_preserves_array_order_and_rejects_bad_identity_order_and_alia
         ["first", "second"]
     );
     values.reverse();
-    assert!(loaded.prepare(values).is_err());
+    assert!(loaded.prepare(&values).is_err());
     let first = project_target("ffffffffffffffff")
         .resolve(&binding)
         .unwrap();

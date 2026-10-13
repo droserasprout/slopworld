@@ -297,7 +297,7 @@ impl Manager {
             self.detach_live_locked(
                 &mut live,
                 name,
-                DetachCause::ProcessExit {
+                &DetachCause::ProcessExit {
                     reader_token: reader_token.clone(),
                 },
             )

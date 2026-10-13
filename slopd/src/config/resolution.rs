@@ -430,7 +430,7 @@ impl Config {
     }
 
     fn preview_field(fields: &mut Vec<Value>, label: &str, values: Vec<String>) {
-        fields.push(json!({"label": label, "values": values}));
+        fields.push(json!({"label": label, "values": Value::from(values)}));
     }
 }
 

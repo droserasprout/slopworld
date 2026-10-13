@@ -149,6 +149,7 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
 /// Define the complete environment after all mounts.
 /// The sandbox starts with --clearenv. Select required host variables explicitly.
 /// Literal preset values take precedence.
+#[derive(Clone, Copy)]
 struct EnvArgs<'a> {
     cfg: &'a Config,
     home: &'a str,

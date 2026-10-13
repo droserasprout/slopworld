@@ -61,7 +61,7 @@ fn summary_round_trips_without_changing_task_age() {
         )
         .unwrap();
     let updated = tasks
-        .set_summary(&task.id, "Inspect sidebar layout".into())
+        .set_summary(&task.id, "Inspect sidebar layout")
         .unwrap()
         .unwrap();
 

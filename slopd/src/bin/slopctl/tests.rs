@@ -349,7 +349,7 @@ fn spawn_posts_template_and_task_body_to_worker_endpoint() {
         &endpoint,
         "host",
         true,
-        SpawnArgs {
+        &SpawnArgs {
             worktree: Default::default(),
             project: "repo".into(),
             template: "codex".into(),

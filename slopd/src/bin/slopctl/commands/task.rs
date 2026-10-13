@@ -237,7 +237,7 @@ pub(super) fn run_inbox(
     endpoint: &Endpoint,
     session: &str,
     json: bool,
-    filter: InboxFilter,
+    filter: &InboxFilter,
 ) -> Result<(), String> {
     let v = request(endpoint, session, "GET", routes::TASKS, None)?;
     let tasks = filter.apply(&v, session);

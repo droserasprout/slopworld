@@ -111,7 +111,7 @@ pub(crate) fn run_spawn(
     endpoint: &Endpoint,
     session: &str,
     json: bool,
-    args: SpawnArgs,
+    args: &SpawnArgs,
 ) -> Result<(), String> {
     let v = request(
         endpoint,

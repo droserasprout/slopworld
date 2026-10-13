@@ -7,6 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[derive(Clone, Copy)]
 pub(super) struct PollTransition {
     pub(super) was_ok: bool,
     pub(super) delay: u64,

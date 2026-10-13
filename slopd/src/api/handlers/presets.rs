@@ -133,7 +133,7 @@ pub(crate) async fn update_preset(
         crate::presets::PresetDefinition::Sandbox(preset) => preset.name = name,
         crate::presets::PresetDefinition::Command(preset) => preset.name = name,
     }
-    tokio::task::spawn_blocking(move || crate::presets::validate_and_save(definition))
+    tokio::task::spawn_blocking(move || crate::presets::validate_and_save(&definition))
         .await
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?
         .map_err(preset_error)?;

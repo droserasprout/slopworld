@@ -44,7 +44,7 @@ fn full_record_updates_preserve_siblings_extensions_and_explicit_order() {
     f.tasks
         .update("agent", &first.id, Status::Working, Some("progress".into()))
         .unwrap();
-    f.tasks.set_summary(&first.id, "summary".into()).unwrap();
+    f.tasks.set_summary(&first.id, "summary").unwrap();
     f.tasks
         .update("agent", &first.id, Status::Done, None)
         .unwrap();
@@ -130,7 +130,7 @@ fn stale_summary_and_worker_callbacks_never_recreate_deleted_or_reassigned_tasks
     f.tasks.remove("host", &task.id, true).unwrap();
     assert!(
         f.tasks
-            .set_summary_checked(&stamp, "late".into())
+            .set_summary_checked(&stamp, "late")
             .unwrap()
             .is_none()
     );
@@ -145,17 +145,15 @@ fn stale_summary_and_worker_callbacks_never_recreate_deleted_or_reassigned_tasks
     f.tasks.persist(task.clone(), f.tasks.next_order).unwrap();
     assert!(
         f.tasks
-            .set_summary_checked(&stamp, "stale".into())
+            .set_summary_checked(&stamp, "stale")
             .unwrap()
             .is_none()
     );
     let current = f.tasks.stamp(&task).unwrap();
-    f.tasks
-        .set_summary_checked(&current, "accepted".into())
-        .unwrap();
+    f.tasks.set_summary_checked(&current, "accepted").unwrap();
     assert!(
         f.tasks
-            .set_summary_checked(&current, "older result".into())
+            .set_summary_checked(&current, "older result")
             .unwrap()
             .is_none()
     );

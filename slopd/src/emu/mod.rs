@@ -215,12 +215,12 @@ impl SessionEmu {
                         title.push(byte);
                         TmuxTitleState::Body(title)
                     } else {
-                        recover_tmux_title(&mut plain, title, &[byte]);
+                        recover_tmux_title(&mut plain, &title, &[byte]);
                         TmuxTitleState::Ground
                     }
                 }
                 TmuxTitleState::BodyEscape(title) if byte == b'\\' => {
-                    self.finish_tmux_title(title);
+                    self.finish_tmux_title(&title);
                     TmuxTitleState::Ground
                 }
                 TmuxTitleState::BodyEscape(_) if matches!(byte, 0x18 | 0x1a) => {
@@ -231,7 +231,7 @@ impl SessionEmu {
                         title.push(0x1b);
                         TmuxTitleState::BodyEscape(title)
                     } else {
-                        recover_tmux_title(&mut plain, title, &[0x1b, 0x1b]);
+                        recover_tmux_title(&mut plain, &title, &[0x1b, 0x1b]);
                         TmuxTitleState::Ground
                     }
                 }
@@ -240,7 +240,7 @@ impl SessionEmu {
                         title.extend_from_slice(&[0x1b, byte]);
                         TmuxTitleState::Body(title)
                     } else {
-                        recover_tmux_title(&mut plain, title, &[0x1b, byte]);
+                        recover_tmux_title(&mut plain, &title, &[0x1b, byte]);
                         TmuxTitleState::Ground
                     }
                 }
@@ -273,8 +273,8 @@ impl SessionEmu {
         }
     }
 
-    fn finish_tmux_title(&mut self, bytes: Vec<u8>) {
-        let title: String = String::from_utf8_lossy(&bytes)
+    fn finish_tmux_title(&mut self, bytes: &[u8]) {
+        let title: String = String::from_utf8_lossy(bytes)
             .chars()
             .filter(|c| !c.is_control())
             .take(TMUX_TITLE_MAX)
@@ -449,7 +449,7 @@ impl SessionEmu {
 
     /// Build a scrollback frame from a grid captured by `scroll_snapshot`.
     /// Run outside the emulator lock. Hide the cursor in the history view.
-    pub fn frame_from_grid(grid: Vec<Vec<Slot>>, _cols: u16, rows: u16, title: String) -> Frame {
+    pub fn frame_from_grid(grid: &[Vec<Slot>], _cols: u16, rows: u16, title: String) -> Frame {
         let lines: Vec<Arc<str>> = grid.iter().map(|r| Arc::from(serialize_row(r))).collect();
         let row_hashes = lines.iter().map(hash_row).collect::<Vec<_>>();
         Frame {
@@ -780,11 +780,11 @@ pub(crate) fn benchmark_content_hash(lines: &[Arc<str>]) -> u64 {
     hash_rows(&row_hashes)
 }
 
-fn recover_tmux_title(plain: &mut Vec<u8>, title: Vec<u8>, suffix: &[u8]) {
+fn recover_tmux_title(plain: &mut Vec<u8>, title: &[u8], suffix: &[u8]) {
     // A malformed private title must not turn into a permanent output sink. Give the bytes
     // back to the ordinary VT parser, matching the behavior before ESC-k support was added.
     plain.extend_from_slice(b"\x1bk");
-    plain.extend_from_slice(&title);
+    plain.extend_from_slice(title);
     plain.extend_from_slice(suffix);
 }
 

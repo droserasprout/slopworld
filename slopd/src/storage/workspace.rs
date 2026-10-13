@@ -112,8 +112,8 @@ impl<T: Record> Store<T> {
 
     /// Compare only the owning collection. Retained IDs keep their ordinal and
     /// extensions; absent IDs retire, new IDs require exclusive file creation.
-    pub(crate) fn prepare(&self, values: Vec<T>) -> Result<Prepared<T>> {
-        T::validate_collection(&values)?;
+    pub(crate) fn prepare(&self, values: &[T]) -> Result<Prepared<T>> {
+        T::validate_collection(values)?;
         let ids: HashSet<_> = values.iter().map(Record::id).collect();
         ensure!(ids.len() == values.len(), "duplicate workspace identity");
         let mut next = self.clone();
@@ -128,7 +128,7 @@ impl<T: Record> Store<T> {
                 next.order.remove(&old.order);
             }
         }
-        for value in &values {
+        for value in values {
             value.validate()?;
             let old = self.entries.get(value.id());
             if let Some(old) = old

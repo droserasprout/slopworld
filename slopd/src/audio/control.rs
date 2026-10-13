@@ -31,6 +31,7 @@ impl RequestState {
     }
 }
 
+#[derive(Clone, Copy)]
 pub(super) enum SourceRequirement<'a> {
     Active,
     Exact(&'a str),

@@ -120,7 +120,7 @@ impl TaskStore {
         stamp: crate::tasks::TaskStamp,
         summary: String,
     ) -> Result<Option<Task>> {
-        self.run(move |tasks| tasks.set_summary_checked(&stamp, summary))
+        self.run(move |tasks| tasks.set_summary_checked(&stamp, &summary))
             .await
     }
     async fn fail_worker_async(

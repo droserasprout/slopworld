@@ -125,14 +125,14 @@ pub fn copy_builtin(kind: PresetKind, old_name: &str, target: &str) -> Result<()
 }
 
 /// Validate an API replacement against the table containing that replacement, then persist it.
-pub fn validate_and_save(definition: PresetDefinition) -> Result<(), PresetError> {
+pub fn validate_and_save(definition: &PresetDefinition) -> Result<(), PresetError> {
     let _guard = mutation_guard()?;
-    let name = match &definition {
+    let name = match definition {
         PresetDefinition::Sandbox(preset) => &preset.name,
         PresetDefinition::Command(preset) => &preset.name,
     };
     valid_name(name).map_err(|error| PresetError::Invalid(error.to_string()))?;
-    match &definition {
+    match definition {
         PresetDefinition::Sandbox(preset) => {
             let current = Table::try_load_from(&Table::dir()).map_err(PresetError::Storage)?;
             let mut candidate = current;
@@ -157,7 +157,7 @@ pub fn validate_and_save(definition: PresetDefinition) -> Result<(), PresetError
             }
         }
     }
-    save_definition_in(&Table::dir(), &definition).map_err(PresetError::Storage)
+    save_definition_in(&Table::dir(), definition).map_err(PresetError::Storage)
 }
 
 pub(super) fn check_delete(

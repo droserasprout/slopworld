@@ -173,7 +173,7 @@ async fn current_reader_exit_resets_durable_process_state_once() {
         manager.detach_live_locked(
             &mut live,
             "agent",
-            DetachCause::ProcessExit { reader_token },
+            &DetachCause::ProcessExit { reader_token },
         )
     };
     assert!(matches!(

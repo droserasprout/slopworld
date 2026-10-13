@@ -24,8 +24,8 @@ fn mutations_validate_committed_files_without_waiting_for_catalog_reload() {
         return;
     };
     assert!(!table().contains(PresetKind::SandboxPresets, "dependency"));
-    validate_and_save(sandbox()).unwrap();
-    validate_and_save(command()).unwrap();
+    validate_and_save(&sandbox()).unwrap();
+    validate_and_save(&command()).unwrap();
     assert!(matches!(
         delete_user(PresetKind::SandboxPresets, "dependency"),
         Err(PresetError::Invalid(_))
@@ -33,7 +33,7 @@ fn mutations_validate_committed_files_without_waiting_for_catalog_reload() {
     delete_user(PresetKind::AppPresets, "dependent").unwrap();
     delete_user(PresetKind::SandboxPresets, "dependency").unwrap();
     assert!(matches!(
-        validate_and_save(command()),
+        validate_and_save(&command()),
         Err(PresetError::Invalid(_))
     ));
 }
@@ -45,7 +45,7 @@ fn concurrent_delete_and_dependency_creation_cannot_commit_an_unresolved_referen
     }) else {
         return;
     };
-    validate_and_save(sandbox()).unwrap();
+    validate_and_save(&sandbox()).unwrap();
     let guard = mutation_guard().unwrap();
     let start = Arc::new(std::sync::Barrier::new(3));
     let delete_start = start.clone();
@@ -56,7 +56,7 @@ fn concurrent_delete_and_dependency_creation_cannot_commit_an_unresolved_referen
     let save_start = start.clone();
     let save = std::thread::spawn(move || {
         save_start.wait();
-        validate_and_save(command())
+        validate_and_save(&command())
     });
     start.wait();
     drop(guard);

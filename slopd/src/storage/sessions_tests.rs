@@ -30,7 +30,7 @@ impl<T: Record> Fixture<T> {
         let gate = self.gate.clone().lock_owned().await;
         let mut values = self.store.ordered();
         edit(&mut values);
-        let plan = self.store.prepare(values)?;
+        let plan = self.store.prepare(&values)?;
         transaction::commit_in_operation(&self.binding, plan.changes.clone(), &gate).await?;
         self.store.publish(plan);
         Ok(())
@@ -238,7 +238,7 @@ async fn retirement_is_repeatable_and_reused_names_keep_distinct_identities() {
         .await
         .unwrap();
     f.change(Vec::clear).await.unwrap();
-    assert!(f.store.prepare(vec![]).unwrap().changes.is_empty());
+    assert!(f.store.prepare(&[]).unwrap().changes.is_empty());
     f.change(|rows| rows.push(agent(SECOND, "same-name")))
         .await
         .unwrap();

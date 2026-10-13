@@ -93,7 +93,7 @@ impl Manager {
             view.request_id = request_id;
             return Some(view);
         }
-        let frame = crate::emu::SessionEmu::frame_from_grid(grid, cols, rows, title);
+        let frame = crate::emu::SessionEmu::frame_from_grid(&grid, cols, rows, title);
         let view = ScreenView::from_frame(
             FrameViewArgs {
                 name,

@@ -163,10 +163,10 @@ impl Manager {
         let tmux_running = renamed && self.tmux.exists(name).await;
         if renamed {
             if self.tmux.exists(&new_name).await {
-                bail!("session {} already exists in tmux", new_name);
+                bail!("session {new_name} already exists in tmux");
             }
             if self.live.read().await.contains_key(&new_name) {
-                bail!("session {} already exists", new_name);
+                bail!("session {new_name} already exists");
             }
         }
 
@@ -196,7 +196,7 @@ impl Manager {
                             .iter()
                             .any(|terminal| terminal.name == new_name))
                 {
-                    bail!("session {} already exists", new_name);
+                    bail!("session {new_name} already exists");
                 }
 
                 let previous = cfg

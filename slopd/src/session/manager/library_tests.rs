@@ -36,23 +36,15 @@ fn auto_resume_types_the_command_and_two_enters_in_order() {
 #[test]
 fn file_action_result_returns_trimmed_stdout() {
     assert_eq!(
-        Manager::format_file_action_result(
-            b"4.0K\tfile\n".to_vec(),
-            Vec::new(),
-            false,
-            false,
-            exit(0),
-        )
-        .unwrap(),
+        Manager::format_file_action_result(b"4.0K\tfile\n", &[], false, false, exit(0),).unwrap(),
         "4.0K\tfile"
     );
     assert_eq!(
-        Manager::format_file_action_result(Vec::new(), Vec::new(), false, false, exit(0)).unwrap(),
+        Manager::format_file_action_result(&[], &[], false, false, exit(0)).unwrap(),
         "(no output)"
     );
     assert_eq!(
-        Manager::format_file_action_result(b"   \n".to_vec(), Vec::new(), false, false, exit(0))
-            .unwrap(),
+        Manager::format_file_action_result(b"   \n", &[], false, false, exit(0)).unwrap(),
         "(no output)"
     );
 }
@@ -61,25 +53,11 @@ fn file_action_result_returns_trimmed_stdout() {
 #[test]
 fn file_action_result_appends_stderr_below_stdout() {
     assert_eq!(
-        Manager::format_file_action_result(
-            b"out".to_vec(),
-            b"warn".to_vec(),
-            false,
-            false,
-            exit(0),
-        )
-        .unwrap(),
+        Manager::format_file_action_result(b"out", b"warn", false, false, exit(0),).unwrap(),
         "out\nwarn"
     );
     assert_eq!(
-        Manager::format_file_action_result(
-            b"out\n".to_vec(),
-            b"warn".to_vec(),
-            false,
-            false,
-            exit(0),
-        )
-        .unwrap(),
+        Manager::format_file_action_result(b"out\n", b"warn", false, false, exit(0),).unwrap(),
         "out\nwarn"
     );
 }
@@ -87,18 +65,14 @@ fn file_action_result_appends_stderr_below_stdout() {
 /// Append a truncation marker when either output stream exceeds its limit.
 #[test]
 fn file_action_result_flags_truncation() {
-    let out =
-        Manager::format_file_action_result(b"body".to_vec(), Vec::new(), true, false, exit(0))
-            .unwrap();
+    let out = Manager::format_file_action_result(b"body", &[], true, false, exit(0)).unwrap();
     assert!(out.contains("[output truncated]"), "got {out:?}");
 }
 
 /// Return an error for a nonzero exit code. Include combined output in the error message.
 #[test]
 fn file_action_result_fails_on_nonzero_exit() {
-    let err =
-        Manager::format_file_action_result(Vec::new(), b"boom".to_vec(), false, false, exit(1))
-            .unwrap_err();
+    let err = Manager::format_file_action_result(&[], b"boom", false, false, exit(1)).unwrap_err();
     assert!(err.to_string().contains("boom"), "got {err}");
 }
 

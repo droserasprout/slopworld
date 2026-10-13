@@ -314,7 +314,7 @@ fn snapshot_seed_restores_primary_history_cursor_and_title() {
     assert!(frame.lines.join("\n").contains("second"));
     let (grid, achieved, _, title) = emu.scroll_snapshot(1);
     assert_eq!(achieved, 1);
-    let history = SessionEmu::frame_from_grid(grid, 20, 2, title);
+    let history = SessionEmu::frame_from_grid(&grid, 20, 2, title);
     assert!(history.lines[0].contains("history"));
 }
 

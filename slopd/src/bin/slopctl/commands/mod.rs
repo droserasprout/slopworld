@@ -232,7 +232,7 @@ impl Command {
             Self::Delegate { to, body } => {
                 task::run_delegate(endpoint, session, json_output, &to, &body)
             }
-            Self::Spawn(args) => worker::run_spawn(endpoint, session, json_output, args),
+            Self::Spawn(args) => worker::run_spawn(endpoint, session, json_output, &args),
             Self::Templates { project } => {
                 templates::run_templates(endpoint, session, json_output, project.as_deref())
             }
@@ -257,7 +257,7 @@ impl Command {
                 &template,
                 start,
             ),
-            Self::Inbox { filter } => task::run_inbox(endpoint, session, json_output, filter),
+            Self::Inbox { filter } => task::run_inbox(endpoint, session, json_output, &filter),
             Self::Task { id } => task::run_task(endpoint, session, json_output, &id),
             Self::Wait { id } => task::run_wait(endpoint, session, json_output, &id),
             Self::Update { action, id, note } => task::run_update(

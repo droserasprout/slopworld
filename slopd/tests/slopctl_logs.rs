@@ -49,7 +49,7 @@ fn single_source_streams_normalized_lines_without_loading_endpoint() {
     let fixture = Fixture::new();
     fixture.source("tail", "printf 'first\\r\\nsecond\\nlast'");
     let output = fixture.run(&["game"]);
-    assert!(output.status.success(), "{:?}", output);
+    assert!(output.status.success(), "{output:?}");
     assert_eq!(output.stdout, b"first\nsecond\nlast\n");
     assert!(output.stderr.is_empty());
 
@@ -76,7 +76,7 @@ fn combined_sources_label_every_line_in_text_and_json() {
     fixture.source("tail", "printf 'game line\\n'");
     fixture.source("journalctl", "printf 'daemon line\\n'");
     let output = fixture.run(&["all"]);
-    assert!(output.status.success(), "{:?}", output);
+    assert!(output.status.success(), "{output:?}");
     let text = String::from_utf8(output.stdout).unwrap();
     let mut lines: Vec<_> = text.lines().collect();
     lines.sort();

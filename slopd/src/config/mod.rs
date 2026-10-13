@@ -109,10 +109,10 @@ pub(crate) fn mount_target(project: &ProjectCfg, raw: &str) -> String {
     } else {
         std::path::Path::new(&expand(&project.dir)).join(expanded)
     };
-    normalize_path(path).to_string_lossy().into_owned()
+    normalize_path(&path).to_string_lossy().into_owned()
 }
 
-fn normalize_path(path: std::path::PathBuf) -> std::path::PathBuf {
+fn normalize_path(path: &std::path::Path) -> std::path::PathBuf {
     let mut normalized = std::path::PathBuf::new();
     for component in path.components() {
         match component {

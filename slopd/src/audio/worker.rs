@@ -48,6 +48,10 @@ struct AudioWorker {
     active_generation: Option<u64>,
 }
 
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "the worker owns the sole receiver until its loop exits"
+)]
 pub(super) fn run(
     rx: Receiver<WorkerMsg>,
     state: Arc<Mutex<AudioState>>,
@@ -98,7 +102,7 @@ impl AudioWorker {
                 result,
                 output,
             } => {
-                self.opened(source, generation, result, output);
+                self.opened(&source, generation, result, output);
                 true
             }
         }
@@ -184,7 +188,7 @@ impl AudioWorker {
                     needs_output,
                 },
                 self.factory.clone(),
-                self.tx.clone(),
+                &self.tx,
             ),
         }
     }
@@ -219,7 +223,7 @@ impl AudioWorker {
 
     fn opened(
         &mut self,
-        source: String,
+        source: &str,
         generation: u64,
         result: anyhow::Result<playback::OpenedSource>,
         opened_output: Option<Box<dyn AudioOutput>>,
@@ -235,7 +239,7 @@ impl AudioWorker {
         }
         self.pending = None;
 
-        if !self.control.is_current(&source, generation) {
+        if !self.control.is_current(source, generation) {
             drop(result);
             drop(opened_output);
             return;
@@ -249,7 +253,7 @@ impl AudioWorker {
             Err(error) => {
                 self.control.fail_current(
                     &self.state,
-                    &source,
+                    source,
                     generation,
                     format!("{source}: {error:#}"),
                 );
@@ -259,7 +263,7 @@ impl AudioWorker {
         let Some(output) = self.output.as_ref() else {
             self.control.fail_current(
                 &self.state,
-                &source,
+                source,
                 generation,
                 "audio output unavailable".to_string(),
             );
@@ -272,11 +276,11 @@ impl AudioWorker {
                 let published = self.control.publish_current(
                     &self.state,
                     generation,
-                    SourceRequirement::Exact(&source),
+                    SourceRequirement::Exact(source),
                     |request, current| {
                         request.cancel = Some(cancel.clone());
                         current.playing = true;
-                        current.source = Some(source.clone());
+                        current.source = Some(source.to_owned());
                         current.volume = volume;
                         current.error = None;
                     },
@@ -293,7 +297,7 @@ impl AudioWorker {
             Ok(None) => {}
             Err(error) => self.control.fail_current(
                 &self.state,
-                &source,
+                source,
                 generation,
                 format!("{source}: {error:#}"),
             ),
@@ -308,7 +312,7 @@ struct OpenRequest {
     needs_output: bool,
 }
 
-fn spawn_open(request: OpenRequest, factory: Arc<dyn OutputFactory>, tx: Sender<WorkerMsg>) {
+fn spawn_open(request: OpenRequest, factory: Arc<dyn OutputFactory>, tx: &Sender<WorkerMsg>) {
     spawn_open_with(request, factory, tx, |open| {
         std::thread::Builder::new()
             .name("slopd audio open".into())
@@ -320,7 +324,7 @@ fn spawn_open(request: OpenRequest, factory: Arc<dyn OutputFactory>, tx: Sender<
 fn spawn_open_with(
     request: OpenRequest,
     factory: Arc<dyn OutputFactory>,
-    tx: Sender<WorkerMsg>,
+    tx: &Sender<WorkerMsg>,
     spawn: impl FnOnce(Box<dyn FnOnce() + Send>) -> std::io::Result<()>,
 ) {
     let OpenRequest {

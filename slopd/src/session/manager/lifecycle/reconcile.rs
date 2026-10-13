@@ -61,7 +61,7 @@ impl Manager {
                 .iter()
                 .filter_map(|name| {
                     tracing::info!("agent {name} is gone from the config, ending its reader");
-                    self.detach_live_locked(&mut live, name, DetachCause::ConfigRemoval)
+                    self.detach_live_locked(&mut live, name, &DetachCause::ConfigRemoval)
                 })
                 .collect::<Vec<_>>()
         };

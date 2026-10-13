@@ -117,7 +117,7 @@ pub(crate) fn read(session: &SessionCfg) -> Result<Option<PlanView>> {
     // Treat saved files as untrusted input, including files with manual changes.
     // After restart only fixed diagnostics and canonical scope identity survive;
     // unknown credentials cannot be recovered from the original launch.
-    let mut view = sanitize_view(view);
+    let mut view = sanitize_view(&view);
     view.session = session.name.clone();
     Ok(Some(view))
 }
@@ -186,7 +186,7 @@ fn lower_view(
     argv
 }
 
-fn sanitize_view(view: PlanView) -> PlanView {
+fn sanitize_view(view: &PlanView) -> PlanView {
     // Only fixed diagnostics and a validated launch-scope identity survive an
     // untrusted saved file. Paths, keys, executable names and wrapper values may
     // contain credentials that are no longer known after a daemon restart.

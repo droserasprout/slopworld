@@ -283,7 +283,7 @@ impl Tasks {
     pub(crate) fn set_summary_checked(
         &mut self,
         stamp: &TaskStamp,
-        summary: String,
+        summary: &str,
     ) -> Result<Option<Task>> {
         let Some(entry) = self
             .by_id
@@ -301,7 +301,7 @@ impl Tasks {
         self.persist(task, order).map(Some)
     }
     #[cfg(test)]
-    pub(crate) fn set_summary(&mut self, id: &str, summary: String) -> Result<Option<Task>> {
+    pub(crate) fn set_summary(&mut self, id: &str, summary: &str) -> Result<Option<Task>> {
         let Some(entry) = self.by_id.get(id) else {
             return Ok(None);
         };

@@ -231,18 +231,18 @@ impl Manager {
     }
 
     fn format_file_action_result(
-        stdout: Vec<u8>,
-        stderr: Vec<u8>,
+        stdout: &[u8],
+        stderr: &[u8],
         stdout_truncated: bool,
         stderr_truncated: bool,
         status: std::process::ExitStatus,
     ) -> Result<String> {
-        let mut text = String::from_utf8_lossy(&stdout).into_owned();
+        let mut text = String::from_utf8_lossy(stdout).into_owned();
         if !stderr.is_empty() {
             if !text.is_empty() && !text.ends_with('\n') {
                 text.push('\n');
             }
-            text.push_str(&String::from_utf8_lossy(&stderr));
+            text.push_str(&String::from_utf8_lossy(stderr));
         }
         if stdout_truncated || stderr_truncated {
             text.push_str("\n[output truncated]");
@@ -263,8 +263,8 @@ impl Manager {
         let argv = crate::sandbox::host_argv(cfg, s, p);
         let output = Self::run_file_action_command(&argv, &expand(&p.dir)).await?;
         Self::format_file_action_result(
-            output.stdout,
-            output.stderr,
+            &output.stdout,
+            &output.stderr,
             output.stdout_truncated,
             output.stderr_truncated,
             output.status,

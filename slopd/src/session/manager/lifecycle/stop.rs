@@ -107,10 +107,10 @@ impl Manager {
         &self,
         live: &mut HashMap<String, Live>,
         name: &str,
-        cause: DetachCause,
+        cause: &DetachCause,
     ) -> Option<CleanupPlan> {
         let current = live.get(name)?;
-        let current_reader = match &cause {
+        let current_reader = match cause {
             DetachCause::ProcessExit { reader_token } => {
                 if !reader_owned_by(current, reader_token) {
                     return None;
@@ -121,7 +121,7 @@ impl Manager {
         };
 
         // Saved sessions stay available to restart; disposable sessions are forgotten.
-        let forget_live = match &cause {
+        let forget_live = match cause {
             DetachCause::Stop | DetachCause::ProcessExit { .. } => {
                 current.ephemeral && !current.persistent_host
             }
@@ -138,7 +138,7 @@ impl Manager {
         let session = current.cfg.clone();
         let project = session.project.clone();
         let worker_failure = session.worker.then(|| {
-            let note = match &cause {
+            let note = match cause {
                 DetachCause::Stop => format!("The daemon stopped worker session {name}."),
                 DetachCause::ProcessExit { .. } => format!("worker session {name} exited"),
                 DetachCause::ConfigRemoval => format!("The daemon removed worker session {name}."),
@@ -231,7 +231,7 @@ impl Manager {
 
         let plan = {
             let mut live = self.live.write().await;
-            self.detach_live_locked(&mut live, name, DetachCause::Stop)
+            self.detach_live_locked(&mut live, name, &DetachCause::Stop)
         };
         if let Some(plan) = plan {
             self.execute_cleanup(plan).await;
@@ -257,7 +257,7 @@ impl Manager {
         let _terminal = self.terminal_boundary(name).write_owned().await;
         let plan = {
             let mut live = self.live.write().await;
-            self.detach_live_locked(&mut live, name, DetachCause::Forget)
+            self.detach_live_locked(&mut live, name, &DetachCause::Forget)
         };
         if let Some(plan) = plan {
             self.execute_cleanup(plan).await;

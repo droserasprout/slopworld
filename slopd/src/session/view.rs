@@ -150,6 +150,7 @@ pub struct ScreenView {
 }
 
 /// Session and viewport metadata supplied alongside an emulator frame.
+#[derive(Clone, Copy)]
 pub(crate) struct FrameViewArgs<'a> {
     pub(crate) name: &'a str,
     pub(crate) seq: u64,

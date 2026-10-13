@@ -115,10 +115,10 @@ fn run() -> Result<ExitCode, String> {
         return Ok(ExitCode::SUCCESS);
     };
 
-    run_launcher(args)
+    run_launcher(&args)
 }
 
-fn run_launcher(args: Args) -> Result<ExitCode, String> {
+fn run_launcher(args: &Args) -> Result<ExitCode, String> {
     let mode = if args.sidecar {
         application_paths::Mode::Sidecar
     } else {

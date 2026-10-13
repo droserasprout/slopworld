@@ -53,7 +53,7 @@ fn failed_opener_start_clears_the_pending_identity_and_allows_retry() {
             needs_output: true,
         },
         factory,
-        tx,
+        &tx,
         |_| Err(std::io::Error::other("synthetic opener failure")),
     );
     worker.handle(rx.recv_timeout(std::time::Duration::from_secs(2)).unwrap());

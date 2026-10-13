@@ -534,7 +534,7 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
     assert!(Path::new(&renamed_path).exists());
     assert_eq!(
         manager
-            .worktree_for_path("renamed", &format!("{}/file", renamed_path))
+            .worktree_for_path("renamed", &format!("{renamed_path}/file"))
             .await
             .unwrap(),
         w.id

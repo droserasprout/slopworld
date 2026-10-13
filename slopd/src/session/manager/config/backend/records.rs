@@ -40,9 +40,9 @@ impl Records {
         }
         let binding = StorageBinding::new(root, &root.join("data"), path)?;
         let stores = Stores {
-            agents: crate::config::fixtures::seed(&binding, cfg.sessions.clone())?,
-            hosts: crate::config::fixtures::seed(&binding, cfg.host_terminals.clone())?,
-            projects: crate::config::fixtures::seed(&binding, cfg.projects.clone())?,
+            agents: crate::config::fixtures::seed(&binding, &cfg.sessions)?,
+            hosts: crate::config::fixtures::seed(&binding, &cfg.host_terminals)?,
+            projects: crate::config::fixtures::seed(&binding, &cfg.projects)?,
             worktrees: workspace::Store::empty(),
         };
         crate::paths::write_private_toml(path, &toml::to_string_pretty(&cfg.settings)?)?;
@@ -79,7 +79,7 @@ impl Records {
         };
         match mutation {
             ConfigMutation::Agents | ConfigMutation::ProjectReferences => {
-                plan.agents = Some(stores.agents.prepare(next.sessions.clone())?);
+                plan.agents = Some(stores.agents.prepare(&next.sessions)?);
             }
             ConfigMutation::HostShells | ConfigMutation::Projects => {}
             _ => bail!("record backend does not yet support this mutation owner"),
@@ -88,13 +88,13 @@ impl Records {
             mutation,
             ConfigMutation::HostShells | ConfigMutation::ProjectReferences
         ) {
-            plan.hosts = Some(stores.hosts.prepare(next.host_terminals.clone())?);
+            plan.hosts = Some(stores.hosts.prepare(&next.host_terminals)?);
         }
         if matches!(
             mutation,
             ConfigMutation::Projects | ConfigMutation::ProjectReferences
         ) {
-            plan.projects = Some(stores.projects.prepare(next.projects.clone())?);
+            plan.projects = Some(stores.projects.prepare(&next.projects)?);
         }
         Ok(plan)
     }
@@ -125,7 +125,7 @@ impl PreparedRecords {
     }
     pub(in crate::session::manager::config) fn attach_worktrees(
         &mut self,
-        values: Vec<crate::worktrees::Worktree>,
+        values: &[crate::worktrees::Worktree],
     ) -> Result<()> {
         let stores = self
             .owner
@@ -246,7 +246,7 @@ impl Records {
             .lock()
             .unwrap_or_else(|error| error.into_inner())
             .worktrees
-            .prepare(values)?;
+            .prepare(&values)?;
         transaction::commit_in_operation(&self.binding, plan.changes.clone(), gate).await?;
         self.stores
             .lock()

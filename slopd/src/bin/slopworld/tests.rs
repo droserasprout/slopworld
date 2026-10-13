@@ -304,7 +304,7 @@ fn launcher_defaults_follow_roots_and_print_creates_no_state() {
         std::fs::create_dir_all(game.join("Mods/SlopWorld/About")).unwrap();
         std::fs::write(game.join(EXE), "fixture").unwrap();
         std::fs::write(game.join("Mods/SlopWorld/About/About.xml"), "fixture").unwrap();
-        run_launcher(Args {
+        run_launcher(&Args {
             game: Some(game.to_string_lossy().into_owned()),
             print: true,
             ..Args::default()
@@ -327,7 +327,7 @@ fn launcher_defaults_follow_roots_and_print_creates_no_state() {
         std::fs::create_dir_all(endpoint.parent().unwrap()).unwrap();
         std::fs::write(&endpoint, "fixture").unwrap();
         assert_eq!(sidecar_paths(mode).unwrap().unwrap().endpoint, endpoint);
-        run_launcher(Args {
+        run_launcher(&Args {
             game: Some(game.to_string_lossy().into_owned()),
             sidecar: true,
             print: true,
@@ -386,26 +386,26 @@ fn print_reset_and_invalid_working_dir_preserve_profile() {
         ..Args::default()
     };
     std::fs::remove_file(profile.join(MARKER)).unwrap();
-    run_launcher(args()).unwrap();
+    run_launcher(&args()).unwrap();
     assert!(!profile.join(MARKER).exists());
     let mut init_print = args();
     init_print.init_profile = true;
     assert!(
-        run_launcher(init_print)
+        run_launcher(&init_print)
             .unwrap_err()
             .contains("cannot be combined")
     );
     let mut absent = args();
     let absent_profile = root.join("absent-profile");
     absent.profile = Some(absent_profile.to_string_lossy().into_owned());
-    run_launcher(absent).unwrap();
+    run_launcher(&absent).unwrap();
     assert!(!absent_profile.exists());
     assert_eq!(std::fs::read(&mods).unwrap(), custom);
     let mut invalid = args();
     invalid.print = false;
     invalid.working_dir = Some(root.join("missing").to_string_lossy().into_owned());
     assert!(
-        run_launcher(invalid)
+        run_launcher(&invalid)
             .unwrap_err()
             .contains("working directory")
     );

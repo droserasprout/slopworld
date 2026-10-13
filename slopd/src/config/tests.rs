@@ -533,20 +533,20 @@ fn host_shell_ids_are_valid_unique_and_preserved() {
     let store = Store::<HostTerminalCfg>::empty();
     let mut duplicate = tab.clone();
     duplicate.name = "two".into();
-    assert!(store.prepare(vec![tab.clone(), duplicate]).is_err());
+    assert!(store.prepare(&[tab.clone(), duplicate]).is_err());
     for bad in ["../escape", "0123456789abcdeF", "short"] {
         let invalid = HostTerminalCfg {
             id: bad.into(),
             ..tab.clone()
         };
-        assert!(store.prepare(vec![invalid]).is_err());
+        assert!(store.prepare(&[invalid]).is_err());
     }
 }
 
 #[test]
 fn config_rejects_sessions_without_a_valid_state_identity() {
     let session: SessionCfg = toml::from_str("name = 'agent'\nproject = 'repo'").unwrap();
-    assert!(Store::<SessionCfg>::empty().prepare(vec![session]).is_err());
+    assert!(Store::<SessionCfg>::empty().prepare(&[session]).is_err());
     // New in-memory sessions, including short-lived errands, always have an identity.
     assert!(!SessionCfg::default().state_id.is_empty());
 }
@@ -560,7 +560,7 @@ fn records_reject_state_id_path_traversal_absolute_paths_and_invalid_ids() {
             ..Default::default()
         };
         assert!(
-            Store::<SessionCfg>::empty().prepare(vec![session]).is_err(),
+            Store::<SessionCfg>::empty().prepare(&[session]).is_err(),
             "{state_id}"
         );
     }
@@ -578,7 +578,7 @@ fn config_rejects_unsafe_or_duplicate_project_names() {
     for name in ["../escape", "one/two", "/tmp/escape", ".", "..", r"one\two"] {
         assert!(
             store
-                .prepare(vec![ProjectCfg {
+                .prepare(&[ProjectCfg {
                     name: name.into(),
                     ..project.clone()
                 }])
@@ -592,12 +592,12 @@ fn config_rejects_unsafe_or_duplicate_project_names() {
         ..project.clone()
     };
     let error = store
-        .prepare(vec![project.clone(), duplicate])
+        .prepare(&[project.clone(), duplicate])
         .err()
         .unwrap()
         .to_string();
     assert!(error.contains("already exists"), "{error}");
-    store.prepare(vec![project]).unwrap();
+    store.prepare(&[project]).unwrap();
 }
 
 #[test]
@@ -619,7 +619,7 @@ fn config_rejects_duplicate_state_ids() {
         error.contains("Two sessions use the same private-state ID"),
         "{error}"
     );
-    assert!(Store::<SessionCfg>::empty().prepare(cfg.sessions).is_err());
+    assert!(Store::<SessionCfg>::empty().prepare(&cfg.sessions).is_err());
 }
 
 #[test]
