@@ -6,6 +6,11 @@ use serde_json::{Value, json};
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::process::{Command, Output};
+use std::sync::Mutex;
+
+// A concurrent fork can inherit a writable fixture script descriptor until exec,
+// making another fixture's launch fail with ETXTBSY. Serialize writes and runs.
+static FIXTURE_IO: Mutex<()> = Mutex::new(());
 
 struct Fixture(PathBuf);
 
@@ -17,6 +22,7 @@ impl Fixture {
     }
 
     fn source(&self, name: &str, script: &str) {
+        let _guard = FIXTURE_IO.lock().unwrap();
         let path = self.0.join(name);
         std::fs::write(&path, format!("#!/bin/sh\n{script}\n")).expect("write log fixture command");
         std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700))
@@ -24,6 +30,7 @@ impl Fixture {
     }
 
     fn run(&self, args: &[&str]) -> Output {
+        let _guard = FIXTURE_IO.lock().unwrap();
         Command::new(env!("CARGO_BIN_EXE_slopctl"))
             .arg("logs")
             .args(args)
