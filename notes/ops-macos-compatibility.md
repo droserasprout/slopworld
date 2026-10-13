@@ -17,10 +17,15 @@ sources and never become container environment paths. Workspace paths match on
 host/container. Container mount/security policy belongs to
 [slopcar](../slopcar/README.md), and setup/lifecycle to
 [macOS](../docs/src/installation/macos.md) and [sidecar](../docs/src/installation/sidecar.md).
-Linux launch credentials match the invoking host UID/GID; Docker Desktop uses
-1000:1000. Persistent directories retain mode 0700 and tmpfs ownership matches
-the selected credentials. Empty image mount destinations are traversable; mounted credentials and
-state retain their host permissions. Container replacement ends tmux processes while
+The launcher supplies Linux host IDs through `PUID`/`PGID`; Docker Desktop uses
+1000:1000. The root entrypoint updates ordinary account databases, then drops
+privileges and capabilities before running the daemon or doctor as `slop`.
+The writable container root and minimal startup capabilities belong to the sidecar
+security policy. Shells and health checks must explicitly select `slop`, since
+Docker's configured container user is root. Persistent directories retain mode
+0700 and tmpfs ownership matches the selected application credentials. Account
+initialization must not recursively chown mounted credentials or state.
+Container replacement ends tmux processes while
 persistent private state remains;
 this differs from daemon-only redeployment.
 

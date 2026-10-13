@@ -32,11 +32,21 @@ the [macOS guide](../docs/src/installation/macos.md).
 
 ## Outer isolation
 
-On Linux the container runs with the invoking user’s numeric UID/GID so private
-bind-mounted state remains accessible. Docker Desktop uses UID/GID 1000. Tmpfs
-ownership follows the container credentials. The container has no capabilities
-and a read-only root filesystem. Empty credential mount destinations are traversable
-by the selected user; mounted credentials keep their host permissions.
+The launcher passes the invoking Linux user's numeric IDs as `PUID`/`PGID`;
+Docker Desktop uses 1000:1000. The image defaults both variables to 1000 when
+launched directly. Its root entrypoint updates the `slop` account with
+`groupmod`/`usermod`, then uses `setpriv` to clear supplementary groups and drop
+all capabilities before starting the daemon or doctor as `slop`. UID 0 is rejected.
+Startup receives only CHOWN, SETUID, SETGID, and SETPCAP capabilities. The root
+filesystem is writable for account initialization; normal Unix ownership protects
+system files from the application. Shells and health checks also run as `slop`.
+
+Tmpfs ownership follows the selected application credentials. Persistent directories
+retain mode 0700. Account changes do not recursively chown the home: mounted
+credentials, workspaces, and state retain their host ownership and permissions.
+Custom images use ordinary passwd/group files and need no account templates.
+Doctor checks account lookup and SSH startup both outside and inside Bubblewrap
+without making an SSH connection.
 One outer set of memory, CPU, and PID limits applies to the container.
 Nested user, mount, and network namespaces require three deliberate exceptions:
 

@@ -88,10 +88,16 @@ fn creation_and_doctor_share_embedded_security_policy() {
     )
     .unwrap();
     let calls = fixture.calls();
-    assert!(calls.contains("--user\n1000:1000"));
+    assert!(calls.contains("--user\n0:0"));
+    assert!(calls.contains("--env\nPUID=1000"));
+    assert!(calls.contains("--env\nPGID=1000"));
+    assert!(!calls.contains("--read-only"));
     for flag in [
         "--cap-drop\nALL",
-        "--read-only",
+        "--cap-add\nCHOWN",
+        "--cap-add\nSETUID",
+        "--cap-add\nSETGID",
+        "--cap-add\nSETPCAP",
         "systempaths=unconfined",
         "/dev/net/tun",
         "127.0.0.1:7718:7718",
@@ -118,6 +124,24 @@ fn creation_and_doctor_share_embedded_security_policy() {
     assert!(!std::path::Path::new(seccomp).exists());
     run_with(Command::Doctor, &fixture.settings, &fixture.docker).unwrap();
     assert!(fixture.calls().ends_with("test-image\nslopcar-doctor\n"));
+    let calls = fixture.calls();
+    let doctor = calls.rsplit("CALL\nrun\n").next().unwrap();
+    assert!(doctor.contains("--user\n0:0"));
+    assert!(doctor.contains("--env\nPUID=1000"));
+    assert!(doctor.contains("--env\nPGID=1000"));
+    assert!(!doctor.contains("--read-only"));
+}
+
+#[test]
+fn interactive_shell_uses_application_account_instead_of_container_root() {
+    let fixture = Fixture::new();
+    fs::write(fixture.root.path().join("exists"), "").unwrap();
+    run_with(Command::Shell, &fixture.settings, &fixture.docker).unwrap();
+    assert!(
+        fixture
+            .calls()
+            .ends_with("CALL\nexec\n--user\nslop\n--interactive\n--tty\ntest-car\n/bin/bash\n")
+    );
 }
 #[test]
 fn existing_container_reuses_mounts_and_rejects_changes_before_seeding() {
@@ -269,7 +293,8 @@ fn fresh_linux_state_is_accessible_to_uid_1001() {
         container_identity,
     )
     .unwrap();
-    assert!(fixture.calls().contains("--user\n1001:1001"));
+    assert!(fixture.calls().contains("--env\nPUID=1001"));
+    assert!(fixture.calls().contains("--env\nPGID=1001"));
     for path in [&fixture.settings.config, &fixture.settings.data] {
         let metadata = fs::metadata(path).unwrap();
         assert_eq!(metadata.uid(), 1001);

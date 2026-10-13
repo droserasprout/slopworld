@@ -19,7 +19,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Sandbox: Reject preset path aliases that expose host originals instead of private copies.
 - Sessions: Prevent recovery from attaching surviving host terminals or workers to a different agent.
 - Sessions: Complete stop/restart cleanup even if the requesting client disconnects.
-- Sidecar: Support startup for Linux users with non-default user IDs.
+- Sidecar: Support non-default Linux user and group IDs, including SSH account lookup.
 - Terminal: Prevent scrollback corruption when history reaches its limit.
 - Terminal: Update terminal dimensions after resizing even when the application produces no output.
 - Terminal: Correctly repaint wrapped links when terminal output changes.
@@ -27,6 +27,10 @@ Expect any imaginable incompatibilities until 0.1.0.
 - UI: Correct sidebar click handling and resizing when docked on the right.
 - Workers: Restore workers’ own launch settings after daemon restarts.
 - Workers: Prevent hangs when creating workers in new worktrees and clean up abandoned worktrees after cancelled launches.
+
+### Changed
+
+- Sidecar: Configure user and group IDs through `PUID`/`PGID`. Container starts as root, then drops privileges.
 
 ## [0.0.2] - 2026-10-12
 

@@ -15,6 +15,7 @@ install-sidecar: sidecar
 [group('Tests and coverage')]
 test-sidecar:
     cd slopcar && {{ CARGO }} test --locked {{ TEST_ARGS }}
+    {{ PYTHON }} -m pytest slopcar/test_entrypoint.py
 
 # Update the sidecar's Rust dependency lockfile within manifest constraints
 [group('Generated files')]

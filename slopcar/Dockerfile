@@ -41,11 +41,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         systemd-standalone-sysusers \
         systemd-standalone-tmpfiles \
         tmux=3.7c-1 \
+        util-linux \
     && rm -rf /var/lib/apt/lists/* /var/cache/debconf/*-old /var/lib/dpkg/*-old \
     && find /usr/lib/python3* -type d -name __pycache__ -prune -exec rm -rf '{}' +
 
 # Empty mount destinations are traversable for any selected UID. Mounted credentials
-# and persistent state retain their host permissions; the image stays read-only.
+# and persistent state retain their host permissions.
 RUN useradd --create-home --uid 1000 --shell /bin/bash slop \
     && install -d -o slop -g slop -m 0755 \
         /home/slop/.cache \
@@ -79,7 +80,7 @@ ENV HOME=/home/slop \
     USER=slop \
     LOGNAME=slop \
     SHELL=/bin/bash \
-    PATH=/home/slop/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/bin \
+    PATH=/home/slop/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin \
     XDG_CACHE_HOME=/home/slop/.cache \
     XDG_CONFIG_HOME=/home/slop/.config \
     XDG_DATA_HOME=/home/slop/.local/share \
@@ -87,9 +88,9 @@ ENV HOME=/home/slop \
     SLOPD_RUNTIME=slopcar \
     SLOPD_LOG=slopd=info
 
-USER 1000:1000
+USER root
 WORKDIR /home/slop
 EXPOSE 7718
-ENTRYPOINT ["slopcar-entrypoint"]
+ENTRYPOINT ["/usr/local/bin/slopcar-entrypoint"]
 CMD ["slopd"]
-HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=6 CMD ["slopctl", "status"]
+HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=6 CMD ["/usr/bin/setpriv", "--reuid=slop", "--regid=slop", "--clear-groups", "--bounding-set=-all", "slopctl", "status"]

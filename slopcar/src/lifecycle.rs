@@ -35,7 +35,13 @@ fn security(identity: (u32, u32)) -> Result<(tempfile::NamedTempFile, Vec<OsStri
     // that command returns; no installed companion file or persistent host copy is needed.
     let mut profile = tempfile::NamedTempFile::new()?;
     profile.write_all(include_bytes!("../seccomp.json"))?;
-    let mut flags = args(&["--cap-drop", "ALL", "--security-opt"]);
+    // Only initialization needs these capabilities. The entrypoint drops them
+    // before executing the daemon; nested user namespaces grant their own set.
+    let mut flags = args(&["--user", "0:0", "--cap-drop", "ALL"]);
+    for capability in ["CHOWN", "SETUID", "SETGID", "SETPCAP"] {
+        flags.extend(args(&["--cap-add", capability]));
+    }
+    flags.push("--security-opt".into());
     let mut option = OsString::from("seccomp=");
     option.push(profile.path());
     flags.push(option);
@@ -46,6 +52,12 @@ fn security(identity: (u32, u32)) -> Result<(tempfile::NamedTempFile, Vec<OsStri
         "/dev/net/tun",
     ]));
     let (uid, gid) = identity;
+    flags.extend([
+        "--env".into(),
+        format!("PUID={uid}").into(),
+        "--env".into(),
+        format!("PGID={gid}").into(),
+    ]);
     for (path, options) in [
         ("/tmp", "exec,size=1g,mode=1777"),
         ("/run", "noexec,size=16m,mode=0755"),
@@ -98,9 +110,8 @@ fn run_with(
         Command::Doctor => {
             require_image(docker, settings)?;
             let identity = identity()?;
-            let user = format!("{}:{}", identity.0, identity.1);
             let (_profile, security) = security(identity)?;
-            let mut flags = args(&["run", "--rm", "--user", &user, "--read-only"]);
+            let mut flags = args(&["run", "--rm"]);
             flags.extend(security);
             flags.extend(args(&[&settings.image, "slopcar-doctor"]));
             docker.run(&flags, false)?;
@@ -127,7 +138,10 @@ fn run_with(
                     flags.extend(options);
                     (flags, false)
                 }
-                Command::Shell => (args(&["exec", "--interactive", "--tty"]), false),
+                Command::Shell => (
+                    args(&["exec", "--user", "slop", "--interactive", "--tty"]),
+                    false,
+                ),
                 Command::Remove => (args(&["rm", "--force"]), true),
                 _ => unreachable!(),
             };
@@ -198,7 +212,6 @@ fn start_container(
     }
     let port = start.port.unwrap_or(settings.port);
     let identity = identity()?;
-    let user = format!("{}:{}", identity.0, identity.1);
     let (_profile, security) = security(identity)?;
     config::seed(&settings.config, &settings.data, port)?;
     let mut flags = args(&[
@@ -208,9 +221,6 @@ fn start_container(
         &settings.container,
         "--hostname",
         "slopcar",
-        "--user",
-        &user,
-        "--read-only",
         "--restart",
         "unless-stopped",
         "--stop-timeout",

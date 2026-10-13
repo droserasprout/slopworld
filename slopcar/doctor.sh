@@ -7,6 +7,25 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 
+# Exercise NSS and OpenSSH initialization without connecting to a remote host.
+python3 - <<'PY'
+import grp
+import os
+import pwd
+from pathlib import Path
+
+assert os.geteuid() != 0
+p = pwd.getpwuid(os.geteuid())
+assert p.pw_name == "slop" and p.pw_gid == os.getegid() and p.pw_dir == "/home/slop"
+assert grp.getgrnam("slop").gr_gid == os.getegid()
+grp.getgrgid(os.getegid())
+assert os.getgroups() == []
+for line in Path('/proc/self/status').read_text().splitlines():
+    if line.startswith(('CapInh:', 'CapPrm:', 'CapEff:', 'CapBnd:', 'CapAmb:')):
+        assert int(line.split()[1], 16) == 0, line
+PY
+ssh -G -F /dev/null localhost >/dev/null
+
 resolver=$(awk '$1 == "nameserver" && $2 ~ /^[0-9.]+$/ { print $2; exit }' /etc/resolv.conf)
 if [ -z "$resolver" ]; then
     echo "slopcar doctor: no IPv4 resolver in /etc/resolv.conf" >&2
@@ -48,12 +67,13 @@ pasta \
         --clearenv \
         "$@" \
         --ro-bind /usr /usr \
+        --ro-bind /etc /etc \
         --proc /proc \
         --dev /dev \
         --tmpfs /tmp \
-        -- /usr/bin/true
+        -- /usr/bin/ssh -G -F /dev/null localhost >/dev/null
 
 tmux -L "$socket" new-session -d -s doctor -- /usr/bin/sleep 5
 tmux -L "$socket" has-session -t doctor
 
-echo "slopcar doctor: bwrap + pasta + tmux passed. Resolver: $resolver"
+echo "slopcar doctor: accounts + SSH + bwrap + pasta + tmux passed. Resolver: $resolver"

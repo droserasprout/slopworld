@@ -8,7 +8,7 @@ test-docs:
 # Test supporting tools and generated data
 [group('Tests and coverage')]
 test-tools: validate-themes test-bench-report
-    {{ PYTHON }} -m pytest tools bench/test_runner.py mac/test_workflow.py slopcar/test_devloop.py
+    {{ PYTHON }} -m pytest tools bench/test_runner.py mac/test_workflow.py slopcar
 
 # Test license staging and verification in isolation
 [group('Tests and coverage')]
@@ -59,7 +59,7 @@ coverage: coverage-tools coverage-daemon coverage-mod
 [group('Tests and coverage')]
 coverage-tools:
     mkdir -p "{{ COVERAGE_DIR }}"
-    {{ PYTHON }} -m pytest tools bench/test_runner.py mac/test_workflow.py slopcar/test_devloop.py --cov=tools --cov=bench.runner --cov=mac --cov=slopcar --cov-report=term-missing --cov-report=xml:coverage/python.cobertura.xml
+    {{ PYTHON }} -m pytest tools bench/test_runner.py mac/test_workflow.py slopcar --cov=tools --cov=bench.runner --cov=mac --cov=slopcar --cov-report=term-missing --cov-report=xml:coverage/python.cobertura.xml
 
 # Measure Rust coverage and write coverage/rust.cobertura.xml
 [group('Tests and coverage')]

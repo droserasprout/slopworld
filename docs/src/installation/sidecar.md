@@ -37,8 +37,10 @@ Set `SLOPCAR_IMAGE` to select an image, including one already pulled from a regi
 
 Before running agents, extend the standard image with your chosen Linux agent
 CLIs and their dependencies, then set `SLOPCAR_IMAGE` to that custom image.
-The container's root filesystem is read-only at runtime, so install those tools
-when building the image.
+Install those tools when building the image so they survive container replacement.
+The launcher supplies `PUID`/`PGID` from your Linux user, or 1000:1000 on macOS.
+The entrypoint starts as root to configure the `slop` account, then drops privileges
+before starting the daemon. Workspace and credential ownership stays unchanged.
 
 The worker writes `endpoint.toml` inside its config directory.
 The default host location is `<CONFIG>/sidecar/endpoint.toml`.
