@@ -92,7 +92,7 @@ namespace SlopWorld
         {
             foreach (var section in SectionsByKey.Values) section.Rows.Clear();
             foreach (var item in _items)
-                EnsureSection(GroupKey(item)).Rows.Add(new ItemRow(item));
+                EnsureSection(GroupKey(item)).Rows.Add(RowFor(item));
 
             BuildMainCategories(projects);
 
@@ -101,7 +101,8 @@ namespace SlopWorld
             {
                 if (!SectionsByKey.TryGetValue(key, out var section) || section.Rows.Count == 0)
                     continue;
-                if (section.Rows[0] is ItemRow)
+                if (section.Rows[0].Target is LibraryRowTarget.Item ||
+                    section.Rows[0].Target is LibraryRowTarget.Template)
                     section.Rows.Sort((a, b) => string.CompareOrdinal(
                         a.Label, b.Label));
                 Sections.Add(section);
@@ -133,7 +134,7 @@ namespace SlopWorld
             if (!MainCategoryEnabled(Category.Projects)) return;
             foreach (var project in projects)
                 if (MatchesAny(query, Category.Projects, project.Name, project.Dir))
-                    EnsureSection(Category.Projects).Rows.Add(new ProjectRow(project));
+                    EnsureSection(Category.Projects).Rows.Add(RowFor(project));
         }
 
         static void BuildWorktreeRows(List<ProjectInfo> projects, string query)
@@ -144,8 +145,8 @@ namespace SlopWorld
                 if (!Worktrees.WorktreesByProject.TryGetValue(project.Name, out var worktrees)) continue;
                 foreach (var entry in worktrees)
                     if (MatchesAny(query, Category.Worktrees, entry.Project,
-                        WorktreeRow.TreeName(entry), entry.Tree.Path, entry.Tree.Branch))
-                        EnsureSection(Category.Worktrees).Rows.Add(new WorktreeRow(entry));
+                        TreeName(entry), entry.Tree.Path, entry.Tree.Branch))
+                        EnsureSection(Category.Worktrees).Rows.Add(RowFor(entry));
             }
         }
 
@@ -156,7 +157,7 @@ namespace SlopWorld
                 .Where(preset => preset.Source != "system")
                 .OrderBy(preset => preset.Name, StringComparer.OrdinalIgnoreCase))
                 if (MatchesAny(query, Category.SandboxPresets, preset.Name, preset.Description))
-                    EnsureSection(Category.SandboxPresets).Rows.Add(new SandboxPresetRow(preset));
+                    EnsureSection(Category.SandboxPresets).Rows.Add(RowFor(preset));
         }
 
         static void BuildAppPresetRows(string query)
@@ -166,7 +167,7 @@ namespace SlopWorld
                 .Where(command => command.Source != "system")
                 .OrderBy(command => command.Name, StringComparer.OrdinalIgnoreCase))
                 if (MatchesAny(query, Category.AppPresets, command.Name, command.Description, command.Cmd))
-                    EnsureSection(Category.AppPresets).Rows.Add(new AppPresetRow(command));
+                    EnsureSection(Category.AppPresets).Rows.Add(RowFor(command));
         }
 
         static bool MatchesAny(string query, string first, string second,

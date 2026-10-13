@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 using WorktreeEntry = SlopWorld.WorktreeInventory.WorktreeEntry;
 using static SlopWorld.LibraryRowTarget;
@@ -12,76 +11,33 @@ namespace SlopWorld
         // Translate typed row requests into game windows, clipboard writes and catalog actions.
         sealed class LibraryRowEffects : IEffects
         {
-            public void Execute(LibraryItemInfo item, ItemAction action)
-            {
-                switch (action)
-                {
-                    case ItemAction.Run: Run(item); break;
-                    case ItemAction.Edit: LibraryActions.Edit(item); break;
-                    case ItemAction.CopyText: GUIUtility.systemCopyBuffer = item.Text ?? ""; break;
-                    case ItemAction.Menu: RowMenu(item); break;
-                    default: throw new ArgumentOutOfRangeException(nameof(action));
-                }
-            }
+            public void Run(LibraryItemInfo item) => LibraryView.Run(item);
+            public void Edit(LibraryItemInfo item) => LibraryActions.Edit(item);
+            public void CopyText(LibraryItemInfo item) => GUIUtility.systemCopyBuffer = item.Text ?? "";
+            public void Menu(LibraryItemInfo item) => RowMenu(item);
 
-            public void Execute(AgentTemplateInfo template, TemplateAction action)
-            {
-                switch (action)
-                {
-                    case TemplateAction.Create:
-                        TerminalWindow.OpenOverPane(EditSessionDialog.FromTemplate(template)); break;
-                    case TemplateAction.Edit:
-                        TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template)); break;
-                    case TemplateAction.Menu: TemplateMenu(template); break;
-                    default: throw new ArgumentOutOfRangeException(nameof(action));
-                }
-            }
+            public void Create(AgentTemplateInfo template) =>
+                TerminalWindow.OpenOverPane(EditSessionDialog.FromTemplate(template));
+            public void Edit(AgentTemplateInfo template) =>
+                TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template));
+            public void Menu(AgentTemplateInfo template) => TemplateMenu(template);
 
-            public void Execute(ProjectInfo project, ProjectAction action)
-            {
-                switch (action)
-                {
-                    case ProjectAction.Edit:
-                        TerminalWindow.OpenOverPane(new EditProjectDialog(project)); break;
-                    case ProjectAction.Worktrees:
-                        TerminalWindow.OpenOverPane(EditProjectDialog.ForWorktrees(project)); break;
-                    case ProjectAction.Menu: ProjectMenu(project); break;
-                    default: throw new ArgumentOutOfRangeException(nameof(action));
-                }
-            }
+            public void Edit(ProjectInfo project) =>
+                TerminalWindow.OpenOverPane(new EditProjectDialog(project));
+            public void Worktrees(ProjectInfo project) =>
+                TerminalWindow.OpenOverPane(EditProjectDialog.ForWorktrees(project));
+            public void Menu(ProjectInfo project) => ProjectMenu(project);
 
-            public void Execute(WorktreeEntry entry, WorktreeAction action)
-            {
-                switch (action)
-                {
-                    case WorktreeAction.Terminal:
-                        SessionHub.Instance.SessionStore.RunHostShell(entry.Project,
-                            name => TerminalWindow.Open(name), UiLayout.Fail, entry.Tree.Id); break;
-                    case WorktreeAction.Project: OpenProjectWorktrees(entry.Project); break;
-                    case WorktreeAction.Menu: WorktreeMenu(entry); break;
-                    default: throw new ArgumentOutOfRangeException(nameof(action));
-                }
-            }
+            public void Terminal(WorktreeEntry entry) =>
+                SessionHub.Instance.SessionStore.RunHostShell(entry.Project,
+                    name => TerminalWindow.Open(name), UiLayout.Fail, entry.Tree.Id);
+            public void Project(WorktreeEntry entry) => OpenProjectWorktrees(entry.Project);
+            public void Menu(WorktreeEntry entry) => WorktreeMenu(entry);
 
-            public void Execute(PresetInfo preset, PresetAction action)
-            {
-                switch (action)
-                {
-                    case PresetAction.Edit: ModOptions.OpenSandboxPreset(preset.Name); break;
-                    case PresetAction.Remove: RemovePreset("sandbox_presets", preset); break;
-                    default: throw new ArgumentOutOfRangeException(nameof(action));
-                }
-            }
-
-            public void Execute(CommandInfo command, PresetAction action)
-            {
-                switch (action)
-                {
-                    case PresetAction.Edit: ModOptions.OpenAppPreset(command.Name); break;
-                    case PresetAction.Remove: RemovePreset("app_presets", command); break;
-                    default: throw new ArgumentOutOfRangeException(nameof(action));
-                }
-            }
+            public void Edit(PresetInfo preset) => ModOptions.OpenSandboxPreset(preset.Name);
+            public void Remove(PresetInfo preset) => RemovePreset("sandbox_presets", preset);
+            public void Edit(CommandInfo command) => ModOptions.OpenAppPreset(command.Name);
+            public void Remove(CommandInfo command) => RemovePreset("app_presets", command);
 
             public void RememberLibrary(string name, bool template) =>
                 AgentSidebar.RememberLibrary(name, template);

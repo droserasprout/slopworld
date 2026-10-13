@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using WorktreeEntry = SlopWorld.WorktreeInventory.WorktreeEntry;
@@ -6,113 +7,84 @@ namespace SlopWorld
 {
     public static partial class LibraryView
     {
-        // Each row retains its typed catalog snapshot and owns variant-specific presentation
-        // and dispatch. Build details only for selection, and tooltips only on hover.
-        abstract class Row
+        // Presentation captures the same catalog snapshot as the typed action target.
+        // Details and tooltips remain lazy, without a second hierarchy of row variants.
+        sealed class Row
         {
             public readonly LibraryRowTarget Target;
             public string Key => Target.Key;
             public readonly string Label;
             public readonly Texture2D Icon;
+            public readonly Func<RowDetails> Details;
+            public readonly Func<string> Tooltip;
 
-            protected Row(LibraryRowTarget target, string label, Texture2D icon)
+            public Row(LibraryRowTarget target, string label, Texture2D icon,
+                Func<RowDetails> details, Func<string> tooltip)
             {
                 Target = target;
                 Label = label;
                 Icon = icon;
-            }
-
-            public abstract RowDetails Details();
-            public abstract string Tooltip();
-        }
-
-        sealed class ItemRow : Row
-        {
-            readonly LibraryItemInfo _item;
-
-            public ItemRow(LibraryItemInfo item)
-                : base(Templates.TryGetValue(item, out var template)
-                    ? (LibraryRowTarget)new LibraryRowTarget.Template(template)
-                    : new LibraryRowTarget.Item(item), item.Name, Templates.ContainsKey(item) ? Icons.Agents :
-                    item.Kind == LibraryItemKind.Shell ? Icons.Terminal :
-                    item.Kind == LibraryItemKind.FileAction ? Icons.Files :
-                    item.Kind == LibraryItemKind.Breadcrumb ? Icons.Keyboard : Icons.Library)
-            {
-                _item = item;
-            }
-
-            public override RowDetails Details() => PrepareItemDetails(_item, Target.DetailsActions(RowEffects));
-            public override string Tooltip()
-            {
-                var lines = ItemSummary(_item);
-                string content = ItemContent(_item);
-                if (!string.IsNullOrEmpty(content)) lines.Add(OneLine(content));
-                return string.Join("\n", lines);
+                Details = details;
+                Tooltip = tooltip;
             }
         }
 
-        sealed class ProjectRow : Row
+        static Row RowFor(LibraryItemInfo item)
         {
-            readonly ProjectInfo _project;
-
-            public ProjectRow(ProjectInfo project)
-                : base(new LibraryRowTarget.Project(project), project.Name, Icons.Files)
-            {
-                _project = project;
-            }
-
-            public override RowDetails Details() => ActionDetails(new List<string>
-                { _project.Name, "Project", _project.Dir, ProjectSummary.Of(_project) },
-                Target.DetailsActions(RowEffects));
-            public override string Tooltip() => _project.Name + "  -  " + _project.Dir;
+            bool isTemplate = Templates.TryGetValue(item, out var template);
+            LibraryRowTarget target = isTemplate
+                ? (LibraryRowTarget)new LibraryRowTarget.Template(template)
+                : new LibraryRowTarget.Item(item);
+            var icon = isTemplate ? Icons.Agents :
+                item.Kind == LibraryItemKind.Shell ? Icons.Terminal :
+                item.Kind == LibraryItemKind.FileAction ? Icons.Files :
+                item.Kind == LibraryItemKind.Breadcrumb ? Icons.Keyboard : Icons.Library;
+            return new Row(target, item.Name, icon,
+                () => PrepareItemDetails(item, target.DetailsActions(RowEffects)), () =>
+                {
+                    var lines = ItemSummary(item);
+                    string content = ItemContent(item);
+                    if (!string.IsNullOrEmpty(content)) lines.Add(OneLine(content));
+                    return string.Join("\n", lines);
+                });
         }
 
-        sealed class WorktreeRow : Row
+        static Row RowFor(ProjectInfo project)
         {
-            readonly WorktreeEntry _entry;
-
-            public static string TreeName(WorktreeEntry entry) => entry.Tree.Id == "main" ? "main" :
-                string.IsNullOrEmpty(entry.Tree.Name) ? entry.Tree.Id : entry.Tree.Name;
-
-            public WorktreeRow(WorktreeEntry entry)
-                : base(new LibraryRowTarget.Worktree(entry),
-                    entry.Project + "  ·  " + TreeName(entry), Icons.Git)
-            {
-                _entry = entry;
-            }
-
-            public override RowDetails Details() => ActionDetails(WorktreeDetails(_entry), Target.DetailsActions(RowEffects));
-            public override string Tooltip() => Label + "\n" + _entry.Tree.Path;
+            var target = new LibraryRowTarget.Project(project);
+            return new Row(target, project.Name, Icons.Files,
+                () => ActionDetails(new List<string>
+                    { project.Name, "Project", project.Dir, ProjectSummary.Of(project) },
+                    target.DetailsActions(RowEffects)),
+                () => project.Name + "  -  " + project.Dir);
         }
 
-        sealed class SandboxPresetRow : Row
+        static string TreeName(WorktreeEntry entry) => entry.Tree.Id == "main" ? "main" :
+            string.IsNullOrEmpty(entry.Tree.Name) ? entry.Tree.Id : entry.Tree.Name;
+
+        static Row RowFor(WorktreeEntry entry)
         {
-            readonly PresetInfo _preset;
-
-            public SandboxPresetRow(PresetInfo preset)
-                : base(new LibraryRowTarget.SandboxPreset(preset),
-                    PresetLabel(preset.Name, preset.Source), Icons.Shield)
-            {
-                _preset = preset;
-            }
-
-            public override RowDetails Details() => ActionDetails(SandboxDetails(_preset), Target.DetailsActions(RowEffects));
-            public override string Tooltip() => string.Join("\n", SandboxDetails(_preset));
+            var target = new LibraryRowTarget.Worktree(entry);
+            string label = entry.Project + "  ·  " + TreeName(entry);
+            return new Row(target, label, Icons.Git,
+                () => ActionDetails(WorktreeDetails(entry), target.DetailsActions(RowEffects)),
+                () => label + "\n" + entry.Tree.Path);
         }
 
-        sealed class AppPresetRow : Row
+        static Row RowFor(PresetInfo preset)
         {
-            readonly CommandInfo _command;
+            var target = new LibraryRowTarget.SandboxPreset(preset);
+            return new Row(target, PresetLabel(preset.Name, preset.Source), Icons.Shield,
+                () => ActionDetails(SandboxDetails(preset), target.DetailsActions(RowEffects)),
+                () => string.Join("\n", SandboxDetails(preset)));
+        }
 
-            public AppPresetRow(CommandInfo command)
-                : base(new LibraryRowTarget.AppPreset(command),
-                    PresetLabel(command.Name, command.Source), Icons.Terminal)
-            {
-                _command = command;
-            }
-
-            public override RowDetails Details() => ActionDetails(AppPresetDetails(_command), Target.DetailsActions(RowEffects));
-            public override string Tooltip() => string.Join("\n", AppPresetDetails(_command));
+        static Row RowFor(CommandInfo command)
+        {
+            var target = new LibraryRowTarget.AppPreset(command);
+            return new Row(target, PresetLabel(command.Name, command.Source), Icons.Terminal,
+                () => ActionDetails(AppPresetDetails(command), target.DetailsActions(RowEffects)),
+                () => string.Join("\n", AppPresetDetails(command)));
         }
     }
 }

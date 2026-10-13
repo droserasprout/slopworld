@@ -7,20 +7,25 @@ namespace SlopWorld
     // deferred actions retain the target that was selected, rather than resolving it again.
     internal abstract class LibraryRowTarget
     {
-        internal enum ItemAction { Run, Edit, CopyText, Menu }
-        internal enum TemplateAction { Create, Edit, Menu }
-        internal enum ProjectAction { Edit, Worktrees, Menu }
-        internal enum WorktreeAction { Terminal, Project, Menu }
-        internal enum PresetAction { Edit, Remove }
-
         internal interface IEffects
         {
-            void Execute(LibraryItemInfo item, ItemAction action);
-            void Execute(AgentTemplateInfo template, TemplateAction action);
-            void Execute(ProjectInfo project, ProjectAction action);
-            void Execute(WorktreeEntry entry, WorktreeAction action);
-            void Execute(PresetInfo preset, PresetAction action);
-            void Execute(CommandInfo command, PresetAction action);
+            void Run(LibraryItemInfo target);
+            void Edit(LibraryItemInfo target);
+            void CopyText(LibraryItemInfo target);
+            void Menu(LibraryItemInfo target);
+            void Create(AgentTemplateInfo target);
+            void Edit(AgentTemplateInfo target);
+            void Menu(AgentTemplateInfo target);
+            void Edit(ProjectInfo target);
+            void Worktrees(ProjectInfo target);
+            void Menu(ProjectInfo target);
+            void Terminal(WorktreeEntry target);
+            void Project(WorktreeEntry target);
+            void Menu(WorktreeEntry target);
+            void Edit(PresetInfo target);
+            void Remove(PresetInfo target);
+            void Edit(CommandInfo target);
+            void Remove(CommandInfo target);
             void RememberLibrary(string name, bool template);
         }
 
@@ -60,14 +65,14 @@ namespace SlopWorld
                 string secondaryLabel = runnable ? "Edit" :
                     _item.Kind == LibraryItemKind.Breadcrumb ? "Copy text" : null;
                 Action secondary = secondaryLabel == null ? null :
-                    () => effects.Execute(_item, runnable ? ItemAction.Edit : ItemAction.CopyText);
+                    () => { if (runnable) effects.Edit(_item); else effects.CopyText(_item); };
                 return new Actions(primaryLabel,
-                    () => effects.Execute(_item, runnable ? ItemAction.Run : ItemAction.Edit),
+                    () => { if (runnable) effects.Run(_item); else effects.Edit(_item); },
                     secondaryLabel, secondary, () => OpenMenu(effects));
             }
 
             internal override bool HasMenu => true;
-            internal override void OpenMenu(IEffects effects) => effects.Execute(_item, ItemAction.Menu);
+            internal override void OpenMenu(IEffects effects) => effects.Menu(_item);
             internal override void Remember(IEffects effects) => effects.RememberLibrary(_item.Name, false);
         }
 
@@ -78,10 +83,10 @@ namespace SlopWorld
             { _template = template; }
 
             internal override Actions DetailsActions(IEffects effects) => new Actions(
-                "Create agent", () => effects.Execute(_template, TemplateAction.Create),
-                "Edit", () => effects.Execute(_template, TemplateAction.Edit), () => OpenMenu(effects));
+                "Create agent", () => effects.Create(_template),
+                "Edit", () => effects.Edit(_template), () => OpenMenu(effects));
             internal override bool HasMenu => true;
-            internal override void OpenMenu(IEffects effects) => effects.Execute(_template, TemplateAction.Menu);
+            internal override void OpenMenu(IEffects effects) => effects.Menu(_template);
             internal override void Remember(IEffects effects) => effects.RememberLibrary(_template.Name, true);
         }
 
@@ -92,10 +97,10 @@ namespace SlopWorld
             { _project = project; }
 
             internal override Actions DetailsActions(IEffects effects) => new Actions(
-                "Edit", () => effects.Execute(_project, ProjectAction.Edit),
-                "Worktrees", () => effects.Execute(_project, ProjectAction.Worktrees), () => OpenMenu(effects));
+                "Edit", () => effects.Edit(_project),
+                "Worktrees", () => effects.Worktrees(_project), () => OpenMenu(effects));
             internal override bool HasMenu => true;
-            internal override void OpenMenu(IEffects effects) => effects.Execute(_project, ProjectAction.Menu);
+            internal override void OpenMenu(IEffects effects) => effects.Menu(_project);
         }
 
         internal sealed class Worktree : LibraryRowTarget
@@ -105,10 +110,10 @@ namespace SlopWorld
                 : base("action:worktree:" + entry.Project + ":" + entry.Tree.Id) { _entry = entry; }
 
             internal override Actions DetailsActions(IEffects effects) => new Actions(
-                "Terminal", () => effects.Execute(_entry, WorktreeAction.Terminal),
-                "Project", () => effects.Execute(_entry, WorktreeAction.Project), () => OpenMenu(effects));
+                "Terminal", () => effects.Terminal(_entry),
+                "Project", () => effects.Project(_entry), () => OpenMenu(effects));
             internal override bool HasMenu => true;
-            internal override void OpenMenu(IEffects effects) => effects.Execute(_entry, WorktreeAction.Menu);
+            internal override void OpenMenu(IEffects effects) => effects.Menu(_entry);
         }
 
         internal sealed class SandboxPreset : LibraryRowTarget
@@ -118,9 +123,9 @@ namespace SlopWorld
             { _preset = preset; }
 
             internal override Actions DetailsActions(IEffects effects) => new Actions(
-                "Edit", () => effects.Execute(_preset, PresetAction.Edit),
+                "Edit", () => effects.Edit(_preset),
                 _preset.Source == "override" ? "Reset" : "Remove",
-                () => effects.Execute(_preset, PresetAction.Remove));
+                () => effects.Remove(_preset));
         }
 
         internal sealed class AppPreset : LibraryRowTarget
@@ -130,9 +135,9 @@ namespace SlopWorld
             { _command = command; }
 
             internal override Actions DetailsActions(IEffects effects) => new Actions(
-                "Edit", () => effects.Execute(_command, PresetAction.Edit),
+                "Edit", () => effects.Edit(_command),
                 _command.Source == "override" ? "Reset" : "Remove",
-                () => effects.Execute(_command, PresetAction.Remove));
+                () => effects.Remove(_command));
         }
     }
 }

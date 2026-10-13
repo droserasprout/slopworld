@@ -12,14 +12,25 @@ namespace SlopWorld.Tests
     {
         sealed class Effects : IEffects
         {
-            internal readonly List<(object Target, object Action)> Calls = new List<(object, object)>();
+            internal readonly List<(object Target, string Action)> Calls = new List<(object, string)>();
             internal readonly List<(string Name, bool Template)> Remembered = new List<(string, bool)>();
-            public void Execute(LibraryItemInfo item, ItemAction action) => Calls.Add((item, action));
-            public void Execute(AgentTemplateInfo template, TemplateAction action) => Calls.Add((template, action));
-            public void Execute(ProjectInfo project, ProjectAction action) => Calls.Add((project, action));
-            public void Execute(WorktreeEntry entry, WorktreeAction action) => Calls.Add((entry, action));
-            public void Execute(PresetInfo preset, PresetAction action) => Calls.Add((preset, action));
-            public void Execute(CommandInfo command, PresetAction action) => Calls.Add((command, action));
+            public void Run(LibraryItemInfo target) => Calls.Add((target, "Run"));
+            public void Edit(LibraryItemInfo target) => Calls.Add((target, "Edit"));
+            public void CopyText(LibraryItemInfo target) => Calls.Add((target, "CopyText"));
+            public void Menu(LibraryItemInfo target) => Calls.Add((target, "Menu"));
+            public void Create(AgentTemplateInfo target) => Calls.Add((target, "Create"));
+            public void Edit(AgentTemplateInfo target) => Calls.Add((target, "Edit"));
+            public void Menu(AgentTemplateInfo target) => Calls.Add((target, "Menu"));
+            public void Edit(ProjectInfo target) => Calls.Add((target, "Edit"));
+            public void Worktrees(ProjectInfo target) => Calls.Add((target, "Worktrees"));
+            public void Menu(ProjectInfo target) => Calls.Add((target, "Menu"));
+            public void Terminal(WorktreeEntry target) => Calls.Add((target, "Terminal"));
+            public void Project(WorktreeEntry target) => Calls.Add((target, "Project"));
+            public void Menu(WorktreeEntry target) => Calls.Add((target, "Menu"));
+            public void Edit(PresetInfo target) => Calls.Add((target, "Edit"));
+            public void Remove(PresetInfo target) => Calls.Add((target, "Remove"));
+            public void Edit(CommandInfo target) => Calls.Add((target, "Edit"));
+            public void Remove(CommandInfo target) => Calls.Add((target, "Remove"));
             public void RememberLibrary(string name, bool template) => Remembered.Add((name, template));
         }
 
@@ -92,7 +103,7 @@ namespace SlopWorld.Tests
             Assert.That(selection.Click(row, 1, effects), Is.EqualTo(menu));
             Assert.That(selection.Key, Is.EqualTo(menu ? row.Key : "item:previous"));
             Assert.That(effects.Calls.Count, Is.EqualTo(menu ? 1 : 0));
-            if (menu) Assert.That(effects.Calls[0].Action.ToString(), Is.EqualTo("Menu"));
+            if (menu) Assert.That(effects.Calls[0].Action, Is.EqualTo("Menu"));
             Assert.That(effects.Remembered, Is.EqualTo(kind < 2
                 ? new[] { ("same", kind == 1) } : Array.Empty<(string, bool)>()));
         }
@@ -145,14 +156,14 @@ namespace SlopWorld.Tests
             Assert.That(selection.Key, Is.EqualTo(retained ? key : null));
         }
 
-        [TestCase(LibraryItemKind.Prompt, LibraryItemLink.Project, "Run", "Edit", ItemAction.Run)]
-        [TestCase(LibraryItemKind.Shell, LibraryItemLink.Project, "Run", "Edit", ItemAction.Run)]
-        [TestCase(LibraryItemKind.Prompt, LibraryItemLink.Ask, "Choose a project", "Edit", ItemAction.Run)]
-        [TestCase(LibraryItemKind.Shell, LibraryItemLink.Ask, "Choose a project", "Edit", ItemAction.Run)]
-        [TestCase(LibraryItemKind.Breadcrumb, LibraryItemLink.Project, "Edit", "Copy text", ItemAction.Edit)]
-        [TestCase(LibraryItemKind.FileAction, LibraryItemLink.Project, "Edit", null, ItemAction.Edit)]
+        [TestCase(LibraryItemKind.Prompt, LibraryItemLink.Project, "Run", "Edit", "Run")]
+        [TestCase(LibraryItemKind.Shell, LibraryItemLink.Project, "Run", "Edit", "Run")]
+        [TestCase(LibraryItemKind.Prompt, LibraryItemLink.Ask, "Choose a project", "Edit", "Run")]
+        [TestCase(LibraryItemKind.Shell, LibraryItemLink.Ask, "Choose a project", "Edit", "Run")]
+        [TestCase(LibraryItemKind.Breadcrumb, LibraryItemLink.Project, "Edit", "Copy text", "Edit")]
+        [TestCase(LibraryItemKind.FileAction, LibraryItemLink.Project, "Edit", null, "Edit")]
         public void ItemDetailsOfferOnlyApplicableActions(LibraryItemKind kind, LibraryItemLink link,
-            string primary, string secondary, ItemAction request)
+            string primary, string secondary, string request)
         {
             var item = new LibraryItemInfo { Name = "selected", Kind = kind, Link = link, Text = "copy me" };
             var effects = new Effects();
@@ -161,16 +172,16 @@ namespace SlopWorld.Tests
             Assert.That(actions.PrimaryLabel, Is.EqualTo(primary));
             Assert.That(actions.SecondaryLabel, Is.EqualTo(secondary));
             actions.Primary();
-            Assert.That(effects.Calls[0], Is.EqualTo(((object)item, (object)request)));
+            Assert.That(effects.Calls[0], Is.EqualTo(((object)item, request)));
             if (secondary == null) Assert.That(actions.Secondary, Is.Null);
             else
             {
                 actions.Secondary();
                 Assert.That(effects.Calls[1], Is.EqualTo(((object)item,
-                    (object)(kind == LibraryItemKind.Breadcrumb ? ItemAction.CopyText : ItemAction.Edit))));
+                    (kind == LibraryItemKind.Breadcrumb ? "CopyText" : "Edit"))));
             }
             actions.More();
-            Assert.That(effects.Calls.Last(), Is.EqualTo(((object)item, (object)ItemAction.Menu)));
+            Assert.That(effects.Calls.Last(), Is.EqualTo(((object)item, "Menu")));
         }
 
         [Test]
@@ -188,8 +199,8 @@ namespace SlopWorld.Tests
             actions.Secondary();
             actions.More();
             Assert.That(effects.Calls.Select(call => call.Target), Is.All.SameAs(original));
-            Assert.That(effects.Calls.Select(call => call.Action), Is.EqualTo(new object[]
-                { TemplateAction.Create, TemplateAction.Edit, TemplateAction.Menu }));
+            Assert.That(effects.Calls.Select(call => call.Action), Is.EqualTo(new string[]
+                { "Create", "Edit", "Menu" }));
         }
 
         [Test]
@@ -206,8 +217,8 @@ namespace SlopWorld.Tests
             actions.Secondary();
             actions.More();
             Assert.That(effects.Calls.Select(call => call.Target), Is.All.SameAs(original));
-            Assert.That(effects.Calls.Select(call => call.Action), Is.EqualTo(new object[]
-                { WorktreeAction.Terminal, WorktreeAction.Project, WorktreeAction.Menu }));
+            Assert.That(effects.Calls.Select(call => call.Action), Is.EqualTo(new string[]
+                { "Terminal", "Project", "Menu" }));
             Assert.That(original.Project, Is.EqualTo("first"));
             Assert.That(original.Tree.Id, Is.EqualTo("branch"));
         }
@@ -224,8 +235,8 @@ namespace SlopWorld.Tests
             actions.Secondary();
             actions.More();
             Assert.That(effects.Calls.Select(call => call.Target), Is.All.SameAs(project));
-            Assert.That(effects.Calls.Select(call => call.Action), Is.EqualTo(new object[]
-                { ProjectAction.Edit, ProjectAction.Worktrees, ProjectAction.Menu }));
+            Assert.That(effects.Calls.Select(call => call.Action), Is.EqualTo(new string[]
+                { "Edit", "Worktrees", "Menu" }));
         }
 
         [TestCase(false, "user", "Remove")]
@@ -246,8 +257,8 @@ namespace SlopWorld.Tests
             actions.Secondary();
             object model = app ? (object)command : preset;
             Assert.That(effects.Calls.Select(call => call.Target), Is.All.SameAs(model));
-            Assert.That(effects.Calls.Select(call => call.Action), Is.EqualTo(new object[]
-                { PresetAction.Edit, PresetAction.Remove }));
+            Assert.That(effects.Calls.Select(call => call.Action), Is.EqualTo(new string[]
+                { "Edit", "Remove" }));
         }
     }
 }
