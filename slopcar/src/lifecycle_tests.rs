@@ -277,3 +277,39 @@ fn fresh_linux_state_is_accessible_to_uid_1001() {
         fs::write(path.join("writable"), "yes").unwrap();
     }
 }
+
+#[test]
+#[cfg(target_os = "linux")]
+fn linux_identity_does_not_depend_on_a_writable_temporary_directory() {
+    const CHILD: &str = "SLOPCAR_TEST_IDENTITY_WITHOUT_TMP";
+    if std::env::var_os(CHILD).is_none() {
+        let directory = tempfile::tempdir().unwrap();
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "lifecycle::tests::linux_identity_does_not_depend_on_a_writable_temporary_directory",
+            ])
+            .env(CHILD, "1")
+            .env("TMPDIR", directory.path().join("missing"))
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        return;
+    }
+    // SAFETY: effective credential queries have no preconditions.
+    let (uid, gid) = unsafe { (libc::geteuid(), libc::getegid()) };
+    if uid == 0 {
+        assert!(
+            container_identity()
+                .unwrap_err()
+                .to_string()
+                .contains("non-root")
+        );
+    } else {
+        assert_eq!(container_identity().unwrap(), (uid, gid));
+    }
+}

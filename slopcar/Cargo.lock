@@ -242,6 +242,7 @@ name = "slopcar"
 version = "0.0.2"
 dependencies = [
  "anyhow",
+ "libc",
  "rand",
  "serde_json",
  "tempfile",

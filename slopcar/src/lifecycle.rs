@@ -16,15 +16,13 @@ fn args(values: &[&str]) -> Vec<OsString> {
 fn container_identity() -> Result<(u32, u32)> {
     #[cfg(target_os = "linux")]
     {
-        use std::os::unix::fs::MetadataExt;
-        // A new private file records the invoking user's credentials without a shell
-        // or a new platform dependency. Docker bind mounts preserve these numeric IDs.
-        let probe = tempfile::tempfile()?;
-        let metadata = probe.metadata()?;
-        if metadata.uid() == 0 {
+        // SAFETY: effective credential queries have no preconditions.
+        // Unlike temporary-file ownership, these do not depend on TMPDIR.
+        let (uid, gid) = unsafe { (libc::geteuid(), libc::getegid()) };
+        if uid == 0 {
             bail!("run slopcar as the non-root user who owns its persistent state");
         }
-        Ok((metadata.uid(), metadata.gid()))
+        Ok((uid, gid))
     }
     #[cfg(not(target_os = "linux"))]
     {
