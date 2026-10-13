@@ -20,6 +20,9 @@ namespace SlopWorld
         const long SubstructureNotifyMask = 1L << 19;
         const long SubstructureRedirectMask = 1L << 20;
 
+        // Match packaging/slopworld.desktop, independently of the shared Unity executable.
+        static readonly byte[] ApplicationClass = Encoding.ASCII.GetBytes("slopworld\0slopworld\0");
+
         enum ResizeStage
         {
             Retry,
@@ -104,6 +107,8 @@ namespace SlopWorld
                 IntPtr window = FindGameWindow(display, root);
                 if (window == IntPtr.Zero)
                     return WindowChange.Retry;
+
+                SetApplicationClass(display, window);
 
                 // Scene changes can rewrite decorations and reset Unity's windowed size.
                 // The saved preference is not evidence of the current native window state.
@@ -434,6 +439,65 @@ namespace SlopWorld
             IntPtr mask = new IntPtr(SubstructureNotifyMask | SubstructureRedirectMask);
             if (XSendEvent(display, root, 0, mask, ref message) == 0)
                 Warn("the window manager rejected the activation request");
+        }
+
+        // GNOME tracks WM_CLASS changes, so it can reassign Unity's already mapped
+        // window. Set both instance and class to avoid a fallback match to RimWorld.
+        static void SetApplicationClass(IntPtr display, IntPtr window)
+        {
+            IntPtr property = XInternAtom(display, "WM_CLASS", 0);
+            IntPtr stringType = XInternAtom(display, "STRING", 0);
+            if (property == IntPtr.Zero || stringType == IntPtr.Zero)
+                return;
+
+            // Loading watches revisit the window; only publish a changed identity.
+            if (
+                GetProperty(
+                    display,
+                    window,
+                    property,
+                    stringType,
+                    IntPtr.Zero,
+                    new IntPtr(4096),
+                    out IntPtr data,
+                    out int format,
+                    out IntPtr count
+                )
+            )
+            {
+                try
+                {
+                    bool matches = format == 8 && count.ToInt64() == ApplicationClass.Length;
+                    for (int i = 0; matches && i < ApplicationClass.Length; i++)
+                        matches = Marshal.ReadByte(data, i) == ApplicationClass[i];
+                    if (matches)
+                        return;
+                }
+                finally
+                {
+                    _ = XFree(data);
+                }
+            }
+
+            GCHandle pinned = GCHandle.Alloc(ApplicationClass, GCHandleType.Pinned);
+            try
+            {
+                _ = XChangeProperty(
+                    display,
+                    window,
+                    property,
+                    stringType,
+                    8,
+                    0,
+                    pinned.AddrOfPinnedObject(),
+                    ApplicationClass.Length
+                );
+                _ = XFlush(display);
+            }
+            finally
+            {
+                pinned.Free();
+            }
         }
 
         static void SetUndecorated(IntPtr display, IntPtr window)

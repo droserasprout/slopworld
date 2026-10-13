@@ -1,9 +1,12 @@
 # Linux window-manager integration
 
-`LinuxGameWindow` owns native titles and fullscreen through X11/EWMH; `WindowTitle`
+`LinuxGameWindow` owns native titles, application identity, and fullscreen through X11/EWMH; `WindowTitle`
 uses its title setter. The launcher supplies default Linux windowed/OpenGL arguments,
 while the mod follows the saved fullscreen preference. This path requires X11/EWMH,
 including under XWayland; it does not categorically bypass Wayland desktops.
+The window watch sets both WM_CLASS strings to `slopworld`, matching the packaged
+desktop entry's StartupWMClass. This keeps SlopWorld separate from vanilla RimWorld
+in application switchers despite sharing the `RimWorldLinux` executable.
 Window checks run during startup and loading transitions, then stop after a quiet
 settling period. Next planet arms the watch before leaving the colony; pending landing
 and queued long events also restart a retired watch and keep it active through loading.
