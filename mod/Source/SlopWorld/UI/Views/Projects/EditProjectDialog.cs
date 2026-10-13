@@ -10,7 +10,13 @@ namespace SlopWorld
     // Projects edit workspace identity and shared path mounts.
     public class EditProjectDialog : UiWindow
     {
-        enum Tab { General, Mounts, Worktrees }
+        enum Tab
+        {
+            General,
+            Mounts,
+            Worktrees,
+        }
+
         ProjectWorktrees _worktrees;
 
         readonly EditIdentity _identity;
@@ -22,7 +28,8 @@ namespace SlopWorld
         Tab _tab;
         bool _saving;
 
-        public EditProjectDialog(ProjectInfo existing) : this(existing, false) { }
+        public EditProjectDialog(ProjectInfo existing)
+            : this(existing, false) { }
 
         public static EditProjectDialog ForWorktrees(ProjectInfo existing) =>
             new EditProjectDialog(existing, false, Tab.Worktrees);
@@ -35,18 +42,24 @@ namespace SlopWorld
             // A copy is a new project in every way that matters here: nothing on the daemon knows
             // it. Therefore, save posts rather than puts and there is no rename to carry any agents
             // across.
-            _identity = copy ? EditIdentity.ForCopy(existing?.Name) :
-                existing == null ? EditIdentity.ForNew() : EditIdentity.ForEdit(existing.Name);
+            _identity =
+                copy ? EditIdentity.ForCopy(existing?.Name)
+                : existing == null ? EditIdentity.ForNew()
+                : EditIdentity.ForEdit(existing.Name);
             _p = existing?.Copy() ?? new ProjectInfo();
             _tab = tab;
-            if (existing != null && !copy) _worktrees = new ProjectWorktrees(existing);
+            if (existing != null && !copy)
+                _worktrees = new ProjectWorktrees(existing);
             if (copy)
             {
-                _p.Name = _identity.CopyName(SessionHub.Instance.Projects.Select(p => p.Name),
-                    "project");
+                _p.Name = _identity.CopyName(
+                    SessionHub.Instance.Projects.Select(p => p.Name),
+                    "project"
+                );
                 // Temporary project storage uses the project name as its directory.
                 // The copy therefore gets a new directory name.
-                if (_p.Temp) RequestTempPreview();
+                if (_p.Temp)
+                    RequestTempPreview();
             }
             resizeable = true;
             AcceptOnEnter(Save);
@@ -61,8 +74,14 @@ namespace SlopWorld
         {
             UiLayout.Title(TitleRect(rect), _identity.Title("project"));
 
-            var layout = TabbedFormLayout.Arrange(UiRect.FromRect(rect), 132f,
-                UiTheme.HeaderH, UiTheme.BtnH, UiTheme.GapS, UiTheme.GapM);
+            var layout = TabbedFormLayout.Arrange(
+                UiRect.FromRect(rect),
+                132f,
+                UiTheme.HeaderH,
+                UiTheme.BtnH,
+                UiTheme.GapS,
+                UiTheme.GapM
+            );
             DrawRail(UiRect.ToRect(layout.Rail));
             var body = UiRect.ToRect(layout.Body);
 
@@ -75,23 +94,31 @@ namespace SlopWorld
                     DrawMounts(body);
                     break;
                 case Tab.Worktrees:
-                    if (_worktrees == null) Widgets.Label(body, "Save the project before managing worktrees.");
-                    else _worktrees.Draw(body);
+                    if (_worktrees == null)
+                        Widgets.Label(body, "Save the project before managing worktrees.");
+                    else
+                        _worktrees.Draw(body);
                     break;
-
             }
 
             var foot = new UiLayout.Bar(UiRect.ToRect(layout.Footer));
-            if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
-            if (foot.Right("Save", UiTheme.Btn.Primary, !_saving)) Save();
+            if (foot.Left("Cancel", UiTheme.Btn.Ghost))
+                Close();
+            if (foot.Right("Save", UiTheme.Btn.Primary, !_saving))
+                Save();
         }
 
-        void DrawRail(Rect r) => UiLayout.DrawRail(r, new[]
-        {
-            ("General", Tab.General),
-            ("Mounts", Tab.Mounts),
-            ("Worktrees", Tab.Worktrees),
-        }, ref _tab);
+        void DrawRail(Rect r) =>
+            UiLayout.DrawRail(
+                r,
+                new[]
+                {
+                    ("General", Tab.General),
+                    ("Mounts", Tab.Mounts),
+                    ("Worktrees", Tab.Worktrees),
+                },
+                ref _tab
+            );
 
         // The project itself: its name, directory and whether that directory is temporary.
         void DrawGeneral(Listing_Standard l)
@@ -104,13 +131,19 @@ namespace SlopWorld
             l.Label("Managed worktree root (optional)");
             _p.WorktreeRoot = UiControls.Field(l, "project.worktree-root", _p.WorktreeRoot);
 
-            _p.Temp = UiControls.Checkbox(l, "Temporary - scratch space under /tmp", _p.Temp,
+            _p.Temp = UiControls.Checkbox(
+                l,
+                "Temporary - scratch space under /tmp",
+                _p.Temp,
                 _identity.IsNew
-                    ? "SlopWorld creates the directory under " + (SessionHub.Instance.Config?.TemporaryRoot ?? "") + ". It uses the project name. " +
-                      "The directory exists when the first agent starts. SlopWorld " +
-                      "does not delete it. The machine clears /tmp."
+                    ? "SlopWorld creates the directory under "
+                        + (SessionHub.Instance.Config?.TemporaryRoot ?? "")
+                        + ". It uses the project name. "
+                        + "The directory exists when the first agent starts. SlopWorld "
+                        + "does not delete it. The machine clears /tmp."
                     : "You cannot change temporary mode after the daemon creates the project.",
-                locked: !_identity.IsNew);
+                locked: !_identity.IsNew
+            );
 
             l.Label("Directory");
             if (_p.Temp)
@@ -129,35 +162,57 @@ namespace SlopWorld
                 if (UiLayout.Button(l, "Choose directory"))
                     TerminalWindow.OpenOverPane(new BrowseDialog(_p.Dir, d => _p.Dir = d));
             }
-
         }
 
         void DrawMounts(Rect rect)
         {
-            UiText.RowLabel(new Rect(rect.x, rect.y, rect.width, UiTheme.LineH),
-                "Mounts apply at the next start. Absolute paths stay absolute. Relative paths start at the project directory.");
+            UiText.RowLabel(
+                new Rect(rect.x, rect.y, rect.width, UiTheme.LineH),
+                "Mounts apply at the next start. Absolute paths stay absolute. Relative paths start at the project directory."
+            );
             float y = rect.y + UiTheme.LineH + UiTheme.GapS;
-            if (UiButtons.Button(new Rect(rect.x, y, 110f, UiTheme.RowH), "Add path", UiTheme.Btn.Default))
+            if (
+                UiButtons.Button(
+                    new Rect(rect.x, y, 110f, UiTheme.RowH),
+                    "Add path",
+                    UiTheme.Btn.Default
+                )
+            )
                 _p.Mounts.Add(new MountEntry());
-            if (UiButtons.Button(new Rect(rect.x + 120f, y, 120f, UiTheme.RowH), "Add project", UiTheme.Btn.Default))
+            if (
+                UiButtons.Button(
+                    new Rect(rect.x + 120f, y, 120f, UiTheme.RowH),
+                    "Add project",
+                    UiTheme.Btn.Default
+                )
+            )
             {
                 var projects = SessionHub.Instance.Projects.Where(p => p.Name != _p.Name).ToList();
-                var options = projects.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
-                    .Select(p => new FloatMenuOption(p.Name, () => _p.Mounts.Add(new MountEntry
-                    {
-                        From = p.Dir,
-                        To = p.Dir,
-                    }))).ToList();
-                if (options.Count == 0) options.Add(new FloatMenuOption("No projects", null));
+                var options = projects
+                    .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                    .Select(p => new FloatMenuOption(
+                        p.Name,
+                        () => _p.Mounts.Add(new MountEntry { From = p.Dir, To = p.Dir })
+                    ))
+                    .ToList();
+                if (options.Count == 0)
+                    options.Add(new FloatMenuOption("No projects", null));
                 Find.WindowStack.Add(new UiMenu(options));
             }
             y += UiTheme.RowH + UiTheme.GapS;
-            float modeW = 100f, removeW = 32f, gap = UiTheme.GapS;
+            float modeW = 100f,
+                removeW = 32f,
+                gap = UiTheme.GapS;
             float width = rect.width - UiTheme.ListInset * 2f - UiTheme.ScrollbarW;
             float pathW = (width - modeW - removeW - gap * 3f) / 2f;
-            UiText.RowLabel(new Rect(rect.x + UiTheme.ListInset, y, pathW, UiTheme.LineH), "From (blank = managed cache)");
-            UiText.RowLabel(new Rect(rect.x + UiTheme.ListInset + pathW + gap, y, pathW, UiTheme.LineH),
-                "To (absolute or project-relative sandbox path)");
+            UiText.RowLabel(
+                new Rect(rect.x + UiTheme.ListInset, y, pathW, UiTheme.LineH),
+                "From (blank = managed cache)"
+            );
+            UiText.RowLabel(
+                new Rect(rect.x + UiTheme.ListInset + pathW + gap, y, pathW, UiTheme.LineH),
+                "To (absolute or project-relative sandbox path)"
+            );
             y += UiTheme.LineH;
             var listRect = new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y));
             Slab.Box(listRect, UiTheme.Well, UiTheme.Edge);
@@ -173,40 +228,69 @@ namespace SlopWorld
                     bool isProject = mount == projectMount;
                     if (isProject)
                     {
-                        UiText.ReadOnlyField(new Rect(0f, ry, pathW, UiTheme.RowH),
-                            "mount.from." + mount.FieldId, mount.From);
-                        UiText.ReadOnlyField(new Rect(pathW + gap, ry, pathW, UiTheme.RowH),
-                            "mount.to." + mount.FieldId, mount.To);
+                        UiText.ReadOnlyField(
+                            new Rect(0f, ry, pathW, UiTheme.RowH),
+                            "mount.from." + mount.FieldId,
+                            mount.From
+                        );
+                        UiText.ReadOnlyField(
+                            new Rect(pathW + gap, ry, pathW, UiTheme.RowH),
+                            "mount.to." + mount.FieldId,
+                            mount.To
+                        );
                     }
                     else
                     {
-                        mount.From = UiText.Field(new Rect(0f, ry, pathW, UiTheme.RowH),
-                            "mount.from." + mount.FieldId, mount.From);
-                        mount.To = UiText.Field(new Rect(pathW + gap, ry, pathW, UiTheme.RowH),
-                            "mount.to." + mount.FieldId, mount.To);
+                        mount.From = UiText.Field(
+                            new Rect(0f, ry, pathW, UiTheme.RowH),
+                            "mount.from." + mount.FieldId,
+                            mount.From
+                        );
+                        mount.To = UiText.Field(
+                            new Rect(pathW + gap, ry, pathW, UiTheme.RowH),
+                            "mount.to." + mount.FieldId,
+                            mount.To
+                        );
                     }
-                    if (UiButtons.Button(new Rect(2f * (pathW + gap), ry, modeW, UiTheme.RowH),
-                        MountPresentation.ModeLabel(mount.Mode), UiTheme.Btn.Ghost))
+                    if (
+                        UiButtons.Button(
+                            new Rect(2f * (pathW + gap), ry, modeW, UiTheme.RowH),
+                            MountPresentation.ModeLabel(mount.Mode),
+                            UiTheme.Btn.Ghost
+                        )
+                    )
                     {
                         var modes = new List<FloatMenuOption>
                         {
                             new FloatMenuOption("Read-only", () => mount.Mode = MountMode.Ro),
                             new FloatMenuOption("Read-write", () => mount.Mode = MountMode.Rw),
                         };
-                        if (!isProject) modes.Add(new FloatMenuOption("Cache", () => mount.Mode = MountMode.Cache));
+                        if (!isProject)
+                            modes.Add(
+                                new FloatMenuOption("Cache", () => mount.Mode = MountMode.Cache)
+                            );
                         Find.WindowStack.Add(new UiMenu(modes));
                     }
-                    if (!isProject && UiButtons.Button(new Rect(width - removeW, ry, removeW, UiTheme.RowH), "×", UiTheme.Btn.Ghost))
+                    if (
+                        !isProject
+                        && UiButtons.Button(
+                            new Rect(width - removeW, ry, removeW, UiTheme.RowH),
+                            "×",
+                            UiTheme.Btn.Ghost
+                        )
+                    )
                         remove = mount;
                     ry += UiTheme.RowH + gap;
                 }
             }
-            if (remove != null) _p.Mounts.Remove(remove);
+            if (remove != null)
+                _p.Mounts.Remove(remove);
         }
 
         void Save()
         {
-            if (_saving) return;
+            if (_saving)
+                return;
             if (string.IsNullOrEmpty((_p.Name ?? "").Trim()))
             {
                 UiLayout.Fail("a project needs a name");
@@ -233,31 +317,47 @@ namespace SlopWorld
             // The form remains editable while the request is in flight.
             string submittedName = _p.Name;
             _saving = true;
-            SessionHub.Instance.Catalog.SaveProject(_p, _identity.IsNew,
+            SessionHub.Instance.Catalog.SaveProject(
+                _p,
+                _identity.IsNew,
                 _identity.OriginalName,
                 ok: () =>
                 {
-                    if (_identity.IsNew) AgentSidebar.IncludeProject(submittedName);
+                    if (_identity.IsNew)
+                        AgentSidebar.IncludeProject(submittedName);
                     Close();
                 },
-                fail: error => { _saving = false; UiLayout.Fail(error); });
+                fail: error =>
+                {
+                    _saving = false;
+                    UiLayout.Fail(error);
+                }
+            );
         }
 
         void RequestTempPreview()
         {
             string name = _p.Name ?? "";
             DateTime now = DateTime.UtcNow;
-            if (!_tempPreview.ShouldRequest(name, now)) return;
+            if (!_tempPreview.ShouldRequest(name, now))
+                return;
             int serial = _tempPreview.Begin(name, now);
-            if (serial == 0) return;
-            DaemonClient.Post<Wire.ProjectPreviewResult>(WireProtocol.Routes.ProjectPreview,
+            if (serial == 0)
+                return;
+            DaemonClient.Post<Wire.ProjectPreviewResult>(
+                WireProtocol.Routes.ProjectPreview,
                 new Wire.ProjectPreviewReq { Name = name, Temp = true },
                 j =>
                 {
                     string dir = j.Dir;
                     if (string.IsNullOrEmpty(dir))
-                        _tempPreview.Fail(serial, _p.Temp, _p.Name,
-                            "Daemon preview did not include a path.", DateTime.UtcNow);
+                        _tempPreview.Fail(
+                            serial,
+                            _p.Temp,
+                            _p.Name,
+                            "Daemon preview did not include a path.",
+                            DateTime.UtcNow
+                        );
                     else if (_tempPreview.Accept(serial, _p.Temp, _p.Name, dir))
                     {
                         _p.Dir = dir;
@@ -267,8 +367,8 @@ namespace SlopWorld
                 error =>
                 {
                     _tempPreview.Fail(serial, _p.Temp, _p.Name, error, DateTime.UtcNow);
-                });
+                }
+            );
         }
-
     }
 }

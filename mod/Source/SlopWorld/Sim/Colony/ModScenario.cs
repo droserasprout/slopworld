@@ -24,17 +24,18 @@ namespace SlopWorld
         const string Summary = "Watch the colony. No construction is required.";
 
         const string Description =
-            "The persona core landed on an empty hillside and released fumes. " +
-            "The next pods brought robots. The colony now consists of a hillside, " +
-            "a cat, and your active agents." +
-            "\n\nYou have no supplies. This colony does not need them.";
+            "The persona core landed on an empty hillside and released fumes. "
+            + "The next pods brought robots. The colony now consists of a hillside, "
+            + "a cat, and your active agents."
+            + "\n\nYou have no supplies. This colony does not need them.";
 
         static Scenario _scen;
 
         // The scenario for a new colony.
         public static Scenario Get()
         {
-            if (_scen != null) return _scen;
+            if (_scen != null)
+                return _scen;
 
             var basis = ScenarioDefOf.Crashlanded.scenario;
             Scenario scen;
@@ -48,16 +49,21 @@ namespace SlopWorld
             catch (Exception e)
             {
                 throw new InvalidOperationException(
-                    "[SlopWorld] Cannot copy Crashlanded for the colony scenario.", e);
+                    "[SlopWorld] Cannot copy Crashlanded for the colony scenario.",
+                    e
+                );
             }
 
             // Use AllParts and RemovePart because the parts list is internal.
             // Copy the matching parts before removing them from the list.
             var dropped = scen.AllParts.Where(Drop).ToList();
-            foreach (var part in dropped) scen.RemovePart(part);
+            foreach (var part in dropped)
+                scen.RemovePart(part);
 
-            Log.Message($"[SlopWorld] scenario from Crashlanded: {dropped.Count} " +
-                        $"parts removed, {scen.AllParts.Count()} parts retained");
+            Log.Message(
+                $"[SlopWorld] scenario from Crashlanded: {dropped.Count} "
+                    + $"parts removed, {scen.AllParts.Count()} parts retained"
+            );
 
             _scen = scen;
             return _scen;

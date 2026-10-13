@@ -18,18 +18,22 @@ namespace SlopWorld
 
         public bool Update(bool playing, bool muted, string source)
         {
-            bool changed = Playing != playing || Muted != muted
+            bool changed =
+                Playing != playing
+                || Muted != muted
                 || !string.Equals(Source, source, StringComparison.Ordinal);
             Playing = playing;
             Muted = muted;
             Source = source;
-            if (changed) Revision++;
+            if (changed)
+                Revision++;
             return changed;
         }
 
         public void Advance() => Revision++;
 
-        public bool IsCurrent(int revision, string source) => Eligible
+        public bool IsCurrent(int revision, string source) =>
+            Eligible
             && Revision == revision
             && string.Equals(Source, source, StringComparison.Ordinal);
 
@@ -124,10 +128,17 @@ namespace SlopWorld
         // If pactl cannot provide a sink, let SongRec use its default input.
         public AudioInput SelectInput(CancellationToken cancel = default)
         {
-            if (cancel.IsCancellationRequested) return new AudioInput(null, "default input");
+            if (cancel.IsCancellationRequested)
+                return new AudioInput(null, "default input");
             var run = _runner.Run(
-                new ProcessSpec { FileName = "pactl", Arguments = "get-default-sink", TimeoutMs = SinkTimeoutMs },
-                cancel);
+                new ProcessSpec
+                {
+                    FileName = "pactl",
+                    Arguments = "get-default-sink",
+                    TimeoutMs = SinkTimeoutMs,
+                },
+                cancel
+            );
 
             string sink = null;
             if (run != null && run.Started && !run.TimedOut && !run.Canceled && run.ExitCode == 0)
@@ -137,7 +148,8 @@ namespace SlopWorld
                 return new AudioInput(null, "default input");
 
             string monitor = sink.EndsWith(".monitor", StringComparison.Ordinal)
-                ? sink : sink + ".monitor";
+                ? sink
+                : sink + ".monitor";
             return new AudioInput(monitor, "monitor of " + sink);
         }
 
@@ -150,7 +162,8 @@ namespace SlopWorld
         // Accept a selected input so the caller can display its label before recognition completes.
         public RecognitionResult Recognize(AudioInput input, CancellationToken cancel = default)
         {
-            if (input == null) input = SelectInput(cancel);
+            if (input == null)
+                input = SelectInput(cancel);
             var result = new RecognitionResult { Input = input.Label };
             if (cancel.IsCancellationRequested)
             {
@@ -163,8 +176,14 @@ namespace SlopWorld
                 arguments += " --audio-device " + ProcessArgument(input.Device);
 
             ProcessRun run = _runner.Run(
-                new ProcessSpec { FileName = "songrec", Arguments = arguments, TimeoutMs = DefaultTimeoutMs },
-                cancel);
+                new ProcessSpec
+                {
+                    FileName = "songrec",
+                    Arguments = arguments,
+                    TimeoutMs = DefaultTimeoutMs,
+                },
+                cancel
+            );
 
             if (run != null && run.Canceled || cancel.IsCancellationRequested)
             {
@@ -184,7 +203,8 @@ namespace SlopWorld
                 return result;
             }
 
-            string artist, title;
+            string artist,
+                title;
             ParseRecognition(run.StandardOutput, out artist, out title);
             if (string.IsNullOrEmpty(artist) || string.IsNullOrEmpty(title))
             {
@@ -207,11 +227,14 @@ namespace SlopWorld
             title = null;
             int first = output == null ? -1 : output.IndexOf('{');
             int last = output == null ? -1 : output.LastIndexOf('}');
-            if (first < 0 || last <= first) return;
+            if (first < 0 || last <= first)
+                return;
 
             try
             {
-                var track = Newtonsoft.Json.Linq.JObject.Parse(output.Substring(first, last - first + 1))["track"];
+                var track = Newtonsoft.Json.Linq.JObject.Parse(
+                    output.Substring(first, last - first + 1)
+                )["track"];
                 artist = ((string)track?["subtitle"])?.Trim();
                 title = ((string)track?["title"])?.Trim();
             }
@@ -226,10 +249,13 @@ namespace SlopWorld
         internal static string ShortError(string stderr, string fallback)
         {
             string text = (stderr ?? "").Trim();
-            if (text.Length == 0) return fallback;
+            if (text.Length == 0)
+                return fallback;
             int line = text.IndexOf('\n');
-            if (line >= 0) text = text.Substring(0, line).Trim();
-            if (text.Length == 0) return fallback;
+            if (line >= 0)
+                text = text.Substring(0, line).Trim();
+            if (text.Length == 0)
+                return fallback;
             return text.Length > 240 ? text.Substring(0, 240) : text;
         }
 
@@ -262,7 +288,8 @@ namespace SlopWorld
                 {
                     try
                     {
-                        if (!process.Start()) return run;
+                        if (!process.Start())
+                            return run;
                     }
                     catch
                     {
@@ -279,7 +306,11 @@ namespace SlopWorld
                         if (!process.WaitForExit(spec.TimeoutMs))
                         {
                             Kill(process);
-                            try { process.WaitForExit(1000); } catch { }
+                            try
+                            {
+                                process.WaitForExit(1000);
+                            }
+                            catch { }
                             run.TimedOut = true;
                         }
                     }
@@ -287,7 +318,11 @@ namespace SlopWorld
                     run.Canceled = cancel.IsCancellationRequested;
                     run.StandardOutput = Drain(output);
                     run.StandardError = Drain(error);
-                    try { run.ExitCode = process.ExitCode; } catch { }
+                    try
+                    {
+                        run.ExitCode = process.ExitCode;
+                    }
+                    catch { }
                     return run;
                 }
             }
@@ -299,13 +334,24 @@ namespace SlopWorld
 
         static void Kill(Process process)
         {
-            try { if (!process.HasExited) process.Kill(); } catch { }
+            try
+            {
+                if (!process.HasExited)
+                    process.Kill();
+            }
+            catch { }
         }
 
         static string Drain(Task<string> task)
         {
-            try { return task.GetAwaiter().GetResult() ?? ""; }
-            catch { return ""; }
+            try
+            {
+                return task.GetAwaiter().GetResult() ?? "";
+            }
+            catch
+            {
+                return "";
+            }
         }
     }
 }

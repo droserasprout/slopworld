@@ -26,8 +26,16 @@ namespace SlopWorld.Tests
             terminal.Rename("old", "old");
             Assert.That(sent, Is.Empty);
             terminal.Rename("old", "new");
-            Assert.That(sent.Select(m => m.PayloadCase), Is.EqualTo(new[] {
-                Wire.ClientMessage.PayloadOneofCase.Unsub, Wire.ClientMessage.PayloadOneofCase.Sub }));
+            Assert.That(
+                sent.Select(m => m.PayloadCase),
+                Is.EqualTo(
+                    new[]
+                    {
+                        Wire.ClientMessage.PayloadOneofCase.Unsub,
+                        Wire.ClientMessage.PayloadOneofCase.Sub,
+                    }
+                )
+            );
             Assert.That(sent[0].Unsub.Name, Is.EqualTo("old"));
             Assert.That(sent[1].Sub.Name, Is.EqualTo("new"));
             sent.Clear();
@@ -103,30 +111,53 @@ namespace SlopWorld.Tests
             var sent = new List<Wire.ClientMessage>();
             var terminal = new TerminalIO(sent.Add);
             terminal.RequestScroll("agent", 0, ulong.MaxValue);
-            Assert.That(sent.Last().Scroll, Is.EqualTo(new Wire.ScrollReq
-            {
-                Name = "agent",
-                Off = 0,
-                RequestId = ulong.MaxValue
-            }));
+            Assert.That(
+                sent.Last().Scroll,
+                Is.EqualTo(
+                    new Wire.ScrollReq
+                    {
+                        Name = "agent",
+                        Off = 0,
+                        RequestId = ulong.MaxValue,
+                    }
+                )
+            );
             terminal.SendMouse("agent", "press", 2, 79, 23, 3);
-            Assert.That(sent.Last().Mouse, Is.EqualTo(new Wire.MouseReq
-            {
-                Name = "agent",
-                Action = "press",
-                Button = 2,
-                Col = 79,
-                Row = 23,
-                Count = 3
-            }));
+            Assert.That(
+                sent.Last().Mouse,
+                Is.EqualTo(
+                    new Wire.MouseReq
+                    {
+                        Name = "agent",
+                        Action = "press",
+                        Button = 2,
+                        Col = 79,
+                        Row = 23,
+                        Count = 3,
+                    }
+                )
+            );
             terminal.SendMouse("agent", "release", 0, -10, -20);
             Assert.That(sent.Last().Mouse.Count, Is.EqualTo(1));
             Assert.That(sent.Last().Mouse.Col, Is.Zero);
             Assert.That(sent.Last().Mouse.Row, Is.Zero);
             terminal.Resize("agent", 80, 24);
-            Assert.That(sent.Last().Resize, Is.EqualTo(new Wire.ResizeReq { Name = "agent", Cols = 80, Rows = 24 }));
+            Assert.That(
+                sent.Last().Resize,
+                Is.EqualTo(
+                    new Wire.ResizeReq
+                    {
+                        Name = "agent",
+                        Cols = 80,
+                        Rows = 24,
+                    }
+                )
+            );
             terminal.RefreshPanels(120, 40);
-            Assert.That(sent.Last().Redraw, Is.EqualTo(new Wire.RedrawReq { Cols = 120, Rows = 40 }));
+            Assert.That(
+                sent.Last().Redraw,
+                Is.EqualTo(new Wire.RedrawReq { Cols = 120, Rows = 40 })
+            );
             terminal.RefreshPanels();
             Assert.That(sent.Last().Redraw, Is.EqualTo(new Wire.RedrawReq()));
         }
@@ -135,7 +166,8 @@ namespace SlopWorld.Tests
         {
             var sent = new List<Wire.ClientMessage>();
             var terminal = new TerminalIO(sent.Add);
-            var invalid = new (string Name, Action Run)[] {
+            var invalid = new (string Name, Action Run)[]
+            {
                 ("negative scroll offset", () => terminal.RequestScroll("agent", -1, 1)),
                 ("negative columns", () => terminal.Resize("agent", -1, 24)),
                 ("negative rows", () => terminal.Resize("agent", 80, -1)),
@@ -144,9 +176,11 @@ namespace SlopWorld.Tests
                 ("negative mouse button", () => terminal.SendMouse("agent", "press", -1, 0, 0)),
                 ("negative click count", () => terminal.SendMouse("agent", "press", 0, 0, 0, -1)),
             };
-            foreach (var action in invalid) Assert.Throws<OverflowException>(() => action.Run(), action.Name);
+            foreach (var action in invalid)
+                Assert.Throws<OverflowException>(() => action.Run(), action.Name);
             Assert.That(sent, Is.Empty);
         }
+
         public static void TerminalKeysReportTransportRejection()
         {
             bool accepted = false;

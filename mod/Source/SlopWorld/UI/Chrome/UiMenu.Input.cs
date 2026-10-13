@@ -28,9 +28,13 @@ namespace SlopWorld
             // Accept is dispatched by WindowStack before window contents. The menu handles
             // it there so an accepted form underneath cannot submit at the same time. Skip
             // the same event when the body is reached.
-            if (Event.current != null &&
-                Event.current.type == EventType.Used && _acceptFrame == Time.frameCount &&
-                ReferenceEquals(Event.current, _acceptEvent)) return true;
+            if (
+                Event.current != null
+                && Event.current.type == EventType.Used
+                && _acceptFrame == Time.frameCount
+                && ReferenceEquals(Event.current, _acceptEvent)
+            )
+                return true;
 
             // WindowStack draws parents before children. Give the deepest open menu first
             // refusal so an arrow or Enter cannot answer for a row hidden behind its child.
@@ -48,13 +52,15 @@ namespace SlopWorld
             // Never close a menu on the frame that opened it.
             // IMGUI sends a character event after the key event that opens a keyboard menu.
             // Without this delay, the character event would close the new menu.
-            if (Time.frameCount == _born) return false;
+            if (Time.frameCount == _born)
+                return false;
 
             var e = Event.current;
             if (e == null || e.rawType != EventType.KeyDown || e.keyCode == KeyCode.None)
                 return false;
             // A modifier on its own is somebody reaching for a chord, not a key.
-            if (Modifier(e.keyCode)) return false;
+            if (Modifier(e.keyCode))
+                return false;
 
             _keyboardSelection = true;
 
@@ -104,7 +110,8 @@ namespace SlopWorld
                     if (IsSelectable(_selected))
                     {
                         var sub = Sub(_selected);
-                        if (sub != null) OpenChild(_selected, sub);
+                        if (sub != null)
+                            OpenChild(_selected, sub);
                     }
                     e.Use();
                     return true;
@@ -124,50 +131,67 @@ namespace SlopWorld
             }
         }
 
-        int PageSize => Mathf.Max(1, Mathf.Min(Mathf.Max(1, _options.Count - 1),
-            Mathf.FloorToInt((windowRect.height - PadY * 2f) / RowH)));
+        int PageSize =>
+            Mathf.Max(
+                1,
+                Mathf.Min(
+                    Mathf.Max(1, _options.Count - 1),
+                    Mathf.FloorToInt((windowRect.height - PadY * 2f) / RowH)
+                )
+            );
 
-        bool IsSelectable(int i) => i >= 0 && i < _options.Count &&
-            !(_options[i] is SeparatorOption) && !_options[i].Disabled;
+        bool IsSelectable(int i) =>
+            i >= 0
+            && i < _options.Count
+            && !(_options[i] is SeparatorOption)
+            && !_options[i].Disabled;
 
         int FindSelectable(int start, int step)
         {
-            if (_options.Count == 0) return -1;
+            if (_options.Count == 0)
+                return -1;
             for (int n = 0; n < _options.Count; n++)
             {
                 int i = (start + step * n) % _options.Count;
-                if (i < 0) i += _options.Count;
-                if (IsSelectable(i)) return i;
+                if (i < 0)
+                    i += _options.Count;
+                if (IsSelectable(i))
+                    return i;
             }
             return -1;
         }
 
         void EnsureSelection()
         {
-            if (IsSelectable(_selected)) return;
+            if (IsSelectable(_selected))
+                return;
             _selected = IsSelectable(_hot) ? _hot : FindSelectable(0, 1);
             RevealSelection();
         }
 
         void MoveSelection(int delta)
         {
-            if (_options.Count == 0) return;
+            if (_options.Count == 0)
+                return;
 
             int direction = delta < 0 ? -1 : 1;
             int steps = Mathf.Abs(delta);
             if (!IsSelectable(_selected))
             {
-                _selected = IsSelectable(_hot) ? _hot :
-                    FindSelectable(direction > 0 ? 0 : _options.Count - 1, direction);
+                _selected = IsSelectable(_hot)
+                    ? _hot
+                    : FindSelectable(direction > 0 ? 0 : _options.Count - 1, direction);
                 // With no hover, the first arrow establishes the nearest sensible end.
                 // With a hover, it advances from the row the pointer is already on.
-                if (!IsSelectable(_hot)) steps = 0;
+                if (!IsSelectable(_hot))
+                    steps = 0;
             }
 
             for (int n = 0; n < steps; n++)
             {
                 int next = FindSelectable(_selected + direction, direction);
-                if (next < 0 || next == _selected) break;
+                if (next < 0 || next == _selected)
+                    break;
                 _selected = next;
             }
             RevealSelection();
@@ -175,16 +199,21 @@ namespace SlopWorld
 
         void RevealSelection()
         {
-            if (!IsSelectable(_selected)) return;
+            if (!IsSelectable(_selected))
+                return;
 
             MeasureRows();
-            _scroll.Reveal(_rows.Top(_selected), _rows.RowHeight(_selected),
-                Mathf.Max(1f, windowRect.height - PadY * 2f));
+            _scroll.Reveal(
+                _rows.Top(_selected),
+                _rows.RowHeight(_selected),
+                Mathf.Max(1f, windowRect.height - PadY * 2f)
+            );
         }
 
         void ActivateSelection()
         {
-            if (!IsSelectable(_selected)) return;
+            if (!IsSelectable(_selected))
+                return;
 
             var sub = _options[_selected] as UiSubmenu;
             if (sub != null)
@@ -198,9 +227,18 @@ namespace SlopWorld
 
         public override void OnAcceptKeyPressed()
         {
-            if (Event.current != null && Event.current.type == EventType.Used &&
-                _acceptFrame == Time.frameCount && ReferenceEquals(_acceptEvent, Event.current)) return;
-            if (_child != null) { _child.OnAcceptKeyPressed(); return; }
+            if (
+                Event.current != null
+                && Event.current.type == EventType.Used
+                && _acceptFrame == Time.frameCount
+                && ReferenceEquals(_acceptEvent, Event.current)
+            )
+                return;
+            if (_child != null)
+            {
+                _child.OnAcceptKeyPressed();
+                return;
+            }
             _acceptEvent = Event.current;
             _acceptFrame = Time.frameCount;
             EnsureSelection();
@@ -209,9 +247,13 @@ namespace SlopWorld
         }
 
         static bool Modifier(KeyCode k) =>
-            k == KeyCode.LeftShift || k == KeyCode.RightShift ||
-            k == KeyCode.LeftControl || k == KeyCode.RightControl ||
-            k == KeyCode.LeftAlt || k == KeyCode.RightAlt ||
-            k == KeyCode.LeftCommand || k == KeyCode.RightCommand;
+            k == KeyCode.LeftShift
+            || k == KeyCode.RightShift
+            || k == KeyCode.LeftControl
+            || k == KeyCode.RightControl
+            || k == KeyCode.LeftAlt
+            || k == KeyCode.RightAlt
+            || k == KeyCode.LeftCommand
+            || k == KeyCode.RightCommand;
     }
 }

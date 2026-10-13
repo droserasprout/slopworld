@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection.Emit;
 using System.Reflection;
+using System.Reflection.Emit;
 using HarmonyLib;
 using RimWorld;
 using Verse;
@@ -19,20 +19,23 @@ namespace SlopWorld
             set
             {
                 // Repeated map draw passes synchronize state without creating a new visit.
-                if (Syncing && _current == value) return;
+                if (Syncing && _current == value)
+                    return;
                 _current = value;
                 AgentSidebar.RememberAgent(value);
 
                 // Clear map selection when another session becomes current.
                 // Retain it during map synchronization or when it already matches the session.
-                if (Syncing) return;
+                if (Syncing)
+                    return;
 
                 var selector = Find.Selector;
-                if (selector == null || selector.SelectedObjects.Count == 0) return;
+                if (selector == null || selector.SelectedObjects.Count == 0)
+                    return;
 
                 var pawn = selector.SingleSelectedThing as Pawn;
-                if (pawn != null && value != null
-                    && AgentColony.Current?.SessionOf(pawn) == value) return;
+                if (pawn != null && value != null && AgentColony.Current?.SessionOf(pawn) == value)
+                    return;
 
                 selector.ClearSelection();
             }
@@ -43,8 +46,8 @@ namespace SlopWorld
         /// True while <see cref="SessionGizmoSelection.SyncFromMapSelection"/> runs.
         internal static bool Syncing;
 
-        public static bool HasCurrent => Current != null
-            && SessionHub.Instance.Get(Current) != null;
+        public static bool HasCurrent =>
+            Current != null && SessionHub.Instance.Get(Current) != null;
 
         static SessionSelectable _cached;
 
@@ -52,7 +55,8 @@ namespace SlopWorld
         {
             get
             {
-                if (!HasCurrent) return null;
+                if (!HasCurrent)
+                    return null;
                 if (_cached == null || _cached.Session != Current)
                     _cached = new SessionSelectable(Current);
                 return _cached;
@@ -69,7 +73,8 @@ namespace SlopWorld
         public IEnumerable<Gizmo> GetGizmos()
         {
             var info = SessionHub.Instance.Get(Session);
-            if (info == null) yield break;
+            if (info == null)
+                yield break;
 
             if (info.Alive)
             {
@@ -104,7 +109,8 @@ namespace SlopWorld
             return new UiCommandAction(UiTheme.Btn.Default)
             {
                 defaultLabel = "Terminal",
-                defaultDesc = $"Open the terminal for '{Session}'.\nState: {state.ToString().ToLowerInvariant()}",
+                defaultDesc =
+                    $"Open the terminal for '{Session}'.\nState: {state.ToString().ToLowerInvariant()}",
                 icon = Icons.Terminal,
                 defaultIconColor = AgentPresentation.AgentStateColor(state),
                 hotKey = ModDefOf.SlopOpenTerminal,
@@ -117,15 +123,20 @@ namespace SlopWorld
             return new UiCommandAction(UiTheme.Btn.Default)
             {
                 defaultLabel = "Stop",
-                defaultDesc = $"Stop '{Session}'. The colonist remains downed "
-                            + "until the process starts again.",
+                defaultDesc =
+                    $"Stop '{Session}'. The colonist remains downed "
+                    + "until the process starts again.",
                 icon = Icons.Stop,
                 defaultIconColor = UiTheme.Bad,
                 hotKey = ModDefOf.SlopToggleSession,
-                action = () => Find.WindowStack.Add(ConfirmDialog.Create(
-                    $"Stop '{Session}'? This terminates the tmux session and interrupts the agent's current work.",
-                    () => SessionHub.Instance.SessionStore.Stop(Session, UiLayout.Fail),
-                    destructive: true)),
+                action = () =>
+                    Find.WindowStack.Add(
+                        ConfirmDialog.Create(
+                            $"Stop '{Session}'? This terminates the tmux session and interrupts the agent's current work.",
+                            () => SessionHub.Instance.SessionStore.Stop(Session, UiLayout.Fail),
+                            destructive: true
+                        )
+                    ),
             };
         }
 
@@ -154,9 +165,14 @@ namespace SlopWorld
                 action = () =>
                 {
                     var current = SessionHub.Instance.Get(Session);
-                    if (current != null) TerminalWindow.OpenOverPane(new EditSessionDialog(current));
-                    else Messages.Message($"SlopWorld: no session '{Session}' to edit.",
-                        MessageTypeDefOf.RejectInput, false);
+                    if (current != null)
+                        TerminalWindow.OpenOverPane(new EditSessionDialog(current));
+                    else
+                        Messages.Message(
+                            $"SlopWorld: no session '{Session}' to edit.",
+                            MessageTypeDefOf.RejectInput,
+                            false
+                        );
                 },
             };
         }
@@ -198,39 +214,48 @@ namespace SlopWorld
                 icon = Icons.Cross,
                 defaultIconColor = UiTheme.Bad,
                 hotKey = ModDefOf.SlopRemoveSession,
-                action = () => Find.WindowStack.Add(ConfirmDialog.Create(
-                    $"Remove session '{Session}'? This stops the session and removes it from config.toml. " +
-                    "Its private state moves to trash. You can recover it for 14 days.",
-                    () => SessionHub.Instance.SessionStore.Remove(Session, UiLayout.Fail), destructive: true)),
+                action = () =>
+                    Find.WindowStack.Add(
+                        ConfirmDialog.Create(
+                            $"Remove session '{Session}'? This stops the session and removes it from config.toml. "
+                                + "Its private state moves to trash. You can recover it for 14 days.",
+                            () => SessionHub.Instance.SessionStore.Remove(Session, UiLayout.Fail),
+                            destructive: true
+                        )
+                    ),
             };
         }
 
         public string GetInspectString() => "";
 
-        public IEnumerable<InspectTabBase> GetInspectTabs() =>
-            Enumerable.Empty<InspectTabBase>();
+        public IEnumerable<InspectTabBase> GetInspectTabs() => Enumerable.Empty<InspectTabBase>();
     }
 
     /// <summary>Add the current session to the base game temporary gizmo selection list.</summary>
     public static class SessionGizmoSelection
     {
-        static readonly FieldInfo ObjectsField =
-            AccessTools.Field(typeof(MapGizmoUtility), "tmpObjectsList");
+        static readonly FieldInfo ObjectsField = AccessTools.Field(
+            typeof(MapGizmoUtility),
+            "tmpObjectsList"
+        );
 
         public static void AppendCurrent()
         {
             SyncFromMapSelection();
-            if (!SessionSelectable.HasCurrent || ObjectsField == null) return;
+            if (!SessionSelectable.HasCurrent || ObjectsField == null)
+                return;
 
             var objects = ObjectsField.GetValue(null) as List<object>;
             var current = SessionSelectable.CurrentObject;
-            if (current != null) objects?.Add(current);
+            if (current != null)
+                objects?.Add(current);
         }
 
         public static void SyncFromMapSelection()
         {
             var selector = Find.Selector;
-            if (selector == null) return;
+            if (selector == null)
+                return;
 
             SessionSelectable.Syncing = true;
             try
@@ -258,7 +283,8 @@ namespace SlopWorld
         }
 
         public static IEnumerable<CodeInstruction> InjectIntoMapUI(
-            IEnumerable<CodeInstruction> instructions)
+            IEnumerable<CodeInstruction> instructions
+        )
         {
             var code = instructions.ToList();
             var clear = AccessTools.Method(typeof(List<object>), nameof(List<object>.Clear));
@@ -267,7 +293,8 @@ namespace SlopWorld
 
             for (int i = 0; i < code.Count; i++)
             {
-                if (!code[i].Calls(clear)) continue;
+                if (!code[i].Calls(clear))
+                    continue;
 
                 // Add the session after the base game clears the shared list, while the evaluation stack is empty.
                 // The remaining instructions also add the map selection.

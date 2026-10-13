@@ -22,8 +22,11 @@ namespace SlopWorld
 
             // Horizontal smear reads as motion rather than defocus.
             int radius = Mathf.RoundToInt(Mathf.Lerp(0f, 24f, k * k));
-            if (radius > 0) Smear(src, dst, w, h, radius, ref g);
-            else for (int i = 0; i < dst.Length; i++) dst[i] = Shade(ref g, src[i]);
+            if (radius > 0)
+                Smear(src, dst, w, h, radius, ref g);
+            else
+                for (int i = 0; i < dst.Length; i++)
+                    dst[i] = Shade(ref g, src[i]);
 
             Burn(dst, fuel, w, h, k, phase);
         }
@@ -42,7 +45,8 @@ namespace SlopWorld
             var fuel = new float[clean.Length];
             for (int y = 0; y < h; y++)
             {
-                int row = y * w, below = row - w;
+                int row = y * w,
+                    below = row - w;
                 for (int x = 0; x < w; x++)
                 {
                     float carried = y > 0 ? fuel[below + x] * FuelDecay : 0f;
@@ -58,7 +62,8 @@ namespace SlopWorld
         // wide and a planet does not notice it.
         static float[] Erode(float[] src, int w, int h, int r)
         {
-            if (r <= 0) return src;
+            if (r <= 0)
+                return src;
 
             var mid = new float[src.Length];
             for (int y = 0; y < h; y++)
@@ -92,13 +97,16 @@ namespace SlopWorld
         static void Burn(Color[] px, float[] fuel, int w, int h, float k, int phase)
         {
             float heat = Mathf.InverseLerp(FireFrom, 1f, k);
-            if (heat <= 0f) return;
+            if (heat <= 0f)
+                return;
 
-            int nw = Mathf.Max(2, w / NoiseDiv), nh = Mathf.Max(2, h / NoiseDiv);
+            int nw = Mathf.Max(2, w / NoiseDiv),
+                nh = Mathf.Max(2, h / NoiseDiv);
             float[] noise = Fbm(nw, nh, phase * StagePhase);
 
             // Hoist shared scales and the noise-band reciprocal out of the pixel loop.
-            float xScale = (nw - 1) / (float)w, yScale = (nh - 1) / (float)h;
+            float xScale = (nw - 1) / (float)w,
+                yScale = (nh - 1) / (float)h;
             float band = 1f / (NoiseHigh - NoiseLow);
 
             for (int y = 0; y < h; y++)
@@ -109,11 +117,13 @@ namespace SlopWorld
                 for (int x = 0; x < w; x++)
                 {
                     float f = fuel[row + x];
-                    if (f <= 0f) continue;
+                    if (f <= 0f)
+                        continue;
 
                     // Fuel controls location. Shaped noise controls form.
                     float t = f * noiseRow.Sample(x * xScale, NoiseLow, band) * heat;
-                    if (t <= 0f) continue;
+                    if (t <= 0f)
+                        continue;
 
                     // Add fire as light instead of replacing the source pixel.
                     float gain = t * FireGain;
@@ -122,7 +132,8 @@ namespace SlopWorld
                         Mathf.Clamp01(c.r + (Ember.r + (Flame.r - Ember.r) * t) * gain),
                         Mathf.Clamp01(c.g + (Ember.g + (Flame.g - Ember.g) * t) * gain),
                         Mathf.Clamp01(c.b + (Ember.b + (Flame.b - Ember.b) * t) * gain),
-                        1f);
+                        1f
+                    );
                 }
             }
         }
@@ -137,18 +148,23 @@ namespace SlopWorld
             for (int y = 0; y < h; y++)
             {
                 int row = y * w;
-                float r = 0f, g = 0f, b = 0f;
+                float r = 0f,
+                    g = 0f,
+                    b = 0f;
 
                 // Prime the window on the first pixel, edges clamped.
                 for (int d = -radius; d <= radius; d++)
                 {
                     Color c = src[row + Mathf.Clamp(d, 0, w - 1)];
-                    r += c.r; g += c.g; b += c.b;
+                    r += c.r;
+                    g += c.g;
+                    b += c.b;
                 }
 
                 // The clamps only bite within a radius of either end. Therefore, the bulk of the
                 // row runs with the window wholly inside it and no bounds arithmetic at all.
-                int lo = Mathf.Min(radius, w), hi = Mathf.Max(lo, w - radius - 1);
+                int lo = Mathf.Min(radius, w),
+                    hi = Mathf.Max(lo, w - radius - 1);
 
                 for (int x = 0; x < lo; x++)
                 {
@@ -181,6 +197,5 @@ namespace SlopWorld
                 }
             }
         }
-
     }
 }

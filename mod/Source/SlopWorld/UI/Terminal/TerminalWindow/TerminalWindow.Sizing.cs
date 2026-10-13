@@ -25,9 +25,11 @@ namespace SlopWorld
         internal static bool TryPanelShape(out int cols, out int rows)
         {
             cols = rows = 0;
-            if (!WorkspaceVisibility.Shown || UI.screenWidth <= 0 || UI.screenHeight <= 0) return false;
+            if (!WorkspaceVisibility.Shown || UI.screenWidth <= 0 || UI.screenHeight <= 0)
+                return false;
             var style = TerminalFont.Style;
-            if (style == null) return false;
+            if (style == null)
+                return false;
             var content = WorkspaceLayout.Current.Content;
             var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
             UiLayoutRect bounds;
@@ -36,10 +38,15 @@ namespace SlopWorld
                 window.ArrangeTerminal(content);
                 bounds = window._terminal.Bounds;
             }
-            else bounds = new UiLayoutRect(content.x, content.y, content.width, content.height);
-            return TerminalPanelGeometry.TryMeasure(bounds,
-                TerminalFont.CellWAtScreenScale(Prefs.UIScale), TerminalFont.CellH, out cols, out rows);
+            else
+                bounds = new UiLayoutRect(content.x, content.y, content.width, content.height);
+            return TerminalPanelGeometry.TryMeasure(
+                bounds,
+                TerminalFont.CellWAtScreenScale(Prefs.UIScale),
+                TerminalFont.CellH,
+                out cols,
+                out rows
+            );
         }
-
     }
 }

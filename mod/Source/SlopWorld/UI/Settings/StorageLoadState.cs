@@ -22,20 +22,23 @@ namespace SlopWorld
 
             void Failed(string error)
             {
-                if (!_operations.IsCurrent(generation)) return;
+                if (!_operations.IsCurrent(generation))
+                    return;
                 Loading = false;
                 Error = error;
             }
             void InventoryLoaded(T inventory)
             {
-                if (!_operations.IsCurrent(generation)) return;
+                if (!_operations.IsCurrent(generation))
+                    return;
                 Value = inventory;
                 request(true, SizesLoaded, Failed);
             }
 
             void SizesLoaded(T measured)
             {
-                if (!_operations.IsCurrent(generation)) return;
+                if (!_operations.IsCurrent(generation))
+                    return;
                 Value = measured;
                 SizesAvailable = true;
                 Loading = false;

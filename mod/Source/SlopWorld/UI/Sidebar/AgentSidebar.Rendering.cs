@@ -17,7 +17,8 @@ namespace SlopWorld
             DrawAdd();
 
             Grip();
-            if (AddClick()) return;
+            if (AddClick())
+                return;
             CurrentDefinition.Click();
             Absorb();
         }
@@ -35,31 +36,37 @@ namespace SlopWorld
             string currentSession = SessionSelectable.Current;
             foreach (var row in Layout.Rows)
             {
-                if (SkipAgentPaint(row.Line)) continue;
+                if (SkipAgentPaint(row.Line))
+                    continue;
                 bool current = row.Session != null && row.Session == currentSession;
 
                 RowChrome.Hover(row.Line, current, true, RowHoverPolicy.OverlayAware);
             }
 
             foreach (var head in Layout.Heads)
-                if (!SkipAgentPaint(head.Rect)) DrawHead(head);
+                if (!SkipAgentPaint(head.Rect))
+                    DrawHead(head);
             // This must precede vanilla: its portrait handler consumes right-clicks.
             // The scroll group also lets Menus use the content-local row geometry
             // directly, just like portrait and label hit testing.
-            if (insideBody) Menus();
+            if (insideBody)
+                Menus();
         }
 
         public static void DrawBack()
         {
-            if (Event.current.type == EventType.Layout) return;
+            if (Event.current.type == EventType.Layout)
+                return;
 
-            if (ColonistBarStrip.Suppressed) return;
+            if (ColonistBarStrip.Suppressed)
+                return;
 
             if (!Wanted())
             {
                 SearchView.Closed();
                 LibraryView.Closed();
-                if (Interaction.Resizing) EndResize();
+                if (Interaction.Resizing)
+                    EndResize();
                 EndFilesDivider();
                 return;
             }
@@ -73,10 +80,10 @@ namespace SlopWorld
             Slab.Fill(panel, UiTheme.Panel);
 
             CurrentDefinition.Draw();
-            if (CurrentTab == SidebarTab.Agents) return;
+            if (CurrentTab == SidebarTab.Agents)
+                return;
 
             DrawChromeAndClicks();
         }
-
     }
 }

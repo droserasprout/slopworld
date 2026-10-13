@@ -27,8 +27,13 @@ namespace SlopWorld
         public readonly object Value;
         public readonly IContentTreeNode Root;
 
-        public ContentTreeGroup(string key, string label, string path, object value,
-            IContentTreeNode root)
+        public ContentTreeGroup(
+            string key,
+            string label,
+            string path,
+            object value,
+            IContentTreeNode root
+        )
         {
             Key = key;
             Label = label;
@@ -37,5 +42,4 @@ namespace SlopWorld
             Root = root;
         }
     }
-
 }

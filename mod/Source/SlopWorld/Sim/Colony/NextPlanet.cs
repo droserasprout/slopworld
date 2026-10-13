@@ -33,7 +33,14 @@ namespace SlopWorld
         // Add bomb explosions so the scene shows colony destruction as well as fire.
         const float BombChance = 0.25f;
 
-        enum Phase { Off, Hold, Wave, Lull, Settle }
+        enum Phase
+        {
+            Off,
+            Hold,
+            Wave,
+            Lull,
+            Settle,
+        }
 
         Phase _phase = Phase.Off;
 
@@ -66,26 +73,38 @@ namespace SlopWorld
         // Ignore repeated requests while the scene is active.
         public static void Begin()
         {
-            if (Current.ProgramState != ProgramState.Playing) return;
-            if (Settings.EcoMode) return;
-            if (Leaving) return;
+            if (Current.ProgramState != ProgramState.Playing)
+                return;
+            if (Settings.EcoMode)
+                return;
+            if (Leaving)
+                return;
             Current.Game?.GetComponent<NextPlanet>()?.Start();
         }
 
         void Start()
         {
             _map = Find.CurrentMap;
-            if (_map == null) { Leave(); return; }
+            if (_map == null)
+            {
+                Leave();
+                return;
+            }
 
             Leaving = true;
             Pending = true;
 
             // The code discards the colony without the fire scene when Grandma's visiting.
-            if (Settings.GrandmaMode) { Leave(); return; }
+            if (Settings.GrandmaMode)
+            {
+                Leave();
+                return;
+            }
 
             // Cutscene.Playing hides the map interface. Close windows separately.
             foreach (var w in Find.WindowStack.Windows.ToList())
-                if (!(w is MainTabWindow)) w.Close(false);
+                if (!(w is MainTabWindow))
+                    w.Close(false);
             Find.MainTabsRoot?.EscapeCurrentTab(false);
             Find.Selector?.ClearSelection();
 
@@ -99,7 +118,8 @@ namespace SlopWorld
             if (cam != null)
             {
                 cam.JumpToCurrentMapLoc(_origin);
-                if (cam.config != null) cam.SetRootSize(cam.config.sizeRange.max);
+                if (cam.config != null)
+                    cam.SetRootSize(cam.config.sizeRange.max);
             }
 
             Go(Phase.Hold, HoldSeconds);
@@ -117,8 +137,10 @@ namespace SlopWorld
         // Advance wave deadlines in real time. Blasts drain when game ticks resume.
         public override void GameComponentUpdate()
         {
-            if (_phase == Phase.Off) return;
-            if (Time.realtimeSinceStartup < _at) return;
+            if (_phase == Phase.Off)
+                return;
+            if (Time.realtimeSinceStartup < _at)
+                return;
 
             switch (_phase)
             {
@@ -129,8 +151,10 @@ namespace SlopWorld
                 case Phase.Wave:
                     // End the wave at its deadline, even if game ticks did not advance the front to its target.
                     AdvanceFront(_to);
-                    if (_wave < Waves) Go(Phase.Lull, LullSeconds);
-                    else Go(Phase.Settle, SettleSeconds); // the front is at the edge
+                    if (_wave < Waves)
+                        Go(Phase.Lull, LullSeconds);
+                    else
+                        Go(Phase.Settle, SettleSeconds); // the front is at the edge
                     break;
 
                 case Phase.Lull:
@@ -139,7 +163,8 @@ namespace SlopWorld
 
                 case Phase.Settle:
                     // Drain the final wave before discarding the map, even after the settle deadline.
-                    if (!_blasts.Pending) Leave();
+                    if (!_blasts.Pending)
+                        Leave();
                     break;
             }
         }
@@ -148,7 +173,11 @@ namespace SlopWorld
         // Later waves cover more area in the same time.
         void Wake()
         {
-            if (_map == null || !Find.Maps.Contains(_map)) { Leave(); return; }
+            if (_map == null || !Find.Maps.Contains(_map))
+            {
+                Leave();
+                return;
+            }
 
             _wave++;
             _from = _front;
@@ -158,8 +187,13 @@ namespace SlopWorld
 
         public override void GameComponentTick()
         {
-            if (_phase != Phase.Wave && _phase != Phase.Lull && _phase != Phase.Settle) return;
-            if (_map == null || !Find.Maps.Contains(_map)) { Leave(); return; }
+            if (_phase != Phase.Wave && _phase != Phase.Lull && _phase != Phase.Settle)
+                return;
+            if (_map == null || !Find.Maps.Contains(_map))
+            {
+                Leave();
+                return;
+            }
 
             if (_phase == Phase.Wave)
             {
@@ -173,7 +207,8 @@ namespace SlopWorld
 
         void AdvanceFront(float front)
         {
-            if (front <= _front) return;
+            if (front <= _front)
+                return;
             _blasts.AddRing(_front, front, CellsPerBlast);
             _front = front;
         }
@@ -181,15 +216,24 @@ namespace SlopWorld
         void Blast(Map map, float dist)
         {
             float a = Rand.Range(0f, Mathf.PI * 2f);
-            var cell = new IntVec3(_origin.x + Mathf.RoundToInt(Mathf.Cos(a) * dist), 0,
-                                   _origin.z + Mathf.RoundToInt(Mathf.Sin(a) * dist));
+            var cell = new IntVec3(
+                _origin.x + Mathf.RoundToInt(Mathf.Cos(a) * dist),
+                0,
+                _origin.z + Mathf.RoundToInt(Mathf.Sin(a) * dist)
+            );
             // Exclude explosion positions outside the rectangular map.
-            if (!cell.InBounds(map)) return;
+            if (!cell.InBounds(map))
+                return;
 
             bool bomb = Rand.Chance(BombChance);
-            GenExplosion.DoExplosion(cell, map, BlastRadius,
-                bomb ? DamageDefOf.Bomb : DamageDefOf.Flame, null,
-                damAmount: bomb ? BombDamage : FlameDamage);
+            GenExplosion.DoExplosion(
+                cell,
+                map,
+                BlastRadius,
+                bomb ? DamageDefOf.Bomb : DamageDefOf.Flame,
+                null,
+                damAmount: bomb ? BombDamage : FlameDamage
+            );
         }
 
         void Leave()

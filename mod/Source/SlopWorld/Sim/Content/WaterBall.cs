@@ -14,7 +14,8 @@ namespace SlopWorld
             var map = Map;
             var pos = Position;
             base.Impact(hitThing, blockedByShield);
-            if (map == null || blockedByShield) return;
+            if (map == null || blockedByShield)
+                return;
 
             Terraform(map, pos, RestorationRadius);
             Aura.Of(map)?.Rejuvenate(pos);
@@ -29,20 +30,31 @@ namespace SlopWorld
             var water = TerrainDefOf.WaterShallow;
             bool makeWater = water != null && Rand.Chance(WaterBodyChance);
             var replacement = makeWater ? water : richSoil;
-            if (replacement == null) return;
+            if (replacement == null)
+                return;
 
             int cells = GenRadial.NumCellsInRadius(
-                Mathf.Min(radius, GenRadial.MaxRadialPatternRadius - 1f));
+                Mathf.Min(radius, GenRadial.MaxRadialPatternRadius - 1f)
+            );
             for (int i = 0; i < cells; i++)
             {
                 var c = centre + GenRadial.RadialPattern[i];
-                if (!c.InBounds(map) || c.GetEdifice(map) != null) continue;
-                if (map.terrainGrid.WaterAt(c)) continue;
+                if (!c.InBounds(map) || c.GetEdifice(map) != null)
+                    continue;
+                if (map.terrainGrid.WaterAt(c))
+                    continue;
 
                 var terrain = map.terrainGrid.TerrainAt(c);
-                if (terrain == null || !terrain.natural || !terrain.canEverTerraform
-                    || terrain.IsWater || terrain.IsFloor) continue;
-                if (!makeWater && terrain.fertility >= richSoil.fertility) continue;
+                if (
+                    terrain == null
+                    || !terrain.natural
+                    || !terrain.canEverTerraform
+                    || terrain.IsWater
+                    || terrain.IsFloor
+                )
+                    continue;
+                if (!makeWater && terrain.fertility >= richSoil.fertility)
+                    continue;
 
                 map.terrainGrid.SetTerrain(c, replacement);
             }

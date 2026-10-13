@@ -35,9 +35,13 @@ namespace SlopWorld
 
             _sample = Vector2.zero;
             _sampleUsable = false;
-            if (Application.platform != RuntimePlatform.LinuxPlayer ||
-                X11ScrollSampler.Now < _readerRetryAt) return false;
-            if (_reader == null) _reader = new LatestSample<X11ScrollSampler.Sample>(Sampler.Read);
+            if (
+                Application.platform != RuntimePlatform.LinuxPlayer
+                || X11ScrollSampler.Now < _readerRetryAt
+            )
+                return false;
+            if (_reader == null)
+                _reader = new LatestSample<X11ScrollSampler.Sample>(Sampler.Read);
             bool fresh = _reader.TryRead(out var snapshot, out var error);
             if (error != null)
             {
@@ -47,18 +51,24 @@ namespace SlopWorld
                 _reader = null;
                 _readerRetryAt = X11ScrollSampler.Now + 1;
                 DiscardPendingMovement();
-                Log.Warning("[SlopWorld] precise X11 scrolling sampler will retry: " + error.Message);
+                Log.Warning(
+                    "[SlopWorld] precise X11 scrolling sampler will retry: " + error.Message
+                );
                 return false;
             }
-            if (!fresh) return false;
+            if (!fresh)
+                return false;
             if (!snapshot.Available)
             {
                 DiscardPendingMovement();
                 if (!_unavailable && snapshot.UnavailableReason != null)
                 {
                     _unavailable = true;
-                    Log.Warning("[SlopWorld] precise X11 scrolling unavailable: " +
-                        snapshot.UnavailableReason + ". Using wheel input.");
+                    Log.Warning(
+                        "[SlopWorld] precise X11 scrolling unavailable: "
+                            + snapshot.UnavailableReason
+                            + ". Using wheel input."
+                    );
                 }
                 return false;
             }
@@ -67,8 +77,18 @@ namespace SlopWorld
                 _unavailable = false;
                 Log.Message("[SlopWorld] precise X11 scrolling recovered.");
             }
-            if (!Motion.Read(snapshot.X, snapshot.Y, snapshot.Time, X11ScrollSampler.Now,
-                             snapshot.Generation, out double dx, out double dy)) return false;
+            if (
+                !Motion.Read(
+                    snapshot.X,
+                    snapshot.Y,
+                    snapshot.Time,
+                    X11ScrollSampler.Now,
+                    snapshot.Generation,
+                    out double dx,
+                    out double dy
+                )
+            )
+                return false;
             _sample = new Vector2((float)dx, (float)dy);
             _sampleUsable = true;
             units = _sample;

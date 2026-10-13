@@ -38,10 +38,14 @@ namespace SlopWorld
         {
             switch (Mode)
             {
-                case EditMode.Copy: return $"Copy of '{CopySource}'";
-                case EditMode.Edit: return $"Edit '{OriginalName}'";
-                case EditMode.New: return "New " + noun;
-                default: throw new System.InvalidOperationException($"Unknown edit mode: {Mode}");
+                case EditMode.Copy:
+                    return $"Copy of '{CopySource}'";
+                case EditMode.Edit:
+                    return $"Edit '{OriginalName}'";
+                case EditMode.New:
+                    return "New " + noun;
+                default:
+                    throw new System.InvalidOperationException($"Unknown edit mode: {Mode}");
             }
         }
 

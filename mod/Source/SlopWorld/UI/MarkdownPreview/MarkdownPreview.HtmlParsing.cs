@@ -9,18 +9,33 @@ namespace SlopWorld
     {
         // Parse strings directly: no loader, scripts, CSS engine, or resource fetching.
         // AngleSharp owns HTML syntax/tree repair; we own the supported display subset.
-        readonly HtmlParser _htmlParser = new HtmlParser(new HtmlParserOptions { IsScripting = false });
+        readonly HtmlParser _htmlParser = new HtmlParser(
+            new HtmlParserOptions { IsScripting = false }
+        );
 
         bool TryAddHtmlBlocks(string source, List<MarkdownBlock> target)
         {
             // Unsupported root blocks retain their original source as faint text.
             // Inspect the first token rather than guessing tag boundaries ourselves.
             using (var input = new AngleSharp.Text.TextSource((source ?? "").TrimStart()))
-            using (var tokenizer = new AngleSharp.Html.Parser.HtmlTokenizer(input, AngleSharp.Html.HtmlEntityProvider.Resolver))
+            using (
+                var tokenizer = new AngleSharp.Html.Parser.HtmlTokenizer(
+                    input,
+                    AngleSharp.Html.HtmlEntityProvider.Resolver
+                )
+            )
             {
                 var first = tokenizer.Get();
-                if (first.Type != HtmlTokenType.StartTag ||
-                    (!IsHtmlTextBlock(first.Name) && first.Name != "div" && first.Name != "img" && first.Name != "hr")) return false;
+                if (
+                    first.Type != HtmlTokenType.StartTag
+                    || (
+                        !IsHtmlTextBlock(first.Name)
+                        && first.Name != "div"
+                        && first.Name != "img"
+                        && first.Name != "hr"
+                    )
+                )
+                    return false;
             }
 
             using (var document = _htmlParser.ParseDocument(""))
@@ -34,25 +49,39 @@ namespace SlopWorld
             return true;
         }
 
-        void AppendHtmlNode(INode node, List<MarkdownBlock> target,
-                            ref MarkdownBlock block, InlineStyle style, bool stackImages = false)
+        void AppendHtmlNode(
+            INode node,
+            List<MarkdownBlock> target,
+            ref MarkdownBlock block,
+            InlineStyle style,
+            bool stackImages = false
+        )
         {
             if (node is IText text)
             {
                 // The DOM has decoded entities once. Code keeps its literal whitespace.
-                string value = style.Code ? text.Data : Regex.Replace(text.Data, @"[ \t\r\n]+", " ");
+                string value = style.Code
+                    ? text.Data
+                    : Regex.Replace(text.Data, @"[ \t\r\n]+", " ");
                 // Collapsible spaces can straddle DOM nodes and inline style boundaries.
                 // Literal code and unsupported source retain their own whitespace.
                 if (!style.Code && value.Length > 0 && value[0] == ' ' && block.Runs.Count > 0)
                 {
                     var previous = block.Runs[block.Runs.Count - 1];
-                    if (!previous.IsImage && !previous.Code && !previous.Faint &&
-                        !string.IsNullOrEmpty(previous.Text) && previous.Text[previous.Text.Length - 1] == ' ') value = value.Substring(1);
+                    if (
+                        !previous.IsImage
+                        && !previous.Code
+                        && !previous.Faint
+                        && !string.IsNullOrEmpty(previous.Text)
+                        && previous.Text[previous.Text.Length - 1] == ' '
+                    )
+                        value = value.Substring(1);
                 }
                 AddRun(block.Runs, value, style);
                 return;
             }
-            if (!(node is IElement element)) return; // Comments have no visible content.
+            if (!(node is IElement element))
+                return; // Comments have no visible content.
             string name = element.LocalName;
             if (name == "div")
             {
@@ -101,8 +130,10 @@ namespace SlopWorld
                     target.Add(row);
                     block = HtmlParagraph();
                 }
-                else if (image != null) block.Runs.Add(style.Apply(image));
-                else AddRun(block.Runs, element.OuterHtml, style, faint: true);
+                else if (image != null)
+                    block.Runs.Add(style.Apply(image));
+                else
+                    AddRun(block.Runs, element.OuterHtml, style, faint: true);
                 return;
             }
             if (name == "br")
@@ -122,7 +153,16 @@ namespace SlopWorld
                 AppendHtmlNode(child, target, ref block, style, stackImages);
         }
 
-        enum HtmlStyleKind { Unsupported, Plain, Bold, Italic, Code, Strike, Link }
+        enum HtmlStyleKind
+        {
+            Unsupported,
+            Plain,
+            Bold,
+            Italic,
+            Code,
+            Strike,
+            Link,
+        }
 
         // Tokenized inline tags and repaired DOM elements share this display policy.
         // Their callers retain ownership of counter scopes and DOM scopes respectively.
@@ -131,19 +171,26 @@ namespace SlopWorld
             switch (name)
             {
                 case "strong":
-                case "b": return HtmlStyleKind.Bold;
+                case "b":
+                    return HtmlStyleKind.Bold;
                 case "em":
-                case "i": return HtmlStyleKind.Italic;
+                case "i":
+                    return HtmlStyleKind.Italic;
                 case "code":
                 case "kbd":
-                case "samp": return HtmlStyleKind.Code;
+                case "samp":
+                    return HtmlStyleKind.Code;
                 case "del":
                 case "s":
-                case "strike": return HtmlStyleKind.Strike;
-                case "a": return HtmlStyleKind.Link;
+                case "strike":
+                    return HtmlStyleKind.Strike;
+                case "a":
+                    return HtmlStyleKind.Link;
                 // Common generated markup; CSS is deliberately not interpreted.
-                case "span": return HtmlStyleKind.Plain;
-                default: return HtmlStyleKind.Unsupported;
+                case "span":
+                    return HtmlStyleKind.Plain;
+                default:
+                    return HtmlStyleKind.Unsupported;
             }
         }
 
@@ -165,18 +212,17 @@ namespace SlopWorld
         bool TryHtmlElementStyle(IElement element, ref InlineStyle style)
         {
             var kind = HtmlStyleFor(element.LocalName);
-            if (kind == HtmlStyleKind.Unsupported) return false;
+            if (kind == HtmlStyleKind.Unsupported)
+                return false;
             var effect = ReadHtmlStyle(kind, element.GetAttribute);
-            if (kind == HtmlStyleKind.Link) style = style.WithLink(effect.Link, effect.LocalLink);
+            if (kind == HtmlStyleKind.Link)
+                style = style.WithLink(effect.Link, effect.LocalLink);
             style = style.WithHtmlStyle(effect);
             return true;
         }
 
-        static MarkdownBlock HtmlParagraph() => new MarkdownBlock
-        {
-            Kind = BlockKind.Paragraph,
-            Runs = new List<InlineRun>(),
-        };
+        static MarkdownBlock HtmlParagraph() =>
+            new MarkdownBlock { Kind = BlockKind.Paragraph, Runs = new List<InlineRun>() };
 
         static void AddHtmlTextBlock(MarkdownBlock block, List<MarkdownBlock> target)
         {
@@ -185,13 +231,14 @@ namespace SlopWorld
                 block.Runs.RemoveAt(0);
             while (block.Runs.Count > 0 && IsHtmlFormattingSpace(block.Runs[block.Runs.Count - 1]))
                 block.Runs.RemoveAt(block.Runs.Count - 1);
-            if (block.Runs.Count > 0) target.Add(block);
+            if (block.Runs.Count > 0)
+                target.Add(block);
         }
 
-        static bool IsHtmlFormattingSpace(InlineRun run) => !run.IsImage && !run.Code &&
-            run.Text != "\n" && string.IsNullOrWhiteSpace(run.Text);
+        static bool IsHtmlFormattingSpace(InlineRun run) =>
+            !run.IsImage && !run.Code && run.Text != "\n" && string.IsNullOrWhiteSpace(run.Text);
 
-        static bool IsHtmlTextBlock(string name) => name == "p" ||
-            (name.Length == 2 && name[0] == 'h' && name[1] >= '1' && name[1] <= '6');
+        static bool IsHtmlTextBlock(string name) =>
+            name == "p" || (name.Length == 2 && name[0] == 'h' && name[1] >= '1' && name[1] <= '6');
     }
 }

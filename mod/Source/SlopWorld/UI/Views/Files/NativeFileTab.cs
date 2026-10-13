@@ -8,16 +8,27 @@ namespace SlopWorld
     {
         ContentView _view;
         string _header;
-        public string OriginLabel, OriginProject, Project, Path;
+        public string OriginLabel,
+            OriginProject,
+            Project,
+            Path;
         public ContentView View
         {
             get => _view;
-            set { _view = value; RoutedSessionRows.Invalidate(); }
+            set
+            {
+                _view = value;
+                RoutedSessionRows.Invalidate();
+            }
         }
         public string Header
         {
             get => _header;
-            set { _header = value; RoutedSessionRows.Invalidate(); }
+            set
+            {
+                _header = value;
+                RoutedSessionRows.Invalidate();
+            }
         }
         public bool Locked { get; private set; }
 
@@ -25,33 +36,37 @@ namespace SlopWorld
         public string FilePath => Alive ? Path : null;
         public bool Alive => View != null;
 
-        public bool Matches(string project, string key) => Alive &&
-            Project == (project ?? "") && Path == key;
+        public bool Matches(string project, string key) =>
+            Alive && Project == (project ?? "") && Path == key;
 
         public bool Reopen()
         {
-            if (!Alive) return false;
+            if (!Alive)
+                return false;
             TerminalWindow.OpenContent(View);
             return true;
         }
 
         public bool Lock()
         {
-            if (!Alive) return false;
+            if (!Alive)
+                return false;
             Locked = true;
             return true;
         }
 
         public bool LockPreview(string project, string key)
         {
-            if (!Matches(project, key) || (!Locked && !Showing)) return false;
+            if (!Matches(project, key) || (!Locked && !Showing))
+                return false;
             Locked = true;
             return true;
         }
 
         public void Release()
         {
-            if (!Alive) return;
+            if (!Alive)
+                return;
             if (Showing)
                 Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
             View = null;
@@ -66,7 +81,8 @@ namespace SlopWorld
 
         public bool CloseTab(string session)
         {
-            if (session == null || session != Header) return false;
+            if (session == null || session != Header)
+                return false;
             bool showing = Showing;
             View = null;
             Header = null;
@@ -95,7 +111,7 @@ namespace SlopWorld
                 Alive = true,
             };
         }
+
         bool Showing => ReferenceEquals(TerminalWindow.Showing, View);
     }
-
 }

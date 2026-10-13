@@ -17,8 +17,15 @@ namespace SlopWorld
         public readonly bool NavigationVisible;
         public readonly int Revision;
 
-        public WorkspaceGeometry(Rect viewport, Rect navigation, Rect topBar, Rect content,
-                                 string side, bool navigationVisible, int revision)
+        public WorkspaceGeometry(
+            Rect viewport,
+            Rect navigation,
+            Rect topBar,
+            Rect content,
+            string side,
+            bool navigationVisible,
+            int revision
+        )
         {
             Viewport = viewport;
             Navigation = navigation;
@@ -34,6 +41,7 @@ namespace SlopWorld
         public float RightInset => NavigationVisible && IsRight ? Navigation.width : 0f;
         public float TopInset => TopBar.height;
         public float NavigationEdge => IsRight ? Navigation.x : Navigation.xMax;
+
         public float NavigationWidthAt(float edge) =>
             IsRight ? Navigation.xMax - edge : edge - Navigation.x;
     }
@@ -61,7 +69,8 @@ namespace SlopWorld
                 // IMGUI can visit the same screen through several event passes. Hold one
                 // snapshot for the frame so a setting click cannot leave drawing and input
                 // using different rectangles. The new choice takes effect next frame.
-                if (_hasCurrent && _currentFrame == Time.frameCount) return _current;
+                if (_hasCurrent && _currentFrame == Time.frameCount)
+                    return _current;
 
                 // Metrics and workspace bounds share the same event-pass boundary. A
                 // font/scale/density action therefore takes effect for both on the next
@@ -75,17 +84,35 @@ namespace SlopWorld
                 string side = NavigationSide.Normalize(Settings.SidebarSide);
                 float top = shown ? TopBar.H : 0f;
                 var geometry = Compute(width, height, shown, visible, side, requested, top);
-                var key = new LayoutKey(width, height, shown, visible, side,
-                    geometry.Navigation.width, geometry.TopBar.height, UiMetrics.Revision);
+                var key = new LayoutKey(
+                    width,
+                    height,
+                    shown,
+                    visible,
+                    side,
+                    geometry.Navigation.width,
+                    geometry.TopBar.height,
+                    UiMetrics.Revision
+                );
                 if (!_hasCurrent || !_lastKey.Equals(key))
                 {
                     _lastKey = key;
-                    unchecked { _revision++; }
-                    if (_revision == 0) _revision = 1;
+                    unchecked
+                    {
+                        _revision++;
+                    }
+                    if (_revision == 0)
+                        _revision = 1;
                 }
-                _current = new WorkspaceGeometry(geometry.Viewport, geometry.Navigation,
-                    geometry.TopBar, geometry.Content, geometry.Side, geometry.NavigationVisible,
-                    _revision);
+                _current = new WorkspaceGeometry(
+                    geometry.Viewport,
+                    geometry.Navigation,
+                    geometry.TopBar,
+                    geometry.Content,
+                    geometry.Side,
+                    geometry.NavigationVisible,
+                    _revision
+                );
                 _currentFrame = Time.frameCount;
                 _hasCurrent = true;
                 return _current;
@@ -98,40 +125,53 @@ namespace SlopWorld
         // Used by tests and by callers that already have resolved
         // metrics. `shown` is separate from screenshot filtering so cutscenes can reclaim the
         // whole viewport without changing the meaning of screenshot mode.
-        public static WorkspaceGeometry Compute(float viewportWidth, float viewportHeight,
-            bool shown, bool navigationVisible, string side, float requestedNavigationWidth,
-            float topBarHeight, int revision = 0)
+        public static WorkspaceGeometry Compute(
+            float viewportWidth,
+            float viewportHeight,
+            bool shown,
+            bool navigationVisible,
+            string side,
+            float requestedNavigationWidth,
+            float topBarHeight,
+            int revision = 0
+        )
         {
             float width = Mathf.Max(0f, viewportWidth);
             float height = Mathf.Max(0f, viewportHeight);
             string normalizedSide = NavigationSide.Normalize(side);
             bool visible = shown && navigationVisible;
 
-            float navigationWidth = visible
-                ? NavigationWidth(width, requestedNavigationWidth)
-                : 0f;
+            float navigationWidth = visible ? NavigationWidth(width, requestedNavigationWidth) : 0f;
             float top = shown ? Mathf.Min(height, Mathf.Max(0f, topBarHeight)) : 0f;
             var viewport = new Rect(0f, 0f, width, height);
-            var navigation = normalizedSide == NavigationSide.Right
-                ? new Rect(Mathf.Max(0f, width - navigationWidth), 0f,
-                    navigationWidth, height)
-                : new Rect(0f, 0f, navigationWidth, height);
+            var navigation =
+                normalizedSide == NavigationSide.Right
+                    ? new Rect(Mathf.Max(0f, width - navigationWidth), 0f, navigationWidth, height)
+                    : new Rect(0f, 0f, navigationWidth, height);
 
             float contentWidth = Mathf.Max(0f, width - navigationWidth);
             float contentX = normalizedSide == NavigationSide.Left ? navigationWidth : 0f;
             var topBar = new Rect(contentX, 0f, contentWidth, top);
-            var content = new Rect(contentX, top, contentWidth,
-                Mathf.Max(0f, height - top));
+            var content = new Rect(contentX, top, contentWidth, Mathf.Max(0f, height - top));
 
-            return new WorkspaceGeometry(viewport, navigation, topBar, content,
-                normalizedSide, visible, revision);
+            return new WorkspaceGeometry(
+                viewport,
+                navigation,
+                topBar,
+                content,
+                normalizedSide,
+                visible,
+                revision
+            );
         }
 
         public static float NavigationWidth(float viewportWidth, float requested)
         {
             float width = Mathf.Max(0f, viewportWidth);
-            float maximum = Mathf.Min(MaxNavigationWidth,
-                Mathf.Max(MinNavigationWidth, width * 0.4f));
+            float maximum = Mathf.Min(
+                MaxNavigationWidth,
+                Mathf.Max(MinNavigationWidth, width * 0.4f)
+            );
             float preferred = Mathf.Clamp(requested, MinNavigationWidth, maximum);
             // Keep at least a pixel for active content at tiny resolutions. The sidebar can
             // still be narrower than its normal minimum there, but no rect becomes negative.
@@ -140,13 +180,25 @@ namespace SlopWorld
 
         struct LayoutKey : IEquatable<LayoutKey>
         {
-            readonly float _width, _height, _navigationWidth, _top;
-            readonly bool _shown, _visible;
+            readonly float _width,
+                _height,
+                _navigationWidth,
+                _top;
+            readonly bool _shown,
+                _visible;
             readonly string _side;
             readonly int _metricsRevision;
 
-            public LayoutKey(float width, float height, bool shown, bool visible, string side,
-                             float navigationWidth, float top, int metricsRevision)
+            public LayoutKey(
+                float width,
+                float height,
+                bool shown,
+                bool visible,
+                string side,
+                float navigationWidth,
+                float top,
+                int metricsRevision
+            )
             {
                 _width = width;
                 _height = height;
@@ -159,17 +211,28 @@ namespace SlopWorld
             }
 
             public bool Equals(LayoutKey other) =>
-                _width == other._width && _height == other._height
-                && _shown == other._shown && _visible == other._visible
-                && _navigationWidth == other._navigationWidth && _top == other._top
+                _width == other._width
+                && _height == other._height
+                && _shown == other._shown
+                && _visible == other._visible
+                && _navigationWidth == other._navigationWidth
+                && _top == other._top
                 && _metricsRevision == other._metricsRevision
                 && string.Equals(_side, other._side, StringComparison.Ordinal);
 
             public override bool Equals(object obj) => obj is LayoutKey && Equals((LayoutKey)obj);
 
             public override int GetHashCode() =>
-                (_width, _height, _shown, _visible, _side, _navigationWidth, _top,
-                    _metricsRevision).GetHashCode();
+                (
+                    _width,
+                    _height,
+                    _shown,
+                    _visible,
+                    _side,
+                    _navigationWidth,
+                    _top,
+                    _metricsRevision
+                ).GetHashCode();
         }
     }
 }

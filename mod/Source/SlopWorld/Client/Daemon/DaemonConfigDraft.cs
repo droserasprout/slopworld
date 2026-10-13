@@ -24,7 +24,12 @@ namespace SlopWorld
             public bool HasPendingNormalization { get; private set; }
             public string PendingNormalization { get; private set; }
 
-            internal DaemonConfigFieldState(string key, string path, string text, bool zeroMeansBlank)
+            internal DaemonConfigFieldState(
+                string key,
+                string path,
+                string text,
+                bool zeroMeansBlank
+            )
             {
                 Key = key;
                 Path = path;
@@ -56,7 +61,8 @@ namespace SlopWorld
 
             internal bool NormalizeIfUnchanged(string normalized)
             {
-                if (IsDirty) return false;
+                if (IsDirty)
+                    return false;
                 Text = normalized ?? "";
                 LocalBaseline = Text;
                 RemoteBaseline = Text;
@@ -73,7 +79,9 @@ namespace SlopWorld
         public DaemonConfig Config { get; private set; }
         Wire.EditableConfig Baseline { get; set; }
         Wire.EditableConfig RemoteBaseline { get; set; }
+
         public Wire.EditableConfig BaselineValue() => Baseline.Clone();
+
         public bool Loaded { get; private set; }
         public bool Saving { get; set; }
         public string Error { get; set; }
@@ -82,9 +90,12 @@ namespace SlopWorld
 
         public bool HasConflicts => Conflicts.Count > 0;
 
-        public string ConflictMessage => !HasConflicts ? null
-            : "External changes on " + string.Join(", ", Conflicts.ToArray()) +
-              ". Save keeps this draft. Discard uses the server values.";
+        public string ConflictMessage =>
+            !HasConflicts
+                ? null
+                : "External changes on "
+                    + string.Join(", ", Conflicts.ToArray())
+                    + ". Save keeps this draft. Discard uses the server values.";
 
         public bool HasDraft => Loaded && Config != null;
 
@@ -92,10 +103,13 @@ namespace SlopWorld
         {
             get
             {
-                if (!Loaded || Config == null) return false;
-                if (Config.ToPatch(Baseline).Paths.Count > 0) return true;
+                if (!Loaded || Config == null)
+                    return false;
+                if (Config.ToPatch(Baseline).Paths.Count > 0)
+                    return true;
                 foreach (var state in _fields.Values)
-                    if (state.IsDirty) return true;
+                    if (state.IsDirty)
+                        return true;
                 return false;
             }
         }
@@ -105,13 +119,18 @@ namespace SlopWorld
 
         public IEnumerable<string> FieldKeys(string prefix = null)
         {
-            return _fields.Keys.Where(key => prefix == null || key.StartsWith(prefix,
-                StringComparison.Ordinal)).OrderBy(key => key, StringComparer.Ordinal).ToList();
+            return _fields
+                .Keys.Where(key =>
+                    prefix == null || key.StartsWith(prefix, StringComparison.Ordinal)
+                )
+                .OrderBy(key => key, StringComparer.Ordinal)
+                .ToList();
         }
 
         public bool NormalizeTextIfUnchanged(string key, string normalized)
         {
-            return _fields.TryGetValue(key, out var state) && state.NormalizeIfUnchanged(normalized);
+            return _fields.TryGetValue(key, out var state)
+                && state.NormalizeIfUnchanged(normalized);
         }
 
         public void QueueNormalization(string key, string path, string normalized)
@@ -121,7 +140,8 @@ namespace SlopWorld
 
         public void ClearQueuedNormalizations()
         {
-            foreach (var state in _fields.Values) state.ClearNormalization();
+            foreach (var state in _fields.Values)
+                state.ClearNormalization();
         }
 
         public void ApplyQueuedNormalizations()
@@ -136,7 +156,10 @@ namespace SlopWorld
 
         public int BeginOperation()
         {
-            unchecked { return ++_operation; }
+            unchecked
+            {
+                return ++_operation;
+            }
         }
 
         public bool IsCurrent(int operation) => operation != 0 && operation == _operation;
@@ -160,12 +183,21 @@ namespace SlopWorld
 
             Conflicts.Clear();
             foreach (var pair in dirty)
-                if (!ProtoFields.Equal(ProtoFields.ValueAt(oldBaseline, pair.Key), ProtoFields.ValueAt(serverValue, pair.Key))) Conflicts.Add(pair.Key);
+                if (
+                    !ProtoFields.Equal(
+                        ProtoFields.ValueAt(oldBaseline, pair.Key),
+                        ProtoFields.ValueAt(serverValue, pair.Key)
+                    )
+                )
+                    Conflicts.Add(pair.Key);
 
             var merged = ProtoFields.Apply(serverValue, dirty);
             // Fields without local edits should use the new server snapshot as their baseline.
             // Keep the old baseline only for fields that the player is editing.
-            var mergedBaseline = ProtoFields.Apply(serverValue, dirty.Keys.ToDictionary(k => k, k => ProtoFields.ValueAt(oldBaseline, k)));
+            var mergedBaseline = ProtoFields.Apply(
+                serverValue,
+                dirty.Keys.ToDictionary(k => k, k => ProtoFields.ValueAt(oldBaseline, k))
+            );
             Config = DaemonConfig.FromSnapshot(merged);
             Config.CopyMetadataFrom(server);
             Baseline = mergedBaseline;
@@ -178,9 +210,11 @@ namespace SlopWorld
         // Call this after applying those defaults during the first page load.
         public void MarkCurrentClean()
         {
-            if (!Loaded || Config == null) return;
+            if (!Loaded || Config == null)
+                return;
             Baseline = Config.Snapshot();
-            foreach (var state in _fields.Values) state.LocalBaseline = state.Text;
+            foreach (var state in _fields.Values)
+                state.LocalBaseline = state.Text;
             Conflicts.Clear();
         }
 
@@ -196,14 +230,18 @@ namespace SlopWorld
 
         public void ResetToBaseline()
         {
-            if (!Loaded || RemoteBaseline == null) return;
+            if (!Loaded || RemoteBaseline == null)
+                return;
             var metadata = Config;
             Config = DaemonConfig.FromSnapshot(RemoteBaseline);
             Config.CopyMetadataFrom(metadata);
             foreach (var state in _fields.Values)
             {
-                state.Text = ValueText(ValueAt(RemoteBaseline, state.Path),
-                    state.RemoteBaseline, state.ZeroMeansBlank);
+                state.Text = ValueText(
+                    ValueAt(RemoteBaseline, state.Path),
+                    state.RemoteBaseline,
+                    state.ZeroMeansBlank
+                );
                 state.LocalBaseline = state.Text;
                 state.RemoteBaseline = state.Text;
             }
@@ -215,7 +253,10 @@ namespace SlopWorld
         public Dictionary<string, string> TextSnapshot() =>
             _fields.Values.ToDictionary(state => state.Key, state => state.Text);
 
-        public void Acknowledge(Wire.EditableConfig submitted, Dictionary<string, string> submittedTexts)
+        public void Acknowledge(
+            Wire.EditableConfig submitted,
+            Dictionary<string, string> submittedTexts
+        )
         {
             Baseline = submitted.Clone();
             RemoteBaseline = submitted.Clone();
@@ -231,30 +272,46 @@ namespace SlopWorld
             Conflicts.Clear();
         }
 
-        DaemonConfigFieldState Field(string key, string path, string serverValue,
-                                     bool zeroMeansBlank)
+        DaemonConfigFieldState Field(
+            string key,
+            string path,
+            string serverValue,
+            bool zeroMeansBlank
+        )
         {
             if (!_fields.TryGetValue(key, out var state))
             {
                 state = new DaemonConfigFieldState(key, path, serverValue, zeroMeansBlank);
                 _fields[key] = state;
             }
-            else state.Configure(path, zeroMeansBlank);
+            else
+                state.Configure(path, zeroMeansBlank);
             return state;
         }
 
-        static void MergeTexts(Wire.EditableConfig server, Wire.EditableConfig remoteBaseline,
-                               Dictionary<string, DaemonConfigFieldState> fields,
-                               HashSet<string> conflicts)
+        static void MergeTexts(
+            Wire.EditableConfig server,
+            Wire.EditableConfig remoteBaseline,
+            Dictionary<string, DaemonConfigFieldState> fields,
+            HashSet<string> conflicts
+        )
         {
             foreach (var state in fields.Values)
             {
                 bool dirty = state.IsDirty;
-                string serverText = ValueText(ValueAt(server, state.Path), "", state.ZeroMeansBlank);
-                string remoteText = remoteBaseline == null
-                    ? state.RemoteBaseline
-                    : ValueText(ValueAt(remoteBaseline, state.Path), state.RemoteBaseline,
-                        state.ZeroMeansBlank);
+                string serverText = ValueText(
+                    ValueAt(server, state.Path),
+                    "",
+                    state.ZeroMeansBlank
+                );
+                string remoteText =
+                    remoteBaseline == null
+                        ? state.RemoteBaseline
+                        : ValueText(
+                            ValueAt(remoteBaseline, state.Path),
+                            state.RemoteBaseline,
+                            state.ZeroMeansBlank
+                        );
                 if (!dirty)
                 {
                     state.Text = serverText;
@@ -271,14 +328,24 @@ namespace SlopWorld
         void MergeTexts(Wire.EditableConfig server, Wire.EditableConfig remoteBaseline) =>
             MergeTexts(server, remoteBaseline, _fields, Conflicts);
 
-        static object ValueAt(Wire.EditableConfig value, string path) => ProtoFields.ValueAt(value, path);
+        static object ValueAt(Wire.EditableConfig value, string path) =>
+            ProtoFields.ValueAt(value, path);
+
         static string ValueText(object value, string fallback, bool zeroMeansBlank = false)
         {
-            if (value == null) return fallback ?? "";
-            if (value is string text) return text;
-            if (value is bool flag) return flag ? "true" : "false";
-            if (value is object[] array) return string.Join("\n", array.Select(v => Convert.ToString(v, CultureInfo.InvariantCulture)));
-            if (zeroMeansBlank && Convert.ToDouble(value, CultureInfo.InvariantCulture) == 0) return "";
+            if (value == null)
+                return fallback ?? "";
+            if (value is string text)
+                return text;
+            if (value is bool flag)
+                return flag ? "true" : "false";
+            if (value is object[] array)
+                return string.Join(
+                    "\n",
+                    array.Select(v => Convert.ToString(v, CultureInfo.InvariantCulture))
+                );
+            if (zeroMeansBlank && Convert.ToDouble(value, CultureInfo.InvariantCulture) == 0)
+                return "";
             return Convert.ToString(value, CultureInfo.InvariantCulture);
         }
 

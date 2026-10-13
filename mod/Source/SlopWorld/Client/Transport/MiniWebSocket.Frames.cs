@@ -22,9 +22,11 @@ namespace SlopWorld
         WebSocketFrame ReadFrame(int fragOpcode, long fragLength)
         {
             int b0 = _net.ReadByte();
-            if (b0 < 0) return null;
+            if (b0 < 0)
+                return null;
             int b1 = _net.ReadByte();
-            if (b1 < 0) return null;
+            if (b1 < 0)
+                return null;
 
             bool fin = (b0 & 0x80) != 0;
             int opcode = b0 & 0x0f;
@@ -52,8 +54,7 @@ namespace SlopWorld
             if (len < 0 || len > MaxFrame)
                 throw new IOException($"frame length out of range: {len}");
 
-            if ((lengthMarker == 126 && len < 126) ||
-                (lengthMarker == 127 && len < 65536))
+            if ((lengthMarker == 126 && len < 126) || (lengthMarker == 127 && len < 65536))
                 throw new IOException("nonminimal websocket length");
 
             if ((opcode & 0x8) != 0 && (!fin || len > 125))
@@ -82,7 +83,8 @@ namespace SlopWorld
                 case 0x9: // ping
                 case 0xA: // pong
                     return true;
-                default: return false;
+                default:
+                    return false;
             }
         }
 
@@ -126,21 +128,34 @@ namespace SlopWorld
 
         static void ValidateClosePayload(byte[] payload)
         {
-            if (payload.Length == 0) return;
-            if (payload.Length == 1) throw new IOException("invalid websocket close payload");
+            if (payload.Length == 0)
+                return;
+            if (payload.Length == 1)
+                throw new IOException("invalid websocket close payload");
             int status = (payload[0] << 8) | payload[1];
-            bool standard = status >= 1000 && status <= 1014 &&
-                status != 1004 && status != 1005 && status != 1006;
+            bool standard =
+                status >= 1000
+                && status <= 1014
+                && status != 1004
+                && status != 1005
+                && status != 1006;
             if (!standard && (status < 3000 || status >= 5000))
                 throw new IOException("invalid websocket close status");
-            try { new UTF8Encoding(false, true).GetString(payload, 2, payload.Length - 2); }
-            catch (DecoderFallbackException) { throw new IOException("invalid websocket close reason"); }
+            try
+            {
+                new UTF8Encoding(false, true).GetString(payload, 2, payload.Length - 2);
+            }
+            catch (DecoderFallbackException)
+            {
+                throw new IOException("invalid websocket close reason");
+            }
         }
 
         int ReadByteOrThrow()
         {
             int b = _net.ReadByte();
-            if (b < 0) throw new IOException("socket closed mid-frame");
+            if (b < 0)
+                throw new IOException("socket closed mid-frame");
             return b;
         }
 
@@ -151,7 +166,8 @@ namespace SlopWorld
             while (got < n)
             {
                 int r = _net.Read(buf, got, n - got);
-                if (r <= 0) throw new IOException("socket closed mid-payload");
+                if (r <= 0)
+                    throw new IOException("socket closed mid-payload");
                 got += r;
             }
             return buf;

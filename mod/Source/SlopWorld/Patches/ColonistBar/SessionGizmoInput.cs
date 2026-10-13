@@ -20,7 +20,8 @@ namespace SlopWorld
         public static void RememberActionRect(Rect rect)
         {
             // Terminal gizmos use window coordinates. Do not use their rectangles for map input.
-            if (TerminalWindow.Covering) return;
+            if (TerminalWindow.Covering)
+                return;
 
             int frame = Time.frameCount;
             if (RectFrame != frame)
@@ -29,43 +30,59 @@ namespace SlopWorld
                 ActionRects.Clear();
             }
 
-            var absorbed = new Rect(rect.x - AbsorbX, rect.y,
-                rect.width + AbsorbX * 2f, rect.height + AbsorbBottom);
-            if (!ActionRects.Contains(absorbed)) ActionRects.Add(absorbed);
+            var absorbed = new Rect(
+                rect.x - AbsorbX,
+                rect.y,
+                rect.width + AbsorbX * 2f,
+                rect.height + AbsorbBottom
+            );
+            if (!ActionRects.Contains(absorbed))
+                ActionRects.Add(absorbed);
         }
 
         public static bool MouseOverActionGrid
         {
             get
             {
-                if (!MapActionStripVisible()) return false;
+                if (!MapActionStripVisible())
+                    return false;
 
                 var e = Event.current;
-                if (e == null) return false;
+                if (e == null)
+                    return false;
 
                 foreach (var rect in ActionRects)
-                    if (rect.Contains(e.mousePosition)) return true;
+                    if (rect.Contains(e.mousePosition))
+                        return true;
 
                 // Protect the first row before this frame records its action rectangles.
                 // Later events use the recorded rectangles, including wrapped rows.
-                if (RectFrame == Time.frameCount) return false;
+                if (RectFrame == Time.frameCount)
+                    return false;
 
                 var content = WorkspaceLayout.Current.Content;
-                var firstRow = new Rect(content.x, AgentSidebar.AddBar.y - ActionRowHeight,
-                    content.width, ActionRowHeight + AbsorbBottom);
+                var firstRow = new Rect(
+                    content.x,
+                    AgentSidebar.AddBar.y - ActionRowHeight,
+                    content.width,
+                    ActionRowHeight + AbsorbBottom
+                );
                 return firstRow.Contains(e.mousePosition);
             }
         }
 
         static bool MapActionStripVisible()
         {
-            if (!SessionSelectable.HasCurrent || !WorkspaceVisibility.Shown || WorkspaceVisibility.Hidden
-                || TerminalWindow.Covering)
+            if (
+                !SessionSelectable.HasCurrent
+                || !WorkspaceVisibility.Shown
+                || WorkspaceVisibility.Hidden
+                || TerminalWindow.Covering
+            )
                 return false;
 
             var tabs = Find.MainTabsRoot;
-            return tabs == null || tabs.OpenTab == null
-                || tabs.OpenTab == MainButtonDefOf.Inspect;
+            return tabs == null || tabs.OpenTab == null || tabs.OpenTab == MainButtonDefOf.Inspect;
         }
     }
 

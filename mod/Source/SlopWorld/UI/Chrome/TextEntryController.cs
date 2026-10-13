@@ -19,8 +19,12 @@ namespace SlopWorld
             public readonly FieldLifetime Lifetime;
             public readonly Action<TextEditor> Apply;
 
-            public PendingFieldEdit(string name, int controlId, FieldLifetime lifetime,
-                                    Action<TextEditor> apply)
+            public PendingFieldEdit(
+                string name,
+                int controlId,
+                FieldLifetime lifetime,
+                Action<TextEditor> apply
+            )
             {
                 Name = name;
                 ControlId = controlId;
@@ -29,17 +33,36 @@ namespace SlopWorld
             }
         }
 
-        static readonly Queue<PendingFieldEdit> PendingEdits =
-            new Queue<PendingFieldEdit>();
+        static readonly Queue<PendingFieldEdit> PendingEdits = new Queue<PendingFieldEdit>();
 
-        delegate void NativeTextField(Rect rect, int id, GUIContent content, bool multiline,
-                                      int maxLength, GUIStyle style);
+        delegate void NativeTextField(
+            Rect rect,
+            int id,
+            GUIContent content,
+            bool multiline,
+            int maxLength,
+            GUIStyle style
+        );
 
-        static readonly NativeTextField DrawNativeTextField = (NativeTextField)Delegate.CreateDelegate(
-            typeof(NativeTextField), typeof(GUI).GetMethod("DoTextField",
-                BindingFlags.Static | BindingFlags.NonPublic, null,
-                new[] { typeof(Rect), typeof(int), typeof(GUIContent), typeof(bool),
-                        typeof(int), typeof(GUIStyle) }, null));
+        static readonly NativeTextField DrawNativeTextField = (NativeTextField)
+            Delegate.CreateDelegate(
+                typeof(NativeTextField),
+                typeof(GUI).GetMethod(
+                    "DoTextField",
+                    BindingFlags.Static | BindingFlags.NonPublic,
+                    null,
+                    new[]
+                    {
+                        typeof(Rect),
+                        typeof(int),
+                        typeof(GUIContent),
+                        typeof(bool),
+                        typeof(int),
+                        typeof(GUIStyle),
+                    },
+                    null
+                )
+            );
 
         // Unity's text controls consume function keys while focused, before the game or the
         // terminal can dispatch them. Release only this field's focus so bare F-keys reach
@@ -48,11 +71,16 @@ namespace SlopWorld
         // Ordinary typing and function keys in unrelated controls are unaffected.
         public static bool ReleaseFunctionKeyFocus(string name)
         {
-            if (GUI.GetNameOfFocusedControl() != name) return false;
+            if (GUI.GetNameOfFocusedControl() != name)
+                return false;
 
             var e = Event.current;
-            if (e == null || e.rawType != EventType.KeyDown
-                || e.keyCode < KeyCode.F1 || e.keyCode > KeyCode.F15)
+            if (
+                e == null
+                || e.rawType != EventType.KeyDown
+                || e.keyCode < KeyCode.F1
+                || e.keyCode > KeyCode.F15
+            )
                 return false;
 
             GUI.FocusControl(null);
@@ -66,13 +94,23 @@ namespace SlopWorld
             public int ControlId;
             public TextEditor FieldEditor;
             public TextFieldSelection.PrepareResult Selection;
-            public bool MouseDown, Replay, KeepSelection;
-            public int Button, Cursor, Select;
+            public bool MouseDown,
+                Replay,
+                KeepSelection;
+            public int Button,
+                Cursor,
+                Select;
             public EventType OldType;
         }
 
-        public static string Draw(Rect r, string text, bool area, bool focused, string name,
-                                  bool readOnly = false)
+        public static string Draw(
+            Rect r,
+            string text,
+            bool area,
+            bool focused,
+            string name,
+            bool readOnly = false
+        )
         {
             string source = text ?? "";
             var wasColor = GUI.color;
@@ -95,8 +133,12 @@ namespace SlopWorld
                 var content = new GUIContent(source);
                 DrawNativeTextField(r, input.ControlId, content, area, -1, input.Style);
                 var editor = ReconcileEditor(name, source, readOnly, input, lifetime);
-                string result = editor == null ? content.text : readOnly ? source : editor.text;
-                if (!readOnly) FieldFocusScope.Register(name, input.ControlId, r);
+                string result =
+                    editor == null ? content.text
+                    : readOnly ? source
+                    : editor.text;
+                if (!readOnly)
+                    FieldFocusScope.Register(name, input.ControlId, r);
                 FinishDraw(r, name, source, area, readOnly, input, editor, lifetime);
                 return result;
             }
@@ -109,26 +151,51 @@ namespace SlopWorld
             }
         }
 
-        static NativePreparation PrepareNative(Rect r, string source, bool area, string name,
-                                               FieldLifetime lifetime)
+        static NativePreparation PrepareNative(
+            Rect r,
+            string source,
+            bool area,
+            string name,
+            FieldLifetime lifetime
+        )
         {
             var e = Event.current;
             var input = new NativePreparation { Event = e, Button = -1 };
-            input.MouseDown = e != null && r.Contains(e.mousePosition) && MouseDown(e, out input.Button);
-            input.Style = Bare(area ? Verse.Text.CurTextAreaStyle : Verse.Text.CurTextFieldStyle, area);
+            input.MouseDown =
+                e != null && r.Contains(e.mousePosition) && MouseDown(e, out input.Button);
+            input.Style = Bare(
+                area ? Verse.Text.CurTextAreaStyle : Verse.Text.CurTextFieldStyle,
+                area
+            );
             // Bind reconciliation to this exact control, never another focused row's editor.
             input.ControlId = GUIUtility.GetControlID(name.GetHashCode(), FocusType.Keyboard, r);
-            input.FieldEditor = (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), input.ControlId);
-            var focusedEditor = GUIUtility.keyboardControl == input.ControlId ? input.FieldEditor : null;
-            input.Selection = TextFieldSelection.Prepare(r, name, source, input.Style, focusedEditor, lifetime);
-            input.Replay = (input.Selection == TextFieldSelection.PrepareResult.None ||
-                input.Selection == TextFieldSelection.PrepareResult.TrackedMouseDown) &&
-                input.MouseDown && (e.type == EventType.Used || e.type == EventType.ContextClick);
+            input.FieldEditor = (TextEditor)
+                GUIUtility.GetStateObject(typeof(TextEditor), input.ControlId);
+            var focusedEditor =
+                GUIUtility.keyboardControl == input.ControlId ? input.FieldEditor : null;
+            input.Selection = TextFieldSelection.Prepare(
+                r,
+                name,
+                source,
+                input.Style,
+                focusedEditor,
+                lifetime
+            );
+            input.Replay =
+                (
+                    input.Selection == TextFieldSelection.PrepareResult.None
+                    || input.Selection == TextFieldSelection.PrepareResult.TrackedMouseDown
+                )
+                && input.MouseDown
+                && (e.type == EventType.Used || e.type == EventType.ContextClick);
             if (!input.Replay && input.Selection == TextFieldSelection.PrepareResult.None)
                 input.Replay = TextFieldSelection.ShouldReplay(name, e, lifetime);
             input.OldType = input.Replay ? e.type : EventType.Ignore;
-            input.KeepSelection = input.MouseDown && input.Button == 1 && focusedEditor != null &&
-                focusedEditor.IsOverSelection(e.mousePosition);
+            input.KeepSelection =
+                input.MouseDown
+                && input.Button == 1
+                && focusedEditor != null
+                && focusedEditor.IsOverSelection(e.mousePosition);
             if (input.KeepSelection)
             {
                 input.Cursor = focusedEditor.cursorIndex;
@@ -137,11 +204,17 @@ namespace SlopWorld
             return input;
         }
 
-        static TextEditor ReconcileEditor(string name, string source, bool readOnly,
-                                          NativePreparation input, FieldLifetime lifetime)
+        static TextEditor ReconcileEditor(
+            string name,
+            string source,
+            bool readOnly,
+            NativePreparation input,
+            FieldLifetime lifetime
+        )
         {
             var editor = GUIUtility.keyboardControl == input.ControlId ? input.FieldEditor : null;
-            if (editor == null) return null;
+            if (editor == null)
+                return null;
             if (input.KeepSelection)
             {
                 editor.cursorIndex = input.Cursor;
@@ -150,7 +223,8 @@ namespace SlopWorld
             ApplyPendingEdits(name, editor, lifetime);
             if (readOnly && editor.text != source)
             {
-                int cursor = editor.cursorIndex, select = editor.selectIndex;
+                int cursor = editor.cursorIndex,
+                    select = editor.selectIndex;
                 editor.text = source;
                 editor.cursorIndex = Mathf.Clamp(cursor, 0, source.Length);
                 editor.selectIndex = Mathf.Clamp(select, 0, source.Length);
@@ -158,15 +232,26 @@ namespace SlopWorld
             return editor;
         }
 
-        static void FinishDraw(Rect r, string name, string source, bool area, bool readOnly,
-                               NativePreparation input, TextEditor editor, FieldLifetime lifetime)
+        static void FinishDraw(
+            Rect r,
+            string name,
+            string source,
+            bool area,
+            bool readOnly,
+            NativePreparation input,
+            TextEditor editor,
+            FieldLifetime lifetime
+        )
         {
             if (input.Selection == TextFieldSelection.PrepareResult.MultiClick)
                 TextFieldSelection.FinishMultiClick(name, editor, lifetime);
-            if (input.Selection == TextFieldSelection.PrepareResult.None ||
-                input.Selection == TextFieldSelection.PrepareResult.SelectionDrag)
+            if (
+                input.Selection == TextFieldSelection.PrepareResult.None
+                || input.Selection == TextFieldSelection.PrepareResult.SelectionDrag
+            )
                 TextFieldSelection.Handle(r, name, source, input.Style, editor, lifetime);
-            if (MouseUp(input.Event)) CopyPrimarySelection(editor);
+            if (MouseUp(input.Event))
+                CopyPrimarySelection(editor);
             if (input.MouseDown && input.Button == 2 && !readOnly)
             {
                 RequestPaste(name, area, primary: true, lifetime: lifetime);
@@ -186,14 +271,16 @@ namespace SlopWorld
             for (int i = 0; i < count; i++)
             {
                 var edit = PendingEdits.Dequeue();
-                if (edit.Lifetime != null && edit.Lifetime.Alive) PendingEdits.Enqueue(edit);
+                if (edit.Lifetime != null && edit.Lifetime.Alive)
+                    PendingEdits.Enqueue(edit);
             }
         }
 
         static bool MouseDown(Event e, out int button)
         {
             button = e == null ? -1 : e.button;
-            if (e == null) return false;
+            if (e == null)
+                return false;
 
             var type = UiEvent.RawType(e);
             if (type == EventType.ContextClick)
@@ -209,13 +296,15 @@ namespace SlopWorld
             // A consumed IMGUI mouse-up can report button -1 while rawType still preserves
             // the original left-button event. Do not lose PRIMARY publication in that case.
             // still reject the right/middle buttons when Unity leaves their button intact.
-            if (e == null || e.button > 0) return false;
+            if (e == null || e.button > 0)
+                return false;
             return UiEvent.RawType(e) == EventType.MouseUp;
         }
 
         public static TextEditor CurrentEditor(string name)
         {
-            if (GUI.GetNameOfFocusedControl() != name) return null;
+            if (GUI.GetNameOfFocusedControl() != name)
+                return null;
             int id = GUIUtility.keyboardControl;
             return id == 0
                 ? null
@@ -224,9 +313,11 @@ namespace SlopWorld
 
         static void ApplyPendingEdits(string name, TextEditor editor, FieldLifetime lifetime)
         {
-            if (editor == null || PendingEdits.Count == 0) return;
+            if (editor == null || PendingEdits.Count == 0)
+                return;
 
-            if (GUI.GetNameOfFocusedControl() != name) return;
+            if (GUI.GetNameOfFocusedControl() != name)
+                return;
             var keep = new Queue<PendingFieldEdit>();
             while (PendingEdits.Count > 0)
             {
@@ -239,31 +330,42 @@ namespace SlopWorld
 
                 // The original field/window has gone. A control with the same string name
                 // must never inherit its delayed clipboard operation.
-                if (edit.Lifetime == null || !edit.Lifetime.Alive ||
-                    edit.ControlId != GUIUtility.keyboardControl ||
-                    edit.Lifetime != lifetime)
+                if (
+                    edit.Lifetime == null
+                    || !edit.Lifetime.Alive
+                    || edit.ControlId != GUIUtility.keyboardControl
+                    || edit.Lifetime != lifetime
+                )
                     continue;
 
                 edit.Apply(editor);
                 GUI.changed = true;
             }
 
-            while (keep.Count > 0) PendingEdits.Enqueue(keep.Dequeue());
+            while (keep.Count > 0)
+                PendingEdits.Enqueue(keep.Dequeue());
         }
 
-        static void QueueEdit(string name, int controlId, Action<TextEditor> apply,
-                              FieldLifetime lifetime = null)
+        static void QueueEdit(
+            string name,
+            int controlId,
+            Action<TextEditor> apply,
+            FieldLifetime lifetime = null
+        )
         {
             PruneDeadEdits();
-            if (string.IsNullOrEmpty(name) || controlId == 0 || apply == null) return;
+            if (string.IsNullOrEmpty(name) || controlId == 0 || apply == null)
+                return;
             var owner = lifetime ?? FieldLifetimeScope.Current;
-            if (!owner.Alive) return;
+            if (!owner.Alive)
+                return;
             PendingEdits.Enqueue(new PendingFieldEdit(name, controlId, owner, apply));
         }
 
         static string SingleLinePaste(string text, bool area)
         {
-            if (area || string.IsNullOrEmpty(text)) return text ?? "";
+            if (area || string.IsNullOrEmpty(text))
+                return text ?? "";
             return text.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
         }
 
@@ -272,64 +374,107 @@ namespace SlopWorld
             // Like the terminal, a completed mouse selection becomes the host PRIMARY
             // selection. Keep it separate from the ordinary Copy action and CLIPBOARD.
             string selected = editor == null ? null : editor.SelectedText;
-            if (!string.IsNullOrEmpty(selected)) UiClipboard.Provider.Copy(selected, true);
+            if (!string.IsNullOrEmpty(selected))
+                UiClipboard.Provider.Copy(selected, true);
         }
 
-        static void QueuePaste(string name, int controlId, string text, bool area,
-                               FieldLifetime lifetime = null)
+        static void QueuePaste(
+            string name,
+            int controlId,
+            string text,
+            bool area,
+            FieldLifetime lifetime = null
+        )
         {
-            if (string.IsNullOrEmpty(text)) return;
+            if (string.IsNullOrEmpty(text))
+                return;
             string insert = SingleLinePaste(text, area);
             QueueEdit(name, controlId, editor => editor.ReplaceSelection(insert), lifetime);
         }
 
-        static void RequestPaste(string name, bool area, bool primary,
-                                 FieldLifetime lifetime = null)
+        static void RequestPaste(
+            string name,
+            bool area,
+            bool primary,
+            FieldLifetime lifetime = null
+        )
         {
-            if (string.IsNullOrEmpty(name)) return;
+            if (string.IsNullOrEmpty(name))
+                return;
             int controlId = GUIUtility.keyboardControl;
-            if (controlId == 0 || GUI.GetNameOfFocusedControl() != name) return;
-            RequestPaste(name, controlId, area, primary,
-                lifetime ?? FieldLifetimeScope.Current);
+            if (controlId == 0 || GUI.GetNameOfFocusedControl() != name)
+                return;
+            RequestPaste(name, controlId, area, primary, lifetime ?? FieldLifetimeScope.Current);
         }
 
-        static void RequestPaste(string name, int controlId, bool area, bool primary,
-                                 FieldLifetime lifetime = null)
+        static void RequestPaste(
+            string name,
+            int controlId,
+            bool area,
+            bool primary,
+            FieldLifetime lifetime = null
+        )
         {
             var owner = lifetime ?? FieldLifetimeScope.Current;
-            if (!owner.Alive) return;
+            if (!owner.Alive)
+                return;
 
-            UiClipboard.Provider.Read(primary,
-                text => QueuePaste(name, controlId, text, area, owner));
+            UiClipboard.Provider.Read(
+                primary,
+                text => QueuePaste(name, controlId, text, area, owner)
+            );
         }
 
-        static void OpenContextMenu(string name, bool area, TextEditor editor,
-                                    FieldLifetime lifetime, bool readOnly = false)
+        static void OpenContextMenu(
+            string name,
+            bool area,
+            TextEditor editor,
+            FieldLifetime lifetime,
+            bool readOnly = false
+        )
         {
-            if (string.IsNullOrEmpty(name)) return;
+            if (string.IsNullOrEmpty(name))
+                return;
             int controlId = GUIUtility.keyboardControl;
-            if (controlId == 0) return;
-            if (lifetime == null || !lifetime.Alive) return;
+            if (controlId == 0)
+                return;
+            if (lifetime == null || !lifetime.Alive)
+                return;
 
             string selected = editor?.SelectedText ?? "";
             var options = new List<FloatMenuOption>();
-            var availability = new SelectionCommandAvailability(canCopy: selected.Length > 0, canPaste: !readOnly, canSelectAll: true, canCut: selected.Length > 0);
+            var availability = new SelectionCommandAvailability(
+                canCopy: selected.Length > 0,
+                canPaste: !readOnly,
+                canSelectAll: true,
+                canCut: selected.Length > 0
+            );
             SelectionCommands.Add(
-                options, availability,
+                options,
+                availability,
                 () => UiClipboard.Provider.Copy(selected, false),
-                !readOnly ? (Action)(() => RequestPaste(name, controlId, area, false, lifetime)) : null,
+                !readOnly
+                    ? (Action)(() => RequestPaste(name, controlId, area, false, lifetime))
+                    : null,
                 () => QueueEdit(name, controlId, e => e.SelectAll(), lifetime),
-                !readOnly ? (Action)(() =>
-                {
-                    UiClipboard.Provider.Copy(selected, false);
-                    QueueEdit(name, controlId, e => e.DeleteSelection(), lifetime);
-                }) : null);
+                !readOnly
+                    ? (Action)(
+                        () =>
+                        {
+                            UiClipboard.Provider.Copy(selected, false);
+                            QueueEdit(name, controlId, e => e.DeleteSelection(), lifetime);
+                        }
+                    )
+                    : null
+            );
 
             UiMenu.Open(options);
         }
 
-        static readonly Dictionary<GUIStyle, GUIStyle> FieldStyles = new Dictionary<GUIStyle, GUIStyle>();
-        static readonly Dictionary<GUIStyle, GUIStyle> AreaStyles = new Dictionary<GUIStyle, GUIStyle>();
+        static readonly Dictionary<GUIStyle, GUIStyle> FieldStyles =
+            new Dictionary<GUIStyle, GUIStyle>();
+        static readonly Dictionary<GUIStyle, GUIStyle> AreaStyles =
+            new Dictionary<GUIStyle, GUIStyle>();
         static int _styleRevision = -1;
 
         static GUIStyle Bare(GUIStyle of, bool area)
@@ -345,8 +490,12 @@ namespace SlopWorld
                 _styleRevision = revision;
             }
             var styles = area ? AreaStyles : FieldStyles;
-            if (styles.TryGetValue(of, out var cached) && cached.font == of.font &&
-                cached.fontSize == of.fontSize && cached.fontStyle == of.fontStyle)
+            if (
+                styles.TryGetValue(of, out var cached)
+                && cached.font == of.font
+                && cached.fontSize == of.fontSize
+                && cached.fontStyle == of.fontStyle
+            )
                 return cached;
             var style = new GUIStyle(of);
 

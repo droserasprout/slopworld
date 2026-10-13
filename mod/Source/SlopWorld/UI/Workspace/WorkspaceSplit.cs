@@ -3,67 +3,96 @@ using System;
 namespace SlopWorld
 {
     // Retained children share visibility, but only one owns keyboard input.
-    public sealed class WorkspaceSplit<T> where T : class, IWorkspacePanel
+    public sealed class WorkspaceSplit<T>
+        where T : class, IWorkspacePanel
     {
         public T First { get; private set; }
         public T Second { get; private set; }
         public T Selected { get; private set; }
-        bool _opened, _visible, _focused;
+        bool _opened,
+            _visible,
+            _focused;
 
-        public WorkspaceSplit(T first) { First = Selected = first ?? throw new ArgumentNullException(nameof(first)); }
+        public WorkspaceSplit(T first)
+        {
+            First = Selected = first ?? throw new ArgumentNullException(nameof(first));
+        }
+
         public void Open()
         {
-            if (_opened) return;
+            if (_opened)
+                return;
             _opened = true;
             First.Opened();
             Second?.Opened();
         }
+
         public void Select(T panel)
         {
-            if (panel == null || (panel != First && panel != Second) || panel == Selected) return;
-            if (_focused) Selected.FocusChanged(false);
+            if (panel == null || (panel != First && panel != Second) || panel == Selected)
+                return;
+            if (_focused)
+                Selected.FocusChanged(false);
             Selected = panel;
-            if (_focused) Selected.FocusChanged(true);
+            if (_focused)
+                Selected.FocusChanged(true);
         }
+
         public void Add(T panel)
         {
-            if (panel == null) throw new ArgumentNullException(nameof(panel));
-            if (ReferenceEquals(panel, First)) throw new ArgumentException("Panel already occupies the first slot", nameof(panel));
-            if (Second != null) throw new InvalidOperationException("Split already has two panels");
+            if (panel == null)
+                throw new ArgumentNullException(nameof(panel));
+            if (ReferenceEquals(panel, First))
+                throw new ArgumentException("Panel already occupies the first slot", nameof(panel));
+            if (Second != null)
+                throw new InvalidOperationException("Split already has two panels");
             Second = panel;
-            if (_opened) panel.Opened();
-            if (_visible) panel.VisibilityChanged(true);
+            if (_opened)
+                panel.Opened();
+            if (_visible)
+                panel.VisibilityChanged(true);
             Select(panel);
         }
+
         public void Remove(T panel)
         {
-            if (Second == null || (panel != First && panel != Second)) return;
+            if (Second == null || (panel != First && panel != Second))
+                return;
             var remaining = panel == First ? Second : First;
             Select(remaining);
-            if (_visible) panel.VisibilityChanged(false);
-            if (_opened) panel.Closed();
+            if (_visible)
+                panel.VisibilityChanged(false);
+            if (_opened)
+                panel.Closed();
             First = remaining;
             Second = null;
         }
+
         public void SetFocus(bool focused)
         {
-            if (_focused == focused) return;
+            if (_focused == focused)
+                return;
             _focused = focused;
             Selected.FocusChanged(focused);
         }
+
         public void SetVisible(bool visible)
         {
-            if (_visible == visible) return;
-            if (!visible) SetFocus(false);
+            if (_visible == visible)
+                return;
+            if (!visible)
+                SetFocus(false);
             _visible = visible;
             First.VisibilityChanged(visible);
             Second?.VisibilityChanged(visible);
         }
+
         public void Close()
         {
             SetFocus(false);
             SetVisible(false);
-            if (!_opened) return;
+            if (!_opened)
+                return;
             _opened = false;
             First.Closed();
             Second?.Closed();
@@ -72,7 +101,10 @@ namespace SlopWorld
 
     public readonly struct WorkspaceSplitGeometry
     {
-        public readonly UiLayoutRect First, Divider, Second;
+        public readonly UiLayoutRect First,
+            Divider,
+            Second;
+
         public WorkspaceSplitGeometry(UiLayoutRect bounds, float fraction, float gap, float minimum)
         {
             gap = Math.Min(bounds.Width, Math.Max(0f, gap));

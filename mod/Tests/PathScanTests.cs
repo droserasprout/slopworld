@@ -19,75 +19,126 @@ namespace SlopWorld.Tests
 
         static void FindsPaths()
         {
-            AssertEx.Equal("notes/README.md", PathScan.At("see notes/README.md now", 8),
-                "a path with a directory is found");
-            AssertEx.Equal("../src/main.rs", PathScan.At("../src/main.rs", 5),
-                "an explicit parent-relative path is found");
+            AssertEx.Equal(
+                "notes/README.md",
+                PathScan.At("see notes/README.md now", 8),
+                "a path with a directory is found"
+            );
+            AssertEx.Equal(
+                "../src/main.rs",
+                PathScan.At("../src/main.rs", 5),
+                "an explicit parent-relative path is found"
+            );
 
             int line;
-            AssertEx.Equal("src/main.rs", PathScan.At("src/main.rs:12:3", 5, out line),
-                "a relative source path is found with its location");
+            AssertEx.Equal(
+                "src/main.rs",
+                PathScan.At("src/main.rs:12:3", 5, out line),
+                "a relative source path is found with its location"
+            );
             AssertEx.Equal(12, line, "the line is kept while the column is discarded");
         }
 
         static void FindsAbsolute()
         {
-            AssertEx.Equal("/etc/passwd", PathScan.At("/etc/passwd", 5),
-                "an absolute path is found");
-            AssertEx.Equal("/home/user/main.rs", PathScan.At("(/home/user/main.rs:12:3)", 6),
-                "an absolute path keeps its wrappers and location trimmed");
+            AssertEx.Equal(
+                "/etc/passwd",
+                PathScan.At("/etc/passwd", 5),
+                "an absolute path is found"
+            );
+            AssertEx.Equal(
+                "/home/user/main.rs",
+                PathScan.At("(/home/user/main.rs:12:3)", 6),
+                "an absolute path keeps its wrappers and location trimmed"
+            );
             AssertEx.True(PathScan.At("a / b", 2) == null, "a bare slash is not a path");
         }
 
         static void TrimsLocations()
         {
-            AssertEx.Equal("mod/Foo.cs", PathScan.At("(mod/Foo.cs:12:3)", 6),
-                "compiler line and column suffixes are removed");
-            AssertEx.Equal("./README", PathScan.At("`./README`,", 4),
-                "quotes and punctuation are removed");
+            AssertEx.Equal(
+                "mod/Foo.cs",
+                PathScan.At("(mod/Foo.cs:12:3)", 6),
+                "compiler line and column suffixes are removed"
+            );
+            AssertEx.Equal(
+                "./README",
+                PathScan.At("`./README`,", 4),
+                "quotes and punctuation are removed"
+            );
             int line;
-            AssertEx.Equal("slopd/src/session/view.rs",
+            AssertEx.Equal(
+                "slopd/src/session/view.rs",
                 PathScan.At("Done in slopd/src/session/view.rs:28: SessionView now", 16, out line),
-                "a colon after the source line is punctuation");
+                "a colon after the source line is punctuation"
+            );
             AssertEx.Equal(28, line, "the source line before the punctuation is retained");
         }
 
         static void ProseDashCandidate()
         {
-            AssertEx.Equal("mod.rs", PathScan.BeforeProseDash("mod.rs—the"),
-                "an em dash after an extension offers the filename");
-            AssertEx.Equal("README.md", PathScan.BeforeProseDash("README.md–next"),
-                "an en dash after an extension offers the filename");
-            AssertEx.Equal<string>(null, PathScan.BeforeProseDash("my—file.rs"),
-                "a dash inside the stem remains part of the filename");
-            AssertEx.Equal<string>(null, PathScan.BeforeProseDash("my.rs-extra—next"),
-                "a dashed extension is not shortened");
+            AssertEx.Equal(
+                "mod.rs",
+                PathScan.BeforeProseDash("mod.rs—the"),
+                "an em dash after an extension offers the filename"
+            );
+            AssertEx.Equal(
+                "README.md",
+                PathScan.BeforeProseDash("README.md–next"),
+                "an en dash after an extension offers the filename"
+            );
+            AssertEx.Equal<string>(
+                null,
+                PathScan.BeforeProseDash("my—file.rs"),
+                "a dash inside the stem remains part of the filename"
+            );
+            AssertEx.Equal<string>(
+                null,
+                PathScan.BeforeProseDash("my.rs-extra—next"),
+                "a dashed extension is not shortened"
+            );
         }
 
         static void FindsRootFiles()
         {
             int line;
-            AssertEx.Equal("AGENTS.md", PathScan.At("at AGENTS.md:507. It needs either", 8,
-                out line),
-                "a root file with a line number survives sentence punctuation");
+            AssertEx.Equal(
+                "AGENTS.md",
+                PathScan.At("at AGENTS.md:507. It needs either", 8, out line),
+                "a root file with a line number survives sentence punctuation"
+            );
             AssertEx.Equal(507, line, "a root file keeps its exact source line");
-            AssertEx.Equal(".env", PathScan.At("(.env:3)", 2),
-                "a hidden root file is a path");
+            AssertEx.Equal(".env", PathScan.At("(.env:3)", 2), "a hidden root file is a path");
         }
 
         static void ResolvesPaths()
         {
-            AssertEx.Equal("/work/slopworld/slopd/src/main.rs",
-                PathScan.ResolveProjectPath("/work/slopworld", "/work/slopworld/slopd",
-                    "src/main.rs"),
-                "a relative path uses the terminal cwd");
-            AssertEx.Equal("/work/slopworld/src/main.rs",
-                PathScan.ResolveProjectPath("/work/slopworld", "/work/slopworld/slopd",
-                    "../src/main.rs"),
-                "parent components are resolved inside the project");
-            AssertEx.True(PathScan.ResolveProjectPath("/work/slopworld", "/work/slopworld/slopd",
-                "../../etc/passwd") == null,
-                "a path outside the project is rejected");
+            AssertEx.Equal(
+                "/work/slopworld/slopd/src/main.rs",
+                PathScan.ResolveProjectPath(
+                    "/work/slopworld",
+                    "/work/slopworld/slopd",
+                    "src/main.rs"
+                ),
+                "a relative path uses the terminal cwd"
+            );
+            AssertEx.Equal(
+                "/work/slopworld/src/main.rs",
+                PathScan.ResolveProjectPath(
+                    "/work/slopworld",
+                    "/work/slopworld/slopd",
+                    "../src/main.rs"
+                ),
+                "parent components are resolved inside the project"
+            );
+            AssertEx.True(
+                PathScan.ResolveProjectPath(
+                    "/work/slopworld",
+                    "/work/slopworld/slopd",
+                    "../../etc/passwd"
+                ) == null,
+                "a path outside the project is rejected"
+            );
         }
 
         static void RejectsNonPaths()
@@ -101,12 +152,18 @@ namespace SlopWorld.Tests
             AssertEx.True(PathScan.At(null, 0) == null, "null text is not a path");
             AssertEx.True(PathScan.At("file.txt", -1) == null, "negative column is invalid");
             AssertEx.True(PathScan.At("file.txt", 100) == null, "past-end column is invalid");
-            AssertEx.True(PathScan.ResolveProjectPath(null, "/work", "file.txt") == null,
-                          "missing root is invalid");
-            AssertEx.True(PathScan.ResolveProjectPath("/work", "/work", "") == null,
-                          "missing path is invalid");
-            AssertEx.True(PathScan.ResolveProjectPath("\0", "/work", "file.txt") == null,
-                          "filesystem errors are reported as no path");
+            AssertEx.True(
+                PathScan.ResolveProjectPath(null, "/work", "file.txt") == null,
+                "missing root is invalid"
+            );
+            AssertEx.True(
+                PathScan.ResolveProjectPath("/work", "/work", "") == null,
+                "missing path is invalid"
+            );
+            AssertEx.True(
+                PathScan.ResolveProjectPath("\0", "/work", "file.txt") == null,
+                "filesystem errors are reported as no path"
+            );
         }
     }
 }

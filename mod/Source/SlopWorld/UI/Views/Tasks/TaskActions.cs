@@ -10,13 +10,21 @@ namespace SlopWorld
     {
         public static void OpenMenu(TaskInfo task, Action<TaskInfo> updated = null)
         {
-            if (task == null) return;
+            if (task == null)
+                return;
 
             var selected = TasksView.SelectionFor(task);
-            var cancelable = selected.Where(candidate => candidate != null &&
-                (candidate.Status == DelegatedTaskStatus.Queued ||
-                 candidate.Status == DelegatedTaskStatus.Accepted)).ToList();
-            var removable = selected.Where(candidate => candidate != null && candidate.Terminal)
+            var cancelable = selected
+                .Where(candidate =>
+                    candidate != null
+                    && (
+                        candidate.Status == DelegatedTaskStatus.Queued
+                        || candidate.Status == DelegatedTaskStatus.Accepted
+                    )
+                )
+                .ToList();
+            var removable = selected
+                .Where(candidate => candidate != null && candidate.Terminal)
                 .ToList();
 
             var options = new List<FloatMenuOption>();
@@ -30,26 +38,26 @@ namespace SlopWorld
 
             if (cancelable.Count > 0)
             {
-                string label = cancelable.Count == 1
-                    ? "Cancel"
-                    : $"Cancel {cancelable.Count} selected tasks";
+                string label =
+                    cancelable.Count == 1 ? "Cancel" : $"Cancel {cancelable.Count} selected tasks";
                 options.Add(new FloatMenuOption(label, () => CancelTasks(cancelable)));
             }
 
             var counterpart = SessionHub.Instance.Get(task.Counterpart);
             if (counterpart != null)
             {
-                var terminal = new FloatMenuOption("Open agent terminal", () =>
-                    TerminalWindow.Open(counterpart.Name));
+                var terminal = new FloatMenuOption(
+                    "Open agent terminal",
+                    () => TerminalWindow.Open(counterpart.Name)
+                );
                 terminal.Disabled = !counterpart.Alive;
                 options.Add(terminal);
             }
 
             if (removable.Count > 0)
             {
-                string label = removable.Count == 1
-                    ? "Remove"
-                    : $"Remove {removable.Count} selected tasks";
+                string label =
+                    removable.Count == 1 ? "Remove" : $"Remove {removable.Count} selected tasks";
                 options.Add(new FloatMenuOption(label, () => RemoveTasks(removable)));
             }
 
@@ -57,69 +65,116 @@ namespace SlopWorld
                 TerminalWindow.OpenOverPane(new UiMenu(options));
         }
 
-        static void AddStatus(List<FloatMenuOption> options, TaskInfo task,
-                              DelegatedTaskStatus status, Action<TaskInfo> updated)
+        static void AddStatus(
+            List<FloatMenuOption> options,
+            TaskInfo task,
+            DelegatedTaskStatus status,
+            Action<TaskInfo> updated
+        )
         {
-            var option = new FloatMenuOption(TaskInfo.StatusText(status), () =>
-                SessionHub.Instance.TaskStore.UpdateStatus(task.Id, status, null, updated, UiLayout.Fail));
+            var option = new FloatMenuOption(
+                TaskInfo.StatusText(status),
+                () =>
+                    SessionHub.Instance.TaskStore.UpdateStatus(
+                        task.Id,
+                        status,
+                        null,
+                        updated,
+                        UiLayout.Fail
+                    )
+            );
             option.Disabled = task.Status == status;
             options.Add(option);
         }
 
         public static void RemoveTask(TaskInfo task)
         {
-            if (task == null || !task.Terminal) return;
-            TerminalWindow.OpenOverPane(ConfirmDialog.Create(
-                $"Remove task '{task.Id}'? " +
-                    "The daemon will remove it from both participants' task lists.",
-                () => SessionHub.Instance.TaskStore.Remove(task.Id, null, UiLayout.Fail),
-                destructive: true));
+            if (task == null || !task.Terminal)
+                return;
+            TerminalWindow.OpenOverPane(
+                ConfirmDialog.Create(
+                    $"Remove task '{task.Id}'? "
+                        + "The daemon will remove it from both participants' task lists.",
+                    () => SessionHub.Instance.TaskStore.Remove(task.Id, null, UiLayout.Fail),
+                    destructive: true
+                )
+            );
         }
 
         public static void CancelTask(TaskInfo task, Action<TaskInfo> updated = null)
         {
-            if (task == null || (task.Status != DelegatedTaskStatus.Queued &&
-                                 task.Status != DelegatedTaskStatus.Accepted)) return;
+            if (
+                task == null
+                || (
+                    task.Status != DelegatedTaskStatus.Queued
+                    && task.Status != DelegatedTaskStatus.Accepted
+                )
+            )
+                return;
             CancelTasks(new List<TaskInfo> { task }, updated);
         }
 
         static void CancelTasks(List<TaskInfo> tasks, Action<TaskInfo> updated = null)
         {
-            if (tasks == null || tasks.Count == 0) return;
+            if (tasks == null || tasks.Count == 0)
+                return;
 
-            string prompt = tasks.Count == 1
-                ? $"Cancel task '{tasks[0].Id}'? The daemon will cancel it for both participants."
-                : $"Cancel {tasks.Count} selected tasks? " +
-                    "The daemon will cancel them for both participants.";
-            TerminalWindow.OpenOverPane(ConfirmDialog.Create(prompt, () =>
-            {
-                Action done = null;
-                if (updated != null && tasks.Count == 1)
-                    done = () =>
+            string prompt =
+                tasks.Count == 1
+                    ? $"Cancel task '{tasks[0].Id}'? The daemon will cancel it for both participants."
+                    : $"Cancel {tasks.Count} selected tasks? "
+                        + "The daemon will cancel them for both participants.";
+            TerminalWindow.OpenOverPane(
+                ConfirmDialog.Create(
+                    prompt,
+                    () =>
                     {
-                        var canceled = SessionHub.Instance.Tasks.FirstOrDefault(
-                            task => task.Id == tasks[0].Id);
-                        if (canceled != null) updated(canceled);
-                    };
-                SessionHub.Instance.TaskStore.CancelMany(tasks.Select(task => task.Id), done,
-                    UiLayout.Fail);
-            }, destructive: true));
+                        Action done = null;
+                        if (updated != null && tasks.Count == 1)
+                            done = () =>
+                            {
+                                var canceled = SessionHub.Instance.Tasks.FirstOrDefault(task =>
+                                    task.Id == tasks[0].Id
+                                );
+                                if (canceled != null)
+                                    updated(canceled);
+                            };
+                        SessionHub.Instance.TaskStore.CancelMany(
+                            tasks.Select(task => task.Id),
+                            done,
+                            UiLayout.Fail
+                        );
+                    },
+                    destructive: true
+                )
+            );
         }
 
         static void RemoveTasks(List<TaskInfo> tasks)
         {
-            if (tasks == null || tasks.Count == 0) return;
+            if (tasks == null || tasks.Count == 0)
+                return;
 
-            string prompt = tasks.Count == 1
-                ? $"Remove task '{tasks[0].Id}'? " +
-                    "The daemon will remove it from both participants' task lists."
-                : $"Remove {tasks.Count} selected tasks? " +
-                    "The daemon will remove them from both participants' task lists.";
-            TerminalWindow.OpenOverPane(ConfirmDialog.Create(prompt, () =>
-            {
-                SessionHub.Instance.TaskStore.RemoveMany(tasks.Select(task => task.Id), null,
-                    UiLayout.Fail);
-            }, destructive: true));
+            string prompt =
+                tasks.Count == 1
+                    ? $"Remove task '{tasks[0].Id}'? "
+                        + "The daemon will remove it from both participants' task lists."
+                    : $"Remove {tasks.Count} selected tasks? "
+                        + "The daemon will remove them from both participants' task lists.";
+            TerminalWindow.OpenOverPane(
+                ConfirmDialog.Create(
+                    prompt,
+                    () =>
+                    {
+                        SessionHub.Instance.TaskStore.RemoveMany(
+                            tasks.Select(task => task.Id),
+                            null,
+                            UiLayout.Fail
+                        );
+                    },
+                    destructive: true
+                )
+            );
         }
     }
 }

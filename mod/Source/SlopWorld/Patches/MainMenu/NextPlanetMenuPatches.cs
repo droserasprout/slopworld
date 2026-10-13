@@ -13,7 +13,12 @@ namespace SlopWorld
     public static class Patch_MenuOption
     {
         static readonly string[] Dropped =
-            { "Save", "LoadGame", "ReviewScenario", "QuitToMainMenu" };
+        {
+            "Save",
+            "LoadGame",
+            "ReviewScenario",
+            "QuitToMainMenu",
+        };
 
         public static bool Column;
 
@@ -26,13 +31,18 @@ namespace SlopWorld
             bool first = Column;
             Column = false;
 
-            if (!first) return; // the web links, drawn beside the options
-            if (Current.ProgramState != ProgramState.Playing) return;
-            if (NextPlanet.Leaving) return;
-            if (!(Find.WindowStack?.currentlyDrawnWindow is MainTabWindow_Menu)) return;
+            if (!first)
+                return; // the web links, drawn beside the options
+            if (Current.ProgramState != ProgramState.Playing)
+                return;
+            if (NextPlanet.Leaving)
+                return;
+            if (!(Find.WindowStack?.currentlyDrawnWindow is MainTabWindow_Menu))
+                return;
 
-            int gone = optList.RemoveAll(o => o != null && Dropped.Any(
-                key => o.label == (string)key.Translate()));
+            int gone = optList.RemoveAll(o =>
+                o != null && Dropped.Any(key => o.label == (string)key.Translate())
+            );
 
             RemovedRows = gone;
         }
@@ -51,7 +61,8 @@ namespace SlopWorld
         // Use the minimum option height plus the space between options.
         const float RowH = 45f + 7f;
 
-        static void Postfix(ref Vector2 __result) => __result.y -= RowH * Patch_MenuOption.RemovedRows;
+        static void Postfix(ref Vector2 __result) =>
+            __result.y -= RowH * Patch_MenuOption.RemovedRows;
     }
 
     [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.MainMenuOnGUI))]
@@ -59,7 +70,8 @@ namespace SlopWorld
     {
         static void Prefix()
         {
-            if (!NextPlanet.Pending) return;
+            if (!NextPlanet.Pending)
+                return;
             NextPlanet.CompletePendingLanding();
             QuickStart.Queue();
         }

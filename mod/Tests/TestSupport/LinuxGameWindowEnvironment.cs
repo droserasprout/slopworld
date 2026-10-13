@@ -1,7 +1,15 @@
 namespace UnityEngine
 {
-    public enum RuntimePlatform { LinuxPlayer, WindowsPlayer }
-    public enum FullScreenMode { Windowed }
+    public enum RuntimePlatform
+    {
+        LinuxPlayer,
+        WindowsPlayer,
+    }
+
+    public enum FullScreenMode
+    {
+        Windowed,
+    }
 
     public static partial class Application
     {
@@ -19,6 +27,7 @@ namespace UnityEngine
     {
         public static int width = 1920;
         public static int height = 1080;
+
         public static void SetResolution(int w, int h, FullScreenMode mode) { }
     }
 }

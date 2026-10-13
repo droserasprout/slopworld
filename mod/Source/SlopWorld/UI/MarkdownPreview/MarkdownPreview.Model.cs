@@ -4,10 +4,43 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    enum BlockKind { Paragraph, Heading, Code, Quote, List, Item, Rule, Table, Raw }
-    enum PlacementKind { Text, Image, Code, Rule, Quote, Table, Bullet }
-    enum TextBreakKind { None, SoftWrap, Source }
-    enum TableAlignment { Left, Center, Right }
+    enum BlockKind
+    {
+        Paragraph,
+        Heading,
+        Code,
+        Quote,
+        List,
+        Item,
+        Rule,
+        Table,
+        Raw,
+    }
+
+    enum PlacementKind
+    {
+        Text,
+        Image,
+        Code,
+        Rule,
+        Quote,
+        Table,
+        Bullet,
+    }
+
+    enum TextBreakKind
+    {
+        None,
+        SoftWrap,
+        Source,
+    }
+
+    enum TableAlignment
+    {
+        Left,
+        Center,
+        Right,
+    }
 
     sealed class InlineRun
     {
@@ -166,5 +199,4 @@ namespace SlopWorld
             PreferredWidth = preferredWidth;
         }
     }
-
 }

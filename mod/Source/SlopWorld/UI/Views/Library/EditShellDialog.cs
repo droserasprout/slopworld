@@ -4,12 +4,11 @@ namespace SlopWorld
 {
     public sealed class EditShellDialog : EditLibraryItemDialog
     {
-        public EditShellDialog(LibraryItemInfo existing) : this(existing, false) { }
+        public EditShellDialog(LibraryItemInfo existing)
+            : this(existing, false) { }
 
         internal EditShellDialog(LibraryItemInfo existing, bool copy)
-            :
-            base(existing, copy, LibraryItemKind.Shell)
-        { }
+            : base(existing, copy, LibraryItemKind.Shell) { }
 
         protected override string TitleNoun => "shell entry";
         protected override string TextHeading => "Command line";

@@ -15,14 +15,20 @@ namespace SlopWorld
             _scroll.JumpTo(Vector2.zero);
         }
 
-        public void Draw(Rect body, float contentWidth, float contentHeight, Action<float, float> draw)
+        public void Draw(
+            Rect body,
+            float contentWidth,
+            float contentHeight,
+            Action<float, float> draw
+        )
         {
             var view = new Rect(0f, 0f, contentWidth, Mathf.Max(body.height, contentHeight));
             using (WidgetState.Save())
             using (_scroll.Scope(body, view))
             {
                 bool repaint = Event.current == null || Event.current.type == EventType.Repaint;
-                if (repaint) draw(_scroll.Position.y, _scroll.Position.y + body.height);
+                if (repaint)
+                    draw(_scroll.Position.y, _scroll.Position.y + body.height);
             }
         }
     }

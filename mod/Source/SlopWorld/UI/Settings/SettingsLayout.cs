@@ -10,12 +10,20 @@ namespace SlopWorld
         {
             float x = Math.Min(Math.Max(0f, padding), rect.Width / 2f);
             float y = Math.Min(Math.Max(0f, padding), rect.Height / 2f);
-            return new UiLayoutRect(rect.X + x, rect.Y + y,
-                rect.Width - x * 2f, rect.Height - y * 2f);
+            return new UiLayoutRect(
+                rect.X + x,
+                rect.Y + y,
+                rect.Width - x * 2f,
+                rect.Height - y * 2f
+            );
         }
 
-        public static UiLayoutRect Body(UiLayoutRect page, float padding,
-                                        float footerHeight, float gap)
+        public static UiLayoutRect Body(
+            UiLayoutRect page,
+            float padding,
+            float footerHeight,
+            float gap
+        )
         {
             float footer = Math.Min(page.Height, Math.Max(0f, footerHeight));
             float remaining = Math.Max(0f, page.Height - footer);

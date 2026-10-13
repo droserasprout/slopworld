@@ -7,7 +7,12 @@ namespace SlopWorld
     sealed class MarkdownSelection : DocumentSelection<SelectionLine>
     {
         StyleSet _styles;
-        public void AttachStyles(StyleSet styles) { _styles = styles; }
+
+        public void AttachStyles(StyleSet styles)
+        {
+            _styles = styles;
+        }
+
         protected override string CopyRange(Vector2Int start, Vector2Int end) =>
             MarkdownSelectionText.CopyRange(_lines, start, end);
 
@@ -23,14 +28,27 @@ namespace SlopWorld
                 {
                     case PlacementKind.Text:
                     case PlacementKind.Bullet:
-                        MarkdownSelectionText.CollectText(_lines, placement.Text, placement.X, placement.Y);
+                        MarkdownSelectionText.CollectText(
+                            _lines,
+                            placement.Text,
+                            placement.X,
+                            placement.Y
+                        );
                         break;
 
                     case PlacementKind.Code:
-                        MarkdownSelectionText.CollectText(_lines, placement.Text, placement.X + UiTheme.GapS,
-                            placement.Y + UiTheme.GapS +
-                            (string.IsNullOrWhiteSpace(placement.Label)
-                                ? 0f : UiTheme.TinyH + UiTheme.GapXS));
+                        MarkdownSelectionText.CollectText(
+                            _lines,
+                            placement.Text,
+                            placement.X + UiTheme.GapS,
+                            placement.Y
+                                + UiTheme.GapS
+                                + (
+                                    string.IsNullOrWhiteSpace(placement.Label)
+                                        ? 0f
+                                        : UiTheme.TinyH + UiTheme.GapXS
+                                )
+                        );
                         break;
 
                     case PlacementKind.Table:
@@ -43,7 +61,8 @@ namespace SlopWorld
 
         protected override void EnsureEdges(SelectionLine line)
         {
-            if (line == null || line.Edges.Count == line.Text.Length + 1) return;
+            if (line == null || line.Edges.Count == line.Text.Length + 1)
+                return;
 
             line.Edges.Clear();
             line.Edges.Add(0f);
@@ -77,6 +96,5 @@ namespace SlopWorld
                 at += piece.PaddingRight;
             }
         }
-
     }
 }

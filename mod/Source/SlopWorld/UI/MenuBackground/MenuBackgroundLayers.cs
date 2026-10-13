@@ -22,9 +22,10 @@ namespace SlopWorld
             }
         }
 
-        internal static Layer Get(Texture2D current, int index) => index == 0
-            ? new Layer(MenuBackground.Previous ?? current, -LayerOffset)
-            : new Layer(current, LayerOffset);
+        internal static Layer Get(Texture2D current, int index) =>
+            index == 0
+                ? new Layer(MenuBackground.Previous ?? current, -LayerOffset)
+                : new Layer(current, LayerOffset);
 
         internal static void DrawLayers(Rect rect, Texture texture) =>
             DrawLayers(rect, texture, ScaleMode.StretchToFill, true);
@@ -32,11 +33,20 @@ namespace SlopWorld
         internal static void DrawLayers(Rect rect, Texture texture, ScaleMode scaleMode) =>
             DrawLayers(rect, texture, scaleMode, true);
 
-        internal static void DrawLayers(Rect rect, Texture texture, ScaleMode scaleMode, bool alphaBlend) =>
-            DrawLayers(rect, texture, scaleMode, alphaBlend, 0f);
+        internal static void DrawLayers(
+            Rect rect,
+            Texture texture,
+            ScaleMode scaleMode,
+            bool alphaBlend
+        ) => DrawLayers(rect, texture, scaleMode, alphaBlend, 0f);
 
-        internal static void DrawLayers(Rect rect, Texture texture, ScaleMode scaleMode, bool alphaBlend,
-            float imageAspect)
+        internal static void DrawLayers(
+            Rect rect,
+            Texture texture,
+            ScaleMode scaleMode,
+            bool alphaBlend,
+            float imageAspect
+        )
         {
             if (!(texture is Texture2D frame) || !MenuBackground.IsOurs(frame))
             {
@@ -61,6 +71,5 @@ namespace SlopWorld
                 GUI.color = saved;
             }
         }
-
     }
 }

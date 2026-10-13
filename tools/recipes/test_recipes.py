@@ -197,13 +197,12 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
                 self.log.unlink(missing_ok=True)
                 self.run_recipe(recipe)
                 calls = self.calls('dotnet')
+                self.assertEqual(calls[0]['args'], ['tool', 'restore'])
+                calls = calls[1:]
                 self.assertEqual([call['cwd'] for call in calls], [str(ROOT / folder) for folder in folders])
                 for call in calls:
-                    self.assertEqual(call['args'][:2], ['format', 'whitespace'])
-                    self.assertEqual(call['args'][2], '.')
-                    self.assertIn('--folder', call['args'])
-                    self.assertIn('Client/Generated', call['args'])
-                    self.assertEqual('--verify-no-changes' in call['args'], recipe == 'check-format-mod')
+                    action = 'check' if recipe == 'check-format-mod' else 'format'
+                    self.assertEqual(call['args'], ['csharpier', action, '.'])
 
     def test_csharp_formatting_stops_after_a_folder_fails(self) -> None:
         self.env['RECIPE_TEST_FAIL'] = 'dotnet'

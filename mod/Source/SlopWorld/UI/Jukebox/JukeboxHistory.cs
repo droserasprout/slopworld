@@ -19,13 +19,14 @@ namespace SlopWorld
 
             // The station's own provenance as one line. Artist is usually empty because ICY
             // supplies a single title string, so fall back to the title alone.
-            public string Original => string.IsNullOrEmpty(OriginalArtist)
-                ? OriginalTitle : OriginalArtist + " - " + OriginalTitle;
+            public string Original =>
+                string.IsNullOrEmpty(OriginalArtist)
+                    ? OriginalTitle
+                    : OriginalArtist + " - " + OriginalTitle;
 
             // "Artist - Title", or the title alone when nothing named the artist. The effective
             // pair, which is what a copy of a row is expected to yield.
-            public string Line => string.IsNullOrEmpty(Artist)
-                ? Title : Artist + " - " + Title;
+            public string Line => string.IsNullOrEmpty(Artist) ? Title : Artist + " - " + Title;
         }
 
         // Newest first: the file appends, and a browsing surface wants the last like on top.
@@ -59,26 +60,30 @@ namespace SlopWorld
         {
             string trimmed = line.Trim();
             const string header = "[[like]]";
-            if (!trimmed.StartsWith(header, StringComparison.Ordinal)) return false;
+            if (!trimmed.StartsWith(header, StringComparison.Ordinal))
+                return false;
             string rest = trimmed.Substring(header.Length).TrimStart();
             return rest.Length == 0 || rest[0] == '#';
         }
 
         static void FinishTable(List<Entry> entries, List<string> lines)
         {
-            if (lines.Count == 0) return;
+            if (lines.Count == 0)
+                return;
             try
             {
                 var values = Toml.ParseFlat(string.Join("\n", lines));
-                entries.Add(new Entry
-                {
-                    At = Value(values, "at"),
-                    Source = Value(values, "source"),
-                    Artist = Value(values, "artist"),
-                    Title = Value(values, "title"),
-                    OriginalArtist = Value(values, "original_artist"),
-                    OriginalTitle = Value(values, "original_title"),
-                });
+                entries.Add(
+                    new Entry
+                    {
+                        At = Value(values, "at"),
+                        Source = Value(values, "source"),
+                        Artist = Value(values, "artist"),
+                        Title = Value(values, "title"),
+                        OriginalArtist = Value(values, "original_artist"),
+                        OriginalTitle = Value(values, "original_title"),
+                    }
+                );
             }
             catch
             {

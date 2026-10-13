@@ -8,6 +8,7 @@ namespace SlopWorld
     internal static class WheelEventQueue
     {
         const int Threshold = 8;
+
         // QueueEvent is private in Unity. Leave the queue untouched if unavailable.
         static readonly System.Action<Event> Queue = FindQueue();
         static readonly Event Scratch = new Event();
@@ -15,14 +16,17 @@ namespace SlopWorld
         static int _compactedFrame = -1;
         static int _logicalFrame = -1;
 
-        public static bool UsesLogicalDelta(Event e) => e != null && _logicalFrame == Time.frameCount;
+        public static bool UsesLogicalDelta(Event e) =>
+            e != null && _logicalFrame == Time.frameCount;
 
         public static void Compact(Event current)
         {
-            if (current == null || Queue == null || _compactedFrame == Time.frameCount) return;
+            if (current == null || Queue == null || _compactedFrame == Time.frameCount)
+                return;
 
             int count = Event.GetEventCount();
-            if (count < Threshold) return;
+            if (count < Threshold)
+                return;
             _compactedFrame = Time.frameCount;
 
             // Scan all runs once per frame; rescanning mixed suffixes is quadratic.
@@ -43,16 +47,20 @@ namespace SlopWorld
                 Pending.Add(previous);
             }
 
-            foreach (var e in Pending) Queue(e);
+            foreach (var e in Pending)
+                Queue(e);
             Pending.Clear();
         }
 
         static bool SameWheel(Event a, Event b) =>
-            a.type == EventType.ScrollWheel && b.type == EventType.ScrollWheel &&
-            a.displayIndex == b.displayIndex && a.modifiers == b.modifiers &&
-            a.mousePosition.x == b.mousePosition.x &&
-            a.mousePosition.y == b.mousePosition.y &&
-            SameDirection(a.delta.x, b.delta.x) && SameDirection(a.delta.y, b.delta.y);
+            a.type == EventType.ScrollWheel
+            && b.type == EventType.ScrollWheel
+            && a.displayIndex == b.displayIndex
+            && a.modifiers == b.modifiers
+            && a.mousePosition.x == b.mousePosition.x
+            && a.mousePosition.y == b.mousePosition.y
+            && SameDirection(a.delta.x, b.delta.x)
+            && SameDirection(a.delta.y, b.delta.y);
 
         // Reversals must remain separate: clamping at a list edge makes +N,-N
         // observably different from zero movement.
@@ -61,15 +69,21 @@ namespace SlopWorld
 
         static System.Action<Event> FindQueue()
         {
-            var method = typeof(Event).GetMethod("QueueEvent",
-                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-            if (method == null) return null;
+            var method = typeof(Event).GetMethod(
+                "QueueEvent",
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic
+            );
+            if (method == null)
+                return null;
             try
             {
-                return (System.Action<Event>)System.Delegate.CreateDelegate(
-                typeof(System.Action<Event>), method);
+                return (System.Action<Event>)
+                    System.Delegate.CreateDelegate(typeof(System.Action<Event>), method);
             }
-            catch { return e => method.Invoke(null, new object[] { e }); }
+            catch
+            {
+                return e => method.Invoke(null, new object[] { e });
+            }
         }
     }
 }

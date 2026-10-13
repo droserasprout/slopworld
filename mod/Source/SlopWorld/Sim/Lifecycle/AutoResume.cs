@@ -19,16 +19,26 @@ namespace SlopWorld
         static void Prefix()
         {
             // Void Harmony prefixes still run when the recovery hook skips menu drawing.
-            if (LoadFailureRecovery.Pending) { _tried = true; return; }
+            if (LoadFailureRecovery.Pending)
+            {
+                _tried = true;
+                return;
+            }
 
             // NextPlanet is creating a new colony through the menu.
             // Do not start a competing resume operation.
-            if (NextPlanet.Pending) { _tried = true; return; }
+            if (NextPlanet.Pending)
+            {
+                _tried = true;
+                return;
+            }
 
-            if (_tried) return;
+            if (_tried)
+                return;
             _tried = true;
 
-            if (Current.Game != null) return; // back from a colony, not a cold start
+            if (Current.Game != null)
+                return; // back from a colony, not a cold start
 
             try
             {
@@ -42,7 +52,9 @@ namespace SlopWorld
                     return;
                 }
 
-                Log.Message($"[SlopWorld] resuming {Path.GetFileNameWithoutExtension(newest.Name)}");
+                Log.Message(
+                    $"[SlopWorld] resuming {Path.GetFileNameWithoutExtension(newest.Name)}"
+                );
                 // LoadGame queues the load operation and changes the scene, as for the Continue button.
                 GameDataSaveLoader.LoadGame(newest);
             }

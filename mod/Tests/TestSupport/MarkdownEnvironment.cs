@@ -8,7 +8,12 @@ namespace Verse
         static readonly GUIStyle Small = new GUIStyle { font = new Font() };
         static readonly GUIStyle Medium = new GUIStyle
         {
-            font = new Font { fontSize = 24, ascent = 18, Height = 27 },
+            font = new Font
+            {
+                fontSize = 24,
+                ascent = 18,
+                Height = 27,
+            },
         };
         public static GUIStyle CurFontStyle => Font == GameFont.Medium ? Medium : Small;
     }
@@ -22,9 +27,18 @@ namespace SlopWorld
         public static int Rev;
         public static GUIStyle Style = new GUIStyle
         {
-            font = new Font { Monospace = true, ascent = 9, Height = 20 },
+            font = new Font
+            {
+                Monospace = true,
+                ascent = 9,
+                Height = 20,
+            },
             fontSize = 16,
         };
     }
-    static partial class UiTheme { public const float TinyH = 11f; }
+
+    static partial class UiTheme
+    {
+        public const float TinyH = 11f;
+    }
 }

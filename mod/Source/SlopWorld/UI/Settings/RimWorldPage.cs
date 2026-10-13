@@ -22,32 +22,39 @@ namespace SlopWorld
         readonly Dialog_Options _rimWorldOptions = new Dialog_Options();
         readonly ContentHeight _rimWorldHeight = new ContentHeight(1800f);
         List<ListableOption> _links;
+
         public void Load() { }
 
         const string EulaDisclaimer =
-            "Portions of the materials used to create this content/mod are trademarks and/or " +
-            "copyrighted works of Ludeon Studios Inc. All rights reserved by Ludeon. This " +
-            "content/mod is not official and is not endorsed by Ludeon.";
+            "Portions of the materials used to create this content/mod are trademarks and/or "
+            + "copyrighted works of Ludeon Studios Inc. All rights reserved by Ludeon. This "
+            + "content/mod is not official and is not endorsed by Ludeon.";
 
         public void Draw(Rect rect)
         {
             Text.Font = GameFont.Small;
             var inner = SettingsPageLayout.BodyWithoutFooter(rect);
 
-            var view = SettingsPageLayout.ScrollView(inner,
+            var view = SettingsPageLayout.ScrollView(
+                inner,
                 _rimWorldHeight.BeginFrame(Time.frameCount),
-                ContentPaddingX, ContentPaddingY, out var content);
+                ContentPaddingX,
+                ContentPaddingY,
+                out var content
+            );
 
             using (_rimWorldScroll.Scope(inner, view))
             {
                 float y = DrawEulaDisclaimer(content, content.y);
                 y = DrawRimWorldHeader(content, y);
-                y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Graphics,
-                    "DoVideoOptions");
-                y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Interface,
-                    "DoUIOptions");
-                y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Controls,
-                    "DoControlsOptions");
+                y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Graphics, "DoVideoOptions");
+                y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Interface, "DoUIOptions");
+                y = DrawRimWorldSection(
+                    content,
+                    y,
+                    OptionCategoryDefOf.Controls,
+                    "DoControlsOptions"
+                );
                 _rimWorldHeight.Measure(y + ContentPaddingY);
             }
         }
@@ -56,25 +63,29 @@ namespace SlopWorld
         {
             float columnWidth = Mathf.Max(1f, (rect.width - ColumnGap) / 2f);
             var build = new Rect(rect.x, y, columnWidth, rect.height);
-            var links = new Rect(rect.x + columnWidth + ColumnGap, y,
-                columnWidth, rect.height);
+            var links = new Rect(rect.x + columnWidth + ColumnGap, y, columnWidth, rect.height);
 
             float buildBottom = DrawVersionInfo(build, build.y);
             float linksBottom = DrawWebLinks(links, links.y);
             return Mathf.Max(buildBottom, linksBottom) + HeadingGap;
         }
 
-        float DrawRimWorldSection(Rect rect, float y, OptionCategoryDef category,
-            string methodName)
+        float DrawRimWorldSection(Rect rect, float y, OptionCategoryDef category, string methodName)
         {
-            if (category == null) return y;
+            if (category == null)
+                return y;
 
-            var method = typeof(Dialog_Options).GetMethod(methodName,
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            if (method == null) return y;
+            var method = typeof(Dialog_Options).GetMethod(
+                methodName,
+                BindingFlags.Instance | BindingFlags.NonPublic
+            );
+            if (method == null)
+                return y;
 
             UiLayout.SectionHeading(
-                new Rect(rect.x, y, rect.width, UiTheme.RowH), category.LabelCap);
+                new Rect(rect.x, y, rect.width, UiTheme.RowH),
+                category.LabelCap
+            );
             y += UiTheme.RowH + UiTheme.GapXS;
 
             var listing = new Listing_Standard { maxOneColumn = true };
@@ -104,21 +115,27 @@ namespace SlopWorld
             GUI.color = Color.white;
             y += step;
 
-            UiText.RowLabel(new Rect(rect.x, y, rect.width, line),
-                "VersionIndicator".Translate(
-                    (NamedArgument)VersionControl.CurrentVersionString));
+            UiText.RowLabel(
+                new Rect(rect.x, y, rect.width, line),
+                "VersionIndicator".Translate((NamedArgument)VersionControl.CurrentVersionString)
+            );
             y += step;
-            UiText.RowLabel(new Rect(rect.x, y, rect.width, line),
+            UiText.RowLabel(
+                new Rect(rect.x, y, rect.width, line),
                 "CompiledOn".Translate(
-                    (NamedArgument)DateFormat.Short(VersionControl.CurrentBuildDate, Settings.DateFormat)));
+                    (NamedArgument)
+                        DateFormat.Short(VersionControl.CurrentBuildDate, Settings.DateFormat)
+                )
+            );
             y += step;
 
             if (SteamManager.Initialized)
             {
                 y += UiTheme.GapXS;
-                UiText.RowLabel(new Rect(rect.x, y, rect.width, line),
-                    "LoggedIntoSteamAs".Translate(
-                        (NamedArgument)SteamUtility.SteamPersonaName));
+                UiText.RowLabel(
+                    new Rect(rect.x, y, rect.width, line),
+                    "LoggedIntoSteamAs".Translate((NamedArgument)SteamUtility.SteamPersonaName)
+                );
                 y += step;
             }
 
@@ -135,10 +152,14 @@ namespace SlopWorld
 
         float DrawWebLinks(Rect rect, float y)
         {
-            if (_links == null) _links = BuildLinks();
+            if (_links == null)
+                _links = BuildLinks();
 
-            return y + OptionListingUtility.DrawOptionListing(
-                new Rect(rect.x, y, rect.width, 1000f), _links);
+            return y
+                + OptionListingUtility.DrawOptionListing(
+                    new Rect(rect.x, y, rect.width, 1000f),
+                    _links
+                );
         }
 
         static List<ListableOption> BuildLinks()
@@ -148,31 +169,38 @@ namespace SlopWorld
                 new ListableOption_WebLink(
                     "FictionPrimer".Translate(),
                     "https://rimworldgame.com/backstory",
-                    TexButton.IconBlog),
+                    TexButton.IconBlog
+                ),
                 new ListableOption_WebLink(
                     "LudeonBlog".Translate(),
                     "https://ludeon.com/blog",
-                    TexButton.IconBlog),
+                    TexButton.IconBlog
+                ),
                 new ListableOption_WebLink(
                     "Subreddit".Translate(),
                     "https://www.reddit.com/r/RimWorld/",
-                    TexButton.IconReddit),
+                    TexButton.IconReddit
+                ),
                 new ListableOption_WebLink(
                     "OfficialWiki".Translate(),
                     "https://rimworldwiki.com",
-                    TexButton.IconWiki),
+                    TexButton.IconWiki
+                ),
                 new ListableOption_WebLink(
                     "TynansX".Translate(),
                     "https://x.com/TynanSylvester",
-                    TexButton.IconX),
+                    TexButton.IconX
+                ),
                 new ListableOption_WebLink(
                     "TynansDesignBook".Translate(),
                     "https://tynansylvester.com/book",
-                    TexButton.IconBook),
+                    TexButton.IconBook
+                ),
                 new ListableOption_WebLink(
                     "HelpTranslate".Translate(),
                     "https://rimworldgame.com/helptranslate",
-                    TexButton.IconForums),
+                    TexButton.IconForums
+                ),
                 new ListableOption_WebLink(
                     "BuySoundtrack".Translate(),
                     () =>
@@ -181,35 +209,53 @@ namespace SlopWorld
                         {
                             new FloatMenuOption(
                                 "BuySoundtrack_Classic".Translate(),
-                                () => Application.OpenURL(
-                                    "https://store.steampowered.com/app/990430/RimWorld_Soundtrack/")),
+                                () =>
+                                    Application.OpenURL(
+                                        "https://store.steampowered.com/app/990430/RimWorld_Soundtrack/"
+                                    )
+                            ),
                             new FloatMenuOption(
                                 "BuySoundtrack_Royalty".Translate(),
-                                () => Application.OpenURL(
-                                    "https://store.steampowered.com/app/1244270/RimWorld_Royalty_Soundtrack/")),
+                                () =>
+                                    Application.OpenURL(
+                                        "https://store.steampowered.com/app/1244270/RimWorld_Royalty_Soundtrack/"
+                                    )
+                            ),
                             new FloatMenuOption(
                                 "BuySoundtrack_Anomaly".Translate(),
-                                () => Application.OpenURL(
-                                    "https://store.steampowered.com/app/2914900/RimWorld_Anomaly_Soundtrack/")),
+                                () =>
+                                    Application.OpenURL(
+                                        "https://store.steampowered.com/app/2914900/RimWorld_Anomaly_Soundtrack/"
+                                    )
+                            ),
                             new FloatMenuOption(
                                 "BuySoundtrack_Odyssey".Translate(),
-                                () => Application.OpenURL(
-                                    "https://store.steampowered.com/app/3689230/RimWorld_Odyssey_Soundtrack/")),
+                                () =>
+                                    Application.OpenURL(
+                                        "https://store.steampowered.com/app/3689230/RimWorld_Odyssey_Soundtrack/"
+                                    )
+                            ),
                         };
                         Find.WindowStack.Add(new UiMenu(opts));
                     },
-                    TexButton.IconSoundtrack),
+                    TexButton.IconSoundtrack
+                ),
             };
         }
 
         float DrawEulaDisclaimer(Rect r, float y)
         {
             y += HeroMargin;
-            y = UiText.Paragraph(r, y, EulaDisclaimer, RegularFont, UiTheme.Dim,
-                TextAnchor.UpperCenter, BodyTextSize);
+            y = UiText.Paragraph(
+                r,
+                y,
+                EulaDisclaimer,
+                RegularFont,
+                UiTheme.Dim,
+                TextAnchor.UpperCenter,
+                BodyTextSize
+            );
             return y + HeroMargin;
         }
-
-
     }
 }

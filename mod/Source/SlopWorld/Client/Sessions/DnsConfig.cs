@@ -5,7 +5,11 @@ using System.Net.Sockets;
 
 namespace SlopWorld
 {
-    public enum DnsMode { Resolved, Servers }
+    public enum DnsMode
+    {
+        Resolved,
+        Servers,
+    }
 
     // DNS is separate from network reach. Resolved follows the daemon's current resolv.conf.
     // Servers is an explicit list passed to pasta.
@@ -16,42 +20,43 @@ namespace SlopWorld
 
         public bool IsResolved => Mode == DnsMode.Resolved;
 
-        public string Label => IsResolved
-            ? "System resolver"
-            : Servers.Count == 0
-                ? "Custom DNS (empty)"
-                : "Custom DNS: " + string.Join(", ", Servers.ToArray());
+        public string Label =>
+            IsResolved ? "System resolver"
+            : Servers.Count == 0 ? "Custom DNS (empty)"
+            : "Custom DNS: " + string.Join(", ", Servers.ToArray());
 
         public static DnsConfig FromWire(Wire.DnsConfig j)
         {
             var dns = new DnsConfig();
-            if (j == null || j.Mode != WireProtocol.DnsMode.Servers) return dns;
+            if (j == null || j.Mode != WireProtocol.DnsMode.Servers)
+                return dns;
             dns.Mode = DnsMode.Servers;
             dns.Servers = j.Servers.ToList();
             return dns;
         }
 
-        public DnsConfig Copy() => new DnsConfig
-        {
-            Mode = Mode,
-            Servers = new List<string>(Servers),
-        };
+        public DnsConfig Copy() =>
+            new DnsConfig { Mode = Mode, Servers = new List<string>(Servers) };
 
-        public Wire.DnsConfig ToWire() => new Wire.DnsConfig
-        {
-            Mode = IsResolved ? WireProtocol.DnsMode.Resolved : WireProtocol.DnsMode.Servers,
-            Servers = { IsResolved ? Enumerable.Empty<string>() : Servers },
-        };
+        public Wire.DnsConfig ToWire() =>
+            new Wire.DnsConfig
+            {
+                Mode = IsResolved ? WireProtocol.DnsMode.Resolved : WireProtocol.DnsMode.Servers,
+                Servers = { IsResolved ? Enumerable.Empty<string>() : Servers },
+            };
 
         public static DnsConfig Resolved() => new DnsConfig();
+
         public static DnsConfig Custom() => new DnsConfig { Mode = DnsMode.Servers };
 
         public static bool TryParseServers(string text, out List<string> servers, out string error)
         {
             servers = new List<string>();
             error = null;
-            var parts = (text ?? "").Split(new[] { ',', ';', ' ', '\t', '\r', '\n' },
-                System.StringSplitOptions.RemoveEmptyEntries);
+            var parts = (text ?? "").Split(
+                new[] { ',', ';', ' ', '\t', '\r', '\n' },
+                System.StringSplitOptions.RemoveEmptyEntries
+            );
             if (parts.Length == 0)
             {
                 error = "enter at least one IPv4 DNS server";
@@ -64,8 +69,10 @@ namespace SlopWorld
             }
             foreach (string part in parts)
             {
-                if (!IPAddress.TryParse(part, out var address) ||
-                    address.AddressFamily != AddressFamily.InterNetwork)
+                if (
+                    !IPAddress.TryParse(part, out var address)
+                    || address.AddressFamily != AddressFamily.InterNetwork
+                )
                 {
                     error = $"{part} is not an IPv4 address";
                     return false;

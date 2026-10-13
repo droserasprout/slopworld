@@ -42,12 +42,12 @@ namespace SlopWorld
 
         static void Prefix(ref float startX)
         {
-            if (!Patch_GizmoGridFlag.Active) return;
+            if (!Patch_GizmoGridFlag.Active)
+                return;
             var content = WorkspaceLayout.Current.Content;
             float start = content.x + UiTheme.GapM;
             // Agent actions need no inspect-pane offset, even with the sidebar hidden.
-            startX = InspectPaneAgent.AgentSelectionActive
-                ? start : Mathf.Max(startX, start);
+            startX = InspectPaneAgent.AgentSelectionActive ? start : Mathf.Max(startX, start);
         }
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
@@ -62,7 +62,9 @@ namespace SlopWorld
             // Preserve the expression's entry labels so branches still enter the replacement.
             for (int i = 0; i + 8 < code.Count; i++)
             {
-                if (code[i].opcode != OpCodes.Ldsfld || !Equals(code[i].operand, screenHeight)
+                if (
+                    code[i].opcode != OpCodes.Ldsfld
+                    || !Equals(code[i].operand, screenHeight)
                     || !IsInt(code[i + 1], 35)
                     || code[i + 2].opcode != OpCodes.Sub
                     || code[i + 3].opcode != OpCodes.Conv_R4
@@ -72,7 +74,8 @@ namespace SlopWorld
                     || !Equals(code[i + 5].operand, vectorY)
                     || code[i + 6].opcode != OpCodes.Sub
                     || !IsFloat(code[i + 7], 75f)
-                    || code[i + 8].opcode != OpCodes.Sub)
+                    || code[i + 8].opcode != OpCodes.Sub
+                )
                     continue;
 
                 var replacement = new List<CodeInstruction>
@@ -89,7 +92,9 @@ namespace SlopWorld
                 return code;
             }
 
-            Log.Error("[SlopWorld] GizmoGridDrawer.DrawGizmoGrid changed. Action buttons keep the vanilla bottom margin.");
+            Log.Error(
+                "[SlopWorld] GizmoGridDrawer.DrawGizmoGrid changed. Action buttons keep the vanilla bottom margin."
+            );
             return code;
         }
 
@@ -98,7 +103,8 @@ namespace SlopWorld
             || (instruction.opcode == OpCodes.Ldc_I4 && instruction.operand is int i && i == value);
 
         static bool IsFloat(CodeInstruction instruction, float value) =>
-            instruction.opcode == OpCodes.Ldc_R4 && instruction.operand is float f
+            instruction.opcode == OpCodes.Ldc_R4
+            && instruction.operand is float f
             && Mathf.Abs(f - value) < 0.001f;
     }
 }

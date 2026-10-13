@@ -1,5 +1,10 @@
 # Build
 
+# Restore pinned C# formatter and coverage tools
+[group('Build')]
+sync-dotnet-tools:
+    {{ DOTNET }} tool restore
+
 # Build the daemon and the launcher
 [group('Build')]
 daemon:

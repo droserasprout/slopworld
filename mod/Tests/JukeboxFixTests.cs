@@ -11,8 +11,14 @@ namespace SlopWorld.Tests
         {
             yield return ("recognition does not require a title", UntitledPlaybackIsEligible);
             yield return ("muted and stopped playback is ineligible", MutedAndStoppedAreIneligible);
-            yield return ("recognition state rejects results after stop or source replacement", StopInvalidatesRecognition);
-            yield return ("CanApply rejects a successful result after cancellation", CancellationWins);
+            yield return (
+                "recognition state rejects results after stop or source replacement",
+                StopInvalidatesRecognition
+            );
+            yield return (
+                "CanApply rejects a successful result after cancellation",
+                CancellationWins
+            );
             yield return ("native OST paths become structured tracks", NativePathMapping);
             yield return ("native likes keep each sampled track", NativeTracksStayDistinct);
             yield return ("a missing native track writes nothing", MissingNativeTrackWritesNothing);
@@ -45,10 +51,15 @@ namespace SlopWorld.Tests
             AssertEx.True(track.Eligible, "audible playback is eligible without station metadata");
 
             var service = new FakeRecognition();
-            var result = service.Recognize(service.SelectInput(CancellationToken.None),
-                CancellationToken.None);
-            AssertEx.Equal(RecognitionStatus.Ok, result.Status,
-                "the injected recognizer can be dispatched for an untitled track");
+            var result = service.Recognize(
+                service.SelectInput(CancellationToken.None),
+                CancellationToken.None
+            );
+            AssertEx.Equal(
+                RecognitionStatus.Ok,
+                result.Status,
+                "the injected recognizer can be dispatched for an untitled track"
+            );
             AssertEx.Equal(1, service.Calls, "the injected recognizer was called once");
         }
 
@@ -69,12 +80,16 @@ namespace SlopWorld.Tests
             string source = track.Source;
 
             track.Update(false, false, source);
-            AssertEx.False(track.IsCurrent(revision, source),
-                "a result from before stop cannot apply");
+            AssertEx.False(
+                track.IsCurrent(revision, source),
+                "a result from before stop cannot apply"
+            );
 
             track.Update(true, false, "Replacement Radio");
-            AssertEx.False(track.IsCurrent(revision, source),
-                "a result from the replaced source cannot apply");
+            AssertEx.False(
+                track.IsCurrent(revision, source),
+                "a result from the replaced source cannot apply"
+            );
         }
 
         public static void TrackRevisionRejectsLateRecognitionWithinTheSameSource()
@@ -82,9 +97,15 @@ namespace SlopWorld.Tests
             var track = new RecognitionTrackState();
             track.Update(true, false, "Example Radio");
             int revision = track.Revision;
-            AssertEx.True(track.IsCurrent(revision, track.Source), "unchanged playback accepts the request");
+            AssertEx.True(
+                track.IsCurrent(revision, track.Source),
+                "unchanged playback accepts the request"
+            );
             track.Advance();
-            AssertEx.False(track.IsCurrent(revision, track.Source), "a changed raw title invalidates the old recognition");
+            AssertEx.False(
+                track.IsCurrent(revision, track.Source),
+                "a changed raw title invalidates the old recognition"
+            );
         }
 
         public static void NativeLikesRoundTripEscapedMetadata()
@@ -92,16 +113,31 @@ namespace SlopWorld.Tests
             string path = TempLikePath();
             try
             {
-                var track = new NativeTrackSnapshot("Artist\"\\\t", "Title\n\u0001🍩", "Source\r\n🦅");
-                AssertEx.True(JukeboxLikeWriter.TryAppend(path, track, DateTime.UtcNow,
-                    out var record, out string error), "escaped metadata can be saved: " + error);
+                var track = new NativeTrackSnapshot(
+                    "Artist\"\\\t",
+                    "Title\n\u0001🍩",
+                    "Source\r\n🦅"
+                );
+                AssertEx.True(
+                    JukeboxLikeWriter.TryAppend(
+                        path,
+                        track,
+                        DateTime.UtcNow,
+                        out var record,
+                        out string error
+                    ),
+                    "escaped metadata can be saved: " + error
+                );
                 var entries = JukeboxHistory.Parse(File.ReadAllText(path));
                 AssertEx.Equal(1, entries.Count, "escaped metadata keeps one valid TOML record");
                 AssertEx.Equal(track.Artist, entries[0].Artist, "artist survives shared quoting");
                 AssertEx.Equal(track.Title, entries[0].Title, "title survives shared quoting");
                 AssertEx.Equal(track.Source, entries[0].Source, "source survives shared quoting");
             }
-            finally { Remove(path); }
+            finally
+            {
+                Remove(path);
+            }
         }
 
         static void CancellationWins()
@@ -114,12 +150,19 @@ namespace SlopWorld.Tests
                 var input = service.SelectInput(cancel.Token);
                 cancel.Cancel();
                 var result = service.Recognize(input, cancel.Token);
-                AssertEx.Equal(RecognitionStatus.Ok, result.Status,
-                    "the fake demonstrates a result can arrive after cancellation");
-                AssertEx.True(cancel.IsCancellationRequested,
-                    "the cancellation remains observable at the Radio boundary");
-                AssertEx.False(track.CanApply(track.Revision, track.Source, cancel.Token),
-                    "a canceled attempt is not treated as an eligible completion");
+                AssertEx.Equal(
+                    RecognitionStatus.Ok,
+                    result.Status,
+                    "the fake demonstrates a result can arrive after cancellation"
+                );
+                AssertEx.True(
+                    cancel.IsCancellationRequested,
+                    "the cancellation remains observable at the Radio boundary"
+                );
+                AssertEx.False(
+                    track.CanApply(track.Revision, track.Source, cancel.Token),
+                    "a canceled attempt is not treated as an eligible completion"
+                );
             }
         }
 
@@ -133,21 +176,46 @@ namespace SlopWorld.Tests
                 NativeLikeRecord firstRecord;
                 NativeLikeRecord secondRecord;
                 string error;
-                AssertEx.True(JukeboxLikeWriter.TryAppend(path, first, DateTime.UtcNow,
-                    out firstRecord, out error), "the first native track is saved: " + error);
-                AssertEx.True(JukeboxLikeWriter.TryAppend(path, second, DateTime.UtcNow,
-                    out secondRecord, out error), "the second native track is saved: " + error);
-                AssertEx.Equal("Terry Fail - one.ogg", firstRecord.Display,
-                    "confirmation uses the first snapshot");
-                AssertEx.Equal("Terry Fail - two.ogg", secondRecord.Display,
-                    "confirmation uses the second snapshot");
+                AssertEx.True(
+                    JukeboxLikeWriter.TryAppend(
+                        path,
+                        first,
+                        DateTime.UtcNow,
+                        out firstRecord,
+                        out error
+                    ),
+                    "the first native track is saved: " + error
+                );
+                AssertEx.True(
+                    JukeboxLikeWriter.TryAppend(
+                        path,
+                        second,
+                        DateTime.UtcNow,
+                        out secondRecord,
+                        out error
+                    ),
+                    "the second native track is saved: " + error
+                );
+                AssertEx.Equal(
+                    "Terry Fail - one.ogg",
+                    firstRecord.Display,
+                    "confirmation uses the first snapshot"
+                );
+                AssertEx.Equal(
+                    "Terry Fail - two.ogg",
+                    secondRecord.Display,
+                    "confirmation uses the second snapshot"
+                );
                 string text = File.ReadAllText(path);
-                AssertEx.True(text.Contains("title = \"one.ogg\""),
-                    "the first title is persisted");
-                AssertEx.True(text.Contains("title = \"two.ogg\""),
-                    "the second title is persisted");
-                AssertEx.True(text.Contains("source = \"SlopWorld OST\""),
-                    "native source attribution is not replaced by daemon metadata");
+                AssertEx.True(text.Contains("title = \"one.ogg\""), "the first title is persisted");
+                AssertEx.True(
+                    text.Contains("title = \"two.ogg\""),
+                    "the second title is persisted"
+                );
+                AssertEx.True(
+                    text.Contains("source = \"SlopWorld OST\""),
+                    "native source attribution is not replaced by daemon metadata"
+                );
             }
             finally
             {
@@ -161,8 +229,11 @@ namespace SlopWorld.Tests
             AssertEx.Equal("Terry Fail", track.Artist, "the shipped OST artist is explicit");
             AssertEx.Equal("second.ogg", track.Title, "only the final clip-path component is used");
             AssertEx.Equal("SlopWorld OST", track.Source, "the native source is explicit");
-            AssertEx.Equal(null, NativeTrackSnapshot.FromOstClipPath(null),
-                "an inactive native song has no snapshot");
+            AssertEx.Equal(
+                null,
+                NativeTrackSnapshot.FromOstClipPath(null),
+                "an inactive native song has no snapshot"
+            );
         }
 
         static void MissingNativeTrackWritesNothing()
@@ -172,8 +243,10 @@ namespace SlopWorld.Tests
             {
                 NativeLikeRecord record;
                 string error;
-                AssertEx.False(JukeboxLikeWriter.TryAppend(path, null, DateTime.UtcNow,
-                    out record, out error), "no native song refuses the like");
+                AssertEx.False(
+                    JukeboxLikeWriter.TryAppend(path, null, DateTime.UtcNow, out record, out error),
+                    "no native song refuses the like"
+                );
                 AssertEx.Equal("nothing is playing", error, "the refusal names the missing song");
                 AssertEx.False(File.Exists(path), "the refusal happens before file creation");
             }
@@ -183,12 +256,20 @@ namespace SlopWorld.Tests
             }
         }
 
-        static string TempLikePath() => Path.Combine(Path.GetTempPath(),
-            "slopworld-jukebox-test-" + Guid.NewGuid().ToString("N") + ".toml");
+        static string TempLikePath() =>
+            Path.Combine(
+                Path.GetTempPath(),
+                "slopworld-jukebox-test-" + Guid.NewGuid().ToString("N") + ".toml"
+            );
 
         static void Remove(string path)
         {
-            try { if (File.Exists(path)) File.Delete(path); } catch { }
+            try
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+            catch { }
         }
     }
 }

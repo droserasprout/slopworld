@@ -8,57 +8,83 @@ namespace SlopWorld.Tests
     {
         sealed class DeviceApi : X11ScrollSampler.IApi
         {
-            public int Queries, Opens, Closes, Frees;
-            public bool Axes = true, Display = true, Supported = true;
-            public int Device = 2, Source = 10, Number = 2;
-            public double Value, Increment = 1;
+            public int Queries,
+                Opens,
+                Closes,
+                Frees;
+            public bool Axes = true,
+                Display = true,
+                Supported = true;
+            public int Device = 2,
+                Source = 10,
+                Number = 2;
+            public double Value,
+                Increment = 1;
             public Exception Error;
             readonly List<IntPtr> _allocations = new List<IntPtr>();
 
-            public IntPtr Open() { Opens++; return Display ? new IntPtr(1) : IntPtr.Zero; }
-            public void Close(IntPtr display) { Closes++; }
+            public IntPtr Open()
+            {
+                Opens++;
+                return Display ? new IntPtr(1) : IntPtr.Zero;
+            }
+
+            public void Close(IntPtr display)
+            {
+                Closes++;
+            }
+
             public bool SupportsScrolling(IntPtr display) => Supported;
+
             public IntPtr Query(IntPtr display, int device, out int count)
             {
                 Queries++;
                 AssertEx.Equal(1, device, "query current master set rather than cached device id");
-                if (Error != null) throw Error;
+                if (Error != null)
+                    throw Error;
                 count = 1;
                 IntPtr classes = IntPtr.Zero;
                 if (Axes)
                 {
-                    var scroll = Allocate(new X11ScrollSampler.XIScrollClassInfo
-                    {
-                        type = 3,
-                        sourceid = Source,
-                        number = Number,
-                        scrollType = 1,
-                        increment = Increment,
-                        flags = 2
-                    });
-                    var valuator = Allocate(new X11ScrollSampler.XIValuatorClassInfo
-                    {
-                        type = 2,
-                        sourceid = Source,
-                        number = Number,
-                        value = Value
-                    });
+                    var scroll = Allocate(
+                        new X11ScrollSampler.XIScrollClassInfo
+                        {
+                            type = 3,
+                            sourceid = Source,
+                            number = Number,
+                            scrollType = 1,
+                            increment = Increment,
+                            flags = 2,
+                        }
+                    );
+                    var valuator = Allocate(
+                        new X11ScrollSampler.XIValuatorClassInfo
+                        {
+                            type = 2,
+                            sourceid = Source,
+                            number = Number,
+                            value = Value,
+                        }
+                    );
                     classes = Marshal.AllocHGlobal(2 * IntPtr.Size);
                     _allocations.Add(classes);
                     Marshal.WriteIntPtr(classes, 0, scroll);
                     Marshal.WriteIntPtr(classes, IntPtr.Size, valuator);
                 }
-                return Allocate(new X11ScrollSampler.XIDeviceInfo
-                {
-                    deviceid = Device,
-                    use = 1,
-                    enabled = 1,
-                    numClasses = Axes ? 2 : 0,
-                    classes = classes
-                });
+                return Allocate(
+                    new X11ScrollSampler.XIDeviceInfo
+                    {
+                        deviceid = Device,
+                        use = 1,
+                        enabled = 1,
+                        numClasses = Axes ? 2 : 0,
+                        classes = classes,
+                    }
+                );
             }
 
-            IntPtr Allocate<T>(T value) where T : struct
+            IntPtr Allocate<T>(T value)
+                where T : struct
             {
                 var pointer = Marshal.AllocHGlobal(Marshal.SizeOf<T>());
                 _allocations.Add(pointer);
@@ -69,7 +95,8 @@ namespace SlopWorld.Tests
             public void Free(IntPtr devices)
             {
                 Frees++;
-                foreach (var pointer in _allocations) Marshal.FreeHGlobal(pointer);
+                foreach (var pointer in _allocations)
+                    Marshal.FreeHGlobal(pointer);
                 _allocations.Clear();
             }
         }
@@ -79,10 +106,15 @@ namespace SlopWorld.Tests
             double now = 1;
             var api = new DeviceApi { Axes = false };
             var sampler = new X11ScrollSampler(api, () => now);
-            AssertEx.Equal(false, sampler.Read().Available, "startup without scroll axes uses fallback");
+            AssertEx.Equal(
+                false,
+                sampler.Read().Available,
+                "startup without scroll axes uses fallback"
+            );
             api.Axes = true;
             now = 1.5;
-            for (int i = 0; i < 1000; i++) sampler.Read();
+            for (int i = 0; i < 1000; i++)
+                sampler.Read();
             AssertEx.Equal(1, api.Queries, "input bursts do not bypass retry backoff");
             now = 2;
             var first = sampler.Read();
@@ -94,8 +126,15 @@ namespace SlopWorld.Tests
             now = 3.1;
             var recovered = sampler.Read();
             AssertEx.Equal(true, recovered.Available, "axes return without game restart");
-            AssertEx.True(recovered.Generation != first.Generation, "recovery invalidates previous source baseline");
-            AssertEx.Equal(1, api.Opens, "same worker connection survives temporary capability changes");
+            AssertEx.True(
+                recovered.Generation != first.Generation,
+                "recovery invalidates previous source baseline"
+            );
+            AssertEx.Equal(
+                1,
+                api.Opens,
+                "same worker connection survives temporary capability changes"
+            );
             AssertEx.Equal(api.Queries, api.Frees, "all successful device replies released");
         }
 
@@ -118,26 +157,53 @@ namespace SlopWorld.Tests
             api.Source++;
             api.Value = 6;
             now = 1.02;
-            AssertEx.Equal(false, Read(motion, sampler.Read(), out _), "new physical source resets baseline");
+            AssertEx.Equal(
+                false,
+                Read(motion, sampler.Read(), out _),
+                "new physical source resets baseline"
+            );
             api.Number++;
             now = 1.03;
-            AssertEx.Equal(false, Read(motion, sampler.Read(), out _), "new axis number resets baseline");
+            AssertEx.Equal(
+                false,
+                Read(motion, sampler.Read(), out _),
+                "new axis number resets baseline"
+            );
             api.Increment = 2;
             now = 1.04;
-            AssertEx.Equal(false, Read(motion, sampler.Read(), out _), "new axis increment resets baseline");
+            AssertEx.Equal(
+                false,
+                Read(motion, sampler.Read(), out _),
+                "new axis increment resets baseline"
+            );
             api.Device++;
             now = 1.05;
-            AssertEx.Equal(false, Read(motion, sampler.Read(), out _), "replacement master resets baseline");
+            AssertEx.Equal(
+                false,
+                Read(motion, sampler.Read(), out _),
+                "replacement master resets baseline"
+            );
             api.Value = 6.5;
             now = 1.06;
-            AssertEx.Equal(true, Read(motion, sampler.Read(), out y), "motion resumes on replacement source");
+            AssertEx.Equal(
+                true,
+                Read(motion, sampler.Read(), out y),
+                "motion resumes on replacement source"
+            );
             AssertEx.Equal(0.25, y, "current increment used");
             AssertEx.Equal(api.Queries, api.Frees, "axis changes release each query");
         }
 
         static bool Read(ScrollSampleDelta motion, X11ScrollSampler.Sample sample, out double y) =>
-            motion.Read(sample.X, sample.Y, sample.Time, sample.Time,
-                sample.Generation, out _, out y);
+            motion.Read(
+                sample.X,
+                sample.Y,
+                sample.Time,
+                sample.Time,
+                sample.Generation,
+                out _,
+                out y
+            );
 
         public static void DisplayAndQueryFailuresRetryWithFreshConnection()
         {
@@ -152,13 +218,22 @@ namespace SlopWorld.Tests
             now = 2.01;
             var failed = sampler.Read();
             AssertEx.Equal(false, failed.Available, "query failure stays in background sampler");
-            AssertEx.Equal("temporary query failure", failed.UnavailableReason, "reason available to main-thread logger");
+            AssertEx.Equal(
+                "temporary query failure",
+                failed.UnavailableReason,
+                "reason available to main-thread logger"
+            );
             AssertEx.Equal(1, api.Closes, "failed connection released once");
-            for (int i = 0; i < 1000; i++) sampler.Read();
+            for (int i = 0; i < 1000; i++)
+                sampler.Read();
             AssertEx.Equal(2, api.Opens, "retry does not open connections during backoff");
             api.Error = null;
             now = 3.02;
-            AssertEx.Equal(true, sampler.Read().Available, "query recovery needs no replacement worker");
+            AssertEx.Equal(
+                true,
+                sampler.Read().Available,
+                "query recovery needs no replacement worker"
+            );
             AssertEx.Equal(3, api.Opens, "fresh connection opened after failure");
         }
 
@@ -169,7 +244,8 @@ namespace SlopWorld.Tests
             var sampler = new X11ScrollSampler(api, () => now);
             AssertEx.Equal(false, sampler.Read().Available, "old XInput uses fallback");
             now = 100;
-            for (int i = 0; i < 1000; i++) sampler.Read();
+            for (int i = 0; i < 1000; i++)
+                sampler.Read();
             AssertEx.Equal(1, api.Opens, "unsupported runtime is not repeatedly probed");
             AssertEx.Equal(1, api.Closes, "unsupported connection released once");
         }

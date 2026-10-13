@@ -9,7 +9,10 @@ namespace SlopWorld.Tests
         [SetUp]
         public void Reset()
         {
-            var phase = typeof(QuitInterceptor).GetField("_phase", BindingFlags.Static | BindingFlags.NonPublic);
+            var phase = typeof(QuitInterceptor).GetField(
+                "_phase",
+                BindingFlags.Static | BindingFlags.NonPublic
+            );
             phase.SetValue(null, System.Enum.ToObject(phase.FieldType, 0));
             UnityEngine.Application.wantsToQuit = null;
             SaveCoordinator.Programmatic = false;
@@ -53,12 +56,17 @@ namespace Verse
     public static class Root
     {
         public static int Shutdowns;
+
         public static void Update() { }
+
         public static void Shutdown()
         {
             Shutdowns++;
             SlopWorld.SaveCoordinator.Programmatic = true;
-            NUnit.Framework.Assert.That(UnityEngine.Application.wantsToQuit(), NUnit.Framework.Is.True);
+            NUnit.Framework.Assert.That(
+                UnityEngine.Application.wantsToQuit(),
+                NUnit.Framework.Is.True
+            );
         }
     }
 }
@@ -68,6 +76,7 @@ namespace SlopWorld
     public static class SaveCoordinator
     {
         public static bool Programmatic;
+
         public static bool ConsumeProgrammaticShutdown()
         {
             bool result = Programmatic;

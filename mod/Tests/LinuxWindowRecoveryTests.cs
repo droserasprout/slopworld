@@ -105,22 +105,34 @@ namespace SlopWorld.Tests
         {
             _recovery.BeginResize(10f);
             Assert.That(_recovery.ResyncLanded(10.5f, false), Is.True);
-            Assert.That(_recovery.AwaitFullscreenRecovery(true, false), Is.EqualTo(WindowChange.Retry));
+            Assert.That(
+                _recovery.AwaitFullscreenRecovery(true, false),
+                Is.EqualTo(WindowChange.Retry)
+            );
             Assert.That(_recovery.HasResize, Is.False);
 
             _recovery.BeginResize(12f);
             Assert.That(_recovery.ResyncLanded(12.5f, false), Is.True);
-            Assert.That(_recovery.AwaitFullscreenRecovery(true, false), Is.EqualTo(WindowChange.Retry));
+            Assert.That(
+                _recovery.AwaitFullscreenRecovery(true, false),
+                Is.EqualTo(WindowChange.Retry)
+            );
             Assert.That(_recovery.HasResize, Is.False);
             // Correct surface dimensions still require native fullscreen confirmation.
-            Assert.That(_recovery.AwaitFullscreenRecovery(true, true), Is.EqualTo(WindowChange.WaitingForResize));
+            Assert.That(
+                _recovery.AwaitFullscreenRecovery(true, true),
+                Is.EqualTo(WindowChange.WaitingForResize)
+            );
         }
 
         [Test]
         public void FailedFullscreenRequestRetainsResizeAttemptForRetry()
         {
             _recovery.BeginResize(10f);
-            Assert.That(_recovery.AwaitFullscreenRecovery(false, false), Is.EqualTo(WindowChange.Retry));
+            Assert.That(
+                _recovery.AwaitFullscreenRecovery(false, false),
+                Is.EqualTo(WindowChange.Retry)
+            );
             Assert.That(_recovery.ResyncedAt, Is.EqualTo(10f));
         }
 
@@ -152,8 +164,12 @@ namespace SlopWorld.Tests
         public void UnconfirmedRecoveryRestartsQuietSettling(bool waiting)
         {
             Assert.That(_recovery.WatchingWindow(10f, false), Is.True);
-            _recovery.CompleteAttempt(10.9f, true, true,
-                waiting ? WindowChange.WaitingForResize : WindowChange.Retry);
+            _recovery.CompleteAttempt(
+                10.9f,
+                true,
+                true,
+                waiting ? WindowChange.WaitingForResize : WindowChange.Retry
+            );
             Assert.That(_recovery.WatchingWindow(11f, false), Is.True);
             Assert.That(_recovery.WatchingWindow(11.9f, false), Is.True);
             Assert.That(_recovery.WatchingWindow(12f, false), Is.False);

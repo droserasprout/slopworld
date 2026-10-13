@@ -43,7 +43,8 @@ namespace SlopWorld
             }
 
             var ticks = Find.TickManager;
-            if (ticks == null) return;
+            if (ticks == null)
+                return;
 
             var map = Find.CurrentMap;
             bool mapChanged = map != _lastMap;
@@ -54,12 +55,21 @@ namespace SlopWorld
             // Sample once per second and when state changes.
             // Refresh immediately on entering or leaving Eco.
             bool solarDue = _solarRecalc.Due(Time.realtimeSinceStartupAsDouble, 1.0);
-            bool ecoRefresh = eco && (!_wasPlaying || !_wasEco || mapChanged ||
-                ticks.TicksGame != _ecoTicks || _cachedSolar == null || solarDue);
+            bool ecoRefresh =
+                eco
+                && (
+                    !_wasPlaying
+                    || !_wasEco
+                    || mapChanged
+                    || ticks.TicksGame != _ecoTicks
+                    || _cachedSolar == null
+                    || solarDue
+                );
             if (ecoRefresh)
             {
                 _cachedSolar = SolarTick();
-                if (_cachedSolar == null) return;
+                if (_cachedSolar == null)
+                    return;
                 Apply(ticks);
                 _ecoTicks = ticks.TicksGame;
             }
@@ -74,7 +84,8 @@ namespace SlopWorld
             bool leavingEco = _wasEco;
             _wasPlaying = true;
             _wasEco = false;
-            if (mapChanged) _cachedSolar = null;
+            if (mapChanged)
+                _cachedSolar = null;
 
             // Recalculate the solar tick once per elapsed second, independent of frame rate.
             // Every frame computes gameStartAbsTick = solarTick - TicksGame.
@@ -82,7 +93,8 @@ namespace SlopWorld
             if (solarDue || leavingEco || _cachedSolar == null)
             {
                 _cachedSolar = SolarTick();
-                if (_cachedSolar == null) return;
+                if (_cachedSolar == null)
+                    return;
             }
 
             Apply(ticks);
@@ -103,12 +115,14 @@ namespace SlopWorld
         {
             PerfTrace.Count("solar-clock-samples");
             float? longitude = Longitude;
-            if (longitude == null) return null;
+            if (longitude == null)
+                return null;
 
             // Use local time to include the machine's time zone and daylight-saving adjustment.
             DateTime now = DateTime.Now;
             long today = now.Ticks / TimeSpan.TicksPerDay;
-            if (_epoch == 0) _epoch = today;
+            if (_epoch == 0)
+                _epoch = today;
 
             // Start at day one so the longitude adjustment cannot place the first morning before the year starts.
             long day = today - _epoch + 1;
@@ -117,8 +131,11 @@ namespace SlopWorld
             // Subtract the longitude offset that downstream clock readers add.
             // This makes the tile's local time match the player's local time.
             // GenCelestial.TicksAbsForSunPosInWorldSpace uses the same adjustment to calculate noon.
-            return (int)(day * GenDate.TicksPerDay + within
-                         - GenDate.LocalTicksOffsetFromLongitude(longitude.Value));
+            return (int)(
+                day * GenDate.TicksPerDay
+                + within
+                - GenDate.LocalTicksOffsetFromLongitude(longitude.Value)
+            );
         }
 
         // Use an existing map's longitude, or the selected starting tile before map creation.
@@ -127,14 +144,18 @@ namespace SlopWorld
             get
             {
                 var grid = Find.WorldGrid;
-                if (grid == null) return null;
+                if (grid == null)
+                    return null;
 
                 var map = Find.CurrentMap;
-                if (map == null && Find.Maps != null && Find.Maps.Count > 0) map = Find.Maps[0];
-                if (map != null) return grid.LongLatOf(map.Tile).x;
+                if (map == null && Find.Maps != null && Find.Maps.Count > 0)
+                    map = Find.Maps[0];
+                if (map != null)
+                    return grid.LongLatOf(map.Tile).x;
 
                 var init = Find.GameInitData;
-                if (init != null && init.startingTile.Valid) return grid.LongLatOf(init.startingTile).x;
+                if (init != null && init.startingTile.Valid)
+                    return grid.LongLatOf(init.startingTile).x;
 
                 return null;
             }

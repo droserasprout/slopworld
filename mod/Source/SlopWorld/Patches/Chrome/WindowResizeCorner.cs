@@ -11,7 +11,8 @@ namespace SlopWorld
     {
         static float CornerSize() =>
             UiAreaResize.DrawingGrip || Find.WindowStack?.currentlyDrawnWindow is UiWindow
-                ? UiAreaResize.CornerSize : 24f;
+                ? UiAreaResize.CornerSize
+                : 24f;
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {

@@ -13,8 +13,10 @@ namespace SlopWorld
 
         public PresetHierarchy(IEnumerable<PresetInfo> presets)
         {
-            var sorted = presets.OrderBy(p => p.Name == "global" ? 0 : 1)
-                .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            var sorted = presets
+                .OrderBy(p => p.Name == "global" ? 0 : 1)
+                .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
             var parents = sorted.ToDictionary(p => p, p => Parent(p, sorted));
             foreach (var preset in sorted.Where(p => parents[p] == null))
                 Append(preset, 0, sorted, parents);
@@ -24,19 +26,25 @@ namespace SlopWorld
 
         static PresetInfo DirectParent(PresetInfo preset, List<PresetInfo> group) =>
             preset.Name != "global" && preset.Requires.Count == 1
-                ? group.FirstOrDefault(p => p.Name == preset.Requires[0]) : null;
+                ? group.FirstOrDefault(p => p.Name == preset.Requires[0])
+                : null;
 
         static PresetInfo Parent(PresetInfo preset, List<PresetInfo> group)
         {
             var parent = DirectParent(preset, group);
             var seen = new HashSet<PresetInfo> { preset };
             for (var ancestor = parent; ancestor != null; ancestor = DirectParent(ancestor, group))
-                if (!seen.Add(ancestor)) return null;
+                if (!seen.Add(ancestor))
+                    return null;
             return parent;
         }
 
-        void Append(PresetInfo preset, int depth, List<PresetInfo> sorted,
-                    Dictionary<PresetInfo, PresetInfo> parents)
+        void Append(
+            PresetInfo preset,
+            int depth,
+            List<PresetInfo> sorted,
+            Dictionary<PresetInfo, PresetInfo> parents
+        )
         {
             Items.Add(preset);
             _depths[preset] = depth;

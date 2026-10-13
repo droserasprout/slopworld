@@ -19,7 +19,8 @@ namespace SlopWorld
             Source = source;
         }
 
-        public bool IsUsable => !string.IsNullOrEmpty(Artist)
+        public bool IsUsable =>
+            !string.IsNullOrEmpty(Artist)
             && !string.IsNullOrEmpty(Title)
             && !string.IsNullOrEmpty(Source);
 
@@ -27,11 +28,13 @@ namespace SlopWorld
 
         public static NativeTrackSnapshot FromOstClipPath(string clipPath)
         {
-            if (string.IsNullOrEmpty(clipPath)) return null;
+            if (string.IsNullOrEmpty(clipPath))
+                return null;
             int slash = Math.Max(clipPath.LastIndexOf('/'), clipPath.LastIndexOf('\\'));
             string title = slash >= 0 ? clipPath.Substring(slash + 1) : clipPath;
             return string.IsNullOrEmpty(title)
-                ? null : new NativeTrackSnapshot("Terry Fail", title, "SlopWorld OST");
+                ? null
+                : new NativeTrackSnapshot("Terry Fail", title, "SlopWorld OST");
         }
     }
 
@@ -53,8 +56,13 @@ namespace SlopWorld
     // Use the existing [[like]] schema, including original_* fields, to share the file with daemon playback.
     public static class JukeboxLikeWriter
     {
-        public static bool TryAppend(string path, NativeTrackSnapshot track, DateTime utcNow,
-                                      out NativeLikeRecord record, out string error)
+        public static bool TryAppend(
+            string path,
+            NativeTrackSnapshot track,
+            DateTime utcNow,
+            out NativeLikeRecord record,
+            out string error
+        )
         {
             record = null;
             error = null;
@@ -64,21 +72,38 @@ namespace SlopWorld
                 return false;
             }
 
-            string at = utcNow.ToUniversalTime().ToString(
-                "yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
+            string at = utcNow
+                .ToUniversalTime()
+                .ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
             try
             {
                 string directory = Path.GetDirectoryName(path);
-                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-                File.AppendAllText(path,
-                    "[[like]]" + Environment.NewLine +
-                    "at = " + Toml.Quote(at) + Environment.NewLine +
-                    "source = " + Toml.Quote(track.Source) + Environment.NewLine +
-                    "artist = " + Toml.Quote(track.Artist) + Environment.NewLine +
-                    "title = " + Toml.Quote(track.Title) + Environment.NewLine +
-                    "original_artist = " + Toml.Quote(track.Artist) + Environment.NewLine +
-                    "original_title = " + Toml.Quote(track.Title) + Environment.NewLine +
-                    Environment.NewLine);
+                if (!string.IsNullOrEmpty(directory))
+                    Directory.CreateDirectory(directory);
+                File.AppendAllText(
+                    path,
+                    "[[like]]"
+                        + Environment.NewLine
+                        + "at = "
+                        + Toml.Quote(at)
+                        + Environment.NewLine
+                        + "source = "
+                        + Toml.Quote(track.Source)
+                        + Environment.NewLine
+                        + "artist = "
+                        + Toml.Quote(track.Artist)
+                        + Environment.NewLine
+                        + "title = "
+                        + Toml.Quote(track.Title)
+                        + Environment.NewLine
+                        + "original_artist = "
+                        + Toml.Quote(track.Artist)
+                        + Environment.NewLine
+                        + "original_title = "
+                        + Toml.Quote(track.Title)
+                        + Environment.NewLine
+                        + Environment.NewLine
+                );
                 record = new NativeLikeRecord(track, at);
                 return true;
             }

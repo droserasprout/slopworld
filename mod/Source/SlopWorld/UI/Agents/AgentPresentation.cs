@@ -9,11 +9,13 @@ namespace SlopWorld
         {
             switch (s)
             {
-                case AgentState.Working: return UiTheme.StateWorking;
-                case AgentState.Idle: return UiTheme.StateIdle;
-                default: return UiTheme.StateDown;
+                case AgentState.Working:
+                    return UiTheme.StateWorking;
+                case AgentState.Idle:
+                    return UiTheme.StateIdle;
+                default:
+                    return UiTheme.StateDown;
             }
         }
-
     }
 }

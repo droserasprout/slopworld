@@ -16,7 +16,8 @@ namespace SlopWorld
                 canGeneratePawnRelations: false,
                 allowAddictions: false,
                 colonistRelationChanceFactor: 0f,
-                allowGay: true);
+                allowGay: true
+            );
             return PawnGenerator.GeneratePawn(request);
         }
     }

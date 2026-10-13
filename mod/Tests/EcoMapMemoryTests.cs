@@ -17,7 +17,13 @@ namespace SlopWorld.Tests
                 layer.subMeshes.Add(new LayerSubMesh());
                 section.Layers.Add(layer);
             }
-            return new MapDrawer { sections = new[,] { { section } } };
+            return new MapDrawer
+            {
+                sections = new[,]
+                {
+                    { section },
+                },
+            };
         }
 
         [TearDown]

@@ -21,16 +21,23 @@ namespace SlopWorld
 
             public void NoteLiveFrame(ulong liveSeq, int liveShift)
             {
-                if (LastLiveSeq.HasValue && Offset == 0 &&
-                    (_panel._state.Selection.HasSelection || _panel._state.Selection.Dragging ||
-                        _panel._state.Selection.WordDragging))
+                if (
+                    LastLiveSeq.HasValue
+                    && Offset == 0
+                    && (
+                        _panel._state.Selection.HasSelection
+                        || _panel._state.Selection.Dragging
+                        || _panel._state.Selection.WordDragging
+                    )
+                )
                     MoveRows(-liveShift);
                 LastLiveSeq = liveSeq;
             }
 
             public void SyncOffset(int offset)
             {
-                if (offset == Offset) return;
+                if (offset == Offset)
+                    return;
                 MoveRows(offset - Offset);
                 Offset = offset;
             }
@@ -46,11 +53,14 @@ namespace SlopWorld
             public Vector2Int CellAt(Rect body, Vector2 mouse)
             {
                 _panel.SyncSnap();
-                float cw = _panel.DisplayCellW(), ch = TerminalFont.CellH;
-                if (cw <= 0.01f || ch <= 0.01f) return Vector2Int.zero;
+                float cw = _panel.DisplayCellW(),
+                    ch = TerminalFont.CellH;
+                if (cw <= 0.01f || ch <= 0.01f)
+                    return Vector2Int.zero;
                 int col = Mathf.FloorToInt((mouse.x - body.x) / cw);
                 int row = Mathf.FloorToInt(
-                    (mouse.y - body.y - _panel.DisplayedHistoryShift(ch)) / ch);
+                    (mouse.y - body.y - _panel.DisplayedHistoryShift(ch)) / ch
+                );
                 return new Vector2Int(col, row);
             }
 
@@ -61,12 +71,14 @@ namespace SlopWorld
                     _panel._state.Selection.A.x,
                     _panel._state.Selection.A.y,
                     _panel._state.Selection.B.x,
-                    _panel._state.Selection.B.y);
+                    _panel._state.Selection.B.y
+                );
             }
 
             void MoveRows(int delta)
             {
-                if (delta == 0) return;
+                if (delta == 0)
+                    return;
                 var a = _panel._state.Selection.A;
                 var b = _panel._state.Selection.B;
                 var wordStart = _panel._state.Selection.WordStart;

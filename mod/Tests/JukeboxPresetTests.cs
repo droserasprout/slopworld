@@ -9,7 +9,10 @@ namespace SlopWorld.Tests
             var station = new Wire.Station
             {
                 DefaultRate = uint.MaxValue,
-                Streams = { new Wire.StationStream { Rate = uint.MaxValue, Url = "https://example.org" } },
+                Streams =
+                {
+                    new Wire.StationStream { Rate = uint.MaxValue, Url = "https://example.org" },
+                },
             };
             var saved = JukeboxPresetInfo.FromWire(station).Copy().ToWire();
             Assert.That(saved.DefaultRate, Is.EqualTo(uint.MaxValue));
@@ -24,10 +27,19 @@ namespace SlopWorld.Tests
                 int succeeded = 0;
                 string failed = null;
                 if (operation == "delete")
-                    JukeboxPresetStore.Remove("station", () => succeeded++, error => failed = error);
+                    JukeboxPresetStore.Remove(
+                        "station",
+                        () => succeeded++,
+                        error => failed = error
+                    );
                 else
-                    JukeboxPresetStore.Save(new JukeboxPresetInfo { Id = "station" },
-                        operation == "create", "station", () => succeeded++, error => failed = error);
+                    JukeboxPresetStore.Save(
+                        new JukeboxPresetInfo { Id = "station" },
+                        operation == "create",
+                        "station",
+                        () => succeeded++,
+                        error => failed = error
+                    );
                 DaemonClient.Requests[0].Ok(ProtobufFixtures.Json(new Wire.Ack()));
                 Assert.That(succeeded, Is.EqualTo(1), operation);
                 DaemonClient.Requests[1].Fail("catalog unavailable");

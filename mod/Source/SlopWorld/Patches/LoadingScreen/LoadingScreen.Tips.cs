@@ -17,17 +17,21 @@ namespace SlopWorld
         {
             var pool = new List<string>();
             foreach (string tip in Tips)
-                if (Shown(tip, Settings.GrandmaMode)) pool.Add(Strip(tip));
+                if (Shown(tip, Settings.GrandmaMode))
+                    pool.Add(Strip(tip));
             return StreamSelection.Pick(pool, columns, occupied, Dice);
         }
 
         // Which of the two disqualifies is the whole of the difference between the modes.
-        static bool Shown(string tip, bool grandma) => !tip.EndsWith(grandma ? Sad : Sweet, StringComparison.Ordinal);
+        static bool Shown(string tip, bool grandma) =>
+            !tip.EndsWith(grandma ? Sad : Sweet, StringComparison.Ordinal);
 
         static string Strip(string tip)
         {
-            if (tip.EndsWith(Sad, StringComparison.Ordinal)) return tip.Substring(0, tip.Length - Sad.Length);
-            if (tip.EndsWith(Sweet, StringComparison.Ordinal)) return tip.Substring(0, tip.Length - Sweet.Length);
+            if (tip.EndsWith(Sad, StringComparison.Ordinal))
+                return tip.Substring(0, tip.Length - Sad.Length);
+            if (tip.EndsWith(Sweet, StringComparison.Ordinal))
+                return tip.Substring(0, tip.Length - Sweet.Length);
             return tip;
         }
 
@@ -221,9 +225,9 @@ namespace SlopWorld
             "You're dreaming pal.",
             "What about God?",
             // Nujabes, Substantial - Think Different
-             "I ain't better than you, I just think different.",
-             "You try, I do. I'm wise, you're clueless.",
-             "I get the job done, you fail and make excuses.",
+            "I ain't better than you, I just think different.",
+            "You try, I do. I'm wise, you're clueless.",
+            "I get the job done, you fail and make excuses.",
             // Another Bad Creation - Playground
             "Suckers on the corner lookin down at their beepers. (",
             "They couldn't get a job or a nice home. (",
@@ -272,7 +276,7 @@ namespace SlopWorld
             "Coding is largely solved. (",
             "Clanker always with a hard R. (",
             "Did you just say the C-word? (",
-            "Squish that cat!",  // @HelpfulVancouverVet
+            "Squish that cat!", // @HelpfulVancouverVet
             "Within a few months, four patients recognize the man as a frequent presence in their own dreams.",
             // Memes
             "IP address? They know where I pee? (",
@@ -334,7 +338,8 @@ namespace SlopWorld
             bool grandma = Settings.GrandmaMode;
             var pool = new List<string>();
             foreach (string tip in Tips)
-                if (Shown(tip, grandma)) pool.Add(Strip(tip));
+                if (Shown(tip, grandma))
+                    pool.Add(Strip(tip));
             var picked = new List<string>();
             for (int i = 0; i < n && pool.Count > 0; i++)
             {

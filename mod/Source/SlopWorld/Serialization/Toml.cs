@@ -37,23 +37,32 @@ namespace SlopWorld
 
             internal static Scalar From(string key, object value)
             {
-                if (value is string) return new Scalar(ScalarType.String, value);
-                if (value is bool) return new Scalar(ScalarType.Boolean, value);
-                if (value is long) return new Scalar(ScalarType.Integer, value);
-                if (value is double) return new Scalar(ScalarType.Float, value);
-                if (value is TomlynDateTime) return new Scalar(ScalarType.DateTime, value);
+                if (value is string)
+                    return new Scalar(ScalarType.String, value);
+                if (value is bool)
+                    return new Scalar(ScalarType.Boolean, value);
+                if (value is long)
+                    return new Scalar(ScalarType.Integer, value);
+                if (value is double)
+                    return new Scalar(ScalarType.Float, value);
+                if (value is TomlynDateTime)
+                    return new Scalar(ScalarType.DateTime, value);
 
                 // Reject tables, arrays of tables, and arrays from the flat application schema.
                 // Tomlyn supports these types, but this adapter does not.
-                throw new FormatException("TOML flat scalar schema rejects key '" + key +
-                                          "': tables and arrays are not supported");
+                throw new FormatException(
+                    "TOML flat scalar schema rejects key '"
+                        + key
+                        + "': tables and arrays are not supported"
+                );
             }
 
             internal string ToInvariantText()
             {
                 switch (_type)
                 {
-                    case ScalarType.String: return (string)_value;
+                    case ScalarType.String:
+                        return (string)_value;
                     case ScalarType.Boolean:
                         return ((bool)_value) ? "true" : "false";
                     case ScalarType.Integer:
@@ -62,7 +71,8 @@ namespace SlopWorld
                         return ((double)_value).ToString("R", CultureInfo.InvariantCulture);
                     case ScalarType.DateTime:
                         return ((IConvertible)_value).ToString(CultureInfo.InvariantCulture);
-                    default: throw new InvalidOperationException("unknown TOML scalar type");
+                    default:
+                        throw new InvalidOperationException("unknown TOML scalar type");
                 }
             }
 
@@ -106,8 +116,10 @@ namespace SlopWorld
             internal bool TryGetFloat(out float value)
             {
                 double number;
-                if (_type == ScalarType.Integer) number = (long)_value;
-                else if (_type == ScalarType.Float) number = (double)_value;
+                if (_type == ScalarType.Integer)
+                    number = (long)_value;
+                else if (_type == ScalarType.Float)
+                    number = (double)_value;
                 else
                 {
                     value = 0f;
@@ -146,10 +158,9 @@ namespace SlopWorld
             string document;
             try
             {
-                document = TomlynToml.FromModel(new Dictionary<string, string>
-                {
-                    ["value"] = value ?? "",
-                });
+                document = TomlynToml.FromModel(
+                    new Dictionary<string, string> { ["value"] = value ?? "" }
+                );
             }
             catch (Exception exception)
             {
@@ -183,8 +194,10 @@ namespace SlopWorld
             }
             catch (Exception exception)
             {
-                throw new FormatException("TOML model conversion failed: " + exception.Message,
-                                           exception);
+                throw new FormatException(
+                    "TOML model conversion failed: " + exception.Message,
+                    exception
+                );
             }
         }
 
@@ -193,7 +206,8 @@ namespace SlopWorld
             var text = new StringBuilder();
             foreach (var diagnostic in document.Diagnostics)
             {
-                if (text.Length > 0) text.Append("; ");
+                if (text.Length > 0)
+                    text.Append("; ");
                 text.Append(diagnostic.ToString());
             }
             return text.Length == 0 ? "unknown parser error" : text.ToString();

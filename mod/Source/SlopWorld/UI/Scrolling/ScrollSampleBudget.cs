@@ -15,7 +15,8 @@ namespace SlopWorld
                 _refreshed = refresh;
                 return true;
             }
-            if (!refresh || _refreshed) return false;
+            if (!refresh || _refreshed)
+                return false;
             _refreshed = true;
             return true;
         }

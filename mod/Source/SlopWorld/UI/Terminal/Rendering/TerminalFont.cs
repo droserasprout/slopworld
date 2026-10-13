@@ -52,7 +52,8 @@ namespace SlopWorld
         // against a long run of text at non-1x UI scales.
         public static float CellWAtScreenScale(float screenScale)
         {
-            if (CellW <= 0.01f || screenScale <= 0.01f) return CellW;
+            if (CellW <= 0.01f || screenScale <= 0.01f)
+                return CellW;
             return Mathf.RoundToInt(CellW * screenScale) / screenScale;
         }
 
@@ -73,8 +74,12 @@ namespace SlopWorld
                 // Unity can see. The unload RimWorld runs on every map switch destroys it and
                 // leaves the style in the default proportional face. The null check catches a face
                 // lost some other way, a destroyed Font comparing equal to null.
-                if (_style != null && _size == Settings.FontSize && _name == Settings.FontName &&
-                    (_font != null || _fontless))
+                if (
+                    _style != null
+                    && _size == Settings.FontSize
+                    && _name == Settings.FontName
+                    && (_font != null || _fontless)
+                )
                     return _style;
                 _fits.Clear();
 
@@ -86,11 +91,14 @@ namespace SlopWorld
                 // Therefore, the size slider - which comes back through here on every step it
                 // passes - would otherwise pin one atlas per step for the rest of the process.
                 var old = _font;
-                _font = Font.CreateDynamicFontFromOSFont(Chain(_name), _size)
-                        ?? Font.CreateDynamicFontFromOSFont("Courier New", _size);
+                _font =
+                    Font.CreateDynamicFontFromOSFont(Chain(_name), _size)
+                    ?? Font.CreateDynamicFontFromOSFont("Courier New", _size);
                 _fontless = _font == null;
-                if (_font != null) _font.hideFlags = HideFlags.DontUnloadUnusedAsset;
-                if (old != null && old != _font) UnityEngine.Object.Destroy(old);
+                if (_font != null)
+                    _font.hideFlags = HideFlags.DontUnloadUnusedAsset;
+                if (old != null && old != _font)
+                    UnityEngine.Object.Destroy(old);
 
                 _style = new GUIStyle
                 {
@@ -110,8 +118,10 @@ namespace SlopWorld
                 CellW = _style.CalcSize(new GUIContent(probe)).x / probe.Length;
                 CellH = Mathf.Max(_style.lineHeight, _size + 2f);
 
-                Log.Message($"[SlopWorld] terminal font: {_font?.name} at {_size}pt, " +
-                            $"cell {CellW:0.##}x{CellH:0.##}");
+                Log.Message(
+                    $"[SlopWorld] terminal font: {_font?.name} at {_size}pt, "
+                        + $"cell {CellW:0.##}x{CellH:0.##}"
+                );
                 return _style;
             }
         }
@@ -121,7 +131,8 @@ namespace SlopWorld
         // key too or the first frame can preserve the pre-glyph (blank) texture forever.
         static void HookTextureRebuilds()
         {
-            if (_textureRebuildHooked) return;
+            if (_textureRebuildHooked)
+                return;
             Font.textureRebuilt += OnTextureRebuilt;
             _textureRebuildHooked = true;
         }
@@ -134,10 +145,12 @@ namespace SlopWorld
 
         static string[] Chain(string name)
         {
-            if (string.IsNullOrEmpty(name)) return Candidates;
+            if (string.IsNullOrEmpty(name))
+                return Candidates;
             var chain = new List<string> { name };
             foreach (var c in Candidates)
-                if (c != name) chain.Add(c);
+                if (c != name)
+                    chain.Add(c);
             return chain.ToArray();
         }
 
@@ -145,7 +158,8 @@ namespace SlopWorld
         {
             get
             {
-                if (_mono == null) _mono = ScanMono();
+                if (_mono == null)
+                    _mono = ScanMono();
                 return _mono;
             }
         }
@@ -156,9 +170,17 @@ namespace SlopWorld
         {
             var found = new List<string>();
             string[] names;
-            try { names = Font.GetOSInstalledFontNames(); }
-            catch (System.Exception e) { Log.Warning($"[SlopWorld] font list: {e.Message}"); return found; }
-            if (names == null) return found;
+            try
+            {
+                names = Font.GetOSInstalledFontNames();
+            }
+            catch (System.Exception e)
+            {
+                Log.Warning($"[SlopWorld] font list: {e.Message}");
+                return found;
+            }
+            if (names == null)
+                return found;
 
             var probe = new GUIStyle
             {
@@ -173,22 +195,26 @@ namespace SlopWorld
             var seen = new HashSet<string>();
             foreach (var name in names)
             {
-                if (string.IsNullOrEmpty(name) || !seen.Add(name)) continue;
+                if (string.IsNullOrEmpty(name) || !seen.Add(name))
+                    continue;
 
                 Font f = null;
                 try
                 {
                     f = Font.CreateDynamicFontFromOSFont(name, ProbeSize);
-                    if (f == null) continue;
+                    if (f == null)
+                        continue;
                     probe.font = f;
                     float narrow = probe.CalcSize(new GUIContent("iiiiiiiiii")).x;
                     float wide = probe.CalcSize(new GUIContent("MMMMMMMMMM")).x;
-                    if (narrow > 0f && Mathf.Abs(narrow - wide) < 1f) found.Add(name);
+                    if (narrow > 0f && Mathf.Abs(narrow - wide) < 1f)
+                        found.Add(name);
                 }
                 catch { }
                 finally
                 {
-                    if (f != null) UnityEngine.Object.DestroyImmediate(f);
+                    if (f != null)
+                        UnityEngine.Object.DestroyImmediate(f);
                 }
             }
 
@@ -202,11 +228,13 @@ namespace SlopWorld
         // row off the grid.
         public static bool FitsCell(char c)
         {
-            if (c >= ' ' && c <= '~') return true;
+            if (c >= ' ' && c <= '~')
+                return true;
 
             var style = Style;
             bool fits;
-            if (_fits.TryGetValue(c, out fits)) return fits;
+            if (_fits.TryGetValue(c, out fits))
+                return fits;
 
             float w = style.CalcSize(new GUIContent(c.ToString())).x;
             fits = Mathf.Abs(w - CellW) < 0.5f;

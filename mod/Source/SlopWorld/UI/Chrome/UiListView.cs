@@ -32,38 +32,53 @@ namespace SlopWorld
             float top = rect.y + UiTheme.HeaderH + UiTheme.GapS;
             float foot = UiTheme.BtnH + UiTheme.GapS;
             var body = new Rect(rect.x, top, rect.width, rect.yMax - foot - top);
-            if (_scroll.HandleWheel(body, _contentHeight)) return;
+            if (_scroll.HandleWheel(body, _contentHeight))
+                return;
             DrawHeader(rect);
             DrawList(body);
 
-            DoFooter(new Rect(rect.x, rect.yMax - UiTheme.BtnH, rect.width,
-                UiTheme.BtnH));
+            DoFooter(new Rect(rect.x, rect.yMax - UiTheme.BtnH, rect.width, UiTheme.BtnH));
         }
 
         void DrawList(Rect rect)
         {
             var items = Rows;
             float contentH = _contentHeight = items.Count * RowH + UiTheme.GapXS;
-            var geometry = UiScrollBody.Measure(rect, contentH,
-                UiScrollbarReservation.WhenNeeded);
+            var geometry = UiScrollBody.Measure(rect, contentH, UiScrollbarReservation.WhenNeeded);
 
             using (_scroll.Scope(rect, geometry.View))
             {
-                if (SmoothScroll.WheelOnly) return;
+                if (SmoothScroll.WheelOnly)
+                    return;
                 if (items.Count == 0)
                 {
-                    UiText.PlainStatusLabel(new Rect(UiTheme.GapXS, UiTheme.GapS,
-                            geometry.View.width - UiTheme.GapS, geometry.View.height), EmptyNote,
-                        UiTheme.Dim);
+                    UiText.PlainStatusLabel(
+                        new Rect(
+                            UiTheme.GapXS,
+                            UiTheme.GapS,
+                            geometry.View.width - UiTheme.GapS,
+                            geometry.View.height
+                        ),
+                        EmptyNote,
+                        UiTheme.Dim
+                    );
                 }
 
-                VisibleRows.Uniform(items.Count, RowH, _scroll.Position.y, rect.height,
-                    out int first, out int end);
+                VisibleRows.Uniform(
+                    items.Count,
+                    RowH,
+                    _scroll.Position.y,
+                    rect.height,
+                    out int first,
+                    out int end
+                );
                 PerfTrace.Count("ui-list-rows-drawn", end - first);
                 for (int i = first; i < end; i++)
                 {
-                    DrawRow(new Rect(0f, i * RowH, geometry.View.width,
-                        RowH - UiTheme.GapXS), items[i]);
+                    DrawRow(
+                        new Rect(0f, i * RowH, geometry.View.width, RowH - UiTheme.GapXS),
+                        items[i]
+                    );
                 }
             }
         }

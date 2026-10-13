@@ -42,8 +42,15 @@ namespace SlopWorld
             // Remember the selected rate for each station. Different stations can offer different rates.
             public int Rate;
 
-            internal Station(string id, string name, string donate, string titleRegex,
-                             int[] rates, string[] keys, int defaultRate)
+            internal Station(
+                string id,
+                string name,
+                string donate,
+                string titleRegex,
+                int[] rates,
+                string[] keys,
+                int defaultRate
+            )
             {
                 Id = id;
                 Metadata = new Metadata(name, donate, titleRegex);
@@ -51,12 +58,15 @@ namespace SlopWorld
                 _keys = keys;
                 Rate = defaultRate;
 
-                if (string.IsNullOrEmpty(Metadata.TitleRegex)) return;
+                if (string.IsNullOrEmpty(Metadata.TitleRegex))
+                    return;
                 try
                 {
-                    _titleRegex = new Regex(Metadata.TitleRegex,
+                    _titleRegex = new Regex(
+                        Metadata.TitleRegex,
                         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
-                        TimeSpan.FromMilliseconds(25));
+                        TimeSpan.FromMilliseconds(25)
+                    );
                 }
                 catch (ArgumentException e)
                 {
@@ -77,24 +87,31 @@ namespace SlopWorld
             {
                 string artist;
                 string song;
-                return TryTitleParts(title, out artist, out song)
-                    ? artist + " - " + song
-                    : title;
+                return TryTitleParts(title, out artist, out song) ? artist + " - " + song : title;
             }
 
             internal bool TryTitleParts(string title, out string artist, out string song)
             {
                 artist = null;
                 song = title;
-                if (_titleRegex == null || string.IsNullOrEmpty(title)) return false;
+                if (_titleRegex == null || string.IsNullOrEmpty(title))
+                    return false;
                 Match match;
-                try { match = _titleRegex.Match(title); }
-                catch (RegexMatchTimeoutException) { return false; }
-                if (!match.Success) return false;
+                try
+                {
+                    match = _titleRegex.Match(title);
+                }
+                catch (RegexMatchTimeoutException)
+                {
+                    return false;
+                }
+                if (!match.Success)
+                    return false;
 
                 Group artistGroup = match.Groups["artist"];
                 Group titleGroup = match.Groups["title"];
-                if (!artistGroup.Success || !titleGroup.Success) return false;
+                if (!artistGroup.Success || !titleGroup.Success)
+                    return false;
 
                 artist = artistGroup.Value.Trim();
                 song = titleGroup.Value.Trim();
@@ -104,12 +121,14 @@ namespace SlopWorld
             int Find(int rate)
             {
                 for (int i = 0; i < Rates.Length; i++)
-                    if (Rates[i] == rate) return i;
+                    if (Rates[i] == rate)
+                        return i;
                 return -1;
             }
         }
 
         static Station[] _stations = Array.Empty<Station>();
+
         // Before the first catalog arrives, a saved radio selection can have no matching station object.
         static bool _catalogReady;
 
@@ -120,10 +139,13 @@ namespace SlopWorld
         // Load metadata and stable stream keys. Skip invalid stations individually so other stations remain available.
         public static void SetStations(Wire.JukeboxCatalog catalog)
         {
-            if (catalog == null) return;
+            if (catalog == null)
+                return;
             string saved = null;
-            if (_station != null) saved = _station.SelectionKey(_station.Rate);
-            else if (_read) saved = Settings.Radio;
+            if (_station != null)
+                saved = _station.SelectionKey(_station.Rate);
+            else if (_read)
+                saved = Settings.Radio;
 
             var next = new List<Station>();
             foreach (var item in catalog.Stations)
@@ -146,7 +168,8 @@ namespace SlopWorld
 
         static void RestoreSelection(string saved)
         {
-            if (!_read || _spotify) return;
+            if (!_read || _spotify)
+                return;
 
             _station = FindSelection(saved);
             string nextSelection = _station?.SelectionKey(_station.Rate);
@@ -157,13 +180,15 @@ namespace SlopWorld
             }
             // Apply the selection when the first catalog replaces the temporary OST choice.
             // Also apply it after a reload changes the URL for an existing key.
-            if (nextSelection != null) Push();
+            if (nextSelection != null)
+                Push();
         }
 
         static Station ConvertStation(Wire.Station item)
         {
             string id = item.Id;
-            if (string.IsNullOrEmpty(id)) throw new InvalidOperationException("missing id");
+            if (string.IsNullOrEmpty(id))
+                throw new InvalidOperationException("missing id");
 
             var metadata = item.Metadata;
             string name = metadata.Name;
@@ -183,24 +208,34 @@ namespace SlopWorld
                 rates.Add(rate);
                 keys.Add(key);
             }
-            if (rates.Count == 0) throw new InvalidOperationException("no streams");
+            if (rates.Count == 0)
+                throw new InvalidOperationException("no streams");
 
             int defaultRate = (int)item.DefaultRate;
             if (!rates.Contains(defaultRate))
                 throw new InvalidOperationException("default rate has no stream");
 
-            return new Station(id, name, donate, titleRegex,
-                rates.ToArray(), keys.ToArray(), defaultRate);
+            return new Station(
+                id,
+                name,
+                donate,
+                titleRegex,
+                rates.ToArray(),
+                keys.ToArray(),
+                defaultRate
+            );
         }
 
         static Station FindSelection(string saved)
         {
-            if (string.IsNullOrEmpty(saved)) return null;
+            if (string.IsNullOrEmpty(saved))
+                return null;
             foreach (var station in Stations)
             {
                 foreach (int rate in station.Rates)
                 {
-                    if (saved != station.SelectionKey(rate)) continue;
+                    if (saved != station.SelectionKey(rate))
+                        continue;
                     station.Rate = rate;
                     return station;
                 }

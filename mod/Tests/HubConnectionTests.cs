@@ -22,7 +22,13 @@ namespace SlopWorld.Tests
                 Failure = failure;
             }
 
-            public bool Connect(string host, int port, string path, string token, int timeoutMs = 3000)
+            public bool Connect(
+                string host,
+                int port,
+                string path,
+                string token,
+                int timeoutMs = 3000
+            )
             {
                 Connected = _result;
                 return _result;
@@ -41,7 +47,9 @@ namespace SlopWorld.Tests
         sealed class Scheduler
         {
             public readonly List<Action> Pending = new List<Action>();
+
             public void Queue(Action action) => Pending.Add(action);
+
             public void Run(int index)
             {
                 var action = Pending[index];
@@ -75,13 +83,21 @@ namespace SlopWorld.Tests
                     AssertEx.Equal(1, scheduler.Pending.Count, "same transport schedules retry");
                     scheduler.Run(0);
                     hub.Update();
-                    AssertEx.True(hub.Connected && retry.Connected && !retry.Disposed,
-                                  "same transport installs retry socket");
-                    AssertEx.Equal("connected", hub.Status,
-                                   "auto-connect retries after discarded " + result);
+                    AssertEx.True(
+                        hub.Connected && retry.Connected && !retry.Disposed,
+                        "same transport installs retry socket"
+                    );
+                    AssertEx.Equal(
+                        "connected",
+                        hub.Status,
+                        "auto-connect retries after discarded " + result
+                    );
                 }
             }
-            finally { Settings.S.autoConnect = previous; }
+            finally
+            {
+                Settings.S.autoConnect = previous;
+            }
         }
 
         public static void StaleConnectResults()
@@ -99,14 +115,20 @@ namespace SlopWorld.Tests
                 hub.Connect(); // invalidates the first serial, leaves the second in flight
                 scheduler.Run(0);
                 hub.Update();
-                AssertEx.Equal(1, scheduler.Pending.Count,
-                               "stale result does not release newer in-flight attempt");
+                AssertEx.Equal(
+                    1,
+                    scheduler.Pending.Count,
+                    "stale result does not release newer in-flight attempt"
+                );
                 AssertEx.True(stale.Disposed, "stale socket disposed");
                 scheduler.Run(0);
                 hub.Update();
                 AssertEx.Equal("connected", hub.Status, "newer attempt still connects");
             }
-            finally { Settings.S.autoConnect = previous; }
+            finally
+            {
+                Settings.S.autoConnect = previous;
+            }
         }
     }
 }

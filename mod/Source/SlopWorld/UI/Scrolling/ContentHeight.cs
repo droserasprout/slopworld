@@ -7,7 +7,8 @@ namespace SlopWorld
     public sealed class ContentHeight
     {
         int _frame = -1;
-        float _height, _pending;
+        float _height,
+            _pending;
 
         public ContentHeight(float estimate = 900f)
         {

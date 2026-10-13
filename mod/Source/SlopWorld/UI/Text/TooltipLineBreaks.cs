@@ -9,22 +9,28 @@ namespace SlopWorld
     {
         internal static string Freeze(string text, Func<int, float> lineY, bool richText)
         {
-            if (string.IsNullOrEmpty(text)) return text ?? "";
+            if (string.IsNullOrEmpty(text))
+                return text ?? "";
             var result = new StringBuilder(text.Length);
-            int copied = 0, tagEnd = -1;
+            int copied = 0,
+                tagEnd = -1;
             float previousY = 0f;
-            bool seenText = false, hardBreak = false;
+            bool seenText = false,
+                hardBreak = false;
             foreach (int offset in StringInfo.ParseCombiningCharacters(text))
             {
-                if (offset <= tagEnd) continue;
+                if (offset <= tagEnd)
+                    continue;
                 if (richText && text[offset] == '<')
                 {
                     int end = text.IndexOf('>', offset + 1);
-                    string tag = end < 0 ? "" : TagName(text.Substring(offset + 1, end - offset - 1));
+                    string tag =
+                        end < 0 ? "" : TagName(text.Substring(offset + 1, end - offset - 1));
                     if (IsFormattingTag(tag) || tag == "quad")
                     {
                         tagEnd = end;
-                        if (tag != "quad") continue;
+                        if (tag != "quad")
+                            continue;
                     }
                 }
                 if (text[offset] == '\r' || text[offset] == '\n')
@@ -49,7 +55,8 @@ namespace SlopWorld
         {
             tag = tag.Trim().TrimStart('/');
             int end = 0;
-            while (end < tag.Length && tag[end] != '=' && !char.IsWhiteSpace(tag[end])) end++;
+            while (end < tag.Length && tag[end] != '=' && !char.IsWhiteSpace(tag[end]))
+                end++;
             return tag.Substring(0, end).ToLowerInvariant();
         }
 

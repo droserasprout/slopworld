@@ -8,90 +8,163 @@ namespace SlopWorld
     // Runtime adapter for the shared catalog. Project names remain the Agents filter contract.
     static partial class SidebarScopes
     {
-        static readonly BrowseScopeCatalog Catalog = new BrowseScopeCatalog(AgentSidebar.Passes,
-            () => Time.realtimeSinceStartup, Load);
-        public static event Action Changed { add { Catalog.Changed += value; } remove { Catalog.Changed -= value; } }
-        public static int Revision { get { Update(); return Catalog.Revision; } }
-        public static int MenuRevision { get { Update(true); return Catalog.Revision; } }
-        public static ProjectInfo Project(string key) => BrowseScope.ProjectOf(key, SessionHub.Instance.Projects);
+        static readonly BrowseScopeCatalog Catalog = new BrowseScopeCatalog(
+            AgentSidebar.Passes,
+            () => Time.realtimeSinceStartup,
+            Load
+        );
+        public static event Action Changed
+        {
+            add { Catalog.Changed += value; }
+            remove { Catalog.Changed -= value; }
+        }
+        public static int Revision
+        {
+            get
+            {
+                Update();
+                return Catalog.Revision;
+            }
+        }
+        public static int MenuRevision
+        {
+            get
+            {
+                Update(true);
+                return Catalog.Revision;
+            }
+        }
+
+        public static ProjectInfo Project(string key) =>
+            BrowseScope.ProjectOf(key, SessionHub.Instance.Projects);
+
         public static string ProjectName(string key) => Project(key)?.Name ?? key;
+
         public static string Label(string key)
         {
             var scope = Find(key);
-            return scope != null ? scope.Project + " / " + scope.Label :
-                BrowseScope.IsKey(key) ? "Unavailable checkout" : key;
+            return scope != null ? scope.Project + " / " + scope.Label
+                : BrowseScope.IsKey(key) ? "Unavailable checkout"
+                : key;
         }
+
         public static string Worktree(string key) => BrowseScope.WorktreeOf(key);
-        public static string Directory(string key) => Find(key)?.Path ?? (BrowseScope.IsKey(key) ? "" : Project(key)?.ExpandedDir) ?? "";
+
+        public static string Directory(string key) =>
+            Find(key)?.Path ?? (BrowseScope.IsKey(key) ? "" : Project(key)?.ExpandedDir) ?? "";
+
         public static string Relative(string key, string path)
         {
             string root = Directory(key).TrimEnd('/');
-            return !string.IsNullOrEmpty(root) && path != null && path.StartsWith(root + "/", StringComparison.Ordinal)
-                ? path.Substring(root.Length + 1) : path;
+            return
+                !string.IsNullOrEmpty(root)
+                && path != null
+                && path.StartsWith(root + "/", StringComparison.Ordinal)
+                ? path.Substring(root.Length + 1)
+                : path;
         }
+
         public static BrowseScope Find(string key) => Catalog.Find(key);
-        public static string Key(string project) => BrowseScope.IsKey(project) ? project :
-            All(project).FirstOrDefault(s => s.Worktree == "main")?.Key ?? project;
+
+        public static string Key(string project) =>
+            BrowseScope.IsKey(project)
+                ? project
+                : All(project).FirstOrDefault(s => s.Worktree == "main")?.Key ?? project;
+
         public static bool Enabled(string key) => Catalog.Enabled(key);
+
         public static bool Chosen(BrowseScope scope) => Catalog.Chosen(scope);
+
         public static bool AllChosen(string project) =>
             Project(project) is ProjectInfo p && Catalog.AllChosen(p.Id);
+
         public static BrowseScopeSelection Selection(string project) =>
             Project(project) is ProjectInfo p ? Catalog.Selection(p.Id) : BrowseScopeSelection.None;
+
         public static void SelectAll(string project)
         {
             Update();
             var p = Project(project);
-            if (p == null) return;
+            if (p == null)
+                return;
             Catalog.SelectAll(p.Id, SaveChoices);
             AgentSidebar.IncludeProject(p.Name);
         }
+
         public static bool HasWorktrees(string project)
         {
             var p = Project(project);
             return p != null && Catalog.HasWorktrees(BrowseScope.ProjectIdOf(p));
         }
+
         public static string Error(string project)
         {
             var p = Project(project);
             return p == null ? null : Catalog.Error(BrowseScope.ProjectIdOf(p));
         }
+
         public static IReadOnlyList<BrowseScope> All(string project)
         {
             Update();
             var p = Project(project);
             return p == null ? new List<BrowseScope>() : Catalog.All(BrowseScope.ProjectIdOf(p));
         }
-        public static List<BrowseScope> EnabledScopes() { Update(); return Catalog.EnabledScopes(); }
+
+        public static List<BrowseScope> EnabledScopes()
+        {
+            Update();
+            return Catalog.EnabledScopes();
+        }
+
         public static string EmptyReason()
         {
             Update();
-            return SessionHub.Instance.Online ? Catalog.EmptyReason() : $"daemon {SessionHub.Instance.Status}";
+            return SessionHub.Instance.Online
+                ? Catalog.EmptyReason()
+                : $"daemon {SessionHub.Instance.Status}";
         }
+
         public static IEnumerable<string> GroupKeys => Catalog.GroupKeys;
+
         public static void Toggle(BrowseScope scope)
         {
             Update();
             Catalog.Toggle(scope, SaveChoices);
         }
+
         static void SaveChoices(string saved)
         {
             Settings.S.sidebarWorktrees = saved;
             Settings.S.Write();
         }
-        public static void Invalidate() { Catalog.Invalidate(); Update(); }
+
+        public static void Invalidate()
+        {
+            Catalog.Invalidate();
+            Update();
+        }
+
         public static void IncludeWorktree(string project, string worktree)
         {
             Update();
             var p = Project(project);
-            if (p == null || string.IsNullOrEmpty(worktree)) return;
+            if (p == null || string.IsNullOrEmpty(worktree))
+                return;
             Catalog.Select(p.Id, worktree, SaveChoices);
             AgentSidebar.IncludeProject(p.Name);
             Invalidate();
         }
+
         public static void Update() => Update(false);
-        static void Update(bool includeHidden) => Catalog.Update(SessionHub.Instance.Projects,
-            SessionHub.Instance.ProjectsRevision, Settings.SidebarFilter, Settings.S.sidebarWorktrees ?? "", SessionHub.Instance.Online,
-            includeHidden);
+
+        static void Update(bool includeHidden) =>
+            Catalog.Update(
+                SessionHub.Instance.Projects,
+                SessionHub.Instance.ProjectsRevision,
+                Settings.SidebarFilter,
+                Settings.S.sidebarWorktrees ?? "",
+                SessionHub.Instance.Online,
+                includeHidden
+            );
     }
 }

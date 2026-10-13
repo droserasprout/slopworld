@@ -17,26 +17,68 @@ namespace SlopWorld.Tests
             public readonly List<Wire.ClientMessage> Sent = new List<Wire.ClientMessage>();
             public int Disposals;
             public bool ThrowOnConnect;
-            public string Host, Path, Token;
+            public string Host,
+                Path,
+                Token;
             public int Port;
-            public Socket(bool connects = true, string error = null) { _connects = connects; LastError = error; }
-            public bool Connect(string host, int port, string path, string token, int timeoutMs = 3000)
+
+            public Socket(bool connects = true, string error = null)
             {
-                Host = host; Port = port; Path = path; Token = token;
-                if (ThrowOnConnect) { Connected = true; throw new InvalidOperationException("setup failed"); }
+                _connects = connects;
+                LastError = error;
+            }
+
+            public bool Connect(
+                string host,
+                int port,
+                string path,
+                string token,
+                int timeoutMs = 3000
+            )
+            {
+                Host = host;
+                Port = port;
+                Path = path;
+                Token = token;
+                if (ThrowOnConnect)
+                {
+                    Connected = true;
+                    throw new InvalidOperationException("setup failed");
+                }
                 return Connected = _connects;
             }
+
             public bool SendBinary(byte[] payload)
             {
-                if (!Connected) return false;
+                if (!Connected)
+                    return false;
                 Sent.Add(Wire.ClientMessage.Parser.ParseFrom(payload));
                 return true;
             }
-            public void Dispose() { Disposals++; Connected = false; Incoming.Close(); }
-            public void Enqueue(ulong id) => Incoming.Enqueue(new Wire.Event
+
+            public void Dispose()
             {
-                Sessions = new Wire.SessionsReply { Sessions = { new Wire.SessionView { Runtime = new Wire.SessionRuntimeView { Seq = id } } } }
-            }.ToByteArray());
+                Disposals++;
+                Connected = false;
+                Incoming.Close();
+            }
+
+            public void Enqueue(ulong id) =>
+                Incoming.Enqueue(
+                    new Wire.Event
+                    {
+                        Sessions = new Wire.SessionsReply
+                        {
+                            Sessions =
+                            {
+                                new Wire.SessionView
+                                {
+                                    Runtime = new Wire.SessionRuntimeView { Seq = id },
+                                },
+                            },
+                        },
+                    }.ToByteArray()
+                );
         }
 
         sealed class Environment : IDisposable
@@ -46,6 +88,7 @@ namespace SlopWorld.Tests
             readonly Queue<Socket> _sockets;
             public readonly Queue<Action> Pending = new Queue<Action>();
             public readonly HubTransport Hub;
+
             public Environment(params Socket[] sockets)
             {
                 Settings.S.autoConnect = true;
@@ -53,8 +96,16 @@ namespace SlopWorld.Tests
                 _sockets = new Queue<Socket>(sockets);
                 Hub = new HubTransport(() => _sockets.Dequeue(), action => Pending.Enqueue(action));
             }
+
             public void Complete() => Pending.Dequeue()();
-            public void Connect() { Hub.Connect(); Complete(); Hub.Update(); }
+
+            public void Connect()
+            {
+                Hub.Connect();
+                Complete();
+                Hub.Update();
+            }
+
             public void Dispose()
             {
                 Hub.Disconnect();
@@ -87,16 +138,32 @@ namespace SlopWorld.Tests
             {
                 var first = new Socket();
                 using var env = new Environment(first, new Socket(false, "refused"), new Socket());
-                var capabilities = DaemonCapabilities.FromWire(new Wire.Capabilities { Runtime = "slopcar" });
+                var capabilities = DaemonCapabilities.FromWire(
+                    new Wire.Capabilities { Runtime = "slopcar" }
+                );
                 int attempts = 0;
-                env.Hub.OnConnecting = () => { capabilities = DaemonCapabilities.Reset(); attempts++; };
+                env.Hub.OnConnecting = () =>
+                {
+                    capabilities = DaemonCapabilities.Reset();
+                    attempts++;
+                };
                 env.Hub.Connect();
-                Assert.That(capabilities.Known, Is.False, "manual attempt invalidates before completion");
+                Assert.That(
+                    capabilities.Known,
+                    Is.False,
+                    "manual attempt invalidates before completion"
+                );
                 Assert.That(DaemonCapabilities.Current, Is.SameAs(capabilities));
                 env.Complete();
                 env.Hub.Update();
-                Assert.That(capabilities.Known, Is.False, "socket success is not a capability announcement");
-                capabilities = DaemonCapabilities.FromWire(new Wire.Capabilities { Runtime = "native" });
+                Assert.That(
+                    capabilities.Known,
+                    Is.False,
+                    "socket success is not a capability announcement"
+                );
+                capabilities = DaemonCapabilities.FromWire(
+                    new Wire.Capabilities { Runtime = "native" }
+                );
                 first.Connected = false;
                 env.Hub.Update();
                 UnityEngine.Time.realtimeSinceStartup += 1f;
@@ -110,7 +177,10 @@ namespace SlopWorld.Tests
                 Assert.That(attempts, Is.EqualTo(3), "failed attempts also notify before retry");
                 Assert.That(capabilities.Known, Is.False);
             }
-            finally { DaemonCapabilities.Current = previous; }
+            finally
+            {
+                DaemonCapabilities.Current = previous;
+            }
         }
 
         public static void SocketSetupExceptionsArePumpedAndRetryAfterBackoff()
@@ -140,14 +210,31 @@ namespace SlopWorld.Tests
                 var socket = new Socket();
                 var pending = new Queue<Action>();
                 var hub = new HubTransport(
-                    () => { if (fail) throw new InvalidOperationException("factory failed"); return socket; },
-                    action => { if (fail && schedulerFails) throw new InvalidOperationException("scheduler failed"); pending.Enqueue(action); });
+                    () =>
+                    {
+                        if (fail)
+                            throw new InvalidOperationException("factory failed");
+                        return socket;
+                    },
+                    action =>
+                    {
+                        if (fail && schedulerFails)
+                            throw new InvalidOperationException("scheduler failed");
+                        pending.Enqueue(action);
+                    }
+                );
                 try
                 {
                     hub.Connect();
-                    if (!schedulerFails) pending.Dequeue()();
+                    if (!schedulerFails)
+                        pending.Dequeue()();
                     hub.Update();
-                    Assert.That(hub.Status, Is.EqualTo("offline: " + (schedulerFails ? "scheduler" : "factory") + " failed"));
+                    Assert.That(
+                        hub.Status,
+                        Is.EqualTo(
+                            "offline: " + (schedulerFails ? "scheduler" : "factory") + " failed"
+                        )
+                    );
                     Assert.That(pending, Is.Empty, "backoff prevents immediate retry");
                     fail = false;
                     UnityEngine.Time.realtimeSinceStartup += 1f;
@@ -157,14 +244,22 @@ namespace SlopWorld.Tests
                     Assert.That(hub.Connected, Is.True);
                     fail = true;
                     hub.Connect();
-                    if (!schedulerFails) pending.Dequeue()();
+                    if (!schedulerFails)
+                        pending.Dequeue()();
                     fail = false;
                     hub.Connect();
                     pending.Dequeue()();
                     hub.Update();
-                    Assert.That(hub.Connected, Is.True, "stale failure cannot replace newer success");
+                    Assert.That(
+                        hub.Connected,
+                        Is.True,
+                        "stale failure cannot replace newer success"
+                    );
                 }
-                finally { hub.Disconnect(); }
+                finally
+                {
+                    hub.Disconnect();
+                }
             }
         }
 
@@ -172,9 +267,15 @@ namespace SlopWorld.Tests
         {
             var failed = Enumerable.Range(0, 5).Select(_ => new Socket(false, "refused")).ToArray();
             var connected = new Socket();
-            using var env = new Environment(failed.Concat(new[] { connected, new Socket() }).ToArray());
+            using var env = new Environment(
+                failed.Concat(new[] { connected, new Socket() }).ToArray()
+            );
             env.Hub.Connect();
-            foreach (var item in failed.Select((socket, index) => (socket, delay: new[] { 1, 2, 4, 5, 5 }[index])))
+            foreach (
+                var item in failed.Select(
+                    (socket, index) => (socket, delay: new[] { 1, 2, 4, 5, 5 }[index])
+                )
+            )
             {
                 env.Complete();
                 env.Hub.Update();
@@ -191,7 +292,11 @@ namespace SlopWorld.Tests
                 Assert.That(env.Pending.Count, Is.EqualTo(1), "only one attempt at the deadline");
             }
             int installed = 0;
-            env.Hub.OnConnected = () => { Assert.That(env.Hub.Connected, Is.True); installed++; };
+            env.Hub.OnConnected = () =>
+            {
+                Assert.That(env.Hub.Connected, Is.True);
+                installed++;
+            };
             env.Complete();
             env.Hub.Update();
             Assert.That(installed, Is.EqualTo(1));
@@ -202,7 +307,11 @@ namespace SlopWorld.Tests
             Assert.That(connected.Disposals, Is.EqualTo(1));
             UnityEngine.Time.realtimeSinceStartup += 1f;
             env.Hub.Update();
-            Assert.That(env.Pending.Count, Is.EqualTo(1), "successful connection resets retry delay to one second");
+            Assert.That(
+                env.Pending.Count,
+                Is.EqualTo(1),
+                "successful connection resets retry delay to one second"
+            );
         }
 
         public static void ManualReconnectBypassesBackoffAndSendsOnlyWhileConnected()
@@ -298,17 +407,23 @@ namespace SlopWorld.Tests
             using var env = new Environment(socket);
             env.Connect();
             socket.Incoming.Enqueue(new byte[] { 0x80 });
-            for (ulong i = 1; i <= 33; i++) socket.Enqueue(i);
+            for (ulong i = 1; i <= 33; i++)
+                socket.Enqueue(i);
             var delivered = new List<ulong>();
             env.Hub.OnMessage = ev =>
             {
                 ulong id = ev.Sessions.Sessions[0].Runtime.Seq;
                 delivered.Add(id);
-                if (id == 1) throw new InvalidOperationException("consumer failed");
+                if (id == 1)
+                    throw new InvalidOperationException("consumer failed");
             };
             env.Hub.Update();
             Assert.That(delivered, Is.EqualTo(Enumerable.Range(1, 31).Select(i => (ulong)i)));
-            Assert.That(socket.Incoming.Count, Is.EqualTo(2), "malformed event also consumes frame budget");
+            Assert.That(
+                socket.Incoming.Count,
+                Is.EqualTo(2),
+                "malformed event also consumes frame budget"
+            );
             env.Hub.Update();
             Assert.That(delivered, Is.EqualTo(Enumerable.Range(1, 33).Select(i => (ulong)i)));
             env.Hub.Update();
@@ -337,7 +452,11 @@ namespace SlopWorld.Tests
                 }
             };
             env.Hub.Update();
-            Assert.That(delivered, Is.EqualTo(new ulong[] { 1, 2 }), "captured batch finishes without draining replacement queue");
+            Assert.That(
+                delivered,
+                Is.EqualTo(new ulong[] { 1, 2 }),
+                "captured batch finishes without draining replacement queue"
+            );
             Assert.That(next.Incoming.Count, Is.EqualTo(1));
             Assert.That(old.Disposals, Is.EqualTo(1));
             env.Hub.Update();

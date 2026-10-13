@@ -9,17 +9,23 @@ namespace SlopWorld.Tests
         {
             var screen = new ScreenBuf();
             AssertEx.False(screen.Snapshot().HasSequence, "uninitialized snapshot");
-            foreach (ulong seq in new[] { (ulong)int.MaxValue, (ulong)uint.MaxValue, ulong.MaxValue - 1 })
+            foreach (
+                ulong seq in new[] { (ulong)int.MaxValue, (ulong)uint.MaxValue, ulong.MaxValue - 1 }
+            )
             {
                 screen.FromWire(new Wire.ScreenView { Seq = seq, History = 1 });
                 screen.FromWire(new Wire.ScreenView { Seq = seq + 1, History = 2 });
                 AssertEx.Equal(1, screen.LiveShift, "scroll across integer boundary");
-                screen.InputTimings = new Google.Protobuf.Collections.RepeatedField<Wire.InputTiming>();
+                screen.InputTimings =
+                    new Google.Protobuf.Collections.RepeatedField<Wire.InputTiming>();
                 screen.InputTimings.Add(new Wire.InputTiming());
                 var snapshot = screen.Snapshot();
                 AssertEx.True(snapshot.HasSequence, "initialized snapshot");
                 AssertEx.Equal(seq + 1, snapshot.WireSeq, "snapshot wire identity");
-                AssertEx.True(snapshot.InputTimings == null, "snapshot does not replay timing samples");
+                AssertEx.True(
+                    snapshot.InputTimings == null,
+                    "snapshot does not replay timing samples"
+                );
                 screen.FromWire(new Wire.ScreenView { Seq = seq + 1, History = 3 });
                 AssertEx.Equal(0, screen.LiveShift, "replay is not new scrolling");
             }
@@ -31,67 +37,84 @@ namespace SlopWorld.Tests
             yield return ("hydrates a screen frame", HydratesScreenFrame);
             yield return ("uses wire defaults", UsesWireDefaults);
             yield return ("detects a live row shift", DetectsLiveRowShift);
-            yield return ("detects a live row shift with a repeated outgoing row",
-                DetectsRepeatedRowShift);
-            yield return ("uses live history growth for a large row shift",
-                UsesLiveHistoryGrowth);
+            yield return (
+                "detects a live row shift with a repeated outgoing row",
+                DetectsRepeatedRowShift
+            );
+            yield return ("uses live history growth for a large row shift", UsesLiveHistoryGrowth);
             yield return ("known history rejects a prompt overlap during redraw", PromptOverlap);
-            yield return ("does not treat unknown history as one row",
-                UnknownHistoryIsNotGrowth);
-            yield return ("does not treat a replayed frame as a row shift",
-                ReplayIsNotGrowth);
+            yield return ("does not treat unknown history as one row", UnknownHistoryIsNotGrowth);
+            yield return ("does not treat a replayed frame as a row shift", ReplayIsNotGrowth);
             yield return ("does not call a bottom edit a row shift", IgnoresBottomEdit);
-            yield return ("does not call an ambiguous repeated-content edit a row shift",
-                IgnoresAmbiguousRepeatedEdit);
+            yield return (
+                "does not call an ambiguous repeated-content edit a row shift",
+                IgnoresAmbiguousRepeatedEdit
+            );
             yield return ("does not shift across a changed viewport", IgnoresChangedViewport);
             yield return ("retains unchanged row metadata", RetainsUnchangedRows);
             yield return ("cursor-only frames retain the content revision", CursorOnlyRevision);
             yield return ("incremental links match full parsing", IncrementalLinksMatchFullParse);
-            yield return ("link edits survive skipped renders and snapshots", LinksAcrossSkippedRenders);
+            yield return (
+                "link edits survive skipped renders and snapshots",
+                LinksAcrossSkippedRenders
+            );
         }
 
         static void OverlapReference()
         {
             var screen = new ScreenBuf();
             for (int rows = 2; rows <= 6; rows++)
-                for (int a = 0; a < (1 << rows); a++)
-                    for (int b = 0; b < (1 << rows); b++)
+            for (int a = 0; a < (1 << rows); a++)
+            for (int b = 0; b < (1 << rows); b++)
+            {
+                var before = new string[rows];
+                var after = new string[rows];
+                bool changed = false;
+                for (int i = 0; i < rows; i++)
+                {
+                    before[i] = (a & (1 << i)) == 0 ? "" : "repeat";
+                    after[i] = (b & (1 << i)) == 0 ? "" : "repeat";
+                    if (i < rows - 1 && before[i] != after[i])
+                        changed = true;
+                }
+                int expected = 0;
+                if (changed && before[rows - 1] != after[rows - 1])
+                    for (int shift = 1; shift < rows; shift++)
                     {
-                        var before = new string[rows];
-                        var after = new string[rows];
-                        bool changed = false;
-                        for (int i = 0; i < rows; i++)
-                        {
-                            before[i] = (a & (1 << i)) == 0 ? "" : "repeat";
-                            after[i] = (b & (1 << i)) == 0 ? "" : "repeat";
-                            if (i < rows - 1 && before[i] != after[i]) changed = true;
-                        }
-                        int expected = 0;
-                        if (changed && before[rows - 1] != after[rows - 1])
-                            for (int shift = 1; shift < rows; shift++)
+                        bool overlap = true;
+                        for (int i = 0; i < rows - shift; i++)
+                            if (before[i + shift] != after[i])
                             {
-                                bool overlap = true;
-                                for (int i = 0; i < rows - shift; i++)
-                                    if (before[i + shift] != after[i]) { overlap = false; break; }
-                                if (overlap) { expected = shift; break; }
+                                overlap = false;
+                                break;
                             }
-                        AssertEx.Equal(expected, screen.VerticalShift(before, after, rows, rows, rows - 1),
-                            "reference overlap for repeated rows");
+                        if (overlap)
+                        {
+                            expected = shift;
+                            break;
+                        }
                     }
+                AssertEx.Equal(
+                    expected,
+                    screen.VerticalShift(before, after, rows, rows, rows - 1),
+                    "reference overlap for repeated rows"
+                );
+            }
         }
 
         static void HydratesScreenFrame()
         {
-            var screen = new ScreenBuf
-            {
-                Runs = new List<SgrRun>[1],
-                RunsRev = 12,
-            };
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":7,\"cols\":120,\"rows\":40,\"cx\":3,\"cy\":4," +
-                "\"off\":5,\"history\":91,\"request_id\":42,\"cursor_shape\":2," +
-                "\"cursor_blink\":false,\"app_mouse\":true,\"app_drag\":true," +
-                "\"alt_screen\":true,\"title\":\"vim\",\"lines\":[\"one\",\"two\"]}")));
+            var screen = new ScreenBuf { Runs = new List<SgrRun>[1], RunsRev = 12 };
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":7,\"cols\":120,\"rows\":40,\"cx\":3,\"cy\":4,"
+                            + "\"off\":5,\"history\":91,\"request_id\":42,\"cursor_shape\":2,"
+                            + "\"cursor_blink\":false,\"app_mouse\":true,\"app_drag\":true,"
+                            + "\"alt_screen\":true,\"title\":\"vim\",\"lines\":[\"one\",\"two\"]}"
+                    )
+                )
+            );
 
             AssertEx.Equal(7UL, screen.Seq, "sequence");
             AssertEx.Equal(120, screen.Cols, "columns");
@@ -136,12 +159,22 @@ namespace SlopWorld.Tests
         static void DetectsLiveRowShift()
         {
             var screen = new ScreenBuf();
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":5," +
-                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}")));
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":6," +
-                "\"off\":0,\"lines\":[\"two\",\"three\",\"four\"]}")));
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":5,"
+                            + "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"
+                    )
+                )
+            );
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":6,"
+                            + "\"off\":0,\"lines\":[\"two\",\"three\",\"four\"]}"
+                    )
+                )
+            );
 
             AssertEx.Equal(1, screen.LiveShift, "live row shift");
         }
@@ -149,81 +182,156 @@ namespace SlopWorld.Tests
         static void DetectsRepeatedRowShift()
         {
             var screen = new ScreenBuf();
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":1,\"cols\":20,\"rows\":4,\"cy\":3,\"history\":5," +
-                "\"off\":0,\"lines\":[\"same\",\"same\",\"line-2\",\"line-3\"]}")));
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3,\"history\":6," +
-                "\"off\":0,\"lines\":[\"same\",\"line-2\",\"line-3\",\"line-4\"]}")));
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":1,\"cols\":20,\"rows\":4,\"cy\":3,\"history\":5,"
+                            + "\"off\":0,\"lines\":[\"same\",\"same\",\"line-2\",\"line-3\"]}"
+                    )
+                )
+            );
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3,\"history\":6,"
+                            + "\"off\":0,\"lines\":[\"same\",\"line-2\",\"line-3\",\"line-4\"]}"
+                    )
+                )
+            );
 
-            AssertEx.Equal(1, screen.LiveShift,
-                "a scroll remains detectable when the outgoing top rows repeat");
+            AssertEx.Equal(
+                1,
+                screen.LiveShift,
+                "a scroll remains detectable when the outgoing top rows repeat"
+            );
         }
 
         static void UsesLiveHistoryGrowth()
         {
             var screen = new ScreenBuf();
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":4," +
-                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}")));
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":8," +
-                "\"off\":0,\"lines\":[\"new-a\",\"new-b\",\"new-c\"]}")));
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":4,"
+                            + "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"
+                    )
+                )
+            );
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":8,"
+                            + "\"off\":0,\"lines\":[\"new-a\",\"new-b\",\"new-c\"]}"
+                    )
+                )
+            );
 
-            AssertEx.Equal(4, screen.LiveShift,
-                "history growth reports a shift when no visible rows overlap");
+            AssertEx.Equal(
+                4,
+                screen.LiveShift,
+                "history growth reports a shift when no visible rows overlap"
+            );
         }
 
         static void PromptOverlap()
         {
             var screen = new ScreenBuf();
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":10," +
-                "\"lines\":[\"Ask Codex to do anything\",\"\",\"\"]}")));
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":10," +
-                "\"lines\":[\"\",\"\",\"diff\"]}")));
-            AssertEx.Equal(0, screen.LiveShift,
-                "overlapping blank rows cannot override an unchanged daemon history extent");
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":10,"
+                            + "\"lines\":[\"Ask Codex to do anything\",\"\",\"\"]}"
+                    )
+                )
+            );
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":10,"
+                            + "\"lines\":[\"\",\"\",\"diff\"]}"
+                    )
+                )
+            );
+            AssertEx.Equal(
+                0,
+                screen.LiveShift,
+                "overlapping blank rows cannot override an unchanged daemon history extent"
+            );
         }
 
         static void UnknownHistoryIsNotGrowth()
         {
             var screen = new ScreenBuf();
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2," +
-                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}")));
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":0," +
-                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}")));
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2,"
+                            + "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"
+                    )
+                )
+            );
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":0,"
+                            + "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"
+                    )
+                )
+            );
 
-            AssertEx.Equal(0, screen.LiveShift,
-                "hydrating an unknown zero history extent does not add a row");
+            AssertEx.Equal(
+                0,
+                screen.LiveShift,
+                "hydrating an unknown zero history extent does not add a row"
+            );
         }
 
         static void ReplayIsNotGrowth()
         {
             var screen = new ScreenBuf();
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":7,\"cols\":20,\"rows\":3,\"cy\":2," +
-                "\"history\":0,\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}")));
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":7,\"cols\":20,\"rows\":3,\"cy\":2," +
-                "\"history\":1,\"off\":0,\"lines\":[\"two\",\"three\",\"four\"]}")));
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":7,\"cols\":20,\"rows\":3,\"cy\":2,"
+                            + "\"history\":0,\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"
+                    )
+                )
+            );
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":7,\"cols\":20,\"rows\":3,\"cy\":2,"
+                            + "\"history\":1,\"off\":0,\"lines\":[\"two\",\"three\",\"four\"]}"
+                    )
+                )
+            );
 
-            AssertEx.Equal(0, screen.LiveShift,
-                "a same-sequence resubscription replay does not add a row");
+            AssertEx.Equal(
+                0,
+                screen.LiveShift,
+                "a same-sequence resubscription replay does not add a row"
+            );
         }
 
         static void IgnoresBottomEdit()
         {
             var screen = new ScreenBuf();
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2," +
-                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}")));
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2," +
-                "\"off\":0,\"lines\":[\"one\",\"two\",\"four\"]}")));
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2,"
+                            + "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"
+                    )
+                )
+            );
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2,"
+                            + "\"off\":0,\"lines\":[\"one\",\"two\",\"four\"]}"
+                    )
+                )
+            );
 
             AssertEx.Equal(0, screen.LiveShift, "bottom edit shift");
         }
@@ -231,26 +339,49 @@ namespace SlopWorld.Tests
         static void IgnoresAmbiguousRepeatedEdit()
         {
             var screen = new ScreenBuf();
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":1,\"cols\":20,\"rows\":4,\"cy\":3," +
-                "\"off\":0,\"lines\":[\"same\",\"same\",\"same\",\"same\"]}")));
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3," +
-                "\"off\":0,\"lines\":[\"same\",\"same\",\"same\",\"new\"]}")));
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":1,\"cols\":20,\"rows\":4,\"cy\":3,"
+                            + "\"off\":0,\"lines\":[\"same\",\"same\",\"same\",\"same\"]}"
+                    )
+                )
+            );
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3,"
+                            + "\"off\":0,\"lines\":[\"same\",\"same\",\"same\",\"new\"]}"
+                    )
+                )
+            );
 
-            AssertEx.Equal(0, screen.LiveShift,
-                "a bottom edit among repeated rows remains ambiguous");
+            AssertEx.Equal(
+                0,
+                screen.LiveShift,
+                "a bottom edit among repeated rows remains ambiguous"
+            );
         }
 
         static void IgnoresChangedViewport()
         {
             var screen = new ScreenBuf();
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2," +
-                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}")));
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3," +
-                "\"off\":0,\"lines\":[\"two\",\"three\",\"four\",\"five\"]}")));
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2,"
+                            + "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"
+                    )
+                )
+            );
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3,"
+                            + "\"off\":0,\"lines\":[\"two\",\"three\",\"four\",\"five\"]}"
+                    )
+                )
+            );
 
             AssertEx.Equal(0, screen.LiveShift, "a resize does not look like a scroll");
         }
@@ -258,9 +389,14 @@ namespace SlopWorld.Tests
         static void RetainsUnchangedRows()
         {
             var screen = new ScreenBuf();
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":1,\"cols\":20,\"rows\":3," +
-                "\"lines\":[\"one\",\"two\",\"three\"]}")));
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":1,\"cols\":20,\"rows\":3,"
+                            + "\"lines\":[\"one\",\"two\",\"three\"]}"
+                    )
+                )
+            );
             var first = new List<SgrRun>();
             var second = new List<SgrRun>();
             var third = new List<SgrRun>();
@@ -270,31 +406,50 @@ namespace SlopWorld.Tests
             var snapshot = screen.Snapshot();
             int revision = screen.ContentRevision;
 
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":2,\"cols\":20,\"rows\":3," +
-                "\"lines\":[\"one\",\"changed\",\"three\"]}")));
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":2,\"cols\":20,\"rows\":3,"
+                            + "\"lines\":[\"one\",\"changed\",\"three\"]}"
+                    )
+                )
+            );
 
             AssertEx.Equal(revision + 1, screen.ContentRevision, "content revision");
             AssertEx.Equal(1, screen.ChangedRows.Length, "changed row count");
             AssertEx.Equal(1, screen.ChangedRows[0], "changed row index");
-            AssertEx.True(object.ReferenceEquals(first, screen.Runs[0]),
-                "unchanged row runs are retained");
+            AssertEx.True(
+                object.ReferenceEquals(first, screen.Runs[0]),
+                "unchanged row runs are retained"
+            );
             AssertEx.True(screen.Runs[1] == null, "changed row runs are invalidated");
-            AssertEx.True(object.ReferenceEquals(second, snapshot.Runs[1]),
-                "invalidation preserves snapshot rows");
+            AssertEx.True(
+                object.ReferenceEquals(second, snapshot.Runs[1]),
+                "invalidation preserves snapshot rows"
+            );
             AssertEx.False(screen.RunsComplete, "partial runs are not complete");
         }
 
         static void CursorOnlyRevision()
         {
             var screen = new ScreenBuf();
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":1,\"cols\":20,\"rows\":2,\"cx\":1," +
-                "\"lines\":[\"one\",\"two\"]}")));
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":1,\"cols\":20,\"rows\":2,\"cx\":1,"
+                            + "\"lines\":[\"one\",\"two\"]}"
+                    )
+                )
+            );
             int revision = screen.ContentRevision;
-            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":2,\"cols\":20,\"rows\":2,\"cx\":2," +
-                "\"lines\":[\"one\",\"two\"]}")));
+            screen.FromWire(
+                ProtobufFixtures.Read<Wire.ScreenView>(
+                    JVal.Parse(
+                        "{\"seq\":2,\"cols\":20,\"rows\":2,\"cx\":2,"
+                            + "\"lines\":[\"one\",\"two\"]}"
+                    )
+                )
+            );
 
             AssertEx.Equal(revision, screen.ContentRevision, "content revision is stable");
             AssertEx.Equal(0, screen.ChangedRows.Length, "no changed rows");
@@ -332,12 +487,19 @@ namespace SlopWorld.Tests
             screen.RunsRev = 1;
             AssertRunsEqual(Sgr.ParseLines(edited, cols), second, "removed long link");
             AssertRunsEqual(Sgr.ParseLines(initial, cols), retained.Runs, "snapshot stays old");
-            AssertEx.True(object.ReferenceEquals(unchanged, second[3]),
-                           "unrelated OSC 8 row is retained");
-            AssertEx.True(second[0] != first[0] && second[2] != first[2],
-                           "the whole removed URL span is rebuilt");
-            AssertEx.Equal("0,1,2", string.Join(",", screen.ChangedRows),
-                           "texture damage includes changed wrapped-link decoration");
+            AssertEx.True(
+                object.ReferenceEquals(unchanged, second[3]),
+                "unrelated OSC 8 row is retained"
+            );
+            AssertEx.True(
+                second[0] != first[0] && second[2] != first[2],
+                "the whole removed URL span is rebuilt"
+            );
+            AssertEx.Equal(
+                "0,1,2",
+                string.Join(",", screen.ChangedRows),
+                "texture damage includes changed wrapped-link decoration"
+            );
 
             var joined = new[]
             {
@@ -371,19 +533,33 @@ namespace SlopWorld.Tests
             screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(Wire(2, cols, edited, 0)));
             screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(Wire(3, cols, edited, 0)));
             var pending = screen.Snapshot();
-            AssertRunsEqual(Sgr.ParseLines(edited, cols),
-                cache.Parse(screen, 1, 1, out _, out _), "edit then replay before render");
-            AssertRunsEqual(Sgr.ParseLines(edited, cols),
-                cache.Parse(pending, 1, 1, out _, out _), "snapshot of pending edits");
+            AssertRunsEqual(
+                Sgr.ParseLines(edited, cols),
+                cache.Parse(screen, 1, 1, out _, out _),
+                "edit then replay before render"
+            );
+            AssertRunsEqual(
+                Sgr.ParseLines(edited, cols),
+                cache.Parse(pending, 1, 1, out _, out _),
+                "snapshot of pending edits"
+            );
             AssertRunsEqual(Sgr.ParseLines(initial, cols), original.Runs, "retained old snapshot");
 
             // Exercise multiple accumulated edits, reversals, resize, history offsets and
             // palette changes. Every parse must agree with the uncached whole-screen parser.
             var random = new Random(42);
             var lines = (string[])initial.Clone();
-            var choices = new[] { "https://exam", "ple.com/path", "/very/long  ", " ",
-                "progress", "\x1b[31mred", "\U0001F916\x1b[3Gtail",
-                "\x1b]8;;https://named.example\x07wide\x1b]8;;\x07" };
+            var choices = new[]
+            {
+                "https://exam",
+                "ple.com/path",
+                "/very/long  ",
+                " ",
+                "progress",
+                "\x1b[31mred",
+                "\U0001F916\x1b[3Gtail",
+                "\x1b]8;;https://named.example\x07wide\x1b]8;;\x07",
+            };
             int seq = 3;
             for (int round = 0; round < 80; round++)
             {
@@ -391,19 +567,31 @@ namespace SlopWorld.Tests
                 for (int edit = 0; edit < 3; edit++)
                 {
                     lines[random.Next(lines.Length)] = choices[random.Next(choices.Length)];
-                    screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(Wire(++seq, width, lines, round % 2 == 0 ? 0 : 17)));
+                    screen.FromWire(
+                        ProtobufFixtures.Read<Wire.ScreenView>(
+                            Wire(++seq, width, lines, round % 2 == 0 ? 0 : 17)
+                        )
+                    );
                 }
                 var expected = Sgr.ParseLines(lines, width);
                 var retained = screen.Snapshot();
-                AssertRunsEqual(expected, cache.Parse(screen, round / 10, 1, out _, out _),
-                                "accumulated edits " + round);
+                AssertRunsEqual(
+                    expected,
+                    cache.Parse(screen, round / 10, 1, out _, out _),
+                    "accumulated edits " + round
+                );
                 screen.RunsRev = round / 10;
                 if (retained.Runs != null)
                     foreach (int row in retained.ChangedRows)
-                        AssertEx.True(retained.Runs[row] == null,
-                                      "source parsing leaves pending snapshot slots untouched");
-                AssertRunsEqual(expected, cache.Parse(retained, round / 10, 1, out _, out _),
-                                "pending snapshot " + round);
+                        AssertEx.True(
+                            retained.Runs[row] == null,
+                            "source parsing leaves pending snapshot slots untouched"
+                        );
+                AssertRunsEqual(
+                    expected,
+                    cache.Parse(retained, round / 10, 1, out _, out _),
+                    "pending snapshot " + round
+                );
             }
         }
 
@@ -416,9 +604,19 @@ namespace SlopWorld.Tests
 
         static JVal Wire(int seq, int cols, string[] lines, int off)
         {
-            return JVal.Parse("{\"seq\":" + seq + ",\"cols\":" + cols +
-                ",\"rows\":" + lines.Length + ",\"off\":" + off +
-                ",\"lines\":[" + string.Join(",", System.Linq.Enumerable.Select(lines, JVal.Q)) + "]}");
+            return JVal.Parse(
+                "{\"seq\":"
+                    + seq
+                    + ",\"cols\":"
+                    + cols
+                    + ",\"rows\":"
+                    + lines.Length
+                    + ",\"off\":"
+                    + off
+                    + ",\"lines\":["
+                    + string.Join(",", System.Linq.Enumerable.Select(lines, JVal.Q))
+                    + "]}"
+            );
         }
 
         static void AssertRunsEqual(List<SgrRun>[] expected, List<SgrRun>[] actual, string message)
@@ -426,7 +624,11 @@ namespace SlopWorld.Tests
             AssertEx.Equal(expected.Length, actual.Length, message + " row count");
             for (int row = 0; row < expected.Length; row++)
             {
-                AssertEx.Equal(expected[row].Count, actual[row].Count, message + " run count " + row);
+                AssertEx.Equal(
+                    expected[row].Count,
+                    actual[row].Count,
+                    message + " run count " + row
+                );
                 for (int i = 0; i < expected[row].Count; i++)
                 {
                     var left = expected[row][i];

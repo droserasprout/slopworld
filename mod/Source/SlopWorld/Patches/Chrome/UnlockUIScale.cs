@@ -18,13 +18,13 @@ namespace SlopWorld
         {
             var code = instructions.ToList();
             var devMode = AccessTools.PropertyGetter(typeof(Prefs), nameof(Prefs.DevMode));
-            var exempt = AccessTools.Method(typeof(Patch_ResolutionUpdate_UIScale),
-                nameof(Exempt));
+            var exempt = AccessTools.Method(typeof(Patch_ResolutionUpdate_UIScale), nameof(Exempt));
             bool swapped = false;
 
             for (int i = 0; i < code.Count; i++)
             {
-                if (!code[i].Calls(devMode)) continue;
+                if (!code[i].Calls(devMode))
+                    continue;
                 code[i].opcode = OpCodes.Call;
                 code[i].operand = exempt;
                 swapped = true;

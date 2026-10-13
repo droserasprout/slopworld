@@ -27,7 +27,8 @@ namespace SlopWorld
     {
         public static TextSelectionRange WordRange(string text, int index)
         {
-            if (string.IsNullOrEmpty(text)) return new TextSelectionRange(0, 0);
+            if (string.IsNullOrEmpty(text))
+                return new TextSelectionRange(0, 0);
 
             int at = CodePointIndex(text, index);
             int anchor = CodePointAt(text, at);
@@ -38,7 +39,8 @@ namespace SlopWorld
             while (start > 0)
             {
                 int previous = PreviousCodePoint(text, start);
-                if (!SameClass(text, previous, anchor, word)) break;
+                if (!SameClass(text, previous, anchor, word))
+                    break;
                 start = previous;
             }
             while (end < text.Length && SameClass(text, end, anchor, word))
@@ -49,7 +51,8 @@ namespace SlopWorld
 
         public static TextSelectionRange LineRange(string text, int index)
         {
-            if (string.IsNullOrEmpty(text)) return new TextSelectionRange(0, 0);
+            if (string.IsNullOrEmpty(text))
+                return new TextSelectionRange(0, 0);
 
             int at = Math.Max(0, Math.Min(index, text.Length - 1));
             int start = at == 0 ? 0 : text.LastIndexOf('\n', at - 1) + 1;
@@ -61,8 +64,10 @@ namespace SlopWorld
         // A word selection starts with the clicked word already selected. Extending to the
         // right must keep that whole word even when the pointer is still in a shorter adjacent
         // run. Extending left keeps the original word as the opposite endpoint.
-        public static TextSelectionRange ExpandWordSelection(TextSelectionRange original,
-                                                              TextSelectionRange destination)
+        public static TextSelectionRange ExpandWordSelection(
+            TextSelectionRange original,
+            TextSelectionRange destination
+        )
         {
             if (destination.Start < original.Start)
                 return new TextSelectionRange(original.End, destination.Start);
@@ -76,26 +81,31 @@ namespace SlopWorld
 
         static int CodePointIndex(string text, int index)
         {
-            if (string.IsNullOrEmpty(text)) return 0;
+            if (string.IsNullOrEmpty(text))
+                return 0;
 
             int at = Math.Max(0, Math.Min(index, text.Length - 1));
-            if (at > 0 && char.IsLowSurrogate(text[at]) &&
-                char.IsHighSurrogate(text[at - 1]))
+            if (at > 0 && char.IsLowSurrogate(text[at]) && char.IsHighSurrogate(text[at - 1]))
                 at--;
             return at;
         }
 
         // Incomplete editable UTF-16 is still selectable as one code unit.
         static int CodePointAt(string text, int index) =>
-            char.IsHighSurrogate(text[index]) && index + 1 < text.Length &&
-            char.IsLowSurrogate(text[index + 1])
-                ? char.ConvertToUtf32(text, index) : text[index];
+            char.IsHighSurrogate(text[index])
+            && index + 1 < text.Length
+            && char.IsLowSurrogate(text[index + 1])
+                ? char.ConvertToUtf32(text, index)
+                : text[index];
 
         static int NextCodePoint(string text, int index)
         {
             int next = index + 1;
-            if (next < text.Length && char.IsHighSurrogate(text[index]) &&
-                char.IsLowSurrogate(text[next]))
+            if (
+                next < text.Length
+                && char.IsHighSurrogate(text[index])
+                && char.IsLowSurrogate(text[next])
+            )
                 return next + 1;
             return next;
         }
@@ -103,8 +113,11 @@ namespace SlopWorld
         static int PreviousCodePoint(string text, int index)
         {
             int previous = index - 1;
-            if (previous > 0 && char.IsLowSurrogate(text[previous]) &&
-                char.IsHighSurrogate(text[previous - 1]))
+            if (
+                previous > 0
+                && char.IsLowSurrogate(text[previous])
+                && char.IsHighSurrogate(text[previous - 1])
+            )
                 previous--;
             return previous;
         }
@@ -114,7 +127,8 @@ namespace SlopWorld
 
         static bool IsWordCodePoint(string text, int index)
         {
-            if (text[index] == '_') return true;
+            if (text[index] == '_')
+                return true;
             switch (CharUnicodeInfo.GetUnicodeCategory(text, index))
             {
                 case UnicodeCategory.UppercaseLetter:

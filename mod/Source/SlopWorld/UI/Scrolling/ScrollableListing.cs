@@ -20,14 +20,20 @@ namespace SlopWorld
         // its measured extent becomes visible on the next frame.
         public delegate float DrawTrailing(Rect bounds, float bottom);
 
-        public void Draw(Rect frame, Action<Listing_Standard> drawListing,
-                         DrawTrailing drawTrailing = null)
+        public void Draw(
+            Rect frame,
+            Action<Listing_Standard> drawListing,
+            DrawTrailing drawTrailing = null
+        )
         {
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Small;
-                var geometry = UiScrollBody.Measure(frame,
-                    _height.BeginFrame(Time.frameCount), UiScrollbarReservation.Always);
+                var geometry = UiScrollBody.Measure(
+                    frame,
+                    _height.BeginFrame(Time.frameCount),
+                    UiScrollbarReservation.Always
+                );
                 using (_scroll.Scope(frame, geometry.View))
                 {
                     var listing = new Listing_Standard { maxOneColumn = true };
@@ -35,18 +41,21 @@ namespace SlopWorld
                     float y = 0f;
                     try
                     {
-                        listing.Begin(new Rect(0f, 0f, geometry.View.width,
-                            UiLayout.ListingHeight));
+                        listing.Begin(
+                            new Rect(0f, 0f, geometry.View.width, UiLayout.ListingHeight)
+                        );
                         begun = true;
                         drawListing(listing);
                         y = listing.CurHeight;
                     }
                     finally
                     {
-                        if (begun) listing.End();
+                        if (begun)
+                            listing.End();
                     }
 
-                    if (drawTrailing != null) y = drawTrailing(geometry.View, y);
+                    if (drawTrailing != null)
+                        y = drawTrailing(geometry.View, y);
                     _height.Measure(y + UiTheme.GapS);
                 }
             }

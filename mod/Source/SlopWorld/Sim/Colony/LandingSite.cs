@@ -19,24 +19,30 @@ namespace SlopWorld
         {
             var init = Find.GameInitData;
             var layer = Find.WorldGrid?.Surface;
-            if (init == null || layer == null) return;
+            if (init == null || layer == null)
+                return;
 
             // Prefer tropical biomes, even if they have more hills than a temperate tile.
-            var tile = Pick(layer, Tropical, Hilliness.Flat)
-                    ?? Pick(layer, Tropical, Hilliness.SmallHills)
-                    ?? Pick(layer, Temperate, Hilliness.Flat)
-                    ?? Pick(layer, Temperate, Hilliness.SmallHills);
+            var tile =
+                Pick(layer, Tropical, Hilliness.Flat)
+                ?? Pick(layer, Tropical, Hilliness.SmallHills)
+                ?? Pick(layer, Temperate, Hilliness.Flat)
+                ?? Pick(layer, Temperate, Hilliness.SmallHills);
 
             if (tile == null)
             {
                 // Keep the random tile if no suitable tile exists. Log the reason for the fallback.
-                Log.Warning("[SlopWorld] No green lowland tile exists on this planet. Keeping the random tile.");
+                Log.Warning(
+                    "[SlopWorld] No green lowland tile exists on this planet. Keeping the random tile."
+                );
                 return;
             }
 
             init.startingTile = tile.Value;
-            Log.Message($"[SlopWorld] landing on {Find.WorldGrid[tile.Value].PrimaryBiome?.defName} " +
-                        $"at tile {tile.Value}");
+            Log.Message(
+                $"[SlopWorld] landing on {Find.WorldGrid[tile.Value].PrimaryBiome?.defName} "
+                    + $"at tile {tile.Value}"
+            );
         }
 
         // Scan the layer once and select a matching tile at random.
@@ -50,18 +56,24 @@ namespace SlopWorld
             {
                 var t = new PlanetTile(i, layer);
                 var tile = grid[t];
-                if (tile == null) continue;
+                if (tile == null)
+                    continue;
                 // Undefined sorts below Flat, so a comparison with maxHills alone would accept it.
                 // Exclude tiles without generated terrain, such as ocean tiles.
-                if (tile.hilliness == Hilliness.Undefined) continue;
-                if (tile.hilliness > maxHills) continue;
+                if (tile.hilliness == Hilliness.Undefined)
+                    continue;
+                if (tile.hilliness > maxHills)
+                    continue;
 
                 var biome = tile.PrimaryBiome;
-                if (biome == null) continue;
-                if (System.Array.IndexOf(biomes, biome.defName) < 0) continue;
+                if (biome == null)
+                    continue;
+                if (System.Array.IndexOf(biomes, biome.defName) < 0)
+                    continue;
 
                 // Check settlement validity last because it also checks nearby tiles, roads, and settlements.
-                if (!TileFinder.IsValidTileForNewSettlement(t)) continue;
+                if (!TileFinder.IsValidTileForNewSettlement(t))
+                    continue;
 
                 hits.Add(t);
             }

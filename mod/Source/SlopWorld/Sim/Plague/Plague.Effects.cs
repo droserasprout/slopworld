@@ -14,8 +14,12 @@ namespace SlopWorld
         // Use one random value per pawn to select at most one effect. Add the probabilities.
         struct BandProfile
         {
-            public float PExplode, PIgnite, PBleed, PVomit;
-            public float BleedMin, BleedMax;
+            public float PExplode,
+                PIgnite,
+                PBleed,
+                PVomit;
+            public float BleedMin,
+                BleedMax;
             public float FireSize;
             public float PlantIgnite; // per eligible sweep; regrowth or successful ignition can make a plant eligible again
 
@@ -67,10 +71,14 @@ namespace SlopWorld
 
             foreach (var pawn in map.mapPawns.AllPawnsSpawned)
             {
-                if (!Infectable(pawn)) continue;
-                if (BandAt(pawn.Position, now) == Band.None) continue;
-                if (Marked(pawn)) continue;
-                if (Spared(pawn)) continue; // the cat has it, for now
+                if (!Infectable(pawn))
+                    continue;
+                if (BandAt(pawn.Position, now) == Band.None)
+                    continue;
+                if (Marked(pawn))
+                    continue;
+                if (Spared(pawn))
+                    continue; // the cat has it, for now
                 pawn.health.AddHediff(ModDefOf.SlopPlague);
                 PlagueFx.Mark(pawn);
             }
@@ -86,30 +94,48 @@ namespace SlopWorld
 
             foreach (var pawn in _runtime.Rolling)
             {
-                if (!Infectable(pawn) || !Marked(pawn)) continue;
+                if (!Infectable(pawn) || !Marked(pawn))
+                    continue;
 
                 var band = BandAt(pawn.Position, now);
-                if (band == Band.None) continue;
+                if (band == Band.None)
+                    continue;
                 // Check aura protection even if the pawn still has the plague condition.
-                if (Spared(pawn)) continue;
+                if (Spared(pawn))
+                    continue;
                 var dose = band == Band.Full ? Full : Weak;
 
                 float roll = Rand.Value;
-                if ((roll -= dose.PExplode) < 0f) Detonate(pawn, dose);
-                else if ((roll -= dose.PIgnite) < 0f) Ignite(pawn, dose);
-                else if ((roll -= dose.PBleed) < 0f) Bleed(pawn, dose);
-                else if (roll - dose.PVomit < 0f) Vomit(pawn);
+                if ((roll -= dose.PExplode) < 0f)
+                    Detonate(pawn, dose);
+                else if ((roll -= dose.PIgnite) < 0f)
+                    Ignite(pawn, dose);
+                else if ((roll -= dose.PBleed) < 0f)
+                    Bleed(pawn, dose);
+                else if (roll - dose.PVomit < 0f)
+                    Vomit(pawn);
             }
         }
 
         void Detonate(Pawn pawn, BandProfile dose)
         {
             // Use cut damage instead of an explosion when any player-faction pawn is nearby.
-            if (PlayerPawnNear(pawn.Position, BlastSafeRadius)) { Bleed(pawn, dose); return; }
+            if (PlayerPawnNear(pawn.Position, BlastSafeRadius))
+            {
+                Bleed(pawn, dose);
+                return;
+            }
 
             PlagueFx.Burst(pawn);
-            GenExplosion.DoExplosion(pawn.Position, map, BlastRadius, DamageDefOf.Bomb,
-                null, damAmount: BlastDamage, ignoredThings: Untouchable());
+            GenExplosion.DoExplosion(
+                pawn.Position,
+                map,
+                BlastRadius,
+                DamageDefOf.Bomb,
+                null,
+                damAmount: BlastDamage,
+                ignoredThings: Untouchable()
+            );
         }
 
         // Exclude the core, player pawns, pets, player buildings, and construction frames from explosion damage.
@@ -117,7 +143,9 @@ namespace SlopWorld
         {
             var spared = map.listerThings.ThingsOfDef(ModDefOf.Ship_ComputerCore).ToList();
             spared.AddRange(Pets.On(map).Cast<Thing>());
-            spared.AddRange(map.mapPawns.AllPawnsSpawned.Where(p => p.Faction?.IsPlayer == true).Cast<Thing>());
+            spared.AddRange(
+                map.mapPawns.AllPawnsSpawned.Where(p => p.Faction?.IsPlayer == true).Cast<Thing>()
+            );
             spared.AddRange(map.listerBuildings.allBuildingsColonist.Cast<Thing>());
             spared.AddRange(map.listerThings.ThingsInGroup(ThingRequestGroup.BuildingFrame));
             return spared;
@@ -135,7 +163,9 @@ namespace SlopWorld
         {
             var pos = pawn.Position;
             PlagueFx.Act(pawn); // before the damage, which may be the one that drops it
-            pawn.TakeDamage(new DamageInfo(DamageDefOf.Cut, Rand.Range(dose.BleedMin, dose.BleedMax)));
+            pawn.TakeDamage(
+                new DamageInfo(DamageDefOf.Cut, Rand.Range(dose.BleedMin, dose.BleedMax))
+            );
 
             int cells = GenRadial.NumCellsInRadius(BloodRadius);
             for (int i = 0; i < BloodPerBleed; i++)
@@ -149,8 +179,10 @@ namespace SlopWorld
         // Check the job tracker before showing the effect. Skip pawns that already have a vomiting job.
         static void Vomit(Pawn pawn)
         {
-            if (pawn.jobs == null) return;
-            if (pawn.CurJobDef == JobDefOf.Vomit) return;
+            if (pawn.jobs == null)
+                return;
+            if (pawn.CurJobDef == JobDefOf.Vomit)
+                return;
             PlagueFx.Act(pawn);
             pawn.jobs.StartJob(JobMaker.MakeJob(JobDefOf.Vomit), JobCondition.InterruptForced);
         }
@@ -160,10 +192,14 @@ namespace SlopWorld
 
         static bool Infectable(Pawn pawn)
         {
-            if (pawn == null || pawn.Dead || !pawn.Spawned) return false;
-            if (pawn.health?.hediffSet == null) return false;
-            if (pawn.RaceProps == null) return false;
-            if (!pawn.RaceProps.Animal && !pawn.RaceProps.Humanlike) return false;
+            if (pawn == null || pawn.Dead || !pawn.Spawned)
+                return false;
+            if (pawn.health?.hediffSet == null)
+                return false;
+            if (pawn.RaceProps == null)
+                return false;
+            if (!pawn.RaceProps.Animal && !pawn.RaceProps.Humanlike)
+                return false;
 
             // Exclude the player faction, including agents and pets.
             return pawn.Faction == null || !pawn.Faction.IsPlayer;
@@ -173,8 +209,10 @@ namespace SlopWorld
         {
             foreach (var p in map.mapPawns.AllPawnsSpawned)
             {
-                if (p.Faction?.IsPlayer != true) continue;
-                if (p.Position.DistanceTo(cell) <= radius) return true;
+                if (p.Faction?.IsPlayer != true)
+                    continue;
+                if (p.Position.DistanceTo(cell) <= radius)
+                    return true;
             }
             return false;
         }

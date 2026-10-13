@@ -25,8 +25,7 @@ namespace SlopWorld
         readonly List<SenderHit> _senderHits = new List<SenderHit>();
         readonly List<TextRange> _bodyRanges = new List<TextRange>();
         readonly List<TextRange> _noteRanges = new List<TextRange>();
-        readonly Dictionary<string, float> _smallElementWidths =
-            new Dictionary<string, float>();
+        readonly Dictionary<string, float> _smallElementWidths = new Dictionary<string, float>();
         TaskInfo _layoutTask;
         float _layoutWidth = -1f;
         float _layoutScale = -1f;
@@ -38,6 +37,7 @@ namespace SlopWorld
         float _metricsScale = -1f;
         int _metricsFontSize = -1;
         string _metricsFontName = "";
+
         struct SenderHit
         {
             public string Sender;
@@ -45,11 +45,16 @@ namespace SlopWorld
             public Rect Name;
         }
 
-        public TaskDetailView(TaskInfo task) { _task = task; _taskId = task?.Id; }
+        public TaskDetailView(TaskInfo task)
+        {
+            _task = task;
+            _taskId = task?.Id;
+        }
 
         public static void Open(TaskInfo task)
         {
-            if (task == null) return;
+            if (task == null)
+                return;
             AgentSidebar.RememberTask(task.Id);
             Open(task, false);
         }
@@ -57,16 +62,20 @@ namespace SlopWorld
         internal static bool FocusLocation(string id)
         {
             var task = SessionHub.Instance.Tasks.FirstOrDefault(candidate =>
-                candidate != null && candidate.Id == id);
-            if (task == null) return false;
+                candidate != null && candidate.Id == id
+            );
+            if (task == null)
+                return false;
             Open(task, false);
             return true;
         }
 
         static void Open(TaskInfo task, bool remember)
         {
-            if (task == null) return;
-            if (remember) AgentSidebar.RememberTask(task.Id);
+            if (task == null)
+                return;
+            if (remember)
+                AgentSidebar.RememberTask(task.Id);
             TerminalWindow.OpenContent(new TaskDetailView(task));
         }
 
@@ -93,15 +102,19 @@ namespace SlopWorld
             var current = SessionHub.Instance.Tasks.FirstOrDefault(task => task.Id == _taskId);
             if (!ReferenceEquals(current, _task))
             {
-                if (current?.Body != _task?.Body || current?.Note != _task?.Note) ClearSelection();
+                if (current?.Body != _task?.Body || current?.Note != _task?.Note)
+                    ClearSelection();
                 _task = current;
             }
             if (_task == null)
             {
                 _senderHits.Clear();
                 ClearSelection();
-                UiText.PlainStatusLabel(new Rect(rect.x, rect.y + UiTheme.HeaderH,
-                    rect.width, UiTheme.LineH * 2f), "This task is no longer available.", UiTheme.Dim);
+                UiText.PlainStatusLabel(
+                    new Rect(rect.x, rect.y + UiTheme.HeaderH, rect.width, UiTheme.LineH * 2f),
+                    "This task is no longer available.",
+                    UiTheme.Dim
+                );
                 var close = new UiLayout.Bar(UiLayout.FooterBar(rect));
                 if (close.Right("Close", UiTheme.Btn.Ghost))
                     Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
@@ -117,21 +130,25 @@ namespace SlopWorld
             EnsureLayout(width, bodyText, noteText);
             float bodyH = _bodyHeight;
             float noteH = _noteHeight;
-            float contentH = UiTheme.TinyRowH + UiTheme.GapS + bodyH + noteH +
-                UiTheme.GapS;
+            float contentH = UiTheme.TinyRowH + UiTheme.GapS + bodyH + noteH + UiTheme.GapS;
 
             using (WidgetState.Save())
-            using (_scroll.Scope(outer, new Rect(0f, 0f, width,
-                Mathf.Max(outer.height, contentH))))
+            using (_scroll.Scope(outer, new Rect(0f, 0f, width, Mathf.Max(outer.height, contentH))))
             {
                 _senderHits.Clear();
                 float y = 0f;
                 Text.Font = GameFont.Tiny;
                 GUI.color = UiTheme.Dim;
-                UiText.RowLabel(new Rect(0f, y, width, UiTheme.TinyRowH),
-                    _task.Direction + "  ·  " + TaskInfo.StatusText(_task.Status) +
-                    "  ·  Created: " + Timestamp(_task.CreatedMs) +
-                    "  ·  Updated: " + Timestamp(_task.UpdatedMs));
+                UiText.RowLabel(
+                    new Rect(0f, y, width, UiTheme.TinyRowH),
+                    _task.Direction
+                        + "  ·  "
+                        + TaskInfo.StatusText(_task.Status)
+                        + "  ·  Created: "
+                        + Timestamp(_task.CreatedMs)
+                        + "  ·  Updated: "
+                        + Timestamp(_task.UpdatedMs)
+                );
                 GUI.color = Color.white;
                 y += UiTheme.TinyRowH + UiTheme.GapS;
 
@@ -140,26 +157,37 @@ namespace SlopWorld
                 if (!string.IsNullOrEmpty(_task.Note))
                 {
                     y += UiTheme.GapM;
-                    DrawMessage(new Rect(0f, y, width, noteH - UiTheme.GapM), _task.To,
-                        _task.UpdatedMs, true);
+                    DrawMessage(
+                        new Rect(0f, y, width, noteH - UiTheme.GapM),
+                        _task.To,
+                        _task.UpdatedMs,
+                        true
+                    );
                 }
                 DrawSelectableText(outer.height);
             }
 
-            if (HandleSenderClicks(outer)) return;
+            if (HandleSenderClicks(outer))
+                return;
             HandleSelectionInput(outer);
 
             var foot = new UiLayout.Bar(UiLayout.FooterBar(rect));
             if (foot.Left("Copy task text", UiTheme.Btn.Ghost))
                 DaemonClipboard.Copy(DialogueText());
 
-            if (_task.Incoming && !_task.Terminal &&
-                foot.Left("Change status", UiTheme.Btn.Default))
+            if (
+                _task.Incoming
+                && !_task.Terminal
+                && foot.Left("Change status", UiTheme.Btn.Default)
+            )
                 TaskActions.OpenMenu(_task);
 
-            if ((_task.Status == DelegatedTaskStatus.Queued ||
-                 _task.Status == DelegatedTaskStatus.Accepted) &&
-                foot.Left("Cancel", UiTheme.Btn.Danger))
+            if (
+                (
+                    _task.Status == DelegatedTaskStatus.Queued
+                    || _task.Status == DelegatedTaskStatus.Accepted
+                ) && foot.Left("Cancel", UiTheme.Btn.Danger)
+            )
                 TaskActions.CancelTask(_task);
             else if (_task.Terminal && foot.Left("Remove", UiTheme.Btn.Danger))
                 TaskActions.RemoveTask(_task);
@@ -171,26 +199,36 @@ namespace SlopWorld
         static float MessageCardHeight(int lineCount)
         {
             float headerH = UiTheme.LineHOf(GameFont.Tiny);
-            return Mathf.Max(AvatarSize + UiTheme.GapS,
-                UiTheme.FieldPadY * 2f + headerH + UiTheme.GapXS +
-                lineCount * UiTheme.LineHOf(GameFont.Small));
+            return Mathf.Max(
+                AvatarSize + UiTheme.GapS,
+                UiTheme.FieldPadY * 2f
+                    + headerH
+                    + UiTheme.GapXS
+                    + lineCount * UiTheme.LineHOf(GameFont.Small)
+            );
         }
 
-        void DrawMessage(Rect r, string sender, long timestamp,
-                         bool note = false)
+        void DrawMessage(Rect r, string sender, long timestamp, bool note = false)
         {
-            var card = new Rect(r.x + AvatarOverlap, r.y,
-                Mathf.Max(1f, r.width - AvatarOverlap), r.height);
+            var card = new Rect(
+                r.x + AvatarOverlap,
+                r.y,
+                Mathf.Max(1f, r.width - AvatarOverlap),
+                r.height
+            );
             Slab.Box(card, UiTheme.Well, UiTheme.Edge);
 
             var icon = new Rect(r.x, r.y + UiTheme.GapS, AvatarSize, AvatarSize);
             DrawSenderIcon(icon, sender);
 
-            float textWidth = Mathf.Max(1f, card.width - MessageTextInset -
-                UiTheme.FieldPadX);
+            float textWidth = Mathf.Max(1f, card.width - MessageTextInset - UiTheme.FieldPadX);
             float y = card.y + UiTheme.FieldPadY;
-            var header = new Rect(card.x + MessageTextInset, y, textWidth,
-                UiTheme.LineHOf(GameFont.Tiny));
+            var header = new Rect(
+                card.x + MessageTextInset,
+                y,
+                textWidth,
+                UiTheme.LineHOf(GameFont.Tiny)
+            );
             var wrap = Text.WordWrap;
             var anchor = Text.Anchor;
             var font = Text.Font;
@@ -210,27 +248,29 @@ namespace SlopWorld
                 if (IsAgentSender(sender))
                 {
                     var name = new Rect(nameX, header.y, nameW, header.height);
-                    _senderHits.Add(new SenderHit
-                    {
-                        Sender = sender,
-                        Avatar = icon,
-                        Name = name,
-                    });
+                    _senderHits.Add(
+                        new SenderHit
+                        {
+                            Sender = sender,
+                            Avatar = icon,
+                            Name = name,
+                        }
+                    );
                     if (nameW > 0f)
-                        TooltipHandler.TipRegion(name,
-                            "Click to open " + sender + "'s terminal.");
+                        TooltipHandler.TipRegion(name, "Click to open " + sender + "'s terminal.");
                 }
 
                 if (prefixW + labelW + suffixW <= header.width)
                 {
                     GUI.color = UiTheme.Dim;
-                    UiText.RowLabel(new Rect(header.x, header.y, prefixW, header.height),
-                        prefix);
+                    UiText.RowLabel(new Rect(header.x, header.y, prefixW, header.height), prefix);
                     GUI.color = IsAgentSender(sender) ? UiTheme.Lead : UiTheme.Dim;
                     UiText.RowLabel(new Rect(nameX, header.y, labelW, header.height), label);
                     GUI.color = UiTheme.Dim;
-                    UiText.RowLabel(new Rect(nameX + labelW, header.y, suffixW,
-                        header.height), suffix);
+                    UiText.RowLabel(
+                        new Rect(nameX + labelW, header.y, suffixW, header.height),
+                        suffix
+                    );
                 }
                 else
                 {
@@ -246,20 +286,26 @@ namespace SlopWorld
                 Text.Font = font;
             }
         }
+
         static string Timestamp(long milliseconds)
         {
-            if (milliseconds <= 0) return "unknown time";
+            if (milliseconds <= 0)
+                return "unknown time";
             var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
             var local = epoch.AddMilliseconds(milliseconds).ToLocalTime();
-            return DateFormat.Short(local, Settings.DateFormat) + " " +
-                TimeFormat.Long(local, Settings.TimeFormat) + " " + local.ToString("zzz", CultureInfo.InvariantCulture);
+            return DateFormat.Short(local, Settings.DateFormat)
+                + " "
+                + TimeFormat.Long(local, Settings.TimeFormat)
+                + " "
+                + local.ToString("zzz", CultureInfo.InvariantCulture);
         }
 
         static void DrawSenderIcon(Rect r, string sender)
         {
-            var pawn = sender == TaskInfo.Host
-                ? PlayerPawn.Current?.Pawn
-                : AgentColony.Current?.PawnOf(sender);
+            var pawn =
+                sender == TaskInfo.Host
+                    ? PlayerPawn.Current?.Pawn
+                    : AgentColony.Current?.PawnOf(sender);
             var portrait = Patch_SidebarPortraitDraw.PortraitFor(pawn);
             var old = GUI.color;
 
@@ -270,21 +316,31 @@ namespace SlopWorld
             else
             {
                 GUI.color = sender == TaskInfo.Host ? UiTheme.Lead : UiTheme.Info;
-                GUI.DrawTexture(r.ContractedBy(8f),
-                    sender == TaskInfo.Host ? Icons.Terminal : Icons.Agents);
+                GUI.DrawTexture(
+                    r.ContractedBy(8f),
+                    sender == TaskInfo.Host ? Icons.Terminal : Icons.Agents
+                );
             }
             GUI.color = old;
 
-            TooltipHandler.TipRegion(r, IsAgentSender(sender)
-                ? "Message from " + SenderLabel(sender) +
-                    "\nClick to open this agent's terminal."
-                : "Message from " + SenderLabel(sender));
+            TooltipHandler.TipRegion(
+                r,
+                IsAgentSender(sender)
+                    ? "Message from "
+                        + SenderLabel(sender)
+                        + "\nClick to open this agent's terminal."
+                    : "Message from " + SenderLabel(sender)
+            );
         }
 
         static string SenderLabel(string sender) =>
-            sender == TaskInfo.Host ? "you" : string.IsNullOrEmpty(sender) ? "unknown" : sender;
+            sender == TaskInfo.Host ? "you"
+            : string.IsNullOrEmpty(sender) ? "unknown"
+            : sender;
 
-        static bool IsAgentSender(string sender) => !string.IsNullOrEmpty(sender) &&
-            sender != TaskInfo.Host && SessionHub.Instance.Get(sender) != null;
+        static bool IsAgentSender(string sender) =>
+            !string.IsNullOrEmpty(sender)
+            && sender != TaskInfo.Host
+            && SessionHub.Instance.Get(sender) != null;
     }
 }

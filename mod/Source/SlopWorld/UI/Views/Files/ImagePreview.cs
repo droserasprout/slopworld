@@ -34,19 +34,29 @@ namespace SlopWorld
             _error = null;
             ReleaseTexture();
             _scroll.JumpTo(Vector2.zero);
-            DaemonClient.Get<Wire.ImageResult>(WireProtocol.Routes.Image +
-                "?path=" + Uri.EscapeDataString(_path) +
-                (_root == null ? "" : "&root=" + Uri.EscapeDataString(_root)), result =>
+            DaemonClient.Get<Wire.ImageResult>(
+                WireProtocol.Routes.Image
+                    + "?path="
+                    + Uri.EscapeDataString(_path)
+                    + (_root == null ? "" : "&root=" + Uri.EscapeDataString(_root)),
+                result =>
                 {
-                    if (request != _request) return;
+                    if (request != _request)
+                        return;
                     Texture2D texture = null;
                     try
                     {
                         var bytes = result.Data.ToByteArray();
                         if (!MarkdownImageHeader.TrySize(bytes, out int width, out int height))
-                            throw new InvalidDataException("Image dimensions exceed the preview limit or are invalid");
+                            throw new InvalidDataException(
+                                "Image dimensions exceed the preview limit or are invalid"
+                            );
                         texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-                        if (!texture.LoadImage(bytes, true) || texture.width != width || texture.height != height)
+                        if (
+                            !texture.LoadImage(bytes, true)
+                            || texture.width != width
+                            || texture.height != height
+                        )
                             throw new InvalidDataException("Unity could not decode the image");
                         texture.name = "SlopWorld image " + _name;
                         texture.hideFlags = HideFlags.HideAndDontSave;
@@ -59,12 +69,16 @@ namespace SlopWorld
                     }
                     finally
                     {
-                        if (texture != null) UnityEngine.Object.Destroy(texture);
+                        if (texture != null)
+                            UnityEngine.Object.Destroy(texture);
                     }
-                }, message =>
+                },
+                message =>
                 {
-                    if (request == _request) _error = message;
-                });
+                    if (request == _request)
+                        _error = message;
+                }
+            );
         }
 
         public override void Closed()
@@ -75,7 +89,8 @@ namespace SlopWorld
 
         void ReleaseTexture()
         {
-            if (_texture == null) return;
+            if (_texture == null)
+                return;
             UnityEngine.Object.Destroy(_texture);
             _texture = null;
         }
@@ -92,32 +107,58 @@ namespace SlopWorld
             }
 
             var toolbar = new Rect(body.x, body.y, body.width, 30f);
-            if (Widgets.ButtonText(new Rect(toolbar.x, toolbar.y, 90f, 26f),
-                _actualSize ? "Fit" : "100%"))
+            if (
+                Widgets.ButtonText(
+                    new Rect(toolbar.x, toolbar.y, 90f, 26f),
+                    _actualSize ? "Fit" : "100%"
+                )
+            )
             {
                 _actualSize = !_actualSize;
                 _scroll.JumpTo(Vector2.zero);
             }
             var oldAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleRight;
-            Widgets.Label(new Rect(toolbar.x + 100f, toolbar.y, Mathf.Max(0f, toolbar.width - 100f), 26f),
-                _texture.width + " × " + _texture.height);
+            Widgets.Label(
+                new Rect(toolbar.x + 100f, toolbar.y, Mathf.Max(0f, toolbar.width - 100f), 26f),
+                _texture.width + " × " + _texture.height
+            );
             Text.Anchor = oldAnchor;
 
-            var viewport = new Rect(body.x, body.y + toolbar.height,
-                body.width, Mathf.Max(0f, body.height - toolbar.height));
-            if (viewport.width <= 0f || viewport.height <= 0f) return;
-            float scale = _actualSize ? 1f : Mathf.Min(1f,
-                Mathf.Min(viewport.width / _texture.width, viewport.height / _texture.height));
+            var viewport = new Rect(
+                body.x,
+                body.y + toolbar.height,
+                body.width,
+                Mathf.Max(0f, body.height - toolbar.height)
+            );
+            if (viewport.width <= 0f || viewport.height <= 0f)
+                return;
+            float scale = _actualSize
+                ? 1f
+                : Mathf.Min(
+                    1f,
+                    Mathf.Min(viewport.width / _texture.width, viewport.height / _texture.height)
+                );
             float width = _texture.width * scale;
             float height = _texture.height * scale;
-            var content = new Rect(0f, 0f, Mathf.Max(viewport.width, width),
-                Mathf.Max(viewport.height, height));
+            var content = new Rect(
+                0f,
+                0f,
+                Mathf.Max(viewport.width, width),
+                Mathf.Max(viewport.height, height)
+            );
             using (_scroll.Scope(viewport, content))
             {
                 if (Event.current.type == EventType.Repaint)
-                    GUI.DrawTexture(new Rect((content.width - width) / 2f,
-                        (content.height - height) / 2f, width, height), _texture);
+                    GUI.DrawTexture(
+                        new Rect(
+                            (content.width - width) / 2f,
+                            (content.height - height) / 2f,
+                            width,
+                            height
+                        ),
+                        _texture
+                    );
             }
         }
     }

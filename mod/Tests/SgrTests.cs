@@ -31,7 +31,10 @@ namespace SlopWorld.Tests
             yield return ("long combining clusters keep cell geometry", LongCombiningClusters);
             yield return ("incomplete clusters preserve payload geometry", IncompleteClusters);
             yield return ("clears individual attributes", ClearsIndividualAttributes);
-            yield return ("handles bright backgrounds and grey colors", BrightBackgroundAndGreyColors);
+            yield return (
+                "handles bright backgrounds and grey colors",
+                BrightBackgroundAndGreyColors
+            );
         }
 
         static Color DefaultFg => TerminalTheme.Current.Fg;
@@ -92,7 +95,11 @@ namespace SlopWorld.Tests
         {
             var runs = Sgr.ParseLine("\x1b[38;2;100;200;50mhi");
             AssertEx.Equal(1, runs.Count, "run count");
-            AssertEx.Equal(new Color(100 / 255f, 200 / 255f, 50 / 255f), runs[0].Fg, "truecolor fg");
+            AssertEx.Equal(
+                new Color(100 / 255f, 200 / 255f, 50 / 255f),
+                runs[0].Fg,
+                "truecolor fg"
+            );
         }
 
         static void TruecolorBg()
@@ -158,7 +165,8 @@ namespace SlopWorld.Tests
             var expected = new Color(
                 Math.Min(1f, red.r * 1.25f),
                 Math.Min(1f, red.g * 1.25f),
-                Math.Min(1f, red.b * 1.25f));
+                Math.Min(1f, red.b * 1.25f)
+            );
             AssertEx.Equal(expected, runs[0].Fg, "bold-brightened red");
         }
 
@@ -172,7 +180,8 @@ namespace SlopWorld.Tests
             var expected = new Color(
                 Math.Min(1f, raw.r * 1.25f),
                 Math.Min(1f, raw.g * 1.25f),
-                Math.Min(1f, raw.b * 1.25f));
+                Math.Min(1f, raw.b * 1.25f)
+            );
             AssertEx.Equal(expected, runs[0].Fg, "bold-brightened xterm 196");
         }
 
@@ -208,51 +217,94 @@ namespace SlopWorld.Tests
         static void EmojiSequences()
         {
             var pager = Sgr.ParseLine("\x1b[0m# \x1b[2;2z👋🏻\x1b[5G E1.0 waving hand");
-            AssertEx.True(pager.Exists(r => r.Text == "👋🏻" && r.IsCluster && r.Columns == 2),
-                "pager skin tone remains one sprite cluster");
-            AssertEx.True(pager.Exists(r => r.Text == " E1.0 waving hand" && !r.IsCluster),
-                "pager description remains ordinary text");
+            AssertEx.True(
+                pager.Exists(r => r.Text == "👋🏻" && r.IsCluster && r.Columns == 2),
+                "pager skin tone remains one sprite cluster"
+            );
+            AssertEx.True(
+                pager.Exists(r => r.Text == " E1.0 waving hand" && !r.IsCluster),
+                "pager description remains ordinary text"
+            );
             var heart = Sgr.ParseLine("\x1b[0m# \x1b[4;2z❤️‍🔥\x1b[5G E13.1 heart on fire");
-            AssertEx.True(heart.Exists(r => r.Text == "❤️‍🔥" && r.IsCluster && r.Columns == 2),
-                "pager joined heart remains one sprite cluster");
+            AssertEx.True(
+                heart.Exists(r => r.Text == "❤️‍🔥" && r.IsCluster && r.Columns == 2),
+                "pager joined heart remains one sprite cluster"
+            );
             var redHeart = Sgr.ParseLine("\x1b[0m# \x1b[2;2z❤️\x1b[5G E0.6 red heart");
-            AssertEx.True(redHeart.Exists(r => r.Text == "❤️" && r.IsCluster && r.Columns == 2),
-                "two-scalar red heart remains separate from pager description");
+            AssertEx.True(
+                redHeart.Exists(r => r.Text == "❤️" && r.IsCluster && r.Columns == 2),
+                "two-scalar red heart remains separate from pager description"
+            );
             var pagerHeart = Sgr.ParseLine("\x1b[0m# \x1b[3;1z❤️‍🔥\x1b[6G E13.1 heart on fire");
-            AssertEx.True(pagerHeart.Exists(r => r.Text == "❤️‍🔥" && r.IsCluster),
-                "joined heart stays separate from pager description");
+            AssertEx.True(
+                pagerHeart.Exists(r => r.Text == "❤️‍🔥" && r.IsCluster),
+                "joined heart stays separate from pager description"
+            );
             var cases = new[]
             {
                 (Wire: "\x1b[0m\x1b[2;2z👩‍\x1b[3G💻\x1b[5Gx", Key: "👩‍💻", Width: 4),
                 (Wire: "\x1b[0m👍\x1b[3G🏽\x1b[5Gx", Key: "👍🏽", Width: 4),
                 (Wire: "\x1b[0m🇺\x1b[3G🇾\x1b[5Gx", Key: "🇺🇾", Width: 4),
                 (Wire: "\x1b[0m\x1b[3;1z1️⃣x", Key: "1️⃣", Width: 1),
-                (Wire: "\x1b[0m👩\x1b[3G\x1b[2;2z🏽‍\x1b[5G💻\x1b[7Gx",
-                    Key: "👩🏽‍💻", Width: 6),
-                (Wire: "\x1b[0m\x1b[3;2z🏳️‍\x1b[3G🌈\x1b[5Gx",
-                    Key: "🏳️‍🌈", Width: 4),
-                (Wire: "\x1b[0m\x1b[7;2z🏴\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007Fx",
-                    Key: "🏴\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007F", Width: 2),
+                (Wire: "\x1b[0m👩\x1b[3G\x1b[2;2z🏽‍\x1b[5G💻\x1b[7Gx", Key: "👩🏽‍💻", Width: 6),
+                (Wire: "\x1b[0m\x1b[3;2z🏳️‍\x1b[3G🌈\x1b[5Gx", Key: "🏳️‍🌈", Width: 4),
+                (
+                    Wire: "\x1b[0m\x1b[7;2z🏴\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007Fx",
+                    Key: "🏴\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007F",
+                    Width: 2
+                ),
             };
             foreach (var sample in cases)
             {
                 var runs = Sgr.ParseLine(sample.Wire);
-                AssertEx.Equal(sample.Key, runs[0].Text, "complete sequence reaches renderer" + ": " + sample.Key);
-                AssertEx.Equal(sample.Width, runs[0].Columns, "daemon width survives sequence" + ": " + sample.Key);
-                AssertEx.True(runs[0].IsCluster, "sequence is one display cluster" + ": " + sample.Key);
-                AssertEx.Equal(sample.Key + "x", TerminalColumns.Slice(TerminalColumns.Cells(runs),
-                    0, sample.Width), "copy keeps sequence once" + ": " + sample.Key);
-                AssertEx.True(TextSpriteCatalog.Shared.Match(sample.Key, 0, out int length, out _)
-                    && length == sample.Key.Length, "sequence has Noto artwork" + ": " + sample.Key);
-                var layout = InlineTextLayout.Cells(runs[0].Text, runs[0].Columns, 7f,
-                    TextSpriteCatalog.Shared, _ => true);
-                AssertEx.True(layout.Spans[0].Sprite >= 0, "sequence selects atlas sprite" + ": " + sample.Key);
-                AssertEx.Equal(sample.Width * 7f, layout.Spans[0].Width, "sprite uses daemon cells" + ": " + sample.Key);
+                AssertEx.Equal(
+                    sample.Key,
+                    runs[0].Text,
+                    "complete sequence reaches renderer" + ": " + sample.Key
+                );
+                AssertEx.Equal(
+                    sample.Width,
+                    runs[0].Columns,
+                    "daemon width survives sequence" + ": " + sample.Key
+                );
+                AssertEx.True(
+                    runs[0].IsCluster,
+                    "sequence is one display cluster" + ": " + sample.Key
+                );
+                AssertEx.Equal(
+                    sample.Key + "x",
+                    TerminalColumns.Slice(TerminalColumns.Cells(runs), 0, sample.Width),
+                    "copy keeps sequence once" + ": " + sample.Key
+                );
+                AssertEx.True(
+                    TextSpriteCatalog.Shared.Match(sample.Key, 0, out int length, out _)
+                        && length == sample.Key.Length,
+                    "sequence has Noto artwork" + ": " + sample.Key
+                );
+                var layout = InlineTextLayout.Cells(
+                    runs[0].Text,
+                    runs[0].Columns,
+                    7f,
+                    TextSpriteCatalog.Shared,
+                    _ => true
+                );
+                AssertEx.True(
+                    layout.Spans[0].Sprite >= 0,
+                    "sequence selects atlas sprite" + ": " + sample.Key
+                );
+                AssertEx.Equal(
+                    sample.Width * 7f,
+                    layout.Spans[0].Width,
+                    "sprite uses daemon cells" + ": " + sample.Key
+                );
             }
             var combining = Sgr.ParseLine("\x1b[0m\x1b[2;1zéx");
             AssertEx.Equal("é", combining[0].Text, "non-emoji combining text is preserved");
-            AssertEx.Equal("éx", TerminalColumns.Slice(TerminalColumns.Cells(combining), 0, 1),
-                "non-emoji combining text copies as one cell");
+            AssertEx.Equal(
+                "éx",
+                TerminalColumns.Slice(TerminalColumns.Cells(combining), 0, 1),
+                "non-emoji combining text copies as one cell"
+            );
         }
 
         static void LongCombiningClusters()
@@ -265,8 +317,11 @@ namespace SlopWorld.Tests
                 AssertEx.True(runs[0].IsCluster, "long cluster is recognized");
                 AssertEx.Equal(1, runs[0].Columns, "combining marks do not advance the pen");
                 AssertEx.Equal(1, runs[1].Col, "following text starts in the next cell");
-                AssertEx.Equal(cluster + "x", TerminalColumns.Slice(TerminalColumns.Cells(runs),
-                    0, 1), "copy preserves every combining mark");
+                AssertEx.Equal(
+                    cluster + "x",
+                    TerminalColumns.Slice(TerminalColumns.Cells(runs), 0, 1),
+                    "copy preserves every combining mark"
+                );
             }
             var truncated = Sgr.ParseLine("\x1b[2147483647;1zex");
             AssertEx.Equal("ex", truncated[0].Text, "impossible count leaves payload as text");
@@ -277,25 +332,35 @@ namespace SlopWorld.Tests
             foreach (string wire in new[] { "\x1b[3;1z😀x", "\x1b[3;1ze\x1b[0mx" })
             {
                 var runs = Sgr.ParseLine(wire);
-                AssertEx.True(!runs[0].IsCluster, "incomplete payload is not consumed as a cluster");
-                AssertEx.Equal(2, runs[runs.Count - 1].Col + runs[runs.Count - 1].Columns,
-                    "fallback preserves ordinary scalar geometry");
+                AssertEx.True(
+                    !runs[0].IsCluster,
+                    "incomplete payload is not consumed as a cluster"
+                );
+                AssertEx.Equal(
+                    2,
+                    runs[runs.Count - 1].Col + runs[runs.Count - 1].Columns,
+                    "fallback preserves ordinary scalar geometry"
+                );
             }
         }
 
-
         static void ClearsIndividualAttributes()
         {
-            var runs = Sgr.ParseLine(
-                "\x1b[1;2;7;31;42mA\x1b[22;27;39;49mB");
+            var runs = Sgr.ParseLine("\x1b[1;2;7;31;42mA\x1b[22;27;39;49mB");
 
             AssertEx.Equal(2, runs.Count, "attribute reset splits runs");
             AssertEx.True(runs[0].Bold, "bold is set before its reset");
             AssertEx.True(runs[0].HasBg, "background is set before its reset");
-            AssertEx.Equal(TerminalTheme.Current.Ansi[1], runs[0].Bg,
-                           "reverse moves foreground into the background");
-            AssertEx.Equal(TerminalTheme.Current.Ansi[2], runs[0].Fg,
-                           "reverse moves background into the foreground");
+            AssertEx.Equal(
+                TerminalTheme.Current.Ansi[1],
+                runs[0].Bg,
+                "reverse moves foreground into the background"
+            );
+            AssertEx.Equal(
+                TerminalTheme.Current.Ansi[2],
+                runs[0].Fg,
+                "reverse moves background into the foreground"
+            );
             AssertEx.Equal(DefaultFg, runs[1].Fg, "foreground reset");
             AssertEx.False(runs[1].HasBg, "background reset");
             AssertEx.False(runs[1].Bold, "bold reset");
@@ -305,20 +370,22 @@ namespace SlopWorld.Tests
         static void BrightBackgroundAndGreyColors()
         {
             var runs = Sgr.ParseLine("\x1b[100mbright background");
-            AssertEx.Equal(TerminalTheme.Current.Ansi[8], runs[0].Bg,
-                           "bright black background");
+            AssertEx.Equal(TerminalTheme.Current.Ansi[8], runs[0].Bg, "bright black background");
             AssertEx.True(runs[0].HasBg, "bright background is present");
 
             var firstGrey = Sgr.Xterm256(232);
             var lastGrey = Sgr.Xterm256(255);
-            AssertEx.Equal(new Color(8 / 255f, 8 / 255f, 8 / 255f), firstGrey,
-                           "first xterm grey");
-            AssertEx.Equal(new Color(238 / 255f, 238 / 255f, 238 / 255f), lastGrey,
-                           "last xterm grey");
-            AssertEx.Equal(TerminalTheme.Current.Ansi[0], Sgr.Xterm256(-1),
-                           "negative xterm index clamps");
+            AssertEx.Equal(new Color(8 / 255f, 8 / 255f, 8 / 255f), firstGrey, "first xterm grey");
+            AssertEx.Equal(
+                new Color(238 / 255f, 238 / 255f, 238 / 255f),
+                lastGrey,
+                "last xterm grey"
+            );
+            AssertEx.Equal(
+                TerminalTheme.Current.Ansi[0],
+                Sgr.Xterm256(-1),
+                "negative xterm index clamps"
+            );
         }
-
-
     }
 }

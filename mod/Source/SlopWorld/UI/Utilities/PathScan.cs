@@ -16,15 +16,21 @@ namespace SlopWorld
             if (string.IsNullOrEmpty(text) || column < 0 || column >= text.Length)
                 return null;
 
-            int start = column, end = column + 1;
-            while (start > 0 && !Boundary(text[start - 1])) start--;
-            while (end < text.Length && !Boundary(text[end])) end++;
-            while (start < end && IsWrapper(text[start])) start++;
-            while (end > start && IsTail(text[end - 1])) end--;
+            int start = column,
+                end = column + 1;
+            while (start > 0 && !Boundary(text[start - 1]))
+                start--;
+            while (end < text.Length && !Boundary(text[end]))
+                end++;
+            while (start < end && IsWrapper(text[start]))
+                start++;
+            while (end > start && IsTail(text[end - 1]))
+                end--;
 
             end = ParseLocationSuffix(text, start, end, out line, out _);
 
-            if (end <= start) return null;
+            if (end <= start)
+                return null;
             string path = text.Substring(start, end - start);
             // A scheme's `//` is not a directory separator. Leave URLs to UrlScan.
             if (path.IndexOf("://", StringComparison.Ordinal) >= 0)
@@ -32,26 +38,37 @@ namespace SlopWorld
             if (path[0] == '/')
             {
                 // A bare "/" is the root, not a file the tree needs to scroll to.
-                if (path.Length < 2) return null;
+                if (path.Length < 2)
+                    return null;
                 return path;
             }
-            if (!path.StartsWith("./", StringComparison.Ordinal) &&
-                !path.StartsWith("../", StringComparison.Ordinal) &&
-                path.IndexOf('/') < 0 && !LooksLikeRootFile(path))
+            if (
+                !path.StartsWith("./", StringComparison.Ordinal)
+                && !path.StartsWith("../", StringComparison.Ordinal)
+                && path.IndexOf('/') < 0
+                && !LooksLikeRootFile(path)
+            )
                 return null;
             return path;
         }
 
         // Strip numeric suffixes right-to-left. The leftmost number is the source line;
         // the next is the column. Keep accepting repeated numeric suffixes as before.
-        static int ParseLocationSuffix(string text, int start, int end, out int line, out int column)
+        static int ParseLocationSuffix(
+            string text,
+            int start,
+            int end,
+            out int line,
+            out int column
+        )
         {
             line = column = 0;
             int location = end;
             while (location > start)
             {
                 int colon = text.LastIndexOf(':', location - 1, location - start);
-                if (colon < start || !Digits(text, colon + 1, location)) break;
+                if (colon < start || !Digits(text, colon + 1, location))
+                    break;
                 column = line;
                 line = Number(text, colon + 1, location);
                 location = colon;
@@ -65,24 +82,31 @@ namespace SlopWorld
         // needs this absolute form even when the terminal printed a relative path.
         public static string ResolveProjectPath(string root, string cwd, string path)
         {
-            if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(path)) return null;
+            if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(path))
+                return null;
             try
             {
                 char separator = System.IO.Path.DirectorySeparatorChar;
-                string rootPath = System.IO.Path.GetFullPath(NormalizeSeparators(root))
+                string rootPath = System
+                    .IO.Path.GetFullPath(NormalizeSeparators(root))
                     .TrimEnd(separator);
-                if (rootPath.Length == 0) rootPath = separator.ToString();
-                string basePath = string.IsNullOrEmpty(cwd) ? rootPath :
-                    System.IO.Path.GetFullPath(NormalizeSeparators(cwd));
+                if (rootPath.Length == 0)
+                    rootPath = separator.ToString();
+                string basePath = string.IsNullOrEmpty(cwd)
+                    ? rootPath
+                    : System.IO.Path.GetFullPath(NormalizeSeparators(cwd));
                 string absolute = System.IO.Path.IsPathRooted(path)
                     ? System.IO.Path.GetFullPath(NormalizeSeparators(path))
-                    : System.IO.Path.GetFullPath(System.IO.Path.Combine(basePath,
-                        NormalizeSeparators(path)));
-                string prefix = rootPath == separator.ToString()
-                    ? rootPath : rootPath + separator;
-                StringComparison comparison = separator == '\\'
-                    ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-                if (absolute == rootPath || !absolute.StartsWith(prefix, comparison)) return null;
+                    : System.IO.Path.GetFullPath(
+                        System.IO.Path.Combine(basePath, NormalizeSeparators(path))
+                    );
+                string prefix = rootPath == separator.ToString() ? rootPath : rootPath + separator;
+                StringComparison comparison =
+                    separator == '\\'
+                        ? StringComparison.OrdinalIgnoreCase
+                        : StringComparison.Ordinal;
+                if (absolute == rootPath || !absolute.StartsWith(prefix, comparison))
+                    return null;
                 return absolute.Replace(separator, '/');
             }
             catch (Exception)
@@ -92,16 +116,32 @@ namespace SlopWorld
         }
 
         static string NormalizeSeparators(string path) =>
-            (path ?? "").Replace('/', System.IO.Path.DirectorySeparatorChar)
+            (path ?? "")
+                .Replace('/', System.IO.Path.DirectorySeparatorChar)
                 .Replace('\\', System.IO.Path.DirectorySeparatorChar);
 
-        static bool Boundary(char c) => char.IsWhiteSpace(c) || c == '"' || c == '`' ||
-            c == '<' || c == '>' || c == '|' || c == '=';
+        static bool Boundary(char c) =>
+            char.IsWhiteSpace(c)
+            || c == '"'
+            || c == '`'
+            || c == '<'
+            || c == '>'
+            || c == '|'
+            || c == '=';
 
         static bool IsWrapper(char c) => c == '(' || c == '[' || c == '{' || c == '\'';
 
-        static bool IsTail(char c) => c == ')' || c == ']' || c == '}' || c == '\'' ||
-            c == ',' || c == ';' || c == ':' || c == '!' || c == '?' || c == '.';
+        static bool IsTail(char c) =>
+            c == ')'
+            || c == ']'
+            || c == '}'
+            || c == '\''
+            || c == ','
+            || c == ';'
+            || c == ':'
+            || c == '!'
+            || c == '?'
+            || c == '.';
 
         static bool LooksLikeRootFile(string path)
         {
@@ -113,23 +153,30 @@ namespace SlopWorld
         // The caller must first check the complete name, then confirm this candidate exists.
         internal static string BeforeProseDash(string name)
         {
-            if (string.IsNullOrEmpty(name)) return null;
+            if (string.IsNullOrEmpty(name))
+                return null;
             for (int i = 0; i < name.Length; i++)
             {
-                if (name[i] != '—' && name[i] != '–') continue;
+                if (name[i] != '—' && name[i] != '–')
+                    continue;
                 int dot = name.LastIndexOf('.', i);
-                if (dot <= 0 || dot == i - 1) continue;
+                if (dot <= 0 || dot == i - 1)
+                    continue;
                 bool extension = true;
                 for (int j = dot + 1; j < i; j++)
-                    if (!IsExtensionCharacter(name[j])) { extension = false; break; }
-                if (extension) return name.Substring(0, i);
+                    if (!IsExtensionCharacter(name[j]))
+                    {
+                        extension = false;
+                        break;
+                    }
+                if (extension)
+                    return name.Substring(0, i);
             }
             return null;
         }
 
         static bool IsExtensionCharacter(char c) =>
-            (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-            (c >= '0' && c <= '9');
+            (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
 
         static int Number(string text, int start, int end)
         {
@@ -137,7 +184,8 @@ namespace SlopWorld
             for (int i = start; i < end; i++)
             {
                 int digit = text[i] - '0';
-                if (value > (int.MaxValue - digit) / 10) return 0;
+                if (value > (int.MaxValue - digit) / 10)
+                    return 0;
                 value = value * 10 + digit;
             }
             return value;
@@ -145,9 +193,11 @@ namespace SlopWorld
 
         static bool Digits(string text, int start, int end)
         {
-            if (start >= end) return false;
+            if (start >= end)
+                return false;
             for (int i = start; i < end; i++)
-                if (text[i] < '0' || text[i] > '9') return false;
+                if (text[i] < '0' || text[i] > '9')
+                    return false;
             return true;
         }
     }

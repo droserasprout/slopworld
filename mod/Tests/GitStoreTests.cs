@@ -19,23 +19,40 @@ namespace SlopWorld.Tests
             internal float Now;
             internal readonly List<Request> Requests = new List<Request>();
             internal readonly GitStore Store;
+
             internal Fixture()
             {
-                Store = new GitStore(_ => Directory, _ => true, () => Now,
-                    (url, ok, fail, timeout) => Requests.Add(new Request { Url = url, Ok = ok, Fail = fail }));
+                Store = new GitStore(
+                    _ => Directory,
+                    _ => true,
+                    () => Now,
+                    (url, ok, fail, timeout) =>
+                        Requests.Add(
+                            new Request
+                            {
+                                Url = url,
+                                Ok = ok,
+                                Fail = fail,
+                            }
+                        )
+                );
             }
         }
 
-        static Wire.GitResult Status(string status = " M", bool counts = false) => new Wire.GitResult
-        {
-            Repo = true,
-            Root = "/checkout",
-            Branch = "main",
-            Changed = 1,
-            CountsComplete = counts,
-            Added = counts ? 3UL : 0UL,
-            Files = { new Wire.GitFile { Path = "a/b/file", Status = status } }
-        };
+        static Wire.GitResult Status(string status = " M", bool counts = false) =>
+            new Wire.GitResult
+            {
+                Repo = true,
+                Root = "/checkout",
+                Branch = "main",
+                Changed = 1,
+                CountsComplete = counts,
+                Added = counts ? 3UL : 0UL,
+                Files =
+                {
+                    new Wire.GitFile { Path = "a/b/file", Status = status },
+                },
+            };
 
         public static void UnchangedStatusRetainsTreeAndCounts()
         {

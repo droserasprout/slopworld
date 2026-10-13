@@ -6,8 +6,9 @@ namespace SlopWorld
     // link handlers still need the original event kind so a consumed mouse gesture can finish.
     static class UiEvent
     {
-        public static EventType RawType(Event e) => e == null
-            ? EventType.Ignore
-            : e.type == EventType.Used ? e.rawType : e.type;
+        public static EventType RawType(Event e) =>
+            e == null ? EventType.Ignore
+            : e.type == EventType.Used ? e.rawType
+            : e.type;
     }
 }

@@ -20,6 +20,7 @@ namespace SlopWorld
         // Providers that the daemon polls, including providers that do not respond.
         // Keep their display rows visible during failures.
         public List<string> Sources = new List<string>();
+
         // A merged snapshot can include both failed and successful providers.
         // Use this list to dim only rows from failed providers.
         public List<string> FailedSources = new List<string>();
@@ -41,9 +42,11 @@ namespace SlopWorld
 
         public float AgeFor(string key, float now)
         {
-            string provider = Row(key)?.Provider ?? Catalog.FirstOrDefault(item => item.Key == key)?.Provider;
+            string provider =
+                Row(key)?.Provider ?? Catalog.FirstOrDefault(item => item.Key == key)?.Provider;
             return provider != null && _sourceHeard.TryGetValue(provider, out float heard)
-                ? Math.Max(0f, now - heard) : Age(now);
+                ? Math.Max(0f, now - heard)
+                : Age(now);
         }
 
         // Clamp remaining time to zero so an expired window shows that its reset is due.
@@ -52,41 +55,51 @@ namespace SlopWorld
 
         // prev contains the displayed snapshot.
         // A failed poll returns previous values without making them current again.
-        public static UsageInfo FromWire(Wire.UsageSnapshot j, float now, ulong unixMs,
-            UsageInfo prev = null)
+        public static UsageInfo FromWire(
+            Wire.UsageSnapshot j,
+            float now,
+            ulong unixMs,
+            UsageInfo prev = null
+        )
         {
             bool ok = j.Ok;
             var value = Read(j, ok || prev == null ? now : prev.Heard);
-            foreach (string source in j.Sources.Concat(j.Rows.Select(row => row.Provider))
-                .Concat(j.SourceFetchedMs.Keys).Distinct())
+            foreach (
+                string source in j
+                    .Sources.Concat(j.Rows.Select(row => row.Provider))
+                    .Concat(j.SourceFetchedMs.Keys)
+                    .Distinct()
+            )
             {
                 bool retained = prev != null && prev._sourceHeard.TryGetValue(source, out _);
                 if (j.SourceFetchedMs.TryGetValue(source, out ulong fetched) && fetched != 0)
                 {
                     value._sourceFetched[source] = fetched;
                     // Preserve the monotonic anchor for repeated snapshots of the same poll.
-                    value._sourceHeard[source] = retained &&
-                        prev._sourceFetched.TryGetValue(source, out ulong old) && old == fetched
-                        ? prev._sourceHeard[source]
-                        : now - (unixMs > fetched ? (unixMs - fetched) / 1000f : 0f);
+                    value._sourceHeard[source] =
+                        retained
+                        && prev._sourceFetched.TryGetValue(source, out ulong old)
+                        && old == fetched
+                            ? prev._sourceHeard[source]
+                            : now - (unixMs > fetched ? (unixMs - fetched) / 1000f : 0f);
                 }
-
             }
             return value;
         }
 
-        static UsageInfo Read(Wire.UsageSnapshot j, float heard) => new UsageInfo
-        {
-            Ok = j.Ok,
-            Error = !j.HasError ? null : j.Error,
-            Plan = j.Plan,
-            Sources = j.Sources.ToList(),
-            FailedSources = j.FailedSources.ToList(),
-            Catalog = j.Catalog.Select(UsageCatalogInfo.FromWire).ToList(),
-            Rows = j.Rows.Select(UsageRow.FromWire).ToList(),
-            Heard = heard,
-            Windows = j.Windows.Select(UsageWindow.FromWire).ToList(),
-        };
+        static UsageInfo Read(Wire.UsageSnapshot j, float heard) =>
+            new UsageInfo
+            {
+                Ok = j.Ok,
+                Error = !j.HasError ? null : j.Error,
+                Plan = j.Plan,
+                Sources = j.Sources.ToList(),
+                FailedSources = j.FailedSources.ToList(),
+                Catalog = j.Catalog.Select(UsageCatalogInfo.FromWire).ToList(),
+                Rows = j.Rows.Select(UsageRow.FromWire).ToList(),
+                Heard = heard,
+                Windows = j.Windows.Select(UsageWindow.FromWire).ToList(),
+            };
     }
 
     public sealed class UsageRow

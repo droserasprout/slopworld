@@ -20,13 +20,16 @@ namespace SlopWorld
         // Disable this panel's cache after a render-target failure.
         bool Blit(Rect body, ScreenBuf buf, float cw, float ch)
         {
-            if (_noCache) return false;
+            if (_noCache)
+                return false;
             // Labels and boxes draw on repaint and nowhere else.
-            if (Event.current.type != EventType.Repaint) return true;
+            if (Event.current.type != EventType.Repaint)
+                return true;
 
             try
             {
-                if (!EnsureCache(body, buf, cw, ch)) return false;
+                if (!EnsureCache(body, buf, cw, ch))
+                    return false;
                 return BlitCached(body);
             }
             catch (System.Exception e)
@@ -38,10 +41,13 @@ namespace SlopWorld
 
         bool EnsureCache(Rect body, ScreenBuf buf, float cw, float ch)
         {
-            int pw = Screen.width, ph = Screen.height;
-            if (pw <= 0 || ph <= 0) return false;
+            int pw = Screen.width,
+                ph = Screen.height;
+            if (pw <= 0 || ph <= 0)
+                return false;
 
-            if (_cache != null && (_cache.width != pw || _cache.height != ph)) Drop();
+            if (_cache != null && (_cache.width != pw || _cache.height != ph))
+                Drop();
 
             bool fresh = _cache == null;
             if (fresh)
@@ -56,7 +62,9 @@ namespace SlopWorld
             {
                 if (!_cache.Create())
                 {
-                    DisableCache(new System.InvalidOperationException("Render texture creation failed"));
+                    DisableCache(
+                        new System.InvalidOperationException("Render texture creation failed")
+                    );
                     return false;
                 }
                 fresh = true;
@@ -64,36 +72,58 @@ namespace SlopWorld
 
             var key = CacheKey(body, buf, cw, ch);
             bool repaintAll = fresh || !_cacheKey.Matches(key);
-            var repaint = TerminalRepaintPolicy.Choose(repaintAll, _cacheContentRevision, buf,
-                                                       out var repaintReason);
+            var repaint = TerminalRepaintPolicy.Choose(
+                repaintAll,
+                _cacheContentRevision,
+                buf,
+                out var repaintReason
+            );
             TraceCacheDamage(buf, repaintAll);
-            if (repaint == TerminalRepaint.None) PerfTrace.Count("terminal-cache-hits");
+            if (repaint == TerminalRepaint.None)
+                PerfTrace.Count("terminal-cache-hits");
             PaintCache(key, repaintAll, repaint, repaintReason);
-            if (repaintAll) _cacheKey = key;
+            if (repaintAll)
+                _cacheKey = key;
             _cacheContentRevision = buf.ContentRevision;
 
             return true;
         }
 
-        void PaintCache(TerminalCacheKey key, bool repaintAll, TerminalRepaint repaint,
-                        TerminalRepaintReason repaintReason)
+        void PaintCache(
+            TerminalCacheKey key,
+            bool repaintAll,
+            TerminalRepaint repaint,
+            TerminalRepaintReason repaintReason
+        )
         {
             var body = new Rect(key.X, key.Y, key.Width, key.Height);
             var buf = key.Buffer;
-            float cw = key.CellW, ch = key.CellH;
+            float cw = key.CellW,
+                ch = key.CellH;
             if (repaintAll)
             {
-                if (PerfTrace.Enabled && _cacheKey.Buffer != null &&
-                    _cacheKey.Offset > 0 && key.Offset > 0 &&
-                    _cacheKey.Offset != key.Offset && _cacheKey.SameSurface(key))
+                if (
+                    PerfTrace.Enabled
+                    && _cacheKey.Buffer != null
+                    && _cacheKey.Offset > 0
+                    && key.Offset > 0
+                    && _cacheKey.Offset != key.Offset
+                    && _cacheKey.SameSurface(key)
+                )
                 {
                     PerfTrace.Count("terminal-cache-scroll-shifts");
                     int rows = TerminalScrollReuse.MatchingRows(_cacheKey, key);
                     if (rows > 0)
                     {
                         PerfTrace.Count("terminal-cache-scroll-overlap", rows);
-                        if (TerminalScrollReuse.PixelAligned(_cacheKey.Offset, key.Offset,
-                                                             ch, _snapSy))
+                        if (
+                            TerminalScrollReuse.PixelAligned(
+                                _cacheKey.Offset,
+                                key.Offset,
+                                ch,
+                                _snapSy
+                            )
+                        )
                             PerfTrace.Count("terminal-cache-scroll-copyable", rows);
                     }
                 }
@@ -109,15 +139,18 @@ namespace SlopWorld
                     RenderTexture.active = _cache;
                     GL.Clear(false, true, SolidTerminalBackground);
                     _cacheLead = CacheLead(body, ch);
-                    Paint(new Rect(body.x, body.y - _cacheLead, body.width,
-                                   body.height + _cacheLead), buf, cw, ch);
+                    Paint(
+                        new Rect(body.x, body.y - _cacheLead, body.width, body.height + _cacheLead),
+                        buf,
+                        cw,
+                        ch
+                    );
                 }
                 finally
                 {
                     RenderTexture.active = was;
                     PerfTrace.End("terminal-cache-full-paint", paintStarted, 1);
                 }
-
             }
             else if (repaint != TerminalRepaint.None)
             {
@@ -143,25 +176,45 @@ namespace SlopWorld
                                 PerfTrace.Count("terminal-cache-missing-damage");
                         }
                         GL.Clear(false, true, SolidTerminalBackground);
-                        Paint(new Rect(body.x, body.y - _cacheLead, body.width,
-                                       body.height + _cacheLead), buf, cw, ch);
+                        Paint(
+                            new Rect(
+                                body.x,
+                                body.y - _cacheLead,
+                                body.width,
+                                body.height + _cacheLead
+                            ),
+                            buf,
+                            cw,
+                            ch
+                        );
                     }
                     else
                     {
                         PerfTrace.Count("terminal-cache-rows-repainted", buf.ChangedRows.Length);
-                        PaintRows(new Rect(body.x, body.y - _cacheLead, body.width,
-                                           body.height + _cacheLead), buf, cw, ch,
-                                  buf.ChangedRows);
+                        PaintRows(
+                            new Rect(
+                                body.x,
+                                body.y - _cacheLead,
+                                body.width,
+                                body.height + _cacheLead
+                            ),
+                            buf,
+                            cw,
+                            ch,
+                            buf.ChangedRows
+                        );
                     }
                 }
                 finally
                 {
                     RenderTexture.active = was;
-                    PerfTrace.End(broad ? "terminal-cache-full-paint" :
-                        "terminal-cache-row-paint", paintStarted, 1);
+                    PerfTrace.End(
+                        broad ? "terminal-cache-full-paint" : "terminal-cache-row-paint",
+                        paintStarted,
+                        1
+                    );
                 }
             }
-
         }
 
         TerminalCacheKey CacheKey(Rect body, ScreenBuf buf, float cw, float ch)
@@ -186,14 +239,21 @@ namespace SlopWorld
 
         void TraceCacheDamage(ScreenBuf buf, bool repaintAll)
         {
-            if (PerfTrace.Enabled && !repaintAll &&
-                buf.ContentRevision == unchecked(_cacheContentRevision + 1) &&
-                buf.ChangedRows != null && buf.ChangedRows.Length > 0)
+            if (
+                PerfTrace.Enabled
+                && !repaintAll
+                && buf.ContentRevision == unchecked(_cacheContentRevision + 1)
+                && buf.ChangedRows != null
+                && buf.ChangedRows.Length > 0
+            )
             {
                 int changed = buf.ChangedRows.Length;
                 int total = System.Math.Max(1, buf.Lines?.Length ?? 0);
-                string band = changed == total ? "100" : changed * 4 >= total * 3 ? "75-99" :
-                    changed * 2 >= total ? "50-74" : "0-49";
+                string band =
+                    changed == total ? "100"
+                    : changed * 4 >= total * 3 ? "75-99"
+                    : changed * 2 >= total ? "50-74"
+                    : "0-49";
                 PerfTrace.Count("terminal-cache-damage-" + band, changed);
             }
         }
@@ -229,13 +289,15 @@ namespace SlopWorld
                 PerfTrace.Count("terminal-cache-session-mismatch");
                 return false;
             }
-            if (Event.current.type != EventType.Repaint) return true;
+            if (Event.current.type != EventType.Repaint)
+                return true;
 
             float debugStarted = ScrollDebugTimer();
             long blitStarted = PerfTrace.Start();
             bool drawn = false;
 
-            int pw = Screen.width, ph = Screen.height;
+            int pw = Screen.width,
+                ph = Screen.height;
             if (pw <= 0 || ph <= 0 || _cache.width != pw || _cache.height != ph)
             {
                 PerfTrace.Count("terminal-cache-size-mismatch");
@@ -256,12 +318,15 @@ namespace SlopWorld
                 PerfTrace.Count("terminal-cache-out-of-bounds");
                 return false;
             }
-            if (edgeOverrun) PerfTrace.Count("terminal-cache-edge-clamps");
-            float u0 = x0 / pw, u1 = x1 / pw;
+            if (edgeOverrun)
+                PerfTrace.Count("terminal-cache-edge-clamps");
+            float u0 = x0 / pw,
+                u1 = x1 / pw;
 
             // texCoords y counts from the destination's bottom either way. Which end of
             // the texture that is, is where the API put the target's first row.
-            float v0, v1;
+            float v0,
+                v1;
             if (SystemInfo.graphicsUVStartsAtTop)
             {
                 v0 = y1 / ph;
@@ -275,8 +340,7 @@ namespace SlopWorld
 
             var tint = GUI.color;
             GUI.color = Color.white;
-            GUI.DrawTextureWithTexCoords(
-                destination, _cache, new Rect(u0, v0, u1 - u0, v1 - v0));
+            GUI.DrawTextureWithTexCoords(destination, _cache, new Rect(u0, v0, u1 - u0, v1 - v0));
             GUI.color = tint;
             drawn = true;
             ScrollDebugBlit(debugStarted, drawn);
@@ -286,7 +350,8 @@ namespace SlopWorld
 
         void Drop()
         {
-            if (_cache == null) return;
+            if (_cache == null)
+                return;
             _cache.Release();
             Object.Destroy(_cache);
             _cache = null;
@@ -300,13 +365,13 @@ namespace SlopWorld
         // The source rect is translated back when it is drawn into the pane.
         float CacheLead(Rect body, float ch)
         {
-            if (ch <= 0.01f) return 0f;
+            if (ch <= 0.01f)
+                return 0f;
             float top = body.y + _snapOy / _snapSy;
             return Mathf.Clamp(Mathf.Min(ch, top), 0f, ch);
         }
 
         Rect CacheSource(Rect body) =>
             new Rect(body.x, body.y - _cacheLead, body.width, body.height);
-
     }
 }

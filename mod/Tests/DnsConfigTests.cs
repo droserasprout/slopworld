@@ -13,12 +13,14 @@ namespace SlopWorld.Tests
 
         static void ParsesAndValidatesServerLists()
         {
-            bool parsed = DnsConfig.TryParseServers("8.8.8.8, 1.1.1.1", out var servers,
-                                                    out var error);
+            bool parsed = DnsConfig.TryParseServers(
+                "8.8.8.8, 1.1.1.1",
+                out var servers,
+                out var error
+            );
             AssertEx.True(parsed, "valid server list");
             AssertEx.True(error == null, "valid server error");
-            AssertEx.Sequence(new[] { "8.8.8.8", "1.1.1.1" }, servers,
-                              "valid server list values");
+            AssertEx.Sequence(new[] { "8.8.8.8", "1.1.1.1" }, servers, "valid server list values");
 
             parsed = DnsConfig.TryParseServers("8.8.8.8;\n1.1.1.1", out servers, out error);
             AssertEx.True(parsed, "mixed separators");
@@ -46,39 +48,48 @@ namespace SlopWorld.Tests
         {
             foreach (string address in new[] { "0.0.0.0", "224.0.0.0", "239.255.255.255" })
             {
-                AssertEx.False(DnsConfig.TryParseServers(address, out var servers, out var error), "daemon rejects " + address);
+                AssertEx.False(
+                    DnsConfig.TryParseServers(address, out var servers, out var error),
+                    "daemon rejects " + address
+                );
                 AssertEx.Equal(0, servers.Count, "excluded address is never added");
                 AssertEx.True(error.Contains("unicast IPv4"), "actionable validation error");
             }
             foreach (string address in new[] { "127.0.0.1", "223.255.255.255", "240.0.0.0" })
-                AssertEx.True(DnsConfig.TryParseServers(address, out _, out _), "matches daemon acceptance of " + address);
+                AssertEx.True(
+                    DnsConfig.TryParseServers(address, out _, out _),
+                    "matches daemon acceptance of " + address
+                );
         }
 
-        static DnsConfig ReadDns(string json) => DnsConfig.FromWire(ProtobufFixtures.Read<Wire.DnsConfig>(JVal.Parse(json)));
+        static DnsConfig ReadDns(string json) =>
+            DnsConfig.FromWire(ProtobufFixtures.Read<Wire.DnsConfig>(JVal.Parse(json)));
 
         static void RoundTripsDnsModes()
         {
             var resolved = ReadDns("{\"mode\":\"resolved\",\"servers\":[]}");
             AssertEx.True(resolved.IsResolved, "resolved mode");
-            AssertEx.Equal("System resolver", resolved.Label,
-                           "resolved label");
-            AssertEx.Equal("{\"mode\":\"resolved\",\"servers\":[]}", resolved.ToJson(),
-                           "resolved JSON");
+            AssertEx.Equal("System resolver", resolved.Label, "resolved label");
+            AssertEx.Equal(
+                "{\"mode\":\"resolved\",\"servers\":[]}",
+                resolved.ToJson(),
+                "resolved JSON"
+            );
 
-            var custom = ReadDns(
-                "{\"mode\":\"servers\",\"servers\":[\"8.8.8.8\",\"1.1.1.1\"]}");
+            var custom = ReadDns("{\"mode\":\"servers\",\"servers\":[\"8.8.8.8\",\"1.1.1.1\"]}");
             AssertEx.False(custom.IsResolved, "custom mode");
-            AssertEx.Sequence(new[] { "8.8.8.8", "1.1.1.1" }, custom.Servers,
-                              "custom servers");
+            AssertEx.Sequence(new[] { "8.8.8.8", "1.1.1.1" }, custom.Servers, "custom servers");
             AssertEx.Equal("Custom DNS: 8.8.8.8, 1.1.1.1", custom.Label, "custom label");
-            AssertEx.Equal(custom.ToJson(), ReadDns(custom.ToJson()).ToJson(),
-                           "custom JSON round trip");
+            AssertEx.Equal(
+                custom.ToJson(),
+                ReadDns(custom.ToJson()).ToJson(),
+                "custom JSON round trip"
+            );
 
             var copy = custom.Copy();
             copy.Servers[0] = "9.9.9.9";
             AssertEx.Equal("8.8.8.8", custom.Servers[0], "DNS copy owns its list");
-            AssertEx.True(ReadDns("{\"mode\":\"unknown\"}")
-                              .IsResolved, "unknown mode fallback");
+            AssertEx.True(ReadDns("{\"mode\":\"unknown\"}").IsResolved, "unknown mode fallback");
 
             var empty = DnsConfig.Custom();
             AssertEx.False(empty.IsResolved, "custom factory selects server mode");

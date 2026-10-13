@@ -6,8 +6,10 @@ namespace SlopWorld.Tests
     {
         public static void UnknownFieldsAreRejectedByDefault()
         {
-            AssertEx.Throws<InvalidProtocolBufferException>(() =>
-                ProtobufFixtures.Read<Wire.AgentTemplate>(JVal.Parse("{\"versoin\":42}")), "misspelled fixture fields cannot silently disappear");
+            AssertEx.Throws<InvalidProtocolBufferException>(
+                () => ProtobufFixtures.Read<Wire.AgentTemplate>(JVal.Parse("{\"versoin\":42}")),
+                "misspelled fixture fields cannot silently disappear"
+            );
         }
     }
 }

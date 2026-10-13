@@ -15,7 +15,8 @@ namespace SlopWorld.Tests
             };
             start.ArgumentList.Add("-c");
             start.ArgumentList.Add(command);
-            if (bashEnv != null) start.Environment["BASH_ENV"] = bashEnv;
+            if (bashEnv != null)
+                start.Environment["BASH_ENV"] = bashEnv;
             start.Environment["GIT_CONFIG_NOSYSTEM"] = "1";
             start.Environment["GIT_CONFIG_GLOBAL"] = "/dev/null";
             using (var process = Process.Start(start))

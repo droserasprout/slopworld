@@ -34,8 +34,9 @@ namespace SlopWorld.Tests
         static void ParsesNestedValuesAndAccessors()
         {
             var value = JVal.Parse(
-                "{\"name\":\"slop\",\"active\":true," +
-                "\"items\":[1,2,{\"ok\":false}],\"ratio\":-1.25}");
+                "{\"name\":\"slop\",\"active\":true,"
+                    + "\"items\":[1,2,{\"ok\":false}],\"ratio\":-1.25}"
+            );
 
             AssertEx.Equal("slop", value["name"].AsString(), "object string");
             AssertEx.True(value["active"].AsBool(), "true literal");
@@ -44,16 +45,19 @@ namespace SlopWorld.Tests
             AssertEx.False(value["items"][2]["ok"].AsBool(true), "false literal");
             AssertEx.Equal(-1.25f, value["ratio"].AsFloat(), "decimal number");
             AssertEx.True(value["missing"].IsNull, "missing object key");
-            AssertEx.Equal("fallback", value["missing"].AsString("fallback"),
-                           "missing string fallback");
-            AssertEx.Sequence(Array.Empty<JVal>(), JVal.Parse("[]").Items,
-                              "empty array items");
+            AssertEx.Equal(
+                "fallback",
+                value["missing"].AsString("fallback"),
+                "missing string fallback"
+            );
+            AssertEx.Sequence(Array.Empty<JVal>(), JVal.Parse("[]").Items, "empty array items");
         }
 
         static void RoundTripsQuotedStrings()
         {
-            string original = "quote \" slash \\ newline\n tab\t backspace\b formfeed\f " +
-                              "carriage\r unicode ♥";
+            string original =
+                "quote \" slash \\ newline\n tab\t backspace\b formfeed\f "
+                + "carriage\r unicode ♥";
             string encoded = JVal.Q(original);
 
             AssertEx.Equal(original, JVal.Parse(encoded).AsString(), "quoted string round trip");
@@ -78,51 +82,101 @@ namespace SlopWorld.Tests
         {
             const string emoji = "\U0001F606";
             string wire = "{\"text\":" + JVal.Q(emoji) + "}";
-            AssertEx.Equal(emoji, JVal.Parse(wire)["text"].AsString(),
-                           "surrogate pair survives the paste JSON shape");
+            AssertEx.Equal(
+                emoji,
+                JVal.Parse(wire)["text"].AsString(),
+                "surrogate pair survives the paste JSON shape"
+            );
         }
 
         static void ValidatesSkippedValues()
         {
-            foreach (string json in new[]
-            {
-                "{ \"a\" : 1, \"b\" : [true, false, null, {}, []] }",
-                "\"\\b\\f\\n\\r\\t\\/\\\\\\\"\\u002d\\ud83d\\ude06\"",
-                "[0, -0, 1.25, -12.5e+2, 1E-2]",
-            })
+            foreach (
+                string json in new[]
+                {
+                    "{ \"a\" : 1, \"b\" : [true, false, null, {}, []] }",
+                    "\"\\b\\f\\n\\r\\t\\/\\\\\\\"\\u002d\\ud83d\\ude06\"",
+                    "[0, -0, 1.25, -12.5e+2, 1E-2]",
+                }
+            )
             {
                 JVal.Parse(json);
                 var reader = new JsonReader(json);
                 reader.Value(false);
                 reader.Finish();
             }
-            foreach (string json in new[]
-            {
-                "", "[", "{", "[1,]", "{\"a\":1,}", "{\"a\" 1}", "[1 2]",
-                "true false", "tru", "nul", "01", "-01", "0x10", "0Xff", ".5", "-.5", "1.e2", "-", "1.", "1e+", "+1", "1١",
-                "{'a':1}", "[/*comment*/1]", "NaN", "Infinity", "-Infinity", "1e999", "undefined", "new Date(1)",
-                "{unquoted:1}", "[1,,2]", "[[]", "{\"a\":{}",
-                "\"bad\\q\"", "\"bad\\u00xz\"", "\"bad\\u123\"", "\"unclosed",
-                "\"bad\ntext\"", "\"bad\\\ntext\"", "\u00a0null",
-                new string('[', 130) + new string(']', 130),
-            })
+            foreach (
+                string json in new[]
+                {
+                    "",
+                    "[",
+                    "{",
+                    "[1,]",
+                    "{\"a\":1,}",
+                    "{\"a\" 1}",
+                    "[1 2]",
+                    "true false",
+                    "tru",
+                    "nul",
+                    "01",
+                    "-01",
+                    "0x10",
+                    "0Xff",
+                    ".5",
+                    "-.5",
+                    "1.e2",
+                    "-",
+                    "1.",
+                    "1e+",
+                    "+1",
+                    "1١",
+                    "{'a':1}",
+                    "[/*comment*/1]",
+                    "NaN",
+                    "Infinity",
+                    "-Infinity",
+                    "1e999",
+                    "undefined",
+                    "new Date(1)",
+                    "{unquoted:1}",
+                    "[1,,2]",
+                    "[[]",
+                    "{\"a\":{}",
+                    "\"bad\\q\"",
+                    "\"bad\\u00xz\"",
+                    "\"bad\\u123\"",
+                    "\"unclosed",
+                    "\"bad\ntext\"",
+                    "\"bad\\\ntext\"",
+                    "\u00a0null",
+                    new string('[', 130) + new string(']', 130),
+                }
+            )
             {
                 AssertEx.Throws<FormatException>(() => JVal.Parse(json), "reject decoded " + json);
-                AssertEx.Throws<FormatException>(() =>
-                {
-                    var reader = new JsonReader(json);
-                    reader.Value(false);
-                    reader.Finish();
-                }, "reject skipped " + json);
+                AssertEx.Throws<FormatException>(
+                    () =>
+                    {
+                        var reader = new JsonReader(json);
+                        reader.Value(false);
+                        reader.Finish();
+                    },
+                    "reject skipped " + json
+                );
             }
         }
 
         static void PreservesWireScalars()
         {
-            AssertEx.True(JVal.Equivalent(JVal.Parse("1"), JVal.Parse("1.0")),
-                          "integer and float tokens retain numeric equality");
-            AssertEx.Equal(2, JVal.Parse("{\"a\":1,\"a\":2}")["a"].AsInt(),
-                           "last duplicate property wins");
+            AssertEx.True(
+                JVal.Equivalent(JVal.Parse("1"), JVal.Parse("1.0")),
+                "integer and float tokens retain numeric equality"
+            );
+            AssertEx.Equal(
+                2,
+                JVal.Parse("{\"a\":1,\"a\":2}")["a"].AsInt(),
+                "last duplicate property wins"
+            );
             const string date = "2026-09-15T00:00:00Z";
             AssertEx.Equal(date, JVal.Parse(JVal.Q(date)).AsString(), "dates remain strings");
             string deepest = new string('[', 128) + "0" + new string(']', 128);

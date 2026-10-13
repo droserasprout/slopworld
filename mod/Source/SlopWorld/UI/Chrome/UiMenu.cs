@@ -25,7 +25,8 @@ namespace SlopWorld
     {
         sealed class SeparatorOption : FloatMenuOption
         {
-            public SeparatorOption() : base(" ", null) { }
+            public SeparatorOption()
+                : base(" ", null) { }
         }
 
         readonly List<FloatMenuOption> _options;
@@ -83,8 +84,12 @@ namespace SlopWorld
         // The frame this menu was built on - see `HandleKeyboard`.
         readonly int _born = Time.frameCount;
 
-        public UiMenu(List<FloatMenuOption> options, Vector2? at = null, bool selector = false,
-                      float selectorWidth = 0f)
+        public UiMenu(
+            List<FloatMenuOption> options,
+            Vector2? at = null,
+            bool selector = false,
+            float selectorWidth = 0f
+        )
         {
             _options = options ?? new List<FloatMenuOption>();
             _at = at;
@@ -139,14 +144,16 @@ namespace SlopWorld
         public static bool IsSelectorOpenAt(Vector2 at)
         {
             var stack = Find.WindowStack;
-            if (stack == null) return false;
+            if (stack == null)
+                return false;
 
             for (int i = 0; i < stack.Count; i++)
             {
                 var menu = stack[i] as UiMenu;
                 if (menu == null || !menu._selector || menu._parent != null || !menu._at.HasValue)
                     continue;
-                if ((menu._at.Value - at).sqrMagnitude < 0.25f) return true;
+                if ((menu._at.Value - at).sqrMagnitude < 0.25f)
+                    return true;
             }
 
             return false;
@@ -168,7 +175,8 @@ namespace SlopWorld
                     foreach (var label in labels)
                     {
                         widest = Mathf.Max(widest, UiTheme.Wide(label));
-                        if (widest + PadX * 2f >= MaxW) break;
+                        if (widest + PadX * 2f >= MaxW)
+                            break;
                     }
                 }
                 return Mathf.Clamp(widest + PadX * 2f, MinW, MaxW);
@@ -180,7 +188,8 @@ namespace SlopWorld
 
         void MeasureRows()
         {
-            if (_measuredCount == _options.Count && _measuredRowHeight == RowH) return;
+            if (_measuredCount == _options.Count && _measuredRowHeight == RowH)
+                return;
             _rows.Build(_options.Count, i => Height(_options[i]));
             _measuredCount = _options.Count;
             _measuredRowHeight = RowH;
@@ -188,7 +197,11 @@ namespace SlopWorld
 
         float ContentH
         {
-            get { MeasureRows(); return _rows.Height + PadY * 2f; }
+            get
+            {
+                MeasureRows();
+                return _rows.Height + PadY * 2f;
+            }
         }
 
         float WidestLabel()
@@ -199,38 +212,49 @@ namespace SlopWorld
                 float w = 0f;
                 foreach (var o in _options)
                 {
-                    if (o is SeparatorOption) continue;
-                    w = Mathf.Max(w, UiTheme.Wide(o.Label) + o.extraPartWidth +
-                        (o is UiSubmenu ? ArrowW + UiTheme.GapXS : 0f));
-                    if (w + PadX * 2f >= MaxW) break;
+                    if (o is SeparatorOption)
+                        continue;
+                    w = Mathf.Max(
+                        w,
+                        UiTheme.Wide(o.Label)
+                            + o.extraPartWidth
+                            + (o is UiSubmenu ? ArrowW + UiTheme.GapXS : 0f)
+                    );
+                    if (w + PadX * 2f >= MaxW)
+                        break;
                 }
                 return w;
             }
         }
 
         public override Vector2 InitialSize =>
-            new Vector2(_selector && _selectorWidth > 0f
+            new Vector2(
+                _selector && _selectorWidth > 0f
                     ? Mathf.Min(_selectorWidth, UI.screenWidth)
                     : Mathf.Clamp(WidestLabel() + PadX * 2f, MinW, MaxW),
-                Mathf.Min(ContentH, UI.screenHeight * MaxScreen));
+                Mathf.Min(ContentH, UI.screenHeight * MaxScreen)
+            );
 
         public override void PreOpen()
         {
             base.PreOpen();
-            if (_parent == null) Sweep(this);
+            if (_parent == null)
+                Sweep(this);
         }
 
         static void Sweep(UiMenu keep)
         {
             var stack = Find.WindowStack;
-            if (stack == null) return;
+            if (stack == null)
+                return;
 
             // Downward, because closing one takes its branch - which stands above it - with
             // it. Nothing below the index being read moves, so the walk stays valid.
             for (int i = stack.Count - 1; i >= 0; i--)
             {
                 var m = stack[i] as UiMenu;
-                if (m != null && m != keep) m.CloseBranch();
+                if (m != null && m != keep)
+                    m.CloseBranch();
             }
         }
 
@@ -248,7 +272,9 @@ namespace SlopWorld
             windowRect = new Rect(
                 Mathf.Max(0f, Mathf.Min(at.x, UI.screenWidth - size.x)),
                 Mathf.Max(0f, Mathf.Min(at.y, UI.screenHeight - size.y)),
-                size.x, size.y);
+                size.x,
+                size.y
+            );
         }
 
         // Place beside the parent, never over it. Prefer the right side, then the left, and
@@ -267,16 +293,22 @@ namespace SlopWorld
             windowRect = new Rect(
                 Mathf.Max(0f, x),
                 Mathf.Max(0f, Mathf.Min(_anchor, UI.screenHeight - _want.y)),
-                w, _want.y);
+                w,
+                _want.y
+            );
         }
 
         public override void DoWindowContents(Rect rect)
         {
             try
             {
-                if (_dispatchedFrame == Time.frameCount &&
-                    ReferenceEquals(_dispatchedEvent, Event.current)) return;
-                using (WidgetState.Save()) DrawContents(rect);
+                if (
+                    _dispatchedFrame == Time.frameCount
+                    && ReferenceEquals(_dispatchedEvent, Event.current)
+                )
+                    return;
+                using (WidgetState.Save())
+                    DrawContents(rect);
             }
             finally
             {
@@ -293,8 +325,12 @@ namespace SlopWorld
         {
             var inner = new Rect(rect.x, rect.y + PadY, rect.width, rect.height - PadY * 2f);
             // Wheel passes reuse measured bounds and skip row controls and labels.
-            if (_measuredCount == _options.Count && _measuredRowHeight == RowH &&
-                _scroll.HandleWheel(inner)) return;
+            if (
+                _measuredCount == _options.Count
+                && _measuredRowHeight == RowH
+                && _scroll.HandleWheel(inner)
+            )
+                return;
 
             // A submenu can be populated by an asynchronous host query after it opens. Its
             // list is shared with the caller, so measure it again and let the child follow its
@@ -310,21 +346,31 @@ namespace SlopWorld
             }
 
             var e = Event.current;
-            if (e != null && (e.rawType == EventType.MouseMove ||
-                              e.rawType == EventType.MouseDown ||
-                              e.rawType == EventType.MouseUp))
+            if (
+                e != null
+                && (
+                    e.rawType == EventType.MouseMove
+                    || e.rawType == EventType.MouseDown
+                    || e.rawType == EventType.MouseUp
+                )
+            )
             {
                 _keyboardSelection = false;
                 _selected = -1;
             }
 
-            if (HandleKeyboard()) return;
+            if (HandleKeyboard())
+                return;
 
             Slab.Box(rect, UiTheme.PopoverBg, UiTheme.Edge);
 
             bool scrolls = ContentH > rect.height;
-            var view = new Rect(0f, 0f, inner.width - (scrolls ? UiTheme.ScrollbarW : 0f),
-                ContentH - PadY * 2f);
+            var view = new Rect(
+                0f,
+                0f,
+                inner.width - (scrolls ? UiTheme.ScrollbarW : 0f),
+                ContentH - PadY * 2f
+            );
 
             // Check the pointer position once for the list before the scroll view opens its group.
             // The rows fill the viewport exactly, so calculate the row from the pointer position.
@@ -341,27 +387,38 @@ namespace SlopWorld
                 _rows.Visible(_scroll.Position.y, inner.height, out int first, out int end);
                 for (int i = first; i < end; i++)
                 {
-                    if (Row(new Rect(0f, _rows.Top(i), view.width, _rows.RowHeight(i)),
-                        _options[i], i, hot == i)) break;
+                    if (
+                        Row(
+                            new Rect(0f, _rows.Top(i), view.width, _rows.RowHeight(i)),
+                            _options[i],
+                            i,
+                            hot == i
+                        )
+                    )
+                        break;
                 }
             }
 
-            if (Event.current.type == EventType.Repaint) Pointer(hot);
+            if (Event.current.type == EventType.Repaint)
+                Pointer(hot);
         }
 
         int Hot(Rect viewport)
         {
-            if (!Mouse.IsOver(viewport)) return -1;
+            if (!Mouse.IsOver(viewport))
+                return -1;
 
             float y = Event.current.mousePosition.y - viewport.y + _scroll.Position.y;
-            if (y < 0f) return -1;
+            if (y < 0f)
+                return -1;
 
             return _rows.At(y);
         }
 
         void Pointer(int hot)
         {
-            if (_keyboardSelection) return;
+            if (_keyboardSelection)
+                return;
 
             if (hot != _hot)
             {
@@ -369,7 +426,8 @@ namespace SlopWorld
                 _hotAt = Time.realtimeSinceStartup;
             }
 
-            if (hot < 0) return;
+            if (hot < 0)
+                return;
 
             var sub = Sub(hot);
             if (sub == null)
@@ -382,15 +440,16 @@ namespace SlopWorld
             // During the delay, keep the last submenu open instead of changing it for brief pointer movement.
             if (_open == hot)
             {
-                if (_child != null) _child.Follow(RowTop(hot));
+                if (_child != null)
+                    _child.Follow(RowTop(hot));
                 return;
             }
 
-            if (Time.realtimeSinceStartup - _hotAt >= OpenDelay) OpenChild(hot, sub);
+            if (Time.realtimeSinceStartup - _hotAt >= OpenDelay)
+                OpenChild(hot, sub);
         }
 
-        UiSubmenu Sub(int i) =>
-            _options[i].Disabled ? null : _options[i] as UiSubmenu;
+        UiSubmenu Sub(int i) => _options[i].Disabled ? null : _options[i] as UiSubmenu;
 
         // The screen y a submenu opened from row `i` hangs at. Its first row begins at this
         // same y because menus have no vertical inset. Only this menu knows the scroll offset.
@@ -410,8 +469,10 @@ namespace SlopWorld
         {
             if (o is SeparatorOption)
             {
-                Slab.Hairline(new Rect(r.x + PadX, r.y + r.height / 2f,
-                    r.width - PadX * 2f, 1f), UiTheme.Edge);
+                Slab.Hairline(
+                    new Rect(r.x + PadX, r.y + r.height / 2f, r.width - PadX * 2f, 1f),
+                    UiTheme.Edge
+                );
                 return false;
             }
 
@@ -420,39 +481,62 @@ namespace SlopWorld
             bool nest = o is UiSubmenu;
             bool lit = over || _open == i || _selected == i;
 
-            RowChrome.HighlightResolved(r, _selected == i, on, lit, RowHoverPolicy.Local,
-                RowSelectionStyle.Hover);
-            if (o.tooltip.HasValue) TooltipHandler.TipRegion(r, o.tooltip.Value);
+            RowChrome.HighlightResolved(
+                r,
+                _selected == i,
+                on,
+                lit,
+                RowHoverPolicy.Local,
+                RowSelectionStyle.Hover
+            );
+            if (o.tooltip.HasValue)
+                TooltipHandler.TipRegion(r, o.tooltip.Value);
 
             float extra = o.extraPartWidth;
             bool right = o.extraPartRightJustified;
             if (o.extraPartOnGUI != null && extra > 0f)
-                o.extraPartOnGUI(right
-                    ? new Rect(r.xMax - extra, r.y, extra, r.height)
-                    : new Rect(r.x + PadX, r.y, extra, r.height));
+                o.extraPartOnGUI(
+                    right
+                        ? new Rect(r.xMax - extra, r.y, extra, r.height)
+                        : new Rect(r.x + PadX, r.y, extra, r.height)
+                );
 
             if (nest)
             {
-                var mark = new Rect(r.xMax - PadX - ArrowW,
-                    r.y + (r.height - ArrowW) / 2f, ArrowW, ArrowW);
+                var mark = new Rect(
+                    r.xMax - PadX - ArrowW,
+                    r.y + (r.height - ArrowW) / 2f,
+                    ArrowW,
+                    ArrowW
+                );
                 using (WidgetState.Save())
                 {
-                    GUI.color = !on ? UiTheme.Off : lit ? UiTheme.Lead : UiTheme.Faint;
+                    GUI.color =
+                        !on ? UiTheme.Off
+                        : lit ? UiTheme.Lead
+                        : UiTheme.Faint;
                     GUI.DrawTexture(mark, TexButton.Reveal);
                 }
             }
 
-            var label = new Rect(r.x + PadX + (right ? 0f : extra), r.y,
+            var label = new Rect(
+                r.x + PadX + (right ? 0f : extra),
+                r.y,
                 r.width - PadX * 2f - extra - (nest ? ArrowW + UiTheme.GapXS : 0f),
-                r.height);
+                r.height
+            );
             using (WidgetState.Save())
             {
                 Text.Anchor = TextAnchor.MiddleLeft;
-                GUI.color = !on ? UiTheme.Off : lit ? UiTheme.Lead : UiTheme.Name;
+                GUI.color =
+                    !on ? UiTheme.Off
+                    : lit ? UiTheme.Lead
+                    : UiTheme.Name;
                 UiText.RowLabel(label, o.Label);
             }
 
-            if (!UiButtons.RowButton(r, on)) return false;
+            if (!UiButtons.RowButton(r, on))
+                return false;
 
             // A row with a list under it is an address rather than an answer, and a press on
             // one is the pointer saying it will not wait out the delay. Opened here rather
@@ -487,7 +571,8 @@ namespace SlopWorld
             _open = i;
 
             var kids = sub.Children != null ? sub.Children() : null;
-            if (kids == null || kids.Count == 0) return;
+            if (kids == null || kids.Count == 0)
+                return;
 
             _child = new UiMenu(kids, this, RowTop(i));
             Find.WindowStack.Add(_child);
@@ -498,7 +583,8 @@ namespace SlopWorld
             _open = -1;
             var c = _child;
             _child = null;
-            if (c != null) c.CloseBranch();
+            if (c != null)
+                c.CloseBranch();
         }
 
         // This menu and everything it has open below it. The link upward is cut first. The parent
@@ -514,7 +600,8 @@ namespace SlopWorld
         void CloseTree()
         {
             var root = this;
-            while (root._parent != null) root = root._parent;
+            while (root._parent != null)
+                root = root._parent;
             root.CloseBranch();
         }
 

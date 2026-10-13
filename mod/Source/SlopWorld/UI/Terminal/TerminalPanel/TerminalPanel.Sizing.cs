@@ -17,10 +17,19 @@ namespace SlopWorld
             // New sessions use the intended slot immediately, even before their first frame.
             // Do not borrow another panel's most recently rendered dimensions.
             var style = TerminalFont.Style;
-            if (style == null || !TerminalPanelGeometry.TryMeasure(Bounds,
-                    TerminalFont.CellWAtScreenScale(Prefs.UIScale), TerminalFont.CellH,
-                    out int cols, out int rows)) return;
-            if (_state.SizeDirty) return;
+            if (
+                style == null
+                || !TerminalPanelGeometry.TryMeasure(
+                    Bounds,
+                    TerminalFont.CellWAtScreenScale(Prefs.UIScale),
+                    TerminalFont.CellH,
+                    out int cols,
+                    out int rows
+                )
+            )
+                return;
+            if (_state.SizeDirty)
+                return;
             _state.Cols = cols;
             _state.Rows = rows;
             if (_state.Name != null && SessionHub.Instance.Online)
@@ -38,8 +47,16 @@ namespace SlopWorld
             _ = TerminalFont.Style;
             SyncSnap();
             float cw = DisplayCellW();
-            if (!TerminalPanelGeometry.TryMeasure(Bounds, cw, TerminalFont.CellH,
-                    out int cols, out int rows)) return;
+            if (
+                !TerminalPanelGeometry.TryMeasure(
+                    Bounds,
+                    cw,
+                    TerminalFont.CellH,
+                    out int cols,
+                    out int rows
+                )
+            )
+                return;
 
             if (cols != _state.Cols || rows != _state.Rows)
             {
@@ -54,8 +71,10 @@ namespace SlopWorld
 
             // A pane not that shape means the last ask did not land. A scrolled frame is
             // history and says nothing about the live pane.
-            if (_state.SizeDirty || buf.Off > 0) return;
-            if (buf.Cols == cols && buf.Rows == rows) return;
+            if (_state.SizeDirty || buf.Off > 0)
+                return;
+            if (buf.Cols == cols && buf.Rows == rows)
+                return;
 
             _state.ResizeAt = Time.realtimeSinceStartup + 1f;
             _state.SizeDirty = true;

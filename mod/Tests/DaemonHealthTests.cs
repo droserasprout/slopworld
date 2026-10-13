@@ -13,8 +13,11 @@ namespace SlopWorld.Tests
 
         static void ReadsHealthMetadata()
         {
-            var health = DaemonHealth.FromWire(ProtobufFixtures.Read<Wire.Health>(JVal.Parse(
-                "{\"ok\":true,\"version\":\"0.0.1\",\"hostname\":\"slopbox\"}")));
+            var health = DaemonHealth.FromWire(
+                ProtobufFixtures.Read<Wire.Health>(
+                    JVal.Parse("{\"ok\":true,\"version\":\"0.0.1\",\"hostname\":\"slopbox\"}")
+                )
+            );
             AssertEx.True(health.Known, "known");
             AssertEx.Equal("0.0.1", health.Version, "version");
             AssertEx.Equal("slopbox", health.Hostname, "hostname");

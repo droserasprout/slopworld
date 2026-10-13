@@ -37,13 +37,18 @@ namespace SlopWorld.Tests
         public void FractionalRingsAccumulateAndClearResetsAllWork()
         {
             var backlog = new BlastBacklog();
-            for (int i = 0; i < 10; i++) backlog.AddRing(i, i + 1, 175);
+            for (int i = 0; i < 10; i++)
+                backlog.AddRing(i, i + 1, 175);
             Assert.That(backlog.TryTake(out _, out _), Is.True);
             Assert.That(backlog.Pending, Is.False);
             backlog.Clear();
             backlog.Clear();
             backlog.AddRing(0, 7, 175);
-            Assert.That(backlog.Pending, Is.False, "previous fraction must not carry into the next colony");
+            Assert.That(
+                backlog.Pending,
+                Is.False,
+                "previous fraction must not carry into the next colony"
+            );
             backlog.AddRing(7, 20, 175);
             Assert.That(backlog.Pending, Is.True);
             backlog.Clear();

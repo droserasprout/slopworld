@@ -22,14 +22,18 @@ namespace SlopWorld
             public bool Ready;
             public System.WeakReference<Map> Map;
             public BackdropView View;
-            public int TextureWidth, TextureHeight;
+            public int TextureWidth,
+                TextureHeight;
             public Matrix4x4 Base;
             public Matrix4x4[] Layers;
 
-            public bool Matches(Map map, Texture2D texture, BackdropView view) => Ready &&
-                Map.TryGetTarget(out var cachedMap) && ReferenceEquals(cachedMap, map) &&
-                TextureWidth == texture.width && TextureHeight == texture.height &&
-                View.Matches(view);
+            public bool Matches(Map map, Texture2D texture, BackdropView view) =>
+                Ready
+                && Map.TryGetTarget(out var cachedMap)
+                && ReferenceEquals(cachedMap, map)
+                && TextureWidth == texture.width
+                && TextureHeight == texture.height
+                && View.Matches(view);
         }
 
         // One capture supplies both cache comparison and the committed projection inputs.
@@ -38,14 +42,22 @@ namespace SlopWorld
             public Camera Camera;
             public Vector3 Position;
             public Quaternion Rotation;
-            public float Ortho, Fov, Aspect;
+            public float Ortho,
+                Fov,
+                Aspect;
             public Rect PixelRect;
-            public int Width, Height;
+            public int Width,
+                Height;
 
             public static BackdropView Capture()
             {
                 var camera = UnityEngine.Camera.main;
-                var view = new BackdropView { Camera = camera, Width = UI.screenWidth, Height = UI.screenHeight };
+                var view = new BackdropView
+                {
+                    Camera = camera,
+                    Width = UI.screenWidth,
+                    Height = UI.screenHeight,
+                };
                 if (camera != null)
                 {
                     var transform = camera.transform;
@@ -59,18 +71,26 @@ namespace SlopWorld
                 return view;
             }
 
-            public bool Matches(BackdropView other) => Camera == other.Camera &&
-                Width == other.Width && Height == other.Height && Position == other.Position &&
-                Rotation == other.Rotation && Ortho == other.Ortho && Fov == other.Fov &&
-                Aspect == other.Aspect && PixelRect == other.PixelRect;
+            public bool Matches(BackdropView other) =>
+                Camera == other.Camera
+                && Width == other.Width
+                && Height == other.Height
+                && Position == other.Position
+                && Rotation == other.Rotation
+                && Ortho == other.Ortho
+                && Fov == other.Fov
+                && Aspect == other.Aspect
+                && PixelRect == other.PixelRect;
         }
 
         internal static void Draw(Map map)
         {
             var tex = Frame() ?? BaseContent.BlackTex;
-            if (tex == null) return;
+            if (tex == null)
+                return;
 
-            if (!FitBackdrop(map, tex)) return;
+            if (!FitBackdrop(map, tex))
+                return;
 
             // Two half-alpha layers leave a quarter of the camera contents visible. Establish
             // opaque black first so revealing the backdrop cannot expose stale contents, while
@@ -81,7 +101,7 @@ namespace SlopWorld
                     name = "SlopWorld Eco backdrop base",
                     renderQueue = Underneath,
                     mainTexture = BaseContent.BlackTex,
-                    color = Color.white
+                    color = Color.white,
                 };
             Graphics.DrawMesh(MeshPool.plane10, _geometry.Base, _backdropBase, 0);
 
@@ -96,7 +116,7 @@ namespace SlopWorld
                     BackdropMaterials[i] = material = new Material(ShaderDatabase.Transparent)
                     {
                         name = $"SlopWorld Eco backdrop {i}",
-                        renderQueue = Underneath + 1 + i
+                        renderQueue = Underneath + 1 + i,
                     };
                 material.mainTexture = layer.Texture;
                 material.color = new Color(brightness, brightness, brightness, layer.Opacity);
@@ -107,19 +127,25 @@ namespace SlopWorld
         static bool FitBackdrop(Map map, Texture2D tex)
         {
             var view = BackdropView.Capture();
-            if (_geometry.Matches(map, tex, view)) return true;
+            if (_geometry.Matches(map, tex, view))
+                return true;
 
             // Project screen corners to map coordinates without assuming an orthographic camera viewed from above.
             var a = UI.UIToMapPosition(0f, 0f);
             var b = UI.UIToMapPosition(view.Width, view.Height);
-            float viewW = Mathf.Abs(b.x - a.x), viewH = Mathf.Abs(b.z - a.z);
-            if (viewW <= 0f || viewH <= 0f) return false;
+            float viewW = Mathf.Abs(b.x - a.x),
+                viewH = Mathf.Abs(b.z - a.z);
+            if (viewW <= 0f || viewH <= 0f)
+                return false;
 
             // Match ScaleAndCrop by filling the view and cropping excess texture area.
-            float w = viewW, h = viewH;
+            float w = viewW,
+                h = viewH;
             float want = tex.width / (float)tex.height;
-            if (want > w / h) w = h * want;
-            else h = w / want;
+            if (want > w / h)
+                w = h * want;
+            else
+                h = w / want;
 
             var center = new Vector3((a.x + b.x) * 0.5f, 0f, (a.z + b.z) * 0.5f);
             var scale = new Vector3(w, 1f, h);
@@ -153,13 +179,15 @@ namespace SlopWorld
         // Use existing menu frames. Offer the planet texture once if no frames exist.
         static Texture2D Frame()
         {
-            if (MenuBackground.HasFrames) return MenuBackground.Current(null);
-            if (_offered) return null;
+            if (MenuBackground.HasFrames)
+                return MenuBackground.Current(null);
+            if (_offered)
+                return null;
 
             _offered = true;
             return MenuBackground.Current(
-                ContentFinder<Texture2D>.Get("UI/HeroArt/BGPlanet", false));
+                ContentFinder<Texture2D>.Get("UI/HeroArt/BGPlanet", false)
+            );
         }
-
     }
 }

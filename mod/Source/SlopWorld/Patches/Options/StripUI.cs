@@ -14,19 +14,18 @@ namespace SlopWorld
     {
         static readonly (Type Type, string Method)[] Targets =
         {
-            (typeof(Messages), nameof(Messages.MessagesDoGUI)),                 // message toasts, top-left
-            (typeof(LetterStack), nameof(LetterStack.LettersOnGUI)),               // letter stack, right edge
-            (typeof(AlertsReadout), nameof(AlertsReadout.AlertsReadoutOnGUI)),       // alert list, right edge
-            (typeof(ResourceReadout), nameof(ResourceReadout.ResourceReadoutOnGUI)),   // resource counts, bottom-left
-            (typeof(GlobalControls), nameof(GlobalControls.GlobalControlsOnGUI)),     // date/temp/speed, bottom-right
+            (typeof(Messages), nameof(Messages.MessagesDoGUI)), // message toasts, top-left
+            (typeof(LetterStack), nameof(LetterStack.LettersOnGUI)), // letter stack, right edge
+            (typeof(AlertsReadout), nameof(AlertsReadout.AlertsReadoutOnGUI)), // alert list, right edge
+            (typeof(ResourceReadout), nameof(ResourceReadout.ResourceReadoutOnGUI)), // resource counts, bottom-left
+            (typeof(GlobalControls), nameof(GlobalControls.GlobalControlsOnGUI)), // date/temp/speed, bottom-right
             (typeof(MouseoverReadout), nameof(MouseoverReadout.MouseoverReadoutOnGUI)), // under-cursor readout, bottom-left
-            (typeof(LearningReadout), nameof(LearningReadout.LearningReadoutOnGUI)),   // tutorial concept panel, top-right
+            (typeof(LearningReadout), nameof(LearningReadout.LearningReadoutOnGUI)), // tutorial concept panel, top-right
         };
 
         public static void Apply(Harmony h)
         {
-            var pre = new HarmonyMethod(
-                AccessTools.Method(typeof(Patch_HideGui), nameof(Skip)));
+            var pre = new HarmonyMethod(AccessTools.Method(typeof(Patch_HideGui), nameof(Skip)));
             foreach (var (type, method) in Targets)
                 h.Patch(AccessTools.Method(type, method), prefix: pre);
         }
@@ -84,7 +83,11 @@ namespace SlopWorld
     }
 
     // Hide cell selection cycling because only colonists are selectable.
-    [HarmonyPatch(typeof(MainTabWindow_Inspect), "ShouldShowSelectNextInCellButton", MethodType.Getter)]
+    [HarmonyPatch(
+        typeof(MainTabWindow_Inspect),
+        "ShouldShowSelectNextInCellButton",
+        MethodType.Getter
+    )]
     public static class Patch_Hide_SelectNextInCell
     {
         static void Postfix(ref bool __result) => __result = false;
@@ -103,35 +106,56 @@ namespace SlopWorld
         // List every button that the mod permits. Omitted buttons remain hidden.
         static readonly HashSet<string> Keep = new HashSet<string>
         {
-            "Menu", "Inspect",
-            "SlopWorld_Projects", "SlopWorld_Agents", "SlopWorld_Library",
+            "Menu",
+            "Inspect",
+            "SlopWorld_Projects",
+            "SlopWorld_Agents",
+            "SlopWorld_Library",
             "SlopWorld_Config",
         };
 
         public static void Apply(Harmony h)
         {
             var post = new HarmonyMethod(
-                AccessTools.Method(typeof(Patch_MainButtons), nameof(KeepOnly)));
+                AccessTools.Method(typeof(Patch_MainButtons), nameof(KeepOnly))
+            );
 
-            h.Patch(AccessTools.PropertyGetter(typeof(MainButtonWorker), nameof(MainButtonWorker.Visible)), postfix: post);
+            h.Patch(
+                AccessTools.PropertyGetter(
+                    typeof(MainButtonWorker),
+                    nameof(MainButtonWorker.Visible)
+                ),
+                postfix: post
+            );
             foreach (var t in typeof(MainButtonWorker).AllSubclassesNonAbstract())
             {
                 var g = AccessTools.DeclaredPropertyGetter(t, nameof(MainButtonWorker.Visible));
-                if (g != null) h.Patch(g, postfix: post);
+                if (g != null)
+                    h.Patch(g, postfix: post);
             }
 
             h.Patch(
-                AccessTools.Method(typeof(MainButtonWorker),
-                    nameof(MainButtonWorker.InterfaceTryActivate)),
+                AccessTools.Method(
+                    typeof(MainButtonWorker),
+                    nameof(MainButtonWorker.InterfaceTryActivate)
+                ),
                 prefix: new HarmonyMethod(
-                    AccessTools.Method(typeof(Patch_MainButtons), nameof(OnlyIfShown))));
+                    AccessTools.Method(typeof(Patch_MainButtons), nameof(OnlyIfShown))
+                )
+            );
         }
 
         static void KeepOnly(MainButtonWorker __instance, ref bool __result)
         {
-            if (!__result) return;
-            if (Cutscene.Playing) { __result = false; return; } // a scene has the board
-            if (Keep.Contains(__instance.def?.defName)) return;
+            if (!__result)
+                return;
+            if (Cutscene.Playing)
+            {
+                __result = false;
+                return;
+            } // a scene has the board
+            if (Keep.Contains(__instance.def?.defName))
+                return;
             __result = false;
         }
 
@@ -155,23 +179,33 @@ namespace SlopWorld
         public static void Apply(Harmony h)
         {
             var post = new HarmonyMethod(
-                AccessTools.Method(typeof(Patch_InspectTabs), nameof(Hide)));
+                AccessTools.Method(typeof(Patch_InspectTabs), nameof(Hide))
+            );
 
             // Patch the base getter for tabs that inherit it, including Health.
-            h.Patch(AccessTools.PropertyGetter(typeof(InspectTabBase), nameof(InspectTabBase.IsVisible)), postfix: post);
+            h.Patch(
+                AccessTools.PropertyGetter(
+                    typeof(InspectTabBase),
+                    nameof(InspectTabBase.IsVisible)
+                ),
+                postfix: post
+            );
 
             // Patch overrides that calculate visibility independently.
             foreach (var t in Drop)
             {
                 var g = AccessTools.DeclaredPropertyGetter(t, nameof(InspectTabBase.IsVisible));
-                if (g != null) h.Patch(g, postfix: post);
+                if (g != null)
+                    h.Patch(g, postfix: post);
             }
         }
 
         static void Hide(InspectTabBase __instance, ref bool __result)
         {
-            if (!__result) return;
-            if (Drop.Contains(__instance.GetType())) __result = false;
+            if (!__result)
+                return;
+            if (Drop.Contains(__instance.GetType()))
+                __result = false;
         }
     }
 

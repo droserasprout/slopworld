@@ -38,7 +38,8 @@ namespace SlopWorld.Tests
             router.Draw(bounds, draw);
             SmoothScroll.WheelTrace.Clear();
             SmoothScroll.WheelOnly = true;
-            for (int i = 0; i < 1000; i++) router.Draw(bounds, draw);
+            for (int i = 0; i < 1000; i++)
+                router.Draw(bounds, draw);
             Assert.That(draws, Is.EqualTo(1));
             Assert.That(SmoothScroll.WheelTrace.Count, Is.EqualTo(3000));
             for (int i = 0; i < 3000; i += 3)
@@ -68,7 +69,8 @@ namespace SlopWorld.Tests
             Action draw = () =>
             {
                 draws++;
-                if (SmoothScroll.WheelOnly) return;
+                if (SmoothScroll.WheelOnly)
+                    return;
                 using (scroll.Scope(bounds, bounds)) { }
             };
             SmoothScroll.WheelOnly = true;
@@ -102,11 +104,23 @@ namespace SlopWorld.Tests
             router.Draw(bounds, draw);
             Assert.That(draws, Is.EqualTo(2));
             SmoothScroll.WheelOnly = false;
-            router.Draw(bounds, () => { using (scroll.Scope(bounds, bounds)) { } });
-            Assert.Throws<InvalidOperationException>(() => router.Draw(bounds, () =>
-            {
-                using (scroll.Scope(bounds, bounds)) throw new InvalidOperationException();
-            }));
+            router.Draw(
+                bounds,
+                () =>
+                {
+                    using (scroll.Scope(bounds, bounds)) { }
+                }
+            );
+            Assert.Throws<InvalidOperationException>(() =>
+                router.Draw(
+                    bounds,
+                    () =>
+                    {
+                        using (scroll.Scope(bounds, bounds))
+                            throw new InvalidOperationException();
+                    }
+                )
+            );
             SmoothScroll.WheelOnly = true;
             router.Draw(bounds, draw);
             Assert.That(draws, Is.EqualTo(3));

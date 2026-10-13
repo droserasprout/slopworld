@@ -14,8 +14,12 @@ namespace SlopWorld
         public const int MinimumTitleChars = 0;
         public const int MaximumTitleChars = int.MaxValue;
 
-        public static bool WholeSeconds(string text, bool blankMeansInheritance,
-                                        out int value, out string error)
+        public static bool WholeSeconds(
+            string text,
+            bool blankMeansInheritance,
+            out int value,
+            out string error
+        )
         {
             string input = (text ?? "").Trim();
             if (input.Length == 0 && blankMeansInheritance)
@@ -25,8 +29,10 @@ namespace SlopWorld
                 return true;
             }
 
-            if (!Digits(input) || !int.TryParse(input, NumberStyles.None,
-                                                CultureInfo.InvariantCulture, out value))
+            if (
+                !Digits(input)
+                || !int.TryParse(input, NumberStyles.None, CultureInfo.InvariantCulture, out value)
+            )
             {
                 value = 0;
                 error = blankMeansInheritance
@@ -50,8 +56,10 @@ namespace SlopWorld
         public static bool TitleMinimum(string text, out int value, out string error)
         {
             string input = (text ?? "").Trim();
-            if (!Digits(input) || !int.TryParse(input, NumberStyles.None,
-                                                CultureInfo.InvariantCulture, out value))
+            if (
+                !Digits(input)
+                || !int.TryParse(input, NumberStyles.None, CultureInfo.InvariantCulture, out value)
+            )
             {
                 value = 0;
                 error = "Enter a whole number from 0 to 2,147,483,647 characters.";
@@ -70,9 +78,11 @@ namespace SlopWorld
 
         static bool Digits(string text)
         {
-            if (string.IsNullOrEmpty(text)) return false;
+            if (string.IsNullOrEmpty(text))
+                return false;
             for (int i = 0; i < text.Length; i++)
-                if (text[i] < '0' || text[i] > '9') return false;
+                if (text[i] < '0' || text[i] > '9')
+                    return false;
             return true;
         }
     }

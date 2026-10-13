@@ -17,8 +17,12 @@ namespace SlopWorld
         public readonly bool CanSelectAll;
         public readonly bool CanCut;
 
-        public SelectionCommandAvailability(bool canCopy, bool canPaste,
-                                             bool canSelectAll, bool canCut)
+        public SelectionCommandAvailability(
+            bool canCopy,
+            bool canPaste,
+            bool canSelectAll,
+            bool canCut
+        )
         {
             CanCopy = canCopy;
             CanPaste = canPaste;
@@ -29,24 +33,34 @@ namespace SlopWorld
 
     public static class SelectionCommandPolicy
     {
-        public static bool IsEnabled(SelectionCommand command,
-                                     SelectionCommandAvailability availability)
+        public static bool IsEnabled(
+            SelectionCommand command,
+            SelectionCommandAvailability availability
+        )
         {
             switch (command)
             {
-                case SelectionCommand.Copy: return availability.CanCopy;
-                case SelectionCommand.Paste: return availability.CanPaste;
-                case SelectionCommand.SelectAll: return availability.CanSelectAll;
-                case SelectionCommand.Cut: return availability.CanCut;
-                default: return false;
+                case SelectionCommand.Copy:
+                    return availability.CanCopy;
+                case SelectionCommand.Paste:
+                    return availability.CanPaste;
+                case SelectionCommand.SelectAll:
+                    return availability.CanSelectAll;
+                case SelectionCommand.Cut:
+                    return availability.CanCut;
+                default:
+                    return false;
             }
         }
 
-        public static bool TryExecute(SelectionCommand command,
-                                      SelectionCommandAvailability availability,
-                                      Action action)
+        public static bool TryExecute(
+            SelectionCommand command,
+            SelectionCommandAvailability availability,
+            Action action
+        )
         {
-            if (!IsEnabled(command, availability) || action == null) return false;
+            if (!IsEnabled(command, availability) || action == null)
+                return false;
             action();
             return true;
         }

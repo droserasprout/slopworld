@@ -40,21 +40,40 @@ namespace SlopWorld.Tests
 
 namespace Verse
 {
-    public class LogEntry { public int Timestamp; }
-    public enum LoadSaveMode { Inactive, Saving, LoadingVars }
+    public class LogEntry
+    {
+        public int Timestamp;
+    }
+
+    public enum LoadSaveMode
+    {
+        Inactive,
+        Saving,
+        LoadingVars,
+    }
+
     public static class Scribe
     {
         public static LoadSaveMode mode;
         public static int Stops;
-        public static void ForceStop() { Stops++; mode = LoadSaveMode.Inactive; }
+
+        public static void ForceStop()
+        {
+            Stops++;
+            mode = LoadSaveMode.Inactive;
+        }
     }
+
     public static partial class Scribe_Values
     {
         public static long SavedTicks;
+
         public static void Look(ref long value, string key, long defaultValue)
         {
-            if (Scribe.mode == LoadSaveMode.Saving) SavedTicks = value;
-            if (Scribe.mode == LoadSaveMode.LoadingVars) value = SavedTicks;
+            if (Scribe.mode == LoadSaveMode.Saving)
+                SavedTicks = value;
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+                value = SavedTicks;
         }
     }
 }

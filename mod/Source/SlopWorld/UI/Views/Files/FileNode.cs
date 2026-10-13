@@ -13,13 +13,14 @@ namespace SlopWorld
         public bool Expanded;
         public bool Loading;
         public string Error;
-        public bool More;          // the daemon's cap cut the listing short
+        public bool More; // the daemon's cap cut the listing short
         public List<FileNode> Children;
         public bool HasChildren;
         public bool Gitignored;
-        public string Root;        // the project dir this hangs off, for a relative path
-        public string Project;     // stable browsing scope key, resolved to project/worktree at the request boundary
+        public string Root; // the project dir this hangs off, for a relative path
+        public string Project; // stable browsing scope key, resolved to project/worktree at the request boundary
         public int Depth;
+
         // Identifies each listing and invalidates delayed work when Reload forgets this node.
         public int ListingVersion;
         public List<System.Action> Loaded;
@@ -42,13 +43,18 @@ namespace SlopWorld
             get
             {
                 string root = Root;
-                if (string.IsNullOrEmpty(root)) return null;
+                if (string.IsNullOrEmpty(root))
+                    return null;
                 if (root == "/")
                     return Path.StartsWith("/", StringComparison.Ordinal) && Path.Length > 1
-                        ? Path.Substring(1) : null;
+                        ? Path.Substring(1)
+                        : null;
                 root = root.TrimEnd('/');
-                if (Path.Length <= root.Length + 1) return null;
-                return Path.StartsWith(root + "/", StringComparison.Ordinal) ? Path.Substring(root.Length + 1) : null;
+                if (Path.Length <= root.Length + 1)
+                    return null;
+                return Path.StartsWith(root + "/", StringComparison.Ordinal)
+                    ? Path.Substring(root.Length + 1)
+                    : null;
             }
         }
     }

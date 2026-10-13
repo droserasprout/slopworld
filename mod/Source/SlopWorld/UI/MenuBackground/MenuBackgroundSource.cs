@@ -12,7 +12,11 @@ namespace SlopWorld
         sealed class Fingerprint
         {
             public readonly string Hash;
-            public Fingerprint(string hash) { Hash = hash; }
+
+            public Fingerprint(string hash)
+            {
+                Hash = hash;
+            }
         }
 
         static readonly ConditionalWeakTable<Texture2D, Fingerprint> Identities =
@@ -36,12 +40,15 @@ namespace SlopWorld
                     block[used++] = rgba.g;
                     block[used++] = rgba.b;
                     block[used++] = rgba.a;
-                    if (used != block.Length) continue;
+                    if (used != block.Length)
+                        continue;
                     hash.TransformBlock(block, 0, used, block, 0);
                     used = 0;
                 }
                 hash.TransformFinalBlock(block, 0, used);
-                return new Fingerprint(BitConverter.ToString(hash.Hash).Replace("-", "").ToLowerInvariant());
+                return new Fingerprint(
+                    BitConverter.ToString(hash.Hash).Replace("-", "").ToLowerInvariant()
+                );
             }
         }
     }

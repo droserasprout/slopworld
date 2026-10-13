@@ -23,8 +23,12 @@ namespace SlopWorld
         // Both a player request and the absence of a saved colony use this method.
         // Queue generation so callers can finish drawing. Use the base game exception handler.
         public static void Queue() =>
-            LongEventHandler.QueueLongEvent(Begin, "GeneratingMap", true,
-                GameAndMapInitExceptionHandlers.ErrorWhileGeneratingMap);
+            LongEventHandler.QueueLongEvent(
+                Begin,
+                "GeneratingMap",
+                true,
+                GameAndMapInitExceptionHandlers.ErrorWhileGeneratingMap
+            );
 
         // This runs outside the main thread, like the base game quick start.
         // Modify the new game only. Do not access the UI.
@@ -37,12 +41,18 @@ namespace SlopWorld
             Current.Game.Scenario = ModScenario.Get();
             Find.Scenario.PreConfigure();
 
-            Current.Game.storyteller =
-                new Storyteller(StorytellerDefOf.Cassandra, DifficultyDefOf.Rough);
+            Current.Game.storyteller = new Storyteller(
+                StorytellerDefOf.Cassandra,
+                DifficultyDefOf.Rough
+            );
             Current.Game.World = WorldGenerator.GenerateWorld(
-                PlanetCoverage, GenText.RandomSeedString(),
-                OverallRainfall.Normal, OverallTemperature.Normal,
-                OverallPopulation.Normal, LandmarkDensity.Normal);
+                PlanetCoverage,
+                GenText.RandomSeedString(),
+                OverallRainfall.Normal,
+                OverallTemperature.Normal,
+                OverallPopulation.Normal,
+                LandmarkDensity.Normal
+            );
             Find.GameInitData.ChooseRandomStartingTile();
 
             Find.GameInitData.mapSize = MapSize;
@@ -58,7 +68,8 @@ namespace SlopWorld
             Find.GameInitData.startingPawnCount = 0;
 
             // Enable automatic saves so AutoResume can restore this colony.
-            if (Prefs.AutosaveIntervalDays <= 0f) Prefs.AutosaveIntervalDays = AutosaveDays;
+            if (Prefs.AutosaveIntervalDays <= 0f)
+                Prefs.AutosaveIntervalDays = AutosaveDays;
 
             Log.Message("[SlopWorld] scripted colony start");
             PageUtility.InitGameStart();
@@ -72,7 +83,8 @@ namespace SlopWorld
     {
         static bool Prefix(Window window)
         {
-            if (!(window is Page_SelectScenario)) return true;
+            if (!(window is Page_SelectScenario))
+                return true;
             QuickStart.Queue();
             return false;
         }

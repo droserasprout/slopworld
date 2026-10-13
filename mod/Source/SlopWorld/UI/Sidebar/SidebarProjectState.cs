@@ -60,7 +60,8 @@ namespace SlopWorld
         {
             var folded = Folded;
             bool changed = on ? folded.Add(key) : folded.Remove(key);
-            if (changed) Save(folded, value => Settings.S.foldedProjects = value);
+            if (changed)
+                Save(folded, value => Settings.S.foldedProjects = value);
         }
 
         public void SetFolded(IEnumerable<string> keys, bool on)
@@ -69,21 +70,26 @@ namespace SlopWorld
             bool changed = false;
             foreach (string key in keys)
                 changed |= on ? folded.Add(key) : folded.Remove(key);
-            if (changed) Save(folded, value => Settings.S.foldedProjects = value);
+            if (changed)
+                Save(folded, value => Settings.S.foldedProjects = value);
         }
 
         static HashSet<string> ParseNames(string source) =>
-            new HashSet<string>((source ?? "").Split(new[] { '\n' },
-                StringSplitOptions.RemoveEmptyEntries), StringComparer.Ordinal);
+            new HashSet<string>(
+                (source ?? "").Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries),
+                StringComparer.Ordinal
+            );
 
         public void ToggleFilter(string key)
         {
             if (key.Length == 0)
             {
-                if (!Filtering) return;
+                if (!Filtering)
+                    return;
                 Filter.Clear();
             }
-            else if (!Filter.Remove(key)) Filter.Add(key);
+            else if (!Filter.Remove(key))
+                Filter.Add(key);
 
             Save(Filter, value => Settings.S.sidebarFilter = value);
         }
@@ -109,8 +115,10 @@ namespace SlopWorld
         {
             get
             {
-                if (Filter.Count != 1) return Filter.Count + " projects";
-                foreach (var key in Filter) return key;
+                if (Filter.Count != 1)
+                    return Filter.Count + " projects";
+                foreach (var key in Filter)
+                    return key;
                 return "";
             }
         }

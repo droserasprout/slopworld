@@ -17,9 +17,14 @@ namespace SlopWorld.Tests
                 TerminalLatency.Record("latency");
                 AssertEx.Equal(0, output.Count, "producers cannot perform sink I/O");
                 TerminalLatency.Flush();
-                AssertEx.Equal("performance,latency", string.Join(",", output), "drain retains order");
+                AssertEx.Equal(
+                    "performance,latency",
+                    string.Join(",", output),
+                    "drain retains order"
+                );
                 output.Clear();
-                for (int i = 0; i < 1025; i++) TerminalLatency.Record("record");
+                for (int i = 0; i < 1025; i++)
+                    TerminalLatency.Record("record");
                 AssertEx.Equal(0, output.Count, "overflow cannot write early");
                 TerminalLatency.Flush();
                 AssertEx.Equal(1025, output.Count, "bounded records plus overflow diagnostic");
@@ -28,7 +33,10 @@ namespace SlopWorld.Tests
                 TerminalLatency.Flush();
                 AssertEx.Equal(0, output.Count, "drain clears records and overflow count");
             }
-            finally { TerminalLatency.Write = previous; }
+            finally
+            {
+                TerminalLatency.Write = previous;
+            }
         }
     }
 }

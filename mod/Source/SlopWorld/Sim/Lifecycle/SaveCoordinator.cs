@@ -27,9 +27,12 @@ namespace SlopWorld
         {
             try
             {
-                if (LoadFailureRecovery.Pending) return;
-                if (NextPlanet.Pending) return;
-                if (Current.ProgramState != ProgramState.Playing) return;
+                if (LoadFailureRecovery.Pending)
+                    return;
+                if (NextPlanet.Pending)
+                    return;
+                if (Current.ProgramState != ProgramState.Playing)
+                    return;
                 Current.Game?.autosaver?.DoAutosave();
             }
             catch (Exception e)

@@ -16,9 +16,15 @@ namespace SlopWorld.Tests
                 Rows = 24,
                 History = 100,
                 Sequence = 5,
-                AltScreen = false
+                AltScreen = false,
             };
-            var live = new ScreenBuf { Cols = 80, Rows = 24, History = 100, Seq = 5 };
+            var live = new ScreenBuf
+            {
+                Cols = 80,
+                Rows = 24,
+                History = 100,
+                Seq = 5,
+            };
             Assert.That(saved.Evaluate(10, 2, live).Compatible, Is.True);
             Assert.That(saved.Evaluate(null, 2, live).Compatible, Is.False);
             Assert.That(saved.Evaluate(11, 2, live).Compatible, Is.False);

@@ -8,12 +8,50 @@ namespace SlopWorld.Tests
     {
         public static void RejectsNonFiniteGeometry()
         {
-            foreach (float invalid in new[] { float.NaN, float.PositiveInfinity, float.NegativeInfinity })
+            foreach (
+                float invalid in new[] { float.NaN, float.PositiveInfinity, float.NegativeInfinity }
+            )
             {
-                Assert.That(TerminalPanelGeometry.TryMeasure(new UiLayoutRect(0, 0, invalid, 100), 10, 10, out _, out _), Is.False);
-                Assert.That(TerminalPanelGeometry.TryMeasure(new UiLayoutRect(0, 0, 100, invalid), 10, 10, out _, out _), Is.False);
-                Assert.That(TerminalPanelGeometry.TryMeasure(new UiLayoutRect(0, 0, 100, 100), invalid, 10, out _, out _), Is.False);
-                Assert.That(TerminalPanelGeometry.TryMeasure(new UiLayoutRect(0, 0, 100, 100), 10, invalid, out _, out _), Is.False);
+                Assert.That(
+                    TerminalPanelGeometry.TryMeasure(
+                        new UiLayoutRect(0, 0, invalid, 100),
+                        10,
+                        10,
+                        out _,
+                        out _
+                    ),
+                    Is.False
+                );
+                Assert.That(
+                    TerminalPanelGeometry.TryMeasure(
+                        new UiLayoutRect(0, 0, 100, invalid),
+                        10,
+                        10,
+                        out _,
+                        out _
+                    ),
+                    Is.False
+                );
+                Assert.That(
+                    TerminalPanelGeometry.TryMeasure(
+                        new UiLayoutRect(0, 0, 100, 100),
+                        invalid,
+                        10,
+                        out _,
+                        out _
+                    ),
+                    Is.False
+                );
+                Assert.That(
+                    TerminalPanelGeometry.TryMeasure(
+                        new UiLayoutRect(0, 0, 100, 100),
+                        10,
+                        invalid,
+                        out _,
+                        out _
+                    ),
+                    Is.False
+                );
             }
         }
 
@@ -36,18 +74,44 @@ namespace SlopWorld.Tests
             var buf = new ScreenBuf
             {
                 Cols = 4,
-                Runs = new[] {
-                new List<SgrRun> {
-                    new SgrRun { Col = 0, Text = "好", CellWidth = 2, Url = url },
-                    new SgrRun { Col = 2, Text = "ab", Url = url } },
-                new List<SgrRun> { new SgrRun { Col = 0, Text = "😀", CellWidth = 1, Url = url } }
-            }
+                Runs = new[]
+                {
+                    new List<SgrRun>
+                    {
+                        new SgrRun
+                        {
+                            Col = 0,
+                            Text = "好",
+                            CellWidth = 2,
+                            Url = url,
+                        },
+                        new SgrRun
+                        {
+                            Col = 2,
+                            Text = "ab",
+                            Url = url,
+                        },
+                    },
+                    new List<SgrRun>
+                    {
+                        new SgrRun
+                        {
+                            Col = 0,
+                            Text = "😀",
+                            CellWidth = 1,
+                            Url = url,
+                        },
+                    },
+                },
             };
             var links = new TerminalLinkService();
             links.Track(buf, new Vector2Int(1, 0));
             Assert.That(links.HoverUrl, Is.EqualTo(url));
             Assert.That(links.HoverSpans.Count, Is.EqualTo(2));
-            Assert.That((links.HoverSpans[0].StartColumn, links.HoverSpans[0].EndColumnExclusive), Is.EqualTo((0, 4)));
+            Assert.That(
+                (links.HoverSpans[0].StartColumn, links.HoverSpans[0].EndColumnExclusive),
+                Is.EqualTo((0, 4))
+            );
             Assert.That(links.HoverSpans[1].EndColumnExclusive, Is.EqualTo(1));
             Assert.That(links.Find(buf, new Vector2Int(1, 1)), Is.Null);
             links.ClearHover();

@@ -9,33 +9,40 @@ namespace SlopWorld
     // Read clicks directly because StripInteraction permits selection only for colonists.
     public class Jukebox : MapComponent
     {
-        public Jukebox(Map map) : base(map) { }
+        public Jukebox(Map map)
+            : base(map) { }
 
         // Remove duplicate jukeboxes after loading. AgentColony prevents new duplicates.
         public override void FinalizeInit()
         {
             var boxes = map.listerThings.ThingsOfDef(ModDefOf.SlopJukebox);
-            if (boxes.Count < 2) return;
+            if (boxes.Count < 2)
+                return;
 
             int extra = boxes.Count - 1;
             // Remove items from the end because destruction changes the list.
-            while (boxes.Count > 1) boxes[boxes.Count - 1].Destroy(DestroyMode.Vanish);
+            while (boxes.Count > 1)
+                boxes[boxes.Count - 1].Destroy(DestroyMode.Vanish);
             Log.Message($"[SlopWorld] jukebox: removed {extra} duplicate(s)");
         }
 
         public override void MapComponentOnGUI()
         {
             // Skip map input during cutscenes, Eco rest, or terminal coverage.
-            if (Cutscene.Playing || Eco.Resting || TerminalWindow.Covering) return;
+            if (Cutscene.Playing || Eco.Resting || TerminalWindow.Covering)
+                return;
 
             var cell = UI.MouseCell();
             var box = map.thingGrid.ThingAt(cell, ModDefOf.SlopJukebox);
-            if (box == null) return;
+            if (box == null)
+                return;
 
             Tip(cell);
 
-            if (Event.current.type != EventType.MouseDown || Event.current.button != 0) return;
-            if (Find.WindowStack.FloatMenu != null) return; // one menu is enough
+            if (Event.current.type != EventType.MouseDown || Event.current.button != 0)
+                return;
+            if (Find.WindowStack.FloatMenu != null)
+                return; // one menu is enough
 
             Event.current.Use();
             OpenMenu();
@@ -64,7 +71,8 @@ namespace SlopWorld
             {
                 new UiSubmenu(PlayRow(), StationOptions),
                 Radio.Spotify && Radio.SpotifyAvailable && Radio.SourceShown(Radio.SpotifySourceId)
-                    ? new FloatMenuOption("Open Spotify player", Radio.OpenSpotify) : RecognizeRow(),
+                    ? new FloatMenuOption("Open Spotify player", Radio.OpenSpotify)
+                    : RecognizeRow(),
                 new FloatMenuOption("Like", Radio.Like),
                 new FloatMenuOption("History", JukeboxHistoryView.Open),
                 UiLayout.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
@@ -88,7 +96,8 @@ namespace SlopWorld
 
             return new FloatMenuOption(
                 string.IsNullOrEmpty(Radio.RecognitionError) ? "Recognize" : "Recognize (retry)",
-                Radio.Recognize);
+                Radio.Recognize
+            );
         }
 
         // Show the current track in hover text. Omit the tooltip when no track label is available.
@@ -99,7 +108,8 @@ namespace SlopWorld
         void Tip(IntVec3 cell)
         {
             string now = Radio.CachedNowPlaying;
-            if (string.IsNullOrEmpty(now)) return;
+            if (string.IsNullOrEmpty(now))
+                return;
 
             TooltipHandler.TipRegion(CellRect(cell), new TipSignal(Note + now, cell.GetHashCode()));
         }
@@ -117,8 +127,12 @@ namespace SlopWorld
         {
             var a = UI.MapToUIPosition(cell.ToVector3());
             var b = UI.MapToUIPosition(cell.ToVector3() + new Vector3(1f, 0f, 1f));
-            return new Rect(Mathf.Min(a.x, b.x), Mathf.Min(a.y, b.y),
-                Mathf.Abs(b.x - a.x), Mathf.Abs(b.y - a.y));
+            return new Rect(
+                Mathf.Min(a.x, b.x),
+                Mathf.Min(a.y, b.y),
+                Mathf.Abs(b.x - a.x),
+                Mathf.Abs(b.y - a.y)
+            );
         }
 
         // Show the current source or muted state in the first row.
@@ -126,7 +140,8 @@ namespace SlopWorld
 
         static string Playing()
         {
-            if (Radio.Spotify) return "Spotify";
+            if (Radio.Spotify)
+                return "Spotify";
             var on = Radio.Picked;
             return on == null ? "OST" : $"{on.Name} {Radio.RateLabel(on.Rate)}";
         }
@@ -136,9 +151,16 @@ namespace SlopWorld
         {
             var options = new List<FloatMenuOption>();
             if (Radio.SourceShown(Radio.OstSourceId))
-                options.Add(new FloatMenuOption(Mark("OST", !Radio.Spotify && Radio.Picked == null), Radio.PickOst));
+                options.Add(
+                    new FloatMenuOption(
+                        Mark("OST", !Radio.Spotify && Radio.Picked == null),
+                        Radio.PickOst
+                    )
+                );
             if (Radio.SpotifyAvailable && Radio.SourceShown(Radio.SpotifySourceId))
-                options.Add(new FloatMenuOption(Mark("Spotify (ncspot)", Radio.Spotify), Radio.OpenSpotify));
+                options.Add(
+                    new FloatMenuOption(Mark("Spotify (ncspot)", Radio.Spotify), Radio.OpenSpotify)
+                );
             foreach (var station in Radio.Stations)
             {
                 var s = station; // the closure outlives the loop
@@ -159,9 +181,12 @@ namespace SlopWorld
             foreach (int preset in s.Rates)
             {
                 var rate = preset; // the closure outlives the loop
-                options.Add(new FloatMenuOption(
-                    Mark(Radio.RateLabel(rate), Radio.Picked == s && s.Rate == rate),
-                    () => Radio.Pick(s, rate)));
+                options.Add(
+                    new FloatMenuOption(
+                        Mark(Radio.RateLabel(rate), Radio.Picked == s && s.Rate == rate),
+                        () => Radio.Pick(s, rate)
+                    )
+                );
             }
             return options;
         }

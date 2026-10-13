@@ -17,14 +17,17 @@ namespace SlopWorld
 
         public bool Refresh(List<SessionInfo> sessions, long version)
         {
-            if (_initialized && _version == version) return false;
+            if (_initialized && _version == version)
+                return false;
             _version = version;
             _eligibleNames.Clear();
             foreach (var session in sessions)
-                if (IsColonySession(session)) _eligibleNames.Add(session.Name);
+                if (IsColonySession(session))
+                    _eligibleNames.Add(session.Name);
             bool changed = !_initialized || !_names.SetEquals(_eligibleNames);
             _initialized = true;
-            if (!changed) return false;
+            if (!changed)
+                return false;
 
             _names.Clear();
             _names.UnionWith(_eligibleNames);

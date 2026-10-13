@@ -24,23 +24,30 @@ namespace SlopWorld
         protected EditLibraryItemDialog(LibraryItemInfo existing, bool copy, LibraryItemKind kind)
         {
             resizeable = true;
-            if (copy && existing == null) throw new ArgumentNullException(nameof(existing));
+            if (copy && existing == null)
+                throw new ArgumentNullException(nameof(existing));
 
             // A duplicate is a new daemon entry. It must POST rather than PUT, and its name is
             // suggested rather than copied so saving it cannot collide by default.
-            _identity = copy ? EditIdentity.ForCopy(existing.Name) :
-                existing == null ? EditIdentity.ForNew() : EditIdentity.ForEdit(existing.Name);
+            _identity =
+                copy ? EditIdentity.ForCopy(existing.Name)
+                : existing == null ? EditIdentity.ForNew()
+                : EditIdentity.ForEdit(existing.Name);
             _s = existing?.Copy() ?? new LibraryItemInfo();
             Kind = kind;
             _s.Kind = kind;
             if (copy)
-                _s.Name = _identity.CopyName(SessionHub.Instance.Library.Select(s => s.Name),
-                    "library");
+                _s.Name = _identity.CopyName(
+                    SessionHub.Instance.Library.Select(s => s.Name),
+                    "library"
+                );
 
             // Breadcrumbs and file actions do not choose a runnable project. Keep the wire
             // shape explicit for new records while preserving all values when editing/copying.
-            if (existing == null && (kind == LibraryItemKind.Breadcrumb ||
-                kind == LibraryItemKind.FileAction))
+            if (
+                existing == null
+                && (kind == LibraryItemKind.Breadcrumb || kind == LibraryItemKind.FileAction)
+            )
             {
                 _s.Link = LibraryItemLink.Project;
                 _s.Project = "";
@@ -48,30 +55,38 @@ namespace SlopWorld
 
             SessionHub.Instance.Catalog.RefreshProjects();
             SessionHub.Instance.Catalog.RefreshTemplates();
-            DaemonClient.Get<Wire.ConfigResult>(WireProtocol.Routes.Config, j =>
-            {
-                var d = j.Values.Defaults;
-                _agentDefault = d.Agent;
-                _shellDefault = d.Shell;
-            });
+            DaemonClient.Get<Wire.ConfigResult>(
+                WireProtocol.Routes.Config,
+                j =>
+                {
+                    var d = j.Values.Defaults;
+                    _agentDefault = d.Agent;
+                    _shellDefault = d.Shell;
+                }
+            );
         }
 
-        public static EditLibraryItemDialog New(LibraryItemKind kind) =>
-            Create(kind, null, false);
+        public static EditLibraryItemDialog New(LibraryItemKind kind) => Create(kind, null, false);
 
         public static EditLibraryItemDialog ForEdit(LibraryItemInfo existing)
         {
-            if (existing == null) throw new ArgumentNullException(nameof(existing));
+            if (existing == null)
+                throw new ArgumentNullException(nameof(existing));
             return Create(existing.Kind, existing, false);
         }
 
         public static EditLibraryItemDialog Copy(LibraryItemInfo of)
         {
-            if (of == null) throw new ArgumentNullException(nameof(of));
+            if (of == null)
+                throw new ArgumentNullException(nameof(of));
             return Create(of.Kind, of, true);
         }
 
-        static EditLibraryItemDialog Create(LibraryItemKind kind, LibraryItemInfo existing, bool copy)
+        static EditLibraryItemDialog Create(
+            LibraryItemKind kind,
+            LibraryItemInfo existing,
+            bool copy
+        )
         {
             switch (kind)
             {
@@ -108,7 +123,9 @@ namespace SlopWorld
 
             float head = UiTheme.HeaderH + UiTheme.GapS;
             bool enabled = GUI.enabled;
-            float used = DrawFields(new Rect(rect.x, rect.y + head, rect.width, rect.height - head));
+            float used = DrawFields(
+                new Rect(rect.x, rect.y + head, rect.width, rect.height - head)
+            );
             float y = rect.y + head + used + UiTheme.GapL;
             DrawTextEditor(rect, y);
             GUI.enabled = enabled;
@@ -136,44 +153,76 @@ namespace SlopWorld
 
         protected void DrawRunLocation(Listing_Standard l)
         {
-            UiControls.Select(l, "Where it runs", LinkLabel(_s.Link), LinkOptions(), out _,
-                openMenu: TerminalWindow.OpenOverPane);
+            UiControls.Select(
+                l,
+                "Where it runs",
+                LinkLabel(_s.Link),
+                LinkOptions(),
+                out _,
+                openMenu: TerminalWindow.OpenOverPane
+            );
         }
 
         protected void DrawProject(Listing_Standard l)
         {
             // Temporary mode creates its own workspace and Ask mode chooses one when run,
             // so neither needs a project selector in the editor.
-            if (_s.Link == LibraryItemLink.Ask) return;
-            UiControls.Select(l,
+            if (_s.Link == LibraryItemLink.Ask)
+                return;
+            UiControls.Select(
+                l,
                 _s.Link == LibraryItemLink.Temp
                     ? "Temporary workspace (blank = plain agent settings)"
                     : "Project workspace (directory and shared mounts)",
                 string.IsNullOrEmpty(_s.Project)
                     ? (_s.Link == LibraryItemLink.Temp ? "None" : "Select a project")
                     : _s.Project,
-                ProjectOptions(), out _, openMenu: TerminalWindow.OpenOverPane);
+                ProjectOptions(),
+                out _,
+                openMenu: TerminalWindow.OpenOverPane
+            );
         }
 
         protected void DrawExecution(Listing_Standard l)
         {
             var options = new List<SelectorOption>
             {
-                new SelectorOption("Host", () => { _s.Host = true; _s.AgentTemplate = ""; }),
+                new SelectorOption(
+                    "Host",
+                    () =>
+                    {
+                        _s.Host = true;
+                        _s.AgentTemplate = "";
+                    }
+                ),
             };
-            options.AddRange(SessionHub.Instance.Catalog.Templates.Select(t =>
-                new SelectorOption("Agent template: " + t.Name,
-                    () => { _s.Host = false; _s.AgentTemplate = t.Name; })));
-            string label = _s.Host ? "Host" : string.IsNullOrEmpty(_s.AgentTemplate)
-                ? "Select Host or an agent template" : "Agent template: " + _s.AgentTemplate;
+            options.AddRange(
+                SessionHub.Instance.Catalog.Templates.Select(t => new SelectorOption(
+                    "Agent template: " + t.Name,
+                    () =>
+                    {
+                        _s.Host = false;
+                        _s.AgentTemplate = t.Name;
+                    }
+                ))
+            );
+            string label =
+                _s.Host ? "Host"
+                : string.IsNullOrEmpty(_s.AgentTemplate) ? "Select Host or an agent template"
+                : "Agent template: " + _s.AgentTemplate;
             UiControls.Select(l, "Run using", label, options, out _);
         }
 
         protected void DrawFileActionMode(Listing_Standard l)
         {
-            UiControls.Select(l, "After choosing the file action",
-                FileActionModeLabel(_s.Mode), FileActionModeOptions(), out _,
-                openMenu: TerminalWindow.OpenOverPane);
+            UiControls.Select(
+                l,
+                "After choosing the file action",
+                FileActionModeLabel(_s.Mode),
+                FileActionModeOptions(),
+                out _,
+                openMenu: TerminalWindow.OpenOverPane
+            );
         }
 
         protected void DrawExplanation(Listing_Standard l, string text)
@@ -183,8 +232,12 @@ namespace SlopWorld
             GUI.color = Color.white;
         }
 
-        protected void DrawCommand(Listing_Standard l, string label, string placeholder,
-            bool templatePlaceholder = false)
+        protected void DrawCommand(
+            Listing_Standard l,
+            string label,
+            string placeholder,
+            bool templatePlaceholder = false
+        )
         {
             l.Gap(UiTheme.GapS);
             l.Label(label);
@@ -195,12 +248,15 @@ namespace SlopWorld
                 return;
             }
 
-            string shownPlaceholder = templatePlaceholder && !string.IsNullOrEmpty(_s.AgentTemplate)
-                ? "From agent template" : placeholder;
+            string shownPlaceholder =
+                templatePlaceholder && !string.IsNullOrEmpty(_s.AgentTemplate)
+                    ? "From agent template"
+                    : placeholder;
             GUI.color = UiTheme.Faint;
             string shown = UiText.Field(box, "library.command", shownPlaceholder);
             GUI.color = Color.white;
-            if (shown != shownPlaceholder) _s.Command = shown;
+            if (shown != shownPlaceholder)
+                _s.Command = shown;
         }
 
         protected void DrawTextEditor(Rect rect, float y)
@@ -210,8 +266,12 @@ namespace SlopWorld
 
             if (Kind != LibraryItemKind.FileAction)
             {
-                var area = new Rect(rect.x, y, rect.width,
-                    rect.yMax - UiTheme.BtnH - UiTheme.GapS - y);
+                var area = new Rect(
+                    rect.x,
+                    y,
+                    rect.width,
+                    rect.yMax - UiTheme.BtnH - UiTheme.GapS - y
+                );
                 _s.Text = UiText.Area(area, "library.text", _s.Text ?? "");
             }
             else
@@ -223,17 +283,22 @@ namespace SlopWorld
         void DrawFooter(Rect rect)
         {
             var foot = new UiLayout.Bar(UiLayout.FooterBar(rect));
-            if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
-            if (foot.Right("Save", UiTheme.Btn.Primary)) Save();
+            if (foot.Left("Cancel", UiTheme.Btn.Ghost))
+                Close();
+            if (foot.Right("Save", UiTheme.Btn.Primary))
+                Save();
         }
 
         public static string LinkLabel(LibraryItemLink link)
         {
             switch (link)
             {
-                case LibraryItemLink.Temp: return "A new temporary project each run";
-                case LibraryItemLink.Ask: return "Ask me every time";
-                default: return "One project, named below";
+                case LibraryItemLink.Temp:
+                    return "A new temporary project each run";
+                case LibraryItemLink.Ask:
+                    return "Ask me every time";
+                default:
+                    return "One project, named below";
             }
         }
 
@@ -243,38 +308,46 @@ namespace SlopWorld
             switch (_s.Link)
             {
                 case LibraryItemLink.Temp:
-                    return $"Each run gets an empty directory under {(SessionHub.Instance.Config?.TemporaryRoot ?? "")}" +
-                           (project != null
-                               ? $", using '{project.Name}' as its workspace."
-                               : ". SlopWorld does not delete it. The machine clears /tmp.");
+                    return $"Each run gets an empty directory under {(SessionHub.Instance.Config?.TemporaryRoot ?? "")}"
+                        + (
+                            project != null
+                                ? $", using '{project.Name}' as its workspace."
+                                : ". SlopWorld does not delete it. The machine clears /tmp."
+                        );
                 case LibraryItemLink.Ask:
                     return "Running it opens a list of projects, plus a temporary one.";
                 default:
-                    return project != null
-                        ? $"{project.Dir}  ({ProjectSummary.Of(project)})"
+                    return project != null ? $"{project.Dir}  ({ProjectSummary.Of(project)})"
                         : SessionHub.Instance.Projects.Count == 0
                             ? "No projects exist. Add a project in the Projects window."
-                            : "";
+                        : "";
             }
         }
 
         protected string RunExplanation => Explain();
 
-        internal static string FileActionModeLabel(FileActionMode mode) => mode == FileActionMode.ShowResult
-            ? "Show result"
+        internal static string FileActionModeLabel(FileActionMode mode) =>
+            mode == FileActionMode.ShowResult ? "Show result"
             : mode == FileActionMode.OpenTerminal ? "Open terminal"
-            : mode == FileActionMode.Nothing ? "Nothing" : "Ask every time";
+            : mode == FileActionMode.Nothing ? "Nothing"
+            : "Ask every time";
 
         IEnumerable<SelectorOption> LinkOptions()
         {
             return new[]
             {
-                new SelectorOption(LinkLabel(LibraryItemLink.Project),
-                    () => _s.Link = LibraryItemLink.Project),
-                new SelectorOption(LinkLabel(LibraryItemLink.Temp),
-                    () => _s.Link = LibraryItemLink.Temp),
-                new SelectorOption(LinkLabel(LibraryItemLink.Ask),
-                    () => _s.Link = LibraryItemLink.Ask),
+                new SelectorOption(
+                    LinkLabel(LibraryItemLink.Project),
+                    () => _s.Link = LibraryItemLink.Project
+                ),
+                new SelectorOption(
+                    LinkLabel(LibraryItemLink.Temp),
+                    () => _s.Link = LibraryItemLink.Temp
+                ),
+                new SelectorOption(
+                    LinkLabel(LibraryItemLink.Ask),
+                    () => _s.Link = LibraryItemLink.Ask
+                ),
             };
         }
 
@@ -282,26 +355,41 @@ namespace SlopWorld
         {
             return new[]
             {
-                new SelectorOption(FileActionModeLabel(FileActionMode.Nothing),
-                    () => _s.Mode = FileActionMode.Nothing),
-                new SelectorOption(FileActionModeLabel(FileActionMode.Ask),
-                    () => _s.Mode = FileActionMode.Ask),
-                new SelectorOption(FileActionModeLabel(FileActionMode.ShowResult),
-                    () => _s.Mode = FileActionMode.ShowResult),
-                new SelectorOption(FileActionModeLabel(FileActionMode.OpenTerminal),
-                    () => _s.Mode = FileActionMode.OpenTerminal),
+                new SelectorOption(
+                    FileActionModeLabel(FileActionMode.Nothing),
+                    () => _s.Mode = FileActionMode.Nothing
+                ),
+                new SelectorOption(
+                    FileActionModeLabel(FileActionMode.Ask),
+                    () => _s.Mode = FileActionMode.Ask
+                ),
+                new SelectorOption(
+                    FileActionModeLabel(FileActionMode.ShowResult),
+                    () => _s.Mode = FileActionMode.ShowResult
+                ),
+                new SelectorOption(
+                    FileActionModeLabel(FileActionMode.OpenTerminal),
+                    () => _s.Mode = FileActionMode.OpenTerminal
+                ),
             };
         }
 
         IEnumerable<SelectorOption> ProjectOptions()
         {
-            var options = SessionHub.Instance.Projects
-                .Select(p => new SelectorOption($"{p.Name}  -  {p.Dir}",
-                    () => _s.Project = p.Name)).ToList();
+            var options = SessionHub
+                .Instance.Projects.Select(p => new SelectorOption(
+                    $"{p.Name}  -  {p.Dir}",
+                    () => _s.Project = p.Name
+                ))
+                .ToList();
             if (_s.Link == LibraryItemLink.Temp)
                 options.Insert(0, new SelectorOption("None", () => _s.Project = ""));
-            options.Add(new SelectorOption("Create new project",
-                () => TerminalWindow.OpenOverPane(new EditProjectDialog(null))));
+            options.Add(
+                new SelectorOption(
+                    "Create new project",
+                    () => TerminalWindow.OpenOverPane(new EditProjectDialog(null))
+                )
+            );
             return options;
         }
 
@@ -309,44 +397,65 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty((_s.Name ?? "").Trim()))
             {
-                Messages.Message("SlopWorld: a library entry needs a name.",
-                    MessageTypeDefOf.RejectInput, false);
+                Messages.Message(
+                    "SlopWorld: a library entry needs a name.",
+                    MessageTypeDefOf.RejectInput,
+                    false
+                );
                 return;
             }
-            if ((Kind == LibraryItemKind.Prompt || Kind == LibraryItemKind.Shell) &&
-                _s.Link == LibraryItemLink.Project &&
-                string.IsNullOrEmpty((_s.Project ?? "").Trim()))
+            if (
+                (Kind == LibraryItemKind.Prompt || Kind == LibraryItemKind.Shell)
+                && _s.Link == LibraryItemLink.Project
+                && string.IsNullOrEmpty((_s.Project ?? "").Trim())
+            )
             {
-                Messages.Message("SlopWorld: pick a project, or a way to choose one.",
-                    MessageTypeDefOf.RejectInput, false);
+                Messages.Message(
+                    "SlopWorld: pick a project, or a way to choose one.",
+                    MessageTypeDefOf.RejectInput,
+                    false
+                );
                 return;
             }
-            if ((Kind == LibraryItemKind.Prompt || Kind == LibraryItemKind.Shell) &&
-                !_s.Host && string.IsNullOrWhiteSpace(_s.AgentTemplate))
+            if (
+                (Kind == LibraryItemKind.Prompt || Kind == LibraryItemKind.Shell)
+                && !_s.Host
+                && string.IsNullOrWhiteSpace(_s.AgentTemplate)
+            )
             {
                 UiLayout.Fail("Choose Host or an agent template for this entry.");
                 return;
             }
-            if (Kind == LibraryItemKind.FileAction &&
-                string.IsNullOrEmpty((_s.Command ?? "").Trim()))
+            if (
+                Kind == LibraryItemKind.FileAction
+                && string.IsNullOrEmpty((_s.Command ?? "").Trim())
+            )
             {
-                Messages.Message("SlopWorld: a file action needs a command.",
-                    MessageTypeDefOf.RejectInput, false);
+                Messages.Message(
+                    "SlopWorld: a file action needs a command.",
+                    MessageTypeDefOf.RejectInput,
+                    false
+                );
                 return;
             }
-            if (Kind != LibraryItemKind.FileAction &&
-                string.IsNullOrEmpty((_s.Text ?? "").Trim()))
+            if (Kind != LibraryItemKind.FileAction && string.IsNullOrEmpty((_s.Text ?? "").Trim()))
             {
-                Messages.Message("SlopWorld: a library entry needs something to send.",
-                    MessageTypeDefOf.RejectInput, false);
+                Messages.Message(
+                    "SlopWorld: a library entry needs something to send.",
+                    MessageTypeDefOf.RejectInput,
+                    false
+                );
                 return;
             }
 
-            SessionHub.Instance.Catalog.SaveLibraryItem(_s, _identity.IsNew,
+            SessionHub.Instance.Catalog.SaveLibraryItem(
+                _s,
+                _identity.IsNew,
                 _identity.OriginalName,
                 ok: () => Close(),
-                fail: msg => Messages.Message($"SlopWorld: {msg}",
-                    MessageTypeDefOf.RejectInput, false));
+                fail: msg =>
+                    Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false)
+            );
         }
     }
 }

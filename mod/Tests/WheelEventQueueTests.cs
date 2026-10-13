@@ -7,7 +7,11 @@ namespace SlopWorld.Tests
     public class WheelEventQueueTests
     {
         [SetUp]
-        public void Clear() { Event.ClearEvents(); Time.frameCount++; }
+        public void Clear()
+        {
+            Event.ClearEvents();
+            Time.frameCount++;
+        }
 
         [TearDown]
         public void Cleanup() => Event.ClearEvents();
@@ -16,9 +20,11 @@ namespace SlopWorld.Tests
         public void CompactsWheelRunsWithoutMovingKeys()
         {
             var current = Wheel(2f);
-            for (int i = 0; i < 12; i++) Event.EnqueueTestEvent(Wheel(1f));
+            for (int i = 0; i < 12; i++)
+                Event.EnqueueTestEvent(Wheel(1f));
             Event.EnqueueTestEvent(new Event { type = EventType.KeyDown });
-            for (int i = 0; i < 12; i++) Event.EnqueueTestEvent(Wheel(1f));
+            for (int i = 0; i < 12; i++)
+                Event.EnqueueTestEvent(Wheel(1f));
 
             WheelEventQueue.Compact(current);
 
@@ -39,13 +45,15 @@ namespace SlopWorld.Tests
         {
             var current = Wheel(1f);
             for (int i = 0; i < 24; i++)
-                Event.EnqueueTestEvent(new Event
-                {
-                    type = EventType.ScrollWheel,
-                    mousePosition = new Vector2(40f, 10f),
-                    delta = new Vector2(0f, 1f),
-                    modifiers = i < 12 ? EventModifiers.None : EventModifiers.Shift
-                });
+                Event.EnqueueTestEvent(
+                    new Event
+                    {
+                        type = EventType.ScrollWheel,
+                        mousePosition = new Vector2(40f, 10f),
+                        delta = new Vector2(0f, 1f),
+                        modifiers = i < 12 ? EventModifiers.None : EventModifiers.Shift,
+                    }
+                );
 
             WheelEventQueue.Compact(current);
 
@@ -75,10 +83,13 @@ namespace SlopWorld.Tests
         [Test]
         public void LayoutCompactsAllRunsBeforeInputAndKeepsReversals()
         {
-            for (int i = 0; i < 10000; i++) Event.EnqueueTestEvent(Wheel(1f));
-            for (int i = 0; i < 10000; i++) Event.EnqueueTestEvent(Wheel(-1f));
+            for (int i = 0; i < 10000; i++)
+                Event.EnqueueTestEvent(Wheel(1f));
+            for (int i = 0; i < 10000; i++)
+                Event.EnqueueTestEvent(Wheel(-1f));
             Event.EnqueueTestEvent(new Event { type = EventType.MouseDown, button = 1 });
-            for (int i = 0; i < 10000; i++) Event.EnqueueTestEvent(Wheel(1f));
+            for (int i = 0; i < 10000; i++)
+                Event.EnqueueTestEvent(Wheel(1f));
             WheelEventQueue.Compact(new Event { type = EventType.Layout });
             Assert.That(Event.GetEventCount(), Is.EqualTo(4));
             var next = new Event();
@@ -122,12 +133,12 @@ namespace SlopWorld.Tests
         public void DifferentDisplaysKeepSeparateWheelRunsAndOrder()
         {
             for (int display = 0; display < 3; display++)
-                for (int i = 0; i < 12; i++)
-                {
-                    var wheel = Wheel(display + 1);
-                    wheel.displayIndex = display;
-                    Event.EnqueueTestEvent(wheel);
-                }
+            for (int i = 0; i < 12; i++)
+            {
+                var wheel = Wheel(display + 1);
+                wheel.displayIndex = display;
+                Event.EnqueueTestEvent(wheel);
+            }
             WheelEventQueue.Compact(new Event { type = EventType.Layout });
             Assert.That(Event.GetEventCount(), Is.EqualTo(3));
             var next = new Event();
@@ -139,11 +150,12 @@ namespace SlopWorld.Tests
             }
         }
 
-        static Event Wheel(float y) => new Event
-        {
-            type = EventType.ScrollWheel,
-            mousePosition = new Vector2(10f, 10f),
-            delta = new Vector2(0f, y)
-        };
+        static Event Wheel(float y) =>
+            new Event
+            {
+                type = EventType.ScrollWheel,
+                mousePosition = new Vector2(10f, 10f),
+                delta = new Vector2(0f, y),
+            };
     }
 }

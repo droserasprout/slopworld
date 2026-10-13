@@ -33,7 +33,8 @@ namespace SlopWorld
 
         void Load()
         {
-            DaemonClient.Get<Wire.ConfigResult>(WireProtocol.Routes.Config,
+            DaemonClient.Get<Wire.ConfigResult>(
+                WireProtocol.Routes.Config,
                 j =>
                 {
                     _text = j.Text;
@@ -41,7 +42,8 @@ namespace SlopWorld
                     _loaded = true;
                     _error = null;
                 },
-                msg => _error = msg);
+                msg => _error = msg
+            );
         }
 
         protected override void DoBody(Rect rect)
@@ -49,59 +51,85 @@ namespace SlopWorld
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Small;
-                UiLayout.PageCaption(TitleRect(rect), string.IsNullOrEmpty(_path) ? "config.toml" : _path);
+                UiLayout.PageCaption(
+                    TitleRect(rect),
+                    string.IsNullOrEmpty(_path) ? "config.toml" : _path
+                );
 
                 // The caption above and the footer below, both off the font. The figures here were
                 // 24, 28 and 100. The last of them left the error line lying across the footer as
                 // soon as a line grew.
                 float top = rect.y + UiTheme.RowH + UiTheme.GapXS;
-                float foot = UiTheme.BtnH + UiTheme.GapS + UiTheme.LineH
-                             + UiTheme.GapXS;
+                float foot = UiTheme.BtnH + UiTheme.GapS + UiTheme.LineH + UiTheme.GapXS;
                 var area = new Rect(rect.x, top, rect.width, rect.yMax - foot - top);
-                var view = new Rect(0f, 0f, area.width - UiTheme.ScrollbarW,
-                    Mathf.Max(area.height, Text.CalcHeight(_text,
-                        area.width - UiTheme.ScrollbarW - UiTheme.FieldPadX * 2f)
-                        + UiTheme.GapL + UiTheme.GapM));
+                var view = new Rect(
+                    0f,
+                    0f,
+                    area.width - UiTheme.ScrollbarW,
+                    Mathf.Max(
+                        area.height,
+                        Text.CalcHeight(
+                            _text,
+                            area.width - UiTheme.ScrollbarW - UiTheme.FieldPadX * 2f
+                        )
+                            + UiTheme.GapL
+                            + UiTheme.GapM
+                    )
+                );
 
                 // The box is the scroll view's frame, so it is drawn round the outside and the area
                 // inside it draws none of its own. A well as tall as the content would put its
                 // border somewhere off the bottom of the window.
                 Slab.Box(area, UiTheme.Well, UiTheme.Edge);
                 using (_scroll.Scope(area, view))
-                    _text = UiText.Area(view.ContractedBy(UiTheme.FieldPadX,
-                        UiTheme.FieldPadY * 2f), "config.toml", _text, _loaded,
-                        frame: false);
+                    _text = UiText.Area(
+                        view.ContractedBy(UiTheme.FieldPadX, UiTheme.FieldPadY * 2f),
+                        "config.toml",
+                        _text,
+                        _loaded,
+                        frame: false
+                    );
 
                 if (_error != null)
                 {
                     GUI.color = UiTheme.Bad;
                     UiText.RowLabel(
-                        new Rect(rect.x, area.yMax + UiTheme.GapXS, rect.width,
-                            UiTheme.LineH), _error);
+                        new Rect(rect.x, area.yMax + UiTheme.GapXS, rect.width, UiTheme.LineH),
+                        _error
+                    );
                     GUI.color = Color.white;
                 }
 
                 var bar = new UiLayout.Bar(UiLayout.FooterBar(rect));
-                if (bar.Left("Reload", UiTheme.Btn.Ghost)) Load();
-                if (bar.Right("Save", UiTheme.Btn.Primary, _loaded)) Save();
+                if (bar.Left("Reload", UiTheme.Btn.Ghost))
+                    Load();
+                if (bar.Right("Save", UiTheme.Btn.Primary, _loaded))
+                    Save();
             }
         }
 
         void Save()
         {
-            if (!_loaded) return;
+            if (!_loaded)
+                return;
 
-            DaemonClient.Put(WireProtocol.Routes.Config, new Wire.ReplaceConfigRequest { Text = _text },
+            DaemonClient.Put(
+                WireProtocol.Routes.Config,
+                new Wire.ReplaceConfigRequest { Text = _text },
                 _ =>
                 {
                     _error = null;
                     SessionHub.Instance.RefreshConfig();
                     SessionHub.Instance.SessionStore.Refresh();
-                    Messages.Message("SlopWorld: config saved.",
-                        MessageTypeDefOf.TaskCompletion, false);
+                    Messages.Message(
+                        "SlopWorld: config saved.",
+                        MessageTypeDefOf.TaskCompletion,
+                        false
+                    );
                     Close();
                 },
-                msg => _error = msg);
+                msg => _error = msg
+            );
         }
     }
 }

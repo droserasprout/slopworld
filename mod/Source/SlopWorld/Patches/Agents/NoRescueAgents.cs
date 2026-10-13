@@ -12,9 +12,11 @@ namespace SlopWorld
     {
         static void Postfix(Pawn pawn, ref bool __result)
         {
-            if (!__result) return;
+            if (!__result)
+                return;
             var colony = AgentColony.Current;
-            if (colony != null && colony.IsAgentPawn(pawn)) __result = false;
+            if (colony != null && colony.IsAgentPawn(pawn))
+                __result = false;
         }
     }
 }

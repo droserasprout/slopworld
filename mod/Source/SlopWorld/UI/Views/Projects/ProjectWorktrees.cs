@@ -18,7 +18,16 @@ namespace SlopWorld
         public ProjectWorktrees(ProjectInfo project)
         {
             _project = project.Name;
-            _rows = new List<Wire.Worktree> { new Wire.Worktree { Id = "main", Name = "main", Path = project.ExpandedDir, Phase = "ready" } };
+            _rows = new List<Wire.Worktree>
+            {
+                new Wire.Worktree
+                {
+                    Id = "main",
+                    Name = "main",
+                    Path = project.ExpandedDir,
+                    Phase = "ready",
+                },
+            };
             Refresh();
         }
 
@@ -26,19 +35,35 @@ namespace SlopWorld
         {
             SidebarScopes.Invalidate();
             _busy = true;
-            DaemonClient.Get<Wire.WorktreesReply>(WireProtocol.Routes.Worktrees + "?project=" + Uri.EscapeDataString(_project),
-                reply => { _rows = reply.Worktrees.OrderBy(w => w.Id == "main" ? 0 : 1).ToList(); _busy = false; _error = null; },
-                Fail, TaskInfo.Host, 60000);
+            DaemonClient.Get<Wire.WorktreesReply>(
+                WireProtocol.Routes.Worktrees + "?project=" + Uri.EscapeDataString(_project),
+                reply =>
+                {
+                    _rows = reply.Worktrees.OrderBy(w => w.Id == "main" ? 0 : 1).ToList();
+                    _busy = false;
+                    _error = null;
+                },
+                Fail,
+                TaskInfo.Host,
+                60000
+            );
         }
 
-        void Fail(string error) { _busy = false; _error = error; }
+        void Fail(string error)
+        {
+            _busy = false;
+            _error = error;
+        }
 
         public void Draw(Rect rect)
         {
             var bar = new UiLayout.Bar(new Rect(rect.x, rect.y, rect.width, UiTheme.BtnH));
-            if (bar.Left("Add", UiTheme.Btn.Ghost, !_busy)) Open(ProjectWorktreeDialog.Mode.Add);
-            if (bar.Left("Create", UiTheme.Btn.Primary, !_busy)) Open(ProjectWorktreeDialog.Mode.Create);
-            if (bar.Right("Refresh", UiTheme.Btn.Ghost, !_busy)) Refresh();
+            if (bar.Left("Add", UiTheme.Btn.Ghost, !_busy))
+                Open(ProjectWorktreeDialog.Mode.Add);
+            if (bar.Left("Create", UiTheme.Btn.Primary, !_busy))
+                Open(ProjectWorktreeDialog.Mode.Create);
+            if (bar.Right("Refresh", UiTheme.Btn.Ghost, !_busy))
+                Refresh();
             float y = rect.y + UiTheme.BtnH + UiTheme.GapS;
             if (!string.IsNullOrEmpty(_error))
             {
@@ -56,50 +81,126 @@ namespace SlopWorld
                 y = 0f;
                 foreach (var w in _rows)
                 {
-                    float removeW = 32f, terminalW = 80f, renameW = 70f, gap = UiTheme.GapS;
+                    float removeW = 32f,
+                        terminalW = 80f,
+                        renameW = 70f,
+                        gap = UiTheme.GapS;
                     float labelW = Mathf.Max(0f, width - removeW - terminalW - renameW - gap * 3f);
                     var label = new Rect(0f, y, labelW, UiTheme.RowH);
                     string branch = string.IsNullOrEmpty(w.Branch) ? "detached" : w.Branch;
-                    UiText.RowLabel(label, (w.Id == "main" ? "main" : w.Name) + " — " + branch +
-                        (w.Phase == "ready" ? "" : " (" + w.Phase + ")"));
-                    TooltipHandler.TipRegion(label, w.Path + "\nHEAD: " + w.Head +
-                        (w.Attachments.Count == 0 ? "" : "\nAttached: " + string.Join(", ", w.Attachments)) +
-                        (string.IsNullOrEmpty(w.Error) ? "" : "\n" + w.Error));
-                    if (UiButtons.Button(new Rect(labelW + gap, y, terminalW, UiTheme.RowH), "Terminal",
-                        UiTheme.Btn.Ghost, !_busy && w.Phase == "ready"))
-                        SessionHub.Instance.SessionStore.RunHostShell(_project, name => TerminalWindow.Open(name), Fail, w.Id);
+                    UiText.RowLabel(
+                        label,
+                        (w.Id == "main" ? "main" : w.Name)
+                            + " — "
+                            + branch
+                            + (w.Phase == "ready" ? "" : " (" + w.Phase + ")")
+                    );
+                    TooltipHandler.TipRegion(
+                        label,
+                        w.Path
+                            + "\nHEAD: "
+                            + w.Head
+                            + (
+                                w.Attachments.Count == 0
+                                    ? ""
+                                    : "\nAttached: " + string.Join(", ", w.Attachments)
+                            )
+                            + (string.IsNullOrEmpty(w.Error) ? "" : "\n" + w.Error)
+                    );
+                    if (
+                        UiButtons.Button(
+                            new Rect(labelW + gap, y, terminalW, UiTheme.RowH),
+                            "Terminal",
+                            UiTheme.Btn.Ghost,
+                            !_busy && w.Phase == "ready"
+                        )
+                    )
+                        SessionHub.Instance.SessionStore.RunHostShell(
+                            _project,
+                            name => TerminalWindow.Open(name),
+                            Fail,
+                            w.Id
+                        );
                     if (w.Id != "main")
                     {
-                        if (w.Managed && UiButtons.Button(new Rect(labelW + terminalW + gap * 2f, y, renameW, UiTheme.RowH),
-                            "Rename", UiTheme.Btn.Ghost, !_busy && w.Phase == "ready" && w.Attachments.Count == 0))
-                            TerminalWindow.OpenOverPane(new ProjectWorktreeDialog(_project, ProjectWorktreeDialog.Mode.Rename, Refresh, w));
+                        if (
+                            w.Managed
+                            && UiButtons.Button(
+                                new Rect(labelW + terminalW + gap * 2f, y, renameW, UiTheme.RowH),
+                                "Rename",
+                                UiTheme.Btn.Ghost,
+                                !_busy && w.Phase == "ready" && w.Attachments.Count == 0
+                            )
+                        )
+                            TerminalWindow.OpenOverPane(
+                                new ProjectWorktreeDialog(
+                                    _project,
+                                    ProjectWorktreeDialog.Mode.Rename,
+                                    Refresh,
+                                    w
+                                )
+                            );
                         var remove = new Rect(width - removeW, y, removeW, UiTheme.RowH);
-                        TooltipHandler.TipRegion(remove, w.Attachments.Count > 0 ? "Detach agents and terminals before removing." :
-                            w.Managed ? "Remove this worktree" : "Unregister this worktree (keep files)");
-                        if (UiButtons.Button(remove, "×", UiTheme.Btn.Ghost, !_busy && w.Attachments.Count == 0)) Remove(w);
+                        TooltipHandler.TipRegion(
+                            remove,
+                            w.Attachments.Count > 0 ? "Detach agents and terminals before removing."
+                                : w.Managed ? "Remove this worktree"
+                                : "Unregister this worktree (keep files)"
+                        );
+                        if (
+                            UiButtons.Button(
+                                remove,
+                                "×",
+                                UiTheme.Btn.Ghost,
+                                !_busy && w.Attachments.Count == 0
+                            )
+                        )
+                            Remove(w);
                     }
                     var path = new Rect(0f, y + UiTheme.RowH, width, UiTheme.LineH);
                     UiText.RowLabel(path, string.IsNullOrEmpty(w.Error) ? w.Path : w.Error);
-                    TooltipHandler.TipRegion(path, w.Path + (string.IsNullOrEmpty(w.Error) ? "" : "\n" + w.Error));
+                    TooltipHandler.TipRegion(
+                        path,
+                        w.Path + (string.IsNullOrEmpty(w.Error) ? "" : "\n" + w.Error)
+                    );
                     y += rowH;
                 }
             }
         }
 
-        void Open(ProjectWorktreeDialog.Mode mode) => TerminalWindow.OpenOverPane(new ProjectWorktreeDialog(_project, mode, Refresh));
+        void Open(ProjectWorktreeDialog.Mode mode) =>
+            TerminalWindow.OpenOverPane(new ProjectWorktreeDialog(_project, mode, Refresh));
 
         void Remove(Wire.Worktree tree)
         {
             _busy = true;
-            DaemonClient.Send<Wire.Ack>("DELETE", WireProtocol.Routes.Worktrees + "/" + Uri.EscapeDataString(tree.Id) +
-                "?project=" + Uri.EscapeDataString(_project), null, _ => Refresh(), Fail, TaskInfo.Host, 60000);
+            DaemonClient.Send<Wire.Ack>(
+                "DELETE",
+                WireProtocol.Routes.Worktrees
+                    + "/"
+                    + Uri.EscapeDataString(tree.Id)
+                    + "?project="
+                    + Uri.EscapeDataString(_project),
+                null,
+                _ => Refresh(),
+                Fail,
+                TaskInfo.Host,
+                60000
+            );
         }
     }
 
     public sealed class ProjectWorktreeDialog : UiWindow
     {
         readonly string _project;
-        public enum Mode { Create, Add, Rename }
+
+        public enum Mode
+        {
+            Create,
+            Add,
+            Rename,
+        }
+
         readonly Mode _mode;
         readonly Wire.Worktree _renaming;
         readonly Action _changed;
@@ -110,12 +211,22 @@ namespace SlopWorld
         string _error;
         bool _busy;
 
-        public ProjectWorktreeDialog(string project, Mode mode, Action changed, Wire.Worktree renaming = null)
+        public ProjectWorktreeDialog(
+            string project,
+            Mode mode,
+            Action changed,
+            Wire.Worktree renaming = null
+        )
         {
             resizeable = true;
-            _project = project; _mode = mode; _changed = changed; _renaming = renaming;
-            if (mode == Mode.Rename && renaming == null) throw new ArgumentNullException(nameof(renaming));
-            if (mode == Mode.Rename) _name = renaming.Name;
+            _project = project;
+            _mode = mode;
+            _changed = changed;
+            _renaming = renaming;
+            if (mode == Mode.Rename && renaming == null)
+                throw new ArgumentNullException(nameof(renaming));
+            if (mode == Mode.Rename)
+                _name = renaming.Name;
             AcceptOnEnter(Save);
         }
 
@@ -125,53 +236,111 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            UiLayout.Title(TitleRect(rect), _mode == Mode.Rename ? "Rename worktree" : _mode == Mode.Add ? "Add existing worktree" : "Create worktree");
+            UiLayout.Title(
+                TitleRect(rect),
+                _mode == Mode.Rename ? "Rename worktree"
+                    : _mode == Mode.Add ? "Add existing worktree"
+                    : "Create worktree"
+            );
             float y = rect.y + UiTheme.HeaderH + UiTheme.GapM;
-            _listing.Draw(new Rect(rect.x, y, rect.width, rect.yMax - y - UiTheme.BtnH - UiTheme.GapM), l =>
-            {
-                l.Label(_mode == Mode.Rename ? "Name" : "Name (optional)"); _name = UiControls.Field(l, "worktree.name", _name);
-                switch (_mode)
+            _listing.Draw(
+                new Rect(rect.x, y, rect.width, rect.yMax - y - UiTheme.BtnH - UiTheme.GapM),
+                l =>
                 {
-                    case Mode.Add:
-                        l.Label("Existing worktree path"); _path = UiControls.Field(l, "worktree.path", _path);
-                        break;
-                    case Mode.Create:
-                        l.Label("Base revision"); _base = UiControls.Field(l, "worktree.base", _base);
-                        l.Label("Git creates this worktree from committed files. Remove it from the list when finished.");
-                        break;
-                    case Mode.Rename:
-                        break;
+                    l.Label(_mode == Mode.Rename ? "Name" : "Name (optional)");
+                    _name = UiControls.Field(l, "worktree.name", _name);
+                    switch (_mode)
+                    {
+                        case Mode.Add:
+                            l.Label("Existing worktree path");
+                            _path = UiControls.Field(l, "worktree.path", _path);
+                            break;
+                        case Mode.Create:
+                            l.Label("Base revision");
+                            _base = UiControls.Field(l, "worktree.base", _base);
+                            l.Label(
+                                "Git creates this worktree from committed files. Remove it from the list when finished."
+                            );
+                            break;
+                        case Mode.Rename:
+                            break;
+                    }
+                    if (!string.IsNullOrEmpty(_error))
+                        l.Label(_error);
                 }
-                if (!string.IsNullOrEmpty(_error)) l.Label(_error);
-            });
-            var foot = new UiLayout.Bar(new Rect(rect.x, rect.yMax - UiTheme.BtnH, rect.width, UiTheme.BtnH));
-            if (foot.Left("Cancel", UiTheme.Btn.Ghost, !_busy)) Close();
-            if (foot.Right(_mode == Mode.Rename ? "Rename" : _mode == Mode.Add ? "Add" : "Create", UiTheme.Btn.Primary, !_busy)) Save();
+            );
+            var foot = new UiLayout.Bar(
+                new Rect(rect.x, rect.yMax - UiTheme.BtnH, rect.width, UiTheme.BtnH)
+            );
+            if (foot.Left("Cancel", UiTheme.Btn.Ghost, !_busy))
+                Close();
+            if (
+                foot.Right(
+                    _mode == Mode.Rename ? "Rename"
+                        : _mode == Mode.Add ? "Add"
+                        : "Create",
+                    UiTheme.Btn.Primary,
+                    !_busy
+                )
+            )
+                Save();
         }
 
         void Save()
         {
-            if (_busy) return;
-            if (_mode == Mode.Rename && string.IsNullOrWhiteSpace(_name)) { _error = "Choose a worktree name."; return; }
-            if (_mode == Mode.Add && string.IsNullOrWhiteSpace(_path)) { _error = "Choose an existing worktree path."; return; }
+            if (_busy)
+                return;
+            if (_mode == Mode.Rename && string.IsNullOrWhiteSpace(_name))
+            {
+                _error = "Choose a worktree name.";
+                return;
+            }
+            if (_mode == Mode.Add && string.IsNullOrWhiteSpace(_path))
+            {
+                _error = "Choose an existing worktree path.";
+                return;
+            }
             _busy = true;
             var request = new Wire.CreateWorktreeReq { Project = _project, Name = _name };
-            string method = "POST", route = WireProtocol.Routes.Worktrees;
+            string method = "POST",
+                route = WireProtocol.Routes.Worktrees;
             switch (_mode)
             {
-                case Mode.Create: request.Base = _base; break;
-                case Mode.Add: request.Path = _path; break;
+                case Mode.Create:
+                    request.Base = _base;
+                    break;
+                case Mode.Add:
+                    request.Path = _path;
+                    break;
                 case Mode.Rename:
                     method = "PUT";
-                    route += "/" + Uri.EscapeDataString(_renaming.Id) + "?project=" + Uri.EscapeDataString(_project);
+                    route +=
+                        "/"
+                        + Uri.EscapeDataString(_renaming.Id)
+                        + "?project="
+                        + Uri.EscapeDataString(_project);
                     break;
             }
-            DaemonClient.Send<Wire.Worktree>(method, route, request,
+            DaemonClient.Send<Wire.Worktree>(
+                method,
+                route,
+                request,
                 tree =>
                 {
-                    if (_mode != Mode.Rename) SidebarScopes.IncludeWorktree(_project, tree.Id);
-                    _busy = false; _changed(); Close();
-                }, error => { _busy = false; _error = error; }, TaskInfo.Host, 60000);
+                    if (_mode != Mode.Rename)
+                        SidebarScopes.IncludeWorktree(_project, tree.Id);
+                    _busy = false;
+                    _changed();
+                    Close();
+                },
+                error =>
+                {
+                    _busy = false;
+                    _error = error;
+                },
+                TaskInfo.Host,
+                60000
+            );
         }
     }
 }

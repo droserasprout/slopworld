@@ -7,8 +7,14 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
-            yield return ("storage publishes rows before sizes and retains them after scan failure", ScanFailure);
-            yield return ("storage refresh rejects old inventory and size callbacks", StaleCallbacks);
+            yield return (
+                "storage publishes rows before sizes and retains them after scan failure",
+                ScanFailure
+            );
+            yield return (
+                "storage refresh rejects old inventory and size callbacks",
+                StaleCallbacks
+            );
             yield return ("storage closure invalidates both load stages", Closure);
         }
 
@@ -18,11 +24,18 @@ namespace SlopWorld.Tests
             Action<string> inventory = null;
             Action<string> measured = null;
             Action<string> failed = null;
-            state.Load((sizes, ok, fail) =>
-            {
-                if (!sizes) inventory = ok;
-                else { measured = ok; failed = fail; }
-            });
+            state.Load(
+                (sizes, ok, fail) =>
+                {
+                    if (!sizes)
+                        inventory = ok;
+                    else
+                    {
+                        measured = ok;
+                        failed = fail;
+                    }
+                }
+            );
             AssertEx.Equal(null, measured, "size scan waits for quick inventory");
             inventory("rows");
             AssertEx.Equal("rows", state.Value, "rows render while scan is pending");
@@ -46,11 +59,19 @@ namespace SlopWorld.Tests
             Action<string> oldMeasured = null;
             Action<string> oldFailure = null;
             int scans = 0;
-            state.Load((sizes, ok, fail) =>
-            {
-                if (!sizes) oldInventory = ok;
-                else { scans++; oldMeasured = ok; oldFailure = fail; }
-            });
+            state.Load(
+                (sizes, ok, fail) =>
+                {
+                    if (!sizes)
+                        oldInventory = ok;
+                    else
+                    {
+                        scans++;
+                        oldMeasured = ok;
+                        oldFailure = fail;
+                    }
+                }
+            );
             oldInventory("old rows");
             state.Load((sizes, ok, fail) => ok(sizes ? "new measured" : "new rows"));
             oldInventory("late inventory");
@@ -69,13 +90,23 @@ namespace SlopWorld.Tests
                 var state = new StorageLoadState<string>();
                 Action<string> complete = null;
                 Action<string> failure = null;
-                state.Load((sizes, ok, fail) => { complete = ok; failure = fail; });
-                if (closeDuringScan) complete("rows");
+                state.Load(
+                    (sizes, ok, fail) =>
+                    {
+                        complete = ok;
+                        failure = fail;
+                    }
+                );
+                if (closeDuringScan)
+                    complete("rows");
                 state.Invalidate();
                 complete("late");
                 failure("late error");
-                AssertEx.Equal(closeDuringScan ? "rows" : null, state.Value,
-                    "closed page ignores pending callbacks");
+                AssertEx.Equal(
+                    closeDuringScan ? "rows" : null,
+                    state.Value,
+                    "closed page ignores pending callbacks"
+                );
                 AssertEx.False(state.Loading, "closure stops pending state");
                 AssertEx.Equal(null, state.Error, "closure ignores late failures");
             }

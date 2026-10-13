@@ -17,7 +17,8 @@ namespace SlopWorld.Tests
                 position += 0.5f;
                 coverage.Record(frame, 0.001f, 0.5f);
                 for (int packet = 0; packet < 4; packet++)
-                    if (!coverage.Covers(frame + packet / 2, 0f, 2f)) position += 40f;
+                    if (!coverage.Covers(frame + packet / 2, 0f, 2f))
+                        position += 40f;
             }
             Assert.That(position, Is.EqualTo(5f), "legacy packets must not add whole wheel steps");
         }
@@ -26,7 +27,11 @@ namespace SlopWorld.Tests
         [TestCase(10, 2f, 0f)]
         [TestCase(10, 2f, 2f)]
         [TestCase(12, 0f, 2f)]
-        public void ReversedUncoveredAndExpiredInputRetainsLogicalFallback(int frame, float dx, float dy)
+        public void ReversedUncoveredAndExpiredInputRetainsLogicalFallback(
+            int frame,
+            float dx,
+            float dy
+        )
         {
             var coverage = new NativeScrollCoverage();
             coverage.Record(10, 0f, 0.5f);

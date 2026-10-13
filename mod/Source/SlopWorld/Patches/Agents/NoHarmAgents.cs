@@ -16,7 +16,8 @@ namespace SlopWorld
     {
         static bool Prefix(Pawn __instance, ref bool absorbed)
         {
-            if (!AgentColony.IsAgent(__instance)) return true;
+            if (!AgentColony.IsAgent(__instance))
+                return true;
             absorbed = true;
             return false;
         }
@@ -28,7 +29,8 @@ namespace SlopWorld
     {
         static void Postfix(Pawn prey, ref bool __result)
         {
-            if (__result && AgentColony.IsAgent(prey)) __result = false;
+            if (__result && AgentColony.IsAgent(prey))
+                __result = false;
         }
     }
 
@@ -37,16 +39,21 @@ namespace SlopWorld
     public static class Patch_NoTargetingAgents
     {
         // Reuse this delegate when the caller supplies no validator to avoid allocating a new closure.
-        static readonly Predicate<Thing> NoAgents =
-            t => !(t is Pawn p && AgentColony.IsAgent(p));
+        static readonly Predicate<Thing> NoAgents = t => !(t is Pawn p && AgentColony.IsAgent(p));
 
         static void Prefix(IAttackTargetSearcher searcher, ref Predicate<Thing> validator)
         {
             var hunter = searcher?.Thing as Pawn;
-            if (hunter?.RaceProps == null || !hunter.RaceProps.Animal) return;
-            if (AgentColony.Current == null) return;
+            if (hunter?.RaceProps == null || !hunter.RaceProps.Animal)
+                return;
+            if (AgentColony.Current == null)
+                return;
 
-            if (validator == null) { validator = NoAgents; return; }
+            if (validator == null)
+            {
+                validator = NoAgents;
+                return;
+            }
 
             var inner = validator;
             validator = t => NoAgents(t) && inner(t);
@@ -62,9 +69,11 @@ namespace SlopWorld
             var attacker = __instance.Pawn;
             if (attacker == null || attacker.RaceProps == null || !attacker.RaceProps.Animal)
                 return true;
-            if (!(target is Pawn victim) || !AgentColony.IsAgent(victim)) return true;
+            if (!(target is Pawn victim) || !AgentColony.IsAgent(victim))
+                return true;
 
-            if (Pets.Is(attacker)) Pets.NuzzleInstead(attacker, victim);
+            if (Pets.Is(attacker))
+                Pets.NuzzleInstead(attacker, victim);
             __result = false;
             return false; // suppresses the swing and verb selection
         }
@@ -74,15 +83,15 @@ namespace SlopWorld
     // Both checks are necessary because unattached fires can also damage pawns.
     public static class NoBurningTheColony
     {
-        static bool Spared(Thing t) =>
-            t is Pawn p && p.Faction != null && p.Faction.IsPlayer;
+        static bool Spared(Thing t) => t is Pawn p && p.Faction != null && p.Faction.IsPlayer;
 
         [HarmonyPatch(typeof(FireUtility), nameof(FireUtility.CanEverAttachFire))]
         public static class Patch_NoFireAttaches
         {
             static void Postfix(Thing t, ref bool __result)
             {
-                if (__result && Spared(t)) __result = false;
+                if (__result && Spared(t))
+                    __result = false;
             }
         }
 

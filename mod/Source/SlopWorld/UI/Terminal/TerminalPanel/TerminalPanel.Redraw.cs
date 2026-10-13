@@ -29,17 +29,17 @@ namespace SlopWorld
 
         float HistoryShift(ScreenBuf buf, float cellH)
         {
-            if (buf == null || _scrollOff <= 0 || !_historyScrollReady ||
-                cellH <= 0.01f) return 0f;
+            if (buf == null || _scrollOff <= 0 || !_historyScrollReady || cellH <= 0.01f)
+                return 0f;
 
             // A refresh keeps the last complete frame on screen while its replacement is in
             // flight. That fallback still belongs to its preceding anchor: translating it from
             // the new requested anchor moves the wrong rows and flashes at the pane edge. Freeze
             // the frame at the shift it was last drawn with, then resume local movement when an
             // assembled view for the current anchor is ready.
-            float fallback = Mathf.Abs(_renderHistoryShift) < cellH
-                ? _renderHistoryShift : 0f;
-            if (!_historyViewReady) return fallback;
+            float fallback = Mathf.Abs(_renderHistoryShift) < cellH ? _renderHistoryShift : 0f;
+            if (!_historyViewReady)
+                return fallback;
 
             float shift = HistoryOffsetPixels() - buf.Off * cellH;
             return Mathf.Abs(shift) < cellH ? shift : fallback;
@@ -50,11 +50,16 @@ namespace SlopWorld
 
         ScreenBuf CachedDisplayedFrame(string name)
         {
-            if (string.IsNullOrEmpty(name)) return null;
-            if (!_displayedFrames.TryGetValue(name, out var state)) return null;
+            if (string.IsNullOrEmpty(name))
+                return null;
+            if (!_displayedFrames.TryGetValue(name, out var state))
+                return null;
             var info = SessionHub.Instance.Get(name);
-            if (info == null || state.RunId != info.RunId ||
-                state.ConnectionGeneration != SessionHub.Instance.ConnectionGeneration)
+            if (
+                info == null
+                || state.RunId != info.RunId
+                || state.ConnectionGeneration != SessionHub.Instance.ConnectionGeneration
+            )
             {
                 _displayedFrames.Remove(name);
                 return null;
@@ -64,17 +69,27 @@ namespace SlopWorld
 
         void RememberDisplayedFrame(string name, ScreenBuf frame)
         {
-            if (string.IsNullOrEmpty(name) || frame == null || frame.Lines == null ||
-                frame.Lines.Length == 0)
+            if (
+                string.IsNullOrEmpty(name)
+                || frame == null
+                || frame.Lines == null
+                || frame.Lines.Length == 0
+            )
                 return;
 
             var info = SessionHub.Instance.Get(name);
-            if (info == null) return;
-            if (_displayedFrames.TryGetValue(name, out var previous) &&
-                previous.Frame.Seq == frame.Seq && previous.Frame.CacheRevision == frame.CacheRevision && previous.Frame.Off == frame.Off &&
-                previous.Frame.Cols == frame.Cols && previous.Frame.Rows == frame.Rows &&
-                previous.RunId == info.RunId &&
-                previous.ConnectionGeneration == SessionHub.Instance.ConnectionGeneration)
+            if (info == null)
+                return;
+            if (
+                _displayedFrames.TryGetValue(name, out var previous)
+                && previous.Frame.Seq == frame.Seq
+                && previous.Frame.CacheRevision == frame.CacheRevision
+                && previous.Frame.Off == frame.Off
+                && previous.Frame.Cols == frame.Cols
+                && previous.Frame.Rows == frame.Rows
+                && previous.RunId == info.RunId
+                && previous.ConnectionGeneration == SessionHub.Instance.ConnectionGeneration
+            )
                 return;
 
             _displayedFrames[name] = new DisplayedFrameState
@@ -106,16 +121,17 @@ namespace SlopWorld
 
         internal void Update()
         {
-
             // Both of these are the pane's business with its own session, and a view in the
             // body means there is no pane being measured or scrolled.
-            if (_state.Name == null || !Visible) return;
+            if (_state.Name == null || !Visible)
+                return;
 
             float now = Time.realtimeSinceStartup;
             if (_scrollPending && now >= _nextScrollSend)
                 SendPendingScroll();
 
-            if (!_state.SizeDirty || now < _state.ResizeAt) return;
+            if (!_state.SizeDirty || now < _state.ResizeAt)
+                return;
 
             // A socket that is down drops the message, so hold the ask rather than spend it.
             if (!SessionHub.Instance.Online)
@@ -127,6 +143,5 @@ namespace SlopWorld
             SessionHub.Instance.Terminal.Resize(_state.Name, _state.Cols, _state.Rows);
             _state.SizeDirty = false;
         }
-
     }
 }

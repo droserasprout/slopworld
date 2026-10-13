@@ -20,12 +20,14 @@ namespace SlopWorld
         }
 
         public float Top(int index) => _tops[index];
+
         public float RowHeight(int index) => _tops[index + 1] - _tops[index];
 
         // The first row whose end is beyond y. A boundary belongs to the next row.
         public int At(float y)
         {
-            if (y < 0f || y >= Height) return -1;
+            if (y < 0f || y >= Height)
+                return -1;
             return FirstEndingAfter(y);
         }
 
@@ -33,29 +35,36 @@ namespace SlopWorld
         {
             firstVisible = top + height <= 0f ? 0 : FirstEndingAfter(top);
             endExclusive = FirstStartingAtOrAfter(top + height);
-            if (endExclusive < firstVisible) endExclusive = firstVisible;
+            if (endExclusive < firstVisible)
+                endExclusive = firstVisible;
         }
 
         int FirstEndingAfter(float y)
         {
-            int lo = 0, hi = Count;
+            int lo = 0,
+                hi = Count;
             while (lo < hi)
             {
                 int mid = (lo + hi) / 2;
-                if (_tops[mid + 1] <= y) lo = mid + 1;
-                else hi = mid;
+                if (_tops[mid + 1] <= y)
+                    lo = mid + 1;
+                else
+                    hi = mid;
             }
             return lo;
         }
 
         int FirstStartingAtOrAfter(float y)
         {
-            int lo = 0, hi = Count;
+            int lo = 0,
+                hi = Count;
             while (lo < hi)
             {
                 int mid = (lo + hi) / 2;
-                if (_tops[mid] < y) lo = mid + 1;
-                else hi = mid;
+                if (_tops[mid] < y)
+                    lo = mid + 1;
+                else
+                    hi = mid;
             }
             return lo;
         }

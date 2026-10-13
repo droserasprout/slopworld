@@ -30,7 +30,8 @@ namespace SlopWorld
                 if (_cells == null)
                 {
                     _cells = new int[map.Area];
-                    for (int i = 0; i < _cells.Length; i++) _cells[i] = Never;
+                    for (int i = 0; i < _cells.Length; i++)
+                        _cells[i] = Never;
                 }
                 return _cells;
             }
@@ -41,7 +42,8 @@ namespace SlopWorld
         public override void FinalizeInit()
         {
             base.FinalizeInit();
-            if (!_active) return;
+            if (!_active)
+                return;
 
             if (_relative)
             {
@@ -53,7 +55,6 @@ namespace SlopWorld
                     if (cells[i] != Never)
                         cells[i] = now + (int)(cells[i] * RealClock.TicksPerRealSecond);
             }
-
         }
 
         public override void ExposeData()
@@ -64,7 +65,8 @@ namespace SlopWorld
             Scribe_Values.Look(ref _seed, "plagueSeed", 0);
 
             // Scribe_Values loads _active before this check.
-            if (!_active) return;
+            if (!_active)
+                return;
 
             MapExposeUtility.ExposeUshort(map, Pack, Unpack, "plagueArrive");
         }
@@ -77,7 +79,8 @@ namespace SlopWorld
         ushort Pack(IntVec3 c)
         {
             int at = Cells[map.cellIndices.CellToIndex(c)];
-            if (at == Never) return 0;
+            if (at == Never)
+                return 0;
 
             int secs = (int)((at - Find.TickManager.TicksGame) / RealClock.TicksPerRealSecond);
             return (ushort)(Mathf.Clamp(secs, -Span, Span) + Bias);
@@ -87,12 +90,15 @@ namespace SlopWorld
         void Unpack(IntVec3 c, ushort v)
         {
             int k = map.cellIndices.CellToIndex(c);
-            if (v == 0) { Cells[k] = Never; return; }
+            if (v == 0)
+            {
+                Cells[k] = Never;
+                return;
+            }
 
             Cells[k] = v - Bias;
             _relative = true;
             _reached++;
         }
-
     }
 }

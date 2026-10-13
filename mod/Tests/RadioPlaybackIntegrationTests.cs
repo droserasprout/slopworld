@@ -11,14 +11,28 @@ namespace SlopWorld.Tests
             public string LastError => null;
             public IncomingMessageQueue Incoming { get; } = new IncomingMessageQueue();
             public readonly List<Wire.AudioRequest> Sent = new List<Wire.AudioRequest>();
-            public bool Connect(string host, int port, string path, string token, int timeoutMs = 3000) => Connected = true;
+
+            public bool Connect(
+                string host,
+                int port,
+                string path,
+                string token,
+                int timeoutMs = 3000
+            ) => Connected = true;
+
             public bool SendBinary(byte[] payload)
             {
                 var message = Wire.ClientMessage.Parser.ParseFrom(payload);
-                if (message.Audio != null) Sent.Add(message.Audio);
+                if (message.Audio != null)
+                    Sent.Add(message.Audio);
                 return true;
             }
-            public void Dispose() { Connected = false; Incoming.Close(); }
+
+            public void Dispose()
+            {
+                Connected = false;
+                Incoming.Close();
+            }
         }
 
         public static void SourceChangesDispatchSelectionsImmediatelyAndReconnectRetainsMute()
@@ -38,7 +52,15 @@ namespace SlopWorld.Tests
                 Assert.That(socket.Sent.Count, Is.EqualTo(1));
                 Assert.That(socket.Sent[0].Selection.File, Is.EqualTo("/test/ost"));
                 Assert.That(socket.Sent[0].Volume, Is.EqualTo(0.5f));
-                var station = new Radio.Station("radio", "Radio", "", "", new[] { 64, 128 }, new[] { "low", "high" }, 64);
+                var station = new Radio.Station(
+                    "radio",
+                    "Radio",
+                    "",
+                    "",
+                    new[] { 64, 128 },
+                    new[] { "low", "high" },
+                    64
+                );
                 Radio.SelectPlaybackTest(station, 128);
                 Radio.UpdatePlaybackTest(0.01, 0.5f);
                 Assert.That(socket.Sent.Count, Is.EqualTo(2));

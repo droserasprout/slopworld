@@ -14,6 +14,7 @@ namespace Verse
     public static class TipRandomSelection
     {
         static readonly Random Random = new Random(1);
+
         public static T RandomElement<T>(this List<T> items) => items[Random.Next(items.Count)];
     }
 }

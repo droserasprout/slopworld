@@ -15,13 +15,16 @@ namespace SlopWorld
         static bool Prefix(IntVec3 c, Map ___map, ref bool __result)
         {
             // Permit normal plant spawning when Grandma's visiting.
-            if (Settings.GrandmaMode) return true;
+            if (Settings.GrandmaMode)
+                return true;
 
             var plague = ___map?.GetComponent<Plague>();
-            if (plague == null || plague.BandAt(c) != Plague.Band.Full) return true;
+            if (plague == null || plague.BandAt(c) != Plague.Band.Full)
+                return true;
 
             // Permit spawning in cells with aura protection.
-            if (Aura.Of(___map)?.Covers(c) == true) return true;
+            if (Aura.Of(___map)?.Covers(c) == true)
+                return true;
 
             __result = false;
             return false;
@@ -36,15 +39,19 @@ namespace SlopWorld
     {
         static bool Prefix(Fire __instance)
         {
-            if (NextPlanet.Leaving) return true;
+            if (NextPlanet.Leaving)
+                return true;
 
             var plague = __instance.Map?.GetComponent<Plague>();
-            if (plague == null || !plague.Active) return true;
+            if (plague == null || !plague.Active)
+                return true;
             // Block spread from fires inside the aura to protect nearby plants.
-            if (Aura.Of(__instance.Map)?.Covers(__instance.Position) == true) return false;
+            if (Aura.Of(__instance.Map)?.Covers(__instance.Position) == true)
+                return false;
             return plague.Reaches(__instance.Position);
         }
     }
+
     // Both spread paths call TryStartFireIn with the candidate cell and its map.
     // Rewrite only those calls so unrelated ignition retains its normal behavior.
     [HarmonyPatch]
@@ -58,8 +65,14 @@ namespace SlopWorld
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
-            var original = AccessTools.Method(typeof(FireUtility), nameof(FireUtility.TryStartFireIn));
-            var replacement = AccessTools.Method(typeof(Patch_FireSpreadDestination), nameof(TrySpreadTo));
+            var original = AccessTools.Method(
+                typeof(FireUtility),
+                nameof(FireUtility.TryStartFireIn)
+            );
+            var replacement = AccessTools.Method(
+                typeof(Patch_FireSpreadDestination),
+                nameof(TrySpreadTo)
+            );
             foreach (var instruction in instructions)
             {
                 if (instruction.Calls(original))
@@ -72,16 +85,24 @@ namespace SlopWorld
         }
 
         // Recheck at spark impact: the aura or field can change while the spark travels.
-        static bool TrySpreadTo(IntVec3 c, Map map, float fireSize, Thing instigator, SimpleCurve curve)
+        static bool TrySpreadTo(
+            IntVec3 c,
+            Map map,
+            float fireSize,
+            Thing instigator,
+            SimpleCurve curve
+        )
         {
             if (!NextPlanet.Leaving)
             {
                 var plague = map?.GetComponent<Plague>();
-                if (plague?.Active == true &&
-                    (Aura.Of(map)?.Covers(c) == true || !plague.Reaches(c))) return false;
+                if (
+                    plague?.Active == true
+                    && (Aura.Of(map)?.Covers(c) == true || !plague.Reaches(c))
+                )
+                    return false;
             }
             return FireUtility.TryStartFireIn(c, map, fireSize, instigator, curve);
         }
     }
-
 }

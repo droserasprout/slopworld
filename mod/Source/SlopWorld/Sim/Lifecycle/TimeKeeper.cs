@@ -12,7 +12,8 @@ namespace SlopWorld
         [HarmonyPriority(Priority.Last)]
         static void Prefix(TickManager __instance)
         {
-            if (Eco.Resting) __instance.CurTimeSpeed = TimeSpeed.Paused;
+            if (Eco.Resting)
+                __instance.CurTimeSpeed = TimeSpeed.Paused;
         }
     }
 
@@ -31,10 +32,12 @@ namespace SlopWorld
 
         public override void GameComponentUpdate()
         {
-            if (Verse.Current.ProgramState != ProgramState.Playing) return;
+            if (Verse.Current.ProgramState != ProgramState.Playing)
+                return;
 
             var ticks = Find.TickManager;
-            if (ticks == null) return;
+            if (ticks == null)
+                return;
 
             // Enforce the Eco pause every frame.
             // This corrects speed changes from keyboard input, loading, or window closure on the next frame.
@@ -46,15 +49,27 @@ namespace SlopWorld
                 return;
             }
 
-            if (ticks.CurTimeSpeed != TimeSpeed.Paused) { _ours = false; return; }
-            if (Find.WindowStack != null && Find.WindowStack.WindowsForcePause) return;
+            if (ticks.CurTimeSpeed != TimeSpeed.Paused)
+            {
+                _ours = false;
+                return;
+            }
+            if (Find.WindowStack != null && Find.WindowStack.WindowsForcePause)
+                return;
 
             ticks.CurTimeSpeed = TimeSpeed.Normal;
 
-            if (_ours) { _ours = false; return; }
-            if (_reported) return;
+            if (_ours)
+            {
+                _ours = false;
+                return;
+            }
+            if (_reported)
+                return;
             _reported = true;
-            Log.Message($"[SlopWorld] Something paused the game at tick {ticks.TicksGame}. Resumed it.");
+            Log.Message(
+                $"[SlopWorld] Something paused the game at tick {ticks.TicksGame}. Resumed it."
+            );
         }
     }
 

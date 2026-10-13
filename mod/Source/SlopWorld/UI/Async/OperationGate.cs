@@ -9,7 +9,11 @@ namespace SlopWorld
 
         public long Begin()
         {
-            unchecked { if (++_generation == 0) ++_generation; }
+            unchecked
+            {
+                if (++_generation == 0)
+                    ++_generation;
+            }
             return _generation;
         }
 

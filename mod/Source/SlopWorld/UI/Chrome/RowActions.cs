@@ -15,7 +15,9 @@ namespace SlopWorld
         public static int Count(int mask, int[] order)
         {
             int count = 0;
-            foreach (int flag in order) if ((mask & flag) != 0) count++;
+            foreach (int flag in order)
+                if ((mask & flag) != 0)
+                    count++;
             return count;
         }
 
@@ -25,12 +27,16 @@ namespace SlopWorld
             return n == 0 ? 0f : n * IconW + (n - 1) * Gap;
         }
 
-        public static float Left(float right, int mask, int[] order) =>
-            right - Width(mask, order);
+        public static float Left(float right, int mask, int[] order) => right - Width(mask, order);
 
-        public static float Draw(Rect row, float right, int mask, int[] order,
-                                 System.Func<int, Texture2D> icon,
-                                 System.Func<int, string> tip)
+        public static float Draw(
+            Rect row,
+            float right,
+            int mask,
+            int[] order,
+            System.Func<int, Texture2D> icon,
+            System.Func<int, string> tip
+        )
         {
             float left = Left(right, mask, order);
             float x = left;
@@ -39,12 +45,13 @@ namespace SlopWorld
             {
                 foreach (int flag in order)
                 {
-                    if ((mask & flag) == 0) continue;
+                    if ((mask & flag) == 0)
+                        continue;
                     var rect = new Rect(x, y, IconW, IconW);
                     x += IconW + Gap;
-                    bool over = RowChrome.Hover(rect, false, true,
-                        RowHoverPolicy.OverlayAware);
-                    if (over) TooltipHandler.TipRegion(rect, tip(flag));
+                    bool over = RowChrome.Hover(rect, false, true, RowHoverPolicy.OverlayAware);
+                    if (over)
+                        TooltipHandler.TipRegion(rect, tip(flag));
                     if (Event.current.type == EventType.Repaint)
                     {
                         GUI.color = over ? Color.white : UiTheme.Dim;
@@ -61,10 +68,12 @@ namespace SlopWorld
             float y = row.y + (row.height - IconW) / 2f;
             foreach (int flag in order)
             {
-                if ((mask & flag) == 0) continue;
+                if ((mask & flag) == 0)
+                    continue;
                 var rect = new Rect(x, y, IconW, IconW);
                 x += IconW + Gap;
-                if (rect.Contains(Event.current.mousePosition)) return flag;
+                if (rect.Contains(Event.current.mousePosition))
+                    return flag;
             }
             return 0;
         }
@@ -117,11 +126,11 @@ namespace SlopWorld
         // every button being centred in it.
         public static float Draw(Rect row, float right, RowAct acts)
         {
-            return ActionStrip.Draw(row, right, (int)acts, Order,
-                flag => Tex((RowAct)flag), Tip);
+            return ActionStrip.Draw(row, right, (int)acts, Order, flag => Tex((RowAct)flag), Tip);
         }
 
-        static string Tip(int flag) => (RowAct)flag == RowAct.View ? "View this file."
+        static string Tip(int flag) =>
+            (RowAct)flag == RowAct.View ? "View this file."
             : (RowAct)flag == RowAct.Edit ? "Open this file in an editor."
             : "Show what this file has that the last commit does not.";
 
@@ -137,10 +146,14 @@ namespace SlopWorld
         {
             switch (act)
             {
-                case RowAct.View: return Icons.View;
-                case RowAct.Edit: return Icons.Edit;
-                case RowAct.Diff: return Icons.Diff;
-                default: return null;
+                case RowAct.View:
+                    return Icons.View;
+                case RowAct.Edit:
+                    return Icons.Edit;
+                case RowAct.Diff:
+                    return Icons.Diff;
+                default:
+                    return null;
             }
         }
     }
@@ -165,11 +178,17 @@ namespace SlopWorld
 
         public static float Draw(Rect row, float right, GroupAct acts)
         {
-            return ActionStrip.Draw(row, right, (int)acts, Order,
+            return ActionStrip.Draw(
+                row,
+                right,
+                (int)acts,
+                Order,
                 flag => (GroupAct)flag == GroupAct.Diff ? Icons.Diff : Icons.Refresh,
-                flag => (GroupAct)flag == GroupAct.Diff
-                    ? "Show all changes in this project."
-                    : "Read this working tree again.");
+                flag =>
+                    (GroupAct)flag == GroupAct.Diff
+                        ? "Show all changes in this project."
+                        : "Read this working tree again."
+            );
         }
 
         public static GroupAct Hit(Rect row, float right, GroupAct acts)

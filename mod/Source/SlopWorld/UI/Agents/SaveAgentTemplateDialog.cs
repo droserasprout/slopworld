@@ -23,18 +23,28 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            _name = TextDialog.Draw(rect, "Save agent as template",
+            _name = TextDialog.Draw(
+                rect,
+                "Save agent as template",
                 $"Save agent-owned settings from the saved agent '{_source}'. Project mounts stay contextual.",
-                "agent-template.name", _name, _error, UiTheme.RowH * 2f, TitleRect(rect));
+                "agent-template.name",
+                _name,
+                _error,
+                UiTheme.RowH * 2f,
+                TitleRect(rect)
+            );
 
             var foot = TextDialog.Footer(rect);
-            if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
-            if (foot.Right("Save", UiTheme.Btn.Primary, !_pending)) Save();
+            if (foot.Left("Cancel", UiTheme.Btn.Ghost))
+                Close();
+            if (foot.Right("Save", UiTheme.Btn.Primary, !_pending))
+                Save();
         }
 
         void Save()
         {
-            if (_pending) return;
+            if (_pending)
+                return;
             _error = null;
             string name = (_name ?? "").Trim();
             if (string.IsNullOrEmpty(name))
@@ -43,8 +53,17 @@ namespace SlopWorld
                 return;
             }
             _pending = true;
-            SessionHub.Instance.SaveAgentTemplate(_source, name, "",
-                () => Close(), message => { _pending = false; _error = message; });
+            SessionHub.Instance.SaveAgentTemplate(
+                _source,
+                name,
+                "",
+                () => Close(),
+                message =>
+                {
+                    _pending = false;
+                    _error = message;
+                }
+            );
         }
     }
 }

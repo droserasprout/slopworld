@@ -26,7 +26,8 @@ namespace SlopWorld
                 _next = now + Minutes * 60f;
                 return;
             }
-            if (now < _next) return;
+            if (now < _next)
+                return;
 
             _next = now + Minutes * 60f;
             SaveCoordinator.SaveNow();
@@ -54,8 +55,11 @@ namespace SlopWorld
         static void Prefix() => SaveCoordinator.SaveNow();
     }
 
-    [HarmonyPatch(typeof(GameDataSaveLoader),
-        nameof(GameDataSaveLoader.CurrentGameStateIsValuable), MethodType.Getter)]
+    [HarmonyPatch(
+        typeof(GameDataSaveLoader),
+        nameof(GameDataSaveLoader.CurrentGameStateIsValuable),
+        MethodType.Getter
+    )]
     public static class Patch_NothingToLose
     {
         static bool Prefix(ref bool __result)

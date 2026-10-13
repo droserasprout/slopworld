@@ -7,14 +7,18 @@ namespace SlopWorld.Tests
     public sealed class UiEventTests
     {
         [Test]
-        public void MissingEventIsIgnored() => Assert.That(UiEvent.RawType(null), Is.EqualTo(EventType.Ignore));
+        public void MissingEventIsIgnored() =>
+            Assert.That(UiEvent.RawType(null), Is.EqualTo(EventType.Ignore));
 
         [TestCase(EventType.MouseDown, EventType.Layout, EventType.MouseDown)]
         [TestCase(EventType.Used, EventType.MouseDown, EventType.MouseDown)]
         [TestCase(EventType.Used, EventType.ScrollWheel, EventType.ScrollWheel)]
         public void OnlyConsumedEventsUseRawType(EventType type, EventType raw, EventType expected)
         {
-            Assert.That(UiEvent.RawType(new Event { type = type, rawType = raw }), Is.EqualTo(expected));
+            Assert.That(
+                UiEvent.RawType(new Event { type = type, rawType = raw }),
+                Is.EqualTo(expected)
+            );
         }
     }
 }

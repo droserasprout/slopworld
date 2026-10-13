@@ -6,8 +6,11 @@ namespace SlopWorld
 {
     // An agent's colonist is the daemon's, not the player's to loot. The "Strip"
     // order comes from FloatMenuOptionProvider_Strip.GetSingleOptionFor.
-    [HarmonyPatch(typeof(FloatMenuOptionProvider_Strip), "GetSingleOptionFor",
-        new[] { typeof(Thing), typeof(FloatMenuContext) })]
+    [HarmonyPatch(
+        typeof(FloatMenuOptionProvider_Strip),
+        "GetSingleOptionFor",
+        new[] { typeof(Thing), typeof(FloatMenuContext) }
+    )]
     public static class Patch_NoStripAgents
     {
         static bool Prefix(Thing clickedThing, ref FloatMenuOption __result)
@@ -28,7 +31,8 @@ namespace SlopWorld
     {
         static void Postfix(Thing th, ref bool __result)
         {
-            if (__result && th is Pawn p && AgentColony.IsAgent(p)) __result = false;
+            if (__result && th is Pawn p && AgentColony.IsAgent(p))
+                __result = false;
         }
     }
 }

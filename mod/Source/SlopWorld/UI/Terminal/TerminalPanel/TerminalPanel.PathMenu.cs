@@ -12,29 +12,39 @@ namespace SlopWorld
         {
             var info = SessionHub.Instance.Get(_state.Name);
             string project = info?.Project;
-            if (string.IsNullOrEmpty(project)) return;
+            if (string.IsNullOrEmpty(project))
+                return;
             var owner = SessionHub.Instance.Project(project);
             if (owner != null)
             {
                 SidebarScopes.Update();
-                project = BrowseScope.Identity(BrowseScope.ProjectIdOf(owner), string.IsNullOrEmpty(info.Worktree) ? "main" : info.Worktree);
+                project = BrowseScope.Identity(
+                    BrowseScope.ProjectIdOf(owner),
+                    string.IsNullOrEmpty(info.Worktree) ? "main" : info.Worktree
+                );
             }
-            SessionHub.Instance.SessionStore.CurrentPath(_state.Name, cwd =>
-                LoadPathMenu(project, FilesView.ResolveProjectPath(project, path, cwd), line));
+            SessionHub.Instance.SessionStore.CurrentPath(
+                _state.Name,
+                cwd => LoadPathMenu(project, FilesView.ResolveProjectPath(project, path, cwd), line)
+            );
         }
 
         void LoadPathMenu(string project, string absolute, int line)
         {
-            if (absolute == null) return;
+            if (absolute == null)
+                return;
 
             // Ask the daemon host, not the game machine. Include hidden and ignored entries:
             // terminal links must not depend on the sidebar's current listing filters.
             absolute = absolute.TrimEnd('/');
             string parent = absolute.Substring(0, absolute.LastIndexOf('/'));
-            if (parent.Length == 0) parent = "/";
+            if (parent.Length == 0)
+                parent = "/";
             string name = Leaf(absolute);
-            DaemonClient.Get<Wire.BrowseResult>(WireProtocol.Routes.Browse +
-                "?files=1&hidden=1&gitignore=0&path=" + System.Uri.EscapeDataString(parent),
+            DaemonClient.Get<Wire.BrowseResult>(
+                WireProtocol.Routes.Browse
+                    + "?files=1&hidden=1&gitignore=0&path="
+                    + System.Uri.EscapeDataString(parent),
                 listing =>
                 {
                     bool directory = listing.Dirs.Contains(name);
@@ -52,7 +62,8 @@ namespace SlopWorld
                     }
                     if (directory || file)
                         ShowPathMenu(project, absolute, line, file);
-                });
+                }
+            );
         }
 
         void ShowPathMenu(string project, string absolute, int line, bool isFile)
@@ -62,11 +73,19 @@ namespace SlopWorld
             options.Add(new FloatMenuOption("Focus", () => FilesView.FocusPath(project, absolute)));
             if (isFile && (FilesView.IsText(name) || FilesView.IsImage(name)))
             {
-                options.Add(new FloatMenuOption("View", () =>
-                    FilesView.ViewFile(project, absolute, "view-" + name, line)));
+                options.Add(
+                    new FloatMenuOption(
+                        "View",
+                        () => FilesView.ViewFile(project, absolute, "view-" + name, line)
+                    )
+                );
                 if (FilesView.IsText(name))
-                    options.Add(new FloatMenuOption("Edit", () =>
-                        FilesView.EditFile(project, absolute, "edit-" + name, line)));
+                    options.Add(
+                        new FloatMenuOption(
+                            "Edit",
+                            () => FilesView.EditFile(project, absolute, "edit-" + name, line)
+                        )
+                    );
             }
             FilesView.AddOpenIn(options, absolute, project);
             FilesView.AddFileActions(options, project, absolute, name);
@@ -79,6 +98,5 @@ namespace SlopWorld
             int slash = path.LastIndexOf('/');
             return slash < 0 ? path : path.Substring(slash + 1);
         }
-
     }
 }

@@ -22,13 +22,21 @@ namespace SlopWorld.Tests
         public static void ScreenSequencesRemainUnsignedAcrossIntegerBoundaries()
         {
             var store = new SessionStore(_ => { });
-            ulong[] sequences = { 0, int.MaxValue, (ulong)int.MaxValue + 1,
-                uint.MaxValue, (ulong)uint.MaxValue + 1, ulong.MaxValue };
+            ulong[] sequences =
+            {
+                0,
+                int.MaxValue,
+                (ulong)int.MaxValue + 1,
+                uint.MaxValue,
+                (ulong)uint.MaxValue + 1,
+                ulong.MaxValue,
+            };
             foreach (ulong seq in sequences)
             {
                 store.ApplyScreen(new Wire.ScreenView { Name = "agent", Seq = seq });
                 Assert.That(store.Screen("agent").Seq, Is.EqualTo(seq));
-                if (seq == 0) continue;
+                if (seq == 0)
+                    continue;
                 store.ApplyScreen(new Wire.ScreenView { Name = "agent", Seq = seq - 1 });
                 Assert.That(store.Screen("agent").Seq, Is.EqualTo(seq), "stale frame rejected");
             }
@@ -37,13 +45,17 @@ namespace SlopWorld.Tests
         static Wire.SessionsReply Sessions(string name) =>
             new Wire.SessionsReply
             {
-                Sessions = { new Wire.SessionView {
-                Name = name,
-                Launch = new Wire.SessionLaunchView(),
-                Worker = new Wire.SessionWorkerView(),
-                Reader = new Wire.SessionReaderView(),
-                Runtime = new Wire.SessionRuntimeView()
-            } }
+                Sessions =
+                {
+                    new Wire.SessionView
+                    {
+                        Name = name,
+                        Launch = new Wire.SessionLaunchView(),
+                        Worker = new Wire.SessionWorkerView(),
+                        Reader = new Wire.SessionReaderView(),
+                        Runtime = new Wire.SessionRuntimeView(),
+                    },
+                },
             };
 
         public static void CallbackFailuresAreReportedWithoutBlockingOtherWaiters()
@@ -86,15 +98,26 @@ namespace SlopWorld.Tests
             {
                 DaemonClient.Requests.Clear();
                 var store = new SessionStore(_ => { });
-                int completed = 0, failed = 0;
-                Action done = () => { Assert.That(store.Get("winner"), Is.Not.Null); completed++; };
-                Action<string> error = message => { Assert.That(message, Is.EqualTo("offline")); failed++; };
+                int completed = 0,
+                    failed = 0;
+                Action done = () =>
+                {
+                    Assert.That(store.Get("winner"), Is.Not.Null);
+                    completed++;
+                };
+                Action<string> error = message =>
+                {
+                    Assert.That(message, Is.EqualTo("offline"));
+                    failed++;
+                };
                 store.Refresh(done, error);
                 store.Refresh(done, error);
                 DaemonClient.Requests[0].Ok(ProtobufFixtures.Json(Sessions("stale")));
                 Assert.That(completed + failed, Is.Zero);
-                if (fail) DaemonClient.Requests[1].Fail("offline");
-                else DaemonClient.Requests[1].Ok(ProtobufFixtures.Json(Sessions("winner")));
+                if (fail)
+                    DaemonClient.Requests[1].Fail("offline");
+                else
+                    DaemonClient.Requests[1].Ok(ProtobufFixtures.Json(Sessions("winner")));
                 Assert.That(completed, Is.EqualTo(fail ? 0 : 2));
                 Assert.That(failed, Is.EqualTo(fail ? 2 : 0));
                 DaemonClient.Requests[0].Fail("stale error");
@@ -106,13 +129,17 @@ namespace SlopWorld.Tests
         {
             DaemonClient.Requests.Clear();
             var store = new SessionStore(_ => { });
-            int completed = 0, failed = 0;
-            store.Refresh(() =>
-            {
-                Assert.That(store.Get("pushed"), Is.Not.Null);
-                completed++;
-                store.Refresh(() => completed++, _ => failed++);
-            }, _ => failed++);
+            int completed = 0,
+                failed = 0;
+            store.Refresh(
+                () =>
+                {
+                    Assert.That(store.Get("pushed"), Is.Not.Null);
+                    completed++;
+                    store.Refresh(() => completed++, _ => failed++);
+                },
+                _ => failed++
+            );
             store.ApplySessions(Sessions("pushed"));
             Assert.That(completed, Is.EqualTo(1));
             DaemonClient.Requests[0].Fail("old failure");
@@ -152,29 +179,39 @@ namespace SlopWorld.Tests
             DaemonClient.Requests.Clear();
             var store = new SessionStore(_ => { });
             string started = null;
-            store.Run("project", "echo hello", "label", name =>
-            {
-                Assert.That(store.Get(name), Is.Not.Null, "session exists before opening its terminal");
-                started = name;
-            }, options: new SessionRunOptions
-            {
-                Shell = false,
-                Text = "prompt",
-                Host = true,
-                Temp = true,
-                Path = "/work",
-                Hold = true,
-                Like = "seed",
-                AgentTemplate = "template",
-                Reader = new ReaderLaunchOptions
+            store.Run(
+                "project",
+                "echo hello",
+                "label",
+                name =>
                 {
-                    Path = "/source/file",
-                    Key = "key",
-                    Scope = "scope",
-                    Line = 2147483648L,
-                    Pinned = true,
+                    Assert.That(
+                        store.Get(name),
+                        Is.Not.Null,
+                        "session exists before opening its terminal"
+                    );
+                    started = name;
                 },
-            });
+                options: new SessionRunOptions
+                {
+                    Shell = false,
+                    Text = "prompt",
+                    Host = true,
+                    Temp = true,
+                    Path = "/work",
+                    Hold = true,
+                    Like = "seed",
+                    AgentTemplate = "template",
+                    Reader = new ReaderLaunchOptions
+                    {
+                        Path = "/source/file",
+                        Key = "key",
+                        Scope = "scope",
+                        Line = 2147483648L,
+                        Pinned = true,
+                    },
+                }
+            );
             var request = DaemonClient.Requests.Single();
             Assert.That(request.Method, Is.EqualTo("POST"));
             Assert.That(request.Path, Is.EqualTo(WireProtocol.Routes.Run));
@@ -206,10 +243,19 @@ namespace SlopWorld.Tests
             var store = new SessionStore(_ => { });
             string error = null;
             bool started = false;
-            store.RunLibraryItem("folder/item name", _ => started = true, e => error = e,
-                "project", true, new System.Collections.Generic.List<string> { "tip" });
+            store.RunLibraryItem(
+                "folder/item name",
+                _ => started = true,
+                e => error = e,
+                "project",
+                true,
+                new System.Collections.Generic.List<string> { "tip" }
+            );
             var request = DaemonClient.Requests.Single();
-            Assert.That(request.Path, Is.EqualTo(WireProtocol.Routes.Library + "/folder%2Fitem%20name/run"));
+            Assert.That(
+                request.Path,
+                Is.EqualTo(WireProtocol.Routes.Library + "/folder%2Fitem%20name/run")
+            );
             var body = (Wire.RunWhere)request.Body;
             Assert.That(body.Project, Is.EqualTo("project"));
             Assert.That(body.Temp, Is.True);
@@ -247,7 +293,14 @@ namespace SlopWorld.Tests
             foreach (string name in new[] { "agent", "other" })
             {
                 store.ApplyScreen(new Wire.ScreenView { Name = name, Seq = 20 });
-                store.ApplyScreen(new Wire.ScreenView { Name = name, RequestId = 1, Off = 5 });
+                store.ApplyScreen(
+                    new Wire.ScreenView
+                    {
+                        Name = name,
+                        RequestId = 1,
+                        Off = 5,
+                    }
+                );
             }
             long version = store.Version;
             store.ResetConnectionScreens();
@@ -259,14 +312,19 @@ namespace SlopWorld.Tests
             Assert.That(store.Get("agent"), Is.Not.Null);
             Assert.That(store.Version, Is.EqualTo(version));
             store.ApplyScreen(new Wire.ScreenView { Name = "agent", Seq = 1 });
-            Assert.That(store.Screen("agent").Seq, Is.EqualTo(1), "new connection may restart sequence numbers");
+            Assert.That(
+                store.Screen("agent").Seq,
+                Is.EqualTo(1),
+                "new connection may restart sequence numbers"
+            );
         }
 
         public static void CurrentPathUsesEscapedSessionAndForwardsFailures()
         {
             DaemonClient.Requests.Clear();
             var store = new SessionStore(_ => { });
-            string path = null, error = null;
+            string path = null,
+                error = null;
             store.CurrentPath("a/b c", p => path = p, e => error = e);
             var request = DaemonClient.Requests.Single();
             Assert.That(request.Path, Is.EqualTo(WireProtocol.Routes.Sessions + "/a%2Fb%20c/cwd"));

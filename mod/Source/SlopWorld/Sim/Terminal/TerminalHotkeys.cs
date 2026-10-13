@@ -12,20 +12,25 @@ namespace SlopWorld
         public override void GameComponentOnGUI()
         {
             // Disable these shortcuts while a cutscene hides the UI.
-            if (Cutscene.Playing) return;
+            if (Cutscene.Playing)
+                return;
 
             // Components run before the window stack. If a terminal window exists, let it handle number keys.
             // Otherwise, handle Alt+number for map selection.
             if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null)
             {
-                if (ShortcutHelpWindow.HandleContentKey(Event.current)) return;
+                if (ShortcutHelpWindow.HandleContentKey(Event.current))
+                    return;
                 return;
             }
-            if (ShortcutHelpWindow.HandleMapKey(Event.current)) return;
+            if (ShortcutHelpWindow.HandleMapKey(Event.current))
+                return;
 
-            if (Event.current.type != EventType.KeyDown || !Event.current.alt) return;
+            if (Event.current.type != EventType.KeyDown || !Event.current.alt)
+                return;
             int slot = SlotKey(Event.current);
-            if (slot < 0) return;
+            if (slot < 0)
+                return;
 
             Event.current.Use();
             FocusSlot(slot);
@@ -35,9 +40,12 @@ namespace SlopWorld
         public static int SlotKey(Event e)
         {
             var k = e.keyCode;
-            if (k >= KeyCode.Alpha1 && k <= KeyCode.Alpha9) return k - KeyCode.Alpha1;
-            if (k >= KeyCode.Keypad1 && k <= KeyCode.Keypad9) return k - KeyCode.Keypad1;
-            if (k == KeyCode.Alpha0 || k == KeyCode.Keypad0) return 9;
+            if (k >= KeyCode.Alpha1 && k <= KeyCode.Alpha9)
+                return k - KeyCode.Alpha1;
+            if (k >= KeyCode.Keypad1 && k <= KeyCode.Keypad9)
+                return k - KeyCode.Keypad1;
+            if (k == KeyCode.Alpha0 || k == KeyCode.Keypad0)
+                return 9;
             return -1;
         }
 
@@ -45,11 +53,13 @@ namespace SlopWorld
         static void FocusSlot(int slot)
         {
             var order = AgentColony.InBarOrder();
-            if (slot >= order.Count) return;
+            if (slot >= order.Count)
+                return;
 
             var session = order[slot];
             var pawn = AgentColony.Current?.PawnOf(session);
-            if (pawn == null) return;
+            if (pawn == null)
+                return;
 
             // Select the session for the requested slot.
             SessionSelectable.Current = session;
@@ -71,7 +81,8 @@ namespace SlopWorld
                 {
                     bool hasPane = TerminalWindow.HasBackingPane;
                     open.Leave();
-                    if (hasPane) return;
+                    if (hasPane)
+                        return;
                 }
                 else
                 {
@@ -101,12 +112,14 @@ namespace SlopWorld
         {
             var colony = AgentColony.Current;
             var selector = Find.Selector;
-            if (colony == null || selector == null) return null;
+            if (colony == null || selector == null)
+                return null;
 
             foreach (var pawn in selector.SelectedPawns)
             {
                 var session = colony.SessionOf(pawn);
-                if (Live(session)) return session;
+                if (Live(session))
+                    return session;
             }
             return null;
         }
@@ -116,16 +129,19 @@ namespace SlopWorld
         static string AnyLive()
         {
             foreach (var session in AgentColony.InBarOrder())
-                if (Live(session)) return session;
+                if (Live(session))
+                    return session;
 
             foreach (var info in SessionHub.Instance.Sessions)
-                if (info.Alive) return info.Name;
+                if (info.Alive)
+                    return info.Name;
             return null;
         }
 
         static bool Live(string session)
         {
-            if (session == null) return false;
+            if (session == null)
+                return false;
             var info = SessionHub.Instance.Get(session);
             return info != null && info.Alive;
         }

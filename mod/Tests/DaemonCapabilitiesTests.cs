@@ -33,13 +33,18 @@ namespace SlopWorld.Tests
             var previous = DaemonCapabilities.Current;
             try
             {
-                var caps = DaemonCapabilities.FromWire(ProtobufFixtures.Read<Wire.Capabilities>(JVal.Parse(
-                    "{\"runtime\":\"slopcar\",\"audio_playback\":false," +
-                    "\"clipboard\":false,\"desktop_open\":false,\"ncspot\":false," +
-                    "\"per_session_limits\":false,\"host_network_is_container\":true," +
-                    "\"host_terminals_are_container\":true," +
-                    "\"terminal\":{\"scrollback_lines\":123,\"min_cols\":22," +
-                    "\"max_cols\":302,\"min_rows\":7,\"max_rows\":102}}")));
+                var caps = DaemonCapabilities.FromWire(
+                    ProtobufFixtures.Read<Wire.Capabilities>(
+                        JVal.Parse(
+                            "{\"runtime\":\"slopcar\",\"audio_playback\":false,"
+                                + "\"clipboard\":false,\"desktop_open\":false,\"ncspot\":false,"
+                                + "\"per_session_limits\":false,\"host_network_is_container\":true,"
+                                + "\"host_terminals_are_container\":true,"
+                                + "\"terminal\":{\"scrollback_lines\":123,\"min_cols\":22,"
+                                + "\"max_cols\":302,\"min_rows\":7,\"max_rows\":102}}"
+                        )
+                    )
+                );
                 AssertEx.Equal("slopcar", caps.Runtime, "runtime");
                 AssertEx.True(caps.Known, "known");
                 AssertEx.False(caps.AudioPlayback, "audio");
@@ -56,7 +61,10 @@ namespace SlopWorld.Tests
                 AssertEx.Equal(7, caps.Terminal.MinRows, "minimum rows");
                 AssertEx.Equal(102, caps.Terminal.MaxRows, "maximum rows");
             }
-            finally { DaemonCapabilities.Current = previous; }
+            finally
+            {
+                DaemonCapabilities.Current = previous;
+            }
         }
 
         static void BoundsMalformedTerminal()
@@ -64,43 +72,74 @@ namespace SlopWorld.Tests
             var previous = DaemonCapabilities.Current;
             try
             {
-                var caps = DaemonCapabilities.FromWire(ProtobufFixtures.Read<Wire.Capabilities>(JVal.Parse(
-                    "{\"terminal\":{\"scrollback_lines\":999999," +
-                    "\"min_cols\":600,\"max_cols\":500,\"min_rows\":0," +
-                    "\"max_rows\":999999}}")));
-                AssertEx.Equal(TerminalLimits.ClientMaxScrollbackLines,
-                               caps.Terminal.ScrollbackLines, "history allocation cap");
+                var caps = DaemonCapabilities.FromWire(
+                    ProtobufFixtures.Read<Wire.Capabilities>(
+                        JVal.Parse(
+                            "{\"terminal\":{\"scrollback_lines\":999999,"
+                                + "\"min_cols\":600,\"max_cols\":500,\"min_rows\":0,"
+                                + "\"max_rows\":999999}}"
+                        )
+                    )
+                );
+                AssertEx.Equal(
+                    TerminalLimits.ClientMaxScrollbackLines,
+                    caps.Terminal.ScrollbackLines,
+                    "history allocation cap"
+                );
                 AssertEx.Equal(20, caps.Terminal.MinCols, "invalid column range fallback");
-                AssertEx.Equal(TerminalLimits.ClientMaxCols, caps.Terminal.MaxCols,
-                               "invalid column maximum fallback");
+                AssertEx.Equal(
+                    TerminalLimits.ClientMaxCols,
+                    caps.Terminal.MaxCols,
+                    "invalid column maximum fallback"
+                );
                 AssertEx.Equal(5, caps.Terminal.MinRows, "invalid row range fallback");
-                AssertEx.Equal(TerminalLimits.ClientMaxRows, caps.Terminal.MaxRows,
-                               "invalid row maximum fallback");
+                AssertEx.Equal(
+                    TerminalLimits.ClientMaxRows,
+                    caps.Terminal.MaxRows,
+                    "invalid row maximum fallback"
+                );
             }
-            finally { DaemonCapabilities.Current = previous; }
+            finally
+            {
+                DaemonCapabilities.Current = previous;
+            }
         }
+
         static void BoundsOversizedTerminal()
         {
             var previous = DaemonCapabilities.Current;
             try
             {
-                var caps = DaemonCapabilities.FromWire(new Wire.Capabilities
-                {
-                    Terminal = new Wire.TerminalCapabilities
+                var caps = DaemonCapabilities.FromWire(
+                    new Wire.Capabilities
                     {
-                        ScrollbackLines = 999999,
-                        MinCols = 22,
-                        MaxCols = 999999,
-                        MinRows = 7,
-                        MaxRows = 999999
+                        Terminal = new Wire.TerminalCapabilities
+                        {
+                            ScrollbackLines = 999999,
+                            MinCols = 22,
+                            MaxCols = 999999,
+                            MinRows = 7,
+                            MaxRows = 999999,
+                        },
                     }
-                });
+                );
                 AssertEx.Equal(22, caps.Terminal.MinCols, "valid minimum columns retained");
                 AssertEx.Equal(7, caps.Terminal.MinRows, "valid minimum rows retained");
-                AssertEx.Equal(TerminalLimits.ClientMaxCols, caps.Terminal.MaxCols, "oversized maximum columns clamped");
-                AssertEx.Equal(TerminalLimits.ClientMaxRows, caps.Terminal.MaxRows, "oversized maximum rows clamped");
+                AssertEx.Equal(
+                    TerminalLimits.ClientMaxCols,
+                    caps.Terminal.MaxCols,
+                    "oversized maximum columns clamped"
+                );
+                AssertEx.Equal(
+                    TerminalLimits.ClientMaxRows,
+                    caps.Terminal.MaxRows,
+                    "oversized maximum rows clamped"
+                );
             }
-            finally { DaemonCapabilities.Current = previous; }
+            finally
+            {
+                DaemonCapabilities.Current = previous;
+            }
         }
     }
 }

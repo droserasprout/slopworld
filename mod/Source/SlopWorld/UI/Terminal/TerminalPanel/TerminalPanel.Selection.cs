@@ -2,7 +2,6 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-
     sealed partial class TerminalPanel
     {
         // The selection endpoints belong to the displayed history offset. A live frame and a
@@ -72,7 +71,8 @@ namespace SlopWorld
 
         void NoteLiveFrame(ScreenBuf live, int? restoredShift = null)
         {
-            if (live == null || live.Seq == _selectionCoordinator.LastLiveSeq) return;
+            if (live == null || live.Seq == _selectionCoordinator.LastLiveSeq)
+                return;
 
             int liveShift = restoredShift ?? TerminalHistory.ShiftSince(_historyLiveHistory, live);
             _selectionCoordinator.NoteLiveFrame(live.Seq, liveShift);
@@ -87,23 +87,25 @@ namespace SlopWorld
             // Pane changes, such as a sidebar resize or redraw, make old snapshots use a different coordinate space.
             // Increase the offset by the number of rows that leave the live pane.
             // This keeps the visible content in position when new output arrives.
-            if (_scrollOff <= 0 && !_historyWarmed) return;
+            if (_scrollOff <= 0 && !_historyWarmed)
+                return;
             if (_scrollOff > 0 && liveShift > 0)
             {
                 float cellH = TerminalFont.CellH;
-                float pixels = _historyScrollReady && cellH > 0.01f
-                    ? HistoryOffsetPixels()
+                float pixels =
+                    _historyScrollReady && cellH > 0.01f ? HistoryOffsetPixels()
                     : _historyJumpPixels >= 0f ? _historyJumpPixels
-                    : cellH > 0.01f ? _scrollOff * cellH : -1f;
+                    : cellH > 0.01f ? _scrollOff * cellH
+                    : -1f;
                 _scrollOff = Mathf.Min(MaxScrollLines, _scrollOff + liveShift);
                 _historyJumpPending = true;
                 _historyJumpOff = _scrollOff;
-                _historyJumpPixels = pixels >= 0f && cellH > 0.01f
-                    ? Mathf.Min(MaxScrollLines * cellH, pixels + liveShift * cellH)
-                    : -1f;
+                _historyJumpPixels =
+                    pixels >= 0f && cellH > 0.01f
+                        ? Mathf.Min(MaxScrollLines * cellH, pixels + liveShift * cellH)
+                        : -1f;
                 if (_historyTopOff >= 0)
-                    _historyTopOff = Mathf.Min(MaxScrollLines,
-                        _historyTopOff + liveShift);
+                    _historyTopOff = Mathf.Min(MaxScrollLines, _historyTopOff + liveShift);
             }
 
             // Keep history available while a watched agent redraws. In-place refreshes do not
@@ -156,7 +158,12 @@ namespace SlopWorld
         {
             a = _state.Selection.A;
             b = _state.Selection.B;
-            if (b.y < a.y || (b.y == a.y && b.x < a.x)) { var t = a; a = b; b = t; }
+            if (b.y < a.y || (b.y == a.y && b.x < a.x))
+            {
+                var t = a;
+                a = b;
+                b = t;
+            }
         }
 
         string SelectionText(ScreenBuf buf)
@@ -167,8 +174,6 @@ namespace SlopWorld
         // Colors are resolved into the runs at parse time, so a scheme change is a re-parse.
         // Without it an idle pane keeps the old palette until the agent next writes, which on an
         // idle agent is never.
-        void EnsureRuns(ScreenBuf buf)
-            => _renderer.EnsureRuns(buf);
-
+        void EnsureRuns(ScreenBuf buf) => _renderer.EnsureRuns(buf);
     }
 }

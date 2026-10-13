@@ -13,7 +13,8 @@ namespace SlopWorld
         public sealed class UiRecord
         {
             public readonly int? Order;
-            public readonly string Id, Label;
+            public readonly string Id,
+                Label;
             public readonly string Accent;
             public readonly string Destructive;
             public readonly string AccentText;
@@ -52,44 +53,48 @@ namespace SlopWorld
             public readonly string BtnDown;
             public readonly string Knob;
 
-            public UiRecord(int? order, string id, string label,
-                            string accent,
-                            string destructive,
-                            string accentText,
-                            string destructiveText,
-                            string checkFace,
-                            string windowBg,
-                            string viewBg,
-                            string popoverBg,
-                            string panel,
-                            string offlineBg,
-                            string scrim,
-                            string lead,
-                            string name,
-                            string dim,
-                            string faint,
-                            string off,
-                            string bad,
-                            string warn,
-                            string yes,
-                            string global,
-                            string edge,
-                            string edgeLit,
-                            string scrollTrough,
-                            string scrollThumb,
-                            string scrollThumbHover,
-                            string scrollThumbHeld,
-                            string rowBg,
-                            string rowOn,
-                            string hover,
-                            string stateWorking,
-                            string stateWaiting,
-                            string stateIdle,
-                            string stateDown,
-                            string btnFace,
-                            string btnHover,
-                            string btnDown,
-                            string knob)
+            public UiRecord(
+                int? order,
+                string id,
+                string label,
+                string accent,
+                string destructive,
+                string accentText,
+                string destructiveText,
+                string checkFace,
+                string windowBg,
+                string viewBg,
+                string popoverBg,
+                string panel,
+                string offlineBg,
+                string scrim,
+                string lead,
+                string name,
+                string dim,
+                string faint,
+                string off,
+                string bad,
+                string warn,
+                string yes,
+                string global,
+                string edge,
+                string edgeLit,
+                string scrollTrough,
+                string scrollThumb,
+                string scrollThumbHover,
+                string scrollThumbHeld,
+                string rowBg,
+                string rowOn,
+                string hover,
+                string stateWorking,
+                string stateWaiting,
+                string stateIdle,
+                string stateDown,
+                string btnFace,
+                string btnHover,
+                string btnDown,
+                string knob
+            )
             {
                 Order = order;
                 Id = id;
@@ -137,14 +142,28 @@ namespace SlopWorld
         public sealed class TerminalRecord
         {
             public readonly int? Order;
-            public readonly string Id, Label;
-            public readonly string Fg, Bg, Cursor, CursorText, Selection, Link;
+            public readonly string Id,
+                Label;
+            public readonly string Fg,
+                Bg,
+                Cursor,
+                CursorText,
+                Selection,
+                Link;
             public readonly string[] Ansi;
 
-            public TerminalRecord(int? order, string id, string label,
-                                  string fg, string bg, string cursor,
-                                  string cursorText, string selection, string link,
-                                  string[] ansi)
+            public TerminalRecord(
+                int? order,
+                string id,
+                string label,
+                string fg,
+                string bg,
+                string cursor,
+                string cursorText,
+                string selection,
+                string link,
+                string[] ansi
+            )
             {
                 Order = order;
                 Id = id;
@@ -158,17 +177,21 @@ namespace SlopWorld
                 Ansi = (string[])ansi.Clone();
             }
         }
+
         public readonly List<UiRecord> UISchemes;
         public readonly List<TerminalRecord> TerminalThemes;
 
         ThemeCatalog(List<UiRecord> uiSchemes, List<TerminalRecord> terminalThemes)
         {
             var terminalIds = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var terminal in terminalThemes) terminalIds.Add(terminal.Id);
+            foreach (var terminal in terminalThemes)
+                terminalIds.Add(terminal.Id);
             foreach (var ui in uiSchemes)
             {
                 if (!terminalIds.Contains(ui.Id))
-                    throw new FormatException("UI scheme " + ui.Id + " has no terminal theme for Match UI");
+                    throw new FormatException(
+                        "UI scheme " + ui.Id + " has no terminal theme for Match UI"
+                    );
                 RequireOpaque(ui.Accent, "accent", ui.Id);
                 RequireOpaque(ui.Destructive, "destructive", ui.Id);
                 RequireOpaque(ui.CheckFace, "checkFace", ui.Id);
@@ -188,21 +211,28 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(modRoot))
                 throw new FormatException("theme catalog has no mod root");
-            return LoadDirectories(Path.Combine(modRoot, "Themes", "UI"),
-                                   Path.Combine(modRoot, "Themes", "Terminal"));
+            return LoadDirectories(
+                Path.Combine(modRoot, "Themes", "UI"),
+                Path.Combine(modRoot, "Themes", "Terminal")
+            );
         }
 
         public static ThemeCatalog LoadDirectories(string uiDirectory, string terminalDirectory)
         {
-            return new ThemeCatalog(ReadUiDirectory(uiDirectory), ReadTerminalDirectory(terminalDirectory));
+            return new ThemeCatalog(
+                ReadUiDirectory(uiDirectory),
+                ReadTerminalDirectory(terminalDirectory)
+            );
         }
 
         public static ThemeCatalog LoadText(string uiText, string terminalText)
         {
             var ui = ReadUiFile(ParseText(uiText, "UI"), "UI text");
             var terminal = ReadTerminalFile(ParseText(terminalText, "terminal"), "terminal text");
-            return new ThemeCatalog(OrderUi(new List<UiRecord> { ui }),
-                                    OrderTerminal(new List<TerminalRecord> { terminal }));
+            return new ThemeCatalog(
+                OrderUi(new List<UiRecord> { ui }),
+                OrderTerminal(new List<TerminalRecord> { terminal })
+            );
         }
 
         static List<UiRecord> ReadUiDirectory(string directory)
@@ -231,18 +261,29 @@ namespace SlopWorld
                 Array.Sort(paths, StringComparer.Ordinal);
                 return paths;
             }
-            catch (FormatException) { throw; }
+            catch (FormatException)
+            {
+                throw;
+            }
             catch (Exception e)
             {
-                throw new FormatException("could not enumerate " + kind +
-                                           " theme directory " + directory, e);
+                throw new FormatException(
+                    "could not enumerate " + kind + " theme directory " + directory,
+                    e
+                );
             }
         }
 
         static TomlynTable ReadFile(string path, string kind)
         {
-            try { return ParseText(File.ReadAllText(path), path); }
-            catch (FormatException) { throw; }
+            try
+            {
+                return ParseText(File.ReadAllText(path), path);
+            }
+            catch (FormatException)
+            {
+                throw;
+            }
             catch (Exception e)
             {
                 throw new FormatException("Could not read " + kind + " theme file at " + path, e);
@@ -251,7 +292,10 @@ namespace SlopWorld
 
         static TomlynTable ParseText(string text, string source)
         {
-            try { return Toml.ParseTable(text); }
+            try
+            {
+                return Toml.ParseTable(text);
+            }
             catch (Exception e)
             {
                 throw new FormatException("invalid " + source + " theme file: " + e.Message, e);
@@ -302,7 +346,8 @@ namespace SlopWorld
                 btnFace: Required(table, "btnFace", path, true),
                 btnHover: Required(table, "btnHover", path, true),
                 btnDown: Required(table, "btnDown", path, true),
-                knob: Required(table, "knob", path, true));
+                knob: Required(table, "knob", path, true)
+            );
         }
 
         static TerminalRecord ReadTerminalFile(TomlynTable table, string path)
@@ -329,7 +374,9 @@ namespace SlopWorld
                 Required(table, "cursor", path, true),
                 Required(table, "cursorText", path, true),
                 Required(table, "selection", path, true),
-                Required(table, "link", path, true), colors);
+                Required(table, "link", path, true),
+                colors
+            );
         }
 
         static List<UiRecord> OrderUi(List<UiRecord> records) =>
@@ -338,15 +385,23 @@ namespace SlopWorld
         static List<TerminalRecord> OrderTerminal(List<TerminalRecord> records) =>
             OrderRecords(records, record => record.Order, record => record.Id, "terminal");
 
-        static List<T> OrderRecords<T>(List<T> records, Func<T, int?> order,
-            Func<T, string> id, string kind)
+        static List<T> OrderRecords<T>(
+            List<T> records,
+            Func<T, int?> order,
+            Func<T, string> id,
+            string kind
+        )
         {
-            records.Sort((a, b) =>
-            {
-                if (order(a).HasValue != order(b).HasValue) return order(a).HasValue ? -1 : 1;
-                if (order(a).HasValue) return order(a).Value.CompareTo(order(b).Value);
-                return string.CompareOrdinal(id(a), id(b));
-            });
+            records.Sort(
+                (a, b) =>
+                {
+                    if (order(a).HasValue != order(b).HasValue)
+                        return order(a).HasValue ? -1 : 1;
+                    if (order(a).HasValue)
+                        return order(a).Value.CompareTo(order(b).Value);
+                    return string.CompareOrdinal(id(a), id(b));
+                }
+            );
             var ids = new HashSet<string>(StringComparer.Ordinal);
             int pinned = 0;
             for (int i = 0; i < records.Count; i++)
@@ -355,11 +410,14 @@ namespace SlopWorld
                 if (order(records[i]).HasValue != isPinned)
                     throw new FormatException("only SlopWorld " + kind + " themes may set order");
                 if (isPinned && order(records[i]).Value != pinned++)
-                    throw new FormatException("SlopWorld " + kind + " theme order must be contiguous from 0");
+                    throw new FormatException(
+                        "SlopWorld " + kind + " theme order must be contiguous from 0"
+                    );
                 if (!ids.Add(id(records[i])))
                     throw new FormatException(kind + " theme id is duplicated: " + id(records[i]));
             }
-            if (records.Count == 0) throw new FormatException(kind + " theme catalog has no files");
+            if (records.Count == 0)
+                throw new FormatException(kind + " theme catalog has no files");
             return records;
         }
 
@@ -373,7 +431,8 @@ namespace SlopWorld
         static int? OptionalInt(TomlynTable table, string key, string path)
         {
             object value;
-            if (!table.TryGetValue(key, out value)) return null;
+            if (!table.TryGetValue(key, out value))
+                return null;
             if (!(value is long) || (long)value < 0 || (long)value > int.MaxValue)
                 throw new FormatException(path + " requires non-negative integer '" + key + "'");
             return (int)(long)value;
@@ -382,8 +441,11 @@ namespace SlopWorld
         static string Required(TomlynTable table, string key, string path, bool color)
         {
             object value;
-            if (!table.TryGetValue(key, out value) || !(value is string) ||
-                string.IsNullOrEmpty((string)value))
+            if (
+                !table.TryGetValue(key, out value)
+                || !(value is string)
+                || string.IsNullOrEmpty((string)value)
+            )
                 throw new FormatException(path + " is missing string '" + key + "'");
             string text = (string)value;
             if (color && !IsHex(text))
@@ -399,11 +461,16 @@ namespace SlopWorld
             return (TomlynArray)value;
         }
 
-        static void RequireKeys(TomlynTable table, string[] required, string path,
-                                string[] optional)
+        static void RequireKeys(
+            TomlynTable table,
+            string[] required,
+            string path,
+            string[] optional
+        )
         {
             var keys = new HashSet<string>(required, StringComparer.Ordinal);
-            foreach (var key in optional) keys.Add(key);
+            foreach (var key in optional)
+                keys.Add(key);
             foreach (var pair in table)
                 if (!keys.Contains(pair.Key))
                     throw new FormatException(path + " has unknown key '" + pair.Key + "'");
@@ -427,18 +494,60 @@ namespace SlopWorld
 
         static readonly string[] UiKeys =
         {
-            "version", "id", "label", "accent", "destructive", "accentText",
-            "destructiveText", "checkFace", "windowBg", "viewBg", "popoverBg", "panel",
-            "offlineBg", "scrim", "lead", "name", "dim", "faint", "off", "bad", "warn",
-            "yes", "global", "edge", "edgeLit", "scrollTrough", "scrollThumb",
-            "scrollThumbHover", "scrollThumbHeld", "rowBg", "rowOn", "hover", "stateWorking",
-            "stateWaiting", "stateIdle", "stateDown", "btnFace", "btnHover", "btnDown", "knob",
+            "version",
+            "id",
+            "label",
+            "accent",
+            "destructive",
+            "accentText",
+            "destructiveText",
+            "checkFace",
+            "windowBg",
+            "viewBg",
+            "popoverBg",
+            "panel",
+            "offlineBg",
+            "scrim",
+            "lead",
+            "name",
+            "dim",
+            "faint",
+            "off",
+            "bad",
+            "warn",
+            "yes",
+            "global",
+            "edge",
+            "edgeLit",
+            "scrollTrough",
+            "scrollThumb",
+            "scrollThumbHover",
+            "scrollThumbHeld",
+            "rowBg",
+            "rowOn",
+            "hover",
+            "stateWorking",
+            "stateWaiting",
+            "stateIdle",
+            "stateDown",
+            "btnFace",
+            "btnHover",
+            "btnDown",
+            "knob",
         };
 
         static readonly string[] TerminalKeys =
         {
-            "version", "id", "label", "fg", "bg", "cursor", "cursorText",
-            "selection", "link", "ansi",
+            "version",
+            "id",
+            "label",
+            "fg",
+            "bg",
+            "cursor",
+            "cursorText",
+            "selection",
+            "link",
+            "ansi",
         };
 
         static readonly string[] OptionalKeys = { "order" };

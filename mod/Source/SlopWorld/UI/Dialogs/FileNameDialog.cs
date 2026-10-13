@@ -26,12 +26,21 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            _name = TextDialog.Draw(rect, _title, null, "file-name", _name, _error,
-                titleRect: TitleRect(rect));
+            _name = TextDialog.Draw(
+                rect,
+                _title,
+                null,
+                "file-name",
+                _name,
+                _error,
+                titleRect: TitleRect(rect)
+            );
 
             var foot = TextDialog.Footer(rect);
-            if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
-            if (foot.Right("Save", UiTheme.Btn.Primary)) Save();
+            if (foot.Left("Cancel", UiTheme.Btn.Ghost))
+                Close();
+            if (foot.Right("Save", UiTheme.Btn.Primary))
+                Save();
         }
 
         void Save()

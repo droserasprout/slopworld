@@ -11,6 +11,7 @@ namespace SlopWorld
         sealed class Stamp
         {
             public Stamp() { }
+
             public long UtcTicks;
         }
 
@@ -32,9 +33,13 @@ namespace SlopWorld
         public static float SecondsSince(LogEntry entry)
         {
             var stamp = Stamps.GetOrCreateValue(entry);
-            if (stamp.UtcTicks == 0) return 0f;
-            return (float)Math.Max(0, (DateTime.UtcNow.Ticks - stamp.UtcTicks) /
-                (double)TimeSpan.TicksPerSecond);
+            if (stamp.UtcTicks == 0)
+                return 0f;
+            return (float)
+                Math.Max(
+                    0,
+                    (DateTime.UtcNow.Ticks - stamp.UtcTicks) / (double)TimeSpan.TicksPerSecond
+                );
         }
     }
 }

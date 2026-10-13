@@ -22,15 +22,19 @@ namespace SlopWorld.Tests
             Assert.That(actual, Is.EqualTo(expected), message);
         }
 
-        public static void Sequence<T>(IEnumerable<T> expected, IEnumerable<T> actual,
-                                       string message)
+        public static void Sequence<T>(
+            IEnumerable<T> expected,
+            IEnumerable<T> actual,
+            string message
+        )
         {
             var left = expected.ToArray();
             var right = actual.ToArray();
             Assert.That(right, Is.EqualTo(left), message);
         }
 
-        public static T Throws<T>(Action action, string message) where T : Exception
+        public static T Throws<T>(Action action, string message)
+            where T : Exception
         {
             return Assert.Throws<T>(() => action(), message);
         }

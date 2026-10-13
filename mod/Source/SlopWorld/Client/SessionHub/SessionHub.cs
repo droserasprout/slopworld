@@ -11,8 +11,10 @@ namespace SlopWorld
 
         readonly HubTransport _transport = new HubTransport();
         readonly SessionStore _sessions = new SessionStore(ReportSnapshotCallbackError);
-        readonly TaskStore _tasks = new TaskStore(() => UnityEngine.Time.realtimeSinceStartupAsDouble,
-            e => Verse.Log.Warning("[SlopWorld] task batch callback: " + e));
+        readonly TaskStore _tasks = new TaskStore(
+            () => UnityEngine.Time.realtimeSinceStartupAsDouble,
+            e => Verse.Log.Warning("[SlopWorld] task batch callback: " + e)
+        );
         readonly HubCatalog _catalog;
         readonly TerminalIO _terminal;
         readonly AudioBus _audio;
@@ -28,6 +30,7 @@ namespace SlopWorld
         // Initial defaults keep file actions usable before the first response.
         public DaemonConfig Config = new DaemonConfig();
         public DaemonCapabilities Capabilities = new DaemonCapabilities();
+
         // Keep this non-null. An empty object indicates unavailable usage data before the daemon responds.
         public UsageInfo Usage = new UsageInfo();
         public DaemonHealth Health = new DaemonHealth();
@@ -73,24 +76,34 @@ namespace SlopWorld
         public int ProjectsRevision => _catalog.ProjectsRevision;
 
         public SessionInfo Get(string name) => _sessions.Get(name);
+
         public bool TryPendingRename(string oldName, out string newName) =>
             _sessions.TryPendingRename(oldName, out newName);
+
         public bool TryPendingRenameSource(string newName, out string oldName) =>
             _sessions.TryPendingRenameSource(newName, out oldName);
+
         internal string PendingRenameDestination(string oldName) =>
             _sessions.TryPendingRename(oldName, out var newName) ? newName : null;
+
         internal string PendingRenameSource(string newName) =>
             _sessions.TryPendingRenameSource(newName, out var oldName) ? oldName : null;
+
         public ScreenBuf Screen(string name) => _sessions.Screen(name);
+
         public bool TryScrollScreen(string name, out ScreenBuf screen) =>
             _sessions.TryScrollScreen(name, out screen);
+
         public ProjectInfo Project(string name) => _catalog.Project(name);
+
         public LibraryItemInfo LibraryItem(string name) => _catalog.LibraryItem(name);
+
         public CommandInfo Command(string name) => _catalog.Command(name);
 
         // ---- connection ----------------------------------------------------------------
 
         public void Connect() => _transport.Connect();
+
         public void Disconnect() => _transport.Disconnect();
 
         // Called every frame from the Root.Update patch.
@@ -119,41 +132,79 @@ namespace SlopWorld
 
         // Send configuration changes through HTTP to retain error details when saving config.toml fails.
         public void RefreshConfig(Action<string> fail = null) =>
-            DaemonClient.Get<Wire.ConfigResult>(WireProtocol.Routes.Config,
-                j => Config = DaemonConfig.FromWire(j.Values, j.Metadata), fail);
+            DaemonClient.Get<Wire.ConfigResult>(
+                WireProtocol.Routes.Config,
+                j => Config = DaemonConfig.FromWire(j.Values, j.Metadata),
+                fail
+            );
 
         public void RefreshHealth(Action<string> fail = null) =>
-            DaemonClient.Get<Wire.Health>(WireProtocol.Routes.Health, j => Health = DaemonHealth.FromWire(j), fail);
+            DaemonClient.Get<Wire.Health>(
+                WireProtocol.Routes.Health,
+                j => Health = DaemonHealth.FromWire(j),
+                fail
+            );
 
         // ---- sessions ------------------------------------------------------------------
 
-        public void Save(SessionInfo s, bool isNew, string origName, Action ok,
-                         Action<string> fail) =>
-            _sessions.Save(s, isNew, origName, () =>
-            {
-                if (!isNew && origName != s.Name)
-                    _terminal.Rename(origName, s.Name);
-                ok?.Invoke();
-            }, fail);
+        public void Save(
+            SessionInfo s,
+            bool isNew,
+            string origName,
+            Action ok,
+            Action<string> fail
+        ) =>
+            _sessions.Save(
+                s,
+                isNew,
+                origName,
+                () =>
+                {
+                    if (!isNew && origName != s.Name)
+                        _terminal.Rename(origName, s.Name);
+                    ok?.Invoke();
+                },
+                fail
+            );
 
-        public void CreateFromTemplate(string template, SessionInfo s, Action ok,
-                                       Action<string> fail)
+        public void CreateFromTemplate(
+            string template,
+            SessionInfo s,
+            Action ok,
+            Action<string> fail
+        )
         {
-            var body = new Wire.CreateAgentTemplateReq { Name = s.Name, Project = s.Project, Overrides = s.ToWire() };
-            DaemonClient.Post<Wire.SessionResult>($"{WireProtocol.Routes.Templates}/{HubWire.Esc(template)}/create",
+            var body = new Wire.CreateAgentTemplateReq
+            {
+                Name = s.Name,
+                Project = s.Project,
+                Overrides = s.ToWire(),
+            };
+            DaemonClient.Post<Wire.SessionResult>(
+                $"{WireProtocol.Routes.Templates}/{HubWire.Esc(template)}/create",
                 body,
                 _ =>
                 {
                     _sessions.Refresh();
                     ok?.Invoke();
-                }, fail);
+                },
+                fail
+            );
         }
 
         // The daemon creates workers from the selected template's saved configuration and the caller's project context.
         // Start task and session refreshes before opening the worker terminal.
         // Wait for the session refresh to succeed before notifying the UI.
-        public void SpawnWorker(string caller, string project, string template, string body,
-                                bool durable, Action<WorkerSpawnResult> started, Action<string> fail, WorkerWorktreeOptions worktree = null)
+        public void SpawnWorker(
+            string caller,
+            string project,
+            string template,
+            string body,
+            bool durable,
+            Action<WorkerSpawnResult> started,
+            Action<string> fail,
+            WorkerWorktreeOptions worktree = null
+        )
         {
             var request = new Wire.SpawnWorkerReq
             {
@@ -163,20 +214,33 @@ namespace SlopWorld
                 Durable = durable,
             };
             (worktree ?? new WorkerWorktreeOptions()).ApplyTo(request);
-            DaemonClient.Send<Wire.WorkerResult>("POST", WireProtocol.Routes.Workers,
+            DaemonClient.Send<Wire.WorkerResult>(
+                "POST",
+                WireProtocol.Routes.Workers,
                 request,
                 j =>
                 {
                     string worker = j.Worker.Session;
                     _tasks.Add(TaskInfo.FromWire(j.Task));
                     _tasks.Refresh();
-                    _sessions.RefreshLaunched(worker, () => started?.Invoke(new WorkerSpawnResult(worker, _sessions.Get(worker))), fail);
-                }, fail, string.IsNullOrEmpty(caller) ? TaskInfo.Host : caller, 60000);
+                    _sessions.RefreshLaunched(
+                        worker,
+                        () => started?.Invoke(new WorkerSpawnResult(worker, _sessions.Get(worker))),
+                        fail
+                    );
+                },
+                fail,
+                string.IsNullOrEmpty(caller) ? TaskInfo.Host : caller,
+                60000
+            );
         }
 
-        public void SaveAgentTemplate(string source, string name, string description,
-                                      Action ok, Action<string> fail) =>
-            _catalog.SaveAgentTemplate(source, name, description, ok, fail);
-
+        public void SaveAgentTemplate(
+            string source,
+            string name,
+            string description,
+            Action ok,
+            Action<string> fail
+        ) => _catalog.SaveAgentTemplate(source, name, description, ok, fail);
     }
 }

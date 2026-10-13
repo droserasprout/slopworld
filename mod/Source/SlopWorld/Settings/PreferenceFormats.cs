@@ -12,15 +12,19 @@ namespace SlopWorld
 
         public static string Normalize(string mode)
         {
-            if (mode == Center) return Center;
-            if (mode == Hidden) return Hidden;
+            if (mode == Center)
+                return Center;
+            if (mode == Hidden)
+                return Hidden;
             return Right;
         }
 
         public static string Label(string mode)
         {
-            if (mode == Center) return "Center";
-            if (mode == Hidden) return "Hidden";
+            if (mode == Center)
+                return "Center";
+            if (mode == Hidden)
+                return "Hidden";
             return "Right";
         }
     }
@@ -47,10 +51,16 @@ namespace SlopWorld
             Normalize(format) == TwelveHour ? "12-hour" : "24-hour";
 
         public static string Short(DateTime time, string format) =>
-            time.ToString(Normalize(format) == TwelveHour ? "h:mm tt" : "HH:mm", CultureInfo.CurrentCulture);
+            time.ToString(
+                Normalize(format) == TwelveHour ? "h:mm tt" : "HH:mm",
+                CultureInfo.CurrentCulture
+            );
 
         public static string Long(DateTime time, string format) =>
-            time.ToString(Normalize(format) == TwelveHour ? "h:mm:ss tt" : "HH:mm:ss", CultureInfo.CurrentCulture);
+            time.ToString(
+                Normalize(format) == TwelveHour ? "h:mm:ss tt" : "HH:mm:ss",
+                CultureInfo.CurrentCulture
+            );
     }
 
     public static class DateFormat
@@ -82,5 +92,4 @@ namespace SlopWorld
         public static string Label(string unit, string fallback) =>
             IsMemeMode(unit) ? MemeLabel : fallback;
     }
-
 }

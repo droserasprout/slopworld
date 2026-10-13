@@ -27,28 +27,33 @@ namespace SlopWorld
         // TexPath prefix for each variant. RimWorld appends _south, _east etc.
         static readonly Dictionary<EyeColor, string> TexPaths = new Dictionary<EyeColor, string>
         {
-            { EyeColor.Blue,    "SlopWorld/RobotFace_Blue" },
-            { EyeColor.Red,     "SlopWorld/RobotFace_Red" },
-            { EyeColor.Green,   "SlopWorld/RobotFace_Green" },
-            { EyeColor.Purple,  "SlopWorld/RobotFace_Purple" },
-            { EyeColor.Yellow,  "SlopWorld/RobotFace_Yellow" },
-            { EyeColor.White,   "SlopWorld/RobotFace_White" },
+            { EyeColor.Blue, "SlopWorld/RobotFace_Blue" },
+            { EyeColor.Red, "SlopWorld/RobotFace_Red" },
+            { EyeColor.Green, "SlopWorld/RobotFace_Green" },
+            { EyeColor.Purple, "SlopWorld/RobotFace_Purple" },
+            { EyeColor.Yellow, "SlopWorld/RobotFace_Yellow" },
+            { EyeColor.White, "SlopWorld/RobotFace_White" },
             { EyeColor.Missing, "SlopWorld/RobotFace_Missing" },
         };
 
         // Give common eye colors greater selection weights.
         // Keep the Missing variant rare.
-        struct Weighted { public EyeColor Color; public float Weight; }
+        struct Weighted
+        {
+            public EyeColor Color;
+            public float Weight;
+        }
+
         static readonly Weighted[] ColorWeights =
         {
-            new Weighted { Color = EyeColor.Blue,    Weight = 30f },
-            new Weighted { Color = EyeColor.Red,     Weight = 15f },
-            new Weighted { Color = EyeColor.Green,   Weight = 15f },
-            new Weighted { Color = EyeColor.Purple,  Weight = 12f },
-            new Weighted { Color = EyeColor.Yellow,  Weight = 10f },
-            new Weighted { Color = EyeColor.White,   Weight =  8f },
+            new Weighted { Color = EyeColor.Blue, Weight = 30f },
+            new Weighted { Color = EyeColor.Red, Weight = 15f },
+            new Weighted { Color = EyeColor.Green, Weight = 15f },
+            new Weighted { Color = EyeColor.Purple, Weight = 12f },
+            new Weighted { Color = EyeColor.Yellow, Weight = 10f },
+            new Weighted { Color = EyeColor.White, Weight = 8f },
             new Weighted { Color = EyeColor.Missing, Weight = 10f },
- };
+        };
 
         // Runtime assignments keyed by pawn identity. AgentColony persists bound variants.
         static readonly Dictionary<int, EyeColor> _eyeColors = new Dictionary<int, EyeColor>();
@@ -58,7 +63,8 @@ namespace SlopWorld
         static void EnsureAssignmentGame()
         {
             var game = Current.Game;
-            if (ReferenceEquals(_assignmentGame, game)) return;
+            if (ReferenceEquals(_assignmentGame, game))
+                return;
             _assignmentGame = game;
             _eyeColors.Clear();
         }
@@ -67,20 +73,27 @@ namespace SlopWorld
         // Graphic_Multi mirrors _east for the west view.
 
         // These scalp cuts are rerolled so every agent keeps a visible hair silhouette.
-        static readonly HashSet<string> ScalpHair =
-            new HashSet<string> { "Bald", "Shaved", "Mohawk" };
+        static readonly HashSet<string> ScalpHair = new HashSet<string>
+        {
+            "Bald",
+            "Shaved",
+            "Mohawk",
+        };
 
         // Select hair during generation instead of reconciliation.
         // Otherwise, a pawn with no acceptable style could trigger repeated selection attempts indefinitely.
         public static void FitHair(Pawn pawn)
         {
-            if (pawn?.story == null) return;
-            if (!ScalpHair.Contains(pawn.story.hairDef?.defName ?? "")) return;
+            if (pawn?.story == null)
+                return;
+            if (!ScalpHair.Contains(pawn.story.hairDef?.defName ?? ""))
+                return;
 
             for (var i = 0; i < 8; i++)
             {
                 var hair = PawnStyleItemChooser.RandomHairFor(pawn);
-                if (hair == null || ScalpHair.Contains(hair.defName)) continue;
+                if (hair == null || ScalpHair.Contains(hair.defName))
+                    continue;
                 pawn.story.hairDef = hair;
                 return;
             }
@@ -89,7 +102,8 @@ namespace SlopWorld
 
         public static void RandomizeHairColor(Pawn pawn)
         {
-            if (pawn?.story == null) return;
+            if (pawn?.story == null)
+                return;
 
             // Use the active ANSI palette for hair color.
             // Theme changes then affect new agents and explicit appearance changes.
@@ -99,9 +113,11 @@ namespace SlopWorld
         // Assign an eye color during generation. Keep it until an explicit appearance change.
         public static void Assign(Pawn pawn)
         {
-            if (pawn == null) return;
+            if (pawn == null)
+                return;
             EnsureAssignmentGame();
-            if (_eyeColors.ContainsKey(pawn.thingIDNumber)) return;
+            if (_eyeColors.ContainsKey(pawn.thingIDNumber))
+                return;
 
             var color = ColorWeights.RandomElementByWeight(p => p.Weight).Color;
             _eyeColors[pawn.thingIDNumber] = color;
@@ -111,16 +127,19 @@ namespace SlopWorld
         // Rebuild the render tree once for the new faceplate texture, hairstyle, and color.
         public static void Reroll(Pawn pawn)
         {
-            if (pawn?.story == null) return;
+            if (pawn?.story == null)
+                return;
 
             EnsureAssignmentGame();
-            _eyeColors[pawn.thingIDNumber] =
-                ColorWeights.RandomElementByWeight(p => p.Weight).Color;
+            _eyeColors[pawn.thingIDNumber] = ColorWeights
+                .RandomElementByWeight(p => p.Weight)
+                .Color;
 
             for (var i = 0; i < 8; i++)
             {
                 var hair = PawnStyleItemChooser.RandomHairFor(pawn);
-                if (hair == null || ScalpHair.Contains(hair.defName)) continue;
+                if (hair == null || ScalpHair.Contains(hair.defName))
+                    continue;
                 pawn.story.hairDef = hair;
                 break;
             }
@@ -132,14 +151,16 @@ namespace SlopWorld
         // Returns the eye color assigned to this pawn, or the default (Blue) if unassigned.
         public static EyeColor ColorOf(Pawn pawn)
         {
-            if (pawn == null) return EyeColor.Blue;
+            if (pawn == null)
+                return EyeColor.Blue;
             EnsureAssignmentGame();
             return _eyeColors.TryGetValue(pawn.thingIDNumber, out var c) ? c : EyeColor.Blue;
         }
 
         internal static void Restore(Pawn pawn, EyeColor color)
         {
-            if (pawn == null) return;
+            if (pawn == null)
+                return;
             EnsureAssignmentGame();
             _eyeColors[pawn.thingIDNumber] = color;
             pawn.Drawer?.renderer?.SetAllGraphicsDirty();
@@ -155,11 +176,14 @@ namespace SlopWorld
         // Remove beards because their render nodes would cover the faceplate.
         public static void Apply(Pawn pawn)
         {
-            if (pawn?.story == null) return;
+            if (pawn?.story == null)
+                return;
 
             bool dirty = false;
-            if (!pawn.story.skinColorOverride.HasValue ||
-                pawn.story.skinColorOverride.Value != MetalSkinColor)
+            if (
+                !pawn.story.skinColorOverride.HasValue
+                || pawn.story.skinColorOverride.Value != MetalSkinColor
+            )
             {
                 pawn.story.skinColorOverride = MetalSkinColor;
                 dirty = true;
@@ -171,7 +195,8 @@ namespace SlopWorld
                 dirty = true;
             }
 
-            if (dirty) pawn.Drawer?.renderer?.SetAllGraphicsDirty();
+            if (dirty)
+                pawn.Drawer?.renderer?.SetAllGraphicsDirty();
         }
     }
 
@@ -182,13 +207,17 @@ namespace SlopWorld
     {
         public override bool HumanlikeOnly => true;
 
-        public override IEnumerable<(PawnRenderNode node, PawnRenderNode parent)>
-            GetDynamicNodes(Pawn pawn, PawnRenderTree tree)
+        public override IEnumerable<(PawnRenderNode node, PawnRenderNode parent)> GetDynamicNodes(
+            Pawn pawn,
+            PawnRenderTree tree
+        )
         {
-            if (!AgentColony.IsAgent(pawn)) yield break;
+            if (!AgentColony.IsAgent(pawn))
+                yield break;
 
             var head = HeadNode(tree);
-            if (head == null) yield break;
+            if (head == null)
+                yield break;
 
             var props = new PawnRenderNodeProperties
             {
@@ -208,7 +237,8 @@ namespace SlopWorld
                 visibleFacing = new List<Rot4> { Rot4.South, Rot4.East, Rot4.West },
             };
 
-            if (!tree.ShouldAddNodeToTree(props)) yield break;
+            if (!tree.ShouldAddNodeToTree(props))
+                yield break;
 
             yield return (new PawnRenderNode_AttachmentHead(pawn, props, tree), null);
         }
@@ -222,10 +252,14 @@ namespace SlopWorld
             while (queue.Count > 0)
             {
                 var n = queue.Dequeue();
-                if (n == null) continue;
-                if (n.Props?.tagDef == PawnRenderNodeTagDefOf.Head) return n;
-                if (n.children == null) continue;
-                foreach (var c in n.children) queue.Enqueue(c);
+                if (n == null)
+                    continue;
+                if (n.Props?.tagDef == PawnRenderNodeTagDefOf.Head)
+                    return n;
+                if (n.children == null)
+                    continue;
+                foreach (var c in n.children)
+                    queue.Enqueue(c);
             }
             return null;
         }

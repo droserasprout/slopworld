@@ -27,7 +27,8 @@ namespace SlopWorld
                     continue;
                 string key = string.IsNullOrEmpty(info.Project) ? Loose : info.Project;
                 Increment(Layout.TotalCounts, key);
-                if (IsActive(info.State)) Increment(Layout.ActiveCounts, key);
+                if (IsActive(info.State))
+                    Increment(Layout.ActiveCounts, key);
             }
         }
 
@@ -93,11 +94,15 @@ namespace SlopWorld
             {
                 if (s.Worker)
                 {
-                    if (!Passes(s.Project) || !PassesStatus(s.State)) continue;
+                    if (!Passes(s.Project) || !PassesStatus(s.State))
+                        continue;
                     // A child is nested only when its explicit parent has a visible normal row.
                     // Missing parents are surfaced at the top instead of being silently lost.
                     var parent = SnapshotGet(s.Parent);
-                    bool parentVisible = parent != null && !parent.Worker && Passes(parent.Project)
+                    bool parentVisible =
+                        parent != null
+                        && !parent.Worker
+                        && Passes(parent.Project)
                         && Layout.Named.ContainsValue(parent.Name);
                     if (!parentVisible)
                     {
@@ -105,13 +110,23 @@ namespace SlopWorld
                         continue;
                     }
                     if (!Layout.WorkersByParentSession.TryGetValue(s.Parent, out var children))
-                        Layout.WorkersByParentSession[s.Parent] = children = new List<SessionInfo>();
+                        Layout.WorkersByParentSession[s.Parent] = children =
+                            new List<SessionInfo>();
                     children.Add(s);
                     continue;
                 }
-                if ((!s.Ephemeral && !s.Host) || IsRouted(s) || !Passes(s.Project) ||
-                    !PassesStatus(s.State)) continue;
-                if (string.IsNullOrEmpty(s.Project)) { Layout.TopGhosts.Add(s); continue; }
+                if (
+                    (!s.Ephemeral && !s.Host)
+                    || IsRouted(s)
+                    || !Passes(s.Project)
+                    || !PassesStatus(s.State)
+                )
+                    continue;
+                if (string.IsNullOrEmpty(s.Project))
+                {
+                    Layout.TopGhosts.Add(s);
+                    continue;
+                }
 
                 if (!Layout.Ghosts.TryGetValue(s.Project, out var list))
                     Layout.Ghosts[s.Project] = list = new List<SessionInfo>();
@@ -122,25 +137,35 @@ namespace SlopWorld
         static void OrderBuckets()
         {
             foreach (var kv in Layout.Buckets)
-                if (kv.Value.Count > 0) Layout.Order.Add(kv.Key);
+                if (kv.Value.Count > 0)
+                    Layout.Order.Add(kv.Key);
             foreach (var kv in Layout.Ghosts)
-                if (kv.Value.Count > 0 && !Layout.Order.Contains(kv.Key)) Layout.Order.Add(kv.Key);
+                if (kv.Value.Count > 0 && !Layout.Order.Contains(kv.Key))
+                    Layout.Order.Add(kv.Key);
             foreach (var p in SessionHub.Instance.Projects)
-                if (!Layout.Order.Contains(p.Name) && Passes(p.Name)) Layout.Order.Add(p.Name);
+                if (!Layout.Order.Contains(p.Name) && Passes(p.Name))
+                    Layout.Order.Add(p.Name);
 
-            Layout.Order.Sort((a, b) =>
-                a == Loose ? (b == Loose ? 0 : 1)
-                : b == Loose ? -1
-                : string.CompareOrdinal(a, b));
+            Layout.Order.Sort(
+                (a, b) =>
+                    a == Loose ? (b == Loose ? 0 : 1)
+                    : b == Loose ? -1
+                    : string.CompareOrdinal(a, b)
+            );
 
             // Nesting keys are session names; folding belongs to the parent's project.
-            SidebarAgentRows.CountWorkersByProject(Layout.WorkersByParentSession,
-                SnapshotGet, Layout.WorkerCountsByProject);
+            SidebarAgentRows.CountWorkersByProject(
+                Layout.WorkersByParentSession,
+                SnapshotGet,
+                Layout.WorkerCountsByProject
+            );
 
             Layout.TopGhosts.Sort(ByName);
             Layout.TopWorkers.Sort(ByName);
-            foreach (var list in Layout.Ghosts.Values) list.Sort(ByName);
-            foreach (var list in Layout.WorkersByParentSession.Values) list.Sort(ByName);
+            foreach (var list in Layout.Ghosts.Values)
+                list.Sort(ByName);
+            foreach (var list in Layout.WorkersByParentSession.Values)
+                list.Sort(ByName);
         }
 
         static readonly List<int> Empty = new List<int>();
@@ -151,32 +176,40 @@ namespace SlopWorld
             // Agent ghost rows draw their own leading mark, if any. The routed view owns the
             // separate action-slot layout. Reserving it here needlessly shortens host paths.
             float tx = CellX;
-            Layout.Rows.Add(new Row
-            {
-                Session = s.Name,
-                Pawn = null,
-                Ghost = true,
-                Line = new Rect(0f, y, width, GhostH),
-                Text = new Rect(tx, y + 1f, width - tx - Pad, NameH),
-                Face = Rect.zero,
-            });
+            Layout.Rows.Add(
+                new Row
+                {
+                    Session = s.Name,
+                    Pawn = null,
+                    Ghost = true,
+                    Line = new Rect(0f, y, width, GhostH),
+                    Text = new Rect(tx, y + 1f, width - tx - Pad, NameH),
+                    Face = Rect.zero,
+                }
+            );
             return y + GhostH;
         }
 
         static float WorkerRow(SessionInfo s, float width, float y, int depth)
         {
             float tx = CellX + Mathf.Min(depth, 8) * 12f;
-            Layout.Rows.Add(new Row
-            {
-                Session = s.Name,
-                Pawn = null,
-                Ghost = false,
-                Worker = true,
-                Line = new Rect(0f, y, width, WorkerH),
-                Text = new Rect(tx + GhostMarkW + TextGap, y + 1f,
-                    width - tx - GhostMarkW - TextGap - Pad, WorkerH - 1f),
-                Face = Rect.zero,
-            });
+            Layout.Rows.Add(
+                new Row
+                {
+                    Session = s.Name,
+                    Pawn = null,
+                    Ghost = false,
+                    Worker = true,
+                    Line = new Rect(0f, y, width, WorkerH),
+                    Text = new Rect(
+                        tx + GhostMarkW + TextGap,
+                        y + 1f,
+                        width - tx - GhostMarkW - TextGap - Pad,
+                        WorkerH - 1f
+                    ),
+                    Face = Rect.zero,
+                }
+            );
             return y + WorkerH;
         }
 
@@ -185,10 +218,11 @@ namespace SlopWorld
 
         static void Increment(Dictionary<string, int> counts, string key)
         {
-            if (counts.TryGetValue(key, out int current)) counts[key] = current + 1;
-            else counts[key] = 1;
+            if (counts.TryGetValue(key, out int current))
+                counts[key] = current + 1;
+            else
+                counts[key] = 1;
         }
-
 
         static string Session(Pawn pawn) =>
             pawn == null ? null : AgentColony.Current?.SessionOf(pawn);

@@ -22,18 +22,27 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            _message = TextDialog.Draw(rect, $"Commit '{SidebarScopes.Label(_project)}'",
-                "Only staged changes will be committed.", "git.commit.message", _message,
-                _error, titleRect: TitleRect(rect));
+            _message = TextDialog.Draw(
+                rect,
+                $"Commit '{SidebarScopes.Label(_project)}'",
+                "Only staged changes will be committed.",
+                "git.commit.message",
+                _message,
+                _error,
+                titleRect: TitleRect(rect)
+            );
 
             var foot = TextDialog.Footer(rect);
-            if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
-            if (foot.Right("Commit", UiTheme.Btn.Primary, !_pending)) Save();
+            if (foot.Left("Cancel", UiTheme.Btn.Ghost))
+                Close();
+            if (foot.Right("Commit", UiTheme.Btn.Primary, !_pending))
+                Save();
         }
 
         void Save()
         {
-            if (_pending) return;
+            if (_pending)
+                return;
             _error = null;
             string message = (_message ?? "").Trim();
             if (message.Length == 0)
@@ -43,11 +52,16 @@ namespace SlopWorld
             }
 
             _pending = true;
-            GitView.Commit(_project, message, () => Close(), error =>
-            {
-                _pending = false;
-                _error = error;
-            });
+            GitView.Commit(
+                _project,
+                message,
+                () => Close(),
+                error =>
+                {
+                    _pending = false;
+                    _error = error;
+                }
+            );
         }
     }
 }

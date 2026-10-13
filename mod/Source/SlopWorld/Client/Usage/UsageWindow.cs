@@ -8,27 +8,33 @@ namespace SlopWorld
     {
         public string Key = "";
         public string Label = "";
+
         // Percent of the window spent, 0-100. Always sent, money row included.
         public float Pct;
+
         // A unit this build does not know reads as a percentage.
         public string Unit = WireProtocol.UsageUnit.Pct;
+
         // -1 when the daemon sent no figure, which leaves the row a percentage.
         public float Amount = -1f;
+
         // What Amount is out of. -1 if unsaid.
         public float Limit = -1f;
+
         // Seconds to the reset as of Heard. -1 if the daemon did not say.
         public long ResetsIn = -1;
 
-        public static UsageWindow FromWire(Wire.UsageWindow w) => new UsageWindow
-        {
-            Key = w.Key,
-            Label = w.Label,
-            Pct = (float)w.Pct,
-            Unit = string.IsNullOrEmpty(w.Unit) ? WireProtocol.UsageUnit.Pct : w.Unit,
-            Amount = !w.HasAmount ? -1f : (float)w.Amount,
-            Limit = !w.HasLimit ? -1f : (float)w.Limit,
-            ResetsIn = !w.HasResetsIn ? -1 : (long)Math.Min((ulong)long.MaxValue, w.ResetsIn),
-        };
+        public static UsageWindow FromWire(Wire.UsageWindow w) =>
+            new UsageWindow
+            {
+                Key = w.Key,
+                Label = w.Label,
+                Pct = (float)w.Pct,
+                Unit = string.IsNullOrEmpty(w.Unit) ? WireProtocol.UsageUnit.Pct : w.Unit,
+                Amount = !w.HasAmount ? -1f : (float)w.Amount,
+                Limit = !w.HasLimit ? -1f : (float)w.Limit,
+                ResetsIn = !w.HasResetsIn ? -1 : (long)Math.Min((ulong)long.MaxValue, w.ResetsIn),
+            };
 
         // Both halves are required: a unit with no figure under it has nothing to spend.
         public bool IsMoney => Unit == WireProtocol.UsageUnit.Usd && Amount >= 0f;

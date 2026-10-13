@@ -7,14 +7,23 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
-            yield return ("refresh during a read waits for a coalesced follow-up", RefreshDuringRead);
+            yield return (
+                "refresh during a read waits for a coalesced follow-up",
+                RefreshDuringRead
+            );
             yield return ("operation gate invalidates older tokens", GateTokens);
             yield return ("operation gate skips reserved zero on wrap", GateWrap);
             yield return ("late callbacks cannot mutate a newer load", LateCallbacks);
             yield return ("invalidation stops loading without a replacement", Invalidate);
             yield return ("current operations accept multiple callbacks", MultipleCallbacks);
-            yield return ("failed loads retain the old value but clear availability", OldValuePolicy);
-            yield return ("preview fields apply together after the generation check", PreviewFields);
+            yield return (
+                "failed loads retain the old value but clear availability",
+                OldValuePolicy
+            );
+            yield return (
+                "preview fields apply together after the generation check",
+                PreviewFields
+            );
         }
 
         static void RefreshDuringRead()
@@ -27,19 +36,29 @@ namespace SlopWorld.Tests
             AssertEx.True(queue.Complete().NeedsFollowUp, "old snapshot cannot satisfy consumers");
             AssertEx.Equal(0, completed, "callbacks wait");
             AssertEx.True(queue.Request(), "one follow-up starts");
-            foreach (var callback in queue.Complete().Callbacks) callback();
+            foreach (var callback in queue.Complete().Callbacks)
+                callback();
             AssertEx.Equal(2, completed, "both consumers get the fresh snapshot");
             AssertEx.False(queue.Loading, "failure or success finishes loading");
             AssertEx.False(queue.Pending, "no redundant third request");
             AssertEx.True(queue.Request(), "retry can start after completion");
-            AssertEx.Equal(0, queue.Complete().Callbacks.Length, "callbacks are not retained for retry");
+            AssertEx.Equal(
+                0,
+                queue.Complete().Callbacks.Length,
+                "callbacks are not retained for retry"
+            );
         }
 
         static void GateWrap()
         {
             var gate = new OperationGate();
-            typeof(OperationGate).GetField("_generation", System.Reflection.BindingFlags.Instance |
-                System.Reflection.BindingFlags.NonPublic).SetValue(gate, -1L);
+            typeof(OperationGate)
+                .GetField(
+                    "_generation",
+                    System.Reflection.BindingFlags.Instance
+                        | System.Reflection.BindingFlags.NonPublic
+                )
+                .SetValue(gate, -1L);
             long token = gate.Begin();
             AssertEx.True(token != 0 && gate.IsCurrent(token), "wrapped token remains usable");
             gate.Invalidate();
@@ -52,7 +71,10 @@ namespace SlopWorld.Tests
             long first = gate.Begin();
             long second = gate.Begin();
 
-            AssertEx.False(gate.IsCurrent(first), "starting a new operation invalidates the old token");
+            AssertEx.False(
+                gate.IsCurrent(first),
+                "starting a new operation invalidates the old token"
+            );
             AssertEx.True(gate.IsCurrent(second), "the newest token is current");
             gate.Invalidate();
             AssertEx.False(gate.IsCurrent(second), "invalidation has no replacement operation");
@@ -68,8 +90,22 @@ namespace SlopWorld.Tests
             Action<string> secondFail = null;
             int loaded = 0;
 
-            state.Load((ok, fail) => { firstOk = ok; firstFail = fail; }, _ => loaded++);
-            state.Load((ok, fail) => { secondOk = ok; secondFail = fail; }, _ => loaded++);
+            state.Load(
+                (ok, fail) =>
+                {
+                    firstOk = ok;
+                    firstFail = fail;
+                },
+                _ => loaded++
+            );
+            state.Load(
+                (ok, fail) =>
+                {
+                    secondOk = ok;
+                    secondFail = fail;
+                },
+                _ => loaded++
+            );
             firstOk("old");
             firstFail("old error");
 
@@ -84,8 +120,11 @@ namespace SlopWorld.Tests
             AssertEx.False(state.Loading, "the current success ends loading");
             AssertEx.Equal(1, loaded, "the current loaded hook runs once");
             secondFail("late same-operation error");
-            AssertEx.Equal("late same-operation error", state.Error,
-                "a current error callback retains the existing callback contract");
+            AssertEx.Equal(
+                "late same-operation error",
+                state.Error,
+                "a current error callback retains the existing callback contract"
+            );
         }
 
         static void Invalidate()
@@ -93,7 +132,13 @@ namespace SlopWorld.Tests
             var state = new AsyncLoadState<string>();
             Action<string> ok = null;
             Action<string> fail = null;
-            state.Load((success, error) => { ok = success; fail = error; });
+            state.Load(
+                (success, error) =>
+                {
+                    ok = success;
+                    fail = error;
+                }
+            );
             state.Invalidate();
             ok("stale");
             fail("stale error");
@@ -122,13 +167,22 @@ namespace SlopWorld.Tests
             var state = new AsyncLoadState<string>();
             Action<string> ok = null;
             Action<string> fail = null;
-            state.Load((success, error) => { ok = success; fail = error; });
+            state.Load(
+                (success, error) =>
+                {
+                    ok = success;
+                    fail = error;
+                }
+            );
             ok("retained");
             state.Load((success, error) => fail = error);
             fail("failed");
 
             AssertEx.Equal("retained", state.Value, "the state retains the old value on failure");
-            AssertEx.False(state.HasValue, "failure clears availability for callers that require it");
+            AssertEx.False(
+                state.HasValue,
+                "failure clears availability for callers that require it"
+            );
             AssertEx.False(state.Loading, "failure ends loading");
             AssertEx.Equal("failed", state.Error, "failure publishes the current error");
         }
@@ -136,8 +190,10 @@ namespace SlopWorld.Tests
         static void PreviewFields()
         {
             var state = new AsyncLoadState<JVal>();
-            Action<JVal> oldReply = null, newReply = null;
-            string text = null, breadcrumb = null;
+            Action<JVal> oldReply = null,
+                newReply = null;
+            string text = null,
+                breadcrumb = null;
             Action<JVal> apply = j =>
             {
                 text = j["text"].AsString();

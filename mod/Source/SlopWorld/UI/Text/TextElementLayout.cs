@@ -10,8 +10,14 @@ namespace SlopWorld
     {
         internal readonly struct Range
         {
-            public readonly int Start, End;
-            public Range(int start, int end) { Start = start; End = end; }
+            public readonly int Start,
+                End;
+
+            public Range(int start, int end)
+            {
+                Start = start;
+                End = end;
+            }
         }
 
         public static int[] Boundaries(string text)
@@ -28,11 +34,13 @@ namespace SlopWorld
             text = text ?? "";
             var boundaries = Boundaries(text);
             var ranges = new List<Range>();
-            int start = 0, lastBreak = -1;
+            int start = 0,
+                lastBreak = -1;
             float lineWidth = 0f;
             for (int i = 0; i < boundaries.Length - 1; i++)
             {
-                int offset = boundaries[i], end = boundaries[i + 1];
+                int offset = boundaries[i],
+                    end = boundaries[i + 1];
                 string element = text.Substring(offset, end - offset);
                 if (element == "\n" || element == "\r\n")
                 {
@@ -46,7 +54,8 @@ namespace SlopWorld
                 if (lineWidth + elementWidth <= width || i == start)
                 {
                     lineWidth += elementWidth;
-                    if (char.IsWhiteSpace(text, offset)) lastBreak = i + 1;
+                    if (char.IsWhiteSpace(text, offset))
+                        lastBreak = i + 1;
                     continue;
                 }
                 int split = lastBreak > start ? lastBreak : i;

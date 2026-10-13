@@ -16,7 +16,11 @@ namespace SlopWorld
         static bool Begin(object manager, string skipped, out long started)
         {
             started = 0;
-            if (!Cadences.GetValue(manager, Create).Run(PaneOverDraw.Hidden, Time.realtimeSinceStartupAsDouble))
+            if (
+                !Cadences
+                    .GetValue(manager, Create)
+                    .Run(PaneOverDraw.Hidden, Time.realtimeSinceStartupAsDouble)
+            )
             {
                 PerfTrace.Count(skipped);
                 return false;
@@ -31,9 +35,10 @@ namespace SlopWorld
             static bool Prefix(MapDrawer __instance, out long __state)
             {
                 __state = 0;
-                return EcoMapMemory.BeforeMeshUpdate(__instance) &&
-                    Begin(__instance, "hidden-mesh-skips", out __state);
+                return EcoMapMemory.BeforeMeshUpdate(__instance)
+                    && Begin(__instance, "hidden-mesh-skips", out __state);
             }
+
             static void Postfix(long __state) => PerfTrace.End("map-mesh-maintenance", __state, 1);
         }
 
@@ -42,6 +47,7 @@ namespace SlopWorld
         {
             static bool Prefix(SkyManager __instance, out long __state) =>
                 Begin(__instance, "hidden-sky-skips", out __state);
+
             static void Postfix(long __state) => PerfTrace.End("map-sky", __state, 1);
         }
 
@@ -50,6 +56,7 @@ namespace SlopWorld
         static class Flecks
         {
             static void Prefix(out long __state) => __state = PerfTrace.Start();
+
             static void Postfix(long __state) => PerfTrace.End("map-fleck-aging", __state, 1);
         }
     }

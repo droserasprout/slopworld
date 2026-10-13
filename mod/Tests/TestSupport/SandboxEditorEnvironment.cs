@@ -1,11 +1,9 @@
 using System;
-using System.Linq;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
-namespace UnityEngine
-{
-}
+namespace UnityEngine { }
 
 namespace Verse
 {
@@ -17,11 +15,21 @@ namespace Verse
     static partial class Text
     {
         public static float CalcHeight(string text, float width) =>
-            text.Split('\n').Sum(line =>
-                13f * (float)Math.Ceiling(Math.Max(1, line.Length) * 7f / Math.Max(1f, width)));
+            text.Split('\n')
+                .Sum(line =>
+                    13f * (float)Math.Ceiling(Math.Max(1, line.Length) * 7f / Math.Max(1f, width))
+                );
     }
-    static class TooltipHandler { public static void TipRegion(Rect r, string text) { } }
-    static partial class Find { public static WindowStack WindowStack = new WindowStack(); }
+
+    static class TooltipHandler
+    {
+        public static void TipRegion(Rect r, string text) { }
+    }
+
+    static partial class Find
+    {
+        public static WindowStack WindowStack = new WindowStack();
+    }
 }
 
 namespace SlopWorld
@@ -32,50 +40,104 @@ namespace SlopWorld
         public static readonly List<(string Name, Rect Rect)> Draws = new List<(string, Rect)>();
         public static string EditValue;
         public static readonly Dictionary<string, string> Edits = new Dictionary<string, string>();
-        public static readonly Dictionary<string, string> FieldValues = new Dictionary<string, string>();
+        public static readonly Dictionary<string, string> FieldValues =
+            new Dictionary<string, string>();
         public static readonly Dictionary<string, bool> Checks = new Dictionary<string, bool>();
         public static readonly HashSet<string> Clicks = new HashSet<string>();
-        public static string PickRow, PickOption;
+        public static string PickRow,
+            PickOption;
+
         public static void Record(string name, Rect r) => Draws.Add((name, r));
     }
 
     static partial class UiTheme
     {
-        public const float RowH = 24f, LineH = 13f, FieldH = 22f, BtnH = 24f;
-        public const float GapXS = 4f, GapS = 8f, GapM = 16f, ScrollbarW = 12f;
-        public const float FieldPadX = 6f, FieldPadY = 2f;
-        public static readonly Color Dim = Color.white, Warn = Color.white, Global = Color.white,
-            Lead = Color.white, Name = Color.white, Faint = Color.white, Yes = Color.white,
-            Edge = Color.white, Bad = Color.white;
-        public enum Btn { Default, Primary, Danger, Ghost }
+        public const float RowH = 24f,
+            LineH = 13f,
+            FieldH = 22f,
+            BtnH = 24f;
+        public const float GapXS = 4f,
+            GapS = 8f,
+            GapM = 16f,
+            ScrollbarW = 12f;
+        public const float FieldPadX = 6f,
+            FieldPadY = 2f;
+        public static readonly Color Dim = Color.white,
+            Warn = Color.white,
+            Global = Color.white,
+            Lead = Color.white,
+            Name = Color.white,
+            Faint = Color.white,
+            Yes = Color.white,
+            Edge = Color.white,
+            Bad = Color.white;
+
+        public enum Btn
+        {
+            Default,
+            Primary,
+            Danger,
+            Ghost,
+        }
     }
 
     static class UiText
     {
-        public static float PlainStatusLabelHeight(string text, float width) => Verse.Text.CalcHeight(text, width);
-        public static void PlainStatusLabel(Rect r, string text, Color color) => EditorTrace.Record(text, r);
+        public static float PlainStatusLabelHeight(string text, float width) =>
+            Verse.Text.CalcHeight(text, width);
+
+        public static void PlainStatusLabel(Rect r, string text, Color color) =>
+            EditorTrace.Record(text, r);
+
         public static void RowLabel(Rect r, string text) => EditorTrace.Record(text, r);
+
         public static string Field(Rect r, string name, string value, bool on)
         {
             EditorTrace.Record(name, r);
             EditorTrace.FieldValues[name] = value;
-            return on ? (EditorTrace.Edits.TryGetValue(name, out var edit) ? edit : EditorTrace.EditValue ?? value) : value;
+            return on
+                ? (
+                    EditorTrace.Edits.TryGetValue(name, out var edit)
+                        ? edit
+                        : EditorTrace.EditValue ?? value
+                )
+                : value;
         }
-        public static float AreaHeight(float width, string text, UiAreaResize resize, bool editable = true) =>
-            resize.MeasuredHeight(Verse.Text.CalcHeight(string.IsNullOrEmpty(text) ? " " : text,
-                Mathf.Max(1f, width - UiTheme.FieldPadX * 2f - UiTheme.ScrollbarW)) +
-                UiTheme.FieldPadY * 4f + (editable ? UiAreaResize.CornerSize : 0f));
-        public static string Area(Rect r, string name, string value, bool on, UiAreaResize resize = null) => Field(r, name, value, on);
+
+        public static float AreaHeight(
+            float width,
+            string text,
+            UiAreaResize resize,
+            bool editable = true
+        ) =>
+            resize.MeasuredHeight(
+                Verse.Text.CalcHeight(
+                    string.IsNullOrEmpty(text) ? " " : text,
+                    Mathf.Max(1f, width - UiTheme.FieldPadX * 2f - UiTheme.ScrollbarW)
+                )
+                    + UiTheme.FieldPadY * 4f
+                    + (editable ? UiAreaResize.CornerSize : 0f)
+            );
+
+        public static string Area(
+            Rect r,
+            string name,
+            string value,
+            bool on,
+            UiAreaResize resize = null
+        ) => Field(r, name, value, on);
     }
 
     static class UiButtons
     {
         public static bool RowButton(Rect r)
         {
-            if (EditorTrace.Draws[EditorTrace.Draws.Count - 1].Name != EditorTrace.PickRow) return false;
+            if (EditorTrace.Draws[EditorTrace.Draws.Count - 1].Name != EditorTrace.PickRow)
+                return false;
             EditorTrace.PickRow = null;
             return true;
         }
+
         public static bool Button(Rect r, string label, UiTheme.Btn kind = UiTheme.Btn.Default)
         {
             EditorTrace.Record(label, r);
@@ -86,11 +148,18 @@ namespace SlopWorld
     static partial class UiLayout
     {
         public static void SectionHeading(Rect r, string text) => EditorTrace.Record(text, r);
+
         public struct Bar
         {
             readonly Rect _rect;
-            public Bar(Rect rect) { _rect = rect; }
+
+            public Bar(Rect rect)
+            {
+                _rect = rect;
+            }
+
             public bool Left(string label, UiTheme.Btn kind) => EditorTrace.Clicks.Remove(label);
+
             public Rect Rest() => _rect;
         }
     }
@@ -100,6 +169,7 @@ namespace SlopWorld
         public readonly string Label;
         public readonly Action Choose;
         public readonly bool Enabled;
+
         public SelectorOption(string label, Action choose, bool enabled = true)
         {
             Label = label;
@@ -107,26 +177,51 @@ namespace SlopWorld
             Enabled = enabled;
         }
     }
+
     static class UiControls
     {
         public const float TickColW = 1f;
-        public static readonly Dictionary<string, SelectorOption[]> FormOptions = new Dictionary<string, SelectorOption[]>();
-        public static readonly Dictionary<string, string> FormEdits = new Dictionary<string, string>();
+        public static readonly Dictionary<string, SelectorOption[]> FormOptions =
+            new Dictionary<string, SelectorOption[]>();
+        public static readonly Dictionary<string, string> FormEdits =
+            new Dictionary<string, string>();
+
         public static string Field(Verse.Listing_Standard l, string id, string value) =>
             FormEdits.TryGetValue(id, out var edit) ? edit : value;
-        public static void Select(Verse.Listing_Standard l, string label, string value,
-            SelectorOption[] options, out Rect box)
+
+        public static void Select(
+            Verse.Listing_Standard l,
+            string label,
+            string value,
+            SelectorOption[] options,
+            out Rect box
+        )
         {
             box = new Rect();
             FormOptions[label] = options;
         }
-        public static bool Checkbox(Rect r, string name, bool on, string tip, bool locked, bool warn)
+
+        public static bool Checkbox(
+            Rect r,
+            string name,
+            bool on,
+            string tip,
+            bool locked,
+            bool warn
+        )
         {
             EditorTrace.Record("check:" + name, r);
             return !locked && EditorTrace.Checks.TryGetValue(name, out var next) ? next : on;
         }
-        public static void Select(Rect r, string label, string value, SelectorOption[] options,
-                                  out Rect box, bool on)
+
+        public static void Select(
+            Rect r,
+            string label,
+            string value,
+            SelectorOption[] options,
+            out Rect box,
+            bool on
+        )
         {
             box = r;
             EditorTrace.Record(label, r);
@@ -140,35 +235,52 @@ namespace SlopWorld
                     }
         }
     }
-    enum RowHoverPolicy { OverlayAware }
+
+    enum RowHoverPolicy
+    {
+        OverlayAware,
+    }
+
     static class RowChrome
     {
         public static void Hover(Rect r, bool selected, bool on, RowHoverPolicy policy) { }
     }
+
     static partial class Slab
     {
         public static void Hairline(Rect r, Color color) => EditorTrace.Record("rule", r);
     }
+
     sealed class SmoothScroll
     {
         public static bool WheelOnly;
         public static readonly List<SmoothScroll> WheelTrace = new List<SmoothScroll>();
         Vector2 _origin;
+
         public IDisposable Scope(Rect frame, Rect view, bool bars = true, bool precise = true)
         {
             EditorTrace.Record("scroll", view);
             _origin = GUIUtility.Origin;
-            GUIUtility.Origin = new Vector2(_origin.x + frame.x + view.x,
-                _origin.y + frame.y + view.y);
+            GUIUtility.Origin = new Vector2(
+                _origin.x + frame.x + view.x,
+                _origin.y + frame.y + view.y
+            );
             ScrollWheelRouter.Begin(this, frame, view, precise, _origin);
             return new ScrollScope(this);
         }
+
         sealed class ScrollScope : IDisposable
         {
             readonly SmoothScroll _owner;
-            public ScrollScope(SmoothScroll owner) { _owner = owner; }
+
+            public ScrollScope(SmoothScroll owner)
+            {
+                _owner = owner;
+            }
+
             public void Dispose() => _owner.Dispose();
         }
+
         public void Dispose()
         {
             WheelTrace.Add(this);
@@ -176,6 +288,7 @@ namespace SlopWorld
             GUIUtility.Origin = _origin;
         }
     }
+
     static class ConfirmDialog
     {
         public sealed class Prompt
@@ -184,9 +297,16 @@ namespace SlopWorld
             public Action Confirm;
             public bool Destructive;
         }
+
         public static object Create(string text, Action action, bool destructive = false) =>
-            new Prompt { Text = text, Confirm = action, Destructive = destructive };
+            new Prompt
+            {
+                Text = text,
+                Confirm = action,
+                Destructive = destructive,
+            };
     }
+
     sealed partial class SessionHub
     {
         public readonly HubCatalog Catalog = new HubCatalog(() => { }, _ => { });
@@ -196,35 +316,61 @@ namespace SlopWorld
 
     public partial class SandboxPage
     {
-        readonly SmoothScroll _listScroll = new SmoothScroll(), _editorScroll = new SmoothScroll();
+        readonly SmoothScroll _listScroll = new SmoothScroll(),
+            _editorScroll = new SmoothScroll();
         PresetInfo _preset;
         CommandInfo _command;
         bool _newEntry;
         string _error;
-        public int TestLoads, TestNewCommands;
+        public int TestLoads,
+            TestNewCommands;
+
         void Load() => TestLoads++;
+
         void NewCommand() => TestNewCommands++;
+
         public PresetInfo TestSelectedPreset => _preset;
         public CommandInfo TestSelectedCommand => _command;
-        public bool TestNewEntry { get => _newEntry; set => _newEntry = value; }
-        public string TestError { get => _error; set => _error = value; }
+        public bool TestNewEntry
+        {
+            get => _newEntry;
+            set => _newEntry = value;
+        }
+        public string TestError
+        {
+            get => _error;
+            set => _error = value;
+        }
+
         public void TestPresetList(float width) => DrawPresetList(new Rect(0, 0, width, 20));
+
         public void TestCommandList(float width) => DrawCommandList(new Rect(0, 0, width, 20));
+
         public void TestFooter() => DoFooter(new Rect(0, 0, 200, 30));
+
         public float TestPreset(PresetInfo p, float width, bool draw, bool isNew = false)
         {
             _newEntry = isNew;
-            return DrawPresetFields(new Rect(0f, 0f, width, 0f), 0f, p, isNew || p.Source != "system", draw);
+            return DrawPresetFields(
+                new Rect(0f, 0f, width, 0f),
+                0f,
+                p,
+                isNew || p.Source != "system",
+                draw
+            );
         }
+
         public float TestCommand(CommandInfo c, float width, bool draw)
         {
             return DrawCommandFields(new Rect(0f, 0f, width, 0f), c, c.Source != "system", draw);
         }
+
         public void TestPresetHost(PresetInfo p, float width)
         {
             _preset = p;
             DrawPresetEditor(new Rect(0f, 0f, width + UiTheme.ScrollbarW, 10f));
         }
+
         public void TestCommandHost(CommandInfo c, float width)
         {
             _command = c;

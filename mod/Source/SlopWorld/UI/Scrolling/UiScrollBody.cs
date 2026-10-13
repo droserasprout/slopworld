@@ -6,14 +6,22 @@ namespace SlopWorld
     // content measurement because previews, tabs, and trailing fields have different hosts.
     public static class UiScrollBody
     {
-        public static UiScrollBodyGeometry Measure(Rect frame, float contentHeight,
-                                                    UiScrollbarReservation reservation)
+        public static UiScrollBodyGeometry Measure(
+            Rect frame,
+            float contentHeight,
+            UiScrollbarReservation reservation
+        )
         {
             var layout = ScrollableGeometry.Measure(
                 new UiLayoutRect(frame.x, frame.y, frame.width, frame.height),
-                contentHeight, reservation, UiTheme.ScrollbarW);
-            return new UiScrollBodyGeometry(layout, new Rect(0f, 0f,
-                layout.View.Width, layout.View.Height));
+                contentHeight,
+                reservation,
+                UiTheme.ScrollbarW
+            );
+            return new UiScrollBodyGeometry(
+                layout,
+                new Rect(0f, 0f, layout.View.Width, layout.View.Height)
+            );
         }
     }
 

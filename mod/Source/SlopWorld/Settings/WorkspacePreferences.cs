@@ -20,11 +20,9 @@ namespace SlopWorld
         public const string Compact = "compact";
 
         public static string Normalize(string value) =>
-            string.Equals(value, Compact, StringComparison.OrdinalIgnoreCase)
-                ? Compact : Default;
+            string.Equals(value, Compact, StringComparison.OrdinalIgnoreCase) ? Compact : Default;
 
         public static string Label(string value) =>
             Normalize(value) == Compact ? "Compact" : "Default";
     }
-
 }

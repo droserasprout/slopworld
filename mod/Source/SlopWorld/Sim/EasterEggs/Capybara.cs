@@ -24,20 +24,28 @@ namespace SlopWorld
 
         // Runtime-only state resets on load. Activation also clears existing plague marks.
         public static bool IsImmune(Pawn pawn) =>
-            pawn != null && Verse.Current.Game?.GetComponent<Capybara>()?._immune.Contains(pawn) == true;
+            pawn != null
+            && Verse.Current.Game?.GetComponent<Capybara>()?._immune.Contains(pawn) == true;
 
         public override void GameComponentOnGUI()
         {
-            if (Eco.Bare || WorkspaceVisibility.Hidden) return;
-            if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null) return;
+            if (Eco.Bare || WorkspaceVisibility.Hidden)
+                return;
+            if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null)
+                return;
 
             var map = Find.CurrentMap;
-            if (map == null) return;
+            if (map == null)
+                return;
 
-            if (!_activated && Event.current.type == EventType.MouseDown && Event.current.button == 0
+            if (
+                !_activated
+                && Event.current.type == EventType.MouseDown
+                && Event.current.button == 0
                 && Find.WindowStack.FloatMenu == null
                 && !Find.WindowStack.AnyWindowAbsorbingAllInput
-                && Find.WindowStack.GetWindowAt(Event.current.mousePosition) == null)
+                && Find.WindowStack.GetWindowAt(Event.current.mousePosition) == null
+            )
             {
                 var pawn = CapybaraAt(map, UI.MouseCell());
                 if (pawn != null)
@@ -63,11 +71,13 @@ namespace SlopWorld
             _activated = true;
             foreach (var pawn in map.mapPawns.AllPawnsSpawned)
             {
-                if (pawn.def?.defName != CapybaraDefName) continue;
+                if (pawn.def?.defName != CapybaraDefName)
+                    continue;
 
                 _immune.Add(pawn);
                 var plague = pawn.health?.hediffSet?.GetFirstHediffOfDef(ModDefOf.SlopPlague);
-                if (plague != null) pawn.health.RemoveHediff(plague);
+                if (plague != null)
+                    pawn.health.RemoveHediff(plague);
             }
 
             _bubblePawn = clicked;
@@ -76,8 +86,12 @@ namespace SlopWorld
 
         void DrawBubble(Map map)
         {
-            if (_bubblePawn == null || _bubblePawn.Destroyed || !_bubblePawn.Spawned
-                || _bubblePawn.Map != map)
+            if (
+                _bubblePawn == null
+                || _bubblePawn.Destroyed
+                || !_bubblePawn.Spawned
+                || _bubblePawn.Map != map
+            )
                 return;
             if (Time.realtimeSinceStartup >= _bubbleUntil)
             {
@@ -86,14 +100,27 @@ namespace SlopWorld
             }
 
             var badge = Badge;
-            if (badge == null) return;
+            if (badge == null)
+                return;
 
             var pos = GenMapUI.LabelDrawPosFor(_bubblePawn, -0.85f);
-            var badgeRect = new Rect(pos.x - BadgeSize / 2f, pos.y - BadgeSize - BadgeLift,
-                BadgeSize, BadgeSize);
+            var badgeRect = new Rect(
+                pos.x - BadgeSize / 2f,
+                pos.y - BadgeSize - BadgeLift,
+                BadgeSize,
+                BadgeSize
+            );
             const float margin = 4f;
-            badgeRect.x = Mathf.Clamp(badgeRect.x, margin, UI.screenWidth - margin - badgeRect.width);
-            badgeRect.y = Mathf.Clamp(badgeRect.y, margin, UI.screenHeight - margin - badgeRect.height);
+            badgeRect.x = Mathf.Clamp(
+                badgeRect.x,
+                margin,
+                UI.screenWidth - margin - badgeRect.width
+            );
+            badgeRect.y = Mathf.Clamp(
+                badgeRect.y,
+                margin,
+                UI.screenHeight - margin - badgeRect.height
+            );
 
             GUI.DrawTexture(badgeRect, badge, ScaleMode.ScaleToFit, true);
         }
@@ -105,7 +132,8 @@ namespace SlopWorld
                 if (_badge == null)
                 {
                     _badge = ContentFinder<Texture2D>.Get(CapybaraBadgePath, false);
-                    if (_badge != null) _badge.hideFlags = HideFlags.DontUnloadUnusedAsset;
+                    if (_badge != null)
+                        _badge.hideFlags = HideFlags.DontUnloadUnusedAsset;
                 }
                 return _badge;
             }

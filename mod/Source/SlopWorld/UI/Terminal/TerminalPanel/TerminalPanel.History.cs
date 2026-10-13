@@ -9,9 +9,14 @@ namespace SlopWorld
     {
         // History coordinates are owned by the daemon, but the window keeps overlapping
         // snapshots so fractional scrolling can be served locally.
-        int MaxScrollLines => Math.Max(1, Math.Min(
-            TerminalLimits.ClientMaxScrollbackLines,
-            SessionHub.Instance.Capabilities.Terminal.ScrollbackLines));
+        int MaxScrollLines =>
+            Math.Max(
+                1,
+                Math.Min(
+                    TerminalLimits.ClientMaxScrollbackLines,
+                    SessionHub.Instance.Capabilities.Terminal.ScrollbackLines
+                )
+            );
 
         struct ScrollbackState
         {
@@ -44,6 +49,7 @@ namespace SlopWorld
 
         readonly Dictionary<string, ScrollbackState> _scrollbackStates =
             new Dictionary<string, ScrollbackState>();
+
         // Inactive tabs retain their indexed rows, but not pending requests. A subscription
         // clears the daemon's reply queue, so requests must be planned again when the tab
         // returns. The rows themselves can still satisfy the restored viewport immediately.
@@ -54,6 +60,7 @@ namespace SlopWorld
         bool _historyViewReady;
         bool _historyRefreshPending;
         int _historyTopOff = -1;
+
         // Seed once per compatible history epoch, either by active-pane warmup or a gesture.
         bool _historyWarmed;
 
@@ -77,6 +84,7 @@ namespace SlopWorld
 
         readonly Dictionary<ulong, HistoryRequest> _historyRequests =
             new Dictionary<ulong, HistoryRequest>();
+
         // Stable fallback while the first prefetched window for a new position is in flight.
         ScreenBuf _historyDisplayedFrame;
 
@@ -96,10 +104,12 @@ namespace SlopWorld
         bool IsEditorSession()
         {
             var info = SessionHub.Instance.Get(_state.Name);
-            if (info == null) return false;
-            if (Pager.IsEditorCommand(info.Cmd)) return true;
-            return info.Ephemeral &&
-                (info.Name ?? "").StartsWith("edit-", System.StringComparison.Ordinal);
+            if (info == null)
+                return false;
+            if (Pager.IsEditorCommand(info.Cmd))
+                return true;
+            return info.Ephemeral
+                && (info.Name ?? "").StartsWith("edit-", System.StringComparison.Ordinal);
         }
     }
 }

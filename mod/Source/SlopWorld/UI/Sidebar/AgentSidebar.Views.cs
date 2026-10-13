@@ -23,17 +23,25 @@ namespace SlopWorld
         // then put that agent's pane on show.
         public static void FocusAgent(string name)
         {
-            if (string.IsNullOrEmpty(name) || name == TaskInfo.Host ||
-                SessionHub.Instance.Get(name) == null) return;
+            if (
+                string.IsNullOrEmpty(name)
+                || name == TaskInfo.Host
+                || SessionHub.Instance.Get(name) == null
+            )
+                return;
             ShowWithoutHistory(SidebarTab.Agents);
             RememberAgent(name);
             TerminalWindow.Open(name);
         }
 
         public static void ShowFiles() => Show(SidebarTab.Files);
+
         public static void ShowSearch() => Show(SidebarTab.Search);
+
         public static void ShowGit() => Show(SidebarTab.Git);
+
         public static void ShowLibrary() => Show(SidebarTab.Library);
+
         public static void ShowTasks() => Show(SidebarTab.Tasks);
 
         // The sidebar owns all view-specific routed readers. Keep terminal teardown in the
@@ -67,14 +75,16 @@ namespace SlopWorld
 
         public static bool ViewBack()
         {
-            if (!ViewHistory.Back(out var location)) return false;
+            if (!ViewHistory.Back(out var location))
+                return false;
             Restore(location);
             return true;
         }
 
         public static bool ViewForward()
         {
-            if (!ViewHistory.Forward(out var location)) return false;
+            if (!ViewHistory.Forward(out var location))
+                return false;
             Restore(location);
             return true;
         }
@@ -84,39 +94,51 @@ namespace SlopWorld
         // workers, host shells and one-shot errands have their own view location kinds.
         internal static void RememberAgent(string name)
         {
-            if (_restoringView || string.IsNullOrEmpty(name)) return;
+            if (_restoringView || string.IsNullOrEmpty(name))
+                return;
             var info = SessionHub.Instance.Get(name);
-            if (info == null || info.Host || info.Worker || info.Ephemeral || IsRouted(info)) return;
+            if (info == null || info.Host || info.Worker || info.Ephemeral || IsRouted(info))
+                return;
             ViewHistory.Visit(SidebarViewLocation.Agent(name));
         }
 
         internal static void RememberFile(string project, string path)
         {
-            if (_restoringView || CurrentTab != SidebarTab.Files || string.IsNullOrEmpty(path)) return;
-            ViewHistory.Visit(SidebarViewLocation.File(SidebarScopes.Key(project), SidebarScopes.Relative(project, path)));
+            if (_restoringView || CurrentTab != SidebarTab.Files || string.IsNullOrEmpty(path))
+                return;
+            ViewHistory.Visit(
+                SidebarViewLocation.File(
+                    SidebarScopes.Key(project),
+                    SidebarScopes.Relative(project, path)
+                )
+            );
         }
 
         internal static void RememberSearch(string project, string path, int line)
         {
-            if (_restoringView || string.IsNullOrEmpty(path)) return;
+            if (_restoringView || string.IsNullOrEmpty(path))
+                return;
             ViewHistory.Visit(SidebarViewLocation.Search(project, path, line));
         }
 
         internal static void RememberGit(string project, string path)
         {
-            if (_restoringView || CurrentTab != SidebarTab.Git || string.IsNullOrEmpty(path)) return;
+            if (_restoringView || CurrentTab != SidebarTab.Git || string.IsNullOrEmpty(path))
+                return;
             ViewHistory.Visit(SidebarViewLocation.Git(SidebarScopes.Key(project), path));
         }
 
         internal static void RememberTask(string id)
         {
-            if (_restoringView || string.IsNullOrEmpty(id)) return;
+            if (_restoringView || string.IsNullOrEmpty(id))
+                return;
             ViewHistory.Visit(SidebarViewLocation.Task(id));
         }
 
         internal static void RememberLibrary(string name, bool template = false)
         {
-            if (_restoringView || string.IsNullOrEmpty(name)) return;
+            if (_restoringView || string.IsNullOrEmpty(name))
+                return;
             ViewHistory.Visit(SidebarViewLocation.Library(name, template));
         }
 
@@ -126,7 +148,8 @@ namespace SlopWorld
 
         public static void ToggleDotfiles()
         {
-            if (!CanToggleDotfiles) return;
+            if (!CanToggleDotfiles)
+                return;
             Settings.S.sidebarShowHidden = !Settings.S.sidebarShowHidden;
             Settings.S.Write();
             ReloadAfterVisibilityChange();
@@ -134,7 +157,8 @@ namespace SlopWorld
 
         public static void ToggleGitignored()
         {
-            if (!CanToggleDotfiles) return;
+            if (!CanToggleDotfiles)
+                return;
             Settings.S.sidebarShowGitignored = !Settings.S.sidebarShowGitignored;
             Settings.S.Write();
             ReloadAfterVisibilityChange();
@@ -147,7 +171,8 @@ namespace SlopWorld
 
         public static void SetAllFolds(bool folded)
         {
-            if (!CanFoldCurrent) return;
+            if (!CanFoldCurrent)
+                return;
             CurrentDefinition.SetAllFolds(folded);
         }
 
@@ -158,14 +183,16 @@ namespace SlopWorld
 
         // The visual rect fills the panel while its hit rect stops before Grip so one consumed click cannot resize and open the menu.
 
-
         public static SidebarTab CurrentTab => CurrentDefinition.Tab;
 
         // TaskStore is driven from Root.Update, not OnGUI. Poll only while the task list can
         // actually be seen. Tab entry/reselection still requests an immediate refresh.
-        public static bool TasksVisible => Verse.Current.ProgramState == ProgramState.Playing &&
-            ColonistBarStrip.BarShown && !Settings.SidebarHidden && !Cutscene.Playing &&
-            CurrentTab == SidebarTab.Tasks;
+        public static bool TasksVisible =>
+            Verse.Current.ProgramState == ProgramState.Playing
+            && ColonistBarStrip.BarShown
+            && !Settings.SidebarHidden
+            && !Cutscene.Playing
+            && CurrentTab == SidebarTab.Tasks;
 
         // Which views own a second row. The definition also owns the controls drawn there.
         static bool HasActions => CurrentDefinition.HasActions;
@@ -176,8 +203,8 @@ namespace SlopWorld
 
         public static bool Filtering => Projects.Filtering;
 
-        const AgentStatusFilter EveryStatus = AgentStatusFilter.Active |
-            AgentStatusFilter.Idle | AgentStatusFilter.Down;
+        const AgentStatusFilter EveryStatus =
+            AgentStatusFilter.Active | AgentStatusFilter.Idle | AgentStatusFilter.Down;
 
         static string _statusFilterSource;
         static AgentStatusFilter _statusFilter;
@@ -204,7 +231,8 @@ namespace SlopWorld
 
         static AgentStatusFilter ParseStatusFilter(string value)
         {
-            if (string.IsNullOrEmpty(value)) return AgentStatusFilter.All;
+            if (string.IsNullOrEmpty(value))
+                return AgentStatusFilter.All;
 
             var filter = AgentStatusFilter.All;
             var values = value.Split(new[] { ',', '|' }, StringSplitOptions.RemoveEmptyEntries);
@@ -212,10 +240,17 @@ namespace SlopWorld
             {
                 switch (raw.Trim().ToLowerInvariant())
                 {
-                    case "active": filter |= AgentStatusFilter.Active; break;
-                    case "idle": filter |= AgentStatusFilter.Idle; break;
-                    case "down": filter |= AgentStatusFilter.Down; break;
-                    case "all": return AgentStatusFilter.All;
+                    case "active":
+                        filter |= AgentStatusFilter.Active;
+                        break;
+                    case "idle":
+                        filter |= AgentStatusFilter.Idle;
+                        break;
+                    case "down":
+                        filter |= AgentStatusFilter.Down;
+                        break;
+                    case "all":
+                        return AgentStatusFilter.All;
                 }
             }
 
@@ -225,7 +260,8 @@ namespace SlopWorld
         public static bool PassesStatus(AgentState state)
         {
             var filter = StatusFilter;
-            if (filter == AgentStatusFilter.All) return true;
+            if (filter == AgentStatusFilter.All)
+                return true;
 
             switch (state)
             {
@@ -242,15 +278,18 @@ namespace SlopWorld
 
         public static void SetStatusFilter(AgentStatusFilter filter)
         {
-            if ((filter & EveryStatus) == EveryStatus) filter = AgentStatusFilter.All;
+            if ((filter & EveryStatus) == EveryStatus)
+                filter = AgentStatusFilter.All;
 
             var values = new List<string>();
-            if ((filter & AgentStatusFilter.Active) != 0) values.Add("active");
-            if ((filter & AgentStatusFilter.Idle) != 0) values.Add("idle");
-            if ((filter & AgentStatusFilter.Down) != 0) values.Add("down");
-            Settings.S.sidebarAgentStatus = values.Count == 0
-                ? "all"
-                : string.Join(",", values.ToArray());
+            if ((filter & AgentStatusFilter.Active) != 0)
+                values.Add("active");
+            if ((filter & AgentStatusFilter.Idle) != 0)
+                values.Add("idle");
+            if ((filter & AgentStatusFilter.Down) != 0)
+                values.Add("down");
+            Settings.S.sidebarAgentStatus =
+                values.Count == 0 ? "all" : string.Join(",", values.ToArray());
             Settings.S.Write();
         }
 
@@ -262,10 +301,7 @@ namespace SlopWorld
         // and a count when it is more.
         public static string FilterLabel
         {
-            get
-            {
-                return Projects.FilterLabel;
-            }
+            get { return Projects.FilterLabel; }
         }
 
         // A blank key clears the filter outright: "all projects" is no filter at all rather than
@@ -299,13 +335,16 @@ namespace SlopWorld
         {
             var target = TabRegistry.For(tab);
             SidebarTabActivation.Activate(
-                CurrentDefinition, target, TabRegistry.Definitions,
+                CurrentDefinition,
+                target,
+                TabRegistry.Definitions,
                 UiMenu.CloseAll,
                 () =>
                 {
                     Settings.S.sidebarTab = target.PersistedName;
                     Settings.S.Write();
-                });
+                }
+            );
         }
 
         static bool Restore(SidebarViewLocation location)
@@ -319,20 +358,27 @@ namespace SlopWorld
                     case SidebarViewLocationKind.Tab:
                         return true;
                     case SidebarViewLocationKind.Agent:
-                        if (SessionHub.Instance.Get(location.Primary) == null) return false;
+                        if (SessionHub.Instance.Get(location.Primary) == null)
+                            return false;
                         TerminalWindow.Open(location.Primary);
                         return true;
                     case SidebarViewLocationKind.File:
                         return FilesView.FocusLocation(location.Primary, location.Secondary);
                     case SidebarViewLocationKind.Search:
-                        return SearchView.FocusLocation(location.Primary, location.Secondary,
-                            location.Line);
+                        return SearchView.FocusLocation(
+                            location.Primary,
+                            location.Secondary,
+                            location.Line
+                        );
                     case SidebarViewLocationKind.Git:
                         return GitView.FocusLocation(location.Primary, location.Secondary);
                     case SidebarViewLocationKind.Task:
                         return TasksView.FocusLocation(location.Primary);
                     case SidebarViewLocationKind.Library:
-                        return LibraryView.FocusLocation(location.Primary, location.Secondary == "template");
+                        return LibraryView.FocusLocation(
+                            location.Primary,
+                            location.Secondary == "template"
+                        );
                     default:
                         return false;
                 }
@@ -356,7 +402,8 @@ namespace SlopWorld
         // routed row. A stopped agent likewise has a row for restart actions, not a usable pane.
         internal static bool IsOpenBesideCandidate(SessionInfo info)
         {
-            if (info == null || !info.Alive || !Passes(info.Project)) return false;
+            if (info == null || !info.Alive || !Passes(info.Project))
+                return false;
             return RoutedAction(info) != RowAct.Diff || FileReaders.IsSession(info.Name);
         }
 
@@ -366,20 +413,35 @@ namespace SlopWorld
         {
             FileReaders.Restore();
             Layout.ViewRows.Clear();
-            RoutedCache.Ensure(Layout.Routed, SessionHub.Instance.Sessions,
-                SessionHub.Instance.SessionsVersion, Projects.Revision,
-                SessionHub.Instance.Config.EffectivePager, SessionHub.Instance.Config.Editor,
-                info => IsRouted(info) && Passes(info.Project) &&
-                    ((RoutedAction(info) & RowAct.Diff) == 0 || FileReaders.Tabs.IsSession(info.Name)),
-                FilesView.AddRoutedPreviews, GhostH);
+            RoutedCache.Ensure(
+                Layout.Routed,
+                SessionHub.Instance.Sessions,
+                SessionHub.Instance.SessionsVersion,
+                Projects.Revision,
+                SessionHub.Instance.Config.EffectivePager,
+                SessionHub.Instance.Config.Editor,
+                info =>
+                    IsRouted(info)
+                    && Passes(info.Project)
+                    && (
+                        (RoutedAction(info) & RowAct.Diff) == 0
+                        || FileReaders.Tabs.IsSession(info.Name)
+                    ),
+                FilesView.AddRoutedPreviews,
+                GhostH
+            );
             PerfTrace.Count("sidebar-routed-rows", Layout.Routed.Count);
         }
 
         static float RoutedHeight => Layout.Routed.Count * GhostH;
 
         public static Rect TreeBody(Rect body, float routedHeight) =>
-            new Rect(body.x, body.y + routedHeight, body.width,
-                Mathf.Max(0f, body.height - routedHeight));
+            new Rect(
+                body.x,
+                body.y + routedHeight,
+                body.width,
+                Mathf.Max(0f, body.height - routedHeight)
+            );
 
         public static List<string> Sessions()
         {
@@ -390,8 +452,13 @@ namespace SlopWorld
                 foreach (var row in Layout.Rows)
                 {
                     var info = row.Session == null ? null : SnapshotGet(row.Session);
-                    if (row.Session != null && !row.Ghost && !row.Worker && info != null &&
-                        PassesStatus(info.State))
+                    if (
+                        row.Session != null
+                        && !row.Ghost
+                        && !row.Worker
+                        && info != null
+                        && PassesStatus(info.State)
+                    )
                         order.Add(row.Session);
                 }
                 return order;
@@ -405,8 +472,15 @@ namespace SlopWorld
                 foreach (var entry in bar.Entries)
                 {
                     var info = SnapshotGet(Session(entry.pawn));
-                    if (info != null && !info.Host && !info.Ephemeral && !info.Worker &&
-                        !IsRouted(info) && Passes(info.Project) && PassesStatus(info.State))
+                    if (
+                        info != null
+                        && !info.Host
+                        && !info.Ephemeral
+                        && !info.Worker
+                        && !IsRouted(info)
+                        && Passes(info.Project)
+                        && PassesStatus(info.State)
+                    )
                         agents.Add(info);
                 }
             return SidebarAgentRows.OrderAgents(agents, AgentColony.CompareNames);
@@ -423,6 +497,5 @@ namespace SlopWorld
             }
             return order;
         }
-
     }
 }

@@ -8,8 +8,7 @@ namespace SlopWorld
         public readonly UiLayoutRect Body;
         public readonly UiLayoutRect Footer;
 
-        public TabbedFormGeometry(UiLayoutRect rail, UiLayoutRect body,
-                                  UiLayoutRect footer)
+        public TabbedFormGeometry(UiLayoutRect rail, UiLayoutRect body, UiLayoutRect footer)
         {
             Rail = rail;
             Body = body;
@@ -24,16 +23,20 @@ namespace SlopWorld
         /// <summary>Arrange the padded form with a left rail of railWidth, title lane of
         /// headerHeight, and footer of footerHeight. edgeGap is reserved on both vertical
         /// sides of the body; bodyGap separates the rail from the body.</summary>
-        public static TabbedFormGeometry Arrange(UiLayoutRect form, float railWidth,
-                                                  float headerHeight, float footerHeight,
-                                                  float edgeGap, float bodyGap)
+        public static TabbedFormGeometry Arrange(
+            UiLayoutRect form,
+            float railWidth,
+            float headerHeight,
+            float footerHeight,
+            float edgeGap,
+            float bodyGap
+        )
         {
             float width = form.Width;
             float height = form.Height;
             float footer = Math.Min(height, Math.Max(0f, footerHeight));
             float safeEdgeGap = Math.Max(0f, edgeGap);
-            float top = form.Y + Math.Min(height,
-                Math.Max(0f, headerHeight) + safeEdgeGap);
+            float top = form.Y + Math.Min(height, Math.Max(0f, headerHeight) + safeEdgeGap);
             float footerTop = form.Y + height - footer;
             float bottom = Math.Max(form.Y, footerTop - safeEdgeGap);
             float bodyHeight = Math.Max(0f, bottom - top);
@@ -41,8 +44,12 @@ namespace SlopWorld
             float rail = Math.Min(width, Math.Max(0f, railWidth));
             float gap = Math.Min(Math.Max(0f, bodyGap), Math.Max(0f, width - rail));
             var railRect = new UiLayoutRect(form.X, top, rail, bodyHeight);
-            var bodyRect = new UiLayoutRect(form.X + rail + gap, top,
-                Math.Max(0f, width - rail - gap), bodyHeight);
+            var bodyRect = new UiLayoutRect(
+                form.X + rail + gap,
+                top,
+                Math.Max(0f, width - rail - gap),
+                bodyHeight
+            );
             var footerRect = new UiLayoutRect(form.X, footerTop, width, footer);
             return new TabbedFormGeometry(railRect, bodyRect, footerRect);
         }

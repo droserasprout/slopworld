@@ -14,8 +14,10 @@ namespace SlopWorld
 
         public MainThreadCompletions(int maxCallbacks, long budgetTicks, Func<long> timestamp)
         {
-            if (maxCallbacks <= 0) throw new ArgumentOutOfRangeException(nameof(maxCallbacks));
-            if (budgetTicks < 0) throw new ArgumentOutOfRangeException(nameof(budgetTicks));
+            if (maxCallbacks <= 0)
+                throw new ArgumentOutOfRangeException(nameof(maxCallbacks));
+            if (budgetTicks < 0)
+                throw new ArgumentOutOfRangeException(nameof(budgetTicks));
             _timestamp = timestamp ?? throw new ArgumentNullException(nameof(timestamp));
             _maxCallbacks = maxCallbacks;
             _budgetTicks = budgetTicks;
@@ -25,22 +27,31 @@ namespace SlopWorld
 
         public void Enqueue(Action action)
         {
-            if (action != null) _pending.Enqueue(action);
+            if (action != null)
+                _pending.Enqueue(action);
         }
 
         public int Pump(Action<Exception> reportError)
         {
-            if (reportError == null) throw new ArgumentNullException(nameof(reportError));
+            if (reportError == null)
+                throw new ArgumentNullException(nameof(reportError));
             long started = _timestamp();
             int count = 0;
             while (count < _maxCallbacks && _pending.TryDequeue(out var action))
             {
                 count++;
-                try { action(); }
-                catch (Exception e) { reportError(e); }
+                try
+                {
+                    action();
+                }
+                catch (Exception e)
+                {
+                    reportError(e);
+                }
                 // Always deliver one callback. A running callback cannot be interrupted;
                 // retain the rest in FIFO order once either frame budget is spent.
-                if (_timestamp() - started >= _budgetTicks) break;
+                if (_timestamp() - started >= _budgetTicks)
+                    break;
             }
             return count;
         }

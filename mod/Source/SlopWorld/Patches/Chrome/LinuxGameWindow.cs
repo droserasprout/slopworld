@@ -20,19 +20,32 @@ namespace SlopWorld
         const long SubstructureNotifyMask = 1L << 19;
         const long SubstructureRedirectMask = 1L << 20;
 
-        enum ResizeStage { Retry, Waiting, Ready }
+        enum ResizeStage
+        {
+            Retry,
+            Waiting,
+            Ready,
+        }
 
         static readonly LinuxWindowRecovery Recovery = new LinuxWindowRecovery();
         static bool _warned;
 
         public static void Follow()
         {
-            if (Application.platform != RuntimePlatform.LinuxPlayer || Recovery.Unsupported) return;
+            if (Application.platform != RuntimePlatform.LinuxPlayer || Recovery.Unsupported)
+                return;
 
             bool want = Settings.Fullscreen;
             float now = Time.realtimeSinceStartup;
-            if (!Recovery.TryBeginAttempt(now, want,
-                NextPlanet.Pending || LongEventHandler.AnyEventNowOrWaiting, out bool watch)) return;
+            if (
+                !Recovery.TryBeginAttempt(
+                    now,
+                    want,
+                    NextPlanet.Pending || LongEventHandler.AnyEventNowOrWaiting,
+                    out bool watch
+                )
+            )
+                return;
 
             var result = TrySet(want);
             Recovery.CompleteAttempt(Time.realtimeSinceStartup, want, watch, result);
@@ -44,7 +57,8 @@ namespace SlopWorld
 
         public static void Set(bool fullscreen)
         {
-            if (Settings.S.fullscreen == fullscreen && Recovery.Applied == fullscreen) return;
+            if (Settings.S.fullscreen == fullscreen && Recovery.Applied == fullscreen)
+                return;
 
             Settings.S.fullscreen = fullscreen;
             Settings.S.MarkDirty();
@@ -60,13 +74,17 @@ namespace SlopWorld
         {
             int w = Display.main.systemWidth;
             int h = Display.main.systemHeight;
-            if (w <= 0 || h <= 0) return false;
+            if (w <= 0 || h <= 0)
+                return false;
             Screen.SetResolution(w, h, FullScreenMode.Windowed);
             return true;
         }
 
-        static bool SurfaceSized() => Display.main.systemWidth > 0 && Display.main.systemHeight > 0
-            && Screen.width == Display.main.systemWidth && Screen.height == Display.main.systemHeight;
+        static bool SurfaceSized() =>
+            Display.main.systemWidth > 0
+            && Display.main.systemHeight > 0
+            && Screen.width == Display.main.systemWidth
+            && Screen.height == Display.main.systemHeight;
 
         // Keep retryable discovery and resize waits distinct from completed or unsupported requests.
         static WindowChange TrySet(bool fullscreen)
@@ -84,36 +102,67 @@ namespace SlopWorld
 
                 IntPtr root = XDefaultRootWindow(display);
                 IntPtr window = FindGameWindow(display, root);
-                if (window == IntPtr.Zero) return WindowChange.Retry;
+                if (window == IntPtr.Zero)
+                    return WindowChange.Retry;
 
                 // Scene changes can rewrite decorations and reset Unity's windowed size.
                 // The saved preference is not evidence of the current native window state.
                 SetUndecorated(display, window);
-                if (Recovery.Applied == fullscreen && !fullscreen) return WindowChange.Applied;
+                if (Recovery.Applied == fullscreen && !fullscreen)
+                    return WindowChange.Applied;
 
                 IntPtr state = XInternAtom(display, "_NET_WM_STATE", 0);
                 IntPtr fullscreenAtom = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", 0);
                 IntPtr horizontal = XInternAtom(display, "_NET_WM_STATE_MAXIMIZED_HORZ", 0);
                 IntPtr vertical = XInternAtom(display, "_NET_WM_STATE_MAXIMIZED_VERT", 0);
-                if (state == IntPtr.Zero || fullscreenAtom == IntPtr.Zero
-                    || horizontal == IntPtr.Zero || vertical == IntPtr.Zero)
+                if (
+                    state == IntPtr.Zero
+                    || fullscreenAtom == IntPtr.Zero
+                    || horizontal == IntPtr.Zero
+                    || vertical == IntPtr.Zero
+                )
                 {
                     Warn("the window manager does not expose EWMH window-state atoms");
                     return WindowChange.Unsupported;
                 }
 
                 if (Recovery.Applied == fullscreen)
-                    return RecoverFullscreen(display, root, window, state, fullscreenAtom, horizontal, vertical);
+                    return RecoverFullscreen(
+                        display,
+                        root,
+                        window,
+                        state,
+                        fullscreenAtom,
+                        horizontal,
+                        vertical
+                    );
 
                 if (fullscreen && !Recovery.Applied.HasValue)
                 {
-                    var resize = PrepareFullscreen(display, root, window, state, horizontal, vertical);
-                    if (resize == ResizeStage.Retry) return WindowChange.Retry;
-                    if (resize == ResizeStage.Waiting) return WindowChange.WaitingForResize;
+                    var resize = PrepareFullscreen(
+                        display,
+                        root,
+                        window,
+                        state,
+                        horizontal,
+                        vertical
+                    );
+                    if (resize == ResizeStage.Retry)
+                        return WindowChange.Retry;
+                    if (resize == ResizeStage.Waiting)
+                        return WindowChange.WaitingForResize;
                 }
 
-                return ApplyWindowState(display, root, window, state, fullscreenAtom,
-                    horizontal, vertical, fullscreen);
+                return ApplyWindowState(
+                    display,
+                    root,
+                    window,
+                    state,
+                    fullscreenAtom,
+                    horizontal,
+                    vertical,
+                    fullscreen
+                );
             }
             catch (Exception e)
             {
@@ -122,14 +171,22 @@ namespace SlopWorld
             }
             finally
             {
-                if (display != IntPtr.Zero) _ = XCloseDisplay(display);
+                if (display != IntPtr.Zero)
+                    _ = XCloseDisplay(display);
             }
         }
 
         // Recover only changed fullscreen state/geometry. Keep background loading from
         // stealing focus, and wait for actual WM state and Unity dimensions before settling.
-        static WindowChange RecoverFullscreen(IntPtr display, IntPtr root, IntPtr window,
-            IntPtr state, IntPtr fullscreenAtom, IntPtr horizontal, IntPtr vertical)
+        static WindowChange RecoverFullscreen(
+            IntPtr display,
+            IntPtr root,
+            IntPtr window,
+            IntPtr state,
+            IntPtr fullscreenAtom,
+            IntPtr horizontal,
+            IntPtr vertical
+        )
         {
             bool nativeFullscreen = HasWindowState(display, window, state, fullscreenAtom);
             if (nativeFullscreen && SurfaceSized())
@@ -148,9 +205,19 @@ namespace SlopWorld
                         return WindowChange.Retry;
                     _ = XFlush(display);
                 }
-                var resize = PrepareFullscreen(display, root, window, state, horizontal, vertical, false);
-                if (resize == ResizeStage.Retry) return WindowChange.Retry;
-                if (resize == ResizeStage.Waiting) return WindowChange.WaitingForResize;
+                var resize = PrepareFullscreen(
+                    display,
+                    root,
+                    window,
+                    state,
+                    horizontal,
+                    vertical,
+                    false
+                );
+                if (resize == ResizeStage.Retry)
+                    return WindowChange.Retry;
+                if (resize == ResizeStage.Waiting)
+                    return WindowChange.WaitingForResize;
             }
 
             bool sent = SendState(display, root, window, state, 1, fullscreenAtom, IntPtr.Zero);
@@ -160,42 +227,77 @@ namespace SlopWorld
 
         static bool HasWindowState(IntPtr display, IntPtr window, IntPtr state, IntPtr wanted)
         {
-            if (!GetProperty(display, window, state, IntPtr.Zero, out IntPtr data, out int format, out IntPtr count))
+            if (
+                !GetProperty(
+                    display,
+                    window,
+                    state,
+                    IntPtr.Zero,
+                    out IntPtr data,
+                    out int format,
+                    out IntPtr count
+                )
+            )
                 return false;
             try
             {
-                if (format != 32) return false;
+                if (format != 32)
+                    return false;
                 for (int i = 0; i < count.ToInt32(); i++)
-                    if (Marshal.ReadIntPtr(data, i * IntPtr.Size) == wanted) return true;
+                    if (Marshal.ReadIntPtr(data, i * IntPtr.Size) == wanted)
+                        return true;
                 return false;
             }
-            finally { _ = XFree(data); }
+            finally
+            {
+                _ = XFree(data);
+            }
         }
 
         // First resize Unity and maximize the window, then wait for the surface or its timeout.
         // Retain maximization so leaving fullscreen restores the desktop work area.
-        static ResizeStage PrepareFullscreen(IntPtr display, IntPtr root, IntPtr window,
-            IntPtr state, IntPtr horizontal, IntPtr vertical, bool activate = true)
+        static ResizeStage PrepareFullscreen(
+            IntPtr display,
+            IntPtr root,
+            IntPtr window,
+            IntPtr state,
+            IntPtr horizontal,
+            IntPtr vertical,
+            bool activate = true
+        )
         {
             if (Recovery.HasResize)
-                return Recovery.ResyncLanded(Time.realtimeSinceStartup, SurfaceSized()) ? ResizeStage.Ready : ResizeStage.Waiting;
-            if (!ResyncSurface()) return ResizeStage.Retry;
+                return Recovery.ResyncLanded(Time.realtimeSinceStartup, SurfaceSized())
+                    ? ResizeStage.Ready
+                    : ResizeStage.Waiting;
+            if (!ResyncSurface())
+                return ResizeStage.Retry;
             bool maximized = SendState(display, root, window, state, 1, horizontal, vertical);
-            if (activate) RaiseAndActivate(display, root, window);
+            if (activate)
+                RaiseAndActivate(display, root, window);
             _ = XFlush(display);
-            if (!maximized) return ResizeStage.Retry;
+            if (!maximized)
+                return ResizeStage.Retry;
             Recovery.BeginResize(Time.realtimeSinceStartup);
             return ResizeStage.Waiting;
         }
 
-        static WindowChange ApplyWindowState(IntPtr display, IntPtr root, IntPtr window,
-            IntPtr state, IntPtr fullscreenAtom, IntPtr horizontal, IntPtr vertical, bool fullscreen)
+        static WindowChange ApplyWindowState(
+            IntPtr display,
+            IntPtr root,
+            IntPtr window,
+            IntPtr state,
+            IntPtr fullscreenAtom,
+            IntPtr horizontal,
+            IntPtr vertical,
+            bool fullscreen
+        )
         {
-            bool sent = fullscreen
-                ? SendState(display, root, window, state, 1, fullscreenAtom, IntPtr.Zero)
+            bool sent =
+                fullscreen ? SendState(display, root, window, state, 1, fullscreenAtom, IntPtr.Zero)
                 : Recovery.Applied == true
                     ? SendState(display, root, window, state, 0, fullscreenAtom, IntPtr.Zero)
-                    : SendState(display, root, window, state, 1, horizontal, vertical);
+                : SendState(display, root, window, state, 1, horizontal, vertical);
             RaiseAndActivate(display, root, window);
             _ = XFlush(display);
             return sent ? WindowChange.Applied : WindowChange.Retry;
@@ -205,36 +307,60 @@ namespace SlopWorld
         // The Unity Linux player has no managed window title setter.
         public static bool TrySetTitle(string title)
         {
-            if (Application.platform != RuntimePlatform.LinuxPlayer) return true;
+            if (Application.platform != RuntimePlatform.LinuxPlayer)
+                return true;
 
             IntPtr display = IntPtr.Zero;
             try
             {
                 display = XOpenDisplay(IntPtr.Zero);
-                if (display == IntPtr.Zero) return false;
+                if (display == IntPtr.Zero)
+                    return false;
 
                 IntPtr root = XDefaultRootWindow(display);
                 IntPtr window = FindGameWindow(display, root);
-                if (window == IntPtr.Zero) return false;
+                if (window == IntPtr.Zero)
+                    return false;
 
                 IntPtr netWmName = XInternAtom(display, "_NET_WM_NAME", 0);
                 IntPtr utf8String = XInternAtom(display, "UTF8_STRING", 0);
                 IntPtr wmName = XInternAtom(display, "WM_NAME", 0);
                 IntPtr stringType = XInternAtom(display, "STRING", 0);
-                if (netWmName == IntPtr.Zero || utf8String == IntPtr.Zero
-                    || wmName == IntPtr.Zero || stringType == IntPtr.Zero)
+                if (
+                    netWmName == IntPtr.Zero
+                    || utf8String == IntPtr.Zero
+                    || wmName == IntPtr.Zero
+                    || stringType == IntPtr.Zero
+                )
                     return false;
 
                 byte[] bytes = Encoding.UTF8.GetBytes(title ?? "");
                 GCHandle pinned = GCHandle.Alloc(bytes, GCHandleType.Pinned);
                 try
                 {
-                    IntPtr data = bytes.Length == 0
-                        ? IntPtr.Zero : pinned.AddrOfPinnedObject();
-                    bool modern = XChangeProperty(display, window, netWmName, utf8String,
-                        8, 0, data, bytes.Length) != 0;
-                    bool legacy = XChangeProperty(display, window, wmName, stringType,
-                        8, 0, data, bytes.Length) != 0;
+                    IntPtr data = bytes.Length == 0 ? IntPtr.Zero : pinned.AddrOfPinnedObject();
+                    bool modern =
+                        XChangeProperty(
+                            display,
+                            window,
+                            netWmName,
+                            utf8String,
+                            8,
+                            0,
+                            data,
+                            bytes.Length
+                        ) != 0;
+                    bool legacy =
+                        XChangeProperty(
+                            display,
+                            window,
+                            wmName,
+                            stringType,
+                            8,
+                            0,
+                            data,
+                            bytes.Length
+                        ) != 0;
                     _ = XFlush(display);
                     return modern && legacy;
                 }
@@ -250,12 +376,20 @@ namespace SlopWorld
             }
             finally
             {
-                if (display != IntPtr.Zero) _ = XCloseDisplay(display);
+                if (display != IntPtr.Zero)
+                    _ = XCloseDisplay(display);
             }
         }
 
-        static bool SendState(IntPtr display, IntPtr root, IntPtr window, IntPtr state,
-                              int action, IntPtr first, IntPtr second)
+        static bool SendState(
+            IntPtr display,
+            IntPtr root,
+            IntPtr window,
+            IntPtr state,
+            int action,
+            IntPtr first,
+            IntPtr second
+        )
         {
             var message = new XClientMessageEvent
             {
@@ -271,7 +405,8 @@ namespace SlopWorld
             };
 
             IntPtr mask = new IntPtr(SubstructureNotifyMask | SubstructureRedirectMask);
-            if (XSendEvent(display, root, 0, mask, ref message) != 0) return true;
+            if (XSendEvent(display, root, 0, mask, ref message) != 0)
+                return true;
 
             Warn("the window manager rejected the fullscreen geometry request");
             return false;
@@ -283,7 +418,8 @@ namespace SlopWorld
             _ = XRaiseWindow(display, window);
 
             IntPtr active = XInternAtom(display, "_NET_ACTIVE_WINDOW", 0);
-            if (active == IntPtr.Zero) return;
+            if (active == IntPtr.Zero)
+                return;
 
             var message = new XClientMessageEvent
             {
@@ -311,16 +447,34 @@ namespace SlopWorld
 
             // Leave an intact hint alone: a property write makes the window manager
             // reconsider its frame, so periodic checks should only repair changed hints.
-            if (HasUndecoratedHint(display, window, hints)) return;
+            if (HasUndecoratedHint(display, window, hints))
+                return;
 
             // Set MWM_HINTS_DECORATIONS with decorations=0 to remove the frame and title bar.
             // Xlib's format=32 consumes native C longs, including on 64-bit Linux.
-            IntPtr[] value = { new IntPtr(MotifDecorationsFlag), IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero };
+            IntPtr[] value =
+            {
+                new IntPtr(MotifDecorationsFlag),
+                IntPtr.Zero,
+                IntPtr.Zero,
+                IntPtr.Zero,
+                IntPtr.Zero,
+            };
             GCHandle pinned = GCHandle.Alloc(value, GCHandleType.Pinned);
             try
             {
-                if (XChangeProperty(display, window, hints, hints, 32, 0,
-                        pinned.AddrOfPinnedObject(), value.Length) == 0)
+                if (
+                    XChangeProperty(
+                        display,
+                        window,
+                        hints,
+                        hints,
+                        32,
+                        0,
+                        pinned.AddrOfPinnedObject(),
+                        value.Length
+                    ) == 0
+                )
                     Warn("the window manager rejected the undecorated window hint");
             }
             finally
@@ -331,14 +485,26 @@ namespace SlopWorld
 
         static bool HasUndecoratedHint(IntPtr display, IntPtr window, IntPtr hints)
         {
-            if (!GetProperty(display, window, hints, hints, IntPtr.Zero, new IntPtr(5),
-                    out IntPtr data, out int format, out IntPtr count))
+            if (
+                !GetProperty(
+                    display,
+                    window,
+                    hints,
+                    hints,
+                    IntPtr.Zero,
+                    new IntPtr(5),
+                    out IntPtr data,
+                    out int format,
+                    out IntPtr count
+                )
+            )
                 return false;
 
             try
             {
                 // Format 32 is returned as native C longs: flags, functions, decorations.
-                return format == 32 && count.ToInt64() >= 3
+                return format == 32
+                    && count.ToInt64() >= 3
                     && (Marshal.ReadIntPtr(data).ToInt64() & MotifDecorationsFlag) != 0
                     && Marshal.ReadIntPtr(data, 2 * IntPtr.Size) == IntPtr.Zero;
             }
@@ -364,14 +530,16 @@ namespace SlopWorld
 
             try
             {
-                if (format != 32) return IntPtr.Zero;
+                if (format != 32)
+                    return IntPtr.Zero;
 
                 int pid = Process.GetCurrentProcess().Id;
                 int n = count.ToInt32();
                 for (int i = 0; i < n; i++)
                 {
                     IntPtr window = Marshal.ReadIntPtr(data, i * IntPtr.Size);
-                    if (WindowHasPid(display, window, pidAtom, cardinalAtom, pid)) return window;
+                    if (WindowHasPid(display, window, pidAtom, cardinalAtom, pid))
+                        return window;
                 }
             }
             finally
@@ -382,19 +550,36 @@ namespace SlopWorld
             return IntPtr.Zero;
         }
 
-        static bool WindowHasPid(IntPtr display, IntPtr window, IntPtr pidAtom,
-                                 IntPtr cardinalAtom, int pid)
+        static bool WindowHasPid(
+            IntPtr display,
+            IntPtr window,
+            IntPtr pidAtom,
+            IntPtr cardinalAtom,
+            int pid
+        )
         {
             IntPtr data;
             int format;
             IntPtr count;
-            if (!GetProperty(display, window, pidAtom, cardinalAtom,
-                    IntPtr.Zero, new IntPtr(1), out data, out format, out count))
+            if (
+                !GetProperty(
+                    display,
+                    window,
+                    pidAtom,
+                    cardinalAtom,
+                    IntPtr.Zero,
+                    new IntPtr(1),
+                    out data,
+                    out format,
+                    out count
+                )
+            )
                 return false;
 
             try
             {
-                return format == 32 && count.ToInt64() > 0
+                return format == 32
+                    && count.ToInt64() > 0
                     && Marshal.ReadIntPtr(data).ToInt64() == pid;
             }
             finally
@@ -403,37 +588,78 @@ namespace SlopWorld
             }
         }
 
-        static bool GetProperty(IntPtr display, IntPtr window, IntPtr property,
-                                IntPtr requestType, IntPtr offset, IntPtr length,
-                                out IntPtr data, out int format, out IntPtr count)
+        static bool GetProperty(
+            IntPtr display,
+            IntPtr window,
+            IntPtr property,
+            IntPtr requestType,
+            IntPtr offset,
+            IntPtr length,
+            out IntPtr data,
+            out int format,
+            out IntPtr count
+        )
         {
             IntPtr actualType;
             IntPtr bytesAfter;
             data = IntPtr.Zero;
             format = 0;
             count = IntPtr.Zero;
-            bool found = XGetWindowProperty(display, window, property, offset, length, 0,
-                requestType, out actualType, out format, out count, out bytesAfter, out data) == 0
-                && data != IntPtr.Zero && count.ToInt64() > 0;
-            if (found) return true;
+            bool found =
+                XGetWindowProperty(
+                    display,
+                    window,
+                    property,
+                    offset,
+                    length,
+                    0,
+                    requestType,
+                    out actualType,
+                    out format,
+                    out count,
+                    out bytesAfter,
+                    out data
+                ) == 0
+                && data != IntPtr.Zero
+                && count.ToInt64() > 0;
+            if (found)
+                return true;
 
             // Xlib can allocate a buffer even for an empty property. Only successful
             // reads transfer ownership to the caller.
-            if (data != IntPtr.Zero) _ = XFree(data);
+            if (data != IntPtr.Zero)
+                _ = XFree(data);
             data = IntPtr.Zero;
             return false;
         }
 
-        static bool GetProperty(IntPtr display, IntPtr window, IntPtr property,
-                                IntPtr offset, out IntPtr data, out int format, out IntPtr count)
+        static bool GetProperty(
+            IntPtr display,
+            IntPtr window,
+            IntPtr property,
+            IntPtr offset,
+            out IntPtr data,
+            out int format,
+            out IntPtr count
+        )
         {
-            return GetProperty(display, window, property, IntPtr.Zero, offset,
-                new IntPtr(4096), out data, out format, out count);
+            return GetProperty(
+                display,
+                window,
+                property,
+                IntPtr.Zero,
+                offset,
+                new IntPtr(4096),
+                out data,
+                out format,
+                out count
+            );
         }
 
         static void Warn(string message)
         {
-            if (_warned) return;
+            if (_warned)
+                return;
             _warned = true;
             Log.Warning("[SlopWorld] " + message);
         }
@@ -470,27 +696,52 @@ namespace SlopWorld
         static IntPtr XInternAtom(IntPtr display, string atomName, int onlyIfExists) =>
             XInternAtomUtf8(display, Encoding.UTF8.GetBytes(atomName + "\0"), onlyIfExists);
 
-        [DllImport("libX11.so.6", EntryPoint = "XInternAtom", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(
+            "libX11.so.6",
+            EntryPoint = "XInternAtom",
+            CallingConvention = CallingConvention.Cdecl
+        )]
         static extern IntPtr XInternAtomUtf8(IntPtr display, byte[] atomName, int onlyIfExists);
 
         [DllImport("libX11.so.6", CallingConvention = CallingConvention.Cdecl)]
         static extern int XGetWindowProperty(
-            IntPtr display, IntPtr window, IntPtr property, IntPtr longOffset,
-            IntPtr longLength, int deleteProperty, IntPtr requestedType,
-            out IntPtr actualType, out int actualFormat, out IntPtr itemCount,
-            out IntPtr bytesAfter, out IntPtr propertyData);
+            IntPtr display,
+            IntPtr window,
+            IntPtr property,
+            IntPtr longOffset,
+            IntPtr longLength,
+            int deleteProperty,
+            IntPtr requestedType,
+            out IntPtr actualType,
+            out int actualFormat,
+            out IntPtr itemCount,
+            out IntPtr bytesAfter,
+            out IntPtr propertyData
+        );
 
         [DllImport("libX11.so.6", CallingConvention = CallingConvention.Cdecl)]
         static extern int XChangeProperty(
-            IntPtr display, IntPtr window, IntPtr property, IntPtr type,
-            int format, int mode, IntPtr data, int elementCount);
+            IntPtr display,
+            IntPtr window,
+            IntPtr property,
+            IntPtr type,
+            int format,
+            int mode,
+            IntPtr data,
+            int elementCount
+        );
 
         [DllImport("libX11.so.6", CallingConvention = CallingConvention.Cdecl)]
         static extern int XFree(IntPtr data);
 
         [DllImport("libX11.so.6", CallingConvention = CallingConvention.Cdecl)]
-        static extern int XSendEvent(IntPtr display, IntPtr window, int propagate,
-            IntPtr eventMask, ref XClientMessageEvent eventSend);
+        static extern int XSendEvent(
+            IntPtr display,
+            IntPtr window,
+            int propagate,
+            IntPtr eventMask,
+            ref XClientMessageEvent eventSend
+        );
 
         [DllImport("libX11.so.6", CallingConvention = CallingConvention.Cdecl)]
         static extern int XFlush(IntPtr display);

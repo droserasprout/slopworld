@@ -8,7 +8,8 @@ namespace SlopWorld
 
         public static DaemonHealth FromWire(Wire.Health j)
         {
-            if (j == null) return new DaemonHealth();
+            if (j == null)
+                return new DaemonHealth();
             return new DaemonHealth
             {
                 Known = j.Ok,

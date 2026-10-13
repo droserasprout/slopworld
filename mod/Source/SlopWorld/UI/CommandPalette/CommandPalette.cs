@@ -26,6 +26,7 @@ namespace SlopWorld
         bool _focusInput = true;
 
         List<Hit> _matches = new List<Hit>();
+
         // How many of _matches are recently used (front of the list, no filter).
         int _recentInList;
 
@@ -35,6 +36,7 @@ namespace SlopWorld
         string _subFilter = "";
         bool _subHasFilter;
         List<SubOption> _subOptions = new List<SubOption>();
+
         // _subOptions after the filter, rebuilt when it moves rather than per frame.
         List<SubHit> _subShown = new List<SubHit>();
         int _subIndex;
@@ -43,13 +45,19 @@ namespace SlopWorld
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly FieldLifetime _fieldLifetime = new FieldLifetime();
         int _selectedIndex;
+
         // Visible height of the list area, used by ScrollToSelection.
         float _listH;
 
         static readonly PaletteHistory History = new PaletteHistory();
         static bool _recentLoaded;
 
-        enum Mode { Commands, Sub }
+        enum Mode
+        {
+            Commands,
+            Sub,
+        }
+
         Mode _mode = Mode.Commands;
 
         public CommandPalette()
@@ -76,8 +84,7 @@ namespace SlopWorld
 
         protected override float Margin => 0f;
 
-        public override Vector2 InitialSize =>
-            new Vector2(Width, Mathf.Min(ContentHeight(), MaxH));
+        public override Vector2 InitialSize => new Vector2(Width, Mathf.Min(ContentHeight(), MaxH));
 
         protected override void SetInitialSizeAndPosition()
         {
@@ -85,13 +92,19 @@ namespace SlopWorld
             windowRect = new Rect(
                 (UI.screenWidth - size.x) / 2f,
                 Mathf.Max(60f, UI.screenHeight * 0.08f),
-                size.x, size.y);
+                size.x,
+                size.y
+            );
         }
 
         public static void Toggle()
         {
             var open = Find.WindowStack.WindowOfType<CommandPalette>();
-            if (open != null) { open.Close(); return; }
+            if (open != null)
+            {
+                open.Close();
+                return;
+            }
 
             SessionHub.Instance.SessionStore.Refresh();
             SessionHub.Instance.TaskStore.Refresh();
@@ -113,8 +126,14 @@ namespace SlopWorld
             public readonly Func<List<SubOption>> SubAction;
             public readonly Action<string> Action;
 
-            public CommandDef(string id, string label, string group, Action<string> action,
-                Func<bool> enabled = null, Func<List<SubOption>> subAction = null)
+            public CommandDef(
+                string id,
+                string label,
+                string group,
+                Action<string> action,
+                Func<bool> enabled = null,
+                Func<List<SubOption>> subAction = null
+            )
             {
                 Id = id;
                 Label = label;
@@ -126,35 +145,95 @@ namespace SlopWorld
 
             public bool IsEnabled => Enabled();
 
-            public static CommandDef ForAgent(string id, string label,
-                Func<List<SubOption>> filter, Action<SessionInfo> action, Func<bool> enabled = null,
-                string group = "Agent") =>
-                For(id, label, group, filter, v => SessionHub.Instance.Get(v), action, enabled);
+            public static CommandDef ForAgent(
+                string id,
+                string label,
+                Func<List<SubOption>> filter,
+                Action<SessionInfo> action,
+                Func<bool> enabled = null,
+                string group = "Agent"
+            ) => For(id, label, group, filter, v => SessionHub.Instance.Get(v), action, enabled);
 
-            public static CommandDef ForProject(string id, string label,
-                Func<List<SubOption>> filter, Action<ProjectInfo> action, Func<bool> enabled = null) =>
-                For(id, label, "Project", filter, v => SessionHub.Instance.Project(v), action, enabled);
+            public static CommandDef ForProject(
+                string id,
+                string label,
+                Func<List<SubOption>> filter,
+                Action<ProjectInfo> action,
+                Func<bool> enabled = null
+            ) =>
+                For(
+                    id,
+                    label,
+                    "Project",
+                    filter,
+                    v => SessionHub.Instance.Project(v),
+                    action,
+                    enabled
+                );
 
-            public static CommandDef ForLibraryItem(string id, string label,
-                Func<List<SubOption>> filter, Action<LibraryItemInfo> action, Func<bool> enabled = null) =>
-                For(id, label, "Library", filter, v => SessionHub.Instance.LibraryItem(v), action, enabled);
+            public static CommandDef ForLibraryItem(
+                string id,
+                string label,
+                Func<List<SubOption>> filter,
+                Action<LibraryItemInfo> action,
+                Func<bool> enabled = null
+            ) =>
+                For(
+                    id,
+                    label,
+                    "Library",
+                    filter,
+                    v => SessionHub.Instance.LibraryItem(v),
+                    action,
+                    enabled
+                );
 
-            public static CommandDef ForTask(string id, string label,
-                Func<List<SubOption>> filter, Action<TaskInfo> action, Func<bool> enabled = null) =>
-                For(id, label, "Task", filter, v => SessionHub.Instance.Tasks
-                    .FirstOrDefault(task => task != null && task.Id == v), action, enabled);
+            public static CommandDef ForTask(
+                string id,
+                string label,
+                Func<List<SubOption>> filter,
+                Action<TaskInfo> action,
+                Func<bool> enabled = null
+            ) =>
+                For(
+                    id,
+                    label,
+                    "Task",
+                    filter,
+                    v =>
+                        SessionHub.Instance.Tasks.FirstOrDefault(task =>
+                            task != null && task.Id == v
+                        ),
+                    action,
+                    enabled
+                );
 
-            static CommandDef For<T>(string id, string label, string group,
-                Func<List<SubOption>> filter, Func<string, T> resolve, Action<T> action,
-                Func<bool> enabled)
+            static CommandDef For<T>(
+                string id,
+                string label,
+                string group,
+                Func<List<SubOption>> filter,
+                Func<string, T> resolve,
+                Action<T> action,
+                Func<bool> enabled
+            )
                 where T : class
             {
-                return new CommandDef(id, label, group, value =>
-                {
-                    if (value == null) return;
-                    var item = resolve(value);
-                    if (item != null) action(item);
-                }, enabled, filter);
+                return new CommandDef(
+                    id,
+                    label,
+                    group,
+                    value =>
+                    {
+                        if (value == null)
+                            return;
+                        var item = resolve(value);
+                        if (item != null)
+                            action(item);
+                    },
+                    enabled,
+                    filter
+                );
             }
         }
 
@@ -165,6 +244,7 @@ namespace SlopWorld
             public bool Enabled = true;
             public Func<List<SubOption>> Children;
             public Action Select;
+
             // A checkbox row when it is set, and the state the box is in. Null for the sub
             // lists that pick one thing and are done, which is most of them.
             public bool? Checked;
@@ -192,7 +272,5 @@ namespace SlopWorld
             public SubOption O;
             public string Label;
         }
-
-
     }
 }

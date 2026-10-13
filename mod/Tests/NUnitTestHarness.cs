@@ -24,8 +24,13 @@ namespace SlopWorld.Tests
         {
             foreach (var type in TestTypes())
             {
-                var cases = type.GetMethod("Cases", BindingFlags.Public | BindingFlags.Static,
-                                           null, Type.EmptyTypes, null);
+                var cases = type.GetMethod(
+                    "Cases",
+                    BindingFlags.Public | BindingFlags.Static,
+                    null,
+                    Type.EmptyTypes,
+                    null
+                );
                 if (cases != null)
                 {
                     foreach (var item in (IEnumerable)cases.Invoke(null, null))
@@ -37,26 +42,38 @@ namespace SlopWorld.Tests
                     }
                 }
 
-                foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Static |
-                                                        BindingFlags.DeclaredOnly)
-                    .Where(method => method.Name != "Cases" &&
-                                     method.ReturnType == typeof(void) &&
-                                     method.GetParameters().Length == 0)
-                    .OrderBy(method => method.MetadataToken))
+                foreach (
+                    var method in type.GetMethods(
+                            BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly
+                        )
+                        .Where(method =>
+                            method.Name != "Cases"
+                            && method.ReturnType == typeof(void)
+                            && method.GetParameters().Length == 0
+                        )
+                        .OrderBy(method => method.MetadataToken)
+                )
                 {
-                    yield return new TestCaseData((Action)method.CreateDelegate(typeof(Action)))
-                        .SetName(NamedLabel(type, method));
+                    yield return new TestCaseData(
+                        (Action)method.CreateDelegate(typeof(Action))
+                    ).SetName(NamedLabel(type, method));
                 }
             }
         }
 
         static IEnumerable<Type> TestTypes() =>
-            typeof(NUnitTestHarness).Assembly.GetTypes()
-                .Where(type => type.Namespace == typeof(NUnitTestHarness).Namespace &&
-                               type.Name.EndsWith("Tests", StringComparison.Ordinal))
+            typeof(NUnitTestHarness)
+                .Assembly.GetTypes()
+                .Where(type =>
+                    type.Namespace == typeof(NUnitTestHarness).Namespace
+                    && type.Name.EndsWith("Tests", StringComparison.Ordinal)
+                )
                 .OrderBy(type => type.FullName, StringComparer.Ordinal);
 
-        static readonly IReadOnlyDictionary<string, string> MethodLabels = new Dictionary<string, string>
+        static readonly IReadOnlyDictionary<string, string> MethodLabels = new Dictionary<
+            string,
+            string
+        >
         {
             ["FramePolicyTests.Transitions"] = "FramePolicy: focus and settings transitions",
             ["IdleWorkTests.Messages"] = "Idle work: message ordering and bounded batches",
@@ -86,14 +103,18 @@ namespace SlopWorld.Tests
             var name = type.Name.Substring(0, type.Name.Length - "Tests".Length);
             switch (name)
             {
-                case "Json": return "JVal";
-                case "Toml": return "TOML";
-                default: return name;
+                case "Json":
+                    return "JVal";
+                case "Toml":
+                    return "TOML";
+                default:
+                    return name;
             }
         }
 
         static string NamedLabel(Type type, MethodInfo method) =>
             MethodLabels.TryGetValue(type.Name + "." + method.Name, out var label)
-                ? label : Label(type) + ": " + method.Name;
+                ? label
+                : Label(type) + ": " + method.Name;
     }
 }

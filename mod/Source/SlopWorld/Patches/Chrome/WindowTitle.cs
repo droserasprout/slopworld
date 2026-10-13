@@ -15,14 +15,17 @@ namespace SlopWorld
         // The endpoint path does not determine the connected runtime.
         public static void Follow()
         {
-            if (Application.platform != RuntimePlatform.LinuxPlayer) return;
+            if (Application.platform != RuntimePlatform.LinuxPlayer)
+                return;
 
-            string title = SessionHub.Instance.Capabilities.Runtime == "slopcar"
-                ? SidecarTitle : NativeTitle;
-            if (_applied == title) return;
+            string title =
+                SessionHub.Instance.Capabilities.Runtime == "slopcar" ? SidecarTitle : NativeTitle;
+            if (_applied == title)
+                return;
 
             float now = Time.realtimeSinceStartup;
-            if (now < _nextTry) return;
+            if (now < _nextTry)
+                return;
             if (LinuxGameWindow.TrySetTitle(title))
             {
                 _applied = title;

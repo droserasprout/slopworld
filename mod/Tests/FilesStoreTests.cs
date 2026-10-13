@@ -11,7 +11,9 @@ namespace SlopWorld.Tests
         {
             readonly SessionHub _hub = SessionHub.Instance;
             readonly float _time = Time.realtimeSinceStartup;
-            readonly List<DaemonClient.Request> _requests = new List<DaemonClient.Request>(DaemonClient.Requests);
+            readonly List<DaemonClient.Request> _requests = new List<DaemonClient.Request>(
+                DaemonClient.Requests
+            );
             public readonly FilesStore Store = new FilesStore();
             public readonly List<FileNode> Revealed = new List<FileNode>();
 
@@ -33,7 +35,7 @@ namespace SlopWorld.Tests
                     Project = name,
                     Worktree = "main",
                     Path = "/" + name,
-                    Phase = "ready"
+                    Phase = "ready",
                 };
                 SidebarScopes.TestScopes.Add(scope);
                 return Store.Root(scope.Key);
@@ -50,25 +52,32 @@ namespace SlopWorld.Tests
             }
         }
 
-        static Wire.BrowseResult Listing(string[] dirs = null, string[] files = null, bool capped = false)
+        static Wire.BrowseResult Listing(
+            string[] dirs = null,
+            string[] files = null,
+            bool capped = false
+        )
         {
             var reply = new Wire.BrowseResult { Truncated = capped };
-            if (dirs != null) reply.Dirs.Add(dirs);
-            if (files != null) reply.Files.Add(files);
+            if (dirs != null)
+                reply.Dirs.Add(dirs);
+            if (files != null)
+                reply.Files.Add(files);
             return reply;
         }
 
-        static FileNode Child(FileNode parent, string name, bool directory = false) => new FileNode
-        {
-            Name = name,
-            Path = parent.Path + "/" + name,
-            Root = parent.Root,
-            Project = parent.Project,
-            Depth = parent.Depth + 1,
-            IsDir = directory,
-            Expanded = directory,
-            HasChildren = directory,
-        };
+        static FileNode Child(FileNode parent, string name, bool directory = false) =>
+            new FileNode
+            {
+                Name = name,
+                Path = parent.Path + "/" + name,
+                Root = parent.Root,
+                Project = parent.Project,
+                Depth = parent.Depth + 1,
+                IsDir = directory,
+                Expanded = directory,
+                HasChildren = directory,
+            };
 
         public static void ReloadRejectsLateRepliesAndPreservesExpandedNodes()
         {
@@ -86,10 +95,16 @@ namespace SlopWorld.Tests
                 var fresh = DaemonClient.Requests[1];
                 old.Reply(Listing(files: new[] { "stale.cs" }));
                 AssertEx.True(root.Loading, "stale completion cannot end the replacement listing");
-                AssertEx.True(ReferenceEquals(child, root.Children.Single()), "reload retains the directory skeleton");
+                AssertEx.True(
+                    ReferenceEquals(child, root.Children.Single()),
+                    "reload retains the directory skeleton"
+                );
                 fresh.Reply(Listing(dirs: new[] { "src" }, files: new[] { "new.cs" }));
                 AssertEx.False(root.Loading, "replacement completes normally");
-                AssertEx.True(ReferenceEquals(child, root.Children[0]), "same directory retains identity");
+                AssertEx.True(
+                    ReferenceEquals(child, root.Children[0]),
+                    "same directory retains identity"
+                );
                 AssertEx.True(child.Expanded, "expanded branch survives refresh");
                 AssertEx.Equal("new.cs", root.Children[1].Name, "only the fresh listing lands");
             }
@@ -106,14 +121,24 @@ namespace SlopWorld.Tests
                 f.Store.RefreshLoaded(root, false);
                 var old = DaemonClient.Requests.Single();
                 SidebarScopes.TestScopes.Single().Path = "/renamed";
-                AssertEx.True(ReferenceEquals(root, f.Store.Root(root.Project)), "checkout relocation retains root identity");
-                AssertEx.Equal("/renamed/src/file.cs", child.Children.Single().Path, "descendant paths follow relocation");
+                AssertEx.True(
+                    ReferenceEquals(root, f.Store.Root(root.Project)),
+                    "checkout relocation retains root identity"
+                );
+                AssertEx.Equal(
+                    "/renamed/src/file.cs",
+                    child.Children.Single().Path,
+                    "descendant paths follow relocation"
+                );
                 f.Store.RefreshLoaded(root, false);
                 old.Fail("old path no longer exists");
                 AssertEx.True(root.Loading, "old failure cannot end a new listing");
                 AssertEx.Equal(null, root.Error, "old failure cannot mark the moved root failed");
                 DaemonClient.Requests[1].Reply(Listing(dirs: new[] { "src" }));
-                AssertEx.True(ReferenceEquals(child, root.Children.Single()), "relocated branch remains reusable");
+                AssertEx.True(
+                    ReferenceEquals(child, root.Children.Single()),
+                    "relocated branch remains reusable"
+                );
             }
         }
 
@@ -133,11 +158,24 @@ namespace SlopWorld.Tests
                 AssertEx.True(roots[4].Loading, "foreground waiter retains its queued listing");
                 AssertEx.False(roots[5].Loading, "unused background listing is cancelled");
                 DaemonClient.Requests[0].Reply(Listing());
-                AssertEx.Equal(5, DaemonClient.Requests.Count, "completion admits the retained foreground listing");
+                AssertEx.Equal(
+                    5,
+                    DaemonClient.Requests.Count,
+                    "completion admits the retained foreground listing"
+                );
                 DaemonClient.Requests[4].Reply(Listing(files: new[] { "target.cs" }));
-                AssertEx.Equal("/p4/target.cs", f.Revealed.Single().Path, "joined reveal completes after cancellation");
-                foreach (var request in DaemonClient.Requests.Skip(1).Take(3).ToList()) request.Reply(Listing());
-                AssertEx.Equal(5, DaemonClient.Requests.Count, "cancelled work never consumes admission");
+                AssertEx.Equal(
+                    "/p4/target.cs",
+                    f.Revealed.Single().Path,
+                    "joined reveal completes after cancellation"
+                );
+                foreach (var request in DaemonClient.Requests.Skip(1).Take(3).ToList())
+                    request.Reply(Listing());
+                AssertEx.Equal(
+                    5,
+                    DaemonClient.Requests.Count,
+                    "cancelled work never consumes admission"
+                );
             }
         }
 
@@ -151,7 +189,11 @@ namespace SlopWorld.Tests
                 AssertEx.False(root.Loading, "failure releases loading state");
                 AssertEx.Equal("offline", root.Error, "failure is retained for display");
                 f.Store.EnsureLoaded(root);
-                AssertEx.Equal(1, DaemonClient.Requests.Count, "draw does not repeatedly retry failures");
+                AssertEx.Equal(
+                    1,
+                    DaemonClient.Requests.Count,
+                    "draw does not repeatedly retry failures"
+                );
                 f.Store.ToggleNode(root);
                 f.Store.ToggleNode(root);
                 f.Store.EnsureLoaded(root);
@@ -176,10 +218,19 @@ namespace SlopWorld.Tests
                 reply.GitignoredFiles.Add("changed");
                 f.Store.RefreshLoaded(root, false);
                 DaemonClient.Requests.Single().Reply(reply);
-                AssertEx.True(ReferenceEquals(emptied, root.Children[0]), "empty directory retains identity");
+                AssertEx.True(
+                    ReferenceEquals(emptied, root.Children[0]),
+                    "empty directory retains identity"
+                );
                 AssertEx.Equal(0, emptied.Children.Count, "old rows disappear immediately");
-                AssertEx.False(emptied.More || emptied.HasChildren, "empty directory loses disclosure state");
-                AssertEx.False(ReferenceEquals(replaced, root.Children[1]), "type change creates a new node");
+                AssertEx.False(
+                    emptied.More || emptied.HasChildren,
+                    "empty directory loses disclosure state"
+                );
+                AssertEx.False(
+                    ReferenceEquals(replaced, root.Children[1]),
+                    "type change creates a new node"
+                );
                 AssertEx.True(root.Children[1].Gitignored, "new file retains listing metadata");
             }
         }
@@ -192,12 +243,24 @@ namespace SlopWorld.Tests
                 root.Children = new List<FileNode>();
                 root.More = true;
                 f.Store.RevealPath(root.Project, new List<string> { "src", "file.cs" });
-                AssertEx.True(DaemonClient.Requests.Single().Path.StartsWith(WireProtocol.Routes.FileStat,
-                    StringComparison.Ordinal), "capped listing cannot establish absence");
+                AssertEx.True(
+                    DaemonClient
+                        .Requests.Single()
+                        .Path.StartsWith(WireProtocol.Routes.FileStat, StringComparison.Ordinal),
+                    "capped listing cannot establish absence"
+                );
                 DaemonClient.Requests[0].Reply(new Wire.FileStatResult { IsFile = false });
                 DaemonClient.Requests[1].Reply(Listing(files: new[] { "file.cs" }));
-                AssertEx.Equal("/p/src/file.cs", f.Revealed.Single().Path, "directory probe reveals its target");
-                AssertEx.Equal(2, DaemonClient.Requests.Count, "no unrelated sibling listings are needed");
+                AssertEx.Equal(
+                    "/p/src/file.cs",
+                    f.Revealed.Single().Path,
+                    "directory probe reveals its target"
+                );
+                AssertEx.Equal(
+                    2,
+                    DaemonClient.Requests.Count,
+                    "no unrelated sibling listings are needed"
+                );
             }
         }
 
@@ -233,7 +296,11 @@ namespace SlopWorld.Tests
                 f.Store.ScopesChanged();
                 old.Reply(Listing(files: new[] { "late.cs" }));
                 AssertEx.Equal(null, root.Children, "removed root cannot accept delayed data");
-                AssertEx.Equal(0, f.Store.Controller.Groups().Count, "removed scope cannot reappear in groups");
+                AssertEx.Equal(
+                    0,
+                    f.Store.Controller.Groups().Count,
+                    "removed scope cannot reappear in groups"
+                );
             }
         }
 
@@ -241,10 +308,15 @@ namespace SlopWorld.Tests
         {
             using (var f = new Fixture())
             {
-                foreach (var i in Enumerable.Range(0, 4)) f.Store.EnsureLoaded(f.Root("p" + i));
+                foreach (var i in Enumerable.Range(0, 4))
+                    f.Store.EnsureLoaded(f.Root("p" + i));
                 var other = new FilesStore();
                 other.EnsureLoaded(other.Root(SidebarScopes.TestScopes[0].Key));
-                AssertEx.Equal(5, DaemonClient.Requests.Count, "a new owner has its own request lifetime");
+                AssertEx.Equal(
+                    5,
+                    DaemonClient.Requests.Count,
+                    "a new owner has its own request lifetime"
+                );
             }
         }
     }

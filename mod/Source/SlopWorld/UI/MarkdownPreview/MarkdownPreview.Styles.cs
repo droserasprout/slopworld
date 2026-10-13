@@ -88,23 +88,31 @@ namespace SlopWorld
                 richText = false,
                 wordWrap = false,
             };
-            if (delta != 0) style.fontSize = Mathf.Max(1, Size(style) + delta);
+            if (delta != 0)
+                style.fontSize = Mathf.Max(1, Size(style) + delta);
             return style;
         }
 
         public GUIStyle For(InlineRun run, int heading)
         {
             bool isHeading = heading >= 1 && heading <= _headings.Length;
-            if (run.Code) return isHeading ? _headingCode[heading - 1] : Code;
-            if (isHeading) return _headings[heading - 1];
-            if (run.Bold && run.Italic) return BoldItalic;
-            if (run.Bold) return Bold;
-            if (run.Italic) return Italic;
+            if (run.Code)
+                return isHeading ? _headingCode[heading - 1] : Code;
+            if (isHeading)
+                return _headings[heading - 1];
+            if (run.Bold && run.Italic)
+                return BoldItalic;
+            if (run.Bold)
+                return Bold;
+            if (run.Italic)
+                return Italic;
             return Normal;
         }
 
-        static int Size(GUIStyle style) => style.fontSize > 0
-            ? style.fontSize : style.font != null ? Mathf.Max(1, style.font.fontSize) : 1;
+        static int Size(GUIStyle style) =>
+            style.fontSize > 0 ? style.fontSize
+            : style.font != null ? Mathf.Max(1, style.font.fontSize)
+            : 1;
 
         public static float Baseline(GUIStyle style)
         {

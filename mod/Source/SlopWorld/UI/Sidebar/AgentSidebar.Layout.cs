@@ -24,13 +24,12 @@ namespace SlopWorld
             new Rect(AddBar.x, AddBar.y, Mathf.Max(0f, Width - GripW), AddBar.height);
 
         public static Rect Body =>
-            new Rect(Panel.x, TabH, Width,
-                Mathf.Max(0f, UI.screenHeight - TabH - AddH));
-
+            new Rect(Panel.x, TabH, Width, Mathf.Max(0f, UI.screenHeight - TabH - AddH));
 
         public static bool FaceBox(Pawn pawn, out Rect box)
         {
-            if (pawn != null && Layout.Faces.TryGetValue(pawn, out box)) return true;
+            if (pawn != null && Layout.Faces.TryGetValue(pawn, out box))
+                return true;
 
             box = Rect.zero;
             return false;
@@ -45,8 +44,7 @@ namespace SlopWorld
             public float RowH;
         }
 
-        public static float Place(
-            List<ColonistBar.Entry> entries, List<Vector2> locs, int count)
+        public static float Place(List<ColonistBar.Entry> entries, List<Vector2> locs, int count)
         {
             BeginSessionSnapshot();
             Interaction.BeginFrame();
@@ -55,16 +53,32 @@ namespace SlopWorld
             {
                 Layout.BeginFrame();
                 // Skipping entries would leave invisible vanilla hit targets over the tree.
-                for (int i = 0; i < count && i < locs.Count; i++) locs[i] = Parked;
+                for (int i = 0; i < count && i < locs.Count; i++)
+                    locs[i] = Parked;
                 return Nominal;
             }
 
             var hub = SessionHub.Instance;
             var status = StatusFilter;
             int workspaceRevision = WorkspaceLayout.Revision;
-            if (Layout.Matches(entries, count, CurrentTab, hub.SessionsVersion,
-                               hub.ProjectsRevision, Projects.Revision, status, Width,
-                               UI.screenHeight, Body.height, TextH, workspaceRevision, hub.Config.EffectivePager, hub.Config.Editor))
+            if (
+                Layout.Matches(
+                    entries,
+                    count,
+                    CurrentTab,
+                    hub.SessionsVersion,
+                    hub.ProjectsRevision,
+                    Projects.Revision,
+                    status,
+                    Width,
+                    UI.screenHeight,
+                    Body.height,
+                    TextH,
+                    workspaceRevision,
+                    hub.Config.EffectivePager,
+                    hub.Config.Editor
+                )
+            )
             {
                 PerfTrace.Count("sidebar-layout-hits");
                 Layout.RestoreLocations(locs, count);
@@ -82,9 +96,23 @@ namespace SlopWorld
             float y = LayoutAgents(entries, locs, measure);
             Layout.AgentContentH = Mathf.Max(Body.height, y + Pad);
             Layout.LastScale = measure.Scale;
-            Layout.RememberInputs(entries, count, CurrentTab, hub.SessionsVersion,
-                hub.ProjectsRevision, Projects.Revision, status, Width, UI.screenHeight,
-                Body.height, TextH, locs, workspaceRevision, hub.Config.EffectivePager, hub.Config.Editor);
+            Layout.RememberInputs(
+                entries,
+                count,
+                CurrentTab,
+                hub.SessionsVersion,
+                hub.ProjectsRevision,
+                Projects.Revision,
+                status,
+                Width,
+                UI.screenHeight,
+                Body.height,
+                TextH,
+                locs,
+                workspaceRevision,
+                hub.Config.EffectivePager,
+                hub.Config.Editor
+            );
 
             return measure.Scale;
         }
@@ -114,12 +142,17 @@ namespace SlopWorld
         }
 
         static float LayoutAgents(
-            List<ColonistBar.Entry> entries, List<Vector2> locs, PlacementMeasure measure)
+            List<ColonistBar.Entry> entries,
+            List<Vector2> locs,
+            PlacementMeasure measure
+        )
         {
             float width = Width;
             float y = Pad;
-            foreach (var w in Layout.TopWorkers) y = WorkerRow(w, width, y, 0);
-            foreach (var g in Layout.TopGhosts) y = GhostRow(g, width, y);
+            foreach (var w in Layout.TopWorkers)
+                y = WorkerRow(w, width, y, 0);
+            foreach (var g in Layout.TopGhosts)
+                y = GhostRow(g, width, y);
 
             foreach (var key in Layout.Order)
                 y = LayoutGroup(key, entries, locs, width, y, measure);
@@ -128,32 +161,41 @@ namespace SlopWorld
         }
 
         static float LayoutGroup(
-            string key, List<ColonistBar.Entry> entries, List<Vector2> locs,
-            float width, float y, PlacementMeasure measure)
+            string key,
+            List<ColonistBar.Entry> entries,
+            List<Vector2> locs,
+            float width,
+            float y,
+            PlacementMeasure measure
+        )
         {
             var bucket = Layout.Buckets.TryGetValue(key, out var b) ? b : Empty;
             bool folded = Folded.Contains(key);
             var ghosts = Layout.Ghosts.TryGetValue(key, out var gs) ? gs : EmptyGhosts;
             AgentCounts(key, out int active, out int total);
 
-            Layout.Heads.Add(new Head
-            {
-                Label = key,
-                Rect = new Rect(0f, y, width, HeadH),
-                Active = active,
-                Total = total,
-                Count = active + "/" + total,
-                Folded = folded,
-            });
+            Layout.Heads.Add(
+                new Head
+                {
+                    Label = key,
+                    Rect = new Rect(0f, y, width, HeadH),
+                    Active = active,
+                    Total = total,
+                    Count = active + "/" + total,
+                    Folded = folded,
+                }
+            );
             y += HeadH;
 
             if (folded)
             {
-                foreach (int i in bucket) locs[i] = Parked;
+                foreach (int i in bucket)
+                    locs[i] = Parked;
                 return y;
             }
 
-            foreach (var g in ghosts) y = GhostRow(g, width, y);
+            foreach (var g in ghosts)
+                y = GhostRow(g, width, y);
             foreach (int i in bucket)
             {
                 LayoutAgent(entries, locs, i, width, y, measure);
@@ -173,7 +215,8 @@ namespace SlopWorld
 
         static float LayoutWorkers(string parent, float width, float y, int depth)
         {
-            if (depth > 32 || !Layout.WorkersByParentSession.TryGetValue(parent, out var workers)) return y;
+            if (depth > 32 || !Layout.WorkersByParentSession.TryGetValue(parent, out var workers))
+                return y;
             foreach (var worker in workers)
             {
                 y = WorkerRow(worker, width, y, depth + 1);
@@ -183,41 +226,56 @@ namespace SlopWorld
         }
 
         static void LayoutAgent(
-            List<ColonistBar.Entry> entries, List<Vector2> locs, int index,
-            float width, float y, PlacementMeasure measure)
+            List<ColonistBar.Entry> entries,
+            List<Vector2> locs,
+            int index,
+            float width,
+            float y,
+            PlacementMeasure measure
+        )
         {
-            locs[index] = new Vector2(PortraitX + (measure.Face - measure.Cell) / 2f,
-                y + (measure.RowH - measure.Cell) / 2f);
+            locs[index] = new Vector2(
+                PortraitX + (measure.Face - measure.Cell) / 2f,
+                y + (measure.RowH - measure.Cell) / 2f
+            );
 
             // Keep the three text lines at the same gap from the portrait after the
             // portrait column moves to the screen edge. Headings and chrome retain
             // their CellX inset.
             float tx = PortraitX + measure.Face + TextGap;
             var line = new Rect(0f, y, width, measure.RowH);
-            var face = new Rect(PortraitX, y + (measure.RowH - measure.Face) / 2f,
-                measure.Face, measure.Face);
-            Layout.Rows.Add(new Row
-            {
-                Session = Session(entries[index].pawn),
-                Pawn = entries[index].pawn,
-                Line = line,
-                Text = new Rect(tx, y + (measure.RowH - TextH) / 2f,
-                    width - tx - Pad, TextH),
-                Face = face,
-            });
+            var face = new Rect(
+                PortraitX,
+                y + (measure.RowH - measure.Face) / 2f,
+                measure.Face,
+                measure.Face
+            );
+            Layout.Rows.Add(
+                new Row
+                {
+                    Session = Session(entries[index].pawn),
+                    Pawn = entries[index].pawn,
+                    Line = line,
+                    Text = new Rect(tx, y + (measure.RowH - TextH) / 2f, width - tx - Pad, TextH),
+                    Face = face,
+                }
+            );
             // Match FaceBox's old first-row behavior if vanilla ever supplies a duplicate
             // pawn entry.
             if (!Layout.Faces.ContainsKey(entries[index].pawn))
                 Layout.Faces.Add(entries[index].pawn, face);
         }
 
-        static float Pitch(float s) => Mathf.Max(
-            (ColonistBar.BaseSize.y + ColonistBar.BaseSpaceBetweenColonistsVertical) * s,
-            TextH + RowGap);
+        static float Pitch(float s) =>
+            Mathf.Max(
+                (ColonistBar.BaseSize.y + ColonistBar.BaseSpaceBetweenColonistsVertical) * s,
+                TextH + RowGap
+            );
 
         static float Fit(int rows, int groups, float room, float ghosts)
         {
-            if (rows <= 0) return Nominal;
+            if (rows <= 0)
+                return Nominal;
             float headings = groups * HeadH;
             float edgePadding = 2f * Pad;
             float fixedH = headings + edgePadding + ghosts;
@@ -230,16 +288,16 @@ namespace SlopWorld
             return Mathf.Clamp(s, useful, Nominal);
         }
 
-
         static float GhostRoom()
         {
             float h = Layout.TopGhosts.Count * GhostH + Layout.TopWorkers.Count * WorkerH;
             foreach (var kv in Layout.Ghosts)
-                if (!Folded.Contains(kv.Key)) h += kv.Value.Count * GhostH;
+                if (!Folded.Contains(kv.Key))
+                    h += kv.Value.Count * GhostH;
             foreach (var kv in Layout.WorkerCountsByProject)
-                if (!Folded.Contains(kv.Key)) h += kv.Value * WorkerH;
+                if (!Folded.Contains(kv.Key))
+                    h += kv.Value * WorkerH;
             return h;
         }
-
     }
 }

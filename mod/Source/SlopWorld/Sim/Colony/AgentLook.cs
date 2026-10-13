@@ -26,18 +26,21 @@ namespace SlopWorld
 
         public static void Roll(Pawn pawn)
         {
-            if (pawn?.apparel == null) return;
+            if (pawn?.apparel == null)
+                return;
 
             pawn.apparel.DestroyAll();
             var outfit = Outfits.RandomElement();
             for (var i = 0; i < outfit.Length; i++)
             {
                 var def = DefDatabase<ThingDef>.GetNamedSilentFail(outfit[i]);
-                if (def == null) continue;
+                if (def == null)
+                    continue;
 
                 var stuff = def.MadeFromStuff ? GenStuff.RandomStuffFor(def) : null;
                 var apparel = ThingMaker.MakeThing(def, stuff) as Apparel;
-                if (apparel != null) pawn.apparel.Wear(apparel, false);
+                if (apparel != null)
+                    pawn.apparel.Wear(apparel, false);
             }
 
             pawn.Drawer?.renderer?.SetAllGraphicsDirty();
@@ -47,13 +50,17 @@ namespace SlopWorld
         // Return whether the render tree needs rebuilding so callers can skip unchanged pawns.
         public static bool CapBodySize(Pawn pawn)
         {
-            if (pawn?.story == null ||
-                (pawn.story.bodyType != BodyTypeDefOf.Fat &&
-                 pawn.story.bodyType != BodyTypeDefOf.Hulk)) return false;
+            if (
+                pawn?.story == null
+                || (
+                    pawn.story.bodyType != BodyTypeDefOf.Fat
+                    && pawn.story.bodyType != BodyTypeDefOf.Hulk
+                )
+            )
+                return false;
 
-            pawn.story.bodyType = pawn.gender == Gender.Female
-                ? BodyTypeDefOf.Female
-                : BodyTypeDefOf.Male;
+            pawn.story.bodyType =
+                pawn.gender == Gender.Female ? BodyTypeDefOf.Female : BodyTypeDefOf.Male;
             return true;
         }
 

@@ -52,7 +52,8 @@ namespace SlopWorld
         public static Choice ChoiceFor(string key)
         {
             foreach (var choice in _choices)
-                if (choice.Key == key) return choice;
+                if (choice.Key == key)
+                    return choice;
             return null;
         }
 
@@ -68,7 +69,8 @@ namespace SlopWorld
 
         public static void Choose(string key)
         {
-            if (ChoiceFor(key) == null) key = _choices[0].Key;
+            if (ChoiceFor(key) == null)
+                key = _choices[0].Key;
             Settings.S.cursor = key;
             Settings.S.Write();
             Apply();
@@ -90,18 +92,24 @@ namespace SlopWorld
         // Ignore repeated pats until the animation ends.
         public static void Pat()
         {
-            if (Animation.PatActive) return;
-            if (!Textures.Ready) Apply();
-            if (!Textures.Ready) return;
+            if (Animation.PatActive)
+                return;
+            if (!Textures.Ready)
+                Apply();
+            if (!Textures.Ready)
+                return;
             Animation.Pat(Time.realtimeSinceStartup);
         }
 
         // Animate any mouse-button press.
         public static void Click()
         {
-            if (Animation.PatActive) return;
-            if (!Textures.Ready) Apply();
-            if (!Textures.Ready) return;
+            if (Animation.PatActive)
+                return;
+            if (!Textures.Ready)
+                Apply();
+            if (!Textures.Ready)
+                return;
             Animation.Click(Time.realtimeSinceStartup);
         }
 

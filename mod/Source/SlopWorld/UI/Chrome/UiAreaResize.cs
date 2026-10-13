@@ -26,8 +26,14 @@ namespace SlopWorld
         public bool Automatic => _grow && !_manual;
 
         // Measurement is pure: callers use the result for both layout and drawing.
-        public float MeasuredHeight(float contentHeight) => Automatic
-            ? Mathf.Clamp(contentHeight, _minimum, Mathf.Max(_minimum, Mathf.Min(_maximum, 240f))) : Height;
+        public float MeasuredHeight(float contentHeight) =>
+            Automatic
+                ? Mathf.Clamp(
+                    contentHeight,
+                    _minimum,
+                    Mathf.Max(_minimum, Mathf.Min(_maximum, 240f))
+                )
+                : Height;
 
         public void FitToContent()
         {
@@ -35,8 +41,12 @@ namespace SlopWorld
             _manual = false;
         }
 
-        public UiAreaResize(float height, float minimum = 48f, float maximum = 600f,
-                            bool grow = false)
+        public UiAreaResize(
+            float height,
+            float minimum = 48f,
+            float maximum = 600f,
+            bool grow = false
+        )
         {
             _grow = grow;
             _minimum = Mathf.Max(CornerSize, minimum);
@@ -50,19 +60,39 @@ namespace SlopWorld
             var e = Event.current;
             EventType type = UiEvent.RawType(e);
             _gesture = EventType.Ignore;
-            if (_control != 0 && (!enabled || GUIUtility.hotControl != _control ||
-                !_lifetime.Alive || (type != EventType.MouseDown &&
-                type != EventType.MouseDrag && type != EventType.MouseUp &&
-                !InputHeld()))) Cancel();
-            if (!enabled || !FieldLifetimeScope.Current.Alive) return;
-            if ((type == EventType.MouseDown || type == EventType.MouseUp) &&
-                e.button > 0) return;
+            if (
+                _control != 0
+                && (
+                    !enabled
+                    || GUIUtility.hotControl != _control
+                    || !_lifetime.Alive
+                    || (
+                        type != EventType.MouseDown
+                        && type != EventType.MouseDrag
+                        && type != EventType.MouseUp
+                        && !InputHeld()
+                    )
+                )
+            )
+                Cancel();
+            if (!enabled || !FieldLifetimeScope.Current.Alive)
+                return;
+            if ((type == EventType.MouseDown || type == EventType.MouseUp) && e.button > 0)
+                return;
             _gesture = type;
 
-            var corner = new Rect(rect.xMax - CornerSize, rect.yMax - CornerSize,
-                CornerSize, CornerSize);
-            if (type == EventType.MouseDown && e.button <= 0 &&
-                GUIUtility.hotControl == 0 && Mouse.IsOver(corner))
+            var corner = new Rect(
+                rect.xMax - CornerSize,
+                rect.yMax - CornerSize,
+                CornerSize,
+                CornerSize
+            );
+            if (
+                type == EventType.MouseDown
+                && e.button <= 0
+                && GUIUtility.hotControl == 0
+                && Mouse.IsOver(corner)
+            )
             {
                 _lifetime = FieldLifetimeScope.Current;
                 _lifetime.CancelResize?.Invoke();
@@ -70,24 +100,38 @@ namespace SlopWorld
                 _control = control;
                 GUIUtility.hotControl = control;
             }
-            if (_control == 0) return;
+            if (_control == 0)
+                return;
             // Claim input before the text editor runs. Complete the native control after
             // the text editor on every pass, so group/button control IDs stay consistent.
-            if (type == EventType.MouseDown || type == EventType.MouseDrag ||
-                type == EventType.MouseUp) e.Use();
+            if (
+                type == EventType.MouseDown
+                || type == EventType.MouseDrag
+                || type == EventType.MouseUp
+            )
+                e.Use();
         }
 
         static bool InputHeld() => UnityEngine.Input.GetMouseButton(0);
 
         internal void Complete(Rect rect, bool enabled)
         {
-            if (!enabled) return;
-            bool ownedMouse = _control != 0 && (_gesture == EventType.MouseDown ||
-                _gesture == EventType.MouseDrag || _gesture == EventType.MouseUp);
-            var type = ownedMouse ? _gesture : Event.current.type == EventType.Repaint
-                ? EventType.Repaint : EventType.Ignore;
+            if (!enabled)
+                return;
+            bool ownedMouse =
+                _control != 0
+                && (
+                    _gesture == EventType.MouseDown
+                    || _gesture == EventType.MouseDrag
+                    || _gesture == EventType.MouseUp
+                );
+            var type =
+                ownedMouse ? _gesture
+                : Event.current.type == EventType.Repaint ? EventType.Repaint
+                : EventType.Ignore;
             float height = Native(rect, type).height;
-            if (_control == 0) return;
+            if (_control == 0)
+                return;
 
             // WindowResizer invokes Widgets.ButtonImage -> GUI.Button. On a press that
             // button takes hotControl for itself; our gesture must keep the adapter's ID.
@@ -95,9 +139,11 @@ namespace SlopWorld
             if (ownedMouse && (_gesture == EventType.MouseDrag || _gesture == EventType.MouseUp))
             {
                 Height = Mathf.Clamp(height, _minimum, _maximum);
-                if (_gesture == EventType.MouseDrag || height != rect.height) _manual = true;
+                if (_gesture == EventType.MouseDrag || height != rect.height)
+                    _manual = true;
             }
-            if (ownedMouse && _gesture == EventType.MouseUp) Cancel();
+            if (ownedMouse && _gesture == EventType.MouseUp)
+                Cancel();
         }
 
         Rect Native(Rect rect, EventType type)
@@ -128,14 +174,15 @@ namespace SlopWorld
 
         void Cancel()
         {
-            if (_control != 0 && GUIUtility.hotControl == _control) GUIUtility.hotControl = 0;
+            if (_control != 0 && GUIUtility.hotControl == _control)
+                GUIUtility.hotControl = 0;
             _control = 0;
             // Native state is private and may still be dragging after a missed release.
             // Retire the whole resizer so the next gesture starts cleanly.
             _resizer = new WindowResizer();
-            if (_lifetime != null) _lifetime.CancelResize = null;
+            if (_lifetime != null)
+                _lifetime.CancelResize = null;
             _lifetime = null;
         }
-
     }
 }

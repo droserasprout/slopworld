@@ -10,25 +10,31 @@ namespace SlopWorld.Tests
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             foreach (string value in new[] { "2147483648", "-2147483649", "1.5", "true", "\"12\"" })
-                yield return ($"TOML integer reader rejects {value}", () =>
-                {
-                    var scalar = Toml.ParseFlatScalars("value = " + value)["value"];
-                    Assert.That(scalar.TryGetInteger(out int number), Is.False);
-                    Assert.That(number, Is.Zero);
-                }
+                yield return (
+                    $"TOML integer reader rejects {value}",
+                    () =>
+                    {
+                        var scalar = Toml.ParseFlatScalars("value = " + value)["value"];
+                        Assert.That(scalar.TryGetInteger(out int number), Is.False);
+                        Assert.That(number, Is.Zero);
+                    }
                 );
             foreach (string value in new[] { "nan", "inf", "-inf", "1e100", "true", "\"1.5\"" })
-                yield return ($"TOML float reader rejects {value}", () =>
-                {
-                    var scalar = Toml.ParseFlatScalars("value = " + value)["value"];
-                    Assert.That(scalar.TryGetFloat(out _), Is.False);
-                }
+                yield return (
+                    $"TOML float reader rejects {value}",
+                    () =>
+                    {
+                        var scalar = Toml.ParseFlatScalars("value = " + value)["value"];
+                        Assert.That(scalar.TryGetFloat(out _), Is.False);
+                    }
                 );
         }
 
         public static void TypedReadersDoNotCoerceStringsOrBooleans()
         {
-            var values = Toml.ParseFlatScalars("text = 'false'\nflag = false\ninteger = -2147483648\nmaximum = 2147483647\nratio = 1.25\n");
+            var values = Toml.ParseFlatScalars(
+                "text = 'false'\nflag = false\ninteger = -2147483648\nmaximum = 2147483647\nratio = 1.25\n"
+            );
             Assert.That(values["text"].TryGetString(out var text), Is.True);
             Assert.That(text, Is.EqualTo("false"));
             Assert.That(values["flag"].TryGetString(out text), Is.False);
@@ -58,7 +64,10 @@ namespace SlopWorld.Tests
                 Assert.That(values["count"], Is.EqualTo("1024"));
                 Assert.That(values["flag"], Is.EqualTo("false"));
             }
-            finally { CultureInfo.CurrentCulture = previous; }
+            finally
+            {
+                CultureInfo.CurrentCulture = previous;
+            }
         }
     }
 }

@@ -24,22 +24,43 @@ namespace SlopWorld
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Game");
             var s = ModEntry.Instance.settings;
-            bool eco = UiControls.Checkbox(l, "Eco mode", s.ecoMode,
-                "80% less CPU, 0.1% less guilt. You're welcome, Earth!\n\n" +
-                "Pauses the game simulation and map drawing. Terminal sessions continue to run.");
+            bool eco = UiControls.Checkbox(
+                l,
+                "Eco mode",
+                s.ecoMode,
+                "80% less CPU, 0.1% less guilt. You're welcome, Earth!\n\n"
+                    + "Pauses the game simulation and map drawing. Terminal sessions continue to run."
+            );
 
             // Show the dimming slider only when Eco mode draws the backdrop.
             // Offer 5% precision; Eco updates the color on its reused backdrop material.
             if (s.ecoMode)
             {
                 l.Gap(UiTheme.GapS);
-                float dim = Mathf.Round(UiControls.Slider(l, "Backdrop dimming", s.ecoDim,
-                    0f, 0.8f, Mathf.RoundToInt(s.ecoDim * 100f) + "%") / DimmingStep) * DimmingStep;
-                if (dim != s.ecoDim) { s.ecoDim = dim; s.MarkDirty(); }
+                float dim =
+                    Mathf.Round(
+                        UiControls.Slider(
+                            l,
+                            "Backdrop dimming",
+                            s.ecoDim,
+                            0f,
+                            0.8f,
+                            Mathf.RoundToInt(s.ecoDim * 100f) + "%"
+                        ) / DimmingStep
+                    ) * DimmingStep;
+                if (dim != s.ecoDim)
+                {
+                    s.ecoDim = dim;
+                    s.MarkDirty();
+                }
             }
 
-            bool gm = UiControls.Checkbox(l, "Grandma's visiting", s.grandmaMode,
-                "No fun allowed! Disable violence and offensive/harmful tips.");
+            bool gm = UiControls.Checkbox(
+                l,
+                "Grandma's visiting",
+                s.grandmaMode,
+                "No fun allowed! Disable violence and offensive/harmful tips."
+            );
 
             if (gm != s.grandmaMode || eco != s.ecoMode)
             {
@@ -50,40 +71,66 @@ namespace SlopWorld
 
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Locale");
-            if (UiLayout.Button(l,
-                    "TemperatureMode".Translate() + ": " +
-                    TemperatureUnit.Label(Settings.TemperatureUnit,
-                        Prefs.TemperatureMode.ToStringHuman())))
+            if (
+                UiLayout.Button(
+                    l,
+                    "TemperatureMode".Translate()
+                        + ": "
+                        + TemperatureUnit.Label(
+                            Settings.TemperatureUnit,
+                            Prefs.TemperatureMode.ToStringHuman()
+                        )
+                )
+            )
             {
                 var choices = Enum.GetValues(typeof(TemperatureDisplayMode))
                     .Cast<TemperatureDisplayMode>()
-                    .Select(mode => new FloatMenuOption(mode.ToStringHuman(),
-                        () => SetTemperatureUnit(mode)))
+                    .Select(mode => new FloatMenuOption(
+                        mode.ToStringHuman(),
+                        () => SetTemperatureUnit(mode)
+                    ))
                     .ToList();
                 if (Prefs.TemperatureMode == TemperatureDisplayMode.Fahrenheit)
-                    choices.Add(new FloatMenuOption(TemperatureUnit.MemeLabel,
-                        SetMemeTemperatureUnit));
+                    choices.Add(
+                        new FloatMenuOption(TemperatureUnit.MemeLabel, SetMemeTemperatureUnit)
+                    );
                 Find.WindowStack.Add(new UiMenu(choices));
             }
 
             if (UiLayout.Button(l, "Date format: " + DateFormat.Label(s.dateFormat)))
             {
-                var choices = new[] { DateFormat.YearFirst, DateFormat.DayFirst, DateFormat.MonthFirst }
-                    .Select(format => new FloatMenuOption(DateFormat.Label(format),
-                        () => SetDateFormat(format)))
+                var choices = new[]
+                {
+                    DateFormat.YearFirst,
+                    DateFormat.DayFirst,
+                    DateFormat.MonthFirst,
+                }
+                    .Select(format => new FloatMenuOption(
+                        DateFormat.Label(format),
+                        () => SetDateFormat(format)
+                    ))
                     .ToList();
                 Find.WindowStack.Add(new UiMenu(choices));
             }
 
             if (UiLayout.Button(l, "Time format: " + TimeFormat.Label(s.timeFormat)))
             {
-                Find.WindowStack.Add(new UiMenu(new[]
-                {
-                new FloatMenuOption("24-hour", () => SetTimeFormat(TimeFormat.TwentyFourHour)),
-                new FloatMenuOption("12-hour", () => SetTimeFormat(TimeFormat.TwelveHour))
-            }.ToList()));
+                Find.WindowStack.Add(
+                    new UiMenu(
+                        new[]
+                        {
+                            new FloatMenuOption(
+                                "24-hour",
+                                () => SetTimeFormat(TimeFormat.TwentyFourHour)
+                            ),
+                            new FloatMenuOption(
+                                "12-hour",
+                                () => SetTimeFormat(TimeFormat.TwelveHour)
+                            ),
+                        }.ToList()
+                    )
+                );
             }
-
         }
 
         static void DrawConnectionSummary(Listing_Standard l)
@@ -92,18 +139,18 @@ namespace SlopWorld
             var health = hub.Health;
             var row = l.GetRect(UiTheme.LineH);
             string status = hub.Online ? "connected" : "offline";
-            string suffix = $" · {RuntimeLabel(hub)} · slopd {health.Version} · " +
-                            health.Hostname;
+            string suffix = $" · {RuntimeLabel(hub)} · slopd {health.Version} · " + health.Hostname;
             float x = row.x;
 
             DrawConnectionSegment(row, ref x, "Daemon: ", UiTheme.Dim);
-            DrawConnectionSegment(row, ref x, status,
-                hub.Online ? UiTheme.Yes : UiTheme.Bad);
+            DrawConnectionSegment(row, ref x, status, hub.Online ? UiTheme.Yes : UiTheme.Bad);
             DrawConnectionSegment(row, ref x, suffix, UiTheme.Dim);
 
             GUI.color = UiTheme.Dim;
-            l.Label($"Client: SlopWorld {ModEntry.ClientVersion} · " +
-                    $"RimWorld {VersionControl.CurrentVersionString}");
+            l.Label(
+                $"Client: SlopWorld {ModEntry.ClientVersion} · "
+                    + $"RimWorld {VersionControl.CurrentVersionString}"
+            );
             GUI.color = Color.white;
         }
 
@@ -146,6 +193,5 @@ namespace SlopWorld
             settings.temperatureUnit = TemperatureUnit.MemeMode;
             settings.MarkDirty();
         }
-
     }
 }

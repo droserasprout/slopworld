@@ -9,8 +9,7 @@ namespace SlopWorld
     {
         // The final two gaps are the lower row inset and spacing before the next row.
         public static float TwoLineH =>
-                UiTheme.GapXS + UiTheme.LineH + UiTheme.RowBtnH + UiTheme.GapXS +
-                UiTheme.GapXS;
+            UiTheme.GapXS + UiTheme.LineH + UiTheme.RowBtnH + UiTheme.GapXS + UiTheme.GapXS;
 
         public static void Prepare(Rect rect)
         {

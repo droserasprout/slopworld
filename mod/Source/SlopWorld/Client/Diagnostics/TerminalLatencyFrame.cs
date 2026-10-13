@@ -15,38 +15,65 @@ namespace SlopWorld
         // One main-thread writer flushes once per frame after the timed endpoint.
         static void WriteRecord(string line)
         {
-            if (_failed || _output == null) return;
-            try { _output.WriteLine(line); }
-            catch (Exception error) { Fail(error); }
+            if (_failed || _output == null)
+                return;
+            try
+            {
+                _output.WriteLine(line);
+            }
+            catch (Exception error)
+            {
+                Fail(error);
+            }
         }
+
         static void Fail(Exception error)
         {
             _failed = true;
             Verse.Log.Error("[SlopWorld] trace file failed: " + error.Message);
         }
+
         static void FlushFile()
         {
-            if (_failed || _output == null) return;
-            try { _output.Flush(); }
-            catch (Exception error) { Fail(error); }
-        }
-        internal static void Install()
-        {
-            if (!TerminalLatency.Enabled && !PerfTrace.Enabled) return;
+            if (_failed || _output == null)
+                return;
             try
             {
-                string path = Path.Combine(Verse.GenFilePaths.SaveDataFolderPath, "SlopWorld-trace.log");
-                _output = new StreamWriter(new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read));
+                _output.Flush();
+            }
+            catch (Exception error)
+            {
+                Fail(error);
+            }
+        }
+
+        internal static void Install()
+        {
+            if (!TerminalLatency.Enabled && !PerfTrace.Enabled)
+                return;
+            try
+            {
+                string path = Path.Combine(
+                    Verse.GenFilePaths.SaveDataFolderPath,
+                    "SlopWorld-trace.log"
+                );
+                _output = new StreamWriter(
+                    new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read)
+                );
                 _output.WriteLine("# SlopWorld trace " + DateTime.UtcNow.ToString("O"));
                 _output.Flush();
                 Verse.Log.Message("[SlopWorld] diagnostic trace: " + path);
             }
-            catch (Exception error) { Fail(error); }
+            catch (Exception error)
+            {
+                Fail(error);
+            }
             TerminalLatency.Write = WriteRecord;
             var owner = new GameObject("SlopWorld latency timeline");
             UnityEngine.Object.DontDestroyOnLoad(owner);
             owner.AddComponent<TerminalLatencyFrame>();
         }
+
         IEnumerator Start()
         {
             var end = new WaitForEndOfFrame();
@@ -61,10 +88,13 @@ namespace SlopWorld
                 FlushFile();
             }
         }
+
         void Update()
         {
-            if (TerminalLatency.Enabled) TerminalLatency.Timeline.Expire();
+            if (TerminalLatency.Enabled)
+                TerminalLatency.Timeline.Expire();
         }
+
         void OnApplicationQuit()
         {
             if (TerminalLatency.Enabled)
@@ -73,8 +103,15 @@ namespace SlopWorld
                 TerminalLatency.Flush();
             }
             FlushFile();
-            try { _output?.Dispose(); }
-            catch (Exception error) { if (!_failed) Fail(error); }
+            try
+            {
+                _output?.Dispose();
+            }
+            catch (Exception error)
+            {
+                if (!_failed)
+                    Fail(error);
+            }
             _output = null;
         }
     }

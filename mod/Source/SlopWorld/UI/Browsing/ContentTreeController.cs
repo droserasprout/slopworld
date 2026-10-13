@@ -28,7 +28,8 @@ namespace SlopWorld
             var keys = new List<string>();
             if (groupKeys != null)
                 foreach (var key in groupKeys)
-                    if (key != null) keys.Add(key);
+                    if (key != null)
+                        keys.Add(key);
             _state.SyncGroups(keys);
         }
 
@@ -53,7 +54,8 @@ namespace SlopWorld
             {
                 var groups = Groups();
                 var keys = new List<string>();
-                foreach (var group in groups) keys.Add(group.Key);
+                foreach (var group in groups)
+                    keys.Add(group.Key);
                 return _state.AllFolded(keys);
             }
         }
@@ -62,14 +64,17 @@ namespace SlopWorld
         {
             var groups = Groups();
             var keys = new List<string>();
-            foreach (var group in groups) keys.Add(group.Key);
+            foreach (var group in groups)
+                keys.Add(group.Key);
             _state.SetAllFolded(keys, folded);
         }
 
         public void Bump() => _state.Bump();
 
         public bool IsSelected(string key) => _state.IsSelected(key);
+
         public void Select(string key) => _state.Select(key);
+
         public void ClearSelection() => _state.ClearSelection();
     }
 }

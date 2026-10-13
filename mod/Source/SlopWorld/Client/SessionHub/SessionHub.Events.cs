@@ -28,14 +28,22 @@ namespace SlopWorld
                     break;
 
                 case Wire.Event.PayloadOneofCase.Usage:
-                    Usage = UsageInfo.FromWire(ev.Usage, UnityEngine.Time.realtimeSinceStartup,
-                        (ulong)System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), Usage);
+                    Usage = UsageInfo.FromWire(
+                        ev.Usage,
+                        UnityEngine.Time.realtimeSinceStartup,
+                        (ulong)System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                        Usage
+                    );
                     break;
 
                 case Wire.Event.PayloadOneofCase.Audio:
-                    Radio.Report(ev.Audio.Playing,
+                    Radio.Report(
+                        ev.Audio.Playing,
                         ev.Audio.Error,
-                        ev.Audio.Title, ev.Audio.Source, ev.Audio.Session);
+                        ev.Audio.Title,
+                        ev.Audio.Source,
+                        ev.Audio.Session
+                    );
                     break;
 
                 case Wire.Event.PayloadOneofCase.Screen:

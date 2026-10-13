@@ -29,8 +29,7 @@ namespace SlopWorld
             AcceptOnEnter(Save);
         }
 
-        public static void OpenNew() =>
-            TerminalWindow.OpenOverPane(NewDialog());
+        public static void OpenNew() => TerminalWindow.OpenOverPane(NewDialog());
 
         public static void Open(JukeboxPresetInfo source)
         {
@@ -51,19 +50,18 @@ namespace SlopWorld
                 Name = "New source",
                 DefaultRate = 128,
             };
-            source.Streams.Add(new JukeboxStreamInfo
-            {
-                Rate = 128,
-                Key = source.Id + "-128",
-            });
+            source.Streams.Add(new JukeboxStreamInfo { Rate = 128, Key = source.Id + "-128" });
             return new AudioSourceDialog(source, true, null);
         }
 
         void EnsureStreams()
         {
-            if (_source.Streams == null) _source.Streams = new List<JukeboxStreamInfo>();
+            if (_source.Streams == null)
+                _source.Streams = new List<JukeboxStreamInfo>();
             if (_source.Streams.Count == 0)
-                _source.Streams.Add(new JukeboxStreamInfo { Rate = 128, Key = _source.Id + "-128" });
+                _source.Streams.Add(
+                    new JukeboxStreamInfo { Rate = 128, Key = _source.Id + "-128" }
+                );
         }
 
         public override Vector2 InitialSize => new Vector2(600f, 520f);
@@ -73,8 +71,12 @@ namespace SlopWorld
         protected override void DoBody(Rect rect)
         {
             UiLayout.Title(TitleRect(rect), _isNew ? "Add source" : "Edit source");
-            var form = new Rect(rect.x, rect.y + UiTheme.HeaderH + UiTheme.GapM,
-                rect.width, rect.height - UiTheme.HeaderH - UiTheme.GapM - UiTheme.BtnH - UiTheme.GapS);
+            var form = new Rect(
+                rect.x,
+                rect.y + UiTheme.HeaderH + UiTheme.GapM,
+                rect.width,
+                rect.height - UiTheme.HeaderH - UiTheme.GapM - UiTheme.BtnH - UiTheme.GapS
+            );
             _removeIndex = -1;
             _listing.Draw(form, DrawFields);
             if (_removeIndex >= 0)
@@ -85,12 +87,22 @@ namespace SlopWorld
             }
 
             if (!string.IsNullOrEmpty(_error))
-                UiText.PlainStatusLabel(new Rect(rect.x, rect.yMax - UiTheme.BtnH - UiTheme.GapS -
-                    UiTheme.LineH, rect.width, UiTheme.LineH), _error, UiTheme.Bad);
+                UiText.PlainStatusLabel(
+                    new Rect(
+                        rect.x,
+                        rect.yMax - UiTheme.BtnH - UiTheme.GapS - UiTheme.LineH,
+                        rect.width,
+                        UiTheme.LineH
+                    ),
+                    _error,
+                    UiTheme.Bad
+                );
 
             var foot = new UiLayout.Bar(UiLayout.FooterBar(rect));
-            if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
-            if (foot.Right("Save", UiTheme.Btn.Primary)) Save();
+            if (foot.Left("Cancel", UiTheme.Btn.Ghost))
+                Close();
+            if (foot.Right("Save", UiTheme.Btn.Primary))
+                Save();
         }
 
         void DrawFields(Listing_Standard l)
@@ -98,7 +110,11 @@ namespace SlopWorld
             l.Label("Name");
             _source.Name = UiControls.Field(l, "jukebox.source.name", _source.Name ?? "");
             l.Label("Title regex (optional)");
-            _source.TitleRegex = UiControls.Field(l, "jukebox.source.regex", _source.TitleRegex ?? "");
+            _source.TitleRegex = UiControls.Field(
+                l,
+                "jukebox.source.regex",
+                _source.TitleRegex ?? ""
+            );
             l.Gap(UiTheme.GapS);
             UiLayout.SectionHeading(l, "Bitrate presets");
 
@@ -106,8 +122,11 @@ namespace SlopWorld
             {
                 var stream = _source.Streams[i];
                 l.Label("Preset " + (i + 1));
-                _rates[i] = UiControls.Field(l, "jukebox.source.rate." + i,
-                    _rates[i] ?? stream.Rate.ToString(CultureInfo.InvariantCulture));
+                _rates[i] = UiControls.Field(
+                    l,
+                    "jukebox.source.rate." + i,
+                    _rates[i] ?? stream.Rate.ToString(CultureInfo.InvariantCulture)
+                );
                 l.Label("Stream URL");
                 stream.Url = UiControls.Field(l, "jukebox.source.url." + i, stream.Url ?? "");
                 if (i > 0 && UiLayout.Button(l, "Remove preset", UiTheme.Btn.Ghost))
@@ -120,12 +139,14 @@ namespace SlopWorld
             if (UiLayout.Button(l, "Add bitrate preset", UiTheme.Btn.Ghost))
             {
                 uint rate = 128;
-                _source.Streams.Add(new JukeboxStreamInfo
-                {
-                    Rate = rate,
-                    // Allocate a stable key only once the edited bitrate is valid.
-                    Key = "",
-                });
+                _source.Streams.Add(
+                    new JukeboxStreamInfo
+                    {
+                        Rate = rate,
+                        // Allocate a stable key only once the edited bitrate is valid.
+                        Key = "",
+                    }
+                );
                 _rates.Add(rate.ToString(CultureInfo.InvariantCulture));
             }
             UiLayout.Note(l, "SlopWorld stores user sources in ~/.config/slopworld/jukebox/.");
@@ -133,9 +154,15 @@ namespace SlopWorld
 
         void Save()
         {
-            if (!AudioSourceDraft.TryPrepare(_source, _rates, out var candidate, out _error)) return;
-            JukeboxPresetStore.Save(candidate, _isNew, _originalId,
-                () => Close(), error => _error = error);
+            if (!AudioSourceDraft.TryPrepare(_source, _rates, out var candidate, out _error))
+                return;
+            JukeboxPresetStore.Save(
+                candidate,
+                _isNew,
+                _originalId,
+                () => Close(),
+                error => _error = error
+            );
         }
     }
 }

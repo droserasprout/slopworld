@@ -9,7 +9,12 @@ namespace SlopWorld.Tests
         public void RoutedResetDiscardsNativeMultiClickCount()
         {
             var clicks = new MouseClickSequence(useNativeClickCount: false);
-            var press = new Event { button = 0, clickCount = 1, mousePosition = new Vector2(10f, 10f) };
+            var press = new Event
+            {
+                button = 0,
+                clickCount = 1,
+                mousePosition = new Vector2(10f, 10f),
+            };
             Assert.That(clicks.Observe(press, 1f), Is.EqualTo(1));
 
             // An ordinary-row, empty-space or right-click press breaks the routed sequence.
@@ -26,7 +31,12 @@ namespace SlopWorld.Tests
         public void RoutedSequenceRequiresNearbyTimelyPressesWithTheSameButton()
         {
             var clicks = new MouseClickSequence(useNativeClickCount: false);
-            var press = new Event { button = 0, clickCount = 4, mousePosition = new Vector2(10f, 10f) };
+            var press = new Event
+            {
+                button = 0,
+                clickCount = 4,
+                mousePosition = new Vector2(10f, 10f),
+            };
             Assert.That(clicks.Observe(press, 1f), Is.EqualTo(1));
             Assert.That(clicks.Observe(press, 2f), Is.EqualTo(1));
             press.mousePosition = new Vector2(30f, 10f);

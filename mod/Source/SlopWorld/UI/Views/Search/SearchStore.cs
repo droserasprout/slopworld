@@ -17,11 +17,20 @@ namespace SlopWorld
         internal bool Loading { get; private set; }
         internal event Action Changed;
 
-        internal SearchStore(Func<string, bool> enabled,
-            Action<string, Action<Wire.SearchResult>, Action<string>> request)
-        { _enabled = enabled; _request = request; }
+        internal SearchStore(
+            Func<string, bool> enabled,
+            Action<string, Action<Wire.SearchResult>, Action<string>> request
+        )
+        {
+            _enabled = enabled;
+            _request = request;
+        }
 
-        internal void Search(SearchSubmission submitted, IReadOnlyList<BrowseScope> projects, bool hidden)
+        internal void Search(
+            SearchSubmission submitted,
+            IReadOnlyList<BrowseScope> projects,
+            bool hidden
+        )
         {
             Submitted = submitted;
             long generation = Operations.Begin();
@@ -30,22 +39,57 @@ namespace SlopWorld
             _pending = query.Length == 0 ? 0 : projects.Count;
             Loading = _pending > 0;
             Changed?.Invoke();
-            if (!Loading) return;
+            if (!Loading)
+                return;
             foreach (var p in projects)
             {
                 var group = new Group { Project = p.Project, Worktree = p.Label };
                 Groups.Add(group);
-                string url = WireProtocol.Routes.Search + "?path=" + Uri.EscapeDataString(p.Path) +
-                    "&q=" + Uri.EscapeDataString(query) +
-                    "&regex=" + (submitted.Regex ? "1" : "0") +
-                    "&case=" + (submitted.CaseSensitive ? "1" : "0") +
-                    "&word=" + (submitted.WholeWord ? "1" : "0") +
-                    "&gitignore=" + (submitted.IncludeIgnored ? "0" : "1") +
-                    "&hidden=" + (hidden ? "1" : "0");
-                Requests.Add(() => Operations.IsCurrent(generation) && _enabled(p.Key), done =>
-                    _request(url,
-                        j => { try { OnResults(group, p, generation, j); } finally { done(); } },
-                        msg => { try { OnError(group, generation, msg); } finally { done(); } }));
+                string url =
+                    WireProtocol.Routes.Search
+                    + "?path="
+                    + Uri.EscapeDataString(p.Path)
+                    + "&q="
+                    + Uri.EscapeDataString(query)
+                    + "&regex="
+                    + (submitted.Regex ? "1" : "0")
+                    + "&case="
+                    + (submitted.CaseSensitive ? "1" : "0")
+                    + "&word="
+                    + (submitted.WholeWord ? "1" : "0")
+                    + "&gitignore="
+                    + (submitted.IncludeIgnored ? "0" : "1")
+                    + "&hidden="
+                    + (hidden ? "1" : "0");
+                Requests.Add(
+                    () => Operations.IsCurrent(generation) && _enabled(p.Key),
+                    done =>
+                        _request(
+                            url,
+                            j =>
+                            {
+                                try
+                                {
+                                    OnResults(group, p, generation, j);
+                                }
+                                finally
+                                {
+                                    done();
+                                }
+                            },
+                            msg =>
+                            {
+                                try
+                                {
+                                    OnError(group, generation, msg);
+                                }
+                                finally
+                                {
+                                    done();
+                                }
+                            }
+                        )
+                );
             }
         }
 
@@ -70,40 +114,47 @@ namespace SlopWorld
 
         void OnResults(Group group, BrowseScope project, long generation, Wire.SearchResult j)
         {
-            if (!Operations.IsCurrent(generation)) return;
+            if (!Operations.IsCurrent(generation))
+                return;
             foreach (var row in j.Matches)
-                group.Matches.Add(new Match
+                group.Matches.Add(
+                    new Match
+                    {
+                        Project = project.Key,
+                        Root = project.Path,
+                        Path = row.Path,
+                        Line = (int)row.Line,
+                        Column = (int)row.Column,
+                        Text = row.Text,
+                    }
+                );
+            group.Matches.Sort(
+                (a, b) =>
                 {
-                    Project = project.Key,
-                    Root = project.Path,
-                    Path = row.Path,
-                    Line = (int)row.Line,
-                    Column = (int)row.Column,
-                    Text = row.Text,
-                });
-            group.Matches.Sort((a, b) =>
-            {
-                int path = string.CompareOrdinal(a.Path, b.Path);
-                return path != 0 ? path : a.Line.CompareTo(b.Line);
-            });
+                    int path = string.CompareOrdinal(a.Path, b.Path);
+                    return path != 0 ? path : a.Line.CompareTo(b.Line);
+                }
+            );
             group.Truncated = j.Truncated;
             Done(generation);
         }
 
         void OnError(Group group, long generation, string msg)
         {
-            if (!Operations.IsCurrent(generation)) return;
+            if (!Operations.IsCurrent(generation))
+                return;
             group.Error = msg;
             Done(generation);
         }
 
         void Done(long generation)
         {
-            if (!Operations.IsCurrent(generation)) return;
+            if (!Operations.IsCurrent(generation))
+                return;
             _pending--;
-            if (_pending <= 0) Loading = false;
+            if (_pending <= 0)
+                Loading = false;
             Changed?.Invoke();
         }
-
     }
 }

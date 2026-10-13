@@ -9,15 +9,15 @@ namespace SlopWorld
     static class Fuzzy
     {
         // Per matched character.
-        const int Base = 16;        // anywhere
-        const int Head = 34;        // first character of the text
-        const int Boundary = 28;    // after a separator, or a camelCase hump
+        const int Base = 16; // anywhere
+        const int Head = 34; // first character of the text
+        const int Boundary = 28; // after a separator, or a camelCase hump
         const int Consecutive = 20; // directly after the previous match
 
         // Per term.
-        const int Verbatim = 60;    // the term is in there whole
-        const int AtWord = 40;      // and starts a word
-        const int LeadMax = 12;     // most a late first character can cost
+        const int Verbatim = 60; // the term is in there whole
+        const int AtWord = 40; // and starts a word
+        const int LeadMax = 12; // most a late first character can cost
 
         const string Mark = "#7FC8FF";
 
@@ -28,10 +28,12 @@ namespace SlopWorld
         {
             score = 0;
             hits = null;
-            if (string.IsNullOrEmpty(text)) return false;
+            if (string.IsNullOrEmpty(text))
+                return false;
 
             var terms = query.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-            if (terms.Length == 0) return true;
+            if (terms.Length == 0)
+                return true;
 
             string lower = text.ToLowerInvariant();
             hits = new List<int>();
@@ -40,7 +42,11 @@ namespace SlopWorld
             {
                 string term = raw.ToLowerInvariant();
                 int s = Term(text, lower, term, hits);
-                if (s == int.MinValue) { hits = null; return false; }
+                if (s == int.MinValue)
+                {
+                    hits = null;
+                    return false;
+                }
                 score += s;
             }
 
@@ -49,7 +55,8 @@ namespace SlopWorld
 
             hits.Sort();
             for (int i = hits.Count - 1; i > 0; i--)
-                if (hits[i] == hits[i - 1]) hits.RemoveAt(i);
+                if (hits[i] == hits[i - 1])
+                    hits.RemoveAt(i);
 
             return true;
         }
@@ -63,7 +70,8 @@ namespace SlopWorld
 
         public static string Highlight(string text, List<int> hits)
         {
-            if (hits == null || hits.Count == 0) return text;
+            if (hits == null || hits.Count == 0)
+                return text;
 
             var sb = new StringBuilder(text.Length + hits.Count * 8);
             int h = 0;
@@ -74,7 +82,11 @@ namespace SlopWorld
                 {
                     // Run the tag over neighbours rather than per character.
                     int end = i;
-                    while (h < hits.Count && hits[h] == end) { h++; end++; }
+                    while (h < hits.Count && hits[h] == end)
+                    {
+                        h++;
+                        end++;
+                    }
                     sb.Append("<color=").Append(Mark).Append('>');
                     sb.Append(text, i, end - i);
                     sb.Append("</color>");
@@ -96,20 +108,24 @@ namespace SlopWorld
         // not in there at all.
         static int Term(string text, string lower, string term, List<int> hits)
         {
-            int n = lower.Length, m = term.Length;
-            if (m == 0) return 0;
-            if (m > n) return int.MinValue;
+            int n = lower.Length,
+                m = term.Length;
+            if (m == 0)
+                return 0;
+            if (m > n)
+                return int.MinValue;
 
-            var best = new int[m, n];   // score with term[i] placed at text[j]
-            var from = new int[m, n];   // where term[i-1] sat, for the walk back
-            var prevMax = new int[n];   // running max of row i-1, up to and including j
+            var best = new int[m, n]; // score with term[i] placed at text[j]
+            var from = new int[m, n]; // where term[i-1] sat, for the walk back
+            var prevMax = new int[n]; // running max of row i-1, up to and including j
             var prevArg = new int[n];
             var curMax = new int[n];
             var curArg = new int[n];
 
             for (int i = 0; i < m; i++)
             {
-                int runMax = int.MinValue, runArg = -1;
+                int runMax = int.MinValue,
+                    runArg = -1;
 
                 for (int j = 0; j < n; j++)
                 {
@@ -128,7 +144,8 @@ namespace SlopWorld
                         {
                             // The prefix maximum allows gaps; only the immediately previous
                             // position can earn the consecutive-match bonus.
-                            int cand = prevMax[j - 1], arg = prevArg[j - 1];
+                            int cand = prevMax[j - 1],
+                                arg = prevArg[j - 1];
                             int adjacentScore = best[i - 1, j - 1];
                             if (adjacentScore != int.MinValue && adjacentScore + Consecutive > cand)
                             {
@@ -143,12 +160,17 @@ namespace SlopWorld
                         }
                     }
 
-                    if (best[i, j] > runMax) { runMax = best[i, j]; runArg = j; }
+                    if (best[i, j] > runMax)
+                    {
+                        runMax = best[i, j];
+                        runArg = j;
+                    }
                     curMax[j] = runMax;
                     curArg[j] = runArg;
                 }
 
-                if (runMax == int.MinValue) return int.MinValue;
+                if (runMax == int.MinValue)
+                    return int.MinValue;
 
                 Array.Copy(curMax, prevMax, n);
                 Array.Copy(curArg, prevArg, n);
@@ -167,7 +189,8 @@ namespace SlopWorld
             if (at >= 0)
             {
                 score += Verbatim;
-                if (Weight(text, at) != Base) score += AtWord;
+                if (Weight(text, at) != Base)
+                    score += AtWord;
             }
 
             return score;
@@ -175,10 +198,14 @@ namespace SlopWorld
 
         static int Weight(string text, int j)
         {
-            if (j == 0) return Head;
-            char p = text[j - 1], c = text[j];
-            if (!char.IsLetterOrDigit(p)) return Boundary;
-            if (char.IsLower(p) && char.IsUpper(c)) return Boundary;
+            if (j == 0)
+                return Head;
+            char p = text[j - 1],
+                c = text[j];
+            if (!char.IsLetterOrDigit(p))
+                return Boundary;
+            if (char.IsLower(p) && char.IsUpper(c))
+                return Boundary;
             return Base;
         }
     }

@@ -1,0 +1,5 @@
+# Project metadata keeps its existing layout.
+**/*.csproj
+**/bin/**
+**/obj/**
+mod/Source/SlopWorld/Client/Generated/**

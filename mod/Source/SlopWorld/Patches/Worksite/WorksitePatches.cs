@@ -13,6 +13,7 @@ namespace SlopWorld
         sealed class FrameOwnership
         {
             public FrameOwnership() { }
+
             public bool Owned;
         }
 
@@ -41,9 +42,11 @@ namespace SlopWorld
         {
             static void Postfix(Frame __instance, ref float __result)
             {
-                if (!Owns(__instance)) return;
+                if (!Owns(__instance))
+                    return;
                 float work = WorkFor(__instance?.def?.entityDefToBuild);
-                if (work > 0f) __result = work;
+                if (work > 0f)
+                    __result = work;
             }
         }
 
@@ -54,10 +57,12 @@ namespace SlopWorld
         {
             static void Prefix(Frame __instance)
             {
-                if (!Owns(__instance) || !__instance.Spawned) return;
+                if (!Owns(__instance) || !__instance.Spawned)
+                    return;
 
                 var what = __instance.def?.entityDefToBuild;
-                if (WorkFor(what) <= 0f) return;
+                if (WorkFor(what) <= 0f)
+                    return;
 
                 var map = __instance.Map;
                 map?.GetComponent<Worksite>()?.MarkFramesDirty();
@@ -65,11 +70,14 @@ namespace SlopWorld
                 map?.GetComponent<Worksite>()?.Count(rect.Area);
 
                 float bloom = BloomFor(what);
-                if (bloom <= 0f) return;
+                if (bloom <= 0f)
+                    return;
 
                 var plague = map?.GetComponent<Plague>();
-                if (plague == null) return;
-                foreach (var c in rect) plague.Bloom(c, bloom);
+                if (plague == null)
+                    return;
+                foreach (var c in rect)
+                    plague.Bloom(c, bloom);
             }
         }
 

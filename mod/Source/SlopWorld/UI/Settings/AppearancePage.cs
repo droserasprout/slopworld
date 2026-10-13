@@ -14,8 +14,10 @@ namespace SlopWorld
         const float PickerHeight = 360f;
 
         readonly SmoothScroll _pickScroll = new SmoothScroll();
-        readonly SettingsPreviewForm _form = new SettingsPreviewForm(600f,
-            UiScrollbarReservation.WhenNeeded);
+        readonly SettingsPreviewForm _form = new SettingsPreviewForm(
+            600f,
+            UiScrollbarReservation.WhenNeeded
+        );
         bool _pickingCursor;
         int _contentRevision;
 
@@ -28,23 +30,35 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            using (WidgetState.Save()) DrawCore(rect);
+            using (WidgetState.Save())
+                DrawCore(rect);
         }
 
         void DrawCore(Rect rect)
         {
             Text.Font = GameFont.Small;
-            _form.Draw(SettingsPageLayout.BodyWithoutFooter(rect), PreviewHeight(),
-                DrawFields, DrawPreviewBlock, _contentRevision);
+            _form.Draw(
+                SettingsPageLayout.BodyWithoutFooter(rect),
+                PreviewHeight(),
+                DrawFields,
+                DrawPreviewBlock,
+                _contentRevision
+            );
 
             if (_pickingCursor)
                 DrawCursorPicker(rect);
         }
 
-        static float PreviewHeight() => Mathf.Clamp(
-            UiTheme.LineHOf(GameFont.Tiny) + UiTheme.LineHOf(GameFont.Small)
-                + UiTheme.LineHOf(GameFont.Medium) + UiTheme.GapS * 8 + 90f,
-            200f, 230f);
+        static float PreviewHeight() =>
+            Mathf.Clamp(
+                UiTheme.LineHOf(GameFont.Tiny)
+                    + UiTheme.LineHOf(GameFont.Small)
+                    + UiTheme.LineHOf(GameFont.Medium)
+                    + UiTheme.GapS * 8
+                    + 90f,
+                200f,
+                230f
+            );
 
         static void DrawPreviewBlock(Rect caption, Rect preview)
         {
@@ -67,10 +81,18 @@ namespace SlopWorld
             // The knob and readout follow the mouse. Apply the scale only after mouse release.
             // The scale changes this row's position. See UiControls.Slider.
             float shown = _scaleHeld ?? UiScale.Current;
-            float scale = UiControls.Slider(l, "UI scale", shown,
-                UiScale.Min, UiScale.Max, UiScale.Readout(shown), out bool held,
-                out bool released, "Scales the SlopWorld and game interfaces. The game's scale control stops "
-                + "when the scaled screen would be smaller than 1024x768. This control has no such limit.");
+            float scale = UiControls.Slider(
+                l,
+                "UI scale",
+                shown,
+                UiScale.Min,
+                UiScale.Max,
+                UiScale.Readout(shown),
+                out bool held,
+                out bool released,
+                "Scales the SlopWorld and game interfaces. The game's scale control stops "
+                    + "when the scaled screen would be smaller than 1024x768. This control has no such limit."
+            );
             if (held)
             {
                 _scaleHeld = scale;
@@ -89,16 +111,23 @@ namespace SlopWorld
             // Nothing to invalidate on the way out: every color in the mod is read through shared
             // UI chrome on the frame it is drawn. Therefore, the page under the dropdown has
             // already changed by the time the menu closes over it. See UIScheme.
-            UiControls.Select(l, "Color scheme", UIScheme.Current.Label,
-                UIScheme.All.Select(s => new SelectorOption(s.Label, () =>
-                {
-                    S.uiScheme = s.Id;
-                    S.MarkDirty();
-                })), out _);
+            UiControls.Select(
+                l,
+                "Color scheme",
+                UIScheme.Current.Label,
+                UIScheme.All.Select(s => new SelectorOption(
+                    s.Label,
+                    () =>
+                    {
+                        S.uiScheme = s.Id;
+                        S.MarkDirty();
+                    }
+                )),
+                out _
+            );
 
             DrawSwatches(l.GetRect(18f));
             l.Gap(UiTheme.GapM);
-
         }
 
         List<FloatMenuOption> _fontOptions;
@@ -111,27 +140,48 @@ namespace SlopWorld
             {
                 _fontOptions = new List<FloatMenuOption>
                 {
-                    new FloatMenuOption("Automatic", () =>
-                    {
-                        S.uiFontName = "";
-                        UiFont.Apply();
-                        S.MarkDirty();
-                        _contentRevision++;
-                    }),
+                    new FloatMenuOption(
+                        "Automatic",
+                        () =>
+                        {
+                            S.uiFontName = "";
+                            UiFont.Apply();
+                            S.MarkDirty();
+                            _contentRevision++;
+                        }
+                    ),
                 };
-                _fontOptions.AddRange(UiLayout.GroupedFontOptions(UiFont.All, name =>
-                {
-                    S.uiFontName = name;
-                    UiFont.Apply();
-                    S.MarkDirty();
-                    _contentRevision++;
-                }));
+                _fontOptions.AddRange(
+                    UiLayout.GroupedFontOptions(
+                        UiFont.All,
+                        name =>
+                        {
+                            S.uiFontName = name;
+                            UiFont.Apply();
+                            S.MarkDirty();
+                            _contentRevision++;
+                        }
+                    )
+                );
             }
-            UiControls.Select(l, "Font", S.uiFontName.NullOrEmpty() ? "Automatic" : S.uiFontName,
-                _fontOptions, out _);
+            UiControls.Select(
+                l,
+                "Font",
+                S.uiFontName.NullOrEmpty() ? "Automatic" : S.uiFontName,
+                _fontOptions,
+                out _
+            );
 
-            int size = Mathf.RoundToInt(UiControls.Slider(l, "Size", S.uiFontSize, 0, 24,
-                S.uiFontSize > 0 ? $"{S.uiFontSize}pt" : "auto"));
+            int size = Mathf.RoundToInt(
+                UiControls.Slider(
+                    l,
+                    "Size",
+                    S.uiFontSize,
+                    0,
+                    24,
+                    S.uiFontSize > 0 ? $"{S.uiFontSize}pt" : "auto"
+                )
+            );
             if (size != S.uiFontSize)
             {
                 S.uiFontSize = size;
@@ -143,14 +193,19 @@ namespace SlopWorld
             if (S.uiFontSize == 0)
             {
                 GUI.color = UiTheme.Faint;
-                l.Label("At 0pt, sizes remain Tiny=11, Small=13, and Medium=15. "
-                    + "Only the typeface changes.");
+                l.Label(
+                    "At 0pt, sizes remain Tiny=11, Small=13, and Medium=15. "
+                        + "Only the typeface changes."
+                );
                 GUI.color = Color.white;
             }
 
-            bool disableTiny = UiControls.Checkbox(l, "DisableTinyText".Translate(),
+            bool disableTiny = UiControls.Checkbox(
+                l,
+                "DisableTinyText".Translate(),
                 Prefs.DisableTinyText,
-                "Use the Small font everywhere instead of the game's Tiny font.");
+                "Use the Small font everywhere instead of the game's Tiny font."
+            );
             if (disableTiny != Prefs.DisableTinyText)
             {
                 Prefs.DisableTinyText = disableTiny;
@@ -168,7 +223,6 @@ namespace SlopWorld
                 _contentRevision++;
             }
             l.Gap(UiTheme.GapM);
-
         }
 
         void DrawCursor(Listing_Standard l)
@@ -176,8 +230,12 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "Mouse cursor");
             CursorRow(l);
             l.Gap(UiTheme.GapS);
-            bool grayscale = UiControls.Checkbox(l, "Grayscale", S.cursorGrayscale,
-                "Use neutral grey instead of each asset's original colors.");
+            bool grayscale = UiControls.Checkbox(
+                l,
+                "Grayscale",
+                S.cursorGrayscale,
+                "Use neutral grey instead of each asset's original colors."
+            );
             if (grayscale != S.cursorGrayscale)
             {
                 S.cursorGrayscale = grayscale;
@@ -185,7 +243,6 @@ namespace SlopWorld
                 S.MarkDirty();
             }
             l.Gap(UiTheme.GapM);
-
         }
 
         // The scheme, drawn rather than described - the Terminal page's swatch strip, over the
@@ -201,7 +258,9 @@ namespace SlopWorld
             float w = Mathf.Min(18f, (r.width - 8f) / sw.Length);
             for (int i = 0; i < sw.Length; i++)
                 Widgets.DrawBoxSolid(
-                    new Rect(r.x + 2f + i * w, r.y + 2f, w - 2f, r.height - 4f), sw[i]);
+                    new Rect(r.x + 2f + i * w, r.y + 2f, w - 2f, r.height - 4f),
+                    sw[i]
+                );
         }
 
         // Like the Usage page's icon rows, the current cursor is a small button at the
@@ -213,18 +272,27 @@ namespace SlopWorld
             float boxW = UiTheme.RowH - 2f;
             float col = Mathf.Min(230f, row.width - boxW - UiTheme.GapXS);
 
-            UiText.RowLabel(new Rect(row.x, row.y, col - UiTheme.GapXS, row.height),
-                "Cursor");
+            UiText.RowLabel(new Rect(row.x, row.y, col - UiTheme.GapXS, row.height), "Cursor");
 
             var box = new Rect(row.x + col, row.y + (row.height - boxW) / 2f, boxW, boxW);
             var choice = GameCursor.ChoiceFor(GameCursor.CurrentKey);
             var tex = choice != null ? GameCursor.Preview(choice) : null;
-            var tip = new TipSignal(GameCursor.LabelFor(GameCursor.CurrentKey) +
-                ". Click to choose a cursor.", 0x51_0F_0100);
-            if (IconPickerCell.DrawBox(box, r =>
-            {
-                if (tex != null) GUI.DrawTexture(r, tex, ScaleMode.ScaleToFit, true);
-            }, tip, RowHoverPolicy.Local))
+            var tip = new TipSignal(
+                GameCursor.LabelFor(GameCursor.CurrentKey) + ". Click to choose a cursor.",
+                0x51_0F_0100
+            );
+            if (
+                IconPickerCell.DrawBox(
+                    box,
+                    r =>
+                    {
+                        if (tex != null)
+                            GUI.DrawTexture(r, tex, ScaleMode.ScaleToFit, true);
+                    },
+                    tip,
+                    RowHoverPolicy.Local
+                )
+            )
                 _pickingCursor = true;
         }
 
@@ -232,9 +300,17 @@ namespace SlopWorld
 
         void DrawCursorPicker(Rect pageRect)
         {
-            UiPickerWindow.Show(0x51_0F_1100, pageRect, PickerWidth, PickerHeight, "Mouse cursor",
-                () => _pickingCursor = false, GameCursor.Choices.Length, _pickScroll,
-                grid => DrawCursorGrid(grid));
+            UiPickerWindow.Show(
+                0x51_0F_1100,
+                pageRect,
+                PickerWidth,
+                PickerHeight,
+                "Mouse cursor",
+                () => _pickingCursor = false,
+                GameCursor.Choices.Length,
+                _pickScroll,
+                grid => DrawCursorGrid(grid)
+            );
         }
 
         void DrawCursorGrid(UiPickerWindow.Grid grid)
@@ -244,23 +320,37 @@ namespace SlopWorld
             {
                 int col = i % grid.Columns;
                 int row = i / grid.Columns;
-                var slot = new Rect(grid.View.x + col * grid.Cell,
-                    grid.View.y + row * grid.Cell, grid.Cell, grid.Cell);
+                var slot = new Rect(
+                    grid.View.x + col * grid.Cell,
+                    grid.View.y + row * grid.Cell,
+                    grid.Cell,
+                    grid.Cell
+                );
                 var choice = GameCursor.Choices[i];
                 string key = choice.Key;
 
-                RowChrome.Hover(slot, GameCursor.CurrentKey == key, true,
-                    RowHoverPolicy.Local);
+                RowChrome.Hover(slot, GameCursor.CurrentKey == key, true, RowHoverPolicy.Local);
                 var tex = GameCursor.Preview(choice);
                 if (tex != null)
-                    GUI.DrawTexture(new Rect(slot.x + (grid.Cell - grid.IconSize) / 2f,
-                        slot.y + (grid.Cell - grid.IconSize) / 2f,
-                        grid.IconSize, grid.IconSize),
-                        tex, ScaleMode.ScaleToFit, true);
+                    GUI.DrawTexture(
+                        new Rect(
+                            slot.x + (grid.Cell - grid.IconSize) / 2f,
+                            slot.y + (grid.Cell - grid.IconSize) / 2f,
+                            grid.IconSize,
+                            grid.IconSize
+                        ),
+                        tex,
+                        ScaleMode.ScaleToFit,
+                        true
+                    );
 
-                TooltipHandler.TipRegion(slot, new TipSignal(
-                    choice.Label + "\n" + choice.TexturePath,
-                    0x51_0F_0120 ^ key.GetHashCode()));
+                TooltipHandler.TipRegion(
+                    slot,
+                    new TipSignal(
+                        choice.Label + "\n" + choice.TexturePath,
+                        0x51_0F_0120 ^ key.GetHashCode()
+                    )
+                );
                 if (UiButtons.RowButton(slot))
                 {
                     GameCursor.Choose(key);
@@ -277,24 +367,37 @@ namespace SlopWorld
             using (WidgetState.Save())
             {
                 Slab.Box(r, UiTheme.Well, UiTheme.Edge);
-                float x = r.x + 8f, y = r.y + 5f;
+                float x = r.x + 8f,
+                    y = r.y + 5f;
                 float w = r.width - 16f;
                 const float tagW = 52f;
 
-                y = DrawTier(new Rect(x, y, w,
-                        UiTheme.LineHOf(GameFont.Medium) + 2f),
-                    GameFont.Medium, "Medium", "Agents  ~/project  main", UiTheme.Lead,
-                    tagW);
+                y = DrawTier(
+                    new Rect(x, y, w, UiTheme.LineHOf(GameFont.Medium) + 2f),
+                    GameFont.Medium,
+                    "Medium",
+                    "Agents  ~/project  main",
+                    UiTheme.Lead,
+                    tagW
+                );
                 y += UiTheme.GapXS;
-                y = DrawTier(new Rect(x, y, w,
-                        UiTheme.LineHOf(GameFont.Small) + 2f),
-                    GameFont.Small, "Small", "claude  working  +12 -3", UiTheme.Name,
-                    tagW);
+                y = DrawTier(
+                    new Rect(x, y, w, UiTheme.LineHOf(GameFont.Small) + 2f),
+                    GameFont.Small,
+                    "Small",
+                    "claude  working  +12 -3",
+                    UiTheme.Name,
+                    tagW
+                );
                 y += UiTheme.GapXS;
-                y = DrawTier(new Rect(x, y, w,
-                        UiTheme.LineHOf(GameFont.Tiny) + 2f),
-                    GameFont.Tiny, "Tiny", "last output 14m ago  ·  metadata", UiTheme.Dim,
-                    tagW);
+                y = DrawTier(
+                    new Rect(x, y, w, UiTheme.LineHOf(GameFont.Tiny) + 2f),
+                    GameFont.Tiny,
+                    "Tiny",
+                    "last output 14m ago  ·  metadata",
+                    UiTheme.Dim,
+                    tagW
+                );
                 y += UiTheme.GapS;
 
                 float gap = UiTheme.GapXS;
@@ -302,13 +405,27 @@ namespace SlopWorld
                 if (buttonH > 0f)
                 {
                     float buttonW = (w - gap * 2f) / 3f;
-                    DrawButtonExample(new Rect(x, y, buttonW, buttonH), "OPEN",
-                        UiTheme.Accent, UIScheme.Current.AccentText, Color.clear);
-                    DrawButtonExample(new Rect(x + buttonW + gap, y, buttonW, buttonH),
-                        "DEFAULT", UiTheme.Well, UiTheme.Lead, UiTheme.Edge);
-                    DrawButtonExample(new Rect(x + (buttonW + gap) * 2f, y, buttonW, buttonH),
-                        "DELETE", UiTheme.Destructive, UIScheme.Current.DestructiveText,
-                        Color.clear);
+                    DrawButtonExample(
+                        new Rect(x, y, buttonW, buttonH),
+                        "OPEN",
+                        UiTheme.Accent,
+                        UIScheme.Current.AccentText,
+                        Color.clear
+                    );
+                    DrawButtonExample(
+                        new Rect(x + buttonW + gap, y, buttonW, buttonH),
+                        "DEFAULT",
+                        UiTheme.Well,
+                        UiTheme.Lead,
+                        UiTheme.Edge
+                    );
+                    DrawButtonExample(
+                        new Rect(x + (buttonW + gap) * 2f, y, buttonW, buttonH),
+                        "DELETE",
+                        UiTheme.Destructive,
+                        UIScheme.Current.DestructiveText,
+                        Color.clear
+                    );
                     y += buttonH;
                 }
                 y += UiTheme.GapS;
@@ -336,12 +453,17 @@ namespace SlopWorld
                 if (chipH > 0f)
                 {
                     DrawColorKey(new Rect(x, y, chipW, chipH), "OK", UiTheme.Yes);
-                    DrawColorKey(new Rect(x + chipW + gap, y, chipW, chipH), "WARN",
-                        UiTheme.Warn);
-                    DrawColorKey(new Rect(x + (chipW + gap) * 2f, y, chipW, chipH), "ERROR",
-                        UiTheme.Bad);
-                    DrawColorKey(new Rect(x + (chipW + gap) * 3f, y, chipW, chipH), "LINK",
-                        UiTheme.Accent);
+                    DrawColorKey(new Rect(x + chipW + gap, y, chipW, chipH), "WARN", UiTheme.Warn);
+                    DrawColorKey(
+                        new Rect(x + (chipW + gap) * 2f, y, chipW, chipH),
+                        "ERROR",
+                        UiTheme.Bad
+                    );
+                    DrawColorKey(
+                        new Rect(x + (chipW + gap) * 3f, y, chipW, chipH),
+                        "LINK",
+                        UiTheme.Accent
+                    );
                 }
             }
         }
@@ -368,8 +490,10 @@ namespace SlopWorld
                 UiText.RowLabel(new Rect(r.x + 6f, r.y, labelW, r.height), "command");
                 Text.Font = GameFont.Small;
                 GUI.color = UiTheme.Name;
-                UiText.RowLabel(new Rect(r.x + labelW + 4f, r.y,
-                    r.width - labelW - 10f, r.height), "just test");
+                UiText.RowLabel(
+                    new Rect(r.x + labelW + 4f, r.y, r.width - labelW - 10f, r.height),
+                    "just test"
+                );
             }
         }
 
@@ -381,8 +505,15 @@ namespace SlopWorld
             {
                 Text.Font = GameFont.Small;
                 GUI.color = UiTheme.Name;
-                UiText.RowLabel(new Rect(box.xMax + UiTheme.GapS, r.y,
-                    r.xMax - box.xMax - UiTheme.GapS - 4f, r.height), "Enabled");
+                UiText.RowLabel(
+                    new Rect(
+                        box.xMax + UiTheme.GapS,
+                        r.y,
+                        r.xMax - box.xMax - UiTheme.GapS - 4f,
+                        r.height
+                    ),
+                    "Enabled"
+                );
             }
         }
 
@@ -390,23 +521,36 @@ namespace SlopWorld
         {
             Slab.Box(r, UiTheme.RowOn, UiTheme.EdgeLit);
             float marker = Mathf.Min(UiTheme.StatusMarker, r.height - 8f);
-            Slab.Fill(new Rect(r.x + 6f, r.y + (r.height - marker) / 2f, marker, marker),
-                UiTheme.StateWorking);
+            Slab.Fill(
+                new Rect(r.x + 6f, r.y + (r.height - marker) / 2f, marker, marker),
+                UiTheme.StateWorking
+            );
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Small;
                 GUI.color = UiTheme.Name;
-                UiText.RowLabel(new Rect(r.x + marker + 14f, r.y,
-                    r.width * 0.52f, r.height), "agent terminal");
+                UiText.RowLabel(
+                    new Rect(r.x + marker + 14f, r.y, r.width * 0.52f, r.height),
+                    "agent terminal"
+                );
                 Text.Font = GameFont.Tiny;
                 GUI.color = UiTheme.StateWorking;
-                UiText.RowLabel(new Rect(r.x + r.width * 0.52f, r.y,
-                    r.width * 0.48f - 8f, r.height), "working", TextAnchor.MiddleRight);
+                UiText.RowLabel(
+                    new Rect(r.x + r.width * 0.52f, r.y, r.width * 0.48f - 8f, r.height),
+                    "working",
+                    TextAnchor.MiddleRight
+                );
             }
         }
 
-        static float DrawTier(Rect r, GameFont font, string label, string sample, Color color,
-            float tagW)
+        static float DrawTier(
+            Rect r,
+            GameFont font,
+            string label,
+            string sample,
+            Color color,
+            float tagW
+        )
         {
             Slab.Fill(r, UiTheme.RowBg);
 
@@ -415,8 +559,7 @@ namespace SlopWorld
             UiText.RowLabel(new Rect(r.x + 6f, r.y, tagW - 6f, r.height), label);
 
             GUI.color = color;
-            UiText.RowLabel(new Rect(r.x + tagW, r.y, r.width - tagW - 6f, r.height),
-                sample);
+            UiText.RowLabel(new Rect(r.x + tagW, r.y, r.width - tagW - 6f, r.height), sample);
             return r.yMax;
         }
 

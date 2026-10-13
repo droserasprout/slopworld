@@ -11,13 +11,19 @@ namespace SlopWorld
     {
         static float ContentPad => UiTheme.GapS;
         FieldLifetime _fieldLifetime = new FieldLifetime();
+
         TerminalWindow(string name)
         {
-            _terminals = new TerminalSplit(this, name, nameSelected =>
-            {
-                SessionSelectable.Current = nameSelected;
-                if (nameSelected != null) SelectAgent(nameSelected);
-            });
+            _terminals = new TerminalSplit(
+                this,
+                name,
+                nameSelected =>
+                {
+                    SessionSelectable.Current = nameSelected;
+                    if (nameSelected != null)
+                        SelectAgent(nameSelected);
+                }
+            );
             doWindowBackground = false;
             doCloseButton = false;
             doCloseX = false;
@@ -50,8 +56,7 @@ namespace SlopWorld
 
         internal static List<string> TabOrder() => TerminalInputController.TabOrder();
 
-        internal static List<string> OpenBesideOrder() =>
-            TerminalInputController.OpenBesideOrder();
+        internal static List<string> OpenBesideOrder() => TerminalInputController.OpenBesideOrder();
 
         internal static EventType MouseType(Event e) => TerminalInputController.MouseType(e);
 
@@ -73,23 +78,33 @@ namespace SlopWorld
                 {
                     var hub = SessionHub.Instance;
                     Slab.Fill(TerminalPanel.OverdrawBackground(rect), Background);
-                    if (!EnsureSession(hub)) return;
+                    if (!EnsureSession(hub))
+                        return;
 
                     bool input = Find.WindowStack == null || Find.WindowStack.GetsInput(this);
                     _panels.SetFocus(input);
                     Rect body = DrawTopBar(rect, input);
                     DrawBody(body, input);
                     Find.CurrentMap?.GetComponent<CoreTip>()?.DrawHint();
-                    if (TerminalVisible && _showStopped && _name != null && hub.Get(_name)?.Gone == true)
+                    if (
+                        TerminalVisible
+                        && _showStopped
+                        && _name != null
+                        && hub.Get(_name)?.Gone == true
+                    )
                         MapGizmoUtility.MapUIOnGUI();
                 }
             }
             finally
             {
                 PerfTrace.End("terminal-window", started, 1);
-                PerfTrace.End(eventType == EventType.Repaint ? "terminal-window-repaint" :
-                    eventType == EventType.Layout ? "terminal-window-layout" :
-                    "terminal-window-input", started, 1);
+                PerfTrace.End(
+                    eventType == EventType.Repaint ? "terminal-window-repaint"
+                        : eventType == EventType.Layout ? "terminal-window-layout"
+                        : "terminal-window-input",
+                    started,
+                    1
+                );
             }
         }
 
@@ -104,25 +119,33 @@ namespace SlopWorld
             ArrangeTerminal(workspace.Content);
             float pad = TerminalVisible ? 0f : ContentPad;
             var body = workspace.Content;
-            return new Rect(body.x + pad, body.y + pad,
+            return new Rect(
+                body.x + pad,
+                body.y + pad,
                 Mathf.Max(0f, body.width - pad * 2f),
-                Mathf.Max(0f, body.height - pad * 2f));
+                Mathf.Max(0f, body.height - pad * 2f)
+            );
         }
 
         void DrawBody(Rect body, bool input)
         {
             var active = _panels.Active;
-            if (active == null) return;
-            if (!TerminalVisible && input) _terminal.HandleChrome(Event.current);
+            if (active == null)
+                return;
+            if (!TerminalVisible && input)
+                _terminal.HandleChrome(Event.current);
             // Chrome input may close or replace the panel. Do not deliver the same event
             // to its replacement using bounds computed for the old panel.
-            if (!ReferenceEquals(active, _panels.Active)) return;
+            if (!ReferenceEquals(active, _panels.Active))
+                return;
             _panels.Arrange(new UiLayoutRect(body.x, body.y, body.width, body.height));
-            if (TerminalVisible || active is OptionsView) active.Draw(body);
+            if (TerminalVisible || active is OptionsView)
+                active.Draw(body);
             else
-                using (new FieldFocusScope(_fieldLifetime, input && !ModOptions.KeyboardCaptureActive))
+                using (
+                    new FieldFocusScope(_fieldLifetime, input && !ModOptions.KeyboardCaptureActive)
+                )
                     active.Draw(body);
         }
-
     }
 }

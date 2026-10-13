@@ -9,17 +9,26 @@ namespace SlopWorld
     // selected value and its raw, still-editable server text in their respective shells.
     static class DnsForm
     {
-        public static void Draw(Listing_Standard l, DnsConfig value, string fieldId,
-                                ref string servers, Action<DnsConfig> setValue)
+        public static void Draw(
+            Listing_Standard l,
+            DnsConfig value,
+            string fieldId,
+            ref string servers,
+            Action<DnsConfig> setValue
+        )
         {
             string label = value?.Label ?? "System resolver";
             var choices = new List<SelectorOption>
             {
                 new SelectorOption("System resolver", () => setValue(DnsConfig.Resolved())),
-                new SelectorOption("Custom DNS servers", () =>
-                {
-                    if (value?.Mode != DnsMode.Servers) setValue(DnsConfig.Custom());
-                }),
+                new SelectorOption(
+                    "Custom DNS servers",
+                    () =>
+                    {
+                        if (value?.Mode != DnsMode.Servers)
+                            setValue(DnsConfig.Custom());
+                    }
+                ),
             };
             UiControls.Select(l, "DNS", label, choices, out _);
 
@@ -27,8 +36,10 @@ namespace SlopWorld
             {
                 servers = UiControls.Field(l, fieldId, servers ?? "");
                 GUI.color = UiTheme.Dim;
-                l.Label("Enter one or two IPv4 server addresses, separated by commas or spaces. " +
-                    "This setting takes effect when the agent starts.");
+                l.Label(
+                    "Enter one or two IPv4 server addresses, separated by commas or spaces. "
+                        + "This setting takes effect when the agent starts."
+                );
                 GUI.color = Color.white;
             }
             else
@@ -42,8 +53,10 @@ namespace SlopWorld
         public static bool TrySave(DnsConfig value, string servers, out string error)
         {
             error = null;
-            if (value?.Mode != DnsMode.Servers) return true;
-            if (!DnsConfig.TryParseServers(servers, out List<string> parsed, out error)) return false;
+            if (value?.Mode != DnsMode.Servers)
+                return true;
+            if (!DnsConfig.TryParseServers(servers, out List<string> parsed, out error))
+                return false;
             value.Servers = parsed;
             return true;
         }

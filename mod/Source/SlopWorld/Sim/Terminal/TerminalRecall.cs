@@ -32,12 +32,14 @@ namespace SlopWorld
         public static void Remember(string name)
         {
             var c = Instance;
-            if (c != null) c._last = name ?? "";
+            if (c != null)
+                c._last = name ?? "";
         }
 
         public override void GameComponentTick()
         {
-            if (_done) return;
+            if (_done)
+                return;
 
             if (string.IsNullOrEmpty(_last))
             {
@@ -53,7 +55,8 @@ namespace SlopWorld
             }
 
             float now = Time.realtimeSinceStartup;
-            if (_giveUpAt < 0f) _giveUpAt = now + WaitSeconds;
+            if (_giveUpAt < 0f)
+                _giveUpAt = now + WaitSeconds;
 
             var info = SessionHub.Instance.Get(_last);
             if (info?.Alive == true)

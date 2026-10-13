@@ -11,10 +11,14 @@ namespace SlopWorld
             string path = PagerCommands.Executable(command);
             switch (Path.GetFileName(path))
             {
-                case "highlight": return "highlight";
-                case "pygmentize": return "pygments";
-                case "bat": return "bat";
-                default: return "";
+                case "highlight":
+                    return "highlight";
+                case "pygmentize":
+                    return "pygments";
+                case "bat":
+                    return "bat";
+                default:
+                    return "";
             }
         }
 
@@ -22,10 +26,14 @@ namespace SlopWorld
         {
             switch (engine)
             {
-                case "highlight": return settings.codeHighlightTheme ?? "";
-                case "pygments": return settings.codePygmentsTheme ?? "";
-                case "bat": return ResolveTheme(engine, settings.codeBatTheme);
-                default: return "";
+                case "highlight":
+                    return settings.codeHighlightTheme ?? "";
+                case "pygments":
+                    return settings.codePygmentsTheme ?? "";
+                case "bat":
+                    return ResolveTheme(engine, settings.codeBatTheme);
+                default:
+                    return "";
             }
         }
 
@@ -35,15 +43,23 @@ namespace SlopWorld
 
         public static string Command(string command, ModSettings settings)
         {
-            string engine = Engine(command), theme = Theme(settings, engine);
-            if (theme.Length == 0) return command;
-            string option = engine == "highlight" ? "--style=" + PagerCommands.Quote(theme)
+            string engine = Engine(command),
+                theme = Theme(settings, engine);
+            if (theme.Length == 0)
+                return command;
+            string option =
+                engine == "highlight" ? "--style=" + PagerCommands.Quote(theme)
                 : engine == "bat" ? "--theme=" + PagerCommands.Quote(theme)
                 : "-P " + PagerCommands.Quote("style=" + theme);
             return PagerCommands.InsertOptions(command, option, "%s");
         }
 
-        public static Wire.HighlightReq Request(string text, string language, string command, ModSettings settings)
+        public static Wire.HighlightReq Request(
+            string text,
+            string language,
+            string command,
+            ModSettings settings
+        )
         {
             string engine = Engine(command);
             return new Wire.HighlightReq
@@ -51,7 +67,7 @@ namespace SlopWorld
                 Text = text,
                 Language = language,
                 Engine = engine,
-                Theme = Theme(settings, engine)
+                Theme = Theme(settings, engine),
             };
         }
     }

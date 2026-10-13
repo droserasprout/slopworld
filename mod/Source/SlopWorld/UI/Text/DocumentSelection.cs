@@ -6,7 +6,8 @@ namespace SlopWorld
 {
     // Shared document gestures, capture and highlights. Adapters own line geometry,
     // copy semantics and clipboard policy; terminal cell selection is a separate owner.
-    abstract class DocumentSelection<TLine> where TLine : DocumentSelectionLine
+    abstract class DocumentSelection<TLine>
+        where TLine : DocumentSelectionLine
     {
         protected readonly List<TLine> _lines = new List<TLine>();
         readonly List<TLine> _spatialLines = new List<TLine>();
@@ -36,13 +37,16 @@ namespace SlopWorld
         {
             _spatialLines.Clear();
             _spatialLines.AddRange(_lines);
-            _spatialLines.Sort((left, right) =>
-            {
-                int result = left.Y.CompareTo(right.Y);
-                if (result != 0) return result;
-                result = left.X.CompareTo(right.X);
-                return result != 0 ? result : left.LogicalIndex.CompareTo(right.LogicalIndex);
-            });
+            _spatialLines.Sort(
+                (left, right) =>
+                {
+                    int result = left.Y.CompareTo(right.Y);
+                    if (result != 0)
+                        return result;
+                    result = left.X.CompareTo(right.X);
+                    return result != 0 ? result : left.LogicalIndex.CompareTo(right.LogicalIndex);
+                }
+            );
         }
 
         protected void RestoreRange(Vector2Int start, Vector2Int end)
@@ -64,7 +68,8 @@ namespace SlopWorld
 
         public void BeginMouse(Rect body, Event e, int clickCount, Vector2 scroll)
         {
-            if (!body.Contains(e.mousePosition)) return;
+            if (!body.Contains(e.mousePosition))
+                return;
             var point = PointAt(body, e.mousePosition, scroll);
             if (clickCount >= 3)
             {
@@ -94,21 +99,26 @@ namespace SlopWorld
 
         public void DragMouse(Rect body, Event e, Vector2 scroll)
         {
-            if (!_dragging) return;
+            if (!_dragging)
+                return;
             UpdateDrag(PointAt(body, e.mousePosition, scroll));
             e.Use();
         }
 
         void UpdateDrag(Vector2Int point)
         {
-            if (_lineDragging) SelectLineRange(_lineStart, point.y);
-            else if (_wordDragging) UpdateWordSelection(point);
-            else RestoreRange(_selectionStart, point);
+            if (_lineDragging)
+                SelectLineRange(_lineStart, point.y);
+            else if (_wordDragging)
+                UpdateWordSelection(point);
+            else
+                RestoreRange(_selectionStart, point);
         }
 
         public void EndMouse(Rect body, Event e, Vector2 scroll)
         {
-            if (!_dragging) return;
+            if (!_dragging)
+                return;
             UpdateDrag(PointAt(body, e.mousePosition, scroll));
             _dragging = _lineDragging = _wordDragging = false;
             ReleaseSelection();
@@ -119,11 +129,13 @@ namespace SlopWorld
 
         public void HandleKey(Event e)
         {
-            if (!e.control || e.alt) return;
+            if (!e.control || e.alt)
+                return;
 
             if (e.keyCode == KeyCode.C)
             {
-                if (_hasSelection) CopySelection();
+                if (_hasSelection)
+                    CopySelection();
                 e.Use();
                 return;
             }
@@ -145,9 +157,18 @@ namespace SlopWorld
         public void OpenMenu()
         {
             var options = new List<FloatMenuOption>();
-            SelectionCommands.Add(options,
-                new SelectionCommandAvailability(canCopy: _hasSelection, canPaste: CanPaste && TerminalWindow.CanPasteClipboardToAgent, canSelectAll: true, canCut: false),
-                CopySelection, CanPaste ? TerminalWindow.PasteClipboardToAgent : (System.Action)null, SelectAll);
+            SelectionCommands.Add(
+                options,
+                new SelectionCommandAvailability(
+                    canCopy: _hasSelection,
+                    canPaste: CanPaste && TerminalWindow.CanPasteClipboardToAgent,
+                    canSelectAll: true,
+                    canCut: false
+                ),
+                CopySelection,
+                CanPaste ? TerminalWindow.PasteClipboardToAgent : (System.Action)null,
+                SelectAll
+            );
             TerminalWindow.OpenOverPane(new UiMenu(options));
         }
 
@@ -155,7 +176,8 @@ namespace SlopWorld
 
         public void DrawHighlights(float clipTop, float clipBottom)
         {
-            if (!_hasSelection || _lines.Count == 0) return;
+            if (!_hasSelection || _lines.Count == 0)
+                return;
             OrderedSelection(out var a, out var b);
 
             int first = FirstHighlightLine(Mathf.Clamp(a.y, 0, _lines.Count - 1), clipTop);
@@ -163,23 +185,34 @@ namespace SlopWorld
             for (int i = first; i <= last; i++)
             {
                 var line = _lines[i];
-                if (line.Y + line.Height <= clipTop || line.Y >= clipBottom) continue;
+                if (line.Y + line.Height <= clipTop || line.Y >= clipBottom)
+                    continue;
                 EnsureEdges(line);
                 int start = i == a.y ? a.x : 0;
                 int end = i == b.y ? b.x : line.Text.Length;
                 start = Mathf.Clamp(start, 0, line.Text.Length);
                 end = Mathf.Clamp(end, start, line.Text.Length);
-                if (end <= start) continue;
+                if (end <= start)
+                    continue;
 
                 float left = line.X + Mathf.Min(line.Width, line.Edges[start]);
                 float right = line.X + Mathf.Min(line.Width, line.Edges[end]);
-                Slab.Fill(new Rect(left, line.Y, Mathf.Max(MinimumHighlightWidth, right - left), line.Height), UiTheme.Sel);
+                Slab.Fill(
+                    new Rect(
+                        left,
+                        line.Y,
+                        Mathf.Max(MinimumHighlightWidth, right - left),
+                        line.Height
+                    ),
+                    UiTheme.Sel
+                );
             }
         }
 
         Vector2Int PointAt(Rect body, Vector2 mouse, Vector2 scroll)
         {
-            if (_lines.Count == 0) return Vector2Int.zero;
+            if (_lines.Count == 0)
+                return Vector2Int.zero;
 
             float y = mouse.y - body.y + scroll.y;
             float x = mouse.x - body.x + scroll.x;
@@ -187,7 +220,8 @@ namespace SlopWorld
 
             var selected = _lines[lineIndex];
             EnsureEdges(selected);
-            if (x <= selected.X) return new Vector2Int(0, lineIndex);
+            if (x <= selected.X)
+                return new Vector2Int(0, lineIndex);
             if (x >= selected.X + selected.Edges[selected.Text.Length])
                 return new Vector2Int(selected.Text.Length, lineIndex);
 
@@ -211,11 +245,16 @@ namespace SlopWorld
             float best = float.MaxValue;
             foreach (var line in _spatialLines)
             {
-                float vertical = y < line.Y ? line.Y - y :
-                    y > line.Y + line.Height ? y - (line.Y + line.Height) : 0f;
+                float vertical =
+                    y < line.Y ? line.Y - y
+                    : y > line.Y + line.Height ? y - (line.Y + line.Height)
+                    : 0f;
                 float left = line.X;
                 float right = line.X + line.Width;
-                float horizontal = x < left ? left - x : x > right ? x - right : 0f;
+                float horizontal =
+                    x < left ? left - x
+                    : x > right ? x - right
+                    : 0f;
                 float distance = vertical * 10000f + horizontal;
                 if (distance < best)
                 {
@@ -229,9 +268,14 @@ namespace SlopWorld
 
         void DoubleClickSelect(Vector2Int point)
         {
-            if (point.y < 0 || point.y >= _lines.Count) return;
+            if (point.y < 0 || point.y >= _lines.Count)
+                return;
             var line = _lines[point.y];
-            if (line.Text.Length == 0) { Clear(); return; }
+            if (line.Text.Length == 0)
+            {
+                Clear();
+                return;
+            }
 
             int index = Mathf.Clamp(point.x, 0, line.Text.Length - 1);
             var range = TextSelectionRules.WordRange(line.Text, index);
@@ -250,10 +294,12 @@ namespace SlopWorld
 
         void UpdateWordSelection(Vector2Int point)
         {
-            if (_lines.Count == 0) return;
+            if (_lines.Count == 0)
+                return;
             int lineIndex = Mathf.Clamp(point.y, 0, _lines.Count - 1);
             var line = _lines[lineIndex];
-            if (line.Text.Length == 0) return;
+            if (line.Text.Length == 0)
+                return;
 
             int index = Mathf.Clamp(point.x, 0, line.Text.Length - 1);
             var range = TextSelectionRules.WordRange(line.Text, index);
@@ -277,9 +323,14 @@ namespace SlopWorld
 
         void SelectLine(int line)
         {
-            if (line < 0 || line >= _lines.Count) return;
+            if (line < 0 || line >= _lines.Count)
+                return;
             int length = _lines[line].Text.Length;
-            if (length == 0) { Clear(); return; }
+            if (length == 0)
+            {
+                Clear();
+                return;
+            }
             _lineStart = line;
             _selectionStart = new Vector2Int(0, line);
             _selectionEnd = new Vector2Int(length, line);
@@ -291,7 +342,8 @@ namespace SlopWorld
 
         void SelectLineRange(int anchor, int line)
         {
-            if (_lines.Count == 0) return;
+            if (_lines.Count == 0)
+                return;
             anchor = Mathf.Clamp(anchor, 0, _lines.Count - 1);
             line = Mathf.Clamp(line, 0, _lines.Count - 1);
             int first = Mathf.Min(anchor, line);
@@ -301,12 +353,12 @@ namespace SlopWorld
             _hasSelection = true;
         }
 
-        static bool Before(Vector2Int a, Vector2Int b) =>
-            a.y < b.y || (a.y == b.y && a.x < b.x);
+        static bool Before(Vector2Int a, Vector2Int b) => a.y < b.y || (a.y == b.y && a.x < b.x);
 
         public void SelectAll()
         {
-            if (_lines.Count == 0) return;
+            if (_lines.Count == 0)
+                return;
             _selectionStart = Vector2Int.zero;
             int last = _lines.Count - 1;
             _selectionEnd = new Vector2Int(_lines[last].Text.Length, last);
@@ -315,22 +367,26 @@ namespace SlopWorld
             _wordDragging = false;
             _lineDragging = false;
             ReleaseSelection();
-            if (CopyOnSelectAll) CopyText(SelectionText().TrimEnd('\n'));
+            if (CopyOnSelectAll)
+                CopyText(SelectionText().TrimEnd('\n'));
         }
 
         void CopySelection()
         {
-            if (_hasSelection) CopyText(SelectionText());
+            if (_hasSelection)
+                CopyText(SelectionText());
         }
 
         void CopyPrimarySelection()
         {
-            if (PublishPrimary && _hasSelection) CopyPrimaryText(SelectionText());
+            if (PublishPrimary && _hasSelection)
+                CopyPrimaryText(SelectionText());
         }
 
         public string SelectionText()
         {
-            if (_lines.Count == 0 || !_hasSelection) return "";
+            if (_lines.Count == 0 || !_hasSelection)
+                return "";
             OrderedSelection(out var a, out var b);
             return CopyRange(a, b);
         }
@@ -364,16 +420,20 @@ namespace SlopWorld
 
         static void CopyText(string text)
         {
-            if (string.IsNullOrEmpty(text)) return;
-            DaemonClipboard.Copy(text, null,
-                msg => Log.Warning($"[SlopWorld] clipboard: {msg}"));
+            if (string.IsNullOrEmpty(text))
+                return;
+            DaemonClipboard.Copy(text, null, msg => Log.Warning($"[SlopWorld] clipboard: {msg}"));
         }
 
         static void CopyPrimaryText(string text)
         {
-            if (string.IsNullOrEmpty(text)) return;
-            DaemonClipboard.CopyPrimary(text, null,
-                msg => Log.Warning($"[SlopWorld] primary selection: {msg}"));
+            if (string.IsNullOrEmpty(text))
+                return;
+            DaemonClipboard.CopyPrimary(
+                text,
+                null,
+                msg => Log.Warning($"[SlopWorld] primary selection: {msg}")
+            );
         }
     }
 }

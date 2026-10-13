@@ -11,9 +11,12 @@ namespace SlopWorld
         readonly AutoResetEvent _wake = new AutoResetEvent(false);
         readonly Func<T> _read;
         readonly Thread _worker;
+
         // Mutable sample state is protected by _gate. An outstanding read includes
         // the wake-up request before the worker starts the native query.
-        bool _readOutstanding, _resultPending, _stopped;
+        bool _readOutstanding,
+            _resultPending,
+            _stopped;
         T _value;
         Exception _error;
 
@@ -48,31 +51,47 @@ namespace SlopWorld
                 while (true)
                 {
                     _wake.WaitOne();
-                    lock (_gate) { if (_stopped) return; }
+                    lock (_gate)
+                    {
+                        if (_stopped)
+                            return;
+                    }
                     T value;
-                    try { value = _read(); }
+                    try
+                    {
+                        value = _read();
+                    }
                     catch (Exception error)
                     {
-                        lock (_gate) { _error = error; _stopped = true; }
+                        lock (_gate)
+                        {
+                            _error = error;
+                            _stopped = true;
+                        }
                         return;
                     }
                     lock (_gate)
                     {
-                        if (_stopped) return;
+                        if (_stopped)
+                            return;
                         _value = value;
                         _resultPending = true;
                         _readOutstanding = false;
                     }
                 }
             }
-            finally { _wake.Dispose(); }
+            finally
+            {
+                _wake.Dispose();
+            }
         }
 
         public void Dispose()
         {
             lock (_gate)
             {
-                if (_stopped) return;
+                if (_stopped)
+                    return;
                 _stopped = true;
                 _wake.Set();
             }

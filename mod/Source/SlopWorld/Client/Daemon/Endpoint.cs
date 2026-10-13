@@ -16,7 +16,8 @@ namespace SlopWorld
             Token = token ?? "";
         }
 
-        public string BaseUrl => $"http://{(Host.IndexOf(':') >= 0 ? "[" + Host + "]" : Host)}:{Port}";
+        public string BaseUrl =>
+            $"http://{(Host.IndexOf(':') >= 0 ? "[" + Host + "]" : Host)}:{Port}";
     }
 
     // The daemon owns the live endpoint. The mod discovers its address and token from
@@ -34,8 +35,10 @@ namespace SlopWorld
                 var text = File.ReadAllText(DescriptorPath());
                 var value = Toml.ParseFlat(text);
                 var uri = new Uri(value["url"], UriKind.Absolute);
-                if (!string.Equals(uri.Scheme, "http", StringComparison.OrdinalIgnoreCase) ||
-                    uri.Port <= 0)
+                if (
+                    !string.Equals(uri.Scheme, "http", StringComparison.OrdinalIgnoreCase)
+                    || uri.Port <= 0
+                )
                     return Fallback();
 
                 return new ConnectionInfo(uri.Host, uri.Port, value["token"]);
@@ -51,7 +54,8 @@ namespace SlopWorld
         static string DescriptorPath()
         {
             var explicitPath = Environment.GetEnvironmentVariable("SLOPD_ENDPOINT");
-            if (!string.IsNullOrEmpty(explicitPath)) return explicitPath;
+            if (!string.IsNullOrEmpty(explicitPath))
+                return explicitPath;
 
             return Path.Combine(ApplicationPaths.ConfigRoot, "endpoint.toml");
         }

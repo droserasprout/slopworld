@@ -13,25 +13,37 @@ namespace SlopWorld
 
         static string PortalCommand(string path)
         {
-            const string bus = "gdbus call --session --dest org.freedesktop.portal.Desktop " +
-                "--object-path /org/freedesktop/portal/desktop ";
+            const string bus =
+                "gdbus call --session --dest org.freedesktop.portal.Desktop "
+                + "--object-path /org/freedesktop/portal/desktop ";
             // OpenFile exists in v2, but ask=true only exists in v3. Refuse an older
             // portal rather than silently opening the default application instead of a chooser.
             // https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.OpenURI.html
-            string version = bus + "--method org.freedesktop.DBus.Properties.Get " +
-                "org.freedesktop.portal.OpenURI version";
+            string version =
+                bus
+                + "--method org.freedesktop.DBus.Properties.Get "
+                + "org.freedesktop.portal.OpenURI version";
             // gdbus converts handle argument 3 into a D-Bus Unix FD. The shell opens
             // the selected path on inherited descriptor 3 before gdbus marshals it.
-            string open = bus + "--method org.freedesktop.portal.OpenURI.OpenFile " +
-                PagerCommands.Quote("") + " 3 " + PagerCommands.Quote("{'ask': <true>}") +
-                " 3<" + PagerCommands.Quote(path);
-            return "(portal_version=$(" + version + ") && " +
-                "[[ $portal_version =~ uint32[[:space:]]+([0-9]+) ]] && " +
-                "(( BASH_REMATCH[1] >= 3 )) && " + open +
-                ") || { echo 'Open With requires GTK or an OpenURI portal version 3 or newer.' >&2; exit 1; }";
+            string open =
+                bus
+                + "--method org.freedesktop.portal.OpenURI.OpenFile "
+                + PagerCommands.Quote("")
+                + " 3 "
+                + PagerCommands.Quote("{'ask': <true>}")
+                + " 3<"
+                + PagerCommands.Quote(path);
+            return "(portal_version=$("
+                + version
+                + ") && "
+                + "[[ $portal_version =~ uint32[[:space:]]+([0-9]+) ]] && "
+                + "(( BASH_REMATCH[1] >= 3 )) && "
+                + open
+                + ") || { echo 'Open With requires GTK or an OpenURI portal version 3 or newer.' >&2; exit 1; }";
         }
 
-        const string GtkChooserScript = @"
+        const string GtkChooserScript =
+            @"
 import os
 import sys
 # Fork before GTK starts threads or connects to the display. Report readiness so

@@ -11,11 +11,13 @@ namespace SlopWorld
             public Action Loaded;
             public Action<string> Failed;
         }
+
         readonly Action<Exception> _reportCallbackError;
 
         public SnapshotRequest(Action<Exception> reportCallbackError)
         {
-            _reportCallbackError = reportCallbackError ?? throw new ArgumentNullException(nameof(reportCallbackError));
+            _reportCallbackError =
+                reportCallbackError ?? throw new ArgumentNullException(nameof(reportCallbackError));
         }
 
         readonly List<Waiter> _waiters = new List<Waiter>();
@@ -28,7 +30,8 @@ namespace SlopWorld
             int revision = ++Revision;
             return error =>
             {
-                if (revision == Revision) Settle(null, error);
+                if (revision == Revision)
+                    Settle(null, error);
                 fail?.Invoke(error);
             };
         }
@@ -39,14 +42,29 @@ namespace SlopWorld
             Settle(() => apply(value), null);
         }
 
-        public void Refresh<T>(string path, Action<T> apply, Action<string> fail,
-                            Action loaded = null) where T : Google.Protobuf.IMessage<T>, new()
+        public void Refresh<T>(
+            string path,
+            Action<T> apply,
+            Action<string> fail,
+            Action loaded = null
+        )
+            where T : Google.Protobuf.IMessage<T>, new()
         {
             int revision = ++Revision;
             _waiters.Add(new Waiter { Loaded = loaded, Failed = fail });
-            DaemonClient.Get<T>(path,
-                value => { if (revision == Revision) Settle(() => apply(value), null); },
-                error => { if (revision == Revision) Settle(null, error); });
+            DaemonClient.Get<T>(
+                path,
+                value =>
+                {
+                    if (revision == Revision)
+                        Settle(() => apply(value), null);
+                },
+                error =>
+                {
+                    if (revision == Revision)
+                        Settle(null, error);
+                }
+            );
         }
 
         void Settle(Action publish, string error)
@@ -55,16 +73,27 @@ namespace SlopWorld
             // the next outcome. Every success callback sees the winning snapshot.
             var waiters = _waiters.ToArray();
             _waiters.Clear();
-            try { publish?.Invoke(); }
-            catch (Exception e) { error = e.Message; }
+            try
+            {
+                publish?.Invoke();
+            }
+            catch (Exception e)
+            {
+                error = e.Message;
+            }
             foreach (var waiter in waiters)
             {
                 try
                 {
-                    if (error == null) waiter.Loaded?.Invoke();
-                    else waiter.Failed?.Invoke(error);
+                    if (error == null)
+                        waiter.Loaded?.Invoke();
+                    else
+                        waiter.Failed?.Invoke(error);
                 }
-                catch (Exception e) { _reportCallbackError(e); }
+                catch (Exception e)
+                {
+                    _reportCallbackError(e);
+                }
             }
         }
     }

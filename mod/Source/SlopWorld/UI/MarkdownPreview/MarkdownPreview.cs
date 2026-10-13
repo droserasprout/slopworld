@@ -33,20 +33,42 @@ namespace SlopWorld
         MarkdownPreview _previous;
         bool _retained;
 
-        public MarkdownPreview(string project, string path, string name, string root = null, bool plainText = false)
-            : this(project, path,
-                string.IsNullOrEmpty(name) ? System.IO.Path.GetFileName(path) : name, null, root, plainText)
-        {
-        }
+        public MarkdownPreview(
+            string project,
+            string path,
+            string name,
+            string root = null,
+            bool plainText = false
+        )
+            : this(
+                project,
+                path,
+                string.IsNullOrEmpty(name) ? System.IO.Path.GetFileName(path) : name,
+                null,
+                root,
+                plainText
+            ) { }
 
         // Settings pages can preview a document before it exists on disk. Inline documents
         // share the normal Markdown pipeline but never cross the daemon's file-read boundary.
         public MarkdownPreview(string text, string name)
-            : this("", "", string.IsNullOrEmpty(name) ? "preview.md" : name, text ?? "", null, false)
-        {
-        }
+            : this(
+                "",
+                "",
+                string.IsNullOrEmpty(name) ? "preview.md" : name,
+                text ?? "",
+                null,
+                false
+            ) { }
 
-        MarkdownPreview(string project, string path, string name, string inlineText, string root, bool plainText)
+        MarkdownPreview(
+            string project,
+            string path,
+            string name,
+            string inlineText,
+            string root,
+            bool plainText
+        )
         {
             _project = project ?? "";
             _path = path ?? "";
@@ -76,7 +98,8 @@ namespace SlopWorld
 
         public static void CloseIfShowing()
         {
-            if (TerminalWindow.ShowingAs<MarkdownPreview>() == null) return;
+            if (TerminalWindow.ShowingAs<MarkdownPreview>() == null)
+                return;
             Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
         }
 
@@ -90,24 +113,29 @@ namespace SlopWorld
                 return;
             }
 
-            DaemonClient.Get<Wire.TextResult>(WireProtocol.Routes.Read + _paths.ScopedQuery(_path),
+            DaemonClient.Get<Wire.TextResult>(
+                WireProtocol.Routes.Read + _paths.ScopedQuery(_path),
                 j =>
                 {
-                    if (!IsCurrent(request)) return;
+                    if (!IsCurrent(request))
+                        return;
                     ApplyText(j.Text, request);
                 },
                 msg =>
                 {
-                    if (!IsCurrent(request)) return;
+                    if (!IsCurrent(request))
+                        return;
                     _loading = false;
                     _error = msg;
                     ReleasePrevious();
-                });
+                }
+            );
         }
 
         public void SetInlineText(string text)
         {
-            if (_inlineText == null || _inlineText == text) return;
+            if (_inlineText == null || _inlineText == text)
+                return;
             _inlineText = text ?? "";
             BeginLoad();
             ApplyText(_inlineText, ++_request);
@@ -118,7 +146,8 @@ namespace SlopWorld
             // A replacement can retain this document's render state after the workspace
             // closes it. It is read-only and stops accepting asynchronous resource replies.
             ++_request;
-            if (_retained) return;
+            if (_retained)
+                return;
             ReleasePrevious();
             _scroll.Reset();
             _selection.Clear();
@@ -136,7 +165,8 @@ namespace SlopWorld
         // when the user selects several files before their reads finish.
         internal void RetainVisibleDocument(MarkdownPreview previous)
         {
-            if (previous == null || ReferenceEquals(previous, this)) return;
+            if (previous == null || ReferenceEquals(previous, this))
+                return;
             if (previous._previous != null)
             {
                 _previous = previous._previous;
@@ -153,13 +183,15 @@ namespace SlopWorld
         {
             var previous = _previous;
             _previous = null;
-            if (previous == null) return;
+            if (previous == null)
+                return;
             previous._retained = false;
             previous.Closed();
         }
 
         static string CurrentHighlightRevision =>
-            CodeHighlight.Command(SessionHub.Instance.Config.EffectiveHighlighter, Settings.S) ?? "";
+            CodeHighlight.Command(SessionHub.Instance.Config.EffectiveHighlighter, Settings.S)
+            ?? "";
 
         void DrawDocument(Rect body, bool handleInput)
         {
@@ -170,8 +202,11 @@ namespace SlopWorld
                     _previous.DrawDocument(body, false);
                     return;
                 }
-                Status(body, _error ?? "Loading Markdown", _error == null
-                    ? UiTheme.Dim : UiTheme.Bad);
+                Status(
+                    body,
+                    _error ?? "Loading Markdown",
+                    _error == null ? UiTheme.Dim : UiTheme.Bad
+                );
                 return;
             }
 
@@ -186,33 +221,53 @@ namespace SlopWorld
             // A scrolling document normally keeps the narrower width from the prior frame.
             // Renegotiate the scrollbar only when the document or viewport changed. Otherwise
             // wheel movement does not remeasure the whole file.
-            bool viewportChanged = !Mathf.Approximately(body.width, _viewportWidth) ||
-                !Mathf.Approximately(body.height, _viewportHeight);
+            bool viewportChanged =
+                !Mathf.Approximately(body.width, _viewportWidth)
+                || !Mathf.Approximately(body.height, _viewportHeight);
             int metricsRevision = UiMetrics.Revision;
             bool metricsChanged = metricsRevision != _metricsRevision;
             if (_layout.Width < 0f || viewportChanged || metricsChanged)
             {
                 // Discard stale hit regions before input can use the new layout.
                 _renderer.ClearLinks();
-                if (metricsChanged) _layout.InvalidateTypography();
+                if (metricsChanged)
+                    _layout.InvalidateTypography();
                 _viewportWidth = body.width;
                 _viewportHeight = body.height;
                 _layout.Reflow(_blocks, body.width);
                 _selection.Rebuild(_layout.Placements);
-                float settledWidth = _layout.Height > body.height
-                    ? Mathf.Max(1f, body.width - UiTheme.ScrollbarW)
-                    : body.width;
+                float settledWidth =
+                    _layout.Height > body.height
+                        ? Mathf.Max(1f, body.width - UiTheme.ScrollbarW)
+                        : body.width;
                 _layout.Reflow(_blocks, settledWidth);
                 _selection.Rebuild(_layout.Placements);
                 _metricsRevision = metricsRevision;
             }
 
             if (!_retained)
-                _resources.RequestVisible(_layout.Placements, _layout.Generation, _scroll.Position.y, body.height,
-                    _request, IsCurrent, _layout.Invalidate);
-            _scroll.Draw(body, _layout.Width, _layout.Height,
-                (clipTop, clipBottom) => _renderer.Draw(_layout.Placements, _layout.Generation, _selection,
-                    clipTop, clipBottom));
+                _resources.RequestVisible(
+                    _layout.Placements,
+                    _layout.Generation,
+                    _scroll.Position.y,
+                    body.height,
+                    _request,
+                    IsCurrent,
+                    _layout.Invalidate
+                );
+            _scroll.Draw(
+                body,
+                _layout.Width,
+                _layout.Height,
+                (clipTop, clipBottom) =>
+                    _renderer.Draw(
+                        _layout.Placements,
+                        _layout.Generation,
+                        _selection,
+                        clipTop,
+                        clipBottom
+                    )
+            );
             if (handleInput && !_input.HandleLinks(body, _scroll.Position, _renderer.Links))
                 _input.Handle(body, _scroll.Position);
         }
@@ -233,7 +288,10 @@ namespace SlopWorld
             try
             {
                 _blocks = _plainText
-                    ? new List<MarkdownBlock> { new MarkdownBlock { Kind = BlockKind.Code, Code = text } }
+                    ? new List<MarkdownBlock>
+                    {
+                        new MarkdownBlock { Kind = BlockKind.Code, Code = text },
+                    }
                     : _parser.Parse(text);
                 _highlightRevision = CurrentHighlightRevision;
                 _resources.Request(_blocks, request, IsCurrent, _layout.Invalidate);

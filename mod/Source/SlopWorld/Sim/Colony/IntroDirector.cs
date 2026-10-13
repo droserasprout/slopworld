@@ -43,7 +43,8 @@ namespace SlopWorld
 
         Map _map;
         List<PawnKindDef> _animalKinds;
-        int _animalsLeft, _humansLeft;
+        int _animalsLeft,
+            _humansLeft;
         bool _populationArmed;
 
         // Each phase transition resets the flag and timer.
@@ -73,10 +74,18 @@ namespace SlopWorld
         {
             switch (_phase)
             {
-                case IntroPhase.Waiting: TryBegin(); break;
-                case IntroPhase.Fume: WaitOnFumes(); break;
-                case IntroPhase.Seed: SeedPlague(); break;
-                case IntroPhase.Bloom: WaitOnBloom(); break;
+                case IntroPhase.Waiting:
+                    TryBegin();
+                    break;
+                case IntroPhase.Fume:
+                    WaitOnFumes();
+                    break;
+                case IntroPhase.Seed:
+                    SeedPlague();
+                    break;
+                case IntroPhase.Bloom:
+                    WaitOnBloom();
+                    break;
             }
         }
 
@@ -85,9 +94,15 @@ namespace SlopWorld
         {
             switch (_phase)
             {
-                case IntroPhase.Populate: StepPopulate(); break;
-                case IntroPhase.Core: DropCore(); break;
-                case IntroPhase.Fume: Vent(); break;
+                case IntroPhase.Populate:
+                    StepPopulate();
+                    break;
+                case IntroPhase.Core:
+                    DropCore();
+                    break;
+                case IntroPhase.Fume:
+                    Vent();
+                    break;
             }
         }
 
@@ -104,10 +119,15 @@ namespace SlopWorld
         void TryBegin()
         {
             var map = TheMap;
-            if (map == null) return;
+            if (map == null)
+                return;
 
             // Finish the scene for an existing colony. Restore the UI and permit agent arrivals.
-            if (Find.TickManager.TicksGame > FreshGameTicks) { Finish(); return; }
+            if (Find.TickManager.TicksGame > FreshGameTicks)
+            {
+                Finish();
+                return;
+            }
 
             UiHidden = true;
             AgentsHeld = true;
@@ -117,7 +137,11 @@ namespace SlopWorld
         void BeginScene()
         {
             var map = TheMap;
-            if (map == null) { Finish(); return; }
+            if (map == null)
+            {
+                Finish();
+                return;
+            }
 
             _animalKinds = Outskirts.Kinds(map);
             _animalsLeft = Rand.Range(AnimalsMin, AnimalsMax);
@@ -131,7 +155,11 @@ namespace SlopWorld
         void StepPopulate()
         {
             var map = TheMap;
-            if (map == null) { Finish(); return; }
+            if (map == null)
+            {
+                Finish();
+                return;
+            }
 
             if (!_populationArmed)
             {
@@ -140,8 +168,10 @@ namespace SlopWorld
                 Pets.Place(map);
             }
 
-            if (_animalKinds == null) _animalKinds = Outskirts.Kinds(map);
-            if (_animalKinds.Count == 0) _animalsLeft = 0;
+            if (_animalKinds == null)
+                _animalKinds = Outskirts.Kinds(map);
+            if (_animalKinds.Count == 0)
+                _animalsLeft = 0;
 
             int budget = SpawnsPerTick;
             while (budget-- > 0 && (_animalsLeft > 0 || _humansLeft > 0))
@@ -158,18 +188,25 @@ namespace SlopWorld
                 }
             }
 
-            if (_animalsLeft <= 0 && _humansLeft <= 0) Go(IntroPhase.Core);
+            if (_animalsLeft <= 0 && _humansLeft <= 0)
+                Go(IntroPhase.Core);
         }
 
         static void Spawn(Map map, PawnKindDef kind)
         {
-            if (kind == null) return;
+            if (kind == null)
+                return;
             try
             {
-                if (!TryRandomStandable(map, out var cell)) return;
+                if (!TryRandomStandable(map, out var cell))
+                    return;
 
-                var req = new PawnGenerationRequest(kind, null,
-                    PawnGenerationContext.NonPlayer, forceGenerateNewPawn: true);
+                var req = new PawnGenerationRequest(
+                    kind,
+                    null,
+                    PawnGenerationContext.NonPlayer,
+                    forceGenerateNewPawn: true
+                );
                 GenSpawn.Spawn(PawnGenerator.GeneratePawn(req), cell, map);
             }
             catch (System.Exception e)
@@ -182,19 +219,25 @@ namespace SlopWorld
         void DropCore()
         {
             var map = TheMap;
-            if (map == null) { Finish(); return; }
+            if (map == null)
+            {
+                Finish();
+                return;
+            }
 
             if (!_armed)
             {
                 _armed = true;
                 _at = Time.realtimeSinceStartup + FallSeconds;
-                if (TheCore(map) == null) Fall(map);
+                if (TheCore(map) == null)
+                    Fall(map);
                 return;
             }
 
             if (TheCore(map) == null)
             {
-                if (Held) return; // still on its way down
+                if (Held)
+                    return; // still on its way down
                 // Place the core directly so the scene can continue.
                 Log.Warning("[SlopWorld] Persona core never landed. Placing it.");
                 Ground(map);
@@ -214,7 +257,9 @@ namespace SlopWorld
                 var core = ThingMaker.MakeThing(ModDefOf.Ship_ComputerCore);
                 GenSpawn.Spawn(
                     SkyfallerMaker.MakeSkyfaller(ThingDefOf.ShipChunkIncoming, core),
-                    cell, map);
+                    cell,
+                    map
+                );
             }
             catch (System.Exception e)
             {
@@ -227,8 +272,7 @@ namespace SlopWorld
         {
             try
             {
-                GenSpawn.Spawn(ThingMaker.MakeThing(ModDefOf.Ship_ComputerCore),
-                    map.Center, map);
+                GenSpawn.Spawn(ThingMaker.MakeThing(ModDefOf.Ship_ComputerCore), map.Center, map);
             }
             catch (System.Exception e)
             {
@@ -239,20 +283,26 @@ namespace SlopWorld
         // Show core fumes before starting the plague.
         void Vent()
         {
-            if (Find.TickManager.TicksGame % PuffInterval != 0) return;
+            if (Find.TickManager.TicksGame % PuffInterval != 0)
+                return;
             PlagueFx.Fume(TheCore(TheMap));
         }
 
         void WaitOnFumes()
         {
-            if (!Held) Go(IntroPhase.Seed);
+            if (!Held)
+                Go(IntroPhase.Seed);
         }
 
         // Start the plague before permitting agent arrivals.
         void SeedPlague()
         {
             var map = TheMap;
-            if (map == null) { Finish(); return; }
+            if (map == null)
+            {
+                Finish();
+                return;
+            }
 
             if (!_armed)
             {
@@ -262,7 +312,8 @@ namespace SlopWorld
                 return;
             }
 
-            if (Held) return;
+            if (Held)
+                return;
 
             AgentsHeld = false; // the reconcile may drop the agents in now
             Go(IntroPhase.Bloom, BloomSeconds);
@@ -272,7 +323,8 @@ namespace SlopWorld
         // AgentColony controls the arrival schedule.
         void WaitOnBloom()
         {
-            if (!Held) Finish();
+            if (!Held)
+                Finish();
         }
 
         void Finish()
@@ -296,7 +348,8 @@ namespace SlopWorld
             for (int t = 0; t < PlacementTries; t++)
             {
                 cell = new IntVec3(Rand.Range(0, size.x), 0, Rand.Range(0, size.z));
-                if (cell.Standable(map)) return true;
+                if (cell.Standable(map))
+                    return true;
             }
             cell = map.Center;
             return cell.Standable(map);

@@ -1,20 +1,33 @@
 using System;
 using System.Collections.Generic;
-using NUnit.Framework;
 using Google.Protobuf;
+using NUnit.Framework;
 
 namespace SlopWorld.Tests
 {
     static class LatencyTimelineTests
     {
-        static Wire.ScreenView Screen(string id, ulong seq = 4) => new Wire.ScreenView
-        {
-            Name = "pane",
-            Seq = seq,
-            InputTimings = { new Wire.InputTiming {
-                Id = id, RunId = 7, ReceivedUs = 1000, TmuxUs = 1010,
-                FirstCaptureUs = 1020, FirstSeq = 2, CaptureUs = 1030, SendUs = 1040 } }
-        };
+        static Wire.ScreenView Screen(string id, ulong seq = 4) =>
+            new Wire.ScreenView
+            {
+                Name = "pane",
+                Seq = seq,
+                InputTimings =
+                {
+                    new Wire.InputTiming
+                    {
+                        Id = id,
+                        RunId = 7,
+                        ReceivedUs = 1000,
+                        TmuxUs = 1010,
+                        FirstCaptureUs = 1020,
+                        FirstSeq = 2,
+                        CaptureUs = 1030,
+                        SendUs = 1040,
+                    },
+                },
+            };
+
         public static void PreciseMovementCompletesDespiteLegacyDuplicates()
         {
             long now = 100;
@@ -29,10 +42,15 @@ namespace SlopWorld.Tests
             timeline.DrawScroll(owner, true, 1);
             now = 120;
             timeline.EndFrame(1);
-            Assert.That(logs[logs.Count - 1], Does.Contain("status=frame_end").And
-                .Contain("scroll_source=precise").And.Contain("elapsed_us=20"));
+            Assert.That(
+                logs[logs.Count - 1],
+                Does.Contain("status=frame_end")
+                    .And.Contain("scroll_source=precise")
+                    .And.Contain("elapsed_us=20")
+            );
             Assert.That(timeline.Count, Is.Zero);
         }
+
         public static void ScrollRequiresReadyPaneAndPreservesSupersededOutcomes()
         {
             long now = 100;
@@ -51,8 +69,13 @@ namespace SlopWorld.Tests
             timeline.DrawScroll(owner, true, 2);
             now = 150;
             timeline.EndFrame(2);
-            Assert.That(logs[logs.Count - 1], Does.Contain("kind=history_scroll").And
-                .Contain("status=frame_end").And.Contain("elapsed_us=30").And.Contain("draw_us=20"));
+            Assert.That(
+                logs[logs.Count - 1],
+                Does.Contain("kind=history_scroll")
+                    .And.Contain("status=frame_end")
+                    .And.Contain("elapsed_us=30")
+                    .And.Contain("draw_us=20")
+            );
             timeline.Scroll(owner, now, false);
             Assert.That(logs[logs.Count - 1], Does.Contain("status=no_motion"));
             timeline.Scroll(owner, now, true);
@@ -60,6 +83,7 @@ namespace SlopWorld.Tests
             Assert.That(logs[logs.Count - 1], Does.Contain("status=cancelled"));
             Assert.That(timeline.Count, Is.Zero);
         }
+
         public static void SupersedingFrameCompletesExactlyOnceAtFrameEnd()
         {
             long now = 100;
@@ -79,9 +103,15 @@ namespace SlopWorld.Tests
             timeline.EndFrame(11);
             Assert.That(timeline.Count, Is.Zero);
             Assert.That(logs.Count, Is.EqualTo(2));
-            Assert.That(logs[1], Does.Contain("status=frame_end").And.Contain("elapsed_us=100")
-                .And.Contain("seq=4 first_seq=2").And.Contain("receive_us=70 dispatch_us=80"));
+            Assert.That(
+                logs[1],
+                Does.Contain("status=frame_end")
+                    .And.Contain("elapsed_us=100")
+                    .And.Contain("seq=4 first_seq=2")
+                    .And.Contain("receive_us=70 dispatch_us=80")
+            );
         }
+
         public static void WrongPaneHistoryStaleRunAndMalformedClocksDoNotComplete()
         {
             long now = 100;
@@ -118,12 +148,14 @@ namespace SlopWorld.Tests
             timeline.Reset();
             Assert.That(logs[1], Does.Contain("status=disconnected"));
         }
+
         public static void BoundedExpiryAndMissingFrameEndAreExplicit()
         {
             long now = 100;
             var logs = new List<string>();
             var timeline = new LatencyTimeline(() => now, logs.Add);
-            for (int i = 0; i < 129; i++) timeline.Begin("pane", "keys");
+            for (int i = 0; i < 129; i++)
+                timeline.Begin("pane", "keys");
             Assert.That(timeline.Count, Is.EqualTo(128));
             Assert.That(logs.Exists(s => s.Contains("status=overflow")), Is.True);
             now += 10000000;
@@ -136,14 +168,21 @@ namespace SlopWorld.Tests
             timeline.EndFrame(5);
             Assert.That(logs[logs.Count - 1], Does.Contain("status=missed_frame_end"));
         }
+
         public static void DiagnosticMetadataSurvivesProductionQueueCoalescing()
         {
             string id = "0123456789abcdef0123456789abcdef";
             var queue = new IncomingMessageQueue();
             var first = new Wire.Event { Screen = Screen(id, 3) };
             var latest = new Wire.Event { Screen = Screen(id, 4) };
-            Assert.That(queue.Enqueue(first.ToByteArray()), Is.EqualTo(IncomingEnqueueResult.Accepted));
-            Assert.That(queue.Enqueue(latest.ToByteArray()), Is.EqualTo(IncomingEnqueueResult.Accepted));
+            Assert.That(
+                queue.Enqueue(first.ToByteArray()),
+                Is.EqualTo(IncomingEnqueueResult.Accepted)
+            );
+            Assert.That(
+                queue.Enqueue(latest.ToByteArray()),
+                Is.EqualTo(IncomingEnqueueResult.Accepted)
+            );
             Assert.That(queue.Count, Is.EqualTo(1));
             var batch = new HubEventBatch();
             batch.Read(queue, error => Assert.Fail(error.ToString()));

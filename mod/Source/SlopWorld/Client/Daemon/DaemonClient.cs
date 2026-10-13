@@ -1,9 +1,9 @@
 using System;
 using System.IO;
 using System.Net;
-using Google.Protobuf;
 using System.Threading;
 using System.Threading.Tasks;
+using Google.Protobuf;
 
 namespace SlopWorld
 {
@@ -29,44 +29,109 @@ namespace SlopWorld
         static readonly SemaphoreSlim Requests = new SemaphoreSlim(MaxRequests);
 
         static readonly MainThreadCompletions Completions = new MainThreadCompletions(
-            MaxCompletionsPerFrame, CompletionBudgetTicks, System.Diagnostics.Stopwatch.GetTimestamp);
+            MaxCompletionsPerFrame,
+            CompletionBudgetTicks,
+            System.Diagnostics.Stopwatch.GetTimestamp
+        );
 
         public static string BaseUrl => Endpoint.Resolve().BaseUrl;
 
-        public static void Get<T>(string path, Action<T> ok, Action<string> fail = null,
-            string session = null, int timeoutMs = DefaultTimeoutMs) where T : IMessage<T>, new() =>
+        public static void Get<T>(
+            string path,
+            Action<T> ok,
+            Action<string> fail = null,
+            string session = null,
+            int timeoutMs = DefaultTimeoutMs
+        )
+            where T : IMessage<T>, new() =>
             Send(GetMethod, path, null, ok, fail, session, timeoutMs);
-        public static void Post<T>(string path, IMessage body, Action<T> ok, Action<string> fail = null,
-            string session = null) where T : IMessage<T>, new() =>
+
+        public static void Post<T>(
+            string path,
+            IMessage body,
+            Action<T> ok,
+            Action<string> fail = null,
+            string session = null
+        )
+            where T : IMessage<T>, new() =>
             Send(PostMethod, path, body ?? new Wire.Empty(), ok, fail, session);
-        public static void Put<T>(string path, IMessage body, Action<T> ok, Action<string> fail = null,
-            string session = null) where T : IMessage<T>, new() =>
+
+        public static void Put<T>(
+            string path,
+            IMessage body,
+            Action<T> ok,
+            Action<string> fail = null,
+            string session = null
+        )
+            where T : IMessage<T>, new() =>
             Send(PutMethod, path, body ?? new Wire.Empty(), ok, fail, session);
-        public static void Delete<T>(string path, Action<T> ok, Action<string> fail = null,
-            string session = null) where T : IMessage<T>, new() =>
-            Send(DeleteMethod, path, null, ok, fail, session);
-        public static void Delete<T>(string path, IMessage body, Action<T> ok, Action<string> fail = null,
-            string session = null) where T : IMessage<T>, new() =>
-            Send(DeleteMethod, path, body, ok, fail, session);
-        public static void Post(string path, IMessage body, Action<Wire.Ack> ok, Action<string> fail = null,
-            string session = null) => Post<Wire.Ack>(path, body, ok, fail, session);
-        public static void Put(string path, IMessage body, Action<Wire.Ack> ok, Action<string> fail = null,
-            string session = null) => Put<Wire.Ack>(path, body, ok, fail, session);
-        public static void Delete(string path, Action<Wire.Ack> ok, Action<string> fail = null,
-            string session = null) => Delete<Wire.Ack>(path, ok, fail, session);
-        public static void Delete(string path, IMessage body, Action<Wire.Ack> ok, Action<string> fail = null,
-            string session = null) => Delete<Wire.Ack>(path, body, ok, fail, session);
+
+        public static void Delete<T>(
+            string path,
+            Action<T> ok,
+            Action<string> fail = null,
+            string session = null
+        )
+            where T : IMessage<T>, new() => Send(DeleteMethod, path, null, ok, fail, session);
+
+        public static void Delete<T>(
+            string path,
+            IMessage body,
+            Action<T> ok,
+            Action<string> fail = null,
+            string session = null
+        )
+            where T : IMessage<T>, new() => Send(DeleteMethod, path, body, ok, fail, session);
+
+        public static void Post(
+            string path,
+            IMessage body,
+            Action<Wire.Ack> ok,
+            Action<string> fail = null,
+            string session = null
+        ) => Post<Wire.Ack>(path, body, ok, fail, session);
+
+        public static void Put(
+            string path,
+            IMessage body,
+            Action<Wire.Ack> ok,
+            Action<string> fail = null,
+            string session = null
+        ) => Put<Wire.Ack>(path, body, ok, fail, session);
+
+        public static void Delete(
+            string path,
+            Action<Wire.Ack> ok,
+            Action<string> fail = null,
+            string session = null
+        ) => Delete<Wire.Ack>(path, ok, fail, session);
+
+        public static void Delete(
+            string path,
+            IMessage body,
+            Action<Wire.Ack> ok,
+            Action<string> fail = null,
+            string session = null
+        ) => Delete<Wire.Ack>(path, body, ok, fail, session);
 
         // Queue background integration callbacks with HTTP callbacks.
         // They can then update Unity and RimWorld state on the main thread.
         public static void OnMainThread(Action action)
         {
-            if (action != null) Completions.Enqueue(action);
+            if (action != null)
+                Completions.Enqueue(action);
         }
 
-        public static void Send<T>(string method, string path, IMessage body,
-                                Action<T> ok, Action<string> fail, string session = null,
-                                int timeoutMs = DefaultTimeoutMs) where T : IMessage<T>, new()
+        public static void Send<T>(
+            string method,
+            string path,
+            IMessage body,
+            Action<T> ok,
+            Action<string> fail,
+            string session = null,
+            int timeoutMs = DefaultTimeoutMs
+        )
+            where T : IMessage<T>, new()
         {
             if (timeoutMs < Timeout.Infinite)
                 throw new ArgumentOutOfRangeException(nameof(timeoutMs));
@@ -113,17 +178,27 @@ namespace SlopWorld
                             var data = body.ToByteArray();
                             req.ContentLength = data.Length;
                             using (var s = await req.GetRequestStreamAsync().ConfigureAwait(false))
-                                await s.WriteAsync(data, 0, data.Length, deadline.Token).ConfigureAwait(false);
+                                await s.WriteAsync(data, 0, data.Length, deadline.Token)
+                                    .ConfigureAwait(false);
                         }
 
-                        using (var resp = (HttpWebResponse)await req.GetResponseAsync().ConfigureAwait(false))
+                        using (
+                            var resp = (HttpWebResponse)
+                                await req.GetResponseAsync().ConfigureAwait(false)
+                        )
                         using (var stream = resp.GetResponseStream() ?? Stream.Null)
                         {
-                            if (resp.ContentType != ContentType) throw new IOException("Expected a Protobuf protocol 2 response. Update the daemon and mod together.");
-                            var val = new MessageParser<T>(() => new T()).ParseFrom(await ReadBounded(stream, deadline.Token).ConfigureAwait(false));
+                            if (resp.ContentType != ContentType)
+                                throw new IOException(
+                                    "Expected a Protobuf protocol 2 response. Update the daemon and mod together."
+                                );
+                            var val = new MessageParser<T>(() => new T()).ParseFrom(
+                                await ReadBounded(stream, deadline.Token).ConfigureAwait(false)
+                            );
                             Completions.Enqueue(() =>
                             {
-                                if (started != 0L) PerfTrace.End(trace, started, 1, Completions.Count);
+                                if (started != 0L)
+                                    PerfTrace.End(trace, started, 1, Completions.Count);
                                 ok?.Invoke(val);
                             });
                         }
@@ -139,15 +214,24 @@ namespace SlopWorld
                                 using (r)
                                 using (var stream = r.GetResponseStream() ?? Stream.Null)
                                 {
-                                    var parsed = Wire.Error.Parser.ParseFrom(await ReadBounded(stream, deadline.Token).ConfigureAwait(false)).Error_;
-                                    if (!string.IsNullOrEmpty(parsed)) msg = parsed;
+                                    var parsed = Wire
+                                        .Error.Parser.ParseFrom(
+                                            await ReadBounded(stream, deadline.Token)
+                                                .ConfigureAwait(false)
+                                        )
+                                        .Error_;
+                                    if (!string.IsNullOrEmpty(parsed))
+                                        msg = parsed;
                                 }
                             }
-                            catch { /* fall back to we.Message */ }
+                            catch
+                            { /* fall back to we.Message */
+                            }
                         }
                         Completions.Enqueue(() =>
                         {
-                            if (started != 0L) PerfTrace.End(trace, started, 1, Completions.Count);
+                            if (started != 0L)
+                                PerfTrace.End(trace, started, 1, Completions.Count);
                             fail?.Invoke(msg);
                         });
                     }
@@ -155,11 +239,16 @@ namespace SlopWorld
                     {
                         Completions.Enqueue(() =>
                         {
-                            if (started != 0L) PerfTrace.End(trace, started, 1, Completions.Count);
+                            if (started != 0L)
+                                PerfTrace.End(trace, started, 1, Completions.Count);
                             fail?.Invoke(e.Message);
                         });
                     }
-                    finally { if (acquired) Requests.Release(); }
+                    finally
+                    {
+                        if (acquired)
+                            Requests.Release();
+                    }
                 }
             });
         }
@@ -171,9 +260,16 @@ namespace SlopWorld
             {
                 var buffer = new byte[8192];
                 int count;
-                while ((count = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) != 0)
+                while (
+                    (
+                        count = await stream
+                            .ReadAsync(buffer, 0, buffer.Length, cancellationToken)
+                            .ConfigureAwait(false)
+                    ) != 0
+                )
                 {
-                    if (output.Length + count > limit) throw new IOException("Protobuf response exceeds limit");
+                    if (output.Length + count > limit)
+                        throw new IOException("Protobuf response exceeds limit");
                     output.Write(buffer, 0, count);
                 }
                 return output.ToArray();

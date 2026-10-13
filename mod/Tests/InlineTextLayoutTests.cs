@@ -5,18 +5,26 @@ namespace SlopWorld.Tests
 {
     static class InlineTextLayoutTests
     {
-        static readonly TextSpriteCatalog Catalog = new TextSpriteCatalog(new[]
-            { "\U0001f600", "\U0001f469", "\U0001f469\u200d\U0001f4bb", "\u2764\ufe0f" });
+        static readonly TextSpriteCatalog Catalog = new TextSpriteCatalog(
+            new[] { "\U0001f600", "\U0001f469", "\U0001f469\u200d\U0001f4bb", "\u2764\ufe0f" }
+        );
+
         static float Measure(string text) => text.Length * 2f;
 
         public static void LongestSequenceAndBmpKeys()
         {
-            AssertEx.True(Catalog.Match("x👩‍💻y", 1, out int length, out int slot), "sequence found");
+            AssertEx.True(
+                Catalog.Match("x👩‍💻y", 1, out int length, out int slot),
+                "sequence found"
+            );
             AssertEx.Equal(5, length, "complete UTF-16 sequence");
             AssertEx.Equal(2, slot, "longest key takes precedence over woman glyph");
             AssertEx.True(Catalog.Match("❤️", 0, out length, out slot), "BMP sequence found");
             AssertEx.Equal(3, slot, "catalog is not restricted to a Unicode plane");
-            AssertEx.False(Catalog.Match("😀", 1, out length, out slot), "low surrogate is not a glyph");
+            AssertEx.False(
+                Catalog.Match("😀", 1, out length, out slot),
+                "low surrogate is not a glyph"
+            );
             AssertEx.False(Catalog.Match(null, 0, out length, out slot), "null is safe");
         }
 
@@ -25,28 +33,59 @@ namespace SlopWorld.Tests
             var layout = InlineTextLayout.Proportional("ab😀cd", Catalog, 10f, Measure);
             AssertEx.Equal(18f, layout.Width, "text and sprite share measured advance");
             AssertEx.Sequence(new[] { 0f, 4f, 14f }, layout.Spans.Select(s => s.X), "positions");
-            AssertEx.Sequence(new[] { -1, 0, -1 }, layout.Spans.Select(s => s.Sprite), "font spans exclude sprite text");
-            AssertEx.Equal("abcd", string.Concat(layout.Spans.Where(s => s.Sprite < 0).Select(s => s.Text)),
-                "covered emoji never reaches font preparation");
+            AssertEx.Sequence(
+                new[] { -1, 0, -1 },
+                layout.Spans.Select(s => s.Sprite),
+                "font spans exclude sprite text"
+            );
+            AssertEx.Equal(
+                "abcd",
+                string.Concat(layout.Spans.Where(s => s.Sprite < 0).Select(s => s.Text)),
+                "covered emoji never reaches font preparation"
+            );
         }
 
         public static void TruncationKeepsWholeSpritesAndTextElements()
         {
             var layout = InlineTextLayout.Proportional("a👩‍💻bbb", Catalog, 10f, Measure, 14f);
             AssertEx.Equal(14f, layout.Width, "fits exactly with ellipsis");
-            AssertEx.Sequence(new[] { "a", "👩‍💻", "…" }, layout.Spans.Select(s => s.Text), "sequence stays whole");
+            AssertEx.Sequence(
+                new[] { "a", "👩‍💻", "…" },
+                layout.Spans.Select(s => s.Text),
+                "sequence stays whole"
+            );
             var narrow = InlineTextLayout.Proportional("a👩‍💻bbb", Catalog, 10f, Measure, 13f);
-            AssertEx.Equal("a…", string.Concat(narrow.Spans.Select(s => s.Text)), "no partial emoji");
+            AssertEx.Equal(
+                "a…",
+                string.Concat(narrow.Spans.Select(s => s.Text)),
+                "no partial emoji"
+            );
             var combining = InlineTextLayout.Proportional("e\u0301xx", Catalog, 10f, Measure, 5f);
-            AssertEx.Equal("…", string.Concat(combining.Spans.Select(s => s.Text)), "no detached combining mark");
-            AssertEx.Equal(0, InlineTextLayout.Proportional("😀", Catalog, 10f, Measure, 1f).Spans.Length,
-                "nothing exceeds a box narrower than ellipsis");
+            AssertEx.Equal(
+                "…",
+                string.Concat(combining.Spans.Select(s => s.Text)),
+                "no detached combining mark"
+            );
+            AssertEx.Equal(
+                0,
+                InlineTextLayout.Proportional("😀", Catalog, 10f, Measure, 1f).Spans.Length,
+                "nothing exceeds a box narrower than ellipsis"
+            );
         }
 
         public static void PlainRunsKeepKerningMeasurement()
         {
-            var layout = InlineTextLayout.Proportional("AV😀AV", Catalog, 10f, s => s == "AV" ? 3f : Measure(s));
-            AssertEx.Equal(16f, layout.Width, "plain text is measured as runs, not summed characters");
+            var layout = InlineTextLayout.Proportional(
+                "AV😀AV",
+                Catalog,
+                10f,
+                s => s == "AV" ? 3f : Measure(s)
+            );
+            AssertEx.Equal(
+                16f,
+                layout.Width,
+                "plain text is measured as runs, not summed characters"
+            );
         }
 
         public static void TerminalGeometryIsIndependentOfArtwork()
@@ -62,23 +101,39 @@ namespace SlopWorld.Tests
             AssertEx.Equal(2, cluster.Spans[0].Sprite, "known cluster catalog slot");
             AssertEx.Equal(14f, cluster.Spans[0].Width, "known cluster follows daemon columns");
             var sequence = InlineTextLayout.Cells("👩‍💻x", 4, 7f, Catalog, c => true);
-            AssertEx.Equal(21f, sequence.Spans[0].Width, "sequence preserves supplied scalar cells");
+            AssertEx.Equal(
+                21f,
+                sequence.Spans[0].Width,
+                "sequence preserves supplied scalar cells"
+            );
             AssertEx.Equal(21f, sequence.Spans[1].X, "sequence cannot collapse terminal geometry");
         }
 
         public static void UngroupedTerminalTextKeepsColumnsAtFractionalZoom()
         {
             const float cw = 7f / 0.85f;
-            var layout = InlineTextLayout.Cells("align=\"right\"", 13, cw, Catalog,
-                c => true, groupPlain: false);
+            var layout = InlineTextLayout.Cells(
+                "align=\"right\"",
+                13,
+                cw,
+                Catalog,
+                c => true,
+                groupPlain: false
+            );
             AssertEx.Equal(13, layout.Spans.Length, "ASCII must not regain native run advances");
             for (int i = 0; i < layout.Spans.Length; i++)
             {
                 AssertEx.Equal(i * cw, layout.Spans[i].X, "each glyph anchors to its column");
                 AssertEx.Equal(cw, layout.Spans[i].Width, "each glyph owns one cell");
             }
-            var wide = InlineTextLayout.Cells("ab\U00020000", 4, cw, Catalog,
-                c => true, groupPlain: false);
+            var wide = InlineTextLayout.Cells(
+                "ab\U00020000",
+                4,
+                cw,
+                Catalog,
+                c => true,
+                groupPlain: false
+            );
             AssertEx.Equal("\U00020000", wide.Spans[2].Text, "surrogate pair remains whole");
             AssertEx.Equal(2 * cw, wide.Spans[2].Width, "daemon continuation remains intact");
         }
@@ -86,28 +141,50 @@ namespace SlopWorld.Tests
         public static void UnknownSupplementaryAndWideTextRemainWhole()
         {
             var layout = InlineTextLayout.Cells("\U00020000", 2, 7f, Catalog, c => true);
-            AssertEx.Equal("\U00020000", layout.Spans[0].Text, "unknown glyph stays a whole scalar");
+            AssertEx.Equal(
+                "\U00020000",
+                layout.Spans[0].Text,
+                "unknown glyph stays a whole scalar"
+            );
             AssertEx.Equal(-1, layout.Spans[0].Sprite, "unknown glyph uses normal font fallback");
             AssertEx.Equal(14f, layout.Spans[0].Width, "daemon width survives fallback");
             var combining = InlineTextLayout.CellCluster("e\u0301", 1, 7f, Catalog);
-            AssertEx.Equal("e\u0301", combining.Spans[0].Text, "unknown cluster stays one font span");
+            AssertEx.Equal(
+                "e\u0301",
+                combining.Spans[0].Text,
+                "unknown cluster stays one font span"
+            );
             AssertEx.Equal(7f, combining.Spans[0].Width, "unknown cluster keeps daemon width");
         }
 
         public static void PlainAsciiFastPathPreservesColumnsAndCatalogMatches()
         {
-            AssertEx.Equal(0, InlineTextLayout.Cells("", 0, 7f, Catalog, c => true).Spans.Length,
-                "empty text does not acquire a paint span");
+            AssertEx.Equal(
+                0,
+                InlineTextLayout.Cells("", 0, 7f, Catalog, c => true).Spans.Length,
+                "empty text does not acquire a paint span"
+            );
             var plain = InlineTextLayout.Cells("abc", 3, 7f, Catalog, c => true);
             AssertEx.Equal(21f, plain.Width, "plain ASCII uses its cell width");
             AssertEx.Equal(21f, plain.Spans[0].Width, "plain span covers the text cells");
             AssertEx.Equal("abc", plain.Spans[0].Text, "plain text remains one span");
-            var keycapPrefixes = InlineTextLayout.Cells("123#", 4, 7f,
-                TextSpriteCatalog.Shared, c => true);
-            AssertEx.Equal(1, keycapPrefixes.Spans.Length,
-                "ASCII keycap prefixes keep the plain-row shortcut");
-            AssertEx.Equal(-1, keycapPrefixes.Spans[0].Sprite,
-                "ASCII digits alone are ordinary terminal text");
+            var keycapPrefixes = InlineTextLayout.Cells(
+                "123#",
+                4,
+                7f,
+                TextSpriteCatalog.Shared,
+                c => true
+            );
+            AssertEx.Equal(
+                1,
+                keycapPrefixes.Spans.Length,
+                "ASCII keycap prefixes keep the plain-row shortcut"
+            );
+            AssertEx.Equal(
+                -1,
+                keycapPrefixes.Spans[0].Sprite,
+                "ASCII digits alone are ordinary terminal text"
+            );
 
             var widened = InlineTextLayout.Cells("abc", 5, 7f, Catalog, c => true);
             AssertEx.Equal(35f, widened.Width, "daemon columns remain authoritative");
@@ -125,12 +202,18 @@ namespace SlopWorld.Tests
 
         public static void GeneratedCatalogSlotsAreStable()
         {
-            AssertEx.True(TextSpriteData.Keys.Length <= TextSpriteData.AtlasColumns * TextSpriteData.AtlasRows,
-                "all generated slots fit the atlas grid");
+            AssertEx.True(
+                TextSpriteData.Keys.Length
+                    <= TextSpriteData.AtlasColumns * TextSpriteData.AtlasRows,
+                "all generated slots fit the atlas grid"
+            );
             for (int i = 0; i < TextSpriteData.Keys.Length; i++)
             {
                 string key = TextSpriteData.Keys[i];
-                AssertEx.True(TextSpriteCatalog.Shared.Match(key, 0, out int length, out int slot), "key found");
+                AssertEx.True(
+                    TextSpriteCatalog.Shared.Match(key, 0, out int length, out int slot),
+                    "key found"
+                );
                 AssertEx.Equal(i, slot, "generated slot order preserved");
                 AssertEx.Equal(key.Length, length, "complete key matched");
             }

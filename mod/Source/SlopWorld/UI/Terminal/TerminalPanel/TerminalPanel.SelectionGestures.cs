@@ -15,8 +15,11 @@ namespace SlopWorld
         // the pointer leaves the window, while the held-button sample still remains reliable.
         void UpdateSelectionEdgeScroll(Rect body, bool historyInput)
         {
-            if (!_state.Selection.Dragging || !_state.Selection.SelectionMoved ||
-                !Input.GetMouseButton(0))
+            if (
+                !_state.Selection.Dragging
+                || !_state.Selection.SelectionMoved
+                || !Input.GetMouseButton(0)
+            )
             {
                 _state.Selection.EdgeDirection = 0;
                 return;
@@ -45,17 +48,22 @@ namespace SlopWorld
             }
 
             _state.Selection.EdgeDirection = direction;
-            if (!historyInput || _state.Selection.EdgeFrame == Time.frameCount) return;
+            if (!historyInput || _state.Selection.EdgeFrame == Time.frameCount)
+                return;
             _state.Selection.EdgeFrame = Time.frameCount;
 
             float cellH = TerminalFont.CellH;
-            if (!_historyScrollReady || cellH <= 0.01f) return;
+            if (!_historyScrollReady || cellH <= 0.01f)
+                return;
 
             float maxOffset = (_historyTopOff >= 0 ? _historyTopOff : MaxScrollLines) * cellH;
             float current = HistoryOffsetPixels();
             float strength = Mathf.Clamp01(distance / SelectionEdgeBand);
-            float amount = SelectionEdgeRowsPerSecond * cellH * strength *
-                Mathf.Clamp(Time.unscaledDeltaTime, 0f, 0.1f);
+            float amount =
+                SelectionEdgeRowsPerSecond
+                * cellH
+                * strength
+                * Mathf.Clamp(Time.unscaledDeltaTime, 0f, 0.1f);
             float target = Mathf.Clamp(current + direction * amount, 0f, maxOffset);
             _historyScroll.JumpTo(new Vector2(0f, _historyMax - target));
         }
@@ -65,9 +73,13 @@ namespace SlopWorld
         // edge, where each newly revealed row extends the selection.
         void ExtendSelectionToEdge(Rect body, ScreenBuf buf)
         {
-            if (!_state.Selection.Dragging || _state.Selection.EdgeDirection == 0 ||
-                buf == null ||
-                buf.Runs == null || buf.Runs.Length == 0)
+            if (
+                !_state.Selection.Dragging
+                || _state.Selection.EdgeDirection == 0
+                || buf == null
+                || buf.Runs == null
+                || buf.Runs.Length == 0
+            )
                 return;
 
             var cell = CellAt(body, _state.Selection.Mouse);
@@ -75,7 +87,8 @@ namespace SlopWorld
             _state.Selection.SelectionMoved = true;
             if (_state.Selection.LineDragging)
                 SelectLineRange(_state.Selection.LineStart, cell.y);
-            else if (_state.Selection.WordDragging) UpdateWordSelection(cell);
+            else if (_state.Selection.WordDragging)
+                UpdateWordSelection(cell);
             else
             {
                 _state.Selection.B = cell;
@@ -85,8 +98,7 @@ namespace SlopWorld
 
         internal void CaptureSelection(Rect body)
         {
-            if (_state.Selection.Control != 0 &&
-                GUIUtility.hotControl == _state.Selection.Control)
+            if (_state.Selection.Control != 0 && GUIUtility.hotControl == _state.Selection.Control)
                 GUIUtility.hotControl = 0;
             _state.Selection.Control = GUIUtility.GetControlID(FocusType.Passive, body);
             GUIUtility.hotControl = _state.Selection.Control;
@@ -94,8 +106,7 @@ namespace SlopWorld
 
         internal void ReleaseSelection()
         {
-            if (_state.Selection.Control != 0 &&
-                GUIUtility.hotControl == _state.Selection.Control)
+            if (_state.Selection.Control != 0 && GUIUtility.hotControl == _state.Selection.Control)
                 GUIUtility.hotControl = 0;
             _state.Selection.Control = 0;
         }
@@ -118,13 +129,19 @@ namespace SlopWorld
         internal bool DoubleClickSelect(Vector2Int cell)
         {
             var buf = DisplayedBuf();
-            if (buf == null) return false;
+            if (buf == null)
+                return false;
             EnsureRuns(buf);
-            if (cell.y < 0 || cell.y >= buf.Runs.Length) return false;
+            if (cell.y < 0 || cell.y >= buf.Runs.Length)
+                return false;
 
             var cells = TerminalColumns.Cells(buf.Runs[cell.y]);
             int len = TerminalColumns.ContentColumns(cells);
-            if (cell.x < 0 || cell.x >= len) { ClearSelection(); return false; }
+            if (cell.x < 0 || cell.x >= len)
+            {
+                ClearSelection();
+                return false;
+            }
 
             TerminalColumns.WordRange(cells, cell.x, out int c0, out int c1);
             _state.Selection.WordStart = new Vector2Int(c0, cell.y);
@@ -144,13 +161,16 @@ namespace SlopWorld
         internal void UpdateWordSelection(Vector2Int cell)
         {
             var buf = DisplayedBuf();
-            if (buf == null) return;
+            if (buf == null)
+                return;
             EnsureRuns(buf);
-            if (cell.y < 0 || cell.y >= buf.Runs.Length) return;
+            if (cell.y < 0 || cell.y >= buf.Runs.Length)
+                return;
 
             var cells = TerminalColumns.Cells(buf.Runs[cell.y]);
             int len = TerminalColumns.ContentColumns(cells);
-            if (len == 0) return;
+            if (len == 0)
+                return;
             int x = Mathf.Clamp(cell.x, 0, len - 1);
             TerminalColumns.WordRange(cells, x, out int c0, out int c1);
 
@@ -169,19 +189,24 @@ namespace SlopWorld
             _state.Selection.HasSelection = true;
         }
 
-        static bool Before(Vector2Int a, Vector2Int b) =>
-            a.y < b.y || (a.y == b.y && a.x < b.x);
+        static bool Before(Vector2Int a, Vector2Int b) => a.y < b.y || (a.y == b.y && a.x < b.x);
 
         // The row, not the logical line: the daemon does not mark where one wrapped.
         internal bool TripleClickSelect(int row)
         {
             var buf = DisplayedBuf();
-            if (buf == null) return false;
+            if (buf == null)
+                return false;
             EnsureRuns(buf);
-            if (row < 0 || row >= buf.Runs.Length) return false;
+            if (row < 0 || row >= buf.Runs.Length)
+                return false;
 
             int len = TerminalColumns.ContentColumns(TerminalColumns.Cells(buf.Runs[row]));
-            if (len == 0) { ClearSelection(); return false; }
+            if (len == 0)
+            {
+                ClearSelection();
+                return false;
+            }
             SelectSpan(row, 0, len - 1);
             CopyPrimarySelection();
             return true;
@@ -190,9 +215,11 @@ namespace SlopWorld
         internal void SelectLineRange(int anchor, int row)
         {
             var buf = DisplayedBuf();
-            if (buf == null) return;
+            if (buf == null)
+                return;
             EnsureRuns(buf);
-            if (buf.Runs.Length == 0) return;
+            if (buf.Runs.Length == 0)
+                return;
 
             anchor = Mathf.Clamp(anchor, 0, buf.Runs.Length - 1);
             row = Mathf.Clamp(row, 0, buf.Runs.Length - 1);
@@ -203,6 +230,5 @@ namespace SlopWorld
             _state.Selection.B = new Vector2Int(Mathf.Max(0, len - 1), last);
             _state.Selection.HasSelection = true;
         }
-
     }
 }

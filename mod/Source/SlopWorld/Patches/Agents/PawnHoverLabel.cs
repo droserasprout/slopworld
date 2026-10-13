@@ -9,14 +9,18 @@ namespace SlopWorld
     {
         static void Postfix(Pawn __instance, ref TipSignal __result)
         {
-            if (!AgentColony.IsAgent(__instance) && !PlayerPawn.IsPlayer(__instance)) return;
+            if (!AgentColony.IsAgent(__instance) && !PlayerPawn.IsPlayer(__instance))
+                return;
 
             var name = __instance.Name.ToStringShort;
             var health = HealthUtility.GetGeneralConditionLabel(__instance);
             var equipment = __instance.equipment?.Primary;
-            __result.text = equipment != null
-                ? "PawnTooltipWithPrimaryEquipNoDesc".Translate(name, equipment.LabelCap, health).ToString()
-                : "PawnTooltipNoDescNoPrimaryEquip".Translate(name, health).ToString();
+            __result.text =
+                equipment != null
+                    ? "PawnTooltipWithPrimaryEquipNoDesc"
+                        .Translate(name, equipment.LabelCap, health)
+                        .ToString()
+                    : "PawnTooltipNoDescNoPrimaryEquip".Translate(name, health).ToString();
         }
     }
 }

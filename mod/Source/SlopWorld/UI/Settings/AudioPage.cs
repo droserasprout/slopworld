@@ -16,22 +16,43 @@ namespace SlopWorld
         {
             _form.Draw(SettingsPageLayout.Body(rect), DrawFields);
             var foot = new UiLayout.Bar(SettingsPageLayout.Footer(rect));
-            if (foot.Left("Add source", UiTheme.Btn.Primary)) AudioSourceDialog.OpenNew();
+            if (foot.Left("Add source", UiTheme.Btn.Primary))
+                AudioSourceDialog.OpenNew();
         }
 
         void DrawFields(Listing_Standard l)
         {
             UiLayout.SectionHeading(l, "Volume");
-            Prefs.VolumeMaster = UiControls.Slider(l, "MasterVolume".Translate(),
-                Prefs.VolumeMaster, "MasterVolumeTooltip".Translate());
-            Prefs.VolumeGame = UiControls.Slider(l, "GameVolume".Translate(),
-                Prefs.VolumeGame, "GameVolumeTooltip".Translate());
-            Prefs.VolumeMusic = UiControls.Slider(l, "MusicVolume".Translate(),
-                Prefs.VolumeMusic, "MusicVolumeTooltip".Translate());
-            Prefs.VolumeAmbient = UiControls.Slider(l, "AmbientVolume".Translate(),
-                Prefs.VolumeAmbient, "AmbientVolumeTooltip".Translate());
-            Prefs.VolumeUI = UiControls.Slider(l, "UIVolume".Translate(),
-                Prefs.VolumeUI, "UIVolumeTooltip".Translate());
+            Prefs.VolumeMaster = UiControls.Slider(
+                l,
+                "MasterVolume".Translate(),
+                Prefs.VolumeMaster,
+                "MasterVolumeTooltip".Translate()
+            );
+            Prefs.VolumeGame = UiControls.Slider(
+                l,
+                "GameVolume".Translate(),
+                Prefs.VolumeGame,
+                "GameVolumeTooltip".Translate()
+            );
+            Prefs.VolumeMusic = UiControls.Slider(
+                l,
+                "MusicVolume".Translate(),
+                Prefs.VolumeMusic,
+                "MusicVolumeTooltip".Translate()
+            );
+            Prefs.VolumeAmbient = UiControls.Slider(
+                l,
+                "AmbientVolume".Translate(),
+                Prefs.VolumeAmbient,
+                "AmbientVolumeTooltip".Translate()
+            );
+            Prefs.VolumeUI = UiControls.Slider(
+                l,
+                "UIVolume".Translate(),
+                Prefs.VolumeUI,
+                "UIVolumeTooltip".Translate()
+            );
 
             l.Gap(UiTheme.GapL);
             DrawSources(l);
@@ -40,16 +61,20 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "Jukebox");
             if (!SessionHub.Instance.Capabilities.AudioPlayback)
             {
-                UiLayout.Note(l,
-                    "Sidecar mode does not support jukebox playback. RimWorld plays the " +
-                    "SlopWorld OST locally on this Mac. Radio streaming will return in a later " +
-                    "compatibility release.");
+                UiLayout.Note(
+                    l,
+                    "Sidecar mode does not support jukebox playback. RimWorld plays the "
+                        + "SlopWorld OST locally on this Mac. Radio streaming will return in a later "
+                        + "compatibility release."
+                );
                 return;
             }
 
             var picked = Radio.Picked;
-            string source = Radio.Muted ? "Muted" : picked == null
-                ? "OST" : $"{picked.Name} {Radio.RateLabel(picked.Rate)}";
+            string source =
+                Radio.Muted ? "Muted"
+                : picked == null ? "OST"
+                : $"{picked.Name} {Radio.RateLabel(picked.Rate)}";
             if (UiLayout.Button(l, "Tune: " + source))
                 Find.WindowStack.Add(new UiMenu(Jukebox.StationOptions()));
 
@@ -62,8 +87,10 @@ namespace SlopWorld
             else
             {
                 string station = Radio.StationLine;
-                UiLayout.Note(l, "Now playing: "
-                    + (string.IsNullOrEmpty(station) ? "nothing" : station));
+                UiLayout.Note(
+                    l,
+                    "Now playing: " + (string.IsNullOrEmpty(station) ? "nothing" : station)
+                );
                 if (Radio.Recognized)
                     UiLayout.Note(l, "Recognized: " + Radio.RecognizedLine);
             }
@@ -79,14 +106,23 @@ namespace SlopWorld
             if (UiLayout.Button(l, "History"))
                 JukeboxHistoryView.Open();
 
-            bool mute = UiControls.Checkbox(l, "Mute", Radio.Muted,
-                "Stop playback without downloading unheard audio.");
-            if (mute != Radio.Muted) Radio.ToggleMute();
+            bool mute = UiControls.Checkbox(
+                l,
+                "Mute",
+                Radio.Muted,
+                "Stop playback without downloading unheard audio."
+            );
+            if (mute != Radio.Muted)
+                Radio.ToggleMute();
 
-            bool stop = UiControls.Checkbox(l, "Stop on exit", Radio.StopOnExit,
-                "Stop the daemon's playback when RimWorld exits normally.");
-            if (stop != Radio.StopOnExit) Radio.ToggleStopOnExit();
-
+            bool stop = UiControls.Checkbox(
+                l,
+                "Stop on exit",
+                Radio.StopOnExit,
+                "Stop the daemon's playback when RimWorld exits normally."
+            );
+            if (stop != Radio.StopOnExit)
+                Radio.ToggleStopOnExit();
         }
 
         static void DrawSources(Listing_Standard l)
@@ -104,8 +140,10 @@ namespace SlopWorld
 
             if (JukeboxPresetStore.Loading && JukeboxPresetStore.Items.Count == 0)
                 UiLayout.Note(l, "Loading user sources");
-            else if (!string.IsNullOrEmpty(JukeboxPresetStore.Error) &&
-                     JukeboxPresetStore.Items.Count == 0)
+            else if (
+                !string.IsNullOrEmpty(JukeboxPresetStore.Error)
+                && JukeboxPresetStore.Items.Count == 0
+            )
                 UiLayout.Validation(l, JukeboxPresetStore.Error);
 
             foreach (var preset in JukeboxPresetStore.Items)
@@ -129,10 +167,16 @@ namespace SlopWorld
 
         static float EditWidth => UiLayout.BtnW("Edit", 72f);
         static float RemoveWidth => UiLayout.BtnW("Remove", 90f);
+
         static float ActionsWidth() => EditWidth + UiTheme.GapS + RemoveWidth;
 
-        static void DrawSourceRow(Listing_Standard l, string name, string id, bool available,
-                                  JukeboxPresetInfo preset)
+        static void DrawSourceRow(
+            Listing_Standard l,
+            string name,
+            string id,
+            bool available,
+            JukeboxPresetInfo preset
+        )
         {
             var row = l.GetRect(UiTheme.RowH);
             float actionsW = ActionsWidth();
@@ -141,8 +185,7 @@ namespace SlopWorld
             var nameRect = new Rect(row.x, row.y, nameW, row.height);
             var showRect = new Rect(nameRect.xMax + UiTheme.GapS, row.y, showW, row.height);
             var editRect = new Rect(row.xMax - actionsW, row.y, EditWidth, row.height);
-            var removeRect = new Rect(editRect.xMax + UiTheme.GapS, row.y,
-                RemoveWidth, row.height);
+            var removeRect = new Rect(editRect.xMax + UiTheme.GapS, row.y, RemoveWidth, row.height);
 
             using (WidgetState.Save())
             {
@@ -152,9 +195,15 @@ namespace SlopWorld
             }
 
             bool shown = Radio.SourceShown(id);
-            bool next = UiControls.Checkbox(showRect, "", shown,
-                available ? null : "The daemon host does not have ncspot", !available);
-            if (available && next != shown) Radio.SetSourceShown(id, next);
+            bool next = UiControls.Checkbox(
+                showRect,
+                "",
+                shown,
+                available ? null : "The daemon host does not have ncspot",
+                !available
+            );
+            if (available && next != shown)
+                Radio.SetSourceShown(id, next);
 
             if (preset != null)
             {
@@ -167,10 +216,13 @@ namespace SlopWorld
 
         static void ConfirmRemove(JukeboxPresetInfo preset)
         {
-            Find.WindowStack.Add(ConfirmDialog.Create(
-                $"Remove source '{preset.Name}'? The daemon will delete the user preset.",
-                () => JukeboxPresetStore.Remove(preset.Id, null, UiLayout.Fail),
-                destructive: true));
+            Find.WindowStack.Add(
+                ConfirmDialog.Create(
+                    $"Remove source '{preset.Name}'? The daemon will delete the user preset.",
+                    () => JukeboxPresetStore.Remove(preset.Id, null, UiLayout.Fail),
+                    destructive: true
+                )
+            );
         }
 
         // The recognition control makes the background lookup legible. A transient recognizing
@@ -183,15 +235,15 @@ namespace SlopWorld
                 if (UiLayout.Button(l, "Cancel recognition"))
                     Radio.CancelRecognition();
                 string input = Radio.RecognizingInput;
-                UiLayout.Note(l, string.IsNullOrEmpty(input)
-                    ? "Recognizing"
-                    : "Recognizing via " + input);
+                UiLayout.Note(
+                    l,
+                    string.IsNullOrEmpty(input) ? "Recognizing" : "Recognizing via " + input
+                );
                 return;
             }
 
             string error = Radio.RecognitionError;
-            if (UiLayout.Button(l,
-                    string.IsNullOrEmpty(error) ? "Recognize" : "Retry recognition"))
+            if (UiLayout.Button(l, string.IsNullOrEmpty(error) ? "Recognize" : "Retry recognition"))
                 Radio.Recognize();
 
             if (!string.IsNullOrEmpty(error))

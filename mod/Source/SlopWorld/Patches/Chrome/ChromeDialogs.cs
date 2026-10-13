@@ -10,9 +10,12 @@ namespace SlopWorld
     {
         static void Prefix(Window window)
         {
-            if (window == null || window.layer != WindowLayer.Dialog) return;
-            if (window is TerminalWindow) return;
-            if (Find.WindowStack?.WindowOfType<TerminalWindow>() == null) return;
+            if (window == null || window.layer != WindowLayer.Dialog)
+                return;
+            if (window is TerminalWindow)
+                return;
+            if (Find.WindowStack?.WindowOfType<TerminalWindow>() == null)
+                return;
 
             window.layer = WindowLayer.Super;
         }

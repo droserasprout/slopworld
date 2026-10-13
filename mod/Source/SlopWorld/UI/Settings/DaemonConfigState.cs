@@ -48,7 +48,11 @@ namespace SlopWorld
             get => _key == Key ? _path : "";
             private set => _path = value;
         }
-        public string Error { get => Draft.Error; set => Draft.Error = value; }
+        public string Error
+        {
+            get => Draft.Error;
+            set => Draft.Error = value;
+        }
         public bool Loaded => Draft.Loaded;
         public bool Saving => Draft.Saving;
         public bool Dirty => Draft.IsDirty;
@@ -58,25 +62,31 @@ namespace SlopWorld
         {
             get
             {
-                if (!HasConflicts) return null;
-                return "External changes on " + string.Join(", ", Draft.Conflicts.ToArray()) +
-                       ". Save keeps this draft. Discard uses the server values.";
+                if (!HasConflicts)
+                    return null;
+                return "External changes on "
+                    + string.Join(", ", Draft.Conflicts.ToArray())
+                    + ". Save keeps this draft. Discard uses the server values.";
             }
         }
 
         public void Load(bool refreshHealth, Action loaded)
         {
             var draft = Draft;
-            if (draft.Saving) return;
+            if (draft.Saving)
+                return;
             draft.ClearQueuedNormalizations();
 
             string key = _key;
             int operation = draft.BeginOperation();
-            if (refreshHealth) SessionHub.Instance.RefreshHealth();
-            DaemonClient.Get<Wire.ConfigResult>(WireProtocol.Routes.Config,
+            if (refreshHealth)
+                SessionHub.Instance.RefreshHealth();
+            DaemonClient.Get<Wire.ConfigResult>(
+                WireProtocol.Routes.Config,
                 j =>
                 {
-                    if (!IsCurrent(key, draft, operation)) return;
+                    if (!IsCurrent(key, draft, operation))
+                        return;
                     var server = DaemonConfig.FromWire(j.Values, j.Metadata);
                     draft.LoadServer(server);
                     SessionHub.Instance.Config = server;
@@ -86,17 +96,20 @@ namespace SlopWorld
                 },
                 msg =>
                 {
-                    if (!IsCurrent(key, draft, operation)) return;
+                    if (!IsCurrent(key, draft, operation))
+                        return;
                     draft.Error = msg;
                     // An already loaded draft remains drawable and recoverable after a failed
                     // refresh. Only the initial empty page is considered unavailable.
-                });
+                }
+            );
         }
 
         public void Save(Action afterSave)
         {
             var draft = Draft;
-            if (!draft.Loaded || draft.Config == null || draft.Saving || !draft.IsDirty) return;
+            if (!draft.Loaded || draft.Config == null || draft.Saving || !draft.IsDirty)
+                return;
 
             string key = _key;
             int operation = draft.BeginOperation();
@@ -105,10 +118,13 @@ namespace SlopWorld
             var patch = draft.Config.ToPatch(draft.BaselineValue());
             var submittedTexts = draft.TextSnapshot();
 
-            DaemonClient.Put(WireProtocol.Routes.ConfigPatch, patch,
+            DaemonClient.Put(
+                WireProtocol.Routes.ConfigPatch,
+                patch,
                 _ =>
                 {
-                    if (!IsCurrent(key, draft, operation)) return;
+                    if (!IsCurrent(key, draft, operation))
+                        return;
                     draft.Saving = false;
                     // Acknowledge only what was sent. Fields changed while the request was in
                     // flight remain different from this submitted baseline and stay dirty.
@@ -119,23 +135,29 @@ namespace SlopWorld
                 },
                 msg =>
                 {
-                    if (!IsCurrent(key, draft, operation)) return;
+                    if (!IsCurrent(key, draft, operation))
+                        return;
                     draft.Saving = false;
                     draft.Error = msg;
-                });
+                }
+            );
         }
 
         public void Discard()
         {
             var draft = Draft;
-            if (!draft.Loaded || draft.Saving) return;
+            if (!draft.Loaded || draft.Saving)
+                return;
             draft.ClearQueuedNormalizations();
             draft.ResetToBaseline();
         }
 
-        public string DraftText(string key, string path, string serverValue,
-                                bool zeroMeansBlank = false) =>
-            Draft.Text(key, path, serverValue, zeroMeansBlank);
+        public string DraftText(
+            string key,
+            string path,
+            string serverValue,
+            bool zeroMeansBlank = false
+        ) => Draft.Text(key, path, serverValue, zeroMeansBlank);
 
         public void SetDraftText(string key, string path, string value) =>
             Draft.SetText(key, path, value);

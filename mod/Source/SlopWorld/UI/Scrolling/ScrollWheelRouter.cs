@@ -15,6 +15,7 @@ namespace SlopWorld
             public Rect Outer;
             public Rect View;
             public bool Precise;
+
             // Screen position of local zero after entering this region's scroll group.
             public Vector2 ScreenOrigin;
             public readonly List<Region> Children = new List<Region>();
@@ -22,7 +23,8 @@ namespace SlopWorld
             public void Replay()
             {
                 using (Scroll.Scope(Outer, View, false, Precise))
-                    foreach (var child in Children) child.Replay();
+                    foreach (var child in Children)
+                        child.Replay();
             }
         }
 
@@ -38,11 +40,21 @@ namespace SlopWorld
         public void Draw(Rect bounds, Action draw)
         {
             // An enclosing router records the complete tree, including this subtree.
-            if (_capturing != null) { draw(); return; }
-            var origin = GUIUtility.GUIToScreenPoint(new Vector2());
-            if (SmoothScroll.WheelOnly && _ready && bounds.Equals(_bounds) && origin.Equals(_root.ScreenOrigin))
+            if (_capturing != null)
             {
-                foreach (var region in _root.Children) region.Replay();
+                draw();
+                return;
+            }
+            var origin = GUIUtility.GUIToScreenPoint(new Vector2());
+            if (
+                SmoothScroll.WheelOnly
+                && _ready
+                && bounds.Equals(_bounds)
+                && origin.Equals(_root.ScreenOrigin)
+            )
+            {
+                foreach (var region in _root.Children)
+                    region.Replay();
                 return;
             }
 
@@ -71,22 +83,29 @@ namespace SlopWorld
         }
 
         // Called after entering the scroll group; origin is the pre-group screen origin.
-        internal static void Begin(SmoothScroll scroll, Rect outer, Rect view,
-                                   bool precise, Vector2 origin)
+        internal static void Begin(
+            SmoothScroll scroll,
+            Rect outer,
+            Rect view,
+            bool precise,
+            Vector2 origin
+        )
         {
             var router = _capturing;
-            if (router == null) return;
+            if (router == null)
+                return;
             var parent = router._parents.Peek();
             // Arbitrary intervening GUI groups may add clipping or transforms we cannot
             // replay. Keep the ordinary path for those renderers rather than misroute input.
-            if (!parent.ScreenOrigin.Equals(origin)) router._captureSupported = false;
+            if (!parent.ScreenOrigin.Equals(origin))
+                router._captureSupported = false;
             var region = new Region
             {
                 Scroll = scroll,
                 Outer = outer,
                 View = view,
                 Precise = precise,
-                ScreenOrigin = GUIUtility.GUIToScreenPoint(new Vector2())
+                ScreenOrigin = GUIUtility.GUIToScreenPoint(new Vector2()),
             };
             parent.Children.Add(region);
             router._parents.Push(region);
@@ -94,7 +113,8 @@ namespace SlopWorld
 
         internal static void End()
         {
-            if (_capturing != null) _capturing._parents.Pop();
+            if (_capturing != null)
+                _capturing._parents.Pop();
         }
     }
 }

@@ -14,19 +14,24 @@ namespace SlopWorld
                 // A raised rectangular surface: this is an instrument panel, not a vanilla menu.
                 Slab.Box(rect, UiTheme.PopoverBg, UiTheme.Edge);
 
-                var inputRect = new Rect(rect.x + Pad, rect.y + Pad,
-                    rect.width - Pad * 2, InputH);
+                var inputRect = new Rect(rect.x + Pad, rect.y + Pad, rect.width - Pad * 2, InputH);
 
                 float listTop = inputRect.yMax + UiTheme.GapXS;
-                var listRect = new Rect(rect.x + Pad, listTop,
-                    rect.width - Pad * 2, rect.yMax - listTop - Pad);
+                var listRect = new Rect(
+                    rect.x + Pad,
+                    listTop,
+                    rect.width - Pad * 2,
+                    rect.yMax - listTop - Pad
+                );
                 // Set before DrawInput, which reads it when a key scrolls the selection.
                 _listH = listRect.height;
 
                 DrawInput(inputRect);
 
-                if (_mode == Mode.Sub) DrawSubList(listRect);
-                else DrawCommandList(listRect);
+                if (_mode == Mode.Sub)
+                    DrawSubList(listRect);
+                else
+                    DrawCommandList(listRect);
             }
         }
 
@@ -43,9 +48,11 @@ namespace SlopWorld
             if (_matches.Count == 0)
             {
                 GUI.color = UiTheme.Faint;
-                UiText.RowLabel(r, _filter.Length > 0
-                    ? "No matching commands"
-                    : "No commands available", TextAnchor.MiddleCenter);
+                UiText.RowLabel(
+                    r,
+                    _filter.Length > 0 ? "No matching commands" : "No commands available",
+                    TextAnchor.MiddleCenter
+                );
                 GUI.color = Color.white;
                 return;
             }
@@ -59,7 +66,11 @@ namespace SlopWorld
                 if (Grouped)
                 {
                     string group = GroupOf(i);
-                    if (group != prev) { totalH += GroupH; prev = group; }
+                    if (group != prev)
+                    {
+                        totalH += GroupH;
+                        prev = group;
+                    }
                 }
                 totalH += RowH;
             }
@@ -68,7 +79,6 @@ namespace SlopWorld
 
             using (_scroll.Scope(r, view))
             {
-
                 float y = 0f;
                 prev = null;
                 for (int i = 0; i < _matches.Count; i++)
@@ -89,27 +99,37 @@ namespace SlopWorld
                     var row = new Rect(0f, y, view.width, RowH);
                     bool selected = i == _selectedIndex;
 
-                    RowChrome.Hover(row, selected, true, RowHoverPolicy.Local,
-                        RowSelectionStyle.Palette);
+                    RowChrome.Hover(
+                        row,
+                        selected,
+                        true,
+                        RowHoverPolicy.Local,
+                        RowSelectionStyle.Palette
+                    );
 
                     if (UiButtons.RowButton(row))
                     {
                         _selectedIndex = i;
-                        if (_matches[i].Command.SubAction != null) EnterSub(_matches[i].Command);
-                        else Execute(_matches[i].Command);
+                        if (_matches[i].Command.SubAction != null)
+                            EnterSub(_matches[i].Command);
+                        else
+                            Execute(_matches[i].Command);
                     }
 
                     GUI.color = selected ? UiTheme.Lead : UiTheme.Name;
                     UiText.RowLabel(
-                        new Rect(row.x + UiTheme.FieldPadX, row.y + UiTheme.FieldPadY,
+                        new Rect(
+                            row.x + UiTheme.FieldPadX,
+                            row.y + UiTheme.FieldPadY,
                             view.width - UiTheme.FieldPadX * 2f,
-                            RowH - UiTheme.FieldPadY * 2f),
-                        _matches[i].Label);
+                            RowH - UiTheme.FieldPadY * 2f
+                        ),
+                        _matches[i].Label
+                    );
                     GUI.color = Color.white;
 
                     y += RowH;
                 }
-
             }
         }
 
@@ -131,8 +151,11 @@ namespace SlopWorld
             if (options.Count == 0)
             {
                 GUI.color = UiTheme.Faint;
-                UiText.RowLabel(r, _subHasFilter ? "No matches" : "Nothing available",
-                    TextAnchor.MiddleCenter);
+                UiText.RowLabel(
+                    r,
+                    _subHasFilter ? "No matches" : "Nothing available",
+                    TextAnchor.MiddleCenter
+                );
                 GUI.color = Color.white;
                 return;
             }
@@ -144,15 +167,19 @@ namespace SlopWorld
 
             using (_scroll.Scope(r, view))
             {
-
                 float y = 0f;
                 for (int i = 0; i < options.Count; i++)
                 {
                     var row = new Rect(0f, y, view.width, RowH);
                     bool selected = i == _subIndex;
 
-                    RowChrome.Hover(row, selected, options[i].O.Enabled, RowHoverPolicy.Local,
-                        RowSelectionStyle.Palette);
+                    RowChrome.Hover(
+                        row,
+                        selected,
+                        options[i].O.Enabled,
+                        RowHoverPolicy.Local,
+                        RowSelectionStyle.Palette
+                    );
 
                     if (UiButtons.RowButton(row))
                     {
@@ -168,8 +195,10 @@ namespace SlopWorld
                     var box = options[i].O.Checked;
                     if (box.HasValue)
                     {
-                        UiControls.TickBox(new Rect(left, row.y, UiControls.TickW, RowH),
-                            box.Value);
+                        UiControls.TickBox(
+                            new Rect(left, row.y, UiControls.TickW, RowH),
+                            box.Value
+                        );
                         left += UiControls.TickColW;
                     }
 
@@ -183,15 +212,18 @@ namespace SlopWorld
                     }
 
                     UiText.RowLabel(
-                        new Rect(left, row.y + UiTheme.FieldPadY,
+                        new Rect(
+                            left,
+                            row.y + UiTheme.FieldPadY,
                             row.xMax - UiTheme.FieldPadX - left,
-                            RowH - UiTheme.FieldPadY * 2f),
-                        options[i].Label);
+                            RowH - UiTheme.FieldPadY * 2f
+                        ),
+                        options[i].Label
+                    );
                     GUI.color = Color.white;
 
                     y += RowH;
                 }
-
             }
         }
     }

@@ -24,11 +24,14 @@ namespace SlopWorld.Tests
             Assert.That(delivered, Is.Empty, "admission does not run callbacks");
 
             Exception reported = null;
-            Assert.That(queue.Pump(error =>
-            {
-                Assert.That(Environment.CurrentManagedThreadId, Is.EqualTo(pumpThread));
-                reported = error;
-            }), Is.EqualTo(2));
+            Assert.That(
+                queue.Pump(error =>
+                {
+                    Assert.That(Environment.CurrentManagedThreadId, Is.EqualTo(pumpThread));
+                    reported = error;
+                }),
+                Is.EqualTo(2)
+            );
             Assert.That(reported, Is.SameAs(failure));
             Assert.That(delivered, Is.EqualTo(new[] { 1 }));
             Assert.That(queue.Count, Is.EqualTo(1));
@@ -42,7 +45,11 @@ namespace SlopWorld.Tests
             long now = 0;
             var queue = new MainThreadCompletions(32, 2, () => now);
             var delivered = new List<int>();
-            queue.Enqueue(() => { delivered.Add(1); now += 3; });
+            queue.Enqueue(() =>
+            {
+                delivered.Add(1);
+                now += 3;
+            });
             queue.Enqueue(() => delivered.Add(2));
             Assert.That(queue.Pump(error => throw error), Is.EqualTo(1));
             Assert.That(delivered, Is.EqualTo(new[] { 1 }));

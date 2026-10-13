@@ -12,22 +12,45 @@ namespace SlopWorld.Tests
             internal Action<Wire.WorktreesReply> Ok;
             internal Action<string> Fail;
         }
+
         sealed class Fixture
         {
             internal readonly List<Request> Requests = new List<Request>();
             internal readonly WorktreeInventory Inventory;
-            internal Fixture() => Inventory = new WorktreeInventory(
-                (project, ok, fail) => Requests.Add(new Request { Ok = ok, Fail = fail }));
+
+            internal Fixture() =>
+                Inventory = new WorktreeInventory(
+                    (project, ok, fail) => Requests.Add(new Request { Ok = ok, Fail = fail })
+                );
         }
-        static List<ProjectInfo> Projects(string path = "/p") => new List<ProjectInfo>
-        { new ProjectInfo { Name = "p", Dir = path } };
-        static Wire.WorktreesReply Reply(string path = "/p") => new Wire.WorktreesReply
-        {
-            Worktrees = {
-                new Wire.Worktree { Id = "branch", Name = "branch", Path = "/branch" },
-                new Wire.Worktree { Id = "main", Name = "main", Path = path, Phase = "error", Error = "missing checkout" }
-            }
-        };
+
+        static List<ProjectInfo> Projects(string path = "/p") =>
+            new List<ProjectInfo>
+            {
+                new ProjectInfo { Name = "p", Dir = path },
+            };
+
+        static Wire.WorktreesReply Reply(string path = "/p") =>
+            new Wire.WorktreesReply
+            {
+                Worktrees =
+                {
+                    new Wire.Worktree
+                    {
+                        Id = "branch",
+                        Name = "branch",
+                        Path = "/branch",
+                    },
+                    new Wire.Worktree
+                    {
+                        Id = "main",
+                        Name = "main",
+                        Path = path,
+                        Phase = "error",
+                        Error = "missing checkout",
+                    },
+                },
+            };
 
         public static void DaemonMainCheckoutSortsFirstAndUnchangedInventorySharesRequests()
         {

@@ -49,10 +49,17 @@ namespace SlopWorld
 
         public override void Draw(Rect body)
         {
-            if (body.width <= 0f || body.height <= 0f) return;
+            if (body.width <= 0f || body.height <= 0f)
+                return;
             GUI.BeginGroup(body);
-            try { DrawContents(new Rect(0f, 0f, body.width, body.height)); }
-            finally { GUI.EndGroup(); }
+            try
+            {
+                DrawContents(new Rect(0f, 0f, body.width, body.height));
+            }
+            finally
+            {
+                GUI.EndGroup();
+            }
         }
 
         void DrawContents(Rect body)
@@ -64,8 +71,10 @@ namespace SlopWorld
                 // Toolbar: the search field takes the middle, actions sit on the right.
                 var toolbar = new Rect(body.x, body.y, body.width, UiTheme.BtnH);
                 var bar = new UiLayout.Bar(toolbar);
-                if (bar.Right("Edit file", UiTheme.Btn.Ghost)) JukeboxLikesFile.Edit();
-                if (bar.Right("Refresh", UiTheme.Btn.Ghost)) Reload();
+                if (bar.Right("Edit file", UiTheme.Btn.Ghost))
+                    JukeboxLikesFile.Edit();
+                if (bar.Right("Refresh", UiTheme.Btn.Ghost))
+                    Reload();
                 string query = UiText.Field(bar.Rest(), "jukebox-history-search", _query);
                 if (query != _query)
                 {
@@ -73,21 +82,30 @@ namespace SlopWorld
                     ApplyFilter();
                 }
 
-                var status = new Rect(body.x, toolbar.yMax + UiTheme.GapXS,
-                    body.width, UiTheme.LineH);
+                var status = new Rect(
+                    body.x,
+                    toolbar.yMax + UiTheme.GapXS,
+                    body.width,
+                    UiTheme.LineH
+                );
                 DrawStatus(status);
 
                 // The detail panel reserves space at the bottom only while a row is selected.
                 float tableTop = status.yMax + UiTheme.GapS;
                 float availableH = Mathf.Max(0f, body.yMax - tableTop);
-                float detailH = _selected == null ? 0f
-                    : Mathf.Min(availableH, Mathf.Clamp(body.height * 0.32f, 150f, 220f));
+                float detailH =
+                    _selected == null
+                        ? 0f
+                        : Mathf.Min(availableH, Mathf.Clamp(body.height * 0.32f, 150f, 220f));
                 var detail = new Rect(body.x, body.yMax - detailH, body.width, detailH);
 
                 float tableBottom = detailH > 0f ? detail.y - UiTheme.GapS : body.yMax;
-                DrawTable(new Rect(body.x, tableTop, body.width, Mathf.Max(0f, tableBottom - tableTop)));
+                DrawTable(
+                    new Rect(body.x, tableTop, body.width, Mathf.Max(0f, tableBottom - tableTop))
+                );
 
-                if (detailH > 0f) DrawDetail(detail);
+                if (detailH > 0f)
+                    DrawDetail(detail);
             }
         }
 
@@ -120,15 +138,19 @@ namespace SlopWorld
 
         void DrawTable(Rect table)
         {
-            if (table.width <= 2f || table.height < HeaderH + 2f) return;
+            if (table.width <= 2f || table.height < HeaderH + 2f)
+                return;
             Slab.Box(table, UiTheme.Well, UiTheme.Edge);
             var header = new Rect(table.x + 1f, table.y + 1f, table.width - 2f, HeaderH);
-            var list = new Rect(table.x + 1f, header.yMax + 1f,
-                table.width - 2f, Mathf.Max(0f, table.yMax - header.yMax - 2f));
+            var list = new Rect(
+                table.x + 1f,
+                header.yMax + 1f,
+                table.width - 2f,
+                Mathf.Max(0f, table.yMax - header.yMax - 2f)
+            );
 
             float contentH = Mathf.Max(list.height, _view.Count * RowH);
-            var geometry = UiScrollBody.Measure(list, contentH,
-                UiScrollbarReservation.WhenNeeded);
+            var geometry = UiScrollBody.Measure(list, contentH, UiScrollbarReservation.WhenNeeded);
             // Headers and rows use the same width after scrollbar reservation.
             var columns = Layout(geometry.ContentWidth);
             Slab.Fill(header, UiTheme.RowOn);
@@ -150,22 +172,30 @@ namespace SlopWorld
         // that hides everything, and a read error already shown in the status line.
         void DrawEmpty(Rect list)
         {
-            string message = _error != null
-                ? "Could not read jukebox history."
-                : _all.Count == 0
-                    ? "No jukebox history yet."
-                    : "No tracks match \"" + _query.Trim() + "\".";
+            string message =
+                _error != null ? "Could not read jukebox history."
+                : _all.Count == 0 ? "No jukebox history yet."
+                : "No tracks match \"" + _query.Trim() + "\".";
             GUI.color = UiTheme.Dim;
-            UiText.RowLabel(new Rect(list.x + CellPad, list.y + CellPad,
-                list.width - CellPad * 2f, UiTheme.LineH), message);
+            UiText.RowLabel(
+                new Rect(
+                    list.x + CellPad,
+                    list.y + CellPad,
+                    list.width - CellPad * 2f,
+                    UiTheme.LineH
+                ),
+                message
+            );
             GUI.color = Color.white;
         }
 
         static Columns Layout(float width)
         {
             // Narrow panes keep the track identity; the detail view exposes hidden metadata.
-            if (width < 320f) return new Columns { Title = width };
-            if (width < 650f) return new Columns { Artist = width * 0.4f, Title = width * 0.6f };
+            if (width < 320f)
+                return new Columns { Title = width };
+            if (width < 650f)
+                return new Columns { Artist = width * 0.4f, Title = width * 0.6f };
             float at = Mathf.Clamp(width * 0.17f, 120f, 190f);
             float source = Mathf.Clamp(width * 0.16f, 100f, 180f);
             float artist = Mathf.Clamp(width * 0.19f, 120f, 220f);
@@ -184,16 +214,21 @@ namespace SlopWorld
         static void DrawHeader(Rect r, Columns c)
         {
             float x = r.x;
-            HeaderCell(new Rect(x, r.y, c.At, r.height), "When"); x += c.At;
-            HeaderCell(new Rect(x, r.y, c.Source, r.height), "Source"); x += c.Source;
-            HeaderCell(new Rect(x, r.y, c.Artist, r.height), "Artist"); x += c.Artist;
-            HeaderCell(new Rect(x, r.y, c.Title, r.height), "Title"); x += c.Title;
+            HeaderCell(new Rect(x, r.y, c.At, r.height), "When");
+            x += c.At;
+            HeaderCell(new Rect(x, r.y, c.Source, r.height), "Source");
+            x += c.Source;
+            HeaderCell(new Rect(x, r.y, c.Artist, r.height), "Artist");
+            x += c.Artist;
+            HeaderCell(new Rect(x, r.y, c.Title, r.height), "Title");
+            x += c.Title;
             HeaderCell(new Rect(x, r.y, c.Original, r.height), "Original");
         }
 
         static void HeaderCell(Rect r, string label)
         {
-            if (r.width <= CellPad * 2f) return;
+            if (r.width <= CellPad * 2f)
+                return;
             GUI.color = UiTheme.Lead;
             UiText.RowLabel(r.ContractedBy(CellPad, 0f), label);
             GUI.color = Color.white;
@@ -205,10 +240,14 @@ namespace SlopWorld
             bool over = RowChrome.Hover(r, selected, true, RowHoverPolicy.OverlayAware);
 
             float x = r.x;
-            Cell(new Rect(x, r.y, c.At, r.height), DisplayAt(e.At), UiTheme.Dim); x += c.At;
-            Cell(new Rect(x, r.y, c.Source, r.height), e.Source, UiTheme.Name); x += c.Source;
-            Cell(new Rect(x, r.y, c.Artist, r.height), e.Artist, UiTheme.Name); x += c.Artist;
-            Cell(new Rect(x, r.y, c.Title, r.height), e.Title, UiTheme.Lead); x += c.Title;
+            Cell(new Rect(x, r.y, c.At, r.height), DisplayAt(e.At), UiTheme.Dim);
+            x += c.At;
+            Cell(new Rect(x, r.y, c.Source, r.height), e.Source, UiTheme.Name);
+            x += c.Source;
+            Cell(new Rect(x, r.y, c.Artist, r.height), e.Artist, UiTheme.Name);
+            x += c.Artist;
+            Cell(new Rect(x, r.y, c.Title, r.height), e.Title, UiTheme.Lead);
+            x += c.Title;
             Cell(new Rect(x, r.y, c.Original, r.height), e.Original, UiTheme.Faint);
 
             if (over)
@@ -224,10 +263,10 @@ namespace SlopWorld
 
         static void Cell(Rect r, string text, Color color)
         {
-            if (r.width <= CellPad * 2f) return;
+            if (r.width <= CellPad * 2f)
+                return;
             GUI.color = string.IsNullOrEmpty(text) ? UiTheme.Faint : color;
-            UiText.RowLabel(r.ContractedBy(CellPad, 0f),
-                string.IsNullOrEmpty(text) ? "-" : text);
+            UiText.RowLabel(r.ContractedBy(CellPad, 0f), string.IsNullOrEmpty(text) ? "-" : text);
             GUI.color = Color.white;
         }
 
@@ -236,29 +275,38 @@ namespace SlopWorld
         void DrawDetail(Rect r)
         {
             var e = _selected;
-            if (e == null) return;
+            if (e == null)
+                return;
 
             Slab.Box(r, UiTheme.Well, UiTheme.Edge);
             var inner = r.ContractedBy(CellPad + 2f, CellPad);
 
-            if (inner.width <= 0f || inner.height <= 0f) return;
+            if (inner.width <= 0f || inner.height <= 0f)
+                return;
 
             // Reserve the scrollbar before measuring wrapped metadata. Every field and its
             // hit region lives inside this clipped scroll body, even at short panel heights.
             float width = Mathf.Max(0f, inner.width - UiTheme.ScrollbarW);
             float labelW = Mathf.Min(78f, width * 0.3f);
             float originalH = UiText.PlainStatusLabelHeight(
-                string.IsNullOrEmpty(e.Original) ? "-" : e.Original, Mathf.Max(1f, width - labelW));
+                string.IsNullOrEmpty(e.Original) ? "-" : e.Original,
+                Mathf.Max(1f, width - labelW)
+            );
             originalH = Mathf.Max(RowH, originalH);
-            float contentH = UiTheme.BtnH + UiTheme.GapS + 4f * (RowH + UiTheme.GapXS)
-                + originalH + UiTheme.GapXS;
+            float contentH =
+                UiTheme.BtnH
+                + UiTheme.GapS
+                + 4f * (RowH + UiTheme.GapXS)
+                + originalH
+                + UiTheme.GapXS;
             var geometry = UiScrollBody.Measure(inner, contentH, UiScrollbarReservation.Always);
             using (_detailScroll.Scope(inner, geometry.View))
             {
                 var area = geometry.View;
                 var head = new Rect(0f, 0f, area.width, UiTheme.BtnH);
                 var headBar = new UiLayout.Bar(head);
-                if (headBar.Right("Copy line", UiTheme.Btn.Ghost)) Copy(e.Line, "\"" + e.Line + "\"");
+                if (headBar.Right("Copy line", UiTheme.Btn.Ghost))
+                    Copy(e.Line, "\"" + e.Line + "\"");
                 GUI.color = UiTheme.Lead;
                 UiText.RowLabel(headBar.Rest(), "Details  -  click a field to copy it");
                 GUI.color = Color.white;
@@ -273,10 +321,18 @@ namespace SlopWorld
         }
 
         // One labelled, click-to-copy value. Returns the y below it so the caller can stack.
-        float CopyField(Rect area, float y, string label, string display, string value,
-                        float height = -1f, bool wrap = false)
+        float CopyField(
+            Rect area,
+            float y,
+            string label,
+            string display,
+            string value,
+            float height = -1f,
+            bool wrap = false
+        )
         {
-            if (height < 0f) height = RowH;
+            if (height < 0f)
+                height = RowH;
             var row = new Rect(area.x, y, area.width, height);
             bool over = RowChrome.Hover(row, false, true, RowHoverPolicy.OverlayAware);
 
@@ -290,8 +346,11 @@ namespace SlopWorld
             GUI.color = string.IsNullOrEmpty(display) ? UiTheme.Faint : UiTheme.Name;
             if (wrap)
             {
-                UiText.PlainStatusLabel(valueRect, text,
-                    string.IsNullOrEmpty(display) ? UiTheme.Faint : UiTheme.Name);
+                UiText.PlainStatusLabel(
+                    valueRect,
+                    text,
+                    string.IsNullOrEmpty(display) ? UiTheme.Faint : UiTheme.Name
+                );
             }
             else
             {
@@ -301,8 +360,10 @@ namespace SlopWorld
 
             if (!string.IsNullOrEmpty(value))
             {
-                if (over) TooltipHandler.TipRegion(row, "Click to copy");
-                if (UiButtons.RowButton(row)) Copy(value, label.ToLowerInvariant());
+                if (over)
+                    TooltipHandler.TipRegion(row, "Click to copy");
+                if (UiButtons.RowButton(row))
+                    Copy(value, label.ToLowerInvariant());
             }
             return row.yMax + UiTheme.GapXS;
         }
@@ -320,22 +381,39 @@ namespace SlopWorld
         // sees familiar wall-clock values. Show unparseable timestamps as tidied strings.
         static string DisplayAt(string at)
         {
-            if (string.IsNullOrEmpty(at)) return "-";
-            if (DateTime.TryParse(at, CultureInfo.InvariantCulture,
-                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var utc))
+            if (string.IsNullOrEmpty(at))
+                return "-";
+            if (
+                DateTime.TryParse(
+                    at,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                    out var utc
+                )
+            )
             {
                 var local = utc.ToLocalTime();
-                return DateFormat.Short(local, Settings.DateFormat) + " " + TimeFormat.Short(local, Settings.TimeFormat);
+                return DateFormat.Short(local, Settings.DateFormat)
+                    + " "
+                    + TimeFormat.Short(local, Settings.TimeFormat);
             }
             return at.Replace("T", " ").TrimEnd('Z');
         }
 
         static void Copy(string text, string what)
         {
-            if (string.IsNullOrEmpty(text)) return;
-            DaemonClipboard.Copy(text,
-                () => Messages.Message($"Jukebox: copied {what}", MessageTypeDefOf.SilentInput,
-                    false), UiLayout.Fail);
+            if (string.IsNullOrEmpty(text))
+                return;
+            DaemonClipboard.Copy(
+                text,
+                () =>
+                    Messages.Message(
+                        $"Jukebox: copied {what}",
+                        MessageTypeDefOf.SilentInput,
+                        false
+                    ),
+                UiLayout.Fail
+            );
         }
 
         void Reload()
@@ -361,13 +439,18 @@ namespace SlopWorld
             _view.Clear();
             string q = (_query ?? "").Trim();
             foreach (var e in _all)
-                if (q.Length == 0 || Matches(e, q)) _view.Add(e);
-            if (_selected != null && !_view.Contains(_selected)) _selected = null;
+                if (q.Length == 0 || Matches(e, q))
+                    _view.Add(e);
+            if (_selected != null && !_view.Contains(_selected))
+                _selected = null;
         }
 
         static bool Matches(JukeboxHistory.Entry e, string q) =>
-            Has(e.Artist, q) || Has(e.Title, q) || Has(e.Source, q)
-            || Has(e.At, q) || Has(e.Original, q);
+            Has(e.Artist, q)
+            || Has(e.Title, q)
+            || Has(e.Source, q)
+            || Has(e.At, q)
+            || Has(e.Original, q);
 
         static bool Has(string text, string q) =>
             !string.IsNullOrEmpty(text) && text.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;

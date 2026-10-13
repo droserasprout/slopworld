@@ -4,12 +4,11 @@ namespace SlopWorld
 {
     public sealed class EditPromptDialog : EditLibraryItemDialog
     {
-        public EditPromptDialog(LibraryItemInfo existing) : this(existing, false) { }
+        public EditPromptDialog(LibraryItemInfo existing)
+            : this(existing, false) { }
 
         internal EditPromptDialog(LibraryItemInfo existing, bool copy)
-            :
-            base(existing, copy, LibraryItemKind.Prompt)
-        { }
+            : base(existing, copy, LibraryItemKind.Prompt) { }
 
         protected override string TitleNoun => "prompt";
         protected override string TextHeading => "Prompt";
@@ -20,8 +19,12 @@ namespace SlopWorld
             DrawProject(listing);
             DrawExecution(listing);
             DrawExplanation(listing, RunExplanation);
-            DrawCommand(listing, "Command override (blank = template or host default)",
-                _agentDefault, templatePlaceholder: true);
+            DrawCommand(
+                listing,
+                "Command override (blank = template or host default)",
+                _agentDefault,
+                templatePlaceholder: true
+            );
         }
     }
 }

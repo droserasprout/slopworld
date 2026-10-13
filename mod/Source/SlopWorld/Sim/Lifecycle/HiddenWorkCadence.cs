@@ -13,7 +13,8 @@ namespace SlopWorld
         {
             bool entering = hidden && !_hidden;
             _hidden = hidden;
-            if (!hidden) return true;
+            if (!hidden)
+                return true;
             if (entering)
             {
                 _work.Delay(now, HiddenIntervalSeconds);

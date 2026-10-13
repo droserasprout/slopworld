@@ -6,13 +6,12 @@ namespace SlopWorld
 {
     static class MarkdownSelectionText
     {
-        static bool Before(Vector2Int a, Vector2Int b) =>
-            a.y < b.y || (a.y == b.y && a.x < b.x);
+        static bool Before(Vector2Int a, Vector2Int b) => a.y < b.y || (a.y == b.y && a.x < b.x);
 
-        public static string CopyRange(List<SelectionLine> lines, Vector2Int start,
-                                       Vector2Int end)
+        public static string CopyRange(List<SelectionLine> lines, Vector2Int start, Vector2Int end)
         {
-            if (lines == null || lines.Count == 0) return "";
+            if (lines == null || lines.Count == 0)
+                return "";
             var normalizedStart = start;
             var normalizedEnd = end;
             if (Before(normalizedEnd, normalizedStart))
@@ -36,21 +35,33 @@ namespace SlopWorld
                 if (i < lastLineIndex)
                 {
                     output.Append(lines[i].Source.CopySuffix);
-                    if (lines[i].CopyBreakAfter) output.Append('\n');
+                    if (lines[i].CopyBreakAfter)
+                        output.Append('\n');
                 }
             }
             return output.ToString();
         }
 
-        public static void CollectText(List<SelectionLine> target, TextLayout text, float x, float y)
+        public static void CollectText(
+            List<SelectionLine> target,
+            TextLayout text,
+            float x,
+            float y
+        )
         {
-            if (text == null) return;
+            if (text == null)
+                return;
             for (int i = 0; i < text.Lines.Count; i++)
                 CollectTextLine(target, text.Lines[i], x, y, i + 1 == text.Lines.Count);
         }
 
-        static void CollectTextLine(List<SelectionLine> target, TextLine line, float x, float y,
-                                    bool copyBreakAfter)
+        static void CollectTextLine(
+            List<SelectionLine> target,
+            TextLine line,
+            float x,
+            float y,
+            bool copyBreakAfter
+        )
         {
             var output = new SelectionLine
             {
@@ -66,7 +77,8 @@ namespace SlopWorld
             var chars = new StringBuilder();
             foreach (var piece in line.Pieces)
             {
-                if (piece.Run.IsImage) continue;
+                if (piece.Run.IsImage)
+                    continue;
                 chars.Append(piece.Text);
             }
             output.Text = chars.ToString();
@@ -85,19 +97,30 @@ namespace SlopWorld
                     float cellWidth = placement.Table.Widths[i];
                     float padding = MarkdownTableGeometry.Padding(placement.Table.Widths[i]);
                     float innerWidth = MarkdownTableGeometry.InnerWidth(cellWidth);
-                    TableAlignment alignment = placement.Table.Alignments != null &&
-                        i < placement.Table.Alignments.Length
-                        ? placement.Table.Alignments[i] : TableAlignment.Left;
+                    TableAlignment alignment =
+                        placement.Table.Alignments != null && i < placement.Table.Alignments.Length
+                            ? placement.Table.Alignments[i]
+                            : TableAlignment.Left;
                     for (int lineIndex = 0; lineIndex < text.Lines.Count; lineIndex++)
                     {
                         var line = text.Lines[lineIndex];
-                        float lineX = MarkdownTableGeometry.AlignX(x + padding, innerWidth,
-                            line.Width, alignment);
-                        CollectTextLine(target, line, lineX,
+                        float lineX = MarkdownTableGeometry.AlignX(
+                            x + padding,
+                            innerWidth,
+                            line.Width,
+                            alignment
+                        );
+                        CollectTextLine(
+                            target,
+                            line,
+                            lineX,
                             placement.Y + row.Offset + padding,
-                            lineIndex + 1 == text.Lines.Count);
-                        target[target.Count - 1].Width = Mathf.Min(line.Width,
-                            Mathf.Max(0f, x + cellWidth - lineX));
+                            lineIndex + 1 == text.Lines.Count
+                        );
+                        target[target.Count - 1].Width = Mathf.Min(
+                            line.Width,
+                            Mathf.Max(0f, x + cellWidth - lineX)
+                        );
                     }
                     x += cellWidth;
                 }

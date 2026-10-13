@@ -6,6 +6,7 @@ namespace UnityEngine
     static class Input
     {
         public static bool Held;
+
         public static bool GetMouseButton(int button) => Held;
     }
 }
@@ -16,6 +17,7 @@ namespace Verse
     {
         public static bool IsOver(Rect rect) => rect.Contains(Event.current.mousePosition);
     }
+
     // Native drawing/delta calculation is outside the harness. Canned native results
     // exercise the adapter's capture, bounds and cleanup, including event consumption.
     class WindowResizer
@@ -27,12 +29,16 @@ namespace Verse
         public static int InputCalls;
         public static bool Compact;
         public bool Active => isResizing;
+
         public Rect DoResizeControl(Rect rect)
         {
             Calls++;
             Compact = SlopWorld.UiAreaResize.DrawingGrip;
-            if (Event.current.type == EventType.MouseDown ||
-                Event.current.type == EventType.MouseDrag || Event.current.type == EventType.MouseUp)
+            if (
+                Event.current.type == EventType.MouseDown
+                || Event.current.type == EventType.MouseDrag
+                || Event.current.type == EventType.MouseUp
+            )
                 InputCalls++;
             if (Event.current.type == EventType.MouseDown)
             {
@@ -42,7 +48,8 @@ namespace Verse
                 GUIUtility.hotControl = 12345;
                 Event.current.Use();
             }
-            if (Event.current.type == EventType.MouseUp) Event.current.Use();
+            if (Event.current.type == EventType.MouseUp)
+                Event.current.Use();
             return isResizing ? Result : rect;
         }
     }
@@ -50,6 +57,13 @@ namespace Verse
 
 namespace SlopWorld
 {
-    static class FieldFocusScope { internal sealed class Memory { } }
-    static class TextFieldSelection { public static void Retire(FieldLifetime lifetime) { } }
+    static class FieldFocusScope
+    {
+        internal sealed class Memory { }
+    }
+
+    static class TextFieldSelection
+    {
+        public static void Retire(FieldLifetime lifetime) { }
+    }
 }

@@ -16,24 +16,36 @@ namespace SlopWorld
 
         void Reveal(FileNode parent, List<string> parts, int at, int version)
         {
-            if (version != _focusVersion) return;
+            if (version != _focusVersion)
+                return;
             parent.Expanded = true;
             BumpTree();
-            Fetch(parent, () =>
-            {
-                if (version != _focusVersion || parent.Children == null) return;
-                var child = parent.Children.FirstOrDefault(n => n.Name == parts[at]);
-                if (child != null) RevealChild(child, parts, at, version);
-                else if (parent.More) RevealOmittedChild(parent, parts, at, version);
-                else UiLayout.Fail($"path not found: {string.Join("/", parts)}");
-            });
+            Fetch(
+                parent,
+                () =>
+                {
+                    if (version != _focusVersion || parent.Children == null)
+                        return;
+                    var child = parent.Children.FirstOrDefault(n => n.Name == parts[at]);
+                    if (child != null)
+                        RevealChild(child, parts, at, version);
+                    else if (parent.More)
+                        RevealOmittedChild(parent, parts, at, version);
+                    else
+                        UiLayout.Fail($"path not found: {string.Join("/", parts)}");
+                }
+            );
         }
 
         void RevealChild(FileNode child, List<string> parts, int at, int version)
         {
             if (at + 1 < parts.Count)
             {
-                if (!child.IsDir) { UiLayout.Fail($"not a directory: {child.Name}"); return; }
+                if (!child.IsDir)
+                {
+                    UiLayout.Fail($"not a directory: {child.Name}");
+                    return;
+                }
                 Reveal(child, parts, at + 1, version);
                 return;
             }
@@ -49,7 +61,8 @@ namespace SlopWorld
             bool current() => version == _focusVersion && listingVersion == parent.ListingVersion;
             void found(bool directory, Wire.BrowseResult listing = null)
             {
-                if (!current()) return;
+                if (!current())
+                    return;
                 var child = parent.Children.FirstOrDefault(n => n.Name == parts[at]);
                 if (child == null)
                 {
@@ -67,17 +80,26 @@ namespace SlopWorld
             }
             void fail(string error)
             {
-                if (current()) UiLayout.Fail("Could not reveal " + path + ": " + error);
+                if (current())
+                    UiLayout.Fail("Could not reveal " + path + ": " + error);
             }
-            DaemonClient.Get<Wire.FileStatResult>(WireProtocol.Routes.FileStat +
-                "?path=" + Uri.EscapeDataString(path), stat =>
+            DaemonClient.Get<Wire.FileStatResult>(
+                WireProtocol.Routes.FileStat + "?path=" + Uri.EscapeDataString(path),
+                stat =>
                 {
-                    if (!current()) return;
-                    if (stat.IsFile) found(false);
-                    else DaemonClient.Get<Wire.BrowseResult>(BrowseUrl(path),
-                        listing => found(true, listing), fail);
-                }, fail);
+                    if (!current())
+                        return;
+                    if (stat.IsFile)
+                        found(false);
+                    else
+                        DaemonClient.Get<Wire.BrowseResult>(
+                            BrowseUrl(path),
+                            listing => found(true, listing),
+                            fail
+                        );
+                },
+                fail
+            );
         }
-
     }
 }

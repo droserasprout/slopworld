@@ -48,8 +48,10 @@ namespace SlopWorld
             int size = Settings.UIFontSize;
             string name = Settings.UIFontName ?? "";
 
-            if (size < 0) size = 0;
-            if (size > 48) size = 48;
+            if (size < 0)
+                size = 0;
+            if (size > 48)
+                size = 48;
 
             if (_fonts != null && _fontName == name && _fontSize == size && AllAlive(_fonts))
             {
@@ -63,9 +65,10 @@ namespace SlopWorld
             {
                 // The setting is the Small tier's size. Keep Tiny and Medium two points
                 // below and above it, as in RimWorld's built-in 11/13/15 ramp.
-                sizes[i] = size > 0
-                    ? Mathf.Max(1, size + DefaultSizes[i] - DefaultSizes[1])
-                    : DefaultSizes[i];
+                sizes[i] =
+                    size > 0
+                        ? Mathf.Max(1, size + DefaultSizes[i] - DefaultSizes[1])
+                        : DefaultSizes[i];
             }
 
             // Build one native-size font per distinct tier size.
@@ -80,8 +83,9 @@ namespace SlopWorld
                     {
                         font = Create(name, sizes[i]);
                         if (font == null)
-                            throw new InvalidOperationException("could not create font at " +
-                                sizes[i] + "pt");
+                            throw new InvalidOperationException(
+                                "could not create font at " + sizes[i] + "pt"
+                            );
                         font.hideFlags = HideFlags.DontUnloadUnusedAsset;
                         bySize.Add(sizes[i], font);
                         made.Add(font);
@@ -92,8 +96,12 @@ namespace SlopWorld
             catch (Exception e)
             {
                 DestroyUnique(made, null);
-                Log.Warning("[SlopWorld] UI font: " + e.Message + " " +
-                            (name.NullOrEmpty() ? "(auto)" : name));
+                Log.Warning(
+                    "[SlopWorld] UI font: "
+                        + e.Message
+                        + " "
+                        + (name.NullOrEmpty() ? "(auto)" : name)
+                );
                 return;
             }
 
@@ -103,32 +111,40 @@ namespace SlopWorld
             _fontSize = size;
 
             ApplyFont(fonts);
-            unchecked { _revision++; }
-            if (_revision == 0) _revision = 1;
+            unchecked
+            {
+                _revision++;
+            }
+            if (_revision == 0)
+                _revision = 1;
 
             // Destroy old fonts only after all style arrays point at the replacements.
             DestroyUnique(old, fonts);
         }
 
-        static Font Create(string name, int size) => name.Length == 0
-            ? Font.CreateDynamicFontFromOSFont(Candidates, size)
-              ?? Font.CreateDynamicFontFromOSFont("Arial", size)
-            : Font.CreateDynamicFontFromOSFont(name, size);
+        static Font Create(string name, int size) =>
+            name.Length == 0
+                ? Font.CreateDynamicFontFromOSFont(Candidates, size)
+                    ?? Font.CreateDynamicFontFromOSFont("Arial", size)
+                : Font.CreateDynamicFontFromOSFont(name, size);
 
         static bool AllAlive(Font[] fonts)
         {
             for (int i = 0; i < fonts.Length; i++)
-                if (fonts[i] == null) return false;
+                if (fonts[i] == null)
+                    return false;
             return true;
         }
 
         static void DestroyUnique(Font[] old, Font[] keep)
         {
-            if (old == null) return;
+            if (old == null)
+                return;
             for (int i = 0; i < old.Length; i++)
             {
                 var font = old[i];
-                if (font == null || Contains(keep, font) || SeenBefore(old, i, font)) continue;
+                if (font == null || Contains(keep, font) || SeenBefore(old, i, font))
+                    continue;
                 UnityEngine.Object.Destroy(font);
             }
         }
@@ -145,23 +161,27 @@ namespace SlopWorld
 
         static bool Contains(Font[] fonts, Font font)
         {
-            if (fonts == null) return false;
+            if (fonts == null)
+                return false;
             for (int i = 0; i < fonts.Length; i++)
-                if (fonts[i] == font) return true;
+                if (fonts[i] == font)
+                    return true;
             return false;
         }
 
         static bool SeenBefore(Font[] fonts, int at, Font font)
         {
             for (int i = 0; i < at; i++)
-                if (fonts[i] == font) return true;
+                if (fonts[i] == font)
+                    return true;
             return false;
         }
 
         static bool SeenBefore(List<Font> fonts, int at, Font font)
         {
             for (int i = 0; i < at; i++)
-                if (fonts[i] == font) return true;
+                if (fonts[i] == font)
+                    return true;
             return false;
         }
 
@@ -183,8 +203,10 @@ namespace SlopWorld
             // Text.LineHeight reads this cache. Keep spaceBetweenLines as extra leading, not line height.
             try
             {
-                var lhField = typeof(Text).GetField("lineHeights",
-                    BindingFlags.NonPublic | BindingFlags.Static);
+                var lhField = typeof(Text).GetField(
+                    "lineHeights",
+                    BindingFlags.NonPublic | BindingFlags.Static
+                );
 
                 if (lhField != null)
                 {
@@ -198,7 +220,6 @@ namespace SlopWorld
             {
                 Log.Warning($"[SlopWorld] UI font: couldn't update line heights: {e.Message}");
             }
-
         }
 
         // Probe both ascenders and descenders. Unity's line-height and CalcHeight values can
@@ -225,15 +246,18 @@ namespace SlopWorld
         static float InkHeight(GUIStyle style)
         {
             var font = style.font;
-            if (font == null) return 0f;
+            if (font == null)
+                return 0f;
 
             int size = style.fontSize > 0 ? style.fontSize : font.fontSize;
-            if (size <= 0) return 0f;
+            if (size <= 0)
+                return 0f;
 
             try
             {
                 font.RequestCharactersInTexture(Metric.text, size, style.fontStyle);
-                float min = float.PositiveInfinity, max = float.NegativeInfinity;
+                float min = float.PositiveInfinity,
+                    max = float.NegativeInfinity;
                 for (int i = 0; i < Metric.text.Length; i++)
                 {
                     CharacterInfo info;
@@ -247,17 +271,21 @@ namespace SlopWorld
             }
             catch (Exception e)
             {
-                Log.WarningOnce($"[SlopWorld] UI font: couldn't measure glyph bounds: {e.Message}",
-                    0x51_09_12);
+                Log.WarningOnce(
+                    $"[SlopWorld] UI font: couldn't measure glyph bounds: {e.Message}",
+                    0x51_09_12
+                );
             }
             return 0f;
         }
+
         // Size 0 is not "leave the size as it is" but "put the tier back to what RimWorld shipped".
         // The user can move the slider up and then return it to zero.
         // Reset the style so a page that shows 11, 13, or 15 points does not retain 20-point text.
         static void ApplyToStyles(GUIStyle[] styles, Font[] fonts)
         {
-            if (styles == null || fonts == null) return;
+            if (styles == null || fonts == null)
+                return;
             for (int i = 0; i < styles.Length && i < 3; i++)
             {
                 styles[i].font = fonts[i];
@@ -283,7 +311,8 @@ namespace SlopWorld
         {
             get
             {
-                if (_all == null) _all = Scan();
+                if (_all == null)
+                    _all = Scan();
                 return _all;
             }
         }
@@ -296,7 +325,8 @@ namespace SlopWorld
             try
             {
                 var names = Font.GetOSInstalledFontNames();
-                if (names == null) return found;
+                if (names == null)
+                    return found;
                 var seen = new HashSet<string>();
                 foreach (var name in names)
                     if (!string.IsNullOrEmpty(name) && seen.Add(name))

@@ -10,17 +10,38 @@ namespace SlopWorld
         const double MaxSampleChange = 100;
         bool _baseline;
         int _generation;
-        double _x, _y, _time, _discardBefore;
+        double _x,
+            _y,
+            _time,
+            _discardBefore;
 
-        public void Discard(double now) { _baseline = false; _discardBefore = now; }
-
-        public bool Read(double x, double y, double sampled, double now, out double dx, out double dy)
-            => Read(x, y, sampled, now, 0, out dx, out dy);
-
-        public bool Read(double x, double y, double sampled, double now, int generation,
-                         out double dx, out double dy)
+        public void Discard(double now)
         {
-            if (_generation != generation) _baseline = false;
+            _baseline = false;
+            _discardBefore = now;
+        }
+
+        public bool Read(
+            double x,
+            double y,
+            double sampled,
+            double now,
+            out double dx,
+            out double dy
+        ) => Read(x, y, sampled, now, 0, out dx, out dy);
+
+        public bool Read(
+            double x,
+            double y,
+            double sampled,
+            double now,
+            int generation,
+            out double dx,
+            out double dy
+        )
+        {
+            if (_generation != generation)
+                _baseline = false;
             _generation = generation;
             dx = dy = 0;
             if (sampled <= _discardBefore || now - sampled > MaxGap || !Finite(x) || !Finite(y))
@@ -29,12 +50,22 @@ namespace SlopWorld
                 return false;
             }
             bool contiguous = _baseline && sampled >= _time && sampled - _time <= MaxGap;
-            double changeX = x - _x, changeY = y - _y;
+            double changeX = x - _x,
+                changeY = y - _y;
             // Advance the baseline even across discontinuities; the next sample starts here.
             // Exactly MaxSampleChange is accepted on either axis.
-            _x = x; _y = y; _time = sampled; _baseline = true;
-            if (!contiguous || Math.Abs(changeX) > MaxSampleChange || Math.Abs(changeY) > MaxSampleChange) return false;
-            dx = changeX; dy = changeY;
+            _x = x;
+            _y = y;
+            _time = sampled;
+            _baseline = true;
+            if (
+                !contiguous
+                || Math.Abs(changeX) > MaxSampleChange
+                || Math.Abs(changeY) > MaxSampleChange
+            )
+                return false;
+            dx = changeX;
+            dy = changeY;
             return true;
         }
 

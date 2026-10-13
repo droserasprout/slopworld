@@ -23,7 +23,8 @@ namespace SlopWorld.Tests
             {
                 int visible = 0;
                 for (int row = 0; row < 10000; row++)
-                    if (VisibleRows.Intersects(row * rowHeight, rowHeight, 12345f, 480f)) visible++;
+                    if (VisibleRows.Intersects(row * rowHeight, rowHeight, 12345f, 480f))
+                        visible++;
                 Assert.That(visible, Is.LessThanOrEqualTo((int)(480f / rowHeight) + 2));
                 Assert.That(visible, Is.GreaterThan(0));
             }

@@ -12,15 +12,24 @@ namespace SlopWorld.Tests
             tabs.ForPreview().Open("p", "first", "first", "one");
             long revision = RoutedSessionRows.LocalRevision;
             store.Complete("one");
-            AssertEx.True(RoutedSessionRows.LocalRevision > revision, "completion invalidates membership");
+            AssertEx.True(
+                RoutedSessionRows.LocalRevision > revision,
+                "completion invalidates membership"
+            );
             tabs.Preview.Open("p", "second", "second", "two");
             revision = RoutedSessionRows.LocalRevision;
             store.Complete("two");
-            AssertEx.True(RoutedSessionRows.LocalRevision > revision, "handoff invalidates without another snapshot");
+            AssertEx.True(
+                RoutedSessionRows.LocalRevision > revision,
+                "handoff invalidates without another snapshot"
+            );
             AssertEx.False(tabs.IsSession("one"), "handoff removes old reader");
             revision = RoutedSessionRows.LocalRevision;
             tabs.CloseTab("two");
-            AssertEx.True(RoutedSessionRows.LocalRevision > revision, "closing invalidates before process exit");
+            AssertEx.True(
+                RoutedSessionRows.LocalRevision > revision,
+                "closing invalidates before process exit"
+            );
         }
 
         public static void RoutedReadersReopenAndPinWithoutStartingProcesses()
@@ -43,12 +52,18 @@ namespace SlopWorld.Tests
             store.Complete("two");
             AssertEx.True(tabs.ContainsSession("one"), "moved pinned reader stays routed");
             AssertEx.True(tabs.Lock("one"), "pinning an already pinned reader succeeds");
-            AssertEx.True(tabs.LockPreview("p", "/one"), "pinned reader remains addressable by file");
+            AssertEx.True(
+                tabs.LockPreview("p", "/one"),
+                "pinned reader remains addressable by file"
+            );
             AssertEx.True(tabs.ReopenSession("one"), "pinned reader reopens by session");
             AssertEx.Equal("one", TerminalWindow.Current, "reopening focuses requested reader");
             AssertEx.Equal(2, tabs.All.Count(), "both readers appear once");
             AssertEx.Equal(2, store.Starts, "navigation never starts another process");
-            AssertEx.False(tabs.ReopenSession("missing"), "missing session does not match pinned reader");
+            AssertEx.False(
+                tabs.ReopenSession("missing"),
+                "missing session does not match pinned reader"
+            );
             AssertEx.False(tabs.Lock("missing"), "missing pin does not affect existing tabs");
             AssertEx.False(tabs.LockPreview("other", "/one"), "project scopes file identity");
         }
@@ -62,13 +77,19 @@ namespace SlopWorld.Tests
             store.Complete("pinned");
             tabs.Lock("pinned");
             tabs.ReleasePreview();
-            AssertEx.True(tabs.ContainsSession("pinned"), "release preserves a pinned preview slot");
+            AssertEx.True(
+                tabs.ContainsSession("pinned"),
+                "release preserves a pinned preview slot"
+            );
             tabs.ForPreview().ViewFile("p", "/temporary", "temporary");
             store.Complete("temporary");
             tabs.CloseIf("pinned");
             AssertEx.Equal(0, store.Stops, "panel close preserves pin");
             tabs.CloseIf("temporary");
-            AssertEx.False(tabs.ContainsSession("temporary"), "panel close releases ordinary preview");
+            AssertEx.False(
+                tabs.ContainsSession("temporary"),
+                "panel close releases ordinary preview"
+            );
             AssertEx.True(tabs.ContainsSession("pinned"), "panel close keeps other readers");
             tabs.ForPreview().ViewFile("p", "/next", "next");
             store.Complete("next");
@@ -77,7 +98,11 @@ namespace SlopWorld.Tests
             AssertEx.Equal(2, store.Stops, "each ordinary preview stopped once");
             SessionHub.Instance.Get("pinned").Alive = false;
             AssertEx.Equal(0, tabs.All.Count(), "dead pinned readers retire from routed tabs");
-            AssertEx.Equal<string>(null, tabs.FilePath("pinned"), "retired reader loses path lookup");
+            AssertEx.Equal<string>(
+                null,
+                tabs.FilePath("pinned"),
+                "retired reader loses path lookup"
+            );
             AssertEx.False(tabs.CloseTab("pinned"), "retired reader cannot be dismissed again");
         }
     }

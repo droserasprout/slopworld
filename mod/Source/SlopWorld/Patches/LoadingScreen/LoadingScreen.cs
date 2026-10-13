@@ -26,19 +26,22 @@ namespace SlopWorld
         // top-left inner corner, rather than inheriting GameplayTipWindow's centred label.
         internal static readonly Vector2 Margin = new Vector2(16f, 16f);
         internal static readonly Color StreamText = new Color(0.82f, 0.88f, 0.93f);
+
         // Keep the typewriter tail visible: word n-1 is muted and word n is deepest.
         internal static readonly Color PreviousWordText = ScaleRgb(StreamText, 0.75f);
         internal static readonly Color LatestWordText = ScaleRgb(StreamText, 0.55f);
+
         // Not Verse.Rand: this screen is up during map generation, so drawing a tip must not
         // consume the game's deterministic sequence for terrain and pawns.
         static readonly System.Random Dice = new System.Random();
 
-        static Color ScaleRgb(Color color, float scale)
-            => new Color(color.r * scale, color.g * scale, color.b * scale, color.a);
+        static Color ScaleRgb(Color color, float scale) =>
+            new Color(color.r * scale, color.g * scale, color.b * scale, color.a);
 
         // The box is measured against the current screen because both the wrapped stream and
         // GameplayTipWindow's immediate window need the same dimensions.
-        static int _measuredW, _measuredH;
+        static int _measuredW,
+            _measuredH;
         static int _measuredFontSize = -1;
         static Vector2 _box;
         static int _lineCount;
@@ -46,10 +49,14 @@ namespace SlopWorld
 
         // Keep this grid in sync with tools/assets/loading_font_atlas.py.
         const string GlyphAtlasPath = "SlopWorld/LoadingFont";
-        const int GlyphFirst = 32, GlyphLast = 126;
-        const int GlyphSource = 64, GlyphWidth = 32, GlyphHeight = 64;
+        const int GlyphFirst = 32,
+            GlyphLast = 126;
+        const int GlyphSource = 64,
+            GlyphWidth = 32,
+            GlyphHeight = 64;
         const int GlyphLineHeight = 60;
-        const int GlyphColumns = 16, GlyphRows = 6;
+        const int GlyphColumns = 16,
+            GlyphRows = 6;
         const int GlyphGutter = 1;
         const int GlyphPitchWidth = GlyphWidth + GlyphGutter * 2;
         const int GlyphPitchHeight = GlyphHeight + GlyphGutter * 2;
@@ -63,11 +70,14 @@ namespace SlopWorld
         {
             get
             {
-                if (_glyphAtlasLooked) return _glyphAtlas;
+                if (_glyphAtlasLooked)
+                    return _glyphAtlas;
                 _glyphAtlasLooked = true;
                 _glyphAtlas = ContentFinder<Texture2D>.Get(GlyphAtlasPath, false);
-                if (_glyphAtlas == BaseContent.BadTex) _glyphAtlas = null;
-                if (_glyphAtlas == null) Log.Warning("[SlopWorld] loading screen font atlas is missing");
+                if (_glyphAtlas == BaseContent.BadTex)
+                    _glyphAtlas = null;
+                if (_glyphAtlas == null)
+                    Log.Warning("[SlopWorld] loading screen font atlas is missing");
                 return _glyphAtlas;
             }
         }
@@ -78,25 +88,31 @@ namespace SlopWorld
         static void DrawGlyphs(string text, float x, float y, int fontSize)
         {
             Texture2D atlas = GlyphAtlas;
-            if (atlas == null || string.IsNullOrEmpty(text)) return;
+            if (atlas == null || string.IsNullOrEmpty(text))
+                return;
 
             float scale = fontSize * GlyphScale / GlyphSource;
-            float width = GlyphWidth * scale, height = GlyphHeight * scale;
+            float width = GlyphWidth * scale,
+                height = GlyphHeight * scale;
             for (int i = 0; i < text.Length; i++)
             {
                 int code = text[i];
-                if (code < GlyphFirst || code > GlyphLast) code = '?';
-                if (code == ' ') continue;
+                if (code < GlyphFirst || code > GlyphLast)
+                    code = '?';
+                if (code == ' ')
+                    continue;
 
                 int slot = code - GlyphFirst;
-                int row = slot / GlyphColumns, column = slot % GlyphColumns;
+                int row = slot / GlyphColumns,
+                    column = slot % GlyphColumns;
                 var uv = new Rect(
                     (column * GlyphPitchWidth + GlyphGutter) / (float)GlyphAtlasWidth,
-                    ((GlyphRows - row - 1) * GlyphPitchHeight + GlyphGutter) / (float)GlyphAtlasHeight,
+                    ((GlyphRows - row - 1) * GlyphPitchHeight + GlyphGutter)
+                        / (float)GlyphAtlasHeight,
                     GlyphWidth / (float)GlyphAtlasWidth,
-                    GlyphHeight / (float)GlyphAtlasHeight);
-                GUI.DrawTextureWithTexCoords(
-                    new Rect(x + i * width, y, width, height), atlas, uv);
+                    GlyphHeight / (float)GlyphAtlasHeight
+                );
+                GUI.DrawTextureWithTexCoords(new Rect(x + i * width, y, width, height), atlas, uv);
             }
         }
 
@@ -111,8 +127,10 @@ namespace SlopWorld
         internal static void Measure()
         {
             int fontSize = FontSize;
-            int width = UI.screenWidth, height = UI.screenHeight;
-            if (_measuredW == width && _measuredH == height && _measuredFontSize == fontSize) return;
+            int width = UI.screenWidth,
+                height = UI.screenHeight;
+            if (_measuredW == width && _measuredH == height && _measuredFontSize == fontSize)
+                return;
 
             _measuredW = width;
             _measuredH = height;
@@ -151,7 +169,8 @@ namespace SlopWorld
             int count = 0;
             foreach (string line in Stream)
             {
-                if (line.Length == 0) continue;
+                if (line.Length == 0)
+                    continue;
                 count += line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Length;
             }
             return count;
@@ -160,7 +179,8 @@ namespace SlopWorld
         internal static void DrawStream()
         {
             int wordCount = WordCount();
-            if (wordCount == 0) return;
+            if (wordCount == 0)
+                return;
 
             int fontSize = FontSize;
             float lineHeight = fontSize * GlyphScale * GlyphLineHeight / GlyphSource;
@@ -172,9 +192,13 @@ namespace SlopWorld
                 for (int lineAt = 0; lineAt < Stream.Count; lineAt++)
                 {
                     string line = Stream[lineAt];
-                    if (line.Length == 0) continue;
+                    if (line.Length == 0)
+                        continue;
 
-                    string[] words = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    string[] words = line.Split(
+                        new[] { ' ' },
+                        StringSplitOptions.RemoveEmptyEntries
+                    );
                     float x = 0f;
                     float y = lineAt * lineHeight;
                     for (int i = 0; i < words.Length; i++)
@@ -182,9 +206,10 @@ namespace SlopWorld
                         string word = words[i];
                         string segment = i + 1 < words.Length ? word + " " : word;
                         float width = TextWidth(segment, fontSize);
-                        GUI.color = wordAt == wordCount - 1
-                            ? LatestWordText
-                            : wordAt == wordCount - 2 ? PreviousWordText : StreamText;
+                        GUI.color =
+                            wordAt == wordCount - 1 ? LatestWordText
+                            : wordAt == wordCount - 2 ? PreviousWordText
+                            : StreamText;
                         DrawGlyphs(segment, x, y, fontSize);
                         x += width;
                         wordAt++;
@@ -218,7 +243,8 @@ namespace SlopWorld
                 return;
             }
 
-            if (_loadingSession) return;
+            if (_loadingSession)
+                return;
             _loadingSession = true;
             _newLoadingSession = true;
         }
@@ -235,24 +261,30 @@ namespace SlopWorld
             string[] paragraphs = tip.Split(new[] { '\n' }, StringSplitOptions.None);
             for (int i = 0; i < paragraphs.Length; i++)
             {
-                if (i > 0) Tokens.Add(null);
-                string[] words = paragraphs[i].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (string word in words) Tokens.Add(word);
+                if (i > 0)
+                    Tokens.Add(null);
+                string[] words = paragraphs[i]
+                    .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (string word in words)
+                    Tokens.Add(word);
             }
 
-            if (Tokens.Count == 0) Tokens.Add("Loading.");
+            if (Tokens.Count == 0)
+                Tokens.Add("Loading.");
         }
 
         static void MakeRoomForLine()
         {
-            if (Stream.Count < Lines) return;
+            if (Stream.Count < Lines)
+                return;
 
             Stream.RemoveAt(0);
         }
 
         static void AppendToken(string token, float width)
         {
-            if (Stream.Count == 0) Stream.Add(string.Empty);
+            if (Stream.Count == 0)
+                Stream.Add(string.Empty);
 
             if (token == null)
             {
@@ -284,7 +316,8 @@ namespace SlopWorld
             PaintedBuilder.Length = 0;
             for (int i = 0; i < Stream.Count; i++)
             {
-                if (i > 0) PaintedBuilder.Append('\n');
+                if (i > 0)
+                    PaintedBuilder.Append('\n');
                 PaintedBuilder.Append(Stream[i]);
             }
             return PaintedBuilder.ToString();
@@ -302,7 +335,10 @@ namespace SlopWorld
                 }
 
                 string line = string.Empty;
-                string[] words = oldLine.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                string[] words = oldLine.Split(
+                    new[] { ' ' },
+                    StringSplitOptions.RemoveEmptyEntries
+                );
                 foreach (string word in words)
                 {
                     if (line.Length == 0)
@@ -322,10 +358,12 @@ namespace SlopWorld
                     line = word;
                 }
 
-                if (line.Length > 0) reflowed.Add(line);
+                if (line.Length > 0)
+                    reflowed.Add(line);
             }
 
-            while (reflowed.Count > Lines) reflowed.RemoveAt(0);
+            while (reflowed.Count > Lines)
+                reflowed.RemoveAt(0);
             Stream.Clear();
             Stream.AddRange(reflowed);
             _painted = JoinStream();
@@ -373,25 +411,30 @@ namespace SlopWorld
             }
 
             int count = Mathf.Min(MaxWordsPerFrame, Mathf.FloorToInt(_wordBudget));
-            if (count <= 0) return;
+            if (count <= 0)
+                return;
             _wordBudget -= count;
 
             for (int i = 0; i < count; i++)
             {
-                if (_tokenAt >= Tokens.Count) LoadTip(width);
+                if (_tokenAt >= Tokens.Count)
+                    LoadTip(width);
                 AppendToken(Tokens[_tokenAt++], width);
             }
             _painted = JoinStream();
         }
 
-        static readonly FieldInfo LastRotated =
-            AccessTools.Field(typeof(GameplayTipWindow), "lastTimeUpdatedTooltip");
+        static readonly FieldInfo LastRotated = AccessTools.Field(
+            typeof(GameplayTipWindow),
+            "lastTimeUpdatedTooltip"
+        );
 
         static void Prefix()
         {
             // Holding the vanilla timer at now keeps it from changing its own one-line tip while
             // our word stream is being painted.
-            if (LastRotated != null) LastRotated.SetValue(null, Time.realtimeSinceStartup);
+            if (LastRotated != null)
+                LastRotated.SetValue(null, Time.realtimeSinceStartup);
         }
 
         // The non-window-stack path draws vanilla chrome before DrawContents. Suppress its
@@ -399,19 +442,31 @@ namespace SlopWorld
         internal static void SuppressWindowChrome(Rect rect) { }
 
         [HarmonyTranspiler]
-        static IEnumerable<CodeInstruction> RemoveWindowChrome(IEnumerable<CodeInstruction> instructions)
+        static IEnumerable<CodeInstruction> RemoveWindowChrome(
+            IEnumerable<CodeInstruction> instructions
+        )
         {
-            MethodInfo shadow = AccessTools.Method(typeof(Widgets), nameof(Widgets.DrawShadowAround),
-                new[] { typeof(Rect) });
-            MethodInfo background = AccessTools.Method(typeof(Widgets), nameof(Widgets.DrawWindowBackground),
-                new[] { typeof(Rect) });
-            MethodInfo replacement = AccessTools.Method(typeof(Patch_LoadingTips),
-                nameof(SuppressWindowChrome));
+            MethodInfo shadow = AccessTools.Method(
+                typeof(Widgets),
+                nameof(Widgets.DrawShadowAround),
+                new[] { typeof(Rect) }
+            );
+            MethodInfo background = AccessTools.Method(
+                typeof(Widgets),
+                nameof(Widgets.DrawWindowBackground),
+                new[] { typeof(Rect) }
+            );
+            MethodInfo replacement = AccessTools.Method(
+                typeof(Patch_LoadingTips),
+                nameof(SuppressWindowChrome)
+            );
 
             foreach (CodeInstruction instruction in instructions)
             {
-                if (instruction.operand is MethodInfo method &&
-                    (method == shadow || method == background))
+                if (
+                    instruction.operand is MethodInfo method
+                    && (method == shadow || method == background)
+                )
                     instruction.operand = replacement;
                 yield return instruction;
             }
@@ -425,9 +480,11 @@ namespace SlopWorld
         {
             Vector2 margin = Patch_LoadingTips.Margin;
             Rect inner = new Rect(
-                rect.x + margin.x, rect.y + margin.y,
+                rect.x + margin.x,
+                rect.y + margin.y,
                 Mathf.Max(1f, rect.width - margin.x * 2f),
-                Mathf.Max(1f, rect.height - margin.y * 2f));
+                Mathf.Max(1f, rect.height - margin.y * 2f)
+            );
 
             Patch_LoadingTips.Advance();
 
@@ -450,8 +507,10 @@ namespace SlopWorld
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsOnGUI))]
     public static class Patch_LoadingLayout
     {
-        static readonly FieldInfo CurrentEvent =
-            AccessTools.Field(typeof(LongEventHandler), "currentEvent");
+        static readonly FieldInfo CurrentEvent = AccessTools.Field(
+            typeof(LongEventHandler),
+            "currentEvent"
+        );
         static readonly Type EventType = CurrentEvent?.FieldType;
         static readonly FieldInfo ForceHideUI =
             EventType == null ? null : AccessTools.Field(EventType, "forceHideUI");
@@ -459,8 +518,10 @@ namespace SlopWorld
             EventType == null ? null : AccessTools.Field(EventType, "showExtraUIInfo");
         static readonly MethodInfo UseStandardWindow =
             EventType == null ? null : AccessTools.PropertyGetter(EventType, "UseStandardWindow");
-        static readonly FieldInfo WindowSizeField =
-            AccessTools.Field(typeof(GameplayTipWindow), nameof(GameplayTipWindow.WindowSize));
+        static readonly FieldInfo WindowSizeField = AccessTools.Field(
+            typeof(GameplayTipWindow),
+            nameof(GameplayTipWindow.WindowSize)
+        );
 
         static int _sizedAt = -1;
 
@@ -468,22 +529,27 @@ namespace SlopWorld
         {
             Patch_LoadingTips.Measure();
             Vector2 box = Patch_LoadingTips.Box;
-            if (_sizedAt == Patch_LoadingTips.Generation) return;
+            if (_sizedAt == Patch_LoadingTips.Generation)
+                return;
             _sizedAt = Patch_LoadingTips.Generation;
-            if (WindowSizeField == null) return;
+            if (WindowSizeField == null)
+                return;
             try
             {
                 WindowSizeField.SetValue(null, box);
             }
             catch (Exception e)
             {
-                Log.Warning($"[SlopWorld] loading screen size left at vanilla's value: {e.Message}");
+                Log.Warning(
+                    $"[SlopWorld] loading screen size left at vanilla's value: {e.Message}"
+                );
             }
         }
 
         static bool Prefix()
         {
-            if (ForceHideUI == null || ShowExtraUIInfo == null || UseStandardWindow == null) return true;
+            if (ForceHideUI == null || ShowExtraUIInfo == null || UseStandardWindow == null)
+                return true;
 
             object ev = CurrentEvent.GetValue(null);
             if (ev == null)
@@ -491,10 +557,14 @@ namespace SlopWorld
                 Patch_LoadingTips.Begin(null);
                 return true;
             }
-            if ((bool)ForceHideUI.GetValue(ev)) return true;
-            if ((bool)UseStandardWindow.Invoke(ev, null)) return true;
-            if (Find.UIRoot == null) return true;
-            if (!(bool)ShowExtraUIInfo.GetValue(ev)) return true;
+            if ((bool)ForceHideUI.GetValue(ev))
+                return true;
+            if ((bool)UseStandardWindow.Invoke(ev, null))
+                return true;
+            if (Find.UIRoot == null)
+                return true;
+            if (!(bool)ShowExtraUIInfo.GetValue(ev))
+                return true;
 
             Patch_LoadingTips.Begin(ev);
 
@@ -507,7 +577,10 @@ namespace SlopWorld
             GameplayTipWindow.DrawWindow(
                 new Vector2(
                     Mathf.Max(0f, UI.screenWidth - size.x - Patch_LoadingTips.LoadingSideMargin),
-                    (UI.screenHeight - size.y) / 2f), false);
+                    (UI.screenHeight - size.y) / 2f
+                ),
+                false
+            );
             return false;
         }
     }

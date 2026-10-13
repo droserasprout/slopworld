@@ -10,7 +10,8 @@ namespace SlopWorld
     {
         public struct Span
         {
-            public int Start, End;
+            public int Start,
+                End;
             public string Url;
 
             public Span(int start, int end, string url)
@@ -26,7 +27,8 @@ namespace SlopWorld
         // second null, which leaves the caller's link standing.
         public static string Osc(string body)
         {
-            if (body == null || !body.StartsWith("8;", StringComparison.Ordinal)) return null;
+            if (body == null || !body.StartsWith("8;", StringComparison.Ordinal))
+                return null;
             var parts = body.Split(new[] { ';' }, 3);
             return parts.Length < 3 ? null : parts[2];
         }
@@ -41,25 +43,52 @@ namespace SlopWorld
             while (at < text.Length)
             {
                 int sep = text.IndexOf("://", at, StringComparison.Ordinal);
-                if (sep < 0) break;
+                if (sep < 0)
+                    break;
 
                 int start = sep;
-                while (start > 0 && IsScheme(text[start - 1])) start--;
+                while (start > 0 && IsScheme(text[start - 1]))
+                    start--;
                 int schemeLength = sep - start;
-                bool web = (schemeLength == 4 && string.Compare(text, start, "http", 0, 4,
-                                StringComparison.OrdinalIgnoreCase) == 0) ||
-                           (schemeLength == 5 && string.Compare(text, start, "https", 0, 5,
-                                StringComparison.OrdinalIgnoreCase) == 0);
-                if (!web) { at = sep + 3; continue; }
+                bool web =
+                    (
+                        schemeLength == 4
+                        && string.Compare(
+                            text,
+                            start,
+                            "http",
+                            0,
+                            4,
+                            StringComparison.OrdinalIgnoreCase
+                        ) == 0
+                    )
+                    || (
+                        schemeLength == 5
+                        && string.Compare(
+                            text,
+                            start,
+                            "https",
+                            0,
+                            5,
+                            StringComparison.OrdinalIgnoreCase
+                        ) == 0
+                    );
+                if (!web)
+                {
+                    at = sep + 3;
+                    continue;
+                }
 
                 int end = sep + 3;
-                while (end < text.Length && IsUrl(text[end])) end++;
+                while (end < text.Length && IsUrl(text[end]))
+                    end++;
                 end = TrimTail(text, sep + 3, end);
 
                 // A bare "https://" token is text because a URL requires content after the scheme.
                 if (end > sep + 3)
                 {
-                    if (spans == null) spans = new List<Span>();
+                    if (spans == null)
+                        spans = new List<Span>();
                     spans.Add(new Span(start, end, text.Substring(start, end - start)));
                 }
                 at = Math.Max(end, sep + 3);
@@ -68,14 +97,14 @@ namespace SlopWorld
             return spans;
         }
 
-        static bool IsScheme(char c) =>
-            (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+        static bool IsScheme(char c) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 
         // The printable ASCII a URL is allowed to be made of, less the brackets and
         // quotes text wraps them in.
         static bool IsUrl(char c)
         {
-            if (c <= ' ' || c > '~') return false;
+            if (c <= ' ' || c > '~')
+                return false;
             switch (c)
             {
                 case '<':
@@ -99,12 +128,22 @@ namespace SlopWorld
         static int TrimTail(string text, int from, int end)
         {
             bool counted = false;
-            int parens = 0, brackets = 0;
+            int parens = 0,
+                brackets = 0;
             while (end > from)
             {
                 char c = text[end - 1];
-                if (c == '.' || c == ',' || c == ';' || c == ':' || c == '!' ||
-                    c == '?' || c == '\'' || c == '*' || c == '_')
+                if (
+                    c == '.'
+                    || c == ','
+                    || c == ';'
+                    || c == ':'
+                    || c == '!'
+                    || c == '?'
+                    || c == '\''
+                    || c == '*'
+                    || c == '_'
+                )
                 {
                     end--;
                     continue;
@@ -119,16 +158,34 @@ namespace SlopWorld
                         {
                             switch (text[i])
                             {
-                                case '(': parens++; break;
-                                case ')': parens--; break;
-                                case '[': brackets++; break;
-                                case ']': brackets--; break;
+                                case '(':
+                                    parens++;
+                                    break;
+                                case ')':
+                                    parens--;
+                                    break;
+                                case '[':
+                                    brackets++;
+                                    break;
+                                case ']':
+                                    brackets--;
+                                    break;
                             }
                         }
                         counted = true;
                     }
-                    if (c == ')' && parens < 0) { parens++; end--; continue; }
-                    if (c == ']' && brackets < 0) { brackets++; end--; continue; }
+                    if (c == ')' && parens < 0)
+                    {
+                        parens++;
+                        end--;
+                        continue;
+                    }
+                    if (c == ']' && brackets < 0)
+                    {
+                        brackets++;
+                        end--;
+                        continue;
+                    }
                 }
                 break;
             }

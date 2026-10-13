@@ -14,29 +14,40 @@ namespace SlopWorld
         }
 
         readonly Node _root = new Node();
+
         // A printable-ASCII-only row can skip sprite lookups unless a complete
         // catalog key is itself printable ASCII. Keycaps start with ASCII but need
         // a non-ASCII combining mark, so they do not disable this shortcut.
         internal readonly bool HasPrintableAsciiOnlyKey;
-        public static readonly TextSpriteCatalog Shared = new TextSpriteCatalog(TextSpriteData.Keys);
+        public static readonly TextSpriteCatalog Shared = new TextSpriteCatalog(
+            TextSpriteData.Keys
+        );
 
         public TextSpriteCatalog(IEnumerable<string> keys)
         {
             int slot = 0;
             foreach (string key in keys)
             {
-                if (string.IsNullOrEmpty(key)) throw new ArgumentException("Empty sprite key");
+                if (string.IsNullOrEmpty(key))
+                    throw new ArgumentException("Empty sprite key");
                 bool asciiOnly = true;
                 foreach (char c in key)
-                    if (c < ' ' || c > '~') { asciiOnly = false; break; }
-                if (asciiOnly) HasPrintableAsciiOnlyKey = true;
+                    if (c < ' ' || c > '~')
+                    {
+                        asciiOnly = false;
+                        break;
+                    }
+                if (asciiOnly)
+                    HasPrintableAsciiOnlyKey = true;
                 var node = _root;
                 foreach (char c in key)
                 {
-                    if (!node.Next.TryGetValue(c, out var next)) node.Next[c] = next = new Node();
+                    if (!node.Next.TryGetValue(c, out var next))
+                        node.Next[c] = next = new Node();
                     node = next;
                 }
-                if (node.Slot >= 0) throw new ArgumentException("Duplicate sprite key");
+                if (node.Slot >= 0)
+                    throw new ArgumentException("Duplicate sprite key");
                 node.Slot = slot++;
             }
         }
@@ -45,12 +56,15 @@ namespace SlopWorld
         {
             length = 0;
             slot = -1;
-            if (text == null || offset < 0 || offset >= text.Length) return false;
+            if (text == null || offset < 0 || offset >= text.Length)
+                return false;
             var node = _root;
             for (int i = offset; i < text.Length; i++)
             {
-                if (!node.Next.TryGetValue(text[i], out node)) break;
-                if (node.Slot < 0) continue;
+                if (!node.Next.TryGetValue(text[i], out node))
+                    break;
+                if (node.Slot < 0)
+                    continue;
                 length = i - offset + 1;
                 slot = node.Slot;
             }
@@ -59,9 +73,11 @@ namespace SlopWorld
 
         public bool Contains(string text)
         {
-            if (text == null) return false;
+            if (text == null)
+                return false;
             for (int i = 0; i < text.Length; i++)
-                if (Match(text, i, out _, out _)) return true;
+                if (Match(text, i, out _, out _))
+                    return true;
             return false;
         }
 
@@ -70,7 +86,8 @@ namespace SlopWorld
         {
             var node = _root;
             foreach (char c in prefix)
-                if (!node.Next.TryGetValue(c, out node)) return false;
+                if (!node.Next.TryGetValue(c, out node))
+                    return false;
             return node.Next.Count > 0;
         }
     }

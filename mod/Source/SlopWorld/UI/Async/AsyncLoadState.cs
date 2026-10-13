@@ -15,27 +15,31 @@ namespace SlopWorld
         public bool Loading { get; private set; }
         public string Error { get; private set; }
 
-        public void Load(Action<Action<T>, Action<string>> request,
-                         Action<T> loaded = null)
+        public void Load(Action<Action<T>, Action<string>> request, Action<T> loaded = null)
         {
             long generation = _operations.Begin();
             Loading = true;
             Error = null;
-            request(value =>
-            {
-                if (!_operations.IsCurrent(generation)) return;
-                Value = value;
-                HasValue = true;
-                Loading = false;
-                Error = null;
-                loaded?.Invoke(value);
-            }, error =>
-            {
-                if (!_operations.IsCurrent(generation)) return;
-                Loading = false;
-                HasValue = false;
-                Error = error;
-            });
+            request(
+                value =>
+                {
+                    if (!_operations.IsCurrent(generation))
+                        return;
+                    Value = value;
+                    HasValue = true;
+                    Loading = false;
+                    Error = null;
+                    loaded?.Invoke(value);
+                },
+                error =>
+                {
+                    if (!_operations.IsCurrent(generation))
+                        return;
+                    Loading = false;
+                    HasValue = false;
+                    Error = error;
+                }
+            );
         }
 
         public void Invalidate()

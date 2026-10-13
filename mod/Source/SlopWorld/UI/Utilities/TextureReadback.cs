@@ -8,8 +8,12 @@ namespace SlopWorld
     {
         public static Color[] ReadBack(Texture2D source)
         {
-            var target = RenderTexture.GetTemporary(source.width, source.height, 0,
-                RenderTextureFormat.ARGB32);
+            var target = RenderTexture.GetTemporary(
+                source.width,
+                source.height,
+                0,
+                RenderTextureFormat.ARGB32
+            );
             var previous = RenderTexture.active;
             Texture2D copy = null;
             try
@@ -24,7 +28,8 @@ namespace SlopWorld
             {
                 try
                 {
-                    if (copy != null) Object.Destroy(copy);
+                    if (copy != null)
+                        Object.Destroy(copy);
                 }
                 finally
                 {

@@ -7,6 +7,7 @@ namespace SlopWorld
     internal sealed class CursorTextures
     {
         const int CursorSize = 48;
+
         // Keep grayscale pixels dark enough to preserve the outline.
         const float GrayscaleFloor = 0.20f;
         const float GrayscaleRange = 0.68f;
@@ -20,6 +21,7 @@ namespace SlopWorld
         Vector2 _hotspot;
         string _builtKey;
         bool _builtGrayscale;
+
         // Source pixels for rotated frames.
         Color[] _px;
 
@@ -38,7 +40,8 @@ namespace SlopWorld
 
         public void Show(int step)
         {
-            if (step == _shown) return;
+            if (step == _shown)
+                return;
             _shown = step;
 
             if (step <= 0)
@@ -48,7 +51,10 @@ namespace SlopWorld
             }
 
             if (_spun[step] == null)
-                _spun[step] = BuildRotatedFrame(step * MaxRotationDegrees / CursorAnimation.Steps, out _spunHot[step]);
+                _spun[step] = BuildRotatedFrame(
+                    step * MaxRotationDegrees / CursorAnimation.Steps,
+                    out _spunHot[step]
+                );
 
             Cursor.SetCursor(_spun[step], _spunHot[step], CursorMode.Auto);
         }
@@ -58,7 +64,8 @@ namespace SlopWorld
         Texture2D BuildRotatedFrame(float deg, out Vector2 hotspot)
         {
             float rad = deg * Mathf.Deg2Rad;
-            float cos = Mathf.Cos(rad), sin = Mathf.Sin(rad);
+            float cos = Mathf.Cos(rad),
+                sin = Mathf.Sin(rad);
             // Pixels run bottom-up; hotspots run top-down.
             float c = (CursorSize - 1) * 0.5f;
             int o = (RotatedSize - CursorSize) / 2;
@@ -70,18 +77,22 @@ namespace SlopWorld
                 for (int x = 0; x < RotatedSize; x++)
                 {
                     // Inverse rotation maps each output pixel to its source.
-                    float dx = x - o - c, dy = y - o - c;
+                    float dx = x - o - c,
+                        dy = y - o - c;
                     int sxp = Mathf.RoundToInt(c + dx * cos + dy * sin);
                     int syp = Mathf.RoundToInt(c - dx * sin + dy * cos);
-                    if (sxp < 0 || sxp >= CursorSize || syp < 0 || syp >= CursorSize) continue;
+                    if (sxp < 0 || sxp >= CursorSize || syp < 0 || syp >= CursorSize)
+                        continue;
                     px[y * RotatedSize + x] = _px[syp * CursorSize + sxp];
                 }
             }
 
-            float hx = _hotspot.x - c, hy = (CursorSize - 1 - _hotspot.y) - c;
+            float hx = _hotspot.x - c,
+                hy = (CursorSize - 1 - _hotspot.y) - c;
             hotspot = new Vector2(
                 o + c + hx * cos - hy * sin,
-                (RotatedSize - 1) - (o + c + hx * sin + hy * cos));
+                (RotatedSize - 1) - (o + c + hx * sin + hy * cos)
+            );
 
             return CreateTexture(RotatedSize, px);
         }
@@ -97,7 +108,8 @@ namespace SlopWorld
                 return;
             }
 
-            int w = src.width, h = src.height;
+            int w = src.width,
+                h = src.height;
             var srcPx = TextureReadback.ReadBack(src);
 
             var px = PreparePixels(srcPx, w, h, choice.Reversed, grayscale);
@@ -113,7 +125,8 @@ namespace SlopWorld
         static Color[] PreparePixels(Color[] srcPx, int w, int h, bool reversed, bool grayscale)
         {
             var px = new Color[CursorSize * CursorSize];
-            float sx = (float)w / CursorSize, sy = (float)h / CursorSize;
+            float sx = (float)w / CursorSize,
+                sy = (float)h / CursorSize;
 
             for (int y = 0; y < CursorSize; y++)
             {
@@ -126,8 +139,11 @@ namespace SlopWorld
                     int x0 = Mathf.FloorToInt(mx * sx);
                     int x1 = Mathf.Min(w, Mathf.Max(x0 + 1, Mathf.FloorToInt((mx + 1) * sx)));
 
-                    float aSum = 0f, lumSum = 0f;
-                    float rSum = 0f, gSum = 0f, bSum = 0f;
+                    float aSum = 0f,
+                        lumSum = 0f;
+                    float rSum = 0f,
+                        gSum = 0f,
+                        bSum = 0f;
                     int n = 0;
 
                     for (int j = y0; j < y1; j++)
@@ -158,7 +174,8 @@ namespace SlopWorld
                             aSum > 0f ? rSum / aSum : 1f,
                             aSum > 0f ? gSum / aSum : 1f,
                             aSum > 0f ? bSum / aSum : 1f,
-                            a);
+                            a
+                        );
                     }
                 }
             }
@@ -167,14 +184,16 @@ namespace SlopWorld
 
         void ClearBuilt()
         {
-            if (_tex != null) Object.Destroy(_tex);
+            if (_tex != null)
+                Object.Destroy(_tex);
             _tex = null;
             _px = null;
             _builtKey = null;
             _builtGrayscale = false;
             for (int i = 1; i < _spun.Length; i++)
             {
-                if (_spun[i] != null) Object.Destroy(_spun[i]);
+                if (_spun[i] != null)
+                    Object.Destroy(_spun[i]);
                 _spun[i] = null;
                 _spunHot[i] = Vector2.zero;
             }
@@ -191,10 +210,12 @@ namespace SlopWorld
             {
                 for (int x = 0; x < CursorSize; x++)
                 {
-                    if (px[y * CursorSize + x].a < 0.5f) continue;
+                    if (px[y * CursorSize + x].a < 0.5f)
+                        continue;
                     // Pixels run bottom-up, hotspots run top-down.
                     int top = CursorSize - 1 - y;
-                    if (x + top >= best) continue;
+                    if (x + top >= best)
+                        continue;
                     best = x + top;
                     tip = new Vector2(x, top);
                 }

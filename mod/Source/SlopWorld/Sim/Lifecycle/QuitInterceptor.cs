@@ -8,7 +8,12 @@ namespace SlopWorld
     // Keep external requests cancelled until the deferred shutdown starts.
     public static class QuitInterceptor
     {
-        enum Phase { Idle, Pending, ShuttingDown }
+        enum Phase
+        {
+            Idle,
+            Pending,
+            ShuttingDown,
+        }
 
         static Phase _phase;
 
@@ -22,10 +27,13 @@ namespace SlopWorld
         static bool OnWantsToQuit()
         {
             // Programmatic shutdown (profile Quit button): let it through.
-            if (SaveCoordinator.ConsumeProgrammaticShutdown()) return true;
+            if (SaveCoordinator.ConsumeProgrammaticShutdown())
+                return true;
 
-            if (_phase == Phase.ShuttingDown) return true;
-            if (_phase == Phase.Pending) return false;
+            if (_phase == Phase.ShuttingDown)
+                return true;
+            if (_phase == Phase.Pending)
+                return false;
 
             _phase = Phase.Pending;
             // Cancel this OS quit request.
@@ -37,7 +45,8 @@ namespace SlopWorld
         // Root.Shutdown owns the save through Patch_SaveOnShutdown.
         public static void Check()
         {
-            if (_phase != Phase.Pending) return;
+            if (_phase != Phase.Pending)
+                return;
             _phase = Phase.ShuttingDown;
             Root.Shutdown();
         }

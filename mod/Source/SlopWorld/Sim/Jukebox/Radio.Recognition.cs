@@ -27,17 +27,29 @@ namespace SlopWorld
         // Read recognition state under the lock because the worker thread also accesses it.
         public static bool Recognizing
         {
-            get { lock (RecognitionGate) return _recognizing; }
+            get
+            {
+                lock (RecognitionGate)
+                    return _recognizing;
+            }
         }
 
         public static string RecognizingInput
         {
-            get { lock (RecognitionGate) return _recognitionInput; }
+            get
+            {
+                lock (RecognitionGate)
+                    return _recognitionInput;
+            }
         }
 
         public static string RecognitionError
         {
-            get { lock (RecognitionGate) return _recognitionError; }
+            get
+            {
+                lock (RecognitionGate)
+                    return _recognitionError;
+            }
         }
 
         // Run one request at a time outside the Unity thread. Reject duplicate requests.
@@ -81,10 +93,15 @@ namespace SlopWorld
             CancellationTokenSource cancel;
             lock (RecognitionGate)
             {
-                if (!_recognizing || _recognitionCancel == null) return;
+                if (!_recognizing || _recognitionCancel == null)
+                    return;
                 cancel = _recognitionCancel;
             }
-            try { cancel.Cancel(); } catch { }
+            try
+            {
+                cancel.Cancel();
+            }
+            catch { }
         }
 
         static void RunRecognition(int version, string source, CancellationToken token)
@@ -113,12 +130,17 @@ namespace SlopWorld
         static void SetRecognitionInput(string label)
         {
             lock (RecognitionGate)
-                if (_recognizing) _recognitionInput = label;
+                if (_recognizing)
+                    _recognitionInput = label;
         }
 
         // Apply the result only if playback still matches the recorded revision and source.
-        static void FinishRecognition(int version, string source, CancellationToken token,
-                                       RecognitionResult result)
+        static void FinishRecognition(
+            int version,
+            string source,
+            CancellationToken token,
+            RecognitionResult result
+        )
         {
             lock (RecognitionGate)
             {
@@ -129,8 +151,12 @@ namespace SlopWorld
                     _recognitionInput = result.Input;
             }
 
-            if (result == null || result.Status == RecognitionStatus.Canceled
-                || token.IsCancellationRequested) return;
+            if (
+                result == null
+                || result.Status == RecognitionStatus.Canceled
+                || token.IsCancellationRequested
+            )
+                return;
 
             if (!RecognitionTrack.IsCurrent(version, source))
             {
@@ -139,21 +165,27 @@ namespace SlopWorld
             }
             if (!result.Ok)
             {
-                SetRecognitionError(string.IsNullOrEmpty(result.Message)
-                    ? "recognition failed" : result.Message);
+                SetRecognitionError(
+                    string.IsNullOrEmpty(result.Message) ? "recognition failed" : result.Message
+                );
                 return;
             }
 
-            lock (RecognitionGate) _recognitionError = null;
+            lock (RecognitionGate)
+                _recognitionError = null;
             _recognizedArtist = result.Artist;
             _recognizedTitle = result.Title;
-            Messages.Message("Jukebox: recognized " + _recognizedArtist + " - "
-                + _recognizedTitle, MessageTypeDefOf.TaskCompletion, false);
+            Messages.Message(
+                "Jukebox: recognized " + _recognizedArtist + " - " + _recognizedTitle,
+                MessageTypeDefOf.TaskCompletion,
+                false
+            );
         }
 
         static void SetRecognitionError(string message)
         {
-            lock (RecognitionGate) _recognitionError = message;
+            lock (RecognitionGate)
+                _recognitionError = message;
             UiLayout.Fail(message);
         }
     }

@@ -20,7 +20,8 @@ namespace SlopWorld
         // Returns true when the group opens.
         public bool ToggleCollapsed(string key)
         {
-            if (key == null) return false;
+            if (key == null)
+                return false;
             if (_collapsed.Remove(key))
             {
                 Bump();
@@ -34,9 +35,11 @@ namespace SlopWorld
 
         public void SetCollapsed(string key, bool collapsed)
         {
-            if (key == null) return;
+            if (key == null)
+                return;
             bool changed = collapsed ? _collapsed.Add(key) : _collapsed.Remove(key);
-            if (changed) Bump();
+            if (changed)
+                Bump();
         }
 
         public void SetAllFolded(IEnumerable<string> keys, bool folded)
@@ -45,7 +48,8 @@ namespace SlopWorld
             foreach (var key in keys ?? Empty)
                 if (key != null)
                     changed |= folded ? _collapsed.Add(key) : _collapsed.Remove(key);
-            if (changed) Bump();
+            if (changed)
+                Bump();
         }
 
         public bool AllFolded(IEnumerable<string> keys)
@@ -54,7 +58,8 @@ namespace SlopWorld
             foreach (var key in keys ?? Empty)
             {
                 any = true;
-                if (!IsCollapsed(key)) return false;
+                if (!IsCollapsed(key))
+                    return false;
             }
             return any;
         }
@@ -64,15 +69,21 @@ namespace SlopWorld
             var present = new HashSet<string>(keys ?? Empty);
             var stale = new List<string>();
             foreach (var key in _collapsed)
-                if (!present.Contains(key)) stale.Add(key);
-            if (stale.Count == 0) return;
-            foreach (var key in stale) _collapsed.Remove(key);
+                if (!present.Contains(key))
+                    stale.Add(key);
+            if (stale.Count == 0)
+                return;
+            foreach (var key in stale)
+                _collapsed.Remove(key);
             Bump();
         }
 
         public void Bump()
         {
-            unchecked { _revision++; }
+            unchecked
+            {
+                _revision++;
+            }
         }
 
         public void Select(string key)

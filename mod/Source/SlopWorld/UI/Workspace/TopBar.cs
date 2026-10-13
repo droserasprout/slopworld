@@ -10,11 +10,13 @@ namespace SlopWorld
     // leaves the dependency pointing from the bar to the readout.
     public class TopBarMapComponent : MapComponent
     {
-        public TopBarMapComponent(Map map) : base(map) { }
+        public TopBarMapComponent(Map map)
+            : base(map) { }
 
         public override void MapComponentOnGUI()
         {
-            if (Cutscene.Playing) return;
+            if (Cutscene.Playing)
+                return;
             TopBar.DrawOnMap();
         }
     }
@@ -48,7 +50,8 @@ namespace SlopWorld
         static int _doorsFrame = -1;
         static Rect _doorsRect;
         static Map _doorsMap;
-        static bool _doorsShowJukebox, _doorsShowCore;
+        static bool _doorsShowJukebox,
+            _doorsShowCore;
         static bool _doorsReady;
 
         public static Rect Rect => WorkspaceLayout.Current.TopBar;
@@ -56,7 +59,8 @@ namespace SlopWorld
         // From the map component above, which sits behind every window.
         public static void DrawOnMap()
         {
-            if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null) return;
+            if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null)
+                return;
             Draw(true);
         }
 
@@ -65,7 +69,8 @@ namespace SlopWorld
             long started = PerfTrace.Start();
             try
             {
-                using (WidgetState.Save()) DrawCore(interactive);
+                using (WidgetState.Save())
+                    DrawCore(interactive);
             }
             finally
             {
@@ -75,8 +80,10 @@ namespace SlopWorld
 
         static void DrawCore(bool interactive)
         {
-            if (!WorkspaceVisibility.Shown || WorkspaceVisibility.Hidden) return;
-            if (Event.current.type == EventType.Layout) return;
+            if (!WorkspaceVisibility.Shown || WorkspaceVisibility.Hidden)
+                return;
+            if (Event.current.type == EventType.Layout)
+                return;
 
             var r = Rect;
             Slab.Fill(r, UiTheme.Panel);
@@ -114,30 +121,42 @@ namespace SlopWorld
             // Omit usage when the doors leave no room. A centered clock owns its own gap.
             // right mode keeps the original quota-strip layout.
             float quota = right - resources;
-            bool showResources = quota > 0f && (Settings.StatusbarUsage
-                || clockPosition == StatusbarClockMode.Right);
+            bool showResources =
+                quota > 0f
+                && (Settings.StatusbarUsage || clockPosition == StatusbarClockMode.Right);
             if (showResources)
-                UsageReadout.DrawStrip(new Rect(resources, r.y, quota, r.height),
-                    Settings.StatusbarUsage, clockPosition == StatusbarClockMode.Right);
+                UsageReadout.DrawStrip(
+                    new Rect(resources, r.y, quota, r.height),
+                    Settings.StatusbarUsage,
+                    clockPosition == StatusbarClockMode.Right
+                );
 
             bool centeredSummary = Settings.StatusbarSummaryPosition == StatusbarSummaryMode.Center;
-            float summaryRight = centeredClock ? statusRight : showResources ? resources : right;
-            Status(new Rect(r.x + Pad, r.y, Mathf.Max(0f, statusRight - r.x - Pad), r.height),
-                centeredSummary, summaryRight);
+            float summaryRight =
+                centeredClock ? statusRight
+                : showResources ? resources
+                : right;
+            Status(
+                new Rect(r.x + Pad, r.y, Mathf.Max(0f, statusRight - r.x - Pad), r.height),
+                centeredSummary,
+                summaryRight
+            );
 
             // The line is drawn over the map, and the map takes whatever the buttons did not.
             // Without this a press here starts a drag-selection on the ground behind it. Last, so
             // the buttons have already had their refusal.
-            if (interactive) Absorb(r);
-
+            if (interactive)
+                Absorb(r);
         }
 
         // Consume only the initial press. The drag and release belong to its original target.
         static void Absorb(Rect r)
         {
             var e = Event.current;
-            if (e.type != EventType.MouseDown) return;
-            if (!Mouse.IsOver(r)) return;
+            if (e.type != EventType.MouseDown)
+                return;
+            if (!Mouse.IsOver(r))
+                return;
             e.Use();
         }
 
@@ -150,11 +169,15 @@ namespace SlopWorld
             if (_doors.HasConfig)
                 Door(_doors.Config, Icons.Config, "Settings", ModOptions.Toggle, live);
             if (_doors.HasCore)
-                Thing(_doors.Core, ModDefOf.Ship_ComputerCore,
-                    default, CoreTip.OpenMenu, live);
+                Thing(_doors.Core, ModDefOf.Ship_ComputerCore, default, CoreTip.OpenMenu, live);
             if (_doors.HasJukebox)
-                Thing(_doors.Jukebox, ModDefOf.SlopJukebox,
-                    new TipSignal(_doors.JukeboxTip, JukeboxTipId), Jukebox.OpenMenu, live);
+                Thing(
+                    _doors.Jukebox,
+                    ModDefOf.SlopJukebox,
+                    new TipSignal(_doors.JukeboxTip, JukeboxTipId),
+                    Jukebox.OpenMenu,
+                    live
+                );
             return _doors.Right;
         }
 
@@ -163,9 +186,15 @@ namespace SlopWorld
             var map = Find.CurrentMap;
             bool showJukebox = Settings.StatusbarJukebox;
             bool showCore = Settings.StatusbarGM;
-            if (_doorsReady && _doorsFrame == Time.frameCount && _doorsRect == r &&
-                _doorsMap == map && _doorsShowJukebox == showJukebox &&
-                _doorsShowCore == showCore) return;
+            if (
+                _doorsReady
+                && _doorsFrame == Time.frameCount
+                && _doorsRect == r
+                && _doorsMap == map
+                && _doorsShowJukebox == showJukebox
+                && _doorsShowCore == showCore
+            )
+                return;
 
             float x = r.xMax - Pad;
             _doors = new DoorLayout();
@@ -200,7 +229,8 @@ namespace SlopWorld
         {
             slot = default;
             float x = right - gap - IconW;
-            if (x < bar.x || bar.height < IconW) return false;
+            if (x < bar.x || bar.height < IconW)
+                return false;
             slot = new Rect(x, bar.y + (bar.height - IconW) / 2f, IconW, IconW);
             right = x;
             return true;
@@ -217,7 +247,8 @@ namespace SlopWorld
             var was = GUI.color;
             if (repaint)
             {
-                if (over) Slab.Fill(r, UiTheme.Hover);
+                if (over)
+                    Slab.Fill(r, UiTheme.Hover);
                 GUI.color = over ? Color.white : UiTheme.Off;
                 GUI.DrawTexture(r, icon);
                 GUI.color = was;
@@ -229,9 +260,11 @@ namespace SlopWorld
         // ThingIcon supplies its own tint. This method adds hover, input, and optional tips.
         static void Thing(Rect r, ThingDef def, TipSignal tip, System.Action go, bool live)
         {
-            if (def == null) return;
+            if (def == null)
+                return;
 
-            if (!string.IsNullOrEmpty(tip.text)) TooltipHandler.TipRegion(r, tip);
+            if (!string.IsNullOrEmpty(tip.text))
+                TooltipHandler.TipRegion(r, tip);
 
             bool over = ColonistBarStrip.Hover(r);
             bool repaint = Event.current != null && Event.current.type == EventType.Repaint;
@@ -243,7 +276,8 @@ namespace SlopWorld
             if (repaint)
             {
                 GUI.color = Color.white;
-                if (over) Slab.Fill(r, UiTheme.Hover);
+                if (over)
+                    Slab.Fill(r, UiTheme.Hover);
                 Widgets.ThingIcon(r, def);
                 GUI.color = was;
             }
@@ -254,10 +288,12 @@ namespace SlopWorld
         // Use direct rect hit-testing because this map component may draw over an absorbing window.
         static void Press(bool over, System.Action go, bool live)
         {
-            if (!over || !live) return;
+            if (!over || !live)
+                return;
 
             var e = Event.current;
-            if (e.type != EventType.MouseDown || e.button != 0) return;
+            if (e.type != EventType.MouseDown || e.button != 0)
+                return;
 
             e.Use();
             go();
@@ -266,15 +302,19 @@ namespace SlopWorld
         // Show the pane's session, or the selected inspect-pane agent when no pane is open.
         static void Status(Rect r, bool centered, float summaryRight)
         {
-            if (r.width <= 40f) return;
+            if (r.width <= 40f)
+                return;
 
             // Content views replace the session status while visible.
             var view = TerminalWindow.Showing;
             if (view != null)
             {
                 GUI.color = UiTheme.Lead;
-                UiText.RowLabel(r, view.Title,
-                    centered ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft);
+                UiText.RowLabel(
+                    r,
+                    view.Title,
+                    centered ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft
+                );
                 GUI.color = Color.white;
                 return;
             }
@@ -285,10 +325,13 @@ namespace SlopWorld
             if (session == null)
             {
                 GUI.color = UiTheme.Dim;
-                UiText.RowLabel(r, hub.Online
-                    ? $"{hub.Sessions.Count} agent{(hub.Sessions.Count == 1 ? "" : "s")}"
-                    : $"daemon {hub.Status}",
-                    centered ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft);
+                UiText.RowLabel(
+                    r,
+                    hub.Online
+                        ? $"{hub.Sessions.Count} agent{(hub.Sessions.Count == 1 ? "" : "s")}"
+                        : $"daemon {hub.Status}",
+                    centered ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft
+                );
                 GUI.color = Color.white;
                 return;
             }
@@ -305,18 +348,23 @@ namespace SlopWorld
 
             // Scale the status marker inset with the row height.
             float inset = Mathf.Round(r.height * 0.27f);
-            var chip = new Rect(r.x, r.y + inset, UiTheme.StatusMarker,
-                r.height - inset * 2f);
+            var chip = new Rect(r.x, r.y + inset, UiTheme.StatusMarker, r.height - inset * 2f);
             Slab.Fill(chip, AgentPresentation.AgentStateColor(state));
 
             GUI.color = AgentPresentation.AgentStateColor(state);
-            float w = Mathf.Min(UiTheme.Wide(session) + UiTheme.GapXS,
-                Mathf.Max(0f, r.width - UiTheme.StatusMarker - UiTheme.GapS * 2f));
+            float w = Mathf.Min(
+                UiTheme.Wide(session) + UiTheme.GapXS,
+                Mathf.Max(0f, r.width - UiTheme.StatusMarker - UiTheme.GapS * 2f)
+            );
             var name = new Rect(chip.xMax + UiTheme.GapS, r.y, w, r.height);
             UiText.RowLabel(name, session);
 
-            var rest = new Rect(name.xMax + UiTheme.GapS, r.y,
-                Mathf.Max(0f, r.xMax - name.xMax - UiTheme.GapS), r.height);
+            var rest = new Rect(
+                name.xMax + UiTheme.GapS,
+                r.y,
+                Mathf.Max(0f, r.xMax - name.xMax - UiTheme.GapS),
+                r.height
+            );
             if (rest.width <= 20f)
             {
                 Text.Font = GameFont.Small;
@@ -333,8 +381,13 @@ namespace SlopWorld
 
         // Center only the dim summary. The colored marker and terminal name remain the
         // status anchor at the left edge of the bar.
-        static void CenteredSummary(Rect r, string session, AgentState state, string tail,
-                                    float summaryRight)
+        static void CenteredSummary(
+            Rect r,
+            string session,
+            AgentState state,
+            string tail,
+            float summaryRight
+        )
         {
             float markerW = UiTheme.StatusMarker;
             float nameW = UiTheme.Wide(session) + UiTheme.GapXS;
@@ -343,17 +396,20 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
 
             float gaps = UiTheme.GapS * 2f;
-            float nameDrawW = Mathf.Min(nameW,
-                Mathf.Max(0f, r.width - markerW - gaps));
+            float nameDrawW = Mathf.Min(nameW, Mathf.Max(0f, r.width - markerW - gaps));
             float x = r.x;
 
             float inset = Mathf.Round(r.height * 0.27f);
-            Slab.Fill(new Rect(x, r.y + inset, markerW, r.height - inset * 2f),
-                AgentPresentation.AgentStateColor(state));
+            Slab.Fill(
+                new Rect(x, r.y + inset, markerW, r.height - inset * 2f),
+                AgentPresentation.AgentStateColor(state)
+            );
 
             GUI.color = AgentPresentation.AgentStateColor(state);
-            UiText.RowLabel(new Rect(x + markerW + UiTheme.GapS, r.y, nameDrawW, r.height),
-                session);
+            UiText.RowLabel(
+                new Rect(x + markerW + UiTheme.GapS, r.y, nameDrawW, r.height),
+                session
+            );
 
             float summaryLeft = x + markerW + UiTheme.GapS + nameDrawW + UiTheme.GapS;
             float available = Mathf.Max(0f, summaryRight - summaryLeft);
@@ -362,10 +418,16 @@ namespace SlopWorld
             {
                 Text.Font = GameFont.Tiny;
                 GUI.color = UiTheme.Dim;
-                float center = Mathf.Clamp(UI.screenWidth / 2f,
-                    summaryLeft + tailDrawW / 2f, summaryRight - tailDrawW / 2f);
-                UiText.RowLabel(new Rect(center - tailDrawW / 2f, r.y, tailDrawW, r.height), tail,
-                    TextAnchor.MiddleCenter);
+                float center = Mathf.Clamp(
+                    UI.screenWidth / 2f,
+                    summaryLeft + tailDrawW / 2f,
+                    summaryRight - tailDrawW / 2f
+                );
+                UiText.RowLabel(
+                    new Rect(center - tailDrawW / 2f, r.y, tailDrawW, r.height),
+                    tail,
+                    TextAnchor.MiddleCenter
+                );
                 Text.Font = GameFont.Small;
             }
             GUI.color = Color.white;
@@ -379,7 +441,9 @@ namespace SlopWorld
             {
                 var hub = SessionHub.Instance;
                 string project = hub.Get(session)?.Project;
-                string root = string.IsNullOrEmpty(project) ? null : hub.Project(project)?.ExpandedDir;
+                string root = string.IsNullOrEmpty(project)
+                    ? null
+                    : hub.Project(project)?.ExpandedDir;
                 return PagerCommands.RelativeFilePath(root, path);
             }
             string title = SessionHub.Instance.Get(session)?.Title;

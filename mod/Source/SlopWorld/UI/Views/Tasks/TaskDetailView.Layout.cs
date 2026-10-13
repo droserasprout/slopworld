@@ -11,10 +11,17 @@ namespace SlopWorld
         {
             string fontName = Settings.UIFontName ?? "";
             int layoutRevision = WorkspaceLayout.Revision;
-            bool fontChanged = _layoutFontSize != Settings.UIFontSize ||
-                _layoutFontName != fontName || !Mathf.Approximately(_layoutScale, Prefs.UIScale);
-            if (_layoutTask == _task && Mathf.Approximately(_layoutWidth, width) &&
-                !fontChanged && _layoutRevision == layoutRevision) return;
+            bool fontChanged =
+                _layoutFontSize != Settings.UIFontSize
+                || _layoutFontName != fontName
+                || !Mathf.Approximately(_layoutScale, Prefs.UIScale);
+            if (
+                _layoutTask == _task
+                && Mathf.Approximately(_layoutWidth, width)
+                && !fontChanged
+                && _layoutRevision == layoutRevision
+            )
+                return;
 
             _layoutTask = _task;
             _layoutWidth = width;
@@ -23,7 +30,8 @@ namespace SlopWorld
             _layoutFontName = fontName;
             _layoutRevision = layoutRevision;
 
-            int anchor = _selection.AnchorOffset, focus = _selection.FocusOffset;
+            int anchor = _selection.AnchorOffset,
+                focus = _selection.FocusOffset;
 
             _bodyRanges.Clear();
             _bodyRanges.AddRange(WrappedRanges(body, TextWidth(width)));
@@ -39,16 +47,14 @@ namespace SlopWorld
 
             _selectionLines.Clear();
             float bodyY = UiTheme.TinyRowH + UiTheme.GapS;
-            float textY = bodyY + UiTheme.FieldPadY +
-                UiTheme.LineHOf(GameFont.Tiny) + UiTheme.GapXS;
+            float textY =
+                bodyY + UiTheme.FieldPadY + UiTheme.LineHOf(GameFont.Tiny) + UiTheme.GapXS;
             CollectSelectableText(body, MessageTextX, textY, _bodyRanges, 0);
             if (note.Length > 0)
             {
                 float noteY = bodyY + _bodyHeight + UiTheme.GapM;
-                textY = noteY + UiTheme.FieldPadY +
-                    UiTheme.LineHOf(GameFont.Tiny) + UiTheme.GapXS;
-                CollectSelectableText(note, MessageTextX, textY, _noteRanges,
-                    body.Length + 2);
+                textY = noteY + UiTheme.FieldPadY + UiTheme.LineHOf(GameFont.Tiny) + UiTheme.GapXS;
+                CollectSelectableText(note, MessageTextX, textY, _noteRanges, body.Length + 2);
             }
             _selection.Rebuilt(body + (note.Length == 0 ? "" : "\n\n" + note), anchor, focus);
         }
@@ -79,8 +85,11 @@ namespace SlopWorld
         {
             float scale = Prefs.UIScale;
             string fontName = Settings.UIFontName ?? "";
-            if (!Mathf.Approximately(_metricsScale, scale) ||
-                _metricsFontSize != Settings.UIFontSize || _metricsFontName != fontName)
+            if (
+                !Mathf.Approximately(_metricsScale, scale)
+                || _metricsFontSize != Settings.UIFontSize
+                || _metricsFontName != fontName
+            )
             {
                 _metricsScale = scale;
                 _metricsFontSize = Settings.UIFontSize;
@@ -88,14 +97,20 @@ namespace SlopWorld
                 _smallElementWidths.Clear();
             }
 
-            if (_smallElementWidths.TryGetValue(value, out var width)) return width;
+            if (_smallElementWidths.TryGetValue(value, out var width))
+                return width;
             width = Text.CalcSize(value).x;
             _smallElementWidths[value] = width;
             return width;
         }
 
-        void CollectSelectableText(string text, float x, float y,
-                                   List<TextRange> ranges, int sourceOffset)
+        void CollectSelectableText(
+            string text,
+            float x,
+            float y,
+            List<TextRange> ranges,
+            int sourceOffset
+        )
         {
             text = text ?? "";
             float lineH = UiTheme.LineHOf(GameFont.Small);
@@ -113,9 +128,13 @@ namespace SlopWorld
                     var boundaries = TextElementLayout.Boundaries(lineText);
                     for (int i = 0; i < boundaries.Length - 1; i++)
                     {
-                        int start = boundaries[i], end = boundaries[i + 1];
-                        for (int offset = start + 1; offset < end; offset++) edges[offset] = edges[start];
-                        edges[end] = edges[start] + SmallElementWidth(lineText.Substring(start, end - start));
+                        int start = boundaries[i],
+                            end = boundaries[i + 1];
+                        for (int offset = start + 1; offset < end; offset++)
+                            edges[offset] = edges[start];
+                        edges[end] =
+                            edges[start]
+                            + SmallElementWidth(lineText.Substring(start, end - start));
                     }
 
                     var line = new TaskTextSelection.Line

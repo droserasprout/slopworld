@@ -19,17 +19,24 @@ namespace SlopWorld.Tests
                 float width = geometry.NavigationWidthAt(pointer + grab);
                 Assert.That(width, Is.EqualTo(240f));
                 var resized = WorkspaceLayout.Compute(1000, 600, true, true, side, width, 20);
-                Assert.That(resized.NavigationWidthAt(pointer + grab), Is.EqualTo(width),
-                    "stationary pointer must not resize again after layout moves");
+                Assert.That(
+                    resized.NavigationWidthAt(pointer + grab),
+                    Is.EqualTo(width),
+                    "stationary pointer must not resize again after layout moves"
+                );
             }
         }
 
         public static void SettingsAndViewportChangesTakeEffectTogetherOnNextFrame()
         {
             var settings = Settings.S;
-            float width = UI.screenWidth, height = UI.screenHeight, sidebarWidth = settings.sidebarWidth;
-            string side = settings.sidebarSide, density = settings.uiDensity;
-            bool hidden = settings.sidebarHidden, cutscene = Cutscene.Playing;
+            float width = UI.screenWidth,
+                height = UI.screenHeight,
+                sidebarWidth = settings.sidebarWidth;
+            string side = settings.sidebarSide,
+                density = settings.uiDensity;
+            bool hidden = settings.sidebarHidden,
+                cutscene = Cutscene.Playing;
             try
             {
                 Time.frameCount++;
@@ -55,8 +62,16 @@ namespace SlopWorld.Tests
                 UI.screenHeight = 700;
                 var sameFrame = WorkspaceLayout.Current;
                 Assert.That(sameFrame.Revision, Is.EqualTo(initial.Revision));
-                Assert.That(sameFrame.Content, Is.EqualTo(initial.Content), "input and drawing retain the same rectangles");
-                Assert.That(UiMetrics.Revision, Is.EqualTo(metrics), "metrics also stay stable within the frame");
+                Assert.That(
+                    sameFrame.Content,
+                    Is.EqualTo(initial.Content),
+                    "input and drawing retain the same rectangles"
+                );
+                Assert.That(
+                    UiMetrics.Revision,
+                    Is.EqualTo(metrics),
+                    "metrics also stay stable within the frame"
+                );
 
                 Time.frameCount++;
                 var next = WorkspaceLayout.Current;
@@ -69,7 +84,11 @@ namespace SlopWorld.Tests
                 Assert.That(next.Content.width, Is.EqualTo(950f));
                 Assert.That(next.Viewport.height, Is.EqualTo(700f));
                 Time.frameCount++;
-                Assert.That(WorkspaceLayout.Current.Revision, Is.EqualTo(next.Revision), "unchanged frame reuses geometry revision");
+                Assert.That(
+                    WorkspaceLayout.Current.Revision,
+                    Is.EqualTo(next.Revision),
+                    "unchanged frame reuses geometry revision"
+                );
 
                 settings.sidebarHidden = true;
                 Time.frameCount++;
@@ -82,17 +101,28 @@ namespace SlopWorld.Tests
                 Time.frameCount++;
                 var movie = WorkspaceLayout.Current;
                 Assert.That(movie.TopInset, Is.Zero);
-                Assert.That(movie.Content, Is.EqualTo(movie.Viewport), "cutscene reclaims full viewport");
+                Assert.That(
+                    movie.Content,
+                    Is.EqualTo(movie.Viewport),
+                    "cutscene reclaims full viewport"
+                );
                 Cutscene.Playing = false;
                 settings.sidebarHidden = false;
                 Time.frameCount++;
-                Assert.That(WorkspaceLayout.Current.RightInset, Is.EqualTo(250f), "chrome returns after cutscene");
+                Assert.That(
+                    WorkspaceLayout.Current.RightInset,
+                    Is.EqualTo(250f),
+                    "chrome returns after cutscene"
+                );
             }
             finally
             {
-                UI.screenWidth = width; UI.screenHeight = height;
-                settings.sidebarWidth = sidebarWidth; settings.sidebarSide = side;
-                settings.uiDensity = density; settings.sidebarHidden = hidden;
+                UI.screenWidth = width;
+                UI.screenHeight = height;
+                settings.sidebarWidth = sidebarWidth;
+                settings.sidebarSide = side;
+                settings.uiDensity = density;
+                settings.sidebarHidden = hidden;
                 Cutscene.Playing = cutscene;
                 // Advance rather than rewind the frame so static geometry/metrics caches cannot
                 // leak the test snapshot into another caller after globals are restored.
@@ -100,6 +130,5 @@ namespace SlopWorld.Tests
                 _ = WorkspaceLayout.Current;
             }
         }
-
     }
 }

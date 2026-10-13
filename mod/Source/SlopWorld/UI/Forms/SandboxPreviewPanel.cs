@@ -13,15 +13,19 @@ namespace SlopWorld
         public List<string> Notes = new List<string>();
         public List<SandboxPreviewField> Fields = new List<SandboxPreviewField>();
 
-        public static SandboxPreviewData FromWire(Wire.SettingsPreview value) => new SandboxPreviewData
-        {
-            Title = value.Title,
-            Subtitle = value.Subtitle,
-            Notes = value.Notes.ToList(),
-            Fields = value.Fields.Select(field => new SandboxPreviewField(
-                field.Label, field.Values.ToList())).ToList(),
-        };
-
+        public static SandboxPreviewData FromWire(Wire.SettingsPreview value) =>
+            new SandboxPreviewData
+            {
+                Title = value.Title,
+                Subtitle = value.Subtitle,
+                Notes = value.Notes.ToList(),
+                Fields = value
+                    .Fields.Select(field => new SandboxPreviewField(
+                        field.Label,
+                        field.Values.ToList()
+                    ))
+                    .ToList(),
+            };
     }
 
     public sealed class SandboxPreviewField
@@ -42,11 +46,14 @@ namespace SlopWorld
         {
             Slab.Box(outer, UiTheme.Well, UiTheme.Edge);
             var pad = outer.ContractedBy(UiTheme.GapS);
-            var view = new Rect(0f, 0f, pad.width - UiTheme.ScrollbarW,
-                Mathf.Max(Height(data, pad.width - UiTheme.ScrollbarW), pad.height));
+            var view = new Rect(
+                0f,
+                0f,
+                pad.width - UiTheme.ScrollbarW,
+                Mathf.Max(Height(data, pad.width - UiTheme.ScrollbarW), pad.height)
+            );
             using (scroll.Scope(pad, view))
             {
-
                 float y = 0f;
                 y = TextBlock(view.width, y, data.Title, UiTheme.Lead);
                 y += UiTheme.GapXS;
@@ -57,14 +64,17 @@ namespace SlopWorld
                 }
                 if (data.Notes.Count > 0)
                 {
-                    y = TextBlock(view.width, y, string.Join("\n", data.Notes.ToArray()),
-                        UiTheme.Faint);
+                    y = TextBlock(
+                        view.width,
+                        y,
+                        string.Join("\n", data.Notes.ToArray()),
+                        UiTheme.Faint
+                    );
                     y += UiTheme.GapS;
                 }
 
                 foreach (var field in data.Fields)
                     y = Field(view.width, y, field);
-
             }
         }
 
@@ -75,15 +85,20 @@ namespace SlopWorld
             if (!string.IsNullOrEmpty(data.Subtitle))
                 y += UiText.PlainStatusLabelHeight(data.Subtitle, width) + UiTheme.GapXS;
             if (data.Notes.Count > 0)
-                y += UiText.PlainStatusLabelHeight(string.Join("\n", data.Notes.ToArray()), width) +
-                     UiTheme.GapS;
+                y +=
+                    UiText.PlainStatusLabelHeight(string.Join("\n", data.Notes.ToArray()), width)
+                    + UiTheme.GapS;
             foreach (var field in data.Fields)
             {
-                string text = field.Values.Count == 0
-                    ? "(nothing)"
-                    : string.Join("\n", field.Values.ToArray());
-                y += UiTheme.RowH + UiTheme.GapXS +
-                     UiText.PlainStatusLabelHeight(text, width) + UiTheme.GapM;
+                string text =
+                    field.Values.Count == 0
+                        ? "(nothing)"
+                        : string.Join("\n", field.Values.ToArray());
+                y +=
+                    UiTheme.RowH
+                    + UiTheme.GapXS
+                    + UiText.PlainStatusLabelHeight(text, width)
+                    + UiTheme.GapM;
             }
             return y + UiTheme.GapM;
         }
@@ -92,12 +107,14 @@ namespace SlopWorld
         {
             UiLayout.SectionHeading(new Rect(0f, y, width, UiTheme.RowH), field.Label);
             y += UiTheme.RowH + UiTheme.GapXS;
-            string text = field.Values.Count == 0
-                ? "(nothing)"
-                : string.Join("\n", field.Values.ToArray());
+            string text =
+                field.Values.Count == 0 ? "(nothing)" : string.Join("\n", field.Values.ToArray());
             float h = UiText.PlainStatusLabelHeight(text, width);
-            UiText.PlainStatusLabel(new Rect(0f, y, width, h), text,
-                field.Values.Count == 0 ? UiTheme.Faint : UiTheme.Name);
+            UiText.PlainStatusLabel(
+                new Rect(0f, y, width, h),
+                text,
+                field.Values.Count == 0 ? UiTheme.Faint : UiTheme.Name
+            );
             return y + h + UiTheme.GapM;
         }
 

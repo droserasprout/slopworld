@@ -44,7 +44,10 @@ namespace SlopWorld
     }
 
     // Skip automatic social interaction updates.
-    [HarmonyPatch(typeof(Pawn_InteractionsTracker), nameof(Pawn_InteractionsTracker.InteractionsTrackerTickInterval))]
+    [HarmonyPatch(
+        typeof(Pawn_InteractionsTracker),
+        nameof(Pawn_InteractionsTracker.InteractionsTrackerTickInterval)
+    )]
     public static class Patch_Interactions
     {
         static bool Prefix() => false;

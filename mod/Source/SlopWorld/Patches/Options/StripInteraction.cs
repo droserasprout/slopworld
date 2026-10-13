@@ -16,18 +16,26 @@ namespace SlopWorld
     {
         static bool Prefix(object obj)
         {
-            if (Cutscene.Playing) return false;
-            if (!(obj is Pawn p)) return false;
-            if (PlayerPawn.IsPlayer(p)) return false;
+            if (Cutscene.Playing)
+                return false;
+            if (!(obj is Pawn p))
+                return false;
+            if (PlayerPawn.IsPlayer(p))
+                return false;
             if (p.IsColonist)
             {
                 var selector = Find.Selector;
-                if (selector != null && selector.SelectedObjects.Any(
-                    selected => selected is Pawn other && other.IsColonist && other != p))
+                if (
+                    selector != null
+                    && selector.SelectedObjects.Any(selected =>
+                        selected is Pawn other && other.IsColonist && other != p
+                    )
+                )
                     return false;
                 return true;
             }
-            if (Pets.Is(p)) Pets.Poke(p);
+            if (Pets.Is(p))
+                Pets.Poke(p);
             return false;
         }
     }
@@ -37,14 +45,14 @@ namespace SlopWorld
     [HarmonyPatch(typeof(Selector), "SelectInsideDragBox")]
     public static class Patch_No_Agent_Drag_Multiselect
     {
-        static readonly FieldInfo DragBoxField =
-            AccessTools.Field(typeof(Selector), "dragBox");
+        static readonly FieldInfo DragBoxField = AccessTools.Field(typeof(Selector), "dragBox");
 
         static bool Prefix(Selector __instance)
         {
             var dragBox = DragBoxField?.GetValue(__instance) as DragBox;
             var bar = Find.ColonistBar;
-            if (dragBox == null || bar == null) return true;
+            if (dragBox == null || bar == null)
+                return true;
 
             int agents = bar.MapColonistsOrCorpsesInScreenRect(dragBox.ScreenRect)
                 .OfType<Pawn>()

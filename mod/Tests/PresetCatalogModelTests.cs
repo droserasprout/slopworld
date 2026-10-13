@@ -4,26 +4,27 @@ namespace SlopWorld.Tests
 {
     static class PresetCatalogModelTests
     {
-        static PresetInfo Preset() => new PresetInfo
-        {
-            Name = "desktop",
-            Description = "Desktop access",
-            Source = "override",
-            Requires = new List<string> { "base" },
-            Ro = new List<string> { "/ro" },
-            Rw = new List<string> { "/rw" },
-            Cache = new List<string> { "/cache" },
-            Dev = new List<string> { "/dev/dri" },
-            Env = new List<string> { "DISPLAY" },
-            Private = new List<string> { "~/.config" },
-            Shared = new List<string> { "~/.config/token" },
-            Seed = new List<string> { "/seed" },
-            Skip = new List<string> { "/skip" },
-            Escapes = "Host display",
-            Tmux = true,
-            DaemonConfig = true,
-            Setenv = new Dictionary<string, string> { { "MODE", "desktop" } },
-        };
+        static PresetInfo Preset() =>
+            new PresetInfo
+            {
+                Name = "desktop",
+                Description = "Desktop access",
+                Source = "override",
+                Requires = new List<string> { "base" },
+                Ro = new List<string> { "/ro" },
+                Rw = new List<string> { "/rw" },
+                Cache = new List<string> { "/cache" },
+                Dev = new List<string> { "/dev/dri" },
+                Env = new List<string> { "DISPLAY" },
+                Private = new List<string> { "~/.config" },
+                Shared = new List<string> { "~/.config/token" },
+                Seed = new List<string> { "/seed" },
+                Skip = new List<string> { "/skip" },
+                Escapes = "Host display",
+                Tmux = true,
+                DaemonConfig = true,
+                Setenv = new Dictionary<string, string> { { "MODE", "desktop" } },
+            };
 
         public static void PresetCopyPreservesEverySettingAndOwnsItsCollections()
         {
@@ -48,13 +49,25 @@ namespace SlopWorld.Tests
                 string value = pair.Original[0];
                 pair.Copy[0] = "changed";
                 pair.Copy.Add("added");
-                AssertEx.Sequence(new[] { value }, pair.Original, "copy edits leave source " + pair.Name);
+                AssertEx.Sequence(
+                    new[] { value },
+                    pair.Original,
+                    "copy edits leave source " + pair.Name
+                );
                 pair.Original.Clear();
-                AssertEx.Sequence(new[] { "changed", "added" }, pair.Copy, "source edits leave copy " + pair.Name);
+                AssertEx.Sequence(
+                    new[] { "changed", "added" },
+                    pair.Copy,
+                    "source edits leave copy " + pair.Name
+                );
             }
             copy.Setenv["MODE"] = "changed";
             copy.Setenv["NEW"] = "value";
-            AssertEx.Equal("desktop", original.Setenv["MODE"], "environment values are independent");
+            AssertEx.Equal(
+                "desktop",
+                original.Setenv["MODE"],
+                "environment values are independent"
+            );
             AssertEx.Equal(1, original.Setenv.Count, "environment additions are independent");
             original.Setenv.Clear();
             AssertEx.Equal(2, copy.Setenv.Count, "source environment edits leave copy intact");
@@ -72,18 +85,44 @@ namespace SlopWorld.Tests
             wire.Ro.Clear();
             wire.Setenv.Clear();
             AssertEx.Sequence(new[] { "/ro" }, decoded.Ro, "decoded paths own their storage");
-            AssertEx.Equal("desktop", decoded.Setenv["MODE"], "decoded environment owns its storage");
-            AssertEx.Sequence(new[] { "/ro" }, original.Ro, "wire edits leave original paths intact");
-            AssertEx.Equal("desktop", original.Setenv["MODE"], "wire edits leave original environment intact");
+            AssertEx.Equal(
+                "desktop",
+                decoded.Setenv["MODE"],
+                "decoded environment owns its storage"
+            );
+            AssertEx.Sequence(
+                new[] { "/ro" },
+                original.Ro,
+                "wire edits leave original paths intact"
+            );
+            AssertEx.Equal(
+                "desktop",
+                original.Setenv["MODE"],
+                "wire edits leave original environment intact"
+            );
         }
 
         public static void PresetTooltipShowsGrantedAccessAndGeneratedBinds()
         {
             var preset = Preset();
             AssertEx.True(preset.IsEscape, "host access is flagged");
-            AssertEx.Sequence(new[] { "SlopWorld tmux socket", "SlopWorld daemon config (read-only)",
-                "/ro", "/rw", "/cache", "/dev/dri", "~/.config/token", "~/.config", "DISPLAY", "MODE=desktop" },
-                preset.Gives, "tooltip groups access and omits seed/skip rules");
+            AssertEx.Sequence(
+                new[]
+                {
+                    "SlopWorld tmux socket",
+                    "SlopWorld daemon config (read-only)",
+                    "/ro",
+                    "/rw",
+                    "/cache",
+                    "/dev/dri",
+                    "~/.config/token",
+                    "~/.config",
+                    "DISPLAY",
+                    "MODE=desktop",
+                },
+                preset.Gives,
+                "tooltip groups access and omits seed/skip rules"
+            );
             preset.Gives.Clear();
             AssertEx.Equal(10, preset.Gives.Count, "tooltip results do not mutate the preset");
             var empty = new PresetInfo();
@@ -108,7 +147,11 @@ namespace SlopWorld.Tests
             AssertEx.Equal(original.ToWire(), copy.ToWire(), "command settings survive copying");
             AssertEx.Equal("user", copy.Source, "copy retains source metadata");
             copy.Sandbox.Clear();
-            AssertEx.Sequence(new[] { "base", "desktop" }, original.Sandbox, "editing copy keeps original dependencies");
+            AssertEx.Sequence(
+                new[] { "base", "desktop" },
+                original.Sandbox,
+                "editing copy keeps original dependencies"
+            );
             var wire = original.ToWire();
             AssertEx.Equal("", wire.Source, "writes omit daemon-owned source");
             wire.Source = "override";
@@ -116,8 +159,16 @@ namespace SlopWorld.Tests
             AssertEx.Equal("override", decoded.Source, "reads source metadata");
             AssertEx.Equal(original.ToWire(), decoded.ToWire(), "command settings round-trip");
             wire.Sandbox.Clear();
-            AssertEx.Sequence(new[] { "base", "desktop" }, decoded.Sandbox, "decoded dependencies own their storage");
-            AssertEx.Sequence(new[] { "base", "desktop" }, original.Sandbox, "wire dependencies own their storage");
+            AssertEx.Sequence(
+                new[] { "base", "desktop" },
+                decoded.Sandbox,
+                "decoded dependencies own their storage"
+            );
+            AssertEx.Sequence(
+                new[] { "base", "desktop" },
+                original.Sandbox,
+                "wire dependencies own their storage"
+            );
         }
     }
 }

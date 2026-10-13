@@ -11,7 +11,8 @@ namespace SlopWorld
             // The base game raises a clicked non-modal window before closing menus above it.
             // A raised terminal can hide menus that still block sidebar input.
             // Close menus first for clicks outside them. Retain normal submenu dismissal for clicks inside menus.
-            if (!(window is UiMenu)) UiMenu.CloseAll();
+            if (!(window is UiMenu))
+                UiMenu.CloseAll();
         }
     }
 }

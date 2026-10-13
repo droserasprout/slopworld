@@ -41,7 +41,8 @@ namespace SlopWorld
         int _strikesLeft;
         float _nextStrikeAt;
 
-        public CoreTip(Map map) : base(map) { }
+        public CoreTip(Map map)
+            : base(map) { }
 
         // Real-time, so the sequence runs even when the game is paused.
         public override void MapComponentUpdate()
@@ -52,8 +53,10 @@ namespace SlopWorld
                 _strikesLeft = 0;
                 return;
             }
-            if (_strikesLeft <= 0) return;
-            if (Time.realtimeSinceStartup < _nextStrikeAt) return;
+            if (_strikesLeft <= 0)
+                return;
+            if (Time.realtimeSinceStartup < _nextStrikeAt)
+                return;
 
             var target = PickTarget();
             if (target == null)
@@ -63,27 +66,33 @@ namespace SlopWorld
             }
 
             map.weatherManager.eventHandler.AddEvent(
-                new WeatherEvent_LightningStrike(map, target.Position));
+                new WeatherEvent_LightningStrike(map, target.Position)
+            );
             _strikesLeft--;
 
             if (_strikesLeft > 0)
-                _nextStrikeAt = Time.realtimeSinceStartup
-                    + Rand.Range(MinStrikeDelay, MaxStrikeDelay);
+                _nextStrikeAt =
+                    Time.realtimeSinceStartup + Rand.Range(MinStrikeDelay, MaxStrikeDelay);
         }
 
         public override void MapComponentOnGUI()
         {
             // Cutscenes, Eco's frame-only map, and an opaque terminal have no core to point at.
-            if (Cutscene.Playing || Eco.Resting || TerminalWindow.Covering) return;
+            if (Cutscene.Playing || Eco.Resting || TerminalWindow.Covering)
+                return;
 
             var cell = UI.MouseCell();
             var core = map.thingGrid.ThingAt(cell, ModDefOf.Ship_ComputerCore);
             bool over = core != null;
 
             // LMB on the core opens the context menu. Only if no float menu is already up.
-            if (over && !SessionGizmoInput.MouseOverActionGrid
-                && Event.current.type == EventType.MouseDown && Event.current.button == 0
-                && Find.WindowStack.FloatMenu == null)
+            if (
+                over
+                && !SessionGizmoInput.MouseOverActionGrid
+                && Event.current.type == EventType.MouseDown
+                && Event.current.button == 0
+                && Find.WindowStack.FloatMenu == null
+            )
             {
                 Event.current.Use();
                 Open(Event.current.mousePosition, cell);
@@ -103,7 +112,8 @@ namespace SlopWorld
         // or the hint has dismissed itself.
         public void DrawHint()
         {
-            if (!_sticky || _stickyTip == null) return;
+            if (!_sticky || _stickyTip == null)
+                return;
 
             // Timed out.
             if (Time.realtimeSinceStartup - _stickyAtTime >= HintTimeout)
@@ -133,14 +143,19 @@ namespace SlopWorld
 
                 // Place above the click position. If it hits the top edge, place below.
                 float y = _stickyAt.y - h - 12f;
-                if (y < margin) y = _stickyAt.y + 12f;
+                if (y < margin)
+                    y = _stickyAt.y + 12f;
                 // Clamp bottom edge too.
-                if (y + h > UI.screenHeight - margin) y = UI.screenHeight - margin - h;
-                if (y < margin) y = margin; // last resort: top margin
+                if (y + h > UI.screenHeight - margin)
+                    y = UI.screenHeight - margin - h;
+                if (y < margin)
+                    y = margin; // last resort: top margin
 
                 var tipRect = new Rect(_stickyAt.x - w / 2f, y, w, h);
-                if (tipRect.x < margin) tipRect.x = margin;
-                if (tipRect.xMax > UI.screenWidth - margin) tipRect.x = UI.screenWidth - margin - w;
+                if (tipRect.x < margin)
+                    tipRect.x = margin;
+                if (tipRect.xMax > UI.screenWidth - margin)
+                    tipRect.x = UI.screenWidth - margin - w;
 
                 // A floating rectangular panel, not vanilla's window: this is a hint over the
                 // map, on the same surface the command palette uses.
@@ -157,7 +172,8 @@ namespace SlopWorld
         {
             var map = Find.CurrentMap;
             var comp = map?.GetComponent<CoreTip>();
-            if (comp == null) return;
+            if (comp == null)
+                return;
 
             comp.Open(Event.current.mousePosition, Cell(map));
         }
@@ -169,7 +185,8 @@ namespace SlopWorld
         {
             var map = Find.CurrentMap;
             var comp = map?.GetComponent<CoreTip>();
-            if (comp == null) return;
+            if (comp == null)
+                return;
 
             comp._clickPos = UI.MousePositionOnUIInverted;
             comp._menuCell = Cell(map);
@@ -178,19 +195,22 @@ namespace SlopWorld
 
         public static void KillSomething()
         {
-            if (Settings.GrandmaMode || Settings.EcoMode) return;
+            if (Settings.GrandmaMode || Settings.EcoMode)
+                return;
             Find.CurrentMap?.GetComponent<CoreTip>()?.KillAction();
         }
 
         public static void NewLooks()
         {
             var colony = AgentColony.Current;
-            if (colony == null) return;
+            if (colony == null)
+                return;
 
             foreach (var kv in colony.All)
             {
                 var pawn = kv.Value;
-                if (pawn == null || pawn.Destroyed) continue;
+                if (pawn == null || pawn.Destroyed)
+                    continue;
                 AgentLook.Reroll(pawn);
             }
         }
@@ -243,13 +263,17 @@ namespace SlopWorld
         // Arm 5-10 strikes, each choosing a random living thing independently.
         void KillAction()
         {
-            if (Settings.GrandmaMode || Settings.EcoMode) return;
+            if (Settings.GrandmaMode || Settings.EcoMode)
+                return;
 
             var target = PickTarget();
             if (target == null)
             {
-                Messages.Message("SlopWorld: nothing to kill on this map.",
-                    MessageTypeDefOf.RejectInput, false);
+                Messages.Message(
+                    "SlopWorld: nothing to kill on this map.",
+                    MessageTypeDefOf.RejectInput,
+                    false
+                );
                 return;
             }
 
@@ -272,19 +296,24 @@ namespace SlopWorld
             for (int i = 0; i < pawns.Count; i++)
             {
                 var p = pawns[i];
-                if (p.Dead || p.Downed) continue;
-                if (p.RaceProps.Humanlike || p.RaceProps.Animal) pool.Add(p);
+                if (p.Dead || p.Downed)
+                    continue;
+                if (p.RaceProps.Humanlike || p.RaceProps.Animal)
+                    pool.Add(p);
             }
 
             var plants = map.listerThings.ThingsInGroup(ThingRequestGroup.Plant);
             for (int i = 0; i < plants.Count; i++)
             {
                 var t = plants[i];
-                if (t.Destroyed) continue;
-                if (t.def.plant != null && t.def.plant.IsTree) pool.Add(t);
+                if (t.Destroyed)
+                    continue;
+                if (t.def.plant != null && t.def.plant.IsTree)
+                    pool.Add(t);
             }
 
-            if (pool.Count == 0) return null;
+            if (pool.Count == 0)
+                return null;
             return pool[Rand.RangeInclusive(0, pool.Count - 1)];
         }
     }

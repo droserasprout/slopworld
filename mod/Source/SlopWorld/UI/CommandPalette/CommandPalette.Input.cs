@@ -16,21 +16,28 @@ namespace SlopWorld
             bool isKeyDown = e.type == EventType.KeyDown;
 
             // IMGUI emits Space as key and character events. Consume both in checklist mode, but toggle only on the key event so Space is not typed into the filter.
-            if (isKeyDown && _mode == Mode.Sub && Checklist &&
-                (e.keyCode == KeyCode.Space || e.character == ' '))
+            if (
+                isKeyDown
+                && _mode == Mode.Sub
+                && Checklist
+                && (e.keyCode == KeyCode.Space || e.character == ' ')
+            )
             {
-                if (e.keyCode == KeyCode.Space) ToggleSub();
+                if (e.keyCode == KeyCode.Space)
+                    ToggleSub();
                 e.Use();
                 return;
             }
 
             // Handle navigation keys before the text field, which would otherwise consume
             // arrows, Escape and Enter for its own cursor motion and focus management.
-            if (isKeyDown && HandleNavigation(e)) return;
+            if (isKeyDown && HandleNavigation(e))
+                return;
 
             if (_mode == Mode.Sub)
             {
-                if (DrawSubInput(inner, e, isKeyDown)) return;
+                if (DrawSubInput(inner, e, isKeyDown))
+                    return;
             }
             else
             {
@@ -49,15 +56,19 @@ namespace SlopWorld
             switch (e.keyCode)
             {
                 case KeyCode.Escape:
-                    if (_mode == Mode.Sub) BackSub();
-                    else Close();
+                    if (_mode == Mode.Sub)
+                        BackSub();
+                    else
+                        Close();
                     e.Use();
                     return true;
 
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
-                    if (_mode == Mode.Sub) ExecuteSub();
-                    else ExecuteSelected();
+                    if (_mode == Mode.Sub)
+                        ExecuteSub();
+                    else
+                        ExecuteSelected();
                     e.Use();
                     return true;
 
@@ -69,9 +80,8 @@ namespace SlopWorld
                     }
                     else if (_matches.Count > 0)
                     {
-                        _selectedIndex = _selectedIndex == 0
-                            ? _matches.Count - 1
-                            : _selectedIndex - 1;
+                        _selectedIndex =
+                            _selectedIndex == 0 ? _matches.Count - 1 : _selectedIndex - 1;
                         ScrollToSelected();
                     }
                     e.Use();
@@ -85,9 +95,8 @@ namespace SlopWorld
                     }
                     else if (_matches.Count > 0)
                     {
-                        _selectedIndex = _selectedIndex == _matches.Count - 1
-                            ? 0
-                            : _selectedIndex + 1;
+                        _selectedIndex =
+                            _selectedIndex == _matches.Count - 1 ? 0 : _selectedIndex + 1;
                         ScrollToSelected();
                     }
                     e.Use();
@@ -130,8 +139,12 @@ namespace SlopWorld
             string prompt = _subPrompt + " ";
             float promptW = UiTheme.Wide(prompt);
             var labelRect = new Rect(inner.x, inner.y, promptW, inner.height);
-            var fieldRect = new Rect(inner.x + promptW, inner.y,
-                inner.width - promptW, inner.height);
+            var fieldRect = new Rect(
+                inner.x + promptW,
+                inner.y,
+                inner.width - promptW,
+                inner.height
+            );
 
             GUI.color = UiTheme.Dim;
             UiText.RowLabel(labelRect, prompt);
@@ -195,14 +208,16 @@ namespace SlopWorld
         void Resize()
         {
             float h = ContentHeight();
-            if (Mathf.Abs(windowRect.height - h) > 0.5f) windowRect.height = h;
+            if (Mathf.Abs(windowRect.height - h) > 0.5f)
+                windowRect.height = h;
         }
 
         // Walk the same order as DrawCommandList to find the y of the selected item,
         // then scroll to keep it visible.
         void ScrollToSelected()
         {
-            if (_selectedIndex < 0 || _selectedIndex >= _matches.Count) return;
+            if (_selectedIndex < 0 || _selectedIndex >= _matches.Count)
+                return;
 
             float y = 0f;
             string prev = null;
@@ -211,7 +226,11 @@ namespace SlopWorld
                 if (Grouped)
                 {
                     string group = GroupOf(i);
-                    if (group != prev) { y += GroupH; prev = group; }
+                    if (group != prev)
+                    {
+                        y += GroupH;
+                        prev = group;
+                    }
                 }
                 y += RowH;
             }

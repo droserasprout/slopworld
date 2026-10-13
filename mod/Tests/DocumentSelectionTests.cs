@@ -7,6 +7,7 @@ namespace SlopWorld.Tests
     static class DocumentSelectionTests
     {
         static readonly Rect Viewport = new Rect(0, 0, 1000, 500);
+
         static Event Mouse(float x, float y, bool shift = false) =>
             new Event { mousePosition = new Vector2(x, y), shift = shift };
 
@@ -22,7 +23,7 @@ namespace SlopWorld.Tests
                 Y = y,
                 Height = 10,
                 Width = boundaries.Length - 1,
-                Boundaries = boundaries
+                Boundaries = boundaries,
             };
             for (int i = 0; i <= text.Length; i++)
             {
@@ -40,17 +41,30 @@ namespace SlopWorld.Tests
             selection.Lines.Add(Line("note", 7, 30));
             selection.Lines.Add(Line("", 12, 40));
             selection.Rebuilt(source, 11, 1);
-            AssertEx.Equal("b cd\n\nnote", selection.SelectionText(), "reversed selection copies original card gap");
-            int anchor = selection.AnchorOffset, focus = selection.FocusOffset;
+            AssertEx.Equal(
+                "b cd\n\nnote",
+                selection.SelectionText(),
+                "reversed selection copies original card gap"
+            );
+            int anchor = selection.AnchorOffset,
+                focus = selection.FocusOffset;
             selection.Lines.Clear();
             selection.Lines.Add(Line("ab ", 0, 0));
             selection.Lines.Add(Line("cd", 3, 10));
             selection.Lines.Add(Line("note", 7, 40));
             selection.Lines.Add(Line("", 12, 50));
             selection.Rebuilt(source, anchor, focus);
-            AssertEx.Equal("b cd\n\nnote", selection.SelectionText(), "wrapping preserves source offsets");
+            AssertEx.Equal(
+                "b cd\n\nnote",
+                selection.SelectionText(),
+                "wrapping preserves source offsets"
+            );
             selection.SelectAll();
-            AssertEx.Equal(source, selection.SelectionText(), "select all retains trailing newline");
+            AssertEx.Equal(
+                source,
+                selection.SelectionText(),
+                "select all retains trailing newline"
+            );
         }
 
         public static void TaskGesturesKeepUnicodeElementsAndReleaseCapture()
@@ -61,7 +75,11 @@ namespace SlopWorld.Tests
             selection.BeginMouse(Viewport, Mouse(0, 5), 1, new Vector2());
             AssertEx.True(GUIUtility.hotControl != 0, "drag captures mouse");
             selection.DragMouse(Viewport, Mouse(1.6f, 5), new Vector2());
-            AssertEx.Equal("😀e\u0301", selection.SelectionText(), "hit test never splits Unicode element");
+            AssertEx.Equal(
+                "😀e\u0301",
+                selection.SelectionText(),
+                "hit test never splits Unicode element"
+            );
             selection.EndMouse(Viewport, Mouse(1.6f, 5), new Vector2());
             AssertEx.Equal(0, GUIUtility.hotControl, "mouseup releases capture");
             selection.BeginMouse(Viewport, Mouse(0, 5), 1, new Vector2());
@@ -88,27 +106,61 @@ namespace SlopWorld.Tests
                 task.Rebuilt("task", 0, 0);
                 task.BeginMouse(Viewport, Mouse(0, 5), 1, new Vector2());
                 task.EndMouse(Viewport, Mouse(10, 5), new Vector2());
-                AssertEx.Equal(WireProtocol.Routes.ClipboardPrimary, DaemonClient.Requests[0].Path, "task mouse selection uses PRIMARY");
-                AssertEx.Equal("unchanged", GUIUtility.systemCopyBuffer, "task mouse selection preserves CLIPBOARD");
+                AssertEx.Equal(
+                    WireProtocol.Routes.ClipboardPrimary,
+                    DaemonClient.Requests[0].Path,
+                    "task mouse selection uses PRIMARY"
+                );
+                AssertEx.Equal(
+                    "unchanged",
+                    GUIUtility.systemCopyBuffer,
+                    "task mouse selection preserves CLIPBOARD"
+                );
                 task.SelectAll();
-                AssertEx.Equal(1, DaemonClient.Requests.Count, "task select all does not copy implicitly");
+                AssertEx.Equal(
+                    1,
+                    DaemonClient.Requests.Count,
+                    "task select all does not copy implicitly"
+                );
                 task.OpenMenu();
-                AssertEx.True(!TerminalWindow.SelectionMenu.Options.Any(o => o.Label == "Paste"), "task menu has no paste");
+                AssertEx.True(
+                    !TerminalWindow.SelectionMenu.Options.Any(o => o.Label == "Paste"),
+                    "task menu has no paste"
+                );
                 task.HandleKey(new Event { control = true, keyCode = KeyCode.C });
-                AssertEx.Equal(WireProtocol.Routes.Clipboard, DaemonClient.Requests[1].Path, "explicit task copy uses CLIPBOARD");
+                AssertEx.Equal(
+                    WireProtocol.Routes.Clipboard,
+                    DaemonClient.Requests[1].Path,
+                    "explicit task copy uses CLIPBOARD"
+                );
 
                 DaemonClipboard.Reset();
                 DaemonClient.Requests.Clear();
                 var markdown = Markdown("hello world");
                 markdown.BeginMouse(Viewport, Mouse(0, 5), 2, new Vector2());
-                AssertEx.Equal("hello", markdown.SelectionText(), "Markdown double click selects word");
+                AssertEx.Equal(
+                    "hello",
+                    markdown.SelectionText(),
+                    "Markdown double click selects word"
+                );
                 markdown.EndMouse(Viewport, Mouse(0, 5), new Vector2());
-                AssertEx.Equal(WireProtocol.Routes.ClipboardPrimary, DaemonClient.Requests[0].Path, "Markdown mouse selection uses PRIMARY");
+                AssertEx.Equal(
+                    WireProtocol.Routes.ClipboardPrimary,
+                    DaemonClient.Requests[0].Path,
+                    "Markdown mouse selection uses PRIMARY"
+                );
                 markdown.Clear();
                 markdown.SelectAll();
-                AssertEx.Equal(WireProtocol.Routes.Clipboard, DaemonClient.Requests[1].Path, "Markdown select all still copies");
+                AssertEx.Equal(
+                    WireProtocol.Routes.Clipboard,
+                    DaemonClient.Requests[1].Path,
+                    "Markdown select all still copies"
+                );
                 markdown.OpenMenu();
-                AssertEx.True(TerminalWindow.SelectionMenu.Options.Any(o => o.Label == "Paste"), "Markdown keeps agent paste");
+                AssertEx.True(
+                    TerminalWindow.SelectionMenu.Options.Any(o => o.Label == "Paste"),
+                    "Markdown keeps agent paste"
+                );
                 markdown.Clear();
             }
             finally
@@ -125,11 +177,18 @@ namespace SlopWorld.Tests
         static MarkdownSelection Markdown(string text)
         {
             var styles = new StyleSet();
-            var layout = new MarkdownTextLayout(styles, (run, width) => new ImageMetrics(1, 1))
-                .Wrap(new List<InlineRun> { new InlineRun { Text = text } }, 900, 0);
+            var layout = new MarkdownTextLayout(
+                styles,
+                (run, width) => new ImageMetrics(1, 1)
+            ).Wrap(new List<InlineRun> { new InlineRun { Text = text } }, 900, 0);
             var selection = new MarkdownSelection();
             selection.AttachStyles(styles);
-            selection.Rebuild(new List<Placement> { new Placement { Kind = PlacementKind.Text, Text = layout } });
+            selection.Rebuild(
+                new List<Placement>
+                {
+                    new Placement { Kind = PlacementKind.Text, Text = layout },
+                }
+            );
             return selection;
         }
     }

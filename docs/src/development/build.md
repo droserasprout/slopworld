@@ -101,7 +101,8 @@ changes.
 Run the relevant tests before releasing. Ordinary `just refresh` regenerates
 outputs from reviewed inputs and does not upgrade dependencies.
 For an asset tool, use `uv run --locked --extra assets python -m tools.assets.emoji --help`.
-`just check-format-mod` checks C# formatting without game assemblies.
+`just format-mod` applies the pinned CSharpier formatter; `just check-format-mod`
+checks its output without game assemblies. Both restore local .NET tools automatically.
 
 ### Coverage
 

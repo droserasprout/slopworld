@@ -6,15 +6,21 @@ namespace SlopWorld
 {
     public abstract class UiText : UiTheme
     {
-        public static float Paragraph(Rect r, float y, string text, GameFont font, Color color,
-            TextAnchor anchor, int textSize = 0)
+        public static float Paragraph(
+            Rect r,
+            float y,
+            string text,
+            GameFont font,
+            Color color,
+            TextAnchor anchor,
+            int textSize = 0
+        )
         {
             if (textSize > 0)
             {
                 var style = SizedStyle(font, textSize, anchor, true);
-                float largeH = Mathf.Max(1f,
-                    style.CalcHeight(new GUIContent(text ?? ""), r.width)) +
-                    GapXS;
+                float largeH =
+                    Mathf.Max(1f, style.CalcHeight(new GUIContent(text ?? ""), r.width)) + GapXS;
                 var largeColor = GUI.color;
                 GUI.color = color;
                 GUI.Label(new Rect(r.x, y, r.width, largeH), text ?? "", style);
@@ -57,21 +63,33 @@ namespace SlopWorld
         // Plain-text-only wrapped status/empty-state labels: catalog sprite keys remain
         // literal text. Measurement and drawing both use Verse's native wrapping; sprite
         // labels belong to RowLabel or a renderer with an explicit sprite-aware layout.
-        public static float PlainStatusLabelHeight(string text, float width,
-                                               GameFont font = GameFont.Small)
+        public static float PlainStatusLabelHeight(
+            string text,
+            float width,
+            GameFont font = GameFont.Small
+        )
         {
             using (WidgetState.Save())
             {
                 Verse.Text.Font = Real(font);
                 Verse.Text.WordWrap = true;
-                return Mathf.Max(LineHOf(font), Verse.Text.CalcHeight(
-                    string.IsNullOrEmpty(text) ? " " : text, Mathf.Max(1f, width)));
+                return Mathf.Max(
+                    LineHOf(font),
+                    Verse.Text.CalcHeight(
+                        string.IsNullOrEmpty(text) ? " " : text,
+                        Mathf.Max(1f, width)
+                    )
+                );
             }
         }
 
-        public static void PlainStatusLabel(Rect r, string text, Color color,
-                                       GameFont font = GameFont.Small,
-                                       TextAnchor anchor = TextAnchor.UpperLeft)
+        public static void PlainStatusLabel(
+            Rect r,
+            string text,
+            Color color,
+            GameFont font = GameFont.Small,
+            TextAnchor anchor = TextAnchor.UpperLeft
+        )
         {
             using (WidgetState.Save())
             {
@@ -91,8 +109,7 @@ namespace SlopWorld
                 return;
             }
 
-            DrawRowLabel(r, text, anchor,
-                (line, label) => Widgets.Label(line, label));
+            DrawRowLabel(r, text, anchor, (line, label) => Widgets.Label(line, label));
         }
 
         // A preview tab uses italic text to signal that a single click may replace it. Keep this as
@@ -112,27 +129,31 @@ namespace SlopWorld
                 return;
             }
 
-            DrawRowLabel(r, text, anchor, (line, label) =>
-            {
-                var source = Verse.Text.CurFontStyle;
-                if (source == null)
+            DrawRowLabel(
+                r,
+                text,
+                anchor,
+                (line, label) =>
                 {
-                    Widgets.Label(line, label);
-                    return;
-                }
+                    var source = Verse.Text.CurFontStyle;
+                    if (source == null)
+                    {
+                        Widgets.Label(line, label);
+                        return;
+                    }
 
-                var style = new GUIStyle(source)
-                {
-                    fontStyle = Italic(source.fontStyle),
-                    alignment = UpperAnchor(anchor),
-                    wordWrap = false,
-                };
-                GUI.Label(line, label, style);
-            });
+                    var style = new GUIStyle(source)
+                    {
+                        fontStyle = Italic(source.fontStyle),
+                        alignment = UpperAnchor(anchor),
+                        wordWrap = false,
+                    };
+                    GUI.Label(line, label, style);
+                }
+            );
         }
 
-        static void DrawRowLabel(Rect r, string text, TextAnchor anchor,
-                                 Action<Rect, string> draw)
+        static void DrawRowLabel(Rect r, string text, TextAnchor anchor, Action<Rect, string> draw)
         {
             using (WidgetState.Save())
             {
@@ -167,8 +188,13 @@ namespace SlopWorld
                     wordWrap = false,
                     clipping = TextClipping.Clip,
                 };
-                var layout = InlineTextLayout.Proportional(text, TextSpriteCatalog.Shared, lineH,
-                    plain => style.CalcSize(new GUIContent(plain)).x, line.width);
+                var layout = InlineTextLayout.Proportional(
+                    text,
+                    TextSpriteCatalog.Shared,
+                    lineH,
+                    plain => style.CalcSize(new GUIContent(plain)).x,
+                    line.width
+                );
                 float offset = 0f;
                 switch (anchor)
                 {
@@ -242,8 +268,13 @@ namespace SlopWorld
             }
         }
 
-        public static string Field(Rect r, string name, string text, bool on = true,
-                                   string defaultValue = null)
+        public static string Field(
+            Rect r,
+            string name,
+            string text,
+            bool on = true,
+            string defaultValue = null
+        )
         {
             bool released = on && TextEntryController.ReleaseFunctionKeyFocus(name);
             bool focused = on && !released && GUI.GetNameOfFocusedControl() == name;
@@ -252,8 +283,10 @@ namespace SlopWorld
             var inner = r.ContractedBy(FieldPadX, FieldPadY);
             text = ResetDefault(r, ref inner, name, text, defaultValue, on);
             // Do not create a control that accepts input only to discard it next frame.
-            if (!on) return Stated(inner, text, TextAnchor.MiddleLeft);
-            if (released) return text;
+            if (!on)
+                return Stated(inner, text, TextAnchor.MiddleLeft);
+            if (released)
+                return text;
 
             GUI.SetNextControlName(name);
             return TextEntryController.Draw(inner, text, false, focused, name);
@@ -268,23 +301,37 @@ namespace SlopWorld
             bool focused = !released && GUI.GetNameOfFocusedControl() == name;
             InputBackground(r, true, focused);
 
-            if (released) return;
+            if (released)
+                return;
             var inner = r.ContractedBy(FieldPadX, FieldPadY);
             GUI.SetNextControlName(name);
             TextEntryController.Draw(inner, text, false, focused, name, true);
         }
 
-        public static float AreaHeight(float width, string text, UiAreaResize resize, bool editable = true)
+        public static float AreaHeight(
+            float width,
+            string text,
+            UiAreaResize resize,
+            bool editable = true
+        )
         {
             float contentWidth = Mathf.Max(1f, width - FieldPadX * 2f - UiTheme.ScrollbarW);
-            float content = Text.CalcHeight(string.IsNullOrEmpty(text) ? " " : text, contentWidth)
-                + FieldPadY * 4f + (editable ? UiAreaResize.CornerSize : 0f);
+            float content =
+                Text.CalcHeight(string.IsNullOrEmpty(text) ? " " : text, contentWidth)
+                + FieldPadY * 4f
+                + (editable ? UiAreaResize.CornerSize : 0f);
             return resize.MeasuredHeight(content);
         }
 
-        public static string Area(Rect r, string name, string text, bool on = true,
-                                  bool frame = true, string defaultValue = null,
-                                  UiAreaResize resize = null)
+        public static string Area(
+            Rect r,
+            string name,
+            string text,
+            bool on = true,
+            bool frame = true,
+            string defaultValue = null,
+            UiAreaResize resize = null
+        )
         {
             // The caller lays out this pass using the measured height. Commit drag changes for the next
             // pass so the field, following rows and scroll extent share the same geometry.
@@ -297,28 +344,56 @@ namespace SlopWorld
 
         static void AreaSizingMenu(Rect r, UiAreaResize resize, bool enabled)
         {
-            if (resize == null || !enabled) return;
-            var corner = new Rect(r.xMax - UiAreaResize.CornerSize,
-                r.yMax - UiAreaResize.CornerSize, UiAreaResize.CornerSize, UiAreaResize.CornerSize);
-            TooltipHandler.TipRegion(corner, resize.CanGrow
-                ? "Drag to resize. Right-click for Fit to content." : "Drag to resize.");
+            if (resize == null || !enabled)
+                return;
+            var corner = new Rect(
+                r.xMax - UiAreaResize.CornerSize,
+                r.yMax - UiAreaResize.CornerSize,
+                UiAreaResize.CornerSize,
+                UiAreaResize.CornerSize
+            );
+            TooltipHandler.TipRegion(
+                corner,
+                resize.CanGrow
+                    ? "Drag to resize. Right-click for Fit to content."
+                    : "Drag to resize."
+            );
             var e = Event.current;
             var type = UiEvent.RawType(e);
-            if (!resize.CanGrow || !Mouse.IsOver(corner) ||
-                !((type == EventType.MouseDown && e.button == 1) || type == EventType.ContextClick)) return;
+            if (
+                !resize.CanGrow
+                || !Mouse.IsOver(corner)
+                || !(
+                    (type == EventType.MouseDown && e.button == 1) || type == EventType.ContextClick
+                )
+            )
+                return;
             var lifetime = FieldLifetimeScope.Current;
-            UiMenu.Open(new System.Collections.Generic.List<FloatMenuOption>
-            {
-                new FloatMenuOption("Fit to content", () =>
+            UiMenu.Open(
+                new System.Collections.Generic.List<FloatMenuOption>
                 {
-                    if (lifetime.Alive) resize.FitToContent();
-                }),
-            });
+                    new FloatMenuOption(
+                        "Fit to content",
+                        () =>
+                        {
+                            if (lifetime.Alive)
+                                resize.FitToContent();
+                        }
+                    ),
+                }
+            );
             e.Use();
         }
 
-        static string AreaCore(Rect r, string name, string text, bool on,
-                               bool frame, string defaultValue, UiAreaResize resize)
+        static string AreaCore(
+            Rect r,
+            string name,
+            string text,
+            bool on,
+            bool frame,
+            string defaultValue,
+            UiAreaResize resize
+        )
         {
             bool released = on && TextEntryController.ReleaseFunctionKeyFocus(name);
             bool focused = on && !released && GUI.GetNameOfFocusedControl() == name;
@@ -328,27 +403,41 @@ namespace SlopWorld
             }
 
             var inner = frame ? r.ContractedBy(FieldPadX, FieldPadY * 2f) : r;
-            if (resize != null && on) inner.height = Mathf.Max(0f, inner.height - UiAreaResize.CornerSize);
+            if (resize != null && on)
+                inner.height = Mathf.Max(0f, inner.height - UiAreaResize.CornerSize);
             text = ResetDefault(r, ref inner, name, text, defaultValue, on, resize?.Scroll);
-            if (released) return text;
+            if (released)
+                return text;
             if (resize == null)
             {
-                if (!on) return Stated(inner, text, TextAnchor.UpperLeft);
+                if (!on)
+                    return Stated(inner, text, TextAnchor.UpperLeft);
                 GUI.SetNextControlName(name);
                 return TextEntryController.Draw(inner, text, true, focused, name);
             }
 
             // Reserve scrollbar width consistently, even before content overflows.
             float width = Mathf.Max(1f, inner.width - UiTheme.ScrollbarW);
-            var view = new Rect(0f, 0f, width,
-                Mathf.Max(inner.height, Text.CalcHeight(string.IsNullOrEmpty(text) ? " " : text, width)));
+            var view = new Rect(
+                0f,
+                0f,
+                width,
+                Mathf.Max(
+                    inner.height,
+                    Text.CalcHeight(string.IsNullOrEmpty(text) ? " " : text, width)
+                )
+            );
             using (resize.Scroll.Scope(inner, view))
             {
-                if (!on) return Stated(view, text, TextAnchor.UpperLeft);
+                if (!on)
+                    return Stated(view, text, TextAnchor.UpperLeft);
                 GUI.SetNextControlName(name);
                 string value = TextEntryController.Draw(view, text, true, focused, name);
                 var editor = TextEntryController.CurrentEditor(name);
-                if (editor != null && (value != text || UiEvent.RawType(Event.current) == EventType.KeyDown))
+                if (
+                    editor != null
+                    && (value != text || UiEvent.RawType(Event.current) == EventType.KeyDown)
+                )
                     resize.Scroll.Reveal(editor.graphicalCursorPos.y, UiTheme.LineH, inner.height);
                 return value;
             }
@@ -356,18 +445,35 @@ namespace SlopWorld
 
         // Null means no default. An empty string is a real default. Reserve a right-hand
         // gutter so wrapped text and selection never overlap the reset hit target.
-        static string ResetDefault(Rect r, ref Rect inner, string name, string text,
-                                   string defaultValue, bool on, SmoothScroll scroll = null)
+        static string ResetDefault(
+            Rect r,
+            ref Rect inner,
+            string name,
+            string text,
+            string defaultValue,
+            bool on,
+            SmoothScroll scroll = null
+        )
         {
-            if (defaultValue == null) return text;
+            if (defaultValue == null)
+                return text;
             float size = Mathf.Min(CompactH, Mathf.Min(r.height, r.width));
             var button = new Rect(r.xMax - size, r.y, size, size);
             inner.width = Mathf.Max(0f, button.x - FieldPadX - inner.x);
-            TooltipHandler.TipRegion(button, "Reset to default\n\n" +
-                (defaultValue.Length == 0 ? "(empty)" : defaultValue));
-            if (!UiLayout.IconButton(button, Icons.Refresh, Name,
+            TooltipHandler.TipRegion(
+                button,
+                "Reset to default\n\n" + (defaultValue.Length == 0 ? "(empty)" : defaultValue)
+            );
+            if (
+                !UiLayout.IconButton(
+                    button,
+                    Icons.Refresh,
+                    Name,
                     size / 4f + IconInset / 2f,
-                    on && (text ?? "") != defaultValue)) return text;
+                    on && (text ?? "") != defaultValue
+                )
+            )
+                return text;
 
             // The reset caret starts at zero, including when the default still overflows
             // the area's viewport. Retire the outer scroll offset alongside native scrolling.
@@ -397,10 +503,16 @@ namespace SlopWorld
         public static string BareField(Rect r, string name, string text)
         {
             bool released = TextEntryController.ReleaseFunctionKeyFocus(name);
-            if (released) return text;
+            if (released)
+                return text;
             GUI.SetNextControlName(name);
-            return TextEntryController.Draw(r, text, false,
-                GUI.GetNameOfFocusedControl() == name, name);
+            return TextEntryController.Draw(
+                r,
+                text,
+                false,
+                GUI.GetNameOfFocusedControl() == name,
+                name
+            );
         }
 
         static void InputBackground(Rect r, bool on, bool focused)
@@ -412,12 +524,14 @@ namespace SlopWorld
             // buttons and menu rows, and finally the edge. Keeping the edge last prevents
             // the wash from making a field one pixel heavier than its neighbours.
             Slab.Fill(r, on ? Well : Fade(Well, 0.5f));
-            if (on && over) Slab.Fill(r, held ? BtnDown : BtnHover);
+            if (on && over)
+                Slab.Fill(r, held ? BtnDown : BtnHover);
             Slab.Outline(r, focused ? Accent : BtnEdge);
 
             // The one control with real keyboard focus: the ring makes the active entry
             // legible even when its face is sitting inside a sidebar or popover.
-            if (focused) Slab.Ring(r, FocusRing);
+            if (focused)
+                Slab.Ring(r, FocusRing);
         }
 
         static string Stated(Rect r, string text, TextAnchor anchor)

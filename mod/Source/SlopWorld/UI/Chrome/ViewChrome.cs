@@ -16,8 +16,12 @@ namespace SlopWorld
         public static void Empty(Rect body, string reason)
         {
             float inset = Mathf.Min(CellX, Mathf.Max(0f, body.width) / 2f);
-            var r = new Rect(body.x + inset, body.y + Pad,
-                Mathf.Max(0f, body.width - inset * 2f), RowH * 3f);
+            var r = new Rect(
+                body.x + inset,
+                body.y + Pad,
+                Mathf.Max(0f, body.width - inset * 2f),
+                RowH * 3f
+            );
             UiText.PlainStatusLabel(r, reason, UiTheme.Faint, GameFont.Tiny);
         }
 

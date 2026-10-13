@@ -49,11 +49,14 @@ namespace SlopWorld
             }
 
             public bool Equals(TextCacheKey other) =>
-                _width == other._width && _gameFont == other._gameFont
+                _width == other._width
+                && _gameFont == other._gameFont
                 && ReferenceEquals(_style, other._style)
                 && ReferenceEquals(_font, other._font)
-                && _fontSize == other._fontSize && _fontStyle == other._fontStyle
-                && _scale == other._scale && _atlas == other._atlas
+                && _fontSize == other._fontSize
+                && _fontStyle == other._fontStyle
+                && _scale == other._scale
+                && _atlas == other._atlas
                 && string.Equals(_text, other._text, StringComparison.Ordinal);
 
             public override bool Equals(object obj) =>
@@ -139,18 +142,23 @@ namespace SlopWorld
         {
             var to = by >= 0f ? Color.white : Color.black;
             float t = Mathf.Abs(by);
-            return new Color(Mathf.Lerp(c.r, to.r, t), Mathf.Lerp(c.g, to.g, t),
-                Mathf.Lerp(c.b, to.b, t), c.a);
+            return new Color(
+                Mathf.Lerp(c.r, to.r, t),
+                Mathf.Lerp(c.g, to.g, t),
+                Mathf.Lerp(c.b, to.b, t),
+                c.a
+            );
         }
 
         // Use opacity only for disabled or overlaid states. Keep base surfaces opaque.
-        public static Color Fade(Color c, float by) =>
-            new Color(c.r, c.g, c.b, c.a * by);
+        public static Color Fade(Color c, float by) => new Color(c.r, c.g, c.b, c.a * by);
 
         // Accent and destructive buttons use a lightness step. Ordinary buttons use the
         // same translucent white faces over every shared surface.
         protected static Color Step(Color c, bool over, bool held) =>
-            held ? Lighten(c, -0.15f) : over ? Lighten(c, 0.10f) : c;
+            held ? Lighten(c, -0.15f)
+            : over ? Lighten(c, 0.10f)
+            : c;
 
         public static float LineH => LineHOf(GameFont.Small);
 
@@ -175,10 +183,18 @@ namespace SlopWorld
                 Verse.Text.WordWrap = false;
                 string value = text ?? "";
                 var key = new TextCacheKey(value, 0f);
-                if (WidthCache.TryGetValue(key, out float cached)) return cached;
-                if (WidthCache.Count >= TextCacheLimit) WidthCache.Clear();
-                return WidthCache[key] = InlineTextLayout.Proportional(value, TextSpriteCatalog.Shared, LineHOf(Verse.Text.Font),
-                    plain => Verse.Text.CalcSize(plain).x).Width;
+                if (WidthCache.TryGetValue(key, out float cached))
+                    return cached;
+                if (WidthCache.Count >= TextCacheLimit)
+                    WidthCache.Clear();
+                return WidthCache[key] = InlineTextLayout
+                    .Proportional(
+                        value,
+                        TextSpriteCatalog.Shared,
+                        LineHOf(Verse.Text.Font),
+                        plain => Verse.Text.CalcSize(plain).x
+                    )
+                    .Width;
             }
         }
 
@@ -193,18 +209,20 @@ namespace SlopWorld
                 string value = text ?? "";
                 float max = Mathf.Max(1f, width);
                 var key = new TextCacheKey(value, max);
-                if (TruncateCache.TryGetValue(key, out string cached)) return cached;
-                if (TruncateCache.Count >= TextCacheLimit) TruncateCache.Clear();
+                if (TruncateCache.TryGetValue(key, out string cached))
+                    return cached;
+                if (TruncateCache.Count >= TextCacheLimit)
+                    TruncateCache.Clear();
                 return TruncateCache[key] = value.Truncate(max);
             }
         }
 
         public enum Btn
         {
-            Default,   // the ordinary press: Reload, Browse, Edit.
-            Primary,   // what the window was opened to do. One per bar, or it means nothing.
-            Danger,    // takes something away. Still asks first. This is so it is read first.
-            Ghost,     // there, but not competing - a press beside a press that matters more.
+            Default, // the ordinary press: Reload, Browse, Edit.
+            Primary, // what the window was opened to do. One per bar, or it means nothing.
+            Danger, // takes something away. Still asks first. This is so it is read first.
+            Ghost, // there, but not competing - a press beside a press that matters more.
         }
 
         protected static Color BtnEdge => Edge;
@@ -259,9 +277,9 @@ namespace SlopWorld
         public static float MenuRowH => CompactH;
         public static float PaletteRowH => Mathf.Max(LineH + GapS, UiMetrics.PaletteMinH);
 
-        public static float GapXS => UiMetrics.GapXS;   // a label and the box it names
-        public static float GapS => UiMetrics.GapS;     // one control and the next
-        public static float GapM => UiMetrics.GapM;     // one group of controls and the next
-        public static float GapL => UiMetrics.GapL;     // one section and the next
+        public static float GapXS => UiMetrics.GapXS; // a label and the box it names
+        public static float GapS => UiMetrics.GapS; // one control and the next
+        public static float GapM => UiMetrics.GapM; // one group of controls and the next
+        public static float GapL => UiMetrics.GapL; // one section and the next
     }
 }

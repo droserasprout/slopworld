@@ -29,9 +29,9 @@ namespace SlopWorld
         const int BodyTextSize = 15;
 
         const string EulaDisclaimer =
-            "Portions of the materials used to create this content/mod are trademarks and/or " +
-            "copyrighted works of Ludeon Studios Inc. All rights reserved by Ludeon. This " +
-            "content/mod is not official and is not endorsed by Ludeon.";
+            "Portions of the materials used to create this content/mod are trademarks and/or "
+            + "copyrighted works of Ludeon Studios Inc. All rights reserved by Ludeon. This "
+            + "content/mod is not official and is not endorsed by Ludeon.";
 
         const float AutoScrollSpeed = 10f;
         const float AutoScrollPause = 3f;
@@ -90,119 +90,159 @@ namespace SlopWorld
         {
             new Credit("Rust", "language", "https://www.rust-lang.org/"),
             new Credit("Tokio", "async runtime", "https://tokio.rs/"),
-            new Credit("Landlock", "filesystem isolation",
-                "https://github.com/landlock-lsm/rust-landlock"),
+            new Credit(
+                "Landlock",
+                "filesystem isolation",
+                "https://github.com/landlock-lsm/rust-landlock"
+            ),
             new Credit("ring", "cryptography", "https://github.com/briansmith/ring"),
-            new Credit("HTTP libraries", "HTTP/WebSockets", new[]
-            {
-                new CreditLink("Axum", "https://github.com/tokio-rs/axum"),
-                new CreditLink("Tower HTTP", "https://github.com/tower-rs/tower-http"),
-                new CreditLink("ureq", "https://github.com/algesten/ureq"),
-                new CreditLink("rustls", "https://github.com/rustls/rustls"),
-                new CreditLink("httpdate", "https://github.com/pyfisch/httpdate"),
-                new CreditLink("url", "https://github.com/servo/rust-url"),
-            }),
-            new Credit("Alacritty / unicode-width", "terminal", new[]
-            {
-                new CreditLink("Alacritty", "https://alacritty.org/"),
-                new CreditLink("unicode-width", "https://github.com/unicode-rs/unicode-width"),
-            }),
+            new Credit(
+                "HTTP libraries",
+                "HTTP/WebSockets",
+                new[]
+                {
+                    new CreditLink("Axum", "https://github.com/tokio-rs/axum"),
+                    new CreditLink("Tower HTTP", "https://github.com/tower-rs/tower-http"),
+                    new CreditLink("ureq", "https://github.com/algesten/ureq"),
+                    new CreditLink("rustls", "https://github.com/rustls/rustls"),
+                    new CreditLink("httpdate", "https://github.com/pyfisch/httpdate"),
+                    new CreditLink("url", "https://github.com/servo/rust-url"),
+                }
+            ),
+            new Credit(
+                "Alacritty / unicode-width",
+                "terminal",
+                new[]
+                {
+                    new CreditLink("Alacritty", "https://alacritty.org/"),
+                    new CreditLink("unicode-width", "https://github.com/unicode-rs/unicode-width"),
+                }
+            ),
             new Credit("image", "image decoding", "https://github.com/image-rs/image"),
-            new Credit("Serde / TOML / JSON", "serde and configs", new[]
-            {
-                new CreditLink("Serde", "https://serde.rs/"),
-                new CreditLink("TOML", "https://github.com/toml-rs/toml"),
-                new CreditLink("toml_edit", "https://github.com/toml-rs/toml"),
-                new CreditLink("JSON", "https://github.com/serde-rs/json"),
-            }),
-            new Credit("rand / tempfile", "sidecar support", new[]
-            {
-                new CreditLink("rand", "https://github.com/rust-random/rand"),
-                new CreditLink("tempfile", "https://github.com/Stebalien/tempfile"),
-            }),
-            new Credit("prost", "Protocol Buffers",
-                "https://github.com/tokio-rs/prost"),
-            new Credit("Rodio / CPAL / Symphonia", "audio", new[]
-            {
-                new CreditLink("Rodio", "https://github.com/RustAudio/rodio"),
-                new CreditLink("CPAL", "https://github.com/RustAudio/cpal"),
-                new CreditLink("Symphonia", "https://github.com/pdeljanov/Symphonia"),
-            }),
+            new Credit(
+                "Serde / TOML / JSON",
+                "serde and configs",
+                new[]
+                {
+                    new CreditLink("Serde", "https://serde.rs/"),
+                    new CreditLink("TOML", "https://github.com/toml-rs/toml"),
+                    new CreditLink("toml_edit", "https://github.com/toml-rs/toml"),
+                    new CreditLink("JSON", "https://github.com/serde-rs/json"),
+                }
+            ),
+            new Credit(
+                "rand / tempfile",
+                "sidecar support",
+                new[]
+                {
+                    new CreditLink("rand", "https://github.com/rust-random/rand"),
+                    new CreditLink("tempfile", "https://github.com/Stebalien/tempfile"),
+                }
+            ),
+            new Credit("prost", "Protocol Buffers", "https://github.com/tokio-rs/prost"),
+            new Credit(
+                "Rodio / CPAL / Symphonia",
+                "audio",
+                new[]
+                {
+                    new CreditLink("Rodio", "https://github.com/RustAudio/rodio"),
+                    new CreditLink("CPAL", "https://github.com/RustAudio/cpal"),
+                    new CreditLink("Symphonia", "https://github.com/pdeljanov/Symphonia"),
+                }
+            ),
             new Credit("Tracing", "diagnostics", "https://github.com/tokio-rs/tracing"),
-            new Credit("Support libraries", "support", new[]
-            {
-                new CreditLink("anyhow", "https://github.com/dtolnay/anyhow"),
-                new CreditLink("futures", "https://github.com/rust-lang/futures-rs"),
-                new CreditLink("nix", "https://github.com/nix-rust/nix"),
-                new CreditLink("dirs", "https://github.com/dirs-dev/dirs-rs"),
-                new CreditLink("base64", "https://github.com/marshallpierce/rust-base64"),
-                new CreditLink("uuid", "https://github.com/uuid-rs/uuid"),
-            }),
+            new Credit(
+                "Support libraries",
+                "support",
+                new[]
+                {
+                    new CreditLink("anyhow", "https://github.com/dtolnay/anyhow"),
+                    new CreditLink("futures", "https://github.com/rust-lang/futures-rs"),
+                    new CreditLink("nix", "https://github.com/nix-rust/nix"),
+                    new CreditLink("dirs", "https://github.com/dirs-dev/dirs-rs"),
+                    new CreditLink("base64", "https://github.com/marshallpierce/rust-base64"),
+                    new CreditLink("uuid", "https://github.com/uuid-rs/uuid"),
+                }
+            ),
         };
 
         static readonly Credit[] ClientLibraries =
         {
-            new Credit("C#", "language",
-                "https://learn.microsoft.com/dotnet/csharp/"),
+            new Credit("C#", "language", "https://learn.microsoft.com/dotnet/csharp/"),
             new Credit("Mono", "runtime", "https://www.mono-project.com/"),
-            new Credit("Harmony", "RimWorld patching",
-                "https://github.com/pardeike/HarmonyRimWorld"),
-            new Credit("AngleSharp", "HTML",
-                "https://github.com/AngleSharp/AngleSharp"),
-            new Credit("Markdig", "markdown",
-                "https://github.com/xoofx/markdig"),
-            new Credit("Tomlyn", "TOML configs",
-                "https://github.com/xoofx/Tomlyn"),
-            new Credit("Newtonsoft.Json", "JSON",
-                "https://www.newtonsoft.com/json"),
-            new Credit("Google.Protobuf", "Protocol Buffers",
-                "https://github.com/protocolbuffers/protobuf"),
-            new Credit("Microsoft .NET libraries", "runtime support",
-                "https://github.com/dotnet/runtime"),
+            new Credit(
+                "Harmony",
+                "RimWorld patching",
+                "https://github.com/pardeike/HarmonyRimWorld"
+            ),
+            new Credit("AngleSharp", "HTML", "https://github.com/AngleSharp/AngleSharp"),
+            new Credit("Markdig", "markdown", "https://github.com/xoofx/markdig"),
+            new Credit("Tomlyn", "TOML configs", "https://github.com/xoofx/Tomlyn"),
+            new Credit("Newtonsoft.Json", "JSON", "https://www.newtonsoft.com/json"),
+            new Credit(
+                "Google.Protobuf",
+                "Protocol Buffers",
+                "https://github.com/protocolbuffers/protobuf"
+            ),
+            new Credit(
+                "Microsoft .NET libraries",
+                "runtime support",
+                "https://github.com/dotnet/runtime"
+            ),
         };
 
         static readonly Credit[] Tools =
         {
             new Credit("tmux", "terminal sessions", "https://github.com/tmux/tmux/wiki"),
-            new Credit("bubblewrap", "sandboxing",
-                "https://github.com/containers/bubblewrap"),
+            new Credit("bubblewrap", "sandboxing", "https://github.com/containers/bubblewrap"),
             /* new Credit("systemd", "service manager", "https://systemd.io/"), */
             new Credit("passt", "networking", "https://passt.top/"),
-            new Credit("less / bat", "pagers", new[]
-            {
-                new CreditLink("less", "https://www.greenwoodsoftware.com/less/"),
-                new CreditLink("bat", "https://github.com/sharkdp/bat"),
-            }),
-            new Credit("highlight / Pygments", "syntax highlighters", new[]
-            {
-                new CreditLink("highlight", "https://gitlab.com/saalen/highlight"),
-                new CreditLink("Pygments", "https://pygments.org/"),
-            }),
+            new Credit(
+                "less / bat",
+                "pagers",
+                new[]
+                {
+                    new CreditLink("less", "https://www.greenwoodsoftware.com/less/"),
+                    new CreditLink("bat", "https://github.com/sharkdp/bat"),
+                }
+            ),
+            new Credit(
+                "highlight / Pygments",
+                "syntax highlighters",
+                new[]
+                {
+                    new CreditLink("highlight", "https://gitlab.com/saalen/highlight"),
+                    new CreditLink("Pygments", "https://pygments.org/"),
+                }
+            ),
             new Credit("Git", "version control", "https://git-scm.com/"),
-            new Credit("SongRec", "song identification",
-                "https://github.com/marin-m/SongRec"),
-            new Credit("ncspot", "Spotify playback",
-                "https://github.com/hrkfdn/ncspot"),
+            new Credit("SongRec", "song identification", "https://github.com/marin-m/SongRec"),
+            new Credit("ncspot", "Spotify playback", "https://github.com/hrkfdn/ncspot"),
         };
 
         static readonly Credit[] Assets =
         {
-            new Credit("Codicons", "icons",
-                "https://github.com/microsoft/vscode-codicons"),
-            new Credit("Nerd Fonts", "",
-                "https://www.nerdfonts.com/"),
-            new Credit("Material Icon Theme", "",
-                "https://github.com/material-extensions/vscode-material-icon-theme"),
-            new Credit("Classic Console Neue", "loading screen font",
-                "https://webdraft.hu/fonts/classic-console/"),
-            new Credit("Noto Color Emoji", "emojis",
-                "https://github.com/googlefonts/noto-emoji"),
-            new Credit("Unicode emoji data", "emoji sequences",
-                "https://www.unicode.org/emoji/"),
+            new Credit("Codicons", "icons", "https://github.com/microsoft/vscode-codicons"),
+            new Credit("Nerd Fonts", "", "https://www.nerdfonts.com/"),
+            new Credit(
+                "Material Icon Theme",
+                "",
+                "https://github.com/material-extensions/vscode-material-icon-theme"
+            ),
+            new Credit(
+                "Classic Console Neue",
+                "loading screen font",
+                "https://webdraft.hu/fonts/classic-console/"
+            ),
+            new Credit("Noto Color Emoji", "emojis", "https://github.com/googlefonts/noto-emoji"),
+            new Credit("Unicode emoji data", "emoji sequences", "https://www.unicode.org/emoji/"),
         };
 
-        static readonly Credit Soundtrack = new Credit("Terry Fail", "Music By",
-            "https://terryfail.bandcamp.com/");
+        static readonly Credit Soundtrack = new Credit(
+            "Terry Fail",
+            "Music By",
+            "https://terryfail.bandcamp.com/"
+        );
 
         readonly SmoothScroll _scroll = new SmoothScroll();
         float _contentHeight;
@@ -218,15 +258,21 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
             var inner = SettingsPageLayout.BodyWithoutFooter(rect);
 
-            var view = SettingsPageLayout.ScrollView(inner, _height.BeginFrame(Time.frameCount),
-                ContentPaddingX, ContentPaddingY, out var content);
+            var view = SettingsPageLayout.ScrollView(
+                inner,
+                _height.BeginFrame(Time.frameCount),
+                ContentPaddingX,
+                ContentPaddingY,
+                out var content
+            );
 
             using (_scroll.Scope(inner, view))
             {
                 if (_robots.Visible)
                 {
                     _contentHeight = _robots.Draw(content, inner.height - ContentPaddingY * 2f);
-                    if (!_robots.Visible) ResetAutoScroll();
+                    if (!_robots.Visible)
+                        ResetAutoScroll();
                 }
                 else
                     _contentHeight = DrawCredits(content);
@@ -234,7 +280,8 @@ namespace SlopWorld
                 _height.Measure(_contentHeight);
             }
 
-            if (!_robots.Visible) AdvanceAutoScroll(inner, _contentHeight);
+            if (!_robots.Visible)
+                AdvanceAutoScroll(inner, _contentHeight);
         }
 
         void ResetAutoScroll()
@@ -252,20 +299,25 @@ namespace SlopWorld
             _autoScrollFrame = Time.frameCount;
 
             float max = Mathf.Max(0f, contentHeight - viewport.height);
-            if (max <= 0f) return;
+            if (max <= 0f)
+                return;
 
             // Count only visible credit frames, so hiding the page also pauses the countdown.
             if (_autoScrollPauseRemaining > 0f)
             {
-                _autoScrollPauseRemaining = Mathf.Max(0f,
-                    _autoScrollPauseRemaining - Time.unscaledDeltaTime);
+                _autoScrollPauseRemaining = Mathf.Max(
+                    0f,
+                    _autoScrollPauseRemaining - Time.unscaledDeltaTime
+                );
                 return;
             }
 
             float direction = _autoScrollDown ? 1f : -1f;
             float next = Mathf.Clamp(
                 _scroll.Position.y + direction * AutoScrollSpeed * Time.unscaledDeltaTime,
-                0f, max);
+                0f,
+                max
+            );
             _scroll.JumpTo(new Vector2(_scroll.Position.x, next));
             if ((_autoScrollDown && next >= max) || (!_autoScrollDown && next <= 0f))
             {
@@ -293,8 +345,15 @@ namespace SlopWorld
         float DrawEulaDisclaimer(Rect r, float y)
         {
             y += HeroMargin;
-            y = UiText.Paragraph(r, y, EulaDisclaimer, RegularFont, UiTheme.Dim,
-                TextAnchor.UpperCenter, BodyTextSize);
+            y = UiText.Paragraph(
+                r,
+                y,
+                EulaDisclaimer,
+                RegularFont,
+                UiTheme.Dim,
+                TextAnchor.UpperCenter,
+                BodyTextSize
+            );
             return y + HeroMargin;
         }
 
@@ -305,42 +364,71 @@ namespace SlopWorld
             var icon = ContentFinder<Texture2D>.Get("SlopWorld/SlopWorld_icon", false);
             if (icon != null)
             {
-                var iconRect = new Rect(r.center.x - HeroIconSize / 2f, y,
-                    HeroIconSize, HeroIconSize);
+                var iconRect = new Rect(
+                    r.center.x - HeroIconSize / 2f,
+                    y,
+                    HeroIconSize,
+                    HeroIconSize
+                );
                 var wasColor = GUI.color;
                 GUI.color = Color.white;
                 GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit, true);
                 GUI.color = wasColor;
-                if (_robots.HandleLogoClick(iconRect)) _scroll.JumpTo(Vector2.zero);
+                if (_robots.HandleLogoClick(iconRect))
+                    _scroll.JumpTo(Vector2.zero);
                 y += HeroIconSize + HeroIconGap;
             }
 
-            y = Link(r, y, "SlopWorld", "https://github.com/droserasprout/slopworld", GameFont.Medium,
-                TextAnchor.UpperCenter, TitleTextSize);
+            y = Link(
+                r,
+                y,
+                "SlopWorld",
+                "https://github.com/droserasprout/slopworld",
+                GameFont.Medium,
+                TextAnchor.UpperCenter,
+                TitleTextSize
+            );
             y += HeroTitleGap;
-            y = ByLine(r, y, "CREATED BY", "Lev Gorodetskii",
-                "https://drsr.io/projects");
+            y = ByLine(r, y, "CREATED BY", "Lev Gorodetskii", "https://drsr.io/projects");
             return y + HeroMargin;
         }
 
-        float ByLine(Rect r, float y, string role, string name, string url,
-            int roleTextSize = 0)
+        float ByLine(Rect r, float y, string role, string name, string url, int roleTextSize = 0)
         {
-            y = Line(r, y, role, GameFont.Small, UiTheme.Dim,
+            y = Line(
+                r,
+                y,
+                role,
+                GameFont.Small,
+                UiTheme.Dim,
                 TextAnchor.UpperCenter,
-                roleTextSize > 0 ? roleTextSize : MetaTextSize);
-            return Link(r, y, name, url, RegularFont,
-                TextAnchor.UpperCenter, LeadTextSize);
+                roleTextSize > 0 ? roleTextSize : MetaTextSize
+            );
+            return Link(r, y, name, url, RegularFont, TextAnchor.UpperCenter, LeadTextSize);
         }
 
         float DrawBasedOn(Rect r, float y)
         {
             y = NextSection(y);
             y = SectionHeading(r, y, "Built with") + HeadingGap;
-            y = InlineLinkLine(r, y, "", "RimWorld by Ludeon Studios", "",
-                "https://rimworldgame.com/", RegularFont);
-            return InlineLinkLine(r, y, "", "Unity by Unity Technologies", "",
-                "https://unity.com/", RegularFont);
+            y = InlineLinkLine(
+                r,
+                y,
+                "",
+                "RimWorld by Ludeon Studios",
+                "",
+                "https://rimworldgame.com/",
+                RegularFont
+            );
+            return InlineLinkLine(
+                r,
+                y,
+                "",
+                "Unity by Unity Technologies",
+                "",
+                "https://unity.com/",
+                RegularFont
+            );
         }
 
         float DrawMusic(Rect r, float y)
@@ -378,9 +466,16 @@ namespace SlopWorld
         {
             y = NextSection(y);
             y = SectionHeading(rect, y, "Special thanks") + HeadingGap;
-            return Link(rect, y, _thanksText, null, RegularFont, TextAnchor.UpperCenter,
+            return Link(
+                rect,
+                y,
+                _thanksText,
+                null,
+                RegularFont,
+                TextAnchor.UpperCenter,
                 onClick: () => _thanksText += _thanksText == "you" ? " 🥰" : "🥰",
-                spriteScale: 0.5f);
+                spriteScale: 0.5f
+            );
         }
 
         float NextSection(float y)
@@ -390,15 +485,25 @@ namespace SlopWorld
 
         float SectionHeading(Rect rect, float y, string text, int textSize = 0)
         {
-            return Line(rect, y, (text ?? "").ToUpperInvariant(), GameFont.Medium,
+            return Line(
+                rect,
+                y,
+                (text ?? "").ToUpperInvariant(),
+                GameFont.Medium,
                 UiTheme.Dim,
                 TextAnchor.UpperCenter,
-                textSize > 0 ? textSize : SectionTextSize);
+                textSize > 0 ? textSize : SectionTextSize
+            );
         }
 
         float CreditGrid(Rect rect, float y, Credit[] credits, int columns)
         {
-            var detailStyle = UiText.SizedStyle(GameFont.Small, MetaTextSize, TextAnchor.MiddleRight, false);
+            var detailStyle = UiText.SizedStyle(
+                GameFont.Small,
+                MetaTextSize,
+                TextAnchor.MiddleRight,
+                false
+            );
             var nameStyle = UiText.SizedStyle(RegularFont, 0, TextAnchor.MiddleLeft, false);
             // Keep vertical glyph overflow; labels apply their own horizontal column clip.
             float line = Mathf.Max(UiFont.LineHeight(detailStyle), UiFont.LineHeight(nameStyle));
@@ -423,47 +528,69 @@ namespace SlopWorld
             {
                 int start = column * rows;
                 int end = Mathf.Min(credits.Length, start + rows);
-                if (start >= end) continue;
+                if (start >= end)
+                    continue;
 
                 float width = fits ? widths[column] : colW;
                 var columnRect = new Rect(x, y, width, 1f);
-                maxHeight = Mathf.Max(maxHeight,
-                    CreditColumn(columnRect, credits, start, end, detailStyle, nameStyle, line));
+                maxHeight = Mathf.Max(
+                    maxHeight,
+                    CreditColumn(columnRect, credits, start, end, detailStyle, nameStyle, line)
+                );
                 x += width + gap;
             }
 
             return y + maxHeight;
         }
 
-        float CreditColumnWidth(Credit[] credits, int start, int end,
-            GUIStyle detailStyle, GUIStyle nameStyle)
+        float CreditColumnWidth(
+            Credit[] credits,
+            int start,
+            int end,
+            GUIStyle detailStyle,
+            GUIStyle nameStyle
+        )
         {
             float detailWidth = 0f;
             float nameWidth = 0f;
             for (int i = start; i < end; i++)
-                detailWidth = Mathf.Max(detailWidth,
-                    detailStyle.CalcSize(new GUIContent(credits[i].Detail)).x);
+                detailWidth = Mathf.Max(
+                    detailWidth,
+                    detailStyle.CalcSize(new GUIContent(credits[i].Detail)).x
+                );
 
             for (int i = start; i < end; i++)
             {
                 var credit = credits[i];
                 if (credit.Links.Length == 0)
                 {
-                    nameWidth = Mathf.Max(nameWidth, nameStyle.CalcSize(new GUIContent(credit.Name)).x);
+                    nameWidth = Mathf.Max(
+                        nameWidth,
+                        nameStyle.CalcSize(new GUIContent(credit.Name)).x
+                    );
                     continue;
                 }
 
                 for (int link = 0; link < credit.Links.Length; link++)
-                    nameWidth = Mathf.Max(nameWidth,
-                        nameStyle.CalcSize(new GUIContent(credit.Links[link].Label)).x);
+                    nameWidth = Mathf.Max(
+                        nameWidth,
+                        nameStyle.CalcSize(new GUIContent(credit.Links[link].Label)).x
+                    );
             }
 
             float sideWidth = Mathf.Max(detailWidth, nameWidth);
             return Mathf.Max(1f, sideWidth * 2f + RowGap * 2f);
         }
 
-        float CreditColumn(Rect rect, Credit[] credits, int start, int end,
-            GUIStyle detailStyle, GUIStyle nameStyle, float line)
+        float CreditColumn(
+            Rect rect,
+            Credit[] credits,
+            int start,
+            int end,
+            GUIStyle detailStyle,
+            GUIStyle nameStyle,
+            float line
+        )
         {
             float top = rect.y;
             float y = top;
@@ -473,16 +600,26 @@ namespace SlopWorld
             return y - top;
         }
 
-        float CreditRow(Rect rect, float y, Credit credit, GUIStyle detailStyle, GUIStyle nameStyle,
-            float line)
+        float CreditRow(
+            Rect rect,
+            float y,
+            Credit credit,
+            GUIStyle detailStyle,
+            GUIStyle nameStyle,
+            float line
+        )
         {
             Text.Font = RegularFont;
             float nameHeight = line * Mathf.Max(1, credit.Links.Length);
             float middleGap = RowGap;
             float half = rect.width / 2f;
             var detail = new Rect(rect.x, y, Mathf.Max(1f, half - middleGap), line);
-            var name = new Rect(rect.x + half + middleGap, y,
-                Mathf.Max(1f, half - middleGap), line);
+            var name = new Rect(
+                rect.x + half + middleGap,
+                y,
+                Mathf.Max(1f, half - middleGap),
+                line
+            );
 
             // Both sides share a centered row and fractional scroll position. Native
             // RowLabel snaps to pixels, making only the names step during the credit roll.
@@ -512,15 +649,28 @@ namespace SlopWorld
                 var link = credit.Links[i];
                 string label = link.Label ?? "";
                 float width = Mathf.Min(nameStyle.CalcSize(new GUIContent(label)).x, remaining);
-                if (width <= 0f) break;
+                if (width <= 0f)
+                    break;
 
-                LinkAt(new Rect(x, y + i * line, width, line), label, link.Url,
-                    RegularFont, nameStyle);
+                LinkAt(
+                    new Rect(x, y + i * line, width, line),
+                    label,
+                    link.Url,
+                    RegularFont,
+                    nameStyle
+                );
             }
         }
 
-        float InlineLinkLine(Rect rect, float y, string before, string linked, string after,
-            string url, GameFont font)
+        float InlineLinkLine(
+            Rect rect,
+            float y,
+            string before,
+            string linked,
+            string after,
+            string url,
+            GameFont font
+        )
         {
             Text.Font = font;
             var style = UiText.SizedStyle(font, 0, TextAnchor.UpperLeft, false);
@@ -534,14 +684,20 @@ namespace SlopWorld
             // Keep the built-with lines on the same fractional drawing path as credits.
             LabelAt(new Rect(x, y, beforeWidth, h), before, font, UiTheme.Name, style);
             LinkAt(new Rect(x + beforeWidth, y, linkedWidth, h), linked, url, font, style);
-            LabelAt(new Rect(x + beforeWidth + linkedWidth, y, afterWidth, h), after, font,
-                UiTheme.Name, style);
+            LabelAt(
+                new Rect(x + beforeWidth + linkedWidth, y, afterWidth, h),
+                after,
+                font,
+                UiTheme.Name,
+                style
+            );
             return y + h;
         }
 
         void LabelAt(Rect rect, string text, GameFont font, Color color, GUIStyle style)
         {
-            if (rect.width <= 0f) return;
+            if (rect.width <= 0f)
+                return;
 
             var wasFont = Text.Font;
             var wasColor = GUI.color;
@@ -554,7 +710,8 @@ namespace SlopWorld
 
         void LinkAt(Rect rect, string label, string url, GameFont font, GUIStyle style)
         {
-            if (rect.width <= 0f) return;
+            if (rect.width <= 0f)
+                return;
 
             var wasFont = Text.Font;
             var wasColor = GUI.color;
@@ -582,11 +739,21 @@ namespace SlopWorld
             {
                 GUI.Label(new Rect(0f, slack, rect.width, rect.height), text, style);
             }
-            finally { GUI.EndGroup(); }
+            finally
+            {
+                GUI.EndGroup();
+            }
         }
 
-        float Line(Rect r, float y, string text, GameFont font, Color color,
-            TextAnchor anchor, int textSize = 0)
+        float Line(
+            Rect r,
+            float y,
+            string text,
+            GameFont font,
+            Color color,
+            TextAnchor anchor,
+            int textSize = 0
+        )
         {
             if (textSize <= 0)
                 return NativeLine(r, y, text, font, color, anchor);
@@ -602,8 +769,14 @@ namespace SlopWorld
             return y + h;
         }
 
-        float NativeLine(Rect r, float y, string text, GameFont font, Color color,
-            TextAnchor anchor)
+        float NativeLine(
+            Rect r,
+            float y,
+            string text,
+            GameFont font,
+            Color color,
+            TextAnchor anchor
+        )
         {
             float h = UiTheme.LineHOf(font);
             var wasFont = Text.Font;
@@ -616,54 +789,78 @@ namespace SlopWorld
             return y + h;
         }
 
-
-        float Link(Rect r, float y, string label, string url, GameFont font,
-            TextAnchor anchor, int textSize = 0, Action onClick = null, float spriteScale = 1f)
+        float Link(
+            Rect r,
+            float y,
+            string label,
+            string url,
+            GameFont font,
+            TextAnchor anchor,
+            int textSize = 0,
+            Action onClick = null,
+            float spriteScale = 1f
+        )
         {
             var wasFont = Text.Font;
             var wasColor = GUI.color;
             Text.Font = font;
             float h = UiTheme.LineHOf(font);
-            GUIStyle style = textSize > 0 ? UiText.SizedStyle(font, textSize, TextAnchor.UpperLeft,
-                false) : null;
+            GUIStyle style =
+                textSize > 0
+                    ? UiText.SizedStyle(font, textSize, TextAnchor.UpperLeft, false)
+                    : null;
             InlineTextLayout layout = null;
             if (spriteScale != 1f)
             {
-                style = style ?? new GUIStyle(Text.CurFontStyle)
-                {
-                    alignment = TextAnchor.UpperLeft,
-                    wordWrap = false,
-                    clipping = TextClipping.Clip,
-                };
-                layout = InlineTextLayout.Proportional(label, TextSpriteCatalog.Shared,
-                    h * spriteScale, plain => style.CalcSize(new GUIContent(plain)).x, r.width);
+                style =
+                    style
+                    ?? new GUIStyle(Text.CurFontStyle)
+                    {
+                        alignment = TextAnchor.UpperLeft,
+                        wordWrap = false,
+                        clipping = TextClipping.Clip,
+                    };
+                layout = InlineTextLayout.Proportional(
+                    label,
+                    TextSpriteCatalog.Shared,
+                    h * spriteScale,
+                    plain => style.CalcSize(new GUIContent(plain)).x,
+                    r.width
+                );
             }
-            float width = layout != null ? layout.Width : textSize > 0
-                ? Mathf.Min(style.CalcSize(new GUIContent(label ?? "")).x, r.width)
+            float width =
+                layout != null ? layout.Width
+                : textSize > 0 ? Mathf.Min(style.CalcSize(new GUIContent(label ?? "")).x, r.width)
                 : Mathf.Min(UiTheme.Wide(label), r.width);
             if (textSize > 0)
                 h = Mathf.Max(1f, style.CalcHeight(new GUIContent(label ?? ""), width));
             float x = r.x;
-            if (anchor == TextAnchor.UpperCenter) x += (r.width - width) / 2f;
-            else if (anchor == TextAnchor.UpperRight) x += r.width - width;
+            if (anchor == TextAnchor.UpperCenter)
+                x += (r.width - width) / 2f;
+            else if (anchor == TextAnchor.UpperRight)
+                x += r.width - width;
 
             var hit = new Rect(x, y, width, h);
             bool over = Mouse.IsOver(hit);
             GUI.color = over ? UiTheme.Lead : UiTheme.Accent;
-            if (layout != null) SharedTextRenderer.Draw(layout, hit, h, style);
-            else if (textSize > 0) GUI.Label(hit, label ?? "", style);
-            else UiText.RowLabel(hit, label, TextAnchor.UpperLeft);
+            if (layout != null)
+                SharedTextRenderer.Draw(layout, hit, h, style);
+            else if (textSize > 0)
+                GUI.Label(hit, label ?? "", style);
+            else
+                UiText.RowLabel(hit, label, TextAnchor.UpperLeft);
             if (UiButtons.RowButton(hit))
             {
                 SoundDefOf.Click.PlayOneShotOnCamera();
-                if (onClick != null) onClick();
-                else Application.OpenURL(url);
+                if (onClick != null)
+                    onClick();
+                else
+                    Application.OpenURL(url);
             }
 
             GUI.color = wasColor;
             Text.Font = wasFont;
             return y + h + RowGap;
         }
-
     }
 }

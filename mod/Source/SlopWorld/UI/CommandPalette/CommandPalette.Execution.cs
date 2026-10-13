@@ -7,17 +7,22 @@ namespace SlopWorld
     {
         void ExecuteSelected()
         {
-            if (_selectedIndex < 0 || _selectedIndex >= _matches.Count) return;
+            if (_selectedIndex < 0 || _selectedIndex >= _matches.Count)
+                return;
             var entry = _matches[_selectedIndex].Command;
-            if (entry.SubAction != null) EnterSub(entry);
-            else Execute(entry);
+            if (entry.SubAction != null)
+                EnterSub(entry);
+            else
+                Execute(entry);
         }
 
         void ExecuteSub()
         {
-            if (_subIndex < 0 || _subIndex >= _subShown.Count) return;
+            if (_subIndex < 0 || _subIndex >= _subShown.Count)
+                return;
             var opt = _subShown[_subIndex].O;
-            if (!opt.Enabled) return;
+            if (!opt.Enabled)
+                return;
 
             if (opt.Children != null)
             {
@@ -25,8 +30,10 @@ namespace SlopWorld
                 return;
             }
 
-            if (opt.Select != null) opt.Select();
-            else _subCmd?.Action(opt.Value);
+            if (opt.Select != null)
+                opt.Select();
+            else
+                _subCmd?.Action(opt.Value);
             TrackRecent(_subCmd?.Id);
             Close();
         }
@@ -38,16 +45,19 @@ namespace SlopWorld
             get
             {
                 foreach (var o in _subOptions)
-                    if (o.Checked.HasValue) return true;
+                    if (o.Checked.HasValue)
+                        return true;
                 return false;
             }
         }
 
         void ToggleSub()
         {
-            if (_subIndex < 0 || _subIndex >= _subShown.Count) return;
+            if (_subIndex < 0 || _subIndex >= _subShown.Count)
+                return;
             var opt = _subShown[_subIndex].O;
-            if (!opt.Enabled || !opt.Checked.HasValue) return;
+            if (!opt.Enabled || !opt.Checked.HasValue)
+                return;
 
             _subCmd?.Action(opt.Value);
             TrackRecent(_subCmd?.Id);
@@ -55,15 +65,21 @@ namespace SlopWorld
             // Asked for again rather than flipped in place: the boxes show the caller's
             // state, and one tick can move another - ticking a project clears "all".
             int was = _subIndex;
-            if (_subCmd?.SubAction != null) _subOptions = _subCmd.SubAction();
+            if (_subCmd?.SubAction != null)
+                _subOptions = _subCmd.SubAction();
             RebuildSub();
             _subIndex = Mathf.Clamp(was, 0, Mathf.Max(0, _subShown.Count - 1));
         }
 
         void Execute(CommandDef entry)
         {
-            if (entry.SubAction != null) { EnterSub(entry); return; }
-            if (!entry.IsEnabled) return;
+            if (entry.SubAction != null)
+            {
+                EnterSub(entry);
+                return;
+            }
+            if (!entry.IsEnabled)
+                return;
             entry.Action(null);
             TrackRecent(entry.Id);
             Close();
@@ -71,7 +87,8 @@ namespace SlopWorld
 
         void EnterSub(CommandDef entry)
         {
-            if (!entry.IsEnabled) return;
+            if (!entry.IsEnabled)
+                return;
             _mode = Mode.Sub;
             _subCmd = entry;
             _subStack.Clear();
@@ -91,16 +108,19 @@ namespace SlopWorld
         void EnterNestedSub(SubOption option)
         {
             var children = option.Children();
-            if (children == null || children.Count == 0) return;
+            if (children == null || children.Count == 0)
+                return;
 
-            _subStack.Add(new SubFrame
-            {
-                Options = _subOptions,
-                Prompt = _subPrompt,
-                Filter = _subFilter,
-                HasFilter = _subHasFilter,
-                Index = _subIndex,
-            });
+            _subStack.Add(
+                new SubFrame
+                {
+                    Options = _subOptions,
+                    Prompt = _subPrompt,
+                    Filter = _subFilter,
+                    HasFilter = _subHasFilter,
+                    Index = _subIndex,
+                }
+            );
             _subOptions = children;
             _subPrompt = option.Label + ":";
             _subFilter = "";
@@ -137,8 +157,18 @@ namespace SlopWorld
 
         void RebuildMatches()
         {
-            var entries = CommandTable.Select((command, index) => new PaletteSearch.Entry(
-                index, command.Label, command.IsEnabled, command.Id, command.Group)).ToList();
+            var entries = CommandTable
+                .Select(
+                    (command, index) =>
+                        new PaletteSearch.Entry(
+                            index,
+                            command.Label,
+                            command.IsEnabled,
+                            command.Id,
+                            command.Group
+                        )
+                )
+                .ToList();
             var result = PaletteSearch.Commands(entries, _filter, History.Entries);
             _matches.Clear();
             foreach (var hit in result.Hits)
@@ -148,8 +178,11 @@ namespace SlopWorld
 
         void RebuildSub()
         {
-            var entries = _subOptions.Select((option, index) => new PaletteSearch.Entry(
-                index, option.Label, option.Enabled)).ToList();
+            var entries = _subOptions
+                .Select(
+                    (option, index) => new PaletteSearch.Entry(index, option.Label, option.Enabled)
+                )
+                .ToList();
             _subShown.Clear();
             foreach (var hit in PaletteSearch.Options(entries, _subFilter))
                 _subShown.Add(new SubHit { O = _subOptions[hit.Index], Label = hit.Label });
@@ -160,14 +193,19 @@ namespace SlopWorld
 
         static void LoadRecent()
         {
-            if (_recentLoaded) return;
+            if (_recentLoaded)
+                return;
             _recentLoaded = true;
-            History.Load(Settings.CommandPaletteHistory, CommandTable.Select(command => command.Id));
+            History.Load(
+                Settings.CommandPaletteHistory,
+                CommandTable.Select(command => command.Id)
+            );
         }
 
         static void TrackRecent(string id)
         {
-            if (!History.Track(id)) return;
+            if (!History.Track(id))
+                return;
             Settings.S.commandPaletteHistory = History.Text;
             Settings.S.Write();
         }
@@ -196,7 +234,11 @@ namespace SlopWorld
                     if (Grouped)
                     {
                         string group = GroupOf(i);
-                        if (group != prev) { body += GroupH; prev = group; }
+                        if (group != prev)
+                        {
+                            body += GroupH;
+                            prev = group;
+                        }
                     }
                     body += RowH;
                 }
@@ -204,6 +246,5 @@ namespace SlopWorld
 
             return Mathf.Min(Pad + InputH + UiTheme.GapXS + body + Pad, MaxH);
         }
-
     }
 }

@@ -15,8 +15,22 @@ namespace SlopWorld
         static readonly System.Func<SessionInfo, string> BuildTitleText = BuildTitle;
         static readonly string[] IndicatorText =
         {
-            "", "a", "r", "ar", "h", "ah", "rh", "arh",
-            "t", "at", "rt", "art", "ht", "aht", "rht", "arht",
+            "",
+            "a",
+            "r",
+            "ar",
+            "h",
+            "ah",
+            "rh",
+            "arh",
+            "t",
+            "at",
+            "rt",
+            "art",
+            "ht",
+            "aht",
+            "rht",
+            "arht",
         };
         static int _ageFrame = -1;
         static long _ageNowMs;
@@ -31,7 +45,8 @@ namespace SlopWorld
         struct RowPresentation
         {
             public object Font;
-            public int FontRevision, AtlasRevision;
+            public int FontRevision,
+                AtlasRevision;
             public string Name;
             public string Title;
             public string RawTitle;
@@ -55,13 +70,18 @@ namespace SlopWorld
         internal static void BeginFrame(long sessionsVersion)
         {
             int frame = Time.frameCount;
-            if (_ageFrame == frame && _sessionsVersion == sessionsVersion) return;
+            if (_ageFrame == frame && _sessionsVersion == sessionsVersion)
+                return;
 
             long now = SessionInfo.NowMs;
             long bucket = now / 1000L;
             bool indicators = Settings.StatusbarAgentIndicators;
-            if (_sessionsVersion != sessionsVersion || _ageBucket != bucket ||
-                _indicators != indicators || _presentationFontRevision != _titleFontRevision)
+            if (
+                _sessionsVersion != sessionsVersion
+                || _ageBucket != bucket
+                || _indicators != indicators
+                || _presentationFontRevision != _titleFontRevision
+            )
                 Presentations.Clear();
 
             _ageFrame = frame;
@@ -72,8 +92,14 @@ namespace SlopWorld
             _indicators = indicators;
         }
 
-        public static void DrawGhostLabel(Rect r, SessionInfo info, string fallback,
-                                           bool hostIcon, float markWidth, bool italic = false)
+        public static void DrawGhostLabel(
+            Rect r,
+            SessionInfo info,
+            string fallback,
+            bool hostIcon,
+            float markWidth,
+            bool italic = false
+        )
         {
             RowAct act = SessionRowAction.Of(info);
             string title = GhostTitle(info, fallback, act);
@@ -94,9 +120,10 @@ namespace SlopWorld
                     GUI.color = was;
                 }
                 string project = info.Project ?? "";
-                TooltipHandler.TipRegion(icon, project.Length > 0
-                    ? "Host session in " + project
-                    : "Host session");
+                TooltipHandler.TipRegion(
+                    icon,
+                    project.Length > 0 ? "Host session in " + project : "Host session"
+                );
                 r.x += d + UiTheme.GapXS;
                 r.width -= d + UiTheme.GapXS;
             }
@@ -107,10 +134,10 @@ namespace SlopWorld
             {
                 float contextWidth = UiTheme.Wide(context);
                 float titleW = UiTheme.Wide(title);
-                float available = context.Length > 0
-                    ? r.width - contextWidth - UiTheme.GapS
-                    : r.width;
-                if (titleW > available) Text.Font = GameFont.Tiny;
+                float available =
+                    context.Length > 0 ? r.width - contextWidth - UiTheme.GapS : r.width;
+                if (titleW > available)
+                    Text.Font = GameFont.Tiny;
             }
 
             Color titleColor = hostTerminal ? HostTerminalColor(info) : UiTheme.Lead;
@@ -126,8 +153,7 @@ namespace SlopWorld
 
             float contextW = Mathf.Min(UiTheme.Wide(context), Mathf.Max(0f, r.width * 0.42f));
             var quiet = new Rect(r.xMax - contextW, r.y, contextW, r.height);
-            var strong = new Rect(r.x, r.y, Mathf.Max(0f, quiet.x - UiTheme.GapS - r.x),
-                r.height);
+            var strong = new Rect(r.x, r.y, Mathf.Max(0f, quiet.x - UiTheme.GapS - r.x), r.height);
 
             GUI.color = titleColor;
             UiText.RowLabel(strong, title, TextAnchor.MiddleLeft, italic);
@@ -141,9 +167,16 @@ namespace SlopWorld
             Text.Font = oldFont;
         }
 
-        public static void DrawAgentText(Rect text, string session, SessionInfo info,
-                                         AgentState state, Color tint,
-                                         float nameH, float subH, float bellW)
+        public static void DrawAgentText(
+            Rect text,
+            string session,
+            SessionInfo info,
+            AgentState state,
+            Color tint,
+            float nameH,
+            float subH,
+            float bellW
+        )
         {
             var line = new Rect(text.x, text.y, text.width, nameH);
 
@@ -156,9 +189,12 @@ namespace SlopWorld
             float timeX = line.xMax - ageW;
             float bellX = timeX - (bell > 0f ? UiTheme.GapXS + bell : 0f);
             float nameRight = bell > 0f ? bellX : timeX;
-            var name = new Rect(line.x, line.y,
-                Mathf.Max(0f, nameRight - line.x -
-                    (ageW > 0f || bell > 0f ? UiTheme.GapXS : 0f)), line.height);
+            var name = new Rect(
+                line.x,
+                line.y,
+                Mathf.Max(0f, nameRight - line.x - (ageW > 0f || bell > 0f ? UiTheme.GapXS : 0f)),
+                line.height
+            );
 
             if (info != null && info.Bell)
             {
@@ -166,8 +202,10 @@ namespace SlopWorld
                 {
                     var was = GUI.color;
                     GUI.color = UiTheme.Warn;
-                    GUI.DrawTexture(new Rect(bellX, line.y + (nameH - bell) / 2f, bell, bell),
-                        Icons.Bell);
+                    GUI.DrawTexture(
+                        new Rect(bellX, line.y + (nameH - bell) / 2f, bell, bell),
+                        Icons.Bell
+                    );
                     GUI.color = was;
                 }
             }
@@ -183,21 +221,30 @@ namespace SlopWorld
 
             Text.Font = GameFont.Small;
             GUI.color = tint;
-            UiText.RowLabel(name, (session ?? "?") + (string.IsNullOrEmpty(info?.WorktreeName) ? "" : " · " + info.WorktreeName));
+            UiText.RowLabel(
+                name,
+                (session ?? "?")
+                    + (string.IsNullOrEmpty(info?.WorktreeName) ? "" : " · " + info.WorktreeName)
+            );
 
             Text.Font = GameFont.Tiny;
-            string indicators = Settings.StatusbarAgentIndicators
-                ? presentation.Indicators : "";
+            string indicators = Settings.StatusbarAgentIndicators ? presentation.Indicators : "";
             float indicatorW = indicators.Length == 0 ? 0f : UiTheme.Wide(indicators);
             var line2 = new Rect(text.x, text.y + nameH, text.width, subH);
             if (indicatorW > 0f)
             {
-                var indicator = new Rect(line2.xMax - indicatorW, line2.y,
-                    indicatorW, line2.height);
+                var indicator = new Rect(
+                    line2.xMax - indicatorW,
+                    line2.y,
+                    indicatorW,
+                    line2.height
+                );
                 GUI.color = UiTheme.Faint;
                 UiText.RowLabel(indicator, indicators, TextAnchor.MiddleRight);
-                TooltipHandler.TipRegion(indicator,
-                    "a autostart · r resume on start · h host-mode networking · t persistent /tmp");
+                TooltipHandler.TipRegion(
+                    indicator,
+                    "a autostart · r resume on start · h host-mode networking · t persistent /tmp"
+                );
                 line2.width = Mathf.Max(0f, line2.width - indicatorW - UiTheme.GapXS);
             }
 
@@ -223,20 +270,31 @@ namespace SlopWorld
 
         static RowPresentation Present(SessionInfo info, AgentState state)
         {
-            if (info == null) return default;
-            if (_ageFrame != Time.frameCount) BeginFrame(_sessionsVersion);
+            if (info == null)
+                return default;
+            if (_ageFrame != Time.frameCount)
+                BeginFrame(_sessionsVersion);
 
-            int mask = (info.Autostart ? 1 : 0)
+            int mask =
+                (info.Autostart ? 1 : 0)
                 | (info.AutoResume ? 2 : 0)
                 | (info.Network == NetworkMode.Host ? 4 : 0)
                 | (info.PersistentTmp ? 8 : 0);
             var font = Text.CurFontStyle?.font;
-            if (Presentations.TryGetValue(info, out var cached) &&
-                ReferenceEquals(cached.Font, font) && cached.FontRevision == UiFont.Revision &&
-                cached.AtlasRevision == _titleFontRevision && cached.Name == info.Name &&
-                cached.RawTitle == info.Title && cached.Label == info.Label && cached.Dir == info.Dir &&
-                cached.Host == info.Host && cached.State == state &&
-                cached.StateSince == info.StateSince && cached.IndicatorMask == mask)
+            if (
+                Presentations.TryGetValue(info, out var cached)
+                && ReferenceEquals(cached.Font, font)
+                && cached.FontRevision == UiFont.Revision
+                && cached.AtlasRevision == _titleFontRevision
+                && cached.Name == info.Name
+                && cached.RawTitle == info.Title
+                && cached.Label == info.Label
+                && cached.Dir == info.Dir
+                && cached.Host == info.Host
+                && cached.State == state
+                && cached.StateSince == info.StateSince
+                && cached.IndicatorMask == mask
+            )
             {
                 PerfTrace.Count("sidebar-presentation-hits");
                 return cached;
@@ -269,12 +327,17 @@ namespace SlopWorld
 
         static string Age(long stateSince, bool down)
         {
-            if (down || stateSince <= 0) return "";
+            if (down || stateSince <= 0)
+                return "";
             long seconds = (_ageNowMs - stateSince) / 1000L;
-            if (seconds < 0L) return "";
-            if (seconds < 60L) return "<1m";
-            if (seconds < 3600L) return seconds / 60L + "m";
-            if (seconds < 86400L) return seconds / 3600L + "h";
+            if (seconds < 0L)
+                return "";
+            if (seconds < 60L)
+                return "<1m";
+            if (seconds < 3600L)
+                return seconds / 60L + "m";
+            if (seconds < 86400L)
+                return seconds / 3600L + "h";
             return seconds / 86400L + "d";
         }
 
@@ -282,9 +345,12 @@ namespace SlopWorld
         {
             switch (state)
             {
-                case AgentState.Working: return "working";
-                case AgentState.Idle: return "idle";
-                default: return "down";
+                case AgentState.Working:
+                    return "working";
+                case AgentState.Idle:
+                    return "idle";
+                default:
+                    return "down";
             }
         }
 
@@ -294,17 +360,24 @@ namespace SlopWorld
             {
                 string name = info?.Name ?? fallback;
                 string label = info?.Label ?? "";
-                if (IsRoutedLabel(label, act) ||
-                    (!string.IsNullOrEmpty(info?.Intent) && label.Length > 0)) name = label;
+                if (
+                    IsRoutedLabel(label, act)
+                    || (!string.IsNullOrEmpty(info?.Intent) && label.Length > 0)
+                )
+                    name = label;
                 string subject = StripActionPrefix(name, act);
                 // Retained pager labels include their captured origin. Remove only that
                 // known suffix; brackets that belong to filenames remain untouched.
                 var origin = SidebarScopes.Find(info?.ReaderScope);
-                string checkout = origin?.Label ??
-                    (string.IsNullOrEmpty(info?.Worktree) || info.Worktree == "main"
-                        ? "Main checkout" : info.WorktreeName);
-                string suffix = " [" + (origin?.Project ?? info?.Project ?? "") +
-                    " / " + checkout + "]";
+                string checkout =
+                    origin?.Label
+                    ?? (
+                        string.IsNullOrEmpty(info?.Worktree) || info.Worktree == "main"
+                            ? "Main checkout"
+                            : info.WorktreeName
+                    );
+                string suffix =
+                    " [" + (origin?.Project ?? info?.Project ?? "") + " / " + checkout + "]";
                 if (subject.EndsWith(suffix, System.StringComparison.Ordinal))
                     subject = subject.Substring(0, subject.Length - suffix.Length);
                 // The action icon already says view/edit/diff. Keep the row title to the
@@ -325,9 +398,11 @@ namespace SlopWorld
                 project = origin?.Project ?? project;
                 string worktree = origin?.Worktree ?? info?.Worktree ?? "";
                 string checkout = origin?.Label ?? info?.WorktreeName ?? "";
-                if (checkout.Length == 0) checkout = worktree;
-                return worktree.Length == 0 || worktree == "main" ? project :
-                    (project.Length > 0 ? project + " / " : "") + checkout;
+                if (checkout.Length == 0)
+                    checkout = worktree;
+                return worktree.Length == 0 || worktree == "main"
+                    ? project
+                    : (project.Length > 0 ? project + " / " : "") + checkout;
             }
 
             string name = info?.Name ?? "";
@@ -347,8 +422,10 @@ namespace SlopWorld
         // is white, an unchanged shell is grey, and a stopped tab is red.
         static Color HostTerminalColor(SessionInfo info)
         {
-            if (info.State == AgentState.Down) return UiTheme.StateDown;
-            if (info.ProcessRunning) return Color.white;
+            if (info.State == AgentState.Down)
+                return UiTheme.StateDown;
+            if (info.ProcessRunning)
+                return Color.white;
             return UiTheme.StateIdle;
         }
 
@@ -367,10 +444,14 @@ namespace SlopWorld
         {
             switch (act)
             {
-                case RowAct.View: return ViewPrefixes;
-                case RowAct.Edit: return EditPrefixes;
-                case RowAct.Diff: return DiffPrefixes;
-                default: return System.Array.Empty<string>();
+                case RowAct.View:
+                    return ViewPrefixes;
+                case RowAct.Edit:
+                    return EditPrefixes;
+                case RowAct.Diff:
+                    return DiffPrefixes;
+                default:
+                    return System.Array.Empty<string>();
             }
         }
 
@@ -390,17 +471,20 @@ namespace SlopWorld
         static string BuildTitle(SessionInfo info)
         {
             PerfTrace.Count("sidebar-title-rebuilds");
-            if (info == null) return "";
+            if (info == null)
+                return "";
             bool fixedLabel = !string.IsNullOrWhiteSpace(info.Label);
             var value = fixedLabel ? info.Label : info.Title;
             value = value ?? "";
             var font = Text.CurFontStyle?.font;
             var clean = new System.Text.StringBuilder(value.Length);
             foreach (char c in value)
-                clean.Append(char.IsControl(c) || (font != null && !font.HasCharacter(c))
-                    ? ' ' : c);
+                clean.Append(
+                    char.IsControl(c) || (font != null && !font.HasCharacter(c)) ? ' ' : c
+                );
             string title = clean.ToString().Trim();
-            if (!fixedLabel) title = RestoreHostPath(info, title);
+            if (!fixedLabel)
+                title = RestoreHostPath(info, title);
             return title.Length == 0 || (!fixedLabel && IsHostTitle(title)) ? "" : title;
         }
 
@@ -411,24 +495,35 @@ namespace SlopWorld
         {
             string dir = info?.Dir ?? "";
             int suffixAt = 0;
-            while (suffixAt < title.Length
-                && (title[suffixAt] == '.' || title[suffixAt] == '\u2026')) suffixAt++;
+            while (
+                suffixAt < title.Length && (title[suffixAt] == '.' || title[suffixAt] == '\u2026')
+            )
+                suffixAt++;
             string suffix = title.Substring(suffixAt);
-            if (info?.Host != true || suffixAt == 0 || suffix.Length < 3
-                || dir.Length == 0 || !dir.EndsWith(suffix, System.StringComparison.Ordinal))
+            if (
+                info?.Host != true
+                || suffixAt == 0
+                || suffix.Length < 3
+                || dir.Length == 0
+                || !dir.EndsWith(suffix, System.StringComparison.Ordinal)
+            )
                 return title;
 
-            string home = System.Environment.GetFolderPath(
-                System.Environment.SpecialFolder.UserProfile).TrimEnd('/');
-            return home.Length > 0
+            string home = System
+                .Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile)
+                .TrimEnd('/');
+            return
+                home.Length > 0
                 && (dir == home || dir.StartsWith(home + "/", System.StringComparison.Ordinal))
                 ? "~" + dir.Substring(home.Length)
                 : dir;
         }
 
         static bool IsHostTitle(string title) =>
-            string.Equals(title, System.Environment.MachineName,
-                System.StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(title, "localhost", System.StringComparison.OrdinalIgnoreCase);
+            string.Equals(
+                title,
+                System.Environment.MachineName,
+                System.StringComparison.OrdinalIgnoreCase
+            ) || string.Equals(title, "localhost", System.StringComparison.OrdinalIgnoreCase);
     }
 }

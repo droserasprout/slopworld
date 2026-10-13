@@ -17,11 +17,14 @@ namespace SlopWorld
 
         public static void Clicks()
         {
-            if (!ColonistBarStrip.Interactive) return;
+            if (!ColonistBarStrip.Interactive)
+                return;
 
             var e = Event.current;
-            if (e.rawType != EventType.MouseDown) return;
-            if (e.button != 0 && e.button != 1) return;
+            if (e.rawType != EventType.MouseDown)
+                return;
+            if (e.button != 0 && e.button != 1)
+                return;
 
             // The "+" is the column's, at the foot of the panel below this body, and
             // AgentSidebar answers it before this is ever asked.
@@ -29,22 +32,26 @@ namespace SlopWorld
             {
                 // Screen() zeroes a line clipped out of the scroll view, and Rect.zero is
                 // nowhere the mouse can be.
-                if (!ColonistBarStrip.MouseOver(line.Rect)) continue;
+                if (!ColonistBarStrip.MouseOver(line.Rect))
+                    continue;
 
                 if (line.Head)
                 {
                     // Headings only fold; row variants own their actions.
                     if (e.button == 0)
                     {
-                        if (!Folded.Remove(line.Key)) Folded.Add(line.Key);
+                        if (!Folded.Remove(line.Key))
+                            Folded.Add(line.Key);
                     }
                     e.Use();
                     return;
                 }
 
                 var row = line.Row;
-                if (row == null) continue;
-                if (Selection.Click(row.Target, e.button, RowEffects)) _revealSelection = true;
+                if (row == null)
+                    continue;
+                if (Selection.Click(row.Target, e.button, RowEffects))
+                    _revealSelection = true;
                 e.Use();
                 return;
             }
@@ -56,16 +63,38 @@ namespace SlopWorld
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Create agent", () => TerminalWindow.OpenOverPane(
-                    EditSessionDialog.FromTemplate(template))),
-                new FloatMenuOption("Edit", () =>
-                    TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template))),
-                new FloatMenuOption("Duplicate", () =>
-                    TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template, true))),
-                new FloatMenuOption("Delete", () => TerminalWindow.OpenOverPane(
-                    ConfirmDialog.Create("Remove template '" + template.Name + "'? Existing agents keep their snapshots.",
-                        () => SessionHub.Instance.Catalog.RemoveAgentTemplate(template, template.Name,
-                            null, UiLayout.Fail), destructive: true))),
+                new FloatMenuOption(
+                    "Create agent",
+                    () => TerminalWindow.OpenOverPane(EditSessionDialog.FromTemplate(template))
+                ),
+                new FloatMenuOption(
+                    "Edit",
+                    () => TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template))
+                ),
+                new FloatMenuOption(
+                    "Duplicate",
+                    () =>
+                        TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template, true))
+                ),
+                new FloatMenuOption(
+                    "Delete",
+                    () =>
+                        TerminalWindow.OpenOverPane(
+                            ConfirmDialog.Create(
+                                "Remove template '"
+                                    + template.Name
+                                    + "'? Existing agents keep their snapshots.",
+                                () =>
+                                    SessionHub.Instance.Catalog.RemoveAgentTemplate(
+                                        template,
+                                        template.Name,
+                                        null,
+                                        UiLayout.Fail
+                                    ),
+                                destructive: true
+                            )
+                        )
+                ),
             };
             TerminalWindow.OpenOverPane(new UiMenu(options));
         }
@@ -81,12 +110,10 @@ namespace SlopWorld
             if (Runnable(s) && s.Link == LibraryItemLink.Ask)
                 opts.Add(new UiSubmenu("Choose a project", () => LibraryActions.WhereOptions(s)));
 
-            var edit = new FloatMenuOption("Edit", () =>
-                LibraryActions.Edit(s));
+            var edit = new FloatMenuOption("Edit", () => LibraryActions.Edit(s));
             opts.Add(edit);
 
-            var duplicate = new FloatMenuOption("Duplicate", () =>
-                LibraryActions.Duplicate(s));
+            var duplicate = new FloatMenuOption("Duplicate", () => LibraryActions.Duplicate(s));
             opts.Add(duplicate);
 
             opts.Add(new FloatMenuOption("Delete", () => LibraryActions.Remove(s)));
@@ -107,12 +134,12 @@ namespace SlopWorld
         {
             switch (s.Link)
             {
-                case LibraryItemLink.Temp: return "a temporary project";
-                case LibraryItemLink.Ask: return "a project you choose at run time";
+                case LibraryItemLink.Temp:
+                    return "a temporary project";
+                case LibraryItemLink.Ask:
+                    return "a project you choose at run time";
                 default:
-                    return string.IsNullOrEmpty(s.Project)
-                        ? "no project"
-                        : s.Project;
+                    return string.IsNullOrEmpty(s.Project) ? "no project" : s.Project;
             }
         }
 
@@ -127,22 +154,25 @@ namespace SlopWorld
         static void OpenProjectWorktrees(string project)
         {
             var info = SessionHub.Instance.Catalog.Project(project);
-            if (info != null) TerminalWindow.OpenOverPane(EditProjectDialog.ForWorktrees(info));
+            if (info != null)
+                TerminalWindow.OpenOverPane(EditProjectDialog.ForWorktrees(info));
         }
 
         static void ProjectMenu(ProjectInfo project)
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Edit", () =>
-                    CatalogActions.EditProject(project)),
-                new FloatMenuOption("Duplicate", () =>
-                    CatalogActions.DuplicateProject(project)),
+                new FloatMenuOption("Edit", () => CatalogActions.EditProject(project)),
+                new FloatMenuOption("Duplicate", () => CatalogActions.DuplicateProject(project)),
                 new FloatMenuOption("Manage worktrees", () => OpenProjectWorktrees(project.Name)),
-                new FloatMenuOption("Terminal (host)", () =>
-                    CatalogActions.ProjectTerminal(project)),
-                new FloatMenuOption("Delete", () => TerminalWindow.OpenOverPane(
-                    CatalogActions.RemoveProject(project.Name))),
+                new FloatMenuOption(
+                    "Terminal (host)",
+                    () => CatalogActions.ProjectTerminal(project)
+                ),
+                new FloatMenuOption(
+                    "Delete",
+                    () => TerminalWindow.OpenOverPane(CatalogActions.RemoveProject(project.Name))
+                ),
             };
             TerminalWindow.OpenOverPane(new UiMenu(options));
         }
@@ -152,9 +182,16 @@ namespace SlopWorld
             var tree = entry.Tree;
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Terminal", () =>
-                    SessionHub.Instance.SessionStore.RunHostShell(entry.Project,
-                        name => TerminalWindow.Open(name), UiLayout.Fail, tree.Id)),
+                new FloatMenuOption(
+                    "Terminal",
+                    () =>
+                        SessionHub.Instance.SessionStore.RunHostShell(
+                            entry.Project,
+                            name => TerminalWindow.Open(name),
+                            UiLayout.Fail,
+                            tree.Id
+                        )
+                ),
                 new FloatMenuOption("Project", () => OpenProjectWorktrees(entry.Project)),
             };
             if (tree.Id != "main")
@@ -164,43 +201,82 @@ namespace SlopWorld
 
         static void RemoveWorktree(WorktreeEntry entry)
         {
-            if (entry.Tree.Attachments.Count > 0) return;
-            TerminalWindow.OpenOverPane(ConfirmDialog.Create(
-                "Remove worktree '" + entry.Tree.Name + "'? This removes managed files. " +
-                "It unregisters unmanaged files without deleting them.",
-                () =>
-                {
-                    Worktrees.Invalidate();
-                    DaemonClient.Send<Wire.Ack>("DELETE",
-                        WireProtocol.Routes.Worktrees + "/" + Uri.EscapeDataString(entry.Tree.Id) +
-                        "?project=" + Uri.EscapeDataString(entry.Project), null,
-                        _ => { }, UiLayout.Fail, TaskInfo.Host, 60000);
-                }, destructive: true));
+            if (entry.Tree.Attachments.Count > 0)
+                return;
+            TerminalWindow.OpenOverPane(
+                ConfirmDialog.Create(
+                    "Remove worktree '"
+                        + entry.Tree.Name
+                        + "'? This removes managed files. "
+                        + "It unregisters unmanaged files without deleting them.",
+                    () =>
+                    {
+                        Worktrees.Invalidate();
+                        DaemonClient.Send<Wire.Ack>(
+                            "DELETE",
+                            WireProtocol.Routes.Worktrees
+                                + "/"
+                                + Uri.EscapeDataString(entry.Tree.Id)
+                                + "?project="
+                                + Uri.EscapeDataString(entry.Project),
+                            null,
+                            _ => { },
+                            UiLayout.Fail,
+                            TaskInfo.Host,
+                            60000
+                        );
+                    },
+                    destructive: true
+                )
+            );
         }
 
         static void RemovePreset(string kind, PresetInfo preset)
         {
-            string message = preset.Source == "override"
-                ? "Reset this user override and return to the system preset?"
-                : "Remove this user preset?";
-            TerminalWindow.OpenOverPane(ConfirmDialog.Create(message, () =>
-                SessionHub.Instance.Catalog.RemovePreset(kind, preset.Name, () =>
-                {
-                    ClearActionSelection();
-                }, UiLayout.Fail), destructive: true));
+            string message =
+                preset.Source == "override"
+                    ? "Reset this user override and return to the system preset?"
+                    : "Remove this user preset?";
+            TerminalWindow.OpenOverPane(
+                ConfirmDialog.Create(
+                    message,
+                    () =>
+                        SessionHub.Instance.Catalog.RemovePreset(
+                            kind,
+                            preset.Name,
+                            () =>
+                            {
+                                ClearActionSelection();
+                            },
+                            UiLayout.Fail
+                        ),
+                    destructive: true
+                )
+            );
         }
 
         static void RemovePreset(string kind, CommandInfo command)
         {
-            string message = command.Source == "override"
-                ? "Reset this user override and return to the system preset?"
-                : "Remove this user preset?";
-            TerminalWindow.OpenOverPane(ConfirmDialog.Create(message, () =>
-                SessionHub.Instance.Catalog.RemovePreset(kind, command.Name, () =>
-                {
-                    ClearActionSelection();
-                }, UiLayout.Fail), destructive: true));
+            string message =
+                command.Source == "override"
+                    ? "Reset this user override and return to the system preset?"
+                    : "Remove this user preset?";
+            TerminalWindow.OpenOverPane(
+                ConfirmDialog.Create(
+                    message,
+                    () =>
+                        SessionHub.Instance.Catalog.RemovePreset(
+                            kind,
+                            command.Name,
+                            () =>
+                            {
+                                ClearActionSelection();
+                            },
+                            UiLayout.Fail
+                        ),
+                    destructive: true
+                )
+            );
         }
-
     }
 }

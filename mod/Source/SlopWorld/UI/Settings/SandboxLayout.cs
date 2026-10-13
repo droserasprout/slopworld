@@ -31,28 +31,36 @@ namespace SlopWorld
         {
             float requestedGap = Math.Max(0f, gap);
             bool stacked = content.Width < Breakpoint(requestedGap);
-            float safeGap = Math.Min(requestedGap,
-                stacked ? content.Height : content.Width);
+            float safeGap = Math.Min(requestedGap, stacked ? content.Height : content.Width);
             if (stacked)
             {
                 float paneHeight = Math.Max(0f, content.Height - safeGap) / 2f;
-                var list = new UiLayoutRect(content.X, content.Y,
-                    content.Width, paneHeight);
-                var editor = new UiLayoutRect(content.X,
-                    content.Y + paneHeight + safeGap, content.Width,
-                    content.Height - paneHeight - safeGap);
+                var list = new UiLayoutRect(content.X, content.Y, content.Width, paneHeight);
+                var editor = new UiLayoutRect(
+                    content.X,
+                    content.Y + paneHeight + safeGap,
+                    content.Width,
+                    content.Height - paneHeight - safeGap
+                );
                 return new SandboxSplit(list, editor, true);
             }
 
-            float editorWidth = Math.Min(EditorPreferredWidth,
-                Math.Max(EditorMinimumWidth, content.Width * EditorWidthFraction));
-            editorWidth = Math.Min(editorWidth,
-                content.Width - safeGap - ListMinimumWidth);
+            float editorWidth = Math.Min(
+                EditorPreferredWidth,
+                Math.Max(EditorMinimumWidth, content.Width * EditorWidthFraction)
+            );
+            editorWidth = Math.Min(editorWidth, content.Width - safeGap - ListMinimumWidth);
             float listWidth = content.Width - safeGap - editorWidth;
             return new SandboxSplit(
                 new UiLayoutRect(content.X, content.Y, listWidth, content.Height),
-                new UiLayoutRect(content.X + listWidth + safeGap, content.Y,
-                    editorWidth, content.Height), false);
+                new UiLayoutRect(
+                    content.X + listWidth + safeGap,
+                    content.Y,
+                    editorWidth,
+                    content.Height
+                ),
+                false
+            );
         }
     }
 }

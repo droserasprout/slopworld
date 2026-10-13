@@ -6,7 +6,8 @@ namespace SlopWorld
         static void EnsureLayout()
         {
             int layoutRevision = WorkspaceLayout.Revision;
-            if (!_layoutDirty && _layoutRevision == layoutRevision) return;
+            if (!_layoutDirty && _layoutRevision == layoutRevision)
+                return;
 
             Layout.Clear();
             bool hasRows = false;
@@ -18,19 +19,28 @@ namespace SlopWorld
                 }
 
             if (Groups.Count == 0 || (!_loading && !hasRows))
-                Layout.Add(new LayoutRow
-                {
-                    Kind = RowKind.Note,
-                    Text = _loading ? "Searching" :
-                        string.IsNullOrWhiteSpace(_query) ? "Type a query and press Enter."
-                        : "No results.",
-                    Color = UiTheme.Faint,
-                });
+                Layout.Add(
+                    new LayoutRow
+                    {
+                        Kind = RowKind.Note,
+                        Text =
+                            _loading ? "Searching"
+                            : string.IsNullOrWhiteSpace(_query) ? "Type a query and press Enter."
+                            : "No results.",
+                        Color = UiTheme.Faint,
+                    }
+                );
 
             string project = null;
             foreach (var group in Groups)
             {
-                if (group.Matches.Count == 0 && group.Error == null && !group.Truncated && !_loading) continue;
+                if (
+                    group.Matches.Count == 0
+                    && group.Error == null
+                    && !group.Truncated
+                    && !_loading
+                )
+                    continue;
                 if (project != group.Project)
                 {
                     project = group.Project;
@@ -38,12 +48,14 @@ namespace SlopWorld
                 }
                 Layout.Add(new LayoutRow { Kind = RowKind.Heading, Group = group });
                 if (group.Error != null)
-                    Layout.Add(new LayoutRow
-                    {
-                        Kind = RowKind.Note,
-                        Text = group.Error,
-                        Color = UiTheme.Bad,
-                    });
+                    Layout.Add(
+                        new LayoutRow
+                        {
+                            Kind = RowKind.Note,
+                            Text = group.Error,
+                            Color = UiTheme.Bad,
+                        }
+                    );
                 else
                 {
                     string file = null;
@@ -52,38 +64,37 @@ namespace SlopWorld
                         if (match.Path != file)
                         {
                             file = match.Path;
-                            Layout.Add(new LayoutRow
-                            {
-                                Kind = RowKind.File,
-                                Text = file,
-                            });
+                            Layout.Add(new LayoutRow { Kind = RowKind.File, Text = file });
                         }
                         Layout.Add(new LayoutRow { Kind = RowKind.Match, Match = match });
                     }
                 }
                 if (group.Truncated)
-                    Layout.Add(new LayoutRow
-                    {
-                        Kind = RowKind.Note,
-                        Text = "More matches are not listed.",
-                        Color = UiTheme.Faint,
-                    });
+                    Layout.Add(
+                        new LayoutRow
+                        {
+                            Kind = RowKind.Note,
+                            Text = "More matches are not listed.",
+                            Color = UiTheme.Faint,
+                        }
+                    );
             }
 
             // Show a loading row only after the search creates project groups.
             // Without projects, the empty note above explains the current state.
             if (_loading && Groups.Count > 0)
-                Layout.Add(new LayoutRow
-                {
-                    Kind = RowKind.Note,
-                    Text = "Searching",
-                    Color = UiTheme.Faint,
-                });
+                Layout.Add(
+                    new LayoutRow
+                    {
+                        Kind = RowKind.Note,
+                        Text = "Searching",
+                        Color = UiTheme.Faint,
+                    }
+                );
 
             _contentHeight = Pad * 2f + Layout.Count * RowH;
             _layoutDirty = false;
             _layoutRevision = layoutRevision;
         }
-
     }
 }

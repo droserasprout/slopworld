@@ -12,14 +12,21 @@ namespace SlopWorld
         // Wheel passes only change the retained offset. Flat list owners can omit row
         // work until repaint. Retain normal passes for clicks, fields and scrollbar drags.
         // Check rawType too because BeginInput consumes the event before drawing content.
-        public static bool WheelOnly => Event.current.type == EventType.ScrollWheel ||
-            (Event.current.type == EventType.Used &&
-                Event.current.rawType == EventType.ScrollWheel);
+        public static bool WheelOnly =>
+            Event.current.type == EventType.ScrollWheel
+            || (
+                Event.current.type == EventType.Used
+                && Event.current.rawType == EventType.ScrollWheel
+            );
 
         // Keeps the two GUI groups and input ownership exception-safe. Use in a using block.
         // nested views remain well-formed even when a row renderer throws.
-        public IDisposable Scope(Rect outer, Rect view, bool showScrollbars = true,
-                                 bool preciseInput = true)
+        public IDisposable Scope(
+            Rect outer,
+            Rect view,
+            bool showScrollbars = true,
+            bool preciseInput = true
+        )
         {
             Begin(outer, view, showScrollbars, preciseInput);
             return new ScrollScope(this);
@@ -29,11 +36,15 @@ namespace SlopWorld
         {
             SmoothScroll _owner;
 
-            public ScrollScope(SmoothScroll owner) { _owner = owner; }
+            public ScrollScope(SmoothScroll owner)
+            {
+                _owner = owner;
+            }
 
             public void Dispose()
             {
-                if (_owner == null) return;
+                if (_owner == null)
+                    return;
                 var owner = _owner;
                 _owner = null;
                 owner.End();
@@ -84,20 +95,26 @@ namespace SlopWorld
         // wrong row being lit.
         public void Reveal(float top, float height, float viewport)
         {
-            if (top < _pos.y) JumpTo(new Vector2(_pos.x, top));
+            if (top < _pos.y)
+                JumpTo(new Vector2(_pos.x, top));
             else if (top + height > _pos.y + viewport)
                 JumpTo(new Vector2(_pos.x, top + height - viewport));
         }
 
-        public void Begin(Rect outer, Rect view, bool showScrollbars = true,
-                          bool preciseInput = true)
+        public void Begin(
+            Rect outer,
+            Rect view,
+            bool showScrollbars = true,
+            bool preciseInput = true
+        )
         {
             _measuredOuter = outer;
             _contentHeight = view.height;
             var origin = GUIUtility.GUIToScreenPoint(Vector2.zero);
             var max = new Vector2(
                 Mathf.Max(0f, view.width - outer.width),
-                Mathf.Max(0f, view.height - outer.height));
+                Mathf.Max(0f, view.height - outer.height)
+            );
 
             BeginInput(outer, max, preciseInput);
             _bar = showScrollbars;
@@ -124,7 +141,8 @@ namespace SlopWorld
             _pos.y = Mathf.Clamp(_pos.y, 0f, max.y);
 
             _preciseInput = preciseInput;
-            if (_preciseInput) ClaimPrecise(outer, max);
+            if (_preciseInput)
+                ClaimPrecise(outer, max);
             ClaimWheel(outer, max);
 
             _outer = outer;
@@ -141,7 +159,8 @@ namespace SlopWorld
 
         public bool HandleWheel(Rect outer, float contentHeight)
         {
-            if (!WheelOnly || contentHeight < 0f) return false;
+            if (!WheelOnly || contentHeight < 0f)
+                return false;
             BeginInput(outer, new Vector2(0f, Mathf.Max(0f, contentHeight - outer.height)));
             EndInput();
             return true;
@@ -156,18 +175,21 @@ namespace SlopWorld
             Widgets.EndGroup();
             Widgets.EndGroup();
 
-            if (_bar) DrawBar();
+            if (_bar)
+                DrawBar();
         }
 
         public void EndInput()
         {
-            if (_preciseInput) SpendPrecise();
+            if (_preciseInput)
+                SpendPrecise();
             SpendWheel();
         }
 
         void DrawBar()
         {
-            if (_max.y <= 0f) return;
+            if (_max.y <= 0f)
+                return;
 
             var track = UiScrollbar.Track(_outer);
             var hit = UiScrollbar.Hit(_outer, track);
@@ -176,8 +198,12 @@ namespace SlopWorld
             int id = GUIUtility.GetControlID(FocusType.Passive, hit);
             var e = Event.current;
 
-            if (GUIUtility.hotControl == 0 && e.type == EventType.MouseDown && e.button == 0 &&
-                hit.Contains(e.mousePosition))
+            if (
+                GUIUtility.hotControl == 0
+                && e.type == EventType.MouseDown
+                && e.button == 0
+                && hit.Contains(e.mousePosition)
+            )
             {
                 var at = UiScrollbar.Thumb(track, h, NormalizedPosition());
                 _grab = at.Contains(e.mousePosition) ? e.mousePosition.y - at.y : h / 2f;
@@ -199,8 +225,12 @@ namespace SlopWorld
                 }
             }
 
-            UiScrollbar.Draw(hit, track, UiScrollbar.Thumb(track, h, NormalizedPosition()),
-                GUIUtility.hotControl == id);
+            UiScrollbar.Draw(
+                hit,
+                track,
+                UiScrollbar.Thumb(track, h, NormalizedPosition()),
+                GUIUtility.hotControl == id
+            );
         }
 
         float NormalizedPosition() => _max.y <= 0f ? 0f : Mathf.Clamp01(_pos.y / _max.y);
@@ -245,7 +275,8 @@ namespace SlopWorld
 
         static bool PreciseCovers(Event e)
         {
-            if (!Settings.SmoothScrolling || WheelEventQueue.UsesLogicalDelta(e)) return false;
+            if (!Settings.SmoothScrolling || WheelEventQueue.UsesLogicalDelta(e))
+                return false;
             return Precise.Coverage.Covers(Time.frameCount, e.delta.x, e.delta.y);
         }
 
@@ -268,13 +299,16 @@ namespace SlopWorld
             int frame = Time.frameCount;
             var e = Event.current;
             bool wheel = e.type == EventType.ScrollWheel;
-            bool newWheel = wheel &&
-                (!ReferenceEquals(Precise.WheelEvent, e) ||
-                    Precise.WheelDelta.x != e.delta.x || Precise.WheelDelta.y != e.delta.y ||
-                    Precise.WheelMouse.x != e.mousePosition.x ||
-                    Precise.WheelMouse.y != e.mousePosition.y);
-            bool refresh = newWheel && !Precise.Spent &&
-                Precise.Amount.sqrMagnitude <= 0.000001f;
+            bool newWheel =
+                wheel
+                && (
+                    !ReferenceEquals(Precise.WheelEvent, e)
+                    || Precise.WheelDelta.x != e.delta.x
+                    || Precise.WheelDelta.y != e.delta.y
+                    || Precise.WheelMouse.x != e.mousePosition.x
+                    || Precise.WheelMouse.y != e.mousePosition.y
+                );
+            bool refresh = newWheel && !Precise.Spent && Precise.Amount.sqrMagnitude <= 0.000001f;
             if (Precise.Frame != frame || refresh)
             {
                 Precise.Frame = frame;
@@ -289,13 +323,16 @@ namespace SlopWorld
                     Precise.WheelDelta = e.delta;
                     Precise.WheelMouse = e.mousePosition;
                 }
-                else Precise.WheelEvent = null;
+                else
+                    Precise.WheelEvent = null;
             }
 
-            if (!Precise.Available || Precise.Spent ||
-                Precise.Amount.sqrMagnitude <= 0.000001f) return;
-            if (max.x <= 0f && max.y <= 0f) return;
-            if (!outer.Contains(Event.current.mousePosition)) return;
+            if (!Precise.Available || Precise.Spent || Precise.Amount.sqrMagnitude <= 0.000001f)
+                return;
+            if (max.x <= 0f && max.y <= 0f)
+                return;
+            if (!outer.Contains(Event.current.mousePosition))
+                return;
             if (Precise.Owner == null)
             {
                 Precise.Coverage.Record(frame, Precise.Amount.x, Precise.Amount.y);
@@ -312,14 +349,20 @@ namespace SlopWorld
                 Wheel.HasAmount = false;
                 Wheel.Event = e;
             }
-            else if (e.type != EventType.Used || e.rawType != EventType.ScrollWheel ||
-                !ReferenceEquals(Wheel.Event, e)) return;
+            else if (
+                e.type != EventType.Used
+                || e.rawType != EventType.ScrollWheel
+                || !ReferenceEquals(Wheel.Event, e)
+            )
+                return;
 
             // Nothing to scroll: leave the event for whatever is underneath. A box that
             // swallowed the wheel while showing its whole content would pin the page
             // behind it.
-            if (max.x <= 0f && max.y <= 0f) return;
-            if (!outer.Contains(e.mousePosition)) return;
+            if (max.x <= 0f && max.y <= 0f)
+                return;
+            if (!outer.Contains(e.mousePosition))
+                return;
 
             Wheel.Owner = this;
             // The first Begin reads the input. Nested Begins see the same Used event and
@@ -340,10 +383,15 @@ namespace SlopWorld
                 {
                     X11ScrollInput.DiscardPendingMovement();
                     // Raw frame input cannot represent a merged queue delta.
-                    var raw = !Settings.SmoothScrolling || WheelEventQueue.UsesLogicalDelta(e)
-                        ? e.delta : Input.mouseScrollDelta;
-                    Wheel.Amount = new Vector2(PrecisionDelta(e.delta.x, raw.x),
-                        PrecisionDelta(e.delta.y, raw.y)) * Speed;
+                    var raw =
+                        !Settings.SmoothScrolling || WheelEventQueue.UsesLogicalDelta(e)
+                            ? e.delta
+                            : Input.mouseScrollDelta;
+                    Wheel.Amount =
+                        new Vector2(
+                            PrecisionDelta(e.delta.x, raw.x),
+                            PrecisionDelta(e.delta.y, raw.y)
+                        ) * Speed;
                 }
                 Wheel.HasAmount = true;
             }
@@ -352,13 +400,15 @@ namespace SlopWorld
 
         bool SpendPrecise()
         {
-            if (!Settings.SmoothScrolling || Precise.Owner != this || Precise.Spent) return false;
+            if (!Settings.SmoothScrolling || Precise.Owner != this || Precise.Spent)
+                return false;
 
             Precise.Spent = true;
             Precise.Owner = null;
             var next = new Vector2(
                 Mathf.Clamp(_pos.x + Precise.Amount.x, 0f, _max.x),
-                Mathf.Clamp(_pos.y + Precise.Amount.y, 0f, _max.y));
+                Mathf.Clamp(_pos.y + Precise.Amount.y, 0f, _max.y)
+            );
             ObserveInput?.Invoke(_pos, next, "precise");
             _pos = next;
             return true;
@@ -366,11 +416,11 @@ namespace SlopWorld
 
         static float PrecisionDelta(float eventDelta, float rawDelta)
         {
-            if (Mathf.Abs(rawDelta) <= 0.0001f) return eventDelta;
-            if (Mathf.Abs(eventDelta) > 0.0001f &&
-                Mathf.Sign(rawDelta) != Mathf.Sign(eventDelta)) return eventDelta;
-            return Mathf.Abs(rawDelta) <= Mathf.Abs(eventDelta) + 0.0001f
-                ? rawDelta : eventDelta;
+            if (Mathf.Abs(rawDelta) <= 0.0001f)
+                return eventDelta;
+            if (Mathf.Abs(eventDelta) > 0.0001f && Mathf.Sign(rawDelta) != Mathf.Sign(eventDelta))
+                return eventDelta;
+            return Mathf.Abs(rawDelta) <= Mathf.Abs(eventDelta) + 0.0001f ? rawDelta : eventDelta;
         }
 
         // `End` runs innermost first, so the claimant is settled by the time it is reached.
@@ -379,15 +429,20 @@ namespace SlopWorld
         bool SpendWheel()
         {
             var e = Event.current;
-            if (Wheel.Owner != this || !ReferenceEquals(Wheel.Event, e) ||
-                (e.type != EventType.ScrollWheel && e.type != EventType.Used)) return false;
+            if (
+                Wheel.Owner != this
+                || !ReferenceEquals(Wheel.Event, e)
+                || (e.type != EventType.ScrollWheel && e.type != EventType.Used)
+            )
+                return false;
 
             Wheel.Owner = null;
             Wheel.HasAmount = false;
             Wheel.Event = null;
             var next = new Vector2(
                 Mathf.Clamp(_pos.x + Wheel.Amount.x, 0f, _max.x),
-                Mathf.Clamp(_pos.y + Wheel.Amount.y, 0f, _max.y));
+                Mathf.Clamp(_pos.y + Wheel.Amount.y, 0f, _max.y)
+            );
             ObserveInput?.Invoke(_pos, next, Wheel.Duplicate ? "duplicate" : "wheel");
             _pos = next;
             e.Use();

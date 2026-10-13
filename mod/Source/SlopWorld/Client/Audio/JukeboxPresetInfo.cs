@@ -15,15 +15,16 @@ namespace SlopWorld
         public uint DefaultRate;
         public List<JukeboxStreamInfo> Streams = new List<JukeboxStreamInfo>();
 
-        public JukeboxPresetInfo Copy() => new JukeboxPresetInfo
-        {
-            Id = Id,
-            Name = Name,
-            Donate = Donate,
-            TitleRegex = TitleRegex,
-            DefaultRate = DefaultRate,
-            Streams = (Streams ?? new List<JukeboxStreamInfo>()).Select(s => s.Copy()).ToList(),
-        };
+        public JukeboxPresetInfo Copy() =>
+            new JukeboxPresetInfo
+            {
+                Id = Id,
+                Name = Name,
+                Donate = Donate,
+                TitleRegex = TitleRegex,
+                DefaultRate = DefaultRate,
+                Streams = (Streams ?? new List<JukeboxStreamInfo>()).Select(s => s.Copy()).ToList(),
+            };
 
         public Wire.Station ToWire()
         {
@@ -39,12 +40,14 @@ namespace SlopWorld
                 },
             };
             foreach (var stream in Streams ?? new List<JukeboxStreamInfo>())
-                station.Streams.Add(new Wire.StationStream
-                {
-                    Rate = stream.Rate,
-                    Key = stream.Key ?? "",
-                    Url = stream.Url ?? "",
-                });
+                station.Streams.Add(
+                    new Wire.StationStream
+                    {
+                        Rate = stream.Rate,
+                        Key = stream.Key ?? "",
+                        Url = stream.Url ?? "",
+                    }
+                );
             return station;
         }
 
@@ -58,23 +61,28 @@ namespace SlopWorld
                 Donate = metadata.Donate,
                 TitleRegex = metadata.TitleRegex,
                 DefaultRate = station.DefaultRate,
-                Streams = station.Streams.Select(stream => new JukeboxStreamInfo
-                {
-                    Rate = stream.Rate,
-                    Key = stream.Key,
-                    Url = stream.Url,
-                }).ToList(),
+                Streams = station
+                    .Streams.Select(stream => new JukeboxStreamInfo
+                    {
+                        Rate = stream.Rate,
+                        Key = stream.Key,
+                        Url = stream.Url,
+                    })
+                    .ToList(),
             };
         }
 
         public static string NewId(IEnumerable<JukeboxPresetInfo> existing)
         {
-            var names = new HashSet<string>((existing ?? Enumerable.Empty<JukeboxPresetInfo>())
-                .Select(p => p.Id), StringComparer.OrdinalIgnoreCase);
+            var names = new HashSet<string>(
+                (existing ?? Enumerable.Empty<JukeboxPresetInfo>()).Select(p => p.Id),
+                StringComparer.OrdinalIgnoreCase
+            );
             string baseName = "new-source";
             string id = baseName;
             int suffix = 2;
-            while (names.Contains(id)) id = baseName + "-" + suffix++;
+            while (names.Contains(id))
+                id = baseName + "-" + suffix++;
             return id;
         }
     }
@@ -85,12 +93,13 @@ namespace SlopWorld
         public string Key = "";
         public string Url = "";
 
-        public JukeboxStreamInfo Copy() => new JukeboxStreamInfo
-        {
-            Rate = Rate,
-            Key = Key,
-            Url = Url,
-        };
+        public JukeboxStreamInfo Copy() =>
+            new JukeboxStreamInfo
+            {
+                Rate = Rate,
+                Key = Key,
+                Url = Url,
+            };
     }
 
     public static class JukeboxPresetStore
@@ -99,14 +108,14 @@ namespace SlopWorld
         public static bool Loading { get; private set; }
         public static string Error { get; private set; }
 
-        public static JukeboxPresetInfo Find(string id) =>
-            Items.FirstOrDefault(p => p.Id == id);
+        public static JukeboxPresetInfo Find(string id) => Items.FirstOrDefault(p => p.Id == id);
 
         public static void Refresh(Action ok = null, Action<string> fail = null)
         {
             Loading = true;
             Error = null;
-            DaemonClient.Get<Wire.JukeboxCatalog>(WireProtocol.Routes.JukeboxPresets,
+            DaemonClient.Get<Wire.JukeboxCatalog>(
+                WireProtocol.Routes.JukeboxPresets,
                 catalog =>
                 {
                     Loading = false;
@@ -119,18 +128,30 @@ namespace SlopWorld
                     Loading = false;
                     Error = error;
                     fail?.Invoke(error);
-                });
+                }
+            );
         }
 
-        public static void Save(JukeboxPresetInfo preset, bool isNew, string originalId,
-                                Action ok, Action<string> fail)
+        public static void Save(
+            JukeboxPresetInfo preset,
+            bool isNew,
+            string originalId,
+            Action ok,
+            Action<string> fail
+        )
         {
             Action<Wire.Ack> done = _ => MutationSucceeded(ok);
             if (isNew)
                 DaemonClient.Post(WireProtocol.Routes.JukeboxPresets, preset.ToWire(), done, fail);
             else
-                DaemonClient.Put(WireProtocol.Routes.JukeboxPresets + "/" +
-                    Uri.EscapeDataString(originalId ?? preset.Id), preset.ToWire(), done, fail);
+                DaemonClient.Put(
+                    WireProtocol.Routes.JukeboxPresets
+                        + "/"
+                        + Uri.EscapeDataString(originalId ?? preset.Id),
+                    preset.ToWire(),
+                    done,
+                    fail
+                );
         }
 
         // A failed refresh must not turn an acknowledged mutation into a failed save.
@@ -143,8 +164,11 @@ namespace SlopWorld
 
         public static void Remove(string id, Action ok, Action<string> fail)
         {
-            DaemonClient.Delete(WireProtocol.Routes.JukeboxPresets + "/" +
-                Uri.EscapeDataString(id), _ => MutationSucceeded(ok), fail);
+            DaemonClient.Delete(
+                WireProtocol.Routes.JukeboxPresets + "/" + Uri.EscapeDataString(id),
+                _ => MutationSucceeded(ok),
+                fail
+            );
         }
     }
 }

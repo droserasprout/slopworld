@@ -16,8 +16,10 @@ namespace SlopWorld.Tests
 
         public static void LaterLikesAppearBeforeEarlierLikes()
         {
-            var entries = JukeboxHistory.Parse("[[like]]\nat = \"2024-01-01T00:00:00Z\"\ntitle = \"Earlier\"\n" +
-                "[[like]]\nat = \"2024-01-02T00:00:00Z\"\ntitle = \"Later\"\n");
+            var entries = JukeboxHistory.Parse(
+                "[[like]]\nat = \"2024-01-01T00:00:00Z\"\ntitle = \"Earlier\"\n"
+                    + "[[like]]\nat = \"2024-01-02T00:00:00Z\"\ntitle = \"Later\"\n"
+            );
             AssertEx.Equal(2, entries.Count, "both likes retained");
             AssertEx.Equal("Later", entries[0].Title, "last appended like is first");
             AssertEx.Equal("Earlier", entries[1].Title, "earlier like follows");
@@ -25,37 +27,46 @@ namespace SlopWorld.Tests
 
         static void RecognizedLike()
         {
-            string text = string.Join("\n", new[]
-            {
-                "[[like]]",
-                "at = \"2024-08-16T12:00:00Z\"",
-                "source = \"SlopWorld OST\"",
-                "artist = \"Real Artist\"",
-                "title = \"Real Song\"",
-                "original_artist = \"Terry Fail\"",
-                "original_title = \"OST\"",
-                "",
-            });
+            string text = string.Join(
+                "\n",
+                new[]
+                {
+                    "[[like]]",
+                    "at = \"2024-08-16T12:00:00Z\"",
+                    "source = \"SlopWorld OST\"",
+                    "artist = \"Real Artist\"",
+                    "title = \"Real Song\"",
+                    "original_artist = \"Terry Fail\"",
+                    "original_title = \"OST\"",
+                    "",
+                }
+            );
 
             var entries = JukeboxHistory.Parse(text);
             AssertEx.Equal(1, entries.Count, "the table is read");
             var e = entries[0];
             AssertEx.Equal("Real Artist - Real Song", e.Line, "the effective line pairs the names");
-            AssertEx.Equal("Terry Fail - OST", e.Original,
-                "both original fields join into the provenance");
+            AssertEx.Equal(
+                "Terry Fail - OST",
+                e.Original,
+                "both original fields join into the provenance"
+            );
         }
 
         static void MissingOriginalFieldsStayEmpty()
         {
-            string text = string.Join("\n", new[]
-            {
-                "[[like]]",
-                "at = \"2023-01-01T00:00:00Z\"",
-                "source = \"Example Radio\"",
-                "artist = \"A\"",
-                "title = \"B\"",
-                "",
-            });
+            string text = string.Join(
+                "\n",
+                new[]
+                {
+                    "[[like]]",
+                    "at = \"2023-01-01T00:00:00Z\"",
+                    "source = \"Example Radio\"",
+                    "artist = \"A\"",
+                    "title = \"B\"",
+                    "",
+                }
+            );
 
             var entries = JukeboxHistory.Parse(text);
             AssertEx.Equal(1, entries.Count, "the table is read");
@@ -67,17 +78,20 @@ namespace SlopWorld.Tests
 
         static void MalformedTable()
         {
-            string text = string.Join("\n", new[]
-            {
-                "[[like]]",
-                "at = \"2020-01-01T00:00:00Z\"",
-                "source = \"Good\"",
-                "title = \"Kept\"",
-                "",
-                "[[like]]",
-                "this line has no key/value separator",
-                "",
-            });
+            string text = string.Join(
+                "\n",
+                new[]
+                {
+                    "[[like]]",
+                    "at = \"2020-01-01T00:00:00Z\"",
+                    "source = \"Good\"",
+                    "title = \"Kept\"",
+                    "",
+                    "[[like]]",
+                    "this line has no key/value separator",
+                    "",
+                }
+            );
 
             var entries = JukeboxHistory.Parse(text);
             AssertEx.Equal(1, entries.Count, "the malformed table is dropped, the good one kept");
@@ -87,20 +101,23 @@ namespace SlopWorld.Tests
         static void CommentedHeaders()
         {
             var entries = JukeboxHistory.Parse(
-                "  [[like]] # first like\r\ntitle = \"Earlier\"\r\n" +
-                "[[like]]# another like\ntitle = \"Later\"\n");
+                "  [[like]] # first like\r\ntitle = \"Earlier\"\r\n"
+                    + "[[like]]# another like\ntitle = \"Later\"\n"
+            );
             AssertEx.Equal(2, entries.Count, "comments do not merge adjacent likes");
             AssertEx.Equal("Later", entries[0].Title, "commented likes retain newest-first order");
             AssertEx.Equal("Earlier", entries[1].Title, "earlier table stays intact");
-            AssertEx.Equal(0, JukeboxHistory.Parse("[[like]]invalid\ntitle = \"Ignored\"\n").Count,
-                "non-comment trailing text is not a header");
+            AssertEx.Equal(
+                0,
+                JukeboxHistory.Parse("[[like]]invalid\ntitle = \"Ignored\"\n").Count,
+                "non-comment trailing text is not a header"
+            );
         }
 
         static void EmptyFile()
         {
             AssertEx.Equal(0, JukeboxHistory.Parse("").Count, "an empty file has no entries");
-            AssertEx.Equal(0, JukeboxHistory.Parse("   \n\n  ").Count,
-                "whitespace has no entries");
+            AssertEx.Equal(0, JukeboxHistory.Parse("   \n\n  ").Count, "whitespace has no entries");
             AssertEx.Equal(0, JukeboxHistory.Parse(null).Count, "null is tolerated");
         }
     }

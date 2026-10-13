@@ -49,41 +49,50 @@ namespace SlopWorld
             public int Tick;
         }
 
-        public Aura(Map map) : base(map) { }
+        public Aura(Map map)
+            : base(map) { }
 
         public static Aura Of(Map map) => map?.GetComponent<Aura>();
 
         // Check location and pulse age. Plant growth and fire spread depend on the affected cells.
         public bool Covers(IntVec3 cell)
         {
-            if (_pulses.Count == 0) return false;
+            if (_pulses.Count == 0)
+                return false;
 
             int now = Find.TickManager.TicksGame;
             for (int i = 0; i < _pulses.Count; i++)
-                if (now - _pulses[i].Tick < GraceTicks
-                    && _pulses[i].At.DistanceToSquared(cell) <= RadiusSq) return true;
+                if (
+                    now - _pulses[i].Tick < GraceTicks
+                    && _pulses[i].At.DistanceToSquared(cell) <= RadiusSq
+                )
+                    return true;
             return false;
         }
 
         // Also protect individual things after they leave the pulse area.
         public bool Spares(Thing t)
         {
-            if (t == null || !t.Spawned) return false;
-            if (Covers(t.Position)) return true;
+            if (t == null || !t.Spawned)
+                return false;
+            if (Covers(t.Position))
+                return true;
             return _grace.TryGetValue(t.thingIDNumber, out int seen)
                 && Find.TickManager.TicksGame - seen < GraceTicks;
         }
 
         public override void MapComponentTick()
         {
-            if (Find.TickManager.TicksGame % PruneInterval != 0) return;
+            if (Find.TickManager.TicksGame % PruneInterval != 0)
+                return;
             Prune(Find.TickManager.TicksGame);
         }
 
         // Heal the pet before applying a pulse to nearby cells.
         public void Pat(Pawn pet)
         {
-            if (pet == null || pet.Dead || !pet.Spawned || pet.Map != map) return;
+            if (pet == null || pet.Dead || !pet.Spawned || pet.Map != map)
+                return;
 
             int now = Find.TickManager.TicksGame;
             Comfort(pet);
@@ -91,14 +100,16 @@ namespace SlopWorld
             _pulses.Add(new Pulse { At = pet.Position, Tick = now });
             Sweep(pet.Position, now);
 
-            if (Rand.Value < ReviveChance) Revive(pet.Position, now);
+            if (Rand.Value < ReviveChance)
+                Revive(pet.Position, now);
         }
 
         // Apply the WaterBall pulse without the random chance used for pet pats.
         // Heal nearby pawns, restore existing plants, and try to add a new plant.
         public void Rejuvenate(IntVec3 centre)
         {
-            if (!centre.InBounds(map)) return;
+            if (!centre.InBounds(map))
+                return;
 
             int now = Find.TickManager.TicksGame;
             _pulses.Add(new Pulse { At = centre, Tick = now });
@@ -108,13 +119,17 @@ namespace SlopWorld
             for (int i = 0; i < cells; i++)
             {
                 var c = centre + GenRadial.RadialPattern[i];
-                if (!c.InBounds(map)) continue;
+                if (!c.InBounds(map))
+                    continue;
 
                 var plant = c.GetPlant(map);
-                if (plant == null || plant.Destroyed || plant.def?.plant == null) continue;
+                if (plant == null || plant.Destroyed || plant.def?.plant == null)
+                    continue;
 
-                if (plant.LeaflessNow || plant.Growth < ReviveGrowth) Mend(plant, now);
-                else _grace[plant.thingIDNumber] = now;
+                if (plant.LeaflessNow || plant.Growth < ReviveGrowth)
+                    Mend(plant, now);
+                else
+                    _grace[plant.thingIDNumber] = now;
             }
 
             Sow(centre, now);
@@ -124,7 +139,8 @@ namespace SlopWorld
         // Use the base game recovery method to end mental states and restore job tracking.
         static void Comfort(Pawn pet)
         {
-            if (pet == null || pet.Dead || pet.health == null) return;
+            if (pet == null || pet.Dead || pet.health == null)
+                return;
 
             HealthUtility.HealNonPermanentInjuriesAndRestoreLegs(pet);
 
@@ -133,7 +149,8 @@ namespace SlopWorld
             {
                 // Copy the conditions before RemoveHediff changes the list.
                 var bad = set.hediffs.Where(h => h?.def != null && h.def.isBad).ToList();
-                foreach (var h in bad) pet.health.RemoveHediff(h);
+                foreach (var h in bad)
+                    pet.health.RemoveHediff(h);
             }
 
             pet.mindState?.mentalStateHandler?.CurState?.RecoverFromState();
@@ -148,25 +165,29 @@ namespace SlopWorld
             for (int i = 0; i < cells; i++)
             {
                 var c = centre + GenRadial.RadialPattern[i];
-                if (!c.InBounds(map)) continue;
+                if (!c.InBounds(map))
+                    continue;
 
                 var things = c.GetThingList(map);
                 // Iterate backward because destruction removes items from this list.
                 for (int j = things.Count - 1; j >= 0; j--)
                 {
                     var t = things[j];
-                    if (t == null || t.Destroyed) continue;
+                    if (t == null || t.Destroyed)
+                        continue;
 
                     if (t is Filth)
                     {
-                        if (filth-- > 0) t.Destroy(DestroyMode.Vanish);
+                        if (filth-- > 0)
+                            t.Destroy(DestroyMode.Vanish);
                     }
                     else if (t is Fire)
                     {
                         // Attached fires also appear in the cell list. Remove them to extinguish burning animals.
                         t.Destroy(DestroyMode.Vanish);
                     }
-                    else if (t is Plant plant) _grace[plant.thingIDNumber] = now;
+                    else if (t is Plant plant)
+                        _grace[plant.thingIDNumber] = now;
                     else if (t is Pawn pawn)
                     {
                         Comfort(pawn);
@@ -179,18 +200,24 @@ namespace SlopWorld
         // Record temporary protection and remove the plague condition without a visual effect.
         void Unmark(Pawn pawn, int now)
         {
-            if (pawn.Dead) return;
+            if (pawn.Dead)
+                return;
             _grace[pawn.thingIDNumber] = now;
 
             var mark = pawn.health?.hediffSet?.GetFirstHediffOfDef(ModDefOf.SlopPlague);
-            if (mark != null) pawn.health.RemoveHediff(mark);
+            if (mark != null)
+                pawn.health.RemoveHediff(mark);
         }
 
         // Restore a damaged plant if one exists. Otherwise, try to add a new plant.
         void Revive(IntVec3 centre, int now)
         {
             var hurt = Damaged(centre);
-            if (hurt != null) { Mend(hurt, now); return; }
+            if (hurt != null)
+            {
+                Mend(hurt, now);
+                return;
+            }
             Sow(centre, now);
         }
 
@@ -204,16 +231,21 @@ namespace SlopWorld
             for (int i = 0; i < cells; i++)
             {
                 var c = centre + GenRadial.RadialPattern[i];
-                if (!c.InBounds(map)) continue;
+                if (!c.InBounds(map))
+                    continue;
 
                 var p = c.GetPlant(map);
-                if (p == null || p.Destroyed || p.def?.plant == null) continue;
+                if (p == null || p.Destroyed || p.def?.plant == null)
+                    continue;
 
-                if (p.LeaflessNow) bare.Add(p);
-                else if (p.Growth < StuntedBelow) stunted.Add(p);
+                if (p.LeaflessNow)
+                    bare.Add(p);
+                else if (p.Growth < StuntedBelow)
+                    stunted.Add(p);
             }
 
-            if (bare.Count > 0) return bare.RandomElement();
+            if (bare.Count > 0)
+                return bare.RandomElement();
             return stunted.Count == 0 ? null : stunted.RandomElement();
         }
 
@@ -221,8 +253,10 @@ namespace SlopWorld
         {
             _grace[plant.thingIDNumber] = now;
 
-            if (plant.LeaflessNow && LeaflessTick != null) LeaflessTick(plant) = -60000;
-            if (plant.Growth < ReviveGrowth) plant.Growth = ReviveGrowth;
+            if (plant.LeaflessNow && LeaflessTick != null)
+                LeaflessTick(plant) = -60000;
+            if (plant.Growth < ReviveGrowth)
+                plant.Growth = ReviveGrowth;
 
             // Neither setter invalidates the map mesh. See Plague.StepPlants.
             map.mapDrawer?.MapMeshDirty(plant.Position, MapMeshFlagDefOf.Things);
@@ -233,22 +267,26 @@ namespace SlopWorld
         void Sow(IntVec3 centre, int now)
         {
             var biome = map.Biome;
-            if (biome == null) return;
+            if (biome == null)
+                return;
 
             int cells = GenRadial.NumCellsInRadius(Radius);
 
             for (int t = 0; t < SproutTries; t++)
             {
                 var c = centre + GenRadial.RadialPattern[Rand.Range(0, cells)];
-                if (!c.InBounds(map) || c.GetPlant(map) != null) continue;
+                if (!c.InBounds(map) || c.GetPlant(map) != null)
+                    continue;
 
-                var def = biome.AllWildPlants
-                    .Where(p => p.CanEverPlantAt(c, map))
+                var def = biome
+                    .AllWildPlants.Where(p => p.CanEverPlantAt(c, map))
                     .RandomElementByWeightWithFallback(p => biome.CommonalityOfPlant(p));
-                if (def == null) continue;
+                if (def == null)
+                    continue;
 
                 var plant = GenSpawn.Spawn(def, c, map) as Plant;
-                if (plant == null) return;
+                if (plant == null)
+                    return;
 
                 plant.Growth = SproutGrowth;
                 // Invalidate the mesh again after setting growth.
@@ -264,17 +302,27 @@ namespace SlopWorld
         {
             _pulses.RemoveAll(p => now - p.Tick >= GraceTicks);
 
-            if (_grace.Count == 0) return;
+            if (_grace.Count == 0)
+                return;
 
             _stale.Clear();
             foreach (var kv in _grace)
-                if (now - kv.Value >= GraceTicks) _stale.Add(kv.Key);
-            foreach (var id in _stale) _grace.Remove(id);
+                if (now - kv.Value >= GraceTicks)
+                    _stale.Add(kv.Key);
+            foreach (var id in _stale)
+                _grace.Remove(id);
         }
 
         // Keep the effect small to identify the single restored plant.
         static void Puff(Thing t) =>
-            PlagueFx.At(ModDefOf.SlopCleanAir, t, count: 10, scale: 0.85f, speed: 0.20f, spread: 0.28f);
+            PlagueFx.At(
+                ModDefOf.SlopCleanAir,
+                t,
+                count: 10,
+                scale: 0.85f,
+                speed: 0.20f,
+                spread: 0.28f
+            );
 
         static AccessTools.FieldRef<Plant, int> BindLeafless()
         {
@@ -284,8 +332,10 @@ namespace SlopWorld
             }
             catch (Exception e)
             {
-                Log.Warning($"[SlopWorld] no Plant.madeLeaflessTick, so the cat cannot " +
-                            $"bring a bare tree back: {e.Message}");
+                Log.Warning(
+                    $"[SlopWorld] no Plant.madeLeaflessTick, so the cat cannot "
+                        + $"bring a bare tree back: {e.Message}"
+                );
                 return null;
             }
         }

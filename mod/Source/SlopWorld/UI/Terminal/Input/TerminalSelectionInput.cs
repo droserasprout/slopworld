@@ -24,15 +24,20 @@ namespace SlopWorld
 
         public bool TryHandleMultiClick(Rect body, Event e)
         {
-            if (TerminalInputController.MouseType(e) != EventType.MouseDown || e.button != 0 ||
-                !body.Contains(e.mousePosition)) return false;
+            if (
+                TerminalInputController.MouseType(e) != EventType.MouseDown
+                || e.button != 0
+                || !body.Contains(e.mousePosition)
+            )
+                return false;
 
             int clickCount = _clicks.Observe(e, Time.realtimeSinceStartup);
-            if (clickCount < 2) return false;
+            if (clickCount < 2)
+                return false;
 
             var cell = _panel.CellAt(body, e.mousePosition);
-            bool selected = clickCount >= 3 ? _panel.TripleClickSelect(cell.y) :
-                _panel.DoubleClickSelect(cell);
+            bool selected =
+                clickCount >= 3 ? _panel.TripleClickSelect(cell.y) : _panel.DoubleClickSelect(cell);
             if (!selected)
             {
                 _clicks.Reset();
@@ -42,7 +47,8 @@ namespace SlopWorld
                 return true;
             }
             _panel.CaptureSelection(body);
-            if (clickCount >= 3) _clicks.Reset();
+            if (clickCount >= 3)
+                _clicks.Reset();
             e.Use();
             return true;
         }
@@ -65,7 +71,8 @@ namespace SlopWorld
 
         void Begin(Rect body, Event e)
         {
-            if (!body.Contains(e.mousePosition)) return;
+            if (!body.Contains(e.mousePosition))
+                return;
             _panel.SelectionA = _panel.SelectionB = _panel.CellAt(body, e.mousePosition);
             _panel.SelectionMouse = e.mousePosition;
             _panel.SelectionEdgeDirection = 0;
@@ -82,7 +89,8 @@ namespace SlopWorld
 
         void Drag(Rect body, Event e)
         {
-            if (!_panel.Dragging) return;
+            if (!_panel.Dragging)
+                return;
             _panel.SelectionMouse = e.mousePosition;
             _panel.SelectionMoved = true;
             var cell = SelectionCell(body, e);
@@ -103,8 +111,12 @@ namespace SlopWorld
             var cell = _panel.CellAt(body, e.mousePosition);
             if (e.mousePosition.y < body.y || e.mousePosition.y >= body.yMax)
             {
-                int rows = Mathf.Max(1, _panel.Rows > 0 ? _panel.Rows :
-                    SessionHub.Instance.Screen(_panel.SessionName)?.Rows ?? 1);
+                int rows = Mathf.Max(
+                    1,
+                    _panel.Rows > 0
+                        ? _panel.Rows
+                        : SessionHub.Instance.Screen(_panel.SessionName)?.Rows ?? 1
+                );
                 cell.y = Mathf.Clamp(cell.y, 0, rows - 1);
             }
             return cell;
@@ -112,7 +124,8 @@ namespace SlopWorld
 
         void End(Rect body, Event e)
         {
-            if (!_panel.Dragging) return;
+            if (!_panel.Dragging)
+                return;
             var cell = SelectionCell(body, e);
 
             // A double click selects a word and a triple click replaces it with a row. Do not
@@ -128,7 +141,8 @@ namespace SlopWorld
                 _panel.Dragging = false;
                 _panel.SelectionMoved = false;
                 _panel.ReleaseSelection();
-                if (copyPrimary) _panel.CopyPrimarySelection();
+                if (copyPrimary)
+                    _panel.CopyPrimarySelection();
             }
             else if (_panel.WordDragging)
             {
@@ -136,7 +150,8 @@ namespace SlopWorld
                 _panel.WordDragging = false;
                 _panel.Dragging = false;
                 _panel.ReleaseSelection();
-                if (_panel.HasSelection && copyPrimary) _panel.CopyPrimarySelection();
+                if (_panel.HasSelection && copyPrimary)
+                    _panel.CopyPrimarySelection();
             }
             else
             {
@@ -147,7 +162,8 @@ namespace SlopWorld
                     _panel.HasSelection = true;
                     _panel.CopyPrimarySelection();
                 }
-                else _panel.HasSelection = false;
+                else
+                    _panel.HasSelection = false;
                 _panel.SelectionMoved = false;
                 _panel.ReleaseSelection();
             }

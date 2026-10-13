@@ -17,8 +17,13 @@ namespace SlopWorld
             public readonly TextAnchor Anchor;
             public readonly float LeftPad;
 
-            public Column(string label, float width, bool flexible = false,
-                          TextAnchor anchor = TextAnchor.MiddleLeft, float leftPad = 0f)
+            public Column(
+                string label,
+                float width,
+                bool flexible = false,
+                TextAnchor anchor = TextAnchor.MiddleLeft,
+                float leftPad = 0f
+            )
             {
                 Label = label;
                 Width = width;
@@ -28,23 +33,29 @@ namespace SlopWorld
             }
         }
 
-        public static float Draw<T>(Rect rect, IList<T> rows, float rowH, IList<Column> columns,
-                                    Action<T, Rect, Rect[]> drawRow)
+        public static float Draw<T>(
+            Rect rect,
+            IList<T> rows,
+            float rowH,
+            IList<Column> columns,
+            Action<T, Rect, Rect[]> drawRow
+        )
         {
-            if (columns == null || columns.Count == 0) return UiTheme.GapS;
+            if (columns == null || columns.Count == 0)
+                return UiTheme.GapS;
 
             float fixedW = 0f;
             int flexible = 0;
             foreach (var column in columns)
             {
-                if (column.Flexible) flexible++;
-                else fixedW += Mathf.Max(0f, column.Width);
+                if (column.Flexible)
+                    flexible++;
+                else
+                    fixedW += Mathf.Max(0f, column.Width);
             }
 
             float availableW = Mathf.Max(0f, rect.width);
-            float scale = fixedW > availableW && fixedW > 0f
-                ? availableW / fixedW
-                : 1f;
+            float scale = fixedW > availableW && fixedW > 0f ? availableW / fixedW : 1f;
             float remaining = Mathf.Max(0f, availableW - fixedW * scale);
             float flexibleW = flexible > 0 ? remaining / flexible : 0f;
 
@@ -52,9 +63,7 @@ namespace SlopWorld
             for (int i = 0; i < columns.Count; i++)
             {
                 var column = columns[i];
-                widths[i] = column.Flexible
-                    ? flexibleW
-                    : Mathf.Max(0f, column.Width) * scale;
+                widths[i] = column.Flexible ? flexibleW : Mathf.Max(0f, column.Width) * scale;
             }
 
             var header = new Rect(rect.x, rect.y, rect.width, rowH);
@@ -65,8 +74,11 @@ namespace SlopWorld
                 var column = columns[i];
                 var cell = new Rect(x, header.y, widths[i], header.height);
                 float pad = Mathf.Min(column.LeftPad, cell.width);
-                UiText.RowLabel(new Rect(cell.x + pad, cell.y,
-                    Mathf.Max(0f, cell.width - pad), cell.height), column.Label, column.Anchor);
+                UiText.RowLabel(
+                    new Rect(cell.x + pad, cell.y, Mathf.Max(0f, cell.width - pad), cell.height),
+                    column.Label,
+                    column.Anchor
+                );
                 x += widths[i];
             }
             Slab.Hairline(new Rect(rect.x, header.yMax - 1f, rect.width, 1f), UiTheme.Edge);

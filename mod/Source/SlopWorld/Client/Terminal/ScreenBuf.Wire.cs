@@ -7,6 +7,7 @@ namespace SlopWorld
     {
         List<int> _changedRows;
         int[] _overlapPrefix = NoChangedRows;
+
         public void FromWire(Wire.ScreenView s)
         {
             string[] previousLines = Lines;
@@ -24,10 +25,14 @@ namespace SlopWorld
 
             Seq = s.Seq;
             InputTimings = s.InputTimings.Count == 0 ? null : s.InputTimings;
-            Cols = Math.Max(TerminalLimits.ClientMinCols,
-                Math.Min(TerminalLimits.ClientMaxCols, (s.HasCols ? (int)s.Cols : 80)));
-            Rows = Math.Max(TerminalLimits.ClientMinRows,
-                Math.Min(TerminalLimits.ClientMaxRows, (s.HasRows ? (int)s.Rows : 24)));
+            Cols = Math.Max(
+                TerminalLimits.ClientMinCols,
+                Math.Min(TerminalLimits.ClientMaxCols, (s.HasCols ? (int)s.Cols : 80))
+            );
+            Rows = Math.Max(
+                TerminalLimits.ClientMinRows,
+                Math.Min(TerminalLimits.ClientMaxRows, (s.HasRows ? (int)s.Rows : 24))
+            );
             Cx = (int)s.Cx;
             Cy = (int)s.Cy;
             Off = (int)s.Off;
@@ -41,26 +46,35 @@ namespace SlopWorld
             ScrollRequestId = (ulong)(long)s.RequestId;
             var values = s.Lines;
             int lineCount = Math.Min(values.Count, TerminalLimits.ClientMaxRows + 1);
-            bool sameShape = previousLines != null && previousLines.Length == lineCount &&
-                previousCols == Cols && previousRows == Rows;
+            bool sameShape =
+                previousLines != null
+                && previousLines.Length == lineCount
+                && previousCols == Cols
+                && previousRows == Rows;
             var nextLines = sameShape ? previousLines : new string[lineCount];
             var changed = _changedRows ?? (_changedRows = new List<int>());
             changed.Clear();
             for (int i = 0; i < lineCount; i++)
             {
                 string line = values[i];
-                if (sameShape && string.Equals(previousLines[i], line,
-                                              System.StringComparison.Ordinal)) continue;
+                if (
+                    sameShape
+                    && string.Equals(previousLines[i], line, System.StringComparison.Ordinal)
+                )
+                    continue;
                 // Keep old strings/arrays intact for scroll detection and retained views.
-                if (sameShape && changed.Count == 0) nextLines = (string[])previousLines.Clone();
+                if (sameShape && changed.Count == 0)
+                    nextLines = (string[])previousLines.Clone();
                 nextLines[i] = line;
                 changed.Add(i);
             }
 
             Lines = nextLines;
             bool contentChanged = !sameShape || changed.Count > 0;
-            if (ContentRevision == 0) ContentRevision = 1;
-            else if (contentChanged) ContentRevision++;
+            if (ContentRevision == 0)
+                ContentRevision = 1;
+            else if (contentChanged)
+                ContentRevision++;
             ChangedRows = changed.Count == 0 ? NoChangedRows : changed.ToArray();
 
             // Keep parsed rows whose source text did not change. Changed rows are left null so
@@ -68,9 +82,10 @@ namespace SlopWorld
             if (sameShape && previousRuns != null && previousRuns.Length == nextLines.Length)
             {
                 // Snapshots share this array, so copy only when invalidating rows.
-                var retained = changed.Count == 0 ? previousRuns :
-                    (List<SgrRun>[])previousRuns.Clone();
-                foreach (int row in changed) retained[row] = null;
+                var retained =
+                    changed.Count == 0 ? previousRuns : (List<SgrRun>[])previousRuns.Clone();
+                foreach (int row in changed)
+                    retained[row] = null;
                 Runs = retained;
                 RunsRev = previousRunsRev;
                 RunsComplete = previousRunsComplete && changed.Count == 0;
@@ -93,30 +108,44 @@ namespace SlopWorld
             // daemon sequence. It is a new observation of the same live epoch, not rows that
             // scrolled while this tab was away. Only a strictly newer frame may move history.
             bool newer = hadSequence && Seq > previousSeq;
-            int visibleShift = Off == 0 && newer &&
-                !previousAltScreen && !AltScreen
-                ? VerticalShift(previousLines, Lines, previousRows, Rows, previousCy)
-                : 0;
-            int historyShift = Off == 0 && newer &&
-                !previousAltScreen && !AltScreen &&
-                History > previousHistory
-                ? History - previousHistory : 0;
+            int visibleShift =
+                Off == 0 && newer && !previousAltScreen && !AltScreen
+                    ? VerticalShift(previousLines, Lines, previousRows, Rows, previousCy)
+                    : 0;
+            int historyShift =
+                Off == 0 && newer && !previousAltScreen && !AltScreen && History > previousHistory
+                    ? History - previousHistory
+                    : 0;
             // Visible-row overlap is precise for small shifts, but it cannot identify a
             // burst that scrolls an entire viewport. The daemon's live history extent supplies
             // that missing signal while the buffer still has room to grow. Once full, the
             // overlap detector remains the fallback.
             // Before the history limit, its extent is authoritative even when unchanged.
             // A TUI repaint can match a suffix of blank/prompt rows without scrolling.
-            LiveShift = History < DaemonCapabilities.Current.Terminal.ScrollbackLines ? historyShift :
-                System.Math.Max(visibleShift, historyShift);
+            LiveShift =
+                History < DaemonCapabilities.Current.Terminal.ScrollbackLines
+                    ? historyShift
+                    : System.Math.Max(visibleShift, historyShift);
         }
 
-        internal int VerticalShift(string[] before, string[] after,
-            int beforeRows, int afterRows, int beforeCy)
+        internal int VerticalShift(
+            string[] before,
+            string[] after,
+            int beforeRows,
+            int afterRows,
+            int beforeCy
+        )
         {
-            if (before == null || after == null || beforeRows < 2 || beforeRows != afterRows ||
-                before.Length != after.Length || before.Length < beforeRows ||
-                beforeCy < beforeRows - 1 || before[beforeRows - 1] == after[afterRows - 1])
+            if (
+                before == null
+                || after == null
+                || beforeRows < 2
+                || beforeRows != afterRows
+                || before.Length != after.Length
+                || before.Length < beforeRows
+                || beforeCy < beforeRows - 1
+                || before[beforeRows - 1] == after[afterRows - 1]
+            )
                 return 0;
 
             // A real terminal scroll leaves the old tail at the new top. The incoming bottom
@@ -132,18 +161,21 @@ namespace SlopWorld
                 }
             }
 
-            if (!changedBeforeBottom) return 0;
+            if (!changedBeforeBottom)
+                return 0;
 
             // Match the longest old suffix to the new prefix in linear row comparisons.
             // Repeated blank/progress rows otherwise retry nearly every candidate shift.
-            if (_overlapPrefix.Length < beforeRows) _overlapPrefix = new int[beforeRows];
+            if (_overlapPrefix.Length < beforeRows)
+                _overlapPrefix = new int[beforeRows];
             _overlapPrefix[0] = 0;
             int matched = 0;
             for (int row = 1; row < beforeRows; row++)
             {
                 while (matched > 0 && after[row] != after[matched])
                     matched = _overlapPrefix[matched - 1];
-                if (after[row] == after[matched]) matched++;
+                if (after[row] == after[matched])
+                    matched++;
                 _overlapPrefix[row] = matched;
             }
             matched = 0;
@@ -152,7 +184,8 @@ namespace SlopWorld
             {
                 while (matched > 0 && before[row] != after[matched])
                     matched = _overlapPrefix[matched - 1];
-                if (before[row] == after[matched]) matched++;
+                if (before[row] == after[matched])
+                    matched++;
             }
             return matched == 0 ? 0 : beforeRows - matched;
         }

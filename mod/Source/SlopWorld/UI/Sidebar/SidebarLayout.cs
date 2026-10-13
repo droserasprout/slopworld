@@ -21,10 +21,8 @@ namespace SlopWorld
             public readonly Dictionary<int, string> Named = new Dictionary<int, string>();
             public readonly List<Pawn> EntryPawns = new List<Pawn>();
             public readonly List<Vector2> PlacedLocations = new List<Vector2>();
-            public readonly Dictionary<string, int> ActiveCounts =
-                new Dictionary<string, int>();
-            public readonly Dictionary<string, int> TotalCounts =
-                new Dictionary<string, int>();
+            public readonly Dictionary<string, int> ActiveCounts = new Dictionary<string, int>();
+            public readonly Dictionary<string, int> TotalCounts = new Dictionary<string, int>();
             public readonly Dictionary<string, int> WorkerCountsByProject =
                 new Dictionary<string, int>();
 
@@ -45,39 +43,75 @@ namespace SlopWorld
             int _projectsRevision = -1;
             int _projectStateRevision = -1;
             int _entryCount = -1;
-            float _width = -1f, _screenHeight = -1f, _bodyHeight = -1f, _textHeight = -1f;
+            float _width = -1f,
+                _screenHeight = -1f,
+                _bodyHeight = -1f,
+                _textHeight = -1f;
             int _workspaceRevision = -1;
-            string _pager, _editor;
+            string _pager,
+                _editor;
             SidebarTab _tab;
             AgentStatusFilter _status;
 
-            public bool Matches(List<ColonistBar.Entry> entries, int count,
-                                SidebarTab tab, long sessionsVersion, int projectsRevision,
-                                int projectStateRevision, AgentStatusFilter status,
-                                float width, float screenHeight, float bodyHeight,
-                                float textHeight, int workspaceRevision, string pager, string editor)
+            public bool Matches(
+                List<ColonistBar.Entry> entries,
+                int count,
+                SidebarTab tab,
+                long sessionsVersion,
+                int projectsRevision,
+                int projectStateRevision,
+                AgentStatusFilter status,
+                float width,
+                float screenHeight,
+                float bodyHeight,
+                float textHeight,
+                int workspaceRevision,
+                string pager,
+                string editor
+            )
             {
-                if (_sessionsVersion != sessionsVersion || _projectsRevision != projectsRevision ||
-                    _projectStateRevision != projectStateRevision || _entryCount != count ||
-                    _tab != tab || _status != status ||
-                    _width != width || _screenHeight != screenHeight ||
-                    _bodyHeight != bodyHeight || _textHeight != textHeight ||
-                    _workspaceRevision != workspaceRevision || _pager != pager || _editor != editor ||
-                    EntryPawns.Count != count)
+                if (
+                    _sessionsVersion != sessionsVersion
+                    || _projectsRevision != projectsRevision
+                    || _projectStateRevision != projectStateRevision
+                    || _entryCount != count
+                    || _tab != tab
+                    || _status != status
+                    || _width != width
+                    || _screenHeight != screenHeight
+                    || _bodyHeight != bodyHeight
+                    || _textHeight != textHeight
+                    || _workspaceRevision != workspaceRevision
+                    || _pager != pager
+                    || _editor != editor
+                    || EntryPawns.Count != count
+                )
                     return false;
 
                 for (int i = 0; i < count; i++)
-                    if (EntryPawns[i] != entries[i].pawn) return false;
+                    if (EntryPawns[i] != entries[i].pawn)
+                        return false;
                 return true;
             }
 
             // Called after placement: retain sidebar coordinates for the next cache hit.
-            public void RememberInputs(List<ColonistBar.Entry> entries, int count,
-                                       SidebarTab tab, long sessionsVersion,
-                                       int projectsRevision, int projectStateRevision,
-                                       AgentStatusFilter status, float width,
-                                       float screenHeight, float bodyHeight, float textHeight,
-                                       List<Vector2> locs, int workspaceRevision, string pager, string editor)
+            public void RememberInputs(
+                List<ColonistBar.Entry> entries,
+                int count,
+                SidebarTab tab,
+                long sessionsVersion,
+                int projectsRevision,
+                int projectStateRevision,
+                AgentStatusFilter status,
+                float width,
+                float screenHeight,
+                float bodyHeight,
+                float textHeight,
+                List<Vector2> locs,
+                int workspaceRevision,
+                string pager,
+                string editor
+            )
             {
                 EntryPawns.Clear();
                 PlacedLocations.Clear();
@@ -103,7 +137,8 @@ namespace SlopWorld
 
             public void RestoreLocations(List<Vector2> locs, int count)
             {
-                for (int i = 0; i < count && i < locs.Count; i++) locs[i] = PlacedLocations[i];
+                for (int i = 0; i < count && i < locs.Count; i++)
+                    locs[i] = PlacedLocations[i];
             }
 
             public void BeginFrame()
@@ -114,9 +149,12 @@ namespace SlopWorld
                 ViewRows.Clear();
                 // Routed membership has its own session/filter/reader revision cache.
 
-                foreach (var list in Buckets.Values) list.Clear();
-                foreach (var list in Ghosts.Values) list.Clear();
-                foreach (var list in WorkersByParentSession.Values) list.Clear();
+                foreach (var list in Buckets.Values)
+                    list.Clear();
+                foreach (var list in Ghosts.Values)
+                    list.Clear();
+                foreach (var list in WorkersByParentSession.Values)
+                    list.Clear();
                 ActiveCounts.Clear();
                 TotalCounts.Clear();
                 WorkerCountsByProject.Clear();

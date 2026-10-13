@@ -16,7 +16,8 @@ namespace SlopWorld
         {
             var content = WorkspaceLayout.Current.Content;
             float full = UI.screenWidth;
-            if (content.width >= full - 0.01f || full <= 0.01f) return;
+            if (content.width >= full - 0.01f || full <= 0.01f)
+                return;
 
             float squeeze = content.width / full;
             rect.x = content.x + rect.x * squeeze;
@@ -39,7 +40,8 @@ namespace SlopWorld
 
         static void Finalizer(bool __state)
         {
-            if (__state) GUI.EndGroup();
+            if (__state)
+                GUI.EndGroup();
         }
     }
 
@@ -50,7 +52,8 @@ namespace SlopWorld
         static void Postfix(ref Rect __result)
         {
             var content = WorkspaceLayout.Current.Content;
-            if (content.width >= UI.screenWidth - 0.01f) return;
+            if (content.width >= UI.screenWidth - 0.01f)
+                return;
             __result.x += content.x;
         }
     }
@@ -72,16 +75,19 @@ namespace SlopWorld
         public static void Reposition()
         {
             var windows = Find.WindowStack?.Windows;
-            if (windows == null) return;
+            if (windows == null)
+                return;
             foreach (var window in windows)
-                if (window is MainTabWindow pane) ShiftPane(pane);
+                if (window is MainTabWindow pane)
+                    ShiftPane(pane);
         }
 
         static void ShiftPane(MainTabWindow pane)
         {
             var content = WorkspaceLayout.Current.Content;
             var r = pane.windowRect;
-            if (pane.Anchor != MainTabWindowAnchor.Left && pane.Anchor != MainTabWindowAnchor.Right) return;
+            if (pane.Anchor != MainTabWindowAnchor.Left && pane.Anchor != MainTabWindowAnchor.Right)
+                return;
             if (!NaturalWidths.TryGetValue(pane, out float natural))
             {
                 natural = r.width;

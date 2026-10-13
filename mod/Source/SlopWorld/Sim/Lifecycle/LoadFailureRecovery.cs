@@ -15,7 +15,8 @@ namespace SlopWorld
         internal static void Begin(Exception error)
         {
             Log.Error($"[SlopWorld] colony load failed: {error}");
-            if (Pending) return;
+            if (Pending)
+                return;
             // Arm before GoToMainMenu: its save prefix must not save a partial game.
             Pending = true;
             _notice = null;
@@ -27,32 +28,40 @@ namespace SlopWorld
         {
             // Scene transitions replace the window stack. Deliver only after the
             // entry scene is idle, from Root.Update rather than the loading thread.
-            if (!Pending || LongEventHandler.AnyEventNowOrWaiting || !GenScene.InEntryScene) return;
+            if (!Pending || LongEventHandler.AnyEventNowOrWaiting || !GenScene.InEntryScene)
+                return;
             var stack = Find.WindowStack;
-            if (stack == null || (_notice != null && stack.IsOpen(_notice))) return;
+            if (stack == null || (_notice != null && stack.IsOpen(_notice)))
+                return;
 
-            _notice = AlertDialog.Create("Could not load colony",
-                "SlopWorld could not load the saved colony. The save may be damaged.\n\n" +
-                "Your configuration, local agent data, and daemon are unaffected. " +
-                "The colony is purely cosmetic.\n\n" +
-                "Start a new colony to continue. Existing saves have been kept. " +
-                "Details are in the game log.",
-                "New colony", StartNewColony);
+            _notice = AlertDialog.Create(
+                "Could not load colony",
+                "SlopWorld could not load the saved colony. The save may be damaged.\n\n"
+                    + "Your configuration, local agent data, and daemon are unaffected. "
+                    + "The colony is purely cosmetic.\n\n"
+                    + "Start a new colony to continue. Existing saves have been kept. "
+                    + "Details are in the game log.",
+                "New colony",
+                StartNewColony
+            );
             _notice.closeOnCancel = false;
             stack.Add(_notice);
         }
 
         static void StartNewColony()
         {
-            if (!Pending) return;
+            if (!Pending)
+                return;
             Pending = false;
             _notice = null;
             QuickStart.Queue();
         }
     }
 
-    [HarmonyPatch(typeof(GameAndMapInitExceptionHandlers),
-        nameof(GameAndMapInitExceptionHandlers.ErrorWhileLoadingGame))]
+    [HarmonyPatch(
+        typeof(GameAndMapInitExceptionHandlers),
+        nameof(GameAndMapInitExceptionHandlers.ErrorWhileLoadingGame)
+    )]
     internal static class Patch_LoadFailureRecovery
     {
         static bool Prefix(Exception e)

@@ -52,9 +52,14 @@ namespace SlopWorld
             public readonly Func<IOptionPage> PageFactory;
             public readonly PageId? Parent;
 
-            public TabSpec(PageId key, string defName, string label,
-                Func<Texture2D> icon, Func<IOptionPage> pageFactory,
-                PageId? parent = null)
+            public TabSpec(
+                PageId key,
+                string defName,
+                string label,
+                Func<Texture2D> icon,
+                Func<IOptionPage> pageFactory,
+                PageId? parent = null
+            )
             {
                 Key = key;
                 DefName = defName;
@@ -68,52 +73,172 @@ namespace SlopWorld
         // Define categories and page factories in display order.
         static readonly TabSpec[] TabSpecs =
         {
-            new TabSpec(PageId.Config, "SlopWorld_Config", "General", () => Icons.Gear,
-                () => new ConfigPage()),
-            new TabSpec(PageId.Display, "SlopWorld_Display", "Display", () => Icons.Display,
-                () => new DisplayPage()),
-            new TabSpec(PageId.Appearance, "SlopWorld_Appearance", "Appearance", () => Icons.Type,
-                null),
-            new TabSpec(PageId.AppearanceInterface, "SlopWorld_AppearanceInterface", "Interface",
-                null, () => new AppearancePage(), PageId.Appearance),
-            new TabSpec(PageId.AppearanceWorkspace, "SlopWorld_AppearanceWorkspace", "Workspace",
-                null, () => new WorkspacePage(), PageId.Appearance),
-            new TabSpec(PageId.Terminal, "SlopWorld_Terminal", "Terminal", null,
-                () => new TerminalPage(), PageId.Appearance),
-            new TabSpec(PageId.AppearanceCode, "SlopWorld_AppearanceCode", "Code", null,
-                () => new CodePage(), PageId.Appearance),
-            new TabSpec(PageId.Integrations, "SlopWorld_Integrations", "Integrations",
-                () => Icons.Link, null),
-            new TabSpec(PageId.Credentials, "SlopWorld_Credentials", "Credentials", null,
-                () => new IntegrationsPage(), PageId.Integrations),
-            new TabSpec(PageId.Usage, "SlopWorld_Usage", "Usage", null,
-                () => new UsagePage(), PageId.Integrations),
-            new TabSpec(PageId.Agents, "SlopWorld_Agents", "Agents", () => Icons.Agents,
-                null),
-            new TabSpec(PageId.Summaries, "SlopWorld_Summaries", "Summaries", null,
-                () => new SummariesPage(), PageId.Agents),
-            new TabSpec(PageId.Workers, "SlopWorld_Workers", "Workers", null,
-                () => new WorkersPage(), PageId.Agents),
-            new TabSpec(PageId.Sandbox, "SlopWorld_Sandbox", "Sandbox", () => Icons.Shield,
-                () => new SandboxPage(SandboxPage.Section.SandboxPresets)),
-            new TabSpec(PageId.Storage, "SlopWorld_Storage", "Storage", () => Icons.Files,
-                () => new StoragePage()),
-            new TabSpec(PageId.Commands, "SlopWorld_Commands", "Commands", () => Icons.Terminal,
-                null),
-            new TabSpec(PageId.CommandDefaults, "SlopWorld_CommandDefaults", "Defaults", null,
-                () => new CommandsPage(), PageId.Commands),
-            new TabSpec(PageId.AppPresets, "SlopWorld_AppPresets", "Apps", null,
-                () => new SandboxPage(SandboxPage.Section.AppPresets), PageId.Commands),
-            new TabSpec(PageId.CommandBinaries, "SlopWorld_CommandBinaries", "Binaries", null,
-                () => new BinariesPage(), PageId.Commands),
-            new TabSpec(PageId.Keyboard, "SlopWorld_Keyboard", "Keyboard", () => Icons.Keyboard,
-                () => new KeyBindingsPage()),
-            new TabSpec(PageId.Audio, "SlopWorld_Audio", "Audio", () => Icons.Bell,
-                () => new AudioPage()),
-            new TabSpec(PageId.RimWorld, "SlopWorld_RimWorld", "RimWorld", () => Icons.RimWorld,
-                () => new RimWorldPage()),
-            new TabSpec(PageId.About, "SlopWorld_About", "About", () => Icons.Trophy,
-                () => new AboutPage()),
+            new TabSpec(
+                PageId.Config,
+                "SlopWorld_Config",
+                "General",
+                () => Icons.Gear,
+                () => new ConfigPage()
+            ),
+            new TabSpec(
+                PageId.Display,
+                "SlopWorld_Display",
+                "Display",
+                () => Icons.Display,
+                () => new DisplayPage()
+            ),
+            new TabSpec(
+                PageId.Appearance,
+                "SlopWorld_Appearance",
+                "Appearance",
+                () => Icons.Type,
+                null
+            ),
+            new TabSpec(
+                PageId.AppearanceInterface,
+                "SlopWorld_AppearanceInterface",
+                "Interface",
+                null,
+                () => new AppearancePage(),
+                PageId.Appearance
+            ),
+            new TabSpec(
+                PageId.AppearanceWorkspace,
+                "SlopWorld_AppearanceWorkspace",
+                "Workspace",
+                null,
+                () => new WorkspacePage(),
+                PageId.Appearance
+            ),
+            new TabSpec(
+                PageId.Terminal,
+                "SlopWorld_Terminal",
+                "Terminal",
+                null,
+                () => new TerminalPage(),
+                PageId.Appearance
+            ),
+            new TabSpec(
+                PageId.AppearanceCode,
+                "SlopWorld_AppearanceCode",
+                "Code",
+                null,
+                () => new CodePage(),
+                PageId.Appearance
+            ),
+            new TabSpec(
+                PageId.Integrations,
+                "SlopWorld_Integrations",
+                "Integrations",
+                () => Icons.Link,
+                null
+            ),
+            new TabSpec(
+                PageId.Credentials,
+                "SlopWorld_Credentials",
+                "Credentials",
+                null,
+                () => new IntegrationsPage(),
+                PageId.Integrations
+            ),
+            new TabSpec(
+                PageId.Usage,
+                "SlopWorld_Usage",
+                "Usage",
+                null,
+                () => new UsagePage(),
+                PageId.Integrations
+            ),
+            new TabSpec(PageId.Agents, "SlopWorld_Agents", "Agents", () => Icons.Agents, null),
+            new TabSpec(
+                PageId.Summaries,
+                "SlopWorld_Summaries",
+                "Summaries",
+                null,
+                () => new SummariesPage(),
+                PageId.Agents
+            ),
+            new TabSpec(
+                PageId.Workers,
+                "SlopWorld_Workers",
+                "Workers",
+                null,
+                () => new WorkersPage(),
+                PageId.Agents
+            ),
+            new TabSpec(
+                PageId.Sandbox,
+                "SlopWorld_Sandbox",
+                "Sandbox",
+                () => Icons.Shield,
+                () => new SandboxPage(SandboxPage.Section.SandboxPresets)
+            ),
+            new TabSpec(
+                PageId.Storage,
+                "SlopWorld_Storage",
+                "Storage",
+                () => Icons.Files,
+                () => new StoragePage()
+            ),
+            new TabSpec(
+                PageId.Commands,
+                "SlopWorld_Commands",
+                "Commands",
+                () => Icons.Terminal,
+                null
+            ),
+            new TabSpec(
+                PageId.CommandDefaults,
+                "SlopWorld_CommandDefaults",
+                "Defaults",
+                null,
+                () => new CommandsPage(),
+                PageId.Commands
+            ),
+            new TabSpec(
+                PageId.AppPresets,
+                "SlopWorld_AppPresets",
+                "Apps",
+                null,
+                () => new SandboxPage(SandboxPage.Section.AppPresets),
+                PageId.Commands
+            ),
+            new TabSpec(
+                PageId.CommandBinaries,
+                "SlopWorld_CommandBinaries",
+                "Binaries",
+                null,
+                () => new BinariesPage(),
+                PageId.Commands
+            ),
+            new TabSpec(
+                PageId.Keyboard,
+                "SlopWorld_Keyboard",
+                "Keyboard",
+                () => Icons.Keyboard,
+                () => new KeyBindingsPage()
+            ),
+            new TabSpec(
+                PageId.Audio,
+                "SlopWorld_Audio",
+                "Audio",
+                () => Icons.Bell,
+                () => new AudioPage()
+            ),
+            new TabSpec(
+                PageId.RimWorld,
+                "SlopWorld_RimWorld",
+                "RimWorld",
+                () => Icons.RimWorld,
+                () => new RimWorldPage()
+            ),
+            new TabSpec(
+                PageId.About,
+                "SlopWorld_About",
+                "About",
+                () => Icons.Trophy,
+                () => new AboutPage()
+            ),
         };
 
         // Indent child rows without icons. A parent without a page selects its first child.
@@ -129,8 +254,13 @@ namespace SlopWorld
             readonly ScrollWheelRouter _wheel = new ScrollWheelRouter();
             FieldLifetime _fields = new FieldLifetime();
 
-            public Tab(PageId key, OptionCategoryDef def, Func<Texture2D> icon,
-                Func<IOptionPage> pageFactory, Tab parent)
+            public Tab(
+                PageId key,
+                OptionCategoryDef def,
+                Func<Texture2D> icon,
+                Func<IOptionPage> pageFactory,
+                Tab parent
+            )
             {
                 Key = key;
                 Def = def;
@@ -157,26 +287,32 @@ namespace SlopWorld
             public void Draw(Rect rect)
             {
                 var page = Page;
-                if (page == null) return;
+                if (page == null)
+                    return;
                 var window = Find.WindowStack?.currentlyDrawnWindow;
                 bool input = window == null || Find.WindowStack.GetsInput(window);
                 bool capturing = page is KeyBindingsPage keys && keys.Listening;
-                _wheel.Draw(rect, () =>
-                {
-                    using (FieldLifetimeScope.Push(_fields))
-                    using (new FieldFocusScope(_fields, input && !capturing))
-                        page.Draw(rect);
-                });
+                _wheel.Draw(
+                    rect,
+                    () =>
+                    {
+                        using (FieldLifetimeScope.Push(_fields))
+                        using (new FieldFocusScope(_fields, input && !capturing))
+                            page.Draw(rect);
+                    }
+                );
             }
 
-            public T PageOf<T>() where T : class, IOptionPage => Page as T;
+            public T PageOf<T>()
+                where T : class, IOptionPage => Page as T;
 
             public void Teardown()
             {
                 _wheel.Invalidate();
                 _fields.Cancel();
                 _fields = new FieldLifetime();
-                if (_page is IDisposable disposable) disposable.Dispose();
+                if (_page is IDisposable disposable)
+                    disposable.Dispose();
                 _page = null;
             }
         }
@@ -194,14 +330,16 @@ namespace SlopWorld
             get
             {
                 var view = TerminalWindow.ShowingAs<OptionsView>();
-                if (view == null || view.Category != CategoryFor(PageId.Keyboard)) return false;
+                if (view == null || view.Category != CategoryFor(PageId.Keyboard))
+                    return false;
                 return TabFor(PageId.Keyboard)?.PageOf<KeyBindingsPage>()?.Listening == true;
             }
         }
 
         public static void Install()
         {
-            if (Column.Count > 0) return;
+            if (Column.Count > 0)
+                return;
 
             var general = OptionCategoryDefOf.General;
             if (general == null)
@@ -231,12 +369,14 @@ namespace SlopWorld
             }
 
             // Hide the duplicate Audio category because the mod Audio page provides its controls. Retain the definition.
-            if (OptionCategoryDefOf.Audio != null) OptionCategoryDefOf.Audio.isDev = true;
+            if (OptionCategoryDefOf.Audio != null)
+                OptionCategoryDefOf.Audio.isDev = true;
         }
 
         static void HideMergedCategory(OptionCategoryDef category)
         {
-            if (category != null) category.isDev = true;
+            if (category != null)
+                category.isDev = true;
         }
 
         static Tab Add(TabSpec spec, OptionCategoryDef general)
@@ -265,18 +405,22 @@ namespace SlopWorld
 
         static Tab TabOf(OptionCategoryDef category)
         {
-            if (category == null) return null;
+            if (category == null)
+                return null;
             for (int i = 0; i < Column.Count; i++)
-                if (Column[i].Def == category) return Column[i];
+                if (Column[i].Def == category)
+                    return Column[i];
             return null;
         }
 
         // Return no child for a null parent. Otherwise, the search would match a top-level tab.
         static Tab FirstChild(Tab parent)
         {
-            if (parent == null) return null;
+            if (parent == null)
+                return null;
             for (int i = 0; i < Column.Count; i++)
-                if (Column[i].Parent == parent) return Column[i];
+                if (Column[i].Parent == parent)
+                    return Column[i];
             return null;
         }
 
@@ -287,8 +431,7 @@ namespace SlopWorld
         }
 
         // Select the tab page, or its first child if the tab has no page.
-        static Tab Target(Tab tab) =>
-            tab == null || tab.HasPage ? tab : FirstChild(tab);
+        static Tab Target(Tab tab) => tab == null || tab.HasPage ? tab : FirstChild(tab);
 
         // Page navigation.
 
@@ -296,7 +439,8 @@ namespace SlopWorld
         {
             var tab = TabFor(PageId.Sandbox);
             var page = tab?.PageOf<SandboxPage>();
-            if (page == null) return;
+            if (page == null)
+                return;
             page.NewPreset();
             OpenCategory(tab.Def);
         }
@@ -305,7 +449,8 @@ namespace SlopWorld
         {
             var tab = TabFor(PageId.AppPresets);
             var page = tab?.PageOf<SandboxPage>();
-            if (page == null) return;
+            if (page == null)
+                return;
             page.NewCommand();
             OpenCategory(tab.Def);
         }
@@ -314,7 +459,8 @@ namespace SlopWorld
         {
             var tab = TabFor(PageId.Sandbox);
             var page = tab?.PageOf<SandboxPage>();
-            if (page == null) return;
+            if (page == null)
+                return;
             page.SelectPreset(name);
             OpenCategory(tab.Def);
         }
@@ -323,7 +469,8 @@ namespace SlopWorld
         {
             var tab = TabFor(PageId.AppPresets);
             var page = tab?.PageOf<SandboxPage>();
-            if (page == null) return;
+            if (page == null)
+                return;
             page.SelectCommand(name);
             OpenCategory(tab.Def);
         }
@@ -334,28 +481,34 @@ namespace SlopWorld
         // OptionsView.Closed calls this before closing the view.
         public static void Remember(OptionCategoryDef category)
         {
-            if (category != null) _lastCategory = category;
+            if (category != null)
+                _lastCategory = category;
         }
 
         // Toggle the options content view from the Config button.
         // Reopen the last category, or Config on first use.
         // Use a content view so the surrounding interface can still receive input.
         public static void Toggle() =>
-            TerminalWindow.ToggleContent(() => new OptionsView(_lastCategory
-                ?? CategoryFor(PageId.Config)));
+            TerminalWindow.ToggleContent(() =>
+                new OptionsView(_lastCategory ?? CategoryFor(PageId.Config))
+            );
 
         // Open the category in the current options view, or create a view if necessary.
         // Palette entries and page links use this method.
         public static void OpenCategory(OptionCategoryDef category)
         {
-            if (category == null) return;
+            if (category == null)
+                return;
 
             var target = Target(TabOf(category));
-            if (target != null) category = target.Def;
+            if (target != null)
+                category = target.Def;
 
             var v = TerminalWindow.ShowingAs<OptionsView>();
-            if (v == null) TerminalWindow.OpenContent(new OptionsView(category));
-            else v.Category = category;
+            if (v == null)
+                TerminalWindow.OpenContent(new OptionsView(category));
+            else
+                v.Category = category;
         }
 
         // Open the Audio page from the jukebox Settings action.
@@ -368,15 +521,16 @@ namespace SlopWorld
                 TerminalWindow.OpenContent(new OptionsView(category));
                 return;
             }
-            if (category != null) v.Category = category;
+            if (category != null)
+                v.Category = category;
         }
 
         // Release page instances and save settings when the view or window closes.
         public static void Teardown()
         {
-            foreach (var tab in Column) tab.Teardown();
+            foreach (var tab in Column)
+                tab.Teardown();
             ModEntry.Instance.settings.Write();
         }
-
     }
 }

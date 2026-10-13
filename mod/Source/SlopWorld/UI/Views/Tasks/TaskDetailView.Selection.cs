@@ -23,7 +23,8 @@ namespace SlopWorld
                 for (int i = first; i < _selectionLines.Count; i++)
                 {
                     var line = _selectionLines[i];
-                    if (line.Y >= bottom) break;
+                    if (line.Y >= bottom)
+                        break;
                     Widgets.Label(new Rect(line.X, line.Y, line.Width, line.Height), line.Text);
                 }
             }
@@ -39,15 +40,20 @@ namespace SlopWorld
         bool HandleSenderClicks(Rect viewport)
         {
             var e = Event.current;
-            if (e == null || e.button != 0 || UiEvent.RawType(e) != EventType.MouseDown ||
-                !viewport.Contains(e.mousePosition))
+            if (
+                e == null
+                || e.button != 0
+                || UiEvent.RawType(e) != EventType.MouseDown
+                || !viewport.Contains(e.mousePosition)
+            )
                 return false;
 
             foreach (var hit in _senderHits)
             {
                 var avatar = ScreenRect(viewport, hit.Avatar);
                 var name = ScreenRect(viewport, hit.Name);
-                if (!avatar.Contains(e.mousePosition) && !name.Contains(e.mousePosition)) continue;
+                if (!avatar.Contains(e.mousePosition) && !name.Contains(e.mousePosition))
+                    continue;
 
                 _selectionClicks.Reset();
                 AgentSidebar.FocusAgent(hit.Sender);
@@ -57,17 +63,25 @@ namespace SlopWorld
             return false;
         }
 
-        Rect ScreenRect(Rect viewport, Rect content) => new Rect(
-            viewport.x + content.x - _scroll.Position.x,
-            viewport.y + content.y - _scroll.Position.y,
-            content.width, content.height);
+        Rect ScreenRect(Rect viewport, Rect content) =>
+            new Rect(
+                viewport.x + content.x - _scroll.Position.x,
+                viewport.y + content.y - _scroll.Position.y,
+                content.width,
+                content.height
+            );
 
         void HandleSelectionInput(Rect viewport)
         {
             var e = Event.current;
-            if (e == null) return;
+            if (e == null)
+                return;
             var type = UiEvent.RawType(e);
-            if (type == EventType.KeyDown) { _selection.HandleKey(e); return; }
+            if (type == EventType.KeyDown)
+            {
+                _selection.HandleKey(e);
+                return;
+            }
             if (e.button == 1 && type == EventType.MouseDown && viewport.Contains(e.mousePosition))
             {
                 _selectionClicks.Reset();
@@ -75,7 +89,8 @@ namespace SlopWorld
                 e.Use();
                 return;
             }
-            if (e.button != 0) return;
+            if (e.button != 0)
+                return;
             if (type == EventType.MouseDown)
             {
                 if (!viewport.Contains(e.mousePosition))
@@ -85,10 +100,13 @@ namespace SlopWorld
                 }
                 int clicks = _selectionClicks.Observe(e, Time.realtimeSinceStartup);
                 _selection.BeginMouse(viewport, e, clicks, _scroll.Position);
-                if (clicks >= 3) _selectionClicks.Reset();
+                if (clicks >= 3)
+                    _selectionClicks.Reset();
             }
-            else if (type == EventType.MouseDrag) _selection.DragMouse(viewport, e, _scroll.Position);
-            else if (type == EventType.MouseUp) _selection.EndMouse(viewport, e, _scroll.Position);
+            else if (type == EventType.MouseDrag)
+                _selection.DragMouse(viewport, e, _scroll.Position);
+            else if (type == EventType.MouseUp)
+                _selection.EndMouse(viewport, e, _scroll.Position);
         }
 
         void ClearSelection()
@@ -101,14 +119,17 @@ namespace SlopWorld
         {
             var messages = new List<string>
             {
-                "Message from " + SenderLabel(_task.From) + "  ·  " +
-                    Timestamp(_task.CreatedMs),
-                _task.Body ?? ""
+                "Message from " + SenderLabel(_task.From) + "  ·  " + Timestamp(_task.CreatedMs),
+                _task.Body ?? "",
             };
             if (!string.IsNullOrEmpty(_task.Note))
             {
-                messages.Add("Latest note from " + SenderLabel(_task.To) + "  ·  " +
-                    Timestamp(_task.UpdatedMs));
+                messages.Add(
+                    "Latest note from "
+                        + SenderLabel(_task.To)
+                        + "  ·  "
+                        + Timestamp(_task.UpdatedMs)
+                );
                 messages.Add(_task.Note);
             }
             return string.Join("\n\n", messages.ToArray());

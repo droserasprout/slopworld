@@ -7,6 +7,7 @@ namespace SlopWorld
     {
         // Mouse-wheel scrollback: lines scrolled up from the live bottom.
         int _scrollOff;
+
         // Leading-edge throttle: the first request sends immediately, then the rest ride the
         // display beat. The wanted offset is the newest prefetch target and the sent offset
         // is what was last sent. Request ids retain their own offsets until answered, so a
@@ -17,6 +18,7 @@ namespace SlopWorld
         bool _scrollPending;
         bool _lastWheelUp;
         bool _hasWheelDirection;
+
         // SessionStore keeps the last reply by session, including while a window is closed.
         // A process-wide id prevents a newly opened window's first request from colliding
         // with that retained reply.
@@ -42,7 +44,8 @@ namespace SlopWorld
         void SyncHistoryConnection()
         {
             int generation = SessionHub.Instance.ConnectionGeneration;
-            if (_historyConnectionGeneration == generation) return;
+            if (_historyConnectionGeneration == generation)
+                return;
             _historyConnectionGeneration = generation;
 
             _historyCaches.Clear();
@@ -70,7 +73,8 @@ namespace SlopWorld
 
         internal void JumpToLive()
         {
-            if (TerminalLatency.Enabled) TerminalLatency.Timeline.CancelScroll(this);
+            if (TerminalLatency.Enabled)
+                TerminalLatency.Timeline.CancelScroll(this);
             _scrollOff = 0;
             _wantedScrollOff = 0;
             _scrollPending = false;
@@ -91,20 +95,25 @@ namespace SlopWorld
         {
             float now = Time.realtimeSinceStartup;
             ScrollDebugInput();
-            _wantedScrollOff = Mathf.Clamp(requestOff >= 0 ? requestOff : _scrollOff, 0,
-                TerminalHistory.ScrollLimit(SessionHub.Instance.Screen(_state.Name)));
+            _wantedScrollOff = Mathf.Clamp(
+                requestOff >= 0 ? requestOff : _scrollOff,
+                0,
+                TerminalHistory.ScrollLimit(SessionHub.Instance.Screen(_state.Name))
+            );
             _scrollPending = true;
             ScrollDebugQueued(_wantedScrollOff);
-            bool fresh = fromLive || !_hasWheelDirection || up != _lastWheelUp ||
-                now >= _nextScrollSend;
+            bool fresh =
+                fromLive || !_hasWheelDirection || up != _lastWheelUp || now >= _nextScrollSend;
             _lastWheelUp = up;
             _hasWheelDirection = true;
-            if (fresh) SendPendingScroll();
+            if (fresh)
+                SendPendingScroll();
         }
 
         void PrepareHistoryScroll(float cellH, ScreenBuf live)
         {
-            if (cellH <= 0.01f) return;
+            if (cellH <= 0.01f)
+                return;
 
             float max = cellH * TerminalHistory.ScrollLimit(live);
             if (!_historyScrollReady || Mathf.Abs(_historyMax - max) > 0.01f)
@@ -119,10 +128,11 @@ namespace SlopWorld
 
             if (_historyJumpPending)
             {
-                float pixels = _historyJumpPixels >= 0f
-                    ? _historyJumpPixels : _historyJumpOff * cellH;
-                _historyScroll.JumpTo(new Vector2(0f,
-                    Mathf.Clamp(_historyMax - pixels, 0f, _historyMax)));
+                float pixels =
+                    _historyJumpPixels >= 0f ? _historyJumpPixels : _historyJumpOff * cellH;
+                _historyScroll.JumpTo(
+                    new Vector2(0f, Mathf.Clamp(_historyMax - pixels, 0f, _historyMax))
+                );
                 _historyJumpPending = false;
                 _historyJumpPixels = -1f;
             }
@@ -134,14 +144,16 @@ namespace SlopWorld
         // Retain the fractional local position while fetching overlapping whole-line windows.
         void UpdateHistoryTarget(float cellH, ScreenBuf live)
         {
-            if (!_historyScrollReady || cellH <= 0.01f) return;
+            if (!_historyScrollReady || cellH <= 0.01f)
+                return;
 
             float pixels = HistoryOffsetPixels();
             if (Mathf.Abs(pixels - _historyLastPixels) > 0.01f)
                 ScrollDebugInput();
-            int target = pixels <= 0.01f
-                ? 0
-                : Mathf.Clamp(Mathf.CeilToInt(pixels / cellH - 0.0001f), 1, MaxScrollLines);
+            int target =
+                pixels <= 0.01f
+                    ? 0
+                    : Mathf.Clamp(Mathf.CeilToInt(pixels / cellH - 0.0001f), 1, MaxScrollLines);
             int limit = TerminalHistory.ScrollLimit(live);
             if (target > limit)
             {
@@ -150,7 +162,8 @@ namespace SlopWorld
             }
 
             int previous = _scrollOff;
-            bool up = pixels > _historyLastPixels + 0.01f ? true
+            bool up =
+                pixels > _historyLastPixels + 0.01f ? true
                 : pixels < _historyLastPixels - 0.01f ? false
                 : target >= previous;
             _historyLastPixels = pixels;
@@ -192,10 +205,18 @@ namespace SlopWorld
         }
 
         // Visible gaps outrank speculative lookahead; refresh keeps the old display as a bridge.
-        int PlanHistoryRequest(ScreenBuf live, int target, float pixels, float cellH,
-                               bool up, bool fromLive, int limit)
+        int PlanHistoryRequest(
+            ScreenBuf live,
+            int target,
+            float pixels,
+            float cellH,
+            bool up,
+            bool fromLive,
+            int limit
+        )
         {
-            if (_historyRefreshPending && !HistoryRequestPending(target)) return target;
+            if (_historyRefreshPending && !HistoryRequestPending(target))
+                return target;
             int rows = Mathf.Max(2, live?.Rows ?? (_state.Rows > 0 ? _state.Rows : 24));
             int lookahead = Mathf.Max(2, rows / 2);
             bool fractional = Mathf.Abs(pixels / cellH - Mathf.Round(pixels / cellH)) > 0.0001f;
@@ -203,7 +224,8 @@ namespace SlopWorld
                 return _history.PrefetchOffset(target, rows, up, limit);
             if (fromLive && target <= lookahead)
                 return TerminalHistory.PrefetchAnchor(target, lookahead, up, limit);
-            if (!_history.Covers(target, false)) return target;
+            if (!_history.Covers(target, false))
+                return target;
             // Only the fractional edge is missing: bridge toward the live viewport.
             return Mathf.Max(1, target - lookahead);
         }
@@ -211,21 +233,28 @@ namespace SlopWorld
         bool HistoryRequestPending(int off)
         {
             foreach (var requested in _historyRequests.Values)
-                if (requested.Offset == off) return true;
+                if (requested.Offset == off)
+                    return true;
             return _scrollPending && _wantedScrollOff == off;
         }
 
         void WarmHistory(ScreenBuf live)
         {
             var hub = SessionHub.Instance;
-            if (!hub.Online || _state.SizeDirty || IsEditorSession() ||
-                _historyRequests.Count > 0 || live == null ||
-                (_state.Cols > 0 && live.Cols != _state.Cols) ||
-                (_state.Rows > 0 && live.Rows != _state.Rows))
+            if (
+                !hub.Online
+                || _state.SizeDirty
+                || IsEditorSession()
+                || _historyRequests.Count > 0
+                || live == null
+                || (_state.Cols > 0 && live.Cols != _state.Cols)
+                || (_state.Rows > 0 && live.Rows != _state.Rows)
+            )
                 return;
 
             int offset = _history.WarmupOffset(live);
-            if (offset <= 0) return;
+            if (offset <= 0)
+                return;
             if (!_historyWarmed)
             {
                 _history.Reset(live);
@@ -240,8 +269,11 @@ namespace SlopWorld
 
         internal void JumpHistoryTo(int off)
         {
-            off = Mathf.Clamp(off, 0,
-                TerminalHistory.ScrollLimit(SessionHub.Instance.Screen(_state.Name)));
+            off = Mathf.Clamp(
+                off,
+                0,
+                TerminalHistory.ScrollLimit(SessionHub.Instance.Screen(_state.Name))
+            );
             _historyJumpPending = true;
             _historyJumpOff = off;
             _historyJumpPixels = -1f;
@@ -254,19 +286,21 @@ namespace SlopWorld
             }
         }
 
-
         void SendPendingScroll()
         {
-            if (!_scrollPending) return;
+            if (!_scrollPending)
+                return;
 
             // The daemon reads this socket sequentially and awaits each capture. More than one
             // in flight turns fast touchpad movement into a FIFO of obsolete viewports ahead of
             // the current target. Keep the newest wanted offset pending until this reply drains.
-            if (_historyRequests.Count > 0) return;
+            if (_historyRequests.Count > 0)
+                return;
 
             _scrollPending = false;
 
-            if (_wantedScrollOff <= 0) return;
+            if (_wantedScrollOff <= 0)
+                return;
 
             _sentScrollOff = _wantedScrollOff;
             _nextScrollSend = Time.realtimeSinceStartup + ScrollBeat;

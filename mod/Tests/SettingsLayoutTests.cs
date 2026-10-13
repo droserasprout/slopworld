@@ -5,16 +5,16 @@ namespace SlopWorld.Tests
         public static void Bounds()
         {
             foreach (float width in new[] { 0f, 3f, 300f, 900f })
-                foreach (float height in new[] { 0f, 2f, 25f, 600f })
-                {
-                    var page = new UiLayoutRect(17f, 31f, width, height);
-                    var body = SettingsLayout.Body(page, 16f, 32f, 8f);
-                    var footer = SettingsLayout.Footer(page, 32f);
-                    Contained(page, body);
-                    Contained(page, footer);
-                    AssertEx.True(body.YMax <= footer.Y, "body never overlaps footer");
-                    Contained(page, SettingsLayout.Body(page, 16f, 0f, 8f));
-                }
+            foreach (float height in new[] { 0f, 2f, 25f, 600f })
+            {
+                var page = new UiLayoutRect(17f, 31f, width, height);
+                var body = SettingsLayout.Body(page, 16f, 32f, 8f);
+                var footer = SettingsLayout.Footer(page, 32f);
+                Contained(page, body);
+                Contained(page, footer);
+                AssertEx.True(body.YMax <= footer.Y, "body never overlaps footer");
+                Contained(page, SettingsLayout.Body(page, 16f, 0f, 8f));
+            }
             var representative = new UiLayoutRect(17f, 31f, 300f, 600f);
             var expectedBody = SettingsLayout.Body(representative, 16f, 32f, 8f);
             var expectedFooter = SettingsLayout.Footer(representative, 32f);
@@ -25,17 +25,25 @@ namespace SlopWorld.Tests
             AssertEx.Equal(599f, expectedFooter.Y, "footer bottom alignment");
             AssertEx.Equal(representative.YMax, expectedFooter.YMax, "footer ends at page bottom");
             var full = new UiLayoutRect(0f, 0f, 500f, 600f);
-            AssertEx.Equal(40f, SettingsLayout.Body(full, 16f, 0f, 8f).Height -
-                SettingsLayout.Body(full, 16f, 32f, 8f).Height,
-                "pages without a footer recover its height and gap");
+            AssertEx.Equal(
+                40f,
+                SettingsLayout.Body(full, 16f, 0f, 8f).Height
+                    - SettingsLayout.Body(full, 16f, 32f, 8f).Height,
+                "pages without a footer recover its height and gap"
+            );
         }
 
         static void Contained(UiLayoutRect parent, UiLayoutRect child)
         {
-            AssertEx.True(child.Width >= 0f && child.Height >= 0f &&
-                child.X >= parent.X && child.Y >= parent.Y &&
-                child.XMax <= parent.XMax && child.YMax <= parent.YMax,
-                "page geometry stays bounded at nonzero origins");
+            AssertEx.True(
+                child.Width >= 0f
+                    && child.Height >= 0f
+                    && child.X >= parent.X
+                    && child.Y >= parent.Y
+                    && child.XMax <= parent.XMax
+                    && child.YMax <= parent.YMax,
+                "page geometry stays bounded at nonzero origins"
+            );
         }
 
         public static void Measurement()

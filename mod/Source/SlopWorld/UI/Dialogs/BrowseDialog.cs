@@ -38,7 +38,8 @@ namespace SlopWorld
 
         void Load(string path, bool keepFilter = false)
         {
-            if (!keepFilter) _filter = "";
+            if (!keepFilter)
+                _filter = "";
             _truncated = false;
             long generation = _operations.Begin();
             _pending = true;
@@ -47,10 +48,12 @@ namespace SlopWorld
             _parent = null;
             _dirs = Array.Empty<string>();
 
-            DaemonClient.Get<Wire.BrowseResult>($"{WireProtocol.Routes.Browse}?path={System.Uri.EscapeDataString(path)}&filter={System.Uri.EscapeDataString(_filter)}",
+            DaemonClient.Get<Wire.BrowseResult>(
+                $"{WireProtocol.Routes.Browse}?path={System.Uri.EscapeDataString(path)}&filter={System.Uri.EscapeDataString(_filter)}",
                 j =>
                 {
-                    if (!_operations.IsCurrent(generation)) return;
+                    if (!_operations.IsCurrent(generation))
+                        return;
 
                     string resolved = j == null ? null : j.Path;
                     if (resolved == null)
@@ -68,38 +71,60 @@ namespace SlopWorld
                 },
                 msg =>
                 {
-                    if (!_operations.IsCurrent(generation)) return;
+                    if (!_operations.IsCurrent(generation))
+                        return;
                     _pending = false;
                     _error = msg;
                     UiLayout.Fail(msg);
-                });
+                }
+            );
         }
 
         void UseCurrent()
         {
-            if (_pending || _path == null) return;
+            if (_pending || _path == null)
+                return;
             _pick?.Invoke(_path);
             Close();
         }
 
         protected override void DoBody(Rect rect)
         {
-            UiLayout.PageCaption(TitleRect(rect), _path ?? (_pending ? "Loading" :
-                _error ?? "no directory selected"));
+            UiLayout.PageCaption(
+                TitleRect(rect),
+                _path ?? (_pending ? "Loading" : _error ?? "no directory selected")
+            );
 
             float top = rect.y + UiTheme.RowH + UiTheme.GapXS;
             float buttonWidth = 80f;
-            _filter = UiText.Field(new Rect(rect.x, top, rect.width - buttonWidth - UiTheme.GapS,
-                UiTheme.FieldH), "browse.filter", _filter);
-            if (UiButtons.Button(new Rect(rect.xMax - buttonWidth, top, buttonWidth, UiTheme.FieldH),
-                "Filter", on: !_pending && _path != null)) Load(_path, keepFilter: true);
+            _filter = UiText.Field(
+                new Rect(rect.x, top, rect.width - buttonWidth - UiTheme.GapS, UiTheme.FieldH),
+                "browse.filter",
+                _filter
+            );
+            if (
+                UiButtons.Button(
+                    new Rect(rect.xMax - buttonWidth, top, buttonWidth, UiTheme.FieldH),
+                    "Filter",
+                    on: !_pending && _path != null
+                )
+            )
+                Load(_path, keepFilter: true);
             top += UiTheme.FieldH + UiTheme.GapS;
-            UiText.PlainStatusLabel(new Rect(rect.x, top, rect.width, UiTheme.RowH * 2f),
-                _truncated ? "More directories exist. Filter by name to find omitted entries."
-                    : "Filter by directory name (case-sensitive). Clear it to show all names.", UiTheme.Dim);
+            UiText.PlainStatusLabel(
+                new Rect(rect.x, top, rect.width, UiTheme.RowH * 2f),
+                _truncated
+                    ? "More directories exist. Filter by name to find omitted entries."
+                    : "Filter by directory name (case-sensitive). Clear it to show all names.",
+                UiTheme.Dim
+            );
             top += UiTheme.RowH * 2f + UiTheme.GapS;
-            var list = new Rect(rect.x, top, rect.width,
-                rect.yMax - UiTheme.BtnH - UiTheme.GapS - top);
+            var list = new Rect(
+                rect.x,
+                top,
+                rect.width,
+                rect.yMax - UiTheme.BtnH - UiTheme.GapS - top
+            );
             int count = _pending ? 0 : _dirs.Length + (_parent != null ? 1 : 0);
             var view = new Rect(0f, 0f, list.width - UiTheme.ScrollbarW, count * Pitch);
 
@@ -110,16 +135,27 @@ namespace SlopWorld
                 {
                     // Ghost the whole way down: forty directories in forty raised slabs is a wall
                     // of buttons, and what this is is a list that answers to a click.
-                    if (UiButtons.Button(new Rect(0f, y, view.width, UiTheme.RowH), "..",
-                            UiTheme.Btn.Ghost))
+                    if (
+                        UiButtons.Button(
+                            new Rect(0f, y, view.width, UiTheme.RowH),
+                            "..",
+                            UiTheme.Btn.Ghost
+                        )
+                    )
                         Load(_parent);
                     y += Pitch;
                 }
 
-                if (!_pending) foreach (var d in _dirs)
+                if (!_pending)
+                    foreach (var d in _dirs)
                     {
-                        if (UiButtons.Button(new Rect(0f, y, view.width, UiTheme.RowH), d,
-                                UiTheme.Btn.Ghost))
+                        if (
+                            UiButtons.Button(
+                                new Rect(0f, y, view.width, UiTheme.RowH),
+                                d,
+                                UiTheme.Btn.Ghost
+                            )
+                        )
                         {
                             Load(System.IO.Path.Combine(_path ?? "", d).Replace('\\', '/'));
                             break; // _dirs is about to be replaced under us
@@ -128,8 +164,14 @@ namespace SlopWorld
                     }
             }
 
-            if (UiButtons.Button(UiLayout.FooterBar(rect),
-                    "Use this directory", UiTheme.Btn.Primary, !_pending && _path != null))
+            if (
+                UiButtons.Button(
+                    UiLayout.FooterBar(rect),
+                    "Use this directory",
+                    UiTheme.Btn.Primary,
+                    !_pending && _path != null
+                )
+            )
                 UseCurrent();
         }
 

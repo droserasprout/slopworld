@@ -12,16 +12,19 @@ namespace SlopWorld
             public readonly string Error;
             readonly HashSet<string> _failedIds;
             public bool Succeeded => Error == null;
+
             public Outcome(string error, IEnumerable<string> failedIds = null)
             {
                 Error = error;
                 _failedIds = failedIds == null ? null : new HashSet<string>(failedIds);
             }
+
             public Outcome For(IEnumerable<string> ids)
             {
                 var failedIds = _failedIds;
                 return failedIds != null && !ids.Any(id => failedIds.Contains(id))
-                    ? new Outcome(null) : this;
+                    ? new Outcome(null)
+                    : this;
             }
         }
 
@@ -40,10 +43,14 @@ namespace SlopWorld
 
             public void Complete(Outcome outcome)
             {
-                if (!outcome.Succeeded && Error == null) Error = outcome.Error;
-                if (--Remaining != 0) return;
-                if (Error == null) Ok?.Invoke();
-                else Fail?.Invoke(Error);
+                if (!outcome.Succeeded && Error == null)
+                    Error = outcome.Error;
+                if (--Remaining != 0)
+                    return;
+                if (Error == null)
+                    Ok?.Invoke();
+                else
+                    Fail?.Invoke(Error);
             }
         }
 
@@ -54,19 +61,27 @@ namespace SlopWorld
         readonly Action<Exception> _reportCallbackError;
         Batch _active;
 
-        public TaskBatchQueue(Action<List<string>, Action<Outcome>> send, Action idle, Action<Exception> reportCallbackError)
+        public TaskBatchQueue(
+            Action<List<string>, Action<Outcome>> send,
+            Action idle,
+            Action<Exception> reportCallbackError
+        )
         {
             _send = send;
             _idle = idle;
-            _reportCallbackError = reportCallbackError ?? throw new ArgumentNullException(nameof(reportCallbackError));
+            _reportCallbackError =
+                reportCallbackError ?? throw new ArgumentNullException(nameof(reportCallbackError));
         }
 
         public void Enqueue(IEnumerable<string> ids, Action ok, Action<string> fail)
         {
             var dependencies = new Dictionary<Batch, List<string>>();
             var fresh = new Batch();
-            foreach (string id in (ids ?? Enumerable.Empty<string>())
-                .Where(id => !string.IsNullOrEmpty(id)).Distinct())
+            foreach (
+                string id in (ids ?? Enumerable.Empty<string>())
+                    .Where(id => !string.IsNullOrEmpty(id))
+                    .Distinct()
+            )
             {
                 if (!_reserved.TryGetValue(id, out var batch))
                 {
@@ -78,37 +93,57 @@ namespace SlopWorld
                     dependencies.Add(batch, selected = new List<string>());
                 selected.Add(id);
             }
-            if (dependencies.Count == 0) { ok?.Invoke(); return; }
-            var caller = new Caller { Remaining = dependencies.Count, Ok = ok, Fail = fail };
+            if (dependencies.Count == 0)
+            {
+                ok?.Invoke();
+                return;
+            }
+            var caller = new Caller
+            {
+                Remaining = dependencies.Count,
+                Ok = ok,
+                Fail = fail,
+            };
             foreach (var dependency in dependencies)
             {
                 var selected = dependency.Value;
                 dependency.Key.Waiters.Add(outcome => caller.Complete(outcome.For(selected)));
             }
-            if (fresh.Ids.Count > 0) _pending.Enqueue(fresh);
+            if (fresh.Ids.Count > 0)
+                _pending.Enqueue(fresh);
             Pump();
         }
 
         void Pump()
         {
-            if (_active != null || _pending.Count == 0) return;
+            if (_active != null || _pending.Count == 0)
+                return;
             var batch = _active = _pending.Dequeue();
             _send(batch.Ids, outcome => Complete(batch, outcome));
         }
 
         void Complete(Batch batch, Outcome outcome)
         {
-            if (_active != batch) return;
-            foreach (string id in batch.Ids) _reserved.Remove(id);
+            if (_active != batch)
+                return;
+            foreach (string id in batch.Ids)
+                _reserved.Remove(id);
             // Keep the operation active through callbacks so reentrant work queues behind it.
             foreach (var waiter in batch.Waiters)
             {
-                try { waiter(outcome); }
-                catch (Exception e) { _reportCallbackError(e); }
+                try
+                {
+                    waiter(outcome);
+                }
+                catch (Exception e)
+                {
+                    _reportCallbackError(e);
+                }
             }
             _active = null;
             Pump();
-            if (_active == null && _pending.Count == 0) _idle();
+            if (_active == null && _pending.Count == 0)
+                _idle();
         }
     }
 }

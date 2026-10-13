@@ -10,8 +10,8 @@ namespace SlopWorld
     public static partial class LibraryView
     {
         static bool Runnable(LibraryItemInfo item) =>
-            !Templates.ContainsKey(item) &&
-            (item.Kind == LibraryItemKind.Prompt || item.Kind == LibraryItemKind.Shell);
+            !Templates.ContainsKey(item)
+            && (item.Kind == LibraryItemKind.Prompt || item.Kind == LibraryItemKind.Shell);
 
         static List<string> ItemSummary(LibraryItemInfo item)
         {
@@ -24,23 +24,35 @@ namespace SlopWorld
             };
             if (runnable)
             {
-                lines.Add(item.Link == LibraryItemLink.Ask
-                    ? "Choose a project when you run this item."
-                    : "In: " + Where(item));
-                lines.Add("Runs with: " + (item.Host ? "Host" :
-                    string.IsNullOrEmpty(item.AgentTemplate) ? "Not configured" : item.AgentTemplate));
+                lines.Add(
+                    item.Link == LibraryItemLink.Ask
+                        ? "Choose a project when you run this item."
+                        : "In: " + Where(item)
+                );
+                lines.Add(
+                    "Runs with: "
+                        + (
+                            item.Host ? "Host"
+                            : string.IsNullOrEmpty(item.AgentTemplate) ? "Not configured"
+                            : item.AgentTemplate
+                        )
+                );
             }
             else if (item.Kind == LibraryItemKind.FileAction && !template)
                 lines.Add("Host · " + EditLibraryItemDialog.FileActionModeLabel(item.Mode));
-            else if (item.Kind == LibraryItemKind.Breadcrumb && !template &&
-                !string.IsNullOrEmpty(item.Project))
+            else if (
+                item.Kind == LibraryItemKind.Breadcrumb
+                && !template
+                && !string.IsNullOrEmpty(item.Project)
+            )
                 lines.Add("Project: " + item.Project);
             return lines;
         }
 
         static string ItemContent(LibraryItemInfo item) =>
             item.Kind == LibraryItemKind.FileAction && !Templates.ContainsKey(item)
-                ? item.Command : item.Text;
+                ? item.Command
+                : item.Text;
 
         static RowDetails PrepareItemDetails(LibraryItemInfo item, LibraryRowTarget.Actions actions)
         {
@@ -90,7 +102,8 @@ namespace SlopWorld
 
         static void BuildSections(List<ProjectInfo> projects)
         {
-            foreach (var section in SectionsByKey.Values) section.Rows.Clear();
+            foreach (var section in SectionsByKey.Values)
+                section.Rows.Clear();
             foreach (var item in _items)
                 EnsureSection(GroupKey(item)).Rows.Add(RowFor(item));
 
@@ -101,21 +114,27 @@ namespace SlopWorld
             {
                 if (!SectionsByKey.TryGetValue(key, out var section) || section.Rows.Count == 0)
                     continue;
-                if (section.Rows[0].Target is LibraryRowTarget.Item ||
-                    section.Rows[0].Target is LibraryRowTarget.Template)
-                    section.Rows.Sort((a, b) => string.CompareOrdinal(
-                        a.Label, b.Label));
+                if (
+                    section.Rows[0].Target is LibraryRowTarget.Item
+                    || section.Rows[0].Target is LibraryRowTarget.Template
+                )
+                    section.Rows.Sort((a, b) => string.CompareOrdinal(a.Label, b.Label));
                 Sections.Add(section);
             }
         }
 
         static Row FindSelectedRow()
         {
-            if (!Selection.Reconcile(Sections.SelectMany(section => section.Rows).Select(row => row.Key)))
+            if (
+                !Selection.Reconcile(
+                    Sections.SelectMany(section => section.Rows).Select(row => row.Key)
+                )
+            )
                 return null;
             foreach (var section in Sections)
-                foreach (var row in section.Rows)
-                    if (row.Key == Selection.Key) return row;
+            foreach (var row in section.Rows)
+                if (row.Key == Selection.Key)
+                    return row;
 
             return null;
         }
@@ -131,7 +150,8 @@ namespace SlopWorld
 
         static void BuildProjectRows(List<ProjectInfo> projects, string query)
         {
-            if (!MainCategoryEnabled(Category.Projects)) return;
+            if (!MainCategoryEnabled(Category.Projects))
+                return;
             foreach (var project in projects)
                 if (MatchesAny(query, Category.Projects, project.Name, project.Dir))
                     EnsureSection(Category.Projects).Rows.Add(RowFor(project));
@@ -139,41 +159,75 @@ namespace SlopWorld
 
         static void BuildWorktreeRows(List<ProjectInfo> projects, string query)
         {
-            if (!MainCategoryEnabled(Category.Worktrees)) return;
+            if (!MainCategoryEnabled(Category.Worktrees))
+                return;
             foreach (var project in projects)
             {
-                if (!Worktrees.WorktreesByProject.TryGetValue(project.Name, out var worktrees)) continue;
+                if (!Worktrees.WorktreesByProject.TryGetValue(project.Name, out var worktrees))
+                    continue;
                 foreach (var entry in worktrees)
-                    if (MatchesAny(query, Category.Worktrees, entry.Project,
-                        TreeName(entry), entry.Tree.Path, entry.Tree.Branch))
+                    if (
+                        MatchesAny(
+                            query,
+                            Category.Worktrees,
+                            entry.Project,
+                            TreeName(entry),
+                            entry.Tree.Path,
+                            entry.Tree.Branch
+                        )
+                    )
                         EnsureSection(Category.Worktrees).Rows.Add(RowFor(entry));
             }
         }
 
         static void BuildSandboxPresetRows(string query)
         {
-            if (!MainCategoryEnabled(Category.SandboxPresets)) return;
-            foreach (var preset in SessionHub.Instance.Presets
-                .Where(preset => preset.Source != "system")
-                .OrderBy(preset => preset.Name, StringComparer.OrdinalIgnoreCase))
+            if (!MainCategoryEnabled(Category.SandboxPresets))
+                return;
+            foreach (
+                var preset in SessionHub
+                    .Instance.Presets.Where(preset => preset.Source != "system")
+                    .OrderBy(preset => preset.Name, StringComparer.OrdinalIgnoreCase)
+            )
                 if (MatchesAny(query, Category.SandboxPresets, preset.Name, preset.Description))
                     EnsureSection(Category.SandboxPresets).Rows.Add(RowFor(preset));
         }
 
         static void BuildAppPresetRows(string query)
         {
-            if (!MainCategoryEnabled(Category.AppPresets)) return;
-            foreach (var command in SessionHub.Instance.Commands
-                .Where(command => command.Source != "system")
-                .OrderBy(command => command.Name, StringComparer.OrdinalIgnoreCase))
-                if (MatchesAny(query, Category.AppPresets, command.Name, command.Description, command.Cmd))
+            if (!MainCategoryEnabled(Category.AppPresets))
+                return;
+            foreach (
+                var command in SessionHub
+                    .Instance.Commands.Where(command => command.Source != "system")
+                    .OrderBy(command => command.Name, StringComparer.OrdinalIgnoreCase)
+            )
+                if (
+                    MatchesAny(
+                        query,
+                        Category.AppPresets,
+                        command.Name,
+                        command.Description,
+                        command.Cmd
+                    )
+                )
                     EnsureSection(Category.AppPresets).Rows.Add(RowFor(command));
         }
 
-        static bool MatchesAny(string query, string first, string second,
-            string third = null, string fourth = null, string fifth = null) =>
-            query.Length == 0 || Matches(query, first) || Matches(query, second) ||
-            Matches(query, third) || Matches(query, fourth) || Matches(query, fifth);
+        static bool MatchesAny(
+            string query,
+            string first,
+            string second,
+            string third = null,
+            string fourth = null,
+            string fifth = null
+        ) =>
+            query.Length == 0
+            || Matches(query, first)
+            || Matches(query, second)
+            || Matches(query, third)
+            || Matches(query, fourth)
+            || Matches(query, fifth);
 
         static bool Matches(string query, string value) =>
             (value ?? "").IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
@@ -190,7 +244,8 @@ namespace SlopWorld
                 preset.Name,
                 "Sandbox preset · " + SourceName(preset.Source),
             };
-            if (!string.IsNullOrEmpty(preset.Description)) details.Add(preset.Description);
+            if (!string.IsNullOrEmpty(preset.Description))
+                details.Add(preset.Description);
             if (preset.Requires.Count > 0)
                 details.Add("Requires: " + string.Join(", ", preset.Requires.ToArray()));
             if (preset.Gives.Count > 0)
@@ -205,9 +260,11 @@ namespace SlopWorld
                 command.Name,
                 "App preset · " + SourceName(command.Source),
             };
-            if (!string.IsNullOrEmpty(command.Description)) details.Add(command.Description);
+            if (!string.IsNullOrEmpty(command.Description))
+                details.Add(command.Description);
             details.Add("Kind: " + (string.IsNullOrEmpty(command.Kind) ? "agent" : command.Kind));
-            if (!string.IsNullOrEmpty(command.Cmd)) details.Add("Command: " + command.Cmd);
+            if (!string.IsNullOrEmpty(command.Cmd))
+                details.Add("Command: " + command.Cmd);
             if (command.Sandbox.Count > 0)
                 details.Add("Sandbox: " + string.Join(", ", command.Sandbox.ToArray()));
             return details;
@@ -224,15 +281,19 @@ namespace SlopWorld
                 "Worktree · " + entry.Project,
                 "Phase: " + (string.IsNullOrEmpty(tree.Phase) ? "unknown" : tree.Phase),
             };
-            if (!string.IsNullOrEmpty(tree.Branch)) details.Add("Branch: " + tree.Branch);
-            else details.Add("Branch: detached");
-            if (!string.IsNullOrEmpty(tree.Path)) details.Add(tree.Path);
-            if (!string.IsNullOrEmpty(tree.Head)) details.Add("HEAD: " + tree.Head);
+            if (!string.IsNullOrEmpty(tree.Branch))
+                details.Add("Branch: " + tree.Branch);
+            else
+                details.Add("Branch: detached");
+            if (!string.IsNullOrEmpty(tree.Path))
+                details.Add(tree.Path);
+            if (!string.IsNullOrEmpty(tree.Head))
+                details.Add("HEAD: " + tree.Head);
             if (tree.Attachments.Count > 0)
                 details.Add("Attached: " + string.Join(", ", tree.Attachments.ToArray()));
-            if (!string.IsNullOrEmpty(tree.Error)) details.Add(tree.Error);
+            if (!string.IsNullOrEmpty(tree.Error))
+                details.Add(tree.Error);
             return details;
         }
-
     }
 }

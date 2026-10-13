@@ -56,15 +56,19 @@ namespace SlopWorld.Tests
             state.Select("project\nfile.txt");
             state.SetAllFolded(new[] { "project" }, true);
             state.SyncGroups(new[] { "project", "other" });
-            AssertEx.True(state.IsSelected("project\nfile.txt"),
-                "selection key survives a refresh");
+            AssertEx.True(
+                state.IsSelected("project\nfile.txt"),
+                "selection key survives a refresh"
+            );
 
             state.SetCollapsed("other", true);
             state.SyncGroups(new[] { "project" });
             AssertEx.False(state.IsCollapsed("other"), "removed group loses stale fold state");
             AssertEx.True(state.IsCollapsed("project"), "surviving group keeps fold state");
-            AssertEx.True(state.IsSelected("project\nfile.txt"),
-                "group removal does not erase a semantic selection key");
+            AssertEx.True(
+                state.IsSelected("project\nfile.txt"),
+                "group removal does not erase a semantic selection key"
+            );
         }
     }
 }

@@ -15,8 +15,13 @@ namespace SlopWorld
         public readonly float MediumLine;
         public readonly int Revision;
 
-        public UiMetricValues(string density, float tinyLine, float smallLine, float mediumLine,
-                              int revision)
+        public UiMetricValues(
+            string density,
+            float tinyLine,
+            float smallLine,
+            float mediumLine,
+            int revision
+        )
         {
             Density = UiDensityPreset.Normalize(density);
             TinyLine = NonNegative(tinyLine);
@@ -35,9 +40,12 @@ namespace SlopWorld
         {
             switch (font)
             {
-                case GameFont.Tiny: return TinyLine;
-                case GameFont.Medium: return MediumLine;
-                default: return SmallLine;
+                case GameFont.Tiny:
+                    return TinyLine;
+                case GameFont.Medium:
+                    return MediumLine;
+                default:
+                    return SmallLine;
             }
         }
 
@@ -49,9 +57,13 @@ namespace SlopWorld
 
         // These pure helpers keep the font-derived floors testable without Unity's text
         // generator. They are also useful to callers that already measured a specific tier.
-        public static UiMetricValues Resolve(string density, float tinyLine, float smallLine,
-                                              float mediumLine, int revision = 0) =>
-            new UiMetricValues(density, tinyLine, smallLine, mediumLine, revision);
+        public static UiMetricValues Resolve(
+            string density,
+            float tinyLine,
+            float smallLine,
+            float mediumLine,
+            int revision = 0
+        ) => new UiMetricValues(density, tinyLine, smallLine, mediumLine, revision);
 
         static float NonNegative(float value) => value < 0f ? 0f : value;
     }
@@ -84,12 +96,30 @@ namespace SlopWorld
 
         // Kept separate so caches can distinguish geometry invalidation from text-only
         // measurement changes. Color/scheme changes deliberately do not touch any of these.
-        public static int DensityRevision { get { BeginFrame(); return _densityRevision; } }
+        public static int DensityRevision
+        {
+            get
+            {
+                BeginFrame();
+                return _densityRevision;
+            }
+        }
         public static int TypographyRevision
         {
-            get { BeginFrame(); return _typographyRevision; }
+            get
+            {
+                BeginFrame();
+                return _typographyRevision;
+            }
         }
-        public static int ScaleRevision { get { BeginFrame(); return _scaleRevision; } }
+        public static int ScaleRevision
+        {
+            get
+            {
+                BeginFrame();
+                return _scaleRevision;
+            }
+        }
 
         public static float GapXS => Current.GapXS;
         public static float GapS => Current.GapS;
@@ -97,6 +127,7 @@ namespace SlopWorld
         public static float GapL => Current.GapL;
 
         public static float ButtonH(float lineH) => Current.ButtonH(lineH);
+
         public static float CompactMinH => Current.CompactMinH;
         public static float PaletteMinH => Current.PaletteMinH;
 
@@ -104,7 +135,8 @@ namespace SlopWorld
         // first. The frame number makes both paths resolve to the same immutable snapshot.
         public static void BeginFrame()
         {
-            if (_frame == Time.frameCount) return;
+            if (_frame == Time.frameCount)
+                return;
             _frame = Time.frameCount;
 
             string density = UiDensityPreset.Normalize(Settings.UiDensity);
@@ -113,19 +145,35 @@ namespace SlopWorld
             int atlasRevision = UiTheme.AtlasRevision;
 
             bool first = _density == null;
-            bool densityChanged = first || !string.Equals(_density, density,
-                StringComparison.Ordinal);
-            bool typographyChanged = first || _fontRevision != fontRevision
-                || _atlasRevision != atlasRevision;
+            bool densityChanged =
+                first || !string.Equals(_density, density, StringComparison.Ordinal);
+            bool typographyChanged =
+                first || _fontRevision != fontRevision || _atlasRevision != atlasRevision;
             bool scaleChanged = first || _scale != scale;
 
-            if (densityChanged) unchecked { _densityRevision++; }
-            if (typographyChanged) unchecked { _typographyRevision++; }
-            if (scaleChanged) unchecked { _scaleRevision++; }
+            if (densityChanged)
+                unchecked
+                {
+                    _densityRevision++;
+                }
+            if (typographyChanged)
+                unchecked
+                {
+                    _typographyRevision++;
+                }
+            if (scaleChanged)
+                unchecked
+                {
+                    _scaleRevision++;
+                }
             if (densityChanged || typographyChanged || scaleChanged)
             {
-                unchecked { _revision++; }
-                if (_revision == 0) _revision = 1;
+                unchecked
+                {
+                    _revision++;
+                }
+                if (_revision == 0)
+                    _revision = 1;
             }
 
             _density = density;
@@ -133,9 +181,13 @@ namespace SlopWorld
             _fontRevision = fontRevision;
             _atlasRevision = atlasRevision;
 
-            _current = UiMetricValues.Resolve(density,
-                LineHeight(GameFont.Tiny), LineHeight(GameFont.Small),
-                LineHeight(GameFont.Medium), _revision);
+            _current = UiMetricValues.Resolve(
+                density,
+                LineHeight(GameFont.Tiny),
+                LineHeight(GameFont.Small),
+                LineHeight(GameFont.Medium),
+                _revision
+            );
         }
 
         static float LineHeight(GameFont font)

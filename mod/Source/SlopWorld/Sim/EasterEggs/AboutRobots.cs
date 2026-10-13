@@ -48,16 +48,30 @@ namespace SlopWorld
             r = new Rect(r.center.x - width / 2f, r.y, width, r.height);
             float offset = r.width < 480f ? 0f : HeaderTextOffset * scale;
             var body = new Rect(r.x + offset, r.y, Mathf.Max(1f, r.width - offset), r.height);
-            var title = UiText.SizedStyle(RegularFont, Mathf.RoundToInt(TitleTextSize * scale),
-                TextAnchor.MiddleLeft, true);
+            var title = UiText.SizedStyle(
+                RegularFont,
+                Mathf.RoundToInt(TitleTextSize * scale),
+                TextAnchor.MiddleLeft,
+                true
+            );
             title.fontStyle = FontStyle.Bold;
-            var text = UiText.SizedStyle(RegularFont, Mathf.RoundToInt(BodyTextSize * scale),
-                TextAnchor.UpperLeft, true);
-            var outro = UiText.SizedStyle(RegularFont, Mathf.RoundToInt(22f * scale),
-                TextAnchor.UpperLeft, true);
+            var text = UiText.SizedStyle(
+                RegularFont,
+                Mathf.RoundToInt(BodyTextSize * scale),
+                TextAnchor.UpperLeft,
+                true
+            );
+            var outro = UiText.SizedStyle(
+                RegularFont,
+                Mathf.RoundToInt(22f * scale),
+                TextAnchor.UpperLeft,
+                true
+            );
             float iconSize = RobotImageSize * scale;
-            float headerHeight = Mathf.Max(iconSize,
-                title.CalcHeight(new GUIContent(Title), body.width));
+            float headerHeight = Mathf.Max(
+                iconSize,
+                title.CalcHeight(new GUIContent(Title), body.width)
+            );
             float introHeight = text.CalcHeight(new GUIContent(Intro), body.width);
             float indent = BulletIndent * scale;
             float bulletWidth = Mathf.Max(1f, body.width - indent * 1.6f);
@@ -65,20 +79,28 @@ namespace SlopWorld
             foreach (string bullet in Bullets)
                 total += text.CalcHeight(new GUIContent(bullet), bulletWidth) + BulletGap * scale;
             float outroHeight = outro.CalcHeight(new GUIContent(Outro), body.width);
-            float buttonHeight = Mathf.Max(54f * scale,
-                text.CalcHeight(new GUIContent(RetryWarning), body.width) + 16f * scale);
+            float buttonHeight = Mathf.Max(
+                54f * scale,
+                text.CalcHeight(new GUIContent(RetryWarning), body.width) + 16f * scale
+            );
             // Reserve the same button height for both labels to avoid shifting the page.
             total += OutroGap * scale + outroHeight + 32f * scale + buttonHeight;
-            if (offset == 0f) total += iconSize + 16f * scale;
+            if (offset == 0f)
+                total += iconSize + 16f * scale;
             float y = r.y + Mathf.Max(0f, (viewportHeight - total) / 2f);
             var wasColor = GUI.color;
             GUI.color = Color.white;
             try
             {
                 if (RobotTexture != null)
-                    GUI.DrawTexture(new Rect(r.x, y, iconSize, iconSize), RobotTexture,
-                        ScaleMode.ScaleToFit, true);
-                if (offset == 0f) y += iconSize + 16f * scale;
+                    GUI.DrawTexture(
+                        new Rect(r.x, y, iconSize, iconSize),
+                        RobotTexture,
+                        ScaleMode.ScaleToFit,
+                        true
+                    );
+                if (offset == 0f)
+                    y += iconSize + 16f * scale;
                 GUI.Label(new Rect(body.x, y, body.width, headerHeight), Title, title);
                 y += headerHeight + IntroGap * scale;
                 GUI.Label(new Rect(body.x, y, body.width, introHeight), Intro, text);
@@ -87,19 +109,26 @@ namespace SlopWorld
                 {
                     float height = text.CalcHeight(new GUIContent(bullet), bulletWidth);
                     GUI.Label(new Rect(body.x + indent * 0.6f, y, indent, height), "•", text);
-                    GUI.Label(new Rect(body.x + indent * 1.6f, y, bulletWidth, height), bullet, text);
+                    GUI.Label(
+                        new Rect(body.x + indent * 1.6f, y, bulletWidth, height),
+                        bullet,
+                        text
+                    );
                     y += height + BulletGap * scale;
                 }
                 y += OutroGap * scale;
                 GUI.Label(new Rect(body.x, y, body.width, outroHeight), Outro, outro);
                 y += outroHeight + 32f * scale;
                 string label = !_retryWarningShown ? RetryLabel : RetryWarning;
-                float buttonWidth = Mathf.Min(body.width,
-                    Mathf.Max(190f * scale, text.CalcSize(new GUIContent(label)).x + 48f * scale));
+                float buttonWidth = Mathf.Min(
+                    body.width,
+                    Mathf.Max(190f * scale, text.CalcSize(new GUIContent(label)).x + 48f * scale)
+                );
                 var button = new Rect(body.x, y, buttonWidth, buttonHeight);
                 if (UiButtons.Button(button, ""))
                 {
-                    if (!_retryWarningShown) _retryWarningShown = true;
+                    if (!_retryWarningShown)
+                        _retryWarningShown = true;
                     else
                     {
                         Visible = false;
@@ -119,7 +148,8 @@ namespace SlopWorld
         public bool HandleLogoClick(Rect rect)
         {
             var e = Event.current;
-            if (e == null || UiEvent.RawType(e) != EventType.MouseDown) return false;
+            if (e == null || UiEvent.RawType(e) != EventType.MouseDown)
+                return false;
 
             if (e.button != 0 || !Mouse.IsOver(rect))
             {
@@ -129,7 +159,8 @@ namespace SlopWorld
 
             int clickCount = _logoClicks.Observe(e, Time.realtimeSinceStartup);
             e.Use();
-            if (clickCount < 3) return false;
+            if (clickCount < 3)
+                return false;
 
             _logoClicks.Reset();
             Visible = true;
@@ -150,6 +181,5 @@ namespace SlopWorld
                 return _robotTexture;
             }
         }
-
     }
 }

@@ -123,15 +123,20 @@ namespace SlopWorld
 
         public void Draw(Rect body, bool anchorBoundary = true)
         {
-            if (_scroll.HandleWheel(body, _contentHeight)) return;
+            if (_scroll.HandleWheel(body, _contentHeight))
+                return;
             using (WidgetState.Save())
             {
                 // Routed pager headers grow above this viewport. Keep tree rows at their
                 // previous screen positions as that space is added or removed. A live Files
                 // divider drag deliberately lets the viewport and its rows move together.
                 if (anchorBoundary && _body.height > 0f && body.y != _body.y)
-                    _scroll.JumpTo(new Vector2(_scroll.Position.x,
-                        ContentTreeIndex.AnchoredScroll(_scroll.Position.y, _body.y, body.y)));
+                    _scroll.JumpTo(
+                        new Vector2(
+                            _scroll.Position.x,
+                            ContentTreeIndex.AnchoredScroll(_scroll.Position.y, _body.y, body.y)
+                        )
+                    );
                 _body = body;
                 _lines.Clear();
 
@@ -149,8 +154,11 @@ namespace SlopWorld
                     _reveal = null;
                 }
                 float height = _contentHeight;
-                var geometry = UiScrollBody.Measure(body, height,
-                    UiScrollbarReservation.WhenNeeded);
+                var geometry = UiScrollBody.Measure(
+                    body,
+                    height,
+                    UiScrollbarReservation.WhenNeeded
+                );
                 var view = geometry.View;
                 if (_revealTop >= 0f)
                 {
@@ -170,8 +178,11 @@ namespace SlopWorld
                     // take seconds to drain.
                     if (!SmoothScroll.WheelOnly)
                     {
-                        for (int i = _index.First(_visibleTop);
-                             i < _items.Count && _items[i].Y < _visibleBottom; i++)
+                        for (
+                            int i = _index.First(_visibleTop);
+                            i < _items.Count && _items[i].Y < _visibleBottom;
+                            i++
+                        )
                         {
                             PerfTrace.Count("content-tree-rows-visited");
                             DrawItem(view.width, _items[i]);
@@ -205,20 +216,41 @@ namespace SlopWorld
             float y = Pad;
             foreach (var group in groups)
             {
-                if (group.ParentKey != null && _controller.IsGroupCollapsed(group.ParentKey)) continue;
-                _items.Add(new Item { Kind = ItemKind.Group, Group = group, Y = y });
+                if (group.ParentKey != null && _controller.IsGroupCollapsed(group.ParentKey))
+                    continue;
+                _items.Add(
+                    new Item
+                    {
+                        Kind = ItemKind.Group,
+                        Group = group,
+                        Y = y,
+                    }
+                );
                 y += RowH;
-                if (_source.IsGroupCollapsed(group)) continue;
+                if (_source.IsGroupCollapsed(group))
+                    continue;
 
                 var extras = _source as IContentTreeGroupExtras;
                 float bodyHeight = extras == null ? 0f : extras.GroupBodyHeight(group);
                 if (bodyHeight > 0f)
                 {
-                    _items.Add(new Item { Kind = ItemKind.Body, Group = group, Y = y });
+                    _items.Add(
+                        new Item
+                        {
+                            Kind = ItemKind.Body,
+                            Group = group,
+                            Y = y,
+                        }
+                    );
                     y += bodyHeight;
                 }
 
-                if (group.Root != null) BuildRows(group.Root, ref y, group.ParentKey == null ? 0 : 1 - group.Root.Depth);
+                if (group.Root != null)
+                    BuildRows(
+                        group.Root,
+                        ref y,
+                        group.ParentKey == null ? 0 : 1 - group.Root.Depth
+                    );
             }
 
             _contentHeight = y + Pad;
@@ -228,8 +260,7 @@ namespace SlopWorld
                 var item = _items[i];
                 item.Height = end - item.Y;
                 _items[i] = item;
-                _index.Add(item.Y, end,
-                    item.Node == null ? null : SelectionKey(item.Node));
+                _index.Add(item.Y, end, item.Node == null ? null : SelectionKey(item.Node));
             }
             _index.Commit(revision);
             _workspaceRevision = workspaceRevision;
@@ -238,41 +269,56 @@ namespace SlopWorld
         void BuildRows(IContentTreeNode parent, ref float y, int indent)
         {
             var loader = _source as IContentTreeLoader;
-            if (loader != null) loader.EnsureLoaded(parent);
-            if (!_source.IsExpanded(parent)) return;
+            if (loader != null)
+                loader.EnsureLoaded(parent);
+            if (!_source.IsExpanded(parent))
+                return;
 
             var children = parent.Children;
             if (children == null)
             {
-                _items.Add(new Item
-                {
-                    Kind = ItemKind.Note,
-                    Note = parent.Error ?? "Loading",
-                    NoteColor = parent.Error != null ? UiTheme.Bad : UiTheme.Faint,
-                    Depth = parent.Depth + 1 + indent,
-                    Y = y,
-                });
+                _items.Add(
+                    new Item
+                    {
+                        Kind = ItemKind.Note,
+                        Note = parent.Error ?? "Loading",
+                        NoteColor = parent.Error != null ? UiTheme.Bad : UiTheme.Faint,
+                        Depth = parent.Depth + 1 + indent,
+                        Y = y,
+                    }
+                );
                 y += RowH;
                 return;
             }
 
             foreach (var child in children)
             {
-                _items.Add(new Item { Kind = ItemKind.Node, Node = child, Depth = child.Depth + indent, Y = y });
+                _items.Add(
+                    new Item
+                    {
+                        Kind = ItemKind.Node,
+                        Node = child,
+                        Depth = child.Depth + indent,
+                        Y = y,
+                    }
+                );
                 y += RowH;
-                if (child.IsDirectory) BuildRows(child, ref y, indent);
+                if (child.IsDirectory)
+                    BuildRows(child, ref y, indent);
             }
 
             if (parent.More)
             {
-                _items.Add(new Item
-                {
-                    Kind = ItemKind.Note,
-                    Note = "More entries are not shown.",
-                    NoteColor = UiTheme.Faint,
-                    Depth = parent.Depth + 1 + indent,
-                    Y = y,
-                });
+                _items.Add(
+                    new Item
+                    {
+                        Kind = ItemKind.Note,
+                        Note = "More entries are not shown.",
+                        NoteColor = UiTheme.Faint,
+                        Depth = parent.Depth + 1 + indent,
+                        Y = y,
+                    }
+                );
                 y += RowH;
             }
         }
@@ -294,7 +340,8 @@ namespace SlopWorld
                 {
                     PerfTrace.Count("content-tree-rows-drawn");
                     var extras = _source as IContentTreeGroupExtras;
-                    if (extras != null) extras.DrawGroupBody(width, item.Y, item.Group);
+                    if (extras != null)
+                        extras.DrawGroupBody(width, item.Y, item.Group);
                 }
                 return;
             }
@@ -324,14 +371,18 @@ namespace SlopWorld
 
                 bool over = RowChrome.Hover(row, false, true, RowHoverPolicy.OverlayAware);
                 GUI.color = UiTheme.Faint;
-                var arrow = new Rect(CellX + (group.ParentKey == null ? 0f : Indent), row.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW);
+                var arrow = new Rect(
+                    CellX + (group.ParentKey == null ? 0f : Indent),
+                    row.y + (RowH - ArrowW) / 2f,
+                    ArrowW,
+                    ArrowW
+                );
                 GUI.DrawTexture(arrow, collapsed ? TexButton.Reveal : TexButton.Collapse);
 
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
                 var extras = _source as IContentTreeGroupExtras;
-                GroupAct acts = over && extras != null
-                    ? extras.GroupActions(group) : GroupAct.None;
+                GroupAct acts = over && extras != null ? extras.GroupActions(group) : GroupAct.None;
                 float right = row.width - CellX;
                 if (acts != GroupAct.None)
                     right = GroupActions.Draw(row, right, acts) - UiTheme.GapXS;
@@ -341,12 +392,16 @@ namespace SlopWorld
                 var label = new Rect(left, row.y, Mathf.Max(0f, right - left), RowH);
                 UiText.RowLabel(label, group.Label);
 
-                Slab.Hairline(new Rect(CellX, row.yMax - 1f, row.width - CellX * 2f, 1f),
-                    UiTheme.Edge);
+                Slab.Hairline(
+                    new Rect(CellX, row.yMax - 1f, row.width - CellX * 2f, 1f),
+                    UiTheme.Edge
+                );
 
                 string tip = _source.GroupTooltip(group);
-                if (!string.IsNullOrEmpty(tip) && GroupActions.Hit(row, row.width - CellX, acts)
-                    == GroupAct.None)
+                if (
+                    !string.IsNullOrEmpty(tip)
+                    && GroupActions.Hit(row, row.width - CellX, acts) == GroupAct.None
+                )
                     TooltipHandler.TipRegion(row, tip + "\n\nClick to fold.");
                 _lines.Add(new Line { Group = group, Rect = row });
             }
@@ -359,15 +414,22 @@ namespace SlopWorld
             using (WidgetState.Save())
             {
                 var row = new Rect(0f, y, width, RowH);
-                bool over = RowChrome.Hover(row, IsSelected(node), true,
-                    RowHoverPolicy.OverlayAware, RowSelectionStyle.Hover);
+                bool over = RowChrome.Hover(
+                    row,
+                    IsSelected(node),
+                    true,
+                    RowHoverPolicy.OverlayAware,
+                    RowSelectionStyle.Hover
+                );
 
                 float x = CellX + depth * Indent;
                 if (node.IsDirectory && node.CanExpand)
                 {
                     GUI.color = UiTheme.Faint;
-                    GUI.DrawTexture(new Rect(x, y + (RowH - ArrowW) / 2f, ArrowW, ArrowW),
-                        _source.IsExpanded(node) ? TexButton.Collapse : TexButton.Reveal);
+                    GUI.DrawTexture(
+                        new Rect(x, y + (RowH - ArrowW) / 2f, ArrowW, ArrowW),
+                        _source.IsExpanded(node) ? TexButton.Collapse : TexButton.Reveal
+                    );
                 }
                 x += ArrowW + 3f;
 
@@ -391,8 +453,10 @@ namespace SlopWorld
                 UiText.RowLabel(new Rect(x, y, Mathf.Max(0f, right - x - 2f), RowH), node.Name);
 
                 string tooltip = actions == null ? null : actions.RowTooltip(node);
-                if (!string.IsNullOrEmpty(tooltip) &&
-                    RowActions.Hit(row, width - Pad, acts) == RowAct.None)
+                if (
+                    !string.IsNullOrEmpty(tooltip)
+                    && RowActions.Hit(row, width - Pad, acts) == RowAct.None
+                )
                     TooltipHandler.TipRegion(row, tooltip);
 
                 _lines.Add(new Line { Node = node, Rect = row });
@@ -400,38 +464,42 @@ namespace SlopWorld
             }
         }
 
-        string SelectionKey(IContentTreeNode node) =>
-            SelectionKey(node.ScopeKey, node.Key);
+        string SelectionKey(IContentTreeNode node) => SelectionKey(node.ScopeKey, node.Key);
 
-        public bool IsSelected(IContentTreeNode node) =>
-            _controller.IsSelected(SelectionKey(node));
+        public bool IsSelected(IContentTreeNode node) => _controller.IsSelected(SelectionKey(node));
 
         public void Select(IContentTreeNode node) =>
             _controller.Select(node == null ? null : SelectionKey(node));
 
         public void SelectKey(string key) => _controller.Select(key);
+
         public void RevealKey(string key)
         {
             _controller.Select(key);
             _reveal = key;
         }
+
         public void ClearSelection()
         {
             _controller.ClearSelection();
             _reveal = null;
             _revealTop = -1f;
         }
+
         public void JumpTo(Vector2 position) => _scroll.JumpTo(position);
 
         public void Clicks()
         {
-            if (!ColonistBarStrip.Interactive) return;
+            if (!ColonistBarStrip.Interactive)
+                return;
             var e = Event.current;
-            if (e.rawType != EventType.MouseDown || (e.button != 0 && e.button != 1)) return;
+            if (e.rawType != EventType.MouseDown || (e.button != 0 && e.button != 1))
+                return;
 
             foreach (var line in _lines)
             {
-                if (!ColonistBarStrip.MouseOver(ClippedScreen(line.Rect))) continue;
+                if (!ColonistBarStrip.MouseOver(ClippedScreen(line.Rect)))
+                    continue;
 
                 if (line.Group != null)
                 {
@@ -440,15 +508,16 @@ namespace SlopWorld
                     {
                         var screen = Screen(line.Rect);
                         var extras = _source as IContentTreeGroupExtras;
-                        GroupAct groupActs = extras == null
-                            ? GroupAct.None : extras.GroupActions(line.Group);
+                        GroupAct groupActs =
+                            extras == null ? GroupAct.None : extras.GroupActions(line.Group);
                         var action = GroupActions.Hit(screen, screen.xMax - CellX, groupActs);
                         if (action != GroupAct.None && extras != null)
                             extras.GroupAction(line.Group, action);
                         else
                             _source.ToggleGroup(line.Group);
                     }
-                    else OpenMenu(_source.GroupMenu(line.Group));
+                    else
+                        OpenMenu(_source.GroupMenu(line.Group));
                     ClearSelection();
                     // Folding preserves the shared reader pane.
                 }
@@ -485,7 +554,8 @@ namespace SlopWorld
                         if (clickCount >= 2)
                         {
                             var selection = _source as IContentTreeSelection;
-                            if (selection != null) selection.DoubleClick(line.Node);
+                            if (selection != null)
+                                selection.DoubleClick(line.Node);
                             ResetClicks();
                         }
                     }
@@ -515,7 +585,8 @@ namespace SlopWorld
 
         void OpenMenu(List<FloatMenuOption> options)
         {
-            if (options != null) TerminalWindow.OpenOverPane(new UiMenu(options));
+            if (options != null)
+                TerminalWindow.OpenOverPane(new UiMenu(options));
         }
 
         Rect ClippedScreen(Rect row)
@@ -525,13 +596,19 @@ namespace SlopWorld
             float top = Mathf.Max(screen.yMin, _body.yMin);
             float right = Mathf.Min(screen.xMax, _body.xMax);
             float bottom = Mathf.Min(screen.yMax, _body.yMax);
-            return right <= left || bottom <= top ? Rect.zero : new Rect(left, top, right - left, bottom - top);
+            return right <= left || bottom <= top
+                ? Rect.zero
+                : new Rect(left, top, right - left, bottom - top);
         }
 
         Rect Screen(Rect row)
         {
-            var moved = new Rect(_body.x + row.x - _scroll.Position.x,
-                _body.y + row.y - _scroll.Position.y, row.width, row.height);
+            var moved = new Rect(
+                _body.x + row.x - _scroll.Position.x,
+                _body.y + row.y - _scroll.Position.y,
+                row.width,
+                row.height
+            );
             return moved;
         }
     }

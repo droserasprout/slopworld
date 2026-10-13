@@ -12,13 +12,17 @@ namespace SlopWorld
         static void Prefix()
         {
             var e = Event.current;
-            if (e == null || e.type != EventType.KeyDown) return;
-            if (Current.ProgramState != ProgramState.Playing) return;
+            if (e == null || e.type != EventType.KeyDown)
+                return;
+            if (Current.ProgramState != ProgramState.Playing)
+                return;
 
             // Let the binding listener capture the next key without activating its interface action.
-            if (ModOptions.KeyboardCaptureActive) return;
+            if (ModOptions.KeyboardCaptureActive)
+                return;
 
-            if (TerminalWindow.HandleFunctionKey(e)) e.Use();
+            if (TerminalWindow.HandleFunctionKey(e))
+                e.Use();
         }
     }
 }

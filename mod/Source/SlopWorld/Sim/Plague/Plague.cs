@@ -56,27 +56,37 @@ namespace SlopWorld
         const float SowGrowthMax = 1.00f;
 
         // Select the band from the current cell, independent of the pawn plague condition.
-        public enum Band { None, Weak, Full }
+        public enum Band
+        {
+            None,
+            Weak,
+            Full,
+        }
 
         readonly PlagueRuntime _runtime = new PlagueRuntime();
 
-        public Plague(Map map) : base(map) { }
+        public Plague(Map map)
+            : base(map) { }
 
         // The opening scene calls this after placing the core. Loading restores the saved state.
         public void Arm(IntVec3 origin)
         {
-            if (_active) return;
+            if (_active)
+                return;
             _origin = origin;
             _seed = Rand.Int;
             _active = true;
             Bloom(origin, CoreRadius);
-            Log.Message($"[SlopWorld] plague seeded at {origin}, {CoreRadius:F0} cells" +
-                        (Settings.GrandmaMode ? ", flowers only" : ""));
+            Log.Message(
+                $"[SlopWorld] plague seeded at {origin}, {CoreRadius:F0} cells"
+                    + (Settings.GrandmaMode ? ", flowers only" : "")
+            );
         }
 
         public override void MapComponentTick()
         {
-            if (!_active) return;
+            if (!_active)
+                return;
 
             int t = Find.TickManager.TicksGame;
 
@@ -86,14 +96,19 @@ namespace SlopWorld
 
             if (Settings.GrandmaMode)
             {
-                if (t % CatchInterval == 0) Progress();
-                if (t % SowInterval == 0) Sow();
+                if (t % CatchInterval == 0)
+                    Progress();
+                if (t % SowInterval == 0)
+                    Sow();
                 return;
             }
 
-            if (t % CatchInterval == 0) Catch();
-            if (t % EffectInterval == 0) Effects();
-            if (!background && t % VentInterval == 0) Vent();
+            if (t % CatchInterval == 0)
+                Catch();
+            if (t % EffectInterval == 0)
+                Effects();
+            if (!background && t % VentInterval == 0)
+                Vent();
             StepPlants();
         }
 
@@ -103,7 +118,8 @@ namespace SlopWorld
             {
                 var found = map.listerThings.ThingsOfDef(ModDefOf.Ship_ComputerCore);
                 _runtime.Core = found != null && found.Count > 0 ? found[0] : null;
-                if (_runtime.Core == null) return;
+                if (_runtime.Core == null)
+                    return;
             }
 
             PlagueFx.Vent(_runtime.Core);
@@ -118,11 +134,14 @@ namespace SlopWorld
         float Bite(IntVec3 cell, int tick)
         {
             int at = At(cell);
-            if (at == Never) return 0f;
+            if (at == Never)
+                return 0f;
 
             int age = tick - at;
-            if (age <= 0) return 0f; // stamped, still on its way
-            if (age >= RipenTicks) return 1f;
+            if (age <= 0)
+                return 0f; // stamped, still on its way
+            if (age >= RipenTicks)
+                return 1f;
             return age / (float)RipenTicks;
         }
 
@@ -132,23 +151,29 @@ namespace SlopWorld
         // Worksite calls this for each footprint cell so large buildings create sources across their full area.
         public void Bloom(IntVec3 at, float radius)
         {
-            if (!_active || radius <= 0f) return;
+            if (!_active || radius <= 0f)
+                return;
 
             var cells = Cells;
             var idx = map.cellIndices;
             int now = Find.TickManager.TicksGame;
-            int n = GenRadial.NumCellsInRadius(Mathf.Min(radius, GenRadial.MaxRadialPatternRadius - 1f));
+            int n = GenRadial.NumCellsInRadius(
+                Mathf.Min(radius, GenRadial.MaxRadialPatternRadius - 1f)
+            );
 
             for (int i = 0; i < n; i++)
             {
                 var c = at + GenRadial.RadialPattern[i];
-                if (!c.InBounds(map)) continue;
+                if (!c.InBounds(map))
+                    continue;
 
                 int when = now + (int)(GenRadial.RadialPatternRadii[i] * CreepPerCell);
                 int k = idx.CellToIndex(c);
-                if (cells[k] <= when) continue;
+                if (cells[k] <= when)
+                    continue;
 
-                if (cells[k] == Never) _reached++;
+                if (cells[k] == Never)
+                    _reached++;
                 cells[k] = when;
             }
         }
@@ -157,23 +182,28 @@ namespace SlopWorld
         // The field remains absent until a later Bloom records new arrivals, even after temporary aura protection ends.
         public void Rejuvenate(IntVec3 centre, float radius)
         {
-            if (!_active || radius <= 0f) return;
+            if (!_active || radius <= 0f)
+                return;
 
             var cells = Cells;
             var idx = map.cellIndices;
             int count = GenRadial.NumCellsInRadius(
-                Mathf.Min(radius, GenRadial.MaxRadialPatternRadius - 1f));
+                Mathf.Min(radius, GenRadial.MaxRadialPatternRadius - 1f)
+            );
 
             for (int i = 0; i < count; i++)
             {
                 var c = centre + GenRadial.RadialPattern[i];
-                if (!c.InBounds(map)) continue;
+                if (!c.InBounds(map))
+                    continue;
 
                 int k = idx.CellToIndex(c);
-                if (cells[k] == Never) continue;
+                if (cells[k] == Never)
+                    continue;
 
                 cells[k] = Never;
-                if (_reached > 0) _reached--;
+                if (_reached > 0)
+                    _reached--;
             }
 
             _runtime.Logged = -1;
@@ -198,15 +228,20 @@ namespace SlopWorld
         // Accept a cached game tick to avoid repeated clock lookups.
         public Band BandAt(IntVec3 cell, int tick)
         {
-            if (!_active || !_origin.IsValid) return Band.None;
+            if (!_active || !_origin.IsValid)
+                return Band.None;
 
             float bite = Bite(cell, tick);
-            if (bite <= 0f) return Band.None;
-            if (bite >= 1f) return Band.Full; // the certain core: no dice at all
+            if (bite <= 0f)
+                return Band.None;
+            if (bite >= 1f)
+                return Band.Full; // the certain core: no dice at all
 
             float grit = Grit(cell);
-            if (grit < bite) return Band.Full;
-            if (grit < Mathf.Sqrt(bite)) return Band.Weak;
+            if (grit < bite)
+                return Band.Full;
+            if (grit < Mathf.Sqrt(bite))
+                return Band.Weak;
             return Band.None;
         }
 
@@ -216,14 +251,16 @@ namespace SlopWorld
         // Fire spread uses this boundary.
         public bool Reaches(IntVec3 cell)
         {
-            if (!_active) return false;
+            if (!_active)
+                return false;
             int at = At(cell);
             return at != Never && at <= Find.TickManager.TicksGame;
         }
 
         // Check companion immunity and aura protection.
         // Individual protection can continue after the thing leaves the pulse area.
-        bool Spared(Thing t) => Capybara.IsImmune(t as Pawn)
+        bool Spared(Thing t) =>
+            Capybara.IsImmune(t as Pawn)
             || (_runtime.Aura ?? (_runtime.Aura = Aura.Of(map)))?.Spares(t) == true;
 
         public bool Active => _active;
@@ -239,13 +276,15 @@ namespace SlopWorld
         void Progress()
         {
             int twentieth = _reached * 20 / Mathf.Max(map.Area, 1);
-            if (twentieth == _runtime.Logged) return;
+            if (twentieth == _runtime.Logged)
+                return;
 
             _runtime.Logged = twentieth;
-            Log.Message($"[SlopWorld] the plague has {_reached * 100f / map.Area:F0}% of the map, " +
-                        $"{Girth:F0} cells of it as a circle, " +
-                        $"on {Worksite.LaidOn(map)} cells of finished ground");
+            Log.Message(
+                $"[SlopWorld] the plague has {_reached * 100f / map.Area:F0}% of the map, "
+                    + $"{Girth:F0} cells of it as a circle, "
+                    + $"on {Worksite.LaidOn(map)} cells of finished ground"
+            );
         }
-
     }
 }

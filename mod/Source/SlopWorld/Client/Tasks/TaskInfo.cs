@@ -19,12 +19,12 @@ namespace SlopWorld
     public sealed class TaskInfo
     {
         public const string Host = WireProtocol.HostIdentity;
+
         // RimWorld's GenText.Truncate removes and measures one character at a time.
         // Limit text before supplying it to a compact mailbox row.
         // Show the complete task body in the detail dialog.
         public const int SummaryChars = 160;
-        static readonly DateTime Epoch = new DateTime(1970, 1, 1, 0, 0, 0,
-            DateTimeKind.Utc);
+        static readonly DateTime Epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         public string Id = "";
         public string From = "";
@@ -44,9 +44,10 @@ namespace SlopWorld
         string _direction;
         string _summary;
 
-        public bool Terminal => Status == DelegatedTaskStatus.Done ||
-            Status == DelegatedTaskStatus.Failed ||
-            Status == DelegatedTaskStatus.Canceled;
+        public bool Terminal =>
+            Status == DelegatedTaskStatus.Done
+            || Status == DelegatedTaskStatus.Failed
+            || Status == DelegatedTaskStatus.Canceled;
 
         public bool Incoming => To == Host;
         public bool Outgoing => From == Host;
@@ -79,12 +80,18 @@ namespace SlopWorld
         {
             switch ((value ?? "").ToLowerInvariant())
             {
-                case WireProtocol.TaskStatus.Accepted: return DelegatedTaskStatus.Accepted;
-                case WireProtocol.TaskStatus.Working: return DelegatedTaskStatus.Working;
-                case WireProtocol.TaskStatus.Done: return DelegatedTaskStatus.Done;
-                case WireProtocol.TaskStatus.Failed: return DelegatedTaskStatus.Failed;
-                case WireProtocol.TaskStatus.Canceled: return DelegatedTaskStatus.Canceled;
-                default: return DelegatedTaskStatus.Queued;
+                case WireProtocol.TaskStatus.Accepted:
+                    return DelegatedTaskStatus.Accepted;
+                case WireProtocol.TaskStatus.Working:
+                    return DelegatedTaskStatus.Working;
+                case WireProtocol.TaskStatus.Done:
+                    return DelegatedTaskStatus.Done;
+                case WireProtocol.TaskStatus.Failed:
+                    return DelegatedTaskStatus.Failed;
+                case WireProtocol.TaskStatus.Canceled:
+                    return DelegatedTaskStatus.Canceled;
+                default:
+                    return DelegatedTaskStatus.Queued;
             }
         }
 
@@ -92,18 +99,25 @@ namespace SlopWorld
         {
             switch (status)
             {
-                case DelegatedTaskStatus.Accepted: return WireProtocol.TaskStatus.Accepted;
-                case DelegatedTaskStatus.Working: return WireProtocol.TaskStatus.Working;
-                case DelegatedTaskStatus.Done: return WireProtocol.TaskStatus.Done;
-                case DelegatedTaskStatus.Failed: return WireProtocol.TaskStatus.Failed;
-                case DelegatedTaskStatus.Canceled: return WireProtocol.TaskStatus.Canceled;
-                default: return WireProtocol.TaskStatus.Queued;
+                case DelegatedTaskStatus.Accepted:
+                    return WireProtocol.TaskStatus.Accepted;
+                case DelegatedTaskStatus.Working:
+                    return WireProtocol.TaskStatus.Working;
+                case DelegatedTaskStatus.Done:
+                    return WireProtocol.TaskStatus.Done;
+                case DelegatedTaskStatus.Failed:
+                    return WireProtocol.TaskStatus.Failed;
+                case DelegatedTaskStatus.Canceled:
+                    return WireProtocol.TaskStatus.Canceled;
+                default:
+                    return WireProtocol.TaskStatus.Queued;
             }
         }
 
         public static string OneLine(string text)
         {
-            if (string.IsNullOrEmpty(text)) return "";
+            if (string.IsNullOrEmpty(text))
+                return "";
             var one = new StringBuilder(text.Length);
             bool gap = false;
             foreach (char c in text)
@@ -113,7 +127,8 @@ namespace SlopWorld
                     gap = one.Length > 0;
                     continue;
                 }
-                if (gap) one.Append(' ');
+                if (gap)
+                    one.Append(' ');
                 one.Append(c);
                 gap = false;
             }
@@ -127,8 +142,10 @@ namespace SlopWorld
             get
             {
                 if (_direction == null)
-                    _direction = Incoming ? $"{From} -> you" :
-                        Outgoing ? $"you -> {To}" : $"{From} -> {To}";
+                    _direction =
+                        Incoming ? $"{From} -> you"
+                        : Outgoing ? $"you -> {To}"
+                        : $"{From} -> {To}";
                 return _direction;
             }
         }
@@ -147,11 +164,15 @@ namespace SlopWorld
                     string one = OneLine(Body);
                     int end = Math.Min(one.Length, SummaryChars);
                     // UTF-16 truncation must keep both halves of a scalar together.
-                    if (end < one.Length && end > 0 && char.IsHighSurrogate(one[end - 1]) &&
-                        char.IsLowSurrogate(one[end])) end--;
-                    _summary = one.Length <= SummaryChars
-                        ? one
-                        : one.Substring(0, end).TrimEnd() + "...";
+                    if (
+                        end < one.Length
+                        && end > 0
+                        && char.IsHighSurrogate(one[end - 1])
+                        && char.IsLowSurrogate(one[end])
+                    )
+                        end--;
+                    _summary =
+                        one.Length <= SummaryChars ? one : one.Substring(0, end).TrimEnd() + "...";
                 }
                 return _summary;
             }
@@ -160,13 +181,17 @@ namespace SlopWorld
         public string Age(bool updated = false)
         {
             long then = updated ? UpdatedMs : CreatedMs;
-            long seconds = (DateTime.UtcNow.Ticks - Epoch.Ticks -
-                then * TimeSpan.TicksPerMillisecond) /
-                TimeSpan.TicksPerSecond;
-            if (seconds < 0) return "now";
-            if (seconds < 60) return seconds == 0 ? "now" : seconds + "s";
-            if (seconds < 3600) return seconds / 60 + "m";
-            if (seconds < 86400) return seconds / 3600 + "h";
+            long seconds =
+                (DateTime.UtcNow.Ticks - Epoch.Ticks - then * TimeSpan.TicksPerMillisecond)
+                / TimeSpan.TicksPerSecond;
+            if (seconds < 0)
+                return "now";
+            if (seconds < 60)
+                return seconds == 0 ? "now" : seconds + "s";
+            if (seconds < 3600)
+                return seconds / 60 + "m";
+            if (seconds < 86400)
+                return seconds / 3600 + "h";
             return seconds / 86400 + "d";
         }
     }

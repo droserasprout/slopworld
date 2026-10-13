@@ -71,9 +71,11 @@ and `notes/`. Documentation publication filters its book, repository README/note
 and tooling inputs on `main`, `human-docs`, and `road-to-release`, publishing each
 branch to Cloudflare Pages; sidecar publication runs only on `vMAJOR.MINOR.PATCH` tag pushes. Manual test runs and reusable test calls bypass push path
 filters.
-The C# formatter opens only its source directories: folder discovery scans for
-editor configs before applying file exclusions, so opening the checkout root can
-walk unrelated container storage under `dist/`.
+`format-mod` and `check-format-mod` use the CSharpier version pinned in
+`.config/dotnet-tools.json`, restored through `sync-dotnet-tools`. They open only
+the C# source directories; `.csharpierignore` excludes generated bindings,
+build output, and project files. CSharpier owns layout; `.editorconfig` supplies
+indentation, line endings, and the shared .NET analyzer policy.
 `.github/workflows/image.yml` owns sidecar publication to
 `ghcr.io/<repository-owner>/slopcar` for amd64 and arm64. Only `vMAJOR.MINOR.PATCH` tag
 pushes build and publish images, using full commit SHA and release-version tags.

@@ -9,19 +9,24 @@ namespace SlopWorld
     {
         public static void Clicks()
         {
-            if (!ColonistBarStrip.Interactive) return;
+            if (!ColonistBarStrip.Interactive)
+                return;
 
             var e = Event.current;
-            if (!ColonistBarStrip.MouseOver(_body)) return;
-            if (e.rawType != EventType.MouseDown || (e.button != 0 && e.button != 1)) return;
+            if (!ColonistBarStrip.MouseOver(_body))
+                return;
+            if (e.rawType != EventType.MouseDown || (e.button != 0 && e.button != 1))
+                return;
 
             foreach (var line in Lines)
             {
-                if (!ColonistBarStrip.MouseOver(line.Rect)) continue;
+                if (!ColonistBarStrip.MouseOver(line.Rect))
+                    continue;
                 e.Use();
                 if (e.button == 1)
                 {
-                    if (!IsSelected(line.Task)) SelectOnly(line.Task);
+                    if (!IsSelected(line.Task))
+                        SelectOnly(line.Task);
                     SetAnchor(line.Task);
                     TaskActions.OpenMenu(line.Task);
                 }
@@ -44,8 +49,8 @@ namespace SlopWorld
             }
         }
 
-        static bool IsSelected(TaskInfo task) => task != null &&
-            !string.IsNullOrEmpty(task.Id) && SelectedIds.Contains(task.Id);
+        static bool IsSelected(TaskInfo task) =>
+            task != null && !string.IsNullOrEmpty(task.Id) && SelectedIds.Contains(task.Id);
 
         internal static List<TaskInfo> SelectionFor(TaskInfo fallback)
         {
@@ -58,27 +63,31 @@ namespace SlopWorld
         static void SelectOnly(TaskInfo task)
         {
             SelectedIds.Clear();
-            if (task != null && !string.IsNullOrEmpty(task.Id)) SelectedIds.Add(task.Id);
+            if (task != null && !string.IsNullOrEmpty(task.Id))
+                SelectedIds.Add(task.Id);
         }
 
         static void SetAnchor(TaskInfo task)
         {
-            _selectionAnchorId = task == null || string.IsNullOrEmpty(task.Id)
-                ? null : task.Id;
+            _selectionAnchorId = task == null || string.IsNullOrEmpty(task.Id) ? null : task.Id;
         }
 
         static void Toggle(TaskInfo task)
         {
-            if (task == null || string.IsNullOrEmpty(task.Id)) return;
-            if (!SelectedIds.Add(task.Id)) SelectedIds.Remove(task.Id);
+            if (task == null || string.IsNullOrEmpty(task.Id))
+                return;
+            if (!SelectedIds.Add(task.Id))
+                SelectedIds.Remove(task.Id);
         }
 
         static void SelectRange(TaskInfo task, bool extend)
         {
             int anchor = VisibleTasks.FindIndex(candidate =>
-                candidate != null && candidate.Id == _selectionAnchorId);
+                candidate != null && candidate.Id == _selectionAnchorId
+            );
             int current = VisibleTasks.FindIndex(candidate =>
-                candidate != null && task != null && candidate.Id == task.Id);
+                candidate != null && task != null && candidate.Id == task.Id
+            );
             if (anchor < 0 || current < 0)
             {
                 SelectOnly(task);
@@ -86,7 +95,8 @@ namespace SlopWorld
                 return;
             }
 
-            if (!extend) SelectedIds.Clear();
+            if (!extend)
+                SelectedIds.Clear();
             int first = Mathf.Min(anchor, current);
             int last = Mathf.Max(anchor, current);
             for (int i = first; i <= last; i++)
@@ -99,8 +109,9 @@ namespace SlopWorld
 
         static void PruneSelection(List<TaskInfo> tasks)
         {
-            var live = new HashSet<string>(tasks.Where(task => task != null)
-                .Select(task => task.Id));
+            var live = new HashSet<string>(
+                tasks.Where(task => task != null).Select(task => task.Id)
+            );
             SelectedIds.RemoveWhere(id => !live.Contains(id));
             if (_selectionAnchorId != null && !live.Contains(_selectionAnchorId))
                 _selectionAnchorId = null;

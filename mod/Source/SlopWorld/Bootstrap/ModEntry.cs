@@ -11,18 +11,22 @@ namespace SlopWorld
 
         static string ReadClientVersion()
         {
-            object[] attributes = Assembly.GetExecutingAssembly().GetCustomAttributes(
-                typeof(AssemblyInformationalVersionAttribute), false);
+            object[] attributes = Assembly
+                .GetExecutingAssembly()
+                .GetCustomAttributes(typeof(AssemblyInformationalVersionAttribute), false);
             if (attributes.Length > 0)
             {
-                string version = ((AssemblyInformationalVersionAttribute)attributes[0])
-                    .InformationalVersion;
-                if (!string.IsNullOrEmpty(version)) return version;
+                string version = (
+                    (AssemblyInformationalVersionAttribute)attributes[0]
+                ).InformationalVersion;
+                if (!string.IsNullOrEmpty(version))
+                    return version;
             }
             return "0.0.2";
         }
 
-        public ModEntry(ModContentPack content) : base(content)
+        public ModEntry(ModContentPack content)
+            : base(content)
         {
             Instance = this;
             settings = ProfileSettings.Load();

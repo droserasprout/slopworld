@@ -15,36 +15,54 @@ namespace SlopWorld
         {
             var bytes = new byte[_noiseLut.Length];
             new System.Random(42).NextBytes(bytes);
-            for (int i = 0; i < bytes.Length; i++) _noiseLut[i] = bytes[i] * (1f / 255f);
+            for (int i = 0; i < bytes.Length; i++)
+                _noiseLut[i] = bytes[i] * (1f / 255f);
         }
 
         // Combine drain, contrast, and tint into one affine transform per stage.
         struct Grade
         {
-            public float rr, rg, rb, ro;
-            public float gr, gg, gb, go;
-            public float br, bg, bb, bo;
+            public float rr,
+                rg,
+                rb,
+                ro;
+            public float gr,
+                gg,
+                gb,
+                go;
+            public float br,
+                bg,
+                bb,
+                bo;
         }
 
-        static Grade Grading(float k) => Affine(
-            Mathf.Lerp(1f, 2.3f, k),        // contrast
-            Mathf.Lerp(0f, 0.06f, k),       // blacks off the floor: video, not ink
-            Mathf.Lerp(0f, 0.75f, k),       // drain toward luminance
-            Sick, Mathf.Lerp(0f, 0.42f, k));
+        static Grade Grading(float k) =>
+            Affine(
+                Mathf.Lerp(1f, 2.3f, k), // contrast
+                Mathf.Lerp(0f, 0.06f, k), // blacks off the floor: video, not ink
+                Mathf.Lerp(0f, 0.75f, k), // drain toward luminance
+                Sick,
+                Mathf.Lerp(0f, 0.42f, k)
+            );
 
         static Grade Affine(float contrast, float lift, float drain, Color toward, float tint)
         {
             // Match Color.grayscale's channel weights.
-            const float LR = 0.299f, LG = 0.587f, LB = 0.114f;
+            const float LR = 0.299f,
+                LG = 0.587f,
+                LB = 0.114f;
 
             float keep = 1f - drain;
             // Bias for (c - 0.5) * contrast + 0.5 + lift.
             float bias = 0.5f - 0.5f * contrast + lift;
 
             // Multiply per channel so dark regions stay dark instead of becoming a flat tint.
-            float tr = Mathf.Lerp(1f, toward.r, tint), sr = contrast * tr;
-            float tg = Mathf.Lerp(1f, toward.g, tint), sg = contrast * tg;
-            float tb = Mathf.Lerp(1f, toward.b, tint), sb = contrast * tb;
+            float tr = Mathf.Lerp(1f, toward.r, tint),
+                sr = contrast * tr;
+            float tg = Mathf.Lerp(1f, toward.g, tint),
+                sg = contrast * tg;
+            float tb = Mathf.Lerp(1f, toward.b, tint),
+                sb = contrast * tb;
 
             return new Grade
             {
@@ -65,26 +83,34 @@ namespace SlopWorld
 
         static Color Shade(ref Grade t, Color c) => Shade(ref t, c.r, c.g, c.b);
 
-        static Color Shade(ref Grade t, float r, float g, float b) => new Color(
-            Mathf.Clamp01(r * t.rr + g * t.rg + b * t.rb + t.ro),
-            Mathf.Clamp01(r * t.gr + g * t.gg + b * t.gb + t.go),
-            Mathf.Clamp01(r * t.br + g * t.bg + b * t.bb + t.bo),
-            1f);
+        static Color Shade(ref Grade t, float r, float g, float b) =>
+            new Color(
+                Mathf.Clamp01(r * t.rr + g * t.rg + b * t.rb + t.ro),
+                Mathf.Clamp01(r * t.gr + g * t.gg + b * t.gb + t.go),
+                Mathf.Clamp01(r * t.br + g * t.bg + b * t.bb + t.bo),
+                1f
+            );
 
         // Bilinear sample of the wrapped 2D LUT. Wrap x and y independently to avoid row seams.
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static float Noise(float x, float y)
         {
-            int xi = Mathf.FloorToInt(x), yi = Mathf.FloorToInt(y);
-            float xf = x - xi, yf = y - yi;
+            int xi = Mathf.FloorToInt(x),
+                yi = Mathf.FloorToInt(y);
+            float xf = x - xi,
+                yf = y - yi;
             float u = xf * xf * (3f - 2f * xf);
             float v = yf * yf * (3f - 2f * yf);
 
-            int x0 = xi & LutMask, x1 = (xi + 1) & LutMask;
-            int y0 = (yi & LutMask) * LutSide, y1 = ((yi + 1) & LutMask) * LutSide;
+            int x0 = xi & LutMask,
+                x1 = (xi + 1) & LutMask;
+            int y0 = (yi & LutMask) * LutSide,
+                y1 = ((yi + 1) & LutMask) * LutSide;
 
-            float n00 = _noiseLut[y0 + x0], n10 = _noiseLut[y0 + x1];
-            float n01 = _noiseLut[y1 + x0], n11 = _noiseLut[y1 + x1];
+            float n00 = _noiseLut[y0 + x0],
+                n10 = _noiseLut[y0 + x1];
+            float n01 = _noiseLut[y1 + x0],
+                n11 = _noiseLut[y1 + x1];
             return n00 + u * (n10 - n00) + v * (n01 - n00 + u * (n00 - n10 - n01 + n11));
         }
 
@@ -97,13 +123,14 @@ namespace SlopWorld
             {
                 for (int x = 0; x < w; x++)
                 {
-                    float sum = 0f, weight = 0f, freq = NoiseFreq, amp = 1f;
+                    float sum = 0f,
+                        weight = 0f,
+                        freq = NoiseFreq,
+                        amp = 1f;
 
                     for (int o = 0; o < Octaves; o++)
                     {
-                        sum += amp * Noise(
-                            (x * freq * 2f) + phase,
-                            (y * freq) + phase);
+                        sum += amp * Noise((x * freq * 2f) + phase, (y * freq) + phase);
                         weight += amp;
                         freq *= 2f;
                         amp *= 0.5f;
@@ -115,6 +142,5 @@ namespace SlopWorld
 
             return field;
         }
-
     }
 }

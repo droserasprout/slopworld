@@ -46,30 +46,33 @@ namespace SlopWorld
             }
             else
             {
-                if (repo.Deleted > 0) rx = Tail(rx, y, "-" + repo.Deleted, UiTheme.Bad);
-                if (repo.Added > 0) rx = Tail(rx, y, "+" + repo.Added, UiTheme.Yes);
+                if (repo.Deleted > 0)
+                    rx = Tail(rx, y, "-" + repo.Deleted, UiTheme.Bad);
+                if (repo.Added > 0)
+                    rx = Tail(rx, y, "+" + repo.Added, UiTheme.Yes);
                 rx = Tail(rx, y, repo.Changed + (repo.Truncated ? "+" : ""), UiTheme.Dim);
             }
 
             GUI.color = UiTheme.Dim;
             Text.Anchor = TextAnchor.MiddleLeft;
-            var branch = new Rect(x, y, Mathf.Max(0f, rx - x - UiTheme.GapXS),
-                UiTheme.TinyRowH);
+            var branch = new Rect(x, y, Mathf.Max(0f, rx - x - UiTheme.GapXS), UiTheme.TinyRowH);
             UiText.RowLabel(branch, repo.Branch ?? "");
 
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Small;
 
-            TooltipHandler.TipRegion(r, repo.Changed == 0
-                ? $"{repo.Root}\n\nNothing changed."
-                : repo.Truncated
-                    ? $"{repo.Root}\n\nAt least {repo.Changed} changes.\n\n" +
-                      "The tree shows the first 2,000 changes."
+            TooltipHandler.TipRegion(
+                r,
+                repo.Changed == 0 ? $"{repo.Root}\n\nNothing changed."
+                    : repo.Truncated
+                        ? $"{repo.Root}\n\nAt least {repo.Changed} changes.\n\n"
+                            + "The tree shows the first 2,000 changes."
                     : !repo.CountsComplete
                         ? $"{repo.Root}\n\n{repo.Changed} changed. Line counts unavailable."
-                    : $"{repo.Root}\n\n{repo.Changed} changed, " +
-                      $"{repo.Added} insertions(+), {repo.Deleted} deletions(-)");
+                    : $"{repo.Root}\n\n{repo.Changed} changed, "
+                        + $"{repo.Added} insertions(+), {repo.Deleted} deletions(-)"
+            );
             return y + UiTheme.TinyRowH;
         }
 
@@ -82,31 +85,49 @@ namespace SlopWorld
             // Without the added pixels, the rect can clip the last digit.
             float w = UiTheme.Wide(text) + 2f;
             GUI.color = color;
-            UiText.RowLabel(new Rect(right - w, y, w, UiTheme.TinyRowH), text,
-                TextAnchor.MiddleRight);
+            UiText.RowLabel(
+                new Rect(right - w, y, w, UiTheme.TinyRowH),
+                text,
+                TextAnchor.MiddleRight
+            );
             return right - w - 5f;
         }
 
         static bool Any(Node node, System.Func<GitStatus, bool> test)
         {
-            if (!node.IsDir) return test(node.Status);
-            if (node.Kids == null) return false;
+            if (!node.IsDir)
+                return test(node.Status);
+            if (node.Kids == null)
+                return false;
             foreach (var child in node.Kids)
-                if (Any(child, test)) return true;
+                if (Any(child, test))
+                    return true;
             return false;
         }
 
         static bool HasStaged(Repo repo)
         {
             foreach (var status in repo.Changes.Values)
-                if (new GitStatus(status).IsStaged) return true;
+                if (new GitStatus(status).IsStaged)
+                    return true;
             return false;
         }
 
-        static void GitAction(Repo repo, string command, string notice, bool completeCommand = false,
-            System.Action ok = null, System.Action<string> fail = null)
+        static void GitAction(
+            Repo repo,
+            string command,
+            string notice,
+            bool completeCommand = false,
+            System.Action ok = null,
+            System.Action<string> fail = null
+        )
         {
-            if (repo == null || !repo.IsRepo || repo.Error != null || string.IsNullOrEmpty(repo.Root))
+            if (
+                repo == null
+                || !repo.IsRepo
+                || repo.Error != null
+                || string.IsNullOrEmpty(repo.Root)
+            )
             {
                 (fail ?? UiLayout.Fail)("repository is not available");
                 return;
@@ -114,16 +135,20 @@ namespace SlopWorld
 
             // A project may point below the repository root. Validate its selected checkout
             // directory while Git uses the repository root returned by the daemon.
-            string full = completeCommand ? command : "git -C " + Pager.Quote(repo.Root) + " " + command;
-            DaemonClient.Post<Wire.OutputResult>(WireProtocol.Routes.FileAction, FilesView.ScopeAction(repo.Project, repo.Dir, full),
+            string full = completeCommand
+                ? command
+                : "git -C " + Pager.Quote(repo.Root) + " " + command;
+            DaemonClient.Post<Wire.OutputResult>(
+                WireProtocol.Routes.FileAction,
+                FilesView.ScopeAction(repo.Project, repo.Dir, full),
                 _ =>
                 {
-                    Messages.Message("SlopWorld: " + notice,
-                        MessageTypeDefOf.SilentInput, false);
+                    Messages.Message("SlopWorld: " + notice, MessageTypeDefOf.SilentInput, false);
                     Fetch(repo.Project);
                     ok?.Invoke();
                 },
-                msg => (fail ?? UiLayout.Fail)("Git: " + msg));
+                msg => (fail ?? UiLayout.Fail)("Git: " + msg)
+            );
         }
 
         static void Stage(Repo repo, string rel) =>
@@ -173,7 +198,12 @@ namespace SlopWorld
             GitCommitDialog.Open(project);
         }
 
-        public static void Commit(string project, string message, System.Action ok, System.Action<string> fail)
+        public static void Commit(
+            string project,
+            string message,
+            System.Action ok,
+            System.Action<string> fail
+        )
         {
             var repo = Known(project);
             if (repo == null || !HasStaged(repo))
@@ -182,12 +212,19 @@ namespace SlopWorld
                 return;
             }
 
-            GitAction(repo, "commit -m " + Pager.Quote(message) + " --", "committed changes", ok: ok, fail: fail);
+            GitAction(
+                repo,
+                "commit -m " + Pager.Quote(message) + " --",
+                "committed changes",
+                ok: ok,
+                fail: fail
+            );
         }
 
         static float RowTail(Rect row, Node node, float right)
         {
-            if (node.IsDir) return right;
+            if (node.IsDir)
+                return right;
             if (node.Added < 0)
             {
                 // A capped response omits all numstat values, so null there means unknown,
@@ -197,10 +234,10 @@ namespace SlopWorld
             }
             else
             {
-                if (node.Deleted > 0) right = Tail(right, row.y, "-" + node.Deleted,
-                    UiTheme.Bad);
-                if (node.Added > 0) right = Tail(right, row.y, "+" + node.Added,
-                    UiTheme.Yes);
+                if (node.Deleted > 0)
+                    right = Tail(right, row.y, "-" + node.Deleted, UiTheme.Bad);
+                if (node.Added > 0)
+                    right = Tail(right, row.y, "+" + node.Added, UiTheme.Yes);
             }
             return Tail(right, row.y, node.Status.Mark, MarkColor(node.Status));
         }
@@ -209,13 +246,16 @@ namespace SlopWorld
         // supported image files offer View.
         static RowAct Acts(Node node)
         {
-            if (node.IsDir) return RowAct.None;
+            if (node.IsDir)
+                return RowAct.None;
 
             var acts = RowAct.Diff;
-            if (!node.Status.Present) return acts;
+            if (!node.Status.Present)
+                return acts;
 
             acts |= RowAct.Edit;
-            if (FilesView.IsText(node.Name) || FilesView.IsImage(node.Name)) acts |= RowAct.View;
+            if (FilesView.IsText(node.Name) || FilesView.IsImage(node.Name))
+                acts |= RowAct.View;
             return acts;
         }
 
@@ -223,8 +263,10 @@ namespace SlopWorld
         // color of a thing that is not. Untracked is neither, and is dimmer than both.
         static Color MarkColor(GitStatus status)
         {
-            if (status.Unknown || status.Untracked) return UiTheme.Faint;
-            if (status.Unmerged) return UiTheme.Bad;
+            if (status.Unknown || status.Untracked)
+                return UiTheme.Faint;
+            if (status.Unmerged)
+                return UiTheme.Bad;
             return status.IsStaged ? UiTheme.Yes : UiTheme.Warn;
         }
 
@@ -232,13 +274,18 @@ namespace SlopWorld
         {
             var status = node.Status;
             string s = status.Pair;
-            if (status.Untracked) return "untracked";
-            if (status.Unmerged) return "unmerged";
+            if (status.Untracked)
+                return "untracked";
+            if (status.Unmerged)
+                return "unmerged";
 
-            char staged = status.Staged, worktree = status.Worktree;
+            char staged = status.Staged,
+                worktree = status.Worktree;
             var parts = new List<string>();
-            if (staged != ' ') parts.Add(Word(staged) + ", staged");
-            if (worktree != ' ') parts.Add(Word(worktree) + " since");
+            if (staged != ' ')
+                parts.Add(Word(staged) + ", staged");
+            if (worktree != ' ')
+                parts.Add(Word(worktree) + " since");
             return parts.Count == 0 ? s : string.Join("; ", parts.ToArray());
         }
 
@@ -246,14 +293,22 @@ namespace SlopWorld
         {
             switch (c)
             {
-                case 'M': return "modified";
-                case 'A': return "added";
-                case 'D': return "deleted";
-                case 'R': return "renamed";
-                case 'C': return "copied";
-                case 'T': return "type changed";
-                case 'U': return "unmerged";
-                default: return c.ToString();
+                case 'M':
+                    return "modified";
+                case 'A':
+                    return "added";
+                case 'D':
+                    return "deleted";
+                case 'R':
+                    return "renamed";
+                case 'C':
+                    return "copied";
+                case 'T':
+                    return "type changed";
+                case 'U':
+                    return "unmerged";
+                default:
+                    return c.ToString();
             }
         }
 
@@ -266,6 +321,7 @@ namespace SlopWorld
             }
             Tree.Draw(body, anchorBoundary);
         }
+
         // Folding the change tree only changes navigation. Keep the active diff visible while
         // the reader opens or closes directories around it.
         public static void Clicks() => Tree.Clicks();
@@ -330,14 +386,14 @@ namespace SlopWorld
 
         // A row's path on disk. Git states everything relative to the repository root, which
         // is not always the project's directory, and every errand takes a path.
-        static string Abs(Repo repo, Node node) =>
-            (repo.Root ?? "").TrimEnd('/') + "/" + node.Rel;
+        static string Abs(Repo repo, Node node) => (repo.Root ?? "").TrimEnd('/') + "/" + node.Rel;
 
         // FilesView queries only the repository cache. These lookups never fetch.
 
         static Repo Known(string project)
         {
-            if (string.IsNullOrEmpty(project)) return null;
+            if (string.IsNullOrEmpty(project))
+                return null;
             project = SidebarScopes.Key(project);
             return Store.Known(project);
         }
@@ -346,11 +402,16 @@ namespace SlopWorld
         static string RelOf(Repo repo, string abs)
         {
             string root = repo.Root ?? "";
-            if (root.Length == 0 || string.IsNullOrEmpty(abs)) return null;
+            if (root.Length == 0 || string.IsNullOrEmpty(abs))
+                return null;
             if (root == "/")
-                return abs.StartsWith("/", StringComparison.Ordinal) && abs.Length > 1 ? abs.Substring(1) : null;
+                return abs.StartsWith("/", StringComparison.Ordinal) && abs.Length > 1
+                    ? abs.Substring(1)
+                    : null;
             root = root.TrimEnd('/');
-            return abs.StartsWith(root + "/", StringComparison.Ordinal) ? abs.Substring(root.Length + 1) : null;
+            return abs.StartsWith(root + "/", StringComparison.Ordinal)
+                ? abs.Substring(root.Length + 1)
+                : null;
         }
 
         public static bool Changed(string project, string abs)
@@ -365,7 +426,8 @@ namespace SlopWorld
         {
             var repo = Known(project);
             string rel = repo == null ? null : RelOf(repo, abs);
-            if (rel == null || !repo.Changes.TryGetValue(rel, out var status)) return null;
+            if (rel == null || !repo.Changes.TryGetValue(rel, out var status))
+                return null;
             return DiffCmd(repo, rel, status);
         }
 
@@ -376,7 +438,8 @@ namespace SlopWorld
             int request = _diffRequest;
             void OpenCurrent()
             {
-                if (request != _diffRequest) return;
+                if (request != _diffRequest)
+                    return;
                 var repo = Known(project);
                 if (repo == null || repo.Changed <= 0)
                 {
@@ -384,15 +447,25 @@ namespace SlopWorld
                     return;
                 }
                 ClearSelection();
-                Viewers.ForPreview().Open(project, DiffCmd(repo, null, null), FilesView.ReaderLabel(project, "diff"),
-                    null, "", "diff");
+                Viewers
+                    .ForPreview()
+                    .Open(
+                        project,
+                        DiffCmd(repo, null, null),
+                        FilesView.ReaderLabel(project, "diff"),
+                        null,
+                        "",
+                        "diff"
+                    );
             }
 
             // The visible tree already has a status snapshot. Start its pager now; Git reads
             // the actual diff when the command runs. A cold cache still needs the root first.
             var known = Known(project);
-            if (known != null && !string.IsNullOrEmpty(known.Root)) OpenCurrent();
-            else Fetch(project, OpenCurrent);
+            if (known != null && !string.IsNullOrEmpty(known.Root))
+                OpenCurrent();
+            else
+                Fetch(project, OpenCurrent);
         }
 
         // ------------------------------------------------------------------ menus
@@ -413,8 +486,12 @@ namespace SlopWorld
                 if (HasStaged(repo))
                 {
                     opts.Add(new FloatMenuOption("Unstage all", () => UnstageAll(repo)));
-                    opts.Add(new FloatMenuOption("Commit staged changes",
-                        () => GitCommitDialog.Open(project)));
+                    opts.Add(
+                        new FloatMenuOption(
+                            "Commit staged changes",
+                            () => GitCommitDialog.Open(project)
+                        )
+                    );
                 }
 
                 // The whole tree's diff, in the same pager one file's opens in. Tracked as
@@ -425,9 +502,17 @@ namespace SlopWorld
 
             FilesView.AddFileActions(opts, project, repo.Dir, SidebarScopes.Label(project));
 
-            opts.Add(new FloatMenuOption("Terminal (host)", () =>
-                SessionHub.Instance.SessionStore.RunHostShell(project,
-                    session => TerminalWindow.Open(session), UiLayout.Fail)));
+            opts.Add(
+                new FloatMenuOption(
+                    "Terminal (host)",
+                    () =>
+                        SessionHub.Instance.SessionStore.RunHostShell(
+                            project,
+                            session => TerminalWindow.Open(session),
+                            UiLayout.Fail
+                        )
+                )
+            );
 
             return opts;
         }
@@ -453,24 +538,43 @@ namespace SlopWorld
                 opts.Add(new FloatMenuOption("Unstage", () => Unstage(repo, node.Rel)));
 
             if (!node.IsDir && node.Status.Present)
-                opts.Add(new FloatMenuOption("Edit", () =>
-                    FilesView.EditFile(project, abs, "edit-" + node.Name)));
+                opts.Add(
+                    new FloatMenuOption(
+                        "Edit",
+                        () => FilesView.EditFile(project, abs, "edit-" + node.Name)
+                    )
+                );
 
-            opts.Add(new FloatMenuOption("Diff", () =>
-            {
-                // A directory diff includes every change under it, so the view marks no row.
-                // A file diff applies to the row itself.
-                if (node.IsDir) ClearSelection();
-                else Tree.Select(node);
-                Diff(node, repo);
-            }));
+            opts.Add(
+                new FloatMenuOption(
+                    "Diff",
+                    () =>
+                    {
+                        // A directory diff includes every change under it, so the view marks no row.
+                        // A file diff applies to the row itself.
+                        if (node.IsDir)
+                            ClearSelection();
+                        else
+                            Tree.Select(node);
+                        Diff(node, repo);
+                    }
+                )
+            );
 
             return opts;
         }
 
-        static void Copy(string text) => DaemonClipboard.Copy(text,
-            () => Messages.Message($"SlopWorld: copied {text}", MessageTypeDefOf.SilentInput,
-                false), UiLayout.Fail);
+        static void Copy(string text) =>
+            DaemonClipboard.Copy(
+                text,
+                () =>
+                    Messages.Message(
+                        $"SlopWorld: copied {text}",
+                        MessageTypeDefOf.SilentInput,
+                        false
+                    ),
+                UiLayout.Fail
+            );
 
         // ------------------------------------------------------------------ the diff
         //
@@ -478,7 +582,8 @@ namespace SlopWorld
 
         // Files delegates diff creation here. Both trees expose the same reader headers.
         static int _diffRequest;
-        static string _pendingDiffProject, _pendingDiffRel;
+        static string _pendingDiffProject,
+            _pendingDiffRel;
         static bool _pinPendingDiff;
 
         internal static void CancelPendingDiff()
@@ -501,16 +606,21 @@ namespace SlopWorld
             _pendingDiffRel = known == null ? null : RelOf(known, abs);
             void OpenCurrent()
             {
-                if (request != _diffRequest) return;
+                if (request != _diffRequest)
+                    return;
                 bool pin = _pinPendingDiff;
                 _pendingDiffProject = _pendingDiffRel = null;
                 _pinPendingDiff = false;
                 var repo = Known(project);
                 string rel = repo == null ? null : RelOf(repo, abs);
                 string status = null;
-                bool changed = rel != null && (directory
-                    ? HasChangesUnder(repo, rel)
-                    : repo.Changes.TryGetValue(rel, out status));
+                bool changed =
+                    rel != null
+                    && (
+                        directory
+                            ? HasChangesUnder(repo, rel)
+                            : repo.Changes.TryGetValue(rel, out status)
+                    );
                 if (!changed)
                 {
                     if (repo != null && !repo.Truncated && rel != null)
@@ -518,17 +628,27 @@ namespace SlopWorld
                     UiLayout.Fail($"nothing to diff in {System.IO.Path.GetFileName(abs)}");
                     return;
                 }
-                if (directory) ClearSelection();
-                else Tree.SelectKey(ContentTreeView.SelectionKey(project, rel));
+                if (directory)
+                    ClearSelection();
+                else
+                    Tree.SelectKey(ContentTreeView.SelectionKey(project, rel));
                 AgentSidebar.RememberGit(project, rel);
-                Viewers.OpenFresh(project, DiffCmd(repo, rel, status), FilesView.ReaderLabel(project, label), DiffKey(rel));
-                if (pin) Viewers.LockPreview(project, DiffKey(rel));
+                Viewers.OpenFresh(
+                    project,
+                    DiffCmd(repo, rel, status),
+                    FilesView.ReaderLabel(project, label),
+                    DiffKey(rel)
+                );
+                if (pin)
+                    Viewers.LockPreview(project, DiffKey(rel));
             }
 
             // The row came from this snapshot. Avoid a second status HTTP round trip before
             // starting its pager; only a cold cache needs to discover the repository root.
-            if (known != null && !string.IsNullOrEmpty(known.Root)) OpenCurrent();
-            else Fetch(project, OpenCurrent);
+            if (known != null && !string.IsNullOrEmpty(known.Root))
+                OpenCurrent();
+            else
+                Fetch(project, OpenCurrent);
         }
 
         static void Diff(Node node, Repo repo) =>
@@ -558,13 +678,16 @@ namespace SlopWorld
 
         public static bool CloseViewerTab(string session)
         {
-            if (Viewers.CloseTab(session)) return true;
+            if (Viewers.CloseTab(session))
+                return true;
 
             // PagerTabs is UI-lifetime state. A game restart loses the owner of an ephemeral
             // diff, but the daemon still owns the routed session and can stop it directly.
             var info = SessionHub.Instance.Get(session);
-            if (info == null || !info.Ephemeral) return false;
-            if ((SessionRowAction.Of(info) & RowAct.Diff) == 0) return false;
+            if (info == null || !info.Ephemeral)
+                return false;
+            if ((SessionRowAction.Of(info) & RowAct.Diff) == 0)
+                return false;
             SessionHub.Instance.SessionStore.Stop(session);
             return true;
         }

@@ -5,7 +5,8 @@ namespace SlopWorld
     // Apply Unity's VSync and target-FPS values together. Unfocused windows always use 15 FPS.
     public sealed class FramePolicy
     {
-        public const string Sync = "sync", Limit = "limit";
+        public const string Sync = "sync",
+            Limit = "limit";
         public static readonly int[] Presets = { 15, 30, 60, 120, 144, 240 };
 
         // Unknown settings use the VSync policy.
@@ -30,7 +31,10 @@ namespace SlopWorld
         public bool Follow(bool focused, string mode, int fps, ref int target, ref int sync)
         {
             mode = Normalize(mode);
-            int nextTarget = !focused ? 15 : mode == Sync ? -1 : NearestPreset(fps);
+            int nextTarget =
+                !focused ? 15
+                : mode == Sync ? -1
+                : NearestPreset(fps);
             int nextSync = focused && mode == Sync ? 1 : 0;
             bool changed = target != nextTarget || sync != nextSync;
             target = nextTarget;

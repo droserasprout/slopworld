@@ -3,7 +3,13 @@ using System.Linq;
 
 namespace SlopWorld
 {
-    public enum MountMode { None, Ro, Rw, Cache }
+    public enum MountMode
+    {
+        None,
+        Ro,
+        Rw,
+        Cache,
+    }
 
     public class MountEntry
     {
@@ -16,10 +22,14 @@ namespace SlopWorld
         {
             switch ((text ?? "").Trim().ToLowerInvariant())
             {
-                case WireProtocol.MountMode.Ro: return MountMode.Ro;
-                case WireProtocol.MountMode.Rw: return MountMode.Rw;
-                case WireProtocol.MountMode.Cache: return MountMode.Cache;
-                default: return MountMode.Rw;
+                case WireProtocol.MountMode.Ro:
+                    return MountMode.Ro;
+                case WireProtocol.MountMode.Rw:
+                    return MountMode.Rw;
+                case WireProtocol.MountMode.Cache:
+                    return MountMode.Cache;
+                default:
+                    return MountMode.Rw;
             }
         }
 
@@ -27,22 +37,34 @@ namespace SlopWorld
         {
             switch (mode)
             {
-                case MountMode.Cache: return WireProtocol.MountMode.Cache;
-                case MountMode.Ro: return WireProtocol.MountMode.Ro;
+                case MountMode.Cache:
+                    return WireProtocol.MountMode.Cache;
+                case MountMode.Ro:
+                    return WireProtocol.MountMode.Ro;
                 case MountMode.Rw:
                 case MountMode.None:
-                default: return WireProtocol.MountMode.Rw;
+                default:
+                    return WireProtocol.MountMode.Rw;
             }
         }
 
-        public static MountEntry FromWire(Wire.Mount j) => new MountEntry
-        {
-            From = j.From,
-            To = j.To,
-            Mode = ParseMode(j.Mode),
-        };
+        public static MountEntry FromWire(Wire.Mount j) =>
+            new MountEntry
+            {
+                From = j.From,
+                To = j.To,
+                Mode = ParseMode(j.Mode),
+            };
+
         public static List<MountEntry> ListFromWire(IEnumerable<Wire.Mount> mounts) =>
             mounts.Select(FromWire).ToList();
-        public Wire.Mount ToWire() => new Wire.Mount { From = From, To = To, Mode = ModeName(Mode) };
+
+        public Wire.Mount ToWire() =>
+            new Wire.Mount
+            {
+                From = From,
+                To = To,
+                Mode = ModeName(Mode),
+            };
     }
 }

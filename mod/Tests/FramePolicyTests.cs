@@ -4,11 +4,19 @@ namespace SlopWorld.Tests
     {
         public static void Transitions()
         {
-            AssertEx.Equal(15, FramePolicy.NearestPreset(-2147483633), "extreme negative FPS does not overflow");
+            AssertEx.Equal(
+                15,
+                FramePolicy.NearestPreset(-2147483633),
+                "extreme negative FPS does not overflow"
+            );
             var policy = new FramePolicy();
-            int target = 75, sync = 2;
-            AssertEx.Equal(true, policy.Follow(true, "sync", 60, ref target, ref sync),
-                "focused mode uses VSync");
+            int target = 75,
+                sync = 2;
+            AssertEx.Equal(
+                true,
+                policy.Follow(true, "sync", 60, ref target, ref sync),
+                "focused mode uses VSync"
+            );
             AssertEx.Equal(-1, target, "focused target");
             AssertEx.Equal(1, sync, "focused VSync");
             Step(policy, false, "sync", 60, ref target, ref sync, 15, 0, true);
@@ -32,11 +40,23 @@ namespace SlopWorld.Tests
             Step(policy, true, "sync", 60, ref target, ref sync, -1, 1, false);
         }
 
-        static void Step(FramePolicy policy, bool focused, string mode, int fps,
-            ref int target, ref int sync, int expectedTarget, int expectedSync, bool expectedChanged)
+        static void Step(
+            FramePolicy policy,
+            bool focused,
+            string mode,
+            int fps,
+            ref int target,
+            ref int sync,
+            int expectedTarget,
+            int expectedSync,
+            bool expectedChanged
+        )
         {
-            AssertEx.Equal(expectedChanged, policy.Follow(focused, mode, fps, ref target, ref sync),
-                "change after " + mode);
+            AssertEx.Equal(
+                expectedChanged,
+                policy.Follow(focused, mode, fps, ref target, ref sync),
+                "change after " + mode
+            );
             AssertEx.Equal(expectedTarget, target, "target after " + mode);
             AssertEx.Equal(expectedSync, sync, "VSync after " + mode);
         }

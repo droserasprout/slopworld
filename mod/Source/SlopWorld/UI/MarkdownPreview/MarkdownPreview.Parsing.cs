@@ -47,16 +47,18 @@ namespace SlopWorld
 
             public InlineStyle WithHtmlState(HtmlState state)
             {
-                return WithHtmlStyle(new InlineStyle
-                {
-                    Bold = state.Bold > 0,
-                    Italic = state.Italic > 0,
-                    Code = state.Code > 0,
-                    InlineCode = state.InlineCode > 0,
-                    Strike = state.Strike > 0,
-                    Link = state.Link,
-                    LocalLink = state.LocalLink,
-                });
+                return WithHtmlStyle(
+                    new InlineStyle
+                    {
+                        Bold = state.Bold > 0,
+                        Italic = state.Italic > 0,
+                        Code = state.Code > 0,
+                        InlineCode = state.InlineCode > 0,
+                        Strike = state.Strike > 0,
+                        Link = state.Link,
+                        LocalLink = state.LocalLink,
+                    }
+                );
             }
 
             public InlineStyle WithHtmlStyle(InlineStyle effect)
@@ -110,11 +112,16 @@ namespace SlopWorld
             public void ApplyStyle(HtmlStyleKind kind, InlineStyle effect, bool closing)
             {
                 int delta = closing ? -1 : 1;
-                if (effect.Bold) Bold = Math.Max(0, Bold + delta);
-                if (effect.Italic) Italic = Math.Max(0, Italic + delta);
-                if (effect.Code) Code = Math.Max(0, Code + delta);
-                if (effect.InlineCode) InlineCode = Math.Max(0, InlineCode + delta);
-                if (effect.Strike) Strike = Math.Max(0, Strike + delta);
+                if (effect.Bold)
+                    Bold = Math.Max(0, Bold + delta);
+                if (effect.Italic)
+                    Italic = Math.Max(0, Italic + delta);
+                if (effect.Code)
+                    Code = Math.Max(0, Code + delta);
+                if (effect.InlineCode)
+                    InlineCode = Math.Max(0, InlineCode + delta);
+                if (effect.Strike)
+                    Strike = Math.Max(0, Strike + delta);
                 if (kind == HtmlStyleKind.Link)
                 {
                     Link = closing ? null : effect.Link;
@@ -150,9 +157,11 @@ namespace SlopWorld
         {
             foreach (Block block in container)
             {
-                if (block is HtmlBlock html && TryAddHtmlBlocks(html.Lines.ToString(), target)) continue;
+                if (block is HtmlBlock html && TryAddHtmlBlocks(html.Lines.ToString(), target))
+                    continue;
                 var converted = ConvertBlock(block);
-                if (converted != null) target.Add(converted);
+                if (converted != null)
+                    target.Add(converted);
             }
         }
 
@@ -253,7 +262,8 @@ namespace SlopWorld
         {
             var children = new List<MarkdownBlock>();
             AddBlocks(list, children);
-            if (!int.TryParse(list.OrderedStart, out int start)) start = 1;
+            if (!int.TryParse(list.OrderedStart, out int start))
+                start = 1;
             return new MarkdownBlock
             {
                 Kind = BlockKind.List,
@@ -281,11 +291,13 @@ namespace SlopWorld
             var rows = new List<TableRow>();
             foreach (Block child in table)
             {
-                if (!(child is Markdig.Extensions.Tables.TableRow row)) continue;
+                if (!(child is Markdig.Extensions.Tables.TableRow row))
+                    continue;
                 var output = new TableRow { Header = row.IsHeader };
                 foreach (Block cellBlock in row)
                 {
-                    if (!(cellBlock is TableCell cell)) continue;
+                    if (!(cellBlock is TableCell cell))
+                        continue;
                     output.Cells.Add(ReadCell(cell));
                 }
                 rows.Add(output);
@@ -322,8 +334,10 @@ namespace SlopWorld
         MarkdownBlock ConvertHtml(HtmlBlock html)
         {
             string source = html.Lines.ToString();
-            if (IsHtmlComment(source)) return null;
-            if (IsHtmlRule(source)) return new MarkdownBlock { Kind = BlockKind.Rule };
+            if (IsHtmlComment(source))
+                return null;
+            if (IsHtmlRule(source))
+                return new MarkdownBlock { Kind = BlockKind.Rule };
 
             return new MarkdownBlock
             {
@@ -372,10 +386,15 @@ namespace SlopWorld
             return runs;
         }
 
-        void AppendInlines(ContainerInline container, List<InlineRun> target,
-                           InlineStyle style, HtmlState htmlState)
+        void AppendInlines(
+            ContainerInline container,
+            List<InlineRun> target,
+            InlineStyle style,
+            HtmlState htmlState
+        )
         {
-            if (container == null) return;
+            if (container == null)
+                return;
             foreach (Inline inline in container)
             {
                 InlineStyle currentStyle = style.WithHtmlState(htmlState);
@@ -406,7 +425,12 @@ namespace SlopWorld
                     else
                     {
                         _paths.TryResolveLink(linkInline.Url, out var url, out var local);
-                        AppendInlines(linkInline, target, currentStyle.WithLink(url, local), htmlState);
+                        AppendInlines(
+                            linkInline,
+                            target,
+                            currentStyle.WithLink(url, local),
+                            htmlState
+                        );
                     }
                 }
                 else if (inline is AutolinkInline auto)
@@ -416,16 +440,24 @@ namespace SlopWorld
                 }
                 else if (inline is TaskList task)
                 {
-                    target.Add(currentStyle.Apply(new InlineRun
-                    {
-                        Text = task.Checked ? "[x] " : "[ ] ",
-                        IsTask = true,
-                        TaskChecked = task.Checked,
-                    }));
+                    target.Add(
+                        currentStyle.Apply(
+                            new InlineRun
+                            {
+                                Text = task.Checked ? "[x] " : "[ ] ",
+                                IsTask = true,
+                                TaskChecked = task.Checked,
+                            }
+                        )
+                    );
                 }
                 else if (inline is LineBreakInline lineBreak)
                 {
-                    AddRun(target, lineBreak.IsHard || currentStyle.Code ? "\n" : " ", currentStyle);
+                    AddRun(
+                        target,
+                        lineBreak.IsHard || currentStyle.Code ? "\n" : " ",
+                        currentStyle
+                    );
                 }
                 else if (inline is HtmlInline html)
                 {
@@ -452,13 +484,15 @@ namespace SlopWorld
             using (var tokenizer = new HtmlTokenizer(input, HtmlEntityProvider.Resolver))
             {
                 var token = tokenizer.Get();
-                if (tokenizer.Get().Type != HtmlTokenType.EndOfFile) return false;
+                if (tokenizer.Get().Type != HtmlTokenType.EndOfFile)
+                    return false;
                 if (token.Type == HtmlTokenType.Comment)
                 {
                     tag = new HtmlTagInfo { Comment = true };
                     return true;
                 }
-                if (!(token is HtmlTagToken htmlTag)) return false;
+                if (!(token is HtmlTagToken htmlTag))
+                    return false;
                 tag = new HtmlTagInfo
                 {
                     Name = htmlTag.Name,
@@ -471,8 +505,10 @@ namespace SlopWorld
 
         static bool IsHtmlRule(string source)
         {
-            return TryParseHtmlTag(source, out var tag) && !tag.Comment && !tag.Closing &&
-                tag.Name == "hr";
+            return TryParseHtmlTag(source, out var tag)
+                && !tag.Comment
+                && !tag.Closing
+                && tag.Name == "hr";
         }
 
         static bool IsHtmlComment(string source)
@@ -480,17 +516,24 @@ namespace SlopWorld
             return TryParseHtmlTag(source, out var tag) && tag.Comment;
         }
 
-        bool HandleHtmlTag(string source, List<InlineRun> target, HtmlState state,
-                           InlineStyle style)
+        bool HandleHtmlTag(
+            string source,
+            List<InlineRun> target,
+            HtmlState state,
+            InlineStyle style
+        )
         {
-            if (!TryParseHtmlTag(source, out var tag)) return false;
-            if (tag.Comment) return true;
+            if (!TryParseHtmlTag(source, out var tag))
+                return false;
+            if (tag.Comment)
+                return true;
 
             string name = tag.Name;
             if (name == "img")
             {
                 var image = ParseImage(tag.Attribute);
-                if (image == null || tag.Closing) return false;
+                if (image == null || tag.Closing)
+                    return false;
                 style.Apply(image);
                 target.Add(image);
                 return true;
@@ -504,20 +547,26 @@ namespace SlopWorld
             }
 
             var kind = HtmlStyleFor(name);
-            if (kind == HtmlStyleKind.Unsupported) return false;
+            if (kind == HtmlStyleKind.Unsupported)
+                return false;
             state.ApplyStyle(kind, ReadHtmlStyle(kind, tag.Attribute), tag.Closing);
             return true;
         }
 
         void AppendImage(LinkInline image, List<InlineRun> target, InlineStyle style)
         {
-            if (image == null || string.IsNullOrWhiteSpace(image.Url)) return;
-            target.Add(style.Apply(new InlineRun
-            {
-                IsImage = true,
-                ImagePath = image.Url,
-                ImageAlt = InlineText(image),
-            }));
+            if (image == null || string.IsNullOrWhiteSpace(image.Url))
+                return;
+            target.Add(
+                style.Apply(
+                    new InlineRun
+                    {
+                        IsImage = true,
+                        ImagePath = image.Url,
+                        ImageAlt = InlineText(image),
+                    }
+                )
+            );
         }
 
         static string InlineText(ContainerInline container)
@@ -529,7 +578,8 @@ namespace SlopWorld
 
         static void AppendInlineText(Inline inline, System.Text.StringBuilder target)
         {
-            if (inline == null) return;
+            if (inline == null)
+                return;
             if (inline is LiteralInline literal)
             {
                 target.Append(literal.Content.ToString());
@@ -559,7 +609,8 @@ namespace SlopWorld
         static InlineRun ParseImage(Func<string, string> attribute)
         {
             string source = attribute("src");
-            if (string.IsNullOrWhiteSpace(source)) return null;
+            if (string.IsNullOrWhiteSpace(source))
+                return null;
             return new InlineRun
             {
                 IsImage = true,
@@ -576,7 +627,8 @@ namespace SlopWorld
             string align = (attribute("align") ?? "").Trim().ToLowerInvariant();
             if (align.Length == 0)
                 align = (CssProperty(attribute("style"), "float") ?? "").Trim().ToLowerInvariant();
-            if (align == "middle") align = "center";
+            if (align == "middle")
+                align = "center";
             return align == "left" || align == "right" || align == "center" ? align : "";
         }
 
@@ -585,9 +637,11 @@ namespace SlopWorld
             foreach (string declaration in (style ?? "").Split(';'))
             {
                 int colon = declaration.IndexOf(':');
-                if (colon < 0) continue;
+                if (colon < 0)
+                    continue;
                 string name = declaration.Substring(0, colon).Trim();
-                if (!string.Equals(name, property, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!string.Equals(name, property, StringComparison.OrdinalIgnoreCase))
+                    continue;
                 return declaration.Substring(colon + 1).Trim();
             }
             return null;
@@ -595,24 +649,35 @@ namespace SlopWorld
 
         static float HtmlDimension(string value)
         {
-            if (string.IsNullOrWhiteSpace(value)) return 0f;
+            if (string.IsNullOrWhiteSpace(value))
+                return 0f;
             value = value.Trim();
             if (value.EndsWith("px", StringComparison.OrdinalIgnoreCase))
                 value = value.Substring(0, value.Length - 2);
-            if (value.EndsWith("%", StringComparison.Ordinal)) return 0f;
-            return float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture,
-                out var result) && result > 0f ? result : 0f;
+            if (value.EndsWith("%", StringComparison.Ordinal))
+                return 0f;
+            return
+                float.TryParse(
+                    value,
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out var result
+                )
+                && result > 0f
+                ? result
+                : 0f;
         }
 
-        static void AddRun(List<InlineRun> target, string text, InlineStyle style,
-                           bool faint = false)
+        static void AddRun(
+            List<InlineRun> target,
+            string text,
+            InlineStyle style,
+            bool faint = false
+        )
         {
-            if (string.IsNullOrEmpty(text)) return;
-            target.Add(style.Apply(new InlineRun
-            {
-                Text = text,
-                Faint = faint,
-            }));
+            if (string.IsNullOrEmpty(text))
+                return;
+            target.Add(style.Apply(new InlineRun { Text = text, Faint = faint }));
         }
     }
 }

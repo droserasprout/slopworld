@@ -31,10 +31,11 @@ namespace SlopWorld.Tests
         static void CopyName()
         {
             var identity = EditIdentity.ForCopy("agent-2");
-            AssertEx.Equal("agent-4", identity.CopyName(
-                new[] { "agent-2", "agent-3" }, "agent"),
-                "copy name skips occupied suffixes");
+            AssertEx.Equal(
+                "agent-4",
+                identity.CopyName(new[] { "agent-2", "agent-3" }, "agent"),
+                "copy name skips occupied suffixes"
+            );
         }
-
     }
 }

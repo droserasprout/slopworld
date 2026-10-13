@@ -10,13 +10,21 @@ namespace SlopWorld
     // many fields in one definition, but only one preset or command is being edited at once.
     public partial class SandboxPage : IOptionPage
     {
-        public enum Section { SandboxPresets, AppPresets }
+        public enum Section
+        {
+            SandboxPresets,
+            AppPresets,
+        }
 
         readonly AsyncLoadState<bool> _load = new AsyncLoadState<bool>();
         readonly Section _section;
 
         string _actionError;
-        string _error { get => _actionError ?? _load.Error; set => _actionError = value; }
+        string _error
+        {
+            get => _actionError ?? _load.Error;
+            set => _actionError = value;
+        }
         bool _loaded => _load.HasValue && !_load.Loading;
 
         readonly SmoothScroll _listScroll = new SmoothScroll();
@@ -37,13 +45,16 @@ namespace SlopWorld
         public void Load()
         {
             _actionError = null;
-            _load.Load((ok, fail) => SessionHub.Instance.Catalog.LoadPresets(() => ok(true), fail), _ =>
-            {
-                // Catalog completion publishes the winning revision before rebinding selection.
-                RebindSelection();
-                ApplyPendingSelection();
-                ApplyDeferredCreation();
-            });
+            _load.Load(
+                (ok, fail) => SessionHub.Instance.Catalog.LoadPresets(() => ok(true), fail),
+                _ =>
+                {
+                    // Catalog completion publishes the winning revision before rebinding selection.
+                    RebindSelection();
+                    ApplyPendingSelection();
+                    ApplyDeferredCreation();
+                }
+            );
         }
 
         void RebindSelection()
@@ -51,7 +62,9 @@ namespace SlopWorld
             if (_preset != null && !_newEntry)
                 _preset = SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == _preset.Name);
             if (_command != null && !_newEntry)
-                _command = SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == _command.Name);
+                _command = SessionHub.Instance.Commands.FirstOrDefault(c =>
+                    c.Name == _command.Name
+                );
         }
 
         void ApplyPendingSelection()
@@ -65,7 +78,9 @@ namespace SlopWorld
             }
             if (_pendingCommand != null)
             {
-                _command = SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == _pendingCommand);
+                _command = SessionHub.Instance.Commands.FirstOrDefault(c =>
+                    c.Name == _pendingCommand
+                );
                 _pendingCommand = null;
                 _preset = null;
                 _newEntry = false;
@@ -74,8 +89,10 @@ namespace SlopWorld
 
         void ApplyDeferredCreation()
         {
-            if (_newPresetRequested) NewPreset();
-            else if (_newCommandRequested) NewCommand();
+            if (_newPresetRequested)
+                NewPreset();
+            else if (_newCommandRequested)
+                NewCommand();
         }
 
         public void SelectPreset(string name)
@@ -162,8 +179,11 @@ namespace SlopWorld
 
             if (!_loaded)
             {
-                UiText.PlainStatusLabel(inner, _error ?? "Waiting for the daemon",
-                    _error != null ? UiTheme.Bad : UiTheme.Dim);
+                UiText.PlainStatusLabel(
+                    inner,
+                    _error ?? "Waiting for the daemon",
+                    _error != null ? UiTheme.Bad : UiTheme.Dim
+                );
             }
             else
             {
@@ -188,11 +208,19 @@ namespace SlopWorld
                 : r.width;
             float captionHeight = UiText.PlainStatusLabelHeight(caption, captionWidth);
             float rowHeight = Mathf.Max(captionHeight, presets ? UiTheme.BtnH : 0f);
-            UiText.PlainStatusLabel(new Rect(r.x, y, captionWidth, captionHeight), caption,
-                UiTheme.Dim);
-            if (presets && UiButtons.Button(
+            UiText.PlainStatusLabel(
+                new Rect(r.x, y, captionWidth, captionHeight),
+                caption,
+                UiTheme.Dim
+            );
+            if (
+                presets
+                && UiButtons.Button(
                     new Rect(r.xMax - actionWidth, y, actionWidth, UiTheme.BtnH),
-                    "New user preset", UiTheme.Btn.Primary))
+                    "New user preset",
+                    UiTheme.Btn.Primary
+                )
+            )
                 NewPreset();
 
             y += rowHeight + UiTheme.GapS;
@@ -212,6 +240,5 @@ namespace SlopWorld
         }
 
         static Rect ToRect(UiLayoutRect r) => new Rect(r.X, r.Y, r.Width, r.Height);
-
     }
 }

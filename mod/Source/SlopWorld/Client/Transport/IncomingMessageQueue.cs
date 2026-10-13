@@ -38,27 +38,39 @@ namespace SlopWorld
 
         readonly object _gate = new object();
         readonly LinkedList<Entry> _queue = new LinkedList<Entry>();
-        readonly Dictionary<string, LinkedListNode<Entry>> _latestLive =
-            new Dictionary<string, LinkedListNode<Entry>>(StringComparer.Ordinal);
+        readonly Dictionary<string, LinkedListNode<Entry>> _latestLive = new Dictionary<
+            string,
+            LinkedListNode<Entry>
+        >(StringComparer.Ordinal);
         int _bytes;
         bool _closed;
 
         public int Count
         {
-            get { lock (_gate) return _queue.Count; }
+            get
+            {
+                lock (_gate)
+                    return _queue.Count;
+            }
         }
 
         public int Bytes
         {
-            get { lock (_gate) return _bytes; }
+            get
+            {
+                lock (_gate)
+                    return _bytes;
+            }
         }
 
         public IncomingEnqueueResult Enqueue(byte[] payload)
         {
-            if (payload == null) return IncomingEnqueueResult.Oversized;
+            if (payload == null)
+                return IncomingEnqueueResult.Oversized;
 
             int bytes = payload.Length;
-            if (bytes > MaxMessageBytes) return IncomingEnqueueResult.Oversized;
+            if (bytes > MaxMessageBytes)
+                return IncomingEnqueueResult.Oversized;
 
             // Validate and classify before acquiring the queue lock. Decode retained live frames on dispatch.
             // Ownership of the payload transfers to the queue. Callers must not mutate it.
@@ -78,7 +90,8 @@ namespace SlopWorld
                     {
                         var node = _queue.AddLast(new Entry(text, liveName, bytes));
                         _bytes += bytes;
-                        if (liveName != null) _latestLive[liveName] = node;
+                        if (liveName != null)
+                            _latestLive[liveName] = node;
                         Monitor.PulseAll(_gate);
                         return IncomingEnqueueResult.Accepted;
                     }
@@ -134,9 +147,11 @@ namespace SlopWorld
         {
             _queue.Remove(node);
             _bytes -= node.Value.Bytes;
-            if (node.Value.LiveName != null &&
-                _latestLive.TryGetValue(node.Value.LiveName, out var current) &&
-                ReferenceEquals(current, node))
+            if (
+                node.Value.LiveName != null
+                && _latestLive.TryGetValue(node.Value.LiveName, out var current)
+                && ReferenceEquals(current, node)
+            )
                 _latestLive.Remove(node.Value.LiveName);
         }
     }

@@ -41,7 +41,8 @@ namespace SlopWorld
             get { return _dlg.selectedCategory; }
             set
             {
-                if (_dlg.selectedCategory != value) TextFieldSelection.ReleaseFocus();
+                if (_dlg.selectedCategory != value)
+                    TextFieldSelection.ReleaseFocus();
                 _dlg.selectedCategory = value;
                 _dlg.selectedMod = null;
             }
@@ -50,20 +51,28 @@ namespace SlopWorld
         // The height is the band's plus the row vanilla takes off for the OK button. Therefore, the
         // options list fills the band and the button - suppressed, see Patch_OptionsOk - is laid
         // out past the bottom of the group.
-        public static Rect Inner(Rect band) =>
-            new Rect(0f, 0f, band.width, band.height + OkRow);
+        public static Rect Inner(Rect band) => new Rect(0f, 0f, band.width, band.height + OkRow);
 
         public override void Draw(Rect body)
         {
             var band = UiLayout.CenteredBand(body);
             // Other views own wheel input outside Settings or already consumed.
-            if (SmoothScroll.WheelOnly && (Event.current.type == EventType.Used ||
-                !band.Contains(Event.current.mousePosition))) return;
+            if (
+                SmoothScroll.WheelOnly
+                && (
+                    Event.current.type == EventType.Used
+                    || !band.Contains(Event.current.mousePosition)
+                )
+            )
+                return;
 
             GUI.BeginGroup(band);
             Drawing = true;
             _railViewport = new Rect(0f, 0f, Mathf.Min(177f, band.width), band.height);
-            try { _dlg.DoWindowContents(Inner(band)); }
+            try
+            {
+                _dlg.DoWindowContents(Inner(band));
+            }
             finally
             {
                 Drawing = false;

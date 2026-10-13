@@ -7,7 +7,9 @@ namespace SlopWorld
     public sealed class DaemonCapabilities
     {
         public static DaemonCapabilities Current = new DaemonCapabilities();
+
         public static DaemonCapabilities Reset() => Current = new DaemonCapabilities();
+
         public bool Known;
         public string Runtime = "native";
         public bool AudioPlayback = true;
@@ -17,14 +19,15 @@ namespace SlopWorld
         public bool PerSessionLimits = true;
         public bool HostNetworkIsContainer;
         public bool HostTerminalsAreContainer;
-        public string TerminalName => HostTerminalsAreContainer
-            ? "container terminal" : "host terminal";
-        public string TerminalNames => HostTerminalsAreContainer
-            ? "container terminals" : "host terminals";
+        public string TerminalName =>
+            HostTerminalsAreContainer ? "container terminal" : "host terminal";
+        public string TerminalNames =>
+            HostTerminalsAreContainer ? "container terminals" : "host terminals";
 
         public static DaemonCapabilities FromWire(Wire.Capabilities j)
         {
-            if (j == null) throw new ArgumentNullException(nameof(j));
+            if (j == null)
+                throw new ArgumentNullException(nameof(j));
             return Current = new DaemonCapabilities
             {
                 Known = true,

@@ -18,7 +18,8 @@ namespace SlopWorld
         public bool ShouldRequest(string name, DateTime now)
         {
             string wanted = name ?? "";
-            if (Name != wanted) return true;
+            if (Name != wanted)
+                return true;
             return !Pending && Dir == null && Attempts < MaxAttempts && now >= _retryAt;
         }
 
@@ -27,7 +28,8 @@ namespace SlopWorld
         public int Begin(string name, DateTime now)
         {
             string wanted = name ?? "";
-            if (!ShouldRequest(wanted, now)) return 0;
+            if (!ShouldRequest(wanted, now))
+                return 0;
             if (Name != wanted)
             {
                 Name = wanted;
@@ -42,7 +44,8 @@ namespace SlopWorld
 
         public bool Accept(int serial, bool temporary, string name, string dir)
         {
-            if (!IsCurrent(serial, temporary, name) || string.IsNullOrEmpty(dir)) return false;
+            if (!IsCurrent(serial, temporary, name) || string.IsNullOrEmpty(dir))
+                return false;
             Dir = dir;
             Pending = false;
             Error = null;
@@ -51,7 +54,8 @@ namespace SlopWorld
 
         public bool Fail(int serial, bool temporary, string name, string error, DateTime now)
         {
-            if (!IsCurrent(serial, temporary, name)) return false;
+            if (!IsCurrent(serial, temporary, name))
+                return false;
             Pending = false;
             Error = string.IsNullOrEmpty(error) ? "Daemon preview failed." : error;
             int seconds = 1 << Math.Min(Attempts - 1, 2);
@@ -61,15 +65,18 @@ namespace SlopWorld
 
         bool IsCurrent(int serial, bool temporary, string name)
         {
-            if (serial != _serial) return false;
-            if (temporary && name == Name) return true;
+            if (serial != _serial)
+                return false;
+            if (temporary && name == Name)
+                return true;
             Cancel();
             return false;
         }
 
         public void Cancel()
         {
-            if (Name == null && !Pending) return;
+            if (Name == null && !Pending)
+                return;
             _serial++;
             Name = null;
             Dir = null;
@@ -79,8 +86,12 @@ namespace SlopWorld
             _retryAt = DateTime.MinValue;
         }
 
-        public string Status => Dir ?? (Pending
-            ? "Waiting for daemon preview"
-            : Attempts >= MaxAttempts ? "Preview unavailable after three attempts." : Error ?? "");
+        public string Status =>
+            Dir
+            ?? (
+                Pending ? "Waiting for daemon preview"
+                : Attempts >= MaxAttempts ? "Preview unavailable after three attempts."
+                : Error ?? ""
+            );
     }
 }

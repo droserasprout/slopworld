@@ -25,19 +25,46 @@ namespace SlopWorld
         static string HashTuning()
         {
             var sb = new StringBuilder();
-            foreach (float f in new[]
-            {
-                BreatheLow, BreatheHigh, OnsetSecs,
-                FireFrom, FuelFloor, FuelFull, FuelDecay, NoiseLow, NoiseHigh, FireGain,
-                NoiseFreq, StagePhase,
-                Sick.r, Sick.g, Sick.b, Ember.r, Ember.g, Ember.b, Flame.r, Flame.g, Flame.b,
-            })
+            foreach (
+                float f in new[]
+                {
+                    BreatheLow,
+                    BreatheHigh,
+                    OnsetSecs,
+                    FireFrom,
+                    FuelFloor,
+                    FuelFull,
+                    FuelDecay,
+                    NoiseLow,
+                    NoiseHigh,
+                    FireGain,
+                    NoiseFreq,
+                    StagePhase,
+                    Sick.r,
+                    Sick.g,
+                    Sick.b,
+                    Ember.r,
+                    Ember.g,
+                    Ember.b,
+                    Flame.r,
+                    Flame.g,
+                    Flame.b,
+                }
+            )
                 sb.Append(f.ToString("R", CultureInfo.InvariantCulture)).Append(';');
 
-            foreach (int i in new[]
-            {
-                Onset, MaxSide, JpegQuality, FuelErode, NoiseDiv, Octaves, LutSide,
-            })
+            foreach (
+                int i in new[]
+                {
+                    Onset,
+                    MaxSide,
+                    JpegQuality,
+                    FuelErode,
+                    NoiseDiv,
+                    Octaves,
+                    LutSide,
+                }
+            )
                 sb.Append(i).Append(';');
 
             uint h = 2166136261;
@@ -59,9 +86,12 @@ namespace SlopWorld
         static string CacheRoot()
         {
             string xdg = Environment.GetEnvironmentVariable("XDG_CACHE_HOME");
-            if (!string.IsNullOrEmpty(xdg)) return xdg;
+            if (!string.IsNullOrEmpty(xdg))
+                return xdg;
             return Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache");
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".cache"
+            );
         }
 
         // Load touches the write time so regularly used source caches stay resident.
@@ -70,12 +100,15 @@ namespace SlopWorld
             try
             {
                 string root = Root();
-                if (!Directory.Exists(root)) return;
+                if (!Directory.Exists(root))
+                    return;
                 DateTime cutoff = DateTime.UtcNow.AddDays(-KeepDays);
                 foreach (string dir in Directory.GetDirectories(root))
                 {
-                    if (Path.GetFileName(dir) == keep) continue;
-                    if (Directory.GetLastWriteTimeUtc(dir) >= cutoff) continue;
+                    if (Path.GetFileName(dir) == keep)
+                        continue;
+                    if (Directory.GetLastWriteTimeUtc(dir) >= cutoff)
+                        continue;
                     Directory.Delete(dir, true);
                 }
             }
@@ -88,7 +121,8 @@ namespace SlopWorld
         internal static Texture2D[] Load(string key, MenuBackgroundPreset preset)
         {
             string dir = Dir(key);
-            if (!Directory.Exists(dir)) return null;
+            if (!Directory.Exists(dir))
+                return null;
 
             var frames = new Texture2D[preset.Total];
             try
@@ -100,7 +134,7 @@ namespace SlopWorld
                     if (!File.Exists(path))
                     {
                         DestroyFrames(frames);
-                        return null;                // a partial cache rebakes
+                        return null; // a partial cache rebakes
                     }
 
                     Texture2D tex = null;
@@ -112,13 +146,13 @@ namespace SlopWorld
                             UnityEngine.Object.Destroy(tex);
                             tex = null;
                             DestroyFrames(frames);
-                            return null;            // a corrupt cache rebakes
+                            return null; // a corrupt cache rebakes
                         }
                         tex.filterMode = FilterMode.Bilinear;
                         tex.wrapMode = TextureWrapMode.Clamp;
                         Keep(tex);
                         frames[i] = tex;
-                        tex = null;                  // ownership moved into the returned set
+                        tex = null; // ownership moved into the returned set
                     }
                     catch
                     {
@@ -127,7 +161,11 @@ namespace SlopWorld
                     }
                 }
 
-                try { Directory.SetLastWriteTimeUtc(dir, DateTime.UtcNow); } catch { }
+                try
+                {
+                    Directory.SetLastWriteTimeUtc(dir, DateTime.UtcNow);
+                }
+                catch { }
                 return frames;
             }
             catch
@@ -144,9 +182,14 @@ namespace SlopWorld
         // Both fresh bakes and cache hits pass through here for identical playback pixels.
         static bool LoadFrame(Texture2D tex, byte[] jpg)
         {
-            if (!tex.LoadImage(jpg, false)) return false;
-            if (!_compressionFailed && SystemInfo.SupportsTextureFormat(TextureFormat.DXT1) &&
-                tex.width % 4 == 0 && tex.height % 4 == 0)
+            if (!tex.LoadImage(jpg, false))
+                return false;
+            if (
+                !_compressionFailed
+                && SystemInfo.SupportsTextureFormat(TextureFormat.DXT1)
+                && tex.width % 4 == 0
+                && tex.height % 4 == 0
+            )
             {
                 try
                 {
@@ -157,11 +200,15 @@ namespace SlopWorld
                 catch (Exception e)
                 {
                     _compressionFailed = true;
-                    Log.Warning($"[SlopWorld] background BC1 unavailable, using RGB24: {e.Message}");
+                    Log.Warning(
+                        $"[SlopWorld] background BC1 unavailable, using RGB24: {e.Message}"
+                    );
                     // Compression may have changed the texture before failing. Restore from
                     // the JPEG in an explicit RGB24 texture, avoiding implicit DXT loading.
-                    if (!tex.Reinitialize(2, 2, TextureFormat.RGB24, false)) return false;
-                    if (!tex.LoadImage(jpg, false)) return false;
+                    if (!tex.Reinitialize(2, 2, TextureFormat.RGB24, false))
+                        return false;
+                    if (!tex.LoadImage(jpg, false))
+                        return false;
                 }
             }
             tex.Apply(false, true);
@@ -185,12 +232,23 @@ namespace SlopWorld
             int at = stage - Onset;
             phase = at % preset.Phases;
             k = breathes
-                ? Mathf.Lerp(BreatheLow, BreatheHigh, (at / preset.Phases) / (float)(preset.Depths - 1))
+                ? Mathf.Lerp(
+                    BreatheLow,
+                    BreatheHigh,
+                    (at / preset.Phases) / (float)(preset.Depths - 1)
+                )
                 : 1f;
         }
 
-        static void Stage(MenuBackgroundPreset preset, Color[] clean, Color[] dst, float[] fuel,
-                          int w, int h, int stage)
+        static void Stage(
+            MenuBackgroundPreset preset,
+            Color[] clean,
+            Color[] dst,
+            float[] fuel,
+            int w,
+            int h,
+            int stage
+        )
         {
             Where(preset, stage, out float k, out int phase);
             Rot(clean, dst, fuel, w, h, k, phase);
@@ -198,7 +256,8 @@ namespace SlopWorld
 
         internal static Texture2D[] Bake(Texture2D src, string key, MenuBackgroundPreset preset)
         {
-            int w = src.width, h = src.height;
+            int w = src.width,
+                h = src.height;
             float scale = Mathf.Min(1f, (float)MaxSide / Mathf.Max(w, h));
             int bw = Mathf.Max(1, Mathf.RoundToInt(w * scale));
             int bh = Mathf.Max(1, Mathf.RoundToInt(h * scale));
@@ -216,7 +275,8 @@ namespace SlopWorld
             var opts = new ParallelOptions { MaxDegreeOfParallelism = batch };
 
             var scratch = new Color[batch][];
-            for (int b = 0; b < batch; b++) scratch[b] = new Color[bw * bh];
+            for (int b = 0; b < batch; b++)
+                scratch[b] = new Color[bw * bh];
 
             var frames = new Texture2D[total];
             try
@@ -225,8 +285,12 @@ namespace SlopWorld
                 {
                     int end = Math.Min(total, start + batch);
 
-                    Parallel.For(start, end, opts,
-                        i => Stage(preset, clean, scratch[i - start], fuel, bw, bh, i));
+                    Parallel.For(
+                        start,
+                        end,
+                        opts,
+                        i => Stage(preset, clean, scratch[i - start], fuel, bw, bh, i)
+                    );
 
                     for (int i = start; i < end; i++)
                     {
@@ -248,7 +312,7 @@ namespace SlopWorld
                             tex.wrapMode = TextureWrapMode.Clamp;
                             Keep(tex);
                             frames[i] = tex;
-                            tex = null;              // ownership moved into the returned set
+                            tex = null; // ownership moved into the returned set
                         }
                         catch
                         {
@@ -258,8 +322,10 @@ namespace SlopWorld
                     }
                 }
 
-                Log.Message($"[SlopWorld] baked {preset.Name}: {Onset} ramp + {preset.Depths}x{preset.Phases} " +
-                            $"at {bw}x{bh}, jpeg q{JpegQuality}, {batch} at a time, into {dir}");
+                Log.Message(
+                    $"[SlopWorld] baked {preset.Name}: {Onset} ramp + {preset.Depths}x{preset.Phases} "
+                        + $"at {bw}x{bh}, jpeg q{JpegQuality}, {batch} at a time, into {dir}"
+                );
                 return frames;
             }
             catch
@@ -273,10 +339,12 @@ namespace SlopWorld
         // half the stars.
         static Color[] Downsample(Color[] src, int w, int h, int bw, int bh)
         {
-            if (bw == w && bh == h) return src;
+            if (bw == w && bh == h)
+                return src;
 
             var dst = new Color[bw * bh];
-            float sx = (float)w / bw, sy = (float)h / bh;
+            float sx = (float)w / bw,
+                sy = (float)h / bh;
 
             for (int y = 0; y < bh; y++)
             {
@@ -288,7 +356,9 @@ namespace SlopWorld
                     int x0 = Mathf.FloorToInt(x * sx);
                     int x1 = Mathf.Min(w, Mathf.Max(x0 + 1, Mathf.FloorToInt((x + 1) * sx)));
 
-                    float r = 0f, g = 0f, b = 0f;
+                    float r = 0f,
+                        g = 0f,
+                        b = 0f;
                     int n = 0;
 
                     for (int j = y0; j < y1; j++)
@@ -296,7 +366,9 @@ namespace SlopWorld
                         for (int i = x0; i < x1; i++)
                         {
                             Color c = src[j * w + i];
-                            r += c.r; g += c.g; b += c.b;
+                            r += c.r;
+                            g += c.g;
+                            b += c.b;
                             n++;
                         }
                     }
@@ -311,7 +383,8 @@ namespace SlopWorld
         // Every returned set is owned by its caller until it is installed or released.
         internal static void DestroyFrames(Texture2D[] frames)
         {
-            if (frames == null) return;
+            if (frames == null)
+                return;
             for (int i = 0; i < frames.Length; i++)
                 if (frames[i] != null)
                     UnityEngine.Object.Destroy(frames[i]);

@@ -10,7 +10,6 @@ namespace SlopWorld
 
         // The body rect, in screen coordinates. Called for each IMGUI event; a frame may contain multiple events.
         void Draw(Rect body);
-
     }
 
     public abstract class ContentView : IContentView
@@ -22,11 +21,24 @@ namespace SlopWorld
         public bool Focused { get; private set; }
         public abstract string Title { get; }
         public abstract void Draw(Rect body);
-        public virtual void Opened() { }
-        public virtual void Closed() { }
-        public virtual void Arrange(UiLayoutRect bounds) { Bounds = bounds; }
-        public virtual void VisibilityChanged(bool visible) { Visible = visible; }
-        public virtual void FocusChanged(bool focused) { Focused = focused; }
-    }
 
+        public virtual void Opened() { }
+
+        public virtual void Closed() { }
+
+        public virtual void Arrange(UiLayoutRect bounds)
+        {
+            Bounds = bounds;
+        }
+
+        public virtual void VisibilityChanged(bool visible)
+        {
+            Visible = visible;
+        }
+
+        public virtual void FocusChanged(bool focused)
+        {
+            Focused = focused;
+        }
+    }
 }

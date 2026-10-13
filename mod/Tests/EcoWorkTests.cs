@@ -13,10 +13,19 @@ namespace SlopWorld.Tests
                 var gate = new HiddenWorkCadence();
                 int runs = 0;
                 for (int frame = 0; frame < fps * 10; frame++)
-                    if (gate.Run(true, frame / (double)fps)) runs++;
-                AssertEx.Equal(true, runs >= 37 && runs <= 40, "bounded hidden maintenance at " + fps);
+                    if (gate.Run(true, frame / (double)fps))
+                        runs++;
+                AssertEx.Equal(
+                    true,
+                    runs >= 37 && runs <= 40,
+                    "bounded hidden maintenance at " + fps
+                );
                 for (int frame = 0; frame < fps; frame++)
-                    AssertEx.Equal(true, gate.Run(false, 10 + frame / (double)fps), "visible frames always run");
+                    AssertEx.Equal(
+                        true,
+                        gate.Run(false, 10 + frame / (double)fps),
+                        "visible frames always run"
+                    );
             }
             var transitions = new HiddenWorkCadence();
             AssertEx.Equal(true, transitions.Run(true, 0), "first hidden update");
@@ -36,7 +45,7 @@ namespace SlopWorld.Tests
             {
                 new SessionInfo { Name = "a" },
                 new SessionInfo { Name = "worker", Worker = true },
-                new SessionInfo { Name = "viewer", Ephemeral = true }
+                new SessionInfo { Name = "viewer", Ephemeral = true },
             };
             AssertEx.Equal(true, index.Refresh(sessions, 1), "initial snapshot");
             AssertEx.Equal(true, index.Contains("a"), "colony member");
@@ -55,6 +64,5 @@ namespace SlopWorld.Tests
             AssertEx.Equal(true, index.Refresh(sessions, 5), "empty online snapshot");
             AssertEx.Equal(false, index.Contains("renamed"), "removed members cleared");
         }
-
     }
 }

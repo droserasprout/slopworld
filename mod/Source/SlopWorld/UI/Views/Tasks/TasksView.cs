@@ -42,8 +42,8 @@ namespace SlopWorld
         static DirectionFilter _direction;
         static string _agent = "";
 
-        public static bool Filtering => _status.HasValue || _direction != DirectionFilter.All ||
-            !string.IsNullOrEmpty(_agent);
+        public static bool Filtering =>
+            _status.HasValue || _direction != DirectionFilter.All || !string.IsNullOrEmpty(_agent);
 
         struct Line
         {
@@ -51,40 +51,46 @@ namespace SlopWorld
             public Rect Rect;
         }
 
-        static Rect Screen(Rect r) => new Rect(_body.x + r.x,
-            _body.y + r.y - Scroll.Position.y, r.width, r.height);
+        static Rect Screen(Rect r) =>
+            new Rect(_body.x + r.x, _body.y + r.y - Scroll.Position.y, r.width, r.height);
 
         static float _contentHeight = -1f;
 
         public static void Draw(Rect body)
         {
-            if (Scroll.HandleWheel(body, _contentHeight)) return;
+            if (Scroll.HandleWheel(body, _contentHeight))
+                return;
             _body = body;
             Lines.Clear();
 
             var hub = SessionHub.Instance;
             var allTasks = hub.Tasks;
-            if (!SmoothScroll.WheelOnly) PruneSelection(allTasks);
+            if (!SmoothScroll.WheelOnly)
+                PruneSelection(allTasks);
             var tasks = Filtered(allTasks);
             if (tasks.Count == 0)
             {
                 _contentHeight = 0f;
-                Empty(body, allTasks.Count == 0
-                    ? hub.Online
-                        ? "No delegated tasks yet. Right-click an agent to send a task."
-                        : $"daemon {hub.Status}"
-                    : "No tasks match the current filters.");
+                Empty(
+                    body,
+                    allTasks.Count == 0
+                        ? hub.Online
+                            ? "No delegated tasks yet. Right-click an agent to send a task."
+                            : $"daemon {hub.Status}"
+                        : "No tasks match the current filters."
+                );
                 return;
             }
 
-            float height = _contentHeight = Pad + HeaderH + UiTheme.GapXS + tasks.Count * RowH + Pad;
-            var geometry = UiScrollBody.Measure(body, height,
-                UiScrollbarReservation.WhenNeeded);
+            float height = _contentHeight =
+                Pad + HeaderH + UiTheme.GapXS + tasks.Count * RowH + Pad;
+            var geometry = UiScrollBody.Measure(body, height, UiScrollbarReservation.WhenNeeded);
             var list = geometry.View;
             using (WidgetState.Save())
             using (Scroll.Scope(body, list))
             {
-                if (SmoothScroll.WheelOnly) return;
+                if (SmoothScroll.WheelOnly)
+                    return;
                 float y = Pad;
                 DrawHeader(new Rect(0f, y, list.width, HeaderH), tasks, allTasks.Count);
                 y += HeaderH + UiTheme.GapXS;
@@ -92,10 +98,16 @@ namespace SlopWorld
                 // The mailbox is durable and can grow indefinitely. Keep its complete model,
                 // but submit only rows intersecting the viewport to IMGUI.
                 float rowsTop = y;
-                int first = Mathf.Clamp(Mathf.FloorToInt(
-                    (Scroll.Position.y - rowsTop) / RowH), 0, tasks.Count);
-                int last = Mathf.Clamp(Mathf.CeilToInt(
-                    (Scroll.Position.y + body.height - rowsTop) / RowH), first, tasks.Count);
+                int first = Mathf.Clamp(
+                    Mathf.FloorToInt((Scroll.Position.y - rowsTop) / RowH),
+                    0,
+                    tasks.Count
+                );
+                int last = Mathf.Clamp(
+                    Mathf.CeilToInt((Scroll.Position.y + body.height - rowsTop) / RowH),
+                    first,
+                    tasks.Count
+                );
                 y += first * RowH;
                 for (int i = first; i < last; i++)
                 {
@@ -113,18 +125,28 @@ namespace SlopWorld
             int incoming = tasks.Count(t => t.Incoming && !t.Terminal);
             int sent = tasks.Count(t => t.Outgoing && !t.Terminal);
             int peer = tasks.Count(t => !t.Incoming && !t.Outgoing && !t.Terminal);
-            string count = Filtering ? tasks.Count + " of " + total : total.ToString(CultureInfo.CurrentCulture);
-            string text = count + " tasks  ·  " + incoming + " incoming  ·  " +
-                sent + " sent" + (peer > 0 ? "  ·  " + peer + " between agents" : "") +
-                (SelectedIds.Count > 0 ? "  ·  " + SelectedIds.Count + " selected" : "");
+            string count = Filtering
+                ? tasks.Count + " of " + total
+                : total.ToString(CultureInfo.CurrentCulture);
+            string text =
+                count
+                + " tasks  ·  "
+                + incoming
+                + " incoming  ·  "
+                + sent
+                + " sent"
+                + (peer > 0 ? "  ·  " + peer + " between agents" : "")
+                + (SelectedIds.Count > 0 ? "  ·  " + SelectedIds.Count + " selected" : "");
 
             Text.Font = GameFont.Tiny;
             GUI.color = UiTheme.Faint;
             UiText.RowLabel(new Rect(r.x + CellX, r.y, r.width - CellX * 2f, r.height), text);
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
-            Slab.Hairline(new Rect(r.x + CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
-                UiTheme.Edge);
+            Slab.Hairline(
+                new Rect(r.x + CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
+                UiTheme.Edge
+            );
         }
 
         static void DrawTask(Rect r, TaskInfo task)
@@ -134,8 +156,10 @@ namespace SlopWorld
             Color status = StatusColor(task.Status);
             float dot = Mathf.Min(8f, r.height - 4f);
             GUI.color = status;
-            GUI.DrawTexture(Icons.DotBox(new Vector2(r.x + CellX + dot / 2f,
-                r.y + NameH / 2f + 1f), dot), Icons.Dot);
+            GUI.DrawTexture(
+                Icons.DotBox(new Vector2(r.x + CellX + dot / 2f, r.y + NameH / 2f + 1f), dot),
+                Icons.Dot
+            );
 
             Text.Font = GameFont.Tiny;
             float left = r.x + CellX + dot + UiTheme.GapXS;
@@ -158,8 +182,12 @@ namespace SlopWorld
             UiText.RowLabel(new Rect(left, r.y, directionW, NameH), direction);
 
             GUI.color = UiTheme.Dim;
-            var summary = new Rect(left, r.y + NameH + UiTheme.GapXS,
-                Mathf.Max(0f, r.width - left - CellX), NoteH);
+            var summary = new Rect(
+                left,
+                r.y + NameH + UiTheme.GapXS,
+                Mathf.Max(0f, r.width - left - CellX),
+                NoteH
+            );
             UiText.RowLabel(summary, FittedSummary(task, summary.width));
 
             GUI.color = Color.white;
@@ -176,7 +204,8 @@ namespace SlopWorld
                 _summaryWidth = width;
                 FittedSummaries.Clear();
             }
-            if (FittedSummaries.TryGetValue(task, out var fitted)) return fitted;
+            if (FittedSummaries.TryGetValue(task, out var fitted))
+                return fitted;
 
             string text = task.Summary;
             if (UiTheme.Wide(text) <= width)
@@ -190,8 +219,10 @@ namespace SlopWorld
                 {
                     int mid = (low + high + 1) / 2;
                     string probe = text.Substring(0, mid).TrimEnd() + ellipsis;
-                    if (UiTheme.Wide(probe) <= width) low = mid;
-                    else high = mid - 1;
+                    if (UiTheme.Wide(probe) <= width)
+                        low = mid;
+                    else
+                        high = mid - 1;
                 }
                 fitted = text.Substring(0, low).TrimEnd() + ellipsis;
             }
@@ -203,8 +234,10 @@ namespace SlopWorld
         {
             Text.Font = GameFont.Tiny;
             GUI.color = UiTheme.Faint;
-            UiText.RowLabel(new Rect(body.x + CellX, body.y + Pad,
-                body.width - CellX * 2f, RowH * 2f), text);
+            UiText.RowLabel(
+                new Rect(body.x + CellX, body.y + Pad, body.width - CellX * 2f, RowH * 2f),
+                text
+            );
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
         }
@@ -213,12 +246,18 @@ namespace SlopWorld
         {
             switch (status)
             {
-                case DelegatedTaskStatus.Done: return UiTheme.Yes;
-                case DelegatedTaskStatus.Failed: return UiTheme.Bad;
-                case DelegatedTaskStatus.Canceled: return UiTheme.Dim;
-                case DelegatedTaskStatus.Working: return UiTheme.StateWorking;
-                case DelegatedTaskStatus.Accepted: return UiTheme.StateWaiting;
-                default: return UiTheme.Info;
+                case DelegatedTaskStatus.Done:
+                    return UiTheme.Yes;
+                case DelegatedTaskStatus.Failed:
+                    return UiTheme.Bad;
+                case DelegatedTaskStatus.Canceled:
+                    return UiTheme.Dim;
+                case DelegatedTaskStatus.Working:
+                    return UiTheme.StateWorking;
+                case DelegatedTaskStatus.Accepted:
+                    return UiTheme.StateWaiting;
+                default:
+                    return UiTheme.Info;
             }
         }
 

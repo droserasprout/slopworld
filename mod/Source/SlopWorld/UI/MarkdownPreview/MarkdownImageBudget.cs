@@ -15,8 +15,12 @@ namespace SlopWorld
 
         public bool TryReserve(string path)
         {
-            if (_bytes.ContainsKey(path) || _pending.Count >= MaxPending ||
-                UsedBytes + ImageBytes > TotalBytes) return false;
+            if (
+                _bytes.ContainsKey(path)
+                || _pending.Count >= MaxPending
+                || UsedBytes + ImageBytes > TotalBytes
+            )
+                return false;
             _bytes.Add(path, ImageBytes);
             _pending.Add(path);
             UsedBytes += ImageBytes;
@@ -25,7 +29,8 @@ namespace SlopWorld
 
         public bool Complete(string path, long bytes)
         {
-            if (!_pending.Contains(path) || bytes <= 0 || bytes > ImageBytes) return false;
+            if (!_pending.Contains(path) || bytes <= 0 || bytes > ImageBytes)
+                return false;
             _pending.Remove(path);
             UsedBytes += bytes - _bytes[path];
             _bytes[path] = bytes;
@@ -34,7 +39,8 @@ namespace SlopWorld
 
         public void Release(string path)
         {
-            if (_bytes.TryGetValue(path, out var bytes)) UsedBytes -= bytes;
+            if (_bytes.TryGetValue(path, out var bytes))
+                UsedBytes -= bytes;
             _bytes.Remove(path);
             _pending.Remove(path);
         }
@@ -46,5 +52,4 @@ namespace SlopWorld
             UsedBytes = 0;
         }
     }
-
 }

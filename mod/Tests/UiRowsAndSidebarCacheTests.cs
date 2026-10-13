@@ -11,18 +11,53 @@ namespace SlopWorld.Tests
             var rows = new List<SessionInfo>();
             var sessions = new[]
             {
-                new SessionInfo { Name = "ffffffffffffffff", Label = "diff-a", ReaderKey = "diff:a" },
-                new SessionInfo { Name = "8888888888888888", Label = "diff-z", ReaderKey = "diff:z" },
-                new SessionInfo { Name = "0000000000000000", Label = "edit-file", ReaderPath = "/z/file" },
-                new SessionInfo { Name = "eeeeeeeeeeeeeeee", Label = "edit-file", ReaderPath = "/a/file" },
+                new SessionInfo
+                {
+                    Name = "ffffffffffffffff",
+                    Label = "diff-a",
+                    ReaderKey = "diff:a",
+                },
+                new SessionInfo
+                {
+                    Name = "8888888888888888",
+                    Label = "diff-z",
+                    ReaderKey = "diff:z",
+                },
+                new SessionInfo
+                {
+                    Name = "0000000000000000",
+                    Label = "edit-file",
+                    ReaderPath = "/z/file",
+                },
+                new SessionInfo
+                {
+                    Name = "eeeeeeeeeeeeeeee",
+                    Label = "edit-file",
+                    ReaderPath = "/a/file",
+                },
             };
-            Action rebuild = () => RoutedSessionRows.Rebuild(rows, sessions, _ => true,
-                list => list.Add(new SessionInfo { Name = "view-native-1", Label = "view-file" }), 12);
+            Action rebuild = () =>
+                RoutedSessionRows.Rebuild(
+                    rows,
+                    sessions,
+                    _ => true,
+                    list =>
+                        list.Add(new SessionInfo { Name = "view-native-1", Label = "view-file" }),
+                    12
+                );
             rebuild();
-            AssertEx.Sequence(new[] { "diff-a", "diff-z", "edit-file", "edit-file", "view-file" },
-                rows.ConvertAll(s => s.Label), "display names order native and daemon readers");
+            AssertEx.Sequence(
+                new[] { "diff-a", "diff-z", "edit-file", "edit-file", "view-file" },
+                rows.ConvertAll(s => s.Label),
+                "display names order native and daemon readers"
+            );
             AssertEx.Equal("/a/file", rows[2].ReaderPath, "source path orders identical labels");
-            sessions[0] = new SessionInfo { Name = "1111111111111111", Label = "diff-a", ReaderKey = "diff:a" };
+            sessions[0] = new SessionInfo
+            {
+                Name = "1111111111111111",
+                Label = "diff-a",
+                ReaderKey = "diff:a",
+            };
             rebuild();
             AssertEx.Equal("1111111111111111", rows[0].Name, "replacement retains diff position");
             AssertEx.Equal("8888888888888888", rows[1].Name, "neighbor does not move");
@@ -33,23 +68,30 @@ namespace SlopWorld.Tests
                 new SessionInfo { Name = "ffffffffffffffff", ReaderPath = "/a/file" },
             };
             rebuild();
-            AssertEx.Equal("/a/file", rows[0].ReaderPath, "unlabelled readers use their source path");
+            AssertEx.Equal(
+                "/a/file",
+                rows[0].ReaderPath,
+                "unlabelled readers use their source path"
+            );
         }
 
         public static void RoutedCacheTracksCommandSettingsWithoutSessionChanges()
         {
             var cache = new RoutedSessionRows();
-            var sessions = new List<SessionInfo> {
+            var sessions = new List<SessionInfo>
+            {
                 new SessionInfo { Name = "reader", Cmd = "less file" },
-                new SessionInfo { Name = "editor", Cmd = "micro file" } };
+                new SessionInfo { Name = "editor", Cmd = "micro file" },
+            };
             var rows = new List<SessionInfo>();
-            string pager = "less", editor = "micro";
+            string pager = "less",
+                editor = "micro";
             int visits = 0;
             Predicate<SessionInfo> include = info =>
             {
                 visits++;
-                return PagerCommands.IsPagerCommand(pager, info.Cmd) ||
-                    PagerCommands.IsEditorCommand(editor, info.Cmd);
+                return PagerCommands.IsPagerCommand(pager, info.Cmd)
+                    || PagerCommands.IsEditorCommand(editor, info.Cmd);
             };
             cache.Ensure(rows, sessions, 1, 1, pager, editor, include, null, 20);
             AssertEx.Equal(2, rows.Count, "initial commands route both sessions");
@@ -71,11 +113,18 @@ namespace SlopWorld.Tests
         public static void RoutedCacheTracksAllMembershipOwners()
         {
             var cache = new RoutedSessionRows();
-            var sessions = new List<SessionInfo> { new SessionInfo { Name = "old", Project = "a" } };
+            var sessions = new List<SessionInfo>
+            {
+                new SessionInfo { Name = "old", Project = "a" },
+            };
             var rows = new List<SessionInfo>();
             int visits = 0;
             string project = "a";
-            Predicate<SessionInfo> include = info => { visits++; return info.Project == project; };
+            Predicate<SessionInfo> include = info =>
+            {
+                visits++;
+                return info.Project == project;
+            };
             cache.Ensure(rows, sessions, 1, 1, "less", "micro", include, null, 12);
             cache.Ensure(rows, sessions, 1, 1, "less", "micro", include, null, 18);
             AssertEx.Equal(1, visits, "unchanged pass does not scan");
@@ -86,9 +135,22 @@ namespace SlopWorld.Tests
             cache.Ensure(rows, sessions, 2, 2, "less", "micro", include, null, 18);
             AssertEx.Equal(0, rows.Count, "project filter invalidates");
             RoutedSessionRows.Invalidate();
-            cache.Ensure(rows, sessions, 2, 2, "less", "micro", include,
-                result => result.Add(new SessionInfo { Name = "native" }), 18);
-            AssertEx.Equal("native", rows[0].Name, "native preview invalidates without daemon revision");
+            cache.Ensure(
+                rows,
+                sessions,
+                2,
+                2,
+                "less",
+                "micro",
+                include,
+                result => result.Add(new SessionInfo { Name = "native" }),
+                18
+            );
+            AssertEx.Equal(
+                "native",
+                rows[0].Name,
+                "native preview invalidates without daemon revision"
+            );
             RoutedSessionRows.Invalidate();
             cache.Ensure(rows, sessions, 2, 2, "less", "micro", include, null, 18);
             AssertEx.Equal(0, rows.Count, "reader dismissal invalidates");
@@ -104,7 +166,10 @@ namespace SlopWorld.Tests
             yield return ("files panes have bounded independent geometry", FilesSplit);
             yield return ("project totals enumerate once per session revision", ProjectCounts);
             yield return ("routing preserves filtering sorting and preview height", Routing);
-            yield return ("routing refreshes local changes without a session revision", RoutingRefresh);
+            yield return (
+                "routing refreshes local changes without a session revision",
+                RoutingRefresh
+            );
         }
 
         static void Range(int count, float top, float height, int first, int end)
@@ -121,7 +186,11 @@ namespace SlopWorld.Tests
             AssertEx.Equal(before, 110f + 300f - added, "new header preserves row screen position");
             float removed = ContentTreeIndex.AnchoredScroll(added, 110f, 80f);
             AssertEx.Equal(120f, removed, "closing header restores scroll");
-            AssertEx.Equal(0f, ContentTreeIndex.AnchoredScroll(10f, 110f, 80f), "top boundary clamps");
+            AssertEx.Equal(
+                0f,
+                ContentTreeIndex.AnchoredScroll(10f, 110f, 80f),
+                "top boundary clamps"
+            );
         }
 
         static void FilesSplit()
@@ -138,19 +207,36 @@ namespace SlopWorld.Tests
             split = SidebarFilesSplitGeometry.Arrange(body, true, 1f, 40f, 100f, 1f);
             AssertEx.Equal(100f, split.Lower.Height, "lower minimum clamps the fraction");
 
-            split = SidebarFilesSplitGeometry.Arrange(new UiLayoutRect(0f, 0f, 10f, 3f),
-                true, 0f, 40f, 100f, 1f);
-            AssertEx.Equal(1f, split.Upper.Height, "tiny upper pane remains non-negative and usable");
+            split = SidebarFilesSplitGeometry.Arrange(
+                new UiLayoutRect(0f, 0f, 10f, 3f),
+                true,
+                0f,
+                40f,
+                100f,
+                1f
+            );
+            AssertEx.Equal(
+                1f,
+                split.Upper.Height,
+                "tiny upper pane remains non-negative and usable"
+            );
             AssertEx.Equal(1f, split.Divider.Height, "tiny divider is bounded");
-            AssertEx.Equal(1f, split.Lower.Height, "tiny lower pane remains non-negative and usable");
+            AssertEx.Equal(
+                1f,
+                split.Lower.Height,
+                "tiny lower pane remains non-negative and usable"
+            );
 
             split = SidebarFilesSplitGeometry.Arrange(body, false, 0.75f, 40f, 100f, 1f);
             AssertEx.False(split.HasUpper, "no open files hides the upper pane");
-            AssertEx.Equal(body.Height, split.Lower.Height, "tree gets the full body without files");
+            AssertEx.Equal(
+                body.Height,
+                split.Lower.Height,
+                "tree gets the full body without files"
+            );
             AssertEx.Equal(0.75f, split.Fraction, "saved fraction survives hidden upper pane");
 
-            float picked = SidebarFilesSplitGeometry.FractionAt(220f,
-                body, 40f, 100f, 1f);
+            float picked = SidebarFilesSplitGeometry.FractionAt(220f, body, 40f, 100f, 1f);
             AssertEx.Equal(0.5f, picked, "pointer maps to normalized divider position");
         }
 
@@ -176,9 +262,14 @@ namespace SlopWorld.Tests
                 var expected = new List<int>();
                 var actual = new List<int>();
                 for (int i = 0; i < ends.Length; i++)
-                    if (ends[i] > top && tops[i] < top + 15f) expected.Add(i);
-                for (int i = VisibleRows.First(ends, top);
-                     i < ends.Length && tops[i] < top + 15f; i++) actual.Add(i);
+                    if (ends[i] > top && tops[i] < top + 15f)
+                        expected.Add(i);
+                for (
+                    int i = VisibleRows.First(ends, top);
+                    i < ends.Length && tops[i] < top + 15f;
+                    i++
+                )
+                    actual.Add(i);
                 AssertEx.Sequence(expected, actual, "visible drawing and hit rows");
             }
             AssertEx.Equal(0, VisibleRows.First(Array.Empty<float>(), 0), "empty tree");
@@ -239,7 +330,8 @@ namespace SlopWorld.Tests
             yield return FailEnumeration();
         }
 
-        static SessionInfo FailEnumeration() => throw new Exception("re-enumerated cached sessions");
+        static SessionInfo FailEnumeration() =>
+            throw new Exception("re-enumerated cached sessions");
 
         static void Routing()
         {
@@ -250,17 +342,29 @@ namespace SlopWorld.Tests
                 new SessionInfo { Name = "b", Project = "other" },
                 new SessionInfo { Name = "a", Project = "a" },
             };
-            float height = RoutedSessionRows.Rebuild(rows, sessions, s => s.Project == "a",
-                list => list.Add(new SessionInfo { Name = "preview" }), 12f);
+            float height = RoutedSessionRows.Rebuild(
+                rows,
+                sessions,
+                s => s.Project == "a",
+                list => list.Add(new SessionInfo { Name = "preview" }),
+                12f
+            );
             AssertEx.Equal(36f, height, "native previews contribute height");
-            AssertEx.Sequence(new[] { "a", "preview", "z" }, rows.ConvertAll(s => s.Name),
-                "filtered ordinal order");
+            AssertEx.Sequence(
+                new[] { "a", "preview", "z" },
+                rows.ConvertAll(s => s.Name),
+                "filtered ordinal order"
+            );
         }
 
         static void RoutingRefresh()
         {
             var rows = new List<SessionInfo>();
-            var sessions = new[] { new SessionInfo { Name = "old" }, new SessionInfo { Name = "new" } };
+            var sessions = new[]
+            {
+                new SessionInfo { Name = "old" },
+                new SessionInfo { Name = "new" },
+            };
             RoutedSessionRows.Rebuild(rows, sessions, s => s.Name == "old", null, 12);
             RoutedSessionRows.Rebuild(rows, sessions, s => s.Name == "new", null, 18);
             AssertEx.Sequence(new[] { "new" }, rows.ConvertAll(s => s.Name), "viewer handoff");
@@ -269,27 +373,44 @@ namespace SlopWorld.Tests
             AssertEx.Equal(0, rows.Count, "no stale hit rows after filter change");
         }
 
-
         sealed class CountingEnds : IList<float>
         {
-            public CountingEnds(int count) { Count = count; }
+            public CountingEnds(int count)
+            {
+                Count = count;
+            }
+
             public int Reads;
             public int Count { get; }
             public float this[int index]
             {
-                get { Reads++; return (index + 1) * 10f; }
+                get
+                {
+                    Reads++;
+                    return (index + 1) * 10f;
+                }
                 set => throw new NotSupportedException();
             }
             public bool IsReadOnly => true;
+
             public IEnumerator<float> GetEnumerator() => throw new Exception("linear enumeration");
+
             IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
             public int IndexOf(float item) => throw new NotSupportedException();
+
             public void Insert(int index, float item) => throw new NotSupportedException();
+
             public void RemoveAt(int index) => throw new NotSupportedException();
+
             public void Add(float item) => throw new NotSupportedException();
+
             public void Clear() => throw new NotSupportedException();
+
             public bool Contains(float item) => throw new NotSupportedException();
+
             public void CopyTo(float[] array, int index) => throw new NotSupportedException();
+
             public bool Remove(float item) => throw new NotSupportedException();
         }
     }

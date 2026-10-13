@@ -11,16 +11,23 @@ namespace SlopWorld
         public static void Apply(Harmony h)
         {
             var post = new HarmonyMethod(
-                AccessTools.Method(typeof(Patch_NoRelateAgents), nameof(Postfix)));
+                AccessTools.Method(typeof(Patch_NoRelateAgents), nameof(Postfix))
+            );
 
-            foreach (var method in EffectiveMethods.Find(typeof(PawnRelationWorker),
-                GenTypes.AllSubclassesNonAbstract(typeof(PawnRelationWorker)), "GenerationChance"))
+            foreach (
+                var method in EffectiveMethods.Find(
+                    typeof(PawnRelationWorker),
+                    GenTypes.AllSubclassesNonAbstract(typeof(PawnRelationWorker)),
+                    "GenerationChance"
+                )
+            )
                 h.Patch(method, postfix: post);
         }
 
         static void Postfix(Pawn other, ref float __result)
         {
-            if (__result != 0f && AgentColony.IsAgent(other)) __result = 0f;
+            if (__result != 0f && AgentColony.IsAgent(other))
+                __result = 0f;
         }
     }
 }

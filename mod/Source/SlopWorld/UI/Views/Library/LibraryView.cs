@@ -27,7 +27,11 @@ namespace SlopWorld
         public static void Refresh(Action<string> fail = null)
         {
             _catalogError = null;
-            void failed(string error) { _catalogError = error; fail?.Invoke(error); }
+            void failed(string error)
+            {
+                _catalogError = error;
+                fail?.Invoke(error);
+            }
             SessionHub.Instance.Catalog.RefreshProjects(failed);
             SessionHub.Instance.Catalog.RefreshLibrary(failed);
             SessionHub.Instance.Catalog.RefreshTemplates(failed);
@@ -40,6 +44,7 @@ namespace SlopWorld
         static readonly Dictionary<string, Section> SectionsByKey =
             new Dictionary<string, Section>();
         static readonly List<Section> Sections = new List<Section>();
+
         static class Category
         {
             public const string Templates = "Agent templates";
@@ -54,15 +59,29 @@ namespace SlopWorld
 
             public static readonly string[] Order =
             {
-                Templates, Prompts, Shell, Breadcrumbs, FileActions,
-                Projects, Worktrees, SandboxPresets, AppPresets
+                Templates,
+                Prompts,
+                Shell,
+                Breadcrumbs,
+                FileActions,
+                Projects,
+                Worktrees,
+                SandboxPresets,
+                AppPresets,
             };
 
             public static readonly string[] Main =
-                { Projects, Worktrees, SandboxPresets, AppPresets };
+            {
+                Projects,
+                Worktrees,
+                SandboxPresets,
+                AppPresets,
+            };
         }
+
         static readonly WorktreeInventory Worktrees = new WorktreeInventory(
-            (project, ok, fail) => WorktreeRequests.Load(project, ok, fail, 60000));
+            (project, ok, fail) => WorktreeRequests.Load(project, ok, fail, 60000)
+        );
         static string _catalogError;
         static string _query = "";
         static string _kind = "";
@@ -72,32 +91,37 @@ namespace SlopWorld
         static Rect _list;
         static FieldLifetime _fieldLifetime = new FieldLifetime();
 
-        static string GroupKey(LibraryItemInfo item) => Templates.ContainsKey(item)
-            ? Category.Templates : item.Kind == LibraryItemKind.Shell ? Category.Shell
+        static string GroupKey(LibraryItemInfo item) =>
+            Templates.ContainsKey(item) ? Category.Templates
+            : item.Kind == LibraryItemKind.Shell ? Category.Shell
             : item.Kind == LibraryItemKind.Breadcrumb ? Category.Breadcrumbs
-            : item.Kind == LibraryItemKind.FileAction ? Category.FileActions : Category.Prompts;
+            : item.Kind == LibraryItemKind.FileAction ? Category.FileActions
+            : Category.Prompts;
 
         public static void Closed()
         {
             _fieldLifetime.Cancel();
             _fieldLifetime = new FieldLifetime();
-            if (GUI.GetNameOfFocusedControl() == "library.query") GUI.FocusControl(null);
+            if (GUI.GetNameOfFocusedControl() == "library.query")
+                GUI.FocusControl(null);
         }
 
         // Record collapsed headings only in memory.
         // Like folds in other views, this state belongs to the view and not to the saved colony.
         static readonly HashSet<string> Folded = new HashSet<string>();
 
-        public static bool AllFolded => Sections.Count > 0 &&
-            Sections.All(section => Folded.Contains(section.Key));
+        public static bool AllFolded =>
+            Sections.Count > 0 && Sections.All(section => Folded.Contains(section.Key));
 
         public static void SetAllFolded(bool folded)
         {
             Folded.Clear();
             if (folded)
             {
-                foreach (var section in Sections) Folded.Add(section.Key);
-                foreach (var key in Category.Main) Folded.Add(key);
+                foreach (var section in Sections)
+                    Folded.Add(section.Key);
+                foreach (var key in Category.Main)
+                    Folded.Add(key);
             }
         }
 
@@ -106,8 +130,8 @@ namespace SlopWorld
         struct Line
         {
             public Row Row;
-            public bool Head;    // true on a heading, false on a row
-            public string Key;   // section heading
+            public bool Head; // true on a heading, false on a row
+            public string Key; // section heading
             public Rect Rect;
         }
 
@@ -138,7 +162,12 @@ namespace SlopWorld
         static Rect Screen(Rect r)
         {
             var list = _list;
-            var moved = new Rect(list.x + r.x, list.y + r.y - _scroll.Position.y, r.width, r.height);
+            var moved = new Rect(
+                list.x + r.x,
+                list.y + r.y - _scroll.Position.y,
+                r.width,
+                r.height
+            );
             float top = Mathf.Max(moved.y, list.y);
             float bottom = Mathf.Min(moved.yMax, list.yMax);
             return bottom <= top ? Rect.zero : new Rect(moved.x, top, moved.width, bottom - top);
@@ -153,8 +182,10 @@ namespace SlopWorld
         {
             get
             {
-                if (ProjectFilter.Count != 1) return ProjectFilter.Count + " projects";
-                foreach (var key in ProjectFilter) return key;
+                if (ProjectFilter.Count != 1)
+                    return ProjectFilter.Count + " projects";
+                foreach (var key in ProjectFilter)
+                    return key;
                 return "";
             }
         }
@@ -169,24 +200,35 @@ namespace SlopWorld
         {
             var options = new List<FloatMenuOption>
             {
-                UiLayout.MenuToggle("All projects", !ProjectFiltering,
-                    () => ToggleProjectFilter("", anchor)),
+                UiLayout.MenuToggle(
+                    "All projects",
+                    !ProjectFiltering,
+                    () => ToggleProjectFilter("", anchor)
+                ),
             };
-            var names = SessionHub.Instance.Projects
-                .Select(project => project.Name)
+            var names = SessionHub
+                .Instance.Projects.Select(project => project.Name)
                 .OrderBy(name => name, StringComparer.Ordinal)
                 .ToList();
             foreach (var name in names)
             {
                 var key = name;
-                options.Add(UiLayout.MenuToggle(key, ProjectFilter.Contains(key),
-                    () => ToggleProjectFilter(key, anchor)));
+                options.Add(
+                    UiLayout.MenuToggle(
+                        key,
+                        ProjectFilter.Contains(key),
+                        () => ToggleProjectFilter(key, anchor)
+                    )
+                );
             }
-            options.Add(UiLayout.MenuToggle(AgentSidebar.NoProject,
-                ProjectFilter.Contains(AgentSidebar.NoProject),
-                () => ToggleProjectFilter(AgentSidebar.NoProject, anchor)));
-            TerminalWindow.OpenOverPane(new UiMenu(options,
-                new Vector2(anchor.x, anchor.yMax)));
+            options.Add(
+                UiLayout.MenuToggle(
+                    AgentSidebar.NoProject,
+                    ProjectFilter.Contains(AgentSidebar.NoProject),
+                    () => ToggleProjectFilter(AgentSidebar.NoProject, anchor)
+                )
+            );
+            TerminalWindow.OpenOverPane(new UiMenu(options, new Vector2(anchor.x, anchor.yMax)));
         }
 
         static void ToggleProjectFilter(string key, Rect anchor)
@@ -209,8 +251,11 @@ namespace SlopWorld
         {
             bool exists = template
                 ? SessionHub.Instance.Templates.Any(candidate => candidate.Name == name)
-                : SessionHub.Instance.Library.Any(candidate => candidate.Name == name && !candidate.Builtin);
-            if (!exists) return false;
+                : SessionHub.Instance.Library.Any(candidate =>
+                    candidate.Name == name && !candidate.Builtin
+                );
+            if (!exists)
+                return false;
             Selection.Focus((template ? "template:" : "item:") + name);
             _revealSelection = true;
             _query = "";

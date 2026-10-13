@@ -10,7 +10,10 @@ namespace SlopWorld
     // Agent and shell defaults come from the daemon catalog. File editing uses the chosen editor.
     public class CommandsPage : DaemonConfigPage
     {
-        bool _agentCustom, _agentShellCustom, _shellCustom, _editorCustom;
+        bool _agentCustom,
+            _agentShellCustom,
+            _shellCustom,
+            _editorCustom;
 
         protected override bool ShowEditButton => true;
         protected override string SavedMessage => "command settings saved.";
@@ -28,25 +31,56 @@ namespace SlopWorld
 
         protected override void DrawFields(Listing_Standard l)
         {
-            CommandPicker.Draw(l, "Agent", "commands.agent",
-                _cfg.Agent, Commands(CommandInfo.AgentKind, _cfg.Agent),
-                _agentCustom, value => _cfg.Agent = value, value => _agentCustom = value,
-                customLabel: "Preset name", defaultValue: _cfg.FactoryDefaults?.Agent);
+            CommandPicker.Draw(
+                l,
+                "Agent",
+                "commands.agent",
+                _cfg.Agent,
+                Commands(CommandInfo.AgentKind, _cfg.Agent),
+                _agentCustom,
+                value => _cfg.Agent = value,
+                value => _agentCustom = value,
+                customLabel: "Preset name",
+                defaultValue: _cfg.FactoryDefaults?.Agent
+            );
 
-            CommandPicker.Draw(l, "Agent shell", "commands.agent-shell", _cfg.AgentShell,
+            CommandPicker.Draw(
+                l,
+                "Agent shell",
+                "commands.agent-shell",
+                _cfg.AgentShell,
                 Commands(CommandInfo.ShellKind, _cfg.AgentShell),
-                _agentShellCustom, value => _cfg.AgentShell = value,
-                value => _agentShellCustom = value, "Custom executable",
-                _cfg.FactoryDefaults?.AgentShell);
+                _agentShellCustom,
+                value => _cfg.AgentShell = value,
+                value => _agentShellCustom = value,
+                "Custom executable",
+                _cfg.FactoryDefaults?.AgentShell
+            );
 
-            CommandPicker.Draw(l, "User shell", "commands.shell", _cfg.Shell,
+            CommandPicker.Draw(
+                l,
+                "User shell",
+                "commands.shell",
+                _cfg.Shell,
                 Commands(CommandInfo.ShellKind, _cfg.Shell),
-                _shellCustom, value => _cfg.Shell = value, value => _shellCustom = value,
-                customLabel: "Preset name", defaultValue: _cfg.FactoryDefaults?.Shell);
+                _shellCustom,
+                value => _cfg.Shell = value,
+                value => _shellCustom = value,
+                customLabel: "Preset name",
+                defaultValue: _cfg.FactoryDefaults?.Shell
+            );
 
-            CommandPicker.Draw(l, "Editor", "commands.editor", _cfg.Editor, EditorChoices(),
-                _editorCustom, value => _cfg.Editor = value, value => _editorCustom = value,
-                defaultValue: _cfg.FactoryDefaults?.Editor);
+            CommandPicker.Draw(
+                l,
+                "Editor",
+                "commands.editor",
+                _cfg.Editor,
+                EditorChoices(),
+                _editorCustom,
+                value => _cfg.Editor = value,
+                value => _editorCustom = value,
+                defaultValue: _cfg.FactoryDefaults?.Editor
+            );
 
             l.Gap(UiTheme.GapM);
 
@@ -55,33 +89,38 @@ namespace SlopWorld
 
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Editor template rules");
-            UiLayout.Note(l, "Use {file} to insert a quoted path. Use {line} to insert the line from a " +
-                "search result. For a line jump, missing {file} appends the path and missing {line} " +
-                "appends +LINE after it. Without a line jump, missing {file} appends -- and the path.");
-            UiLayout.Note(l, "SlopWorld splits each template into arguments. It does not use a shell.");
+            UiLayout.Note(
+                l,
+                "Use {file} to insert a quoted path. Use {line} to insert the line from a "
+                    + "search result. For a line jump, missing {file} appends the path and missing {line} "
+                    + "appends +LINE after it. Without a line jump, missing {file} appends -- and the path."
+            );
+            UiLayout.Note(
+                l,
+                "SlopWorld splits each template into arguments. It does not use a shell."
+            );
         }
 
         static List<CommandChoice> Commands(string kind, string current)
         {
-            var choices = SessionHub.Instance.Commands
-                .Where(c => c.Kind == kind)
+            var choices = SessionHub
+                .Instance.Commands.Where(c => c.Kind == kind)
                 .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
                 .Select(c => new CommandChoice(c.Name, c.Name))
                 .ToList();
-            if (!string.IsNullOrEmpty(current) &&
-                !choices.Any(c => c.Value == current))
+            if (!string.IsNullOrEmpty(current) && !choices.Any(c => c.Value == current))
                 choices.Insert(0, new CommandChoice(current, current));
             return choices;
         }
 
-        static List<CommandChoice> EditorChoices() => new List<CommandChoice>
-        {
-            new CommandChoice("micro", "micro"),
-            new CommandChoice("nano", "nano"),
-            new CommandChoice("vim", "vim"),
-            new CommandChoice("nvim", "nvim"),
-            new CommandChoice("Emacs client", "emacsclient -c"),
-        };
-
+        static List<CommandChoice> EditorChoices() =>
+            new List<CommandChoice>
+            {
+                new CommandChoice("micro", "micro"),
+                new CommandChoice("nano", "nano"),
+                new CommandChoice("vim", "vim"),
+                new CommandChoice("nvim", "nvim"),
+                new CommandChoice("Emacs client", "emacsclient -c"),
+            };
     }
 }

@@ -21,8 +21,15 @@ namespace SlopWorld.Tests
             var template = SidebarViewLocation.Library("review", template: true);
             history.Visit(prompt);
             history.Visit(template);
-            AssertEx.True(history.Back(out var previous), "template selection creates a distinct visit");
-            AssertEx.Equal(prompt, previous, "back restores the prompt, not the same-named template");
+            AssertEx.True(
+                history.Back(out var previous),
+                "template selection creates a distinct visit"
+            );
+            AssertEx.Equal(
+                prompt,
+                previous,
+                "back restores the prompt, not the same-named template"
+            );
             AssertEx.True(history.Forward(out var next), "template remains in forward history");
             AssertEx.Equal(template, next, "forward restores template identity");
         }
@@ -37,11 +44,15 @@ namespace SlopWorld.Tests
             history.Visit(agent);
             history.Visit(file);
 
-            AssertEx.True(history.TryLast(SidebarTab.Agents, out var lastAgent),
-                "agent target is retained");
+            AssertEx.True(
+                history.TryLast(SidebarTab.Agents, out var lastAgent),
+                "agent target is retained"
+            );
             AssertEx.Equal(agent, lastAgent, "agent target identity");
-            AssertEx.True(history.TryLast(SidebarTab.Files, out var lastFile),
-                "file target is retained");
+            AssertEx.True(
+                history.TryLast(SidebarTab.Files, out var lastFile),
+                "file target is retained"
+            );
             AssertEx.Equal(file, lastFile, "file target identity");
         }
 
@@ -80,8 +91,11 @@ namespace SlopWorld.Tests
             history.VisitTab(SidebarTab.Agents);
 
             AssertEx.True(history.Back(out var location), "the original tab point remains");
-            AssertEx.Equal(SidebarViewLocation.TabOnly(SidebarTab.Agents), location,
-                "reselecting the current tab does not add another point");
+            AssertEx.Equal(
+                SidebarViewLocation.TabOnly(SidebarTab.Agents),
+                location,
+                "reselecting the current tab does not add another point"
+            );
             AssertEx.False(history.CanBack, "there is no duplicate tab point");
         }
     }

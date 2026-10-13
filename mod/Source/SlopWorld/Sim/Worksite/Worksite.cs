@@ -94,12 +94,36 @@ namespace SlopWorld
         int _laid;
 
         // Access temporary state through the runtime cache.
-        ThingDef _blocks { get => _runtime.Blocks; set => _runtime.Blocks = value; }
-        ThingDef _rock { get => _runtime.Rock; set => _runtime.Rock = value; }
-        bool _quarried { get => _runtime.Quarried; set => _runtime.Quarried = value; }
-        Plague _plague { get => _runtime.Plague; set => _runtime.Plague = value; }
-        int _blocked { get => _runtime.Blocked; set => _runtime.Blocked = value; }
-        int _swept { get => _runtime.Swept; set => _runtime.Swept = value; }
+        ThingDef _blocks
+        {
+            get => _runtime.Blocks;
+            set => _runtime.Blocks = value;
+        }
+        ThingDef _rock
+        {
+            get => _runtime.Rock;
+            set => _runtime.Rock = value;
+        }
+        bool _quarried
+        {
+            get => _runtime.Quarried;
+            set => _runtime.Quarried = value;
+        }
+        Plague _plague
+        {
+            get => _runtime.Plague;
+            set => _runtime.Plague = value;
+        }
+        int _blocked
+        {
+            get => _runtime.Blocked;
+            set => _runtime.Blocked = value;
+        }
+        int _swept
+        {
+            get => _runtime.Swept;
+            set => _runtime.Swept = value;
+        }
         HashSet<Thing> _mine => _runtime.Mine;
         List<Frame> _frames => _runtime.Frames;
         List<Thing> _sweepDoomed => _runtime.SweepDoomed;
@@ -107,7 +131,8 @@ namespace SlopWorld
         // Worksite passes between frame sweeps.
         const int SweepEvery = 4;
 
-        public Worksite(Map map) : base(map) { }
+        public Worksite(Map map)
+            : base(map) { }
 
         public override void ExposeData()
         {
@@ -117,34 +142,46 @@ namespace SlopWorld
 
         public override void MapComponentTick()
         {
-            if ((Find.TickManager.TicksGame + Phase) % Interval != 0) return;
+            if ((Find.TickManager.TicksGame + Phase) % Interval != 0)
+                return;
 
-            if (Cutscene.AgentsHeld) return;
+            if (Cutscene.AgentsHeld)
+                return;
 
             _plague = map.GetComponent<Plague>();
-            if (_plague == null || !_plague.Active) return;
+            if (_plague == null || !_plague.Active)
+                return;
 
             EnsureFrameIndex();
             if (++_swept >= SweepEvery)
             {
                 _swept = 0;
-                if (!_runtime.SweepPending) BeginSweep();
+                if (!_runtime.SweepPending)
+                    BeginSweep();
             }
-            if (_runtime.SweepPending) SweepSlice();
+            if (_runtime.SweepPending)
+                SweepSlice();
 
             var colony = AgentColony.Current;
-            if (colony == null) return;
+            if (colony == null)
+                return;
 
             var hub = SessionHub.Instance;
 
             foreach (var kv in colony.All)
             {
                 var pawn = kv.Value;
-                if (pawn == null || !pawn.Spawned || pawn.Map != map) continue;
-                if (pawn.Dead || pawn.Downed) continue;
+                if (pawn == null || !pawn.Spawned || pawn.Map != map)
+                    continue;
+                if (pawn.Dead || pawn.Downed)
+                    continue;
 
                 var state = hub.Get(kv.Key)?.State ?? AgentState.Down;
-                if (state != AgentState.Working) { Stop(pawn); continue; }
+                if (state != AgentState.Working)
+                {
+                    Stop(pawn);
+                    continue;
+                }
 
                 // Replace missing materials during construction.
                 // A failed construction attempt can consume materials, and this map has no haulers to replace them.
@@ -161,22 +198,27 @@ namespace SlopWorld
         Frame Open(Pawn pawn)
         {
             int now = Find.TickManager.TicksGame;
-            if (now < _blocked) return null;
-            if (Standing() >= MaxOpen) return null;
+            if (now < _blocked)
+                return null;
+            if (Standing() >= MaxOpen)
+                return null;
 
             var pick = Pick(pawn);
-            if (pick == null) return null;
+            if (pick == null)
+                return null;
             var errand = pick.Value;
 
             for (int i = 0; i < Tries; i++)
             {
                 var frame = Lay(errand, Site(pawn), pawn);
-                if (frame != null) return frame;
+                if (frame != null)
+                    return frame;
             }
 
             // Delay placement after all floor placement attempts fail.
             // Failed building runs do not delay other attempts.
-            if (errand.What is TerrainDef) _blocked = now + BlockedFor;
+            if (errand.What is TerrainDef)
+                _blocked = now + BlockedFor;
             return null;
         }
 
@@ -185,23 +227,26 @@ namespace SlopWorld
             EnsureFrameIndex();
             int count = 0;
             foreach (var frame in _frames)
-                if (frame != null && frame.Spawned) count++;
+                if (frame != null && frame.Spawned)
+                    count++;
             return count;
         }
 
         void EnsureFrameIndex()
         {
             var things = map.listerThings.ThingsInGroup(ThingRequestGroup.BuildingFrame);
-            if ((!_runtime.FrameIndexDirty && things.Count == _runtime.FrameSourceCount) ||
-                _runtime.SweepPending) return;
+            if (
+                (!_runtime.FrameIndexDirty && things.Count == _runtime.FrameSourceCount)
+                || _runtime.SweepPending
+            )
+                return;
 
             _frames.Clear();
             _runtime.FrameSourceCount = things.Count;
             foreach (var thing in things)
             {
                 var frame = thing as Frame;
-                if (Owns(frame) && frame.Spawned &&
-                    WorkFor(frame.def?.entityDefToBuild) > 0f)
+                if (Owns(frame) && frame.Spawned && WorkFor(frame.def?.entityDefToBuild) > 0f)
                     _frames.Add(frame);
             }
             _runtime.FrameIndexDirty = false;
@@ -211,8 +256,10 @@ namespace SlopWorld
 
         void RegisterFrame(Frame frame)
         {
-            if (frame == null) return;
-            if (_runtime.FrameIndexDirty) return;
+            if (frame == null)
+                return;
+            if (_runtime.FrameIndexDirty)
+                return;
             if (!_frames.Contains(frame))
             {
                 _frames.Add(frame);
@@ -235,10 +282,12 @@ namespace SlopWorld
 
             // Choose sites in a ring around the pawn to avoid its occupied cell.
             var dir = Rand.InsideUnitCircleVec3.normalized;
-            if (dir == Vector3.zero) dir = Vector3.forward;
+            if (dir == Vector3.zero)
+                dir = Vector3.forward;
 
             dir = (dir + Pull(pawn.Position)).normalized;
-            if (dir == Vector3.zero) dir = Vector3.forward;
+            if (dir == Vector3.zero)
+                dir = Vector3.forward;
 
             var v = home
                 ? dir * Rand.Range(SiteNear, SiteRadius)
@@ -280,8 +329,7 @@ namespace SlopWorld
             int rank = Reach(span, across) + run.Gap;
 
             // Center the run on the selected site to preserve the bias toward the core.
-            var head = at - along * ((many - 1) * step / 2)
-                          - across * ((run.Lines - 1) * rank / 2);
+            var head = at - along * ((many - 1) * step / 2) - across * ((run.Lines - 1) * rank / 2);
 
             _mine.Clear();
             Frame first = null;
@@ -292,12 +340,15 @@ namespace SlopWorld
                 for (int i = 0; i < many; i++)
                 {
                     var c = start + along * (i * step);
-                    if (!Fits(errand.What, c, rot, pawn)) continue;
+                    if (!Fits(errand.What, c, rot, pawn))
+                        continue;
 
                     var frame = Pitch(errand.What, c, rot);
-                    if (frame == null) continue;
+                    if (frame == null)
+                        continue;
                     _mine.Add(frame);
-                    if (first == null) first = frame;
+                    if (first == null)
+                        first = frame;
                 }
             }
 
@@ -310,19 +361,27 @@ namespace SlopWorld
 
         bool Fits(BuildableDef what, IntVec3 at, Rot4 rot, Pawn pawn)
         {
-            if (!at.InBounds(map) || at.Fogged(map)) return false;
+            if (!at.InBounds(map) || at.Fogged(map))
+                return false;
 
             // Permit sites outside the plague boundary but within the construction radius.
             // Construction must start before it can expand the plague.
-            if (!Near(at)) return false;
+            if (!Near(at))
+                return false;
 
-            if (!FitsClearance(what, at, rot)) return false;
+            if (!FitsClearance(what, at, rot))
+                return false;
 
             // Reject cells that already have the requested terrain.
-            if (what is TerrainDef terrain && map.terrainGrid.TerrainAt(at) == terrain) return false;
+            if (what is TerrainDef terrain && map.terrainGrid.TerrainAt(at) == terrain)
+                return false;
 
-            if (!GenConstruct.CanPlaceBlueprintAt(what, at, rot, map, false, null, null, StuffFor(what))
-                    .Accepted) return false;
+            if (
+                !GenConstruct
+                    .CanPlaceBlueprintAt(what, at, rot, map, false, null, null, StuffFor(what))
+                    .Accepted
+            )
+                return false;
 
             return pawn.CanReach(at, PathEndMode.Touch, Danger.Deadly);
         }
@@ -339,15 +398,21 @@ namespace SlopWorld
             // Terrain blueprints permit paving over grass and slag. Rooted checks larger plants separately.
             var print = what.blueprintDef;
             bool clear = print != null ? print.clearBuildingArea : what.clearBuildingArea;
-            bool tidy = clear || (print != null
-                ? print.forceMoveItemsBeforeConstruction
-                : what.forceMoveItemsBeforeConstruction);
+            bool tidy =
+                clear
+                || (
+                    print != null
+                        ? print.forceMoveItemsBeforeConstruction
+                        : what.forceMoveItemsBeforeConstruction
+                );
 
             foreach (var c in footprint.ExpandedBy(pad))
             {
-                if (!c.InBounds(map)) return false;
+                if (!c.InBounds(map))
+                    return false;
                 // Preserve roofed areas as scenery.
-                if (map.roofGrid.Roofed(c)) return false;
+                if (map.roofGrid.Roofed(c))
+                    return false;
 
                 var things = c.GetThingList(map);
                 for (int i = 0; i < things.Count; i++)
@@ -356,20 +421,27 @@ namespace SlopWorld
 
                     // Ignore frames from this run when checking margins.
                     // Otherwise, a placed frame can prevent placement of the next item in the run.
-                    if (_mine.Contains(thing)) continue;
+                    if (_mine.Contains(thing))
+                        continue;
 
-                    if (thing is Building || thing is Blueprint) return false;
-                    if (!footprint.Contains(c)) continue;
+                    if (thing is Building || thing is Blueprint)
+                        return false;
+                    if (!footprint.Contains(c))
+                        continue;
 
-                    if (clear && thing.def.category == ThingCategory.Plant) return false;
-                    if (tidy && thing.def.category == ThingCategory.Item) return false;
+                    if (clear && thing.def.category == ThingCategory.Plant)
+                        return false;
+                    if (tidy && thing.def.category == ThingCategory.Item)
+                        return false;
 
                     // Reject plants that require removal before paving.
-                    if (floor && Rooted(thing)) return false;
+                    if (floor && Rooted(thing))
+                        return false;
 
                     // Reject occupied building sites to avoid repeated movement and construction assignments.
                     // Pawns do not block floor placement.
-                    if (!floor && thing is Pawn) return false;
+                    if (!floor && thing is Pawn)
+                        return false;
                 }
             }
 
@@ -381,17 +453,19 @@ namespace SlopWorld
         static bool Rooted(Thing thing)
         {
             var plant = thing.def.category == ThingCategory.Plant ? thing.def.plant : null;
-            return plant != null &&
-                   plant.harvestWork > ThingDefOf.Plant_Dandelion.plant.harvestWork;
+            return plant != null
+                && plant.harvestWork > ThingDefOf.Plant_Dandelion.plant.harvestWork;
         }
 
         // Create and fill a frame directly so construction does not require hauling.
         Frame Pitch(BuildableDef what, IntVec3 at, Rot4 rot)
         {
-            if (what.frameDef == null) return null;
+            if (what.frameDef == null)
+                return null;
 
             var frame = ThingMaker.MakeThing(what.frameDef, StuffFor(what)) as Frame;
-            if (frame == null) return null;
+            if (frame == null)
+                return null;
 
             Claim(frame);
             frame.SetFactionDirect(Faction.OfPlayer);
@@ -404,29 +478,38 @@ namespace SlopWorld
         // Remove blueprints, frames, and completed errand buildings before discarding the map.
         public static void Wipe(Map map)
         {
-            if (map == null) return;
+            if (map == null)
+                return;
 
             var doomed = new List<Thing>();
             foreach (var thing in map.listerThings.AllThings)
             {
-                if (thing == null || thing.Destroyed) continue;
-                if (thing is Blueprint || thing is Frame ||
-                    (thing is Building && WorkFor(thing.def) > 0f)) doomed.Add(thing);
+                if (thing == null || thing.Destroyed)
+                    continue;
+                if (
+                    thing is Blueprint
+                    || thing is Frame
+                    || (thing is Building && WorkFor(thing.def) > 0f)
+                )
+                    doomed.Add(thing);
             }
 
             for (int i = 0; i < doomed.Count; i++)
-                if (!doomed[i].Destroyed) doomed[i].Destroy(DestroyMode.Vanish);
+                if (!doomed[i].Destroyed)
+                    doomed[i].Destroy(DestroyMode.Vanish);
         }
 
         static void Fill(Frame frame)
         {
-            if (frame == null || !frame.Spawned || frame.resourceContainer == null) return;
+            if (frame == null || !frame.Spawned || frame.resourceContainer == null)
+                return;
 
             var cost = frame.TotalMaterialCost();
             for (int i = 0; i < cost.Count; i++)
             {
                 var need = cost[i];
-                int missing = need.count - frame.resourceContainer.TotalStackCountOfDef(need.thingDef);
+                int missing =
+                    need.count - frame.resourceContainer.TotalStackCountOfDef(need.thingDef);
 
                 while (missing > 0)
                 {
@@ -435,7 +518,8 @@ namespace SlopWorld
                     stack.stackCount = take;
 
                     // Stop if the container rejects a stack to prevent an infinite loop.
-                    if (!frame.resourceContainer.TryAdd(stack, false)) return;
+                    if (!frame.resourceContainer.TryAdd(stack, false))
+                        return;
                     missing -= take;
                 }
             }
@@ -444,10 +528,12 @@ namespace SlopWorld
         ThingDef StuffFor(BuildableDef what)
         {
             var td = what as ThingDef;
-            if (td == null || !td.MadeFromStuff) return null;
+            if (td == null || !td.MadeFromStuff)
+                return null;
 
             var blocks = Blocks();
-            if (blocks != null && GenStuff.AllowedStuffsFor(td).Contains(blocks)) return blocks;
+            if (blocks != null && GenStuff.AllowedStuffsFor(td).Contains(blocks))
+                return blocks;
             return GenStuff.DefaultStuffFor(td);
         }
 
@@ -455,12 +541,17 @@ namespace SlopWorld
         // Derive the choice again after loading instead of saving it.
         ThingDef Blocks()
         {
-            if (_quarried) return _blocks;
+            if (_quarried)
+                return _blocks;
             _quarried = true;
 
             var world = Find.World;
             if (world != null)
-                foreach (var def in world.NaturalRockTypesIn(map.Tile)) { _rock = def; break; }
+                foreach (var def in world.NaturalRockTypesIn(map.Tile))
+                {
+                    _rock = def;
+                    break;
+                }
 
             _blocks = _rock != null ? Named("Blocks" + _rock.defName) : null;
             return _blocks;

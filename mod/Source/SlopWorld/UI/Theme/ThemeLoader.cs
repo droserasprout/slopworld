@@ -8,8 +8,11 @@ namespace SlopWorld
     // conversion, and fallback palettes; ThemeCatalog owns parsing and validation.
     internal static class ThemeLoader
     {
-        public static List<T> Load<T>(string kind, Func<ThemeCatalog, List<T>> convert,
-            Func<T> fallback)
+        public static List<T> Load<T>(
+            string kind,
+            Func<ThemeCatalog, List<T>> convert,
+            Func<T> fallback
+        )
         {
             try
             {

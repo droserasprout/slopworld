@@ -16,19 +16,28 @@ namespace SlopWorld
         {
             var known = new HashSet<string>(commandIds, StringComparer.Ordinal);
             _entries.Clear();
-            foreach (var id in (text ?? "").Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            foreach (
+                var id in (text ?? "").Split(
+                    new[] { '\r', '\n' },
+                    StringSplitOptions.RemoveEmptyEntries
+                )
+            )
             {
-                if (_entries.Count >= Capacity) break;
-                if (known.Contains(id) && !_entries.Contains(id)) _entries.Add(id);
+                if (_entries.Count >= Capacity)
+                    break;
+                if (known.Contains(id) && !_entries.Contains(id))
+                    _entries.Add(id);
             }
         }
 
         public bool Track(string id)
         {
-            if (string.IsNullOrEmpty(id) || (_entries.Count > 0 && _entries[0] == id)) return false;
+            if (string.IsNullOrEmpty(id) || (_entries.Count > 0 && _entries[0] == id))
+                return false;
             _entries.Remove(id);
             _entries.Insert(0, id);
-            if (_entries.Count > Capacity) _entries.RemoveAt(_entries.Count - 1);
+            if (_entries.Count > Capacity)
+                _entries.RemoveAt(_entries.Count - 1);
             return true;
         }
     }

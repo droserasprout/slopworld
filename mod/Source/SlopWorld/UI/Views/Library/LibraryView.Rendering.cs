@@ -12,14 +12,18 @@ namespace SlopWorld
         public static void Draw(Rect body)
         {
             Lines.Clear();
-            if (_scroll.HandleWheel(_list, _contentHeight)) return;
+            if (_scroll.HandleWheel(_list, _contentHeight))
+                return;
             using (FieldLifetimeScope.Push(_fieldLifetime))
             using (WidgetState.Save())
             {
                 // Global definitions stay available while project-specific entries follow
                 // the Library's own filter. Builtins remain in their attached menus.
-                _items = SessionHub.Instance.Library
-                    .Where(s => !s.Builtin && (string.IsNullOrEmpty(s.Project) || PassesProject(s.Project))).ToList();
+                _items = SessionHub
+                    .Instance.Library.Where(s =>
+                        !s.Builtin && (string.IsNullOrEmpty(s.Project) || PassesProject(s.Project))
+                    )
+                    .ToList();
                 Templates.Clear();
                 foreach (var template in SessionHub.Instance.Templates)
                 {
@@ -27,45 +31,79 @@ namespace SlopWorld
                     {
                         Name = template.Name,
                         Project = "",
-                        Text = template.Description
+                        Text = template.Description,
                     };
                     Templates[row] = template;
                     _items.Add(row);
                 }
                 DrawTools(body);
-                _items = _items.Where(item => (_kind.Length == 0 || GroupKey(item) == _kind) &&
-                    (item.Name.IndexOf(_query, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                     (item.Text ?? "").IndexOf(_query, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
-                var projects = SessionHub.Instance.Projects.Where(project => PassesProject(project.Name))
-                    .OrderBy(project => project.Name, StringComparer.OrdinalIgnoreCase).ToList();
+                _items = _items
+                    .Where(item =>
+                        (_kind.Length == 0 || GroupKey(item) == _kind)
+                        && (
+                            item.Name.IndexOf(_query, StringComparison.OrdinalIgnoreCase) >= 0
+                            || (item.Text ?? "").IndexOf(_query, StringComparison.OrdinalIgnoreCase)
+                                >= 0
+                        )
+                    )
+                    .ToList();
+                var projects = SessionHub
+                    .Instance.Projects.Where(project => PassesProject(project.Name))
+                    .OrderBy(project => project.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
                 if (MainCategoryEnabled(Category.Worktrees))
                     Worktrees.Update(projects, SessionHub.Instance.ProjectsRevision);
                 BuildSections(projects);
                 var selected = FindSelectedRow();
                 float top = body.y + 2f * (UiTheme.FieldH + Pad) + Pad;
-                string error = _catalogError ?? (MainCategoryEnabled(Category.Worktrees)
-                    ? Worktrees.WorktreeErrors.Values.FirstOrDefault() : null);
+                string error =
+                    _catalogError
+                    ?? (
+                        MainCategoryEnabled(Category.Worktrees)
+                            ? Worktrees.WorktreeErrors.Values.FirstOrDefault()
+                            : null
+                    );
                 if (error != null)
                 {
-                    var notice = new Rect(body.x + CellX, top, Mathf.Max(0f, body.width - CellX * 2f), UiTheme.FieldH);
-                    float retryWidth = Mathf.Min(notice.width, UiLayout.BtnW("Retry", UiTheme.ButtonMinW));
+                    var notice = new Rect(
+                        body.x + CellX,
+                        top,
+                        Mathf.Max(0f, body.width - CellX * 2f),
+                        UiTheme.FieldH
+                    );
+                    float retryWidth = Mathf.Min(
+                        notice.width,
+                        UiLayout.BtnW("Retry", UiTheme.ButtonMinW)
+                    );
                     var retry = new Rect(notice.xMax - retryWidth, top, retryWidth, notice.height);
-                    if (UiButtons.Button(retry, "Retry", UiTheme.Btn.Ghost)) Refresh();
-                    var text = new Rect(notice.x, top, Mathf.Max(0f, notice.width - retryWidth - Pad), notice.height);
+                    if (UiButtons.Button(retry, "Retry", UiTheme.Btn.Ghost))
+                        Refresh();
+                    var text = new Rect(
+                        notice.x,
+                        top,
+                        Mathf.Max(0f, notice.width - retryWidth - Pad),
+                        notice.height
+                    );
                     UiText.PlainStatusLabel(text, error, UiTheme.Bad, GameFont.Tiny);
                     TooltipHandler.TipRegion(text, error);
                     top += notice.height + Pad;
                 }
                 float available = Mathf.Max(0f, body.yMax - top);
-                float detailHeight = selected == null ? 0f :
-                    Mathf.Min(RowH * 5f + UiTheme.FieldH * 2f + Pad * 4f,
-                        Mathf.Max(0f, available - RowH * 2f));
-                var selectedDetails = selected != null && detailHeight > 0f
-                    ? selected.Details() : null;
+                float detailHeight =
+                    selected == null
+                        ? 0f
+                        : Mathf.Min(
+                            RowH * 5f + UiTheme.FieldH * 2f + Pad * 4f,
+                            Mathf.Max(0f, available - RowH * 2f)
+                        );
+                var selectedDetails =
+                    selected != null && detailHeight > 0f ? selected.Details() : null;
                 _list = new Rect(body.x, top, body.width, Mathf.Max(0f, available - detailHeight));
                 if (selected != null && detailHeight > 0f)
-                    DrawDetails(new Rect(body.x + CellX, _list.yMax,
-                        body.width - CellX * 2f, detailHeight), selectedDetails);
+                    DrawDetails(
+                        new Rect(body.x + CellX, _list.yMax, body.width - CellX * 2f, detailHeight),
+                        selectedDetails
+                    );
                 if (Sections.Count == 0)
                 {
                     _contentHeight = 0f;
@@ -79,7 +117,8 @@ namespace SlopWorld
                     foreach (var section in Sections)
                     {
                         y += HeadH;
-                        if (Folded.Contains(section.Key)) continue;
+                        if (Folded.Contains(section.Key))
+                            continue;
                         foreach (var row in section.Rows)
                         {
                             if (row.Key == Selection.Key)
@@ -91,8 +130,11 @@ namespace SlopWorld
                 }
                 float height = Measure();
                 _contentHeight = height;
-                var geometry = UiScrollBody.Measure(list, height,
-                    UiScrollbarReservation.WhenNeeded);
+                var geometry = UiScrollBody.Measure(
+                    list,
+                    height,
+                    UiScrollbarReservation.WhenNeeded
+                );
                 var view = geometry.View;
 
                 // AgentSidebar.DrawBack skips Layout events, so use GUI rather than GUILayout.
@@ -107,24 +149,36 @@ namespace SlopWorld
 
         static void DrawTools(Rect body)
         {
-            var field = new Rect(body.x + CellX, body.y + Pad,
-                Mathf.Max(0f, body.width - CellX * 2f), UiTheme.FieldH);
+            var field = new Rect(
+                body.x + CellX,
+                body.y + Pad,
+                Mathf.Max(0f, body.width - CellX * 2f),
+                UiTheme.FieldH
+            );
             var e = Event.current;
-            if ((e.type == EventType.MouseDown && !field.Contains(e.mousePosition)) ||
-                (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape))
+            if (
+                (e.type == EventType.MouseDown && !field.Contains(e.mousePosition))
+                || (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape)
+            )
                 Closed();
             string before = _query;
             _query = UiText.Field(field, "library.query", _query);
-            if (before != _query) _scroll.JumpTo(Vector2.zero);
+            if (before != _query)
+                _scroll.JumpTo(Vector2.zero);
             if (_query.Length == 0 && GUI.GetNameOfFocusedControl() != "library.query")
-                UiText.PlainStatusLabel(field.ContractedBy(Pad, 0f), "Search library", UiTheme.Faint, GameFont.Tiny);
+                UiText.PlainStatusLabel(
+                    field.ContractedBy(Pad, 0f),
+                    "Search library",
+                    UiTheme.Faint,
+                    GameFont.Tiny
+                );
             TooltipHandler.TipRegion(field, "Search library names and content");
             var filter = new Rect(field.x, field.yMax + Pad, field.width, UiTheme.FieldH);
             if (UiButtons.Button(filter, _kind.Length == 0 ? "All types ▾" : _kind + " ▾"))
             {
                 var options = new List<FloatMenuOption>
                 {
-                    new FloatMenuOption("All types", () => SetKind(""))
+                    new FloatMenuOption("All types", () => SetKind("")),
                 };
                 foreach (var kind in Category.Order)
                 {
@@ -149,15 +203,21 @@ namespace SlopWorld
                 Text.Anchor = TextAnchor.MiddleLeft;
                 foreach (var line in details.Lines)
                 {
-                    if (y + RowH > textBottom) break;
-                    UiText.RowLabel(new Rect(r.x, y, r.width, RowH),
-                        details.IsItem ? line : OneLine(line));
+                    if (y + RowH > textBottom)
+                        break;
+                    UiText.RowLabel(
+                        new Rect(r.x, y, r.width, RowH),
+                        details.IsItem ? line : OneLine(line)
+                    );
                     y += RowH;
                 }
-                TooltipHandler.TipRegion(new Rect(r.x, r.y, r.width,
-                    Mathf.Max(0f, textBottom - r.y)), details.Tooltip);
+                TooltipHandler.TipRegion(
+                    new Rect(r.x, r.y, r.width, Mathf.Max(0f, textBottom - r.y)),
+                    details.Tooltip
+                );
             }
-            if (r.height < actionsH + Pad * 2f) return;
+            if (r.height < actionsH + Pad * 2f)
+                return;
             var primary = new Rect(r.x, r.yMax - actionsH - Pad, r.width, UiTheme.FieldH);
             if (UiButtons.Button(primary, details.PrimaryLabel ?? "Open", UiTheme.Btn.Primary))
                 details.Primary?.Invoke();
@@ -169,10 +229,16 @@ namespace SlopWorld
                 bool clicked = details.IsItem
                     ? UiButtons.Button(secondary, details.SecondaryLabel)
                     : UiButtons.Button(secondary, details.SecondaryLabel, UiTheme.Btn.Ghost);
-                if (clicked) details.Secondary();
+                if (clicked)
+                    details.Secondary();
             }
-            if (details.More != null && UiButtons.Button(
-                    new Rect(r.xMax - moreW, secondary.y, moreW, secondary.height), "…"))
+            if (
+                details.More != null
+                && UiButtons.Button(
+                    new Rect(r.xMax - moreW, secondary.y, moreW, secondary.height),
+                    "…"
+                )
+            )
                 details.More();
         }
 
@@ -191,10 +257,23 @@ namespace SlopWorld
             return y - start;
         }
 
-        static float DrawHeading(Rect view, Rect headRect, string key, string label,
-            int count, bool folded)
+        static float DrawHeading(
+            Rect view,
+            Rect headRect,
+            string key,
+            string label,
+            int count,
+            bool folded
+        )
         {
-            Lines.Add(new Line { Head = true, Key = key, Rect = Screen(headRect) });
+            Lines.Add(
+                new Line
+                {
+                    Head = true,
+                    Key = key,
+                    Rect = Screen(headRect),
+                }
+            );
 
             RowChrome.Hover(headRect, false, true, RowHoverPolicy.OverlayAware);
 
@@ -202,8 +281,7 @@ namespace SlopWorld
             using (WidgetState.Save())
             {
                 GUI.color = UiTheme.Faint;
-                arrow = new Rect(CellX, headRect.y + (HeadH - ArrowW) / 2f,
-                    ArrowW, ArrowW);
+                arrow = new Rect(CellX, headRect.y + (HeadH - ArrowW) / 2f, ArrowW, ArrowW);
                 GUI.DrawTexture(arrow, folded ? TexButton.Reveal : TexButton.Collapse);
 
                 Text.Font = GameFont.Tiny;
@@ -214,8 +292,10 @@ namespace SlopWorld
                 UiText.RowLabel(labelRect, label + tail);
             }
 
-            Slab.Hairline(new Rect(CellX, headRect.yMax - 1f,
-                view.width - CellX * 2f, 1f), UiTheme.Edge);
+            Slab.Hairline(
+                new Rect(CellX, headRect.yMax - 1f, view.width - CellX * 2f, 1f),
+                UiTheme.Edge
+            );
 
             TooltipHandler.TipRegion(headRect, "Click to fold.");
 
@@ -231,11 +311,20 @@ namespace SlopWorld
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
                 GUI.color = UiTheme.Dim;
-                GUI.DrawTexture(new Rect(CellX, r.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW), row.Icon);
+                GUI.DrawTexture(
+                    new Rect(CellX, r.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW),
+                    row.Icon
+                );
                 GUI.color = UiTheme.Lead;
-                UiText.RowLabel(new Rect(CellX + ArrowW + Pad, r.y,
-                    Mathf.Max(0f, r.width - CellX * 2f - ArrowW - Pad), RowH),
-                    row.Label);
+                UiText.RowLabel(
+                    new Rect(
+                        CellX + ArrowW + Pad,
+                        r.y,
+                        Mathf.Max(0f, r.width - CellX * 2f - ArrowW - Pad),
+                        RowH
+                    ),
+                    row.Label
+                );
             }
             if (hitRect.width > 0f && hitRect.height > 0f)
             {
@@ -254,7 +343,8 @@ namespace SlopWorld
             foreach (var section in Sections)
             {
                 h += HeadH;
-                if (!Folded.Contains(section.Key)) h += section.Rows.Count * RowH;
+                if (!Folded.Contains(section.Key))
+                    h += section.Rows.Count * RowH;
             }
             return h + Pad;
         }
@@ -262,26 +352,30 @@ namespace SlopWorld
         static void Empty(Rect body)
         {
             var r = new Rect(body.x + CellX, body.y + Pad, body.width - CellX * 2f, RowH * 3f);
-            UiText.PlainStatusLabel(r, !SessionHub.Instance.Online
-                ? $"daemon {SessionHub.Instance.Status}"
-                : _query.Length > 0 || _kind.Length > 0
-                    ? "No matching entries."
-                    : ProjectFiltering
-                    ? $"No library entries in {ProjectFilterLabel}."
+            UiText.PlainStatusLabel(
+                r,
+                !SessionHub.Instance.Online ? $"daemon {SessionHub.Instance.Status}"
+                    : _query.Length > 0 || _kind.Length > 0 ? "No matching entries."
+                    : ProjectFiltering ? $"No library entries in {ProjectFilterLabel}."
                     : "No library entries yet. Press + at the foot of the panel.",
-                UiTheme.Faint, GameFont.Tiny);
+                UiTheme.Faint,
+                GameFont.Tiny
+            );
         }
 
         static string KindName(LibraryItemKind kind)
         {
             switch (kind)
             {
-                case LibraryItemKind.Shell: return "Shell";
-                case LibraryItemKind.Breadcrumb: return "Breadcrumb";
-                case LibraryItemKind.FileAction: return "File Action";
-                default: return "Prompt";
+                case LibraryItemKind.Shell:
+                    return "Shell";
+                case LibraryItemKind.Breadcrumb:
+                    return "Breadcrumb";
+                case LibraryItemKind.FileAction:
+                    return "File Action";
+                default:
+                    return "Prompt";
             }
         }
-
     }
 }

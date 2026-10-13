@@ -11,18 +11,25 @@ namespace SlopWorld
     // its opaque fill. Suppress the map-layer copy to avoid drawing a buried duplicate.
     public static class ColonistBarStrip
     {
-        static readonly FieldInfo DrawLocsField =
-            AccessTools.Field(typeof(ColonistBar), "cachedDrawLocs");
-        static readonly FieldInfo ScaleField =
-            AccessTools.Field(typeof(ColonistBar), "cachedScale");
+        static readonly FieldInfo DrawLocsField = AccessTools.Field(
+            typeof(ColonistBar),
+            "cachedDrawLocs"
+        );
+        static readonly FieldInfo ScaleField = AccessTools.Field(
+            typeof(ColonistBar),
+            "cachedScale"
+        );
 
         // A reflection target that stops resolving must be loud once, not silently inert.
         static readonly bool Ready = Check();
 
         static bool Check()
         {
-            if (DrawLocsField != null && ScaleField != null) return true;
-            Log.Error("[SlopWorld] Colonist bar fields moved. SlopWorld disabled its sidebar layout.");
+            if (DrawLocsField != null && ScaleField != null)
+                return true;
+            Log.Error(
+                "[SlopWorld] Colonist bar fields moved. SlopWorld disabled its sidebar layout."
+            );
             return false;
         }
 
@@ -70,7 +77,10 @@ namespace SlopWorld
         // while the tile picker is up.
         public static bool BarShown =>
             // The menu/loading handoff can retain ProgramState.Playing after clearing the world.
-            Current.Game?.World != null && UI.screenWidth >= 800 && UI.screenHeight >= 500 && !Find.TilePicker.Active;
+            Current.Game?.World != null
+            && UI.screenWidth >= 800
+            && UI.screenHeight >= 500
+            && !Find.TilePicker.Active;
 
         // Whether the column's add strip has the foot of the panel, which is the same
         // question as whether the panel is on screen at all. The layout is told so it can
@@ -81,22 +91,34 @@ namespace SlopWorld
         // From TerminalWindow.DoWindowContents, after the background fill.
         public static void Draw(bool interactive)
         {
-            if (!Ready || Drawing || Settings.SidebarHidden) return;
-            if (Event.current.type == EventType.Layout) return;
+            if (!Ready || Drawing || Settings.SidebarHidden)
+                return;
+            if (Event.current.type == EventType.Layout)
+                return;
             var bar = Find.ColonistBar;
-            if (bar == null) return;
+            if (bar == null)
+                return;
 
             Drawing = true;
             Blocked = !interactive;
-            try { bar.ColonistBarOnGUI(); }
-            finally { Drawing = false; Blocked = false; }
+            try
+            {
+                bar.ColonistBarOnGUI();
+            }
+            finally
+            {
+                Drawing = false;
+                Blocked = false;
+            }
         }
 
         public static void Apply()
         {
-            if (!Ready || _applied || Suppressed || Cutscene.Playing) return;
+            if (!Ready || _applied || Suppressed || Cutscene.Playing)
+                return;
             var bar = Find.ColonistBar;
-            if (bar == null) return;
+            if (bar == null)
+                return;
 
             // Entries first, and held: it recaches both fields below from scratch when the
             // layout is dirty, from inside ColonistBarOnGUI, undoing everything this sets.
@@ -107,7 +129,8 @@ namespace SlopWorld
             float scale = (float)ScaleField.GetValue(bar);
             bool plus = ShowAdd;
             int cells = count + (plus ? 1 : 0);
-            if (cells == 0) return;
+            if (cells == 0)
+                return;
 
             // Saved before either layout writes into the list it was handed.
             if (count > 0)
@@ -128,11 +151,13 @@ namespace SlopWorld
 
         public static void Restore()
         {
-            if (!_applied) return;
+            if (!_applied)
+                return;
             _applied = false;
 
             var bar = Find.ColonistBar;
-            if (bar == null) return;
+            if (bar == null)
+                return;
 
             // Restoring beats marking it dirty, which would recache everything every frame.
             ScaleField.SetValue(bar, _savedScale);
@@ -150,10 +175,13 @@ namespace SlopWorld
 
         public static bool BeginHitTest()
         {
-            if (_hitTranslated || !_applied || AgentSidebar.AgentScrollOpen) return false;
+            if (_hitTranslated || !_applied || AgentSidebar.AgentScrollOpen)
+                return false;
             var bar = Find.ColonistBar;
-            if (bar == null) return false;
-            if (!(DrawLocsField.GetValue(bar) is List<Vector2> locs)) return false;
+            if (bar == null)
+                return false;
+            if (!(DrawLocsField.GetValue(bar) is List<Vector2> locs))
+                return false;
             _hitOffset = AgentSidebar.AgentContentOffset;
             for (int i = 0; i < locs.Count; i++)
                 locs[i] += _hitOffset;
@@ -163,9 +191,14 @@ namespace SlopWorld
 
         public static void EndHitTest()
         {
-            if (!_hitTranslated) return;
+            if (!_hitTranslated)
+                return;
             var bar = Find.ColonistBar;
-            if (bar == null) { _hitTranslated = false; return; }
+            if (bar == null)
+            {
+                _hitTranslated = false;
+                return;
+            }
             if (!(DrawLocsField.GetValue(bar) is List<Vector2> locs))
             {
                 _hitTranslated = false;
@@ -221,9 +254,11 @@ namespace SlopWorld
         static bool Prefix(out HitState __state)
         {
             __state = default;
-            if (Settings.SidebarHidden) return false;
+            if (Settings.SidebarHidden)
+                return false;
             __state = new HitState { Restore = !ColonistBarStrip.Applied };
-            if (__state.Restore) ColonistBarStrip.Apply();
+            if (__state.Restore)
+                ColonistBarStrip.Apply();
             if (!ColonistBarStrip.Drawing)
                 __state.Translated = ColonistBarStrip.BeginHitTest();
             return true;
@@ -231,8 +266,10 @@ namespace SlopWorld
 
         static void Finalizer(HitState __state)
         {
-            if (__state.Translated) ColonistBarStrip.EndHitTest();
-            if (__state.Restore) ColonistBarStrip.Restore();
+            if (__state.Translated)
+                ColonistBarStrip.EndHitTest();
+            if (__state.Restore)
+                ColonistBarStrip.Restore();
         }
     }
 
@@ -243,23 +280,29 @@ namespace SlopWorld
     {
         static bool Prefix(Rect rect, Pawn colonist)
         {
-            if (!ColonistBarStrip.Drawing) return true;
+            if (!ColonistBarStrip.Drawing)
+                return true;
             // Something is stacked over the pane. The strip is scenery this frame.
-            if (!ColonistBarStrip.Interactive) return false;
+            if (!ColonistBarStrip.Interactive)
+                return false;
             if (Event.current.type != EventType.MouseDown || Event.current.button != 0)
                 return true;
-            if (!ColonistBarStrip.MouseOver(rect)) return true; // not this portrait. Fall through
+            if (!ColonistBarStrip.MouseOver(rect))
+                return true; // not this portrait. Fall through
 
             var session = AgentColony.Current?.SessionOf(colonist);
-            if (session == null) return true;
+            if (session == null)
+                return true;
 
             var info = SessionHub.Instance.Get(session);
-            if (info == null) return true;
+            if (info == null)
+                return true;
 
             // The current session follows the bar click.
             SessionSelectable.Current = session;
 
-            if (session != TerminalWindow.CurrentName) TerminalWindow.Open(session);
+            if (session != TerminalWindow.CurrentName)
+                TerminalWindow.Open(session);
 
             Event.current.Use();
             return false;

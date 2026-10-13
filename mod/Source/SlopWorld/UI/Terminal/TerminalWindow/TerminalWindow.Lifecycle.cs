@@ -32,10 +32,15 @@ namespace SlopWorld
         // If no pane is open, show only the content view, such as the map options menu.
         public static void OpenContent(IContentView view)
         {
-            if (view == null || Find.WindowStack == null) return;
+            if (view == null || Find.WindowStack == null)
+                return;
 
             var existing = Find.WindowStack.WindowOfType<TerminalWindow>();
-            if (existing != null) { existing.SetContent(view); return; }
+            if (existing != null)
+            {
+                existing.SetContent(view);
+                return;
+            }
 
             var w = new TerminalWindow(null);
             Find.WindowStack.Add(w);
@@ -63,8 +68,12 @@ namespace SlopWorld
         // scrollback and selection, changing only the session handle.
         internal static void RenameActive(string oldName, string newName)
         {
-            if (string.IsNullOrEmpty(oldName) || string.IsNullOrEmpty(newName) ||
-                oldName == newName) return;
+            if (
+                string.IsNullOrEmpty(oldName)
+                || string.IsNullOrEmpty(newName)
+                || oldName == newName
+            )
+                return;
 
             var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
             var renamed = window?._terminals.Find(oldName);
@@ -75,9 +84,11 @@ namespace SlopWorld
                 TerminalRecall.Remember(newName);
             }
 
-            if (!active && SessionSelectable.Current != oldName) return;
+            if (!active && SessionSelectable.Current != oldName)
+                return;
             SessionSelectable.Current = newName;
-            if (active && window._content == null) SelectAgent(newName);
+            if (active && window._content == null)
+                SelectAgent(newName);
         }
 
         // Background reader refresh keeps split selection, content overlays, and window focus.
@@ -85,8 +96,10 @@ namespace SlopWorld
         {
             var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
             var panel = window?._terminals.Find(oldName);
-            if (panel != null) panel.BindSession(newName);
-            if (SessionSelectable.Current == oldName) SessionSelectable.Current = newName;
+            if (panel != null)
+                panel.BindSession(newName);
+            if (SessionSelectable.Current == oldName)
+                SessionSelectable.Current = newName;
         }
 
         // What the chrome is showing, for anything that has to know which it is. Null is the
@@ -96,12 +109,14 @@ namespace SlopWorld
 
         // The one of a kind already up, so a door that opens a view can hand the same one back
         // rather than build a second. Pressing `config` twice is a toggle, not a reset.
-        public static T ShowingAs<T>() where T : class, IContentView => Showing as T;
+        public static T ShowingAs<T>()
+            where T : class, IContentView => Showing as T;
 
         // If this view is already open, close it. Otherwise, create and open it.
         // Accept a factory so a close action does not create a view or query the daemon.
         // Route every view entry point here to keep toggles consistent.
-        public static void ToggleContent<T>(System.Func<T> make) where T : class, IContentView
+        public static void ToggleContent<T>(System.Func<T> make)
+            where T : class, IContentView
         {
             if (ShowingAs<T>() != null)
             {
@@ -113,7 +128,8 @@ namespace SlopWorld
 
         void SetContent(IContentView view)
         {
-            if (_content == view) return;
+            if (_content == view)
+                return;
             _fieldLifetime.Cancel();
             _fieldLifetime = new FieldLifetime();
             _panels.SetContent(view);
@@ -123,16 +139,19 @@ namespace SlopWorld
         // the map when there was none. The chrome exists to show something.
         public void Leave()
         {
-            if (_content == null) return;
+            if (_content == null)
+                return;
             SetContent(null);
-            if (_name == null) Close();
+            if (_name == null)
+                Close();
         }
 
         // The pane is on the Super layer, so an ordinary dialog opened from inside it would be
         // added underneath and never seen.
         public static void OpenOverPane(Window w)
         {
-            if (Find.WindowStack == null) return;
+            if (Find.WindowStack == null)
+                return;
             if (Find.WindowStack.WindowOfType<TerminalWindow>() != null)
                 w.layer = WindowLayer.Super;
             Find.WindowStack.Add(w);
@@ -147,7 +166,8 @@ namespace SlopWorld
         public static void PasteClipboardToAgent()
         {
             var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
-            if (window == null || window._name == null) return;
+            if (window == null || window._name == null)
+                return;
             window._terminal.JumpToLive();
             window._terminal.PasteClipboard();
         }
@@ -172,11 +192,13 @@ namespace SlopWorld
                 _terminals.Select(existing);
                 return;
             }
-            if (_name == name) return;
+            if (_name == name)
+                return;
             ArrangeTerminal(WorkspaceLayout.Current.Content);
             _terminal.BindSession(name);
             _panels.SetBacking(name == null ? null : _terminals);
-            if (name != null) SelectAgent(name);
+            if (name != null)
+                SelectAgent(name);
         }
 
         // Clearing first: the brackets' jump-out is an animation off SelectionDrawer's select
@@ -184,7 +206,8 @@ namespace SlopWorld
         static void SelectAgent(string session)
         {
             var pawn = AgentColony.Current?.PawnOf(session);
-            if (pawn == null) return;
+            if (pawn == null)
+                return;
             Find.Selector.ClearSelection();
             Find.Selector.Select(pawn);
         }
@@ -193,9 +216,11 @@ namespace SlopWorld
         {
             base.PreOpen();
             ArrangeTerminal(WorkspaceLayout.Current.Content);
-            if (_name != null) _panels.SetBacking(_terminals);
+            if (_name != null)
+                _panels.SetBacking(_terminals);
             _covering = true;
-            if (_name != null) SelectAgent(_name);
+            if (_name != null)
+                SelectAgent(_name);
         }
 
         public override void PostClose()
@@ -214,32 +239,42 @@ namespace SlopWorld
             {
                 var first = _terminals.First;
                 var second = _terminals.Second;
-                if (!first.EnsureSession(hub, false)) _terminals.Remove(first);
+                if (!first.EnsureSession(hub, false))
+                    _terminals.Remove(first);
                 if (!second.EnsureSession(hub, false))
                 {
-                    if (_terminals.Split) _terminals.Remove(second);
-                    else if (_content == null) { Close(); return false; }
+                    if (_terminals.Split)
+                        _terminals.Remove(second);
+                    else if (_content == null)
+                    {
+                        Close();
+                        return false;
+                    }
                 }
-                if (_terminals.Split) return true;
+                if (_terminals.Split)
+                    return true;
             }
             if (!_terminal.EnsureSession(hub, _content != null))
             {
                 Close();
                 return false;
             }
-            if (_name == null) _panels.SetBacking(null);
+            if (_name == null)
+                _panels.SetBacking(null);
             return true;
         }
 
         internal static void OpenSplit(string name)
         {
             var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
-            if (window == null || window._name == null) { Open(name); return; }
+            if (window == null || window._name == null)
+            {
+                Open(name);
+                return;
+            }
             window.SetContent(null);
             window.ArrangeTerminal(WorkspaceLayout.Current.Content);
             window._terminals.OpenSplit(name);
         }
-
-
     }
 }

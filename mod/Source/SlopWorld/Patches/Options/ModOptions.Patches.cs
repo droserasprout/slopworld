@@ -15,23 +15,55 @@ namespace SlopWorld
         [HarmonyPatch(typeof(Dialog_Options), nameof(Dialog_Options.DoWindowContents))]
         public static class Patch_OptionsOk
         {
-            static bool FooterButton(Rect rect, string label, bool drawBackground, bool doMouseoverSound,
-                bool active, TextAnchor? overrideTextAnchor) => !OptionsView.Anywhere &&
-                Widgets.ButtonText(rect, label, drawBackground, doMouseoverSound, active, overrideTextAnchor);
+            static bool FooterButton(
+                Rect rect,
+                string label,
+                bool drawBackground,
+                bool doMouseoverSound,
+                bool active,
+                TextAnchor? overrideTextAnchor
+            ) =>
+                !OptionsView.Anywhere
+                && Widgets.ButtonText(
+                    rect,
+                    label,
+                    drawBackground,
+                    doMouseoverSound,
+                    active,
+                    overrideTextAnchor
+                );
 
-            static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+            static IEnumerable<CodeInstruction> Transpiler(
+                IEnumerable<CodeInstruction> instructions
+            )
             {
-                var button = AccessTools.Method(typeof(Widgets), nameof(Widgets.ButtonText),
-                    new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool), typeof(TextAnchor?) });
+                var button = AccessTools.Method(
+                    typeof(Widgets),
+                    nameof(Widgets.ButtonText),
+                    new[]
+                    {
+                        typeof(Rect),
+                        typeof(string),
+                        typeof(bool),
+                        typeof(bool),
+                        typeof(bool),
+                        typeof(TextAnchor?),
+                    }
+                );
                 var replacement = AccessTools.Method(typeof(Patch_OptionsOk), nameof(FooterButton));
                 var code = new List<CodeInstruction>(instructions);
                 int matches = 0;
                 foreach (var instruction in code)
-                    if (instruction.Calls(button)) matches++;
+                    if (instruction.Calls(button))
+                        matches++;
                 // RimWorld 1.6 has exactly one direct ButtonText call here: its OK footer.
-                if (matches != 1) throw new InvalidOperationException("Options footer ButtonText call is no longer unique");
+                if (matches != 1)
+                    throw new InvalidOperationException(
+                        "Options footer ButtonText call is no longer unique"
+                    );
                 foreach (var instruction in code)
-                    if (instruction.Calls(button)) instruction.operand = replacement;
+                    if (instruction.Calls(button))
+                        instruction.operand = replacement;
                 return code;
             }
         }
@@ -72,14 +104,16 @@ namespace SlopWorld
         // Layout may repeat per input packet. Measure the rail once per frame.
         static void MeasureRail()
         {
-            if (_railFrame == Time.frameCount) return;
+            if (_railFrame == Time.frameCount)
+                return;
             _railFrame = Time.frameCount;
             RailTops.Clear();
             float y = VanillaInset;
             var categories = DefDatabase<OptionCategoryDef>.AllDefsListForReading;
             for (int i = 0; i < categories.Count; i++)
             {
-                if (categories[i].isDev) continue;
+                if (categories[i].isDev)
+                    continue;
                 RailTops.Add(y);
                 y += TabOf(categories[i])?.Parent != null ? NestedPitch : Pitch;
             }
@@ -108,8 +142,7 @@ namespace SlopWorld
         {
             float max = Mathf.Max(0f, contentHeight - viewport.height);
             var e = Event.current;
-            if (max > 0f && e.type == EventType.ScrollWheel &&
-                viewport.Contains(e.mousePosition))
+            if (max > 0f && e.type == EventType.ScrollWheel && viewport.Contains(e.mousePosition))
             {
                 _railScroll = Mathf.Clamp(_railScroll + e.delta.y * 20f, 0f, max);
                 e.Use();
@@ -121,7 +154,8 @@ namespace SlopWorld
 
         static void DrawRailScrollbar(Rect viewport, float max)
         {
-            if (max <= 0f) return;
+            if (max <= 0f)
+                return;
 
             var track = UiScrollbar.Track(viewport);
             var hit = UiScrollbar.Hit(viewport, track);
@@ -129,12 +163,17 @@ namespace SlopWorld
             var thumb = UiScrollbar.Thumb(track, thumbH, max <= 0f ? 0f : _railScroll / max);
             int id = GUIUtility.GetControlID(FocusType.Passive, hit);
             var e = Event.current;
-            if (GUIUtility.hotControl == 0 && e.type == EventType.MouseDown && e.button == 0 &&
-                hit.Contains(e.mousePosition))
+            if (
+                GUIUtility.hotControl == 0
+                && e.type == EventType.MouseDown
+                && e.button == 0
+                && hit.Contains(e.mousePosition)
+            )
             {
                 _railControl = id;
                 _railGrab = thumb.Contains(e.mousePosition)
-                    ? e.mousePosition.y - thumb.y : thumbH / 2f;
+                    ? e.mousePosition.y - thumb.y
+                    : thumbH / 2f;
                 SetRailScroll(e.mousePosition.y, track, thumbH, max);
                 e.Use();
             }
@@ -159,8 +198,7 @@ namespace SlopWorld
         static void SetRailScroll(float mouseY, Rect track, float thumbH, float max)
         {
             float span = Mathf.Max(0f, track.height - thumbH);
-            float t = span <= 0f ? 0f : Mathf.Clamp01(
-                (mouseY - _railGrab - track.y) / span);
+            float t = span <= 0f ? 0f : Mathf.Clamp01((mouseY - _railGrab - track.y) / span);
             _railScroll = t * max;
             GUIUtility.hotControl = _railControl;
         }
@@ -168,8 +206,10 @@ namespace SlopWorld
         // Use mod colors for selected rows and rows under the pointer.
         static void CategoryRow(Rect r, bool selected)
         {
-            if (selected) Slab.Fill(r, UiTheme.Sel);
-            else if (Mouse.IsOver(r)) Slab.Fill(r, UiTheme.Hover);
+            if (selected)
+                Slab.Fill(r, UiTheme.Sel);
+            else if (Mouse.IsOver(r))
+                Slab.Fill(r, UiTheme.Hover);
         }
 
         static void Select(Dialog_Options dlg, OptionCategoryDef category)
@@ -193,37 +233,65 @@ namespace SlopWorld
                         UpdateRailScroll(OptionsView.RailViewport, RailContentHeight());
                     return false;
                 }
-                if (OptionsView.Drawing) DrawContentRailRow(__instance, r, optionCategory);
-                else DrawVanillaDialogRow(__instance, r, optionCategory);
+                if (OptionsView.Drawing)
+                    DrawContentRailRow(__instance, r, optionCategory);
+                else
+                    DrawVanillaDialogRow(__instance, r, optionCategory);
                 return false;
             }
 
-            static void DrawContentRailRow(Dialog_Options instance, Rect r, OptionCategoryDef category)
+            static void DrawContentRailRow(
+                Dialog_Options instance,
+                Rect r,
+                OptionCategoryDef category
+            )
             {
                 var tab = TabOf(category);
                 int index = Index(r);
                 var row = Slot(r, tab);
                 var viewport = OptionsView.RailViewport;
-                float max = index == 0
-                    ? UpdateRailScroll(viewport, RailContentHeight())
-                    : Mathf.Max(0f, RailContentHeight() - viewport.height);
-                if (index == 0) DrawRailScrollbar(viewport, max);
-                row = new Rect(row.x - viewport.x, row.y - viewport.y - _railScroll, row.width, row.height);
-                if (row.yMax <= 0f || row.y >= viewport.height) return;
+                float max =
+                    index == 0
+                        ? UpdateRailScroll(viewport, RailContentHeight())
+                        : Mathf.Max(0f, RailContentHeight() - viewport.height);
+                if (index == 0)
+                    DrawRailScrollbar(viewport, max);
+                row = new Rect(
+                    row.x - viewport.x,
+                    row.y - viewport.y - _railScroll,
+                    row.width,
+                    row.height
+                );
+                if (row.yMax <= 0f || row.y >= viewport.height)
+                    return;
 
                 GUI.BeginGroup(viewport);
-                try { DrawRow(instance, row, tab, category); }
-                finally { GUI.EndGroup(); }
+                try
+                {
+                    DrawRow(instance, row, tab, category);
+                }
+                finally
+                {
+                    GUI.EndGroup();
+                }
             }
 
-            static void DrawVanillaDialogRow(Dialog_Options instance, Rect r, OptionCategoryDef category)
+            static void DrawVanillaDialogRow(
+                Dialog_Options instance,
+                Rect r,
+                OptionCategoryDef category
+            )
             {
                 var tab = TabOf(category);
                 DrawRow(instance, Slot(r, tab), tab, category);
             }
 
-            static void DrawRow(Dialog_Options instance, Rect row, Tab tab,
-                                OptionCategoryDef optionCategory)
+            static void DrawRow(
+                Dialog_Options instance,
+                Rect row,
+                Tab tab,
+                OptionCategoryDef optionCategory
+            )
             {
                 Text.Font = GameFont.Small;
 
@@ -241,17 +309,26 @@ namespace SlopWorld
                 }
                 else
                 {
-                    var icon = tab != null
-                        ? tab.Icon?.Invoke()
-                        : ContentFinder<Texture2D>.Get(optionCategory.texPath);
+                    var icon =
+                        tab != null
+                            ? tab.Icon?.Invoke()
+                            : ContentFinder<Texture2D>.Get(optionCategory.texPath);
                     if (icon != null)
                         GUI.DrawTexture(
-                            new Rect(row.x + RowPadX, row.y + (row.height - IconBox) / 2f,
-                                IconBox, IconBox), icon);
+                            new Rect(
+                                row.x + RowPadX,
+                                row.y + (row.height - IconBox) / 2f,
+                                IconBox,
+                                IconBox
+                            ),
+                            icon
+                        );
                 }
 
-                UiText.RowLabel(new Rect(x, row.y, row.xMax - x, row.height),
-                    optionCategory.LabelCap);
+                UiText.RowLabel(
+                    new Rect(x, row.y, row.xMax - x, row.height),
+                    optionCategory.LabelCap
+                );
             }
         }
 
@@ -263,7 +340,8 @@ namespace SlopWorld
             static bool Prefix(OptionCategoryDef category, Rect inRect)
             {
                 var tab = Target(TabOf(category));
-                if (tab == null || !tab.HasPage) return true;
+                if (tab == null || !tab.HasPage)
+                    return true;
 
                 tab.Draw(inRect);
                 return false;
@@ -285,20 +363,22 @@ namespace SlopWorld
             }
         }
 
-
         // Options opened from the main menu use a window. The content view applies the same layout itself.
 
         // Reserve interface space during play. Use the full screen in the main menu.
         static Rect Free()
         {
-            bool playing = Current.ProgramState == ProgramState.Playing
-                           && Find.CurrentMap != null;
-            if (!playing) return new Rect(0f, 0f, UI.screenWidth, UI.screenHeight);
+            bool playing = Current.ProgramState == ProgramState.Playing && Find.CurrentMap != null;
+            if (!playing)
+                return new Rect(0f, 0f, UI.screenWidth, UI.screenHeight);
             return WorkspaceLayout.Current.Content;
         }
 
-        [HarmonyPatch(typeof(Dialog_Options), nameof(Dialog_Options.InitialSize),
-            MethodType.Getter)]
+        [HarmonyPatch(
+            typeof(Dialog_Options),
+            nameof(Dialog_Options.InitialSize),
+            MethodType.Getter
+        )]
         public static class Patch_OptionsSize
         {
             static void Postfix(ref Vector2 __result)
@@ -314,7 +394,8 @@ namespace SlopWorld
         {
             static void Postfix(Window __instance)
             {
-                if (__instance is Dialog_Options) __instance.windowRect = Free();
+                if (__instance is Dialog_Options)
+                    __instance.windowRect = Free();
             }
         }
 
@@ -327,7 +408,8 @@ namespace SlopWorld
 
             static void Prefix(ref Rect inRect)
             {
-                if (OptionsView.Drawing) return;
+                if (OptionsView.Drawing)
+                    return;
                 var band = UiLayout.CenteredBand(inRect);
                 GUI.BeginGroup(band);
                 _grouped = true;
@@ -336,7 +418,8 @@ namespace SlopWorld
 
             static void Finalizer()
             {
-                if (!_grouped) return;
+                if (!_grouped)
+                    return;
                 _grouped = false;
                 GUI.EndGroup();
             }
@@ -349,7 +432,6 @@ namespace SlopWorld
             static void Postfix() => Teardown();
         }
 
-
         // Main menu.
 
         // Hide main menu web links because the About tab provides them.
@@ -359,14 +441,21 @@ namespace SlopWorld
             static bool Prefix(List<ListableOption> optList)
             {
                 // Only suppress lists that contain web links exclusively.
-                if (optList.Count == 0) return true;
+                if (optList.Count == 0)
+                    return true;
                 bool allLinks = true;
                 foreach (var o in optList)
-                    if (!(o is ListableOption_WebLink)) { allLinks = false; break; }
-                if (!allLinks) return true;
+                    if (!(o is ListableOption_WebLink))
+                    {
+                        allLinks = false;
+                        break;
+                    }
+                if (!allLinks)
+                    return true;
 
                 // Keep links in the options dialog for the About page.
-                if (OptionsView.Anywhere) return true;
+                if (OptionsView.Anywhere)
+                    return true;
 
                 // Clear the main menu link list.
                 optList.Clear();

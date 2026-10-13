@@ -24,10 +24,13 @@ namespace SlopWorld
 
         // Size square portraits from the text row, then clamp them so the cached texture is
         // neither upsampled nor reduced to a thumbnail.
-        static float Nominal => Mathf.Clamp(
-            Mathf.Min(Patch_SidebarPortraitDraw.FaceForHeight(TextH), Width * WidthShare)
-                / ColonistBarColonistDrawer.PawnTextureSize.y,
-            Floor, Ceiling);
+        static float Nominal =>
+            Mathf.Clamp(
+                Mathf.Min(Patch_SidebarPortraitDraw.FaceForHeight(TextH), Width * WidthShare)
+                    / ColonistBarColonistDrawer.PawnTextureSize.y,
+                Floor,
+                Ceiling
+            );
 
         const float WidthShare = 0.35f;
         const float Floor = 0.3f;
@@ -38,6 +41,7 @@ namespace SlopWorld
 
         const float AddIcon = UiTheme.IconW;
         static float Pad => UiTheme.GapS;
+
         // Portraits touch the screen edge. CellX remains the inset for labels and chrome.
         const float PortraitX = 0f;
         static float CellX => UiTheme.GapS;
@@ -52,6 +56,7 @@ namespace SlopWorld
         static float RowGap => UiTheme.GapXS;
 
         static float GhostH => NameH + 2f;
+
         // Child workers get a single compact line and a small robot mark instead of a portrait.
         static float WorkerH => UiTheme.LineHOf(GameFont.Tiny) + 2f;
 
@@ -79,7 +84,6 @@ namespace SlopWorld
         const float ArrowW = 12f;
         const float GripW = 5f;
 
-
         // The colonist bar draws and hit-tests the same location table.
         static readonly Vector2 Parked = new Vector2(-9999f, -9999f);
 
@@ -87,9 +91,9 @@ namespace SlopWorld
         {
             public string Session;
             public Pawn Pawn;
-            public Rect Line;   // the whole row, for the highlight and the hover
-            public Rect Text;   // beside the portrait: the three labels, and what a click takes
-            public Rect Face;   // the square face box, read by the drawer patch
+            public Rect Line; // the whole row, for the highlight and the hover
+            public Rect Text; // beside the portrait: the three labels, and what a click takes
+            public Rect Face; // the square face box, read by the drawer patch
 
             public bool Ghost;
             public bool Worker;
@@ -98,7 +102,7 @@ namespace SlopWorld
         struct Head
         {
             public string Label;
-            public Rect Rect;   // the whole band, so the arrow and the name click as one
+            public Rect Rect; // the whole band, so the arrow and the name click as one
             public int Active;
             public int Total;
             public string Count;
@@ -108,8 +112,10 @@ namespace SlopWorld
         static readonly SidebarLayout Layout = new SidebarLayout();
         static readonly SidebarInteraction Interaction = new SidebarInteraction();
         static readonly SidebarProjectState Projects = new SidebarProjectState();
-        static readonly Dictionary<string, SessionInfo> FrameSessions =
-            new Dictionary<string, SessionInfo>(StringComparer.Ordinal);
+        static readonly Dictionary<string, SessionInfo> FrameSessions = new Dictionary<
+            string,
+            SessionInfo
+        >(StringComparer.Ordinal);
         static long _frameSessionsVersion = -1;
         static long _renderStarted;
 
@@ -129,7 +135,8 @@ namespace SlopWorld
         static void BeginSessionSnapshot()
         {
             var hub = SessionHub.Instance;
-            if (_frameSessionsVersion == hub.SessionsVersion) return;
+            if (_frameSessionsVersion == hub.SessionsVersion)
+                return;
 
             FrameSessions.Clear();
             foreach (var info in hub.Sessions)
@@ -143,6 +150,5 @@ namespace SlopWorld
             BeginSessionSnapshot();
             return name != null && FrameSessions.TryGetValue(name, out var info) ? info : null;
         }
-
     }
 }

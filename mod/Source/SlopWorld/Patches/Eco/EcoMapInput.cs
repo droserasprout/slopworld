@@ -14,7 +14,8 @@ namespace SlopWorld
         // Select the agent without moving the camera while Eco is resting.
         public static void SelectAgent(Pawn pawn)
         {
-            if (pawn == null) return;
+            if (pawn == null)
+                return;
             if (Eco.Resting)
             {
                 Find.Selector.Select(pawn);
@@ -31,7 +32,8 @@ namespace SlopWorld
         {
             static bool Prefix(DragBox __instance)
             {
-                if (!Eco.Resting) return true;
+                if (!Eco.Resting)
+                    return true;
                 __instance.active = false;
                 return false;
             }
@@ -42,7 +44,8 @@ namespace SlopWorld
         {
             static bool Prefix(Selector __instance)
             {
-                if (!Eco.Resting) return true;
+                if (!Eco.Resting)
+                    return true;
                 // Cancel active gestures without clearing the selected agent or its action buttons.
                 __instance.Notify_DialogOpened();
                 return false;
@@ -54,7 +57,8 @@ namespace SlopWorld
         {
             static void Postfix(ref bool __result)
             {
-                if (Eco.Resting) __result = true;
+                if (Eco.Resting)
+                    __result = true;
             }
         }
 
@@ -64,11 +68,16 @@ namespace SlopWorld
         [HarmonyPatch(typeof(CameraDriver), "CalculateCurInputDollyVect")]
         static class CameraDolly
         {
-            static bool Prefix(ref Vector2 __result, ref Vector3 ___velocity,
-                ref Vector2 ___desiredDolly, ref Vector2 ___desiredDollyRaw,
-                List<CameraDriver.DragTimeStamp> ___dragTimeStamps)
+            static bool Prefix(
+                ref Vector2 __result,
+                ref Vector3 ___velocity,
+                ref Vector2 ___desiredDolly,
+                ref Vector2 ___desiredDollyRaw,
+                List<CameraDriver.DragTimeStamp> ___dragTimeStamps
+            )
             {
-                if (!Eco.Resting) return true;
+                if (!Eco.Resting)
+                    return true;
                 ___velocity = Vector3.zero;
                 ___desiredDolly = ___desiredDollyRaw = Vector2.zero;
                 ___dragTimeStamps.Clear();

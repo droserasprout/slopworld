@@ -37,13 +37,17 @@ namespace SlopWorld
 
         public override void GameComponentTick()
         {
-            if (Settings.GrandmaMode) return;
+            if (Settings.GrandmaMode)
+                return;
 
             int tick = Find.TickManager.TicksGame;
 
-            if (tick % SmokeIntervalTicks == 0) Smoke();
-            if (tick % VisitCheckIntervalTicks != 0) return;
-            if (Cutscene.AgentsHeld) return;
+            if (tick % SmokeIntervalTicks == 0)
+                Smoke();
+            if (tick % VisitCheckIntervalTicks != 0)
+                return;
+            if (Cutscene.AgentsHeld)
+                return;
 
             if (_leaveTick > 0 && tick >= _leaveTick)
             {
@@ -86,33 +90,45 @@ namespace SlopWorld
             bool around = VisitorIsPresent;
             _pawn = null;
             _leaveTick = 0;
-            if (!around) return;
+            if (!around)
+                return;
             pawn.DeSpawn();
             pawn.Destroy();
         }
 
         void Arrive(int tick)
         {
-            if (VisitorIsPresent) return;
+            if (VisitorIsPresent)
+                return;
 
             var map = Find.CurrentMap ?? Find.AnyPlayerHomeMap;
-            if (map == null) return;
+            if (map == null)
+                return;
 
             var plague = map.GetComponent<Plague>();
-            if (!RCellFinder.TryFindRandomPawnEntryCell(out var cell, map,
-                    CellFinder.EdgeRoadChance_Neutral, false,
-                    c => plague == null || !plague.Reaches(c)))
+            if (
+                !RCellFinder.TryFindRandomPawnEntryCell(
+                    out var cell,
+                    map,
+                    CellFinder.EdgeRoadChance_Neutral,
+                    false,
+                    c => plague == null || !plague.Reaches(c)
+                )
+            )
                 return;
 
             try
             {
-                var req = new PawnGenerationRequest(PawnKindDefOf.Colonist, null,
+                var req = new PawnGenerationRequest(
+                    PawnKindDefOf.Colonist,
+                    null,
                     PawnGenerationContext.NonPlayer,
                     forceGenerateNewPawn: true,
                     canGeneratePawnRelations: false,
                     colonistRelationChanceFactor: 0f,
                     allowAddictions: false,
-                    fixedGender: Gender.Male);
+                    fixedGender: Gender.Male
+                );
 
                 var pawn = PawnGenerator.GeneratePawn(req);
                 ApplySnoopAppearance(pawn);
@@ -130,13 +146,15 @@ namespace SlopWorld
 
         static void ApplySnoopAppearance(Pawn pawn)
         {
-            if (pawn?.story == null) return;
+            if (pawn?.story == null)
+                return;
 
             var last = (pawn.Name as NameTriple)?.Last ?? "";
             pawn.Name = new NameTriple(VisitorName, VisitorName, last);
 
             var hair = DefDatabase<HairDef>.GetNamedSilentFail(HairName);
-            if (hair != null) pawn.story.hairDef = hair;
+            if (hair != null)
+                pawn.story.hairDef = hair;
             pawn.story.HairColor = Hair;
 
             var skin = DefDatabase<GeneDef>.GetNamedSilentFail(SkinName);
@@ -156,19 +174,23 @@ namespace SlopWorld
 
         void Smoke()
         {
-            if (!VisitorIsPresent) return;
+            if (!VisitorIsPresent)
+                return;
 
             var pawn = _pawn;
-            if (pawn.Downed || pawn.jobs == null) return;
+            if (pawn.Downed || pawn.jobs == null)
+                return;
 
             if (pawn.CurJobDef == JobDefOf.Ingest)
             {
-                if (pawn.CurJob?.targetA.Thing?.def?.defName == JointName) Puff(pawn);
+                if (pawn.CurJob?.targetA.Thing?.def?.defName == JointName)
+                    Puff(pawn);
                 return;
             }
 
             var joint = GetOrCreateJointStack(pawn);
-            if (joint == null) return;
+            if (joint == null)
+                return;
 
             var job = JobMaker.MakeJob(JobDefOf.Ingest, joint);
             job.count = 1;
@@ -177,13 +199,16 @@ namespace SlopWorld
 
         static Thing GetOrCreateJointStack(Pawn pawn)
         {
-            if (pawn?.inventory == null) return null;
+            if (pawn?.inventory == null)
+                return null;
 
             var def = DefDatabase<ThingDef>.GetNamedSilentFail(JointName);
-            if (def == null) return null;
+            if (def == null)
+                return null;
 
             var held = pawn.inventory.innerContainer.FirstOrDefault(t => t.def == def);
-            if (held != null) return held;
+            if (held != null)
+                return held;
 
             var made = ThingMaker.MakeThing(def);
             made.stackCount = JointStackCount;
@@ -192,13 +217,16 @@ namespace SlopWorld
 
         static void Puff(Pawn pawn)
         {
-            if (TerminalWindow.Covering) return;
+            if (TerminalWindow.Covering)
+                return;
 
             var map = pawn.Map;
-            if (map == null) return;
+            if (map == null)
+                return;
 
             var at = pawn.DrawPos + new Vector3(Rand.Range(-0.15f, 0.15f), 0f, 0.25f);
-            if (!GenView.ShouldSpawnMotesAt(at, map)) return;
+            if (!GenView.ShouldSpawnMotesAt(at, map))
+                return;
 
             FleckMaker.ThrowSmoke(at, map, Rand.Range(0.5f, 0.9f));
         }

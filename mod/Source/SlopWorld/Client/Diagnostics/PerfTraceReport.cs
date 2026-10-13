@@ -15,9 +15,11 @@ namespace SlopWorld
 
         public static void Report()
         {
-            if (!PerfTrace.Enabled) return;
+            if (!PerfTrace.Enabled)
+                return;
             float now = Time.realtimeSinceStartup;
-            if (now < _nextReport) return;
+            if (now < _nextReport)
+                return;
             _nextReport = now + 1f;
 
             var text = new StringBuilder("[SlopWorld] perf");
@@ -38,15 +40,21 @@ namespace SlopWorld
 
         static void AppendContext(StringBuilder text, float fps, int collections)
         {
-            text.Append(" context eco=").Append(Eco.Resting ? 1 : 0)
-                .Append(" terminal=").Append(TerminalWindow.Covering ? 1 : 0)
-                .Append(" sessions=").Append(SessionHub.Instance.Sessions.Count)
-                .Append(" width=").Append(UI.screenWidth)
-                .Append(" height=").Append(UI.screenHeight)
-                .Append(" fps=").Append(fps
-                    .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))
-                .Append(" gc0=").Append(collections).Append(';');
+            text.Append(" context eco=")
+                .Append(Eco.Resting ? 1 : 0)
+                .Append(" terminal=")
+                .Append(TerminalWindow.Covering ? 1 : 0)
+                .Append(" sessions=")
+                .Append(SessionHub.Instance.Sessions.Count)
+                .Append(" width=")
+                .Append(UI.screenWidth)
+                .Append(" height=")
+                .Append(UI.screenHeight)
+                .Append(" fps=")
+                .Append(fps.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))
+                .Append(" gc0=")
+                .Append(collections)
+                .Append(';');
         }
-
     }
 }

@@ -7,9 +7,16 @@ namespace SlopWorld
     // spacing are common. Validation, field meaning, and button actions stay with the caller.
     public static class TextDialog
     {
-        public static string Draw(Rect rect, string title, string note, string fieldName,
-                                  string value, string error, float noteHeight = -1f,
-                                  Rect? titleRect = null)
+        public static string Draw(
+            Rect rect,
+            string title,
+            string note,
+            string fieldName,
+            string value,
+            string error,
+            float noteHeight = -1f,
+            Rect? titleRect = null
+        )
         {
             using (WidgetState.Save())
             {
@@ -17,7 +24,10 @@ namespace SlopWorld
                 float y = rect.y + UiTheme.HeaderH + UiTheme.GapM;
                 if (!string.IsNullOrEmpty(note))
                 {
-                    float h = Mathf.Max(noteHeight, UiText.PlainStatusLabelHeight(note, rect.width));
+                    float h = Mathf.Max(
+                        noteHeight,
+                        UiText.PlainStatusLabelHeight(note, rect.width)
+                    );
                     UiText.PlainStatusLabel(new Rect(rect.x, y, rect.width, h), note, UiTheme.Dim);
                     y += h + UiTheme.GapS;
                 }
@@ -27,14 +37,15 @@ namespace SlopWorld
                 if (!string.IsNullOrEmpty(error))
                 {
                     GUI.color = UiTheme.Bad;
-                    UiText.RowLabel(new Rect(rect.x, field.yMax + UiTheme.GapXS,
-                        rect.width, UiTheme.RowH), error);
+                    UiText.RowLabel(
+                        new Rect(rect.x, field.yMax + UiTheme.GapXS, rect.width, UiTheme.RowH),
+                        error
+                    );
                 }
                 return result;
             }
         }
 
-        public static UiLayout.Bar Footer(Rect rect) =>
-            new UiLayout.Bar(UiLayout.FooterBar(rect));
+        public static UiLayout.Bar Footer(Rect rect) => new UiLayout.Bar(UiLayout.FooterBar(rect));
     }
 }

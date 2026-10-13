@@ -12,7 +12,8 @@ namespace SlopWorld
         static SidebarTabDefinition CurrentDefinition =>
             TabRegistry.FromPersisted(Settings.SidebarTab);
 
-        static SidebarTabRegistry BuildTabRegistry() => SidebarTabCatalog.CreateRegistry(HandlersFor);
+        static SidebarTabRegistry BuildTabRegistry() =>
+            SidebarTabCatalog.CreateRegistry(HandlersFor);
 
         static SidebarTabHandlers HandlersFor(SidebarTab tab)
         {
@@ -91,7 +92,8 @@ namespace SlopWorld
                         DrawActions = DrawTasksActions,
                         Refresh = () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail),
                         Entered = () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail),
-                        Reselected = () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail),
+                        Reselected = () =>
+                            SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail),
                     };
                 case SidebarTab.Library:
                     return new SidebarTabHandlers
@@ -107,7 +109,8 @@ namespace SlopWorld
                         SetAllFolds = LibraryView.SetAllFolded,
                         AllFolded = () => LibraryView.AllFolded,
                     };
-                default: throw new ArgumentOutOfRangeException(nameof(tab));
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(tab));
             }
         }
 
@@ -133,22 +136,29 @@ namespace SlopWorld
         static SidebarFilesSplitGeometry FilesSplit(Rect body) =>
             SidebarFilesSplitGeometry.Arrange(
                 new UiLayoutRect(body.x, body.y, body.width, body.height),
-                Layout.Routed.Count > 0, Settings.SidebarFilesOpenFraction,
-                GhostH, UiTheme.TinyRowH, FilesDividerH);
+                Layout.Routed.Count > 0,
+                Settings.SidebarFilesOpenFraction,
+                GhostH,
+                UiTheme.TinyRowH,
+                FilesDividerH
+            );
 
-        static Rect ToRect(UiLayoutRect rect) =>
-            new Rect(rect.X, rect.Y, rect.Width, rect.Height);
+        static Rect ToRect(UiLayoutRect rect) => new Rect(rect.X, rect.Y, rect.Width, rect.Height);
 
         static void ClickFilesView()
         {
-            if (Interaction.FilesDividerInput || Interaction.FilesDividerDragging) return;
-            if (!ClickRouted()) FilesView.Clicks();
+            if (Interaction.FilesDividerInput || Interaction.FilesDividerDragging)
+                return;
+            if (!ClickRouted())
+                FilesView.Clicks();
         }
 
         static void ClickGitView()
         {
-            if (Interaction.FilesDividerInput || Interaction.FilesDividerDragging) return;
-            if (!ClickRouted()) GitView.Clicks();
+            if (Interaction.FilesDividerInput || Interaction.FilesDividerDragging)
+                return;
+            if (!ClickRouted())
+                GitView.Clicks();
         }
 
         static void SetAgentFolds(bool folded)
@@ -168,8 +178,13 @@ namespace SlopWorld
         {
             var r = ActionRect(context);
             bool folded = AllFolded();
-            Tab(r, folded ? TexButton.Reveal : TexButton.Collapse, folded,
-                folded ? "Unfold all." : "Fold all.", () => SetAllFolds(!folded));
+            Tab(
+                r,
+                folded ? TexButton.Reveal : TexButton.Collapse,
+                folded,
+                folded ? "Unfold all." : "Fold all.",
+                () => SetAllFolds(!folded)
+            );
             DrawAgentVisibilityAction(context.ShiftX(-(TabIcon + 3f)));
         }
 
@@ -177,11 +192,15 @@ namespace SlopWorld
         {
             var r = ActionRect(context);
             _agentVisibilityRect = r;
-            Tab(r, Icons.Hidden, StatusFiltering,
+            Tab(
+                r,
+                Icons.Hidden,
+                StatusFiltering,
                 StatusFiltering
                     ? $"Showing {StatusFilterLabel} agents. Click to change the status filter."
                     : "All agents shown. Click to choose agent statuses.",
-                OpenAgentVisibilityMenu);
+                OpenAgentVisibilityMenu
+            );
         }
 
         static void DrawFilesActions(SidebarTabActionContext context)
@@ -200,19 +219,28 @@ namespace SlopWorld
         {
             bool active = Settings.SidebarShowHidden || Settings.SidebarShowGitignored;
             _visibilityRect = r;
-            Tab(r, Icons.Hidden, active,
+            Tab(
+                r,
+                Icons.Hidden,
+                active,
                 active
                     ? "Showing dotfiles or Git-ignored files. Click to change the filters."
                     : "All files shown. Click to choose which files to show.",
-                OpenVisibilityMenu);
+                OpenVisibilityMenu
+            );
         }
 
         static void DrawGitActions(SidebarTabActionContext context)
         {
             var r = ActionRect(context);
             DrawFoldAction(ref r);
-            Tab(r, Icons.Refresh, false,
-                "Refresh Git status for every working tree.", GitView.Refresh);
+            Tab(
+                r,
+                Icons.Refresh,
+                false,
+                "Refresh Git status for every working tree.",
+                GitView.Refresh
+            );
         }
 
         static void RefreshLibrary() => LibraryView.Refresh(UiLayout.Fail);
@@ -222,27 +250,34 @@ namespace SlopWorld
             var r = ActionRect(context);
             DrawFoldAction(ref r);
             DrawLibraryProjectFilterAction(ref r);
-            Tab(r, Icons.Refresh, false, "Refresh the Library data.",
-                RefreshLibrary);
+            Tab(r, Icons.Refresh, false, "Refresh the Library data.", RefreshLibrary);
         }
 
         static void DrawLibraryProjectFilterAction(ref Rect r)
         {
             var anchor = r;
-            Tab(r, Icons.Filter, LibraryView.ProjectFiltering,
+            Tab(
+                r,
+                Icons.Filter,
+                LibraryView.ProjectFiltering,
                 LibraryView.ProjectFiltering
                     ? $"Showing {LibraryView.ProjectFilterLabel} in Library. Click to change the project filter."
                     : "Library shows every project. Click to filter the list.",
-                () => LibraryView.OpenProjectFilterMenu(anchor));
+                () => LibraryView.OpenProjectFilterMenu(anchor)
+            );
             r.x -= TabIcon + 3f;
         }
 
         static void DrawTasksActions(SidebarTabActionContext context)
         {
             var r = ActionRect(context);
-            Tab(r, Icons.Refresh, false,
+            Tab(
+                r,
+                Icons.Refresh,
+                false,
                 "Refresh the task list.",
-                () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail));
+                () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail)
+            );
             r.x -= TabIcon + 3f;
             TasksView.FilterButton(r);
         }
@@ -250,8 +285,13 @@ namespace SlopWorld
         static void DrawFoldAction(ref Rect r)
         {
             bool folded = AllFolded();
-            Tab(r, folded ? TexButton.Reveal : TexButton.Collapse, folded,
-                folded ? "Unfold all." : "Fold all.", () => SetAllFolds(!folded));
+            Tab(
+                r,
+                folded ? TexButton.Reveal : TexButton.Collapse,
+                folded,
+                folded ? "Unfold all." : "Fold all.",
+                () => SetAllFolds(!folded)
+            );
             r.x -= TabIcon + 3f;
         }
     }

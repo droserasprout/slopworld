@@ -19,7 +19,8 @@ namespace SlopWorld
 
         public static float Current => Prefs.UIScale;
 
-        public static string Readout(float scale) => scale.ToString("0.##", CultureInfo.CurrentCulture) + "x";
+        public static string Readout(float scale) =>
+            scale.ToString("0.##", CultureInfo.CurrentCulture) + "x";
 
         // Live at once - Verse.UI re-derives the scaled screen every OnGUI and the window
         // stack re-lays itself out when it changes. The write to Prefs.xml waits for Flush,
@@ -27,7 +28,8 @@ namespace SlopWorld
         public static void Set(float scale)
         {
             scale = Mathf.Clamp(Mathf.Round(scale / Fine) * Fine, Min, Max);
-            if (Mathf.Approximately(scale, Prefs.UIScale)) return;
+            if (Mathf.Approximately(scale, Prefs.UIScale))
+                return;
 
             Prefs.UIScale = scale;
             GenUI.ClearLabelWidthCache();
@@ -40,9 +42,11 @@ namespace SlopWorld
         {
             float at = Prefs.UIScale;
             float grid = Mathf.Round(at / Coarse) * Coarse;
-            Set(dir > 0
-                ? (grid > at + 0.001f ? grid : grid + Coarse)
-                : (grid < at - 0.001f ? grid : grid - Coarse));
+            Set(
+                dir > 0
+                    ? (grid > at + 0.001f ? grid : grid + Coarse)
+                    : (grid < at - 0.001f ? grid : grid - Coarse)
+            );
             SavePending();
         }
 
@@ -50,13 +54,15 @@ namespace SlopWorld
         // Palette Zoom saves immediately, even while its activation click is held.
         public static void Flush()
         {
-            if (Input.GetMouseButton(0)) return;
+            if (Input.GetMouseButton(0))
+                return;
             SavePending();
         }
 
         static void SavePending()
         {
-            if (!_unsaved) return;
+            if (!_unsaved)
+                return;
             Prefs.Save();
             _unsaved = false;
         }

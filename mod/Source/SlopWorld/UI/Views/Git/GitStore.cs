@@ -16,15 +16,32 @@ namespace SlopWorld
         readonly Action<string, Action<Wire.GitResult>, Action<string>, int> _request;
         internal event Action Changed;
 
-        internal GitStore(Func<string, string> directory, Func<string, bool> enabled,
-            Func<float> now, Action<string, Action<Wire.GitResult>, Action<string>, int> request)
-        { _directory = directory; _enabled = enabled; _now = now; _request = request; }
+        internal GitStore(
+            Func<string, string> directory,
+            Func<string, bool> enabled,
+            Func<float> now,
+            Action<string, Action<Wire.GitResult>, Action<string>, int> request
+        )
+        {
+            _directory = directory;
+            _enabled = enabled;
+            _now = now;
+            _request = request;
+        }
 
-        bool IsCurrent(Repo repo) => Repos.TryGetValue(repo.Project, out var current)
-            && ReferenceEquals(current, repo) && repo.Dir == _directory(repo.Project);
+        bool IsCurrent(Repo repo) =>
+            Repos.TryGetValue(repo.Project, out var current)
+            && ReferenceEquals(current, repo)
+            && repo.Dir == _directory(repo.Project);
 
-        internal Repo Known(string project) => project != null && Repos.TryGetValue(project, out var repo)
-            && IsCurrent(repo) && repo.IsRepo && repo.Error == null ? repo : null;
+        internal Repo Known(string project) =>
+            project != null
+            && Repos.TryGetValue(project, out var repo)
+            && IsCurrent(repo)
+            && repo.IsRepo
+            && repo.Error == null
+                ? repo
+                : null;
 
         internal void Invalidate(Func<string, bool> exists)
         {
@@ -34,7 +51,8 @@ namespace SlopWorld
                 repo.Operations.Invalidate();
                 repo.Refreshes.Reset();
                 repo.NextRefresh = 0f;
-                if (!exists(key)) Repos.Remove(key);
+                if (!exists(key))
+                    Repos.Remove(key);
             }
         }
 
@@ -43,7 +61,8 @@ namespace SlopWorld
             foreach (var key in scopes)
             {
                 var repo = Get(key);
-                if (!repo.Loading && _now() >= repo.NextRefresh) Fetch(key);
+                if (!repo.Loading && _now() >= repo.NextRefresh)
+                    Fetch(key);
             }
         }
 
@@ -51,13 +70,13 @@ namespace SlopWorld
         internal sealed class Node : IContentTreeNode
         {
             public string Name;
-            public string Rel;          // relative to the repository root, which is what git takes back
+            public string Rel; // relative to the repository root, which is what git takes back
             public string Project;
             public bool IsDir;
             public List<Node> Kids;
             public Repo Owner;
-            public GitStatus Status;       // the porcelain pair, files only
-            public int Added = -1;      // -1 is "git counted none or was not asked to count"
+            public GitStatus Status; // the porcelain pair, files only
+            public int Added = -1; // -1 is "git counted none or was not asked to count"
             public int Deleted = -1;
             public int Depth;
 
@@ -76,9 +95,9 @@ namespace SlopWorld
         // One checkout snapshot, keyed by stable project/worktree scope identity.
         internal sealed class Repo
         {
-            public string Project;      // stable browsing scope key, not a project-name filter value
-            public string Dir;          // the project's directory, which is what was asked about
-            public string Root;         // the repository's, which may be above it
+            public string Project; // stable browsing scope key, not a project-name filter value
+            public string Dir; // the project's directory, which is what was asked about
+            public string Root; // the repository's, which may be above it
             public string Branch;
             public bool IsRepo = true;
             public readonly RefreshQueue Refreshes = new RefreshQueue();
@@ -87,9 +106,11 @@ namespace SlopWorld
             public readonly OperationGate Operations = new OperationGate();
             public bool CountsComplete;
             public string Error;
-            public bool Asked;          // whether an answer has ever landed
-            public bool Truncated;      // the daemon capped both the tree and its partial summary
-            public int Changed, Added, Deleted;
+            public bool Asked; // whether an answer has ever landed
+            public bool Truncated; // the daemon capped both the tree and its partial summary
+            public int Changed,
+                Added,
+                Deleted;
             public Node Tree;
 
             // Porcelain status by relative path, for Files lookups without a tree walk per row.
@@ -102,7 +123,8 @@ namespace SlopWorld
 
             // A project whose directory moved is a different repository under the same
             // heading, and what was known about the old one is not about this one.
-            if (Repos.TryGetValue(project, out var repo) && repo.Dir == dir) return repo;
+            if (Repos.TryGetValue(project, out var repo) && repo.Dir == dir)
+                return repo;
 
             repo?.Operations.Invalidate();
             repo?.Refreshes.Reset();
@@ -114,36 +136,56 @@ namespace SlopWorld
 
         internal void Fetch(string project, System.Action refreshed = null)
         {
-            if (!_enabled(project)) return;
+            if (!_enabled(project))
+                return;
             var repo = Get(project);
-            if (string.IsNullOrEmpty(repo.Dir)) { refreshed?.Invoke(); return; }
-            if (!repo.Refreshes.Request(refreshed)) return;
+            if (string.IsNullOrEmpty(repo.Dir))
+            {
+                refreshed?.Invoke();
+                return;
+            }
+            if (!repo.Refreshes.Request(refreshed))
+                return;
             bool showLoading = repo.Tree == null;
             bool clearError = repo.Error != null;
             repo.Error = null;
-            if (showLoading || clearError) Changed?.Invoke();
+            if (showLoading || clearError)
+                Changed?.Invoke();
 
             string dir = repo.Dir;
             long generation = repo.Operations.Begin();
-            GetGit(repo, generation, WireProtocol.Routes.Git + "?counts=false&path=" + System.Uri.EscapeDataString(dir),
+            GetGit(
+                repo,
+                generation,
+                WireProtocol.Routes.Git + "?counts=false&path=" + System.Uri.EscapeDataString(dir),
                 j =>
                 {
-                    if (!repo.Operations.IsCurrent(generation) || !IsCurrent(repo)) return;
+                    if (!repo.Operations.IsCurrent(generation) || !IsCurrent(repo))
+                        return;
                     repo.Asked = true;
 
                     if (!j.Repo)
                     {
-                        bool changed = repo.IsRepo || repo.Tree != null || repo.Changed != 0 ||
-                            repo.Added != 0 || repo.Deleted != 0 || repo.Changes.Count != 0;
+                        bool changed =
+                            repo.IsRepo
+                            || repo.Tree != null
+                            || repo.Changed != 0
+                            || repo.Added != 0
+                            || repo.Deleted != 0
+                            || repo.Changes.Count != 0;
                         ClearStatus(repo);
-                        if (changed) Changed?.Invoke();
+                        if (changed)
+                            Changed?.Invoke();
                         FinishFetch(project, repo);
                         return;
                     }
 
                     bool sameStatus = SameStatus(repo, j);
-                    bool sameTree = sameStatus && repo.Root == j.Root &&
-                        repo.Changed == (int)j.Changed && repo.Truncated == j.Truncated;
+                    bool sameTree =
+                        sameStatus
+                        && repo.Root == j.Root
+                        && repo.Changed == (int)j.Changed
+                        && repo.Truncated == j.Truncated;
                     bool changedState = !sameTree || repo.Branch != j.Branch;
                     repo.IsRepo = true;
                     repo.Root = j.Root;
@@ -157,21 +199,24 @@ namespace SlopWorld
                         repo.CountsComplete = false;
                         repo.Tree = Fold(repo, j.Files);
                     }
-                    if (changedState) Changed?.Invoke();
+                    if (changedState)
+                        Changed?.Invoke();
                     if (!repo.Refreshes.Pending && !repo.Truncated && repo.Changed > 0)
                         FetchCounts(repo, generation);
                     FinishFetch(project, repo);
                 },
                 msg =>
                 {
-                    if (!repo.Operations.IsCurrent(generation) || !IsCurrent(repo)) return;
+                    if (!repo.Operations.IsCurrent(generation) || !IsCurrent(repo))
+                        return;
                     repo.Asked = true;
                     repo.Error = msg;
                     // Clear stale status too, so Files cannot offer diffs from a failed read.
                     ClearStatus(repo);
                     Changed?.Invoke();
                     FinishFetch(project, repo);
-                });
+                }
+            );
         }
 
         static void ClearStatus(Repo repo)
@@ -184,13 +229,44 @@ namespace SlopWorld
             repo.Changes.Clear();
         }
 
-        void GetGit(Repo repo, long generation, string url, System.Action<Wire.GitResult> success,
-            System.Action<string> fail)
+        void GetGit(
+            Repo repo,
+            long generation,
+            string url,
+            System.Action<Wire.GitResult> success,
+            System.Action<string> fail
+        )
         {
-            Requests.Add(() => repo.Operations.IsCurrent(generation) && _enabled(repo.Project), done =>
-                _request(url,
-                    result => { try { success(result); } finally { done(); } },
-                    error => { try { fail?.Invoke(error); } finally { done(); } }, 15_000));
+            Requests.Add(
+                () => repo.Operations.IsCurrent(generation) && _enabled(repo.Project),
+                done =>
+                    _request(
+                        url,
+                        result =>
+                        {
+                            try
+                            {
+                                success(result);
+                            }
+                            finally
+                            {
+                                done();
+                            }
+                        },
+                        error =>
+                        {
+                            try
+                            {
+                                fail?.Invoke(error);
+                            }
+                            finally
+                            {
+                                done();
+                            }
+                        },
+                        15_000
+                    )
+            );
         }
 
         // The status request intentionally omits line counts. Keep the existing tree when its
@@ -204,10 +280,10 @@ namespace SlopWorld
             int paths = 0;
             foreach (var file in result.Files)
             {
-                if (string.IsNullOrEmpty(file.Path)) continue;
+                if (string.IsNullOrEmpty(file.Path))
+                    continue;
                 paths++;
-                if (!repo.Changes.TryGetValue(file.Path, out var status) ||
-                    status != file.Status)
+                if (!repo.Changes.TryGetValue(file.Path, out var status) || status != file.Status)
                     return false;
             }
             return paths == repo.Changes.Count;
@@ -216,56 +292,74 @@ namespace SlopWorld
         void FinishFetch(string project, Repo repo)
         {
             repo.NextRefresh = _now() + 5f;
-            if (!IsCurrent(repo)) return;
+            if (!IsCurrent(repo))
+                return;
             var completion = repo.Refreshes.Complete();
             if (completion.NeedsFollowUp)
             {
                 Fetch(project);
                 return;
             }
-            foreach (var callback in completion.Callbacks) callback();
+            foreach (var callback in completion.Callbacks)
+                callback();
         }
 
         // Keep the usable status tree if counting fails. A newer refresh owns its own
         // generation, and expanding/collapsing rows while counts arrive must survive.
         void FetchCounts(Repo repo, long generation)
         {
-            GetGit(repo, generation, WireProtocol.Routes.Git + "?path=" + System.Uri.EscapeDataString(repo.Dir),
+            GetGit(
+                repo,
+                generation,
+                WireProtocol.Routes.Git + "?path=" + System.Uri.EscapeDataString(repo.Dir),
                 j =>
                 {
-                    if (!repo.Operations.IsCurrent(generation) || !IsCurrent(repo) ||
-                        !j.CountsComplete) return;
+                    if (
+                        !repo.Operations.IsCurrent(generation)
+                        || !IsCurrent(repo)
+                        || !j.CountsComplete
+                    )
+                        return;
                     var files = new Dictionary<string, Wire.GitFile>();
                     foreach (var f in j.Files)
                     {
                         string path = f.Path;
-                        if (!repo.Changes.TryGetValue(path, out var status) || status != f.Status) return;
+                        if (!repo.Changes.TryGetValue(path, out var status) || status != f.Status)
+                            return;
                         files[path] = f;
                     }
                     // The checkout may have changed between the two requests.
-                    if (files.Count != repo.Changes.Count) return;
+                    if (files.Count != repo.Changes.Count)
+                        return;
                     bool changed = ApplyCounts(repo.Tree, files);
                     int added = (int)j.Added;
                     int deleted = (int)j.Deleted;
-                    changed |= !repo.CountsComplete || repo.Added != added ||
-                        repo.Deleted != deleted;
+                    changed |=
+                        !repo.CountsComplete || repo.Added != added || repo.Deleted != deleted;
                     repo.Added = added;
                     repo.Deleted = deleted;
                     repo.CountsComplete = true;
-                    if (changed) Changed?.Invoke();
-                }, null);
+                    if (changed)
+                        Changed?.Invoke();
+                },
+                null
+            );
         }
 
         static bool ApplyCounts(Node node, Dictionary<string, Wire.GitFile> files)
         {
-            if (node == null) return false;
+            if (node == null)
+                return false;
             bool changed = false;
             if (node.Kids != null)
-                foreach (var child in node.Kids) changed |= ApplyCounts(child, files);
-            if (!files.TryGetValue(node.Rel, out var f)) return changed;
+                foreach (var child in node.Kids)
+                    changed |= ApplyCounts(child, files);
+            if (!files.TryGetValue(node.Rel, out var f))
+                return changed;
             int added = !f.HasAdded ? -1 : (int)f.Added;
             int deleted = !f.HasDeleted ? -1 : (int)f.Deleted;
-            if (node.Added == added && node.Deleted == deleted) return changed;
+            if (node.Added == added && node.Deleted == deleted)
+                return changed;
             node.Added = added;
             node.Deleted = deleted;
             return true;
@@ -288,7 +382,8 @@ namespace SlopWorld
             foreach (var f in files)
             {
                 string rel = f.Path;
-                if (string.IsNullOrEmpty(rel)) continue;
+                if (string.IsNullOrEmpty(rel))
+                    continue;
                 repo.Changes[rel] = f.Status;
 
                 var parts = rel.Split('/');
@@ -316,20 +411,22 @@ namespace SlopWorld
                     at = last;
                 }
 
-                at.Kids.Add(new Node
-                {
-                    Name = parts[parts.Length - 1],
-                    Rel = rel,
-                    IsDir = false,
-                    Depth = at.Depth + 1,
-                    Status = new GitStatus(f.Status),
-                    // Null where git counted nothing (binary or a capped response). Kept apart
-                    // from zero, which is a real count and a different row.
-                    Added = !f.HasAdded ? -1 : (int)f.Added,
-                    Deleted = !f.HasDeleted ? -1 : (int)f.Deleted,
-                    Project = repo.Project,
-                    Owner = repo,
-                });
+                at.Kids.Add(
+                    new Node
+                    {
+                        Name = parts[parts.Length - 1],
+                        Rel = rel,
+                        IsDir = false,
+                        Depth = at.Depth + 1,
+                        Status = new GitStatus(f.Status),
+                        // Null where git counted nothing (binary or a capped response). Kept apart
+                        // from zero, which is a real count and a different row.
+                        Added = !f.HasAdded ? -1 : (int)f.Added,
+                        Deleted = !f.HasDeleted ? -1 : (int)f.Deleted,
+                        Project = repo.Project,
+                        Owner = repo,
+                    }
+                );
             }
 
             // Assign depths after collapsing directory chains, which moves descendants up.
@@ -343,7 +440,8 @@ namespace SlopWorld
         static void Squash(Node dir)
         {
             foreach (var kid in dir.Kids)
-                if (kid.IsDir) Squash(kid);
+                if (kid.IsDir)
+                    Squash(kid);
 
             for (int i = 0; i < dir.Kids.Count; i++)
             {
@@ -361,9 +459,10 @@ namespace SlopWorld
         static void Depths(Node dir, int depth)
         {
             dir.Depth = depth;
-            if (dir.Kids == null) return;
-            foreach (var kid in dir.Kids) Depths(kid, depth + 1);
+            if (dir.Kids == null)
+                return;
+            foreach (var kid in dir.Kids)
+                Depths(kid, depth + 1);
         }
-
     }
 }

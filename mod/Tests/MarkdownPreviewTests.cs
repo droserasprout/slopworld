@@ -36,10 +36,18 @@ namespace SlopWorld.Tests
             next.Draw(Body);
             Assert.That(MarkdownRenderer.LastDrawn, Is.SameAs(renderer));
             Assert.That(EditorTrace.Draws, Is.Empty, "no loading label during replacement");
-            Assert.That(MarkdownInputController.Calls, Is.Zero, "old links and selection are inactive");
+            Assert.That(
+                MarkdownInputController.Calls,
+                Is.Zero,
+                "old links and selection are inactive"
+            );
             int clears = renderer.Clears;
             DaemonClient.Requests.Last().Reply(new Wire.TextResult { Text = "# New document" });
-            Assert.That(renderer.Clears, Is.EqualTo(clears + 1), "completion releases retained render state");
+            Assert.That(
+                renderer.Clears,
+                Is.EqualTo(clears + 1),
+                "completion releases retained render state"
+            );
             next.Draw(Body);
             Assert.That(MarkdownRenderer.LastDrawn, Is.Not.SameAs(renderer));
             next.Closed();
@@ -61,7 +69,11 @@ namespace SlopWorld.Tests
             third.Closed();
             Assert.That(renderer.Clears, Is.EqualTo(clears + 1));
             third.Closed();
-            Assert.That(renderer.Clears, Is.EqualTo(clears + 1), "repeated dismissal does not release twice");
+            Assert.That(
+                renderer.Clears,
+                Is.EqualTo(clears + 1),
+                "repeated dismissal does not release twice"
+            );
             DaemonClient.Requests.Last().Reply(new Wire.TextResult { Text = "late document" });
             Assert.That(renderer.Clears, Is.EqualTo(clears + 1));
         }
@@ -77,7 +89,10 @@ namespace SlopWorld.Tests
             Assert.That(renderer.Clears, Is.EqualTo(clears + 1));
             EditorTrace.Draws.Clear();
             next.Draw(Body);
-            Assert.That(EditorTrace.Draws.Select(draw => draw.Name), Is.EqualTo(new[] { "missing file" }));
+            Assert.That(
+                EditorTrace.Draws.Select(draw => draw.Name),
+                Is.EqualTo(new[] { "missing file" })
+            );
             next.Closed();
         }
     }

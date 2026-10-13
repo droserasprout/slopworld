@@ -23,7 +23,11 @@ namespace SlopWorld.Tests
                 var range = TextSelectionRules.WordRange("a" + scalar + "b", 1);
                 AssertEx.Equal(1, range.Start, "isolated surrogate starts at its code unit");
                 AssertEx.Equal(2, range.End, "isolated surrogate ends after its code unit");
-                AssertEx.Equal(1, TextSelectionRules.WordRange(scalar, 0).End, "trailing isolated surrogate does not throw");
+                AssertEx.Equal(
+                    1,
+                    TextSelectionRules.WordRange(scalar, 0).End,
+                    "trailing isolated surrogate does not throw"
+                );
             }
         }
 

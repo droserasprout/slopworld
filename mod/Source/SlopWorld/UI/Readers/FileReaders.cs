@@ -10,17 +10,25 @@ namespace SlopWorld
         public static void Restore()
         {
             var hub = SessionHub.Instance;
-            if (_restoredVersion == hub.SessionsVersion) return;
+            if (_restoredVersion == hub.SessionsVersion)
+                return;
             _restoredVersion = hub.SessionsVersion;
             foreach (var info in hub.Sessions)
-                if (info != null && info.Alive && info.Ephemeral &&
-                    (info.Intent == "view" || info.Intent == "diff"))
+                if (
+                    info != null
+                    && info.Alive
+                    && info.Ephemeral
+                    && (info.Intent == "view" || info.Intent == "diff")
+                )
                     Tabs.AttachRestored(info);
         }
 
         public static bool IsSession(string session) => FilesView.IsViewerSession(session);
+
         public static bool IsLocked(string session) => FilesView.IsViewerLocked(session);
+
         public static bool Lock(string session) => FilesView.LockViewer(session);
+
         public static bool Close(string session) =>
             FilesView.CloseViewerTab(session) || GitView.CloseViewerTab(session);
     }

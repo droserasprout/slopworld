@@ -10,6 +10,7 @@ namespace SlopWorld
     {
         // Wanted returns true when patch prefixes must permit normal drawing.
         internal static bool Hidden => TerminalWindow.Covering || Eco.Resting;
+
         static bool Wanted() => !Hidden;
 
         // These GUI passes run outside MapUpdate in RimWorld 1.6.
@@ -39,7 +40,8 @@ namespace SlopWorld
         {
             static bool Prefix(MapDrawer __instance)
             {
-                if (!Wanted()) return false;
+                if (!Wanted())
+                    return false;
                 // Restore geometry before drawing because a setting or cutscene can reveal the map before maintenance runs.
                 EcoMapMemory.Restore(__instance);
                 return true;
@@ -66,7 +68,10 @@ namespace SlopWorld
             static bool Prefix() => Wanted();
         }
 
-        [HarmonyPatch(typeof(GameConditionManager), nameof(GameConditionManager.GameConditionManagerDraw))]
+        [HarmonyPatch(
+            typeof(GameConditionManager),
+            nameof(GameConditionManager.GameConditionManagerDraw)
+        )]
         public static class Patch_Conditions
         {
             static bool Prefix() => Wanted();

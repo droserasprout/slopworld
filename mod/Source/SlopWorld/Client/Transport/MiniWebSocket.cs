@@ -27,6 +27,7 @@ namespace SlopWorld
 
         // Limit frame allocations while allowing terminal screens with encoded SGR text.
         const long MaxFrame = 32L * 1024 * 1024;
+
         // A peer can split one message across multiple frames.
         // Limit the combined message size as well as individual frame allocations.
         const long MaxFragmentedMessage = 32L * 1024 * 1024;
@@ -75,8 +76,11 @@ namespace SlopWorld
 
                 var req = new StringBuilder();
                 req.Append("GET ").Append(path).Append(" HTTP/1.1\r\n");
-                req.Append("Host: ").Append(host).Append(':')
-                    .Append(port.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append("\r\n");
+                req.Append("Host: ")
+                    .Append(host)
+                    .Append(':')
+                    .Append(port.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    .Append("\r\n");
                 req.Append("Upgrade: websocket\r\n");
                 req.Append("Connection: Upgrade\r\n");
                 req.Append("Sec-WebSocket-Key: ").Append(key).Append("\r\n");
@@ -92,7 +96,8 @@ namespace SlopWorld
                 string response = ReadHandshake();
                 if (!ValidHandshake(response, key, out string status))
                 {
-                    LastError = status == null ? "no handshake response" : $"handshake refused: {status}";
+                    LastError =
+                        status == null ? "no handshake response" : $"handshake refused: {status}";
                     Cleanup();
                     return false;
                 }
@@ -128,12 +133,14 @@ namespace SlopWorld
             while (sb.Length < 8192)
             {
                 int b = _net.ReadByte();
-                if (b < 0) return null;
+                if (b < 0)
+                    return null;
                 sb.Append((char)b);
                 if (b == '\n')
                 {
                     consecutive++;
-                    if (consecutive == 2) break;
+                    if (consecutive == 2)
+                        break;
                 }
                 else if (b != '\r')
                 {
@@ -146,13 +153,18 @@ namespace SlopWorld
         static bool ValidHandshake(string response, string key, out string status)
         {
             status = null;
-            if (response == null) return false;
+            if (response == null)
+                return false;
 
             var lines = response.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
-            if (lines.Length == 0) return false;
+            if (lines.Length == 0)
+                return false;
             status = lines[0].Trim();
-            if (!status.StartsWith("HTTP/1.1 101 ", StringComparison.Ordinal) &&
-                status != "HTTP/1.1 101") return false;
+            if (
+                !status.StartsWith("HTTP/1.1 101 ", StringComparison.Ordinal)
+                && status != "HTTP/1.1 101"
+            )
+                return false;
 
             string upgrade = null;
             string connection = null;
@@ -161,33 +173,48 @@ namespace SlopWorld
             for (int i = 1; i < lines.Length; i++)
             {
                 int colon = lines[i].IndexOf(':');
-                if (colon <= 0) continue;
+                if (colon <= 0)
+                    continue;
                 string name = lines[i].Substring(0, colon).Trim();
                 string value = lines[i].Substring(colon + 1).Trim();
-                if (name.Equals("Sec-WebSocket-Protocol", StringComparison.OrdinalIgnoreCase)) protocol = value;
-                else if (name.Equals("Upgrade", StringComparison.OrdinalIgnoreCase)) upgrade = value;
-                else if (name.Equals("Connection", StringComparison.OrdinalIgnoreCase)) connection = value;
-                else if (name.Equals("Sec-WebSocket-Accept", StringComparison.OrdinalIgnoreCase)) accept = value;
+                if (name.Equals("Sec-WebSocket-Protocol", StringComparison.OrdinalIgnoreCase))
+                    protocol = value;
+                else if (name.Equals("Upgrade", StringComparison.OrdinalIgnoreCase))
+                    upgrade = value;
+                else if (name.Equals("Connection", StringComparison.OrdinalIgnoreCase))
+                    connection = value;
+                else if (name.Equals("Sec-WebSocket-Accept", StringComparison.OrdinalIgnoreCase))
+                    accept = value;
             }
 
-            if (!string.Equals(upgrade, "websocket", StringComparison.OrdinalIgnoreCase)) return false;
-            if (connection == null || !Array.Exists(connection.Split(','),
-                v => v.Trim().Equals("Upgrade", StringComparison.OrdinalIgnoreCase))) return false;
+            if (!string.Equals(upgrade, "websocket", StringComparison.OrdinalIgnoreCase))
+                return false;
+            if (
+                connection == null
+                || !Array.Exists(
+                    connection.Split(','),
+                    v => v.Trim().Equals("Upgrade", StringComparison.OrdinalIgnoreCase)
+                )
+            )
+                return false;
 
             byte[] challenge = Encoding.ASCII.GetBytes(
-                key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
+                key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+            );
             string expected;
             // RFC 6455 section 4.2.2 requires SHA-1 for Sec-WebSocket-Accept.
 #pragma warning disable CA5350 // Do Not Use Weak Cryptographic Algorithms
             using (var sha1 = SHA1.Create())
                 expected = Convert.ToBase64String(sha1.ComputeHash(challenge));
 #pragma warning restore CA5350
-            return protocol == "slopworld.protobuf.v2" && string.Equals(accept, expected, StringComparison.Ordinal);
+            return protocol == "slopworld.protobuf.v2"
+                && string.Equals(accept, expected, StringComparison.Ordinal);
         }
 
         public bool SendBinary(byte[] text)
         {
-            if (!Connected || (text == null || text.Length == 0)) return false;
+            if (!Connected || (text == null || text.Length == 0))
+                return false;
             _outgoing.Enqueue(text);
             _sendSignal.Set();
             return true;
@@ -205,18 +232,21 @@ namespace SlopWorld
                         continue;
                     }
 
-                    if (_closing) break;
+                    if (_closing)
+                        break;
                     var payload = text;
                     lock (_sendLock)
                     {
-                        if (_closing || _net == null) break;
+                        if (_closing || _net == null)
+                            break;
                         WriteFrame(0x2, payload);
                     }
                 }
             }
             catch (Exception e)
             {
-                if (!_closing) LastError = e.Message;
+                if (!_closing)
+                    LastError = e.Message;
             }
             finally
             {
@@ -240,7 +270,8 @@ namespace SlopWorld
                 while (!_closing)
                 {
                     var frame = ReadFrame(fragOpcode, frag.Length);
-                    if (frame == null) break;
+                    if (frame == null)
+                        break;
 
                     var payload = frame.Payload;
 
@@ -276,20 +307,23 @@ namespace SlopWorld
                             {
                                 // Echo the valid status/reason before closing the transport. The
                                 // writer rechecks closing under this lock before sending more data.
-                                if (!_closing && _net != null) WriteFrame(0x8, payload);
+                                if (!_closing && _net != null)
+                                    WriteFrame(0x8, payload);
                                 _closing = true;
                             }
                             break;
 
                         case 0x9: // ping -> pong with same payload
-                            lock (_sendLock) WriteFrame(0xA, payload);
+                            lock (_sendLock)
+                                WriteFrame(0xA, payload);
                             break;
                     }
                 }
             }
             catch (Exception e)
             {
-                if (!_closing) LastError = e.Message;
+                if (!_closing)
+                    LastError = e.Message;
             }
             finally
             {
@@ -309,7 +343,9 @@ namespace SlopWorld
                 case IncomingEnqueueResult.Closed:
                     throw new IOException("websocket incoming queue closed");
                 case IncomingEnqueueResult.Oversized:
-                    throw new IOException($"websocket message exceeds {IncomingMessageQueue.MaxMessageBytes} bytes");
+                    throw new IOException(
+                        $"websocket message exceeds {IncomingMessageQueue.MaxMessageBytes} bytes"
+                    );
             }
         }
 
@@ -325,8 +361,16 @@ namespace SlopWorld
 
         void Cleanup()
         {
-            try { _net?.Close(); } catch { }
-            try { _tcp?.Close(); } catch { }
+            try
+            {
+                _net?.Close();
+            }
+            catch { }
+            try
+            {
+                _tcp?.Close();
+            }
+            catch { }
             Incoming.Close();
             _net = null;
             _tcp = null;

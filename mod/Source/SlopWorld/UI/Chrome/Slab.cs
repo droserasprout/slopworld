@@ -22,7 +22,8 @@ namespace SlopWorld
         // box covers exactly what it was given.
         public static void Outline(Rect r, Color c)
         {
-            if (!Paint(c)) return;
+            if (!Paint(c))
+                return;
 
             r = Snap(r);
             float w = LineW;
@@ -48,7 +49,8 @@ namespace SlopWorld
         // `RingW` on every side however the rect underneath it snapped.
         public static void Ring(Rect r, Color c)
         {
-            if (!Paint(c)) return;
+            if (!Paint(c))
+                return;
 
             r = Snap(r);
             float w = RingW;
@@ -60,16 +62,14 @@ namespace SlopWorld
         }
 
         // Draw a one-screen-pixel top rule regardless of UI scale.
-        public static void Hairline(Rect r, Color c) =>
-            Flat(new Rect(r.x, r.y, r.width, LineW), c);
+        public static void Hairline(Rect r, Color c) => Flat(new Rect(r.x, r.y, r.width, LineW), c);
 
         // The vertical counterpart, for a panel boundary that stays one screen pixel wide.
         public static void VHairline(Rect r, Color c) =>
             Flat(new Rect(r.x, r.y, LineW, r.height), c);
 
         // Draw only during Repaint, and skip fully transparent colors.
-        static bool Paint(Color c) =>
-            Event.current.type == EventType.Repaint && c.a > 0f;
+        static bool Paint(Color c) => Event.current.type == EventType.Repaint && c.a > 0f;
 
         // Snap both edges of each axis in screen space. Nested GUI groups make arithmetic
         // inversion through ScreenToGUIPoint unreliable. TerminalWindow uses the same transform.
@@ -78,8 +78,10 @@ namespace SlopWorld
             var p0 = GUIUtility.GUIToScreenPoint(Vector2.zero);
             var p1 = GUIUtility.GUIToScreenPoint(Vector2.one);
 
-            float sx = p1.x - p0.x, sy = p1.y - p0.y;
-            if (Mathf.Abs(sx) < 0.0001f || Mathf.Abs(sy) < 0.0001f) return r;
+            float sx = p1.x - p0.x,
+                sy = p1.y - p0.y;
+            if (Mathf.Abs(sx) < 0.0001f || Mathf.Abs(sy) < 0.0001f)
+                return r;
 
             float x0 = (Mathf.Round(r.x * sx + p0.x) - p0.x) / sx;
             float y0 = (Mathf.Round(r.y * sy + p0.y) - p0.y) / sy;
@@ -96,17 +98,20 @@ namespace SlopWorld
             var p1 = GUIUtility.GUIToScreenPoint(Vector2.one);
 
             float sy = p1.y - p0.y;
-            if (Mathf.Abs(sy) < 0.0001f) return y;
+            if (Mathf.Abs(sy) < 0.0001f)
+                return y;
 
             return (Mathf.Round(y * sy + p0.y) - p0.y) / sy;
         }
 
         static void Flat(Rect r, Color c)
         {
-            if (!Paint(c)) return;
+            if (!Paint(c))
+                return;
 
             r = Snap(r);
-            if (r.width <= 0f || r.height <= 0f) return;
+            if (r.width <= 0f || r.height <= 0f)
+                return;
 
             var was = GUI.color;
             GUI.color = c;

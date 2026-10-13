@@ -36,11 +36,13 @@ namespace SlopWorld
             {
                 // Window handles resize input before DoWindowContents, so set its bounds here.
                 ref var resizer = ref Resizer(this);
-                if (resizer == null) resizer = new WindowResizer();
+                if (resizer == null)
+                    resizer = new WindowResizer();
                 var minimum = MinimumSize;
                 resizer.minWindowSize = new Vector2(
                     Mathf.Min(minimum.x, UI.screenWidth),
-                    Mathf.Min(minimum.y, UI.screenHeight));
+                    Mathf.Min(minimum.y, UI.screenHeight)
+                );
             }
             base.WindowOnGUI();
         }
@@ -70,26 +72,39 @@ namespace SlopWorld
         // at the edge where the close control begins.
         protected Rect TitleRect(Rect rect)
         {
-            if (!Closable) return rect;
-            return new Rect(rect.x, rect.y,
-                Mathf.Max(0f, rect.width - CloseSize - UiTheme.GapS), rect.height);
+            if (!Closable)
+                return rect;
+            return new Rect(
+                rect.x,
+                rect.y,
+                Mathf.Max(0f, rect.width - CloseSize - UiTheme.GapS),
+                rect.height
+            );
         }
 
-        protected static float MessageHeight(string text, float width)
-            => UiText.PlainStatusLabelHeight(text, width);
+        protected static float MessageHeight(string text, float width) =>
+            UiText.PlainStatusLabelHeight(text, width);
 
         public override void DoWindowContents(Rect rect)
         {
             using (FieldLifetimeScope.Push(_fieldLifetime))
-            using (new FieldFocusScope(_fieldLifetime,
-                Find.WindowStack == null || Find.WindowStack.GetsInput(this)))
+            using (
+                new FieldFocusScope(
+                    _fieldLifetime,
+                    Find.WindowStack == null || Find.WindowStack.GetsInput(this)
+                )
+            )
             {
                 // RimWorld's Accept binding normally covers Return, but keypad Enter is not
                 // present in every platform's binding. Accepted dialogs should treat both keys
                 // alike. Multiline editors leave closeOnAccept false so Enter remains a newline.
                 var e = Event.current;
-                if (closeOnAccept && e != null && e.type == EventType.KeyDown &&
-                    e.keyCode == KeyCode.KeypadEnter)
+                if (
+                    closeOnAccept
+                    && e != null
+                    && e.type == EventType.KeyDown
+                    && e.keyCode == KeyCode.KeypadEnter
+                )
                 {
                     OnAcceptKeyPressed();
                     return;
@@ -101,7 +116,8 @@ namespace SlopWorld
 
                 // After the body: the corner is over the title's line, and the press has to be
                 // taken in front of whatever the form drew there.
-                if (Closable) DoClose(rect);
+                if (Closable)
+                    DoClose(rect);
             }
         }
 
@@ -124,11 +140,10 @@ namespace SlopWorld
 
         void DoClose(Rect rect)
         {
-            var r = new Rect(rect.xMax - Pad - CloseSize, rect.y + Pad,
-                CloseSize, CloseSize);
+            var r = new Rect(rect.xMax - Pad - CloseSize, rect.y + Pad, CloseSize, CloseSize);
 
-            if (UiLayout.IconButton(r, Icons.Cross, UiTheme.Dim,
-                UiTheme.FieldPadX)) Close();
+            if (UiLayout.IconButton(r, Icons.Cross, UiTheme.Dim, UiTheme.FieldPadX))
+                Close();
         }
     }
 }

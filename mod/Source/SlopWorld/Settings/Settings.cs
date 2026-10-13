@@ -8,6 +8,7 @@ namespace SlopWorld
         public static ConnectionInfo Connection => Endpoint.Resolve();
         public static bool AutoConnect => S.autoConnect;
         public static bool Fullscreen => S.fullscreen;
+
         // Unclamped: AgentSidebar owns what a usable column is, and it is the only reader.
         public static bool SidebarHidden => S.sidebarHidden;
         public static float SidebarWidth => S.sidebarWidth;

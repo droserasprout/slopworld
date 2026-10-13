@@ -24,32 +24,25 @@ namespace SlopWorld
             () => "KeyboardConfig".Translate(),
             // Hide the fixed UI scale menu. Appearance provides a slider for the full supported range.
             () => "UIScale".Translate(),
-
             // Hide resolution selection and the borderless fullscreen notice.
             // Appearance provides the live fullscreen toggle.
             () => "Resolution".Translate(),
             () => "BorderlessFullscreen".Translate(),
-
             // Hide duplicate controls. General and Appearance provide text size and temperature settings.
             () => "DisableTinyText".Translate(),
             () => "TemperatureMode".Translate(),
-
             // Hide settings that no active system uses.
 
             // GameCursor replaces both cursor activation paths. Appearance controls cursor selection.
             () => "CustomCursor".Translate(),
-
             // Hide clock settings because GlobalControls and the planet view are unavailable.
             () => "ShowRealtimeClock".Translate(),
             () => "TwelveHourClockMode".Translate(),
-
             // ColonistBarDrawPatch replaces the mood display. Agent pawns have no weapons to display under portraits.
             () => "VisibleMood".Translate(),
             () => "ShowWeaponsUnderPortrait".Translate(),
-
             // Gravships require quests and construction menus that this simulation does not provide.
             () => "GravshipCutscenes".Translate(),
-
             // Hide settings for unavailable world camera and designator controls.
             () => "ZoomSwitchLayer".Translate(),
             () => "RememberDrawStyle".Translate(),
@@ -58,9 +51,7 @@ namespace SlopWorld
         // Filter only while the options content view exists.
         // A global flag could remain active after an exception and affect unrelated lists.
         static bool Drops(string label) =>
-            label != null
-            && OptionsView.Anywhere
-            && Dropped.Any(built => label == built());
+            label != null && OptionsView.Anywhere && Dropped.Any(built => label == built());
 
         // Mark categories as development categories to preserve definition identity and row indexing.
         // Development mode can show them again.
@@ -79,10 +70,19 @@ namespace SlopWorld
         }
 
         // Skip the checkbox method before it advances the listing position so hidden rows leave no gap.
-        [HarmonyPatch(typeof(Listing_Standard), nameof(Listing_Standard.CheckboxLabeled),
+        [HarmonyPatch(
+            typeof(Listing_Standard),
+            nameof(Listing_Standard.CheckboxLabeled),
             new[] { typeof(string), typeof(bool), typeof(string), typeof(float), typeof(float) },
-            new[] { ArgumentType.Normal, ArgumentType.Ref, ArgumentType.Normal,
-                    ArgumentType.Normal, ArgumentType.Normal })]
+            new[]
+            {
+                ArgumentType.Normal,
+                ArgumentType.Ref,
+                ArgumentType.Normal,
+                ArgumentType.Normal,
+                ArgumentType.Normal,
+            }
+        )]
         public static class Patch_OptionCheckbox
         {
             static bool Prefix(string label) => !Drops(label);
@@ -94,7 +94,8 @@ namespace SlopWorld
         {
             static bool Prefix(string label, ref bool __result)
             {
-                if (!Drops(label)) return true;
+                if (!Drops(label))
+                    return true;
                 __result = false;
                 return false;
             }
@@ -102,13 +103,17 @@ namespace SlopWorld
 
         // Filter the borderless fullscreen notice separately because it uses a Label widget.
         // Return an empty rectangle without advancing the listing.
-        [HarmonyPatch(typeof(Listing_Standard), nameof(Listing_Standard.Label),
-            new[] { typeof(TaggedString), typeof(float), typeof(string) })]
+        [HarmonyPatch(
+            typeof(Listing_Standard),
+            nameof(Listing_Standard.Label),
+            new[] { typeof(TaggedString), typeof(float), typeof(string) }
+        )]
         public static class Patch_OptionLabel
         {
             static bool Prefix(TaggedString label, ref Rect __result)
             {
-                if (!Drops(label.ToString())) return true;
+                if (!Drops(label.ToString()))
+                    return true;
                 __result = default(Rect);
                 return false;
             }
@@ -120,7 +125,8 @@ namespace SlopWorld
         {
             static bool Prefix(string label, float val, ref float __result)
             {
-                if (!Drops(label)) return true;
+                if (!Drops(label))
+                    return true;
                 __result = val;
                 return false;
             }

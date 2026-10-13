@@ -42,7 +42,10 @@ namespace SlopWorld
 
         readonly Game _game;
 
-        public AgentColony(Game game) { _game = game; }
+        public AgentColony(Game game)
+        {
+            _game = game;
+        }
 
         // Cache the component to avoid repeated Game.GetComponent scans for each pawn.
         // Check the current game so the cache cannot return a discarded colony.
@@ -53,8 +56,10 @@ namespace SlopWorld
             get
             {
                 var game = Verse.Current.Game;
-                if (game == null) return _current = null;
-                if (_current != null && _current._game == game) return _current;
+                if (game == null)
+                    return _current = null;
+                if (_current != null && _current._game == game)
+                    return _current;
                 return _current = game.GetComponent<AgentColony>();
             }
         }
@@ -63,11 +68,13 @@ namespace SlopWorld
         {
             get
             {
-                if (!_reindex) return _names;
+                if (!_reindex)
+                    return _names;
                 _reindex = false;
                 _names.Clear();
                 foreach (var kv in _pawns)
-                    if (kv.Value != null) _names[kv.Value] = kv.Key;
+                    if (kv.Value != null)
+                        _names[kv.Value] = kv.Key;
                 return _names;
             }
         }
@@ -78,26 +85,28 @@ namespace SlopWorld
             Unbind(name);
             _pawns[name] = pawn;
             _orderDirty = true;
-            if (pawn != null) Names[pawn] = name;
+            if (pawn != null)
+                Names[pawn] = name;
         }
 
         void Unbind(string name)
         {
-            if (_pawns.TryGetValue(name, out var had) && had != null) Names.Remove(had);
-            if (_pawns.Remove(name)) _orderDirty = true;
+            if (_pawns.TryGetValue(name, out var had) && had != null)
+                Names.Remove(had);
+            if (_pawns.Remove(name))
+                _orderDirty = true;
         }
 
-        public string SessionOf(Pawn p) =>
-            p != null && Names.TryGetValue(p, out var s) ? s : null;
+        public string SessionOf(Pawn p) => p != null && Names.TryGetValue(p, out var s) ? s : null;
 
-        public Pawn PawnOf(string session) =>
-            _pawns.TryGetValue(session, out var p) ? p : null;
+        public Pawn PawnOf(string session) => _pawns.TryGetValue(session, out var p) ? p : null;
 
         public bool IsAgentPawn(Pawn p) => p != null && Names.ContainsKey(p);
 
         public static bool IsAgent(Pawn p)
         {
-            if (p == null) return false;
+            if (p == null)
+                return false;
             var colony = Current;
             return colony != null && colony.IsAgentPawn(p);
         }
@@ -106,14 +115,16 @@ namespace SlopWorld
         // Otherwise, reconciliation treats the old name as a removed session and the new name as an added session.
         public void Rename(string oldName, string newName)
         {
-            if (!_pawns.TryGetValue(oldName, out var pawn)) return;
+            if (!_pawns.TryGetValue(oldName, out var pawn))
+                return;
             Unbind(oldName);
             if (_seen.TryGetValue(oldName, out var state))
             {
                 _seen.Remove(oldName);
                 _seen[newName] = state; // same agent, same history, new handle
             }
-            if (pawn == null || pawn.Destroyed) return;
+            if (pawn == null || pawn.Destroyed)
+                return;
 
             pawn.Name = new NameSingle(newName);
             Bind(newName, pawn);
@@ -137,10 +148,12 @@ namespace SlopWorld
         // arrivals are spawned directly because their open delay would otherwise never tick.
         public override void GameComponentUpdate()
         {
-            if (!Eco.Resting || Cutscene.AgentsHeld) return;
+            if (!Eco.Resting || Cutscene.AgentsHeld)
+                return;
 
             float now = UnityEngine.Time.realtimeSinceStartup;
-            if (now - _swept < SweepSecs) return;
+            if (now - _swept < SweepSecs)
+                return;
             _swept = now;
 
             Reconcile();
@@ -151,7 +164,8 @@ namespace SlopWorld
         // A disconnected socket must not cause removal of every agent.
         bool Sweep(List<SessionInfo> sessions)
         {
-            if (sessions.Count == 0 && !SessionHub.Instance.Online) return false;
+            if (sessions.Count == 0 && !SessionHub.Instance.Online)
+                return false;
 
             if (_membership.Refresh(sessions, SessionHub.Instance.SessionsVersion))
                 PerfTrace.Count("colony-membership-rebuilds");
@@ -171,11 +185,14 @@ namespace SlopWorld
             }
             foreach (var name in _retiring)
             {
-                if (!_pawns.TryGetValue(name, out var pawn)) continue;
+                if (!_pawns.TryGetValue(name, out var pawn))
+                    continue;
                 bool removed = !_membership.Contains(name) && !PendingRenameKeeps(name);
-                if (removed || (pawn != null && pawn.Dead)) Retire(pawn);
+                if (removed || (pawn != null && pawn.Dead))
+                    Retire(pawn);
                 Unbind(name);
-                if (removed) _seen.Remove(name);
+                if (removed)
+                    _seen.Remove(name);
             }
             _retiring.Clear();
 
@@ -184,11 +201,14 @@ namespace SlopWorld
 
         public override void GameComponentTick()
         {
-            if (_landing.Count > 0) Landed();
+            if (_landing.Count > 0)
+                Landed();
 
-            if (Find.TickManager.TicksGame % Interval != 0) return;
+            if (Find.TickManager.TicksGame % Interval != 0)
+                return;
 
-            if (Cutscene.AgentsHeld) return;
+            if (Cutscene.AgentsHeld)
+                return;
 
             Reconcile();
         }
@@ -198,31 +218,43 @@ namespace SlopWorld
         void Reconcile()
         {
             long started = PerfTrace.Start();
-            try { ReconcileCore(); }
-            finally { PerfTrace.End("colony-reconcile", started, _pawns.Count); }
+            try
+            {
+                ReconcileCore();
+            }
+            finally
+            {
+                PerfTrace.End("colony-reconcile", started, _pawns.Count);
+            }
         }
 
         void ReconcileCore()
         {
             var map = Find.CurrentMap ?? Find.AnyPlayerHomeMap;
-            if (map == null) return;
+            if (map == null)
+                return;
 
             var sessions = SessionHub.Instance.Sessions;
-            if (!Sweep(sessions)) return;
+            if (!Sweep(sessions))
+                return;
 
             // Keep colonists for eligible sessions even when their processes stop.
             // Down the pawn without removing it so a restarted process can restore it.
             foreach (var s in sessions)
             {
                 // Workers have child rows in AgentSidebar. Do not create colony pawns for them.
-                if (s.Ephemeral || s.Worker) continue;
-                if (_pawns.ContainsKey(s.Name)) continue;
+                if (s.Ephemeral || s.Worker)
+                    continue;
+                if (_pawns.ContainsKey(s.Name))
+                    continue;
                 // Do not create a second pawn while a pending rename has an existing binding under the alternate name.
-                if (PendingRenameCovers(s.Name)) continue;
+                if (PendingRenameCovers(s.Name))
+                    continue;
                 // RimWorld resolves saved pawn references during a later load phase and can discard unresolved entries.
                 // Find an existing loaded pawn before creating one to prevent duplicates.
                 var pawn = FindExisting(s.Name) ?? Spawn(s.Name, map);
-                if (pawn == null) continue;
+                if (pawn == null)
+                    continue;
                 Bind(s.Name, pawn);
 
                 // RobotFaceRenderNodes checks IsAgent when building the render tree.
@@ -243,7 +275,8 @@ namespace SlopWorld
                 var state = SessionHub.Instance.Get(sessionName)?.State ?? AgentState.Down;
                 // Do not treat the first observed state as a transition without saved history.
                 AgentState? was = _seen.TryGetValue(kv.Key, out var seen)
-                    ? seen : (AgentState?)null;
+                    ? seen
+                    : (AgentState?)null;
                 _seen[kv.Key] = state;
 
                 Reflect(kv.Value, state, was);
@@ -255,34 +288,48 @@ namespace SlopWorld
         bool PendingRenameKeeps(string name)
         {
             var hub = SessionHub.Instance;
-            return AgentRenamePolicy.KeepsBinding(name, _membership.Contains,
-                hub.PendingRenameDestination, hub.PendingRenameSource);
+            return AgentRenamePolicy.KeepsBinding(
+                name,
+                _membership.Contains,
+                hub.PendingRenameDestination,
+                hub.PendingRenameSource
+            );
         }
 
         bool PendingRenameCovers(string sessionName)
         {
             var hub = SessionHub.Instance;
-            return AgentRenamePolicy.HasBindingForSession(sessionName, _pawns.ContainsKey,
-                hub.PendingRenameDestination, hub.PendingRenameSource);
+            return AgentRenamePolicy.HasBindingForSession(
+                sessionName,
+                _pawns.ContainsKey,
+                hub.PendingRenameDestination,
+                hub.PendingRenameSource
+            );
         }
 
         string PendingRenameSession(string bindingName)
         {
             var hub = SessionHub.Instance;
-            return AgentRenamePolicy.ResolveSessionName(bindingName, _membership.Contains,
-                hub.PendingRenameDestination, hub.PendingRenameSource);
+            return AgentRenamePolicy.ResolveSessionName(
+                bindingName,
+                _membership.Contains,
+                hub.PendingRenameDestination,
+                hub.PendingRenameSource
+            );
         }
 
         void Reorder()
         {
-            if (!_orderDirty) return;
+            if (!_orderDirty)
+                return;
             _ordered.Clear();
             _ordered.AddRange(_pawns.Keys);
             _ordered.Sort(CompareNames);
             for (int i = 0; i < _ordered.Count; i++)
             {
                 var settings = _pawns[_ordered[i]]?.playerSettings;
-                if (settings != null && settings.displayOrder != i) settings.displayOrder = i;
+                if (settings != null && settings.displayOrder != i)
+                    settings.displayOrder = i;
             }
             _orderDirty = false;
             PerfTrace.Count("colony-order-rebuilds");
@@ -290,31 +337,40 @@ namespace SlopWorld
 
         internal static int CompareNames(string a, string b)
         {
-            int i = 0, j = 0;
+            int i = 0,
+                j = 0;
             while (i < a.Length && j < b.Length)
             {
                 if (char.IsDigit(a[i]) && char.IsDigit(b[j]))
                 {
-                    int si = i, sj = j;
-                    while (i < a.Length && char.IsDigit(a[i])) i++;
-                    while (j < b.Length && char.IsDigit(b[j])) j++;
+                    int si = i,
+                        sj = j;
+                    while (i < a.Length && char.IsDigit(a[i]))
+                        i++;
+                    while (j < b.Length && char.IsDigit(b[j]))
+                        j++;
 
                     var na = a.Substring(si, i - si).TrimStart('0');
                     var nb = b.Substring(sj, j - sj).TrimStart('0');
-                    if (na.Length != nb.Length) return na.Length - nb.Length;
+                    if (na.Length != nb.Length)
+                        return na.Length - nb.Length;
                     int num = string.CompareOrdinal(na, nb);
-                    if (num != 0) return num;
+                    if (num != 0)
+                        return num;
                     continue;
                 }
 
                 int c = char.ToLowerInvariant(a[i]).CompareTo(char.ToLowerInvariant(b[j]));
-                if (c != 0) return c;
+                if (c != 0)
+                    return c;
                 i++;
                 j++;
             }
 
-            if (i < a.Length) return 1;
-            if (j < b.Length) return -1;
+            if (i < a.Length)
+                return 1;
+            if (j < b.Length)
+                return -1;
             return string.CompareOrdinal(a, b);
         }
 
@@ -323,7 +379,8 @@ namespace SlopWorld
         // Play transition sounds only when the state changes.
         static void Reflect(Pawn pawn, AgentState state, AgentState? was)
         {
-            if (pawn == null || !pawn.Spawned) return;
+            if (pawn == null || !pawn.Spawned)
+                return;
 
             bool moved = was.HasValue && was.Value != state;
 
@@ -335,10 +392,12 @@ namespace SlopWorld
 
             Revive(pawn); // process is back: clear the collapse
 
-            if (state != AgentState.Idle) return;
+            if (state != AgentState.Idle)
+                return;
 
             // Vanilla's new-alert chime, which nothing plays now the alerts are stripped.
-            if (moved) SoundDefOf.TinyBell.PlayOneShotOnCamera(pawn.Map);
+            if (moved)
+                SoundDefOf.TinyBell.PlayOneShotOnCamera(pawn.Map);
         }
 
         // `loud` means the process stopped just now rather than having been gone all
@@ -346,23 +405,29 @@ namespace SlopWorld
         static void Down(Pawn pawn, bool loud)
         {
             var health = pawn.health;
-            if (health?.hediffSet == null) return;
-            if (health.hediffSet.GetFirstHediffOfDef(ModDefOf.SlopOffline) != null) return;
+            if (health?.hediffSet == null)
+                return;
+            if (health.hediffSet.GetFirstHediffOfDef(ModDefOf.SlopOffline) != null)
+                return;
 
             health.AddHediff(ModDefOf.SlopOffline);
 
-            if (loud) ModDefOf.LetterArrive_BadUrgent.PlayOneShotOnCamera(pawn.Map);
+            if (loud)
+                ModDefOf.LetterArrive_BadUrgent.PlayOneShotOnCamera(pawn.Map);
         }
 
         static void Revive(Pawn pawn)
         {
             var health = pawn.health;
-            if (health?.hediffSet == null) return;
+            if (health?.hediffSet == null)
+                return;
             var h = health.hediffSet.GetFirstHediffOfDef(ModDefOf.SlopOffline);
-            if (h != null) health.RemoveHediff(h);
+            if (h != null)
+                health.RemoveHediff(h);
 
             // Repair injuries from saves created before NoHarmAgents protected these pawns.
-            if (pawn.Downed) Mend(pawn);
+            if (pawn.Downed)
+                Mend(pawn);
         }
 
         // Remove blood loss separately from injuries.
@@ -372,31 +437,40 @@ namespace SlopWorld
             HealthUtility.HealNonPermanentInjuriesAndRestoreLegs(pawn);
 
             var bleeding = pawn.health.hediffSet.GetFirstHediffOfDef(HediffDefOf.BloodLoss);
-            if (bleeding != null) pawn.health.RemoveHediff(bleeding);
+            if (bleeding != null)
+                pawn.health.RemoveHediff(bleeding);
 
             // Log only a successful recovery.
             // Reconciliation retries while the pawn remains downed, so logging failures here would repeat every second.
             if (!pawn.Downed)
-                Log.Message($"[SlopWorld] Colonist '{pawn.LabelShort}' patched up. Agents take no damage.");
+                Log.Message(
+                    $"[SlopWorld] Colonist '{pawn.LabelShort}' patched up. Agents take no damage."
+                );
         }
 
         Pawn FindExisting(string name)
         {
             foreach (var p in PawnsFinder.AllMaps_FreeColonists)
             {
-                if (p == null || p.Destroyed || PlayerPawn.IsPlayer(p)) continue;
-                if (IsAgentPawn(p)) continue; // already tracked under some session
-                if (p.Name is NameSingle ns && ns.Name == name) return p;
+                if (p == null || p.Destroyed || PlayerPawn.IsPlayer(p))
+                    continue;
+                if (IsAgentPawn(p))
+                    continue; // already tracked under some session
+                if (p.Name is NameSingle ns && ns.Name == name)
+                    return p;
             }
             return null;
         }
 
         static void Retire(Pawn p)
         {
-            if (p == null || p.Destroyed) return;
+            if (p == null || p.Destroyed)
+                return;
             p.Corpse?.Destroy(); // clear the body if the agent died before removal
-            if (p.Spawned) p.DeSpawn();
-            if (!p.Destroyed) p.Destroy();
+            if (p.Spawned)
+                p.DeSpawn();
+            if (!p.Destroyed)
+                p.Destroy();
         }
 
         // Traverse backward to permit removal during iteration.
@@ -406,9 +480,11 @@ namespace SlopWorld
             for (int i = _landing.Count - 1; i >= 0; i--)
             {
                 var p = _landing[i];
-                if (p != null && !p.Destroyed && !p.Spawned) continue;
+                if (p != null && !p.Destroyed && !p.Spawned)
+                    continue;
 
-                if (p != null && p.Spawned) PlagueFx.Arrive(p);
+                if (p != null && p.Spawned)
+                    PlagueFx.Arrive(p);
                 _landing.RemoveAt(i);
             }
         }
@@ -450,10 +526,18 @@ namespace SlopWorld
                 return pawn;
             }
 
-            DropPodUtility.DropThingsNear(cell, map,
-                cargo, openDelay: PodOpenDelay,
-                canInstaDropDuringInit: false, leaveSlag: false, canRoofPunch: true,
-                forbid: false, allowFogged: true, faction: Faction.OfPlayer);
+            DropPodUtility.DropThingsNear(
+                cell,
+                map,
+                cargo,
+                openDelay: PodOpenDelay,
+                canInstaDropDuringInit: false,
+                leaveSlag: false,
+                canRoofPunch: true,
+                forbid: false,
+                allowFogged: true,
+                faction: Faction.OfPlayer
+            );
 
             _landing.Add(pawn);
 
@@ -466,10 +550,12 @@ namespace SlopWorld
         IntVec3 Anchor(Map map)
         {
             foreach (var p in _pawns.Values)
-                if (p != null && p.Spawned && p.Map == map) return p.Position;
+                if (p != null && p.Spawned && p.Map == map)
+                    return p.Position;
 
             var core = map.listerThings.ThingsOfDef(ModDefOf.Ship_ComputerCore);
-            if (core.Count > 0) return core[0].Position;
+            if (core.Count > 0)
+                return core[0].Position;
 
             return map.Center;
         }
@@ -486,11 +572,19 @@ namespace SlopWorld
         public override void ExposeData()
         {
             base.ExposeData();
-            Scribe_Collections.Look(ref _pawns, "agentPawns",
-                LookMode.Value, LookMode.Reference, ref _pawnKeys, ref _pawnBodies);
-            if (_pawns == null) _pawns = new Dictionary<string, Pawn>();
+            Scribe_Collections.Look(
+                ref _pawns,
+                "agentPawns",
+                LookMode.Value,
+                LookMode.Reference,
+                ref _pawnKeys,
+                ref _pawnBodies
+            );
+            if (_pawns == null)
+                _pawns = new Dictionary<string, Pawn>();
             Scribe_Collections.Look(ref _seen, "agentStates", LookMode.Value, LookMode.Value);
-            if (_seen == null) _seen = new Dictionary<string, AgentState>();
+            if (_seen == null)
+                _seen = new Dictionary<string, AgentState>();
             if (Scribe.mode == LoadSaveMode.Saving)
             {
                 _savedEyeColors = new Dictionary<string, RobotFace.EyeColor>();
@@ -498,13 +592,22 @@ namespace SlopWorld
                     if (binding.Value != null)
                         _savedEyeColors[binding.Key] = RobotFace.ColorOf(binding.Value);
             }
-            Scribe_Collections.Look(ref _savedEyeColors, "agentEyeColors", LookMode.Value, LookMode.Value);
+            Scribe_Collections.Look(
+                ref _savedEyeColors,
+                "agentEyeColors",
+                LookMode.Value,
+                LookMode.Value
+            );
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 foreach (var binding in _pawns)
-                    if (_savedEyeColors != null && _savedEyeColors.TryGetValue(binding.Key, out var color))
+                    if (
+                        _savedEyeColors != null
+                        && _savedEyeColors.TryGetValue(binding.Key, out var color)
+                    )
                         RobotFace.Restore(binding.Value, color);
-                    else RobotFace.Assign(binding.Value);
+                    else
+                        RobotFace.Assign(binding.Value);
                 _savedEyeColors = null;
             }
             Scribe_Values.Look(ref _jukeboxSent, "jukeboxSent", false);

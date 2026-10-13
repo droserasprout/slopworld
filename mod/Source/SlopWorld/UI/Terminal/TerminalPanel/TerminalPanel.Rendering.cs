@@ -29,7 +29,10 @@ namespace SlopWorld
                         Paint(new Rect(0f, 0f, body.width, body.height), buf, cw, ch);
                         PerfTrace.End("terminal-direct-paint", paintStarted, 1);
                     }
-                    finally { GUI.EndGroup(); }
+                    finally
+                    {
+                        GUI.EndGroup();
+                    }
                 }
             }
             else if (Event.current.type == EventType.Repaint)
@@ -50,7 +53,9 @@ namespace SlopWorld
                             {
                                 drawn = DrawCached(
                                     new Rect(0f, shift, body.width, body.height + extra),
-                                    CacheSource(body), extra);
+                                    CacheSource(body),
+                                    extra
+                                );
                             }
                             finally
                             {
@@ -75,7 +80,10 @@ namespace SlopWorld
                         Paint(localBody, buf, cw, ch, shift);
                         PerfTrace.End("terminal-direct-paint", paintStarted, 1);
                     }
-                    finally { GUI.EndGroup(); }
+                    finally
+                    {
+                        GUI.EndGroup();
+                    }
                 }
             }
 
@@ -94,13 +102,24 @@ namespace SlopWorld
                 GUI.EndGroup();
                 SyncSnap();
             }
-            if (TerminalLatency.Enabled && Event.current.type == EventType.Repaint &&
-                buf.Off == 0 && buf.ScrollRequestId == 0)
-                TerminalLatency.Timeline.Draw(_state.Name, buf.WireSeq, buf.InputTimings, Time.frameCount);
+            if (
+                TerminalLatency.Enabled
+                && Event.current.type == EventType.Repaint
+                && buf.Off == 0
+                && buf.ScrollRequestId == 0
+            )
+                TerminalLatency.Timeline.Draw(
+                    _state.Name,
+                    buf.WireSeq,
+                    buf.InputTimings,
+                    Time.frameCount
+                );
             if (TerminalLatency.Enabled && Event.current.type == EventType.Repaint)
-                TerminalLatency.Timeline.DrawScroll(this,
+                TerminalLatency.Timeline.DrawScroll(
+                    this,
                     _scrollOff > 0 ? _historyViewReady : buf.Off == 0 && buf.ScrollRequestId == 0,
-                    Time.frameCount);
+                    Time.frameCount
+                );
             ScrollDebugFrame(buf, shift);
 
             GUI.color = Color.white;
@@ -113,9 +132,10 @@ namespace SlopWorld
             var r = new Rect(body.x, body.y, body.width, UiTheme.LineH + 3f);
             Slab.Box(r, UiTheme.OfflineBg, UiTheme.Edge);
 
-            string tail = _state.DroppedKeys > 0
-                ? $" - {_state.DroppedKeys} keystroke{(_state.DroppedKeys == 1 ? "" : "s")} not delivered"
-                : "";
+            string tail =
+                _state.DroppedKeys > 0
+                    ? $" - {_state.DroppedKeys} keystroke{(_state.DroppedKeys == 1 ? "" : "s")} not delivered"
+                    : "";
 
             Text.Font = GameFont.Small;
             var anchor = Text.Anchor;
@@ -133,8 +153,8 @@ namespace SlopWorld
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
-        void DrawSelection(Rect body, ScreenBuf buf, float shift)
-            => _renderer.DrawSelection(body, buf, shift);
+        void DrawSelection(Rect body, ScreenBuf buf, float shift) =>
+            _renderer.DrawSelection(body, buf, shift);
 
         void DrawScrollLock(Rect body) => _renderer.DrawScrollLock(body);
 
@@ -142,18 +162,17 @@ namespace SlopWorld
         // the first snapshot either assembles a view or reports a positive top offset. This
         // prevents an empty terminal from flashing a one-line scrollbar while off=0 is being
         // confirmed.
-        bool HistoryBarAvailable() => _scrollOff > 0 &&
-            (_historyTopOff > 0 || _historyViewReady);
+        bool HistoryBarAvailable() => _scrollOff > 0 && (_historyTopOff > 0 || _historyViewReady);
 
         void HistoryBarGeometry(Rect body, out Rect hit, out Rect track, out Rect thumb)
         {
             float ch = TerminalFont.CellH;
             int rows = Mathf.Max(1, _state.Rows);
-            float off = ch > 0.01f && _historyScrollReady
-                ? HistoryOffsetPixels() / ch : _scrollOff;
-            float history = _historyTopOff >= 0
-                ? Mathf.Max(1f, _historyTopOff)
-                : Mathf.Max(off + rows, Mathf.Max(_sentScrollOff, rows));
+            float off = ch > 0.01f && _historyScrollReady ? HistoryOffsetPixels() / ch : _scrollOff;
+            float history =
+                _historyTopOff >= 0
+                    ? Mathf.Max(1f, _historyTopOff)
+                    : Mathf.Max(off + rows, Mathf.Max(_sentScrollOff, rows));
 
             track = UiScrollbar.Track(body);
             float thumbH = UiScrollbar.ThumbHeight(track, rows, history);
@@ -175,8 +194,12 @@ namespace SlopWorld
                 e.Use();
                 return true;
             }
-            if (!HistoryInputEnabled(SessionHub.Instance.Screen(_state.Name)) ||
-                !HistoryBarAvailable() || !_historyScrollReady) return false;
+            if (
+                !HistoryInputEnabled(SessionHub.Instance.Screen(_state.Name))
+                || !HistoryBarAvailable()
+                || !_historyScrollReady
+            )
+                return false;
 
             HistoryBarGeometry(body, out var hit, out var track, out var thumb);
             if (_historyBarDragging)
@@ -190,13 +213,18 @@ namespace SlopWorld
                 return false;
             }
 
-            if (GUIUtility.hotControl != 0 || type != EventType.MouseDown ||
-                e.button != 0 || !hit.Contains(e.mousePosition))
+            if (
+                GUIUtility.hotControl != 0
+                || type != EventType.MouseDown
+                || e.button != 0
+                || !hit.Contains(e.mousePosition)
+            )
                 return false;
 
             _historyBarDragging = true;
             _historyBarGrab = thumb.Contains(e.mousePosition)
-                ? e.mousePosition.y - thumb.y : thumb.height / 2f;
+                ? e.mousePosition.y - thumb.y
+                : thumb.height / 2f;
             GUIUtility.hotControl = GUIUtility.GetControlID(FocusType.Passive, hit);
             DragHistoryBar(e.mousePosition.y, track, thumb.height);
             e.Use();
@@ -206,17 +234,19 @@ namespace SlopWorld
         void DragHistoryBar(float mouseY, Rect track, float thumbH)
         {
             float span = track.height - thumbH;
-            float t = span <= 0f
-                ? 0f : Mathf.Clamp01((mouseY - _historyBarGrab - track.y) / span);
+            float t = span <= 0f ? 0f : Mathf.Clamp01((mouseY - _historyBarGrab - track.y) / span);
             float ch = TerminalFont.CellH;
-            if (ch <= 0.01f) return;
+            if (ch <= 0.01f)
+                return;
 
-            float history = _historyTopOff >= 0
-                ? Mathf.Max(1f, _historyTopOff)
-                : Mathf.Max(1f, Mathf.Max(_scrollOff, _sentScrollOff));
+            float history =
+                _historyTopOff >= 0
+                    ? Mathf.Max(1f, _historyTopOff)
+                    : Mathf.Max(1f, Mathf.Max(_scrollOff, _sentScrollOff));
             float off = (1f - t) * history;
-            _historyScroll.JumpTo(new Vector2(0f,
-                Mathf.Clamp(_historyMax - off * ch, 0f, _historyMax)));
+            _historyScroll.JumpTo(
+                new Vector2(0f, Mathf.Clamp(_historyMax - off * ch, 0f, _historyMax))
+            );
         }
 
         // A quiet position cue over the pane rather than another terminal column. The chip is
@@ -229,11 +259,20 @@ namespace SlopWorld
         void Paint(Rect body, ScreenBuf buf, float cw, float ch, float yShift = 0f) =>
             _renderer.Paint(body, buf, cw, ch, yShift);
 
-        void PaintRows(Rect body, ScreenBuf buf, float cw, float ch, int[] rows,
-                       float yShift = 0f) => _renderer.PaintRows(body, buf, cw, ch, rows, yShift);
+        void PaintRows(
+            Rect body,
+            ScreenBuf buf,
+            float cw,
+            float ch,
+            int[] rows,
+            float yShift = 0f
+        ) => _renderer.PaintRows(body, buf, cw, ch, rows, yShift);
 
         // The GUI-to-screen transform, sampled once a draw. See SnapX.
-        float _snapSx = 1f, _snapSy = 1f, _snapOx, _snapOy;
+        float _snapSx = 1f,
+            _snapSy = 1f,
+            _snapOx,
+            _snapOy;
 
         float DisplayCellW() => TerminalFont.CellWAtScreenScale(_snapSx);
 
@@ -261,8 +300,16 @@ namespace SlopWorld
         // Place each scalar on its daemon column. Unity rounds scaled font metrics independently
         // of our cell advance, so even ASCII runs can drift when the UI is zoomed. Keep
         // daemon clusters intact so combining characters still share their base glyph.
-        internal static void DrawRun(string text, float x, float y, float cw, float ch,
-                                     GUIStyle style, int columns, bool cluster = false)
+        internal static void DrawRun(
+            string text,
+            float x,
+            float y,
+            float cw,
+            float ch,
+            GUIStyle style,
+            int columns,
+            bool cluster = false
+        )
         {
             // This runs for every painted terminal run. Keep the unflagged path free of
             // profiling calls, even when their sink would discard the measurement.
@@ -270,35 +317,60 @@ namespace SlopWorld
             {
                 var plainLayout = cluster
                     ? InlineTextLayout.CellCluster(text, columns, cw, TextSpriteCatalog.Shared)
-                    : InlineTextLayout.Cells(text, columns, cw,
-                        TextSpriteCatalog.Shared, TerminalFont.FitsCell, groupPlain: false);
-                SharedTextRenderer.DrawTerminalRun(plainLayout,
-                    new Rect(x, y, plainLayout.Width + cw, ch), ch, style, overhang: cw);
+                    : InlineTextLayout.Cells(
+                        text,
+                        columns,
+                        cw,
+                        TextSpriteCatalog.Shared,
+                        TerminalFont.FitsCell,
+                        groupPlain: false
+                    );
+                SharedTextRenderer.DrawTerminalRun(
+                    plainLayout,
+                    new Rect(x, y, plainLayout.Width + cw, ch),
+                    ch,
+                    style,
+                    overhang: cw
+                );
                 return;
             }
 
             long layoutStarted = PerfTrace.Start();
             var layout = cluster
                 ? InlineTextLayout.CellCluster(text, columns, cw, TextSpriteCatalog.Shared)
-                : InlineTextLayout.Cells(text, columns, cw, TextSpriteCatalog.Shared,
-                    TerminalFont.FitsCell, groupPlain: false);
+                : InlineTextLayout.Cells(
+                    text,
+                    columns,
+                    cw,
+                    TextSpriteCatalog.Shared,
+                    TerminalFont.FitsCell,
+                    groupPlain: false
+                );
             PerfTrace.End("terminal-text-layout", layoutStarted, 1);
             long drawStarted = PerfTrace.Start();
-            SharedTextRenderer.DrawTerminalRun(layout, new Rect(x, y, layout.Width + cw, ch),
-                                               ch, style, overhang: cw);
+            SharedTextRenderer.DrawTerminalRun(
+                layout,
+                new Rect(x, y, layout.Width + cw, ch),
+                ch,
+                style,
+                overhang: cw
+            );
             PerfTrace.End("terminal-text-draw", drawStarted, 1);
         }
-
 
         // Blinks on a half-second beat unless the app asked for a steady cursor.
         void DrawCursor(Rect body, ScreenBuf buf, float cw, float ch, float shift)
         {
-            if (Event.current.type != EventType.Repaint) return;
-            if (buf.Cy < 0 || buf.Cy >= buf.Lines.Length) return;
+            if (Event.current.type != EventType.Repaint)
+                return;
+            if (buf.Cy < 0 || buf.Cy >= buf.Lines.Length)
+                return;
             // Keyboard activity restarts the visible half of the blink cycle, so typing or
             // moving the cursor never leaves it hidden until the next global beat.
-            if (buf.CursorBlink &&
-                (int)((Time.realtimeSinceStartup - _cursorBlinkAt) * 2f) % 2 != 0)
+            if (
+                buf.CursorBlink
+                && (int)((Time.realtimeSinceStartup - _cursorBlinkAt) * 2f) % 2 != 0
+            )
                 return;
 
             float x = body.x + buf.Cx * cw;
@@ -307,11 +379,14 @@ namespace SlopWorld
                 return;
 
             var cells = TerminalColumns.Cells(buf.Runs[buf.Cy]);
-            int first = buf.Cx, end = first + 1;
-            if (first < cells.Length) TerminalColumns.ExpandWideRange(cells, ref first, ref end);
+            int first = buf.Cx,
+                end = first + 1;
+            if (first < cells.Length)
+                TerminalColumns.ExpandWideRange(cells, ref first, ref end);
             float l = SnapX(x + (first - buf.Cx) * cw);
             float r = SnapX(x + (end - buf.Cx) * cw);
-            float t = SnapY(y), b = SnapY(y + ch);
+            float t = SnapY(y),
+                b = SnapY(y + ch);
 
             var col = TerminalTheme.CursorColor;
             switch (buf.CursorShape)
@@ -331,16 +406,22 @@ namespace SlopWorld
             }
         }
 
-        void DrawCursorGlyph(string[] cells, int first, int end,
-                             float x, float y, float cw, float ch)
+        void DrawCursorGlyph(
+            string[] cells,
+            int first,
+            int end,
+            float x,
+            float y,
+            float cw,
+            float ch
+        )
         {
             string glyph = TerminalColumns.GlyphText(cells, first);
-            if (glyph.Length == 0 || glyph == " ") return;
+            if (glyph.Length == 0 || glyph == " ")
+                return;
             var style = TerminalFont.Style;
             style.normal.textColor = TerminalTheme.Current.CursorText;
             DrawRun(glyph, x, y, cw, ch, style, end - first, cluster: true);
         }
-
-
     }
 }

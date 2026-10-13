@@ -15,7 +15,8 @@ namespace SlopWorld
 
         public void Cancel()
         {
-            if (!_alive) return;
+            if (!_alive)
+                return;
             _alive = false;
             CancelResize?.Invoke();
             TextFieldSelection.Retire(this);
@@ -48,9 +49,15 @@ namespace SlopWorld
         {
             readonly FieldLifetime _previous;
 
-            public Scope(FieldLifetime previous) { _previous = previous; }
+            public Scope(FieldLifetime previous)
+            {
+                _previous = previous;
+            }
 
-            public void Dispose() { _current = _previous; }
+            public void Dispose()
+            {
+                _current = _previous;
+            }
         }
     }
 }

@@ -30,7 +30,11 @@ namespace SlopWorld.Tests
             Assert.That(draft.TextSnapshot()["title"], Is.EqualTo("21"));
             draft.MarkCurrentClean();
             draft.ApplyQueuedNormalizations();
-            Assert.That(draft.TextSnapshot()["title"], Is.EqualTo("21"), "rejected normalization is consumed, not deferred");
+            Assert.That(
+                draft.TextSnapshot()["title"],
+                Is.EqualTo("21"),
+                "rejected normalization is consumed, not deferred"
+            );
             Assert.That(draft.IsDirty, Is.False);
         }
 
@@ -50,7 +54,11 @@ namespace SlopWorld.Tests
             Assert.That(draft.BaselineValue().Daemon.TitleModel, Is.EqualTo("submitted"));
             var copy = draft.BaselineValue();
             copy.Daemon.TitleModel = "mutated copy";
-            Assert.That(draft.BaselineValue().Daemon.TitleModel, Is.EqualTo("submitted"), "baseline accessor returns isolated copy");
+            Assert.That(
+                draft.BaselineValue().Daemon.TitleModel,
+                Is.EqualTo("submitted"),
+                "baseline accessor returns isolated copy"
+            );
             Assert.That(draft.Config.TitleModel, Is.EqualTo("newer edit"));
             Assert.That(draft.TextSnapshot()["model"], Is.EqualTo("newer edit"));
             Assert.That(draft.IsDirty && draft.IsTextDirty("model"), Is.True);
@@ -67,7 +75,11 @@ namespace SlopWorld.Tests
             DaemonConfig Server(int interval, string model)
             {
                 var config = new DaemonConfig { TitleModel = model };
-                config.UsageItems[provider] = new DaemonConfig.UsageItemConfig { Poll = true, IntervalSecs = interval };
+                config.UsageItems[provider] = new DaemonConfig.UsageItemConfig
+                {
+                    Poll = true,
+                    IntervalSecs = interval,
+                };
                 return config;
             }
             var draft = new DaemonConfigDraft();

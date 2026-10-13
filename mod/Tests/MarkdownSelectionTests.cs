@@ -14,13 +14,18 @@ namespace SlopWorld.Tests
             MarkdownSelectionText.CollectText(lines, PreviewWrap("World", 100), 0, 20);
             AssertEx.Equal("Hello\nWorld", PreviewCopy(lines), "blocks retain a separator");
         }
+
         public static void CopyPreservesSpaces()
         {
             foreach (float width in new[] { 3f, 5f, 6f, 100f })
             {
                 var lines = new List<SelectionLine>();
                 MarkdownSelectionText.CollectText(lines, PreviewWrap("hello world", width), 0, 0);
-                AssertEx.Equal("hello world", PreviewCopy(lines), "spaces survive wrapping at " + width);
+                AssertEx.Equal(
+                    "hello world",
+                    PreviewCopy(lines),
+                    "spaces survive wrapping at " + width
+                );
             }
         }
 
@@ -34,7 +39,11 @@ namespace SlopWorld.Tests
             table.Rows.Add(row);
             var lines = new List<SelectionLine>();
             MarkdownSelectionText.CollectTable(lines, new Placement { Table = table });
-            AssertEx.Equal("hello world\nother cell", PreviewCopy(lines), "whole cells copy in column order");
+            AssertEx.Equal(
+                "hello world\nother cell",
+                PreviewCopy(lines),
+                "whole cells copy in column order"
+            );
             AssertEx.True(lines[1].Y > lines[2].Y, "logical order is independent of line height");
         }
 
@@ -45,16 +54,29 @@ namespace SlopWorld.Tests
             {
                 var lines = new List<SelectionLine>();
                 MarkdownSelectionText.CollectText(lines, PreviewWrap(source, width, true), 0, 0);
-                AssertEx.Equal(source, PreviewCopy(lines), "code whitespace survives width " + width);
+                AssertEx.Equal(
+                    source,
+                    PreviewCopy(lines),
+                    "code whitespace survives width " + width
+                );
             }
         }
 
         static TextLayout PreviewWrap(string text, float width, bool code = false) =>
-            new MarkdownTextLayout(new StyleSet(), (run, available) => new ImageMetrics(1, 1))
-                .Wrap(new List<InlineRun> { new InlineRun { Text = text, Code = code } }, width, 0);
+            new MarkdownTextLayout(new StyleSet(), (run, available) => new ImageMetrics(1, 1)).Wrap(
+                new List<InlineRun>
+                {
+                    new InlineRun { Text = text, Code = code },
+                },
+                width,
+                0
+            );
 
-        static string PreviewCopy(List<SelectionLine> lines) => MarkdownSelectionText.CopyRange(lines,
-            new Vector2Int(0, 0), new Vector2Int(lines[lines.Count - 1].Text.Length, lines.Count - 1)) + (lines[lines.Count - 1].Source.CopySuffix ?? "");
-
+        static string PreviewCopy(List<SelectionLine> lines) =>
+            MarkdownSelectionText.CopyRange(
+                lines,
+                new Vector2Int(0, 0),
+                new Vector2Int(lines[lines.Count - 1].Text.Length, lines.Count - 1)
+            ) + (lines[lines.Count - 1].Source.CopySuffix ?? "");
     }
 }

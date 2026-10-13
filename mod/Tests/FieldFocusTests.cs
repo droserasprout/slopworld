@@ -15,7 +15,11 @@ namespace SlopWorld.Tests
             order.Begin();
             order.Register("name");
             order.Register("command");
-            AssertEx.Equal<string>(null, order.Restore(), "removed or disabled fields cannot regain focus");
+            AssertEx.Equal<string>(
+                null,
+                order.Restore(),
+                "removed or disabled fields cannot regain focus"
+            );
         }
 
         public static void Restoration()
@@ -30,10 +34,18 @@ namespace SlopWorld.Tests
             form.Begin();
             form.Register("description");
             form.Register("name");
-            AssertEx.Equal("description", form.Restore(), "focus follows identity through reordered rows");
+            AssertEx.Equal(
+                "description",
+                form.Restore(),
+                "focus follows identity through reordered rows"
+            );
             AssertEx.Equal("name", dialog.Restore(), "dialog focus has a separate owner");
             form.Remember("unrelated-control");
-            AssertEx.Equal("description", form.Restore(), "another control cannot overwrite form memory");
+            AssertEx.Equal(
+                "description",
+                form.Restore(),
+                "another control cannot overwrite form memory"
+            );
             form.Begin();
             AssertEx.Equal<string>(null, form.Restore(), "an empty page has no stale focus target");
         }

@@ -10,7 +10,9 @@ namespace SlopWorld
     {
         sealed class QuotaText
         {
-            public string Key, Count, Tip;
+            public string Key,
+                Count,
+                Tip;
             public UsageWindow Window;
             public long Age = long.MinValue;
         }
@@ -23,7 +25,9 @@ namespace SlopWorld
         static readonly Dictionary<string, float> Widths = new Dictionary<string, float>();
         static GUIStyle _style;
         static Font _font;
-        static int _size, _atlas, _measuredAtlas = -1;
+        static int _size,
+            _atlas,
+            _measuredAtlas = -1;
         static FontStyle _fontStyle;
         static GameFont _gameFont;
         static float _scale;
@@ -36,8 +40,15 @@ namespace SlopWorld
         static float Width(string text)
         {
             var style = Text.CurFontStyle;
-            if (_gameFont != Text.Font || _style != style || _font != style.font || _size != style.fontSize ||
-                _fontStyle != style.fontStyle || _scale != Prefs.UIScale || _measuredAtlas != _atlas)
+            if (
+                _gameFont != Text.Font
+                || _style != style
+                || _font != style.font
+                || _size != style.fontSize
+                || _fontStyle != style.fontStyle
+                || _scale != Prefs.UIScale
+                || _measuredAtlas != _atlas
+            )
             {
                 Widths.Clear();
                 _gameFont = Text.Font;
@@ -48,21 +59,34 @@ namespace SlopWorld
                 _scale = Prefs.UIScale;
                 _measuredAtlas = _atlas;
             }
-            if (Widths.TryGetValue(text, out float width)) return width;
-            if (Widths.Count >= 256) Widths.Clear();
+            if (Widths.TryGetValue(text, out float width))
+                return width;
+            if (Widths.Count >= 256)
+                Widths.Clear();
             return Widths[text] = UiTheme.Wide(text);
         }
 
         static void PrepareClock(DateTime now)
         {
-            if (Clock.Prepare(now, Settings.TimeFormat, Settings.DateFormat, CultureInfo.CurrentCulture))
+            if (
+                Clock.Prepare(
+                    now,
+                    Settings.TimeFormat,
+                    Settings.DateFormat,
+                    CultureInfo.CurrentCulture
+                )
+            )
                 PerfTrace.Count("topbar-clock-rebuilds");
         }
 
         static void PrepareQuotas(UsageInfo usage)
         {
             bool changed = RowCache.Prepare(usage);
-            if (!changed && _spent == Settings.UsageSpent && ReferenceEquals(_culture, CultureInfo.CurrentCulture))
+            if (
+                !changed
+                && _spent == Settings.UsageSpent
+                && ReferenceEquals(_culture, CultureInfo.CurrentCulture)
+            )
                 return;
             _spent = Settings.UsageSpent;
             _culture = CultureInfo.CurrentCulture;
@@ -70,12 +94,14 @@ namespace SlopWorld
             foreach (var key in RowCache.Rows)
             {
                 var window = Window(usage, key);
-                Quotas.Add(new QuotaText
-                {
-                    Key = key,
-                    Window = window,
-                    Count = window == null ? Unsaid : Count(window)
-                });
+                Quotas.Add(
+                    new QuotaText
+                    {
+                        Key = key,
+                        Window = window,
+                        Count = window == null ? Unsaid : Count(window),
+                    }
+                );
             }
             PerfTrace.Count("topbar-quota-rebuilds");
         }
@@ -88,8 +114,10 @@ namespace SlopWorld
                 row.Age = age;
                 row.Tip = TipText(usage, row.Key, row.Window);
             }
-            TooltipHandler.TipRegion(chip, new TipSignal(row.Tip,
-                0x51_0F_0000 ^ (row.Key?.GetHashCode() ?? 0)));
+            TooltipHandler.TipRegion(
+                chip,
+                new TipSignal(row.Tip, 0x51_0F_0000 ^ (row.Key?.GetHashCode() ?? 0))
+            );
         }
     }
 }

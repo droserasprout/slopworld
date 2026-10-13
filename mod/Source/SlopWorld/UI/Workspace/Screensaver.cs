@@ -20,9 +20,13 @@ namespace SlopWorld
 
         internal static bool HandleGUI()
         {
-            if (_game == null) return false;
-            if (Current.ProgramState != ProgramState.Playing || Current.Game != _game ||
-                LongEventHandler.ShouldWaitForEvent)
+            if (_game == null)
+                return false;
+            if (
+                Current.ProgramState != ProgramState.Playing
+                || Current.Game != _game
+                || LongEventHandler.ShouldWaitForEvent
+            )
             {
                 _game = null;
                 return false;
@@ -40,8 +44,10 @@ namespace SlopWorld
             if (e.type == EventType.KeyDown && Time.frameCount != _enteredFrame)
                 _wakeFrame = Time.frameCount;
 
-            if (e.type == EventType.Repaint) Draw();
-            else if (e.isKey || e.isMouse || e.type == EventType.ScrollWheel) e.Use();
+            if (e.type == EventType.Repaint)
+                Draw();
+            else if (e.isKey || e.isMouse || e.type == EventType.ScrollWheel)
+                e.Use();
             return true;
         }
 
@@ -56,10 +62,12 @@ namespace SlopWorld
             {
                 GUI.color = Color.white;
                 GUI.DrawTexture(rect, BaseContent.BlackTex);
-                var source = MenuBackground.HasFrames ? null :
-                    ContentFinder<Texture2D>.Get("UI/HeroArt/BGPlanet", false);
+                var source = MenuBackground.HasFrames
+                    ? null
+                    : ContentFinder<Texture2D>.Get("UI/HeroArt/BGPlanet", false);
                 var frame = MenuBackground.Current(source);
-                if (frame == null) return;
+                if (frame == null)
+                    return;
                 float brightness = 1f - Mathf.Clamp01(Settings.EcoDim);
                 GUI.color = new Color(brightness, brightness, brightness, 1f);
                 MenuBackgroundLayers.DrawLayers(rect, frame, ScaleMode.ScaleAndCrop);

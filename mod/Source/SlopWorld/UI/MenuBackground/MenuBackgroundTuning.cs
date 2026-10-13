@@ -21,6 +21,7 @@ namespace SlopWorld
         internal const float WalkStep = 0.28f;
         internal const float WalkPull = 0.22f;
         internal const float WalkJitter = 0.24f;
+
         // Gaps larger than this are treated as an alt-tab rather than a new frame.
         internal const float WalkGapMax = 8f;
 
@@ -37,13 +38,17 @@ namespace SlopWorld
 
         // A third of the way down the rot: a picture alight at stage one has nowhere to go.
         internal const float FireFrom = 0.33f;
+
         // Tuned to the source luminance so fire remains visible before pure white.
         internal const float FuelFloor = 0.4f;
         internal const float FuelFull = 0.65f;
+
         // Minimum bright-region radius for fuel and star filtering.
         internal const int FuelErode = 3;
+
         // Fuel decay over roughly a hundred pixels at 1280px height.
         internal const float FuelDecay = 0.98f;
+
         // Stretch the fBm mid-band into a distinct flame body and gap.
         internal const float NoiseLow = 0.38f;
         internal const float NoiseHigh = 0.62f;
@@ -53,6 +58,7 @@ namespace SlopWorld
         internal const int NoiseDiv = 4;
         internal const float NoiseFreq = 0.035f;
         internal const int Octaves = 4;
+
         // Phase separation keeps consecutive fire frames from reading as a pan.
         internal const float StagePhase = 37.7f;
 

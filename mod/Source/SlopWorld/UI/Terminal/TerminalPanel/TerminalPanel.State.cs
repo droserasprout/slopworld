@@ -10,12 +10,12 @@ namespace SlopWorld
         public bool ShowStopped;
         public readonly StringBuilder Literal = new StringBuilder();
         public int SemicolonFrame = -1;
-        public int Cols, Rows;
+        public int Cols,
+            Rows;
         public float ResizeAt;
         public bool SizeDirty;
         public float CursorBlinkAt;
         public int DroppedKeys;
         public readonly TerminalSelectionState Selection = new TerminalSelectionState();
-
     }
 }

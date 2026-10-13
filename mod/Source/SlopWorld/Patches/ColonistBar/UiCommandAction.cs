@@ -42,11 +42,16 @@ namespace SlopWorld
             // command's own GUI.Button processing above, then consume mouse events here as
             // a final guard for the map passes that run after the gizmo grid.
             var e = Event.current;
-            if (e != null && (e.rawType == EventType.MouseDown
+            if (
+                e != null
+                && (
+                    e.rawType == EventType.MouseDown
                     || e.rawType == EventType.MouseUp
-                    || e.rawType == EventType.MouseDrag)
+                    || e.rawType == EventType.MouseDrag
+                )
                 && (e.button == 0 || e.button == 1)
-                && butRect.Contains(e.mousePosition))
+                && butRect.Contains(e.mousePosition)
+            )
                 e.Use();
 
             return result;
@@ -55,8 +60,13 @@ namespace SlopWorld
         public override void DrawIcon(Rect rect, Material buttonMat, GizmoRenderParms parms)
         {
             bool over = !Disabled && Mouse.IsOver(rect);
-            UiButtons.ActionButtonBackground(rect, _kind, !Disabled, over,
-                over && Input.GetMouseButton(0));
+            UiButtons.ActionButtonBackground(
+                rect,
+                _kind,
+                !Disabled,
+                over,
+                over && Input.GetMouseButton(0)
+            );
 
             // The icon PNGs share a canvas, not a visual ink box: terminal/edit are nearly
             // full-size while close is deliberately a much smaller glyph. Draw into a
@@ -71,8 +81,12 @@ namespace SlopWorld
                 float captionTop = rect.yMax - captionHeight + 12f;
                 iconY = (rect.y + captionTop) / 2f + IconOffsetY;
             }
-            Rect iconRect = new Rect(rect.center.x - IconBox / 2f,
-                iconY - IconBox / 2f, IconBox, IconBox);
+            Rect iconRect = new Rect(
+                rect.center.x - IconBox / 2f,
+                iconY - IconBox / 2f,
+                IconBox,
+                IconBox
+            );
             float oldScale = iconDrawScale;
             iconDrawScale *= ActionIconScale(icon);
             try
@@ -90,12 +104,18 @@ namespace SlopWorld
             // These values equalize the visible bounds of the six action glyphs at roughly
             // 23px. They are intentionally local to these gizmos. The same icons elsewhere
             // retain their existing inline sizing.
-            if (tex == Icons.Terminal) return 0.92f;
-            if (tex == Icons.Stop) return 1.05f;
-            if (tex == Icons.Play) return 1.05f;
-            if (tex == Icons.Edit) return 0.91f;
-            if (tex == Icons.Add) return 0.97f;
-            if (tex == Icons.Cross) return 1.42f;
+            if (tex == Icons.Terminal)
+                return 0.92f;
+            if (tex == Icons.Stop)
+                return 1.05f;
+            if (tex == Icons.Play)
+                return 1.05f;
+            if (tex == Icons.Edit)
+                return 0.91f;
+            if (tex == Icons.Add)
+                return 0.97f;
+            if (tex == Icons.Cross)
+                return 1.42f;
             return 1f;
         }
     }
@@ -107,19 +127,26 @@ namespace SlopWorld
         {
             var code = instructions.ToList();
             var background = AccessTools.Field(typeof(TexUI), nameof(TexUI.GrayTextBG));
-            var draw = AccessTools.Method(typeof(GUI), nameof(GUI.DrawTexture),
-                new[] { typeof(Rect), typeof(Texture) });
-            var replacement = AccessTools.Method(typeof(Patch_SlopCommandCaptionBackground),
-                nameof(DrawBackground));
+            var draw = AccessTools.Method(
+                typeof(GUI),
+                nameof(GUI.DrawTexture),
+                new[] { typeof(Rect), typeof(Texture) }
+            );
+            var replacement = AccessTools.Method(
+                typeof(Patch_SlopCommandCaptionBackground),
+                nameof(DrawBackground)
+            );
 
             for (int i = 2; i < code.Count; i++)
             {
                 // The bottom caption duplicates its freshly computed Rect for drawing
                 // the backdrop and then the label. Keep those exact bounds; the top-right
                 // label uses a Rect local and must retain its native background.
-                if (code[i - 2].opcode != OpCodes.Dup
+                if (
+                    code[i - 2].opcode != OpCodes.Dup
                     || !code[i - 1].LoadsField(background)
-                    || !code[i].Calls(draw))
+                    || !code[i].Calls(draw)
+                )
                     continue;
 
                 var command = new CodeInstruction(OpCodes.Ldarg_0);
@@ -130,14 +157,18 @@ namespace SlopWorld
                 return code;
             }
 
-            Log.Error("[SlopWorld] Command.GizmoOnGUIInt changed. Action captions keep their native backdrop.");
+            Log.Error(
+                "[SlopWorld] Command.GizmoOnGUIInt changed. Action captions keep their native backdrop."
+            );
             return code;
         }
 
         static void DrawBackground(Rect rect, Texture texture, Command command)
         {
-            if (command is UiCommandAction action) action.DrawCaptionBackground(rect);
-            else GUI.DrawTexture(rect, texture);
+            if (command is UiCommandAction action)
+                action.DrawCaptionBackground(rect);
+            else
+                GUI.DrawTexture(rect, texture);
         }
     }
 
@@ -147,41 +178,54 @@ namespace SlopWorld
         // RimWorld 1.6 loads this Rect local for the shortcut-label Widgets.Label call.
         const int ShortcutLabelRectLocal = 5;
 
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions,
-                                                        ILGenerator generator)
+        static IEnumerable<CodeInstruction> Transpiler(
+            IEnumerable<CodeInstruction> instructions,
+            ILGenerator generator
+        )
         {
             var code = instructions.ToList();
-            var label = AccessTools.Method(typeof(Widgets), nameof(Widgets.Label),
-                new[] { typeof(Rect), typeof(string) });
+            var label = AccessTools.Method(
+                typeof(Widgets),
+                nameof(Widgets.Label),
+                new[] { typeof(Rect), typeof(string) }
+            );
             var getY = AccessTools.Method(typeof(Rect), "get_y");
             var setY = AccessTools.Method(typeof(Rect), "set_y");
 
             for (int i = 3; i < code.Count; i++)
             {
-                if (code[i].opcode != OpCodes.Call || !Equals(code[i].operand, label)
-                    || !IsLocalLoad(code[i - 3], ShortcutLabelRectLocal))
+                if (
+                    code[i].opcode != OpCodes.Call
+                    || !Equals(code[i].operand, label)
+                    || !IsLocalLoad(code[i - 3], ShortcutLabelRectLocal)
+                )
                     continue;
 
                 // Vanilla puts the shortcut label at y + 3. Move just UiCommandAction's
                 // label two pixels higher, leaving every other command's layout untouched.
                 var skip = generator.DefineLabel();
                 code[i - 3].labels.Add(skip);
-                code.InsertRange(i - 3, new[]
-                {
-                    new CodeInstruction(OpCodes.Ldarg_0),
-                    new CodeInstruction(OpCodes.Isinst, typeof(UiCommandAction)),
-                    new CodeInstruction(OpCodes.Brfalse_S, skip),
-                    new CodeInstruction(OpCodes.Ldloca_S, code[i - 3].operand),
-                    new CodeInstruction(OpCodes.Dup),
-                    new CodeInstruction(OpCodes.Call, getY),
-                    new CodeInstruction(OpCodes.Ldc_R4, 2f),
-                    new CodeInstruction(OpCodes.Sub),
-                    new CodeInstruction(OpCodes.Call, setY),
-                });
+                code.InsertRange(
+                    i - 3,
+                    new[]
+                    {
+                        new CodeInstruction(OpCodes.Ldarg_0),
+                        new CodeInstruction(OpCodes.Isinst, typeof(UiCommandAction)),
+                        new CodeInstruction(OpCodes.Brfalse_S, skip),
+                        new CodeInstruction(OpCodes.Ldloca_S, code[i - 3].operand),
+                        new CodeInstruction(OpCodes.Dup),
+                        new CodeInstruction(OpCodes.Call, getY),
+                        new CodeInstruction(OpCodes.Ldc_R4, 2f),
+                        new CodeInstruction(OpCodes.Sub),
+                        new CodeInstruction(OpCodes.Call, setY),
+                    }
+                );
                 return code;
             }
 
-            Log.Error("[SlopWorld] Command.GizmoOnGUIInt changed. Action shortcut labels keep vanilla placement.");
+            Log.Error(
+                "[SlopWorld] Command.GizmoOnGUIInt changed. Action shortcut labels keep vanilla placement."
+            );
             return code;
         }
 
@@ -195,10 +239,14 @@ namespace SlopWorld
 
         static int LocalOperandIndex(object operand)
         {
-            if (operand is LocalBuilder local) return local.LocalIndex;
-            if (operand is byte b) return b;
-            if (operand is short s) return s;
-            if (operand is int i) return i;
+            if (operand is LocalBuilder local)
+                return local.LocalIndex;
+            if (operand is byte b)
+                return b;
+            if (operand is short s)
+                return s;
+            if (operand is int i)
+                return i;
             return -1;
         }
     }

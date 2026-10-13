@@ -29,19 +29,35 @@ namespace SlopWorld.Tests
         static List<SgrRun> Row(params (int Col, string Text)[] runs)
         {
             var list = new List<SgrRun>();
-            foreach (var run in runs) list.Add(new SgrRun { Col = run.Col, Text = run.Text });
+            foreach (var run in runs)
+                list.Add(new SgrRun { Col = run.Col, Text = run.Text });
             return list;
         }
 
         static void ScanLineGeometry()
         {
             var runs = Row((-1, "ab"), (2, "😀x"), (5, "q"), (7, "clipped"));
-            runs.Add(new SgrRun { Col = 4, Text = "好", CellWidth = 2 });
+            runs.Add(
+                new SgrRun
+                {
+                    Col = 4,
+                    Text = "好",
+                    CellWidth = 2,
+                }
+            );
             var buffer = "!!!!!!!!!!".ToCharArray();
             TerminalColumns.WriteScanLine(runs, buffer, 1, 8);
-            AssertEx.Equal("!b \ufffdx好  c!", new string(buffer), "scalar, gap, wide continuation and clipping");
+            AssertEx.Equal(
+                "!b \ufffdx好  c!",
+                new string(buffer),
+                "scalar, gap, wide continuation and clipping"
+            );
             TerminalColumns.WriteScanLine(Row((0, "z")), buffer, 1, 8);
-            AssertEx.Equal("!z       !", new string(buffer), "reuse clears stale characters without touching neighbors");
+            AssertEx.Equal(
+                "!z       !",
+                new string(buffer),
+                "reuse clears stale characters without touching neighbors"
+            );
         }
 
         static void ScanLineAllocations()
@@ -75,12 +91,24 @@ namespace SlopWorld.Tests
                 var runs = Sgr.ParseLine("\x1b[0m" + glyph + "\x1b[3Gx");
                 var cells = TerminalColumns.Cells(runs);
                 AssertEx.Equal(2, runs[0].Columns, "wire width survives UTF-16");
-                AssertEx.Equal(glyph, TerminalColumns.Slice(cells, 1, 1), "second half copies whole scalar");
-                AssertEx.Equal(glyph + "x", TerminalColumns.Slice(cells, 0, 2), "following text is retained");
+                AssertEx.Equal(
+                    glyph,
+                    TerminalColumns.Slice(cells, 1, 1),
+                    "second half copies whole scalar"
+                );
+                AssertEx.Equal(
+                    glyph + "x",
+                    TerminalColumns.Slice(cells, 0, 2),
+                    "following text is retained"
+                );
             }
             var narrow = TerminalColumns.Cells(Sgr.ParseLine("\U0001d400x"));
             AssertEx.Equal(2, narrow.Length, "a supplementary scalar need not be wide");
-            AssertEx.Equal("\U0001d400x", TerminalColumns.Slice(narrow, 0, 1), "no surrogate is overwritten");
+            AssertEx.Equal(
+                "\U0001d400x",
+                TerminalColumns.Slice(narrow, 0, 1),
+                "no surrogate is overwritten"
+            );
         }
 
         static void SelectionCopy()
@@ -95,9 +123,17 @@ namespace SlopWorld.Tests
         {
             var runs = Sgr.ParseLine("\U0001d400https://example.com 好\x1b[24G");
             AssertEx.Equal(2, runs[runs.Count - 1].Columns, "wide glyph keeps both columns");
-            AssertEx.Equal(" ", runs[runs.Count - 2].Text, "space before wide glyph stays separate");
+            AssertEx.Equal(
+                " ",
+                runs[runs.Count - 2].Text,
+                "space before wide glyph stays separate"
+            );
             AssertEx.Equal(1, runs[1].Col, "autolink starts after one scalar");
-            AssertEx.Equal("https://example.com", runs[1].Url, "autolink survives supplementary prefix");
+            AssertEx.Equal(
+                "https://example.com",
+                runs[1].Url,
+                "autolink survives supplementary prefix"
+            );
             var linked = Sgr.ParseLine("\x1b]8;;https://example.com\x1b\\好\x1b[3G\x1b]8;;\x1b\\");
             AssertEx.Equal(2, linked[0].Columns, "OSC closing does not lose the wide end");
             AssertEx.Equal("https://example.com", linked[0].Url, "explicit link retained");
@@ -120,41 +156,65 @@ namespace SlopWorld.Tests
         {
             var cells = TerminalColumns.Cells(Sgr.ParseLine("\x1b[0m好\x1b[3Gabc"));
             AssertEx.Equal(5, TerminalColumns.ContentColumns(cells), "好 + abc spans five columns");
-            AssertEx.Equal("好", TerminalColumns.GlyphText(cells, 0), "the wide glyph sits at column 0");
-            AssertEx.Equal("a", TerminalColumns.GlyphText(cells, 2), "'a' is at column 2, not column 1");
+            AssertEx.Equal(
+                "好",
+                TerminalColumns.GlyphText(cells, 0),
+                "the wide glyph sits at column 0"
+            );
+            AssertEx.Equal(
+                "a",
+                TerminalColumns.GlyphText(cells, 2),
+                "'a' is at column 2, not column 1"
+            );
             AssertEx.Equal("b", TerminalColumns.GlyphText(cells, 3), "'b' is at column 3");
             AssertEx.Equal("c", TerminalColumns.GlyphText(cells, 4), "'c' is at column 4");
             // Selecting the tail by column now lands on the right characters.
             AssertEx.Equal("abc", TerminalColumns.Slice(cells, 2, 4), "the tail copies as abc");
-            AssertEx.Equal("好abc", TerminalColumns.Slice(cells, 0, 4), "the whole line copies once");
+            AssertEx.Equal(
+                "好abc",
+                TerminalColumns.Slice(cells, 0, 4),
+                "the whole line copies once"
+            );
         }
 
         static void WideCharAtEnd()
         {
             var cells = TerminalColumns.Cells(Sgr.ParseLine("\x1b[0m好\x1b[3G"));
             AssertEx.Equal(2, cells.Length, "the trailing spacer remains addressable");
-            AssertEx.Equal("好", TerminalColumns.GlyphText(cells, 1),
-                           "the second cell still belongs to the glyph");
-            AssertEx.Equal("好", TerminalColumns.Slice(cells, 0, 1),
-                           "a trailing wide glyph copies once");
+            AssertEx.Equal(
+                "好",
+                TerminalColumns.GlyphText(cells, 1),
+                "the second cell still belongs to the glyph"
+            );
+            AssertEx.Equal(
+                "好",
+                TerminalColumns.Slice(cells, 0, 1),
+                "a trailing wide glyph copies once"
+            );
         }
 
         static void ReservedColumnResolves()
         {
             var cells = TerminalColumns.Cells(Sgr.ParseLine("\x1b[0m好\x1b[3Gabc"));
             // Column 1 is the wide glyph's reserved half. A click there selects the glyph.
-            AssertEx.Equal("好", TerminalColumns.GlyphText(cells, 1), "the reserved column reports 好");
+            AssertEx.Equal(
+                "好",
+                TerminalColumns.GlyphText(cells, 1),
+                "the reserved column reports 好"
+            );
         }
 
         static void WideRangeExpands()
         {
             var cells = TerminalColumns.Cells(Sgr.ParseLine("\x1b[0m好\x1b[3Gx"));
-            int first = 0, end = 1;
+            int first = 0,
+                end = 1;
             TerminalColumns.ExpandWideRange(cells, ref first, ref end);
             AssertEx.Equal(0, first, "selection keeps the glyph start");
             AssertEx.Equal(2, end, "selection covers the glyph's reserved cell");
 
-            first = 1; end = 2;
+            first = 1;
+            end = 2;
             TerminalColumns.ExpandWideRange(cells, ref first, ref end);
             AssertEx.Equal(0, first, "selection from the reserved half moves to the glyph");
             AssertEx.Equal(2, end, "selection from the reserved half stays whole");
@@ -167,7 +227,11 @@ namespace SlopWorld.Tests
             // a glyph followed by a blank.
             AssertEx.Equal("好", TerminalColumns.Slice(cells, 0, 1), "the glyph copies once");
             // A range opening on the continuation includes the highlighted glyph.
-            AssertEx.Equal("好ab", TerminalColumns.Slice(cells, 1, 3), "copy agrees with highlight");
+            AssertEx.Equal(
+                "好ab",
+                TerminalColumns.Slice(cells, 1, 3),
+                "copy agrees with highlight"
+            );
         }
 
         static void AdjacentWideChars()
@@ -175,19 +239,29 @@ namespace SlopWorld.Tests
             // The final CHA preserves the last glyph's occupied end.
             var cells = TerminalColumns.Cells(Sgr.ParseLine("\x1b[0m你\x1b[3G好\x1b[5G"));
             AssertEx.Equal(4, cells.Length, "the final glyph keeps its reserved cell");
-            AssertEx.Equal("你好", TerminalColumns.Slice(cells, 0, 3), "both copy without blanks between");
+            AssertEx.Equal(
+                "你好",
+                TerminalColumns.Slice(cells, 0, 3),
+                "both copy without blanks between"
+            );
         }
 
         static void TrailingBlanks()
         {
             var cells = TerminalColumns.Cells(Row((0, "hi   ")));
-            AssertEx.Equal(2, TerminalColumns.ContentColumns(cells), "trailing spaces are not content");
+            AssertEx.Equal(
+                2,
+                TerminalColumns.ContentColumns(cells),
+                "trailing spaces are not content"
+            );
             AssertEx.Equal(5, cells.Length, "but the cells still cover every drawn column");
         }
 
         static void LineIsColumnIndexed()
         {
-            var line = TerminalColumns.Line(TerminalColumns.Cells(Sgr.ParseLine("\x1b[0m好\x1b[3Gab")));
+            var line = TerminalColumns.Line(
+                TerminalColumns.Cells(Sgr.ParseLine("\x1b[0m好\x1b[3Gab"))
+            );
             AssertEx.Equal(4, line.Length, "one column per cell");
             AssertEx.Equal('好', line[0], "glyph at its column");
             AssertEx.Equal(' ', line[1], "reserved column reads as a blank");

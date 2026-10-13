@@ -11,8 +11,7 @@ namespace SlopWorld
         readonly Action<string> _openLocalLink;
         readonly MouseClickSequence _clicks = new MouseClickSequence();
 
-        public MarkdownInputController(MarkdownSelection selection,
-                                        Action<string> openLocalLink)
+        public MarkdownInputController(MarkdownSelection selection, Action<string> openLocalLink)
         {
             _selection = selection;
             _openLocalLink = openLocalLink;
@@ -21,7 +20,8 @@ namespace SlopWorld
         public void Handle(Rect body, Vector2 scroll)
         {
             var e = Event.current;
-            if (e == null) return;
+            if (e == null)
+                return;
 
             if (UiEvent.RawType(e) == EventType.KeyDown)
             {
@@ -29,15 +29,19 @@ namespace SlopWorld
                 return;
             }
 
-            if (e.button == 1 && UiEvent.RawType(e) == EventType.MouseDown &&
-                body.Contains(e.mousePosition))
+            if (
+                e.button == 1
+                && UiEvent.RawType(e) == EventType.MouseDown
+                && body.Contains(e.mousePosition)
+            )
             {
                 _selection.OpenMenu();
                 e.Use();
                 return;
             }
 
-            if (e.button != 0) return;
+            if (e.button != 0)
+                return;
             EventType type = UiEvent.RawType(e);
             if (type == EventType.MouseDown && body.Contains(e.mousePosition))
             {
@@ -74,22 +78,36 @@ namespace SlopWorld
         public bool HandleLinks(Rect body, Vector2 scroll, List<LinkHit> links)
         {
             var e = Event.current;
-            if (e == null) return false;
+            if (e == null)
+                return false;
 
             foreach (var hit in links)
             {
-                var screen = new Rect(body.x + hit.Rect.x - scroll.x,
-                    body.y + hit.Rect.y - scroll.y, hit.Rect.width, hit.Rect.height);
+                var screen = new Rect(
+                    body.x + hit.Rect.x - scroll.x,
+                    body.y + hit.Rect.y - scroll.y,
+                    hit.Rect.width,
+                    hit.Rect.height
+                );
                 var clipped = ClipToBody(screen, body);
-                if (clipped.width <= 0f || clipped.height <= 0f) continue;
+                if (clipped.width <= 0f || clipped.height <= 0f)
+                    continue;
                 if (Mouse.IsOver(clipped))
-                    TooltipHandler.TipRegion(clipped, (hit.Url ?? hit.LocalPath) +
-                        "\n\nCtrl+click to open it");
-                if (UiEvent.RawType(e) == EventType.MouseDown && e.button == 0 && e.control &&
-                    clipped.Contains(e.mousePosition))
+                    TooltipHandler.TipRegion(
+                        clipped,
+                        (hit.Url ?? hit.LocalPath) + "\n\nCtrl+click to open it"
+                    );
+                if (
+                    UiEvent.RawType(e) == EventType.MouseDown
+                    && e.button == 0
+                    && e.control
+                    && clipped.Contains(e.mousePosition)
+                )
                 {
-                    if (hit.LocalPath != null) _openLocalLink(hit.LocalPath);
-                    else if (!string.IsNullOrEmpty(hit.Url)) Application.OpenURL(hit.Url);
+                    if (hit.LocalPath != null)
+                        _openLocalLink(hit.LocalPath);
+                    else if (!string.IsNullOrEmpty(hit.Url))
+                        Application.OpenURL(hit.Url);
                     e.Use();
                     return true;
                 }

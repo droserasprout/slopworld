@@ -19,7 +19,8 @@ namespace SlopWorld
 
         static bool Check()
         {
-            if (PawnField != null) return true;
+            if (PawnField != null)
+                return true;
             Log.Error("[SlopWorld] PriorityWork.pawn moved. The work gizmo stays.");
             return false;
         }

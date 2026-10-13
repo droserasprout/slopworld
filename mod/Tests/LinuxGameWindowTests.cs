@@ -13,25 +13,32 @@ namespace SlopWorld.Tests
         public void OtherPlatformsSkipFollowBeforeStartupOrNativeWork()
         {
             var platform = Application.platform;
-            var recovery = (LinuxWindowRecovery)typeof(LinuxGameWindow)
-                .GetField("Recovery", PrivateStatic).GetValue(null);
+            var recovery = (LinuxWindowRecovery)
+                typeof(LinuxGameWindow).GetField("Recovery", PrivateStatic).GetValue(null);
             try
             {
                 Application.platform = RuntimePlatform.WindowsPlayer;
                 LinuxGameWindow.Follow();
                 Assert.That(recovery.ReadySince, Is.EqualTo(-1f));
-
             }
-            finally { Application.platform = platform; }
+            finally
+            {
+                Application.platform = platform;
+            }
         }
 
         [Test]
         public void SurfaceGeometryRequiresValidMonitorDimensionsAndMatchingUnitySurface()
         {
-            bool SurfaceSized() => (bool)typeof(LinuxGameWindow)
-                .GetMethod("SurfaceSized", PrivateStatic).Invoke(null, null);
-            int width = Screen.width, height = Screen.height;
-            int monitorWidth = Display.main.systemWidth, monitorHeight = Display.main.systemHeight;
+            bool SurfaceSized() =>
+                (bool)
+                    typeof(LinuxGameWindow)
+                        .GetMethod("SurfaceSized", PrivateStatic)
+                        .Invoke(null, null);
+            int width = Screen.width,
+                height = Screen.height;
+            int monitorWidth = Display.main.systemWidth,
+                monitorHeight = Display.main.systemHeight;
             try
             {
                 Display.main.systemWidth = Screen.width = 1920;

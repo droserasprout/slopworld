@@ -13,15 +13,19 @@ namespace SlopWorld
         const float FilesDividerHitPad = 5f;
 
         // Cached bar entries are local to the agent scroll content, even between draw passes.
-        public static Vector2 AgentContentOffset => Body.position - Interaction.AgentScroll.Position;
+        public static Vector2 AgentContentOffset =>
+            Body.position - Interaction.AgentScroll.Position;
 
         public static bool AgentScrollOpen => Interaction.AgentScrollOpen;
 
         // Clip CPU-side row work as well as pixels. Input passes retain their control order.
-        static bool SkipAgentPaint(Rect rect) => Event.current.type == EventType.Repaint &&
-            Interaction.AgentScrollOpen &&
-            (rect.yMax <= Interaction.AgentScroll.Position.y ||
-             rect.y >= Interaction.AgentScroll.Position.y + Body.height);
+        static bool SkipAgentPaint(Rect rect) =>
+            Event.current.type == EventType.Repaint
+            && Interaction.AgentScrollOpen
+            && (
+                rect.yMax <= Interaction.AgentScroll.Position.y
+                || rect.y >= Interaction.AgentScroll.Position.y + Body.height
+            );
 
         static void BeginAgentScroll()
         {
@@ -34,15 +38,21 @@ namespace SlopWorld
 
         static void EndAgentScroll()
         {
-            if (!Interaction.AgentScrollOpen) return;
+            if (!Interaction.AgentScrollOpen)
+                return;
             Interaction.AgentScrollOpen = false;
             Interaction.AgentScroll.End();
         }
 
         static void HandleFilesDivider(Rect body, SidebarFilesSplitGeometry split)
         {
-            if (Interaction.FilesDividerDragging && (!ColonistBarStrip.Interactive ||
-                GUIUtility.hotControl != Interaction.FilesDividerControl))
+            if (
+                Interaction.FilesDividerDragging
+                && (
+                    !ColonistBarStrip.Interactive
+                    || GUIUtility.hotControl != Interaction.FilesDividerControl
+                )
+            )
                 EndFilesDivider();
 
             if (!split.HasUpper || split.Divider.Height <= 0f)
@@ -56,11 +66,17 @@ namespace SlopWorld
             int control = GUIUtility.GetControlID(FocusType.Passive, hit);
             bool over = ColonistBarStrip.SidebarHover(hit);
 
-            if (!ColonistBarStrip.Interactive) return;
+            if (!ColonistBarStrip.Interactive)
+                return;
             if (!Interaction.FilesDividerDragging)
             {
-                if (!over || e.rawType != EventType.MouseDown || e.button != 0 ||
-                    GUIUtility.hotControl != 0) return;
+                if (
+                    !over
+                    || e.rawType != EventType.MouseDown
+                    || e.button != 0
+                    || GUIUtility.hotControl != 0
+                )
+                    return;
                 Interaction.FilesDividerDragging = true;
                 Interaction.FilesDividerControl = control;
                 Interaction.FilesDividerChanged = false;
@@ -70,9 +86,15 @@ namespace SlopWorld
             }
             else if (Input.GetMouseButton(0))
             {
-                SetFilesFraction(SidebarFilesSplitGeometry.FractionAt(e.mousePosition.y,
-                    new UiLayoutRect(body.x, body.y, body.width, body.height), GhostH,
-                    UiTheme.TinyRowH, FilesDividerH));
+                SetFilesFraction(
+                    SidebarFilesSplitGeometry.FractionAt(
+                        e.mousePosition.y,
+                        new UiLayoutRect(body.x, body.y, body.width, body.height),
+                        GhostH,
+                        UiTheme.TinyRowH,
+                        FilesDividerH
+                    )
+                );
                 Interaction.FilesDividerInput = true;
             }
             else
@@ -81,8 +103,11 @@ namespace SlopWorld
                 Interaction.FilesDividerInput = true;
             }
 
-            if (e.rawType == EventType.MouseDown || e.rawType == EventType.MouseUp ||
-                e.rawType == EventType.MouseDrag)
+            if (
+                e.rawType == EventType.MouseDown
+                || e.rawType == EventType.MouseUp
+                || e.rawType == EventType.MouseDrag
+            )
                 e.Use();
         }
 
@@ -90,13 +115,18 @@ namespace SlopWorld
         {
             float top = Mathf.Max(body.y, divider.Y - FilesDividerHitPad);
             float bottom = Mathf.Min(body.yMax, divider.YMax + FilesDividerHitPad);
-            return new Rect(divider.X, top, Mathf.Max(0f, divider.Width - GripW),
-                Mathf.Max(0f, bottom - top));
+            return new Rect(
+                divider.X,
+                top,
+                Mathf.Max(0f, divider.Width - GripW),
+                Mathf.Max(0f, bottom - top)
+            );
         }
 
         static void DrawFilesDivider(SidebarFilesSplitGeometry split, Rect body)
         {
-            if (!split.HasUpper || split.Divider.Height <= 0f) return;
+            if (!split.HasUpper || split.Divider.Height <= 0f)
+                return;
             var divider = ToRect(split.Divider);
             var hit = FilesDividerHit(body, split.Divider);
             bool lit = Interaction.FilesDividerDragging || ColonistBarStrip.SidebarHover(hit);
@@ -105,10 +135,16 @@ namespace SlopWorld
 
         static void SetFilesFraction(float fraction)
         {
-            float available = Body.height <= FilesDividerH
-                ? Body.height : Mathf.Max(0f, Body.height - FilesDividerH);
-            float normalized = SidebarFilesSplitGeometry.ClampFraction(fraction,
-                available, GhostH, UiTheme.TinyRowH);
+            float available =
+                Body.height <= FilesDividerH
+                    ? Body.height
+                    : Mathf.Max(0f, Body.height - FilesDividerH);
+            float normalized = SidebarFilesSplitGeometry.ClampFraction(
+                fraction,
+                available,
+                GhostH,
+                UiTheme.TinyRowH
+            );
             float before = Settings.S.sidebarFilesOpenFraction;
             Settings.S.sidebarFilesOpenFraction = normalized;
             if (Mathf.Abs(normalized - before) > 0.0001f)
@@ -128,33 +164,39 @@ namespace SlopWorld
                 GUIUtility.hotControl = 0;
             Interaction.FilesDividerControl = 0;
             Interaction.FilesDividerDragging = false;
-            if (Interaction.FilesDividerChanged) Settings.S.Write();
+            if (Interaction.FilesDividerChanged)
+                Settings.S.Write();
             Interaction.FilesDividerChanged = false;
         }
 
         static void Click(Row row, SessionInfo info)
         {
-            if (row.Session == null || !ColonistBarStrip.Interactive) return;
-            if (!Widgets.ButtonInvisible(row.Text, false)) return;
+            if (row.Session == null || !ColonistBarStrip.Interactive)
+                return;
+            if (!Widgets.ButtonInvisible(row.Text, false))
+                return;
 
             SessionSelectable.Current = row.Session;
 
             if (!ColonistBarStrip.Drawing)
             {
                 Find.Selector.ClearSelection();
-                if (row.Pawn == null) return;
+                if (row.Pawn == null)
+                    return;
                 EcoMapInput.SelectAgent(row.Pawn);
                 return;
             }
 
-            if (row.Session != TerminalWindow.CurrentName) TerminalWindow.Open(row.Session);
+            if (row.Session != TerminalWindow.CurrentName)
+                TerminalWindow.Open(row.Session);
         }
 
         // Called by the Harmony finalizer when vanilla prevents the normal front pass.
         public static void EndDraw()
         {
             EndAgentScroll();
-            if (!Input.GetMouseButton(0)) EndFilesDivider();
+            if (!Input.GetMouseButton(0))
+                EndFilesDivider();
             Drawing = false;
             PerfTrace.End("sidebar", _renderStarted, Layout.Rows.Count);
             _renderStarted = 0L;
@@ -165,8 +207,13 @@ namespace SlopWorld
             var geometry = WorkspaceLayout.Current;
             float edge = geometry.NavigationEdge;
             var grip = new Rect(edge - GripW, 0f, GripW * 2f, UI.screenHeight);
-            if (Interaction.Resizing && (!ColonistBarStrip.Interactive ||
-                GUIUtility.hotControl != Interaction.ResizeControl))
+            if (
+                Interaction.Resizing
+                && (
+                    !ColonistBarStrip.Interactive
+                    || GUIUtility.hotControl != Interaction.ResizeControl
+                )
+            )
             {
                 EndResize();
             }
@@ -178,10 +225,13 @@ namespace SlopWorld
             // here alone. A second draw of [UiTheme.Edge] over this one composites into a heavier
             // boundary than the palette's, on the sidebar only. At rest it is one screen pixel like
             // every other rule. Lit it is a bar and may be a GUI one.
-            if (lit) Slab.Fill(new Rect(edge - 1f, 0f, 2f, UI.screenHeight), UiTheme.EdgeLit);
-            else Slab.VHairline(new Rect(edge - 1f, 0f, 1f, UI.screenHeight), UiTheme.Edge);
+            if (lit)
+                Slab.Fill(new Rect(edge - 1f, 0f, 2f, UI.screenHeight), UiTheme.EdgeLit);
+            else
+                Slab.VHairline(new Rect(edge - 1f, 0f, 1f, UI.screenHeight), UiTheme.Edge);
 
-            if (!ColonistBarStrip.Interactive) return;
+            if (!ColonistBarStrip.Interactive)
+                return;
 
             var e = Event.current;
             int control = GUIUtility.GetControlID(FocusType.Passive, grip);
@@ -190,8 +240,13 @@ namespace SlopWorld
             // Polling GetMouseButtonDown also re-started this drag on later GUI passes.
             if (!Interaction.Resizing)
             {
-                if (!over || e.rawType != EventType.MouseDown || e.button != 0 ||
-                    GUIUtility.hotControl != 0) return;
+                if (
+                    !over
+                    || e.rawType != EventType.MouseDown
+                    || e.button != 0
+                    || GUIUtility.hotControl != 0
+                )
+                    return;
                 Interaction.Resizing = true;
                 Interaction.ResizeControl = control;
                 GUIUtility.hotControl = control;
@@ -208,8 +263,11 @@ namespace SlopWorld
                 EndResize();
             }
 
-            if (e.rawType == EventType.MouseDown || e.rawType == EventType.MouseUp
-                || e.rawType == EventType.MouseDrag)
+            if (
+                e.rawType == EventType.MouseDown
+                || e.rawType == EventType.MouseUp
+                || e.rawType == EventType.MouseDrag
+            )
                 e.Use();
         }
 
@@ -261,21 +319,26 @@ namespace SlopWorld
         // from Root.OnGUI only after the new settings can enter its next snapshot.
         internal static void ApplyPendingLayoutChange()
         {
-            if (_layoutChangeFrame < 0 || _layoutChangeFrame == Time.frameCount) return;
+            if (_layoutChangeFrame < 0 || _layoutChangeFrame == Time.frameCount)
+                return;
             _layoutChangeFrame = -1;
             bool refresh = _refreshAfterLayout;
             _refreshAfterLayout = false;
             Patch_MainTabWindowShift.Reposition();
-            if (refresh) RefreshPanels();
+            if (refresh)
+                RefreshPanels();
         }
 
         static void Absorb()
         {
-            if (!ColonistBarStrip.Interactive) return;
+            if (!ColonistBarStrip.Interactive)
+                return;
 
             var e = Event.current;
-            if (e.rawType != EventType.MouseDown) return;
-            if (!ColonistBarStrip.MouseOver(Panel)) return;
+            if (e.rawType != EventType.MouseDown)
+                return;
+            if (!ColonistBarStrip.MouseOver(Panel))
+                return;
             e.Use();
         }
 

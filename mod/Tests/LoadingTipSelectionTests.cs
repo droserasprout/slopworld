@@ -12,7 +12,12 @@ namespace SlopWorld.Tests
         public void SelectionFillsRemainingCellsIncludingQuoteSeparator()
         {
             var selection = new LoadingTipSelection();
-            var pool = new List<string> { "Too short.", "Ninechars continues here.", "Unbreakablylong first word." };
+            var pool = new List<string>
+            {
+                "Too short.",
+                "Ninechars continues here.",
+                "Unbreakablylong first word.",
+            };
             Assert.That(selection.Pick(pool, 40, 30, new Random(1)), Is.EqualTo(pool[1]));
         }
 
@@ -30,7 +35,10 @@ namespace SlopWorld.Tests
         {
             var pool = new List<string> { "Short.", "Exactlyten carries on." };
             foreach (int occupied in new[] { 0, 10, 15 })
-                Assert.That(new LoadingTipSelection().Pick(pool, 10, occupied, new Random(1)), Is.EqualTo(pool[1]));
+                Assert.That(
+                    new LoadingTipSelection().Pick(pool, 10, occupied, new Random(1)),
+                    Is.EqualTo(pool[1])
+                );
         }
 
         [Test]
@@ -63,7 +71,8 @@ namespace SlopWorld.Tests
         {
             var selection = new LoadingTipSelection();
             var pool = new List<string>();
-            for (int i = 0; i < 13; i++) pool.Add(i.ToString("D2", CultureInfo.InvariantCulture));
+            for (int i = 0; i < 13; i++)
+                pool.Add(i.ToString("D2", CultureInfo.InvariantCulture));
             var random = new Random(1);
             var seen = new HashSet<string>();
             string first = selection.Pick(pool, 2, 0, random);

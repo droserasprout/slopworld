@@ -21,8 +21,8 @@ namespace SlopWorld
             _wrap = wrap;
         }
 
-        public static WidgetState Save() => new WidgetState(
-            GUI.color, Text.Font, Text.Anchor, Text.WordWrap);
+        public static WidgetState Save() =>
+            new WidgetState(GUI.color, Text.Font, Text.Anchor, Text.WordWrap);
 
         public void Dispose()
         {

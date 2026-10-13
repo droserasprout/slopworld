@@ -7,6 +7,7 @@ namespace SlopWorld
     {
         const int SpinWaggles = 2;
         const float SpinSeconds = 0.5f;
+
         // CursorTextures caches each rotation frame on first use.
         public const int Steps = 12;
 
@@ -21,14 +22,16 @@ namespace SlopWorld
 
         public void Pat(float now)
         {
-            if (PatActive) return;
+            if (PatActive)
+                return;
             _clickUntil = -1f;
             _spinUntil = now + SpinSeconds;
         }
 
         public void Click(float now)
         {
-            if (PatActive) return;
+            if (PatActive)
+                return;
             _clickUntil = now + ClickSeconds;
         }
 

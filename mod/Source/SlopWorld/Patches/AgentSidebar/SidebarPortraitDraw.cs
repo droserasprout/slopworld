@@ -10,7 +10,10 @@ namespace SlopWorld
     // sidebar's shared geometry. Patch_SidebarPawnLabel suppresses the vanilla label.
     // Compact portraits intentionally omit selection brackets and all vanilla status overlays.
     // AgentSidebar owns daemon status; pawn simulation classification remains vanilla.
-    [HarmonyPatch(typeof(ColonistBarColonistDrawer), nameof(ColonistBarColonistDrawer.DrawColonist))]
+    [HarmonyPatch(
+        typeof(ColonistBarColonistDrawer),
+        nameof(ColonistBarColonistDrawer.DrawColonist)
+    )]
     public static class Patch_SidebarPortraitDraw
     {
         // The portrait camera looks down -Y with world +Z up, so z pans to the head.
@@ -36,7 +39,8 @@ namespace SlopWorld
         // with the faces the player already knows from the sidebar.
         public static Texture PortraitFor(Pawn pawn)
         {
-            if (pawn == null) return null;
+            if (pawn == null)
+                return null;
             try
             {
                 return RequestPortrait(pawn);
@@ -52,14 +56,25 @@ namespace SlopWorld
         // Render downed pawns upright: vanilla's rotation misses the tight head crop.
         static Texture RequestPortrait(Pawn pawn)
         {
-            PawnHealthState? healthOverride = pawn.Dead || pawn.health == null
-                ? (PawnHealthState?)null
-                : pawn.health.State == PawnHealthState.Down
-                    ? PawnHealthState.Mobile
-                    : (PawnHealthState?)null;
-            return PortraitsCache.Get(pawn, TextureSize, Rot4.South,
-                FaceOffset(pawn), FaceZoom, true, true, true, true, null, null,
-                false, healthOverride);
+            PawnHealthState? healthOverride =
+                pawn.Dead || pawn.health == null ? (PawnHealthState?)null
+                : pawn.health.State == PawnHealthState.Down ? PawnHealthState.Mobile
+                : (PawnHealthState?)null;
+            return PortraitsCache.Get(
+                pawn,
+                TextureSize,
+                Rot4.South,
+                FaceOffset(pawn),
+                FaceZoom,
+                true,
+                true,
+                true,
+                true,
+                null,
+                null,
+                false,
+                healthOverride
+            );
         }
 
         // The sidebar lays its rows out from the font and asks this what the portrait may be.
@@ -87,7 +102,8 @@ namespace SlopWorld
                 {
                     float own = renderer.BaseHeadOffsetAt(Rot4.South).z;
                     // Zero is the renderer's failure fallback and would aim at the torso.
-                    if (own > 0f) z = own;
+                    if (own > 0f)
+                        z = own;
                 }
             }
             catch (Exception)
@@ -99,23 +115,29 @@ namespace SlopWorld
 
         static bool Prefix(Rect rect, Pawn colonist, Map pawnMap, bool highlight, bool reordering)
         {
-            if (!AgentSidebar.Drawing) return true;
-            if (colonist == null) return true;
+            if (!AgentSidebar.Drawing)
+                return true;
+            if (colonist == null)
+                return true;
 
             Rect face;
-            if (!AgentSidebar.FaceBox(colonist, out face)) return true;
-            if (Event.current == null || Event.current.type != EventType.Repaint) return false;
+            if (!AgentSidebar.FaceBox(colonist, out face))
+                return true;
+            if (Event.current == null || Event.current.type != EventType.Repaint)
+                return false;
 
             // Preserve vanilla's entry fade and drag fade.
             var bar = Find.ColonistBar;
             float alpha = bar.GetEntryRectAlpha(rect);
-            if (reordering) alpha *= 0.5f;
+            if (reordering)
+                alpha *= 0.5f;
 
             // A session the hub has not answered for yet is Down to the sidebar's row. Therefore,
             // It is Down here too: the alternative is a red badge over a fully lit face.
             var session = AgentColony.Current?.SessionOf(colonist);
-            bool isDown = session != null &&
-                (SessionHub.Instance.Get(session)?.State ?? AgentState.Down) == AgentState.Down;
+            bool isDown =
+                session != null
+                && (SessionHub.Instance.Get(session)?.State ?? AgentState.Down) == AgentState.Down;
 
             var renderTexture = RequestPortrait(colonist);
 

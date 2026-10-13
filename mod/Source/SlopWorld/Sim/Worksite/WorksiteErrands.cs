@@ -13,7 +13,10 @@ namespace SlopWorld
         // Calculate spacing from rotated footprints.
         struct Run
         {
-            public int Least, Most, Lines, Gap;
+            public int Least,
+                Most,
+                Lines,
+                Gap;
         }
 
         struct Errand
@@ -26,26 +29,36 @@ namespace SlopWorld
 
         // Key these tables by the buildable definition because completed frames no longer exist.
         // Use static tables because Patch_ErrandWork has no map reference.
-        static readonly Dictionary<BuildableDef, float> Work = new Dictionary<BuildableDef, float>();
-        static readonly Dictionary<BuildableDef, float> Blooms = new Dictionary<BuildableDef, float>();
+        static readonly Dictionary<BuildableDef, float> Work =
+            new Dictionary<BuildableDef, float>();
+        static readonly Dictionary<BuildableDef, float> Blooms =
+            new Dictionary<BuildableDef, float>();
 
         // Initialize the table before reading work requirements.
         // After a load, Patch_ErrandWork can request this value before the next errand starts.
         public static float WorkFor(BuildableDef def)
         {
-            if (def == null) return 0f;
+            if (def == null)
+                return 0f;
             Ensure();
             return Work.TryGetValue(def, out float w) ? w : 0f;
         }
 
         public static float BloomFor(BuildableDef def)
         {
-            if (def == null) return 0f;
+            if (def == null)
+                return 0f;
             Ensure();
             return Blooms.TryGetValue(def, out float r) ? r : 0f;
         }
 
-        static void Ensure() { if (_errands == null) { var _ = Errands; } }
+        static void Ensure()
+        {
+            if (_errands == null)
+            {
+                var _ = Errands;
+            }
+        }
 
         // The errand list is independent of the map. Blocks() selects stone for each map.
         static List<Errand> _errands;
@@ -80,23 +93,54 @@ namespace SlopWorld
             get
             {
                 bool grandma = Settings.GrandmaMode;
-                if (_errands != null && _grandmaModeCached == grandma) return _errands;
+                if (_errands != null && _grandmaModeCached == grandma)
+                    return _errands;
                 _grandmaModeCached = grandma;
                 _errands = new List<Errand>();
 
                 // Use metal tiles for the industrial appearance.
                 _plate = DefDatabase<TerrainDef>.GetNamedSilentFail("MetalTile");
 
-                Add(_plate, PavingSeconds, PavingOdds, PavingBloom,
-                    new Run { Least = PavingSide, Most = PavingSide, Lines = PavingSide });
+                Add(
+                    _plate,
+                    PavingSeconds,
+                    PavingOdds,
+                    PavingBloom,
+                    new Run
+                    {
+                        Least = PavingSide,
+                        Most = PavingSide,
+                        Lines = PavingSide,
+                    }
+                );
 
                 if (grandma)
                 {
                     // Use furniture and flower pots when Grandma's visiting.
-                    Add(Named("FlowerPot"), SmallSeconds, 5f, SmallBloom,
-                        new Run { Least = 3, Most = 6, Gap = 1 });
-                    Add(Named("Chair"), SmallSeconds, 3f, SmallBloom,
-                        new Run { Least = 2, Most = 5, Gap = 1 });
+                    Add(
+                        Named("FlowerPot"),
+                        SmallSeconds,
+                        5f,
+                        SmallBloom,
+                        new Run
+                        {
+                            Least = 3,
+                            Most = 6,
+                            Gap = 1,
+                        }
+                    );
+                    Add(
+                        Named("Chair"),
+                        SmallSeconds,
+                        3f,
+                        SmallBloom,
+                        new Run
+                        {
+                            Least = 2,
+                            Most = 5,
+                            Gap = 1,
+                        }
+                    );
                     Add(Named("Armchair"), SmallSeconds, 2f, SmallBloom);
                     Add(Named("Table1x2c"), SmallSeconds, 2f, SmallBloom);
                     Add(Named("EndTable"), SmallSeconds, 2f, SmallBloom);
@@ -108,8 +152,18 @@ namespace SlopWorld
                 else
                 {
                     Add(Named("Column"), SmallSeconds, ColumnOdds, SmallBloom);
-                    Add(Named("Grave"), SmallSeconds, GraveOdds, SmallBloom,
-                        new Run { Least = GraveRowLeast, Most = GraveRowMost, Gap = GraveAisle });
+                    Add(
+                        Named("Grave"),
+                        SmallSeconds,
+                        GraveOdds,
+                        SmallBloom,
+                        new Run
+                        {
+                            Least = GraveRowLeast,
+                            Most = GraveRowMost,
+                            Gap = GraveAisle,
+                        }
+                    );
                     Add(Named("Sarcophagus"), MediumSeconds, SarcophagusOdds, MediumBloom);
                     Add(Named("SteleLarge"), LargeSeconds, SteleLargeOdds, LargeBloom);
                     Add(Named("SteleGrand"), MonumentSeconds, SteleGrandOdds, MonumentBloom);
@@ -126,16 +180,24 @@ namespace SlopWorld
                 Add(Named("AncientMachine"), MonumentSeconds, MachineOdds, MonumentBloom);
 
                 if (_errands.Count == 0)
-                    Log.Warning("[SlopWorld] This build has no errands to assign. Agents will wait.");
+                    Log.Warning(
+                        "[SlopWorld] This build has no errands to assign. Agents will wait."
+                    );
 
                 return _errands;
             }
         }
 
-        static void Add(BuildableDef what, float seconds, float weight, float bloom,
-                        Run run = default(Run))
+        static void Add(
+            BuildableDef what,
+            float seconds,
+            float weight,
+            float bloom,
+            Run run = default(Run)
+        )
         {
-            if (what == null || what.frameDef == null) return;
+            if (what == null || what.frameDef == null)
+                return;
 
             // Use one item if the caller omits the run.
             run.Least = Mathf.Max(1, run.Least);
@@ -143,13 +205,15 @@ namespace SlopWorld
             run.Lines = Mathf.Max(1, run.Lines);
             run.Gap = Mathf.Max(0, run.Gap);
 
-            _errands.Add(new Errand
-            {
-                What = what,
-                Weight = weight,
-                Bloom = bloom,
-                Run = run,
-            });
+            _errands.Add(
+                new Errand
+                {
+                    What = what,
+                    Weight = weight,
+                    Bloom = bloom,
+                    Run = run,
+                }
+            );
             Work[what] = seconds * RealClock.TicksPerRealSecond * WorkPerTick;
             Blooms[what] = bloom;
         }
@@ -171,19 +235,23 @@ namespace SlopWorld
         static void Allow(Pawn pawn, bool building)
         {
             var work = pawn.workSettings;
-            if (work == null) return;
+            if (work == null)
+                return;
             work.EnableAndInitializeIfNotAlreadyInitialized();
-            if (!work.EverWork) return;
+            if (!work.EverWork)
+                return;
 
             var types = DefDatabase<WorkTypeDef>.AllDefsListForReading;
             for (int i = 0; i < types.Count; i++)
             {
                 var type = types[i];
-                if (pawn.WorkTypeIsDisabled(type)) continue;
+                if (pawn.WorkTypeIsDisabled(type))
+                    continue;
 
                 int want = building && type == WorkTypeDefOf.Construction ? 3 : 0;
                 // Change priority only when necessary. The setter invalidates the pawn work giver lists.
-                if (work.GetPriority(type) != want) work.SetPriority(type, want);
+                if (work.GetPriority(type) != want)
+                    work.SetPriority(type, want);
             }
         }
 
@@ -191,25 +259,35 @@ namespace SlopWorld
         {
             // Allow the pawn to finish moving away from a frame.
             // Assigning construction again can repeatedly interrupt this movement.
-            if (pawn.CurJobDef == JobDefOf.Goto) return;
+            if (pawn.CurJobDef == JobDefOf.Goto)
+                return;
 
-            if (!Ready(pawn)) return;
+            if (!Ready(pawn))
+                return;
 
             Frame stale;
             if (_sent.TryGetValue(pawn, out stale))
             {
                 _sent.Remove(pawn);
-                if (stale != null && stale.Spawned) _shunned.Add(stale);
+                if (stale != null && stale.Spawned)
+                    _shunned.Add(stale);
             }
 
             var frame = Free(pawn) ?? Open(pawn);
-            if (frame == null) return;
+            if (frame == null)
+                return;
 
             // Check newly placed frames too. A pawn can block a frame immediately after placement.
-            if (!Buildable(frame, pawn)) return;
+            if (!Buildable(frame, pawn))
+                return;
 
             Fill(frame);
-            if (pawn.jobs.TryTakeOrderedJob(JobMaker.MakeJob(JobDefOf.FinishFrame, frame), JobTag.Misc))
+            if (
+                pawn.jobs.TryTakeOrderedJob(
+                    JobMaker.MakeJob(JobDefOf.FinishFrame, frame),
+                    JobTag.Misc
+                )
+            )
                 _sent[pawn] = frame;
         }
 
@@ -221,8 +299,10 @@ namespace SlopWorld
         // Patch_AgentsCanBuild permits construction regardless of pawn backstory.
         static bool Ready(Pawn pawn)
         {
-            if (pawn.jobs == null || pawn.workSettings == null) return false;
-            if (pawn.WorkTypeIsDisabled(WorkTypeDefOf.Construction)) return false;
+            if (pawn.jobs == null || pawn.workSettings == null)
+                return false;
+            if (pawn.WorkTypeIsDisabled(WorkTypeDefOf.Construction))
+                return false;
 
             Allow(pawn, true);
             return true;
@@ -237,15 +317,21 @@ namespace SlopWorld
             EnsureFrameIndex();
             foreach (var frame in _frames)
             {
-                if (frame == null || !frame.Spawned) continue;
-                if (WorkFor(frame.def?.entityDefToBuild) <= 0f) continue;
-                if (_shunned.Contains(frame)) continue;
+                if (frame == null || !frame.Spawned)
+                    continue;
+                if (WorkFor(frame.def?.entityDefToBuild) <= 0f)
+                    continue;
+                if (_shunned.Contains(frame))
+                    continue;
                 // Reject more distant frames before checking reservations and construction eligibility.
                 float d = frame.Position.DistanceToSquared(pawn.Position);
-                if (d >= nearest) continue;
+                if (d >= nearest)
+                    continue;
                 // Check reservations before construction eligibility.
-                if (!pawn.CanReserve(frame)) continue;
-                if (!Buildable(frame, pawn)) continue;
+                if (!pawn.CanReserve(frame))
+                    continue;
+                if (!Buildable(frame, pawn))
+                    continue;
 
                 nearest = d;
                 best = frame;
@@ -279,29 +365,33 @@ namespace SlopWorld
 
         void SweepSlice()
         {
-            int end = Mathf.Min(_runtime.SweepLimit,
-                _runtime.SweepCursor + SweepBudget);
+            int end = Mathf.Min(_runtime.SweepLimit, _runtime.SweepCursor + SweepBudget);
 
             for (int i = _runtime.SweepCursor; i < end; i++)
             {
                 var frame = _frames[i];
-                if (frame == null || !frame.Spawned) continue;
+                if (frame == null || !frame.Spawned)
+                    continue;
                 var what = frame.def?.entityDefToBuild;
-                if (WorkFor(what) <= 0f) continue;
+                if (WorkFor(what) <= 0f)
+                    continue;
 
-                if (GenConstruct.FirstBlockingThing(frame, null) == null && Anyone(what)) continue;
+                if (GenConstruct.FirstBlockingThing(frame, null) == null && Anyone(what))
+                    continue;
                 _sweepDoomed.Add(frame);
             }
 
             _runtime.SweepCursor = end;
-            if (end < _runtime.SweepLimit) return;
+            if (end < _runtime.SweepLimit)
+                return;
 
             // Clear excluded frames before removing blocked frames and frames that no agent can construct.
             _shunned.Clear();
             Prune();
 
             for (int i = 0; i < _sweepDoomed.Count; i++)
-                if (!_sweepDoomed[i].Destroyed) _sweepDoomed[i].Destroy(DestroyMode.Vanish);
+                if (!_sweepDoomed[i].Destroyed)
+                    _sweepDoomed[i].Destroy(DestroyMode.Vanish);
 
             // Reset failed placement attempts because frame removal can make space available.
             _blocked = 0;
@@ -313,23 +403,27 @@ namespace SlopWorld
         // Retain frames when no agents exist. Otherwise, require at least one agent with sufficient skills.
         bool Anyone(BuildableDef what)
         {
-            if (_hands.Count == 0) return true;
+            if (_hands.Count == 0)
+                return true;
             for (int i = 0; i < _hands.Count; i++)
-                if (Skilled(what, _hands[i])) return true;
+                if (Skilled(what, _hands[i]))
+                    return true;
             return false;
         }
 
         // Remove assignments for pawns or frames that no longer exist on the map.
         void Prune()
         {
-            if (_sent.Count == 0) return;
+            if (_sent.Count == 0)
+                return;
 
             _stale.Clear();
             foreach (var kv in _sent)
                 if (kv.Key == null || !kv.Key.Spawned || kv.Value == null || !kv.Value.Spawned)
                     _stale.Add(kv.Key);
 
-            for (int i = 0; i < _stale.Count; i++) _sent.Remove(_stale[i]);
+            for (int i = 0; i < _stale.Count; i++)
+                _sent.Remove(_stale[i]);
         }
 
         // Select an errand by weight from those that the pawn has sufficient skills to complete.
@@ -339,17 +433,21 @@ namespace SlopWorld
 
             float total = 0f;
             for (int i = 0; i < list.Count; i++)
-                if (Skilled(list[i].What, pawn)) total += list[i].Weight;
-            if (total <= 0f) return null;
+                if (Skilled(list[i].What, pawn))
+                    total += list[i].Weight;
+            if (total <= 0f)
+                return null;
 
             float roll = Rand.Range(0f, total);
             Errand? last = null;
             for (int i = 0; i < list.Count; i++)
             {
-                if (!Skilled(list[i].What, pawn)) continue;
+                if (!Skilled(list[i].What, pawn))
+                    continue;
                 last = list[i];
                 roll -= list[i].Weight;
-                if (roll <= 0f) return list[i];
+                if (roll <= 0f)
+                    return list[i];
             }
             return last;
         }
@@ -358,12 +456,12 @@ namespace SlopWorld
         static bool Skilled(BuildableDef what, Pawn pawn)
         {
             var skills = pawn?.skills;
-            if (what == null || skills == null) return true;
+            if (what == null || skills == null)
+                return true;
 
             return what.constructionSkillPrerequisite
-                       <= skills.GetSkill(SkillDefOf.Construction).Level
-                && what.artisticSkillPrerequisite
-                       <= skills.GetSkill(SkillDefOf.Artistic).Level;
+                    <= skills.GetSkill(SkillDefOf.Construction).Level
+                && what.artisticSkillPrerequisite <= skills.GetSkill(SkillDefOf.Artistic).Level;
         }
     }
 }

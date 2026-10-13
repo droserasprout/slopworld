@@ -9,7 +9,13 @@ namespace SlopWorld
     // Project selection owns the working directory. Network settings belong to the agent.
     public partial class EditSessionDialog : UiWindow
     {
-        enum Tab { General, Sandbox, ResourceLimits, Preview }
+        enum Tab
+        {
+            General,
+            Sandbox,
+            ResourceLimits,
+            Preview,
+        }
 
         readonly EditIdentity _identity;
         readonly SessionInfo _s;
@@ -30,10 +36,12 @@ namespace SlopWorld
         ResourceLimitsForm _resourceLimits;
         string _dnsServers;
 
-        public EditSessionDialog(SessionInfo existing) : this(existing, null) { }
+        public EditSessionDialog(SessionInfo existing)
+            : this(existing, null) { }
 
         // Preselected project, for "add an agent here" from the projects list.
-        public EditSessionDialog(SessionInfo existing, string project) : this(existing, project, false) { }
+        public EditSessionDialog(SessionInfo existing, string project)
+            : this(existing, project, false) { }
 
         public static EditSessionDialog FromTemplate(AgentTemplateInfo template)
         {
@@ -42,27 +50,42 @@ namespace SlopWorld
             return dialog;
         }
 
-        public static EditSessionDialog Copy(SessionInfo of) => new EditSessionDialog(of, null, true);
+        public static EditSessionDialog Copy(SessionInfo of) =>
+            new EditSessionDialog(of, null, true);
 
-        EditSessionDialog(SessionInfo existing, string project, bool copy, AgentTemplateInfo template = null)
+        EditSessionDialog(
+            SessionInfo existing,
+            string project,
+            bool copy,
+            AgentTemplateInfo template = null
+        )
         {
             resizeable = true;
-            _identity = copy ? EditIdentity.ForCopy(existing?.Name) :
-                existing == null ? EditIdentity.ForNew() : EditIdentity.ForEdit(existing.Name);
+            _identity =
+                copy ? EditIdentity.ForCopy(existing?.Name)
+                : existing == null ? EditIdentity.ForNew()
+                : EditIdentity.ForEdit(existing.Name);
             _s = CreateDraft(existing, project, copy);
-
 
             if (existing != null && !copy)
             {
                 string endpoint = DaemonClient.BaseUrl;
                 int connection = SessionHub.Instance.ConnectionGeneration;
-                DaemonClient.Post<Wire.SettingsPreview>(WireProtocol.Routes.SettingsPreview,
+                DaemonClient.Post<Wire.SettingsPreview>(
+                    WireProtocol.Routes.SettingsPreview,
                     new Wire.SettingsPreviewRequest { Existing = _identity.OriginalName },
                     response =>
                     {
-                        if (endpoint == DaemonClient.BaseUrl && connection == SessionHub.Instance.ConnectionGeneration)
-                            _templateSnapshot = AgentTemplateInfo.FromWire(new Wire.AgentTemplate { Defaults = response.Definitions?.Defaults });
-                    }, UiLayout.Fail);
+                        if (
+                            endpoint == DaemonClient.BaseUrl
+                            && connection == SessionHub.Instance.ConnectionGeneration
+                        )
+                            _templateSnapshot = AgentTemplateInfo.FromWire(
+                                new Wire.AgentTemplate { Defaults = response.Definitions?.Defaults }
+                            );
+                    },
+                    UiLayout.Fail
+                );
             }
 
             if (template != null)
@@ -79,16 +102,15 @@ namespace SlopWorld
 
             LoadRawFields();
             // Template descriptions are multiline; Enter must remain a newline.
-            if (!EditingTemplate) AcceptOnEnter(Save);
+            if (!EditingTemplate)
+                AcceptOnEnter(Save);
         }
-
 
         void LoadRawFields()
         {
             _resourceLimits = new ResourceLimitsForm(_s.Limits);
-            _dnsServers = _s.Dns?.Mode == DnsMode.Servers
-                ? string.Join(", ", _s.Dns.Servers.ToArray())
-                : "";
+            _dnsServers =
+                _s.Dns?.Mode == DnsMode.Servers ? string.Join(", ", _s.Dns.Servers.ToArray()) : "";
         }
 
         static void RefreshCatalogs()
@@ -108,8 +130,10 @@ namespace SlopWorld
                 : new SessionInfo
                 {
                     Name = copy
-                        ? _identity.CopyName(SessionHub.Instance.Sessions.Select(x => x.Name),
-                            "agent")
+                        ? _identity.CopyName(
+                            SessionHub.Instance.Sessions.Select(x => x.Name),
+                            "agent"
+                        )
                         : existing.Name,
                     Label = copy ? "" : existing.Label,
                     Project = existing.Project,
@@ -124,8 +148,14 @@ namespace SlopWorld
                     Network = existing.Network,
                     Dns = existing.Dns.Copy(),
                     Limits = existing.Limits,
-                    Mounts = new List<MountEntry>(existing.Mounts
-                        .Select(m => new MountEntry { From = m.From, To = m.To, Mode = m.Mode })),
+                    Mounts = new List<MountEntry>(
+                        existing.Mounts.Select(m => new MountEntry
+                        {
+                            From = m.From,
+                            To = m.To,
+                            Mode = m.Mode,
+                        })
+                    ),
                     Agent = existing.Agent,
                     Worker = existing.Worker,
                     Autostart = existing.Autostart,
@@ -141,12 +171,21 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            UiLayout.Title(TitleRect(rect), EditingTemplate
-                ? (_templateDraft.Version == 0 ? "New template" : "Edit template")
-                : _identity.Title("agent"));
+            UiLayout.Title(
+                TitleRect(rect),
+                EditingTemplate
+                    ? (_templateDraft.Version == 0 ? "New template" : "Edit template")
+                    : _identity.Title("agent")
+            );
 
-            var layout = TabbedFormLayout.Arrange(UiRect.FromRect(rect), 132f,
-                UiTheme.HeaderH, UiTheme.BtnH, UiTheme.GapS, UiTheme.GapM);
+            var layout = TabbedFormLayout.Arrange(
+                UiRect.FromRect(rect),
+                132f,
+                UiTheme.HeaderH,
+                UiTheme.BtnH,
+                UiTheme.GapS,
+                UiTheme.GapM
+            );
             DrawRail(UiRect.ToRect(layout.Rail));
             var body = UiRect.ToRect(layout.Body);
 
@@ -160,8 +199,11 @@ namespace SlopWorld
                         _generalListing.Draw(body, DrawGeneral);
                         break;
                     case Tab.Sandbox:
-                        _sandboxListing.Draw(body, DrawSandboxFields,
-                            (view, y) => DrawSandboxTrailing(view, y, body.height));
+                        _sandboxListing.Draw(
+                            body,
+                            DrawSandboxFields,
+                            (view, y) => DrawSandboxTrailing(view, y, body.height)
+                        );
                         break;
                     case Tab.ResourceLimits:
                         _limitsListing.Draw(body, DrawLimits);
@@ -170,21 +212,36 @@ namespace SlopWorld
                         DrawSettingsPreview(body);
                         break;
                 }
-
             }
-            finally { GUI.enabled = enabled; }
+            finally
+            {
+                GUI.enabled = enabled;
+            }
 
             var foot = new UiLayout.Bar(UiRect.ToRect(layout.Footer));
             if (EditingTemplate)
             {
-                if (_templateDraft.Version != 0 &&
-                    foot.Left("Reload", UiTheme.Btn.Ghost, !_templateBusy)) ReloadTemplate();
+                if (
+                    _templateDraft.Version != 0
+                    && foot.Left("Reload", UiTheme.Btn.Ghost, !_templateBusy)
+                )
+                    ReloadTemplate();
             }
-            if (!EditingTemplate && !_identity.IsNew && foot.Left("Reset private state", UiTheme.Btn.Danger))
+            if (
+                !EditingTemplate
+                && !_identity.IsNew
+                && foot.Left("Reset private state", UiTheme.Btn.Danger)
+            )
                 Find.WindowStack.Add(CatalogActions.ResetState(_identity.OriginalName));
-            if (!EditingTemplate && !_identity.IsNew && !_s.Worker && foot.Left("Save as template", UiTheme.Btn.Ghost))
+            if (
+                !EditingTemplate
+                && !_identity.IsNew
+                && !_s.Worker
+                && foot.Left("Save as template", UiTheme.Btn.Ghost)
+            )
                 Find.WindowStack.Add(new SaveAgentTemplateDialog(_identity.OriginalName));
-            if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
+            if (foot.Left("Cancel", UiTheme.Btn.Ghost))
+                Close();
             bool save = foot.Right("Save", UiTheme.Btn.Primary, !_templateBusy && !_saving);
             if (!string.IsNullOrEmpty(_error))
             {
@@ -192,24 +249,36 @@ namespace SlopWorld
                 UiText.RowLabel(foot.Rest(), _error);
                 GUI.color = Color.white;
             }
-            if (save) Save();
+            if (save)
+                Save();
         }
 
-        void DrawRail(Rect r) => UiLayout.DrawRail(r, new[]
-        {
-            ("General", Tab.General),
-            ("Sandbox", Tab.Sandbox),
-            ("Resource limits", Tab.ResourceLimits),
-            ("Preview", Tab.Preview),
-        }, ref _tab);
+        void DrawRail(Rect r) =>
+            UiLayout.DrawRail(
+                r,
+                new[]
+                {
+                    ("General", Tab.General),
+                    ("Sandbox", Tab.Sandbox),
+                    ("Resource limits", Tab.ResourceLimits),
+                    ("Preview", Tab.Preview),
+                },
+                ref _tab
+            );
 
         void Save()
         {
-            if (_templateBusy || _saving) return;
+            if (_templateBusy || _saving)
+                return;
             _error = null;
-            if (string.IsNullOrWhiteSpace(_s.Name) || (!EditingTemplate && string.IsNullOrEmpty(_s.Project)))
+            if (
+                string.IsNullOrWhiteSpace(_s.Name)
+                || (!EditingTemplate && string.IsNullOrEmpty(_s.Project))
+            )
             {
-                _error = EditingTemplate ? "Enter a template name." : "Enter an agent name and project.";
+                _error = EditingTemplate
+                    ? "Enter a template name."
+                    : "Enter an agent name and project.";
                 return;
             }
 
@@ -230,12 +299,19 @@ namespace SlopWorld
             {
                 _templateDraft.Name = _s.Name.Trim();
                 _templateBusy = true;
-                SessionHub.Instance.Catalog.SaveAgentTemplateForm(_templateDraft, _s,
-                    _templateDraft.Version == 0, _templateOriginalName, () => Close(), TemplateFailed);
+                SessionHub.Instance.Catalog.SaveAgentTemplateForm(
+                    _templateDraft,
+                    _s,
+                    _templateDraft.Version == 0,
+                    _templateOriginalName,
+                    () => Close(),
+                    TemplateFailed
+                );
                 return;
             }
 
-            string from = _identity.OriginalName, to = _s.Name;
+            string from = _identity.OriginalName,
+                to = _s.Name;
             Action ok = () =>
             {
                 // The daemon took the rename, so carry the colonist over before the next
@@ -251,8 +327,13 @@ namespace SlopWorld
             if (_identity.IsNew && !string.IsNullOrEmpty(_templateName))
                 SessionHub.Instance.CreateFromTemplate(_templateName, _s, ok, SaveFailed);
             else
-                SessionHub.Instance.Save(_s, _identity.IsNew, _identity.OriginalName, ok,
-                    SaveFailed);
+                SessionHub.Instance.Save(
+                    _s,
+                    _identity.IsNew,
+                    _identity.OriginalName,
+                    ok,
+                    SaveFailed
+                );
         }
 
         void SaveFailed(string error)
@@ -263,5 +344,4 @@ namespace SlopWorld
                 : error;
         }
     }
-
 }

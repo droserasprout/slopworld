@@ -13,15 +13,22 @@ namespace SlopWorld
         readonly SettingsPreviewLayout _layout = new SettingsPreviewLayout();
         readonly UiScrollbarReservation _reservation;
 
-        public SettingsPreviewForm(float initialHeight,
-            UiScrollbarReservation reservation = UiScrollbarReservation.Always)
+        public SettingsPreviewForm(
+            float initialHeight,
+            UiScrollbarReservation reservation = UiScrollbarReservation.Always
+        )
         {
             _height = new ContentHeight(initialHeight);
             _reservation = reservation;
         }
 
-        public void Draw(Rect inner, float previewHeight, Action<Listing_Standard> fields,
-            Action<Rect, Rect> preview, int contentRevision = 0)
+        public void Draw(
+            Rect inner,
+            float previewHeight,
+            Action<Listing_Standard> fields,
+            Action<Rect, Rect> preview,
+            int contentRevision = 0
+        )
         {
             using (WidgetState.Save())
             {
@@ -33,20 +40,38 @@ namespace SlopWorld
                 bool stacked = inner.height < UiTheme.RowH + UiTheme.GapM + blockHeight;
                 if (stacked)
                 {
-                    var geometry = UiScrollBody.Measure(inner,
-                        formHeight + UiTheme.GapM + blockHeight, _reservation);
-                    _layout.Arrange(geometry.ContentWidth, inner.height, true,
-                        formHeight, previewHeight, contentRevision);
+                    var geometry = UiScrollBody.Measure(
+                        inner,
+                        formHeight + UiTheme.GapM + blockHeight,
+                        _reservation
+                    );
+                    _layout.Arrange(
+                        geometry.ContentWidth,
+                        inner.height,
+                        true,
+                        formHeight,
+                        previewHeight,
+                        contentRevision
+                    );
                     using (_scroll.Scope(inner, geometry.View))
                     {
                         DrawFields(UiRect.ToRect(_layout.Form), fields);
-                        preview(UiRect.ToRect(_layout.PreviewCaption), UiRect.ToRect(_layout.Preview));
+                        preview(
+                            UiRect.ToRect(_layout.PreviewCaption),
+                            UiRect.ToRect(_layout.Preview)
+                        );
                     }
                 }
                 else
                 {
-                    _layout.Arrange(inner.width, inner.height, false,
-                        formHeight, previewHeight, contentRevision);
+                    _layout.Arrange(
+                        inner.width,
+                        inner.height,
+                        false,
+                        formHeight,
+                        previewHeight,
+                        contentRevision
+                    );
                     var form = Place(inner, _layout.Form);
                     var geometry = UiScrollBody.Measure(form, formHeight, _reservation);
                     using (_scroll.Scope(form, geometry.View))
@@ -69,7 +94,8 @@ namespace SlopWorld
             }
             finally
             {
-                if (begun) listing.End();
+                if (begun)
+                    listing.End();
             }
         }
 

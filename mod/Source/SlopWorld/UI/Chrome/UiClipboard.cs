@@ -25,12 +25,14 @@ namespace SlopWorld
         {
             public void Copy(string text, bool primary)
             {
-                if (!primary && !string.IsNullOrEmpty(text)) GUIUtility.systemCopyBuffer = text;
+                if (!primary && !string.IsNullOrEmpty(text))
+                    GUIUtility.systemCopyBuffer = text;
             }
 
             public void Read(bool primary, Action<string> receive)
             {
-                if (!primary) receive(GUIUtility.systemCopyBuffer);
+                if (!primary)
+                    receive(GUIUtility.systemCopyBuffer);
             }
         }
     }

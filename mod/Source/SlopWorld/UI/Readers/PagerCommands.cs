@@ -2,19 +2,23 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Text.RegularExpressions;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace SlopWorld
 {
     public static class PagerCommands
     {
         const string LessScrollOptions = "--shift=1 --wheel-lines=1";
+
         public static string RelativeFilePath(string root, string path)
         {
-            if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(path)) return path;
+            if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(path))
+                return path;
             string prefix = root.TrimEnd('/') + "/";
-            return path.StartsWith(prefix, StringComparison.Ordinal) ? path.Substring(prefix.Length) : path;
+            return path.StartsWith(prefix, StringComparison.Ordinal)
+                ? path.Substring(prefix.Length)
+                : path;
         }
 
         // The daemon splits a command line into an argv the way a shell would. Therefore, a path
@@ -50,10 +54,17 @@ namespace SlopWorld
         internal readonly struct CommandWord
         {
             public readonly string Value;
-            public readonly int Start, End;
+            public readonly int Start,
+                End;
             public readonly bool Quoted;
+
             public CommandWord(string value, int start, int end, bool quoted)
-            { Value = value; Start = start; End = end; Quoted = quoted; }
+            {
+                Value = value;
+                Start = start;
+                End = end;
+                Quoted = quoted;
+            }
         }
 
         // Decode shell words without expanding them; retain source offsets for safe insertion.
@@ -64,8 +75,10 @@ namespace SlopWorld
             int at = 0;
             while (at < command.Length)
             {
-                while (at < command.Length && char.IsWhiteSpace(command[at])) at++;
-                if (at == command.Length) break;
+                while (at < command.Length && char.IsWhiteSpace(command[at]))
+                    at++;
+                if (at == command.Length)
+                    break;
                 int start = at;
                 char quote = '\0';
                 bool quoted = false;
@@ -73,22 +86,40 @@ namespace SlopWorld
                 while (at < command.Length)
                 {
                     char c = command[at];
-                    if (quote == '\0' && char.IsWhiteSpace(c)) break;
+                    if (quote == '\0' && char.IsWhiteSpace(c))
+                        break;
                     at++;
                     if (c == '\\' && quote != '\'' && at < command.Length)
                     {
                         char next = command[at];
-                        if (quote == '\0' || next == '"' || next == '\\' || next == '$' || next == '`' || next == '\n')
+                        if (
+                            quote == '\0'
+                            || next == '"'
+                            || next == '\\'
+                            || next == '$'
+                            || next == '`'
+                            || next == '\n'
+                        )
                         {
                             quoted = true;
                             at++;
-                            if (next != '\n') value.Append(next);
+                            if (next != '\n')
+                                value.Append(next);
                             continue;
                         }
                     }
-                    if (c == quote) { quote = '\0'; quoted = true; continue; }
+                    if (c == quote)
+                    {
+                        quote = '\0';
+                        quoted = true;
+                        continue;
+                    }
                     if (quote == '\0' && (c == '\'' || c == '"'))
-                    { quote = c; quoted = true; continue; }
+                    {
+                        quote = c;
+                        quoted = true;
+                        continue;
+                    }
                     value.Append(c);
                 }
                 words.Add(new CommandWord(value.ToString(), start, at, quoted));
@@ -121,8 +152,10 @@ namespace SlopWorld
         static string MicroTerminalClipboard(string command)
         {
             string executable = Executable(command, "micro");
-            if (!string.Equals(Path.GetFileName(executable), "micro", StringComparison.Ordinal) ||
-                command.IndexOf("-clipboard", StringComparison.Ordinal) >= 0)
+            if (
+                !string.Equals(Path.GetFileName(executable), "micro", StringComparison.Ordinal)
+                || command.IndexOf("-clipboard", StringComparison.Ordinal) >= 0
+            )
                 return command;
 
             int end = Words(command)[0].End;
@@ -137,8 +170,10 @@ namespace SlopWorld
             // Paint from the top instead of scrolling a short first screen into place.
             // less and tmux can disagree about widths inside joined emoji. Avoid
             // wrapping a long line at different cells in the two terminal grids.
-            if (h.Length == 0) return "LESS=-RSc";
-            if (!h.Contains("%s")) h += " %s";
+            if (h.Length == 0)
+                return "LESS=-RSc";
+            if (!h.Contains("%s"))
+                h += " %s";
             return "LESSOPEN=" + Quote("|" + h) + " LESS=-RSc";
         }
 
@@ -150,9 +185,14 @@ namespace SlopWorld
             switch (Path.GetFileName(Executable(command, "less")))
             {
                 case "bat":
-                    return BatOptions(command, "--style=plain --decorations=never --color=never --language=txt --strip-ansi=never --wrap=never");
-                case "less": return Options(command, "-+N -S " + LessScrollOptions);
-                default: return command;
+                    return BatOptions(
+                        command,
+                        "--style=plain --decorations=never --color=never --language=txt --strip-ansi=never --wrap=never"
+                    );
+                case "less":
+                    return Options(command, "-+N -S " + LessScrollOptions);
+                default:
+                    return command;
             }
         }
 
@@ -162,9 +202,19 @@ namespace SlopWorld
             string command = App(pager, "less");
             switch (Path.GetFileName(Executable(command, "less")))
             {
-                case "bat": return BatOptions(command, (lineNumbers ? "--style=numbers --decorations=always" : "--style=plain --decorations=never") + " --wrap=never");
-                case "less": return Options(command, (lineNumbers ? "-N" : "-+N") + " " + LessScrollOptions);
-                default: return command;
+                case "bat":
+                    return BatOptions(
+                        command,
+                        (
+                            lineNumbers
+                                ? "--style=numbers --decorations=always"
+                                : "--style=plain --decorations=never"
+                        ) + " --wrap=never"
+                    );
+                case "less":
+                    return Options(command, (lineNumbers ? "-N" : "-+N") + " " + LessScrollOptions);
+                default:
+                    return command;
             }
         }
 
@@ -181,14 +231,25 @@ namespace SlopWorld
             return command;
         }
 
-        static readonly Regex DeltaPagerPrefix = new Regex(@"^env (?:BAT_THEME='(?:[^']|'\\'')*' )?DELTA_PAGER='(?:[^']|'\\'')*' ");
-        static readonly Regex DeltaNumbersPrefix = new Regex(@"^git -c delta\.line-numbers=(?:true|false) ");
-        static readonly Regex DeltaBatStylePrefix = new Regex(@"^git -c delta\.minus-style='syntax auto' ");
+        static readonly Regex DeltaPagerPrefix = new Regex(
+            @"^env (?:BAT_THEME='(?:[^']|'\\'')*' )?DELTA_PAGER='(?:[^']|'\\'')*' "
+        );
+        static readonly Regex DeltaNumbersPrefix = new Regex(
+            @"^git -c delta\.line-numbers=(?:true|false) "
+        );
+        static readonly Regex DeltaBatStylePrefix = new Regex(
+            @"^git -c delta\.minus-style='syntax auto' "
+        );
 
         // Replace our launch overrides when recovering or restarting a diff session.
         // A non-null batTheme means bat is the selected highlighter; an empty value
         // keeps bat's and delta's respective command defaults.
-        public static string DiffCommand(string command, string pager, bool lineNumbers = true, string batTheme = null)
+        public static string DiffCommand(
+            string command,
+            string pager,
+            bool lineNumbers = true,
+            string batTheme = null
+        )
         {
             string git = DeltaPagerPrefix.Replace(command ?? "", "", 1);
             git = DeltaNumbersPrefix.Replace(git, "git ", 1);
@@ -197,9 +258,14 @@ namespace SlopWorld
             {
                 if (batTheme != null)
                     git = "git -c delta.minus-style=" + Quote("syntax auto") + git.Substring(3);
-                git = "git -c delta.line-numbers=" + (lineNumbers ? "true" : "false") + git.Substring(3);
+                git =
+                    "git -c delta.line-numbers="
+                    + (lineNumbers ? "true" : "false")
+                    + git.Substring(3);
             }
-            string theme = string.IsNullOrEmpty(batTheme) ? "" : "BAT_THEME=" + Quote(batTheme) + " ";
+            string theme = string.IsNullOrEmpty(batTheme)
+                ? ""
+                : "BAT_THEME=" + Quote(batTheme) + " ";
             return "env " + theme + "DELTA_PAGER=" + Quote(PipePager(pager)) + " " + git;
         }
 
@@ -212,12 +278,14 @@ namespace SlopWorld
         static string CommandExecutable(string command, bool allowEnv)
         {
             var words = Words(command);
-            if (words.Count == 0) return null;
+            if (words.Count == 0)
+                return null;
             int at = 0;
             if (allowEnv && words[0].Value == "env")
             {
                 at++;
-                while (at < words.Count && words[at].Value.IndexOf('=') > 0) at++;
+                while (at < words.Count && words[at].Value.IndexOf('=') > 0)
+                    at++;
             }
             return at < words.Count ? words[at].Value : null;
         }
@@ -232,21 +300,33 @@ namespace SlopWorld
                 .Replace("{line}", (line < 1 ? 1 : line).ToString(CultureInfo.InvariantCulture));
             if (!hasFile)
             {
-                if (line > 0 && !hasLine) command += " +" + (line < 1 ? 1 : line);
+                if (line > 0 && !hasLine)
+                    command += " +" + (line < 1 ? 1 : line);
                 command += " -- " + Quote(file);
             }
             return command;
         }
 
-        public static string PagerCommand(string pager, string highlighter, string file, long line = 0)
+        public static string PagerCommand(
+            string pager,
+            string highlighter,
+            string file,
+            long line = 0
+        )
         {
             string environment = LessEnv(highlighter);
             // bat opens the file and starts less itself. Its argv cannot contain less's
             // +LINE selector; pass that selector to the child pager through LESS instead.
-            if (line > 0 && Path.GetFileName(Executable(pager, "less")) == "bat" &&
-                !(pager ?? "").Contains("{line}"))
+            if (
+                line > 0
+                && Path.GetFileName(Executable(pager, "less")) == "bat"
+                && !(pager ?? "").Contains("{line}")
+            )
             {
-                environment = environment.Replace("LESS=-RSc", "LESS=" + Quote("-RSc +" + line.ToString(CultureInfo.InvariantCulture)));
+                environment = environment.Replace(
+                    "LESS=-RSc",
+                    "LESS=" + Quote("-RSc +" + line.ToString(CultureInfo.InvariantCulture))
+                );
                 line = 0;
             }
             return "env " + environment + " " + FileCommand(pager, "less", file, line);
@@ -257,15 +337,18 @@ namespace SlopWorld
         public static string EditorCommand(string editor, string file, long line = 0)
         {
             string template = MicroTerminalClipboard(App(editor, "micro"));
-            if (line < 1) return FileCommand(template, "micro", file);
+            if (line < 1)
+                return FileCommand(template, "micro", file);
 
             bool hasFile = template.Contains("{file}");
             bool hasLine = template.Contains("{line}");
             string command = template
                 .Replace("{file}", Quote(file))
                 .Replace("{line}", line.ToString(CultureInfo.InvariantCulture));
-            if (!hasFile) command += " " + Quote(file);
-            if (!hasLine) command += " +" + line;
+            if (!hasFile)
+                command += " " + Quote(file);
+            if (!hasLine)
+                command += " +" + line;
             return command;
         }
     }

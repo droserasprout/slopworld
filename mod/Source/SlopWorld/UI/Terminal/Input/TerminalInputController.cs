@@ -12,6 +12,7 @@ namespace SlopWorld
         readonly TerminalPanel _panel;
         readonly Dictionary<KeyCode, System.Func<Event, bool>> _local;
         readonly Dictionary<KeyCode, System.Func<Event, bool>> _terminal;
+
         public TerminalInputController(TerminalPanel panel)
         {
             _panel = panel;
@@ -98,8 +99,11 @@ namespace SlopWorld
             var e = Event.current;
             // WindowStack can consume the semicolon before the window draws. Replay that character only.
             // Do not replay other Used events.
-            if (e.type == EventType.Used && e.rawType == EventType.KeyDown &&
-                (e.character == ';' || IsSemicolonKey(e.keyCode)))
+            if (
+                e.type == EventType.Used
+                && e.rawType == EventType.KeyDown
+                && (e.character == ';' || IsSemicolonKey(e.keyCode))
+            )
             {
                 HandleKey(e);
                 return;
@@ -116,8 +120,11 @@ namespace SlopWorld
                     HandleMouse(body, e);
                     return;
                 case EventType.Used:
-                    if (e.rawType == EventType.MouseDown || e.rawType == EventType.MouseDrag ||
-                        e.rawType == EventType.MouseUp)
+                    if (
+                        e.rawType == EventType.MouseDown
+                        || e.rawType == EventType.MouseDrag
+                        || e.rawType == EventType.MouseUp
+                    )
                         HandleMouse(body, e);
                     return;
                 case EventType.KeyDown:
@@ -128,24 +135,33 @@ namespace SlopWorld
 
         public void HandleChrome(Event e)
         {
-            if (ShortcutHelpWindow.HandleContentKey(e)) return;
-            if (e.type != EventType.KeyDown) return;
+            if (ShortcutHelpWindow.HandleContentKey(e))
+                return;
+            if (e.type != EventType.KeyDown)
+                return;
 
             // A pending Keyboard-page binding captures the next key, including keys used by the sidebar or terminal.
             // Escape cancels capture in the page.
-            if (ModOptions.KeyboardCaptureActive) return;
+            if (ModOptions.KeyboardCaptureActive)
+                return;
 
-            if (HandleFunctionKey(e)) { e.Use(); return; }
+            if (HandleFunctionKey(e))
+            {
+                e.Use();
+                return;
+            }
 
             if (e.keyCode == KeyCode.Escape)
             {
-                if (_panel.Content == null && HandleEscapeKey(e)) return;
+                if (_panel.Content == null && HandleEscapeKey(e))
+                    return;
                 _panel.Leave();
                 e.Use();
                 return;
             }
 
-            if (TryHandleSessionNavigation(e)) return;
+            if (TryHandleSessionNavigation(e))
+                return;
         }
 
         public void CaptureSemicolonInput()
@@ -154,6 +170,7 @@ namespace SlopWorld
         }
 
         bool TryLocal(Event e) => Try(_local, e);
+
         bool TryTerminal(Event e) => Try(_terminal, e);
 
         static bool Try(Dictionary<KeyCode, System.Func<Event, bool>> handlers, Event e)
@@ -166,7 +183,8 @@ namespace SlopWorld
         public static bool HandleFunctionKey(Event e)
         {
             // Send Shift+key to the agent or TUI.
-            if (e.shift || e.keyCode == KeyCode.None) return false;
+            if (e.shift || e.keyCode == KeyCode.None)
+                return false;
 
             if (Bound(ModDefOf.SlopCommandPalette, e) && e.control && !e.alt && !e.command)
             {
@@ -175,12 +193,18 @@ namespace SlopWorld
                 CommandPalette.Toggle();
                 return true;
             }
-            if (SidebarFunction(ModDefOf.SlopSidebarAgents, SidebarTab.Agents, e)) return true;
-            if (SidebarFunction(ModDefOf.SlopSidebarFiles, SidebarTab.Files, e)) return true;
-            if (SidebarFunction(ModDefOf.SlopSidebarGit, SidebarTab.Git, e)) return true;
-            if (SidebarFunction(ModDefOf.SlopSidebarSearch, SidebarTab.Search, e)) return true;
-            if (SidebarFunction(ModDefOf.SlopSidebarTasks, SidebarTab.Tasks, e)) return true;
-            if (SidebarFunction(ModDefOf.SlopSidebarLibrary, SidebarTab.Library, e)) return true;
+            if (SidebarFunction(ModDefOf.SlopSidebarAgents, SidebarTab.Agents, e))
+                return true;
+            if (SidebarFunction(ModDefOf.SlopSidebarFiles, SidebarTab.Files, e))
+                return true;
+            if (SidebarFunction(ModDefOf.SlopSidebarGit, SidebarTab.Git, e))
+                return true;
+            if (SidebarFunction(ModDefOf.SlopSidebarSearch, SidebarTab.Search, e))
+                return true;
+            if (SidebarFunction(ModDefOf.SlopSidebarTasks, SidebarTab.Tasks, e))
+                return true;
+            if (SidebarFunction(ModDefOf.SlopSidebarLibrary, SidebarTab.Library, e))
+                return true;
             if (Bound(ModDefOf.SlopQuickTerminal, e))
             {
                 // Use the same toggle as TerminalHotkeys. Settings views share this window, so F12 must reveal the terminal.
@@ -199,21 +223,26 @@ namespace SlopWorld
 
         static bool SidebarFunction(KeyBindingDef binding, SidebarTab tab, Event e)
         {
-            if (!Bound(binding, e)) return false;
+            if (!Bound(binding, e))
+                return false;
 
             UiMenu.CloseAll();
             // Bare F1-F6 selects a tab. Ctrl+F1-F6 returns to its last target. Shift bypasses these tab shortcuts.
-            if (e.control && !e.alt && !e.command) AgentSidebar.FocusLast(tab);
-            else AgentSidebar.ShowTab(tab);
+            if (e.control && !e.alt && !e.command)
+                AgentSidebar.FocusLast(tab);
+            else
+                AgentSidebar.ShowTab(tab);
             return true;
         }
 
         // Check whether the key matches either binding slot. The caller needs this result after it takes the event.
         static bool Bound(KeyBindingDef def, Event e)
         {
-            if (def == null) return false;
+            if (def == null)
+                return false;
             var data = KeyPrefs.KeyPrefsData;
-            if (data == null) return false;
+            if (data == null)
+                return false;
             return data.GetBoundKeyCode(def, KeyPrefs.BindingSlot.A) == e.keyCode
                 || data.GetBoundKeyCode(def, KeyPrefs.BindingSlot.B) == e.keyCode;
         }
@@ -221,23 +250,32 @@ namespace SlopWorld
         internal static bool TryTabWalkDirection(Event e, out int dir)
         {
             dir = 0;
-            if (e.type != EventType.KeyDown || !e.alt || e.shift || e.control) return false;
-            if (e.keyCode == KeyCode.Z) dir = -1;
-            else if (e.keyCode == KeyCode.X) dir = 1;
+            if (e.type != EventType.KeyDown || !e.alt || e.shift || e.control)
+                return false;
+            if (e.keyCode == KeyCode.Z)
+                dir = -1;
+            else if (e.keyCode == KeyCode.X)
+                dir = 1;
             return dir != 0;
         }
 
         internal void HandleKey(Event e)
         {
             // Try workspace actions before checking the connection. Bare Escape and Return return false, then reach terminal dispatch.
-            if (TryLocal(e)) return;
+            if (TryLocal(e))
+                return;
 
             // WindowStack consumes KeyDown before game components run. Handle every function key here.
             // Bare F-keys control SlopWorld. Shift+F sends the key to the agent.
-            if (HandleFunctionKey(e)) { e.Use(); return; }
+            if (HandleFunctionKey(e))
+            {
+                e.Use();
+                return;
+            }
 
             // Handle local session changes before checking the connection. This keeps navigation available during redeploy.
-            if (TryHandleSessionNavigation(e)) return;
+            if (TryHandleSessionNavigation(e))
+                return;
 
             // The hub drops sends while offline. Count keys so the status banner reports them.
             if (!SessionHub.Instance.Online)
@@ -254,7 +292,8 @@ namespace SlopWorld
             // Keep workspace controls available so the user can leave this pane.
             if (_panel.AutoResumePending)
             {
-                if (e.keyCode != KeyCode.None || e.character != '\0') e.Use();
+                if (e.keyCode != KeyCode.None || e.character != '\0')
+                    e.Use();
                 return;
             }
 
@@ -266,11 +305,18 @@ namespace SlopWorld
                 return;
             }
 
-            if (TryTerminal(e)) return;
+            if (TryTerminal(e))
+                return;
 
             // Unity sends printable input in a second event that carries only the character.
-            if (e.character != '\0' && e.character != '\n' &&
-                e.character != '\r' && e.character != '\t' && !e.control && !e.alt)
+            if (
+                e.character != '\0'
+                && e.character != '\n'
+                && e.character != '\r'
+                && e.character != '\t'
+                && !e.control
+                && !e.alt
+            )
             {
                 _panel.JumpToLive();
                 _panel.Literal.Append(e.character);
@@ -305,7 +351,8 @@ namespace SlopWorld
         internal bool HandleEscapeKey(Event e)
         {
             // Use Shift+Escape to close the pane. Send bare Escape to the agent.
-            if (!e.shift) return false;
+            if (!e.shift)
+                return false;
             _panel.Close();
             e.Use();
             return true;
@@ -314,25 +361,38 @@ namespace SlopWorld
         internal bool HandleReturnKey(Event e)
         {
             // Send the Kitty sequence for Shift+Enter. Compatible apps can insert a newline instead of submitting.
-            if (!e.shift) return false;
+            if (!e.shift)
+                return false;
             _panel.JumpToLive();
             _panel.Flush();
-            SessionHub.Instance.Terminal.SendKeys(_panel.SessionName, new[] { "\u001b[13;2u" }, true);
+            SessionHub.Instance.Terminal.SendKeys(
+                _panel.SessionName,
+                new[] { "\u001b[13;2u" },
+                true
+            );
             e.Use();
             return true;
         }
 
         internal bool HandleHistoryKey(Event e)
         {
-            if (!e.shift || e.control || e.alt ||
-                (e.keyCode != KeyCode.PageUp && e.keyCode != KeyCode.PageDown))
+            if (
+                !e.shift
+                || e.control
+                || e.alt
+                || (e.keyCode != KeyCode.PageUp && e.keyCode != KeyCode.PageDown)
+            )
                 return false;
 
             var live = SessionHub.Instance.Screen(_panel.SessionName);
             // Let alternate-screen apps handle shifted page keys. On the primary screen, use them to scroll terminal history.
-            if (_panel.ScrollOffset == 0 && live != null && live.AltScreen) return false;
+            if (_panel.ScrollOffset == 0 && live != null && live.AltScreen)
+                return false;
 
-            int page = _panel.Rows > 0 ? _panel.Rows : live != null ? live.Rows : 1;
+            int page =
+                _panel.Rows > 0 ? _panel.Rows
+                : live != null ? live.Rows
+                : 1;
             page = Mathf.Max(1, page);
             bool up = e.keyCode == KeyCode.PageUp;
             bool fromLive = _panel.ScrollOffset <= 0;
@@ -350,7 +410,8 @@ namespace SlopWorld
         internal bool HandleControlC(Event e)
         {
             // Without Ctrl, pass the key to the mapper. For example, Alt+C becomes M-c.
-            if (!e.control) return ForwardMappedKey(e);
+            if (!e.control)
+                return ForwardMappedKey(e);
             // Both Ctrl+C and Ctrl+Shift+C copy selected text. Without a selection, Ctrl+C sends SIGINT.
             if (_panel.HasSelection)
             {
@@ -370,7 +431,8 @@ namespace SlopWorld
         internal bool HandleControlV(Event e)
         {
             // Without Ctrl, pass the key to the mapper. For example, Alt+V becomes M-v.
-            if (!e.control) return ForwardMappedKey(e);
+            if (!e.control)
+                return ForwardMappedKey(e);
             _panel.JumpToLive();
             _panel.PasteClipboard();
             e.Use();
@@ -380,13 +442,15 @@ namespace SlopWorld
         internal bool HandleSemicolonKey(Event e)
         {
             // Some backends omit the character-only event. Keep the shifted character before this handler consumes the key.
-            if (e.character != '\0') return false;
+            if (e.character != '\0')
+                return false;
             if (e.shift)
             {
                 _panel.JumpToLive();
                 _panel.Literal.Append(':');
             }
-            else AppendSemicolon();
+            else
+                AppendSemicolon();
             e.Use();
             return true;
         }
@@ -395,7 +459,8 @@ namespace SlopWorld
         {
             var keyScreen = SessionHub.Instance.Screen(_panel.SessionName);
             string key = MapKey(e, keyScreen != null && keyScreen.AltScreen);
-            if (key == null) return false;
+            if (key == null)
+                return false;
 
             _panel.JumpToLive();
             _panel.Flush();
@@ -408,23 +473,32 @@ namespace SlopWorld
         // DoWindowContents can run more than once per frame. The frame marker prevents duplicate input.
         internal void CaptureSemicolonInputCore()
         {
-            if (_panel.AutoResumePending || _panel.SemicolonFrame == Time.frameCount ||
-                !SessionHub.Instance.Online) return;
+            if (
+                _panel.AutoResumePending
+                || _panel.SemicolonFrame == Time.frameCount
+                || !SessionHub.Instance.Online
+            )
+                return;
             bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
             string input = Input.inputString;
             int count = shift || string.IsNullOrEmpty(input) ? 0 : input.Count(c => c == ';');
             bool physical = !shift && Input.GetKeyDown(KeyCode.Semicolon);
-            if (count == 0 && !physical) return;
+            if (count == 0 && !physical)
+                return;
 
             _panel.JumpToLive();
             _panel.Flush();
-            SessionHub.Instance.Terminal.Paste(_panel.SessionName, new string(';', count > 0 ? count : 1));
+            SessionHub.Instance.Terminal.Paste(
+                _panel.SessionName,
+                new string(';', count > 0 ? count : 1)
+            );
             _panel.SemicolonFrame = Time.frameCount;
         }
 
         void AppendSemicolon()
         {
-            if (_panel.SemicolonFrame == Time.frameCount) return;
+            if (_panel.SemicolonFrame == Time.frameCount)
+                return;
             _panel.JumpToLive();
             _panel.Flush();
             SessionHub.Instance.Terminal.Paste(_panel.SessionName, ";");
@@ -439,14 +513,17 @@ namespace SlopWorld
         internal void SwitchToSlot(int slot)
         {
             var order = AgentColony.InBarOrder();
-            if (slot >= order.Count) return;
+            if (slot >= order.Count)
+                return;
 
             string name = order[slot];
             // Reopen the same agent's pane if a content view covers it.
-            if (name == _panel.SessionName && _panel.Content == null) return;
+            if (name == _panel.SessionName && _panel.Content == null)
+                return;
 
             var info = SessionHub.Instance.Get(name);
-            if (info == null) return;
+            if (info == null)
+                return;
 
             // Show the Agents tab when Alt+number selects an agent. This releases the content view being left.
             AgentSidebar.ShowWithoutHistory(SidebarTab.Agents);
@@ -460,15 +537,18 @@ namespace SlopWorld
         internal static void WalkSession(int dir)
         {
             string target = SelectAdjacentSession(dir);
-            if (target == null) return;
+            if (target == null)
+                return;
             AgentSidebar.ShowWithoutHistory(SidebarTab.Agents);
 
             var info = SessionHub.Instance.Get(target);
-            if (info == null) return;
+            if (info == null)
+                return;
 
             // Keep the current pane open when it already shows the target agent.
             var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
-            if (w != null && target == w.SessionName) return;
+            if (w != null && target == w.SessionName)
+                return;
 
             TerminalWindow.Open(target);
         }
@@ -478,19 +558,20 @@ namespace SlopWorld
         static string SelectAdjacentSession(int dir)
         {
             var order = TabOrder();
-            if (order.Count == 0) return null;
+            if (order.Count == 0)
+                return null;
 
             string current = SessionSelectable.Current;
             int idx = -1;
             if (current != null)
                 idx = order.IndexOf(current);
 
-            int next = idx < 0
-                ? (dir > 0 ? 0 : order.Count - 1)
-                : (idx + dir + order.Count) % order.Count;
+            int next =
+                idx < 0 ? (dir > 0 ? 0 : order.Count - 1) : (idx + dir + order.Count) % order.Count;
 
             string target = order[next];
-            if (target == null) return null;
+            if (target == null)
+                return null;
 
             // Clear the previous pawn after selecting the session, so map synchronization
             // cannot replace a selected session that has no pawn.
@@ -507,8 +588,12 @@ namespace SlopWorld
             var seen = new HashSet<string>(order);
             foreach (var info in SessionHub.Instance.Sessions)
             {
-                if (info == null || !AgentSidebar.Passes(info.Project) ||
-                    string.IsNullOrEmpty(info.Name) || !seen.Add(info.Name))
+                if (
+                    info == null
+                    || !AgentSidebar.Passes(info.Project)
+                    || string.IsNullOrEmpty(info.Name)
+                    || !seen.Add(info.Name)
+                )
                     continue;
                 order.Add(info.Name);
             }
@@ -523,11 +608,11 @@ namespace SlopWorld
             foreach (string session in TabOrder())
             {
                 var info = SessionHub.Instance.Get(session);
-                if (!AgentSidebar.IsOpenBesideCandidate(info)) continue;
+                if (!AgentSidebar.IsOpenBesideCandidate(info))
+                    continue;
                 order.Add(session);
             }
             return order;
         }
-
     }
 }

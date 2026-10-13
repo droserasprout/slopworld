@@ -19,12 +19,15 @@ namespace SlopWorld
         {
             static void Postfix(Map __instance)
             {
-                if (!Resting) return;
+                if (!Resting)
+                    return;
                 // MapUpdate runs for each loaded map. Draw a background only for the displayed map.
-                if (__instance != Find.CurrentMap) return;
+                if (__instance != Find.CurrentMap)
+                    return;
                 // GUI input can close the terminal after world drawing has been queued.
                 // Keep the background ready underneath it, including its animation history.
-                if (!WorldRendererUtility.DrawingMap) return;
+                if (!WorldRendererUtility.DrawingMap)
+                    return;
 
                 EcoBackdrop.Draw(__instance);
             }

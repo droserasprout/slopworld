@@ -23,12 +23,19 @@ namespace SlopWorld.Tests
             Find.TickManager.TicksGame = 12000;
             Scribe.mode = LoadSaveMode.Inactive;
             loaded.FinalizeInit();
-            Assert.That(loaded.Arrivals, Is.EqualTo(new[] {
-                int.MaxValue, partlyCleared ? 12120 : int.MaxValue, int.MaxValue }));
+            Assert.That(
+                loaded.Arrivals,
+                Is.EqualTo(
+                    new[] { int.MaxValue, partlyCleared ? 12120 : int.MaxValue, int.MaxValue }
+                )
+            );
             Assert.That(loaded.Reached, Is.EqualTo(partlyCleared ? 1 : 0));
             loaded.FinalizeInit();
-            Assert.That(loaded.Arrivals[1], Is.EqualTo(partlyCleared ? 12120 : int.MaxValue),
-                "finalization is idempotent");
+            Assert.That(
+                loaded.Arrivals[1],
+                Is.EqualTo(partlyCleared ? 12120 : int.MaxValue),
+                "finalization is idempotent"
+            );
         }
     }
 }

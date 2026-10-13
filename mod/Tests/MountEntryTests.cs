@@ -23,16 +23,32 @@ namespace SlopWorld.Tests
             AssertEx.Equal("rw", MountEntry.ModeName(MountMode.Rw), "read-write wire name");
             AssertEx.Equal("rw", MountEntry.ModeName(MountMode.None), "none wire fallback");
             AssertEx.Equal("None", MountPresentation.ModeLabel(MountMode.None), "none label");
-            AssertEx.Equal("Read-only", MountPresentation.ModeLabel(MountMode.Ro), "read-only label");
-            AssertEx.Equal("Read-write", MountPresentation.ModeLabel(MountMode.Rw), "read-write label");
+            AssertEx.Equal(
+                "Read-only",
+                MountPresentation.ModeLabel(MountMode.Ro),
+                "read-only label"
+            );
+            AssertEx.Equal(
+                "Read-write",
+                MountPresentation.ModeLabel(MountMode.Rw),
+                "read-write label"
+            );
         }
 
         static void RoundTripsMountLists()
         {
-            var mounts = MountEntry.ListFromWire(new[] {
-                new Wire.Mount { From = "docs\"and\"tests", To = "/mnt/docs", Mode = "ro" },
-                new Wire.Mount { From = "scratch" },
-            });
+            var mounts = MountEntry.ListFromWire(
+                new[]
+                {
+                    new Wire.Mount
+                    {
+                        From = "docs\"and\"tests",
+                        To = "/mnt/docs",
+                        Mode = "ro",
+                    },
+                    new Wire.Mount { From = "scratch" },
+                }
+            );
 
             AssertEx.Equal(2, mounts.Count, "mount count");
             AssertEx.Equal("docs\"and\"tests", mounts[0].From, "quoted project name");
@@ -43,8 +59,16 @@ namespace SlopWorld.Tests
             var wire = mounts.Select(m => m.ToWire()).ToList();
             var roundTrip = MountEntry.ListFromWire(wire);
             AssertEx.Equal(wire.Count, roundTrip.Count, "wire mount count round trip");
-            AssertEx.Sequence(wire, roundTrip.Select(m => m.ToWire()), "wire mount model round trip");
-            AssertEx.Equal(0, MountEntry.ListFromWire(Array.Empty<Wire.Mount>()).Count, "empty mount list");
+            AssertEx.Sequence(
+                wire,
+                roundTrip.Select(m => m.ToWire()),
+                "wire mount model round trip"
+            );
+            AssertEx.Equal(
+                0,
+                MountEntry.ListFromWire(Array.Empty<Wire.Mount>()).Count,
+                "empty mount list"
+            );
         }
     }
 }

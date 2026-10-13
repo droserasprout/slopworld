@@ -19,8 +19,10 @@ namespace SlopWorld.Tests
             _folder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
             Directory.CreateDirectory(_folder);
             GenFilePaths.SaveDataFolderPath = _folder;
-            foreach (var name in new[] { "_ok", "_notice" }) Set(name, null);
-            foreach (var name in new[] { "_complained", "_noticePending", "_disabled" }) Set(name, false);
+            foreach (var name in new[] { "_ok", "_notice" })
+                Set(name, null);
+            foreach (var name in new[] { "_complained", "_noticePending", "_disabled" })
+                Set(name, false);
             Find.WindowStack = new WindowStack();
             ModsConfig.Active.Clear();
             ModsConfig.Active.Add("ludeon.rimworld");
@@ -30,8 +32,10 @@ namespace SlopWorld.Tests
             ModsConfig.FailSave = false;
         }
 
-        static void Set(string name, object value) => typeof(ModProfile)
-            .GetField(name, BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, value);
+        static void Set(string name, object value) =>
+            typeof(ModProfile)
+                .GetField(name, BindingFlags.NonPublic | BindingFlags.Static)
+                .SetValue(null, value);
 
         [TearDown]
         public void TearDown()
@@ -48,7 +52,10 @@ namespace SlopWorld.Tests
             Assert.That(ModProfile.Ok, Is.False);
             ModProfile.Complain();
             ModProfile.Complain();
-            Assert.That(ModsConfig.Active, Is.EquivalentTo(new[] { "ludeon.rimworld", "other.mod" }));
+            Assert.That(
+                ModsConfig.Active,
+                Is.EquivalentTo(new[] { "ludeon.rimworld", "other.mod" })
+            );
             Assert.That(ModsConfig.Saves, Is.EqualTo(1));
         }
 

@@ -14,7 +14,8 @@ namespace SlopWorld
             {
                 string path = Radio.LikesPath();
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
-                if (!File.Exists(path)) File.WriteAllText(path, "");
+                if (!File.Exists(path))
+                    File.WriteAllText(path, "");
                 Application.OpenURL(new Uri(path).AbsoluteUri);
             }
             catch (Exception error)

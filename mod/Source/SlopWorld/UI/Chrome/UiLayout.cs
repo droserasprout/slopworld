@@ -17,8 +17,12 @@ namespace SlopWorld
         {
             float width = Mathf.Min(rect.width, CenteredBandMaxWidth);
             float inset = Mathf.Min(rect.height, UiTheme.GapL);
-            return new Rect(rect.x + (rect.width - width) / 2f,
-                rect.y + inset, width, rect.height - inset);
+            return new Rect(
+                rect.x + (rect.width - width) / 2f,
+                rect.y + inset,
+                width,
+                rect.height - inset
+            );
         }
 
         // Listing_Standard uses this oversized rect so a scroll body can measure its content
@@ -32,12 +36,18 @@ namespace SlopWorld
 
         // Form buttons use their content width. Callers that own fixed geometry (row action
         // clusters, key cells, footer bars) continue to use Button(Rect, ...).
-        public static bool Button(Listing_Standard l, string label, Btn kind = Btn.Default,
-                                  bool on = true, string tip = null)
+        public static bool Button(
+            Listing_Standard l,
+            string label,
+            Btn kind = Btn.Default,
+            bool on = true,
+            string tip = null
+        )
         {
             var r = l.GetRect(BtnH);
             r.width = Mathf.Min(r.width, BtnW(label, ButtonMinW));
-            if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip);
+            if (!string.IsNullOrEmpty(tip))
+                TooltipHandler.TipRegion(r, tip);
             bool clicked = Button(r, label, kind, on);
             // Keep consecutive form buttons legible without making each caller remember
             // the minimum gap. Callers can still add a larger group gap when needed.
@@ -52,10 +62,16 @@ namespace SlopWorld
 
         // A compact icon can keep a deliberate inset while sharing the same hover and press
         // treatment as a full-size chrome icon (the window close cross is the one case).
-        public static bool IconButton(Rect r, Texture2D icon, Color tint, float inset,
-                                      bool on = true)
+        public static bool IconButton(
+            Rect r,
+            Texture2D icon,
+            Color tint,
+            float inset,
+            bool on = true
+        )
         {
-            using (WidgetState.Save()) return IconButtonCore(r, icon, tint, inset, on);
+            using (WidgetState.Save())
+                return IconButtonCore(r, icon, tint, inset, on);
         }
 
         static bool IconButtonCore(Rect r, Texture2D icon, Color tint, float inset, bool on)
@@ -64,7 +80,8 @@ namespace SlopWorld
             bool held = over && Input.GetMouseButton(0);
             bool repaint = Event.current != null && Event.current.type == EventType.Repaint;
 
-            if (repaint && over) Slab.Fill(r, held ? BtnDown : BtnHover);
+            if (repaint && over)
+                Slab.Fill(r, held ? BtnDown : BtnHover);
 
             if (repaint)
             {
@@ -75,7 +92,8 @@ namespace SlopWorld
                 }
             }
 
-            if (!RowButton(r, on)) return false;
+            if (!RowButton(r, on))
+                return false;
 
             SoundDefOf.Click.PlayOneShotOnCamera();
             return true;
@@ -101,7 +119,8 @@ namespace SlopWorld
 
         public static void Validation(Listing_Standard l, string text)
         {
-            if (string.IsNullOrEmpty(text)) return;
+            if (string.IsNullOrEmpty(text))
+                return;
             using (WidgetState.Save())
             {
                 GUI.color = Bad;
@@ -111,16 +130,23 @@ namespace SlopWorld
 
         public static void ValidationLabel(Rect rect, string text)
         {
-            if (string.IsNullOrEmpty(text)) return;
+            if (string.IsNullOrEmpty(text))
+                return;
             UiText.PlainStatusLabel(rect, text, Bad, GameFont.Tiny);
         }
 
         public struct Bar
         {
             Rect _r;
-            float _left, _right;
+            float _left,
+                _right;
 
-            public Bar(Rect r) { _r = r; _left = 0f; _right = 0f; }
+            public Bar(Rect r)
+            {
+                _r = r;
+                _left = 0f;
+                _right = 0f;
+            }
 
             public bool Left(string label, Btn kind = Btn.Default, bool on = true)
             {
@@ -141,9 +167,12 @@ namespace SlopWorld
             public Rect Rest()
             {
                 float x = _r.x + _left;
-                return new Rect(x, _r.y,
+                return new Rect(
+                    x,
+                    _r.y,
                     Mathf.Max(_r.xMax - _right - UiTheme.GapS - x, 0f),
-                    UiTheme.BtnH);
+                    UiTheme.BtnH
+                );
             }
 
             // Measured at Small whatever the caller left the font at. [BtnH] is a fixed height cut
@@ -164,14 +193,25 @@ namespace SlopWorld
 
         public static FloatMenuOption MenuToggle(string label, bool on, Action act)
         {
-            var opt = new FloatMenuOption(label, act, MenuOptionPriority.Default, null, null,
-                TickColW, r => DrawTick(r, on));
+            var opt = new FloatMenuOption(
+                label,
+                act,
+                MenuOptionPriority.Default,
+                null,
+                null,
+                TickColW,
+                r => DrawTick(r, on)
+            );
             opt.extraPartRightJustified = false;
             return opt;
         }
 
-        public static UiSubmenu MenuSubmenu(string label, Func<List<FloatMenuOption>> children,
-            bool on, bool mixed)
+        public static UiSubmenu MenuSubmenu(
+            string label,
+            Func<List<FloatMenuOption>> children,
+            bool on,
+            bool mixed
+        )
         {
             return new UiSubmenu(label, children)
             {
@@ -184,8 +224,10 @@ namespace SlopWorld
         // OS font lists often expose a whole foundry under one leading word: Noto alone can
         // account for dozens of faces. Keep those families behind one menu while leaving
         // names with no siblings as one-click choices.
-        public static IEnumerable<FloatMenuOption> GroupedFontOptions(IEnumerable<string> names,
-                                                                       Action<string> choose)
+        public static IEnumerable<FloatMenuOption> GroupedFontOptions(
+            IEnumerable<string> names,
+            Action<string> choose
+        )
         {
             var groups = (names ?? Enumerable.Empty<string>())
                 .Where(name => !string.IsNullOrEmpty(name))
@@ -202,9 +244,10 @@ namespace SlopWorld
                 }
 
                 var family = group.Key;
-                yield return new UiSubmenu(family, () => faces
-                    .Select(name => FontOption(name, choose))
-                    .ToList());
+                yield return new UiSubmenu(
+                    family,
+                    () => faces.Select(name => FontOption(name, choose)).ToList()
+                );
             }
         }
 
@@ -220,7 +263,8 @@ namespace SlopWorld
         static bool DrawTick(Rect r, bool on, bool mixed = false)
         {
             var box = TickBox(r, on);
-            if (mixed) Slab.Fill(box.ContractedBy(Mathf.Round(box.width * 0.3f)), CheckFace);
+            if (mixed)
+                Slab.Fill(box.ContractedBy(Mathf.Round(box.width * 0.3f)), CheckFace);
             // extraPartOnGUI's return means the extra part handled the click. The row does.
             return false;
         }
@@ -239,13 +283,20 @@ namespace SlopWorld
             float w = Wide(text);
 
             float h = RowH;
-            var badge = new Rect(line.xMax - (w + StatusMarker + GapS * 3f),
+            var badge = new Rect(
+                line.xMax - (w + StatusMarker + GapS * 3f),
                 line.y + (line.height - h) / 2f,
-                w + StatusMarker + GapS * 3f, h);
+                w + StatusMarker + GapS * 3f,
+                h
+            );
             Slab.Box(badge, Well, Edge);
 
-            var marker = new Rect(badge.x + GapS, badge.y + (h - StatusMarker) / 2f,
-                StatusMarker, StatusMarker);
+            var marker = new Rect(
+                badge.x + GapS,
+                badge.y + (h - StatusMarker) / 2f,
+                StatusMarker,
+                StatusMarker
+            );
             Slab.Fill(marker, online ? Yes : Bad);
 
             using (WidgetState.Save())
@@ -293,20 +344,35 @@ namespace SlopWorld
             }
         }
 
-        public static void DrawRail<T>(Rect r, (string label, T tab)[] tabs, ref T active,
-                                       Func<T, bool> enabled = null)
+        public static void DrawRail<T>(
+            Rect r,
+            (string label, T tab)[] tabs,
+            ref T active,
+            Func<T, bool> enabled = null
+        )
         {
             float y = r.y;
             foreach (var tab in tabs)
-                y = RailTab(r, y, tab.label, tab.tab, ref active,
-                    enabled == null || enabled(tab.tab));
+                y = RailTab(
+                    r,
+                    y,
+                    tab.label,
+                    tab.tab,
+                    ref active,
+                    enabled == null || enabled(tab.tab)
+                );
         }
 
         static float RailTab<T>(Rect r, float y, string label, T tab, ref T active, bool enabled)
         {
-            if (Button(new Rect(r.x, y, r.width, BtnH), label,
+            if (
+                Button(
+                    new Rect(r.x, y, r.width, BtnH),
+                    label,
                     EqualityComparer<T>.Default.Equals(active, tab) ? Btn.Primary : Btn.Ghost,
-                    enabled))
+                    enabled
+                )
+            )
             {
                 if (!EqualityComparer<T>.Default.Equals(active, tab))
                     TextFieldSelection.ReleaseFocus();

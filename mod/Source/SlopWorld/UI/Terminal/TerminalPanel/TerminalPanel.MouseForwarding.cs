@@ -12,15 +12,21 @@ namespace SlopWorld
 
         internal void ReleasePanelInput()
         {
-            if (TerminalLatency.Enabled) TerminalLatency.Timeline.CancelScroll(this);
+            if (TerminalLatency.Enabled)
+                TerminalLatency.Timeline.CancelScroll(this);
             bool release = _mouseFwd;
             _mouseFwd = false;
             try
             {
                 Flush();
                 if (release && _state.Name != null)
-                    SessionHub.Instance.Terminal.SendMouse(_state.Name, "release", _fwdButton,
-                        _fwdCell.x, _fwdCell.y);
+                    SessionHub.Instance.Terminal.SendMouse(
+                        _state.Name,
+                        "release",
+                        _fwdButton,
+                        _fwdCell.x,
+                        _fwdCell.y
+                    );
             }
             finally
             {
@@ -29,13 +35,16 @@ namespace SlopWorld
                 _state.Selection.LineDragging = false;
                 _state.Selection.EdgeDirection = 0;
                 ReleaseSelection();
-                if (_historyBarDragging) GUIUtility.hotControl = 0;
+                if (_historyBarDragging)
+                    GUIUtility.hotControl = 0;
                 _historyBarDragging = false;
             }
         }
 
-        internal bool OwnsForwardedMouse(Event e) => _mouseFwd && e.button == _fwdButton &&
-            (MouseType(e) == EventType.MouseDrag || MouseType(e) == EventType.MouseUp);
+        internal bool OwnsForwardedMouse(Event e) =>
+            _mouseFwd
+            && e.button == _fwdButton
+            && (MouseType(e) == EventType.MouseDrag || MouseType(e) == EventType.MouseUp);
 
         // Forward the press so click-only apps can react. Without AppDrag, release that
         // provisional press when dragging begins and let a left drag select terminal text.
@@ -50,10 +59,17 @@ namespace SlopWorld
             switch (MouseType(e))
             {
                 case EventType.MouseDown:
-                    if (!body.Contains(e.mousePosition)) return true;
+                    if (!body.Contains(e.mousePosition))
+                        return true;
                     JumpToLive();
                     ClearSelection();
-                    SessionHub.Instance.Terminal.SendMouse(_state.Name, "press", btn, cell.x, cell.y);
+                    SessionHub.Instance.Terminal.SendMouse(
+                        _state.Name,
+                        "press",
+                        btn,
+                        cell.x,
+                        cell.y
+                    );
                     _mouseFwd = true;
                     _fwdButton = btn;
                     _fwdCell = cell;
@@ -61,32 +77,55 @@ namespace SlopWorld
                     return true;
 
                 case EventType.MouseDrag:
-                    if (!_mouseFwd) return false;
+                    if (!_mouseFwd)
+                        return false;
                     if (live != null && live.AppDrag)
                     {
                         _fwdCell = cell;
-                        SessionHub.Instance.Terminal.SendMouse(_state.Name, "drag", btn, cell.x, cell.y);
+                        SessionHub.Instance.Terminal.SendMouse(
+                            _state.Name,
+                            "drag",
+                            btn,
+                            cell.x,
+                            cell.y
+                        );
                         e.Use();
                         return true;
                     }
                     // Only the left button selects. Anything else is swallowed.
                     _mouseFwd = false;
-                    SessionHub.Instance.Terminal.SendMouse(_state.Name, "release", btn, _fwdCell.x, _fwdCell.y);
-                    if (btn != 0) { e.Use(); return true; }
+                    SessionHub.Instance.Terminal.SendMouse(
+                        _state.Name,
+                        "release",
+                        btn,
+                        _fwdCell.x,
+                        _fwdCell.y
+                    );
+                    if (btn != 0)
+                    {
+                        e.Use();
+                        return true;
+                    }
                     _state.Selection.A = _fwdCell;
                     _state.Selection.Dragging = true;
                     CaptureSelection(body);
                     return false;
 
                 case EventType.MouseUp:
-                    if (!_mouseFwd) return false;
+                    if (!_mouseFwd)
+                        return false;
                     _mouseFwd = false;
-                    SessionHub.Instance.Terminal.SendMouse(_state.Name, "release", btn, cell.x, cell.y);
+                    SessionHub.Instance.Terminal.SendMouse(
+                        _state.Name,
+                        "release",
+                        btn,
+                        cell.x,
+                        cell.y
+                    );
                     e.Use();
                     return true;
             }
             return true;
         }
-
     }
 }

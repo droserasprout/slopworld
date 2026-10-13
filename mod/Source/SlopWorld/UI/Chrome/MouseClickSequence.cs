@@ -22,11 +22,15 @@ namespace SlopWorld
 
         public int Observe(Event e, float now)
         {
-            bool sameSequence = _count > 0 && _button == e.button &&
-                now >= _at && now - _at <= MaxInterval &&
-                (e.mousePosition - _position).sqrMagnitude <= MaxDistance * MaxDistance;
+            bool sameSequence =
+                _count > 0
+                && _button == e.button
+                && now >= _at
+                && now - _at <= MaxInterval
+                && (e.mousePosition - _position).sqrMagnitude <= MaxDistance * MaxDistance;
             _count = sameSequence ? _count + 1 : 1;
-            if (_useNativeClickCount && e.clickCount > _count) _count = e.clickCount;
+            if (_useNativeClickCount && e.clickCount > _count)
+                _count = e.clickCount;
 
             _button = e.button;
             _position = e.mousePosition;

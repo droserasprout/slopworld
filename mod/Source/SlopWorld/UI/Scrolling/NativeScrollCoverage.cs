@@ -8,7 +8,8 @@ namespace SlopWorld
     internal sealed class NativeScrollCoverage
     {
         int _frame = -1;
-        float _dx, _dy;
+        float _dx,
+            _dy;
 
         public void Clear() => _frame = -1;
 
@@ -20,14 +21,18 @@ namespace SlopWorld
         }
 
         public bool Covers(int frame, float dx, float dy) =>
-            _frame >= 0 && frame >= _frame && frame - _frame <= 1 &&
-            (Math.Abs(dx) > 0.0001f || Math.Abs(dy) > 0.0001f) &&
-            AxisCovered(dx, _dx) && AxisCovered(dy, _dy);
+            _frame >= 0
+            && frame >= _frame
+            && frame - _frame <= 1
+            && (Math.Abs(dx) > 0.0001f || Math.Abs(dy) > 0.0001f)
+            && AxisCovered(dx, _dx)
+            && AxisCovered(dy, _dy);
 
         // A vertical legacy packet need not report the touchpad's tiny horizontal drift.
         // Actual logical movement on an uncovered/reversed axis must still fall back.
         static bool AxisCovered(float logical, float native) =>
-            Math.Abs(logical) <= 0.0001f ||
-            (logical > 0f && native > 0.0001f) || (logical < 0f && native < -0.0001f);
+            Math.Abs(logical) <= 0.0001f
+            || (logical > 0f && native > 0.0001f)
+            || (logical < 0f && native < -0.0001f);
     }
 }

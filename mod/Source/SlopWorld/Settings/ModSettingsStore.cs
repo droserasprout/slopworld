@@ -29,22 +29,25 @@ namespace SlopWorld
         {
             string text = settings.ToToml();
             string directory = Path.GetDirectoryName(path);
-            if (string.IsNullOrEmpty(directory)) directory = ".";
+            if (string.IsNullOrEmpty(directory))
+                directory = ".";
             Directory.CreateDirectory(directory);
 
             string temporary = path + ".tmp";
             File.WriteAllText(temporary, text, new UTF8Encoding(false));
             try
             {
-                if (File.Exists(path)) File.Replace(temporary, path, null);
-                else File.Move(temporary, path);
+                if (File.Exists(path))
+                    File.Replace(temporary, path, null);
+                else
+                    File.Move(temporary, path);
             }
             catch
             {
-                if (File.Exists(path)) File.Delete(path);
+                if (File.Exists(path))
+                    File.Delete(path);
                 File.Move(temporary, path);
             }
         }
-
     }
 }

@@ -25,8 +25,7 @@ namespace SlopWorld
         const float Indent = 12f;
 
         // Which categories are folded. In-memory only, the way every other fold is.
-        readonly HashSet<KeyBindingCategoryDef> _folded =
-            new HashSet<KeyBindingCategoryDef>();
+        readonly HashSet<KeyBindingCategoryDef> _folded = new HashSet<KeyBindingCategoryDef>();
 
         // True while we are waiting for a key press for a given binding.
         KeyBindingDef _listening;
@@ -44,44 +43,45 @@ namespace SlopWorld
             var inner = SettingsPageLayout.BodyWithoutFooter(rect);
 
             // Build the content model once per frame.
-            var cats = DefDatabase<KeyBindingCategoryDef>.AllDefs
-                .OrderBy(c => c.defName)
-                .ToList();
+            var cats = DefDatabase<KeyBindingCategoryDef>.AllDefs.OrderBy(c => c.defName).ToList();
 
-            var bindingsMap = DefDatabase<KeyBindingDef>.AllDefs
-                .Where(b => b.category != null && StripKeys.Kept(b))
+            var bindingsMap = DefDatabase<KeyBindingDef>
+                .AllDefs.Where(b => b.category != null && StripKeys.Kept(b))
                 .GroupBy(b => b.category)
-                .ToDictionary(g => g.Key, g => g.OrderBy(b => b.defaultKeyCodeA)
-                    .ThenBy(b => b.defName).ToList());
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderBy(b => b.defaultKeyCodeA).ThenBy(b => b.defName).ToList()
+                );
 
             // Measure total content height.
-            float contentWidth = UiScrollBody.Measure(inner, 0f,
-                UiScrollbarReservation.Always).ContentWidth;
+            float contentWidth = UiScrollBody
+                .Measure(inner, 0f, UiScrollbarReservation.Always)
+                .ContentWidth;
             float totalH = MeasureCategories(cats, bindingsMap, contentWidth);
             // Room for the Restore Defaults button at the foot.
             totalH += UiTheme.BtnH + UiTheme.GapS + UiTheme.GapS;
 
             // Scroll view for the list area.
-            var geometry = UiScrollBody.Measure(inner, totalH,
-                UiScrollbarReservation.Always);
+            var geometry = UiScrollBody.Measure(inner, totalH, UiScrollbarReservation.Always);
             using (_scroll.Scope(inner, geometry.View))
             {
-
                 float y = 0f;
 
                 foreach (var cat in cats)
                 {
                     List<KeyBindingDef> list;
-                    if (!bindingsMap.TryGetValue(cat, out list) || list.Count == 0) continue;
-                    y += DrawCategory(new Rect(0f, y, geometry.View.width,
-                        geometry.View.height - y),
-                        cat, list);
+                    if (!bindingsMap.TryGetValue(cat, out list) || list.Count == 0)
+                        continue;
+                    y += DrawCategory(
+                        new Rect(0f, y, geometry.View.width, geometry.View.height - y),
+                        cat,
+                        list
+                    );
                 }
 
                 // "Restore defaults" at the bottom of the scroll content.
                 y += UiTheme.GapS;
                 DrawRestoreDefaults(new Rect(0f, y, geometry.View.width, UiTheme.BtnH));
-
             }
 
             // Handle key capture while listening — this catches keys the buttons miss.
@@ -89,14 +89,18 @@ namespace SlopWorld
                 CaptureKey();
         }
 
-        float MeasureCategories(List<KeyBindingCategoryDef> cats,
-            Dictionary<KeyBindingCategoryDef, List<KeyBindingDef>> bindingsMap, float width)
+        float MeasureCategories(
+            List<KeyBindingCategoryDef> cats,
+            Dictionary<KeyBindingCategoryDef, List<KeyBindingDef>> bindingsMap,
+            float width
+        )
         {
             float height = 0f;
             foreach (var cat in cats)
             {
                 List<KeyBindingDef> list;
-                if (!bindingsMap.TryGetValue(cat, out list) || list.Count == 0) continue;
+                if (!bindingsMap.TryGetValue(cat, out list) || list.Count == 0)
+                    continue;
                 height += CatH;
                 if (!_folded.Contains(cat))
                     height += list.Count * BindingHeight(BindingWidth(width)) + Gap;
@@ -113,11 +117,16 @@ namespace SlopWorld
 
                 var headRect = new Rect(rect.x, y, rect.width, CatH);
                 bool overHead = Mouse.IsOver(headRect);
-                if (overHead) Slab.Fill(headRect, UiTheme.Hover);
+                if (overHead)
+                    Slab.Fill(headRect, UiTheme.Hover);
 
                 float arrowSize = 10f;
-                var arrowRect = new Rect(headRect.x, headRect.y + (CatH - arrowSize) / 2f,
-                    arrowSize, arrowSize);
+                var arrowRect = new Rect(
+                    headRect.x,
+                    headRect.y + (CatH - arrowSize) / 2f,
+                    arrowSize,
+                    arrowSize
+                );
                 GUI.color = UiTheme.Faint;
                 GUI.DrawTexture(arrowRect, folded ? TexButton.Reveal : TexButton.Collapse);
 
@@ -128,24 +137,33 @@ namespace SlopWorld
                 GUI.color = UiTheme.Dim;
                 UiText.RowLabel(
                     new Rect(lx, headRect.y, rect.width - lx - Gap, CatH),
-                    cat.label + tail);
+                    cat.label + tail
+                );
 
                 // Heading click: fold/unfold.
-                if (overHead && Event.current.rawType == EventType.MouseDown && Event.current.button == 0)
+                if (
+                    overHead
+                    && Event.current.rawType == EventType.MouseDown
+                    && Event.current.button == 0
+                )
                 {
-                    if (!_folded.Remove(cat)) _folded.Add(cat);
+                    if (!_folded.Remove(cat))
+                        _folded.Add(cat);
                     Event.current.Use();
                 }
 
                 y += CatH;
-                if (folded) return y - rect.y;
+                if (folded)
+                    return y - rect.y;
 
                 foreach (var binding in list)
                 {
                     float rowWidth = BindingWidth(rect.width);
                     float rowHeight = BindingHeight(rowWidth);
-                    y += DrawBinding(new Rect(rect.x + Mathf.Min(Indent, rect.width), y,
-                        rowWidth, rowHeight), binding);
+                    y += DrawBinding(
+                        new Rect(rect.x + Mathf.Min(Indent, rect.width), y, rowWidth, rowHeight),
+                        binding
+                    );
                 }
                 y += Gap;
                 return y - rect.y;
@@ -154,8 +172,8 @@ namespace SlopWorld
 
         static float BindingWidth(float width) => Mathf.Max(0f, width - Indent);
 
-        static float BindingHeight(float width) => width < KeyW + 160f + Gap
-            ? UiTheme.LineH + Gap + RowH : RowH;
+        static float BindingHeight(float width) =>
+            width < KeyW + 160f + Gap ? UiTheme.LineH + Gap + RowH : RowH;
 
         float DrawBinding(Rect rect, KeyBindingDef binding)
         {
@@ -170,11 +188,18 @@ namespace SlopWorld
                 bool stacked = rect.height > RowH;
                 float keyW = Mathf.Min(KeyW, rect.width);
                 float labelW = stacked ? rect.width : Mathf.Max(0f, rect.width - keyW - Gap);
-                UiText.RowLabel(new Rect(rect.x, rect.y, labelW, stacked ? UiTheme.LineH : RowH), binding.label);
+                UiText.RowLabel(
+                    new Rect(rect.x, rect.y, labelW, stacked ? UiTheme.LineH : RowH),
+                    binding.label
+                );
 
                 // Key button: click to rebind.
-                var keyRect = new Rect(stacked ? rect.x : rect.xMax - keyW,
-                    stacked ? rect.yMax - RowH : rect.y, keyW, RowH);
+                var keyRect = new Rect(
+                    stacked ? rect.x : rect.xMax - keyW,
+                    stacked ? rect.yMax - RowH : rect.y,
+                    keyW,
+                    RowH
+                );
                 if (_listening == binding)
                 {
                     // Listening state: show a primary-style button asking for input.
@@ -187,8 +212,11 @@ namespace SlopWorld
                     // Click side selects the main/alternate slot. Do not choose the first empty
                     // slot or a populated primary key could never be replaced.
                     var ev = Event.current;
-                    if (Mouse.IsOver(keyRect) && ev.rawType == EventType.MouseDown
-                                              && ev.button == 1)
+                    if (
+                        Mouse.IsOver(keyRect)
+                        && ev.rawType == EventType.MouseDown
+                        && ev.button == 1
+                    )
                     {
                         _bindingSlot = KeyPrefs.BindingSlot.B;
                         _listening = binding;
@@ -200,9 +228,11 @@ namespace SlopWorld
                         _listening = binding;
                     }
 
-                    TooltipHandler.TipRegion(keyRect,
-                        "Click to set the main key, right-click for the alternate.\n\n" +
-                        "Esc cancels, Delete clears the slot. Modifiers are not configurable.");
+                    TooltipHandler.TipRegion(
+                        keyRect,
+                        "Click to set the main key, right-click for the alternate.\n\n"
+                            + "Esc cancels, Delete clears the slot. Modifiers are not configurable."
+                    );
                 }
 
                 return rect.height;
@@ -215,8 +245,11 @@ namespace SlopWorld
             {
                 KeyPrefs.KeyPrefsData.ResetToDefaults();
                 KeyPrefs.Save();
-                Messages.Message("SlopWorld: key bindings restored to defaults.",
-                    MessageTypeDefOf.TaskCompletion, false);
+                Messages.Message(
+                    "SlopWorld: key bindings restored to defaults.",
+                    MessageTypeDefOf.TaskCompletion,
+                    false
+                );
             }
             return UiTheme.BtnH;
         }
@@ -226,7 +259,8 @@ namespace SlopWorld
         void CaptureKey()
         {
             var e = Event.current;
-            if (e.rawType != EventType.KeyDown) return;
+            if (e.rawType != EventType.KeyDown)
+                return;
 
             if (e.keyCode == KeyCode.Escape)
             {
@@ -239,7 +273,8 @@ namespace SlopWorld
             // Unity emits a separate KeyDown for each modifier before the key at the end of
             // a chord. KeyPrefs stores only the key code, so modifiers are prefixes rather
             // than bindings of their own. Keep listening until the actual key arrives.
-            if (IgnoredKeys.Contains(e.keyCode)) return;
+            if (IgnoredKeys.Contains(e.keyCode))
+                return;
 
             var data = KeyPrefs.KeyPrefsData;
             // Delete empties the slot rather than binding Delete to it, which is the only
@@ -252,7 +287,9 @@ namespace SlopWorld
                 if (clash != null)
                     Messages.Message(
                         $"SlopWorld: {ShortcutLabels.Key(code)} is also on \"{clash.label}\".",
-                        MessageTypeDefOf.CautionInput, false);
+                        MessageTypeDefOf.CautionInput,
+                        false
+                    );
             }
 
             data.SetBinding(_listening, _bindingSlot, code);
@@ -268,9 +305,12 @@ namespace SlopWorld
             var data = KeyPrefs.KeyPrefsData;
             foreach (var b in DefDatabase<KeyBindingDef>.AllDefs)
             {
-                if (b == except || !StripKeys.Kept(b)) continue;
-                if (data.GetBoundKeyCode(b, KeyPrefs.BindingSlot.A) == code
-                    || data.GetBoundKeyCode(b, KeyPrefs.BindingSlot.B) == code)
+                if (b == except || !StripKeys.Kept(b))
+                    continue;
+                if (
+                    data.GetBoundKeyCode(b, KeyPrefs.BindingSlot.A) == code
+                    || data.GetBoundKeyCode(b, KeyPrefs.BindingSlot.B) == code
+                )
                     return b;
             }
             return null;
@@ -279,13 +319,23 @@ namespace SlopWorld
         static readonly HashSet<KeyCode> IgnoredKeys = new HashSet<KeyCode>
         {
             KeyCode.Escape,
-            KeyCode.Mouse0, KeyCode.Mouse1, KeyCode.Mouse2,
-            KeyCode.Mouse3, KeyCode.Mouse4, KeyCode.Mouse5, KeyCode.Mouse6,
-            KeyCode.LeftShift, KeyCode.RightShift,
-            KeyCode.LeftControl, KeyCode.RightControl,
-            KeyCode.LeftAlt, KeyCode.RightAlt,
-            KeyCode.LeftCommand, KeyCode.RightCommand,
-            KeyCode.LeftWindows, KeyCode.RightWindows,
+            KeyCode.Mouse0,
+            KeyCode.Mouse1,
+            KeyCode.Mouse2,
+            KeyCode.Mouse3,
+            KeyCode.Mouse4,
+            KeyCode.Mouse5,
+            KeyCode.Mouse6,
+            KeyCode.LeftShift,
+            KeyCode.RightShift,
+            KeyCode.LeftControl,
+            KeyCode.RightControl,
+            KeyCode.LeftAlt,
+            KeyCode.RightAlt,
+            KeyCode.LeftCommand,
+            KeyCode.RightCommand,
+            KeyCode.LeftWindows,
+            KeyCode.RightWindows,
         };
     }
 }

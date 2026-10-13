@@ -15,7 +15,13 @@ namespace SlopWorld
             var instigator = launcher;
             base.Impact(hitThing, blockedByShield);
             if (impactMap != null)
-                GenExplosion.DoExplosion(impactPosition, impactMap, ExplosionRadius, DamageDefOf.Flame, instigator);
+                GenExplosion.DoExplosion(
+                    impactPosition,
+                    impactMap,
+                    ExplosionRadius,
+                    DamageDefOf.Flame,
+                    instigator
+                );
         }
     }
 }

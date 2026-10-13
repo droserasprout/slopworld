@@ -32,23 +32,55 @@ namespace SlopWorld
             }
         }
 
-        public static void Show(int id, Rect page, float width, float height, string title,
-                                Action close, int count, SmoothScroll scroll,
-                                Action<Grid> drawGrid, float titleGap = -1f,
-                                float bottomGap = -1f)
+        public static void Show(
+            int id,
+            Rect page,
+            float width,
+            float height,
+            string title,
+            Action close,
+            int count,
+            SmoothScroll scroll,
+            Action<Grid> drawGrid,
+            float titleGap = -1f,
+            float bottomGap = -1f
+        )
         {
-            if (titleGap < 0f) titleGap = UiTheme.GapS;
-            if (bottomGap < 0f) bottomGap = UiTheme.GapS;
+            if (titleGap < 0f)
+                titleGap = UiTheme.GapS;
+            if (bottomGap < 0f)
+                bottomGap = UiTheme.GapS;
             var window = Place(page, width, height);
-            Find.WindowStack.ImmediateWindow(id, window, WindowLayer.Super,
-                () => DrawContents(width, height, title, close, count, scroll, drawGrid,
-                    titleGap, bottomGap), true, false, 1f);
+            Find.WindowStack.ImmediateWindow(
+                id,
+                window,
+                WindowLayer.Super,
+                () =>
+                    DrawContents(
+                        width,
+                        height,
+                        title,
+                        close,
+                        count,
+                        scroll,
+                        drawGrid,
+                        titleGap,
+                        bottomGap
+                    ),
+                true,
+                false,
+                1f
+            );
         }
 
         public static Rect Place(Rect page, float width, float height)
         {
-            var window = new Rect(page.x + (page.width - width) / 2f,
-                page.y + WindowTopOffset, width, height);
+            var window = new Rect(
+                page.x + (page.width - width) / 2f,
+                page.y + WindowTopOffset,
+                width,
+                height
+            );
             window.x = ClampStart(window.x, page.x, page.xMax, width);
             window.y = ClampStart(window.y, page.y, page.yMax, height);
             return window;
@@ -61,13 +93,22 @@ namespace SlopWorld
             // A picker can be wider or taller than a narrow settings page. In that case no
             // placement fits both edges. Anchor it to the page's leading inset rather than
             // letting the ordinary clamp produce an inverted range.
-            if (max < min) return min;
+            if (max < min)
+                return min;
             return Mathf.Clamp(start, min, max);
         }
 
-        static void DrawContents(float width, float height, string title, Action close,
-                                 int count, SmoothScroll scroll, Action<Grid> drawGrid,
-                                 float titleGap, float bottomGap)
+        static void DrawContents(
+            float width,
+            float height,
+            string title,
+            Action close,
+            int count,
+            SmoothScroll scroll,
+            Action<Grid> drawGrid,
+            float titleGap,
+            float bottomGap
+        )
         {
             using (WidgetState.Save())
             {
@@ -76,14 +117,29 @@ namespace SlopWorld
 
                 Text.Font = GameFont.Small;
                 GUI.color = UiTheme.Lead;
-                UiText.RowLabel(new Rect(r.x + UiTheme.GapS, r.y + UiTheme.GapXS,
-                    r.width - TitleWidthInset, UiTheme.LineH), title);
+                UiText.RowLabel(
+                    new Rect(
+                        r.x + UiTheme.GapS,
+                        r.y + UiTheme.GapXS,
+                        r.width - TitleWidthInset,
+                        UiTheme.LineH
+                    ),
+                    title
+                );
                 GUI.color = Color.white;
 
-                if (UiButtons.Button(
-                        new Rect(r.width - CloseButtonRightInset, r.y + CloseButtonTopInset,
-                            CloseButtonWidth, UiTheme.RowBtnH),
-                        "X", UiTheme.Btn.Ghost))
+                if (
+                    UiButtons.Button(
+                        new Rect(
+                            r.width - CloseButtonRightInset,
+                            r.y + CloseButtonTopInset,
+                            CloseButtonWidth,
+                            UiTheme.RowBtnH
+                        ),
+                        "X",
+                        UiTheme.Btn.Ghost
+                    )
+                )
                     close?.Invoke();
 
                 var grid = Layout(r, count, titleGap, bottomGap);
@@ -106,8 +162,7 @@ namespace SlopWorld
             {
                 // The scrollbar is drawn beside the view, inside the frame. Keep its
                 // reserve out of the cell grid rather than letting it cover the last cell.
-                columns = Mathf.Max(1, Mathf.FloorToInt(
-                    (availableW - UiTheme.ScrollbarW) / cell));
+                columns = Mathf.Max(1, Mathf.FloorToInt((availableW - UiTheme.ScrollbarW) / cell));
                 rows = Mathf.CeilToInt(count / (float)columns);
                 totalH = rows * cell;
             }

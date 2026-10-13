@@ -10,17 +10,21 @@ namespace SlopWorld
     {
         static bool Matches(TaskInfo task)
         {
-            if (_status.HasValue && task.Status != _status.Value) return false;
+            if (_status.HasValue && task.Status != _status.Value)
+                return false;
             switch (_direction)
             {
                 case DirectionFilter.Incoming:
-                    if (!task.Incoming) return false;
+                    if (!task.Incoming)
+                        return false;
                     break;
                 case DirectionFilter.Outgoing:
-                    if (!task.Outgoing) return false;
+                    if (!task.Outgoing)
+                        return false;
                     break;
                 case DirectionFilter.AgentToAgent:
-                    if (task.Incoming || task.Outgoing) return false;
+                    if (task.Incoming || task.Outgoing)
+                        return false;
                     break;
             }
             return string.IsNullOrEmpty(_agent) || task.From == _agent || task.To == _agent;
@@ -33,22 +37,26 @@ namespace SlopWorld
 
             // TaskStore publishes a replacement list for every mutation and refresh.
             // Retire fitted strings with that snapshot so old TaskInfo objects cannot accumulate.
-            if (!ReferenceEquals(_taskSnapshot, allTasks)) FittedSummaries.Clear();
+            if (!ReferenceEquals(_taskSnapshot, allTasks))
+                FittedSummaries.Clear();
             _taskSnapshot = allTasks;
             _filtersDirty = false;
             VisibleTasks.Clear();
             foreach (var task in allTasks)
-                if (Matches(task)) VisibleTasks.Add(task);
+                if (Matches(task))
+                    VisibleTasks.Add(task);
             return VisibleTasks;
         }
 
         public static void FilterButton(Rect r)
         {
-            TooltipHandler.TipRegion(r, Filtering
-                ? "Task filters are active. Click to change the filters."
-                : "Showing all tasks. Click to filter by status, direction, or agent.");
-            if (UiLayout.IconButton(r, Icons.Filter,
-                    Filtering ? UiTheme.Lead : UiTheme.Off))
+            TooltipHandler.TipRegion(
+                r,
+                Filtering
+                    ? "Task filters are active. Click to change the filters."
+                    : "Showing all tasks. Click to filter by status, direction, or agent."
+            );
+            if (UiLayout.IconButton(r, Icons.Filter, Filtering ? UiTheme.Lead : UiTheme.Off))
                 OpenFilterMenu();
         }
 
@@ -56,23 +64,32 @@ namespace SlopWorld
         {
             var options = new List<FloatMenuOption>
             {
-                UiLayout.MenuToggle("All statuses", !_status.HasValue, () =>
-                {
-                    _status = null;
-                    _filtersDirty = true;
-                    OpenFilterMenu();
-                }),
+                UiLayout.MenuToggle(
+                    "All statuses",
+                    !_status.HasValue,
+                    () =>
+                    {
+                        _status = null;
+                        _filtersDirty = true;
+                        OpenFilterMenu();
+                    }
+                ),
             };
             foreach (DelegatedTaskStatus status in Enum.GetValues(typeof(DelegatedTaskStatus)))
             {
                 var chosen = status;
-                options.Add(UiLayout.MenuToggle(TaskInfo.StatusText(chosen),
-                    _status == chosen, () =>
-                    {
-                        _status = chosen;
-                        _filtersDirty = true;
-                        OpenFilterMenu();
-                    }));
+                options.Add(
+                    UiLayout.MenuToggle(
+                        TaskInfo.StatusText(chosen),
+                        _status == chosen,
+                        () =>
+                        {
+                            _status = chosen;
+                            _filtersDirty = true;
+                            OpenFilterMenu();
+                        }
+                    )
+                );
             }
             return options;
         }
@@ -81,14 +98,26 @@ namespace SlopWorld
         {
             return new List<FloatMenuOption>
             {
-                UiLayout.MenuToggle("All directions", _direction == DirectionFilter.All,
-                    () => SetDirection(DirectionFilter.All)),
-                UiLayout.MenuToggle("Incoming to you", _direction == DirectionFilter.Incoming,
-                    () => SetDirection(DirectionFilter.Incoming)),
-                UiLayout.MenuToggle("Sent by you", _direction == DirectionFilter.Outgoing,
-                    () => SetDirection(DirectionFilter.Outgoing)),
-                UiLayout.MenuToggle("Between agents", _direction == DirectionFilter.AgentToAgent,
-                    () => SetDirection(DirectionFilter.AgentToAgent)),
+                UiLayout.MenuToggle(
+                    "All directions",
+                    _direction == DirectionFilter.All,
+                    () => SetDirection(DirectionFilter.All)
+                ),
+                UiLayout.MenuToggle(
+                    "Incoming to you",
+                    _direction == DirectionFilter.Incoming,
+                    () => SetDirection(DirectionFilter.Incoming)
+                ),
+                UiLayout.MenuToggle(
+                    "Sent by you",
+                    _direction == DirectionFilter.Outgoing,
+                    () => SetDirection(DirectionFilter.Outgoing)
+                ),
+                UiLayout.MenuToggle(
+                    "Between agents",
+                    _direction == DirectionFilter.AgentToAgent,
+                    () => SetDirection(DirectionFilter.AgentToAgent)
+                ),
             };
         }
 
@@ -100,20 +129,20 @@ namespace SlopWorld
                     names.Add(session.Name);
             foreach (var task in SessionHub.Instance.Tasks)
             {
-                if (task.From != TaskInfo.Host) names.Add(task.From);
-                if (task.To != TaskInfo.Host) names.Add(task.To);
+                if (task.From != TaskInfo.Host)
+                    names.Add(task.From);
+                if (task.To != TaskInfo.Host)
+                    names.Add(task.To);
             }
 
             var options = new List<FloatMenuOption>
             {
-                UiLayout.MenuToggle("All agents", string.IsNullOrEmpty(_agent),
-                    () => SetAgent("")),
+                UiLayout.MenuToggle("All agents", string.IsNullOrEmpty(_agent), () => SetAgent("")),
             };
             foreach (var name in names.OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
             {
                 var chosen = name;
-                options.Add(UiLayout.MenuToggle(chosen, _agent == chosen,
-                    () => SetAgent(chosen)));
+                options.Add(UiLayout.MenuToggle(chosen, _agent == chosen, () => SetAgent(chosen)));
             }
             return options;
         }

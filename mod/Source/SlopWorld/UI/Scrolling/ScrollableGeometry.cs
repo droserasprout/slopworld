@@ -17,22 +17,27 @@ namespace SlopWorld
         public readonly float ContentHeight;
         public readonly bool ReservesScrollbar;
 
-        public ScrollableGeometry(UiLayoutRect frame, float contentHeight,
-                                  UiScrollbarReservation reservation, float scrollbarWidth)
+        public ScrollableGeometry(
+            UiLayoutRect frame,
+            float contentHeight,
+            UiScrollbarReservation reservation,
+            float scrollbarWidth
+        )
         {
             scrollbarWidth = Math.Max(0f, scrollbarWidth);
             contentHeight = Math.Max(0f, contentHeight);
-            ReservesScrollbar = reservation == UiScrollbarReservation.Always ||
-                contentHeight > frame.Height;
-            ContentWidth = Math.Max(0f, frame.Width -
-                (ReservesScrollbar ? scrollbarWidth : 0f));
+            ReservesScrollbar =
+                reservation == UiScrollbarReservation.Always || contentHeight > frame.Height;
+            ContentWidth = Math.Max(0f, frame.Width - (ReservesScrollbar ? scrollbarWidth : 0f));
             ContentHeight = Math.Max(frame.Height, contentHeight);
             View = new UiLayoutRect(0f, 0f, ContentWidth, ContentHeight);
         }
 
-        public static ScrollableGeometry Measure(UiLayoutRect frame, float contentHeight,
-                                                 UiScrollbarReservation reservation,
-                                                 float scrollbarWidth) =>
-            new ScrollableGeometry(frame, contentHeight, reservation, scrollbarWidth);
+        public static ScrollableGeometry Measure(
+            UiLayoutRect frame,
+            float contentHeight,
+            UiScrollbarReservation reservation,
+            float scrollbarWidth
+        ) => new ScrollableGeometry(frame, contentHeight, reservation, scrollbarWidth);
     }
 }

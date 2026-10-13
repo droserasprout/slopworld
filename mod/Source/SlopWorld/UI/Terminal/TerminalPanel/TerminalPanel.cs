@@ -39,26 +39,38 @@ namespace SlopWorld
             _selectionInput = new TerminalSelectionInput(this);
             if (TerminalLatency.Enabled)
                 _historyScroll.ObserveInput = (before, after, source) =>
-                    TerminalLatency.Timeline.Scroll(this, TerminalLatency.Now(),
-                        Mathf.Abs(after.y - before.y) > 0.01f, source);
+                    TerminalLatency.Timeline.Scroll(
+                        this,
+                        TerminalLatency.Now(),
+                        Mathf.Abs(after.y - before.y) > 0.01f,
+                        source
+                    );
         }
 
         public override string Title => _state.Name ?? "Terminal";
         public override PanelSize MinimumSize => new PanelSize(160f, 80f);
+
         public override void Draw(Rect body)
         {
             DrewScreen = DrawTerminalBody(body, Focused);
             DrawStatus(body, SessionHub.Instance, DrewScreen);
         }
+
         public override void FocusChanged(bool focused)
         {
-            if (Focused && !focused) ReleasePanelInput();
+            if (Focused && !focused)
+                ReleasePanelInput();
             base.FocusChanged(focused);
         }
+
         internal void HandleChrome(Event e) => _input.HandleChrome(e);
+
         internal void Leave() => _host.Leave();
+
         internal void Close() => _host.ClosePanel(this);
+
         internal void SwitchTo(string name) => _host.SwitchTo(name);
+
         internal static EventType MouseType(Event e) => TerminalInputController.MouseType(e);
 
         internal bool DrawTerminalBody(Rect body, bool input)
@@ -68,10 +80,16 @@ namespace SlopWorld
 
             if (_state.ShowStopped && hub.Get(_state.Name)?.Gone == true)
             {
-                if (input) _input.HandleChrome(Event.current);
-                if (!_opened || !Visible || _state.Name != drawingSession) return false;
-                if (input && MouseType(Event.current) == EventType.MouseDown &&
-                    Event.current.button == 1 && body.Contains(Event.current.mousePosition))
+                if (input)
+                    _input.HandleChrome(Event.current);
+                if (!_opened || !Visible || _state.Name != drawingSession)
+                    return false;
+                if (
+                    input
+                    && MouseType(Event.current) == EventType.MouseDown
+                    && Event.current.button == 1
+                    && body.Contains(Event.current.mousePosition)
+                )
                 {
                     OpenMenu(null);
                     Event.current.Use();
@@ -114,9 +132,11 @@ namespace SlopWorld
 
             // Navigation can close this panel or change its session during input. Do not
             // repaint a released cache or use the old session's frame after that transition.
-            if (!_opened || !Visible || _state.Name != drawingSession) return false;
+            if (!_opened || !Visible || _state.Name != drawingSession)
+                return false;
 
-            if (input) UpdateSelectionEdgeScroll(body, historyInput);
+            if (input)
+                UpdateSelectionEdgeScroll(body, historyInput);
 
             UpdateHistoryTarget(cellH, live);
             var buf = DisplayedScreen();
@@ -133,7 +153,8 @@ namespace SlopWorld
             {
                 // Switching a pager keeps this window alive, but the new session needs a
                 // round trip before it has a screen. Keep the last pane frame over that gap.
-                if (BlitCached(body)) return true;
+                if (BlitCached(body))
+                    return true;
                 DrawCentered(body, hub.Online ? "Waiting for output" : $"Daemon {hub.Status}");
                 return false;
             }
@@ -159,11 +180,13 @@ namespace SlopWorld
         {
             if (pane)
             {
-                if (!hub.Online) DrawOfflineBanner(body);
-                else _state.DroppedKeys = 0;
-                if (HistoryBarAvailable()) DrawScrollLock(body);
+                if (!hub.Online)
+                    DrawOfflineBanner(body);
+                else
+                    _state.DroppedKeys = 0;
+                if (HistoryBarAvailable())
+                    DrawScrollLock(body);
             }
-
         }
     }
 }

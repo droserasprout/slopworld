@@ -11,10 +11,22 @@ namespace SlopWorld
     [HarmonyPatch(typeof(GenDate), nameof(GenDate.ToStringTicksToPeriod))]
     public static class Patch_TicksToPeriod
     {
-        static bool Prefix(int numTicks, bool allowSeconds, bool shortForm, bool canUseDecimals,
-            bool canUseDecimalsShortForm, ref string __result)
+        static bool Prefix(
+            int numTicks,
+            bool allowSeconds,
+            bool shortForm,
+            bool canUseDecimals,
+            bool canUseDecimalsShortForm,
+            ref string __result
+        )
         {
-            __result = RealClock.GameTickDuration(numTicks, allowSeconds, shortForm, canUseDecimals, canUseDecimalsShortForm);
+            __result = RealClock.GameTickDuration(
+                numTicks,
+                allowSeconds,
+                shortForm,
+                canUseDecimals,
+                canUseDecimalsShortForm
+            );
             return false;
         }
     }
@@ -70,7 +82,8 @@ namespace SlopWorld
     {
         static bool Prefix(LogEntry __instance, ref string __result)
         {
-            if (__instance.Timestamp < 0) return true; // never stamped
+            if (__instance.Timestamp < 0)
+                return true; // never stamped
 
             string ago = RealClock.Period(LogEntryClock.SecondsSince(__instance));
             __result = "OccurredTimeAgo".Translate(ago).CapitalizeFirst() + ".";

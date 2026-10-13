@@ -57,9 +57,9 @@ namespace SlopWorld
         public static SessionInfo FromWire(Wire.SessionView j)
         {
             var session = new SessionInfo();
-            foreach (var read in WireFields) read(session, j);
+            foreach (var read in WireFields)
+                read(session, j);
             return session;
         }
-
     }
 }

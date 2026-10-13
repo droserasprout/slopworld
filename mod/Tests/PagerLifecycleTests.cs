@@ -9,9 +9,17 @@ namespace SlopWorld
         public static SessionHub Instance = new SessionHub();
         public readonly DaemonConfig Config = new DaemonConfig();
         public readonly PagerTestStore SessionStore = new PagerTestStore();
-        public readonly Dictionary<string, SessionInfo> Sessions = new Dictionary<string, SessionInfo>();
-        public SessionInfo Get(string name) => Sessions.TryGetValue(name, out var info) ? info : null;
-        public List<ProjectInfo> Projects = new List<ProjectInfo> { new ProjectInfo { Name = "p" } };
+        public readonly Dictionary<string, SessionInfo> Sessions =
+            new Dictionary<string, SessionInfo>();
+
+        public SessionInfo Get(string name) =>
+            Sessions.TryGetValue(name, out var info) ? info : null;
+
+        public List<ProjectInfo> Projects = new List<ProjectInfo>
+        {
+            new ProjectInfo { Name = "p" },
+        };
+
         public ProjectInfo Project(string name) => new ProjectInfo();
     }
 
@@ -19,11 +27,15 @@ namespace SlopWorld
     {
         public sealed class LaunchRequest
         {
-            public string Project, Command, Label;
+            public string Project,
+                Command,
+                Label;
             public Wire.RunReq Options;
-            public Action<string> Started, Failed;
+            public Action<string> Started,
+                Failed;
             public bool Settled;
         }
+
         public readonly List<LaunchRequest> Requests = new List<LaunchRequest>();
         public readonly List<(string Session, bool Pinned)> Pins = new List<(string, bool)>();
         public int Starts => Requests.Count;
@@ -33,48 +45,72 @@ namespace SlopWorld
         public string Project => Requests[Requests.Count - 1].Project;
         public string Command => Requests[Requests.Count - 1].Command;
         public string Intent => Requests[Requests.Count - 1].Options.Intent;
-        public void Run(string project, string command, string label, Action<string> started,
-                        Action<string> fail, SessionRunOptions options = null)
+
+        public void Run(
+            string project,
+            string command,
+            string label,
+            Action<string> started,
+            Action<string> fail,
+            SessionRunOptions options = null
+        )
         {
-            Requests.Add(new LaunchRequest
-            {
-                Project = project,
-                Command = command,
-                Label = label,
-                Options = (options ?? new SessionRunOptions()).ToWire(),
-                Started = started,
-                Failed = fail
-            });
+            Requests.Add(
+                new LaunchRequest
+                {
+                    Project = project,
+                    Command = command,
+                    Label = label,
+                    Options = (options ?? new SessionRunOptions()).ToWire(),
+                    Started = started,
+                    Failed = fail,
+                }
+            );
         }
+
         public void Complete(LaunchRequest request, string name, bool listed = true)
         {
             request.Settled = true;
-            if (listed) SessionHub.Instance.Sessions[name] = new SessionInfo { Name = name, Alive = true };
+            if (listed)
+                SessionHub.Instance.Sessions[name] = new SessionInfo { Name = name, Alive = true };
             request.Started(name);
         }
+
         public void Fail(LaunchRequest request, string error)
         {
             request.Settled = true;
             request.Failed(error);
         }
+
         // Other fixture owners use ordinary in-order completion; lifecycle races select handles.
-        public void Complete(string name) => Complete(Requests.Find(request => !request.Settled), name);
+        public void Complete(string name) =>
+            Complete(Requests.Find(request => !request.Settled), name);
+
         public void Stop(string name)
         {
             Stops++;
-            if (SessionHub.Instance.Sessions.TryGetValue(name, out var info)) info.Alive = false;
+            if (SessionHub.Instance.Sessions.TryGetValue(name, out var info))
+                info.Alive = false;
         }
+
         public void SetReaderPinned(string name, bool pinned) => Pins.Add((name, pinned));
     }
 
     partial class TerminalWindow
     {
         public static string Current;
-        public static void Open(string name) { Current = name; }
+
+        public static void Open(string name)
+        {
+            Current = name;
+        }
+
         public static void ReplaceReader(string oldName, string newName)
         {
-            if (Current == oldName) Current = newName;
+            if (Current == oldName)
+                Current = newName;
         }
+
         public static bool TryPanelShape(out int cols, out int rows)
         {
             cols = rows = 0;
@@ -84,7 +120,10 @@ namespace SlopWorld
 
     static partial class UiLayout
     {
-        public static void Fail(string message) { throw new Exception(message); }
+        public static void Fail(string message)
+        {
+            throw new Exception(message);
+        }
     }
 }
 
@@ -108,7 +147,7 @@ namespace SlopWorld.Tests
                     ReaderKey = "/p/file",
                     ReaderLine = 12,
                     Project = "p",
-                    ReaderPinned = true
+                    ReaderPinned = true,
                 };
                 hub.Sessions[info.Name] = info;
                 var pager = new Pager();
@@ -116,51 +155,94 @@ namespace SlopWorld.Tests
                 AssertEx.True(pager.CanRestartForAppearance, "restored Search reader participates");
                 hub.Config.Pager = "less --RAW-CONTROL-CHARS";
                 pager.RestartForAppearance(pager.Session, pager.Operation);
-                AssertEx.True(hub.SessionStore.Command.Contains("--RAW-CONTROL-CHARS"), "uses current config");
+                AssertEx.True(
+                    hub.SessionStore.Command.Contains("--RAW-CONTROL-CHARS"),
+                    "uses current config"
+                );
                 AssertEx.True(hub.SessionStore.Command.Contains("+12"), "retains source line");
                 AssertEx.Equal("search", hub.SessionStore.Intent, "restart keeps Search routing");
                 hub.SessionStore.Complete(hub.SessionStore.Requests[0], "replacement");
                 string command = hub.SessionStore.Command;
                 pager.RefreshIfChanged("baseline");
                 pager.RefreshIfChanged("changed");
-                AssertEx.Equal(command, hub.SessionStore.Command, "refresh retains rebuilt command");
+                AssertEx.Equal(
+                    command,
+                    hub.SessionStore.Command,
+                    "refresh retains rebuilt command"
+                );
                 AssertEx.Equal("search", hub.SessionStore.Intent, "refresh keeps Search routing");
             }
-            finally { SessionHub.Instance = previous; }
+            finally
+            {
+                SessionHub.Instance = previous;
+            }
         }
 
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
-            yield return ("reader settings restart preserves pin and background focus", AppearanceRestart);
+            yield return (
+                "reader settings restart preserves pin and background focus",
+                AppearanceRestart
+            );
             yield return ("reader settings restart ignores stale confirmation", AppearanceStale);
             yield return ("failed reader settings restart keeps old process", AppearanceFailure);
             yield return ("restored diff restart uses current pager", AppearanceDiff);
-            yield return ("restored Search appearance preserves intent and refresh command", AppearanceSearch);
+            yield return (
+                "restored Search appearance preserves intent and refresh command",
+                AppearanceSearch
+            );
             yield return ("bat file pager uses the selected bat highlighter theme", BatFileTheme);
-            yield return ("changed file refresh keeps its pinned tab and active pane", RefreshActive);
+            yield return (
+                "changed file refresh keeps its pinned tab and active pane",
+                RefreshActive
+            );
             yield return ("background refresh does not steal terminal focus", RefreshBackground);
             yield return ("failed refresh retains the reader and retries", RefreshFailure);
-            yield return ("stale refresh completion cannot replace a newer preview", RefreshSuperseded);
+            yield return (
+                "stale refresh completion cannot replace a newer preview",
+                RefreshSuperseded
+            );
             yield return ("diffs and editor commands do not auto refresh", RefreshExclusions);
             yield return ("file-at-line previews refresh with the same command", RefreshAtLine);
-            yield return ("line-targeted source opens reuse pending and pinned readers", ReuseFileAtLine);
+            yield return (
+                "line-targeted source opens reuse pending and pinned readers",
+                ReuseFileAtLine
+            );
             yield return ("fresh diff replaces a pinned reader without duplicating it", FreshDiff);
             yield return ("deleted readers close pinned and pending sessions", DeletedReaders);
             yield return ("late file metadata cannot close a replacement reader", LateMetadata);
             yield return ("fresh reader collection has no viewer path", FreshPaths);
-            yield return ("restored reader keeps path and pin without starting a process", RestoredReader);
+            yield return (
+                "restored reader keeps path and pin without starting a process",
+                RestoredReader
+            );
             yield return ("pending file clicks share one start", Pending);
             yield return ("pinned files reopen without a new preview", Pinned);
-            yield return ("shared file and diff preview replacement preserves pinned readers", SharedReaders);
+            yield return (
+                "shared file and diff preview replacement preserves pinned readers",
+                SharedReaders
+            );
             yield return ("pending diff cannot reopen the previous file", PendingDiff);
             yield return ("late unlisted diff completion is stopped", LateUnlistedCompletion);
             foreach (bool file in new[] { true, false })
             {
                 string kind = file ? "file" : "command";
-                yield return (kind + " replacement failure retires the old reader and permits retry", () => FailedReplacement(file));
-                yield return (kind + " stale failure leaves the replacement alone", () => StaleFailure(file));
-                yield return (kind + " pinned pending reader survives release and closes explicitly", () => PinnedPending(file));
-                yield return (kind + " close cancels pending replacement", () => ClosePending(file));
+                yield return (
+                    kind + " replacement failure retires the old reader and permits retry",
+                    () => FailedReplacement(file)
+                );
+                yield return (
+                    kind + " stale failure leaves the replacement alone",
+                    () => StaleFailure(file)
+                );
+                yield return (
+                    kind + " pinned pending reader survives release and closes explicitly",
+                    () => PinnedPending(file)
+                );
+                yield return (
+                    kind + " close cancels pending replacement",
+                    () => ClosePending(file)
+                );
                 yield return (kind + " dead reader can be replaced", () => DeadReader(file));
             }
         }
@@ -184,10 +266,17 @@ namespace SlopWorld.Tests
             AssertEx.True(replacement.Options.Reader.Pinned, "restart sends retained pin");
             AssertEx.True(replacement.Options.Host, "reader launches on host");
             store.Complete(replacement, "restyled");
-            AssertEx.True(store.Pins.Contains(("restyled", true)), "replacement pin published to daemon");
+            AssertEx.True(
+                store.Pins.Contains(("restyled", true)),
+                "replacement pin published to daemon"
+            );
             AssertEx.Equal("restyled", pager.Session, "same tab receives replacement");
             AssertEx.True(pager.Locked, "pin retained");
-            AssertEx.Equal("settings-backing-session", TerminalWindow.Current, "settings focus retained");
+            AssertEx.Equal(
+                "settings-backing-session",
+                TerminalWindow.Current,
+                "settings focus retained"
+            );
             AssertEx.Equal(1, store.Stops, "old process stopped after replacement is ready");
         }
 
@@ -208,7 +297,10 @@ namespace SlopWorld.Tests
             var pager = WatchedFile();
             var store = SessionHub.Instance.SessionStore;
             pager.RestartForAppearance(pager.Session, pager.Operation);
-            AssertEx.Throws<Exception>(() => store.Fail(store.Requests[1], "cannot restart"), "failure reported");
+            AssertEx.Throws<Exception>(
+                () => store.Fail(store.Requests[1], "cannot restart"),
+                "failure reported"
+            );
             AssertEx.Equal("original", pager.Session, "failed replacement keeps original");
             AssertEx.Equal(0, store.Stops, "original process survives");
             AssertEx.True(pager.CanRestartForAppearance, "retry remains possible");
@@ -229,20 +321,30 @@ namespace SlopWorld.Tests
                     ReaderScope = "p",
                     ReaderKey = "diff:file",
                     ReaderPinned = true,
-                    Cmd = PagerCommands.DiffCommand("git diff HEAD", "less")
+                    Cmd = PagerCommands.DiffCommand("git diff HEAD", "less"),
                 };
                 SessionHub.Instance.Sessions[info.Name] = info;
                 var pager = new Pager();
                 pager.AttachRestored(info);
                 SessionHub.Instance.Config.Pager = "less -N";
-                SessionHub.Instance.Config.Highlighter = "bat --color=always --style=plain --paging=never";
+                SessionHub.Instance.Config.Highlighter =
+                    "bat --color=always --style=plain --paging=never";
                 pager.RestartForAppearance(pager.Session, pager.Operation);
-                AssertEx.Equal("env BAT_THEME='Monokai Extended' DELTA_PAGER='less -N -+N -S --shift=1 --wheel-lines=1' git -c delta.line-numbers=true -c delta.minus-style='syntax auto' diff HEAD",
-                    SessionHub.Instance.SessionStore.Command, "recovered diff uses the selected bat theme");
-                SessionHub.Instance.SessionStore.Complete(SessionHub.Instance.SessionStore.Requests[0], "new-diff");
+                AssertEx.Equal(
+                    "env BAT_THEME='Monokai Extended' DELTA_PAGER='less -N -+N -S --shift=1 --wheel-lines=1' git -c delta.line-numbers=true -c delta.minus-style='syntax auto' diff HEAD",
+                    SessionHub.Instance.SessionStore.Command,
+                    "recovered diff uses the selected bat theme"
+                );
+                SessionHub.Instance.SessionStore.Complete(
+                    SessionHub.Instance.SessionStore.Requests[0],
+                    "new-diff"
+                );
                 AssertEx.True(pager.Locked, "restored diff pin retained");
             }
-            finally { ModEntry.Instance.settings.codeBatTheme = oldTheme; }
+            finally
+            {
+                ModEntry.Instance.settings.codeBatTheme = oldTheme;
+            }
         }
 
         static void BatFileTheme()
@@ -253,17 +355,31 @@ namespace SlopWorld.Tests
             {
                 SessionHub.Instance = new SessionHub();
                 SessionHub.Instance.Config.Pager = "bat --paging=always";
-                SessionHub.Instance.Config.Highlighter = "bat --color=always --style=plain --paging=never";
+                SessionHub.Instance.Config.Highlighter =
+                    "bat --color=always --style=plain --paging=never";
                 string command = Pager.PagerCommand("/sample.rs");
-                AssertEx.True(command.Contains("bat --paging=always --style=numbers --decorations=always --wrap=never --pager 'less -RS --shift=1 --wheel-lines=1' --theme='ansi' -- '/sample.rs'"),
-                    "file pager gets the selected bat theme before its file argument");
+                AssertEx.True(
+                    command.Contains(
+                        "bat --paging=always --style=numbers --decorations=always --wrap=never --pager 'less -RS --shift=1 --wheel-lines=1' --theme='ansi' -- '/sample.rs'"
+                    ),
+                    "file pager gets the selected bat theme before its file argument"
+                );
                 ModEntry.Instance.settings.codeBatTheme = "";
-                AssertEx.Equal(command, Pager.PagerCommand("/sample.rs"), "auto gives file pagers the same ansi colors");
+                AssertEx.Equal(
+                    command,
+                    Pager.PagerCommand("/sample.rs"),
+                    "auto gives file pagers the same ansi colors"
+                );
                 SessionHub.Instance.Config.Highlighter = "highlight --out-format=xterm256";
-                AssertEx.False(Pager.PagerCommand("/sample.rs").Contains("--theme='ansi'"),
-                    "other highlighters do not apply an old bat theme to files");
+                AssertEx.False(
+                    Pager.PagerCommand("/sample.rs").Contains("--theme='ansi'"),
+                    "other highlighters do not apply an old bat theme to files"
+                );
             }
-            finally { ModEntry.Instance.settings.codeBatTheme = oldTheme; }
+            finally
+            {
+                ModEntry.Instance.settings.codeBatTheme = oldTheme;
+            }
         }
 
         static Pager WatchedFile()
@@ -271,7 +387,10 @@ namespace SlopWorld.Tests
             SessionHub.Instance = new SessionHub();
             var pager = new Pager();
             pager.ViewFile("p", "/file", "file");
-            SessionHub.Instance.SessionStore.Complete(SessionHub.Instance.SessionStore.Requests[0], "original");
+            SessionHub.Instance.SessionStore.Complete(
+                SessionHub.Instance.SessionStore.Requests[0],
+                "original"
+            );
             new ReaderProbe(pager).Apply(true, "first");
             return pager;
         }
@@ -288,7 +407,7 @@ namespace SlopWorld.Tests
                 ReaderPath = "/repo/file.rs",
                 ReaderKey = "/repo/file.rs",
                 ReaderScope = "p",
-                ReaderPinned = true
+                ReaderPinned = true,
             };
             SessionHub.Instance.Sessions[info.Name] = info;
             var tabs = new PagerTabs();
@@ -330,7 +449,10 @@ namespace SlopWorld.Tests
             var pager = WatchedFile();
             new ReaderProbe(pager).Apply(true, "second");
             TerminalWindow.Open("another-session");
-            SessionHub.Instance.SessionStore.Complete(SessionHub.Instance.SessionStore.Requests[1], "refreshed");
+            SessionHub.Instance.SessionStore.Complete(
+                SessionHub.Instance.SessionStore.Requests[1],
+                "refreshed"
+            );
             AssertEx.Equal("another-session", TerminalWindow.Current, "focus is unchanged");
             AssertEx.Equal("refreshed", pager.Session, "hidden reader is still updated");
         }
@@ -359,7 +481,10 @@ namespace SlopWorld.Tests
             var current = store.Requests[2];
             store.Complete(current, "other");
             store.Complete(obsolete, "obsolete-refresh");
-            AssertEx.False(SessionHub.Instance.Get("obsolete-refresh").Alive, "late result stopped");
+            AssertEx.False(
+                SessionHub.Instance.Get("obsolete-refresh").Alive,
+                "late result stopped"
+            );
             AssertEx.Equal("other", pager.Session, "new preview wins");
             new ReaderProbe(pager).Apply(true, "other-first");
             AssertEx.Equal(3, store.Starts, "replacement starts with its own baseline");
@@ -367,7 +492,10 @@ namespace SlopWorld.Tests
             new ReaderProbe(pager).Apply(true, "other-second");
             pager.Invalidate();
             store.Complete(store.Requests[3], "closed-refresh");
-            AssertEx.False(SessionHub.Instance.Get("closed-refresh").Alive, "closed reader stays closed");
+            AssertEx.False(
+                SessionHub.Instance.Get("closed-refresh").Alive,
+                "closed reader stays closed"
+            );
         }
 
         static void RefreshExclusions()
@@ -413,14 +541,20 @@ namespace SlopWorld.Tests
             tabs.ForPreview().ViewFile("p", "/other", "other");
             store.Complete(store.Requests[1], "other");
             AssertEx.True(tabs.ReuseFile("p", "/file"), "pinned source reopens by path");
-            AssertEx.Equal("file", TerminalWindow.Current, "existing line-targeted reader receives focus");
+            AssertEx.Equal(
+                "file",
+                TerminalWindow.Current,
+                "existing line-targeted reader receives focus"
+            );
             AssertEx.Equal(2, store.Starts, "reopening does not create a duplicate reader");
         }
 
         static void Start(Pager pager, bool file, string key)
         {
-            if (file) pager.ViewFile("p", key, key);
-            else pager.Open("p", "cat " + key, key, key);
+            if (file)
+                pager.ViewFile("p", key, key);
+            else
+                pager.Open("p", "cat " + key, key, key);
         }
 
         static void FailedReplacement(bool file)
@@ -432,7 +566,10 @@ namespace SlopWorld.Tests
             store.Complete(store.Requests[0], "one");
             Start(pager, file, "/two");
             AssertEx.Equal("one", pager.Session, "old reader remains visible during handoff");
-            var error = AssertEx.Throws<Exception>(() => store.Fail(store.Requests[1], "start failed"), "failure reaches UI");
+            var error = AssertEx.Throws<Exception>(
+                () => store.Fail(store.Requests[1], "start failed"),
+                "failure reaches UI"
+            );
             AssertEx.Equal("start failed", error.Message, "original failure is reported");
             AssertEx.Equal<string>(null, pager.Session, "failed handoff clears the reader");
             AssertEx.False(pager.Owns("p", "/two"), "failed request no longer owns the key");
@@ -472,7 +609,10 @@ namespace SlopWorld.Tests
             pager.Release();
             store.Complete(store.Requests[0], "one");
             pager.CloseIf("one");
-            AssertEx.True(pager.Alive && pager.Locked, "preview release and panel close preserve pinned reader");
+            AssertEx.True(
+                pager.Alive && pager.Locked,
+                "preview release and panel close preserve pinned reader"
+            );
             AssertEx.Equal(0, store.Stops, "pinned reader has not been stopped");
             AssertEx.False(pager.CloseTab(null), "null tab cannot dismiss reader");
             AssertEx.False(pager.CloseTab("other"), "unrelated tab cannot dismiss reader");
@@ -496,10 +636,18 @@ namespace SlopWorld.Tests
             Start(pager, file, "/two");
             SessionHub.Instance.Sessions.Remove("one");
             pager.CloseIf("one");
-            AssertEx.Equal(1, store.Stops, "owned reader is stopped even without snapshot metadata");
+            AssertEx.Equal(
+                1,
+                store.Stops,
+                "owned reader is stopped even without snapshot metadata"
+            );
             store.Complete(store.Requests[1], "late");
             AssertEx.False(SessionHub.Instance.Get("late").Alive, "late completion is stopped");
-            AssertEx.Equal<string>(null, pager.Session, "late completion cannot revive closed reader");
+            AssertEx.Equal<string>(
+                null,
+                pager.Session,
+                "late completion cannot revive closed reader"
+            );
             AssertEx.Equal("one", TerminalWindow.Current, "late completion cannot take focus");
             AssertEx.Equal(2, store.Stops, "old and late readers are each stopped once");
         }
@@ -553,7 +701,9 @@ namespace SlopWorld.Tests
             store.Complete(store.Requests[0], "pinned");
             tabs.Lock("pinned");
             tabs.ForPreview().ViewFile("p", "/gone/pending", "pending");
-            tabs.Invalidate(tab => tab.FilePath != null && tab.FilePath.StartsWith("/gone/", StringComparison.Ordinal));
+            tabs.Invalidate(tab =>
+                tab.FilePath != null && tab.FilePath.StartsWith("/gone/", StringComparison.Ordinal)
+            );
             AssertEx.False(tabs.IsSession("pinned"), "deletion overrides pin");
             store.Complete(store.Requests[1], "late");
             AssertEx.False(SessionHub.Instance.Get("late").Alive, "late handoff is stopped");
@@ -591,8 +741,16 @@ namespace SlopWorld.Tests
         static void FreshPaths()
         {
             var tabs = new PagerTabs();
-            AssertEx.Equal<string>(null, tabs.FilePath("restored-viewer"), "unknown viewer before first preview");
-            AssertEx.Equal<string>(null, tabs.FilePath(null), "no active session before first preview");
+            AssertEx.Equal<string>(
+                null,
+                tabs.FilePath("restored-viewer"),
+                "unknown viewer before first preview"
+            );
+            AssertEx.Equal<string>(
+                null,
+                tabs.FilePath(null),
+                "no active session before first preview"
+            );
         }
 
         static void PendingDiff()
@@ -623,7 +781,11 @@ namespace SlopWorld.Tests
             pager.Open("p", "git diff", "diff-one", "diff:one");
             pager.Release();
             store.Complete(store.Requests[0], "late-diff", listed: false);
-            AssertEx.Equal(1, store.Stops, "superseded run is stopped without a session snapshot row");
+            AssertEx.Equal(
+                1,
+                store.Stops,
+                "superseded run is stopped without a session snapshot row"
+            );
         }
 
         static void SharedReaders()

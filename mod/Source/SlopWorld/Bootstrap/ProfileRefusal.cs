@@ -10,8 +10,10 @@ namespace SlopWorld
         internal static void Install()
         {
             var harmony = new Harmony("io.drsr.slopworld.profile-guard");
-            harmony.Patch(AccessTools.Method(typeof(Root), nameof(Root.Update)),
-                postfix: new HarmonyMethod(typeof(ModProfile), nameof(ModProfile.ShowPendingNotice)));
+            harmony.Patch(
+                AccessTools.Method(typeof(Root), nameof(Root.Update)),
+                postfix: new HarmonyMethod(typeof(ModProfile), nameof(ModProfile.ShowPendingNotice))
+            );
         }
     }
 }

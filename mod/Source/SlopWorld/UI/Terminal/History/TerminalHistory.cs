@@ -12,11 +12,19 @@ namespace SlopWorld
         // The client never asks beyond the daemon's 10,000-line history limit, and negotiated
         // panes top out at 200 rows. Bounding coordinates keeps a malformed reply from turning
         // this persistent per-window cache into an unbounded dictionary.
-        static int MaxHistoryRows => Math.Max(1, Math.Min(
-            TerminalLimits.ClientMaxScrollbackLines,
-            DaemonCapabilities.Current.Terminal.ScrollbackLines));
-        static int MaxScreenRows => Math.Max(1, Math.Min(
-            TerminalLimits.ClientMaxRows, DaemonCapabilities.Current.Terminal.MaxRows));
+        static int MaxHistoryRows =>
+            Math.Max(
+                1,
+                Math.Min(
+                    TerminalLimits.ClientMaxScrollbackLines,
+                    DaemonCapabilities.Current.Terminal.ScrollbackLines
+                )
+            );
+        static int MaxScreenRows =>
+            Math.Max(
+                1,
+                Math.Min(TerminalLimits.ClientMaxRows, DaemonCapabilities.Current.Terminal.MaxRows)
+            );
 
         // Keys stay fixed while the live bottom advances. `_origin` translates the public
         // coordinate space to storage coordinates, avoiding a dictionary-sized copy for every
@@ -25,6 +33,7 @@ namespace SlopWorld
         long _origin;
         public int Count => _lines.Count;
         public int Cols => _template?.Cols ?? 0;
+
         public bool TryLine(int globalRow, out string line) =>
             _lines.TryGetValue(Storage(globalRow), out line);
 
@@ -34,24 +43,33 @@ namespace SlopWorld
         {
             if (by < ay || (by == ay && bx < ax))
             {
-                int x = ax, y = ay;
-                ax = bx; ay = by; bx = x; by = y;
+                int x = ax,
+                    y = ay;
+                ax = bx;
+                ay = by;
+                bx = x;
+                by = y;
             }
             var text = new StringBuilder();
             for (int row = ay; row <= by; row++)
             {
                 string line;
-                if (row >= 0 && row < displayed.Lines.Length) line = displayed.Lines[row];
-                else if (!TryLine(row - displayed.Off, out line)) return "";
+                if (row >= 0 && row < displayed.Lines.Length)
+                    line = displayed.Lines[row];
+                else if (!TryLine(row - displayed.Off, out line))
+                    return "";
                 var cells = TerminalColumns.Cells(Sgr.ParseLine(line));
                 int len = TerminalColumns.ContentColumns(cells);
                 int start = row == ay ? Math.Max(0, ax) : 0;
                 int end = row == by ? Math.Min(bx + 1, len) : len;
-                if (end > start) text.Append(TerminalColumns.Slice(cells, start, end - 1));
-                if (row < by) text.Append('\n');
+                if (end > start)
+                    text.Append(TerminalColumns.Slice(cells, start, end - 1));
+                if (row < by)
+                    text.Append('\n');
             }
             return text.ToString();
         }
+
         public int Rows => _template?.Rows ?? 0;
         public bool AltScreen => _templateAltScreen;
 
@@ -59,7 +77,8 @@ namespace SlopWorld
         // LiveShift covers only its predecessor, not the cache's last observation.
         public static int ShiftSince(int previousHistory, ScreenBuf live) =>
             previousHistory >= 0 && live.History < MaxHistoryRows
-                ? Math.Max(0, live.History - previousHistory) : live.LiveShift;
+                ? Math.Max(0, live.History - previousHistory)
+                : live.LiveShift;
 
         // Live metadata is authoritative even before warmup and after an application clears history.
         internal static int PageOffset(int offset, int rows, bool up, ScreenBuf live) =>
@@ -74,11 +93,20 @@ namespace SlopWorld
         // request at a time, so a gesture can replace speculative work after the next reply.
         public int WarmupOffset(ScreenBuf live)
         {
-            if (live == null || live.AltScreen || live.AppMouse || live.Off != 0 ||
-                live.Rows < 2 || live.Cols <= 0 || live.Lines == null ||
-                live.Lines.Length == 0) return 0;
+            if (
+                live == null
+                || live.AltScreen
+                || live.AppMouse
+                || live.Off != 0
+                || live.Rows < 2
+                || live.Cols <= 0
+                || live.Lines == null
+                || live.Lines.Length == 0
+            )
+                return 0;
             int extent = ScrollLimit(live);
-            if (extent == 0) return 0;
+            if (extent == 0)
+                return 0;
             int offset = PrefetchOffset(0, live.Rows, true, extent);
             return Math.Max(0, offset);
         }
@@ -86,7 +114,8 @@ namespace SlopWorld
         public int PrefetchOffset(int target, int rows, bool up, int max)
         {
             max = Math.Max(0, Math.Min(MaxHistoryRows, max));
-            if (max == 0) return -1;
+            if (max == 0)
+                return -1;
             int span = Math.Max(1, Math.Min(MaxScreenRows, rows) / 2);
             target = Math.Max(0, Math.Min(max, target));
             int boundary = up ? target / span * span : (target + span - 1) / span * span;
@@ -94,17 +123,22 @@ namespace SlopWorld
             // fractional edge preserves a bridge between each pair of captures.
             for (int step = 1; step <= 16; step++)
             {
-                int offset = up ? Math.Min(max, boundary + step * span)
+                int offset = up
+                    ? Math.Min(max, boundary + step * span)
                     : Math.Max(1, boundary - step * span);
-                if (!Covers(offset, true)) return offset;
-                if (up ? offset == max : offset == 1) break;
+                if (!Covers(offset, true))
+                    return offset;
+                if (up ? offset == max : offset == 1)
+                    break;
             }
             return -1;
         }
+
         // The displayed scrollback snapshot includes live-tail rows. Keep all of it fixed
         // while streaming, even when background captures refresh the indexed row cache.
         ScreenBuf _pinnedView;
         bool _pinnedExtra;
+
         public void ReleaseView() => _pinnedView = null;
 
         ScreenBuf _template;
@@ -134,9 +168,9 @@ namespace SlopWorld
         // row down by the number of rows that entered at the bottom.
         public bool UpdateLive(ScreenBuf live, int shift)
         {
-            if (live == null) return false;
-            if (_template != null && (!SameViewport(live) ||
-                _template.History > live.History))
+            if (live == null)
+                return false;
+            if (_template != null && (!SameViewport(live) || _template.History > live.History))
             {
                 Reset(live);
                 return false;
@@ -161,7 +195,8 @@ namespace SlopWorld
                 for (int row = 0; row < Math.Min(shift, Rows); row++)
                     _lines.Remove(Storage(row));
                 Shift(shift);
-                if (_pinnedView != null) _pinnedView.Off += shift;
+                if (_pinnedView != null)
+                    _pinnedView.Off += shift;
             }
 
             SetTemplate(live);
@@ -169,26 +204,30 @@ namespace SlopWorld
             // Shallow views still contain live rows, including the fractional overscan row.
             // Refresh those in-place edits without discarding a history-only view. A real
             // scroll can preserve that deep view by translating its anchor instead.
-            bool historyOnly = _cachedView != null &&
-                _cachedAnchor >= _cachedView.Lines.Length;
+            bool historyOnly = _cachedView != null && _cachedAnchor >= _cachedView.Lines.Length;
             if (shift > 0 && historyOnly)
             {
                 _cachedAnchor += shift;
                 _cachedView.Off += shift;
             }
-            else if (changed && (shift > 0 || !historyOnly)) Changed();
+            else if (changed && (shift > 0 || !historyOnly))
+                Changed();
             return true;
         }
 
         public void Add(ScreenBuf frame, ScreenBuf live, bool allowStale = false)
         {
-            if (frame == null || frame.Lines == null || frame.Lines.Length == 0) return;
+            if (frame == null || frame.Lines == null || frame.Lines.Length == 0)
+                return;
             bool current = live == null || live.Seq == frame.Seq;
-            if (!current && !allowStale) return;
+            if (!current && !allowStale)
+                return;
             // At the retention limit, history length no longer measures scroll distance.
             // Retry against the current frame instead of indexing an unknown translation.
-            if (!current && live.History >= MaxHistoryRows) return;
-            if (live != null && _template != null && !SameViewport(frame)) return;
+            if (!current && live.History >= MaxHistoryRows)
+                return;
+            if (live != null && _template != null && !SameViewport(frame))
+                return;
 
             if (_template == null)
             {
@@ -197,14 +236,16 @@ namespace SlopWorld
                     SetTemplate(live);
                     Index(live, 0, true);
                 }
-                else SetTemplate(frame);
+                else
+                    SetTemplate(frame);
             }
 
             // The overlap at global row zero belongs to the current live frame. An older response
             // can still contribute its negative history rows. However, Must not overwrite newer
             // content that was redrawn in place while the request was in flight.
             int off = Math.Max(0, frame.Off + CaptureShift(frame, live));
-            if (Index(frame, off, current)) Changed();
+            if (Index(frame, off, current))
+                Changed();
         }
 
         // Off belongs to the daemon's capture time, not the time we sent the request.
@@ -212,25 +253,38 @@ namespace SlopWorld
         // overwrites neighboring cached rows and makes input/answer lines disappear.
         public static int CaptureShift(ScreenBuf frame, ScreenBuf live)
         {
-            if (live == null || frame.Seq == live.Seq) return 0;
+            if (live == null || frame.Seq == live.Seq)
+                return 0;
             return Math.Max(0, live.History - frame.History);
         }
 
         public bool TryView(int anchor, bool extraRow, out ScreenBuf view, bool freeze = false)
         {
             anchor = Math.Max(0, anchor);
-            if (freeze && _pinnedView != null && _pinnedView.Off == anchor &&
-                _pinnedExtra == extraRow)
+            if (
+                freeze
+                && _pinnedView != null
+                && _pinnedView.Off == anchor
+                && _pinnedExtra == extraRow
+            )
             {
                 view = _pinnedView;
                 return true;
             }
-            if (_cachedView != null && _cachedAnchor == anchor &&
-                _cachedExtra == extraRow && _cachedVersion == _version)
+            if (
+                _cachedView != null
+                && _cachedAnchor == anchor
+                && _cachedExtra == extraRow
+                && _cachedVersion == _version
+            )
             {
                 view = _cachedView;
                 SetViewCursor(view);
-                if (freeze) { PinView(view, extraRow); view = _pinnedView; }
+                if (freeze)
+                {
+                    PinView(view, extraRow);
+                    view = _pinnedView;
+                }
                 return true;
             }
 
@@ -276,7 +330,11 @@ namespace SlopWorld
             _cachedVersion = _version;
             _cachedView = view;
             SetViewCursor(view);
-            if (freeze) { PinView(view, extraRow); view = _pinnedView; }
+            if (freeze)
+            {
+                PinView(view, extraRow);
+                view = _pinnedView;
+            }
             return true;
         }
 
@@ -301,8 +359,10 @@ namespace SlopWorld
         void SetViewCursor(ScreenBuf view)
         {
             view.Cx = _template.Cx;
-            view.Cy = _template.Cy >= 0 && _template.Cy < _template.Rows
-                ? _template.Cy + view.Off : view.Lines.Length;
+            view.Cy =
+                _template.Cy >= 0 && _template.Cy < _template.Rows
+                    ? _template.Cy + view.Off
+                    : view.Lines.Length;
             view.CursorShape = _template.CursorShape;
             view.CursorBlink = _template.CursorBlink;
         }
@@ -313,10 +373,12 @@ namespace SlopWorld
         public bool Covers(int anchor, bool extraRow)
         {
             anchor = Math.Max(0, anchor);
-            if (_template == null) return false;
+            if (_template == null)
+                return false;
             int count = Math.Max(1, _template.Rows) + (extraRow ? 1 : 0);
             for (int row = 0; row < count; row++)
-                if (!_lines.ContainsKey(Storage(row - anchor))) return false;
+                if (!_lines.ContainsKey(Storage(row - anchor)))
+                    return false;
             return true;
         }
 
@@ -338,10 +400,11 @@ namespace SlopWorld
             return down / span * span;
         }
 
-        bool SameViewport(ScreenBuf frame) => _template != null &&
-            (frame.Cols <= 0 || _template.Cols == frame.Cols) &&
-            (frame.Rows <= 0 || _template.Rows == frame.Rows) &&
-            _templateAltScreen == frame.AltScreen;
+        bool SameViewport(ScreenBuf frame) =>
+            _template != null
+            && (frame.Cols <= 0 || _template.Cols == frame.Cols)
+            && (frame.Rows <= 0 || _template.Rows == frame.Rows)
+            && _templateAltScreen == frame.AltScreen;
 
         void SetTemplate(ScreenBuf frame)
         {
@@ -362,7 +425,8 @@ namespace SlopWorld
 
         bool Index(ScreenBuf frame, int off, bool includeLive)
         {
-            if (_template == null) SetTemplate(frame);
+            if (_template == null)
+                SetTemplate(frame);
             bool changed = false;
 
             for (int row = 0; row < frame.Lines.Length; row++)
@@ -370,8 +434,10 @@ namespace SlopWorld
                 int globalRow = row - off;
                 // A delayed reply's live tail may since have been rewritten and scrolled.
                 // Translation cannot turn that old prompt into authoritative history.
-                if (!includeLive && (globalRow >= 0 || row >= frame.Off)) continue;
-                if (globalRow < -MaxHistoryRows || globalRow >= MaxScreenRows) continue;
+                if (!includeLive && (globalRow >= 0 || row >= frame.Off))
+                    continue;
+                if (globalRow < -MaxHistoryRows || globalRow >= MaxScreenRows)
+                    continue;
                 long key = Storage(globalRow);
                 string line = frame.Lines[row];
                 if (!_lines.TryGetValue(key, out var old) || old != line)
@@ -385,7 +451,8 @@ namespace SlopWorld
 
         void Shift(int rows)
         {
-            if (rows <= 0 || _lines.Count == 0) return;
+            if (rows <= 0 || _lines.Count == 0)
+                return;
             _origin += rows;
 
             // Only the coordinate slots that crossed the fixed lower bound can expire. Remove

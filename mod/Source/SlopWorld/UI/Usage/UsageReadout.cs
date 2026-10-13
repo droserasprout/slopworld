@@ -41,15 +41,19 @@ namespace SlopWorld
         public static void DrawClock(Rect row, DateTime now)
         {
             PrepareClock(now);
-            var icon = new Rect(row.x, row.y + (row.height - ClockIconSize) / 2f,
-                ClockIconSize, ClockIconSize);
+            var icon = new Rect(
+                row.x,
+                row.y + (row.height - ClockIconSize) / 2f,
+                ClockIconSize,
+                ClockIconSize
+            );
             GUI.DrawTexture(icon, Icons.Time);
-            UiText.RowLabel(new Rect(icon.xMax + 2f, row.y,
-                row.width - ClockIconSize - 2f, row.height), Clock.Short);
+            UiText.RowLabel(
+                new Rect(icon.xMax + 2f, row.y, row.width - ClockIconSize - 2f, row.height),
+                Clock.Short
+            );
 
-            TooltipHandler.TipRegion(row, new TipSignal(
-                Clock.Tooltip,
-                0x51_0F_0001));
+            TooltipHandler.TipRegion(row, new TipSignal(Clock.Tooltip, 0x51_0F_0001));
         }
 
         // The same rows along a line instead of down a column, right-aligned in the room they are
@@ -59,8 +63,15 @@ namespace SlopWorld
         public static void DrawStrip(Rect area, bool showUsage, bool showClock)
         {
             long started = PerfTrace.Start();
-            try { using (WidgetState.Save()) DrawStripCore(area, showUsage, showClock); }
-            finally { PerfTrace.End("topbar-usage", started, showUsage ? Quotas.Count : 0); }
+            try
+            {
+                using (WidgetState.Save())
+                    DrawStripCore(area, showUsage, showClock);
+            }
+            finally
+            {
+                PerfTrace.End("topbar-usage", started, showUsage ? Quotas.Count : 0);
+            }
         }
 
         static void DrawStripCore(Rect area, bool showUsage, bool showClock)
@@ -71,7 +82,8 @@ namespace SlopWorld
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = UiTheme.Name;
 
-            if (showUsage) PrepareQuotas(usage);
+            if (showUsage)
+                PrepareQuotas(usage);
 
             float x = area.xMax;
             DateTime now = showClock ? ClockNow() : default;
@@ -93,7 +105,8 @@ namespace SlopWorld
                 string count = cached.Count;
 
                 float need = IconSize + 2f + Width(count) + 2f;
-                if (x - need < area.x) break;
+                if (x - need < area.x)
+                    break;
 
                 x -= need;
                 var chip = new Rect(x, area.y, need, area.height);
@@ -102,27 +115,38 @@ namespace SlopWorld
                 // is doing. The icon is there to keep the line from re-flowing, and one drawn as
                 // live would be a number nobody sent.
                 bool stale = w != null && Stale(usage, key);
-                float a = w == null ? 0.4f : stale ? 0.55f : 1f;
+                float a =
+                    w == null ? 0.4f
+                    : stale ? 0.55f
+                    : 1f;
 
                 var icon = IconFor(key);
                 if (icon != null)
                 {
-                    var box = new Rect(chip.x, chip.y + (chip.height - IconSize) / 2f,
-                        IconSize, IconSize);
+                    var box = new Rect(
+                        chip.x,
+                        chip.y + (chip.height - IconSize) / 2f,
+                        IconSize,
+                        IconSize
+                    );
                     Widgets.ThingIcon(box, icon, null, null, 1f, null, null, a);
                 }
 
                 // After the icon: ThingIcon leaves GUI.color on the def's own tint.
                 GUI.color = UiTheme.Fade(UiTheme.Name, a);
                 UiText.RowLabel(
-                    new Rect(chip.x + IconSize + 2f, chip.y,
-                        chip.width - IconSize - 2f, chip.height),
-                    count);
+                    new Rect(
+                        chip.x + IconSize + 2f,
+                        chip.y,
+                        chip.width - IconSize - 2f,
+                        chip.height
+                    ),
+                    count
+                );
                 CachedTip(chip, usage, cached);
 
                 x -= ChipGap;
             }
-
         }
 
         const float ChipGap = 10f;
@@ -134,7 +158,8 @@ namespace SlopWorld
         static UsageWindow Window(UsageInfo usage, string key)
         {
             foreach (var w in usage.Windows)
-                if (w.Key == key) return w;
+                if (w.Key == key)
+                    return w;
             return null;
         }
 
@@ -181,8 +206,10 @@ namespace SlopWorld
                 lines.Add(Detail(w));
 
                 long left = usage.Remaining(w, Time.realtimeSinceStartup);
-                if (left > 0) lines.Add("resets in " + Span(left));
-                else if (left == 0) lines.Add("resets any moment");
+                if (left > 0)
+                    lines.Add("resets in " + Span(left));
+                else if (left == 0)
+                    lines.Add("resets any moment");
             }
             else
             {
@@ -191,19 +218,22 @@ namespace SlopWorld
                 lines.Add(Label(usage, key) + ": nothing heard yet");
             }
 
-            if (!string.IsNullOrEmpty(usage.Plan)) lines.Add("plan: " + usage.Plan);
+            if (!string.IsNullOrEmpty(usage.Plan))
+                lines.Add("plan: " + usage.Plan);
 
             // Each provider retains its own last-good age across partial failures.
             if (usage.Heard > 0f && w != null)
-                lines.Add("refreshed " + Span((long)usage.AgeFor(key, Time.realtimeSinceStartup)) + " ago");
+                lines.Add(
+                    "refreshed " + Span((long)usage.AgeFor(key, Time.realtimeSinceStartup)) + " ago"
+                );
 
             var row = usage.Row(key);
-            if ((row != null && (row.Stale || usage.SourceFailed(row.Provider))) &&
-                !string.IsNullOrEmpty(usage.Error))
+            if (
+                (row != null && (row.Stale || usage.SourceFailed(row.Provider)))
+                && !string.IsNullOrEmpty(usage.Error)
+            )
             {
-                lines.Add(usage.Any
-                    ? $"last poll failed: {usage.Error}"
-                    : usage.Error);
+                lines.Add(usage.Any ? $"last poll failed: {usage.Error}" : usage.Error);
             }
 
             return string.Join("\n", lines);
@@ -232,14 +262,17 @@ namespace SlopWorld
 
         static bool Stale(UsageInfo usage, string key)
         {
-            if (usage == null) return false;
+            if (usage == null)
+                return false;
             var row = usage.Row(key);
-            if (row != null && (row.Stale || usage.SourceFailed(row.Provider))) return true;
+            if (row != null && (row.Stale || usage.SourceFailed(row.Provider)))
+                return true;
 
             // A daemon without provider-local status (or a disconnected client) still gets
             // the old age-based warning. Once the daemon identifies a failed seller, age must
             // not dim healthy providers along with it.
-            return usage.FailedSources.Count == 0 && usage.AgeFor(key, Time.realtimeSinceStartup) > StaleAfter;
+            return usage.FailedSources.Count == 0
+                && usage.AgeFor(key, Time.realtimeSinceStartup) > StaleAfter;
         }
 
         // Keyed rather than windowed, so the settings page can name a row the daemon is not
@@ -254,9 +287,11 @@ namespace SlopWorld
         static string Label(UsageInfo usage, string key)
         {
             var row = usage?.Row(key);
-            if (row != null && !string.IsNullOrEmpty(row.Label)) return row.Label;
+            if (row != null && !string.IsNullOrEmpty(row.Label))
+                return row.Label;
             foreach (var entry in usage?.Catalog ?? new List<UsageCatalogInfo>())
-                if (entry.Key == key && !string.IsNullOrEmpty(entry.Label)) return entry.Label;
+                if (entry.Key == key && !string.IsNullOrEmpty(entry.Label))
+                    return entry.Label;
             return Long(key);
         }
 
@@ -265,8 +300,10 @@ namespace SlopWorld
         {
             if (secs > 86400)
                 return $"{secs / 86400}d {(secs % 86400) / 3600}h {(secs % 3600) / 60}m";
-            if (secs >= 3600) return $"{secs / 3600}h {(secs % 3600) / 60}m";
-            if (secs >= 60) return $"{secs / 60}m";
+            if (secs >= 3600)
+                return $"{secs / 3600}h {(secs % 3600) / 60}m";
+            if (secs >= 60)
+                return $"{secs / 60}m";
             return $"{secs}s";
         }
     }

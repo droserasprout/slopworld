@@ -11,10 +11,12 @@ namespace SlopWorld.Tests
         [SetUp]
         public void Reset()
         {
-            typeof(LoadFailureRecovery).GetField("<Pending>k__BackingField",
-                BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, false);
-            typeof(LoadFailureRecovery).GetField("_notice",
-                BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, null);
+            typeof(LoadFailureRecovery)
+                .GetField("<Pending>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic)
+                .SetValue(null, false);
+            typeof(LoadFailureRecovery)
+                .GetField("_notice", BindingFlags.Static | BindingFlags.NonPublic)
+                .SetValue(null, null);
             Find.WindowStack = new WindowStack();
             LongEventHandler.AnyEventNowOrWaiting = false;
             GenScene.InEntryScene = false;
@@ -24,13 +26,22 @@ namespace SlopWorld.Tests
             QuickStart.Queued = 0;
         }
 
-        static bool Prefix(Type patch, params object[] args) => (bool)patch
-            .GetMethod("Prefix", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, args);
+        static bool Prefix(Type patch, params object[] args) =>
+            (bool)
+                patch
+                    .GetMethod("Prefix", BindingFlags.Static | BindingFlags.NonPublic)
+                    .Invoke(null, args);
 
         [Test]
         public void FailedLoadSuppressesNativeHandlerAndStopsScribeBeforeSceneCleanup()
         {
-            Assert.That(Prefix(typeof(Patch_LoadFailureRecovery), new System.Xml.XmlException("truncated save")), Is.False);
+            Assert.That(
+                Prefix(
+                    typeof(Patch_LoadFailureRecovery),
+                    new System.Xml.XmlException("truncated save")
+                ),
+                Is.False
+            );
             Assert.That(LoadFailureRecovery.Pending, Is.True);
             Assert.That(Scribe.Stops, Is.EqualTo(1));
             Assert.That(GenScene.MenuTransitions, Is.EqualTo(1));
@@ -108,6 +119,7 @@ namespace Verse
     {
         public static bool InEntryScene;
         public static int MenuTransitions;
+
         public static void GoToMainMenu()
         {
             Assert.That(SlopWorld.LoadFailureRecovery.Pending, Is.True);
@@ -119,7 +131,10 @@ namespace Verse
 
 namespace RimWorld
 {
-    public static class MainMenuDrawer { public static void MainMenuOnGUI() { } }
+    public static class MainMenuDrawer
+    {
+        public static void MainMenuOnGUI() { }
+    }
 }
 
 namespace SlopWorld
@@ -127,6 +142,10 @@ namespace SlopWorld
     public static class QuickStart
     {
         public static int Queued;
-        public static void Queue() { Queued++; }
+
+        public static void Queue()
+        {
+            Queued++;
+        }
     }
 }

@@ -27,8 +27,13 @@ namespace SlopWorld
 
         public bool HasTarget => Kind != SidebarViewLocationKind.Tab;
 
-        SidebarViewLocation(SidebarTab tab, SidebarViewLocationKind kind,
-                            string primary, string secondary, int line)
+        SidebarViewLocation(
+            SidebarTab tab,
+            SidebarViewLocationKind kind,
+            string primary,
+            string secondary,
+            int line
+        )
         {
             Tab = tab;
             Kind = kind;
@@ -41,33 +46,56 @@ namespace SlopWorld
             new SidebarViewLocation(tab, SidebarViewLocationKind.Tab, null, null, 0);
 
         public static SidebarViewLocation Agent(string session) =>
-            new SidebarViewLocation(SidebarTab.Agents, SidebarViewLocationKind.Agent,
-                session, null, 0);
+            new SidebarViewLocation(
+                SidebarTab.Agents,
+                SidebarViewLocationKind.Agent,
+                session,
+                null,
+                0
+            );
 
         public static SidebarViewLocation File(string project, string path) =>
-            new SidebarViewLocation(SidebarTab.Files, SidebarViewLocationKind.File,
-                project, path, 0);
+            new SidebarViewLocation(
+                SidebarTab.Files,
+                SidebarViewLocationKind.File,
+                project,
+                path,
+                0
+            );
 
         public static SidebarViewLocation Search(string project, string path, int line) =>
-            new SidebarViewLocation(SidebarTab.Search, SidebarViewLocationKind.Search,
-                project, path, line);
+            new SidebarViewLocation(
+                SidebarTab.Search,
+                SidebarViewLocationKind.Search,
+                project,
+                path,
+                line
+            );
 
         public static SidebarViewLocation Git(string project, string path) =>
-            new SidebarViewLocation(SidebarTab.Git, SidebarViewLocationKind.Git,
-                project, path, 0);
+            new SidebarViewLocation(SidebarTab.Git, SidebarViewLocationKind.Git, project, path, 0);
 
         public static SidebarViewLocation Task(string id) =>
-            new SidebarViewLocation(SidebarTab.Tasks, SidebarViewLocationKind.Task,
-                id, null, 0);
+            new SidebarViewLocation(SidebarTab.Tasks, SidebarViewLocationKind.Task, id, null, 0);
 
         public static SidebarViewLocation Library(string name, bool template = false) =>
-            new SidebarViewLocation(SidebarTab.Library, SidebarViewLocationKind.Library,
-                name, template ? "template" : "", 0);
+            new SidebarViewLocation(
+                SidebarTab.Library,
+                SidebarViewLocationKind.Library,
+                name,
+                template ? "template" : "",
+                0
+            );
 
-        public bool Equals(SidebarViewLocation other) => Tab == other.Tab && Kind == other.Kind &&
-            Line == other.Line && Primary == other.Primary && Secondary == other.Secondary;
+        public bool Equals(SidebarViewLocation other) =>
+            Tab == other.Tab
+            && Kind == other.Kind
+            && Line == other.Line
+            && Primary == other.Primary
+            && Secondary == other.Secondary;
 
-        public override bool Equals(object obj) => obj is SidebarViewLocation other && Equals(other);
+        public override bool Equals(object obj) =>
+            obj is SidebarViewLocation other && Equals(other);
 
         public override int GetHashCode()
         {
@@ -109,18 +137,22 @@ namespace SlopWorld
         {
             // Reselecting the visible tab is a refresh, not a new browser location. This also
             // keeps Ctrl+F1 on the current agent from inserting a blank point in the stack.
-            if (_hasCurrent && _current.Tab == tab) return;
+            if (_hasCurrent && _current.Tab == tab)
+                return;
             Visit(SidebarViewLocation.TabOnly(tab));
         }
 
         public void Visit(SidebarViewLocation location)
         {
-            if (_hasCurrent && _current == location) return;
+            if (_hasCurrent && _current == location)
+                return;
 
-            if (_hasCurrent) Push(_back, _current);
+            if (_hasCurrent)
+                Push(_back, _current);
             _current = location;
             _hasCurrent = true;
-            if (location.HasTarget) _last[location.Tab] = location;
+            if (location.HasTarget)
+                _last[location.Tab] = location;
             _forward.Clear();
         }
 
@@ -135,13 +167,15 @@ namespace SlopWorld
                 return false;
             }
 
-            if (_hasCurrent) Push(_forward, _current);
+            if (_hasCurrent)
+                Push(_forward, _current);
             int last = _back.Count - 1;
             location = _back[last];
             _back.RemoveAt(last);
             _current = location;
             _hasCurrent = true;
-            if (location.HasTarget) _last[location.Tab] = location;
+            if (location.HasTarget)
+                _last[location.Tab] = location;
             return true;
         }
 
@@ -153,20 +187,23 @@ namespace SlopWorld
                 return false;
             }
 
-            if (_hasCurrent) Push(_back, _current);
+            if (_hasCurrent)
+                Push(_back, _current);
             int last = _forward.Count - 1;
             location = _forward[last];
             _forward.RemoveAt(last);
             _current = location;
             _hasCurrent = true;
-            if (location.HasTarget) _last[location.Tab] = location;
+            if (location.HasTarget)
+                _last[location.Tab] = location;
             return true;
         }
 
         static void Push(List<SidebarViewLocation> stack, SidebarViewLocation location)
         {
             stack.Add(location);
-            if (stack.Count > MaxEntries) stack.RemoveAt(0);
+            if (stack.Count > MaxEntries)
+                stack.RemoveAt(0);
         }
     }
 }

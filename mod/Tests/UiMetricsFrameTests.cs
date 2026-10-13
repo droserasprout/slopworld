@@ -13,7 +13,9 @@ namespace SlopWorld.Tests
             readonly string _density = Settings.S.uiDensity;
             readonly float _scale = Prefs.UIScale;
             readonly bool _tiny = Text.TinyFontSupported;
-            readonly int _font = UiFont.RevisionValue, _atlas = UiTheme.AtlasRevisionValue;
+            readonly int _font = UiFont.RevisionValue,
+                _atlas = UiTheme.AtlasRevisionValue;
+
             public MetricScope()
             {
                 Settings.S.uiDensity = "default";
@@ -22,6 +24,7 @@ namespace SlopWorld.Tests
                 Time.frameCount++;
                 UiMetrics.BeginFrame();
             }
+
             public void Dispose()
             {
                 Settings.S.uiDensity = _density;
@@ -37,23 +40,40 @@ namespace SlopWorld.Tests
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             foreach (string kind in new[] { "density", "scale", "font", "atlas" })
-                yield return ($"UI {kind} changes invalidate only their revision category on next frame", () => Revisions(kind));
+                yield return (
+                    $"UI {kind} changes invalidate only their revision category on next frame",
+                    () => Revisions(kind)
+                );
             foreach (bool compact in new[] { false, true })
-                yield return ($"{(compact ? "compact" : "default")} UI metric accessors expose resolved geometry", () => Values(compact));
+                yield return (
+                    $"{(compact ? "compact" : "default")} UI metric accessors expose resolved geometry",
+                    () => Values(compact)
+                );
         }
 
         static void Revisions(string kind)
         {
             using var scope = new MetricScope();
-            int revision = UiMetrics.Revision, density = UiMetrics.DensityRevision,
-                typography = UiMetrics.TypographyRevision, scale = UiMetrics.ScaleRevision;
+            int revision = UiMetrics.Revision,
+                density = UiMetrics.DensityRevision,
+                typography = UiMetrics.TypographyRevision,
+                scale = UiMetrics.ScaleRevision;
             switch (kind)
             {
-                case "density": Settings.S.uiDensity = "compact"; break;
-                case "scale": Prefs.UIScale = 1.5f; break;
-                case "font": UiFont.RevisionValue++; break;
-                case "atlas": UiTheme.AtlasRevisionValue++; break;
-                default: throw new ArgumentOutOfRangeException(nameof(kind));
+                case "density":
+                    Settings.S.uiDensity = "compact";
+                    break;
+                case "scale":
+                    Prefs.UIScale = 1.5f;
+                    break;
+                case "font":
+                    UiFont.RevisionValue++;
+                    break;
+                case "atlas":
+                    UiTheme.AtlasRevisionValue++;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(kind));
             }
             Assert.That(UiMetrics.Revision, Is.EqualTo(revision), "event passes use one snapshot");
             Assert.That(UiMetrics.DensityRevision, Is.EqualTo(density));
@@ -61,11 +81,21 @@ namespace SlopWorld.Tests
             Assert.That(UiMetrics.ScaleRevision, Is.EqualTo(scale));
             Time.frameCount++;
             Assert.That(UiMetrics.Revision, Is.EqualTo(revision + 1));
-            Assert.That(UiMetrics.DensityRevision, Is.EqualTo(density + (kind == "density" ? 1 : 0)));
-            Assert.That(UiMetrics.TypographyRevision, Is.EqualTo(typography + (kind == "font" || kind == "atlas" ? 1 : 0)));
+            Assert.That(
+                UiMetrics.DensityRevision,
+                Is.EqualTo(density + (kind == "density" ? 1 : 0))
+            );
+            Assert.That(
+                UiMetrics.TypographyRevision,
+                Is.EqualTo(typography + (kind == "font" || kind == "atlas" ? 1 : 0))
+            );
             Assert.That(UiMetrics.ScaleRevision, Is.EqualTo(scale + (kind == "scale" ? 1 : 0)));
             Time.frameCount++;
-            Assert.That(UiMetrics.Revision, Is.EqualTo(revision + 1), "stable settings do not invalidate again");
+            Assert.That(
+                UiMetrics.Revision,
+                Is.EqualTo(revision + 1),
+                "stable settings do not invalidate again"
+            );
         }
 
         static void Values(bool compact)
@@ -100,8 +130,14 @@ namespace SlopWorld.Tests
             Text.TinyFontSupported = true;
             UiFont.RevisionValue++;
             Time.frameCount++;
-            Assert.That(UiMetrics.Current.TinyLine, Is.EqualTo(Mathf.Ceil(Text.LineHeightOf(GameFont.Tiny))));
-            Assert.That(UiMetrics.Current.MediumLine, Is.EqualTo(Mathf.Ceil(Text.LineHeightOf(GameFont.Medium))));
+            Assert.That(
+                UiMetrics.Current.TinyLine,
+                Is.EqualTo(Mathf.Ceil(Text.LineHeightOf(GameFont.Tiny)))
+            );
+            Assert.That(
+                UiMetrics.Current.MediumLine,
+                Is.EqualTo(Mathf.Ceil(Text.LineHeightOf(GameFont.Medium)))
+            );
         }
     }
 }

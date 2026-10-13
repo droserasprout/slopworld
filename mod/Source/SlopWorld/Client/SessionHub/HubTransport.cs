@@ -1,7 +1,7 @@
-using Google.Protobuf;
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
+using Google.Protobuf;
 using Verse;
 
 namespace SlopWorld
@@ -39,14 +39,16 @@ namespace SlopWorld
         int _connectSerial;
         bool _connecting;
 
-        public HubTransport() : this(() => new MiniWebSocket(),
-            action => ThreadPool.QueueUserWorkItem(_ => action()))
+        public HubTransport()
+            : this(() => new MiniWebSocket(), action => ThreadPool.QueueUserWorkItem(_ => action()))
         { }
 
         // The game uses ThreadPool and MiniWebSocket by default.
         // Tests can supply a controlled scheduler and socket while using the same result processing code.
-        internal HubTransport(System.Func<IHubSocket> socketFactory,
-                             System.Action<System.Action> queueConnect)
+        internal HubTransport(
+            System.Func<IHubSocket> socketFactory,
+            System.Action<System.Action> queueConnect
+        )
         {
             _socketFactory = socketFactory;
             _queueConnect = queueConnect;
@@ -61,7 +63,8 @@ namespace SlopWorld
 
         void ScheduleRetry(string error)
         {
-            if (TerminalLatency.Enabled) TerminalLatency.Timeline.Reset();
+            if (TerminalLatency.Enabled)
+                TerminalLatency.Timeline.Reset();
             Status = $"offline: {error}";
             _ws?.Dispose();
             _ws = null;
@@ -72,12 +75,14 @@ namespace SlopWorld
 
         public void Disconnect()
         {
-            if (TerminalLatency.Enabled) TerminalLatency.Timeline.Reset();
+            if (TerminalLatency.Enabled)
+                TerminalLatency.Timeline.Reset();
             _connectSerial++;
             _connecting = false;
             _ws?.Dispose();
             _ws = null;
-            while (_connectResults.TryDequeue(out var result)) result.Socket?.Dispose();
+            while (_connectResults.TryDequeue(out var result))
+                result.Socket?.Dispose();
             Status = "disconnected";
         }
 
@@ -89,7 +94,8 @@ namespace SlopWorld
         // rejected input after reconnect: it may reach a different application state.
         public bool TrySend(Wire.ClientMessage message)
         {
-            if (_ws == null || !_ws.Connected) return false;
+            if (_ws == null || !_ws.Connected)
+                return false;
             TerminalLatency.Begin(message);
             return _ws.SendBinary(message.ToByteArray());
         }
@@ -128,13 +134,21 @@ namespace SlopWorld
             {
                 for (int i = 0; i < _batch.Count; i++)
                 {
-                    if (!_batch.ShouldDispatch(i)) continue;
+                    if (!_batch.ShouldDispatch(i))
+                        continue;
                     try
                     {
-                        if (TerminalLatency.Enabled) TerminalLatency.Timeline.Dispatch(_batch[i].Screen, _batch.ReceivedAt(i));
+                        if (TerminalLatency.Enabled)
+                            TerminalLatency.Timeline.Dispatch(
+                                _batch[i].Screen,
+                                _batch.ReceivedAt(i)
+                            );
                         OnMessage?.Invoke(_batch[i]);
                     }
-                    catch (Exception e) { BadEvent(e); }
+                    catch (Exception e)
+                    {
+                        BadEvent(e);
+                    }
                 }
             }
             finally
@@ -156,22 +170,29 @@ namespace SlopWorld
 
             _connectSerial++;
             _connecting = false;
-            while (_connectResults.TryDequeue(out var result)) result.Socket?.Dispose();
+            while (_connectResults.TryDequeue(out var result))
+                result.Socket?.Dispose();
             Status = "disconnected";
         }
 
         void BeginConnect()
         {
-            if (_connecting) return;
+            if (_connecting)
+                return;
             var connection = Settings.Connection;
             int serial = ++_connectSerial;
             _connecting = true;
             Status = "connecting";
             OnConnecting?.Invoke();
-            try { _queueConnect(() => OpenSocket(connection, serial)); }
+            try
+            {
+                _queueConnect(() => OpenSocket(connection, serial));
+            }
             catch (Exception error)
             {
-                _connectResults.Enqueue(new ConnectResult { Serial = serial, Error = error.Message });
+                _connectResults.Enqueue(
+                    new ConnectResult { Serial = serial, Error = error.Message }
+                );
             }
         }
 
@@ -183,10 +204,20 @@ namespace SlopWorld
             try
             {
                 result.Socket = _socketFactory();
-                if (!result.Socket.Connect(connection.Host, connection.Port, WireProtocol.WsPath, connection.Token))
+                if (
+                    !result.Socket.Connect(
+                        connection.Host,
+                        connection.Port,
+                        WireProtocol.WsPath,
+                        connection.Token
+                    )
+                )
                     result.Error = result.Socket.LastError ?? "connection failed";
             }
-            catch (Exception error) { result.Error = error.Message; }
+            catch (Exception error)
+            {
+                result.Error = error.Message;
+            }
             _connectResults.Enqueue(result);
         }
 
@@ -198,7 +229,8 @@ namespace SlopWorld
                 {
                     // Ignore a completion with an older serial so it cannot release a newer attempt.
                     // Complete the current attempt even if the user disables auto-connect after BeginConnect.
-                    if (result.Serial == _connectSerial) _connecting = false;
+                    if (result.Serial == _connectSerial)
+                        _connecting = false;
                     result.Socket?.Dispose();
                     continue;
                 }
@@ -219,6 +251,5 @@ namespace SlopWorld
                 }
             }
         }
-
     }
 }

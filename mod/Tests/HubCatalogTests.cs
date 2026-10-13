@@ -4,15 +4,22 @@ namespace SlopWorld.Tests
 {
     static class HubCatalogTests
     {
-        static JVal Snapshot(string name, int catalog) => catalog == 0
-            ? ProtobufFixtures.Json(new Wire.ProjectsReply { Projects = { new Wire.Project { Name = name } } })
+        static JVal Snapshot(string name, int catalog) =>
+            catalog == 0
+                ? ProtobufFixtures.Json(
+                    new Wire.ProjectsReply { Projects = { new Wire.Project { Name = name } } }
+                )
             : catalog == 1
-                ? ProtobufFixtures.Json(new Wire.LibraryReply { Library = { new Wire.LibraryItem { Name = name } } })
-                : ProtobufFixtures.Json(new Wire.PresetsReply
+                ? ProtobufFixtures.Json(
+                    new Wire.LibraryReply { Library = { new Wire.LibraryItem { Name = name } } }
+                )
+            : ProtobufFixtures.Json(
+                new Wire.PresetsReply
                 {
                     Presets = { new Wire.SandboxPreset { Name = name } },
-                    Commands = { new Wire.CommandPreset { Name = name } }
-                });
+                    Commands = { new Wire.CommandPreset { Name = name } },
+                }
+            );
 
         public static void SupersededRefreshesWaitForWinningSuccessOrFailure()
         {
@@ -21,9 +28,18 @@ namespace SlopWorld.Tests
             try
             {
                 var hub = new HubCatalog(() => { }, _ => { });
-                int loaded = 0, failed = 0;
-                Action success = () => { AssertEx.Equal("winner", hub.Templates[0].Name, "publish before callbacks"); loaded++; };
-                Action<string> failure = error => { AssertEx.Equal("unavailable", error, "winning failure"); failed++; };
+                int loaded = 0,
+                    failed = 0;
+                Action success = () =>
+                {
+                    AssertEx.Equal("winner", hub.Templates[0].Name, "publish before callbacks");
+                    loaded++;
+                };
+                Action<string> failure = error =>
+                {
+                    AssertEx.Equal("unavailable", error, "winning failure");
+                    failed++;
+                };
                 hub.RefreshTemplates(failure, success);
                 hub.RefreshTemplates(failure, success);
                 requests[0].Ok(JVal.Parse(@"{""templates"":[{""name"":""stale""}]}"));
@@ -38,8 +54,10 @@ namespace SlopWorld.Tests
                 AssertEx.Equal(2, failed, "both callers receive winning error");
                 AssertEx.Equal(2, loaded, "failure is never reported as success");
             }
-            finally { requests.Clear(); }
-
+            finally
+            {
+                requests.Clear();
+            }
         }
 
         public static void MutationFailureSettlesReadsAndReentrantRefreshWaitsForItsOwnOutcome()
@@ -49,43 +67,65 @@ namespace SlopWorld.Tests
             try
             {
                 var hub = new HubCatalog(() => { }, _ => { });
-                int failed = 0, loaded = 0;
+                int failed = 0,
+                    loaded = 0;
                 hub.RefreshTemplates(_ => failed++);
                 hub.RemoveAgentTemplate(new AgentTemplateInfo(), null, null, _ => failed++);
                 requests[1].Fail("write failed");
                 AssertEx.Equal(2, failed, "write failure releases refresh and mutation callers");
-                hub.RefreshTemplates(loaded: () => { loaded++; hub.RefreshTemplates(loaded: () => loaded++); });
+                hub.RefreshTemplates(loaded: () =>
+                {
+                    loaded++;
+                    hub.RefreshTemplates(loaded: () => loaded++);
+                });
                 requests[2].Ok(JVal.Parse("{}"));
                 AssertEx.Equal(1, loaded, "reentrant request is not completed by old outcome");
                 requests[3].Ok(JVal.Parse("{}"));
                 AssertEx.Equal(2, loaded, "reentrant request completes on its response");
             }
-            finally { requests.Clear(); }
-
+            finally
+            {
+                requests.Clear();
+            }
         }
 
         sealed class Fixture : IDisposable
         {
             public readonly HubCatalog Hub;
-            public readonly System.Collections.Generic.List<DaemonClient.Request> Requests = DaemonClient.Requests;
-            public int Errors, Sessions;
+            public readonly System.Collections.Generic.List<DaemonClient.Request> Requests =
+                DaemonClient.Requests;
+            public int Errors,
+                Sessions;
+
             public Fixture()
             {
                 Requests.Clear();
                 Hub = new HubCatalog(() => Sessions++, _ => { });
             }
+
             public void Refresh(int catalog)
             {
                 switch (catalog)
                 {
-                    case 0: Hub.RefreshProjects(_ => Errors++); break;
-                    case 1: Hub.RefreshLibrary(_ => Errors++); break;
-                    case 2: Hub.LoadPresets(fail: _ => Errors++); break;
-                    default: throw new ArgumentOutOfRangeException(nameof(catalog));
+                    case 0:
+                        Hub.RefreshProjects(_ => Errors++);
+                        break;
+                    case 1:
+                        Hub.RefreshLibrary(_ => Errors++);
+                        break;
+                    case 2:
+                        Hub.LoadPresets(fail: _ => Errors++);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(catalog));
                 }
             }
-            public string Name(int catalog) => catalog == 0 ? Hub.Projects[0].Name :
-                catalog == 1 ? Hub.Library[0].Name : Hub.Presets[0].Name;
+
+            public string Name(int catalog) =>
+                catalog == 0 ? Hub.Projects[0].Name
+                : catalog == 1 ? Hub.Library[0].Name
+                : Hub.Presets[0].Name;
+
             public void Dispose() => Requests.Clear();
         }
 
@@ -104,12 +144,21 @@ namespace SlopWorld.Tests
                 winner.Ok(Snapshot("new", catalog));
                 stale.Ok(Snapshot("old", catalog));
                 stale.Fail("stale");
-                AssertEx.Equal("new", fixture.Name(catalog), "newest GET wins for catalog " + catalog);
+                AssertEx.Equal(
+                    "new",
+                    fixture.Name(catalog),
+                    "newest GET wins for catalog " + catalog
+                );
                 AssertEx.Equal(0, fixture.Errors, "stale failure ignored");
                 fixture.Refresh(catalog);
                 fixture.Requests[3].Fail("current");
                 AssertEx.Equal(1, fixture.Errors, "current failure delivered");
-                if (catalog == 2) AssertEx.Equal("new", fixture.Hub.Commands[0].Name, "commands share preset revision");
+                if (catalog == 2)
+                    AssertEx.Equal(
+                        "new",
+                        fixture.Hub.Commands[0].Name,
+                        "commands share preset revision"
+                    );
             }
         }
 
@@ -123,23 +172,52 @@ namespace SlopWorld.Tests
                     fixture.Requests[0].Ok(Snapshot("initial", catalog));
                     fixture.Refresh(catalog);
                     var pending = fixture.Requests[1];
-                    if (getFirst) pending.Ok(Snapshot("new", catalog));
-                    if (catalog == 0) fixture.Hub.ApplyProjects(ProtobufFixtures.Read<Wire.ProjectsReply>(Snapshot("old", catalog)));
-                    else fixture.Hub.ApplyLibrary(ProtobufFixtures.Read<Wire.LibraryReply>(Snapshot("old", catalog)));
-                    if (!getFirst) pending.Ok(Snapshot("new", catalog));
-                    AssertEx.Equal(getFirst ? "new" : "initial", fixture.Name(catalog), "old push never publishes");
+                    if (getFirst)
+                        pending.Ok(Snapshot("new", catalog));
+                    if (catalog == 0)
+                        fixture.Hub.ApplyProjects(
+                            ProtobufFixtures.Read<Wire.ProjectsReply>(Snapshot("old", catalog))
+                        );
+                    else
+                        fixture.Hub.ApplyLibrary(
+                            ProtobufFixtures.Read<Wire.LibraryReply>(Snapshot("old", catalog))
+                        );
+                    if (!getFirst)
+                        pending.Ok(Snapshot("new", catalog));
+                    AssertEx.Equal(
+                        getFirst ? "new" : "initial",
+                        fixture.Name(catalog),
+                        "old push never publishes"
+                    );
                     fixture.Requests[2].Ok(Snapshot("new", catalog));
-                    AssertEx.Equal("new", fixture.Name(catalog), "read after push restores authoritative catalog");
+                    AssertEx.Equal(
+                        "new",
+                        fixture.Name(catalog),
+                        "read after push restores authoritative catalog"
+                    );
                     AssertEx.Equal(0, fixture.Errors, "no stale failures");
                 }
         }
 
         public static void WritesInvalidateReadsAndCompleteDespiteSupersededReload()
         {
-            foreach (string operation in new[] { "project", "library", "copy-preset", "save-preset", "remove-preset", "command" })
+            foreach (
+                string operation in new[]
+                {
+                    "project",
+                    "library",
+                    "copy-preset",
+                    "save-preset",
+                    "remove-preset",
+                    "command",
+                }
+            )
             {
                 using var fixture = new Fixture();
-                int catalog = operation == "project" ? 0 : operation == "library" ? 1 : 2;
+                int catalog =
+                    operation == "project" ? 0
+                    : operation == "library" ? 1
+                    : 2;
                 fixture.Refresh(catalog);
                 fixture.Requests[0].Ok(Snapshot("initial", catalog));
                 fixture.Refresh(catalog);
@@ -149,27 +227,56 @@ namespace SlopWorld.Tests
                 Action<string> fail = _ => fixture.Errors++;
                 switch (operation)
                 {
-                    case "project": fixture.Hub.SaveProject(new ProjectInfo(), false, "a/b", ok, fail); break;
-                    case "library": fixture.Hub.SaveLibraryItem(new LibraryItemInfo(), true, "", ok, fail); break;
-                    case "copy-preset": fixture.Hub.CopyPreset("sandbox_presets", "a/b", "copy", ok, fail); break;
-                    case "save-preset": fixture.Hub.SavePreset(new PresetInfo(), ok, fail); break;
-                    case "remove-preset": fixture.Hub.RemovePreset("sandbox_presets", "a/b", ok, fail); break;
-                    case "command": fixture.Hub.SaveCommand(new CommandInfo(), ok, fail); break;
-                    default: throw new ArgumentOutOfRangeException(nameof(operation));
+                    case "project":
+                        fixture.Hub.SaveProject(new ProjectInfo(), false, "a/b", ok, fail);
+                        break;
+                    case "library":
+                        fixture.Hub.SaveLibraryItem(new LibraryItemInfo(), true, "", ok, fail);
+                        break;
+                    case "copy-preset":
+                        fixture.Hub.CopyPreset("sandbox_presets", "a/b", "copy", ok, fail);
+                        break;
+                    case "save-preset":
+                        fixture.Hub.SavePreset(new PresetInfo(), ok, fail);
+                        break;
+                    case "remove-preset":
+                        fixture.Hub.RemovePreset("sandbox_presets", "a/b", ok, fail);
+                        break;
+                    case "command":
+                        fixture.Hub.SaveCommand(new CommandInfo(), ok, fail);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(operation));
                 }
                 var write = fixture.Requests[2];
                 pending.Ok(Snapshot("stale", catalog));
                 pending.Fail("stale");
-                AssertEx.Equal("initial", fixture.Name(catalog), "write invalidates pending read: " + operation);
+                AssertEx.Equal(
+                    "initial",
+                    fixture.Name(catalog),
+                    "write invalidates pending read: " + operation
+                );
                 write.Ok(JVal.Parse("{}"));
                 var reload = fixture.Requests[3];
                 fixture.Refresh(catalog);
                 reload.Ok(Snapshot("stale", catalog));
-                AssertEx.Equal(1, completed, "write completes despite superseded reload: " + operation);
-                AssertEx.Equal("initial", fixture.Name(catalog), "superseded reload cannot replace snapshot");
+                AssertEx.Equal(
+                    1,
+                    completed,
+                    "write completes despite superseded reload: " + operation
+                );
+                AssertEx.Equal(
+                    "initial",
+                    fixture.Name(catalog),
+                    "superseded reload cannot replace snapshot"
+                );
                 fixture.Requests[4].Ok(Snapshot("fresh", catalog));
                 AssertEx.Equal("fresh", fixture.Name(catalog), "winning reload publishes snapshot");
-                AssertEx.Equal(operation == "project" ? 1 : 0, fixture.Sessions, "only project save refreshes sessions");
+                AssertEx.Equal(
+                    operation == "project" ? 1 : 0,
+                    fixture.Sessions,
+                    "only project save refreshes sessions"
+                );
                 AssertEx.Equal(0, fixture.Errors, "no stale errors delivered");
             }
         }
@@ -200,7 +307,10 @@ namespace SlopWorld.Tests
             var deletion = fixture.Requests[2];
             obsolete.Ok(Snapshot("stale", 0));
             AssertEx.Equal("initial", fixture.Name(0), "delete invalidates pending GET");
-            AssertEx.True(deletion.Path.EndsWith("/a%2Fb", StringComparison.Ordinal), "escaped project deletion path");
+            AssertEx.True(
+                deletion.Path.EndsWith("/a%2Fb", StringComparison.Ordinal),
+                "escaped project deletion path"
+            );
             deletion.Ok(JVal.Parse("{}"));
             AssertEx.Equal(1, fixture.Sessions, "deletion refreshes session membership");
             AssertEx.Equal(0, fixture.Errors, "successful deletion reports no failure");

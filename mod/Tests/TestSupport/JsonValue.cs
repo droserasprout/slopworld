@@ -24,7 +24,8 @@ namespace SlopWorld
             get
             {
                 var obj = _token as JObject;
-                if (obj == null || key == null) return Null;
+                if (obj == null || key == null)
+                    return Null;
                 return obj.TryGetValue(key, out var value) ? Wrap(value) : Null;
             }
         }
@@ -44,59 +45,73 @@ namespace SlopWorld
         public bool IsObject => _token.Type == JTokenType.Object;
         public bool IsArray => _token.Type == JTokenType.Array;
         public bool IsBool => _token.Type == JTokenType.Boolean;
-        public bool IsNumber => _token.Type == JTokenType.Integer ||
-            _token.Type == JTokenType.Float;
+        public bool IsNumber =>
+            _token.Type == JTokenType.Integer || _token.Type == JTokenType.Float;
 
         public string Str => _token.Type == JTokenType.String ? (string)_token : null;
-        public double Num => IsNumber ? Convert.ToDouble(_token.Value<object>(),
-            CultureInfo.InvariantCulture) : 0d;
+        public double Num =>
+            IsNumber ? Convert.ToDouble(_token.Value<object>(), CultureInfo.InvariantCulture) : 0d;
         public bool Bool => IsBool && (bool)_token;
 
         public string AsString(string fallback = "") => Str ?? fallback;
+
         public int AsInt(int fallback = 0) => IsNumber ? (int)Num : fallback;
+
         public long AsLong(long fallback = 0) => IsNumber ? (long)Num : fallback;
+
         public bool AsBool(bool fallback = false) => IsNull ? fallback : Bool;
+
         public float AsFloat(float fallback = 0f) => IsNumber ? (float)Num : fallback;
 
         public IEnumerable<JVal> Items => ItemsOf(_token as JArray);
 
-        public IEnumerable<KeyValuePair<string, JVal>> ObjectItems => ObjectItemsOf(_token as JObject);
+        public IEnumerable<KeyValuePair<string, JVal>> ObjectItems =>
+            ObjectItemsOf(_token as JObject);
 
         static IEnumerable<JVal> ItemsOf(JArray array)
         {
-            if (array == null) yield break;
-            foreach (var item in array) yield return Wrap(item);
+            if (array == null)
+                yield break;
+            foreach (var item in array)
+                yield return Wrap(item);
         }
 
         static IEnumerable<KeyValuePair<string, JVal>> ObjectItemsOf(JObject obj)
         {
-            if (obj == null) yield break;
+            if (obj == null)
+                yield break;
             foreach (var property in obj.Properties())
                 yield return new KeyValuePair<string, JVal>(property.Name, Wrap(property.Value));
         }
 
-        internal static JVal Wrap(JToken token) => token == null || token.Type == JTokenType.Null
-            ? Null : new JVal(token);
+        internal static JVal Wrap(JToken token) =>
+            token == null || token.Type == JTokenType.Null ? Null : new JVal(token);
 
         // Construction helpers keep test projections in the token tree. Callers should only
         // turn the finished value into text at the test boundary.
         internal static JVal ObjectValue() => new JVal(new JObject());
+
         internal static JVal ArrayValue() => new JVal(new JArray());
+
         internal static JVal StringValue(string value) => new JVal(new JValue(value ?? ""));
+
         internal static JVal IntValue(int value) => new JVal(new JValue(value));
+
         internal static JVal BoolValue(bool value) => new JVal(new JValue(value));
 
         internal void Put(string key, JVal value)
         {
             var obj = _token as JObject;
-            if (obj == null) throw new InvalidOperationException("JSON value is not an object");
+            if (obj == null)
+                throw new InvalidOperationException("JSON value is not an object");
             obj[key] = (value ?? Null).Token.DeepClone();
         }
 
         internal void Add(JVal value)
         {
             var array = _token as JArray;
-            if (array == null) throw new InvalidOperationException("JSON value is not an array");
+            if (array == null)
+                throw new InvalidOperationException("JSON value is not an array");
             array.Add((value ?? Null).Token.DeepClone());
         }
 
@@ -109,7 +124,10 @@ namespace SlopWorld
                 reader.Finish();
                 return value;
             }
-            catch (FormatException) { throw; }
+            catch (FormatException)
+            {
+                throw;
+            }
             catch (JsonException exception)
             {
                 throw new FormatException(exception.Message, exception);
@@ -126,8 +144,10 @@ namespace SlopWorld
         // Wire patches replace nulls/arrays and merge objects recursively.
         public static JVal Merge(JVal baseValue, JVal patch)
         {
-            if (patch == null || patch.IsNull) return Clone(patch ?? Null);
-            if (!patch.IsObject) return Clone(patch);
+            if (patch == null || patch.IsNull)
+                return Clone(patch ?? Null);
+            if (!patch.IsObject)
+                return Clone(patch);
 
             var result = Clone(baseValue ?? Null).Token as JObject ?? new JObject();
             foreach (var pair in patch.ObjectItems)
@@ -142,8 +162,10 @@ namespace SlopWorld
         // Select source leaves using the patch shape.
         public static JVal OverlayByShape(JVal shape, JVal source)
         {
-            if (shape == null || shape.IsNull) return Null;
-            if (!shape.IsObject) return Clone(source ?? Null);
+            if (shape == null || shape.IsNull)
+                return Null;
+            if (!shape.IsObject)
+                return Clone(source ?? Null);
 
             var result = new JObject();
             foreach (var pair in shape.ObjectItems)
@@ -157,7 +179,8 @@ namespace SlopWorld
 
         public static JVal Clone(JVal value)
         {
-            if (value == null || value.IsNull) return Null;
+            if (value == null || value.IsNull)
+                return Null;
             return new JVal(value.Token.DeepClone());
         }
 
@@ -172,7 +195,8 @@ namespace SlopWorld
         internal string StringAt(int index, string fallback = "")
         {
             var array = _token as JArray;
-            if (array == null || index < 0 || index >= array.Count) return fallback;
+            if (array == null || index < 0 || index >= array.Count)
+                return fallback;
             var value = array[index];
             return value != null && value.Type == JTokenType.String ? (string)value : fallback;
         }
@@ -186,7 +210,9 @@ namespace SlopWorld
         {
             LineInfoHandling = LineInfoHandling.Ignore,
         };
-        internal JsonReader(string text) : base(new StringReader(text ?? ""))
+
+        internal JsonReader(string text)
+            : base(new StringReader(text ?? ""))
         {
             // Json.NET supplies the retained value tree. In contrast, The scanner below supplies
             // the strict grammar that Json.NET's token stream does not expose (notably trailing
@@ -202,7 +228,8 @@ namespace SlopWorld
         internal new JVal Value(bool decode = true)
         {
             ReadRequired();
-            if (decode) return JVal.Wrap(JToken.ReadFrom(this, LoadSettings));
+            if (decode)
+                return JVal.Wrap(JToken.ReadFrom(this, LoadSettings));
             if (TokenType == JsonToken.StartObject || TokenType == JsonToken.StartArray)
             {
                 Skip();
@@ -214,20 +241,27 @@ namespace SlopWorld
 
         internal void Finish()
         {
-            if (Read()) throw Invalid();
+            if (Read())
+                throw Invalid();
         }
 
         double NumberValue()
         {
             double value;
-            try { value = Convert.ToDouble(base.Value, CultureInfo.InvariantCulture); }
-            catch (Exception exception) when (exception is FormatException ||
-                                               exception is InvalidCastException ||
-                                               exception is OverflowException)
+            try
+            {
+                value = Convert.ToDouble(base.Value, CultureInfo.InvariantCulture);
+            }
+            catch (Exception exception)
+                when (exception is FormatException
+                    || exception is InvalidCastException
+                    || exception is OverflowException
+                )
             {
                 throw Invalid(exception.Message);
             }
-            if (double.IsNaN(value) || double.IsInfinity(value)) throw Invalid();
+            if (double.IsNaN(value) || double.IsInfinity(value))
+                throw Invalid();
             return value;
         }
 
@@ -238,8 +272,12 @@ namespace SlopWorld
             {
                 hasToken = base.Read();
             }
-            catch (JsonException exception) { throw Invalid(exception.Message); }
-            if (!hasToken) return false;
+            catch (JsonException exception)
+            {
+                throw Invalid(exception.Message);
+            }
+            if (!hasToken)
+                return false;
             switch (TokenType)
             {
                 case JsonToken.Comment:
@@ -248,7 +286,8 @@ namespace SlopWorld
                 case JsonToken.StartConstructor:
                     throw Invalid();
                 case JsonToken.PropertyName:
-                    if (QuoteChar != '"') throw Invalid();
+                    if (QuoteChar != '"')
+                        throw Invalid();
                     break;
                 case JsonToken.Integer:
                     // Keep exact integer tokens for Protobuf versions and identities.
@@ -262,7 +301,8 @@ namespace SlopWorld
 
         void ReadRequired()
         {
-            if (!Read()) throw Invalid();
+            if (!Read())
+                throw Invalid();
         }
 
         FormatException Invalid(string message = null) =>
@@ -291,40 +331,54 @@ namespace SlopWorld
 
         char Peek()
         {
-            while (_at < _text.Length && (_text[_at] == ' ' || _text[_at] == '\t' ||
-                _text[_at] == '\r' || _text[_at] == '\n')) _at++;
+            while (
+                _at < _text.Length
+                && (
+                    _text[_at] == ' '
+                    || _text[_at] == '\t'
+                    || _text[_at] == '\r'
+                    || _text[_at] == '\n'
+                )
+            )
+                _at++;
             return _at < _text.Length ? _text[_at] : '\0';
         }
 
         bool Take(char token)
         {
-            if (Peek() != token || _at == _text.Length) return false;
+            if (Peek() != token || _at == _text.Length)
+                return false;
             _at++;
             return true;
         }
 
         internal void Expect(char token)
         {
-            if (!Take(token)) throw Invalid();
+            if (!Take(token))
+                throw Invalid();
         }
 
         internal void Finish()
         {
             Peek();
-            if (_at != _text.Length) throw Invalid();
+            if (_at != _text.Length)
+                throw Invalid();
         }
 
         internal bool More(ref bool first, char end)
         {
-            if (Take(end)) return false;
-            if (!first) Expect(',');
+            if (Take(end))
+                return false;
+            if (!first)
+                Expect(',');
             first = false;
             return true;
         }
 
         internal void Value(bool decode = false, int depth = 0)
         {
-            if (depth > 128) throw Invalid();
+            if (depth > 128)
+                throw Invalid();
             bool first = true;
             switch (Peek())
             {
@@ -339,7 +393,8 @@ namespace SlopWorld
                     return;
                 case '[':
                     _at++;
-                    while (More(ref first, ']')) Value(false, depth + 1);
+                    while (More(ref first, ']'))
+                        Value(false, depth + 1);
                     return;
                 case '"':
                     String(decode);
@@ -367,44 +422,72 @@ namespace SlopWorld
             while (true)
             {
                 int end = _at;
-                while (end < _text.Length && _text[end] >= 0x20 &&
-                       _text[end] != '"' && _text[end] != '\\') end++;
+                while (
+                    end < _text.Length
+                    && _text[end] >= 0x20
+                    && _text[end] != '"'
+                    && _text[end] != '\\'
+                )
+                    end++;
                 _at = end;
-                if (_at == _text.Length) throw Invalid();
+                if (_at == _text.Length)
+                    throw Invalid();
                 builder?.Append(_text, start, end - start);
                 char c = _text[_at++];
-                if (c == '"') return !decode ? null : builder == null ?
-                    _text.Substring(start, end - start) : builder.ToString();
-                if (c < 0x20) throw Invalid();
+                if (c == '"')
+                    return !decode ? null
+                        : builder == null ? _text.Substring(start, end - start)
+                        : builder.ToString();
+                if (c < 0x20)
+                    throw Invalid();
                 if (decode && builder == null)
                 {
                     builder = new StringBuilder();
                     builder.Append(_text, start, end - start);
                 }
-                if (_at == _text.Length) throw Invalid();
+                if (_at == _text.Length)
+                    throw Invalid();
                 switch (c = _text[_at++])
                 {
-                    case '"': case '\\': case '/': break;
-                    case 'b': c = '\b'; break;
-                    case 'f': c = '\f'; break;
-                    case 'n': c = '\n'; break;
-                    case 'r': c = '\r'; break;
-                    case 't': c = '\t'; break;
+                    case '"':
+                    case '\\':
+                    case '/':
+                        break;
+                    case 'b':
+                        c = '\b';
+                        break;
+                    case 'f':
+                        c = '\f';
+                        break;
+                    case 'n':
+                        c = '\n';
+                        break;
+                    case 'r':
+                        c = '\r';
+                        break;
+                    case 't':
+                        c = '\t';
+                        break;
                     case 'u':
-                        if (_text.Length - _at < 4) throw Invalid();
+                        if (_text.Length - _at < 4)
+                            throw Invalid();
                         int cp = 0;
                         for (int i = 0; i < 4; i++)
                         {
                             char hex = _text[_at++];
-                            int digit = hex >= '0' && hex <= '9' ? hex - '0' :
-                                hex >= 'a' && hex <= 'f' ? hex - 'a' + 10 :
-                                hex >= 'A' && hex <= 'F' ? hex - 'A' + 10 : -1;
-                            if (digit < 0) throw Invalid();
+                            int digit =
+                                hex >= '0' && hex <= '9' ? hex - '0'
+                                : hex >= 'a' && hex <= 'f' ? hex - 'a' + 10
+                                : hex >= 'A' && hex <= 'F' ? hex - 'A' + 10
+                                : -1;
+                            if (digit < 0)
+                                throw Invalid();
                             cp = cp * 16 + digit;
                         }
                         c = (char)cp;
                         break;
-                    default: throw Invalid();
+                    default:
+                        throw Invalid();
                 }
                 builder?.Append(c);
                 start = _at;
@@ -413,8 +496,10 @@ namespace SlopWorld
 
         void Literal(string literal)
         {
-            if (_text.Length - _at < literal.Length ||
-                string.CompareOrdinal(_text, _at, literal, 0, literal.Length) != 0)
+            if (
+                _text.Length - _at < literal.Length
+                || string.CompareOrdinal(_text, _at, literal, 0, literal.Length) != 0
+            )
                 throw Invalid();
             _at += literal.Length;
         }
@@ -423,21 +508,31 @@ namespace SlopWorld
 
         void Digits()
         {
-            if (!Digit()) throw Invalid();
-            while (Digit()) _at++;
+            if (!Digit())
+                throw Invalid();
+            while (Digit())
+                _at++;
         }
 
         void Number()
         {
             Peek();
-            if (_at < _text.Length && _text[_at] == '-') _at++;
-            if (_at < _text.Length && _text[_at] == '0') _at++;
-            else Digits();
-            if (_at < _text.Length && _text[_at] == '.') { _at++; Digits(); }
+            if (_at < _text.Length && _text[_at] == '-')
+                _at++;
+            if (_at < _text.Length && _text[_at] == '0')
+                _at++;
+            else
+                Digits();
+            if (_at < _text.Length && _text[_at] == '.')
+            {
+                _at++;
+                Digits();
+            }
             if (_at < _text.Length && (_text[_at] == 'e' || _text[_at] == 'E'))
             {
                 _at++;
-                if (_at < _text.Length && (_text[_at] == '+' || _text[_at] == '-')) _at++;
+                if (_at < _text.Length && (_text[_at] == '+' || _text[_at] == '-'))
+                    _at++;
                 Digits();
             }
         }

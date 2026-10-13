@@ -8,7 +8,8 @@ namespace SlopWorld
     {
         public static string SelectedSession()
         {
-            if (Current.ProgramState != ProgramState.Playing) return null;
+            if (Current.ProgramState != ProgramState.Playing)
+                return null;
 
             var selected = Find.Selector?.SingleSelectedThing;
             if (selected != null)
@@ -22,7 +23,8 @@ namespace SlopWorld
 
         public static string SelectedPawnSession()
         {
-            if (Current.ProgramState != ProgramState.Playing) return null;
+            if (Current.ProgramState != ProgramState.Playing)
+                return null;
             var pawn = Find.Selector?.SingleSelectedThing as Pawn;
             return pawn == null ? null : AgentColony.Current?.SessionOf(pawn);
         }
@@ -78,7 +80,8 @@ namespace SlopWorld
         {
             static void Postfix(ref bool __result)
             {
-                if (AgentSelectionActive) __result = false;
+                if (AgentSelectionActive)
+                    __result = false;
             }
         }
 
@@ -87,7 +90,8 @@ namespace SlopWorld
         {
             static void Postfix(ref bool __result)
             {
-                if (AgentSelectionActive) __result = false;
+                if (AgentSelectionActive)
+                    __result = false;
             }
         }
 

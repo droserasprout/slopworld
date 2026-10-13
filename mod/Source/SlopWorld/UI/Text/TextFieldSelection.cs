@@ -14,7 +14,7 @@ namespace SlopWorld
             None,
             TrackedMouseDown,
             MultiClick,
-            SelectionDrag
+            SelectionDrag,
         }
 
         sealed class State
@@ -50,8 +50,13 @@ namespace SlopWorld
         static string _activeName;
         static State _activeState;
 
-        static int BeginMouse(string name, FieldLifetime lifetime, State state, Event e,
-                              int controlId)
+        static int BeginMouse(
+            string name,
+            FieldLifetime lifetime,
+            State state,
+            Event e,
+            int controlId
+        )
         {
             if (_lastClickName != name || _lastClickLifetime != lifetime)
                 state.Clicks.Reset();
@@ -68,8 +73,16 @@ namespace SlopWorld
             return clicks;
         }
 
-        static void ApplyMultiClick(Rect rect, string text, GUIStyle style, TextEditor editor,
-                                    State state, int clicks, Event e, int controlId)
+        static void ApplyMultiClick(
+            Rect rect,
+            string text,
+            GUIStyle style,
+            TextEditor editor,
+            State state,
+            int clicks,
+            Event e,
+            int controlId
+        )
         {
             int index = IndexAt(editor, rect, style, text, e.mousePosition);
             if (clicks >= 3)
@@ -95,41 +108,58 @@ namespace SlopWorld
         // selection as text drag-and-drop, which changes the value instead of extending the
         // selection. Multi-clicks also need to be claimed before the native editor sees them.
         // otherwise its own click handling can replace the range on the next event.
-        public static PrepareResult Prepare(Rect rect, string name, string text, GUIStyle style,
-                                            TextEditor editor, FieldLifetime lifetime)
+        public static PrepareResult Prepare(
+            Rect rect,
+            string name,
+            string text,
+            GUIStyle style,
+            TextEditor editor,
+            FieldLifetime lifetime
+        )
         {
             var e = Event.current;
-            if (e == null || string.IsNullOrEmpty(name) || lifetime == null || !lifetime.Alive) return PrepareResult.None;
+            if (e == null || string.IsNullOrEmpty(name) || lifetime == null || !lifetime.Alive)
+                return PrepareResult.None;
 
             var state = GetState(name, lifetime);
-            if (editor != null) state.Editor = editor;
+            if (editor != null)
+                state.Editor = editor;
             EventType type = UiEvent.RawType(e);
-            if (type == EventType.MouseDown && e.button == 0 &&
-                !rect.Contains(e.mousePosition))
+            if (type == EventType.MouseDown && e.button == 0 && !rect.Contains(e.mousePosition))
             {
-                if (_activeName == name) ClearActive(state);
-                if (_lastClickName == name) state.Clicks.Reset();
+                if (_activeName == name)
+                    ClearActive(state);
+                if (_lastClickName == name)
+                    state.Clicks.Reset();
                 return PrepareResult.None;
             }
 
             int controlId = ControlId(name, editor, state);
-            if (controlId == 0) return PrepareResult.None;
+            if (controlId == 0)
+                return PrepareResult.None;
 
             if (type == EventType.MouseDown && e.button == 0)
             {
                 int clicks = BeginMouse(name, lifetime, state, e, controlId);
 
-                if (clicks < 2) return PrepareResult.TrackedMouseDown;
+                if (clicks < 2)
+                    return PrepareResult.TrackedMouseDown;
 
                 var activeEditor = editor ?? state.Editor;
-                if (activeEditor == null) return PrepareResult.TrackedMouseDown;
+                if (activeEditor == null)
+                    return PrepareResult.TrackedMouseDown;
 
                 ApplyMultiClick(rect, text, style, activeEditor, state, clicks, e, controlId);
                 return PrepareResult.MultiClick;
             }
 
-            if (_activeName != name || _activeState != state || !state.Dragging ||
-                (!state.WordDragging && !state.LineDragging) || e.button > 0)
+            if (
+                _activeName != name
+                || _activeState != state
+                || !state.Dragging
+                || (!state.WordDragging && !state.LineDragging)
+                || e.button > 0
+            )
                 return PrepareResult.None;
 
             if (type == EventType.MouseDrag || type == EventType.MouseUp)
@@ -137,7 +167,8 @@ namespace SlopWorld
                 // Keep rawType intact so Handle can finish the gesture after the native field has
                 // drawn. However, Make the native field see Used and skip text drag-and-drop.
                 GUIUtility.hotControl = state.ControlId;
-                if (e.type != EventType.Used) e.Use();
+                if (e.type != EventType.Used)
+                    e.Use();
                 return PrepareResult.SelectionDrag;
             }
 
@@ -149,27 +180,34 @@ namespace SlopWorld
         // word/line range below to make the result deterministic.
         public static bool ShouldReplay(string name, Event e, FieldLifetime lifetime)
         {
-            if (e == null || _activeState == null || _activeName != name ||
-                _activeState.Lifetime != lifetime || !_activeState.Dragging ||
-                e.type != EventType.Used)
+            if (
+                e == null
+                || _activeState == null
+                || _activeName != name
+                || _activeState.Lifetime != lifetime
+                || !_activeState.Dragging
+                || e.type != EventType.Used
+            )
                 return false;
 
-            return UiEvent.RawType(e) == EventType.MouseDrag ||
-                UiEvent.RawType(e) == EventType.MouseUp;
+            return UiEvent.RawType(e) == EventType.MouseDrag
+                || UiEvent.RawType(e) == EventType.MouseUp;
         }
 
         // GUI.TextField still runs for a consumed multi-click event so it can draw and keep
         // focus. Some Unity versions nevertheless rewrite the TextEditor range during that
         // call. Put our word/line range back before the next drag event is processed.
-        public static void FinishMultiClick(string name, TextEditor editor,
-                                             FieldLifetime lifetime)
+        public static void FinishMultiClick(string name, TextEditor editor, FieldLifetime lifetime)
         {
-            if (string.IsNullOrEmpty(name) || lifetime == null || !lifetime.Alive) return;
+            if (string.IsNullOrEmpty(name) || lifetime == null || !lifetime.Alive)
+                return;
             var state = GetState(name, lifetime);
-            if (_activeName != name || _activeState != state || !state.Dragging) return;
+            if (_activeName != name || _activeState != state || !state.Dragging)
+                return;
 
             var activeEditor = editor ?? state.Editor;
-            if (activeEditor == null) return;
+            if (activeEditor == null)
+                return;
             state.Editor = activeEditor;
             if (state.LineDragging)
                 Select(activeEditor, state.LineStart, state.LineEnd);
@@ -179,20 +217,29 @@ namespace SlopWorld
 
         public static void ReleaseFocus()
         {
-            if (_activeState != null) ClearActive(_activeState);
+            if (_activeState != null)
+                ClearActive(_activeState);
             _lastClickName = null;
             _lastClickLifetime = null;
             GUI.FocusControl(null);
         }
 
-        public static void Handle(Rect rect, string name, string text, GUIStyle style,
-                                  TextEditor editor, FieldLifetime lifetime)
+        public static void Handle(
+            Rect rect,
+            string name,
+            string text,
+            GUIStyle style,
+            TextEditor editor,
+            FieldLifetime lifetime
+        )
         {
             var e = Event.current;
-            if (e == null || string.IsNullOrEmpty(name) || lifetime == null || !lifetime.Alive) return;
+            if (e == null || string.IsNullOrEmpty(name) || lifetime == null || !lifetime.Alive)
+                return;
 
             var state = GetState(name, lifetime);
-            if (editor != null) state.Editor = editor;
+            if (editor != null)
+                state.Editor = editor;
             var activeEditor = editor ?? state.Editor;
             EventType type = UiEvent.RawType(e);
             bool inside = rect.Contains(e.mousePosition);
@@ -201,34 +248,38 @@ namespace SlopWorld
             {
                 if (!inside)
                 {
-                    if (_activeName == name) ClearActive(state);
-                    if (_lastClickName == name) state.Clicks.Reset();
+                    if (_activeName == name)
+                        ClearActive(state);
+                    if (_lastClickName == name)
+                        state.Clicks.Reset();
                     return;
                 }
 
                 int mouseControlId = ControlId(name, editor, state);
-                if (mouseControlId == 0) return;
+                if (mouseControlId == 0)
+                    return;
 
                 int clicks = BeginMouse(name, lifetime, state, e, mouseControlId);
 
-                if (activeEditor == null || clicks < 2) return;
+                if (activeEditor == null || clicks < 2)
+                    return;
 
-                ApplyMultiClick(rect, text, style, activeEditor, state, clicks, e,
-                    mouseControlId);
+                ApplyMultiClick(rect, text, style, activeEditor, state, clicks, e, mouseControlId);
                 return;
             }
 
             int controlId = ControlId(name, editor, state);
-            if (controlId == 0) return;
+            if (controlId == 0)
+                return;
 
-            if (_activeName != name || _activeState != state || !state.Dragging) return;
+            if (_activeName != name || _activeState != state || !state.Dragging)
+                return;
 
             // Once the second click is consumed, IMGUI is not guaranteed to keep sending
             // MouseDrag/MouseUp to the field (especially when the pointer leaves its window).
             // Keep the terminal-style range alive from repaint events while the physical
             // button is held, and close it on the first repaint after release.
-            if (type == EventType.Repaint &&
-                (state.WordDragging || state.LineDragging))
+            if (type == EventType.Repaint && (state.WordDragging || state.LineDragging))
             {
                 if (Input.GetMouseButton(0))
                 {
@@ -254,19 +305,29 @@ namespace SlopWorld
                 EndDrag(state, name);
                 e.Use();
             }
-            else if (type != EventType.MouseDrag && type != EventType.MouseDown &&
-                     !Input.GetMouseButton(0))
+            else if (
+                type != EventType.MouseDrag
+                && type != EventType.MouseDown
+                && !Input.GetMouseButton(0)
+            )
             {
                 ClearActive(state);
             }
         }
 
-        static void UpdateDrag(TextEditor editor, Rect rect, string text, GUIStyle style,
-                               State state)
+        static void UpdateDrag(
+            TextEditor editor,
+            Rect rect,
+            string text,
+            GUIStyle style,
+            State state
+        )
         {
-            if (editor == null || (!state.WordDragging && !state.LineDragging)) return;
+            if (editor == null || (!state.WordDragging && !state.LineDragging))
+                return;
             var e = Event.current;
-            if (e == null) return;
+            if (e == null)
+                return;
 
             int index = IndexAt(editor, rect, style, text, e.mousePosition);
             if (state.LineDragging)
@@ -281,7 +342,8 @@ namespace SlopWorld
             state.Dragging = false;
             state.WordDragging = false;
             state.LineDragging = false;
-            if (GUIUtility.hotControl == state.ControlId) GUIUtility.hotControl = 0;
+            if (GUIUtility.hotControl == state.ControlId)
+                GUIUtility.hotControl = 0;
             if (_activeName == name)
             {
                 _activeName = null;
@@ -295,11 +357,14 @@ namespace SlopWorld
             var retired = new List<string>();
             foreach (var pair in States)
             {
-                if (pair.Value.Lifetime != lifetime) continue;
-                if (ReferenceEquals(_activeState, pair.Value)) ClearActive(pair.Value);
+                if (pair.Value.Lifetime != lifetime)
+                    continue;
+                if (ReferenceEquals(_activeState, pair.Value))
+                    ClearActive(pair.Value);
                 retired.Add(pair.Key);
             }
-            foreach (var name in retired) States.Remove(name);
+            foreach (var name in retired)
+                States.Remove(name);
             if (_lastClickLifetime == lifetime)
             {
                 _lastClickName = null;
@@ -316,7 +381,8 @@ namespace SlopWorld
             }
             if (state.Lifetime != lifetime)
             {
-                if (ReferenceEquals(_activeState, state)) ClearActive(state);
+                if (ReferenceEquals(_activeState, state))
+                    ClearActive(state);
                 state.Reset(lifetime);
             }
             return state;
@@ -327,7 +393,8 @@ namespace SlopWorld
             state.Dragging = false;
             state.WordDragging = false;
             state.LineDragging = false;
-            if (GUIUtility.hotControl == state.ControlId) GUIUtility.hotControl = 0;
+            if (GUIUtility.hotControl == state.ControlId)
+                GUIUtility.hotControl = 0;
             if (ReferenceEquals(_activeState, state))
             {
                 _activeName = null;
@@ -340,15 +407,22 @@ namespace SlopWorld
             if (editor != null && GUI.GetNameOfFocusedControl() == name)
             {
                 int id = GUIUtility.keyboardControl;
-                if (id != 0) return id;
+                if (id != 0)
+                    return id;
             }
             return _activeState != null && _activeName == name ? _activeState.ControlId : 0;
         }
 
-        static int IndexAt(TextEditor editor, Rect rect, GUIStyle style, string text,
-                           Vector2 position)
+        static int IndexAt(
+            TextEditor editor,
+            Rect rect,
+            GUIStyle style,
+            string text,
+            Vector2 position
+        )
         {
-            if (string.IsNullOrEmpty(text)) return 0;
+            if (string.IsNullOrEmpty(text))
+                return 0;
             editor.position = rect;
             editor.style = style;
             editor.text = text;
@@ -370,7 +444,8 @@ namespace SlopWorld
             WordRange(text, index, out int start, out int end);
             var selection = TextSelectionRules.ExpandWordSelection(
                 new TextSelectionRange(state.WordStart, state.WordEnd),
-                new TextSelectionRange(start, end));
+                new TextSelectionRange(start, end)
+            );
             Select(editor, selection.Anchor, selection.Focus);
         }
 

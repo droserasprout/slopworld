@@ -18,17 +18,22 @@ namespace SlopWorld
             public bool Descend;
         }
 
-
         void Fetch(FileNode node, System.Action done = null)
         {
             // Join an active refresh before consulting its stale children.
-            if (!node.Loading && node.Children != null && node.Error == null) { done?.Invoke(); return; }
+            if (!node.Loading && node.Children != null && node.Error == null)
+            {
+                done?.Invoke();
+                return;
+            }
             if (done != null)
             {
-                if (node.Loaded == null) node.Loaded = new List<System.Action>();
+                if (node.Loaded == null)
+                    node.Loaded = new List<System.Action>();
                 node.Loaded.Add(done);
             }
-            if (node.Loading) return;
+            if (node.Loading)
+                return;
             node.Loading = true;
             node.Error = null;
             BumpTree();
@@ -38,13 +43,15 @@ namespace SlopWorld
         void QueueBrowse(FileNode node, bool descend)
         {
             node.ListingVersion++;
-            _browseQueue.Enqueue(new BrowseRequest
-            {
-                Node = node,
-                Path = node.Path,
-                Version = node.ListingVersion,
-                Descend = descend,
-            });
+            _browseQueue.Enqueue(
+                new BrowseRequest
+                {
+                    Node = node,
+                    Path = node.Path,
+                    Version = node.ListingVersion,
+                    Descend = descend,
+                }
+            );
             PumpBrowse();
         }
 
@@ -53,32 +60,40 @@ namespace SlopWorld
             while (_browseInFlight < MaxConcurrentBrowse && _browseQueue.Count > 0)
             {
                 var request = _browseQueue.Dequeue();
-                if (!Current(request)) continue;
+                if (!Current(request))
+                    continue;
 
                 _browseInFlight++;
                 DaemonClient.Get<Wire.BrowseResult>(
                     BrowseUrl(request.Path),
                     j => CompleteBrowse(request, j, null),
-                    msg => CompleteBrowse(request, null, msg));
+                    msg => CompleteBrowse(request, null, msg)
+                );
             }
         }
 
-        static string BrowseUrl(string path) => WireProtocol.Routes.Browse +
-            "?files=1&path=" + Uri.EscapeDataString(path) +
-            "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0") +
-            "&gitignore=" + (Settings.SidebarShowGitignored ? "0" : "1");
+        static string BrowseUrl(string path) =>
+            WireProtocol.Routes.Browse
+            + "?files=1&path="
+            + Uri.EscapeDataString(path)
+            + "&hidden="
+            + (Settings.SidebarShowHidden ? "1" : "0")
+            + "&gitignore="
+            + (Settings.SidebarShowGitignored ? "0" : "1");
 
         bool Current(BrowseRequest request) =>
-            (request.Node.Project == null || SidebarScopes.Enabled(request.Node.Project)) &&
-            request.Node.Loading && request.Node.Path == request.Path &&
-            request.Node.ListingVersion == request.Version;
+            (request.Node.Project == null || SidebarScopes.Enabled(request.Node.Project))
+            && request.Node.Loading
+            && request.Node.Path == request.Path
+            && request.Node.ListingVersion == request.Version;
 
         void CompleteBrowse(BrowseRequest request, Wire.BrowseResult j, string error)
         {
             _browseInFlight--;
             try
             {
-                if (!Current(request)) return;
+                if (!Current(request))
+                    return;
 
                 var node = request.Node;
                 node.Loading = false;
@@ -97,9 +112,11 @@ namespace SlopWorld
                 var loaded = node.Loaded;
                 node.Loaded = null;
                 if (loaded != null)
-                    foreach (var callback in loaded) callback();
+                    foreach (var callback in loaded)
+                        callback();
 
-                if (!request.Descend) return;
+                if (!request.Descend)
+                    return;
                 // Walk the fresh children, rather than the old list. Refresh loaded collapsed
                 // children so their visible rows keep accurate disclosure state, but only
                 // descend through branches that remain expanded.
@@ -121,29 +138,41 @@ namespace SlopWorld
                     previous[child.Name] = child;
 
             var children = new List<FileNode>();
-            var empty = new HashSet<string>(j.EmptyDirs,
-                StringComparer.Ordinal);
-            var ignoredDirs = new HashSet<string>(
-                j.GitignoredDirs, StringComparer.Ordinal);
-            var ignoredFiles = new HashSet<string>(
-                j.GitignoredFiles, StringComparer.Ordinal);
+            var empty = new HashSet<string>(j.EmptyDirs, StringComparer.Ordinal);
+            var ignoredDirs = new HashSet<string>(j.GitignoredDirs, StringComparer.Ordinal);
+            var ignoredFiles = new HashSet<string>(j.GitignoredFiles, StringComparer.Ordinal);
             foreach (var d in j.Dirs)
             {
                 string name = d;
-                children.Add(ReuseOrChild(parent, name, true, previous, !empty.Contains(name),
-                    ignoredDirs.Contains(name)));
+                children.Add(
+                    ReuseOrChild(
+                        parent,
+                        name,
+                        true,
+                        previous,
+                        !empty.Contains(name),
+                        ignoredDirs.Contains(name)
+                    )
+                );
             }
             foreach (var f in j.Files)
             {
                 string name = f;
-                children.Add(ReuseOrChild(parent, name, false, previous, false,
-                    ignoredFiles.Contains(name)));
+                children.Add(
+                    ReuseOrChild(parent, name, false, previous, false, ignoredFiles.Contains(name))
+                );
             }
             return children;
         }
 
-        static FileNode ReuseOrChild(FileNode parent, string name, bool dir, Dictionary<string, FileNode> previous,
-            bool hasChildren, bool gitignored)
+        static FileNode ReuseOrChild(
+            FileNode parent,
+            string name,
+            bool dir,
+            Dictionary<string, FileNode> previous,
+            bool hasChildren,
+            bool gitignored
+        )
         {
             if (previous.TryGetValue(name, out var child) && child.IsDir == dir)
             {
@@ -152,9 +181,10 @@ namespace SlopWorld
                 child.Project = parent.Project;
                 child.Depth = parent.Depth + 1;
                 // The parent's empty check ignores gitignore; prefer a cached filtered listing.
-                child.HasChildren = dir && child.Children != null
-                    ? child.Children.Count > 0 || child.More
-                    : hasChildren;
+                child.HasChildren =
+                    dir && child.Children != null
+                        ? child.Children.Count > 0 || child.More
+                        : hasChildren;
                 child.Gitignored = gitignored;
                 if (dir && !hasChildren)
                 {
@@ -169,16 +199,23 @@ namespace SlopWorld
             return Child(parent, name, dir, hasChildren, gitignored);
         }
 
-        static FileNode Child(FileNode parent, string name, bool dir, bool hasChildren, bool gitignored) => new FileNode
-        {
-            Name = name,
-            Path = parent.Path.TrimEnd('/') + "/" + name,
-            IsDir = dir,
-            Root = parent.Root,
-            Project = parent.Project,
-            Depth = parent.Depth + 1,
-            HasChildren = hasChildren,
-            Gitignored = gitignored,
-        };
+        static FileNode Child(
+            FileNode parent,
+            string name,
+            bool dir,
+            bool hasChildren,
+            bool gitignored
+        ) =>
+            new FileNode
+            {
+                Name = name,
+                Path = parent.Path.TrimEnd('/') + "/" + name,
+                IsDir = dir,
+                Root = parent.Root,
+                Project = parent.Project,
+                Depth = parent.Depth + 1,
+                HasChildren = hasChildren,
+                Gitignored = gitignored,
+            };
     }
 }

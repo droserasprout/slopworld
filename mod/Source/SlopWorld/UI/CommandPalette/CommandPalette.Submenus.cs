@@ -11,16 +11,20 @@ namespace SlopWorld
     {
         static bool Playing() => Current.ProgramState == ProgramState.Playing;
 
-        static bool HasTaskRecipients() => SessionHub.Instance.Sessions.Any(s =>
-            s != null && !s.Ephemeral && !s.Host && !string.IsNullOrEmpty(s.Name));
+        static bool HasTaskRecipients() =>
+            SessionHub.Instance.Sessions.Any(s =>
+                s != null && !s.Ephemeral && !s.Host && !string.IsNullOrEmpty(s.Name)
+            );
 
         // --------------------------------------------------------------- sub-option builders
 
-        static SubOption AgentOption(SessionInfo session) => new SubOption
-        {
-            Label = $"{session.Name}  ({session.State.ToString().ToLowerInvariant()})  -  {session.Project}",
-            Value = session.Name,
-        };
+        static SubOption AgentOption(SessionInfo session) =>
+            new SubOption
+            {
+                Label =
+                    $"{session.Name}  ({session.State.ToString().ToLowerInvariant()})  -  {session.Project}",
+                Value = session.Name,
+            };
 
         static List<SubOption> AgentOptions(Func<SessionInfo, bool> include, string emptyLabel)
         {
@@ -33,8 +37,10 @@ namespace SlopWorld
         static List<SubOption> AgentsSub(params AgentState[] states)
         {
             var set = new HashSet<AgentState>(states);
-            return AgentOptions(s => set.Contains(s.State) && !s.Ephemeral,
-                "(no agents in that state)");
+            return AgentOptions(
+                s => set.Contains(s.State) && !s.Ephemeral,
+                "(no agents in that state)"
+            );
         }
 
         static List<SubOption> AgentsSubAll() =>
@@ -46,21 +52,25 @@ namespace SlopWorld
         static List<SubOption> AgentsSubWithPawn()
         {
             var colony = AgentColony.Current;
-            return AgentOptions(s => !s.Ephemeral && !s.Host && colony?.PawnOf(s.Name) != null,
-                "(no agents with a colonist)");
+            return AgentOptions(
+                s => !s.Ephemeral && !s.Host && colony?.PawnOf(s.Name) != null,
+                "(no agents with a colonist)"
+            );
         }
 
         // Duplicate is meaningful for any session with a project, including a temporary errand. The
         // dialog copies that project's command and sandbox context, while a project-less session
         // has nowhere useful to start from.
         static List<SubOption> AgentsSubWithProject() =>
-            AgentOptions(s => !s.Host && !s.Worker && !string.IsNullOrEmpty(s.Project),
-                "(no agents with a project)");
+            AgentOptions(
+                s => !s.Host && !s.Worker && !string.IsNullOrEmpty(s.Project),
+                "(no agents with a project)"
+            );
 
         static List<SubOption> ProjectsSub()
         {
-            var list = SessionHub.Instance.Projects
-                .Select(p => new SubOption
+            var list = SessionHub
+                .Instance.Projects.Select(p => new SubOption
                 {
                     Label = $"{p.Name}  -  {p.Dir}",
                     Value = p.Name,
@@ -74,17 +84,17 @@ namespace SlopWorld
 
         static List<SubOption> DeletableProjectsSub()
         {
-            var list = SessionHub.Instance.Projects
-                .Where(p => !SessionHub.Instance.Sessions.Any(s => s.Project == p.Name))
-                .Select(p => new SubOption
-                {
-                    Label = $"{p.Name}  -  {p.Dir}",
-                    Value = p.Name,
-                })
+            var list = SessionHub
+                .Instance.Projects.Where(p =>
+                    !SessionHub.Instance.Sessions.Any(s => s.Project == p.Name)
+                )
+                .Select(p => new SubOption { Label = $"{p.Name}  -  {p.Dir}", Value = p.Name })
                 .ToList();
 
             if (list.Count == 0)
-                list.Add(new SubOption { Label = "(no projects without sessions)", Enabled = false });
+                list.Add(
+                    new SubOption { Label = "(no projects without sessions)", Enabled = false }
+                );
             return list;
         }
 
@@ -103,28 +113,35 @@ namespace SlopWorld
                 },
             };
 
-            foreach (var p in SessionHub.Instance.Projects.OrderBy(p => p.Name,
-                StringComparer.Ordinal))
-                list.Add(new SubOption
-                {
-                    Label = $"{p.Name}  -  {p.Dir}",
-                    Value = p.Name,
-                    Checked = AgentSidebar.Ticked(p.Name),
-                });
+            foreach (
+                var p in SessionHub.Instance.Projects.OrderBy(p => p.Name, StringComparer.Ordinal)
+            )
+                list.Add(
+                    new SubOption
+                    {
+                        Label = $"{p.Name}  -  {p.Dir}",
+                        Value = p.Name,
+                        Checked = AgentSidebar.Ticked(p.Name),
+                    }
+                );
 
-            list.Add(new SubOption
-            {
-                Label = $"{AgentSidebar.NoProject}  -  whatever belongs to no project",
-                Value = AgentSidebar.NoProject,
-                Checked = AgentSidebar.Ticked(AgentSidebar.NoProject),
-            });
+            list.Add(
+                new SubOption
+                {
+                    Label = $"{AgentSidebar.NoProject}  -  whatever belongs to no project",
+                    Value = AgentSidebar.NoProject,
+                    Checked = AgentSidebar.Ticked(AgentSidebar.NoProject),
+                }
+            );
             return list;
         }
 
         static List<SubOption> LibraryItemsSub()
         {
-            var list = SessionHub.Instance.Library
-                .Where(s => s.Kind != LibraryItemKind.Breadcrumb && s.Kind != LibraryItemKind.FileAction)
+            var list = SessionHub
+                .Instance.Library.Where(s =>
+                    s.Kind != LibraryItemKind.Breadcrumb && s.Kind != LibraryItemKind.FileAction
+                )
                 .Select(s => new SubOption
                 {
                     Label = $"{s.Name}  ({s.Kind.ToString().ToLowerInvariant()})",
@@ -139,8 +156,8 @@ namespace SlopWorld
 
         static List<SubOption> LibraryManageSub()
         {
-            var list = SessionHub.Instance.Library
-                .Where(s => !s.Builtin)
+            var list = SessionHub
+                .Instance.Library.Where(s => !s.Builtin)
                 .Select(s => new SubOption
                 {
                     Label = $"{s.Name}  ({s.Kind.ToString().ToLowerInvariant()})",
@@ -150,21 +167,36 @@ namespace SlopWorld
                 .ToList();
 
             if (list.Count == 0)
-                list.Add(new SubOption { Label = "(no editable library entries)", Enabled = false });
+                list.Add(
+                    new SubOption { Label = "(no editable library entries)", Enabled = false }
+                );
             return list;
         }
 
-        static List<SubOption> NewLibraryItemSub() => new List<SubOption>
-        {
-            new SubOption { Label = "Prompt", Select = () => NewLibraryItem(LibraryItemKind.Prompt) },
-            new SubOption
+        static List<SubOption> NewLibraryItemSub() =>
+            new List<SubOption>
             {
-                Label = "Breadcrumb",
-                Select = () => NewLibraryItem(LibraryItemKind.Breadcrumb),
-            },
-            new SubOption { Label = "Shell", Select = () => NewLibraryItem(LibraryItemKind.Shell) },
-            new SubOption { Label = "File Action", Select = () => NewLibraryItem(LibraryItemKind.FileAction) },
-        };
+                new SubOption
+                {
+                    Label = "Prompt",
+                    Select = () => NewLibraryItem(LibraryItemKind.Prompt),
+                },
+                new SubOption
+                {
+                    Label = "Breadcrumb",
+                    Select = () => NewLibraryItem(LibraryItemKind.Breadcrumb),
+                },
+                new SubOption
+                {
+                    Label = "Shell",
+                    Select = () => NewLibraryItem(LibraryItemKind.Shell),
+                },
+                new SubOption
+                {
+                    Label = "File Action",
+                    Select = () => NewLibraryItem(LibraryItemKind.FileAction),
+                },
+            };
 
         static void NewLibraryItem(LibraryItemKind kind) =>
             TerminalWindow.OpenOverPane(EditLibraryItemDialog.New(kind));
@@ -177,58 +209,69 @@ namespace SlopWorld
                 {
                     Label = "~",
                     Value = "",
-                    Select = () => SessionHub.Instance.SessionStore.RunHostShell("",
-                        session => TerminalWindow.Open(session), UiLayout.Fail),
+                    Select = () =>
+                        SessionHub.Instance.SessionStore.RunHostShell(
+                            "",
+                            session => TerminalWindow.Open(session),
+                            UiLayout.Fail
+                        ),
                 },
             };
 
             foreach (var p in SessionHub.Instance.Projects)
             {
                 string name = p.Name;
-                list.Add(new SubOption
-                {
-                    Label = $"{name}  -  {p.Dir}",
-                    Value = name,
-                    Select = () => SessionHub.Instance.SessionStore.RunHostShell(name,
-                        session => TerminalWindow.Open(session), UiLayout.Fail),
-                });
+                list.Add(
+                    new SubOption
+                    {
+                        Label = $"{name}  -  {p.Dir}",
+                        Value = name,
+                        Select = () =>
+                            SessionHub.Instance.SessionStore.RunHostShell(
+                                name,
+                                session => TerminalWindow.Open(session),
+                                UiLayout.Fail
+                            ),
+                    }
+                );
             }
             return list;
         }
 
         static List<SubOption> HostSessionsSub()
         {
-            var list = SessionHub.Instance.Sessions
-                .Where(s => s.Host)
-                .Select(s => new SubOption
-                {
-                    Label = $"{s.Name}  -  {s.Dir}",
-                    Value = s.Name,
-                })
+            var list = SessionHub
+                .Instance.Sessions.Where(s => s.Host)
+                .Select(s => new SubOption { Label = $"{s.Name}  -  {s.Dir}", Value = s.Name })
                 .ToList();
 
             if (list.Count == 0)
-                list.Add(new SubOption
-                {
-                    Label = "(no " + SessionHub.Instance.Capabilities.TerminalNames + ")",
-                    Enabled = false,
-                });
+                list.Add(
+                    new SubOption
+                    {
+                        Label = "(no " + SessionHub.Instance.Capabilities.TerminalNames + ")",
+                        Enabled = false,
+                    }
+                );
             return list;
         }
 
         static string TaskLabel(TaskInfo task) =>
             $"{task.Summary}  ({TaskInfo.StatusText(task.Status)}, {task.Direction})  -  {task.Id}";
 
-        static List<SubOption> TaskOptions(Func<TaskInfo, bool> include, string emptyLabel,
-            Func<TaskInfo, SubOption> option = null)
+        static List<SubOption> TaskOptions(
+            Func<TaskInfo, bool> include,
+            string emptyLabel,
+            Func<TaskInfo, SubOption> option = null
+        )
         {
-            var list = SessionHub.Instance.Tasks
-                .Where(task => task != null && !string.IsNullOrEmpty(task.Id) && include(task))
-                .Select(option ?? (task => new SubOption
-                {
-                    Label = TaskLabel(task),
-                    Value = task.Id,
-                }))
+            var list = SessionHub
+                .Instance.Tasks.Where(task =>
+                    task != null && !string.IsNullOrEmpty(task.Id) && include(task)
+                )
+                .Select(
+                    option ?? (task => new SubOption { Label = TaskLabel(task), Value = task.Id })
+                )
                 .ToList();
 
             if (list.Count == 0)
@@ -238,21 +281,27 @@ namespace SlopWorld
 
         static List<SubOption> TasksSub() => TaskOptions(task => true, "(no tasks)");
 
-        static List<SubOption> CancelableTasksSub() => TaskOptions(
-            task => task.Status == DelegatedTaskStatus.Queued ||
-                task.Status == DelegatedTaskStatus.Accepted,
-            "(no cancelable tasks)");
+        static List<SubOption> CancelableTasksSub() =>
+            TaskOptions(
+                task =>
+                    task.Status == DelegatedTaskStatus.Queued
+                    || task.Status == DelegatedTaskStatus.Accepted,
+                "(no cancelable tasks)"
+            );
 
         static List<SubOption> TerminalTasksSub() =>
             TaskOptions(task => task.Terminal, "(no completed tasks)");
 
-        static List<SubOption> TaskStatusSub() => TaskOptions(
-            task => task.Incoming && !task.Terminal, "(no incoming tasks to update)",
-            task => new SubOption
-            {
-                Label = TaskLabel(task),
-                Children = () => TaskStatusChoices(task),
-            });
+        static List<SubOption> TaskStatusSub() =>
+            TaskOptions(
+                task => task.Incoming && !task.Terminal,
+                "(no incoming tasks to update)",
+                task => new SubOption
+                {
+                    Label = TaskLabel(task),
+                    Children = () => TaskStatusChoices(task),
+                }
+            );
 
         static List<SubOption> TaskStatusChoices(TaskInfo task)
         {
@@ -267,44 +316,53 @@ namespace SlopWorld
             foreach (var value in statuses)
             {
                 var status = value;
-                list.Add(new SubOption
-                {
-                    Label = TaskInfo.StatusText(status),
-                    Enabled = task.Status != status,
-                    Select = () => SessionHub.Instance.TaskStore.UpdateStatus(
-                        task.Id, status, null, null, UiLayout.Fail),
-                });
+                list.Add(
+                    new SubOption
+                    {
+                        Label = TaskInfo.StatusText(status),
+                        Enabled = task.Status != status,
+                        Select = () =>
+                            SessionHub.Instance.TaskStore.UpdateStatus(
+                                task.Id,
+                                status,
+                                null,
+                                null,
+                                UiLayout.Fail
+                            ),
+                    }
+                );
             }
             return list;
         }
 
-        static List<SubOption> AgentStatusSub() => new List<SubOption>
-        {
-            new SubOption
+        static List<SubOption> AgentStatusSub() =>
+            new List<SubOption>
             {
-                Label = "All",
-                Value = "all",
-                Checked = !AgentSidebar.StatusFiltering,
-            },
-            new SubOption
-            {
-                Label = "Active",
-                Value = "active",
-                Checked = (AgentSidebar.StatusFilter & AgentStatusFilter.Active) != 0,
-            },
-            new SubOption
-            {
-                Label = "Idle",
-                Value = "idle",
-                Checked = (AgentSidebar.StatusFilter & AgentStatusFilter.Idle) != 0,
-            },
-            new SubOption
-            {
-                Label = "Down",
-                Value = "down",
-                Checked = (AgentSidebar.StatusFilter & AgentStatusFilter.Down) != 0,
-            },
-        };
+                new SubOption
+                {
+                    Label = "All",
+                    Value = "all",
+                    Checked = !AgentSidebar.StatusFiltering,
+                },
+                new SubOption
+                {
+                    Label = "Active",
+                    Value = "active",
+                    Checked = (AgentSidebar.StatusFilter & AgentStatusFilter.Active) != 0,
+                },
+                new SubOption
+                {
+                    Label = "Idle",
+                    Value = "idle",
+                    Checked = (AgentSidebar.StatusFilter & AgentStatusFilter.Idle) != 0,
+                },
+                new SubOption
+                {
+                    Label = "Down",
+                    Value = "down",
+                    Checked = (AgentSidebar.StatusFilter & AgentStatusFilter.Down) != 0,
+                },
+            };
 
         static void SetAgentStatusFromPalette(string value)
         {
@@ -317,16 +375,24 @@ namespace SlopWorld
             AgentStatusFilter status;
             switch (value)
             {
-                case "active": status = AgentStatusFilter.Active; break;
-                case "idle": status = AgentStatusFilter.Idle; break;
-                case "down": status = AgentStatusFilter.Down; break;
-                default: return;
+                case "active":
+                    status = AgentStatusFilter.Active;
+                    break;
+                case "idle":
+                    status = AgentStatusFilter.Idle;
+                    break;
+                case "down":
+                    status = AgentStatusFilter.Down;
+                    break;
+                default:
+                    return;
             }
 
             var selected = AgentSidebar.StatusFilter;
-            var next = selected == AgentStatusFilter.All
-                ? status
-                : (selected & status) != 0 ? selected & ~status : selected | status;
+            var next =
+                selected == AgentStatusFilter.All ? status
+                : (selected & status) != 0 ? selected & ~status
+                : selected | status;
             AgentSidebar.SetStatusFilter(next);
         }
 
@@ -344,13 +410,16 @@ namespace SlopWorld
             foreach (var station in Radio.Stations)
             {
                 var s = station;
-                list.Add(new SubOption
-                {
-                    Label = Radio.Picked == s && !Radio.Muted
-                        ? $"{s.Name}  -  {Radio.RateLabel(s.Rate)}  (playing)"
-                        : s.Name,
-                    Children = () => JukeboxPresetsSub(s),
-                });
+                list.Add(
+                    new SubOption
+                    {
+                        Label =
+                            Radio.Picked == s && !Radio.Muted
+                                ? $"{s.Name}  -  {Radio.RateLabel(s.Rate)}  (playing)"
+                                : s.Name,
+                        Children = () => JukeboxPresetsSub(s),
+                    }
+                );
             }
             return list;
         }
@@ -361,18 +430,23 @@ namespace SlopWorld
             foreach (int preset in station.Rates)
             {
                 var rate = preset;
-                list.Add(new SubOption
-                {
-                    Label = Radio.RateLabel(rate)
-                        + (Radio.Picked == station && !Radio.Muted && station.Rate == rate
-                            ? "  (playing)" : ""),
-                    Select = () => Radio.Pick(station, rate),
-                });
+                list.Add(
+                    new SubOption
+                    {
+                        Label =
+                            Radio.RateLabel(rate)
+                            + (
+                                Radio.Picked == station && !Radio.Muted && station.Rate == rate
+                                    ? "  (playing)"
+                                    : ""
+                            ),
+                        Select = () => Radio.Pick(station, rate),
+                    }
+                );
             }
             return list;
         }
 
         // --------------------------------------------------------------- actions
-
     }
 }

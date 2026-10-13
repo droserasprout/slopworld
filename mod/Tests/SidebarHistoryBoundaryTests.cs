@@ -24,17 +24,25 @@ namespace SlopWorld.Tests
             Assert.That(history.TryLast(SidebarTab.Tasks, out var last), Is.True);
             Assert.That(last, Is.EqualTo(task));
             Assert.That(history.Back(out _), Is.False);
-            Assert.That(history.Current, Is.EqualTo(task), "failed navigation preserves current target");
+            Assert.That(
+                history.Current,
+                Is.EqualTo(task),
+                "failed navigation preserves current target"
+            );
         }
 
         public static void HistoryRetainsOnlyLatest64BackEntriesAndCanReplayThem()
         {
             var history = new SidebarViewHistory();
-            for (int i = 0; i < 70; i++) history.Visit(SidebarViewLocation.Task(i.ToString(CultureInfo.InvariantCulture)));
+            for (int i = 0; i < 70; i++)
+                history.Visit(SidebarViewLocation.Task(i.ToString(CultureInfo.InvariantCulture)));
             for (int i = 68; i >= 5; i--)
             {
                 Assert.That(history.Back(out var location), Is.True);
-                Assert.That(location, Is.EqualTo(SidebarViewLocation.Task(i.ToString(CultureInfo.InvariantCulture))));
+                Assert.That(
+                    location,
+                    Is.EqualTo(SidebarViewLocation.Task(i.ToString(CultureInfo.InvariantCulture)))
+                );
                 Assert.That(history.Current, Is.EqualTo(location));
                 Assert.That(history.TryLast(SidebarTab.Tasks, out var last), Is.True);
                 Assert.That(last, Is.EqualTo(location), "back updates remembered target");
@@ -44,7 +52,10 @@ namespace SlopWorld.Tests
             for (int i = 6; i <= 69; i++)
             {
                 Assert.That(history.Forward(out var location), Is.True);
-                Assert.That(location, Is.EqualTo(SidebarViewLocation.Task(i.ToString(CultureInfo.InvariantCulture))));
+                Assert.That(
+                    location,
+                    Is.EqualTo(SidebarViewLocation.Task(i.ToString(CultureInfo.InvariantCulture)))
+                );
                 Assert.That(history.TryLast(SidebarTab.Tasks, out var last), Is.True);
                 Assert.That(last, Is.EqualTo(location), "forward updates remembered target");
             }
@@ -65,7 +76,11 @@ namespace SlopWorld.Tests
             history.Back(out _);
             Assert.That(history.Current, Is.EqualTo(SidebarViewLocation.TabOnly(SidebarTab.Tasks)));
             history.VisitTab(SidebarTab.Tasks);
-            Assert.That(history.CanForward, Is.True, "reselection leaves browser forward stack intact");
+            Assert.That(
+                history.CanForward,
+                Is.True,
+                "reselection leaves browser forward stack intact"
+            );
             history.Forward(out _);
             Assert.That(history.TryLast(SidebarTab.Files, out last), Is.True);
             Assert.That(last, Is.EqualTo(file));
@@ -78,12 +93,18 @@ namespace SlopWorld.Tests
         {
             var locations = new[]
             {
-                SidebarViewLocation.TabOnly(SidebarTab.Tasks), SidebarViewLocation.Task("same"),
-                SidebarViewLocation.Agent("same"), SidebarViewLocation.File("p", "same"),
-                SidebarViewLocation.File("other", "same"), SidebarViewLocation.File("p", "different"),
-                SidebarViewLocation.Search("p", "same", 1), SidebarViewLocation.Search("p", "same", 2),
-                SidebarViewLocation.Git("p", "same"), SidebarViewLocation.Library("same"),
-                SidebarViewLocation.Library("same", true), default(SidebarViewLocation),
+                SidebarViewLocation.TabOnly(SidebarTab.Tasks),
+                SidebarViewLocation.Task("same"),
+                SidebarViewLocation.Agent("same"),
+                SidebarViewLocation.File("p", "same"),
+                SidebarViewLocation.File("other", "same"),
+                SidebarViewLocation.File("p", "different"),
+                SidebarViewLocation.Search("p", "same", 1),
+                SidebarViewLocation.Search("p", "same", 2),
+                SidebarViewLocation.Git("p", "same"),
+                SidebarViewLocation.Library("same"),
+                SidebarViewLocation.Library("same", true),
+                default(SidebarViewLocation),
             };
             var set = new HashSet<SidebarViewLocation>(locations);
             Assert.That(set.Count, Is.EqualTo(locations.Length));
@@ -101,7 +122,10 @@ namespace SlopWorld.Tests
             Assert.That(one != equal, Is.False);
             Assert.That(one.GetHashCode(), Is.EqualTo(equal.GetHashCode()));
             Assert.That(one != SidebarViewLocation.Task("other"), Is.True);
-            Assert.That(SidebarViewLocation.File(null, null), Is.EqualTo(SidebarViewLocation.File("", "")));
+            Assert.That(
+                SidebarViewLocation.File(null, null),
+                Is.EqualTo(SidebarViewLocation.File("", ""))
+            );
         }
     }
 }

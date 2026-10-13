@@ -9,9 +9,11 @@ namespace SlopWorld
 
         public override void Opened()
         {
-            if (_opened) return;
+            if (_opened)
+                return;
             _opened = true;
-            if (_state.Name == null) return;
+            if (_state.Name == null)
+                return;
             _state.ShowStopped = SessionHub.Instance.Get(_state.Name)?.Gone == true;
             SessionHub.Instance.Subscribe(_state.Name);
             PrimePanelSize();
@@ -19,20 +21,23 @@ namespace SlopWorld
 
         public override void Closed()
         {
-            if (!_opened) return;
+            if (!_opened)
+                return;
             _opened = false;
             _pasteEpoch++;
             ReleasePanelInput();
             ScrollDebugEnd();
             Drop();
-            if (_state.Name == null) return;
+            if (_state.Name == null)
+                return;
             SessionHub.Instance.Unsubscribe(_state.Name);
             AgentSidebar.TerminalClosed(_state.Name);
         }
 
         internal void BindSession(string name)
         {
-            if (name == _state.Name) return;
+            if (name == _state.Name)
+                return;
             _pasteEpoch++;
             ReleasePanelInput();
             ScrollDebugEnd();
@@ -40,16 +45,19 @@ namespace SlopWorld
             _historyCoordinator.SaveCache(_state.Name);
             // A content-only window has no terminal pane to unsubscribe.
             // Do not send an unsubscribe request for a null session.
-            if (_opened && _state.Name != null) SessionHub.Instance.Unsubscribe(_state.Name);
+            if (_opened && _state.Name != null)
+                SessionHub.Instance.Unsubscribe(_state.Name);
             _state.Name = name;
             if (_state.Name != null)
             {
-                if (_opened) SessionHub.Instance.Subscribe(_state.Name);
+                if (_opened)
+                    SessionHub.Instance.Subscribe(_state.Name);
                 TerminalRecall.Remember(_state.Name);
             }
-            _state.ShowStopped = _state.Name != null &&
-                SessionHub.Instance.Get(_state.Name)?.Gone == true;
-            if (_opened) PrimePanelSize();
+            _state.ShowStopped =
+                _state.Name != null && SessionHub.Instance.Get(_state.Name)?.Gone == true;
+            if (_opened)
+                PrimePanelSize();
             _historyCoordinator.ResetForSession();
             RestoreScrollbackState(_state.Name);
             _historyCoordinator.RestoreCache(_state.Name);
@@ -77,15 +85,18 @@ namespace SlopWorld
 
         void SaveScrollbackState(string name)
         {
-            if (string.IsNullOrEmpty(name)) return;
+            if (string.IsNullOrEmpty(name))
+                return;
 
             // `_historyScroll` may still hold the old position for one IMGUI pass after an
             // input jumps to live output. The integer mode is authoritative in that case.
             float pixels = 0f;
             if (_scrollOff > 0)
             {
-                if (_historyScrollReady) pixels = HistoryOffsetPixels();
-                else if (_historyJumpPixels >= 0f) pixels = _historyJumpPixels;
+                if (_historyScrollReady)
+                    pixels = HistoryOffsetPixels();
+                else if (_historyJumpPixels >= 0f)
+                    pixels = _historyJumpPixels;
                 else
                 {
                     float cellH = TerminalFont.CellH;
@@ -94,13 +105,15 @@ namespace SlopWorld
             }
             var info = SessionHub.Instance.Get(name);
             _scrollbackStates[name] = new ScrollbackState(
-                Mathf.Max(0, _scrollOff), pixels, info?.RunId ?? 0L);
+                Mathf.Max(0, _scrollOff),
+                pixels,
+                info?.RunId ?? 0L
+            );
         }
 
         void RestoreScrollbackState(string name)
         {
-            if (string.IsNullOrEmpty(name) ||
-                !_scrollbackStates.TryGetValue(name, out var state))
+            if (string.IsNullOrEmpty(name) || !_scrollbackStates.TryGetValue(name, out var state))
             {
                 _scrollOff = 0;
                 return;
@@ -120,11 +133,11 @@ namespace SlopWorld
             _historyJumpPixels = state.Pixels;
         }
 
-
         internal bool EnsureSession(SessionHub hub, bool covered)
         {
             var info = hub.Get(_state.Name);
-            if (info != null && info.Alive) _state.ShowStopped = false;
+            if (info != null && info.Alive)
+                _state.ShowStopped = false;
             // Keep the pane open when an agent exits during normal terminal use.
             // Keep a selected stopped agent visible so its action gizmos remain available.
             // Keep content views open so the window can show their chrome.
@@ -133,7 +146,8 @@ namespace SlopWorld
                 // A rename event removes the old name before the save response retargets this
                 // window. Hold the pane through that expected gap. Otherwise the normal exit
                 // handoff steals focus from the agent being renamed.
-                if (hub.TryPendingRename(_state.Name, out _)) return true;
+                if (hub.TryPendingRename(_state.Name, out _))
+                    return true;
 
                 ResetHistoryForNewRun();
 
@@ -143,7 +157,8 @@ namespace SlopWorld
                     _state.ShowStopped = true;
                     return true;
                 }
-                if (!covered) return false;
+                if (!covered)
+                    return false;
                 hub.Unsubscribe(_state.Name);
                 _state.Name = null;
             }
@@ -153,6 +168,5 @@ namespace SlopWorld
             }
             return true;
         }
-
     }
 }

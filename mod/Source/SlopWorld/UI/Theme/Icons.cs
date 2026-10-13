@@ -13,8 +13,7 @@ namespace SlopWorld
 
         // Lazily loaded and cached, misses included: ContentFinder walks the mod's content
         // tables, and a sidebar is dozens of icons a frame.
-        static readonly Dictionary<string, Texture2D> Cache =
-            new Dictionary<string, Texture2D>();
+        static readonly Dictionary<string, Texture2D> Cache = new Dictionary<string, Texture2D>();
 
         // ------------------------------------------------------------------ the slots
 
@@ -107,7 +106,8 @@ namespace SlopWorld
 
         static Texture2D Get(string slot)
         {
-            if (Cache.TryGetValue(slot, out var tex)) return tex;
+            if (Cache.TryGetValue(slot, out var tex))
+                return tex;
 
             // BadTex rather than null on a miss. A file-type icon that fails to load is a
             // blank cell in a list. A gizmo icon that fails to load is a button nobody can

@@ -10,12 +10,17 @@ namespace SlopWorld
         {
             public string Text;
 
-            public LimitField(uint? value) => Text = value?.ToString(CultureInfo.InvariantCulture) ?? "";
+            public LimitField(uint? value) =>
+                Text = value?.ToString(CultureInfo.InvariantCulture) ?? "";
 
-            public uint? Value => uint.TryParse((Text ?? "").Trim(), out var n) && n > 0 ? n : (uint?)null;
+            public uint? Value =>
+                uint.TryParse((Text ?? "").Trim(), out var n) && n > 0 ? n : (uint?)null;
         }
 
-        readonly LimitField _memory, _pids, _nofile, _cpu;
+        readonly LimitField _memory,
+            _pids,
+            _nofile,
+            _cpu;
 
         public ResourceLimitsForm(SessionLimits value)
         {
@@ -40,13 +45,14 @@ namespace SlopWorld
             field.Text = UiControls.Field(l, id, field.Text);
         }
 
-        SessionLimits Values() => new SessionLimits
-        {
-            MemoryMb = _memory.Value,
-            Pids = _pids.Value,
-            Nofile = _nofile.Value,
-            CpuPct = _cpu.Value
-        };
+        SessionLimits Values() =>
+            new SessionLimits
+            {
+                MemoryMb = _memory.Value,
+                Pids = _pids.Value,
+                Nofile = _nofile.Value,
+                CpuPct = _cpu.Value,
+            };
 
         public bool TrySave(out SessionLimits value, out string error)
         {
@@ -54,8 +60,10 @@ namespace SlopWorld
             error = null;
             foreach (var field in new[] { _memory, _pids, _nofile, _cpu })
             {
-                if (string.IsNullOrWhiteSpace(field.Text) || field.Value.HasValue) continue;
-                error = "Resource limits must be positive whole numbers, or blank for no configured cap.";
+                if (string.IsNullOrWhiteSpace(field.Text) || field.Value.HasValue)
+                    continue;
+                error =
+                    "Resource limits must be positive whole numbers, or blank for no configured cap.";
                 return false;
             }
             return true;

@@ -16,8 +16,10 @@ namespace SlopWorld
 
         sealed class Channel
         {
-            readonly string _writeRoute, _readRoute;
-            readonly Dictionary<string, PendingCopy> _pending = new Dictionary<string, PendingCopy>();
+            readonly string _writeRoute,
+                _readRoute;
+            readonly Dictionary<string, PendingCopy> _pending =
+                new Dictionary<string, PendingCopy>();
             string _lastCopied;
 
             public Channel(string writeRoute, string readRoute)
@@ -35,18 +37,29 @@ namespace SlopWorld
             public void Copy(string text, Action ok, Action<string> fail)
             {
                 bool exists = _pending.TryGetValue(text, out var pending);
-                if (!exists) _pending[text] = pending = new PendingCopy();
+                if (!exists)
+                    _pending[text] = pending = new PendingCopy();
                 pending.Success.Add(ok);
                 pending.Failure.Add(fail);
-                if (exists) return;
+                if (exists)
+                    return;
 
                 // Another desktop app may have replaced our last selection. Only a
                 // current read can justify preserving the existing clipboard owner.
                 if (text == _lastCopied)
-                    DaemonClient.Get<Wire.TextResult>(_readRoute,
-                        value => { if (value.Text == text) Finish(text, pending, null); else Write(text, pending); },
-                        _ => Write(text, pending));
-                else Write(text, pending);
+                    DaemonClient.Get<Wire.TextResult>(
+                        _readRoute,
+                        value =>
+                        {
+                            if (value.Text == text)
+                                Finish(text, pending, null);
+                            else
+                                Write(text, pending);
+                        },
+                        _ => Write(text, pending)
+                    );
+                else
+                    Write(text, pending);
             }
 
             bool IsCurrent(string text, PendingCopy pending) =>
@@ -54,9 +67,17 @@ namespace SlopWorld
 
             void Write(string text, PendingCopy pending)
             {
-                if (!IsCurrent(text, pending)) { Finish(text, pending, "Clipboard connection reset"); return; }
-                DaemonClient.Post(_writeRoute, new Wire.ClipReq { Text = text },
-                    _ => Finish(text, pending, null), error => Finish(text, pending, error));
+                if (!IsCurrent(text, pending))
+                {
+                    Finish(text, pending, "Clipboard connection reset");
+                    return;
+                }
+                DaemonClient.Post(
+                    _writeRoute,
+                    new Wire.ClipReq { Text = text },
+                    _ => Finish(text, pending, null),
+                    error => Finish(text, pending, error)
+                );
             }
 
             void Finish(string text, PendingCopy pending, string error)
@@ -64,23 +85,35 @@ namespace SlopWorld
                 if (IsCurrent(text, pending))
                 {
                     _pending.Remove(text);
-                    if (error == null) _lastCopied = text;
+                    if (error == null)
+                        _lastCopied = text;
                 }
                 // One caller must not prevent the remaining waiters from settling.
                 for (int i = 0; i < pending.Success.Count; i++)
                 {
                     try
                     {
-                        if (error == null) pending.Success[i]?.Invoke();
-                        else pending.Failure[i]?.Invoke(error);
+                        if (error == null)
+                            pending.Success[i]?.Invoke();
+                        else
+                            pending.Failure[i]?.Invoke(error);
                     }
-                    catch (Exception e) { Verse.Log.Error("[SlopWorld] clipboard callback: " + e); }
+                    catch (Exception e)
+                    {
+                        Verse.Log.Error("[SlopWorld] clipboard callback: " + e);
+                    }
                 }
             }
         }
 
-        static readonly Channel Clipboard = new Channel(WireProtocol.Routes.Clipboard, WireProtocol.Routes.ClipboardText);
-        static readonly Channel Primary = new Channel(WireProtocol.Routes.ClipboardPrimary, WireProtocol.Routes.ClipboardPrimaryText);
+        static readonly Channel Clipboard = new Channel(
+            WireProtocol.Routes.Clipboard,
+            WireProtocol.Routes.ClipboardText
+        );
+        static readonly Channel Primary = new Channel(
+            WireProtocol.Routes.ClipboardPrimary,
+            WireProtocol.Routes.ClipboardPrimaryText
+        );
 
         public static void Reset()
         {
@@ -90,7 +123,8 @@ namespace SlopWorld
 
         public static void Copy(string text, Action ok = null, Action<string> fail = null)
         {
-            if (string.IsNullOrEmpty(text)) return;
+            if (string.IsNullOrEmpty(text))
+                return;
             GUIUtility.systemCopyBuffer = text;
             if (!SessionHub.Instance.Capabilities.Clipboard)
             {
@@ -103,7 +137,8 @@ namespace SlopWorld
 
         public static void CopyPrimary(string text, Action ok = null, Action<string> fail = null)
         {
-            if (string.IsNullOrEmpty(text)) return;
+            if (string.IsNullOrEmpty(text))
+                return;
             if (!SessionHub.Instance.Capabilities.Clipboard)
             {
                 ok?.Invoke();
@@ -120,22 +155,33 @@ namespace SlopWorld
     {
         public void Copy(string text, bool primary)
         {
-            if (primary) DaemonClipboard.CopyPrimary(text);
-            else DaemonClipboard.Copy(text);
+            if (primary)
+                DaemonClipboard.CopyPrimary(text);
+            else
+                DaemonClipboard.Copy(text);
         }
 
         public void Read(bool primary, Action<string> receive)
         {
             if (!SessionHub.Instance.Capabilities.Clipboard)
             {
-                if (!primary) receive(GUIUtility.systemCopyBuffer);
+                if (!primary)
+                    receive(GUIUtility.systemCopyBuffer);
                 return;
             }
 
-            string path = primary ? WireProtocol.Routes.ClipboardPrimaryText : WireProtocol.Routes.ClipboardText;
-            DaemonClient.Get<Wire.TextResult>(path, value => receive(value.Text),
-                _ => { if (!primary) receive(GUIUtility.systemCopyBuffer); });
+            string path = primary
+                ? WireProtocol.Routes.ClipboardPrimaryText
+                : WireProtocol.Routes.ClipboardText;
+            DaemonClient.Get<Wire.TextResult>(
+                path,
+                value => receive(value.Text),
+                _ =>
+                {
+                    if (!primary)
+                        receive(GUIUtility.systemCopyBuffer);
+                }
+            );
         }
     }
-
 }

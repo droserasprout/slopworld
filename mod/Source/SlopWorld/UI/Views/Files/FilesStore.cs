@@ -23,6 +23,7 @@ namespace SlopWorld
 
         public ContentTreeController Controller { get; }
         public event Action<FileNode> Revealed;
+
         void BumpTree() => Controller.Bump();
 
         public void ScopesChanged()
@@ -31,7 +32,8 @@ namespace SlopWorld
             foreach (var key in _roots.Keys.ToList())
             {
                 Forget(_roots[key]);
-                if (SidebarScopes.Find(key) == null) _roots.Remove(key);
+                if (SidebarScopes.Find(key) == null)
+                    _roots.Remove(key);
             }
             _focusVersion++;
             _nextAutoRefresh = 0f;
@@ -44,8 +46,10 @@ namespace SlopWorld
         {
             CancelQueuedBrowse();
             Controller.SetAllFolded(folded);
-            foreach (var root in _roots.Values) SetExpanded(root, !folded);
-            if (_focusedRoot != null) SetExpanded(_focusedRoot, !folded);
+            foreach (var root in _roots.Values)
+                SetExpanded(root, !folded);
+            if (_focusedRoot != null)
+                SetExpanded(_focusedRoot, !folded);
 
             // Reopening a project must refresh its cached root and the visible descendants
             // before their old children are trusted. Unopened directories remain lazy.
@@ -53,17 +57,21 @@ namespace SlopWorld
             {
                 foreach (var project in SidebarScopes.EnabledScopes().Select(s => s.Key))
                     RefreshLoaded(Root(project));
-                if (_focusedRoot != null) RefreshLoaded(_focusedRoot);
+                if (_focusedRoot != null)
+                    RefreshLoaded(_focusedRoot);
             }
             BumpTree();
         }
 
         static void SetExpanded(FileNode node, bool expanded)
         {
-            if (node.Depth > 0) node.Expanded = expanded;
-            if (node.Children == null) return;
+            if (node.Depth > 0)
+                node.Expanded = expanded;
+            if (node.Children == null)
+                return;
             foreach (var child in node.Children)
-                if (child.IsDir) SetExpanded(child, expanded);
+                if (child.IsDir)
+                    SetExpanded(child, expanded);
         }
 
         IList<ContentTreeGroup> BuildGroups()
@@ -71,8 +79,13 @@ namespace SlopWorld
             if (_focusedRoot != null)
                 return new List<ContentTreeGroup>
                 {
-                    new ContentTreeGroup(_focusedKey, _focusedRoot.Name, _focusedRoot.Path,
-                        null, _focusedRoot)
+                    new ContentTreeGroup(
+                        _focusedKey,
+                        _focusedRoot.Name,
+                        _focusedRoot.Path,
+                        null,
+                        _focusedRoot
+                    ),
                 };
 
             var groups = new List<ContentTreeGroup>();
@@ -81,15 +94,25 @@ namespace SlopWorld
                 var first = project.First();
                 groups.Add(new ContentTreeGroup(first.ProjectKey, first.Project, "", null, null));
                 foreach (var scope in project)
-                    groups.Add(new ContentTreeGroup(scope.Key, ScopeLabel(scope), scope.Path, scope.Key, Root(scope.Key))
-                    { ParentKey = scope.ProjectKey });
+                    groups.Add(
+                        new ContentTreeGroup(
+                            scope.Key,
+                            ScopeLabel(scope),
+                            scope.Path,
+                            scope.Key,
+                            Root(scope.Key)
+                        )
+                        {
+                            ParentKey = scope.ProjectKey,
+                        }
+                    );
             }
             Controller.SyncGroups(SidebarScopes.GroupKeys);
             return groups;
         }
 
-        static string ScopeLabel(BrowseScope scope) => scope.Label +
-            (string.IsNullOrEmpty(scope.Branch) ? "" : "  · " + scope.Branch);
+        static string ScopeLabel(BrowseScope scope) =>
+            scope.Label + (string.IsNullOrEmpty(scope.Branch) ? "" : "  · " + scope.Branch);
 
         // Everything listed will be replaced by a fresh answer about visibility. Keep the old
         // node skeleton while that answer is in flight so the reader's expanded branches survive
@@ -98,8 +121,10 @@ namespace SlopWorld
         {
             CancelQueuedBrowse();
             _nextAutoRefresh = 0f;
-            foreach (var root in _roots.Values) Forget(root);
-            if (_focusedRoot != null) Forget(_focusedRoot);
+            foreach (var root in _roots.Values)
+                Forget(root);
+            if (_focusedRoot != null)
+                Forget(_focusedRoot);
             BumpTree();
         }
 
@@ -117,27 +142,34 @@ namespace SlopWorld
         public void RefreshIfDue()
         {
             float now = Time.realtimeSinceStartup;
-            if (now < _nextAutoRefresh) return;
-            if (!SessionHub.Instance.Online) return;
+            if (now < _nextAutoRefresh)
+                return;
+            if (!SessionHub.Instance.Online)
+                return;
             // Do not add another generation while an unfold or refresh is still draining.
-            if (_browseInFlight > 0 || _browseQueue.Count > 0) return;
+            if (_browseInFlight > 0 || _browseQueue.Count > 0)
+                return;
             _nextAutoRefresh = now + AutoRefreshSeconds;
 
             if (_focusedRoot != null)
             {
-                if (!Controller.IsGroupCollapsed(_focusedKey)) RefreshLoaded(_focusedRoot);
+                if (!Controller.IsGroupCollapsed(_focusedKey))
+                    RefreshLoaded(_focusedRoot);
                 return;
             }
             foreach (var project in SidebarScopes.EnabledScopes().Select(s => s.Key))
-                if (ScopeUnfolded(project)) RefreshLoaded(Root(project));
+                if (ScopeUnfolded(project))
+                    RefreshLoaded(Root(project));
         }
 
-        bool ScopeUnfolded(string key) => !Controller.IsGroupCollapsed(key) &&
-            !Controller.IsGroupCollapsed(SidebarScopes.Find(key)?.ProjectKey);
+        bool ScopeUnfolded(string key) =>
+            !Controller.IsGroupCollapsed(key)
+            && !Controller.IsGroupCollapsed(SidebarScopes.Find(key)?.ProjectKey);
 
         public void RefreshLoaded(FileNode node, bool descend = true)
         {
-            if (node == null || node.Children == null || node.Loading) return;
+            if (node == null || node.Children == null || node.Loading)
+                return;
 
             node.Loading = true;
             node.Error = null;
@@ -151,7 +183,11 @@ namespace SlopWorld
             while (_browseQueue.Count > 0)
             {
                 var request = _browseQueue.Dequeue();
-                if (request.Node.Path != request.Path || request.Node.ListingVersion != request.Version) continue;
+                if (
+                    request.Node.Path != request.Path
+                    || request.Node.ListingVersion != request.Version
+                )
+                    continue;
                 // Reveal may have joined a queued background refresh. Keep that foreground
                 // waiter alive while discarding the remaining recursive background work.
                 if (request.Node.Loaded != null && request.Node.Loaded.Count > 0)
@@ -159,14 +195,17 @@ namespace SlopWorld
                     request.Descend = false;
                     foreground.Add(request);
                 }
-                else request.Node.Loading = false;
+                else
+                    request.Node.Loading = false;
             }
-            foreach (var request in foreground) _browseQueue.Enqueue(request);
+            foreach (var request in foreground)
+                _browseQueue.Enqueue(request);
         }
 
         public void FocusDirectory(string path, string label)
         {
-            if (string.IsNullOrEmpty(path)) return;
+            if (string.IsNullOrEmpty(path))
+                return;
 
             _focusedKey = "storage:" + path;
             _focusedRoot = new FileNode
@@ -218,7 +257,8 @@ namespace SlopWorld
                     Relocate(root, dir, dir);
                     BumpTree();
                 }
-                root.Name = SidebarScopes.Find(project)?.Label ?? SidebarScopes.ProjectName(project);
+                root.Name =
+                    SidebarScopes.Find(project)?.Label ?? SidebarScopes.ProjectName(project);
                 return root;
             }
 
@@ -243,15 +283,22 @@ namespace SlopWorld
             node.Path = path;
             node.Root = root;
             if (node.Children != null)
-                foreach (var child in node.Children) Relocate(child, path.TrimEnd('/') + "/" + child.Name, root);
+                foreach (var child in node.Children)
+                    Relocate(child, path.TrimEnd('/') + "/" + child.Name, root);
         }
 
         public void ToggleGroup(ContentTreeGroup group)
         {
-            if (!Controller.ToggleGroup(group)) return;
-            if (group.Root != null) RefreshLoaded((FileNode)group.Root);
-            else foreach (var scope in SidebarScopes.EnabledScopes().Where(s => s.ProjectKey == group.Key))
-                    if (!Controller.IsGroupCollapsed(scope.Key)) RefreshLoaded(Root(scope.Key));
+            if (!Controller.ToggleGroup(group))
+                return;
+            if (group.Root != null)
+                RefreshLoaded((FileNode)group.Root);
+            else
+                foreach (
+                    var scope in SidebarScopes.EnabledScopes().Where(s => s.ProjectKey == group.Key)
+                )
+                    if (!Controller.IsGroupCollapsed(scope.Key))
+                        RefreshLoaded(Root(scope.Key));
         }
 
         public void EnsureLoaded(FileNode node)
@@ -266,7 +313,8 @@ namespace SlopWorld
             node.Error = null;
             // Foreground expansion should not wait behind a recursive background walk.
             CancelQueuedBrowse();
-            if (node.Expanded && node.Children != null) RefreshLoaded(node);
+            if (node.Expanded && node.Children != null)
+                RefreshLoaded(node);
             BumpTree();
         }
     }

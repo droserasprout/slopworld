@@ -18,15 +18,21 @@ namespace SlopWorld
                 _nullCount = 0;
                 foreach (var session in sessions)
                 {
-                    if (session.Host || session.Worker || session.Ephemeral) continue;
-                    if (session.Project == null) { _nullCount++; continue; }
+                    if (session.Host || session.Worker || session.Ephemeral)
+                        continue;
+                    if (session.Project == null)
+                    {
+                        _nullCount++;
+                        continue;
+                    }
                     _counts.TryGetValue(session.Project, out int count);
                     _counts[session.Project] = count + 1;
                 }
                 _revision = sessionsVersion;
                 _valid = true;
             }
-            if (project == null) return _nullCount;
+            if (project == null)
+                return _nullCount;
             return _counts.TryGetValue(project, out int result) ? result : 0;
         }
     }

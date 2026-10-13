@@ -53,7 +53,10 @@ namespace SlopWorld
 
     public readonly struct UiLayoutPadding
     {
-        public readonly float Left, Top, Right, Bottom;
+        public readonly float Left,
+            Top,
+            Right,
+            Bottom;
 
         public UiLayoutPadding(float left, float top, float right, float bottom)
         {
@@ -70,7 +73,10 @@ namespace SlopWorld
 
     public readonly struct UiLayoutRect
     {
-        public readonly float X, Y, Width, Height;
+        public readonly float X,
+            Y,
+            Width,
+            Height;
 
         public UiLayoutRect(float x, float y, float width, float height)
         {
@@ -94,8 +100,13 @@ namespace SlopWorld
         public readonly float ContentCross;
         public readonly UiLayoutAlignment Alignment;
 
-        public UiLayoutItem(UiLayoutSize main, UiLayoutSize cross, float contentMain,
-                            float contentCross, UiLayoutAlignment alignment = UiLayoutAlignment.Stretch)
+        public UiLayoutItem(
+            UiLayoutSize main,
+            UiLayoutSize cross,
+            float contentMain,
+            float contentCross,
+            UiLayoutAlignment alignment = UiLayoutAlignment.Stretch
+        )
         {
             Main = main;
             Cross = cross;
@@ -104,13 +115,17 @@ namespace SlopWorld
             Alignment = alignment;
         }
 
-        public static UiLayoutItem Column(UiLayoutSize height, float contentHeight,
-                                          float minWidth = 0f) =>
-            new UiLayoutItem(height, UiLayoutSize.Flexible(1f, minWidth), contentHeight, 0f);
+        public static UiLayoutItem Column(
+            UiLayoutSize height,
+            float contentHeight,
+            float minWidth = 0f
+        ) => new UiLayoutItem(height, UiLayoutSize.Flexible(1f, minWidth), contentHeight, 0f);
 
-        public static UiLayoutItem Row(UiLayoutSize width, float contentWidth,
-                                       float minHeight = 0f) =>
-            new UiLayoutItem(width, UiLayoutSize.Flexible(1f, minHeight), contentWidth, 0f);
+        public static UiLayoutItem Row(
+            UiLayoutSize width,
+            float contentWidth,
+            float minHeight = 0f
+        ) => new UiLayoutItem(width, UiLayoutSize.Flexible(1f, minHeight), contentWidth, 0f);
 
         static float NonNegative(float value) => value < 0f ? 0f : value;
     }
@@ -119,20 +134,28 @@ namespace SlopWorld
     {
         // Return the minimum content size that the items require. Do not limit it to the available space.
         // Callers need the overflow amount to create a scroll body.
-        public static float Measure(UiLayoutAxis axis, UiLayoutPadding padding, float gap,
-                                    UiLayoutItem[] items)
+        public static float Measure(
+            UiLayoutAxis axis,
+            UiLayoutPadding padding,
+            float gap,
+            UiLayoutItem[] items
+        )
         {
             if (items == null || items.Length == 0)
                 return axis == UiLayoutAxis.Row
-                    ? padding.Left + padding.Right : padding.Top + padding.Bottom;
+                    ? padding.Left + padding.Right
+                    : padding.Top + padding.Bottom;
 
-            float total = axis == UiLayoutAxis.Row
-                ? padding.Left + padding.Right : padding.Top + padding.Bottom;
+            float total =
+                axis == UiLayoutAxis.Row
+                    ? padding.Left + padding.Right
+                    : padding.Top + padding.Bottom;
             for (int i = 0; i < items.Length; i++)
             {
                 var item = items[i];
                 total += MainBase(item);
-                if (i != 0) total += NonNegative(gap);
+                if (i != 0)
+                    total += NonNegative(gap);
             }
             return NonNegative(total);
         }
@@ -141,9 +164,14 @@ namespace SlopWorld
         // keep their preferred sizes. Flexible items divide remaining space by weight. If minimums
         // do not fit, later items may extend beyond the available edge. Every rectangle remains
         // nonnegative, and no item receives a negative size.
-        public static float Arrange(UiLayoutAxis axis, UiLayoutRect available,
-                                    UiLayoutPadding padding, float gap, UiLayoutItem[] items,
-                                    UiLayoutRect[] output)
+        public static float Arrange(
+            UiLayoutAxis axis,
+            UiLayoutRect available,
+            UiLayoutPadding padding,
+            float gap,
+            UiLayoutItem[] items,
+            UiLayoutRect[] output
+        )
         {
             if (output == null || items == null || output.Length < items.Length)
                 throw new ArgumentException("output must hold one rectangle per layout item");
@@ -154,12 +182,14 @@ namespace SlopWorld
             float right = Math.Min(padding.Right, Math.Max(0f, width - left));
             float top = Math.Min(padding.Top, height);
             float bottom = Math.Min(padding.Bottom, Math.Max(0f, height - top));
-            float innerMain = axis == UiLayoutAxis.Row
-                ? Math.Max(0f, width - left - right)
-                : Math.Max(0f, height - top - bottom);
-            float innerCross = axis == UiLayoutAxis.Row
-                ? Math.Max(0f, height - top - bottom)
-                : Math.Max(0f, width - left - right);
+            float innerMain =
+                axis == UiLayoutAxis.Row
+                    ? Math.Max(0f, width - left - right)
+                    : Math.Max(0f, height - top - bottom);
+            float innerCross =
+                axis == UiLayoutAxis.Row
+                    ? Math.Max(0f, height - top - bottom)
+                    : Math.Max(0f, width - left - right);
             float safeGap = NonNegative(gap);
             float gaps = items.Length <= 1 ? 0f : safeGap * (items.Length - 1);
             float remaining = innerMain - gaps;
@@ -177,27 +207,25 @@ namespace SlopWorld
             // surplus is divided by flex weight, so satisfying one flex minimum cannot
             // manufacture overflow by leaving the other flex shares unchanged.
             float flexSpace = Math.Max(0f, remaining - baseTotal);
-            float cursor = axis == UiLayoutAxis.Row
-                ? available.X + left : available.Y + top;
+            float cursor = axis == UiLayoutAxis.Row ? available.X + left : available.Y + top;
             for (int i = 0; i < items.Length; i++)
             {
                 var item = items[i];
                 float main = MainBase(item);
                 if (item.Main.Kind == UiLayoutSizeKind.Flexible)
-                    main += flexWeight <= 0f ? 0f : flexSpace *
-                        (item.Main.Value) / flexWeight;
+                    main += flexWeight <= 0f ? 0f : flexSpace * (item.Main.Value) / flexWeight;
 
                 float cross = CrossPreferred(item, innerCross);
                 float crossStart = CrossOffset(item.Alignment, innerCross, cross);
-                float x = axis == UiLayoutAxis.Row
-                    ? cursor : available.X + left + crossStart;
-                float y = axis == UiLayoutAxis.Row
-                    ? available.Y + top + crossStart : cursor;
-                output[i] = axis == UiLayoutAxis.Row
-                    ? new UiLayoutRect(x, y, main, cross)
-                    : new UiLayoutRect(x, y, cross, main);
+                float x = axis == UiLayoutAxis.Row ? cursor : available.X + left + crossStart;
+                float y = axis == UiLayoutAxis.Row ? available.Y + top + crossStart : cursor;
+                output[i] =
+                    axis == UiLayoutAxis.Row
+                        ? new UiLayoutRect(x, y, main, cross)
+                        : new UiLayoutRect(x, y, cross, main);
                 cursor += main;
-                if (i + 1 < items.Length) cursor += safeGap;
+                if (i + 1 < items.Length)
+                    cursor += safeGap;
             }
 
             return Measure(axis, padding, safeGap, items);
@@ -205,8 +233,8 @@ namespace SlopWorld
 
         static float MainBase(UiLayoutItem item)
         {
-            float preferred = item.Main.Kind == UiLayoutSizeKind.Fixed
-                ? item.Main.Value : item.ContentMain;
+            float preferred =
+                item.Main.Kind == UiLayoutSizeKind.Fixed ? item.Main.Value : item.ContentMain;
             return Math.Max(item.Main.Minimum, Math.Max(0f, preferred));
         }
 
@@ -217,10 +245,13 @@ namespace SlopWorld
                 value = item.Cross.Value;
             else if (item.Cross.Kind == UiLayoutSizeKind.Content)
                 value = Math.Max(item.ContentCross, item.Cross.Minimum);
-            else value = available;
+            else
+                value = available;
 
-            if (item.Alignment == UiLayoutAlignment.Stretch &&
-                item.Cross.Kind != UiLayoutSizeKind.Fixed)
+            if (
+                item.Alignment == UiLayoutAlignment.Stretch
+                && item.Cross.Kind != UiLayoutSizeKind.Fixed
+            )
                 value = Math.Max(value, available);
             return Math.Min(available, Math.Max(0f, Math.Max(value, item.Cross.Minimum)));
         }
@@ -229,9 +260,12 @@ namespace SlopWorld
         {
             switch (alignment)
             {
-                case UiLayoutAlignment.Center: return Math.Max(0f, (available - size) / 2f);
-                case UiLayoutAlignment.End: return Math.Max(0f, available - size);
-                default: return 0f;
+                case UiLayoutAlignment.Center:
+                    return Math.Max(0f, (available - size) / 2f);
+                case UiLayoutAlignment.End:
+                    return Math.Max(0f, available - size);
+                default:
+                    return 0f;
             }
         }
 

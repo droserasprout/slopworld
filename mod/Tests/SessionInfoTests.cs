@@ -9,16 +9,22 @@ namespace SlopWorld.Tests
         {
             foreach (uint line in new[] { 2147483648U, uint.MaxValue })
             {
-                var session = SessionInfo.FromWire(new Wire.SessionView
-                {
-                    Launch = new Wire.SessionLaunchView(),
-                    Runtime = new Wire.SessionRuntimeView(),
-                    Worker = new Wire.SessionWorkerView(),
-                    Reader = new Wire.SessionReaderView { Line = line },
-                });
+                var session = SessionInfo.FromWire(
+                    new Wire.SessionView
+                    {
+                        Launch = new Wire.SessionLaunchView(),
+                        Runtime = new Wire.SessionRuntimeView(),
+                        Worker = new Wire.SessionWorkerView(),
+                        Reader = new Wire.SessionReaderView { Line = line },
+                    }
+                );
                 AssertEx.Equal(line, session.ReaderLine, "reader line preserves wire range");
-                AssertEx.True(PagerCommands.FileCommand("less", "less", "file", session.ReaderLine)
-                    .Contains("+" + line), "restored command preserves unsigned line");
+                AssertEx.True(
+                    PagerCommands
+                        .FileCommand("less", "less", "file", session.ReaderLine)
+                        .Contains("+" + line),
+                    "restored command preserves unsigned line"
+                );
             }
         }
 
@@ -32,72 +38,77 @@ namespace SlopWorld.Tests
 
         static void ReadsCompleteWireShape()
         {
-            var session = SessionInfo.FromWire(ProtobufFixtures.Read<Wire.SessionView>(JVal.Parse(
-                """
-                {
-                  "name": "agent",
-                  "project": "proj",
-                  "worktree": "tree-id",
-                  "worktree_name": "feature",
-                  "intent": "search",
-                  "dir": "/work",
-                  "ephemeral": true,
-                  "host": true,
-                  "label": "manual label",
-                  "reader": {
-                    "path": "/work/file.rs",
-                    "key": "file-key",
-                    "scope": "proj/main",
-                    "pinned": true,
-                    "line": 17
-                  },
-                  "runtime": {
-                    "state": "working",
-                    "alive": true,
-                    "auto_resume_pending": true,
-                    "process_running": true,
-                    "cols": 120,
-                    "rows": 40,
-                    "title": "working title",
-                    "bell": true,
-                    "run_id": 9,
-                    "last_change": 123,
-                    "state_since": 456
-                  },
-                  "launch": {
-                    "command": "claude",
-                    "command_preset": "claude",
-                    "cmd": "run --x",
-                    "args": "--extra",
-                    "sandbox": [
-                      "home",
-                      "net"
-                    ],
-                    "persistent_tmp": true,
-                    "mounts": [{ "from": "shared", "to": "/mnt/shared", "mode": "ro" }],
-                    "agent": "/usr/bin/claude",
-                    "network": "host",
-                    "dns": {
-                      "mode": "servers",
-                      "servers": [
-                        "8.8.8.8"
-                      ]
-                    },
-                    "limits": {
-                      "memory_mb": 1024,
-                      "pids": 64
-                    },
-                    "autostart": true,
-                    "auto_resume": true
-                  },
-                  "worker": {
-                    "enabled": true,
-                    "parent": "caller",
-                    "task_id": "task-7",
-                    "durable": true
-                  }
-                }
-                """)));
+            var session = SessionInfo.FromWire(
+                ProtobufFixtures.Read<Wire.SessionView>(
+                    JVal.Parse(
+                        """
+                        {
+                          "name": "agent",
+                          "project": "proj",
+                          "worktree": "tree-id",
+                          "worktree_name": "feature",
+                          "intent": "search",
+                          "dir": "/work",
+                          "ephemeral": true,
+                          "host": true,
+                          "label": "manual label",
+                          "reader": {
+                            "path": "/work/file.rs",
+                            "key": "file-key",
+                            "scope": "proj/main",
+                            "pinned": true,
+                            "line": 17
+                          },
+                          "runtime": {
+                            "state": "working",
+                            "alive": true,
+                            "auto_resume_pending": true,
+                            "process_running": true,
+                            "cols": 120,
+                            "rows": 40,
+                            "title": "working title",
+                            "bell": true,
+                            "run_id": 9,
+                            "last_change": 123,
+                            "state_since": 456
+                          },
+                          "launch": {
+                            "command": "claude",
+                            "command_preset": "claude",
+                            "cmd": "run --x",
+                            "args": "--extra",
+                            "sandbox": [
+                              "home",
+                              "net"
+                            ],
+                            "persistent_tmp": true,
+                            "mounts": [{ "from": "shared", "to": "/mnt/shared", "mode": "ro" }],
+                            "agent": "/usr/bin/claude",
+                            "network": "host",
+                            "dns": {
+                              "mode": "servers",
+                              "servers": [
+                                "8.8.8.8"
+                              ]
+                            },
+                            "limits": {
+                              "memory_mb": 1024,
+                              "pids": 64
+                            },
+                            "autostart": true,
+                            "auto_resume": true
+                          },
+                          "worker": {
+                            "enabled": true,
+                            "parent": "caller",
+                            "task_id": "task-7",
+                            "durable": true
+                          }
+                        }
+                        """
+                    )
+                )
+            );
 
             AssertEx.Equal("agent", session.Name, "name");
             AssertEx.Equal("proj", session.Project, "project");
@@ -184,20 +195,30 @@ namespace SlopWorld.Tests
             AssertEx.True(json["persistent_tmp"].AsBool(), "written persistent /tmp");
             AssertEx.Equal("label", json["label"].AsString(), "written label");
             AssertEx.Equal("host", json["network"].AsString(), "written network");
-            AssertEx.Equal("8.8.8.8", json["dns"]["servers"][0].AsString(),
-                           "written DNS override");
+            AssertEx.Equal("8.8.8.8", json["dns"]["servers"][0].AsString(), "written DNS override");
             AssertEx.Equal(512, json["limits"]["memory_mb"].AsInt(), "written memory limit");
             AssertEx.True(json["autostart"].AsBool(), "written autostart");
             AssertEx.True(json["auto_resume"].AsBool(), "written auto resume");
-            AssertEx.True(json["network_override"].IsNull, "removed network override is not written");
-            AssertEx.True(json["breadcrumbs"].IsNull, "removed breadcrumb selections are not written");
+            AssertEx.True(
+                json["network_override"].IsNull,
+                "removed network override is not written"
+            );
+            AssertEx.True(
+                json["breadcrumbs"].IsNull,
+                "removed breadcrumb selections are not written"
+            );
             AssertEx.True(json["agent"].IsNull, "resolved agent is not written");
         }
 
         static void ParsesUnknownStateAsDown()
         {
-            var session = SessionInfo.FromWire(ProtobufFixtures.Read<Wire.SessionView>(JVal.Parse(
-                "{\"launch\":{},\"worker\":{},\"reader\":{},\"runtime\":{\"state\":\"future-state\",\"alive\":false}}")));
+            var session = SessionInfo.FromWire(
+                ProtobufFixtures.Read<Wire.SessionView>(
+                    JVal.Parse(
+                        "{\"launch\":{},\"worker\":{},\"reader\":{},\"runtime\":{\"state\":\"future-state\",\"alive\":false}}"
+                    )
+                )
+            );
 
             AssertEx.Equal(AgentState.Down, session.State, "unknown state fallback");
             AssertEx.True(session.Gone, "dead session is gone");
@@ -211,11 +232,16 @@ namespace SlopWorld.Tests
 
         static void ParsesActiveStates()
         {
-            AssertEx.Equal(AgentState.Down, SessionInfo.ParseState("waiting"),
-                           "retired state is not recognized");
+            AssertEx.Equal(
+                AgentState.Down,
+                SessionInfo.ParseState("waiting"),
+                "retired state is not recognized"
+            );
             AssertEx.Equal(AgentState.Idle, SessionInfo.ParseState("idle"), "idle state");
-            AssertEx.True(SessionInfo.NowMs > 1_000_000_000_000L,
-                          "current time is expressed as Unix milliseconds");
+            AssertEx.True(
+                SessionInfo.NowMs > 1_000_000_000_000L,
+                "current time is expressed as Unix milliseconds"
+            );
         }
     }
 }

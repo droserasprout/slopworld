@@ -4,8 +4,8 @@ using System.Globalization;
 using RimWorld;
 using UnityEngine;
 using Verse;
-using Match = SlopWorld.SearchStore.Match;
 using Group = SlopWorld.SearchStore.Group;
+using Match = SlopWorld.SearchStore.Match;
 
 namespace SlopWorld
 {
@@ -25,8 +25,10 @@ namespace SlopWorld
             {
                 Text.Font = GameFont.Small;
                 var row = new Rect(0f, 0f, width, UiTheme.RowH);
-                float x = 0f, y = 0f;
-                foreach (var label in OptionLabels) OptionRect(ref x, ref y, row, label);
+                float x = 0f,
+                    y = 0f;
+                foreach (var label in OptionLabels)
+                    OptionRect(ref x, ref y, row, label);
                 return UiTheme.FieldH + UiTheme.GapS + y + UiTheme.RowH;
             }
         }
@@ -55,15 +57,24 @@ namespace SlopWorld
             public Color Color;
         }
 
-        static readonly SearchStore Store = new SearchStore(SidebarScopes.Enabled,
-            (url, ok, fail) => DaemonClient.Get<Wire.SearchResult>(url, ok, fail));
+        static readonly SearchStore Store = new SearchStore(
+            SidebarScopes.Enabled,
+            (url, ok, fail) => DaemonClient.Get<Wire.SearchResult>(url, ok, fail)
+        );
         static List<Group> Groups => Store.Groups;
         static bool _loading => Store.Loading;
         static readonly List<Hit> Hits = new List<Hit>();
         static readonly List<LayoutRow> Layout = new List<LayoutRow>();
         static readonly SmoothScroll Scroll = new SmoothScroll();
         static readonly Pager Viewer = new Pager();
-        internal static Pager ActivePager { get { RestoreReader(); return Viewer; } }
+        internal static Pager ActivePager
+        {
+            get
+            {
+                RestoreReader();
+                return Viewer;
+            }
+        }
         static FieldLifetime _fieldLifetime = new FieldLifetime();
 
         static SearchView()
@@ -71,7 +82,13 @@ namespace SlopWorld
             Store.Changed += DirtyLayout;
             SidebarScopes.Changed += FilterChanged;
         }
-        public static void FilterChanged() { if (Store.Submitted != null) RunSearch(Store.Submitted); }
+
+        public static void FilterChanged()
+        {
+            if (Store.Submitted != null)
+                RunSearch(Store.Submitted);
+        }
+
         static string _query = "";
         static bool _regex;
         static bool _case;
@@ -104,11 +121,25 @@ namespace SlopWorld
             SidebarScopes.Update();
             using (FieldLifetimeScope.Push(_fieldLifetime))
             {
-                var tools = new Rect(body.x + CellX, body.y + Pad,
-                    body.width - CellX * 2f, ToolsH(body.width - CellX * 2f));
-                var results = new Rect(body.x, tools.yMax + Pad,
-                    body.width, Mathf.Max(0f, body.yMax - tools.yMax - Pad));
-                if (Scroll.HandleWheel(results, _layoutRevision == int.MinValue ? -1f : _contentHeight)) return;
+                var tools = new Rect(
+                    body.x + CellX,
+                    body.y + Pad,
+                    body.width - CellX * 2f,
+                    ToolsH(body.width - CellX * 2f)
+                );
+                var results = new Rect(
+                    body.x,
+                    tools.yMax + Pad,
+                    body.width,
+                    Mathf.Max(0f, body.yMax - tools.yMax - Pad)
+                );
+                if (
+                    Scroll.HandleWheel(
+                        results,
+                        _layoutRevision == int.MinValue ? -1f : _contentHeight
+                    )
+                )
+                    return;
                 DrawTools(tools);
                 DrawResults(results);
             }
@@ -117,8 +148,7 @@ namespace SlopWorld
         static void DrawTools(Rect r)
         {
             float buttonW = UiTheme.FieldH;
-            var field = new Rect(r.x, r.y, r.width - buttonW - UiTheme.GapS,
-                UiTheme.FieldH);
+            var field = new Rect(r.x, r.y, r.width - buttonW - UiTheme.GapS, UiTheme.FieldH);
             var e = Event.current;
 
             string was = _query;
@@ -142,11 +172,14 @@ namespace SlopWorld
 
             var go = new Rect(field.xMax + UiTheme.GapS, field.y, buttonW, field.height);
             bool clicked = UiButtons.Button(go, "›", UiTheme.Btn.Primary);
-            bool entered = e.type == EventType.KeyDown &&
-                (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter) && Focused;
+            bool entered =
+                e.type == EventType.KeyDown
+                && (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter)
+                && Focused;
             if (clicked || entered)
             {
-                if (entered) e.Use();
+                if (entered)
+                    e.Use();
                 ReleaseFocus();
                 Search();
             }
@@ -158,14 +191,28 @@ namespace SlopWorld
                 float x = r.x;
                 _case = DrawOption(ref x, ref y, r, "case", _case, "Case-sensitive search");
                 _word = DrawOption(ref x, ref y, r, "word", _word, "Match whole words");
-                _regex = DrawOption(ref x, ref y, r, "regex", _regex, "Interpret the query as a regex");
-                _includeIgnored = DrawOption(ref x, ref y, r, "gitignored", _includeIgnored,
-                    "Include files ignored by Git");
+                _regex = DrawOption(
+                    ref x,
+                    ref y,
+                    r,
+                    "regex",
+                    _regex,
+                    "Interpret the query as a regex"
+                );
+                _includeIgnored = DrawOption(
+                    ref x,
+                    ref y,
+                    r,
+                    "gitignored",
+                    _includeIgnored,
+                    "Include files ignored by Git"
+                );
             }
 
             // Changing text does not search on every frame. Enter is the deliberate boundary
             // between editing a potentially expensive expression and running it.
-            if (was != _query) _selected = null;
+            if (was != _query)
+                _selected = null;
         }
 
         // Measurement and drawing share wrapping so result drawing and hit testing
@@ -183,8 +230,14 @@ namespace SlopWorld
             return rect;
         }
 
-        static bool DrawOption(ref float x, ref float y, Rect row, string label, bool on, string tip) =>
-            ToggleCell.DrawText(OptionRect(ref x, ref y, row, label), label, on, tip);
+        static bool DrawOption(
+            ref float x,
+            ref float y,
+            Rect row,
+            string label,
+            bool on,
+            string tip
+        ) => ToggleCell.DrawText(OptionRect(ref x, ref y, row, label), label, on, tip);
 
         static bool Focused => GUI.GetNameOfFocusedControl() == "search.query";
 
@@ -194,7 +247,8 @@ namespace SlopWorld
         {
             ResetFieldLifetime();
             _focus = false;
-            if (Focused) GUI.FocusControl(null);
+            if (Focused)
+                GUI.FocusControl(null);
         }
 
         public static void Closed()
@@ -214,7 +268,8 @@ namespace SlopWorld
         static void RunSearch(SearchSubmission submitted)
         {
             ReleaseViewer();
-            if (submitted.Query.Length > 0) _selected = null;
+            if (submitted.Query.Length > 0)
+                _selected = null;
             Scroll.JumpTo(Vector2.zero);
             Store.Search(submitted, SidebarScopes.EnabledScopes(), Settings.SidebarShowHidden);
         }
@@ -226,19 +281,20 @@ namespace SlopWorld
             EnsureLayout();
             Hits.Clear();
             float height = _contentHeight;
-            var geometry = UiScrollBody.Measure(body, height,
-                UiScrollbarReservation.WhenNeeded);
+            var geometry = UiScrollBody.Measure(body, height, UiScrollbarReservation.WhenNeeded);
             var view = geometry.View;
             using (WidgetState.Save())
             using (Scroll.Scope(body, view))
             {
-                if (SmoothScroll.WheelOnly) return;
+                if (SmoothScroll.WheelOnly)
+                    return;
                 float visibleTop = Scroll.Position.y;
                 float visibleBottom = visibleTop + body.height;
-                int first = Mathf.Max(0,
-                    Mathf.FloorToInt((visibleTop - Pad) / RowH) - 1);
-                int last = Mathf.Min(Layout.Count,
-                    Mathf.CeilToInt((visibleBottom - Pad) / RowH) + 1);
+                int first = Mathf.Max(0, Mathf.FloorToInt((visibleTop - Pad) / RowH) - 1);
+                int last = Mathf.Min(
+                    Layout.Count,
+                    Mathf.CeilToInt((visibleBottom - Pad) / RowH) + 1
+                );
                 for (int i = first; i < last; i++)
                 {
                     float y = Pad + i * RowH;
@@ -275,8 +331,10 @@ namespace SlopWorld
             GUI.color = UiTheme.Lead;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
-            UiText.RowLabel(new Rect(CellX, y, width - CellX * 2f, RowH),
-                $"    {group.Worktree}  {group.Matches.Count}");
+            UiText.RowLabel(
+                new Rect(CellX, y, width - CellX * 2f, RowH),
+                $"    {group.Worktree}  {group.Matches.Count}"
+            );
             GUI.color = Color.white;
             y += RowH;
         }
@@ -286,8 +344,10 @@ namespace SlopWorld
             GUI.color = UiTheme.Name;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
-            UiText.RowLabel(new Rect(CellX + UiTheme.GapS, y,
-                width - CellX * 2f - UiTheme.GapS, RowH), path);
+            UiText.RowLabel(
+                new Rect(CellX + UiTheme.GapS, y, width - CellX * 2f - UiTheme.GapS, RowH),
+                path
+            );
             GUI.color = Color.white;
             y += RowH;
         }
@@ -295,26 +355,40 @@ namespace SlopWorld
         static void Result(float width, ref float y, Match match)
         {
             var r = new Rect(0f, y, width, RowH);
-            bool over = RowChrome.Hover(r, ReferenceEquals(match, _selected), true,
-                RowHoverPolicy.OverlayAware);
+            bool over = RowChrome.Hover(
+                r,
+                ReferenceEquals(match, _selected),
+                true,
+                RowHoverPolicy.OverlayAware
+            );
 
             string prefix = match.Line + ":" + match.Column;
             float prefixW = Mathf.Min(width * 0.55f, UiTheme.Wide(prefix) + 8f);
             float rx = width - Pad;
             var acts = over ? RowAct.View | RowAct.Edit : RowAct.None;
-            if (acts != RowAct.None) rx = RowActions.Draw(r, rx, acts) - UiTheme.GapXS;
+            if (acts != RowAct.None)
+                rx = RowActions.Draw(r, rx, acts) - UiTheme.GapXS;
 
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = UiTheme.Name;
             UiText.RowLabel(new Rect(CellX + UiTheme.GapM, y, prefixW, RowH), prefix);
             GUI.color = over ? UiTheme.Lead : UiTheme.Dim;
-            UiText.RowLabel(new Rect(CellX + UiTheme.GapM + prefixW, y,
-                Mathf.Max(0f, rx - CellX - UiTheme.GapM - prefixW), RowH), match.Text.Trim());
+            UiText.RowLabel(
+                new Rect(
+                    CellX + UiTheme.GapM + prefixW,
+                    y,
+                    Mathf.Max(0f, rx - CellX - UiTheme.GapM - prefixW),
+                    RowH
+                ),
+                match.Text.Trim()
+            );
             GUI.color = Color.white;
             if (RowActions.Hit(r, width - Pad, acts) == RowAct.None)
-                TooltipHandler.TipRegion(r,
-                    $"{match.Path}:{match.Line}:{match.Column}\n{match.Text.Trim()}");
+                TooltipHandler.TipRegion(
+                    r,
+                    $"{match.Path}:{match.Line}:{match.Column}\n{match.Text.Trim()}"
+                );
             Hits.Add(new Hit { Rect = r, Match = match });
             y += RowH;
         }
@@ -331,16 +405,20 @@ namespace SlopWorld
 
         public static void Clicks()
         {
-            if (!ColonistBarStrip.Interactive) return;
+            if (!ColonistBarStrip.Interactive)
+                return;
             var e = Event.current;
-            if (e.rawType != EventType.MouseDown || (e.button != 0 && e.button != 1)) return;
+            if (e.rawType != EventType.MouseDown || (e.button != 0 && e.button != 1))
+                return;
             // Partially visible rows retain their full geometry for action placement.
             // Only the portion inside the scroll viewport may receive clicks.
-            if (!ResultsBody().Contains(e.mousePosition)) return;
+            if (!ResultsBody().Contains(e.mousePosition))
+                return;
             foreach (var hit in Hits)
             {
                 var scr = Screen(hit.Rect);
-                if (!ColonistBarStrip.MouseOver(scr)) continue;
+                if (!ColonistBarStrip.MouseOver(scr))
+                    continue;
 
                 if (e.button == 1)
                 {
@@ -350,7 +428,8 @@ namespace SlopWorld
                 }
 
                 var act = RowActions.Hit(scr, scr.xMax - Pad, RowAct.View | RowAct.Edit);
-                if (act != RowAct.None) Act(hit.Match, act);
+                if (act != RowAct.None)
+                    Act(hit.Match, act);
                 else
                 {
                     _selected = hit.Match;
@@ -373,16 +452,30 @@ namespace SlopWorld
             FilesView.AddFileActions(opts, match.Project, path, Leaf(match.Path), match.Path);
 
             opts.Add(new FloatMenuOption("View", () => Open(match)));
-            opts.Add(new FloatMenuOption("Edit", () => FilesView.EditFile(
-                match.Project, path, "edit-" + Leaf(match.Path), match.Line)));
+            opts.Add(
+                new FloatMenuOption(
+                    "Edit",
+                    () =>
+                        FilesView.EditFile(
+                            match.Project,
+                            path,
+                            "edit-" + Leaf(match.Path),
+                            match.Line
+                        )
+                )
+            );
             TerminalWindow.OpenOverPane(new UiMenu(opts));
         }
 
         static Rect Screen(Rect r)
         {
             var body = ResultsBody();
-            var moved = new Rect(body.x + r.x - Scroll.Position.x,
-                body.y + r.y - Scroll.Position.y, r.width, r.height);
+            var moved = new Rect(
+                body.x + r.x - Scroll.Position.x,
+                body.y + r.y - Scroll.Position.y,
+                r.width,
+                r.height
+            );
             return moved.yMax <= body.y || moved.y >= body.yMax ? Rect.zero : moved;
         }
 
@@ -390,8 +483,12 @@ namespace SlopWorld
         {
             var body = AgentSidebar.Body;
             float toolsBottom = body.y + Pad + ToolsH(body.width - CellX * 2f);
-            return new Rect(body.x, toolsBottom + Pad, body.width,
-                Mathf.Max(0f, body.yMax - toolsBottom - Pad));
+            return new Rect(
+                body.x,
+                toolsBottom + Pad,
+                body.width,
+                Mathf.Max(0f, body.yMax - toolsBottom - Pad)
+            );
         }
 
         static void Open(Match match)
@@ -402,28 +499,38 @@ namespace SlopWorld
         public static bool FocusLocation(string project, string path, int line)
         {
             foreach (var group in Groups)
-                foreach (var match in group.Matches)
-                    if (match.Project == project && match.Path == path && match.Line == line)
-                    {
-                        _selected = match;
-                        Open(match, false);
-                        return true;
-                    }
+            foreach (var match in group.Matches)
+                if (match.Project == project && match.Path == path && match.Line == line)
+                {
+                    _selected = match;
+                    Open(match, false);
+                    return true;
+                }
             return false;
         }
 
         static void Open(Match match, bool remember)
         {
             string path = match.Root.TrimEnd('/') + "/" + match.Path;
-            if (remember) AgentSidebar.RememberSearch(match.Project, match.Path, match.Line);
+            if (remember)
+                AgentSidebar.RememberSearch(match.Project, match.Path, match.Line);
             if (ReferenceEquals(match, _showing) && Viewer.Reopen())
             {
-                SessionHub.Instance.Terminal.SendKeys(Viewer.Session,
-                    new[] { match.Line.ToString(CultureInfo.InvariantCulture) + "g" }, true);
+                SessionHub.Instance.Terminal.SendKeys(
+                    Viewer.Session,
+                    new[] { match.Line.ToString(CultureInfo.InvariantCulture) + "g" },
+                    true
+                );
                 return;
             }
             _showing = match;
-            Viewer.ViewFileAt(match.Project, path, match.Line, FilesView.ReaderLabel(match.Project, "search-" + Leaf(match.Path)), "search");
+            Viewer.ViewFileAt(
+                match.Project,
+                path,
+                match.Line,
+                FilesView.ReaderLabel(match.Project, "search-" + Leaf(match.Path)),
+                "search"
+            );
         }
 
         static void Act(Match match, RowAct act)
@@ -447,9 +554,17 @@ namespace SlopWorld
             return slash < 0 ? path : path.Substring(slash + 1);
         }
 
-        static void Copy(string text) => DaemonClipboard.Copy(text,
-            () => Messages.Message($"SlopWorld: copied {text}", MessageTypeDefOf.SilentInput,
-                false), UiLayout.Fail);
+        static void Copy(string text) =>
+            DaemonClipboard.Copy(
+                text,
+                () =>
+                    Messages.Message(
+                        $"SlopWorld: copied {text}",
+                        MessageTypeDefOf.SilentInput,
+                        false
+                    ),
+                UiLayout.Fail
+            );
 
         public static void ReleaseViewer()
         {

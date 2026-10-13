@@ -10,8 +10,13 @@ namespace SlopWorld
         static readonly Dictionary<string, ThingDef> _icons = new Dictionary<string, ThingDef>();
         static readonly string[] KnownKeys =
         {
-            "claude_session", "claude_week", "claude_week_opus", "claude_week_sonnet",
-            "claude_week_cowork", "claude_spend", "openrouter_balance",
+            "claude_session",
+            "claude_week",
+            "claude_week_opus",
+            "claude_week_sonnet",
+            "claude_week_cowork",
+            "claude_spend",
+            "openrouter_balance",
         };
         static UsageInfo _iconUsage;
         static DaemonConfig _iconConfig;
@@ -32,28 +37,37 @@ namespace SlopWorld
         {
             var usage = SessionHub.Instance.Usage;
             var config = SessionHub.Instance.Config;
-            if (_icons.ContainsKey(requestedKey) && ReferenceEquals(_iconUsage, usage) &&
-                ReferenceEquals(_iconConfig, config)) return;
+            if (
+                _icons.ContainsKey(requestedKey)
+                && ReferenceEquals(_iconUsage, usage)
+                && ReferenceEquals(_iconConfig, config)
+            )
+                return;
             _iconUsage = usage;
             _iconConfig = config;
             var active = new SortedSet<string>(StringComparer.Ordinal);
             var keys = new SortedSet<string>(StringComparer.Ordinal) { requestedKey };
-            foreach (var key in KnownKeys) keys.Add(key);
+            foreach (var key in KnownKeys)
+                keys.Add(key);
             if (usage != null)
             {
                 foreach (var row in usage.Rows)
                 {
                     keys.Add(row.Key);
-                    if (row.Poll) active.Add(row.Key);
+                    if (row.Poll)
+                        active.Add(row.Key);
                 }
-                foreach (var row in usage.Catalog) keys.Add(row.Key);
+                foreach (var row in usage.Catalog)
+                    keys.Add(row.Key);
             }
             if (config?.UsageItems != null)
-                foreach (var key in config.UsageItems.Keys) keys.Add(key);
+                foreach (var key in config.UsageItems.Keys)
+                    keys.Add(key);
             foreach (var line in Settings.UsageIcons.Split('\n'))
             {
                 int eq = line.IndexOf('=');
-                if (eq > 0) keys.Add(line.Substring(0, eq).Trim());
+                if (eq > 0)
+                    keys.Add(line.Substring(0, eq).Trim());
             }
 
             // Reserve every built-in, even when its row is absent or overridden. Explicit
@@ -62,15 +76,18 @@ namespace SlopWorld
             foreach (var key in KnownKeys)
             {
                 var known = Known(key);
-                if (known != null) reserved.Add(known);
+                if (known != null)
+                    reserved.Add(known);
             }
             foreach (var key in keys)
             {
                 var chosen = Chosen(key);
-                if (chosen != null) reserved.Add(chosen);
+                if (chosen != null)
+                    reserved.Add(chosen);
             }
             foreach (var assigned in _icons.Values)
-                if (assigned != null) reserved.Add(assigned);
+                if (assigned != null)
+                    reserved.Add(assigned);
 
             // Give polled rows first access to the finite fallback pool, then the remaining
             // catalog/settings keys. Each batch uses ordinal order, independent of painting.
@@ -83,15 +100,18 @@ namespace SlopWorld
         {
             foreach (var key in keys)
             {
-                if (_icons.ContainsKey(key)) continue;
+                if (_icons.ContainsKey(key))
+                    continue;
                 var def = Chosen(key) ?? Known(key);
                 while (def == null && _next < Pool.Length)
                 {
                     var candidate = Pool[_next++];
-                    if (candidate != null && reserved.Add(candidate)) def = candidate;
+                    if (candidate != null && reserved.Add(candidate))
+                        def = candidate;
                 }
                 _icons[key] = def;
-                if (def != null) reserved.Add(def);
+                if (def != null)
+                    reserved.Add(def);
             }
         }
 
@@ -114,7 +134,8 @@ namespace SlopWorld
             foreach (var line in Settings.UsageIcons.Split('\n'))
             {
                 int eq = line.IndexOf('=');
-                if (eq <= 0 || line.Substring(0, eq).Trim() != key) continue;
+                if (eq <= 0 || line.Substring(0, eq).Trim() != key)
+                    continue;
 
                 string defName = line.Substring(eq + 1).Trim();
                 return defName.Length == 0
@@ -132,12 +153,15 @@ namespace SlopWorld
             foreach (var line in Settings.UsageIcons.Split('\n'))
             {
                 int eq = line.IndexOf('=');
-                if (eq <= 0 || line.Trim().Length == 0) continue;
-                if (line.Substring(0, eq).Trim() == key) continue;
+                if (eq <= 0 || line.Trim().Length == 0)
+                    continue;
+                if (line.Substring(0, eq).Trim() == key)
+                    continue;
                 kept.Add(line.Trim());
             }
 
-            if (def != null) kept.Add(key + "=" + def.defName);
+            if (def != null)
+                kept.Add(key + "=" + def.defName);
 
             Settings.S.usageIcons = string.Join("\n", kept.ToArray());
             // Written on the click rather than on the way out of a window, the way the column's own
@@ -150,30 +174,41 @@ namespace SlopWorld
         {
             switch (key)
             {
-                case "claude_session": return ThingDefOf.Chemfuel;
-                case "claude_week": return ThingDefOf.Steel;
-                case "claude_week_opus": return ThingDefOf.Plasteel;
-                case "claude_week_sonnet": return ThingDefOf.ComponentIndustrial;
-                case "claude_week_cowork": return ThingDefOf.Jade;
-                case "claude_spend": return ThingDefOf.Silver;
+                case "claude_session":
+                    return ThingDefOf.Chemfuel;
+                case "claude_week":
+                    return ThingDefOf.Steel;
+                case "claude_week_opus":
+                    return ThingDefOf.Plasteel;
+                case "claude_week_sonnet":
+                    return ThingDefOf.ComponentIndustrial;
+                case "claude_week_cowork":
+                    return ThingDefOf.Jade;
+                case "claude_spend":
+                    return ThingDefOf.Silver;
                 // Money like the row above it, and the two are never the same coin. What is left of
                 // a budget and what is left of a wallet are different questions.
-                case "openrouter_balance": return ThingDefOf.Gold;
-                default: return null;
+                case "openrouter_balance":
+                    return ThingDefOf.Gold;
+                default:
+                    return null;
             }
         }
 
         // Only so no two rows wear the same icon. Built on first use rather than in a field
         // initialiser. ThingDefOf is filled during startup, and a static touched too early caches a
         // row of nulls.
-        static ThingDef[] Pool => _pool ?? (_pool = new[]
-        {
-            ThingDefOf.Uranium,
-            ThingDefOf.Jade,
-            ThingDefOf.ComponentSpacer,
-            ThingDefOf.MedicineIndustrial,
-            ThingDefOf.WoodLog,
-        });
-
+        static ThingDef[] Pool =>
+            _pool
+            ?? (
+                _pool = new[]
+                {
+                    ThingDefOf.Uranium,
+                    ThingDefOf.Jade,
+                    ThingDefOf.ComponentSpacer,
+                    ThingDefOf.MedicineIndustrial,
+                    ThingDefOf.WoodLog,
+                }
+            );
     }
 }

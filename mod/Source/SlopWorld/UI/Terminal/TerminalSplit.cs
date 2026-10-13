@@ -26,12 +26,15 @@ namespace SlopWorld
             _panes = new WorkspaceSplit<TerminalPanel>(new TerminalPanel(host, name));
         }
 
-        public TerminalPanel Find(string name) => First.SessionName == name ? First :
-            Second?.SessionName == name ? Second : null;
+        public TerminalPanel Find(string name) =>
+            First.SessionName == name ? First
+            : Second?.SessionName == name ? Second
+            : null;
 
         public void Select(TerminalPanel panel)
         {
-            if (panel == Selected) return;
+            if (panel == Selected)
+                return;
             _panes.Select(panel);
             _selected(Selected.SessionName);
         }
@@ -39,7 +42,11 @@ namespace SlopWorld
         public void OpenSplit(string name)
         {
             var existing = Find(name);
-            if (existing != null) { Select(existing); return; }
+            if (existing != null)
+            {
+                Select(existing);
+                return;
+            }
             if (Second != null)
             {
                 Select(Selected == First ? Second : First);
@@ -67,28 +74,40 @@ namespace SlopWorld
         }
 
         public override void Opened() => _panes.Open();
-        public override void Closed() { EndDrag(); _panes.Close(); }
+
+        public override void Closed()
+        {
+            EndDrag();
+            _panes.Close();
+        }
+
         public override void VisibilityChanged(bool visible)
         {
-            if (!visible) EndDrag();
+            if (!visible)
+                EndDrag();
             _panes.SetVisible(visible);
             base.VisibilityChanged(visible);
         }
+
         public override void FocusChanged(bool focused)
         {
-            if (!focused) EndDrag();
+            if (!focused)
+                EndDrag();
             _panes.SetFocus(focused);
             base.FocusChanged(focused);
         }
 
         WorkspaceSplitGeometry Geometry(UiLayoutRect bounds) =>
-            new WorkspaceSplitGeometry(bounds, _fraction, UiTheme.GapS,
-                First.MinimumSize.Width);
+            new WorkspaceSplitGeometry(bounds, _fraction, UiTheme.GapS, First.MinimumSize.Width);
 
         public override void Arrange(UiLayoutRect bounds)
         {
             base.Arrange(bounds);
-            if (!Split) { First.Arrange(bounds); return; }
+            if (!Split)
+            {
+                First.Arrange(bounds);
+                return;
+            }
             var geometry = Geometry(bounds);
             First.Arrange(geometry.First);
             Second.Arrange(geometry.Second);
@@ -102,9 +121,13 @@ namespace SlopWorld
                 var divider = RectOf(Geometry(Bounds).Divider);
                 _dividerControl = GUIUtility.GetControlID(FocusType.Passive);
                 var mouse = TerminalWindow.MouseType(e);
-                if (Focused && GUIUtility.hotControl == 0 &&
-                    mouse == EventType.MouseDown && e.button == 0 &&
-                    divider.Contains(e.mousePosition))
+                if (
+                    Focused
+                    && GUIUtility.hotControl == 0
+                    && mouse == EventType.MouseDown
+                    && e.button == 0
+                    && divider.Contains(e.mousePosition)
+                )
                 {
                     _panes.SetFocus(false);
                     _dragging = true;
@@ -116,7 +139,9 @@ namespace SlopWorld
                     if (mouse == EventType.MouseDrag)
                     {
                         float available = Mathf.Max(1f, Bounds.Width - divider.width);
-                        _fraction = Mathf.Clamp01((e.mousePosition.x - Bounds.X - divider.width / 2f) / available);
+                        _fraction = Mathf.Clamp01(
+                            (e.mousePosition.x - Bounds.X - divider.width / 2f) / available
+                        );
                         Arrange(Bounds);
                         e.Use();
                     }
@@ -132,8 +157,10 @@ namespace SlopWorld
                     _panes.SetFocus(true);
                     if (mouse == EventType.MouseDown && GUIUtility.hotControl == 0)
                     {
-                        if (RectOf(First.Bounds).Contains(e.mousePosition)) Select(First);
-                        else if (RectOf(Second.Bounds).Contains(e.mousePosition)) Select(Second);
+                        if (RectOf(First.Bounds).Contains(e.mousePosition))
+                            Select(First);
+                        else if (RectOf(Second.Bounds).Contains(e.mousePosition))
+                            Select(Second);
                     }
                 }
             }
@@ -142,11 +169,16 @@ namespace SlopWorld
             // change selection or close the split. Its replacement must not see that event.
             var selected = Selected;
             var other = selected == First ? Second : First;
-            if (other != null) other.Draw(RectOf(other.Bounds));
-            if (Visible) selected.Draw(RectOf(selected.Bounds));
+            if (other != null)
+                other.Draw(RectOf(other.Bounds));
+            if (Visible)
+                selected.Draw(RectOf(selected.Bounds));
             if (Split)
             {
-                Slab.Fill(RectOf(Geometry(Bounds).Divider), _dragging ? UiTheme.EdgeLit : UiTheme.Edge);
+                Slab.Fill(
+                    RectOf(Geometry(Bounds).Divider),
+                    _dragging ? UiTheme.EdgeLit : UiTheme.Edge
+                );
                 var bounds = Selected.Bounds;
                 Slab.Fill(new Rect(bounds.X, bounds.Y, bounds.Width, 1f), UiTheme.EdgeLit);
             }
@@ -154,13 +186,25 @@ namespace SlopWorld
 
         void EndDrag()
         {
-            if (!_dragging) return;
+            if (!_dragging)
+                return;
             _dragging = false;
-            if (GUIUtility.hotControl == _dividerControl) GUIUtility.hotControl = 0;
+            if (GUIUtility.hotControl == _dividerControl)
+                GUIUtility.hotControl = 0;
         }
 
-        public void Update() { First.Update(); Second?.Update(); }
-        public void Flush() { First.Flush(); Second?.Flush(); }
+        public void Update()
+        {
+            First.Update();
+            Second?.Update();
+        }
+
+        public void Flush()
+        {
+            First.Flush();
+            Second?.Flush();
+        }
+
         static Rect RectOf(UiLayoutRect r) => new Rect(r.X, r.Y, r.Width, r.Height);
     }
 }

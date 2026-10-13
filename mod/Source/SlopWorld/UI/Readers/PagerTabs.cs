@@ -39,15 +39,20 @@ namespace SlopWorld
 
         public void Apply(bool isFile, string stamp = null)
         {
-            if (_tab.FilePath != Path || _tab.Session != _session) return;
+            if (_tab.FilePath != Path || _tab.Session != _session)
+                return;
             var pager = _tab as Pager;
-            if (pager != null && pager.Operation != _operation) return;
-            if (!isFile) _tab.Invalidate();
-            else pager?.RefreshIfChanged(stamp);
+            if (pager != null && pager.Operation != _operation)
+                return;
+            if (!isFile)
+                _tab.Invalidate();
+            else
+                pager?.RefreshIfChanged(stamp);
         }
     }
 
-    class PreviewTabs<T> where T : class, IPreviewTab
+    class PreviewTabs<T>
+        where T : class, IPreviewTab
     {
         protected readonly System.Func<T> _create;
         readonly System.Action _beforePreview;
@@ -66,7 +71,8 @@ namespace SlopWorld
             get
             {
                 RetireDead();
-                if (_preview == null) _preview = _create();
+                if (_preview == null)
+                    _preview = _create();
                 return _preview;
             }
         }
@@ -75,7 +81,8 @@ namespace SlopWorld
         {
             _beforePreview?.Invoke();
             RetireDead();
-            if (_preview == null) _preview = _create();
+            if (_preview == null)
+                _preview = _create();
             if (_preview.Locked)
             {
                 _locked.Add(_preview);
@@ -89,16 +96,19 @@ namespace SlopWorld
         public T Find(System.Predicate<T> matches)
         {
             RetireDead();
-            if (matches(_preview)) return _preview;
+            if (matches(_preview))
+                return _preview;
             return _locked.Find(matches);
         }
 
         public void Invalidate(System.Predicate<T> matches)
         {
             RetireDead();
-            if (matches(_preview)) _preview.Invalidate();
+            if (matches(_preview))
+                _preview.Invalidate();
             foreach (var tab in _locked)
-                if (matches(tab)) tab.Invalidate();
+                if (matches(tab))
+                    tab.Invalidate();
             RetireDead();
         }
 
@@ -117,18 +127,22 @@ namespace SlopWorld
         public bool ReopenSession(string session)
         {
             RetireDead();
-            if (_preview.Session == session) return _preview.Reopen();
+            if (_preview.Session == session)
+                return _preview.Reopen();
             foreach (var tab in _locked)
-                if (tab.Session == session) return tab.Reopen();
+                if (tab.Session == session)
+                    return tab.Reopen();
             return false;
         }
 
         public bool ContainsSession(string session)
         {
             RetireDead();
-            if (_preview.Session == session && _preview.Alive) return true;
+            if (_preview.Session == session && _preview.Alive)
+                return true;
             foreach (var tab in _locked)
-                if (tab.Session == session && tab.Alive) return true;
+                if (tab.Session == session && tab.Alive)
+                    return true;
             return false;
         }
 
@@ -137,53 +151,66 @@ namespace SlopWorld
             get
             {
                 RetireDead();
-                if (_preview.Alive) yield return _preview;
-                foreach (var tab in _locked) yield return tab;
+                if (_preview.Alive)
+                    yield return _preview;
+                foreach (var tab in _locked)
+                    yield return tab;
             }
         }
 
         public bool Lock(string session)
         {
             RetireDead();
-            if (_preview.Session == session) return _preview.Lock();
+            if (_preview.Session == session)
+                return _preview.Lock();
             foreach (var tab in _locked)
-                if (tab.Session == session) return tab.Lock();
+                if (tab.Session == session)
+                    return tab.Lock();
             return false;
         }
 
         public bool LockPreview(string project, string key)
         {
             RetireDead();
-            if (_preview.LockPreview(project, key)) return true;
+            if (_preview.LockPreview(project, key))
+                return true;
             foreach (var tab in _locked)
-                if (tab.Matches(project, key)) return tab.Lock();
+                if (tab.Matches(project, key))
+                    return tab.Lock();
             return false;
         }
 
         public string FilePath(string session)
         {
-            if (_preview != null && _preview.Session == session) return _preview.FilePath;
+            if (_preview != null && _preview.Session == session)
+                return _preview.FilePath;
             foreach (var tab in _locked)
-                if (tab.Session == session) return tab.FilePath;
+                if (tab.Session == session)
+                    return tab.FilePath;
             return null;
         }
 
         public bool IsSession(string session)
         {
             RetireDead();
-            if (session == null) return false;
-            if (_preview.Session == session && _preview.Alive) return true;
+            if (session == null)
+                return false;
+            if (_preview.Session == session && _preview.Alive)
+                return true;
             foreach (var tab in _locked)
-                if (tab.Session == session && tab.Alive) return true;
+                if (tab.Session == session && tab.Alive)
+                    return true;
             return false;
         }
 
         public bool IsLocked(string session)
         {
             RetireDead();
-            if (session == null) return false;
+            if (session == null)
+                return false;
             foreach (var tab in _locked)
-                if (tab.Session == session && tab.Alive) return true;
+                if (tab.Session == session && tab.Alive)
+                    return true;
             return _preview.Session == session && _preview.Alive && _preview.Locked;
         }
 
@@ -193,7 +220,8 @@ namespace SlopWorld
         public void ReleasePreview()
         {
             RetireDead();
-            if (!_preview.Locked) _preview.Release();
+            if (!_preview.Locked)
+                _preview.Release();
             RetireDead();
         }
 
@@ -201,7 +229,8 @@ namespace SlopWorld
         {
             RetireDead();
             _preview.CloseIf(session);
-            foreach (var tab in _locked) tab.CloseIf(session);
+            foreach (var tab in _locked)
+                tab.CloseIf(session);
             RetireDead();
         }
 
@@ -209,16 +238,22 @@ namespace SlopWorld
         {
             RetireDead();
             bool closed = _preview.CloseTab(session);
-            foreach (var tab in _locked) closed |= tab.CloseTab(session);
+            foreach (var tab in _locked)
+                closed |= tab.CloseTab(session);
             RetireDead();
             return closed;
         }
 
         protected void RetireDead()
         {
-            if (_preview == null) _preview = _create();
+            if (_preview == null)
+                _preview = _create();
             for (int i = _locked.Count - 1; i >= 0; i--)
-                if (!_locked[i].Alive) { _locked.RemoveAt(i); RoutedSessionRows.Invalidate(); }
+                if (!_locked[i].Alive)
+                {
+                    _locked.RemoveAt(i);
+                    RoutedSessionRows.Invalidate();
+                }
         }
     }
 
@@ -235,19 +270,24 @@ namespace SlopWorld
         public void AttachRestored(SessionInfo info)
         {
             RetireDead();
-            if (ContainsSession(info.Name)) return;
+            if (ContainsSession(info.Name))
+                return;
             string scope = string.IsNullOrEmpty(info.ReaderScope) ? info.Project : info.ReaderScope;
-            if (Find(tab => tab != null && tab.Pending(scope, info.ReaderKey)) != null) return;
+            if (Find(tab => tab != null && tab.Pending(scope, info.ReaderKey)) != null)
+                return;
             var pager = _create();
             pager.AttachRestored(info);
             if (info.ReaderPinned || _preview.Alive)
             {
-                if (!info.ReaderPinned) pager.Lock();
+                if (!info.ReaderPinned)
+                    pager.Lock();
                 _locked.Add(pager);
             }
-            else _preview = pager;
+            else
+                _preview = pager;
             RoutedSessionRows.Invalidate();
         }
+
         public void OpenFresh(string project, string command, string label, string key)
         {
             // Replace the process inside the existing tab, retaining its pin and identity.

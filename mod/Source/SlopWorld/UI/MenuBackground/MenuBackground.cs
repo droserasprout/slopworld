@@ -50,14 +50,26 @@ namespace SlopWorld
 
         // These aliases keep the animation readable while making ownership explicit in the two
         // state structs above.
-        static Texture2D[] _frames { get => _layout.Frames; set => _layout.Frames = value; }
-        static string _srcKey { get => _layout.SourceKey; set => _layout.SourceKey = value; }
+        static Texture2D[] _frames
+        {
+            get => _layout.Frames;
+            set => _layout.Frames = value;
+        }
+        static string _srcKey
+        {
+            get => _layout.SourceKey;
+            set => _layout.SourceKey = value;
+        }
         static MenuBackgroundPreset _preset
         {
             get => _layout.Preset;
             set => _layout.Preset = value;
         }
-        static float _began { get => _animation.Began; set => _animation.Began = value; }
+        static float _began
+        {
+            get => _animation.Began;
+            set => _animation.Began = value;
+        }
 
         public static bool HasFrames => _frames != null;
 
@@ -65,8 +77,10 @@ namespace SlopWorld
         // nothing to bake from and the caller should leave the field alone.
         public static Texture2D Current(Texture2D source)
         {
-            if (source != null && !Ready(source)) return null;
-            if (_frames == null) return null;
+            if (source != null && !Ready(source))
+                return null;
+            if (_frames == null)
+                return null;
 
             float now = Time.realtimeSinceStartup;
             if (_began < 0f)
@@ -90,7 +104,10 @@ namespace SlopWorld
 
             Walk(t - OnsetSecs);
             int depth = Mathf.Clamp(
-                Mathf.RoundToInt(_depth * (_preset.Depths - 1)), 0, _preset.Depths - 1);
+                Mathf.RoundToInt(_depth * (_preset.Depths - 1)),
+                0,
+                _preset.Depths - 1
+            );
             return Remember(_frames[Onset + depth * _preset.Phases + _phase]);
         }
 
@@ -110,10 +127,27 @@ namespace SlopWorld
 
         // Stepped off absolute times rather than a delta, so a frame that asks twice gets one
         // answer - the menu patch and eco both call Current.
-        static float _depth { get => _animation.Depth; set => _animation.Depth = value; }
-        static int _phase { get => _animation.Phase; set => _animation.Phase = value; }
-        static float _walkAt { get => _animation.WalkAt; set => _animation.WalkAt = value; }
-        static float _phaseAt { get => _animation.PhaseAt; set => _animation.PhaseAt = value; }
+        static float _depth
+        {
+            get => _animation.Depth;
+            set => _animation.Depth = value;
+        }
+        static int _phase
+        {
+            get => _animation.Phase;
+            set => _animation.Phase = value;
+        }
+        static float _walkAt
+        {
+            get => _animation.WalkAt;
+            set => _animation.WalkAt = value;
+        }
+        static float _phaseAt
+        {
+            get => _animation.PhaseAt;
+            set => _animation.PhaseAt = value;
+        }
+
         // Time-seeded, unlike everything the bake rolls: the frames are meant to match across
         // installs and the path across them is meant not to.
         static System.Random _walkRng => _animation.WalkRng;
@@ -127,17 +161,22 @@ namespace SlopWorld
             // Ornstein-Uhlenbeck: left free the walk settles at an end of the band and stays.
             if (_preset.Depths > 1)
             {
-                if (t - _walkAt > WalkGapMax) _walkAt = t - WalkStep;
+                if (t - _walkAt > WalkGapMax)
+                    _walkAt = t - WalkStep;
                 while (t - _walkAt >= WalkStep)
                 {
                     _walkAt += WalkStep;
-                    _depth = Mathf.Clamp01(_depth + (0.5f - _depth) * WalkPull + WalkJitter * Gauss());
+                    _depth = Mathf.Clamp01(
+                        _depth + (0.5f - _depth) * WalkPull + WalkJitter * Gauss()
+                    );
                 }
             }
 
-            if (_preset.Phases < 2) return;
+            if (_preset.Phases < 2)
+                return;
 
-            if (t - _phaseAt < PhaseSecs) return;
+            if (t - _phaseAt < PhaseSecs)
+                return;
             _phaseAt = t;
 
             // Drawn from the others, so a redraw always redraws. Picking uniformly would repeat
@@ -149,13 +188,17 @@ namespace SlopWorld
         // False means we could not get any and the caller should stand down.
         static bool Ready(Texture2D source)
         {
-            if (source == null) return false;
+            if (source == null)
+                return false;
 
             MenuBackgroundPreset preset = Chosen;
             // Drawing can ask several times per frame. Cool down failed readback as well as
             // disk/decode work, using source identity before computing the persistent key.
-            if (_failedSource == source && _failedPreset == preset &&
-                Time.realtimeSinceStartup < _retryAt)
+            if (
+                _failedSource == source
+                && _failedPreset == preset
+                && Time.realtimeSinceStartup < _retryAt
+            )
                 return _frames != null;
             string key;
 
@@ -169,7 +212,8 @@ namespace SlopWorld
             try
             {
                 key = MenuBackgroundBake.Key(source, preset);
-                if (_frames != null && _srcKey == key) return true;
+                if (_frames != null && _srcKey == key)
+                    return true;
                 loadTimer = System.Diagnostics.Stopwatch.StartNew();
                 workingSetBefore = MenuBackgroundMemory.WorkingSet();
                 replacement = MenuBackgroundBake.Load(key, preset);
@@ -184,7 +228,8 @@ namespace SlopWorld
                 // A background that will not bake is a cosmetic loss. Parallel.For hands back
                 // an AggregateException whose own Message says only that one happened, so
                 // unwrap the cause to make the warning useful.
-                if (e is AggregateException agg) e = agg.Flatten().InnerException ?? e;
+                if (e is AggregateException agg)
+                    e = agg.Flatten().InnerException ?? e;
                 _failedSource = source;
                 _failedPreset = preset;
                 _retryAt = Time.realtimeSinceStartup + 60f;
@@ -213,8 +258,12 @@ namespace SlopWorld
             _animation.Previous = null;
             MenuBackgroundBake.DestroyFrames(retired);
             loadTimer.Stop();
-            MenuBackgroundMemory.Report(replacement, baked, loadTimer.ElapsedMilliseconds,
-                workingSetBefore);
+            MenuBackgroundMemory.Report(
+                replacement,
+                baked,
+                loadTimer.ElapsedMilliseconds,
+                workingSetBefore
+            );
             MenuBackgroundBake.Sweep(key);
             return true;
         }
@@ -222,9 +271,11 @@ namespace SlopWorld
         // Source capture must not feed a generated frame back into the baker.
         public static bool IsOurs(Texture2D tex)
         {
-            if (tex == null || _frames == null) return false;
+            if (tex == null || _frames == null)
+                return false;
             for (int i = 0; i < _frames.Length; i++)
-                if (ReferenceEquals(_frames[i], tex)) return true;
+                if (ReferenceEquals(_frames[i], tex))
+                    return true;
             return false;
         }
     }
@@ -240,13 +291,23 @@ namespace SlopWorld
         {
             foreach (CodeInstruction instruction in instructions)
             {
-                if (instruction.operand is MethodInfo method &&
-                    method.DeclaringType == typeof(GUI) && method.Name == nameof(GUI.DrawTexture))
+                if (
+                    instruction.operand is MethodInfo method
+                    && method.DeclaringType == typeof(GUI)
+                    && method.Name == nameof(GUI.DrawTexture)
+                )
                 {
-                    Type[] parameters = Array.ConvertAll(method.GetParameters(), p => p.ParameterType);
-                    MethodInfo replacement = AccessTools.Method(typeof(MenuBackgroundLayers),
-                        nameof(MenuBackgroundLayers.DrawLayers), parameters);
-                    if (replacement != null) instruction.operand = replacement;
+                    Type[] parameters = Array.ConvertAll(
+                        method.GetParameters(),
+                        p => p.ParameterType
+                    );
+                    MethodInfo replacement = AccessTools.Method(
+                        typeof(MenuBackgroundLayers),
+                        nameof(MenuBackgroundLayers.DrawLayers),
+                        parameters
+                    );
+                    if (replacement != null)
+                        instruction.operand = replacement;
                 }
                 yield return instruction;
             }
@@ -257,14 +318,16 @@ namespace SlopWorld
             Texture2D src = __instance.overrideBGImage;
 
             // Never rebake from an already-generated frame.
-            if (MenuBackground.IsOurs(src)) src = null;
+            if (MenuBackground.IsOurs(src))
+                src = null;
 
             // Supply vanilla's source only before the first bake. ContentFinder scans loaded mods.
             if (src == null && !MenuBackground.HasFrames)
                 src = ContentFinder<Texture2D>.Get("UI/HeroArt/BGPlanet", false);
 
             Texture2D frame = MenuBackground.Current(src);
-            if (frame != null) __instance.overrideBGImage = frame;
+            if (frame != null)
+                __instance.overrideBGImage = frame;
         }
     }
 }

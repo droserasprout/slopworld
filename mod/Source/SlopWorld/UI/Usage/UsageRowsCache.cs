@@ -12,20 +12,23 @@ namespace SlopWorld
 
         public bool Prepare(UsageInfo usage)
         {
-            if (_ready && ReferenceEquals(_usage, usage)) return false;
+            if (_ready && ReferenceEquals(_usage, usage))
+                return false;
             _ready = true;
             _usage = usage;
             Rows.Clear();
             if (usage != null)
                 foreach (var row in usage.Rows)
-                    if (row.Poll) Add(row.Key);
+                    if (row.Poll)
+                        Add(row.Key);
             Rows.Sort(Compare);
             return true;
         }
 
         void Add(string key)
         {
-            if (!Rows.Contains(key)) Rows.Add(key);
+            if (!Rows.Contains(key))
+                Rows.Add(key);
         }
 
         int Compare(string a, string b) => Rank(a).CompareTo(Rank(b));
@@ -34,7 +37,8 @@ namespace SlopWorld
         {
             if (_usage != null)
                 foreach (var row in _usage.Rows)
-                    if (row.Key == key) return row.Rank;
+                    if (row.Key == key)
+                        return row.Rank;
             return int.MaxValue;
         }
     }

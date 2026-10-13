@@ -62,7 +62,8 @@ namespace SlopWorld
             // the exception handler, so record the class before generating its wrappers.
             foreach (var type in AccessTools.GetTypesFromAssembly(Assembly.GetExecutingAssembly()))
             {
-                if (!type.HasHarmonyAttribute()) continue;
+                if (!type.HasHarmonyAttribute())
+                    continue;
                 Log.Message($"[SlopWorld] patching {type.FullName}");
                 harmony.CreateClassProcessor(type).Patch();
             }
@@ -110,11 +111,17 @@ namespace SlopWorld
         {
             AgentSidebar.ApplyPendingLayoutChange();
             var current = Event.current;
-            if (current == null) return;
+            if (current == null)
+                return;
             var stack = Find.WindowStack;
-            if (stack == null || (TerminalWindow.ShowingAs<OptionsView>() == null &&
-                stack.WindowOfType<Dialog_Options>() == null &&
-                stack.WindowOfType<UiMenu>() == null))
+            if (
+                stack == null
+                || (
+                    TerminalWindow.ShowingAs<OptionsView>() == null
+                    && stack.WindowOfType<Dialog_Options>() == null
+                    && stack.WindowOfType<UiMenu>() == null
+                )
+            )
                 return;
             WheelEventQueue.Compact(current);
         }
