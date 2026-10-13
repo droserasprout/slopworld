@@ -3,3 +3,4 @@
 **/bin/**
 **/obj/**
 mod/Source/SlopWorld/Client/Generated/**
+mod/Source/SlopWorld/UI/Text/TextSpriteData.cs
