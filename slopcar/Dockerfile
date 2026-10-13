@@ -44,8 +44,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* /var/cache/debconf/*-old /var/lib/dpkg/*-old \
     && find /usr/lib/python3* -type d -name __pycache__ -prune -exec rm -rf '{}' +
 
+# Empty mount destinations are traversable for any selected UID. Mounted credentials
+# and persistent state retain their host permissions; the image stays read-only.
 RUN useradd --create-home --uid 1000 --shell /bin/bash slop \
-    && install -d -o slop -g slop -m 0700 \
+    && install -d -o slop -g slop -m 0755 \
         /home/slop/.cache \
         /home/slop/.claude \
         /home/slop/.codex \
@@ -58,7 +60,8 @@ RUN useradd --create-home --uid 1000 --shell /bin/bash slop \
         /home/slop/.local/state/opencode \
         /home/slop/.pi/agent \
         /home/slop/.ssh \
-    && chown -R slop:slop /home/slop
+    && chown -R slop:slop /home/slop \
+    && chmod 0755 /home/slop
 
 # Copy the completed runtime filesystem once so package upgrades do not retain
 # overwritten base files. Keep Debian's package database for user-supplied images.
