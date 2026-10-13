@@ -6,6 +6,21 @@ namespace SlopWorld.Tests
 {
     static class TaskStoreTests
     {
+        public static void SuccessfulWritesInvalidateRefreshesStartedWhilePending()
+        {
+            foreach (bool create in new[] { true, false })
+            {
+                DaemonClient.Requests.Clear();
+                var store = new TaskStore(() => 0, _ => { });
+                if (create) store.Create("agent", "work");
+                else store.UpdateStatus("task", DelegatedTaskStatus.Done, "finished");
+                store.Refresh();
+                DaemonClient.Requests[0].Ok(ProtobufFixtures.Json(new Wire.TaskResult { Task = Task("task", 10, "done") }));
+                DaemonClient.Requests[1].Ok(Tasks(Task("task", 1, "queued")));
+                Assert.That(store.Tasks.Single().UpdatedMs, Is.EqualTo(10));
+            }
+        }
+
         public static void OverlappingCallersReceiveEveryDependencyOutcome()
         {
             foreach (bool cancel in new[] { false, true })

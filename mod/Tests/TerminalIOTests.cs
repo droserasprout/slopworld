@@ -119,8 +119,10 @@ namespace SlopWorld.Tests
                 Row = 23,
                 Count = 3
             }));
-            terminal.SendMouse("agent", "release", 0, 0, 0);
+            terminal.SendMouse("agent", "release", 0, -10, -20);
             Assert.That(sent.Last().Mouse.Count, Is.EqualTo(1));
+            Assert.That(sent.Last().Mouse.Col, Is.Zero);
+            Assert.That(sent.Last().Mouse.Row, Is.Zero);
             terminal.Resize("agent", 80, 24);
             Assert.That(sent.Last().Resize, Is.EqualTo(new Wire.ResizeReq { Name = "agent", Cols = 80, Rows = 24 }));
             terminal.RefreshPanels(120, 40);
@@ -140,8 +142,6 @@ namespace SlopWorld.Tests
                 ("negative redraw columns", () => terminal.RefreshPanels(-1, 24)),
                 ("negative redraw rows", () => terminal.RefreshPanels(80, -1)),
                 ("negative mouse button", () => terminal.SendMouse("agent", "press", -1, 0, 0)),
-                ("negative mouse column", () => terminal.SendMouse("agent", "press", 0, -1, 0)),
-                ("negative mouse row", () => terminal.SendMouse("agent", "press", 0, 0, -1)),
                 ("negative click count", () => terminal.SendMouse("agent", "press", 0, 0, 0, -1)),
             };
             foreach (var action in invalid) Assert.Throws<OverflowException>(() => action.Run(), action.Name);

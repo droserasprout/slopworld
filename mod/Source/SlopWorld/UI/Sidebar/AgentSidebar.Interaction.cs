@@ -162,8 +162,9 @@ namespace SlopWorld
 
         static void Grip()
         {
-            float w = Width;
-            var grip = new Rect(Panel.x + w - GripW, 0f, GripW * 2f, UI.screenHeight);
+            var geometry = WorkspaceLayout.Current;
+            float edge = geometry.NavigationEdge;
+            var grip = new Rect(edge - GripW, 0f, GripW * 2f, UI.screenHeight);
             if (Interaction.Resizing && (!ColonistBarStrip.Interactive ||
                 GUIUtility.hotControl != Interaction.ResizeControl))
             {
@@ -173,12 +174,12 @@ namespace SlopWorld
             bool over = ColonistBarStrip.SidebarHover(grip);
             bool lit = over || Interaction.Resizing;
 
-            // The panel's right edge and the grip's own tell are the same line, and it is drawn
+            // The panel's inner edge and the grip's own tell are the same line, and it is drawn
             // here alone. A second draw of [UiTheme.Edge] over this one composites into a heavier
             // boundary than the palette's, on the sidebar only. At rest it is one screen pixel like
             // every other rule. Lit it is a bar and may be a GUI one.
-            if (lit) Slab.Fill(new Rect(Panel.x + w - 1f, 0f, 2f, UI.screenHeight), UiTheme.EdgeLit);
-            else Slab.VHairline(new Rect(Panel.x + w - 1f, 0f, 1f, UI.screenHeight), UiTheme.Edge);
+            if (lit) Slab.Fill(new Rect(edge - 1f, 0f, 2f, UI.screenHeight), UiTheme.EdgeLit);
+            else Slab.VHairline(new Rect(edge - 1f, 0f, 1f, UI.screenHeight), UiTheme.Edge);
 
             if (!ColonistBarStrip.Interactive) return;
 
@@ -195,11 +196,12 @@ namespace SlopWorld
                 Interaction.ResizeControl = control;
                 GUIUtility.hotControl = control;
                 Interaction.WidthChanged = false;
-                Interaction.Grab = Panel.x + w - e.mousePosition.x;
+                Interaction.Grab = edge - e.mousePosition.x;
             }
             else if (Input.GetMouseButton(0))
             {
-                SetWidth(e.mousePosition.x + Interaction.Grab - Panel.x);
+                float draggedEdge = e.mousePosition.x + Interaction.Grab;
+                SetWidth(geometry.NavigationWidthAt(draggedEdge));
             }
             else
             {

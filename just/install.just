@@ -15,7 +15,7 @@ install-runner: daemon
 # Install the mod into the game's Mods folder
 [group('Installation')]
 install-mod: daemon mod
-    {{ PYTHON }} -m tools.host.install_mod --runner "{{ RUNNER }}" --game "{{ parent_directory(MODS) }}"
+    {{ PYTHON }} -m tools.host.install_mod --runner "{{ RUNNER }}" --mods "{{ MODS }}"
 
 # Remove installed files, keeping config and saves
 [group('Installation')]
@@ -42,4 +42,4 @@ uninstall-runner:
 # Remove the installed mod folder
 [group('Installation')]
 uninstall-mod: daemon
-    "{{ RUNNER }}" mod uninstall --game "{{ parent_directory(MODS) }}"
+    "{{ RUNNER }}" mod uninstall --mods "{{ MODS }}"

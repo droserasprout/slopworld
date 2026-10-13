@@ -185,6 +185,9 @@ namespace SlopWorld
             if (frame == null || frame.Lines == null || frame.Lines.Length == 0) return;
             bool current = live == null || live.Seq == frame.Seq;
             if (!current && !allowStale) return;
+            // At the retention limit, history length no longer measures scroll distance.
+            // Retry against the current frame instead of indexing an unknown translation.
+            if (!current && live.History >= MaxHistoryRows) return;
             if (live != null && _template != null && !SameViewport(frame)) return;
 
             if (_template == null)

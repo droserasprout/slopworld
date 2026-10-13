@@ -170,7 +170,7 @@ namespace SlopWorld
                     string worker = j.Worker.Session;
                     _tasks.Add(TaskInfo.FromWire(j.Task));
                     _tasks.Refresh();
-                    _sessions.Refresh(() => started?.Invoke(new WorkerSpawnResult(worker, _sessions.Get(worker))), fail);
+                    _sessions.RefreshLaunched(worker, () => started?.Invoke(new WorkerSpawnResult(worker, _sessions.Get(worker))), fail);
                 }, fail, string.IsNullOrEmpty(caller) ? TaskInfo.Host : caller, 60000);
         }
 

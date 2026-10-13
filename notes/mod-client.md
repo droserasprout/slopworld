@@ -30,7 +30,8 @@ revision checks and waiter settlement for catalog and session refreshes; each se
 owns snapshot publication. The coordinator supplies snapshot and task callback error
 reporting; these owners do not log through the game. Task polling receives its
 monotonic clock from the coordinator. Session refresh callers wait for the winning HTTP or
-pushed snapshot, sharing its failure. Run callbacks open panes only after that refresh settles. Rename keeps
+pushed snapshot, sharing its failure. Run callbacks open panes only after a snapshot containing the launched session settles;
+older queued pushes cannot complete the launch handoff or supersede its HTTP read. Rename keeps
 a temporary name mapping until its HTTP result settles, preserving pawn, terminal,
 and selection without retaining genuinely removed sessions.
 

@@ -25,7 +25,8 @@ pub(crate) fn file_path(path: &str) -> anyhow::Result<std::path::PathBuf> {
     {
         bail!("Use a path without . or .. components.");
     }
-    Ok(path)
+    // A trailing slash makes lstat follow a final directory symlink.
+    Ok(path.components().collect())
 }
 
 pub(crate) fn entry_name(name: &str) -> anyhow::Result<&str> {

@@ -273,3 +273,48 @@ async fn temporary_worker_task_session(manager: &Manager) -> SessionCfg {
         ..Default::default()
     }
 }
+
+#[tokio::test]
+async fn cancelled_stop_keeps_cleanup_and_identity_boundary_until_completion() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+    let mut row = Live::new(
+        SessionCfg {
+            name: "temporary".into(),
+            project: "temporary-project".into(),
+            ..Default::default()
+        },
+        TitleCapture::default(),
+    );
+    row.ephemeral = true;
+    manager.live.write().await.insert("temporary".into(), row);
+    manager
+        .temp
+        .write()
+        .await
+        .insert("temporary-project".into(), ProjectCfg::default());
+    let grants = manager.auth.grants.write().await;
+    let task = {
+        let manager = manager.clone();
+        tokio::spawn(async move { manager.stop("temporary").await })
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while manager.live.read().await.contains_key("temporary") {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    task.abort();
+    assert!(task.await.unwrap_err().is_cancelled());
+    assert!(manager.temp.read().await.contains_key("temporary-project"));
+    drop(grants);
+    tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        manager.session_operation(async {}),
+    )
+    .await
+    .unwrap();
+    assert!(!manager.temp.read().await.contains_key("temporary-project"));
+    manager.stop("temporary").await.unwrap();
+}

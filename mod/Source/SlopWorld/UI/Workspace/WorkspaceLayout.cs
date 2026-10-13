@@ -33,6 +33,9 @@ namespace SlopWorld
         public float LeftInset => NavigationVisible && !IsRight ? Navigation.width : 0f;
         public float RightInset => NavigationVisible && IsRight ? Navigation.width : 0f;
         public float TopInset => TopBar.height;
+        public float NavigationEdge => IsRight ? Navigation.x : Navigation.xMax;
+        public float NavigationWidthAt(float edge) =>
+            IsRight ? Navigation.xMax - edge : edge - Navigation.x;
     }
 
     public static class WorkspaceLayout

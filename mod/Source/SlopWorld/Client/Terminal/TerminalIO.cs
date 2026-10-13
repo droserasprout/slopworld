@@ -68,8 +68,8 @@ namespace SlopWorld
                     Name = name,
                     Action = action,
                     Button = checked((uint)button),
-                    Col = checked((uint)col),
-                    Row = checked((uint)row),
+                    Col = (uint)Math.Max(0, col),
+                    Row = (uint)Math.Max(0, row),
                     Count = checked((uint)count)
                 }
             });

@@ -217,7 +217,10 @@ impl Manager {
 // Explicit lifecycle requests share the session-operation boundary.
 impl Manager {
     pub async fn stop(self: &Arc<Self>, name: &str) -> Result<()> {
-        self.session_operation(self.stop_inner(name)).await
+        let manager = self.clone();
+        let name = name.to_owned();
+        self.owned_session_operation(Box::pin(async move { manager.stop_inner(&name).await }))
+            .await
     }
 
     async fn stop_inner(self: &Arc<Self>, name: &str) -> Result<()> {
@@ -244,7 +247,10 @@ impl Manager {
 
     /// Drop daemon state without issuing a tmux kill.
     pub(in crate::session::manager) async fn forget(self: &Arc<Self>, name: &str) {
-        self.session_operation(self.forget_inner(name)).await
+        let manager = self.clone();
+        let name = name.to_owned();
+        self.owned_session_operation(Box::pin(async move { manager.forget_inner(&name).await }))
+            .await
     }
 
     async fn forget_inner(self: &Arc<Self>, name: &str) {
@@ -259,11 +265,14 @@ impl Manager {
     }
 
     pub async fn restart(self: &Arc<Self>, name: &str) -> Result<()> {
-        self.session_operation(self.restart_inner(name)).await
+        let manager = self.clone();
+        let name = name.to_owned();
+        self.owned_session_operation(Box::pin(async move { manager.restart_inner(&name).await }))
+            .await
     }
 
     async fn restart_inner(self: &Arc<Self>, name: &str) -> Result<()> {
-        self.stop(name).await?;
+        self.stop_inner(name).await?;
         self.start(name).await
     }
 }

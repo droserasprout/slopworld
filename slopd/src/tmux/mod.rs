@@ -79,6 +79,7 @@ pub struct Tmux {
 
 #[derive(Debug, Clone)]
 pub struct WorkerMetadata {
+    pub session: Option<Box<crate::config::SessionCfg>>,
     pub project: Option<String>,
     pub worktree: Option<String>,
     pub parent: String,
@@ -397,11 +398,27 @@ impl Tmux {
         Ok(())
     }
 
+    pub async fn set_worker_config(
+        &self,
+        name: &str,
+        session: &crate::config::SessionCfg,
+    ) -> Result<()> {
+        // SessionCfg serialization excludes per-run worker credentials.
+        let value = serde_json::to_string(session)?;
+        self.run(&["set-option", "-t", name, "@slopworld-worker-config", &value])
+            .await?;
+        Ok(())
+    }
+
     pub async fn worker_metadata(&self, name: &str) -> Option<WorkerMetadata> {
         if self.option(name, WORKER).await?.trim() != "1" {
             return None;
         }
         Some(WorkerMetadata {
+            session: self
+                .option(name, "@slopworld-worker-config")
+                .await
+                .and_then(|value| serde_json::from_str(&value).ok()),
             project: self.option(name, "@slopworld-worker-project").await,
             worktree: match self.option(name, "@slopworld-worker-worktree").await {
                 Some(value) => Some(value),
@@ -687,6 +704,7 @@ impl Tmux {
         if literal {
             args.push("-l");
         }
+        args.push("--");
         args.extend(keys.iter().map(String::as_str));
         self.run(&args).await?;
         Ok(())

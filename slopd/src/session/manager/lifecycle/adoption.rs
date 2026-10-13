@@ -123,6 +123,21 @@ impl Manager {
 
         let mut adopted = false;
         for mut decision in decisions {
+            if let Some(metadata) = &decision.probe.worker
+                && let Some(saved) = cfg.session(&decision.probe.name)
+                && (!saved.worker || metadata.state_id.as_deref() != Some(saved.state_id.as_str()))
+            {
+                // Name-based authorization resolves through saved config. Never attach a
+                // surviving process or retain its credentials under a different identity.
+                self.invalidate_session(&decision.probe.name).await;
+                if let Err(error) = self.tmux.kill(&decision.probe.name).await {
+                    tracing::warn!(
+                        "cannot stop conflicting worker {}: {error:#}",
+                        decision.probe.name
+                    );
+                }
+                continue;
+            }
             if let Some(session) = &mut decision.worker_session
                 && session.state_id.is_empty()
             {
@@ -332,13 +347,18 @@ impl Manager {
     }
 }
 
-/// Inherit parent settings, then restore worker identity without reusing credentials.
+/// Restore the worker settings, then recover identity without reusing credentials.
 pub(in crate::session::manager) fn recovered_worker_cfg(
     cfg: &Config,
     name: &str,
     metadata: &crate::tmux::WorkerMetadata,
 ) -> SessionCfg {
-    let mut session = cfg.session(&metadata.parent).cloned().unwrap_or_default();
+    let mut session = cfg
+        .session(name)
+        .filter(|saved| metadata.state_id.as_deref() == Some(saved.state_id.as_str()))
+        .cloned()
+        .or_else(|| metadata.session.as_deref().cloned())
+        .unwrap_or_default();
     session.name = name.to_string();
     if let Some(project) = &metadata.project {
         session.project = project.clone();

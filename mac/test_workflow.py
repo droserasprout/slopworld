@@ -53,3 +53,12 @@ def test_game_check_supports_native_paths_with_spaces(tmp_path, monkeypatch):
         (managed / 'Assembly-CSharp.dll').unlink()
         with pytest.raises(ValueError, match='missing RimWorld assemblies'):
             workflow.check('game-check')
+
+
+def test_game_check_requires_protoc():
+    with (
+        patch.object(workflow.platform, 'system', return_value='Darwin'),
+        patch.object(workflow.shutil, 'which', side_effect=lambda name: None if name == 'protoc' else '/bin/tool'),
+        pytest.raises(ValueError, match='protoc is missing'),
+    ):
+        workflow.check('game-check')

@@ -2,7 +2,7 @@ use super::recovered_worker_cfg;
 use crate::config::{Config, SessionCfg};
 
 #[test]
-fn recovered_worker_uses_parent_settings_and_task_identity() {
+fn recovered_worker_does_not_invent_settings_from_its_parent() {
     let cfg = Config {
         sessions: vec![SessionCfg {
             name: "parent".into(),
@@ -17,6 +17,7 @@ fn recovered_worker_uses_parent_settings_and_task_identity() {
         &cfg,
         "parent-worker",
         &crate::tmux::WorkerMetadata {
+            session: None,
             project: Some("repo".into()),
             worktree: Some("worker-worktree".into()),
             parent: "parent".into(),
@@ -32,8 +33,8 @@ fn recovered_worker_uses_parent_settings_and_task_identity() {
     assert_eq!(worker.state_id, "1111111111114111");
     assert_eq!(worker.project, "repo");
     assert_eq!(worker.worktree, "worker-worktree");
-    assert_eq!(worker.command, "codex");
-    assert_eq!(worker.sandbox, ["gpu"]);
+    assert!(worker.command.is_empty());
+    assert!(worker.sandbox.is_empty());
     assert!(!worker.autostart);
     assert!(!worker.auto_resume);
 }
@@ -45,6 +46,7 @@ fn recovered_activity_is_kept_only_for_durable_workers() {
     let cfg = Config::default();
     for durable in [false, true] {
         let metadata = crate::tmux::WorkerMetadata {
+            session: None,
             project: None,
             worktree: None,
             parent: "parent".into(),
@@ -166,4 +168,89 @@ async fn recovering_worker_without_an_identity_uses_the_guarded_allocator() {
     assert!(manager.session_operation(manager.adopt_orphans(&cfg)).await);
     let live = manager.live.read().await;
     assert!(crate::storage_id::valid(&live["worker"].cfg.state_id));
+}
+
+#[test]
+fn recovered_worker_prefers_its_saved_settings_and_oneshot_snapshot() {
+    let snapshot = SessionCfg {
+        name: "worker".into(),
+        command: "worker-command".into(),
+        sandbox: vec!["worker-preset".into()],
+        state_id: "1111111111111111".into(),
+        ..Default::default()
+    };
+    let metadata = crate::tmux::WorkerMetadata {
+        session: Some(Box::new(snapshot.clone())),
+        project: None,
+        worktree: None,
+        parent: "parent".into(),
+        task_id: "task".into(),
+        durable: false,
+        state_id: Some(snapshot.state_id.clone()),
+    };
+    let mut cfg = Config::default();
+    let recovered = recovered_worker_cfg(&cfg, "worker", &metadata);
+    assert_eq!(recovered.command, "worker-command");
+    assert_eq!(recovered.sandbox, ["worker-preset"]);
+    let mut saved = snapshot;
+    saved.command = "saved-command".into();
+    cfg.sessions.push(saved);
+    assert_eq!(
+        recovered_worker_cfg(&cfg, "worker", &metadata).command,
+        "saved-command"
+    );
+}
+
+#[tokio::test]
+async fn surviving_worker_cannot_replace_a_different_saved_identity() {
+    use super::*;
+    let socket = crate::test_support::TmuxSocket::new();
+    let saved = SessionCfg {
+        name: "worker".into(),
+        worker: true,
+        state_id: "2222222222222222".into(),
+        autostart: false,
+        ..Default::default()
+    };
+    let mut cfg = Config {
+        sessions: vec![saved.clone()],
+        ..Default::default()
+    };
+    cfg.settings.daemon.token = "root".into();
+    let manager = crate::session::test_manager_with_socket(cfg.clone(), socket.path.clone());
+    manager
+        .tmux
+        .spawn(
+            "worker",
+            "/tmp",
+            80,
+            24,
+            &["sleep".into(), "60".into()],
+            false,
+        )
+        .await
+        .unwrap();
+    manager
+        .tmux
+        .set_worker_metadata("worker", "parent", "task", true, "1111111111111111")
+        .await
+        .unwrap();
+    manager
+        .live
+        .write()
+        .await
+        .insert("worker".into(), Live::new(saved, TitleCapture::default()));
+    let token = manager.auth.grants.write().await.mint(crate::grant::Grant {
+        grantor: "worker".into(),
+        sessions: ["worker".into()].into(),
+        level: crate::grant::Level::Rw,
+        revoked: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    });
+    assert!(manager.resolve_cap(Some(&token)).await.is_some());
+    manager.session_operation(manager.adopt_orphans(&cfg)).await;
+    assert!(manager.resolve_cap(Some(&token)).await.is_none());
+    assert!(!manager.tmux.exists("worker").await);
+    let live = manager.live.read().await;
+    assert_eq!(live["worker"].cfg.state_id, "2222222222222222");
+    assert!(live["worker"].capture.emu.is_none());
 }

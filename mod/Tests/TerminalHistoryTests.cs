@@ -6,6 +6,25 @@ namespace SlopWorld.Tests
 {
     static class TerminalHistoryTests
     {
+        public static void DelayedCaptureAtHistoryLimitCannotOverwriteRows()
+        {
+            var history = new TerminalHistory();
+            var live = Frame(0, "a", "b", "c");
+            live.History = 10000;
+            history.Reset(live);
+            var delayed = Frame(3, "stale-a", "stale-b", "stale-c");
+            delayed.History = 10000;
+            var next = Frame(0, "d", "e", "f");
+            next.Seq++;
+            next.History = 10000;
+            history.UpdateLive(next, 3);
+            history.Add(delayed, next, allowStale: true);
+            AssertEx.False(history.TryLine(-3, out _), "unknown translation must leave a hole");
+            delayed.Seq = next.Seq;
+            history.Add(delayed, next);
+            AssertEx.True(history.TryLine(-3, out _), "current capture fills the hole");
+        }
+
         public static void ExpiredHistoryReseedsWithoutWalkingTheShift()
         {
             var history = new TerminalHistory();

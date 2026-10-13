@@ -31,6 +31,8 @@ def check(scope: str) -> None:
     dotnet = command('DOTNET', 'dotnet')[0]
     if not shutil.which(dotnet):
         raise ValueError(f'{dotnet} is missing. Run just --justfile mac/justfile setup.')
+    if not shutil.which('protoc'):
+        raise ValueError('protoc is missing. Run just --justfile mac/justfile setup.')
     game = Path(os.environ['MAC_GAME'])
     if not os.access(game, os.X_OK):
         raise ValueError(f'The native RimWorld executable is missing: {game}. Set MAC_RIMWORLD or MAC_GAME.')

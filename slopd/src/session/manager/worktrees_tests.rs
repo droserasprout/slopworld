@@ -225,6 +225,8 @@ async fn assert_action_scope_rules(
         .unwrap();
     assert_eq!(Path::new(output.trim()), tree);
 
+    assert_cache_allocation_recovery(manager, root, tree, &store.worktrees[0]).await;
+
     let outside = root.join("outside");
     std::fs::create_dir(&outside).unwrap();
     std::os::unix::fs::symlink(&outside, tree.join("escape")).unwrap();
@@ -253,6 +255,29 @@ async fn assert_action_scope_rules(
             .unwrap(),
         "pwd"
     );
+    // Missing metadata must not fall back to the parent repository.
+    let dotgit = std::fs::read(tree.join(".git")).unwrap();
+    std::fs::remove_file(tree.join(".git")).unwrap();
+    manager
+        .config_for_action_scope("p", TREE, file)
+        .await
+        .unwrap_err();
+    // A standalone replacement also has the wrong repository identity.
+    assert!(
+        std::process::Command::new("git")
+            .arg("-C")
+            .arg(tree)
+            .args(["init", "-q"])
+            .status()
+            .unwrap()
+            .success()
+    );
+    manager
+        .config_for_action_scope("p", TREE, file)
+        .await
+        .unwrap_err();
+    std::fs::remove_dir_all(tree.join(".git")).unwrap();
+    std::fs::write(tree.join(".git"), dotgit).unwrap();
     std::fs::remove_dir_all(tree).unwrap();
     manager
         .file_action_command("p", TREE, file, "pwd", true)
@@ -455,4 +480,33 @@ async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
     let remaining = manager.worktree_records();
     assert_eq!(remaining.worktrees.len(), 1);
     assert_eq!(remaining.worktrees[0].id, SIBLING);
+}
+
+async fn assert_cache_allocation_recovery(
+    manager: &crate::session::Manager,
+    root: &Path,
+    tree: &Path,
+    record: &Worktree,
+) {
+    let cache = root.join("cache");
+    std::fs::create_dir(&cache).unwrap();
+    manager.cfg.write().await.projects[0]
+        .mounts
+        .push(crate::config::Mount {
+            from: cache.to_string_lossy().into_owned(),
+            to: "cache-link".into(),
+            mode: crate::config::MountMode::Cache,
+        });
+    let mut allocating = record.clone();
+    allocating.base = git(tree, &["rev-parse", "HEAD"]).await.unwrap();
+    std::os::unix::fs::symlink(&cache, tree.join("cache-link")).unwrap();
+    assert!(manager.completed_allocation(&allocating).await.unwrap());
+    std::fs::write(tree.join("unrelated"), "preserve").unwrap();
+    assert!(!manager.completed_allocation(&allocating).await.unwrap());
+    std::fs::remove_file(tree.join("unrelated")).unwrap();
+    std::fs::remove_file(tree.join("cache-link")).unwrap();
+    std::os::unix::fs::symlink(root, tree.join("cache-link")).unwrap();
+    assert!(!manager.completed_allocation(&allocating).await.unwrap());
+    std::fs::remove_file(tree.join("cache-link")).unwrap();
+    manager.cfg.write().await.projects[0].mounts.clear();
 }

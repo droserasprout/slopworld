@@ -72,6 +72,7 @@ namespace SlopWorld
                 j =>
                 {
                     var task = TaskInfo.FromWire(j.Task);
+                    InvalidateRefresh();
                     Upsert(task);
                     ok?.Invoke(task);
                 }, fail, TaskInfo.Host);
@@ -87,6 +88,7 @@ namespace SlopWorld
                 j =>
                 {
                     var task = TaskInfo.FromWire(j.Task);
+                    InvalidateRefresh();
                     Upsert(task);
                     ok?.Invoke(task);
                 }, fail, TaskInfo.Host);

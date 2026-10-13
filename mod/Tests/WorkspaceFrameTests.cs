@@ -6,6 +6,24 @@ namespace SlopWorld.Tests
 {
     static class WorkspaceFrameTests
     {
+        public static void SidebarResizeTracksTheInnerEdgeAndStaysStable()
+        {
+            foreach (string side in new[] { "left", "right" })
+            {
+                var geometry = WorkspaceLayout.Compute(1000, 600, true, true, side, 210, 20);
+                bool right = side == "right";
+                Assert.That(geometry.NavigationEdge, Is.EqualTo(right ? 790f : 210f));
+                float pointer = geometry.NavigationEdge + 2;
+                float grab = geometry.NavigationEdge - pointer;
+                pointer += right ? -30 : 30;
+                float width = geometry.NavigationWidthAt(pointer + grab);
+                Assert.That(width, Is.EqualTo(240f));
+                var resized = WorkspaceLayout.Compute(1000, 600, true, true, side, width, 20);
+                Assert.That(resized.NavigationWidthAt(pointer + grab), Is.EqualTo(width),
+                    "stationary pointer must not resize again after layout moves");
+            }
+        }
+
         public static void SettingsAndViewportChangesTakeEffectTogetherOnNextFrame()
         {
             var settings = Settings.S;

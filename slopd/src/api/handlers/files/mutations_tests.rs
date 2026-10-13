@@ -310,3 +310,19 @@ async fn recursive_remove_does_not_follow_nested_directory_symlinks() {
         b"external data"
     );
 }
+
+#[tokio::test]
+async fn slash_terminated_symlinks_are_unlinked_without_touching_the_target() {
+    let fixture = Fixture::new();
+    let target = fixture.0.join("target");
+    std::fs::create_dir(&target).unwrap();
+    std::fs::write(target.join("keep"), "safe").unwrap();
+    for suffix in ["/", "////"] {
+        let link = fixture.0.join("link");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        let input = PathBuf::from(format!("{}{suffix}", link.display()));
+        remove_file(request(&input, "", "")).await.unwrap();
+        std::fs::symlink_metadata(&link).unwrap_err();
+        assert_eq!(std::fs::read(target.join("keep")).unwrap(), b"safe");
+    }
+}

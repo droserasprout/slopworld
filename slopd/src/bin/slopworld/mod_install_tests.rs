@@ -257,10 +257,14 @@ fn install_options_are_optional_and_game_accepts_both_value_forms() {
 }
 
 #[test]
-fn install_rejects_the_removed_mods_option() {
+fn install_and_uninstall_accept_exact_mods_directory() {
     for options in [vec!["--mods", "/mods"], vec!["--mods=/mods"]] {
-        let error = parse(&args(&options), true).unwrap_err();
-        assert!(error.contains("unknown option --mods"), "{error}");
+        for install in [false, true] {
+            assert_eq!(
+                parse(&args(&options), install).unwrap().mods,
+                Some(PathBuf::from("/mods"))
+            );
+        }
     }
 }
 
@@ -289,12 +293,30 @@ fn uninstall_accepts_defaults_and_rejects_unsupported_options() {
         Some(PathBuf::from("/game"))
     );
     for options in [
-        vec!["--mods", "/mods"],
-        vec!["--mods=/mods"],
+        vec!["--mods"],
         vec!["--source", "/source"],
         vec!["--source=/source"],
         vec!["--game"],
     ] {
         parse(&args(&options), false).unwrap_err();
     }
+}
+
+#[test]
+fn explicit_mod_directory_keeps_its_custom_basename() {
+    let root = scratch("custom-mods");
+    let mods = root.join("custom-mods");
+    fs::create_dir_all(&mods).unwrap();
+    for option in [
+        vec!["--mods".to_string(), mods.display().to_string()],
+        vec![format!("--mods={}", mods.display())],
+    ] {
+        let parsed = parse(&option, true).unwrap();
+        assert_eq!(
+            super::resolve_mods(&parsed, Some("/unused"), || panic!("default used")).unwrap(),
+            mods
+        );
+    }
+    parse(&args(&["--mods", "/custom", "--game", "/game"]), true).unwrap_err();
+    fs::remove_dir_all(root).unwrap();
 }

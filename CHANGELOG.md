@@ -12,7 +12,11 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Fixed
 
+- CLI: Fixed `slopworld mod` installation and removal with custom MODS paths.
 - Markdown: Render images inside `div` containers and stack grouped screenshots vertically.
+- Sidebar: Fixed right-side resizing.
+- Terminal: Fixed terminal scrollback corruption when history reaches its limit.
+- Workers: Fixed worker recovery after daemon restarts and cleanup after cancelled stop and restart requests.
 
 ## [0.0.2] - 2026-10-12
 

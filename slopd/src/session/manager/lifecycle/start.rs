@@ -164,6 +164,7 @@ impl Manager {
         }
 
         if plan.is_worker() {
+            self.tmux.set_worker_config(name, &plan.session).await?;
             self.tmux
                 .set_worker_worktree(name, &plan.session.project, &plan.session.worktree)
                 .await?;
@@ -218,7 +219,7 @@ impl Manager {
     pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
         let manager = self.clone();
         let name = name.to_owned();
-        self.owned_session_operation(async move { manager.start_inner(&name).await })
+        self.owned_session_operation(Box::pin(async move { manager.start_inner(&name).await }))
             .await
     }
 

@@ -6,7 +6,8 @@ smaller of the advertised capacity and the client limit. History clear, viewport
 screen-mode change, run/connection change, or a shift beyond retained range resets
 cached history.
 
-Translate delayed captures using captured and current extents. Old live rows and a
+Translate delayed captures using captured and current extents. At the retention
+limit, reject stale captures because equal extents no longer identify scroll distance. Old live rows and a
 delayed live tail do not establish historical content; gaps require fresh capture.
 Confirmed older history survives ordinary live growth.
 

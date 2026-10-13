@@ -604,3 +604,73 @@ async fn missing_pane_status_is_not_a_live_process_and_empty_server_lists_no_ses
     assert!(tmux.list_checked().await.unwrap().is_empty());
     tmux.pane_exit("survivor").await.unwrap_err();
 }
+
+#[tokio::test]
+async fn literal_input_starting_with_dashes_reaches_the_pane() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let tmux = super::Tmux::new(&socket.path);
+    tmux.spawn("literal", "/tmp", 80, 24, &["cat".into()], false)
+        .await
+        .unwrap();
+    for text in ["-hello", "--help"] {
+        tmux.send_keys("literal", &[text.into()], true)
+            .await
+            .unwrap();
+        tmux.send_keys("literal", &["Enter".into()], false)
+            .await
+            .unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                let screen = tmux
+                    .run(&["capture-pane", "-p", "-t", "literal:.0"])
+                    .await
+                    .unwrap();
+                if screen.contains(text) {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+    }
+}
+
+#[tokio::test]
+async fn worker_configuration_metadata_round_trips_without_credentials() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let tmux = super::Tmux::new(&socket.path);
+    tmux.spawn(
+        "worker",
+        "/tmp",
+        80,
+        24,
+        &["sleep".into(), "60".into()],
+        false,
+    )
+    .await
+    .unwrap();
+    let session = crate::config::SessionCfg {
+        name: "worker".into(),
+        command: "own-command".into(),
+        sandbox: vec!["own-preset".into()],
+        worker_token: Some("never-persist".into()),
+        ..Default::default()
+    };
+    tmux.set_worker_config("worker", &session).await.unwrap();
+    tmux.set_worker_metadata("worker", "parent", "task", false, &session.state_id)
+        .await
+        .unwrap();
+    let metadata = tmux.worker_metadata("worker").await.unwrap();
+    let recovered = metadata.session.unwrap();
+    assert_eq!(recovered.command, session.command);
+    assert_eq!(recovered.sandbox, session.sandbox);
+    assert!(recovered.worker_token.is_none());
+    assert!(
+        !tmux
+            .option("worker", "@slopworld-worker-config")
+            .await
+            .unwrap()
+            .contains("never-persist")
+    );
+}

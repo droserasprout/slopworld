@@ -6,6 +6,19 @@ namespace SlopWorld.Tests
 {
     static class SessionStoreTests
     {
+        public static void LaunchWaitsThroughAnOlderPushForItsOwnSession()
+        {
+            DaemonClient.Requests.Clear();
+            var store = new SessionStore(_ => { });
+            int completed = 0;
+            store.RefreshLaunched("worker", () => completed++);
+            store.ApplySessions(Sessions("old"));
+            Assert.That(completed, Is.Zero);
+            DaemonClient.Requests[0].Ok(ProtobufFixtures.Json(Sessions("worker")));
+            Assert.That(completed, Is.EqualTo(1));
+            Assert.That(store.Get("worker"), Is.Not.Null);
+        }
+
         public static void ScreenSequencesRemainUnsignedAcrossIntegerBoundaries()
         {
             var store = new SessionStore(_ => { });

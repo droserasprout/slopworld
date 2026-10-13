@@ -41,7 +41,7 @@ def test_install_uses_canonical_notices_and_cleans_temporary_source(
 
     def run(arguments: list[str]) -> None:
         assert arguments[:4] == ['/runner with spaces/slopworld', 'mod', 'install', '--source']
-        assert arguments[5:] == ['--game', '/game with spaces']
+        assert arguments[5:] == ['--mods', '/game with spaces']
         source = Path(arguments[4])
         sources.append(source)
         assert (source / 'About/LICENSE').read_text() == 'canonical license'

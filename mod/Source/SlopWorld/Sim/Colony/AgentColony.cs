@@ -384,7 +384,7 @@ namespace SlopWorld
         {
             foreach (var p in PawnsFinder.AllMaps_FreeColonists)
             {
-                if (p == null || p.Destroyed) continue;
+                if (p == null || p.Destroyed || PlayerPawn.IsPlayer(p)) continue;
                 if (IsAgentPawn(p)) continue; // already tracked under some session
                 if (p.Name is NameSingle ns && ns.Name == name) return p;
             }

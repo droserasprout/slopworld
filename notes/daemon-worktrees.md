@@ -32,6 +32,8 @@ Host-mode relative cache destinations are checkout links to stable project stora
 that outlives worktrees/workers. Sidecar mode rejects those relative links. Launch
 requires the expected link and a source reachable at its absolute path. Explicit
 sources support home/environment expansion but are not relocated with the checkout.
+Interrupted allocation recovery accepts only verified cache links as untracked
+changes. Checkout resolution verifies its own Git root and registered common directory.
 Conflicting paths/changed links require recovery rather than replacement; removing
 a checkout never deletes cache data. Config reconciliation belongs to
 `session/manager/config/cache.rs`; `sandbox/cache.rs` validates sources and returns

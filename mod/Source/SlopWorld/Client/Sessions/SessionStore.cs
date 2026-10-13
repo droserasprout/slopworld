@@ -26,6 +26,7 @@ namespace SlopWorld
         readonly Dictionary<string, string> _pendingRenames = new Dictionary<string, string>();
         long _sessionsVersion;
         readonly SnapshotRequest _refresh;
+        readonly HashSet<string> _launches = new HashSet<string>();
 
         public SessionStore(Action<Exception> reportCallbackError)
         {
@@ -131,7 +132,23 @@ namespace SlopWorld
 
         // Replace the list when the socket sends a "sessions" event.
         // Then discard screens for sessions that no longer exist.
-        public void ApplySessions(Wire.SessionsReply ev) => _refresh.Apply(ev, ReplaceSessions);
+        public void ApplySessions(Wire.SessionsReply ev)
+        {
+            // A queued push predating launch must not cancel the post-launch GET.
+            if (_launches.Any(name => !ev.Sessions.Any(session => session.Name == name))) return;
+            _refresh.Apply(ev, ReplaceSessions);
+        }
+
+        public void RefreshLaunched(string name, Action done, Action<string> fail = null)
+        {
+            _launches.Add(name);
+            Refresh(() =>
+            {
+                _launches.Remove(name);
+                if (Get(name) == null) { fail?.Invoke("Launched session is no longer available."); return; }
+                done?.Invoke();
+            }, error => { _launches.Remove(name); fail?.Invoke(error); });
+        }
 
         void ReplaceSessions(Wire.SessionsReply ev)
         {
@@ -281,7 +298,7 @@ namespace SlopWorld
         void Started(Wire.SessionResult j, Action<string> started, Action<string> fail)
         {
             string session = j.Session;
-            Refresh(() => started?.Invoke(session), fail);
+            RefreshLaunched(session, () => started?.Invoke(session), fail);
         }
 
         public void Start(string name, Action<string> fail = null) =>

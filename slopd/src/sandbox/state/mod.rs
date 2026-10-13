@@ -20,6 +20,10 @@ pub(crate) fn state_root() -> PathBuf {
 /// For example, `~/.config/opencode` and `~/.local/share/opencode` use different destinations.
 pub(crate) fn private_path(state_id: &str, host: &str) -> Result<PathBuf> {
     let host = Path::new(host);
+    anyhow::ensure!(
+        host.is_absolute() && !host.components().any(|part| part == Component::ParentDir),
+        "private source must be absolute and contain no parent components"
+    );
     let root = state_root().join(crate::config::state_id_component(state_id)?);
     if let Some(home) = dirs::home_dir()
         && let Ok(rel) = host.strip_prefix(&home)

@@ -23,3 +23,10 @@ can time out without sending it. Delivery belongs to [library](daemon-library.md
 hierarchy presentation to [sidebar](mod-sidebar.md), independent checkout lifetime
 to [worktrees](daemon-worktrees.md), and adoption to [redeploy](daemon-redeploy.md).
 Commands and operational behavior belong to [Using slopctl](../docs/src/reference/slopctl.md).
+
+Recovery rejects a surviving worker whose saved name now belongs to a different
+identity and revokes its grants before adoption. Durable workers recover their own
+saved configuration; one-shot workers retain a credential-free configuration snapshot
+in tmux metadata. Missing older snapshots do not justify inheriting parent settings.
+Stop, forget, and restart retain the operation boundary through cleanup even after
+the requesting caller disconnects.

@@ -386,3 +386,22 @@ fn identity_inventory_includes_retained_metadata_without_walking_private_content
     fs::write(renamed.join(TRASH_SESSION), "invalid [").unwrap();
     retained_state_identities().unwrap_err();
 }
+
+#[test]
+fn private_paths_cannot_escape_the_identity_root() {
+    for identity in ["1111111111111111", "2222222222222222"] {
+        for host in [
+            "/tmp/../../../../tmp/example",
+            "/home/user/../secret",
+            "relative",
+        ] {
+            private_path(identity, host).unwrap_err();
+        }
+        let path = private_path(identity, "/tmp/example").unwrap();
+        assert!(path.starts_with(state_root().join(identity)));
+    }
+    assert_ne!(
+        private_path("1111111111111111", "/tmp/example").unwrap(),
+        private_path("2222222222222222", "/tmp/example").unwrap()
+    );
+}

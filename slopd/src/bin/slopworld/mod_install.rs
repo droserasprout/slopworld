@@ -19,30 +19,30 @@ const MOD_DIRS: &[&str] = &[
 const USAGE: &str = "slopworld mod - install or remove the SlopWorld mod
 
 usage:
-  slopworld mod install [--source MOD_SOURCE] [--game GAME]
-  slopworld mod uninstall [--game GAME]
+  slopworld mod install [--source MOD_SOURCE] [--game GAME | --mods MODS]
+  slopworld mod uninstall [--game GAME | --mods MODS]
 
 Installation defaults to /usr/share/slopworld/SlopWorld as the source.
 The game defaults to $RIMWORLD, then on macOS $MAC_RIMWORLD or
 ~/Documents/RimWorld.app; on Linux it uses the launcher defaults ($SLOPWORLD_GAME,
-game.toml, usual locations). --game selects the directory containing Mods.
+game.toml, usual locations). --game selects the directory containing Mods; --mods selects the exact mod directory.
 The installer writes to GAME/Mods/SlopWorld. It replaces existing content only
 after it completes a new copy in a temporary sibling directory.
 ";
 
 const INSTALL_USAGE: &str = "usage:
-  slopworld mod install [--source MOD_SOURCE] [--game GAME]
+  slopworld mod install [--source MOD_SOURCE] [--game GAME | --mods MODS]
 
 Installation defaults to /usr/share/slopworld/SlopWorld as the source.
 The game defaults to $RIMWORLD, then on macOS $MAC_RIMWORLD or
 ~/Documents/RimWorld.app; on Linux it uses the launcher defaults ($SLOPWORLD_GAME,
-game.toml, usual locations). --game selects the directory containing Mods.
+game.toml, usual locations). --game selects the directory containing Mods; --mods selects the exact mod directory.
 The installer writes to GAME/Mods/SlopWorld. It replaces existing content only
 after it completes a new copy in a temporary sibling directory.
 ";
 
 const UNINSTALL_USAGE: &str = "usage:
-  slopworld mod uninstall [--game GAME]
+  slopworld mod uninstall [--game GAME | --mods MODS]
 
 Removes only GAME/Mods/SlopWorld.
 The game defaults to $RIMWORLD, then on macOS $MAC_RIMWORLD or
@@ -113,6 +113,9 @@ fn resolve_mods(
     rimworld: Option<&str>,
     default_game: impl FnOnce() -> Result<PathBuf, String>,
 ) -> Result<PathBuf, String> {
+    if let Some(mods) = &args.mods {
+        return safe_directory(mods, "game Mods directory");
+    }
     let game = match args.game.as_deref() {
         Some(game) => game.to_path_buf(),
         None => match rimworld {
@@ -160,6 +163,7 @@ fn run_uninstall(args: &[String]) -> Result<Option<String>, String> {
 struct Args {
     source: Option<PathBuf>,
     game: Option<PathBuf>,
+    mods: Option<PathBuf>,
     help: bool,
 }
 
@@ -170,6 +174,12 @@ fn parse(args: &[String], allow_source: bool) -> Result<Args, String> {
         match arg.as_str() {
             "-h" | "--help" => out.help = true,
             "--source" if allow_source => out.source = Some(next_path(&mut it, "--source")?),
+            "--mods" => out.mods = Some(next_path(&mut it, "--mods")?),
+            value if value.starts_with("--mods=") => {
+                out.mods = Some(PathBuf::from(
+                    value.strip_prefix("--mods=").unwrap_or_default(),
+                ));
+            }
             "--game" => out.game = Some(next_path(&mut it, "--game")?),
             value if allow_source && value.starts_with("--source=") => {
                 out.source = Some(PathBuf::from(
@@ -184,6 +194,9 @@ fn parse(args: &[String], allow_source: bool) -> Result<Args, String> {
             value if value.starts_with('-') => return Err(format!("unknown option {value}")),
             value => return Err(format!("unexpected argument {value}")),
         }
+    }
+    if out.game.is_some() && out.mods.is_some() {
+        return Err("use only one of --game or --mods".into());
     }
     Ok(out)
 }

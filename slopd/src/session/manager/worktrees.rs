@@ -228,13 +228,7 @@ impl Manager {
             }
             changed = true;
             let complete = if w.phase == WorktreePhase::Allocating && Path::new(&w.path).is_dir() {
-                let status = git(
-                    Path::new(&w.path),
-                    &["status", "--porcelain=v1", "--untracked-files=all"],
-                )
-                .await;
-                let head = git(Path::new(&w.path), &["rev-parse", "--verify", "HEAD"]).await;
-                matches!((status, head), (Ok(status), Ok(head)) if status.is_empty() && head == w.base)
+                self.completed_allocation(w).await.unwrap_or(false)
             } else {
                 false
             };
@@ -253,6 +247,49 @@ impl Manager {
             self.save_worktrees(&store).await?;
         }
         Ok(())
+    }
+
+    /// Only verified daemon cache links may dirty an otherwise completed allocation.
+    async fn completed_allocation(&self, w: &Worktree) -> Result<bool> {
+        let checkout = Path::new(&w.path);
+        let common = git(
+            checkout,
+            &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+        )
+        .await?;
+        if Path::new(&common).canonicalize()? != Path::new(&w.repository).canonicalize()? {
+            return Ok(false);
+        }
+        if git(checkout, &["rev-parse", "--verify", "HEAD"]).await? != w.base {
+            return Ok(false);
+        }
+        let cfg = self.config().await;
+        let project = cfg
+            .projects
+            .iter()
+            .find(|project| project.id == w.project_id)
+            .ok_or_else(|| anyhow!("worktree project is missing"))?;
+        let status = git(
+            checkout,
+            &["status", "--porcelain=v1", "-z", "--untracked-files=all"],
+        )
+        .await?;
+        let mut owned = std::collections::HashSet::new();
+        for mount in crate::sandbox::cache::relative_mounts(project) {
+            let target = expand(&mount.to);
+            let expected = crate::sandbox::cache::validate(project, mount)?;
+            if std::fs::read_link(checkout.join(&target)).is_ok_and(|actual| actual == expected) {
+                owned.insert(std::path::PathBuf::from(target));
+            }
+        }
+        Ok(status
+            .split('\0')
+            .filter(|entry| !entry.is_empty())
+            .all(|entry| {
+                entry
+                    .strip_prefix("?? ")
+                    .is_some_and(|path| owned.contains(Path::new(path)))
+            }))
     }
 
     pub(super) async fn validate_worktree_config(&self, old: &Config, new: &Config) -> Result<()> {
@@ -343,7 +380,19 @@ impl Manager {
         if checkout.is_symlink() || !checkout.is_dir() {
             bail!("worktree {id} checkout is missing or is not a directory");
         }
+        let top = git(checkout, &["rev-parse", "--show-toplevel"]).await?;
+        if Path::new(&top).canonicalize()? != checkout.canonicalize()? {
+            bail!("worktree checkout no longer has its own Git metadata");
+        }
         let repository = Path::new(&w.repository).canonicalize()?;
+        let common = git(
+            checkout,
+            &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+        )
+        .await?;
+        if Path::new(&common).canonicalize()? != repository {
+            bail!("worktree repository identity changed");
+        }
         for metadata in crate::worktrees::metadata_paths(checkout)? {
             if !metadata.starts_with(&repository) {
                 bail!("worktree Git metadata no longer belongs to its registered repository");
