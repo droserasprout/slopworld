@@ -69,8 +69,9 @@ namespace SlopWorld
         }
 
         // Scrolling the viewport normally translates both endpoints to keep the selected text
-        // fixed. During an edge drag the active endpoint is the exception: it must stay on the
-        // edge, where each newly revealed row extends the selection.
+        // fixed. During an edge drag the active endpoint is the exception: it must follow the
+        // pointer as newly revealed rows extend the selection. The scroll activation
+        // band can cover several rows; entering it must not select the outermost row.
         void ExtendSelectionToEdge(Rect body, ScreenBuf buf)
         {
             if (
@@ -83,7 +84,7 @@ namespace SlopWorld
                 return;
 
             var cell = CellAt(body, _state.Selection.Mouse);
-            cell.y = _state.Selection.EdgeDirection > 0 ? 0 : buf.Runs.Length - 1;
+            cell.y = TerminalPanelGeometry.SelectionEdgeRow(cell.y, buf.Runs.Length);
             _state.Selection.SelectionMoved = true;
             if (_state.Selection.LineDragging)
                 SelectLineRange(_state.Selection.LineStart, cell.y);

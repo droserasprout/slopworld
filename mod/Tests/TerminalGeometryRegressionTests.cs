@@ -6,6 +6,32 @@ namespace SlopWorld.Tests
 {
     static class TerminalGeometryRegressionTests
     {
+        public static void EdgeDragKeepsPenultimateLineSeparateFromPrompt()
+        {
+            var screen = new ScreenBuf
+            {
+                Rows = 4,
+                Lines = new[] { "➜ cat", "test", "test", "➜ prompt" },
+            };
+            var history = new TerminalHistory();
+            foreach (int row in new[] { 1, 2 })
+            {
+                int endpoint = TerminalPanelGeometry.SelectionEdgeRow(row, screen.Rows);
+                Assert.That(endpoint, Is.EqualTo(row));
+                Assert.That(history.SelectionText(screen, 0, row, 3, endpoint), Is.EqualTo("test"));
+                Assert.That(history.SelectionText(screen, 3, row, 0, endpoint), Is.EqualTo("test"));
+            }
+        }
+
+        public static void EdgeDragClampsOutsideRowsAndPreservesInteriorRows()
+        {
+            Assert.That(TerminalPanelGeometry.SelectionEdgeRow(-1, 4), Is.EqualTo(0));
+            Assert.That(TerminalPanelGeometry.SelectionEdgeRow(4, 4), Is.EqualTo(3));
+            Assert.That(TerminalPanelGeometry.SelectionEdgeRow(1, 4), Is.EqualTo(1));
+            Assert.That(TerminalPanelGeometry.SelectionEdgeRow(2, 4), Is.EqualTo(2));
+            Assert.That(TerminalPanelGeometry.SelectionEdgeRow(0, 1), Is.EqualTo(0));
+        }
+
         public static void RejectsNonFiniteGeometry()
         {
             foreach (

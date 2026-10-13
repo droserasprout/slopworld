@@ -31,6 +31,8 @@ forwards the CLIPBOARD image shortcut. Pane close/rebind invalidates pending cli
 callbacks, and the daemon rechecks run identity at admission and delivery. Host panes accept text only; CLIPBOARD,
 PRIMARY, and explicit OSC writes remain separate channels. Selection over missing
 rows leaves the clipboard unchanged rather than copying partial text.
+Selection edge bands control history scrolling while the endpoint follows the pointer's
+row; only a pointer outside the displayed rows clamps to the first or last row.
 
 Closing/switching a panel during input must stop its old draw before released
 resources are recreated. Sidebar/keyboard selection preserves pawn selection while

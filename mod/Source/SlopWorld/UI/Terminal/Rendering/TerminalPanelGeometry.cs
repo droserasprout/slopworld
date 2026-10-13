@@ -7,6 +7,11 @@ namespace SlopWorld
     {
         static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
 
+        // The edge band controls scrolling, not which row is selected. Preserve the pointer's
+        // row inside the viewport and clamp only when it leaves the displayed rows.
+        internal static int SelectionEdgeRow(int pointerRow, int rows) =>
+            Math.Max(0, Math.Min(rows - 1, pointerRow));
+
         public static bool TryMeasure(
             UiLayoutRect bounds,
             float cellWidth,
