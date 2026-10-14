@@ -132,17 +132,12 @@ impl Manager {
     pub async fn update(self: &Arc<Self>, name: &str, s: SessionCfg) -> Result<()> {
         // After tmux accepts the new name, finish the transaction even if the caller cancels the HTTP request.
         // This prevents tmux from retaining a name that was never saved.
-        // The detached task holds the session boundary while it commits or restores the previous state.
-        // A connected caller waits for the result.
+        // Transfer the request's session boundary to the owned task; acquiring it
+        // again in a bare spawned task would deadlock against the waiting request.
         let manager = self.clone();
         let name = name.to_string();
-        tokio::spawn(async move {
-            manager
-                .session_operation(manager.update_inner(&name, s))
-                .await
-        })
-        .await
-        .map_err(|error| anyhow!("session update task failed: {error}"))?
+        self.owned_session_operation(async move { Box::pin(manager.update_inner(&name, s)).await })
+            .await
     }
 
     async fn update_inner(self: &Arc<Self>, name: &str, mut s: SessionCfg) -> Result<()> {

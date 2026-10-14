@@ -830,7 +830,11 @@ async fn record_backend_rename_rolls_back_tmux_after_request_cancellation_and_re
     let (renamed, release) = manager.tmux.pause_after_rename_for_test();
     let request = tokio::spawn({
         let manager = manager.clone();
-        async move { manager.update("old", replacement("renamed")).await }
+        async move {
+            manager
+                .session_request(manager.update("old", replacement("renamed")))
+                .await
+        }
     });
     tokio::time::timeout(Duration::from_secs(5), renamed.notified())
         .await
@@ -847,7 +851,10 @@ async fn record_backend_rename_rolls_back_tmux_after_request_cancellation_and_re
     assert_eq!(std::fs::read(&path).unwrap(), before);
     drop(boundary);
     drop(fault);
-    manager.update("old", replacement("renamed")).await.unwrap();
+    manager
+        .session_request(manager.update("old", replacement("renamed")))
+        .await
+        .unwrap();
     assert_eq!(manager.config().await.sessions[0].state_id, id);
     assert!(manager.tmux.exists("renamed").await);
     assert_eq!(std::fs::read(&manager.cfg_path).unwrap(), root_before);

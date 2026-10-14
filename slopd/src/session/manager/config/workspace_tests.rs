@@ -83,6 +83,45 @@ impl Drop for Fixture {
 }
 
 #[tokio::test]
+async fn existing_agent_switches_worktrees_inside_session_request() {
+    let f = Fixture::new().await;
+    let tree = f.tree("waylith").await;
+    f.manager
+        .update_cfg(ConfigMutation::Agents, |cfg| {
+            cfg.sessions.push(SessionCfg {
+                name: "agent".into(),
+                project: "repo".into(),
+                state_id: "2222222222222222".into(),
+                ..Default::default()
+            });
+            Ok(())
+        })
+        .await
+        .unwrap();
+
+    for worktree in [&*tree.id, "main", &*tree.id] {
+        let mut edited = f.manager.config().await.session("agent").unwrap().clone();
+        edited.worktree = worktree.into();
+        tokio::time::timeout(
+            Duration::from_secs(5),
+            f.manager.session_request(f.manager.update("agent", edited)),
+        )
+        .await
+        .expect("agent save blocked inside the request boundary")
+        .unwrap();
+        let accepted = f.manager.config().await;
+        let saved = workspace::Store::<SessionCfg>::load(&f.binding)
+            .await
+            .unwrap()
+            .ordered();
+        for agent in [accepted.session("agent").unwrap(), &saved[0]] {
+            assert_eq!(agent.worktree, worktree);
+            assert_eq!(agent.state_id, "2222222222222222");
+        }
+    }
+}
+
+#[tokio::test]
 async fn worktree_records_keep_main_derived_siblings_unchanged_and_ignore_external_edits() {
     let f = Fixture::new().await;
     let first = f.tree("first").await;
