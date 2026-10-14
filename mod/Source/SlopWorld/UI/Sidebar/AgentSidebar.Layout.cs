@@ -261,10 +261,8 @@ namespace SlopWorld
                     Face = face,
                 }
             );
-            // Match FaceBox's old first-row behavior if vanilla ever supplies a duplicate
-            // pawn entry.
-            if (!Layout.Faces.ContainsKey(entries[index].pawn))
-                Layout.Faces.Add(entries[index].pawn, face);
+            // Duplicate pawn entries retain the first portrait's hit target.
+            Layout.Faces.TryAdd(entries[index].pawn, face);
         }
 
         static float Pitch(float s) =>

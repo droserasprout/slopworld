@@ -9,6 +9,9 @@ bootstrap installs the daemon adapter, which owns capability checks and native f
 Providers deliver reads on the UI thread; fields retain delayed-edit lifetime checks.
 `UiClipboardActions` owns copy-action success/error notifications with caller-supplied
 confirmation wording. `DaemonClipboard` retains transport and fallback behavior.
+`NativeTextLayout` adapts Waylith's text backend for tooltip line positions, caret
+reveal, and selection hit testing. It shares the native field's padded geometry;
+hit tests restore both selection endpoints, including on failure.
 
 Shared headers receive status text and availability; list views receive their empty
 message and header/footer drawing from the feature owner. Session action classification

@@ -18,7 +18,9 @@ settings projection.
 
 `DaemonClient` is the static request facade. `DaemonHttpTransport` owns HTTP
 admission, deadlines, protocol I/O, tracing, and the host-pumped completion queue
-inside the same mod assembly. The facade retains one transport for the host lifetime;
+inside the same mod assembly. It owns a pooled `HttpClient` without proxy routing;
+the request deadline includes admission and response-body reads. HTTP failures prefer
+the daemon's bounded Protobuf explanation. The facade retains one transport for the host lifetime;
 other owners must settle requests and callbacks before disposing their transport.
 Completions become visible after request resources and admission slots are released.
 `DaemonHttpTransport` queues callbacks through `MainThreadCompletions`, which owns
