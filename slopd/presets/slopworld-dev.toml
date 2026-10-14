@@ -1,0 +1,14 @@
+[[sandbox]]
+name = "slopworld-dev"
+description = "SlopWorld builds and game-free tests with read-only game files and shared compiler caches"
+requires = ["ccache", "git", "nuget-cache", "python", "rust-sccache"]
+# Game assemblies are build inputs. Installation and live debugging belong to slopworld-debug.
+# The project directory has separate write access.
+ro = [
+    "$SLOPWORLD_GAME",
+    "~/RimWorld/game",
+    "~/GOG Games/RimWorld/game",
+    "~/.steam/steam/steamapps/common/RimWorld",
+    "~/.local/share/Steam/steamapps/common/RimWorld",
+]
+env = ["SLOPWORLD_GAME"]

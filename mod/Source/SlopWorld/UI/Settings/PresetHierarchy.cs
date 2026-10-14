@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace SlopWorld
 {
-    // One catalog group forms a forest. Multi-dependency bundles stay at the root;
+    // One catalog group forms a forest. Multi-dependency bundles normally stay at the root;
     // a dependency in another group is described in the editor, not a phantom row.
     internal sealed class PresetHierarchy
     {
@@ -24,10 +24,18 @@ namespace SlopWorld
 
         public int Depth(PresetInfo preset) => _depths[preset];
 
-        static PresetInfo DirectParent(PresetInfo preset, List<PresetInfo> group) =>
-            preset.Name != "global" && preset.Requires.Count == 1
-                ? group.FirstOrDefault(p => p.Name == preset.Requires[0])
-                : null;
+        static PresetInfo DirectParent(PresetInfo preset, List<PresetInfo> group)
+        {
+            if (preset.Name == "global")
+                return null;
+            if (preset.Requires.Count == 1)
+                return group.FirstOrDefault(p => p.Name == preset.Requires[0]);
+            // One-off hack: keep the two SlopWorld development presets together despite
+            // the debug bundle's extra dependencies. This is not a naming convention.
+            if (preset.Name == "slopworld-debug" && preset.Requires.Contains("slopworld-dev"))
+                return group.FirstOrDefault(p => p.Name == "slopworld-dev");
+            return null;
+        }
 
         static PresetInfo Parent(PresetInfo preset, List<PresetInfo> group)
         {

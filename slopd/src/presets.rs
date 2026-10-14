@@ -251,6 +251,10 @@ const BUILTIN: &[(&str, &str)] = &[
     ("gpg", include_str!("../presets/gpg.toml")),
     ("gpg-agent", include_str!("../presets/gpg-agent.toml")),
     (
+        "slopworld-dev",
+        include_str!("../presets/slopworld-dev.toml"),
+    ),
+    (
         "slopworld-debug",
         include_str!("../presets/slopworld-debug.toml"),
     ),

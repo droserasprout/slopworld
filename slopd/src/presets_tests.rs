@@ -131,17 +131,7 @@ fn assert_debug_preset(table: &Table) {
     assert!(debug.daemon_config);
     assert_eq!(
         debug.requires,
-        vec![
-            "ccache",
-            "docker",
-            "git",
-            "nuget-cache",
-            "python",
-            "rust-sccache",
-            "systemd",
-            "wayland",
-            "x11",
-        ]
+        vec!["slopworld-dev", "docker", "systemd", "wayland", "x11"]
     );
     assert_eq!(debug.setenv["RUST_BACKTRACE"], "1");
     for path in [
@@ -761,4 +751,36 @@ fn warning_levels_round_trip_and_reject_unknown_values() {
         assert_eq!(loaded.warning_level, level);
     }
     toml::from_str::<SandboxPreset>("name='bad'\nwarning_level='safe'").unwrap_err();
+}
+
+#[test]
+fn slopworld_dev_build_access_keeps_game_files_read_only_and_host_control_out() {
+    let table = Table::builtins();
+    let base = table.sandbox("slopworld-dev").unwrap();
+    let debug = table.sandbox("slopworld-debug").unwrap();
+    assert!(base.env.iter().any(|name| name == "SLOPWORLD_GAME"));
+    assert!(base.ro.iter().any(|path| path == "$SLOPWORLD_GAME"));
+    for path in &base.ro {
+        assert!(
+            debug.rw.contains(path),
+            "debug must retain installation access to {path}"
+        );
+    }
+    assert_eq!(
+        base.requires,
+        vec!["ccache", "git", "nuget-cache", "python", "rust-sccache"]
+    );
+    assert!(base.rw.is_empty());
+    let mut pending = vec!["slopworld-dev"];
+    let mut visited = std::collections::HashSet::new();
+    while let Some(name) = pending.pop() {
+        if !visited.insert(name) {
+            continue;
+        }
+        let preset = table.sandbox(name).unwrap();
+        assert_eq!(preset.warning_level(), WarningLevel::None, "{name}");
+        assert!(!preset.tmux && !preset.daemon_config, "{name}");
+        assert!(preset.dev.is_empty() && preset.shared.is_empty(), "{name}");
+        pending.extend(preset.requires.iter().map(String::as_str));
+    }
 }

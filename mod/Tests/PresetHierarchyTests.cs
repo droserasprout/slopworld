@@ -39,6 +39,28 @@ namespace SlopWorld.Tests
         }
 
         [Test]
+        public void OnlySlopworldDebugBundleNestsUnderItsDevelopmentDependency()
+        {
+            var dev = Preset("slopworld-dev", "rust-sccache", "nuget-cache");
+            var debug = Preset("slopworld-debug", "docker", "slopworld-dev", "x11");
+            var unrelated = Preset("other-debug", "other-dev", "docker", "x11");
+            var tree = new PresetHierarchy(
+                new[] { debug, unrelated, dev, Preset("other-dev"), Preset("docker") }
+            );
+            Assert.That(tree.Depth(dev), Is.Zero);
+            Assert.That(tree.Depth(debug), Is.EqualTo(1));
+            Assert.That(tree.Items.IndexOf(debug), Is.EqualTo(tree.Items.IndexOf(dev) + 1));
+            Assert.That(tree.Depth(unrelated), Is.Zero);
+            Assert.That(new PresetHierarchy(new[] { debug }).Depth(debug), Is.Zero);
+
+            dev.Requires.Clear();
+            dev.Requires.Add(debug.Name);
+            tree = new PresetHierarchy(new[] { debug, dev });
+            Assert.That(tree.Items.Count, Is.EqualTo(2));
+            Assert.That(tree.Items.All(p => tree.Depth(p) == 0), Is.True);
+        }
+
+        [Test]
         public void CyclicOrSelfDependenciesRemainVisibleWithoutRecursion()
         {
             var tree = new PresetHierarchy(

@@ -11,6 +11,11 @@ from preset selection. `sandbox/` validates and consumes the resolved set; cycli
 dependency graphs are rejected.
 
 Mount policy and host-escape boundaries belong to [sandbox isolation](sandbox-isolation.md).
+`slopworld-dev` owns read-only game build inputs and compiler-cache dependencies.
+It uses `rust-sccache`, including the writable installed toolchains inherited
+through `rust-cache`.
+`slopworld-debug` extends it with writable installation/profile paths and host
+capabilities; read-write game binds override the base read-only binds.
 The debug preset's read-only endpoint bind exposes the daemon root credential;
 read-only file access does not restrict credential use. Public configuration
 instructions belong to [Sandbox presets](../docs/src/sandbox/sandbox-presets.md).

@@ -16,6 +16,11 @@ accepts submitted values while preserving edits made during the request. Reload
 merges unedited fields and reports conflicts; Discard takes the latest remote values.
 Stale callbacks cannot overwrite newer outcomes.
 
+Sandbox preset trees nest single-dependency entries under their dependency within
+the same catalog group. A one-off exception nests `slopworld-debug` under its
+`slopworld-dev` dependency; other bundles remain roots. Missing parents and cycles remain visible
+at the root. `PresetHierarchy` owns this presentation policy.
+
 Sandbox list editors retain raw text for typing and measurement, including trailing
 blank lines; normalized daemon lists are projections of those drafts. Replacing
 the selected definition replaces its raw drafts. Renaming a new definition keeps

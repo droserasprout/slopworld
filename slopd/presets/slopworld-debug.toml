@@ -2,17 +2,7 @@
 name = "slopworld-debug"
 description = "Full SlopWorld game and mod development: game files, profile, displays, devices, desktop services, diagnostics and build caches"
 warning_level = "host_control"
-requires = [
-    "ccache",
-    "docker",
-    "git",
-    "nuget-cache",
-    "python",
-    "rust-sccache",
-    "systemd",
-    "wayland",
-    "x11",
-]
+requires = ["slopworld-dev", "docker", "systemd", "wayland", "x11"]
 # These paths are writable so the debug agent can build and install the mod, run the game, and edit the profile.
 # The project directory has separate write access.
 rw = [
@@ -69,7 +59,6 @@ daemon_config = true
 escapes = "Can use the daemon root credential, control host terminals, start processes outside the sandbox, and modify host game files and profiles"
 env = [
     "SLOPWORLD_PROFILE",
-    "SLOPWORLD_GAME",
     "SLOPWORLD_GAME_LOG",
     "SLOPWORLD_DAEMON_UNIT",
     "SLOPD_CONFIG_ROOT",

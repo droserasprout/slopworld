@@ -101,6 +101,21 @@ access. Docker, Podman, D-Bus, systemd, X11, and `slopworld-debug` show host con
 `android-debug` inherits host control through X11. Warnings describe capabilities;
 they do not add or remove sandbox permissions.
 
+## SlopWorld development
+
+Use `slopworld-dev` for editing, builds, and game-free tests. It provides read-only
+RimWorld files from `SLOPWORLD_GAME` or the standard installation locations, plus
+Git configuration, Python packages, .NET and Rust tooling, and shared compiler
+caches. Rust access comes through `rust-sccache`, including writable installed
+toolchains from `rust-cache`. The project directory supplies write access for
+source and build outputs.
+
+`slopworld-debug` depends on `slopworld-dev` and adds installation and live debugging:
+writable game files, profiles and host installation directories, desktop services,
+Docker, host terminals, and the daemon root credential. Select it only when those
+host-control capabilities are needed. The base preset does not grant them;
+other selected presets and the implicit global preset still contribute access.
+
 ## SSH agents {#ssh-agents}
 
 Select `ssh` for SSH configuration and known hosts. Add `ssh-agent` to expose the
