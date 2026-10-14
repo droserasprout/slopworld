@@ -81,7 +81,10 @@ def draw_robot() -> geometry.FloatArray:
     geometry.paint_mouth(f, *geometry.MOUTH, geometry.BARS_X, C_LENS)
     for cx, cy in geometry.BOLTS:
         geometry.paint_bolt(f, cx, cy, region)
-    px = np.dstack([f.rgb, f.a]).reshape(geometry.N, geometry.SS, geometry.N, geometry.SS, 4).mean(axis=(1, 3))
+    px = cast(
+        'geometry.FloatArray',
+        np.dstack([f.rgb, f.a]).reshape(geometry.N, geometry.SS, geometry.N, geometry.SS, 4).mean(axis=(1, 3)),
+    )
     rgb, a = px[..., :3], px[..., 3:]
     rgb = np.where(a > 1e-4, rgb / np.maximum(a, 1e-4), 0.0)
     return cast('geometry.FloatArray', np.clip(np.concatenate([rgb, a], -1), 0, 1))

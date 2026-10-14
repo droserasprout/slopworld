@@ -25,6 +25,7 @@ import argparse
 import os
 import sys
 from typing import Protocol
+from typing import cast
 
 import numpy as np
 from PIL import Image
@@ -76,8 +77,11 @@ class Renderer:
 
     def extract(self) -> tuple[geometry.FloatArray, geometry.FloatArray]:
         """Box-filter down to N x N, returning straight-alpha RGBA."""
-        px = (
-            np.dstack([self.rgb, self.a]).reshape(geometry.N, geometry.SS, geometry.N, geometry.SS, 4).mean(axis=(1, 3))
+        px = cast(
+            'geometry.FloatArray',
+            np.dstack([self.rgb, self.a])
+            .reshape(geometry.N, geometry.SS, geometry.N, geometry.SS, 4)
+            .mean(axis=(1, 3)),
         )
         rgb, a = px[..., :3], px[..., 3]
         rgb = np.where(a[..., None] > 1e-4, rgb / np.maximum(a[..., None], 1e-4), 0.0)
