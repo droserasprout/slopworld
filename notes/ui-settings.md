@@ -9,7 +9,9 @@ daemon configuration, without Save/Discard controls.
 
 Most profile preferences apply live. Controls mark them dirty for a quiet-period
 flush, and Settings closure writes them. UI scale applies on slider release so its
-input target remains stable. Persistence ownership belongs to [mod settings](mod-settings.md).
+input target remains stable. `UiScaleDrag` retains the pending value independently of native
+control state and applies it when a release is reported or the button is up after capture
+is lost. A reported release uses its final pointer sample. Persistence ownership belongs to [mod settings](mod-settings.md).
 
 Daemon pages keep independent drafts and save changed fields only. Acknowledgement
 accepts submitted values while preserving edits made during the request. Reload
