@@ -7,7 +7,7 @@ to [Build from source](../docs/src/development/build.md).
 `just ci-mod` and `just ci`. The gate measures linked production sources in the
 game-free harness, not the entire mod; test and generated protocol files are excluded.
 
-The .NET 8/CoreCLR project explicitly links production sources and supplies substitutes
+The .NET 10/CoreCLR project explicitly links production sources and supplies substitutes
 for game/Unity dependencies. NUnitLite uses a non-parallel fixture; the harness finds
 test types whose names end in `Tests` and invokes qualifying public static methods.
 Tests cover pure policies and game-free client/transport integration. Individual

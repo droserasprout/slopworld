@@ -46,9 +46,13 @@ The Rust line-coverage gate keeps a small margin below measured hosted coverage:
 asynchronous audio, browse, and capture paths can vary between passing runs. Do not
 ratchet the gate to a single run's exact percentage.
 
-The mod project owns game references. Never ship game DLLs: keep `Private=false`.
-Pinned RimRef selects explicit references with `UseRimRef=true` and shares the game
-build's lock. Debug and Release overwrite the same assembly path. See
+The mod project owns game references and compiler settings; `Directory.Build.props`
+and `.editorconfig` own shared C# analysis, and `global.json` pins the SDK.
+The mod and runtime-package staging project target .NET 10 for RimWorld 1.7.
+`RIMWORLD` defaults to the Steam installation; `MANAGED` defaults to the same root.
+The game supplies `Assembly-CSharp.dll`, `UnityStubs.dll`, and `Waylith.dll`.
+Never ship game DLLs: keep `Private=false`. Debug and Release overwrite the same
+assembly path. See
 [C# tests](test-csharp.md) for game-free coverage and [IPC benchmarks](../bench/ipc/README.md)
 for benchmark scope. Saved reports live under `bench/results/`.
 

@@ -12,7 +12,7 @@ Install these tools before building:
 | Tool | Requirement |
 | --- | --- |
 | Rust | Use rustup with the version and components pinned in `rust-toolchain.toml`. |
-| .NET SDK | Install the version pinned in `global.json`. NuGet supplies the framework reference assemblies for the `net472` mod. |
+| .NET SDK | Install the version pinned in `global.json`. It builds the `net10.0` mod. NuGet restores locked runtime packages. |
 | Protobuf compiler (`protoc`) | Required for Rust builds. Use **36.1** for stable generated C# output; check with `protoc --version`. |
 | just | Version **1.58 or newer**. Install through your package manager or with `cargo install just --locked`. |
 | Python and uv | Python **3.12 or newer** and uv. Recipes synchronize the locked tooling dependencies automatically. |
@@ -23,9 +23,10 @@ If your distribution does not supply protoc 36.1, download the matching binary
 archive from the [Protobuf v36.1 release](https://github.com/protocolbuffers/protobuf/releases/tag/v36.1)
 and put its `bin` directory on `PATH`.
 
-To install and run the mod, you also need RimWorld **1.6**. Set `RIMWORLD` to the directory containing
-`RimWorldLinux`; the mod build reads the game's assemblies from
-`RimWorldLinux_Data/Managed/`.
+You also need RimWorld **1.7**. Set `RIMWORLD` to the installation directory
+containing `Assembly-CSharp.dll`, `UnityStubs.dll`, and `Waylith.dll`. The default is
+`~/.local/share/Steam/steamapps/common/RimWorld`. `MANAGED` can select a separate
+assembly directory.
 
 ## Build and install
 
