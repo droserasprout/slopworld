@@ -11,7 +11,7 @@ mod-build $managed='' $configuration='' $warnings='true': mod-check-themes mod-r
     if [ "$configuration" = release ]; then configuration=Release; else configuration=Debug; fi
     dotnet build "mod/Source/SlopWorld/SlopWorld.csproj" --configuration "$configuration" -p:RimWorldManaged="$managed" -p:InformationalVersion="$version" -p:TreatWarningsAsErrors="$warnings" -p:RestoreLockedMode=true
 
-# Restore locked Unity Mono runtime packages
+# Restore locked .NET 10 runtime packages
 [group('mod')]
 mod-restore:
     dotnet build mod/Dependencies/Runtime.csproj --configuration Release --verbosity quiet -p:RestoreLockedMode=true

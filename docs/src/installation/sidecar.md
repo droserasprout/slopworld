@@ -10,7 +10,7 @@ You need Docker or Docker Desktop. Building the host-side launcher and image
 also requires Rust, `just`, and a local repository checkout.
 The container supplies the daemon runtime dependencies. To build the launcher and
 mod for the Linux game below, also install the host
-[build prerequisites](../development/build.md#prerequisites) and locate your native RimWorld 1.6
+[build prerequisites](../development/build.md#prerequisites) and locate your native RimWorld 1.7
 installation.
 
 ## Start the sidecar {#start-a-worker}

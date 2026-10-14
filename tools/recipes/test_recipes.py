@@ -324,13 +324,14 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
 
     def test_mac_mod_passes_native_assemblies_and_release_selection(self) -> None:
         app = self.directory / 'RimWorld.app'
-        game = app / 'Contents/MacOS/RimWorld by Ludeon Studios'
+        game = app / 'Contents/MacOS/RimWorld'
         game.parent.mkdir(parents=True)
         game.touch()
         game.chmod(0o755)
-        managed = app / 'Contents/Resources/Data/Managed'
-        managed.mkdir(parents=True)
-        (managed / 'Assembly-CSharp.dll').touch()
+        managed = app / 'Contents/MacOS'
+        managed.mkdir(parents=True, exist_ok=True)
+        for assembly in ('Assembly-CSharp.dll', 'UnityStubs.dll', 'Waylith.dll'):
+            (managed / assembly).touch()
         (app / 'Mods').mkdir()
         self.run_recipe(
             '--justfile',

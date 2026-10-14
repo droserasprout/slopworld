@@ -5,7 +5,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Use Crashlanded to retain the RimWorld 1.6 surface, faction, and drop pod setup.
+    // Use Crashlanded for its surface, faction, and drop pod setup.
     // Remove its starting content. IntroDirector controls the opening scene.
     // Create the scenario once per process. Saves retain their scenario.
     public static class ModScenario

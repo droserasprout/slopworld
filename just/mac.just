@@ -6,7 +6,7 @@ mac-install: mac-game-check mac-doctor (install-mod MAC_MANAGED MAC_MODS)
 [group('macOS')]
 mac-run: mac-game-check mac-mod-check mac-start daemon-build
     "${RUNNER}" --sidecar --game-exe "${MAC_GAME}" --working-dir "${MAC_RESOURCES}" \
-        --mods "${MAC_MODS}" ${PROFILE:+--profile "$PROFILE"} --no-window-fix -- ${MAC_GAME_ARGS}
+        --mods "${MAC_MODS}" ${PROFILE:+--profile "$PROFILE"} -- ${MAC_GAME_ARGS}
 
 # Install and run native macOS RimWorld with the sidecar
 [group('macOS')]

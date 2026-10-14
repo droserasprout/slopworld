@@ -162,12 +162,8 @@ namespace SlopWorld
         static readonly Credit[] ClientLibraries =
         {
             new Credit("C#", "language", "https://learn.microsoft.com/dotnet/csharp/"),
-            new Credit("Mono", "runtime", "https://www.mono-project.com/"),
-            new Credit(
-                "Harmony",
-                "RimWorld patching",
-                "https://github.com/pardeike/HarmonyRimWorld"
-            ),
+            new Credit(".NET", "runtime", "https://github.com/dotnet/runtime"),
+            new Credit("Harmony", "RimWorld patching", "https://github.com/pardeike/Harmony"),
             new Credit("AngleSharp", "HTML", "https://github.com/AngleSharp/AngleSharp"),
             new Credit("Markdig", "markdown", "https://github.com/xoofx/markdig"),
             new Credit("Tomlyn", "TOML configs", "https://github.com/xoofx/Tomlyn"),

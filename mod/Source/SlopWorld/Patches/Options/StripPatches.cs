@@ -6,7 +6,7 @@ using Verse.AI;
 namespace SlopWorld
 {
     // Disable selected simulation systems by skipping their tick methods.
-    // These targets use RimWorld 1.6 interval methods and do not apply to 1.5.
+    // Interval hooks control the selected simulation systems.
 
     // Skip needs updates.
     [HarmonyPatch(typeof(Pawn_NeedsTracker), nameof(Pawn_NeedsTracker.NeedsTrackerTickInterval))]

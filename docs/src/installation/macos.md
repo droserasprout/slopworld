@@ -7,7 +7,7 @@ in a Linux sidecar container. See [Sidecar mode](sidecar.md) for standalone use.
 
 ## Before you start
 
-You need a RimWorld **1.6** app and Homebrew.
+You need a RimWorld **1.7** app and Homebrew.
 
 ## One-time setup
 
@@ -45,8 +45,9 @@ just mac-dev
 This checks the selected sidecar image, installs the mod, starts the configured
 container, and launches native RimWorld.
 
-The default `MAC_RIMWORLD` is `~/Documents/RimWorld.app`. Override it for a game
-installed elsewhere:
+The default `MAC_RIMWORLD` is `~/Documents/RimWorld.app`. `MAC_GAME` selects the native executable and
+`MAC_MANAGED` selects the directory containing the game assemblies. Both default
+to the bundle's `Contents/MacOS` layout. Select a bundle installed elsewhere with:
 
 ```sh
 MAC_RIMWORLD=/path/to/RimWorld.app just mac-dev

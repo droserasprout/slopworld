@@ -9,7 +9,7 @@ using System.Threading;
 namespace SlopWorld
 {
     // Support binary Protobuf frames, ping/pong, and connection closure.
-    // Use TcpClient because ClientWebSocket is unreliable on Unity Mono and Wine.
+    // TcpClient keeps framing and queue admission under this transport's ownership.
     // Read on a background thread. Callers retrieve queued events through Incoming.
     internal interface IHubSocket : IDisposable
     {

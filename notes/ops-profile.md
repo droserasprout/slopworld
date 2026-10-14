@@ -5,7 +5,7 @@ The Rust launcher owns profile seeding and game process lifetime.
 detection. The mod owns [profile-specific gating](mod-profile.md).
 `slopworld/game_config.rs` owns the saved Linux game directory. The mod installer
 remembers the canonical parent of the destination Mods directory atomically after
-installation succeeds, when that parent contains `RimWorldLinux`. Other layouts
+installation succeeds, when that parent contains `RimWorld`. Other layouts
 leave the Linux default unchanged. Explicit arguments and environment override the
 saved path; invalid saved configuration blocks fallback to a different game.
 Mod installation and removal resolve --game, then RIMWORLD, then platform defaults.
@@ -28,8 +28,9 @@ User setup belongs to [game profiles](../docs/src/maintenance/game-profiles.md),
 [the path reference](../docs/src/reference/paths.md), and window behavior to
 [Linux windowing](ui-window-fullscreen.md).
 
-The launcher redirects Unity’s game log to `<CACHE>/Player.log`, with
+The launcher captures game stdout and stderr in `<CACHE>/Player.log`, with
 `SLOPWORLD_GAME_LOG` taking precedence. Sidecar mode uses
-`<CACHE>/sidecar/Player.log`. Explicit game `-logFile` arguments are
-forwarded without adding another log argument. Print mode creates no directories;
-normal launch creates the selected log parent before starting Unity.
+`<CACHE>/sidecar/Player.log`. It passes `-NoFileLog` to disable Waylith's separate
+file logger. Both console streams share one file position; each launch replaces
+that log. Print mode creates no directories or files. Normal launch prepares the
+selected log after profile validation and locking, before starting the game.

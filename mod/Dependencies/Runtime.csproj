@@ -5,8 +5,9 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
   <!-- Pin runtime packages for RimWorld 1.7; only package assemblies are shipped.
-       Game references and the RimWorld Harmony build belong to the mod project. -->
+       Game references belong to the mod project. -->
   <ItemGroup>
+    <PackageReference Include="Lib.Harmony" Version="2.4.2" />
     <PackageReference Include="Google.Protobuf" Version="3.36.1" />
     <PackageReference Include="AngleSharp" Version="1.8.3" />
     <PackageReference Include="Markdig" Version="0.18.3" />

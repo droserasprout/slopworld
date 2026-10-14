@@ -55,7 +55,7 @@ def test_missing_credentials_prevent_game_changes(tmp_path: Path, monkeypatch: p
     monkeypatch.setenv('RIMWORLD', str(tmp_path / 'game'))
     if action == 'update':
         (tmp_path / 'game').mkdir()
-        game = tmp_path / 'game/RimWorldLinux'
+        game = tmp_path / 'game/RimWorld'
         game.touch()
         game.chmod(0o755)
     with patch.object(sys, 'argv', ['gogdl', action]), patch.object(gogdl, 'run') as run:

@@ -1,6 +1,6 @@
 # Architecture
 
-SlopWorld uses RimWorld 1.6 as the interface for coding agents. The C# mod presents
+SlopWorld uses RimWorld 1.7 as the interface for coding agents. The C# mod presents
 sessions in the colony and workspace; the Rust daemon, `slopd`, manages the processes
 and host resources behind them.
 

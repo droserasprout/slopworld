@@ -13,7 +13,7 @@ namespace SlopWorld
 
         static bool Wanted() => !Hidden;
 
-        // These GUI passes run outside MapUpdate in RimWorld 1.6.
+        // These GUI passes run outside MapUpdate.
         // Skip the full traversal before individual label calls.
         [HarmonyPatch(typeof(ThingOverlays), nameof(ThingOverlays.ThingOverlaysOnGUI))]
         public static class Patch_ThingLabels
