@@ -38,7 +38,19 @@ namespace UnityEngine
 
     public class RectOffset
     {
-        public RectOffset(int l, int r, int t, int b) { }
+        public int left,
+            right,
+            top,
+            bottom;
+        public int horizontal => left + right;
+
+        public RectOffset(int l, int r, int t, int b)
+        {
+            left = l;
+            right = r;
+            top = t;
+            bottom = b;
+        }
     }
 
     public struct CharacterInfo
@@ -142,6 +154,7 @@ namespace UnityEngine
 
     public class GUIStyle
     {
+        public int FontIndex => 1;
         public Font font;
         public int fontSize;
         public FontStyle fontStyle;
@@ -350,9 +363,6 @@ namespace UnityEngine
         public EventType type,
             rawType;
         public EventModifiers modifiers;
-        public int displayIndex;
-        static readonly System.Collections.Generic.Queue<Event> Events =
-            new System.Collections.Generic.Queue<Event>();
 
         public Event() { }
 
@@ -378,30 +388,6 @@ namespace UnityEngine
             type = e.type;
             rawType = e.rawType;
             modifiers = e.modifiers;
-            displayIndex = e.displayIndex;
-        }
-
-        public static int GetEventCount() => Events.Count;
-
-        public static int PopCalls;
-
-        public static bool PopEvent(Event e)
-        {
-            PopCalls++;
-            if (Events.Count == 0)
-                return false;
-            e.CopyFrom(Events.Dequeue());
-            return true;
-        }
-
-        static void QueueEvent(Event e) => Events.Enqueue(new Event(e));
-
-        public static void EnqueueTestEvent(Event e) => QueueEvent(e);
-
-        public static void ClearEvents()
-        {
-            Events.Clear();
-            PopCalls = 0;
         }
     }
 

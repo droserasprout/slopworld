@@ -8,7 +8,9 @@ HTTP and HTTPS; the endpoint scheme also selects plain or TLS WebSockets. TLS
 authenticates the endpoint hostname before sending credentials.
 
 `DaemonClient` is the static facade; `DaemonHttpTransport` owns admission, deadlines,
-protocol I/O, and completions. The facade retains one transport for the host lifetime;
+protocol I/O, and completions. It owns a pooled `HttpClient` without proxy routing;
+the deadline includes admission and response-body reads. Failures prefer the daemon's
+bounded Protobuf explanation. The facade retains one transport for the host lifetime;
 other owners must settle callbacks before disposing theirs. Release request resources
 and admission slots before exposing completion. Capture the endpoint and credential
 snapshot when submitting a request, before background admission: queued mutations

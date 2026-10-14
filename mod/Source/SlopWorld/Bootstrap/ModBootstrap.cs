@@ -61,8 +61,8 @@ namespace SlopWorld
         {
             var runtime = typeof(Harmony).Assembly;
             Log.Message($"[SlopWorld] Harmony {runtime.GetName().Version} at {runtime.Location}");
-            // Keep Harmony's PatchAll discovery and ordering. Native Mono failures bypass
-            // the exception handler, so record the class before generating its wrappers.
+            // Keep Harmony's PatchAll discovery and ordering. Record each class before
+            // generating its wrappers so startup errors identify the patch owner.
             foreach (var type in AccessTools.GetTypesFromAssembly(Assembly.GetExecutingAssembly()))
             {
                 if (!type.HasHarmonyAttribute())
@@ -107,43 +107,9 @@ namespace SlopWorld
         static void Finalizer(long __state) => PerfTrace.End("root-update", __state, 1);
     }
 
-    // All surfaces share the same native queue: suppressing duplicate movement inside
-    // a scroll owner alone still pays for an entire Root.OnGUI traversal per packet.
     [HarmonyPatch(typeof(Root), "OnGUI")]
-    public static class Patch_Root_WheelQueue
+    public static class Patch_Root_SidebarLayout
     {
-        static bool Prefix(out long __state)
-        {
-            __state = PerfTrace.Start();
-            Sidebar.ApplyPendingLayoutChange();
-            if (!WheelEventQueue.Compact(Event.current, CanMergeWheel))
-                return false;
-            if (Event.current?.type == EventType.ScrollWheel)
-                PerfTrace.Count("root-wheel-packets", WheelEventQueue.PacketCount);
-            return true;
-        }
-
-        // Root has not applied Verse's UI scale yet; queued pointer coordinates are
-        // physical GUI points. Only consumers that understand aggregated deltas opt in.
-        static bool CanMergeWheel(Event e)
-        {
-            var pointer = e.mousePosition / Mathf.Max(0.01f, Prefs.UIScale);
-            var stack = Find.WindowStack;
-            if (stack != null)
-                for (int i = stack.Count - 1; i >= 0; i--)
-                {
-                    var window = stack[i];
-                    if (!window.absorbInputAroundWindow && !window.windowRect.Contains(pointer))
-                        continue;
-                    return window is WorkspaceWindow
-                        || window is Dialog_Options
-                        || window is UiMenu;
-                }
-            return !Settings.SidebarHidden
-                && ColonistBarStrip.BarShown
-                && Sidebar.Panel.Contains(pointer);
-        }
-
-        static void Finalizer(long __state) => PerfTrace.End("root-gui", __state, 1);
+        static void Prefix() => Sidebar.ApplyPendingLayoutChange();
     }
 }

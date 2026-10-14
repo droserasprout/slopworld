@@ -7,6 +7,8 @@ and `TerminalFont` supply cache revisions. Parsed link decoration belongs to
 uses FIFO eviction; retained live frames reuse link-candidate transitions per row. Candidate scratch
 belongs to the parser, not shared frame snapshots; transitions preserve delimiters
 split across physical rows.
+Panel closure releases its render texture; disposal also releases a cache created
+before the panel opened. Repeated closure/disposal must remain harmless.
 
 `Platform/Fonts/FontconfigFonts` obtains Linux fallback order from system Fontconfig
 for the selected family (or `monospace` by default). It applies system substitutions

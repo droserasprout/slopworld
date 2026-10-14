@@ -47,6 +47,13 @@ namespace SlopWorld
             Sidebar.TerminalClosed(_state.Name);
         }
 
+        // Hosts close panels before removing them; disposal also covers an unopened cache.
+        public void Dispose()
+        {
+            Closed();
+            Drop();
+        }
+
         internal void BindSession(string name)
         {
             if (name == _state.Name)

@@ -25,8 +25,8 @@ Native fields receive keys inside the callback. Shift bypasses Alt
 navigation; terminal encoding forwards the unshifted Alt letter/digit.
 Ctrl+Alt letters and control punctuation retain both modifiers; Shift does not add
 a separate modifier to these character shortcuts. Ctrl+V remains reserved for paste.
-Semicolon recovery uses layout-resolved text only. Physical punctuation keys must
-wait for character events so non-US layouts do not gain extra ASCII punctuation.
+Printable input, including punctuation, follows native character events. Polling
+physical key state must not synthesize a second text stream.
 
 Wheel input updates local history and application input without preparing a displayed
 history view or renderer. [Shared scrolling](mod-ui-scrolling.md) owns queue admission,

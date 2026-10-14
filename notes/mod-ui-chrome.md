@@ -37,6 +37,9 @@ preference rather than a claim about Unity's native glyph resolution.
 on the UI thread but still need a live field owner. Resize grips run after the text
 control on every enabled pass to preserve control IDs. Retire capture with the field.
 See [focus](ui-focus.md) for field lifetime and restoration.
+`NativeTextLayout` adapts Waylith text layout for tooltip lines, caret reveal,
+and selection hit testing. It shares native field padding and restores both
+selection endpoints after hit tests, including on failure.
 
 `Slab` supplies snapped bounds and scale. Grain is an explicit control choice, drawn
 before borders/text with face opacity. Appearance previews reuse these renderers.
