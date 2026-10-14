@@ -10,6 +10,11 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- Sandbox: Added `slopworld-dev` preset for building and running tests with read-only game files.
+- Settings: Allow editing sandbox preset warning levels and explanations.
+
 ### Fixed
 
 - CLI: Honor custom `MODS` paths when installing or removing the mod.
@@ -31,6 +36,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 ### Changed
 
 - Sidecar: Configure user and group IDs through `PUID`/`PGID`. Container starts as root, then drops privileges.
+- Sandbox: Distinguish sensitive access from host control and show warnings inherited through preset dependencies.
 
 ### Security
 
