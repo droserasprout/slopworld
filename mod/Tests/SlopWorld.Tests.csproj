@@ -9,8 +9,6 @@
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
-    <!-- These tests exercise HttpWebRequest transport behavior. -->
-    <NoWarn>$(NoWarn);SYSLIB0014</NoWarn>
     <DebugType>none</DebugType>
     <DebugType Condition="'$(Coverage)' == 'true'">portable</DebugType>
   </PropertyGroup>
@@ -31,6 +29,7 @@
     <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowTarget.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowSelection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TooltipLineBreaks.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/NativeTextLayout.cs" />
     <Compile Include="../Source/SlopWorld/Client/Catalog/WorktreeRequests.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Jukebox/RadioPlayback.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Jukebox/Radio.Playback.cs" />
@@ -106,7 +105,6 @@
     </Reference>
     <Compile Include="../Source/SlopWorld/UI/Scrolling/ScrollWheelRouter.cs" Link="Source/ScrollWheelRouter.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/MenuRowGeometry.cs" Link="Source/MenuRowGeometry.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Scrolling/WheelEventQueue.cs" Link="Source/WheelEventQueue.cs" />
     <!-- Use the shipped parser and deterministic text metrics. -->
     <Compile Include="../Source/SlopWorld/UI/Workspace/ContentView.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.cs" />

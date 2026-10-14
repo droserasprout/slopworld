@@ -4,6 +4,8 @@
 and repaint lifetime. `TerminalRunCache` and `Sgr` own parsed rows; `TerminalTheme`
 and `TerminalFont` supply cache revisions. Parsed link decoration belongs to
 `TerminalAutolinks`, with URL recognition in `UrlScan`.
+Panel closure releases its render texture; disposal also releases a cache created
+before the panel opened. Repeated closure/disposal must remain harmless.
 
 Texture creation failure falls back to direct painting. Damage describes one received
 revision: skipped predecessors or missing damage require a full repaint. Cursor and

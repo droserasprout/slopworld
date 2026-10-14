@@ -17,4 +17,5 @@ that repair and can displace hover after keyboard input until the mouse moves.
 `ScrollWheelRouter` captures and replays shared scroll regions. Hosts must invalidate
 its retained snapshot on closure. Settings page geometry belongs to
 [Settings](ui-settings.md), and keyboard-focused field reveal to [focus](ui-focus.md).
-Backend sampling and event-compaction mechanics stay with source comments and tests.
+Backend sampling mechanics stay with source comments and tests. Wheel routing consumes
+the game's delivered events; it does not inspect or rewrite the engine's input queue.

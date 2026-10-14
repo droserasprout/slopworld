@@ -275,16 +275,16 @@ namespace SlopWorld
 
         static bool PreciseCovers(Event e)
         {
-            if (!Settings.SmoothScrolling || WheelEventQueue.UsesLogicalDelta(e))
+            if (!Settings.SmoothScrolling)
                 return false;
             return Precise.Coverage.Covers(Time.frameCount, e.delta.x, e.delta.y);
         }
 
         void ClaimPrecise(Rect outer, Vector2 max)
         {
-            if (!Settings.SmoothScrolling || WheelEventQueue.UsesLogicalDelta(Event.current))
+            if (!Settings.SmoothScrolling)
             {
-                // Disabled smoothing and compacted queues use logical movement exclusively.
+                // Disabled smoothing uses logical movement exclusively.
                 // Reject in-flight native motion instead of replaying that movement later.
                 X11ScrollInput.DiscardPendingMovement();
                 Precise.Frame = -1;
@@ -382,11 +382,7 @@ namespace SlopWorld
                 else
                 {
                     X11ScrollInput.DiscardPendingMovement();
-                    // Raw frame input cannot represent a merged queue delta.
-                    var raw =
-                        !Settings.SmoothScrolling || WheelEventQueue.UsesLogicalDelta(e)
-                            ? e.delta
-                            : Input.mouseScrollDelta;
+                    var raw = !Settings.SmoothScrolling ? e.delta : Input.mouseScrollDelta;
                     Wheel.Amount =
                         new Vector2(
                             PrecisionDelta(e.delta.x, raw.x),

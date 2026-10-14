@@ -438,7 +438,11 @@ namespace SlopWorld
                     editor != null
                     && (value != text || UiEvent.RawType(Event.current) == EventType.KeyDown)
                 )
-                    resize.Scroll.Reveal(editor.graphicalCursorPos.y, UiTheme.LineH, inner.height);
+                    resize.Scroll.Reveal(
+                        NativeTextLayout.CaretY(editor),
+                        UiTheme.LineH,
+                        inner.height
+                    );
                 return value;
             }
         }

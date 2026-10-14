@@ -15,7 +15,7 @@ namespace SlopWorld
 
     // Owns terminal state, rendering, history and input. The host only places this panel
     // and handles workspace navigation. Resizing never replaces these service instances.
-    sealed partial class TerminalPanel : ContentView
+    sealed partial class TerminalPanel : ContentView, System.IDisposable
     {
         readonly ITerminalPanelHost _host;
         readonly TerminalPanelState _state = new TerminalPanelState();
@@ -118,7 +118,6 @@ namespace SlopWorld
 
             if (input)
             {
-                _input.CaptureSemicolonInput();
                 _input.Handle(body);
             }
 
