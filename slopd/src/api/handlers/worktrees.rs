@@ -22,7 +22,7 @@ pub(crate) async fn list_worktrees(
     headers: HeaderMap,
     Query(q): Query<WorktreeQuery>,
 ) -> ApiResult<wire::WorktreesReply> {
-    let caller = super::task_principal(&cap, &headers)?;
+    let caller = worktree_principal(&cap, &headers)?;
     let project = m
         .worker_project(&caller, &q.project)
         .await
@@ -57,7 +57,7 @@ pub(crate) async fn create_worktree(
             "Only the root token can register an external checkout.",
         ));
     }
-    let caller = super::task_principal(&cap, &headers)?;
+    let caller = worktree_principal(&cap, &headers)?;
     q.project = m
         .worker_project(&caller, &q.project)
         .await
@@ -96,7 +96,7 @@ pub(crate) async fn preview_worktree(
     headers: HeaderMap,
     Proto(q): Proto<wire::CreateWorktreeReq>,
 ) -> ApiResult<wire::WorktreeBase> {
-    let caller = super::task_principal(&cap, &headers)?;
+    let caller = worktree_principal(&cap, &headers)?;
     let project = m
         .worker_project(&caller, &q.project)
         .await
@@ -106,6 +106,18 @@ pub(crate) async fn preview_worktree(
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Proto(wire::WorktreeBase { commit }))
+}
+
+/// Worktrees belong to projects, so root requests need no agent or worker owner.
+/// Scoped requests retain the grantor's project restriction regardless of the session header.
+fn worktree_principal(
+    cap: &Cap,
+    headers: &HeaderMap,
+) -> Result<String, crate::api::protobuf::ApiError> {
+    match cap {
+        Cap::Root => Ok(crate::tasks::HOST.into()),
+        Cap::Scoped(_) => super::task_principal(cap, headers),
+    }
 }
 
 /// Public state retains phase/error wording; structured relocation intent is storage-only.

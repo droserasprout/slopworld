@@ -5,6 +5,11 @@
 `session/manager/projects.rs` owns project edits and relocation.
 `session/manager/directories.rs` owns uncommitted directory creation.
 
+Worktree HTTP requests use host-user authority for root credentials, independent
+of the terminal session header. Scoped credentials retain the grantor's project
+restriction. Worker requests separately require an agent owner or the host user;
+a host terminal cannot own a worker.
+
 Worker allocation owns the newly created checkout and its rollback guard together,
 including cancellation before the allocation returns. Its owned work inherits the
 worker HTTP request's exclusive session boundary and authorization context.

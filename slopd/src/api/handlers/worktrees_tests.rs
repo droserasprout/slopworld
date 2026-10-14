@@ -1,6 +1,55 @@
 use super::*;
 
 #[tokio::test]
+async fn root_worktree_listing_does_not_require_an_agent_caller() {
+    use crate::config::{Config, HostTerminalCfg, ProjectCfg};
+    let manager = crate::session::test_manager(Config {
+        projects: vec![ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        }],
+        host_terminals: vec![HostTerminalCfg {
+            name: "shell".into(),
+            autostart: false,
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    manager.sync_from_config().await;
+    // Worker ownership must still reject the same host terminal.
+    assert!(
+        manager
+            .worker_project("shell", "repo")
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("A host terminal cannot own a worker")
+    );
+    for caller in [None, Some("host"), Some("shell"), Some("missing-session")] {
+        let mut headers = HeaderMap::new();
+        if let Some(caller) = caller {
+            headers.insert(
+                crate::shared::protocol::SESSION_HEADER,
+                caller.parse().unwrap(),
+            );
+        }
+        let Proto(reply) = list_worktrees(
+            State(manager.clone()),
+            Extension(Cap::Root),
+            headers,
+            Query(WorktreeQuery {
+                project: "repo".into(),
+            }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(reply.worktrees.len(), 1);
+        assert_eq!(reply.worktrees[0].id, "main");
+    }
+}
+
+#[tokio::test]
 async fn pending_relocation_remains_listable_with_storage_only_recovery_evidence() {
     use crate::config::{Config, ProjectCfg};
     use crate::worktrees::{RelocationIntent, Store, Worktree, WorktreePhase};
@@ -99,7 +148,14 @@ async fn scoped_worktree_requests_cannot_cross_projects_or_register_host_paths()
     let result = list_worktrees(
         State(manager.clone()),
         Extension(cap()),
-        HeaderMap::new(),
+        {
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                crate::shared::protocol::SESSION_HEADER,
+                "host".parse().unwrap(),
+            );
+            headers
+        },
         Query(WorktreeQuery {
             project: "other".into(),
         }),
