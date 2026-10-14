@@ -106,7 +106,7 @@ namespace UnityEngine
 
     public class GUIStyleState
     {
-        public Color textColor;
+        public Color textColor = new Color(1f, 1f, 1f, 1f);
     }
 
     public class GUIStyle
@@ -333,6 +333,9 @@ namespace UnityEngine
 
     public struct Color
     {
+        public static Color operator *(Color a, Color b) =>
+            new Color(a.r * b.r, a.g * b.g, a.b * b.b, a.a * b.a);
+
         public float r,
             g,
             b,

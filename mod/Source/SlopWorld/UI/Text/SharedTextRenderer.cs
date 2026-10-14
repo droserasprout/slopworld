@@ -55,7 +55,7 @@ namespace SlopWorld
                 {
                     string text = layout.Spans[0].Text;
                     Prepare(text, style);
-                    GUI.Label(bounds, text, style);
+                    DrawLabel(bounds, text, style);
                 }
                 finally
                 {
@@ -124,12 +124,28 @@ namespace SlopWorld
                     // Never ask an OS emoji font to replace missing packaged artwork.
                     string text = span.Sprite >= 0 ? "\ufffd" : span.Text;
                     Prepare(text, style);
-                    GUI.Label(new Rect(x, 0f, span.Width + overhang, bounds.height), text, style);
+                    DrawLabel(new Rect(x, 0f, span.Width + overhang, bounds.height), text, style);
                 }
             }
             finally
             {
                 GUI.EndGroup();
+            }
+        }
+
+        static void DrawLabel(Rect bounds, string text, GUIStyle style)
+        {
+            // The native label path forwards GUI tint, but ignores the style state's text color.
+            // Apply the foreground here for both plain spans and text beside atlas sprites.
+            Color tint = GUI.color;
+            GUI.color = tint * style.normal.textColor;
+            try
+            {
+                GUI.Label(bounds, text, style);
+            }
+            finally
+            {
+                GUI.color = tint;
             }
         }
 

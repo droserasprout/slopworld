@@ -19,10 +19,71 @@ namespace SlopWorld.Tests
             GUI.TextGroups.Clear();
             GUI.TextLabels.Clear();
             GUI.LabelClippings.Clear();
+            GUI.LabelColors.Clear();
+            GUI.FailLabel = false;
             GUI.SpriteColors.Clear();
             GUI.SpriteDraws.Clear();
             GUI.TextGroupDepth = 0;
             GUI.FailSprite = false;
+        }
+
+        public static void TerminalForegroundChangesBetweenRunsAndRestoresCallerTint()
+        {
+            Reset(new Texture2D());
+            Color previous = GUI.color;
+            var tint = new Color(0.8f, 0.6f, 0.4f, 0.5f);
+            var red = new Color(1f, 0.1f, 0.2f, 0.8f);
+            var blue = new Color(0.2f, 0.3f, 1f, 0.6f);
+            var style = new GUIStyle();
+            var plain = InlineTextLayout.Cells("a", 1, 6f, TextSpriteCatalog.Shared, c => true);
+            var mixed = InlineTextLayout.Cells("a😀b", 4, 6f, TextSpriteCatalog.Shared, c => true);
+            var bounds = new Rect(0, 0, 30, 14);
+            try
+            {
+                GUI.color = tint;
+                style.normal.textColor = red;
+                SharedTextRenderer.DrawTerminalRun(plain, bounds, 14f, style, 6f);
+                AssertEx.Equal(
+                    tint * red,
+                    GUI.LabelColors[0],
+                    "plain glyph retains foreground and caller opacity"
+                );
+                AssertEx.Equal(tint, GUI.color, "plain run restores caller tint");
+                style.normal.textColor = blue;
+                SharedTextRenderer.DrawTerminalRun(mixed, bounds, 14f, style, 6f);
+                AssertEx.Equal(
+                    tint * blue,
+                    GUI.LabelColors[1],
+                    "mixed run uses its current foreground"
+                );
+                AssertEx.Equal(
+                    tint * blue,
+                    GUI.LabelColors[2],
+                    "text after sprite retains foreground"
+                );
+                AssertEx.Equal(
+                    new Color(1, 1, 1, tint.a),
+                    GUI.SpriteColors[0],
+                    "colored glyph keeps its own artwork"
+                );
+                AssertEx.Equal(tint, GUI.color, "mixed run restores caller tint");
+                GUI.FailLabel = true;
+                AssertEx.Throws<InvalidOperationException>(
+                    () => SharedTextRenderer.DrawTerminalRun(plain, bounds, 14f, style, 6f),
+                    "label failure"
+                );
+                AssertEx.Equal(tint, GUI.color, "failed run restores caller tint");
+                AssertEx.Equal(
+                    TextClipping.Overflow,
+                    style.clipping,
+                    "failed run restores style clip"
+                );
+            }
+            finally
+            {
+                GUI.color = previous;
+                GUI.FailLabel = false;
+            }
         }
 
         public static void PlainTerminalRunUsesLabelClippingWithoutGroup()
