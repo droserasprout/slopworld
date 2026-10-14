@@ -8,6 +8,17 @@ namespace SlopWorld.Tests
 {
     static class TerminalRepaintTests
     {
+        public static void CacheUvPreservesScreenRowOrderThroughGuiConversion()
+        {
+            var uv = TerminalCacheSampling.SourceUv(200, 100, 20, 10, 140, 40);
+            // The native GUI converts the bottom-origin rectangle to top-origin corners.
+            float top = (1f - (uv.y + uv.height)) * 100;
+            float bottom = (1f - uv.y) * 100;
+            AssertEx.True(System.Math.Abs(top - 10f) < 0.001f, "top row stays at the top");
+            AssertEx.True(System.Math.Abs(bottom - 40f) < 0.001f, "bottom row stays at the bottom");
+            AssertEx.True(uv.height > 0f, "GUI performs the sole texture origin conversion");
+        }
+
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             yield return (

@@ -22,6 +22,22 @@ namespace SlopWorld
 
     internal static class TerminalCacheSampling
     {
+        // The GUI API converts bottom-origin UVs to the backend's texture origin.
+        public static UnityEngine.Rect SourceUv(
+            int width,
+            int height,
+            float x0,
+            float y0,
+            float x1,
+            float y1
+        ) =>
+            new UnityEngine.Rect(
+                x0 / width,
+                1f - y1 / height,
+                (x1 - x0) / width,
+                (y1 - y0) / height
+            );
+
         // UI.screenWidth/Height can round a scaled viewport up by a fraction of a
         // physical pixel. Clamp that edge to the texture; larger excursions mean
         // the cache cannot safely provide the requested pixels.

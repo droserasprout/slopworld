@@ -66,6 +66,16 @@ namespace UnityEngine
         public static System.Func<string[]> InstalledNames = () => System.Array.Empty<string>();
 
         public static string[] GetOSInstalledFontNames() => InstalledNames();
+        public static string[] Paths = System.Array.Empty<string>();
+
+        public static string[] GetPathsToOSFonts() => Paths;
+
+        public string name;
+        public int GameFontIndex;
+
+        public Font() { }
+
+        public Font(string name) => this.name = name;
 
         public int fontSize = 16;
         public float ascent = 12f;

@@ -14,6 +14,7 @@ namespace SlopWorld
 
         public static void Rescan()
         {
+            NativeFonts.Rescan();
             _all = null;
             Revision++;
         }
@@ -23,7 +24,7 @@ namespace SlopWorld
             var found = new List<string>();
             try
             {
-                var names = Font.GetOSInstalledFontNames();
+                var names = NativeFonts.Names();
                 if (names == null)
                     return found.AsReadOnly();
                 var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

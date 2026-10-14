@@ -23,6 +23,12 @@ Monochrome atlas metadata preserves original raster size and baseline-relative
 glyph bounds separately from packed UV bounds; terminal font metrics determine
 display size. Packing must not normalize the displayed size of each symbol.
 
+`NativeFonts` owns installed family discovery and GUI backend registration. `InstalledFontNames`
+reads OpenType family and fixed-pitch metadata; font pickers do not register faces to measure
+monospace eligibility. Registration names include import size because the backend deduplicates
+by name and byte length. Font wrappers may be released; registered faces remain backend-owned.
+OS font creation and family enumeration in Unity's compatibility API are stubs.
+
 Plain labels use the native text path. `PlainStatusLabel` and its height helper
 share native wrapping; catalog keys remain literal text in these APIs.
 `UiText.Paragraph` owns plain paragraph drawing and spacing; `SizedStyle` owns

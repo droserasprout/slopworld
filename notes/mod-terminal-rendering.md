@@ -20,6 +20,8 @@ the selected family plus `monospace` until a selection change or rescan retries 
 terminal font, monospace probes, and cached font menus; font invalidation also advances
 the terminal render revision. Fontconfig selects family order; Unity still resolves
 and rasterizes those names, so this does not replace Unity with Pango shaping.
+Cache sampling supplies bottom-origin UVs to `GUI.DrawTextureWithTexCoords`; the GUI backend
+owns conversion to its texture origin. Do not add a graphics-API-dependent flip.
 
 Texture creation failure falls back to direct painting. Damage describes one received
 revision: skipped predecessors or missing damage require a full repaint. Cursor and
