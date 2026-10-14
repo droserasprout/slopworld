@@ -9,7 +9,9 @@ namespace UnityEngine
         public static readonly List<(Rect Box, string Text)> TextLabels =
             new List<(Rect, string)>();
         public static readonly List<TextClipping> LabelClippings = new List<TextClipping>();
-        public static Color color;
+        public static Color color = new Color(1f, 1f, 1f, 1f);
+        public static readonly List<Color> LabelColors = new List<Color>();
+        public static bool FailLabel;
         public static readonly List<(Rect Box, Texture2D Texture, Rect Uv)> SpriteDraws =
             new List<(Rect, Texture2D, Rect)>();
         public static readonly List<Color> SpriteColors = new List<Color>();
@@ -31,6 +33,10 @@ namespace UnityEngine
         {
             TextLabels.Add((box, text));
             LabelClippings.Add(style.clipping);
+            // Native GUI.Label forwards GUI tint without consulting style.normal.textColor.
+            LabelColors.Add(color);
+            if (FailLabel)
+                throw new InvalidOperationException("label failure");
         }
 
         public static void DrawTextureWithTexCoords(Rect box, Texture2D texture, Rect uv)

@@ -11,6 +11,10 @@ monospace eligibility. Registration names include import size because the backen
 by name and byte length. Font wrappers may be released; registered faces remain backend-owned.
 OS font creation and family enumeration in Unity's compatibility API are stubs.
 
+Shared text rendering applies the style foreground through GUI tint because native
+`GUI.Label` forwards tint without reading the style state's text color. Each label
+restores the caller tint, including on failure; atlas artwork keeps its own colors.
+
 Plain labels use the native text path. `PlainStatusLabel` and its height helper
 share native wrapping; catalog keys remain literal text in these APIs.
 `UiText.Paragraph` owns plain paragraph drawing and spacing; `SizedStyle` owns
