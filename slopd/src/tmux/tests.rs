@@ -271,17 +271,22 @@ fn a_title_cannot_carry_an_escape() {
 #[test]
 fn capture_metadata_preserves_titles_and_parses_numeric_flags() {
     assert_eq!(
-        CaptureMetadata::parse("1 12 3 1 fix the thing\n"),
+        CaptureMetadata::parse("1 12 3 1 0 1 0 0 1 fix the thing\n"),
         CaptureMetadata {
             bracketed_paste: true,
             cx: 12,
             cy: 3,
             alt_screen: true,
+            mouse: super::MouseModes {
+                button: true,
+                sgr: true,
+                ..Default::default()
+            },
             title: "fix the thing".into(),
         }
     );
     assert_eq!(
-        CaptureMetadata::parse("0 12 3 0 vim\n"),
+        CaptureMetadata::parse("0 12 3 0 0 0 0 0 0 vim\n"),
         CaptureMetadata {
             cx: 12,
             cy: 3,
@@ -291,7 +296,7 @@ fn capture_metadata_preserves_titles_and_parses_numeric_flags() {
     );
     assert_eq!(CaptureMetadata::parse(""), CaptureMetadata::default());
     assert_eq!(
-        CaptureMetadata::parse("0 bad bad 0 "),
+        CaptureMetadata::parse("0 bad bad 0 bad bad bad bad bad "),
         CaptureMetadata::default()
     );
 }

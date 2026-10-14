@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 
 // Unmarked panes use automatic-rename until the next title update.
 // CaptureMetadata expects the title last.
-pub(super) const CAPTURE_FORMAT: &str = "#{bracket_paste_flag} #{cursor_x} #{cursor_y} #{alternate_on} #{?#{==:#{@slopworld_title_source},pane},#{pane_title},#{?automatic-rename,#{pane_title},#{window_name}}}";
+pub(super) const CAPTURE_FORMAT: &str = "#{bracket_paste_flag} #{cursor_x} #{cursor_y} #{alternate_on} #{mouse_standard_flag} #{mouse_button_flag} #{mouse_all_flag} #{mouse_utf8_flag} #{mouse_sgr_flag} #{?#{==:#{@slopworld_title_source},pane},#{pane_title},#{?automatic-rename,#{pane_title},#{window_name}}}";
 
 impl Tmux {
     pub(super) async fn configure_application_titles(&self) -> Result<()> {

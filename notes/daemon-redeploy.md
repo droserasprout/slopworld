@@ -17,3 +17,5 @@ New runs create a silent placeholder, attach capture, then replace it with the r
 command. Starting the command before attachment loses early output. Adoption instead
 seeds from the surviving pane's capture, including history, modes, and title, then
 requests a repaint. These are separate from the accepted-size redraw restoration.
+Mouse tracking and report encoding are seeded from tmux even when the application
+does not repeat its mode settings during repaint.

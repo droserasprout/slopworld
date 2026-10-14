@@ -298,6 +298,7 @@ fn snapshot_seed_restores_primary_history_cursor_and_title() {
         &mut emu,
         &crate::tmux::Screen {
             bracketed_paste: true,
+            mouse: Default::default(),
             lines: vec!["history".into(), "first".into(), "second".into()],
             cx: 3,
             cy: 1,
@@ -325,6 +326,7 @@ fn snapshot_seed_keeps_primary_history_out_of_alternate_screen() {
         &mut emu,
         &crate::tmux::Screen {
             bracketed_paste: true,
+            mouse: Default::default(),
             lines: vec!["history".into(), "alt first".into(), "alt second".into()],
             cx: 2,
             cy: 0,
@@ -344,6 +346,89 @@ fn snapshot_seed_keeps_primary_history_out_of_alternate_screen() {
     assert!(!primary.alt_screen);
     assert!(primary.lines.join("\n").contains("history"));
     assert!(!primary.lines.join("\n").contains("alt first"));
+}
+
+#[tokio::test]
+async fn surviving_pane_restores_mouse_reporting_without_new_application_output() {
+    use crate::emu::{MouseAction, MouseInput};
+
+    let socket = crate::test_support::TmuxSocket::new();
+    let tmux = crate::tmux::Tmux::new(&socket.path);
+    for (index, modes) in [
+        "",
+        "\\033[?1000h",
+        "\\033[?1002h\\033[?1006h",
+        "\\033[?1003h\\033[?1006h",
+        "\\033[?1002h\\033[?1005h",
+        "\\033[?1006h", // Encoding alone must not turn on tracking.
+        "\\033[?1002h\\033[?1006h\\033[?1002l\\033[?1006l",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let name = format!("mouse-recovery-{index}");
+        tmux.spawn(
+            &name,
+            "/tmp",
+            120,
+            24,
+            &[
+                "bash".into(),
+                "-c".into(),
+                format!("printf '\\033[?1049h{modes}mouse-ready'; read -r unused"),
+            ],
+            true,
+        )
+        .await
+        .unwrap();
+        let cap = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                let cap = tmux.capture(&name, 0).await.unwrap();
+                if cap.lines.iter().any(|line| line.contains("mouse-ready")) {
+                    break cap;
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap();
+
+        // A fresh mirror sees only the retained snapshot: the app is blocked on input.
+        let mut recovered = SessionEmu::new(120, 24);
+        seed_emulator(&mut recovered, &cap, 24);
+        let mut original = SessionEmu::new(120, 24);
+        original.feed(modes.replace("\\033", "\x1b").as_bytes());
+        let original_frame = original.render();
+        let recovered_frame = recovered.render();
+        assert!(recovered_frame.alt_screen);
+        assert_eq!(
+            recovered_frame.app_mouse, original_frame.app_mouse,
+            "{index}"
+        );
+        assert_eq!(recovered_frame.app_drag, original_frame.app_drag, "{index}");
+        for (action_index, action) in [
+            MouseAction::Press,
+            MouseAction::Release,
+            MouseAction::Drag,
+            MouseAction::WheelUp,
+            MouseAction::WheelDown,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let event = MouseInput {
+                action,
+                button: 0,
+                col: 100, // Exercise UTF-8 coordinates as well as legacy and SGR reports.
+                row: 2,
+            };
+            assert_eq!(
+                recovered.mouse_report(&event),
+                original.mouse_report(&event),
+                "mode case {index}, action {action_index}"
+            );
+        }
+    }
 }
 
 #[tokio::test]

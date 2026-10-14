@@ -25,6 +25,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Sessions: Complete stop/restart cleanup even if the requesting client disconnects.
 - Sessions: Prevent recovery from attaching surviving host terminals or workers to a different agent.
 - Sidecar: Support non-default Linux user and group IDs, including SSH account lookup.
+- Terminal: Fixed mouse passthrough in running terminal applications after game restart.
 - Terminal: Correctly repaint wrapped links when terminal output changes.
 - Terminal: Prevent scrollback corruption when history reaches its limit.
 - Terminal: Update terminal dimensions after resizing even when the application produces no output.

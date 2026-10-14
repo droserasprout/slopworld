@@ -144,6 +144,19 @@ fn seed_emulator(e: &mut SessionEmu, cap: &crate::tmux::Screen, rows: u16) {
     if cap.bracketed_paste {
         seed.push_str("\x1b[?2004h");
     }
+    // Applications need not repeat DECSET after reader attachment or a repaint.
+    // Restore tracking separately from encoding so reports retain their original format.
+    for (enabled, mode) in [
+        (cap.mouse.standard, 1000),
+        (cap.mouse.button, 1002),
+        (cap.mouse.all, 1003),
+        (cap.mouse.utf8, 1005),
+        (cap.mouse.sgr, 1006),
+    ] {
+        if enabled {
+            seed.push_str(&format!("\x1b[?{mode}h"));
+        }
+    }
     if !cap.title.is_empty() {
         // OSC 0 restores the window/icon title; BEL terminates the sequence.
         seed.push_str(&format!("\x1b]0;{}\x07", cap.title));

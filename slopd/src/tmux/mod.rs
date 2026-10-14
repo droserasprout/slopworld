@@ -95,6 +95,7 @@ pub struct HostMetadata {
 
 pub struct Screen {
     pub bracketed_paste: bool,
+    pub mouse: MouseModes,
     pub lines: Vec<String>,
     pub cx: u16,
     pub cy: u16,
@@ -105,6 +106,16 @@ pub struct Screen {
     /// Read this state from tmux to restore the emulator mode after a daemon restart.
     /// Otherwise, `alt_screen` remains false and wheel events scroll history instead of reaching the application.
     pub alt_screen: bool,
+}
+
+/// Application mouse tracking and encoding retained by the surviving pane.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct MouseModes {
+    pub standard: bool,
+    pub button: bool,
+    pub all: bool,
+    pub utf8: bool,
+    pub sgr: bool,
 }
 
 impl Tmux {
@@ -620,6 +631,7 @@ impl Tmux {
 
         Ok(Screen {
             bracketed_paste: metadata.bracketed_paste,
+            mouse: metadata.mouse,
             lines: body.split('\n').map(str::to_string).collect(),
             cx: metadata.cx,
             cy: metadata.cy,
@@ -763,13 +775,14 @@ struct CaptureMetadata {
     cx: u16,
     cy: u16,
     alt_screen: bool,
+    mouse: MouseModes,
     title: String,
 }
 
 impl CaptureMetadata {
     /// Preserve title spaces; missing or malformed fields use startup defaults.
     fn parse(response: &str) -> Self {
-        let mut fields = response.splitn(5, ' ');
+        let mut fields = response.splitn(10, ' ');
         Self {
             bracketed_paste: fields.next().is_some_and(|v| v.trim_end() == "1"),
             cx: fields
@@ -781,6 +794,13 @@ impl CaptureMetadata {
                 .and_then(|v| v.trim_end().parse().ok())
                 .unwrap_or(0),
             alt_screen: fields.next().is_some_and(|v| v.trim_end() == "1"),
+            mouse: MouseModes {
+                standard: fields.next().is_some_and(|v| v.trim_end() == "1"),
+                button: fields.next().is_some_and(|v| v.trim_end() == "1"),
+                all: fields.next().is_some_and(|v| v.trim_end() == "1"),
+                utf8: fields.next().is_some_and(|v| v.trim_end() == "1"),
+                sgr: fields.next().is_some_and(|v| v.trim_end() == "1"),
+            },
             title: clean_title(fields.next().unwrap_or("")),
         }
     }
