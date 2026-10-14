@@ -50,6 +50,8 @@ scrolling and frame-stable form measurement for Interface, Terminal, and Code;
 `SettingsPreviewLayout` owns their pinned/stacked preview geometry.
 `SettingsPageLayout.ScrollView` shares padded scroll geometry for About and RimWorld;
 each page retains its scroll state and frame-stable content height.
+`SettingsDisclaimer` owns their shared EULA text and paragraph rendering, including
+its margins; each page owns the content that follows it.
 Responsive forms belong to [chrome](mod-ui-chrome.md),
 scrolling to [scrolling](mod-ui-scrolling.md), registration/dialogs to
 [windows](mod-ui-windows.md), and worker delivery to [workers](daemon-workers.md).

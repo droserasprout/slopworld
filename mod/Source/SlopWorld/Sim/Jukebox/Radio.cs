@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
+using System.Runtime.ExceptionServices;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -359,39 +358,19 @@ namespace SlopWorld
 
             try
             {
-                string path = LikesPath();
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
                 string artist;
                 string title;
                 CurrentParts(out artist, out title);
-                string stamp = DateTime.UtcNow.ToString(
-                    "yyyy-MM-dd'T'HH:mm:ss'Z'",
-                    CultureInfo.InvariantCulture
+                var record = new JukeboxLikeRecord(
+                    DateTime.UtcNow,
+                    SourceLabel(),
+                    artist,
+                    title,
+                    OriginalArtist(),
+                    _rawTitle
                 );
-                File.AppendAllText(
-                    path,
-                    "[[like]]"
-                        + Environment.NewLine
-                        + "at = "
-                        + Toml.Quote(stamp)
-                        + Environment.NewLine
-                        + "source = "
-                        + Toml.Quote(SourceLabel())
-                        + Environment.NewLine
-                        + "artist = "
-                        + Toml.Quote(artist)
-                        + Environment.NewLine
-                        + "title = "
-                        + Toml.Quote(title)
-                        + Environment.NewLine
-                        + "original_artist = "
-                        + Toml.Quote(OriginalArtist())
-                        + Environment.NewLine
-                        + "original_title = "
-                        + Toml.Quote(_rawTitle)
-                        + Environment.NewLine
-                        + Environment.NewLine
-                );
+                if (!JukeboxLikeWriter.TryAppend(LikesPath(), record, out Exception error))
+                    ExceptionDispatchInfo.Capture(error).Throw();
                 Messages.Message($"Jukebox: liked {now}", MessageTypeDefOf.TaskCompletion, false);
             }
             catch (Exception e)

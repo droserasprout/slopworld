@@ -11,11 +11,8 @@ namespace SlopWorld
     // Owns vanilla options rendering and its retained dialog, links, and scroll state.
     public sealed class RimWorldPage : IOptionPage
     {
-        const GameFont RegularFont = GameFont.Medium;
         const float ContentPaddingX = 20f;
         const float ContentPaddingY = 16f;
-        const int BodyTextSize = 15;
-        static float HeroMargin => UiTheme.GapS;
         static float HeadingGap => UiTheme.GapM;
         static float ColumnGap => UiTheme.GapL;
         readonly SmoothScroll _rimWorldScroll = new SmoothScroll();
@@ -24,11 +21,6 @@ namespace SlopWorld
         List<ListableOption> _links;
 
         public void Load() { }
-
-        const string EulaDisclaimer =
-            "Portions of the materials used to create this content/mod are trademarks and/or "
-            + "copyrighted works of Ludeon Studios Inc. All rights reserved by Ludeon. This "
-            + "content/mod is not official and is not endorsed by Ludeon.";
 
         public void Draw(Rect rect)
         {
@@ -45,7 +37,7 @@ namespace SlopWorld
 
             using (_rimWorldScroll.Scope(inner, view))
             {
-                float y = DrawEulaDisclaimer(content, content.y);
+                float y = SettingsDisclaimer.DrawEulaDisclaimer(content, content.y);
                 y = DrawRimWorldHeader(content, y);
                 y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Graphics, "DoVideoOptions");
                 y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Interface, "DoUIOptions");
@@ -241,21 +233,6 @@ namespace SlopWorld
                     TexButton.IconSoundtrack
                 ),
             };
-        }
-
-        float DrawEulaDisclaimer(Rect r, float y)
-        {
-            y += HeroMargin;
-            y = UiText.Paragraph(
-                r,
-                y,
-                EulaDisclaimer,
-                RegularFont,
-                UiTheme.Dim,
-                TextAnchor.UpperCenter,
-                BodyTextSize
-            );
-            return y + HeroMargin;
         }
     }
 }

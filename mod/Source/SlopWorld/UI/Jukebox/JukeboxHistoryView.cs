@@ -404,16 +404,7 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(text))
                 return;
-            DaemonClipboard.Copy(
-                text,
-                () =>
-                    Messages.Message(
-                        $"Jukebox: copied {what}",
-                        MessageTypeDefOf.SilentInput,
-                        false
-                    ),
-                UiLayout.Fail
-            );
+            UiClipboardActions.Copy(text, $"Jukebox: copied {what}");
         }
 
         void Reload()

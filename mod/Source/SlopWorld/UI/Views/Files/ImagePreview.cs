@@ -43,34 +43,18 @@ namespace SlopWorld
                 {
                     if (request != _request)
                         return;
-                    Texture2D texture = null;
                     try
                     {
-                        var bytes = result.Data.ToByteArray();
-                        if (!MarkdownImageHeader.TrySize(bytes, out int width, out int height))
-                            throw new InvalidDataException(
-                                "Image dimensions exceed the preview limit or are invalid"
-                            );
-                        texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-                        if (
-                            !texture.LoadImage(bytes, true)
-                            || texture.width != width
-                            || texture.height != height
-                        )
-                            throw new InvalidDataException("Unity could not decode the image");
-                        texture.name = "SlopWorld image " + _name;
-                        texture.hideFlags = HideFlags.HideAndDontSave;
-                        _texture = texture;
-                        texture = null;
+                        _texture = BoundedImageDecoder.Decode(
+                            result.Data.ToByteArray(),
+                            "SlopWorld image " + _name,
+                            "Image dimensions exceed the preview limit or are invalid",
+                            "Unity could not decode the image"
+                        );
                     }
                     catch (Exception e)
                     {
                         _error = "Could not display image: " + e.Message;
-                    }
-                    finally
-                    {
-                        if (texture != null)
-                            UnityEngine.Object.Destroy(texture);
                     }
                 },
                 message =>

@@ -554,17 +554,7 @@ namespace SlopWorld
             return slash < 0 ? path : path.Substring(slash + 1);
         }
 
-        static void Copy(string text) =>
-            DaemonClipboard.Copy(
-                text,
-                () =>
-                    Messages.Message(
-                        $"SlopWorld: copied {text}",
-                        MessageTypeDefOf.SilentInput,
-                        false
-                    ),
-                UiLayout.Fail
-            );
+        static void Copy(string text) => UiClipboardActions.Copy(text, $"SlopWorld: copied {text}");
 
         public static void ReleaseViewer()
         {

@@ -4,6 +4,11 @@
 Files and inline previews share the renderer. Inline document bodies avoid daemon
 file reads, while code highlighting can still request daemon work.
 
+`UI/Utilities/BoundedImageDecoder` shares bounded Unity decoding with the native image
+reader and owns failed-decode cleanup. Callers own successfully decoded textures.
+Markdown resources retain viewport/generation checks and memory-budget admission,
+including texture cleanup when admission fails after decoding.
+
 Local resources stay within the captured project scope. The daemon enforces scoped
 text/image containment and bounds resource/highlighter access. Asynchronous replies
 must not update a replaced document. Limited HTML is interpreted without browser

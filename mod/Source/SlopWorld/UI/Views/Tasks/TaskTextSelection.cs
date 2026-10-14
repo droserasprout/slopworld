@@ -89,16 +89,7 @@ namespace SlopWorld
             for (int i = first; i <= last; i++)
             {
                 var line = _lines[i];
-                float vertical =
-                    y < line.Y ? line.Y - y
-                    : y > line.Y + line.Height ? y - (line.Y + line.Height)
-                    : 0f;
-                float left = line.X;
-                float right = line.X + line.Width;
-                float horizontal =
-                    x < left ? left - x
-                    : x > right ? x - right
-                    : 0f;
+                line.DistanceTo(x, y, out float vertical, out float horizontal);
                 if (
                     vertical < bestVertical
                     || (vertical == bestVertical && horizontal < bestHorizontal)

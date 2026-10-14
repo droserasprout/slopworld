@@ -26,13 +26,6 @@ namespace SlopWorld
         const int SubheadingTextSize = 14;
         const int LeadTextSize = 22;
         const int MetaTextSize = 14;
-        const int BodyTextSize = 15;
-
-        const string EulaDisclaimer =
-            "Portions of the materials used to create this content/mod are trademarks and/or "
-            + "copyrighted works of Ludeon Studios Inc. All rights reserved by Ludeon. This "
-            + "content/mod is not official and is not endorsed by Ludeon.";
-
         const float AutoScrollSpeed = 10f;
         const float AutoScrollPause = 3f;
         const float FirstPassHeight = 2000f;
@@ -330,7 +323,7 @@ namespace SlopWorld
         {
             float y = r.y;
 
-            y = DrawEulaDisclaimer(r, y);
+            y = SettingsDisclaimer.DrawEulaDisclaimer(r, y);
             y = DrawHero(r, y);
             y = DrawMusic(r, y);
             y = DrawBasedOn(r, y);
@@ -340,21 +333,6 @@ namespace SlopWorld
             y = DrawSpecialThanks(r, y);
 
             return y + TailPadding;
-        }
-
-        float DrawEulaDisclaimer(Rect r, float y)
-        {
-            y += HeroMargin;
-            y = UiText.Paragraph(
-                r,
-                y,
-                EulaDisclaimer,
-                RegularFont,
-                UiTheme.Dim,
-                TextAnchor.UpperCenter,
-                BodyTextSize
-            );
-            return y + HeroMargin;
         }
 
         float DrawHero(Rect r, float y)

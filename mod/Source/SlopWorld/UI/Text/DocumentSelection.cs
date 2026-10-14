@@ -245,16 +245,7 @@ namespace SlopWorld
             float best = float.MaxValue;
             foreach (var line in _spatialLines)
             {
-                float vertical =
-                    y < line.Y ? line.Y - y
-                    : y > line.Y + line.Height ? y - (line.Y + line.Height)
-                    : 0f;
-                float left = line.X;
-                float right = line.X + line.Width;
-                float horizontal =
-                    x < left ? left - x
-                    : x > right ? x - right
-                    : 0f;
+                line.DistanceTo(x, y, out float vertical, out float horizontal);
                 float distance = vertical * 10000f + horizontal;
                 if (distance < best)
                 {

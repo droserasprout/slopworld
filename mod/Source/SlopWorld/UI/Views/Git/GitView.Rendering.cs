@@ -564,17 +564,7 @@ namespace SlopWorld
             return opts;
         }
 
-        static void Copy(string text) =>
-            DaemonClipboard.Copy(
-                text,
-                () =>
-                    Messages.Message(
-                        $"SlopWorld: copied {text}",
-                        MessageTypeDefOf.SilentInput,
-                        false
-                    ),
-                UiLayout.Fail
-            );
+        static void Copy(string text) => UiClipboardActions.Copy(text, $"SlopWorld: copied {text}");
 
         // ------------------------------------------------------------------ the diff
         //

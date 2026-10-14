@@ -7,6 +7,8 @@ Start with `UiText`, `UiButtons`, `UiControls`, `UiLayout`, and `Slab` when addi
 focus memory belongs to [focus](ui-focus.md). Clipboard access uses `IUiClipboard`;
 bootstrap installs the daemon adapter, which owns capability checks and native fallback.
 Providers deliver reads on the UI thread; fields retain delayed-edit lifetime checks.
+`UiClipboardActions` owns copy-action success/error notifications with caller-supplied
+confirmation wording. `DaemonClipboard` retains transport and fallback behavior.
 
 Shared headers receive status text and availability; list views receive their empty
 message and header/footer drawing from the feature owner. Session action classification

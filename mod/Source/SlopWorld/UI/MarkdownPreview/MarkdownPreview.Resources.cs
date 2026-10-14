@@ -321,26 +321,18 @@ namespace SlopWorld
                     Texture2D texture = null;
                     try
                     {
-                        var bytes = j.Data.ToByteArray();
-                        if (!MarkdownImageHeader.TrySize(bytes, out int width, out int height))
-                            throw new InvalidDataException(
-                                "Image dimensions exceed the Markdown preview limit or are invalid"
-                            );
-                        texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-                        if (
-                            !texture.LoadImage(bytes, true)
-                            || texture.width != width
-                            || texture.height != height
-                        )
-                            throw new InvalidDataException(
-                                "Unity could not decode the image dimensions"
-                            );
+                        texture = BoundedImageDecoder.Decode(
+                            j.Data.ToByteArray(),
+                            "SlopWorld Markdown " + Path.GetFileName(path),
+                            "Image dimensions exceed the Markdown preview limit or are invalid",
+                            "Unity could not decode the image dimensions"
+                        );
+                        int width = texture.width;
+                        int height = texture.height;
                         if (!_budget.Complete(path, (long)width * height * 4))
                             throw new InvalidDataException(
                                 "Image exceeds the Markdown memory budget"
                             );
-                        texture.name = "SlopWorld Markdown " + Path.GetFileName(path);
-                        texture.hideFlags = HideFlags.HideAndDontSave;
                         resource.Texture = texture;
                         resource.HasSize = true;
                         resource.Width = width;
@@ -351,6 +343,7 @@ namespace SlopWorld
                     }
                     catch
                     {
+                        // Decode succeeded, but admission may still reject the texture.
                         if (texture != null)
                             UnityEngine.Object.Destroy(texture);
                         _budget.Release(path);

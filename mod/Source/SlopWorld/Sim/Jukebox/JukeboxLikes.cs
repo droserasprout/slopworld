@@ -52,8 +52,39 @@ namespace SlopWorld
         public string Display => Track.Display;
     }
 
-    // Write likes for native playback without game dependencies.
-    // Use the existing [[like]] schema, including original_* fields, to share the file with daemon playback.
+    // Capture all persisted fields without requiring complete daemon metadata.
+    // Original station values remain separate from effective recognized/formatted values.
+    public sealed class JukeboxLikeRecord
+    {
+        public readonly string At;
+        public readonly string Source;
+        public readonly string Artist;
+        public readonly string Title;
+        public readonly string OriginalArtist;
+        public readonly string OriginalTitle;
+
+        public JukeboxLikeRecord(
+            DateTime utcNow,
+            string source,
+            string artist,
+            string title,
+            string originalArtist,
+            string originalTitle
+        )
+        {
+            At = utcNow
+                .ToUniversalTime()
+                .ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
+            Source = source;
+            Artist = artist;
+            Title = title;
+            OriginalArtist = originalArtist;
+            OriginalTitle = originalTitle;
+        }
+    }
+
+    // Own the shared [[like]] schema and file persistence without game dependencies.
+    // Radio owns daemon metadata eligibility and all player notifications.
     public static class JukeboxLikeWriter
     {
         public static bool TryAppend(
@@ -72,9 +103,26 @@ namespace SlopWorld
                 return false;
             }
 
-            string at = utcNow
-                .ToUniversalTime()
-                .ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
+            var like = new JukeboxLikeRecord(
+                utcNow,
+                track.Source,
+                track.Artist,
+                track.Title,
+                track.Artist,
+                track.Title
+            );
+            if (!TryAppend(path, like, out Exception failure))
+            {
+                error = failure.Message;
+                return false;
+            }
+            record = new NativeLikeRecord(track, like.At);
+            return true;
+        }
+
+        public static bool TryAppend(string path, JukeboxLikeRecord record, out Exception error)
+        {
+            error = null;
             try
             {
                 string directory = Path.GetDirectoryName(path);
@@ -85,31 +133,30 @@ namespace SlopWorld
                     "[[like]]"
                         + Environment.NewLine
                         + "at = "
-                        + Toml.Quote(at)
+                        + Toml.Quote(record.At)
                         + Environment.NewLine
                         + "source = "
-                        + Toml.Quote(track.Source)
+                        + Toml.Quote(record.Source)
                         + Environment.NewLine
                         + "artist = "
-                        + Toml.Quote(track.Artist)
+                        + Toml.Quote(record.Artist)
                         + Environment.NewLine
                         + "title = "
-                        + Toml.Quote(track.Title)
+                        + Toml.Quote(record.Title)
                         + Environment.NewLine
                         + "original_artist = "
-                        + Toml.Quote(track.Artist)
+                        + Toml.Quote(record.OriginalArtist)
                         + Environment.NewLine
                         + "original_title = "
-                        + Toml.Quote(track.Title)
+                        + Toml.Quote(record.OriginalTitle)
                         + Environment.NewLine
                         + Environment.NewLine
                 );
-                record = new NativeLikeRecord(track, at);
                 return true;
             }
             catch (Exception e)
             {
-                error = e.Message;
+                error = e;
                 return false;
             }
         }
