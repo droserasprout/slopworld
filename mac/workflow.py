@@ -37,8 +37,9 @@ def check(scope: str) -> None:
     if not os.access(game, os.X_OK):
         raise ValueError(f'The native RimWorld executable is missing: {game}. Set MAC_RIMWORLD or MAC_GAME.')
     managed = Path(os.environ['MAC_MANAGED'])
-    if not (managed / 'Assembly-CSharp.dll').is_file():
-        raise ValueError(f'missing RimWorld assemblies under {managed}')
+    for assembly in ('Assembly-CSharp.dll', 'UnityStubs.dll', 'Waylith.dll'):
+        if not (managed / assembly).is_file():
+            raise ValueError(f'missing RimWorld assembly {assembly} under {managed}; set MAC_MANAGED')
     mods = Path(os.environ['MAC_MODS'])
     if not mods.is_dir():
         raise ValueError(f'The RimWorld Mods directory is missing: {mods}. Set MAC_RIMWORLD.')

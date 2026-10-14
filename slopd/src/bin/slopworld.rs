@@ -5,7 +5,7 @@
 use std::ffi::OsStr;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode};
+use std::process::{Command, ExitCode, Stdio};
 
 #[path = "../shared/application_paths.rs"]
 mod application_paths;
@@ -29,7 +29,7 @@ const CORE: &str = "ludeon.rimworld";
 const SLOPWORLD: &str = "io.drsr.slopworld";
 const SIDECAR_UI_SETTINGS: &str = "uiScheme = \"slopworld-warm\"\n";
 
-/// List RimWorld 1.6 expansions explicitly so the game treats owned DLC as known.
+/// List expansions explicitly so the game treats owned DLC as known.
 /// This prevents the new-expansion dialog from interrupting an agent colony.
 const EXPANSIONS: [&str; 5] = [
     "ludeon.rimworld.royalty",
@@ -39,11 +39,7 @@ const EXPANSIONS: [&str; 5] = [
     "ludeon.rimworld.odyssey",
 ];
 
-const EXE: &str = "RimWorldLinux";
-
-/// Use popup-window mode and OpenGL so the mod can manage fullscreen through the X11 window manager.
-/// Unity's Linux fullscreen mode can freeze during Alt+Tab.
-const DEFAULT_GAME_ARGS: &[&str] = &["-popupwindow", "-screen-fullscreen", "0", "-force-opengl"];
+const EXE: &str = "RimWorld";
 
 const USAGE: &str = "\
 slopworld - launch RimWorld into the SlopWorld profile
@@ -63,7 +59,6 @@ options:
   --reset          rewrite the profile's mod list, discarding what is there
   --version        print the embedded SlopWorld version
   --print          print the argv this would run, and run nothing
-  --no-window-fix  omit SlopWorld's default X11/OpenGL window arguments
   -h, --help       this
 
 commands:
@@ -157,7 +152,7 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
     let installed = mods.join("SlopWorld/About/About.xml");
     if !installed.is_file() {
         return Err(format!(
-            "SlopWorld is missing from this game's mod directory: {}. Run `just install-mod`.",
+            "SlopWorld is missing from this game's mod directory: {}. Run `just install mod`.",
             installed.display()
         ));
     }
@@ -166,7 +161,7 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
     let log = mode.game_log_path();
     let log = PathBuf::from(expand(&log.to_string_lossy()));
     let log = std::path::absolute(&log).map_err(|e| format!("resolving {}: {e}", log.display()))?;
-    let argv = game_argv(&executable, &profile, &log, &args.rest, args.no_window_fix);
+    let argv = game_argv(&executable, &profile, &args.rest);
     if args.print {
         for arg in &argv {
             println!("{arg}");
@@ -182,12 +177,6 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
         ));
     }
     seed(&profile, args.reset, args.sidecar || sidecar.is_some())?;
-    if !has_game_log_arg(&args.rest)
-        && let Some(parent) = log.parent()
-    {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("creating log directory {}: {e}", parent.display()))?;
-    }
     if sidecar.is_some() {
         println!("slopworld: slopcar profile: {}", profile.display());
     }
@@ -218,6 +207,7 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
             .map_err(|e| format!("resolving {}: {e}", endpoint.display()))?;
         command.env("SLOPD_ENDPOINT", absolute);
     }
+    configure_game_log(&mut command, &log)?;
     let status = command
         .args(argv.get(1..).unwrap_or_default())
         .status()
@@ -255,7 +245,6 @@ struct Args {
     sidecar: bool,
     reset: bool,
     print: bool,
-    no_window_fix: bool,
     /// Game arguments to forward without changes.
     rest: Vec<String>,
 }
@@ -290,7 +279,6 @@ fn parse(args: &[String]) -> Result<Option<Args>, String> {
             "--sidecar" => out.sidecar = true,
             "--reset" => out.reset = true,
             "--print" => out.print = true,
-            "--no-window-fix" => out.no_window_fix = true,
             "--" => {
                 out.rest.extend(it.cloned());
                 break;
@@ -311,10 +299,10 @@ fn parse(args: &[String]) -> Result<Option<Args>, String> {
 /// Skip missing standard paths.
 fn game_dir(explicit: Option<&str>) -> Result<PathBuf, String> {
     let guesses = [
+        "~/.local/share/Steam/steamapps/common/RimWorld",
+        "~/.steam/steam/steamapps/common/RimWorld",
         "~/RimWorld/game",
         "~/GOG Games/RimWorld/game",
-        "~/.steam/steam/steamapps/common/RimWorld",
-        "~/.local/share/Steam/steamapps/common/RimWorld",
     ];
     game_config::resolve(
         explicit,
@@ -461,30 +449,32 @@ fn mods_config_xml() -> String {
     s
 }
 
-fn game_argv(
-    executable: &Path,
-    profile: &Path,
-    log: &Path,
-    rest: &[String],
-    no_window_fix: bool,
-) -> Vec<String> {
+fn game_argv(executable: &Path, profile: &Path, rest: &[String]) -> Vec<String> {
     let mut argv = vec![
         executable.to_string_lossy().into_owned(),
         format!("-savedatafolder={}", profile.display()),
+        "-NoFileLog".to_string(),
     ];
-    if !has_game_log_arg(rest) {
-        argv.extend(["-logFile".to_string(), log.to_string_lossy().into_owned()]);
-    }
-    if !no_window_fix {
-        argv.extend(DEFAULT_GAME_ARGS.iter().map(|arg| (*arg).to_string()));
-    }
     argv.extend(rest.iter().cloned());
     argv
 }
 
-fn has_game_log_arg(rest: &[String]) -> bool {
-    rest.iter()
-        .any(|arg| arg == "-logFile" || arg.starts_with("-logFile="))
+/// Capture both console streams in one log; Waylith's file logger is disabled in argv.
+/// Cloned descriptors share the write position so stderr cannot overwrite stdout.
+fn configure_game_log(command: &mut Command, log: &Path) -> Result<(), String> {
+    if let Some(parent) = log.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("creating log directory {}: {e}", parent.display()))?;
+    }
+    let output = std::fs::File::create(log)
+        .map_err(|e| format!("opening game log {}: {e}", log.display()))?;
+    let error = output
+        .try_clone()
+        .map_err(|e| format!("duplicating game log {}: {e}", log.display()))?;
+    command
+        .stdout(Stdio::from(output))
+        .stderr(Stdio::from(error));
+    Ok(())
 }
 
 fn option_env_nonempty(key: &str) -> Option<String> {

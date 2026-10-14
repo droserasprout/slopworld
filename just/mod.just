@@ -15,7 +15,7 @@ build: check-themes restore
     if [ "$BUILD" = release ]; then configuration=Release; fi
     $DOTNET build "$MOD_PROJECT" --configuration "$configuration" -p:RimWorldManaged="$managed" -p:InformationalVersion="$version" -p:TreatWarningsAsErrors="$MOD_WARNINGS_AS_ERRORS" -p:RestoreLockedMode=true
 
-# Restore locked Unity Mono runtime packages
+# Restore locked .NET 10 runtime packages
 restore:
     $DOTNET build mod/Dependencies/Runtime.csproj --configuration Release --verbosity quiet -p:RestoreLockedMode="$MOD_DEPS_LOCKED"
 

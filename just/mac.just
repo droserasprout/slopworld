@@ -10,7 +10,7 @@ install: game-check doctor
 # Start the macOS sidecar and launch native RimWorld
 run: game-check mod-check start daemon
     "${RUNNER}" --sidecar --game-exe "${MAC_GAME}" --working-dir "${MAC_RESOURCES}" \
-        --mods "${MAC_MODS}" ${PROFILE:+--profile "$PROFILE"} --no-window-fix -- ${MAC_GAME_ARGS}
+        --mods "${MAC_MODS}" ${PROFILE:+--profile "$PROFILE"} -- ${MAC_GAME_ARGS}
 
 # Install and run native macOS RimWorld with the sidecar
 dev:

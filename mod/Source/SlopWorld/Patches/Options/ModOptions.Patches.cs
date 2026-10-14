@@ -56,7 +56,7 @@ namespace SlopWorld
                 foreach (var instruction in code)
                     if (instruction.Calls(button))
                         matches++;
-                // RimWorld 1.6 has exactly one direct ButtonText call here: its OK footer.
+                // The game has exactly one direct ButtonText call here: its OK footer.
                 if (matches != 1)
                     throw new InvalidOperationException(
                         "Options footer ButtonText call is no longer unique"

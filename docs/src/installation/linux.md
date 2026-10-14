@@ -6,7 +6,7 @@ For other setups, see [macOS](../installation/macos.md) or [Sidecar mode](../ins
 ## Requirements
 
 - **x86_64 Linux** with systemd user services and scopes.
-- **RimWorld 1.6** installed separately. Locate the folder containing the `RimWorldLinux` binary.
+- **RimWorld 1.7** installed separately. Locate the folder containing the `RimWorld` binary.
 - **Runtime dependencies**, including Bubblewrap, passt, and tmux. The package manager installs these.
 
 ## Get binaries

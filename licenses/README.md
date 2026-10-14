@@ -25,7 +25,7 @@ metadata; it does not include their full license texts or notices.
 | Powerline Extra glyphs | MIT | [License](nerd-fonts/licenses/powerline-extra/LICENSE) | Upstream glyph license preserved with Symbols Nerd Font. |
 | Powerline Symbols glyphs | MIT | [License](nerd-fonts/licenses/powerline-symbols/LICENSE.txt) | Upstream glyph license preserved with Symbols Nerd Font. |
 | [Unicode emoji data 17.0](https://www.unicode.org/emoji/17.0/) | Unicode License v3 | [License](unicode/LICENSE.txt) | Unicode, Inc.; emoji sequence catalog generated from `emoji-test.txt`. |
-| [Harmony](https://github.com/pardeike/HarmonyRimWorld) | MIT | [License](runtime/0Harmony.LICENSE.txt) | Andreas Pardeike; mod runtime library. |
+| [Harmony](https://github.com/pardeike/Harmony) | MIT | [License](runtime/0Harmony.LICENSE.txt) | Andreas Pardeike; mod runtime library. |
 | Google.Protobuf | BSD 3-Clause | [License](runtime/Google.Protobuf.LICENSE.txt) | Mod runtime library. |
 | AngleSharp | MIT | [License](runtime/AngleSharp.LICENSE.txt) | Mod HTML parser. |
 | Markdig | BSD 2-Clause | [License](runtime/Markdig.LICENSE.txt) | Mod runtime library. |

@@ -69,7 +69,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-          # The game-free harness targets net8.0 and needs its matching runtime.
+          # The formatter and coverage tools require the .NET 8 runtime.
           dotnet-version: '8.0.x'
           cache: true
           cache-dependency-path: |

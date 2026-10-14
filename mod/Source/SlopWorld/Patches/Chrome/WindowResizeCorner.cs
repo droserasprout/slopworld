@@ -19,7 +19,7 @@ namespace SlopWorld
             var size = AccessTools.Method(typeof(Patch_WindowResizeCorner), nameof(CornerSize));
             foreach (var instruction in instructions)
             {
-                // RimWorld 1.6 constructs one 24px rectangle for both drawing and hit tests.
+                // The game constructs one 24px rectangle for both drawing and hit tests.
                 // Changing these instructions in place preserves branch labels.
                 if (instruction.opcode == OpCodes.Ldc_R4 && Equals(instruction.operand, 24f))
                 {

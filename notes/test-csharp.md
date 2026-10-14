@@ -14,7 +14,8 @@ HTTP tests of protocol handling, deadlines, response limits, and host-pumped cal
 Service tests keep a recording `DaemonClient` facade; transport tests own isolated
 transport instances and exercise the real endpoint resolver.
 
-Substitutes do not verify Unity drawing/input or Harmony target binding. Test output,
+The Harmony runtime fixture patches and restores a managed method using the shipped
+DLL. Substitutes do not verify game target binding or native drawing/input. Test output,
 including `TestResult.xml`, belongs in the executable output directory, not the
 shipped `Assemblies/` tree. RimWorld must not load test/substitute assemblies.
 Game checks, when requested, use [build diagnostics](../docs/src/development/build.md).

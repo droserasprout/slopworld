@@ -1,7 +1,7 @@
 # Mod runtime packages
 
 `just deps restore mod` restores AngleSharp 1.8.3, Markdig 0.18.3, Newtonsoft.Json
-13.0.3, Tomlyn 0.19.0, and Google.Protobuf 3.36.1 with locked dependencies for
+13.0.3, Tomlyn 0.19.0, Google.Protobuf 3.36.1, and Lib.Harmony 2.4.2 with locked dependencies for
 net10.0, then copies their runtime assemblies into `mod/Assemblies`.
 The mod and game-free tests target .NET 10. RimWorld supplies framework assemblies,
 including code-page encoding support.
@@ -15,9 +15,9 @@ Json.NET supports the external SongRec integration. Daemon IPC uses Protobuf.
 RimWorld's `Assembly-CSharp.dll`, `UnityStubs.dll`, and `Waylith.dll` are build
 references from the game installation. Keep `Private=false` on these references;
 mod discovery must only see SlopWorld and its package dependencies.
-`just deps harmony` downloads the latest RimWorld Harmony release, verifies its
-published SHA-256 digest, and atomically installs only `0Harmony.dll`.
-Pass a destination directory as an argument to install elsewhere.
+Harmony's .NET 10 assembly is restored from the pinned Lib.Harmony package by the
+same runtime staging target. The game-free runtime test patches and restores a
+managed method to verify the bundled assembly's detour support.
 
 Canonical dependency licenses live in `licenses/runtime/`. `just generate licenses`
 stages them into `mod/About/ThirdPartyNotices/`; source installation and release

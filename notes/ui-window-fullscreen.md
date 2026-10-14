@@ -1,12 +1,12 @@
 # Linux window-manager integration
 
 `LinuxGameWindow` owns native titles, application identity, and fullscreen through X11/EWMH; `WindowTitle`
-uses its title setter. The launcher supplies default Linux windowed/OpenGL arguments,
-while the mod follows the saved fullscreen preference. This path requires X11/EWMH,
+uses its title setter. The launcher leaves display-mode selection to the game;
+the mod follows the saved fullscreen preference. This path requires X11/EWMH,
 including under XWayland; it does not categorically bypass Wayland desktops.
 The window watch sets both WM_CLASS strings to `slopworld`, matching the packaged
 desktop entry's StartupWMClass. This keeps SlopWorld separate from vanilla RimWorld
-in application switchers despite sharing the `RimWorldLinux` executable.
+in application switchers despite sharing the `RimWorld` executable.
 Window checks run during startup and loading transitions, then stop after a quiet
 settling period. Next planet arms the watch before leaving the colony; pending landing
 and queued long events also restart a retired watch and keep it active through loading.
@@ -20,12 +20,12 @@ without raising or activating the window. Settling waits for confirmed recovery.
 If the surface is still incorrectly sized after a recovery request, the next attempt
 retries the surface resize after allowing the window manager time to apply fullscreen.
 
-Unity's render surface and the outer window must reach monitor geometry together.
+The game's render surface and the outer window must reach monitor geometry together.
 Initial fullscreen follows window resize/maximize and remains the final geometry
 change. Updating only outer bounds can misalign pixels and input coordinates.
 `LinuxWindowRecovery` owns process-lifetime recovery state, watch/retry timing,
 and resize-deadline decisions without game dependencies.
 [LinuxGameWindow](../mod/Source/SlopWorld/Patches/Chrome/LinuxGameWindow.cs) samples
-game state and owns Unity/X11 calls and their ordering. Game-free tests cover the
+game state and owns game/X11 calls and their ordering. Game-free tests cover the
 policy directly; they do not establish native window-manager behavior. Launch options belong to
 [Display settings](../docs/src/customization/settings.md#display).

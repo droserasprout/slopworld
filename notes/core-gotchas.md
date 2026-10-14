@@ -12,3 +12,8 @@ Terminal input and resource lifetime belong to [terminal](mod-terminal.md) and
 [wire protocol](protocol-wire.md); path safety to [sandbox](sandbox-isolation.md).
 Runtime diagnosis and save compatibility belong to
 [troubleshooting](../docs/src/resources/troubleshooting.md).
+
+Harmony comes from the .NET 10 asset of the pinned Lib.Harmony package. The
+runtime smoke test must exercise patching and unpatching, not only reflection
+helpers. Test-harness CLR support does not establish game-target bindings or
+native rendering behavior.

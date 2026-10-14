@@ -16,7 +16,7 @@ have separate monotonic epochs; subtract timestamps only within one peer. Comple
 percentiles exclude censored outcomes, so inspect failures and incomplete samples
 before comparing tails. Trace counters contain no terminal contents.
 
-`MemoryTrace` contributes periodic RSS, Mono, Unity memory, and GC samples. These
+`MemoryTrace` contributes periodic RSS, managed heap, graphics memory, and GC samples. These
 counters overlap and must not be added; GC counts are not allocated bytes. Eco's
 `geometryCapacityBytes` estimates submesh array payload capacity immediately before
 layer disposal, not retained memory or an RSS delta. `atlasColorBytes` estimates
