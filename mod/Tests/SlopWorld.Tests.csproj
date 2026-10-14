@@ -30,6 +30,8 @@
     <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowSelection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TooltipLineBreaks.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/NativeTextLayout.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/InstalledFontNames.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/NativeFonts.cs" />
     <Compile Include="../Source/SlopWorld/Client/Catalog/WorktreeRequests.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Jukebox/RadioPlayback.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Jukebox/Radio.Playback.cs" />
