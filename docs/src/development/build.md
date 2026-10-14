@@ -5,8 +5,8 @@ Build and install SlopWorld from a checkout and run development checks. For preb
 ## Prerequisites
 
 - **Rust** stable toolchain builds the daemon and launcher using the 2024 edition.
-- **.NET SDK**: install the version pinned in `global.json`. It builds the `net472`
-  mod and runs C# tests and formatting. NuGet restores framework reference assemblies.
+- **.NET SDK**: install the version pinned in `global.json`. It builds the `net10.0`
+  mod and runs C# tests and formatting. NuGet restores locked runtime packages.
 - **Protobuf compiler (`protoc`)**: Rust builds require it. Contract generation
   requires **36.1** to keep generated C# output stable. Install the matching binary
   archive from the [Protobuf v36.1 release](https://github.com/protocolbuffers/protobuf/releases/tag/v36.1)
@@ -20,8 +20,10 @@ Build and install SlopWorld from a checkout and run development checks. For preb
   the environment explicitly. Asset generators use the optional `assets` dependencies
   and also require their native graphics libraries.
 
-Set `RIMWORLD` to the Linux game directory containing `RimWorldLinux`.
-Building the mod requires the game's assemblies in `Managed/`. For native macOS,
+Set `RIMWORLD` to the RimWorld 1.7 installation directory containing
+`Assembly-CSharp.dll`, `UnityStubs.dll`, and `Waylith.dll`. The default is
+`~/.local/share/Steam/steamapps/common/RimWorld`. `MANAGED` can select a separate
+assembly directory. For native macOS,
 follow the [macOS guide](../installation/macos.md).
 
 ## Build and install

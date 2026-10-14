@@ -233,7 +233,12 @@ its license metadata; the generated table does not replace distribution notices.
 
 The mod project owns game references/compiler settings; `Directory.Build.props`
 and `.editorconfig` own shared C# analysis, and `global.json` pins the SDK.
-Game references keep `Private=false`: RimWorld loads DLLs from `Assemblies/`.
+The mod and its runtime-package staging project target .NET 10 for RimWorld 1.7.
+`RIMWORLD` defaults to the Steam installation; `MANAGED` defaults to that same root.
+The project references `Assembly-CSharp.dll`, `UnityStubs.dll`, and `Waylith.dll`
+with `Private=false`: RimWorld loads DLLs from `Assemblies/`.
+The game supplies framework assemblies; the release allowlist and runtime staging
+must include only SlopWorld, Harmony, and package dependencies.
 Debug/release builds overwrite the same mod assembly path, so the path cannot prove
 build mode. Runtime package maintenance belongs to
 [Dependencies](../mod/Dependencies/README.md), game-free linked sources to

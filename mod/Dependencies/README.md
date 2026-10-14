@@ -1,26 +1,24 @@
 # Mod runtime packages
 
-`just deps restore mod` restores AngleSharp 1.8.3, Markdig 0.18.3, Newtonsoft.Json 13.0.3,
-Tomlyn 0.19.0, and Google.Protobuf 3.36.1 with locked transitive dependencies for
-net472, then copies
-only runtime assemblies into `mod/Assemblies`. This target framework supports the
-game's Unity Mono runtime. Markdig stays at its dependency-light Mono-compatible version.
-The mod, game-free tests, coverage and benchmarks depend on this target.
+`just deps restore mod` restores AngleSharp 1.8.3, Markdig 0.18.3, Newtonsoft.Json
+13.0.3, Tomlyn 0.19.0, and Google.Protobuf 3.36.1 with locked dependencies for
+net10.0, then copies their runtime assemblies into `mod/Assemblies`.
+The mod and game-free tests target .NET 10. RimWorld supplies framework assemblies,
+including code-page encoding support.
 
 `Runtime.csproj` owns package versions; `packages.lock.json` owns the resolved graph
 and content hashes. To update packages, edit the project, run
-`just MOD_DEPS_LOCKED=false sync-mod`, review the lock and shipped DLL changes, then
-run `just deps restore mod` and `just test mod`. The parser DLLs and
-`System.Text.Encoding.CodePages.dll` are generated and ignored.
-The existing Protobuf runtime DLLs remain checked in. AngleSharp adds code-page
-encoding support and raises the shared System.Memory/Unsafe dependencies; update
-the checked-in transitive DLLs together with the runtime lock.
+`just MOD_DEPS_LOCKED=false deps restore mod`, review the lock and shipped DLL
+changes, then run `just deps restore mod` and `just test mod`.
+Json.NET supports the external SongRec integration. Daemon IPC uses Protobuf.
 
-RimWorld and Unity assemblies come from the game installation and must never be copied
-into the mod. `just fetch-harmony` downloads the latest RimWorld Harmony release,
-verifies its published SHA-256 digest, and atomically installs only `0Harmony.dll`.
+RimWorld's `Assembly-CSharp.dll`, `UnityStubs.dll`, and `Waylith.dll` are build
+references from the game installation. Keep `Private=false` on these references;
+mod discovery must only see SlopWorld and its package dependencies.
+`just deps harmony` downloads the latest RimWorld Harmony release, verifies its
+published SHA-256 digest, and atomically installs only `0Harmony.dll`.
 Pass a destination directory as an argument to install elsewhere.
-The corresponding licenses live in `licenses/runtime/` and are staged into
-`mod/About/ThirdPartyNotices/` by `just generate licenses`. Json.NET remains because the
-external SongRec integration uses JSON. The daemon IPC client no longer uses Json.NET.
-The standalone IPC benchmark runs the same Protobuf codec on Mono.
+
+Canonical dependency licenses live in `licenses/runtime/`. `just generate licenses`
+stages them into `mod/About/ThirdPartyNotices/`; source installation and release
+packaging use the canonical files directly.

@@ -1,8 +1,9 @@
 # Shared settings and script environment. Domain files own recipes.
 # Export settings so recursive just calls retain command-line overrides.
 
-export RIMWORLD := env("RIMWORLD", GOGDL_PATH + '/RimWorld/game')
-export MANAGED := env("MANAGED", RIMWORLD + '/RimWorldLinux_Data/Managed')
+export RIMWORLD := env("RIMWORLD", env("HOME") + '/.local/share/Steam/steamapps/common/RimWorld')
+# RimWorld 1.7 keeps game assemblies at the installation root.
+export MANAGED := env("MANAGED", RIMWORLD)
 export MODS := env("MODS", RIMWORLD + '/Mods')
 export BIN := env("BIN", env("HOME") + '/.local/bin')
 export UNITS := env("UNITS", env("HOME") + '/.config/systemd/user')
@@ -38,7 +39,7 @@ export MOD_WARNINGS_AS_ERRORS := env("MOD_WARNINGS_AS_ERRORS", 'true')
 export MOD_DEPS_LOCKED := env("MOD_DEPS_LOCKED", 'true')
 export MOD_DLL := env("MOD_DLL", 'mod/Assemblies/SlopWorld.dll')
 export TEST_PROJECT := env("TEST_PROJECT", 'mod/Tests/SlopWorld.Tests.csproj')
-export TEST_DLL := env("TEST_DLL", 'mod/Tests/bin/Release/net8.0/SlopWorld.Tests.dll')
+export TEST_DLL := env("TEST_DLL", 'mod/Tests/bin/Release/net10.0/SlopWorld.Tests.dll')
 export COVERAGE_DIR := env("COVERAGE_DIR", 'coverage')
 # Native llvm-cov file filter. Test modules live in adjacent excluded files.
 export RUST_COVERAGE_EXCLUDE := env("RUST_COVERAGE_EXCLUDE", '/tests/|/benches/|/benchmark/|/(tests|test_support|test_http|http_fixture|benchmark|[^/]*_tests)\.rs$|/shared/(http_wire|protocol)\.rs$|/target/|/rustc[^/]*/library/')
