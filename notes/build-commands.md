@@ -50,6 +50,9 @@ iteration and retaining each worktree's Rust target and C# obj directories.
 Only an explicit `just clean` removes ordinary build output. `coverage-daemon`
 cleans its isolated instrumented target directory before collection, including
 dependency profiling runtimes whose raw profile format follows the LLVM toolchain.
+`cargo-llvm-cov` owns coverage-tool selection from the active Rust toolchain;
+the collector preserves explicit `LLVM_COV`/`LLVM_PROFDATA` overrides without
+selecting potentially incompatible system tools from `PATH`.
 Host recipes use sccache when installed, respecting an explicit `RUSTC_WRAPPER`
 (including empty to disable it). `SCCACHE_DIR` defaults to `~/.cache/sccache`, also
 shared by the opt-in `rust-sccache` sandbox preset. `rust-cache` only grants access

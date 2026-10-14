@@ -15,6 +15,8 @@ def test_rust_reports_use_absolute_output_paths_and_tool_environment(
 ) -> None:
     monkeypatch.setenv('CARGO', '"/tmp/cargo tool" --offline')
     monkeypatch.setenv('RUST_COVERAGE_EXCLUDE', '/tests/|/generated/')
+    monkeypatch.delenv('LLVM_COV', raising=False)
+    monkeypatch.delenv('LLVM_PROFDATA', raising=False)
     output = tmp_path / 'coverage with spaces'
     with (
         patch.object(shutil, 'which', side_effect=lambda tool: '/bin/' + tool),
@@ -27,7 +29,9 @@ def test_rust_reports_use_absolute_output_paths_and_tool_environment(
     assert calls[2][-1] == str(output / 'rust.cobertura.xml')
     assert calls[3][-1] == str(output / 'rust.filtered.cobertura.xml')
     assert '--ignore-filename-regex' in calls[4]
-    assert run.call_args_list[0].kwargs['env']['LLVM_COV'] == '/bin/llvm-cov'
+    for call in run.call_args_list:
+        assert 'LLVM_COV' not in call.kwargs['env']
+        assert 'LLVM_PROFDATA' not in call.kwargs['env']
     assert summarize.call_count == 2
 
 

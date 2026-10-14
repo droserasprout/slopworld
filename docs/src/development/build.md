@@ -107,12 +107,13 @@ checks its output without game assemblies. Both restore local .NET tools automat
 ### Coverage
 
 `just coverage` writes Python, Rust, and C# reports under `coverage/`. Install `cargo-llvm-cov` with
-`cargo install cargo-llvm-cov --locked` and the matching `llvm-cov` and
-`llvm-profdata` binaries. Use `coverage-tools`, `coverage-daemon`, or `coverage-mod` for one component,
+`cargo install cargo-llvm-cov --locked`. With rustup, install the matching LLVM tools using
+`rustup component add llvm-tools-preview`; `cargo-llvm-cov` selects them from the active Rust toolchain.
+Use `coverage-tools`, `coverage-daemon`, or `coverage-mod` for one component,
 and `just coverage-summary` to summarize existing reports.
 `coverage-daemon` rebuilds its isolated instrumented target directory so cached profiling
 runtimes cannot retain an older raw profile format after a toolchain upgrade.
-Set `LLVM_COV` and `LLVM_PROFDATA` to select matching tools outside `PATH`.
+For a system Rust installation, set `LLVM_COV` and `LLVM_PROFDATA` to matching tools.
 
 ## Local development loop
 

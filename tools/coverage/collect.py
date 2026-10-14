@@ -22,13 +22,11 @@ def summarize(path: Path, label: str) -> None:
 def daemon(output: Path) -> None:
     if not shutil.which('cargo-llvm-cov'):
         raise ValueError('Missing cargo-llvm-cov. Install it with: cargo install cargo-llvm-cov --locked')
-    llvm_cov = shutil.which(os.environ.get('LLVM_COV', 'llvm-cov'))
-    llvm_profdata = shutil.which(os.environ.get('LLVM_PROFDATA', 'llvm-profdata'))
-    if not llvm_cov or not llvm_profdata:
-        raise ValueError('Missing LLVM coverage tools.')
     exclusions = ['--ignore-filename-regex', os.environ['RUST_COVERAGE_EXCLUDE']]
     output.mkdir(parents=True, exist_ok=True)
-    environment = {**os.environ, 'LLVM_COV': llvm_cov, 'LLVM_PROFDATA': llvm_profdata}
+    # cargo-llvm-cov selects LLVM tools from the active Rust toolchain. Tools on
+    # PATH can belong to a different LLVM release, even after a clean rebuild.
+    environment = dict(os.environ)
     cargo = [*command('CARGO', 'cargo'), 'llvm-cov']
 
     def cargo_run(*args: str, stdout: TextIO | None = None) -> None:
