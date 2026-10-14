@@ -192,6 +192,16 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual(call['env']['BUILD'], 'release')
         self.assertEqual(call['cwd'], str(ROOT / 'slopd'))
 
+    def test_mod_build_uses_game_root_and_preserves_reference_override(self) -> None:
+        self.env.pop('MANAGED', None)
+        game = self.directory / 'Steam game'
+        self.run_recipe(f'RIMWORLD={game}', 'VERSION=1.2.3', 'mod-build')
+        self.assertIn(f'-p:RimWorldManaged={game}', self.calls('dotnet')[-1]['args'])
+        self.log.unlink()
+        managed = self.directory / 'custom references'
+        self.run_recipe(f'RIMWORLD={game}', f'MANAGED={managed}', 'VERSION=1.2.3', 'mod-build')
+        self.assertIn(f'-p:RimWorldManaged={managed}', self.calls('dotnet')[-1]['args'])
+
     def test_build_overrides_preserve_frozen_flags_and_custom_paths(self) -> None:
         self.run_recipe('BUILD=release', 'CARGOFLAGS=--release --frozen', 'daemon-build')
         (call,) = self.calls('cargo')

@@ -2,14 +2,14 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RootNamespace>SlopWorld.Tests</RootNamespace>
     <AssemblyName>SlopWorld.Tests</AssemblyName>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
-    <!-- The shipped Mono transport intentionally uses HttpWebRequest. -->
+    <!-- These tests exercise HttpWebRequest transport behavior. -->
     <NoWarn>$(NoWarn);SYSLIB0014</NoWarn>
     <DebugType>none</DebugType>
     <DebugType Condition="'$(Coverage)' == 'true'">portable</DebugType>
@@ -94,10 +94,6 @@
     </Reference>
     <Reference Include="AngleSharp">
       <HintPath>../Assemblies/AngleSharp.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <Reference Include="System.Text.Encoding.CodePages">
-      <HintPath>../Assemblies/System.Text.Encoding.CodePages.dll</HintPath>
       <Private>true</Private>
     </Reference>
     <Reference Include="Markdig">
@@ -257,22 +253,6 @@
   <ItemGroup>
     <Reference Include="Google.Protobuf">
       <HintPath>../Assemblies/Google.Protobuf.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <Reference Include="System.Memory">
-      <HintPath>../Assemblies/System.Memory.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <Reference Include="System.Buffers">
-      <HintPath>../Assemblies/System.Buffers.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <Reference Include="System.Numerics.Vectors">
-      <HintPath>../Assemblies/System.Numerics.Vectors.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <Reference Include="System.Runtime.CompilerServices.Unsafe">
-      <HintPath>../Assemblies/System.Runtime.CompilerServices.Unsafe.dll</HintPath>
       <Private>true</Private>
     </Reference>
   </ItemGroup>

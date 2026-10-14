@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
-  <!-- Pin Mono-compatible runtime packages; only resolved runtime assemblies are shipped.
+  <!-- Pin runtime packages for RimWorld 1.7; only package assemblies are shipped.
        Game references and the RimWorld Harmony build belong to the mod project. -->
   <ItemGroup>
     <PackageReference Include="Google.Protobuf" Version="3.36.1" />
@@ -13,6 +14,8 @@
     <PackageReference Include="Tomlyn" Version="0.19.0" />
   </ItemGroup>
   <Target Name="CopyRuntime" AfterTargets="Build">
+    <!-- Framework assemblies belong to the game runtime, outside mod discovery. -->
+    <Delete Files="../Assemblies/System.Memory.dll;../Assemblies/System.Buffers.dll;../Assemblies/System.Numerics.Vectors.dll;../Assemblies/System.Runtime.CompilerServices.Unsafe.dll;../Assemblies/System.Text.Encoding.CodePages.dll" />
     <Copy SourceFiles="@(ReferenceCopyLocalPaths)" DestinationFolder="../Assemblies" />
   </Target>
 </Project>

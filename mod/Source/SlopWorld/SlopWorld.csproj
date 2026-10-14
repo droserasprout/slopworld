@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
+    <RimWorldManaged Condition="'$(RimWorldManaged)' == ''">$(HOME)/.local/share/Steam/steamapps/common/RimWorld</RimWorldManaged>
     <AssemblyName>SlopWorld</AssemblyName>
     <RootNamespace>SlopWorld</RootNamespace>
     <LangVersion>latest</LangVersion>
@@ -20,10 +21,6 @@
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(RimWorldManaged)' == ''">
-    <RimWorldManaged>$(HOME)/GOG Games/RimWorld/game/RimWorldLinux_Data/Managed</RimWorldManaged>
-  </PropertyGroup>
-
   <ItemGroup>
     <Reference Include="0Harmony">
       <HintPath>../../Assemblies/0Harmony.dll</HintPath>
@@ -31,10 +28,6 @@
     </Reference>
     <Reference Include="AngleSharp">
       <HintPath>../../Assemblies/AngleSharp.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="System.Text.Encoding.CodePages">
-      <HintPath>../../Assemblies/System.Text.Encoding.CodePages.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Markdig">
@@ -53,29 +46,19 @@
       <HintPath>$(RimWorldManaged)/Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>$(RimWorldManaged)/UnityEngine.CoreModule.dll</HintPath>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Waylith supplies Unity's API through a single game-owned assembly. -->
+    <Reference Include="UnityStubs">
+      <HintPath>$(RimWorldManaged)/UnityStubs.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>$(RimWorldManaged)/UnityEngine.IMGUIModule.dll</HintPath>
+    <!-- Game rendering signatures expose Waylith.Rendering.Material directly. -->
+    <Reference Include="Waylith">
+      <HintPath>$(RimWorldManaged)/Waylith.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>$(RimWorldManaged)/UnityEngine.TextRenderingModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.InputLegacyModule">
-      <HintPath>$(RimWorldManaged)/UnityEngine.InputLegacyModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <!-- EncodeToPNG/LoadImage, which is how the baked backgrounds reach the cache. -->
-    <Reference Include="UnityEngine.ImageConversionModule">
-      <HintPath>$(RimWorldManaged)/UnityEngine.ImageConversionModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
   </ItemGroup>
 
   <ItemGroup>
@@ -83,25 +66,10 @@
       <HintPath>../../Assemblies/Google.Protobuf.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="System.Memory">
-      <HintPath>../../Assemblies/System.Memory.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="System.Buffers">
-      <HintPath>../../Assemblies/System.Buffers.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="System.Numerics.Vectors">
-      <HintPath>../../Assemblies/System.Numerics.Vectors.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="System.Runtime.CompilerServices.Unsafe">
-      <HintPath>../../Assemblies/System.Runtime.CompilerServices.Unsafe.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
   </ItemGroup>
+
   <Target Name="CheckRimWorldReferences" BeforeTargets="ResolveReferences">
-    <Error Condition="!Exists('$(RimWorldManaged)/Assembly-CSharp.dll')"
-           Text="Missing RimWorld assemblies under $(RimWorldManaged); set RIMWORLD or MANAGED when using just, or RimWorldManaged when using dotnet build." />
+    <Error Condition="!Exists('$(RimWorldManaged)/Assembly-CSharp.dll') Or !Exists('$(RimWorldManaged)/UnityStubs.dll') Or !Exists('$(RimWorldManaged)/Waylith.dll')"
+           Text="Missing RimWorld 1.7 assemblies under $(RimWorldManaged); set RIMWORLD or MANAGED when using just, or RimWorldManaged when using dotnet build." />
   </Target>
 </Project>

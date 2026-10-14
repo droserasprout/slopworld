@@ -3,7 +3,7 @@
 Run `just mod-test`, also included in `just test`. Build and coverage commands belong
 to [Build from source](../docs/src/development/build.md).
 
-The .NET 8/CoreCLR project explicitly links production sources and supplies substitutes
+The .NET 10/CoreCLR project explicitly links production sources and supplies substitutes
 for game/Unity dependencies. NUnitLite uses a non-parallel fixture; the harness finds
 test types whose names end in `Tests` and invokes qualifying public static methods.
 Tests cover pure policies and game-free client/transport integration. Individual
