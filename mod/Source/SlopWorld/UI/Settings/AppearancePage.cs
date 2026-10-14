@@ -23,8 +23,7 @@ namespace SlopWorld
 
         public void Load() { }
 
-        // The scale under the hand, while the hand is on it. Null when nothing is dragging.
-        float? _scaleHeld;
+        readonly UiScaleDrag _scaleDrag = new UiScaleDrag();
 
         static ModSettings S => ModEntry.Instance.settings;
 
@@ -80,7 +79,7 @@ namespace SlopWorld
 
             // The knob and readout follow the mouse. Apply the scale only after mouse release.
             // The scale changes this row's position. See UiControls.Slider.
-            float shown = _scaleHeld ?? UiScale.Current;
+            float shown = _scaleDrag.Pending ?? UiScale.Current;
             float scale = UiControls.Slider(
                 l,
                 "UI scale",
@@ -93,15 +92,9 @@ namespace SlopWorld
                 "Scales the SlopWorld and game interfaces. The game's scale control stops "
                     + "when the scaled screen would be smaller than 1024x768. This control has no such limit."
             );
-            if (held)
-            {
-                _scaleHeld = scale;
-            }
-            else if (released && _scaleHeld.HasValue)
-            {
-                _scaleHeld = null;
-                UiScale.Set(scale);
-            }
+            float? applied = _scaleDrag.Update(scale, held, released, Input.GetMouseButton(0));
+            if (applied.HasValue)
+                UiScale.Set(applied.Value);
             UiScale.Flush();
         }
 
