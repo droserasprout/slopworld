@@ -47,7 +47,7 @@ def main() -> None:
         version = os.environ.get('VERSION') or from_git(package_version(ROOT))
         validate_version(version)
         revision = run(['git', 'rev-parse', 'HEAD'], capture_output=True, text=True).stdout.strip()
-        run([os.environ['JUST_CMD'], 'BUILD=release', f'VERSION={version}', 'all'])
+        run([os.environ['JUST_CMD'], 'BUILD=release', f'VERSION={version}', 'build'])
         output = Path(os.environ.get(output_setting, f'dist/{args.distribution}'))
         if not output.is_absolute():
             output = ROOT / output

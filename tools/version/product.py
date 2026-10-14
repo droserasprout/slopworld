@@ -46,7 +46,7 @@ def check(version: str, repository: Path = ROOT) -> None:
         if match['version'] != expected:
             raise ValueError(
                 f'{entry.path}: version {match["version"]!r} must match {expected!r}; '
-                f'run just bump-version {version} before committing and tagging.'
+                f'run just release bump-version {version} before committing and tagging.'
             )
 
 

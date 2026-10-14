@@ -8,7 +8,7 @@ Process:
   2. Put the faceplate over the rose.
   3. Move the stem tip slightly into the top of the skull.
 
-Usage: just refresh-appicon
+Usage: just generate appicon
 
 Output: mod/Textures/SlopWorld/SlopWorld_icon.png (128x128 RGBA).
 

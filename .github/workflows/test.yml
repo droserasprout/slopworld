@@ -95,28 +95,34 @@ jobs:
         run: |
           echo "$(dirname "$(rustc --print target-libdir)")/bin" >> "$GITHUB_PATH"
 
-      # Keep the same checks/order as just ci, with separate step timings.
+      # Named stages are shared with just ci, with separate step timings.
       - name: Check generated files and formatting
-        run: just check-generated check-format-daemon check-format-mod
+        run: just ci format
 
       - name: Lint Python
-        run: just lint-tools
+        run: just ci tools
 
       - name: Test tools and pager
-        run: just test-tools test-pager
+        run: just ci tests
 
       - name: Lint Rust
-        run: just lint-daemon lint-sidecar
+        run: just ci rust
 
       - name: Test Rust with coverage
-        run: just coverage-daemon test-sidecar
+        run: just ci coverage-rust
 
       - name: Test C# with coverage
-        run: just coverage-mod
+        run: just ci coverage-mod
+
+      - name: Check and test sidecar
+        run: just ci sidecar
+
+      - name: Test benchmark tooling
+        run: just ci bench
 
       - name: Report coverage
         run: |
-          just coverage-summary >> "$GITHUB_STEP_SUMMARY"
+          just coverage summary >> "$GITHUB_STEP_SUMMARY"
           echo 'C# coverage measures linked production files in the game-free harness, not the entire mod. No percentage threshold is enforced.' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload coverage reports

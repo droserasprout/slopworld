@@ -65,3 +65,15 @@ def test_ipc_fixtures_and_roundtrips_stay_in_scratch(tmp_path, monkeypatch):
     assert {path.name for path in (tmp_path / 'output').iterdir()} == {'mono.csv', 'net8.csv', 'rust.csv'}
     assert calls[-1][-2:] == ['--verify', str(scratch)]
     assert list((ROOT / 'bench/ipc/fixtures').iterdir()) == before
+
+
+@pytest.mark.parametrize('suite, expected_tools', [('daemon', ['cargo']), ('mod', ['dotnet', 'dotnet']), ('ipc', [])])
+def test_build_only_prepares_the_selected_suite(monkeypatch, suite, expected_tools):
+    monkeypatch.setenv('BUILD', 'debug')
+    monkeypatch.setenv('TEST_PROJECT', 'test.csproj')
+    monkeypatch.setenv('CARGO', 'cargo')
+    monkeypatch.setenv('DOTNET', 'dotnet')
+    with patch.object(runner, 'run') as run, patch.object(runner, 'build_ipc') as ipc:
+        runner.build(suite)
+    assert [call.args[0][0] for call in run.call_args_list] == expected_tools
+    assert ipc.call_count == (1 if suite == 'ipc' else 0)

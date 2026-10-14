@@ -19,6 +19,6 @@ which resets with a new load or mode change. Quotes continue across word wraps.
 Tips use printable ASCII U+0020–U+007E with newline as an explicit paragraph separator.
 Unsupported glyphs fall back to `?`. Glyphs share a baseline and transparent gutters;
 keep the runtime line-height constant aligned with the baker's metric check.
-Run `just refresh-loading-font` to regenerate the atlas from `assets/fonts/clacon2.ttf`.
-`just test-text-sprites` checks generated text-sprite metadata and rejects non-ASCII
+Run `just generate loading-font` to regenerate the atlas from `assets/fonts/clacon2.ttf`.
+`just test tools tools/assets/test_text_sprites.py` checks generated text-sprite metadata and rejects non-ASCII
 loading-tip literals; it does not reject every ASCII control character.

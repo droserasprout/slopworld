@@ -30,7 +30,7 @@
 /bench/terminal-input/runs/
 /bench/results/
 
-# License copies staged by just refresh-licenses.
+# License copies staged by just generate licenses.
 /mod/About/LICENSE
 /mod/About/ThirdPartyNotices/
 

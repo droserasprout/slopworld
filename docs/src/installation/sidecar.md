@@ -18,9 +18,9 @@ installation.
 Build and install the host-side Rust launcher, then build and check the image:
 
 ```sh
-just install-sidecar
-just sidecar-build
-just sidecar-doctor
+just sidecar install
+just sidecar image
+just sidecar doctor
 ```
 
 Pass `--workspace` for each project that agents may access. Use absolute paths.
@@ -66,14 +66,14 @@ Build and install the mod into your Linux game before launching. Run these comma
 from the repository root, using the same game directory for installation and launch:
 
 ```sh
-RIMWORLD=/path/to/RimWorld/game just install-mod
+RIMWORLD=/path/to/RimWorld/game just install mod
 ```
 
-`install-mod` builds the mod and launcher and attaches the mod to the game.
+`install mod` builds the mod and launcher and attaches the mod to the game.
 Then launch with the sidecar's endpoint and profile:
 
 ```sh
-RIMWORLD=/path/to/RimWorld/game just sidecar-run
+RIMWORLD=/path/to/RimWorld/game just sidecar run
 ```
 
 The sidecar profile is separate from the native profile.

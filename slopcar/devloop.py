@@ -14,12 +14,14 @@ from tools.utils import run_main
 def iteration(arguments: list[str]) -> None:
     just = os.environ['JUST_CMD']
     sidecar = os.environ['SLOPCAR']
-    # Like the interactive loop, failed commands return to the next iteration.
-    run([just, 'sidecar-build'], cwd=ROOT, check=False)
-    run([just, 'install-mod'], cwd=ROOT, check=False)
+    # Failed preparation returns to the loop before replacing the running sidecar.
+    for command in (('sidecar', 'image'), ('install', 'mod')):
+        if run([just, *command], cwd=ROOT, check=False).returncode:
+            return
     run([sidecar, 'rm'], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
-    run([sidecar, 'start', *arguments], cwd=ROOT, check=False)
-    run([just, 'sidecar-run'], cwd=ROOT, check=False)
+    if run([sidecar, 'start', *arguments], cwd=ROOT, check=False).returncode:
+        return
+    run([just, 'sidecar', 'run'], cwd=ROOT, check=False)
 
 
 def stop(*_) -> None:

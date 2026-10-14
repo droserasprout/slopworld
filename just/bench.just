@@ -1,41 +1,30 @@
-# Benchmarks
+set shell := ["bash", "-euc"]
+set quiet
+set default-list
+set working-directory := '..'
 
-# Run the daemon benchmark into shared CSV results
-[group('Benchmarks')]
-bench-daemon:
-    JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m bench.report run --suite daemon --build "{{ BUILD }}" {{ if BENCH_RUN != '' { '--run "' + BENCH_RUN + '"' } else { '' } }}
+# Run daemon, mod, ipc or gamefree benchmarks; pass report CLI options
+[positional-arguments]
+run what='gamefree' *args:
+    shift; $PYTHON -m bench.report run --suite {{ quote(what) }} --build "$BUILD" ${BENCH_RUN:+--run "$BENCH_RUN"} "$@"
 
-# Run the C# helper benchmark into shared CSV results
-[group('Benchmarks')]
-bench-mod:
-    JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m bench.report run --suite mod --build "{{ BUILD }}" {{ if BENCH_RUN != '' { '--run "' + BENCH_RUN + '"' } else { '' } }}
+# Render saved measurements; pass report CLI options
+[positional-arguments]
+report *args:
+    $PYTHON -m bench.report report ${BENCH_RUN:+--run "$BENCH_RUN"} "$@"
 
-# Run production Protobuf IPC into shared CSV results
-[group('Benchmarks')]
-bench-ipc:
-    JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m bench.report run --suite ipc --build "{{ BUILD }}" {{ if BENCH_RUN != '' { '--run "' + BENCH_RUN + '"' } else { '' } }}
+# Write the latest report
+[positional-arguments]
+latest *args:
+    $PYTHON -m bench.report report --latest ${BENCH_RUN:+--run "$BENCH_RUN"} "$@"
 
-[group('Benchmarks')]
-[private]
-bench-build: sync-mod
-    {{ PYTHON }} -m bench.runner build
+# Measure desktop terminal input; pass terminal benchmark CLI options
+[positional-arguments]
+terminal *args:
+    "$JUST_CMD" --justfile "$JUST_ROOT" build daemon
+    $PYTHON bench/terminal-input/terminal-input-bench.py ${BENCH_RUN:+--run "$BENCH_RUN"} "$@"
 
-# Render saved CSV results; BENCH_BASELINE and BENCH_MODE=relative compare runs
-[group('Benchmarks')]
-bench-report:
-    {{ PYTHON }} -m bench.report report --run "{{ BENCH_RUN }}" {{ if BENCH_BASELINE != '' { '--baseline "' + BENCH_BASELINE + '"' } else { '' } }} {{ if BENCH_MODE != '' { '--mode "' + BENCH_MODE + '"' } else { '' } }} {{ if BENCH_REPORT_OUTPUT != '' { '--output "' + BENCH_REPORT_OUTPUT + '"' } else { '' } }}
-
-# Write the latest benchmark report from BENCH_RUN
-[group('Benchmarks')]
-bench-latest:
-    {{ PYTHON }} -m bench.report report --run "{{ BENCH_RUN }}" --latest {{ if BENCH_FALLBACK_RUN != '' { '--fallback-run "' + BENCH_FALLBACK_RUN + '"' } else { '' } }}
-
-# Run focused desktop terminal input into shared CSV results
-[group('Benchmarks')]
-bench-terminal: daemon
-    {{ PYTHON }} bench/terminal-input/terminal-input-bench.py {{ if BENCH_RUN != '' { '--run "' + BENCH_RUN + '"' } else { '' } }} {{ if BENCH_PHASE != '' { '--phase "' + BENCH_PHASE + '"' } else { '' } }} {{ if BENCH_FILL_HISTORY =~ '^(1|true)$' { '--fill-history' } else { '' } }} {{ if BENCH_MULTIPLIER != '' { '--multiplier "' + BENCH_MULTIPLIER + '"' } else { '' } }} {{ if BENCH_PREPARE_SECONDS != '' { '--prepare-seconds "' + BENCH_PREPARE_SECONDS + '"' } else { '' } }} {{ if BENCH_BACKEND != '' { '--backend "' + BENCH_BACKEND + '"' } else { '' } }} {{ if BENCH_TRACE_LOG != '' { '--log "' + BENCH_TRACE_LOG + '"' } else { '' } }}
-
-# Fill an empty host tab, then measure typing repaint reasons
-[group('Benchmarks')]
-bench-terminal-typing:
-    "{{ just_executable() }}" BENCH_PHASE=typing BENCH_FILL_HISTORY=1 bench-terminal
+# Test benchmark runners, reports and terminal-input helpers
+test:
+    $PYTHON -m pytest bench/test_runner.py bench/test_bench_report.py
+    $PYTHON -m unittest discover -s bench/terminal-input -p 'test_*.py'

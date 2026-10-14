@@ -21,7 +21,7 @@ def measurement_status(metadata, result):
 
 
 def performance(text):
-    # Keep contexts separate and honor trace-summary's transition-window exclusion.
+    # Keep contexts separate and honor trace summary's transition-window exclusion.
     rows = []
     for chunk in re.split(r'(?=eco=)', text)[1:]:
         context = chunk.splitlines()[0]
@@ -37,7 +37,7 @@ def performance(text):
 
 
 def paint_reasons(text):
-    """Read debug paint counts from each context in a trace-summary output."""
+    """Read debug paint counts from each context in a trace summary output."""
     names = ('broad-repaints', 'skipped-revisions', 'broad-rows', 'missing-damage')
     for chunk in re.split(r'(?=eco=)', text)[1:]:
         context = chunk.splitlines()[0].split(' windows=', 1)[0]

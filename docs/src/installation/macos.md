@@ -17,7 +17,7 @@ Clone the repository and install `just`:
 git clone https://github.com/droserasprout/slopworld.git
 cd slopworld
 brew install just
-just --justfile mac/justfile setup
+just mac setup
 open -a Docker
 ```
 
@@ -29,7 +29,7 @@ Desktop before continuing.
 Build the base runtime explicitly:
 
 ```sh
-just --justfile mac/justfile build
+just sidecar image
 ```
 
 Extend it with your Linux agent CLIs as described in [Sidecar mode](sidecar.md),
@@ -39,7 +39,7 @@ use that image without rebuilding it.
 ## Install and launch
 
 ```sh
-just --justfile mac/justfile all
+just mac dev
 ```
 
 This checks the selected sidecar image, installs the mod, starts the configured
@@ -49,7 +49,7 @@ The default `MAC_RIMWORLD` is `~/Documents/RimWorld.app`. Override it for a game
 installed elsewhere:
 
 ```sh
-MAC_RIMWORLD=/path/to/RimWorld.app just --justfile mac/justfile all
+MAC_RIMWORLD=/path/to/RimWorld.app just mac dev
 ```
 
 For a built mod, you can also run the installer from the checkout:
@@ -66,8 +66,8 @@ and accepts `--game` for another app bundle.
 The game uses a separate SlopWorld profile. See [Game profiles](../maintenance/game-profiles.md)
 for profile behavior and [Paths and files](../reference/paths.md) for locations.
 
-To update, pull the latest source and run `just --justfile mac/justfile all` again.
+To update, pull the latest source and run `just mac dev` again.
 This reinstalls the mod and launches the game. To update the sidecar, explicitly
-rebuild the base with `SLOPCAR_IMAGE=slopcar:local just --justfile mac/justfile build`,
+rebuild the base with `SLOPCAR_IMAGE=slopcar:local just sidecar image`,
 then rebuild your custom image. Image builds preserve configured data and endpoint directories. Replacing the
 container ends running agents and tmux sessions; see [Sidecar lifecycle](sidecar.md#lifecycle).

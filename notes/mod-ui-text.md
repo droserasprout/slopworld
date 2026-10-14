@@ -15,7 +15,7 @@ to [shared chrome](mod-ui-chrome.md).
 `tools/assets/emoji_atlas.py` writes atlas artwork and `TextSpriteData.cs` together.
 Sequence input is pinned to `assets/unicode/emoji-test.txt` (Unicode 17); regenerate
 keys and artwork together without changing slot order. Normal builds use committed
-assets. `just test-text-sprites` checks generated metadata and loading-tip literals.
+assets. `just test tools tools/assets/test_text_sprites.py` checks generated metadata and loading-tip literals.
 
 `assets/fonts/noto-emoji/` owns the bundled font and installed-source checksum;
 `licenses/noto-emoji/` owns its license. `tools/assets/emoji_font.py` selects it through a process-local Fontconfig

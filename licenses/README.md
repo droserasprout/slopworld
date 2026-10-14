@@ -1,7 +1,7 @@
 # Third-party notices
 
 This directory is the canonical source for bundled third-party license texts and
-attribution. `just refresh-licenses` copies it into `mod/About/ThirdPartyNotices/`
+attribution. `just generate licenses` copies it into `mod/About/ThirdPartyNotices/`
 and copies the root project `LICENSE` into `mod/About/LICENSE`. Release archives,
 Arch packages, and the sidecar image also carry readable copies. These notices
 cover the bundled assets and mod runtime libraries; they are not a complete
@@ -12,7 +12,7 @@ metadata; it does not include their full license texts or notices.
 | Component | License | Full text | Attribution and use |
 | --- | --- | --- | --- |
 | RimWorld Tame designator | RimWorld EULA | [License](rimworld/EULA.txt) | Ludeon Studios Inc.; `UI/Designators/Tame` from RimWorld 1.6, mirrored, scaled, and rotated for the documentation cursors. |
-| Slopcar Rust dependencies | MIT | [Full dependency notices](slopcar/THIRD-PARTY-NOTICES.txt) | Host-side container launcher; generated from its locked Cargo graph by `just refresh-sidecar-licenses`. |
+| Slopcar Rust dependencies | MIT | [Full dependency notices](slopcar/THIRD-PARTY-NOTICES.txt) | Host-side container launcher; generated from its locked Cargo graph by `just generate sidecar-licenses`. |
 | [Classic Console Neue](https://webdraft.hu/fonts/classic-console/) | MIT | [License](classic-console-neue/LICENSE.txt) | DeeJayy, 2011–2025; printable ASCII glyphs rendered into the loading-screen atlas. |
 | [Noto Emoji](https://github.com/googlefonts/noto-emoji) | SIL OFL 1.1 | [License](noto-emoji/LICENSE.txt) | Google; glyphs rendered into emoji atlases and application icons. |
 | [Material Icon Theme](https://github.com/material-extensions/vscode-material-icon-theme) | MIT | [License](material-icon-theme/LICENSE.txt) | Material Extensions; selected SVGs rendered into file icons. |

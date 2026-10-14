@@ -41,7 +41,7 @@ def test_local_build_precedes_packaging(
             package.assert_not_called()
         else:
             native.main()
-            assert commands[-1] == ['just', 'BUILD=release', 'VERSION=1.0.0', 'all']
+            assert commands[-1] == ['just', 'BUILD=release', 'VERSION=1.0.0', 'build']
             package.assert_called_once_with(
                 tmp_path, 'revision', '1.0.0', 'amd64' if distribution == 'debian' else 'x86_64'
             )

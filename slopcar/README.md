@@ -9,9 +9,9 @@ retaining files replaced by package upgrades. It keeps APT and the package datab
 for custom images; OpenSSH uses standalone sysusers/tmpfiles helpers instead of
 full systemd.
 The independent `slopcar/Cargo.toml` crate builds on Linux and macOS without
-the daemon's Linux/audio/protobuf dependencies. `just sidecar` builds it;
-`just install-sidecar` installs it. `just test-sidecar` runs game-free tests.
-`just refresh-sidecar-licenses` updates its dependency notices after lock changes;
+the daemon's Linux/audio/protobuf dependencies. `just sidecar build` builds it;
+`just sidecar install` installs it. `just sidecar test` runs game-free tests.
+`just generate sidecar-licenses` updates its dependency notices after lock changes;
 `slopcar licenses` prints the notices embedded in the executable.
 
 `src/lifecycle.rs` owns Docker lifecycle and security flags; `src/docker.rs`

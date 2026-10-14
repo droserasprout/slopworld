@@ -106,7 +106,7 @@ def test_committed_version_mismatch_is_rejected(
         gates.prepare()
 
 
-@pytest.mark.parametrize('failed_stage', [None, 'refresh', 'lint', 'test', 'all'])
+@pytest.mark.parametrize('failed_stage', [None, 'generate', 'lint', 'test', 'sidecar::lint', 'bench', 'check', 'build'])
 def test_build_stops_at_failed_stage(monkeypatch: pytest.MonkeyPatch, failed_stage: str | None) -> None:
     monkeypatch.setenv('JUST_CMD', '/path with spaces/just')
     release = gates.Release('commit', 'v0.0.1', '0.0.1')
@@ -123,14 +123,14 @@ def test_build_stops_at_failed_stage(monkeypatch: pytest.MonkeyPatch, failed_sta
                 gates.build(release)
         else:
             gates.build(release)
-        stages = ['refresh', 'lint', 'test', 'all']
+        stages = ['generate', 'lint', 'test', 'sidecar::lint', 'bench', 'check', 'build']
         count = stages.index(failed_stage) + 1 if failed_stage else len(stages)
         assert [call[3] for call in calls] == stages[:count]
         assert all(call[:3] == ['/path with spaces/just', 'BUILD=release', 'VERSION=0.0.1'] for call in calls)
         assert validate.call_count == count + (0 if failed_stage else 1)
 
 
-@pytest.mark.parametrize('stage', [0, 1, 2, 3])
+@pytest.mark.parametrize('stage', [0, 1, 2, 3, 4, 5, 6])
 def test_sources_changed_by_stage_stop_release(monkeypatch: pytest.MonkeyPatch, stage: int) -> None:
     monkeypatch.setenv('JUST_CMD', 'just')
     with (

@@ -75,31 +75,48 @@ def run_ipc() -> None:
     run([*mono, '--verify', str(fixtures)], cwd=ROOT)
 
 
-def build() -> None:
-    run(
-        [
-            *command('CARGO', 'cargo'),
-            'build',
-            '--quiet',
-            '--bin',
-            'slopd',
-            *shlex.split(os.environ.get('CARGOFLAGS', '')),
-        ],
-        cwd=ROOT / 'slopd',
-    )
-    run(
-        [
-            *command('DOTNET', 'dotnet'),
-            'build',
-            os.environ['TEST_PROJECT'],
-            '--configuration',
-            configuration(),
-            '--verbosity',
-            'quiet',
-        ],
-        cwd=ROOT,
-    )
-    build_ipc()
+def build(suite: str = 'gamefree') -> None:
+    if suite in ('gamefree', 'daemon'):
+        run(
+            [
+                *command('CARGO', 'cargo'),
+                'build',
+                '--quiet',
+                '--bin',
+                'slopd',
+                *shlex.split(os.environ.get('CARGOFLAGS', '')),
+            ],
+            cwd=ROOT / 'slopd',
+        )
+    if suite in ('gamefree', 'mod'):
+        run(
+            [
+                *command('DOTNET', 'dotnet'),
+                'build',
+                'mod/Dependencies/Runtime.csproj',
+                '--configuration',
+                'Release',
+                '--verbosity',
+                'quiet',
+                '-p:RestoreLockedMode=true',
+            ],
+            cwd=ROOT,
+        )
+        run(
+            [
+                *command('DOTNET', 'dotnet'),
+                'build',
+                os.environ['TEST_PROJECT'],
+                '--configuration',
+                configuration(),
+                '--verbosity',
+                'quiet',
+                '-p:RestoreLockedMode=true',
+            ],
+            cwd=ROOT,
+        )
+    if suite in ('gamefree', 'ipc'):
+        build_ipc()
 
 
 def run_suite(suite: str) -> None:
@@ -125,7 +142,7 @@ def main() -> None:
     parser.add_argument('suite', choices=('gamefree', 'daemon', 'mod', 'ipc'), nargs='?', default='gamefree')
     args = parser.parse_args()
     if args.action == 'build':
-        build_ipc() if args.suite == 'ipc' else build()
+        build(args.suite)
     else:
         run_suite(args.suite)
 

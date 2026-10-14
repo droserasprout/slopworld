@@ -205,7 +205,11 @@ def main() -> int:
             repeats = args.repeats or (RUNS if args.suite == "gamefree" else 1)
             if repeats < 1:
                 raise ValueError("repeats must be positive")
-            run([os.environ.get("JUST_CMD", "just"), f"BUILD={args.build}", "bench-build"], cwd=ROOT, check=True)
+            build_env = {**os.environ, "BUILD": args.build}
+            if os.environ.get("BUILD") != args.build:
+                build_env["CARGOFLAGS"] = "--release" if args.build == "release" else ""
+            run([sys.executable, "-m", "bench.runner", "build", args.suite],
+                cwd=ROOT, env=build_env, check=True)
             directory.mkdir(parents=True, exist_ok=True)
             data.add_metadata(directory, "gamefree", "", {"revision": commit_hash(), "build": args.build,
                 "started": dt.datetime.now(dt.timezone.utc).isoformat(), "suite": args.suite,

@@ -86,8 +86,8 @@ def main() -> None:
                 log(f'Checkout unavailable: {current}', file=terminal_output)
                 continue
             log(f'\nBuilding {current} ({commit.stdout.strip()})', file=terminal_output)
-            # One invocation shares install/run dependencies; a failure returns to selection.
-            run([just, 'install', 'run'], cwd=current, check=False)
+            # Installation must finish before launch; a failure returns to selection.
+            run([just, 'install', 'all', 'run'], cwd=current, check=False)
 
 
 def exit_on_signal(_signal: int, _frame: FrameType | None) -> None:

@@ -49,7 +49,8 @@ def main() -> None:
         differences = publish(destination, check=args.check)
     if differences:
         parser.exit(
-            1, 'stale generated protocol files; run just refresh-protocol:\n' + '\n'.join(map(str, differences)) + '\n'
+            1,
+            'stale generated protocol files; run just generate protocol:\n' + '\n'.join(map(str, differences)) + '\n',
         )
 
 

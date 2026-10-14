@@ -1,59 +1,50 @@
-# Linux sidecar
+set shell := ["bash", "-euc"]
+set quiet
+set default-list
+set working-directory := '..'
 
-# Build the native host-side container launcher
-[group('Linux sidecar')]
-sidecar:
-    cd slopcar && {{ CARGO }} build --locked {{ CARGOFLAGS }}
+# Build the native host-side launcher
+build:
+    cd slopcar && $CARGO build --locked $CARGOFLAGS
 
-# Install the native sidecar launcher
-[group('Installation')]
-install-sidecar: sidecar
-    mkdir -p "{{ BIN }}"
-    install -m755 "{{ SLOPCAR }}" "{{ BIN }}/slopcar"
+# Build the Linux sidecar runtime image
+image: build
+    "$SLOPCAR" build --source "$PWD"
 
-# Run game-free sidecar launcher tests
-[group('Tests and coverage')]
-test-sidecar:
-    cd slopcar && {{ CARGO }} test --locked {{ TEST_ARGS }}
-    {{ PYTHON }} -m pytest slopcar/test_entrypoint.py
+# Install the native launcher
+install: build
+    mkdir -p "$BIN"
+    install -m755 "$SLOPCAR" "$BIN/slopcar"
 
-# Update the sidecar's Rust dependency lockfile within manifest constraints
-[group('Generated files')]
-lock-sidecar:
-    cd slopcar && {{ CARGO }} update
+# Format launcher sources
+format:
+    cd slopcar && $CARGO fmt
 
-# Format the sidecar launcher
-[group('Formatting')]
-format-sidecar:
-    cd slopcar && {{ CARGO }} fmt
+# Check formatting and Clippy
+lint:
+    cd slopcar && $CARGO fmt --check
+    cd slopcar && $CARGO clippy --locked --all-targets -- -D warnings
 
-# Check sidecar formatting and Clippy
-[group('Lint')]
-lint-sidecar:
-    cd slopcar && {{ CARGO }} fmt --check
-    cd slopcar && {{ CARGO }} clippy --locked --all-targets -- -D warnings
+# Run launcher and sidecar script tests
+[positional-arguments]
+test *args:
+    cd slopcar && $CARGO test --locked $TEST_ARGS "$@"
+    $PYTHON -m pytest slopcar
 
-# Run a separate profile against the running sidecar daemon (start the sidecar first)
-[group('Linux sidecar')]
-sidecar-run: daemon
-    {{ RUNNER }} --sidecar --game "{{ RIMWORLD }}" {{ if PROFILE != '' { '--profile "' + PROFILE + '"' } else { '' } }}
+# Remove component build output
+clean:
+    cd slopcar && $CARGO clean
 
-# Build the Linux sidecar image
-[group('Linux sidecar')]
-sidecar-build: sidecar
-    "{{ SLOPCAR }}" build --source "{{ justfile_directory() }}"
+# Check nested Bubblewrap, pasta and tmux
+doctor: build
+    "$SLOPCAR" doctor
 
-# Check nested Bubblewrap, pasta, and tmux in the sidecar
-[group('Linux sidecar')]
-sidecar-doctor: sidecar
-    "{{ SLOPCAR }}" doctor
+# Launch against an already running sidecar
+run:
+    "$JUST_CMD" --justfile "$JUST_ROOT" build daemon
+    "$RUNNER" --sidecar --game "$RIMWORLD" ${PROFILE:+--profile "$PROFILE"}
 
-# Rebuild and redeploy the sidecar before each game launch
-[group('Linux sidecar')]
-sidecar-devloop: sidecar
-    JUST_CMD="{{ just_executable() }}" {{ PYTHON }} -m slopcar.devloop {{ SLOPCAR_START_ARGS }}
-
-# Refresh the sidecar executable's full dependency notices
-[group('Generated files')]
-refresh-sidecar-licenses:
-    {{ PYTHON }} -m tools.licenses.sidecar_licenses
+# Rebuild and redeploy before each game launch
+[positional-arguments]
+devloop *args: build
+    $PYTHON -m slopcar.devloop --workspace "$SLOPCAR_WORKSPACE" "$@"

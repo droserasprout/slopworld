@@ -48,15 +48,18 @@ def validate(release: Release) -> None:
 
 
 def build(release: Release) -> None:
-    # Refresh and Python lint can modify sources. Check after each stage so no
-    # generated or formatted changes silently enter a tagged release.
+    # Generation can modify sources. Recheck identity and cleanliness after every
+    # stage so changed inputs cannot enter a tagged release.
     command = [os.environ['JUST_CMD'], 'BUILD=release', f'VERSION={release.version}']
     validate(release)
     for recipes in (
-        ('refresh',),
-        ('lint',),
-        ('test', 'check-generated', 'check-licenses', 'test-text-sprites', 'docs'),
-        ('all',),
+        ('generate', 'all'),
+        ('lint', 'all', 'check', 'mod-build'),
+        ('test', 'all'),
+        ('sidecar::lint', 'sidecar::test'),
+        ('bench', 'test'),
+        ('check', 'protocol', 'check', 'licenses', 'docs', 'build'),
+        ('build',),
     ):
         run([*command, *recipes])
         validate(release)

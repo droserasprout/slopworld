@@ -234,7 +234,8 @@ class BenchReportTests(unittest.TestCase):
                     patch.object(report, "run_bench", side_effect=lambda b, n, p, s: events.append(n) or run(n, n + 1)):
                 self.assertEqual(0, report.main())
             self.assertEqual(["build", 1, 2, 3], events)
-            self.assertEqual(["BUILD=release", "bench-build"], build.call_args.args[0][-2:])
+            self.assertEqual(["bench.runner", "build", "gamefree"], build.call_args.args[0][-3:])
+            self.assertEqual("release", build.call_args.kwargs["env"]["BUILD"])
             self.assertIn("2.000 ± 1.000", output.read_text())
             self.assertIn("terminal / typing / paste", output.read_text())
             self.assertTrue((Path(directory) / "results" / "trial" / "metrics.csv").exists())

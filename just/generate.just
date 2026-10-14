@@ -1,91 +1,51 @@
-# Generated files
+set shell := ["bash", "-euc"]
+set quiet
+set default-list
+set working-directory := '..'
 
-# Refresh generated files after source changes, then stage distribution notices
-[group('Generated files')]
-refresh: refresh-protocol refresh-api-docs refresh-loading-font refresh-icons refresh-appicon refresh-favicon refresh-daemon-licenses refresh-sidecar-licenses refresh-licenses
+# Regenerate all outputs from reviewed inputs; stage notices last
+all: protocol api-docs loading-font icons appicon favicon daemon-licenses sidecar-licenses licenses
 
-# Update dependency locks, then regenerate distribution notices
-[group('Generated files')]
-refresh-dependencies: refresh-locks
+# Generate protocol
+protocol:
+    ${PYTHON} -m tools.protocol.api_contract
 
-# Upgrade dependency graphs within manifest constraints, then regenerate notices
-[group('Generated files')]
-refresh-locks: lock-tools lock-daemon lock-sidecar lock-bench lock-mod refresh-daemon-licenses refresh-sidecar-licenses refresh-licenses
+# Generate api docs
+api-docs:
+    ${PYTHON} -m tools.docs.api_docs
 
-# Update the daemon's Rust dependency lockfile within manifest constraints
-[group('Generated files')]
-lock-daemon:
-    cd slopd && {{ CARGO }} update
+# Generate loading font
+loading-font:
+    ${UV} run --locked --extra assets python -m tools.assets.loading_font_atlas --font "${FONT_SOURCE}"
 
-# Update the IPC benchmark's Rust dependency lockfile within manifest constraints
-[group('Generated files')]
-lock-bench:
-    cd bench/ipc/rust && {{ CARGO }} update
+# Generate icons
+icons:
+    ${UV} run --locked --extra assets python -m tools.assets.icons
 
-# Re-resolve every NuGet lockfile without compiling or copying runtime assemblies
-[group('Generated files')]
-lock-mod:
-    {{ DOTNET }} restore mod/Dependencies/Runtime.csproj --force-evaluate -p:RestoreLockedMode=false
-    {{ DOTNET }} restore mod/Source/SlopWorld/SlopWorld.csproj --force-evaluate -p:RestoreLockedMode=false
-    {{ DOTNET }} restore mod/Tests/SlopWorld.Tests.csproj --force-evaluate -p:RestoreLockedMode=false
-    {{ DOTNET }} restore bench/ipc/csharp/IpcBench.csproj --force-evaluate -p:RestoreLockedMode=false
+# Generate appicon
+appicon:
+    ${UV} run --locked --extra assets python -m tools.assets.appicon
 
-# Convert book PNGs to low-quality JPEG copies, preserving originals
-[group('Generated files')]
-refresh-docs-images quality='15':
-    {{ PYTHON }} -m tools.docs.compress_images --quality "{{ quality }}"
+# Generate favicon
+favicon:
+    ${UV} run --locked --extra assets python -m tools.assets.favicon
 
-# Generate the locked Rust dependency license table
-[group('Generated files')]
-refresh-daemon-licenses:
-    {{ PYTHON }} -m tools.licenses.rust_licenses
+# Generate daemon licenses
+daemon-licenses:
+    ${PYTHON} -m tools.licenses.rust_licenses
 
-# Generate stable shared protocol bindings
-[group('Generated files')]
-refresh-protocol:
-    {{ PYTHON }} -m tools.protocol.api_contract
+# Generate sidecar licenses
+sidecar-licenses:
+    ${PYTHON} -m tools.licenses.sidecar_licenses
 
-# Generate the mdBook API route inventory
-[group('Generated files')]
-refresh-api-docs:
-    {{ PYTHON }} -m tools.docs.api_docs
+# Generate licenses
+licenses:
+    ${PYTHON} -m tools.licenses.stage_licenses
 
-# Bake the loading screen font atlas from the bundled source font
-[group('Generated files')]
-refresh-loading-font:
-    {{ UV }} run --locked --extra assets python -m tools.assets.loading_font_atlas --font "{{ FONT_SOURCE }}"
+# Check generated protocol outputs without changing the checkout
+check-protocol:
+    ${PYTHON} -m tools.protocol.api_contract --check
 
-# Check protocol outputs without changing the checkout
-[group('Generated files')]
-check-generated:
-    {{ PYTHON }} -m tools.protocol.api_contract --check
-
-# Bake the shared UI icons from the bundled Nerd Font
-[group('Generated files')]
-refresh-icons:
-    {{ UV }} run --locked --extra assets python -m tools.assets.icons
-
-# Bake the desktop application icon from the robot face and bundled rose emoji
-[group('Generated files')]
-refresh-appicon:
-    {{ UV }} run --locked --extra assets python -m tools.assets.appicon
-
-# Fit the shared robot and rose artwork to the documentation favicon
-[group('Generated files')]
-refresh-favicon:
-    {{ UV }} run --locked --extra assets python -m tools.assets.favicon
-
-# Resolve and update the Python dependency lockfile
-[group('Generated files')]
-lock-tools:
-    {{ UV }} lock --upgrade
-
-# Synchronize the Python tooling environment from the lockfile
-[group('Build')]
-sync-tools:
-    {{ UV }} sync --locked
-
-# Stage canonical license texts and attribution into the mod
-[group('Generated files')]
-refresh-licenses:
-    {{ PYTHON }} -m tools.licenses.stage_licenses
+# Check staged notices against canonical licenses
+check-licenses:
+    ${PYTHON} -m tools.licenses.stage_licenses --check
