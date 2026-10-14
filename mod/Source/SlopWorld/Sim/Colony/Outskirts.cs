@@ -81,20 +81,7 @@ namespace SlopWorld
             )
                 return;
 
-            try
-            {
-                var req = new PawnGenerationRequest(
-                    kind,
-                    null,
-                    PawnGenerationContext.NonPlayer,
-                    forceGenerateNewPawn: true
-                );
-                GenSpawn.Spawn(PawnGenerator.GeneratePawn(req), cell, map);
-            }
-            catch (System.Exception e)
-            {
-                Log.Warning($"[SlopWorld] outskirts: {e.Message}");
-            }
+            NeutralPawn.Spawn(map, kind, cell, "outskirts");
         }
 
         PawnKindDef Kind()

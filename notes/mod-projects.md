@@ -10,3 +10,8 @@ while disabling temporary mode invalidates pending replies. Project summary text
 is shared by sidebar/Library rows and project pickers, not the project editor.
 Daemon lifecycle belongs to [projects](daemon-projects.md), and user controls to
 [Configuring agents](../docs/src/agents/configuring-agents.md).
+
+`UI/Agents/CatalogActions` owns shared host-shell launch and terminal opening.
+Menu owners retain labels, ordering, project filtering, and availability guards;
+worktree controls can retain local failure presentation. `SessionStore` resolves
+project scope keys and worktree identity before launching.

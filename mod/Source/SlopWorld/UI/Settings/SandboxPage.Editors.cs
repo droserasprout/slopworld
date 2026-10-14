@@ -184,33 +184,53 @@ namespace SlopWorld
             }
         }
 
-        void DrawPresetEditor(Rect r)
+        void DrawPresetEditor(Rect r) =>
+            DrawEditor(
+                r,
+                _preset,
+                "Select a preset to inspect or edit it.",
+                _preset?.Source,
+                (view, p, editable, draw) => DrawPresetFields(view, 0f, p, editable, draw),
+                (p, ok, fail) => SessionHub.Instance.Catalog.SavePreset(p, ok, fail),
+                p => Remove("sandbox_presets", p.Name)
+            );
+
+        // Owns the editor lifecycle; fields and catalog routes remain specific to each library.
+        void DrawEditor<T>(
+            Rect r,
+            T selected,
+            string emptyText,
+            string source,
+            Func<Rect, T, bool, bool, float> fields,
+            Action<T, Action, Action<string>> save,
+            Action<T> remove
+        )
+            where T : class
         {
-            if (_preset == null)
+            if (selected == null)
             {
-                EmptyEditor(r, "Select a preset to inspect or edit it.");
+                EmptyEditor(r, emptyText);
                 return;
             }
-            var p = _preset;
-            BindAreas(p);
-            bool editable = _newEntry || p.Source != "system";
+            BindAreas(selected);
+            bool editable = _newEntry || source != "system";
             var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiTheme.ScrollbarW), 0f);
             // The same form measures and draws. Measurement must not invoke controls or setters.
             view.height = Mathf.Max(
-                DrawPresetFields(view, 0f, p, editable, false) + UiTheme.BtnH + UiTheme.GapM,
+                fields(view, selected, editable, false) + UiTheme.BtnH + UiTheme.GapM,
                 r.height
             );
             using (_editorScroll.Scope(r, view))
             {
-                float y = DrawPresetFields(view, 0f, p, editable, true);
+                float y = fields(view, selected, editable, true);
                 EditorButtons(
                     view,
                     y,
                     editable,
-                    p.Source,
+                    source,
                     () =>
-                        SessionHub.Instance.Catalog.SavePreset(
-                            p,
+                        save(
+                            selected,
                             () =>
                             {
                                 _newEntry = false;
@@ -218,7 +238,7 @@ namespace SlopWorld
                             },
                             msg => _error = msg
                         ),
-                    () => Remove("sandbox_presets", p.Name)
+                    () => remove(selected)
                 );
             }
         }
@@ -379,43 +399,16 @@ namespace SlopWorld
             return _setenvText ?? "";
         }
 
-        void DrawCommandEditor(Rect r)
-        {
-            if (_command == null)
-            {
-                EmptyEditor(r, "Select a command to inspect or edit it.");
-                return;
-            }
-            var c = _command;
-            BindAreas(c);
-            bool editable = _newEntry || c.Source != "system";
-            var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiTheme.ScrollbarW), 0f);
-            view.height = Mathf.Max(
-                DrawCommandFields(view, c, editable, false) + UiTheme.BtnH + UiTheme.GapM,
-                r.height
+        void DrawCommandEditor(Rect r) =>
+            DrawEditor(
+                r,
+                _command,
+                "Select a command to inspect or edit it.",
+                _command?.Source,
+                DrawCommandFields,
+                (c, ok, fail) => SessionHub.Instance.Catalog.SaveCommand(c, ok, fail),
+                c => Remove("app_presets", c.Name)
             );
-            using (_editorScroll.Scope(r, view))
-            {
-                float y = DrawCommandFields(view, c, editable, true);
-                EditorButtons(
-                    view,
-                    y,
-                    editable,
-                    c.Source,
-                    () =>
-                        SessionHub.Instance.Catalog.SaveCommand(
-                            c,
-                            () =>
-                            {
-                                _newEntry = false;
-                                _error = null;
-                            },
-                            msg => _error = msg
-                        ),
-                    () => Remove("app_presets", c.Name)
-                );
-            }
-        }
 
         float DrawCommandFields(Rect view, CommandInfo c, bool editable, bool draw)
         {

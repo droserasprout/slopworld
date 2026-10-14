@@ -174,32 +174,13 @@ namespace SlopWorld
         }
 
         static List<SubOption> NewLibraryItemSub() =>
-            new List<SubOption>
-            {
-                new SubOption
+            LibraryItemCreation
+                .Options.Select(option => new SubOption
                 {
-                    Label = "Prompt",
-                    Select = () => NewLibraryItem(LibraryItemKind.Prompt),
-                },
-                new SubOption
-                {
-                    Label = "Breadcrumb",
-                    Select = () => NewLibraryItem(LibraryItemKind.Breadcrumb),
-                },
-                new SubOption
-                {
-                    Label = "Shell",
-                    Select = () => NewLibraryItem(LibraryItemKind.Shell),
-                },
-                new SubOption
-                {
-                    Label = "File Action",
-                    Select = () => NewLibraryItem(LibraryItemKind.FileAction),
-                },
-            };
-
-        static void NewLibraryItem(LibraryItemKind kind) =>
-            TerminalWindow.OpenOverPane(EditLibraryItemDialog.New(kind));
+                    Label = option.PaletteLabel,
+                    Select = option.Open,
+                })
+                .ToList();
 
         static List<SubOption> HostShellSub()
         {
@@ -209,12 +190,7 @@ namespace SlopWorld
                 {
                     Label = "~",
                     Value = "",
-                    Select = () =>
-                        SessionHub.Instance.SessionStore.RunHostShell(
-                            "",
-                            session => TerminalWindow.Open(session),
-                            UiLayout.Fail
-                        ),
+                    Select = () => CatalogActions.HostShell(""),
                 },
             };
 
@@ -226,12 +202,7 @@ namespace SlopWorld
                     {
                         Label = $"{name}  -  {p.Dir}",
                         Value = name,
-                        Select = () =>
-                            SessionHub.Instance.SessionStore.RunHostShell(
-                                name,
-                                session => TerminalWindow.Open(session),
-                                UiLayout.Fail
-                            ),
+                        Select = () => CatalogActions.HostShell(name),
                     }
                 );
             }

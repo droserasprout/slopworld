@@ -15,6 +15,10 @@ filter is independent of the global sidebar filter and applies to Projects/Workt
 Preset categories show user definitions/overrides; system entries remain in Settings.
 Project creation belongs to the shared `+` menu.
 
+`LibraryItemCreation` owns ordinary item creation order, menu labels, and opening
+the kind-specific editor through `EditLibraryItemDialog.New` over the active pane.
+The sidebar retains its separate agent-template entry.
+
 `WorktreeInventory` owns Library worktree requests, retained snapshots, and errors;
 row construction only consumes those snapshots. Refresh and project-filter changes
 invalidate delayed replies, while failed loads retain the last successful rows.

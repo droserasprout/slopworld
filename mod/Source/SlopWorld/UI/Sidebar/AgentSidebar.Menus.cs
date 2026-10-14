@@ -396,50 +396,29 @@ namespace SlopWorld
             return options;
         }
 
-        static List<FloatMenuOption> LibraryItemOptions() =>
-            new List<FloatMenuOption>
+        static List<FloatMenuOption> LibraryItemOptions()
+        {
+            var options = new List<FloatMenuOption>
             {
                 new FloatMenuOption(
                     "Agent template",
                     () => TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate())
                 ),
-                new FloatMenuOption(
-                    "Prompt",
-                    () => TerminalWindow.OpenOverPane(new EditPromptDialog(null))
-                ),
-                BreadcrumbAddOption(),
-                new FloatMenuOption(
-                    "Shell script",
-                    () => TerminalWindow.OpenOverPane(new EditShellDialog(null))
-                ),
-                new FloatMenuOption(
-                    "File action",
-                    () => TerminalWindow.OpenOverPane(new EditFileActionDialog(null))
-                ),
             };
-
-        static FloatMenuOption BreadcrumbAddOption()
-        {
-            var option = new FloatMenuOption(
-                "Breadcrumb",
-                () => TerminalWindow.OpenOverPane(new EditBreadcrumbDialog(null))
+            options.AddRange(
+                LibraryItemCreation.Options.Select(option => new FloatMenuOption(
+                    option.SidebarLabel,
+                    option.Open
+                ))
             );
-            return option;
+            return options;
         }
 
         static List<FloatMenuOption> HostShellOptions()
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption(
-                    "~",
-                    () =>
-                        SessionHub.Instance.SessionStore.RunHostShell(
-                            "",
-                            session => TerminalWindow.Open(session),
-                            UiLayout.Fail
-                        )
-                ),
+                new FloatMenuOption("~", () => CatalogActions.HostShell("")),
             };
             foreach (var p in SessionHub.Instance.Projects)
             {
@@ -447,15 +426,7 @@ namespace SlopWorld
                     continue;
                 string name = p.Name;
                 options.Add(
-                    new FloatMenuOption(
-                        $"{name}  -  {p.Dir}",
-                        () =>
-                            SessionHub.Instance.SessionStore.RunHostShell(
-                                name,
-                                session => TerminalWindow.Open(session),
-                                UiLayout.Fail
-                            )
-                    )
+                    new FloatMenuOption($"{name}  -  {p.Dir}", () => CatalogActions.HostShell(name))
                 );
             }
             return options;

@@ -201,17 +201,11 @@ namespace SlopWorld
                 if (!TryRandomStandable(map, out var cell))
                     return;
 
-                var req = new PawnGenerationRequest(
-                    kind,
-                    null,
-                    PawnGenerationContext.NonPlayer,
-                    forceGenerateNewPawn: true
-                );
-                GenSpawn.Spawn(PawnGenerator.GeneratePawn(req), cell, map);
+                NeutralPawn.Spawn(map, kind, cell, "scene pawn");
             }
             catch (System.Exception e)
             {
-                Log.Warning($"[SlopWorld] scene pawn: {e.Message}");
+                NeutralPawn.ReportFailure("scene pawn", e);
             }
         }
 

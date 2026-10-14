@@ -184,13 +184,7 @@ namespace SlopWorld
             {
                 new FloatMenuOption(
                     "Terminal",
-                    () =>
-                        SessionHub.Instance.SessionStore.RunHostShell(
-                            entry.Project,
-                            name => TerminalWindow.Open(name),
-                            UiLayout.Fail,
-                            tree.Id
-                        )
+                    () => CatalogActions.HostShell(entry.Project, worktree: tree.Id)
                 ),
                 new FloatMenuOption("Project", () => OpenProjectWorktrees(entry.Project)),
             };

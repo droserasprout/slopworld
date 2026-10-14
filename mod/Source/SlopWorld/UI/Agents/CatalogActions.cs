@@ -1,6 +1,8 @@
+using System;
+
 namespace SlopWorld
 {
-    // Callers retain visibility rules and window placement. Shared actions own their failure UI.
+    // Callers retain visibility rules and window placement. Shared actions supply default failure UI.
     static class CatalogActions
     {
         static void StartFailed(string name, string message) =>
@@ -45,11 +47,20 @@ namespace SlopWorld
         public static void DuplicateProject(ProjectInfo project) =>
             TerminalWindow.OpenOverPane(EditProjectDialog.Copy(project));
 
-        public static void ProjectTerminal(ProjectInfo project) =>
+        public static void ProjectTerminal(ProjectInfo project) => HostShell(project.Name);
+
+        // Pass scope keys through unchanged: SessionStore resolves project/worktree identity.
+        // Worktree controls can supply an explicit ID and keep their local failure presentation.
+        public static void HostShell(
+            string project,
+            string worktree = "",
+            Action<string> fail = null
+        ) =>
             SessionHub.Instance.SessionStore.RunHostShell(
-                project.Name,
+                project,
                 session => TerminalWindow.Open(session),
-                UiLayout.Fail
+                fail ?? UiLayout.Fail,
+                worktree
             );
 
         public static Verse.Window ResetState(string name) =>

@@ -8,9 +8,8 @@ namespace SlopWorld
     public sealed class SaveAgentTemplateDialog : UiWindow
     {
         readonly string _source;
+        readonly DialogSubmitState _submit = new DialogSubmitState();
         string _name;
-        string _error;
-        bool _pending;
 
         public SaveAgentTemplateDialog(string source)
         {
@@ -29,7 +28,7 @@ namespace SlopWorld
                 $"Save agent-owned settings from the saved agent '{_source}'. Project mounts stay contextual.",
                 "agent-template.name",
                 _name,
-                _error,
+                _submit.Error,
                 UiTheme.RowH * 2f,
                 TitleRect(rect)
             );
@@ -37,32 +36,17 @@ namespace SlopWorld
             var foot = TextDialog.Footer(rect);
             if (foot.Left("Cancel", UiTheme.Btn.Ghost))
                 Close();
-            if (foot.Right("Save", UiTheme.Btn.Primary, !_pending))
+            if (foot.Right("Save", UiTheme.Btn.Primary, !_submit.Pending))
                 Save();
         }
 
         void Save()
         {
-            if (_pending)
-                return;
-            _error = null;
             string name = (_name ?? "").Trim();
-            if (string.IsNullOrEmpty(name))
-            {
-                _error = "Enter a template name.";
-                return;
-            }
-            _pending = true;
-            SessionHub.Instance.SaveAgentTemplate(
-                _source,
-                name,
-                "",
-                () => Close(),
-                message =>
-                {
-                    _pending = false;
-                    _error = message;
-                }
+            _submit.Submit(
+                string.IsNullOrEmpty(name) ? "Enter a template name." : null,
+                (ok, fail) => SessionHub.Instance.SaveAgentTemplate(_source, name, "", ok, fail),
+                () => Close()
             );
         }
     }

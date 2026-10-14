@@ -8,6 +8,9 @@ back to the OS username), including loaded saves. `Patches/Agents/PawnHoverLabel
 keeps agent and player hover tooltips to names, health and any equipped weapon.
 `ColonyPawn` owns shared agent/player pawn generation; callers own naming,
 appearance, and placement.
+`NeutralPawn` owns factionless population generation, spawning, and failure reporting
+for `IntroDirector` and `Outskirts`; those callers own kind and cell selection and
+population timing. Intro placement failures remain contained by `IntroDirector`.
 
 The daemon is authoritative. Reconciliation preserves pawn identity across pending
 session renames and keeps ephemeral/worker sessions sidebar-only. An exception

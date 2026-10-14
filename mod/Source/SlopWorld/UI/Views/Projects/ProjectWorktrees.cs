@@ -115,12 +115,7 @@ namespace SlopWorld
                             !_busy && w.Phase == "ready"
                         )
                     )
-                        SessionHub.Instance.SessionStore.RunHostShell(
-                            _project,
-                            name => TerminalWindow.Open(name),
-                            Fail,
-                            w.Id
-                        );
+                        CatalogActions.HostShell(_project, worktree: w.Id, fail: Fail);
                     if (w.Id != "main")
                     {
                         if (

@@ -37,12 +37,7 @@ namespace SlopWorld
             public void Menu(ProjectInfo project) => ProjectMenu(project);
 
             public void Terminal(WorktreeEntry entry) =>
-                SessionHub.Instance.SessionStore.RunHostShell(
-                    entry.Project,
-                    name => TerminalWindow.Open(name),
-                    UiLayout.Fail,
-                    entry.Tree.Id
-                );
+                CatalogActions.HostShell(entry.Project, worktree: entry.Tree.Id);
 
             public void Project(WorktreeEntry entry) => OpenProjectWorktrees(entry.Project);
 
