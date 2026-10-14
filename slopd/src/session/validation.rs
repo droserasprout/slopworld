@@ -247,6 +247,10 @@ pub(super) fn normalize_action_command(path: &Path, command: &str) -> String {
 }
 
 pub(crate) fn validate_config(cfg: &Config) -> Result<()> {
+    anyhow::ensure!(
+        !cfg.daemon.token.trim().is_empty(),
+        "Set a non-empty [daemon] token. Daemon authentication cannot be disabled."
+    );
     crate::config::validate_project_names(&cfg.projects)?;
     cfg.daemon
         .bind

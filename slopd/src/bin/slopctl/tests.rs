@@ -1141,3 +1141,37 @@ fn sidecar_log_commands_select_the_sidecar_cache_and_docker_container() {
         .collect::<Vec<_>>();
     assert_eq!(&args[..4], ["logs", "--tail", "17", "--follow"]);
 }
+
+#[test]
+fn authenticated_requests_never_follow_redirects() {
+    for status in [
+        "301 Moved Permanently",
+        "302 Found",
+        "303 See Other",
+        "307 Temporary Redirect",
+        "308 Permanent Redirect",
+    ] {
+        for (method, path, body) in [
+            ("GET", "/api/health", None),
+            ("DELETE", "/api/sessions/target", None),
+            (
+                "POST",
+                "/api/tasks",
+                Some(json!({"to":"host","body":"check"})),
+            ),
+            ("PUT", "/api/config", Some(json!({"text":""}))),
+        ] {
+            let (location, stop, destination) = http_fixture::redirect_target();
+            let (endpoint, server) = http_fixture::serve_redirect(status, &location);
+            request(&endpoint, "host", method, path, body).unwrap_err();
+            let received = server.join().unwrap().unwrap();
+            assert!(
+                received
+                    .to_ascii_lowercase()
+                    .contains("x-slop-token: secret\r\n")
+            );
+            stop.send(()).unwrap();
+            assert!(!destination.join().unwrap(), "{method} followed {status}");
+        }
+    }
+}

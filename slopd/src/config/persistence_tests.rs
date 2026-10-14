@@ -325,6 +325,7 @@ async fn library_items_round_trip_as_one_file_each() {
     ));
     let path = root.join("config.toml");
     let mut cfg = Config::default();
+    cfg.daemon.token = "test-root-token".into();
     cfg.library.push(LibraryItemCfg {
         name: "review diff".into(),
         text: "review it".into(),

@@ -293,7 +293,10 @@ async fn record_mode_does_not_poll_or_accept_external_workspace_changes() {
     let raw: toml::Value =
         toml::from_str(&tokio::fs::read_to_string(f.shell_path()).await.unwrap()).unwrap();
     assert_eq!(raw["path"].as_str(), Some("/accepted"));
-    f.manager.replace_config("").await.unwrap();
+    f.manager
+        .replace_config("[daemon]\nbind = '127.0.0.1:7717'\ntoken = '<redacted>'\n")
+        .await
+        .unwrap();
     assert_eq!(f.manager.config().await.sessions[0].name, "agent");
 }
 

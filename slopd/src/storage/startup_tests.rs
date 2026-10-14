@@ -103,7 +103,10 @@ async fn supported_undo_can_narrow_a_wildcard_bind_without_self_conflict() {
 #[tokio::test]
 async fn supported_undo_reserves_endpoint_when_current_settings_are_malformed() {
     let f = Fixture::new();
-    f.interrupted("daemon = [", "[daemon]\nbind='127.0.0.1:0'\n");
+    f.interrupted(
+        "daemon = [",
+        "[daemon]\nbind='127.0.0.1:0'\ntoken='original'\n",
+    );
     let reserved = reserve(&f.binding).await.unwrap();
     assert_eq!(reserved.listeners.len(), 1);
     f.recover().await;

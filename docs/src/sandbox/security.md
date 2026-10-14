@@ -36,8 +36,9 @@ not enumerate every secret exposure.
 
 Root authorization controls grants, host sessions, and configuration. Scoped grants
 restrict selected agent sessions; see [Agent collaboration](../agents/agent-collaboration.md).
-When `[daemon].token` is empty, authentication is disabled and every request has
-root authority.
+`[daemon].token` must be nonempty and contain more than whitespace. Startup and
+settings updates reject blank tokens. First startup generates and saves a secure
+token when `config.toml` does not exist. Existing files must supply a token.
 
 ## Limits
 

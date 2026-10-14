@@ -7,10 +7,17 @@ User delivery and setup belong to [Agent collaboration](../docs/src/agents/agent
 
 `ro` allows listing, reading, and watching scoped sessions; `rw` adds input, sizing,
 and permitted lifecycle operations. Root capability permits host access, direct
-agent creation, full config replacement, and other root-only routes. An empty daemon
-token disables authentication and assigns root capability to requests; see
-[security](../docs/src/sandbox/security.md). Worker policy and project restrictions
-belong to [workers](daemon-workers.md).
+agent creation, full config replacement, and other root-only routes. A blank daemon
+token is invalid: startup and configuration updates reject blank credentials,
+and capability resolution fails closed. First startup generates a secure root
+token when the settings file is absent; see [security](../docs/src/sandbox/security.md).
+Worker policy and project restrictions belong to [workers](daemon-workers.md).
+
+Root HTTP mutations drain uploads before acquiring the session boundary and recheck
+the captured root credential generation inside it. Token rotation invalidates pending
+mutations even if a later rotation restores the same token; accepted owned work retains
+the boundary through completion. Root snapshots keep their independent read path.
+The CLI refuses HTTP redirects so bearer headers cannot reach another endpoint.
 
 Removal, rename, or identity replacement revokes grants owned by or targeting that
 session, including their other targets. Stop/start preserves ordinary grants.

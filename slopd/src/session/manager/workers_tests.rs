@@ -265,7 +265,7 @@ async fn durable_worker_parent_survives_a_daemon_restart() {
     let project_dir = dir.join("repo");
     std::fs::create_dir_all(&project_dir).unwrap();
 
-    let config = Config {
+    let mut config = Config {
         projects: vec![ProjectCfg {
             name: "repo".into(),
             dir: project_dir.to_string_lossy().into_owned(),
@@ -289,6 +289,7 @@ async fn durable_worker_parent_survives_a_daemon_restart() {
         ..Default::default()
     };
     let config_path = dir.join("config.toml");
+    config.daemon.token = "test-root-token".into();
     crate::config::fixtures::save(&config, &config_path)
         .await
         .unwrap();

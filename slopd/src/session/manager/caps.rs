@@ -6,6 +6,7 @@ use super::super::*;
 pub(crate) struct Authorization {
     pub(super) grants: RwLock<crate::grant::Grants>,
     generation: AtomicU64,
+    root_generation: AtomicU64,
     changes: broadcast::Sender<AuthChange>,
 }
 
@@ -15,6 +16,7 @@ impl Authorization {
         Self {
             grants: RwLock::new(grants),
             generation: AtomicU64::new(0),
+            root_generation: AtomicU64::new(0),
             changes,
         }
     }
@@ -26,6 +28,10 @@ impl Manager {
         *self.auth.grants.write().await = crate::grant::Grants::load(&self.cfg_path).unwrap();
     }
 
+    pub(crate) fn root_generation(&self) -> u64 {
+        self.auth.root_generation.load(Ordering::Acquire)
+    }
+
     pub(crate) fn auth_generation(&self) -> u64 {
         self.auth.generation.load(Ordering::Acquire)
     }
@@ -35,6 +41,9 @@ impl Manager {
     }
 
     pub(crate) fn invalidate_auth(&self, change: AuthChange) {
+        if matches!(change, AuthChange::RootTokenChanged) {
+            self.auth.root_generation.fetch_add(1, Ordering::AcqRel);
+        }
         self.auth.generation.fetch_add(1, Ordering::AcqRel);
         drop(self.auth.changes.send(change));
     }

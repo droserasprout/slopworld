@@ -15,7 +15,7 @@ and [macOS](../installation/macos.md).
 | --- | --- | --- |
 | `SLOPD_ENDPOINT` | Daemon, mod, launcher, `slopctl` | Selects the endpoint descriptor file. The daemon writes its URL and token here; clients read it. See [Paths and files](paths.md#daemon-configuration) for the default. |
 | `SLOPD_URL` | `slopctl` | Uses this daemon URL instead of reading the endpoint descriptor. Requires `SLOPD_TOKEN` to be set. |
-| `SLOPD_TOKEN` | `slopctl` | Token paired with `SLOPD_URL`. An explicitly empty value is accepted for a daemon without authentication. Setting only this variable does not override the descriptor's token. |
+| `SLOPD_TOKEN` | `slopctl` | Token paired with `SLOPD_URL`. Use the daemon's root token or a scoped grant. Setting only this variable does not override the descriptor's token. |
 | `SLOPWORLD_SESSION` | `slopctl` | Caller identity. Unset or empty means `host`, which requires root authority. The daemon supplies the session name to agent and host-shell processes. |
 | `SLOPWORLD_PROJECT` | Session commands | Project name supplied by the daemon to agent and host-shell processes. |
 | `SLOPWORLD_TASK_ID` | `slopctl` | Default task ID when a task command omits it. Supplied automatically to workers. See [Task commands](slopctl.md#task-commands). |

@@ -27,14 +27,19 @@ pub(crate) async fn load(binding: &StorageBinding) -> Result<Loaded> {
         .lock_owned()
         .await;
     transaction::recover(binding, &gate).await?;
-    let text = match tokio::fs::read_to_string(&binding.settings).await {
-        Ok(text) => text,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+    let (text, new_settings) = match tokio::fs::read_to_string(&binding.settings).await {
+        Ok(text) => (text, false),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => (String::new(), true),
         Err(error) => return Err(error).context("reading root settings"),
     };
     let mut cfg = crate::config::settings::document::replace(&Config::default(), &text)
         .context("loading machine settings; workspace records belong in separate stores")?
         .candidate;
+    // Only first startup provisions a credential. Existing settings must supply
+    // one; silently rotating a missing token would conceal a configuration error.
+    if new_settings {
+        cfg.daemon.token = crate::grant::gen_token().context("creating daemon root credential")?;
+    }
     let stores = Stores {
         projects: Store::load(binding).await?,
         agents: Store::load(binding).await?,
@@ -51,7 +56,7 @@ pub(crate) async fn load(binding: &StorageBinding) -> Result<Loaded> {
     let library_revision =
         revision.filter(|stamp| catalog::revision(&anchor).ok().as_ref() == Some(stamp));
     validate(&cfg, &stores.worktrees.ordered())?;
-    if !tokio::fs::try_exists(&binding.settings).await? {
+    if new_settings {
         crate::paths::create_atomic_async(
             &binding.settings,
             &toml::to_string_pretty(&cfg.settings)?,

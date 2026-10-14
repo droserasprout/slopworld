@@ -188,9 +188,17 @@ async fn auth(
     mut req: Request,
     next: Next,
 ) -> Result<impl IntoResponse, StatusCode> {
+    let root_generation = m.root_generation();
     let presented = api::presented_token(req.headers());
     match m.resolve_cap(presented.as_deref()).await {
         Some(cap) => {
+            if cap.may_create() {
+                if root_generation != m.root_generation() {
+                    return Err(StatusCode::UNAUTHORIZED);
+                }
+                req.extensions_mut()
+                    .insert(api::RootGeneration(root_generation));
+            }
             req.extensions_mut().insert(cap);
             Ok(next.run(req).await)
         }

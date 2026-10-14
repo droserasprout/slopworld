@@ -23,7 +23,7 @@ pub const DEFAULT_SUMMARY_PROMPT: &str = "Summarise this prompt in at most 6 wor
 pub struct Daemon {
     // Listener and authentication.
     pub bind: String,
-    /// Empty disables authentication. API reads redact it; writing the sentinel preserves it.
+    /// Required nonblank credential. API reads redact it; writing the sentinel preserves it.
     #[serde(default)]
     pub token: String,
 

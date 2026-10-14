@@ -16,6 +16,7 @@ type Server = thread::JoinHandle<Result<String, String>>;
 enum Response {
     Wire(String),
     Raw(String, Vec<u8>),
+    Redirect(String),
 }
 
 pub(super) fn serve(status: &str, body: &str) -> (Endpoint, Server) {
@@ -24,6 +25,10 @@ pub(super) fn serve(status: &str, body: &str) -> (Endpoint, Server) {
 
 pub(super) fn serve_raw(status: &str, content_type: &str, body: &[u8]) -> (Endpoint, Server) {
     start(status, Response::Raw(content_type.into(), body.to_vec()))
+}
+
+pub(super) fn serve_redirect(status: &str, location: &str) -> (Endpoint, Server) {
+    start(status, Response::Redirect(location.into()))
 }
 
 fn start(status: &str, response: Response) -> (Endpoint, Server) {
@@ -75,6 +80,11 @@ fn handle(mut socket: TcpStream, status: &str, response: Response) -> Result<Str
         request.push_str(&value.to_string());
     }
     let (content_type, encoded) = match response {
+        Response::Redirect(location) => {
+            write!(socket, "HTTP/1.1 {status}\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                .map_err(|e| e.to_string())?;
+            return Ok(request);
+        }
         Response::Raw(content_type, bytes) => (content_type, bytes),
         Response::Wire(body) => (
             http_wire::CONTENT_TYPE.to_owned(),
@@ -108,4 +118,38 @@ fn encode(status: &str, method: &str, path: &str, body: &str) -> Result<Vec<u8>,
         .encode_to_vec()),
         Err(_) => Ok(vec![0x80]),
     }
+}
+
+/// A redirect target that answers unexpected traffic so a regression cannot hang the client.
+pub(super) fn redirect_target() -> (
+    String,
+    std::sync::mpsc::Sender<()>,
+    thread::JoinHandle<bool>,
+) {
+    let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let location = format!("http://{}/api/health", listener.local_addr().unwrap());
+    let (stop, stopped) = std::sync::mpsc::channel();
+    let server = thread::spawn(move || {
+        let deadline = std::time::Instant::now() + DEADLINE;
+        loop {
+            match listener.accept() {
+                Ok((socket, _)) => {
+                    handle(socket, "200 OK", Response::Wire(r#"{"ok":true}"#.into())).unwrap();
+                    return true;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
+                Err(error) => panic!("redirect target: {error}"),
+            }
+            if stopped.try_recv().is_ok() {
+                return false;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "redirect probe timed out"
+            );
+            thread::sleep(Duration::from_millis(1));
+        }
+    });
+    (location, stop, server)
 }

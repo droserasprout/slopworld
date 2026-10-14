@@ -24,6 +24,42 @@ impl Drop for Fixture {
 }
 
 #[tokio::test]
+async fn first_startup_persists_a_private_root_credential_and_reuses_it() {
+    let f = Fixture::new();
+    let first = load(&f.binding).await.unwrap();
+    let token = &first.config.daemon.token;
+    assert_eq!(token.len(), 32);
+    assert!(token.bytes().all(|b| b.is_ascii_hexdigit()));
+    let second = load(&f.binding).await.unwrap();
+    assert_eq!(second.config.daemon.token, *token);
+    use std::os::unix::fs::PermissionsExt;
+    assert_eq!(
+        std::fs::metadata(&f.binding.settings)
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777,
+        0o600
+    );
+}
+
+#[tokio::test]
+async fn existing_settings_without_a_credential_are_rejected_without_rewriting() {
+    let f = Fixture::new();
+    for text in [
+        "",
+        "[daemon]\nbind = '127.0.0.1:7717'\n",
+        "[daemon]\nbind = '127.0.0.1:7717'\ntoken = ''\n",
+        "[daemon]\nbind = '127.0.0.1:7717'\ntoken = '  '\n",
+    ] {
+        crate::paths::write_private_toml(&f.binding.settings, text).unwrap();
+        let error = load(&f.binding).await.unwrap_err();
+        assert!(format!("{error:#}").contains("non-empty [daemon] token"));
+        assert_eq!(std::fs::read_to_string(&f.binding.settings).unwrap(), text);
+    }
+}
+
+#[tokio::test]
 async fn inline_workspace_is_rejected_and_settings_bytes_are_retained() {
     let f = Fixture::new();
     for section in ["project", "session", "host_terminal", "library"] {

@@ -232,12 +232,12 @@ impl Grants {
     }
 
     /// Resolve the capability for a request. `root` is `[daemon] token`.
-    /// An empty root disables authentication and gives every request `Root` access.
-    /// A nonempty root gives `Root` access only when the token matches.
+    /// A missing or whitespace-only root fails closed, even for live grants.
+    /// A valid root gives `Root` access only when the token matches.
     /// Any other token must identify a live grant. Otherwise, the request has no capability.
     pub fn resolve(&self, presented: Option<&str>, root: &str) -> Option<Cap> {
-        if root.is_empty() {
-            return Some(Cap::Root);
+        if root.trim().is_empty() {
+            return None;
         }
         match presented {
             Some(t) if t == root => Some(Cap::Root),
@@ -416,12 +416,11 @@ fn valid_token(token: &str) -> bool {
     token.len() == 32 && token.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
-/// Generate a hexadecimal token from 128 bits of `/dev/urandom` data.
-/// A grant token is a bearer secret, like a session key.
-/// Failure to read secure entropy must fail grant creation, not mint a guessable secret.
-fn gen_token() -> Result<String> {
+/// Generate a root or scoped bearer token from 128 bits of `/dev/urandom` data.
+/// Failure to read secure entropy must fail credential creation, not mint a guessable secret.
+pub(crate) fn gen_token() -> Result<String> {
     let mut file = std::fs::File::open("/dev/urandom")
-        .context("opening secure randomness for scoped grant")?;
+        .context("opening secure randomness for daemon credential")?;
     gen_token_from(&mut file)
 }
 

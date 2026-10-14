@@ -8,6 +8,9 @@ pub(crate) fn test_manager_with_socket(
     mut config: Config,
     socket: impl Into<String>,
 ) -> Arc<Manager> {
+    if config.daemon.token.trim().is_empty() {
+        config.daemon.token = "test-root-token".into();
+    }
     let directory = std::env::temp_dir().join(format!(
         "slopd-manager-test-{}-{}",
         std::process::id(),

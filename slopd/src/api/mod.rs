@@ -20,6 +20,10 @@ use serde_json::json;
 
 use crate::session::Manager;
 
+/// Root authorization captured before HTTP credential resolution.
+#[derive(Clone, Copy)]
+pub(crate) struct RootGeneration(pub(crate) u64);
+
 pub(super) type Mgr = Arc<Manager>;
 pub(super) type ApiResult<T = wire::Ack> = Result<Proto<T>, ApiError>;
 

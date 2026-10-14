@@ -290,10 +290,13 @@ impl Manager {
             }
         }
 
-        *self.cfg.write().await = change.new;
+        // Publish the credential and its revocation epoch under the same config lock.
+        let mut cfg = self.cfg.write().await;
+        *cfg = change.new;
         if change.root_token_changed {
             self.invalidate_auth(crate::session::AuthChange::RootTokenChanged);
         }
+        drop(cfg);
         self.signals.maintenance_wake.notify_waiters();
 
         endpoint_token

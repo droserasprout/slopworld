@@ -32,6 +32,12 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 - Sidecar: Configure user and group IDs through `PUID`/`PGID`. Container starts as root, then drops privileges.
 
+### Security
+
+- Daemon: Reject blank root tokens and generate a secure token on first startup.
+- Daemon: Reject pending mutations authenticated with an old root token after token rotation.
+- CLI: Refuse HTTP redirects to prevent authentication tokens from reaching another endpoint.
+
 ## [0.0.2] - 2026-10-12
 
 ### Added

@@ -556,3 +556,102 @@ async fn disappearing_identities_close_sockets_and_do_not_follow_reused_names() 
         }
     }
 }
+
+#[tokio::test]
+async fn stalled_root_uploads_reject_rotated_credentials_before_mutation() {
+    for path in [
+        shared::protocol::routes::CONFIG,
+        shared::protocol::routes::TASKS,
+        "/api/sessions/target/label",
+    ] {
+        let manager = manager();
+        let app = app(manager.clone());
+        let (entered, observed) = tokio::sync::oneshot::channel();
+        let (release, resume) = tokio::sync::oneshot::channel();
+        let stream = futures::stream::once(async move {
+            entered.send(()).unwrap();
+            resume.await.unwrap();
+            Ok::<_, std::io::Error>(http_wire::encode_request(
+                "PUT", shared::protocol::routes::CONFIG,
+                serde_json::json!({"text":"[daemon]\nbind='127.0.0.1:7717'\ntoken='attacker-replacement'\n"}),
+            ).unwrap())
+        });
+        let request = Request::builder()
+            .method(if path == shared::protocol::routes::TASKS {
+                "POST"
+            } else {
+                "PUT"
+            })
+            .uri(path)
+            .header(shared::protocol::TOKEN_HEADER, "root-secret")
+            .header("content-type", http_wire::CONTENT_TYPE)
+            .body(Body::from_stream(stream))
+            .unwrap();
+        let upload = tokio::spawn(app.oneshot(request));
+        tokio::time::timeout(std::time::Duration::from_secs(3), observed)
+            .await
+            .unwrap()
+            .unwrap();
+        manager
+            .patch_config(serde_json::json!({"daemon":{"token":"rotated-root"}}))
+            .await
+            .unwrap();
+        // Returning to the original token must not revive previously admitted requests.
+        manager
+            .patch_config(serde_json::json!({"daemon":{"token":"root-secret"}}))
+            .await
+            .unwrap();
+        release.send(()).unwrap();
+        let response = tokio::time::timeout(std::time::Duration::from_secs(3), upload)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{path}");
+        assert_eq!(manager.config().await.daemon.token, "root-secret");
+        assert!(manager.tasks.all_tasks_async().await.unwrap().is_empty());
+    }
+}
+
+#[tokio::test]
+async fn queued_root_mutation_rechecks_rotation_after_acquiring_boundary() {
+    let manager = manager();
+    let app = app(manager.clone());
+    let (entered, observed) = tokio::sync::oneshot::channel();
+    let stream = futures::stream::once(async move {
+        entered.send(()).unwrap();
+        Ok::<_, std::io::Error>(http_wire::encode_request(
+            "PUT", shared::protocol::routes::CONFIG,
+            serde_json::json!({"text":"[daemon]\nbind='127.0.0.1:7717'\ntoken='attacker-replacement'\n"}),
+        ).unwrap())
+    });
+    let request = Request::builder()
+        .method("PUT")
+        .uri(shared::protocol::routes::CONFIG)
+        .header(shared::protocol::TOKEN_HEADER, "root-secret")
+        .header("content-type", http_wire::CONTENT_TYPE)
+        .body(Body::from_stream(stream))
+        .unwrap();
+    let (upload,) = manager
+        .session_operation(async {
+            let upload = tokio::spawn(app.oneshot(request));
+            tokio::time::timeout(std::time::Duration::from_secs(3), observed)
+                .await
+                .unwrap()
+                .unwrap();
+            manager
+                .patch_config(serde_json::json!({"daemon":{"token":"rotated-root"}}))
+                .await
+                .unwrap();
+            // Hand the running request out before releasing the held boundary.
+            (upload,)
+        })
+        .await;
+    let response = tokio::time::timeout(std::time::Duration::from_secs(3), upload)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(manager.config().await.daemon.token, "rotated-root");
+}

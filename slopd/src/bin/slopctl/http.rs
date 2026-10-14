@@ -17,10 +17,9 @@ pub(crate) fn load_endpoint(
     mode: crate::shared::application_paths::Mode,
 ) -> Result<Endpoint, String> {
     if let Ok(url) = std::env::var("SLOPD_URL") {
-        // Permit an explicitly empty SLOPD_TOKEN for a daemon without authentication.
-        // Reject an absent variable here instead of sending an empty token that could cause an HTTP 401 response.
+        // Require paired overrides rather than accidentally discarding the descriptor's credential.
         let token = std::env::var("SLOPD_TOKEN").map_err(|_error| {
-            "SLOPD_URL is set, but SLOPD_TOKEN is missing. Set SLOPD_TOKEN= if the daemon has no token."
+            "SLOPD_URL is set, but SLOPD_TOKEN is missing. Set it to a root or scoped token."
                 .to_string()
         })?;
         return Ok(Endpoint { url, token });
@@ -50,6 +49,8 @@ pub(crate) fn request(
             };
             request
                 .config()
+                // The custom bearer header must never follow a redirect.
+                .max_redirects(0)
                 .http_status_as_error(false)
                 .build()
                 .header(TOKEN_HEADER, &endpoint.token)
@@ -64,6 +65,8 @@ pub(crate) fn request(
             };
             request
                 .config()
+                // The custom bearer header must never follow a redirect.
+                .max_redirects(0)
                 .http_status_as_error(false)
                 .build()
                 .header(TOKEN_HEADER, &endpoint.token)

@@ -122,3 +122,30 @@ async fn durable_stop_preserves_grants_but_ephemeral_removal_invalidates_them() 
         }
     }
 }
+
+#[tokio::test]
+async fn only_root_rotation_advances_the_root_credential_generation() {
+    let manager = test_manager(config());
+    let generation = manager.root_generation();
+    manager
+        .mint_grant("grantor".into(), vec!["target".into()], Level::Ro)
+        .await
+        .unwrap();
+    manager.revoke_grants("grantor").await.unwrap();
+    assert_eq!(manager.root_generation(), generation);
+    manager
+        .patch_config(serde_json::json!({"daemon":{"token":"<redacted>"}}))
+        .await
+        .unwrap();
+    assert_eq!(manager.root_generation(), generation);
+    manager
+        .patch_config(serde_json::json!({"daemon":{"token":"new-root"}}))
+        .await
+        .unwrap();
+    assert_ne!(manager.root_generation(), generation);
+    assert!(manager.resolve_cap(Some("root")).await.is_none());
+    assert!(matches!(
+        manager.resolve_cap(Some("new-root")).await,
+        Some(Cap::Root)
+    ));
+}

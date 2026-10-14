@@ -36,7 +36,8 @@ is present. Failed recovery retains the accepted catalog and revision for retry.
 Record updates retain unknown extensions without resurrecting known cleared fields.
 Settings patches preserve omitted values; replacements preserve accepted workspace
 records. Both reject inline `project`, `session`, `host_terminal`, and `library`.
-The redacted-token sentinel retains the stored secret; an empty token clears it.
+The redacted-token sentinel retains the stored secret; blank tokens are rejected.
+First startup provisions a secure token only when the settings file is absent.
 The config HTTP response projects the assembled view into the existing wire schema;
 host-shell storage IDs stay internal and are omitted only from the response copy.
 

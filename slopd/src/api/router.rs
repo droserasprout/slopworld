@@ -17,7 +17,7 @@ pub(crate) fn router(m: Mgr) -> Router {
     scoped_routes(m.clone())
         .merge(shared_routes(m.clone()))
         .merge(snapshot_routes(m.clone()))
-        .merge(root_routes())
+        .merge(root_routes(m.clone()))
         .with_state(m)
 }
 
@@ -77,7 +77,7 @@ fn shared_routes(m: Mgr) -> Router<Mgr> {
         .layer(middleware::from_fn_with_state(m, shared_request))
 }
 
-fn root_routes() -> Router<Mgr> {
+fn root_routes(m: Mgr) -> Router<Mgr> {
     // Host controls and configuration default to root-only access.
     Router::new()
         .route(
@@ -152,7 +152,7 @@ fn root_routes() -> Router<Mgr> {
         )
         .route(routes::SEARCH, get(search))
         .route(routes::GIT, get(git_status))
-        .layer(middleware::from_fn(require_root))
+        .layer(middleware::from_fn_with_state(m, require_root))
 }
 
 async fn scoped_request(State(m): State<Mgr>, req: Request, next: Next) -> Response {
@@ -177,6 +177,10 @@ async fn bounded_request(m: Mgr, req: Request, next: Next, shared: bool) -> Resp
             .extensions()
             .get::<Cap>()
             .is_some_and(|cap| !cap.is_valid())
+            || req
+                .extensions()
+                .get::<super::RootGeneration>()
+                .is_some_and(|generation| generation.0 != m.root_generation())
         {
             return err(StatusCode::UNAUTHORIZED, "capability revoked").into_response();
         }
@@ -192,9 +196,21 @@ async fn bounded_request(m: Mgr, req: Request, next: Next, shared: bool) -> Resp
 /// The default-deny half of the API: everything but the session read/drive routes is the mod's.
 /// Therefore, a scoped grant gets 403 here before a handler runs. The capability was resolved and
 /// hung on the request by `auth`, which is the outer layer, so it is always present by now.
-async fn require_root(Extension(cap): Extension<Cap>, req: Request, next: Next) -> Response {
+async fn require_root(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    req: Request,
+    next: Next,
+) -> Response {
     if cap.may_create() {
-        next.run(req).await
+        if req.method() == axum::http::Method::GET || req.method() == axum::http::Method::HEAD {
+            // Root reads retain their independent snapshot/I/O behavior.
+            next.run(req).await
+        } else {
+            // Drain uploads before locking, then recheck root rotation under the
+            // same boundary held through mutations and owned cancellation cleanup.
+            bounded_request(m, req, next, false).await
+        }
     } else {
         err(
             StatusCode::FORBIDDEN,

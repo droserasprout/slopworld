@@ -40,15 +40,10 @@ fn a_scoped_grant_reaches_only_what_it_names_and_never_the_host() {
     assert!(!Cap::Scoped(grant(&["a"], Level::Rw)).may_create());
 }
 
-/// An empty root token disables authentication and gives all callers root access.
-/// Otherwise, accept the root token or a current grant token.
-/// Reject absent or unknown tokens when authentication is enabled.
+/// Accept the root token or a current grant token; reject absent or unknown tokens.
 #[test]
 fn resolving_a_token_against_root_and_the_grants() {
     let mut grants = Grants::default();
-    assert!(matches!(grants.resolve(None, ""), Some(Cap::Root)));
-    assert!(matches!(grants.resolve(Some("x"), ""), Some(Cap::Root)));
-
     assert!(matches!(
         grants.resolve(Some("root"), "root"),
         Some(Cap::Root)
@@ -65,6 +60,27 @@ fn resolving_a_token_against_root_and_the_grants() {
         Some(Cap::Scoped(g)) => assert!(g.sessions.contains("a")),
         other => panic!("expected a scoped cap, got {other:?}"),
     }
+}
+
+#[test]
+fn blank_root_credentials_never_authorize_requests_or_promote_workers() {
+    let mut grants = Grants::default();
+    let worker = grants.mint(grant(&["worker"], Level::Rw));
+    for root in ["", " ", "\t\n"] {
+        for presented in [
+            None,
+            Some(""),
+            Some(root),
+            Some("unknown"),
+            Some(worker.as_str()),
+        ] {
+            assert!(grants.resolve(presented, root).is_none());
+        }
+    }
+    assert!(matches!(
+        grants.resolve(Some(&worker), "root"),
+        Some(Cap::Scoped(_))
+    ));
 }
 
 /// Revoking a grantor removes only that grantor's grants.

@@ -133,7 +133,7 @@ fn worker_prompt_defaults() {
 }
 
 /// Redact nonempty tokens from client responses.
-/// Preserve an empty token so the client can identify a daemon without authentication.
+/// Empty tokens in unvalidated drafts remain empty.
 #[test]
 fn a_set_token_is_redacted_and_an_empty_one_is_left() {
     let mut cfg = Config::default();

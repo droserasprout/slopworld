@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use super::*;
 
 /// Protocol sentinel for a redacted token. Writing this value preserves the token.
-/// Writing a new value or an empty string changes the token.
+/// Writing a new nonblank value changes the token; assembled validation rejects blank values.
 pub const TOKEN_REDACTED: &str = "<redacted>";
 
 /// Redact a nonempty `[daemon] token` in configuration text. Preserve comments and blank lines.
@@ -71,7 +71,7 @@ impl Config {
 
     /// Create a copy for clients. Replace a nonempty token with the redaction sentinel.
     /// This prevents `GET /api/config` from exposing the secret.
-    /// Keep an empty token to indicate that authentication is disabled.
+    /// Unvalidated drafts may still contain an empty token.
     pub fn redacted(&self) -> Self {
         let mut c = self.clone();
         if !c.daemon.token.is_empty() {

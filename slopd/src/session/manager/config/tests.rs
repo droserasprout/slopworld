@@ -3,6 +3,53 @@ use crate::config::HostTerminalCfg;
 use crate::session::test_manager;
 
 #[tokio::test]
+async fn settings_cannot_clear_root_authority_or_change_accepted_state_on_failure() {
+    let manager = test_manager(Config::default());
+    let before = std::fs::read_to_string(&manager.cfg_path).unwrap();
+    let token = manager.config().await.daemon.token.clone();
+    for blank in ["", "  ", "\t\n"] {
+        let error = manager
+            .patch_config(serde_json::json!({"daemon": {"token": blank}}))
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("non-empty [daemon] token"));
+        let text = toml::to_string_pretty(&crate::config::Settings {
+            daemon: crate::config::Daemon {
+                token: blank.into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .unwrap();
+        assert!(
+            manager
+                .replace_config(&text)
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("non-empty [daemon] token")
+        );
+        assert_eq!(manager.config().await.daemon.token, token);
+        assert_eq!(std::fs::read_to_string(&manager.cfg_path).unwrap(), before);
+        assert_eq!(manager.auth_generation(), 0);
+        assert!(matches!(
+            manager.resolve_cap(Some(&token)).await,
+            Some(crate::grant::Cap::Root)
+        ));
+    }
+    let error = manager
+        .replace_config("[daemon]\nbind = '127.0.0.1:7717'\n")
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("non-empty [daemon] token"));
+    manager
+        .patch_config(serde_json::json!({"daemon": {"token": crate::config::TOKEN_REDACTED}}))
+        .await
+        .unwrap();
+    assert_eq!(manager.config().await.daemon.token, token);
+}
+
+#[tokio::test]
 async fn removing_and_replacing_sessions_revokes_only_changed_identities() {
     let manager = test_manager(Config {
         sessions: ["kept", "removed", "replaced"]
