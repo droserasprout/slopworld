@@ -15,10 +15,6 @@ namespace SlopWorld
         const int MaxWordsPerFrame = 48;
         const float ScrollHalfStepSeconds = 0.06f;
 
-        // Keep the stream in the dark area beside the planet in the final background
-        // frames, independent of resolution and UI scale.
-        const float WidthRatio = 0.38f;
-        internal const float LoadingSideMargin = 0f;
         const int LoadingFontBump = 10;
 
         // This is the same padding on both sides of the panel: the stream begins at its
@@ -37,8 +33,7 @@ namespace SlopWorld
         static Color ScaleRgb(Color color, float scale) =>
             new Color(color.r * scale, color.g * scale, color.b * scale, color.a);
 
-        // The box is measured against the current screen because both the wrapped stream and
-        // GameplayTipWindow's immediate window need the same dimensions.
+        // The stream wraps against the same screen-space panel that owns its drawing clip.
         static int _measuredW,
             _measuredH;
         static int _measuredFontSize = -1;
@@ -136,12 +131,15 @@ namespace SlopWorld
             _measuredFontSize = fontSize;
             Generation++;
 
-            float w = Mathf.Max(1f, width * WidthRatio);
-            float h = Mathf.Max(1f, height);
-            float textHeight = Mathf.Max(1f, h - Margin.y * 2f);
-            float lineHeight = fontSize * GlyphScale * GlyphLineHeight / GlyphSource;
-            _lineCount = Mathf.Max(1, Mathf.FloorToInt(textHeight / lineHeight));
-            _box = new Vector2(w, h);
+            Rect frame = LoadingTipPanel.Frame(width, height);
+            float textHeight = Mathf.Max(1f, frame.height - Margin.y * 2f);
+            float scale = fontSize * GlyphScale / GlyphSource;
+            _lineCount = LoadingTipPanel.VisibleLines(
+                textHeight,
+                GlyphHeight * scale,
+                GlyphLineHeight * scale
+            );
+            _box = new Vector2(frame.width, frame.height);
         }
 
         // The visible stream is a line buffer, not a pre-wrapped wall. Keeping lines explicitly
@@ -449,86 +447,26 @@ namespace SlopWorld
             _painted = JoinStream();
         }
 
-        static readonly FieldInfo LastRotated = AccessTools.Field(
-            typeof(GameplayTipWindow),
-            "lastTimeUpdatedTooltip"
-        );
-
-        static void Prefix()
+        internal static void DrawPanel()
         {
-            // Holding the vanilla timer at now keeps it from changing its own one-line tip while
-            // our word stream is being painted.
-            if (LastRotated != null)
-                LastRotated.SetValue(null, Time.realtimeSinceStartup);
+            Advance();
+            LoadingTipPanel.Draw(
+                LoadingTipPanel.Frame(UI.screenWidth, UI.screenHeight),
+                Margin,
+                DrawStream
+            );
         }
 
-        // The non-window-stack path draws vanilla chrome before DrawContents. Suppress its
-        // background and shadow so the stream draws directly over the loading screen artwork.
-        internal static void SuppressWindowChrome(Rect rect) { }
-
-        [HarmonyTranspiler]
-        static IEnumerable<CodeInstruction> RemoveWindowChrome(
-            IEnumerable<CodeInstruction> instructions
-        )
+        // All callers use our measured panel, including the window-stack loading path.
+        static bool Prefix()
         {
-            MethodInfo shadow = AccessTools.Method(
-                typeof(Widgets),
-                nameof(Widgets.DrawShadowAround),
-                new[] { typeof(Rect) }
-            );
-            MethodInfo background = AccessTools.Method(
-                typeof(Widgets),
-                nameof(Widgets.DrawWindowBackground),
-                new[] { typeof(Rect) }
-            );
-            MethodInfo replacement = AccessTools.Method(
-                typeof(Patch_LoadingTips),
-                nameof(SuppressWindowChrome)
-            );
-
-            foreach (CodeInstruction instruction in instructions)
-            {
-                if (
-                    instruction.operand is MethodInfo method
-                    && (method == shadow || method == background)
-                )
-                    instruction.operand = replacement;
-                yield return instruction;
-            }
-        }
-    }
-
-    [HarmonyPatch(typeof(GameplayTipWindow), "DrawContents")]
-    public static class Patch_LoadingTipBlock
-    {
-        static bool Prefix(Rect rect)
-        {
-            Vector2 margin = Patch_LoadingTips.Margin;
-            Rect inner = new Rect(
-                rect.x + margin.x,
-                rect.y + margin.y,
-                Mathf.Max(1f, rect.width - margin.x * 2f),
-                Mathf.Max(1f, rect.height - margin.y * 2f)
-            );
-
-            Patch_LoadingTips.Advance();
-
-            Widgets.BeginGroup(inner);
-            try
-            {
-                Patch_LoadingTips.DrawStream();
-            }
-            finally
-            {
-                Widgets.EndGroup();
-            }
-
+            DrawPanel();
             return false;
         }
     }
 
     // Draw the stream and nothing else. The status box and mod summary are not useful while a
-    // map is being generated. Right-align the panel and center it vertically.
+    // map is being generated. The right-aligned panel uses the full screen height.
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsOnGUI))]
     public static class Patch_LoadingLayout
     {
@@ -543,33 +481,6 @@ namespace SlopWorld
             EventType == null ? null : AccessTools.Field(EventType, "showExtraUIInfo");
         static readonly MethodInfo UseStandardWindow =
             EventType == null ? null : AccessTools.PropertyGetter(EventType, "UseStandardWindow");
-        static readonly FieldInfo WindowSizeField = AccessTools.Field(
-            typeof(GameplayTipWindow),
-            nameof(GameplayTipWindow.WindowSize)
-        );
-
-        static int _sizedAt = -1;
-
-        static void EnsureSize()
-        {
-            Patch_LoadingTips.Measure();
-            Vector2 box = Patch_LoadingTips.Box;
-            if (_sizedAt == Patch_LoadingTips.Generation)
-                return;
-            _sizedAt = Patch_LoadingTips.Generation;
-            if (WindowSizeField == null)
-                return;
-            try
-            {
-                WindowSizeField.SetValue(null, box);
-            }
-            catch (Exception e)
-            {
-                Log.Warning(
-                    $"[SlopWorld] loading screen size left at vanilla's value: {e.Message}"
-                );
-            }
-        }
 
         static bool Prefix()
         {
@@ -597,15 +508,7 @@ namespace SlopWorld
                 UIMenuBackgroundManager.background = new UI_BackgroundMain();
             UIMenuBackgroundManager.background.BackgroundOnGUI();
 
-            EnsureSize();
-            Vector2 size = GameplayTipWindow.WindowSize;
-            GameplayTipWindow.DrawWindow(
-                new Vector2(
-                    Mathf.Max(0f, UI.screenWidth - size.x - Patch_LoadingTips.LoadingSideMargin),
-                    (UI.screenHeight - size.y) / 2f
-                ),
-                false
-            );
+            Patch_LoadingTips.DrawPanel();
             return false;
         }
     }
