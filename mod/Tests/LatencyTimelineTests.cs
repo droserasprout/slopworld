@@ -146,6 +146,10 @@ namespace SlopWorld.Tests
             timeline.EndFrame(3);
             Assert.That(timeline.Count, Is.EqualTo(1));
             timeline.Reset();
+            timeline.Draw("pane", 4, null, 4);
+            timeline.Draw("pane", 4, Screen(id).InputTimings, 4);
+            timeline.EndFrame(4);
+            Assert.That(logs.Count, Is.EqualTo(2), "redraw after reset cannot reopen a sample");
             Assert.That(logs[1], Does.Contain("status=disconnected"));
         }
 

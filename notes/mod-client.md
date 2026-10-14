@@ -16,7 +16,12 @@ it during its update. Transport instrumentation depends only on the collector.
 HTTP resolves connection metadata directly through `Endpoint`, without the game
 settings projection.
 
-`DaemonClient` queues HTTP callbacks through `MainThreadCompletions`, which owns
+`DaemonClient` is the static request facade. `DaemonHttpTransport` owns HTTP
+admission, deadlines, protocol I/O, tracing, and the host-pumped completion queue
+inside the same mod assembly. The facade retains one transport for the host lifetime;
+other owners must settle requests and callbacks before disposing their transport.
+Completions become visible after request resources and admission slots are released.
+`DaemonHttpTransport` queues callbacks through `MainThreadCompletions`, which owns
 lossless delivery and per-frame count/time budgets. The Root.Update adapter pumps
 callbacks and reports failures before updating the hub. `UsageInfo` owns provider
 age anchors; its callers supply monotonic seconds and wall-clock milliseconds.

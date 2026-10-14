@@ -9,6 +9,11 @@ test types whose names end in `Tests` and invokes qualifying public static metho
 Tests cover pure policies and game-free client/transport integration. Individual
 tests own the detailed behavior inventory.
 
+The same project links the production `DaemonHttpTransport` for bounded loopback
+HTTP tests of protocol handling, deadlines, response limits, and host-pumped callbacks.
+Service tests keep a recording `DaemonClient` facade; transport tests own isolated
+transport instances and exercise the real endpoint resolver.
+
 Substitutes do not verify Unity drawing/input or Harmony target binding. Test output,
 including `TestResult.xml`, belongs in the executable output directory, not the
 shipped `Assemblies/` tree. RimWorld must not load test/substitute assemblies.

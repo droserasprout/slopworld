@@ -63,6 +63,7 @@ def main():
         try:
             exe = str(Path(directory) / 'probe.exe')
             subprocess.run(['mcs', '-langversion:latest', '-out:' + exe, source,
+                            str(root / 'mod/Source/SlopWorld/Client/Daemon/DaemonHttpTransport.cs'),
                             str(root / 'mod/Source/SlopWorld/Client/Daemon/MainThreadCompletions.cs'),
                             str(root / 'bench/terminal-input/tests/http_transport/Probe.cs')], check=True)
             subprocess.run(['mono', exe, f'http://127.0.0.1:{server.server_port}'], timeout=15, check=True)

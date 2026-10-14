@@ -14,7 +14,7 @@ namespace SlopWorld.Tests
             store.RefreshLaunched("worker", () => completed++);
             store.ApplySessions(Sessions("old"));
             Assert.That(completed, Is.Zero);
-            DaemonClient.Requests[0].Ok(ProtobufFixtures.Json(Sessions("worker")));
+            DaemonClient.Requests[0].Reply(Sessions("worker"));
             Assert.That(completed, Is.EqualTo(1));
             Assert.That(store.Get("worker"), Is.Not.Null);
         }
@@ -42,21 +42,69 @@ namespace SlopWorld.Tests
             }
         }
 
-        static Wire.SessionsReply Sessions(string name) =>
-            new Wire.SessionsReply
+        public static void MissingLaunchAndReaderPinSettleWithoutOpeningTerminal()
+        {
+            DaemonClient.Requests.Clear();
+            var store = new SessionStore(_ => { });
+            Assert.That(store.Get(null), Is.Null);
+            Assert.That(store.TryPendingRenameSource(null, out _), Is.False);
+            string error = null;
+            store.RefreshLaunched(
+                "gone",
+                () => Assert.Fail("missing launch opened"),
+                e => error = e
+            );
+            DaemonClient.Requests.Single().Reply(Sessions("other"));
+            Assert.That(error, Is.EqualTo("Launched session is no longer available."));
+            store.ApplySessions(Sessions("later"));
+            Assert.That(store.Get("later"), Is.Not.Null, "failed launch no longer blocks pushes");
+            DaemonClient.Requests.Clear();
+            store.SetReaderPinned("a/b", true);
+            var request = DaemonClient.Requests.Single();
+            Assert.That(
+                request.Path,
+                Is.EqualTo(WireProtocol.Routes.Sessions + "/a%2Fb/reader-pinned")
+            );
+            Assert.That(((Wire.ReaderPinnedReq)request.Body).Pinned, Is.True);
+            request.Ok(JVal.Null);
+            Assert.That(DaemonClient.Requests.Last().Method, Is.EqualTo("GET"));
+            DaemonClient.Requests.Clear();
+        }
+
+        public static void DefaultRunUsesPanelSizeAndRejectsMissingReaderProject()
+        {
+            DaemonClient.Requests.Clear();
+            TerminalWindow.TestCols = 100;
+            TerminalWindow.TestRows = 30;
+            try
             {
-                Sessions =
-                {
-                    new Wire.SessionView
-                    {
-                        Name = name,
-                        Launch = new Wire.SessionLaunchView(),
-                        Worker = new Wire.SessionWorkerView(),
-                        Reader = new Wire.SessionReaderView(),
-                        Runtime = new Wire.SessionRuntimeView(),
-                    },
-                },
-            };
+                var store = new SessionStore(_ => { });
+                store.Run(null, null, null, null);
+                var body = (Wire.RunReq)DaemonClient.Requests.Single().Body;
+                Assert.That(body.Cols, Is.EqualTo(100));
+                Assert.That(body.Rows, Is.EqualTo(30));
+                Assert.That(body.Project, Is.Empty);
+                Assert.That(body.Command, Is.Empty);
+                Assert.That(body.Label, Is.Empty);
+                DaemonClient.Requests.Clear();
+                var missing = new BrowseScope { ProjectId = "missing", Worktree = "branch" };
+                string error = null;
+                store.Run(missing.Key, "", "", null, e => error = e);
+                Assert.That(error, Is.EqualTo("The reader's project has gone."));
+                error = null;
+                store.RunHostShell(missing.Key, null, e => error = e);
+                Assert.That(error, Is.EqualTo("The reader's project has gone."));
+                Assert.That(DaemonClient.Requests, Is.Empty);
+            }
+            finally
+            {
+                TerminalWindow.TestCols = TerminalWindow.TestRows = 0;
+                DaemonClient.Requests.Clear();
+            }
+        }
+
+        static Wire.SessionsReply Sessions(string name) =>
+            SessionFixtures.Snapshot(SessionFixtures.View(name));
 
         public static void CallbackFailuresAreReportedWithoutBlockingOtherWaiters()
         {
@@ -83,9 +131,9 @@ namespace SlopWorld.Tests
             int completed = 0;
             store.Refresh(() => completed++);
             store.Refresh(() => completed++);
-            DaemonClient.Requests[1].Ok(ProtobufFixtures.Json(Sessions("new")));
+            DaemonClient.Requests[1].Reply(Sessions("new"));
             long version = store.Version;
-            DaemonClient.Requests[0].Ok(ProtobufFixtures.Json(Sessions("old")));
+            DaemonClient.Requests[0].Reply(Sessions("old"));
             Assert.That(store.Get("new"), Is.Not.Null);
             Assert.That(store.Get("old"), Is.Null);
             Assert.That(store.Version, Is.EqualTo(version));
@@ -112,12 +160,12 @@ namespace SlopWorld.Tests
                 };
                 store.Refresh(done, error);
                 store.Refresh(done, error);
-                DaemonClient.Requests[0].Ok(ProtobufFixtures.Json(Sessions("stale")));
+                DaemonClient.Requests[0].Reply(Sessions("stale"));
                 Assert.That(completed + failed, Is.Zero);
                 if (fail)
                     DaemonClient.Requests[1].Fail("offline");
                 else
-                    DaemonClient.Requests[1].Ok(ProtobufFixtures.Json(Sessions("winner")));
+                    DaemonClient.Requests[1].Reply(Sessions("winner"));
                 Assert.That(completed, Is.EqualTo(fail ? 0 : 2));
                 Assert.That(failed, Is.EqualTo(fail ? 2 : 0));
                 DaemonClient.Requests[0].Fail("stale error");
@@ -144,7 +192,7 @@ namespace SlopWorld.Tests
             Assert.That(completed, Is.EqualTo(1));
             DaemonClient.Requests[0].Fail("old failure");
             Assert.That(failed, Is.Zero);
-            DaemonClient.Requests[1].Ok(ProtobufFixtures.Json(Sessions("later")));
+            DaemonClient.Requests[1].Reply(Sessions("later"));
             Assert.That(completed, Is.EqualTo(2));
         }
 
@@ -154,7 +202,7 @@ namespace SlopWorld.Tests
             var store = new SessionStore(_ => { });
             store.Refresh();
             store.ApplySessions(Sessions("pushed"));
-            DaemonClient.Requests.Single().Ok(ProtobufFixtures.Json(Sessions("stale")));
+            DaemonClient.Requests.Single().Reply(Sessions("stale"));
             Assert.That(store.Sessions.Select(s => s.Name), Is.EqualTo(new[] { "pushed" }));
         }
 
@@ -230,10 +278,10 @@ namespace SlopWorld.Tests
             Assert.That(body.Reader.Scope, Is.EqualTo("scope"));
             Assert.That(body.Reader.Line, Is.EqualTo(2147483648U));
             Assert.That(body.Reader.Pinned, Is.True);
-            request.Ok(JVal.Parse("{\"session\":\"created\"}"));
+            request.Reply(new Wire.SessionResult { Session = "created" });
             Assert.That(started, Is.Null);
             Assert.That(DaemonClient.Requests[1].Method, Is.EqualTo("GET"));
-            DaemonClient.Requests[1].Ok(ProtobufFixtures.Json(Sessions("created")));
+            DaemonClient.Requests[1].Reply(Sessions("created"));
             Assert.That(started, Is.EqualTo("created"));
         }
 
@@ -260,7 +308,7 @@ namespace SlopWorld.Tests
             Assert.That(body.Project, Is.EqualTo("project"));
             Assert.That(body.Temp, Is.True);
             Assert.That(body.RandomTips, Is.EqualTo(new[] { "tip" }));
-            request.Ok(JVal.Parse("{\"session\":\"created\"}"));
+            request.Reply(new Wire.SessionResult { Session = "created" });
             DaemonClient.Requests[1].Fail("refresh failed");
             Assert.That(error, Is.EqualTo("refresh failed"));
             Assert.That(started, Is.False);
@@ -328,7 +376,7 @@ namespace SlopWorld.Tests
             store.CurrentPath("a/b c", p => path = p, e => error = e);
             var request = DaemonClient.Requests.Single();
             Assert.That(request.Path, Is.EqualTo(WireProtocol.Routes.Sessions + "/a%2Fb%20c/cwd"));
-            request.Ok(JVal.Parse("{\"path\":\"/current/directory\"}"));
+            request.Reply(new Wire.PathResult { Path = "/current/directory" });
             Assert.That(path, Is.EqualTo("/current/directory"));
             store.CurrentPath("a/b c", null, e => error = e);
             DaemonClient.Requests.Last().Fail("gone");

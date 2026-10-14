@@ -502,6 +502,78 @@ namespace SlopWorld.Tests
             );
         }
 
+        public static void StalledPeerWriteClosesSocketAndReleasesBackpressuredReader()
+        {
+            WithPeer(
+                ValidResponse,
+                stream =>
+                {
+                    // Keep the peer open without reading. The client's receive queue is also
+                    // full, so only writer failure can initiate cleanup and release its reader.
+                    stream.Socket.ReceiveBufferSize = 1024;
+                    var control = new Wire.Event
+                    {
+                        Sessions = new Wire.SessionsReply(),
+                    }.ToByteArray();
+                    for (int i = 0; i <= IncomingMessageQueue.MaxMessages; i++)
+                    {
+                        stream.Write(Header(0x82, (ulong)control.Length));
+                        stream.Write(control);
+                    }
+                },
+                (socket, port) =>
+                {
+                    Assert.That(
+                        socket.Connect("127.0.0.1", port, "/ws", "", timeoutMs: 500),
+                        Is.True
+                    );
+                    Assert.That(
+                        SpinWait.SpinUntil(
+                            () => socket.Incoming.Count == IncomingMessageQueue.MaxMessages,
+                            5000
+                        ),
+                        Is.True
+                    );
+                    Assert.That(socket.SendBinary(new byte[8 * 1024 * 1024]), Is.True);
+                    Assert.That(
+                        SpinWait.SpinUntil(() => !socket.Connected, 5000),
+                        Is.True,
+                        "writer deadline closes connection"
+                    );
+                    Assert.That(socket.LastError, Is.Not.Null.And.Not.Empty);
+                    Assert.That(socket.Incoming.Count, Is.Zero, "cleanup releases queued events");
+                    Assert.That(socket.OutgoingCount, Is.Zero);
+                    Assert.That(
+                        socket.SendBinary(new byte[] { 1 }),
+                        Is.False,
+                        "failed connection rejects later input"
+                    );
+                }
+            );
+        }
+
+        public static void TruncatedFrameHeaderDisconnectsWithoutDeliveringAnEvent()
+        {
+            WithPeer(
+                ValidResponse,
+                stream =>
+                {
+                    stream.WriteByte(0x82);
+                    stream.Socket.Shutdown(SocketShutdown.Send);
+                },
+                (socket, port) =>
+                {
+                    Assert.That(socket.Connect("127.0.0.1", port, "/ws", ""), Is.True);
+                    Assert.That(SpinWait.SpinUntil(() => !socket.Connected, 5000), Is.True);
+                    Assert.That(socket.Incoming.Count, Is.Zero);
+                    Assert.That(socket.OutgoingCount, Is.Zero);
+                    Assert.That(socket.SendBinary(new byte[] { 1 }), Is.False);
+                    socket.Dispose();
+                    socket.Dispose();
+                }
+            );
+        }
+
         public static void IncompleteUpgradeTimesOut()
         {
             WithPeer(

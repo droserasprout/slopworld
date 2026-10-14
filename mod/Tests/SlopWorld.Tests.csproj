@@ -9,11 +9,14 @@
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
+    <!-- The shipped Mono transport intentionally uses HttpWebRequest. -->
+    <NoWarn>$(NoWarn);SYSLIB0014</NoWarn>
     <DebugType>none</DebugType>
     <DebugType Condition="'$(Coverage)' == 'true'">portable</DebugType>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonHttpTransport.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Plague/Plague.Persistence.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Colony/IntroSceneState.cs" />
     <Compile Include="../Source/SlopWorld/UI/CommandPalette/PaletteHistory.cs" />
@@ -135,6 +138,7 @@
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubWire.cs" Link="Source/Client/SessionHub/HubWire.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Projects/MountPresentation.cs" Link="Source/MountPresentation.cs" />
     <Compile Include="../Source/SlopWorld/Client/Audio/JukeboxPresetInfo.cs" Link="Source/JukeboxPresetInfo.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Sessions/WorkerSpawnResult.cs" />
     <Compile Include="../Source/SlopWorld/Client/Sessions/WorkerWorktreeOptions.cs" Link="Source/WorkerWorktreeOptions.cs" />
     <Compile Include="../Source/SlopWorld/Client/Catalog/PresetInfo.cs" Link="Source/Client/Catalog/PresetInfo.cs" />
     <Compile Include="../Source/SlopWorld/Client/Catalog/CommandInfo.cs" Link="Source/Client/Catalog/CommandInfo.cs" />

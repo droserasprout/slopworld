@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using NUnit.Framework;
 
 namespace SlopWorld.Tests
 {
@@ -33,6 +34,49 @@ namespace SlopWorld.Tests
             yield return ("validates settings numeric boundaries", NumericValidation);
             yield return ("operation generations reject stale completions", OperationGenerations);
             yield return ("uses daemon factory metadata when available", UsesFactoryMetadata);
+        }
+
+        public static void MissingMetadataSourcePreservesMetadataAndPendingEdits()
+        {
+            var config = DaemonConfig.FromWire(
+                new Wire.Config(),
+                new Wire.ConfigMetadata
+                {
+                    Defaults = new Wire.Config
+                    {
+                        Daemon = new Wire.Daemon { TitleModel = "factory" },
+                    },
+                    TemporaryRoot = "/daemon/tmp",
+                    Terminal = new Wire.TerminalCapabilities { ScrollbackLines = 250 },
+                    AutoCommands = new Wire.CommandDefaults { Pager = "less" },
+                    UsageCatalog =
+                    {
+                        new Wire.UsageCatalogEntry { Key = "provider", Label = "Provider" },
+                    },
+                }
+            );
+            config.TitleModel = "unsaved-model";
+            config.Pager = "auto";
+            var snapshot = config.Snapshot();
+            var defaults = config.FactoryDefaults;
+            var catalog = config.UsageCatalog;
+            var terminal = config.Terminal;
+            var commands = config.AutoCommands;
+
+            config.CopyMetadataFrom(null);
+
+            Assert.That(config.MetadataAvailable, Is.True);
+            Assert.That(config.FactoryDefaults, Is.SameAs(defaults));
+            Assert.That(config.UsageCatalog, Is.SameAs(catalog));
+            Assert.That(config.Terminal, Is.SameAs(terminal));
+            Assert.That(config.AutoCommands, Is.SameAs(commands));
+            Assert.That(config.TemporaryRoot, Is.EqualTo("/daemon/tmp"));
+            Assert.That(config.EffectivePager, Is.EqualTo("less"));
+            Assert.That(
+                config.Snapshot(),
+                Is.EqualTo(snapshot),
+                "metadata refresh cannot discard edits"
+            );
         }
 
         public static void TerminalLimitsCapBeforeNarrowing()

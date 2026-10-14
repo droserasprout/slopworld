@@ -7,7 +7,8 @@ the label and underline without painting a background.
 `SearchStore` owns submitted queries, bounded requests, and grouped results through
 an injected daemon transport. It consumes snapshots of the
 [shared scope catalog](mod-sidebar-navigation.md); each submission captures the
-enabled ready checkouts. Replies for a replaced query or
+enabled ready checkouts by copying their descriptors, so delayed replies retain
+the submitted identity and root even if the catalog changes. Replies for a replaced query or
 scope cannot update current results.
 
 Filter changes rerun the last submitted query and options without replacing draft

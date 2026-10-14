@@ -111,10 +111,14 @@ namespace SlopWorld
                 Current = newName;
         }
 
+        public static int TestCols,
+            TestRows;
+
         public static bool TryPanelShape(out int cols, out int rows)
         {
-            cols = rows = 0;
-            return false;
+            cols = TestCols;
+            rows = TestRows;
+            return cols > 0 && rows > 0;
         }
     }
 

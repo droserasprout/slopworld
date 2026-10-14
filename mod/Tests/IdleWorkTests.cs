@@ -38,6 +38,59 @@ namespace SlopWorld.Tests
         static ulong Identity(Wire.Event value) =>
             value.Screen?.Seq ?? value.Sessions.Sessions[0].Runtime.Seq;
 
+        public static void BatchCoalescesFramesArrivingDuringReadWithoutLosingTimestamps()
+        {
+            var queue = new IncomingMessageQueue();
+            AssertEx.Equal(
+                IncomingEnqueueResult.Oversized,
+                queue.Enqueue(null),
+                "null input rejected"
+            );
+            queue.Enqueue(Screen("pane", 1));
+            queue.Enqueue(new byte[] { 0x80 });
+            var batch = new HubEventBatch();
+            int errors = 0;
+            long before = TerminalLatency.Now();
+            int count = batch.Read(
+                queue,
+                _ =>
+                {
+                    errors++;
+                    queue.Enqueue(Screen("pane", 2));
+                }
+            );
+            AssertEx.Equal(3, count, "new arrival remains in the same bounded batch");
+            AssertEx.Equal(1, errors, "malformed payload reported once");
+            AssertEx.False(batch.ShouldDispatch(0), "new arrival supersedes earlier live row");
+            AssertEx.False(batch.ShouldDispatch(1), "error slot preserves indexing");
+            AssertEx.Equal(2UL, batch[2].Screen.Seq, "latest frame dispatched");
+            if (TerminalLatency.Enabled)
+                AssertEx.True(
+                    batch.ReceivedAt(2) >= before,
+                    "timestamp stays with replacement frame"
+                );
+            else
+                AssertEx.Equal(0L, batch.ReceivedAt(2), "disabled tracing carries no clock sample");
+            batch.Clear();
+            AssertEx.Equal(0, batch.Count, "batch releases payloads");
+        }
+
+        public static void NoncanonicalScreenValuesUseGeneratedParser()
+        {
+            // Event.screen containing a name and a cols varint wider than uint32.
+            var oversized = new byte[] { 42, 9, 10, 1, 97, 24, 128, 128, 128, 128, 16 };
+            AssertEx.False(
+                ValidatedLiveScreen.TryName(oversized, out _),
+                "wide scalar cannot take lazy path"
+            );
+            AssertEx.False(
+                ValidatedLiveScreen.TryName(new byte[] { 42, 0 }, out _),
+                "nameless live screen cannot coalesce"
+            );
+            var parsed = new ReceivedEvent(oversized, deferLive: true);
+            AssertEx.Equal("a", parsed.Value.Screen.Name, "generated parser retains compatibility");
+        }
+
         public static void Messages()
         {
             var queue = new IncomingMessageQueue();

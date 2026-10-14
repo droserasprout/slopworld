@@ -249,6 +249,69 @@ namespace SlopWorld.Tests
             );
         }
 
+        public static void InvalidationRetainsActiveSlotsAndRejectsStaleSuccessAndFailure()
+        {
+            var f = new Fixture();
+            f.Update();
+            f.Reply(f.Request("p", 1), Scope());
+            f.Refresh();
+            int revision = f.Catalog.Revision;
+            f.Catalog.Invalidate();
+            f.Catalog.Invalidate();
+            f.Update();
+            Assert.That(f.Requests.Count, Is.EqualTo(2), "active load retains its slot");
+            f.Reply(f.Request("p", 2), Scope("obsolete"));
+            Assert.That(f.Catalog.Revision, Is.EqualTo(revision));
+            Assert.That(f.Catalog.Find(Scope().Key), Is.Not.Null);
+            Assert.That(f.Catalog.Find(Scope("obsolete").Key), Is.Null);
+            f.Update();
+            Assert.That(f.Requests.Count, Is.EqualTo(3), "stale success does not delay reload");
+            f.Catalog.Invalidate();
+            f.Update();
+            Assert.That(f.Requests.Count, Is.EqualTo(3));
+            f.Request("p", 3).Reply(null, "stale failure");
+            Assert.That(f.Catalog.Error("p-id"), Is.Null);
+            Assert.That(f.Catalog.Revision, Is.EqualTo(revision));
+            f.Update();
+            Assert.That(f.Requests.Count, Is.EqualTo(4), "stale failure releases its slot");
+            f.Reply(f.Request("p", 4), Scope(), Scope("current"));
+            Assert.That(f.Catalog.Find(Scope("current").Key), Is.Not.Null);
+            Assert.That(f.Catalog.Revision, Is.GreaterThan(revision));
+        }
+
+        public static void RetryDelayStartsAtCompletionAndWaitsForOnlineUpdate()
+        {
+            var f = new Fixture();
+            f.Update();
+            f.Now = 3f;
+            f.Request("p", 1).Reply(null, "offline");
+            f.Now = 7.99f;
+            f.Update();
+            Assert.That(f.Requests.Count, Is.EqualTo(1));
+            f.Now = 8f;
+            f.Catalog.Update(f.Projects, f.ProjectsRevision, f.Filter, f.Saved, false);
+            Assert.That(f.Requests.Count, Is.EqualTo(1), "offline updates do not admit requests");
+            f.Update();
+            Assert.That(f.Requests.Count, Is.EqualTo(2), "retry is admitted at the deadline");
+            f.Reply(f.Request("p", 2), Scope());
+            Assert.That(f.Catalog.Error("p-id"), Is.Null);
+            f.Now = 12.99f;
+            f.Update();
+            Assert.That(f.Requests.Count, Is.EqualTo(2));
+            f.Now = 13f;
+            f.Update();
+            Assert.That(f.Requests.Count, Is.EqualTo(3), "successful refresh uses the same delay");
+            int revision = f.Catalog.Revision;
+            f.Reply(f.Request("p", 3), Scope());
+            Assert.That(
+                f.Catalog.Revision,
+                Is.EqualTo(revision),
+                "unchanged reply does not publish"
+            );
+            f.Update();
+            Assert.That(f.Requests.Count, Is.EqualTo(3));
+        }
+
         public static void DefaultsAndProjectVisibility()
         {
             var f = new Fixture();

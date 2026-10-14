@@ -7,22 +7,10 @@ namespace SlopWorld.Tests
 {
     static class SessionStoreLifecycleTests
     {
-        static Wire.SessionsReply Snapshot(params (string Name, bool Alive)[] sessions)
-        {
-            var reply = new Wire.SessionsReply();
-            foreach (var (name, alive) in sessions)
-                reply.Sessions.Add(
-                    new Wire.SessionView
-                    {
-                        Name = name,
-                        Launch = new Wire.SessionLaunchView(),
-                        Worker = new Wire.SessionWorkerView(),
-                        Reader = new Wire.SessionReaderView(),
-                        Runtime = new Wire.SessionRuntimeView { Alive = alive },
-                    }
-                );
-            return reply;
-        }
+        static Wire.SessionsReply Snapshot(params (string Name, bool Alive)[] sessions) =>
+            SessionFixtures.Snapshot(
+                sessions.Select(s => SessionFixtures.View(s.Name, s.Alive)).ToArray()
+            );
 
         static void Screens(SessionStore store, string name)
         {
@@ -372,21 +360,9 @@ namespace SlopWorld.Tests
         static DaemonClient.Request RenameRequest(string method) =>
             DaemonClient.Requests.Last(r => r.Method == method);
 
-        static Wire.SessionsReply RenameSnapshot(string name = null)
-        {
-            var reply = new Wire.SessionsReply();
-            if (name != null)
-                reply.Sessions.Add(
-                    new Wire.SessionView
-                    {
-                        Name = name,
-                        Launch = new Wire.SessionLaunchView(),
-                        Worker = new Wire.SessionWorkerView(),
-                        Reader = new Wire.SessionReaderView(),
-                        Runtime = new Wire.SessionRuntimeView { Alive = true, State = "working" },
-                    }
-                );
-            return reply;
-        }
+        static Wire.SessionsReply RenameSnapshot(string name = null) =>
+            name == null
+                ? SessionFixtures.Snapshot()
+                : SessionFixtures.Snapshot(SessionFixtures.View(name, true, "working"));
     }
 }

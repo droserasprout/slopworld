@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using NUnit.Framework;
 
 namespace SlopWorld.Tests
 {
@@ -11,6 +12,30 @@ namespace SlopWorld.Tests
             yield return ("reads slopcar feature differences", ReadsSlopcar);
             yield return ("bounds malformed terminal advertisements", BoundsMalformedTerminal);
             yield return ("clamps valid oversized terminal ranges", BoundsOversizedTerminal);
+        }
+
+        public static void MissingAnnouncementDoesNotReplaceCurrentCapabilities()
+        {
+            var previous = DaemonCapabilities.Current;
+            try
+            {
+                var current = DaemonCapabilities.FromWire(
+                    new Wire.Capabilities
+                    {
+                        Runtime = "slopcar",
+                        HostTerminalsAreContainer = true,
+                        Terminal = new Wire.TerminalCapabilities { ScrollbackLines = 250 },
+                    }
+                );
+                Assert.Throws<ArgumentNullException>(() => DaemonCapabilities.FromWire(null));
+                Assert.That(DaemonCapabilities.Current, Is.SameAs(current));
+                Assert.That(current.Known, Is.True);
+                Assert.That(current.Terminal.ScrollbackLines, Is.EqualTo(250));
+            }
+            finally
+            {
+                DaemonCapabilities.Current = previous;
+            }
         }
 
         static void DefaultsToNative()
@@ -25,6 +50,7 @@ namespace SlopWorld.Tests
             AssertEx.False(caps.HostNetworkIsContainer, "network");
             AssertEx.False(caps.HostTerminalsAreContainer, "terminals");
             AssertEx.Equal("host terminal", caps.TerminalName, "terminal name");
+            AssertEx.Equal("host terminals", caps.TerminalNames, "terminal names");
             AssertEx.Equal(10000, caps.Terminal.ScrollbackLines, "initial history limit");
         }
 
@@ -55,6 +81,7 @@ namespace SlopWorld.Tests
                 AssertEx.True(caps.HostNetworkIsContainer, "network");
                 AssertEx.True(caps.HostTerminalsAreContainer, "terminals");
                 AssertEx.Equal("container terminals", caps.TerminalNames, "terminal names");
+                AssertEx.Equal("container terminal", caps.TerminalName, "terminal name");
                 AssertEx.Equal(123, caps.Terminal.ScrollbackLines, "history capacity");
                 AssertEx.Equal(22, caps.Terminal.MinCols, "minimum columns");
                 AssertEx.Equal(302, caps.Terminal.MaxCols, "maximum columns");

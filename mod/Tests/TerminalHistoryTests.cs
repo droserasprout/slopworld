@@ -6,6 +6,104 @@ namespace SlopWorld.Tests
 {
     static class TerminalHistoryTests
     {
+        public static void SelectionPreservesWideCellsAndClampsColumns()
+        {
+            var history = new TerminalHistory();
+            var displayed = Frame(0, "\u001b[31m好\u001b[3Gab\u001b[0m", "", "tail");
+            AssertEx.Equal(
+                "好",
+                history.SelectionText(displayed, 1, 0, 1, 0),
+                "continuation cell copies whole glyph"
+            );
+            AssertEx.Equal(
+                "ab",
+                history.SelectionText(displayed, 3, 0, 2, 0),
+                "reversed same-row selection"
+            );
+            AssertEx.Equal(
+                "好ab",
+                history.SelectionText(displayed, -2, 0, 100, 0),
+                "columns clamp to visible content"
+            );
+            AssertEx.Equal(
+                "",
+                history.SelectionText(displayed, 20, 0, 30, 0),
+                "selection beyond content is empty"
+            );
+        }
+
+        public static void PinningCachedViewIsolatesItFromLaterCaptures()
+        {
+            var history = new TerminalHistory();
+            var live = Frame(0, "a", "b", "c");
+            history.Reset(live);
+            history.Add(Frame(3, "older", "middle", "newer"), live);
+            AssertEx.True(history.TryView(3, false, out var cached), "view cached before pin");
+            AssertEx.True(
+                history.TryView(3, false, out var pinned, freeze: true),
+                "cached view pins"
+            );
+            AssertEx.False(ReferenceEquals(cached, pinned), "pin has separate metadata");
+            history.Add(Frame(3, "changed", "middle", "newer"), live);
+            AssertEx.True(
+                history.TryView(3, false, out var retained, freeze: true),
+                "pin retained"
+            );
+            AssertEx.True(ReferenceEquals(pinned, retained), "same pin survives cache refresh");
+            AssertEx.Equal("older", retained.Lines[0], "pinned content stays frozen");
+            history.ReleaseView();
+            AssertEx.True(
+                history.TryView(3, false, out var fresh),
+                "release exposes fresh capture"
+            );
+            AssertEx.Equal("changed", fresh.Lines[0], "fresh content after release");
+        }
+
+        public static void IncompatibleCaptureCannotReplaceRetainedRows()
+        {
+            var history = new TerminalHistory();
+            var live = Frame(0, "a", "b", "c");
+            history.Reset(live);
+            history.Add(Frame(3, "older", "middle", "newer"), live);
+            foreach (int mismatch in new[] { 0, 1, 2 })
+            {
+                var capture = Frame(3, "wrong", "wrong", "wrong");
+                if (mismatch == 0)
+                    capture.Cols++;
+                if (mismatch == 1)
+                    capture.Rows++;
+                if (mismatch == 2)
+                    capture.AltScreen = true;
+                history.Add(capture, live);
+                AssertEx.True(history.TryLine(-3, out var line), "history remains available");
+                AssertEx.Equal("older", line, "incompatible capture rejected");
+            }
+        }
+
+        public static void EmptyHistorySeedsFromLiveOrStandaloneCapture()
+        {
+            var history = new TerminalHistory();
+            AssertEx.Equal(0, history.Cols, "no viewport before first frame");
+            AssertEx.False(history.UpdateLive(null, 0), "missing live frame cannot seed history");
+            var live = Frame(0, "a", "b", "c");
+            live.AltScreen = true;
+            AssertEx.False(history.UpdateLive(live, 0), "first live frame reseeds");
+            AssertEx.Equal(20, history.Cols, "live viewport width");
+            AssertEx.True(history.AltScreen, "screen mode retained");
+            AssertEx.True(history.TryView(0, false, out var view), "live rows indexed");
+            AssertEx.Sequence(live.Lines, view.Lines, "seeded content");
+
+            history.Reset();
+            var capture = Frame(3, "older", "middle", "newer");
+            history.Add(capture, null);
+            AssertEx.True(
+                history.TryView(3, false, out view),
+                "capture can seed without live frame"
+            );
+            AssertEx.Sequence(capture.Lines, view.Lines, "standalone capture content");
+            AssertEx.False(history.AltScreen, "new template replaces screen mode");
+        }
+
         public static void DelayedCaptureAtHistoryLimitCannotOverwriteRows()
         {
             var history = new TerminalHistory();

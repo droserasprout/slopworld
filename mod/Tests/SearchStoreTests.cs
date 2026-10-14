@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Google.Protobuf;
 using NUnit.Framework;
 
 namespace SlopWorld.Tests
@@ -134,6 +135,91 @@ namespace SlopWorld.Tests
             Assert.That(f.Store.Loading, Is.False);
             f.Store.Search(submission, Array.Empty<BrowseScope>(), false);
             Assert.That(f.Store.Groups, Is.Empty);
+            Assert.That(f.Store.Loading, Is.False);
+        }
+
+        public static void FailedRequestsAdmitQueuedScopesAndSettleEachGroup()
+        {
+            var f = new Fixture();
+            f.Store.Search(
+                Query("needle"),
+                new[] { Scope("1"), Scope("2"), Scope("3"), Scope("4"), Scope("5"), Scope("6") },
+                false
+            );
+            Assert.That(f.Requests.Count, Is.EqualTo(4));
+            f.Requests[0].Fail("first failed");
+            Assert.That(f.Requests.Count, Is.EqualTo(5));
+            Assert.That(f.Requests[4].Url, Does.Contain("path=%2F5"));
+            f.Requests[4].Fail("queued failed");
+            Assert.That(f.Requests.Count, Is.EqualTo(6), "failed queued request releases its slot");
+            Assert.That(f.Store.Loading, Is.True);
+            f.Requests[5].Ok(new Wire.SearchResult());
+            f.Requests[1].Ok(new Wire.SearchResult());
+            f.Requests[2].Fail("third failed");
+            Assert.That(f.Store.Loading, Is.True, "last running group still pending");
+            f.Requests[3].Ok(new Wire.SearchResult());
+            Assert.That(f.Store.Loading, Is.False);
+            Assert.That(f.Store.Groups[0].Error, Is.EqualTo("first failed"));
+            Assert.That(f.Store.Groups[4].Error, Is.EqualTo("queued failed"));
+            Assert.That(f.Store.Groups[5].Error, Is.Null);
+        }
+
+        public static void ClearingSaturatedSearchDropsQueuedWorkAndAllowsLaterSearch()
+        {
+            var f = new Fixture();
+            var scopes = new[] { Scope("1"), Scope("2"), Scope("3"), Scope("4"), Scope("5") };
+            f.Store.Search(Query("old"), scopes, false);
+            f.Store.Search(Query(""), scopes, false);
+            Assert.That(f.Store.Loading, Is.False);
+            Assert.That(f.Store.Groups, Is.Empty);
+            f.Requests[0].Ok(new Wire.SearchResult());
+            f.Requests[1].Fail("late error");
+            Assert.That(f.Requests.Count, Is.EqualTo(4), "old queued scope never dispatched");
+            Assert.That(f.Store.Groups, Is.Empty);
+            f.Store.Search(Query("new"), new[] { Scope("new") }, false);
+            Assert.That(f.Requests.Count, Is.EqualTo(5));
+            f.Requests[2].Ok(new Wire.SearchResult());
+            f.Requests[3].Fail("another late error");
+            Assert.That(f.Store.Loading, Is.True, "old callbacks cannot settle new search");
+            f.Requests[4].Ok(new Wire.SearchResult());
+            Assert.That(f.Store.Loading, Is.False);
+            Assert.That(f.Store.Groups.Count, Is.EqualTo(1));
+            Assert.That(f.Store.Groups[0].Error, Is.Null);
+        }
+
+        public static void DelayedRepliesKeepSubmittedScopeIdentityAndRoot()
+        {
+            var f = new Fixture();
+            var scopes = new[] { Scope("1"), Scope("2"), Scope("3"), Scope("4"), Scope("5") };
+            f.Store.Search(Query("needle"), scopes, false);
+            var originalKey = scopes[4].Key;
+            scopes[4].ProjectId = "replacement";
+            scopes[4].Project = "renamed";
+            scopes[4].Worktree = "other";
+            scopes[4].Path = "/replacement";
+            f.Requests[0].Ok(new Wire.SearchResult());
+            Assert.That(
+                f.Requests[4].Url,
+                Does.Contain("path=%2F5"),
+                "queued request uses submitted path"
+            );
+            f.Requests[4]
+                .Ok(
+                    new Wire.SearchResult
+                    {
+                        Matches =
+                        {
+                            new Wire.SearchMatch { Path = "file", Line = 7 },
+                        },
+                    }
+                );
+            var group = f.Store.Groups[4];
+            Assert.That(group.Project, Is.EqualTo("5"));
+            Assert.That(group.Worktree, Is.EqualTo("Main checkout"));
+            Assert.That(group.Matches[0].Project, Is.EqualTo(originalKey));
+            Assert.That(group.Matches[0].Root, Is.EqualTo("/5"));
+            for (int i = 1; i < 4; i++)
+                f.Requests[i].Ok(new Wire.SearchResult());
             Assert.That(f.Store.Loading, Is.False);
         }
 

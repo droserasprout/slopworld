@@ -41,8 +41,10 @@ namespace SlopWorld
             Changed?.Invoke();
             if (!Loading)
                 return;
-            foreach (var p in projects)
+            foreach (var scope in projects)
             {
+                // Keep delayed result metadata tied to the path submitted to the daemon.
+                var p = scope.Copy();
                 var group = new Group { Project = p.Project, Worktree = p.Label };
                 Groups.Add(group);
                 string url =
