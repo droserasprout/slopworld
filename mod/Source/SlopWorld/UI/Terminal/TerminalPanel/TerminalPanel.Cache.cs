@@ -320,27 +320,14 @@ namespace SlopWorld
             }
             if (edgeOverrun)
                 PerfTrace.Count("terminal-cache-edge-clamps");
-            float u0 = x0 / pw,
-                u1 = x1 / pw;
-
-            // texCoords y counts from the destination's bottom either way. Which end of
-            // the texture that is, is where the API put the target's first row.
-            float v0,
-                v1;
-            if (SystemInfo.graphicsUVStartsAtTop)
-            {
-                v0 = y1 / ph;
-                v1 = y0 / ph;
-            }
-            else
-            {
-                v0 = 1f - y1 / ph;
-                v1 = 1f - y0 / ph;
-            }
 
             var tint = GUI.color;
             GUI.color = Color.white;
-            GUI.DrawTextureWithTexCoords(destination, _cache, new Rect(u0, v0, u1 - u0, v1 - v0));
+            GUI.DrawTextureWithTexCoords(
+                destination,
+                _cache,
+                TerminalCacheSampling.SourceUv(pw, ph, x0, y0, x1, y1)
+            );
             GUI.color = tint;
             drawn = true;
             ScrollDebugBlit(debugStarted, drawn);

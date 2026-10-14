@@ -38,6 +38,11 @@ namespace UnityStubs.Gui
 
     sealed class TextBackend
     {
+        public Func<string, byte[], float, int, int> Register;
+
+        public int RegisterFont(string name, byte[] bytes, float size, int mode) =>
+            Register(name, bytes, size, mode);
+
         public Func<string, float, int, UnityEngine.Vector2> Cursor;
 
         public UnityEngine.Vector2 TextCursorPos(

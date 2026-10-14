@@ -7,6 +7,9 @@ and `TerminalFont` supply cache revisions. Parsed link decoration belongs to
 Panel closure releases its render texture; disposal also releases a cache created
 before the panel opened. Repeated closure/disposal must remain harmless.
 
+Cache sampling supplies bottom-origin UVs to `GUI.DrawTextureWithTexCoords`; the GUI backend
+owns conversion to its texture origin. Do not add a graphics-API-dependent flip.
+
 Texture creation failure falls back to direct painting. Damage describes one received
 revision: skipped predecessors or missing damage require a full repaint. Cursor and
 selection overlays must not repaint text. Theme/font, geometry, history position,

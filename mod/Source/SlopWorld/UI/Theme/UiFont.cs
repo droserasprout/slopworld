@@ -6,7 +6,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Replaces Tiny/Small/Medium with dynamic fonts and matching private line metrics. Keep
+    // Supplies registered native fonts and matching line metrics for Tiny/Small/Medium. Keep
     // `GUIStyle.fontSize` zero so measurement and drawing use each tier's native baked size.
     public static class UiFont
     {
@@ -33,7 +33,7 @@ namespace SlopWorld
         // when the user only picks a face and preserve their offsets for custom sizes.
         static readonly int[] DefaultSizes = { 11, 13, 15 };
 
-        // Keep the fonts alive while the styles reference their dynamic atlases.
+        // Keep native font wrappers alive while the styles reference them.
         static Font[] _fonts;
         static string _fontName;
         static int _fontSize = -1;
@@ -41,7 +41,7 @@ namespace SlopWorld
 
         public static int Revision => _revision;
 
-        // Replaces the built-in fonts with the user's chosen OS font in every
+        // Applies the user's chosen installed font in every
         // Text font-style array. Called at startup and when appearance settings change.
         public static void Apply()
         {
@@ -86,7 +86,6 @@ namespace SlopWorld
                             throw new InvalidOperationException(
                                 "could not create font at " + sizes[i] + "pt"
                             );
-                        font.hideFlags = HideFlags.DontUnloadUnusedAsset;
                         bySize.Add(sizes[i], font);
                         made.Add(font);
                     }
@@ -124,9 +123,8 @@ namespace SlopWorld
 
         static Font Create(string name, int size) =>
             name.Length == 0
-                ? Font.CreateDynamicFontFromOSFont(Candidates, size)
-                    ?? Font.CreateDynamicFontFromOSFont("Arial", size)
-                : Font.CreateDynamicFontFromOSFont(name, size);
+                ? NativeFonts.Create(Candidates, size) ?? NativeFonts.Create("Arial", size)
+                : NativeFonts.Create(name, size);
 
         static bool AllAlive(Font[] fonts)
         {
@@ -317,14 +315,18 @@ namespace SlopWorld
             }
         }
 
-        public static void Rescan() => _all = null;
+        public static void Rescan()
+        {
+            NativeFonts.Rescan();
+            _all = null;
+        }
 
         static List<string> Scan()
         {
             var found = new List<string>();
             try
             {
-                var names = Font.GetOSInstalledFontNames();
+                var names = NativeFonts.Names();
                 if (names == null)
                     return found;
                 var seen = new HashSet<string>();
