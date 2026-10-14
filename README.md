@@ -10,13 +10,13 @@ SlopWorld is a fun terminal-focused IDE for agentic coding, built on RimWorld.
 Your agents' sessions appear as colonists. Select one to open its terminal and give
 it work.
 
-- Run [agent CLIs](docs/src/agents/configuring-agents.md), [shells](docs/src/terminals/host-shells.md), and tools in [persistent terminal sessions](docs/src/terminals/terminal.md).
-- Manage [projects](docs/src/workspace/configuring-projects.md), [mounts](docs/src/workspace/project-mounts.md), and [Git worktrees](docs/src/workspace/project-worktrees.md) for parallel work.
-- Configure [sandboxing](docs/src/sandbox/sandboxing.md) and [network access](docs/src/agents/configuring-agents.md#network) per agent.
-- [Browse files](docs/src/workspace/files-and-search.md#browse-and-open-files), [search code](docs/src/workspace/files-and-search.md#search-workspace-text), [review diffs](docs/src/workspace/review-changes.md#change-review), and [commit changes](docs/src/workspace/review-changes.md#staging-and-commits).
-- [Hand off tasks](docs/src/agents/agent-collaboration.md#worker-delegation) between agents and [track completion](docs/src/agents/agent-collaboration.md#task-mailboxes).
-- Customize [fonts, colors](docs/src/customization/settings.md), and the [UI layout](docs/src/workspace/interface.md).
-- Enjoy the [original soundtrack or tune to internet radio](docs/src/customization/jukebox.md).
+- Run [agent CLIs](https://slopworld.space/agents/configuring-agents.html), [shells](https://slopworld.space/terminals/host-shells.html), and tools in [persistent terminal sessions](https://slopworld.space/terminals/terminal.html).
+- Manage [projects](https://slopworld.space/workspace/configuring-projects.html), [mounts](https://slopworld.space/workspace/project-mounts.html), and [Git worktrees](https://slopworld.space/workspace/project-worktrees.html) for parallel work.
+- Configure [sandboxing](https://slopworld.space/sandbox/sandboxing.html) and [network access](https://slopworld.space/agents/configuring-agents.html#network) per agent.
+- [Browse files](https://slopworld.space/workspace/files-and-search.html#browse-and-open-files), [search code](https://slopworld.space/workspace/files-and-search.html#search-workspace-text), [review diffs](https://slopworld.space/workspace/review-changes.html#change-review), and [commit changes](https://slopworld.space/workspace/review-changes.html#staging-and-commits).
+- [Hand off tasks](https://slopworld.space/agents/agent-collaboration.html#worker-delegation) between agents and [track completion](https://slopworld.space/agents/agent-collaboration.html#task-mailboxes).
+- Customize [fonts, colors](https://slopworld.space/customization/settings.html), and the [UI layout](https://slopworld.space/workspace/interface.html).
+- Enjoy the [original soundtrack or tune to internet radio](https://slopworld.space/customization/jukebox.html).
 
 ## What's inside
 
@@ -24,18 +24,18 @@ it work.
 
 Your favorite Linux tooling, well-integrated:
 
-- **Alacritty** for [terminal emulation](docs/src/terminals/terminal-interface.md).
-- **tmux** for [multiplexing and persistent sessions](docs/src/terminals/terminal.md).
-- **Bubblewrap** for [sandboxing and controlling filesystem access](docs/src/sandbox/sandboxing.md).
-- **pasta** for [networking in private sandboxes](docs/src/agents/configuring-agents.md#network).
-- **git** for [version control](docs/src/workspace/review-changes.md) and [worktrees](docs/src/workspace/project-worktrees.md).
-- Small UNIX friends: [pagers, highlighters](docs/src/customization/settings.md#applying-changes), [ripgrep](docs/src/workspace/files-and-search.md#search-workspace-text), [git-delta](docs/src/workspace/review-changes.md#change-review).
+- **Alacritty** for [terminal emulation](https://slopworld.space/terminals/terminal-interface.html).
+- **tmux** for [multiplexing and persistent sessions](https://slopworld.space/terminals/terminal.html).
+- **Bubblewrap** for [sandboxing and controlling filesystem access](https://slopworld.space/sandbox/sandboxing.html).
+- **pasta** for [networking in private sandboxes](https://slopworld.space/agents/configuring-agents.html#network).
+- **git** for [version control](https://slopworld.space/workspace/review-changes.html) and [worktrees](https://slopworld.space/workspace/project-worktrees.html).
+- Small UNIX friends: [pagers, highlighters](https://slopworld.space/customization/settings.html#applying-changes), [ripgrep](https://slopworld.space/workspace/files-and-search.html#search-workspace-text), [git-delta](https://slopworld.space/workspace/review-changes.html#change-review).
 
 SlopWorld consists of three components:
 
-- A Rust daemon, [`slopd`](docs/src/development/architecture.md), manages the sessions and sandboxes.
-- The RimWorld mod, `io.drsr.slopworld`, puts their terminals and status into the [game interface](docs/src/workspace/interface.md).
-- [`slopctl`](docs/src/reference/slopctl.md) provides a command-line interface to the [daemon's API](docs/src/reference/api.md).
+- A Rust daemon, [`slopd`](https://slopworld.space/development/architecture.html), manages the sessions and sandboxes.
+- The RimWorld mod, `io.drsr.slopworld`, puts their terminals and status into the [game interface](https://slopworld.space/workspace/interface.html).
+- [`slopctl`](https://slopworld.space/reference/slopctl.html) provides a command-line interface to the [daemon's API](https://slopworld.space/reference/api.html).
 
 ## Get started
 
@@ -46,17 +46,17 @@ on [Steam](https://store.steampowered.com/app/294100/RimWorld/),
 [GOG](https://www.gog.com/en/game/rimworld), or
 [directly from Ludeon Studios](https://rimworldgame.com/).
 
-For Linux host, see the [requirements](docs/src/installation/linux.md#requirements) and
-[installation guide](docs/src/installation/linux.md).
+For Linux host, see the [requirements](https://slopworld.space/installation/linux.html#requirements) and
+[installation guide](https://slopworld.space/installation/linux.html).
 
-For experimental sidecar mode (`slopd` in Docker) follow the [macOS](docs/src/installation/macos.md)
-and [sidecar worker](docs/src/installation/sidecar.md) guides.
+For experimental sidecar mode (`slopd` in Docker) follow the [macOS](https://slopworld.space/installation/macos.html)
+and [sidecar worker](https://slopworld.space/installation/sidecar.html) guides.
 
 ### From binaries
 
 Get Arch, Debian/Ubuntu, and Fedora packages from [GitHub Releases](https://github.com/droserasprout/slopworld/releases).
 
-See the [installation instructions](docs/src/installation/linux.md)
+See the [installation instructions](https://slopworld.space/installation/linux.html)
 for installing a package, attaching the mod, and starting the daemon.
 
 ### From source
@@ -64,7 +64,7 @@ for installing a package, attaching the mod, and starting the daemon.
 <img src="docs/src/images/introduction-sidebar.jpg" alt="SlopWorld project and agent sidebar with the session context menu open" width="160" align="right">
 
 Install the [`just`](https://github.com/casey/just#installation) command runner
-and the other [build prerequisites](docs/src/development/build.md#prerequisites).
+and the other [build prerequisites](https://slopworld.space/development/build.html#prerequisites).
 
 ```sh
 git clone https://github.com/droserasprout/slopworld.git
