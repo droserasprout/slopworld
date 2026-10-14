@@ -3,7 +3,10 @@
 [Profile preferences](mod-settings.md), daemon settings, and RimWorld preferences
 have separate lifetimes. Profile controls usually apply live and flush after a quiet
 period or on close. UI scale applies on slider release so its target stays stable;
-`UnlockUIScale` bypasses vanilla's low-resolution reset.
+`UnlockUIScale` bypasses vanilla's low-resolution reset. `UiScaleDrag` retains the
+pending value independently of native control state and applies it on reported
+release or when the button is up after capture is lost. A reported release uses
+its final pointer sample.
 
 Daemon pages keep independent drafts scoped by page and endpoint. Save only changed
 fields; acknowledgements accept submitted values while preserving newer edits.
