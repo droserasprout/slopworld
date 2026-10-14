@@ -22,3 +22,5 @@ sizing/input to [terminal ownership](mod-terminal.md), and form focus to
 Agent action buttons anchor to the content's left edge plus the shared gap even
 when the sidebar is hidden. Their replaced inspect pane must not reserve a vanilla
 horizontal offset.
+The hidden inspect pane is also excluded from window hit testing so its retained
+rectangle cannot occlude action highlights or tooltips.

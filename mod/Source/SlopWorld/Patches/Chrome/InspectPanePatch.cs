@@ -1,5 +1,6 @@
 using HarmonyLib;
 using RimWorld;
+using UnityEngine;
 using Verse;
 
 namespace SlopWorld
@@ -42,6 +43,30 @@ namespace SlopWorld
         {
             static bool Prefix(Window __instance) =>
                 !(__instance is MainTabWindow_Inspect && AgentSelectionActive);
+        }
+
+        [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.GetWindowAt))]
+        public static class Patch_HideInspectHitTarget
+        {
+            static void Postfix(WindowStack __instance, Vector2 pos, ref Window __result)
+            {
+                if (!(__result is MainTabWindow_Inspect) || !AgentSelectionActive)
+                    return;
+
+                // Skipping WindowOnGUI leaves the pane's old rectangle in the stack.
+                // Mouse.IsOver and tooltips still see it as an occluding window. Find
+                // the next visible window so real dialogs and menus retain their hit targets.
+                __result = null;
+                var windows = __instance.Windows;
+                for (int i = windows.Count - 1; i >= 0; i--)
+                {
+                    var window = windows[i];
+                    if (window is MainTabWindow_Inspect || !window.windowRect.Contains(pos))
+                        continue;
+                    __result = window;
+                    break;
+                }
+            }
         }
 
         // WindowStack draws the shadow before WindowOnGUI.

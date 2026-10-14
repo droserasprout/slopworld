@@ -18,20 +18,21 @@ Expect any imaginable incompatibilities until 0.1.0.
 ### Fixed
 
 - CLI: Honor custom `MODS` paths when installing or removing the mod.
-- Game: Resume unfinished opening scenes under Eco after loading a save.
 - Game: Keep cleared plague fields from returning after loading a save.
+- Game: Resume unfinished opening scenes under Eco after loading a save.
 - Markdown: Display images inside `div` containers, stack grouped images vertically.
 - Sandbox: Reject preset path aliases that expose host originals instead of private copies.
-- Sessions: Prevent recovery from attaching surviving host terminals or workers to a different agent.
 - Sessions: Complete stop/restart cleanup even if the requesting client disconnects.
+- Sessions: Prevent recovery from attaching surviving host terminals or workers to a different agent.
 - Sidecar: Support non-default Linux user and group IDs, including SSH account lookup.
+- Terminal: Correctly repaint wrapped links when terminal output changes.
 - Terminal: Prevent scrollback corruption when history reaches its limit.
 - Terminal: Update terminal dimensions after resizing even when the application produces no output.
-- Terminal: Correctly repaint wrapped links when terminal output changes.
-- UI: Prevent stale project and Library settings from reappearing after edits.
 - UI: Correct sidebar click handling and resizing when docked on the right.
-- Workers: Restore workers’ own launch settings after daemon restarts.
+- UI: Fixed some agent action buttons remaining clickable but showing no hover highlight or tooltip.
+- UI: Prevent stale project and Library settings from reappearing after edits.
 - Workers: Prevent hangs when creating workers in new worktrees and clean up abandoned worktrees after cancelled launches.
+- Workers: Restore workers’ own launch settings after daemon restarts.
 
 ### Changed
 
