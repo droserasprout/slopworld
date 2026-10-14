@@ -49,7 +49,8 @@ namespace SlopWorld
             string tip = null,
             bool locked = false,
             bool warn = false,
-            RowHoverPolicy hoverPolicy = RowHoverPolicy.Local
+            RowHoverPolicy hoverPolicy = RowHoverPolicy.Local,
+            Color? warningColor = null
         )
         {
             using (WidgetState.Save())
@@ -63,8 +64,9 @@ namespace SlopWorld
                     locked
                 );
                 GUI.color =
-                    locked ? UiTheme.Faint
+                    warningColor.HasValue ? warningColor.Value
                     : warn ? UiTheme.Warn
+                    : locked ? UiTheme.Faint
                     : over ? UiTheme.Lead
                     : UiTheme.Name;
                 UiText.RowLabel(
@@ -221,6 +223,7 @@ namespace SlopWorld
         public bool On;
         public bool Locked;
         public bool Warn;
+        public Color? WarningColor;
         public System.Action<bool> Changed;
     }
 
@@ -304,7 +307,8 @@ namespace SlopWorld
                             choice.Tip,
                             choice.Locked,
                             choice.Warn,
-                            RowHoverPolicy.Local
+                            RowHoverPolicy.Local,
+                            choice.WarningColor
                         );
                         if (next != choice.On)
                         {

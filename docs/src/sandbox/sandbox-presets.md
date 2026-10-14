@@ -77,7 +77,29 @@ for state locations and [Backup and recovery](../maintenance/backup-and-recovery
 Host updates reach the sandboxes, and agents can overwrite those files in place.
 Treat them as writable host data; see the [Security model](security.md).
 
-A non-empty `escapes` field warns about host capabilities outside the sandbox.
+## Access warnings
+
+Yellow **Sensitive access** marks credentials, devices, or services outside project
+files. Deep orange **Host control** marks access that can run processes outside the
+sandbox or control host applications. Host control includes access as your user;
+it does not require system root privileges. Sensitive credentials can still authorize
+high-impact changes to remote services.
+
+Preset selectors show the highest warning level inherited through `requires`, with
+the responsible presets in the explanation. The selected configuration also includes
+the global preset. Warnings remain visible on required and inherited presets.
+An unmarked preset has no declared warning; this is not a guarantee of safety.
+
+Use `warning_level = "sensitive"` or `warning_level = "host_control"` and an
+`escapes` explanation in custom presets, or edit **Warning level** and **Access
+warning** in Settings. The default is `none`. Older nonempty `escapes` explanations
+still show a sensitive-access warning. The `tmux` and `daemon_config` capabilities
+always show host control, regardless of the declared warning level.
+
+For example, `aws`, `gh`, `kube`, and `psql` expose credentials and show sensitive
+access. Docker, Podman, D-Bus, systemd, X11, and `slopworld-debug` show host control.
+`android-debug` inherits host control through X11. Warnings describe capabilities;
+they do not add or remove sandbox permissions.
 
 ## SSH agents {#ssh-agents}
 

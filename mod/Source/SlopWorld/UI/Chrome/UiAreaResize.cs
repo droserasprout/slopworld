@@ -26,14 +26,15 @@ namespace SlopWorld
         public bool Automatic => _grow && !_manual;
 
         // Measurement is pure: callers use the result for both layout and drawing.
-        public float MeasuredHeight(float contentHeight) =>
-            Automatic
+        public float MeasuredHeight(float contentHeight, bool editable = true) =>
+            !editable ? Mathf.Max(_minimum, contentHeight)
+            : Automatic
                 ? Mathf.Clamp(
                     contentHeight,
                     _minimum,
                     Mathf.Max(_minimum, Mathf.Min(_maximum, 240f))
                 )
-                : Height;
+            : Height;
 
         public void FitToContent()
         {

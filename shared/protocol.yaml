@@ -462,6 +462,7 @@ enums:
   file_action_mode: [ask, show_result, open_terminal, nothing]
   task_status: [queued, accepted, working, done, failed, canceled]
   usage_unit: [pct, usd]
+  preset_warning_level: [none, sensitive, host_control]
 
 constants:
   host_identity: host

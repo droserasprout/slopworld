@@ -56,6 +56,7 @@ pub(crate) fn sandbox_json(
         "skip": p.skip,
         "shared": p.shared,
         "escapes": p.escapes,
+        "warning_level": p.warning_level(),
         "env": p.env,
         "setenv": p.setenv,
         "tmux": p.tmux,
@@ -166,6 +167,28 @@ fn preset_error(error: crate::presets::PresetError) -> crate::api::protobuf::Api
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn warning_projection_and_wire_round_trip_preserve_capability_floor() {
+        let table = crate::presets::Table::default();
+        for (tmux, daemon_config) in [(true, false), (false, true)] {
+            let preset = crate::presets::SandboxPreset {
+                name: "custom".into(),
+                tmux,
+                daemon_config,
+                ..Default::default()
+            };
+            let json = sandbox_json(&preset, &table, &table);
+            assert_eq!(json["warning_level"], "host_control");
+            let mut wire: wire::SandboxPreset = serde_json::from_value(json).unwrap();
+            wire.source = None;
+            let round_trip: crate::presets::SandboxPreset = domain(wire).unwrap();
+            assert_eq!(
+                round_trip.warning_level(),
+                crate::presets::WarningLevel::HostControl
+            );
+        }
+    }
 
     #[tokio::test]
     async fn update_distinguishes_validation_from_storage_failure() {

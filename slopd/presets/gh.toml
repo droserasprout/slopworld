@@ -1,5 +1,7 @@
 [[sandbox]]
 name = "gh"
 description = "Private GitHub CLI configuration and credentials for each session"
+warning_level = "sensitive"
+escapes = "Can use GitHub credentials to read or change repositories and account resources permitted by those credentials"
 private = ["~/.config/gh"]
 env = ["GH_TOKEN", "GITHUB_TOKEN"]

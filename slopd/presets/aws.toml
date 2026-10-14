@@ -1,5 +1,7 @@
 [[sandbox]]
 name = "aws"
 description = "AWS SDK credentials and configuration"
+warning_level = "sensitive"
+escapes = "Can use and copy AWS credentials to access resources permitted by those credentials"
 ro = ["~/.aws"]
 env = ["AWS_PROFILE", "AWS_REGION", "AWS_DEFAULT_REGION"]

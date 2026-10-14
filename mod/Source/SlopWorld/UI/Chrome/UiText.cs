@@ -320,7 +320,7 @@ namespace SlopWorld
                 Text.CalcHeight(string.IsNullOrEmpty(text) ? " " : text, contentWidth)
                 + FieldPadY * 4f
                 + (editable ? UiAreaResize.CornerSize : 0f);
-            return resize.MeasuredHeight(content);
+            return resize.MeasuredHeight(content, editable);
         }
 
         public static string Area(

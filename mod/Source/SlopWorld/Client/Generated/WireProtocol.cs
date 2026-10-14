@@ -170,6 +170,13 @@ namespace SlopWorld
             public const string Usd = "usd";
         }
 
+        internal static class PresetWarningLevel
+        {
+            public const string None = "none";
+            public const string Sensitive = "sensitive";
+            public const string HostControl = "host_control";
+        }
+
         public const string HostIdentity = "host";
         public const string TemplateVersionQuery = "version";
         public const int TerminalMinCols = 20;

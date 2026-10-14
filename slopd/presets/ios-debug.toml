@@ -1,6 +1,7 @@
 [[sandbox]]
 name = "ios-debug"
 description = "iOS simulator and connected-device debugging"
+warning_level = "sensitive"
 requires = ["ios-dev"]
 # CoreSimulator state is writable because booted devices, app data and logs are mutable. The
 # USB path is present for Linux workers that expose a compatible device bridge. Native macOS

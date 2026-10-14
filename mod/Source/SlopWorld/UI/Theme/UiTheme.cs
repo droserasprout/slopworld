@@ -99,6 +99,8 @@ namespace SlopWorld
 
         public static Color Bad => UIScheme.Current.Bad;
         public static Color Warn => UIScheme.Current.Warn;
+
+        public static Color HostControl => UIScheme.Current.HostControl;
         public static Color Global => UIScheme.Current.Global;
 
         // Panel is the one surface allowed to show a trace of the map beneath it. All

@@ -20,6 +20,28 @@ namespace SlopWorld.Tests
             resize.Complete(Area, enabled);
         }
 
+        public static void ReadOnlySizingShowsAllContentRegardlessOfEditableLimits()
+        {
+            var resize = new UiAreaResize(180f, minimum: 48f, maximum: 600f, grow: true);
+            AssertEx.Equal(
+                900f,
+                resize.MeasuredHeight(900f, false),
+                "preview exceeds growth and drag limits"
+            );
+            AssertEx.Equal(
+                48f,
+                resize.MeasuredHeight(12f, false),
+                "preview retains minimum height"
+            );
+            AssertEx.Equal(180f, resize.Height, "preview measurement preserves editable geometry");
+            var manual = new UiAreaResize(180f);
+            AssertEx.Equal(
+                900f,
+                manual.MeasuredHeight(900f, false),
+                "manual height cannot truncate preview"
+            );
+        }
+
         public static void AutomaticSizingCapsContentAndDoesNotMutateOnMeasurement()
         {
             var growing = new UiAreaResize(48f, grow: true);

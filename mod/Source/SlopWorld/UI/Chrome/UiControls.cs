@@ -188,14 +188,23 @@ namespace SlopWorld
             bool on,
             string tip = null,
             bool locked = false,
-            bool warn = false
+            bool warn = false,
+            Color? warningColor = null
         )
         {
             using (WidgetState.Save())
-                return CheckboxCore(r, label, on, tip, locked, warn);
+                return CheckboxCore(r, label, on, tip, locked, warn, warningColor);
         }
 
-        static bool CheckboxCore(Rect r, string label, bool on, string tip, bool locked, bool warn)
+        static bool CheckboxCore(
+            Rect r,
+            string label,
+            bool on,
+            string tip,
+            bool locked,
+            bool warn,
+            Color? warningColor
+        )
         {
             bool over = !locked && Mouse.IsOver(r);
             if (over)
@@ -206,8 +215,9 @@ namespace SlopWorld
             using (WidgetState.Save())
             {
                 GUI.color =
-                    locked ? Faint
+                    warningColor.HasValue ? warningColor.Value
                     : warn ? Warn
+                    : locked ? Faint
                     : over ? Lead
                     : Name;
                 RowLabel(new Rect(box.xMax + GapS, r.y, r.xMax - box.xMax - GapS, r.height), label);

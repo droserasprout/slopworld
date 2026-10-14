@@ -33,3 +33,13 @@ and forwards the daemon's `SSH_AUTH_SOCK`, and `1password` mounts the 1Password
 socket directory. An explicit `IdentityAgent` in the mounted configuration wins
 over `SSH_AUTH_SOCK`, so the presets must expose that selected socket. User-facing
 selection guidance belongs to [sandbox presets](../docs/src/sandbox/sandbox-presets.md#ssh-agents).
+
+Preset `warning_level` declares `none`, `sensitive`, or `host_control`; `escapes`
+explains the access. These are descriptive warnings, not permission gates. Legacy
+nonempty explanations retain at least sensitive severity. Generated `tmux` and
+`daemon_config` capabilities force host-control severity in the API projection and
+client model. `Client/Catalog/PresetWarnings.cs` resolves the maximum severity and
+source explanations over the supplied catalog's dependencies, including template
+snapshots. Selected configurations include the implicit global preset. Locked
+required rows retain their warning color; root capabilities cannot be downgraded by
+editing warning metadata. Missing references keep their separate invalid-state UI.

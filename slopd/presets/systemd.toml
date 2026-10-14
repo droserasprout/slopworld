@@ -1,6 +1,7 @@
 [[sandbox]]
 name = "systemd"
 description = "systemctl --user, journalctl (needs dbus)"
+warning_level = "host_control"
 requires = ["dbus"]
 escapes = "The sandbox can request host processes through `systemd --user`"
 ro = ["/run/systemd", "/sys/fs/cgroup", "/var/log/journal", "/run/log/journal"]

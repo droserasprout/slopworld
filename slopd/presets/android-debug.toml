@@ -1,6 +1,7 @@
 [[sandbox]]
 name = "android-debug"
 description = "Android emulator and connected-device debugging"
+warning_level = "sensitive"
 requires = ["android-dev", "gpu", "x11", "wayland"]
 # /dev/bus/usb reaches physical devices. /dev/kvm enables accelerated emulators. Both are
 # optional on hosts that only use a software emulator or an already-running remote device.

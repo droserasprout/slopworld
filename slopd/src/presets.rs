@@ -41,6 +41,16 @@ impl std::str::FromStr for PresetKind {
     }
 }
 
+/// Display severity for explicitly declared access. This is not an authorization policy.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WarningLevel {
+    #[default]
+    None,
+    Sensitive,
+    HostControl,
+}
+
 /// Resources to supply to a sandbox. Bind each path only if it exists.
 /// Missing paths do not create mounts.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -81,10 +91,11 @@ pub struct SandboxPreset {
     /// Sharing these files permits changes to host data, but does not permit host execution.
     #[serde(default)]
     pub shared: Vec<String>,
-    /// A nonempty value identifies host access through a capability such as a socket or display.
-    /// The GUI shows this text as a warning. A bind that exposes only a secret is not an escape.
+    /// Explain sensitive access or host control. Older declarations without a level remain warnings.
     #[serde(default)]
     pub escapes: String,
+    #[serde(default)]
+    pub warning_level: WarningLevel,
     /// Environment variables to forward from slopd.
     #[serde(default)]
     pub env: Vec<String>,
@@ -100,6 +111,19 @@ pub struct SandboxPreset {
     /// path lists still cannot reach either secret-bearing file.
     #[serde(default)]
     pub daemon_config: bool,
+}
+
+impl SandboxPreset {
+    /// Generated host-control capabilities cannot be downgraded by descriptive metadata.
+    pub fn warning_level(&self) -> WarningLevel {
+        if self.tmux || self.daemon_config {
+            WarningLevel::HostControl
+        } else if !self.escapes.trim().is_empty() {
+            self.warning_level.max(WarningLevel::Sensitive)
+        } else {
+            self.warning_level
+        }
+    }
 }
 
 /// Whether a command is an agent CLI or an interactive shell.

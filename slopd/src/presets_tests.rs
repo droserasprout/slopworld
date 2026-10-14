@@ -682,3 +682,83 @@ fn user_files_are_direct_definitions_in_their_kind_directory() {
     assert_eq!(loaded.command("tool").unwrap().cmd, "tool");
     drop(std::fs::remove_dir_all(dir));
 }
+
+#[test]
+fn access_warnings_distinguish_credentials_from_host_control() {
+    let table = Table::builtins();
+    for name in [
+        "docker",
+        "podman",
+        "dbus",
+        "systemd",
+        "x11",
+        "slopworld-debug",
+    ] {
+        let preset = table.sandbox(name).unwrap();
+        assert_eq!(preset.warning_level(), WarningLevel::HostControl, "{name}");
+        assert!(!preset.escapes.is_empty(), "{name}");
+    }
+    for name in [
+        "ssh-agent",
+        "1password",
+        "gpg-agent",
+        "aws",
+        "gh",
+        "kube",
+        "psql",
+        "audio",
+        "ios-debug",
+        "android-debug",
+    ] {
+        let preset = table.sandbox(name).unwrap();
+        assert_eq!(preset.warning_level(), WarningLevel::Sensitive, "{name}");
+        assert!(!preset.escapes.is_empty(), "{name}");
+    }
+    for name in ["ssh", "gpg", "global", "rust"] {
+        assert_eq!(
+            table.sandbox(name).unwrap().warning_level(),
+            WarningLevel::None
+        );
+    }
+    assert!(
+        table
+            .sandbox("android-debug")
+            .unwrap()
+            .requires
+            .contains(&"x11".into())
+    );
+}
+
+#[test]
+fn generated_host_control_cannot_be_downgraded_and_legacy_warnings_survive() {
+    let mut preset = SandboxPreset {
+        escapes: "uses a credential".into(),
+        ..Default::default()
+    };
+    assert_eq!(preset.warning_level(), WarningLevel::Sensitive);
+    preset.escapes.clear();
+    for (tmux, daemon_config) in [(true, false), (false, true)] {
+        preset.tmux = tmux;
+        preset.daemon_config = daemon_config;
+        assert_eq!(preset.warning_level(), WarningLevel::HostControl);
+    }
+}
+
+#[test]
+fn warning_levels_round_trip_and_reject_unknown_values() {
+    for level in [
+        WarningLevel::None,
+        WarningLevel::Sensitive,
+        WarningLevel::HostControl,
+    ] {
+        let preset = SandboxPreset {
+            name: "custom".into(),
+            warning_level: level,
+            ..Default::default()
+        };
+        let saved = toml::to_string(&preset).unwrap();
+        let loaded: SandboxPreset = toml::from_str(&saved).unwrap();
+        assert_eq!(loaded.warning_level, level);
+    }
+    toml::from_str::<SandboxPreset>("name='bad'\nwarning_level='safe'").unwrap_err();
+}

@@ -229,6 +229,7 @@ message SandboxPreset {
   optional bool daemon_config = 15;
   optional string source = 16;
   repeated string cache = 17;
+  optional string warning_level = 18;
 }
 
 message CommandPreset {

@@ -3,6 +3,7 @@
 [[sandbox]]
 name = "x11"
 description = "X11 display access"
+warning_level = "host_control"
 escapes = "The sandbox can read other X11 windows and send input to them"
 ro = ["/tmp/.X11-unix", "~/.Xauthority", "$XAUTHORITY"]
 env = ["DISPLAY", "XAUTHORITY"]

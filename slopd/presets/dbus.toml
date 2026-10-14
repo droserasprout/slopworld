@@ -1,6 +1,7 @@
 [[sandbox]]
 name = "dbus"
 description = "session and system message bus"
+warning_level = "host_control"
 escapes = "Bus services can start processes on the host when requested"
 ro = ["/run/dbus/system_bus_socket"]
 rw = ["$XDG_RUNTIME_DIR/bus"]

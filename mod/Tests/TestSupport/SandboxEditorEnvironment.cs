@@ -64,6 +64,7 @@ namespace SlopWorld
             FieldPadY = 2f;
         public static readonly Color Dim = Color.white,
             Warn = Color.white,
+            HostControl = Color.white,
             Global = Color.white,
             Lead = Color.white,
             Name = Color.white,
@@ -116,7 +117,8 @@ namespace SlopWorld
                     Mathf.Max(1f, width - UiTheme.FieldPadX * 2f - UiTheme.ScrollbarW)
                 )
                     + UiTheme.FieldPadY * 4f
-                    + (editable ? UiAreaResize.CornerSize : 0f)
+                    + (editable ? UiAreaResize.CornerSize : 0f),
+                editable
             );
 
         public static string Area(
@@ -207,7 +209,8 @@ namespace SlopWorld
             bool on,
             string tip,
             bool locked,
-            bool warn
+            bool warn,
+            Color? warningColor = null
         )
         {
             EditorTrace.Record("check:" + name, r);

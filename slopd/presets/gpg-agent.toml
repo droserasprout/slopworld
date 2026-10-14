@@ -3,5 +3,6 @@
 [[sandbox]]
 name = "gpg-agent"
 description = "host GnuPG agent socket"
+warning_level = "sensitive"
 escapes = "The sandbox can request signatures and decryption with host GnuPG keys. It does not receive the keys"
 rw = ["~/.gnupg/S.gpg-agent"]

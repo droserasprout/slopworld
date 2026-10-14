@@ -1,6 +1,8 @@
 [[sandbox]]
 name = "psql"
 description = "PostgreSQL client configuration, credentials, psqlrc, and SSL certificates"
+warning_level = "sensitive"
+escapes = "Can use database credentials to read or change data permitted by those credentials"
 ro = [
     "~/.psqlrc",
     "~/.pgpass",

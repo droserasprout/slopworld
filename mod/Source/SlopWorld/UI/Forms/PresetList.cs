@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using Verse;
 
 namespace SlopWorld
 {
@@ -26,6 +27,29 @@ namespace SlopWorld
             var roots = new List<string>(chosen);
             if (implied != null)
                 roots.AddRange(implied);
+            var selectedWarning = PresetWarnings.ForSelection(
+                roots.Concat(new[] { "global" }),
+                allPresets
+            );
+            if (selectedWarning.Level != PresetWarningLevel.None)
+            {
+                var warningRow = new Rect(
+                    outer.x,
+                    outer.y,
+                    outer.width,
+                    Mathf.Min(UiTheme.RowH, outer.height)
+                );
+                using (WidgetState.Save())
+                {
+                    GUI.color =
+                        selectedWarning.Level == PresetWarningLevel.HostControl
+                            ? UiTheme.HostControl
+                            : UiTheme.Warn;
+                    UiText.RowLabel(warningRow, "! " + selectedWarning.Summary);
+                    TooltipHandler.TipRegion(warningRow, selectedWarning.Details);
+                }
+                outer.yMin = Mathf.Min(outer.yMax, warningRow.yMax + UiTheme.GapXS);
+            }
             var required = RequiredBy(roots, allPresets);
             var known = new HashSet<string>(allPresets.Select(p => p.Name));
             // Keep unavailable presets visible so users can remove direct references or find which preset requires them.
@@ -52,6 +76,12 @@ namespace SlopWorld
             var choices = new List<UiChoice>();
             foreach (var pr in presets)
             {
+                var warning = PresetWarnings.For(pr, allPresets);
+                Color? warningColor =
+                    warning.Level == PresetWarningLevel.None ? (Color?)null
+                    : warning.Level == PresetWarningLevel.HostControl ? UiTheme.HostControl
+                    : UiTheme.Warn;
+                string label = pr.Source == "missing" ? pr.Name + " (missing)" : pr.Name;
                 bool inherited = implied != null && implied.Contains(pr.Name);
                 bool dependency = required.Contains(pr.Name) && !chosen.Contains(pr.Name);
                 if (inherited || dependency)
@@ -63,11 +93,12 @@ namespace SlopWorld
                                 implied == null ? "Required by selected presets"
                                 : inherited ? "From command"
                                 : "Required by selected presets",
-                            Label = pr.Source == "missing" ? pr.Name + " (missing)" : pr.Name,
-                            Tip = Tip(pr, true),
+                            Label = label,
+                            Tip = Tip(pr, true, warning),
                             On = true,
                             Locked = true,
-                            Warn = pr.IsEscape || pr.Source == "missing",
+                            Warn = pr.Source == "missing",
+                            WarningColor = warningColor,
                         }
                     );
                     // A preset can be selected directly and inherited from the command. Keep the direct row editable so users can remove it separately.
@@ -81,10 +112,11 @@ namespace SlopWorld
                             implied == null ? null
                             : chosen.Contains(pr.Name) ? additionsLabel
                             : "Available additions",
-                        Label = pr.Source == "missing" ? pr.Name + " (missing)" : pr.Name,
-                        Tip = Tip(pr, false),
+                        Label = label,
+                        Tip = Tip(pr, false, warning),
                         On = chosen.Contains(pr.Name),
-                        Warn = pr.IsEscape || pr.Source == "missing",
+                        Warn = pr.Source == "missing",
+                        WarningColor = warningColor,
                         Changed = next =>
                         {
                             if (next)
@@ -125,7 +157,7 @@ namespace SlopWorld
             return required;
         }
 
-        static string Tip(PresetInfo p, bool forced)
+        static string Tip(PresetInfo p, bool forced, PresetWarning warning)
         {
             if (p.Source == "missing")
                 return "This sandbox preset is unavailable and has no effect."
@@ -139,7 +171,7 @@ namespace SlopWorld
                 ? "\n\nRequired by another selected preset or inherited by this entry."
                 : "";
             // Show host access first so users see its cost before they read preset details.
-            string out_ = p.IsEscape ? $"Host access: {p.Escapes}.\n\n" : "";
+            string out_ = warning.Level != PresetWarningLevel.None ? warning.Details + "\n\n" : "";
             return $"{out_}{p.Description}\n\n{gives}{why}";
         }
     }

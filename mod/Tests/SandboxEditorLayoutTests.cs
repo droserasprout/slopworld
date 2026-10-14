@@ -53,10 +53,24 @@ namespace SlopWorld.Tests
                     var description = EditorTrace
                         .Draws.Single(d => d.Name == "preset.description")
                         .Rect;
-                    AssertEx.True(
-                        description.height <= 240f,
-                        "preset description growth stays bounded"
-                    );
+                    if (source == "system")
+                        AssertEx.True(
+                            description.height
+                                >= Verse.Text.CalcHeight(
+                                    preset.Description,
+                                    Math.Max(
+                                        1f,
+                                        width - UiTheme.FieldPadX * 2f - UiTheme.ScrollbarW
+                                    )
+                                )
+                                    + UiTheme.FieldPadY * 4f,
+                            "read-only description fits all wrapped content"
+                        );
+                    else
+                        AssertEx.True(
+                            description.height <= 240f,
+                            "editable preset description growth stays bounded"
+                        );
                     AssertEx.True(
                         description.height > 44f,
                         "real form expands wrapped descriptions" + $" ({source}, width {width})"
@@ -135,18 +149,14 @@ namespace SlopWorld.Tests
             // Baseline from the original preset form with the test font metrics. The three
             // hairlines sit inside their gaps, including when all optional fields are hidden.
             AssertEx.Equal(
-                "136,152,168",
+                "183,199,215",
                 string.Join(
                     ",",
                     EditorTrace.Draws.Where(d => d.Name == "rule").Select(d => d.Rect.y)
                 ),
-                "preset separators retain the original positions"
+                "preset separators include the warning level selector"
             );
-            AssertEx.Equal(
-                184f,
-                bottom,
-                "hidden optional fields leave the original action position"
-            );
+            AssertEx.Equal(231f, bottom, "hidden optional fields retain the warning selector");
             AssertEx.Equal(
                 1,
                 EditorTrace.Draws.Count(d =>
@@ -159,20 +169,20 @@ namespace SlopWorld.Tests
             EditorTrace.Draws.Clear();
             bottom = page.TestPreset(preset, 240f, true);
             AssertEx.Equal(
-                "238,546,854",
+                "354,662,970",
                 string.Join(
                     ",",
                     EditorTrace.Draws.Where(d => d.Name == "rule").Select(d => d.Rect.y)
                 ),
-                "editable preset separators include the cache directory editor"
+                "editable preset separators include warning controls and cache directory editor"
             );
             AssertEx.Equal(
-                1016f,
+                1132f,
                 bottom,
                 "editable action position includes the cache directory editor"
             );
             AssertEx.Equal(
-                13,
+                14,
                 EditorTrace.Draws.Count(d =>
                     d.Name.StartsWith("preset.", StringComparison.Ordinal)
                 ),

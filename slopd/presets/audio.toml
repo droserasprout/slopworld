@@ -1,5 +1,7 @@
 [[sandbox]]
 name = "audio"
 description = "PipeWire / PulseAudio"
+warning_level = "sensitive"
+escapes = "Can access host audio services, including microphone capture where the service permits it"
 rw = ["$XDG_RUNTIME_DIR/pulse", "$XDG_RUNTIME_DIR/pipewire-0"]
 env = ["XDG_RUNTIME_DIR"]

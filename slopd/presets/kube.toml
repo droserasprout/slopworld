@@ -1,5 +1,7 @@
 [[sandbox]]
 name = "kube"
 description = "kubectl configuration and cluster credentials"
+warning_level = "sensitive"
+escapes = "Can use Kubernetes credentials to access or change the configured clusters"
 ro = ["~/.kube"]
 env = ["KUBECONFIG"]

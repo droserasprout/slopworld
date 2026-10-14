@@ -151,6 +151,11 @@ pub(crate) mod enums {
         pub(crate) const PCT: &str = "pct";
         pub(crate) const USD: &str = "usd";
     }
+    pub(crate) mod preset_warning_level {
+        pub(crate) const NONE: &str = "none";
+        pub(crate) const SENSITIVE: &str = "sensitive";
+        pub(crate) const HOST_CONTROL: &str = "host_control";
+    }
 }
 
 pub(crate) const HOST_IDENTITY: &str = "host";

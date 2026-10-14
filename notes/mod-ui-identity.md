@@ -6,8 +6,9 @@ UI scheme's same-ID terminal theme. Explicit terminal choices remain independent
 
 Shipped definitions live one theme per file under `mod/Themes/UI/` and
 `mod/Themes/Terminal/`; `ThemeCatalog` loads them at runtime. Every UI scheme must
-have a same-ID terminal theme, while terminal-only IDs are allowed. `Well` and `Sel`
-are derived roles, not editable catalog roles. Accent, destructive, and checkbox
+have a same-ID terminal theme, while terminal-only IDs are allowed. `Well`, `Sel`, and `HostControl`
+are derived roles, not editable catalog roles. `HostControl` blends warning and danger
+colors for the stronger sandbox access warning. Accent, destructive, and checkbox
 faces must be opaque because their contrast-derived text has no backing-surface input.
 
 `ThemeLoader` shares runtime loading and error recovery. `UIScheme` and

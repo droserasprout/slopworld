@@ -88,13 +88,19 @@ namespace SlopWorld
                     (item is PresetInfo p && p == _preset)
                     || (item is CommandInfo c && c == _command);
                 RowChrome.Hover(cell, selected, true, RowHoverPolicy.OverlayAware);
-                // A preset that hands the sandbox a road back out is dangerous even when it is
-                // selected. The yellow stays on the name so the warning is visible in the library,
-                // not only after opening its editor.
-                bool dangerous = item is PresetInfo dangerousPreset && dangerousPreset.IsEscape;
+                var warning =
+                    item is PresetInfo warningPreset
+                        ? PresetWarnings.For(warningPreset, SessionHub.Instance.Presets)
+                    : item is CommandInfo warningCommand
+                        ? PresetWarnings.ForSelection(
+                            warningCommand.Sandbox.Concat(new[] { "global" }),
+                            SessionHub.Instance.Presets
+                        )
+                    : new PresetWarning();
                 bool global = item is PresetInfo globalPreset && globalPreset.Name == "global";
                 GUI.color =
-                    dangerous ? UiTheme.Warn
+                    warning.Level == PresetWarningLevel.HostControl ? UiTheme.HostControl
+                    : warning.Level == PresetWarningLevel.Sensitive ? UiTheme.Warn
                     : global ? UiTheme.Global
                     : selected ? UiTheme.Lead
                     : UiTheme.Name;
@@ -104,6 +110,8 @@ namespace SlopWorld
                     item is PresetInfo info ? info.Description
                     : item is CommandInfo command ? command.Description
                     : "";
+                if (warning.Level != PresetWarningLevel.None)
+                    description = warning.Details + "\n\n" + description;
                 if (!string.IsNullOrEmpty(description))
                     TooltipHandler.TipRegion(cell, description);
                 if (UiButtons.RowButton(cell))
@@ -217,16 +225,19 @@ namespace SlopWorld
 
         float DrawPresetFields(Rect view, float y, PresetInfo p, bool editable, bool draw)
         {
-            // Keep an escape warning above the identity so a long editor does not hide it.
-            if (!string.IsNullOrEmpty(p.Escapes))
+            // Include inherited access before the identity so long editors keep it visible.
+            var access = PresetWarnings.For(p, SessionHub.Instance.Presets);
+            if (access.Level != PresetWarningLevel.None)
             {
-                string warning = $"Host access: {p.Escapes}.";
+                string warning = access.Details;
                 float warningH = UiText.PlainStatusLabelHeight(warning, view.width);
                 if (draw)
                     UiText.PlainStatusLabel(
                         new Rect(0f, y, view.width, warningH),
                         warning,
-                        UiTheme.Warn
+                        access.Level == PresetWarningLevel.HostControl
+                            ? UiTheme.HostControl
+                            : UiTheme.Warn
                     );
                 y += warningH + UiTheme.GapM;
             }
@@ -250,6 +261,47 @@ namespace SlopWorld
                 editable,
                 44f,
                 v => p.Description = v,
+                draw
+            );
+            if (draw)
+            {
+                var levels = new[]
+                {
+                    WireProtocol.PresetWarningLevel.None,
+                    WireProtocol.PresetWarningLevel.Sensitive,
+                    WireProtocol.PresetWarningLevel.HostControl,
+                };
+                var labels = new[] { "No declared warning", "Sensitive access", "Host control" };
+                var options = levels
+                    .Select(
+                        (level, index) =>
+                            new SelectorOption(
+                                labels[index],
+                                () => p.WarningLevel = level,
+                                editable
+                            )
+                    )
+                    .ToArray();
+                int selected = System.Array.IndexOf(levels, p.WarningLevel);
+                UiControls.Select(
+                    new Rect(0f, y, view.width, FieldHeight()),
+                    "Warning level",
+                    selected < 0 ? p.WarningLevel : labels[selected],
+                    options,
+                    out _,
+                    on: editable
+                );
+            }
+            y += FieldHeight();
+            y = EditorArea(
+                view,
+                y,
+                "Access warning",
+                "preset.escapes",
+                p.Escapes,
+                editable,
+                44f,
+                v => p.Escapes = v,
                 draw
             );
             y = EditorList(view, y, "Requires", "preset.requires", p.Requires, editable, draw);
@@ -419,18 +471,41 @@ namespace SlopWorld
                 GUI.color = Color.white;
             }
             y += UiTheme.LineH + UiTheme.GapXS;
+            var selectedWarning = PresetWarnings.ForSelection(
+                c.Sandbox.Concat(new[] { "global" }),
+                SessionHub.Instance.Presets
+            );
+            if (selectedWarning.Level != PresetWarningLevel.None)
+            {
+                float height = UiText.PlainStatusLabelHeight(selectedWarning.Details, view.width);
+                if (draw)
+                    UiText.PlainStatusLabel(
+                        new Rect(0f, y, view.width, height),
+                        selectedWarning.Details,
+                        selectedWarning.Level == PresetWarningLevel.HostControl
+                            ? UiTheme.HostControl
+                            : UiTheme.Warn
+                    );
+                y += height + UiTheme.GapS;
+            }
             foreach (var p in SessionHub.Instance.Presets.Where(p => p.Name != "global"))
             {
                 if (draw)
                 {
+                    var warning = PresetWarnings.For(p, SessionHub.Instance.Presets);
                     bool on = c.Sandbox.Contains(p.Name);
                     bool next = UiControls.Checkbox(
                         new Rect(0f, y, view.width, UiTheme.RowH),
                         p.Name,
                         on,
-                        p.Description,
+                        warning.Level == PresetWarningLevel.None
+                            ? p.Description
+                            : warning.Details + "\n\n" + p.Description,
                         !editable,
-                        p.IsEscape
+                        false,
+                        warning.Level == PresetWarningLevel.None ? (Color?)null
+                            : warning.Level == PresetWarningLevel.HostControl ? UiTheme.HostControl
+                            : UiTheme.Warn
                     );
                     if (editable && next != on)
                     {

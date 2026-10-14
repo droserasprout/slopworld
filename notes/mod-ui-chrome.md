@@ -18,10 +18,10 @@ screenshot visibility belong to `WorkspaceVisibility`, outside generic layout he
 
 Multiline `Area` controls opt into vertical resizing with a form-owned `UiAreaResize`.
 Listing areas measure their height automatically; rectangle callers use `UiText.AreaHeight`
-in their layout. Prompts retain a manual height. Template descriptions and preset
-areas opt into content growth, capped at 240 pixels. Dragging overrides growth;
+in their layout. Prompts retain a manual height. Editable template descriptions and
+preset areas opt into content growth, capped at 240 pixels. Dragging overrides growth;
 the grip's right-click Fit to content action restores it. Read-only preset areas
-grow without a grip. Sizing-enabled fields own an inner scroll viewport and reveal
+grow to their full content height without a cap or grip. Sizing-enabled fields own an inner scroll viewport and reveal
 the caret after keyboard edits; full-dialog editors keep their window-owned sizing.
 Measurement is pure and includes the same padding and scrollbar gutter as drawing.
 The adapter reuses the native window resizer and compact corner grip, reserves text space above the grip, and retires input capture with the field lifetime.

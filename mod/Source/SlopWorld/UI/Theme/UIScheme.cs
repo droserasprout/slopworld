@@ -28,6 +28,7 @@ namespace SlopWorld
             Off;
         public readonly Color Bad,
             Warn,
+            HostControl,
             Yes,
             Global;
         public readonly Color Edge,
@@ -76,6 +77,9 @@ namespace SlopWorld
             Off = Hex(record.Off);
             Bad = Hex(record.Bad);
             Warn = Hex(record.Warn);
+            // Keep host-control warnings orange and distinct from sensitive access
+            // while following the selected palette's warning and danger colors.
+            HostControl = Color.Lerp(Warn, Bad, 0.7f);
             Yes = Hex(record.Yes);
             Global = Hex(record.Global);
             Edge = Hex(record.Edge);

@@ -141,6 +141,7 @@
     <Compile Include="../Source/SlopWorld/Client/Audio/JukeboxPresetInfo.cs" Link="Source/JukeboxPresetInfo.cs" />
     <Compile Include="../Source/SlopWorld/Client/Sessions/WorkerSpawnResult.cs" />
     <Compile Include="../Source/SlopWorld/Client/Sessions/WorkerWorktreeOptions.cs" Link="Source/WorkerWorktreeOptions.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Catalog/PresetWarnings.cs" />
     <Compile Include="../Source/SlopWorld/Client/Catalog/PresetInfo.cs" Link="Source/Client/Catalog/PresetInfo.cs" />
     <Compile Include="../Source/SlopWorld/Client/Catalog/CommandInfo.cs" Link="Source/Client/Catalog/CommandInfo.cs" />
     <Compile Include="../Source/SlopWorld/Client/Catalog/AgentTemplateInfo.cs" Link="Source/Client/Catalog/AgentTemplateInfo.cs" />

@@ -39,9 +39,10 @@ namespace SlopWorld
         // it is - the one path here something inside can write and the host will read.
         public List<string> Shared = new List<string>();
 
-        // What ticking this costs, when it costs anything: a socket whose far end runs on the
-        // host, a display every other window shares. Empty for an ordinary preset.
+        // Declared access and its explanation. Dependencies and generated capabilities
+        // may raise the displayed severity without rewriting these editable fields.
         public string Escapes = "";
+        public string WarningLevel = WireProtocol.PresetWarningLevel.None;
 
         // A generated bind for the daemon's live tmux socket. It is not a path the editor can
         // change, but it must round-trip when the settings page saves this preset.
@@ -50,7 +51,7 @@ namespace SlopWorld
         // Generated read-only binds for config.toml and endpoint.toml. Kept out of the path
         // lists because those remain subject to the ordinary protected-path guard.
         public bool DaemonConfig;
-        public bool IsEscape => !string.IsNullOrEmpty(Escapes);
+        public bool IsEscape => PresetWarnings.OwnLevel(this) != PresetWarningLevel.None;
 
         // Every path and env var the preset asks for, for the tooltip.
         public List<string> Gives =>
@@ -87,6 +88,7 @@ namespace SlopWorld
                 Seed = new List<string>(Seed),
                 Skip = new List<string>(Skip),
                 Escapes = Escapes,
+                WarningLevel = WarningLevel,
                 Tmux = Tmux,
                 DaemonConfig = DaemonConfig,
                 Setenv = new Dictionary<string, string>(Setenv),
@@ -107,6 +109,7 @@ namespace SlopWorld
                 Skip = { Skip },
                 Shared = { Shared },
                 Escapes = Escapes,
+                WarningLevel = WarningLevel,
                 Env = { Env },
                 Tmux = Tmux,
                 DaemonConfig = DaemonConfig,
@@ -121,6 +124,7 @@ namespace SlopWorld
                 Description = j.Description,
                 Source = j.Source,
                 Escapes = j.Escapes,
+                WarningLevel = j.WarningLevel,
                 Tmux = j.Tmux,
                 DaemonConfig = j.DaemonConfig,
             };

@@ -1,6 +1,7 @@
 [[sandbox]]
 name = "ssh-agent"
 description = "host SSH agent socket"
+warning_level = "sensitive"
 escapes = "The sandbox can request signatures with host SSH keys wherever those keys are trusted. It does not receive the keys."
 rw = ["$SSH_AUTH_SOCK"]
 env = ["SSH_AUTH_SOCK"]
