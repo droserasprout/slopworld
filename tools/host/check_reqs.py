@@ -27,11 +27,13 @@ def main() -> int:
     missing += commands('recipe runner', 'just')
     missing += commands('Rust/Cargo', 'cargo')
     missing += commands('.NET SDK', 'dotnet')
-    path = game / 'RimWorldLinux_Data/Managed/Assembly-CSharp.dll' if game else None
-    missing += report('RimWorld reference assemblies', str(path) if path and path.is_file() else None)
+    managed = Path(os.environ.get('MANAGED', str(game))) if game else None
+    for assembly in ('Assembly-CSharp.dll', 'UnityStubs.dll', 'Waylith.dll'):
+        path = managed / assembly if managed else None
+        missing += report(f'RimWorld reference: {assembly}', str(path) if path and path.is_file() else None)
 
     print('Required: runtime dependencies')
-    path = game / 'RimWorldLinux' if game else None
+    path = game / 'RimWorld' if game else None
     missing += report(
         'native RimWorld executable', str(path) if path and path.is_file() and os.access(path, os.X_OK) else None
     )

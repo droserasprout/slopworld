@@ -36,7 +36,7 @@ def test_local_source_snapshot_excludes_build_output_and_keeps_sources(tmp_path:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text('fixture')
     game = tmp_path / 'game'
-    managed = game / 'RimWorldLinux_Data/Managed'
+    managed = game
     managed.mkdir(parents=True)
     (managed / 'Assembly-CSharp.dll').touch()
     execute(

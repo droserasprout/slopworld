@@ -18,10 +18,15 @@ HTTP tests of protocol handling, deadlines, response limits, and host-pumped cal
 Service tests keep a recording `DaemonClient` facade; transport tests own isolated
 transport instances and exercise the real endpoint resolver.
 
-Substitutes do not verify Unity drawing/input or Harmony target binding. Test output,
+The Harmony runtime fixture patches and restores a managed method using the shipped
+DLL. Substitutes do not verify game target binding or native drawing/input. Test output,
 including `TestResult.xml`, belongs in the executable output directory, not the
 shipped `Assemblies/` tree. RimWorld must not load test/substitute assemblies.
 Game checks, when requested, use [build diagnostics](../docs/src/development/build.md).
 
 Benchmark workflow belongs to [build commands](build-commands.md) and
 [IPC benchmarks](../bench/ipc/README.md).
+
+Harmony comes from the .NET 10 asset of the pinned Lib.Harmony package.
+The runtime smoke test must exercise patching and unpatching. Test-harness CLR
+support does not establish game-target bindings or native rendering behavior.

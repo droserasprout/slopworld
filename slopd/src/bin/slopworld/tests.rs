@@ -31,45 +31,10 @@ fn a_value_comes_inline_or_after() {
 }
 
 #[test]
-fn the_window_fix_is_enabled_by_default() {
-    let a = game_argv(
-        Path::new("/g/RimWorldLinux"),
-        Path::new("/p"),
-        Path::new("/logs/Player.log"),
-        false,
-    );
+fn launch_arguments_select_the_profile_and_console_log() {
     assert_eq!(
-        a,
-        vec![
-            "/g/RimWorldLinux",
-            "-savedatafolder=/p",
-            "-logFile",
-            "/logs/Player.log",
-            "-popupwindow",
-            "-screen-fullscreen",
-            "0",
-            "-force-opengl"
-        ]
-    );
-}
-
-#[test]
-fn the_window_fix_can_be_disabled() {
-    let a = parsed(&["--no-window-fix"]);
-    assert!(a.no_window_fix);
-    assert_eq!(
-        game_argv(
-            Path::new("/g/RimWorldLinux"),
-            Path::new("/p"),
-            Path::new("/logs/Player.log"),
-            a.no_window_fix
-        ),
-        vec![
-            "/g/RimWorldLinux",
-            "-savedatafolder=/p",
-            "-logFile",
-            "/logs/Player.log"
-        ]
+        game_argv(Path::new("/g/RimWorld"), Path::new("/p"), false),
+        vec!["/g/RimWorld", "-savedatafolder=/p", "-NoFileLog"]
     );
 }
 
@@ -242,22 +207,16 @@ fn a_missing_marker_is_put_back() {
 #[test]
 fn the_profile_rides_on_the_games_own_argument() {
     let argv = game_argv(
-        Path::new("/g/RimWorldLinux"),
+        Path::new("/g/RimWorld"),
         Path::new("/p"),
-        Path::new("/logs/Player.log"),
         false,
     );
     assert_eq!(
         argv,
         vec![
-            "/g/RimWorldLinux",
+            "/g/RimWorld",
             "-savedatafolder=/p",
-            "-logFile",
-            "/logs/Player.log",
-            "-popupwindow",
-            "-screen-fullscreen",
-            "0",
-            "-force-opengl"
+            "-NoFileLog"
         ]
     );
 }
@@ -266,6 +225,33 @@ fn the_profile_rides_on_the_games_own_argument() {
 fn a_game_directory_without_the_binary_is_named_rather_than_skipped() {
     let e = game_dir(Some("/nowhere/at/all")).unwrap_err();
     assert!(e.contains("/nowhere/at/all"), "{e}");
+}
+
+#[test]
+fn game_console_streams_share_the_log_and_each_launch_replaces_it() {
+    let root = scratch("console-log");
+    let log = root.join("nested/Player.log");
+    for _ in 0..2 {
+        let mut command = Command::new("sh");
+        command.args(["-c", "printf 'output\n'; printf 'error\n' >&2"]);
+        configure_game_log(&mut command, &log).unwrap();
+        assert!(command.status().unwrap().success());
+        assert_eq!(std::fs::read_to_string(&log).unwrap(), "output\nerror\n");
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn invalid_log_directory_reports_its_path() {
+    let root = scratch("invalid-log");
+    std::fs::create_dir_all(&root).unwrap();
+    let parent = root.join("file");
+    std::fs::write(&parent, "keep").unwrap();
+    let error =
+        configure_game_log(&mut Command::new("sh"), &parent.join("Player.log")).unwrap_err();
+    assert!(error.contains(parent.to_str().unwrap()), "{error}");
+    assert_eq!(std::fs::read_to_string(&parent).unwrap(), "keep");
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

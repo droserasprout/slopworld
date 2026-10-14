@@ -20,9 +20,9 @@ fn launcher_lock_rejects_a_second_owner_and_reopens_after_drop() {
 
 #[test]
 fn savedatafolder_is_read_from_the_argv() {
-    let pinned: &[u8] = b"/g/RimWorldLinux\0-savedatafolder=/p\0-popupwindow\0";
+    let pinned: &[u8] = b"/g/RimWorld\0-savedatafolder=/p\0-NoFileLog\0";
     assert_eq!(savedatafolder_of(pinned), Some(PathBuf::from("/p")));
-    let vanilla: &[u8] = b"/g/RimWorldLinux\0-popupwindow\0";
+    let vanilla: &[u8] = b"/g/RimWorld\0-NoFileLog\0";
     assert_eq!(savedatafolder_of(vanilla), None);
 }
 
@@ -59,4 +59,12 @@ fn missing_profile_under_symlink_keeps_lock_identity_after_seeding() {
     assert_eq!(before, lock_file_name(&profile));
     assert_eq!(before, lock_file_name(&root.join("real/missing/profile")));
     std::fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn unreadable_executable_uses_the_native_game_argv_name() {
+    assert!(argv0_is_game(b"/game/RimWorld\0-savedatafolder=/p\0"));
+    assert!(!argv0_is_game(b"/bin/sh\0/game/RimWorld\0"));
+    assert!(!argv0_is_game(b"\0"));
 }

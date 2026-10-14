@@ -7,7 +7,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Hide base game UI elements while retaining colonist and terminal controls. Use RimWorld 1.6 patch targets.
+    // Hide base game UI elements while retaining colonist and terminal controls.
 
     // Apply one shared prefix to the target table.
     public static class Patch_HideGui

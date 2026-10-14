@@ -41,7 +41,7 @@ SlopWorld consists of three components:
 
 <img src="docs/src/images/introduction-work.jpg" alt="SlopWorld terminal showing a code diff beneath a tooltip about automated work" width="240" align="right">
 
-You need a native build of **RimWorld 1.6**, preferably the latest one. Buy the game
+You need a native build of **RimWorld 1.7**, preferably the latest one. Buy the game
 on [Steam](https://store.steampowered.com/app/294100/RimWorld/),
 [GOG](https://www.gog.com/en/game/rimworld), or
 [directly from Ludeon Studios](https://rimworldgame.com/).

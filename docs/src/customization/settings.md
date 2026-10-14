@@ -56,6 +56,8 @@ cancelling leaves the setting unchanged.
 ## Display
 
 Open **Settings > Display** for fullscreen, frame limits, VSync, and scrolling.
+On Linux, the game selects the initial display mode. The mod's window-manager
+hook follows the saved fullscreen setting.
 
 | Control | Effect |
 | --- | --- |

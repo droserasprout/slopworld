@@ -10,7 +10,7 @@ typed requests without parsing argv.
 [Mod profile isolation](mod-profile.md) owns in-game gating.
 
 `slopworld/game_config.rs` owns the saved Linux game directory. Successful installation
-remembers a canonical game parent only when it contains `RimWorldLinux`. Explicit
+remembers a canonical game parent only when it contains `RimWorld`. Explicit
 arguments/environment override it; invalid saved configuration blocks fallback.
 Install/removal share platform resolution, with macOS paths matching `mac/config.just`.
 See [paths](ops-paths.md) and [game profiles](../docs/src/maintenance/game-profiles.md)
@@ -40,6 +40,7 @@ and cannot be registered with `connect`.
 The shared path resolver defaults to `local`; daemon publication always uses its
 own descriptor path. Native/sidecar catalogs remain separate. Profiles follow peer names, with explicit path overrides taking
 precedence. The resolved profile owns lock identity; explicit paths can share a
-folder. Redirect Unity logs through the shared resolver, including
-`SLOPWORLD_GAME_LOG`, and create the log parent only for normal launch.
+folder. Capture stdout and stderr in the shared resolved `Player.log`, replacing
+it on each launch, and pass `-NoFileLog` to disable Waylith's separate logger.
+Prepare the log only after profile validation and locking during normal launch.
 [Linux window integration](ui-window-fullscreen.md) owns window behavior.

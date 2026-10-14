@@ -35,12 +35,13 @@ def test_game_check_rejects_non_macos_before_external_commands():
 
 
 def test_game_check_supports_native_paths_with_spaces(tmp_path, monkeypatch):
-    game = tmp_path / 'RimWorld by Ludeon Studios'
+    game = tmp_path / 'game with spaces/RimWorld'
+    game.parent.mkdir()
     game.touch()
     game.chmod(0o755)
-    managed = tmp_path / 'Managed'
-    managed.mkdir()
-    (managed / 'Assembly-CSharp.dll').touch()
+    managed = game.parent
+    for assembly in ('Assembly-CSharp.dll', 'UnityStubs.dll', 'Waylith.dll'):
+        (managed / assembly).touch()
     mods = tmp_path / 'Mods'
     mods.mkdir()
     for key, value in {'MAC_GAME': str(game), 'MAC_MANAGED': str(managed), 'MAC_MODS': str(mods)}.items():
@@ -50,9 +51,11 @@ def test_game_check_supports_native_paths_with_spaces(tmp_path, monkeypatch):
         patch.object(workflow.shutil, 'which', return_value='/bin/dotnet'),
     ):
         workflow.check('game-check')
-        (managed / 'Assembly-CSharp.dll').unlink()
-        with pytest.raises(ValueError, match='missing RimWorld assemblies'):
-            workflow.check('game-check')
+        for assembly in ('Assembly-CSharp.dll', 'UnityStubs.dll', 'Waylith.dll'):
+            (managed / assembly).unlink()
+            with pytest.raises(ValueError, match=rf'missing RimWorld assembly {assembly}.*MAC_MANAGED'):
+                workflow.check('game-check')
+            (managed / assembly).touch()
 
 
 def test_game_check_requires_protoc():
