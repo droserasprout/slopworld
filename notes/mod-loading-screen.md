@@ -7,6 +7,10 @@ Keep the stream's coverage proportional to the background's dark area, independe
 of UI scale. Streaming rate follows text capacity. Half-line scrolling must retain
 the outgoing row until it is fully clipped; reset the offset on reflow.
 
+After `UIRoot_Entry.Init`, the mod closes the localized `SteamClientMissing` message
+as if Ignore were selected. This startup-only hook leaves Steam initialization state
+and other dialogs unchanged and is registered only in the marked SlopWorld profile.
+
 `LoadingTipPanel` owns the right-aligned full-height frame and clip for every tip draw,
 including window-stack loading. Draws use panel geometry; `GameplayTipWindow.WindowSize`
 stays game-owned. Visible rows include the final glyph's full height.
