@@ -43,7 +43,7 @@ namespace SlopWorld
                 if (now >= _nextRefreshSample)
                 {
                     _nextRefreshSample = now + 1f;
-                    _autoFps = FramePolicy.AutoFps(Screen.currentResolution.refreshRateRatio.value);
+                    _autoFps = FramePolicy.AutoFps(EngineWindow.CurrentResolution.RefreshRate);
                 }
                 return _autoFps;
             }

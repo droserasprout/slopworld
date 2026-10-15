@@ -93,6 +93,22 @@ namespace SlopWorld.Tests
             }
         }
 
+        public static void FramePacingDefaultsToAutoAndPreservesExplicitModes()
+        {
+            AssertEx.Equal(
+                FramePolicy.Auto,
+                ModSettings.FromToml("").displayMode,
+                "missing preference uses Auto"
+            );
+            foreach (string mode in new[] { FramePolicy.Auto, FramePolicy.Sync, FramePolicy.Limit })
+            {
+                var settings = new ModSettings { displayMode = mode, foregroundFps = 144 };
+                var restored = ModSettings.FromToml(settings.ToToml());
+                AssertEx.Equal(mode, restored.displayMode, "explicit policy round trips");
+                AssertEx.Equal(144, restored.foregroundFps, "manual cap retained");
+            }
+        }
+
         static void WithSettings(Action<ModSettings> action)
         {
             var settings = Settings.S;
