@@ -73,6 +73,7 @@ The Rust cache includes that nested target directory. Its restore prefix isolate
 the compiler and Rust/Cargo environment, plus the pinned build-tool setup, toolchain
 file and coverage collector. Keep compilation flags visible at job scope before
 cache setup.
+`mod-clean` removes the mod DLL and all mod, runtime-package, and test project bin/obj directories.
 `cargo-llvm-cov` owns coverage-tool selection from the active Rust toolchain;
 the collector preserves explicit `LLVM_COV`/`LLVM_PROFDATA` overrides without
 selecting potentially incompatible system tools from `PATH`.

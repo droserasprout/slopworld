@@ -16,8 +16,6 @@
     <PackageReference Include="Tmds.DBus.Protocol" Version="0.95.1" />
   </ItemGroup>
   <Target Name="CopyRuntime" AfterTargets="Build">
-    <!-- Framework assemblies belong to the game runtime, outside mod discovery. -->
-    <Delete Files="../Assemblies/System.Memory.dll;../Assemblies/System.Buffers.dll;../Assemblies/System.Numerics.Vectors.dll;../Assemblies/System.Runtime.CompilerServices.Unsafe.dll;../Assemblies/System.Text.Encoding.CodePages.dll" />
     <Copy SourceFiles="@(ReferenceCopyLocalPaths)" DestinationFolder="../Assemblies" />
   </Target>
 </Project>

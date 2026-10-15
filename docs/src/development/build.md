@@ -85,7 +85,7 @@ standard GOG and Steam paths. It uses a separate [game profile](../maintenance/g
 | --- | --- | --- |
 | `just format` | Format Python tools and Rust/C# production, test, and benchmark sources | — |
 | `just lint` | Python Ruff and strict mypy checks, Rust formatting/Clippy, and C# formatting checks | — |
-| `just test` | Daemon and sidecar Rust, C#, Python, pager, and benchmark-helper tests | `tmux`, `less`, Mono |
+| `just test` | Daemon and sidecar Rust, C#, Python, pager, and benchmark-helper tests | `tmux`, `less` |
 | `just ci` | Game-free tests with coverage, formatting, Rust lint, and generated-contract checks | `tmux`, `less`, coverage tools |
 
 Use `daemon-test`, `mod-test`, `sidecar-test`, or `test-tools` to run a test subset.

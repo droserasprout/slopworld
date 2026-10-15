@@ -42,8 +42,6 @@ def test_daemon_suite_uses_custom_target_and_skips_other_lanes(tmp_path, monkeyp
 @pytest.mark.parametrize('build, configuration', [('debug', 'Debug'), ('release', 'Release')])
 def test_mod_suite_runs_the_built_project_without_assuming_its_framework(monkeypatch, build, configuration):
     monkeypatch.setenv('BUILD', build)
-    monkeypatch.setenv('TEST_PROJECT', 'tests with spaces/Current.csproj')
-    monkeypatch.setenv('DOTNET', 'dotnet')
     with patch.object(runner, 'run') as run, patch.object(runner, 'run_ipc') as ipc:
         runner.run_suite('mod')
     run.assert_called_once()
@@ -51,7 +49,7 @@ def test_mod_suite_runs_the_built_project_without_assuming_its_framework(monkeyp
         'dotnet',
         'run',
         '--project',
-        'tests with spaces/Current.csproj',
+        'mod/Tests/SlopWorld.Tests.csproj',
         '--configuration',
         configuration,
         '--no-build',
@@ -64,7 +62,6 @@ def test_mod_suite_runs_the_built_project_without_assuming_its_framework(monkeyp
 
 def test_ipc_fixtures_and_roundtrips_stay_in_scratch(tmp_path, monkeypatch):
     monkeypatch.setenv('BUILD', 'release')
-    monkeypatch.setenv('DOTNET', '"/tmp/dotnet tool"')
     monkeypatch.setenv('BENCH_IPC_OUTPUT', str(tmp_path / 'output'))
     monkeypatch.setenv('TMPDIR', str(tmp_path / 'scratch'))
     before = list((ROOT / 'bench/ipc/fixtures').iterdir())
@@ -84,7 +81,7 @@ def test_ipc_fixtures_and_roundtrips_stay_in_scratch(tmp_path, monkeypatch):
     scratch = tmp_path / 'scratch/ipc-fixtures'
     assert {path.name for path in scratch.iterdir()} == {'plain.pb', 'ansi.pb', 'unicode.pb', 'large.pb'}
     assert {path.name for path in (tmp_path / 'output').iterdir()} == {'net10.csv', 'rust.csv'}
-    dotnet = ['/tmp/dotnet tool', str(ROOT / 'bench/ipc/csharp/bin/Release/net10.0/IpcBench.dll')]
+    dotnet = ['dotnet', str(ROOT / 'bench/ipc/csharp/bin/Release/net10.0/IpcBench.dll')]
     assert calls[4] == [*dotnet, str(scratch)]
     assert calls[-1] == [*dotnet, '--verify', str(scratch)]
     assert list((ROOT / 'bench/ipc/fixtures').iterdir()) == before

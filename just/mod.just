@@ -53,10 +53,10 @@ mod-test *args: mod-restore
 mod-coverage: mod-restore mod-restore-tools
     mkdir -p "$COVERAGE_DIR"
     dotnet build mod/Tests/SlopWorld.Tests.csproj --configuration Release -p:Coverage=true -p:RestoreLockedMode=true
-    dotnet tool run coverlet -- mod/Tests/bin/Release/net8.0/SlopWorld.Tests.dll --target dotnet --targetargs 'mod/Tests/bin/Release/net8.0/SlopWorld.Tests.dll --quiet' --include-test-assembly --exclude-by-file '**/mod/Tests/**/*.cs' --exclude-by-file '**/Client/Generated/Slopworld.cs' --format cobertura --output "$COVERAGE_DIR/csharp.cobertura.xml"
+    dotnet tool run coverlet -- mod/Tests/bin/Release/net10.0/SlopWorld.Tests.dll --target dotnet --targetargs 'mod/Tests/bin/Release/net10.0/SlopWorld.Tests.dll --quiet' --include-test-assembly --exclude-by-file '**/mod/Tests/**/*.cs' --exclude-by-file '**/Client/Generated/Slopworld.cs' --format cobertura --output "$COVERAGE_DIR/csharp.cobertura.xml"
 
 # Remove component build output
 [group('mod')]
 mod-clean:
     rm -f "mod/Assemblies/SlopWorld.dll"
-    rm -rf mod/Source/SlopWorld/obj
+    rm -rf mod/Source/SlopWorld/bin mod/Source/SlopWorld/obj mod/Dependencies/bin mod/Dependencies/obj mod/Tests/bin mod/Tests/obj
