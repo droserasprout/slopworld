@@ -4,7 +4,7 @@ Daemon CPU includes shared Tokio workers running capture/input tasks and dedicat
 OS audio threads; pane processes are separate. A busy runtime thread does not
 identify an agent. Tmux server/control clients and agents' bwrap/pasta/process trees
 have separate accounting. [Redeploy](daemon-redeploy.md) owns the service boundary.
-The game mixes mod and vanilla work on Unity's main thread, which OS accounting
+The game mixes mod and vanilla work on its main thread, which OS accounting
 cannot separate.
 
 Tmux pane PIDs identify agent process trees. Sessions with configured resource limits
