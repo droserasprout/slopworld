@@ -85,18 +85,10 @@ namespace SlopWorld
                         string family = InstalledFontNames.Read(bytes, face);
                         if (family == null)
                             continue;
-                        // Prefer a regular face over styled files of the same family.
-                        string stem = Path.GetFileNameWithoutExtension(path);
-                        bool regular =
-                            !stem.Contains("Bold", StringComparison.OrdinalIgnoreCase)
-                            && !stem.Contains("Italic", StringComparison.OrdinalIgnoreCase)
-                            && !stem.Contains("Oblique", StringComparison.OrdinalIgnoreCase);
-                        int score = regular ? 1 : 0;
-                        if (regular && stem.Contains("Regular", StringComparison.OrdinalIgnoreCase))
-                            score++;
+                        int score = InstalledFontNames.StyleDistance(bytes, face);
                         if (
                             !scores.TryGetValue(family, out int previousScore)
-                            || score > previousScore
+                            || score < previousScore
                         )
                         {
                             _paths[family] = (path, face);

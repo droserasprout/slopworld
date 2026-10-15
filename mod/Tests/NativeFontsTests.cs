@@ -17,15 +17,23 @@ namespace SlopWorld.Tests
         static void U32(byte[] data, int at, uint value) =>
             BinaryPrimitives.WriteUInt32BigEndian(data.AsSpan(at), value);
 
-        static byte[] Face(string family, bool mono = false, bool collection = false)
+        static byte[] Face(
+            string family,
+            bool mono = false,
+            bool collection = false,
+            ushort weight = 400,
+            ushort width = 5,
+            bool italic = false
+        )
         {
             byte[] text = Encoding.BigEndianUnicode.GetBytes(family);
             int header = collection ? 16 : 0;
-            int names = header + 76;
+            int names = header + 92;
             int post = names + 18 + text.Length;
             int head = post + 16;
             int hhea = head + 54;
-            var data = new byte[hhea + 36];
+            int os2 = hhea + 36;
+            var data = new byte[os2 + 64];
             if (collection)
             {
                 U32(data, 0, 0x74746366);
@@ -33,7 +41,7 @@ namespace SlopWorld.Tests
                 U32(data, 12, (uint)header);
             }
             U32(data, header, 0x00010000);
-            U16(data, header + 4, 4);
+            U16(data, header + 4, 5);
             U32(data, header + 12, 0x6e616d65);
             U32(data, header + 20, (uint)names);
             U32(data, header + 24, (uint)(18 + text.Length));
@@ -46,6 +54,12 @@ namespace SlopWorld.Tests
             U32(data, header + 60, 0x68686561);
             U32(data, header + 68, (uint)hhea);
             U32(data, header + 72, 36);
+            U32(data, header + 76, 0x4f532f32);
+            U32(data, header + 84, (uint)os2);
+            U32(data, header + 88, 64);
+            U16(data, os2 + 4, weight);
+            U16(data, os2 + 6, width);
+            U16(data, os2 + 62, italic ? (ushort)1 : (ushort)0);
             U32(data, head + 8, 12345);
             U16(data, head + 18, 1000);
             U16(data, hhea + 4, 800);
@@ -74,7 +88,8 @@ namespace SlopWorld.Tests
                 U32(data, 12 + i * 4, (uint)offset);
                 faces[i].CopyTo(data, offset);
                 // SFNT table offsets in a collection are absolute from the file start.
-                for (int table = 0; table < 4; table++)
+                int tables = BinaryPrimitives.ReadUInt16BigEndian(faces[i].AsSpan(4));
+                for (int table = 0; table < tables; table++)
                 {
                     int record = offset + 20 + table * 16;
                     U32(
@@ -86,6 +101,55 @@ namespace SlopWorld.Tests
                 offset += faces[i].Length;
             }
             return data;
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void RegularFaceWinsOverEarlierStyledFacesRegardlessOfFileName(bool collection)
+        {
+            var faces = new[]
+            {
+                Face("Example", weight: 300),
+                Face("Example", width: 3),
+                Face("Example", italic: true),
+                Face("Example", weight: 700),
+                Face("Example", mono: true),
+            };
+            string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            var previous = GuiBackend.Current;
+            var previousPaths = Font.Paths;
+            try
+            {
+                var paths = new System.Collections.Generic.List<string>();
+                for (int i = 0; i < (collection ? 1 : faces.Length); i++)
+                {
+                    // Neither filenames nor collection order identify the regular face.
+                    string path = Path.Combine(directory, i + ".font");
+                    File.WriteAllBytes(path, collection ? Collection(faces) : faces[i]);
+                    paths.Add(path);
+                }
+                Font.Paths = paths.ToArray();
+                NativeFonts.Rescan();
+                GuiBackend.Current = new TextBackend
+                {
+                    Register = (_, data, _, _) =>
+                    {
+                        // Only the regular fixture is fixed-pitch, identifying the chosen face.
+                        Assert.That(InstalledFontNames.Monospaced(data), Is.True);
+                        return 100;
+                    },
+                };
+                Assert.That(NativeFonts.Create("Example", 12).GameFontIndex, Is.EqualTo(100));
+                Assert.That(NativeFonts.Names(monospaced: true), Is.EqualTo(new[] { "Example" }));
+            }
+            finally
+            {
+                GuiBackend.Current = previous;
+                Font.Paths = previousPaths;
+                NativeFonts.Rescan();
+                Directory.Delete(directory, recursive: true);
+            }
         }
 
         [Test]
@@ -187,7 +251,25 @@ namespace SlopWorld.Tests
                 byte[] truncated = data.AsSpan(0, size).ToArray();
                 Assert.That(InstalledFontNames.Read(truncated), Is.Null);
                 Assert.That(InstalledFontNames.Monospaced(truncated), Is.False);
+                Assert.That(InstalledFontNames.StyleDistance(truncated), Is.EqualTo(int.MaxValue));
             }
+        }
+
+        [Test]
+        public void MissingOrInvalidOs2StyleUsesHeadFlagsAndMalformedOffsetsAreRejected()
+        {
+            var data = Face("Example");
+            int head = checked((int)BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(52)));
+            int os2 = checked((int)BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(84)));
+            U16(data, os2 + 4, 0); // Invalid weight cannot outrank valid regular metadata.
+            Assert.That(InstalledFontNames.StyleDistance(data), Is.Zero);
+            U16(data, head + 44, 1);
+            Assert.That(InstalledFontNames.StyleDistance(data), Is.GreaterThan(0));
+            U32(data, 76, 0); // No OS/2 table: head still describes the posture.
+            U16(data, head + 44, 2);
+            Assert.That(InstalledFontNames.StyleDistance(data), Is.GreaterThan(300));
+            U32(data, 52, uint.MaxValue);
+            Assert.That(InstalledFontNames.StyleDistance(data), Is.EqualTo(int.MaxValue));
         }
 
         [Test]

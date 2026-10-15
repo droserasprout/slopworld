@@ -6,18 +6,18 @@ spans to the label box. Missing artwork must not change layout, and atlas drawin
 preserves caller opacity without inheriting text tint.
 
 `NativeFonts` owns installed family discovery and GUI backend registration. `InstalledFontNames`
-reads OpenType family and fixed-pitch metadata; font pickers do not register faces to measure
-monospace eligibility. Registration names include import size because the backend deduplicates
+reads OpenType family, style, and fixed-pitch metadata. Family selection prefers an upright,
+normal-width, regular-weight face, including within collections. Font pickers do not register
+faces to measure monospace eligibility. Registration names include import size because the backend deduplicates
 by name and byte length. Collection entries retain their face index; registration
 extracts that face to standalone SFNT bytes because native metrics reject TTC headers.
-Table offsets and the file checksum are rebuilt; the installed collection stays unchanged. Font wrappers may be released; registered faces remain backend-owned.
+The installed collection stays unchanged. Font wrappers may be released; registered faces
+remain backend-owned.
 OS font creation and family enumeration in Unity's compatibility API are stubs.
 
 Shared text rendering applies the style foreground through GUI tint because native
 `GUI.Label` forwards tint without reading the style state's text color. Each label
 restores the caller tint, including on failure; atlas artwork keeps its own colors.
-Code and Terminal settings previews use the same styled-label helper for sample
-text, line numbers, and the ANSI matrix.
 
 `NativeTextScope` carries literal/rich text policy across the backend API, which
 omits `GUIStyle.richText`. The chrome Harmony hooks scope style measurement and
