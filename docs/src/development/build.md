@@ -84,14 +84,10 @@ sidecar, mod, and Python tools:
 | `just ci` | Run the game-free CI checks, including coverage and generated-protocol validation. Also requires the [coverage tools](#coverage). |
 
 To check C# compilation against the game assemblies, run `just mod-check-build`.
-It builds Release with warnings treated as errors and is also part of release packaging.
-For a game-free compilation check, run `just mod-check-build-rimref`. It uses
-[Krafs.Rimworld.Ref](https://github.com/krafs/RimRef) **1.6.4850**, pinned in the
-mod project and NuGet lock. `just ci-mod` includes this Release build alongside
-formatting and game-free coverage. GitHub Actions uploads `SlopWorld.dll` as the
-`mod-assembly` artifact; runtime dependencies and mod assets are not included.
-Reference assemblies are never copied into the mod output. Compilation does not
-validate Harmony patches or other game runtime behavior.
+It builds Release with warnings treated as errors, resolves native text patch targets,
+and checks the swapchain rewrite against installed game assemblies without starting
+the game. Release packaging includes this check.
+Game-free C# tests and formatting do not require those assemblies.
 
 For documentation changes, run `just docs-build`. See
 [Contributing](contributing.md#documentation) for book validation and preview commands.

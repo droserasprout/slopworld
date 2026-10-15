@@ -17,7 +17,7 @@ namespace SlopWorld.Tests
         }
 
         // Exercise Harmony's actual enum return and out-argument handoff. Native font
-        // layout is deliberately absent; game assembly binding is checked separately.
+        // layout is deliberately absent; just check mod-build verifies the game targets.
         [MethodImpl(MethodImplOptions.NoInlining)]
         static Tag Parse(string text, int index, out int end, out Color color, out float size)
         {

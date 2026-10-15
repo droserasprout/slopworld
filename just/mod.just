@@ -42,9 +42,10 @@ mod-lint: mod-restore-tools
     for source in mod/Source/SlopWorld mod/Tests bench/ipc/csharp bench/terminal-input/tests/http_transport; do (cd "$source" && dotnet csharpier check --log-level Warning .) || exit "$?"; done
 
 
-# Validate a Release build with warnings as errors (requires game assemblies)
+# Validate Release compilation and native bindings without starting the game
 [group('mod')]
 mod-check-build: (mod-build '' 'release' 'true')
+    dotnet run --project mod/Tests/SlopWorld.Tests.csproj --configuration Release -p:RestoreLockedMode=true -- --game-bindings "$MANAGED" mod/Assemblies/SlopWorld.dll
 
 # Validate a game-free Release build with pinned RimRef references
 [group('mod')]

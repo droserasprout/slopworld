@@ -347,11 +347,14 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual([call['args'] for call in self.calls('uv')], [['lock', '--upgrade']])
 
     def test_build_check_forces_release_and_warnings(self) -> None:
-        self.run_recipe('BUILD=debug', 'VERSION=1.2.3', 'mod-check-build')
+        self.run_recipe('BUILD=debug', 'VERSION=1.2.3', 'MANAGED=/game assemblies', 'mod-check-build')
         self.assertEqual(self.calls('cargo'), [])
         (mod,) = [call for call in self.calls('dotnet') if 'mod/Source/SlopWorld/SlopWorld.csproj' in call['args']]
         self.assertIn('Release', mod['args'])
         self.assertIn('-p:TreatWarningsAsErrors=true', mod['args'])
+        (bindings,) = [call for call in self.calls('dotnet') if '--game-bindings' in call['args']]
+        self.assertIn('Release', bindings['args'])
+        self.assertEqual(bindings['args'][-3:], ['--game-bindings', '/game assemblies', 'mod/Assemblies/SlopWorld.dll'])
 
     def test_rimref_ci_build_ignores_local_game_path(self) -> None:
         self.run_recipe('MANAGED=/missing/game', 'BUILD=debug', 'VERSION=1.2.3', 'mod-check-build-rimref')
