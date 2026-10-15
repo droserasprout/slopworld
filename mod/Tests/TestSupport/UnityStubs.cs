@@ -353,6 +353,7 @@ namespace UnityEngine
 
     public class Event
     {
+        public const float scrollWheelDeltaPerTick = 3f;
         public static Event current = new Event { type = EventType.Repaint };
 
         public void Use()

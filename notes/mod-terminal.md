@@ -59,3 +59,7 @@ on activation, never hover/repaint; preserve line targets and restrict Reveal to
 projects. Native previews own selection/copy, while paste may use their backing terminal.
 See [history](mod-terminal-history.md), [rendering](mod-terminal-rendering.md), and
 [capture](daemon-terminal-capture.md).
+
+Reader wheel steps follow the magnitude of Waylith's accumulated frame event
+(three event units per notch), for both mouse reports and arrow-key fallback.
+Counting one step per event makes fast scrolling depend on the frame rate.
