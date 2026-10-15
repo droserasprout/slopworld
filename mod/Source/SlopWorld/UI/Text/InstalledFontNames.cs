@@ -86,6 +86,49 @@ namespace SlopWorld
             return 0;
         }
 
+        // Prefer upright, normal-width, 400-weight faces within a family. File names
+        // cannot distinguish collection entries and often omit a face's actual style.
+        public static int StyleDistance(byte[] bytes, int face = 0)
+        {
+            try
+            {
+                var data = bytes.AsSpan();
+                int header = Header(data, face);
+                int tables = U16(data, header + 4);
+                int fallback = int.MaxValue;
+                for (int i = 0; i < tables; i++)
+                {
+                    int record = header + 12 + i * 16;
+                    uint tag = U32(data, record);
+                    if (tag != 0x4f532f32 && tag != 0x68656164) // OS/2 or head
+                        continue;
+                    var table = data.Slice(
+                        checked((int)U32(data, record + 8)),
+                        checked((int)U32(data, record + 12))
+                    );
+                    if (tag == 0x4f532f32 && table.Length >= 64)
+                    {
+                        int weight = U16(table, 4),
+                            width = U16(table, 6);
+                        if (weight >= 1 && weight <= 1000 && width >= 1 && width <= 9)
+                            return Distance(weight, width, (U16(table, 62) & 0x201) != 0);
+                    }
+                    if (tag == 0x68656164 && table.Length >= 46)
+                    {
+                        int style = U16(table, 44);
+                        fallback = Distance((style & 1) != 0 ? 700 : 400, 5, (style & 2) != 0);
+                    }
+                }
+                return fallback;
+            }
+            catch (ArgumentOutOfRangeException) { }
+            catch (OverflowException) { }
+            return int.MaxValue;
+        }
+
+        static int Distance(int weight, int width, bool italic) =>
+            (italic ? 100_000 : 0) + Math.Abs(width - 5) * 10_000 + Math.Abs(weight - 400);
+
         // Waylith's metrics reader accepts standalone SFNT data, not TTC headers.
         // Copy the chosen face's directory and tables, rebasing offsets and checksum.
         // The installed collection and its shared tables are never modified.
