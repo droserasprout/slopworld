@@ -61,6 +61,140 @@ async fn target_resolution_reports_missing_sessions_and_projects() {
     assert_eq!(project.name, "project");
 }
 
+async fn manager_with_registered_checkout() -> (Arc<Manager>, crate::worktrees::Worktree) {
+    let manager = manager_for_start();
+    let root = manager.cfg_path.parent().unwrap().join("repo");
+    std::fs::create_dir(&root).unwrap();
+    for args in [
+        vec!["init", "-q"],
+        vec![
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "initial",
+        ],
+    ] {
+        assert!(
+            std::process::Command::new("git")
+                .arg("-C")
+                .arg(&root)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    let checkout = root.join("checkout");
+    std::fs::create_dir(&checkout).unwrap();
+    crate::worktrees::allocate(&root, &checkout, "checkout", "HEAD")
+        .await
+        .unwrap();
+    let worktree = crate::worktrees::Worktree {
+        id: crate::storage_id::draft_identity(),
+        project_id: crate::storage_id::draft_identity(),
+        name: "checkout".into(),
+        path: checkout.to_string_lossy().into_owned(),
+        repository: root.join(".git").to_string_lossy().into_owned(),
+        managed: true,
+        phase: crate::worktrees::WorktreePhase::Ready,
+        ..Default::default()
+    };
+    {
+        let mut cfg = manager.cfg.write().await;
+        cfg.projects[0].id = worktree.project_id.clone();
+        cfg.projects[0].dir = root.to_string_lossy().into_owned();
+    }
+    manager
+        .save_worktrees(&crate::worktrees::Store {
+            worktrees: vec![worktree.clone()],
+        })
+        .await
+        .unwrap();
+    (manager, worktree)
+}
+
+#[tokio::test]
+async fn diff_preparation_rechecks_reserved_checkout_and_recovers_after_repair() {
+    let (manager, worktree) = manager_with_registered_checkout().await;
+    let checkout = std::path::PathBuf::from(&worktree.path);
+    let cfg = manager.config().await;
+    let session = manager
+        .create_errand_session(
+            &cfg,
+            &LibraryItemCfg {
+                name: "diff-checkout".into(),
+                project: "project".into(),
+                kind: LibraryItemKind::Shell,
+                command: Some("printf ready".into()),
+                ..Default::default()
+            },
+            &RunWhere {
+                intent: "diff".into(),
+                worktree: worktree.id,
+                ..Default::default()
+            },
+            true,
+            false,
+            "",
+        )
+        .await
+        .unwrap();
+    let initial = manager.prepare_start(&session).await.unwrap();
+    assert!(initial.host);
+    assert_eq!(initial.dir, worktree.path);
+
+    // Reservation has completed. External changes need no daemon session lock.
+    let dotgit = std::fs::read(checkout.join(".git")).unwrap();
+    std::fs::remove_file(checkout.join(".git")).unwrap();
+    let error = manager.prepare_start(&session).await.err().unwrap();
+    assert!(error.to_string().contains("own Git metadata"), "{error:#}");
+
+    // A valid standalone repository at the same path is still the wrong identity.
+    assert!(
+        std::process::Command::new("git")
+            .arg("-C")
+            .arg(&checkout)
+            .args(["init", "-q"])
+            .status()
+            .unwrap()
+            .success()
+    );
+    let error = manager.prepare_start(&session).await.err().unwrap();
+    assert!(
+        error.to_string().contains("repository identity"),
+        "{error:#}"
+    );
+    std::fs::remove_dir_all(checkout.join(".git")).unwrap();
+    std::fs::write(checkout.join(".git"), dotgit).unwrap();
+    assert_eq!(
+        manager.prepare_start(&session).await.unwrap().dir,
+        worktree.path
+    );
+
+    let moved = checkout.with_file_name("moved");
+    std::fs::rename(&checkout, &moved).unwrap();
+    std::os::unix::fs::symlink(&moved, &checkout).unwrap();
+    let error = manager.prepare_start(&session).await.err().unwrap();
+    assert!(
+        error.to_string().contains("checkout is missing"),
+        "{error:#}"
+    );
+    std::fs::remove_file(&checkout).unwrap();
+    std::fs::rename(&moved, &checkout).unwrap();
+    assert_eq!(
+        manager.prepare_start(&session).await.unwrap().dir,
+        worktree.path
+    );
+    assert!(!manager.tmux.exists(&session).await);
+    assert_eq!(manager.worktree_records().worktrees.len(), 1);
+    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+}
+
 #[test]
 fn directory_preparation_creates_only_temporary_projects_and_rejects_files() {
     let root = std::env::temp_dir().join(format!("slopd-start-dir-{}", uuid::Uuid::new_v4()));

@@ -364,6 +364,11 @@ impl Manager {
         if id.is_empty() || id == "main" {
             return Ok(p.clone());
         }
+        // Reservation and startup both call this owner. The session boundary protects
+        // records, not external checkout/metadata changes, so startup must validate again.
+        // Keep the individual costs visible before changing that launch handoff.
+        let _perf = crate::perf::timer("worktree-resolve");
+        let record_perf = crate::perf::timer("worktree-resolve-record-path");
         let store = self.worktree_records();
         let w = store
             .worktrees
@@ -380,10 +385,14 @@ impl Manager {
         if checkout.is_symlink() || !checkout.is_dir() {
             bail!("worktree {id} checkout is missing or is not a directory");
         }
+        drop(record_perf);
+        let root_perf = crate::perf::timer("worktree-resolve-git-root");
         let top = git(checkout, &["rev-parse", "--show-toplevel"]).await?;
         if Path::new(&top).canonicalize()? != checkout.canonicalize()? {
             bail!("worktree checkout no longer has its own Git metadata");
         }
+        drop(root_perf);
+        let common_perf = crate::perf::timer("worktree-resolve-git-common");
         let repository = Path::new(&w.repository).canonicalize()?;
         let common = git(
             checkout,
@@ -393,11 +402,15 @@ impl Manager {
         if Path::new(&common).canonicalize()? != repository {
             bail!("worktree repository identity changed");
         }
+        drop(common_perf);
+        let metadata_perf = crate::perf::timer("worktree-resolve-metadata");
         for metadata in crate::worktrees::metadata_paths(checkout)? {
             if !metadata.starts_with(&repository) {
                 bail!("worktree Git metadata no longer belongs to its registered repository");
             }
         }
+        drop(metadata_perf);
+        let _mount_perf = crate::perf::timer("worktree-resolve-mounts");
         let original = std::path::PathBuf::from(expand(&p.dir)).canonicalize()?;
         for mount in &p.mounts {
             if mount.mode == crate::config::MountMode::Cache {
