@@ -17,6 +17,13 @@ restores the caller tint, including on failure; atlas artwork keeps its own colo
 Code and Terminal settings previews use the same styled-label helper for sample
 text, line numbers, and the ANSI matrix.
 
+`NativeTextScope` carries literal/rich text policy across the backend API, which
+omits `GUIStyle.richText`. The chrome Harmony hooks scope style measurement and
+drawing together and suppress native tag recognition only for literal text.
+Field drawing, hit testing, and cursor geometry always use literal text; tooltip
+cursor geometry follows its label style. Scopes restore thread-local policy on
+exception and nested calls without rewriting strings or selection offsets.
+
 Plain labels use the native text path. `PlainStatusLabel` and its height helper
 share native wrapping; catalog keys remain literal text in these APIs.
 `UiText.Paragraph` owns plain paragraph drawing and spacing; `SizedStyle` owns

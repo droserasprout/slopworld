@@ -12,8 +12,10 @@ namespace SlopWorld
             Func<Rect, bool, GUIStyle, Rect>
         >(AccessTools.Method(typeof(GUI), "TextFieldTextRect"));
 
-        internal static Vector2 Cursor(GUIStyle style, string text, float width, int index) =>
-            GuiBackend.Current.TextCursorPos(
+        internal static Vector2 Cursor(GUIStyle style, string text, float width, int index)
+        {
+            using var scope = new NativeTextScope(style.richText);
+            return GuiBackend.Current.TextCursorPos(
                 style.FontIndex,
                 style.fontSize,
                 style.fontStyle,
@@ -22,9 +24,11 @@ namespace SlopWorld
                 index,
                 out _
             );
+        }
 
         internal static float CaretY(TextEditor editor)
         {
+            using var scope = new NativeTextScope(false);
             var rect = FieldTextRect(editor.position, editor.multiline, editor.style);
             var style = editor.style;
             return rect.y

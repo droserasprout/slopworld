@@ -35,6 +35,8 @@
     <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowSelection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TooltipLineBreaks.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/NativeTextLayout.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/NativeTextScope.cs" />
+    <Compile Include="../Source/SlopWorld/Patches/Chrome/NativeText.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/UiScaleDrag.cs" />
     <Compile Include="../Source/SlopWorld/Patches/Chrome/SwapchainAcquireTimeout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalCachePaint.cs" />

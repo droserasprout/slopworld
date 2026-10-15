@@ -216,7 +216,9 @@ accepting saved credentials.
 
 `bench/runner.py` owns benchmark build/run subprocesses; `bench/report.py` owns
 collection and reporting. It calls the runner directly, building only the selected
-suite. Benchmark recipes forward CLI options instead of exporting each option as a
+suite. Mod runs use the same configured test project and build configuration through
+`dotnet run --no-build`, so target-framework changes cannot select stale binaries.
+Benchmark recipes forward CLI options instead of exporting each option as a
 shared setting. `bench/` also owns shared result handling and its tests.
 `slopcar/Cargo.toml` owns the independent native sidecar launcher, built by
 `just sidecar-build` and installed by `sidecar-install`. `sidecar-test` and

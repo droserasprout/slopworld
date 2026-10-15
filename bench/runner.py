@@ -125,7 +125,13 @@ def run_suite(suite: str) -> None:
         run(
             [
                 'dotnet',
-                f'mod/Tests/bin/{configuration()}/net8.0/SlopWorld.Tests.dll',
+                'run',
+                '--project',
+                'mod/Tests/SlopWorld.Tests.csproj',
+                '--configuration',
+                configuration(),
+                '--no-build',
+                '--',
                 '--perf-bench',
             ],
             cwd=ROOT,
