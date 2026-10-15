@@ -9,6 +9,10 @@ default. All worktrees selects every checkout in a project, including future one
 choosing an individual checkout from All narrows to that checkout. Persist this
 mode under the stable project scope key. Project submenu indicators summarize
 checkout choices as none/some/all; hidden projects show none while retaining choices.
+The project checkbox and label toggle project visibility independently of checkout
+choices; when no checkouts are selected, clicking the parent enables All worktrees
+and includes the project. Hovering the row or clicking its arrow opens the submenu. Checkout selections reopen that submenu so
+multiple choices can be made without returning to the parent row.
 Successful project creation joins an explicit project filter. Adding or
 creating a worktree, including through the worker dialog, selects its returned
 identity and includes its project. These success handoffs preserve other choices

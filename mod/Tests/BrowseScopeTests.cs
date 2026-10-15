@@ -83,6 +83,37 @@ namespace SlopWorld.Tests
                 Path = path ?? "/p/" + worktree,
             };
 
+        public static void SessionFilteringFollowsCheckoutChoicesWithoutWaitingForDescriptors()
+        {
+            var f = new Fixture();
+            f.Update();
+            Assert.That(f.Catalog.SessionChosen("p", ""), Is.True);
+            Assert.That(f.Catalog.SessionChosen("p", "main"), Is.True);
+            Assert.That(f.Catalog.SessionChosen("p", "branch"), Is.False);
+            f.Catalog.Select("p-id", "branch", saved => f.Saved = saved);
+            Assert.That(f.Catalog.SessionChosen("p", "branch"), Is.True);
+            f.Reply(f.Request("p", 1), Scope(), Scope("branch"));
+            int revision = f.Catalog.Revision;
+            f.Toggle(Scope());
+            Assert.That(f.Catalog.Revision, Is.GreaterThan(revision));
+            Assert.That(f.Catalog.SessionChosen("p", ""), Is.False);
+            Assert.That(f.Catalog.SessionChosen("p", "main"), Is.False);
+            Assert.That(f.Catalog.SessionChosen("p", "branch"), Is.True);
+            f.Toggle(Scope("branch"));
+            Assert.That(f.Catalog.SessionChosen("p", "branch"), Is.False);
+            f.Catalog.SelectAll("p-id", saved => f.Saved = saved);
+            Assert.That(f.Catalog.SessionChosen("p", "main"), Is.True);
+            Assert.That(f.Catalog.SessionChosen("p", "future"), Is.True);
+            f.Filter = "other";
+            f.Update();
+            Assert.That(f.Catalog.SessionChosen("p", "main"), Is.False);
+            Assert.That(f.Catalog.SessionChosen("p", "branch"), Is.False);
+            f.Filter = "";
+            f.Update();
+            Assert.That(f.Catalog.SessionChosen("p", "branch"), Is.True);
+            Assert.That(f.Catalog.SessionChosen("", ""), Is.True);
+        }
+
         public static void CatalogSnapshotsDoNotExposeRetainedState()
         {
             var f = new Fixture();

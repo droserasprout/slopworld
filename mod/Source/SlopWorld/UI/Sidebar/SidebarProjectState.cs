@@ -9,6 +9,7 @@ namespace SlopWorld
     sealed class SidebarProjectState
     {
         public const string NoProject = "[none]";
+        const string NoProjects = "[no projects]";
 
         HashSet<string> _folded;
         HashSet<string> _filter;
@@ -94,16 +95,37 @@ namespace SlopWorld
             Save(Filter, value => Settings.S.sidebarFilter = value);
         }
 
+        // A visible project must be removable even from All or a singleton selection.
+        // Keep an explicit empty selection distinct from the empty-set All contract.
+        public void ToggleVisibility(string key, IEnumerable<string> projects)
+        {
+            if (!Filtering)
+            {
+                foreach (var project in projects)
+                    Filter.Add(project);
+                Filter.Add(NoProject);
+            }
+            if (!Filter.Remove(key))
+                Filter.Add(key);
+            Filter.Remove(NoProjects);
+            if (Filter.Count == 0)
+                Filter.Add(NoProjects);
+            Save(Filter, value => Settings.S.sidebarFilter = value);
+        }
+
         public bool Filtering => Filter.Count > 0;
 
         public void IncludeProject(string key)
         {
             // All projects already includes additions; keep the empty-set contract.
             if (Filtering && Filter.Add(key))
+            {
+                Filter.Remove(NoProjects);
                 Save(Filter, value => Settings.S.sidebarFilter = value);
+            }
         }
 
-        public bool Ticked(string key) => Filter.Contains(key);
+        public bool Ticked(string key) => Passes(key);
 
         public bool Passes(string project)
         {
@@ -115,6 +137,8 @@ namespace SlopWorld
         {
             get
             {
+                if (Filter.SetEquals(new[] { NoProjects }))
+                    return "No projects";
                 if (Filter.Count != 1)
                     return Filter.Count + " projects";
                 foreach (var key in Filter)

@@ -87,6 +87,35 @@ namespace SlopWorld.Tests
                 }
             );
 
+        public static void VisibleProjectsCanBeHiddenFromAllAndFromASingleton() =>
+            WithState(
+                (state, path) =>
+                {
+                    var projects = new[] { "worktrees", "other" };
+                    Assert.That(state.Ticked("worktrees"), Is.True);
+                    state.ToggleVisibility("worktrees", projects);
+                    Assert.That(state.Passes("worktrees"), Is.False);
+                    Assert.That(state.Passes("other"), Is.True);
+                    Assert.That(state.Passes(""), Is.True);
+                    Assert.That(new SidebarProjectState().Passes("worktrees"), Is.False);
+
+                    Settings.S.sidebarFilter = "worktrees";
+                    state.ToggleVisibility("worktrees", projects);
+                    Assert.That(state.Filtering, Is.True);
+                    Assert.That(state.Passes("worktrees"), Is.False);
+                    Assert.That(state.Passes("other"), Is.False);
+                    Assert.That(state.Passes(""), Is.False);
+                    Assert.That(state.FilterLabel, Is.EqualTo("No projects"));
+                    Assert.That(new SidebarProjectState().Passes("worktrees"), Is.False);
+
+                    state.ToggleVisibility("worktrees", projects);
+                    Assert.That(state.Filter, Is.EquivalentTo(new[] { "worktrees" }));
+                    state.ToggleFilter("");
+                    Assert.That(state.Filtering, Is.False);
+                    Assert.That(state.Passes("worktrees"), Is.True);
+                }
+            );
+
         public static void AddedProjectsJoinAnExplicitFilterWithoutNarrowingAllProjects() =>
             WithState(
                 (state, path) =>

@@ -436,6 +436,16 @@ namespace SlopWorld
         {
             int _revision;
 
+            public void RestoreProject(string project) =>
+                OpenSubmenu(
+                    project
+                        + (
+                            string.IsNullOrEmpty(SidebarScopes.Error(project))
+                                ? ""
+                                : " (unavailable)"
+                        )
+                );
+
             public ProjectFilterMenu(List<FloatMenuOption> rows, Vector2 at)
                 : base(rows, at)
             {
@@ -472,6 +482,16 @@ namespace SlopWorld
                 new ProjectFilterMenu(FilterOptions(), new Vector2(FilterRect.x, FilterRect.yMax))
             );
 
+        static void OpenWorktreeFilterMenu(string project)
+        {
+            var menu = new ProjectFilterMenu(
+                FilterOptions(),
+                new Vector2(FilterRect.x, FilterRect.yMax)
+            );
+            TerminalWindow.OpenOverPane(menu);
+            menu.RestoreProject(project);
+        }
+
         static List<FloatMenuOption> FilterOptions()
         {
             _ = SidebarScopes.MenuRevision;
@@ -495,7 +515,8 @@ namespace SlopWorld
                         key,
                         () => WorktreeFilterOptions(key),
                         selection == BrowseScopeSelection.All,
-                        selection == BrowseScopeSelection.Some
+                        selection == BrowseScopeSelection.Some,
+                        () => Tick(key)
                     )
                     : UiLayout.MenuToggle(key, Ticked(key), () => Tick(key));
                 string error = SidebarScopes.Error(key);
@@ -522,7 +543,7 @@ namespace SlopWorld
                     () =>
                     {
                         SidebarScopes.SelectAll(project);
-                        OpenFilterMenu();
+                        OpenWorktreeFilterMenu(project);
                     }
                 ),
             };
@@ -557,7 +578,7 @@ namespace SlopWorld
                                     || !SidebarScopes.Chosen(child)
                                 )
                                     SidebarScopes.Toggle(child);
-                                OpenFilterMenu();
+                                OpenWorktreeFilterMenu(project);
                             }
                         )
                         : null
@@ -573,7 +594,17 @@ namespace SlopWorld
 
         static void Tick(string key)
         {
-            ToggleFilter(key);
+            // An empty parent checkbox represents no visible checkouts, including a
+            // hidden project. Checking it enables All rather than hiding an empty project.
+            if (
+                key.Length > 0
+                && key != NoProject
+                && SidebarScopes.HasWorktrees(key)
+                && SidebarScopes.Selection(key) == BrowseScopeSelection.None
+            )
+                SidebarScopes.SelectAll(key);
+            else
+                ToggleFilter(key);
             if (
                 key.Length > 0
                 && key != NoProject

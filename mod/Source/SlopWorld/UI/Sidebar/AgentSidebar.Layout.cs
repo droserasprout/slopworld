@@ -61,6 +61,7 @@ namespace SlopWorld
             var hub = SessionHub.Instance;
             var status = StatusFilter;
             int workspaceRevision = WorkspaceLayout.Revision;
+            int filterRevision = Projects.Revision + SidebarScopes.Revision;
             if (
                 Layout.Matches(
                     entries,
@@ -68,7 +69,7 @@ namespace SlopWorld
                     CurrentTab,
                     hub.SessionsVersion,
                     hub.ProjectsRevision,
-                    Projects.Revision,
+                    filterRevision,
                     status,
                     Width,
                     UI.screenHeight,
@@ -102,7 +103,7 @@ namespace SlopWorld
                 CurrentTab,
                 hub.SessionsVersion,
                 hub.ProjectsRevision,
-                Projects.Revision,
+                filterRevision,
                 status,
                 Width,
                 UI.screenHeight,

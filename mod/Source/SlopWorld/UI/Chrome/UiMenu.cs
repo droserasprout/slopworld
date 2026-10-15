@@ -12,6 +12,7 @@ namespace SlopWorld
         // Asked when the pointer arrives rather than when the parent is built. A station's presets
         // carry which one is playing, and a tree built up front would say so once.
         public readonly Func<List<FloatMenuOption>> Children;
+        public Action Toggle;
 
         // FloatMenuOption treats a null action as disabled, even for submenu openers.
         public UiSubmenu(string label, Func<List<FloatMenuOption>> children)
@@ -538,15 +539,19 @@ namespace SlopWorld
             if (!UiButtons.RowButton(r, on))
                 return false;
 
-            // A row with a list under it is an address rather than an answer, and a press on
-            // one is the pointer saying it will not wait out the delay. Opened here rather
-            // than swallowed outright because clicking a window shuts every window above it,
-            // this one's child included.
+            // Toggle rows use the label/checkbox for selection and the arrow for navigation.
+            // Other submenus open on any row click, without waiting for the hover delay.
             var sub = o as UiSubmenu;
             if (sub != null)
             {
                 _selected = i;
-                OpenChild(i, sub);
+                if (
+                    sub.Toggle != null
+                    && Event.current.mousePosition.x < r.xMax - PadX - ArrowW - UiTheme.GapXS
+                )
+                    ActivateOption(new FloatMenuOption(o.Label, sub.Toggle));
+                else
+                    OpenChild(i, sub);
                 return false;
             }
 
@@ -561,6 +566,22 @@ namespace SlopWorld
             // Close the tree before an action can open a replacement menu or dialog.
             CloseTree();
             option.action?.Invoke();
+        }
+
+        // Call after opening a replacement root to restore a persistent choice submenu.
+        protected void OpenSubmenu(string label)
+        {
+            MeasureRows();
+            for (int i = 0; i < _options.Count; i++)
+                if (_options[i].Label == label && Sub(i) is UiSubmenu sub)
+                {
+                    // A replacement root starts at scroll position zero. Reveal its anchor
+                    // before the child computes its screen position.
+                    _selected = i;
+                    RevealSelection();
+                    OpenChild(i, sub);
+                    return;
+                }
         }
 
         void OpenChild(int i, UiSubmenu sub)

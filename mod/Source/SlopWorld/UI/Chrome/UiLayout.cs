@@ -210,11 +210,13 @@ namespace SlopWorld
             string label,
             Func<List<FloatMenuOption>> children,
             bool on,
-            bool mixed
+            bool mixed,
+            Action toggle = null
         )
         {
             return new UiSubmenu(label, children)
             {
+                Toggle = toggle,
                 extraPartWidth = TickColW,
                 extraPartRightJustified = false,
                 extraPartOnGUI = r => DrawTick(r, on, mixed),

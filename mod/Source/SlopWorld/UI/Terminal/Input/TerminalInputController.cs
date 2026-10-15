@@ -581,7 +581,7 @@ namespace SlopWorld
         }
 
         // Start with visible sidebar rows in project order. Append hidden viewers, editors, folded agents, and temporary tabs.
-        // Apply the project filter to appended sessions. Alt+number uses AgentColony.InBarOrder.
+        // Apply project and checkout filters to appended sessions. Alt+number uses AgentColony.InBarOrder.
         internal static List<string> TabOrder()
         {
             var order = AgentSidebar.WalkOrder();
@@ -590,7 +590,7 @@ namespace SlopWorld
             {
                 if (
                     info == null
-                    || !AgentSidebar.Passes(info.Project)
+                    || !SidebarScopes.SessionChosen(info)
                     || string.IsNullOrEmpty(info.Name)
                     || !seen.Add(info.Name)
                 )

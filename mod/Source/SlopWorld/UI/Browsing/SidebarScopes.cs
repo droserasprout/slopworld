@@ -73,6 +73,12 @@ namespace SlopWorld
 
         public static bool Enabled(string key) => Catalog.Enabled(key);
 
+        public static bool SessionChosen(SessionInfo session)
+        {
+            Update();
+            return session != null && Catalog.SessionChosen(session.Project, session.Worktree);
+        }
+
         public static bool Chosen(BrowseScope scope) => Catalog.Chosen(scope);
 
         public static bool AllChosen(string project) =>

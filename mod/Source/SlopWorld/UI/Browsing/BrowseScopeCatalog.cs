@@ -62,6 +62,24 @@ namespace SlopWorld
             return s != null && s.Ready && _choices.Chosen(s) && _passes(s.Project);
         }
 
+        // Sessions already carry checkout identity; visibility must not wait for an
+        // asynchronously loaded descriptor or depend on checkout readiness.
+        public bool SessionChosen(string project, string worktree)
+        {
+            if (!_passes(project))
+                return false;
+            var catalog = _catalogs.FirstOrDefault(pair => pair.Value.Name == project);
+            if (catalog.Value == null)
+                return true;
+            return _choices.Chosen(
+                new BrowseScope
+                {
+                    ProjectId = catalog.Key,
+                    Worktree = string.IsNullOrEmpty(worktree) ? "main" : worktree,
+                }
+            );
+        }
+
         public bool Chosen(BrowseScope scope) => _choices.Chosen(scope);
 
         public bool AllChosen(string projectId) => _choices.AllChosen(projectId);

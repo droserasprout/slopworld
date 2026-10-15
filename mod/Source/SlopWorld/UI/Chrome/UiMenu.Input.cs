@@ -218,7 +218,10 @@ namespace SlopWorld
             var sub = _options[_selected] as UiSubmenu;
             if (sub != null)
             {
-                OpenChild(_selected, sub);
+                if (sub.Toggle != null)
+                    ActivateOption(new FloatMenuOption(sub.Label, sub.Toggle));
+                else
+                    OpenChild(_selected, sub);
                 return;
             }
 

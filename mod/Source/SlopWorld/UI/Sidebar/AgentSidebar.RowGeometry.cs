@@ -66,7 +66,7 @@ namespace SlopWorld
                 }
                 // Parked rather than skipped, for the reason the routed ones are: the
                 // colonist bar hit-tests the same table it is drawn from.
-                if (!Passes(info?.Project))
+                if (!SidebarScopes.SessionChosen(info))
                 {
                     locs[i] = Parked;
                     continue;
@@ -94,7 +94,7 @@ namespace SlopWorld
             {
                 if (s.Worker)
                 {
-                    if (!Passes(s.Project) || !PassesStatus(s.State))
+                    if (!SidebarScopes.SessionChosen(s) || !PassesStatus(s.State))
                         continue;
                     // A child is nested only when its explicit parent has a visible normal row.
                     // Missing parents are surfaced at the top instead of being silently lost.
@@ -102,7 +102,7 @@ namespace SlopWorld
                     bool parentVisible =
                         parent != null
                         && !parent.Worker
-                        && Passes(parent.Project)
+                        && SidebarScopes.SessionChosen(parent)
                         && Layout.Named.ContainsValue(parent.Name);
                     if (!parentVisible)
                     {
@@ -118,7 +118,7 @@ namespace SlopWorld
                 if (
                     (!s.Ephemeral && !s.Host)
                     || IsRouted(s)
-                    || !Passes(s.Project)
+                    || !SidebarScopes.SessionChosen(s)
                     || !PassesStatus(s.State)
                 )
                     continue;

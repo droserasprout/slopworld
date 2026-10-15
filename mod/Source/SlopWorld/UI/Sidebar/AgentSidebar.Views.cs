@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -308,7 +309,10 @@ namespace SlopWorld
         // every name ticked. Therefore, a project made later is in it too.
         public static void ToggleFilter(string key)
         {
-            Projects.ToggleFilter(key);
+            if (key.Length == 0)
+                Projects.ToggleFilter(key);
+            else
+                Projects.ToggleVisibility(key, SessionHub.Instance.Projects.Select(p => p.Name));
             NotifyFilterChanged();
         }
 
@@ -402,7 +406,7 @@ namespace SlopWorld
         // routed row. A stopped agent likewise has a row for restart actions, not a usable pane.
         internal static bool IsOpenBesideCandidate(SessionInfo info)
         {
-            if (info == null || !info.Alive || !Passes(info.Project))
+            if (info == null || !info.Alive || !SidebarScopes.SessionChosen(info))
                 return false;
             return RoutedAction(info) != RowAct.Diff || FileReaders.IsSession(info.Name);
         }
@@ -417,12 +421,12 @@ namespace SlopWorld
                 Layout.Routed,
                 SessionHub.Instance.Sessions,
                 SessionHub.Instance.SessionsVersion,
-                Projects.Revision,
+                Projects.Revision + SidebarScopes.Revision,
                 SessionHub.Instance.Config.EffectivePager,
                 SessionHub.Instance.Config.Editor,
                 info =>
                     IsRouted(info)
-                    && Passes(info.Project)
+                    && SidebarScopes.SessionChosen(info)
                     && (
                         (RoutedAction(info) & RowAct.Diff) == 0
                         || FileReaders.Tabs.IsSession(info.Name)
@@ -478,7 +482,7 @@ namespace SlopWorld
                         && !info.Ephemeral
                         && !info.Worker
                         && !IsRouted(info)
-                        && Passes(info.Project)
+                        && SidebarScopes.SessionChosen(info)
                         && PassesStatus(info.State)
                     )
                         agents.Add(info);
