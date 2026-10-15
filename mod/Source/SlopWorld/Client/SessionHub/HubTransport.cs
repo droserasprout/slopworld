@@ -143,6 +143,12 @@ namespace SlopWorld
                                 _batch[i].Screen,
                                 _batch.ReceivedAt(i)
                             );
+                        if (PerfTrace.Enabled)
+                            ReaderLaunchTrace.TransportFrame(
+                                _batch[i].Screen,
+                                _batch.ReceivedAt(i),
+                                _batch.DecodeStartedAt(i)
+                            );
                         OnMessage?.Invoke(_batch[i]);
                     }
                     catch (Exception e)

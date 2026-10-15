@@ -90,9 +90,26 @@ namespace SlopWorld.Tests
                 ),
                 "bat passes through delta output without another gutter or highlighting pass"
             );
-            AssertEx.False(
-                PagerCommands.FilePager("bat --pager 'less -R'", true).Contains("less -RS"),
+            string customBatPager = PagerCommands.FilePager("bat --pager 'less -R'", true);
+            AssertEx.True(
+                customBatPager.Contains("--pager 'less -R'"),
                 "explicit bat pager remains selected"
+            );
+            AssertEx.False(
+                customBatPager.Contains("--pager 'less -RS --shift=1 --wheel-lines=1'"),
+                "explicit bat pager does not gain a second pager option"
+            );
+            string builtin = PagerCommands.PipePager("bat --paging=always --pager=builtin");
+            AssertEx.True(
+                builtin.Contains("--pager=builtin"),
+                "bat-minus keeps the built-in pager"
+            );
+            AssertEx.False(builtin.Contains("less"), "bat-minus does not launch less");
+            AssertEx.True(
+                PagerCommands
+                    .FilePager("bat --paging=always --pager=builtin", true)
+                    .Contains("--pager=builtin"),
+                "bat-minus also stays selected for file readers"
             );
             string first = PagerCommands.DiffCommand("git diff HEAD", "bat --paging=always", true);
             string second = PagerCommands.DiffCommand(first, "bat --paging=always", false);

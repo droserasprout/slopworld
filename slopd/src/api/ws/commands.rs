@@ -122,10 +122,12 @@ fn handle_redraw(m: &Mgr, cap: &Cap, shape: Option<(u16, u16)>) {
 }
 
 async fn handle_sub(name: String, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {
+    crate::perf::reader_stage("sub-received", &name);
     let snapshot = async {
         if !m.cap_ok(cap, &name, Level::Ro).await {
             return None;
         }
+        crate::perf::reader_stage("sub-guard-acquired", &name);
         subs.lock().await.insert(name.clone(), m.watching(&name));
         m.clear_bell(&name).await;
         m.screen(&name).await

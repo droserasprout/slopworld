@@ -226,6 +226,7 @@ namespace SlopWorld
             command = Options(command, options);
             // bat can wrap before it starts less. Disable both wrap stages, since
             // less and tmux can disagree about the width of joined emoji.
+            // Explicit pager choices (including builtin for bat-minus) take precedence.
             if (!Regex.IsMatch(command, @"(?:^|\s)--pager(?:=|\s)"))
                 command = Options(command, "--pager " + Quote("less -RS " + LessScrollOptions));
             return command;

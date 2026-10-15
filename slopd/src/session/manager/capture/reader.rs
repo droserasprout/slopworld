@@ -233,16 +233,46 @@ fn handle_control_line(emu: &Mutex<SessionEmu>, line: &[u8]) -> ControlLine {
     }
 }
 
+// Log only the first 32 output records per attachment. No terminal bytes are logged.
+struct ControlTrace<'a> {
+    name: &'a str,
+    outputs: u8,
+}
+
+impl ControlTrace<'_> {
+    fn output(&mut self, received_at: Option<u64>, schedule: &DrawSchedule) {
+        if let Some(received_us) = received_at
+            && self.outputs < 32
+        {
+            self.outputs += 1;
+            tracing::info!(
+                target: "slopd::perf",
+                session = self.name,
+                output = self.outputs,
+                received_us,
+                at_us = crate::latency::now(),
+                draw_in_us = schedule.deadline().map_or(0, |at|
+                    crate::clock::duration_us(at.saturating_duration_since(Instant::now()))),
+                stage = "output-applied",
+                "reader-stage"
+            );
+        }
+    }
+}
+
 // Return false on exit so buffered and newly received lines stop the reader identically.
 fn process_control_line(
     emu: &Mutex<SessionEmu>,
     line: &[u8],
     schedule: &mut DrawSchedule,
     watched: bool,
+    trace: &mut ControlTrace,
 ) -> bool {
+    let received_at = crate::perf::enabled().then(crate::latency::now);
     match handle_control_line(emu, line) {
         ControlLine::Output { redraw_clear } => {
-            schedule.output(Instant::now(), watched, redraw_clear)
+            schedule.output(Instant::now(), watched, redraw_clear);
+            trace.output(received_at, schedule);
         }
         ControlLine::Exit => return false,
         ControlLine::Ignore => {}
@@ -525,12 +555,13 @@ impl Manager {
     ) {
         let mut watchers_changed = self.signals.watchers_changed.subscribe();
         let mut schedule = DrawSchedule::default();
+        let mut trace = ControlTrace { name, outputs: 0 };
         schedule.wake(Instant::now(), self.watched(name));
         let clipboard = ClipboardPump::default();
 
         // Replay handshake output before reading newer bytes from the transport.
         for line in pending {
-            if !process_control_line(&emu, &line, &mut schedule, self.watched(name)) {
+            if !process_control_line(&emu, &line, &mut schedule, self.watched(name), &mut trace) {
                 self.flush_control_exit(name, &emu, &schedule, &clipboard)
                     .await;
                 return;
@@ -541,7 +572,7 @@ impl Manager {
             tokio::select! {
                 line = rx.recv() => match line {
                     Some(line) => {
-                        if !process_control_line(&emu, &line, &mut schedule, self.watched(name)) {
+                        if !process_control_line(&emu, &line, &mut schedule, self.watched(name), &mut trace) {
                             break;
                         }
                     }

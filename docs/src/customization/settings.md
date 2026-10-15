@@ -86,7 +86,9 @@ default for new configurations and selects tools installed on the daemon host:
 
 Explicit tool and custom command choices stay fixed. Selecting Off disables the
 highlighter. When Auto selects bat as the pager, its child pager uses less or more;
-without either, bat prints directly. Save and restart active readers to apply a change.
+without either, bat prints directly. The explicit **bat-less** option uses less,
+while **bat-minus** uses bat's built-in pager for testing. Existing bat selections
+continue to use less. Save and restart active readers to apply a change.
 
 | Change | When it applies |
 | --- | --- |

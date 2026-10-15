@@ -7,6 +7,48 @@ namespace SlopWorld.Tests
     public class ReaderLaunchTraceTests
     {
         [Test]
+        public void TransportSplitsQueueAndBatchTimeWithoutMovingMilestoneClock()
+        {
+            long now = 10_000;
+            var records = new List<string>();
+            var trace = new ReaderLaunchTrace(() => now, records.Add);
+            const string session = "launch-trace-transport";
+            var screen = new Wire.ScreenView
+            {
+                Name = session,
+                Seq = 4,
+                AltScreen = true,
+            };
+            try
+            {
+                now = 100_000;
+                trace.Attach(session);
+                now = 150_000;
+                // Reception may precede run callback delivery. These are observations,
+                // not another ordered milestone and must not change step_ms.
+                ReaderLaunchTrace.TransportFrame(screen, 90_000, 130_000);
+                ReaderLaunchTrace.Received(session, true);
+                Assert.That(records[1], Does.Contain("stage=pager-transport seq=4"));
+                Assert.That(records[1], Does.Contain("received_elapsed_ms=80"));
+                Assert.That(records[1], Does.Contain("queue_ms=40 decode_batch_ms=20"));
+                Assert.That(
+                    records[2],
+                    Does.Contain("stage=first-screen elapsed_ms=140 step_ms=50")
+                );
+                int completed = records.Count;
+                ReaderLaunchTrace.TransportFrame(screen, 90_000, 130_000);
+                Assert.That(records.Count, Is.EqualTo(completed));
+                ReaderLaunchTrace.Cancel(session, "unsubscribed");
+                ReaderLaunchTrace.TransportFrame(screen, 90_000, 130_000);
+                Assert.That(records.Count, Is.EqualTo(completed + 1));
+            }
+            finally
+            {
+                ReaderLaunchTrace.Cancel(session, "test-cleanup");
+            }
+        }
+
+        [Test]
         public void ColdStatusWaitIsIncludedBeforeRunRequest()
         {
             var records = new List<string>();

@@ -49,6 +49,7 @@ impl Timer {
                 target: "slopd::perf",
                 session,
                 operation = self.name,
+                at_us = crate::latency::now(),
                 stage,
                 elapsed_us = crate::clock::duration_us(started.elapsed()),
                 "launch-stage"
@@ -62,6 +63,33 @@ impl Drop for Timer {
         if let Some(started) = self.started {
             observe_duration(self.name, started.elapsed(), 1, 0);
         }
+    }
+}
+
+/// Bound startup screen diagnostics; history replies and steady-state frames stay quiet.
+pub(crate) fn reader_screen(stage: &'static str, screen: &crate::session::ScreenView) {
+    if enabled() && screen.seq <= 8 && screen.off == 0 && screen.request_id == 0 {
+        tracing::info!(
+            target: "slopd::perf",
+            session = screen.name,
+            seq = screen.seq,
+            alternate = screen.alt_screen,
+            at_us = crate::latency::now(),
+            stage,
+            "reader-stage"
+        );
+    }
+}
+
+pub(crate) fn reader_stage(stage: &'static str, session: &str) {
+    if enabled() {
+        tracing::info!(
+            target: "slopd::perf",
+            session,
+            at_us = crate::latency::now(),
+            stage,
+            "reader-stage"
+        );
     }
 }
 

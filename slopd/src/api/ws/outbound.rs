@@ -188,6 +188,7 @@ async fn pump_frames(
                         if !subs.lock().await.contains_key(&name) {
                             continue;
                         }
+                        crate::perf::reader_screen("ws-frame-queued", screen);
                         pending.screen(tx, cap, event, name).await?;
                     } else {
                         pending.flush(tx, cap).await?;
@@ -209,12 +210,21 @@ async fn pump_frames(
 
 pub(super) async fn send(tx: &WsTx, cap: &Cap, ev: &EventMessage) -> Result<(), axum::Error> {
     let _perf = crate::perf::timer("websocket-send");
+    if let Event::Screen { screen } = ev.event() {
+        crate::perf::reader_screen("ws-send-start", screen);
+    }
     let started = crate::perf::enabled().then(std::time::Instant::now);
     let mut bytes = ev
         .encoded()
         .map_err(|e| axum::Error::new(std::io::Error::other(e)))?
         .to_vec();
+    if let Event::Screen { screen } = ev.event() {
+        crate::perf::reader_screen("ws-encoded", screen);
+    }
     let mut tx = tx.lock().await;
+    if let Event::Screen { screen } = ev.event() {
+        crate::perf::reader_screen("ws-socket-acquired", screen);
+    }
     if !cap.is_valid() {
         return Err(axum::Error::new(std::io::Error::other(
             "capability revoked",
@@ -238,6 +248,11 @@ pub(super) async fn send(tx: &WsTx, cap: &Cap, ev: &EventMessage) -> Result<(), 
     }
     crate::perf::count("websocket-bytes", bytes.len() as u64);
     let result = tx.send(Message::Binary(bytes)).await;
+    if result.is_ok()
+        && let Event::Screen { screen } = ev.event()
+    {
+        crate::perf::reader_screen("ws-sent", screen);
+    }
     if let Some(started) = started {
         tracing::debug!(
             target: "slopd::perf",

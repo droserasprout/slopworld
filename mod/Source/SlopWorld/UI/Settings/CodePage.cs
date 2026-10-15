@@ -387,7 +387,8 @@ namespace SlopWorld
             {
                 new CommandChoice("Auto", "auto"),
                 new CommandChoice("less", "less"),
-                new CommandChoice("bat", "bat --paging=always"),
+                new CommandChoice("bat-less", "bat --paging=always"),
+                new CommandChoice("bat-minus", "bat --paging=always --pager=builtin"),
                 new CommandChoice("more", "more"),
             };
 

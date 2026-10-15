@@ -7,8 +7,11 @@ namespace SlopWorld
     {
         public const int Limit = 32;
         readonly List<long> _received = new List<long>(Limit);
+        readonly List<long> _decodeStarted = new List<long>(Limit);
 
         public long ReceivedAt(int index) => _received[index];
+
+        public long DecodeStartedAt(int index) => _decodeStarted[index];
 
         readonly List<Wire.Event> _events = new List<Wire.Event>(Limit);
         readonly Dictionary<string, int> _latest = new Dictionary<string, int>(
@@ -26,6 +29,7 @@ namespace SlopWorld
             while (read < Limit && incoming.TryDequeue(out var entry))
             {
                 read++;
+                _decodeStarted.Add(PerfTrace.Enabled ? TerminalLatency.Now() : 0);
                 _received.Add(entry.ReceivedAt);
                 if (entry.Error != null)
                 {
@@ -51,6 +55,7 @@ namespace SlopWorld
             _events.Clear();
             _latest.Clear();
             _received.Clear();
+            _decodeStarted.Clear();
         }
     }
 }

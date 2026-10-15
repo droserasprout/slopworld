@@ -20,6 +20,11 @@ contents when launched. Untracked files require individual no-index diffs agains
 `/dev/null`; a repository diff omits them.
 Diff pagers disable delta's terminal color detection because the embedded terminal
 does not answer those queries; waiting for the reply adds a timeout to startup.
+Delta passes its styled output to the configured pipe pager. Automatic selection
+prefers bat with a less child when both are installed. Settings also offers
+bat-minus with bat's built-in pager for testing; explicit pager choices are
+preserved. The diff-specific bat options preserve delta's ANSI styling instead
+of highlighting the diff again.
 
 Tree geometry, semantic selection, and reader lifetime belong to
 [file readers](mod-file-readers.md). Files and Git share that reader collection;

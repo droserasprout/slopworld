@@ -74,6 +74,45 @@ namespace SlopWorld
             Mark("run-reply");
         }
 
+        // Socket timestamps are captured on the reader thread; emit here on the main
+        // thread. Keep them separate from ordered milestones: receipt can precede run-reply.
+        internal static void TransportFrame(
+            Wire.ScreenView screen,
+            long receivedAt,
+            long decodeStartedAt
+        )
+        {
+            if (
+                screen == null
+                || screen.Off != 0
+                || screen.RequestId != 0
+                || !Pending.TryGetValue(screen.Name, out var trace)
+            )
+                return;
+            bool first = !trace._received;
+            bool pager = screen.AltScreen && !trace._pagerScreen;
+            if (!first && !pager)
+                return;
+            long now = trace._now();
+            string Ms(long us) => (us / 1000.0).ToString("0.###", CultureInfo.InvariantCulture);
+            trace._write(
+                $"[SlopWorld] reader-launch id={trace._id} session={trace._session}"
+                    + " stage="
+                    + (pager ? "pager-transport" : "first-transport")
+                    + $" seq={screen.Seq}"
+                    + " received_elapsed_ms="
+                    + Ms(receivedAt - trace._started)
+                    + " decode_started_elapsed_ms="
+                    + Ms(decodeStartedAt - trace._started)
+                    + " dispatch_elapsed_ms="
+                    + Ms(now - trace._started)
+                    + " queue_ms="
+                    + Ms(decodeStartedAt - receivedAt)
+                    + " decode_batch_ms="
+                    + Ms(now - decodeStartedAt)
+            );
+        }
+
         internal static void Received(string session, bool alternateScreen)
         {
             if (!Pending.TryGetValue(session, out var trace))

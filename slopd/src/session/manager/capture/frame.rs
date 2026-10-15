@@ -75,11 +75,27 @@ impl Manager {
         {
             return;
         }
+        let render_started = crate::perf::enabled().then(crate::latency::now);
         // Release the emulator lock before classification or publication can await.
         let frame = match emu.lock() {
             Ok(mut e) => e.render(),
             Err(_) => return,
         };
+        if let Some(render_started_us) = render_started
+            && previous.seq < 8
+        {
+            tracing::info!(
+                target: "slopd::perf",
+                session = name,
+                previous_seq = previous.seq,
+                alternate = frame.alt_screen,
+                capture_started_us = captured_at,
+                render_started_us,
+                at_us = crate::latency::now(),
+                stage = "frame-rendered",
+                "reader-stage"
+            );
+        }
         let effects = self
             .apply_captured_frame(name, frame, captured_at, previous)
             .await;
@@ -261,6 +277,7 @@ impl Manager {
     async fn publish_frame_effects(&self, name: &str, effects: FrameEffects) {
         if let Some(screen) = effects.screen {
             crate::perf::count("frame-screen-events", 1);
+            crate::perf::reader_screen("frame-published", &screen);
             self.emit(Event::Screen { screen });
         }
         // Publish the screen before awaiting tmux; disk fallback writes are queued.
