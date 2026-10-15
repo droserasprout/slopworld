@@ -2,7 +2,7 @@ SlopWorld on Debian
 ==================
 
 The package stages the mod at /usr/share/slopworld/SlopWorld. As your normal
-user, attach it to a separately installed native Linux RimWorld 1.6 game:
+user, attach it to a separately installed native Linux RimWorld 1.7 game:
 
   RIMWORLD=/path/to/RimWorld/game
   slopworld mod install --game "$RIMWORLD"

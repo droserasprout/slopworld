@@ -154,7 +154,7 @@ and linked-worktree metadata.
 
 `packaging/fedora/` owns RPM metadata and installed setup instructions;
 `tools/release/fedora.py` owns payload staging and publication. RPM discovers ELF
-dependencies but excludes private Unity assemblies from requires/provides.
+dependencies but excludes private mod assemblies from requires/provides.
 Snapshot hyphens become dots in RPM metadata; mod metadata keeps the build version.
 Release archives normalize directories and executables to `0755` and data to
 `0644`, independent of source permissions and the build umask.
