@@ -50,15 +50,29 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "Rendering");
             string mode = FramePolicy.Normalize(S.displayMode);
             int fps = FramePolicy.NearestPreset(S.foregroundFps);
-            string framePacingLabel = mode == FramePolicy.Sync ? "VSync" : fps + " FPS";
+            string autoLabel = "Auto (" + BackgroundFrames.AutoFps + " FPS)";
+            string framePacingLabel =
+                mode == FramePolicy.Auto ? autoLabel
+                : mode == FramePolicy.Sync ? "VSync"
+                : fps + " FPS";
             string framePacingTip =
-                mode == FramePolicy.Limit
+                mode == FramePolicy.Auto
+                    ? "Matches the current display refresh rate with an FPS limit and VSync off."
+                : mode == FramePolicy.Limit
                     ? "Disables VSync. Lower limits save power. Higher limits improve responsiveness."
-                    : "VSync follows the display refresh rate for smooth presentation.";
+                : "VSync follows the display refresh rate for smooth presentation.";
             if (UiLayout.Button(l, "Frame pacing: " + framePacingLabel, tip: framePacingTip))
             {
                 var options = new List<FloatMenuOption>
                 {
+                    new FloatMenuOption(
+                        autoLabel,
+                        () =>
+                        {
+                            S.displayMode = FramePolicy.Auto;
+                            S.MarkDirty();
+                        }
+                    ),
                     new FloatMenuOption(
                         "VSync",
                         () =>

@@ -31,8 +31,8 @@ namespace SlopWorld.Tests
             sync = 0;
             Step(policy, true, "limit", -1, ref target, ref sync, 15, 0, true);
             Step(policy, true, "limit", 9999, ref target, ref sync, 240, 0, true);
-            Step(policy, true, "invalid", 60, ref target, ref sync, -1, 1, true);
-            Step(policy, true, "sync", 60, ref target, ref sync, -1, 1, false);
+            Step(policy, true, "invalid", 60, ref target, ref sync, 60, 0, true);
+            Step(policy, true, "sync", 60, ref target, ref sync, -1, 1, true);
 
             target = 60;
             sync = 0;
@@ -63,6 +63,42 @@ namespace SlopWorld.Tests
                     AssertEx.Equal(foregroundSync, sync, "focus gain keeps presentation mode");
                 }
             }
+        }
+
+        public static void AutoMatchesMonitorAndTracksFocusAndRefreshChanges()
+        {
+            AssertEx.Equal(60, FramePolicy.AutoFps(59.94), "fractional refresh rounds");
+            AssertEx.Equal(75, FramePolicy.AutoFps(75), "not snapped to presets");
+            AssertEx.Equal(360, FramePolicy.AutoFps(360), "high refresh retained");
+            foreach (
+                double invalid in new[]
+                {
+                    0d,
+                    -1d,
+                    double.NaN,
+                    double.PositiveInfinity,
+                    double.MaxValue,
+                }
+            )
+                AssertEx.Equal(60, FramePolicy.AutoFps(invalid), "invalid detection fallback");
+            var policy = new FramePolicy();
+            int target = -1,
+                sync = 1;
+            policy.Follow(true, FramePolicy.Auto, 15, ref target, ref sync, 75);
+            AssertEx.Equal(75, target, "auto ignores manual preset");
+            AssertEx.Equal(0, sync, "auto disables VSync");
+            AssertEx.Equal(
+                false,
+                policy.Follow(true, FramePolicy.Auto, 15, ref target, ref sync, 75),
+                "stable detection"
+            );
+            policy.Follow(false, FramePolicy.Auto, 15, ref target, ref sync, 144);
+            AssertEx.Equal(15, target, "background limit");
+            AssertEx.Equal(0, sync, "background preserves presentation");
+            policy.Follow(true, FramePolicy.Auto, 15, ref target, ref sync, 144);
+            AssertEx.Equal(144, target, "new monitor on focus gain");
+            policy.Follow(true, FramePolicy.Auto, 15, ref target, ref sync, 120);
+            AssertEx.Equal(120, target, "monitor changes while focused");
         }
 
         static void Step(

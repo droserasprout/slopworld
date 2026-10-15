@@ -24,7 +24,12 @@ Feature owners are [terminal recall](mod-terminal.md), [Eco](mod-eco.md),
 and [terminal rendering](mod-terminal-rendering.md) for appearance caches and emoji.
 
 `FramePolicy` owns foreground vSync/FPS pacing and the unfocused 15 FPS cap; Eco
-is not a second foreground pacing owner. `BackgroundFrames` applies presentation
+is not a second foreground pacing owner. Missing/unknown frame policy defaults to
+Auto, an integer monitor-refresh cap with VSync off; explicit saved modes remain
+selected. `BackgroundFrames` samples native `EngineWindow.CurrentResolution` once
+per second and shares the resolved Auto FPS with the selector. Auto is not rounded
+to the manual preset list; invalid refresh rates fall back to 60 FPS.
+`BackgroundFrames` applies presentation
 changes through `EngineWindow.SetVSyncMode`; the compatibility VSync setter is a stub.
 Focus changes adjust only target FPS, retaining the selected presentation mode to avoid
 swapchain rebuilds. `Patch_ApplicationFocus` supplies native `EngineWindow.IsFocused`
