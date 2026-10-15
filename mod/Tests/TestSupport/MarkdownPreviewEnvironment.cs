@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Verse
 {
-    static class Widgets
+    static partial class Widgets
     {
         public static void Label(Rect body, string text) =>
             SlopWorld.EditorTrace.Record(text, body);

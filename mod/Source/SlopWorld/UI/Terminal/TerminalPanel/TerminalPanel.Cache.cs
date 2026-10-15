@@ -130,25 +130,24 @@ namespace SlopWorld
                 PerfTrace.Count("terminal-cache-misses");
                 PerfTrace.Count("terminal-cache-repaints");
                 long paintStarted = PerfTrace.Start();
-                // Keep the pre-paint revision. RequestCharactersInTexture can rebuild the
-                // atlas while Paint is running. Retaining the old revision forces one clean
-                // repaint after that rebuild instead of caching a half-drawn first frame.
-                var was = RenderTexture.active;
+                _cacheLead = CacheLead(body, ch);
+                var paintBody = new Rect(
+                    body.x,
+                    body.y - _cacheLead,
+                    body.width,
+                    body.height + _cacheLead
+                );
                 try
                 {
-                    RenderTexture.active = _cache;
-                    GL.Clear(false, true, SolidTerminalBackground);
-                    _cacheLead = CacheLead(body, ch);
-                    Paint(
-                        new Rect(body.x, body.y - _cacheLead, body.width, body.height + _cacheLead),
-                        buf,
-                        cw,
-                        ch
+                    TerminalCachePaint.Full(
+                        _cache,
+                        paintBody,
+                        SolidTerminalBackground,
+                        () => Paint(paintBody, buf, cw, ch)
                     );
                 }
                 finally
                 {
-                    RenderTexture.active = was;
                     PerfTrace.End("terminal-cache-full-paint", paintStarted, 1);
                 }
             }
@@ -162,7 +161,6 @@ namespace SlopWorld
                 var was = RenderTexture.active;
                 try
                 {
-                    RenderTexture.active = _cache;
                     if (broad)
                     {
                         PerfTrace.Count("terminal-cache-broad-repaints");
@@ -175,21 +173,22 @@ namespace SlopWorld
                             else if (repaintReason == TerminalRepaintReason.MissingDamage)
                                 PerfTrace.Count("terminal-cache-missing-damage");
                         }
-                        GL.Clear(false, true, SolidTerminalBackground);
-                        Paint(
-                            new Rect(
-                                body.x,
-                                body.y - _cacheLead,
-                                body.width,
-                                body.height + _cacheLead
-                            ),
-                            buf,
-                            cw,
-                            ch
+                        var paintBody = new Rect(
+                            body.x,
+                            body.y - _cacheLead,
+                            body.width,
+                            body.height + _cacheLead
+                        );
+                        TerminalCachePaint.Full(
+                            _cache,
+                            paintBody,
+                            SolidTerminalBackground,
+                            () => Paint(paintBody, buf, cw, ch)
                         );
                     }
                     else
                     {
+                        RenderTexture.active = _cache;
                         PerfTrace.Count("terminal-cache-rows-repainted", buf.ChangedRows.Length);
                         PaintRows(
                             new Rect(

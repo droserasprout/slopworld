@@ -7,6 +7,10 @@ and `TerminalFont` supply cache revisions. Parsed link decoration belongs to
 Panel closure releases its render texture; disposal also releases a cache created
 before the panel opened. Repeated closure/disposal must remain harmless.
 
+`TerminalCachePaint` records full-repaint backgrounds and glyphs in the same native GUI
+render-target batch. GPU clears through `GL.Clear` use a separate command stream; keep them
+out of cache repaints. Partial repaints clear only changed rows within the GUI batch.
+
 Cache sampling supplies bottom-origin UVs to `GUI.DrawTextureWithTexCoords`; the GUI backend
 owns conversion to its texture origin. Do not add a graphics-API-dependent flip.
 

@@ -31,6 +31,7 @@
     <Compile Include="../Source/SlopWorld/UI/Text/TooltipLineBreaks.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/NativeTextLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/UiScaleDrag.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalCachePaint.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/InstalledFontNames.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/NativeFonts.cs" />
     <Compile Include="../Source/SlopWorld/Client/Catalog/WorktreeRequests.cs" />
