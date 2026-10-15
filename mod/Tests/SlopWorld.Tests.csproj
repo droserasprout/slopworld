@@ -18,7 +18,6 @@
     <Compile Include="../Source/SlopWorld/Bootstrap/LinuxIdleLease.cs" />
     <Compile Include="../Source/SlopWorld/Bootstrap/X11IdleInhibitor.cs" />
     <Compile Include="../Source/SlopWorld/Bootstrap/LinuxIdleInhibitor.cs" />
-    <Compile Include="../Source/SlopWorld/Bootstrap/NativeSessionBus.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonHttpTransport.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Plague/Plague.Persistence.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Colony/IntroSceneState.cs" />
@@ -96,6 +95,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="Tmds.DBus.Protocol">
+      <HintPath>../Assemblies/Tmds.DBus.Protocol.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
     <Reference Include="0Harmony">
       <HintPath>../Assemblies/0Harmony.dll</HintPath>
       <Private>true</Private>

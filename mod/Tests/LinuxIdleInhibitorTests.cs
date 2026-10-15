@@ -41,6 +41,7 @@ namespace SlopWorld.Tests
             {
                 using var lease = LinuxIdleInhibitor.Acquire(desktop.Address);
                 string sender = desktop.PortalSenders.Last();
+                lease.Refresh();
                 AssertEx.True(desktop.Owns(sender), "portal lease keeps its connection alive");
                 AssertEx.True(
                     desktop.SaverSenders.IsEmpty,
@@ -128,6 +129,36 @@ namespace SlopWorld.Tests
                 SpinWait.SpinUntil(() => !desktop.Owns(sender), 2000),
                 "stalled release disconnects"
             );
+        }
+
+        public static void ServiceRestartInvalidatesLeaseAndCleanupCannotReleaseTheNewOwnersCookie()
+        {
+            foreach (var mode in new[] { IdleDesktop.Mode.Grant, IdleDesktop.Mode.Missing })
+            {
+                using var desktop = new IdleDesktop(mode);
+                using var old = LinuxIdleInhibitor.Acquire(desktop.Address);
+                old.Refresh();
+                desktop.StopService();
+                desktop.StartService();
+                AssertEx.Throws<InvalidOperationException>(
+                    () => old.Refresh(),
+                    "changed service owner invalidates lease"
+                );
+                using var current = LinuxIdleInhibitor.Acquire(desktop.Address);
+                current.Refresh();
+                old.Dispose();
+                AssertEx.Equal(
+                    0,
+                    desktop.Closes + desktop.Uninhibits,
+                    "old release never targets the new owner"
+                );
+                current.Dispose();
+                AssertEx.Equal(
+                    1,
+                    desktop.Closes + desktop.Uninhibits,
+                    "new lease releases normally"
+                );
+            }
         }
 
         public static void ProcessExitDisconnectsWithoutRunningLeaseCleanup()

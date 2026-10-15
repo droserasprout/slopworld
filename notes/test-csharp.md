@@ -9,7 +9,7 @@ test types whose names end in `Tests` and invokes qualifying public static metho
 Tests cover pure policies and game-free client/transport integration. Individual
 tests own the detailed behavior inventory.
 
-Linux idle-inhibition integration tests require system libdbus and `dbus-daemon`.
+Linux idle-inhibition integration tests require `dbus-daemon`.
 They start an isolated private bus and fake desktop services; they never acquire
 an inhibitor on the developer's desktop. Other platforms skip those native tests.
 X11 fallback selection and periodic worker cleanup use fake leases; these tests

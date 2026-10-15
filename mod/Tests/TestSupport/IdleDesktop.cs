@@ -3,16 +3,15 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
+using Tmds.DBus.Protocol;
 
 namespace SlopWorld.Tests
 {
-    // A real isolated bus with fake desktop services. No calls reach the host desktop.
-    sealed class IdleDesktop : IDisposable
+    // Real isolated bus and managed fake desktop services; never touches the host desktop.
+    sealed class IdleDesktop : IDisposable, IPathMethodHandler
     {
         internal enum Mode
         {
@@ -26,20 +25,22 @@ namespace SlopWorld.Tests
 
         const string Portal = "org.freedesktop.portal.Desktop";
         const string Saver = "org.freedesktop.ScreenSaver";
-        const string Request = "org.freedesktop.portal.Request";
         readonly string _root;
         readonly Process _process;
-        readonly NativeSessionBus _service,
-            _observer;
-        readonly CancellationTokenSource _stop = new CancellationTokenSource();
-        readonly Task _server;
+        DBusConnection _service;
+        readonly DBusConnection _observer;
         readonly Mode _mode;
-        readonly bool _stallRelease,
+        readonly bool _saver,
+            _gnome,
+            _stallRelease,
             _badSaver;
+        readonly ConcurrentQueue<Exception> _errors = new();
         public string Address { get; }
-        public readonly ConcurrentQueue<string> PortalSenders = new ConcurrentQueue<string>();
-        public readonly ConcurrentQueue<string> SaverSenders = new ConcurrentQueue<string>();
-        public readonly ConcurrentQueue<string> ActivityPaths = new ConcurrentQueue<string>();
+        public string Path => "/";
+        public bool HandlesChildPaths => true;
+        public readonly ConcurrentQueue<string> PortalSenders = new();
+        public readonly ConcurrentQueue<string> SaverSenders = new();
+        public readonly ConcurrentQueue<string> ActivityPaths = new();
         public int Closes,
             Uninhibits;
 
@@ -52,16 +53,18 @@ namespace SlopWorld.Tests
         )
         {
             if (!OperatingSystem.IsLinux())
-                Assert.Ignore("Linux libdbus integration");
+                Assert.Ignore("Linux private D-Bus integration");
             _mode = mode;
+            _saver = saver;
+            _gnome = gnome;
             _stallRelease = stallRelease;
             _badSaver = badSaver;
-            _root = Path.Combine(
-                Path.GetTempPath(),
+            _root = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(),
                 "slopworld-idle-" + Guid.NewGuid().ToString("N")
             );
             Directory.CreateDirectory(_root);
-            string config = Path.Combine(_root, "bus.conf");
+            string config = System.IO.Path.Combine(_root, "bus.conf");
             File.WriteAllText(
                 config,
                 "<busconfig><type>session</type><listen>unix:tmpdir=/tmp</listen><auth>EXTERNAL</auth><policy context='default'><allow send_destination='*'/><allow receive_sender='*'/><allow own='*'/></policy></busconfig>"
@@ -76,98 +79,101 @@ namespace SlopWorld.Tests
             );
             try
             {
-                Address = _process
-                    .StandardOutput.ReadLineAsync()
-                    .WaitAsync(TimeSpan.FromSeconds(5))
-                    .GetAwaiter()
-                    .GetResult();
-                _service = new NativeSessionBus(Address, 1000);
-                _observer = new NativeSessionBus(Address, 1000);
-                foreach (
-                    var name in new[]
-                    {
-                        mode != Mode.Missing ? Portal : null,
-                        saver ? Saver : null,
-                        gnome ? "org.gnome.ScreenSaver" : null,
-                    }
-                )
-                {
-                    if (name == null)
-                        continue;
-                    using var reply = _service.Call(
-                        "org.freedesktop.DBus",
-                        "/org/freedesktop/DBus",
-                        "org.freedesktop.DBus",
-                        "RequestName",
-                        1000,
-                        name,
-                        0u
-                    );
-                    AssertEx.Equal(1u, reply.FirstUInt(), "fake desktop owns its service name");
-                }
-                _server = Task.Run(Serve);
+                Address = Wait(_process.StandardOutput.ReadLineAsync());
+                _observer = Connect();
+                StartService();
             }
             catch
             {
-                _service?.Dispose();
-                _observer?.Dispose();
-                _process.Kill();
-                _process.WaitForExit();
-                _process.Dispose();
-                Directory.Delete(_root, true);
+                Dispose();
                 throw;
             }
         }
 
-        public bool Owns(string sender)
+        DBusConnection Connect()
         {
-            using var reply = _observer.Call(
-                "org.freedesktop.DBus",
-                "/org/freedesktop/DBus",
-                "org.freedesktop.DBus",
-                "NameHasOwner",
-                1000,
-                sender
-            );
-            using var iter = new Iter(reply.Handle);
-            return iter.UInt() != 0;
+            var bus = new DBusConnection(Address);
+            try
+            {
+                Wait(bus.ConnectAsync().AsTask());
+                return bus;
+            }
+            catch
+            {
+                bus.Dispose();
+                throw;
+            }
         }
 
-        void Serve()
+        public void StopService()
         {
-            while (!_stop.IsCancellationRequested)
+            _service?.Dispose();
+            _service = null;
+        }
+
+        public void StartService()
+        {
+            _service = Connect();
+            _service.AddMethodHandler(this);
+            foreach (
+                string name in new[]
+                {
+                    _mode != Mode.Missing ? Portal : null,
+                    _saver ? Saver : null,
+                    _gnome ? "org.gnome.ScreenSaver" : null,
+                }
+            )
+                if (name != null)
+                    Wait(_service.RequestNameAsync(name));
+        }
+
+        public bool Owns(string sender)
+        {
+            using var writer = _observer.GetMessageWriter();
+            writer.WriteMethodCallHeader(
+                destination: "org.freedesktop.DBus",
+                path: "/org/freedesktop/DBus",
+                @interface: "org.freedesktop.DBus",
+                member: "NameHasOwner",
+                signature: "s"
+            );
+            writer.WriteString(sender);
+            return Wait(
+                _observer.CallMethodAsync(
+                    writer.CreateMessage(),
+                    (message, _) => message.GetBodyReader().ReadBool()
+                )
+            );
+        }
+
+        public ValueTask HandleMethodAsync(MethodContext context)
+        {
+            try
             {
-                using var call = _service.Read(20);
-                if (call == null)
-                    continue;
-                string method = Marshal.PtrToStringUTF8(dbus_message_get_member(call.Handle));
-                if (method == "Inhibit" && call.Path == "/org/freedesktop/portal/desktop")
-                    InhibitPortal(call);
+                var call = context.Request;
+                string method = call.MemberAsString;
+                if (method == "Inhibit" && call.PathAsString == "/org/freedesktop/portal/desktop")
+                    InhibitPortal(context);
                 else if (method == "SimulateUserActivity")
                 {
-                    AssertEx.Equal("", call.Signature, "activity notifications have no arguments");
-                    ActivityPaths.Enqueue(call.Path);
-                    using var reply = new NativeSessionBus.Message(
-                        dbus_message_new_method_return(call.Handle)
-                    );
-                    Send(reply);
+                    AssertEx.Equal("", call.SignatureAsString ?? "", "activity has no arguments");
+                    ActivityPaths.Enqueue(call.PathAsString);
+                    using var reply = context.CreateReplyWriter("");
+                    context.Reply(reply.CreateMessage());
                 }
-                else if (method == "Inhibit" && call.Path == "/org/freedesktop/ScreenSaver")
+                else if (method == "Inhibit" && call.PathAsString == "/org/freedesktop/ScreenSaver")
                 {
-                    AssertEx.Equal("ss", call.Signature, "ScreenSaver argument signature");
-                    using var args = new Iter(call.Handle);
-                    AssertEx.Equal("SlopWorld", args.String(), "application name");
-                    args.Next();
-                    AssertEx.Equal("SlopWorld is running", args.String(), "reason");
-                    SaverSenders.Enqueue(call.Sender);
-                    using var reply = new NativeSessionBus.Message(
-                        dbus_message_new_method_return(call.Handle)
-                    );
+                    AssertEx.Equal("ss", call.SignatureAsString, "ScreenSaver arguments");
+                    var args = call.GetBodyReader();
+                    AssertEx.Equal("SlopWorld", args.ReadString(), "application");
+                    AssertEx.Equal("SlopWorld is running", args.ReadString(), "reason");
+                    SaverSenders.Enqueue(call.SenderAsString);
+                    using var reply = context.CreateReplyWriter(_badSaver ? "s" : "u");
                     if (_badSaver)
-                        reply.Append("invalid cookie");
+                        reply.WriteString("invalid cookie");
                     else
-                        reply.Append(42u);
-                    Send(reply);
+                        reply.WriteUInt32(42);
+                    context.Reply(reply.CreateMessage());
                 }
                 else if (method == "Close" || method == "UnInhibit")
                 {
@@ -175,195 +181,89 @@ namespace SlopWorld.Tests
                         Interlocked.Increment(ref Closes);
                     else
                     {
-                        AssertEx.Equal(42u, call.FirstUInt(), "release uses granted cookie");
+                        AssertEx.Equal(42u, call.GetBodyReader().ReadUInt32(), "granted cookie");
                         Interlocked.Increment(ref Uninhibits);
                     }
                     if (_stallRelease)
-                        continue;
-                    using var reply = new NativeSessionBus.Message(
-                        dbus_message_new_method_return(call.Handle)
-                    );
-                    Send(reply);
+                        return Stall(context);
+                    using var reply = context.CreateReplyWriter("");
+                    context.Reply(reply.CreateMessage());
                 }
             }
+            catch (Exception error)
+            {
+                _errors.Enqueue(error);
+                context.ReplyError("org.slopworld.TestFailure", error.Message);
+            }
+            return default;
         }
 
-        void InhibitPortal(NativeSessionBus.Message call)
+        static async ValueTask Stall(MethodContext context)
         {
-            PortalSenders.Enqueue(call.Sender);
-            AssertEx.Equal("sua{sv}", call.Signature, "portal argument signature");
-            using var args = new Iter(call.Handle);
-            AssertEx.Equal("", args.String(), "unparented request");
-            args.Next();
-            AssertEx.Equal(8u, args.UInt(), "idle inhibition only");
-            args.Next();
-            using var dictionary = args.Recurse();
-            var options = new Dictionary<string, string>();
-            do
+            try
             {
-                using var entry = dictionary.Recurse();
-                string key = entry.String();
-                entry.Next();
-                using var variant = entry.Recurse();
-                options.Add(key, variant.String());
-            } while (dictionary.Next());
-            AssertEx.Equal("SlopWorld is running", options["reason"], "portal reason");
+                await Task.Delay(Timeout.Infinite, context.RequestAborted);
+            }
+            catch (OperationCanceledException) { }
+        }
+
+        void InhibitPortal(MethodContext context)
+        {
+            var call = context.Request;
+            PortalSenders.Enqueue(call.SenderAsString);
+            AssertEx.Equal("sua{sv}", call.SignatureAsString, "portal arguments");
+            var args = call.GetBodyReader();
+            AssertEx.Equal("", args.ReadString(), "unparented request");
+            AssertEx.Equal(8u, args.ReadUInt32(), "idle inhibition only");
+            var options = args.ReadDictionaryOfStringToVariantValue();
+            AssertEx.Equal("SlopWorld is running", options["reason"].GetString(), "reason");
             string path =
                 "/org/freedesktop/portal/desktop/request/"
-                + call.Sender.TrimStart(':').Replace('.', '_')
+                + call.SenderAsString.TrimStart(':').Replace('.', '_')
                 + "/"
-                + options["handle_token"];
+                + options["handle_token"].GetString();
             if (_mode != Mode.Silent)
             {
-                // Grant before method reply: exercises subscription ordering and queued signals.
-                using var signal = new NativeSessionBus.Message(
-                    dbus_message_new_signal(
-                        Encoding.UTF8.GetBytes(path + "\0"),
-                        Encoding.UTF8.GetBytes(Request + "\0"),
-                        Encoding.UTF8.GetBytes("Response\0")
-                    )
+                // Response deliberately precedes the method reply.
+                using var signal = context.DBusConnection.GetMessageWriter();
+                signal.WriteSignalHeader(
+                    path: path,
+                    @interface: "org.freedesktop.portal.Request",
+                    member: "Response",
+                    signature: _mode == Mode.Malformed ? "s" : "ua{sv}"
                 );
                 if (_mode == Mode.Malformed)
-                    signal.Append("not a status");
+                    signal.WriteString("not a status");
                 else
-                    signal.Append(_mode == Mode.Reject ? 2u : 0u, new Dictionary<string, string>());
-                Send(signal);
+                {
+                    signal.WriteUInt32(_mode == Mode.Reject ? 2u : 0u);
+                    signal.WriteDictionary(new Dictionary<string, VariantValue>());
+                }
+                AssertEx.True(
+                    context.DBusConnection.TrySendMessage(signal.CreateMessage()),
+                    "Response sent"
+                );
             }
-            using var reply = new NativeSessionBus.Message(
-                dbus_message_new_method_return(call.Handle)
-            );
-            using var writer = new Iter(reply.Handle, append: true);
-            writer.AppendPath(_mode == Mode.WrongHandle ? path + "_wrong" : path);
-            Send(reply);
-        }
-
-        void Send(NativeSessionBus.Message message)
-        {
-            AssertEx.True(
-                dbus_connection_send(_service.Handle, message.Handle, out _) != 0,
-                "fake service sent its message"
-            );
+            using var reply = context.CreateReplyWriter("o");
+            reply.WriteObjectPath(_mode == Mode.WrongHandle ? path + "_wrong" : path);
+            context.Reply(reply.CreateMessage());
         }
 
         public void Dispose()
         {
-            _stop.Cancel();
-            try
-            {
-                AssertEx.True(_server.Wait(3000), "fake desktop stopped");
-            }
-            finally
-            {
-                _service.Dispose();
-                _observer.Dispose();
-                _process.Kill();
-                _process.WaitForExit();
-                _process.Dispose();
-                _stop.Dispose();
-                Directory.Delete(_root, true);
-            }
+            StopService();
+            _observer?.Dispose();
+            _process.Kill();
+            _process.WaitForExit();
+            _process.Dispose();
+            Directory.Delete(_root, true);
+            Assert.That(_errors, Is.Empty, string.Join("\n", _errors));
         }
 
-        // Independent test-side iterator storage: enough space/alignment for the
-        // public DBusMessageIter ABI, without relying on production's struct layout.
-        sealed class Iter : IDisposable
-        {
-            readonly IntPtr _value = Marshal.AllocHGlobal(128);
+        static T Wait<T>(Task<T> task) =>
+            task.WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
 
-            Iter() { }
-
-            public Iter(IntPtr message, bool append = false)
-            {
-                if (append)
-                    dbus_message_iter_init_append(message, _value);
-                else
-                    AssertEx.True(
-                        dbus_message_iter_init(message, _value) != 0,
-                        "message has arguments"
-                    );
-            }
-
-            public bool Next() => dbus_message_iter_next(_value) != 0;
-
-            public string String()
-            {
-                dbus_message_iter_get_pointer(_value, out var value);
-                return Marshal.PtrToStringUTF8(value);
-            }
-
-            public uint UInt()
-            {
-                dbus_message_iter_get_uint(_value, out uint value);
-                return value;
-            }
-
-            public Iter Recurse()
-            {
-                var child = new Iter();
-                dbus_message_iter_recurse(_value, child._value);
-                return child;
-            }
-
-            public void AppendPath(string path)
-            {
-                var value = Marshal.StringToCoTaskMemUTF8(path);
-                try
-                {
-                    AssertEx.True(
-                        dbus_message_iter_append_basic(_value, 'o', ref value) != 0,
-                        "object path encoded"
-                    );
-                }
-                finally
-                {
-                    Marshal.FreeCoTaskMem(value);
-                }
-            }
-
-            public void Dispose() => Marshal.FreeHGlobal(_value);
-        }
-
-        const string Library = "libdbus-1.so.3";
-
-        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
-        static extern IntPtr dbus_message_get_member(IntPtr message);
-
-        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
-        static extern IntPtr dbus_message_new_method_return(IntPtr message);
-
-        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
-        static extern IntPtr dbus_message_new_signal(byte[] path, byte[] iface, byte[] member);
-
-        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
-        static extern int dbus_connection_send(IntPtr connection, IntPtr message, out uint serial);
-
-        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
-        static extern int dbus_message_iter_init(IntPtr message, IntPtr iter);
-
-        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
-        static extern void dbus_message_iter_init_append(IntPtr message, IntPtr iter);
-
-        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
-        static extern int dbus_message_iter_next(IntPtr iter);
-
-        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
-        static extern void dbus_message_iter_recurse(IntPtr iter, IntPtr child);
-
-        [DllImport(
-            Library,
-            EntryPoint = "dbus_message_iter_get_basic",
-            CallingConvention = CallingConvention.Cdecl
-        )]
-        static extern void dbus_message_iter_get_pointer(IntPtr iter, out IntPtr value);
-
-        [DllImport(
-            Library,
-            EntryPoint = "dbus_message_iter_get_basic",
-            CallingConvention = CallingConvention.Cdecl
-        )]
-        static extern void dbus_message_iter_get_uint(IntPtr iter, out uint value);
-
-        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
-        static extern int dbus_message_iter_append_basic(IntPtr iter, int type, ref IntPtr value);
+        static void Wait(Task task) =>
+            task.WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
     }
 }

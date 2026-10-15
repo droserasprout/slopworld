@@ -12,7 +12,6 @@ metadata; it does not include their full license texts or notices.
 | Component | License | Full text | Attribution and use |
 | --- | --- | --- | --- |
 | RimWorld Tame designator | RimWorld EULA | [License](rimworld/EULA.txt) | Ludeon Studios Inc.; `UI/Designators/Tame` from RimWorld 1.6, mirrored, scaled, and rotated for the documentation cursors. |
-| [D-Bus](https://dbus.freedesktop.org/) | AFL-2.1 OR GPL-2.0-or-later | [License](dbus/AFL-2.1.txt) | System libdbus; Linux client idle inhibition. The library is not bundled. |
 | [X.Org Xlib and libXss](https://www.x.org/) | MIT/X11-style licenses | [Xlib notices](xorg/libX11.COPYING), [libXss notices](xorg/libXss.COPYING) | System X11 libraries; window integration, idle timer resets and optional screensaver suspension. The libraries are not bundled. |
 | Slopcar Rust dependencies | MIT | [Full dependency notices](slopcar/THIRD-PARTY-NOTICES.txt) | Host-side container launcher; generated from its locked Cargo graph by `just generate sidecar-licenses`. |
 | [Classic Console Neue](https://webdraft.hu/fonts/classic-console/) | MIT | [License](classic-console-neue/LICENSE.txt) | DeeJayy, 2011–2025; printable ASCII glyphs rendered into the loading-screen atlas. |
@@ -32,6 +31,7 @@ metadata; it does not include their full license texts or notices.
 | AngleSharp | MIT | [License](runtime/AngleSharp.LICENSE.txt) | Mod HTML parser. |
 | Markdig | BSD 2-Clause | [License](runtime/Markdig.LICENSE.txt) | Mod runtime library. |
 | Newtonsoft.Json | MIT | [License](runtime/Newtonsoft.Json.LICENSE.txt) | Mod runtime library. |
+| Tmds.DBus.Protocol | MIT | [License](runtime/Tmds.DBus.Protocol.LICENSE.txt) | Tom Deseyn and contributors; mod desktop integration. |
 | Tomlyn | BSD 2-Clause | [License](runtime/Tomlyn.LICENSE.txt) | Mod runtime library. |
 | System.Text.Encoding.CodePages | MIT | [License](runtime/System.Text.Encoding.CodePages.LICENSE.txt) | Mod runtime library; includes [third-party notices](runtime/System.Text.Encoding.CodePages.NOTICES.txt). |
 | System.Buffers | MIT | [License](runtime/System.Buffers.LICENSE.txt) | Mod runtime library. |

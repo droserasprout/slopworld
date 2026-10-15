@@ -166,6 +166,11 @@ namespace SlopWorld
             new Credit("AngleSharp", "HTML", "https://github.com/AngleSharp/AngleSharp"),
             new Credit("Markdig", "markdown", "https://github.com/xoofx/markdig"),
             new Credit("Tomlyn", "TOML configs", "https://github.com/xoofx/Tomlyn"),
+            new Credit(
+                "Tmds.DBus.Protocol",
+                "desktop integration",
+                "https://github.com/tmds/Tmds.DBus"
+            ),
             new Credit("Newtonsoft.Json", "JSON", "https://www.newtonsoft.com/json"),
             new Credit(
                 "Google.Protobuf",
@@ -181,7 +186,6 @@ namespace SlopWorld
 
         static readonly Credit[] Tools =
         {
-            new Credit("D-Bus", "desktop integration", "https://dbus.freedesktop.org/"),
             new Credit("X.Org Xlib / libXss", "window and idle control", "https://www.x.org/"),
             new Credit("tmux", "terminal sessions", "https://github.com/tmux/tmux/wiki"),
             new Credit("bubblewrap", "sandboxing", "https://github.com/containers/bubblewrap"),
@@ -475,13 +479,13 @@ namespace SlopWorld
             float line = Mathf.Max(UiFont.LineHeight(detailStyle), UiFont.LineHeight(nameStyle));
             float gap = ColumnGap;
             columns = Mathf.Clamp(Mathf.FloorToInt((rect.width + gap) / (240f + gap)), 1, columns);
-            int[] starts = CreditColumnStarts(credits, columns, line);
+            int rows = (credits.Length + columns - 1) / columns;
             var widths = new float[columns];
             float naturalWidth = gap * (columns - 1);
             for (int column = 0; column < columns; column++)
             {
-                int start = starts[column];
-                int end = starts[column + 1];
+                int start = column * rows;
+                int end = Mathf.Min(credits.Length, start + rows);
                 widths[column] = CreditColumnWidth(credits, start, end, detailStyle, nameStyle);
                 naturalWidth += widths[column];
             }
@@ -492,8 +496,8 @@ namespace SlopWorld
             float maxHeight = 0f;
             for (int column = 0; column < columns; column++)
             {
-                int start = starts[column];
-                int end = starts[column + 1];
+                int start = column * rows;
+                int end = Mathf.Min(credits.Length, start + rows);
                 if (start >= end)
                     continue;
 
@@ -507,43 +511,6 @@ namespace SlopWorld
             }
 
             return y + maxHeight;
-        }
-
-        // Preserve reading order and whole groups while minimizing the tallest column.
-        // Link groups contribute one line per library, plus the same gap used by CreditRow.
-        static int[] CreditColumnStarts(Credit[] credits, int columns, float line)
-        {
-            int count = credits.Length;
-            var heights = new float[count + 1];
-            for (int i = 0; i < count; i++)
-                heights[i + 1] = heights[i] + line * Mathf.Max(1, credits[i].Links.Length) + RowGap;
-            var tallest = new float[columns + 1, count + 1];
-            var cuts = new int[columns + 1, count + 1];
-            for (int end = 1; end <= count; end++)
-                tallest[0, end] = float.PositiveInfinity;
-            for (int column = 1; column <= columns; column++)
-            {
-                for (int end = 1; end <= count; end++)
-                {
-                    tallest[column, end] = float.PositiveInfinity;
-                    for (int start = 0; start < end; start++)
-                    {
-                        float height = Mathf.Max(
-                            tallest[column - 1, start],
-                            heights[end] - heights[start]
-                        );
-                        if (height >= tallest[column, end])
-                            continue;
-                        tallest[column, end] = height;
-                        cuts[column, end] = start;
-                    }
-                }
-            }
-            var starts = new int[columns + 1];
-            starts[columns] = count;
-            for (int column = columns; column > 0; column--)
-                starts[column - 1] = cuts[column, starts[column]];
-            return starts;
         }
 
         float CreditColumnWidth(

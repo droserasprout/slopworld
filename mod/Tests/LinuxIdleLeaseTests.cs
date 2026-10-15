@@ -8,9 +8,15 @@ namespace SlopWorld.Tests
         {
             public int Refreshes,
                 Releases;
-            public bool FailRelease;
+            public bool FailRelease,
+                FailRefresh;
 
-            public void Refresh() => Refreshes++;
+            public void Refresh()
+            {
+                Refreshes++;
+                if (FailRefresh)
+                    throw new InvalidOperationException("service restarted");
+            }
 
             public void Dispose()
             {
@@ -88,6 +94,52 @@ namespace SlopWorld.Tests
                     ),
                 "report when neither protection can be acquired"
             );
+        }
+
+        public static void LostDesktopLeaseFallsBackAndLaterReacquires()
+        {
+            var original = new Lease();
+            var recovered = new Lease();
+            var displays = new System.Collections.Generic.List<Lease>();
+            var suspensions = new System.Collections.Generic.List<bool>();
+            int attempts = 0,
+                tickles = 0;
+            bool available = false;
+            using var lease = LinuxIdleLease.Acquire(
+                () =>
+                    ++attempts == 1 ? original
+                    : available ? recovered
+                    : throw new InvalidOperationException("service unavailable"),
+                suspend =>
+                {
+                    var display = new Lease();
+                    displays.Add(display);
+                    suspensions.Add(suspend);
+                    return display;
+                },
+                () => tickles++
+            );
+            lease.Refresh();
+            AssertEx.Equal(1, attempts, "healthy desktop lease is retained");
+            original.FailRefresh = true;
+            lease.Refresh();
+            AssertEx.Equal(1, original.Releases, "lost lease is released");
+            AssertEx.True(suspensions[1], "loss enables X11 suspension");
+            AssertEx.Equal(1, displays[0].Releases, "old X11 connection is retired");
+            AssertEx.Equal(1, tickles, "loss enables legacy activity");
+            lease.Refresh();
+            AssertEx.Equal(2, tickles, "fallback remains active during outage");
+            AssertEx.Equal(2, displays.Count, "outage does not recreate an unchanged fallback");
+            available = true;
+            lease.Refresh();
+            AssertEx.False(suspensions[2], "recovery removes fallback suspension");
+            AssertEx.Equal(1, displays[1].Releases, "fallback display is released");
+            AssertEx.Equal(2, tickles, "recovery stops legacy activity");
+            lease.Refresh();
+            AssertEx.Equal(1, recovered.Refreshes, "recovered lease is checked");
+            lease.Dispose();
+            AssertEx.Equal(1, recovered.Releases, "recovered lease is cleaned up");
+            AssertEx.Equal(1, displays[2].Releases, "current display is cleaned up");
         }
 
         public static void DesktopReleaseFailureStillClosesX11()
