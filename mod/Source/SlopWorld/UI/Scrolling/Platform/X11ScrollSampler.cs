@@ -200,7 +200,7 @@ namespace SlopWorld
                 return false;
             try
             {
-                int size = Marshal.SizeOf(typeof(XIDeviceInfo));
+                int size = Marshal.SizeOf<XIDeviceInfo>();
                 for (int i = 0; i < count; i++)
                 {
                     var info = Read<XIDeviceInfo>(IntPtr.Add(devices, i * size));
