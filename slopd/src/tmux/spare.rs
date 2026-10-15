@@ -47,8 +47,14 @@ impl Tmux {
         // Keep the slot locked until rename/cleanup: a refill must not kill the
         // still-hidden pane while promotion is in flight.
         let result = async {
-            self.resize(&target, cols, rows).await?;
-            self.run(&["rename-session", "-t", &target, name]).await?;
+            let window = format!("{target}:");
+            let cols = cols.to_string();
+            let rows = rows.to_string();
+            self.run_batch(&[
+                &["resize-window", "-t", &window, "-x", &cols, "-y", &rows],
+                &["rename-session", "-t", &target, name],
+            ])
+            .await?;
             anyhow::Ok(())
         }
         .await;

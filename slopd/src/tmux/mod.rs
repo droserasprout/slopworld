@@ -1,5 +1,6 @@
 //! tmux session transport and recovery metadata. `server` owns startup and readiness.
 
+mod batch;
 pub(crate) mod control;
 mod server;
 mod spare;
@@ -336,10 +337,11 @@ impl Tmux {
     /// These tmux options take precedence while the server continues across daemon deployment.
     /// Adoption uses them to restore shell directory changes.
     pub async fn set_host_metadata(&self, name: &str, project: &str, path: &str) -> Result<()> {
-        self.run(&["set-option", "-t", name, HOST_PROJECT, project])
-            .await?;
-        self.run(&["set-option", "-t", name, HOST_PATH, path])
-            .await?;
+        self.run_batch(&[
+            &["set-option", "-t", name, HOST_PROJECT, project],
+            &["set-option", "-t", name, HOST_PATH, path],
+        ])
+        .await?;
         Ok(())
     }
 

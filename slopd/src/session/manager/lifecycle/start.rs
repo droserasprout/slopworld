@@ -145,6 +145,7 @@ impl Manager {
         let diff = plan.host && plan.session.intent == "diff";
         let warmed = diff && self.tmux.take_spare(name, plan.cols, plan.rows).await;
         if diff {
+            self.request_spare_refill();
             crate::perf::count(
                 if warmed {
                     "launch-spare-hit"

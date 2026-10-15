@@ -117,7 +117,7 @@ async fn main() -> Result<()> {
                 let wake = m.maintenance_wake();
                 tokio::select! {
                     () = tokio::time::sleep(delay) => m.retick().await,
-                    () = wake.notified() => {}
+                    () = wake.notified() => m.retick().await
                 }
             }
         })

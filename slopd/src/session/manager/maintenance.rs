@@ -1,4 +1,4 @@
-//! Poll configuration catalogs and choose the next maintenance wake.
+//! Poll configuration catalogs, refill the spare pane, and choose maintenance wakes.
 //! Activity deadline policy belongs to session_state.rs and is shared with retick selection.
 
 use super::super::*;
@@ -35,21 +35,46 @@ fn next_periodic_deadline(last: u64, period: u64, now: u64) -> u64 {
 impl Manager {
     pub(super) async fn reload_if_due(self: &Arc<Self>) {
         let now = unix_ms();
-        if claim_due(&self.config_state.config_checked, now, CFG_CHECK_MS) {
+        let config_due = claim_due(&self.config_state.config_checked, now, CFG_CHECK_MS);
+        if config_due {
             self.reload_if_changed().await;
-            // Best-effort idle work. The spare has its own nonblocking claim, so
-            // launches fall back to ordinary creation while a fill is in flight.
-            if self.session_boundary.try_read().is_ok()
-                && let Err(error) = self.tmux.warm_spare().await
-            {
-                tracing::debug!("could not refill diff pane: {error:#}");
-            }
         }
+        self.refill_spare_if_due(config_due).await;
         if claim_due(&self.config_state.presets_checked, now, PRESETS_CHECK_MS) {
             self.reload_presets_if_changed().await;
         }
         if claim_due(&self.config_state.jukebox_checked, now, JUKEBOX_CHECK_MS) {
             self.reload_jukebox_if_changed().await;
+        }
+    }
+
+    pub(super) fn request_spare_refill(&self) {
+        self.signals
+            .spare_refill_requested
+            .store(true, Ordering::Release);
+        // Retain the wake even when maintenance is currently processing a tick.
+        self.signals.maintenance_wake.notify_one();
+    }
+
+    async fn refill_spare_if_due(&self, periodic: bool) {
+        let requested = self
+            .signals
+            .spare_refill_requested
+            .swap(false, Ordering::AcqRel);
+        if !requested && !periodic {
+            return;
+        }
+        if requested {
+            // The consuming launch owns the writer. Wait off the request path,
+            // then release the boundary before tmux I/O so new launches never
+            // wait for a refill. The spare's own mutex serializes fill/promotion.
+            drop(self.session_boundary.read().await);
+        } else if self.session_boundary.try_read().is_err() {
+            return;
+        }
+        if let Err(error) = self.tmux.warm_spare().await {
+            // A failed refill retries on the periodic config cadence, not every tick.
+            tracing::debug!("could not refill diff pane: {error:#}");
         }
     }
 
@@ -148,3 +173,7 @@ impl Manager {
         true
     }
 }
+
+#[cfg(test)]
+#[path = "maintenance_tests.rs"]
+mod tests;
