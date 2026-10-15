@@ -26,7 +26,7 @@ namespace SlopWorld
             external = null;
             local = null;
             source = (source ?? "").Trim();
-            if (source.Length == 0 || source.StartsWith("#", StringComparison.Ordinal))
+            if (source.Length == 0 || source.StartsWith('#'))
                 return false;
 
             if (

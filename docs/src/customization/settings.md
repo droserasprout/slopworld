@@ -8,7 +8,7 @@ Settings opens as tabs over the terminal pane.
 | Category | Pages or purpose |
 | --- | --- |
 | General | Game and daemon controls |
-| Display | Fullscreen, frame pacing, smooth scrolling |
+| Display | Fullscreen, screensaver inhibition, frame pacing, smooth scrolling |
 | Appearance | Interface, Workspace, Terminal, Code |
 | Integrations | Credentials, Usage |
 | Agents | Summaries, Workers |
@@ -23,16 +23,16 @@ See [Configuring agents](../agents/configuring-agents.md),
 See [Usage polling](../agents/usage-and-summaries.md#usage-polling) and
 [Prompt summaries](../agents/usage-and-summaries.md#prompt-summaries) for provider integration settings. See [Jukebox](jukebox.md) for audio source setup.
 
-**Display**, immediately after General, contains fullscreen, frame pacing, and smooth scrolling.
+**Display**, immediately after General, contains window, frame pacing, and scrolling preferences.
 
 **General > Locale > Date format** offers `YYYY-MM-DD` (default), `DD/MM/YYYY`,
 and `MM/DD/YYYY`. It applies live to the clock tooltip, task timestamps, jukebox
 history, and game build date, and is saved with the profile. Time format offers
 24-hour and 12-hour display.
 
-On Linux, the launcher supplies `-popupwindow -screen-fullscreen 0 -force-opengl`.
-Use `slopworld --no-window-fix` to omit those default arguments. The mod's Linux
-window-manager hook still follows the saved fullscreen setting.
+On Linux, SlopWorld launches through X11 or XWayland and keeps the renderer windowed.
+**Display > Fullscreen** and F11 control fullscreen through the window manager. The
+window stays undecorated when fullscreen is off. Native RimWorld display modes are hidden.
 **Appearance > Interface** contains UI scale, fonts, colors, and cursor styling.
 **Appearance > Workspace** contains density, sidebar and statusbar controls.
 
@@ -47,10 +47,18 @@ existing workers.
 
 ## Display
 
+On Linux, **Window > Inhibit screensaver** keeps the screen awake while SlopWorld
+is running, including in menus and in the background. It is enabled by default,
+applies live, and is saved with the profile. Turn it off to restore normal desktop
+idle behavior.
+
 Smooth scrolling is enabled by default and uses precise touchpad movement where
 supported; disable it for wheel steps. Changes apply live and are saved with the profile.
-Frame pacing offers VSync or 15, 30, 60, 120, 144, and 240 FPS presets. FPS limits
-disable VSync. Unfocused windows use 15 FPS and restore foreground pacing on focus.
+Frame pacing defaults to **Auto (N FPS)**, which detects the current display refresh
+rate and uses the nearest integer FPS limit with VSync off. Auto follows display
+changes and falls back to 60 FPS if the refresh rate is unavailable. Explicit VSync
+and 15, 30, 60, 120, 144, and 240 FPS presets remain available; saved selections are
+preserved. FPS limits disable VSync. Unfocused windows use 15 FPS and restore foreground pacing on focus.
 
 ## Configuration file
 

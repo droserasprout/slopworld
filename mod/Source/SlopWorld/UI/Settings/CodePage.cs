@@ -325,7 +325,7 @@ namespace SlopWorld
                         var numberColor = TerminalTheme.Current.Fg;
                         numberColor.a *= .6f;
                         _previewStyle.normal.textColor = numberColor;
-                        GUI.Label(
+                        SharedTextRenderer.DrawLabel(
                             new Rect(6f, y, gutter, TerminalFont.CellH),
                             (row + 1).ToString(CultureInfo.CurrentCulture).PadLeft(3),
                             _previewStyle
@@ -342,7 +342,7 @@ namespace SlopWorld
                         if (run.HasBg)
                             Widgets.DrawBoxSolid(box, run.Bg);
                         _previewStyle.normal.textColor = run.Fg;
-                        GUI.Label(box, run.Text, _previewStyle);
+                        SharedTextRenderer.DrawLabel(box, run.Text, _previewStyle);
                     }
                     y += TerminalFont.CellH;
                 }

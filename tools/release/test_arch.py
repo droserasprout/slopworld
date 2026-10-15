@@ -10,7 +10,9 @@ from tools.release import staging
 from tools.utils import run as execute
 
 
-def test_local_source_snapshot_excludes_build_output_and_keeps_sources(tmp_path: Path) -> None:
+def test_local_source_snapshot_excludes_build_output_and_keeps_sources(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     root = tmp_path / 'checkout'
     start = root / 'packaging/arch'
     staging.copy_file(Path(__file__).parents[2] / 'packaging/arch/PKGBUILD.local', start / 'PKGBUILD.local')
@@ -36,16 +38,18 @@ def test_local_source_snapshot_excludes_build_output_and_keeps_sources(tmp_path:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text('fixture')
     game = tmp_path / 'game'
-    managed = game / 'RimWorldLinux_Data/Managed'
+    managed = game
     managed.mkdir(parents=True)
     (managed / 'Assembly-CSharp.dll').touch()
+    # Just exports MANAGED; the snapshot fixture must not depend on a host install.
+    monkeypatch.setenv('MANAGED', str(tmp_path / 'missing-host-game'))
     execute(
         [
             'bash',
             '-euc',
             (
                 'startdir="$1/packaging/arch"; srcdir="$startdir/src"; pkgdir="$startdir/pkg"; '
-                'RIMWORLD="$2"; source "$startdir/PKGBUILD.local"; '
+                'RIMWORLD="$2"; MANAGED="$2"; source "$startdir/PKGBUILD.local"; '
                 'python() { printf "1.0.0\\n"; }; cargo() { :; }; uv() { :; }; prepare'
             ),
             'snapshot-test',

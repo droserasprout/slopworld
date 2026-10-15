@@ -68,7 +68,9 @@ aggregate before lint and tests, rejecting any resulting tracked changes. `check
 outputs without modifying the checkout. Explicit generators publish only changed
 bytes to preserve compiler input timestamps.
 `devloop` runs `just install all run` together, retaining each worktree's Rust target and C# obj directories.
-Only an explicit `just clean` removes ordinary build output. `coverage daemon`
+Only an explicit `just clean` removes ordinary build output. `clean mod` removes
+the mod DLL and all mod, runtime-package, and test project bin/obj directories.
+`coverage daemon`
 cleans its isolated instrumented target directory before collection, including
 dependency profiling runtimes whose raw profile format follows the LLVM toolchain.
 `cargo-llvm-cov` owns coverage-tool selection from the active Rust toolchain;
@@ -101,6 +103,9 @@ the C# source directories; `.csharpierignore` excludes generated bindings,
 build output, and project files. CSharpier owns layout; `.editorconfig` supplies
 indentation, line endings, and the shared .NET analyzer policy. Generated emoji
 metadata in `UI/Text/TextSpriteData.cs` also keeps its generator-owned layout.
+The pinned formatter and coverage tool run with .NET 10; CI installs the SDK from
+`global.json` without an additional runtime. Coverlet's packaged runtime configuration
+permits major-version roll-forward.
 `.github/workflows/image.yml` owns sidecar publication to
 `ghcr.io/<repository-owner>/slopcar` for amd64 and arm64. Only `vMAJOR.MINOR.PATCH` tag
 pushes build and publish images, using full commit SHA and release-version tags.
@@ -154,7 +159,7 @@ and linked-worktree metadata.
 
 `packaging/fedora/` owns RPM metadata and installed setup instructions;
 `tools/release/fedora.py` owns payload staging and publication. RPM discovers ELF
-dependencies but excludes private Unity assemblies from requires/provides.
+dependencies but excludes private mod assemblies from requires/provides.
 Snapshot hyphens become dots in RPM metadata; mod metadata keeps the build version.
 Release archives normalize directories and executables to `0755` and data to
 `0644`, independent of source permissions and the build umask.
@@ -175,7 +180,8 @@ pytest-cov, and the dependencies needed to type-check asset generators.
 `just format tools` applies formatting and import sorting; `fix tools` applies lint
 fixes. `lint tools` checks formatting and Ruff rules without rewriting sources and runs
 strict mypy across `tools/`, including tests. `lint mod` checks C# formatting;
-`check mod-build` separately validates Release compilation against game assemblies. Optional rendering
+`check mod-build` validates Release compilation and native text/swapchain bindings against
+game assemblies without starting the game. Optional rendering
 backends without stubs have scoped missing-import overrides; package code remains strict.
 `just test tools` runs pytest, accepting paths and options for focused selection.
 `test pager` owns tmux/less integration checks. `bench test` owns benchmark runner,
@@ -197,7 +203,9 @@ accepting saved credentials.
 
 `bench/runner.py` owns benchmark build/run subprocesses; `bench/report.py` owns
 collection and reporting. It calls the runner directly, building only the selected
-suite. Benchmark recipes forward CLI options instead of exporting each option as a
+suite. Mod runs use the same configured test project and build configuration through
+`dotnet run --no-build`, so target-framework changes cannot select stale binaries.
+Benchmark recipes forward CLI options instead of exporting each option as a
 shared setting. `bench/` also owns shared result handling and its tests.
 `slopcar/Cargo.toml` owns the independent native sidecar launcher, built by
 `just sidecar build` and installed by `sidecar install`. `sidecar test` and
@@ -232,8 +240,14 @@ including build/dev dependencies and all target platforms. Cargo manifests own
 its license metadata; the generated table does not replace distribution notices.
 
 The mod project owns game references/compiler settings; `Directory.Build.props`
-and `.editorconfig` own shared C# analysis, and `global.json` pins the SDK.
-Game references keep `Private=false`: RimWorld loads DLLs from `Assemblies/`.
+selects the .NET 10 recommended analyzer rules, `.editorconfig` owns diagnostic
+severities, and `global.json` pins the SDK.
+The mod and its runtime-package staging project target .NET 10 for RimWorld 1.7.
+`RIMWORLD` defaults to the Steam installation; `MANAGED` defaults to that same root.
+The project references `Assembly-CSharp.dll`, `UnityStubs.dll`, and `Waylith.dll`
+with `Private=false`: RimWorld loads DLLs from `Assemblies/`.
+The game supplies framework assemblies; the release allowlist and runtime staging
+must include only SlopWorld, Harmony, and package dependencies.
 Debug/release builds overwrite the same mod assembly path, so the path cannot prove
 build mode. Runtime package maintenance belongs to
 [Dependencies](../mod/Dependencies/README.md), game-free linked sources to

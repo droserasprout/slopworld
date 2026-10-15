@@ -23,7 +23,7 @@ appear in the terminal that launched the game.
 For a native crash during startup patching, inspect the last `[SlopWorld] patching`
 entry in the game log. It names the patch class being processed when startup stopped.
 The preceding Harmony entry records the loaded library version and location.
-A native Mono signal bypasses the mod's exception handler, so it may leave no
+A native crash can bypass the mod's exception handler, leaving no
 `patching incomplete:` entry. The last patch marker narrows the investigation;
 it does not establish that the patch caused the crash.
 

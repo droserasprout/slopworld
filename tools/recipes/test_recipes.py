@@ -285,6 +285,16 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual(call['env']['BUILD'], 'release')
         self.assertEqual(call['cwd'], str(ROOT / 'slopd'))
 
+    def test_mod_build_uses_game_root_and_preserves_reference_override(self) -> None:
+        self.env.pop('MANAGED', None)
+        game = self.directory / 'Steam game'
+        self.run_recipe(f'RIMWORLD={game}', 'VERSION=1.2.3', 'build', 'mod')
+        self.assertIn(f'-p:RimWorldManaged={game}', self.calls('dotnet')[-1]['args'])
+        self.log.unlink()
+        managed = self.directory / 'custom references'
+        self.run_recipe(f'RIMWORLD={game}', f'MANAGED={managed}', 'VERSION=1.2.3', 'build', 'mod')
+        self.assertIn(f'-p:RimWorldManaged={managed}', self.calls('dotnet')[-1]['args'])
+
     def test_task_selection_preserves_frozen_flags_and_custom_build_paths(self) -> None:
         self.run_recipe('BUILD=release', 'CARGOFLAGS=--release --frozen', 'build', 'daemon')
         (call,) = self.calls('cargo')
@@ -390,18 +400,28 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual([call['args'] for call in self.calls('uv')], [['lock', '--upgrade']])
 
     def test_build_check_forces_release_and_warnings_through_recursive_call(self) -> None:
-        self.run_recipe('BUILD=debug', 'MOD_WARNINGS_AS_ERRORS=false', 'VERSION=1.2.3', 'check', 'mod-build')
+        self.run_recipe(
+            'BUILD=debug',
+            'MOD_WARNINGS_AS_ERRORS=false',
+            'VERSION=1.2.3',
+            'MANAGED=/game assemblies',
+            'MOD_DLL=/built mod/SlopWorld.dll',
+            'check',
+            'mod-build',
+        )
         self.assertEqual(self.calls('cargo'), [])
         (mod,) = [call for call in self.calls('dotnet') if 'mod/Source/SlopWorld/SlopWorld.csproj' in call['args']]
         self.assertIn('Release', mod['args'])
         self.assertIn('-p:TreatWarningsAsErrors=true', mod['args'])
+        (bindings,) = [call for call in self.calls('dotnet') if '--game-bindings' in call['args']]
+        self.assertIn('Release', bindings['args'])
+        self.assertEqual(bindings['args'][-3:], ['--game-bindings', '/game assemblies', '/built mod/SlopWorld.dll'])
 
     def test_csharp_formatting_scopes_discovery_to_source_folders(self) -> None:
         folders = [
             'mod/Source/SlopWorld',
             'mod/Tests',
             'bench/ipc/csharp',
-            'bench/terminal-input/tests/http_transport',
         ]
         for operation in ('format', 'lint'):
             with self.subTest(operation=operation):
@@ -425,13 +445,14 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
 
     def test_mac_mod_passes_native_assemblies_and_release_selection(self) -> None:
         app = self.directory / 'RimWorld.app'
-        game = app / 'Contents/MacOS/RimWorld by Ludeon Studios'
+        game = app / 'Contents/MacOS/RimWorld'
         game.parent.mkdir(parents=True)
         game.touch()
         game.chmod(0o755)
-        managed = app / 'Contents/Resources/Data/Managed'
-        managed.mkdir(parents=True)
-        (managed / 'Assembly-CSharp.dll').touch()
+        managed = app / 'Contents/MacOS'
+        managed.mkdir(parents=True, exist_ok=True)
+        for assembly in ('Assembly-CSharp.dll', 'UnityStubs.dll', 'Waylith.dll'):
+            (managed / assembly).touch()
         (app / 'Mods').mkdir()
         self.run_recipe(
             '--justfile',

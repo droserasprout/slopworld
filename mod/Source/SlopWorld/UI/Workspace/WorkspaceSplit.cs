@@ -40,8 +40,7 @@ namespace SlopWorld
 
         public void Add(T panel)
         {
-            if (panel == null)
-                throw new ArgumentNullException(nameof(panel));
+            ArgumentNullException.ThrowIfNull(panel);
             if (ReferenceEquals(panel, First))
                 throw new ArgumentException("Panel already occupies the first slot", nameof(panel));
             if (Second != null)

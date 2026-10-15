@@ -217,11 +217,8 @@ namespace SlopWorld
             int separator = line.IndexOf(';', start, end - start);
             if (
                 separator <= start
-                || !int.TryParse(line.Substring(start, separator - start), out int scalars)
-                || !int.TryParse(
-                    line.Substring(separator + 1, end - separator - 1),
-                    out int columns
-                )
+                || !int.TryParse(line.AsSpan(start, separator - start), out int scalars)
+                || !int.TryParse(line.AsSpan(separator + 1, end - separator - 1), out int columns)
                 ||
                 // Combining marks have no fixed count limit. Each scalar needs
                 // at least one remaining UTF-16 unit; parsing checks completeness.

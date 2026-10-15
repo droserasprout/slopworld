@@ -9,7 +9,7 @@ using System.Threading;
 namespace SlopWorld
 {
     // Support binary Protobuf frames, ping/pong, and connection closure.
-    // Use TcpClient because ClientWebSocket is unreliable on Unity Mono and Wine.
+    // TcpClient keeps framing and queue admission under this transport's ownership.
     // Read on a background thread. Callers retrieve queued events through Incoming.
     internal interface IHubSocket : IDisposable
     {
@@ -204,8 +204,7 @@ namespace SlopWorld
             string expected;
             // RFC 6455 section 4.2.2 requires SHA-1 for Sec-WebSocket-Accept.
 #pragma warning disable CA5350 // Do Not Use Weak Cryptographic Algorithms
-            using (var sha1 = SHA1.Create())
-                expected = Convert.ToBase64String(sha1.ComputeHash(challenge));
+            expected = Convert.ToBase64String(SHA1.HashData(challenge));
 #pragma warning restore CA5350
             return protocol == "slopworld.protobuf.v2"
                 && string.Equals(accept, expected, StringComparison.Ordinal);

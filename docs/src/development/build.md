@@ -5,8 +5,8 @@ Build and install SlopWorld from a checkout and run development checks. For preb
 ## Prerequisites
 
 - **Rust** stable toolchain builds the daemon and launcher using the 2024 edition.
-- **.NET SDK**: install the version pinned in `global.json`. It builds the `net472`
-  mod and runs C# tests and formatting. NuGet restores framework reference assemblies.
+- **.NET SDK**: install the version pinned in `global.json`. It builds the `net10.0`
+  mod and runs C# tests and formatting. NuGet restores locked runtime packages.
 - **Protobuf compiler (`protoc`)**: Rust builds require it. Contract generation
   requires **36.1** to keep generated C# output stable. Install the matching binary
   archive from the [Protobuf v36.1 release](https://github.com/protocolbuffers/protobuf/releases/tag/v36.1)
@@ -20,8 +20,10 @@ Build and install SlopWorld from a checkout and run development checks. For preb
   the environment explicitly. Asset generators use the optional `assets` dependencies
   and also require their native graphics libraries.
 
-Set `RIMWORLD` to the Linux game directory containing `RimWorldLinux`.
-Building the mod requires the game's assemblies in `Managed/`. For native macOS,
+Set `RIMWORLD` to the RimWorld 1.7 installation directory containing
+`Assembly-CSharp.dll`, `UnityStubs.dll`, and `Waylith.dll`. The default is
+`~/.local/share/Steam/steamapps/common/RimWorld`. `MANAGED` can select a separate
+assembly directory. For native macOS,
 follow the [macOS guide](../installation/macos.md).
 
 ## Build and install
@@ -98,8 +100,9 @@ to select tests, for example `just test tools tools/recipes -k failure`.
 Use `just coverage tools` when you want a Python branch coverage report.
 `just lint` checks sources without rewriting them. `just lint tools` checks formatting,
 Ruff rules and strict mypy types across `tools/`, including its tests.
-`just check mod-build` separately validates a Release build with warnings as errors
-and requires game assemblies. Release packaging includes that check.
+`just check mod-build` validates a Release build with warnings as errors, resolves native
+text patch targets, and checks the swapchain rewrite against installed game assemblies.
+It does not start the game. Release packaging includes that check.
 `just format tools` applies the 120-column, single-quote style and sorts imports.
 Ruff, mypy, and pytest-cov belong to the uv `dev` dependency group.
 Tools run as modules from the repository root through uv;
@@ -157,8 +160,8 @@ suites. Reports go to `bench/results/<name>/`. Use
 `just BENCH_RUN=<name> bench report --baseline <older> --mode relative` compares runs.
 Use `just BUILD=release bench run daemon --run <name>` for one suite; only its
 binaries are built. `bench run mod` and `bench run ipc` select the other suites.
-Pass `--help` to a benchmark operation to see its CLI options. IPC benchmarks and
-terminal-input HTTP regression require Mono.
+Pass `--help` to a benchmark operation to see its CLI options. The IPC benchmark
+compares .NET 10 with Rust; the mod's HTTP regression tests run in `just test mod`.
 
 ### Related guides
 

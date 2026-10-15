@@ -71,8 +71,10 @@ namespace SlopWorld
                 }
 
                 stream.Rate = rate;
-                stream.Url =
-                    url.Substring(0, schemeLength).ToLowerInvariant() + url.Substring(schemeLength);
+                stream.Url = string.Concat(
+                    url.Substring(0, schemeLength).ToLowerInvariant(),
+                    url.AsSpan(schemeLength)
+                );
                 if (string.IsNullOrEmpty(stream.Key))
                 {
                     string stem = draft.Id + "-" + rate.ToString(CultureInfo.InvariantCulture);

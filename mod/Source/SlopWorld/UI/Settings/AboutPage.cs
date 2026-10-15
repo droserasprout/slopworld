@@ -78,7 +78,6 @@ namespace SlopWorld
             }
         }
 
-        // The three-column grid splits these 13 groups as 5/5/3, with ten library lines each.
         static readonly Credit[] DaemonLibraries =
         {
             new Credit("Rust", "language", "https://www.rust-lang.org/"),
@@ -162,15 +161,16 @@ namespace SlopWorld
         static readonly Credit[] ClientLibraries =
         {
             new Credit("C#", "language", "https://learn.microsoft.com/dotnet/csharp/"),
-            new Credit("Mono", "runtime", "https://www.mono-project.com/"),
-            new Credit(
-                "Harmony",
-                "RimWorld patching",
-                "https://github.com/pardeike/HarmonyRimWorld"
-            ),
+            new Credit(".NET", "runtime", "https://github.com/dotnet/runtime"),
+            new Credit("Harmony", "RimWorld patching", "https://github.com/pardeike/Harmony"),
             new Credit("AngleSharp", "HTML", "https://github.com/AngleSharp/AngleSharp"),
             new Credit("Markdig", "markdown", "https://github.com/xoofx/markdig"),
             new Credit("Tomlyn", "TOML configs", "https://github.com/xoofx/Tomlyn"),
+            new Credit(
+                "Tmds.DBus.Protocol",
+                "desktop integration",
+                "https://github.com/tmds/Tmds.DBus"
+            ),
             new Credit("Newtonsoft.Json", "JSON", "https://www.newtonsoft.com/json"),
             new Credit(
                 "Google.Protobuf",
@@ -186,8 +186,10 @@ namespace SlopWorld
 
         static readonly Credit[] Tools =
         {
+            new Credit("X.Org Xlib / libXss", "window and idle control", "https://www.x.org/"),
             new Credit("tmux", "terminal sessions", "https://github.com/tmux/tmux/wiki"),
             new Credit("bubblewrap", "sandboxing", "https://github.com/containers/bubblewrap"),
+            new Credit("Git", "version control", "https://git-scm.com/"),
             /* new Credit("systemd", "service manager", "https://systemd.io/"), */
             new Credit("passt", "networking", "https://passt.top/"),
             new Credit(
@@ -208,7 +210,6 @@ namespace SlopWorld
                     new CreditLink("Pygments", "https://pygments.org/"),
                 }
             ),
-            new Credit("Git", "version control", "https://git-scm.com/"),
             new Credit("SongRec", "song identification", "https://github.com/marin-m/SongRec"),
             new Credit("ncspot", "Spotify playback", "https://github.com/hrkfdn/ncspot"),
         };
@@ -389,22 +390,13 @@ namespace SlopWorld
         {
             y = NextSection(y);
             y = SectionHeading(r, y, "Built with") + HeadingGap;
-            y = InlineLinkLine(
+            return InlineLinkLine(
                 r,
                 y,
                 "",
                 "RimWorld by Ludeon Studios",
                 "",
                 "https://rimworldgame.com/",
-                RegularFont
-            );
-            return InlineLinkLine(
-                r,
-                y,
-                "",
-                "Unity by Unity Technologies",
-                "",
-                "https://unity.com/",
                 RegularFont
             );
         }

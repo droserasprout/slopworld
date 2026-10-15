@@ -12,7 +12,3 @@ update what='all':
 [positional-arguments]
 restore what='all':
     python3 -m tools.recipes.dispatch deps-restore "$@"
-
-# Fetch and verify the latest Harmony assembly
-harmony destination='mod/Assemblies':
-    ${PYTHON} -m tools.dependencies.fetch_harmony {{ quote(destination) }}

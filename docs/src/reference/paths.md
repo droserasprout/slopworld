@@ -76,13 +76,13 @@ directory stores the canonical game directory path.
 
 | Path | Used by | Override | Description |
 | --- | --- | --- | --- |
-| `<CACHE>/Player.log` | Launcher and game | `SLOPWORLD_GAME_LOG` | Unity writes Harmony and mod exceptions here. They do not appear in the terminal that launched the game. |
+| `<CACHE>/Player.log` | Launcher and game | `SLOPWORLD_GAME_LOG` | The launcher captures game console output, including Harmony and mod exceptions. |
 | `journalctl --user -u slopd` | Daemon | `SLOPWORLD_DAEMON_UNIT` for `slopctl logs` | Daemon log when it runs as a systemd user service. |
 
-The launcher passes `-logFile` to Unity and creates the log directory before
-launching. `slopctl logs game` and `just logs` use the same default and environment
-override. Passing a game `-logFile` argument takes precedence for that launch; set
-`SLOPWORLD_GAME_LOG` to the same path when reading it.
+The launcher creates the log directory and captures game stdout and stderr in the
+selected file. It passes `-NoFileLog` to disable the game's separate file logger.
+`slopctl logs game` and `just logs` use the same default and environment override.
+Each launch replaces the log.
 
 ## tmux
 

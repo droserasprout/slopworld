@@ -49,9 +49,6 @@ namespace SlopWorld
         internal static bool TryTabWalkDirection(Event e, out int dir) =>
             TerminalInputController.TryTabWalkDirection(e, out dir);
 
-        internal static bool IsSemicolonKey(KeyCode key) =>
-            TerminalInputController.IsSemicolonKey(key);
-
         internal static void WalkSession(int dir) => TerminalInputController.WalkSession(dir);
 
         internal static List<string> TabOrder() => TerminalInputController.TabOrder();

@@ -170,7 +170,7 @@ Commit changes before packaging to record a reproducible source revision.
 
 The RPM includes all three binaries, user service, desktop entry, icon, mod,
 and license notices. RPM discovers native library dependencies and excludes the
-mod's private Unity assemblies from system dependencies and providers.
+mod's private assemblies from system dependencies and providers.
 Game assemblies and untracked mod assets are excluded.
 See [Install](../installation/linux.md#fedora) for mod attachment and service setup.
 `just test tools tools/release` tests staging and failures without the game;

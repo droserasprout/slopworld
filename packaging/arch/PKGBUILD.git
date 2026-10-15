@@ -3,7 +3,7 @@
 # Tracks the main branch for an always-current development build.
 #
 # The mod half links against the game's own assemblies, so RIMWORLD must point at
-# a real Linux install (default ~/GOG Games/RimWorld/game, override in the environment).
+# a real Linux install (default ~/.local/share/Steam/steamapps/common/RimWorld, override in the environment).
 
 pkgname=slopworld-git
 pkgver=0.0.3.r0.gHEAD
@@ -32,8 +32,8 @@ source=("$pkgname::git+https://github.com/droserasprout/slopworld.git#branch=mai
 sha256sums=('SKIP')
 install=slopworld.install
 
-: "${RIMWORLD:=$HOME/GOG Games/RimWorld/game}"
-_managed="$RIMWORLD/RimWorldLinux_Data/Managed"
+: "${RIMWORLD:=$HOME/.local/share/Steam/steamapps/common/RimWorld}"
+_managed="${MANAGED:-$RIMWORLD}"
 
 pkgver() {
   cd "$srcdir/$pkgname" || return

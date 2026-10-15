@@ -83,8 +83,7 @@ namespace SlopWorld
                 )
             )
             {
-                var choices = Enum.GetValues(typeof(TemperatureDisplayMode))
-                    .Cast<TemperatureDisplayMode>()
+                var choices = Enum.GetValues<TemperatureDisplayMode>()
                     .Select(mode => new FloatMenuOption(
                         mode.ToStringHuman(),
                         () => SetTemperatureUnit(mode)

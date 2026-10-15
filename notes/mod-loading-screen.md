@@ -5,6 +5,14 @@ The stream measures fixed-width cells and draws the committed ASCII atlas. Loadi
 text size follows the terminal font preference rather than an independent setting.
 The stream draws directly over the loading artwork, with no panel background or shadow.
 
+After `UIRoot_Entry.Init`, the mod closes the localized `SteamClientMissing` message
+as if Ignore were selected. This startup-only hook leaves Steam initialization state
+and other dialogs unchanged and is registered only in the marked SlopWorld profile.
+
+`LoadingTipPanel` owns the right-aligned full-height frame and clip for every tip draw,
+including calls from the window-stack loading path. Tip draws use panel geometry directly;
+`GameplayTipWindow.WindowSize` stays game-owned. Visible row count includes the final glyph's full height, rather than only its line advance.
+
 Measure the panel before reading geometry. Repaint reflows a resized retained stream
 when no new words are due. The custom loading-screen owner handles both layout and
 drawing suppression of vanilla panels. Tips can draw during map generation, so their

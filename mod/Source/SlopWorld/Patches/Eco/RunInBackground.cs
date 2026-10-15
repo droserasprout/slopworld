@@ -1,6 +1,8 @@
 using HarmonyLib;
 using UnityEngine;
 using Verse;
+using Waylith;
+using Waylith.Graphics;
 
 namespace SlopWorld
 {
@@ -28,24 +30,51 @@ namespace SlopWorld
     public static class BackgroundFrames
     {
         static readonly FramePolicy Policy = new FramePolicy();
+        static int _appliedSync = -1;
+        static float _nextRefreshSample;
+        static int _autoFps = 60;
+
+        // Share one detected value with the selector. Polling catches monitor moves without
+        // enumerating native display modes on every GUI event or every rendered frame.
+        public static int AutoFps
+        {
+            get
+            {
+                float now = UnityEngine.Time.realtimeSinceStartup;
+                if (now >= _nextRefreshSample)
+                {
+                    _nextRefreshSample = now + 1f;
+                    _autoFps = FramePolicy.AutoFps(EngineWindow.CurrentResolution.RefreshRate);
+                }
+                return _autoFps;
+            }
+        }
 
         // Root.Update calls this in menus and during play. Update settings only when the effective values change.
         public static void Follow()
         {
             int target = Application.targetFrameRate,
-                sync = QualitySettings.vSyncCount;
+                sync = _appliedSync;
             if (
                 !Policy.Follow(
                     Application.isFocused,
                     Settings.DisplayMode,
                     Settings.ForegroundFps,
                     ref target,
-                    ref sync
+                    ref sync,
+                    Settings.DisplayMode == FramePolicy.Auto ? AutoFps : 60
                 )
             )
                 return;
-            QualitySettings.vSyncCount = sync;
-            Application.targetFrameRate = target;
+            // QualitySettings.vSyncCount is a stub. The native event queues a present-mode
+            // change for the engine to apply safely between render frames.
+            if (sync != _appliedSync)
+            {
+                EngineWindow.SetVSyncMode(sync == 0 ? VSyncMode.Off : VSyncMode.VSync);
+                _appliedSync = sync;
+            }
+            if (Application.targetFrameRate != target)
+                Application.targetFrameRate = target;
         }
     }
 }

@@ -25,52 +25,15 @@ fn a_value_comes_inline_or_after() {
 /// Forward game flags with one leading hyphen without requiring a separator.
 #[test]
 fn the_games_arguments_are_passed_through() {
-    let a = parsed(&["-popupwindow", "-force-opengl"]);
-    assert_eq!(a.rest, vec!["-popupwindow", "-force-opengl"]);
+    let a = parsed(&["-Verbose", "-NoCrashDialog"]);
+    assert_eq!(a.rest, vec!["-Verbose", "-NoCrashDialog"]);
 }
 
 #[test]
-fn the_window_fix_is_enabled_by_default() {
-    let a = game_argv(
-        Path::new("/g/RimWorldLinux"),
-        Path::new("/p"),
-        Path::new("/logs/Player.log"),
-        &[],
-        false,
-    );
+fn launch_arguments_select_the_profile_and_console_log() {
     assert_eq!(
-        a,
-        vec![
-            "/g/RimWorldLinux",
-            "-savedatafolder=/p",
-            "-logFile",
-            "/logs/Player.log",
-            "-popupwindow",
-            "-screen-fullscreen",
-            "0",
-            "-force-opengl"
-        ]
-    );
-}
-
-#[test]
-fn the_window_fix_can_be_disabled() {
-    let a = parsed(&["--no-window-fix"]);
-    assert!(a.no_window_fix);
-    assert_eq!(
-        game_argv(
-            Path::new("/g/RimWorldLinux"),
-            Path::new("/p"),
-            Path::new("/logs/Player.log"),
-            &[],
-            a.no_window_fix
-        ),
-        vec![
-            "/g/RimWorldLinux",
-            "-savedatafolder=/p",
-            "-logFile",
-            "/logs/Player.log"
-        ]
+        game_argv(Path::new("/g/RimWorld"), Path::new("/p"), &[]),
+        vec!["/g/RimWorld", "-savedatafolder=/p", "-NoFileLog"]
     );
 }
 
@@ -83,10 +46,10 @@ fn an_unknown_long_option_is_a_mistake_rather_than_a_game_argument() {
 
 #[test]
 fn a_double_dash_ends_our_options() {
-    let a = parsed(&["--reset", "--", "--game", "-popupwindow"]);
+    let a = parsed(&["--reset", "--", "--game", "-Verbose"]);
     assert!(a.reset);
     assert_eq!(a.game, None);
-    assert_eq!(a.rest, vec!["--game", "-popupwindow"]);
+    assert_eq!(a.rest, vec!["--game", "-Verbose"]);
 }
 
 #[test]
@@ -231,24 +194,17 @@ fn a_missing_marker_is_put_back() {
 #[test]
 fn the_profile_rides_on_the_games_own_argument() {
     let argv = game_argv(
-        Path::new("/g/RimWorldLinux"),
+        Path::new("/g/RimWorld"),
         Path::new("/p"),
-        Path::new("/logs/Player.log"),
-        &["-popupwindow".to_string()],
-        false,
+        &["-Verbose".into()],
     );
     assert_eq!(
         argv,
         vec![
-            "/g/RimWorldLinux",
+            "/g/RimWorld",
             "-savedatafolder=/p",
-            "-logFile",
-            "/logs/Player.log",
-            "-popupwindow",
-            "-screen-fullscreen",
-            "0",
-            "-force-opengl",
-            "-popupwindow"
+            "-NoFileLog",
+            "-Verbose"
         ]
     );
 }
@@ -260,20 +216,30 @@ fn a_game_directory_without_the_binary_is_named_rather_than_skipped() {
 }
 
 #[test]
-fn explicit_unity_log_arguments_are_forwarded_without_a_second_log_option() {
-    for rest in [
-        vec!["-logFile".into(), "/custom/log".into()],
-        vec!["-logFile=-".into()],
-    ] {
-        let argv = game_argv(
-            Path::new("/game"),
-            Path::new("/profile"),
-            Path::new("/unused/log"),
-            &rest,
-            true,
-        );
-        assert_eq!(&argv[2..], rest.as_slice());
+fn game_console_streams_share_the_log_and_each_launch_replaces_it() {
+    let root = scratch("console-log");
+    let log = root.join("nested/Player.log");
+    for _ in 0..2 {
+        let mut command = Command::new("sh");
+        command.args(["-c", "printf 'output\n'; printf 'error\n' >&2"]);
+        configure_game_log(&mut command, &log).unwrap();
+        assert!(command.status().unwrap().success());
+        assert_eq!(std::fs::read_to_string(&log).unwrap(), "output\nerror\n");
     }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn invalid_log_directory_reports_its_path() {
+    let root = scratch("invalid-log");
+    std::fs::create_dir_all(&root).unwrap();
+    let parent = root.join("file");
+    std::fs::write(&parent, "keep").unwrap();
+    let error =
+        configure_game_log(&mut Command::new("sh"), &parent.join("Player.log")).unwrap_err();
+    assert!(error.contains(parent.to_str().unwrap()), "{error}");
+    assert_eq!(std::fs::read_to_string(&parent).unwrap(), "keep");
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
@@ -411,4 +377,19 @@ fn print_reset_and_invalid_working_dir_preserve_profile() {
     );
     assert_eq!(std::fs::read(&mods).unwrap(), custom);
     std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn linux_launch_selects_x11_for_window_manager_fullscreen() {
+    let mut command = Command::new("/g/RimWorld");
+    configure_game_window(&mut command);
+    let selected = command.get_envs().find(|(key, _)| *key == "FORCE_X11");
+    if cfg!(target_os = "linux") {
+        assert_eq!(
+            selected,
+            Some((OsStr::new("FORCE_X11"), Some(OsStr::new("1"))))
+        );
+    } else {
+        assert_eq!(selected, None);
+    }
 }

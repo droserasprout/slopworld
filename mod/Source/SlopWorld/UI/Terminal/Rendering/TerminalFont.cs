@@ -4,13 +4,10 @@ using Verse;
 
 namespace SlopWorld
 {
-    // RimWorld's own fonts are proportional, which a terminal cannot use. Under Wine
-    // an OS font resolves against both the prefix's fonts and the host's.
+    // Supplies a native monospace face and fixed terminal cell metrics.
     public static class TerminalFont
     {
-        // The first installed name becomes the face. The rest are per-glyph fallbacks.
-        // The symbol faces at the tail are there for that alone - mono faces stop well
-        // short of the arrows and chevrons Claude Code's whole UI is built out of.
+        // The first installed candidate becomes the face. The renderer supplies glyph fallbacks.
         static readonly string[] Candidates =
         {
             "DejaVu Sans Mono",
@@ -34,9 +31,7 @@ namespace SlopWorld
         static int _size;
         static string _name = "";
         static int _rev;
-        static bool _textureRebuildHooked;
 
-        const int ProbeSize = 30;
         static List<string> _mono;
 
         // Per-char verdicts from CalcSize, which is far too slow to run per frame.
@@ -69,11 +64,6 @@ namespace SlopWorld
         {
             get
             {
-                HookTextureRebuilds();
-                // A GUIStyle is not a UnityEngine.Object, so the font it holds is rooted by nothing
-                // Unity can see. The unload RimWorld runs on every map switch destroys it and
-                // leaves the style in the default proportional face. The null check catches a face
-                // lost some other way, a destroyed Font comparing equal to null.
                 if (
                     _style != null
                     && _size == Settings.FontSize
@@ -86,17 +76,13 @@ namespace SlopWorld
                 _size = Mathf.Clamp(Settings.FontSize, 8, 28);
                 _name = Settings.FontName;
 
-                // The one it is replacing, dropped once nothing points at it. A dynamic font is an
-                // asset with a texture atlas behind it and this one is marked never to unload.
-                // Therefore, the size slider - which comes back through here on every step it
-                // passes - would otherwise pin one atlas per step for the rest of the process.
+                // Release the old wrapper after choosing its replacement. The native backend
+                // retains and deduplicates registered faces for the process lifetime.
                 var old = _font;
                 _font =
-                    Font.CreateDynamicFontFromOSFont(Chain(_name), _size)
-                    ?? Font.CreateDynamicFontFromOSFont("Courier New", _size);
+                    NativeFonts.Create(Chain(_name), _size)
+                    ?? NativeFonts.Create("Courier New", _size);
                 _fontless = _font == null;
-                if (_font != null)
-                    _font.hideFlags = HideFlags.DontUnloadUnusedAsset;
                 if (old != null && old != _font)
                     UnityEngine.Object.Destroy(old);
 
@@ -112,8 +98,7 @@ namespace SlopWorld
                     margin = new RectOffset(0, 0, 0, 0),
                 };
 
-                // Measure a run of identical glyphs: on a monospace face the advance is exact,
-                // and this dodges dynamic-font atlas warm-up entirely.
+                // Measure a run of identical glyphs for an exact monospace advance.
                 const string probe = "MMMMMMMMMMMMMMMMMMMM";
                 CellW = _style.CalcSize(new GUIContent(probe)).x / probe.Length;
                 CellH = Mathf.Max(_style.lineHeight, _size + 2f);
@@ -124,23 +109,6 @@ namespace SlopWorld
                 );
                 return _style;
             }
-        }
-
-        // A supplementary glyph may be the first character that asks Unity to rebuild the dynamic
-        // atlas. The pane is rendered into a RenderTexture. Therefore, that rebuild must be a cache
-        // key too or the first frame can preserve the pre-glyph (blank) texture forever.
-        static void HookTextureRebuilds()
-        {
-            if (_textureRebuildHooked)
-                return;
-            Font.textureRebuilt += OnTextureRebuilt;
-            _textureRebuildHooked = true;
-        }
-
-        static void OnTextureRebuilt(Font font)
-        {
-            _rev++;
-            _fits.Clear();
         }
 
         static string[] Chain(string name)
@@ -164,64 +132,13 @@ namespace SlopWorld
             }
         }
 
-        public static void Rescan() => _mono = null;
-
-        static List<string> ScanMono()
+        public static void Rescan()
         {
-            var found = new List<string>();
-            string[] names;
-            try
-            {
-                names = Font.GetOSInstalledFontNames();
-            }
-            catch (System.Exception e)
-            {
-                Log.Warning($"[SlopWorld] font list: {e.Message}");
-                return found;
-            }
-            if (names == null)
-                return found;
-
-            var probe = new GUIStyle
-            {
-                fontSize = ProbeSize,
-                richText = false,
-                wordWrap = false,
-                clipping = TextClipping.Overflow,
-                padding = new RectOffset(0, 0, 0, 0),
-                margin = new RectOffset(0, 0, 0, 0),
-            };
-
-            var seen = new HashSet<string>();
-            foreach (var name in names)
-            {
-                if (string.IsNullOrEmpty(name) || !seen.Add(name))
-                    continue;
-
-                Font f = null;
-                try
-                {
-                    f = Font.CreateDynamicFontFromOSFont(name, ProbeSize);
-                    if (f == null)
-                        continue;
-                    probe.font = f;
-                    float narrow = probe.CalcSize(new GUIContent("iiiiiiiiii")).x;
-                    float wide = probe.CalcSize(new GUIContent("MMMMMMMMMM")).x;
-                    if (narrow > 0f && Mathf.Abs(narrow - wide) < 1f)
-                        found.Add(name);
-                }
-                catch { }
-                finally
-                {
-                    if (f != null)
-                        UnityEngine.Object.DestroyImmediate(f);
-                }
-            }
-
-            found.Sort(System.StringComparer.OrdinalIgnoreCase);
-            Log.Message($"[SlopWorld] mono faces: {found.Count} of {names.Length}");
-            return found;
+            NativeFonts.Rescan();
+            _mono = null;
         }
+
+        static List<string> ScanMono() => new List<string>(NativeFonts.Names(monospaced: true));
 
         // ASCII always does. A symbol from a fallback face carries that face's advance,
         // and a glyph nobody has advances not at all - either would drag the rest of the

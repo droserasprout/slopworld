@@ -11,12 +11,12 @@ completion. An aborted capture removes its incomplete output so summaries cannot
 mistake it for a completed window.
 
 Correlation is the next changed frame after input dispatch, not verified application
-echo. Unity frame end is before physical presentation. Client and daemon clocks
+echo. Game frame end is before physical presentation. Client and daemon clocks
 have separate monotonic epochs; subtract timestamps only within one peer. Completed
 percentiles exclude censored outcomes, so inspect failures and incomplete samples
 before comparing tails. Trace counters contain no terminal contents.
 
-`MemoryTrace` contributes periodic RSS, Mono, Unity memory, and GC samples. These
+`MemoryTrace` contributes periodic RSS, managed heap, graphics memory, and GC samples. These
 counters overlap and must not be added; GC counts are not allocated bytes. Eco's
 `geometryCapacityBytes` estimates submesh array payload capacity immediately before
 layer disposal, not retained memory or an RSS delta. `atlasColorBytes` estimates
@@ -35,4 +35,4 @@ history also requires a completed `history_scroll` sample. Precise X11 and wheel
 fallback sampling boundaries differ. `complete_with_slip` retains event count but
 shifts deadlines. Compare actual duration and slip counts. Transport residual
 includes both network directions and unmeasured client/codec work. Performance
-lanes overlap; helper timings do not predict Unity or end-to-end costs.
+lanes overlap; helper timings do not predict rendering or end-to-end costs.

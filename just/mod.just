@@ -15,7 +15,7 @@ build: check-themes restore
     if [ "$BUILD" = release ]; then configuration=Release; fi
     $DOTNET build "$MOD_PROJECT" --configuration "$configuration" -p:RimWorldManaged="$managed" -p:InformationalVersion="$version" -p:TreatWarningsAsErrors="$MOD_WARNINGS_AS_ERRORS" -p:RestoreLockedMode=true
 
-# Restore locked Unity Mono runtime packages
+# Restore locked .NET 10 runtime packages
 restore:
     $DOTNET build mod/Dependencies/Runtime.csproj --configuration Release --verbosity quiet -p:RestoreLockedMode="$MOD_DEPS_LOCKED"
 
@@ -36,9 +36,10 @@ lint: restore-tools
     for source in $CSHARP_FORMAT_FOLDERS; do (cd "$source" && $DOTNET csharpier check .) || exit "$?"; done
 
 
-# Validate a Release build with warnings as errors (requires game assemblies)
+# Validate Release compilation and native bindings without starting the game
 check-build:
     "$JUST_CMD" --justfile "$JUST_ROOT" BUILD=release MOD_WARNINGS_AS_ERRORS=true build mod
+    $DOTNET run --project "$TEST_PROJECT" --configuration Release -p:RestoreLockedMode=true -- --game-bindings "$MANAGED" "$MOD_DLL"
 
 # Run game-free C# tests
 [positional-arguments]
@@ -64,4 +65,4 @@ uninstall: launcher
 # Remove component build output
 clean:
     rm -f "$MOD_DLL"
-    rm -rf mod/Source/SlopWorld/obj
+    rm -rf mod/Source/SlopWorld/bin mod/Source/SlopWorld/obj mod/Dependencies/bin mod/Dependencies/obj mod/Tests/bin mod/Tests/obj

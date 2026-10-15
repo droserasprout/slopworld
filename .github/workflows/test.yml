@@ -51,7 +51,7 @@ jobs:
           apt-get install -y --no-install-recommends \
             ca-certificates curl git unzip build-essential pkg-config \
             libasound2-dev libicu78 libssl3t64 zlib1g \
-            python3 procps tmux=3.7c-1 less ripgrep bubblewrap
+            python3 procps tmux=3.7c-1 less ripgrep bubblewrap dbus-daemon
 
       - uses: actions/checkout@v4
         with:
@@ -69,8 +69,6 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-          # The game-free harness targets net8.0 and needs its matching runtime.
-          dotnet-version: '8.0.x'
           cache: true
           cache-dependency-path: |
             mod/Dependencies/packages.lock.json

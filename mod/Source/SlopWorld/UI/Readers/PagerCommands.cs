@@ -154,7 +154,7 @@ namespace SlopWorld
             string executable = Executable(command, "micro");
             if (
                 !string.Equals(Path.GetFileName(executable), "micro", StringComparison.Ordinal)
-                || command.IndexOf("-clipboard", StringComparison.Ordinal) >= 0
+                || command.Contains("-clipboard", StringComparison.Ordinal)
             )
                 return command;
 
@@ -257,11 +257,16 @@ namespace SlopWorld
             if (git.StartsWith("git ", StringComparison.Ordinal))
             {
                 if (batTheme != null)
-                    git = "git -c delta.minus-style=" + Quote("syntax auto") + git.Substring(3);
-                git =
-                    "git -c delta.line-numbers="
-                    + (lineNumbers ? "true" : "false")
-                    + git.Substring(3);
+                    git = string.Concat(
+                        "git -c delta.minus-style=",
+                        Quote("syntax auto"),
+                        git.AsSpan(3)
+                    );
+                git = string.Concat(
+                    "git -c delta.line-numbers=",
+                    lineNumbers ? "true" : "false",
+                    git.AsSpan(3)
+                );
             }
             string theme = string.IsNullOrEmpty(batTheme)
                 ? ""

@@ -23,9 +23,15 @@ Feature owners are [terminal recall](mod-terminal.md), [Eco](mod-eco.md),
 [shared chrome](mod-ui-chrome.md),
 and [terminal rendering](mod-terminal-rendering.md) for appearance caches and emoji.
 
-`FramePolicy` owns foreground vSync/FPS pacing and the unfocused 15 FPS cap; Eco
-is not a second foreground pacing owner. Temperature-triggered camera/UI sound
-overrides belong to `Patches/Options/TemperatureSounds.cs`; map-scoped sounds retain
+`FramePolicy` owns frame pacing; Eco is not a second foreground pacing owner.
+`BackgroundFrames` shares its native refresh-rate sample with the selector and applies
+presentation changes through `EngineWindow.SetVSyncMode`; the compatibility VSync setter is a stub.
+Focus changes adjust only target FPS, retaining the selected presentation mode to avoid
+swapchain rebuilds. `Patch_ApplicationFocus` supplies native `EngineWindow.IsFocused`
+to the compatibility getter because its separate app-state field is not synchronized.
+Defaults and available modes belong to [Display settings](../docs/src/customization/settings.md#display).
+
+Temperature-triggered camera/UI sound overrides belong to `Patches/Options/TemperatureSounds.cs`; map-scoped sounds retain
 their original definitions.
 
 When Eco or Grandma mode disables destructive effects, cancel pending effects

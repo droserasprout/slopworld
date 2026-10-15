@@ -175,7 +175,7 @@ namespace SlopWorld
     [HarmonyPatch(typeof(Command), "GizmoOnGUIInt")]
     static class Patch_SlopCommandShortcutLabel
     {
-        // RimWorld 1.6 loads this Rect local for the shortcut-label Widgets.Label call.
+        // The game loads this Rect local for the shortcut-label Widgets.Label call.
         const int ShortcutLabelRectLocal = 5;
 
         static IEnumerable<CodeInstruction> Transpiler(

@@ -2,20 +2,22 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RootNamespace>SlopWorld.Tests</RootNamespace>
     <AssemblyName>SlopWorld.Tests</AssemblyName>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
-    <!-- The shipped Mono transport intentionally uses HttpWebRequest. -->
-    <NoWarn>$(NoWarn);SYSLIB0014</NoWarn>
     <DebugType>none</DebugType>
     <DebugType Condition="'$(Coverage)' == 'true'">portable</DebugType>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/Bootstrap/IdleInhibitionWorker.cs" />
+    <Compile Include="../Source/SlopWorld/Bootstrap/LinuxIdleLease.cs" />
+    <Compile Include="../Source/SlopWorld/Bootstrap/X11IdleInhibitor.cs" />
+    <Compile Include="../Source/SlopWorld/Bootstrap/LinuxIdleInhibitor.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonHttpTransport.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Plague/Plague.Persistence.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Colony/IntroSceneState.cs" />
@@ -31,6 +33,16 @@
     <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowTarget.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowSelection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TooltipLineBreaks.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/NativeTextLayout.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/NativeTextScope.cs" />
+    <Compile Include="../Source/SlopWorld/Patches/Chrome/NativeText.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Settings/UiScaleDrag.cs" />
+    <Compile Include="../Source/SlopWorld/Patches/Chrome/SwapchainAcquireTimeout.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalCachePaint.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/InstalledFontNames.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/OpenTypeFace.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/OpenTypeCollection.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/NativeFonts.cs" />
     <Compile Include="../Source/SlopWorld/Client/Catalog/WorktreeRequests.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Jukebox/RadioPlayback.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Jukebox/Radio.Playback.cs" />
@@ -61,6 +73,7 @@
     <Compile Include="../Source/SlopWorld/UI/Views/Git/GitStatus.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/History/TerminalHistoryRestore.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Input/TerminalInputController.Keyboard.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Input/TerminalWheelSteps.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalPanel/TerminalLinkService.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/RealClock.Formatting.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/QuitInterceptor.cs" />
@@ -68,6 +81,7 @@
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/LogEntryClock.cs" />
     <Compile Include="../Source/SlopWorld/Patches/LoadingScreen/LoadingScreen.Tips.cs" />
     <Compile Include="../Source/SlopWorld/Patches/LoadingScreen/LoadingTipSelection.cs" />
+    <Compile Include="../Source/SlopWorld/Patches/LoadingScreen/LoadingTipPanel.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownImageHeader.cs" Link="Source/MarkdownImageHeader.cs" />
     <Compile Include="../Source/SlopWorld/UI/Utilities/BoundedImageDecoder.cs" Link="Source/BoundedImageDecoder.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Resources.cs" Link="Source/MarkdownPreview.Resources.cs" />
@@ -83,6 +97,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="Tmds.DBus.Protocol">
+      <HintPath>../Assemblies/Tmds.DBus.Protocol.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
     <Reference Include="0Harmony">
       <HintPath>../Assemblies/0Harmony.dll</HintPath>
       <Private>true</Private>
@@ -96,10 +114,6 @@
       <HintPath>../Assemblies/AngleSharp.dll</HintPath>
       <Private>true</Private>
     </Reference>
-    <Reference Include="System.Text.Encoding.CodePages">
-      <HintPath>../Assemblies/System.Text.Encoding.CodePages.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
     <Reference Include="Markdig">
       <HintPath>../Assemblies/Markdig.dll</HintPath>
       <Private>true</Private>
@@ -110,7 +124,6 @@
     </Reference>
     <Compile Include="../Source/SlopWorld/UI/Scrolling/ScrollWheelRouter.cs" Link="Source/ScrollWheelRouter.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/MenuRowGeometry.cs" Link="Source/MenuRowGeometry.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Scrolling/WheelEventQueue.cs" Link="Source/WheelEventQueue.cs" />
     <!-- Use the shipped parser and deterministic text metrics. -->
     <Compile Include="../Source/SlopWorld/UI/Workspace/ContentView.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.cs" />
@@ -257,22 +270,6 @@
   <ItemGroup>
     <Reference Include="Google.Protobuf">
       <HintPath>../Assemblies/Google.Protobuf.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <Reference Include="System.Memory">
-      <HintPath>../Assemblies/System.Memory.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <Reference Include="System.Buffers">
-      <HintPath>../Assemblies/System.Buffers.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <Reference Include="System.Numerics.Vectors">
-      <HintPath>../Assemblies/System.Numerics.Vectors.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <Reference Include="System.Runtime.CompilerServices.Unsafe">
-      <HintPath>../Assemblies/System.Runtime.CompilerServices.Unsafe.dll</HintPath>
       <Private>true</Private>
     </Reference>
   </ItemGroup>

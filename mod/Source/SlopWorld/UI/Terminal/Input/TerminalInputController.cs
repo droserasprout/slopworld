@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -55,8 +54,6 @@ namespace SlopWorld
                 { KeyCode.F12, ForwardMappedKey },
                 { KeyCode.C, HandleControlC },
                 { KeyCode.V, HandleControlV },
-                { KeyCode.Semicolon, HandleSemicolonKey },
-                { KeyCode.Colon, HandleSemicolonKey },
                 { KeyCode.Space, ForwardMappedKey },
                 { KeyCode.At, ForwardMappedKey },
                 { KeyCode.LeftBracket, ForwardMappedKey },
@@ -97,18 +94,6 @@ namespace SlopWorld
         public void Handle(Rect body)
         {
             var e = Event.current;
-            // WindowStack can consume the semicolon before the window draws. Replay that character only.
-            // Do not replay other Used events.
-            if (
-                e.type == EventType.Used
-                && e.rawType == EventType.KeyDown
-                && (e.character == ';' || IsSemicolonKey(e.keyCode))
-            )
-            {
-                HandleKey(e);
-                return;
-            }
-
             switch (e.type)
             {
                 case EventType.ScrollWheel:
@@ -162,11 +147,6 @@ namespace SlopWorld
 
             if (TryHandleSessionNavigation(e))
                 return;
-        }
-
-        public void CaptureSemicolonInput()
-        {
-            CaptureSemicolonInputCore();
         }
 
         bool TryLocal(Event e) => Try(_local, e);
@@ -297,18 +277,10 @@ namespace SlopWorld
                 return;
             }
 
-            // Unity reports a semicolon with a spurious modifier on this player. The character event has the keyboard-layout result.
-            if (e.character == ';')
-            {
-                AppendSemicolon();
-                e.Use();
-                return;
-            }
-
             if (TryTerminal(e))
                 return;
 
-            // Unity sends printable input in a second event that carries only the character.
+            // Character events carry the keyboard-layout result, including punctuation.
             if (
                 e.character != '\0'
                 && e.character != '\n'
@@ -439,22 +411,6 @@ namespace SlopWorld
             return true;
         }
 
-        internal bool HandleSemicolonKey(Event e)
-        {
-            // Some backends omit the character-only event. Keep the shifted character before this handler consumes the key.
-            if (e.character != '\0')
-                return false;
-            if (e.shift)
-            {
-                _panel.JumpToLive();
-                _panel.Literal.Append(':');
-            }
-            else
-                AppendSemicolon();
-            e.Use();
-            return true;
-        }
-
         internal bool ForwardMappedKey(Event e)
         {
             var keyScreen = SessionHub.Instance.Screen(_panel.SessionName);
@@ -468,45 +424,6 @@ namespace SlopWorld
             e.Use();
             return true;
         }
-
-        // IMGUI drops semicolon's KeyDown before it reaches this window on this player. Unity still sends the character event.
-        // DoWindowContents can run more than once per frame. The frame marker prevents duplicate input.
-        internal void CaptureSemicolonInputCore()
-        {
-            if (
-                _panel.AutoResumePending
-                || _panel.SemicolonFrame == Time.frameCount
-                || !SessionHub.Instance.Online
-            )
-                return;
-            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-            string input = Input.inputString;
-            int count = shift || string.IsNullOrEmpty(input) ? 0 : input.Count(c => c == ';');
-            bool physical = !shift && Input.GetKeyDown(KeyCode.Semicolon);
-            if (count == 0 && !physical)
-                return;
-
-            _panel.JumpToLive();
-            _panel.Flush();
-            SessionHub.Instance.Terminal.Paste(
-                _panel.SessionName,
-                new string(';', count > 0 ? count : 1)
-            );
-            _panel.SemicolonFrame = Time.frameCount;
-        }
-
-        void AppendSemicolon()
-        {
-            if (_panel.SemicolonFrame == Time.frameCount)
-                return;
-            _panel.JumpToLive();
-            _panel.Flush();
-            SessionHub.Instance.Terminal.Paste(_panel.SessionName, ";");
-            _panel.SemicolonFrame = Time.frameCount;
-        }
-
-        internal static bool IsSemicolonKey(KeyCode key) =>
-            key == KeyCode.Semicolon || key == KeyCode.Colon;
 
         // Ignore slots past the end of the portrait list. Show stopped agents with their action controls.
         // Require an explicit action to start an agent.

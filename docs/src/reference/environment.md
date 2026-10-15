@@ -71,7 +71,7 @@ requires an existing sidecar endpoint descriptor for a game launch. See
 | --- | --- | --- |
 | `SLOPD_LOG` | Daemon | Tracing filter; defaults to `slopd=info`. For more daemon detail, use `slopd=debug`. |
 | `SLOPWORLD_DEBUG` | Daemon and mod | Enables performance and terminal-latency instrumentation when `1` or `true` (case-insensitive). Disabled otherwise; set it before starting each process you want to trace. |
-| `SLOPWORLD_GAME_LOG` | Launcher, `slopctl logs`, `just logs` | Selects the Unity log file; defaults to `<CACHE>/Player.log`, or `<CACHE>/sidecar/Player.log` with `--sidecar`. The launcher passes it with `-logFile`. |
+| `SLOPWORLD_GAME_LOG` | Launcher, `slopctl logs`, `just logs` | Selects the file where the launcher captures game stdout and stderr; defaults to `<CACHE>/Player.log`, or `<CACHE>/sidecar/Player.log` with `--sidecar`. |
 | `SLOPWORLD_DAEMON_UNIT` | `slopctl logs` | Selects the systemd user unit to read; defaults to `slopd.service`. |
 
 See [Log locations](paths.md#logs) and [Troubleshooting](../resources/troubleshooting.md).

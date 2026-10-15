@@ -1,6 +1,6 @@
 # SlopWorld
 
-SlopWorld uses RimWorld 1.6 as the interface for live coding agents. The Rust daemon,
+SlopWorld uses RimWorld 1.7 as the interface for live coding agents. The Rust daemon,
 `slopd`, controls sessions, tmux, sandboxes, and terminal emulation. The C# mod uses
 Harmony to show this state in the colony and user interface. The mod and daemon
 communicate through HTTP and WebSocket. `slopcar/` packages the Linux daemon for sidecar use.

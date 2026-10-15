@@ -252,7 +252,7 @@ namespace SlopWorld.Tests
                 {
                     string shortText = now.ToString("HH:mm", CultureInfo.InvariantCulture);
                     string tip =
-                        now.ToString("dddd, d MMMM yyyy", CultureInfo.InvariantCulture)
+                        now.ToString("dddd, yyyy-MM-dd", CultureInfo.InvariantCulture)
                         + "\n"
                         + now.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
                     return shortText.Length + tip.Length;

@@ -195,7 +195,7 @@ namespace SlopWorld
                 input.MouseDown
                 && input.Button == 1
                 && focusedEditor != null
-                && focusedEditor.IsOverSelection(e.mousePosition);
+                && NativeTextLayout.IsOverSelection(focusedEditor, e.mousePosition);
             if (input.KeepSelection)
             {
                 input.Cursor = focusedEditor.cursorIndex;
@@ -389,7 +389,12 @@ namespace SlopWorld
             if (string.IsNullOrEmpty(text))
                 return;
             string insert = SingleLinePaste(text, area);
-            QueueEdit(name, controlId, editor => editor.ReplaceSelection(insert), lifetime);
+            QueueEdit(
+                name,
+                controlId,
+                editor => NativeTextLayout.ReplaceSelection(editor, insert),
+                lifetime
+            );
         }
 
         static void RequestPaste(

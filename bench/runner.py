@@ -58,10 +58,9 @@ def run_ipc() -> None:
                 stdout=destination,
             )
     csharp = ROOT / 'bench/ipc/csharp/bin' / configuration()
-    mono = ['mono', str(csharp / 'net472/IpcBench.exe')]
+    dotnet = [*command('DOTNET', 'dotnet'), str(csharp / 'net10.0/IpcBench.dll')]
     runtimes = (
-        ('mono', mono),
-        ('net8', [*command('DOTNET', 'dotnet'), str(csharp / 'net8.0/IpcBench.dll')]),
+        ('net10', dotnet),
         ('rust', [str(rust_binary(ROOT / 'bench/ipc/rust', 'slopworld-ipc-bench'))]),
     )
     for runtime, arguments in runtimes:
@@ -72,7 +71,7 @@ def run_ipc() -> None:
                 env={**os.environ, 'DOTNET_TieredCompilation': '0'},
                 stdout=stream,
             )
-    run([*mono, '--verify', str(fixtures)], cwd=ROOT)
+    run([*dotnet, '--verify', str(fixtures)], cwd=ROOT)
 
 
 def build(suite: str = 'gamefree') -> None:
@@ -126,7 +125,13 @@ def run_suite(suite: str) -> None:
         run(
             [
                 *command('DOTNET', 'dotnet'),
-                f'mod/Tests/bin/{configuration()}/net8.0/SlopWorld.Tests.dll',
+                'run',
+                '--project',
+                os.environ['TEST_PROJECT'],
+                '--configuration',
+                configuration(),
+                '--no-build',
+                '--',
                 '--perf-bench',
             ],
             cwd=ROOT,

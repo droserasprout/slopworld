@@ -230,7 +230,7 @@ namespace SlopWorld
             || Matches(query, fifth);
 
         static bool Matches(string query, string value) =>
-            (value ?? "").IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+            (value ?? "").Contains(query, StringComparison.OrdinalIgnoreCase);
 
         static bool MainCategoryEnabled(string key) => _kind.Length == 0 || _kind == key;
 

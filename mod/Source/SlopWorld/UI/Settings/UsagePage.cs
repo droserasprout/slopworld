@@ -453,7 +453,7 @@ namespace SlopWorld
         // ------------------------------------------------------------------ palette
 
         // The picker uses a hand-picked, one-screen subset. Resolve names against defs and drop
-        // missing entries. Carpet is a TerrainDef in 1.6, not a ThingDef, so it is excluded.
+        // missing entries. Carpet is a TerrainDef, not a ThingDef, so it is excluded.
         static readonly string[] Palette =
         {
             // Metals and stone.

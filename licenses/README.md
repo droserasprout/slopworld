@@ -12,6 +12,7 @@ metadata; it does not include their full license texts or notices.
 | Component | License | Full text | Attribution and use |
 | --- | --- | --- | --- |
 | RimWorld Tame designator | RimWorld EULA | [License](rimworld/EULA.txt) | Ludeon Studios Inc.; `UI/Designators/Tame` from RimWorld 1.6, mirrored, scaled, and rotated for the documentation cursors. |
+| [X.Org Xlib and libXss](https://www.x.org/) | MIT/X11-style licenses | [Xlib notices](xorg/libX11.COPYING), [libXss notices](xorg/libXss.COPYING) | System X11 libraries; window integration, idle timer resets and optional screensaver suspension. The libraries are not bundled. |
 | Slopcar Rust dependencies | MIT | [Full dependency notices](slopcar/THIRD-PARTY-NOTICES.txt) | Host-side container launcher; generated from its locked Cargo graph by `just generate sidecar-licenses`. |
 | [Classic Console Neue](https://webdraft.hu/fonts/classic-console/) | MIT | [License](classic-console-neue/LICENSE.txt) | DeeJayy, 2011–2025; printable ASCII glyphs rendered into the loading-screen atlas. |
 | [Noto Emoji](https://github.com/googlefonts/noto-emoji) | SIL OFL 1.1 | [License](noto-emoji/LICENSE.txt) | Google; glyphs rendered into emoji atlases and application icons. |
@@ -25,17 +26,13 @@ metadata; it does not include their full license texts or notices.
 | Powerline Extra glyphs | MIT | [License](nerd-fonts/licenses/powerline-extra/LICENSE) | Upstream glyph license preserved with Symbols Nerd Font. |
 | Powerline Symbols glyphs | MIT | [License](nerd-fonts/licenses/powerline-symbols/LICENSE.txt) | Upstream glyph license preserved with Symbols Nerd Font. |
 | [Unicode emoji data 17.0](https://www.unicode.org/emoji/17.0/) | Unicode License v3 | [License](unicode/LICENSE.txt) | Unicode, Inc.; emoji sequence catalog generated from `emoji-test.txt`. |
-| [Harmony](https://github.com/pardeike/HarmonyRimWorld) | MIT | [License](runtime/0Harmony.LICENSE.txt) | Andreas Pardeike; mod runtime library. |
+| [Harmony](https://github.com/pardeike/Harmony) | MIT | [License](runtime/0Harmony.LICENSE.txt) | Andreas Pardeike; mod runtime library. |
 | Google.Protobuf | BSD 3-Clause | [License](runtime/Google.Protobuf.LICENSE.txt) | Mod runtime library. |
 | AngleSharp | MIT | [License](runtime/AngleSharp.LICENSE.txt) | Mod HTML parser. |
 | Markdig | BSD 2-Clause | [License](runtime/Markdig.LICENSE.txt) | Mod runtime library. |
 | Newtonsoft.Json | MIT | [License](runtime/Newtonsoft.Json.LICENSE.txt) | Mod runtime library. |
+| Tmds.DBus.Protocol | MIT | [License](runtime/Tmds.DBus.Protocol.LICENSE.txt) | Tom Deseyn and contributors; mod desktop integration. |
 | Tomlyn | BSD 2-Clause | [License](runtime/Tomlyn.LICENSE.txt) | Mod runtime library. |
-| System.Text.Encoding.CodePages | MIT | [License](runtime/System.Text.Encoding.CodePages.LICENSE.txt) | Mod runtime library; includes [third-party notices](runtime/System.Text.Encoding.CodePages.NOTICES.txt). |
-| System.Buffers | MIT | [License](runtime/System.Buffers.LICENSE.txt) | Mod runtime library. |
-| System.Memory | MIT | [License](runtime/System.Memory.LICENSE.txt) | Mod runtime library; includes additional [third-party notices](runtime/System.Memory.NOTICES.txt). |
-| System.Numerics.Vectors | MIT | [License](runtime/System.Numerics.Vectors.LICENSE.txt) | Mod runtime library. |
-| System.Runtime.CompilerServices.Unsafe | MIT | [License](runtime/System.Runtime.CompilerServices.Unsafe.LICENSE.txt) | Mod runtime library. |
 
 The bundled `clacon2.ttf` identifies its license as MIT and carries the copyright
 notice reproduced above. The glyph notices describe the bundled Symbols Nerd

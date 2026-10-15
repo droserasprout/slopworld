@@ -64,8 +64,7 @@ namespace SlopWorld
                 );
             if (string.IsNullOrEmpty(iconKey))
                 throw new ArgumentException("A sidebar tab needs an icon key.", nameof(iconKey));
-            if (handlers == null)
-                throw new ArgumentNullException(nameof(handlers));
+            ArgumentNullException.ThrowIfNull(handlers);
 
             Tab = tab;
             PersistedName = persistedName;
@@ -107,8 +106,7 @@ namespace SlopWorld
             Func<SidebarTab, SidebarTabHandlers> handlers
         )
         {
-            if (handlers == null)
-                throw new ArgumentNullException(nameof(handlers));
+            ArgumentNullException.ThrowIfNull(handlers);
             var definitions = new SidebarTabDefinition[Order.Count];
             for (int i = 0; i < Order.Count; i++)
                 definitions[i] = Definition(Order[i], handlers(Order[i]));
@@ -266,16 +264,11 @@ namespace SlopWorld
             Action persist
         )
         {
-            if (current == null)
-                throw new ArgumentNullException(nameof(current));
-            if (target == null)
-                throw new ArgumentNullException(nameof(target));
-            if (definitions == null)
-                throw new ArgumentNullException(nameof(definitions));
-            if (closeMenus == null)
-                throw new ArgumentNullException(nameof(closeMenus));
-            if (persist == null)
-                throw new ArgumentNullException(nameof(persist));
+            ArgumentNullException.ThrowIfNull(current);
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(definitions);
+            ArgumentNullException.ThrowIfNull(closeMenus);
+            ArgumentNullException.ThrowIfNull(persist);
 
             closeMenus();
             if (current.Tab == target.Tab)

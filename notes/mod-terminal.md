@@ -13,6 +13,12 @@ Harmony only dispatches it. Pane clicks, split creation, and session switching s
 focus. Visible terminal panes bypass field focus scopes. Auto-resume pending consumes
 terminal keys while preserving workspace controls. Shortcut/modifier behavior belongs
 to [keyboard shortcuts](../docs/src/reference/keyboard-shortcuts.md).
+Printable input, including punctuation, follows native character events. Polling
+physical key state must not synthesize a second text stream.
+
+Reader wheel steps follow the magnitude of Waylith's accumulated frame event
+(three event units per notch), for both mouse reports and arrow-key fallback.
+Counting one step per event makes fast scrolling depend on the frame rate.
 
 Each panel negotiates dimensions from its assigned bounds. Rendering, hit tests, and
 resize share a pixel-snapped cell advance. Refresh resizes each bound panel and uses

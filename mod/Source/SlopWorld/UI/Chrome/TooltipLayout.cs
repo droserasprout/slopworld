@@ -48,11 +48,9 @@ namespace SlopWorld
                 return layout;
 
             var style = new GUIStyle(native) { wordWrap = true, alignment = TextAnchor.UpperLeft };
-            var content = new GUIContent(text);
-            var rect = new Rect(0f, 0f, 260f, style.CalcHeight(content, 260f));
             string frozen = TooltipLineBreaks.Freeze(
                 text,
-                offset => style.GetCursorPixelPosition(rect, content, offset).y,
+                offset => NativeTextLayout.Cursor(style, text, 260f, offset).y,
                 style.richText
             );
             // Explicit breaks are authoritative even when Unity's moving/scaled label would

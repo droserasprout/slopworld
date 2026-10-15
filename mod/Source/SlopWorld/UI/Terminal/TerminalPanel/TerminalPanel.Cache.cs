@@ -96,125 +96,112 @@ namespace SlopWorld
             TerminalRepaintReason repaintReason
         )
         {
+            if (repaint == TerminalRepaint.None)
+                return;
+
             var body = new Rect(key.X, key.Y, key.Width, key.Height);
             var buf = key.Buffer;
             float cw = key.CellW,
                 ch = key.CellH;
             if (repaintAll)
             {
-                if (
-                    PerfTrace.Enabled
-                    && _cacheKey.Buffer != null
-                    && _cacheKey.Offset > 0
-                    && key.Offset > 0
-                    && _cacheKey.Offset != key.Offset
-                    && _cacheKey.SameSurface(key)
-                )
-                {
-                    PerfTrace.Count("terminal-cache-scroll-shifts");
-                    int rows = TerminalScrollReuse.MatchingRows(_cacheKey, key);
-                    if (rows > 0)
-                    {
-                        PerfTrace.Count("terminal-cache-scroll-overlap", rows);
-                        if (
-                            TerminalScrollReuse.PixelAligned(
-                                _cacheKey.Offset,
-                                key.Offset,
-                                ch,
-                                _snapSy
-                            )
-                        )
-                            PerfTrace.Count("terminal-cache-scroll-copyable", rows);
-                    }
-                }
+                TraceCacheScrollReuse(key);
                 PerfTrace.Count("terminal-cache-misses");
-                PerfTrace.Count("terminal-cache-repaints");
-                long paintStarted = PerfTrace.Start();
-                // Keep the pre-paint revision. RequestCharactersInTexture can rebuild the
-                // atlas while Paint is running. Retaining the old revision forces one clean
-                // repaint after that rebuild instead of caching a half-drawn first frame.
-                var was = RenderTexture.active;
-                try
-                {
-                    RenderTexture.active = _cache;
-                    GL.Clear(false, true, SolidTerminalBackground);
-                    _cacheLead = CacheLead(body, ch);
-                    Paint(
-                        new Rect(body.x, body.y - _cacheLead, body.width, body.height + _cacheLead),
-                        buf,
-                        cw,
-                        ch
-                    );
-                }
-                finally
-                {
-                    RenderTexture.active = was;
-                    PerfTrace.End("terminal-cache-full-paint", paintStarted, 1);
-                }
+                // Only an invalidated surface changes the cached overscan geometry.
+                _cacheLead = CacheLead(body, ch);
             }
-            else if (repaint != TerminalRepaint.None)
+            else if (repaint == TerminalRepaint.Full)
+                TraceBroadCacheRepaint(repaintReason);
+
+            PerfTrace.Count("terminal-cache-repaints");
+            long paintStarted = PerfTrace.Start();
+            var paintBody = new Rect(
+                body.x,
+                body.y - _cacheLead,
+                body.width,
+                body.height + _cacheLead
+            );
+            try
             {
-                PerfTrace.Count("terminal-cache-repaints");
-                // Small live edits only invalidate their rows. A broad terminal scroll changes
-                // most rows, where one full paint is cheaper and avoids many GUI draw calls.
-                bool broad = repaint == TerminalRepaint.Full;
-                long paintStarted = PerfTrace.Start();
-                var was = RenderTexture.active;
-                try
-                {
-                    RenderTexture.active = _cache;
-                    if (broad)
-                    {
-                        PerfTrace.Count("terminal-cache-broad-repaints");
-                        if (PerfTrace.Enabled)
-                        {
-                            if (repaintReason == TerminalRepaintReason.SkippedRevisions)
-                                PerfTrace.Count("terminal-cache-skipped-revisions");
-                            else if (repaintReason == TerminalRepaintReason.BroadRows)
-                                PerfTrace.Count("terminal-cache-broad-rows");
-                            else if (repaintReason == TerminalRepaintReason.MissingDamage)
-                                PerfTrace.Count("terminal-cache-missing-damage");
-                        }
-                        GL.Clear(false, true, SolidTerminalBackground);
-                        Paint(
-                            new Rect(
-                                body.x,
-                                body.y - _cacheLead,
-                                body.width,
-                                body.height + _cacheLead
-                            ),
-                            buf,
-                            cw,
-                            ch
-                        );
-                    }
-                    else
-                    {
-                        PerfTrace.Count("terminal-cache-rows-repainted", buf.ChangedRows.Length);
-                        PaintRows(
-                            new Rect(
-                                body.x,
-                                body.y - _cacheLead,
-                                body.width,
-                                body.height + _cacheLead
-                            ),
-                            buf,
-                            cw,
-                            ch,
-                            buf.ChangedRows
-                        );
-                    }
-                }
-                finally
-                {
-                    RenderTexture.active = was;
-                    PerfTrace.End(
-                        broad ? "terminal-cache-full-paint" : "terminal-cache-row-paint",
-                        paintStarted,
-                        1
+                // Fresh surfaces and broad damage use the same GUI background/glyph batch.
+                // Small live edits clear and repaint only their changed rows.
+                if (repaint == TerminalRepaint.Full)
+                    TerminalCachePaint.Full(
+                        _cache,
+                        paintBody,
+                        SolidTerminalBackground,
+                        () => Paint(paintBody, buf, cw, ch)
                     );
-                }
+                else
+                    PaintCacheRows(paintBody, buf, cw, ch);
             }
+            finally
+            {
+                PerfTrace.End(
+                    repaint == TerminalRepaint.Full
+                        ? "terminal-cache-full-paint"
+                        : "terminal-cache-row-paint",
+                    paintStarted,
+                    1
+                );
+            }
+        }
+
+        void PaintCacheRows(Rect body, ScreenBuf buf, float cw, float ch)
+        {
+            var previous = RenderTexture.active;
+            try
+            {
+                RenderTexture.active = _cache;
+                PerfTrace.Count("terminal-cache-rows-repainted", buf.ChangedRows.Length);
+                PaintRows(body, buf, cw, ch, buf.ChangedRows);
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+            }
+        }
+
+        void TraceCacheScrollReuse(TerminalCacheKey key)
+        {
+            if (
+                !PerfTrace.Enabled
+                || _cacheKey.Buffer == null
+                || _cacheKey.Offset <= 0
+                || key.Offset <= 0
+                || _cacheKey.Offset == key.Offset
+                || !_cacheKey.SameSurface(key)
+            )
+                return;
+
+            PerfTrace.Count("terminal-cache-scroll-shifts");
+            int rows = TerminalScrollReuse.MatchingRows(_cacheKey, key);
+            if (rows > 0)
+            {
+                PerfTrace.Count("terminal-cache-scroll-overlap", rows);
+                if (
+                    TerminalScrollReuse.PixelAligned(
+                        _cacheKey.Offset,
+                        key.Offset,
+                        key.CellH,
+                        _snapSy
+                    )
+                )
+                    PerfTrace.Count("terminal-cache-scroll-copyable", rows);
+            }
+        }
+
+        static void TraceBroadCacheRepaint(TerminalRepaintReason reason)
+        {
+            PerfTrace.Count("terminal-cache-broad-repaints");
+            if (!PerfTrace.Enabled)
+                return;
+            if (reason == TerminalRepaintReason.SkippedRevisions)
+                PerfTrace.Count("terminal-cache-skipped-revisions");
+            else if (reason == TerminalRepaintReason.BroadRows)
+                PerfTrace.Count("terminal-cache-broad-rows");
+            else if (reason == TerminalRepaintReason.MissingDamage)
+                PerfTrace.Count("terminal-cache-missing-damage");
         }
 
         TerminalCacheKey CacheKey(Rect body, ScreenBuf buf, float cw, float ch)
@@ -320,27 +307,14 @@ namespace SlopWorld
             }
             if (edgeOverrun)
                 PerfTrace.Count("terminal-cache-edge-clamps");
-            float u0 = x0 / pw,
-                u1 = x1 / pw;
-
-            // texCoords y counts from the destination's bottom either way. Which end of
-            // the texture that is, is where the API put the target's first row.
-            float v0,
-                v1;
-            if (SystemInfo.graphicsUVStartsAtTop)
-            {
-                v0 = y1 / ph;
-                v1 = y0 / ph;
-            }
-            else
-            {
-                v0 = 1f - y1 / ph;
-                v1 = 1f - y0 / ph;
-            }
 
             var tint = GUI.color;
             GUI.color = Color.white;
-            GUI.DrawTextureWithTexCoords(destination, _cache, new Rect(u0, v0, u1 - u0, v1 - v0));
+            GUI.DrawTextureWithTexCoords(
+                destination,
+                _cache,
+                TerminalCacheSampling.SourceUv(pw, ph, x0, y0, x1, y1)
+            );
             GUI.color = tint;
             drawn = true;
             ScrollDebugBlit(debugStarted, drawn);

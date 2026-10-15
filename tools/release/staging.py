@@ -20,11 +20,7 @@ MOD_ASSEMBLIES = (
     'Markdig',
     'Newtonsoft.Json',
     'Tomlyn',
-    'System.Buffers',
-    'System.Memory',
-    'System.Numerics.Vectors',
-    'System.Runtime.CompilerServices.Unsafe',
-    'System.Text.Encoding.CodePages',
+    'Tmds.DBus.Protocol',
 )
 
 

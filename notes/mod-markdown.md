@@ -33,6 +33,8 @@ Quotes and list items contain their own floats; code, tables, and other slabs cl
 outer floats. Text layout records each line's horizontal inset so wrapping, HTML
 alignment, drawing, copying, and hit testing share geometry.
 
-Drawing, selection, and link hit testing use the same reflowed geometry. Reader
-routing belongs to [Files](mod-ui-files.md), input/clipboard boundaries to
+Drawing, selection, and link hit testing use the same reflowed geometry.
+`StyleSet` measurement retains whitespace advances even though native `CalcSize`
+excludes trailing spaces; cached character widths and wrapped chunks share that rule.
+Reader routing belongs to [Files](mod-ui-files.md), input/clipboard boundaries to
 [terminal](mod-terminal.md), and validation limits to [C# tests](test-csharp.md).

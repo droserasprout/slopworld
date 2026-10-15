@@ -9,6 +9,39 @@ namespace SlopWorld.Tests
 {
     static class SettingsBehaviorTests
     {
+        public static void ScreensaverPreferenceDefaultsOnAndPersistsBothValues()
+        {
+            AssertEx.True(
+                ModSettings.FromToml("").inhibitScreensaver,
+                "existing profiles inherit enabled inhibition"
+            );
+            foreach (bool enabled in new[] { false, true })
+            {
+                var settings = new ModSettings { inhibitScreensaver = enabled };
+                AssertEx.Equal(
+                    enabled,
+                    ModSettings.FromToml(settings.ToToml()).inhibitScreensaver,
+                    "screensaver preference survives serialization"
+                );
+            }
+        }
+
+        public static void FramePacingDefaultsToAutoAndPreservesExplicitModes()
+        {
+            AssertEx.Equal(
+                FramePolicy.Auto,
+                ModSettings.FromToml("").displayMode,
+                "missing preference uses Auto"
+            );
+            foreach (string mode in new[] { FramePolicy.Auto, FramePolicy.Sync, FramePolicy.Limit })
+            {
+                var settings = new ModSettings { displayMode = mode, foregroundFps = 144 };
+                var restored = ModSettings.FromToml(settings.ToToml());
+                AssertEx.Equal(mode, restored.displayMode, "explicit policy round trips");
+                AssertEx.Equal(144, restored.foregroundFps, "manual cap retained");
+            }
+        }
+
         static void WithSettings(Action<ModSettings> action)
         {
             var settings = Settings.S;
@@ -253,6 +286,11 @@ namespace SlopWorld.Tests
                     ("autoConnect", v => settings.autoConnect = v, () => Settings.AutoConnect),
                     ("fullscreen", v => settings.fullscreen = v, () => Settings.Fullscreen),
                     (
+                        "inhibitScreensaver",
+                        v => settings.inhibitScreensaver = v,
+                        () => Settings.InhibitScreensaver
+                    ),
+                    (
                         "sidebarHidden",
                         v => settings.sidebarHidden = v,
                         () => Settings.SidebarHidden
@@ -338,7 +376,7 @@ namespace SlopWorld.Tests
                     "unknown density falls back"
                 );
                 AssertEx.Equal(
-                    FramePolicy.Sync,
+                    FramePolicy.Auto,
                     Settings.DisplayMode,
                     "old display policy falls back"
                 );

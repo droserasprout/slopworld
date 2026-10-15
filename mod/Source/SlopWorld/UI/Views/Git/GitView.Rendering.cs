@@ -405,9 +405,7 @@ namespace SlopWorld
             if (root.Length == 0 || string.IsNullOrEmpty(abs))
                 return null;
             if (root == "/")
-                return abs.StartsWith("/", StringComparison.Ordinal) && abs.Length > 1
-                    ? abs.Substring(1)
-                    : null;
+                return abs.StartsWith('/') && abs.Length > 1 ? abs.Substring(1) : null;
             root = root.TrimEnd('/');
             return abs.StartsWith(root + "/", StringComparison.Ordinal)
                 ? abs.Substring(root.Length + 1)
