@@ -176,48 +176,14 @@ namespace SlopWorld
                     _cacheRegion,
                     out scroll
                 );
-            if (
-                PerfTrace.Enabled
-                && repaintAll
-                && _cacheKey.Buffer != null
-                && _cacheKey.Offset > 0
-                && key.Offset > 0
-                && _cacheKey.Offset != key.Offset
-                && _cacheKey.SameSurface(key)
-            )
-            {
-                PerfTrace.Count("terminal-cache-scroll-shifts");
-                int overlap = TerminalScrollReuse.MatchingRows(_cacheKey, key);
-                if (overlap > 0)
-                {
-                    PerfTrace.Count("terminal-cache-scroll-overlap", overlap);
-                    if (
-                        TerminalScrollReuse.PixelAligned(
-                            _cacheKey.Offset,
-                            key.Offset,
-                            key.CellH,
-                            _snapSy
-                        )
-                    )
-                        PerfTrace.Count("terminal-cache-scroll-copyable", overlap);
-                }
-            }
-            PerfTrace.Count("terminal-cache-repaints");
             if (repaintAll)
-                PerfTrace.Count("terminal-cache-misses");
-            else if (broad)
             {
-                PerfTrace.Count("terminal-cache-broad-repaints");
-                if (PerfTrace.Enabled)
-                {
-                    if (repaintReason == TerminalRepaintReason.SkippedRevisions)
-                        PerfTrace.Count("terminal-cache-skipped-revisions");
-                    else if (repaintReason == TerminalRepaintReason.BroadRows)
-                        PerfTrace.Count("terminal-cache-broad-rows");
-                    else if (repaintReason == TerminalRepaintReason.MissingDamage)
-                        PerfTrace.Count("terminal-cache-missing-damage");
-                }
+                TraceCacheScrollReuse(key);
+                PerfTrace.Count("terminal-cache-misses");
             }
+            else if (broad)
+                TraceBroadCacheRepaint(repaintReason);
+            PerfTrace.Count("terminal-cache-repaints");
 
             long started = PerfTrace.Start();
             var was = RenderTexture.active;
@@ -343,6 +309,48 @@ namespace SlopWorld
                     startsAtTop
                 )
             );
+        }
+
+        void TraceCacheScrollReuse(TerminalCacheKey key)
+        {
+            if (
+                !PerfTrace.Enabled
+                || _cacheKey.Buffer == null
+                || _cacheKey.Offset <= 0
+                || key.Offset <= 0
+                || _cacheKey.Offset == key.Offset
+                || !_cacheKey.SameSurface(key)
+            )
+                return;
+
+            PerfTrace.Count("terminal-cache-scroll-shifts");
+            int rows = TerminalScrollReuse.MatchingRows(_cacheKey, key);
+            if (rows > 0)
+            {
+                PerfTrace.Count("terminal-cache-scroll-overlap", rows);
+                if (
+                    TerminalScrollReuse.PixelAligned(
+                        _cacheKey.Offset,
+                        key.Offset,
+                        key.CellH,
+                        _snapSy
+                    )
+                )
+                    PerfTrace.Count("terminal-cache-scroll-copyable", rows);
+            }
+        }
+
+        static void TraceBroadCacheRepaint(TerminalRepaintReason reason)
+        {
+            PerfTrace.Count("terminal-cache-broad-repaints");
+            if (!PerfTrace.Enabled)
+                return;
+            if (reason == TerminalRepaintReason.SkippedRevisions)
+                PerfTrace.Count("terminal-cache-skipped-revisions");
+            else if (reason == TerminalRepaintReason.BroadRows)
+                PerfTrace.Count("terminal-cache-broad-rows");
+            else if (reason == TerminalRepaintReason.MissingDamage)
+                PerfTrace.Count("terminal-cache-missing-damage");
         }
 
         TerminalCacheKey CacheKey(Rect body, ScreenBuf buf, float cw, float ch)
