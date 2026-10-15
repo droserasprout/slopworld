@@ -182,6 +182,7 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
     }
 
     let mut command = Command::new(&executable);
+    configure_game_window(&mut command);
     // Pass the same resolved roots to the mod, including platform defaults and
     // absolute paths so a different game working directory cannot relocate them.
     for (variable, root) in [
@@ -457,6 +458,14 @@ fn game_argv(executable: &Path, profile: &Path, rest: &[String]) -> Vec<String> 
     ];
     argv.extend(rest.iter().cloned());
     argv
+}
+
+/// The mod owns Linux fullscreen through X11/EWMH, including on Wayland desktops.
+/// Waylith reads FORCE_X11 before initializing GLFW and creating the game window.
+fn configure_game_window(command: &mut Command) {
+    if cfg!(target_os = "linux") {
+        command.env("FORCE_X11", "1");
+    }
 }
 
 /// Capture both console streams in one log; Waylith's file logger is disabled in argv.

@@ -378,3 +378,18 @@ fn print_reset_and_invalid_working_dir_preserve_profile() {
     assert_eq!(std::fs::read(&mods).unwrap(), custom);
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn linux_launch_selects_x11_for_window_manager_fullscreen() {
+    let mut command = Command::new("/g/RimWorld");
+    configure_game_window(&mut command);
+    let selected = command.get_envs().find(|(key, _)| *key == "FORCE_X11");
+    if cfg!(target_os = "linux") {
+        assert_eq!(
+            selected,
+            Some((OsStr::new("FORCE_X11"), Some(OsStr::new("1"))))
+        );
+    } else {
+        assert_eq!(selected, None);
+    }
+}

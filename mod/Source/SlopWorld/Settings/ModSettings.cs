@@ -30,8 +30,8 @@ namespace SlopWorld
 
         public bool autoConnect = true;
 
-        // The Linux popup window starts borderless to avoid Unity's Alt+Tab freeze. Keep
-        // fullscreen on by default, but let the player return to that launch window.
+        // Linux fullscreen belongs to the window manager while the renderer stays windowed.
+        // Start fullscreen by default; F11 returns to the undecorated desktop window.
         public bool fullscreen = true;
 
         // Sidebar preferences belong to the profile, not the colony save.
