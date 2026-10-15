@@ -3,6 +3,8 @@ use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+mod identity;
+pub(crate) use identity::checkout_identity;
 pub(crate) mod relocation;
 mod write_guard;
 
@@ -85,6 +87,18 @@ pub(crate) async fn validate_new_branch(root: &Path, branch: &str) -> Result<()>
 }
 
 async fn git_command(path: &Path, args: &[&str], writable: &[&Path]) -> Result<String> {
+    Ok(git_output(path, args, writable)
+        .await?
+        .trim_end_matches('\n')
+        .to_owned())
+}
+
+// Identity framing needs the original terminator to preserve trailing newlines in paths.
+async fn git_raw(path: &Path, args: &[&str]) -> Result<String> {
+    git_output(path, args, &[]).await
+}
+
+async fn git_output(path: &Path, args: &[&str], writable: &[&Path]) -> Result<String> {
     let mut command = crate::git::inspection_std_command(path);
     if !writable.is_empty() {
         write_guard::restrict(&mut command, writable)?;
@@ -115,9 +129,7 @@ async fn git_command(path: &Path, args: &[&str], writable: &[&Path]) -> Result<S
     if output.stdout_truncated || output.stderr_truncated {
         bail!("Git output exceeded limit");
     }
-    Ok(String::from_utf8(output.stdout)?
-        .trim_end_matches('\n')
-        .to_string())
+    Ok(String::from_utf8(output.stdout)?)
 }
 
 /// Git's `worktree add -b` starts helper processes. Register the worktree without a checkout.
