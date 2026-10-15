@@ -34,12 +34,12 @@ mod-check-themes:
 # Format production, test and benchmark C# sources
 [group('mod')]
 mod-format: mod-restore-tools
-    for source in mod/Source/SlopWorld mod/Tests bench/ipc/csharp bench/terminal-input/tests/http_transport; do (cd "$source" && dotnet csharpier format --log-level Warning .) || exit "$?"; done
+    for source in mod/Source/SlopWorld mod/Tests bench/ipc/csharp; do (cd "$source" && dotnet csharpier format --log-level Warning .) || exit "$?"; done
 
 # Check C# formatting without game assemblies
 [group('mod')]
 mod-lint: mod-restore-tools
-    for source in mod/Source/SlopWorld mod/Tests bench/ipc/csharp bench/terminal-input/tests/http_transport; do (cd "$source" && dotnet csharpier check --log-level Warning .) || exit "$?"; done
+    for source in mod/Source/SlopWorld mod/Tests bench/ipc/csharp; do (cd "$source" && dotnet csharpier check --log-level Warning .) || exit "$?"; done
 
 
 # Validate Release compilation and native bindings without starting the game

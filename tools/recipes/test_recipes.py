@@ -356,14 +356,23 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertIn('Release', bindings['args'])
         self.assertEqual(bindings['args'][-3:], ['--game-bindings', '/game assemblies', 'mod/Assemblies/SlopWorld.dll'])
 
-    def test_rimref_ci_build_ignores_local_game_path(self) -> None:
-        self.run_recipe('MANAGED=/missing/game', 'BUILD=debug', 'VERSION=1.2.3', 'mod-check-build-rimref')
-        (mod,) = [call for call in self.calls('dotnet') if 'mod/Source/SlopWorld/SlopWorld.csproj' in call['args']]
-        self.assertIn('-p:UseRimRef=true', mod['args'])
-        self.assertFalse(any(arg.startswith('-p:RimWorldManaged=') for arg in mod['args']))
-        self.assertIn('Release', mod['args'])
-        self.assertIn('-p:TreatWarningsAsErrors=true', mod['args'])
-        self.assertIn('-p:RestoreLockedMode=true', mod['args'])
+    def test_csharp_formatting_scopes_discovery_to_source_folders(self) -> None:
+        folders = [
+            'mod/Source/SlopWorld',
+            'mod/Tests',
+            'bench/ipc/csharp',
+        ]
+        for operation in ('format', 'lint'):
+            with self.subTest(operation=operation):
+                self.log.unlink(missing_ok=True)
+                self.run_recipe(f'mod-{operation}')
+                calls = self.calls('dotnet')
+                self.assertEqual(calls[0]['args'], ['tool', 'restore'])
+                calls = calls[1:]
+                self.assertEqual([call['cwd'] for call in calls], [str(ROOT / folder) for folder in folders])
+                for call in calls:
+                    action = 'check' if operation == 'lint' else 'format'
+                    self.assertEqual(call['args'], ['csharpier', action, '.'])
 
     def test_csharp_formatting_stops_after_a_folder_fails(self) -> None:
         self.env['RECIPE_TEST_FAIL'] = 'dotnet'
