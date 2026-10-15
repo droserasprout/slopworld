@@ -101,6 +101,9 @@ the C# source directories; `.csharpierignore` excludes generated bindings,
 build output, and project files. CSharpier owns layout; `.editorconfig` supplies
 indentation, line endings, and the shared .NET analyzer policy. Generated emoji
 metadata in `UI/Text/TextSpriteData.cs` also keeps its generator-owned layout.
+The pinned formatter and coverage tool run with .NET 10; CI installs the SDK from
+`global.json` without an additional runtime. Coverlet's packaged runtime configuration
+permits major-version roll-forward.
 `.github/workflows/image.yml` owns sidecar publication to
 `ghcr.io/<repository-owner>/slopcar` for amd64 and arm64. Only `vMAJOR.MINOR.PATCH` tag
 pushes build and publish images, using full commit SHA and release-version tags.

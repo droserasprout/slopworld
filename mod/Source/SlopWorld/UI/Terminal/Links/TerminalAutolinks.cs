@@ -153,7 +153,7 @@ namespace SlopWorld
             // cheaply. Any raw colon still takes the conservative path below.
             bool colon = false;
             foreach (string line in lines)
-                if (line != null && line.IndexOf(':') >= 0)
+                if (line != null && line.Contains(':'))
                 {
                     colon = true;
                     break;

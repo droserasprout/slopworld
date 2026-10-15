@@ -69,8 +69,6 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-          # The formatter and coverage tools require the .NET 8 runtime.
-          dotnet-version: '8.0.x'
           cache: true
           cache-dependency-path: |
             mod/Dependencies/packages.lock.json

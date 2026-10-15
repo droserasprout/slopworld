@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
@@ -31,7 +32,7 @@ namespace SlopWorld
                 charStart = Mathf.Clamp(charStart, 0, text.Length);
                 charEnd = Mathf.Clamp(charEnd, charStart, text.Length);
                 if (charEnd > charStart)
-                    output.Append(text.Substring(charStart, charEnd - charStart));
+                    output.Append(text.AsSpan(charStart, charEnd - charStart));
                 if (i < lastLineIndex)
                 {
                     output.Append(lines[i].Source.CopySuffix);

@@ -53,34 +53,6 @@ dotnet_diagnostic.CA1861.severity = suggestion
 # CA1860: Avoid using 'Enumerable.Any()' extension method
 dotnet_diagnostic.CA1860.severity = suggestion
 
-[mod/Source/SlopWorld/**.cs]
-# These files also compile inside net8.0 test/benchmark projects. Their runtime
-# contract remains net472 on Unity Mono; do not suggest newer framework APIs.
-# CA1510: Use ArgumentNullException throw helper
-dotnet_diagnostic.CA1510.severity = none
-# CA1512: Use ArgumentOutOfRangeException throw helper
-dotnet_diagnostic.CA1512.severity = none
-# CA1845: Use span-based 'string.Concat'
-dotnet_diagnostic.CA1845.severity = none
-# CA1846: Prefer 'AsSpan' over 'Substring'
-dotnet_diagnostic.CA1846.severity = none
-# CA1850: Prefer static 'HashData' method over 'ComputeHash'
-dotnet_diagnostic.CA1850.severity = none
-# CA1865: Use char overload
-dotnet_diagnostic.CA1865.severity = none
-# CA2249: Consider using 'string.Contains' instead of 'string.IndexOf'
-dotnet_diagnostic.CA2249.severity = none
-
-[mod/Source/SlopWorld/Sim/Jukebox/SongRecognizer.cs]
-# net472 ReadToEndAsync has no token overload. The runner registers cancellation
-# to kill the child, which closes its output streams and completes these reads.
-# CA2016: Forward the 'CancellationToken' parameter to methods
-dotnet_diagnostic.CA2016.severity = none
-
-[mod/Source/SlopWorld/Patches/Chrome/LinuxGameWindow.cs]
-# Environment.ProcessId is unavailable on the mod's net472 Unity Mono runtime.
-dotnet_diagnostic.CA1837.severity = none
-
 [mod/Source/SlopWorld/Client/Generated/*.cs]
 # Protocol generation owns these files; handwritten callers remain analyzed.
 generated_code = true
@@ -97,7 +69,3 @@ dotnet_diagnostic.CA1850.severity = suggestion
 # IDisposable scroll scopes restore geometry; they do not own native resources.
 # CA1001: Types that own disposable fields should be disposable
 dotnet_diagnostic.CA1001.severity = none
-
-[mod/Source/SlopWorld/Client/Daemon/DaemonHttpTransport.cs]
-# The game transport targets net472; Memory-based stream overloads are unavailable.
-dotnet_diagnostic.CA1835.severity = none

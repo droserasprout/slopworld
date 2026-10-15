@@ -71,7 +71,7 @@ namespace SlopWorld
                 "/",
                 path.Split('/').Where(p => p.Length > 0 && p != ".").ToArray()
             );
-            return path.StartsWith("/", StringComparison.Ordinal) ? "/" + parts
+            return path.StartsWith('/') ? "/" + parts
                 : parts.Length == 0 ? "."
                 : parts;
         }

@@ -26,8 +26,7 @@ namespace SlopWorld
 
         public static DaemonCapabilities FromWire(Wire.Capabilities j)
         {
-            if (j == null)
-                throw new ArgumentNullException(nameof(j));
+            ArgumentNullException.ThrowIfNull(j);
             return Current = new DaemonCapabilities
             {
                 Known = true,

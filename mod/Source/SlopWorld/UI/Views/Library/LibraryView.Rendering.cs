@@ -41,9 +41,11 @@ namespace SlopWorld
                     .Where(item =>
                         (_kind.Length == 0 || GroupKey(item) == _kind)
                         && (
-                            item.Name.IndexOf(_query, StringComparison.OrdinalIgnoreCase) >= 0
-                            || (item.Text ?? "").IndexOf(_query, StringComparison.OrdinalIgnoreCase)
-                                >= 0
+                            item.Name.Contains(_query, StringComparison.OrdinalIgnoreCase)
+                            || (item.Text ?? "").Contains(
+                                _query,
+                                StringComparison.OrdinalIgnoreCase
+                            )
                         )
                     )
                     .ToList();

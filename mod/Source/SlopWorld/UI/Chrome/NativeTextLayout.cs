@@ -68,7 +68,11 @@ namespace SlopWorld
         {
             int start = Math.Min(editor.cursorIndex, editor.selectIndex);
             int end = Math.Max(editor.cursorIndex, editor.selectIndex);
-            editor.text = editor.text.Substring(0, start) + insert + editor.text.Substring(end);
+            editor.text = string.Concat(
+                editor.text.AsSpan(0, start),
+                insert,
+                editor.text.AsSpan(end)
+            );
             editor.cursorIndex = editor.selectIndex = start + insert.Length;
         }
     }

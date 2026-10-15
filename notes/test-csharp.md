@@ -26,6 +26,10 @@ including `TestResult.xml`, belongs in the executable output directory, not the
 shipped `Assemblies/` tree. RimWorld must not load test/substitute assemblies.
 Game checks, when requested, use [build diagnostics](../docs/src/development/build.md).
 
+Run coverage and binding checks sequentially. Both rebuild the same test output
+with different debug settings; concurrent builds can overwrite the instrumented
+assembly and produce empty coverage.
+
 `just check mod-build` also runs `GameBindings` against the installed game and built mod
 in an isolated assembly context. It resolves native text targets and field geometry,
 and applies the swapchain rewrite to the game's actual IL. It does not start the game

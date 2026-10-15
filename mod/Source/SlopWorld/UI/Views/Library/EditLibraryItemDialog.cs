@@ -70,15 +70,13 @@ namespace SlopWorld
 
         public static EditLibraryItemDialog ForEdit(LibraryItemInfo existing)
         {
-            if (existing == null)
-                throw new ArgumentNullException(nameof(existing));
+            ArgumentNullException.ThrowIfNull(existing);
             return Create(existing.Kind, existing, false);
         }
 
         public static EditLibraryItemDialog Copy(LibraryItemInfo of)
         {
-            if (of == null)
-                throw new ArgumentNullException(nameof(of));
+            ArgumentNullException.ThrowIfNull(of);
             return Create(of.Kind, of, true);
         }
 
