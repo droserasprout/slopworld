@@ -14,6 +14,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/Bootstrap/IdleInhibitionWorker.cs" />
+    <Compile Include="../Source/SlopWorld/Bootstrap/LinuxIdleLease.cs" />
+    <Compile Include="../Source/SlopWorld/Bootstrap/X11IdleInhibitor.cs" />
+    <Compile Include="../Source/SlopWorld/Bootstrap/LinuxIdleInhibitor.cs" />
+    <Compile Include="../Source/SlopWorld/Bootstrap/NativeSessionBus.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonHttpTransport.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Plague/Plague.Persistence.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Colony/IntroSceneState.cs" />

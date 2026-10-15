@@ -8,7 +8,7 @@ Settings opens as tabs over the terminal pane.
 | Category | Pages or purpose |
 | --- | --- |
 | General | Game and daemon controls |
-| Display | Fullscreen, frame pacing, smooth scrolling |
+| Display | Fullscreen, screensaver inhibition, frame pacing, smooth scrolling |
 | Appearance | Interface, Workspace, Terminal, Code |
 | Integrations | Credentials, Usage |
 | Agents | Summaries, Workers |
@@ -23,7 +23,7 @@ See [Configuring agents](../agents/configuring-agents.md),
 See [Usage polling](../agents/usage-and-summaries.md#usage-polling) and
 [Prompt summaries](../agents/usage-and-summaries.md#prompt-summaries) for provider integration settings. See [Jukebox](jukebox.md) for audio source setup.
 
-**Display**, immediately after General, contains fullscreen, frame pacing, and smooth scrolling.
+**Display**, immediately after General, contains window, frame pacing, and scrolling preferences.
 
 **General > Locale > Date format** offers `YYYY-MM-DD` (default), `DD/MM/YYYY`,
 and `MM/DD/YYYY`. It applies live to the clock tooltip, task timestamps, jukebox
@@ -46,6 +46,11 @@ prompt. The Worker menu can use any catalog template. Allowlist changes do not a
 existing workers.
 
 ## Display
+
+On Linux, **Window > Inhibit screensaver** keeps the screen awake while SlopWorld
+is running, including in menus and in the background. It is enabled by default,
+applies live, and is saved with the profile. Turn it off to restore normal desktop
+idle behavior.
 
 Smooth scrolling is enabled by default and uses precise touchpad movement where
 supported; disable it for wheel steps. Changes apply live and are saved with the profile.

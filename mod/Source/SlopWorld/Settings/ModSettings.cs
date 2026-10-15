@@ -33,6 +33,7 @@ namespace SlopWorld
         // Linux fullscreen belongs to the window manager while the renderer stays windowed.
         // Start fullscreen by default; F11 returns to the undecorated desktop window.
         public bool fullscreen = true;
+        public bool inhibitScreensaver = true;
 
         // Sidebar preferences belong to the profile, not the colony save.
         public bool sidebarHidden;
@@ -174,6 +175,7 @@ namespace SlopWorld
         {
             Field("autoConnect", (ModSettings s) => ref s.autoConnect, Bool, String),
             Field("fullscreen", (ModSettings s) => ref s.fullscreen, Bool, String),
+            Field("inhibitScreensaver", (ModSettings s) => ref s.inhibitScreensaver, Bool, String),
             Field("sidebarHidden", (ModSettings s) => ref s.sidebarHidden, Bool, String),
             Field("sidebarWidth", (ModSettings s) => ref s.sidebarWidth, Float, Number),
             Field(

@@ -22,6 +22,7 @@ namespace SlopWorld
             }
 
             UiClipboard.Provider = new DaemonUiClipboard();
+            IdleInhibition.Start();
             RowChrome.OverlayHitTest = ColonistBarStrip.SidebarHover;
 
             var h = new Harmony("io.drsr.slopworld");

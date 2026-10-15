@@ -31,6 +31,22 @@ namespace SlopWorld
             if (fullscreen != S.fullscreen)
                 LinuxGameWindow.Set(fullscreen);
 
+            if (Application.platform == RuntimePlatform.LinuxPlayer)
+            {
+                bool inhibit = UiControls.Checkbox(
+                    l,
+                    "Inhibit screensaver",
+                    S.inhibitScreensaver,
+                    "Keep the screen awake while SlopWorld is running, including in menus and in the background."
+                );
+                if (inhibit != S.inhibitScreensaver)
+                {
+                    S.inhibitScreensaver = inhibit;
+                    S.MarkDirty();
+                    IdleInhibition.SetEnabled(inhibit);
+                }
+            }
+
             UiLayout.SectionHeading(l, "Rendering");
             string mode = FramePolicy.Normalize(S.displayMode);
             int fps = FramePolicy.NearestPreset(S.foregroundFps);
