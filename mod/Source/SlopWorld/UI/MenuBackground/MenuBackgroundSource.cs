@@ -46,9 +46,7 @@ namespace SlopWorld
                     used = 0;
                 }
                 hash.TransformFinalBlock(block, 0, used);
-                return new Fingerprint(
-                    BitConverter.ToString(hash.Hash).Replace("-", "").ToLowerInvariant()
-                );
+                return new Fingerprint(Convert.ToHexStringLower(hash.Hash));
             }
         }
     }

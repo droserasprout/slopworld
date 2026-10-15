@@ -107,8 +107,7 @@ namespace SlopWorld
 
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Locale");
-            var temperatureChoices = Enum.GetValues(typeof(TemperatureDisplayMode))
-                .Cast<TemperatureDisplayMode>()
+            var temperatureChoices = Enum.GetValues<TemperatureDisplayMode>()
                 .Select(mode => new FloatMenuOption(
                     mode.ToStringHuman(),
                     () => SetTemperatureUnit(mode)

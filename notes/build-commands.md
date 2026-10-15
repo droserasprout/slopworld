@@ -50,7 +50,8 @@ The pinned formatter and coverage tool run with .NET 10; CI installs the SDK fro
 `global.json` without an additional runtime. Coverlet permits major-version roll-forward.
 
 The mod project owns game references and compiler settings; `Directory.Build.props`
-and `.editorconfig` own shared C# analysis, and `global.json` pins the SDK.
+selects .NET 10 recommended analyzer rules, `.editorconfig` owns diagnostic
+severities, and `global.json` pins the SDK.
 The mod and runtime-package staging project target .NET 10 for RimWorld 1.7.
 `RIMWORLD` defaults to the Steam installation; `MANAGED` defaults to the same root.
 The game supplies `Assembly-CSharp.dll`, `UnityStubs.dll`, and `Waylith.dll`.

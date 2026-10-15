@@ -56,7 +56,7 @@ namespace SlopWorld.Tests
                 canCut: false
             );
             int called = 0;
-            foreach (SelectionCommand command in Enum.GetValues(typeof(SelectionCommand)))
+            foreach (SelectionCommand command in Enum.GetValues<SelectionCommand>())
             {
                 AssertEx.False(
                     SelectionCommandPolicy.TryExecute(command, unavailable, () => called++),

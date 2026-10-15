@@ -5,10 +5,8 @@ namespace SlopWorld.Tests
 {
     static class TaskFiltersTests
     {
-        static readonly DelegatedTaskStatus[] Statuses = (DelegatedTaskStatus[])
-            Enum.GetValues(typeof(DelegatedTaskStatus));
-        static readonly TaskDirection[] Directions = (TaskDirection[])
-            Enum.GetValues(typeof(TaskDirection));
+        static readonly DelegatedTaskStatus[] Statuses = Enum.GetValues<DelegatedTaskStatus>();
+        static readonly TaskDirection[] Directions = Enum.GetValues<TaskDirection>();
 
         static TaskInfo Task(
             string from,
