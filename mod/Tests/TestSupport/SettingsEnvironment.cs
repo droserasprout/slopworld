@@ -47,6 +47,13 @@ namespace Verse
 
     static class Prefs
     {
+        public static UnityEngine.FullScreenMode FullScreenMode = UnityEngine
+            .FullScreenMode
+            .Windowed;
+        public static int Saves;
+
+        public static void Save() => Saves++;
+
         public static float UIScale = 1f;
     }
 }

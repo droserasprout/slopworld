@@ -30,8 +30,9 @@ and `MM/DD/YYYY`. It applies live to the clock tooltip, task timestamps, jukebox
 history, and game build date, and is saved with the profile. Time format offers
 24-hour and 12-hour display.
 
-On Linux, the game selects the initial display mode. The mod's Linux
-window-manager hook follows the saved fullscreen setting.
+On Linux, SlopWorld launches through X11 or XWayland and keeps the renderer windowed.
+**Display > Fullscreen** and F11 control fullscreen through the window manager. The
+window stays undecorated when fullscreen is off. Native RimWorld display modes are hidden.
 **Appearance > Interface** contains UI scale, fonts, colors, and cursor styling.
 **Appearance > Workspace** contains density, sidebar and statusbar controls.
 

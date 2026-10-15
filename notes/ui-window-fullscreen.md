@@ -1,8 +1,10 @@
 # Linux window-manager integration
 
 `LinuxGameWindow` owns native titles, application identity, and fullscreen through X11/EWMH; `WindowTitle`
-uses its title setter. The launcher leaves display-mode selection to the game;
-the mod follows the saved fullscreen preference. This path requires X11/EWMH,
+uses its title setter. The Linux launcher sets Waylith's `FORCE_X11=1` before window
+creation; the mod follows its saved fullscreen preference while keeping the renderer
+and RimWorld display-mode preference windowed. Native fullscreen controls are hidden
+in the embedded game options. This path requires X11/EWMH,
 including under XWayland; it does not categorically bypass Wayland desktops.
 The window watch sets both WM_CLASS strings to `slopworld`, matching the packaged
 desktop entry's StartupWMClass. This keeps SlopWorld separate from vanilla RimWorld
@@ -14,7 +16,7 @@ This includes new colony generation after a failed load returns to the menu.
 Unsupported native integration remains disabled for the process lifetime; loading
 and explicit scene watches do not restart it. Temporary X11 display unavailability
 remains retryable.
-The watch verifies native fullscreen state and Unity surface dimensions as well as
+The watch verifies native fullscreen state and game surface dimensions as well as
 decorations. Geometry recovery resizes the surface before reapplying fullscreen,
 without raising or activating the window. Settling waits for confirmed recovery.
 If the surface is still incorrectly sized after a recovery request, the next attempt

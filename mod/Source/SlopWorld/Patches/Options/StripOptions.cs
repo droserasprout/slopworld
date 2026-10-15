@@ -24,9 +24,10 @@ namespace SlopWorld
             () => "KeyboardConfig".Translate(),
             // Hide the fixed UI scale menu. Appearance provides a slider for the full supported range.
             () => "UIScale".Translate(),
-            // Hide resolution selection and the borderless fullscreen notice.
-            // Appearance provides the live fullscreen toggle.
+            // Display owns fullscreen through the window manager.
+            // Native display modes and resolution selection must not bypass that owner.
             () => "Resolution".Translate(),
+            () => "DisplayMode".Translate(),
             () => "BorderlessFullscreen".Translate(),
             // Hide duplicate controls. General and Appearance provide text size and temperature settings.
             () => "DisableTinyText".Translate(),

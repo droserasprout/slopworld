@@ -28,6 +28,10 @@ User setup belongs to [game profiles](../docs/src/maintenance/game-profiles.md),
 [the path reference](../docs/src/reference/paths.md), and window behavior to
 [Linux windowing](ui-window-fullscreen.md).
 
+Linux launches set `FORCE_X11=1` for Waylith's GLFW initialization. Native X11 and
+XWayland windows share the mod's EWMH fullscreen and decoration handling; native
+Wayland windows do not expose that boundary. The renderer uses the game's Vulkan backend.
+
 The launcher captures game stdout and stderr in `<CACHE>/Player.log`, with
 `SLOPWORLD_GAME_LOG` taking precedence. Sidecar mode uses
 `<CACHE>/sidecar/Player.log`. It passes `-NoFileLog` to disable Waylith's separate
