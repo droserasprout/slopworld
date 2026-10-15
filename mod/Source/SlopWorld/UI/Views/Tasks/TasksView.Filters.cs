@@ -75,7 +75,7 @@ namespace SlopWorld
                     }
                 ),
             };
-            foreach (DelegatedTaskStatus status in Enum.GetValues(typeof(DelegatedTaskStatus)))
+            foreach (DelegatedTaskStatus status in Enum.GetValues<DelegatedTaskStatus>())
             {
                 var chosen = status;
                 options.Add(

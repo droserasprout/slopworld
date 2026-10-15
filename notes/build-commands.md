@@ -257,7 +257,8 @@ including build/dev dependencies and all target platforms. Cargo manifests own
 its license metadata; the generated table does not replace distribution notices.
 
 The mod project owns game references/compiler settings; `Directory.Build.props`
-and `.editorconfig` own shared C# analysis, and `global.json` pins the SDK.
+selects the .NET 10 recommended analyzer rules, `.editorconfig` owns diagnostic
+severities, and `global.json` pins the SDK.
 The mod and its runtime-package staging project target .NET 10 for RimWorld 1.7.
 `RIMWORLD` defaults to the Steam installation; `MANAGED` defaults to that same root.
 The project references `Assembly-CSharp.dll`, `UnityStubs.dll`, and `Waylith.dll`
