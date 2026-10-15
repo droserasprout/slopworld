@@ -31,3 +31,10 @@ and resize-deadline decisions without game dependencies.
 game state and owns game/X11 calls and their ordering. Game-free tests cover the
 policy directly; they do not establish native window-manager behavior. Launch options belong to
 [Display settings](../docs/src/customization/settings.md#display).
+
+`SwapchainAcquireTimeout` bounds Vulkan image acquisition to 16 ms on Linux. When
+a fullscreen surface stops supplying images, the renderer uses its existing timeout
+result to skip that frame without resetting its submission fence. The render queue
+can then drain, leaving the main thread free to process X11 events. Keep this wait
+bounded independently of focus: the queued render frame can outlive the focus state
+that produced it. The patch validates the acquisition call and timeout IL together.
