@@ -336,8 +336,7 @@ namespace SlopWorld
             AppendPreserved(ref line, layout, run, word, style, ref width, flow);
         }
 
-        static float Measure(GUIStyle style, string text) =>
-            style.CalcSize(new GUIContent(text ?? "")).x;
+        static float Measure(GUIStyle style, string text) => StyleSet.MeasureText(style, text);
 
         float MeasureChunk(GUIStyle style, string text)
         {
