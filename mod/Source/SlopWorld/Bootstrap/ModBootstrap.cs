@@ -50,7 +50,7 @@ namespace SlopWorld
             // Add the replacement options category at runtime.
             // An inactive mod then leaves no empty options tab.
             ModOptions.Install();
-            // Intercepts Alt+F4 / window close to save and show a confirmation dialog.
+            // Defer Unity quit requests to the saving Root.Shutdown path.
             QuitInterceptor.Register();
             Log.Message("[SlopWorld] Patched. Daemon at " + DaemonClient.BaseUrl);
             UiFont.Apply();

@@ -27,8 +27,11 @@ repeated delivery after saving and loading a pending pod.
 
 `SaveCoordinator` owns autosave, shutdown, and main-menu transitions. Suppress saves
 while departure is pending so a discarded colony cannot become the auto-resume save.
-Manual vanilla saves have a separate path. Shutdown saves run from Root.Shutdown;
-deferred OS close remains cancelled until that path runs.
+Manual vanilla saves have a separate path. Shutdown saves run synchronously before `Root.Shutdown` or native
+`Waylith.EngineApplication.ExecuteQuitLifecycle`, once per process across both paths.
+Native window close bypasses Unity's `wantsToQuit` and `Root.Shutdown`; save before
+native shutdown callbacks tear down state. Unity close requests remain cancelled
+until deferred shutdown starts. Periodic saving pauses with Eco ticks.
 
 `LoadFailureRecovery` stops Scribe and returns to entry with a mandatory notice,
 suppressing partial-game saves and menu controls. Wait for an idle entry window stack
