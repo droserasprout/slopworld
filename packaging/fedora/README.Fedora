@@ -1,7 +1,7 @@
 SlopWorld on Fedora
 ==================
 
-As your normal user, attach the packaged mod to native Linux RimWorld 1.6:
+As your normal user, attach the packaged mod to native Linux RimWorld 1.7:
 
   RIMWORLD=/path/to/RimWorld/game
   slopworld mod install --game "$RIMWORLD"

@@ -26,4 +26,4 @@ Desktop phases need performance records and valid latency samples; history also 
 a completed scroll sample. Compare actual duration and slip counts: `complete_with_slip`
 retains events but shifts deadlines. Transport residual includes both network directions
 and unmeasured client/codec work. Performance lanes overlap; helper timings cannot
-predict Unity or end-to-end costs. See [diagnostics](ops-diagnostics.md) for CPU attribution.
+predict rendering or end-to-end costs. See [diagnostics](ops-diagnostics.md) for CPU attribution.

@@ -28,3 +28,5 @@ Grandma cancels pending effects rather than postponing them. CoreTip owns strike
 compatibility VSync setter is a stub. Focus changes retain presentation mode to avoid
 swapchain rebuilds. `Patch_ApplicationFocus` supplies `EngineWindow.IsFocused` to the
 compatibility getter because its separate app-state field is not synchronized.
+
+Defaults and available modes belong to [Display settings](../docs/src/customization/settings.md#display).

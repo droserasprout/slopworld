@@ -58,7 +58,7 @@ for benchmark scope. Saved reports live under `bench/results/`.
 
 `tools/release/staging.py` owns shared payloads and runtime DLL allowlists. Package
 only tracked runtime assets and [notices](core-attribution.md). Build Debian packages
-on the target distribution; RPM discovery must exclude private Unity assemblies.
+on the target distribution; RPM discovery must exclude private mod assemblies.
 Container output publishes only after checks pass. Its temporary mount needs 0755
 for Arch's mapped build UID. Disable SELinux relabeling of repositories/worktree metadata.
 Packages leave game attachment and user-service lifecycle to the user. Source installs

@@ -1,4 +1,4 @@
-# Private Unity assemblies must not create system dependencies or providers.
+# Private mod assemblies must not create system dependencies or providers.
 %global __requires_exclude_from ^/usr/share/slopworld/.*$
 %global __provides_exclude_from ^/usr/share/slopworld/.*$
 %global debug_package %{nil}
@@ -21,7 +21,7 @@ Suggests: glib2, gtk3, highlight, moor, procps-ng, python3-gobject, python3-pygm
 Provides: slopd = %{version}-%{release}
 
 %description
-Includes the Linux session daemon, CLI, launcher, and RimWorld 1.6 mod.
+Includes the Linux session daemon, CLI, launcher, and RimWorld 1.7 mod.
 RimWorld must be installed separately. See /usr/share/doc/slopworld/README.Fedora
 for mod attachment and per-user daemon setup.
 
