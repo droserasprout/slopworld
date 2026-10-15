@@ -71,3 +71,5 @@ stage a temporary mod for the launcher's atomic installer in `mod_install.rs`.
 `bench/runner.py` owns build/run subprocesses. Mod runs use the configured test
 project and build configuration through `dotnet run --no-build`, so framework
 changes cannot select stale binaries.
+
+`mod-clean` removes the mod DLL and all mod, runtime-package, and test project bin/obj directories.
