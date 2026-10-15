@@ -55,6 +55,7 @@ namespace SlopWorld
             // The FPS limit controls the background frame rate. Keep presentation mode tied to the
             // VSync toggle so focus changes do not recreate the Vulkan swapchain.
             int nextSync = vsync ? 1 : 0;
+
             bool changed = target != nextTarget || sync != nextSync;
             target = nextTarget;
             sync = nextSync;

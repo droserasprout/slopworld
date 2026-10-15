@@ -23,3 +23,8 @@ mode. Eco does not add another foreground pacing policy.
 Temperature-triggered camera/UI sounds belong to `Patches/Options/TemperatureSounds.cs`;
 map sounds retain their definitions. Disabling destructive effects through Eco or
 Grandma cancels pending effects rather than postponing them. CoreTip owns strike cleanup.
+
+`BackgroundFrames` applies presentation through `EngineWindow.SetVSyncMode`; the
+compatibility VSync setter is a stub. Focus changes retain presentation mode to avoid
+swapchain rebuilds. `Patch_ApplicationFocus` supplies `EngineWindow.IsFocused` to the
+compatibility getter because its separate app-state field is not synchronized.
