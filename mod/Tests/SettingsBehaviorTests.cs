@@ -76,6 +76,23 @@ namespace SlopWorld.Tests
             AssertEx.Equal(false, written, "reading preferences does not queue a write");
         }
 
+        public static void ScreensaverPreferenceDefaultsOnAndPersistsBothValues()
+        {
+            AssertEx.True(
+                ModSettings.FromToml("").inhibitScreensaver,
+                "existing profiles inherit enabled inhibition"
+            );
+            foreach (bool enabled in new[] { false, true })
+            {
+                var settings = new ModSettings { inhibitScreensaver = enabled };
+                AssertEx.Equal(
+                    enabled,
+                    ModSettings.FromToml(settings.ToToml()).inhibitScreensaver,
+                    "screensaver preference survives serialization"
+                );
+            }
+        }
+
         static void WithSettings(Action<ModSettings> action)
         {
             var settings = Settings.S;
@@ -319,6 +336,11 @@ namespace SlopWorld.Tests
                 {
                     ("autoConnect", v => settings.autoConnect = v, () => Settings.AutoConnect),
                     ("fullscreen", v => settings.fullscreen = v, () => Settings.Fullscreen),
+                    (
+                        "inhibitScreensaver",
+                        v => settings.inhibitScreensaver = v,
+                        () => Settings.InhibitScreensaver
+                    ),
                     (
                         "sidebarHidden",
                         v => settings.sidebarHidden = v,

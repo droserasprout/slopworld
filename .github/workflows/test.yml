@@ -176,7 +176,10 @@ jobs:
             mod/Tests/packages.lock.json
             .config/dotnet-tools.json
 
-      - name: Build C# with RimRef and collect coverage
+      - name: Install D-Bus test dependency
+        run: sudo apt-get update && sudo apt-get install -y dbus-daemon
+
+      - name: Check C# and collect coverage
         run: just ci-mod
 
       - name: Report coverage

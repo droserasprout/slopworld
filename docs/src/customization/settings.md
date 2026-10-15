@@ -8,7 +8,7 @@ palette. Settings opens as tabs over the terminal pane.
 | Category | Controls and guides |
 | --- | --- |
 | General | Game and daemon controls, date and time formats |
-| Display | Fullscreen, frame limits, VSync, smooth scrolling |
+| Display | Fullscreen, screensaver inhibition, frame limits, VSync, smooth scrolling |
 | Appearance | Interface styling, workspace layout, terminal appearance, code readers |
 | Integrations | [Credentials and usage polling](../agents/usage-and-summaries.md) |
 | Agents | [Prompt summaries](../agents/usage-and-summaries.md#prompt-summaries) and [workers](#workers) |
@@ -66,6 +66,11 @@ window stays undecorated when fullscreen is off. Native RimWorld display modes a
 | Frame limiter | Auto (default) follows the display refresh rate. Manual limits are 15, 30, 60, 120, 144, and 240 FPS. |
 | VSync (not recommended) | Off by default. Synchronizes presentation with the display, adds scrolling latency, and disables the FPS selector. Turning it off restores the selected limit. |
 | Smooth scrolling | Use precise touchpad movement where supported; disable it for wheel steps. Enabled by default. |
+
+On Linux, **Window > Inhibit screensaver** keeps the screen awake while SlopWorld
+is running, including in menus and in the background. It is enabled by default,
+applies live, and is saved with the profile. Turn it off to restore normal desktop
+idle behavior.
 
 Unfocused windows use 15 FPS and restore foreground pacing on focus.
 Auto uses the nearest integer refresh rate and falls back to 60 FPS if unavailable.

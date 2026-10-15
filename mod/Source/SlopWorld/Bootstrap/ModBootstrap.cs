@@ -24,6 +24,7 @@ namespace SlopWorld
             JukeboxActions.Install();
             LongEventHandler.ExecuteWhenFinished(ProfileAudioDefaults.Apply);
             UiClipboard.Provider = new DesktopUiClipboard();
+            IdleInhibition.Start();
             RowChrome.OverlayHitTest = ColonistBarStrip.SidebarHover;
 
             var h = new Harmony("io.drsr.slopworld");
