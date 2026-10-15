@@ -65,4 +65,4 @@ uninstall: launcher
 # Remove component build output
 clean:
     rm -f "$MOD_DLL"
-    rm -rf mod/Source/SlopWorld/obj
+    rm -rf mod/Source/SlopWorld/bin mod/Source/SlopWorld/obj mod/Dependencies/bin mod/Dependencies/obj mod/Tests/bin mod/Tests/obj

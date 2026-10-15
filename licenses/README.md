@@ -33,11 +33,6 @@ metadata; it does not include their full license texts or notices.
 | Newtonsoft.Json | MIT | [License](runtime/Newtonsoft.Json.LICENSE.txt) | Mod runtime library. |
 | Tmds.DBus.Protocol | MIT | [License](runtime/Tmds.DBus.Protocol.LICENSE.txt) | Tom Deseyn and contributors; mod desktop integration. |
 | Tomlyn | BSD 2-Clause | [License](runtime/Tomlyn.LICENSE.txt) | Mod runtime library. |
-| System.Text.Encoding.CodePages | MIT | [License](runtime/System.Text.Encoding.CodePages.LICENSE.txt) | Mod runtime library; includes [third-party notices](runtime/System.Text.Encoding.CodePages.NOTICES.txt). |
-| System.Buffers | MIT | [License](runtime/System.Buffers.LICENSE.txt) | Mod runtime library. |
-| System.Memory | MIT | [License](runtime/System.Memory.LICENSE.txt) | Mod runtime library; includes additional [third-party notices](runtime/System.Memory.NOTICES.txt). |
-| System.Numerics.Vectors | MIT | [License](runtime/System.Numerics.Vectors.LICENSE.txt) | Mod runtime library. |
-| System.Runtime.CompilerServices.Unsafe | MIT | [License](runtime/System.Runtime.CompilerServices.Unsafe.LICENSE.txt) | Mod runtime library. |
 
 The bundled `clacon2.ttf` identifies its license as MIT and carries the copyright
 notice reproduced above. The glyph notices describe the bundled Symbols Nerd

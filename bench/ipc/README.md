@@ -30,7 +30,7 @@ per receive batch or 150 per burst. Rust uses 1,000 operations per batch. p50/p9
 averages, not individual-message tail latency. C# allocations use the runtime's thread
 allocation counter. Fixture construction and forced GC are outside timed regions.
 CoreCLR (.NET 10) runs without tiered compilation. The main report builds once. It reports the median and min–max range of three run p50s/p95s.
-The C# report lane is named `net10` so saved .NET 8 measurements remain separate.
+The C# report lane is named `net10`.
 
 These are codec/queue measurements. They exclude kernel IPC, WebSocket framing, HTTP,
 terminal capture/rendering and cold configuration projection costs. They establish neither

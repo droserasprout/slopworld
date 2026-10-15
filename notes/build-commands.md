@@ -68,7 +68,9 @@ aggregate before lint and tests, rejecting any resulting tracked changes. `check
 outputs without modifying the checkout. Explicit generators publish only changed
 bytes to preserve compiler input timestamps.
 `devloop` runs `just install all run` together, retaining each worktree's Rust target and C# obj directories.
-Only an explicit `just clean` removes ordinary build output. `coverage daemon`
+Only an explicit `just clean` removes ordinary build output. `clean mod` removes
+the mod DLL and all mod, runtime-package, and test project bin/obj directories.
+`coverage daemon`
 cleans its isolated instrumented target directory before collection, including
 dependency profiling runtimes whose raw profile format follows the LLVM toolchain.
 `cargo-llvm-cov` owns coverage-tool selection from the active Rust toolchain;
