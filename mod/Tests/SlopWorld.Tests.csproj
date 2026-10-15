@@ -72,6 +72,7 @@
     <Compile Include="../Source/SlopWorld/UI/Views/Git/GitStatus.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/History/TerminalHistoryRestore.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Input/TerminalInputController.Keyboard.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Input/TerminalWheelSteps.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalPanel/TerminalLinkService.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/RealClock.Formatting.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/QuitInterceptor.cs" />
