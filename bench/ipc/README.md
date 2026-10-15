@@ -8,7 +8,8 @@ normalized metrics live under ignored `bench/results/<name>/`. The benchmark
 starts no game or daemon service. You need Mono, .NET 8, Rust and protoc, plus
 the normal repository build dependencies.
 
-The benchmark measures the production Protobuf transport. Its C# lane links production
+The benchmark measures the Protobuf codec and queue on Mono and .NET 8. These comparison
+runtimes do not measure the mod's .NET 10 runtime. Its C# lane links production
 generated messages, `ReceivedEvent`, queue, and event batch. `Google.Protobuf` is pinned to 3.36.1.
 Rust uses prost 0.14.4. This repository checks in package lockfiles.
 
@@ -38,11 +39,10 @@ an FPS improvement nor an end-to-end latency claim. Git ignores the shared resul
 
 | Component | Choice / cost |
 | --- | --- |
-| C# codec | Google.Protobuf 3.36.1, net472 for Unity Mono |
+| C# codec | Google.Protobuf 3.36.1, net472 and net8.0 comparison targets |
 | Rust codec | prost/prost-build 0.14.4 |
 | Authored contract | 811-line `.proto` file and route/type inventory |
 | Generated C# | About 38,000 lines. Regenerate these files instead of editing them. |
-| Runtime package | Five DLLs, about 0.8 MiB total |
 | Remaining editor support | 83-line schema-reflection helper for draft leaf diffs and explicit patch paths |
 | Remaining Rust adapter | Cold domain projections use in-memory Serde values. IPC uses no JSON text. |
 

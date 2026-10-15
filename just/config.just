@@ -51,5 +51,5 @@ export VERSION := env("VERSION", "")
 # Root exports are inherited by module recipe processes, including CLI overrides.
 export JUST_CMD := just_executable()
 export JUST_ROOT := justfile_directory() / 'justfile'
-export CSHARP_FORMAT_FOLDERS := env("CSHARP_FORMAT_FOLDERS", 'mod/Source/SlopWorld mod/Tests bench/ipc/csharp bench/terminal-input/tests/http_transport')
+export CSHARP_FORMAT_FOLDERS := env("CSHARP_FORMAT_FOLDERS", 'mod/Source/SlopWorld mod/Tests bench/ipc/csharp')
 export PYTHON_TOOLS := env("PYTHON_TOOLS", 'tools bench/runner.py bench/test_runner.py mac slopcar/*.py')

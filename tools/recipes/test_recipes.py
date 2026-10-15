@@ -422,7 +422,6 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
             'mod/Source/SlopWorld',
             'mod/Tests',
             'bench/ipc/csharp',
-            'bench/terminal-input/tests/http_transport',
         ]
         for operation in ('format', 'lint'):
             with self.subTest(operation=operation):
