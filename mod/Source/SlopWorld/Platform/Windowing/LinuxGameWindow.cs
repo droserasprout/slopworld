@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using UnityEngine;
@@ -611,7 +610,7 @@ namespace SlopWorld
                 if (format != 32)
                     return IntPtr.Zero;
 
-                int pid = Process.GetCurrentProcess().Id;
+                int pid = Environment.ProcessId;
                 int n = count.ToInt32();
                 for (int i = 0; i < n; i++)
                 {
@@ -770,7 +769,7 @@ namespace SlopWorld
         static extern IntPtr XDefaultRootWindow(IntPtr display);
 
         // Xlib atom names are narrow byte strings. Supply a terminated UTF-8 buffer
-        // explicitly instead of relying on Mono's default string marshaling.
+        // explicitly instead of relying on the runtime's default string marshaling.
         static IntPtr XInternAtom(IntPtr display, string atomName, int onlyIfExists) =>
             XInternAtomUtf8(display, Encoding.UTF8.GetBytes(atomName + "\0"), onlyIfExists);
 

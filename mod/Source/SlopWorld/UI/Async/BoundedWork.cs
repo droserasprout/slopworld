@@ -20,8 +20,7 @@ namespace SlopWorld
 
         public BoundedWork(int limit)
         {
-            if (limit <= 0)
-                throw new ArgumentOutOfRangeException(nameof(limit));
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
             _limit = limit;
         }
 

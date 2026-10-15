@@ -154,7 +154,7 @@ namespace SlopWorld
             string executable = Executable(command, "micro");
             if (
                 !string.Equals(Path.GetFileName(executable), "micro", StringComparison.Ordinal)
-                || command.IndexOf("-clipboard", StringComparison.Ordinal) >= 0
+                || command.Contains("-clipboard", StringComparison.Ordinal)
             )
                 return command;
 

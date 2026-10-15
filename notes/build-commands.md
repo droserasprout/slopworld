@@ -46,6 +46,9 @@ The Rust line-coverage gate keeps a small margin below measured hosted coverage:
 asynchronous audio, browse, and capture paths can vary between passing runs. Do not
 ratchet the gate to a single run's exact percentage.
 
+The pinned formatter and coverage tool run with .NET 10; CI installs the SDK from
+`global.json` without an additional runtime. Coverlet permits major-version roll-forward.
+
 The mod project owns game references and compiler settings; `Directory.Build.props`
 and `.editorconfig` own shared C# analysis, and `global.json` pins the SDK.
 The mod and runtime-package staging project target .NET 10 for RimWorld 1.7.

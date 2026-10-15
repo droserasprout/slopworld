@@ -443,6 +443,6 @@ namespace SlopWorld
             || Has(e.Original, q);
 
         static bool Has(string text, string q) =>
-            !string.IsNullOrEmpty(text) && text.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
+            !string.IsNullOrEmpty(text) && text.Contains(q, StringComparison.OrdinalIgnoreCase);
     }
 }

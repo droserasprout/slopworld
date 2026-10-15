@@ -33,7 +33,7 @@ namespace SlopWorld
                 return null;
             string path = text.Substring(start, end - start);
             // A scheme's `//` is not a directory separator. Leave URLs to UrlScan.
-            if (path.IndexOf("://", StringComparison.Ordinal) >= 0)
+            if (path.Contains("://", StringComparison.Ordinal))
                 return null;
             if (path[0] == '/')
             {
