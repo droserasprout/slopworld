@@ -80,7 +80,7 @@ sidecar, mod, and Python tools:
 | --- | --- |
 | `just format` | Apply Rust, C#, and Python formatting. |
 | `just lint` | Check formatting, Rust Clippy warnings, Python Ruff rules, and strict mypy types. |
-| `just test` | Run game-free tests, including pager integration and benchmark helpers. Requires `tmux`, `less`, and Mono. |
+| `just test` | Run game-free tests, including pager integration and benchmark helpers. Requires `tmux` and `less`. |
 | `just ci` | Run the game-free CI checks, including coverage and generated-protocol validation. Also requires the [coverage tools](#coverage). |
 
 To check C# compilation against the game assemblies, run `just mod-check-build`.

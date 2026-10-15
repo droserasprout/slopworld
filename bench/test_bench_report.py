@@ -16,6 +16,49 @@ def run(p50, p95, allocated=10, wire=100):
 
 
 class BenchReportTests(unittest.TestCase):
+    def test_ipc_collects_net10_and_rust_and_rejects_incomplete_results(self):
+        for incomplete in (False, True):
+            with self.subTest(incomplete=incomplete), tempfile.TemporaryDirectory() as directory:
+                raw = Path(directory)
+
+                def execute(*args, **kwargs):
+                    output = raw / "repeat-1" / "ipc"
+                    output.mkdir()
+                    for runtime, lanes in (
+                        ("net10", ("protobuf-receive", "protobuf-queue1", "protobuf-burst8")),
+                        ("rust", ("protobuf-encode", "protobuf-decode")),
+                    ):
+                        rows = [
+                            f"{fixture},{lane},100,1,2,10\n"
+                            for fixture in ("plain", "ansi", "unicode", "large")
+                            for lane in lanes
+                        ]
+                        if incomplete and runtime == "net10":
+                            rows.pop()
+                        (output / f"{runtime}.csv").write_text(
+                            "fixture,lane,wire_bytes,p50_us,p95_us,allocated_bytes\n" + "".join(rows)
+                        )
+
+                    class Process:
+                        stdout = io.StringIO("")
+
+                        def wait(self):
+                            return 0
+
+                    return Process()
+
+                with patch.object(report, "spawn", side_effect=execute):
+                    if incomplete:
+                        with self.assertRaisesRegex(RuntimeError, "net10 IPC benchmark produced 11 rows, expected 12"):
+                            report.run_bench("release", 1, raw, "ipc")
+                        self.assertTrue((raw / "repeat-1/tmp").exists())
+                    else:
+                        samples = report.run_bench("release", 1, raw, "ipc")
+                        self.assertEqual(len(samples), 20)
+                        self.assertEqual(samples["IPC/net10/plain/protobuf-receive"], report.Sample(1, 2, 10, 100))
+                        self.assertIn("IPC/rust/plain/protobuf-decode", samples)
+                        self.assertFalse((raw / "repeat-1/tmp").exists())
+
     def test_saved_csv_report_and_relative_comparison(self):
         with tempfile.TemporaryDirectory() as directory:
             new, old = Path(directory) / "new", Path(directory) / "old"
