@@ -8,6 +8,25 @@ namespace SlopWorld.Tests
     [TestFixture]
     public class GitViewCommandTests
     {
+        [TestCase(false)]
+        [TestCase(true)]
+        public void DiffAppearanceRestartPreservesDisabledTerminalQueries(bool untracked)
+        {
+            string command = GitCommands.Diff("/repo", "file", untracked);
+            string configured = PagerCommands.DiffCommand(command, "less", true, "ansi");
+            string restarted = PagerCommands.DiffCommand(
+                configured,
+                "less",
+                false,
+                "Monokai Extended"
+            );
+            foreach (string launch in new[] { command, configured, restarted })
+                Assert.That(
+                    launch,
+                    Does.Contain("delta --detect-dark-light=never --paging=always")
+                );
+        }
+
         [TestCase("AA")]
         [TestCase("DD")]
         [TestCase("AU")]

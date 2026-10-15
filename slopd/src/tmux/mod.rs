@@ -138,6 +138,7 @@ impl Tmux {
     }
 
     async fn run(&self, args: &[&str]) -> Result<String> {
+        let _perf = crate::perf::timer("tmux-command");
         let out = Command::new("tmux")
             .args(self.socket_args())
             .args(args)

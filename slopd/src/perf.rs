@@ -40,6 +40,23 @@ pub(crate) fn timer(name: &'static str) -> Timer {
     }
 }
 
+impl Timer {
+    /// Correlate launch checkpoints by opaque session handle. Only elapsed durations
+    /// belong on the wire/log boundary; never compare peer monotonic timestamps.
+    pub(crate) fn checkpoint(&self, stage: &'static str, session: &str) {
+        if let Some(started) = self.started {
+            tracing::info!(
+                target: "slopd::perf",
+                session,
+                operation = self.name,
+                stage,
+                elapsed_us = crate::clock::duration_us(started.elapsed()),
+                "launch-stage"
+            );
+        }
+    }
+}
+
 impl Drop for Timer {
     fn drop(&mut self) {
         if let Some(started) = self.started {

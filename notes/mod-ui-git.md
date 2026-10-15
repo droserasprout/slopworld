@@ -18,6 +18,8 @@ failure leaves status usable.
 Diff selection uses the visible snapshot, while the host pager reads current file
 contents when launched. Untracked files require individual no-index diffs against
 `/dev/null`; a repository diff omits them.
+Diff pagers disable delta's terminal color detection because the embedded terminal
+does not answer those queries; waiting for the reply adds a timeout to startup.
 
 Tree geometry, semantic selection, and reader lifetime belong to
 [file readers](mod-file-readers.md). Files and Git share that reader collection;

@@ -9,13 +9,14 @@ import pytest
 from tools.trace import capture
 
 
-def test_appended_utf8_records_use_byte_offsets(tmp_path: Path) -> None:
+@pytest.mark.parametrize('kind', ['perf', 'latency', 'reader-launch'])
+def test_appended_utf8_records_use_byte_offsets(tmp_path: Path, kind: str) -> None:
     log, output = tmp_path / 'log', tmp_path / 'capture'
     log.write_bytes(b'old records\n')
 
     def append(_seconds: float) -> None:
         with log.open('ab') as stream:
-            stream.write('[SlopWorld] perf name=é\n'.encode())
+            stream.write(f'[SlopWorld] {kind} name=é\n'.encode())
 
     with (
         patch.object(time, 'monotonic', side_effect=[0, 0.1, 0.2, 2]),

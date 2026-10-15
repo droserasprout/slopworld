@@ -121,6 +121,13 @@ namespace SlopWorld
                     Time.frameCount
                 );
             ScrollDebugFrame(buf, shift);
+            if (
+                PerfTrace.Enabled
+                && Event.current.type == EventType.Repaint
+                && buf.Off == 0
+                && buf.ScrollRequestId == 0
+            )
+                ReaderLaunchTrace.Drawn(_state.Name, buf.AltScreen);
 
             GUI.color = Color.white;
         }

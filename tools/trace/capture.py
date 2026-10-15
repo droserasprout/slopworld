@@ -37,7 +37,10 @@ def capture(log: pathlib.Path, destination: pathlib.Path, seconds: float, label:
                 pending += line
                 if not pending.endswith(b'\n'):
                     continue
-                if b'[SlopWorld] perf ' in pending or b'[SlopWorld] latency ' in pending:
+                if any(
+                    marker in pending
+                    for marker in (b'[SlopWorld] perf ', b'[SlopWorld] latency ', b'[SlopWorld] reader-launch ')
+                ):
                     output.write(pending)
                     output.flush()
                     count += 1

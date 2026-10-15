@@ -15,6 +15,10 @@ namespace SlopWorld
         public string Intent = "";
         public ReaderLaunchOptions Reader = new ReaderLaunchOptions();
 
+        // Client monotonic microseconds at the diff action, before a possible status fetch.
+        // Diagnostic only: this timestamp must never be sent to the daemon clock domain.
+        internal long RequestedAt;
+
         internal Wire.RunReq ToWire() =>
             new Wire.RunReq
             {

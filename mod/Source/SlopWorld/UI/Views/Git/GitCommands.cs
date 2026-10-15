@@ -4,14 +4,15 @@ namespace SlopWorld
     // cannot leave the view using an obsolete unborn-repository decision.
     internal static class GitCommands
     {
+        // The embedded terminal cannot answer delta's color queries. Avoid waiting for
+        // their timeout on every launch; syntax colors still come from the reader theme.
+        const string DiffPager =
+            "core.pager=LESS=R delta --detect-dark-light=never --paging=always";
+
         public static string Diff(string root, string relative, bool untracked)
         {
             string git = "git -C " + PagerCommands.Quote(root);
-            string pager =
-                git
-                + " -c "
-                + PagerCommands.Quote("core.pager=LESS=R delta --paging=always")
-                + " --paginate";
+            string pager = git + " -c " + PagerCommands.Quote(DiffPager) + " --paginate";
             if (untracked)
                 return pager
                     + " diff --color=always --no-index -- /dev/null "
@@ -27,7 +28,7 @@ namespace SlopWorld
                 + "git --paginate diff --color=always \"$base\" \"$@\"; }; f";
             return git
                 + " -c "
-                + PagerCommands.Quote("core.pager=LESS=R delta --paging=always")
+                + PagerCommands.Quote(DiffPager)
                 + " -c "
                 + PagerCommands.Quote("alias.slopworld-diff=" + script)
                 + " slopworld-diff"

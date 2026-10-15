@@ -288,11 +288,17 @@ namespace SlopWorld
             RoutedSessionRows.Invalidate();
         }
 
-        public void OpenFresh(string project, string command, string label, string key)
+        public void OpenFresh(
+            string project,
+            string command,
+            string label,
+            string key,
+            long requestedAt = 0
+        )
         {
             // Replace the process inside the existing tab, retaining its pin and identity.
             var pager = Find(tab => tab.Owns(project, key)) ?? ForPreview();
-            pager.Open(project, command, label, key, "", "diff");
+            pager.Open(project, command, label, key, "", "diff", requestedAt: requestedAt);
         }
 
         public PagerTabs(System.Action beforePreview = null)

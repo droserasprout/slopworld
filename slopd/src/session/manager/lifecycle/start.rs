@@ -217,6 +217,7 @@ impl Manager {
 
     /// Serialize startup with other session mutations.
     pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
+        let _perf = crate::perf::timer("launch-start-with-boundary");
         let manager = self.clone();
         let name = name.to_owned();
         self.owned_session_operation(Box::pin(async move { manager.start_inner(&name).await }))
@@ -225,8 +226,12 @@ impl Manager {
 
     /// Prepare, create, attach, then launch; unwind resources on failure.
     async fn start_inner(self: &Arc<Self>, name: &str) -> Result<()> {
+        let _perf = crate::perf::timer("launch-start-inner");
+        let prepare_perf = crate::perf::timer("launch-prepare");
         let terminal = self.terminal_boundary(name).write_owned().await;
         let plan = self.prepare_start(name).await?;
+        drop(prepare_perf);
+        _perf.checkpoint("prepared", name);
         if let Some(launch) = &plan.launch {
             // Save before tmux receives the command so a rejected launch remains inspectable.
             if let Err(error) = launch.save(&plan.session) {
@@ -237,10 +242,13 @@ impl Manager {
         } else {
             tracing::info!("starting {name} (host terminal)");
         }
+        let tmux_perf = crate::perf::timer("launch-tmux-create-metadata");
         if let Err(error) = self.launch_tmux(name, &plan).await {
             self.cleanup_failed_start(name, plan.is_worker()).await;
             return Err(error);
         }
+        drop(tmux_perf);
+        _perf.checkpoint("tmux-created", name);
 
         // Give the new reader a fresh run identity and activity history.
         self.clear_activity(name).await;
@@ -248,6 +256,7 @@ impl Manager {
         let run_id = self.reset_live_for_start(name, auto_resume_pending).await;
 
         // Attachment must succeed before the real command can produce output.
+        let attach_perf = crate::perf::timer("launch-reader-attach");
         match self.start_reader(name, &terminal).await {
             Ok(true) => {}
             Ok(false) => {
@@ -261,6 +270,9 @@ impl Manager {
                 return Err(error.context(format!("starting session {name} reader")));
             }
         }
+        drop(attach_perf);
+        _perf.checkpoint("reader-attached", name);
+        let exec_perf = crate::perf::timer("launch-command");
         if let Err(error) = self.tmux.start_command(name, &plan.dir, &plan.argv).await {
             self.cleanup_failed_start(name, plan.is_worker()).await;
             if plan.is_worker() {
@@ -268,6 +280,8 @@ impl Manager {
             }
             return Err(error.context(format!("starting session {name} command")));
         }
+        drop(exec_perf);
+        _perf.checkpoint("command-started", name);
         if plan.launch.is_some() {
             // Publish the import capability only for a successfully launched sandbox.
             // This tmux session option survives daemon adoption; old panes lack it.

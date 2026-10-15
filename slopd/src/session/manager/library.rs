@@ -344,8 +344,14 @@ impl Manager {
         persistent_host: bool,
         like: &str,
     ) -> Result<String> {
-        self.session_operation(self.run_errand_inner(sc, want, host, persistent_host, like))
-            .await
+        let _perf = crate::perf::timer("launch-run-with-boundary");
+        let result = self
+            .session_operation(self.run_errand_inner(sc, want, host, persistent_host, like))
+            .await;
+        if let Ok(session) = &result {
+            _perf.checkpoint("reply-ready", session);
+        }
+        result
     }
 
     async fn run_errand_inner(
@@ -356,12 +362,18 @@ impl Manager {
         persistent_host: bool,
         like: &str,
     ) -> Result<String> {
+        let _perf = crate::perf::timer("launch-run-inner");
+        let reload_perf = crate::perf::timer("launch-config-reload");
         self.reload_if_changed().await;
         let cfg = self.config().await;
+        drop(reload_perf);
         Self::validate_errand(&sc)?;
+        let create_perf = crate::perf::timer("launch-reserve-session");
         let session = self
             .create_errand_session(&cfg, &sc, &want, host, persistent_host, like)
             .await?;
+        drop(create_perf);
+        _perf.checkpoint("session-reserved", &session);
 
         if !self.tmux.exists(&session).await
             && let Err(e) = self.start(&session).await
@@ -372,8 +384,11 @@ impl Manager {
             return Err(e);
         }
 
+        let publish_perf = crate::perf::timer("launch-publish-sessions");
         self.announce_sessions().await;
         self.queue_errand_delivery(&session, &sc, &want).await;
+        drop(publish_perf);
+        _perf.checkpoint("sessions-published", &session);
 
         Ok(session)
     }

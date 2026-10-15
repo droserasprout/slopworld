@@ -290,7 +290,8 @@ namespace SlopWorld
             string key,
             string sourcePath = "",
             string intent = "view",
-            long line = 0
+            long line = 0,
+            long requestedAt = 0
         )
         {
             if (_opening && _openProject == project && _key == key && _pendingCommand == command)
@@ -369,6 +370,7 @@ namespace SlopWorld
                     Host = true,
                     Path = sourcePath,
                     Intent = intent,
+                    RequestedAt = requestedAt,
                     Reader = new ReaderLaunchOptions
                     {
                         Path = sourcePath,
@@ -524,6 +526,8 @@ namespace SlopWorld
         {
             if (!Alive)
                 return false;
+            if (_readerIntent == "diff")
+                PerfTrace.Count("diff-reuse-session");
             TerminalWindow.Open(_session);
             return true;
         }

@@ -432,12 +432,17 @@ namespace SlopWorld
         public static void DiffAll(string project)
         {
             project = SidebarScopes.Key(project);
+            long launchStarted = PerfTrace.Start();
+            long requestedAt = PerfTrace.Enabled ? TerminalLatency.Now() : 0;
+            var known = Known(project);
+            bool cached = known != null && !string.IsNullOrEmpty(known.Root);
             CancelPendingDiff();
             int request = _diffRequest;
             void OpenCurrent()
             {
                 if (request != _diffRequest)
                     return;
+                PerfTrace.End(cached ? "diff-all-cached" : "diff-all-cold", launchStarted, 1);
                 var repo = Known(project);
                 if (repo == null || repo.Changed <= 0)
                 {
@@ -453,14 +458,14 @@ namespace SlopWorld
                         FilesView.ReaderLabel(project, "diff"),
                         null,
                         "",
-                        "diff"
+                        "diff",
+                        requestedAt: requestedAt
                     );
             }
 
             // The visible tree already has a status snapshot. Start its pager now; Git reads
             // the actual diff when the command runs. A cold cache still needs the root first.
-            var known = Known(project);
-            if (known != null && !string.IsNullOrEmpty(known.Root))
+            if (cached)
                 OpenCurrent();
             else
                 Fetch(project, OpenCurrent);
@@ -583,11 +588,16 @@ namespace SlopWorld
             int request = _diffRequest;
             _pendingDiffProject = project;
             var known = Known(project);
+            long launchStarted = PerfTrace.Start();
+            long requestedAt = PerfTrace.Enabled ? TerminalLatency.Now() : 0;
+            bool cached = known != null && !string.IsNullOrEmpty(known.Root);
             _pendingDiffRel = known == null ? null : RelOf(known, abs);
             void OpenCurrent()
             {
                 if (request != _diffRequest)
                     return;
+                PerfTrace.End(cached ? "diff-path-cached" : "diff-path-cold", launchStarted, 1);
+                PerfTrace.Count(directory ? "diff-directory" : "diff-file");
                 bool pin = _pinPendingDiff;
                 _pendingDiffProject = _pendingDiffRel = null;
                 _pinPendingDiff = false;
@@ -608,6 +618,8 @@ namespace SlopWorld
                     UiLayout.Fail($"nothing to diff in {System.IO.Path.GetFileName(abs)}");
                     return;
                 }
+                if (new GitStatus(status).Untracked)
+                    PerfTrace.Count("diff-untracked");
                 if (directory)
                     ClearSelection();
                 else
@@ -617,7 +629,8 @@ namespace SlopWorld
                     project,
                     DiffCmd(repo, rel, status),
                     FilesView.ReaderLabel(project, label),
-                    DiffKey(rel)
+                    DiffKey(rel),
+                    requestedAt
                 );
                 if (pin)
                     Viewers.LockPreview(project, DiffKey(rel));
@@ -625,7 +638,7 @@ namespace SlopWorld
 
             // The row came from this snapshot. Avoid a second status HTTP round trip before
             // starting its pager; only a cold cache needs to discover the repository root.
-            if (known != null && !string.IsNullOrEmpty(known.Root))
+            if (cached)
                 OpenCurrent();
             else
                 Fetch(project, OpenCurrent);

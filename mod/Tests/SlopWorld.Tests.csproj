@@ -161,6 +161,7 @@
     <Compile Include="../Source/SlopWorld/Client/Catalog/CommandInfo.cs" Link="Source/Client/Catalog/CommandInfo.cs" />
     <Compile Include="../Source/SlopWorld/Client/Catalog/AgentTemplateInfo.cs" Link="Source/Client/Catalog/AgentTemplateInfo.cs" />
     <Compile Include="../Source/SlopWorld/Client/Diagnostics/PerfTrace.cs" Link="Source/PerfTrace.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Diagnostics/ReaderLaunchTrace.cs" />
     <Compile Include="../Source/SlopWorld/Settings/PreferenceFormats.cs" Link="Source/Settings/PreferenceFormats.cs" />
     <Compile Include="../Source/SlopWorld/Settings/WorkspacePreferences.cs" Link="Source/Settings/WorkspacePreferences.cs" />
     <Compile Include="../Source/SlopWorld/Settings/Settings.cs" Link="Source/Settings/Settings.cs" />

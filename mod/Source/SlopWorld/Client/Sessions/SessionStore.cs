@@ -75,6 +75,8 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(name))
                 return;
+            if (PerfTrace.Enabled)
+                ReaderLaunchTrace.Subscribed(name);
             // Compare live ScreenBuf values only within one continuous subscription.
             // Discard the previous frame after a subscription gap.
             // Use the first new frame as the baseline so missed redraws do not become local history changes.
@@ -86,6 +88,8 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(name))
                 return;
+            if (PerfTrace.Enabled)
+                ReaderLaunchTrace.Cancel(name, "unsubscribed");
             _screens.Remove(name);
             _scrolls.Remove(name);
         }
@@ -94,6 +98,8 @@ namespace SlopWorld
         // Keep new frames and history replies separate from data received on the previous connection.
         public void ResetConnectionScreens()
         {
+            if (PerfTrace.Enabled)
+                ReaderLaunchTrace.CancelAll("disconnected");
             _screens.Clear();
             _scrolls.Clear();
         }
@@ -245,6 +251,8 @@ namespace SlopWorld
             if (buf.HasSequence && screen.Seq < buf.Seq)
                 return;
             buf.FromWire(screen);
+            if (PerfTrace.Enabled)
+                ReaderLaunchTrace.Received(name, buf.AltScreen);
         }
 
         // Prune against the daemon session list so finished errands do not retain screen buffers.
@@ -305,11 +313,37 @@ namespace SlopWorld
                 request.Cols = (uint)cols;
                 request.Rows = (uint)rows;
             }
+            var trace = ReaderLaunchTrace.Begin(
+                options.Intent,
+                string.IsNullOrEmpty(options.Reader?.Key) ? "all" : "path",
+                options.Reader?.Key,
+                options.RequestedAt
+            );
             DaemonClient.Post<Wire.SessionResult>(
                 RunPath,
                 request,
-                j => Started(j, started, fail),
-                fail
+                j =>
+                {
+                    trace?.Attach(j.Session);
+                    RefreshLaunched(
+                        j.Session,
+                        () =>
+                        {
+                            trace?.Mark("sessions-ready");
+                            started?.Invoke(j.Session);
+                        },
+                        error =>
+                        {
+                            ReaderLaunchTrace.Cancel(j.Session, "refresh-failed");
+                            fail?.Invoke(error);
+                        }
+                    );
+                },
+                error =>
+                {
+                    trace?.Mark("run-failed");
+                    fail?.Invoke(error);
+                }
             );
         }
 
@@ -396,13 +430,17 @@ namespace SlopWorld
                 fail
             );
 
-        public void Stop(string name, Action<string> fail = null) =>
+        public void Stop(string name, Action<string> fail = null)
+        {
+            if (PerfTrace.Enabled)
+                ReaderLaunchTrace.Cancel(name, "stopped");
             DaemonClient.Post(
                 $"{SessionsPath}/{HubWire.Esc(name)}/stop",
                 null,
                 _ => Refresh(),
                 fail
             );
+        }
 
         public void Restart(string name, Action<string> fail = null) =>
             DaemonClient.Post(

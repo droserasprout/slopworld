@@ -15,6 +15,7 @@ pub(crate) async fn run(
     State(m): State<Mgr>,
     Proto(q): Proto<wire::RunReq>,
 ) -> ApiResult<wire::SessionResult> {
+    let _perf = crate::perf::timer("launch-api-run");
     let q: RunReq = domain(q)?;
     let plan = plan_run(&m, q).await?;
     let session = m
