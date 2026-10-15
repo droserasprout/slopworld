@@ -37,6 +37,13 @@ impl Manager {
         let now = unix_ms();
         if claim_due(&self.config_state.config_checked, now, CFG_CHECK_MS) {
             self.reload_if_changed().await;
+            // Best-effort idle work. The spare has its own nonblocking claim, so
+            // launches fall back to ordinary creation while a fill is in flight.
+            if self.session_boundary.try_read().is_ok()
+                && let Err(error) = self.tmux.warm_spare().await
+            {
+                tracing::debug!("could not refill diff pane: {error:#}");
+            }
         }
         if claim_due(&self.config_state.presets_checked, now, PRESETS_CHECK_MS) {
             self.reload_presets_if_changed().await;

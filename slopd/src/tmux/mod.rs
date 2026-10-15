@@ -2,13 +2,14 @@
 
 pub(crate) mod control;
 mod server;
+mod spare;
 mod titles;
 
 use std::collections::HashMap;
 use std::process::Stdio;
-use std::sync::OnceLock;
 #[cfg(test)]
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
+use std::sync::{Arc, OnceLock};
 
 use anyhow::{Context, Result, bail};
 use tokio::process::{Child, Command};
@@ -72,6 +73,7 @@ struct RenameTestControls {
 #[derive(Clone)]
 pub struct Tmux {
     socket: String,
+    spare: Arc<tokio::sync::Mutex<bool>>,
     #[cfg(test)]
     rename_test: Arc<Mutex<RenameTestControls>>,
 }
@@ -122,6 +124,7 @@ impl Tmux {
     pub fn new(socket: impl Into<String>) -> Self {
         Self {
             socket: socket.into(),
+            spare: Arc::default(),
             #[cfg(test)]
             rename_test: Arc::default(),
         }
@@ -178,6 +181,7 @@ impl Tmux {
         }
         Ok(String::from_utf8_lossy(&output.stdout)
             .lines()
+            .filter(|name| *name != spare::NAME)
             .map(str::to_string)
             .collect())
     }

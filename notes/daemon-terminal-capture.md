@@ -34,6 +34,13 @@ and client input/history to [terminal](mod-terminal.md).
 Temporary terminal reader intent, source identity, label, scope, and pin state recover
 from tmux metadata into client views. Native previews have no tmux process to adopt.
 
+Tmux keeps one unused silent host pane for diff startup. Its reserved name contains
+whitespace (invalid for application sessions) and is excluded from enumeration and
+adoption. Startup prepares it; maintenance replenishes it on the config-check cadence
+when the session boundary is idle. A busy/missing/failed spare falls back to normal
+creation. Promotion sets geometry before attachment; execution still waits for the
+reader and supplies the requested working directory. Used readers never enter the slot.
+
 The private tmux server and emulator agree on composing emoji modifiers and joined
 cell widths. New panes default `LESSUTFCHARDEF` to retain modifiers/joiners/selectors;
 custom environment/presets can override it, and existing panes keep launch settings

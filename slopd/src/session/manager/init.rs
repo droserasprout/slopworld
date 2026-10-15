@@ -129,6 +129,9 @@ impl Manager {
             tracing::error!("could not prepare tmux server: {error:#}");
         }
         self.sync_from_config().await;
+        if let Err(error) = self.tmux.warm_spare().await {
+            tracing::debug!("could not warm diff pane: {error:#}");
+        }
     }
 }
 

@@ -179,6 +179,15 @@ async fn host_preparation_prefers_remembered_directory_and_falls_back_if_removed
 
 #[tokio::test]
 async fn command_waits_for_reader_and_first_screen_is_complete() {
+    assert_complete_first_screen(false).await;
+}
+
+#[tokio::test]
+async fn warmed_diff_waits_for_reader_and_first_screen_is_complete() {
+    assert_complete_first_screen(true).await;
+}
+
+async fn assert_complete_first_screen(warmed: bool) {
     let socket = format!("slopd-start-{}", uuid::Uuid::new_v4());
     let root = std::env::temp_dir().join(&socket);
     std::fs::create_dir_all(&root).unwrap();
@@ -186,6 +195,7 @@ async fn command_waits_for_reader_and_first_screen_is_complete() {
     let manager = crate::session::test_manager_with_socket(Config::default(), socket.clone());
     let session = SessionCfg {
         name: "preview".into(),
+        intent: if warmed { "diff".into() } else { String::new() },
         ..Default::default()
     };
     let plan = StartPlan {
@@ -208,7 +218,13 @@ async fn command_waits_for_reader_and_first_screen_is_complete() {
         Live::new(session, TitleCapture::default()),
     );
     let result: Result<()> = async {
+        if warmed {
+            manager.tmux.warm_spare().await?;
+        }
         manager.launch_tmux("preview", &plan).await?;
+        if warmed {
+            anyhow::ensure!(!manager.tmux.take_spare("unexpected", 80, 24).await);
+        }
         // Widen the former capture/attach gap deterministically.
         tokio::time::sleep(Duration::from_millis(150)).await;
         anyhow::ensure!(

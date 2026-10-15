@@ -142,18 +142,31 @@ impl Manager {
 
     /// Create the placeholder pane and persist metadata needed for adoption.
     async fn launch_tmux(self: &Arc<Self>, name: &str, plan: &StartPlan) -> Result<()> {
+        let diff = plan.host && plan.session.intent == "diff";
+        let warmed = diff && self.tmux.take_spare(name, plan.cols, plan.rows).await;
+        if diff {
+            crate::perf::count(
+                if warmed {
+                    "launch-spare-hit"
+                } else {
+                    "launch-spare-miss"
+                },
+                1,
+            );
+        }
         // Keep the pane silent until reader attachment to avoid losing early output.
-        if let Err(error) = self
-            .tmux
-            .spawn(
-                name,
-                &plan.dir,
-                plan.cols,
-                plan.rows,
-                &["sleep".into(), "2147483647".into()],
-                plan.host,
-            )
-            .await
+        if !warmed
+            && let Err(error) = self
+                .tmux
+                .spawn(
+                    name,
+                    &plan.dir,
+                    plan.cols,
+                    plan.rows,
+                    &["sleep".into(), "2147483647".into()],
+                    plan.host,
+                )
+                .await
         {
             if plan.is_worker() {
                 // tmux errors include arguments; keep worker credentials out of errors and logs.
