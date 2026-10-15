@@ -133,7 +133,7 @@ namespace SlopWorld
             }
         }
 
-        static void DrawLabel(Rect bounds, string text, GUIStyle style)
+        internal static void DrawLabel(Rect bounds, string text, GUIStyle style)
         {
             // The native label path forwards GUI tint, but ignores the style state's text color.
             // Apply the foreground here for both plain spans and text beside atlas sprites.

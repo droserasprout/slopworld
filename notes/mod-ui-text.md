@@ -14,6 +14,8 @@ OS font creation and family enumeration in Unity's compatibility API are stubs.
 Shared text rendering applies the style foreground through GUI tint because native
 `GUI.Label` forwards tint without reading the style state's text color. Each label
 restores the caller tint, including on failure; atlas artwork keeps its own colors.
+Code and Terminal settings previews use the same styled-label helper for sample
+text, line numbers, and the ANSI matrix.
 
 Plain labels use the native text path. `PlainStatusLabel` and its height helper
 share native wrapping; catalog keys remain literal text in these APIs.
