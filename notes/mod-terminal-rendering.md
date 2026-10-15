@@ -20,6 +20,11 @@ the selected family plus `monospace` until a selection change or rescan retries 
 terminal font, monospace probes, and cached font menus; font invalidation also advances
 the terminal render revision. Fontconfig selects family order; Unity still resolves
 and rasterizes those names, so this does not replace Unity with Pango shaping.
+
+`TerminalCachePaint` records full-repaint backgrounds and glyphs in the same native GUI
+render-target batch. GPU clears through `GL.Clear` use a separate command stream; keep them
+out of cache repaints. Partial repaints clear only changed rows within the GUI batch.
+
 Cache sampling supplies bottom-origin UVs to `GUI.DrawTextureWithTexCoords`; the GUI backend
 owns conversion to its texture origin. Do not add a graphics-API-dependent flip.
 

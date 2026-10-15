@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Verse
 {
-    static class Widgets
+    static partial class Widgets
     {
         static readonly Stack<Vector2> ScrollOrigins = new Stack<Vector2>();
 

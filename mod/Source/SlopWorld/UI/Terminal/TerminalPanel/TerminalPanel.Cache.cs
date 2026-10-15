@@ -238,8 +238,6 @@ namespace SlopWorld
                     target = scratch;
                 }
                 RenderTexture.active = target;
-                if (broad)
-                    GL.Clear(false, true, SolidTerminalBackground);
                 if (canCopy && (!broad || reuse))
                 {
                     int sourceTop = reuse ? scroll.SourceTop : damageTop;
@@ -274,7 +272,12 @@ namespace SlopWorld
                     PerfTrace.Count("terminal-cache-rows-repainted", count);
                 }
                 else if (broad)
-                    Paint(body, buf, key.CellW, key.CellH);
+                    TerminalCachePaint.Full(
+                        target,
+                        body,
+                        SolidTerminalBackground,
+                        () => Paint(body, buf, key.CellW, key.CellH)
+                    );
                 else
                 {
                     PerfTrace.Count("terminal-cache-rows-repainted", buf.ChangedRows.Length);
