@@ -6,15 +6,11 @@ namespace SlopWorld
     public sealed class FramePolicy
     {
         public const string Auto = "auto",
-            Sync = "sync",
             Limit = "limit";
         public static readonly int[] Presets = { 15, 30, 60, 120, 144, 240 };
 
-        // Missing or unknown settings use the monitor-matched FPS cap.
-        public static string Normalize(string mode) =>
-            mode == Limit ? Limit
-            : mode == Sync ? Sync
-            : Auto;
+        // Missing or unknown settings use the monitor-matched FPS limit.
+        public static string Normalize(string mode) => mode == Limit ? Limit : Auto;
 
         public static int AutoFps(double refreshRate) =>
             double.IsNaN(refreshRate)
@@ -44,6 +40,7 @@ namespace SlopWorld
             bool focused,
             string mode,
             int fps,
+            bool vsync,
             ref int target,
             ref int sync,
             double refreshRate = 60
@@ -52,12 +49,12 @@ namespace SlopWorld
             mode = Normalize(mode);
             int nextTarget =
                 !focused ? 15
-                : mode == Sync ? -1
+                : vsync ? -1
                 : mode == Auto ? AutoFps(refreshRate)
                 : NearestPreset(fps);
-            // The FPS cap handles background pacing. Keep presentation mode tied to the
-            // selected policy so focus changes do not recreate the Vulkan swapchain.
-            int nextSync = mode == Sync ? 1 : 0;
+            // The FPS limit controls the background frame rate. Keep presentation mode tied to the
+            // VSync toggle so focus changes do not recreate the Vulkan swapchain.
+            int nextSync = vsync ? 1 : 0;
             bool changed = target != nextTarget || sync != nextSync;
             target = nextTarget;
             sync = nextSync;

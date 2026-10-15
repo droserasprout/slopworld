@@ -61,7 +61,7 @@ namespace SlopWorld.Tests
                 string path = Path.Combine(profile, "Config", "SlopWorld.toml");
                 string saved = File.ReadAllText(path);
                 AssertEx.Equal(
-                    50,
+                    51,
                     Toml.ParseFlat(saved).Count,
                     "persisted key count excludes runtime state"
                 );

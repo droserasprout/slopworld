@@ -8,7 +8,7 @@ Settings opens as tabs over the terminal pane.
 | Category | Pages or purpose |
 | --- | --- |
 | General | Game and daemon controls |
-| Display | Fullscreen, screensaver inhibition, frame pacing, smooth scrolling |
+| Display | Fullscreen, screensaver inhibition, frame limiter, VSync, smooth scrolling |
 | Appearance | Interface, Workspace, Terminal, Code |
 | Integrations | Credentials, Usage |
 | Agents | Summaries, Workers |
@@ -23,7 +23,7 @@ See [Configuring agents](../agents/configuring-agents.md),
 See [Usage polling](../agents/usage-and-summaries.md#usage-polling) and
 [Prompt summaries](../agents/usage-and-summaries.md#prompt-summaries) for provider integration settings. See [Jukebox](jukebox.md) for audio source setup.
 
-**Display**, immediately after General, contains window, frame pacing, and scrolling preferences.
+**Display**, immediately after General, contains window, frame limiter, VSync, and scrolling preferences.
 
 **General > Locale > Date format** offers `YYYY-MM-DD` (default), `DD/MM/YYYY`,
 and `MM/DD/YYYY`. It applies live to the clock tooltip, task timestamps, jukebox
@@ -54,11 +54,16 @@ idle behavior.
 
 Smooth scrolling is enabled by default and uses precise touchpad movement where
 supported; disable it for wheel steps. Changes apply live and are saved with the profile.
-Frame pacing defaults to **Auto (N FPS)**, which detects the current display refresh
-rate and uses the nearest integer FPS limit with VSync off. Auto follows display
-changes and falls back to 60 FPS if the refresh rate is unavailable. Explicit VSync
-and 15, 30, 60, 120, 144, and 240 FPS presets remain available; saved selections are
-preserved. FPS limits disable VSync. Unfocused windows use 15 FPS and restore foreground pacing on focus.
+**Frame limiter** defaults to **Auto (N FPS)**, which detects the current display refresh
+rate and uses the nearest integer FPS limit. Auto follows display changes and falls
+back to 60 FPS if the refresh rate is unavailable. Manual limits are 15, 30, 60,
+120, 144, and 240 FPS.
+
+**VSync (not recommended)** is a separate toggle, off by default because it adds
+scrolling latency. Enabling it synchronizes presentation with the display and
+disables the FPS selector. Turning it off restores the selected FPS limit.
+Profiles without this toggle migrate to Auto FPS with VSync off.
+Unfocused windows use 15 FPS and restore foreground pacing on focus.
 
 ## Configuration file
 

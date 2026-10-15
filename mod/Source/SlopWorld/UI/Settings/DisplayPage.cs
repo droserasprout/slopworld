@@ -5,7 +5,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Window presentation, frame pacing, and scrolling preferences apply live.
+    // Window presentation, frame limits, and scrolling preferences apply live.
     // Interface owns visual styling; Workspace owns sidebar and statusbar layout.
     public sealed class DisplayPage : IOptionPage
     {
@@ -51,17 +51,13 @@ namespace SlopWorld
             string mode = FramePolicy.Normalize(S.displayMode);
             int fps = FramePolicy.NearestPreset(S.foregroundFps);
             string autoLabel = "Auto (" + BackgroundFrames.AutoFps + " FPS)";
-            string framePacingLabel =
-                mode == FramePolicy.Auto ? autoLabel
-                : mode == FramePolicy.Sync ? "VSync"
-                : fps + " FPS";
-            string framePacingTip =
-                mode == FramePolicy.Auto
-                    ? "Matches the current display refresh rate with an FPS limit and VSync off."
-                : mode == FramePolicy.Limit
-                    ? "Disables VSync. Lower limits save power. Higher limits improve responsiveness."
-                : "VSync follows the display refresh rate for smooth presentation.";
-            if (UiLayout.Button(l, "Frame pacing: " + framePacingLabel, tip: framePacingTip))
+            string frameLimitLabel = mode == FramePolicy.Auto ? autoLabel : fps + " FPS";
+            string frameLimitTip = S.vsync
+                ? "Turn off VSync to choose an FPS limit."
+                : "Auto matches the current display refresh rate. Lower limits save power. "
+                    + "Higher limits improve responsiveness.";
+            l.Label("Frame limiter");
+            if (UiLayout.Button(l, frameLimitLabel, on: !S.vsync, tip: frameLimitTip))
             {
                 var options = new List<FloatMenuOption>
                 {
@@ -69,15 +65,9 @@ namespace SlopWorld
                         autoLabel,
                         () =>
                         {
+                            if (S.vsync)
+                                return;
                             S.displayMode = FramePolicy.Auto;
-                            S.MarkDirty();
-                        }
-                    ),
-                    new FloatMenuOption(
-                        "VSync",
-                        () =>
-                        {
-                            S.displayMode = FramePolicy.Sync;
                             S.MarkDirty();
                         }
                     ),
@@ -87,6 +77,8 @@ namespace SlopWorld
                         preset + " FPS",
                         () =>
                         {
+                            if (S.vsync)
+                                return;
                             S.displayMode = FramePolicy.Limit;
                             S.foregroundFps = preset;
                             S.MarkDirty();
@@ -94,6 +86,19 @@ namespace SlopWorld
                     ))
                 );
                 Find.WindowStack.Add(new UiMenu(options));
+            }
+
+            bool vsync = UiControls.Checkbox(
+                l,
+                "VSync (not recommended)",
+                S.vsync,
+                "Synchronize presentation with the display refresh rate. "
+                    + "Adds scrolling latency and overrides the FPS limit."
+            );
+            if (vsync != S.vsync)
+            {
+                S.vsync = vsync;
+                S.MarkDirty();
             }
 
             UiLayout.SectionHeading(l, "Scrolling");

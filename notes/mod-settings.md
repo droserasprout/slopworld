@@ -26,6 +26,9 @@ and [terminal rendering](mod-terminal-rendering.md) for appearance caches and em
 `FramePolicy` owns frame pacing; Eco is not a second foreground pacing owner.
 `BackgroundFrames` shares its native refresh-rate sample with the selector and applies
 presentation changes through `EngineWindow.SetVSyncMode`; the compatibility VSync setter is a stub.
+VSync is an independent profile toggle, off by default; enabling it overrides the
+foreground FPS policy and disables the FPS selector without replacing its choice.
+Profiles missing the `vsync` key migrate to Auto FPS with VSync off and queue a write.
 Focus changes adjust only target FPS, retaining the selected presentation mode to avoid
 swapchain rebuilds. `Patch_ApplicationFocus` supplies native `EngineWindow.IsFocused`
 to the compatibility getter because its separate app-state field is not synchronized.

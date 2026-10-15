@@ -26,19 +26,52 @@ namespace SlopWorld.Tests
             }
         }
 
-        public static void FramePacingDefaultsToAutoAndPreservesExplicitModes()
+        public static void FrameLimitDefaultsToAutoAndPreservesExplicitModes()
         {
             AssertEx.Equal(
                 FramePolicy.Auto,
                 ModSettings.FromToml("").displayMode,
                 "missing preference uses Auto"
             );
-            foreach (string mode in new[] { FramePolicy.Auto, FramePolicy.Sync, FramePolicy.Limit })
+            AssertEx.Equal(false, new ModSettings().vsync, "new profiles default VSync off");
+            foreach (string mode in new[] { FramePolicy.Auto, FramePolicy.Limit })
+            foreach (bool vsync in new[] { false, true })
             {
-                var settings = new ModSettings { displayMode = mode, foregroundFps = 144 };
+                var settings = new ModSettings
+                {
+                    displayMode = mode,
+                    foregroundFps = 144,
+                    vsync = vsync,
+                };
                 var restored = ModSettings.FromToml(settings.ToToml());
                 AssertEx.Equal(mode, restored.displayMode, "explicit policy round trips");
-                AssertEx.Equal(144, restored.foregroundFps, "manual cap retained");
+                AssertEx.Equal(vsync, restored.vsync, "independent VSync toggle round trips");
+                AssertEx.Equal(144, restored.foregroundFps, "manual limit retained");
+            }
+        }
+
+        public static void ProfilesWithoutVSyncToggleMigrateToAutoWithVSyncOff()
+        {
+            foreach (string mode in new[] { "sync", "limit", "auto", "unknown" })
+            {
+                var restored = ModSettings.FromToml(
+                    "displayMode = \"" + mode + "\"\nforegroundFps = 144\nsmoothScrolling = false\n"
+                );
+                AssertEx.Equal(
+                    FramePolicy.Auto,
+                    restored.displayMode,
+                    "old policy migrates to Auto"
+                );
+                AssertEx.Equal(false, restored.vsync, "old policy does not enable VSync");
+                AssertEx.Equal(144, restored.foregroundFps, "inactive limit retained");
+                AssertEx.Equal(false, restored.smoothScrolling, "unrelated preferences retained");
+                bool written = false;
+                for (int i = 0; i < 120; i++)
+                    restored.FlushIfDue(_ => written = true);
+                AssertEx.True(written, "migration queued for persistence");
+                var reloaded = ModSettings.FromToml(restored.ToToml());
+                AssertEx.Equal(FramePolicy.Auto, reloaded.displayMode, "migration persists");
+                AssertEx.Equal(false, reloaded.vsync, "migrated toggle persists");
             }
         }
 
@@ -110,16 +143,16 @@ namespace SlopWorld.Tests
                 var settings = new ModSettings();
                 for (int i = 0; i < 200; i++)
                     settings.FlushIfDue();
-                AssertEx.False(File.Exists(path), "clean settings never create a file");
+                AssertEx.Equal(false, File.Exists(path), "clean settings never create a file");
                 settings.MarkDirty();
                 for (int i = 0; i < 119; i++)
                     settings.FlushIfDue();
-                AssertEx.False(File.Exists(path), "dirty settings wait for 120 ticks");
+                AssertEx.Equal(false, File.Exists(path), "dirty settings wait for 120 ticks");
                 settings.MarkDirty();
                 settings.theme = "new-theme";
                 for (int i = 0; i < 119; i++)
                     settings.FlushIfDue();
-                AssertEx.False(File.Exists(path), "new interaction restarts quiet period");
+                AssertEx.Equal(false, File.Exists(path), "new interaction restarts quiet period");
                 settings.FlushIfDue();
                 AssertEx.Equal(
                     "new-theme",
@@ -335,6 +368,7 @@ namespace SlopWorld.Tests
                     ),
                     ("grandmaMode", v => settings.grandmaMode = v, () => Settings.GrandmaMode),
                     ("ecoMode", v => settings.ecoMode = v, () => Settings.EcoMode),
+                    ("vsync", v => settings.vsync = v, () => Settings.VSync),
                 };
                 foreach (var item in cases)
                 foreach (bool value in new[] { false, true })
@@ -409,7 +443,7 @@ namespace SlopWorld.Tests
                 AssertEx.Equal(
                     FramePolicy.Limit,
                     Settings.DisplayMode,
-                    "explicit FPS cap retained"
+                    "explicit FPS limit retained"
                 );
                 AssertEx.Equal(
                     TemperatureUnit.MemeMode,

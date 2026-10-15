@@ -60,9 +60,10 @@ namespace SlopWorld
                     Application.isFocused,
                     Settings.DisplayMode,
                     Settings.ForegroundFps,
+                    Settings.VSync,
                     ref target,
                     ref sync,
-                    Settings.DisplayMode == FramePolicy.Auto ? AutoFps : 60
+                    !Settings.VSync && Settings.DisplayMode == FramePolicy.Auto ? AutoFps : 60
                 )
             )
                 return;
