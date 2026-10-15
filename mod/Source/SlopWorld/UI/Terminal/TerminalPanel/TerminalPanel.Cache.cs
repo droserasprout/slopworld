@@ -96,124 +96,112 @@ namespace SlopWorld
             TerminalRepaintReason repaintReason
         )
         {
+            if (repaint == TerminalRepaint.None)
+                return;
+
             var body = new Rect(key.X, key.Y, key.Width, key.Height);
             var buf = key.Buffer;
             float cw = key.CellW,
                 ch = key.CellH;
             if (repaintAll)
             {
-                if (
-                    PerfTrace.Enabled
-                    && _cacheKey.Buffer != null
-                    && _cacheKey.Offset > 0
-                    && key.Offset > 0
-                    && _cacheKey.Offset != key.Offset
-                    && _cacheKey.SameSurface(key)
-                )
-                {
-                    PerfTrace.Count("terminal-cache-scroll-shifts");
-                    int rows = TerminalScrollReuse.MatchingRows(_cacheKey, key);
-                    if (rows > 0)
-                    {
-                        PerfTrace.Count("terminal-cache-scroll-overlap", rows);
-                        if (
-                            TerminalScrollReuse.PixelAligned(
-                                _cacheKey.Offset,
-                                key.Offset,
-                                ch,
-                                _snapSy
-                            )
-                        )
-                            PerfTrace.Count("terminal-cache-scroll-copyable", rows);
-                    }
-                }
+                TraceCacheScrollReuse(key);
                 PerfTrace.Count("terminal-cache-misses");
-                PerfTrace.Count("terminal-cache-repaints");
-                long paintStarted = PerfTrace.Start();
+                // Only an invalidated surface changes the cached overscan geometry.
                 _cacheLead = CacheLead(body, ch);
-                var paintBody = new Rect(
-                    body.x,
-                    body.y - _cacheLead,
-                    body.width,
-                    body.height + _cacheLead
-                );
-                try
-                {
+            }
+            else if (repaint == TerminalRepaint.Full)
+                TraceBroadCacheRepaint(repaintReason);
+
+            PerfTrace.Count("terminal-cache-repaints");
+            long paintStarted = PerfTrace.Start();
+            var paintBody = new Rect(
+                body.x,
+                body.y - _cacheLead,
+                body.width,
+                body.height + _cacheLead
+            );
+            try
+            {
+                // Fresh surfaces and broad damage use the same GUI background/glyph batch.
+                // Small live edits clear and repaint only their changed rows.
+                if (repaint == TerminalRepaint.Full)
                     TerminalCachePaint.Full(
                         _cache,
                         paintBody,
                         SolidTerminalBackground,
                         () => Paint(paintBody, buf, cw, ch)
                     );
-                }
-                finally
-                {
-                    PerfTrace.End("terminal-cache-full-paint", paintStarted, 1);
-                }
+                else
+                    PaintCacheRows(paintBody, buf, cw, ch);
             }
-            else if (repaint != TerminalRepaint.None)
+            finally
             {
-                PerfTrace.Count("terminal-cache-repaints");
-                // Small live edits only invalidate their rows. A broad terminal scroll changes
-                // most rows, where one full paint is cheaper and avoids many GUI draw calls.
-                bool broad = repaint == TerminalRepaint.Full;
-                long paintStarted = PerfTrace.Start();
-                var was = RenderTexture.active;
-                try
-                {
-                    if (broad)
-                    {
-                        PerfTrace.Count("terminal-cache-broad-repaints");
-                        if (PerfTrace.Enabled)
-                        {
-                            if (repaintReason == TerminalRepaintReason.SkippedRevisions)
-                                PerfTrace.Count("terminal-cache-skipped-revisions");
-                            else if (repaintReason == TerminalRepaintReason.BroadRows)
-                                PerfTrace.Count("terminal-cache-broad-rows");
-                            else if (repaintReason == TerminalRepaintReason.MissingDamage)
-                                PerfTrace.Count("terminal-cache-missing-damage");
-                        }
-                        var paintBody = new Rect(
-                            body.x,
-                            body.y - _cacheLead,
-                            body.width,
-                            body.height + _cacheLead
-                        );
-                        TerminalCachePaint.Full(
-                            _cache,
-                            paintBody,
-                            SolidTerminalBackground,
-                            () => Paint(paintBody, buf, cw, ch)
-                        );
-                    }
-                    else
-                    {
-                        RenderTexture.active = _cache;
-                        PerfTrace.Count("terminal-cache-rows-repainted", buf.ChangedRows.Length);
-                        PaintRows(
-                            new Rect(
-                                body.x,
-                                body.y - _cacheLead,
-                                body.width,
-                                body.height + _cacheLead
-                            ),
-                            buf,
-                            cw,
-                            ch,
-                            buf.ChangedRows
-                        );
-                    }
-                }
-                finally
-                {
-                    RenderTexture.active = was;
-                    PerfTrace.End(
-                        broad ? "terminal-cache-full-paint" : "terminal-cache-row-paint",
-                        paintStarted,
-                        1
-                    );
-                }
+                PerfTrace.End(
+                    repaint == TerminalRepaint.Full
+                        ? "terminal-cache-full-paint"
+                        : "terminal-cache-row-paint",
+                    paintStarted,
+                    1
+                );
             }
+        }
+
+        void PaintCacheRows(Rect body, ScreenBuf buf, float cw, float ch)
+        {
+            var previous = RenderTexture.active;
+            try
+            {
+                RenderTexture.active = _cache;
+                PerfTrace.Count("terminal-cache-rows-repainted", buf.ChangedRows.Length);
+                PaintRows(body, buf, cw, ch, buf.ChangedRows);
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+            }
+        }
+
+        void TraceCacheScrollReuse(TerminalCacheKey key)
+        {
+            if (
+                !PerfTrace.Enabled
+                || _cacheKey.Buffer == null
+                || _cacheKey.Offset <= 0
+                || key.Offset <= 0
+                || _cacheKey.Offset == key.Offset
+                || !_cacheKey.SameSurface(key)
+            )
+                return;
+
+            PerfTrace.Count("terminal-cache-scroll-shifts");
+            int rows = TerminalScrollReuse.MatchingRows(_cacheKey, key);
+            if (rows > 0)
+            {
+                PerfTrace.Count("terminal-cache-scroll-overlap", rows);
+                if (
+                    TerminalScrollReuse.PixelAligned(
+                        _cacheKey.Offset,
+                        key.Offset,
+                        key.CellH,
+                        _snapSy
+                    )
+                )
+                    PerfTrace.Count("terminal-cache-scroll-copyable", rows);
+            }
+        }
+
+        static void TraceBroadCacheRepaint(TerminalRepaintReason reason)
+        {
+            PerfTrace.Count("terminal-cache-broad-repaints");
+            if (!PerfTrace.Enabled)
+                return;
+            if (reason == TerminalRepaintReason.SkippedRevisions)
+                PerfTrace.Count("terminal-cache-skipped-revisions");
+            else if (reason == TerminalRepaintReason.BroadRows)
+                PerfTrace.Count("terminal-cache-broad-rows");
+            else if (reason == TerminalRepaintReason.MissingDamage)
+                PerfTrace.Count("terminal-cache-missing-damage");
         }
 
         TerminalCacheKey CacheKey(Rect body, ScreenBuf buf, float cw, float ch)
