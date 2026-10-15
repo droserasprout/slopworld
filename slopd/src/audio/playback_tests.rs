@@ -52,3 +52,22 @@ fn cancellation_during_startup_discards_the_gated_feeder() {
     assert_eq!(output.0.appends.load(Ordering::Acquire), 0);
     assert!(output.0.volumes.lock().unwrap().is_empty());
 }
+
+#[test]
+fn backend_failure_is_latched_but_recoverable_underruns_do_not_retire_output() {
+    let failed = AtomicBool::new(false);
+    record_output_error(&failed, &cpal::StreamError::BufferUnderrun);
+    assert!(!failed.load(Ordering::Acquire));
+    for _ in 0..100 {
+        record_output_error(
+            &failed,
+            &cpal::StreamError::BackendSpecific {
+                err: cpal::BackendSpecificError {
+                    description: "POLLERR".into(),
+                },
+            },
+        );
+    }
+    record_output_error(&failed, &cpal::StreamError::BufferUnderrun);
+    assert!(failed.load(Ordering::Acquire));
+}

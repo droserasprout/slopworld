@@ -1,8 +1,9 @@
 //! Command orchestration and opener handoffs. Control owns publication; playback owns output I/O.
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use super::control::{Control, SourceRequirement};
 use super::playback::{self, AudioOutput, OutputFactory};
@@ -18,6 +19,7 @@ pub(super) enum WorkerMsg {
     Command(Cmd),
     Shutdown,
     Opened {
+        cancel: Arc<AtomicBool>,
         source: String,
         generation: u64,
         result: anyhow::Result<playback::OpenedSource>,
@@ -37,6 +39,24 @@ enum PlayDisposition {
     Open,
 }
 
+const HEALTH_POLL: Duration = Duration::from_millis(100);
+const STABLE_OUTPUT: Duration = Duration::from_secs(30);
+const MAX_RECOVERIES: usize = 3;
+
+struct OutputRetry {
+    source: String,
+    generation: u64,
+    at: Instant,
+}
+
+#[derive(Default)]
+struct OutputRecovery {
+    recoveries: usize,
+    recovery_generation: Option<u64>,
+    healthy_since: Option<Instant>,
+    retry: Option<OutputRetry>,
+}
+
 struct AudioWorker {
     state: Arc<Mutex<AudioState>>,
     control: Arc<Control>,
@@ -46,6 +66,7 @@ struct AudioWorker {
     pending: Option<PendingOpen>,
     active_cancel: Option<Arc<AtomicBool>>,
     active_generation: Option<u64>,
+    recovery: OutputRecovery,
 }
 
 #[expect(
@@ -68,16 +89,102 @@ pub(super) fn run(
         pending: None,
         active_cancel: None,
         active_generation: None,
+        recovery: OutputRecovery::default(),
     };
 
-    while let Ok(message) = rx.recv() {
-        if !worker.handle(message) {
-            break;
+    loop {
+        match rx.recv_timeout(HEALTH_POLL) {
+            Ok(message) => {
+                if !worker.handle(message) {
+                    break;
+                }
+            }
+            Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => break,
         }
+        worker.check_output(Instant::now());
     }
 }
 
 impl AudioWorker {
+    /// Output lifetime is independent of source generation. Retire the broken device even if
+    /// stop/replacement has already changed the request; restart only the latest requested source.
+    fn check_output(&mut self, now: Instant) {
+        if self.output.as_ref().is_some_and(|output| output.failed()) {
+            if let Some(cancel) = self.active_cancel.take() {
+                cancel.store(true, Ordering::Release);
+            }
+            if let Some(waiting) = self.pending.take() {
+                waiting.cancel.store(true, Ordering::Release);
+            }
+            self.active_generation = None;
+            self.recovery.healthy_since = None;
+            drop(self.output.take());
+            let (source, generation) = self.control.snapshot();
+            if let Some(source) = source {
+                self.schedule_recovery(source, generation, now, "audio output failed");
+            }
+        } else if self
+            .recovery
+            .healthy_since
+            .is_some_and(|since| now.duration_since(since) >= STABLE_OUTPUT)
+        {
+            self.recovery.recoveries = 0;
+        }
+        if self
+            .recovery
+            .retry
+            .as_ref()
+            .is_some_and(|retry| now >= retry.at)
+            && let Some(retry) = self.recovery.retry.take()
+            && self.control.is_current(&retry.source, retry.generation)
+        {
+            self.play(retry.source, retry.generation);
+        }
+    }
+
+    fn schedule_recovery(&mut self, source: String, generation: u64, now: Instant, why: &str) {
+        if !self.control.is_current(&source, generation) {
+            return;
+        }
+        self.reset_recovery_generation(generation);
+        if self.recovery.recoveries >= MAX_RECOVERIES {
+            self.control.fail_current(
+                &self.state,
+                &source,
+                generation,
+                format!("{why}; audio output recovery exhausted"),
+            );
+            return;
+        }
+        self.recovery.recoveries += 1;
+        self.control.publish_current(
+            &self.state,
+            generation,
+            SourceRequirement::Exact(&source),
+            |_, current| {
+                current.playing = false;
+                current.error = Some(format!("{why}; recovering audio output"));
+            },
+        );
+        tracing::warn!(
+            attempt = self.recovery.recoveries,
+            "audio: {why}; reopening output"
+        );
+        self.recovery.retry = Some(OutputRetry {
+            source,
+            generation,
+            at: now + Duration::from_secs(self.recovery.recoveries as u64),
+        });
+    }
+
+    fn reset_recovery_generation(&mut self, generation: u64) {
+        if self.recovery.recovery_generation != Some(generation) {
+            self.recovery.recoveries = 0;
+            self.recovery.recovery_generation = Some(generation);
+        }
+    }
+
     fn handle(&mut self, message: WorkerMsg) -> bool {
         match message {
             WorkerMsg::Shutdown => {
@@ -97,12 +204,13 @@ impl AudioWorker {
                 true
             }
             WorkerMsg::Opened {
+                cancel,
                 source,
                 generation,
                 result,
                 output,
             } => {
-                self.opened(&source, generation, result, output);
+                self.opened(&source, generation, &cancel, result, output);
                 true
             }
         }
@@ -123,6 +231,21 @@ impl AudioWorker {
     }
 
     fn play(&mut self, source: String, generation: u64) {
+        if self
+            .recovery
+            .retry
+            .as_ref()
+            .is_some_and(|retry| retry.source == source && retry.generation == generation)
+        {
+            return;
+        }
+        if !self.control.is_current(&source, generation) {
+            return;
+        }
+        // A new user request supersedes delayed recovery without reviving the old source.
+        self.recovery.retry = None;
+        self.reset_recovery_generation(generation);
+
         let title = station::TitleSink::pending_for(
             Some(self.state.clone()),
             generation,
@@ -201,6 +324,7 @@ impl AudioWorker {
     }
 
     fn stop(&mut self, generation: u64) {
+        let recovery = &mut self.recovery;
         let pending = &mut self.pending;
         let active_cancel = &mut self.active_cancel;
         self.control.publish_current(
@@ -208,6 +332,8 @@ impl AudioWorker {
             generation,
             SourceRequirement::None,
             |_, current| {
+                recovery.retry = None;
+                recovery.recoveries = 0;
                 if let Some(waiting) = pending.take() {
                     waiting.cancel.store(true, Ordering::Release);
                 }
@@ -225,13 +351,15 @@ impl AudioWorker {
         &mut self,
         source: &str,
         generation: u64,
+        cancel: &Arc<AtomicBool>,
         result: anyhow::Result<playback::OpenedSource>,
         opened_output: Option<Box<dyn AudioOutput>>,
     ) {
-        let matches = self
-            .pending
-            .as_ref()
-            .is_some_and(|waiting| waiting.generation == generation && waiting.source == source);
+        let matches = self.pending.as_ref().is_some_and(|waiting| {
+            waiting.generation == generation
+                && waiting.source == source
+                && Arc::ptr_eq(&waiting.cancel, cancel)
+        });
         if !matches {
             drop(result);
             drop(opened_output);
@@ -247,10 +375,20 @@ impl AudioWorker {
 
         if let Some(opened_output) = opened_output {
             self.output = Some(opened_output);
+            self.recovery.healthy_since = Some(Instant::now());
         }
         let opened = match result {
             Ok(opened) => opened,
             Err(error) => {
+                if self.recovery.recoveries > 0 && self.output.is_none() {
+                    self.schedule_recovery(
+                        source.to_owned(),
+                        generation,
+                        Instant::now(),
+                        &format!("{error:#}"),
+                    );
+                    return;
+                }
                 self.control.fail_current(
                     &self.state,
                     source,
@@ -261,6 +399,15 @@ impl AudioWorker {
             }
         };
         let Some(output) = self.output.as_ref() else {
+            if self.recovery.recoveries > 0 {
+                self.schedule_recovery(
+                    source.to_owned(),
+                    generation,
+                    Instant::now(),
+                    "audio output unavailable",
+                );
+                return;
+            }
             self.control.fail_current(
                 &self.state,
                 source,
@@ -335,6 +482,8 @@ fn spawn_open_with(
     } = request;
     let thread_source = source.clone();
     let failure_source = source.clone();
+    let cancel = title.cancelled.clone();
+    let failure_cancel = cancel.clone();
     let completion_tx = tx.clone();
     let spawned = spawn(Box::new(move || {
         let (result, output) = match playback::open(&thread_source, title) {
@@ -351,6 +500,7 @@ fn spawn_open_with(
             Err(error) => (Err(error), None),
         };
         drop(completion_tx.send(WorkerMsg::Opened {
+            cancel,
             source,
             generation,
             result,
@@ -361,6 +511,7 @@ fn spawn_open_with(
         let why = format!("could not start source opener: {error}");
         tracing::warn!("audio: {why}");
         drop(tx.send(WorkerMsg::Opened {
+            cancel: failure_cancel,
             source: failure_source,
             generation,
             result: Err(anyhow::Error::msg(why)),

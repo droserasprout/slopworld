@@ -32,6 +32,10 @@ pub(crate) trait AudioOutput: Send + Sync {
     fn append(&self, source: Box<dyn Source + Send>);
     fn set_volume(&self, volume: f32);
     fn play(&self);
+    /// Backend failures require a fresh device; ordinary recovered xruns do not.
+    fn failed(&self) -> bool {
+        false
+    }
 }
 
 pub(crate) trait OutputFactory: Send + Sync {
@@ -42,10 +46,12 @@ pub(crate) struct RodioOutputFactory;
 
 impl OutputFactory for RodioOutputFactory {
     fn open(&self) -> Result<Box<dyn AudioOutput>> {
-        let (sink, player) = open_device()?;
+        let failed = Arc::new(AtomicBool::new(false));
+        let (sink, player) = open_device_with_health(failed.clone())?;
         Ok(Box::new(RodioOutput {
             _sink: sink,
             player,
+            failed,
         }))
     }
 }
@@ -53,9 +59,14 @@ impl OutputFactory for RodioOutputFactory {
 struct RodioOutput {
     _sink: rodio::MixerDeviceSink,
     player: rodio::Player,
+    failed: Arc<AtomicBool>,
 }
 
 impl AudioOutput for RodioOutput {
+    fn failed(&self) -> bool {
+        self.failed.load(Ordering::Acquire)
+    }
+
     fn append(&self, source: Box<dyn Source + Send>) {
         self.player.append(source);
     }
@@ -80,7 +91,14 @@ pub(crate) fn pcm_id(device: &cpal::Device) -> String {
 
 /// Prefer named server PCMs because `open_default_sink` can select `null`.
 /// Reject `null` because it discards audio.
+#[cfg(test)]
 pub(crate) fn open_device() -> Result<(rodio::MixerDeviceSink, rodio::Player)> {
+    open_device_with_health(Arc::new(AtomicBool::new(false)))
+}
+
+fn open_device_with_health(
+    failed: Arc<AtomicBool>,
+) -> Result<(rodio::MixerDeviceSink, rodio::Player)> {
     let host = cpal::default_host();
 
     let named: Vec<(String, cpal::Device)> = host
@@ -113,13 +131,27 @@ pub(crate) fn open_device() -> Result<(rodio::MixerDeviceSink, rodio::Player)> {
     };
 
     let sink = rodio::DeviceSinkBuilder::from_device(device)
-        .and_then(|b| b.open_stream())
+        .and_then(|b| {
+            b.with_error_callback(move |error| {
+                record_output_error(&failed, &error);
+            })
+            .open_stream()
+        })
         .map_err(|e| anyhow!("{e}"))
         .with_context(|| format!("opening output device {id:?}"))?;
 
     tracing::info!("audio: output device {id:?}");
     let player = rodio::Player::connect_new(sink.mixer());
     Ok((sink, player))
+}
+
+/// CPAL recovers ordinary xruns itself. POLLERR can instead spin without invoking the
+/// sample callback. Latch failure without logging or messaging on this callback thread;
+/// the worker owns disposal and reopening, including when many errors arrive together.
+fn record_output_error(failed: &AtomicBool, error: &cpal::StreamError) {
+    if !matches!(error, cpal::StreamError::BufferUnderrun) {
+        failed.store(true, Ordering::Release);
+    }
 }
 
 /// The result of source opening and decoder probing. It contains no output-side effects: the

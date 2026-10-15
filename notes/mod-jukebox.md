@@ -11,6 +11,11 @@ root-only API edits. Playback and catalog owners are mapped in
 [daemon sources](daemon-files.md), storage in [configuration stores](daemon-config-stores.md),
 and transport in [the client](mod-client.md).
 
+The daemon audio worker owns output-device recovery. Backend failures retire the device
+and restart the current source after bounded backoff; stop and source replacement
+cancel delayed recovery. Reopening restarts local files and reconnects stations.
+Ordinary ALSA underruns remain CPAL’s responsibility.
+
 Native daemon playback disables vanilla music. Sidecar mode uses RimWorld's native
 music manager for the SlopWorld OST. Muting a daemon stream sends stop to avoid
 continued downloads; muting Spotify stops its managed player, while sidecar mute
