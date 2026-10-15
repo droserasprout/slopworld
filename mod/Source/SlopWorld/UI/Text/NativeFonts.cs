@@ -44,7 +44,7 @@ namespace SlopWorld
                     // and byte length, while fontSize=0 uses the registered import size.
                     int index = backend.RegisterFont(
                         name + "@" + size,
-                        InstalledFontNames.Select(File.ReadAllBytes(source.Path), source.Face),
+                        OpenTypeCollection.Extract(File.ReadAllBytes(source.Path), source.Face),
                         size,
                         0
                     );
