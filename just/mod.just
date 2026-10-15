@@ -36,9 +36,10 @@ lint: restore-tools
     for source in $CSHARP_FORMAT_FOLDERS; do (cd "$source" && $DOTNET csharpier check .) || exit "$?"; done
 
 
-# Validate a Release build with warnings as errors (requires game assemblies)
+# Validate Release compilation and native bindings without starting the game
 check-build:
     "$JUST_CMD" --justfile "$JUST_ROOT" BUILD=release MOD_WARNINGS_AS_ERRORS=true build mod
+    $DOTNET run --project "$TEST_PROJECT" --configuration Release -p:RestoreLockedMode=true -- --game-bindings "$MANAGED" "$MOD_DLL"
 
 # Run game-free C# tests
 [positional-arguments]

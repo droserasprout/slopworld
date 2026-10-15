@@ -100,8 +100,9 @@ to select tests, for example `just test tools tools/recipes -k failure`.
 Use `just coverage tools` when you want a Python branch coverage report.
 `just lint` checks sources without rewriting them. `just lint tools` checks formatting,
 Ruff rules and strict mypy types across `tools/`, including its tests.
-`just check mod-build` separately validates a Release build with warnings as errors
-and requires game assemblies. Release packaging includes that check.
+`just check mod-build` validates a Release build with warnings as errors, resolves native
+text patch targets, and checks the swapchain rewrite against installed game assemblies.
+It does not start the game. Release packaging includes that check.
 `just format tools` applies the 120-column, single-quote style and sorts imports.
 Ruff, mypy, and pytest-cov belong to the uv `dev` dependency group.
 Tools run as modules from the repository root through uv;

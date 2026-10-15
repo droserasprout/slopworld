@@ -400,11 +400,22 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual([call['args'] for call in self.calls('uv')], [['lock', '--upgrade']])
 
     def test_build_check_forces_release_and_warnings_through_recursive_call(self) -> None:
-        self.run_recipe('BUILD=debug', 'MOD_WARNINGS_AS_ERRORS=false', 'VERSION=1.2.3', 'check', 'mod-build')
+        self.run_recipe(
+            'BUILD=debug',
+            'MOD_WARNINGS_AS_ERRORS=false',
+            'VERSION=1.2.3',
+            'MANAGED=/game assemblies',
+            'MOD_DLL=/built mod/SlopWorld.dll',
+            'check',
+            'mod-build',
+        )
         self.assertEqual(self.calls('cargo'), [])
         (mod,) = [call for call in self.calls('dotnet') if 'mod/Source/SlopWorld/SlopWorld.csproj' in call['args']]
         self.assertIn('Release', mod['args'])
         self.assertIn('-p:TreatWarningsAsErrors=true', mod['args'])
+        (bindings,) = [call for call in self.calls('dotnet') if '--game-bindings' in call['args']]
+        self.assertIn('Release', bindings['args'])
+        self.assertEqual(bindings['args'][-3:], ['--game-bindings', '/game assemblies', '/built mod/SlopWorld.dll'])
 
     def test_csharp_formatting_scopes_discovery_to_source_folders(self) -> None:
         folders = [

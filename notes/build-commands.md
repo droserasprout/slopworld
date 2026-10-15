@@ -175,7 +175,8 @@ pytest-cov, and the dependencies needed to type-check asset generators.
 `just format tools` applies formatting and import sorting; `fix tools` applies lint
 fixes. `lint tools` checks formatting and Ruff rules without rewriting sources and runs
 strict mypy across `tools/`, including tests. `lint mod` checks C# formatting;
-`check mod-build` separately validates Release compilation against game assemblies. Optional rendering
+`check mod-build` validates Release compilation and native text/swapchain bindings against
+game assemblies without starting the game. Optional rendering
 backends without stubs have scoped missing-import overrides; package code remains strict.
 `just test tools` runs pytest, accepting paths and options for focused selection.
 `test pager` owns tmux/less integration checks. `bench test` owns benchmark runner,

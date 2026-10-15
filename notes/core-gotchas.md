@@ -16,4 +16,5 @@ Runtime diagnosis and save compatibility belong to
 Harmony comes from the .NET 10 asset of the pinned Lib.Harmony package. The
 runtime smoke test must exercise patching and unpatching, not only reflection
 helpers. Test-harness CLR support does not establish game-target bindings or
-native rendering behavior.
+native rendering behavior. `just check mod-build` checks native text targets and swapchain IL
+against installed assemblies without starting the game; see [C# tests](test-csharp.md).
