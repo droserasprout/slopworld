@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 Expect any imaginable incompatibilities until 0.1.0.
 
+## Unreleased
+
+### Fixed
+
+- Jukebox: Recover audio playback after ALSA/PipeWire output xrun failures.
+- Sessions: Fixed deadlock on saving agent with workspace switch.
+
 ## [0.0.3] - 2026-10-14
 
 ### Added

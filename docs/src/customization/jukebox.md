@@ -15,9 +15,9 @@ The full menu offers song recognition through `songrec`, Like, and History.
 Likes are saved locally; see [Paths and files](../reference/paths.md) for stations
 and liked-song locations.
 
-## Spotify proof of concept
+## Spotify via ncspot
 
-This experimental feature requires a native Linux daemon, `ncspot`, and Spotify
+This feature requires a native Linux daemon, `ncspot`, and Spotify
 Premium. The source is hidden when ncspot is unavailable; hide it manually through
 Settings if desired.
 
@@ -26,14 +26,12 @@ Settings if desired.
 3. Complete ncspot's login.
 4. Choose music in its terminal.
 
-**Open Spotify player** returns to that terminal. Hiding it leaves playback
-running, and the jukebox displays ncspot's current track.
-
-Muting or switching to OST/radio closes ncspot. Unmuting starts it again; use its
+Muting or switching to OST/radio closes `ncspot`. Unmuting starts it again. Use its
 terminal to resume or choose music. **Stop on exit** also applies. Playback and
-Spotify library controls remain in ncspot. Like writes only SlopWorld's local likes.
+Spotify library controls remain in `ncspot`. "Like" button writes only SlopWorld's local likes.
 
-## Sidecar playback
+## Sidecar limitations
 
-Sidecar mode uses RimWorld to play the bundled OST. It offers mute and Settings,
-without the source picker, recognition, Like, History, or Spotify playback.
+Sidecar mode uses RimWorld to play the bundled OST.
+
+Internet radio, song recognition, and Spotify playback are not available.
