@@ -9,9 +9,9 @@ using WindowChange = SlopWorld.LinuxWindowRecovery.WindowChange;
 
 namespace SlopWorld
 {
-    // Use -popupwindow -screen-fullscreen 0 to avoid the Unity Linux Alt+Tab freeze.
-    // Request fullscreen through the X11 window manager so geometry and input coordinates change together.
-    // Resize the Unity surface before initial fullscreen and geometry recovery.
+    // The launcher selects X11 before window creation. Keep the renderer windowed and request
+    // fullscreen through EWMH so geometry and input coordinates change together.
+    // Resize the game surface before initial fullscreen and geometry recovery.
     // Keep window decorations disabled because Mutter can restore the title bar after fullscreen ends.
     public static class LinuxGameWindow
     {
@@ -38,6 +38,7 @@ namespace SlopWorld
             if (Application.platform != RuntimePlatform.LinuxPlayer || Recovery.Unsupported)
                 return;
 
+            EnsureWindowed();
             bool want = Settings.Fullscreen;
             float now = Time.realtimeSinceStartup;
             if (
@@ -52,6 +53,19 @@ namespace SlopWorld
 
             var result = TrySet(want);
             Recovery.CompleteAttempt(Time.realtimeSinceStartup, want, watch, result);
+        }
+
+        // Native display modes belong to the renderer and can hang on focus changes.
+        // The SlopWorld fullscreen preference is separate and belongs to the window manager.
+        static void EnsureWindowed()
+        {
+            if (Prefs.FullScreenMode != FullScreenMode.Windowed)
+            {
+                Prefs.FullScreenMode = FullScreenMode.Windowed;
+                Prefs.Save();
+            }
+            if (Screen.fullScreenMode != FullScreenMode.Windowed)
+                Screen.fullScreenMode = FullScreenMode.Windowed;
         }
 
         // Arm before queuing the menu transition. Pending covers the handoff to QuickStart;
@@ -71,8 +85,8 @@ namespace SlopWorld
 
         public static void Toggle() => Set(!Settings.Fullscreen);
 
-        // Resize the Unity render surface to the monitor dimensions before requesting EWMH fullscreen.
-        // Keep Unity in windowed mode to avoid its fullscreen freeze.
+        // Resize the game render surface to the monitor dimensions before requesting EWMH fullscreen.
+        // Keep the renderer windowed while the window manager owns fullscreen.
         static bool ResyncSurface()
         {
             int w = Display.main.systemWidth;

@@ -9,6 +9,8 @@ namespace UnityEngine
 
     public enum FullScreenMode
     {
+        ExclusiveFullScreen,
+        FullScreenWindow,
         Windowed,
     }
 
@@ -26,6 +28,7 @@ namespace UnityEngine
 
     public static class Screen
     {
+        public static FullScreenMode fullScreenMode = FullScreenMode.Windowed;
         public static int width = 1920;
         public static int height = 1080;
 

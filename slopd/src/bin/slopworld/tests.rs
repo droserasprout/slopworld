@@ -469,3 +469,18 @@ fn parse(args: &[String]) -> Result<Option<Args>, String> {
         _ => Err("expected launch".into()),
     }
 }
+
+#[test]
+fn linux_launch_selects_x11_for_window_manager_fullscreen() {
+    let mut command = Command::new("/g/RimWorld");
+    configure_game_window(&mut command);
+    let selected = command.get_envs().find(|(key, _)| *key == "FORCE_X11");
+    if cfg!(target_os = "linux") {
+        assert_eq!(
+            selected,
+            Some((OsStr::new("FORCE_X11"), Some(OsStr::new("1"))))
+        );
+    } else {
+        assert_eq!(selected, None);
+    }
+}

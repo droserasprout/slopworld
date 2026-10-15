@@ -1,8 +1,9 @@
 # Linux window integration
 
 `LinuxGameWindow` owns X11/EWMH titles, application identity, and fullscreen, including
-under XWayland. The launcher leaves display-mode selection to the game; the mod follows
-the saved fullscreen preference. Both WM_CLASS strings are `slopworld`, matching the desktop
+under XWayland. The launcher sets `FORCE_X11=1` before window creation. The mod follows
+its saved fullscreen preference while keeping the renderer and RimWorld display mode
+windowed. Native fullscreen controls are hidden in embedded game options. Both WM_CLASS strings are `slopworld`, matching the desktop
 entry despite sharing the RimWorld executable.
 
 `LinuxWindowRecovery` owns process-lifetime policy and retry timing without game

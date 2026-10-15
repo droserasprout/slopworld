@@ -9,6 +9,43 @@ namespace SlopWorld.Tests
     {
         const BindingFlags PrivateStatic = BindingFlags.Static | BindingFlags.NonPublic;
 
+        [TestCase(FullScreenMode.ExclusiveFullScreen)]
+        [TestCase(FullScreenMode.FullScreenWindow)]
+        public void NativeModesAreResetWithoutChangingSavedWindowManagerFullscreen(
+            FullScreenMode mode
+        )
+        {
+            var previousMode = Screen.fullScreenMode;
+            var preference = Verse.Prefs.FullScreenMode;
+            int saves = Verse.Prefs.Saves;
+            bool fullscreen = Settings.S.fullscreen;
+            try
+            {
+                Screen.fullScreenMode = Verse.Prefs.FullScreenMode = mode;
+                typeof(LinuxGameWindow)
+                    .GetMethod("EnsureWindowed", PrivateStatic)
+                    .Invoke(null, null);
+                Assert.That(Screen.fullScreenMode, Is.EqualTo(FullScreenMode.Windowed));
+                Assert.That(Verse.Prefs.FullScreenMode, Is.EqualTo(FullScreenMode.Windowed));
+                Assert.That(Settings.S.fullscreen, Is.EqualTo(fullscreen));
+                Assert.That(Verse.Prefs.Saves, Is.EqualTo(saves + 1));
+                typeof(LinuxGameWindow)
+                    .GetMethod("EnsureWindowed", PrivateStatic)
+                    .Invoke(null, null);
+                Assert.That(
+                    Verse.Prefs.Saves,
+                    Is.EqualTo(saves + 1),
+                    "settled state does not rewrite preferences"
+                );
+            }
+            finally
+            {
+                Screen.fullScreenMode = previousMode;
+                Verse.Prefs.FullScreenMode = preference;
+                Verse.Prefs.Saves = saves;
+            }
+        }
+
         [Test]
         public void OtherPlatformsSkipFollowBeforeStartupOrNativeWork()
         {

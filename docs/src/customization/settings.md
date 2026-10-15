@@ -56,8 +56,9 @@ cancelling leaves the setting unchanged.
 ## Display
 
 Open **Settings > Display** for fullscreen, frame limits, VSync, and scrolling.
-On Linux, the game selects the initial display mode. The mod's window-manager
-hook follows the saved fullscreen setting.
+On Linux, SlopWorld launches through X11 or XWayland and keeps the renderer windowed.
+**Display > Fullscreen** and F11 control fullscreen through the window manager. The
+window stays undecorated when fullscreen is off. Native RimWorld display modes are hidden.
 
 | Control | Effect |
 | --- | --- |

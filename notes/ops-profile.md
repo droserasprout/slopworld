@@ -44,3 +44,7 @@ folder. Capture stdout and stderr in the shared resolved `Player.log`, replacing
 it on each launch, and pass `-NoFileLog` to disable Waylith's separate logger.
 Prepare the log only after profile validation and locking during normal launch.
 [Linux window integration](ui-window-fullscreen.md) owns window behavior.
+
+Linux launches set `FORCE_X11=1` for Waylith's GLFW initialization. Native X11 and
+XWayland windows share the mod's EWMH fullscreen and decoration handling; native
+Wayland windows do not expose that boundary. The renderer uses the game's Vulkan backend.
