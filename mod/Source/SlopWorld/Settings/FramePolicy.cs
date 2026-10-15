@@ -2,7 +2,7 @@ using System;
 
 namespace SlopWorld
 {
-    // Apply Unity's VSync and target-FPS values together. Unfocused windows always use 15 FPS.
+    // Select native presentation and target FPS. Unfocused windows always use 15 FPS.
     public sealed class FramePolicy
     {
         public const string Sync = "sync",
@@ -35,7 +35,9 @@ namespace SlopWorld
                 !focused ? 15
                 : mode == Sync ? -1
                 : NearestPreset(fps);
-            int nextSync = focused && mode == Sync ? 1 : 0;
+            // The FPS cap handles background pacing. Keep presentation mode tied to the
+            // selected policy so focus changes do not recreate the Vulkan swapchain.
+            int nextSync = mode == Sync ? 1 : 0;
             bool changed = target != nextTarget || sync != nextSync;
             target = nextTarget;
             sync = nextSync;
