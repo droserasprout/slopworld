@@ -15,7 +15,7 @@ namespace SlopWorld.Tests
             );
             phase.SetValue(null, System.Enum.ToObject(phase.FieldType, 0));
             UnityEngine.Application.wantsToQuit = null;
-            SaveCoordinator.Programmatic = false;
+            SaveCoordinator.ConsumeProgrammaticShutdown();
             Verse.Root.Shutdowns = 0;
             QuitInterceptor.Register();
         }
@@ -35,7 +35,7 @@ namespace SlopWorld.Tests
         [Test]
         public void ProgrammaticShutdownDoesNotQueueAnotherShutdown()
         {
-            SaveCoordinator.Programmatic = true;
+            SaveCoordinator.NoteProgrammaticShutdown();
             Assert.That(UnityEngine.Application.wantsToQuit(), Is.True);
             QuitInterceptor.Check();
             Assert.That(Verse.Root.Shutdowns, Is.Zero);
@@ -62,26 +62,11 @@ namespace Verse
         public static void Shutdown()
         {
             Shutdowns++;
-            SlopWorld.SaveCoordinator.Programmatic = true;
+            SlopWorld.SaveCoordinator.NoteProgrammaticShutdown();
             NUnit.Framework.Assert.That(
                 UnityEngine.Application.wantsToQuit(),
                 NUnit.Framework.Is.True
             );
-        }
-    }
-}
-
-namespace SlopWorld
-{
-    public static class SaveCoordinator
-    {
-        public static bool Programmatic;
-
-        public static bool ConsumeProgrammaticShutdown()
-        {
-            bool result = Programmatic;
-            Programmatic = false;
-            return result;
         }
     }
 }

@@ -77,6 +77,8 @@
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalPanel/TerminalLinkService.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/RealClock.Formatting.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/QuitInterceptor.cs" />
+    <Compile Include="../Source/SlopWorld/Sim/Lifecycle/SaveCoordinator.cs" />
+    <Compile Include="../Source/SlopWorld/Sim/Lifecycle/ShutdownSaving.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/LoadFailureRecovery.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/LogEntryClock.cs" />
     <Compile Include="../Source/SlopWorld/Patches/LoadingScreen/LoadingScreen.Tips.cs" />

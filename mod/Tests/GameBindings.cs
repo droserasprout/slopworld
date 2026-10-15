@@ -40,6 +40,22 @@ namespace SlopWorld.Tests
                         count++;
                     }
                 }
+                var shutdown = (MethodBase)Invoke(
+                    mod,
+                    "Patch_SaveOnNativeShutdown",
+                    "TargetMethod"
+                );
+                Require(shutdown != null && !shutdown.IsStatic, "missing native quit lifecycle");
+                Require(
+                    PatchProcessor
+                        .GetOriginalInstructions(shutdown)
+                        .Any(instruction =>
+                            instruction.operand is FieldInfo field && field.Name == "OnShutdown"
+                        ),
+                    "native quit lifecycle no longer dispatches game shutdown"
+                );
+                count++;
+
                 var parser = (MethodBase)Invoke(mod, "Patch_NativeTextTags", "TargetMethod");
                 Require(parser != null, "missing native rich-text parser");
                 count++;

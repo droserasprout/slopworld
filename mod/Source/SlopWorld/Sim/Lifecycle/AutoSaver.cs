@@ -34,19 +34,6 @@ namespace SlopWorld
         }
     }
 
-    // Request a save for both in-game restart and ordinary shutdown.
-    [HarmonyPatch(typeof(Root), nameof(Root.Shutdown))]
-    public static class Patch_SaveOnShutdown
-    {
-        static void Prefix()
-        {
-            // Mark this shutdown as programmatic.
-            // The interceptor then permits the wantsToQuit event from Root.Shutdown without starting another save sequence.
-            SaveCoordinator.NoteProgrammaticShutdown();
-            SaveCoordinator.SaveNow();
-        }
-    }
-
     // Save before returning to the main menu without ending the process.
     // SaveNow excludes colonies that NextPlanet will discard.
     [HarmonyPatch(typeof(GenScene), nameof(GenScene.GoToMainMenu))]

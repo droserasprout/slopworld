@@ -48,7 +48,7 @@ namespace SlopWorld
             // Add the replacement options category at runtime.
             // An inactive mod then leaves no empty options tab.
             ModOptions.Install();
-            // Intercepts Alt+F4 / window close to save and show a confirmation dialog.
+            // Defer Unity quit requests to the saving Root.Shutdown path.
             QuitInterceptor.Register();
             Log.Message("[SlopWorld] Patched. Daemon at " + DaemonClient.BaseUrl);
             UiFont.Apply();
@@ -86,8 +86,7 @@ namespace SlopWorld
             DaemonClient.PumpCompletions(e => Log.Error($"[SlopWorld] completion: {e}"));
             SessionHub.Instance.Update();
             WindowTitle.Follow();
-            // Intercepts Alt+F4 / window close: shows the confirmation dialog on the
-            // frame after the save completes.
+            // Finish a deferred Unity quit request through Root.Shutdown.
             QuitInterceptor.Check();
             // Adjust the frame rate when the window loses focus.
             // Check each frame, including frames in menus.

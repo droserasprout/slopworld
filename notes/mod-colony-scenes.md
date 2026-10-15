@@ -13,8 +13,12 @@ setup-page flash during the loading handoff.
 `SaveCoordinator` coordinates SlopWorld autosave, shutdown, and main-menu transitions.
 It suppresses saves while `NextPlanet.Pending`: a discarded colony must not become
 the next auto-resume save. Manual vanilla saves have a separate path. Shutdown
-saving runs from the Root.Shutdown prefix; deferred OS close requests remain
-cancelled until that path runs.
+saving runs synchronously before `Root.Shutdown` or the native
+`Waylith.EngineApplication.ExecuteQuitLifecycle`, once per process across both
+paths. Native window close bypasses Unity's `wantsToQuit` and `Root.Shutdown`;
+its lifecycle prefix must save before game shutdown callbacks tear down state.
+Unity close requests, when delivered, remain cancelled until deferred shutdown
+starts. Periodic saving still pauses with Eco ticks.
 
 `LoadFailureRecovery` replaces the native load-error dialog with a mandatory
 SlopWorld notice. It stops Scribe and returns to the entry scene, suppressing saves

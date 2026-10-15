@@ -8,6 +8,7 @@ namespace SlopWorld
     public static class SaveCoordinator
     {
         static bool _programmaticShutdown;
+        static bool _shutdownSaved;
 
         public static void NoteProgrammaticShutdown()
         {
@@ -19,6 +20,16 @@ namespace SlopWorld
             bool programmatic = _programmaticShutdown;
             _programmaticShutdown = false;
             return programmatic;
+        }
+
+        // Root.Shutdown and the native quit lifecycle can both run for one exit.
+        // Save synchronously before either path tears down the game, once per process.
+        public static void SaveOnShutdown()
+        {
+            if (_shutdownSaved)
+                return;
+            _shutdownSaved = true;
+            SaveNow();
         }
 
         // Save failures must not block shutdown.
