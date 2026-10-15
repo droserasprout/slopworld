@@ -26,5 +26,10 @@ including `TestResult.xml`, belongs in the executable output directory, not the
 shipped `Assemblies/` tree. RimWorld must not load test/substitute assemblies.
 Game checks, when requested, use [build diagnostics](../docs/src/development/build.md).
 
+`just check mod-build` also runs `GameBindings` against the installed game and built mod
+in an isolated assembly context. It resolves native text targets and field geometry,
+and applies the swapchain rewrite to the game's actual IL. It does not start the game
+or validate rendering. Keep this check separate from the game-free coverage denominator.
+
 Benchmark workflow belongs to [build commands](build-commands.md) and
 [IPC benchmarks](../bench/ipc/README.md).

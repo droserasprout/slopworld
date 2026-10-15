@@ -7,6 +7,8 @@ namespace SlopWorld.Tests
     {
         static int Main(string[] args)
         {
+            if (args.Length == 3 && args[0] == "--game-bindings")
+                return GameBindings.Run(args[1], args[2]);
             if (Array.IndexOf(args, "--perf-bench") >= 0)
                 return Benchmarks.Run();
             // NUnitLite otherwise writes TestResult.xml into the caller's directory.

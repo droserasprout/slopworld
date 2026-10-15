@@ -190,7 +190,8 @@ pytest-cov, and the dependencies needed to type-check asset generators.
 `just tools-format` applies formatting and import sorting; `tools-fix` applies lint
 fixes. `tools-lint` checks formatting and Ruff rules without rewriting sources and runs
 strict mypy across `tools/`, including tests. `mod-lint` checks C# formatting;
-`mod-check-build` separately validates Release compilation against game assemblies. Optional rendering
+`mod-check-build` validates Release compilation and native text/swapchain bindings against
+game assemblies without starting the game. Optional rendering
 backends without stubs have scoped missing-import overrides; package code remains strict.
 `just tools-test` runs pytest with discovery rooted at tools, mac, slopcar, and bench
 in `pyproject.toml`; explicit paths and options select a subset. This includes the
