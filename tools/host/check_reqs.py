@@ -80,7 +80,6 @@ def main() -> int:
 
     print('Optional: developer tools')
     commands('redeploy helper', 'curl', required=False)
-    commands('Mono IPC benchmark', 'mono', required=False)
     commands('human docs', 'mdbook', required=False)
     commands('game screenshot window lookup', 'xdotool', required=False)
     commands('game screenshot capture', 'import', required=False)

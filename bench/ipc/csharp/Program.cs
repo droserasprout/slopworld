@@ -11,18 +11,6 @@ class Program
     const int WarmupCount = 300;
     const int SampleCount = 21;
 
-    static Func<long> AllocationCounter()
-    {
-        var method = typeof(GC).GetMethod("GetAllocatedBytesForCurrentThread");
-        if (method == null)
-            throw new NotSupportedException(
-                "IPC allocation benchmarks require a Mono runtime exposing GC.GetAllocatedBytesForCurrentThread."
-            );
-        return (Func<long>)Delegate.CreateDelegate(typeof(Func<long>), method);
-    }
-
-    static Func<long> allocated;
-
     static void Measure(string fixture, string lane, int wire, int iterations, Action action)
     {
         for (int i = 0; i < WarmupCount; i++)
@@ -34,13 +22,14 @@ class Program
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
-            long before = allocated();
+            long before = GC.GetAllocatedBytesForCurrentThread();
             var timer = Stopwatch.StartNew();
             for (int i = 0; i < iterations; i++)
                 action();
             timer.Stop();
             us[sample] = timer.Elapsed.TotalMilliseconds * 1000 / iterations;
-            allocations[sample] = (allocated() - before) / (double)iterations;
+            allocations[sample] =
+                (GC.GetAllocatedBytesForCurrentThread() - before) / (double)iterations;
         }
         Array.Sort(us);
         Array.Sort(allocations);
@@ -79,7 +68,6 @@ class Program
             return;
         }
 
-        allocated = AllocationCounter();
         Console.WriteLine("fixture,lane,wire_bytes,p50_us,p95_us,allocated_bytes");
         if (args.Length != 1)
             throw new ArgumentException("fixture directory is required");
