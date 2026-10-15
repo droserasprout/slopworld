@@ -33,7 +33,7 @@ namespace SlopWorld
             {
                 if (e.delta.y == 0f)
                     return;
-                int step = reader ? 1 : Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(e.delta.y)), 1, 5);
+                int step = TerminalWheelSteps.Count(e.delta.y, reader);
                 _panel.ClearSelection();
                 var cell = _panel.CellAt(body, e.mousePosition);
                 string act = e.delta.y < 0f ? "wheelup" : "wheeldown";
@@ -57,7 +57,7 @@ namespace SlopWorld
                 // Use the dominant axis to ignore slight touchpad drift. Pagers receive normal arrow keys.
                 bool horizontal = Mathf.Abs(e.delta.x) > Mathf.Abs(e.delta.y);
                 float delta = horizontal ? e.delta.x : e.delta.y;
-                int step = reader ? 1 : Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(delta)), 1, 5);
+                int step = TerminalWheelSteps.Count(delta, reader);
                 string key = horizontal
                     ? (delta < 0f ? "Left" : "Right")
                     : (delta < 0f ? "Up" : "Down");

@@ -275,6 +275,7 @@ namespace UnityEngine
 
     public class Event
     {
+        public const float scrollWheelDeltaPerTick = 3f;
         public static Event current;
 
         public void Use() => type = EventType.Used;
