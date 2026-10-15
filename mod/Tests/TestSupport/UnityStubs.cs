@@ -141,7 +141,8 @@ namespace UnityEngine
         public Vector2 CalcSize(GUIContent content)
         {
             float width = 0f;
-            foreach (char c in content.text)
+            // Native CalcSize excludes trailing ASCII spaces from the reported line width.
+            foreach (char c in content.text.TrimEnd(' '))
                 width +=
                     font == null ? 1f
                     : font.Monospace ? 8f

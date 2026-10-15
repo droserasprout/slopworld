@@ -25,6 +25,43 @@ namespace SlopWorld.Tests
                 ) + (lines.Last().Source.CopySuffix ?? "");
         }
 
+        public static void SpacesAdvanceAcrossLinksAndStyledRuns()
+        {
+            var styles = new StyleSet();
+            Assert.That(styles.Normal.CalcSize(new GUIContent(" ")).x, Is.Zero);
+            float space =
+                StyleSet.MeasureText(styles.Normal, " M")
+                - StyleSet.MeasureText(styles.Normal, "M");
+            Assert.That(space, Is.GreaterThan(0f));
+            var runs = new List<InlineRun>
+            {
+                new InlineRun { Text = "Run " },
+                new InlineRun { Text = "agent CLIs", Link = "https://example.com" },
+                new InlineRun { Text = "  and " },
+                new InlineRun { Text = "tools", Bold = true },
+            };
+            var layout = Layout(styles).Wrap(runs, 10000f, 0);
+            var pieces = layout.Lines.Single().Pieces;
+            Assert.That(
+                pieces[0].Width,
+                Is.EqualTo(styles.Normal.CalcSize(new GUIContent("Run")).x + space)
+            );
+            Assert.That(
+                pieces[2].Width,
+                Is.EqualTo(styles.Normal.CalcSize(new GUIContent("and")).x + space * 3f)
+            );
+            Assert.That(styles.MeasureChar(styles.Normal, ' '), Is.EqualTo(space));
+            Assert.That(Copy(layout), Is.EqualTo("Run agent CLIs  and tools"));
+            Assert.That(
+                layout.Width,
+                Is.EqualTo(styles.Normal.CalcSize(new GUIContent("Run agent CLIs  and tools")).x)
+            );
+            var wrapped = Layout(styles)
+                .Wrap(runs, pieces[0].Width + pieces[1].Width - space / 2f, 0);
+            Assert.That(wrapped.Lines.Count, Is.GreaterThan(1));
+            Assert.That(Copy(wrapped), Is.EqualTo("Run agent CLIs  and tools"));
+        }
+
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             foreach (bool task in new[] { false, true })
