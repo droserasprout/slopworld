@@ -116,10 +116,7 @@ namespace SlopWorld
             }
         }
 
-        // IMGUI group coordinates must not be mixed with screen-space matrix pivots.
-        // Fit native glyphs by requesting a smaller font size, never by transforming
-        // GUI.matrix for an individual cell. Keep the original text baseline.
-        static void DrawLabel(Rect bounds, string text, GUIStyle style)
+        internal static void DrawLabel(Rect bounds, string text, GUIStyle style)
         {
             // The native label path forwards GUI tint, but ignores the style state's text color.
             // Apply the foreground here for both plain spans and text beside atlas sprites.

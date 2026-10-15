@@ -236,8 +236,16 @@ namespace SlopWorld
             for (int i = 0; i < AnsiColors; i++)
             {
                 string label = i.ToString("X", CultureInfo.InvariantCulture);
-                GUI.Label(new Rect(r.x + (i + 1) * cell, r.y, cell, cell), label, style);
-                GUI.Label(new Rect(r.x, r.y + (i + 1) * cell, cell, cell), label, style);
+                SharedTextRenderer.DrawLabel(
+                    new Rect(r.x + (i + 1) * cell, r.y, cell, cell),
+                    label,
+                    style
+                );
+                SharedTextRenderer.DrawLabel(
+                    new Rect(r.x, r.y + (i + 1) * cell, cell, cell),
+                    label,
+                    style
+                );
             }
 
             for (int bg = 0; bg < AnsiColors; bg++)
@@ -252,7 +260,7 @@ namespace SlopWorld
                     );
                     Widgets.DrawBoxSolid(box, th.Ansi[bg]);
                     style.normal.textColor = th.Ansi[fg];
-                    GUI.Label(box, "A", style);
+                    SharedTextRenderer.DrawLabel(box, "A", style);
                 }
             }
         }
@@ -326,7 +334,7 @@ namespace SlopWorld
 
             style.normal.textColor = c;
             float cw = TerminalFont.CellWAtScreenScale(Prefs.UIScale);
-            GUI.Label(
+            SharedTextRenderer.DrawLabel(
                 new Rect(pad + col * cw, y, text.Length * cw + 4f, TerminalFont.CellH),
                 text,
                 style
