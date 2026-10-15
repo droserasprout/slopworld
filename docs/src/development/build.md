@@ -160,8 +160,8 @@ suites. Reports go to `bench/results/<name>/`. Use
 `just BENCH_RUN=<name> bench report --baseline <older> --mode relative` compares runs.
 Use `just BUILD=release bench run daemon --run <name>` for one suite; only its
 binaries are built. `bench run mod` and `bench run ipc` select the other suites.
-Pass `--help` to a benchmark operation to see its CLI options. The IPC benchmark's
-Mono comparison lane requires Mono; the mod's HTTP regression tests run in `just test mod`.
+Pass `--help` to a benchmark operation to see its CLI options. The IPC benchmark
+compares .NET 10 with Rust; the mod's HTTP regression tests run in `just test mod`.
 
 ### Related guides
 
