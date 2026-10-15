@@ -7,12 +7,12 @@ namespace SlopWorld
     // Reads family names from installed OpenType files without a platform font service.
     static class InstalledFontNames
     {
-        public static string Read(byte[] bytes)
+        public static string Read(byte[] bytes, int face = 0)
         {
             try
             {
                 var data = bytes.AsSpan();
-                int header = U32(data, 0) == 0x74746366 ? checked((int)U32(data, 12)) : 0;
+                int header = Header(data, face);
                 int tables = U16(data, header + 4);
                 for (int i = 0; i < tables; i++)
                 {
@@ -51,12 +51,12 @@ namespace SlopWorld
             return null;
         }
 
-        public static bool Monospaced(byte[] bytes)
+        public static bool Monospaced(byte[] bytes, int face = 0)
         {
             try
             {
                 var data = bytes.AsSpan();
-                int header = U32(data, 0) == 0x74746366 ? checked((int)U32(data, 12)) : 0;
+                int header = Header(data, face);
                 int tables = U16(data, header + 4);
                 for (int i = 0; i < tables; i++)
                 {
@@ -68,6 +68,83 @@ namespace SlopWorld
             catch (ArgumentOutOfRangeException) { }
             catch (OverflowException) { }
             return false;
+        }
+
+        public static int Count(byte[] bytes)
+        {
+            try
+            {
+                var data = bytes.AsSpan();
+                if (U32(data, 0) != 0x74746366)
+                    return 1;
+                int count = checked((int)U32(data, 8));
+                _ = data.Slice(12, checked(count * 4));
+                return count;
+            }
+            catch (ArgumentOutOfRangeException) { }
+            catch (OverflowException) { }
+            return 0;
+        }
+
+        // Waylith's metrics reader accepts standalone SFNT data, not TTC headers.
+        // Copy the chosen face's directory and tables, rebasing offsets and checksum.
+        // The installed collection and its shared tables are never modified.
+        public static byte[] Select(byte[] bytes, int face)
+        {
+            var data = bytes.AsSpan();
+            int header = Header(data, face);
+            if (U32(data, 0) != 0x74746366)
+                return bytes;
+            int tables = U16(data, header + 4);
+            int directory = 12 + tables * 16;
+            int length = directory;
+            for (int i = 0; i < tables; i++)
+            {
+                int record = header + 12 + i * 16;
+                int source = checked((int)U32(data, record + 8));
+                uint size = U32(data, record + 12);
+                _ = data.Slice(source, checked((int)size));
+                length = checked(length + AlignedLength(size));
+            }
+            byte[] selected = new byte[length];
+            data.Slice(header, directory).CopyTo(selected);
+            int offset = directory,
+                adjustment = 0;
+            for (int i = 0; i < tables; i++)
+            {
+                int record = 12 + i * 16;
+                int source = checked((int)U32(data, header + record + 8));
+                int size = checked((int)U32(data, header + record + 12));
+                data.Slice(source, size).CopyTo(selected.AsSpan(offset));
+                BinaryPrimitives.WriteUInt32BigEndian(selected.AsSpan(record + 8), (uint)offset);
+                if (U32(data, header + record) == 0x68656164 && size >= 12) // head.checkSumAdjustment
+                {
+                    adjustment = offset + 8;
+                    BinaryPrimitives.WriteUInt32BigEndian(selected.AsSpan(adjustment), 0);
+                }
+                offset += AlignedLength((uint)size);
+            }
+            if (adjustment != 0)
+            {
+                uint sum = 0;
+                for (int i = 0; i < selected.Length; i += 4)
+                    sum = unchecked(sum + U32(selected, i));
+                BinaryPrimitives.WriteUInt32BigEndian(
+                    selected.AsSpan(adjustment),
+                    unchecked(0xb1b0afba - sum)
+                );
+            }
+            return selected;
+        }
+
+        static int AlignedLength(uint length) => checked((int)length + 3) & ~3;
+
+        static int Header(ReadOnlySpan<byte> data, int face)
+        {
+            bool collection = U32(data, 0) == 0x74746366;
+            if (face < 0 || face >= (collection ? U32(data, 8) : 1u))
+                throw new ArgumentOutOfRangeException(nameof(face));
+            return collection ? checked((int)U32(data, checked(12 + face * 4))) : 0;
         }
 
         static ushort U16(ReadOnlySpan<byte> bytes, int at) =>

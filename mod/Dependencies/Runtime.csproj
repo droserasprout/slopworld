@@ -13,6 +13,7 @@
     <PackageReference Include="Markdig" Version="0.18.3" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Tomlyn" Version="0.19.0" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.95.1" />
   </ItemGroup>
   <Target Name="CopyRuntime" AfterTargets="Build">
     <!-- Framework assemblies belong to the game runtime, outside mod discovery. -->

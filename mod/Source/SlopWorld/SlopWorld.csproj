@@ -29,6 +29,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="Tmds.DBus.Protocol">
+      <HintPath>../../Assemblies/Tmds.DBus.Protocol.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="0Harmony">
       <HintPath>../../Assemblies/0Harmony.dll</HintPath>
       <Private>false</Private>

@@ -21,6 +21,7 @@ MOD_ASSEMBLIES = (
     'Markdig',
     'Newtonsoft.Json',
     'Tomlyn',
+    'Tmds.DBus.Protocol',
 )
 
 

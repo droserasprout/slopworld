@@ -1,7 +1,7 @@
 # Mod runtime packages
 
 `just mod-restore` restores AngleSharp 1.8.3, Markdig 0.18.3, Newtonsoft.Json
-13.0.3, Tomlyn 0.19.0, Google.Protobuf 3.36.1, and Lib.Harmony 2.4.2 with locked dependencies for
+13.0.3, Tomlyn 0.19.0, Google.Protobuf 3.36.1, Lib.Harmony 2.4.2, and Tmds.DBus.Protocol 0.95.1 with locked dependencies for
 net10.0, then copies their runtime assemblies into `mod/Assemblies`.
 The mod and game-free tests target .NET 10. RimWorld supplies framework assemblies,
 including code-page encoding support.
@@ -10,7 +10,8 @@ including code-page encoding support.
 and content hashes. To update packages, edit the project, run
 `just deps-update-mod mod-restore`, review the lock and shipped DLL
 changes, then run `just mod-restore` and `just mod-test`.
-Json.NET supports the external SongRec integration. Daemon IPC uses Protobuf.
+Tmds.DBus.Protocol owns managed D-Bus transport for Linux idle inhibition; it adds no
+transitive package assemblies for this target. Json.NET supports the external SongRec integration. Daemon IPC uses Protobuf.
 
 RimWorld's `Assembly-CSharp.dll`, `UnityStubs.dll`, and `Waylith.dll` are build
 references from the game installation. Keep `Private=false` on these references;

@@ -83,8 +83,8 @@ namespace SlopWorld
         public void Dispose()
         {
             RequestStop();
-            // Native bus connection/authentication can stall. Never hold game shutdown
-            // indefinitely; process exit also closes the private connection's socket.
+            // Native X11 calls can stall. Never hold game shutdown
+            // indefinitely; process exit also closes private desktop connections.
             if (Thread.CurrentThread != _thread)
                 _thread.Join(500);
         }
