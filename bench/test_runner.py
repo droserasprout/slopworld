@@ -39,6 +39,29 @@ def test_daemon_suite_uses_custom_target_and_skips_other_lanes(tmp_path, monkeyp
     ipc.assert_not_called()
 
 
+@pytest.mark.parametrize('build, configuration', [('debug', 'Debug'), ('release', 'Release')])
+def test_mod_suite_runs_the_built_project_without_assuming_its_framework(monkeypatch, build, configuration):
+    monkeypatch.setenv('BUILD', build)
+    monkeypatch.setenv('TEST_PROJECT', 'tests with spaces/Current.csproj')
+    monkeypatch.setenv('DOTNET', 'dotnet')
+    with patch.object(runner, 'run') as run, patch.object(runner, 'run_ipc') as ipc:
+        runner.run_suite('mod')
+    run.assert_called_once()
+    assert run.call_args.args[0] == [
+        'dotnet',
+        'run',
+        '--project',
+        'tests with spaces/Current.csproj',
+        '--configuration',
+        configuration,
+        '--no-build',
+        '--',
+        '--perf-bench',
+    ]
+    assert run.call_args.kwargs['env']['DOTNET_TieredCompilation'] == '0'
+    ipc.assert_not_called()
+
+
 def test_ipc_fixtures_and_roundtrips_stay_in_scratch(tmp_path, monkeypatch):
     monkeypatch.setenv('BUILD', 'release')
     monkeypatch.setenv('BENCH_IPC_OUTPUT', str(tmp_path / 'output'))

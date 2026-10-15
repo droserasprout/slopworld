@@ -68,6 +68,7 @@ namespace SlopWorld.Tests
             };
             GuiBackend.Current.Cursor = (text, width, index) =>
             {
+                Assert.That(NativeTextScope.Literal, Is.True);
                 Assert.That(text, Is.EqualTo("wrapped"));
                 Assert.That(width, Is.EqualTo(90));
                 Assert.That(index, Is.EqualTo(3));
@@ -76,6 +77,33 @@ namespace SlopWorld.Tests
             try
             {
                 Assert.That(NativeTextLayout.CaretY(editor), Is.EqualTo(46));
+            }
+            finally
+            {
+                GuiBackend.Current.Cursor = null;
+            }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void TooltipCursorSharesStylePolicyAndRestoresItAfterFailure(bool richText)
+        {
+            GuiBackend.Current.Cursor = (_, _, _) =>
+            {
+                Assert.That(NativeTextScope.Literal, Is.EqualTo(!richText));
+                throw new InvalidOperationException("layout failure");
+            };
+            try
+            {
+                Assert.Throws<InvalidOperationException>(() =>
+                    NativeTextLayout.Cursor(
+                        new GUIStyle { richText = richText },
+                        "<b>value</b>",
+                        100,
+                        3
+                    )
+                );
+                Assert.That(NativeTextScope.Literal, Is.False);
             }
             finally
             {

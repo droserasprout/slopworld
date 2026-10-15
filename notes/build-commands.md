@@ -63,3 +63,7 @@ Container output publishes only after checks pass. Its temporary mount needs 075
 for Arch's mapped build UID. Disable SELinux relabeling of repositories/worktree metadata.
 Packages leave game attachment and user-service lifecycle to the user. Source installs
 stage a temporary mod for the launcher's atomic installer in `mod_install.rs`.
+
+`bench/runner.py` owns build/run subprocesses. Mod runs use the configured test
+project and build configuration through `dotnet run --no-build`, so framework
+changes cannot select stale binaries.
