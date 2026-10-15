@@ -40,6 +40,8 @@
     <Compile Include="../Source/SlopWorld/Patches/Chrome/SwapchainAcquireTimeout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalCachePaint.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/InstalledFontNames.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/OpenTypeFace.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/OpenTypeCollection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/NativeFonts.cs" />
     <Compile Include="../Source/SlopWorld/Client/Catalog/WorktreeRequests.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Jukebox/RadioPlayback.cs" />

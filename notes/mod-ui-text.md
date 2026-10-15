@@ -6,7 +6,9 @@ spans to the label box. Missing artwork must not change layout, and atlas drawin
 preserves caller opacity without inheriting text tint.
 
 `NativeFonts` owns installed family discovery and GUI backend registration. `InstalledFontNames`
-reads OpenType family, style, and fixed-pitch metadata. Family selection prefers an upright,
+selects family names and ranks style and fixed-pitch metadata. `OpenTypeFace` owns
+bounds-checked binary table views; `OpenTypeCollection` owns standalone face extraction
+and checksum adjustment. Family selection prefers an upright,
 normal-width, regular-weight face, including within collections. Font pickers do not register
 faces to measure monospace eligibility. Registration names include import size because the backend deduplicates
 by name and byte length. Collection entries retain their face index; registration

@@ -165,7 +165,7 @@ namespace SlopWorld.Tests
             Assert.That(InstalledFontNames.Read(bytes, 2), Is.EqualTo("Third"));
             Assert.That(InstalledFontNames.Read(bytes, 3), Is.Null);
             Assert.That(
-                InstalledFontNames.Read(InstalledFontNames.Select(bytes, 0)),
+                InstalledFontNames.Read(OpenTypeCollection.Extract(bytes, 0)),
                 Is.EqualTo("Proportional")
             );
             string path = Path.GetTempFileName();
@@ -222,6 +222,27 @@ namespace SlopWorld.Tests
                 Font.Paths = previousPaths;
                 NativeFonts.Rescan();
             }
+        }
+
+        [Test]
+        public void FixedPitchReadCannotEscapeTheDeclaredPostTable()
+        {
+            var bytes = Face("Example", mono: true);
+            // The fixed-pitch value remains in the file, but outside the declared table.
+            U32(bytes, 40, 12);
+            Assert.That(InstalledFontNames.Monospaced(bytes), Is.False);
+        }
+
+        [Test]
+        public void CollectionExtractionRejectsTruncatedTablesWithoutChangingTheSource()
+        {
+            var bytes = Collection(Face("Example"));
+            byte[] truncated = bytes.AsSpan(0, bytes.Length - 1).ToArray();
+            byte[] original = (byte[])truncated.Clone();
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                OpenTypeCollection.Extract(truncated, 0)
+            );
+            Assert.That(truncated, Is.EqualTo(original));
         }
 
         [Test]
