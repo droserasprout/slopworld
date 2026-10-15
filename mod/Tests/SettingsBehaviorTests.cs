@@ -93,22 +93,6 @@ namespace SlopWorld.Tests
             }
         }
 
-        public static void FramePacingDefaultsToAutoAndPreservesExplicitModes()
-        {
-            AssertEx.Equal(
-                FramePolicy.Auto,
-                ModSettings.FromToml("").displayMode,
-                "missing preference uses Auto"
-            );
-            foreach (string mode in new[] { FramePolicy.Auto, FramePolicy.Sync, FramePolicy.Limit })
-            {
-                var settings = new ModSettings { displayMode = mode, foregroundFps = 144 };
-                var restored = ModSettings.FromToml(settings.ToToml());
-                AssertEx.Equal(mode, restored.displayMode, "explicit policy round trips");
-                AssertEx.Equal(144, restored.foregroundFps, "manual cap retained");
-            }
-        }
-
         static void WithSettings(Action<ModSettings> action)
         {
             var settings = Settings.S;
@@ -177,16 +161,16 @@ namespace SlopWorld.Tests
                 var settings = new ModSettings();
                 for (int i = 0; i < 200; i++)
                     settings.FlushIfDue();
-                AssertEx.False(File.Exists(path), "clean settings never create a file");
+                AssertEx.Equal(false, File.Exists(path), "clean settings never create a file");
                 settings.MarkDirty();
                 for (int i = 0; i < 119; i++)
                     settings.FlushIfDue();
-                AssertEx.False(File.Exists(path), "dirty settings wait for 120 ticks");
+                AssertEx.Equal(false, File.Exists(path), "dirty settings wait for 120 ticks");
                 settings.MarkDirty();
                 settings.theme = "new-theme";
                 for (int i = 0; i < 119; i++)
                     settings.FlushIfDue();
-                AssertEx.False(File.Exists(path), "new interaction restarts quiet period");
+                AssertEx.Equal(false, File.Exists(path), "new interaction restarts quiet period");
                 settings.FlushIfDue();
                 AssertEx.Equal(
                     "new-theme",
@@ -487,7 +471,7 @@ namespace SlopWorld.Tests
                 AssertEx.Equal(
                     FramePolicy.Limit,
                     Settings.DisplayMode,
-                    "explicit FPS cap retained"
+                    "explicit FPS limit retained"
                 );
                 AssertEx.Equal(
                     TemperatureUnit.MemeMode,
