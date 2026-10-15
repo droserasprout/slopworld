@@ -143,7 +143,7 @@ namespace SlopWorld
         // Pauses simulation and map drawing while terminals keep running. See Eco.
         public bool ecoMode;
 
-        public string displayMode = FramePolicy.Sync;
+        public string displayMode = FramePolicy.Auto;
         public int foregroundFps = 60;
         public bool smoothScrolling = true;
 

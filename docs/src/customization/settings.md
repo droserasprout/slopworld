@@ -54,8 +54,11 @@ idle behavior.
 
 Smooth scrolling is enabled by default and uses precise touchpad movement where
 supported; disable it for wheel steps. Changes apply live and are saved with the profile.
-Frame pacing offers VSync or 15, 30, 60, 120, 144, and 240 FPS presets. FPS limits
-disable VSync. Unfocused windows use 15 FPS and restore foreground pacing on focus.
+Frame pacing defaults to **Auto (N FPS)**, which detects the current display refresh
+rate and uses the nearest integer FPS limit with VSync off. Auto follows display
+changes and falls back to 60 FPS if the refresh rate is unavailable. Explicit VSync
+and 15, 30, 60, 120, 144, and 240 FPS presets remain available; saved selections are
+preserved. FPS limits disable VSync. Unfocused windows use 15 FPS and restore foreground pacing on focus.
 
 ## Configuration file
 
