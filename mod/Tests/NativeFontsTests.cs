@@ -21,9 +21,11 @@ namespace SlopWorld.Tests
         {
             byte[] text = Encoding.BigEndianUnicode.GetBytes(family);
             int header = collection ? 16 : 0;
-            int names = header + 44;
+            int names = header + 76;
             int post = names + 18 + text.Length;
-            var data = new byte[post + 16];
+            int head = post + 16;
+            int hhea = head + 54;
+            var data = new byte[hhea + 36];
             if (collection)
             {
                 U32(data, 0, 0x74746366);
@@ -31,13 +33,24 @@ namespace SlopWorld.Tests
                 U32(data, 12, (uint)header);
             }
             U32(data, header, 0x00010000);
-            U16(data, header + 4, 2);
+            U16(data, header + 4, 4);
             U32(data, header + 12, 0x6e616d65);
             U32(data, header + 20, (uint)names);
             U32(data, header + 24, (uint)(18 + text.Length));
             U32(data, header + 28, 0x706f7374);
             U32(data, header + 36, (uint)post);
             U32(data, header + 40, 16);
+            U32(data, header + 44, 0x68656164);
+            U32(data, header + 52, (uint)head);
+            U32(data, header + 56, 54);
+            U32(data, header + 60, 0x68686561);
+            U32(data, header + 68, (uint)hhea);
+            U32(data, header + 72, 36);
+            U32(data, head + 8, 12345);
+            U16(data, head + 18, 1000);
+            U16(data, hhea + 4, 800);
+            U16(data, hhea + 6, unchecked((ushort)-200));
+            U16(data, hhea + 8, 100);
             U16(data, names + 2, 1);
             U16(data, names + 4, 18);
             U16(data, names + 6, 3);
@@ -47,6 +60,113 @@ namespace SlopWorld.Tests
             text.CopyTo(data, names + 18);
             U32(data, post + 12, mono ? 1u : 0u);
             return data;
+        }
+
+        static byte[] Collection(params byte[][] faces)
+        {
+            int offset = 12 + faces.Length * 4;
+            var data = new byte[offset + System.Linq.Enumerable.Sum(faces, face => face.Length)];
+            U32(data, 0, 0x74746366);
+            U32(data, 4, 0x00010000);
+            U32(data, 8, (uint)faces.Length);
+            for (int i = 0; i < faces.Length; i++)
+            {
+                U32(data, 12 + i * 4, (uint)offset);
+                faces[i].CopyTo(data, offset);
+                // SFNT table offsets in a collection are absolute from the file start.
+                for (int table = 0; table < 4; table++)
+                {
+                    int record = offset + 20 + table * 16;
+                    U32(
+                        data,
+                        record,
+                        BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(record)) + (uint)offset
+                    );
+                }
+                offset += faces[i].Length;
+            }
+            return data;
+        }
+
+        [Test]
+        public void EveryCollectionFamilyIsSelectableAndTheBackendReceivesStandaloneFontData()
+        {
+            byte[] bytes = Collection(
+                Face("Proportional"),
+                Face("Collection Mono", mono: true),
+                Face("Third")
+            );
+            byte[] original = (byte[])bytes.Clone();
+            Assert.That(InstalledFontNames.Count(bytes), Is.EqualTo(3));
+            Assert.That(InstalledFontNames.Read(bytes, 2), Is.EqualTo("Third"));
+            Assert.That(InstalledFontNames.Read(bytes, 3), Is.Null);
+            Assert.That(
+                InstalledFontNames.Read(InstalledFontNames.Select(bytes, 0)),
+                Is.EqualTo("Proportional")
+            );
+            string path = Path.GetTempFileName();
+            var previous = GuiBackend.Current;
+            var previousPaths = Font.Paths;
+            try
+            {
+                File.WriteAllBytes(path, bytes);
+                Font.Paths = new[] { path };
+                NativeFonts.Rescan();
+                Assert.That(
+                    NativeFonts.Names(),
+                    Is.EquivalentTo(new[] { "Proportional", "Collection Mono", "Third" })
+                );
+                Assert.That(
+                    NativeFonts.Names(monospaced: true),
+                    Is.EqualTo(new[] { "Collection Mono" })
+                );
+                GuiBackend.Current = new TextBackend
+                {
+                    Register = (name, data, size, mode) =>
+                    {
+                        Assert.That(InstalledFontNames.Read(data), Is.EqualTo("Collection Mono"));
+                        Assert.That(InstalledFontNames.Monospaced(data), Is.True);
+                        Assert.That(InstalledFontNames.Count(data), Is.EqualTo(1));
+                        uint checksum = 0;
+                        for (int at = 0; at < data.Length; at += 4)
+                            checksum = unchecked(
+                                checksum + BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(at))
+                            );
+                        Assert.That(checksum, Is.EqualTo(0xb1b0afba), "standalone file checksum");
+                        Assert.That(
+                            BinaryPrimitives.ReadUInt32BigEndian(data),
+                            Is.EqualTo(0x00010000)
+                        );
+                        return 101;
+                    },
+                };
+                Assert.That(
+                    NativeFonts.Create("Collection Mono", 12).GameFontIndex,
+                    Is.EqualTo(101)
+                );
+                Assert.That(bytes, Is.EqualTo(original), "selection preserves source data");
+                Assert.That(
+                    File.ReadAllBytes(path),
+                    Is.EqualTo(original),
+                    "installed font is never rewritten"
+                );
+            }
+            finally
+            {
+                File.Delete(path);
+                GuiBackend.Current = previous;
+                Font.Paths = previousPaths;
+                NativeFonts.Rescan();
+            }
+        }
+
+        [Test]
+        public void TruncatedCollectionOffsetArraysAreRejected()
+        {
+            byte[] bytes = Collection(Face("One"), Face("Two"));
+            Assert.That(InstalledFontNames.Count(bytes.AsSpan(0, 16).ToArray()), Is.Zero);
+            U32(bytes, 8, uint.MaxValue);
+            Assert.That(InstalledFontNames.Count(bytes), Is.Zero);
         }
 
         [TestCase(false)]

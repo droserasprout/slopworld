@@ -24,6 +24,7 @@
 /mod/Assemblies/Markdig.dll
 /mod/Assemblies/Newtonsoft.Json.dll
 /mod/Assemblies/Tomlyn.dll
+/mod/Assemblies/Tmds.DBus.Protocol.dll
 
 # Benchmark raw artifacts and generated CSV reports remain local.
 /notes/perf-suite*.raw/
