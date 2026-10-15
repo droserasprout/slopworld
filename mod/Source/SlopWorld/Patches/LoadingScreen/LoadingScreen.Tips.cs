@@ -50,6 +50,7 @@ namespace SlopWorld
             // Naggers
             "Remind me later.",
             "Be the first to hear about new stories.",
+            "Click here to Unsubscribe.",
             //
             // => Animation
             //
@@ -209,6 +210,18 @@ namespace SlopWorld
             "So remember to always use your seatbelts and obey the laws of the road.",
             // Deus Ex
             "My vision is augmented.",
+            // Portal
+            "It's hard to overstate my satisfaction.",
+            "We do what we must because we can.",
+            "For the good of all of us. Except the ones who are dead. (",
+            "You just keep on trying till you run out of cake.",
+            "I think I prefer to stay inside.",
+            "It's so delicious and moist.",
+            // Helldivers
+            "Modest, noble, and helpless. (",
+            "In dire need of liberation.",
+            "Command tommorow's most sophisticated and overwhelming firepower. (",
+            "Superior, reliable, and safe.",
             //
             // => Music
             //
@@ -233,6 +246,48 @@ namespace SlopWorld
             "They couldn't get a job or a nice home. (",
             "Little do they know that soldier's legit",
             "This is what I see at the playground, ya know!",
+            // Overseer - Doomsday
+            "Administer ways to set the world ablaze. (",
+            "Bone, flesh and plasma. (",
+            "Earth knocked off its axis. (",
+            // Vitalic - My Friend Dario, lmao
+            "My friend Dario has a super mega car.",
+            "Dario knows it's prohibited. You either drive or either drink. (",
+            "But he can't resist the pleasure to down a bottle before each trip. (",
+            // Teen Mortgage - Sick Day
+            "Wake and bake today, don't wanna go to work. (",
+            "Girl's on the couch and my cat's just way too cute.",
+            "Pack another bowl, boss just texted me back. (",
+            // Mac Miller - Circles :(
+            "Well, this is what it look like right before you fall. (",
+            "I don't have a name, I don't have a name.",
+            "I just end up right at the start of the line.",
+            "Drawin' circles.",
+            "I can keep you safe, I can keep you safe.",
+            "You're feelin' sorry, I'm feeling fine.",
+            // ERRA - Slow Sour Bleed
+            "Hide the key, try to sleep. (",
+            "I lie awake with one eye open to watch you take your place. (",
+            "Bury the box with me under. (",
+            "Are we men or deserted islands? (",
+            "Primal rage to sedate lucid memories. (",
+            "Salvation of the undone. (",
+            // The Gaylords
+            "No more kissing in the yellow booth! (",
+            // Straighten Up and Fly Right
+            "Cool down, Papa, don't your blow your top!",
+            // Roy Hamilton - Don't Let Go
+            "Love is stormin' inside my brain!",
+            "Love is draggin' him through the mill, yeah!",
+            // Notorious BIG - Party and Bullshit
+            "I was a terror since the public school era. (",
+            "Bathroom passes, cutting classes, squeezing asses. (",
+            "And it's on, and I'm gone, that's that!",
+            // Blockhead - Coloring Book
+            "Oh boy! This will be fun!",
+            "I'm going to pretend to be anything I please today.",
+            "And you pretend right along with me.",
+            "Where shall I begin?",
             //
             // => Clankers
             //

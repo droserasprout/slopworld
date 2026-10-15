@@ -14,6 +14,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 - Jukebox: Recover audio playback after ALSA/PipeWire output xrun failures.
 - Sessions: Fixed deadlock on saving agent with workspace switch.
+- Workspace: Fixed worktree filtering and project menu navigation.
 
 ## [0.0.3] - 2026-10-14
 
