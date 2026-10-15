@@ -297,7 +297,7 @@ namespace SlopWorld
                 // Explicit breaks and literal code whitespace are selectable content.
                 else if (
                     run.Code
-                    || (run.Text ?? "").IndexOf('\n') >= 0
+                    || (run.Text ?? "").Contains('\n')
                     || !string.IsNullOrWhiteSpace(run.Text)
                 )
                     return false;

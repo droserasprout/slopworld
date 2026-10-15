@@ -26,8 +26,7 @@ namespace SlopWorld
             int refreshMilliseconds = 30000
         )
         {
-            if (refreshMilliseconds <= 0)
-                throw new ArgumentOutOfRangeException(nameof(refreshMilliseconds));
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(refreshMilliseconds);
             _acquire = acquire;
             _warn = warn;
             _refreshMilliseconds = refreshMilliseconds;

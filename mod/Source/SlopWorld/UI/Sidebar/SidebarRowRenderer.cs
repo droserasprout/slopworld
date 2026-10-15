@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Verse;
@@ -515,7 +516,7 @@ namespace SlopWorld
             return
                 home.Length > 0
                 && (dir == home || dir.StartsWith(home + "/", System.StringComparison.Ordinal))
-                ? "~" + dir.Substring(home.Length)
+                ? string.Concat("~", dir.AsSpan(home.Length))
                 : dir;
         }
 

@@ -14,10 +14,8 @@ namespace SlopWorld
 
         public MainThreadCompletions(int maxCallbacks, long budgetTicks, Func<long> timestamp)
         {
-            if (maxCallbacks <= 0)
-                throw new ArgumentOutOfRangeException(nameof(maxCallbacks));
-            if (budgetTicks < 0)
-                throw new ArgumentOutOfRangeException(nameof(budgetTicks));
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxCallbacks);
+            ArgumentOutOfRangeException.ThrowIfNegative(budgetTicks);
             _timestamp = timestamp ?? throw new ArgumentNullException(nameof(timestamp));
             _maxCallbacks = maxCallbacks;
             _budgetTicks = budgetTicks;
@@ -33,8 +31,7 @@ namespace SlopWorld
 
         public int Pump(Action<Exception> reportError)
         {
-            if (reportError == null)
-                throw new ArgumentNullException(nameof(reportError));
+            ArgumentNullException.ThrowIfNull(reportError);
             long started = _timestamp();
             int count = 0;
             while (count < _maxCallbacks && _pending.TryDequeue(out var action))

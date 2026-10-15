@@ -16,8 +16,7 @@ namespace SlopWorld
             Token = token ?? "";
         }
 
-        public string BaseUrl =>
-            $"http://{(Host.IndexOf(':') >= 0 ? "[" + Host + "]" : Host)}:{Port}";
+        public string BaseUrl => $"http://{(Host.Contains(':') ? "[" + Host + "]" : Host)}:{Port}";
     }
 
     // The daemon owns the live endpoint. The mod discovers its address and token from

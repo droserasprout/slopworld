@@ -298,8 +298,14 @@ namespace SlopWorld
                     }
 
                     run.Started = true;
-                    Task<string> output = process.StandardOutput.ReadToEndAsync();
-                    Task<string> error = process.StandardError.ReadToEndAsync();
+                    // Killing the child closes both streams. Drain them fully to retain partial
+                    // output on timeout or cancellation.
+                    Task<string> output = process.StandardOutput.ReadToEndAsync(
+                        CancellationToken.None
+                    );
+                    Task<string> error = process.StandardError.ReadToEndAsync(
+                        CancellationToken.None
+                    );
 
                     using (cancel.Register(() => Kill(process)))
                     {

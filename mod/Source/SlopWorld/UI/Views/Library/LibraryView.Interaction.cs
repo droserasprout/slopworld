@@ -148,7 +148,7 @@ namespace SlopWorld
         {
             text = (text ?? "").Replace("\r", "");
             int nl = text.IndexOf('\n');
-            return nl < 0 ? text : text.Substring(0, nl) + " ...";
+            return nl < 0 ? text : string.Concat(text.AsSpan(0, nl), " ...");
         }
 
         static void OpenProjectWorktrees(string project)

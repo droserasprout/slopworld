@@ -349,9 +349,7 @@ namespace SlopWorld
             if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(path))
                 return null;
             if (root == "/")
-                return path.StartsWith("/", StringComparison.Ordinal) && path.Length > 1
-                    ? path.Substring(1)
-                    : null;
+                return path.StartsWith('/') && path.Length > 1 ? path.Substring(1) : null;
 
             root = root.TrimEnd('/');
             if (path == root)

@@ -654,7 +654,7 @@ namespace SlopWorld
             value = value.Trim();
             if (value.EndsWith("px", StringComparison.OrdinalIgnoreCase))
                 value = value.Substring(0, value.Length - 2);
-            if (value.EndsWith("%", StringComparison.Ordinal))
+            if (value.EndsWith('%'))
                 return 0f;
             return
                 float.TryParse(

@@ -55,8 +55,7 @@ namespace SlopWorld
         )
             where T : IMessage<T>, new()
         {
-            if (timeoutMs < Timeout.Infinite)
-                throw new ArgumentOutOfRangeException(nameof(timeoutMs));
+            ArgumentOutOfRangeException.ThrowIfLessThan(timeoutMs, Timeout.Infinite);
 
             // Start a request trace only when the route has a trace category.
             // Other routes leave a null name, which can cause PerfTrace.End to fail before the caller's callback runs.
@@ -171,7 +170,7 @@ namespace SlopWorld
                 while (
                     (
                         count = await stream
-                            .ReadAsync(buffer, 0, buffer.Length, cancellationToken)
+                            .ReadAsync(buffer.AsMemory(), cancellationToken)
                             .ConfigureAwait(false)
                     ) != 0
                 )

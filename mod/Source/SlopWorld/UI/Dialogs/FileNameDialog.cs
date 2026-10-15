@@ -51,7 +51,7 @@ namespace SlopWorld
                 _error = "Enter a name.";
                 return;
             }
-            if (name.IndexOf('/') >= 0 || name.IndexOf('\\') >= 0 || name.IndexOf('\0') >= 0)
+            if (name.Contains('/') || name.Contains('\\') || name.Contains('\0'))
             {
                 _error = "Use one file or folder name.";
                 return;

@@ -41,7 +41,7 @@ namespace SlopWorld
             value != null && value.StartsWith("scope/", StringComparison.Ordinal);
 
         public static string WorktreeOf(string value) =>
-            IsKey(value) ? Uri.UnescapeDataString(value.Substring(value.LastIndexOf('/') + 1)) : "";
+            IsKey(value) ? Uri.UnescapeDataString(value.AsSpan(value.LastIndexOf('/') + 1)) : "";
 
         public static string ProjectIdOf(ProjectInfo project) => project.Id;
 
@@ -52,7 +52,7 @@ namespace SlopWorld
             int end = value.LastIndexOf('/');
             if (end < 6)
                 return null;
-            string id = Uri.UnescapeDataString(value.Substring(6, end - 6));
+            string id = Uri.UnescapeDataString(value.AsSpan(6, end - 6));
             return projects.FirstOrDefault(p => ProjectIdOf(p) == id);
         }
     }
