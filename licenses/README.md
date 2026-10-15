@@ -12,6 +12,8 @@ metadata; it does not include their full license texts or notices.
 | Component | License | Full text | Attribution and use |
 | --- | --- | --- | --- |
 | RimWorld Tame designator | RimWorld EULA | [License](rimworld/EULA.txt) | Ludeon Studios Inc.; `UI/Designators/Tame` from RimWorld 1.6, mirrored, scaled, and rotated for the documentation cursors. |
+| [D-Bus](https://dbus.freedesktop.org/) | AFL-2.1 OR GPL-2.0-or-later | [License](dbus/AFL-2.1.txt) | System libdbus; Linux client idle inhibition. The library is not bundled. |
+| [X.Org Xlib and libXss](https://www.x.org/) | MIT/X11-style licenses | [Xlib notices](xorg/libX11.COPYING), [libXss notices](xorg/libXss.COPYING) | System X11 libraries; window integration, idle timer resets and optional screensaver suspension. The libraries are not bundled. |
 | Slopcar Rust dependencies | MIT | [Full dependency notices](slopcar/THIRD-PARTY-NOTICES.txt) | Host-side container launcher; generated from its locked Cargo graph by `just generate sidecar-licenses`. |
 | [Classic Console Neue](https://webdraft.hu/fonts/classic-console/) | MIT | [License](classic-console-neue/LICENSE.txt) | DeeJayy, 2011–2025; printable ASCII glyphs rendered into the loading-screen atlas. |
 | [Noto Emoji](https://github.com/googlefonts/noto-emoji) | SIL OFL 1.1 | [License](noto-emoji/LICENSE.txt) | Google; glyphs rendered into emoji atlases and application icons. |

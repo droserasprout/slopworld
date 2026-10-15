@@ -10,6 +10,10 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ## Unreleased
 
+### Changed
+
+- RimWorld 1.7 (Waylith) migration.
+
 ### Fixed
 
 - Jukebox: Recover audio playback after ALSA/PipeWire output xrun failures.

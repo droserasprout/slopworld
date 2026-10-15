@@ -1,5 +1,27 @@
 # Linux window-manager integration
 
+`Bootstrap/IdleInhibition` owns the Linux desktop idle-inhibition lease in the game
+client, independently of the launcher and daemon. It starts only in the active
+SlopWorld profile and covers menus and play. Display > Window > Inhibit screensaver
+is a live profile preference, enabled by default. Disabling it signals cleanup off
+the UI thread; enabling it starts a fresh lease. Disabled startup does not load
+the native libraries. `IdleInhibitionWorker` owns acquisition,
+lease lifetime and release off the game thread. Application quit and process exit
+request bounded cleanup; a late acquisition after quit is immediately released.
+`LinuxIdleInhibitor` tries the XDG portal, then freedesktop ScreenSaver, on separate
+private connections through system libdbus. Portal subscription precedes the request
+and acquisition requires a successful Response. Failed attempts disconnect before
+fallback. Both protocols release on connection loss, including abrupt game exit.
+`LinuxIdleLease` combines that desktop lease with `X11IdleInhibitor`, which owns a
+separate worker-only display connection. The worker resets the X11 idle timer
+immediately and every 30 seconds, even with a desktop lease. If both D-Bus protocols
+fail, it also suspends the X screensaver through MIT-SCREEN-SAVER 1.1 when available
+and sends legacy GNOME/freedesktop activity notifications. Missing libXss or an old
+extension leaves periodic X11 resets active. Closing the private display releases
+suspension, including on process exit. X11 and desktop acquisition fail independently;
+the client warns only if neither is available and continues startup. Native
+connection/authentication may stall its background worker but never game frames.
+
 `LinuxGameWindow` owns native titles, application identity, and fullscreen through X11/EWMH; `WindowTitle`
 uses its title setter. The Linux launcher sets Waylith's `FORCE_X11=1` before window
 creation; the mod follows its saved fullscreen preference while keeping the renderer
