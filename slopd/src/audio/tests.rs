@@ -1,8 +1,8 @@
 use super::test_support::{FakeOutputFactory, FakeOutputState, ring};
 use super::{
     AudioState, CONNECT, Feed, GENERATION, Icy, NULL_PCM, OutputFactory, Playlist, RING, Reconnect,
-    Ring, SERVER_PCMS, STREAM_IDLE, StreamBody, StreamConnector, TitleSink, enqueue_chunk,
-    local_title, open_device, pcm_id, stream_title, supported_file, wait_for_retry,
+    Ring, SERVER_PCMS, StreamBody, StreamConnector, TitleSink, enqueue_chunk, local_title,
+    open_device, pcm_id, stream_title, supported_file, wait_for_retry,
 };
 use rodio::cpal::traits::{DeviceTrait, HostTrait};
 use rodio::{ChannelCount, Sample, SampleRate, Source, cpal};
@@ -212,7 +212,7 @@ fn queued_prefill_releases_playback_at_the_threshold() {
 }
 
 #[test]
-fn a_live_body_has_an_idle_deadline_but_no_inherited_response_deadline() {
+fn a_live_body_has_no_response_lifetime_deadline() {
     let connector = StreamConnector::new(
         "http://127.0.0.1/unused-local-fixture",
         TitleSink::new(None, GENERATION.load(Ordering::SeqCst)),
@@ -221,7 +221,7 @@ fn a_live_body_has_an_idle_deadline_but_no_inherited_response_deadline() {
 
     assert_eq!(timeouts.connect, Some(CONNECT));
     assert_eq!(timeouts.recv_response, None);
-    assert_eq!(timeouts.recv_body, Some(STREAM_IDLE));
+    assert_eq!(timeouts.recv_body, None);
     assert_eq!(timeouts.global, None);
 }
 
@@ -1017,4 +1017,44 @@ fn cancellation_ends_reconnect_without_requiring_a_new_generation() {
     assert_eq!(stream.read(&mut [0; 1]).unwrap(), 0);
     drop(stream);
     assert_eq!(attempts, 1);
+}
+
+#[test]
+fn continuous_http_audio_outlives_the_idle_timeout() {
+    let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = std::thread::spawn(move || {
+        let (mut socket, _) = listener.accept().unwrap();
+        let mut request = BufReader::new(socket.try_clone().unwrap());
+        loop {
+            let mut line = String::new();
+            request.read_line(&mut line).unwrap();
+            if line == "\r\n" {
+                break;
+            }
+        }
+        socket
+            .write_all(b"HTTP/1.1 200 OK\r\nContent-Type: audio/mpeg\r\nConnection: close\r\n\r\n")
+            .unwrap();
+        // Continue beyond two idle budgets, with ample headroom between writes.
+        for _ in 0..25 {
+            if socket.write_all(b"a").is_err() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    });
+    let title = TitleSink::new(None, GENERATION.load(Ordering::SeqCst));
+    let mut connector = StreamConnector::new_with_body_timeout(
+        &format!("http://{address}"),
+        title,
+        Duration::from_millis(500),
+    );
+    let mut body = connector.connect().unwrap();
+    let mut audio = [0; 25];
+    let result = body.read_exact(&mut audio);
+    drop(body);
+    server.join().unwrap();
+    result.expect("continuous traffic must not expire the response");
+    assert_eq!(audio, [b'a'; 25]);
 }

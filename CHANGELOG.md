@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 Expect any imaginable incompatibilities until 0.1.0.
 
+## Unreleased
+
+### Fixed
+
+- Jukebox: Fix stream idle timeout regression after ureq upgrade.
+
 ## [0.0.4] - 2026-10-15
 
 ### Fixed

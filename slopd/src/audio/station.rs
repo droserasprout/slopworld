@@ -192,21 +192,19 @@ impl StreamConnector {
         title: TitleSink,
         body_timeout: std::time::Duration,
     ) -> Self {
-        // A live response has no lifetime deadline, but it must not wait forever on a TCP path
-        // that went stale during a network change. In ureq 3.3, `RecvBody` also checks the preceding
-        // `RecvResponse` timer. The docs describe that timer as headers-only. Leave it unset and use
-        // the body timer as an idle timeout instead. The cancellable
-        // transport below polls the underlying socket without changing either lifetime.
+        // Live responses have no lifetime deadline. The transport bounds each wait for
+        // input instead, so continuous traffic and feeder backpressure never expire a body.
         let config = ureq::Agent::config_builder()
             .timeout_connect(Some(CONNECT))
             .timeout_recv_response(None)
-            .timeout_recv_body(Some(body_timeout))
+            .timeout_recv_body(None)
             .timeout_global(None)
             .build();
         let connector =
             ureq::unversioned::transport::DefaultConnector::new().chain(CancelConnector {
                 cancelled: title.cancelled.clone(),
                 opening_deadline: title.opening_deadline.clone(),
+                idle_timeout: body_timeout,
             });
         let agent = ureq::Agent::with_parts(
             config,
@@ -292,6 +290,7 @@ impl StreamConnector {
 struct CancelConnector {
     cancelled: Arc<AtomicBool>,
     opening_deadline: Arc<AtomicU64>,
+    idle_timeout: std::time::Duration,
 }
 
 impl ureq::unversioned::transport::Connector<Box<dyn ureq::unversioned::transport::Transport>>
@@ -308,6 +307,7 @@ impl ureq::unversioned::transport::Connector<Box<dyn ureq::unversioned::transpor
             inner,
             cancelled: self.cancelled.clone(),
             opening_deadline: self.opening_deadline.clone(),
+            idle_timeout: self.idle_timeout,
         }))
     }
 }
@@ -317,6 +317,7 @@ struct CancelTransport {
     inner: Box<dyn ureq::unversioned::transport::Transport>,
     cancelled: Arc<AtomicBool>,
     opening_deadline: Arc<AtomicU64>,
+    idle_timeout: std::time::Duration,
 }
 
 impl ureq::unversioned::transport::Transport for CancelTransport {
@@ -340,30 +341,30 @@ impl ureq::unversioned::transport::Transport for CancelTransport {
         timeout: ureq::unversioned::transport::NextTimeout,
     ) -> Result<bool, ureq::Error> {
         const POLL: std::time::Duration = std::time::Duration::from_millis(100);
+        // Start a fresh idle budget only when the caller needs more input. Time spent
+        // decoding or waiting for playback to drain is not network inactivity.
+        let (budget, reason) = match timeout.not_zero() {
+            Some(limit) if limit <= self.idle_timeout.into() => (limit, timeout.reason),
+            _ => (self.idle_timeout.into(), ureq::Timeout::RecvBody),
+        };
         let started = Instant::now();
         loop {
             if self.is_cancelled() {
                 return Err(cancelled_error());
             }
 
-            let after = timeout
-                .not_zero()
-                .map(|duration| duration.saturating_sub(started.elapsed()));
-            if after.is_some_and(|remaining| remaining.is_zero()) {
-                return Err(ureq::Error::Timeout(timeout.reason));
+            let remaining = budget.saturating_sub(started.elapsed());
+            if remaining.is_zero() {
+                return Err(ureq::Error::Timeout(reason));
             }
-            let poll = after.map(|duration| duration.min(POLL)).unwrap_or(POLL);
             let sliced = ureq::unversioned::transport::NextTimeout {
-                after: poll.into(),
-                reason: timeout.reason,
+                after: remaining.min(POLL).into(),
+                reason,
             };
 
             match self.inner.await_input(sliced) {
                 Ok(ready) => return Ok(ready),
-                Err(ureq::Error::Timeout(_))
-                    if !self.is_cancelled()
-                        && after.map(|duration| duration > POLL).unwrap_or(true) =>
-                {
+                Err(ureq::Error::Timeout(_)) if !self.is_cancelled() && remaining > POLL => {
                     continue;
                 }
                 Err(error) => return Err(error),
