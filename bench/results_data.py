@@ -14,7 +14,7 @@ META_FIELDS = ("suite", "phase", "key", "value")
 
 def run_directory(name):
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", name or ""):
-        raise ValueError("BENCH_RUN must contain only letters, digits, dots, underscores, and dashes")
+        raise ValueError("Run name must contain only letters, digits, dots, underscores, and dashes")
     return ROOT / name
 
 

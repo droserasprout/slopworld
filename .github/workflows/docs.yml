@@ -46,8 +46,8 @@ jobs:
 
       - name: Test checks and build book
         run: |
-          just test tools tools/docs
-          just docs build
+          just tools-test tools/docs
+          just docs-build
 
       - name: Upload book
         uses: actions/upload-artifact@v4

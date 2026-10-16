@@ -1,16 +1,14 @@
-set shell := ["bash", "-euc"]
-set quiet
-set default-list
-set working-directory := '..'
-
 # Log into GOG interactively
-login:
-    ${PYTHON} -m tools.host.gogdl login
+[group('game')]
+game-login:
+    uv run --locked python -m tools.host.gogdl login
 
 # Install RimWorld through GOG
-install:
-    ${PYTHON} -m tools.host.gogdl install
+[group('game')]
+game-install:
+    uv run --locked python -m tools.host.gogdl install
 
 # Update RimWorld through GOG
-update:
-    ${PYTHON} -m tools.host.gogdl update
+[group('game')]
+game-update:
+    uv run --locked python -m tools.host.gogdl update

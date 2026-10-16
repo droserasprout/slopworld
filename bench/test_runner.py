@@ -11,9 +11,7 @@ from tools import ROOT
 
 def test_release_build_preserves_command_flags_and_stops_on_failure(monkeypatch):
     monkeypatch.setenv('BUILD', 'release')
-    monkeypatch.setenv('CARGO', '"/tmp/cargo tool" --offline')
     monkeypatch.setenv('CARGOFLAGS', '--release --frozen')
-    monkeypatch.setenv('TEST_PROJECT', 'tests/project.csproj')
     with (
         patch.object(runner, 'run', side_effect=subprocess.CalledProcessError(23, ['cargo'])) as run,
         patch.object(runner, 'build_ipc') as ipc,
@@ -21,8 +19,7 @@ def test_release_build_preserves_command_flags_and_stops_on_failure(monkeypatch)
         with pytest.raises(subprocess.CalledProcessError):
             runner.build()
         assert run.call_args.args[0] == [
-            '/tmp/cargo tool',
-            '--offline',
+            'cargo',
             'build',
             '--quiet',
             '--bin',
@@ -70,9 +67,6 @@ def test_ipc_fixtures_and_roundtrips_stay_in_scratch(tmp_path, monkeypatch):
 @pytest.mark.parametrize('suite, expected_tools', [('daemon', ['cargo']), ('mod', ['dotnet', 'dotnet']), ('ipc', [])])
 def test_build_only_prepares_the_selected_suite(monkeypatch, suite, expected_tools):
     monkeypatch.setenv('BUILD', 'debug')
-    monkeypatch.setenv('TEST_PROJECT', 'test.csproj')
-    monkeypatch.setenv('CARGO', 'cargo')
-    monkeypatch.setenv('DOTNET', 'dotnet')
     with patch.object(runner, 'run') as run, patch.object(runner, 'build_ipc') as ipc:
         runner.build(suite)
     assert [call.args[0][0] for call in run.call_args_list] == expected_tools

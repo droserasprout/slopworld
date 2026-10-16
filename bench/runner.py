@@ -6,7 +6,6 @@ import shlex
 from pathlib import Path
 
 from tools import ROOT
-from tools.utils import command
 from tools.utils import run
 from tools.utils import run_main
 
@@ -22,7 +21,7 @@ def rust_binary(directory: Path, name: str) -> Path:
 def build_ipc() -> None:
     run(
         [
-            *command('DOTNET', 'dotnet'),
+            'dotnet',
             'build',
             'bench/ipc/csharp/IpcBench.csproj',
             '--configuration',
@@ -34,7 +33,7 @@ def build_ipc() -> None:
         cwd=ROOT,
     )
     run(
-        [*command('CARGO', 'cargo'), 'build', '--quiet', *shlex.split(os.environ.get('CARGOFLAGS', ''))],
+        ['cargo', 'build', '--quiet', *shlex.split(os.environ.get('CARGOFLAGS', ''))],
         cwd=ROOT / 'bench/ipc/rust',
     )
 
@@ -61,7 +60,7 @@ def run_ipc() -> None:
     mono = ['mono', str(csharp / 'net472/IpcBench.exe')]
     runtimes = (
         ('mono', mono),
-        ('net8', [*command('DOTNET', 'dotnet'), str(csharp / 'net8.0/IpcBench.dll')]),
+        ('net8', ['dotnet', str(csharp / 'net8.0/IpcBench.dll')]),
         ('rust', [str(rust_binary(ROOT / 'bench/ipc/rust', 'slopworld-ipc-bench'))]),
     )
     for runtime, arguments in runtimes:
@@ -79,7 +78,7 @@ def build(suite: str = 'gamefree') -> None:
     if suite in ('gamefree', 'daemon'):
         run(
             [
-                *command('CARGO', 'cargo'),
+                'cargo',
                 'build',
                 '--quiet',
                 '--bin',
@@ -91,7 +90,7 @@ def build(suite: str = 'gamefree') -> None:
     if suite in ('gamefree', 'mod'):
         run(
             [
-                *command('DOTNET', 'dotnet'),
+                'dotnet',
                 'build',
                 'mod/Dependencies/Runtime.csproj',
                 '--configuration',
@@ -104,9 +103,9 @@ def build(suite: str = 'gamefree') -> None:
         )
         run(
             [
-                *command('DOTNET', 'dotnet'),
+                'dotnet',
                 'build',
-                os.environ['TEST_PROJECT'],
+                'mod/Tests/SlopWorld.Tests.csproj',
                 '--configuration',
                 configuration(),
                 '--verbosity',
@@ -125,7 +124,7 @@ def run_suite(suite: str) -> None:
     if suite in ('gamefree', 'mod'):
         run(
             [
-                *command('DOTNET', 'dotnet'),
+                'dotnet',
                 f'mod/Tests/bin/{configuration()}/net8.0/SlopWorld.Tests.dll',
                 '--perf-bench',
             ],

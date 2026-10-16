@@ -1,59 +1,48 @@
-set shell := ["bash", "-euc"]
-set quiet
-set default-list
-set working-directory := '..'
-
 # Build the native host-side launcher
-build:
-    cd slopcar && $CARGO build --locked $CARGOFLAGS
+[group('sidecar')]
+sidecar-build:
+    cd slopcar && cargo build --locked $CARGOFLAGS
 
 # Build the Linux sidecar runtime image
-image: build
+[group('sidecar')]
+sidecar-image: sidecar-build
     "$SLOPCAR" build --source "$PWD"
 
 # Install the native launcher
-install: build
+[group('sidecar')]
+sidecar-install: sidecar-build
     mkdir -p "$BIN"
     install -m755 "$SLOPCAR" "$BIN/slopcar"
 
 # Format launcher sources
-format:
-    cd slopcar && $CARGO fmt
+[group('sidecar')]
+sidecar-format:
+    cd slopcar && cargo fmt
 
 # Check formatting and Clippy
-lint:
-    cd slopcar && $CARGO fmt --check
-    cd slopcar && $CARGO clippy --locked --all-targets -- -D warnings
+[group('sidecar')]
+sidecar-lint:
+    cd slopcar && cargo fmt --check
+    cd slopcar && cargo clippy --locked --all-targets -- -D warnings
 
-# Run launcher and sidecar script tests
+# Run launcher Rust tests; Python tests belong to tools-test
 [positional-arguments]
-test *args:
-    "$JUST_CMD" --justfile "$JUST_ROOT" sidecar::test-rust "$@"
-    "$JUST_CMD" --justfile "$JUST_ROOT" sidecar::test-tools
-
-[private]
-[positional-arguments]
-test-rust *args:
-    cd slopcar && $CARGO test --locked $TEST_ARGS "$@"
-
-[private]
-test-tools:
-    $PYTHON -m pytest slopcar
+[group('sidecar')]
+sidecar-test *args:
+    cd slopcar && cargo test --locked "$@"
 
 # Remove component build output
-clean:
-    cd slopcar && $CARGO clean
+[group('sidecar')]
+sidecar-clean:
+    cd slopcar && cargo clean
 
 # Check nested Bubblewrap, pasta and tmux
-doctor: build
+[group('sidecar')]
+sidecar-doctor: sidecar-build
     "$SLOPCAR" doctor
-
-# Launch against an already running sidecar
-run:
-    "$JUST_CMD" --justfile "$JUST_ROOT" build daemon
-    "$RUNNER" --sidecar --game "$RIMWORLD" ${PROFILE:+--profile "$PROFILE"}
 
 # Rebuild and redeploy before each game launch
 [positional-arguments]
-devloop *args: build
-    $PYTHON -m slopcar.devloop --workspace "$SLOPCAR_WORKSPACE" "$@"
+[group('sidecar')]
+sidecar-devloop *args: sidecar-build
+    uv run --locked python -m slopcar.devloop --workspace "$SLOPCAR_WORKSPACE" "$@"

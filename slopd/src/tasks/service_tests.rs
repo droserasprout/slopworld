@@ -205,7 +205,7 @@ fn malformed_record_identity_order_and_aliases_fail_without_repair_writes() {
 }
 
 #[test]
-#[ignore = "storage scaling measurement; run explicitly through just test daemon"]
+#[ignore = "storage scaling measurement; run explicitly through just daemon-test"]
 fn benchmark_ten_thousand_records_and_one_hundred_targeted_deletions() {
     let mut f = Fixture::new();
     for _ in 0..10_000 {

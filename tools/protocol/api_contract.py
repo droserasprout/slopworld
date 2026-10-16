@@ -50,7 +50,7 @@ def main() -> None:
     if differences:
         parser.exit(
             1,
-            'stale generated protocol files; run just generate protocol:\n' + '\n'.join(map(str, differences)) + '\n',
+            'stale generated protocol files; run just generate-protocol:\n' + '\n'.join(map(str, differences)) + '\n',
         )
 
 

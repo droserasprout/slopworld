@@ -1,18 +1,17 @@
-set shell := ["bash", "-euc"]
-set quiet
-set default-list
-set working-directory := '..'
-
 # Build the Arch release compiler image
-arch: (_build 'arch')
+[group('image')]
+image-arch: (_image-build 'arch')
 
 # Build the Debian release compiler image
-debian: (_build 'debian')
+[group('image')]
+image-debian: (_image-build 'debian')
 
 # Build the Fedora release compiler image
-fedora: (_build 'fedora')
+[group('image')]
+image-fedora: (_image-build 'fedora')
 
 [private]
 [positional-arguments]
-_build what:
-    exec $CONTAINER build $CONTAINER_BUILD_ARGS -t "slopworld-$1-release" -f "packaging/$1/Dockerfile" "packaging/$1"
+[group('image')]
+_image-build what:
+    exec "$CONTAINER" build $CONTAINER_BUILD_ARGS -t "slopworld-$1-release" -f "packaging/$1/Dockerfile" "packaging/$1"

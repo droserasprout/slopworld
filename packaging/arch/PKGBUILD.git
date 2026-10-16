@@ -85,7 +85,7 @@ package() {
     "$pkgdir/usr/lib/systemd/user/slopd.service"
 
   local _mod="$pkgdir/usr/share/slopworld/SlopWorld"
-  UV_OFFLINE=true just _stage-mod "$_mod"
+  UV_OFFLINE=true just package-stage-mod "$_mod"
   find "$_mod" -type d -exec chmod 755 {} +
   find "$_mod" -type f -exec chmod 644 {} +
 

@@ -48,7 +48,9 @@ isort = { force-single-line = true, known-first-party = ["tools"] }
 quote-style = "single"
 
 [tool.pytest.ini_options]
-testpaths = ["tools"]
+testpaths = ["tools", "mac", "slopcar", "bench"]
+# Standalone terminal benchmark scripts import sibling modules.
+pythonpath = ["bench/terminal-input"]
 addopts = ["-ra", "--import-mode=importlib"]
 
 [tool.coverage.run]

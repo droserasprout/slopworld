@@ -10,7 +10,7 @@ Build distributable packages or publish a versioned GitHub release. Start with
 Both release targets require a clean checkout on `main`, with a `{{#constant release_tag_format}}` release tag
 at HEAD (for example, `{{#constant release_tag}}`). Use an Arch Linux x86_64 host with RimWorld installed,
 `makepkg`, `fakeroot`, and `pacman`, plus Podman (default) or Docker
-(`just CONTAINER=docker release publish`). Root builds also require Bubblewrap
+(`just CONTAINER=docker release-publish`). Root builds also require Bubblewrap
 to run `makepkg` as an ordinary UID.
 
 Release builds run locally because the mod needs the game's assemblies.
@@ -21,7 +21,7 @@ GitHub Actions runs game-free checks.
 Finish the human-maintained, dated changelog entry, then run:
 
 ```sh
-just release bump-version {{#constant release_version}}
+just release-bump-version {{#constant release_version}}
 ```
 
 The command updates both Cargo manifests and their own lockfile entries, the mod's
@@ -33,12 +33,12 @@ the commit with the matching `vMAJOR.MINOR.PATCH` tag.
 ### Build packages
 
 ```sh
-just release package  # build Release daemon and mod; prepare local archives
-just release publish  # rebuild, then create a versioned GitHub release
+just release-package  # build Release daemon and mod; prepare local archives
+just release-publish  # rebuild, then create a versioned GitHub release
 ```
 
-Both recipes run `generate all`, `lint`, `check mod-build`, and `test`, then the
-separate sidecar checks and `bench test`, followed by generated-file and license
+Both recipes run `generate-all`, `lint`, `mod-check-build`, and `test` (including
+sidecar and benchmark-helper tests), followed by generated-file and license
 checks and a documentation build before compiling
 and packaging the release. The Python suite includes the text-sprite checks. They recheck the branch, tag, commit, and clean working
 tree after every stage and after packaging. If generation changes tracked files, review and commit those changes before tagging the final release
@@ -62,8 +62,8 @@ Use `RELEASE_DIR` to change the output directory.
 
 Debian and Fedora containers rebuild Rust against Debian 13 (trixie) and Fedora 43
 libraries, then test and package the shared mod payload. Prepare images with
-`just image DISTRIBUTION`; run archive tests without compiling with
-`just test package DISTRIBUTION`. Both accept `arch`, `debian`, or `fedora`.
+`just image-arch`, `just image-debian`, or `just image-fedora`; run archive tests without compiling with
+`just package-test DISTRIBUTION`. The archive test accepts `arch`, `debian`, or `fedora`.
 Caches live in `dist/<distribution>-build/`. Arch container tests use privileged
 mode for the nested Bubblewrap namespace required by makepkg.
 `CONTAINER_BUILD_ARGS` and `CONTAINER_RUN_ARGS` accept extra container options.
@@ -78,7 +78,7 @@ build version in `VERSION`. Exact `{{#constant release_tag_format}}` tags at HEA
 with the `v` prefix removed from package and image versions. Both release targets reject untagged
 commits and multiple distinct version tags. If `VERSION` is supplied, it must
 match the tag; it cannot bypass the tag requirement.
-All product version files updated by `release bump-version` must also match the tag.
+All product version files updated by `release-bump-version` must also match the tag.
 Stale versions stop the release before any refresh, build, or publication.
 
 Artifact filenames and package metadata carry the resolved version.
@@ -95,7 +95,7 @@ at the built commit if it does not exist. An existing tag must point to that com
 existing releases are never replaced. Local tags stay unchanged.
 
 For {{#constant release_version}}, finish the changelog entry, commit all generated updates on `main`, and
-tag that commit `{{#constant release_tag}}`. Then run `just release publish`. Push the commit before publishing. If publication
+tag that commit `{{#constant release_tag}}`. Then run `just release-publish`. Push the commit before publishing. If publication
 fails after creating the tag, rerun from the same commit. If a release was created
 with incomplete assets, inspect and repair that release explicitly; the publisher
 refuses to overwrite it.
@@ -105,9 +105,9 @@ commit SHA and release-version image tags. Branch pushes do not build images, an
 there is no manual trigger. The image label and embedded daemon version use the
 same release version.
 
-Use `just test tools tools/release` for game-free packaging and publication tests.
+Use `just tools-test tools/release` for game-free packaging and publication tests.
 
-`just package -h` lists supported package formats and requirements.
+`just` lists package builds and archive tests in the package group.
 
 ## Arch packages
 
@@ -115,14 +115,14 @@ Build on Arch with the [build prerequisites](build.md#prerequisites), `base-deve
 and `bubblewrap` installed. RimWorld's native Linux assemblies are required.
 
 ```sh
-RIMWORLD=/path/to/RimWorld/game just package arch
+RIMWORLD=/path/to/RimWorld/game just package-arch
 ```
 
 This builds an x86_64 package in `dist/arch/` without installing it.
-Use `just ARCH_DIR=/path/to/output package arch` to choose another directory.
+Use `just ARCH_DIR=/path/to/output package-arch` to choose another directory.
 The package uses the shared release payload and existing PKGBUILD metadata.
 `VERSION` overrides the build version; snapshot hyphens become `.r` in Arch metadata.
-Use `just image arch` followed by `just test package arch` to test
+Use `just image-arch` followed by `just package-test arch` to test
 real archives in the Arch image without compiling the game or daemon.
 
 ## Debian packages
@@ -132,12 +132,12 @@ Build on the Debian or Ubuntu release where the package will run, with the
 and `dpkg-dev` installed. RimWorld's native Linux assemblies are required.
 
 ```sh
-RIMWORLD=/path/to/RimWorld/game just package debian
+RIMWORLD=/path/to/RimWorld/game just package-debian
 ```
 
 The recipe builds Release binaries and the mod with one version, checks staged
 licenses, and writes `slopworld_{{#constant release_version}}-1_<architecture>.deb` to `dist/debian/`.
-Use `just DEB_DIR=/path/to/output package debian` to change the output directory.
+Use `just DEB_DIR=/path/to/output package-debian` to change the output directory.
 It supports native `amd64` and `arm64` builds; game availability and runtime
 validation are separate requirements. `VERSION` overrides the shared build version.
 The recipe packages the working tree; commit changes first for a reproducible source revision.
@@ -148,7 +148,7 @@ mod, and license notices. Shared-library requirements come from
 on the build host; build on the oldest Debian/Ubuntu release you intend to support.
 Game assemblies and untracked mod assets are excluded. Package installation and
 user setup are covered in [Install](../installation/linux.md#debian-and-ubuntu).
-`just test tools tools/release` covers Debian staging and failure handling without the game.
+`just tools-test tools/release` covers Debian staging and failure handling without the game.
 
 ## Fedora packages
 
@@ -157,12 +157,12 @@ Build on the Fedora release where the package will run, with the
 `redhat-rpm-config` installed. RimWorld's native Linux assemblies are required.
 
 ```sh
-RIMWORLD=/path/to/RimWorld/game just package fedora
+RIMWORLD=/path/to/RimWorld/game just package-fedora
 ```
 
 The recipe builds Release binaries and the mod, then writes
 `slopworld-{{#constant release_version}}-1.<architecture>.rpm` to `dist/fedora/`.
-Use `just RPM_DIR=/path/to/output package fedora` to choose another directory.
+Use `just RPM_DIR=/path/to/output package-fedora` to choose another directory.
 It supports native `x86_64` and `aarch64` builds; verify game availability and runtime
 compatibility separately. `VERSION` overrides the build version. RPM metadata
 replaces snapshot hyphens with dots; the mod keeps the original version.
@@ -173,5 +173,5 @@ and license notices. RPM discovers native library dependencies and excludes the
 mod's private Unity assemblies from system dependencies and providers.
 Game assemblies and untracked mod assets are excluded.
 See [Install](../installation/linux.md#fedora) for mod attachment and service setup.
-`just test tools tools/release` tests staging and failures without the game;
-`just test package fedora` checks real archives with native ELF fixtures.
+`just tools-test tools/release` tests staging and failures without the game;
+`just package-test fedora` checks real archives with native ELF fixtures.

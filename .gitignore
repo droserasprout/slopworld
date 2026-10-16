@@ -17,7 +17,7 @@
 *.pdb
 *.mdb
 
-# Runtime libraries restored by `just sync-mod`.
+# Runtime libraries restored by `just mod-restore`.
 /mod/Assemblies/SlopWorld.dll
 /mod/Assemblies/AngleSharp.dll
 /mod/Assemblies/System.Text.Encoding.CodePages.dll
@@ -30,7 +30,7 @@
 /bench/terminal-input/runs/
 /bench/results/
 
-# License copies staged by just generate licenses.
+# License copies staged by just generate-licenses.
 /mod/About/LICENSE
 /mod/About/ThirdPartyNotices/
 

@@ -53,12 +53,10 @@ def build(release: Release) -> None:
     command = [os.environ['JUST_CMD'], 'BUILD=release', f'VERSION={release.version}']
     validate(release)
     for recipes in (
-        ('generate', 'all'),
-        ('lint', 'all', 'check', 'mod-build'),
-        ('test', 'all'),
-        ('sidecar::lint', 'sidecar::test'),
-        ('bench', 'test'),
-        ('check', 'protocol', 'check', 'licenses', 'docs', 'build'),
+        ('generate-all',),
+        ('lint', 'mod-check-build'),
+        ('test',),
+        ('generate-check-protocol', 'generate-check-licenses', 'docs-build'),
         ('build',),
     ):
         run([*command, *recipes])

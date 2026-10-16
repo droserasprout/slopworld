@@ -10,7 +10,7 @@ Screenshots use `<img align="right" width="…">` before the text they illustrat
 use `.screenshot-stack` for a related group. The shared stylesheet floats them
 when the content column has room and stacks them above text on narrow layouts.
 Preserve PNG originals, generate compressed JPEG copies with
-`just docs images`, and link screenshots to those JPEGs in README and the book.
+`just docs-images`, and link screenshots to those JPEGs in README and the book.
 Keep logos and other inline artwork outside this convention.
 The book cursor uses `docs/src/images/cursor-tame.png`, extracted from RimWorld's
 `UI/Designators/Tame`, mirrored like the mod's `GameCursor`, and scaled to 24px.

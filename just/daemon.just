@@ -1,44 +1,61 @@
-set shell := ["bash", "-euc"]
-set quiet
-set default-list
-set working-directory := '..'
-
 # Build the daemon, CLI and launcher
-build:
-    cd slopd && env ${VERSION:+SLOPWORLD_BUILD_VERSION="$VERSION"} $CARGO build $CARGOFLAGS
+[group('daemon')]
+daemon-build:
+    cd slopd && env ${VERSION:+SLOPWORLD_BUILD_VERSION="$VERSION"} cargo build $CARGOFLAGS
 
 # Format Rust sources
-format:
-    cd slopd && $CARGO fmt
+[group('daemon')]
+daemon-format:
+    cd slopd && cargo fmt
 
 # Check Rust formatting
-check-format:
-    cd slopd && $CARGO fmt --check
+[group('daemon')]
+daemon-check-format:
+    cd slopd && cargo fmt --check
 
 # Check formatting and Clippy
-lint: check-format
-    cd slopd && $CARGO clippy --all-targets -- -D warnings
+[group('daemon')]
+daemon-lint: daemon-check-format
+    cd slopd && cargo clippy --all-targets -- -D warnings
 
 # Run Rust tests
 [positional-arguments]
-test *args:
-    cd slopd && $CARGO test --quiet $TEST_ARGS "$@"
+[group('daemon')]
+daemon-test *args:
+    cd slopd && cargo test --quiet "$@"
+
+# Native llvm-cov scope excludes adjacent test modules and generated files.
+rust_coverage_exclude := '/tests/|/benches/|/benchmark/|/(tests|test_support|test_http|http_fixture|benchmark|[^/]*_tests)\.rs$|/shared/(http_wire|protocol)\.rs$|/target/|/rustc[^/]*/library/'
 
 # Collect Rust coverage
-coverage:
-    $PYTHON -m tools.coverage.collect daemon
+[group('daemon')]
+daemon-coverage:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p "$COVERAGE_DIR"
+    output="$(cd "$COVERAGE_DIR" && pwd)"
+    cd slopd
+    # Retain instrumented dependencies; llvm-cov selects matching rustup LLVM tools.
+    cargo llvm-cov clean --workspace
+    cargo llvm-cov --locked --no-report
+    cargo llvm-cov report --cobertura --output-path "$output/rust.cobertura.xml"
+    cargo llvm-cov report --ignore-filename-regex {{ quote(rust_coverage_exclude) }} --cobertura --output-path "$output/rust.filtered.cobertura.xml"
+    cargo llvm-cov report --ignore-filename-regex {{ quote(rust_coverage_exclude) }} > "$output/rust.files.txt"
 
 # Install the daemon, CLI, launcher and user service
-install: build
-    $PYTHON -m tools.host.install_daemon
+[group('daemon')]
+daemon-install: daemon-build
+    uv run --locked python -m tools.host.install_daemon
     install -Dm755 "$RUNNER" "$BIN/slopworld"
 
 # Remove the daemon, CLI, launcher and user service
-uninstall:
+[group('daemon')]
+daemon-uninstall:
     -systemctl --user disable --now slopd.service
     rm -f "$UNITS/slopd.service" "$BIN/slopd" "$BIN/slopctl" "$BIN/slopworld"
     systemctl --user daemon-reload
 
 # Remove component build output
-clean:
-    cd slopd && $CARGO clean
+[group('daemon')]
+daemon-clean:
+    cd slopd && cargo clean

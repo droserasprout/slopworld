@@ -74,7 +74,7 @@ def run_bench(build: str, run_number: int, raw_path: Path, suite="gamefree") -> 
         process = spawn(
             command,
             cwd=ROOT,
-            env={**os.environ, "BUILD": build, "DOTNET": os.environ.get("DOTNET", "dotnet"),
+            env={**os.environ, "BUILD": build,
                  "BENCH_IPC_OUTPUT": str(repeat_path / "ipc"), "TMPDIR": str(temporary)},
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,

@@ -82,7 +82,7 @@ jobs:
           build-warnings: ""
           # rust-cache keys compiler identity and job-level Rust/Cargo flags.
           # Keep coverage-tool/policy changes in the restore prefix too.
-          cache-key: coverage-v1-${{ hashFiles('.github/actions/setup-build-tools/*', 'tools/coverage/collect.py', 'rust-toolchain.toml') }}
+          cache-key: coverage-v1-${{ hashFiles('.github/actions/setup-build-tools/*', 'just/daemon.just', 'rust-toolchain.toml') }}
           # slopd/target includes the isolated llvm-cov-target dependency build.
           cache-workspaces: |
             slopd -> target
@@ -92,17 +92,11 @@ jobs:
         run: |
           bwrap --unshare-all --ro-bind / / --proc /proc --dev /dev -- /usr/bin/true
 
-      - name: Lint Rust
-        run: just ci rust
-
-      - name: Test Rust with coverage
-        run: just ci coverage-rust
-
-      - name: Check and test sidecar Rust
-        run: just ci sidecar-rust
+      - name: Check Rust and collect coverage
+        run: just ci-rust
 
       - name: Report coverage
-        run: just coverage summary-rust >> "$GITHUB_STEP_SUMMARY"
+        run: just coverage-summary-rust >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload coverage reports
         if: ${{ !cancelled() && hashFiles('coverage/rust*.cobertura.xml') != '' }}
@@ -145,20 +139,8 @@ jobs:
           cache: false
           build-warnings: ""
 
-      - name: Check generated bindings
-        run: just ci protocol
-
-      - name: Lint Python
-        run: just ci tools
-
-      - name: Test tools and pager
-        run: just ci tests
-
-      - name: Test sidecar tooling
-        run: just ci sidecar-tools
-
-      - name: Test benchmark tooling
-        run: just ci bench
+      - name: Check Python and tooling
+        run: just ci-tools
 
   mod:
     name: C#
@@ -182,15 +164,12 @@ jobs:
             mod/Tests/packages.lock.json
             .config/dotnet-tools.json
 
-      - name: Check C# formatting
-        run: just ci format-mod
-
-      - name: Test C# with coverage
-        run: just ci coverage-mod
+      - name: Check C# and collect coverage
+        run: just ci-mod
 
       - name: Report coverage
         run: |
-          just coverage summary-mod >> "$GITHUB_STEP_SUMMARY"
+          just coverage-summary-mod >> "$GITHUB_STEP_SUMMARY"
           echo 'C# coverage measures linked production files in the game-free harness, not the entire mod. No percentage threshold is enforced.' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload coverage reports

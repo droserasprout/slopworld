@@ -4,8 +4,9 @@ Client diagnostics in `Client/Diagnostics/` own request IDs, completion, perform
 records, and the bounded main-thread file queue. The frame hook writes game-side
 performance and latency records to `SlopWorld-trace.log` after frame end. Daemon
 `latency.rs` carries timestamps in screen metadata; `perf.rs` emits separate
-performance summaries through tracing to the daemon log. `trace capture` and
-`trace summary` consume game-side records only.
+performance summaries through tracing to the daemon log. `trace-capture` and
+`trace-summary` consume game-side records only. Capture takes sidecar mode and an optional log path, then forwards CLI options
+such as `--seconds`, `--label`, and `--output`; summary accepts log paths directly.
 The capture tool checks log identity and byte offsets during polling and at
 completion. An aborted capture removes its incomplete output so summaries cannot
 mistake it for a completed window.

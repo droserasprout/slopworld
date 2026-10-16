@@ -129,7 +129,7 @@ package() {
   # Stage the mod here because the package must not write to that directory.
   # The install hook prints the link command for the user.
   local _mod="$pkgdir/usr/share/slopworld/SlopWorld"
-  UV_OFFLINE=true just _stage-mod "$_mod"
+  UV_OFFLINE=true just package-stage-mod "$_mod"
   find "$_mod" -type d -exec chmod 755 {} +
   find "$_mod" -type f -exec chmod 644 {} +
 

@@ -1,164 +1,108 @@
-# Task-first developer commands. Components and implementation modules stay private.
+# Imported recipe files share one flat namespace; root recipes combine components.
 set shell := ["bash", "-euc"]
 set quiet
-
-# List commands, or show supported scopes: just help build
-[group('Help')]
-[positional-arguments]
-help what='':
-    #!/usr/bin/env bash
-    set -euo pipefail
-    case "$1" in
-        '') exec "$JUST_CMD" --list --unsorted ;;
-        deps|release|image|docs|bench|trace|sidecar|mac|game) exec "$JUST_CMD" --list "$1" ;;
-        *) exec python3 -m tools.recipes.dispatch "$1" --help ;;
-    esac
+set default-list
 
 import 'just/settings-game.just'
 import 'just/config.just'
-import 'just/settings-bench.just'
 import 'just/settings-release.just'
-import 'just/settings-trace.just'
 import 'mac/config.just'
-import 'just/workflows.just'
 
-# Build daemon + mod by default, or select one component
+# Build the daemon, launcher and mod
 [group('Build and run')]
-[positional-arguments]
-build what='all':
-    python3 -m tools.recipes.dispatch build "$@"
+build: daemon-build mod-build
 
-# Install daemon + mod by default, or select one component
+# Install the daemon, launcher and mod
 [group('Build and run')]
-[positional-arguments]
-install what='all':
-    python3 -m tools.recipes.dispatch install "$@"
+install: daemon-install install-mod
 
-# Format all sources or one component
-[group('Check and fix')]
-[positional-arguments]
-format what='all':
-    python3 -m tools.recipes.dispatch format "$@"
-
-# Check all sources or one component without rewriting
-[group('Check and fix')]
-[positional-arguments]
-lint what='all':
-    python3 -m tools.recipes.dispatch lint "$@"
-
-# Run regular game-free tests or one suite
-[group('Check and fix')]
-[positional-arguments]
-test what='all' *args:
-    python3 -m tools.recipes.dispatch test "$@"
-
-# Collect coverage, or summarize saved reports
-[group('Check and fix')]
-[positional-arguments]
-coverage what='all':
-    python3 -m tools.recipes.dispatch coverage "$@"
-
-# Run a focused check; see just help check
-[group('Check and fix')]
-[positional-arguments]
-check what:
-    python3 -m tools.recipes.dispatch check "$@"
-
-# Apply Python lint fixes
-[group('Check and fix')]
-[positional-arguments]
-fix what='tools':
-    python3 -m tools.recipes.dispatch fix "$@"
-
-# Run all CI stages or one named stage
-[group('Check and fix')]
-[positional-arguments]
-ci what='all':
-    python3 -m tools.recipes.dispatch ci "$@"
-
-# Regenerate all outputs or one named output
-[group('Maintain')]
-[positional-arguments]
-generate what='all':
-    python3 -m tools.recipes.dispatch generate "$@"
-
-# Remove build output for all components or one
+# Remove ordinary build and coverage output
 [group('Build and run')]
-[positional-arguments]
-clean what='all':
-    python3 -m tools.recipes.dispatch clean "$@"
+clean: sidecar-clean daemon-clean mod-clean clean-coverage
 
 # Remove installed files; preserve config and saves
 [group('Build and run')]
-[positional-arguments]
-uninstall what='all':
-    python3 -m tools.recipes.dispatch uninstall "$@"
+uninstall: daemon-uninstall uninstall-mod
+
+# Format Python, Rust and C# sources
+[group('Check and fix')]
+format: sidecar-format tools-format daemon-format mod-format
+
+# Check sources without rewriting them
+[group('Check and fix')]
+lint: sidecar-lint tools-lint daemon-lint mod-lint
+
+# Run regular game-free tests
+[group('Check and fix')]
+test: daemon-test sidecar-test mod-test test-tools
+
+# Run all game-free Python, pager and benchmark-helper tests
+[group('Check and fix')]
+test-tools: mod-check-themes tools-test tools-test-pager
+
+import 'just/daemon.just'
+import 'just/mod.just'
+import 'just/tools.just'
+import 'just/generate.just'
+import 'just/coverage.just'
+import 'just/ci.just'
 
 # Build the launcher and launch the game
 [group('Build and run')]
-run: _daemon::build
+run: daemon-build
     SLOPWORLD_GAME="$RIMWORLD" "$RUNNER" ${PROFILE:+--profile "$PROFILE"}
 
 # Reinstall and relaunch after each game exit
 [group('Build and run')]
 devloop:
-    $PYTHON -m tools.host.devloop
+    uv run --locked python -m tools.host.devloop
 
 # Show new game log entries; accepts slopctl options
 [group('Specialist commands')]
 [positional-arguments]
-logs *args: _daemon::build
+logs *args: daemon-build
     #!/usr/bin/env bash
     set -euo pipefail
     if [ -n "$LOG" ]; then export SLOPWORLD_GAME_LOG="$LOG"; fi
     exec "$SLOPCTL" "$@" logs game --follow
 
-# Restore locks or explicitly update dependency graphs
-[group('Maintain')]
-mod deps "just/deps.just"
-# Version bumps, release archives and publication
-[group('Maintain')]
-mod release "just/release.just"
+import 'just/deps.just'
+import 'just/dependency-graphs.just'
+import 'just/release.just'
 import 'just/package.just'
-# Distribution release compiler images
+import 'just/image.just'
+import 'just/docs.just'
+import 'just/bench.just'
+import 'just/trace.just'
+import 'just/sidecar.just'
+import 'just/mac.just'
+import 'just/game.just'
+
+# Install the mod and its launcher
+[group('Build and run')]
+install-mod managed=MANAGED mods=MODS: daemon-build (mod-build managed)
+    uv run --locked python -m tools.host.install_mod --runner "$RUNNER" --mods {{ quote(mods) }}
+
+# Remove the installed mod
+[group('Build and run')]
+uninstall-mod mods=MODS: daemon-build
+    "$RUNNER" mod uninstall --mods {{ quote(mods) }}
+
+# Restore reviewed Python, runtime and .NET tool locks
 [group('Maintain')]
-mod image "just/image.just"
-# Book builds, validation and serving
+deps-restore: tools-restore mod-restore mod-restore-tools
+
+# Update every dependency graph, then regenerate and stage notices
+[group('Maintain')]
+deps-update: deps-update-tools deps-update-daemon deps-update-sidecar deps-update-bench deps-update-mod generate-daemon-licenses generate-sidecar-licenses generate-licenses
+
+# Launch against an already running sidecar
 [group('Specialist commands')]
-mod docs "just/docs.just"
-# Benchmark suites, terminal measurements and reports
+sidecar-run: daemon-build
+    "$RUNNER" --sidecar --game "$RIMWORLD" ${PROFILE:+--profile "$PROFILE"}
+
+# Measure desktop terminal input; pass terminal benchmark CLI options
 [group('Specialist commands')]
-mod bench "just/bench.just"
-# Capture and summarize mod latency logs
-[group('Specialist commands')]
-mod trace "just/trace.just"
-# Build, install, check and run the sidecar
-[group('Specialist commands')]
-mod sidecar "just/sidecar.just"
-# Native macOS game setup and launch
-[group('Specialist commands')]
-mod mac "just/mac.just"
-# GOG authentication, installation and updates
-[group('Specialist commands')]
-mod game "just/game.just"
-
-[private]
-mod _daemon "just/daemon.just"
-
-[private]
-mod _mod "just/mod.just"
-
-[private]
-mod _tools "just/tools.just"
-
-[private]
-mod _generate "just/generate.just"
-
-[private]
-mod _coverage "just/coverage.just"
-
-[private]
-mod _ci "just/ci.just"
-
-[private]
-mod _deps "just/dependency-graphs.just"
+[positional-arguments]
+bench-terminal *args: daemon-build
+    uv run --locked python bench/terminal-input/terminal-input-bench.py "$@"

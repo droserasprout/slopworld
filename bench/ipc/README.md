@@ -1,9 +1,9 @@
 # IPC codec benchmark
 
-Run `just BUILD=release BENCH_RUN=<name> bench run ipc` for one focused run.
-`just BUILD=release BENCH_RUN=<name> bench run` includes IPC, daemon, and C# helpers
-in one three-run result. `just BENCH_RUN=<name> bench report` renders saved CSVs;
-`just BENCH_RUN=<name> bench report --baseline <older> --mode relative` compares them. Raw IPC CSVs and the
+Run `just BUILD=release bench-run ipc --run <name>` for one focused run.
+`just BUILD=release bench-run gamefree --run <name>` includes IPC, daemon, and C# helpers
+in one three-run result. `just bench-report --run <name>` renders saved CSVs;
+`just bench-report --run <name> --baseline <older> --mode relative` compares them. Raw IPC CSVs and the
 normalized metrics live under ignored `bench/results/<name>/`. The benchmark
 starts no game or daemon service. You need Mono, .NET 8, Rust and protoc, plus
 the normal repository build dependencies.

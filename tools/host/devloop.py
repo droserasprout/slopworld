@@ -87,7 +87,7 @@ def main() -> None:
                 continue
             log(f'\nBuilding {current} ({commit.stdout.strip()})', file=terminal_output)
             # Installation must finish before launch; a failure returns to selection.
-            run([just, 'install', 'all', 'run'], cwd=current, check=False)
+            run([just, 'install', 'run'], cwd=current, check=False)
 
 
 def exit_on_signal(_signal: int, _frame: FrameType | None) -> None:

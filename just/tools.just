@@ -1,41 +1,44 @@
-set shell := ["bash", "-euc"]
-set quiet
-set default-list
-set working-directory := '..'
-
 # Restore the locked Python tooling environment
-restore:
-    $UV sync --locked
+[group('tools')]
+tools-restore:
+    uv sync --locked
 
 # Apply import sorting and formatting
-format:
-    $UV run --locked ruff check --select I --fix $PYTHON_TOOLS
-    $UV run --locked ruff format $PYTHON_TOOLS
+[group('tools')]
+tools-format:
+    uv run --locked ruff check --select I --fix tools bench/runner.py bench/test_runner.py mac slopcar/*.py
+    uv run --locked ruff format tools bench/runner.py bench/test_runner.py mac slopcar/*.py
 
 # Apply automatically correctable lint fixes
-fix:
-    $UV run --locked ruff check --fix $PYTHON_TOOLS
+[group('tools')]
+tools-fix:
+    uv run --locked ruff check --fix tools bench/runner.py bench/test_runner.py mac slopcar/*.py
 
 # Check formatting, Ruff rules and strict types without modifying sources
-lint:
-    $UV run --locked ruff format --check $PYTHON_TOOLS
-    $UV run --locked ruff check $PYTHON_TOOLS
-    $UV run --locked mypy
+[group('tools')]
+tools-lint:
+    uv run --locked ruff format --check tools bench/runner.py bench/test_runner.py mac slopcar/*.py
+    uv run --locked ruff check tools bench/runner.py bench/test_runner.py mac slopcar/*.py
+    uv run --locked mypy
 
 # Run Python tests; pass pytest paths/options to select a subset
 [positional-arguments]
-test *args:
-    if [ "$#" -eq 0 ]; then set -- tools mac; fi; $PYTHON -m pytest "$@"
+[group('tools')]
+tools-test *args:
+    uv run --locked python -m pytest "$@"
 
 # Collect Python branch coverage
-coverage:
+[group('tools')]
+tools-coverage:
     mkdir -p "$COVERAGE_DIR"
-    $PYTHON -m pytest tools mac --cov=tools --cov=mac --cov-report=term-missing --cov-report=xml:coverage/python.cobertura.xml
+    uv run --locked python -m pytest --cov=tools --cov=mac --cov=slopcar --cov=bench --cov-report=term-missing --cov-report=xml:"$COVERAGE_DIR/python.cobertura.xml"
 
 # Check pager geometry with isolated tmux and less
-test-pager:
-    $PYTHON -m tools.terminal.pager_geometry
+[group('tools')]
+tools-test-pager:
+    uv run --locked python -m tools.terminal.pager_geometry
 
 # Print required and optional host tools
-check-requirements:
-    $PYTHON -m tools.host.check_reqs
+[group('tools')]
+tools-check-requirements:
+    uv run --locked python -m tools.host.check_reqs

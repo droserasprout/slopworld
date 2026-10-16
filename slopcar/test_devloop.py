@@ -13,11 +13,11 @@ def test_iteration_stops_at_failed_required_stage(monkeypatch, failed_stage, exp
     monkeypatch.setenv('JUST_CMD', '/tmp/just tool')
     monkeypatch.setenv('SLOPCAR', '/tmp/sidecar binary')
     expected = [
-        ['/tmp/just tool', 'sidecar', 'image'],
-        ['/tmp/just tool', 'install', 'mod'],
+        ['/tmp/just tool', 'sidecar-image'],
+        ['/tmp/just tool', 'install-mod'],
         ['/tmp/sidecar binary', 'rm'],
         ['/tmp/sidecar binary', 'start', '--workspace', '/tmp/work with spaces'],
-        ['/tmp/just tool', 'sidecar', 'run'],
+        ['/tmp/just tool', 'sidecar-run'],
     ]
     outcomes = [subprocess.CompletedProcess([], 23 if i == failed_stage else 0) for i in range(5)]
     with patch.object(devloop, 'run', side_effect=outcomes) as run:
@@ -33,4 +33,4 @@ def test_iteration_tolerates_absent_container_and_can_retry_after_failure(monkey
         devloop.iteration([])
         devloop.iteration([])
     assert run.call_count == 6
-    assert run.call_args.args[0] == ['just', 'sidecar', 'run']
+    assert run.call_args.args[0] == ['just', 'sidecar-run']

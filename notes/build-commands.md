@@ -2,44 +2,37 @@
 
 Use `just` to list recipes. [Build from source](../docs/src/development/build.md)
 owns toolchains, command usage, tests, coverage, and benchmark workflow.
-The root `justfile` exposes task-first commands: `just build daemon`, `just test mod`,
-and `just generate protocol`. Selector arguments are named `what` throughout recipe
-help. `just help TASK` lists supported choices and defaults.
-Specialist menus use `just docs build`, `just bench run`, and similar commands;
-their default action lists operations. Keep one canonical public command and migrate
-callers when it changes.
+Imported recipe files share one flat namespace. Commands use component prefixes:
+`just daemon-build`, `just mod-test`, and `just generate-protocol`.
+Use `just --show RECIPE` to inspect a command. Root `build`, `install`, `format`, `lint`, `test`, `clean`, and `uninstall`
+recipes combine components through dependencies. `generate-all` refreshes all generated outputs.
+Keep one canonical public command and migrate callers when it changes.
 
 `rust-toolchain.toml` owns the Rust version and required components for checkout builds.
 The test workflow reads that file when installing Rust. Agent sandboxes consume
 host-installed toolchains; install the pin and its components on the host first.
 
-`tools/recipes/dispatch.py` validates verb/scope pairs and routes them to private Just
-recipes. It uses only the standard library so selecting a daemon build does not need
-uv. It preserves build-derived settings across the selection boundary because Just
-recomputes those values rather than reading them from the environment. It does not
-own build policy or tool commands. Private component modules own those
-commands; `just/workflows.just` owns aggregate prerequisites, and `just/ci.just` owns
-CI validation stages. Sidecar operations are exposed only by `just sidecar`, with no
-top-level component aliases. `package` uses the same scope parser and help path as
-other task commands; its validated distribution is forwarded to the private builder.
+Just owns command discovery, argument validation and prerequisite ordering.
+Component recipe files own tool commands; the root justfile owns aggregate prerequisites,
+and `just/ci.just` owns CI validation stages. Sidecar operations live under the `sidecar-` prefix.
 `just/package.just` owns native packages, archive tests and source-mod staging;
-`just/image.just` owns distribution release compiler images; `sidecar image` owns
+`just/image.just` owns distribution release compiler images; `sidecar-image` owns
 the sidecar runtime image.
-`just/release.just` owns version bumps, tagged release archives and publication. Public specialist modules
+`just/release.just` owns version bumps, tagged release archives and publication. Specialist recipe files
 stay focused on their workflow.
 
-`just/config.just` owns shared build/tool settings and coverage scope; focused
-`just/settings-*.just` files and `mac/config.just` own domain settings. Only the root
-imports them. Just modules have separate variable scopes: recipes consume root exports
-through the process environment, preserving root `NAME=value` overrides. Module recipes
-run from the repository root. Cross-owner calls explicitly select the root justfile;
-local prerequisites use recipe dependencies. Optional scope parameters consume the
-next word, so supply the scope when chaining tasks. Variadic `test` must be the last
-task in an invocation. Python owns branching, loops, staging and publication; Just
-owns short commands and prerequisite ordering.
+`just/config.just` owns shared build/tool settings; focused
+`just/settings-*.just` files and `mac/config.just` own domain settings.
+Repository project paths and tool names are fixed at their call sites; use `PATH`
+to select installed tools. Keep exported overrides for user paths and workflow choices.
+All files are imported by the root justfile and share its settings, variables, and
+repository-root working directory. Use native dependencies for ordering. Variadic
+recipes must be last in an invocation. Test filters and benchmark options pass
+directly to their tools; coverage exclusions live beside the Rust collector. Keep command routing and short orchestration in Just; Python
+owns substantive generation, staging, reporting and publication logic.
 
 `mac/` owns native macOS checks, workflow code and settings; `just/mac.just` exposes
-its commands under `just mac`. `mac/setup.sh` bootstraps uv before Python recipes run.
+its commands as `just mac-*`. `mac/setup.sh` bootstraps uv before Python recipes run.
 Settings accept environment values or `just NAME=value recipe`; assignments precede
 recipe names. Sidecar launch commands pass `--sidecar` explicitly.
 Runtime path defaults belong to the shared Rust resolver; recipes query the
@@ -52,27 +45,27 @@ the shared Python release-tag syntax and Cargo version reader; release tags alwa
 use `vMAJOR.MINOR.PATCH`, while artifact versions omit `v`. CI validates tags with
 that module before container setup. `tools/version/product.py` owns the shared
 editable product-version file list;
-`just release bump-version VERSION` validates all replacements and a dated changelog entry
+`just release-bump-version VERSION` validates all replacements and a dated changelog entry
 before writing. Both release gates require those product versions to match the tag.
 Installer and launch recipes
 own their launcher build dependency. Regeneration is an explicit, isolated step
-after the main source changes: run `just generate all` for all outputs, or the relevant
-`generate protocol`, `generate api-docs`, `generate daemon-licenses`,
+after the main source changes: run `just generate-all` for all outputs, or the relevant
+`generate-protocol`, `generate-api-docs`, `generate-daemon-licenses`,
 or asset recipe,
 then review its diff and validate. The aggregate refresh includes daemon and sidecar
-license generation and stages licenses last. `deps update all` explicitly updates all
+license generation and stages licenses last. `deps-update` explicitly updates all
 Rust, Python, and NuGet graphs and regenerates notices.
 Rust and Python updates stay within manifest constraints; NuGet re-resolves the
 declared package versions without compiling or copying runtime DLLs. Review lock
-changes and synchronize runtime assemblies before validation. Release-time `generate all`
+changes and synchronize runtime assemblies before validation. Release-time `generate-all`
 consumes reviewed dependency locks rather than querying newer versions.
 Builds, tests, lint, benchmarks, and docs builds
 consume existing generated files. Release targets explicitly run the full refresh
-aggregate before lint and tests, rejecting any resulting tracked changes. `check protocol` compares temporary protocol
+aggregate before lint and tests, rejecting any resulting tracked changes. `generate-check-protocol` compares temporary protocol
 outputs without modifying the checkout. Explicit generators publish only changed
 bytes to preserve compiler input timestamps.
-`devloop` runs `just install all run` together, retaining each worktree's Rust target and C# obj directories.
-Only an explicit `just clean` removes ordinary build output. `coverage daemon`
+`devloop` runs `just install run` together, retaining each worktree's Rust target and C# obj directories.
+Only an explicit `just clean` removes ordinary build output. `daemon-coverage`
 cleans workspace artifacts and profile data with `cargo llvm-cov clean --workspace`,
 retaining instrumented dependencies under `slopd/target/llvm-cov-target` locally and in CI.
 The Rust cache includes that nested target directory. Its restore prefix isolates
@@ -93,15 +86,15 @@ Incremental compilation remains enabled; sccache reuses eligible dependencies.
 Rust version metadata watches Git HEAD and tag/ref storage, not the index:
 staging and index refreshes must not invalidate daemon builds.
 
-`just ci` runs all validation stages locally. The test workflow resolves the requested
-ref once, then runs the same `ci STAGE` stages in parallel Rust, Python/tooling and C#
-jobs against that commit. Rust and pager checks use Debian forky with the pinned tmux;
+`just/ci.just` is imported at root scope so CI groups use native component dependencies.
+`just ci` runs all three groups locally. The test workflow resolves the requested
+ref once, then runs `ci-rust`, `ci-tools`, and `ci-mod` in parallel jobs against that commit. Rust and pager checks use Debian forky with the pinned tmux;
 only the Rust job needs a privileged container for sandbox tests. Rust and C# jobs
 publish separate `coverage-rust` and `coverage-mod` artifacts and summaries.
 The tooling job installs the pinned Rust toolchain for protocol-generator rustfmt
 calls, without a Cargo build cache.
-`coverage summary-rust` and `coverage summary-mod` summarize their respective reports;
-`coverage summary` combines saved reports locally.
+`coverage-summary-rust` and `coverage-summary-mod` summarize their respective reports;
+`coverage-summary` combines saved reports locally.
 CI installs pinned tools through `.github/actions/setup-build-tools/`.
 It delegates just and cargo-llvm-cov installation to `taiki-e/install-action`,
 and uv installation and dependency caching to `astral-sh/setup-uv`.
@@ -112,8 +105,8 @@ and `notes/`. Documentation publication filters its book, repository README/note
 and tooling inputs on `main`, `human-docs`, and `road-to-release`, publishing each
 branch to Cloudflare Pages; sidecar publication runs only on `vMAJOR.MINOR.PATCH` tag pushes. Manual test runs and reusable test calls bypass push path
 filters.
-`format mod` and `lint mod` use the CSharpier version pinned in
-`.config/dotnet-tools.json`, restored by a private module prerequisite. They open only
+`mod-format` and `mod-lint` use the CSharpier version pinned in
+`.config/dotnet-tools.json`, restored by a private recipe prerequisite. They open only
 the C# source directories; `.csharpierignore` excludes generated bindings,
 build output, and project files. CSharpier owns layout; `.editorconfig` supplies
 indentation, line endings, and the shared .NET analyzer policy. Generated emoji
@@ -149,8 +142,9 @@ defaults to micro; optional package metadata does not imply an editor fallback.
 `packaging/debian/` owns Debian binary metadata and installed user setup instructions.
 `tools/release/native.py` owns the Arch/Debian/Fedora packaging CLI and local build workflow;
 `tools/release/arch.py`, `tools/release/debian.py`, and `tools/release/fedora.py`
-own native archive formats. `package` and `test package` accept a distribution
-argument. `image DISTRIBUTION` selects a distribution release compiler image. Package builds do not install their output.
+own native archive formats. `package-arch`, `package-debian`, and `package-fedora`
+build native packages; `package-test DISTRIBUTION` tests archives. The corresponding
+`image-arch`, `image-debian`, and `image-fedora` recipes build release compiler images. Package builds do not install their output.
 `tools/release/staging.py` owns common system payloads, permissions, notices,
 mod asset/runtime DLL allowlists, and tracked-release staging used by package builders. `tools/release/source_mod.py`
 selects whole asset directories for source snapshots without Git metadata.
@@ -189,23 +183,27 @@ and package imports rather than adding script directories to `sys.path`.
 the ignored `.venv/` without installing the repository package. Asset generators
 opt into the `assets` extra. The uv `dev` group owns Ruff, strict mypy, pytest,
 pytest-cov, and the dependencies needed to type-check asset generators.
-`just format tools` applies formatting and import sorting; `fix tools` applies lint
-fixes. `lint tools` checks formatting and Ruff rules without rewriting sources and runs
-strict mypy across `tools/`, including tests. `lint mod` checks C# formatting;
-`check mod-build` separately validates Release compilation against game assemblies. Optional rendering
+`just tools-format` applies formatting and import sorting; `tools-fix` applies lint
+fixes. `tools-lint` checks formatting and Ruff rules without rewriting sources and runs
+strict mypy across `tools/`, including tests. `mod-lint` checks C# formatting;
+`mod-check-build` separately validates Release compilation against game assemblies. Optional rendering
 backends without stubs have scoped missing-import overrides; package code remains strict.
-`just test tools` runs pytest, accepting paths and options for focused selection.
-`test pager` owns tmux/less integration checks. `bench test` owns benchmark runner,
-report and terminal-input helper tests; `sidecar test` owns launcher Rust and Python
-tests. Benchmarks and sidecar tests are excluded from the regular test workflow; CI
-and release validation invoke the two groups explicitly.
-`just coverage tools` explicitly collects Python branch coverage; normal tests and CI
-do not collect it. `just deps update tools` updates dependency resolution.
+`just tools-test` runs pytest with discovery rooted at tools, mac, slopcar, and bench
+in `pyproject.toml`; explicit paths and options select a subset. This includes the
+benchmark unittest suites; pytest adds their standalone script directory to its
+import path for sibling imports. `tools-test-pager` owns tmux/less integration checks;
+`sidecar-test` owns launcher Rust tests. Root `test` includes daemon, sidecar, C# and `test-tools` suites.
+`test-tools` combines Python, pager and benchmark-helper checks and is shared by
+local tests and tooling CI. Release validation uses the same root test suite.
+These checks do not run performance benchmarks.
+`just tools-coverage` explicitly collects Python branch coverage; normal tests and CI
+do not collect it. `just deps-update-tools` updates dependency resolution.
 
 `tools/utils.py` owns shared command parsing, subprocess execution, logging, and CLI
 failure handling. Command settings use shell-style argument quoting without executing
 a shell. `tools/host/` owns daemon installation, GOG setup, and worktree development loops.
-`tools/coverage/collect.py` owns Rust and C# coverage orchestration.
+Component Just recipes own coverage collection; `tools/coverage/coverage_summary.py`
+owns report parsing. Collection writes reports; `coverage-summary` prints saved reports.
 
 The daemon installer compares running executable contents and the managed unit
 fragment; systemd drop-ins are outside that comparison. Inactive units activate once
@@ -217,10 +215,10 @@ collection and reporting. It calls the runner directly, building only the select
 suite. Benchmark recipes forward CLI options instead of exporting each option as a
 shared setting. `bench/` also owns shared result handling and its tests.
 `slopcar/Cargo.toml` owns the independent native sidecar launcher, built by
-`just sidecar build` and installed by `sidecar install`. `sidecar test` and
-`sidecar lint` validate it without Docker or the game. Recipes export `SLOPCAR`
+`just sidecar-build` and installed by `sidecar-install`. `sidecar-test` and
+`sidecar-lint` validate it without Docker or the game. Recipes export `SLOPCAR`
 to both Python callers; runtime commands use the embedded seccomp policy.
-`generate sidecar-licenses` owns the launcher's full Linux/macOS dependency notices
+`generate-sidecar-licenses` owns the launcher's full Linux/macOS dependency notices
 under `licenses/slopcar/`, also embedded in the executable.
 `slopcar/` owns the shared container devloop; platform workflows call it through `just`.
 A failed image build or mod installation ends the iteration before container replacement;
@@ -233,8 +231,8 @@ OST production scripts and staged audio belong to the private repository under
 
 The [attribution policy](core-attribution.md) applies to used libraries and assets.
 `licenses/` owns canonical third-party texts and attribution; the root `LICENSE`
-owns SlopWorld terms. `just generate licenses` stages ignored copies into
-`mod/About/ThirdPartyNotices/` and `mod/About/LICENSE`; `just check licenses`
+owns SlopWorld terms. `just generate-licenses` stages ignored copies into
+`mod/About/ThirdPartyNotices/` and `mod/About/LICENSE`; `just generate-check-licenses`
 verifies their contents and rejects stale extra files. Both are maintainer commands; release targets run them through their validation
 stages. Ordinary builds and installation do not invoke them.
 Source installation stages a temporary mod through `tools/host/install_mod.py`
@@ -244,7 +242,7 @@ local refreshed copies. License tests use temporary directories. The launcher
 copies its supplied mod tree's `About/` recursively.
 Release archives, native packages, and sidecar images also include readable copies
 from the canonical sources. Update only the canonical files.
-`just generate daemon-licenses` refreshes the Rust inventory from the locked Cargo graph,
+`just generate-daemon-licenses` refreshes the Rust inventory from the locked Cargo graph,
 including build/dev dependencies and all target platforms. Cargo manifests own
 its license metadata; the generated table does not replace distribution notices.
 
