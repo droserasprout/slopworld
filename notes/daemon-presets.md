@@ -13,7 +13,9 @@ dependency graphs are rejected.
 Mount policy and host-escape boundaries belong to [sandbox isolation](sandbox-isolation.md).
 `slopworld-dev` owns read-only game build inputs and compiler-cache dependencies.
 It uses `rust-sccache`, including the writable installed toolchains inherited
-through `rust-cache`.
+through `rust-cache`. Rustup downloads and temporary staging also use shared
+writable cache mounts so installing a pinned toolchain can complete; mounting only
+toolchains and update hashes leaves rustup blocked by the read-only parent.
 `slopworld-debug` extends it with writable installation/profile paths and host
 capabilities; read-write game binds override the base read-only binds.
 The debug preset's read-only endpoint bind exposes the daemon root credential;

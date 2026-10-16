@@ -2,7 +2,13 @@
 name = "rust-cache"
 description = "writable Cargo and rustup caches (requires rust)"
 requires = ["rust"]
-cache = ["~/.cargo/registry", "~/.cargo/git"]
+# rustup needs both download storage and temporary staging when installing pins.
+cache = [
+    "~/.cargo/registry",
+    "~/.cargo/git",
+    "~/.rustup/downloads",
+    "~/.rustup/tmp",
+]
 # Installed toolchains and update metadata retain existing-only access.
 rw = [
     "~/.rustup/toolchains",

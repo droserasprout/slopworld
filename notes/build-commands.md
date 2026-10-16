@@ -9,8 +9,9 @@ recipes combine components through dependencies. `generate-all` refreshes all ge
 Keep one canonical public command and migrate callers when it changes.
 
 `rust-toolchain.toml` owns the Rust version and required components for checkout builds.
-The test workflow reads that file when installing Rust. Agent sandboxes consume
-host-installed toolchains; install the pin and its components on the host first.
+The test workflow reads that file when installing Rust. Agent sandboxes with
+`rust-cache` share installed host toolchains and writable rustup download/staging
+caches. The base `rust` preset alone only exposes installed toolchains read-only.
 
 Just owns command discovery, argument validation and prerequisite ordering.
 Component recipe files own tool commands; the root justfile owns aggregate prerequisites,
@@ -77,9 +78,10 @@ the collector preserves explicit `LLVM_COV`/`LLVM_PROFDATA` overrides without
 selecting potentially incompatible system tools from `PATH`.
 Host recipes use sccache when installed, respecting an explicit `RUSTC_WRAPPER`
 (including empty to disable it). `SCCACHE_DIR` defaults to `~/.cache/sccache`, also
-shared by the opt-in `rust-sccache` sandbox preset. `rust-cache` only grants access
-to Cargo/rustup downloads; `slopworld-debug` selects `rust-sccache`. The daemon
-creates preset cache directories at launch; host sccache creates its cache itself.
+shared by the opt-in `rust-sccache` sandbox preset. `rust-cache` grants writable access
+to Cargo caches, installed Rust toolchains, update hashes, and rustup download/staging
+caches; `slopworld-debug` selects `rust-sccache`. The daemon creates preset cache
+directories at launch; host sccache creates its cache itself.
 Keep Cargo target directories separate per checkout; sharing
 fingerprints and build-script outputs can reuse another checkout's artifacts.
 Incremental compilation remains enabled; sccache reuses eligible dependencies.

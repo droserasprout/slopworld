@@ -194,7 +194,12 @@ fn assert_builtin_cache_presets(table: &Table) {
     );
     assert_eq!(
         table.sandbox("rust-cache").unwrap().cache,
-        vec!["~/.cargo/registry", "~/.cargo/git"]
+        vec![
+            "~/.cargo/registry",
+            "~/.cargo/git",
+            "~/.rustup/downloads",
+            "~/.rustup/tmp",
+        ]
     );
     for name in ["go-cache", "node-cache", "nuget-cache", "ruby-cache"] {
         let preset = table.sandbox(name).unwrap();

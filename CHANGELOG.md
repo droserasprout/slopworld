@@ -12,7 +12,8 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Fixed
 
-- Jukebox: Fix stream idle timeout regression after ureq upgrade.
+- Jukebox: Fixed stream idle timeout regression after ureq upgrade.
+- Sandbox: Fixed missing bind paths in rust-cache preset.
 
 ## [0.0.4] - 2026-10-15
 
