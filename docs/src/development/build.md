@@ -4,7 +4,7 @@ Build and install SlopWorld from a checkout and run development checks. For preb
 
 ## Prerequisites
 
-- **Rust** stable toolchain builds the daemon and launcher using the 2024 edition.
+- **Rust**: use rustup with the version and components pinned in `rust-toolchain.toml`.
 - **.NET SDK**: install the version pinned in `global.json`. It builds the `net472`
   mod and runs C# tests and formatting. NuGet restores framework reference assemblies.
 - **Protobuf compiler (`protoc`)**: Rust builds require it. Contract generation

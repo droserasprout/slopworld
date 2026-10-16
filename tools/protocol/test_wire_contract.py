@@ -68,6 +68,8 @@ class GeneratedFileTests(unittest.TestCase):
         root = ROOT
         shutil.copytree(root / 'shared', self.directory / 'shared')
         shutil.copytree(root / 'tools', self.directory / 'tools', ignore=shutil.ignore_patterns('__pycache__'))
+        # The generator invokes rustfmt outside the checkout; CI has no global default toolchain.
+        shutil.copy(root / 'rust-toolchain.toml', self.directory / 'rust-toolchain.toml')
         command = [sys.executable, '-m', 'tools.protocol.api_contract']
         subprocess.run(command, cwd=self.directory, check=True, capture_output=True)
         outputs = list((self.directory / 'mod').rglob('*.cs'))

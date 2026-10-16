@@ -9,6 +9,10 @@ Specialist menus use `just docs build`, `just bench run`, and similar commands;
 their default action lists operations. Keep one canonical public command and migrate
 callers when it changes.
 
+`rust-toolchain.toml` owns the Rust version and required components for checkout builds.
+The test workflow reads that file when installing Rust. Agent sandboxes consume
+host-installed toolchains; install the pin and its components on the host first.
+
 `tools/recipes/dispatch.py` validates verb/scope pairs and routes them to private Just
 recipes. It uses only the standard library so selecting a daemon build does not need
 uv. It preserves build-derived settings across the selection boundary because Just
