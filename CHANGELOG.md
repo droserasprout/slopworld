@@ -10,6 +10,10 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- Game: Added support for RimWorld 1.7 (Waylith) and net10.0 runtime.
+
 ### Fixed
 
 - Jukebox: Fixed stream idle timeout regression after ureq upgrade.
@@ -19,7 +23,13 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Changed
 
-- RimWorld 1.7 (Waylith) migration.
+- Display: Default frame pacing now matches the monitor refresh rate with VSync off.
+
+### Removed
+
+- Game: Removed RimWorld 1.6 and Mono runtime support.
+
+## [0.0.4] - 2026-10-15
 
 ### Fixed
 
