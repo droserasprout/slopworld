@@ -25,7 +25,8 @@ def test_rust_reports_use_absolute_output_paths_and_tool_environment(
     ):
         collect.daemon(output)
     calls = [call.args[0] for call in run.call_args_list]
-    assert calls[0] == ['/tmp/cargo tool', '--offline', 'llvm-cov', 'clean']
+    assert calls[0] == ['/tmp/cargo tool', '--offline', 'llvm-cov', 'clean', '--workspace']
+    assert calls[1] == ['/tmp/cargo tool', '--offline', 'llvm-cov', '--locked', '--no-report']
     assert calls[2][-1] == str(output / 'rust.cobertura.xml')
     assert calls[3][-1] == str(output / 'rust.filtered.cobertura.xml')
     assert '--ignore-filename-regex' in calls[4]
@@ -58,15 +59,16 @@ def test_missing_cargo_llvm_cov_fails_before_creating_output(tmp_path: Path) -> 
         assert not (tmp_path / 'output').exists()
 
 
-def test_failed_collection_does_not_publish_summary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_failed_cleanup_stops_collection(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('RUST_COVERAGE_EXCLUDE', '/tests/')
     with (
         patch.object(shutil, 'which', return_value='/bin/tool'),
-        patch.object(collect, 'run', side_effect=subprocess.CalledProcessError(23, ['cargo'])),
+        patch.object(collect, 'run', side_effect=subprocess.CalledProcessError(23, ['cargo'])) as run,
         patch.object(collect, 'summarize') as summarize,
     ):
         with pytest.raises(subprocess.CalledProcessError):
             collect.daemon(tmp_path)
+        run.assert_called_once()
         summarize.assert_not_called()
 
 

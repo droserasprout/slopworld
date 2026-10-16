@@ -3,13 +3,15 @@ set quiet
 set default-list
 set working-directory := '..'
 
-# Run each stage in the same order as GitHub Actions
-all: format tools tests rust coverage-rust coverage-mod sidecar bench
+# Run every stage locally; GitHub Actions groups these into parallel jobs
+all: protocol format-mod tools tests rust coverage-rust coverage-mod sidecar-rust sidecar-tools bench
 
-# Check generated bindings and source formatting
-format:
+# Check generated bindings
+protocol:
     "$JUST_CMD" --justfile "$JUST_ROOT" check protocol
-    "$JUST_CMD" --justfile "$JUST_ROOT" check daemon-format
+
+# Check C# formatting
+format-mod:
     "$JUST_CMD" --justfile "$JUST_ROOT" lint mod
 
 # Check Python sources
@@ -34,9 +36,13 @@ coverage-rust:
 coverage-mod:
     "$JUST_CMD" --justfile "$JUST_ROOT" coverage mod
 
-# Check and test the separate sidecar group
-sidecar:
-    "$JUST_CMD" --justfile "$JUST_ROOT" sidecar::lint sidecar::test
+# Check and test the sidecar launcher
+sidecar-rust:
+    "$JUST_CMD" --justfile "$JUST_ROOT" sidecar::lint sidecar::test-rust
+
+# Test sidecar Python and shell tooling
+sidecar-tools:
+    "$JUST_CMD" --justfile "$JUST_ROOT" sidecar::test-tools
 
 # Test benchmark tooling separately from regular tests
 bench:

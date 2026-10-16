@@ -2,20 +2,35 @@ name: Set up pinned build tools
 description: Cache and install pinned Linux tools for game-free CI checks
 inputs:
   coverage:
-    description: Include cargo-llvm-cov, just, protoc, and uv
+    description: Include cargo-llvm-cov
+    default: 'false'
+  protoc:
+    description: Include protoc for Rust builds and generated binding checks
     default: 'false'
 runs:
   using: composite
   steps:
-    - uses: actions/cache@v4
+    - uses: taiki-e/install-action@v2
       with:
-        path: ${{ runner.temp }}/slopworld-build-tools
-        key: linux-x64-build-tools-${{ inputs.coverage }}-${{ hashFiles('.github/actions/setup-build-tools/*') }}
-    - name: Install tool archives
+        tool: just@1.58.0
+    - uses: taiki-e/install-action@v2
+      if: inputs.coverage == 'true'
+      with:
+        tool: cargo-llvm-cov@0.9.1
+    - uses: astral-sh/setup-uv@v7
+      with:
+        version: '0.12.23'
+        enable-cache: 'true'
+        cache-dependency-glob: uv.lock
+    - uses: actions/cache@v4
+      if: inputs.protoc == 'true'
+      with:
+        path: ${{ runner.temp }}/slopworld-protoc
+        key: linux-x64-protoc-${{ hashFiles('.github/actions/setup-build-tools/install-protoc.sh') }}
+    - name: Install protoc
+      if: inputs.protoc == 'true'
       shell: bash
-      env:
-        INSTALL_COVERAGE: ${{ inputs.coverage }}
-      run: bash "$GITHUB_ACTION_PATH/install.sh"
+      run: bash "$GITHUB_ACTION_PATH/install-protoc.sh"
     - name: Synchronize locked Python dependencies
       shell: bash
       run: uv sync --locked --no-python-downloads

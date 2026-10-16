@@ -28,7 +28,16 @@ lint:
 # Run launcher and sidecar script tests
 [positional-arguments]
 test *args:
+    "$JUST_CMD" --justfile "$JUST_ROOT" sidecar::test-rust "$@"
+    "$JUST_CMD" --justfile "$JUST_ROOT" sidecar::test-tools
+
+[private]
+[positional-arguments]
+test-rust *args:
     cd slopcar && $CARGO test --locked $TEST_ARGS "$@"
+
+[private]
+test-tools:
     $PYTHON -m pytest slopcar
 
 # Remove component build output

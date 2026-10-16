@@ -32,10 +32,9 @@ def daemon(output: Path) -> None:
     def cargo_run(*args: str, stdout: TextIO | None = None) -> None:
         run(cargo + list(args), cwd=ROOT / 'slopd', env=environment, stdout=stdout)
 
-    # Rebuild instrumented dependencies too: cached profiling runtimes can emit
-    # an older raw profile format after the host LLVM toolchain changes.
-    cargo_run('clean')
-    cargo_run('--no-report')
+    # Clear workspace artifacts and profile data while retaining dependencies.
+    cargo_run('clean', '--workspace')
+    cargo_run('--locked', '--no-report')
     report = output / 'rust.cobertura.xml'
     filtered = output / 'rust.filtered.cobertura.xml'
     cargo_run('report', '--cobertura', '--output-path', str(report))

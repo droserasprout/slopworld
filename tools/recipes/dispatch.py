@@ -74,6 +74,8 @@ ACTIONS = {
             'all': ('_coverage::all',),
             **components('coverage', 'daemon', 'mod', 'tools'),
             'summary': ('_coverage::summary',),
+            'summary-rust': ('_coverage::summary-rust',),
+            'summary-mod': ('_coverage::summary-mod',),
         },
     ),
     'check': Action(
@@ -95,13 +97,15 @@ ACTIONS = {
             stage: (f'_ci::{stage}',)
             for stage in (
                 'all',
-                'format',
+                'protocol',
+                'format-mod',
                 'tools',
                 'tests',
                 'rust',
                 'coverage-rust',
                 'coverage-mod',
-                'sidecar',
+                'sidecar-rust',
+                'sidecar-tools',
                 'bench',
             )
         },

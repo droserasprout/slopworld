@@ -21,7 +21,7 @@ on:
     outputs:
       commit:
         description: Tested commit
-        value: ${{ jobs.test.outputs.commit }}
+        value: ${{ jobs.revision.outputs.commit }}
 
 permissions:
   contents: read
@@ -33,7 +33,22 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'push' && inputs.ref == '' && github.ref_type == 'branch' }}
 
 jobs:
-  test:
+  revision:
+    name: Resolve tested commit
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.revision.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - name: Record tested revision
+        id: revision
+        run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  rust:
+    name: Rust
+    needs: revision
     runs-on: ubuntu-latest
     container:
       image: debian:forky-slim
@@ -42,29 +57,119 @@ jobs:
     defaults:
       run:
         shell: bash
-    outputs:
-      commit: ${{ steps.revision.outputs.commit }}
+    steps:
+      - name: Install system dependencies
+        # actions/cache uses zstd when available; gzip makes Rust cache saves slow.
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates curl git unzip zstd build-essential pkg-config \
+            libasound2-dev \
+            python3 procps tmux=3.7c-1 less ripgrep bubblewrap
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.revision.outputs.commit }}
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-build-tools
+        with:
+          coverage: 'true'
+          protoc: 'true'
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          build-warnings: ""
+          # rust-cache keys compiler identity and job-level Rust/Cargo flags.
+          # Keep coverage-tool/policy changes in the restore prefix too.
+          cache-key: coverage-v1-${{ hashFiles('.github/actions/setup-build-tools/*', 'tools/coverage/collect.py', 'rust-toolchain.toml') }}
+          # slopd/target includes the isolated llvm-cov-target dependency build.
+          cache-workspaces: |
+            slopd -> target
+            slopcar -> target
+
+      - name: Check bubblewrap namespaces in the CI container
+        run: |
+          bwrap --unshare-all --ro-bind / / --proc /proc --dev /dev -- /usr/bin/true
+
+      - name: Lint Rust
+        run: just ci rust
+
+      - name: Test Rust with coverage
+        run: just ci coverage-rust
+
+      - name: Check and test sidecar Rust
+        run: just ci sidecar-rust
+
+      - name: Report coverage
+        run: just coverage summary-rust >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage reports
+        if: ${{ !cancelled() && hashFiles('coverage/rust*.cobertura.xml') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-rust
+          path: |
+            coverage/rust*.cobertura.xml
+            coverage/rust.files.txt
+          if-no-files-found: error
+
+  tools:
+    name: Python and tooling
+    needs: revision
+    runs-on: ubuntu-latest
+    container:
+      image: debian:forky-slim
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Install system dependencies
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
-            ca-certificates curl git unzip build-essential pkg-config \
-            libasound2-dev libicu78 libssl3t64 zlib1g \
-            python3 procps tmux=3.7c-1 less ripgrep bubblewrap
+            ca-certificates curl git unzip zstd python3 procps tmux=3.7c-1 less ripgrep
 
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || github.sha }}
-          fetch-depth: 0
-
-      - name: Record tested revision
-        id: revision
-        run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          ref: ${{ needs.revision.outputs.commit }}
 
       - uses: ./.github/actions/setup-build-tools
         with:
-          coverage: 'true'
+          protoc: 'true'
+
+      # Protocol generators and their Python tests format Rust output.
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          components: rustfmt
+          cache: false
+          build-warnings: ""
+
+      - name: Check generated bindings
+        run: just ci protocol
+
+      - name: Lint Python
+        run: just ci tools
+
+      - name: Test tools and pager
+        run: just ci tests
+
+      - name: Test sidecar tooling
+        run: just ci sidecar-tools
+
+      - name: Test benchmark tooling
+        run: just ci bench
+
+  mod:
+    name: C#
+    needs: revision
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.revision.outputs.commit }}
+
+      - uses: ./.github/actions/setup-build-tools
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -77,57 +182,21 @@ jobs:
             mod/Tests/packages.lock.json
             .config/dotnet-tools.json
 
-      - uses: actions-rust-lang/setup-rust-toolchain@v2
-        with:
-          build-warnings: ""
-          cache-workspaces: |
-            slopd
-            slopcar
-
-      - name: Check bubblewrap namespaces in the CI container
-        run: |
-          bwrap --unshare-all --ro-bind / / --proc /proc --dev /dev -- /usr/bin/true
-
-      - name: Expose Rust LLVM tools
-        run: |
-          echo "$(dirname "$(rustc --print target-libdir)")/bin" >> "$GITHUB_PATH"
-
-      # Named stages are shared with just ci, with separate step timings.
-      - name: Check generated files and formatting
-        run: just ci format
-
-      - name: Lint Python
-        run: just ci tools
-
-      - name: Test tools and pager
-        run: just ci tests
-
-      - name: Lint Rust
-        run: just ci rust
-
-      - name: Test Rust with coverage
-        run: just ci coverage-rust
+      - name: Check C# formatting
+        run: just ci format-mod
 
       - name: Test C# with coverage
         run: just ci coverage-mod
 
-      - name: Check and test sidecar
-        run: just ci sidecar
-
-      - name: Test benchmark tooling
-        run: just ci bench
-
       - name: Report coverage
         run: |
-          just coverage summary >> "$GITHUB_STEP_SUMMARY"
+          just coverage summary-mod >> "$GITHUB_STEP_SUMMARY"
           echo 'C# coverage measures linked production files in the game-free harness, not the entire mod. No percentage threshold is enforced.' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload coverage reports
-        if: ${{ !cancelled() && hashFiles('coverage/*.cobertura.xml') != '' }}
+        if: ${{ !cancelled() && hashFiles('coverage/csharp.cobertura.xml') != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: coverage
-          path: |
-            coverage/*.cobertura.xml
-            coverage/rust.files.txt
+          name: coverage-mod
+          path: coverage/csharp.cobertura.xml
           if-no-files-found: error

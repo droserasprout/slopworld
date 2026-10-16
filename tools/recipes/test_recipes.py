@@ -11,6 +11,8 @@ import unittest
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from tools import ROOT
 from tools.recipes.dispatch import ACTIONS
 
@@ -151,12 +153,38 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
                 self.run_recipe(*command, success=False)
                 self.assertFalse(self.log.exists())
 
-    def test_ci_workflow_uses_the_same_ordered_stages_as_local_ci(self) -> None:
+    def test_ci_workflow_runs_every_local_stage_once(self) -> None:
         result = self.run_recipe('--dump', '--dump-format', 'json')
         catalog = json.loads(result.stdout)
         local = [entry['recipe'] for entry in catalog['modules']['_ci']['recipes']['all']['dependencies']]
         workflow = (ROOT / '.github/workflows/test.yml').read_text()
-        self.assertEqual(re.findall(r'run: just ci ([\w-]+)', workflow), local)
+        self.assertCountEqual(re.findall(r'run: just ci ([\w-]+)', workflow), local)
+
+    def test_parallel_ci_jobs_check_out_the_same_resolved_commit(self) -> None:
+        workflow = yaml.safe_load((ROOT / '.github/workflows/test.yml').read_text())
+        jobs = workflow['jobs']
+        for name in ('rust', 'tools', 'mod'):
+            with self.subTest(job=name):
+                self.assertEqual(jobs[name]['needs'], 'revision')
+                checkout = next(
+                    step for step in jobs[name]['steps'] if step.get('uses', '').startswith('actions/checkout@')
+                )
+                self.assertEqual(checkout['with']['ref'], '${{ needs.revision.outputs.commit }}')
+
+    def test_ci_sidecar_stages_separate_rust_from_python(self) -> None:
+        self.run_recipe('ci', 'sidecar-rust')
+        self.assertTrue(any('test' in call['args'] for call in self.calls('cargo')))
+        self.assertEqual(self.calls('uv'), [])
+        self.log.unlink()
+        self.run_recipe('ci', 'sidecar-tools')
+        self.assertEqual(self.calls('cargo'), [])
+        (python,) = self.calls('uv')
+        self.assertEqual(python['args'][-2:], ['pytest', 'slopcar'])
+
+    def test_sidecar_tests_preserve_rust_test_arguments(self) -> None:
+        self.run_recipe('sidecar', 'test', '--', '--skip', 'filter with spaces')
+        (cargo,) = self.calls('cargo')
+        self.assertEqual(cargo['args'][-3:], ['--', '--skip', 'filter with spaces'])
 
     def test_ci_test_stage_executes_each_suite_instead_of_forwarding_recipe_names(self) -> None:
         self.run_recipe('ci', 'tests')

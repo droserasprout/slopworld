@@ -19,7 +19,7 @@ uv. It preserves build-derived settings across the selection boundary because Ju
 recomputes those values rather than reading them from the environment. It does not
 own build policy or tool commands. Private component modules own those
 commands; `just/workflows.just` owns aggregate prerequisites, and `just/ci.just` owns
-ordered CI stages. Sidecar operations are exposed only by `just sidecar`, with no
+CI validation stages. Sidecar operations are exposed only by `just sidecar`, with no
 top-level component aliases. `package` uses the same scope parser and help path as
 other task commands; its validated distribution is forwarded to the private builder.
 `just/package.just` owns native packages, archive tests and source-mod staging;
@@ -73,8 +73,12 @@ outputs without modifying the checkout. Explicit generators publish only changed
 bytes to preserve compiler input timestamps.
 `devloop` runs `just install all run` together, retaining each worktree's Rust target and C# obj directories.
 Only an explicit `just clean` removes ordinary build output. `coverage daemon`
-cleans its isolated instrumented target directory before collection, including
-dependency profiling runtimes whose raw profile format follows the LLVM toolchain.
+cleans workspace artifacts and profile data with `cargo llvm-cov clean --workspace`,
+retaining instrumented dependencies under `slopd/target/llvm-cov-target` locally and in CI.
+The Rust cache includes that nested target directory. Its restore prefix isolates
+the compiler and Rust/Cargo environment, plus the pinned build-tool setup, toolchain
+file and coverage collector. Keep compilation flags visible at job scope before
+cache setup.
 `cargo-llvm-cov` owns coverage-tool selection from the active Rust toolchain;
 the collector preserves explicit `LLVM_COV`/`LLVM_PROFDATA` overrides without
 selecting potentially incompatible system tools from `PATH`.
@@ -89,11 +93,20 @@ Incremental compilation remains enabled; sccache reuses eligible dependencies.
 Rust version metadata watches Git HEAD and tag/ref storage, not the index:
 staging and index refreshes must not invalidate daemon builds.
 
-`just ci` checks generated files, formatting and tool/pager behavior before lint
-and coverage. The test workflow invokes the same `ci STAGE` stages separately for timings.
-CI installs pinned tools, including uv, through
-`.github/actions/setup-build-tools/`. It owns archive caching, tool versions,
-and the protoc checksum for generated bindings.
+`just ci` runs all validation stages locally. The test workflow resolves the requested
+ref once, then runs the same `ci STAGE` stages in parallel Rust, Python/tooling and C#
+jobs against that commit. Rust and pager checks use Debian forky with the pinned tmux;
+only the Rust job needs a privileged container for sandbox tests. Rust and C# jobs
+publish separate `coverage-rust` and `coverage-mod` artifacts and summaries.
+The tooling job installs the pinned Rust toolchain for protocol-generator rustfmt
+calls, without a Cargo build cache.
+`coverage summary-rust` and `coverage summary-mod` summarize their respective reports;
+`coverage summary` combines saved reports locally.
+CI installs pinned tools through `.github/actions/setup-build-tools/`.
+It delegates just and cargo-llvm-cov installation to `taiki-e/install-action`,
+and uv installation and dependency caching to `astral-sh/setup-uv`.
+The local action owns tool versions and the checksum-verified protoc installer/cache;
+Rust builds and generated-binding checks request protoc. Documentation and C# setup skip it.
 Push triggers skip the test workflow for changes confined to Markdown, `docs/`,
 and `notes/`. Documentation publication filters its book, repository README/note,
 and tooling inputs on `main`, `human-docs`, and `road-to-release`, publishing each

@@ -129,8 +129,8 @@ checks its output without game assemblies. Both restore local .NET tools automat
 `rustup component add llvm-tools-preview`; `cargo-llvm-cov` selects them from the active Rust toolchain.
 Use `coverage tools`, `coverage daemon`, or `coverage mod` for one component,
 and `just coverage summary` to summarize existing reports.
-`coverage daemon` rebuilds its isolated instrumented target directory so cached profiling
-runtimes cannot retain an older raw profile format after a toolchain upgrade.
+`coverage daemon` clears workspace artifacts and profile data while retaining compiled dependencies.
+CI retains instrumented dependencies in a cache isolated by compiler and coverage-tool settings.
 For a system Rust installation, set `LLVM_COV` and `LLVM_PROFDATA` to matching tools.
 
 ## Local development loop
