@@ -97,6 +97,8 @@ The tooling job installs the pinned Rust toolchain for protocol-generator rustfm
 calls, without a Cargo build cache.
 `coverage-summary-rust` and `coverage-summary-mod` summarize their respective reports;
 `coverage-summary` combines saved reports locally.
+Repository-owned jobs pin Ubuntu 24.04 so runner OS migrations are explicit.
+GitHub checkout, cache, .NET setup, and artifact actions use their Node.js 24 majors.
 CI installs pinned tools through `.github/actions/setup-build-tools/`.
 It delegates just and cargo-llvm-cov installation to `taiki-e/install-action`,
 and uv installation and dependency caching to `astral-sh/setup-uv`.

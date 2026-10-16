@@ -22,7 +22,7 @@ runs:
         version: '0.12.23'
         enable-cache: 'true'
         cache-dependency-glob: uv.lock
-    - uses: actions/cache@v4
+    - uses: actions/cache@v5
       if: inputs.protoc == 'true'
       with:
         path: ${{ runner.temp }}/slopworld-protoc

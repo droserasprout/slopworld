@@ -32,9 +32,9 @@ concurrency:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: ./.github/actions/setup-build-tools
 
@@ -50,7 +50,7 @@ jobs:
           just docs-build
 
       - name: Upload book
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: book
           path: docs/book/
