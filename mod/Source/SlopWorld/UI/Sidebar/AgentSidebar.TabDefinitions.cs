@@ -220,14 +220,14 @@ namespace SlopWorld
 
         static void DrawVisibilityAction(Rect r)
         {
-            bool active = Settings.SidebarShowHidden || Settings.SidebarShowGitignored;
+            bool active = !Settings.SidebarShowHidden || !Settings.SidebarShowGitignored;
             _visibilityRect = r;
             Tab(
                 r,
                 Icons.Hidden,
                 active,
                 active
-                    ? "Showing dotfiles or Git-ignored files. Click to change the filters."
+                    ? "Dotfiles or Git-ignored files are hidden. Click to change the filters."
                     : "All files shown. Click to choose which files to show.",
                 OpenVisibilityMenu
             );

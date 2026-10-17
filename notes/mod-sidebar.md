@@ -43,6 +43,10 @@ shared tree/reader panes and reveal behavior; [Git](mod-ui-git.md) owns Git acti
 owns daemon handoffs and [terminal](mod-terminal.md) owns pane sizing/input.
 `TaskStore` supplies replacement snapshots to the host board, which lists and prunes
 the same global mailbox set; see [task mailboxes](agent-tasks.md).
+`TaskFilters` owns independent status, direction, and agent selections. Each menu's
+All checks every child; toggles can leave an empty selection. Selected agents match
+either task participant, excluding the host identity. `FilterSelection` retains
+All as a mode that includes future catalog entries until an individual toggle.
 
 Files/Git routed headers and tree viewports share clipping, upper scroll position,
 and a saved splitter fraction. Their draggable split has independent scroll owners

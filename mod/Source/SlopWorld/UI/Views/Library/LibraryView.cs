@@ -85,7 +85,7 @@ namespace SlopWorld
         static string _catalogError;
         static string _query = "";
         static string _kind = "";
-        static readonly HashSet<string> ProjectFilter = new HashSet<string>();
+        static readonly LibraryProjectFilter ProjectFilter = new LibraryProjectFilter();
         static readonly LibraryRowSelection Selection = new LibraryRowSelection();
         static bool _revealSelection;
         static Rect _list;
@@ -177,24 +177,14 @@ namespace SlopWorld
         static float _scrollbarHitInset;
         static float _contentHeight;
 
-        public static bool ProjectFiltering => ProjectFilter.Count > 0;
+        public static bool ProjectFiltering => ProjectFilter.Filtering;
 
-        public static string ProjectFilterLabel
-        {
-            get
-            {
-                if (ProjectFilter.Count != 1)
-                    return ProjectFilter.Count + " projects";
-                foreach (var key in ProjectFilter)
-                    return key;
-                return "";
-            }
-        }
+        public static string ProjectFilterLabel => ProjectFilter.Label;
 
         public static bool PassesProject(string project)
         {
             string key = string.IsNullOrEmpty(project) ? AgentSidebar.NoProject : project;
-            return !ProjectFiltering || ProjectFilter.Contains(key);
+            return ProjectFilter.Passes(key);
         }
 
         public static void OpenProjectFilterMenu(Rect anchor)
@@ -217,7 +207,7 @@ namespace SlopWorld
                 options.Add(
                     UiLayout.MenuToggle(
                         key,
-                        ProjectFilter.Contains(key),
+                        PassesProject(key),
                         () => ToggleProjectFilter(key, anchor)
                     )
                 );
@@ -225,7 +215,7 @@ namespace SlopWorld
             options.Add(
                 UiLayout.MenuToggle(
                     AgentSidebar.NoProject,
-                    ProjectFilter.Contains(AgentSidebar.NoProject),
+                    PassesProject(AgentSidebar.NoProject),
                     () => ToggleProjectFilter(AgentSidebar.NoProject, anchor)
                 )
             );
@@ -235,9 +225,14 @@ namespace SlopWorld
         static void ToggleProjectFilter(string key, Rect anchor)
         {
             if (key.Length == 0)
-                ProjectFilter.Clear();
-            else if (!ProjectFilter.Remove(key))
-                ProjectFilter.Add(key);
+                ProjectFilter.SelectAll();
+            else
+                ProjectFilter.Toggle(
+                    key,
+                    SessionHub
+                        .Instance.Projects.Select(project => project.Name)
+                        .Concat(new[] { AgentSidebar.NoProject })
+                );
             ProjectFilterChanged();
             OpenProjectFilterMenu(anchor);
         }

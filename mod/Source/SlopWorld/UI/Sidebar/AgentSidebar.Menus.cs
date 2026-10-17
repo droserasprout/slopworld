@@ -52,13 +52,7 @@ namespace SlopWorld
 
         static void ToggleAgentStatus(AgentStatusFilter status)
         {
-            var selected = StatusFilter;
-            var next =
-                selected == AgentStatusFilter.All ? status
-                : (selected & status) != 0 ? selected & ~status
-                : selected | status;
-
-            SetStatusFilter(next);
+            SetStatusFilter(AgentStatusSelection.Toggle(StatusFilter, status));
             OpenAgentVisibilityMenu();
         }
 

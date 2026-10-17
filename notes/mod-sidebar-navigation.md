@@ -7,6 +7,10 @@ Unknown saved tabs fall back to Agents.
 Shared chrome reserves both the tabs/filter row and the action row for every tab,
 even when the tab has no actions, so the body starts at a stable height.
 
+`AgentStatusSelection` shares status checkbox and persistence policy between the
+sidebar and command palette. All checks every status; toggles change visibility
+individually. An explicit `none` preference keeps an empty selection distinct from All.
+
 `SidebarViewHistory` stores semantic locations. Library targets distinguish template
 and ordinary item identity even when names match, resolving against the current
 catalog without waiting for refresh. Missing/stale targets can select the tab while

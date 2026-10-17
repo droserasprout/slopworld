@@ -29,6 +29,9 @@
     <Compile Include="../Source/SlopWorld/UI/Settings/BinaryDiscovery.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/HostBinaryProbe.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Library/WorktreeInventory.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryProjectFilter.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/FilterSelection.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Tasks/TaskFilters.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowTarget.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowSelection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TooltipLineBreaks.cs" />
@@ -184,6 +187,7 @@
     <Compile Include="../Source/SlopWorld/Sim/Colony/AgentRenamePolicy.cs" Link="Source/Sim/Colony/AgentRenamePolicy.cs" />
     <Compile Include="../Source/SlopWorld/UI/Usage/UsageRowsCache.cs" Link="Source/UI/Usage/UsageRowsCache.cs" />
     <Compile Include="../Source/SlopWorld/UI/Usage/ClockTextCache.cs" Link="Source/UI/Usage/ClockTextCache.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Sidebar/AgentStatusSelection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Sidebar/SidebarProjectState.cs" Link="Source/UI/Sidebar/SidebarProjectState.cs" />
     <Compile Include="../Source/SlopWorld/UI/Sidebar/SidebarAgentRows.cs" Link="Source/UI/Sidebar/SidebarAgentRows.cs" />
     <Compile Include="../Source/SlopWorld/UI/Sidebar/SidebarTitleCache.cs" Link="Source/UI/Sidebar/SidebarTitleCache.cs" />

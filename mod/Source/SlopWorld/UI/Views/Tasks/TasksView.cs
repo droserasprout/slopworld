@@ -27,20 +27,9 @@ namespace SlopWorld
         static bool _filtersDirty = true;
         static string _selectionAnchorId;
 
-        enum DirectionFilter
-        {
-            All,
-            Incoming,
-            Outgoing,
-            AgentToAgent,
-        }
+        static readonly TaskFilters Filters = new TaskFilters();
 
-        static DelegatedTaskStatus? _status;
-        static DirectionFilter _direction;
-        static string _agent = "";
-
-        public static bool Filtering =>
-            _status.HasValue || _direction != DirectionFilter.All || !string.IsNullOrEmpty(_agent);
+        public static bool Filtering => Filters.Filtering;
 
         struct Line
         {

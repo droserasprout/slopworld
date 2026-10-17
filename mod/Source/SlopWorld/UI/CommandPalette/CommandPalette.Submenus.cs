@@ -359,12 +359,9 @@ namespace SlopWorld
                     return;
             }
 
-            var selected = AgentSidebar.StatusFilter;
-            var next =
-                selected == AgentStatusFilter.All ? status
-                : (selected & status) != 0 ? selected & ~status
-                : selected | status;
-            AgentSidebar.SetStatusFilter(next);
+            AgentSidebar.SetStatusFilter(
+                AgentStatusSelection.Toggle(AgentSidebar.StatusFilter, status)
+            );
         }
 
         static List<SubOption> JukeboxSub()

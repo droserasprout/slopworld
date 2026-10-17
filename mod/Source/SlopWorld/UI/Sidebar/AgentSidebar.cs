@@ -6,15 +6,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    [Flags]
-    public enum AgentStatusFilter
-    {
-        All = 0,
-        Active = 1,
-        Idle = 2,
-        Down = 4,
-    }
-
     public static partial class AgentSidebar
     {
         public const float MinWidth = 150f;

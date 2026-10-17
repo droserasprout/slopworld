@@ -204,9 +204,6 @@ namespace SlopWorld
 
         public static bool Filtering => Projects.Filtering;
 
-        const AgentStatusFilter EveryStatus =
-            AgentStatusFilter.Active | AgentStatusFilter.Idle | AgentStatusFilter.Down;
-
         static string _statusFilterSource;
         static AgentStatusFilter _statusFilter;
         static bool _statusFilterReady;
@@ -219,7 +216,7 @@ namespace SlopWorld
                 if (!_statusFilterReady || _statusFilterSource != source)
                 {
                     _statusFilterSource = source;
-                    _statusFilter = ParseStatusFilter(source);
+                    _statusFilter = AgentStatusSelection.Parse(source);
                     _statusFilterReady = true;
                 }
                 return _statusFilter;
@@ -229,34 +226,6 @@ namespace SlopWorld
         public static bool StatusFiltering => StatusFilter != AgentStatusFilter.All;
 
         public static string StatusFilterLabel => StatusFilter.ToString();
-
-        static AgentStatusFilter ParseStatusFilter(string value)
-        {
-            if (string.IsNullOrEmpty(value))
-                return AgentStatusFilter.All;
-
-            var filter = AgentStatusFilter.All;
-            var values = value.Split(new[] { ',', '|' }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var raw in values)
-            {
-                switch (raw.Trim().ToLowerInvariant())
-                {
-                    case "active":
-                        filter |= AgentStatusFilter.Active;
-                        break;
-                    case "idle":
-                        filter |= AgentStatusFilter.Idle;
-                        break;
-                    case "down":
-                        filter |= AgentStatusFilter.Down;
-                        break;
-                    case "all":
-                        return AgentStatusFilter.All;
-                }
-            }
-
-            return filter == EveryStatus ? AgentStatusFilter.All : filter;
-        }
 
         public static bool PassesStatus(AgentState state)
         {
@@ -279,18 +248,7 @@ namespace SlopWorld
 
         public static void SetStatusFilter(AgentStatusFilter filter)
         {
-            if ((filter & EveryStatus) == EveryStatus)
-                filter = AgentStatusFilter.All;
-
-            var values = new List<string>();
-            if ((filter & AgentStatusFilter.Active) != 0)
-                values.Add("active");
-            if ((filter & AgentStatusFilter.Idle) != 0)
-                values.Add("idle");
-            if ((filter & AgentStatusFilter.Down) != 0)
-                values.Add("down");
-            Settings.S.sidebarAgentStatus =
-                values.Count == 0 ? "all" : string.Join(",", values.ToArray());
+            Settings.S.sidebarAgentStatus = AgentStatusSelection.Format(filter);
             Settings.S.Write();
         }
 

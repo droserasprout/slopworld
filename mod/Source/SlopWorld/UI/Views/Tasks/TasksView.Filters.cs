@@ -8,28 +8,6 @@ namespace SlopWorld
 {
     public static partial class TasksView
     {
-        static bool Matches(TaskInfo task)
-        {
-            if (_status.HasValue && task.Status != _status.Value)
-                return false;
-            switch (_direction)
-            {
-                case DirectionFilter.Incoming:
-                    if (!task.Incoming)
-                        return false;
-                    break;
-                case DirectionFilter.Outgoing:
-                    if (!task.Outgoing)
-                        return false;
-                    break;
-                case DirectionFilter.AgentToAgent:
-                    if (task.Incoming || task.Outgoing)
-                        return false;
-                    break;
-            }
-            return string.IsNullOrEmpty(_agent) || task.From == _agent || task.To == _agent;
-        }
-
         static List<TaskInfo> Filtered(List<TaskInfo> allTasks)
         {
             if (ReferenceEquals(_taskSnapshot, allTasks) && !_filtersDirty)
@@ -40,7 +18,7 @@ namespace SlopWorld
             _filtersDirty = false;
             VisibleTasks.Clear();
             foreach (var task in allTasks)
-                if (Matches(task))
+                if (Filters.Matches(task))
                     VisibleTasks.Add(task);
             return VisibleTasks;
         }
@@ -57,68 +35,26 @@ namespace SlopWorld
                 OpenFilterMenu();
         }
 
-        static List<FloatMenuOption> StatusOptions()
-        {
-            var options = new List<FloatMenuOption>
-            {
-                UiLayout.MenuToggle(
-                    "All statuses",
-                    !_status.HasValue,
-                    () =>
-                    {
-                        _status = null;
-                        _filtersDirty = true;
-                        OpenFilterMenu();
-                    }
-                ),
-            };
-            foreach (DelegatedTaskStatus status in Enum.GetValues(typeof(DelegatedTaskStatus)))
-            {
-                var chosen = status;
-                options.Add(
-                    UiLayout.MenuToggle(
-                        TaskInfo.StatusText(chosen),
-                        _status == chosen,
-                        () =>
-                        {
-                            _status = chosen;
-                            _filtersDirty = true;
-                            OpenFilterMenu();
-                        }
-                    )
-                );
-            }
-            return options;
-        }
+        static List<FloatMenuOption> StatusOptions() =>
+            SelectionOptions(
+                "All statuses",
+                Filters.Status,
+                (DelegatedTaskStatus[])Enum.GetValues(typeof(DelegatedTaskStatus)),
+                TaskInfo.StatusText
+            );
 
-        static List<FloatMenuOption> DirectionOptions()
-        {
-            return new List<FloatMenuOption>
-            {
-                UiLayout.MenuToggle(
-                    "All directions",
-                    _direction == DirectionFilter.All,
-                    () => SetDirection(DirectionFilter.All)
-                ),
-                UiLayout.MenuToggle(
-                    "Incoming to you",
-                    _direction == DirectionFilter.Incoming,
-                    () => SetDirection(DirectionFilter.Incoming)
-                ),
-                UiLayout.MenuToggle(
-                    "Sent by you",
-                    _direction == DirectionFilter.Outgoing,
-                    () => SetDirection(DirectionFilter.Outgoing)
-                ),
-                UiLayout.MenuToggle(
-                    "Between agents",
-                    _direction == DirectionFilter.AgentToAgent,
-                    () => SetDirection(DirectionFilter.AgentToAgent)
-                ),
-            };
-        }
+        static List<FloatMenuOption> DirectionOptions() =>
+            SelectionOptions(
+                "All directions",
+                Filters.Direction,
+                (TaskDirection[])Enum.GetValues(typeof(TaskDirection)),
+                direction =>
+                    direction == TaskDirection.Incoming ? "Incoming to you"
+                    : direction == TaskDirection.Outgoing ? "Sent by you"
+                    : "Between agents"
+            );
 
-        static List<FloatMenuOption> AgentOptions()
+        static List<string> AgentNames()
         {
             var names = new HashSet<string>(StringComparer.Ordinal);
             foreach (var session in SessionHub.Instance.Sessions)
@@ -131,40 +67,60 @@ namespace SlopWorld
                 if (task.To != TaskInfo.Host)
                     names.Add(task.To);
             }
+            return names.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList();
+        }
 
+        static List<FloatMenuOption> AgentOptions() =>
+            SelectionOptions("All agents", Filters.Agent, AgentNames(), name => name);
+
+        static List<FloatMenuOption> SelectionOptions<T>(
+            string allLabel,
+            FilterSelection<T> selection,
+            IEnumerable<T> values,
+            Func<T, string> label
+        )
+        {
+            var choices = values.ToList();
             var options = new List<FloatMenuOption>
             {
-                UiLayout.MenuToggle("All agents", string.IsNullOrEmpty(_agent), () => SetAgent("")),
+                UiLayout.MenuToggle(
+                    allLabel,
+                    selection.AllSelected,
+                    () =>
+                    {
+                        selection.SelectAll();
+                        FiltersChanged();
+                    }
+                ),
             };
-            foreach (var name in names.OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
+            foreach (var value in choices)
             {
-                var chosen = name;
-                options.Add(UiLayout.MenuToggle(chosen, _agent == chosen, () => SetAgent(chosen)));
+                var chosen = value;
+                options.Add(
+                    UiLayout.MenuToggle(
+                        label(chosen),
+                        selection.Contains(chosen),
+                        () =>
+                        {
+                            selection.Toggle(chosen, choices);
+                            FiltersChanged();
+                        }
+                    )
+                );
             }
             return options;
         }
 
-        static void SetDirection(DirectionFilter direction)
+        static void FiltersChanged()
         {
-            _direction = direction;
-            _filtersDirty = true;
-            OpenFilterMenu();
-        }
-
-        static void SetAgent(string agent)
-        {
-            _agent = agent ?? "";
             _filtersDirty = true;
             OpenFilterMenu();
         }
 
         static void ClearFilters()
         {
-            _status = null;
-            _direction = DirectionFilter.All;
-            _agent = "";
-            _filtersDirty = true;
-            OpenFilterMenu();
+            Filters.Clear();
+            FiltersChanged();
         }
 
         public static void OpenFilterMenu()
