@@ -8,7 +8,7 @@ namespace SlopWorld.Tests
     public class LoadingTipsTests
     {
         [Test]
-        public void TipBatchesFilterBothModesAndStripMarkers()
+        public void TipBatchesHideMarkedQuotesOnlyInGrandmaModeAndStripMarkers()
         {
             bool previous = Settings.GrandmaMode;
             try
@@ -22,7 +22,7 @@ namespace SlopWorld.Tests
                 Assert.That(normal, Does.Contain(offensive));
                 Assert.That(grandma, Does.Not.Contain(offensive));
                 Assert.That(grandma, Does.Contain("Grandma is very proud of you."));
-                Assert.That(normal, Does.Not.Contain("Grandma is very proud of you."));
+                Assert.That(normal, Does.Contain("Grandma is very proud of you."));
                 Assert.That(
                     normal,
                     Does.Contain(
@@ -36,12 +36,7 @@ namespace SlopWorld.Tests
                     )
                 );
                 Assert.That(
-                    normal
-                        .Concat(grandma)
-                        .Any(t =>
-                            t.EndsWith(" (", StringComparison.Ordinal)
-                            || t.EndsWith(" )", StringComparison.Ordinal)
-                        ),
+                    normal.Concat(grandma).Any(t => t.EndsWith(" (", StringComparison.Ordinal)),
                     Is.False
                 );
             }

@@ -8,6 +8,23 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 Expect any imaginable incompatibilities until 0.1.0.
 
+## [Unreleased]
+
+### Added
+
+- Search: Added folding for project/checkout/file results.
+
+### Fixed
+
+- Search: Apply search options immediately when toggled.
+- Search: Keep results independent of Files visibility settings.
+- UI: Small Sidebar layout fixes.
+
+### Changed
+
+- Search: Increase the result limit from 200 to 1,000 matching lines per checkout.
+- UI: Fade wide sidebar labels to bg color instead of truncating with ellipsis.
+
 ## [0.0.5] - 2026-10-17
 
 ### Added

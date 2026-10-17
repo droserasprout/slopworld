@@ -15,6 +15,8 @@ words fill the remaining monospace cells, including the separating space. Equal
 fits are randomized, and the last twelve quotes are excluded. The stream owns
 geometry and mode filtering; `LoadingTipSelection` owns ranking and recent history,
 which resets with a new load or mode change. Quotes continue across word wraps.
+Grandma mode hides quotes ending in ` (`; normal mode allows every quote. The
+marker is stripped before display, and unmarked quotes appear in both modes.
 
 Tips use printable ASCII U+0020–U+007E with newline as an explicit paragraph separator.
 Unsupported glyphs fall back to `?`. Glyphs share a baseline and transparent gutters;

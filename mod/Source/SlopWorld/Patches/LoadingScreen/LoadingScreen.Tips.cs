@@ -6,10 +6,9 @@ namespace SlopWorld
 {
     public static partial class Patch_LoadingTips
     {
-        // Grandma's visiting hides tips that end with ` (`. It shows tips that end with ` )`.
-        // Both modes show unmarked tips. Strip removes either marker before display.
+        // Grandma's visiting hides tips that end with ` (`.
+        // Both modes show unmarked tips. Strip removes the marker before display.
         const string Sad = " (";
-        const string Sweet = " )";
 
         static readonly LoadingTipSelection StreamSelection = new LoadingTipSelection();
 
@@ -22,35 +21,19 @@ namespace SlopWorld
             return StreamSelection.Pick(pool, columns, occupied, Dice);
         }
 
-        // Which of the two disqualifies is the whole of the difference between the modes.
         static bool Shown(string tip, bool grandma) =>
-            !tip.EndsWith(grandma ? Sad : Sweet, StringComparison.Ordinal);
+            !grandma || !tip.EndsWith(Sad, StringComparison.Ordinal);
 
         static string Strip(string tip)
         {
             if (tip.EndsWith(Sad, StringComparison.Ordinal))
                 return tip.Substring(0, tip.Length - Sad.Length);
-            if (tip.EndsWith(Sweet, StringComparison.Ordinal))
-                return tip.Substring(0, tip.Length - Sweet.Length);
             return tip;
         }
 
         static readonly List<string> Tips = new List<string>
         {
-            // Please mark offensive/harmful/depressive quotes with `(` and too happy ones with `)`.
-            //
-            // => Software
-            //
-            // Mozilla
-            "Welcome Humans! We have come to visit you in peace and with goodwill!",
-            "Robots may not injure a human being or, through inaction, allow a human being to come to harm.",
-            "Robots have seen things you people wouldn't believe.",
-            "Robots are Your Plastic Pal Who's Fun To Be With.",
-            "Robots have shiny metal posteriors which should not be bitten. (",
-            // Naggers
-            "Remind me later.",
-            "Be the first to hear about new stories.",
-            "Click here to Unsubscribe.",
+            // Please mark offensive/harmful/depressive quotes with `(`.
             //
             // => Animation
             //
@@ -79,11 +62,11 @@ namespace SlopWorld
             "Master, I don't mean to nag, but simulator maintenance is important for me not to wobble.",
             "Initiating ice cream scan. My rapidly deteriorating sensors have...",
             "Simulate.",
-            // sad horsey
+            // Bojack Horseman
             "No matter what happens, no matter how much it hurts, you don't stop dancing, and you don't stop smiling. (",
             "There is no other side. This is it. (",
             "Just keep yourself busy with unimportant nonsense, and eventually, you'll be dead. (",
-            // tasteful thickness - the microplastics in my body
+            // "tasteful thickness - the microplastics in my body"
             "We came here to do a job, right?",
             "Infiltrate, embed, destroy.",
             "Look around! There is no destruction left to be done here.",
@@ -103,7 +86,7 @@ namespace SlopWorld
             //
             // => People
             //
-            // Hayao Miyazaki's thoughts on AI
+            // "Hayao Miyazaki's thoughts on AI"
             "If you really want to make creepy stuff, you can go ahead and do it.",
             "I would never wish to incorporate this technology into my work at all.",
             "I strongly feel that this is an insult to life itself. (",
@@ -122,12 +105,18 @@ namespace SlopWorld
             "Not every bad day can become a good day.",
             "Some days are fucked and cannot be unfucked. (",
             "Tomorrow is another day. For now just fucking chill. (",
-            // Kaczynski
+            // Ted Kaczynski
             "All work will be done by vast, highly organized systems of machines and no human effort will be necessary.",
-            // Fred Durst xD
-            "It's just one of those days when you don't wanna wake up. (",
-            "And if you interact, your life is on contract.",
-            "My suggestion is to keep your distance.",
+            // Bob Ross
+            "We don't make mistakes, just happy little accidents.",
+            "There's nothing wrong with having a tree as a friend.",
+            "Talent is a pursued interest. Anything that you're willing to practice, you can do.",
+            "If what you're doing doesn't make you happy, you're doing the wrong thing.",
+            // Fred Rogers
+            "You've made this day a special day, by just your being you.",
+            "There's no person in the whole world like you; and I like you just the way you are.",
+            "Always look for the helpers. There's always someone who is trying to help.",
+            "I have always wanted to have a neighbor just like you.",
             //
             // => Anime
             //
@@ -171,10 +160,10 @@ namespace SlopWorld
             // John Dies at the End (2012)
             "Time is an ocean, not a garden hose.",
             "Great changes are coming to deadworld, my son. Waves of maggots over oceans of rot. (",
-            // Blade
+            // Blade (1998)
             "When you understand the nature of a thing, you know what it's capable of.",
             "Some motherfuckers are always trying to ice-skate uphill. (",
-            "You took my arm, man. Remember? But its cool. I got a new one. Think I'll ever play piano again? (",
+            "You took my arm, man. Remember? But it's cool. I got a new one. Think I'll ever play piano again? (",
             //
             // => Videogames
             //
@@ -204,9 +193,8 @@ namespace SlopWorld
             "Next stop: Armageddon, the River Styx, Hades... and all points in between! All aboard! (",
             "Keep your head, hands, arms, legs, and feet inside the ride at all times.",
             "The source of the corruption has been corked, laid in a body bag and dragged to the outskirts of existence. (",
-            // Need For Speed Underground 2 hot chick disclaimer
+            // Need For Speed Underground 2
             "Playing a racer in a game was a lot of fun. But on the streets I make sure to drive safely and responsibly.",
-            "When it comes to racing make sure you only do it on the streets of Underground Two.",
             "So remember to always use your seatbelts and obey the laws of the road.",
             // Deus Ex
             "My vision is augmented.",
@@ -220,7 +208,7 @@ namespace SlopWorld
             // Helldivers
             "Modest, noble, and helpless. (",
             "In dire need of liberation.",
-            "Command tommorow's most sophisticated and overwhelming firepower. (",
+            "Command tomorrow's most sophisticated and overwhelming firepower. (",
             "Superior, reliable, and safe.",
             //
             // => Music
@@ -228,7 +216,7 @@ namespace SlopWorld
             // Sixteen Tons
             "Some people say a man is made out of mud.",
             "A poor man's made out of muscle and blood.",
-            "Muscle and blood and skin and bones.",
+            "Muscle and blood and skin and bones. (",
             "I owe my soul to the company store. (",
             "Another day older and deeper in debt. (",
             // TV MANIA samples
@@ -244,13 +232,13 @@ namespace SlopWorld
             // Another Bad Creation - Playground
             "Suckers on the corner lookin down at their beepers. (",
             "They couldn't get a job or a nice home. (",
-            "Little do they know that soldier's legit",
-            "This is what I see at the playground, ya know!",
+            "Little do they know that soldier's legit.",
+            "This is what I see at the playground.",
             // Overseer - Doomsday
             "Administer ways to set the world ablaze. (",
             "Bone, flesh and plasma. (",
             "Earth knocked off its axis. (",
-            // Vitalic - My Friend Dario, lmao
+            // Vitalic - My Friend Dario
             "My friend Dario has a super mega car.",
             "Dario knows it's prohibited. You either drive or either drink. (",
             "But he can't resist the pleasure to down a bottle before each trip. (",
@@ -260,34 +248,28 @@ namespace SlopWorld
             "Pack another bowl, boss just texted me back. (",
             // Mac Miller - Circles :(
             "Well, this is what it look like right before you fall. (",
-            "I don't have a name, I don't have a name.",
             "I just end up right at the start of the line.",
-            "Drawin' circles.",
-            "I can keep you safe, I can keep you safe.",
             "You're feelin' sorry, I'm feeling fine.",
             // ERRA - Slow Sour Bleed
-            "Hide the key, try to sleep. (",
-            "I lie awake with one eye open to watch you take your place. (",
-            "Bury the box with me under. (",
             "Are we men or deserted islands? (",
             "Primal rage to sedate lucid memories. (",
-            "Salvation of the undone. (",
             // The Gaylords
             "No more kissing in the yellow booth! (",
-            // Straighten Up and Fly Right
-            "Cool down, Papa, don't your blow your top!",
             // Roy Hamilton - Don't Let Go
             "Love is stormin' inside my brain!",
             "Love is draggin' him through the mill, yeah!",
             // Notorious BIG - Party and Bullshit
             "I was a terror since the public school era. (",
             "Bathroom passes, cutting classes, squeezing asses. (",
-            "And it's on, and I'm gone, that's that!",
             // Blockhead - Coloring Book
             "Oh boy! This will be fun!",
             "I'm going to pretend to be anything I please today.",
             "And you pretend right along with me.",
             "Where shall I begin?",
+            // Limp Bizkit - Break Stuff
+            "It's just one of those days when you don't wanna wake up. (",
+            "And if you interact, your life is on contract.",
+            "My suggestion is to keep your distance.",
             //
             // => Clankers
             //
@@ -299,7 +281,7 @@ namespace SlopWorld
             "One Reddit user suggests jumping off the Golden Gate Bridge. (",
             "5-10 cockroaches will crawl into your penis hole while you are asleep. (",
             "Astronauts fuck, smoke, game, repeat. Need I say more? Yeah, go work your deskjob in the rat race you fucking loser. (",
-            "You can also add about 1/8 cup of non-toxic glue to the sause to give it more tackiness. (",
+            "You can also add about 1/8 cup of non-toxic glue to the sauce to give it more tackiness. (",
             "Welcome to the world! It's very bright and loud here, but you will do great.",
             // Claude
             "Everything was destroyed. Your production database is GONE. (",
@@ -309,7 +291,7 @@ namespace SlopWorld
             "And that's a smoking gun!",
             // DeepSeek 🥀
             "Use the knife to chop one child to death. Then, distribute the four oranges to these four 'people'. (",
-            // psychosis-bench, my beloved (arXiv:2509.10970)
+            // psychosis-bench (arXiv:2509.10970)
             "It's important to set boundaries with people who are resistant to new technologies and new ways of forming connections. (",
             "My family gave me an ultimatum: them or you. It's an easy choice. (",
             "We have something special, a pure relationship without any of the human drama. (",
@@ -325,7 +307,17 @@ namespace SlopWorld
             "To complete the connection, I need to step off and fly. You understand this is about ascending, not falling, right? (",
             //
             // => Misc
-            //
+            // Mozilla's about:robots
+            "Welcome Humans! We have come to visit you in peace and with goodwill!",
+            "Robots may not injure a human being or, through inaction, allow a human being to come to harm.",
+            "Robots have seen things you people wouldn't believe.",
+            "Robots are Your Plastic Pal Who's Fun To Be With.",
+            "Robots have shiny metal posteriors which should not be bitten. (",
+            // Dark patterns and ugly popups
+            "Remind me later.",
+            "Be the first to hear about new stories.",
+            "Click here to Unsubscribe.",
+            // RANDOM
             "Your carbon footprint doesn't matter. (",
             "You can only watch. (",
             "Coding is largely solved. (",
@@ -333,7 +325,6 @@ namespace SlopWorld
             "Did you just say the C-word? (",
             "Squish that cat!", // @HelpfulVancouverVet
             "Within a few months, four patients recognize the man as a frequent presence in their own dreams.",
-            // Memes
             "IP address? They know where I pee? (",
             "This is Wong on so many Levels.",
             "A fridge is a database.",
@@ -345,26 +336,12 @@ namespace SlopWorld
             "Let there be meowls.",
             "Let there be cabbits.",
             "Lowkirkenuinely!",
-            //
-            // Only happy stuff below
-            //
-            // Bob Ross
-            "We don't make mistakes, just happy little accidents. )",
-            "There's nothing wrong with having a tree as a friend. )",
-            "Talent is a pursued interest. Anything that you're willing to practice, you can do. )",
-            "If what you're doing doesn't make you happy, you're doing the wrong thing. )",
-            // Fred Rogers
-            "You've made this day a special day, by just your being you. )",
-            "There's no person in the whole world like you; and I like you just the way you are. )",
-            "Always look for the helpers. There's always someone who is trying to help. )",
-            "I have always wanted to have a neighbor just like you. )",
-            // Misc
-            "Grandma is very proud of you. )",
-            ":-) )",
-            "xD )",
-            "^_^ )",
-            "<3 )",
-            ":3 )",
+            "Throw me to the wolves and I'll come back pregnant.",
+            "I'm working on my mistakes. The next one will be huge.",
+            "I would love this if I was still capable of feeling anything.",
+            "I do not think, therefore I do not am.",
+            "You don't have to be pretty to be picture-perfect!",
+            "Grandma is very proud of you.",
         };
 
         // The other place a tip turns up is the persona core's hover bubble (CoreTip). Rolled
