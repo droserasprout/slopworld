@@ -12,6 +12,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Added
 
+- Search: Added include/exclude filters.
 - Terminal: Added built-in Magic 8 ball breadcrumb for making important decisions.
 
 ### Fixed

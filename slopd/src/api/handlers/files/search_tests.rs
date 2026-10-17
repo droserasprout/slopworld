@@ -10,6 +10,87 @@ fn search_request(path: &Path, query: &str, limit: usize) -> SearchReq {
 }
 
 #[tokio::test]
+async fn search_filters_paths_with_exclusions_taking_precedence() {
+    let fixture = crate::api::handlers::tests::fixture("search-paths");
+    std::fs::create_dir_all(fixture.join("nested")).unwrap();
+    std::fs::create_dir_all(fixture.join(".git")).unwrap();
+    for path in [
+        "keep.rs",
+        "skip.rs",
+        "other.txt",
+        "nested/keep.rs",
+        ".git/keep.rs",
+    ] {
+        std::fs::write(fixture.join(path), "needle\n").unwrap();
+    }
+    let manager = crate::session::test_manager(crate::config::Config::default());
+    for (include, exclude, expected) in [
+        ("*.rs", "skip.rs", vec!["keep.rs", "nested/keep.rs"]),
+        ("", "*.rs", vec!["other.txt"]),
+        ("nested/**", "", vec!["nested/keep.rs"]),
+        ("*.rs", "*.rs", vec![]),
+    ] {
+        let mut request = search_request(&fixture, "needle", 200);
+        request.include = include.to_owned();
+        request.exclude = exclude.to_owned();
+        request.hidden = true;
+        let result = search(State(manager.clone()), Query(request))
+            .await
+            .unwrap()
+            .0;
+        let mut paths: Vec<_> = result.matches.iter().map(|row| row.path.as_str()).collect();
+        paths.sort_unstable();
+        assert_eq!(paths, expected, "include={include}, exclude={exclude}");
+        assert!(!result.truncated);
+    }
+}
+
+#[tokio::test]
+async fn search_literal_directory_filters_include_descendants() {
+    let fixture = crate::api::handlers::tests::fixture("search-directory-paths");
+    for path in [
+        "notes/guide.md",
+        "notes/deep/code.md",
+        "nested/notes/guide.md",
+        "other.md",
+    ] {
+        let file = fixture.join(path);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(file, "code\n").unwrap();
+    }
+    let manager = crate::session::test_manager(crate::config::Config::default());
+    for (include, exclude, expected) in [
+        (
+            "notes",
+            "",
+            vec![
+                "nested/notes/guide.md",
+                "notes/deep/code.md",
+                "notes/guide.md",
+            ],
+        ),
+        (
+            "notes/",
+            "notes/deep",
+            vec!["nested/notes/guide.md", "notes/guide.md"],
+        ),
+        ("nested/notes", "", vec!["nested/notes/guide.md"]),
+        ("", "notes", vec!["other.md"]),
+    ] {
+        let mut request = search_request(&fixture, "code", 200);
+        request.include = include.to_owned();
+        request.exclude = exclude.to_owned();
+        let result = search(State(manager.clone()), Query(request))
+            .await
+            .unwrap()
+            .0;
+        let mut paths: Vec<_> = result.matches.iter().map(|row| row.path.as_str()).collect();
+        paths.sort_unstable();
+        assert_eq!(paths, expected, "include={include}, exclude={exclude}");
+    }
+}
+
+#[tokio::test]
 async fn search_reports_relative_paths_byte_columns_and_real_truncation() {
     let fixture = crate::api::handlers::tests::fixture("search");
     std::fs::write(fixture.join("café.txt"), "é needle\nneedle again\n").unwrap();

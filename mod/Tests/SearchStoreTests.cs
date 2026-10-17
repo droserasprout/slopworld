@@ -48,6 +48,33 @@ namespace SlopWorld.Tests
         static SearchSubmission Query(string query) =>
             new SearchSubmission(query, false, false, false, false);
 
+        public static void PathGlobsAreEncodedAndRetainedAcrossScopeChanges()
+        {
+            var f = new Fixture();
+            var submitted = new SearchSubmission(
+                "needle",
+                false,
+                false,
+                false,
+                false,
+                " *.{cs,rs} ",
+                " dir with spaces/** "
+            );
+            f.Store.Search(submitted, new[] { Scope("p") }, false);
+            f.Store.Search(f.Store.Submitted, new[] { Scope("q") }, false);
+            foreach (var request in f.Requests)
+            {
+                Assert.That(
+                    request.Url,
+                    Does.Contain("&include=" + Uri.EscapeDataString("*.{cs,rs}"))
+                );
+                Assert.That(request.Url, Does.Contain("&exclude=dir%20with%20spaces%2F%2A%2A"));
+            }
+            f.Store.Search(Query("needle"), new[] { Scope("p") }, false);
+            Assert.That(f.Requests[2].Url, Does.Not.Contain("&include="));
+            Assert.That(f.Requests[2].Url, Does.Not.Contain("&exclude="));
+        }
+
         public static void QueryReplacementAndClearingRejectOldResults()
         {
             var f = new Fixture();

@@ -4,6 +4,8 @@ namespace SlopWorld
     public sealed class SearchSubmission
     {
         public readonly string Query;
+        public readonly string Include,
+            Exclude;
         public readonly bool Regex,
             CaseSensitive,
             WholeWord,
@@ -14,10 +16,14 @@ namespace SlopWorld
             bool regex,
             bool sensitive,
             bool word,
-            bool includeIgnored
+            bool includeIgnored,
+            string include = "",
+            string exclude = ""
         )
         {
             Query = (query ?? "").Trim();
+            Include = (include ?? "").Trim();
+            Exclude = (exclude ?? "").Trim();
             Regex = regex;
             CaseSensitive = sensitive;
             WholeWord = word;

@@ -44,11 +44,16 @@ For reusable commands on a selected path, create a
 
 1. Enable the checkouts you want in the Project filter and open **Search**.
 2. Enter a query. Click **case** for case-sensitive matching, **word** for whole
-   words, **regex** for a regular expression, or **gitignored** to include files
+   words, **regex** for a regular expression, or **gitignd** to include files
    ignored by Git. All options start off; their text and underline highlight
    when selected.
-3. Press Enter in the query field or click **›** to submit.
-4. Expand the project, checkout, and file groups, then select a match to read it.
+3. Toggle **inc** or **exc** to show include or exclude path filters. Enter a glob
+   such as `*.cs`, `src/**`, or `*.{cs,rs}`, or a directory name such as `notes`
+   to search its contents at any depth. Exclusions win when both filters match.
+   Toggling either filter applies it immediately when the query is non-empty.
+   Turning a filter off keeps its text but leaves it out of the search.
+4. Press Enter in any search field or click **›** to submit.
+5. Expand the project, checkout, and file groups, then select a match to read it.
    Use its context menu to edit the file.
 
 Editing the query does not search until you submit it. Changing the checkout

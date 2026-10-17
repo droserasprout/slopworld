@@ -76,6 +76,9 @@ pub(crate) fn build_rg_command(path: &std::path::Path, q: &SearchReq) -> tokio::
     if q.hidden {
         cmd.arg("--hidden");
     }
+    add_path_filter(&mut cmd, &q.include, false);
+    // Exclusions follow inclusions so they win when both patterns match a path.
+    add_path_filter(&mut cmd, &q.exclude, true);
     cmd.arg("--glob=!.git/**")
         .arg("--")
         .arg(&q.q)
@@ -84,6 +87,22 @@ pub(crate) fn build_rg_command(path: &std::path::Path, q: &SearchReq) -> tokio::
         .stderr(std::process::Stdio::null())
         .kill_on_drop(true);
     cmd
+}
+
+fn add_path_filter(cmd: &mut tokio::process::Command, pattern: &str, exclude: bool) {
+    let pattern = pattern.trim_end_matches('/');
+    if pattern.is_empty() {
+        return;
+    }
+    let prefix = if exclude { "!" } else { "" };
+    cmd.arg("--glob").arg(format!("{prefix}{pattern}"));
+    // A literal directory name must also admit its files. Ripgrep's positive glob
+    // selects matching paths but does not implicitly select a directory's descendants.
+    if !pattern.contains(['*', '?', '[', '{', '\\']) {
+        let anywhere = if pattern.contains('/') { "" } else { "**/" };
+        cmd.arg("--glob")
+            .arg(format!("{prefix}{anywhere}{pattern}/**"));
+    }
 }
 
 enum SearchRecord {

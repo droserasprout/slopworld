@@ -137,7 +137,7 @@ absent. Requests already handed to storage may finish after a client disconnects
 | Browse | Returns directory entries with file, hidden, gitignore, and limit flags. The maximum limit is 500. |
 | Read | Returns bounded UTF-8 text. |
 | Image | Returns bounded image bytes. |
-| Search | Requires a project path and query. Supports regex, case, word, hidden, and gitignore flags; caps results at 200. |
+| Search | Requires a project path and query. Supports regex, case, word, hidden, and gitignore flags and optional `include`/`exclude` paths or globs (literal paths include directory descendants; exclusions win); caps results at 200. |
 | Git | Returns repository status, or `repo: false` when the path is not a repository. |
 
 Browse's optional `filter` matches a case-sensitive substring of each entry name

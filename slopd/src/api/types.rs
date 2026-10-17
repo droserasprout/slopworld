@@ -271,6 +271,10 @@ pub(crate) struct SearchReq {
     pub(crate) path: String,
     #[serde(default)]
     pub(crate) q: String,
+    #[serde(default)]
+    pub(crate) include: String,
+    #[serde(default)]
+    pub(crate) exclude: String,
     #[serde(default, deserialize_with = "flag")]
     pub(crate) regex: bool,
     #[serde(default, deserialize_with = "flag")]

@@ -63,6 +63,10 @@ namespace SlopWorld
                     + (submitted.IncludeIgnored ? "0" : "1")
                     + "&hidden="
                     + (hidden ? "1" : "0");
+                if (submitted.Include.Length > 0)
+                    url += "&include=" + Uri.EscapeDataString(submitted.Include);
+                if (submitted.Exclude.Length > 0)
+                    url += "&exclude=" + Uri.EscapeDataString(submitted.Exclude);
                 Requests.Add(
                     () => Operations.IsCurrent(generation) && _enabled(p.Key),
                     done =>

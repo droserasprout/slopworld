@@ -17,7 +17,18 @@ namespace SlopWorld
         static float RowH => UiTheme.TinyRowH;
         static float Pad => UiTheme.GapS;
         static float CellX => UiTheme.GapS;
-        static readonly string[] OptionLabels = { "case", "word", "regex", "gitignored" };
+        static readonly string[] OptionLabels =
+        {
+            "case",
+            "word",
+            "regex",
+            "gitignd",
+            "inc",
+            "exc",
+        };
+
+        static float PathFieldsH =>
+            ((_includePaths ? 1 : 0) + (_excludePaths ? 1 : 0)) * (UiTheme.FieldH + UiTheme.GapS);
 
         static float ToolsH(float width)
         {
@@ -29,7 +40,7 @@ namespace SlopWorld
                     y = 0f;
                 foreach (var label in OptionLabels)
                     OptionRect(ref x, ref y, row, label);
-                return UiTheme.FieldH + UiTheme.GapS + y + UiTheme.RowH;
+                return UiTheme.FieldH + UiTheme.GapS + PathFieldsH + y + UiTheme.RowH;
             }
         }
 
@@ -94,6 +105,10 @@ namespace SlopWorld
         static bool _case;
         static bool _word;
         static bool _includeIgnored;
+        static bool _includePaths;
+        static bool _excludePaths;
+        static string _include = "";
+        static string _exclude = "";
         static Match _selected;
         static Match _showing;
         static bool _focus;
@@ -149,10 +164,29 @@ namespace SlopWorld
         {
             float buttonW = UiTheme.FieldH;
             var field = new Rect(r.x, r.y, r.width - buttonW - UiTheme.GapS, UiTheme.FieldH);
+            var includeField = new Rect(r.x, field.yMax + UiTheme.GapS, r.width, UiTheme.FieldH);
+            var excludeField = new Rect(
+                r.x,
+                includeField.y + (_includePaths ? UiTheme.FieldH + UiTheme.GapS : 0f),
+                r.width,
+                UiTheme.FieldH
+            );
             var e = Event.current;
+
+            if (
+                e.type == EventType.MouseDown
+                && !field.Contains(e.mousePosition)
+                && !(_includePaths && includeField.Contains(e.mousePosition))
+                && !(_excludePaths && excludeField.Contains(e.mousePosition))
+            )
+                ReleaseFocus();
 
             string was = _query;
             _query = UiText.Field(field, "search.query", _query);
+            if (_includePaths)
+                _include = DrawPathField(includeField, "search.include", "inc", _include);
+            if (_excludePaths)
+                _exclude = DrawPathField(excludeField, "search.exclude", "exc", _exclude);
             if (_focus)
             {
                 GUI.FocusControl("search.query");
@@ -161,8 +195,6 @@ namespace SlopWorld
 
             // The tab focuses this field when it opens. A sidebar entry must not keep game shortcuts
             // captive after a search, Escape, or a click elsewhere.
-            if (e.type == EventType.MouseDown && !field.Contains(e.mousePosition))
-                ReleaseFocus();
             if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape && Focused)
             {
                 ReleaseFocus();
@@ -184,7 +216,9 @@ namespace SlopWorld
                 Search();
             }
 
-            float y = field.yMax + UiTheme.GapS;
+            float y = field.yMax + UiTheme.GapS + PathFieldsH;
+            bool includedPaths = _includePaths;
+            bool excludedPaths = _excludePaths;
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Small;
@@ -203,16 +237,54 @@ namespace SlopWorld
                     ref x,
                     ref y,
                     r,
-                    "gitignored",
+                    "gitignd",
                     _includeIgnored,
                     "Include files ignored by Git"
                 );
+                _includePaths = DrawOption(
+                    ref x,
+                    ref y,
+                    r,
+                    "inc",
+                    _includePaths,
+                    "Filter included paths by glob"
+                );
+                _excludePaths = DrawOption(
+                    ref x,
+                    ref y,
+                    r,
+                    "exc",
+                    _excludePaths,
+                    "Filter excluded paths by glob"
+                );
             }
 
-            // Changing text does not search on every frame. Enter is the deliberate boundary
-            // between editing a potentially expensive expression and running it.
+            if (
+                (includedPaths != _includePaths || excludedPaths != _excludePaths)
+                && !string.IsNullOrWhiteSpace(_query)
+            )
+                Search();
+
+            // Text edits wait for submission; path-filter toggles apply the current draft.
             if (was != _query)
                 _selected = null;
+        }
+
+        static string DrawPathField(Rect r, string name, string label, string value)
+        {
+            float labelW = UiTheme.Wide(label) + UiTheme.GapS;
+            var field = new Rect(r.x, r.y, r.width - labelW, r.height);
+            using (WidgetState.Save())
+            {
+                GUI.color = UiTheme.Dim;
+                UiText.RowLabel(
+                    new Rect(field.xMax + UiTheme.GapS, r.y, labelW - UiTheme.GapS, r.height),
+                    label,
+                    TextAnchor.MiddleRight
+                );
+            }
+            TooltipHandler.TipRegion(field, "Path or glob, e.g. notes, *.cs, src/**, or *.{cs,rs}");
+            return UiText.Field(field, name, value);
         }
 
         // Measurement and drawing share wrapping so result drawing and hit testing
@@ -239,7 +311,16 @@ namespace SlopWorld
             string tip
         ) => ToggleCell.DrawText(OptionRect(ref x, ref y, row, label), label, on, tip);
 
-        static bool Focused => GUI.GetNameOfFocusedControl() == "search.query";
+        static bool Focused
+        {
+            get
+            {
+                string name = GUI.GetNameOfFocusedControl();
+                return name == "search.query"
+                    || name == "search.include"
+                    || name == "search.exclude";
+            }
+        }
 
         // Public because changing sidebar tabs removes the entry that owns this focus. Without
         // clearing it first, Unity keeps reporting a text field after that entry is gone.
@@ -263,7 +344,17 @@ namespace SlopWorld
         }
 
         public static void Search() =>
-            RunSearch(new SearchSubmission(_query, _regex, _case, _word, _includeIgnored));
+            RunSearch(
+                new SearchSubmission(
+                    _query,
+                    _regex,
+                    _case,
+                    _word,
+                    _includeIgnored,
+                    _includePaths ? _include : "",
+                    _excludePaths ? _exclude : ""
+                )
+            );
 
         static void RunSearch(SearchSubmission submitted)
         {
