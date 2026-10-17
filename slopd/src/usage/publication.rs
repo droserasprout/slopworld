@@ -69,6 +69,11 @@ pub(super) fn merge<'a>(
     let mut missing_credentials = Vec::new();
 
     for (source, p) in parts {
+        for entry in &p.catalog {
+            if !out.catalog.iter().any(|known| known.key == entry.key) {
+                out.catalog.push(entry.clone());
+            }
+        }
         if p.credentials_missing {
             missing_credentials.push(source);
             continue;
@@ -101,7 +106,11 @@ pub(super) fn merge<'a>(
         out.error = Some(errors.join(". "));
     }
     // Resolve even empty snapshots so settings can edit disabled rows and pending sources.
-    out.catalog = resolved_catalog(&out.windows);
+    for entry in resolved_catalog(&out.windows) {
+        if !out.catalog.iter().any(|known| known.key == entry.key) {
+            out.catalog.push(entry);
+        }
+    }
     out.rows = resolve_rows(&out, d);
     out.rows
         .retain(|row| !missing_credentials.contains(&row.provider.as_str()));

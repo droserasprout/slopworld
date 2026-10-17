@@ -78,7 +78,6 @@ namespace SlopWorld
             }
         }
 
-        // The three-column grid splits these 13 groups as 5/5/3, with ten library lines each.
         static readonly Credit[] DaemonLibraries =
         {
             new Credit("Rust", "language", "https://www.rust-lang.org/"),
@@ -97,7 +96,6 @@ namespace SlopWorld
                     new CreditLink("Axum", "https://github.com/tokio-rs/axum"),
                     new CreditLink("Tower HTTP", "https://github.com/tower-rs/tower-http"),
                     new CreditLink("ureq", "https://github.com/algesten/ureq"),
-                    new CreditLink("rustls", "https://github.com/rustls/rustls"),
                     new CreditLink("httpdate", "https://github.com/pyfisch/httpdate"),
                     new CreditLink("url", "https://github.com/servo/rust-url"),
                 }
@@ -133,16 +131,7 @@ namespace SlopWorld
                 }
             ),
             new Credit("prost", "Protocol Buffers", "https://github.com/tokio-rs/prost"),
-            new Credit(
-                "Rodio / CPAL / Symphonia",
-                "audio",
-                new[]
-                {
-                    new CreditLink("Rodio", "https://github.com/RustAudio/rodio"),
-                    new CreditLink("CPAL", "https://github.com/RustAudio/cpal"),
-                    new CreditLink("Symphonia", "https://github.com/pdeljanov/Symphonia"),
-                }
-            ),
+            new Credit("Rodio", "audio", "https://github.com/RustAudio/rodio"),
             new Credit("Tracing", "diagnostics", "https://github.com/tokio-rs/tracing"),
             new Credit(
                 "Support libraries",
@@ -154,6 +143,10 @@ namespace SlopWorld
                     new CreditLink("nix", "https://github.com/nix-rust/nix"),
                     new CreditLink("dirs", "https://github.com/dirs-dev/dirs-rs"),
                     new CreditLink("base64", "https://github.com/marshallpierce/rust-base64"),
+                    new CreditLink(
+                        "globset",
+                        "https://github.com/BurntSushi/ripgrep/tree/master/crates/globset"
+                    ),
                     new CreditLink("uuid", "https://github.com/uuid-rs/uuid"),
                 }
             ),
@@ -177,17 +170,13 @@ namespace SlopWorld
                 "Protocol Buffers",
                 "https://github.com/protocolbuffers/protobuf"
             ),
-            new Credit(
-                "Microsoft .NET libraries",
-                "runtime support",
-                "https://github.com/dotnet/runtime"
-            ),
         };
 
         static readonly Credit[] Tools =
         {
             new Credit("tmux", "terminal sessions", "https://github.com/tmux/tmux/wiki"),
             new Credit("bubblewrap", "sandboxing", "https://github.com/containers/bubblewrap"),
+            new Credit("Git", "version control", "https://git-scm.com/"),
             /* new Credit("systemd", "service manager", "https://systemd.io/"), */
             new Credit("passt", "networking", "https://passt.top/"),
             new Credit(
@@ -208,7 +197,6 @@ namespace SlopWorld
                     new CreditLink("Pygments", "https://pygments.org/"),
                 }
             ),
-            new Credit("Git", "version control", "https://git-scm.com/"),
             new Credit("SongRec", "song identification", "https://github.com/marin-m/SongRec"),
             new Credit("ncspot", "Spotify playback", "https://github.com/hrkfdn/ncspot"),
         };

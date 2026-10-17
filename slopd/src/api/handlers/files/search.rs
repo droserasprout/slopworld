@@ -9,7 +9,7 @@ use axum::{
     http::StatusCode,
 };
 use serde_json::Value;
-use tokio::io::AsyncBufRead;
+use tokio::io::{AsyncBufRead, AsyncBufReadExt};
 
 pub(crate) const SEARCH_LIMIT: usize = 200;
 /// Bound memory used for one ripgrep JSON event, including escaped match text.
@@ -76,9 +76,9 @@ pub(crate) fn build_rg_command(path: &std::path::Path, q: &SearchReq) -> tokio::
     if q.hidden {
         cmd.arg("--hidden");
     }
-    add_path_filter(&mut cmd, &q.include, false);
-    // Exclusions follow inclusions so they win when both patterns match a path.
-    add_path_filter(&mut cmd, &q.exclude, true);
+    // Only negative globs belong here: positive globs override ignore and hidden
+    // policies. Inclusion is applied to returned paths before the result limit.
+    add_exclusion(&mut cmd, &q.exclude);
     cmd.arg("--glob=!.git/**")
         .arg("--")
         .arg(&q.q)
@@ -89,20 +89,37 @@ pub(crate) fn build_rg_command(path: &std::path::Path, q: &SearchReq) -> tokio::
     cmd
 }
 
-fn add_path_filter(cmd: &mut tokio::process::Command, pattern: &str, exclude: bool) {
+fn add_exclusion(cmd: &mut tokio::process::Command, pattern: &str) {
     let pattern = pattern.trim_end_matches('/');
     if pattern.is_empty() {
         return;
     }
-    let prefix = if exclude { "!" } else { "" };
-    cmd.arg("--glob").arg(format!("{prefix}{pattern}"));
-    // A literal directory name must also admit its files. Ripgrep's positive glob
-    // selects matching paths but does not implicitly select a directory's descendants.
+    cmd.arg("--glob").arg(format!("!{pattern}"));
     if !pattern.contains(['*', '?', '[', '{', '\\']) {
         let anywhere = if pattern.contains('/') { "" } else { "**/" };
-        cmd.arg("--glob")
-            .arg(format!("{prefix}{anywhere}{pattern}/**"));
+        cmd.arg("--glob").arg(format!("!{anywhere}{pattern}/**"));
     }
+}
+
+fn include_filter(pattern: &str) -> Result<Option<globset::GlobSet>, globset::Error> {
+    let pattern = pattern.trim().trim_end_matches('/');
+    if pattern.is_empty() {
+        return Ok(None);
+    }
+    let anywhere = if pattern.contains('/') { "" } else { "**/" };
+    let mut patterns = vec![format!("{anywhere}{}", pattern.trim_start_matches('/'))];
+    if !pattern.contains(['*', '?', '[', '{', '\\']) {
+        patterns.push(format!("{anywhere}{}/**", pattern.trim_start_matches('/')));
+    }
+    let mut builder = globset::GlobSetBuilder::new();
+    for pattern in patterns {
+        builder.add(
+            globset::GlobBuilder::new(&pattern)
+                .literal_separator(true)
+                .build()?,
+        );
+    }
+    builder.build().map(Some)
 }
 
 enum SearchRecord {
@@ -116,8 +133,6 @@ async fn read_search_record<R: AsyncBufRead + Unpin>(
     reader: &mut R,
     limit: usize,
 ) -> std::io::Result<Option<SearchRecord>> {
-    use tokio::io::AsyncBufReadExt;
-
     let mut record = Vec::with_capacity(limit.min(4096));
     loop {
         let available = reader.fill_buf().await?;
@@ -151,6 +166,20 @@ async fn read_search_record<R: AsyncBufRead + Unpin>(
 async fn stop_search_child(child: &mut tokio::process::Child) {
     drop(child.kill().await);
     drop(child.wait().await);
+}
+
+/// Drain an oversized record from a file outside the include filter without
+/// allocating its matching line or reporting the selected results as truncated.
+async fn discard_search_record<R: AsyncBufRead + Unpin>(reader: &mut R) -> std::io::Result<()> {
+    loop {
+        let available = reader.fill_buf().await?;
+        let newline = available.iter().position(|byte| *byte == b'\n');
+        let count = newline.map_or(available.len(), |index| index + 1);
+        reader.consume(count);
+        if count == 0 || newline.is_some() {
+            return Ok(());
+        }
+    }
 }
 
 fn search_match(record: &Value) -> wire::SearchMatch {
@@ -206,6 +235,7 @@ pub(crate) async fn search(
 
     let dir = std::path::PathBuf::from(crate::config::expand(&q.path));
     let limit = q.limit.unwrap_or(SEARCH_LIMIT).clamp(1, SEARCH_LIMIT);
+    let include = include_filter(&q.include).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
 
     let mut child = build_rg_command(&dir, &q).spawn().map_err(|e| {
         err(
@@ -223,6 +253,7 @@ pub(crate) async fn search(
     let mut reader = BufReader::new(stdout);
     let mut matches = Vec::new();
     let mut truncated = false;
+    let mut included_file = true;
 
     loop {
         let record = match read_search_record(&mut reader, SEARCH_RECORD_LIMIT).await {
@@ -237,6 +268,13 @@ pub(crate) async fn search(
         };
         let record = match record {
             SearchRecord::Line(record) => record,
+            SearchRecord::TooLarge if !included_file => {
+                if let Err(error) = discard_search_record(&mut reader).await {
+                    stop_search_child(&mut child).await;
+                    return Err(err(StatusCode::BAD_REQUEST, error));
+                }
+                continue;
+            }
             SearchRecord::TooLarge => {
                 // Return the useful prefix and report that the unprocessed search is incomplete.
                 truncated = true;
@@ -247,16 +285,23 @@ pub(crate) async fn search(
         let Ok(v) = serde_json::from_slice::<Value>(&record) else {
             continue;
         };
-        if v.get("type").and_then(Value::as_str) != Some("match") {
+        let kind = v.get("type").and_then(Value::as_str);
+        if kind == Some("begin") {
+            included_file = include
+                .as_ref()
+                .is_none_or(|filter| filter.is_match(search_match(&v).path));
+        }
+        if kind != Some("match") || !included_file {
             continue;
         }
+        let matched = search_match(&v);
         if matches.len() >= limit {
             truncated = true;
             stop_search_child(&mut child).await;
             break;
         }
 
-        matches.push(search_match(&v));
+        matches.push(matched);
     }
 
     if !truncated {

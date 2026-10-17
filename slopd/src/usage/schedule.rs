@@ -67,10 +67,14 @@ impl Poller {
         self.due = now;
         self.interval = None;
         self.item_due.clear();
-        if self.snap == Snapshot::default() {
+        let cleared = Snapshot {
+            catalog: self.snap.catalog.clone(),
+            ..Default::default()
+        };
+        if self.snap == cleared {
             return false;
         }
-        self.snap = Snapshot::default();
+        self.snap = cleared;
         true
     }
 
@@ -180,6 +184,15 @@ pub(super) fn filter_snapshot(
 ) -> Snapshot {
     if !snapshot.ok {
         return snapshot;
+    }
+
+    // Discovery precedes polling policy: disabled optional windows must remain
+    // selectable in Settings without publishing their values in the readout.
+    snapshot.catalog = resolved_catalog(&snapshot.windows);
+    for entry in &poller.snap.catalog {
+        if !snapshot.catalog.iter().any(|known| known.key == entry.key) {
+            snapshot.catalog.push(entry.clone());
+        }
     }
 
     poller

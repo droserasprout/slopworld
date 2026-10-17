@@ -11,6 +11,8 @@ metadata; it does not include their full license texts or notices.
 
 | Component | License | Full text | Attribution and use |
 | --- | --- | --- | --- |
+| [globset](https://github.com/BurntSushi/ripgrep/tree/master/crates/globset) | MIT (selected from Unlicense OR MIT) | [License](globset/LICENSE-MIT) | Andrew Gallant; daemon search path filters. |
+| [bstr](https://github.com/BurntSushi/bstr) | MIT (selected from MIT OR Apache-2.0) | [License](bstr/LICENSE-MIT) | Andrew Gallant; byte-string support for globset. |
 | RimWorld Tame designator | RimWorld EULA | [License](rimworld/EULA.txt) | Ludeon Studios Inc.; `UI/Designators/Tame` from RimWorld 1.6, mirrored, scaled, and rotated for the documentation cursors. |
 | Slopcar Rust dependencies | MIT | [Full dependency notices](slopcar/THIRD-PARTY-NOTICES.txt) | Host-side container launcher; generated from its locked Cargo graph by `just generate-sidecar-licenses`. |
 | [Classic Console Neue](https://webdraft.hu/fonts/classic-console/) | MIT | [License](classic-console-neue/LICENSE.txt) | DeeJayy, 2011–2025; printable ASCII glyphs rendered into the loading-screen atlas. |

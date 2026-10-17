@@ -1,6 +1,91 @@
 use super::*;
 use crate::usage::{CLAUDE_SESSION, CLAUDE_WEEK, OPENAI_SESSION, Unit, Window, parse};
 
+#[test]
+fn optional_rows_are_discovered_before_polling_filters_and_survive_disabling() {
+    let mut config = crate::config::Daemon::default();
+    config.usage_items.insert(
+        CLAUDE_SESSION.into(),
+        crate::config::UsageItem {
+            poll: true,
+            interval_secs: None,
+        },
+    );
+    let response = || {
+        parse(
+            &serde_json::json!({
+                "five_hour": {"utilization": 10},
+                "seven_day_opus": {"utilization": 20}
+            }),
+            "max".into(),
+        )
+    };
+    let now = Instant::now();
+    let mut poller = Poller::new("Anthropic", now);
+    poller.snap = filter_snapshot(&mut poller, response(), &config, "anthropic", now);
+    let published = merge([("anthropic", &poller.snap)], &config);
+    assert!(
+        published
+            .catalog
+            .iter()
+            .any(|entry| entry.key == "claude_week_opus" && !entry.default_poll)
+    );
+    assert!(
+        !published
+            .windows
+            .iter()
+            .any(|window| window.key == "claude_week_opus")
+    );
+    assert!(
+        !published
+            .rows
+            .iter()
+            .any(|row| row.key == "claude_week_opus" && row.poll)
+    );
+
+    config.usage_items.insert(
+        "claude_week_opus".into(),
+        crate::config::UsageItem {
+            poll: true,
+            interval_secs: None,
+        },
+    );
+    poller.snap = filter_snapshot(&mut poller, response(), &config, "anthropic", now);
+    assert!(
+        merge([("anthropic", &poller.snap)], &config)
+            .rows
+            .iter()
+            .any(|row| row.key == "claude_week_opus" && row.poll && row.window.is_some())
+    );
+
+    poller.snap.credentials_missing = true;
+    let missing = merge([("anthropic", &poller.snap)], &config);
+    assert!(
+        missing
+            .rows
+            .iter()
+            .all(|row| row.provider != "anthropic" && !row.poll)
+    );
+    assert!(
+        missing
+            .catalog
+            .iter()
+            .any(|entry| entry.key == "claude_week_opus")
+    );
+
+    config.usage_items.clear();
+    assert_eq!(poller.prepare(&config, "anthropic", now), None);
+    let disabled = merge([("anthropic", &poller.snap)], &config);
+    assert!(disabled.rows.iter().all(|row| !row.poll));
+    assert!(
+        disabled
+            .catalog
+            .iter()
+            .any(|entry| entry.key == "claude_week_opus")
+    );
+    assert!(!poller.clear(now));
+}
+
 #[tokio::test]
 async fn failed_poll_joins_keep_previous_usage_and_aggregate_as_stale() {
     let previous = Snapshot {

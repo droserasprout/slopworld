@@ -19,8 +19,10 @@ including retained values, until a later poll reads credentials. Malformed files
 expired logins, and request failures keep the existing stale-data behavior. The
 catalog remains available in settings regardless of credential availability.
 
-Polling defaults to off for every row, including discovered windows. The global
-interval defaults to 120 seconds before provider minimums. A provider runs only
+Polling defaults to off for every row, including discovered windows. The
+catalog retains discovered optional rows independently of enabled values, including
+while polling is disabled or credentials are missing, so Settings can enable them.
+The global interval defaults to 120 seconds before provider minimums. A provider runs only
 while at least one of its rows is explicitly enabled. Rows resolve between network
 polls. Enabled sources without data get placeholders; after a valid partial table,
 omitted windows are inapplicable rather

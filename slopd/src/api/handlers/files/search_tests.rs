@@ -10,6 +10,61 @@ fn search_request(path: &Path, query: &str, limit: usize) -> SearchReq {
 }
 
 #[tokio::test]
+async fn include_filters_preserve_ignore_and_hidden_policy_before_limiting_results() {
+    let fixture = crate::api::handlers::tests::fixture("search-include-ignore");
+    std::fs::create_dir_all(fixture.join(".git")).unwrap();
+    std::fs::write(fixture.join(".gitignore"), "ignored.rs\n").unwrap();
+    for path in ["keep.rs", "ignored.rs", ".hidden.rs", "other.txt"] {
+        std::fs::write(fixture.join(path), "needle\n").unwrap();
+    }
+    let manager = crate::session::test_manager(crate::config::Config::default());
+    for (gitignore, hidden, expected) in [
+        (true, false, vec!["keep.rs"]),
+        (false, false, vec!["ignored.rs", "keep.rs"]),
+        (true, true, vec![".hidden.rs", "keep.rs"]),
+    ] {
+        let mut request = search_request(&fixture, "needle", expected.len());
+        request.include = "*.rs".into();
+        request.gitignore = gitignore;
+        request.hidden = hidden;
+        let result = search(State(manager.clone()), Query(request))
+            .await
+            .unwrap()
+            .0;
+        let mut paths: Vec<_> = result.matches.iter().map(|row| row.path.as_str()).collect();
+        paths.sort_unstable();
+        assert_eq!(paths, expected);
+        assert!(!result.truncated);
+    }
+}
+
+#[tokio::test]
+async fn include_filter_skips_oversized_unselected_matches_and_validates_globs() {
+    let fixture = crate::api::handlers::tests::fixture("search-include-large");
+    std::fs::write(
+        fixture.join("large.txt"),
+        "needle".repeat(SEARCH_RECORD_LIMIT),
+    )
+    .unwrap();
+    std::fs::write(fixture.join("keep.rs"), "needle\n").unwrap();
+    let manager = crate::session::test_manager(crate::config::Config::default());
+    let mut request = search_request(&fixture, "needle", 1);
+    request.include = "*.{cs,rs}".into();
+    let result = search(State(manager.clone()), Query(request))
+        .await
+        .unwrap()
+        .0;
+    assert_eq!(result.matches.len(), 1);
+    assert_eq!(result.matches[0].path, "keep.rs");
+    assert!(!result.truncated);
+
+    let mut invalid = search_request(&fixture, "needle", 1);
+    invalid.include = "[".into();
+    let (status, _) = search(State(manager), Query(invalid)).await.unwrap_err();
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn search_filters_paths_with_exclusions_taking_precedence() {
     let fixture = crate::api::handlers::tests::fixture("search-paths");
     std::fs::create_dir_all(fixture.join("nested")).unwrap();

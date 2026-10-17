@@ -28,6 +28,11 @@ blank to use the global value, which defaults to 120 seconds. Provider minimum
 intervals still apply. Polling starts disabled for every row. You can also change
 the row's name and icon.
 
+The global **Show Usage in statusbar** setting starts enabled. A row appears only
+while polling is enabled and its provider has credentials. Turning off global
+visibility hides the readout without stopping polling. Optional windows discovered
+during a poll become available in Usage settings but start with polling disabled.
+
 | Provider | Available usage | Default |
 | --- | --- | --- |
 | Anthropic | Session and weekly windows, Claude balance | Disabled |

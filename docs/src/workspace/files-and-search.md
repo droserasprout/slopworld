@@ -52,6 +52,7 @@ For reusable commands on a selected path, create a
    to search its contents at any depth. Exclusions win when both filters match.
    Toggling either filter applies it immediately when the query is non-empty.
    Turning a filter off keeps its text but leaves it out of the search.
+   Include filters still respect the **gitignd** option and hidden-file setting.
 4. Press Enter in any search field or click **›** to submit.
 5. Expand the project, checkout, and file groups, then select a match to read it.
    Use its context menu to edit the file.

@@ -8,6 +8,8 @@ text but omits it from submissions; exclusions take precedence over inclusions.
 The daemon expands literal path filters to include directory descendants; a bare
 name such as `notes` matches that directory at any depth. Explicit globs retain
 ripgrep semantics.
+Include filters apply to ripgrep's results before the result limit; they do not
+override Git ignores or hidden-file policy. Exclusions still prune ripgrep's walk.
 Toggling either path filter submits the current draft when the query is non-empty.
 Enter submits from any visible Search field. Selection accents
 the label and underline without painting a background.

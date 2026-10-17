@@ -34,6 +34,7 @@ namespace SlopWorld.Tests
                 var settings = ProfileSettings.Load();
                 AssertEx.Equal(true, settings.smoothScrolling, "smooth scrolling default");
                 AssertEx.Equal(true, settings.autoConnect, "missing file default");
+                AssertEx.Equal(true, settings.statusbarUsage, "usage visibility defaults on");
                 AssertEx.Equal(DateFormat.YearFirst, settings.dateFormat, "date format default");
                 AssertEx.Equal(210f, settings.sidebarWidth, "width default");
                 AssertEx.Equal(
