@@ -65,13 +65,9 @@ namespace SlopWorld
 
         public static Texture2D Keyboard => Get("keyboard");
 
-        // The dotfile switch and a row's view action. Reading is what both are about, and
-        // a second eye under another name would be the same pixels.
-        public static Texture2D Hidden => Get("eye");
+        public static Texture2D View => Get("eye");
 
-        public static Texture2D View => Hidden;
-
-        // The sidebar's project filter, which every view is read through.
+        // Shared funnel for project, status, and file visibility filters.
         public static Texture2D Filter => Get("filter");
 
         public static Texture2D Refresh => Get("refresh");

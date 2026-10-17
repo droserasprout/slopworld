@@ -99,7 +99,7 @@ note = "the Keyboard options row. The lightning of `library` belongs to the side
 [eye]
 glyph = "cod-eye"
 code = "ea70"
-note = "the dotfile switch and a row's view action, same glyph twice"
+note = "a row's view action"
 
 [refresh]
 glyph = "cod-refresh"
@@ -144,8 +144,9 @@ note = "the sidebar's one add button. Codicons' plus is drawn heavier than a fon
 
 [filter]
 glyph = "cod-filter"
-code = "eaa5"
-note = "the sidebar's project filter. The outline funnel, not cod-filter_filled, which is a solid wedge at 20px and reads as a play button lying down"
+code = "eaf1"
+scale = 0.85
+note = "sidebar project, status, and file visibility filters use the outline funnel"
 
 [root]
 emoji = "🫚"

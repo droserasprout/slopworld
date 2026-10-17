@@ -15,6 +15,7 @@ the pinned Symbols Nerd Font in `assets/fonts/nerd-symbols/`; `source.toml` reco
 its version, source, and checksums. Update upstream notices and glyph licenses in `licenses/nerd-fonts/`
 when updating the font. Bake output also depends on the rasterizer. A common scale
 preserves relative Codicon sizes; do not fit every font glyph independently.
+An optional manifest `scale` applies deliberate size adjustments to individual slots.
 Emoji action slots are fitted individually and published as white silhouettes.
 Run `just generate-icons` to regenerate action icons. The font is a build input;
 the mod ships only the generated PNGs.

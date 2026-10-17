@@ -196,7 +196,7 @@ namespace SlopWorld
             _agentVisibilityRect = r;
             Tab(
                 r,
-                Icons.Hidden,
+                Icons.Filter,
                 StatusFiltering,
                 StatusFiltering
                     ? $"Showing {StatusFilterLabel} agents. Click to change the status filter."
@@ -224,7 +224,7 @@ namespace SlopWorld
             _visibilityRect = r;
             Tab(
                 r,
-                Icons.Hidden,
+                Icons.Filter,
                 active,
                 active
                     ? "Dotfiles or Git-ignored files are hidden. Click to change the filters."

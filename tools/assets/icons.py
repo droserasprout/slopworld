@@ -110,7 +110,7 @@ def main() -> int:
     report = {}
     for slot, a in drawn.items():
         h, w = a.shape
-        s = box / span
+        s = box / span * float(table[slot].get('scale', 1.0))
         # Resized at 4x the final edge and box-filtered down, not straight to size.
         big_w, big_h = max(1, round(w * s)) * 4, max(1, round(h * s)) * 4
         resized = Image.fromarray(a).resize((big_w, big_h), Image.Resampling.LANCZOS)
