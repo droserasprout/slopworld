@@ -10,6 +10,12 @@ identical viewport clipping for drawing and hit testing. Drag owners respect
 measurement. `ContentHeight` publishes shared listing measurements on the next
 frame so input and repaint use consistent geometry.
 
+Files/Git trees, Search results, Library lists, and open editor/viewer rows reserve
+only the scrollbar rail's horizontal inset for painting. The scrollbar retains its
+wider invisible mouse target; hover buttons and row click regions inset by
+`ScrollbarHitInset` to stay clear of it. Labels and noninteractive tails use the
+full painted width.
+
 Scroll groups use `Widgets.BeginGroup`/`EndGroup` so RimWorld's Linux/Steam Deck
 pointer repair runs after each coordinate translation. Raw Unity groups bypass
 that repair and can displace hover after keyboard input until the mouse moves.

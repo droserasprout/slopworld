@@ -174,6 +174,7 @@ namespace SlopWorld
         }
 
         static readonly SmoothScroll _scroll = new SmoothScroll();
+        static float _scrollbarHitInset;
         static float _contentHeight;
 
         public static bool ProjectFiltering => ProjectFilter.Count > 0;

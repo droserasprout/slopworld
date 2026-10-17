@@ -9,14 +9,15 @@ namespace SlopWorld
         public static UiScrollBodyGeometry Measure(
             Rect frame,
             float contentHeight,
-            UiScrollbarReservation reservation
+            UiScrollbarReservation reservation,
+            float scrollbarWidth = UiTheme.ScrollbarW
         )
         {
             var layout = ScrollableGeometry.Measure(
                 new UiLayoutRect(frame.x, frame.y, frame.width, frame.height),
                 contentHeight,
                 reservation,
-                UiTheme.ScrollbarW
+                scrollbarWidth
             );
             return new UiScrollBodyGeometry(
                 layout,
@@ -39,5 +40,10 @@ namespace SlopWorld
         public float ContentWidth => Layout.ContentWidth;
         public float ContentHeight => Layout.ContentHeight;
         public bool ReservesScrollbar => Layout.ReservesScrollbar;
+
+        // Compact list rows paint up to the rail, but their controls and click regions
+        // must leave the scrollbar's wider, invisible mouse target unobstructed.
+        public float ScrollbarHitInset =>
+            ReservesScrollbar ? Mathf.Max(0f, UiTheme.ScrollHitW - UiTheme.ScrollTrackXInset) : 0f;
     }
 }

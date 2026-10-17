@@ -68,6 +68,7 @@ namespace SlopWorld
         static readonly List<Hit> Hits = new List<Hit>();
         static readonly List<LayoutRow> Layout = new List<LayoutRow>();
         static readonly SmoothScroll Scroll = new SmoothScroll();
+        static float ScrollbarHitInset;
         static readonly Pager Viewer = new Pager();
         internal static Pager ActivePager
         {
@@ -388,8 +389,14 @@ namespace SlopWorld
             EnsureLayout();
             Hits.Clear();
             float height = _contentHeight;
-            var geometry = UiScrollBody.Measure(body, height, UiScrollbarReservation.WhenNeeded);
+            var geometry = UiScrollBody.Measure(
+                body,
+                height,
+                UiScrollbarReservation.WhenNeeded,
+                UiTheme.ScrollTrackXInset
+            );
             var view = geometry.View;
+            ScrollbarHitInset = geometry.ScrollbarHitInset;
             using (WidgetState.Save())
             using (Scroll.Scope(body, view))
             {
@@ -434,6 +441,7 @@ namespace SlopWorld
         {
             var r = new Rect(0f, y, width, RowH);
             RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
+            r.width = Mathf.Max(0f, width - ScrollbarHitInset);
             bool collapsed = ResultTree.IsCollapsed(row.FoldKey);
             GUI.color = UiTheme.Faint;
             var arrow = new Rect(
@@ -475,13 +483,14 @@ namespace SlopWorld
                 true,
                 RowHoverPolicy.OverlayAware
             );
+            r.width = Mathf.Max(0f, width - ScrollbarHitInset);
 
             string prefix = match.Line + ":" + match.Column;
             float prefixW = Mathf.Min(width * 0.55f, UiTheme.Wide(prefix) + 8f);
             float rx = width - Pad;
             var acts = over ? RowAct.View | RowAct.Edit : RowAct.None;
             if (acts != RowAct.None)
-                rx = RowActions.Draw(r, rx, acts) - UiTheme.GapXS;
+                rx = RowActions.Draw(r, rx - ScrollbarHitInset, acts) - UiTheme.GapXS;
 
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
@@ -498,7 +507,7 @@ namespace SlopWorld
                 match.Text.Trim()
             );
             GUI.color = Color.white;
-            if (RowActions.Hit(r, width - Pad, acts) == RowAct.None)
+            if (RowActions.Hit(r, r.width - Pad, acts) == RowAct.None)
                 TooltipHandler.TipRegion(
                     r,
                     $"{match.Path}:{match.Line}:{match.Column}\n{match.Text.Trim()}"

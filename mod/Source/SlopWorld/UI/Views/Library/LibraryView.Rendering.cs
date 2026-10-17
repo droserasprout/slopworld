@@ -133,9 +133,11 @@ namespace SlopWorld
                 var geometry = UiScrollBody.Measure(
                     list,
                     height,
-                    UiScrollbarReservation.WhenNeeded
+                    UiScrollbarReservation.WhenNeeded,
+                    UiTheme.ScrollTrackXInset
                 );
                 var view = geometry.View;
+                _scrollbarHitInset = geometry.ScrollbarHitInset;
 
                 // AgentSidebar.DrawBack skips Layout events, so use GUI rather than GUILayout.
                 using (_scroll.Scope(list, view))
@@ -266,6 +268,8 @@ namespace SlopWorld
             bool folded
         )
         {
+            RowChrome.Hover(headRect, false, true, RowHoverPolicy.OverlayAware);
+            headRect.width = Mathf.Max(0f, headRect.width - _scrollbarHitInset);
             Lines.Add(
                 new Line
                 {
@@ -274,8 +278,6 @@ namespace SlopWorld
                     Rect = Screen(headRect),
                 }
             );
-
-            RowChrome.Hover(headRect, false, true, RowHoverPolicy.OverlayAware);
 
             Rect arrow;
             using (WidgetState.Save())
@@ -304,8 +306,10 @@ namespace SlopWorld
 
         static float DrawRow(Rect view, Rect r, Row row)
         {
-            var hitRect = Screen(r);
             RowChrome.Hover(r, row.Key == Selection.Key, true, RowHoverPolicy.OverlayAware);
+            var contentHit = r;
+            contentHit.width = Mathf.Max(0f, contentHit.width - _scrollbarHitInset);
+            var hitRect = Screen(contentHit);
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Tiny;

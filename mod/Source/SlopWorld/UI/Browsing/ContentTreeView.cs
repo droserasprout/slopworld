@@ -70,6 +70,7 @@ namespace SlopWorld
         readonly ContentTreeSource _source;
         readonly ContentTreeController _controller;
         readonly SmoothScroll _scroll = new SmoothScroll();
+        float _scrollbarHitInset;
         readonly MouseClickSequence _clicks = new MouseClickSequence();
         readonly List<Line> _lines = new List<Line>();
         readonly List<Item> _items = new List<Item>();
@@ -157,9 +158,11 @@ namespace SlopWorld
                 var geometry = UiScrollBody.Measure(
                     body,
                     height,
-                    UiScrollbarReservation.WhenNeeded
+                    UiScrollbarReservation.WhenNeeded,
+                    UiTheme.ScrollTrackXInset
                 );
                 var view = geometry.View;
+                _scrollbarHitInset = geometry.ScrollbarHitInset;
                 if (_revealTop >= 0f)
                 {
                     _scroll.Reveal(_revealTop, RowH, body.height);
@@ -370,6 +373,7 @@ namespace SlopWorld
                 bool collapsed = _source.IsGroupCollapsed(group);
 
                 bool over = RowChrome.Hover(row, false, true, RowHoverPolicy.OverlayAware);
+                row.width = Mathf.Max(0f, row.width - _scrollbarHitInset);
                 GUI.color = UiTheme.Faint;
                 var arrow = new Rect(
                     CellX + (group.ParentKey == null ? 0f : Indent),
@@ -383,19 +387,17 @@ namespace SlopWorld
                 Text.Anchor = TextAnchor.MiddleLeft;
                 var extras = _source as IContentTreeGroupExtras;
                 GroupAct acts = over && extras != null ? extras.GroupActions(group) : GroupAct.None;
-                float right = row.width - CellX;
+                float right = width - CellX;
                 if (acts != GroupAct.None)
-                    right = GroupActions.Draw(row, right, acts) - UiTheme.GapXS;
+                    right =
+                        GroupActions.Draw(row, right - _scrollbarHitInset, acts) - UiTheme.GapXS;
                 else if (extras != null)
                     right = extras.DrawGroupTail(row, group, right);
                 float left = arrow.xMax + UiTheme.GapXS;
                 var label = new Rect(left, row.y, Mathf.Max(0f, right - left), RowH);
                 UiText.RowLabel(label, group.Label);
 
-                Slab.Hairline(
-                    new Rect(CellX, row.yMax - 1f, row.width - CellX * 2f, 1f),
-                    UiTheme.Edge
-                );
+                Slab.Hairline(new Rect(CellX, row.yMax - 1f, width - CellX * 2f, 1f), UiTheme.Edge);
 
                 string tip = _source.GroupTooltip(group);
                 if (
@@ -422,6 +424,7 @@ namespace SlopWorld
                     RowSelectionStyle.Hover
                 );
 
+                row.width = Mathf.Max(0f, row.width - _scrollbarHitInset);
                 float x = CellX + depth * Indent;
                 if (node.IsDirectory && node.CanExpand)
                 {
@@ -444,7 +447,7 @@ namespace SlopWorld
                 var actions = _source as IContentTreeRowActions;
                 RowAct acts = over && actions != null ? actions.Actions(node) : RowAct.None;
                 if (acts != RowAct.None)
-                    right = RowActions.Draw(row, right, acts) - UiTheme.GapXS;
+                    right = RowActions.Draw(row, right - _scrollbarHitInset, acts) - UiTheme.GapXS;
                 else if (actions != null)
                     right = actions.DrawRowTail(row, node, right);
 
@@ -455,7 +458,7 @@ namespace SlopWorld
                 string tooltip = actions == null ? null : actions.RowTooltip(node);
                 if (
                     !string.IsNullOrEmpty(tooltip)
-                    && RowActions.Hit(row, width - Pad, acts) == RowAct.None
+                    && RowActions.Hit(row, row.width - Pad, acts) == RowAct.None
                 )
                     TooltipHandler.TipRegion(row, tooltip);
 

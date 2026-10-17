@@ -20,15 +20,28 @@ namespace SlopWorld
             var geometry = UiScrollBody.Measure(
                 body,
                 RoutedHeight,
-                UiScrollbarReservation.WhenNeeded
+                UiScrollbarReservation.WhenNeeded,
+                UiTheme.ScrollTrackXInset
             );
             using (scroll.Scope(body, geometry.View))
             {
-                DrawRoutedRows(body, scroll, geometry.View.width, scroll.Position.y);
+                DrawRoutedRows(
+                    body,
+                    scroll,
+                    geometry.View.width,
+                    scroll.Position.y,
+                    geometry.ScrollbarHitInset
+                );
             }
         }
 
-        static void DrawRoutedRows(Rect body, SmoothScroll scroll, float width, float scrollY)
+        static void DrawRoutedRows(
+            Rect body,
+            SmoothScroll scroll,
+            float width,
+            float scrollY,
+            float scrollbarHitInset = 0f
+        )
         {
             if (SmoothScroll.WheelOnly)
                 return;
@@ -78,7 +91,12 @@ namespace SlopWorld
                             Session = row.Session,
                             Ghost = true,
                             Line = clipped
-                                ? new Rect(body.x, body.y + hitTop, width, hitBottom - hitTop)
+                                ? new Rect(
+                                    body.x,
+                                    body.y + hitTop,
+                                    Mathf.Max(0f, width - scrollbarHitInset),
+                                    hitBottom - hitTop
+                                )
                                 : row.Line,
                             Text = row.Text,
                             Face = Rect.zero,

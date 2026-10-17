@@ -260,7 +260,7 @@ namespace SlopWorld
         public const float ScrollTrackXInset = 5f;
         public const float ScrollTrackYInset = 5f;
         public const float ScrollRailW = 1f;
-        public const float ScrollHitW = 16f;
+        public const float ScrollHitW = 10f;
         public const float ScrollMinThumbH = 10f;
         public const float ScrollThumbInset = 0f;
         public const float MenuPadX = 12f;
