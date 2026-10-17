@@ -72,9 +72,9 @@ glyph = "cod-git_branch"
 code = "ec6f"
 
 [library]
-glyph = "cod-symbol_event"
-code = "ea86"
-note = "Codicons draws symbol-event as the lightning bolt. The bundled Nerd Font set has no `zap` icon."
+glyph = "cod-book"
+code = "eaa4"
+note = "open book for the Library's saved items and presets"
 
 [usage]
 glyph = "cod-credit_card"
@@ -94,7 +94,7 @@ note = "the real clock as the last resource on the top bar"
 [keyboard]
 glyph = "cod-keyboard"
 code = "ea65"
-note = "the Keyboard options row. The lightning of `library` belongs to the sidebar's errands, and one bolt for both was the tab being misread"
+note = "keyboard for the Keyboard options row"
 
 [eye]
 glyph = "cod-eye"

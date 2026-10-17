@@ -12,7 +12,9 @@ Codicons glyph names/codepoints or emoji sequences. Generated PNGs live in
 
 Committed PNGs keep normal builds independent of local fonts. The baker defaults to
 the pinned Symbols Nerd Font in `assets/fonts/nerd-symbols/`; `source.toml` records
-its version, source, and checksums. Update upstream notices and glyph licenses in `licenses/nerd-fonts/`
+its version, source, and checksums. The adjacent [Codicons cheatsheet](../assets/fonts/nerd-symbols/cheatsheet.tsv)
+lists searchable glyph names and codepoints from that pinned upstream revision; refresh it
+when updating the font. Update upstream notices and glyph licenses in `licenses/nerd-fonts/`
 when updating the font. Bake output also depends on the rasterizer. A common scale
 preserves relative Codicon sizes; do not fit every font glyph independently.
 An optional manifest `scale` applies deliberate size adjustments to individual slots.
