@@ -26,6 +26,10 @@ pub(super) fn push_skeleton(a: &mut Vec<String>, network: NetworkMode) {
         a,
         &["bwrap", "--die-with-parent", "--unshare-all", "--clearenv"],
     );
+    // OpenSSH resolves home paths through passwd rather than HOME. Keep the
+    // daemon's numeric identity so those lookups find the mounted user files.
+    push_args(a, &["--uid", &nix::unistd::getuid().as_raw().to_string()]);
+    push_args(a, &["--gid", &nix::unistd::getgid().as_raw().to_string()]);
     if network != NetworkMode::None {
         push_args(a, &["--share-net"]);
     }
@@ -85,7 +89,7 @@ pub(super) fn push_ro_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
 /// Private overlays still apply last and retain their isolation policy.
 pub(super) fn push_capability_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
     // Mount the debug socket after ordinary mounts so another preset's /tmp mount cannot hide it.
-    // The target path uses guest UID 0.
+    // The guest retains the daemon's UID, which tmux uses in its socket path.
     if bind.tmux
         && let Some((source, target)) = tmux_socket_bind(crate::tmux::tmux_socket())
     {

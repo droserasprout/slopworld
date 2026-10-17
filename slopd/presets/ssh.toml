@@ -7,5 +7,5 @@ ro = [
     "~/.ssh/known_hosts.old",
 ]
 # OpenSSH checks the ownership of included system files.
-# Give each session a private copy to prevent ownership errors from the bwrap UID 0 mapping.
+# Host root is unmapped for non-root daemons; private copies have the session's UID.
 private = ["/etc/ssh/ssh_config.d"]

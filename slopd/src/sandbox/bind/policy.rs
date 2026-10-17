@@ -80,7 +80,7 @@ pub(super) fn shared_binds(
 }
 
 /// The host tmux server uses the host UID in its socket directory path.
-/// A bwrap session uses UID 0 in its user namespace.
+/// A bwrap session preserves the daemon's UID in its user namespace.
 /// For debug presets, mount the host directory at the path that tmux expects inside the session.
 /// Use a read-only mount. Clients communicate through the socket.
 pub(super) fn tmux_socket_bind(socket: &str) -> Option<(String, String)> {
@@ -99,7 +99,8 @@ pub(super) fn tmux_socket_bind(socket: &str) -> Option<(String, String)> {
         tracing::warn!("not exposing tmux socket directory {host_dir}: it reaches {what}");
         return None;
     }
-    Some((host_dir, "/tmp/tmux-0".into()))
+    let guest_dir = format!("/tmp/tmux-{}", nix::unistd::getuid().as_raw());
+    Some((host_dir, guest_dir))
 }
 
 /// The debug capability selects individual files without mounting their parent directory.

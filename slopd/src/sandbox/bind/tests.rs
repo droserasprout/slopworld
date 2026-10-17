@@ -222,6 +222,37 @@ fn network_mode_selects_the_expected_namespace() {
 }
 
 #[test]
+fn sandbox_preserves_daemon_identity_for_account_home_lookup() {
+    let cfg = Config::default();
+    let project = ProjectCfg {
+        name: "p".into(),
+        dir: "/tmp".into(),
+        ..Default::default()
+    };
+    let uid = nix::unistd::getuid().as_raw().to_string();
+    let gid = nix::unistd::getgid().as_raw().to_string();
+    for network in [NetworkMode::None, NetworkMode::Private, NetworkMode::Host] {
+        let session = SessionCfg {
+            name: "a".into(),
+            project: "p".into(),
+            network,
+            ..Default::default()
+        };
+        let plan = crate::sandbox::build_plan(&cfg, &session, &project).unwrap();
+        assert!(plan.bwrap.iter().any(|arg| arg == "--unshare-all"));
+        for (flag, value) in [("--uid", &uid), ("--gid", &gid)] {
+            let values: Vec<_> = plan
+                .bwrap
+                .windows(2)
+                .filter(|args| args[0] == flag)
+                .map(|args| &args[1])
+                .collect();
+            assert_eq!(values, vec![value]);
+        }
+    }
+}
+
+#[test]
 fn private_network_forwards_only_a_local_daemon_port() {
     let mut cfg = Config::default();
     let s = SessionCfg {
@@ -954,9 +985,14 @@ fn workspace_and_persistent_tmp_do_not_hide_debug_sockets() {
             "/tmp"
         ))
     );
+    let guest_dir = format!("/tmp/tmux-{}", nix::unistd::getuid().as_raw());
     assert_eq!(
-        effective_mount(&plan.mounts, "/tmp/tmux-0"),
-        Some(("--ro-bind", socket_dir.to_str().unwrap(), "/tmp/tmux-0"))
+        effective_mount(&plan.mounts, &guest_dir),
+        Some((
+            "--ro-bind",
+            socket_dir.to_str().unwrap(),
+            guest_dir.as_str()
+        ))
     );
     let args = plan.lower();
     let skeleton_end = plan.limits.len() + plan.pasta.len() + plan.bwrap.len();

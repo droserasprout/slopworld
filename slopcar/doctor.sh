@@ -63,6 +63,8 @@ pasta \
     bwrap \
         --die-with-parent \
         --unshare-all \
+        --uid "$(id -u)" \
+        --gid "$(id -g)" \
         --share-net \
         --clearenv \
         "$@" \
@@ -71,7 +73,11 @@ pasta \
         --proc /proc \
         --dev /dev \
         --tmpfs /tmp \
-        -- /usr/bin/ssh -G -F /dev/null localhost >/dev/null
+        -- /bin/sh -ec '
+            test "$(id -u)" = "$1"
+            test "$(id -g)" = "$2"
+            /usr/bin/ssh -G -F /dev/null localhost
+        ' sh "$(id -u)" "$(id -g)" >/dev/null
 
 tmux -L "$socket" new-session -d -s doctor -- /usr/bin/sleep 5
 tmux -L "$socket" has-session -t doctor

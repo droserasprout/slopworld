@@ -5,6 +5,12 @@ construction; `sandbox/paths.rs` owns guards; `sandbox/state/` owns private stor
 and inventory; `sandbox/seed.rs` owns initialization; `sandbox/network.rs` owns DNS.
 Presets select access, while [grants](agent-grants.md) independently select API authority.
 
+Bubblewrap retains the daemon's numeric UID/GID inside its user namespace so
+passwd-based home lookups (including OpenSSH configuration, known hosts, and
+home-relative agent sockets) agree with the selected user mounts. Debug tmux
+socket targets use that same UID. Host root remains unmapped for non-root daemons;
+system SSH includes still need private copies for OpenSSH ownership checks.
+
 Protected paths and unresolved safety aliases fail closed. An invalid project root
 stops launch rather than silently changing the workspace. Private overlays must hide
 host originals from earlier binds. Preset ro/rw/device/cache sources are checked
