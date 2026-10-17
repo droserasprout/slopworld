@@ -39,7 +39,7 @@ and does not identify which crates are included in a particular binary.
 | cfg-if | 1.0.5 | MIT OR Apache-2.0 |
 | cfg_aliases | 0.1.1 | MIT |
 | color_quant | 1.1.0 | MIT |
-| combine | 4.6.8 | MIT |
+| combine | 4.6.9 | MIT |
 | concurrent-queue | 2.5.0 | Apache-2.0 OR MIT |
 | cookie | 0.18.2 | MIT OR Apache-2.0 |
 | cookie_store | 0.22.1 | MIT OR Apache-2.0 |
@@ -119,7 +119,7 @@ and does not identify which crates are included in a particular binary.
 | js-sys | 0.3.106 | MIT OR Apache-2.0 |
 | landlock | 0.4.7 | MIT OR Apache-2.0 |
 | lazy_static | 1.5.1 | MIT OR Apache-2.0 |
-| libc | 0.2.190 | MIT OR Apache-2.0 |
+| libc | 0.2.191 | MIT OR Apache-2.0 |
 | libredox | 0.1.25 | MIT |
 | linux-raw-sys | 0.12.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | litemap | 0.8.3 | Unicode-3.0 |
