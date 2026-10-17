@@ -12,7 +12,9 @@ explicit-size native font styles, falling back to the native size when unspecifi
 Editable field ownership belongs to [focus](ui-focus.md), and control composition
 to [shared chrome](mod-ui-chrome.md).
 
-`tools/assets/emoji_atlas.py` writes atlas artwork and `TextSpriteData.cs` together.
+`tools/assets/emoji_atlas.py` writes atlas artwork and `TextSpriteData.cs` together
+through `just generate-emoji-atlas`. Rendering and artwork fitting belong to the
+shared owners described in [UI icons](mod-icons.md).
 Sequence input is pinned to `assets/unicode/emoji-test.txt` (Unicode 17); regenerate
 keys and artwork together without changing slot order. Normal builds use committed
 assets. `just tools-test tools/assets/test_text_sprites.py` checks generated metadata and loading-tip literals.

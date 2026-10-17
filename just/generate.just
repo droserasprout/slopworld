@@ -1,6 +1,6 @@
 # Regenerate all outputs from reviewed inputs; stage notices last
 [group('generate')]
-generate-all: generate-protocol generate-api-docs generate-loading-font generate-icons generate-appicon generate-favicon generate-daemon-licenses generate-sidecar-licenses generate-licenses
+generate-all: generate-protocol generate-api-docs generate-loading-font generate-icons generate-emojis generate-emoji-atlas generate-fileicons generate-appicon generate-favicon generate-daemon-licenses generate-sidecar-licenses generate-licenses
 
 # Generate protocol
 [group('generate')]
@@ -56,3 +56,18 @@ generate-check-protocol:
 [group('generate')]
 generate-check-licenses:
     uv run --locked python -m tools.licenses.stage_licenses --check
+
+# Generate standalone emoji originals and silhouettes
+[group('generate')]
+generate-emojis:
+    uv run --locked --extra assets python -m tools.assets.emoji
+
+# Generate text emoji artwork and slot metadata together
+[group('generate')]
+generate-emoji-atlas:
+    uv run --locked --extra assets python -m tools.assets.emoji_atlas
+
+# Generate file icons from vendored SVGs
+[group('generate')]
+generate-fileicons:
+    uv run --locked --extra assets python -m tools.assets.fileicons

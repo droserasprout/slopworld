@@ -5,24 +5,19 @@ from PIL import Image
 
 from tools import ROOT
 from tools.assets.appicon import make_icon
+from tools.assets.appicon import render_rose
+from tools.assets.artwork import fit
+from tools.assets.artwork import save_png
 
 
 def main() -> None:
     # Render from the source composite, before the desktop icon adds margins.
-    icon = make_icon(str(ROOT / 'mod/Textures/SlopWorld/SlopWorld_rose.png'))
+    icon = make_icon(render_rose())
     artwork = Image.fromarray(np.clip(icon * 255, 0, 255).astype(np.uint8))
-    bounds = artwork.getchannel('A').getbbox()
-    if bounds is None:
-        raise RuntimeError('favicon rendered no visible artwork')
-    artwork = artwork.crop(bounds)
-    size = 128
-    scale = size / max(artwork.size)
-    fitted = artwork.resize((round(artwork.width * scale), round(artwork.height * scale)), Image.Resampling.LANCZOS)
-    canvas = Image.new('RGBA', (size, size))
-    canvas.paste(fitted, ((size - fitted.width) // 2, (size - fitted.height) // 2))
+    canvas = fit(artwork, 128)
     target = ROOT / 'docs/theme/favicon.png'
     target.parent.mkdir(parents=True, exist_ok=True)
-    canvas.save(target)
+    save_png(canvas, target)
     print('wrote', target)
 
 

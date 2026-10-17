@@ -260,6 +260,8 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual(self.calls('cargo'), [])
         self.assertEqual(self.calls('dotnet'), [])
         self.assertIn('tools.licenses.sidecar_licenses', modules)
+        for module in ('emoji', 'emoji_atlas', 'fileicons'):
+            self.assertIn(f'tools.assets.{module}', modules)
         self.assertFalse(any('lock' in call['args'] for call in self.calls('uv')))
 
     def test_lock_refresh_updates_every_graph_before_staging_notices(self) -> None:
@@ -388,6 +390,9 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
             'tools.docs.api_docs',
             'tools.assets.loading_font_atlas',
             'tools.assets.icons',
+            'tools.assets.emoji',
+            'tools.assets.emoji_atlas',
+            'tools.assets.fileicons',
             'tools.assets.appicon',
             'tools.assets.favicon',
             'tools.licenses.rust_licenses',

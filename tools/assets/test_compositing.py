@@ -4,24 +4,24 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from PIL import Image
 
 np = pytest.importorskip('numpy')
 pytest.importorskip('PIL')
 
 
 def test_icon_overlap_uses_source_over_and_returns_straight_alpha(monkeypatch: pytest.MonkeyPatch) -> None:
+    from PIL import Image
+
     from tools.assets import appicon
     from tools.assets.robot_geometry import N
 
-    rose = np.array([[[0, 255, 0, 127.5]]], dtype=np.float32)
+    rose = Image.new('RGBA', (1, 1), (0, 255, 0, 128))
     robot = np.zeros((N, N, 4), dtype=np.float32)
     robot[..., 0] = 1
     robot[..., 3] = 0.5
-    monkeypatch.setattr(Image, 'open', lambda _path: rose)
     monkeypatch.setattr(appicon, 'draw_robot', lambda: robot)
-    result = appicon.make_icon('unused')
-    np.testing.assert_allclose(result[56, 64], [2 / 3, 1 / 3, 0, 0.75])
+    result = appicon.make_icon(rose)
+    np.testing.assert_allclose(result[56, 64], [255 / 383, 128 / 383, 0, 383 / 510], atol=1e-7)
     np.testing.assert_allclose(result[0, 0], [1, 0, 0, 0.5])
 
 

@@ -11,19 +11,16 @@ import argparse
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
-from typing import Any
 
 if TYPE_CHECKING:
     import os
     from collections.abc import Iterator
-    from types import ModuleType
 
-    import numpy as np
-    from numpy.typing import NDArray
     from PIL import Image
 
 from tools import ROOT
 from tools.assets import emoji_font
+from tools.generated_files import write_if_changed
 
 DEFAULT_TEXTURE = ROOT / 'mod' / 'Textures' / 'SlopWorld' / 'TerminalEmoji.png'
 DEFAULT_DATA = ROOT / 'mod' / 'Source' / 'SlopWorld' / 'UI' / 'Text' / 'TextSpriteData.cs'
@@ -31,15 +28,8 @@ DEFAULT_DATA = ROOT / 'mod' / 'Source' / 'SlopWorld' / 'UI' / 'Text' / 'TextSpri
 DEFAULT_SEQUENCES = ROOT / 'assets' / 'unicode' / 'emoji-test.txt'
 
 SIZE = 32
-PROBE = 256
 COLUMNS = 64
 BREATHE = 1.08
-
-
-def load_emoji_tool() -> ModuleType:
-    from tools.assets import emoji
-
-    return emoji
 
 
 def font_codepoints() -> list[int]:
@@ -53,10 +43,11 @@ def font_codepoints() -> list[int]:
         first = int(bounds[0], 16)
         last = int(bounds[-1], 16)
         result.extend(range(first, last + 1))
-    # Noto's charset also lists ASCII keycap components and two format marks.
+    # Noto's charset also lists ASCII keycap components, format marks, and
+    # invisible tag characters used within subdivision-flag sequences.
     # Those are parts of sequences, not standalone artwork. Keep every other
     # covered character, including BMP emoji such as U+2728 SPARKLES.
-    components = {0x200D, 0x20E3}
+    components = {0x200D, 0x20E3, *range(0xE0020, 0xE0080)}
     return sorted({cp for cp in result if cp > 0x7F and cp not in components})
 
 
@@ -75,44 +66,10 @@ def unicode_sequences(path: str | os.PathLike[str]) -> Iterator[str]:
                 yield ''.join(chr(int(part, 16)) for part in parts)
 
 
-def sequence_is_supported(layout: Any, key: str) -> bool:
-    """A Noto ligature must shape to one glyph; fallback/component runs are not artwork."""
-    layout.set_text(key, -1)
-    runs = [run for line in layout.get_lines() for run in line.runs]
-    return (
-        len(runs) == 1
-        and len(runs[0].glyphs.glyphs) == 1
-        and bool(runs[0].item.analysis.font.describe().get_family() == emoji_font.FAMILY)
-    )
+def bake_one(rendered: Image.Image) -> Image.Image:
+    from tools.assets.artwork import fit
 
-
-def bake_one(rendered: NDArray[np.float32]) -> Image.Image | None:
-    import numpy as np
-    from PIL import Image
-
-    alpha = rendered[..., 3]
-    ys, xs = np.nonzero(alpha > 10 / 255.0)
-    if len(ys) == 0:
-        return None
-
-    cy, cx = (ys.min() + ys.max()) / 2, (xs.min() + xs.max()) / 2
-    side = int(max(ys.max() - ys.min(), xs.max() - xs.min()) * BREATHE)
-    side = max(1, min(side, PROBE))
-    y0 = max(0, int(cy - side / 2))
-    x0 = max(0, int(cx - side / 2))
-    if y0 + side > PROBE:
-        y0 = PROBE - side
-    if x0 + side > PROBE:
-        x0 = PROBE - side
-    crop = rendered[y0 : y0 + side, x0 : x0 + side]
-
-    edge = max(crop.shape[:2])
-    padded = np.zeros((edge, edge, 4), dtype=np.float32)
-    py, px = (edge - crop.shape[0]) // 2, (edge - crop.shape[1]) // 2
-    padded[py : py + crop.shape[0], px : px + crop.shape[1]] = crop
-    return Image.fromarray(np.clip(padded * 255 + 0.5, 0, 255).astype(np.uint8), 'RGBA').resize(
-        (SIZE, SIZE), Image.Resampling.LANCZOS
-    )
+    return fit(rendered, SIZE, breathe=BREATHE)
 
 
 def write_data(path: str | os.PathLike[str], keys: list[str], rows: int) -> None:
@@ -129,8 +86,7 @@ namespace SlopWorld
     }}
 }}
 """
-    with Path(path).open('w', encoding='utf-8', newline='\n') as stream:
-        stream.write(source)
+    write_if_changed(Path(path), source.encode('utf-8'))
 
 
 def main() -> None:
@@ -142,13 +98,11 @@ def main() -> None:
     parser.add_argument('--sequences', help='UTF-8 file of additional sprite text keys, one per line')
     args = parser.parse_args()
 
-    emoji_tool = load_emoji_tool()
+    from tools.assets import emoji_render
+    from tools.assets.artwork import png_bytes
+
     keys = [chr(cp) for cp in font_codepoints()]
-    cairo, Pango, PangoCairo = emoji_tool.cairo_backend()
-    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, PROBE, PROBE)
-    layout = PangoCairo.create_layout(cairo.Context(surface))
-    layout.set_font_description(Pango.FontDescription.from_string(f'{emoji_font.FAMILY} {PROBE // 2}'))
-    keys.extend(key for key in unicode_sequences(DEFAULT_SEQUENCES) if sequence_is_supported(layout, key))
+    keys.extend(emoji_render.supported_sequences(unicode_sequences(DEFAULT_SEQUENCES)))
     if args.sequences:
         with Path(args.sequences).open(encoding='utf-8') as stream:
             keys.extend(line.rstrip('\r\n') for line in stream if line.strip())
@@ -158,11 +112,10 @@ def main() -> None:
         if index % 100 == 0:
             print(f'rendered {index}/{len(keys)}', flush=True)
         try:
-            cell = bake_one(emoji_tool.render(key, PROBE))
+            cell = bake_one(emoji_render.render(key))
         except Exception as error:
             raise RuntimeError(f'cannot bake sprite {key!r}') from error
-        if cell is not None:
-            cells.append((key, cell))
+        cells.append((key, cell))
 
     rows = (len(cells) + COLUMNS - 1) // COLUMNS
     atlas = Image.new('RGBA', (COLUMNS * SIZE, max(1, rows) * SIZE), (0, 0, 0, 0))
@@ -170,7 +123,9 @@ def main() -> None:
         atlas.paste(cell, ((slot % COLUMNS) * SIZE, (slot // COLUMNS) * SIZE))
 
     Path(args.texture).parent.mkdir(parents=True, exist_ok=True)
-    atlas.save(args.texture, optimize=True)
+    # Finish encoding before publishing either member of the atlas/data pair.
+    encoded = png_bytes(atlas)
+    write_if_changed(Path(args.texture), encoded)
     write_data(args.data, [key for key, _cell in cells], max(1, rows))
     print(f'wrote {len(cells)} emoji cells to {args.texture}')
 

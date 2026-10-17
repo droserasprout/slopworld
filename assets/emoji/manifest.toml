@@ -1,0 +1,7 @@
+# Standalone emoji assets. Action emoji live in assets/icons/manifest.toml;
+# the text atlas selects its keys from the bundled font and Unicode data.
+[jukebox]
+emoji = "📻"
+size = 128
+style = "original"
+output = "mod/Textures/SlopWorld/Jukebox.png"

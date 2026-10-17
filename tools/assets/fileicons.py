@@ -30,6 +30,7 @@ import numpy as np
 from PIL import Image
 
 from tools import ROOT
+from tools.assets.artwork import save_png
 
 SRC = ROOT / 'assets' / 'fileicons' / 'svg'
 MANIFEST = ROOT / 'assets' / 'fileicons' / 'manifest.toml'
@@ -100,7 +101,7 @@ def bake(name: str, size: int) -> bool:
     out = np.concatenate([rgb, alpha], axis=-1)
 
     img = Image.fromarray(np.clip(out * 255.0 + 0.5, 0, 255).astype(np.uint8), 'RGBA')
-    img.save(OUT / f'{name}.png', optimize=True)
+    save_png(img, OUT / f'{name}.png')
     return True
 
 

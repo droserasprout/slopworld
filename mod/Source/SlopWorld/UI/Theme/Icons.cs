@@ -4,7 +4,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // `tools/assets/icons.py` generates Codicon PNG slots. Keep the manifest and lookup table
+    // `tools/assets/icons.py` generates Codicon and emoji silhouette PNG slots. Keep the manifest and lookup table
     // in sync. ContentFinder roots these textures. Only runtime-generated textures need rooting.
     [StaticConstructorOnStartup]
     public static class Icons

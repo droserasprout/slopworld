@@ -33,6 +33,14 @@ class TextSpriteMetadataTests(unittest.TestCase):
             emoji_atlas.write_data(str(output), keys, rows)
             self.assertEqual(source, output.read_text(encoding='utf-8'))
 
+    def test_font_charset_excludes_invisible_sequence_components(self) -> None:
+        from unittest.mock import patch
+
+        with patch(
+            'tools.assets.emoji_atlas.subprocess.check_output', return_value='23 200d 20e3 2728 e0030-e0039 e007f'
+        ):
+            self.assertEqual(emoji_atlas.font_codepoints(), [0x2728])
+
     def test_sequences_and_bmp_keys_keep_slot_order(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = pathlib.Path(directory) / 'TextSpriteData.cs'

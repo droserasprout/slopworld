@@ -1,4 +1,4 @@
-"""Bake the mod action icons from a Nerd Font Codicons set.
+"""Bake action icon silhouettes from Codicons and manifest emoji sequences.
 
 Usage: uv run --locked --extra assets python -m tools.assets.icons [--size N] [--margin N] [--font PATH] [--report]
   --size    Set the PNG edge length. The default is 64 pixels.
@@ -42,6 +42,9 @@ from PIL import ImageDraw
 from PIL import ImageFont
 
 from tools import ROOT
+from tools.assets.artwork import fit
+from tools.assets.artwork import save_png
+from tools.assets.artwork import silhouette
 
 MANIFEST = ROOT / 'assets' / 'icons' / 'manifest.toml'
 OUT = ROOT / 'mod' / 'Textures' / 'SlopWorld' / 'Icons'
@@ -51,27 +54,6 @@ DEFAULT_FONT = ROOT / 'assets' / 'fonts' / 'nerd-symbols' / 'SymbolsNerdFont-Reg
 # Render each glyph at this size before fitting and downsampling it.
 # This size lets the tool reduce every manifest glyph instead of enlarging it.
 EM = 256
-
-
-def bake_root(size: int, margin: int) -> None:
-    """Bake ginger as a tintable monochrome checkout icon from the bundled emoji font."""
-    from tools.assets.emoji_font import DEFAULT_FONT as emoji_font
-
-    # Noto Color Emoji's bitmap strike is 109 pixels tall.
-    font = ImageFont.truetype(str(emoji_font), 109)
-    image = Image.new('RGBA', (EM, EM))
-    ImageDraw.Draw(image).text((0, 0), '\U0001fada', font=font, embedded_color=True)
-    bounds = image.getbbox()
-    if bounds is None:
-        raise RuntimeError('bundled emoji font has no ginger glyph')
-    image = image.crop(bounds)
-    image.thumbnail((size - 2 * margin, size - 2 * margin), Image.Resampling.LANCZOS)
-    # Discard all artwork colors and shading; GUI.color supplies the solid fill.
-    glyph = Image.new('RGBA', image.size, 'white')
-    glyph.putalpha(image.getchannel('A'))
-    output = Image.new('RGBA', (size, size))
-    output.paste(glyph, ((size - glyph.width) // 2, (size - glyph.height) // 2))
-    output.save(OUT / 'root.png', optimize=True)
 
 
 def ink(font: ImageFont.FreeTypeFont, code: int) -> NDArray[np.uint8] | None:
@@ -104,8 +86,10 @@ def main() -> int:
     path = args.font
     font = ImageFont.truetype(path, EM)
 
+    codicons = {slot: entry for slot, entry in table.items() if 'emoji' not in entry}
+    emojis = {slot: entry for slot, entry in table.items() if 'emoji' in entry}
     drawn = {}
-    for slot, entry in sorted(table.items()):
+    for slot, entry in sorted(codicons.items()):
         a = ink(font, int(entry['code'], 16))
         if a is None:
             print(
@@ -115,12 +99,12 @@ def main() -> int:
             continue
         drawn[slot] = a
 
-    if len(drawn) != len(table):
+    if len(drawn) != len(codicons):
         return 1
 
     # One scale for the whole set, off the glyph that needs the most room.
     box = args.size - 2 * args.margin
-    span = max(max(a.shape) for a in drawn.values())
+    span = max((max(a.shape) for a in drawn.values()), default=EM)
 
     OUT.mkdir(parents=True, exist_ok=True)
     report = {}
@@ -140,9 +124,7 @@ def main() -> int:
         y, x = (args.size - oh) // 2, (args.size - ow) // 2
         out[y : y + oh, x : x + ow, 3] = np.clip(small, 0.0, 1.0)
 
-        Image.fromarray(np.clip(out * 255.0 + 0.5, 0, 255).astype(np.uint8), 'RGBA').save(
-            OUT / f'{slot}.png', optimize=True
-        )
+        save_png(Image.fromarray(np.clip(out * 255.0 + 0.5, 0, 255).astype(np.uint8), 'RGBA'), OUT / f'{slot}.png')
         report[slot] = (ow, oh, float(out[..., 3].sum() / (args.size**2)))
 
     if args.report:
@@ -150,9 +132,14 @@ def main() -> int:
         for slot, (w, h, cover) in sorted(report.items(), key=lambda kv: -kv[1][2]):
             print(f'  {slot:<10} {w:>2}x{h:<2}  {cover * 100:5.1f}%  {table[slot]["glyph"]}')
 
-    bake_root(args.size, args.margin)
-    print(f'{len(drawn)}/{len(table)} icons and root emoji at {args.size}px -> {os.path.relpath(OUT, ROOT)}')
-    return 0 if len(drawn) == len(table) else 1
+    if emojis:
+        from tools.assets.emoji_render import render
+
+        for slot, entry in sorted(emojis.items()):
+            image = fit(render(entry['emoji']), args.size, margin=args.margin)
+            save_png(silhouette(image), OUT / f'{slot}.png')
+    print(f'{len(drawn)} Codicons and {len(emojis)} emoji icons at {args.size}px -> {os.path.relpath(OUT, ROOT)}')
+    return 0
 
 
 if __name__ == '__main__':

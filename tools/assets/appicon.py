@@ -4,7 +4,7 @@ The tool gets the rose from Noto Color Emoji.
 It puts the rose behind the faceplate and above the skull.
 
 Process:
-  1. Render the rose as SlopWorld_rose.png.
+  1. Render the rose in memory (also published as SlopWorld_rose.png).
   2. Put the faceplate over the rose.
   3. Move the stem tip slightly into the top of the skull.
 
@@ -17,7 +17,6 @@ The tool requires NumPy, Pillow, pycairo, Pango, and Fontconfig; Noto Color Emoj
 
 import os
 import sys
-from pathlib import Path
 from typing import cast
 
 import numpy as np
@@ -26,6 +25,9 @@ from PIL import Image
 
 from tools import ROOT
 from tools.assets import robot_geometry as geometry
+from tools.assets.artwork import crop_ink
+from tools.assets.artwork import fit
+from tools.assets.artwork import save_png
 
 # Icon-specific cut and eye palette; shared geometry lives in robot_geometry.
 HAIRLINE = 54.0
@@ -90,41 +92,18 @@ def draw_robot() -> geometry.FloatArray:
     return cast('geometry.FloatArray', np.clip(np.concatenate([rgb, a], -1), 0, 1))
 
 
-# ── step 1: render rose as a separate PNG ─────────────────────────────────
+def render_rose(target_h: int = 32) -> Image.Image:
+    """Render the shared rose layer without using generated files as inputs."""
+    from tools.assets.emoji_render import render
+
+    rose = crop_ink(render('🥀'), threshold=10)
+    width = max(1, round(rose.width * target_h / rose.height))
+    return rose.resize((width, target_h), Image.Resampling.LANCZOS)
 
 
-def render_rose_png(target_h: int, out_path: str | Path) -> tuple[NDArray[np.uint8], int, int]:
-    """Render 🥀 via PangoCairo, save as a standalone RGBA PNG at target_h high."""
-    from tools.assets.emoji import render
-
-    arr = render('🥀', 256)
-    ys, xs = np.nonzero(arr[..., 3] > 10 / 255.0)
-    if not len(ys):
-        raise RuntimeError('bundled Noto Color Emoji did not render the rose')
-    rose = arr[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
-    # PNG and Pillow RGBA expect straight-alpha color.
-    alpha = rose[..., 3:]
-    rose[..., :3] = np.divide(rose[..., :3], alpha, out=np.zeros_like(rose[..., :3]), where=alpha > 0)
-
-    # Scale to target_h
-    rh, rw = rose.shape[:2]
-    scale = target_h / rh
-    new_w = max(1, round(rw * scale))
-    rose_pil = Image.fromarray((rose * 255).astype(np.uint8))
-    rose_scaled = np.array(rose_pil.resize((new_w, target_h), Image.Resampling.LANCZOS), dtype=np.uint8)
-    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
-    Image.fromarray(rose_scaled).save(out_path)
-    print('wrote', os.path.normpath(out_path))
-    return rose_scaled, new_w, target_h
-
-
-# ── step 2: composite ─────────────────────────────────────────────────────
-
-
-def make_icon(rose_path: str | Path) -> NDArray[np.float32]:
-    # Load the rose PNG first: it is the layer *below* the robot face.
-    rose_pil = Image.open(rose_path)
-    rose = np.array(rose_pil, dtype=np.float32) / 255.0
+def make_icon(rose_image: Image.Image) -> NDArray[np.float32]:
+    """Composite straight-alpha rose artwork below the robot face."""
+    rose = np.array(rose_image, dtype=np.float32) / 255.0
     rh, rw = rose.shape[:2]
 
     # The rose grows from the top of the skull, so it sits higher than the
@@ -166,12 +145,12 @@ def main() -> int:
     tex_dir = ROOT / 'mod/Textures/SlopWorld'
     tex_dir.mkdir(parents=True, exist_ok=True)
 
-    # Step 1: render the rose as its own PNG
+    # Render the shared layer in memory; the PNG is an output only.
     rose_path = tex_dir / 'SlopWorld_rose.png'
-    render_rose_png(target_h=32, out_path=rose_path)
+    rose = render_rose()
 
     # Step 2: composite
-    icon = make_icon(rose_path)
+    icon = make_icon(rose)
     img = np.clip(icon * 255, 0, 255).astype(np.uint8)
     out_path = tex_dir / 'SlopWorld_icon.png'
     # The face geometry uses pawn proportions with generous surrounding space.
@@ -179,18 +158,13 @@ def main() -> int:
     # halfway toward filling the canvas, retaining its aspect ratio. Limiting
     # enlargement keeps the small facial details from becoming overly soft.
     artwork = Image.fromarray(img)
-    bounds = artwork.getchannel('A').getbbox()
-    if bounds is None:
-        raise RuntimeError('application icon rendered no visible artwork')
-    artwork = artwork.crop(bounds)
-    margin = 4
-    original_edge = max(artwork.size)
-    target_edge = (original_edge + geometry.N - 2 * margin) / 2
-    scale = target_edge / original_edge
-    fitted = artwork.resize((round(artwork.width * scale), round(artwork.height * scale)), Image.Resampling.LANCZOS)
-    canvas = Image.new('RGBA', (geometry.N, geometry.N))
-    canvas.paste(fitted, ((geometry.N - fitted.width) // 2, (geometry.N - fitted.height) // 2))
-    canvas.save(out_path)
+    ink = crop_ink(artwork)
+    original_edge = max(ink.size)
+    target_edge = (original_edge + geometry.N - 8) / 2
+    canvas = fit(ink, geometry.N, breathe=geometry.N / target_edge)
+    # Publish outputs only after the composition has succeeded.
+    save_png(canvas, out_path)
+    save_png(rose, rose_path)
     print('wrote', os.path.normpath(out_path))
 
     return 0

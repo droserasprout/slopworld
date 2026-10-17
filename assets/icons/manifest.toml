@@ -3,7 +3,7 @@
 # The key is the slot that UI/Theme/Icons.cs requests.
 # The tool also uses the key as the generated PNG name.
 #
-# Each glyph is a Codicon from a Nerd Font.
+# Font glyphs are Codicons from a Nerd Font. Emoji entries use the shared emoji renderer.
 # `glyph` is the Nerd Fonts name.
 # `code` is its code point in the private-use area.
 # tools/assets/icons.py reads the code point and uses the name as documentation.
@@ -146,3 +146,7 @@ note = "the sidebar's one add button. Codicons' plus is drawn heavier than a fon
 glyph = "cod-filter"
 code = "eaa5"
 note = "the sidebar's project filter. The outline funnel, not cod-filter_filled, which is a solid wedge at 20px and reads as a play button lying down"
+
+[root]
+emoji = "🫚"
+note = "ginger checkout silhouette; individually fitted within the action-icon margin"
