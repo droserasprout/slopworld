@@ -10,8 +10,13 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- Terminal: Added built-in Magic 8 ball breadcrumb for making important decisions.
+
 ### Fixed
 
+- Terminal: Hide built-in breadcrumbs when Grandma's visiting.
 - Jukebox: Fixed stream idle timeout regression after ureq upgrade.
 - Sandbox: Fixed missing bind paths in rust-cache preset.
 

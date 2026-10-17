@@ -424,56 +424,56 @@ fn persistent_tmp_is_an_opt_in_session_setting() {
     assert!(toml::from_str::<SessionCfg>(&text).unwrap().persistent_tmp);
 }
 
-/// Include the built-in breadcrumb in the library without saving it in user configuration.
-/// Saving it as a user entry would prevent later daemon versions from updating the built-in content.
+/// Supplied breadcrumbs remain available without becoming user configuration.
 #[test]
-fn the_shipped_breadcrumb_is_offered_but_never_written_down() {
+fn shipped_breadcrumbs_are_offered_but_never_written_down() {
     let cfg = Config::default();
     assert!(cfg.library.is_empty());
 
-    let sc = cfg
-        .library_item("Useful tips")
-        .expect("shipped with the daemon");
-    assert_eq!(sc.kind, LibraryItemKind::Breadcrumb);
-    assert!(sc.builtin);
-    assert_eq!(sc.text.matches("{{ random_tip }}").count(), 5);
-    assert!(cfg.is_builtin_library_item("Useful tips"));
-    assert!(
-        cfg.library_items_all()
-            .iter()
-            .any(|s| s.name == "Useful tips" && s.builtin)
-    );
+    let tips = cfg.library_item("Useful tips").unwrap();
+    assert_eq!(tips.text.matches("{{ random_tip }}").count(), 5);
+    let ball = cfg.library_item("Magic 8 Ball").unwrap();
+    assert_eq!(ball.text, "{{ magic_8_ball }}");
 
-    // Omit the built-in entry from saved configuration. Loading must not duplicate it.
     let text = toml::to_string_pretty(&cfg.settings).unwrap();
-    assert!(!text.contains("Useful tips"));
     let back = super::settings::document::replace(&cfg, &text)
         .unwrap()
         .candidate;
-    assert_eq!(
-        back.library_items_all()
-            .iter()
-            .filter(|s| s.name == "Useful tips")
-            .count(),
-        1
-    );
+    for name in ["Useful tips", "Magic 8 Ball"] {
+        let item = cfg.library_item(name).expect("shipped with the daemon");
+        assert_eq!(item.kind, LibraryItemKind::Breadcrumb);
+        assert!(item.builtin);
+        assert!(cfg.is_builtin_library_item(name));
+        assert!(!text.contains(name));
+        assert_eq!(
+            back.library_items_all()
+                .iter()
+                .filter(|s| s.name == name && s.builtin)
+                .count(),
+            1
+        );
+    }
 }
 
-/// A user entry overrides a built-in entry with the same name.
-/// Treat the replacement as a user entry that permits editing and deletion.
+/// User replacements permit editing and deletion; deleting reveals supplied content.
 #[test]
 fn a_written_entry_shadows_the_builtin_it_is_named_after() {
-    let mut cfg = Config::default();
-    cfg.library.push(LibraryItemCfg {
-        name: "Useful tips".into(),
-        kind: LibraryItemKind::Breadcrumb,
-        text: "mine".into(),
-        ..Default::default()
-    });
+    for name in ["Useful tips", "Magic 8 Ball"] {
+        let mut cfg = Config::default();
+        cfg.library.push(LibraryItemCfg {
+            name: name.into(),
+            kind: LibraryItemKind::Breadcrumb,
+            text: "mine".into(),
+            ..Default::default()
+        });
 
-    assert_eq!(cfg.library_item("Useful tips").unwrap().text, "mine");
-    assert!(!cfg.is_builtin_library_item("Useful tips"));
-    assert_eq!(cfg.library_items_all().len(), 1);
+        assert_eq!(cfg.library_item(name).unwrap().text, "mine");
+        assert!(!cfg.is_builtin_library_item(name));
+        assert_eq!(cfg.library_items_all().len(), 2);
+        cfg.library.clear();
+        assert!(cfg.is_builtin_library_item(name));
+        assert_ne!(cfg.library_item(name).unwrap().text, "mine");
+    }
 }
 
 #[test]

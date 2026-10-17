@@ -1,6 +1,16 @@
 use super::*;
 
 #[test]
+fn magic_8_ball_draws_answers_without_client_tips_or_session_context() {
+    let rendered = render_prompt("{{ magic_8_ball }}\n{{magic_8_ball}}", &[]);
+    let answers: Vec<_> = rendered.lines().collect();
+    assert_eq!(answers.len(), 2);
+    for answer in answers {
+        assert!(MAGIC_8_BALL_ANSWERS.contains(&answer), "{answer}");
+    }
+}
+
+#[test]
 fn every_tip_mention_is_its_own_draw() {
     let tips: Vec<String> = ["one", "two", "three", "four", "five"]
         .iter()

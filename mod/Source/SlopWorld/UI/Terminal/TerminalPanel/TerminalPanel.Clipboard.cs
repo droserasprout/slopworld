@@ -156,7 +156,9 @@ namespace SlopWorld
 
         static List<string> AllBreadcrumbs() =>
             SessionHub
-                .Instance.Library.Where(s => s.Kind == LibraryItemKind.Breadcrumb)
+                .Instance.Library.Where(s =>
+                    s.Kind == LibraryItemKind.Breadcrumb && (!s.Builtin || !Settings.GrandmaMode)
+                )
                 .Select(s => s.Name)
                 .ToList();
 

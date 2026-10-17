@@ -109,15 +109,24 @@ pub struct LibraryItemCfg {
 pub fn builtin_library_items() -> &'static [LibraryItemCfg] {
     static BUILTIN: OnceLock<Vec<LibraryItemCfg>> = OnceLock::new();
     BUILTIN.get_or_init(|| {
-        vec![LibraryItemCfg {
-            name: "Useful tips".into(),
-            kind: LibraryItemKind::Breadcrumb,
-            text: "___\n\nUseful tips:\n\n- {{ random_tip }}\n- {{ random_tip }}\n\
+        vec![
+            LibraryItemCfg {
+                name: "Useful tips".into(),
+                kind: LibraryItemKind::Breadcrumb,
+                text: "___\n\nUseful tips:\n\n- {{ random_tip }}\n- {{ random_tip }}\n\
                    - {{ random_tip }}\n- {{ random_tip }}\n- {{ random_tip }}"
-                .into(),
-            builtin: true,
-            ..Default::default()
-        }]
+                    .into(),
+                builtin: true,
+                ..Default::default()
+            },
+            LibraryItemCfg {
+                name: "Magic 8 Ball".into(),
+                kind: LibraryItemKind::Breadcrumb,
+                text: "{{ magic_8_ball }}".into(),
+                builtin: true,
+                ..Default::default()
+            },
+        ]
     })
 }
 
