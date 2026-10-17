@@ -54,10 +54,11 @@ namespace SlopWorld.Tests
                 registry.For(SidebarTab.Files).CanToggleDotfiles,
                 "files filter visibility"
             );
-            AssertEx.True(
+            AssertEx.False(
                 registry.For(SidebarTab.Search).CanToggleDotfiles,
-                "search filters visibility"
+                "search does not share Files visibility controls"
             );
+            AssertEx.False(registry.For(SidebarTab.Search).HasActions, "search has no row actions");
             AssertEx.False(
                 registry.For(SidebarTab.Git).CanToggleDotfiles,
                 "git has no visibility toggle"

@@ -4,6 +4,8 @@
 registration/tests. `SidebarTabRegistry` owns read-only definitions and lookup;
 `AgentSidebar` supplies game-bound handlers. Persist IDs, not enum positions or rows.
 Unknown saved tabs fall back to Agents.
+Shared chrome reserves both the tabs/filter row and the action row for every tab,
+even when the tab has no actions, so the body starts at a stable height.
 
 `SidebarViewHistory` stores semantic locations. Library targets distinguish template
 and ordinary item identity even when names match, resolving against the current

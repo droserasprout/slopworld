@@ -195,7 +195,7 @@ namespace SlopWorld
             && !Cutscene.Playing
             && CurrentTab == SidebarTab.Tasks;
 
-        // Which views own a second row. The definition also owns the controls drawn there.
+        // Whether the view draws controls in the always-reserved second row.
         static bool HasActions => CurrentDefinition.HasActions;
 
         // Empty means all projects. Unknown project keys show no rows while the daemon list is

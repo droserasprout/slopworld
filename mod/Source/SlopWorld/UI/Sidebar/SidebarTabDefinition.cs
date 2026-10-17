@@ -158,9 +158,9 @@ namespace SlopWorld
                         "search",
                         "search",
                         "Search: find text in any project.",
-                        hasActions: true,
+                        hasActions: false,
                         canFold: false,
-                        canToggleDotfiles: true,
+                        canToggleDotfiles: false,
                         handlers: handlers
                     );
                 case SidebarTab.Tasks:

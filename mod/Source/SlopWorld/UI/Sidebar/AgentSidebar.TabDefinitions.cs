@@ -78,7 +78,6 @@ namespace SlopWorld
                     {
                         Draw = () => SearchView.Draw(Body),
                         Click = SearchView.Clicks,
-                        DrawActions = DrawSearchActions,
                         Refresh = SearchView.Search,
                         FilterChanged = SidebarScopes.Update,
                         Close = SearchView.Closed,
@@ -208,11 +207,6 @@ namespace SlopWorld
             var r = ActionRect(context);
             DrawFoldAction(ref r);
             DrawVisibilityAction(r);
-        }
-
-        static void DrawSearchActions(SidebarTabActionContext context)
-        {
-            DrawVisibilityAction(ActionRect(context));
         }
 
         static void DrawVisibilityAction(Rect r)

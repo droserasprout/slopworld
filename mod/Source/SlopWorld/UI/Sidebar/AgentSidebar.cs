@@ -47,10 +47,10 @@ namespace SlopWorld
         static float CellX => UiTheme.GapS;
         static float TextGap => UiTheme.GapS;
 
-        // The shared tabs/filter row is followed by an optional right-aligned view-action row.
-        // `TabH` includes both when present.
+        // Every tab reserves the shared tabs/filter row and the view-action row,
+        // including views with no actions, so switching tabs keeps the body in place.
         static float TabRowH => TopBar.H;
-        public static float TabH => TabRowH + (HasActions ? TabRowH : 0f);
+        public static float TabH => TabRowH * 2f;
         const float TabIcon = 20f;
 
         static float RowGap => UiTheme.GapXS;

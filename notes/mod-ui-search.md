@@ -1,16 +1,18 @@
 # Search ownership
 
 `SearchView` owns draft controls, selection, geometry, and reader actions.
+Search leaves the shared sidebar action row empty and does not use Files visibility settings.
+It includes dotfiles; its own `gitignd`, include, and exclude options control filtering.
 Its underlined option labels toggle draft flags, all initially off. Selected
 `gitignd` enables the submission's `IncludeIgnored` flag. `inc` and `exc` reveal
-path-glob fields between the query and options. Disabling either retains its draft
+path-glob fields below the options strip. Disabling either retains its draft
 text but omits it from submissions; exclusions take precedence over inclusions.
 The daemon expands literal path filters to include directory descendants; a bare
 name such as `notes` matches that directory at any depth. Explicit globs retain
 ripgrep semantics.
 Include filters apply to ripgrep's results before the result limit; they do not
 override Git ignores or hidden-file policy. Exclusions still prune ripgrep's walk.
-Toggling either path filter submits the current draft when the query is non-empty.
+Toggling any option submits the current draft when the query is non-empty.
 Enter submits from any visible Search field. Selection accents
 the label and underline without painting a background.
 `SearchStore` owns submitted queries, bounded requests, and grouped results through

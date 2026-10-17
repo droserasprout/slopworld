@@ -30,7 +30,10 @@ namespace SlopWorld
         static float PathFieldsH =>
             ((_includePaths ? 1 : 0) + (_excludePaths ? 1 : 0)) * (UiTheme.FieldH + UiTheme.GapS);
 
-        static float ToolsH(float width)
+        static float ToolsH(float width) =>
+            UiTheme.FieldH + UiTheme.GapS + OptionsH(width) + PathFieldsH;
+
+        static float OptionsH(float width)
         {
             using (WidgetState.Save())
             {
@@ -40,7 +43,7 @@ namespace SlopWorld
                     y = 0f;
                 foreach (var label in OptionLabels)
                     OptionRect(ref x, ref y, row, label);
-                return UiTheme.FieldH + UiTheme.GapS + PathFieldsH + y + UiTheme.RowH;
+                return y + UiTheme.RowH;
             }
         }
 
@@ -164,7 +167,12 @@ namespace SlopWorld
         {
             float buttonW = UiTheme.FieldH;
             var field = new Rect(r.x, r.y, r.width - buttonW - UiTheme.GapS, UiTheme.FieldH);
-            var includeField = new Rect(r.x, field.yMax + UiTheme.GapS, r.width, UiTheme.FieldH);
+            var includeField = new Rect(
+                r.x,
+                field.yMax + UiTheme.GapS + OptionsH(r.width) + UiTheme.GapS,
+                r.width,
+                UiTheme.FieldH
+            );
             var excludeField = new Rect(
                 r.x,
                 includeField.y + (_includePaths ? UiTheme.FieldH + UiTheme.GapS : 0f),
@@ -216,7 +224,11 @@ namespace SlopWorld
                 Search();
             }
 
-            float y = field.yMax + UiTheme.GapS + PathFieldsH;
+            float y = field.yMax + UiTheme.GapS;
+            bool caseSensitive = _case;
+            bool wholeWord = _word;
+            bool regex = _regex;
+            bool includeIgnored = _includeIgnored;
             bool includedPaths = _includePaths;
             bool excludedPaths = _excludePaths;
             using (WidgetState.Save())
@@ -260,12 +272,18 @@ namespace SlopWorld
             }
 
             if (
-                (includedPaths != _includePaths || excludedPaths != _excludePaths)
-                && !string.IsNullOrWhiteSpace(_query)
+                (
+                    caseSensitive != _case
+                    || wholeWord != _word
+                    || regex != _regex
+                    || includeIgnored != _includeIgnored
+                    || includedPaths != _includePaths
+                    || excludedPaths != _excludePaths
+                ) && !string.IsNullOrWhiteSpace(_query)
             )
                 Search();
 
-            // Text edits wait for submission; path-filter toggles apply the current draft.
+            // Text edits wait for submission; option toggles apply the current draft.
             if (was != _query)
                 _selected = null;
         }
@@ -362,7 +380,8 @@ namespace SlopWorld
             if (submitted.Query.Length > 0)
                 _selected = null;
             Scroll.JumpTo(Vector2.zero);
-            Store.Search(submitted, SidebarScopes.EnabledScopes(), Settings.SidebarShowHidden);
+            // Files visibility settings do not constrain Search; its own flags filter results.
+            Store.Search(submitted, SidebarScopes.EnabledScopes(), hidden: true);
         }
 
         static void DirtyLayout() => _layoutDirty = true;
