@@ -107,7 +107,7 @@ Rust builds and generated-binding checks request protoc. Documentation and C# se
 Push triggers skip the test workflow for changes confined to Markdown, `docs/`,
 and `notes/`. Documentation publication filters its book, repository README/note,
 and tooling inputs on `main`, `human-docs`, and `road-to-release`, publishing each
-branch to Cloudflare Pages; sidecar publication runs only on `vMAJOR.MINOR.PATCH` tag pushes. Manual test runs and reusable test calls bypass push path
+branch to Cloudflare Pages; sidecar publication runs on `vMAJOR.MINOR.PATCH` tag pushes or explicit release-image rebuilds. Manual test runs and reusable test calls bypass push path
 filters.
 `mod-format` and `mod-lint` use the CSharpier version pinned in
 `.config/dotnet-tools.json`, restored by a private recipe prerequisite. They open only
@@ -116,9 +116,11 @@ build output, and project files. CSharpier owns layout; `.editorconfig` supplies
 indentation, line endings, and the shared .NET analyzer policy. Generated emoji
 metadata in `UI/Text/TextSpriteData.cs` also keeps its generator-owned layout.
 `.github/workflows/image.yml` owns sidecar publication to
-`ghcr.io/<repository-owner>/slopcar` for amd64 and arm64. Only `vMAJOR.MINOR.PATCH` tag
+`ghcr.io/<repository-owner>/slopcar` for amd64 and arm64. `vMAJOR.MINOR.PATCH` tag
 pushes build and publish images, using full commit SHA and release-version tags.
-There are no branch or manual triggers. Tag validation runs before container setup.
+Manual dispatch on `main` accepts an existing ancestor release tag for rebuilding
+its image version without moving the Git tag. The image revision and SHA tag identify
+the actual build commit. Branch pushes do not build images. Tag validation runs before container setup.
 CI passes the same version into the Docker build and OCI label.
 Docker's `github-builder` reusable workflow owns native platform runners, separate
 platform caches, and manifest assembly. It publishes the release-version and

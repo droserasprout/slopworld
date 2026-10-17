@@ -3,6 +3,12 @@ name: Sidecar image
 on:
   push:
     tags: ['v[0-9]*.[0-9]*.[0-9]*']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag whose image version should be published
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -26,10 +32,17 @@ jobs:
         id: image
         env:
           OWNER: ${{ github.repository_owner }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           image="ghcr.io/${OWNER,,}/slopcar"
-          [[ "$GITHUB_REF" == refs/tags/* ]] || exit 1
-          version="$(python3 -m tools.version.metadata "$GITHUB_REF_NAME")"
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            [[ "$GITHUB_REF" == refs/heads/main ]] || exit 1
+            version="$(python3 -m tools.version.metadata "$RELEASE_TAG")"
+            git merge-base --is-ancestor "refs/tags/$RELEASE_TAG" HEAD
+          else
+            [[ "$GITHUB_REF" == refs/tags/* ]] || exit 1
+            version="$(python3 -m tools.version.metadata "$GITHUB_REF_NAME")"
+          fi
           echo "image=$image" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 

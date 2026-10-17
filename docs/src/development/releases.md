@@ -100,10 +100,13 @@ fails after creating the tag, rerun from the same commit. If a release was creat
 with incomplete assets, inspect and repair that release explicitly; the publisher
 refuses to overwrite it.
 
-Sidecar CI builds and publishes images only on `{{#constant release_tag_format}}` tag pushes, using
+Sidecar CI builds and publishes images on `{{#constant release_tag_format}}` tag pushes, using
 commit SHA and release-version image tags. Branch pushes do not build images, and
-there is no manual trigger. The image label and embedded daemon version use the
-same release version.
+manual rebuilds use the workflow's `release_tag` input on `main`. The release tag
+must already exist and be an ancestor of the build commit; it is never moved.
+For example, run `gh workflow run image.yml --ref main -f release_tag={{#constant release_tag}}`.
+The image label and embedded daemon version use that release version, while the
+revision label and SHA image tag identify the actual build commit.
 
 Use `just tools-test tools/release` for game-free packaging and publication tests.
 

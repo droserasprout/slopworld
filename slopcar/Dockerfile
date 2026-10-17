@@ -15,6 +15,7 @@ RUN mkdir src \
     && cargo build --release --locked --bin slopd \
     && rm -rf src
 COPY shared/slopworld.proto /build/shared/slopworld.proto
+COPY shared/magic-8-ball.txt /build/shared/magic-8-ball.txt
 COPY slopd/build.rs ./build.rs
 COPY slopd/src ./src
 COPY slopd/presets ./presets
