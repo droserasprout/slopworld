@@ -23,11 +23,18 @@ namespace SlopWorld
 
         public static float Width(int mask, int[] order)
         {
-            int n = Count(mask, order);
-            return n == 0 ? 0f : n * IconW + (n - 1) * Gap;
+            // Include half a gap at either end so the label reserves the entire target.
+            return Count(mask, order) * (IconW + Gap);
         }
 
         public static float Left(float right, int mask, int[] order) => right - Width(mask, order);
+
+        static Rect ButtonRect(Rect row, float x)
+        {
+            float left = Mathf.Max(row.x, x);
+            float right = Mathf.Min(row.xMax, x + IconW + Gap);
+            return new Rect(left, row.y, Mathf.Max(0f, right - left), row.height);
+        }
 
         public static float Draw(
             Rect row,
@@ -47,11 +54,12 @@ namespace SlopWorld
                 {
                     if ((mask & flag) == 0)
                         continue;
-                    var rect = new Rect(x, y, IconW, IconW);
+                    var target = ButtonRect(row, x);
+                    var rect = new Rect(x + Gap / 2f, y, IconW, IconW);
                     x += IconW + Gap;
-                    bool over = RowChrome.Hover(rect, false, true, RowHoverPolicy.OverlayAware);
+                    bool over = RowChrome.Hover(target, false, true, RowHoverPolicy.OverlayAware);
                     if (over)
-                        TooltipHandler.TipRegion(rect, tip(flag));
+                        TooltipHandler.TipRegion(target, tip(flag));
                     if (Event.current.type == EventType.Repaint)
                     {
                         GUI.color = over ? Color.white : UiTheme.Dim;
@@ -65,12 +73,11 @@ namespace SlopWorld
         public static int Hit(Rect row, float right, int mask, int[] order)
         {
             float x = Left(right, mask, order);
-            float y = row.y + (row.height - IconW) / 2f;
             foreach (int flag in order)
             {
                 if ((mask & flag) == 0)
                     continue;
-                var rect = new Rect(x, y, IconW, IconW);
+                var rect = ButtonRect(row, x);
                 x += IconW + Gap;
                 if (rect.Contains(Event.current.mousePosition))
                     return flag;
@@ -122,8 +129,8 @@ namespace SlopWorld
             ActionStrip.Left(right, (int)acts, Order);
 
         // The strip drawn, and its left edge given back. `right` is the row's own right edge
-        // less whatever padding the tree uses. The row rect is here for the height alone,
-        // every button being centred in it.
+        // less whatever padding the tree uses. Targets fill the row height and split
+        // the gaps between icons; the glyphs remain centered at their original size.
         public static float Draw(Rect row, float right, RowAct acts)
         {
             return ActionStrip.Draw(row, right, (int)acts, Order, flag => Tex((RowAct)flag), Tip);

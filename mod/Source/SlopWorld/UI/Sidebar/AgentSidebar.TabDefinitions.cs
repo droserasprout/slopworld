@@ -187,13 +187,13 @@ namespace SlopWorld
                 folded ? "Unfold all." : "Fold all.",
                 () => SetAllFolds(!folded)
             );
-            DrawAgentVisibilityAction(context.ShiftX(-(TabIcon + 3f)));
+            DrawAgentVisibilityAction(context.ShiftX(-(TabIcon + TabGap)));
         }
 
         static void DrawAgentVisibilityAction(SidebarTabActionContext context)
         {
             var r = ActionRect(context);
-            _agentVisibilityRect = r;
+            _agentVisibilityRect = TabHitRect(r);
             Tab(
                 r,
                 Icons.Filter,
@@ -221,7 +221,7 @@ namespace SlopWorld
         static void DrawVisibilityAction(Rect r)
         {
             bool active = !Settings.SidebarShowHidden || !Settings.SidebarShowGitignored;
-            _visibilityRect = r;
+            _visibilityRect = TabHitRect(r);
             Tab(
                 r,
                 Icons.Filter,
@@ -258,7 +258,7 @@ namespace SlopWorld
 
         static void DrawLibraryProjectFilterAction(ref Rect r)
         {
-            var anchor = r;
+            var anchor = TabHitRect(r);
             Tab(
                 r,
                 Icons.Filter,
@@ -268,7 +268,7 @@ namespace SlopWorld
                     : "Library shows every project. Click to filter the list.",
                 () => LibraryView.OpenProjectFilterMenu(anchor)
             );
-            r.x -= TabIcon + 3f;
+            r.x -= TabIcon + TabGap;
         }
 
         static void DrawTasksActions(SidebarTabActionContext context)
@@ -281,8 +281,16 @@ namespace SlopWorld
                 "Refresh the task list.",
                 () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail)
             );
-            r.x -= TabIcon + 3f;
-            TasksView.FilterButton(r);
+            r.x -= TabIcon + TabGap;
+            Tab(
+                r,
+                Icons.Filter,
+                TasksView.Filtering,
+                TasksView.Filtering
+                    ? "Task filters are active. Click to change the filters."
+                    : "Showing all tasks. Click to filter by status, direction, or agent.",
+                TasksView.OpenFilterMenu
+            );
         }
 
         static void DrawFoldAction(ref Rect r)
@@ -295,7 +303,7 @@ namespace SlopWorld
                 folded ? "Unfold all." : "Fold all.",
                 () => SetAllFolds(!folded)
             );
-            r.x -= TabIcon + 3f;
+            r.x -= TabIcon + TabGap;
         }
     }
 }

@@ -6,6 +6,9 @@ registration/tests. `SidebarTabRegistry` owns read-only definitions and lookup;
 Unknown saved tabs fall back to Agents.
 Shared chrome reserves both the tabs/filter row and the action row for every tab,
 even when the tab has no actions, so the body starts at a stable height.
+Tab and action targets fill their row height and half the gap to adjacent icons;
+glyph and selection-marker bounds stay fixed. Tooltips share the click targets,
+menus anchor below the row, and targets exclude the resize grip.
 
 `AgentStatusSelection` shares status checkbox and persistence policy between the
 sidebar and command palette. All checks every status; toggles change visibility

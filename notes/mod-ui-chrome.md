@@ -10,6 +10,9 @@ across IMGUI passes. Measurement must not invoke controls, setters, or mutate fo
 data. Cache layout by content and text metrics; hover must not change bounds.
 Shared chrome owns spacing and metrics. Chrome colors resolve on read, so textures
 that bake them must invalidate when the theme changes.
+`ActionStrip` shares full-row-height targets between drawing, tooltips, and click
+dispatch for file and group actions. Its width includes padding around the glyphs
+so labels stop before the action targets.
 
 `TextEntryController` owns native field invocation and delayed clipboard edits.
 `IUiClipboard` providers return on the UI thread; fields must still check their

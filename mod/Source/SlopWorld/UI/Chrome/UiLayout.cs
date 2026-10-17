@@ -68,13 +68,22 @@ namespace SlopWorld
             Color tint,
             float inset,
             bool on = true
+        ) => IconButton(r, r.ContractedBy(inset), icon, tint, on);
+
+        // Hover, press, and click use the full target while the glyph retains its own bounds.
+        public static bool IconButton(
+            Rect hitRect,
+            Rect iconRect,
+            Texture2D icon,
+            Color tint,
+            bool on = true
         )
         {
             using (WidgetState.Save())
-                return IconButtonCore(r, icon, tint, inset, on);
+                return IconButtonCore(hitRect, iconRect, icon, tint, on);
         }
 
-        static bool IconButtonCore(Rect r, Texture2D icon, Color tint, float inset, bool on)
+        static bool IconButtonCore(Rect r, Rect iconRect, Texture2D icon, Color tint, bool on)
         {
             bool over = on && Mouse.IsOver(r);
             bool held = over && Input.GetMouseButton(0);
@@ -88,7 +97,7 @@ namespace SlopWorld
                 using (WidgetState.Save())
                 {
                     GUI.color = on ? (over ? Lead : tint) : Fade(tint, 0.5f);
-                    GUI.DrawTexture(r.ContractedBy(inset), icon);
+                    GUI.DrawTexture(iconRect, icon);
                 }
             }
 

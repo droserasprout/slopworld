@@ -43,6 +43,7 @@ namespace SlopWorld
         static float TabRowH => TopBar.H;
         public static float TabH => TabRowH * 2f;
         const float TabIcon = 20f;
+        const float TabGap = 3f;
 
         static float RowGap => UiTheme.GapXS;
 

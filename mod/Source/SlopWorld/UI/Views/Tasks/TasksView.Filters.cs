@@ -23,18 +23,6 @@ namespace SlopWorld
             return VisibleTasks;
         }
 
-        public static void FilterButton(Rect r)
-        {
-            TooltipHandler.TipRegion(
-                r,
-                Filtering
-                    ? "Task filters are active. Click to change the filters."
-                    : "Showing all tasks. Click to filter by status, direction, or agent."
-            );
-            if (UiLayout.IconButton(r, Icons.Filter, Filtering ? UiTheme.Lead : UiTheme.Off))
-                OpenFilterMenu();
-        }
-
         static List<FloatMenuOption> StatusOptions() =>
             SelectionOptions(
                 "All statuses",

@@ -66,7 +66,6 @@ namespace SlopWorld
 
             float y = (TabRowH - TabIcon) / 2f;
 
-            const float Gap = 3f;
             float x = Panel.x + CellX;
             foreach (var definition in TabRegistry.Definitions)
             {
@@ -78,7 +77,7 @@ namespace SlopWorld
                     definition.Tooltip,
                     () => Show(tab)
                 );
-                x += TabIcon + Gap;
+                x += TabIcon + TabGap;
             }
 
             FilterButton();
@@ -154,10 +153,15 @@ namespace SlopWorld
 
         static void Tab(Rect r, Texture2D icon, bool on, string tip, System.Action go)
         {
-            TooltipHandler.TipRegion(r, tip);
+            var hit = TabHitRect(r);
+            TooltipHandler.TipRegion(hit, tip);
             if (
-                UiLayout.IconButton(r, icon, on ? UiTheme.Lead : UiTheme.Off)
-                && ColonistBarStrip.Interactive
+                UiLayout.IconButton(
+                    hit,
+                    r.ContractedBy(UiTheme.IconInset),
+                    icon,
+                    on ? UiTheme.Lead : UiTheme.Off
+                ) && ColonistBarStrip.Interactive
             )
                 go();
 
@@ -168,6 +172,20 @@ namespace SlopWorld
                     new Rect(r.x, (r.y < TabRowH ? TabRowH : TabH) - 2f, r.width, 2f),
                     UiTheme.Accent
                 );
+        }
+
+        static Rect TabHitRect(Rect icon)
+        {
+            // Fill the row and split the gap with neighboring buttons. Keep the resize
+            // grip outside the target, and leave the glyph and selection marker unchanged.
+            float left = Mathf.Max(Panel.x, icon.x - TabGap / 2f);
+            float right = Mathf.Min(Panel.x + Width - GripW, icon.xMax + TabGap / 2f);
+            return new Rect(
+                left,
+                icon.y < TabRowH ? 0f : TabRowH,
+                Mathf.Max(0f, right - left),
+                TabRowH
+            );
         }
 
         static void DrawHead(Head head)

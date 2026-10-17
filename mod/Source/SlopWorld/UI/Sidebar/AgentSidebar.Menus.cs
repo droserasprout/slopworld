@@ -473,15 +473,12 @@ namespace SlopWorld
 
         public static void OpenFilterMenu() =>
             TerminalWindow.OpenOverPane(
-                new ProjectFilterMenu(FilterOptions(), new Vector2(FilterRect.x, FilterRect.yMax))
+                new ProjectFilterMenu(FilterOptions(), new Vector2(FilterRect.x, TabRowH))
             );
 
         static void OpenWorktreeFilterMenu(string project)
         {
-            var menu = new ProjectFilterMenu(
-                FilterOptions(),
-                new Vector2(FilterRect.x, FilterRect.yMax)
-            );
+            var menu = new ProjectFilterMenu(FilterOptions(), new Vector2(FilterRect.x, TabRowH));
             TerminalWindow.OpenOverPane(menu);
             menu.RestoreProject(project);
         }
