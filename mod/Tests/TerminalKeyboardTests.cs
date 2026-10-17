@@ -5,6 +5,42 @@ namespace SlopWorld.Tests
 {
     static class TerminalKeyboardTests
     {
+        public static void ShiftAltForwardsWorkspaceLettersAndDigitsWithoutShift()
+        {
+            foreach (bool altScreen in new[] { false, true })
+            {
+                foreach (var key in new[] { KeyCode.A, KeyCode.S, KeyCode.Z, KeyCode.X })
+                {
+                    var e = new Event
+                    {
+                        keyCode = key,
+                        alt = true,
+                        shift = true,
+                    };
+                    Assert.That(
+                        TerminalInputController.MapKey(e, altScreen),
+                        Is.EqualTo("M-" + (char)('a' + (key - KeyCode.A)))
+                    );
+                }
+                for (int digit = 0; digit <= 9; digit++)
+                    foreach (var first in new[] { KeyCode.Alpha0, KeyCode.Keypad0 })
+                    {
+                        var e = new Event
+                        {
+                            keyCode = (KeyCode)((int)first + digit),
+                            alt = true,
+                            shift = true,
+                        };
+                        Assert.That(
+                            TerminalInputController.MapKey(e, altScreen),
+                            Is.EqualTo("M-" + digit)
+                        );
+                        e.alt = false;
+                        Assert.That(TerminalInputController.MapKey(e, altScreen), Is.Null);
+                    }
+            }
+        }
+
         public static void FileNavigationRequiresUnshiftedAltKeyDown()
         {
             foreach (var key in new[] { KeyCode.A, KeyCode.S, KeyCode.Z, KeyCode.X })

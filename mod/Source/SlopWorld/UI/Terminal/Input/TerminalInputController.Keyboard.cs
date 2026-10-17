@@ -19,6 +19,16 @@ namespace SlopWorld
 
         internal static string MapKey(Event e, bool altScreen)
         {
+            // Shift bypasses workspace Alt+number selection. Encode the physical digit,
+            // not its shifted character; keypad digits follow the same convention.
+            if (e.alt && e.shift && !e.control)
+            {
+                if (e.keyCode >= KeyCode.Alpha0 && e.keyCode <= KeyCode.Alpha9)
+                    return "M-" + (e.keyCode - KeyCode.Alpha0);
+                if (e.keyCode >= KeyCode.Keypad0 && e.keyCode <= KeyCode.Keypad9)
+                    return "M-" + (e.keyCode - KeyCode.Keypad0);
+            }
+
             // Use tmux modifier names. Shifted navigation belongs to alternate-screen apps;
             // Shift on function keys only bypasses workspace shortcuts. Tab uses its dedicated BTab name.
             string mod = "";
@@ -132,6 +142,8 @@ namespace SlopWorld
                 if (e.control)
                     return "C-" + c;
                 if (e.alt)
+                    // Alt letters use their unshifted identity, including Shift
+                    // passthrough for workspace navigation on A/S/Z/X.
                     return "M-" + c;
             }
 

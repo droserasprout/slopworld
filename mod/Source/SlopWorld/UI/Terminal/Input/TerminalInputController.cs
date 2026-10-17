@@ -308,6 +308,10 @@ namespace SlopWorld
             if (TryTerminal(e))
                 return;
 
+            // Number keys outside the dispatch table can carry Alt passthrough too.
+            if (e.alt && e.shift && ForwardMappedKey(e))
+                return;
+
             // Unity sends printable input in a second event that carries only the character.
             if (
                 e.character != '\0'
@@ -339,7 +343,7 @@ namespace SlopWorld
             }
 
             int slot = TerminalHotkeys.SlotKey(e);
-            if (slot >= 0 && e.alt)
+            if (slot >= 0 && e.alt && !e.shift)
             {
                 SwitchToSlot(slot);
                 e.Use();

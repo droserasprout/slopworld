@@ -56,6 +56,7 @@ These shortcuts are active inside the terminal pane and cannot be rebound.
 | Ctrl+V | Paste from clipboard. Codex panes attach local image file links and forward image clipboard data to Codex. |
 | Shift+PgUp / Shift+PgDn | Scroll the mod's own scrollback (primary screen only). |
 | Shift+F1..F12 | Forward F1..F12 to the application without Shift. Ctrl and Alt are preserved. |
+| Shift+Alt+A/S/Z/X, Shift+Alt+0..9 | Forward the corresponding Alt+letter or Alt+digit to the application without Shift, bypassing workspace navigation. Number row and keypad work. |
 
 In native Linux Codex panes, copying a single local link such as
 `file:///home/me/Pictures/example.png` and pasting it into the editable composer

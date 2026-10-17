@@ -269,6 +269,10 @@ namespace SlopWorld
                             "Scroll terminal history on the primary screen"
                         ),
                         new ShortcutRow("Shift+F1..F12", "Forward the F-key to the agent"),
+                        new ShortcutRow(
+                            "Shift+Alt+A/S/Z/X/0..9",
+                            "Forward the Alt shortcut to the process without Shift"
+                        ),
                         new ShortcutRow("Ctrl+click", "Open a URL or navigate to a file"),
                         new ShortcutRow("Right-click", "Open the terminal context menu"),
                         new ShortcutRow("Double-click", "Select a word"),

@@ -13,6 +13,9 @@ Harmony only dispatches it. Pane clicks, split creation, and session switching s
 focus. Visible terminal panes bypass field focus scopes. Auto-resume pending consumes
 terminal keys while preserving workspace controls. Shortcut/modifier behavior belongs
 to [keyboard shortcuts](../docs/src/reference/keyboard-shortcuts.md).
+Shift bypasses workspace Alt navigation; terminal encoding forwards the unshifted
+Alt letter or digit, including keypad digits. Map selection also ignores these
+Shift+Alt combinations.
 
 Each panel negotiates dimensions from its assigned bounds. Rendering, hit tests, and
 resize share a pixel-snapped cell advance. Refresh resizes each bound panel and uses

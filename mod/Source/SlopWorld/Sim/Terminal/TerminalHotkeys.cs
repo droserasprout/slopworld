@@ -26,7 +26,11 @@ namespace SlopWorld
             if (ShortcutHelpWindow.HandleMapKey(Event.current))
                 return;
 
-            if (Event.current.type != EventType.KeyDown || !Event.current.alt)
+            if (
+                Event.current.type != EventType.KeyDown
+                || !Event.current.alt
+                || Event.current.shift
+            )
                 return;
             int slot = SlotKey(Event.current);
             if (slot < 0)
