@@ -17,7 +17,8 @@ Tmux metadata lets the daemon adopt a surviving shell after redeployment. If tmu
 state is lost, configuration restores the tab; a missing pane starts automatically
 only when autostart is enabled. Otherwise, the tab returns as a stopped row.
 Periodic working-directory polling updates saved tabs so their next launch uses
-the last observed path.
+the last observed path. Tmux clients explicitly select UTF-8 with `-u`; relying on
+the host locale lets tmux sanitize Unicode and embedded newlines in metadata.
 
 `session/manager/host_metadata.rs` owns host-shell record edits, observed working
 directories and foreground processes, and serialized background metadata polling.

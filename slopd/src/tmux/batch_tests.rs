@@ -46,3 +46,26 @@ async fn failed_batch_stops_later_commands_without_rolling_back_earlier_ones() {
     assert!(tmux.option("tab", "@after").await.is_none());
     assert_eq!(tmux.size("tab").await, Some((80, 24)));
 }
+
+#[tokio::test]
+async fn metadata_output_preserves_utf8_and_newlines_in_c_locale() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let tmux = Tmux::new(&socket.path);
+    tmux.spawn("tab", "/", 80, 24, &["sleep".into(), "60".into()], true)
+        .await
+        .unwrap();
+    let path = "/tmp/项目\nsemicolon;";
+    tmux.set_host_metadata("tab", "项目", path).await.unwrap();
+    let output = tmux
+        .command()
+        .env("LC_ALL", "C")
+        .args(["show-options", "-qv", "-t", "tab", super::super::HOST_PATH])
+        .output()
+        .await
+        .unwrap();
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        format!("{path}\n")
+    );
+}

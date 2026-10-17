@@ -6,8 +6,8 @@ impl Tmux {
     /// `list-sessions` returns a nonzero exit code if the server is stopped or has no sessions.
     /// Only a stopped server produces the corresponding stderr message.
     pub(super) async fn server_running(&self) -> Result<bool> {
-        let output = Command::new("tmux")
-            .args(self.socket_args())
+        let output = self
+            .command()
             .arg("list-sessions")
             .output()
             .await
@@ -104,6 +104,7 @@ impl Tmux {
             .args([
                 "--",
                 "tmux",
+                "-u",
                 self.socket_args()[0],
                 self.socket_args()[1],
                 "start-server",

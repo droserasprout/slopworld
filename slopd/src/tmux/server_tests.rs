@@ -14,7 +14,11 @@ fn mock_tmux(root: &std::path::Path, script: &str) {
     let bin = root.join("bin");
     std::fs::create_dir_all(&bin).unwrap();
     let path = bin.join("tmux");
-    std::fs::write(&path, format!("#!/bin/sh\n{script}")).unwrap();
+    std::fs::write(
+        &path,
+        format!("#!/bin/sh\n[ \"$1\" = -u ] && shift\n{script}"),
+    )
+    .unwrap();
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700)).unwrap();
 }
 
@@ -70,9 +74,11 @@ exec "$@"
     ] {
         assert_eq!(commands.lines().filter(|line| *line == flag).count(), 3);
     }
-    assert!(commands.contains("tmux\n-L\nfirst\nstart-server\n;\nset-option\n-s\nexit-empty\noff"));
     assert!(
-        commands.contains("tmux\n-L\nsecond\nstart-server\n;\nset-option\n-s\nexit-empty\noff")
+        commands.contains("tmux\n-u\n-L\nfirst\nstart-server\n;\nset-option\n-s\nexit-empty\noff")
+    );
+    assert!(
+        commands.contains("tmux\n-u\n-L\nsecond\nstart-server\n;\nset-option\n-s\nexit-empty\noff")
     );
 }
 
@@ -114,7 +120,7 @@ exec "$@"
         .await
         .unwrap();
     let commands = std::fs::read_to_string(root.join("commands.systemd")).unwrap();
-    assert!(commands.contains(&format!("tmux\n-S\n{}\nstart-server", socket.display())));
+    assert!(commands.contains(&format!("tmux\n-u\n-S\n{}\nstart-server", socket.display())));
 }
 
 #[tokio::test]

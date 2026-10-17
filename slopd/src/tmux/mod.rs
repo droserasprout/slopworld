@@ -141,13 +141,17 @@ impl Tmux {
         ["-L", &self.socket]
     }
 
+    fn command(&self) -> Command {
+        let mut command = Command::new("tmux");
+        // Our transport is UTF-8 even when the host locale is C. Without -u,
+        // tmux sanitizes command output, replacing non-ASCII and control bytes.
+        command.arg("-u").args(self.socket_args());
+        command
+    }
+
     async fn run(&self, args: &[&str]) -> Result<String> {
         let _perf = crate::perf::timer("tmux-command");
-        let out = Command::new("tmux")
-            .args(self.socket_args())
-            .args(args)
-            .output()
-            .await?;
+        let out = self.command().args(args).output().await?;
         if !out.status.success() {
             bail!(
                 "tmux command failed: {}",
@@ -163,8 +167,8 @@ impl Tmux {
     }
 
     pub(crate) async fn list_checked(&self) -> Result<Vec<String>> {
-        let output = Command::new("tmux")
-            .args(self.socket_args())
+        let output = self
+            .command()
             .args(["list-sessions", "-F", "#{session_name}"])
             .output()
             .await?;
@@ -666,8 +670,8 @@ impl Tmux {
         };
         let pty = openpty(Some(&ws), None)?;
 
-        let child = Command::new("tmux")
-            .args(self.socket_args())
+        let child = self
+            .command()
             .args(["-C", "attach", "-t", name])
             .stdin(Stdio::from(pty.slave.try_clone()?))
             .stdout(Stdio::from(pty.slave.try_clone()?))
@@ -749,8 +753,8 @@ impl Tmux {
 
         let buf = format!("slopworld-{name}");
         let target = format!("{name}:.0");
-        let mut child = Command::new("tmux")
-            .args(self.socket_args())
+        let mut child = self
+            .command()
             .args(["load-buffer", "-b", buf.as_str(), "-"])
             .arg(";")
             .args(["paste-buffer", "-d", "-r", "-p", "-b", &buf, "-t", &target])
