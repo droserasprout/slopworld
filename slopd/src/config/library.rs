@@ -113,8 +113,8 @@ pub fn builtin_library_items() -> &'static [LibraryItemCfg] {
             LibraryItemCfg {
                 name: "Useful tips".into(),
                 kind: LibraryItemKind::Breadcrumb,
-                text: "___\n\nUseful tips:\n\n- {{ random_tip }}\n- {{ random_tip }}\n\
-                   - {{ random_tip }}\n- {{ random_tip }}\n- {{ random_tip }}"
+                text: "{{ random_tip }} {{ random_tip }} {{ random_tip }} \
+                       {{ random_tip }} {{ random_tip }}"
                     .into(),
                 builtin: true,
                 ..Default::default()

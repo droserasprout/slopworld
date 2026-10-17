@@ -7,7 +7,7 @@ using Verse;
 namespace SlopWorld
 {
     // A left click on the persona core opens a context menu.
-    // "Hint" shows a tip bubble that fades after three seconds.
+    // "Hint" shows 2-4 tip bubbles in sequence, each lasting three seconds.
     // "Advice" uses the same bubble for a Magic 8 Ball answer.
     // "Kill something" sends 5 to 10 lightning strikes at a random person, animal,
     // or tree on the map, selected independently for each strike.
@@ -42,6 +42,7 @@ namespace SlopWorld
         bool _sticky;
         string _stickyTip;
         IntVec3 _stickyCell;
+        int _hintsLeft;
 
         // Where on screen the bubble was pinned, and when.
         Vector2 _stickyAt;
@@ -133,14 +134,6 @@ namespace SlopWorld
             if (!_sticky || _stickyTip == null)
                 return;
 
-            // Timed out.
-            if (Time.realtimeSinceStartup - _stickyAtTime >= HintTimeout)
-            {
-                _sticky = false;
-                _stickyTip = null;
-                return;
-            }
-
             // The core's own cell, not the cell under the mouse: the hint must
             // survive the cursor leaving it.
             var still = map.thingGrid.ThingAt(_stickyCell, ModDefOf.Ship_ComputerCore);
@@ -148,7 +141,23 @@ namespace SlopWorld
             {
                 _sticky = false;
                 _stickyTip = null;
+                _hintsLeft = 0;
                 return;
+            }
+
+            if (Time.realtimeSinceStartup - _stickyAtTime >= HintTimeout)
+            {
+                if (_hintsLeft <= 0)
+                {
+                    _sticky = false;
+                    _stickyTip = null;
+                    return;
+                }
+
+                // Keep the original anchor and give every new tip its full display time.
+                _hintsLeft--;
+                _stickyTip = Patch_LoadingTips.RandomTip;
+                _stickyAtTime = Time.realtimeSinceStartup;
             }
 
             using (WidgetState.Save())
@@ -270,15 +279,16 @@ namespace SlopWorld
         public static bool On(Map map) =>
             map != null && map.listerThings.ThingsOfDef(ModDefOf.Ship_ComputerCore).Count > 0;
 
-        // Show or refresh the sticky hint. Called from the context menu.
-        void HintAction() => ShowBubble(Patch_LoadingTips.RandomTip);
+        // A fresh request replaces any unfinished sequence.
+        void HintAction() => ShowBubble(Patch_LoadingTips.RandomTip, Rand.RangeInclusive(2, 4) - 1);
 
         void AdviceAction() => ShowBubble(AdviceAnswers[Rand.Range(0, AdviceAnswers.Length)]);
 
-        void ShowBubble(string text)
+        void ShowBubble(string text, int hintsLeft = 0)
         {
             _sticky = true;
             _stickyTip = text;
+            _hintsLeft = hintsLeft;
             _stickyAt = _clickPos;
             _stickyAtTime = Time.realtimeSinceStartup;
             _stickyCell = _menuCell;

@@ -1,6 +1,8 @@
 # Colony scenes and save boundaries
 
-`UI/Colony/CoreTip` owns the Computer Code menu and its hint/advice bubbles.
+`UI/Colony/CoreTip` owns the Computer Core menu and its hint/advice bubbles.
+Hint starts 2–4 tips in sequence, advancing after each three-second timeout at the
+original anchor. A new Hint replaces the sequence; Advice replaces it with one answer.
 Advice and the daemon's Magic 8 Ball breadcrumb embed the same answer list from
 `shared/magic-8-ball.txt`; neither keeps a separate copy in source.
 
