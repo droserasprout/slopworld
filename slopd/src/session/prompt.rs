@@ -1,31 +1,10 @@
 //! Values shared by library prompts and breadcrumbs.
 
 use super::template;
-use rand::seq::SliceRandom;
+use rand::seq::IteratorRandom;
 use std::{iter::Cycle, slice::Iter};
 
-const MAGIC_8_BALL_ANSWERS: [&str; 20] = [
-    "It is certain.",
-    "It is decidedly so.",
-    "Without a doubt.",
-    "Yes definitely.",
-    "You may rely on it.",
-    "As I see it, yes.",
-    "Most likely.",
-    "Outlook good.",
-    "Yes.",
-    "Signs point to yes.",
-    "Reply hazy, try again.",
-    "Ask again later.",
-    "Better not tell you now.",
-    "Cannot predict now.",
-    "Concentrate and ask again.",
-    "Don't count on it.",
-    "My reply is no.",
-    "My sources say no.",
-    "Outlook not so good.",
-    "Very doubtful.",
-];
+const MAGIC_8_BALL_ANSWERS: &str = include_str!("../../../shared/magic-8-ball.txt");
 
 pub(super) struct PromptVars<'a> {
     pub(super) agent: &'a str,
@@ -44,9 +23,7 @@ impl<'a> PromptContext<'a> {
     fn resolve(&mut self, key: &str) -> Option<&'a str> {
         match (key, self.vars) {
             ("random_tip", _) => self.tips.next().map(String::as_str),
-            ("magic_8_ball", _) => MAGIC_8_BALL_ANSWERS
-                .choose(&mut rand::thread_rng())
-                .copied(),
+            ("magic_8_ball", _) => MAGIC_8_BALL_ANSWERS.lines().choose(&mut rand::thread_rng()),
             ("agent", Some(v)) => Some(v.agent),
             ("project", Some(v)) => Some(v.project),
             ("directory", Some(v)) => Some(v.directory),

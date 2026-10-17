@@ -25,6 +25,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="../../../shared/magic-8-ball.txt" LogicalName="SlopWorld.Magic8Ball" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="0Harmony">
       <HintPath>../../Assemblies/0Harmony.dll</HintPath>
       <Private>false</Private>

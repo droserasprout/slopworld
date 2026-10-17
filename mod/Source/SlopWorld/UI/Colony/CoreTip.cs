@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -7,6 +8,7 @@ namespace SlopWorld
 {
     // A left click on the persona core opens a context menu.
     // "Hint" shows a tip bubble that fades after three seconds.
+    // "Advice" uses the same bubble for a Magic 8 Ball answer.
     // "Kill something" sends 5 to 10 lightning strikes at a random person, animal,
     // or tree on the map, selected independently for each strike.
     // Grandma's visiting and Eco mode hide this option.
@@ -15,6 +17,22 @@ namespace SlopWorld
     {
         // How long the sticky hint stays up before dismissing itself.
         const float HintTimeout = 3f;
+
+        // Both clients embed the same canonical answers; rolling needs no daemon connection.
+        static readonly string[] AdviceAnswers = LoadAdviceAnswers();
+
+        static string[] LoadAdviceAnswers()
+        {
+            using (
+                var stream = typeof(CoreTip).Assembly.GetManifestResourceStream(
+                    "SlopWorld.Magic8Ball"
+                )
+            )
+            using (var reader = new StreamReader(stream))
+                return reader
+                    .ReadToEnd()
+                    .Split(new[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+        }
 
         // Real seconds between lightning strikes in the kill sequence.
         const float MinStrikeDelay = 0.2f;
@@ -223,14 +241,16 @@ namespace SlopWorld
             var options = new List<FloatMenuOption>
             {
                 new FloatMenuOption("Hint", HintAction),
+                new FloatMenuOption("Advice", AdviceAction),
                 new FloatMenuOption("Keyboard shortcuts", ShortcutHelpWindow.Toggle),
             };
             // Gentle and Eco modes hide this option.
             if (!Settings.GrandmaMode && !Settings.EcoMode)
                 options.Add(new FloatMenuOption("Kill something", KillAction));
-            options.Add(new FloatMenuOption("New look", NewLookAction));
+            options.Add(new FloatMenuOption("New looks", NewLookAction));
             if (!Settings.EcoMode)
                 options.Add(new FloatMenuOption("Next planet", NextPlanet.Begin));
+            options.Add(new FloatMenuOption("Quit", Root.Shutdown));
 
             // OpenOverPane rather than a plain Add. The status bar is drawn over a terminal as well
             // as over the map, and a menu opened from it belongs above both.
@@ -251,10 +271,14 @@ namespace SlopWorld
             map != null && map.listerThings.ThingsOfDef(ModDefOf.Ship_ComputerCore).Count > 0;
 
         // Show or refresh the sticky hint. Called from the context menu.
-        void HintAction()
+        void HintAction() => ShowBubble(Patch_LoadingTips.RandomTip);
+
+        void AdviceAction() => ShowBubble(AdviceAnswers[Rand.Range(0, AdviceAnswers.Length)]);
+
+        void ShowBubble(string text)
         {
             _sticky = true;
-            _stickyTip = Patch_LoadingTips.RandomTip;
+            _stickyTip = text;
             _stickyAt = _clickPos;
             _stickyAtTime = Time.realtimeSinceStartup;
             _stickyCell = _menuCell;

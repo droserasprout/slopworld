@@ -1,5 +1,9 @@
 # Colony scenes and save boundaries
 
+`UI/Colony/CoreTip` owns the Computer Code menu and its hint/advice bubbles.
+Advice and the daemon's Magic 8 Ball breadcrumb embed the same answer list from
+`shared/magic-8-ball.txt`; neither keeps a separate copy in source.
+
 `Sim/Colony/IntroDirector` owns the opening scene and core arrival, including direct
 placement if the skyfaller path fails. `AgentColony` owns agent arrivals and places
 them directly while Eco rests. `NextPlanet` owns departure and map discard.
