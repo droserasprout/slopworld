@@ -5,6 +5,7 @@ Client models retain editable `dir` and daemon-resolved `expanded_dir`; path ope
 use the latter. Never expand paths using the game environment because daemon/sidecar
 homes and variables can differ.
 
+Temporary project root metadata belongs to daemon configuration, not `ProjectInfo`.
 The daemon resolves temporary paths. Preview requests share unchanged-name work,
 while disabling temporary mode invalidates pending replies. Project summary text
 is shared by sidebar/Library rows and project pickers, not the project editor.

@@ -5,8 +5,9 @@ and agent sandboxes. The current worker depends on Linux Bubblewrap/pasta; a nat
 macOS worker would require a different runtime backend. Multi-architecture images
 support amd64/arm64, which does not itself establish platform validation.
 
-`mac/` owns the native macOS workflow through its separate justfile; shared
-container tooling remains in `slopcar/`. Its independent Rust crate owns the
+`mac/` owns the native macOS workflow. The root justfile imports `mac/config.just`
+and exposes its commands through `just/mac.just`. Shared container tooling remains
+in `slopcar/`; its independent Rust crate owns the
 host launcher and embeds the seccomp policy; image builds still need a checkout.
 Image builds are explicit. Install, doctor, and launch consume the selected
 `SLOPCAR_IMAGE` without rebuilding it, preserving user-installed agent CLIs.

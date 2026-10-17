@@ -1,77 +1,47 @@
 # Shared UI chrome
 
-`UI/Chrome/` owns shared controls and layout helpers. `UiTheme` and styling/icon
-catalogs live in `UI/Theme/`; workspace host chrome lives in `UI/Workspace/`.
-Start with `UiText`, `UiButtons`, `UiControls`, `UiLayout`, and `Slab` when adding a control.
-`TextEntryController` owns shared native field invocation and delayed clipboard edits;
-focus memory belongs to [focus](ui-focus.md). Clipboard access uses `IUiClipboard`;
-bootstrap installs the daemon adapter, which owns capability checks and native fallback.
-Providers deliver reads on the UI thread; fields retain delayed-edit lifetime checks.
-`UiClipboardActions` owns copy-action success/error notifications with caller-supplied
-confirmation wording. `DaemonClipboard` retains transport and fallback behavior.
-
-Shared headers receive status text and availability; list views receive their empty
-message and header/footer drawing from the feature owner. Session action classification
-belongs to `SessionRowAction`, and agent color mapping to `AgentPresentation`.
-Bootstrap supplies `RowChrome` overlay hit testing from the map host. Scene and
-screenshot visibility belong to `WorkspaceVisibility`, outside generic layout helpers.
-
-Multiline `Area` controls opt into vertical resizing with a form-owned `UiAreaResize`.
-Listing areas measure their height automatically; rectangle callers use `UiText.AreaHeight`
-in their layout. Prompts retain a manual height. Editable template descriptions and
-preset areas opt into content growth, capped at 240 pixels. Dragging overrides growth;
-the grip's right-click Fit to content action restores it. Read-only preset areas
-grow to their full content height without a cap or grip. Sizing-enabled fields own an inner scroll viewport and reveal
-the caret after keyboard edits; full-dialog editors keep their window-owned sizing.
-Measurement is pure and includes the same padding and scrollbar gutter as drawing.
-The adapter reuses the native window resizer and compact corner grip, reserves text space above the grip, and retires input capture with the field lifetime.
-The native grip includes a Unity button that takes mouse capture. The area adapter
-restores its own capture and invokes the native grip once after the text control on
-every enabled IMGUI pass, keeping control allocation consistent while idle and dragging.
+`UI/Chrome/` owns shared controls and layout helpers. `UI/Theme/` owns styling and
+icon catalogs; `UI/Workspace/` owns workspace host chrome. Start with `UiText`,
+`UiButtons`, `UiControls`, `UiLayout`, and `Slab` when adding a control. Feature
+owners supply status, availability, empty messages, and actions.
 
 Measurement, drawing, and hit testing must share stable geometry and control IDs
-across IMGUI passes. Measurement must not mutate form data. Cache layout by content
-and text metrics, not color alone; use shared measurement helpers. `Slab` geometry
-is flat and pixel-snapped. Hover must not alter bounds. Spacing and text metrics
-belong to shared chrome rather than individual themes.
-Selector width must fit the selected text plus its arrow and divider, even when a
-menu supplies a preferred width; the available form width remains the upper bound.
-The opened selector menu uses that final control width so their edges align.
+across IMGUI passes. Measurement must not invoke controls, setters, or mutate form
+data. Cache layout by content and text metrics; hover must not change bounds.
+Shared chrome owns spacing and metrics. Chrome colors resolve on read, so textures
+that bake them must invalidate when the theme changes.
 
-Chrome colors resolve on read. A texture that bakes them must invalidate on theme
-changes. [Theme identity](mod-ui-identity.md) owns catalog contracts. Other focused
-owners are [workspace layout](ui-dynamic-layout-architecture.md),
-[focus](ui-focus.md), [dialogs](mod-ui-windows.md), [Settings](ui-settings.md),
-[text](mod-ui-text.md), and [scrolling](mod-ui-scrolling.md).
+`TextEntryController` owns native field invocation and delayed clipboard edits.
+`IUiClipboard` providers return on the UI thread; fields must still check their
+lifetime before applying delayed edits. `DaemonClipboard` owns transport and
+native fallback; [focus](ui-focus.md) owns focus memory.
 
-`UiMenu` owns menu chains. `Patch_UiMenuWindowStack` closes the chain when a
-non-menu window is clicked, before the base game raises that window. Window-stack
-and submenu traps belong to [Harmony gotchas](core-gotchas.md).
+Resizable text areas retain a form-owned `UiAreaResize`. Measurement and drawing
+must include the same padding and scrollbar gutter. The native grip takes Unity
+mouse capture: the adapter restores its capture and invokes the grip after the
+text control on every enabled IMGUI pass to keep control allocation stable.
+Retire capture with the field lifetime.
 
-`TooltipLayout` freezes native line breaks per `ActiveTip` and shares the resulting
-no-wrap style and text between tooltip sizing and drawing. Native wrapping can
-change with the GUI transform even at integer UI scales. Cursor movement must not
-invalidate cached layout; content, font, scale, and atlas changes do. The weak-key
-cache follows native tooltip lifetime. Caller text retains rich tags and explicit
-newlines; callers do not need path-specific wrapping.
+Selector width must fit its text, arrow, and divider within the available form
+width. The opened menu uses that final width. `UiMenu` owns menu chains;
+`Patch_UiMenuWindowStack` closes them before a clicked non-menu window is raised.
+Menu levels need separate instances because vanilla same-type replacement can
+remove a standing menu. Submenu openers need a non-null action because vanilla
+treats null actions as disabled.
 
-Responsive Settings forms pin Interface/Terminal/Code previews below the scrolling
-form when space permits. Short windows scroll form and preview together; Code
-retains a separate save footer. Measurement must not invoke controls/setters.
+`TooltipLayout` shares frozen line breaks and a no-wrap style between sizing and
+drawing: native wrapping can change with the GUI transform even at integer scales.
+Invalidate on content, font, scale, or atlas changes, not cursor movement. Its
+weak-key cache follows `ActiveTip` lifetime.
 
-`Window.Margin` translates the GUI group rather than adding padding. Shared hosts
-use explicit body padding. `GameFont.Tiny` may draw as Small, so measurement uses
-shared metrics. Use an explicit one-column listing rather than relying on a short
-vanilla listing rectangle. Runtime assets needing survival across map changes use
-`DontUnloadUnusedAsset`; this is not a rule for every generated texture.
+`Window.Margin` translates the GUI group rather than adding padding; shared hosts
+use explicit body padding. `GameFont.Tiny` may draw as Small, so use shared metrics.
+Use an explicit one-column listing instead of relying on a short vanilla listing
+rectangle. Only runtime assets that must survive map changes need
+`DontUnloadUnusedAsset`.
 
-Menu levels need separate instances because vanilla same-type replacement can remove
-a standing menu before opening another. Submenu openers need a non-null action,
-since vanilla infers Disabled from a null action.
-
-`CatalogActions` shares agent/project actions across the palette and sidebar menus.
-`PaletteSearch` owns command/submenu filtering and stable ranking over availability
-snapshots. `PaletteHistory` owns bounded recent-command order and its text format.
-The command palette window retains game actions, settings writes, navigation, and drawing.
-`LibraryActions` owns library execution, project selection, and management actions;
-calling surfaces retain availability rules and navigation history.
+See [workspace layout](ui-dynamic-layout-architecture.md) for host geometry,
+[Settings](ui-settings.md) for responsive previews, [dialogs](mod-ui-windows.md)
+for window lifetimes, [theme identity](mod-ui-identity.md) for catalogs,
+[text](mod-ui-text.md) for text rendering, and [scrolling](mod-ui-scrolling.md)
+for scroll geometry and input.

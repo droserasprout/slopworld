@@ -4,6 +4,9 @@
 uses its title setter. The launcher supplies default Linux windowed/OpenGL arguments,
 while the mod follows the saved fullscreen preference. This path requires X11/EWMH,
 including under XWayland; it does not categorically bypass Wayland desktops.
+The launcher's Linux defaults are `-popupwindow -screen-fullscreen 0 -force-opengl`.
+`slopworld --no-window-fix` omits those arguments; the mod's window-manager hook
+still follows the saved fullscreen preference.
 The window watch sets both WM_CLASS strings to `slopworld`, matching the packaged
 desktop entry's StartupWMClass. This keeps SlopWorld separate from vanilla RimWorld
 in application switchers despite sharing the `RimWorldLinux` executable.
@@ -27,5 +30,5 @@ change. Updating only outer bounds can misalign pixels and input coordinates.
 and resize-deadline decisions without game dependencies.
 [LinuxGameWindow](../mod/Source/SlopWorld/Patches/Chrome/LinuxGameWindow.cs) samples
 game state and owns Unity/X11 calls and their ordering. Game-free tests cover the
-policy directly; they do not establish native window-manager behavior. Launch options belong to
+policy directly; they do not establish native window-manager behavior. User-facing controls belong to
 [Display settings](../docs/src/customization/settings.md#display).

@@ -43,16 +43,12 @@ and a saved splitter fraction. Their draggable split has independent scroll owne
 and a stable tree boundary as reader headers change. Shared lifetime belongs to
 [file readers](mod-file-readers.md).
 
-An empty project-filter set means all; unknown saved keys mean no match.
-Hiding a project from All materializes the remaining project names and loose group.
-`[no projects]` preserves an explicit empty selection when the last entry is hidden;
-All projects clears it. Filtering
-also governs keyboard cycling. Session rows (including workers and routed rows)
-apply both project visibility and checkout choices; their caches include the scope
-revision. Empty session checkout IDs mean main, and session visibility does not
-wait for checkout descriptors. Vanilla buttons, inspect panes, gizmos, and colonist
-hit tests must all use the workspace inset; changing only sidebar drawing leaves
-invisible old hit targets. Shared scopes belong to [browse scopes](mod-ui-browse-scopes.md).
+Project and checkout filtering belongs to [browse scopes](mod-ui-browse-scopes.md).
+Session rows, including workers and routed readers, apply both filters and include
+the scope revision in their caches. Empty session checkout IDs mean main;
+visibility does not wait for checkout descriptors. Filtering also governs keyboard
+cycling. Vanilla buttons, inspect panes, gizmos, and colonist hit tests must use the
+workspace inset; changing only sidebar drawing leaves invisible old hit targets.
 
 The worker dialog submits caller context, project, template, task body, and durability
 through SessionHub. It adds the returned task and starts task/session refreshes;

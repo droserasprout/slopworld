@@ -1,7 +1,9 @@
 # Terminal latency ownership
 
 Client diagnostics in `Client/Diagnostics/` own request IDs, completion, performance
-records, and the bounded main-thread file queue. The frame hook writes game-side
+records, and the bounded main-thread file queue. `PerfTrace` collects bounded samples
+without game references; `PerfTraceReport` adds frame/game context, memory sampling,
+and publication during hub updates. Transport instrumentation uses only the collector. The frame hook writes game-side
 performance and latency records to `SlopWorld-trace.log` after frame end. Daemon
 `latency.rs` carries timestamps in screen metadata; `perf.rs` emits separate
 performance summaries through tracing to the daemon log. `trace-capture` and

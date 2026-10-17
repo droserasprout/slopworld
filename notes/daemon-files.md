@@ -1,10 +1,7 @@
 # Daemon source map
 
-Paths below are relative to `slopd/src/`. Use module declarations for the current
-file inventory. This map identifies subsystem boundaries.
-
-This is a selected subsystem map, not a file inventory. Module declarations own the
-current inventory. Modules with children use a directory `mod.rs`, except presets
+Paths below are relative to `slopd/src/`. This map identifies subsystem boundaries;
+module declarations own the current file inventory. Modules with children use a directory `mod.rs`, except presets
 and Cargo binary entry points. Test and coverage guidance belongs to
 [build commands](build-commands.md).
 

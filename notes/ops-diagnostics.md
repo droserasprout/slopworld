@@ -2,14 +2,13 @@
 
 [Using slopctl](../docs/src/reference/slopctl.md) owns log and status operations;
 [troubleshooting](../docs/src/resources/troubleshooting.md) owns connection diagnosis.
-Service active status does not establish listener readiness.
 
 [Terminal latency](terminal-latency.md) owns diagnostic data boundaries and links
 to capture/benchmark procedures. [CPU attribution](misc-cpu-threads.md) distinguishes
 elapsed timers from process/thread CPU measurements.
 
-[Session state](daemon-session-state.md) owns confirmed process-exit evidence and
-reader recovery; [daemon sources](daemon-files.md) map CLI stream ownership.
+[Terminal capture](daemon-terminal-capture.md) owns confirmed process-exit evidence
+and reader recovery; [daemon sources](daemon-files.md) map CLI stream ownership.
 Sidecar daemon logs capture both Docker output streams through the same formatter,
 so stderr participates in JSON output and source-prefixed combined logs.
 

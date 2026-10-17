@@ -2,17 +2,10 @@
 
 `Client/SessionHub/` owns connection lifetime and cross-service handoffs. Services
 and models under Sessions, Catalog, Tasks, Terminal, Usage, and Audio own their state
-and independent operations. Cross-service subscriptions and rename handoffs stay
-on the hub. Connection settings come from `endpoint.toml`.
+and independent operations. Cross-service subscriptions and rename handoffs stay on
+the hub. Connection settings come from `endpoint.toml`.
 
-Catalog models receive command and preset collections from callers; they do not
-read the live hub. Captured template definitions take precedence over those
-collections, including dependencies absent from current catalogs. Temporary project
-root metadata belongs to daemon configuration, not `ProjectInfo`.
-
-`PerfTrace` collects bounded timing samples without game references. `PerfTraceReport`
-owns frame timing, game/UI context, memory sampling, and publication; the hub invokes
-it during its update. Transport instrumentation depends only on the collector.
+Catalog models receive collections from callers rather than reading the live hub.
 HTTP resolves connection metadata directly through `Endpoint`, without the game
 settings projection.
 
@@ -23,38 +16,32 @@ other owners must settle requests and callbacks before disposing their transport
 Completions become visible after request resources and admission slots are released.
 `DaemonHttpTransport` queues callbacks through `MainThreadCompletions`, which owns
 lossless delivery and per-frame count/time budgets. The Root.Update adapter pumps
-callbacks and reports failures before updating the hub. `UsageInfo` owns provider
-age anchors; its callers supply monotonic seconds and wall-clock milliseconds.
-Connection attempts reset capabilities to unknown until the new announcement.
-Local socket-queue acceptance
-is not daemon acknowledgement. Old callback batches cannot spill into a reconnected
+callbacks and reports failures before updating the hub. Connection attempts reset
+capabilities to unknown until the new announcement. Local socket-queue acceptance is
+not daemon acknowledgement. Old callback batches cannot spill into a reconnected
 transport.
 
 Catalog pushes invalidate Projects and Library and trigger authoritative HTTP reads;
 their queued payloads never overwrite settings read after an edit. HTTP writes and
-pushed session snapshots can race. `Client/Daemon/SnapshotRequest.cs` owns
-revision checks and waiter settlement for catalog and session refreshes; each service
-owns snapshot publication. The coordinator supplies snapshot and task callback error
+pushed session snapshots can race. `Client/Daemon/SnapshotRequest.cs` owns revision
+checks and waiter settlement for catalog and session refreshes; each service owns
+snapshot publication. The coordinator supplies snapshot and task callback error
 reporting; these owners do not log through the game. Task polling receives its
-monotonic clock from the coordinator. Session refresh callers wait for the winning HTTP or
-pushed snapshot, sharing its failure. Run callbacks open panes only after a snapshot containing the launched session settles;
-older queued pushes cannot complete the launch handoff or supersede its HTTP read. Rename keeps
-a temporary name mapping until its HTTP result settles, preserving pawn, terminal,
-and selection without retaining genuinely removed sessions.
+monotonic clock from the coordinator. Session refresh callers wait for the winning
+HTTP or pushed snapshot, sharing its failure. Run callbacks open panes only after a
+snapshot containing the launched session settles; older queued pushes cannot complete
+the launch handoff or supersede its HTTP read. Rename keeps a temporary name mapping
+until its HTTP result settles, preserving pawn, terminal, and selection without
+retaining genuinely removed sessions.
 
-Feature boundaries belong to [terminal](mod-terminal.md), [wire](protocol-wire.md),
-[templates](mod-agent-templates.md), [workers](daemon-workers.md),
-[configuration](daemon-config-stores.md), [Settings](ui-settings.md),
-[projects](mod-projects.md), [jukebox](mod-jukebox.md), and [tasks](agent-tasks.md).
-Transport substitutions and validation limits belong to [C# tests](test-csharp.md).
+Session rename, process replacement (`run_id`), and connection generation invalidate
+different identities. Control/history/replies preserve lossless backpressure while
+unsolicited live screens may coalesce. Panel subscriptions/input do not wait for
+earlier history capture.
 
-Reader names are opaque handles; intent and source metadata enable restoration.
-Configured commands can also identify reader actions. Session rename, process
-replacement (`run_id`), and connection generation invalidate different identities.
-Control/history/replies preserve lossless backpressure while unsolicited live screens
-may coalesce. Panel subscriptions/input do not wait for earlier history capture.
-
-Daemon settings drafts are scoped by page and endpoint. Endpoint changes clear config
-paths; raw editing waits for a successful load, and failed reload preserves text.
-Saving one page must not reload unrelated drafts. Effective Settings previews are
-daemon-resolved, never reconstructed from local constants.
+Feature contracts belong to [terminal](mod-terminal.md), [wire](protocol-wire.md),
+[templates](mod-agent-templates.md), [Settings](ui-settings.md),
+[projects](mod-projects.md), and [file readers](mod-file-readers.md). Diagnostics
+belong to [terminal latency](terminal-latency.md); provider clocks to
+[usage](mod-usage.md). Transport substitutions and validation limits belong to [C#
+tests](test-csharp.md).

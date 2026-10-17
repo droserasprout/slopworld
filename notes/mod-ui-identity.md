@@ -15,6 +15,7 @@ faces must be opaque because their contrast-derived text has no backing-surface 
 `TerminalTheme` retain their own lazy caches, record conversion, and fallback palettes.
 
 [Palette references](reference-original-palettes.md) own upstream value and role
-policy. [Build commands](build-commands.md) own catalog validation. Shared geometry
+policy. `just mod-check-themes` validates shipped catalogs through
+`tools/themes/validate_themes.py`. Shared geometry
 and metrics belong to [chrome](mod-ui-chrome.md); terminal texture invalidation
 belongs to [terminal rendering](mod-terminal-rendering.md).

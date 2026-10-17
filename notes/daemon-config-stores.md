@@ -54,9 +54,7 @@ Structured commits retain session/worktree guards and the persistence gate throu
 commit, rollback and accepted-state publication, even after requester cancellation.
 Root and library operations cannot accept revisions belonging to another owner.
 
-`storage/layout.rs` loads the configured stores at startup. Recovery uses the bound
-data-root workspace journal. Manager/domain fixtures use the production record
-stores and transaction owner.
+Manager/domain fixtures use the production record stores and transaction owner.
 Schema tests deserialize individual documents; manager task tests use the production
 async I/O owner for mutations and reads.
 

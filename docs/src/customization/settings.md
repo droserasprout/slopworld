@@ -1,92 +1,102 @@
 # Settings
 
-Open Settings with the gear icon in the top bar or the **Settings** command in the palette.
-Settings opens as tabs over the terminal pane.
+Open Settings with the gear icon in the top bar or the **Settings** command in the
+palette. Settings opens as tabs over the terminal pane.
 
 ## Find a setting
 
-| Category | Pages or purpose |
+| Category | Controls and guides |
 | --- | --- |
-| General | Game and daemon controls |
+| General | Game and daemon controls, date and time formats |
 | Display | Fullscreen, frame pacing, smooth scrolling |
-| Appearance | Interface, Workspace, Terminal, Code |
-| Integrations | Credentials, Usage |
-| Agents | Summaries, Workers |
-| Sandbox | Sandbox presets |
-| Storage | Private state and shared caches |
-| Commands | Defaults, Apps, Binaries |
-| Keyboard, Audio, RimWorld, About | Key bindings, audio sources, game options, project information |
-
-See [Configuring agents](../agents/configuring-agents.md),
-[Sandbox presets](../sandbox/sandbox-presets.md), and
-[Command presets](../workspace/command-presets.md) for detailed controls.
-See [Usage polling](../agents/usage-and-summaries.md#usage-polling) and
-[Prompt summaries](../agents/usage-and-summaries.md#prompt-summaries) for provider integration settings. See [Jukebox](jukebox.md) for audio source setup.
-
-**Display**, immediately after General, contains fullscreen, frame pacing, and smooth scrolling.
-
-**General > Locale > Date format** offers `YYYY-MM-DD` (default), `DD/MM/YYYY`,
-and `MM/DD/YYYY`. It applies live to the clock tooltip, task timestamps, jukebox
-history, and game build date, and is saved with the profile. Time format offers
-24-hour and 12-hour display.
-
-On Linux, the launcher supplies `-popupwindow -screen-fullscreen 0 -force-opengl`.
-Use `slopworld --no-window-fix` to omit those default arguments. The mod's Linux
-window-manager hook still follows the saved fullscreen setting.
-**Appearance > Interface** contains UI scale, fonts, colors, and cursor styling.
-**Appearance > Workspace** contains density, sidebar and statusbar controls.
-
-The **Storage** page lists private agent state and shared caches. Use it to reset private state,
-restore trash, or delete unused state. See [Backup and recovery](../maintenance/backup-and-recovery.md).
-
-Worker settings are under **Settings > Agents > Workers**. Add templates to the worker
-allowlist so agents can use them to create workers. New templates do not enter the allowlist
-automatically. Edit the initial worker prompt on this page. New workers receive the saved
-prompt. The Worker menu can use any catalog template. Allowlist changes do not affect
-existing workers.
-
-## Display
-
-Smooth scrolling is enabled by default and uses precise touchpad movement where
-supported; disable it for wheel steps. Changes apply live and are saved with the profile.
-Frame pacing offers VSync or 15, 30, 60, 120, 144, and 240 FPS presets. FPS limits
-disable VSync. Unfocused windows use 15 FPS and restore foreground pacing on focus.
-
-## Configuration file
-
-The palette's **Configuration: Edit config.toml** action opens machine settings,
-including fields without a Settings page. Projects, agents and host shells use
-their own editors and are preserved when settings are replaced. Inline workspace
-sections are rejected. The editor hides the daemon token.
-Before it saves, it parses and checks the replacement. Invalid replacements are rejected.
-
-Worker configuration uses `[daemon.instructions].worker_prompt` and
-`[daemon].worker_templates`. The prompt can refer to `$SLOPWORLD_TASK_ID`.
+| Appearance | Interface styling, workspace layout, terminal appearance, code readers |
+| Integrations | [Credentials and usage polling](../agents/usage-and-summaries.md) |
+| Agents | [Prompt summaries](../agents/usage-and-summaries.md#prompt-summaries) and [workers](#workers) |
+| Sandbox | [Sandbox presets](../sandbox/sandbox-presets.md) |
+| Storage | [Private state and shared caches](../maintenance/storage.md) |
+| Commands | Defaults, [command presets](../workspace/command-presets.md), binary discovery |
+| Keyboard | [Key bindings](../reference/keyboard-shortcuts.md) |
+| Audio | [Jukebox and audio sources](jukebox.md) |
+| RimWorld | Game options |
+| About | Project information |
 
 ## Applying changes
-
-**Appearance > Code** offers Auto for the pager and syntax highlighter. Auto is the
-default for new configurations and selects tools installed on the daemon host:
-
-- Pager: bat → less → more.
-- Highlighter: bat → Pygments (`pygmentize`) → highlight → plain text.
-
-Explicit tool and custom command choices stay fixed. Selecting Off disables the
-highlighter. When Auto selects bat as the pager, its child pager uses less or more;
-without either, bat prints directly. Save and restart active readers to apply a change.
 
 | Change | When it applies |
 | --- | --- |
 | Most profile, game, and audio controls | Live; preferences are saved automatically. |
-| Code appearance | After Save; Discard abandons the draft. |
-| Daemon forms | Save checks and applies submitted values; Discard abandons edits. |
+| Code appearance | After Save; restart active readers to use the new settings. |
+| Daemon forms | After Save validates and applies the submitted values. |
 | Agent command, network, DNS, limits, sandbox, and project mounts | Next agent start; restart a running agent. |
 | Listener address and other startup settings | After daemon restart. |
 
-The native daemon listener defaults to `127.0.0.1:7717`.
+Editors have separate Save actions. **Discard** abandons the current form's edits.
 While the daemon is running, use Settings, the configuration editor, or the API
-to change machine settings and workspace records. External edits to `config.toml`,
-project records, agents, and host shells load at startup. Stop the daemon before
-editing those files, then start it again.
-Independent Library items and preset files retain live reload. Preset, agent,
-project, and Library editors have separate Save actions.
+for machine settings and workspace records. To edit their files externally, stop
+the daemon first; those files load at startup. Library items and preset files
+reload while the daemon runs.
+
+## Display
+
+Open **Settings > Display** for fullscreen, frame pacing, and scrolling.
+
+| Control | Effect |
+| --- | --- |
+| Fullscreen | Toggle window-manager fullscreen. |
+| Frame pacing | Choose VSync or a 15, 30, 60, 120, 144, or 240 FPS limit. An FPS limit disables VSync. |
+| Smooth scrolling | Use precise touchpad movement where supported; disable it for wheel steps. Enabled by default. |
+
+Unfocused windows use 15 FPS and restore foreground pacing on focus.
+These preferences apply live and are saved with the profile.
+[Eco mode](../workspace/gameplay.md#eco-mode) controls colony simulation separately.
+
+## Appearance
+
+| Page | Controls |
+| --- | --- |
+| Interface | UI scale, fonts, colors, cursor styling |
+| Workspace | Density, sidebar, statusbar |
+| Terminal | Terminal appearance |
+| Code | Pager, syntax highlighter, code themes |
+
+Under **Appearance > Code**, **Auto** selects tools installed on the daemon host:
+
+- Pager: bat → less → more.
+- Highlighter: bat → Pygments (`pygmentize`) → highlight → plain text.
+
+Explicit tools and custom commands stay fixed. **Off** disables highlighting.
+When Auto selects bat as the pager, bat uses less or more to page its output;
+without either, it prints directly. Save and restart active readers after a change.
+
+## Date and time
+
+Under **General > Locale**, choose `YYYY-MM-DD` (default), `DD/MM/YYYY`, or
+`MM/DD/YYYY`, and a 24-hour or 12-hour time display. These preferences apply live
+to the clock tooltip, task timestamps, jukebox history, and game build date,
+and are saved with the profile.
+
+## Storage
+
+Open **Settings > Storage** to inspect private agent state and shared caches,
+reset private state, restore trash, or delete unused state. See
+[Storage and caches](../maintenance/storage.md) and
+[Backup and recovery](../maintenance/backup-and-recovery.md) for the procedures.
+
+## Workers
+
+Open **Settings > Agents > Workers** to choose which templates agents may use
+when spawning workers. New templates start outside this allowlist. The user can
+choose any catalog template from the Worker menu.
+
+Edit the initial worker prompt on the same page, then save. New workers receive
+that prompt; existing workers keep their saved settings. See
+[Agent collaboration](../agents/agent-collaboration.md) for delegation and reporting.
+
+## Configuration file
+
+Use the palette's **Configuration: Edit config.toml** action for machine settings,
+including fields without a Settings page. The editor hides the daemon token and
+validates changes before saving. Projects, agents, and host shells have their own
+editors and are preserved when machine settings are replaced.
+
+See [Paths and files](../reference/paths.md#daemon-configuration) for file locations.

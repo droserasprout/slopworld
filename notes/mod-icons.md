@@ -2,10 +2,7 @@
 
 `tools/assets/appicon.py` owns the shared application artwork in
 `mod/Textures/SlopWorld/SlopWorld_icon.png`. Desktop packages install it as the
-128 px hicolor application icon. The generator enlarges the composed robot and
-rose halfway from its original ink size toward filling the canvas with a 4 px
-margin, balancing desktop visibility and facial detail. Run `just generate-appicon`
-to regenerate it.
+128 px hicolor application icon. Run `just generate-appicon` to regenerate it.
 
 `UI/Theme/Icons.cs` exposes semantic slots; `assets/icons/manifest.toml` maps them to
 Codicons glyph names and codepoints. Generated PNGs live in
@@ -16,9 +13,8 @@ the pinned Symbols Nerd Font in `assets/fonts/nerd-symbols/`; `source.toml` reco
 its version, source, and checksums. Update upstream notices and glyph licenses in `licenses/nerd-fonts/`
 when updating the font. Bake output also depends on the rasterizer. A common scale
 preserves relative glyph sizes; do not fit every glyph independently.
-Run `just generate-icons` to regenerate action icons. The baker defaults to 64 px;
-`uv run --locked --extra assets python -m tools.assets.icons` accepts `--size`, `--font`, and `--report` for glyph metrics.
-The font is a build input; the mod ships only the generated PNGs.
+Run `just generate-icons` to regenerate action icons. The font is a build input;
+the mod ships only the generated PNGs.
 
 `Icons.Get` caches `BadTex` when content lookup returns null. File icon lookup is a
 separate catalog; general texture lifetime traps

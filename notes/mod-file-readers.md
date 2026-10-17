@@ -2,7 +2,9 @@
 
 `FileReaders` owns the shared Files/Git pager collection; `FilesViewerController`
 owns native-reader handoffs. Search owns its separate pager. Host reader sessions
-are disposable rather than saved host-shell tabs.
+are disposable rather than saved host-shell tabs. Their names are opaque handles;
+intent and source metadata enable restoration. Configured commands can also identify
+reader actions.
 
 There is one replaceable preview and independently pinned readers. Reopening a path,
 including a line target, reuses its reader; concurrent opens share the pending request.

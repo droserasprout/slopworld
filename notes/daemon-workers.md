@@ -18,6 +18,9 @@ preserved. Workers are durable by default. One-shot workers are removed on exit.
 Workers do not autostart or auto-resume, and deleting a parent does not cascade to
 children.
 
+Worker policy uses `[daemon].worker_templates` and
+`[daemon.instructions].worker_prompt`. The prompt can refer to `$SLOPWORLD_TASK_ID`.
+The [Workers settings](../docs/src/customization/settings.md#workers) page edits both.
 The daemon queues the configured worker prompt after startup; asynchronous delivery
 can time out without sending it. Delivery belongs to [library](daemon-library.md),
 hierarchy presentation to [sidebar](mod-sidebar.md), independent checkout lifetime

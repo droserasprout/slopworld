@@ -1,31 +1,21 @@
 # UI Library ownership
 
-`UI/Views/Library/` owns catalog rows, details, and actions. Clicking a row selects
-it; the details area controls editing/execution. The list viewport excludes search
-and details for both scrolling and hit testing. Typed factories capture catalog
-snapshots for lazy row presentation in `LibraryView.Rows.cs`; the view uses one row type. `LibraryRowTarget` owns identity
-and action availability, retaining typed targets for deferred actions. `LibraryRowSelection`
-owns click decisions and selection lifetime across filtering; `LibraryView.Effects.cs`
-implements typed effect methods directly. Details are built only for the selected
-row; tooltips are built only on hover.
+`UI/Views/Library/` owns catalog rows, details, and actions. `LibraryRowTarget`
+retains typed identity and availability for deferred actions; `LibraryRowSelection`
+owns selection across filtering. Rows consume captured catalog snapshots. The list
+viewport excludes search and details for both scrolling and hit testing.
 
-Global definitions remain visible under project filtering. Catalog groups precede
-expandable Projects, Worktrees, Sandbox presets, and App presets. Library's project
-filter is independent of the global sidebar filter and applies to Projects/Worktrees.
-Preset categories show user definitions/overrides; system entries remain in Settings.
-Project creation belongs to the shared `+` menu.
+Library's project filter is independent of the sidebar filter and applies only to
+Projects/Worktrees; global definitions remain visible. Preset categories show user
+definitions and overrides; system entries remain in Settings.
 
-`LibraryItemCreation` owns ordinary item creation order, menu labels, and opening
-the kind-specific editor through `EditLibraryItemDialog.New` over the active pane.
-The sidebar retains its separate agent-template entry.
+`WorktreeInventory` owns requests, retained snapshots, and errors. Refresh and
+filter changes invalidate delayed replies; failed loads retain successful rows.
+The daemon supplies all checkout rows, including Main and its readiness state.
+`WorktreeRequests` shares root-only transport with the sidebar catalog, but their
+filters and selections have separate lifetimes.
 
-`WorktreeInventory` owns Library worktree requests, retained snapshots, and errors;
-row construction only consumes those snapshots. Refresh and project-filter changes
-invalidate delayed replies, while failed loads retain the last successful rows.
-The daemon supplies every checkout row, including Main and its readiness state.
-`WorktreeRequests` shares root-only transport with the sidebar catalog; Library
-filtering and sidebar choices retain separate lifetimes.
-
-Daemon item ownership belongs to [library](daemon-library.md), template forms to
+Daemon items belong to [library](daemon-library.md), template forms to
 [mod templates](mod-agent-templates.md), and semantic history to
-[navigation](mod-sidebar-navigation.md).
+[navigation](mod-sidebar-navigation.md). User interactions belong to the
+[Library guide](../docs/src/workspace/library.md).

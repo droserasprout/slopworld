@@ -9,45 +9,47 @@ or [Sidecar mode](../installation/sidecar.md) for other environments.
 
 <img src="../images/quickstart-binaries.jpg" alt="Binaries settings showing detected command tools and desktop integrations, with missing tools marked not found" align="right" width="280">
 
-Install the tools you want to use on the machine running the daemon.  In sidecar mode, that means inside the container. 
-
+Install the optional CLI tools you want to use on the machine running the daemon. In sidecar mode, that means inside the container.
 
 SlopWorld integrates with these tools to some extent:
 
-- Agents: `codex`, `claude`, `pi`, `opencode`
-- VCS: Git (`git`) for repositories and commits, and ripgrep (`rg`)
-  for workspace text search.
-- **Reading code and diffs:** `bat` for syntax-highlighted files, `less` for paging,
-  and `delta` for Git diffs. Alternative highlighters include Pygments
-  (`pygmentize`) and `highlight`.
-- **Editing files:** `micro` is the default editor. Vim (`vim`), Neovim (`nvim`),
-  Nano (`nano`), and Emacs (`emacsclient`) are also supported choices.
-- **Shells:** Bash (`bash`) is the default. Zsh (`zsh`), Fish (`fish`), Nushell
-  (`nu`), and PowerShell (`pwsh`) have integrations too.
+- Agents: `codex`, `claude`, `pi`, `opencode`.
+- VCS, search: `git`, `git-delta`, `rg`.
+- Code and diffs: `bat`, `less`, `delta`, `pygmentize`, `highlight`.
+- Editors: `micro`, `vim`, `nvim`, `nano`, `emacsclient`.
+- Shells: `bash`, `zsh`, `fish`, `nu`, `pwsh`.
 
-If your favorite agent or tool is missing, it _doesn't_ mean it's not supported.  Create a custom app preset <link>
-
-
+If your favorite agent or tool is missing, it **doesn't** mean it's not supported. You can create custom app presets in settings; see [Command presets](../workspace/command-presets.md#custom-presets).
 
 ## Prepare the workspace
 
 <img src="../images/quickstart-code-settings.jpg" alt="Code appearance settings with pager, syntax highlighter, line numbers, and theme" align="right" width="280">
 
-Launch with `slopworld`.
-
+Launch the game with `slopworld`. Look around.
 
 The sidebar holds your agents, files, and Git changes. Selecting an agent opens
 its terminal. See the [interface tour](../workspace/interface.md) for the other controls.
 If the workspace cannot connect to the daemon, follow
 [Troubleshooting](../resources/troubleshooting.md).
 
-Open **Settings > Commands > Binaries** to check which tools SlopWorld can find.
-Choose your editor and reader tools under **Settings > Appearance > Code**;
-see [Settings](../customization/settings.md#applying-changes) for automatic tool selection.
-
+1. Choose preferred pager and highlighter under **Settings > Appearance > Code**.
+2. Choose preferred shell and editor under **Settings > Apps > Defaults**.
+3. Visit **Appearance** to configure fonts, colors, UI scale, and, most importantly, mouse cursor.
 
 <a id="add-your-project"></a>
 <a id="start-a-new-git-repository"></a>
+
+## Open a host shell
+
+Select **[+] > Host Shell > ~** in the sidebar.
+
+This is a regular Linux shell attached to tmux session. It's persistent and will survive if you close the game and keep `slopd` daemon running.
+
+This shell runs on the daemon host, outside the agent sandbox. In sidecar mode,
+it runs inside the container. See [Host shells](../terminals/host-shells.md) for stopping,
+restarting, and removing the terminal tab.
+
+Press **F12** to toggle terminal from any screen. Oh, and press **?** on the main screen to show other keyboard shortcuts.
 
 ## Add a project
 
@@ -56,36 +58,23 @@ see [Settings](../customization/settings.md#applying-changes) for automatic tool
 <img src="../images/quickstart-project-settings.jpg" alt="Project settings with a name and repository directory filled in, ready to save" width="280">
 </div>
 
-1. Open **+ > Project** in the sidebar.
-2. Give the project a name and set its directory to the absolute path of your
-   repository checkout on the machine running the daemon. In sidecar mode, use
-   its path inside the container.
+1. Open **[+] > Project** in the sidebar.
+2. Give the project a name and set its directory to the absolute path of your repository on the host (or inside the container if you're in sidecar mode).
 3. Save the project.
 
 The project directory is writable by default. For additional paths or read-only
 access, see [Configuring projects](../workspace/configuring-projects.md).
 
-## Open a host shell
+## Create an agent
 
-1. Save the project, then open **+ > Host shell** in the sidebar.
-2. Select your project. A terminal opens in its directory.
-3. Run `pwd` and `git status` to check the working directory and any existing
-   changes before giving the agent a task.
-
-This shell runs on the daemon host, outside the agent sandbox. In sidecar mode,
-it runs inside the container. See [Host shells](../terminals/host-shells.md) for stopping,
-restarting, and removing the terminal tab.
-
-## Add an agent
-
-1. Open **+ > Agent**. Choose a template for your CLI if available, or **Custom**.
+1. Open **[+] > Agent > Custom**.
 2. Give the agent a name and select the project you just added.
 3. Leave **Worktree** at **Main checkout**. Under **Command**, select the preset
    for your installed CLI. Leave **Command line override** and **Arguments** blank
    for this walkthrough.
-4. Open **Preview** to inspect the settings and project mounts, then save.
-5. Find the agent in the **Agents** tab. If it is **Down**, right-click its row
-   and choose **Start**. Select the agent to open its terminal.
+4. Visit **Sandbox** to enable sandbox presets suitable for your project.
+5. Open **Preview** to inspect the settings and project mounts, then save.
+6. Find the agent in the **Agents** tab. If it is stopped, press **S** shortcut or choose **Start** from RMB context menu. Select the agent to open its terminal.
 
 Complete any setup prompts shown by the CLI. If startup fails, use the error
 message with [Troubleshooting](../resources/troubleshooting.md). See
@@ -98,8 +87,7 @@ message with [Troubleshooting](../resources/troubleshooting.md). See
 
 Enter a small request in the agent's terminal, for example:
 
-> Inspect this project and create a short hello-world.md describing its contents
-> and suggesting one small next step. Use Markdown headings and a bulleted list.
+> Inspect this project and create a short hello-world.md describing its contents.
 > Do not change any other files.
 
 Interact with the CLI as you would in a normal terminal, including any approval
@@ -111,18 +99,10 @@ does not necessarily mean the task is finished.
 
 ## Review the result
 
-1. When the CLI reports completion, open **Git** and expand your project's
-   checkout. Right-click `hello-world.md` and choose **Diff**. Read through the
-   additions and check that the agent changed only the requested file.
-   Review this file individually: **Diff all** does not include untracked files.
-2. Open **Files**, expand the same project and checkout, and right-click
-   `hello-world.md`. Choose **View** to open the rendered Markdown preview.
-   Check that the headings and list render correctly and the text makes sense.
-3. Return to **Git**, right-click `hello-world.md`, and choose **Stage**.
-4. Open **Terminal (host)** from the checkout heading and run `git diff --cached`
-   to check exactly what will enter the commit. Unstage unrelated files if needed.
-5. Open the checkout heading's context menu, choose **Commit staged changes**,
-   and enter a message such as `Add hello-world.md`. Select **Commit**.
+1. When the agent reports completion, open **Git** in the sidebar. Click `hello-world.md` to open diff viewer.
+2. Open **Files**, expand the same project and checkout. Click the .md file to open the rendered Markdown preview.
+3. Return to **Git**, right-click the file, and choose **Stage**.
+4. Create a **Terminal (host)** from the same context menu, run `git diff --cached` to check what will enter the commit.
 
 See [Git](../workspace/review-changes.md) for the full review workflow and
 [Files and search](../workspace/files-and-search.md) for browsing and editing.
@@ -135,11 +115,9 @@ See [Git](../workspace/review-changes.md) for the full review workflow and
 
 ## Save your agent as a template
 
-1. In **Agents**, right-click your working agent and choose **Edit**.
-2. If you change any settings, save them and reopen the editor first.
-   **Save as template** copies the agent's saved settings.
-3. Select **Save as template**, name it `reviewer`, and select **Save**.
-4. Open **Library** to find your new template. Click it to inspect or edit it.
+1. On **Agents** sidebar tab, right-click your working agent and choose **Edit**. If you change any settings, save them and reopen the editor first.
+2. Select **Save as template**, name it `helloworlder`, and select **Save**.
+3. Open **Library** to find your new template. Click it to inspect or edit it.
 
 The template reuses command and sandbox settings. It does not copy the agent's
 conversation or credentials, or store the project's mounts. See
@@ -150,8 +128,8 @@ conversation or credentials, or store the project's mounts. See
 
 ## Spawn a worker from the template
 
-1. In **Agents**, right-click the **project heading** and choose **Spawn worker**.
-2. Leave **Caller** set to **You (host)** and choose the `reviewer` template.
+1. In **Agents**, right-click the **project heading** and choose **Spawn worker**. (You can also do it from **[+]** menu or command palette.)
+2. Leave **Caller** set to **You (host)** and choose the new template.
 3. Under **Worktree**, select the existing main checkout for this read-only task.
 4. Enter this assignment under **Task**:
 
@@ -161,8 +139,7 @@ conversation or credentials, or store the project's mounts. See
 5. Leave **Keep worker after exit** enabled so you can inspect it afterward,
    then select **Spawn**. Its terminal opens automatically.
 
-If you want an agent to spawn workers itself, add `reviewer` under
-**Settings > Agents > Workers**. Spawning as **You (host)** can use any template
+If you want an agent to spawn workers itself, add the template to the allowlist in **Settings > Agents > Workers**. Spawning as **You (host)** can use any template
 in the catalog. See [Agent collaboration](../agents/agent-collaboration.md) for
 worker instructions and delegation.
 
@@ -170,22 +147,14 @@ worker instructions and delegation.
      and the review assignment filled in.
      Caption: Give a worker a focused assignment using your saved template. -->
 
-## Read the worker's report
+## Read the task report
 
 Open **Tasks** in the sidebar and select the assignment to read its progress and
 final report. Check that the task finishes; an **Idle** terminal alone does not
-confirm completion. If the worker only replies in its terminal, check the initial
-worker instructions under **Settings > Agents > Workers**: it needs to accept
-and finish its assigned task using `slopctl`.
+confirm completion. Initial worker instructions can be set under **Settings > Agents > Workers**.
 
-Read the suggested improvement and decide whether to give your original agent a
-follow-up task. The retained worker remains available for inspection; remove it
-when you are finished. For a worker that will edit files, choose a
-[new worktree](../workspace/project-worktrees.md#create-and-use-a-worktree) when
-spawning it, then review and commit its changes there.
-
-<!-- Manual screenshot: Tasks view showing the completed review and final report.
-     Caption: Follow the assignment through to a finished report. -->
+The retained worker remains available for inspection; stop and remove it
+when you are finished.
 
 ## Continue
 
